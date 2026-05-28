@@ -1,613 +1,905 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ball & Chain GFL Dashboard</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     :root {
-      --bg: #0d1117;
-      --bg2: #161b22;
-      --bg3: #21262d;
-      --border: #30363d;
-      --text: #e6edf3;
-      --text2: #8b949e;
-      --text3: #6e7681;
-      --green: #3fb950;
-      --red: #f85149;
-      --yellow: #d29922;
-      --blue: #58a6ff;
-      --purple: #a371f7;
-      --orange: #f0883e;
-      --accent: #1f6feb;
+      --bg: #080808;
+      --bg2: #121212;
+      --bg3: #1a1a1a;
+
+      --border: rgba(255,255,255,0.08);
+
+      --text: #f5f5f5;
+      --text2: #b6b6b6;
+      --text3: #7d7d7d;
+
+      --accent: #ffb347;
+      --accent2: #ff8f3c;
+
+      --green: #4ade80;
+      --red: #fb7185;
+      --blue: #60a5fa;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
+      background: radial-gradient(circle at top, #1c1406 0%, #080808 40%);
       color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
     }
 
     header {
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
       position: sticky;
       top: 0;
       z-index: 100;
+
+      backdrop-filter: blur(14px);
+
+      background: rgba(10,10,10,0.72);
+
+      border-bottom: 1px solid var(--border);
+
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      padding: 18px 28px;
     }
 
     .logo {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 14px;
     }
 
     .logo-icon {
-      width: 36px;
-      height: 36px;
-      background: var(--accent);
-      border-radius: 8px;
+      width: 46px;
+      height: 46px;
+
+      border-radius: 14px;
+
+      background:
+        linear-gradient(
+          135deg,
+          var(--accent),
+          var(--accent2)
+        );
+
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+
+      font-size: 22px;
+
+      box-shadow:
+        0 10px 30px rgba(255,179,71,0.25);
     }
 
     .logo h1 {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
     }
 
     .logo span {
-      font-size: 12px;
-      color: var(--text2);
-      display: block;
-      font-weight: 400;
-    }
-
-    .header-controls {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    select, button {
-      background: var(--bg3);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 12px;
       font-size: 13px;
-      cursor: pointer;
-      transition: border-color 0.15s;
+      color: var(--text2);
     }
 
-    select:hover, button:hover { border-color: var(--blue); }
-
-    button.refresh {
+    .controls {
       display: flex;
+      gap: 12px;
       align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
     }
 
-    button.refresh:hover { background: var(--accent); border-color: var(--accent); }
+    select,
+    button {
+      background: rgba(255,255,255,0.04);
 
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--text3);
-      display: inline-block;
+      color: var(--text);
+
+      border: 1px solid var(--border);
+
+      border-radius: 12px;
+
+      padding: 10px 16px;
+
+      cursor: pointer;
+
+      transition: 0.2s ease;
     }
-    .status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .status-dot.error { background: var(--red); }
+
+    select:hover,
+    button:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
 
     main {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 24px 20px;
+      max-width: 1280px;
+      margin: auto;
+      padding: 30px 22px 60px;
     }
 
-    .loading {
-      text-align: center;
-      padding: 80px 20px;
+    .hero {
+      margin-bottom: 28px;
+
+      padding: 44px;
+
+      border-radius: 28px;
+
+      background:
+        radial-gradient(circle at top left,
+          rgba(255,179,71,0.25),
+          transparent 40%),
+        linear-gradient(
+          135deg,
+          rgba(255,255,255,0.04),
+          rgba(255,255,255,0.02)
+        );
+
+      border: 1px solid var(--border);
+
+      overflow: hidden;
+
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+
+      position: absolute;
+
+      inset: 0;
+
+      background:
+        linear-gradient(
+          120deg,
+          transparent,
+          rgba(255,255,255,0.03),
+          transparent
+        );
+
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-block;
+
+      padding: 7px 12px;
+
+      border-radius: 999px;
+
+      background: rgba(255,179,71,0.14);
+
+      color: var(--accent);
+
+      font-size: 12px;
+
+      margin-bottom: 16px;
+
+      font-weight: 600;
+    }
+
+    .hero h2 {
+      font-size: 44px;
+      line-height: 1;
+      margin-bottom: 14px;
+      letter-spacing: -1px;
+    }
+
+    .hero p {
       color: var(--text2);
+      max-width: 720px;
+      line-height: 1.7;
+      font-size: 16px;
     }
 
-    .loading i { font-size: 32px; margin-bottom: 12px; animation: spin 1s linear infinite; display: block; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .error-msg {
-      background: rgba(248, 81, 73, 0.1);
-      border: 1px solid rgba(248, 81, 73, 0.3);
-      border-radius: 8px;
-      padding: 16px 20px;
-      color: var(--red);
-      margin-bottom: 20px;
+    .video-section {
+      margin-bottom: 28px;
     }
 
-    .stat-grid {
+    .video-wrapper {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      padding-bottom: 56.25%;
+      height: 0;
+
+      border: 1px solid var(--border);
+
+      box-shadow:
+        0 12px 40px rgba(0,0,0,0.3);
+    }
+
+    .video-wrapper iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+      gap: 18px;
+
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background:
+        linear-gradient(
+          135deg,
+          rgba(255,255,255,0.04),
+          rgba(255,255,255,0.02)
+        );
+
+      border: 1px solid var(--border);
+
+      border-radius: 24px;
+
+      backdrop-filter: blur(12px);
+
+      overflow: hidden;
+
+      box-shadow:
+        0 10px 30px rgba(0,0,0,0.22);
     }
 
     .stat-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px 18px;
+      padding: 24px;
     }
 
-    .stat-card .label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
+    .stat-label {
       color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-size: 38px;
+      font-weight: 700;
+      line-height: 1;
       margin-bottom: 6px;
     }
 
-    .stat-card .value {
-      font-size: 26px;
-      font-weight: 600;
-      line-height: 1;
-    }
-
-    .stat-card .sub {
-      font-size: 11px;
+    .stat-sub {
       color: var(--text2);
-      margin-top: 4px;
+      font-size: 13px;
     }
 
     .section {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 20px;
-      overflow: hidden;
+      margin-bottom: 28px;
     }
 
     .section-header {
-      padding: 14px 18px;
+      padding: 22px 24px;
       border-bottom: 1px solid var(--border);
+
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      font-weight: 600;
+      gap: 10px;
+
+      font-size: 16px;
+      font-weight: 700;
     }
 
-    .section-header i { color: var(--text2); font-size: 14px; }
+    .section-header i {
+      color: var(--accent);
+    }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
     }
 
     thead th {
-      padding: 10px 16px;
       text-align: left;
+
       color: var(--text3);
+
       font-size: 11px;
+
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 500;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg3);
+
+      letter-spacing: 1px;
+
+      padding: 14px 24px;
     }
 
-    thead th.right { text-align: right; }
+    thead th.right,
+    td.right {
+      text-align: right;
+    }
 
     tbody tr {
-      border-bottom: 1px solid var(--border);
-      transition: background 0.1s;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      transition: 0.15s ease;
     }
 
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: var(--bg3); }
+    tbody tr:hover {
+      background: rgba(255,255,255,0.03);
+    }
 
     td {
-      padding: 11px 16px;
-      vertical-align: middle;
-    }
-
-    td.right { text-align: right; }
-    td.muted { color: var(--text2); }
-
-    .rank {
-      font-size: 11px;
-      color: var(--text3);
-      font-weight: 500;
-      min-width: 20px;
+      padding: 18px 24px;
     }
 
     .team-name {
-      font-weight: 500;
+      font-weight: 600;
+      margin-bottom: 3px;
     }
 
-    .owner-name {
-      font-size: 11px;
-      color: var(--text2);
+    .team-sub {
+      color: var(--text3);
+      font-size: 12px;
+    }
+
+    .rank {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .pf {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .pa {
+      color: var(--red);
     }
 
     .badge {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 500;
-    }
+      background: rgba(255,179,71,0.15);
+      color: var(--accent);
 
-    .badge-green { background: rgba(63, 185, 80, 0.15); color: var(--green); }
-    .badge-red { background: rgba(248, 81, 73, 0.15); color: var(--red); }
-    .badge-blue { background: rgba(88, 166, 255, 0.15); color: var(--blue); }
-    .badge-yellow { background: rgba(210, 153, 34, 0.15); color: var(--yellow); }
-    .badge-purple { background: rgba(163, 113, 247, 0.15); color: var(--purple); }
+      padding: 5px 10px;
 
-    .win-pct {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+      border-radius: 999px;
 
-    .win-bar {
-      flex: 1;
-      height: 4px;
-      background: var(--bg3);
-      border-radius: 2px;
-      max-width: 60px;
-    }
-
-    .win-bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      background: var(--accent);
-    }
-
-    .activity-item {
-      padding: 12px 18px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      font-size: 13px;
-    }
-
-    .activity-item:last-child { border-bottom: none; }
-
-    .activity-icon {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       font-size: 12px;
-      flex-shrink: 0;
-      margin-top: 1px;
+
+      font-weight: 600;
     }
-
-    .activity-icon.add { background: rgba(63, 185, 80, 0.15); color: var(--green); }
-    .activity-icon.drop { background: rgba(248, 81, 73, 0.15); color: var(--red); }
-    .activity-icon.trade { background: rgba(88, 166, 255, 0.15); color: var(--blue); }
-
-    .activity-body { flex: 1; }
-    .activity-body strong { font-weight: 500; }
-    .activity-body .activity-team { color: var(--text2); }
-    .activity-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
 
     .two-col {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: 24px;
     }
 
-    @media (max-width: 700px) {
-      .two-col { grid-template-columns: 1fr; }
-      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .activity {
+      padding: 20px 24px;
+
+      border-top: 1px solid rgba(255,255,255,0.04);
+
+      display: flex;
+      gap: 16px;
     }
 
-    .empty { padding: 24px; text-align: center; color: var(--text3); font-size: 13px; }
+    .activity-icon {
+      width: 42px;
+      height: 42px;
 
-    .pts-for { color: var(--green); font-weight: 500; }
-    .pts-against { color: var(--red); }
+      border-radius: 12px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      background: rgba(255,179,71,0.1);
+
+      color: var(--accent);
+
+      flex-shrink: 0;
+    }
+
+    .activity-title {
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .activity-time {
+      color: var(--text3);
+      font-size: 12px;
+    }
 
     footer {
       text-align: center;
+      padding: 40px 20px;
       color: var(--text3);
-      font-size: 12px;
-      padding: 24px;
+      font-size: 13px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 100px 20px;
+      color: var(--text2);
+    }
+
+    .loading i {
+      font-size: 32px;
+      margin-bottom: 14px;
+      animation: spin 1s linear infinite;
+      display: block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h2 {
+        font-size: 34px;
+      }
+    }
+
+    @media (max-width: 700px) {
+      header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 32px;
+      }
+
+      .hero h2 {
+        font-size: 30px;
+      }
+
+      td,
+      th {
+        padding: 14px 16px;
+      }
     }
   </style>
 </head>
+
 <body>
 
 <header>
   <div class="logo">
     <div class="logo-icon">🏈</div>
+
     <div>
-      <h1>Ball &amp; Chain GFL</h1>
+      <h1>Ball & Chain GFL</h1>
       <span id="last-updated">Loading...</span>
     </div>
   </div>
-  <div class="header-controls">
-    <span class="status-dot" id="status-dot"></span>
+
+  <div class="controls">
     <select id="season-select" onchange="loadDashboard()">
       <option value="2025">2025 Season</option>
       <option value="2024">2024 Season</option>
       <option value="2023">2023 Season</option>
-      <option value="2022">2022 Season</option>
     </select>
-    <button class="refresh" onclick="loadDashboard()">
-      <i class="fa fa-rotate-right"></i> Refresh
+
+    <button onclick="loadDashboard()">
+      <i class="fa fa-rotate-right"></i>
     </button>
   </div>
 </header>
 
 <main>
-  <div id="app">
-    <div class="loading">
-      <i class="fa fa-circle-notch"></i>
-      Loading league data...
+
+  <div class="hero">
+    <div class="hero-badge">
+      Fantasy Football Dashboard
+    </div>
+
+    <h2>
+      Ball & Chain GFL
+    </h2>
+
+    <p>
+      Live standings, league activity, roster movement,
+      transaction history, and media coverage all in one place.
+    </p>
+  </div>
+
+  <div class="video-section">
+    <div class="card">
+
+      <div class="section-header">
+        <i class="fa-brands fa-youtube"></i>
+        Latest Ball & Chain Media
+      </div>
+
+      <div class="video-wrapper">
+        <iframe
+          src="https://www.youtube.com/embed?listType=user_uploads&list=Ball.andChain_Media"
+          allowfullscreen>
+        </iframe>
+      </div>
+
     </div>
   </div>
+
+  <div id="app">
+
+    <div class="loading">
+      <i class="fa fa-circle-notch"></i>
+      Loading Dashboard...
+    </div>
+
+  </div>
+
 </main>
 
 <footer>
-  Ball &amp; Chain GFL &nbsp;·&nbsp; Data from ESPN Fantasy Football
+  Ball & Chain GFL · Powered by ESPN Fantasy Football
 </footer>
 
 <script>
-  const BASE = '/api/espn';
 
-  function getSeason() {
-    return document.getElementById('season-select').value;
+const BASE = '/api/espn';
+
+function getSeason() {
+  return document.getElementById('season-select').value;
+}
+
+async function fetchView(view) {
+  const res = await fetch(
+    `${BASE}?view=${view}&seasonId=${getSeason()}`
+  );
+
+  if (!res.ok) {
+    throw new Error(`API Error ${res.status}`);
   }
 
-  async function fetchView(view) {
-    const res = await fetch(`${BASE}?view=${view}&seasonId=${getSeason()}`);
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    return res.json();
-  }
+  return res.json();
+}
 
-  async function loadDashboard() {
-    const app = document.getElementById('app');
-    const dot = document.getElementById('status-dot');
-    const lastUpdated = document.getElementById('last-updated');
+async function loadDashboard() {
 
-    dot.className = 'status-dot';
-    app.innerHTML = `<div class="loading"><i class="fa fa-circle-notch"></i>Loading league data...</div>`;
+  const app = document.getElementById('app');
 
-    try {
-      const [teamData, transData] = await Promise.all([
-        fetchView('mTeam'),
-        fetchView('mTransactions2')
-      ]);
+  app.innerHTML = `
+    <div class="loading">
+      <i class="fa fa-circle-notch"></i>
+      Loading Dashboard...
+    </div>
+  `;
 
-      dot.className = 'status-dot live';
-      lastUpdated.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  try {
 
-      renderDashboard(teamData, transData, app);
-    } catch (err) {
-      dot.className = 'status-dot error';
-      lastUpdated.textContent = 'Failed to load';
-      app.innerHTML = `<div class="error-msg"><i class="fa fa-triangle-exclamation"></i> ${err.message}</div>`;
-    }
-  }
+    const [teamData, transData] = await Promise.all([
+      fetchView('mTeam'),
+      fetchView('mTransactions2')
+    ]);
 
-  function renderDashboard(teamData, transData, app) {
-    const teams = (teamData.teams || []).map(t => {
-      const record = t.record?.overall || {};
-      const wins = record.wins ?? 0;
-      const losses = record.losses ?? 0;
-      const ties = record.ties ?? 0;
-      const pf = record.pointsFor ?? 0;
-      const pa = record.pointsAgainst ?? 0;
-      const moves = t.transactionCounter?.acquisitions ?? 0;
-      const trades = t.transactionCounter?.trades ?? 0;
-      const drops = t.transactionCounter?.drops ?? 0;
-      const adds = moves - drops;
-      const name = t.location + ' ' + t.nickname;
-      const owner = (t.primaryOwner || '').slice(0, 20);
-      const abbrev = t.abbrev || '??';
-      return { id: t.id, name, abbrev, owner, wins, losses, ties, pf, pa, moves, trades, drops, adds };
-    });
+    document.getElementById('last-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
 
-    teams.sort((a, b) => {
-      const wa = a.wins / (a.wins + a.losses + a.ties || 1);
-      const wb = b.wins / (b.wins + b.losses + b.ties || 1);
-      if (wb !== wa) return wb - wa;
-      return b.pf - a.pf;
-    });
+    renderDashboard(teamData, transData, app);
 
-    const totalMoves = teams.reduce((s, t) => s + t.moves, 0);
-    const totalTrades = teams.reduce((s, t) => s + t.trades, 0);
-    const totalAdds = teams.reduce((s, t) => s + t.adds, 0);
-    const totalDrops = teams.reduce((s, t) => s + t.drops, 0);
-    const totalPF = teams.reduce((s, t) => s + t.pf, 0);
-
-    const transactions = (transData.transactions || []).slice(0, 20);
-
-    const season = getSeason();
+  } catch(err) {
 
     app.innerHTML = `
-      <div class="stat-grid">
-        <div class="stat-card">
-          <div class="label">Teams</div>
-          <div class="value">${teams.length}</div>
-          <div class="sub">${season} season</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Total Moves</div>
-          <div class="value">${totalMoves}</div>
-          <div class="sub">${totalAdds} adds · ${totalDrops} drops</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Total Trades</div>
-          <div class="value">${totalTrades}</div>
-          <div class="sub">across all teams</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Avg Points/Team</div>
-          <div class="value">${(totalPF / (teams.length || 1)).toFixed(1)}</div>
-          <div class="sub">points for</div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-header">
-          <i class="fa fa-ranking-star"></i>
-          Standings
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Team</th>
-              <th class="right">W</th>
-              <th class="right">L</th>
-              <th class="right">PF</th>
-              <th class="right">PA</th>
-              <th class="right">Moves</th>
-              <th class="right">Trades</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${teams.map((t, i) => {
-              const total = t.wins + t.losses + t.ties || 1;
-              const pct = t.wins / total;
-              const isFirst = i === 0;
-              return `<tr>
-                <td class="rank">${i + 1}</td>
-                <td>
-                  <div class="team-name">${isFirst ? '🏆 ' : ''}${t.name}</div>
-                  <div class="owner-name">${t.abbrev}</div>
-                </td>
-                <td class="right"><strong>${t.wins}</strong></td>
-                <td class="right muted">${t.losses}</td>
-                <td class="right pts-for">${t.pf.toFixed(1)}</td>
-                <td class="right pts-against">${t.pa.toFixed(1)}</td>
-                <td class="right">${t.moves}</td>
-                <td class="right">${t.trades > 0 ? `<span class="badge badge-blue">${t.trades}</span>` : `<span class="muted">0</span>`}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="two-col">
-        <div class="section">
-          <div class="section-header">
-            <i class="fa fa-trophy"></i>
-            Points For
-          </div>
-          <table>
-            <thead>
-              <tr><th>Team</th><th class="right">PF</th></tr>
-            </thead>
-            <tbody>
-              ${[...teams].sort((a,b) => b.pf - a.pf).map((t, i) => `
-                <tr>
-                  <td><span class="rank">${i+1}</span> ${t.name}</td>
-                  <td class="right pts-for">${t.pf.toFixed(1)}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="section">
-          <div class="section-header">
-            <i class="fa fa-arrow-trend-up"></i>
-            Most Active (Moves)
-          </div>
-          <table>
-            <thead>
-              <tr><th>Team</th><th class="right">Moves</th><th class="right">Trades</th></tr>
-            </thead>
-            <tbody>
-              ${[...teams].sort((a,b) => b.moves - a.moves).map((t, i) => `
-                <tr>
-                  <td><span class="rank">${i+1}</span> ${t.name}</td>
-                  <td class="right">${t.moves}</td>
-                  <td class="right">${t.trades}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-header">
-          <i class="fa fa-clock-rotate-left"></i>
-          Recent Activity
-        </div>
-        ${transactions.length === 0
-          ? `<div class="empty">No recent transactions found.</div>`
-          : transactions.map(tx => renderTransaction(tx, teams)).join('')
-        }
+      <div class="card" style="padding:40px;text-align:center;color:#fb7185;">
+        ${err.message}
       </div>
     `;
   }
+}
 
-  function renderTransaction(tx, teams) {
-    const type = tx.type || '';
-    const items = tx.items || [];
-    const date = tx.processedDate ? new Date(tx.processedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+function renderDashboard(teamData, transData, app) {
 
-    if (type === 'FREEAGENT' || type === 'WAIVER') {
-      const adds = items.filter(i => i.type === 'ADD');
-      const drops = items.filter(i => i.type === 'DROP');
-      const teamId = tx.teamId;
-      const team = teams.find(t => t.id === teamId);
-      const teamName = team ? team.name : 'Unknown Team';
+  const teams = (teamData.teams || []).map(t => {
 
-      return adds.map(a => `
-        <div class="activity-item">
-          <div class="activity-icon add"><i class="fa fa-plus"></i></div>
-          <div class="activity-body">
-            <div><strong>${a.playerId || 'Player'}</strong> added by <span class="activity-team">${teamName}</span></div>
-            <div class="activity-time">${date} · ${type === 'WAIVER' ? 'Waiver' : 'Free Agent'}</div>
+    const record = t.record?.overall || {};
+
+    const name =
+      t.name ||
+      `${t.location || ''} ${t.nickname || ''}`.trim() ||
+      t.abbrev ||
+      'Unknown Team';
+
+    return {
+      id: t.id,
+      rank: record.rank || 999,
+      name,
+      abbrev: t.abbrev || '',
+      wins: record.wins || 0,
+      losses: record.losses || 0,
+      ties: record.ties || 0,
+      pf: record.pointsFor || 0,
+      pa: record.pointsAgainst || 0,
+      moves: t.transactionCounter?.acquisitions || 0,
+      trades: t.transactionCounter?.trades || 0
+    };
+  });
+
+  teams.sort((a,b) => a.rank - b.rank);
+
+  const totalMoves =
+    teams.reduce((s,t) => s + t.moves, 0);
+
+  const totalTrades =
+    teams.reduce((s,t) => s + t.trades, 0);
+
+  const avgPF =
+    teams.reduce((s,t) => s + t.pf, 0) / teams.length;
+
+  const transactions =
+    (transData.transactions || []).slice(0, 12);
+
+  app.innerHTML = `
+
+    <div class="stats">
+
+      <div class="card stat-card">
+        <div class="stat-label">League Moves</div>
+        <div class="stat-value">${totalMoves}</div>
+        <div class="stat-sub">
+          Total acquisitions this season
+        </div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-label">Trades</div>
+        <div class="stat-value">${totalTrades}</div>
+        <div class="stat-sub">
+          Completed league trades
+        </div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-label">Average PF</div>
+        <div class="stat-value">${avgPF.toFixed(1)}</div>
+        <div class="stat-sub">
+          Average points for
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card section">
+
+      <div class="section-header">
+        <i class="fa fa-trophy"></i>
+        League Standings
+      </div>
+
+      <table>
+
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Team</th>
+            <th class="right">W</th>
+            <th class="right">L</th>
+            <th class="right">PF</th>
+            <th class="right">PA</th>
+            <th class="right">Moves</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          ${teams.map((t,i) => `
+
+            <tr>
+
+              <td class="rank">
+                ${i === 0 ? '🏆' : i + 1}
+              </td>
+
+              <td>
+                <div class="team-name">
+                  ${t.name}
+                </div>
+
+                <div class="team-sub">
+                  ${t.abbrev}
+                </div>
+              </td>
+
+              <td class="right">
+                ${t.wins}
+              </td>
+
+              <td class="right">
+                ${t.losses}
+              </td>
+
+              <td class="right pf">
+                ${t.pf.toFixed(1)}
+              </td>
+
+              <td class="right pa">
+                ${t.pa.toFixed(1)}
+              </td>
+
+              <td class="right">
+                <span class="badge">
+                  ${t.moves}
+                </span>
+              </td>
+
+            </tr>
+
+          `).join('')}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div class="two-col">
+
+      <div class="card section">
+
+        <div class="section-header">
+          <i class="fa fa-fire"></i>
+          Highest Scoring
+        </div>
+
+        <table>
+
+          <tbody>
+
+            ${[...teams]
+              .sort((a,b) => b.pf - a.pf)
+              .slice(0,5)
+              .map((t,i) => `
+
+              <tr>
+
+                <td>
+                  <span class="rank">
+                    ${i + 1}
+                  </span>
+                  ${t.name}
+                </td>
+
+                <td class="right pf">
+                  ${t.pf.toFixed(1)}
+                </td>
+
+              </tr>
+
+            `).join('')}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      <div class="card section">
+
+        <div class="section-header">
+          <i class="fa fa-arrow-trend-up"></i>
+          Most Active
+        </div>
+
+        <table>
+
+          <tbody>
+
+            ${[...teams]
+              .sort((a,b) => b.moves - a.moves)
+              .slice(0,5)
+              .map((t,i) => `
+
+              <tr>
+
+                <td>
+                  <span class="rank">
+                    ${i + 1}
+                  </span>
+                  ${t.name}
+                </td>
+
+                <td class="right">
+                  ${t.moves}
+                </td>
+
+              </tr>
+
+            `).join('')}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+    <div class="card section">
+
+      <div class="section-header">
+        <i class="fa fa-clock-rotate-left"></i>
+        Recent Activity
+      </div>
+
+      ${transactions.length === 0
+        ? `
+          <div style="padding:30px;color:var(--text3);">
+            No recent activity.
           </div>
-        </div>`).join('') +
-      drops.map(d => `
-        <div class="activity-item">
-          <div class="activity-icon drop"><i class="fa fa-minus"></i></div>
-          <div class="activity-body">
-            <div><strong>${d.playerId || 'Player'}</strong> dropped by <span class="activity-team">${teamName}</span></div>
-            <div class="activity-time">${date}</div>
-          </div>
-        </div>`).join('');
-    }
+        `
+        : transactions.map(renderTransaction).join('')
+      }
 
-    if (type === 'TRADE') {
-      return `
-        <div class="activity-item">
-          <div class="activity-icon trade"><i class="fa fa-right-left"></i></div>
-          <div class="activity-body">
-            <div>Trade processed · <strong>${items.length} player(s)</strong> exchanged</div>
-            <div class="activity-time">${date}</div>
-          </div>
-        </div>`;
-    }
+    </div>
 
-    return '';
-  }
+  `;
+}
 
-  loadDashboard();
+function renderTransaction(tx) {
+
+  const date = tx.processedDate
+    ? new Date(tx.processedDate)
+      .toLocaleDateString('en-US', {
+        month:'short',
+        day:'numeric',
+        hour:'2-digit',
+        minute:'2-digit'
+      })
+    : '';
+
+  return `
+
+    <div class="activity">
+
+      <div class="activity-icon">
+        <i class="fa fa-football"></i>
+      </div>
+
+      <div>
+
+        <div class="activity-title">
+          ${tx.type || 'Transaction'}
+        </div>
+
+        <div class="activity-time">
+          ${date}
+        </div>
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+loadDashboard();
+
 </script>
+
 </body>
 </html>
+```
