@@ -3,1070 +3,492 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
   <title>Ball & Chain GFL</title>
-
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-  />
-
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-
-      --bg: #080808;
-      --bg2: #111111;
-      --bg3: #1a1a1a;
-
-      --border: rgba(255,255,255,0.08);
-
-      --text: #f5f5f5;
-      --text2: #b7b7b7;
-      --text3: #7b7b7b;
-
-      --accent: #ffb347;
+      --bg:      #080808;
+      --bg2:     #111111;
+      --bg3:     #1a1a1a;
+      --border:  rgba(255,255,255,0.08);
+      --text:    #f5f5f5;
+      --text2:   #b7b7b7;
+      --text3:   #7b7b7b;
+      --accent:  #ffb347;
       --accent2: #ff923d;
-
-      --green: #4ade80;
-      --red: #fb7185;
-      --blue: #60a5fa;
+      --green:   #4ade80;
+      --red:     #fb7185;
+      --blue:    #60a5fa;
+      --purple:  #c084fc;
     }
 
     body {
-      background:
-        radial-gradient(
-          circle at top,
-          #241404 0%,
-          #080808 45%
-        );
-
+      background: radial-gradient(circle at top, #241404 0%, #080808 45%);
       color: var(--text);
-
-      font-family:
-        Inter,
-        -apple-system,
-        BlinkMacSystemFont,
-        sans-serif;
-
+      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
     }
 
     header {
-
-      position: sticky;
-      top: 0;
-      z-index: 100;
-
-      background: rgba(10,10,10,0.75);
-
-      backdrop-filter: blur(14px);
-
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,10,10,0.8);
+      backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
-
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      padding: 18px 26px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 26px; gap: 12px; flex-wrap: wrap;
     }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
+    .logo { display: flex; align-items: center; gap: 14px; }
     .logo-icon {
-
-      width: 48px;
-      height: 48px;
-
-      border-radius: 14px;
-
-      background:
-        linear-gradient(
-          135deg,
-          var(--accent),
-          var(--accent2)
-        );
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      font-size: 22px;
-
-      box-shadow:
-        0 10px 30px rgba(255,179,71,0.25);
+      width: 48px; height: 48px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; box-shadow: 0 10px 30px rgba(255,179,71,0.25);
     }
-
-    .logo h1 {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
+    .logo h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; }
+    .logo span { font-size: 12px; color: var(--text2); }
+    .controls { display: flex; gap: 10px; align-items: center; }
+    select, button {
+      background: rgba(255,255,255,0.05); color: var(--text);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 9px 14px; cursor: pointer; font-size: 13px; transition: 0.2s;
     }
+    select:hover, button:hover { border-color: var(--accent); }
+    .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text3); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+    .dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.err  { background: var(--red); }
 
-    .logo span {
-      font-size: 13px;
-      color: var(--text2);
-    }
-
-    .controls {
-      display: flex;
-      gap: 12px;
-    }
-
-    select,
-    button {
-
-      background: rgba(255,255,255,0.04);
-
-      color: var(--text);
-
-      border: 1px solid var(--border);
-
-      border-radius: 12px;
-
-      padding: 10px 16px;
-
-      cursor: pointer;
-
-      transition: 0.2s ease;
-    }
-
-    select:hover,
-    button:hover {
-
-      border-color: var(--accent);
-
-      transform: translateY(-1px);
-    }
-
-    main {
-      max-width: 1400px;
-      margin: auto;
-      padding: 28px 22px 60px;
-    }
-
-    .top-grid {
-
-      display: grid;
-      grid-template-columns: 1.15fr 1fr;
-
-      gap: 24px;
-
-      margin-bottom: 28px;
-    }
+    main { max-width: 1400px; margin: auto; padding: 28px 22px 60px; }
 
     .card {
-
-      background:
-        linear-gradient(
-          135deg,
-          rgba(255,255,255,0.04),
-          rgba(255,255,255,0.02)
-        );
-
-      border: 1px solid var(--border);
-
-      border-radius: 26px;
-
-      overflow: hidden;
-
-      backdrop-filter: blur(14px);
-
-      box-shadow:
-        0 10px 40px rgba(0,0,0,0.25);
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border); border-radius: 24px;
+      overflow: hidden; backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
-
     .section-header {
-
-      display: flex;
-      align-items: center;
-      gap: 10px;
-
-      padding: 22px 24px;
-
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-
-      font-weight: 700;
-      font-size: 16px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 20px 24px; border-bottom: 1px solid var(--border);
+      font-weight: 700; font-size: 15px;
+    }
+    .section-header i { color: var(--accent); }
+    .badge-info {
+      margin-left: auto; font-size: 11px; font-weight: 400;
+      color: var(--text3); background: rgba(255,255,255,0.05);
+      padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border);
     }
 
-    .section-header i {
-      color: var(--accent);
+    /* Top grid */
+    .top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 24px; }
+
+    /* Coaching metric */
+    .coaching-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 24px; border-bottom: 1px solid var(--border); transition: background 0.15s;
     }
-
-    .playoff-winner {
-
-      padding: 22px 24px;
-
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-
-      background:
-        linear-gradient(
-          90deg,
-          rgba(255,179,71,0.12),
-          transparent
-        );
-    }
-
-    .winner-label {
-
-      color: var(--text3);
-
-      text-transform: uppercase;
-
-      letter-spacing: 1px;
-
-      font-size: 11px;
-
-      margin-bottom: 8px;
-    }
-
-    .winner-team {
-
-      font-size: 30px;
-
-      font-weight: 800;
-
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .winner-sub {
-      color: var(--text2);
-      margin-top: 6px;
-      font-size: 14px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    thead th {
-
-      padding: 14px 22px;
-
-      text-align: left;
-
-      font-size: 11px;
-
-      text-transform: uppercase;
-
-      letter-spacing: 1px;
-
-      color: var(--text3);
-    }
-
-    td {
-      padding: 18px 22px;
-    }
-
-    tbody tr {
-      border-top: 1px solid rgba(255,255,255,0.05);
-      transition: 0.15s ease;
-    }
-
-    tbody tr:hover {
-      background: rgba(255,255,255,0.03);
-    }
-
-    .right {
-      text-align: right;
-    }
-
-    .rank {
-      color: var(--accent);
-      font-weight: 700;
-    }
-
-    .team-name {
-      font-weight: 600;
-      margin-bottom: 3px;
-    }
-
-    .team-sub {
-      font-size: 12px;
-      color: var(--text3);
-    }
-
-    .pf {
-      color: var(--green);
-      font-weight: 600;
-    }
-
-    .video-wrapper {
-
-      position: relative;
-
-      width: 100%;
-      height: 100%;
-
-      min-height: 580px;
-
-      overflow: hidden;
-    }
-
-    .video-wrapper iframe {
-
-      position: absolute;
-
-      inset: 0;
-
-      width: 100%;
-      height: 100%;
-
-      border: none;
-
-      display: block;
-    }
-
-    .stats {
-
-      display: grid;
-      grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
-
-      gap: 22px;
-
-      margin-bottom: 28px;
-    }
-
-    .stat-card {
-      padding: 24px;
-    }
-
-    .stat-label {
-
-      color: var(--text3);
-
-      text-transform: uppercase;
-
-      letter-spacing: 1px;
-
-      font-size: 11px;
-
-      margin-bottom: 10px;
-    }
-
-    .stat-value {
-
-      font-size: 38px;
-
-      font-weight: 800;
-
-      line-height: 1;
-
-      margin-bottom: 6px;
-    }
-
-    .stat-sub {
-      color: var(--text2);
-      font-size: 13px;
-    }
-
-    .two-col {
-
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-
-      gap: 24px;
-
-      margin-bottom: 28px;
-    }
-
-    .activity {
-
-      padding: 20px 24px;
-
-      border-top: 1px solid rgba(255,255,255,0.05);
-
-      display: flex;
-
-      gap: 14px;
-    }
-
-    .activity-icon {
-
-      width: 42px;
-      height: 42px;
-
-      border-radius: 12px;
-
-      background: rgba(255,179,71,0.12);
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      color: var(--accent);
-
-      flex-shrink: 0;
-    }
-
-    .activity-title {
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .activity-time {
-      font-size: 12px;
-      color: var(--text3);
-    }
-
-    .loading {
-
-      text-align: center;
-
-      padding: 120px 20px;
-
-      color: var(--text2);
-    }
-
-    .loading i {
-
-      display: block;
-
-      font-size: 32px;
-
-      margin-bottom: 14px;
-
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    footer {
-
-      text-align: center;
-
-      color: var(--text3);
-
-      padding: 40px 20px;
-
-      font-size: 13px;
-    }
-
-    @media (max-width: 1100px) {
-
-      .top-grid,
-      .two-col {
-
-        grid-template-columns: 1fr;
-      }
-
-      .video-wrapper {
-        min-height: 420px;
-      }
-    }
-
-    @media (max-width: 700px) {
-
-      header {
-        flex-direction: column;
-        gap: 16px;
-        align-items: flex-start;
-      }
-
-      .stats {
-        grid-template-columns: 1fr;
-      }
-
-      td,
-      th {
-        padding: 14px 16px;
-      }
-
-      .winner-team {
-        font-size: 24px;
-      }
-    }
-
+    .coaching-row:last-child { border-bottom: none; }
+    .coaching-row:hover { background: rgba(255,255,255,0.02); }
+    .coaching-rank { font-size: 13px; font-weight: 700; color: var(--accent); width: 22px; flex-shrink:0; text-align:center; }
+    .coaching-name { font-size: 14px; font-weight: 500; }
+    .coaching-sub  { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .coaching-score { font-size: 18px; font-weight: 700; min-width: 64px; text-align: right; }
+    .coaching-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); width: 80px; overflow:hidden; }
+    .coaching-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+
+    /* YouTube */
+    .video-wrapper { position: relative; width: 100%; padding-top: 56.25%; }
+    .video-wrapper iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+    .video-title { padding: 14px 20px; font-size: 13px; color: var(--text2); border-top: 1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    /* Stat pills */
+    .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { padding: 22px 24px; }
+    .stat-label { color: var(--text3); text-transform: uppercase; letter-spacing: 1px; font-size: 11px; margin-bottom: 10px; }
+    .stat-value { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .stat-sub { color: var(--text2); font-size: 12px; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 12px 22px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); font-weight: 500; }
+    td { padding: 16px 22px; vertical-align: middle; }
+    tbody tr { border-top: 1px solid rgba(255,255,255,0.05); transition: 0.15s; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .right { text-align: right; }
+    .rank { color: var(--accent); font-weight: 700; min-width: 24px; display: inline-block; }
+    .team-name { font-weight: 600; margin-bottom: 2px; }
+    .team-sub { font-size: 11px; color: var(--text3); }
+    .pf { color: var(--green); font-weight: 600; }
+    .pa { color: var(--red); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 24px; }
+
+    /* Activity */
+    .activity-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px 22px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .activity-item:last-child { border-bottom: none; }
+    .act-icon { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    .act-icon.add   { background: rgba(74,222,128,0.12);  color: var(--green); }
+    .act-icon.drop  { background: rgba(251,113,133,0.12); color: var(--red); }
+    .act-icon.trade { background: rgba(96,165,250,0.12);  color: var(--blue); }
+    .act-title { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+    .act-sub   { font-size: 11px; color: var(--text3); }
+
+    .loading { text-align: center; padding: 100px 20px; color: var(--text2); }
+    .loading i { display: block; font-size: 30px; margin-bottom: 14px; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err-box { background: rgba(251,113,133,0.08); border: 1px solid rgba(251,113,133,0.25); border-radius: 14px; padding: 20px 24px; color: var(--red); margin-bottom: 22px; }
+
+    footer { text-align: center; color: var(--text3); padding: 40px 20px; font-size: 12px; }
+
+    @media (max-width: 1000px) { .top-grid, .two-col { grid-template-columns: 1fr; } .stat-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 600px)  { .stat-grid { grid-template-columns: 1fr; } td, th { padding: 12px 14px; } }
   </style>
 </head>
-
 <body>
 
 <header>
-
   <div class="logo">
-
-    <div class="logo-icon">
-      🏈
-    </div>
-
+    <div class="logo-icon">🏈</div>
     <div>
-      <h1>Ball & Chain GFL</h1>
-      <span id="last-updated">
-        Loading...
-      </span>
+      <h1>Ball &amp; Chain GFL</h1>
+      <span id="last-updated">Loading...</span>
     </div>
-
   </div>
-
   <div class="controls">
-
+    <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
     <select id="season-select" onchange="loadDashboard()">
-
-      <option value="2025">
-        2025 Season
-      </option>
-
-      <option value="2024">
-        2024 Season
-      </option>
-
-      <option value="2023">
-        2023 Season
-      </option>
-
+      <option value="2025">2025 Season</option>
+      <option value="2024">2024 Season</option>
+      <option value="2023">2023 Season</option>
+      <option value="2022">2022 Season</option>
     </select>
-
-    <button onclick="loadDashboard()">
-      <i class="fa fa-rotate-right"></i>
-    </button>
-
+    <button onclick="loadDashboard()"><i class="fa fa-rotate-right"></i></button>
   </div>
-
 </header>
 
-<main>
-
-  <div id="app">
-
-    <div class="loading">
-
-      <i class="fa fa-circle-notch"></i>
-
-      Loading Dashboard...
-
-    </div>
-
-  </div>
-
-</main>
-
-<footer>
-  Ball & Chain GFL · Powered by ESPN Fantasy Football
-</footer>
+<main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>
+<footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 
 <script>
-
 const BASE = '/api/espn';
+const TOTAL_WEEKS = 17;
 
-const PLAYOFF_RESULTS_2025 = [
+function getSeason() { return document.getElementById('season-select').value; }
 
-  {
-    place: 1,
-    team: "Lebron's 3rd Leg",
-    abbrev: "KUNK"
-  },
-
-  {
-    place: 2,
-    team: "The Bryan Football Team",
-    abbrev: "BFT"
-  },
-
-  {
-    place: 3,
-    team: "Bismuth",
-    abbrev: "Bi"
-  }
-
-];
-
-function getSeason() {
-
-  return document.getElementById(
-    'season-select'
-  ).value;
+function setStatus(state, label) {
+  document.getElementById('dot').className = 'dot' + (state === 'live' ? ' live' : state === 'err' ? ' err' : '');
+  document.getElementById('dot-label').textContent = label;
 }
 
-async function fetchView(view) {
+async function espnFetch(view) {
+  const r = await fetch(`${BASE}?view=${encodeURIComponent(view)}&seasonId=${getSeason()}`);
+  if (!r.ok) throw new Error(`ESPN API error ${r.status}`);
+  return r.json();
+}
 
-  const res = await fetch(
-    `${BASE}?view=${view}&seasonId=${getSeason()}`
-  );
+async function ytFetch() {
+  try {
+    const r = await fetch(`${BASE}?type=youtube`);
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
 
-  if (!res.ok) {
-    throw new Error(`API Error ${res.status}`);
+// ── Coaching Metric ──────────────────────────────────────────────────────────
+// C1: (team PF - league avg PF) / 10
+// C2: Σ post-trade lineup pts for players received - pts for players sent, / 10
+// C3: Σ (post-waiver lineup pts / FAAB bid) / 10
+// Final: z-score standardize sum of C1+C2+C3
+
+function computeCoachingMetric(teams, transactions, matchups) {
+  const leagueAvgPF = teams.reduce((s, t) => s + t.pf, 0) / (teams.length || 1);
+
+  // C1
+  const c1 = Object.fromEntries(teams.map(t => [t.id, (t.pf - leagueAvgPF) / 10]));
+
+  // Build player weekly lineup pts from boxscores
+  // matchups come from mBoxscore schedule array
+  const playerWeekPts = {}; // pid -> { week -> pts }
+  (matchups || []).forEach(mu => {
+    const week = mu.matchupPeriodId;
+    [mu.home, mu.away].forEach(side => {
+      (side?.rosterForCurrentScoringPeriod?.entries || []).forEach(e => {
+        const slot = e.lineupSlotId;
+        if (slot === 20 || slot === 21) return; // bench/IR
+        const pid = e.playerId;
+        const pts = e.playerPoolEntry?.appliedStatTotal ?? 0;
+        if (!playerWeekPts[pid]) playerWeekPts[pid] = {};
+        playerWeekPts[pid][week] = pts;
+      });
+    });
+  });
+
+  // C2 — trade delta
+  const tradeDelta = Object.fromEntries(teams.map(t => [t.id, 0]));
+  (transactions || []).filter(tx => tx.type === 'TRADE_ACCEPT').forEach(tx => {
+    const week = tx.scoringPeriodId || 0;
+    (tx.items || []).forEach(item => {
+      const pid = item.playerId; if (!pid) return;
+      let pts = 0;
+      for (let w = week + 1; w <= TOTAL_WEEKS; w++) pts += playerWeekPts[pid]?.[w] ?? 0;
+      if (item.toTeamId   in tradeDelta) tradeDelta[item.toTeamId]   += pts;
+      if (item.fromTeamId in tradeDelta) tradeDelta[item.fromTeamId] -= pts;
+    });
+  });
+  const c2 = Object.fromEntries(Object.entries(tradeDelta).map(([id, v]) => [id, v / 10]));
+
+  // C3 — waiver ROI
+  const waiverROI = Object.fromEntries(teams.map(t => [t.id, 0]));
+  (transactions || []).filter(tx => tx.type === 'WAIVER').forEach(tx => {
+    const teamId = tx.teamId;
+    const bid    = Math.max(tx.bidAmount ?? 1, 1);
+    const week   = tx.scoringPeriodId || 0;
+    (tx.items || []).filter(i => i.type === 'ADD').forEach(item => {
+      const pid = item.playerId; if (!pid) return;
+      let pts = 0;
+      for (let w = week + 1; w <= TOTAL_WEEKS; w++) pts += playerWeekPts[pid]?.[w] ?? 0;
+      if (teamId in waiverROI) waiverROI[teamId] += pts / bid;
+    });
+  });
+  const c3 = Object.fromEntries(Object.entries(waiverROI).map(([id, v]) => [id, v / 10]));
+
+  // Sum components, then z-score standardize
+  const raw = Object.fromEntries(teams.map(t => [t.id, (c1[t.id]||0) + (c2[t.id]||0) + (c3[t.id]||0)]));
+  const vals = Object.values(raw);
+  const mean = vals.reduce((a,b) => a+b, 0) / vals.length;
+  const std  = Math.sqrt(vals.reduce((s,v) => s + (v-mean)**2, 0) / vals.length) || 1;
+  return Object.fromEntries(Object.entries(raw).map(([id, v]) => [id, (v - mean) / std]));
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function scoreColor(v) {
+  if (v >  0.5) return 'var(--green)';
+  if (v < -0.5) return 'var(--red)';
+  return 'var(--text2)';
+}
+function barPct(v)   { return Math.min(100, Math.max(0, ((v + 3) / 6) * 100)).toFixed(1); }
+function barColor(v) { return v > 0.5 ? 'var(--green)' : v < -0.5 ? 'var(--red)' : 'var(--accent)'; }
+
+function renderTx(tx, teamMap) {
+  const date = tx.processedDate
+    ? new Date(tx.processedDate).toLocaleDateString('en-US', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+    : '';
+  const team = teamMap[tx.teamId] || 'Unknown Team';
+  const type = tx.type || '';
+  const items = tx.items || [];
+
+  if (type === 'WAIVER' || type === 'FREEAGENT') {
+    const bid = tx.bidAmount != null ? ` · <span style="color:var(--accent)">$${tx.bidAmount}</span>` : '';
+    return items.filter(i => i.type === 'ADD').map(() => `
+      <div class="activity-item">
+        <div class="act-icon add"><i class="fa fa-plus"></i></div>
+        <div><div class="act-title">Add by <strong>${team}</strong>${bid}</div>
+        <div class="act-sub">${date} · ${type === 'WAIVER' ? 'Waiver' : 'Free Agent'}</div></div>
+      </div>`).join('') +
+    items.filter(i => i.type === 'DROP').map(() => `
+      <div class="activity-item">
+        <div class="act-icon drop"><i class="fa fa-minus"></i></div>
+        <div><div class="act-title">Drop by <strong>${team}</strong></div>
+        <div class="act-sub">${date}</div></div>
+      </div>`).join('');
   }
 
-  return res.json();
+  if (type === 'TRADE_ACCEPT' || type === 'TRADE') {
+    return `<div class="activity-item">
+      <div class="act-icon trade"><i class="fa fa-right-left"></i></div>
+      <div><div class="act-title">Trade · <strong>${items.length} player${items.length!==1?'s':''}</strong> exchanged</div>
+      <div class="act-sub">${date}</div></div>
+    </div>`;
+  }
+  return '';
 }
 
 async function loadDashboard() {
-
   const app = document.getElementById('app');
-
-  app.innerHTML = `
-    <div class="loading">
-      <i class="fa fa-circle-notch"></i>
-      Loading Dashboard...
-    </div>
-  `;
+  setStatus('', '–');
+  app.innerHTML = `<div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div>`;
 
   try {
+    const season = getSeason();
 
-    const [teamData, transData] = await Promise.all([
-      fetchView('mTeam'),
-      fetchView('mTransactions2')
+    const [teamData, transData, boxData, ytData] = await Promise.all([
+      espnFetch('mTeam'),
+      espnFetch('mTransactions2'),
+      espnFetch('mBoxscore'),
+      ytFetch()
     ]);
 
-    document.getElementById(
-      'last-updated'
-    ).textContent =
-      'Updated ' + new Date().toLocaleTimeString();
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    setStatus('live', 'Live');
 
-    renderDashboard(
-      teamData,
-      transData,
-      app
-    );
+    const teams = (teamData.teams || []).map(t => {
+      const r = t.record?.overall || {};
+      return {
+        id:     t.id,
+        name:   t.name || `${t.location||''} ${t.nickname||''}`.trim() || t.abbrev || 'Team',
+        abbrev: t.abbrev || '',
+        wins:   r.wins   || 0,
+        losses: r.losses || 0,
+        ties:   r.ties   || 0,
+        pf:     r.pointsFor     || 0,
+        pa:     r.pointsAgainst || 0,
+        moves:  t.transactionCounter?.acquisitions || 0,
+        trades: t.transactionCounter?.trades       || 0,
+        drops:  t.transactionCounter?.drops        || 0,
+      };
+    }).sort((a,b) => {
+      const ap = a.wins/((a.wins+a.losses+a.ties)||1);
+      const bp = b.wins/((b.wins+b.losses+b.ties)||1);
+      return bp!==ap ? bp-ap : b.pf-a.pf;
+    });
 
-  } catch(err) {
+    const transactions = transData.transactions || [];
+    const matchups     = boxData.schedule       || [];
+    const teamMap      = Object.fromEntries(teams.map(t => [t.id, t.name]));
+
+    const scores    = computeCoachingMetric(teams, transactions, matchups);
+    const cmRanked  = [...teams].sort((a,b) => (scores[b.id]||0) - (scores[a.id]||0));
+
+    const totalMoves  = teams.reduce((s,t) => s+t.moves,  0);
+    const totalTrades = teams.reduce((s,t) => s+t.trades, 0);
+    const totalDrops  = teams.reduce((s,t) => s+t.drops,  0);
+    const avgPF       = teams.reduce((s,t) => s+t.pf, 0) / (teams.length||1);
 
     app.innerHTML = `
-      <div class="card" style="padding:40px;text-align:center;color:#fb7185;">
-        ${err.message}
+
+      <div class="top-grid">
+
+        <!-- Coaching Metric -->
+        <div class="card">
+          <div class="section-header">
+            <i class="fa fa-brain"></i> Coaching Metric
+            <span class="badge-info">PF · Trade ROI · Waiver ROI</span>
+          </div>
+          ${cmRanked.map((t,i) => {
+            const s = scores[t.id] || 0;
+            return `<div class="coaching-row">
+              <div class="coaching-rank">${i===0?'🥇':i+1}</div>
+              <div style="flex:1">
+                <div class="coaching-name">${t.name}</div>
+                <div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div>
+              </div>
+              <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${barPct(s)}%;background:${barColor(s)}"></div></div>
+              <div class="coaching-score" style="color:${scoreColor(s)}">${s.toFixed(2)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <!-- YouTube -->
+        <div class="card">
+          <div class="section-header">
+            <i class="fa-brands fa-youtube" style="color:#ff0000"></i> Latest Ball &amp; Chain Media
+          </div>
+          ${ytData?.videoId
+            ? `<div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${ytData.videoId}" allowfullscreen loading="lazy"></iframe></div>
+               <div class="video-title"><i class="fa fa-film" style="margin-right:6px;color:var(--text3)"></i>${ytData.title}</div>`
+            : `<div style="padding:60px 24px;text-align:center;color:var(--text3)"><i class="fa fa-circle-exclamation" style="margin-right:8px"></i>Could not load latest video</div>`
+          }
+        </div>
+
+      </div>
+
+      <!-- Stat pills -->
+      <div class="stat-grid">
+        <div class="card stat-card">
+          <div class="stat-label">Total Moves</div>
+          <div class="stat-value">${totalMoves}</div>
+          <div class="stat-sub">${totalMoves-totalDrops} adds · ${totalDrops} drops</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Total Trades</div>
+          <div class="stat-value">${totalTrades}</div>
+          <div class="stat-sub">across all teams</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Avg Points For</div>
+          <div class="stat-value">${avgPF.toFixed(1)}</div>
+          <div class="stat-sub">${season} season</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Teams</div>
+          <div class="stat-value">${teams.length}</div>
+          <div class="stat-sub">active managers</div>
+        </div>
+      </div>
+
+      <!-- Standings -->
+      <div class="card" style="margin-bottom:24px">
+        <div class="section-header"><i class="fa fa-ranking-star"></i> ${season} Standings</div>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Team</th>
+            <th class="right">W</th><th class="right">L</th>
+            <th class="right">PF</th><th class="right">PA</th>
+            <th class="right">Moves</th><th class="right">Trades</th>
+            <th class="right">CM ⓘ</th>
+          </tr></thead>
+          <tbody>
+            ${teams.map((t,i) => {
+              const s = scores[t.id] || 0;
+              return `<tr>
+                <td><span class="rank">${i===0?'🥇':i+1}</span></td>
+                <td><div class="team-name">${t.name}</div><div class="team-sub">${t.abbrev}</div></td>
+                <td class="right"><strong>${t.wins}</strong></td>
+                <td class="right" style="color:var(--text3)">${t.losses}</td>
+                <td class="right pf">${t.pf.toFixed(1)}</td>
+                <td class="right pa">${t.pa.toFixed(1)}</td>
+                <td class="right">${t.moves}</td>
+                <td class="right">${t.trades}</td>
+                <td class="right" style="color:${scoreColor(s)};font-weight:600">${s.toFixed(2)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 2 col -->
+      <div class="two-col">
+        <div class="card">
+          <div class="section-header"><i class="fa fa-fire"></i> Highest Scoring</div>
+          <table><tbody>
+            ${[...teams].sort((a,b)=>b.pf-a.pf).slice(0,6).map((t,i)=>`
+              <tr>
+                <td><span class="rank">${i+1}</span> ${t.name}</td>
+                <td class="right pf">${t.pf.toFixed(1)}</td>
+              </tr>`).join('')}
+          </tbody></table>
+        </div>
+        <div class="card">
+          <div class="section-header"><i class="fa fa-arrow-trend-up"></i> Most Active</div>
+          <table><tbody>
+            ${[...teams].sort((a,b)=>b.moves-a.moves).slice(0,6).map((t,i)=>`
+              <tr>
+                <td><span class="rank">${i+1}</span> ${t.name}</td>
+                <td class="right" style="color:var(--text2)">${t.moves} moves</td>
+                <td class="right" style="color:var(--blue)">${t.trades} trades</td>
+              </tr>`).join('')}
+          </tbody></table>
+        </div>
+      </div>
+
+      <!-- Activity -->
+      <div class="card">
+        <div class="section-header"><i class="fa fa-clock-rotate-left"></i> Recent Activity</div>
+        ${transactions.slice(0,10).map(tx => renderTx(tx, teamMap)).filter(Boolean).join('') ||
+          `<div style="padding:30px;text-align:center;color:var(--text3)">No recent transactions</div>`}
       </div>
     `;
+
+  } catch(err) {
+    setStatus('err', 'Error');
+    document.getElementById('last-updated').textContent = 'Failed to load';
+    document.getElementById('app').innerHTML =
+      `<div class="err-box"><i class="fa fa-triangle-exclamation" style="margin-right:8px"></i>${err.message}</div>`;
+    console.error(err);
   }
 }
 
-function renderDashboard(teamData, transData, app) {
-
-  const teams = (teamData.teams || []).map(t => {
-
-    const record = t.record?.overall || {};
-
-    const name =
-      t.name ||
-      `${t.location || ''} ${t.nickname || ''}`.trim() ||
-      t.abbrev ||
-      'Unknown Team';
-
-    return {
-
-      id: t.id,
-
-      name,
-
-      abbrev: t.abbrev || '',
-
-      wins: record.wins || 0,
-
-      losses: record.losses || 0,
-
-      ties: record.ties || 0,
-
-      pf: record.pointsFor || 0,
-
-      pa: record.pointsAgainst || 0,
-
-      moves:
-        t.transactionCounter?.acquisitions || 0,
-
-      trades:
-        t.transactionCounter?.trades || 0
-    };
-  });
-
-  teams.sort((a,b) => {
-
-    const aPct =
-      a.wins / (
-        (a.wins + a.losses + a.ties) || 1
-      );
-
-    const bPct =
-      b.wins / (
-        (b.wins + b.losses + b.ties) || 1
-      );
-
-    if (bPct !== aPct) {
-      return bPct - aPct;
-    }
-
-    return b.pf - a.pf;
-  });
-
-  const totalMoves =
-    teams.reduce((s,t) => s + t.moves, 0);
-
-  const totalTrades =
-    teams.reduce((s,t) => s + t.trades, 0);
-
-  const avgPF =
-    teams.reduce((s,t) => s + t.pf, 0)
-    / teams.length;
-
-  const transactions =
-    (transData.transactions || []).slice(0, 10);
-
-  app.innerHTML = `
-
-    <div class="top-grid">
-
-      <div class="card">
-
-        <div class="section-header">
-
-          <i class="fa fa-trophy"></i>
-
-          2025 Playoff Results
-
-        </div>
-
-        <div class="playoff-winner">
-
-          <div class="winner-label">
-            League Champion
-          </div>
-
-          <div class="winner-team">
-            🏆 Lebron's 3rd Leg
-          </div>
-
-          <div class="winner-sub">
-            2025 Ball & Chain GFL Champion
-          </div>
-
-        </div>
-
-        <table>
-
-          <thead>
-
-            <tr>
-              <th>Place</th>
-              <th>Team</th>
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            ${PLAYOFF_RESULTS_2025.map(team => `
-
-              <tr>
-
-                <td class="rank">
-                  #${team.place}
-                </td>
-
-                <td>
-
-                  <div class="team-name">
-                    ${team.team}
-                  </div>
-
-                  <div class="team-sub">
-                    ${team.abbrev}
-                  </div>
-
-                </td>
-
-              </tr>
-
-            `).join('')}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-      <div class="card">
-
-        <div class="section-header">
-
-          <i class="fa-brands fa-youtube"></i>
-
-          Latest Ball & Chain Media
-
-        </div>
-
-        <div class="video-wrapper">
-
-          <iframe
-            src="https://www.youtube.com/embed/jfKfPfyJRdk"
-            allowfullscreen>
-          </iframe>
-
-        </div>
-
-      </div>
-
-    </div>
-
-    <div class="stats">
-
-      <div class="card stat-card">
-
-        <div class="stat-label">
-          League Moves
-        </div>
-
-        <div class="stat-value">
-          ${totalMoves}
-        </div>
-
-        <div class="stat-sub">
-          Total roster acquisitions
-        </div>
-
-      </div>
-
-      <div class="card stat-card">
-
-        <div class="stat-label">
-          Trades
-        </div>
-
-        <div class="stat-value">
-          ${totalTrades}
-        </div>
-
-        <div class="stat-sub">
-          Completed trades
-        </div>
-
-      </div>
-
-      <div class="card stat-card">
-
-        <div class="stat-label">
-          Average PF
-        </div>
-
-        <div class="stat-value">
-          ${avgPF.toFixed(1)}
-        </div>
-
-        <div class="stat-sub">
-          Average points for
-        </div>
-
-      </div>
-
-    </div>
-
-    <div class="card" style="margin-bottom:28px;">
-
-      <div class="section-header">
-
-        <i class="fa fa-ranking-star"></i>
-
-        2025 Regular Season Standings
-
-      </div>
-
-      <table>
-
-        <thead>
-
-          <tr>
-
-            <th>#</th>
-            <th>Team</th>
-
-            <th class="right">
-              W
-            </th>
-
-            <th class="right">
-              L
-            </th>
-
-            <th class="right">
-              PF
-            </th>
-
-            <th class="right">
-              PA
-            </th>
-
-            <th class="right">
-              Moves
-            </th>
-
-          </tr>
-
-        </thead>
-
-        <tbody>
-
-          ${teams.map((t,i) => `
-
-            <tr>
-
-              <td class="rank">
-
-                ${i === 0 ? '🥇' : i + 1}
-
-              </td>
-
-              <td>
-
-                <div class="team-name">
-                  ${t.name}
-                </div>
-
-                <div class="team-sub">
-                  ${t.abbrev}
-                </div>
-
-              </td>
-
-              <td class="right">
-                ${t.wins}
-              </td>
-
-              <td class="right">
-                ${t.losses}
-              </td>
-
-              <td class="right pf">
-                ${t.pf.toFixed(1)}
-              </td>
-
-              <td class="right">
-                ${t.pa.toFixed(1)}
-              </td>
-
-              <td class="right">
-                ${t.moves}
-              </td>
-
-            </tr>
-
-          `).join('')}
-
-        </tbody>
-
-      </table>
-
-    </div>
-
-    <div class="two-col">
-
-      <div class="card">
-
-        <div class="section-header">
-
-          <i class="fa fa-fire"></i>
-
-          Highest Scoring
-
-        </div>
-
-        <table>
-
-          <tbody>
-
-            ${[...teams]
-              .sort((a,b) => b.pf - a.pf)
-              .slice(0,5)
-              .map((t,i) => `
-
-              <tr>
-
-                <td>
-
-                  <span class="rank">
-                    ${i + 1}
-                  </span>
-
-                  ${t.name}
-
-                </td>
-
-                <td class="right pf">
-
-                  ${t.pf.toFixed(1)}
-
-                </td>
-
-              </tr>
-
-            `).join('')}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-      <div class="card">
-
-        <div class="section-header">
-
-          <i class="fa fa-arrow-trend-up"></i>
-
-          Most Active
-
-        </div>
-
-        <table>
-
-          <tbody>
-
-            ${[...teams]
-              .sort((a,b) => b.moves - a.moves)
-              .slice(0,5)
-              .map((t,i) => `
-
-              <tr>
-
-                <td>
-
-                  <span class="rank">
-                    ${i + 1}
-                  </span>
-
-                  ${t.name}
-
-                </td>
-
-                <td class="right">
-
-                  ${t.moves}
-
-                </td>
-
-              </tr>
-
-            `).join('')}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
-
-  `;
-}
-
 loadDashboard();
-
 </script>
-
 </body>
 </html>
