@@ -3,11 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ball & Chain GFL Dashboard</title>
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <title>Ball & Chain GFL</title>
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
 
   <style>
+
     * {
       margin: 0;
       padding: 0;
@@ -15,18 +20,19 @@
     }
 
     :root {
+
       --bg: #080808;
-      --bg2: #121212;
+      --bg2: #111111;
       --bg3: #1a1a1a;
 
       --border: rgba(255,255,255,0.08);
 
       --text: #f5f5f5;
-      --text2: #b6b6b6;
-      --text3: #7d7d7d;
+      --text2: #b7b7b7;
+      --text3: #7b7b7b;
 
       --accent: #ffb347;
-      --accent2: #ff8f3c;
+      --accent2: #ff923d;
 
       --green: #4ade80;
       --red: #fb7185;
@@ -34,20 +40,33 @@
     }
 
     body {
-      background: radial-gradient(circle at top, #1c1406 0%, #080808 40%);
+      background:
+        radial-gradient(
+          circle at top,
+          #241404 0%,
+          #080808 45%
+        );
+
       color: var(--text);
-      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+
       min-height: 100vh;
     }
 
     header {
+
       position: sticky;
       top: 0;
       z-index: 100;
 
-      backdrop-filter: blur(14px);
+      background: rgba(10,10,10,0.75);
 
-      background: rgba(10,10,10,0.72);
+      backdrop-filter: blur(14px);
 
       border-bottom: 1px solid var(--border);
 
@@ -55,7 +74,7 @@
       justify-content: space-between;
       align-items: center;
 
-      padding: 18px 28px;
+      padding: 18px 26px;
     }
 
     .logo {
@@ -65,8 +84,9 @@
     }
 
     .logo-icon {
-      width: 46px;
-      height: 46px;
+
+      width: 48px;
+      height: 48px;
 
       border-radius: 14px;
 
@@ -101,11 +121,11 @@
     .controls {
       display: flex;
       gap: 12px;
-      align-items: center;
     }
 
     select,
     button {
+
       background: rgba(255,255,255,0.04);
 
       color: var(--text);
@@ -123,124 +143,30 @@
 
     select:hover,
     button:hover {
+
       border-color: var(--accent);
+
       transform: translateY(-1px);
     }
 
     main {
-      max-width: 1280px;
+      max-width: 1400px;
       margin: auto;
-      padding: 30px 22px 60px;
+      padding: 28px 22px 60px;
     }
 
-    .hero {
-      margin-bottom: 28px;
+    .top-grid {
 
-      padding: 44px;
-
-      border-radius: 28px;
-
-      background:
-        radial-gradient(circle at top left,
-          rgba(255,179,71,0.25),
-          transparent 40%),
-        linear-gradient(
-          135deg,
-          rgba(255,255,255,0.04),
-          rgba(255,255,255,0.02)
-        );
-
-      border: 1px solid var(--border);
-
-      overflow: hidden;
-
-      position: relative;
-    }
-
-    .hero::after {
-      content: "";
-
-      position: absolute;
-
-      inset: 0;
-
-      background:
-        linear-gradient(
-          120deg,
-          transparent,
-          rgba(255,255,255,0.03),
-          transparent
-        );
-
-      pointer-events: none;
-    }
-
-    .hero-badge {
-      display: inline-block;
-
-      padding: 7px 12px;
-
-      border-radius: 999px;
-
-      background: rgba(255,179,71,0.14);
-
-      color: var(--accent);
-
-      font-size: 12px;
-
-      margin-bottom: 16px;
-
-      font-weight: 600;
-    }
-
-    .hero h2 {
-      font-size: 44px;
-      line-height: 1;
-      margin-bottom: 14px;
-      letter-spacing: -1px;
-    }
-
-    .hero p {
-      color: var(--text2);
-      max-width: 720px;
-      line-height: 1.7;
-      font-size: 16px;
-    }
-
-    .video-section {
-      margin-bottom: 28px;
-    }
-
-    .video-wrapper {
-      position: relative;
-      overflow: hidden;
-      border-radius: 24px;
-      padding-bottom: 56.25%;
-      height: 0;
-
-      border: 1px solid var(--border);
-
-      box-shadow:
-        0 12px 40px rgba(0,0,0,0.3);
-    }
-
-    .video-wrapper iframe {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
-      gap: 18px;
+      grid-template-columns: 1.15fr 1fr;
+
+      gap: 24px;
 
       margin-bottom: 28px;
     }
 
     .card {
+
       background:
         linear-gradient(
           135deg,
@@ -250,58 +176,76 @@
 
       border: 1px solid var(--border);
 
-      border-radius: 24px;
-
-      backdrop-filter: blur(12px);
+      border-radius: 26px;
 
       overflow: hidden;
 
+      backdrop-filter: blur(14px);
+
       box-shadow:
-        0 10px 30px rgba(0,0,0,0.22);
-    }
-
-    .stat-card {
-      padding: 24px;
-    }
-
-    .stat-label {
-      color: var(--text3);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-size: 11px;
-      margin-bottom: 10px;
-    }
-
-    .stat-value {
-      font-size: 38px;
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: 6px;
-    }
-
-    .stat-sub {
-      color: var(--text2);
-      font-size: 13px;
-    }
-
-    .section {
-      margin-bottom: 28px;
+        0 10px 40px rgba(0,0,0,0.25);
     }
 
     .section-header {
-      padding: 22px 24px;
-      border-bottom: 1px solid var(--border);
 
       display: flex;
       align-items: center;
       gap: 10px;
 
-      font-size: 16px;
+      padding: 22px 24px;
+
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+
       font-weight: 700;
+      font-size: 16px;
     }
 
     .section-header i {
       color: var(--accent);
+    }
+
+    .playoff-winner {
+
+      padding: 22px 24px;
+
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+
+      background:
+        linear-gradient(
+          90deg,
+          rgba(255,179,71,0.12),
+          transparent
+        );
+    }
+
+    .winner-label {
+
+      color: var(--text3);
+
+      text-transform: uppercase;
+
+      letter-spacing: 1px;
+
+      font-size: 11px;
+
+      margin-bottom: 8px;
+    }
+
+    .winner-team {
+
+      font-size: 30px;
+
+      font-weight: 800;
+
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .winner-sub {
+      color: var(--text2);
+      margin-top: 6px;
+      font-size: 14px;
     }
 
     table {
@@ -310,9 +254,10 @@
     }
 
     thead th {
-      text-align: left;
 
-      color: var(--text3);
+      padding: 14px 22px;
+
+      text-align: left;
 
       font-size: 11px;
 
@@ -320,16 +265,15 @@
 
       letter-spacing: 1px;
 
-      padding: 14px 24px;
+      color: var(--text3);
     }
 
-    thead th.right,
-    td.right {
-      text-align: right;
+    td {
+      padding: 18px 22px;
     }
 
     tbody tr {
-      border-top: 1px solid rgba(255,255,255,0.04);
+      border-top: 1px solid rgba(255,255,255,0.05);
       transition: 0.15s ease;
     }
 
@@ -337,8 +281,13 @@
       background: rgba(255,255,255,0.03);
     }
 
-    td {
-      padding: 18px 24px;
+    .right {
+      text-align: right;
+    }
+
+    .rank {
+      color: var(--accent);
+      font-weight: 700;
     }
 
     .team-name {
@@ -347,13 +296,8 @@
     }
 
     .team-sub {
-      color: var(--text3);
       font-size: 12px;
-    }
-
-    .rank {
-      color: var(--accent);
-      font-weight: 700;
+      color: var(--text3);
     }
 
     .pf {
@@ -361,49 +305,108 @@
       font-weight: 600;
     }
 
-    .pa {
-      color: var(--red);
+    .video-wrapper {
+
+      position: relative;
+
+      width: 100%;
+      height: 100%;
+
+      min-height: 580px;
+
+      overflow: hidden;
     }
 
-    .badge {
-      background: rgba(255,179,71,0.15);
-      color: var(--accent);
+    .video-wrapper iframe {
 
-      padding: 5px 10px;
+      position: absolute;
 
-      border-radius: 999px;
+      inset: 0;
 
-      font-size: 12px;
+      width: 100%;
+      height: 100%;
 
-      font-weight: 600;
+      border: none;
+
+      display: block;
+    }
+
+    .stats {
+
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+
+      gap: 22px;
+
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      padding: 24px;
+    }
+
+    .stat-label {
+
+      color: var(--text3);
+
+      text-transform: uppercase;
+
+      letter-spacing: 1px;
+
+      font-size: 11px;
+
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+
+      font-size: 38px;
+
+      font-weight: 800;
+
+      line-height: 1;
+
+      margin-bottom: 6px;
+    }
+
+    .stat-sub {
+      color: var(--text2);
+      font-size: 13px;
     }
 
     .two-col {
+
       display: grid;
       grid-template-columns: 1fr 1fr;
+
       gap: 24px;
+
+      margin-bottom: 28px;
     }
 
     .activity {
+
       padding: 20px 24px;
 
-      border-top: 1px solid rgba(255,255,255,0.04);
+      border-top: 1px solid rgba(255,255,255,0.05);
 
       display: flex;
-      gap: 16px;
+
+      gap: 14px;
     }
 
     .activity-icon {
+
       width: 42px;
       height: 42px;
 
       border-radius: 12px;
 
+      background: rgba(255,179,71,0.12);
+
       display: flex;
       align-items: center;
       justify-content: center;
-
-      background: rgba(255,179,71,0.1);
 
       color: var(--accent);
 
@@ -412,32 +415,32 @@
 
     .activity-title {
       font-weight: 600;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
 
     .activity-time {
-      color: var(--text3);
       font-size: 12px;
-    }
-
-    footer {
-      text-align: center;
-      padding: 40px 20px;
       color: var(--text3);
-      font-size: 13px;
     }
 
     .loading {
+
       text-align: center;
-      padding: 100px 20px;
+
+      padding: 120px 20px;
+
       color: var(--text2);
     }
 
     .loading i {
-      font-size: 32px;
-      margin-bottom: 14px;
-      animation: spin 1s linear infinite;
+
       display: block;
+
+      font-size: 32px;
+
+      margin-bottom: 14px;
+
+      animation: spin 1s linear infinite;
     }
 
     @keyframes spin {
@@ -446,17 +449,32 @@
       }
     }
 
-    @media (max-width: 900px) {
+    footer {
+
+      text-align: center;
+
+      color: var(--text3);
+
+      padding: 40px 20px;
+
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+
+      .top-grid,
       .two-col {
+
         grid-template-columns: 1fr;
       }
 
-      .hero h2 {
-        font-size: 34px;
+      .video-wrapper {
+        min-height: 420px;
       }
     }
 
     @media (max-width: 700px) {
+
       header {
         flex-direction: column;
         gap: 16px;
@@ -467,87 +485,74 @@
         grid-template-columns: 1fr;
       }
 
-      .hero {
-        padding: 32px;
-      }
-
-      .hero h2 {
-        font-size: 30px;
-      }
-
       td,
       th {
         padding: 14px 16px;
       }
+
+      .winner-team {
+        font-size: 24px;
+      }
     }
+
   </style>
 </head>
 
 <body>
 
 <header>
+
   <div class="logo">
-    <div class="logo-icon">🏈</div>
+
+    <div class="logo-icon">
+      🏈
+    </div>
 
     <div>
       <h1>Ball & Chain GFL</h1>
-      <span id="last-updated">Loading...</span>
+      <span id="last-updated">
+        Loading...
+      </span>
     </div>
+
   </div>
 
   <div class="controls">
+
     <select id="season-select" onchange="loadDashboard()">
-      <option value="2025">2025 Season</option>
-      <option value="2024">2024 Season</option>
-      <option value="2023">2023 Season</option>
+
+      <option value="2025">
+        2025 Season
+      </option>
+
+      <option value="2024">
+        2024 Season
+      </option>
+
+      <option value="2023">
+        2023 Season
+      </option>
+
     </select>
 
     <button onclick="loadDashboard()">
       <i class="fa fa-rotate-right"></i>
     </button>
+
   </div>
+
 </header>
 
 <main>
 
-  <div class="hero">
-    <div class="hero-badge">
-      Fantasy Football Dashboard
-    </div>
-
-    <h2>
-      Ball & Chain GFL
-    </h2>
-
-    <p>
-      Live standings, league activity, roster movement,
-      transaction history, and media coverage all in one place.
-    </p>
-  </div>
-
-  <div class="video-section">
-    <div class="card">
-
-      <div class="section-header">
-        <i class="fa-brands fa-youtube"></i>
-        Latest Ball & Chain Media
-      </div>
-
-      <div class="video-wrapper">
-        <iframe
-          src="https://www.youtube.com/embed?listType=user_uploads&list=Ball.andChain_Media"
-          allowfullscreen>
-        </iframe>
-      </div>
-
-    </div>
-  </div>
-
   <div id="app">
 
     <div class="loading">
+
       <i class="fa fa-circle-notch"></i>
+
       Loading Dashboard...
+
     </div>
 
   </div>
@@ -562,11 +567,37 @@
 
 const BASE = '/api/espn';
 
+const PLAYOFF_RESULTS_2025 = [
+
+  {
+    place: 1,
+    team: "Lebron's 3rd Leg",
+    abbrev: "KUNK"
+  },
+
+  {
+    place: 2,
+    team: "The Bryan Football Team",
+    abbrev: "BFT"
+  },
+
+  {
+    place: 3,
+    team: "Bismuth",
+    abbrev: "Bi"
+  }
+
+];
+
 function getSeason() {
-  return document.getElementById('season-select').value;
+
+  return document.getElementById(
+    'season-select'
+  ).value;
 }
 
 async function fetchView(view) {
+
   const res = await fetch(
     `${BASE}?view=${view}&seasonId=${getSeason()}`
   );
@@ -596,10 +627,16 @@ async function loadDashboard() {
       fetchView('mTransactions2')
     ]);
 
-    document.getElementById('last-updated').textContent =
+    document.getElementById(
+      'last-updated'
+    ).textContent =
       'Updated ' + new Date().toLocaleTimeString();
 
-    renderDashboard(teamData, transData, app);
+    renderDashboard(
+      teamData,
+      transData,
+      app
+    );
 
   } catch(err) {
 
@@ -624,21 +661,49 @@ function renderDashboard(teamData, transData, app) {
       'Unknown Team';
 
     return {
+
       id: t.id,
-      rank: record.rank || 999,
+
       name,
+
       abbrev: t.abbrev || '',
+
       wins: record.wins || 0,
+
       losses: record.losses || 0,
+
       ties: record.ties || 0,
+
       pf: record.pointsFor || 0,
+
       pa: record.pointsAgainst || 0,
-      moves: t.transactionCounter?.acquisitions || 0,
-      trades: t.transactionCounter?.trades || 0
+
+      moves:
+        t.transactionCounter?.acquisitions || 0,
+
+      trades:
+        t.transactionCounter?.trades || 0
     };
   });
 
-  teams.sort((a,b) => a.rank - b.rank);
+  teams.sort((a,b) => {
+
+    const aPct =
+      a.wins / (
+        (a.wins + a.losses + a.ties) || 1
+      );
+
+    const bPct =
+      b.wins / (
+        (b.wins + b.losses + b.ties) || 1
+      );
+
+    if (bPct !== aPct) {
+      return bPct - aPct;
+    }
+
+    return b.pf - a.pf;
+  });
 
   const totalMoves =
     teams.reduce((s,t) => s + t.moves, 0);
@@ -647,60 +712,201 @@ function renderDashboard(teamData, transData, app) {
     teams.reduce((s,t) => s + t.trades, 0);
 
   const avgPF =
-    teams.reduce((s,t) => s + t.pf, 0) / teams.length;
+    teams.reduce((s,t) => s + t.pf, 0)
+    / teams.length;
 
   const transactions =
-    (transData.transactions || []).slice(0, 12);
+    (transData.transactions || []).slice(0, 10);
 
   app.innerHTML = `
 
-    <div class="stats">
+    <div class="top-grid">
 
-      <div class="card stat-card">
-        <div class="stat-label">League Moves</div>
-        <div class="stat-value">${totalMoves}</div>
-        <div class="stat-sub">
-          Total acquisitions this season
+      <div class="card">
+
+        <div class="section-header">
+
+          <i class="fa fa-trophy"></i>
+
+          2025 Playoff Results
+
         </div>
+
+        <div class="playoff-winner">
+
+          <div class="winner-label">
+            League Champion
+          </div>
+
+          <div class="winner-team">
+            🏆 Lebron's 3rd Leg
+          </div>
+
+          <div class="winner-sub">
+            2025 Ball & Chain GFL Champion
+          </div>
+
+        </div>
+
+        <table>
+
+          <thead>
+
+            <tr>
+              <th>Place</th>
+              <th>Team</th>
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            ${PLAYOFF_RESULTS_2025.map(team => `
+
+              <tr>
+
+                <td class="rank">
+                  #${team.place}
+                </td>
+
+                <td>
+
+                  <div class="team-name">
+                    ${team.team}
+                  </div>
+
+                  <div class="team-sub">
+                    ${team.abbrev}
+                  </div>
+
+                </td>
+
+              </tr>
+
+            `).join('')}
+
+          </tbody>
+
+        </table>
+
       </div>
 
-      <div class="card stat-card">
-        <div class="stat-label">Trades</div>
-        <div class="stat-value">${totalTrades}</div>
-        <div class="stat-sub">
-          Completed league trades
-        </div>
-      </div>
+      <div class="card">
 
-      <div class="card stat-card">
-        <div class="stat-label">Average PF</div>
-        <div class="stat-value">${avgPF.toFixed(1)}</div>
-        <div class="stat-sub">
-          Average points for
+        <div class="section-header">
+
+          <i class="fa-brands fa-youtube"></i>
+
+          Latest Ball & Chain Media
+
         </div>
+
+        <div class="video-wrapper">
+
+          <iframe
+            src="https://www.youtube.com/embed/jfKfPfyJRdk"
+            allowfullscreen>
+          </iframe>
+
+        </div>
+
       </div>
 
     </div>
 
-    <div class="card section">
+    <div class="stats">
+
+      <div class="card stat-card">
+
+        <div class="stat-label">
+          League Moves
+        </div>
+
+        <div class="stat-value">
+          ${totalMoves}
+        </div>
+
+        <div class="stat-sub">
+          Total roster acquisitions
+        </div>
+
+      </div>
+
+      <div class="card stat-card">
+
+        <div class="stat-label">
+          Trades
+        </div>
+
+        <div class="stat-value">
+          ${totalTrades}
+        </div>
+
+        <div class="stat-sub">
+          Completed trades
+        </div>
+
+      </div>
+
+      <div class="card stat-card">
+
+        <div class="stat-label">
+          Average PF
+        </div>
+
+        <div class="stat-value">
+          ${avgPF.toFixed(1)}
+        </div>
+
+        <div class="stat-sub">
+          Average points for
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="card" style="margin-bottom:28px;">
 
       <div class="section-header">
-        <i class="fa fa-trophy"></i>
-        League Standings
+
+        <i class="fa fa-ranking-star"></i>
+
+        2025 Regular Season Standings
+
       </div>
 
       <table>
 
         <thead>
+
           <tr>
+
             <th>#</th>
             <th>Team</th>
-            <th class="right">W</th>
-            <th class="right">L</th>
-            <th class="right">PF</th>
-            <th class="right">PA</th>
-            <th class="right">Moves</th>
+
+            <th class="right">
+              W
+            </th>
+
+            <th class="right">
+              L
+            </th>
+
+            <th class="right">
+              PF
+            </th>
+
+            <th class="right">
+              PA
+            </th>
+
+            <th class="right">
+              Moves
+            </th>
+
           </tr>
+
         </thead>
 
         <tbody>
@@ -710,10 +916,13 @@ function renderDashboard(teamData, transData, app) {
             <tr>
 
               <td class="rank">
-                ${i === 0 ? '🏆' : i + 1}
+
+                ${i === 0 ? '🥇' : i + 1}
+
               </td>
 
               <td>
+
                 <div class="team-name">
                   ${t.name}
                 </div>
@@ -721,6 +930,7 @@ function renderDashboard(teamData, transData, app) {
                 <div class="team-sub">
                   ${t.abbrev}
                 </div>
+
               </td>
 
               <td class="right">
@@ -735,14 +945,12 @@ function renderDashboard(teamData, transData, app) {
                 ${t.pf.toFixed(1)}
               </td>
 
-              <td class="right pa">
+              <td class="right">
                 ${t.pa.toFixed(1)}
               </td>
 
               <td class="right">
-                <span class="badge">
-                  ${t.moves}
-                </span>
+                ${t.moves}
               </td>
 
             </tr>
@@ -757,11 +965,14 @@ function renderDashboard(teamData, transData, app) {
 
     <div class="two-col">
 
-      <div class="card section">
+      <div class="card">
 
         <div class="section-header">
+
           <i class="fa fa-fire"></i>
+
           Highest Scoring
+
         </div>
 
         <table>
@@ -776,14 +987,19 @@ function renderDashboard(teamData, transData, app) {
               <tr>
 
                 <td>
+
                   <span class="rank">
                     ${i + 1}
                   </span>
+
                   ${t.name}
+
                 </td>
 
                 <td class="right pf">
+
                   ${t.pf.toFixed(1)}
+
                 </td>
 
               </tr>
@@ -796,11 +1012,14 @@ function renderDashboard(teamData, transData, app) {
 
       </div>
 
-      <div class="card section">
+      <div class="card">
 
         <div class="section-header">
+
           <i class="fa fa-arrow-trend-up"></i>
+
           Most Active
+
         </div>
 
         <table>
@@ -815,14 +1034,19 @@ function renderDashboard(teamData, transData, app) {
               <tr>
 
                 <td>
+
                   <span class="rank">
                     ${i + 1}
                   </span>
+
                   ${t.name}
+
                 </td>
 
                 <td class="right">
+
                   ${t.moves}
+
                 </td>
 
               </tr>
@@ -832,61 +1056,6 @@ function renderDashboard(teamData, transData, app) {
           </tbody>
 
         </table>
-
-      </div>
-
-    </div>
-
-    <div class="card section">
-
-      <div class="section-header">
-        <i class="fa fa-clock-rotate-left"></i>
-        Recent Activity
-      </div>
-
-      ${transactions.length === 0
-        ? `
-          <div style="padding:30px;color:var(--text3);">
-            No recent activity.
-          </div>
-        `
-        : transactions.map(renderTransaction).join('')
-      }
-
-    </div>
-
-  `;
-}
-
-function renderTransaction(tx) {
-
-  const date = tx.processedDate
-    ? new Date(tx.processedDate)
-      .toLocaleDateString('en-US', {
-        month:'short',
-        day:'numeric',
-        hour:'2-digit',
-        minute:'2-digit'
-      })
-    : '';
-
-  return `
-
-    <div class="activity">
-
-      <div class="activity-icon">
-        <i class="fa fa-football"></i>
-      </div>
-
-      <div>
-
-        <div class="activity-title">
-          ${tx.type || 'Transaction'}
-        </div>
-
-        <div class="activity-time">
-          ${date}
-        </div>
 
       </div>
 
