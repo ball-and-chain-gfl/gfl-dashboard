@@ -20,7 +20,11 @@ export default async function handler(req, res) {
 
   const viewParam = view || 'mTeam';
   const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=${viewParam}`;
-
+  console.log('Season:', season);
+  console.log('View:', viewParam);
+  console.log('URL:', url);
+  console.log('Has espn_s2:', !!espn_s2);
+  console.log('Has swid:', !!swid);
   try {
     const response = await fetch(url, {
       headers: {
@@ -30,7 +34,13 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: `ESPN API returned ${response.status}` });
+      const text = await response.text();
+    
+      return res.status(response.status).json({
+        error: `ESPN API returned ${response.status}`,
+        details: text,
+        url
+      });
     }
 
     const data = await response.json();
