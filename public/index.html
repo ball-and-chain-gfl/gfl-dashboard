@@ -260,26 +260,20 @@
 <main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>
 <footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 
+<script src="/config.js"></script>
 <script>
 const BASE='/api/espn';
 const TOTAL_WEEKS=17;
 const COMMISSIONER_PIN='1327';
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   BALLS BIG 4  —  EDIT THIS LIST IN CODE
-   Pick the four featured teams here. Each entry can be EITHER:
-     • the team's name (or any part of it, case-insensitive)   e.g. "Motor City"
-     • the numeric ESPN team id                                e.g. 7
-   Names are easiest. Order = display order (matches the labels below).
-   Leave a slot as null/'' to show an empty placeholder.
+   BALLS BIG 4  —  EDIT IN config.js (loaded above), NOT here.
+   config.js sets window.GFL_CONFIG.big4 / .labels. The defaults below are only
+   used if config.js is missing.
 ─────────────────────────────────────────────────────────────────────────────── */
-const BIG4 = [
-  'Motor City Mulligans',     // #1 Pick
-  'The Bryan Football Team',  // Dark Horse
-  '',                         // Sleeper
-  '',                         // Wild Card
-];
-const BIG4_LABELS = ['#1 Pick','Dark Horse','Sleeper','Wild Card'];
+const _CFG = (typeof window!=='undefined' && window.GFL_CONFIG) ? window.GFL_CONFIG : {};
+const BIG4 = Array.isArray(_CFG.big4) ? _CFG.big4 : ['','','',''];
+const BIG4_LABELS = Array.isArray(_CFG.labels) ? _CFG.labels : ['#1 Pick','Dark Horse','Sleeper','Wild Card'];
 
 let _teams=[],_scores={},_breakdown={},_sortCol='pf',_sortAsc=false;
 let _videos=[],_activeVideoId=null;
@@ -336,7 +330,7 @@ function avatarHTML(team,size,radius){
   const url=id!=null?_logoMap[id]:null;
   const fs=Math.max(9,Math.round(size*0.42));
   const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#fff;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
-  const img=url?`<img src="${url}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0d0d0d" onerror="this.remove()"/>`:'';
+  const img=url?`<img src="${url}" loading="lazy" referrerpolicy="no-referrer" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0d0d0d" onerror="this.remove()"/>`:'';
   return `<span class="tm-avatar" style="${wrap}">${teamInitials(name)}${img}</span>`;
 }
 // Back-compat shim used throughout render code: logoImg(teamId, sizeClass)
@@ -571,11 +565,13 @@ function openCMModal(teamId){
     <details class="modal-debug">
       <summary>🔍 Debug info</summary>
       <pre>Transactions returned by ESPN: ${_txMeta.count} (source: ${_txMeta.source})
+Attempts: ${(_txMeta.diag||[]).map(a=>`${a.name}=${a.count}${a.status&&a.status!==200?`(${a.status})`:''}`).join('  ')||'—'}
 Weeks loaded for scoring: ${d.weeksLoaded||0}
 TX types seen this team: ${Array.from(d.txTypes||[]).join(', ')||'none'}
 Trades received: ${(d.tradesReceived||[]).length}
 Trades sent: ${(d.tradesSent||[]).length}
-Waiver pickups: ${(d.waiverPickups||[]).length}</pre>
+Waiver pickups: ${(d.waiverPickups||[]).length}
+Logo URL: ${_logoMap[team.id]||'(none returned by ESPN)'}</pre>
     </details>`;
   document.getElementById('cm-overlay').classList.add('open');
 }
@@ -878,16 +874,13 @@ async function loadDashboard(){
       ytFetch()
     ]);
 
-    // Build teams with logos. ESPN only returns a usable logo URL when the
-    // manager actually uploaded one (logoType CUSTOM_*). For default avatars
-    // there is no real logo to pull, so we store null and fall back to a
-    // colored initials badge.
+    // Build teams. ESPN returns a `logo` URL whenever a manager uploaded one.
+    // We keep any http(s) URL and rely on referrerpolicy=no-referrer + an
+    // onerror fallback to a colored initials badge if it doesn't load.
     _logoMap={}; _ownerMap={};
     _teams=(teamData.teams||[]).map(t=>{
       const r=t.record?.overall||{};
-      const realLogo=t.logo && /CUSTOM/i.test(t.logoType||'') ? t.logo
-                    : (t.logo && !/logo_none|defaultUploadImage|g_default/i.test(t.logo) ? t.logo : null);
-      _logoMap[t.id]=realLogo||null;
+      _logoMap[t.id]=(t.logo && /^https?:\/\//i.test(t.logo)) ? t.logo.replace(/^http:\/\//i,'https://') : null;
       _ownerMap[t.id]=t.primaryOwner||(t.owners&&t.owners[0])||`team:${t.id}`;
       return{
         id:t.id,
@@ -902,7 +895,7 @@ async function loadDashboard(){
     }).sort((a,b)=>b.pf-a.pf);
 
     const transactions=transData.transactions||[];
-    _txMeta={source:transData._source||'?',count:transData._count??(transactions.length)};
+    _txMeta={source:transData._source||'?',count:transData._count??(transactions.length),diag:transData._diag||[]};
     _allMatchups=schedData.schedule||[];
     const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t.name]));
     _videos=ytData.videos||[];
