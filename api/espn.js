@@ -38,23 +38,45 @@ export default async function handler(req, res) {
   }
 
   // ── Player scoring per week — used for C2/C3 calculation ────────────────────
-  // Returns all players' scoring for a specific week from the roster view
+  // Returns every rostered player's per-week data for a single scoring period:
+  //   players[pid] = { pts, slot, team }
+  //   pts  = ACTUAL fantasy points that week (statSourceId 0), regardless of start/bench
+  //   slot = lineupSlotId that week (used to tell starters from bench for C3)
+  //   team = teamId that rostered the player that week
+  // Past seasons (seasonId < current year) must use the leagueHistory endpoint,
+  // which returns an array that has to be unwrapped — this is what was breaking C2/C3.
   if (type === 'playerscores') {
-    const week = scoringPeriodId || '1';
-    const url  = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mRoster&scoringPeriodId=${week}`;
+    const week      = parseInt(scoringPeriodId || '1', 10);
+    const seasonNum = parseInt(season, 10);
+    const isHistory = seasonNum < new Date().getFullYear();
+    const url = isHistory
+      ? `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${season}&view=mRoster&scoringPeriodId=${week}`
+      : `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mRoster&scoringPeriodId=${week}`;
     try {
       const r    = await fetch(url, { headers });
-      const data = await r.json();
-      // Build flat map: playerId -> points for this week
-      const scores = {};
+      let data   = await r.json();
+      if (Array.isArray(data)) data = data[0] || {};
+
+      const BENCH_SLOTS = [20, 21, 24]; // bench, IR, taxi/reserve
+
+      const players = {};
       (data.teams || []).forEach(team => {
         (team.roster?.entries || []).forEach(e => {
-          const pid  = e.playerId;
-          const pts  = e.playerPoolEntry?.appliedStatTotal ?? 0;
-          scores[pid] = pts;
+          const pid = e.playerId;
+          if (pid == null) return;
+          const stats = e.playerPoolEntry?.player?.stats || [];
+          // Actual (statSourceId 0) points for THIS scoring period.
+          const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === week);
+          const pts = wk?.appliedTotal ?? e.playerPoolEntry?.appliedStatTotal ?? 0;
+          players[pid] = {
+            pts,
+            slot: e.lineupSlotId,
+            started: !BENCH_SLOTS.includes(e.lineupSlotId),
+            team: team.id,
+          };
         });
       });
-      return res.status(200).json({ week: parseInt(week), scores });
+      return res.status(200).json({ week, players });
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }
 
