@@ -239,17 +239,6 @@
   </div>
 </div>
 
-<!-- BIG4 EDIT MODAL -->
-<div class="modal-overlay" id="b4-overlay" onclick="closeB4Modal(event)">
-  <div class="modal">
-    <div class="modal-header">
-      <h2>Edit Balls Big 4</h2>
-      <button class="modal-close" onclick="closeB4ModalDirect()"><i class="fa fa-xmark"></i></button>
-    </div>
-    <div class="modal-body" id="b4-body"></div>
-  </div>
-</div>
-
 <header>
   <div class="logo">
     <img src="/logo.png" alt="GFL" onerror="this.style.display='none'"/>
@@ -276,13 +265,30 @@ const BASE='/api/espn';
 const TOTAL_WEEKS=17;
 const COMMISSIONER_PIN='1327';
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   BALLS BIG 4  —  EDIT THIS LIST IN CODE
+   Pick the four featured teams here. Each entry can be EITHER:
+     • the team's name (or any part of it, case-insensitive)   e.g. "Motor City"
+     • the numeric ESPN team id                                e.g. 7
+   Names are easiest. Order = display order (matches the labels below).
+   Leave a slot as null/'' to show an empty placeholder.
+─────────────────────────────────────────────────────────────────────────────── */
+const BIG4 = [
+  'Motor City Mulligans',     // #1 Pick
+  'The Bryan Football Team',  // Dark Horse
+  '',                         // Sleeper
+  '',                         // Wild Card
+];
+const BIG4_LABELS = ['#1 Pick','Dark Horse','Sleeper','Wild Card'];
+
 let _teams=[],_scores={},_breakdown={},_sortCol='pf',_sortAsc=false;
 let _videos=[],_activeVideoId=null;
 let _allMatchups=[],_currentWeek=null;
-let _big4=JSON.parse(localStorage.getItem('gfl_big4')||'[]');
+let _txMeta={source:'?',count:0};
 let _pinUnlocked=false,_pendingPinAction=null;
-let _logoMap={};   // teamId -> ESPN logo URL
-let _h2hAll={};    // "loId|hiId" -> { [teamId]: {w, pf, games} }  (all seasons)
+let _logoMap={};     // teamId -> ESPN logo URL (only real custom logos)
+let _ownerMap={};    // teamId -> stable owner GUID (current season)
+let _h2hAll={};      // "ownerA|ownerB" -> { [ownerGUID]: {w, pf, games} }  (all seasons)
 const ALL_SEASONS=['2022','2023','2024','2025','2026'];
 
 function getSeason(){return document.getElementById('season-select').value;}
@@ -297,6 +303,11 @@ async function espnFetch(view){
 }
 async function ytFetch(){
   try{const r=await fetch(`${BASE}?type=youtube`);return r.ok?r.json():{videos:[]};}catch{return{videos:[]};}
+}
+// Transactions come through a dedicated proxy route that falls back to the live
+// endpoint when leagueHistory has no transaction log, and reports its source.
+async function txFetch(){
+  try{const r=await fetch(`${BASE}?type=transactions&seasonId=${getSeason()}`);return r.ok?r.json():{transactions:[],_source:'error'};}catch{return{transactions:[],_source:'error'};}
 }
 // Fetch every rostered player's per-week data (pts/slot/team) for a scoring period
 async function fetchPlayerWeekScores(week){
@@ -337,38 +348,57 @@ function logoImg(teamId,cls='team-logo'){
 }
 
 // ── ALL-TIME HEAD-TO-HEAD (across every season) ───────────────────────────────
-async function fetchSeasonSchedule(season){
+// Pull one season's schedule AND its team→owner mapping in a single request.
+// We key the all-time ledger on the stable owner GUID (not teamId), because
+// ESPN reassigns team ids between seasons — so a raw teamId ledger ends up
+// crediting one franchise's wins to whoever happens to hold that id today.
+function ownerOf(team){
+  return team?.primaryOwner || (team?.owners&&team.owners[0]) || `team:${team?.id}`;
+}
+async function fetchSeasonData(season){
   try{
-    const r=await fetch(`${BASE}?view=mMatchup&seasonId=${season}`);
-    if(!r.ok) return [];
-    return (await r.json()).schedule||[];
-  }catch{return [];}
+    const r=await fetch(`${BASE}?view=mMatchup&view=mTeam&seasonId=${season}`);
+    if(!r.ok) return null;
+    const d=await r.json();
+    const owners={};
+    (d.teams||[]).forEach(t=>{owners[t.id]=ownerOf(t);});
+    return {schedule:d.schedule||[], owners};
+  }catch{return null;}
 }
 async function buildAllTimeH2H(){
-  const results=await Promise.allSettled(ALL_SEASONS.map(fetchSeasonSchedule));
+  const results=await Promise.allSettled(ALL_SEASONS.map(fetchSeasonData));
   const ledger={};
   results.forEach(res=>{
-    if(res.status!=='fulfilled') return;
-    res.value.forEach(mu=>{
+    if(res.status!=='fulfilled'||!res.value) return;
+    const {schedule,owners}=res.value;
+    schedule.forEach(mu=>{
       if(!mu.home||!mu.away) return;
-      const hid=mu.home.teamId, aid=mu.away.teamId;
+      const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
+      if(!ho||!ao||ho===ao) return;
       const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
-      if(hp===0&&ap===0) return; // not yet played
-      const key=hid<aid?`${hid}|${aid}`:`${aid}|${hid}`;
+      // Trust ESPN's decided winner when present; else fall back to points.
+      const win=mu.winner; // "HOME" | "AWAY" | "UNDECIDED"/"TIE"/undefined
+      if((win==null||win==='UNDECIDED')&&hp===0&&ap===0) return; // not played
+      const key=ho<ao?`${ho}|${ao}`:`${ao}|${ho}`;
       const k=ledger[key]||(ledger[key]={});
-      (k[hid]||(k[hid]={w:0,pf:0,games:0}));
-      (k[aid]||(k[aid]={w:0,pf:0,games:0}));
-      k[hid].games++; k[aid].games++; k[hid].pf+=hp; k[aid].pf+=ap;
-      if(hp>ap) k[hid].w++; else if(ap>hp) k[aid].w++;
+      (k[ho]||(k[ho]={w:0,pf:0,games:0}));
+      (k[ao]||(k[ao]={w:0,pf:0,games:0}));
+      k[ho].games++; k[ao].games++; k[ho].pf+=hp; k[ao].pf+=ap;
+      if(win==='HOME'||(win==null&&hp>ap)) k[ho].w++;
+      else if(win==='AWAY'||(win==null&&ap>hp)) k[ao].w++;
     });
   });
   _h2hAll=ledger;
 }
+// Look up the all-time series between two CURRENT team ids by resolving each to
+// its owner GUID first.
 function allTimeH2H(idA,idB){
-  const key=idA<idB?`${idA}|${idB}`:`${idB}|${idA}`;
+  const oA=_ownerMap[idA]||`team:${idA}`, oB=_ownerMap[idB]||`team:${idB}`;
+  if(oA===oB) return {wA:0,wB:0,games:0};
+  const key=oA<oB?`${oA}|${oB}`:`${oB}|${oA}`;
   const k=_h2hAll[key];
   if(!k) return {wA:0,wB:0,games:0};
-  return {wA:k[idA]?.w||0, wB:k[idB]?.w||0, games:k[idA]?.games||0};
+  return {wA:k[oA]?.w||0, wB:k[oB]?.w||0, games:k[oA]?.games||0};
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -458,12 +488,14 @@ async function computeCoaching(teams, transactions, weeklyData){
   // C3 — waivers / free agents (lineup points ÷ FAAB bid)
   (transactions||[]).forEach(tx=>{
     if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
-    const tid=tx.teamId; if(!(tid in c3)) return;
-    detail[tid].txTypes.add(tx.type);
     const bid=Math.max(tx.bidAmount??0,1); // guard $0 free-agent adds against /0
     const addWeek=tx.scoringPeriodId||1;
     (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
       const pid=item.playerId; if(pid==null) return;
+      // Team can live on the transaction OR on the item (toTeamId).
+      const tid=(tx.teamId!=null&&tx.teamId in c3)?tx.teamId:item.toTeamId;
+      if(tid==null||!(tid in c3)) return;
+      detail[tid].txTypes.add(tx.type);
       const lpts=lineupPts(pid, addWeek, tid);
       c3[tid]+=(lpts/bid)/10;
       detail[tid].waiverPickups.push({pid,week:addWeek,bid,pts:lpts});
@@ -538,7 +570,8 @@ function openCMModal(teamId){
     </div>
     <details class="modal-debug">
       <summary>🔍 Debug info</summary>
-      <pre>Weeks loaded for scoring: ${d.weeksLoaded||0}
+      <pre>Transactions returned by ESPN: ${_txMeta.count} (source: ${_txMeta.source})
+Weeks loaded for scoring: ${d.weeksLoaded||0}
 TX types seen this team: ${Array.from(d.txTypes||[]).join(', ')||'none'}
 Trades received: ${(d.tradesReceived||[]).length}
 Trades sent: ${(d.tradesSent||[]).length}
@@ -550,24 +583,33 @@ function closeCMModal(e){if(e.target===document.getElementById('cm-overlay'))clo
 function closeCMModalDirect(){document.getElementById('cm-overlay').classList.remove('open');}
 
 // ── BIG 4 ──────────────────────────────────────────────────────────────────────
+// Resolve a BIG4 entry (team name / partial name / numeric id) to a team object.
+function resolveBig4Entry(entry){
+  if(entry==null||entry==='') return null;
+  if(typeof entry==='number') return _teams.find(t=>t.id===entry)||null;
+  const q=String(entry).trim().toLowerCase();
+  if(/^\d+$/.test(q)) {const byId=_teams.find(t=>t.id===Number(q)); if(byId) return byId;}
+  return _teams.find(t=>(t.name||'').toLowerCase()===q)
+      || _teams.find(t=>(t.name||'').toLowerCase().includes(q))
+      || null;
+}
 function renderBig4(){
   const el=document.getElementById('big4-display');if(!el)return;
-  const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
-  const picked=_big4.map(id=>teamMap[id]).filter(Boolean);
-  const labels=['#1 Pick','Dark Horse','Sleeper','Wild Card'];
+  const picked=BIG4.map(resolveBig4Entry); // keep slot positions (may include nulls)
+  const anyPicked=picked.some(Boolean);
 
   el.innerHTML=`<div class="section-header" style="padding:12px 16px">
     <i class="fa fa-crown"></i>Balls Big 4
-    <button class="big4-edit-btn" onclick="promptBig4Edit()"><i class="fa fa-pen" style="margin-right:4px"></i>Edit</button>
   </div>
-  ${picked.length===0
-    ?`<div class="big4-empty">No teams selected. Click Edit to choose your Big 4.</div>`
+  ${!anyPicked
+    ?`<div class="big4-empty">Set your Big 4 in the code — edit the <code>BIG4</code> list near the top of the script.</div>`
     :`<div class="big4-grid">${picked.map((t,i)=>{
+      if(!t) return `<div class="big4-team"><div class="big4-info"><div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div><div class="big4-record" style="color:var(--text3)">— empty slot —</div></div></div>`;
       const s=_scores[t.id]||0;
       return`<div class="big4-team">
         ${logoImg(t.id,'big4-logo')}
         <div class="big4-info">
-          <div class="big4-label">${labels[i]||'Featured'}</div>
+          <div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div>
           <div class="big4-name">${t.name}</div>
           <div class="big4-record">${t.wins}–${t.losses} · ${t.pf.toFixed(0)} PF</div>
           <div class="big4-cm" style="color:${sc(s)}">CM: ${s.toFixed(2)}</div>
@@ -575,49 +617,6 @@ function renderBig4(){
       </div>`;
     }).join('')}</div>`}`;
 }
-
-function promptBig4Edit(){
-  if(_pinUnlocked) openB4EditModal();
-  else openPinOverlay(()=>openB4EditModal());
-}
-function openB4EditModal(){
-  let sel=new Set(_big4);
-  const body=document.getElementById('b4-body');
-  function render(){
-    body.innerHTML=`
-      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Pick exactly 4 teams.</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px" id="b4-count">${sel.size}/4 selected</div>
-      <div class="big4-picker">${_teams.map(t=>{
-        const s=sel.has(t.id);
-        return`<div class="big4-pick-row ${s?'selected':''}" onclick="toggleB4(${t.id})">
-          ${avatarHTML(t,30,7)}
-          <div style="flex:1"><div class="big4-pick-name">${t.name}</div><div class="big4-pick-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
-          <div class="big4-pick-check" id="b4c-${t.id}">${s?'✓':''}</div>
-        </div>`;
-      }).join('')}</div>
-      <button class="big4-save-btn" id="b4-save" onclick="saveB4()" ${sel.size!==4?'disabled':''}>Save Big 4</button>`;
-  }
-  window.toggleB4=function(id){
-    if(sel.has(id)){sel.delete(id);}else{if(sel.size>=4){const f=sel.values().next().value;sel.delete(f);}sel.add(id);}
-    _teams.forEach(t=>{
-      const row=document.querySelector(`.big4-pick-row[onclick="toggleB4(${t.id})"]`);
-      const chk=document.getElementById(`b4c-${t.id}`);
-      if(row)row.classList.toggle('selected',sel.has(t.id));
-      if(chk)chk.textContent=sel.has(t.id)?'✓':'';
-    });
-    const cl=document.getElementById('b4-count');if(cl)cl.textContent=`${sel.size}/4 selected`;
-    const btn=document.getElementById('b4-save');if(btn)btn.disabled=sel.size!==4;
-  };
-  window.saveB4=function(){
-    _big4=[...sel];
-    localStorage.setItem('gfl_big4',JSON.stringify(_big4));
-    closeB4ModalDirect();renderBig4();
-  };
-  render();
-  document.getElementById('b4-overlay').classList.add('open');
-}
-function closeB4Modal(e){if(e.target===document.getElementById('b4-overlay'))closeB4ModalDirect();}
-function closeB4ModalDirect(){document.getElementById('b4-overlay').classList.remove('open');}
 
 // ── HEADLINES ──────────────────────────────────────────────────────────────────
 // Head-to-head record THIS SEASON between two teams across loaded matchups
@@ -874,15 +873,22 @@ async function loadDashboard(){
     // Fetch all ESPN data in parallel
     const [teamData,transData,schedData,ytData]=await Promise.all([
       espnFetch('mTeam'),
-      espnFetch('mTransactions2'),
+      txFetch(),
       espnFetch('mMatchup'),
       ytFetch()
     ]);
 
-    // Build teams with logos
+    // Build teams with logos. ESPN only returns a usable logo URL when the
+    // manager actually uploaded one (logoType CUSTOM_*). For default avatars
+    // there is no real logo to pull, so we store null and fall back to a
+    // colored initials badge.
+    _logoMap={}; _ownerMap={};
     _teams=(teamData.teams||[]).map(t=>{
       const r=t.record?.overall||{};
-      _logoMap[t.id]=t.logo||null;
+      const realLogo=t.logo && /CUSTOM/i.test(t.logoType||'') ? t.logo
+                    : (t.logo && !/logo_none|defaultUploadImage|g_default/i.test(t.logo) ? t.logo : null);
+      _logoMap[t.id]=realLogo||null;
+      _ownerMap[t.id]=t.primaryOwner||(t.owners&&t.owners[0])||`team:${t.id}`;
       return{
         id:t.id,
         name:t.name||`${t.location||''} ${t.nickname||''}`.trim()||t.abbrev||'Team',
@@ -896,6 +902,7 @@ async function loadDashboard(){
     }).sort((a,b)=>b.pf-a.pf);
 
     const transactions=transData.transactions||[];
+    _txMeta={source:transData._source||'?',count:transData._count??(transactions.length)};
     _allMatchups=schedData.schedule||[];
     const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t.name]));
     _videos=ytData.videos||[];
@@ -1034,7 +1041,7 @@ async function loadDashboard(){
   }
 }
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCMModalDirect();closeB4ModalDirect();closePinOverlay();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCMModalDirect();closePinOverlay();}});
 loadDashboard();
 </script>
 </body>
