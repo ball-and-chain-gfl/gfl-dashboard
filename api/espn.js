@@ -94,46 +94,75 @@ export default async function handler(req, res) {
   }
 
   // ── Transactions (waivers / free agents / trades) — used for C2/C3 ───────────
-  // Correct method (confirmed via diagnostics): view=mTransactions2 with an
-  // x-fantasy-filter on `transactions` using valid TransactionType enum values.
-  // Returns ESPN's native transaction objects:
-  //   { type:'WAIVER'|'FREEAGENT'|'TRADE_ACCEPT', teamId, bidAmount,
-  //     scoringPeriodId, status, items:[{ type:'ADD'|'DROP'|'TRADE',
-  //                                       playerId, fromTeamId, toTeamId }] }
-  // The history endpoint serves completed seasons; the live endpoint serves the
-  // current one. We try the season-appropriate endpoint first, then the other.
+  // Reality of ESPN's API (confirmed via the ?type=raw diagnostics for this
+  // league): the detailed transaction log is only retained while a season is
+  // ACTIVE. For the live season the activity/communication feed returns it; for
+  // COMPLETED seasons ESPN purges the detail (mTransactions2 comes back with no
+  // `transactions` key and the communication group 404s), leaving only the
+  // aggregate counts. So C2/C3 can be computed for the current season but not
+  // retroactively for finished ones.
+  //
+  // We therefore try, in order: mTransactions2 (native objects, in case a live
+  // season exposes them) and the live communication feed (normalized). An
+  // optional manual override (?... handled client-side) covers past seasons if
+  // the user supplies data. Whatever we get is reported with its source.
   if (type === 'transactions') {
-    const txFilter = { transactions: {
-      filterType: { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT'] },
-      limit: 2000, offset: 0,
+    const MSG = { 178:'ADD', 180:'ADD', 179:'DROP', 239:'DROP', 181:'DROP',
+                  224:'TRADE', 225:'TRADE', 226:'TRADE', 244:'TRADE', 245:'TRADE', 246:'TRADE' };
+    const txFilter = { transactions: { filterType:{ value:['WAIVER','FREEAGENT','TRADE_ACCEPT'] }, limit:2000, offset:0 } };
+    const topicsFilter = { topics: {
+      filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000, limitPerMessageSet:{ value:1000 }, offset:0,
+      sortMessageDate:{ sortPriority:1, sortAsc:false },
+      filterIncludeMessageTypeIds:{ value:[178,179,180,181,224,225,226,239,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259] },
     }};
-    const hdr = { ...headers, 'x-fantasy-filter': JSON.stringify(txFilter) };
-    const histUrl = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}&view=mTransactions2`;
-    const liveUrl = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}?view=mTransactions2`;
-    const diag = [];
+    const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
+    const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
 
-    async function pull(name, url) {
-      try {
-        const r = await fetch(url, { headers: hdr });
-        if (!r.ok) { diag.push({ name, status: r.status }); return []; }
-        const data = unwrap(await r.json());
-        const txns = Array.isArray(data.transactions) ? data.transactions : [];
-        diag.push({ name, status: 200, count: txns.length });
-        return txns;
-      } catch (e) { diag.push({ name, error: String(e).slice(0, 80) }); return []; }
+    function normFromComm(topics){
+      const txns=[];
+      (topics||[]).forEach(tp=>{
+        const week = tp.scoringPeriodId ?? tp.matchupPeriodId ?? 0;
+        (tp.messages||[]).forEach(m=>{
+          const bucket = MSG[m.messageTypeId];
+          if(!bucket || bucket==='DROP') return;
+          const pid = m.targetId!=null ? Number(m.targetId) : null;
+          const wk  = m.scoringPeriodId ?? week ?? 0;
+          if(bucket==='ADD') txns.push({ type:'WAIVER', teamId:m.to, bidAmount:m.bidAmount??0, scoringPeriodId:wk, status:'EXECUTED', items:[{ type:'ADD', playerId:pid, toTeamId:m.to }] });
+          else if(bucket==='TRADE') txns.push({ type:'TRADE_ACCEPT', teamId:m.from??m.to, scoringPeriodId:wk, status:'EXECUTED', items:[{ type:'TRADE', playerId:pid, fromTeamId:m.from, toTeamId:m.to }] });
+        });
+      });
+      return txns;
     }
 
-    try {
-      const order = isHistory ? [['hist', histUrl], ['live', liveUrl]]
-                              : [['live', liveUrl], ['hist', histUrl]];
-      let txns = [], source = 'none';
-      for (const [name, url] of order) {
-        txns = await pull(name, url);
-        if (txns.length) { source = name; break; }
+    const diag = [];
+    async function attempt(name, url, filterObj, parse){
+      try{
+        const r = await fetch(url, { headers:{ ...headers, 'x-fantasy-filter': JSON.stringify(filterObj) } });
+        if(!r.ok){ diag.push({ name, status:r.status }); return []; }
+        const data = unwrap(await r.json());
+        const txns = parse(data);
+        diag.push({ name, status:200, count:txns.length });
+        return txns;
+      }catch(e){ diag.push({ name, error:String(e).slice(0,80) }); return []; }
+    }
+
+    const nativeParse = d => Array.isArray(d.transactions) ? d.transactions : [];
+    const commParse   = d => normFromComm(d.topics);
+    const sources = isHistory
+      ? [ ['hist_mTx2', `${histBase}&view=mTransactions2`, txFilter, nativeParse],
+          ['live_mTx2', `${liveBase}?view=mTransactions2`, txFilter, nativeParse] ]
+      : [ ['live_mTx2', `${liveBase}?view=mTransactions2`, txFilter, nativeParse],
+          ['live_comm', `${liveBase}/communication/?view=kona_league_communication`, topicsFilter, commParse] ];
+
+    try{
+      let txns=[], source='none';
+      for(const [name,url,f,p] of sources){
+        txns = await attempt(name, url, f, p);
+        if(txns.length){ source=name; break; }
       }
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
-      return res.status(200).json({ transactions: txns, _source: source, _count: txns.length, _diag: diag });
-    } catch (err) { return res.status(500).json({ error: err.message, transactions: [], _diag: diag }); }
+      return res.status(200).json({ transactions:txns, _source:source, _count:txns.length, _diag:diag });
+    }catch(err){ return res.status(500).json({ error:err.message, transactions:[], _diag:diag }); }
   }
 
   // ── Player scoring per week — used for C2/C3 calculation ────────────────────
