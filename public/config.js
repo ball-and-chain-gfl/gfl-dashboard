@@ -16,10 +16,10 @@
 ============================================================================ */
 window.GFL_CONFIG = {
   big4: [
-    "The Bryan Football Team",   // slot 1  (BFT)
+    "The Bryan Football Team",   // slot 1 
     "Bismuth",                   // slot 2
     "Lebron",                    // slot 3
-    "Florida Man",               // slot 4
+    "Florida",               // slot 4
   ],
   labels: ["#1 Pick", "Dark Horse", "Sleeper", "Wild Card"],
 };
