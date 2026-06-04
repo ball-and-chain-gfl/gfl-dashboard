@@ -58,46 +58,58 @@ export default async function handler(req, res) {
   // ── RAW DIAGNOSTIC ───────────────────────────────────────────────────────────
   // Returns the UNMODIFIED shape of what ESPN sends back for the transaction
   // sources, so we can see exactly how this league's data is structured.
-  // Visit: /api/espn?type=raw&seasonId=2025  (and &seasonId=2026 for current)
+  // Visit: /api/espn?type=raw&seasonId=2025
   if (type === 'raw') {
-    const topicsFilter = { topics: {
-      filterType:{ value:['ACTIVITY_TRANSACTIONS'] },
-      limit: 1000, limitPerMessageSet:{ value:1000 }, offset:0,
-      sortMessageDate:{ sortPriority:1, sortAsc:false },
-      filterIncludeMessageTypeIds:{ value:[178,179,180,181,224,225,226,239,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259] },
-    }};
-    const commHdr = { ...headers, 'x-fantasy-filter': JSON.stringify(topicsFilter) };
     const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
     const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
-    const out = { season, probes: [] };
+    const MSG_IDS = [178,179,180,181,224,225,226,239,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259];
 
-    async function probe(name, url, hdrs) {
-      const p = { name, url };
+    // Candidate x-fantasy-filter shapes (history endpoint accepts keys:
+    // players, transactions, communication, schedule).
+    const txFilter = { transactions: {
+      filterType: { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT','TRADE'] },
+      limit: 1000, offset: 0, sortDate: { sortPriority: 1, sortAsc: false },
+    }};
+    const commFilter = { communication: {
+      filterType: { value: ['ACTIVITY_TRANSACTIONS'] },
+      limit: 1000, limitPerMessageSet: { value: 1000 }, offset: 0,
+      sortMessageDate: { sortPriority: 1, sortAsc: false },
+      filterIncludeMessageTypeIds: { value: MSG_IDS },
+    }};
+    const commNested = { communication: { topics: {
+      filterType: { value: ['ACTIVITY_TRANSACTIONS'] },
+      limit: 1000, limitPerMessageSet: { value: 1000 }, offset: 0,
+      sortMessageDate: { sortPriority: 1, sortAsc: false },
+      filterIncludeMessageTypeIds: { value: MSG_IDS },
+    }}};
+
+    const out = { season, probes: [] };
+    async function probe(name, url, filterObj) {
+      const p = { name, url, filter: filterObj ? Object.keys(filterObj)[0] : null };
+      const hdrs = filterObj ? { ...headers, 'x-fantasy-filter': JSON.stringify(filterObj) } : headers;
       try {
         const r = await fetch(url, { headers: hdrs });
         p.status = r.status;
-        if (!r.ok) { p.body = (await r.text()).slice(0, 300); out.probes.push(p); return; }
+        if (!r.ok) { p.body = (await r.text()).slice(0, 220); out.probes.push(p); return; }
         const data = unwrap(await r.json());
         p.topLevelKeys = Object.keys(data || {});
+        if (Array.isArray(data.transactions)) { p.transactionCount = data.transactions.length; p.sampleTransactions = data.transactions.slice(0, 3); }
         if (Array.isArray(data.topics)) {
           p.topicCount = data.topics.length;
-          const msgs = [];
-          data.topics.forEach(tp => (tp.messages || []).forEach(m => { if (msgs.length < 10) msgs.push(m); }));
-          p.sampleMessages = msgs;                 // full raw message objects
-          p.sampleTopic = data.topics[0];
+          const msgs = []; data.topics.forEach(tp => (tp.messages||[]).forEach(m => { if (msgs.length < 8) msgs.push(m); }));
+          p.sampleMessages = msgs;
         }
-        if (Array.isArray(data.transactions)) {
-          p.transactionCount = data.transactions.length;
-          p.sampleTransactions = data.transactions.slice(0, 3);
-        }
+        if (Array.isArray(data.communication)) { p.communicationCount = data.communication.length; p.sampleComm = data.communication.slice(0, 2); }
       } catch (e) { p.error = String(e).slice(0, 200); }
       out.probes.push(p);
     }
 
-    await probe('comm_live', `${liveBase}/communication/?view=kona_league_communication`, commHdr);
-    await probe('comm_hist', `${histBase}&view=kona_league_communication`, commHdr);
-    await probe('mTx2_live', `${liveBase}?view=mTransactions2`, headers);
-    await probe('mTx2_hist', `${histBase}&view=mTransactions2`, headers);
+    await probe('hist_mTx2_txFilter', `${histBase}&view=mTransactions2`, txFilter);
+    await probe('live_mTx2_txFilter', `${liveBase}?view=mTransactions2`, txFilter);
+    await probe('hist_kona_commFilter', `${histBase}&view=kona_league_communication`, commFilter);
+    await probe('hist_kona_commNested', `${histBase}&view=kona_league_communication`, commNested);
+    await probe('hist_mTx2_commFilter', `${histBase}&view=mTransactions2`, commFilter);
+    await probe('live_tx_subpath', `${liveBase}/transactions/?view=mTransactions2`, txFilter);
     return res.status(200).json(out);
   }
 
