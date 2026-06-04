@@ -56,36 +56,21 @@ export default async function handler(req, res) {
   }
 
   // ── RAW DIAGNOSTIC ───────────────────────────────────────────────────────────
-  // Returns the UNMODIFIED shape of what ESPN sends back for the transaction
-  // sources, so we can see exactly how this league's data is structured.
+  // Confirms the working transaction source + shows the real record shape.
   // Visit: /api/espn?type=raw&seasonId=2025
   if (type === 'raw') {
     const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
     const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
-    const MSG_IDS = [178,179,180,181,224,225,226,239,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259];
-
-    // Candidate x-fantasy-filter shapes (history endpoint accepts keys:
-    // players, transactions, communication, schedule).
-    const txFilter = { transactions: {
-      filterType: { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT','TRADE'] },
-      limit: 1000, offset: 0, sortDate: { sortPriority: 1, sortAsc: false },
+    // Valid TransactionType enum values (ESPN rejected "TRADE").
+    const txFilterTyped = { transactions: {
+      filterType: { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT'] },
+      limit: 2000, offset: 0,
     }};
-    const commFilter = { communication: {
-      filterType: { value: ['ACTIVITY_TRANSACTIONS'] },
-      limit: 1000, limitPerMessageSet: { value: 1000 }, offset: 0,
-      sortMessageDate: { sortPriority: 1, sortAsc: false },
-      filterIncludeMessageTypeIds: { value: MSG_IDS },
-    }};
-    const commNested = { communication: { topics: {
-      filterType: { value: ['ACTIVITY_TRANSACTIONS'] },
-      limit: 1000, limitPerMessageSet: { value: 1000 }, offset: 0,
-      sortMessageDate: { sortPriority: 1, sortAsc: false },
-      filterIncludeMessageTypeIds: { value: MSG_IDS },
-    }}};
+    const txFilterAll = { transactions: { limit: 2000, offset: 0 } };
 
     const out = { season, probes: [] };
     async function probe(name, url, filterObj) {
-      const p = { name, url, filter: filterObj ? Object.keys(filterObj)[0] : null };
+      const p = { name, url };
       const hdrs = filterObj ? { ...headers, 'x-fantasy-filter': JSON.stringify(filterObj) } : headers;
       try {
         const r = await fetch(url, { headers: hdrs });
@@ -93,105 +78,62 @@ export default async function handler(req, res) {
         if (!r.ok) { p.body = (await r.text()).slice(0, 220); out.probes.push(p); return; }
         const data = unwrap(await r.json());
         p.topLevelKeys = Object.keys(data || {});
-        if (Array.isArray(data.transactions)) { p.transactionCount = data.transactions.length; p.sampleTransactions = data.transactions.slice(0, 3); }
-        if (Array.isArray(data.topics)) {
-          p.topicCount = data.topics.length;
-          const msgs = []; data.topics.forEach(tp => (tp.messages||[]).forEach(m => { if (msgs.length < 8) msgs.push(m); }));
-          p.sampleMessages = msgs;
+        if (Array.isArray(data.transactions)) {
+          p.transactionCount = data.transactions.length;
+          p.sampleTransactions = data.transactions.slice(0, 4); // full raw objects
         }
-        if (Array.isArray(data.communication)) { p.communicationCount = data.communication.length; p.sampleComm = data.communication.slice(0, 2); }
       } catch (e) { p.error = String(e).slice(0, 200); }
       out.probes.push(p);
     }
 
-    await probe('hist_mTx2_txFilter', `${histBase}&view=mTransactions2`, txFilter);
-    await probe('live_mTx2_txFilter', `${liveBase}?view=mTransactions2`, txFilter);
-    await probe('hist_kona_commFilter', `${histBase}&view=kona_league_communication`, commFilter);
-    await probe('hist_kona_commNested', `${histBase}&view=kona_league_communication`, commNested);
-    await probe('hist_mTx2_commFilter', `${histBase}&view=mTransactions2`, commFilter);
-    await probe('live_tx_subpath', `${liveBase}/transactions/?view=mTransactions2`, txFilter);
+    await probe('hist_mTx2_typed', `${histBase}&view=mTransactions2`, txFilterTyped);
+    await probe('live_mTx2_typed', `${liveBase}?view=mTransactions2`, txFilterTyped);
+    await probe('hist_mTx2_all',   `${histBase}&view=mTransactions2`, txFilterAll);
+    await probe('live_mTx2_all',   `${liveBase}?view=mTransactions2`, txFilterAll);
     return res.status(200).json(out);
   }
 
   // ── Transactions (waivers / free agents / trades) — used for C2/C3 ───────────
-  // ESPN's `mTransactions2` view returns NOTHING for many leagues/finished
-  // seasons. The reliable source for the historical add/drop/trade log is the
-  // league COMMUNICATION feed (view=kona_league_communication) with an
-  // x-fantasy-filter on transaction topics — this is what the community ESPN
-  // libraries use. We normalize those messages into the same shape the rest of
-  // the app expects: { type, teamId, bidAmount, scoringPeriodId, items:[...] }.
+  // Correct method (confirmed via diagnostics): view=mTransactions2 with an
+  // x-fantasy-filter on `transactions` using valid TransactionType enum values.
+  // Returns ESPN's native transaction objects:
+  //   { type:'WAIVER'|'FREEAGENT'|'TRADE_ACCEPT', teamId, bidAmount,
+  //     scoringPeriodId, status, items:[{ type:'ADD'|'DROP'|'TRADE',
+  //                                       playerId, fromTeamId, toTeamId }] }
+  // The history endpoint serves completed seasons; the live endpoint serves the
+  // current one. We try the season-appropriate endpoint first, then the other.
   if (type === 'transactions') {
-    const MSG = {                       // ESPN messageTypeId → bucket
-      178:'ADD', 180:'ADD', 179:'DROP', 239:'DROP', 181:'DROP',
-      224:'TRADE', 225:'TRADE', 226:'TRADE', 244:'TRADE', 245:'TRADE', 246:'TRADE',
-    };
-    const topicsFilter = { topics: {
-      filterType:{ value:['ACTIVITY_TRANSACTIONS'] },
-      limit: 1000, limitPerMessageSet:{ value:1000 }, offset:0,
-      sortMessageDate:{ sortPriority:1, sortAsc:false },
-      filterIncludeMessageTypeIds:{ value:[178,179,180,181,224,225,226,239,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256,257,258,259] },
+    const txFilter = { transactions: {
+      filterType: { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT'] },
+      limit: 2000, offset: 0,
     }};
-
-    function normFromComm(topics){
-      const txns=[];
-      (topics||[]).forEach(tp=>{
-        const week = tp.scoringPeriodId ?? tp.matchupPeriodId ?? 0;
-        (tp.messages||[]).forEach(m=>{
-          const bucket = MSG[m.messageTypeId];
-          if(!bucket || bucket==='DROP') return;            // C2/C3 don't need drops
-          const pid = m.targetId!=null ? Number(m.targetId) : null;
-          const wk  = m.scoringPeriodId ?? week ?? 0;
-          if(bucket==='ADD'){
-            txns.push({ type:'WAIVER', teamId:m.to, bidAmount:m.bidAmount??0,
-              scoringPeriodId:wk, items:[{ type:'ADD', playerId:pid, toTeamId:m.to }] });
-          } else if(bucket==='TRADE'){
-            txns.push({ type:'TRADE_ACCEPT', teamId:m.from??m.to, scoringPeriodId:wk,
-              items:[{ type:'TRADE', playerId:pid, fromTeamId:m.from, toTeamId:m.to }] });
-          }
-        });
-      });
-      return txns;
-    }
-
+    const hdr = { ...headers, 'x-fantasy-filter': JSON.stringify(txFilter) };
+    const histUrl = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}&view=mTransactions2`;
+    const liveUrl = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}?view=mTransactions2`;
     const diag = [];
-    async function attempt(name, url, hdrs, parse){
-      try{
-        const r = await fetch(url, { headers:hdrs });
-        if(!r.ok){ diag.push({ name, status:r.status, count:0 }); return []; }
+
+    async function pull(name, url) {
+      try {
+        const r = await fetch(url, { headers: hdr });
+        if (!r.ok) { diag.push({ name, status: r.status }); return []; }
         const data = unwrap(await r.json());
-        const txns = parse(data);
-        diag.push({ name, status:200, count:txns.length, keys:Object.keys(data||{}).slice(0,8) });
+        const txns = Array.isArray(data.transactions) ? data.transactions : [];
+        diag.push({ name, status: 200, count: txns.length });
         return txns;
-      }catch(e){ diag.push({ name, error:String(e).slice(0,80), count:0 }); return []; }
+      } catch (e) { diag.push({ name, error: String(e).slice(0, 80) }); return []; }
     }
 
-    const commHdr = { ...headers, 'x-fantasy-filter': JSON.stringify(topicsFilter) };
-    const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
-    const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
-
-    try{
-      let txns=[], source='none';
-      // 1) Communication feed on the live endpoint (best for recent seasons).
-      txns = await attempt('comm_live',
-        `${liveBase}/communication/?view=kona_league_communication`,
-        commHdr, d=>normFromComm(d.topics));
-      if(txns.length) source='comm_live';
-      // 2) Communication feed on the history endpoint.
-      if(!txns.length){
-        txns = await attempt('comm_hist',
-          `${histBase}&view=kona_league_communication`,
-          commHdr, d=>normFromComm(d.topics));
-        if(txns.length) source='comm_hist';
-      }
-      // 3) Legacy mTransactions2 (live) as a last resort, no filter.
-      if(!txns.length){
-        txns = await attempt('mTx2_live', `${liveBase}?view=mTransactions2`, headers,
-          d=>Array.isArray(d.transactions)?d.transactions:[]);
-        if(txns.length) source='mTx2_live';
+    try {
+      const order = isHistory ? [['hist', histUrl], ['live', liveUrl]]
+                              : [['live', liveUrl], ['hist', histUrl]];
+      let txns = [], source = 'none';
+      for (const [name, url] of order) {
+        txns = await pull(name, url);
+        if (txns.length) { source = name; break; }
       }
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
-      return res.status(200).json({ transactions:txns, _source:source, _count:txns.length, _diag:diag });
-    }catch(err){ return res.status(500).json({ error:err.message, transactions:[], _diag:diag }); }
+      return res.status(200).json({ transactions: txns, _source: source, _count: txns.length, _diag: diag });
+    } catch (err) { return res.status(500).json({ error: err.message, transactions: [], _diag: diag }); }
   }
 
   // ── Player scoring per week — used for C2/C3 calculation ────────────────────
