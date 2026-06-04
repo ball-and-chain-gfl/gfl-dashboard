@@ -456,8 +456,18 @@ async function computeCoaching(teams, transactions, weeklyData){
     };
   });
 
+  // Only count transactions ESPN actually executed. In a blind-FAAB league the
+  // log can include losing/failed claims; those must NOT credit a team. We skip
+  // any explicit non-executed status and keep ones that are EXECUTED or unlabeled.
+  const FAILED_STATUS=new Set(['FAILED','CANCELED','CANCELLED','PENDING','DECLINED','REVERSED','VOID','INVALID']);
+  function executed(tx){
+    const s=(tx.status||tx.executionType||'').toString().toUpperCase();
+    return !FAILED_STATUS.has(s);
+  }
+
   // C2 — trades (all points from the week after the trade onward)
   (transactions||[]).forEach(tx=>{
+    if(!executed(tx)) return;
     const tid=tx.teamId;
     if(detail[tid]) detail[tid].txTypes.add(tx.type);
     if(tx.type==='TRADE_ACCEPT'||tx.type==='TRADE'){
@@ -482,6 +492,7 @@ async function computeCoaching(teams, transactions, weeklyData){
   // C3 — waivers / free agents (lineup points ÷ FAAB bid)
   (transactions||[]).forEach(tx=>{
     if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
+    if(!executed(tx)) return; // blind FAAB: ignore losing/failed bids
     const bid=Math.max(tx.bidAmount??0,1); // guard $0 free-agent adds against /0
     const addWeek=tx.scoringPeriodId||1;
     (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
