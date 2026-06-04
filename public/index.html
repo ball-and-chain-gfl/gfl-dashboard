@@ -46,15 +46,15 @@
 
     /* BALLS BIG 4 */
     .big4-grid{display:grid;grid-template-columns:repeat(4,1fr);}
-    .big4-team{padding:14px 16px;border-right:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+    .big4-team{padding:11px 13px;border-right:1px solid var(--border);display:flex;align-items:center;gap:10px;}
     .big4-team:last-child{border-right:none;}
-    .big4-logo{width:44px;height:44px;border-radius:10px;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0;}
+    .big4-logo{width:38px;height:38px;border-radius:9px;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0;}
     .big4-info{flex:1;min-width:0;}
-    .big4-label{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px;}
-    .big4-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .big4-record{font-size:12px;color:var(--text2);margin-top:1px;}
-    .big4-cm{font-size:11px;margin-top:2px;}
-    .big4-empty{padding:28px 24px;text-align:center;color:var(--text3);font-size:13px;}
+    .big4-label{font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:1px;}
+    .big4-name{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;}
+    .big4-record{font-size:11px;color:var(--text2);margin-top:1px;}
+    .big4-cm{font-size:10.5px;margin-top:1px;}
+    .big4-empty{padding:22px 24px;text-align:center;color:var(--text3);font-size:13px;}
     .big4-edit-btn{margin-left:auto;background:rgba(255,179,71,0.1);color:var(--accent);border:1px solid rgba(255,179,71,0.3);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:0.15s;flex-shrink:0;}
     .big4-edit-btn:hover{background:rgba(255,179,71,0.2);}
 
@@ -281,7 +281,9 @@ let _videos=[],_activeVideoId=null;
 let _allMatchups=[],_currentWeek=null;
 let _big4=JSON.parse(localStorage.getItem('gfl_big4')||'[]');
 let _pinUnlocked=false,_pendingPinAction=null;
-let _logoMap={}; // teamId -> logoUrl
+let _logoMap={};   // teamId -> ESPN logo URL
+let _h2hAll={};    // "loId|hiId" -> { [teamId]: {w, pf, games} }  (all seasons)
+const ALL_SEASONS=['2022','2023','2024','2025','2026'];
 
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -296,22 +298,77 @@ async function espnFetch(view){
 async function ytFetch(){
   try{const r=await fetch(`${BASE}?type=youtube`);return r.ok?r.json():{videos:[]};}catch{return{videos:[]};}
 }
-// Fetch player scoring for a specific week via roster
+// Fetch every rostered player's per-week data (pts/slot/team) for a scoring period
 async function fetchPlayerWeekScores(week){
   try{
     const r=await fetch(`${BASE}?type=playerscores&seasonId=${getSeason()}&scoringPeriodId=${week}`);
-    return r.ok?(await r.json()).scores||{}:{};
+    return r.ok?(await r.json()).players||{}:{};
   }catch{return{};}
 }
 
-function logoUrl(team){
-  // ESPN logo is in team.logo field
-  return team?.logo||null;
+// ── TEAM LOGOS / AVATARS ─────────────────────────────────────────────────────
+// Uses the ESPN team logo when present. The logo is layered over a colored
+// initials badge, so if a team has no logo (or it fails to load) we fall back to
+// clean initials instead of an emoji or a blank box.
+function teamInitials(name){
+  if(!name) return '?';
+  const w=name.trim().split(/\s+/).filter(Boolean);
+  if(w.length===1) return w[0].slice(0,2).toUpperCase();
+  return (w[0][0]+w[w.length-1][0]).toUpperCase();
 }
+function teamColor(id){
+  const hue=(Number(id||0)*47+13)%360;
+  return `hsl(${hue} 52% 40%)`;
+}
+function avatarHTML(team,size,radius){
+  const id=team?.id, name=team?.name||'';
+  const url=id!=null?_logoMap[id]:null;
+  const fs=Math.max(9,Math.round(size*0.42));
+  const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#fff;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
+  const img=url?`<img src="${url}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0d0d0d" onerror="this.remove()"/>`:'';
+  return `<span class="tm-avatar" style="${wrap}">${teamInitials(name)}${img}</span>`;
+}
+// Back-compat shim used throughout render code: logoImg(teamId, sizeClass)
 function logoImg(teamId,cls='team-logo'){
-  const url=_logoMap[teamId];
-  if(!url) return `<div style="width:${cls==='team-logo'?'28px':'22px'};height:${cls==='team-logo'?'28px':'22px'};border-radius:6px;background:rgba(255,255,255,0.07);flex-shrink:0"></div>`;
-  return `<img src="${url}" class="${cls}" onerror="this.style.opacity='0'"/>`;
+  const team=(_teams.find(t=>t.id===teamId))||{id:teamId,name:''};
+  if(cls==='team-logo-sm') return avatarHTML(team,22,6);
+  if(cls==='big4-logo')    return avatarHTML(team,38,9);
+  return avatarHTML(team,28,8);
+}
+
+// ── ALL-TIME HEAD-TO-HEAD (across every season) ───────────────────────────────
+async function fetchSeasonSchedule(season){
+  try{
+    const r=await fetch(`${BASE}?view=mMatchup&seasonId=${season}`);
+    if(!r.ok) return [];
+    return (await r.json()).schedule||[];
+  }catch{return [];}
+}
+async function buildAllTimeH2H(){
+  const results=await Promise.allSettled(ALL_SEASONS.map(fetchSeasonSchedule));
+  const ledger={};
+  results.forEach(res=>{
+    if(res.status!=='fulfilled') return;
+    res.value.forEach(mu=>{
+      if(!mu.home||!mu.away) return;
+      const hid=mu.home.teamId, aid=mu.away.teamId;
+      const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
+      if(hp===0&&ap===0) return; // not yet played
+      const key=hid<aid?`${hid}|${aid}`:`${aid}|${hid}`;
+      const k=ledger[key]||(ledger[key]={});
+      (k[hid]||(k[hid]={w:0,pf:0,games:0}));
+      (k[aid]||(k[aid]={w:0,pf:0,games:0}));
+      k[hid].games++; k[aid].games++; k[hid].pf+=hp; k[aid].pf+=ap;
+      if(hp>ap) k[hid].w++; else if(ap>hp) k[aid].w++;
+    });
+  });
+  _h2hAll=ledger;
+}
+function allTimeH2H(idA,idB){
+  const key=idA<idB?`${idA}|${idB}`:`${idB}|${idA}`;
+  const k=_h2hAll[key];
+  if(!k) return {wA:0,wB:0,games:0};
+  return {wA:k[idA]?.w||0, wB:k[idB]?.w||0, games:k[idA]?.games||0};
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -334,19 +391,31 @@ function submitPin(){
 document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitPin();});
 
 // ── COACHING METRIC (C2/C3 fixed) ─────────────────────────────────────────────
-// C2: for each trade, sum ALL points (not just lineup) scored by received players after trade date
-//     minus all points scored by sent players after trade date. Uses mRoster per-week scoring.
-// C3: for each waiver add, sum ALL points scored by that player after the add week,
-//     divided by the FAAB bid paid.
-async function computeCoaching(teams, transactions, weeklyScores){
+// weeklyData: { week -> { playerId -> { pts, slot, started, team } } }
+// C1: (Team PF − League Avg PF) ÷ 10
+// C2: for every completed trade, Σ ALL points (started OR benched) scored by each
+//     received player from the week AFTER the trade onward, minus all points scored
+//     by each sent player over that same span. ÷ 10.
+// C3: for every waiver/FA add, Σ (LINEUP points that player scored for the adding
+//     team from the add week onward ÷ FAAB bid paid). ÷ 10.
+async function computeCoaching(teams, transactions, weeklyData){
   const leagueAvgPF=teams.reduce((s,t)=>s+t.pf,0)/(teams.length||1);
+  const weeks=Object.keys(weeklyData).map(Number).filter(n=>!isNaN(n));
+  const maxWeek=weeks.length?Math.max(...weeks):TOTAL_WEEKS;
 
-  // weeklyScores: { week -> { playerId -> pts } }
-  // Sum all points a player scored across weeks >= startWeek
-  function ptsFrom(pid, startWeek){
+  // All points a player scored across weeks >= startWeek (start or bench — doesn't matter)
+  function allPts(pid, startWeek){
     let total=0;
-    for(let w=startWeek;w<=TOTAL_WEEKS;w++){
-      total+=weeklyScores[w]?.[pid]??0;
+    for(let w=startWeek;w<=maxWeek;w++) total+=weeklyData[w]?.[pid]?.pts??0;
+    return total;
+  }
+  // Points a player scored while STARTING for a specific team, weeks >= startWeek
+  function lineupPts(pid, startWeek, teamId){
+    let total=0;
+    for(let w=startWeek;w<=maxWeek;w++){
+      const e=weeklyData[w]?.[pid];
+      if(!e) continue;
+      if(e.started && (teamId==null || e.team===teamId)) total+=e.pts||0;
     }
     return total;
   }
@@ -359,53 +428,54 @@ async function computeCoaching(teams, transactions, weeklyScores){
       leagueAvgPF, teamPF:t.pf,
       tradesReceived:[], tradesSent:[],
       waiverPickups:[], txTypes:new Set(),
-      weeksLoaded:Object.keys(weeklyScores).length
+      weeksLoaded:weeks.length
     };
   });
 
-  // C2 — trades
+  // C2 — trades (all points from the week after the trade onward)
   (transactions||[]).forEach(tx=>{
     const tid=tx.teamId;
     if(detail[tid]) detail[tid].txTypes.add(tx.type);
-    // ESPN uses TRADE_ACCEPT for completed trades
     if(tx.type==='TRADE_ACCEPT'||tx.type==='TRADE'){
-      const week=(tx.scoringPeriodId||0)+1; // points FROM the week after trade
+      const tradeWeek=tx.scoringPeriodId||0;
+      const fromWeek=tradeWeek+1; // their scoring "from then on out"
       (tx.items||[]).forEach(item=>{
-        const pid=item.playerId; if(!pid) return;
-        const pts=ptsFrom(pid, week);
-        // toTeamId = team that received this player
+        const pid=item.playerId; if(pid==null) return;
+        if(item.type && item.type!=='ADD' && item.type!=='DROP' && item.type!=='TRADE') {/* still count */}
+        const pts=allPts(pid, fromWeek);
         if(item.toTeamId!=null && item.toTeamId in c2){
           c2[item.toTeamId]+=pts/10;
-          detail[item.toTeamId]?.tradesReceived?.push({pid,week:week-1,pts});
+          detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,pts});
         }
         if(item.fromTeamId!=null && item.fromTeamId in c2){
           c2[item.fromTeamId]-=pts/10;
-          detail[item.fromTeamId]?.tradesSent?.push({pid,week:week-1,pts});
+          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,pts});
         }
       });
     }
   });
 
-  // C3 — waivers
+  // C3 — waivers / free agents (lineup points ÷ FAAB bid)
   (transactions||[]).forEach(tx=>{
     if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
     const tid=tx.teamId; if(!(tid in c3)) return;
-    const bid=Math.max(tx.bidAmount??1,1);
-    const week=(tx.scoringPeriodId||0)+1;
+    detail[tid].txTypes.add(tx.type);
+    const bid=Math.max(tx.bidAmount??0,1); // guard $0 free-agent adds against /0
+    const addWeek=tx.scoringPeriodId||1;
     (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
-      const pid=item.playerId; if(!pid) return;
-      const pts=ptsFrom(pid,week);
-      c3[tid]+=(pts/bid)/10;
-      detail[tid]?.waiverPickups?.push({pid,week:week-1,bid,pts});
+      const pid=item.playerId; if(pid==null) return;
+      const lpts=lineupPts(pid, addWeek, tid);
+      c3[tid]+=(lpts/bid)/10;
+      detail[tid].waiverPickups.push({pid,week:addWeek,bid,pts:lpts});
     });
   });
 
-  // Z-score
+  // Z-score standardize the raw C1+C2+C3 sum
   const raw={};
   teams.forEach(t=>{raw[t.id]=(c1[t.id]||0)+(c2[t.id]||0)+(c3[t.id]||0);});
   const vals=Object.values(raw);
-  const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
-  const std=Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length)||1;
+  const mean=vals.reduce((a,b)=>a+b,0)/(vals.length||1);
+  const std=Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/(vals.length||1))||1;
   const final={};
   teams.forEach(t=>{final[t.id]=(raw[t.id]-mean)/std;});
 
@@ -428,7 +498,7 @@ function openCMModal(teamId){
   ].join('')||`<div class="modal-comp-row"><span class="key">No trades found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   const waiverRows=(d.waiverPickups||[]).map(w=>
-    `<div class="modal-comp-row"><span class="key">$${w.bid} bid · after wk${w.week}</span><span class="val">${w.pts.toFixed(1)} pts ÷ $${w.bid} = ${(w.pts/Math.max(w.bid,1)).toFixed(2)}x</span></div>`
+    `<div class="modal-comp-row"><span class="key">$${w.bid} bid · from wk${w.week}</span><span class="val">${w.pts.toFixed(1)} lineup pts ÷ $${w.bid} = ${(w.pts/Math.max(w.bid,1)).toFixed(2)}x</span></div>`
   ).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   document.getElementById('cm-title').textContent=team.name;
@@ -464,7 +534,7 @@ function openCMModal(teamId){
     <div class="modal-comp">
       <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-magnifying-glass-dollar" style="color:var(--green)"></i>C3 — Waiver ROI</div><div class="modal-comp-value" style="color:${cc(c3f)}">${c3f>=0?'+':''}${c3f.toFixed(3)}</div></div>
       <div class="modal-comp-breakdown">${waiverRows}</div>
-      <div class="modal-comp-formula">Σ (pts scored by waiver pickup after add ÷ FAAB bid paid) ÷ 10</div>
+      <div class="modal-comp-formula">Σ (lineup pts scored by waiver pickup ÷ FAAB bid paid) ÷ 10</div>
     </div>
     <details class="modal-debug">
       <summary>🔍 Debug info</summary>
@@ -486,7 +556,7 @@ function renderBig4(){
   const picked=_big4.map(id=>teamMap[id]).filter(Boolean);
   const labels=['#1 Pick','Dark Horse','Sleeper','Wild Card'];
 
-  el.innerHTML=`<div class="section-header" style="padding:14px 18px">
+  el.innerHTML=`<div class="section-header" style="padding:12px 16px">
     <i class="fa fa-crown"></i>Balls Big 4
     <button class="big4-edit-btn" onclick="promptBig4Edit()"><i class="fa fa-pen" style="margin-right:4px"></i>Edit</button>
   </div>
@@ -495,7 +565,7 @@ function renderBig4(){
     :`<div class="big4-grid">${picked.map((t,i)=>{
       const s=_scores[t.id]||0;
       return`<div class="big4-team">
-        ${_logoMap[t.id]?`<img src="${_logoMap[t.id]}" class="big4-logo" onerror="this.style.opacity='0'">`:`<div class="big4-logo" style="background:rgba(255,255,255,0.07)"></div>`}
+        ${logoImg(t.id,'big4-logo')}
         <div class="big4-info">
           <div class="big4-label">${labels[i]||'Featured'}</div>
           <div class="big4-name">${t.name}</div>
@@ -520,7 +590,7 @@ function openB4EditModal(){
       <div class="big4-picker">${_teams.map(t=>{
         const s=sel.has(t.id);
         return`<div class="big4-pick-row ${s?'selected':''}" onclick="toggleB4(${t.id})">
-          ${_logoMap[t.id]?`<img src="${_logoMap[t.id]}" style="width:30px;height:30px;border-radius:7px;object-fit:contain;background:rgba(255,255,255,0.05)">`:''}
+          ${avatarHTML(t,30,7)}
           <div style="flex:1"><div class="big4-pick-name">${t.name}</div><div class="big4-pick-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
           <div class="big4-pick-check" id="b4c-${t.id}">${s?'✓':''}</div>
         </div>`;
@@ -550,13 +620,14 @@ function closeB4Modal(e){if(e.target===document.getElementById('b4-overlay'))clo
 function closeB4ModalDirect(){document.getElementById('b4-overlay').classList.remove('open');}
 
 // ── HEADLINES ──────────────────────────────────────────────────────────────────
-// Head-to-head record between two teams across all loaded matchups
+// Head-to-head record THIS SEASON between two teams across loaded matchups
 function h2h(idA,idB){
   let wA=0,wB=0;
   _allMatchups.forEach(mu=>{
     if(!mu.home||!mu.away) return;
     const hid=mu.home.teamId,aid=mu.away.teamId;
     const hp=mu.home.totalPoints||0,ap=mu.away.totalPoints||0;
+    if((hp===0&&ap===0)) return;
     if((hid===idA&&aid===idB)||(hid===idB&&aid===idA)){
       if(hp>ap){if(hid===idA)wA++;else wB++;}
       else if(ap>hp){if(aid===idA)wA++;else wB++;}
@@ -565,86 +636,106 @@ function h2h(idA,idB){
   return{wA,wB};
 }
 
+// Deterministic hash so each matchup gets ONE stable, unique headline (no re-roll on re-render)
+function hashStr(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function standingsOrder(){return [..._teams].sort((a,b)=>(b.wins-a.wins)||(b.pf-a.pf));}
+function seedOf(id){return standingsOrder().findIndex(t=>t.id===id)+1;}
+function playoffCut(){return Math.max(4,Math.ceil((_teams.length||12)/2));}
+function leagueWeeksPlayed(){return Math.max(0,..._teams.map(t=>t.wins+t.losses+t.ties));}
+function ord(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+
 function generateHeadline(home,away,hPts,aPts){
   const diff=Math.abs(hPts-aPts);
   const winner=hPts>=aPts?home:away;
-  const loser=hPts>=aPts?away:home;
-  const winPts=Math.max(hPts,aPts);
-  const losePts=Math.min(hPts,aPts);
-  const {wA:hw2h,wB:aw2h}=h2h(home.id,away.id);
-  const totalH2H=hw2h+aw2h;
-  const winH2H=hPts>=aPts?hw2h:aw2h;
-  const loseH2H=hPts>=aPts?aw2h:hw2h;
+  const loser =hPts>=aPts?away:home;
+  const winPts=Math.max(hPts,aPts), losePts=Math.min(hPts,aPts);
+  const W=`<strong>${winner.name}</strong>`, L=`<strong>${loser.name}</strong>`;
+  const score=`${winPts.toFixed(1)}–${losePts.toFixed(1)}`;
 
-  const close=diff<5;
-  const blowout=diff>50;
-  const highScoring=winPts>160;
-  const lowScoring=losePts>0&&losePts<80;
-  const dominantH2H=totalH2H>1&&winH2H>loseH2H+1;
-  const rivalryClose=totalH2H>1&&Math.abs(winH2H-loseH2H)<=1;
-  const perfectScore=winPts>180;
+  // Records / standings context
+  const wRec=`${winner.wins}–${winner.losses}`, lRec=`${loser.wins}–${loser.losses}`;
+  const wSeed=seedOf(winner.id), lSeed=seedOf(loser.id), cut=playoffCut();
+  const wPlayed=leagueWeeksPlayed(), lateSeason=wPlayed>=9;
 
-  const pool=[];
+  // Series history (this season + all-time across every season)
+  const s=h2h(winner.id,loser.id);            // season
+  const sWin=hPts>=aPts?s.wA:s.wB, sLose=hPts>=aPts?s.wB:s.wA;
+  const at=allTimeH2H(winner.id,loser.id);     // all-time
+  const atWin=hPts>=aPts?at.wA:at.wB, atLose=hPts>=aPts?at.wB:at.wA, atGames=at.games;
 
-  // Close game
+  // Outcome flags
+  const nail=diff<2, close=diff<6, blowout=diff>=45, shootout=winPts>=150&&losePts>=125;
+  const high=winPts>=165, monster=winPts>=185, low=losePts>0&&losePts<80, bothLow=winPts<95;
+  const upset=(loser.wins>winner.wins)||(lSeed>0&&wSeed>0&&lSeed<wSeed-1);
+  const undefeatedW=winner.losses===0&&winner.wins>=3;
+  const winlessL=loser.wins===0&&loser.losses>=3;
+  const firstWin=winner.wins===1;
+
+  const specific=[];
+
+  if(nail) specific.push(`A one-possession heart attack — ${W} survives ${L} by ${diff.toFixed(1)}, ${score}. Don't look at the box score if you have a weak ticker.`);
   if(close){
-    pool.push(`By the skin of their teeth — <strong>${winner.name}</strong> outlasts <strong>${loser.name}</strong> ${winPts.toFixed(1)}–${losePts.toFixed(1)}. Fantasy gods were not playing games.`);
-    pool.push(`<strong>${winner.name}</strong> barely survives a thriller, edging <strong>${loser.name}</strong> by just ${diff.toFixed(1)}. One more injured starter and this one flips.`);
-    pool.push(`"Close enough" doesn't win you a ring, but it wins you a matchup — <strong>${winner.name}</strong> sneaks past <strong>${loser.name}</strong> ${winPts.toFixed(1)}–${losePts.toFixed(1)}.`);
+    specific.push(`By the skin of their teeth, ${W} outlasts ${L} ${score}. ${diff.toFixed(1)} points is the difference between bragging rights and silence in the group chat.`);
+    specific.push(`${W} sneaks past ${L} ${score}. One benched sleeper and this one flips — but the W still counts the same in the standings.`);
   }
-
-  // Blowout
   if(blowout){
-    pool.push(`<strong>${winner.name}</strong> sent a message to the rest of the league, putting up <strong>${winPts.toFixed(1)}</strong> en route to a ${diff.toFixed(1)}-point demolition of <strong>${loser.name}</strong>.`);
-    pool.push(`Not a game, a war crime. <strong>${winner.name}</strong> leaves <strong>${loser.name}</strong> wondering what happened after a ${diff.toFixed(1)}-point beatdown.`);
-    pool.push(`<strong>${loser.name}</strong> didn't just lose — they got posterized. <strong>${winner.name}</strong> wins by ${diff.toFixed(1)} and it wasn't even that close.`);
+    specific.push(`Call it a mercy rule. ${W} dropped ${winPts.toFixed(1)} and left ${L} in the rearview by ${diff.toFixed(1)}, ${score}.`);
+    specific.push(`Not a matchup, a Michael Bay film — explosions everywhere as ${W} demolishes ${L} by ${diff.toFixed(1)}.`);
+    specific.push(`${L} got the full final-boss treatment. ${W} wins ${score} and it was over by halftime.`);
+  }
+  if(shootout) specific.push(`Track meet at the top of the scoreboard — ${W} and ${L} combined for ${(winPts+losePts).toFixed(1)}, but only ${W} walks away happy, ${score}.`);
+  if(monster) specific.push(`Put it in the season recap: ${W} hung a monstrous ${winPts.toFixed(1)} on ${L}. That's not a lineup, that's a cheat code.`);
+  else if(high) specific.push(`${W} went full Madden on ${L}, lighting up the board for ${winPts.toFixed(1)} in the ${score} win.`);
+  if(low) specific.push(`Fantasy is cruel. ${L} mustered just ${losePts.toFixed(1)} while ${W} cruised, ${score}. Burn the tape.`);
+  if(bothLow) specific.push(`Defense optional, offense apparently too — ${W} wins an ugly rock fight over ${L}, ${score}. Somebody had to.`);
+
+  // All-time series flavor
+  if(atGames>=2){
+    if(atWin>atLose+1) specific.push(`${W} simply owns this rivalry, improving to ${atWin}–${atLose} all-time over ${L} after the ${score} win. Somebody call an exorcist.`);
+    else if(atWin>atLose) specific.push(`${W} nudges the all-time series with ${L} to ${atWin}–${atLose}, taking the latest chapter ${score}.`);
+    else if(atWin===atLose) specific.push(`The all-time ledger between these two was knotted at ${atLose}–${atLose} — until ${W} broke serve ${score}. Bad blood guaranteed at the next draft.`);
+    else specific.push(`${L} still leads the all-time series ${atLose}–${atWin}, but ${W} got one back today, ${score}.`);
+  }
+  if(sWin+sLose>=2 && Math.abs(sWin-sLose)<=1) specific.push(`These two can't stop meeting — ${W} edges ${L} again ${score} to make it ${sWin}–${sLose} between them this season alone.`);
+
+  // Playoff hopes (late season only)
+  if(lateSeason){
+    if(wSeed>0&&wSeed<=cut) specific.push(`${W} (${wRec}) keeps a firm grip on the ${ord(wSeed)} seed, handling ${L} ${score} with the postseason in sight.`);
+    if(lSeed>0&&lSeed>cut) specific.push(`${L} (${lRec}) is running out of runway. Sitting ${ord(lSeed)} after a ${losePts.toFixed(1)}-point dud, the playoff math is getting ugly.`);
+    if(wSeed>cut) specific.push(`A must-win, and ${W} delivered — beating ${L} ${score} to keep their fading playoff pulse alive at ${wRec}.`);
   }
 
-  // High scoring
-  if(highScoring&&!blowout){
-    pool.push(`Fireworks at the top of the scoreboard. <strong>${winner.name}</strong> drops <strong>${winPts.toFixed(1)}</strong> in a high-octane win over <strong>${loser.name}</strong> ${winPts.toFixed(1)}–${losePts.toFixed(1)}.`);
-    pool.push(`<strong>${winner.name}</strong> goes full Madden on <strong>${loser.name}</strong>, putting up a season-high <strong>${winPts.toFixed(1)}</strong> points for the W.`);
+  // Record-driven storylines
+  if(undefeatedW) specific.push(`Still perfect. ${W} runs it to ${wRec}, brushing aside ${L} ${score}. The rest of the league is officially on notice.`);
+  if(winlessL) specific.push(`The misery continues for ${L}, now ${lRec} after falling ${score}. ${W} happily plays the role of bully.`);
+  if(firstWin) specific.push(`Breakthrough! ${W} grabs win number one against ${L}, ${score}. Sometimes you just need one to get the boulder rolling.`);
+  if(upset&&!firstWin) specific.push(`Upset alert cashed — ${W} (${wRec}) had no business winning on paper, then beat ${L} (${lRec}) anyway, ${score}. Throw the records out.`);
+
+  // Always-available pop-culture / witty flavor (keeps the rotation fresh)
+  const flavor=[
+    `${W} understood the assignment, putting up ${winPts.toFixed(1)} to send ${L} home with the L, ${score}.`,
+    `Main-character energy from ${W} this week — ${L} was just an NPC in the ${score} story.`,
+    `${L} had plot armor right up until kickoff. ${W} wrote the ending anyway, ${score}.`,
+    `${W} speedran this one. ${L} never found the controller, ${score}.`,
+    `Somewhere a fantasy analyst is eating their words — ${W} over ${L}, ${score}, no notes.`,
+    `${W} took ${L} to the woodshed-adjacent area and won ${score}. The standings don't care how it looked.`,
+    `File under "just business": ${W} (${wRec}) tops ${L} (${lRec}) ${score} and moves on without a word.`,
+    `${L} brought a spork to a knife fight. ${W} wins ${score}.`,
+    `The scoreboard is undefeated as a storyteller — ${W} ${winPts.toFixed(1)}, ${L} ${losePts.toFixed(1)}, and that's the whole plot.`,
+    `${W} cooked. ${L} did the dishes. Final: ${score}.`,
+  ];
+
+  // Make a STABLE pick seeded by the exact matchup + result so each game keeps one
+  // headline. Context-specific lines dominate; one flavor wildcard is mixed in for spice.
+  const seed=hashStr(`${home.id}|${away.id}|${_currentWeek}|${winPts.toFixed(1)}|${losePts.toFixed(1)}`);
+  let pool;
+  if(specific.length){
+    pool=[...specific,...specific,...specific];      // heavy weight on team/outcome context
+    pool.push(flavor[seed % flavor.length]);          // a single pop-culture wildcard
+  } else {
+    pool=flavor;
   }
-
-  // Low scoring loser
-  if(lowScoring){
-    pool.push(`<strong>${winner.name}</strong> wins ugly. <strong>${loser.name}</strong> posted just ${losePts.toFixed(1)} — a week to forget for that roster.`);
-    pool.push(`Fantasy is cruel. <strong>${loser.name}</strong> limps to ${losePts.toFixed(1)} while <strong>${winner.name}</strong> takes advantage for an easy W.`);
-  }
-
-  // H2H dominance
-  if(dominantH2H){
-    pool.push(`<strong>${winner.name}</strong> owns <strong>${loser.name}</strong> in this rivalry, improving to ${winH2H}–${loseH2H} all-time and winning again ${winPts.toFixed(1)}–${losePts.toFixed(1)}.`);
-    pool.push(`History repeats itself. <strong>${winner.name}</strong> extends their all-time series lead over <strong>${loser.name}</strong> to ${winH2H}–${loseH2H}. Somebody call an exorcist.`);
-  }
-
-  // Close rivalry
-  if(rivalryClose&&totalH2H>2){
-    pool.push(`The all-time series is knotted at ${winH2H}–${loseH2H} and the bad blood is real. <strong>${winner.name}</strong> takes this round ${winPts.toFixed(1)}–${losePts.toFixed(1)}.`);
-    pool.push(`Every matchup between <strong>${winner.name}</strong> and <strong>${loser.name}</strong> feels like a playoff game. This one was no different — <strong>${winner.name}</strong> edges it ${winPts.toFixed(1)}–${losePts.toFixed(1)}.`);
-  }
-
-  // Playoff implications (late season)
-  if(home.losses+home.wins>10||away.losses+away.wins>10){
-    pool.push(`With the playoffs looming, <strong>${winner.name}</strong> (${winner.wins}–${winner.losses}) keeps the pressure on, beating <strong>${loser.name}</strong> (${loser.wins}–${loser.losses}) ${winPts.toFixed(1)}–${losePts.toFixed(1)}.`);
-    pool.push(`<strong>${loser.name}</strong> can't afford many more of these. A ${losePts.toFixed(1)}-point week may have serious postseason consequences.`);
-  }
-
-  // Perfect/monster week
-  if(perfectScore){
-    pool.push(`Historic week for <strong>${winner.name}</strong> — <strong>${winPts.toFixed(1)}</strong> points is the kind of number that ends up in the season recap. <strong>${loser.name}</strong> never had a chance.`);
-  }
-
-  // Pop culture / generic flavor
-  pool.push(`<strong>${winner.name}</strong> handles business against <strong>${loser.name}</strong> ${winPts.toFixed(1)}–${losePts.toFixed(1)}. The standings don't lie.`);
-  pool.push(`No drama, all results. <strong>${winner.name}</strong> (${winner.wins}–${winner.losses}) beats <strong>${loser.name}</strong> by ${diff.toFixed(1)} and moves on.`);
-  pool.push(`<strong>${loser.name}</strong> had the right idea, just the wrong players. <strong>${winner.name}</strong> wins ${winPts.toFixed(1)}–${losePts.toFixed(1)}.`);
-  pool.push(`Every week in this league is a coin flip — except this one. <strong>${winner.name}</strong> controlled it start to finish against <strong>${loser.name}</strong>.`);
-  if(winner.wins===1) pool.push(`First win of the season for <strong>${winner.name}</strong>! Sometimes you just need one to get the ball rolling.`);
-  if(loser.losses>winner.wins+2) pool.push(`<strong>${winner.name}</strong> piles on. <strong>${loser.name}</strong> drops to ${loser.wins}–${loser.losses} and the playoff math is getting grim.`);
-
-  // Pick a random one from the pool
-  return pool[Math.floor(Math.random()*pool.length)];
+  return pool[seed % pool.length];
 }
 
 function renderHeadlines(week){
@@ -752,20 +843,21 @@ function bc(v){return v>0.5?'var(--green)':v<-0.5?'var(--red)':'var(--accent)';}
 function renderTx(tx,teamMap){
   const date=tx.processedDate?new Date(tx.processedDate).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   const team=teamMap[tx.teamId]||'Unknown';
+  const av=logoImg(tx.teamId,'team-logo-sm');
   const type=tx.type||'';const items=tx.items||[];
   if(type==='WAIVER'||type==='FREEAGENT'){
     const bid=tx.bidAmount!=null?` · <span style="color:var(--accent)">$${tx.bidAmount}</span>`:'';
     return items.filter(i=>i.type==='ADD').map(()=>`
       <div class="activity-item"><div class="act-icon add"><i class="fa fa-plus"></i></div>
-      <div><div class="act-title">Add by <strong>${team}</strong>${bid}</div>
+      <div><div class="act-title">${av}Add by <strong>${team}</strong>${bid}</div>
       <div class="act-sub">${date} · ${type==='WAIVER'?'Waiver':'Free Agent'}</div></div></div>`).join('')+
     items.filter(i=>i.type==='DROP').map(()=>`
       <div class="activity-item"><div class="act-icon drop"><i class="fa fa-minus"></i></div>
-      <div><div class="act-title">Drop by <strong>${team}</strong></div><div class="act-sub">${date}</div></div></div>`).join('');
+      <div><div class="act-title">${av}Drop by <strong>${team}</strong></div><div class="act-sub">${date}</div></div></div>`).join('');
   }
   if(type==='TRADE_ACCEPT'||type==='TRADE')
     return`<div class="activity-item"><div class="act-icon trade"><i class="fa fa-right-left"></i></div>
-      <div><div class="act-title">Trade · <strong>${items.length} player${items.length!==1?'s':''}</strong></div><div class="act-sub">${date}</div></div></div>`;
+      <div><div class="act-title">${av}Trade · <strong>${items.length} player${items.length!==1?'s':''}</strong></div><div class="act-sub">${date}</div></div></div>`;
   return'';
 }
 
@@ -816,16 +908,19 @@ async function loadDashboard(){
     _currentWeek=playedWeeks[0]||1;
     const maxPlayedWeek=playedWeeks[0]||0;
 
-    // Fetch per-week player scores for C2/C3 — only played weeks
-    const weeklyScores={};
+    // Fetch per-week player data (pts/slot/team) for C2/C3 — only played weeks.
+    // Also fetch every season's schedule in the background to build an ALL-TIME
+    // head-to-head ledger used by the headline generator.
+    const weeklyData={};
+    const weekFetches=[];
     if(maxPlayedWeek>0){
-      const weekFetches=[];
-      for(let w=1;w<=maxPlayedWeek;w++) weekFetches.push(fetchPlayerWeekScores(w).then(sc=>{weeklyScores[w]=sc;}));
-      await Promise.all(weekFetches);
+      for(let w=1;w<=maxPlayedWeek;w++) weekFetches.push(fetchPlayerWeekScores(w).then(d=>{weeklyData[w]=d;}));
     }
+    const h2hFetch=buildAllTimeH2H().catch(()=>{});
+    await Promise.all([...weekFetches, h2hFetch]);
 
     // Compute coaching metric
-    const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyScores);
+    const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData);
     _scores=scores;_breakdown=breakdown;
 
     const cmRanked=[..._teams].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0));
