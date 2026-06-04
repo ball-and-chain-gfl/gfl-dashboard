@@ -16,6 +16,24 @@ export default async function handler(req, res) {
     'Cookie': `espn_s2=${espn_s2}; SWID=${swid}`,
     'Accept': 'application/json',
   };
+  const BASE = 'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl';
+  const seasonNum   = parseInt(season, 10);
+  const currentYear = new Date().getFullYear();
+  const isHistory   = seasonNum < currentYear;
+
+  // Build a league URL for a given list of views, choosing the history vs live
+  // endpoint. `forceLive` lets us retry a completed-but-recent season on the
+  // live endpoint (ESPN often still serves it there, and it carries data the
+  // leagueHistory endpoint drops — notably the transaction log).
+  function leagueURL(views, { forceLive = false } = {}) {
+    const vlist = (Array.isArray(views) ? views : [views]).filter(Boolean);
+    const vq = vlist.map(v => `view=${v}`).join('&');
+    if (isHistory && !forceLive) {
+      return `${BASE}/leagueHistory/${leagueId}?seasonId=${season}${vq ? '&' + vq : ''}`;
+    }
+    return `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}${vq ? '?' + vq : ''}`;
+  }
+  const unwrap = d => (Array.isArray(d) ? (d[0] || {}) : d);
 
   // ── YouTube RSS ──────────────────────────────────────────────────────────────
   if (type === 'youtube') {
@@ -37,35 +55,57 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }
 
-  // ── Player scoring per week — used for C2/C3 calculation ────────────────────
-  // Returns every rostered player's per-week data for a single scoring period:
-  //   players[pid] = { pts, slot, team }
-  //   pts  = ACTUAL fantasy points that week (statSourceId 0), regardless of start/bench
-  //   slot = lineupSlotId that week (used to tell starters from bench for C3)
-  //   team = teamId that rostered the player that week
-  // Past seasons (seasonId < current year) must use the leagueHistory endpoint,
-  // which returns an array that has to be unwrapped — this is what was breaking C2/C3.
-  if (type === 'playerscores') {
-    const week      = parseInt(scoringPeriodId || '1', 10);
-    const seasonNum = parseInt(season, 10);
-    const isHistory = seasonNum < new Date().getFullYear();
-    const url = isHistory
-      ? `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${season}&view=mRoster&scoringPeriodId=${week}`
-      : `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mRoster&scoringPeriodId=${week}`;
+  // ── Transactions (waivers / free agents / trades) — used for C2/C3 ───────────
+  // ESPN's leagueHistory endpoint frequently returns NO transaction log for
+  // completed seasons. So we try the season-appropriate endpoint first, and if
+  // it comes back empty we fall back to the live endpoint (works for recently
+  // finished seasons). The x-fantasy-filter header asks ESPN to actually emit
+  // the full transaction set rather than a trimmed view.
+  if (type === 'transactions') {
+    const txFilter = {
+      transactions: { filterType: { value: ['WAIVER', 'FREEAGENT', 'TRADE_ACCEPT', 'TRADE'] } },
+    };
+    const txHeaders = { ...headers, 'x-fantasy-filter': JSON.stringify(txFilter) };
+
+    async function pull(forceLive) {
+      const url = leagueURL('mTransactions2', { forceLive });
+      const r = await fetch(url, { headers: txHeaders });
+      if (!r.ok) return { txns: [], url, ok: false, status: r.status };
+      const data = unwrap(await r.json());
+      return { txns: Array.isArray(data.transactions) ? data.transactions : [], url, ok: true };
+    }
+
     try {
-      const r    = await fetch(url, { headers });
-      let data   = await r.json();
-      if (Array.isArray(data)) data = data[0] || {};
+      let source = isHistory ? 'leagueHistory' : 'seasons';
+      let { txns, url } = await pull(false);
+      // Fallback: empty history result → retry on the live endpoint.
+      if (isHistory && txns.length === 0) {
+        const live = await pull(true);
+        if (live.txns.length > 0) { txns = live.txns; url = live.url; source = 'seasons(fallback)'; }
+      }
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
+      return res.status(200).json({ transactions: txns, _source: source, _count: txns.length, _url: url });
+    } catch (err) { return res.status(500).json({ error: err.message, transactions: [] }); }
+  }
 
+  // ── Player scoring per week — used for C2/C3 calculation ────────────────────
+  // players[pid] = { pts, slot, started, team }
+  //   pts  = ACTUAL fantasy points that week (statSourceId 0), start or bench
+  //   slot = lineupSlotId that week (starters vs bench for C3)
+  //   team = teamId that rostered the player that week
+  if (type === 'playerscores') {
+    const week = parseInt(scoringPeriodId || '1', 10);
+    const url  = leagueURL('mRoster') + `&scoringPeriodId=${week}`;
+    try {
+      const r  = await fetch(url, { headers });
+      const data = unwrap(await r.json());
       const BENCH_SLOTS = [20, 21, 24]; // bench, IR, taxi/reserve
-
       const players = {};
       (data.teams || []).forEach(team => {
         (team.roster?.entries || []).forEach(e => {
           const pid = e.playerId;
           if (pid == null) return;
           const stats = e.playerPoolEntry?.player?.stats || [];
-          // Actual (statSourceId 0) points for THIS scoring period.
           const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === week);
           const pts = wk?.appliedTotal ?? e.playerPoolEntry?.appliedStatTotal ?? 0;
           players[pid] = {
@@ -80,26 +120,16 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }
 
-  // ── ESPN Fantasy API ─────────────────────────────────────────────────────────
-  const viewParam = view || 'mTeam';
-  const seasonNum = parseInt(season, 10);
-  const currentYear = new Date().getFullYear();
-
-  let url;
-  if (seasonNum < currentYear) {
-    url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${season}&view=${viewParam}`;
-  } else {
-    url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=${viewParam}`;
-  }
-
+  // ── Generic view passthrough (supports multiple ?view= params) ───────────────
+  const views = view || 'mTeam';
+  const url = leagueURL(views);
   try {
     const response = await fetch(url, { headers });
     if (!response.ok) {
       const text = await response.text();
       return res.status(response.status).json({ error: `ESPN API ${response.status}`, details: text, url });
     }
-    let data = await response.json();
-    if (Array.isArray(data)) data = data[0];
+    const data = unwrap(await response.json());
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
     return res.status(200).json(data);
   } catch (err) { return res.status(500).json({ error: err.message }); }
