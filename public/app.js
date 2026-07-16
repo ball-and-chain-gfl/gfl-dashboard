@@ -23,6 +23,10 @@ let _franchises=[];   // [{owner, name, logo, teamId, games}] — latest identit
 let _weeklyData={};   // week -> pid -> {pts, slot, started, team, n}
 let _playerNames={};  // pid -> name
 let _tenure=null,_tenureLoading=false;  // owner -> pid -> {n, wAll, pAll, seasons:{y:{w,p}}}
+let _transactions=[];                   // current season's transaction list (real/archive/inferred)
+let _draftCache={},_draftLoading=false; // season -> {picks, stats}
+const _logoColorCache={};               // teamId -> dominant logo color
+const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
 let _activeTab='home';
 const ALL_SEASONS=['2022','2023','2024','2025','2026'];
 
@@ -114,6 +118,37 @@ function franchiseAvatar(f,size,radius){
   return avatarCore(f?.name||'',f?.teamId||0,proxyLogo(f?.logo),size,radius);
 }
 
+// ── DOMINANT LOGO COLOR (for trade bars) ─────────────────────────────────────
+async function logoMainColor(teamId){
+  if(_logoColorCache[teamId]) return _logoColorCache[teamId];
+  const url=_logoMap[teamId];
+  const fallback=teamColor(teamId);
+  if(!url) return (_logoColorCache[teamId]=fallback);
+  try{
+    const img=new Image();
+    img.src=url;
+    await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;setTimeout(rej,4000);});
+    const S=24,c=document.createElement('canvas');c.width=S;c.height=S;
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0,S,S);
+    const d=ctx.getImageData(0,0,S,S).data;
+    const buckets={};
+    for(let i=0;i<d.length;i+=4){
+      const r=d[i],g=d[i+1],b=d[i+2],al=d[i+3];
+      if(al<128) continue;
+      const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+      if(mx-mn<28||mx<45||mn>235) continue;           // skip gray / near-black / near-white
+      let hph;
+      if(mx===r) hph=((g-b)/(mx-mn)+6)%6; else if(mx===g) hph=(b-r)/(mx-mn)+2; else hph=(r-g)/(mx-mn)+4;
+      const key=Math.round(hph*60/24)*24;              // 24° hue buckets
+      const e=buckets[key]||(buckets[key]={n:0,r:0,g:0,b:0});
+      e.n++;e.r+=r;e.g+=g;e.b+=b;
+    }
+    const best=Object.values(buckets).sort((x,y)=>y.n-x.n)[0];
+    if(!best||best.n<8) return (_logoColorCache[teamId]=fallback);
+    return (_logoColorCache[teamId]=`rgb(${Math.round(best.r/best.n)},${Math.round(best.g/best.n)},${Math.round(best.b/best.n)})`);
+  }catch{return (_logoColorCache[teamId]=fallback);}
+}
+
 // ── ALL-TIME HEAD-TO-HEAD (across every season) ───────────────────────────────
 // Keyed on stable owner GUIDs — ESPN reassigns team ids between seasons.
 function ownerOf(team){
@@ -188,6 +223,7 @@ function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   if(name==='tenure') ensureTenure();
+  if(name==='draft') ensureDraft();
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -910,6 +946,124 @@ function renderTenureTable(){
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
 
+// ── TRADES TAB ─────────────────────────────────────────────────────────────────
+function ptsFromWeek(pid,startWeek){
+  let t=0;
+  for(const w in _weeklyData){const wn=Number(w);if(wn>=startWeek)t+=_weeklyData[wn]?.[pid]?.pts??0;}
+  return t;
+}
+function buildTrades(){
+  const list=[];
+  (_transactions||[]).forEach(tx=>{
+    if(tx.type!=='TRADE_ACCEPT'&&tx.type!=='TRADE') return;
+    const week=tx.scoringPeriodId||0;
+    const recv={},teams=new Set();
+    (tx.items||[]).forEach(it=>{
+      if(it.playerId==null) return;
+      if(it.toTeamId!=null){(recv[it.toTeamId]||(recv[it.toTeamId]=[])).push(it.playerId);teams.add(it.toTeamId);}
+      if(it.fromTeamId!=null) teams.add(it.fromTeamId);
+    });
+    const ids=[...teams];
+    if(ids.length<2) return;
+    const mk=tid=>{
+      const players=(recv[tid]||[]).map(pid=>({pid,n:pName(pid),pts:ptsFromWeek(pid,week+1)}))
+        .sort((x,y)=>y.pts-x.pts);
+      return {tid,players,total:players.reduce((s,p)=>s+p.pts,0)};
+    };
+    const A=mk(ids[0]),B=mk(ids[1]);
+    list.push({week:week+1,a:A,b:B,margin:Math.abs(A.total-B.total)});
+  });
+  list.sort((x,y)=>y.margin-x.margin);
+  return list;
+}
+async function renderTradesTab(){
+  const body=document.getElementById('trades-body'); if(!body) return;
+  const trades=buildTrades();
+  if(!trades.length){body.innerHTML=`<div class="tab-loading">No trades found in the ${getSeason()} season.</div>`;return;}
+  const tids=new Set();trades.forEach(t=>{tids.add(t.a.tid);tids.add(t.b.tid);});
+  const colors={};
+  await Promise.all([...tids].map(async id=>{colors[id]=await logoMainColor(id);}));
+  const tn=id=>(_teams.find(t=>t.id===id)?.name||`Team ${id}`).trim();
+  body.innerHTML=trades.map((tr,i)=>{
+    const la=Math.max(tr.a.total,0),lb=Math.max(tr.b.total,0);
+    let wA=(la+lb)>0?la/(la+lb):0.5;
+    wA=Math.min(0.96,Math.max(0.04,wA));
+    const aWin=tr.a.total>=tr.b.total;
+    const side=(sd,right)=>`
+      <div class="trade-side${right?' right':''}">
+        <div class="trade-team">${logoImg(sd.tid)}<div><div class="trade-team-name">${tn(sd.tid)}</div><div class="trade-recv">received${(aWin&&!right)||(!aWin&&right)?' · <b style="color:var(--green)">won</b>':''}</div></div></div>
+        ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name">${p.n}</span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+        <div class="trade-total" style="color:${colors[sd.tid]}">${sd.total.toFixed(1)} pts</div>
+      </div>`;
+    return`<div class="trade-card">
+      <div class="trade-head"><span class="trade-rank">#${i+1}</span>Week ${tr.week} trade<span class="badge-info">net swing ${tr.margin.toFixed(1)} pts to ${tn(aWin?tr.a.tid:tr.b.tid)}</span></div>
+      <div class="trade-grid">${side(tr.a,false)}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(tr.b,true)}</div>
+      <div class="trade-bar"><span style="width:${(wA*100).toFixed(1)}%;background:${colors[tr.a.tid]}"></span><span style="flex:1;background:${colors[tr.b.tid]}"></span></div>
+      <div class="trade-bar-labels"><span style="color:${colors[tr.a.tid]}">${(wA*100).toFixed(0)}% of post-trade points</span><span style="color:${colors[tr.b.tid]}">${(100-wA*100).toFixed(0)}%</span></div>
+    </div>`;
+  }).join('')+`<div style="padding:0 18px 16px;font-size:11px;color:var(--text3)">Each side shows the players that manager received and the points those players scored from the trade week onward. The bar splits by share of post-trade points captured — the more lopsided the bar, the more uneven the trade.</div>`;
+}
+
+// ── DRAFT TAB ──────────────────────────────────────────────────────────────────
+async function ensureDraft(){
+  const season=getSeason();
+  const body=document.getElementById('draft-body'); if(!body) return;
+  if(_draftCache[season]){renderDraftTab();return;}
+  if(_draftLoading) return;
+  _draftLoading=true;
+  body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading draft results &amp; season stats…</div>`;
+  try{
+    const [dr,st]=await Promise.all([
+      fetch(`${BASE}?type=draft&seasonId=${season}`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`${BASE}?type=seasonstats&seasonId=${season}`).then(r=>r.ok?r.json():null).catch(()=>null),
+    ]);
+    _draftCache[season]={picks:dr?.picks||[],stats:st?.players||[]};
+  }catch{_draftCache[season]={picks:[],stats:[]};}
+  _draftLoading=false;
+  renderDraftTab();
+}
+function renderDraftTab(){
+  const body=document.getElementById('draft-body'); if(!body) return;
+  const season=getSeason();
+  const d=_draftCache[season]; if(!d) return;
+  const {picks,stats}=d;
+  if(!picks.length||!stats.length){body.innerHTML=`<div class="tab-loading">No draft data available for the ${season} season.</div>`;return;}
+  const rankOverall={},rankPos={},posCount={},statById={};
+  stats.forEach((p,i)=>{rankOverall[p.id]=i+1;posCount[p.pos]=(posCount[p.pos]||0)+1;rankPos[p.id]=posCount[p.pos];statById[p.id]=p;});
+  const posDraftCount={};
+  const rows=picks.slice().sort((x,y)=>x.overall-y.overall).map(pk=>{
+    const s=statById[pk.playerId];
+    const pos=s?.pos??null,posKey=pos??'x';
+    posDraftCount[posKey]=(posDraftCount[posKey]||0)+1;
+    const name=s?.n||_playerNames[pk.playerId]||`Player #${pk.playerId}`;
+    const fin=rankOverall[pk.playerId]??null;
+    const delta=fin!=null?pk.overall-fin:pk.overall-(stats.length+1);
+    return {name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,overall:pk.overall,posDrafted:posDraftCount[posKey],fin,finPos:rankPos[pk.playerId]??null,pts:s?.pts??0,delta};
+  });
+  const tn=id=>(_teams.find(t=>t.id===id)?.name||`Team ${id}`).trim();
+  const steals=rows.slice().sort((x,y)=>y.delta-x.delta).slice(0,10);
+  const busts=rows.filter(r=>r.overall<=72).sort((x,y)=>x.delta-y.delta).slice(0,10);
+  const row=(r,i)=>`<div class="draft-row">
+    <div class="draft-rankn">${i+1}</div>
+    <div class="draft-info">
+      <div class="draft-name">${r.name}<span class="draft-pos">${r.posName}</span> <span class="draft-mgr">· drafted by ${tn(r.teamId)}</span></div>
+      <div class="draft-line">Drafted <b>#${r.overall} overall</b> (${r.posName}${r.posDrafted} taken) → Finished ${r.fin!=null?`<b>#${r.fin} overall</b> (${r.posName}${r.finPos})`:'<b>outside the top ${stats.length}</b>'} · ${r.pts.toFixed(1)} pts</div>
+    </div>
+    <div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div>
+  </div>`;
+  body.innerHTML=`<div class="two-col" style="margin:0;padding:14px;gap:14px">
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Draft Steals<span class="badge-info">beat their draft slot</span></div>
+      ${steals.map(row).join('')}
+    </div>
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Draft Busts<span class="badge-info">first 6 rounds</span></div>
+      ${busts.map(row).join('')}
+    </div>
+  </div>
+  <div style="padding:0 18px 16px;font-size:11px;color:var(--text3)">Finish rank compares total ${season} fantasy points (league scoring) across all NFL players. Delta = draft slot − finish rank, so +14 means a player drafted 16th who finished 2nd.</div>`;
+}
+
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
 function selectVideo(videoId){
   _activeVideoId=videoId;
@@ -1041,6 +1195,7 @@ async function loadDashboard(){
       const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData);
       _scores=scores;_breakdown=breakdown;
     }
+    _transactions=transactions;
 
     const cmRanked=[..._teams].sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));
     const totalMoves=_teams.reduce((s,t)=>s+t.moves,0);
@@ -1144,6 +1299,22 @@ async function loadDashboard(){
         </div>
       </div>
 
+      <!-- TRADES -->
+      <div class="tab-page" id="page-trades">
+        <div class="card">
+          <div class="section-header"><i class="fa fa-right-left"></i>Trade Report — ${season}<span class="badge-info">ranked most → least lopsided · ${_txMeta.source.includes('inferred')?'reconstructed from rosters':_txMeta.source.includes('archive')?'from git archive':'from ESPN log'}</span></div>
+          <div id="trades-body"></div>
+        </div>
+      </div>
+
+      <!-- DRAFT -->
+      <div class="tab-page" id="page-draft">
+        <div class="card">
+          <div class="section-header"><i class="fa fa-clipboard-list"></i>Draft Report — ${season}<span class="badge-info">draft slot vs season finish</span></div>
+          <div id="draft-body"></div>
+        </div>
+      </div>
+
       <!-- MATCHUP HISTORY -->
       <div class="tab-page" id="page-history">
         <div class="card">
@@ -1174,6 +1345,8 @@ async function loadDashboard(){
     renderBig4();
     if(playedWeeks.length) renderHeadlines(_currentWeek);
     renderHistoryTable();
+    renderTradesTab();
+    if(_activeTab==='draft') ensureDraft();
     switchTab(_activeTab);
     if(_activeTab!=='tenure'&&_tenure) renderTenureTable();
 

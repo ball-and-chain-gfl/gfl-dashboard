@@ -196,6 +196,39 @@
     .act-title{font-size:13px;font-weight:500;margin-bottom:2px;}
     .act-sub{font-size:11px;color:var(--text3);}
 
+    /* TRADES TAB */
+    .trade-card{border:1px solid var(--border);border-radius:16px;margin:14px 18px;overflow:hidden;background:rgba(255,255,255,0.02);}
+    .trade-card:last-child{margin-bottom:18px;}
+    .trade-head{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;}
+    .trade-rank{color:var(--accent);font-weight:800;}
+    .trade-grid{display:grid;grid-template-columns:1fr 34px 1fr;}
+    .trade-side{padding:12px 16px;min-width:0;}
+    .trade-side.right{text-align:right;}
+    .trade-vs{display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:15px;}
+    .trade-team{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    .trade-side.right .trade-team{flex-direction:row-reverse;}
+    .trade-team-name{font-size:13px;font-weight:700;line-height:1.25;}
+    .trade-recv{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-top:1px;}
+    .trade-player{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;}
+    .trade-side.right .trade-player{flex-direction:row-reverse;}
+    .tp-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .tp-pts{font-weight:600;flex-shrink:0;}
+    .trade-total{font-weight:800;font-size:14px;margin-top:7px;}
+    .trade-bar{display:flex;height:10px;margin:2px 16px 5px;border-radius:5px;overflow:hidden;background:rgba(255,255,255,0.06);}
+    .trade-bar span{display:block;height:100%;}
+    .trade-bar-labels{display:flex;justify-content:space-between;padding:0 16px 12px;font-size:10px;color:var(--text3);}
+
+    /* DRAFT TAB */
+    .draft-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,0.05);}
+    .draft-row:last-child{border-bottom:none;}
+    .draft-rankn{font-size:12px;font-weight:700;color:var(--accent);width:20px;text-align:center;flex-shrink:0;}
+    .draft-info{flex:1;min-width:0;}
+    .draft-name{font-size:13px;font-weight:600;}
+    .draft-pos{font-size:10px;color:var(--text3);background:rgba(255,255,255,0.06);border-radius:5px;padding:1px 6px;margin-left:5px;vertical-align:middle;}
+    .draft-mgr{font-size:11px;color:var(--text3);font-weight:400;}
+    .draft-line{font-size:11.5px;color:var(--text2);margin-top:2px;line-height:1.5;}
+    .draft-delta{font-size:15px;font-weight:800;flex-shrink:0;min-width:44px;text-align:right;}
+
     /* HISTORY + TENURE TABS */
     .picker-bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
     .picker-bar label{font-size:12px;color:var(--text3);}
@@ -255,6 +288,11 @@
       .headline-grid{grid-template-columns:1fr;}
       .card{border-radius:16px;}
       .standings-filters,.headline-controls{padding:10px 12px;}
+      .trade-card{margin:10px 10px;}
+      .trade-grid{grid-template-columns:1fr 22px 1fr;}
+      .trade-side{padding:10px 10px;}
+      .draft-row{padding:10px 12px;gap:8px;}
+      .draft-delta{min-width:36px;font-size:13px;}
     }
     @media(max-width:480px){
       .coaching-bar{display:none;}
@@ -313,6 +351,8 @@
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
   <button class="tab-btn" data-tab="headlines" onclick="switchTab('headlines')"><i class="fa fa-newspaper"></i>Headlines</button>
   <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Standings &amp; Stats</button>
+  <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
+  <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Matchup History</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Tenure</button>
 </nav>

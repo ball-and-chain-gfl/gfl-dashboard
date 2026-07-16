@@ -288,6 +288,52 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }
 
+  // ── Draft results ─────────────────────────────────────────────────────────────
+  if (type === 'draft') {
+    try {
+      const r = await fetch(leagueURL('mDraftDetail', { forceLive: true }), { headers });
+      const data = unwrap(await r.json());
+      const picks = (data.draftDetail?.picks || []).map(p => ({
+        playerId: p.playerId,
+        overall: p.overallPickNumber,
+        round: p.roundId,
+        roundPick: p.roundPickNumber,
+        teamId: p.teamId,
+        keeper: !!p.keeper,
+      }));
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=86400, stale-while-revalidate=3600');
+      return res.status(200).json({ season, picks });
+    } catch (err) { return res.status(500).json({ error: err.message, picks: [] }); }
+  }
+
+  // ── Season-total player stats (league scoring) — for draft steals/busts ──────
+  if (type === 'seasonstats') {
+    try {
+      const filter = { players: { limit: 600, sortAppliedStatTotal: { sortAsc: false, sortPriority: 1 } } };
+      const r = await fetch(leagueURL('kona_player_info', { forceLive: true }), {
+        headers: { ...headers, 'x-fantasy-filter': JSON.stringify(filter) },
+      });
+      const data = unwrap(await r.json());
+      const players = (data.players || []).map(e => {
+        const pl = e.player || {};
+        const tot = (pl.stats || []).find(st => st.statSourceId === 0 && st.statSplitTypeId === 0 && String(st.seasonId) === String(season));
+        return {
+          id: pl.id,
+          n: pl.fullName || null,
+          pos: pl.defaultPositionId ?? null,
+          pts: tot?.appliedTotal ?? e.appliedStatTotal ?? 0,
+        };
+      }).filter(p => p.id != null);
+      players.sort((a, b) => b.pts - a.pts);
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, count: players.length, players });
+    } catch (err) { return res.status(500).json({ error: err.message, players: [] }); }
+  }
+
   // ── Generic view passthrough (supports multiple ?view= params) ───────────────
   const views = view || 'mTeam';
   let url = leagueURL(views, { forceLive: req.query.live === '1' });
