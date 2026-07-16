@@ -747,7 +747,7 @@ function renderHistoryTable(){
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
-    ${rows.length?`<table>
+    ${rows.length?`<div class="tscroll"><table class="min560">
       <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
       <tbody>${rows.map(r=>`
         <tr>
@@ -759,7 +759,7 @@ function renderHistoryTable(){
           <td class="right pf">${r.pf.toFixed(1)}</td>
           <td class="right pa">${r.pa.toFixed(1)}</td>
         </tr>`).join('')}</tbody>
-    </table>`:`<div class="tab-loading">No games found for this team.</div>`}`;
+    </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}`;
 }
 
 // ── PLAYER TENURE TAB ──────────────────────────────────────────────────────────
@@ -816,7 +816,7 @@ function renderTenureTable(){
   .sort((a,b)=>b.wAll-a.wAll||b.pAll-a.pAll);
 
   const shown=players.slice(0,100);
-  body.innerHTML=shown.length?`<table>
+  body.innerHTML=shown.length?`<div class="tscroll"><table class="min480">
     <thead><tr><th>Player</th><th class="right">Weeks ${yr}</th><th class="right">Pts ${yr}</th><th class="right">Weeks all-time</th><th class="right">Pts all-time</th></tr></thead>
     <tbody>${shown.map((p,i)=>`
       <tr>
@@ -826,7 +826,7 @@ function renderTenureTable(){
         <td class="right"><strong>${p.wAll}</strong></td>
         <td class="right pf">${p.pAll.toFixed(1)}</td>
       </tr>`).join('')}</tbody>
-  </table>${players.length>100?`<div style="padding:12px 18px;font-size:11px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}`
+  </table></div>${players.length>100?`<div style="padding:12px 18px;font-size:11px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
 
@@ -1019,7 +1019,7 @@ async function loadDashboard(){
             <button class="filter-btn" onclick="sortAndHighlight('trades',this)">Most Trades</button>
             <button class="filter-btn" onclick="sortAndHighlight('cm',this)">Coaching Metric</button>
           </div>
-          <table><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table>
+          <div class="tscroll"><table class="min640"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
         </div>
         <div class="two-col">
           <div class="card">
