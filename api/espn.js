@@ -213,7 +213,9 @@ export default async function handler(req, res) {
   //   team = teamId that rostered the player that week
   if (type === 'playerscores') {
     const week = parseInt(scoringPeriodId || '1', 10);
-    const url  = leagueURL('mRoster') + `&scoringPeriodId=${week}`;
+    // Always use the seasons/{year} endpoint: unlike leagueHistory, it returns
+    // TRUE week-specific rosters for completed seasons (verified back to 2022).
+    const url  = leagueURL('mRoster', { forceLive: true }) + `${leagueURL('mRoster', { forceLive: true }).includes('?') ? '&' : '?'}scoringPeriodId=${week}`;
     try {
       const r  = await fetch(url, { headers });
       const data = unwrap(await r.json());
@@ -250,7 +252,7 @@ export default async function handler(req, res) {
     try {
       const weekResults = await Promise.all(weekIds.map(async w => {
         try {
-          const r = await fetch(leagueURL('mRoster') + `&scoringPeriodId=${w}`, { headers });
+          const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
           if (!r.ok) return null;
           return { week: w, data: unwrap(await r.json()) };
         } catch { return null; }
