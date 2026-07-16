@@ -142,6 +142,9 @@ async function buildAllTimeH2H(){
     Object.entries(meta.names).forEach(([o,info])=>{f[o]={owner:o,...info};});
   });
   _franchises=Object.values(f).filter(x=>(games[x.owner]||0)>0).map(x=>({...x,games:games[x.owner]||0}));
+  // Hide former league members (configured in config.js -> excludeTeams)
+  const excl=(Array.isArray(_CFG.excludeTeams)?_CFG.excludeTeams:[]).map(s=>String(s).toLowerCase()).filter(Boolean);
+  _franchises=_franchises.filter(fr=>!excl.some(q=>fr.name.toLowerCase().includes(q)));
   _franchises.sort((a,b)=>a.name.localeCompare(b.name));
 }
 function allTimeH2H(idA,idB){
@@ -202,25 +205,21 @@ function inferTransactionsFromRosters(weeklyData,teams){
       if(tp==null) moved.push({pid:Number(pid),from:null,to:t});      // added from FA/waivers
       else if(tp!==t) moved.push({pid:Number(pid),from:tp,to:t});     // changed teams
     }
-    const used=new Set();
-    // Pair opposite-direction moves between the same two teams => trade
-    moved.forEach((m,idx)=>{
-      if(used.has(idx)||m.from==null) return;
-      const j=moved.findIndex((x,xi)=>!used.has(xi)&&xi!==idx&&x.from!=null&&x.from===m.to&&x.to===m.from);
-      if(j>=0){
-        used.add(idx);used.add(j);
-        const other=moved[j];
-        txns.push({type:'TRADE_ACCEPT',teamId:m.to,scoringPeriodId:wPrev,status:'EXECUTED',items:[
-          {type:'TRADE',playerId:m.pid,fromTeamId:m.from,toTeamId:m.to},
-          {type:'TRADE',playerId:other.pid,fromTeamId:other.from,toTeamId:other.to},
-        ]});
+    // ANY direct team-to-team move is a trade leg (covers uneven 2-for-1 trades).
+    // Legs between the same two teams in the same week are grouped into one trade.
+    const tradeGroups={};
+    moved.forEach(m=>{
+      if(m.from!=null&&m.to!=null&&m.from!==m.to){
+        const key=m.from<m.to?`${m.from}|${m.to}`:`${m.to}|${m.from}`;
+        (tradeGroups[key]||(tradeGroups[key]=[])).push({type:'TRADE',playerId:m.pid,fromTeamId:m.from,toTeamId:m.to});
+      }else if(m.from==null&&m.to!=null){
+        // Appeared from free agency = waiver/FA add (est. bid = team season average)
+        txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
+          items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
       }
     });
-    // Everything else = waiver / free-agent add (est. bid = team season average)
-    moved.forEach((m,idx)=>{
-      if(used.has(idx)||m.to==null) return;
-      txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
-        items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
+    Object.values(tradeGroups).forEach(items=>{
+      txns.push({type:'TRADE_ACCEPT',teamId:items[0].toTeamId,scoringPeriodId:wPrev,status:'EXECUTED',items});
     });
   }
   return txns;
@@ -293,20 +292,40 @@ async function computeCoaching(teams, transactions, weeklyData){
     }
   });
 
-  // C3 — waivers / free agents
+  // C3 — waivers / free agents.
+  // Denominator = bid-efficiency margin: (winning bid − next-highest bid on that
+  // player in the same waiver run). Competing bids come from losing/failed claims
+  // in the transaction log; if nobody else bid (or no bid data survives, as in
+  // reconstructed seasons), the margin is the full bid. Floor of $1.
+  const bidsByKey={};
+  (transactions||[]).forEach(tx=>{
+    if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
+    if(tx.bidAmount==null) return;
+    const wk=tx.scoringPeriodId||0;
+    (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
+      if(item.playerId==null) return;
+      const key=`${item.playerId}|${wk}`;
+      (bidsByKey[key]||(bidsByKey[key]=[])).push(Number(tx.bidAmount)||0);
+    });
+  });
   (transactions||[]).forEach(tx=>{
     if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
     if(!executed(tx)) return;
-    const bid=Math.max(tx.bidAmount??0,1);
+    const bid=Math.max(tx.bidAmount??0,0);
     const addWeek=tx.scoringPeriodId||1;
     (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
       const pid=item.playerId; if(pid==null) return;
       const tid=(tx.teamId!=null&&tx.teamId in c3)?tx.teamId:item.toTeamId;
       if(tid==null||!(tid in c3)) return;
       detail[tid].txTypes.add(tx.type);
+      const key=`${pid}|${tx.scoringPeriodId||0}`;
+      const others=(bidsByKey[key]||[]).slice().sort((x,y)=>y-x);
+      const i0=others.indexOf(bid); if(i0>=0) others.splice(i0,1);
+      const next=others.length?Math.min(others[0],bid):0;
+      const margin=Math.max(bid-next,1);
       const lpts=lineupPts(pid, addWeek, tid);
-      c3[tid]+=(lpts/bid)/10;
-      detail[tid].waiverPickups.push({pid,week:addWeek,bid,pts:lpts,est:!!tx._estBid});
+      c3[tid]+=(lpts/margin)/10;
+      detail[tid].waiverPickups.push({pid,week:addWeek,bid,next,margin,pts:lpts,est:!!tx._estBid});
     });
   });
 
@@ -338,12 +357,13 @@ function openCMModal(teamId){
     ...(d.tradesSent||[]).map(r=>`<div class="modal-comp-row"><span class="key">Sent ${pName(r.pid)} (wk ${r.week})</span><span class="val" style="color:var(--red)">−${r.pts.toFixed(1)} pts</span></div>`)
   ].join('')||`<div class="modal-comp-row"><span class="key">No trades found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
-  const waiverRows=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.bid,1)-a.pts/Math.max(a.bid,1)).map(w=>
-    `<div class="modal-comp-row"><span class="key">${pName(w.pid)} · wk ${w.week} · $${w.bid}${w.est?'<span style="opacity:0.6"> est.</span>':''}</span><span class="val">${w.pts.toFixed(1)} pts ÷ $${w.bid} = ${(w.pts/Math.max(w.bid,1)).toFixed(2)}x</span></div>`
-  ).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
+  const waiverRows=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1)).map(w=>{
+    const mar=Math.max(w.margin??w.bid,1);
+    return `<div class="modal-comp-row"><span class="key">${pName(w.pid)} · wk ${w.week} · $${w.bid}${w.next?` (next bid $${w.next})`:''}${w.est?'<span style="opacity:0.6"> est.</span>':''}</span><span class="val">${w.pts.toFixed(1)} pts ÷ $${mar} = ${(w.pts/mar).toFixed(2)}x</span></div>`;
+  }).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   const modeNote=_cmMode==='inferred'
-    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>. Multi-player (uneven) trades may be split into adds, and FAAB bids are estimated from each team's average (budget spent ÷ adds).</div>`
+    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>: any player moving directly from one roster to another counts as a trade (uneven trades included). FAAB bids are estimated from each team's average (budget spent ÷ adds), and competing-bid margins aren't recoverable, so the C3 denominator equals the full estimated bid.</div>`
     :'';
 
   document.getElementById('cm-title').textContent=team.name;
@@ -380,7 +400,7 @@ function openCMModal(teamId){
     <div class="modal-comp">
       <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-magnifying-glass-dollar" style="color:var(--green)"></i>C3 — Waiver ROI</div><div class="modal-comp-value" style="color:${cc(c3f)}">${c3f>=0?'+':''}${c3f.toFixed(3)}</div></div>
       <div class="modal-comp-breakdown">${waiverRows}</div>
-      <div class="modal-comp-formula">Σ (lineup pts scored by waiver pickup ÷ FAAB bid) ÷ 10</div>
+      <div class="modal-comp-formula">Σ (lineup pts scored by pickup ÷ (winning FAAB bid − next-highest bid)) ÷ 10 — the margin rewards efficient bids; if nobody else bid, the margin is the full bid</div>
     </div>
     <details class="modal-debug">
       <summary>🔍 Debug info</summary>
@@ -667,20 +687,20 @@ function renderHeadlines(week){
 // ── STANDINGS ──────────────────────────────────────────────────────────────────
 function sortStandings(col){
   if(_sortCol===col)_sortAsc=!_sortAsc;
-  else{_sortCol=col;_sortAsc=(col==='rank');}
+  else{_sortCol=col;_sortAsc=false;}
   renderStandingsTable();
 }
 function sortAndHighlight(col,btn){
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  _sortCol=col;_sortAsc=(col==='rank');
+  _sortCol=col;_sortAsc=false;
   renderStandingsTable();
 }
 function renderStandingsTable(){
   const teams=[..._teams];
   teams.sort((a,b)=>{
     let va,vb;
-    if(_sortCol==='rank'){va=a.wins/((a.wins+a.losses+a.ties)||1);vb=b.wins/((b.wins+b.losses+b.ties)||1);}
+    if(_sortCol==='rank'){va=a.wins/((a.wins+a.losses+a.ties)||1)+a.pf/1e7;vb=b.wins/((b.wins+b.losses+b.ties)||1)+b.pf/1e7;}
     else if(_sortCol==='pf'){va=a.pf;vb=b.pf;}
     else if(_sortCol==='pa'){va=a.pa;vb=b.pa;}
     else if(_sortCol==='wins'){va=a.wins;vb=b.wins;}

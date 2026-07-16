@@ -22,4 +22,8 @@ window.GFL_CONFIG = {
     "Florida",               // slot 4
   ],
   labels: ["#1 Pick", "Dark Horse", "Sleeper", "Wild Card"],
+
+  /* Former league members hidden from Matchup History & Player Tenure.
+     Case-insensitive partial matches against the team name. */
+  excludeTeams: ["who gibbs", "wafflestomp", "bozeman", "simptown"],
 };
