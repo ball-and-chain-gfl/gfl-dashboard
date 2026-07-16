@@ -1,0 +1,39 @@
+{
+  "_comment": "Official Coaching Metric values archived from the commissioner's spreadsheet. Seasons listed in `none` show 'no data available'. Team keys are matched case-insensitively as partial names against that season's ESPN team names.",
+  "none": ["2022", "2023"],
+  "2025": {
+    "source": "Coaching Metric 2025 spreadsheet",
+    "scores": {
+      "The Bryan Football Team": {"c1": 4.76225, "c2": 4.59, "c3": 2.865, "final": 12.21725},
+      "Bikini Bottom Goobers":  {"c1": 1.53975, "c2": 4.66, "c3": 1.29, "final": 7.48975},
+      "Lebron's 3rd Leg":       {"c1": -0.03625, "c2": 6.13, "c3": 0.825, "final": 6.91875},
+      "Team silly willy":       {"c1": 1.07325, "c2": 0, "c3": 0.9, "final": 1.97325},
+      "Tuckasegee Tinglers":    {"c1": -0.09375, "c2": 0, "c3": 1.65, "final": 1.55625},
+      "Motor City Mulligans":   {"c1": -1.25125, "c2": -1.115, "c3": 3.135, "final": 0.76875},
+      "West Coast Wigglers":    {"c1": -1.51025, "c2": -2.885, "c3": 2.205, "final": -2.19025},
+      "Midwest Miners":         {"c1": -3.44975, "c2": 4.04, "c3": -4.14, "final": -3.54975},
+      "Marathon Men":           {"c1": 0.65475, "c2": -3.235, "c3": -2.115, "final": -4.69525},
+      "Florida Man":            {"c1": 2.08825, "c2": -5.895, "c3": -2.76, "final": -6.56675},
+      "Whittingham Sports":     {"c1": -4.30025, "c2": 0, "c3": 1.05, "final": -6.75025},
+      "Bismuth":                {"c1": 0.52275, "c2": -6.29, "c3": -4.905, "final": -10.67225}
+    }
+  },
+  "2024": {
+    "legacy": true,
+    "source": "Coaching Metric 2024 spreadsheet (legacy weighted-metric formula)",
+    "scores": {
+      "Lebron's 3rd Leg":        {"final": 7.814},
+      "The Bryan Football Team": {"final": 6.144},
+      "SKOL":                    {"final": 3.898},
+      "Bikini Bottom Goobers":   {"final": 2.984},
+      "Wan'dalicious":           {"final": 2.014},
+      "#BeatJimmy2025":          {"final": 1.322},
+      "Florida Man":             {"final": -0.044},
+      "Won't you be my Nabers":  {"final": -1},
+      "Who Gibbs A":             {"final": -3.502},
+      "Teton Tinglers":          {"final": -3.6},
+      "Kirkland Signature":      {"final": -5.084},
+      "Team silly willy":        {"final": -10.95}
+    }
+  }
+}

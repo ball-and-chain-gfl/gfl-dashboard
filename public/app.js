@@ -40,13 +40,39 @@ async function ytFetch(){
   try{const r=await fetch(`${BASE}?type=youtube`);return r.ok?r.json():{videos:[]};}catch{return{videos:[]};}
 }
 async function txFetch(){
-  try{const r=await fetch(`${BASE}?type=transactions&seasonId=${getSeason()}`);return r.ok?r.json():{transactions:[],_source:'error'};}catch{return{transactions:[],_source:'error'};}
+  let d={transactions:[],_source:'error'};
+  try{const r=await fetch(`${BASE}?type=transactions&seasonId=${getSeason()}`);if(r.ok)d=await r.json();}catch{}
+  if(!(d.transactions||[]).length){
+    // ESPN purged it — check the git-archived snapshot (see /data/README.md)
+    try{
+      const ar=await fetch(`/data/transactions-${getSeason()}.json`);
+      if(ar.ok){const ad=await ar.json();if((ad.transactions||[]).length)d={transactions:ad.transactions,_source:'git archive ('+(ad.savedAt||'').slice(0,10)+')',_count:ad.transactions.length,_diag:d._diag||[]};}
+    }catch{}
+  }
+  return d;
 }
 async function fetchPlayerWeekScores(week){
   try{
     const r=await fetch(`${BASE}?type=playerscores&seasonId=${getSeason()}&scoringPeriodId=${week}`);
     return r.ok?(await r.json()).players||{}:{};
   }catch{return{};}
+}
+
+// ── OFFICIAL COACHING METRIC RECORDS (archived in /data/cm-official.json) ────
+let _cmOfficialData;
+async function loadCMOfficial(){
+  if(_cmOfficialData!==undefined) return _cmOfficialData;
+  try{const r=await fetch('/data/cm-official.json');_cmOfficialData=r.ok?await r.json():null;}catch{_cmOfficialData=null;}
+  return _cmOfficialData;
+}
+function normName(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
+function officialFor(team,entry){
+  const n=normName(team.name);
+  for(const k in (entry.scores||{})){
+    const kn=normName(k);
+    if(kn===n||n.includes(kn)||kn.includes(n)) return entry.scores[k];
+  }
+  return null;
 }
 
 // ── TEAM LOGOS / AVATARS ─────────────────────────────────────────────────────
@@ -359,9 +385,30 @@ async function computeCoaching(teams, transactions, weeklyData){
 // ── CM MODAL ───────────────────────────────────────────────────────────────────
 function pName(pid){return _playerNames[pid]||`Player #${pid}`;}
 function openCMModal(teamId){
+  if(_cmMode==='none') return;
   const team=_teams.find(t=>t.id===teamId);if(!team)return;
   const bd=_breakdown[teamId]||{};
   const s=_scores[teamId]||0;
+  if(bd.official){
+    const legacy=bd.c1==null;
+    document.getElementById('cm-title').textContent=team.name;
+    document.getElementById('cm-body').innerHTML=`
+      <div class="modal-total">
+        <div class="modal-total-left"><div class="label">Coaching Metric Score</div><div class="sub">${legacy?'Legacy 2024 weighted-metric formula':'Official league formula'} · higher = better</div></div>
+        <div class="modal-total-score" style="color:${s>0?'var(--green)':s<0?'var(--red)':'var(--text2)'}">${s.toFixed(3)}</div>
+      </div>
+      <div class="modal-note"><i class="fa fa-book" style="margin-right:6px;color:var(--blue)"></i>Official commissioner-calculated value from the league's Coaching Metric spreadsheet${bd.source?` (<b>${bd.source}</b>)`:''}, archived in the site's repository so it survives ESPN's data deletion.${legacy?' The 2024 season used a different formula, so only the final weighted-metric value is available — no component breakdown.':''}</div>
+      ${legacy?'':`<div class="modal-formula">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
+        <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span><span style="font-weight:700;color:${cc(bd.c1)}">${bd.c1.toFixed(3)}</span></div>
+        <div class="eq-line"><span style="color:var(--blue);font-weight:700;width:26px">C2</span><span style="color:var(--text2);flex:1">Trade Metric</span><span style="font-weight:700;color:${cc(bd.c2)}">${bd.c2>=0?'+':''}${bd.c2.toFixed(3)}</span></div>
+        <div class="eq-line"><span style="color:var(--green);font-weight:700;width:26px">C3</span><span style="color:var(--text2);flex:1">FAAB Efficiency</span><span style="font-weight:700;color:${cc(bd.c3)}">${bd.c3>=0?'+':''}${bd.c3.toFixed(3)}</span></div>
+        <hr/>
+        <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Final</span><span style="font-weight:800;font-size:14px;color:${s>0?'var(--green)':'var(--red)'}">${s.toFixed(3)}</span></div>
+      </div>`}`;
+    document.getElementById('cm-overlay').classList.add('open');
+    return;
+  }
   const d=bd.detail||{};
   const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,rawf=bd.raw||0;
 
@@ -459,7 +506,7 @@ function renderBig4(){
           <div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div>
           <div class="big4-name">${t.name}</div>
           <div class="big4-record">${t.wins}–${t.losses} · ${t.pf.toFixed(0)} PF</div>
-          <div class="big4-cm" style="color:${sc(s)}">CM: ${s.toFixed(2)}</div>
+          ${_cmMode==='none'?'':`<div class="big4-cm" style="color:${sc(s)}">CM: ${s.toFixed(2)}</div>`}
         </div>
       </div>`;
     }).join('')}</div>`}`;
@@ -744,7 +791,7 @@ function renderStandingsTable(){
       <td class="right pa">${t.pa.toFixed(1)}</td>
       <td class="right">${t.moves}</td>
       <td class="right">${t.trades}</td>
-      <td class="right" style="color:${sc(s)};font-weight:600">${s.toFixed(2)}</td>
+      <td class="right" style="color:${_cmMode==='none'?'var(--text3)':sc(s)};font-weight:600">${_cmMode==='none'?'—':s.toFixed(2)}</td>
     </tr>`;
   }).join('');
 }
@@ -964,21 +1011,38 @@ async function loadDashboard(){
     Object.values(weeklyData).forEach(wk=>{for(const pid in wk){if(wk[pid].n)_playerNames[pid]=wk[pid].n;}});
 
     // If ESPN purged the transaction log (completed seasons), reconstruct it
-    // from weekly roster diffs so C2/C3 still compute.
-    _cmMode='transactions';
+    // from weekly roster diffs so the activity feed still works.
+    let txReconstructed=false;
     if(!transactions.length){
       const inferred=inferTransactionsFromRosters(weeklyData,_teams);
       if(inferred.length){
         transactions=inferred.sort((a,b)=>(b.scoringPeriodId||0)-(a.scoringPeriodId||0));
-        _cmMode='inferred';
+        txReconstructed=true;
         _txMeta={source:'inferred from weekly rosters',count:inferred.length,diag:_txMeta.diag};
       }
     }
 
-    const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData);
-    _scores=scores;_breakdown=breakdown;
+    // Coaching metric source, in priority order:
+    //  1. official archived values from the commissioner's spreadsheet
+    //  2. "no data" for seasons listed in the archive's `none` list
+    //  3. live computation from the transaction log (real or reconstructed)
+    const officialAll=await loadCMOfficial();
+    const officialSeason=officialAll?.[season]||null;
+    if(Array.isArray(officialAll?.none)&&officialAll.none.includes(season)){
+      _cmMode='none';_scores={};_breakdown={};
+    }else if(officialSeason){
+      _cmMode='official';_scores={};_breakdown={};
+      _teams.forEach(t=>{
+        const o=officialFor(t,officialSeason);
+        if(o){_scores[t.id]=o.final;_breakdown[t.id]={c1:o.c1??null,c2:o.c2??null,c3:o.c3??null,raw:o.final,final:o.final,official:true,legacy:!!officialSeason.legacy,source:officialSeason.source||''};}
+      });
+    }else{
+      _cmMode=txReconstructed?'inferred':'transactions';
+      const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData);
+      _scores=scores;_breakdown=breakdown;
+    }
 
-    const cmRanked=[..._teams].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0));
+    const cmRanked=[..._teams].sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));
     const totalMoves=_teams.reduce((s,t)=>s+t.moves,0);
     const totalTrades=_teams.reduce((s,t)=>s+t.trades,0);
     const totalDrops=_teams.reduce((s,t)=>s+t.drops,0);
@@ -997,18 +1061,25 @@ async function loadDashboard(){
         <div class="card" style="margin-bottom:20px" id="big4-display"></div>
         <div class="top-grid">
           <div class="card">
-            <div class="section-header"><i class="fa fa-brain"></i>Coaching Metric<span class="badge-info">${_cmMode==='inferred'?'reconstructed from rosters · ':''}Click for breakdown</span></div>
-            ${cmRanked.map((t,i)=>{
-              const s=scores[t.id]||0;
-              return`<div class="coaching-row" onclick="openCMModal(${t.id})">
-                <div class="coaching-rank">${i===0?'🥇':i+1}</div>
-                ${logoImg(t.id)}
-                <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
-                <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${bp(s)}%;background:${bc(s)}"></div></div>
-                <div class="coaching-score" style="color:${sc(s)}">${s.toFixed(2)}</div>
-                <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
-              </div>`;
-            }).join('')}
+            <div class="section-header"><i class="fa fa-brain"></i>Coaching Metric${_cmMode!=='none'?`<span class="badge-info">${_cmMode==='official'?'official league records · ':_cmMode==='inferred'?'reconstructed from rosters · ':''}Click for breakdown</span>`:''}</div>
+            ${_cmMode==='none'
+              ?`<div class="tab-loading" style="padding:40px 20px">No coaching metric data available for the ${season} season.</div>`
+              :(()=>{
+                const cmMax=Math.max(1,...Object.values(_scores).map(v=>Math.abs(v||0)));
+                const cmBar=v=>Math.min(100,Math.max(0,((v/cmMax)+1)/2*100)).toFixed(1);
+                const cmCol=v=>v>cmMax*0.15?'var(--green)':v<-cmMax*0.15?'var(--red)':'var(--text2)';
+                return cmRanked.map((t,i)=>{
+                  const s=_scores[t.id]||0;
+                  return`<div class="coaching-row" onclick="openCMModal(${t.id})">
+                    <div class="coaching-rank">${i===0?'🥇':i+1}</div>
+                    ${logoImg(t.id)}
+                    <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
+                    <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${cmBar(s)}%;background:${cmCol(s)}"></div></div>
+                    <div class="coaching-score" style="color:${cmCol(s)}">${s.toFixed(2)}</div>
+                    <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
+                  </div>`;
+                }).join('');
+              })()}
           </div>
           <div class="card">
             <div class="section-header"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
