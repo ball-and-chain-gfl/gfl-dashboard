@@ -194,16 +194,6 @@ function inferTransactionsFromRosters(weeklyData,teams){
   if(weeks.length<2) return [];
   const avgBid={};
   teams.forEach(t=>{avgBid[t.id]=(t.budgetSpent>0&&t.moves>0)?Math.max(1,Math.round(t.budgetSpent/t.moves)):1;});
-  // ESPN's official waiver/FA add counter per matchup week survives for old
-  // seasons — use it as a quota to tell drop-and-claim moves apart from trades.
-  const quota={};
-  teams.forEach(t=>{quota[t.id]=Object.assign({},t.weeklyAdds||{});});
-  function useQuota(tid,w,wPrev){
-    const q=quota[tid]; if(!q) return false;
-    if((q[w]||0)>0){q[w]--;return true;}
-    if((q[wPrev]||0)>0){q[wPrev]--;return true;}
-    return false;
-  }
   const txns=[];
   for(let i=1;i<weeks.length;i++){
     const wPrev=weeks[i-1],w=weeks[i];
@@ -222,18 +212,16 @@ function inferTransactionsFromRosters(weeklyData,teams){
         (groups[key]||(groups[key]=[])).push(m);
       }else if(m.from==null&&m.to!=null) faAdds.push(m);
     });
-    // Players appearing from free agency are definite waiver/FA adds — they
-    // consume the team's official weekly add quota first.
+    // Players appearing from free agency are waiver/FA adds.
     faAdds.forEach(m=>{
-      useQuota(m.to,w,wPrev);
       txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
         items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
     });
-    // Direct team-to-team moves: players moving BOTH directions between the
-    // same two teams = unambiguous trade (uneven legs included). A strictly
-    // one-way move is a drop that got claimed off waivers when the receiving
-    // team still has adds left on its official weekly counter — only when it
-    // has none left is the move treated as a (one-sided) trade.
+    // Trades are RECIPROCAL: players must move in BOTH directions between the
+    // same two teams in the same week (uneven 2-for-1 legs included). Verified
+    // against this league's history — every real trade swaps at least one
+    // player each way, while strictly one-way roster-to-roster moves are drops
+    // claimed off waivers, which belong in C3, not C2.
     Object.values(groups).forEach(list=>{
       const dirs=new Set(list.map(m=>`${m.from}>${m.to}`));
       if(dirs.size>1){
@@ -241,13 +229,8 @@ function inferTransactionsFromRosters(weeklyData,teams){
           items:list.map(m=>({type:'TRADE',playerId:m.pid,fromTeamId:m.from,toTeamId:m.to}))});
       }else{
         list.forEach(m=>{
-          if(useQuota(m.to,w,wPrev)){
-            txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
-              items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
-          }else{
-            txns.push({type:'TRADE_ACCEPT',teamId:m.to,scoringPeriodId:wPrev,status:'EXECUTED',
-              items:[{type:'TRADE',playerId:m.pid,fromTeamId:m.from,toTeamId:m.to}]});
-          }
+          txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
+            items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
         });
       }
     });
@@ -383,8 +366,8 @@ function openCMModal(teamId){
   const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,rawf=bd.raw||0;
 
   const tradeRows=[
-    ...(d.tradesReceived||[]).map(r=>`<div class="modal-comp-row"><span class="key">Got ${pName(r.pid)} (wk ${r.week})</span><span class="val" style="color:var(--green)">+${r.pts.toFixed(1)} pts</span></div>`),
-    ...(d.tradesSent||[]).map(r=>`<div class="modal-comp-row"><span class="key">Sent ${pName(r.pid)} (wk ${r.week})</span><span class="val" style="color:var(--red)">−${r.pts.toFixed(1)} pts</span></div>`)
+    ...(d.tradesReceived||[]).map(r=>`<div class="modal-comp-row"><span class="key">Got ${pName(r.pid)} (joined wk ${r.week+1})</span><span class="val" style="color:var(--green)">+${r.pts.toFixed(1)} pts</span></div>`),
+    ...(d.tradesSent||[]).map(r=>`<div class="modal-comp-row"><span class="key">Sent ${pName(r.pid)} (left wk ${r.week+1})</span><span class="val" style="color:var(--red)">−${r.pts.toFixed(1)} pts</span></div>`)
   ].join('')||`<div class="modal-comp-row"><span class="key">No trades found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   const waiverRows=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1)).map(w=>{
@@ -393,7 +376,7 @@ function openCMModal(teamId){
   }).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   const modeNote=_cmMode==='inferred'
-    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>: players swapping between two rosters count as a trade (uneven legs included); a one-way roster-to-roster move counts as a waiver claim while the receiving team still has adds on ESPN's official weekly counter, otherwise as a trade. ESPN also deleted all FAAB bid amounts, so every pickup uses the team's estimated average bid (budget spent ÷ adds) and the C3 margin equals that full bid. Real per-bid margins apply automatically to live seasons.</div>`
+    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>: players swapping between two rosters in the same week count as a trade (uneven legs included); strictly one-way roster-to-roster moves are drops claimed off waivers and count toward C3 instead. ESPN also deleted all FAAB bid amounts, so every pickup uses the team's estimated average bid (budget spent ÷ adds) and the C3 margin equals that full bid. Real per-bid margins apply automatically to live seasons.</div>`
     :'';
 
   document.getElementById('cm-title').textContent=team.name;
