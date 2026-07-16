@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -17,12 +17,17 @@
       --accent:#ffb347;--accent2:#ff923d;
       --green:#4ade80;--red:#fb7185;--blue:#60a5fa;--purple:#c084fc;
     }
-    body{background:radial-gradient(circle at top,#241404 0%,#080808 45%);color:var(--text);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
-    /* Display font for headings & big numbers (brand: bold, modern, sporty) */
-    .logo h1,.section-header,.tab-btn,.stat-value,.modal-header h2,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.big4-name,.trade-verdict,.pin-box h3,.week-btn,.filter-btn{font-family:'Space Grotesk','Inter',sans-serif;}
-    .section-header{letter-spacing:0.2px;}
-    .logo h1{letter-spacing:-0.2px;}
-    .badge-info{font-family:'Inter',sans-serif;letter-spacing:0;}
+    body{background:radial-gradient(circle at top,#241404 0%,#080808 45%);color:var(--text);font-family:'Work Sans',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
+    /* Type system — Big Shoulders Display: big numbers & hero headings ·
+       Fraunces: headings · Work Sans: body & small text */
+    .logo h1,.stat-value,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.trade-verdict,.marathon-big,.marathon-days,.champ-score{font-family:'Big Shoulders Display','Work Sans',sans-serif;letter-spacing:0.6px;}
+    .stat-value{font-size:42px;}
+    .headline-pts{font-size:23px;}
+    .coaching-score{font-size:17px;}
+    .h2h-total-rec{font-size:28px;letter-spacing:1px;}
+    .section-header,.tab-btn,.modal-header h2,.big4-name,.pin-box h3,.marathon-team,.trade-team-name,.champ-title{font-family:'Fraunces',Georgia,serif;}
+    .logo h1{font-size:22px;font-weight:700;}
+    .badge-info,.week-btn,.filter-btn{font-family:'Work Sans',sans-serif;letter-spacing:0;}
 
     /* HEADER */
     header{background:rgba(10,10,10,0.88);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:12px 26px;gap:12px;flex-wrap:wrap;}
@@ -241,6 +246,28 @@
     .draft-line{font-size:11.5px;color:var(--text2);margin-top:2px;line-height:1.5;}
     .draft-delta{font-size:15px;font-weight:800;flex-shrink:0;min-width:44px;text-align:right;}
 
+    /* MARATHON TAB */
+    .marathon-hero{text-align:center;padding:56px 20px 64px;}
+    .marathon-team{font-size:24px;font-weight:700;margin:16px 0 30px;}
+    .marathon-big{font-size:150px;font-weight:800;line-height:0.9;color:var(--accent);text-shadow:0 0 60px rgba(255,179,71,0.25);}
+    .marathon-days{font-size:80px;font-weight:800;line-height:1;color:var(--blue);text-shadow:0 0 50px rgba(96,165,250,0.2);}
+    .marathon-label{font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);margin-top:10px;}
+    .marathon-sep{border:none;border-top:1px solid var(--border);margin:44px auto;max-width:320px;}
+
+    /* LEAGUE HISTORY TAB */
+    .champ-row{display:flex;align-items:center;gap:14px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;}
+    .champ-row:last-child{border-bottom:none;}
+    .champ-year{font-size:14px;font-weight:800;color:var(--accent);width:44px;flex-shrink:0;font-family:'Big Shoulders Display',sans-serif;font-size:20px;}
+    .champ-detail{flex:1;min-width:220px;}
+    .champ-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .champ-sub{font-size:12px;color:var(--text2);margin-top:3px;}
+    .champ-score{font-size:18px;font-weight:800;}
+    .trophy-row{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,0.05);}
+    .trophy-row:last-child{border-bottom:none;}
+    .trophy-badges{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;font-size:12px;}
+    .trophy-badge{background:rgba(255,179,71,0.12);border:1px solid rgba(255,179,71,0.35);color:var(--accent);border-radius:8px;padding:3px 9px;font-weight:700;white-space:nowrap;}
+    .trophy-badge.conf{background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);color:var(--blue);}
+
     /* HISTORY + TENURE TABS */
     .picker-bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
     .picker-bar label{font-size:12px;color:var(--text3);}
@@ -305,6 +332,9 @@
       .trade-side{padding:10px 10px;}
       .draft-row{padding:10px 12px;gap:8px;}
       .draft-delta{min-width:36px;font-size:13px;}
+      .marathon-big{font-size:96px;}
+      .marathon-days{font-size:56px;}
+      .champ-year{width:36px;}
     }
     @media(max-width:480px){
       .coaching-bar{display:none;}
@@ -367,6 +397,8 @@
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Matchup History</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Tenure</button>
+  <button class="tab-btn" data-tab="legacy" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
+  <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')"><i class="fa fa-person-running"></i>Marathons Ran</button>
 </nav>
 
 <main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>

@@ -26,4 +26,13 @@ window.GFL_CONFIG = {
   /* Former league members hidden from Matchup History & Player Tenure.
      Case-insensitive partial matches against the team name. */
   excludeTeams: ["who gibbs", "wafflestomp", "bozeman", "simptown"],
+
+  /* "Marathons Ran" tab. `sinceDate` is the day the 2024 last-place game went
+     final — the day counter is computed from it automatically. */
+  marathon: {
+    team: "Marathon",
+    count: 0,
+    sinceDate: "2024-12-30",
+    sinceLabel: "days since the 2024 last place game went final",
+  },
 };

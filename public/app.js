@@ -181,13 +181,14 @@ async function fetchSeasonData(season){
     const r=await fetch(`${BASE}?view=mMatchup&view=mTeam&seasonId=${season}`);
     if(!r.ok) return null;
     const d=await r.json();
-    const owners={},names={};
+    const owners={},names={},teams={};
     (d.teams||[]).forEach(t=>{
       const o=ownerOf(t);
       owners[t.id]=o;
       names[o]={name:tName(t),logo:t.logo||null,teamId:t.id};
+      teams[t.id]={name:tName(t),logo:t.logo||null,owner:o,div:t.divisionId??0,rank:t.rankCalculatedFinal||0};
     });
-    return {season,schedule:d.schedule||[],owners,names};
+    return {season,schedule:d.schedule||[],owners,names,teams};
   }catch{return null;}
 }
 async function buildAllTimeH2H(){
@@ -196,8 +197,8 @@ async function buildAllTimeH2H(){
   _seasonMeta={};
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
-    const {season,schedule,owners,names}=res.value;
-    _seasonMeta[season]={owners,names};
+    const {season,schedule,owners,names,teams}=res.value;
+    _seasonMeta[season]={owners,names,teams,schedule};
     schedule.forEach(mu=>{
       if(!mu.home||!mu.away) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
@@ -1132,10 +1133,145 @@ function renderDraftTeamTable(){
         <td class="right" style="white-space:nowrap">${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
         <td class="right" style="white-space:nowrap">#${r.overall} → ${r.fin!=null?`<b style="color:${r.fin<=r.overall?'var(--green)':'var(--red)'}">#${r.fin}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
         <td class="right pf">${r.pts.toFixed(1)}</td>
-        <td class="right" style="font-weight:800;font-family:'Space Grotesk',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
+        <td class="right" style="font-weight:800;font-family:'Big Shoulders Display',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
       </tr>`).join('')}</tbody>
   </table></div>
   <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">Net draft value: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks</div>`;
+}
+
+// ── MARATHON TAB ───────────────────────────────────────────────────────────────
+let _marathonTimer=null;
+function marathonDays(){
+  const cfg=_CFG.marathon||{};
+  const since=new Date((cfg.sinceDate||'2024-12-30')+'T23:59:59');
+  return Math.max(0,Math.floor((Date.now()-since.getTime())/86400000));
+}
+function renderMarathon(){
+  const el=document.getElementById('marathon-hero'); if(!el) return;
+  const cfg=_CFG.marathon||{};
+  const fr=_franchises.find(f=>normName(f.name).includes(normName(cfg.team||'marathon')))||null;
+  el.innerHTML=`
+    ${fr?franchiseAvatar(fr,72,18):''}
+    <div class="marathon-team">${fr?.name||'Marathon Men'}</div>
+    <div class="marathon-big">${cfg.count??0}</div>
+    <div class="marathon-label">Marathons Ran</div>
+    <hr class="marathon-sep"/>
+    <div class="marathon-days" id="marathon-days">${marathonDays().toLocaleString()}</div>
+    <div class="marathon-label">${cfg.sinceLabel||'days since the 2024 last place game went final'}</div>`;
+  if(!_marathonTimer){
+    _marathonTimer=setInterval(()=>{
+      const d=document.getElementById('marathon-days');
+      if(d) d.textContent=marathonDays().toLocaleString();
+    },60*60*1000); // re-check hourly so the counter rolls over at midnight
+  }
+}
+
+// ── LEAGUE HISTORY TAB ─────────────────────────────────────────────────────────
+const REGULAR_SEASON_END=14; // conference champs decided after this matchup period
+function renderLeagueHistory(){
+  const body=document.getElementById('legacy-body'); if(!body) return;
+  const seasons=ALL_SEASONS.filter(s=>_seasonMeta[s]?.teams).sort((x,y)=>y-x);
+  if(!seasons.length){body.innerHTML=`<div class="tab-loading">No historical data available.</div>`;return;}
+  const champRows=[],confRows=[],champCount={},confCount={},latestName={};
+  const av=(t,size,rad)=>avatarCore(t.name,t.teamId||0,proxyLogo(t.logo),size,rad);
+
+  seasons.slice().reverse().forEach(s=>{ // oldest → newest so latestName ends newest
+    const meta=_seasonMeta[s],T=meta.teams||{};
+    Object.values(T).forEach(t=>{latestName[t.owner]={name:t.name,logo:t.logo,teamId:null};});
+
+    // Championship: ESPN's final calculated ranks (1 = champion, 2 = runner-up)
+    let champ=null,ru=null;
+    Object.entries(T).forEach(([tid,t])=>{
+      if(t.rank===1)champ={tid:+tid,...t};
+      if(t.rank===2)ru={tid:+tid,...t};
+    });
+    if(champ&&ru){
+      let mu=null;
+      (meta.schedule||[]).forEach(m=>{
+        if(!m.home||!m.away)return;
+        const ids=[m.home.teamId,m.away.teamId];
+        if(ids.includes(champ.tid)&&ids.includes(ru.tid)&&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)){
+          if(!mu||m.matchupPeriodId>mu.matchupPeriodId) mu=m;
+        }
+      });
+      const cPts=mu?(mu.home.teamId===champ.tid?mu.home.totalPoints:mu.away.totalPoints):null;
+      const rPts=mu?(mu.home.teamId===champ.tid?mu.away.totalPoints:mu.home.totalPoints):null;
+      champRows.unshift({season:s,champ,ru,cPts,rPts,week:mu?.matchupPeriodId});
+      champCount[champ.owner]=(champCount[champ.owner]||0)+1;
+    }
+
+    // Conference champs: best record in each division through week 14 (PF tiebreak)
+    const rec={};
+    Object.keys(T).forEach(tid=>rec[tid]={w:0,pf:0});
+    let maxPlayed=0;
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away)return;
+      const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;
+      if(hp===0&&ap===0)return;
+      maxPlayed=Math.max(maxPlayed,m.matchupPeriodId||0);
+      if((m.matchupPeriodId||99)>REGULAR_SEASON_END)return;
+      if(rec[m.home.teamId]){rec[m.home.teamId].pf+=hp;if(hp>ap||m.winner==='HOME')rec[m.home.teamId].w++;}
+      if(rec[m.away.teamId]){rec[m.away.teamId].pf+=ap;if(ap>hp||m.winner==='AWAY')rec[m.away.teamId].w++;}
+    });
+    if(maxPlayed>=REGULAR_SEASON_END){
+      const byDiv={};
+      Object.entries(T).forEach(([tid,t])=>{(byDiv[t.div]||(byDiv[t.div]=[])).push({tid:+tid,...t,...rec[tid]});});
+      const winners=Object.entries(byDiv).map(([d,arr])=>{
+        arr.sort((x,y)=>y.w-x.w||y.pf-x.pf);
+        const w=arr[0];
+        confCount[w.owner]=(confCount[w.owner]||0)+1;
+        return {div:Number(d),...w};
+      }).sort((x,y)=>x.div-y.div);
+      confRows.unshift({season:s,winners});
+    }
+  });
+
+  const hardware=Object.keys({...champCount,...confCount}).map(o=>({
+    owner:o,name:latestName[o]?.name||'Unknown',logo:latestName[o]?.logo||null,
+    rings:champCount[o]||0,confs:confCount[o]||0,
+  })).sort((x,y)=>y.rings-x.rings||y.confs-x.confs);
+
+  body.innerHTML=`
+    <div class="two-col" style="margin-bottom:0">
+      <div class="card">
+        <div class="section-header"><i class="fa fa-trophy"></i>Championship Games</div>
+        ${champRows.length?champRows.map(r=>`
+          <div class="champ-row">
+            <div class="champ-year">${r.season}</div>
+            ${av(r.champ,34,9)}
+            <div class="champ-detail">
+              <div class="champ-title">🏆 ${r.champ.name}<span style="color:var(--text3);font-weight:400;font-size:12px;font-family:'Work Sans',sans-serif">defeats</span>${r.ru.name}</div>
+              <div class="champ-sub">${r.cPts!=null?`<span class="champ-score" style="color:var(--green)">${r.cPts.toFixed(1)}</span> — <span class="champ-score" style="color:var(--text3)">${r.rPts.toFixed(1)}</span>${r.week?` · Week ${r.week}`:''}`:'title game score unavailable'}</div>
+            </div>
+          </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
+      </div>
+      <div class="card">
+        <div class="section-header"><i class="fa fa-medal"></i>Trophy Case</div>
+        ${hardware.length?hardware.map(t=>`
+          <div class="trophy-row">
+            ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
+            <div style="font-weight:600;font-size:13px">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:11px">(departed)</span>'}</div>
+            <div class="trophy-badges">
+              ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
+              ${t.confs?`<span class="trophy-badge conf">⭐ Conf ×${t.confs}</span>`:''}
+            </div>
+          </div>`).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="section-header"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
+      ${confRows.length?confRows.map(r=>`
+        <div class="champ-row">
+          <div class="champ-year">${r.season}</div>
+          <div class="champ-detail" style="display:flex;gap:26px;flex-wrap:wrap">
+            ${r.winners.map(w=>`
+              <div style="display:flex;align-items:center;gap:9px">
+                ${avatarCore(w.name,w.tid,proxyLogo(w.logo),28,8)}
+                <div><div style="font-weight:600;font-size:13px">${w.name}</div><div style="font-size:11px;color:var(--text3)">Conference ${w.div+1} · ${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
+              </div>`).join('')}
+          </div>
+        </div>`).join(''):`<div class="tab-loading">No completed regular seasons yet.</div>`}
+    </div>`;
 }
 
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
@@ -1407,6 +1543,17 @@ async function loadDashboard(){
         </div>
       </div>
 
+      <!-- LEAGUE HISTORY -->
+      <div class="tab-page" id="page-legacy"><div id="legacy-body"></div></div>
+
+      <!-- MARATHON -->
+      <div class="tab-page" id="page-marathon">
+        <div class="card">
+          <div class="section-header"><i class="fa fa-person-running"></i>Marathons Ran</div>
+          <div class="marathon-hero" id="marathon-hero"></div>
+        </div>
+      </div>
+
       <!-- PLAYER TENURE -->
       <div class="tab-page" id="page-tenure">
         <div class="card">
@@ -1425,6 +1572,8 @@ async function loadDashboard(){
     renderBig4();
     if(playedWeeks.length) renderHeadlines(_currentWeek);
     renderHistoryTable();
+    renderLeagueHistory();
+    renderMarathon();
     renderTradesTab();
     if(_activeTab==='draft') ensureDraft();
     switchTab(_activeTab);
