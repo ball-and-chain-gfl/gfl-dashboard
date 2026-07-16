@@ -288,7 +288,8 @@ export default async function handler(req, res) {
 
   // ── Generic view passthrough (supports multiple ?view= params) ───────────────
   const views = view || 'mTeam';
-  const url = leagueURL(views);
+  let url = leagueURL(views);
+  if (scoringPeriodId) url += `&scoringPeriodId=${parseInt(scoringPeriodId, 10)}`;
   try {
     const response = await fetch(url, { headers });
     if (!response.ok) {
