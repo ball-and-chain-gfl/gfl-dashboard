@@ -1014,8 +1014,8 @@ async function ensureDraft(){
   body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading draft results &amp; season stats…</div>`;
   try{
     const [dr,st]=await Promise.all([
-      fetch(`${BASE}?type=draft&seasonId=${season}`).then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch(`${BASE}?type=seasonstats&seasonId=${season}`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`${BASE}?type=draft&seasonId=${season}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`${BASE}?type=seasonstats&seasonId=${season}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     _draftCache[season]={picks:dr?.picks||[],stats:st?.players||[]};
   }catch{_draftCache[season]={picks:[],stats:[]};}
