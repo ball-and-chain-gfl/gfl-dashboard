@@ -288,7 +288,7 @@ export default async function handler(req, res) {
 
   // ── Generic view passthrough (supports multiple ?view= params) ───────────────
   const views = view || 'mTeam';
-  let url = leagueURL(views);
+  let url = leagueURL(views, { forceLive: req.query.live === '1' });
   if (scoringPeriodId) url += `&scoringPeriodId=${parseInt(scoringPeriodId, 10)}`;
   try {
     const response = await fetch(url, { headers });
