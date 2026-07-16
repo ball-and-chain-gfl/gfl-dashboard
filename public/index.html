@@ -17,7 +17,7 @@
     body{background:radial-gradient(circle at top,#241404 0%,#080808 45%);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
 
     /* HEADER */
-    header{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:12px 26px;gap:12px;flex-wrap:wrap;}
+    header{background:rgba(10,10,10,0.88);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:12px 26px;gap:12px;flex-wrap:wrap;}
     .logo{display:flex;align-items:center;gap:12px;}
     .logo img{width:44px;height:44px;border-radius:12px;object-fit:cover;}
     .logo h1{font-size:19px;font-weight:700;letter-spacing:-0.4px;}
@@ -33,30 +33,34 @@
     .dot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
     .dot.err{background:var(--red);}
 
+    /* TAB BAR */
+    .tabbar{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);display:flex;gap:5px;padding:9px 20px;overflow-x:auto;scrollbar-width:none;}
+    .tabbar::-webkit-scrollbar{display:none;}
+    .tab-btn{background:none;border:1px solid transparent;color:var(--text3);padding:8px 15px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:0.15s;display:flex;align-items:center;gap:7px;}
+    .tab-btn i{font-size:12px;}
+    .tab-btn:hover{color:var(--text);border-color:var(--border);}
+    .tab-btn.active{background:rgba(255,179,71,0.12);color:var(--accent);border-color:rgba(255,179,71,0.35);}
+    .tab-page{display:none;}
+    .tab-page.active{display:block;animation:fadein 0.25s ease;}
+    @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
     /* LAYOUT */
     main{max-width:1400px;margin:auto;padding:26px 20px 60px;}
     .card{background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));border:1px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);}
-    .section-header{display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px;}
+    .section-header{display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px;flex-wrap:wrap;}
     .section-header i{color:var(--accent);}
     .badge-info{margin-left:auto;font-size:11px;font-weight:400;color:var(--text3);background:rgba(255,255,255,0.05);padding:3px 8px;border-radius:6px;border:1px solid var(--border);}
-
-    /* TEAM LOGO */
-    .team-logo{width:28px;height:28px;border-radius:6px;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0;}
-    .team-logo-sm{width:22px;height:22px;border-radius:5px;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0;vertical-align:middle;margin-right:6px;}
 
     /* BALLS BIG 4 */
     .big4-grid{display:grid;grid-template-columns:repeat(4,1fr);}
     .big4-team{padding:11px 13px;border-right:1px solid var(--border);display:flex;align-items:center;gap:10px;}
     .big4-team:last-child{border-right:none;}
-    .big4-logo{width:38px;height:38px;border-radius:9px;object-fit:contain;background:rgba(255,255,255,0.05);flex-shrink:0;}
     .big4-info{flex:1;min-width:0;}
     .big4-label{font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:1px;}
     .big4-name{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;}
     .big4-record{font-size:11px;color:var(--text2);margin-top:1px;}
     .big4-cm{font-size:10.5px;margin-top:1px;}
     .big4-empty{padding:22px 24px;text-align:center;color:var(--text3);font-size:13px;}
-    .big4-edit-btn{margin-left:auto;background:rgba(255,179,71,0.1);color:var(--accent);border:1px solid rgba(255,179,71,0.3);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:0.15s;flex-shrink:0;}
-    .big4-edit-btn:hover{background:rgba(255,179,71,0.2);}
 
     /* TOP GRID */
     .top-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:22px;}
@@ -109,26 +113,15 @@
     .modal-comp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
     .modal-comp-label{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;}
     .modal-comp-value{font-size:18px;font-weight:800;}
-    .modal-comp-breakdown{display:flex;flex-direction:column;gap:4px;}
-    .modal-comp-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 9px;background:rgba(255,255,255,0.03);border-radius:7px;}
+    .modal-comp-breakdown{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;}
+    .modal-comp-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 9px;background:rgba(255,255,255,0.03);border-radius:7px;gap:8px;}
     .modal-comp-row .key{color:var(--text3);}
-    .modal-comp-row .val{font-weight:600;}
+    .modal-comp-row .val{font-weight:600;white-space:nowrap;}
     .modal-comp-formula{font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.6;font-style:italic;}
+    .modal-note{background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.2);border-radius:12px;padding:10px 14px;font-size:11.5px;color:var(--text2);line-height:1.55;}
     .modal-debug{background:rgba(255,100,100,0.06);border:1px solid rgba(255,100,100,0.15);border-radius:12px;padding:10px 14px;}
     .modal-debug summary{font-size:12px;color:var(--text3);cursor:pointer;}
     .modal-debug pre{font-size:10px;color:var(--text3);margin-top:8px;white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto;}
-
-    /* BIG4 PICKER */
-    .big4-picker{display:flex;flex-direction:column;gap:7px;}
-    .big4-pick-row{display:flex;align-items:center;gap:12px;padding:11px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:0.15s;}
-    .big4-pick-row:hover{border-color:var(--accent);}
-    .big4-pick-row.selected{border-color:var(--accent);background:rgba(255,179,71,0.08);}
-    .big4-pick-name{font-size:13px;font-weight:600;flex:1;}
-    .big4-pick-sub{font-size:11px;color:var(--text3);}
-    .big4-pick-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;transition:0.15s;flex-shrink:0;}
-    .big4-pick-row.selected .big4-pick-check{background:var(--accent);border-color:var(--accent);color:#000;}
-    .big4-save-btn{background:var(--accent);color:#000;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:4px;}
-    .big4-save-btn:disabled{opacity:0.4;cursor:not-allowed;}
 
     /* YOUTUBE */
     .video-featured{position:relative;width:100%;padding-top:56.25%;}
@@ -203,6 +196,19 @@
     .act-title{font-size:13px;font-weight:500;margin-bottom:2px;}
     .act-sub{font-size:11px;color:var(--text3);}
 
+    /* HISTORY + TENURE TABS */
+    .picker-bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+    .picker-bar label{font-size:12px;color:var(--text3);}
+    .picker-bar input[type=text]{background:#222;color:var(--text);border:1px solid rgba(255,255,255,0.22);border-radius:10px;padding:8px 13px;font-size:13px;min-width:180px;}
+    .picker-bar input[type=text]:focus{outline:none;border-color:var(--accent);}
+    .h2h-total{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);background:rgba(255,179,71,0.04);flex-wrap:wrap;}
+    .h2h-total-rec{font-size:24px;font-weight:800;}
+    .h2h-total-sub{font-size:12px;color:var(--text3);}
+    .winpct-bar{width:70px;height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;display:inline-block;vertical-align:middle;}
+    .winpct-fill{height:100%;border-radius:2px;display:block;}
+    .tab-loading{padding:60px 20px;text-align:center;color:var(--text2);font-size:13px;line-height:1.7;}
+    .tab-loading i{display:block;font-size:22px;margin-bottom:10px;animation:spin 1s linear infinite;color:var(--accent);}
+
     .loading{text-align:center;padding:100px 20px;color:var(--text2);}
     .loading i{display:block;font-size:28px;margin-bottom:12px;animation:spin 1s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
@@ -257,796 +263,18 @@
   </div>
 </header>
 
+<nav class="tabbar" id="tabbar">
+  <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
+  <button class="tab-btn" data-tab="headlines" onclick="switchTab('headlines')"><i class="fa fa-newspaper"></i>Headlines</button>
+  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Standings &amp; Stats</button>
+  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Matchup History</button>
+  <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Tenure</button>
+</nav>
+
 <main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>
 <footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 
 <script src="/config.js"></script>
-<script>
-const BASE='/api/espn';
-const TOTAL_WEEKS=17;
-const COMMISSIONER_PIN='1327';
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   BALLS BIG 4  —  EDIT IN config.js (loaded above), NOT here.
-   config.js sets window.GFL_CONFIG.big4 / .labels. The defaults below are only
-   used if config.js is missing.
-─────────────────────────────────────────────────────────────────────────────── */
-const _CFG = (typeof window!=='undefined' && window.GFL_CONFIG) ? window.GFL_CONFIG : {};
-const BIG4 = Array.isArray(_CFG.big4) ? _CFG.big4 : ['','','',''];
-const BIG4_LABELS = Array.isArray(_CFG.labels) ? _CFG.labels : ['#1 Pick','Dark Horse','Sleeper','Wild Card'];
-
-let _teams=[],_scores={},_breakdown={},_sortCol='pf',_sortAsc=false;
-let _videos=[],_activeVideoId=null;
-let _allMatchups=[],_currentWeek=null;
-let _txMeta={source:'?',count:0};
-let _pinUnlocked=false,_pendingPinAction=null;
-let _logoMap={};     // teamId -> ESPN logo URL (only real custom logos)
-let _ownerMap={};    // teamId -> stable owner GUID (current season)
-let _h2hAll={};      // "ownerA|ownerB" -> { [ownerGUID]: {w, pf, games} }  (all seasons)
-const ALL_SEASONS=['2022','2023','2024','2025','2026'];
-
-function getSeason(){return document.getElementById('season-select').value;}
-function setStatus(s,l){
-  document.getElementById('dot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
-  document.getElementById('dot-label').textContent=l;
-}
-async function espnFetch(view){
-  const r=await fetch(`${BASE}?view=${encodeURIComponent(view)}&seasonId=${getSeason()}`);
-  if(!r.ok) throw new Error(`ESPN API ${r.status}`);
-  return r.json();
-}
-async function ytFetch(){
-  try{const r=await fetch(`${BASE}?type=youtube`);return r.ok?r.json():{videos:[]};}catch{return{videos:[]};}
-}
-// Transactions come through a dedicated proxy route that falls back to the live
-// endpoint when leagueHistory has no transaction log, and reports its source.
-async function txFetch(){
-  try{const r=await fetch(`${BASE}?type=transactions&seasonId=${getSeason()}`);return r.ok?r.json():{transactions:[],_source:'error'};}catch{return{transactions:[],_source:'error'};}
-}
-// Fetch every rostered player's per-week data (pts/slot/team) for a scoring period
-async function fetchPlayerWeekScores(week){
-  try{
-    const r=await fetch(`${BASE}?type=playerscores&seasonId=${getSeason()}&scoringPeriodId=${week}`);
-    return r.ok?(await r.json()).players||{}:{};
-  }catch{return{};}
-}
-
-// ── TEAM LOGOS / AVATARS ─────────────────────────────────────────────────────
-// Uses the ESPN team logo when present. The logo is layered over a colored
-// initials badge, so if a team has no logo (or it fails to load) we fall back to
-// clean initials instead of an emoji or a blank box.
-function teamInitials(name){
-  if(!name) return '?';
-  const w=name.trim().split(/\s+/).filter(Boolean);
-  if(w.length===1) return w[0].slice(0,2).toUpperCase();
-  return (w[0][0]+w[w.length-1][0]).toUpperCase();
-}
-function teamColor(id){
-  const hue=(Number(id||0)*47+13)%360;
-  return `hsl(${hue} 52% 40%)`;
-}
-function avatarHTML(team,size,radius){
-  const id=team?.id, name=team?.name||'';
-  const url=id!=null?_logoMap[id]:null;
-  const fs=Math.max(9,Math.round(size*0.42));
-  const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#fff;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
-  const img=url?`<img src="${url}" loading="lazy" referrerpolicy="no-referrer" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0d0d0d" onerror="this.remove()"/>`:'';
-  return `<span class="tm-avatar" style="${wrap}">${teamInitials(name)}${img}</span>`;
-}
-// Back-compat shim used throughout render code: logoImg(teamId, sizeClass)
-function logoImg(teamId,cls='team-logo'){
-  const team=(_teams.find(t=>t.id===teamId))||{id:teamId,name:''};
-  if(cls==='team-logo-sm') return avatarHTML(team,22,6);
-  if(cls==='big4-logo')    return avatarHTML(team,38,9);
-  return avatarHTML(team,28,8);
-}
-
-// ── ALL-TIME HEAD-TO-HEAD (across every season) ───────────────────────────────
-// Pull one season's schedule AND its team→owner mapping in a single request.
-// We key the all-time ledger on the stable owner GUID (not teamId), because
-// ESPN reassigns team ids between seasons — so a raw teamId ledger ends up
-// crediting one franchise's wins to whoever happens to hold that id today.
-function ownerOf(team){
-  return team?.primaryOwner || (team?.owners&&team.owners[0]) || `team:${team?.id}`;
-}
-async function fetchSeasonData(season){
-  try{
-    const r=await fetch(`${BASE}?view=mMatchup&view=mTeam&seasonId=${season}`);
-    if(!r.ok) return null;
-    const d=await r.json();
-    const owners={};
-    (d.teams||[]).forEach(t=>{owners[t.id]=ownerOf(t);});
-    return {schedule:d.schedule||[], owners};
-  }catch{return null;}
-}
-async function buildAllTimeH2H(){
-  const results=await Promise.allSettled(ALL_SEASONS.map(fetchSeasonData));
-  const ledger={};
-  results.forEach(res=>{
-    if(res.status!=='fulfilled'||!res.value) return;
-    const {schedule,owners}=res.value;
-    schedule.forEach(mu=>{
-      if(!mu.home||!mu.away) return;
-      const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
-      if(!ho||!ao||ho===ao) return;
-      const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
-      // Trust ESPN's decided winner when present; else fall back to points.
-      const win=mu.winner; // "HOME" | "AWAY" | "UNDECIDED"/"TIE"/undefined
-      if((win==null||win==='UNDECIDED')&&hp===0&&ap===0) return; // not played
-      const key=ho<ao?`${ho}|${ao}`:`${ao}|${ho}`;
-      const k=ledger[key]||(ledger[key]={});
-      (k[ho]||(k[ho]={w:0,pf:0,games:0}));
-      (k[ao]||(k[ao]={w:0,pf:0,games:0}));
-      k[ho].games++; k[ao].games++; k[ho].pf+=hp; k[ao].pf+=ap;
-      if(win==='HOME'||(win==null&&hp>ap)) k[ho].w++;
-      else if(win==='AWAY'||(win==null&&ap>hp)) k[ao].w++;
-    });
-  });
-  _h2hAll=ledger;
-}
-// Look up the all-time series between two CURRENT team ids by resolving each to
-// its owner GUID first.
-function allTimeH2H(idA,idB){
-  const oA=_ownerMap[idA]||`team:${idA}`, oB=_ownerMap[idB]||`team:${idB}`;
-  if(oA===oB) return {wA:0,wB:0,games:0};
-  const key=oA<oB?`${oA}|${oB}`:`${oB}|${oA}`;
-  const k=_h2hAll[key];
-  if(!k) return {wA:0,wB:0,games:0};
-  return {wA:k[oA]?.w||0, wB:k[oB]?.w||0, games:k[oA]?.games||0};
-}
-
-// ── PIN ────────────────────────────────────────────────────────────────────────
-function openPinOverlay(action){
-  _pendingPinAction=action;
-  document.getElementById('pin-input').value='';
-  document.getElementById('pin-error').textContent='';
-  document.getElementById('pin-overlay').classList.add('open');
-  setTimeout(()=>document.getElementById('pin-input').focus(),100);
-}
-function closePinOverlay(){document.getElementById('pin-overlay').classList.remove('open');}
-function submitPin(){
-  if(document.getElementById('pin-input').value.trim()===COMMISSIONER_PIN){
-    _pinUnlocked=true;closePinOverlay();if(_pendingPinAction)_pendingPinAction();
-  }else{
-    document.getElementById('pin-error').textContent='Incorrect PIN.';
-    document.getElementById('pin-input').value='';
-  }
-}
-document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitPin();});
-
-// ── COACHING METRIC (C2/C3 fixed) ─────────────────────────────────────────────
-// weeklyData: { week -> { playerId -> { pts, slot, started, team } } }
-// C1: (Team PF − League Avg PF) ÷ 10
-// C2: for every completed trade, Σ ALL points (started OR benched) scored by each
-//     received player from the week AFTER the trade onward, minus all points scored
-//     by each sent player over that same span. ÷ 10.
-// C3: for every waiver/FA add, Σ (LINEUP points that player scored for the adding
-//     team from the add week onward ÷ FAAB bid paid). ÷ 10.
-async function computeCoaching(teams, transactions, weeklyData){
-  const leagueAvgPF=teams.reduce((s,t)=>s+t.pf,0)/(teams.length||1);
-  const weeks=Object.keys(weeklyData).map(Number).filter(n=>!isNaN(n));
-  const maxWeek=weeks.length?Math.max(...weeks):TOTAL_WEEKS;
-
-  // All points a player scored across weeks >= startWeek (start or bench — doesn't matter)
-  function allPts(pid, startWeek){
-    let total=0;
-    for(let w=startWeek;w<=maxWeek;w++) total+=weeklyData[w]?.[pid]?.pts??0;
-    return total;
-  }
-  // Points a player scored while STARTING for a specific team, weeks >= startWeek
-  function lineupPts(pid, startWeek, teamId){
-    let total=0;
-    for(let w=startWeek;w<=maxWeek;w++){
-      const e=weeklyData[w]?.[pid];
-      if(!e) continue;
-      if(e.started && (teamId==null || e.team===teamId)) total+=e.pts||0;
-    }
-    return total;
-  }
-
-  const c1={},c2={},c3={},detail={};
-  teams.forEach(t=>{
-    c1[t.id]=(t.pf-leagueAvgPF)/10;
-    c2[t.id]=0; c3[t.id]=0;
-    detail[t.id]={
-      leagueAvgPF, teamPF:t.pf,
-      tradesReceived:[], tradesSent:[],
-      waiverPickups:[], txTypes:new Set(),
-      weeksLoaded:weeks.length
-    };
-  });
-
-  // Only count transactions ESPN actually executed. In a blind-FAAB league the
-  // log can include losing/failed claims; those must NOT credit a team. We skip
-  // any explicit non-executed status and keep ones that are EXECUTED or unlabeled.
-  const FAILED_STATUS=new Set(['FAILED','CANCELED','CANCELLED','PENDING','DECLINED','REVERSED','VOID','INVALID']);
-  function executed(tx){
-    const s=(tx.status||tx.executionType||'').toString().toUpperCase();
-    return !FAILED_STATUS.has(s);
-  }
-
-  // C2 — trades (all points from the week after the trade onward)
-  (transactions||[]).forEach(tx=>{
-    if(!executed(tx)) return;
-    const tid=tx.teamId;
-    if(detail[tid]) detail[tid].txTypes.add(tx.type);
-    if(tx.type==='TRADE_ACCEPT'||tx.type==='TRADE'){
-      const tradeWeek=tx.scoringPeriodId||0;
-      const fromWeek=tradeWeek+1; // their scoring "from then on out"
-      (tx.items||[]).forEach(item=>{
-        const pid=item.playerId; if(pid==null) return;
-        if(item.type && item.type!=='ADD' && item.type!=='DROP' && item.type!=='TRADE') {/* still count */}
-        const pts=allPts(pid, fromWeek);
-        if(item.toTeamId!=null && item.toTeamId in c2){
-          c2[item.toTeamId]+=pts/10;
-          detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,pts});
-        }
-        if(item.fromTeamId!=null && item.fromTeamId in c2){
-          c2[item.fromTeamId]-=pts/10;
-          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,pts});
-        }
-      });
-    }
-  });
-
-  // C3 — waivers / free agents (lineup points ÷ FAAB bid)
-  (transactions||[]).forEach(tx=>{
-    if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
-    if(!executed(tx)) return; // blind FAAB: ignore losing/failed bids
-    const bid=Math.max(tx.bidAmount??0,1); // guard $0 free-agent adds against /0
-    const addWeek=tx.scoringPeriodId||1;
-    (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
-      const pid=item.playerId; if(pid==null) return;
-      // Team can live on the transaction OR on the item (toTeamId).
-      const tid=(tx.teamId!=null&&tx.teamId in c3)?tx.teamId:item.toTeamId;
-      if(tid==null||!(tid in c3)) return;
-      detail[tid].txTypes.add(tx.type);
-      const lpts=lineupPts(pid, addWeek, tid);
-      c3[tid]+=(lpts/bid)/10;
-      detail[tid].waiverPickups.push({pid,week:addWeek,bid,pts:lpts});
-    });
-  });
-
-  // Z-score standardize the raw C1+C2+C3 sum
-  const raw={};
-  teams.forEach(t=>{raw[t.id]=(c1[t.id]||0)+(c2[t.id]||0)+(c3[t.id]||0);});
-  const vals=Object.values(raw);
-  const mean=vals.reduce((a,b)=>a+b,0)/(vals.length||1);
-  const std=Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/(vals.length||1))||1;
-  const final={};
-  teams.forEach(t=>{final[t.id]=(raw[t.id]-mean)/std;});
-
-  const breakdown={};
-  teams.forEach(t=>{breakdown[t.id]={c1:c1[t.id]||0,c2:c2[t.id]||0,c3:c3[t.id]||0,raw:raw[t.id]||0,final:final[t.id]||0,detail:detail[t.id]};});
-  return{scores:final,breakdown};
-}
-
-// ── CM MODAL ───────────────────────────────────────────────────────────────────
-function openCMModal(teamId){
-  const team=_teams.find(t=>t.id===teamId);if(!team)return;
-  const bd=_breakdown[teamId]||{};
-  const s=_scores[teamId]||0;
-  const d=bd.detail||{};
-  const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,rawf=bd.raw||0;
-
-  const tradeRows=[
-    ...(d.tradesReceived||[]).map(r=>`<div class="modal-comp-row"><span class="key">Received pid:${r.pid} after wk${r.week}</span><span class="val" style="color:var(--green)">+${r.pts.toFixed(1)} pts</span></div>`),
-    ...(d.tradesSent||[]).map(r=>`<div class="modal-comp-row"><span class="key">Sent pid:${r.pid} after wk${r.week}</span><span class="val" style="color:var(--red)">−${r.pts.toFixed(1)} pts</span></div>`)
-  ].join('')||`<div class="modal-comp-row"><span class="key">No trades found</span><span class="val" style="color:var(--text3)">—</span></div>`;
-
-  const waiverRows=(d.waiverPickups||[]).map(w=>
-    `<div class="modal-comp-row"><span class="key">$${w.bid} bid · from wk${w.week}</span><span class="val">${w.pts.toFixed(1)} lineup pts ÷ $${w.bid} = ${(w.pts/Math.max(w.bid,1)).toFixed(2)}x</span></div>`
-  ).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
-
-  document.getElementById('cm-title').textContent=team.name;
-  document.getElementById('cm-body').innerHTML=`
-    <div class="modal-total">
-      <div class="modal-total-left"><div class="label">Coaching Metric Score</div><div class="sub">Z-score · higher = better</div></div>
-      <div class="modal-total-score" style="color:${sc(s)}">${s.toFixed(3)}</div>
-    </div>
-    <div class="modal-formula">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
-      <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span><span style="font-weight:700;color:${cc(c1f)}">${c1f.toFixed(3)}</span></div>
-      <div class="eq-line"><span style="color:var(--blue);font-weight:700;width:26px">C2</span><span style="color:var(--text2);flex:1">Trade ROI</span><span style="font-weight:700;color:${cc(c2f)}">${c2f>=0?'+':''}${c2f.toFixed(3)}</span></div>
-      <div class="eq-line"><span style="color:var(--green);font-weight:700;width:26px">C3</span><span style="color:var(--text2);flex:1">Waiver ROI</span><span style="font-weight:700;color:${cc(c3f)}">${c3f>=0?'+':''}${c3f.toFixed(3)}</span></div>
-      <hr/>
-      <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Raw sum</span><span style="font-weight:700">${rawf.toFixed(3)}</span></div>
-      <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Standardized final</span><span style="font-weight:800;font-size:14px;color:${sc(s)}">${s.toFixed(3)}</span></div>
-    </div>
-    <div class="modal-comp">
-      <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-chart-line" style="color:var(--accent)"></i>C1 — Points Efficiency</div><div class="modal-comp-value" style="color:${cc(c1f)}">${c1f.toFixed(3)}</div></div>
-      <div class="modal-comp-breakdown">
-        <div class="modal-comp-row"><span class="key">Team PF</span><span class="val">${team.pf.toFixed(1)}</span></div>
-        <div class="modal-comp-row"><span class="key">League Avg PF</span><span class="val">${(d.leagueAvgPF||0).toFixed(1)}</span></div>
-        <div class="modal-comp-row"><span class="key">Difference</span><span class="val" style="color:${cc(team.pf-(d.leagueAvgPF||0))}">${(team.pf-(d.leagueAvgPF||0))>=0?'+':''}${(team.pf-(d.leagueAvgPF||0)).toFixed(1)}</span></div>
-        <div class="modal-comp-row"><span class="key">÷ 10</span><span class="val" style="color:${cc(c1f)}">${c1f.toFixed(3)}</span></div>
-      </div>
-      <div class="modal-comp-formula">(Team PF − League Avg PF) ÷ 10</div>
-    </div>
-    <div class="modal-comp">
-      <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-right-left" style="color:var(--blue)"></i>C2 — Trade ROI</div><div class="modal-comp-value" style="color:${cc(c2f)}">${c2f>=0?'+':''}${c2f.toFixed(3)}</div></div>
-      <div class="modal-comp-breakdown">${tradeRows}</div>
-      <div class="modal-comp-formula">Σ (pts scored by received players after trade − pts scored by sent players after trade) ÷ 10</div>
-    </div>
-    <div class="modal-comp">
-      <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-magnifying-glass-dollar" style="color:var(--green)"></i>C3 — Waiver ROI</div><div class="modal-comp-value" style="color:${cc(c3f)}">${c3f>=0?'+':''}${c3f.toFixed(3)}</div></div>
-      <div class="modal-comp-breakdown">${waiverRows}</div>
-      <div class="modal-comp-formula">Σ (lineup pts scored by waiver pickup ÷ FAAB bid paid) ÷ 10</div>
-    </div>
-    <details class="modal-debug">
-      <summary>🔍 Debug info</summary>
-      <pre>Transactions returned by ESPN: ${_txMeta.count} (source: ${_txMeta.source})
-Attempts: ${(_txMeta.diag||[]).map(a=>`${a.name}=${a.count}${a.status&&a.status!==200?`(${a.status})`:''}`).join('  ')||'—'}
-Weeks loaded for scoring: ${d.weeksLoaded||0}
-TX types seen this team: ${Array.from(d.txTypes||[]).join(', ')||'none'}
-Trades received: ${(d.tradesReceived||[]).length}
-Trades sent: ${(d.tradesSent||[]).length}
-Waiver pickups: ${(d.waiverPickups||[]).length}
-Logo URL: ${_logoMap[team.id]||'(none returned by ESPN)'}</pre>
-    </details>`;
-  document.getElementById('cm-overlay').classList.add('open');
-}
-function closeCMModal(e){if(e.target===document.getElementById('cm-overlay'))closeCMModalDirect();}
-function closeCMModalDirect(){document.getElementById('cm-overlay').classList.remove('open');}
-
-// ── BIG 4 ──────────────────────────────────────────────────────────────────────
-// Resolve a BIG4 entry (team name / partial name / numeric id) to a team object.
-function resolveBig4Entry(entry){
-  if(entry==null||entry==='') return null;
-  if(typeof entry==='number') return _teams.find(t=>t.id===entry)||null;
-  const q=String(entry).trim().toLowerCase();
-  if(/^\d+$/.test(q)) {const byId=_teams.find(t=>t.id===Number(q)); if(byId) return byId;}
-  return _teams.find(t=>(t.name||'').toLowerCase()===q)
-      || _teams.find(t=>(t.name||'').toLowerCase().includes(q))
-      || null;
-}
-function renderBig4(){
-  const el=document.getElementById('big4-display');if(!el)return;
-  const picked=BIG4.map(resolveBig4Entry); // keep slot positions (may include nulls)
-  const anyPicked=picked.some(Boolean);
-
-  el.innerHTML=`<div class="section-header" style="padding:12px 16px">
-    <i class="fa fa-crown"></i>Balls Big 4
-  </div>
-  ${!anyPicked
-    ?`<div class="big4-empty">Set your Big 4 in the code — edit the <code>BIG4</code> list near the top of the script.</div>`
-    :`<div class="big4-grid">${picked.map((t,i)=>{
-      if(!t) return `<div class="big4-team"><div class="big4-info"><div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div><div class="big4-record" style="color:var(--text3)">— empty slot —</div></div></div>`;
-      const s=_scores[t.id]||0;
-      return`<div class="big4-team">
-        ${logoImg(t.id,'big4-logo')}
-        <div class="big4-info">
-          <div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div>
-          <div class="big4-name">${t.name}</div>
-          <div class="big4-record">${t.wins}–${t.losses} · ${t.pf.toFixed(0)} PF</div>
-          <div class="big4-cm" style="color:${sc(s)}">CM: ${s.toFixed(2)}</div>
-        </div>
-      </div>`;
-    }).join('')}</div>`}`;
-}
-
-// ── HEADLINES ──────────────────────────────────────────────────────────────────
-// Head-to-head record THIS SEASON between two teams across loaded matchups
-function h2h(idA,idB){
-  let wA=0,wB=0;
-  _allMatchups.forEach(mu=>{
-    if(!mu.home||!mu.away) return;
-    const hid=mu.home.teamId,aid=mu.away.teamId;
-    const hp=mu.home.totalPoints||0,ap=mu.away.totalPoints||0;
-    if((hp===0&&ap===0)) return;
-    if((hid===idA&&aid===idB)||(hid===idB&&aid===idA)){
-      if(hp>ap){if(hid===idA)wA++;else wB++;}
-      else if(ap>hp){if(aid===idA)wA++;else wB++;}
-    }
-  });
-  return{wA,wB};
-}
-
-// Deterministic hash so each matchup gets ONE stable, unique headline (no re-roll on re-render)
-function hashStr(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
-function standingsOrder(){return [..._teams].sort((a,b)=>(b.wins-a.wins)||(b.pf-a.pf));}
-function seedOf(id){return standingsOrder().findIndex(t=>t.id===id)+1;}
-function playoffCut(){return Math.max(4,Math.ceil((_teams.length||12)/2));}
-function leagueWeeksPlayed(){return Math.max(0,..._teams.map(t=>t.wins+t.losses+t.ties));}
-function ord(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
-
-function generateHeadline(home,away,hPts,aPts){
-  const diff=Math.abs(hPts-aPts);
-  const winner=hPts>=aPts?home:away;
-  const loser =hPts>=aPts?away:home;
-  const winPts=Math.max(hPts,aPts), losePts=Math.min(hPts,aPts);
-  const W=`<strong>${winner.name}</strong>`, L=`<strong>${loser.name}</strong>`;
-  const score=`${winPts.toFixed(1)}–${losePts.toFixed(1)}`;
-
-  // Records / standings context
-  const wRec=`${winner.wins}–${winner.losses}`, lRec=`${loser.wins}–${loser.losses}`;
-  const wSeed=seedOf(winner.id), lSeed=seedOf(loser.id), cut=playoffCut();
-  const wPlayed=leagueWeeksPlayed(), lateSeason=wPlayed>=9;
-
-  // Series history (this season + all-time across every season)
-  const s=h2h(winner.id,loser.id);            // season
-  const sWin=hPts>=aPts?s.wA:s.wB, sLose=hPts>=aPts?s.wB:s.wA;
-  const at=allTimeH2H(winner.id,loser.id);     // all-time
-  const atWin=hPts>=aPts?at.wA:at.wB, atLose=hPts>=aPts?at.wB:at.wA, atGames=at.games;
-
-  // Outcome flags
-  const nail=diff<2, close=diff<6, blowout=diff>=45, shootout=winPts>=150&&losePts>=125;
-  const high=winPts>=165, monster=winPts>=185, low=losePts>0&&losePts<80, bothLow=winPts<95;
-  const upset=(loser.wins>winner.wins)||(lSeed>0&&wSeed>0&&lSeed<wSeed-1);
-  const undefeatedW=winner.losses===0&&winner.wins>=3;
-  const winlessL=loser.wins===0&&loser.losses>=3;
-  const firstWin=winner.wins===1;
-
-  const specific=[];
-
-  if(nail) specific.push(`A one-possession heart attack — ${W} survives ${L} by ${diff.toFixed(1)}, ${score}. Don't look at the box score if you have a weak ticker.`);
-  if(close){
-    specific.push(`By the skin of their teeth, ${W} outlasts ${L} ${score}. ${diff.toFixed(1)} points is the difference between bragging rights and silence in the group chat.`);
-    specific.push(`${W} sneaks past ${L} ${score}. One benched sleeper and this one flips — but the W still counts the same in the standings.`);
-  }
-  if(blowout){
-    specific.push(`Call it a mercy rule. ${W} dropped ${winPts.toFixed(1)} and left ${L} in the rearview by ${diff.toFixed(1)}, ${score}.`);
-    specific.push(`Not a matchup, a Michael Bay film — explosions everywhere as ${W} demolishes ${L} by ${diff.toFixed(1)}.`);
-    specific.push(`${L} got the full final-boss treatment. ${W} wins ${score} and it was over by halftime.`);
-  }
-  if(shootout) specific.push(`Track meet at the top of the scoreboard — ${W} and ${L} combined for ${(winPts+losePts).toFixed(1)}, but only ${W} walks away happy, ${score}.`);
-  if(monster) specific.push(`Put it in the season recap: ${W} hung a monstrous ${winPts.toFixed(1)} on ${L}. That's not a lineup, that's a cheat code.`);
-  else if(high) specific.push(`${W} went full Madden on ${L}, lighting up the board for ${winPts.toFixed(1)} in the ${score} win.`);
-  if(low) specific.push(`Fantasy is cruel. ${L} mustered just ${losePts.toFixed(1)} while ${W} cruised, ${score}. Burn the tape.`);
-  if(bothLow) specific.push(`Defense optional, offense apparently too — ${W} wins an ugly rock fight over ${L}, ${score}. Somebody had to.`);
-
-  // All-time series flavor
-  if(atGames>=2){
-    if(atWin>atLose+1) specific.push(`${W} simply owns this rivalry, improving to ${atWin}–${atLose} all-time over ${L} after the ${score} win. Somebody call an exorcist.`);
-    else if(atWin>atLose) specific.push(`${W} nudges the all-time series with ${L} to ${atWin}–${atLose}, taking the latest chapter ${score}.`);
-    else if(atWin===atLose) specific.push(`The all-time ledger between these two was knotted at ${atLose}–${atLose} — until ${W} broke serve ${score}. Bad blood guaranteed at the next draft.`);
-    else specific.push(`${L} still leads the all-time series ${atLose}–${atWin}, but ${W} got one back today, ${score}.`);
-  }
-  if(sWin+sLose>=2 && Math.abs(sWin-sLose)<=1) specific.push(`These two can't stop meeting — ${W} edges ${L} again ${score} to make it ${sWin}–${sLose} between them this season alone.`);
-
-  // Playoff hopes (late season only)
-  if(lateSeason){
-    if(wSeed>0&&wSeed<=cut) specific.push(`${W} (${wRec}) keeps a firm grip on the ${ord(wSeed)} seed, handling ${L} ${score} with the postseason in sight.`);
-    if(lSeed>0&&lSeed>cut) specific.push(`${L} (${lRec}) is running out of runway. Sitting ${ord(lSeed)} after a ${losePts.toFixed(1)}-point dud, the playoff math is getting ugly.`);
-    if(wSeed>cut) specific.push(`A must-win, and ${W} delivered — beating ${L} ${score} to keep their fading playoff pulse alive at ${wRec}.`);
-  }
-
-  // Record-driven storylines
-  if(undefeatedW) specific.push(`Still perfect. ${W} runs it to ${wRec}, brushing aside ${L} ${score}. The rest of the league is officially on notice.`);
-  if(winlessL) specific.push(`The misery continues for ${L}, now ${lRec} after falling ${score}. ${W} happily plays the role of bully.`);
-  if(firstWin) specific.push(`Breakthrough! ${W} grabs win number one against ${L}, ${score}. Sometimes you just need one to get the boulder rolling.`);
-  if(upset&&!firstWin) specific.push(`Upset alert cashed — ${W} (${wRec}) had no business winning on paper, then beat ${L} (${lRec}) anyway, ${score}. Throw the records out.`);
-
-  // Always-available pop-culture / witty flavor (keeps the rotation fresh)
-  const flavor=[
-    `${W} understood the assignment, putting up ${winPts.toFixed(1)} to send ${L} home with the L, ${score}.`,
-    `Main-character energy from ${W} this week — ${L} was just an NPC in the ${score} story.`,
-    `${L} had plot armor right up until kickoff. ${W} wrote the ending anyway, ${score}.`,
-    `${W} speedran this one. ${L} never found the controller, ${score}.`,
-    `Somewhere a fantasy analyst is eating their words — ${W} over ${L}, ${score}, no notes.`,
-    `${W} took ${L} to the woodshed-adjacent area and won ${score}. The standings don't care how it looked.`,
-    `File under "just business": ${W} (${wRec}) tops ${L} (${lRec}) ${score} and moves on without a word.`,
-    `${L} brought a spork to a knife fight. ${W} wins ${score}.`,
-    `The scoreboard is undefeated as a storyteller — ${W} ${winPts.toFixed(1)}, ${L} ${losePts.toFixed(1)}, and that's the whole plot.`,
-    `${W} cooked. ${L} did the dishes. Final: ${score}.`,
-  ];
-
-  // Make a STABLE pick seeded by the exact matchup + result so each game keeps one
-  // headline. Context-specific lines dominate; one flavor wildcard is mixed in for spice.
-  const seed=hashStr(`${home.id}|${away.id}|${_currentWeek}|${winPts.toFixed(1)}|${losePts.toFixed(1)}`);
-  let pool;
-  if(specific.length){
-    pool=[...specific,...specific,...specific];      // heavy weight on team/outcome context
-    pool.push(flavor[seed % flavor.length]);          // a single pop-culture wildcard
-  } else {
-    pool=flavor;
-  }
-  return pool[seed % pool.length];
-}
-
-function renderHeadlines(week){
-  _currentWeek=week;
-  const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
-  document.querySelectorAll('.week-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.week)===week));
-  const grid=document.getElementById('headline-grid');if(!grid)return;
-  const weekMu=_allMatchups.filter(mu=>mu.matchupPeriodId===week&&mu.home&&mu.away);
-  if(!weekMu.length){grid.innerHTML=`<div style="padding:24px;color:var(--text3);font-size:13px;text-align:center">No data for Week ${week}</div>`;return;}
-  grid.innerHTML=weekMu.map(mu=>{
-    const home={...teamMap[mu.home.teamId]||{name:'Home',wins:0,losses:0,pf:0},id:mu.home.teamId};
-    const away={...teamMap[mu.away.teamId]||{name:'Away',wins:0,losses:0,pf:0},id:mu.away.teamId};
-    const hPts=mu.home.totalPoints||0,aPts=mu.away.totalPoints||0;
-    const hWin=hPts>aPts,aWin=aPts>hPts;
-    return`<div class="headline-card">
-      <div class="headline-matchup">
-        <div class="headline-team-block">
-          ${logoImg(home.id,'team-logo-sm')}
-          <span class="headline-team-name">${home.name}</span>
-        </div>
-        <div class="headline-vs">vs</div>
-        <div class="headline-team-block away">
-          ${logoImg(away.id,'team-logo-sm')}
-          <span class="headline-team-name">${away.name}</span>
-        </div>
-      </div>
-      <div class="headline-score">
-        <div class="headline-pts ${hWin?'winner':aPts>0?'loser':''}">${hPts.toFixed(1)}</div>
-        <div class="headline-pts ${aWin?'winner':hPts>0?'loser':''}">${aPts.toFixed(1)}</div>
-      </div>
-      <div class="headline-blurb">${generateHeadline(home,away,hPts,aPts)}</div>
-    </div>`;
-  }).join('');
-}
-
-// ── STANDINGS ──────────────────────────────────────────────────────────────────
-function sortStandings(col){
-  if(_sortCol===col)_sortAsc=!_sortAsc;
-  else{_sortCol=col;_sortAsc=(col==='rank');}
-  renderStandingsTable();
-}
-function sortAndHighlight(col,btn){
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  _sortCol=col;_sortAsc=(col==='rank');
-  renderStandingsTable();
-}
-function renderStandingsTable(){
-  const teams=[..._teams];
-  teams.sort((a,b)=>{
-    let va,vb;
-    if(_sortCol==='rank'){va=a.wins/((a.wins+a.losses+a.ties)||1);vb=b.wins/((b.wins+b.losses+b.ties)||1);}
-    else if(_sortCol==='pf'){va=a.pf;vb=b.pf;}
-    else if(_sortCol==='pa'){va=a.pa;vb=b.pa;}
-    else if(_sortCol==='wins'){va=a.wins;vb=b.wins;}
-    else if(_sortCol==='moves'){va=a.moves;vb=b.moves;}
-    else if(_sortCol==='trades'){va=a.trades;vb=b.trades;}
-    else if(_sortCol==='cm'){va=_scores[a.id]||0;vb=_scores[b.id]||0;}
-    else return 0;
-    return _sortAsc?va-vb:vb-va;
-  });
-  function arr(c){return _sortCol===c?(_sortAsc?'↑':'↓'):'⇅';}
-  function th(col,label,right=true){return`<th class="${right?'right':''} ${_sortCol===col?'sorted':''}" onclick="sortStandings('${col}')">${label} <span style="font-size:9px;opacity:0.6">${arr(col)}</span></th>`;}
-  const thead=document.getElementById('standings-thead');
-  const tbody=document.getElementById('standings-tbody');
-  if(!thead||!tbody)return;
-  thead.innerHTML=`<tr>
-    <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:9px;opacity:0.6">${arr('rank')}</span></th>
-    <th>Team</th>${th('wins','W')}
-    <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}
-  </tr>`;
-  tbody.innerHTML=teams.map((t,i)=>{
-    const s=_scores[t.id]||0;
-    return`<tr>
-      <td><span class="rank">${i===0&&_sortCol==='rank'?'🥇':i+1}</span></td>
-      <td><div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name">${t.name}</div><div class="team-sub">${t.abbrev}</div></div></div></td>
-      <td class="right"><strong>${t.wins}</strong></td>
-      <td class="right" style="color:var(--text3)">${t.losses}</td>
-      <td class="right pf">${t.pf.toFixed(1)}</td>
-      <td class="right pa">${t.pa.toFixed(1)}</td>
-      <td class="right">${t.moves}</td>
-      <td class="right">${t.trades}</td>
-      <td class="right" style="color:${sc(s)};font-weight:600">${s.toFixed(2)}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ── VIDEO ──────────────────────────────────────────────────────────────────────
-function selectVideo(videoId){
-  _activeVideoId=videoId;
-  const iframe=document.getElementById('vi');
-  const title=document.getElementById('vt');
-  const v=_videos.find(v=>v.videoId===videoId);
-  if(iframe)iframe.src=`https://www.youtube.com/embed/${videoId}`;
-  if(title&&v)title.textContent=v.title;
-  document.querySelectorAll('.video-thumb').forEach(el=>el.classList.toggle('active',el.dataset.vid===videoId));
-}
-
-// ── HELPERS ────────────────────────────────────────────────────────────────────
-function sc(v){return v>0.5?'var(--green)':v<-0.5?'var(--red)':'var(--text2)';}
-function cc(v){return v>0?'var(--green)':v<0?'var(--red)':'var(--text2)';}
-function bp(v){return Math.min(100,Math.max(0,((v+3)/6)*100)).toFixed(1);}
-function bc(v){return v>0.5?'var(--green)':v<-0.5?'var(--red)':'var(--accent)';}
-
-function renderTx(tx,teamMap){
-  const date=tx.processedDate?new Date(tx.processedDate).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-  const team=teamMap[tx.teamId]||'Unknown';
-  const av=logoImg(tx.teamId,'team-logo-sm');
-  const type=tx.type||'';const items=tx.items||[];
-  if(type==='WAIVER'||type==='FREEAGENT'){
-    const bid=tx.bidAmount!=null?` · <span style="color:var(--accent)">$${tx.bidAmount}</span>`:'';
-    return items.filter(i=>i.type==='ADD').map(()=>`
-      <div class="activity-item"><div class="act-icon add"><i class="fa fa-plus"></i></div>
-      <div><div class="act-title">${av}Add by <strong>${team}</strong>${bid}</div>
-      <div class="act-sub">${date} · ${type==='WAIVER'?'Waiver':'Free Agent'}</div></div></div>`).join('')+
-    items.filter(i=>i.type==='DROP').map(()=>`
-      <div class="activity-item"><div class="act-icon drop"><i class="fa fa-minus"></i></div>
-      <div><div class="act-title">${av}Drop by <strong>${team}</strong></div><div class="act-sub">${date}</div></div></div>`).join('');
-  }
-  if(type==='TRADE_ACCEPT'||type==='TRADE')
-    return`<div class="activity-item"><div class="act-icon trade"><i class="fa fa-right-left"></i></div>
-      <div><div class="act-title">${av}Trade · <strong>${items.length} player${items.length!==1?'s':''}</strong></div><div class="act-sub">${date}</div></div></div>`;
-  return'';
-}
-
-// ── MAIN LOAD ──────────────────────────────────────────────────────────────────
-async function loadDashboard(){
-  const app=document.getElementById('app');
-  _sortCol='pf';_sortAsc=false;
-  setStatus('','–');
-  app.innerHTML=`<div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div>`;
-
-  try{
-    const season=getSeason();
-
-    // Fetch all ESPN data in parallel
-    const [teamData,transData,schedData,ytData]=await Promise.all([
-      espnFetch('mTeam'),
-      txFetch(),
-      espnFetch('mMatchup'),
-      ytFetch()
-    ]);
-
-    // Build teams. ESPN returns a `logo` URL whenever a manager uploaded one.
-    // We keep any http(s) URL and rely on referrerpolicy=no-referrer + an
-    // onerror fallback to a colored initials badge if it doesn't load.
-    _logoMap={}; _ownerMap={};
-    _teams=(teamData.teams||[]).map(t=>{
-      const r=t.record?.overall||{};
-      _logoMap[t.id]=(t.logo && /^https?:\/\//i.test(t.logo)) ? t.logo.replace(/^http:\/\//i,'https://') : null;
-      _ownerMap[t.id]=t.primaryOwner||(t.owners&&t.owners[0])||`team:${t.id}`;
-      return{
-        id:t.id,
-        name:t.name||`${t.location||''} ${t.nickname||''}`.trim()||t.abbrev||'Team',
-        abbrev:t.abbrev||'',
-        wins:r.wins||0,losses:r.losses||0,ties:r.ties||0,
-        pf:r.pointsFor||0,pa:r.pointsAgainst||0,
-        moves:t.transactionCounter?.acquisitions||0,
-        trades:t.transactionCounter?.trades||0,
-        drops:t.transactionCounter?.drops||0,
-      };
-    }).sort((a,b)=>b.pf-a.pf);
-
-    const transactions=transData.transactions||[];
-    _txMeta={source:transData._source||'?',count:transData._count??(transactions.length),diag:transData._diag||[]};
-    _allMatchups=schedData.schedule||[];
-    const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t.name]));
-    _videos=ytData.videos||[];
-
-    // Determine played weeks
-    const playedWeeks=[...new Set(
-      _allMatchups.filter(mu=>(mu.home?.totalPoints||0)>0||(mu.away?.totalPoints||0)>0)
-        .map(mu=>mu.matchupPeriodId)
-    )].sort((a,b)=>b-a);
-    _currentWeek=playedWeeks[0]||1;
-    const maxPlayedWeek=playedWeeks[0]||0;
-
-    // Fetch per-week player data (pts/slot/team) for C2/C3 — only played weeks.
-    // Also fetch every season's schedule in the background to build an ALL-TIME
-    // head-to-head ledger used by the headline generator.
-    const weeklyData={};
-    const weekFetches=[];
-    if(maxPlayedWeek>0){
-      for(let w=1;w<=maxPlayedWeek;w++) weekFetches.push(fetchPlayerWeekScores(w).then(d=>{weeklyData[w]=d;}));
-    }
-    const h2hFetch=buildAllTimeH2H().catch(()=>{});
-    await Promise.all([...weekFetches, h2hFetch]);
-
-    // Compute coaching metric
-    const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData);
-    _scores=scores;_breakdown=breakdown;
-
-    const cmRanked=[..._teams].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0));
-    const totalMoves=_teams.reduce((s,t)=>s+t.moves,0);
-    const totalTrades=_teams.reduce((s,t)=>s+t.trades,0);
-    const totalDrops=_teams.reduce((s,t)=>s+t.drops,0);
-    const avgPF=_teams.reduce((s,t)=>s+t.pf,0)/(_teams.length||1);
-    const firstVid=_videos[0];
-    _activeVideoId=firstVid?.videoId||null;
-
-    document.getElementById('last-updated').textContent='Updated '+new Date().toLocaleTimeString();
-    setStatus('live','Live');
-
-    app.innerHTML=`
-      <!-- BIG 4 -->
-      <div class="card" style="margin-bottom:20px" id="big4-display"></div>
-
-      <!-- TOP GRID -->
-      <div class="top-grid">
-        <!-- Coaching Metric -->
-        <div class="card">
-          <div class="section-header"><i class="fa fa-brain"></i>Coaching Metric<span class="badge-info">Click for breakdown</span></div>
-          ${cmRanked.map((t,i)=>{
-            const s=scores[t.id]||0;
-            return`<div class="coaching-row" onclick="openCMModal(${t.id})">
-              <div class="coaching-rank">${i===0?'🥇':i+1}</div>
-              ${logoImg(t.id)}
-              <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
-              <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${bp(s)}%;background:${bc(s)}"></div></div>
-              <div class="coaching-score" style="color:${sc(s)}">${s.toFixed(2)}</div>
-              <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
-            </div>`;
-          }).join('')}
-        </div>
-
-        <!-- YouTube -->
-        <div class="card">
-          <div class="section-header"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
-          ${firstVid
-            ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
-              <div class="video-featured-title" id="vt">${firstVid.title}</div>
-              ${_videos.length>1?`<div class="video-scroll-label">More Videos</div>
-              <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div>`:''}`
-            :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
-          }
-        </div>
-      </div>
-
-      <!-- HEADLINES -->
-      ${playedWeeks.length?`<div class="card" style="margin-bottom:22px">
-        <div class="section-header"><i class="fa fa-newspaper"></i>Weekly Matchup Headlines</div>
-        <div class="headline-controls">
-          <span style="font-size:12px;color:var(--text3);margin-right:4px">Week:</span>
-          ${playedWeeks.map(w=>`<button class="week-btn ${w===_currentWeek?'active':''}" data-week="${w}" onclick="renderHeadlines(${w})">Wk ${w}</button>`).join('')}
-        </div>
-        <div class="headline-grid" id="headline-grid"></div>
-      </div>`:''}
-
-      <!-- STATS -->
-      <div class="stat-grid">
-        <div class="card stat-card"><div class="stat-label">Total Moves</div><div class="stat-value">${totalMoves}</div><div class="stat-sub">${totalMoves-totalDrops} adds · ${totalDrops} drops</div></div>
-        <div class="card stat-card"><div class="stat-label">Total Trades</div><div class="stat-value">${totalTrades}</div><div class="stat-sub">across all teams</div></div>
-        <div class="card stat-card"><div class="stat-label">Avg Points For</div><div class="stat-value">${avgPF.toFixed(1)}</div><div class="stat-sub">${season} season</div></div>
-      </div>
-
-      <!-- STANDINGS -->
-      <div class="card" style="margin-bottom:22px">
-        <div class="section-header"><i class="fa fa-ranking-star"></i>${season} Standings</div>
-        <div class="standings-filters">
-          <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
-          <button class="filter-btn" onclick="sortAndHighlight('rank',this)">Record</button>
-          <button class="filter-btn active" onclick="sortAndHighlight('pf',this)">Points For</button>
-          <button class="filter-btn" onclick="sortAndHighlight('pa',this)">Points Against</button>
-          <button class="filter-btn" onclick="sortAndHighlight('moves',this)">Most Active</button>
-          <button class="filter-btn" onclick="sortAndHighlight('trades',this)">Most Trades</button>
-          <button class="filter-btn" onclick="sortAndHighlight('cm',this)">Coaching Metric</button>
-        </div>
-        <table><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table>
-      </div>
-
-      <!-- 2 COL -->
-      <div class="two-col">
-        <div class="card">
-          <div class="section-header"><i class="fa fa-fire"></i>Highest Scoring</div>
-          <table><tbody>${[..._teams].sort((a,b)=>b.pf-a.pf).slice(0,6).map((t,i)=>`
-            <tr><td><div class="team-cell">${logoImg(t.id)}<span class="rank" style="margin:0 6px">${i+1}</span>${t.name}</div></td><td class="right pf">${t.pf.toFixed(1)}</td></tr>`).join('')}</tbody></table>
-        </div>
-        <div class="card">
-          <div class="section-header"><i class="fa fa-arrow-trend-up"></i>Most Active</div>
-          <table><tbody>${[..._teams].sort((a,b)=>b.moves-a.moves).slice(0,6).map((t,i)=>`
-            <tr><td><div class="team-cell">${logoImg(t.id)}<span class="rank" style="margin:0 6px">${i+1}</span>${t.name}</div></td><td class="right" style="color:var(--text2)">${t.moves}</td><td class="right" style="color:var(--blue)">${t.trades}</td></tr>`).join('')}</tbody></table>
-        </div>
-      </div>
-
-      <!-- ACTIVITY -->
-      <div class="card">
-        <div class="section-header"><i class="fa fa-clock-rotate-left"></i>Recent Activity</div>
-        ${transactions.slice(0,10).map(tx=>renderTx(tx,teamMap)).filter(Boolean).join('')||`<div style="padding:28px;text-align:center;color:var(--text3)">No recent transactions</div>`}
-      </div>
-    `;
-
-    renderStandingsTable();
-    renderBig4();
-    if(playedWeeks.length) renderHeadlines(_currentWeek);
-
-  }catch(err){
-    setStatus('err','Error');
-    document.getElementById('last-updated').textContent='Failed to load';
-    document.getElementById('app').innerHTML=`<div class="err-box"><i class="fa fa-triangle-exclamation" style="margin-right:8px"></i>${err.message}</div>`;
-    console.error(err);
-  }
-}
-
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCMModalDirect();closePinOverlay();}});
-loadDashboard();
-</script>
+<script src="/app.js"></script>
 </body>
 </html>

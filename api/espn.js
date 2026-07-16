@@ -35,6 +35,36 @@ export default async function handler(req, res) {
   }
   const unwrap = d => (Array.isArray(d) ? (d[0] || {}) : d);
 
+  // ── LOGO PROXY ───────────────────────────────────────────────────────────────
+  // Team logos live on hosts that often block hotlinking (mystique-api uploads,
+  // twimg, pinimg, etc.). Serving them through our own domain fixes that. ESPN
+  // cookies are attached only for *.espn.com hosts.
+  if (type === 'logo') {
+    const raw = Array.isArray(req.query.url) ? req.query.url[0] : req.query.url;
+    if (!raw) return res.status(400).json({ error: 'missing url' });
+    let u;
+    try { u = new URL(raw); } catch { return res.status(400).json({ error: 'bad url' }); }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return res.status(400).json({ error: 'bad protocol' });
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || /^[0-9.]+$/.test(host) || host.includes(':') || host.endsWith('.local') || host.endsWith('.internal'))
+      return res.status(400).json({ error: 'bad host' });
+    const hdrs = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    };
+    if (host === 'espn.com' || host.endsWith('.espn.com')) hdrs.Cookie = `espn_s2=${espn_s2}; SWID=${swid}`;
+    try {
+      const r = await fetch(u.toString(), { headers: hdrs, redirect: 'follow' });
+      if (!r.ok) return res.status(502).json({ error: `upstream ${r.status}` });
+      const ct = r.headers.get('content-type') || 'image/png';
+      if (!/^image\//i.test(ct) && !/svg/i.test(ct)) return res.status(415).json({ error: `not an image: ${ct}` });
+      const buf = Buffer.from(await r.arrayBuffer());
+      res.setHeader('Content-Type', ct);
+      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400');
+      return res.status(200).send(buf);
+    } catch (err) { return res.status(502).json({ error: err.message }); }
+  }
+
   // ── YouTube RSS ──────────────────────────────────────────────────────────────
   if (type === 'youtube') {
     const channelId = 'UCUoUwKYMkspanOjX5_6d5-Q';
@@ -86,10 +116,25 @@ export default async function handler(req, res) {
       out.probes.push(p);
     }
 
+    const topicsProbe = { topics: {
+      filterType: { value: ['ACTIVITY_TRANSACTIONS'] }, limit: 25, limitPerMessageSet: { value: 25 }, offset: 0,
+      sortMessageDate: { sortPriority: 1, sortAsc: false },
+    }};
     await probe('hist_mTx2_typed', `${histBase}&view=mTransactions2`, txFilterTyped);
     await probe('live_mTx2_typed', `${liveBase}?view=mTransactions2`, txFilterTyped);
     await probe('hist_mTx2_all',   `${histBase}&view=mTransactions2`, txFilterAll);
     await probe('live_mTx2_all',   `${liveBase}?view=mTransactions2`, txFilterAll);
+    await probe('live_comm',       `${liveBase}/communication/?view=kona_league_communication`, topicsProbe);
+    // Peek at topics shape too (probe only reports `transactions`)
+    try {
+      const r = await fetch(`${liveBase}/communication/?view=kona_league_communication`, { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(topicsProbe) } });
+      out.commStatus = r.status;
+      if (r.ok) {
+        const d = unwrap(await r.json());
+        out.commTopicCount = (d.topics || []).length;
+        out.commSample = (d.topics || []).slice(0, 2);
+      }
+    } catch (e) { out.commError = String(e).slice(0, 200); }
     return res.status(200).json(out);
   }
 
@@ -148,66 +193,4 @@ export default async function handler(req, res) {
 
     const nativeParse = d => Array.isArray(d.transactions) ? d.transactions : [];
     const commParse   = d => normFromComm(d.topics);
-    const sources = isHistory
-      ? [ ['hist_mTx2', `${histBase}&view=mTransactions2`, txFilter, nativeParse],
-          ['live_mTx2', `${liveBase}?view=mTransactions2`, txFilter, nativeParse] ]
-      : [ ['live_mTx2', `${liveBase}?view=mTransactions2`, txFilter, nativeParse],
-          ['live_comm', `${liveBase}/communication/?view=kona_league_communication`, topicsFilter, commParse] ];
-
-    try{
-      let txns=[], source='none';
-      for(const [name,url,f,p] of sources){
-        txns = await attempt(name, url, f, p);
-        if(txns.length){ source=name; break; }
-      }
-      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
-      return res.status(200).json({ transactions:txns, _source:source, _count:txns.length, _diag:diag });
-    }catch(err){ return res.status(500).json({ error:err.message, transactions:[], _diag:diag }); }
-  }
-
-  // ── Player scoring per week — used for C2/C3 calculation ────────────────────
-  // players[pid] = { pts, slot, started, team }
-  //   pts  = ACTUAL fantasy points that week (statSourceId 0), start or bench
-  //   slot = lineupSlotId that week (starters vs bench for C3)
-  //   team = teamId that rostered the player that week
-  if (type === 'playerscores') {
-    const week = parseInt(scoringPeriodId || '1', 10);
-    const url  = leagueURL('mRoster') + `&scoringPeriodId=${week}`;
-    try {
-      const r  = await fetch(url, { headers });
-      const data = unwrap(await r.json());
-      const BENCH_SLOTS = [20, 21, 24]; // bench, IR, taxi/reserve
-      const players = {};
-      (data.teams || []).forEach(team => {
-        (team.roster?.entries || []).forEach(e => {
-          const pid = e.playerId;
-          if (pid == null) return;
-          const stats = e.playerPoolEntry?.player?.stats || [];
-          const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === week);
-          const pts = wk?.appliedTotal ?? e.playerPoolEntry?.appliedStatTotal ?? 0;
-          players[pid] = {
-            pts,
-            slot: e.lineupSlotId,
-            started: !BENCH_SLOTS.includes(e.lineupSlotId),
-            team: team.id,
-          };
-        });
-      });
-      return res.status(200).json({ week, players });
-    } catch (err) { return res.status(500).json({ error: err.message }); }
-  }
-
-  // ── Generic view passthrough (supports multiple ?view= params) ───────────────
-  const views = view || 'mTeam';
-  const url = leagueURL(views);
-  try {
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: `ESPN API ${response.status}`, details: text, url });
-    }
-    const data = unwrap(await response.json());
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
-    return res.status(200).json(data);
-  } catch (err) { return res.status(500).json({ error: err.message }); }
-}
+    // The communication feed is worth trying even for completed se
