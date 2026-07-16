@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ball & Chain GFL</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -14,7 +17,12 @@
       --accent:#ffb347;--accent2:#ff923d;
       --green:#4ade80;--red:#fb7185;--blue:#60a5fa;--purple:#c084fc;
     }
-    body{background:radial-gradient(circle at top,#241404 0%,#080808 45%);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
+    body{background:radial-gradient(circle at top,#241404 0%,#080808 45%);color:var(--text);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
+    /* Display font for headings & big numbers (brand: bold, modern, sporty) */
+    .logo h1,.section-header,.tab-btn,.stat-value,.modal-header h2,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.big4-name,.trade-verdict,.pin-box h3,.week-btn,.filter-btn{font-family:'Space Grotesk','Inter',sans-serif;}
+    .section-header{letter-spacing:0.2px;}
+    .logo h1{letter-spacing:-0.2px;}
+    .badge-info{font-family:'Inter',sans-serif;letter-spacing:0;}
 
     /* HEADER */
     header{background:rgba(10,10,10,0.88);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:12px 26px;gap:12px;flex-wrap:wrap;}
@@ -218,6 +226,9 @@
     .trade-bar span{display:block;height:100%;}
     .trade-bar-labels{display:flex;justify-content:space-between;padding:0 16px 12px;font-size:10px;color:var(--text3);}
 
+    .trade-verdict{margin-left:auto;font-size:12px;font-weight:800;padding:5px 12px;border-radius:9px;letter-spacing:0.4px;display:inline-flex;align-items:center;gap:6px;}
+    .trade-verdict.fair{background:rgba(96,165,250,0.14);color:var(--blue);border:1px solid rgba(96,165,250,0.4);}
+    .trade-winlabel{font-size:11px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;margin-top:2px;}
     /* DRAFT TAB */
     .draft-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,0.05);}
     .draft-row:last-child{border-bottom:none;}
@@ -226,6 +237,7 @@
     .draft-name{font-size:13px;font-weight:600;}
     .draft-pos{font-size:10px;color:var(--text3);background:rgba(255,255,255,0.06);border-radius:5px;padding:1px 6px;margin-left:5px;vertical-align:middle;}
     .draft-mgr{font-size:11px;color:var(--text3);font-weight:400;}
+    .draft-mgr2{font-size:11px;color:var(--accent);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px;}
     .draft-line{font-size:11.5px;color:var(--text2);margin-top:2px;line-height:1.5;}
     .draft-delta{font-size:15px;font-weight:800;flex-shrink:0;min-width:44px;text-align:right;}
 
