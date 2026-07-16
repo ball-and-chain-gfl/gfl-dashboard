@@ -1004,7 +1004,7 @@ async function loadDashboard(){
       <!-- STANDINGS & STATS -->
       <div class="tab-page" id="page-standings">
         <div class="stat-grid">
-          <div class="card stat-card"><div class="stat-label">Total Moves</div><div class="stat-value">${totalMoves}</div><div class="stat-sub">${totalMoves-totalDrops} adds · ${totalDrops} drops</div></div>
+          <div class="card stat-card"><div class="stat-label">Total Moves</div><div class="stat-value">${totalMoves}</div><div class="stat-sub">${totalMoves} adds · ${totalDrops} drops</div></div>
           <div class="card stat-card"><div class="stat-label">Total Trades</div><div class="stat-value">${totalTrades}</div><div class="stat-sub">across all teams</div></div>
           <div class="card stat-card"><div class="stat-label">Avg Points For</div><div class="stat-value">${avgPF.toFixed(1)}</div><div class="stat-sub">${season} season</div></div>
         </div>
