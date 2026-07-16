@@ -194,6 +194,16 @@ function inferTransactionsFromRosters(weeklyData,teams){
   if(weeks.length<2) return [];
   const avgBid={};
   teams.forEach(t=>{avgBid[t.id]=(t.budgetSpent>0&&t.moves>0)?Math.max(1,Math.round(t.budgetSpent/t.moves)):1;});
+  // ESPN's official waiver/FA add counter per matchup week survives for old
+  // seasons — use it as a quota to tell drop-and-claim moves apart from trades.
+  const quota={};
+  teams.forEach(t=>{quota[t.id]=Object.assign({},t.weeklyAdds||{});});
+  function useQuota(tid,w,wPrev){
+    const q=quota[tid]; if(!q) return false;
+    if((q[w]||0)>0){q[w]--;return true;}
+    if((q[wPrev]||0)>0){q[wPrev]--;return true;}
+    return false;
+  }
   const txns=[];
   for(let i=1;i<weeks.length;i++){
     const wPrev=weeks[i-1],w=weeks[i];
@@ -205,21 +215,41 @@ function inferTransactionsFromRosters(weeklyData,teams){
       if(tp==null) moved.push({pid:Number(pid),from:null,to:t});      // added from FA/waivers
       else if(tp!==t) moved.push({pid:Number(pid),from:tp,to:t});     // changed teams
     }
-    // ANY direct team-to-team move is a trade leg (covers uneven 2-for-1 trades).
-    // Legs between the same two teams in the same week are grouped into one trade.
-    const tradeGroups={};
+    const groups={}; const faAdds=[];
     moved.forEach(m=>{
       if(m.from!=null&&m.to!=null&&m.from!==m.to){
         const key=m.from<m.to?`${m.from}|${m.to}`:`${m.to}|${m.from}`;
-        (tradeGroups[key]||(tradeGroups[key]=[])).push({type:'TRADE',playerId:m.pid,fromTeamId:m.from,toTeamId:m.to});
-      }else if(m.from==null&&m.to!=null){
-        // Appeared from free agency = waiver/FA add (est. bid = team season average)
-        txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
-          items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
-      }
+        (groups[key]||(groups[key]=[])).push(m);
+      }else if(m.from==null&&m.to!=null) faAdds.push(m);
     });
-    Object.values(tradeGroups).forEach(items=>{
-      txns.push({type:'TRADE_ACCEPT',teamId:items[0].toTeamId,scoringPeriodId:wPrev,status:'EXECUTED',items});
+    // Players appearing from free agency are definite waiver/FA adds — they
+    // consume the team's official weekly add quota first.
+    faAdds.forEach(m=>{
+      useQuota(m.to,w,wPrev);
+      txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
+        items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
+    });
+    // Direct team-to-team moves: players moving BOTH directions between the
+    // same two teams = unambiguous trade (uneven legs included). A strictly
+    // one-way move is a drop that got claimed off waivers when the receiving
+    // team still has adds left on its official weekly counter — only when it
+    // has none left is the move treated as a (one-sided) trade.
+    Object.values(groups).forEach(list=>{
+      const dirs=new Set(list.map(m=>`${m.from}>${m.to}`));
+      if(dirs.size>1){
+        txns.push({type:'TRADE_ACCEPT',teamId:list[0].to,scoringPeriodId:wPrev,status:'EXECUTED',
+          items:list.map(m=>({type:'TRADE',playerId:m.pid,fromTeamId:m.from,toTeamId:m.to}))});
+      }else{
+        list.forEach(m=>{
+          if(useQuota(m.to,w,wPrev)){
+            txns.push({type:'WAIVER',teamId:m.to,bidAmount:avgBid[m.to]||1,scoringPeriodId:w,status:'EXECUTED',_estBid:true,
+              items:[{type:'ADD',playerId:m.pid,toTeamId:m.to}]});
+          }else{
+            txns.push({type:'TRADE_ACCEPT',teamId:m.to,scoringPeriodId:wPrev,status:'EXECUTED',
+              items:[{type:'TRADE',playerId:m.pid,fromTeamId:m.from,toTeamId:m.to}]});
+          }
+        });
+      }
     });
   }
   return txns;
@@ -363,7 +393,7 @@ function openCMModal(teamId){
   }).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   const modeNote=_cmMode==='inferred'
-    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>: any player moving directly from one roster to another counts as a trade (uneven trades included). FAAB bids are estimated from each team's average (budget spent ÷ adds), and competing-bid margins aren't recoverable, so the C3 denominator equals the full estimated bid.</div>`
+    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>: players swapping between two rosters count as a trade (uneven legs included); a one-way roster-to-roster move counts as a waiver claim while the receiving team still has adds on ESPN's official weekly counter, otherwise as a trade. ESPN also deleted all FAAB bid amounts, so every pickup uses the team's estimated average bid (budget spent ÷ adds) and the C3 margin equals that full bid. Real per-bid margins apply automatically to live seasons.</div>`
     :'';
 
   document.getElementById('cm-title').textContent=team.name;
@@ -922,6 +952,7 @@ async function loadDashboard(){
         trades:t.transactionCounter?.trades||0,
         drops:t.transactionCounter?.drops||0,
         budgetSpent:t.transactionCounter?.acquisitionBudgetSpent||0,
+        weeklyAdds:t.transactionCounter?.matchupAcquisitionTotals||{},
       };
     }).sort((a,b)=>b.pf-a.pf);
 
