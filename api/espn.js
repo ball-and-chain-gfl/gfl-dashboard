@@ -282,8 +282,8 @@ export default async function handler(req, res) {
       });
       // Past seasons never change — cache hard. Current season: 1h.
       res.setHeader('Cache-Control', isHistory
-        ? 'public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400'
-        : 'public, max-age=600, s-maxage=3600, stale-while-revalidate=3600');
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
       return res.status(200).json({ season, teams });
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }

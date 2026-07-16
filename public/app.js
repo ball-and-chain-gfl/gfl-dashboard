@@ -771,7 +771,7 @@ async function ensureTenure(){
   if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:11px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
   try{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}`);
+      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=2`);
       if(!r.ok) return null;
       return {s, d:await r.json()};
     }));
