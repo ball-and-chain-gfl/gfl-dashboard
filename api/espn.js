@@ -311,11 +311,23 @@ export default async function handler(req, res) {
   // ── Season-total player stats (league scoring) — for draft steals/busts ──────
   if (type === 'seasonstats') {
     try {
-      const filter = { players: { limit: 600, sortAppliedStatTotal: { sortAsc: false, sortPriority: 1 } } };
-      const r = await fetch(leagueURL('kona_player_info', { forceLive: true }), {
-        headers: { ...headers, 'x-fantasy-filter': JSON.stringify(filter) },
-      });
-      const data = unwrap(await r.json());
+      const baseUrl = leagueURL('kona_player_info', { forceLive: true }) + '&scoringPeriodId=0';
+      const filters = [
+        { players: { limit: 600, sortAppliedStatTotal: { sortAsc: false, sortPriority: 1 },
+                     filterStatsForSplitTypeIds: { value: [0] } } },
+        { players: { limit: 600, sortAppliedStatTotal: { sortAsc: false, sortPriority: 1 } } },
+        { players: { limit: 600, sortPercOwned: { sortAsc: false, sortPriority: 1 } } },
+      ];
+      let data = {};
+      const diag = [];
+      for (const f of filters) {
+        const r = await fetch(baseUrl, { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(f) } });
+        if (!r.ok) { diag.push({ status: r.status }); continue; }
+        data = unwrap(await r.json());
+        diag.push({ status: 200, players: (data.players || []).length });
+        if ((data.players || []).length) break;
+      }
+      res.setHeader('x-diag', JSON.stringify(diag));
       const players = (data.players || []).map(e => {
         const pl = e.player || {};
         const tot = (pl.stats || []).find(st => st.statSourceId === 0 && st.statSplitTypeId === 0 && String(st.seasonId) === String(season));

@@ -1047,7 +1047,7 @@ function renderDraftTab(){
     <div class="draft-rankn">${i+1}</div>
     <div class="draft-info">
       <div class="draft-name">${r.name}<span class="draft-pos">${r.posName}</span> <span class="draft-mgr">· drafted by ${tn(r.teamId)}</span></div>
-      <div class="draft-line">Drafted <b>#${r.overall} overall</b> (${r.posName}${r.posDrafted} taken) → Finished ${r.fin!=null?`<b>#${r.fin} overall</b> (${r.posName}${r.finPos})`:'<b>outside the top ${stats.length}</b>'} · ${r.pts.toFixed(1)} pts</div>
+      <div class="draft-line">Drafted <b>#${r.overall} overall</b> (${r.posName}${r.posDrafted} taken) → Finished ${r.fin!=null?`<b>#${r.fin} overall</b> (${r.posName}${r.finPos})`:`<b>outside the top ${stats.length}</b>`} · ${r.pts.toFixed(1)} pts</div>
     </div>
     <div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div>
   </div>`;
