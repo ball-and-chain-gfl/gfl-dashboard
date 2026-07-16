@@ -139,18 +139,11 @@ export default async function handler(req, res) {
   }
 
   // ── Transactions (waivers / free agents / trades) — used for C2/C3 ───────────
-  // Reality of ESPN's API (confirmed via the ?type=raw diagnostics for this
-  // league): the detailed transaction log is only retained while a season is
-  // ACTIVE. For the live season the activity/communication feed returns it; for
-  // COMPLETED seasons ESPN purges the detail (mTransactions2 comes back with no
-  // `transactions` key and the communication group 404s), leaving only the
-  // aggregate counts. So C2/C3 can be computed for the current season but not
-  // retroactively for finished ones.
-  //
-  // We therefore try, in order: mTransactions2 (native objects, in case a live
-  // season exposes them) and the live communication feed (normalized). An
-  // optional manual override (?... handled client-side) covers past seasons if
-  // the user supplies data. Whatever we get is reported with its source.
+  // ESPN only retains the detailed transaction log while a season is ACTIVE.
+  // For completed seasons mTransactions2 comes back without a `transactions`
+  // key. We try every plausible source and report which one worked; the client
+  // falls back to inferring transactions from weekly roster diffs when all of
+  // these come back empty.
   if (type === 'transactions') {
     const MSG = { 178:'ADD', 180:'ADD', 179:'DROP', 239:'DROP', 181:'DROP',
                   224:'TRADE', 225:'TRADE', 226:'TRADE', 244:'TRADE', 245:'TRADE', 246:'TRADE' };
@@ -193,4 +186,117 @@ export default async function handler(req, res) {
 
     const nativeParse = d => Array.isArray(d.transactions) ? d.transactions : [];
     const commParse   = d => normFromComm(d.topics);
-    // The communication feed is worth trying even for completed se
+    // The communication feed is worth trying even for completed seasons — ESPN's
+    // retention there varies, and when it works it's the only per-player record.
+    const sources = isHistory
+      ? [ ['hist_mTx2', `${histBase}&view=mTransactions2`, txFilter, nativeParse],
+          ['live_mTx2', `${liveBase}?view=mTransactions2`, txFilter, nativeParse],
+          ['live_comm', `${liveBase}/communication/?view=kona_league_communication`, topicsFilter, commParse] ]
+      : [ ['live_mTx2', `${liveBase}?view=mTransactions2`, txFilter, nativeParse],
+          ['live_comm', `${liveBase}/communication/?view=kona_league_communication`, topicsFilter, commParse] ];
+
+    try{
+      let txns=[], source='none';
+      for(const [name,url,f,p] of sources){
+        txns = await attempt(name, url, f, p);
+        if(txns.length){ source=name; break; }
+      }
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
+      return res.status(200).json({ transactions:txns, _source:source, _count:txns.length, _diag:diag });
+    }catch(err){ return res.status(500).json({ error:err.message, transactions:[], _diag:diag }); }
+  }
+
+  // ── Player scoring per week — used for C2/C3 calculation ────────────────────
+  // players[pid] = { pts, slot, started, team, n, pos }
+  //   pts  = ACTUAL fantasy points that week (statSourceId 0), start or bench
+  //   slot = lineupSlotId that week (starters vs bench for C3)
+  //   team = teamId that rostered the player that week
+  if (type === 'playerscores') {
+    const week = parseInt(scoringPeriodId || '1', 10);
+    const url  = leagueURL('mRoster') + `&scoringPeriodId=${week}`;
+    try {
+      const r  = await fetch(url, { headers });
+      const data = unwrap(await r.json());
+      const BENCH_SLOTS = [20, 21, 24]; // bench, IR, taxi/reserve
+      const players = {};
+      (data.teams || []).forEach(team => {
+        (team.roster?.entries || []).forEach(e => {
+          const pid = e.playerId;
+          if (pid == null) return;
+          const stats = e.playerPoolEntry?.player?.stats || [];
+          const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === week);
+          const pts = wk?.appliedTotal ?? e.playerPoolEntry?.appliedStatTotal ?? 0;
+          players[pid] = {
+            pts,
+            slot: e.lineupSlotId,
+            started: !BENCH_SLOTS.includes(e.lineupSlotId),
+            team: team.id,
+            n: e.playerPoolEntry?.player?.fullName || null,
+            pos: e.playerPoolEntry?.player?.defaultPositionId ?? null,
+          };
+        });
+      });
+      return res.status(200).json({ week, players });
+    } catch (err) { return res.status(500).json({ error: err.message }); }
+  }
+
+  // ── Season tenure — every week's roster for a season, aggregated ─────────────
+  // Response: { season, teams: { [teamId]: { [playerId]: { n, w, s, p } } } }
+  //   n = player name, w = weeks rostered, s = weeks started, p = points scored
+  //   while on that roster (start or bench).
+  if (type === 'seasontenure') {
+    const BENCH_SLOTS = [20, 21, 24];
+    const weekIds = Array.from({ length: 18 }, (_, i) => i + 1);
+    try {
+      const weekResults = await Promise.all(weekIds.map(async w => {
+        try {
+          const r = await fetch(leagueURL('mRoster') + `&scoringPeriodId=${w}`, { headers });
+          if (!r.ok) return null;
+          return { week: w, data: unwrap(await r.json()) };
+        } catch { return null; }
+      }));
+      const finalWeek = (() => {
+        for (const wr of weekResults) if (wr?.data?.status?.finalScoringPeriod) return wr.data.status.finalScoringPeriod;
+        return 17;
+      })();
+      const teams = {};
+      weekResults.forEach(wr => {
+        if (!wr || wr.week > finalWeek) return;
+        (wr.data.teams || []).forEach(team => {
+          const bucket = teams[team.id] || (teams[team.id] = {});
+          (team.roster?.entries || []).forEach(e => {
+            const pid = e.playerId;
+            if (pid == null) return;
+            const stats = e.playerPoolEntry?.player?.stats || [];
+            const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === wr.week);
+            const pts = wk?.appliedTotal ?? 0;
+            const rec = bucket[pid] || (bucket[pid] = { n: null, w: 0, s: 0, p: 0 });
+            rec.n = e.playerPoolEntry?.player?.fullName || rec.n;
+            rec.w++;
+            if (!BENCH_SLOTS.includes(e.lineupSlotId)) rec.s++;
+            rec.p += pts;
+          });
+        });
+      });
+      // Past seasons never change — cache hard. Current season: 1h.
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=600, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, teams });
+    } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
+  }
+
+  // ── Generic view passthrough (supports multiple ?view= params) ───────────────
+  const views = view || 'mTeam';
+  const url = leagueURL(views);
+  try {
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(response.status).json({ error: `ESPN API ${response.status}`, details: text, url });
+    }
+    const data = unwrap(await response.json());
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
+    return res.status(200).json(data);
+  } catch (err) { return res.status(500).json({ error: err.message }); }
+}
