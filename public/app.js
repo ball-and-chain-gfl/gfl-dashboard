@@ -457,12 +457,12 @@ function openCMModal(teamId){
       </div>
       <div class="modal-note"><i class="fa fa-book" style="margin-right:6px;color:var(--blue)"></i>Official commissioner-calculated value from the league's Coaching Metric spreadsheet${bd.source?` (<b>${bd.source}</b>)`:''}, archived in the site's repository so it survives ESPN's data deletion.${legacy?' The 2024 season used a different formula, so only the final weighted-metric value is available — no component breakdown.':''}</div>
       ${legacy?'':`<div class="modal-formula">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
         <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span><span style="font-weight:700;color:${cc(bd.c1)}">${bd.c1.toFixed(3)}</span></div>
         <div class="eq-line"><span style="color:var(--blue);font-weight:700;width:26px">C2</span><span style="color:var(--text2);flex:1">Trade Metric</span><span style="font-weight:700;color:${cc(bd.c2)}">${bd.c2>=0?'+':''}${bd.c2.toFixed(3)}</span></div>
         <div class="eq-line"><span style="color:var(--green);font-weight:700;width:26px">C3</span><span style="color:var(--text2);flex:1">FAAB Efficiency</span><span style="font-weight:700;color:${cc(bd.c3)}">${bd.c3>=0?'+':''}${bd.c3.toFixed(3)}</span></div>
         <hr/>
-        <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Final</span><span style="font-weight:800;font-size:14px;color:${s>0?'var(--green)':'var(--red)'}">${s.toFixed(3)}</span></div>
+        <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Final</span><span style="font-weight:800;font-size:16px;color:${s>0?'var(--green)':'var(--red)'}">${s.toFixed(3)}</span></div>
       </div>`}`;
     document.getElementById('cm-overlay').classList.add('open');
     return;
@@ -492,13 +492,13 @@ function openCMModal(teamId){
     </div>
     ${modeNote}
     <div class="modal-formula">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
       <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span><span style="font-weight:700;color:${cc(c1f)}">${c1f.toFixed(3)}</span></div>
       <div class="eq-line"><span style="color:var(--blue);font-weight:700;width:26px">C2</span><span style="color:var(--text2);flex:1">Trade ROI</span><span style="font-weight:700;color:${cc(c2f)}">${c2f>=0?'+':''}${c2f.toFixed(3)}</span></div>
       <div class="eq-line"><span style="color:var(--green);font-weight:700;width:26px">C3</span><span style="color:var(--text2);flex:1">Waiver ROI</span><span style="font-weight:700;color:${cc(c3f)}">${c3f>=0?'+':''}${c3f.toFixed(3)}</span></div>
       <hr/>
       <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Raw sum</span><span style="font-weight:700">${rawf.toFixed(3)}</span></div>
-      <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Standardized final</span><span style="font-weight:800;font-size:14px;color:${sc(s)}">${s.toFixed(3)}</span></div>
+      <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Standardized final</span><span style="font-weight:800;font-size:16px;color:${sc(s)}">${s.toFixed(3)}</span></div>
     </div>
     <div class="modal-comp">
       <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-chart-line" style="color:var(--accent)"></i>C1 — Points Efficiency</div><div class="modal-comp-value" style="color:${cc(c1f)}">${c1f.toFixed(3)}</div></div>
@@ -775,7 +775,7 @@ function renderHeadlines(week){
   document.querySelectorAll('.week-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.week)===week));
   const grid=document.getElementById('headline-grid');if(!grid)return;
   const weekMu=_allMatchups.filter(mu=>mu.matchupPeriodId===week&&mu.home&&mu.away);
-  if(!weekMu.length){grid.innerHTML=`<div style="padding:24px;color:var(--text3);font-size:13px;text-align:center">No data for Week ${week}</div>`;return;}
+  if(!weekMu.length){grid.innerHTML=`<div style="padding:24px;color:var(--text3);font-size:12px;text-align:center">No data for Week ${week}</div>`;return;}
   grid.innerHTML=weekMu.map(mu=>{
     const home={...teamMap[mu.home.teamId]||{name:'Home',wins:0,losses:0,pf:0},id:mu.home.teamId};
     const away={...teamMap[mu.away.teamId]||{name:'Away',wins:0,losses:0,pf:0},id:mu.away.teamId};
@@ -829,12 +829,12 @@ function renderStandingsTable(){
     return _sortAsc?va-vb:vb-va;
   });
   function arr(c){return _sortCol===c?(_sortAsc?'↑':'↓'):'⇅';}
-  function th(col,label,right=true){return`<th class="${right?'right':''} ${_sortCol===col?'sorted':''}" onclick="sortStandings('${col}')">${label} <span style="font-size:9px;opacity:0.6">${arr(col)}</span></th>`;}
+  function th(col,label,right=true){return`<th class="${right?'right':''} ${_sortCol===col?'sorted':''}" onclick="sortStandings('${col}')">${label} <span style="font-size:8px;opacity:0.6">${arr(col)}</span></th>`;}
   const thead=document.getElementById('standings-thead');
   const tbody=document.getElementById('standings-tbody');
   if(!thead||!tbody)return;
   thead.innerHTML=`<tr>
-    <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:9px;opacity:0.6">${arr('rank')}</span></th>
+    <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:8px;opacity:0.6">${arr('rank')}</span></th>
     <th>Team</th>${th('wins','W')}
     <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}
   </tr>`;
@@ -881,7 +881,7 @@ function renderHistoryTable(){
     <div class="h2h-total">
       ${franchiseAvatar(me,38,9)}
       <div>
-        <div class="h2h-total-rec">${tw}–${tl}${tt?`–${tt}`:''} <span style="font-size:13px;color:${tpct>=0.5?'var(--green)':'var(--red)'}">(${(tpct*100).toFixed(1)}%)</span></div>
+        <div class="h2h-total-rec">${tw}–${tl}${tt?`–${tt}`:''} <span style="font-size:12px;color:${tpct>=0.5?'var(--green)':'var(--red)'}">(${(tpct*100).toFixed(1)}%)</span></div>
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
@@ -906,7 +906,7 @@ async function ensureTenure(){
   if(_tenureLoading) return;
   _tenureLoading=true;
   const body=document.getElementById('tenure-body');
-  if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:11px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
+  if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:12px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
   try{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
       const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=2`);
@@ -964,7 +964,7 @@ function renderTenureTable(){
         <td class="right"><strong>${p.wAll}</strong></td>
         <td class="right pf">${p.pAll.toFixed(1)}</td>
       </tr>`).join('')}</tbody>
-  </table></div>${players.length>100?`<div style="padding:12px 18px;font-size:11px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}`
+  </table></div>${players.length>100?`<div style="padding:12px 18px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
 
@@ -1042,7 +1042,7 @@ async function renderTradesTab(){
       <div class="trade-bar"><span style="width:${(wA*100).toFixed(1)}%;background:${colors[tr.a.tid]}"></span><span style="flex:1;background:${colors[tr.b.tid]}"></span></div>
       <div class="trade-bar-labels"><span style="color:${colors[tr.a.tid]};font-weight:700">${(shareA*100).toFixed(0)}% of post-trade points</span><span style="color:${colors[tr.b.tid]};font-weight:700">${(100-shareA*100).toFixed(0)}%</span></div>
     </div>`;
-  }).join('')+`<div style="padding:0 18px 16px;font-size:11px;color:var(--text3)">Each side shows the players that manager received and the points those players scored from the trade week onward. The bar splits by share of post-trade points captured — 45–55% counts as a fair trade.</div>`;
+  }).join('')+`<div style="padding:0 18px 16px;font-size:12px;color:var(--text3)">Each side shows the players that manager received and the points those players scored from the trade week onward. The bar splits by share of post-trade points captured — 45–55% counts as a fair trade.</div>`;
 }
 
 // ── DRAFT TAB ──────────────────────────────────────────────────────────────────
@@ -1114,7 +1114,7 @@ function renderDraftTab(){
     </div>
     <div id="draft-team-body"></div>
   </div>
-  <div style="padding:0 18px 16px;font-size:11px;color:var(--text3)">Finish rank compares total ${season} fantasy points (league scoring) across all NFL players. Delta = draft slot − finish rank, so +14 means a player drafted 16th who finished 2nd.</div>`;
+  <div style="padding:0 18px 16px;font-size:12px;color:var(--text3)">Finish rank compares total ${season} fantasy points (league scoring) across all NFL players. Delta = draft slot − finish rank, so +14 means a player drafted 16th who finished 2nd.</div>`;
   renderDraftTeamTable();
 }
 function renderDraftTeamTable(){
@@ -1250,7 +1250,7 @@ function renderLeagueHistory(){
         ${hardware.length?hardware.map(t=>`
           <div class="trophy-row">
             ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
-            <div class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:11px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
+            <div class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
             <div class="trophy-badges">
               ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
               ${t.confs?`<span class="trophy-badge conf">⭐ Conf ×${t.confs}</span>`:''}
@@ -1267,7 +1267,7 @@ function renderLeagueHistory(){
             ${r.winners.map(w=>`
               <div style="display:flex;align-items:center;gap:9px">
                 ${avatarCore(w.name,w.tid,proxyLogo(w.logo),28,8)}
-                <div><div class="fr-name">${w.name}</div><div style="font-size:11px;color:var(--text3)">Conference ${w.div+1} · ${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
+                <div><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">Conference ${w.div+1} · ${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
               </div>`).join('')}
           </div>
         </div>`).join(''):`<div class="tab-loading">No completed regular seasons yet.</div>`}
