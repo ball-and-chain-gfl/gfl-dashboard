@@ -958,7 +958,7 @@ function renderTenureTable(){
     <thead><tr><th>Player</th><th class="right">Weeks ${yr}</th><th class="right">Pts ${yr}</th><th class="right">Weeks all-time</th><th class="right">Pts all-time</th></tr></thead>
     <tbody>${shown.map((p,i)=>`
       <tr>
-        <td><span class="rank" style="margin-right:8px">${i+1}</span><span style="font-weight:600;font-size:13px">${p.n}</span></td>
+        <td><span class="rank" style="margin-right:8px">${i+1}</span><span class="fr-name">${p.n}</span></td>
         <td class="right">${p.wYr||'—'}</td>
         <td class="right" style="color:var(--text2)">${p.wYr?p.pYr.toFixed(1):'—'}</td>
         <td class="right"><strong>${p.wAll}</strong></td>
@@ -1129,7 +1129,7 @@ function renderDraftTeamTable(){
     <tbody>${rows.map(r=>`
       <tr>
         <td style="color:var(--text3);white-space:nowrap">Rd ${r.round} · #${r.overall}</td>
-        <td><span style="font-weight:600;font-size:13px">${r.name}</span><span class="draft-pos">${r.posName}</span></td>
+        <td><span class="fr-name">${r.name}</span><span class="draft-pos">${r.posName}</span></td>
         <td class="right" style="white-space:nowrap">${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
         <td class="right" style="white-space:nowrap">#${r.overall} → ${r.fin!=null?`<b style="color:${r.fin<=r.overall?'var(--green)':'var(--red)'}">#${r.fin}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
         <td class="right pf">${r.pts.toFixed(1)}</td>
@@ -1250,7 +1250,7 @@ function renderLeagueHistory(){
         ${hardware.length?hardware.map(t=>`
           <div class="trophy-row">
             ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
-            <div style="font-weight:600;font-size:13px">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:11px">(departed)</span>'}</div>
+            <div class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:11px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
             <div class="trophy-badges">
               ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
               ${t.confs?`<span class="trophy-badge conf">⭐ Conf ×${t.confs}</span>`:''}
@@ -1267,7 +1267,7 @@ function renderLeagueHistory(){
             ${r.winners.map(w=>`
               <div style="display:flex;align-items:center;gap:9px">
                 ${avatarCore(w.name,w.tid,proxyLogo(w.logo),28,8)}
-                <div><div style="font-weight:600;font-size:13px">${w.name}</div><div style="font-size:11px;color:var(--text3)">Conference ${w.div+1} · ${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
+                <div><div class="fr-name">${w.name}</div><div style="font-size:11px;color:var(--text3)">Conference ${w.div+1} · ${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
               </div>`).join('')}
           </div>
         </div>`).join(''):`<div class="tab-loading">No completed regular seasons yet.</div>`}
