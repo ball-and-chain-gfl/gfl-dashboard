@@ -346,6 +346,89 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message, players: [] }); }
   }
 
+  // ── Season trades — reconstructed from weekly rosters ────────────────────────
+  // ESPN purges the transaction log after a season ends, but weekly rosters
+  // survive. A trade = players moving BOTH directions between the same two teams
+  // within a ±1 week window (covers trades whose sides landed on different weeks).
+  // Each traded player's value = points scored from the week AFTER the trade on.
+  if (type === 'seasontrades') {
+    const weekIds = Array.from({ length: 18 }, (_, i) => i + 1);
+    try {
+      const weekResults = await Promise.all(weekIds.map(async w => {
+        try {
+          const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
+          if (!r.ok) return null;
+          return { week: w, data: unwrap(await r.json()) };
+        } catch { return null; }
+      }));
+      const finalWeek = (() => {
+        for (const wr of weekResults) if (wr?.data?.status?.finalScoringPeriod) return wr.data.status.finalScoringPeriod;
+        return 17;
+      })();
+      // week -> pid -> { team, pts, n }
+      const wk = {};
+      const name = {};
+      weekResults.forEach(wr => {
+        if (!wr || wr.week > finalWeek) return;
+        const map = wk[wr.week] = {};
+        (wr.data.teams || []).forEach(team => {
+          (team.roster?.entries || []).forEach(e => {
+            const pid = e.playerId; if (pid == null) return;
+            const stats = e.playerPoolEntry?.player?.stats || [];
+            const st = stats.find(x => x.statSourceId === 0 && x.scoringPeriodId === wr.week);
+            map[pid] = { team: team.id, pts: st?.appliedTotal ?? 0 };
+            if (e.playerPoolEntry?.player?.fullName) name[pid] = e.playerPoolEntry.player.fullName;
+          });
+        });
+      });
+      const weeks = Object.keys(wk).map(Number).sort((a, b) => a - b);
+      const ptsFrom = (pid, from) => weeks.filter(w => w >= from).reduce((t, w) => t + (wk[w]?.[pid]?.pts || 0), 0);
+
+      // collect directional moves at each week transition
+      const moves = [];
+      for (let i = 1; i < weeks.length; i++) {
+        const w = weeks[i], prev = wk[weeks[i - 1]], cur = wk[w];
+        for (const pid in cur) {
+          const tp = prev[pid]?.team, t = cur[pid].team;
+          if (tp != null && t != null && tp !== t) moves.push({ pid: +pid, from: tp, to: t, week: w });
+        }
+      }
+      const used = new Array(moves.length).fill(false);
+      const trades = [];
+      const pairKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+      for (let i = 0; i < moves.length; i++) {
+        if (used[i]) continue;
+        const m = moves[i], key = pairKey(m.from, m.to);
+        // gather all unused moves on this pair within ±1 week
+        const grp = [];
+        for (let j = 0; j < moves.length; j++) {
+          if (used[j]) continue;
+          const n = moves[j];
+          if (pairKey(n.from, n.to) === key && Math.abs(n.week - m.week) <= 1) grp.push(j);
+        }
+        const dirs = new Set(grp.map(j => `${moves[j].from}>${moves[j].to}`));
+        if (dirs.size < 2) continue; // not reciprocal → waiver churn, skip
+        grp.forEach(j => used[j] = true);
+        const legs = grp.map(j => moves[j]);
+        const tradeWeek = Math.min(...legs.map(l => l.week)); // week players first changed hands
+        const teamIds = [...new Set(legs.flatMap(l => [l.from, l.to]))];
+        const byTeam = {};
+        teamIds.forEach(t => byTeam[t] = []);
+        legs.forEach(l => { byTeam[l.to].push(l.pid); });
+        const teams = teamIds.map(tid => {
+          const players = byTeam[tid].map(pid => ({ pid, n: name[pid] || `#${pid}`, pts: +ptsFrom(pid, tradeWeek).toFixed(1) }))
+            .sort((a, b) => b.pts - a.pts);
+          return { teamId: tid, players, total: +players.reduce((s, p) => s + p.pts, 0).toFixed(1) };
+        });
+        trades.push({ week: tradeWeek, teams });
+      }
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, count: trades.length, trades });
+    } catch (err) { return res.status(500).json({ error: err.message, trades: [] }); }
+  }
+
   // ── Generic view passthrough (supports multiple ?view= params) ───────────────
   const views = view || 'mTeam';
   let url = leagueURL(views, { forceLive: req.query.live === '1' });
