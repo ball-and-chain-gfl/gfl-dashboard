@@ -1273,7 +1273,7 @@ function renderLeagueHistory(){
         arr.sort((x,y)=>y.w-x.w||y.pf-x.pf);
         const w=arr[0];
         confCount[w.owner]=(confCount[w.owner]||0)+1;
-        return {div:Number(d),...w};
+        return {div:Number(d),divName:(meta.divisions&&meta.divisions[d])||`Conference ${Number(d)+1}`,...w};
       }).sort((x,y)=>x.div-y.div);
       confRows.unshift({season:s,winners});
     }
