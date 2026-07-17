@@ -88,7 +88,8 @@
     .top-grid .sec,.two-col .sec{margin-bottom:0;}
     .sec-head{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;padding:2px 2px 14px;flex-wrap:wrap;}
     .sec-head i{color:var(--accent);}
-    body{overflow-x:hidden;}
+    html,body{overflow-x:hidden;max-width:100%;}
+    .big4-grid>*,.stat-grid>*,.headline-grid>*{min-width:0;}
 
     /* BALLS BIG 4 */
     .big4-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
@@ -380,57 +381,67 @@
     html[data-theme="light"] .video-thumb-title{background:rgba(255,255,255,0.75);color:#333;}
     html[data-theme="light"] .pin-submit{color:#fff;}
 
-    @media(max-width:1000px){.top-grid,.two-col{grid-template-columns:1fr;}.stat-grid{grid-template-columns:repeat(2,1fr);}.big4-grid{grid-template-columns:repeat(2,1fr);}}
-    @media(max-width:600px){
+    @media(max-width:1000px){
+      .top-grid,.two-col{grid-template-columns:1fr;}
       .stat-grid{grid-template-columns:1fr;}
       .big4-grid{grid-template-columns:repeat(2,1fr);}
-      header{padding:10px 14px;}
+    }
+    @media(max-width:640px){
+      header{padding:10px 14px;gap:8px;}
+      .logo img{width:34px;height:34px;}
       .logo h1{font-size:17px;}
-      .logo img{width:36px;height:36px;}
       .logo span{font-size:11px;}
       .controls{gap:6px;}
-      select{padding:7px 24px 7px 10px;font-size:12px;}
-      main{padding:16px 10px 40px;}
+      select{padding:7px 26px 7px 11px;font-size:12px;}
+      button{padding:7px 11px;font-size:12px;}
+      #theme-toggle{padding:7px 10px;}
+      main{padding:16px 12px 40px;}
       .tabbar{padding:8px 10px;gap:4px;}
-      .section-header{padding:14px 14px;font-size:12px;}
+      .tab-btn{font-size:13px;padding:7px 11px;gap:6px;}
+      .sec{margin-bottom:32px;}
+      .sec-head{font-size:16px;padding-bottom:12px;}
+      .section-header{font-size:15px;padding:14px 16px;}
       .badge-info{font-size:10px;}
-      .stat-card{padding:14px 16px;}
-      .stat-value{font-size:28px;}
+      .big4-grid{grid-template-columns:1fr;gap:10px;}
+      .stat-grid{gap:10px;}
+      .stat-card{padding:16px 18px;}
+      .stat-value{font-size:30px;}
+      .headline-grid{grid-template-columns:1fr;}
       td,th{padding:8px 10px;font-size:12px;}
-      thead th{font-size:12px;padding:8px 10px;}
+      thead th{font-size:11px;padding:8px 10px;}
       .team-info .team-name{font-size:14px;}
-      .section-header{font-size:15px;}
-      .sec-head{font-size:16px;}
-      .tab-btn{font-size:14px;padding:7px 11px;}
-      .picker-bar{padding:12px 12px;gap:8px;}
-      .picker-bar select{flex:1;min-width:0;}
+      .picker-bar{gap:8px;}
+      .picker-bar select{flex:1 1 auto;min-width:0;}
       .picker-bar input[type=text]{min-width:0;flex:1 1 140px;}
-      .h2h-total{padding:12px 14px;gap:10px;}
-      .h2h-total-rec{font-size:22px;}
-      .h2h-total-sub{font-size:12px;}
-      .modal{max-height:92vh;border-radius:16px;}
+      .h2h-total{padding:14px 16px;gap:10px;}
+      .h2h-total-rec{font-size:24px;}
+      .modal{max-height:92vh;}
       .modal-body{padding:14px 14px;gap:10px;}
       .modal-total-score{font-size:24px;}
-      .headline-card{padding:13px 14px;}
-      .headline-grid{grid-template-columns:1fr;}
-      .card{border-radius:16px;}
-      .standings-filters,.headline-controls{padding:10px 12px;}
-      .trade-card{margin:10px 10px;}
-      .trade-grid{grid-template-columns:1fr 22px 1fr;}
-      .trade-side{padding:10px 10px;}
-      .draft-row{padding:10px 12px;gap:8px;}
+      .trade-grid{grid-template-columns:1fr 24px 1fr;}
+      .trade-side{padding:12px 10px;}
+      .trade-team-name{font-size:14px;}
+      .tp-name,.tp-pts{font-size:13px;}
+      .trade-verdict{font-size:11px;padding:4px 10px;}
+      .draft-row{padding:10px 4px;gap:8px;}
       .draft-delta{min-width:40px;font-size:18px;}
-      .marathon-big{font-size:80px;}
-      .marathon-days{font-size:48px;}
-      .champ-year{width:36px;}
+      .draft-line{font-size:11px;}
+      .marathon-big{font-size:88px;}
+      .marathon-days{font-size:52px;}
+      .marathon-team{font-size:20px;}
+      .champ-year{width:34px;font-size:16px;}
+      .champ-title{font-size:14px;}
+      .wm::after{font-size:96px;top:-18px;opacity:0.04;}
     }
-    @media(max-width:480px){
+    @media(max-width:440px){
       .coaching-bar{display:none;}
-      .coaching-score{min-width:48px;font-size:18px;}
-      .coaching-row{padding:10px 12px;gap:8px;}
+      .coaching-score{min-width:52px;}
+      .coaching-row{padding:11px 4px;gap:8px;}
       .winpct-bar{display:none;}
       .big4-name{font-size:14px;}
-      .video-thumb{width:110px;}
+      .video-thumb{width:112px;}
+      .trade-verdict i{display:none;}
+      .headline-team-name{font-size:13px;}
     }
   </style>
 </head>
