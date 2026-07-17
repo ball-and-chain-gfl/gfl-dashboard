@@ -91,6 +91,36 @@ async function loadCMOfficial(){
   try{const r=await fetch('/data/cm-official.json');_cmOfficialData=r.ok?await r.json():null;}catch{_cmOfficialData=null;}
   return _cmOfficialData;
 }
+let _awardsData;
+async function loadAwards(){
+  if(_awardsData!==undefined) return _awardsData;
+  try{const r=await fetch('/data/awards.json');_awardsData=r.ok?await r.json():null;}catch{_awardsData=null;}
+  return _awardsData;
+}
+function awardStrip(s){return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();}
+// Match an award's team name to a current franchise.
+function awardOwner(name){
+  const n=awardStrip(name); if(!n) return null;
+  let best=null;
+  _franchises.forEach(f=>{const fn=awardStrip(f.name);if(fn===n||fn.includes(n)||n.includes(fn))best=f;});
+  if(!best){const nw=n.split(' ').filter(w=>w.length>3);_franchises.forEach(f=>{const fn=awardStrip(f.name);if(nw.some(w=>fn.includes(w)))best=f;});}
+  return best;
+}
+// All awards won by an owner, newest year first.
+function awardsForOwner(owner){
+  if(!_awardsData) return [];
+  const out=[];
+  Object.keys(_awardsData.years||{}).sort((a,b)=>b-a).forEach(y=>{
+    const yr=_awardsData.years[y];
+    (_awardsData.order||Object.keys(yr)).forEach(k=>{
+      (yr[k]||[]).forEach(entry=>{
+        const fr=awardOwner(entry.team);
+        if(fr&&fr.owner===owner){const lab=_awardsData.labels[k]||{name:k};out.push({year:y,key:k,label:lab,detail:entry.detail||''});}
+      });
+    });
+  });
+  return out;
+}
 function normName(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
 function officialFor(team,entry){
   const n=normName(team.name);
@@ -1383,6 +1413,17 @@ function renderLeagueHistory(){
     rings:champCount[o]||0,confs:confCount[o]||0,
   })).sort((x,y)=>y.rings-x.rings||y.confs-x.confs);
   _hardware={}; hardware.forEach(x=>{_hardware[x.owner]={rings:x.rings,confs:x.confs};});
+  // merge trophies + superlatives into one honors list (includes award-only teams)
+  const honorsMap={};
+  const ensureHonor=(owner,name,logo)=>honorsMap[owner]||(honorsMap[owner]={owner,name,logo,rings:_hardware[owner]?.rings||0,confs:_hardware[owner]?.confs||0,awards:awardsForOwner(owner)});
+  _franchises.forEach(f=>ensureHonor(f.owner,f.name,f.logo));
+  Object.keys(_hardware).forEach(o=>ensureHonor(o,latestName[o]?.name||'Unknown',latestName[o]?.logo));
+  const honors=Object.values(honorsMap).filter(h=>h.rings||h.confs||h.awards.length)
+    .sort((a,b)=>b.rings-a.rings||b.confs-a.confs||b.awards.length-a.awards.length);
+  const awardChips=list=>{
+    const byKey={};list.forEach(aw=>{(byKey[aw.key]||(byKey[aw.key]={n:0,label:aw.label})).n++;});
+    return Object.entries(byKey).map(([k,v])=>`<span class="award-chip${v.label.good===false?' bad':''}" title="${v.label.name}">${v.label.emoji} ×${v.n}</span>`).join('');
+  };
 
   body.innerHTML=`
     <div class="two-col" style="margin-bottom:0">
@@ -1404,13 +1445,14 @@ function renderLeagueHistory(){
       <div class="sec wm" data-wm="&#xf5a2;">
         <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
         <div class="hist-item" style="padding:6px 10px">
-        ${hardware.length?hardware.map(t=>`
+        ${honors.length?honors.map(t=>`
           <div class="trophy-row">
             ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
-            <div class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
+            <div class="fr-name tlink" data-tid="${(_teams.find(x=>_ownerMap[x.id]===t.owner)||{}).id||''}">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
             <div class="trophy-badges">
               ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
               ${t.confs?`<span class="trophy-badge conf">⭐ Conf ×${t.confs}</span>`:''}
+              ${awardChips(t.awards)}
             </div>
           </div>`).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
         </div>
@@ -1433,6 +1475,26 @@ function renderLeagueHistory(){
                 <div class="conf-win-info"><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
               </div>`).join('')}
           </div>`).join('')}</div>`;
+      })()}
+    </div>
+    <div class="sec wm" data-wm="&#xf559;" style="margin-top:8px">
+      <div class="sec-head"><i class="fa fa-award"></i>Season Superlatives<span class="badge-info">commissioner-voted year-end awards</span></div>
+      ${(()=>{
+        const yrs=_awardsData?Object.keys(_awardsData.years||{}).sort((a,b)=>b-a):[];
+        if(!yrs.length) return `<div class="tab-loading">No awards recorded yet.</div>`;
+        const order=_awardsData.order||[];
+        return yrs.map(y=>{
+          const yr=_awardsData.years[y];
+          const rows=order.filter(k=>yr[k]&&yr[k].length).map(k=>{
+            const lab=_awardsData.labels[k]||{name:k,emoji:'🏅'};
+            const winners=yr[k].map(e=>{const fr=awardOwner(e.team);const av=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),22,6):'';const nm=fr?fr.name:e.team;return `<span class="sup-win">${av}<span class="fr-name" ${fr?`data-tid="${(_teams.find(x=>_ownerMap[x.id]===fr.owner)||{}).id||''}"`:''} style="${fr?'':'color:var(--text3)'}">${nm}</span>${e.detail?`<span class="sup-detail">${e.detail}</span>`:''}</span>`;}).join('');
+            return `<div class="sup-row${lab.good===false?' bad':''}">
+              <div class="sup-award"><span class="sup-emoji">${lab.emoji}</span>${lab.name}</div>
+              <div class="sup-winners">${winners}</div>
+            </div>`;
+          }).join('');
+          return `<div class="hist-item"><div class="hist-item-year">${y} SEASON</div>${rows}</div>`;
+        }).join('');
       })()}
     </div>`;
 }
@@ -1718,6 +1780,8 @@ function renderProfile(){
       ${stat('Championships',at.rings,at.rings?'🏆':'')}
       ${stat('Best Finish',at.best?`#${at.best}`:'—','')}
     </div>
+    ${(()=>{const aw=awardsForOwner(owner);if(!aw.length)return '';return `<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-award" style="color:var(--accent)"></i>Superlatives</div>
+      <div class="prof-awards" style="margin-bottom:8px">${aw.map(x=>`<div class="prof-award${x.label.good===false?' bad':''}"><span style="font-size:18px">${x.label.emoji}</span><div><div style="font-weight:600">${x.label.name}</div><div style="font-size:11px;color:var(--text3)"><span class="yr">${x.year}</span>${x.detail?` · ${x.detail}`:''}</div></div></div>`).join('')}</div>`;})()}
     ${oppRows.length?`<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
     <div class="tscroll"><table class="min480"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
     <tbody>${oppRows.map(r=>`<tr>
@@ -1845,6 +1909,7 @@ async function loadDashboard(){
     //  2. "no data" for seasons listed in the archive's `none` list
     //  3. live computation from the transaction log (real or reconstructed)
     const officialAll=await loadCMOfficial();
+    await loadAwards();
     const officialSeason=officialAll?.[season]||null;
     if(Array.isArray(officialAll?.none)&&officialAll.none.includes(season)){
       _cmMode='none';_scores={};_breakdown={};

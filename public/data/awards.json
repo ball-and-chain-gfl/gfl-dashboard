@@ -1,0 +1,33 @@
+{
+  "_comment": "League superlatives (commissioner-voted). Team names are matched case-insensitively to the current franchise names. Add a new season block each year.",
+  "labels": {
+    "coy":        { "name": "Coach of the Year",            "emoji": "🧠", "icon": "fa-brain",         "good": true },
+    "commitment": { "name": "League Commitment Award",      "emoji": "🤝", "icon": "fa-handshake",     "good": true },
+    "comeback":   { "name": "Comeback Team of the Year",    "emoji": "🔄", "icon": "fa-arrow-trend-up","good": true },
+    "punishment": { "name": "Punishment Performance",       "emoji": "🍻", "icon": "fa-beer-mug-empty","good": true },
+    "disappoint": { "name": "Most Disappointing Team",      "emoji": "📉", "icon": "fa-face-frown",    "good": false }
+  },
+  "order": ["coy", "commitment", "comeback", "punishment", "disappoint"],
+  "years": {
+    "2025": {
+      "coy":        [{ "team": "The Bryan Football Team" }],
+      "disappoint": [{ "team": "West Coast Wigglers" }],
+      "commitment": [{ "team": "Florida Man" }],
+      "comeback":   [{ "team": "Florida Man" }],
+      "punishment": [{ "team": "Tuckasegee Tinglers", "detail": "Wine Pour" }]
+    },
+    "2024": {
+      "coy":        [{ "team": "The Bryan Football Team" }],
+      "disappoint": [{ "team": "Marathon Men" }],
+      "commitment": [{ "team": "Florida Man" }],
+      "comeback":   [{ "team": "Florida Man" }],
+      "punishment": [{ "team": "Team silly willy", "detail": "10k Fruit Pledge" }]
+    },
+    "2023": {
+      "coy":        [{ "team": "The Bryan Football Team" }, { "team": "Bikini Bottom Goobers" }, { "team": "Lebron's 3rd Leg" }],
+      "commitment": [{ "team": "Bikini Bottom Goobers" }],
+      "disappoint": [{ "team": "Team silly willy" }],
+      "comeback":   [{ "team": "Tuckasegee Tinglers" }]
+    }
+  }
+}

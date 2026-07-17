@@ -388,6 +388,26 @@
     @media(max-width:900px){.prof-stats{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:560px){.prof-stats{grid-template-columns:repeat(2,1fr);}}
 
+    /* AWARDS / SUPERLATIVES */
+    .award-chip{font-family:'Work Sans',sans-serif;font-size:11px;font-weight:700;background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:var(--blue);border-radius:999px;padding:2px 8px;white-space:nowrap;}
+    .award-chip.bad{background:rgba(251,113,133,0.1);border-color:rgba(251,113,133,0.3);color:var(--red);}
+    .sup-row{display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:center;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.05);}
+    html[data-theme="light"] .sup-row{border-color:rgba(0,0,0,0.06);}
+    .sup-row:last-child{border-bottom:none;}
+    .sup-award{font-family:'Fraunces',serif;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;}
+    .sup-row.bad .sup-award{color:var(--red);}
+    .sup-emoji{font-size:20px;}
+    .sup-winners{display:flex;flex-wrap:wrap;gap:8px 16px;}
+    .sup-win{display:flex;align-items:center;gap:7px;font-size:13px;}
+    .sup-detail{font-size:11px;color:var(--text3);background:rgba(255,255,255,0.05);border-radius:999px;padding:1px 8px;}
+    @media(max-width:640px){.sup-row{grid-template-columns:1fr;gap:6px;}}
+    /* profile awards */
+    .prof-awards{display:flex;flex-wrap:wrap;gap:10px;}
+    .prof-award{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:13px;}
+    html[data-theme="light"] .prof-award{background:rgba(0,0,0,0.03);}
+    .prof-award .yr{font-family:'Big Shoulders Display',sans-serif;font-weight:700;color:var(--accent);}
+    .prof-award.bad{border-color:rgba(251,113,133,0.25);}
+
     /* conference championship columns */
     .conf-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
     .conf-col{background:rgba(0,0,0,0.14);border:1px solid var(--border);border-radius:12px;padding:6px 12px 10px;}
