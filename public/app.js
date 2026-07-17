@@ -32,6 +32,19 @@ const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
 let _activeTab='home';
 const ALL_SEASONS=['2022','2023','2024','2025','2026'];
 
+// ── THEME ──────────────────────────────────────────────────────────────────────
+function applyTheme(t){
+  document.documentElement.dataset.theme=t;
+  try{localStorage.setItem('gfl-theme',t);}catch{}
+  const ic=document.querySelector('#theme-toggle i');
+  if(ic) ic.className='fa '+(t==='light'?'fa-moon':'fa-sun');
+}
+function toggleTheme(){
+  applyTheme(document.documentElement.dataset.theme==='light'?'dark':'light');
+  renderTradesTab(); // re-tint team colors for the new background
+}
+applyTheme(document.documentElement.dataset.theme||'dark');
+
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
   document.getElementById('dot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
@@ -102,7 +115,7 @@ function teamColor(id){
 function avatarCore(name,id,url,size,radius){
   const fs=Math.max(9,Math.round(size*0.42));
   const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#fff;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
-  const img=url?`<img src="${url}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0d0d0d" onerror="this.remove()"/>`:'';
+  const img=url?`<img src="${url}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--bg2)" onerror="this.remove()"/>`:'';
   return `<span class="tm-avatar" style="${wrap}">${teamInitials(name)}${img}</span>`;
 }
 function avatarHTML(team,size,radius){
@@ -124,9 +137,11 @@ function franchiseAvatar(f,size,radius){
 // Lift dark extracted colors so they read against the dark background while
 // keeping the hue that identifies the team.
 function readableColor(col){
+  const lightMode=document.documentElement.dataset.theme==='light';
+  const clampL=l=>lightMode?Math.min(l,42):Math.max(l,62); // % — dark ink on light bg, bright on dark
   let r,g,b,m;
   if((m=String(col).match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/))){r=+m[1]/255;g=+m[2]/255;b=+m[3]/255;}
-  else if((m=String(col).match(/hsl\((\d+)[ ,]+(\d+)%[ ,]+(\d+)%\)/))) return `hsl(${m[1]} ${Math.max(+m[2],50)}% ${Math.max(+m[3],62)}%)`;
+  else if((m=String(col).match(/hsl\((\d+)[ ,]+(\d+)%[ ,]+(\d+)%\)/))) return `hsl(${m[1]} ${Math.max(+m[2],50)}% ${clampL(+m[3])}%)`;
   else return col;
   const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
   let hph=0,s=0;const l=(mx+mn)/2;
@@ -136,7 +151,7 @@ function readableColor(col){
     hph=mx===r?((g-b)/d+(g<b?6:0)):mx===g?((b-r)/d+2):((r-g)/d+4);
     hph*=60;
   }
-  return `hsl(${Math.round(hph)} ${Math.round(Math.max(s,0.5)*100)}% ${Math.round(Math.max(l,0.62)*100)}%)`;
+  return `hsl(${Math.round(hph)} ${Math.round(Math.max(s,0.5)*100)}% ${clampL(Math.round(l*100))}%)`;
 }
 
 // ── DOMINANT LOGO COLOR (for trade bars) ─────────────────────────────────────

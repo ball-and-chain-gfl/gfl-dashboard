@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ball & Chain GFL</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script>document.documentElement.dataset.theme=localStorage.getItem('gfl-theme')||'dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -335,6 +336,50 @@
 
     footer{text-align:center;color:var(--text3);padding:40px 20px;font-size:12px;}
 
+    /* LIGHT MODE */
+    html[data-theme="light"]{
+      --bg:#f7f6f3;--bg2:#ffffff;--bg3:#eceae5;
+      --border:rgba(0,0,0,0.1);
+      --text:#1c1a17;--text2:#4c4741;--text3:#8b857c;
+      --accent:#b26a00;--accent2:#8f5400;
+      --green:#158443;--red:#d43d57;--blue:#2563eb;--purple:#7c3aed;
+      --btn-edge:inset 0 1px 0 #e3e3e3,inset 1px 0 0 #e3e3e3,inset -1px 0 0 #e3e3e3,inset 0 -1px 0 #b5b5b5;
+      --btn-edge-hover:inset 0 1px 0 #d8d8d8,inset 1px 0 0 #d8d8d8,inset -1px 0 0 #d8d8d8,inset 0 -1px 0 #a8a8a8;
+      --btn-edge-active:inset 0 2px 1px rgba(26,26,26,0.2),inset 1px 0 1px rgba(26,26,26,0.12),inset -1px 0 1px rgba(26,26,26,0.12);
+      --btn-edge-gold:inset 0 1px 0 rgba(178,106,0,0.55),inset 1px 0 0 rgba(178,106,0,0.3),inset -1px 0 0 rgba(178,106,0,0.3),inset 0 -1px 0 rgba(120,70,10,0.55);
+    }
+    html[data-theme="light"] body{background:radial-gradient(circle at top,#f7ead2 0%,#f7f6f3 45%);}
+    html[data-theme="light"] header,html[data-theme="light"] .tabbar{background:rgba(250,249,246,0.9);}
+    html[data-theme="light"] .card,html[data-theme="light"] .big4-team,html[data-theme="light"] .headline-card,html[data-theme="light"] .trade-card{background:var(--bg2);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 1px 2px rgba(0,0,0,0.07),0 16px 32px -26px rgba(0,0,0,0.3);}
+    html[data-theme="light"] select,html[data-theme="light"] .picker-bar input[type=text],html[data-theme="light"] .pin-input{background-color:var(--bg2);color:var(--text);}
+    html[data-theme="light"] select option{background:var(--bg2);color:var(--text);}
+    html[data-theme="light"] button{background:var(--bg2);}
+    html[data-theme="light"] button:hover{background:#fafafa;}
+    html[data-theme="light"] .tab-btn{background:none;box-shadow:none;}
+    html[data-theme="light"] .tab-btn:hover{background:rgba(0,0,0,0.05);box-shadow:var(--btn-edge);}
+    html[data-theme="light"] .tab-btn.active{background:rgba(178,106,0,0.1);box-shadow:var(--btn-edge-gold);}
+    html[data-theme="light"] .filter-btn,html[data-theme="light"] .week-btn{background:var(--bg2);}
+    html[data-theme="light"] .filter-btn.active,html[data-theme="light"] .week-btn.active{background:rgba(178,106,0,0.1);}
+    html[data-theme="light"] .modal,html[data-theme="light"] .modal-header,html[data-theme="light"] .pin-box{background:var(--bg2);}
+    html[data-theme="light"] .modal-total,html[data-theme="light"] .modal-comp,html[data-theme="light"] .modal-formula,html[data-theme="light"] .modal-comp-row,html[data-theme="light"] .badge-info{background:rgba(0,0,0,0.035);}
+    html[data-theme="light"] .modal-close{background:rgba(0,0,0,0.05);color:var(--text);}
+    html[data-theme="light"] .modal-close:hover{background:rgba(0,0,0,0.1);}
+    html[data-theme="light"] tbody tr:hover,html[data-theme="light"] .coaching-row:hover{background:rgba(0,0,0,0.03);}
+    html[data-theme="light"] tbody tr,html[data-theme="light"] .activity-item,html[data-theme="light"] .champ-row,html[data-theme="light"] .trophy-row,html[data-theme="light"] .draft-row{border-color:rgba(0,0,0,0.07);}
+    html[data-theme="light"] .trade-bar,html[data-theme="light"] .coaching-bar,html[data-theme="light"] .winpct-bar{background:rgba(0,0,0,0.09);}
+    html[data-theme="light"] .tp-dots{border-color:rgba(0,0,0,0.28);}
+    html[data-theme="light"] .h2h-total{background:rgba(178,106,0,0.06);border-color:rgba(178,106,0,0.25);}
+    html[data-theme="light"] .trade-verdict.fair{background:rgba(37,99,235,0.08);}
+    html[data-theme="light"] .marathon-big{text-shadow:0 0 50px rgba(178,106,0,0.2);}
+    html[data-theme="light"] .marathon-days{text-shadow:0 0 40px rgba(37,99,235,0.15);}
+    html[data-theme="light"] .bg-fx::after{opacity:0.035;}
+    html[data-theme="light"] .err-box{background:rgba(212,61,87,0.07);}
+    html[data-theme="light"] .act-icon.add{background:rgba(21,132,67,0.12);}
+    html[data-theme="light"] .act-icon.drop{background:rgba(212,61,87,0.1);}
+    html[data-theme="light"] .act-icon.trade{background:rgba(37,99,235,0.1);}
+    html[data-theme="light"] .video-thumb-title{background:rgba(255,255,255,0.75);color:#333;}
+    html[data-theme="light"] .pin-submit{color:#fff;}
+
     @media(max-width:1000px){.top-grid,.two-col{grid-template-columns:1fr;}.stat-grid{grid-template-columns:repeat(2,1fr);}.big4-grid{grid-template-columns:repeat(2,1fr);}}
     @media(max-width:600px){
       .stat-grid{grid-template-columns:1fr;}
@@ -424,6 +469,7 @@
   </div>
   <div class="controls">
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
+    <button id="theme-toggle" onclick="toggleTheme()" title="Light / dark mode" aria-label="Toggle light mode"><i class="fa fa-sun"></i></button>
     <select id="season-select" onchange="loadDashboard()">
       <option value="2026">2026 Season</option>
       <option value="2025" selected>2025 Season</option>
