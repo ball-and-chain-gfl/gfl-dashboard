@@ -27,6 +27,8 @@ let _transactions=[];                   // current season's transaction list (re
 let _draftCache={},_draftLoading=false; // season -> {picks, stats}
 let _tradeSort='unbalanced';            // 'unbalanced' | 'balanced' | 'week'
 let _statsView='standings';             // 'standings' | 'c2' | 'c3'
+let _profileTeam=null;                   // teamId string for the profile tab
+let _hardware={};                        // owner -> {rings,confs} (filled by renderLeagueHistory)
 let _cmBreakdown={};                     // teamId -> computed {c1,c2,c3,detail} for breakdown tables
 let _tradeScope='season';               // 'season' | 'alltime'
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
@@ -268,6 +270,8 @@ function switchTab(name){
   if(name==='tenure') ensureTenure();
   if(name==='draft') ensureDraft();
   if(name==='trades') renderTradesTab();
+  if(name==='teams') renderProfile();
+  if(name==='punishment') renderPunishment();
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -584,7 +588,7 @@ function renderBig4(){
         ${logoImg(t.id,'big4-logo')}
         <div class="big4-info">
           <div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div>
-          <div class="big4-name">${t.name}</div>
+          <div class="big4-name tlink" data-tid="${t.id}">${t.name}</div>
           <div class="big4-record">${t.wins}–${t.losses} · ${t.pf.toFixed(0)} PF</div>
           ${_cmMode==='none'?'':`<div class="big4-cm" style="color:${sc(s)}">CM: ${s.toFixed(2)}</div>`}
         </div>
@@ -931,7 +935,7 @@ function renderStandingsTable(){
     const s=_scores[t.id]||0;
     return`<tr>
       <td><span class="rank">${i===0&&_sortCol==='rank'?'🥇':i+1}</span></td>
-      <td><div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name">${t.name}</div><div class="team-sub">${t.abbrev}</div></div></div></td>
+      <td><div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${t.name}</div><div class="team-sub">${t.abbrev}</div></div></div></td>
       <td class="right"><strong>${t.wins}</strong></td>
       <td class="right" style="color:var(--text3)">${t.losses}</td>
       <td class="right pf">${t.pf.toFixed(1)}</td>
@@ -1368,6 +1372,7 @@ function renderLeagueHistory(){
     owner:o,name:latestName[o]?.name||'Unknown',logo:latestName[o]?.logo||null,
     rings:champCount[o]||0,confs:confCount[o]||0,
   })).sort((x,y)=>y.rings-x.rings||y.confs-x.confs);
+  _hardware={}; hardware.forEach(x=>{_hardware[x.owner]={rings:x.rings,confs:x.confs};});
 
   body.innerHTML=`
     <div class="two-col" style="margin-bottom:0">
@@ -1403,20 +1408,22 @@ function renderLeagueHistory(){
     </div>
     <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
       <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in each conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
-      ${confRows.length?confRows.map(r=>`
-        <div class="hist-item">
-          <div class="hist-item-year">${r.season} SEASON</div>
-          <div class="div-winners">
-            ${r.winners.map(w=>`
-              <div class="div-winner">
-                <div class="div-tag">${w.divName}</div>
-                <div style="display:flex;align-items:center;gap:9px">
-                  ${avatarCore(w.name,w.tid,proxyLogo(w.logo),32,9)}
-                  <div><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
-                </div>
+      ${(()=>{
+        if(!confRows.length) return `<div class="tab-loading">No completed regular seasons yet.</div>`;
+        const byDiv={};
+        confRows.forEach(r=>r.winners.forEach(w=>{(byDiv[w.div]||(byDiv[w.div]={name:w.divName,rows:[]})).rows.push({season:r.season,w});}));
+        const cols=Object.entries(byDiv).sort((a,b)=>a[0]-b[0]);
+        return `<div class="conf-cols">${cols.map(([id,c])=>`
+          <div class="conf-col">
+            <div class="conf-col-head">${c.name}</div>
+            ${c.rows.map(({season,w})=>`
+              <div class="conf-win-row">
+                <span class="conf-win-yr">${season}</span>
+                ${avatarCore(w.name,w.tid,proxyLogo(w.logo),28,8)}
+                <div class="conf-win-info"><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
               </div>`).join('')}
-          </div>
-        </div>`).join(''):`<div class="tab-loading">No completed regular seasons yet.</div>`}
+          </div>`).join('')}</div>`;
+      })()}
     </div>`;
 }
 
@@ -1506,6 +1513,202 @@ function ringSVG(label,sz){
   </svg>`;
 }
 
+
+// ── MATCHUP OF THE WEEK (homepage) ───────────────────────────────────────────
+function resolveTeamByName(q){
+  if(!q) return null;
+  const s=String(q).trim().toLowerCase();
+  if(/^\d+$/.test(s)){const b=_teams.find(t=>t.id===Number(s));if(b)return b;}
+  return _teams.find(t=>(t.name||'').toLowerCase()===s)
+      || _teams.find(t=>(t.name||'').toLowerCase().includes(s))
+      || null;
+}
+// Try to detect the two teams from the latest Ball & Chain video title.
+function detectMatchupFromVideo(){
+  const title=(_videos[0]?.title||'');
+  if(!title) return null;
+  const found=[];
+  _teams.forEach(t=>{
+    const words=(t.name||'').toLowerCase().split(/\s+/).filter(w=>w.length>3);
+    const hit=words.some(w=>title.toLowerCase().includes(w));
+    if(hit) found.push(t);
+  });
+  return found.length>=2?[found[0],found[1]]:null;
+}
+function lastMeeting(ownerA,ownerB){
+  let best=null;
+  ALL_SEASONS.forEach(s=>{
+    const meta=_seasonMeta[s]; if(!meta) return;
+    const owners=meta.owners||{};
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away) return;
+      const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+      const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+      if(hp===0&&ap===0) return;
+      if((ho===ownerA&&ao===ownerB)||(ho===ownerB&&ao===ownerA)){
+        const rank=Number(s)*100+(m.matchupPeriodId||0);
+        if(!best||rank>best.rank){
+          const aPts=ho===ownerA?hp:ap, bPts=ho===ownerA?ap:hp;
+          best={rank,season:s,week:m.matchupPeriodId,aPts,bPts};
+        }
+      }
+    });
+  });
+  return best;
+}
+function renderMatchupOfWeek(){
+  const el=document.getElementById('motw'); if(!el) return;
+  const cfg=_CFG.matchup||{};
+  let pair=null;
+  if(cfg.auto) pair=detectMatchupFromVideo();
+  if(!pair){const h=resolveTeamByName(cfg.home),a=resolveTeamByName(cfg.away);if(h&&a)pair=[h,a];}
+  if(!pair){el.innerHTML='';return;}
+  const [A,B]=pair;
+  const oA=_ownerMap[A.id],oB=_ownerMap[B.id];
+  const at=allTimeH2H(A.id,B.id);           // {wA,wB,games}
+  const last=lastMeeting(oA,oB);
+  const odds=cfg.odds||{home:{},away:{}};
+  const oddChip=(label,pct,cls)=>`<div class="odd-chip"><div class="odd-label">${label}</div><div class="odd-val ${cls}">${pct!=null?pct+'%':'—'}</div></div>`;
+  const takeCol=(title,icon,arr,col)=>`<div class="motw-take">
+    <div class="motw-take-h" style="color:${col}"><i class="fa ${icon}"></i> ${title}</div>
+    ${(arr||[]).map(t=>`<div class="motw-take-item">${t}</div>`).join('')||'<div class="motw-take-item" style="color:var(--text3)">—</div>'}
+  </div>`;
+  el.innerHTML=`
+    <div class="motw-head">
+      <div class="motw-team">${logoImg(A.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${A.name}</div><div style="font-size:12px;color:var(--text3)">${A.wins}–${A.losses} · ${A.pf.toFixed(0)} PF</div></div></div>
+      <div class="motw-vs">VS</div>
+      <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${B.name}</div><div style="font-size:12px;color:var(--text3)">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
+    </div>
+    <div class="motw-facts">
+      <div class="motw-fact"><div class="motw-fact-l">All-time series</div><div class="motw-fact-v">${at.games?`${at.wA}–${at.wB}`:'first meeting'}</div></div>
+      <div class="motw-fact"><div class="motw-fact-l">Last meeting</div><div class="motw-fact-v">${last?`${last.aPts.toFixed(1)}–${last.bPts.toFixed(1)}`:'—'}</div><div class="motw-fact-s">${last?`${last.season} Wk ${last.week}`:'never played'}</div></div>
+      <div class="motw-fact"><div class="motw-fact-l">All-time combined</div><div class="motw-fact-v">${at.games} game${at.games!==1?'s':''}</div></div>
+    </div>
+    <div class="motw-takes">
+      ${takeCol('The Ball 🔨','fa-hand-fist',cfg.ball,'var(--accent)')}
+      ${takeCol('The Chain ⛓️','fa-link',cfg.chain,'var(--blue)')}
+    </div>
+    <div class="motw-odds">
+      <div class="motw-odds-h">Playoff odds</div>
+      <div class="motw-odds-grid">
+        <div class="motw-odds-team">
+          <div class="fr-name">${A.name}</div>
+          <div class="odd-row">${oddChip('With a win',odds.home?.win,'win')}${oddChip('With a loss',odds.home?.loss,'loss')}</div>
+        </div>
+        <div class="motw-odds-team">
+          <div class="fr-name">${B.name}</div>
+          <div class="odd-row">${oddChip('With a win',odds.away?.win,'win')}${oddChip('With a loss',odds.away?.loss,'loss')}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
+const PUNISH_ART={
+  'beer pour':{icon:'&#xf0fc;',svg:`<svg viewBox="0 0 90 100" width="120" height="133" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="beer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffcf5c"/><stop offset="1" stop-color="#c9860d"/></linearGradient></defs><rect x="20" y="26" width="42" height="64" rx="6" fill="none" stroke="var(--accent)" stroke-width="3"/><rect x="24" y="40" width="34" height="46" rx="3" fill="url(#beer)"/><rect x="24" y="34" width="34" height="9" rx="3" fill="#fff8ec"/><ellipse cx="30" cy="33" rx="5" ry="4" fill="#fff8ec"/><ellipse cx="42" cy="31" rx="6" ry="5" fill="#fff8ec"/><ellipse cx="53" cy="33" rx="5" ry="4" fill="#fff8ec"/><path d="M62 38h10a8 8 0 0 1 0 24h-10" fill="none" stroke="var(--accent)" stroke-width="3"/><circle cx="34" cy="55" r="2" fill="#fff8ec" opacity="0.6"/><circle cx="46" cy="66" r="2.4" fill="#fff8ec" opacity="0.5"/><circle cx="40" cy="74" r="1.8" fill="#fff8ec" opacity="0.5"/></svg>`},
+  'weatherman':{icon:'&#xf743;',svg:''},
+  'fast banana':{icon:'&#xf5d1;',svg:''},
+  'willem defoe':{icon:'&#xf508;',svg:''},
+  'fruit pledge':{icon:'&#xf5d1;',svg:''},
+  'spicy food':{icon:'&#xf06d;',svg:''},
+};
+const PUNISH_ICON={'weatherman':'fa-cloud-sun-rain','fast banana':'fa-person-running','willem defoe':'fa-masks-theater','fruit pledge':'fa-apple-whole','spicy food':'fa-pepper-hot','beer pour':'fa-beer-mug-empty'};
+function renderPunishment(){
+  const el=document.getElementById('punishment-body'); if(!el) return;
+  const cfg=_CFG.punishment||{};
+  const cur=(cfg.name||'').toLowerCase();
+  const art=PUNISH_ART[cur]||{};
+  el.innerHTML=`
+    <div class="punish-hero">
+      <div class="punish-art">${art.svg||`<i class="fa ${PUNISH_ICON[cur]||'fa-gavel'}" style="font-size:96px;color:var(--accent)"></i>`}</div>
+      <div class="punish-info">
+        <div class="punish-week">Week ${cfg.week??'—'} Punishment</div>
+        <div class="punish-name">${cfg.name||'TBD'}</div>
+        <div class="punish-note">${cfg.note||''}</div>
+      </div>
+    </div>
+    <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-list-check"></i>Punishment Menu</div>
+    <div class="punish-menu">
+      ${(cfg.options||[]).map(o=>`<div class="punish-opt ${o.toLowerCase()===cur?'active':''}"><i class="fa ${PUNISH_ICON[o.toLowerCase()]||'fa-circle'}"></i>${o}${o.toLowerCase()===cur?'<span class="punish-tag">THIS WEEK</span>':''}</div>`).join('')}
+    </div>`;
+}
+
+// ── TEAM PROFILE ─────────────────────────────────────────────────────────────
+function franchiseAllTime(owner){
+  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99;const seasons=new Set();
+  ALL_SEASONS.forEach(s=>{
+    const meta=_seasonMeta[s]; if(!meta) return;
+    const owners=meta.owners||{},teams=meta.teams||{};
+    const tid=Object.keys(owners).find(id=>owners[id]===owner);
+    if(tid==null) return;
+    seasons.add(s);
+    const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;if(ti.rank)best=Math.min(best,ti.rank);}
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
+      if(String(m.home.teamId)===tid){pf+=hp;pa+=ap;if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
+      else if(String(m.away.teamId)===tid){pf+=ap;pa+=hp;if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
+    });
+  });
+  return {w,l,t,pf,pa,seasons:seasons.size,rings,best:best===99?null:best,confs:(_hardware[owner]?.confs)||0};
+}
+function openTeamProfile(teamId){
+  _profileTeam=String(teamId);
+  const sel=document.getElementById('profile-team-select'); if(sel) sel.value=_profileTeam;
+  switchTab('teams');
+  document.querySelector('main')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderProfile(){
+  const el=document.getElementById('profile-body'); if(!el) return;
+  const sel=document.getElementById('profile-team-select');
+  const id=Number(sel?.value||_profileTeam||_teams[0]?.id);
+  const t=_teams.find(x=>x.id===id); if(!t){el.innerHTML='';return;}
+  const owner=_ownerMap[id];
+  const s=_scores[id]||0;
+  const at=franchiseAllTime(owner);
+  const winpct=(at.w+at.l+at.t)?(at.w/(at.w+at.l+at.t)*100):0;
+  const stat=(label,val,sub,col)=>`<div class="prof-stat"><div class="prof-stat-l">${label}</div><div class="prof-stat-v" ${col?`style="color:${col}"`:''}>${val}</div>${sub?`<div class="prof-stat-s">${sub}</div>`:''}</div>`;
+  // all-time vs league
+  const oppRows=_franchises.filter(f=>f.owner!==owner).map(opp=>{
+    const key=owner<opp.owner?`${owner}|${opp.owner}`:`${opp.owner}|${owner}`;
+    const k=_h2hAll[key]; if(!k||!k[owner]) return null;
+    const mine=k[owner],g=mine.games,wl=mine.w,t2=mine.t,ll=g-wl-t2;
+    return {opp,w:wl,l:ll,g,pct:g?wl/g:0};
+  }).filter(Boolean).sort((a,b)=>b.g-a.g);
+  const cur=_seasonMeta[getSeason()];
+  const seedTxt=cur?.teams?.[id]?.seed?`#${cur.teams[id].seed} seed`:'';
+  el.innerHTML=`
+    <div class="prof-hero">
+      ${logoImg(id,'big4-logo')}
+      <div>
+        <div class="prof-name">${t.name}</div>
+        <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''}${at.rings?` · <span style="color:var(--accent)">${at.rings}× 🏆</span>`:''}${at.confs?` · ${at.confs}× ⭐ Conf`:''}</div>
+      </div>
+    </div>
+    <div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
+    <div class="prof-stats">
+      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seedTxt)}
+      ${stat('Points For',t.pf.toFixed(1),'',`var(--green)`)}
+      ${stat('Points Against',t.pa.toFixed(1),'',`var(--red)`)}
+      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),'',sc(s))}
+      ${stat('Moves',t.moves,`${t.trades} trades`)}
+    </div>
+    <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
+    <div class="prof-stats">
+      ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,`${winpct.toFixed(1)}% win`,winpct>=50?'var(--green)':'var(--red)')}
+      ${stat('Points For',at.pf.toFixed(0),'',`var(--green)`)}
+      ${stat('Points Against',at.pa.toFixed(0),'',`var(--red)`)}
+      ${stat('Championships',at.rings,at.rings?'🏆':'')}
+      ${stat('Best Finish',at.best?`#${at.best}`:'—','')}
+    </div>
+    ${oppRows.length?`<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
+    <div class="tscroll"><table class="min480"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
+    <tbody>${oppRows.map(r=>`<tr>
+      <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>
+      <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
+      <td class="right" style="color:var(--red)">${r.l}</td>
+      <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
+    </tr>`).join('')}</tbody></table></div>`:''}`;
+}
 
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
 function selectVideo(videoId){
@@ -1661,6 +1864,10 @@ async function loadDashboard(){
       <!-- HOME -->
       <div class="tab-page" id="page-home">
         <div class="sec wm" data-wm="&#xf521;" id="big4-display" style="margin-bottom:28px"></div>
+        <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
+          <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week<span class="badge-info">from the latest Ball &amp; Chain video</span></div>
+          <div id="motw"></div>
+        </div>
         <div class="top-grid">
           <div class="sec wm" data-wm="&#xf5dc;">
             <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric${_cmMode!=='none'?`<span class="badge-info">${_cmMode==='official'?'official league records · ':_cmMode==='inferred'?'reconstructed from rosters · ':''}Click for breakdown</span>`:''}</div>
@@ -1675,7 +1882,7 @@ async function loadDashboard(){
                   return`<div class="coaching-row" onclick="openCMModal(${t.id})">
                     <div class="coaching-rank">${i===0?'🥇':i+1}</div>
                     ${logoImg(t.id)}
-                    <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
+                    <div class="coaching-info"><div class="coaching-name tlink" data-tid="${t.id}">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
                     <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${cmBar(s)}%;background:${cmCol(s)}"></div></div>
                     <div class="coaching-score" style="color:${cmCol(s)}">${s.toFixed(2)}</div>
                     <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
@@ -1808,10 +2015,32 @@ async function loadDashboard(){
           <div id="tenure-body"></div>
         </div>
       </div>
+
+      <!-- TEAM PROFILES -->
+      <div class="tab-page" id="page-teams">
+        <div class="sec">
+          <div class="picker-bar" style="padding-bottom:16px">
+            <label for="profile-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
+            <select id="profile-team-select" onchange="_profileTeam=this.value;renderProfile()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+          </div>
+          <div id="profile-body"></div>
+        </div>
+      </div>
+
+      <!-- WEEKLY PUNISHMENT -->
+      <div class="tab-page" id="page-punishment">
+        <div class="sec wm" data-wm="&#xf0fc;">
+          <div class="sec-head"><i class="fa fa-gavel"></i>Weekly Punishment</div>
+          <div id="punishment-body"></div>
+        </div>
+      </div>
     `;
 
     renderStandingsTable();
     renderBig4();
+    renderMatchupOfWeek();
+    renderPunishment();
+    if(_profileTeam==null) _profileTeam=String(_teams[0]?.id||'');
     if(playedWeeks.length) renderHeadlines(_currentWeek);
     renderHistoryTable();
     renderLeagueHistory();
@@ -1830,4 +2059,11 @@ async function loadDashboard(){
 }
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCMModalDirect();closePinOverlay();}});
+// Clicking a team name anywhere opens that team's profile.
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-tid]'); if(!el) return;
+  const id=Number(el.getAttribute('data-tid')); if(!id) return;
+  e.preventDefault(); e.stopPropagation();
+  openTeamProfile(id);
+});
 loadDashboard();

@@ -327,6 +327,76 @@
     .div-tag{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--blue);font-weight:700;margin-bottom:8px;}
     @media(max-width:640px){.div-winners{grid-template-columns:1fr;}.champ-vs{width:100%;text-align:center;}}
 
+.tlink{cursor:pointer;transition:color .12s;}
+    .tlink:hover{color:var(--accent);text-decoration:underline;text-underline-offset:2px;}
+
+    /* MATCHUP OF THE WEEK */
+    .motw-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:6px 2px 16px;}
+    .motw-team{display:flex;align-items:center;gap:12px;}
+    .motw-team.right{flex-direction:row-reverse;text-align:right;}
+    .motw-vs{font-family:'Big Shoulders Display',sans-serif;font-size:24px;font-weight:800;color:var(--text3);}
+    .motw-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+    .motw-fact{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center;}
+    html[data-theme="light"] .motw-fact,html[data-theme="light"] .motw-take,html[data-theme="light"] .motw-odds-team{background:rgba(0,0,0,0.03);}
+    .motw-fact-l{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+    .motw-fact-v{font-family:'Big Shoulders Display',sans-serif;font-size:24px;font-weight:700;}
+    .motw-fact-s{font-size:11px;color:var(--text3);margin-top:2px;}
+    .motw-takes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+    .motw-take{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+    .motw-take-h{font-family:'Fraunces',serif;font-weight:700;font-size:15px;margin-bottom:8px;}
+    .motw-take-item{font-size:13px;color:var(--text2);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);line-height:1.45;}
+    html[data-theme="light"] .motw-take-item{border-color:rgba(0,0,0,0.06);}
+    .motw-take-item:last-child{border-bottom:none;}
+    .motw-odds-h{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .motw-odds-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .motw-odds-team{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+    .odd-row{display:flex;gap:10px;margin-top:8px;}
+    .odd-chip{flex:1;text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 4px;}
+    .odd-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px;}
+    .odd-val{font-family:'Big Shoulders Display',sans-serif;font-size:24px;font-weight:800;}
+    .odd-val.win{color:var(--green);}
+    .odd-val.loss{color:var(--red);}
+    @media(max-width:640px){.motw-facts{grid-template-columns:1fr;}.motw-takes,.motw-odds-grid{grid-template-columns:1fr;}}
+
+    /* WEEKLY PUNISHMENT */
+    .punish-hero{display:flex;align-items:center;gap:24px;padding:16px 2px 24px;flex-wrap:wrap;}
+    .punish-art{flex-shrink:0;filter:drop-shadow(0 8px 18px rgba(255,179,71,0.25));}
+    .punish-week{font-family:'Big Shoulders Display',sans-serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:700;}
+    .punish-name{font-family:'Fraunces',serif;font-size:36px;font-weight:700;line-height:1.05;margin:4px 0 8px;}
+    .punish-note{font-size:14px;color:var(--text2);max-width:460px;line-height:1.5;}
+    .punish-menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px;}
+    .punish-opt{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:10px;padding:13px 15px;font-family:'Fraunces',serif;font-size:15px;font-weight:600;}
+    html[data-theme="light"] .punish-opt{background:rgba(0,0,0,0.03);}
+    .punish-opt i{color:var(--text3);width:20px;text-align:center;}
+    .punish-opt.active{border-color:var(--accent);background:rgba(255,179,71,0.1);}
+    .punish-opt.active i{color:var(--accent);}
+    .punish-tag{margin-left:auto;font-family:'Work Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;background:var(--accent);color:#0b0b0b;border-radius:999px;padding:2px 8px;}
+
+    /* TEAM PROFILE */
+    .prof-hero{display:flex;align-items:center;gap:16px;padding:4px 2px 20px;}
+    .prof-name{font-family:'Fraunces',serif;font-size:28px;font-weight:700;line-height:1.05;}
+    .prof-sub{font-size:13px;color:var(--text2);margin-top:4px;}
+    .prof-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:8px;}
+    .prof-stat{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+    html[data-theme="light"] .prof-stat{background:rgba(0,0,0,0.03);}
+    .prof-stat-l{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+    .prof-stat-v{font-family:'Big Shoulders Display',sans-serif;font-size:28px;font-weight:700;line-height:1;}
+    .prof-stat-s{font-size:11px;color:var(--text3);margin-top:3px;}
+    @media(max-width:900px){.prof-stats{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:560px){.prof-stats{grid-template-columns:repeat(2,1fr);}}
+
+    /* conference championship columns */
+    .conf-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .conf-col{background:rgba(0,0,0,0.14);border:1px solid var(--border);border-radius:12px;padding:6px 12px 10px;}
+    html[data-theme="light"] .conf-col{background:rgba(0,0,0,0.03);}
+    .conf-col-head{font-family:'Big Shoulders Display',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.5px;color:var(--blue);text-transform:uppercase;padding:10px 2px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+    .conf-win-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.05);}
+    html[data-theme="light"] .conf-win-row{border-color:rgba(0,0,0,0.06);}
+    .conf-win-row:last-child{border-bottom:none;}
+    .conf-win-yr{font-family:'Big Shoulders Display',sans-serif;font-weight:700;color:var(--accent);width:38px;flex-shrink:0;}
+    .conf-win-info{min-width:0;}
+    @media(max-width:640px){.conf-cols{grid-template-columns:1fr;}}
+
     /* bracket (collapsible under each champion) */
     .bracket-btn{margin-top:10px;background:rgba(255,255,255,0.06);border:none;box-shadow:var(--btn-edge);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
     .bracket-btn:hover{color:var(--text);box-shadow:var(--btn-edge-hover);}
@@ -547,8 +617,10 @@
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Matchup History</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Tenure</button>
+  <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="legacy" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
   <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')"><i class="fa fa-person-running"></i>Marathons Ran</button>
+  <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishment</button>
 </nav>
 
 <main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>

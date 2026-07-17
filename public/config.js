@@ -35,4 +35,32 @@ window.GFL_CONFIG = {
     sinceDate: "2024-12-30",
     sinceLabel: "days since the 2024 last place game went final",
   },
+
+  /* MATCHUP OF THE WEEK (homepage). Set the two teams and the Ball & Chain
+     takeaways each week. If `auto` is true the dashboard will try to detect the
+     two teams from the latest Ball & Chain video TITLE and override home/away;
+     it falls back to the names below if it can't find two team names.
+     `odds` are playoff-odds percentages you set manually for now. */
+  matchup: {
+    week: 1,
+    auto: true,
+    home: "Lebron",
+    away: "Florida",
+    ball:  ["Lebron's ceiling is the highest in the league right now",
+            "The waiver pickups are finally paying off",
+            "Defense has quietly been a top-3 unit"],
+    chain: ["Florida Man is peaking at exactly the wrong time",
+            "One injury away from a total collapse",
+            "The trade that sent away depth still stings"],
+    odds: { home: { win: 82, loss: 55 }, away: { win: 61, loss: 28 } },
+  },
+
+  /* WEEKLY PUNISHMENT. Set the current week's punishment; `options` is the menu
+     the league picks from. */
+  punishment: {
+    week: 1,
+    name: "Beer Pour",
+    note: "Loser of the week pours (and chugs) the group's mystery beer blend.",
+    options: ["Beer Pour", "Weatherman", "Fast Banana", "Willem Defoe", "Fruit Pledge", "Spicy Food"],
+  },
 };
