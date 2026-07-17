@@ -998,7 +998,7 @@ async function ensureTenure(){
   if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:12px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
   try{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=2`);
+      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=3`);
       if(!r.ok) return null;
       return {s, d:await r.json()};
     }));
@@ -1071,7 +1071,7 @@ function renderTenureTable(){
         <td class="right pf">${p.pAll.toFixed(1)}</td>
       </tr>`).join('')}</tbody>
   </table></div>${players.length>100?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}
-  <div style="padding:4px 2px 16px;font-size:11px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench).</div>`
+  <div style="padding:4px 2px 16px;font-size:11px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench). Bye weeks and weeks a player was on IR or ruled out are not counted.</div>`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
 
@@ -1315,7 +1315,7 @@ function renderLeagueHistory(){
   const champRows=[],confRows=[],champCount={},confCount={},latestName={};
   const av=(t,size,rad)=>avatarCore(t.name,t.teamId||0,proxyLogo(t.logo),size,rad);
 
-  seasons.slice().reverse().forEach(s=>{ // oldest → newest so latestName ends newest
+  seasons.slice().reverse().forEach(s=>{
     const meta=_seasonMeta[s],T=meta.teams||{};
     Object.values(T).forEach(t=>{latestName[t.owner]={name:t.name,logo:t.logo,teamId:null};});
 
@@ -1339,7 +1339,6 @@ function renderLeagueHistory(){
       champCount[champ.owner]=(champCount[champ.owner]||0)+1;
     }
 
-    // Conference winners: best record in each conference through week 14 (PF tiebreak)
     const rec={};
     Object.keys(T).forEach(tid=>rec[tid]={w:0,pf:0});
     let maxPlayed=0;
@@ -1371,54 +1370,56 @@ function renderLeagueHistory(){
   })).sort((x,y)=>y.rings-x.rings||y.confs-x.confs);
 
   body.innerHTML=`
-    <div class="sec wm" data-wm="&#xf091;">
-      <div class="sec-head"><i class="fa fa-trophy"></i>Champions</div>
-      ${champRows.length?champRows.map(r=>`
-        <div class="hist-item champ-card">
-          <div class="champ-card-main">
-            <div class="ring-wrap">${ringSVG(r.season)}</div>
-            <div class="champ-card-info">
-              <div class="hist-item-year">${r.season} CHAMPION</div>
-              <div class="champ-winner-name">${r.champ.name}</div>
-              <div class="champ-final">def. ${r.ru.name} · <span style="color:var(--green);font-weight:700">${r.cPts!=null?r.cPts.toFixed(1):'—'}</span>–<span style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</span>${r.week?` · Wk ${r.week}`:''}</div>
-              <button class="bracket-btn" onclick="toggleBracket('${r.season}',this)"><i class="fa fa-sitemap"></i> View bracket</button>
+    <div class="two-col" style="margin-bottom:0">
+      <div class="sec wm" data-wm="&#xf091;">
+        <div class="sec-head"><i class="fa fa-trophy"></i>Championship Games</div>
+        ${champRows.length?champRows.map(r=>`
+          <div class="hist-item">
+            <div class="hist-item-year">${r.season} CHAMPION</div>
+            <div class="champ-matchup">
+              <div class="champ-side win">${av(r.champ,40,10)}<div><div class="fr-name">${r.champ.name} 🏆</div><div class="champ-score" style="color:var(--green)">${r.cPts!=null?r.cPts.toFixed(1):'—'}</div></div></div>
+              <div class="champ-vs">def.</div>
+              <div class="champ-side">${av(r.ru,40,10)}<div><div class="fr-name">${r.ru.name}</div><div class="champ-score" style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</div></div></div>
             </div>
-          </div>
-          <div class="bracket-wrap" id="bracket-${r.season}" style="display:none"></div>
-        </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
-    </div>
-
-    <div class="sec wm" data-wm="&#xf5a2;">
-      <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
-      <div class="trophy-case">
+            ${r.week?`<div class="hist-item-meta">Title game · Week ${r.week}</div>`:''}
+            <button class="bracket-btn" onclick="toggleBracket('${r.season}',this)"><i class="fa fa-sitemap"></i> View bracket</button>
+            <div class="bracket-wrap" id="bracket-${r.season}" style="display:none"></div>
+          </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
+      </div>
+      <div class="sec wm" data-wm="&#xf5a2;">
+        <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
+        <div class="hist-item" style="padding:6px 10px">
         ${hardware.length?hardware.map(t=>`
-          <div class="trophy-cabinet-row">
-            <div class="trophy-team">${avatarCore(t.name,0,proxyLogo(t.logo),30,8)}<span class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</span></div>
-            <div class="trophy-shelf">
-              ${Array.from({length:t.rings}).map(()=>`<div class="trophy-obj" title="League Champion">${ringSVG('',34)}</div>`).join('')}
-              ${Array.from({length:t.confs}).map(()=>`<div class="trophy-obj" title="Conference Champion">${trophySVG(40)}</div>`).join('')}
-              ${(!t.rings&&!t.confs)?'<span class="brk-empty">—</span>':''}
+          <div class="trophy-row">
+            ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
+            <div class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
+            <div class="trophy-badges">
+              ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
+              ${t.confs?`<span class="trophy-badge conf">⭐ Conf ×${t.confs}</span>`:''}
             </div>
-            <div class="trophy-count">${t.rings?`<span class="trophy-badge">${t.rings}× 🏆</span>`:''}${t.confs?`<span class="trophy-badge conf">${t.confs}× ⭐</span>`:''}</div>
           </div>`).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
+        </div>
       </div>
     </div>
-
-    <div class="sec wm" data-wm="&#xf005;">
+    <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
       <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in each conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
-      <div class="tscroll"><table class="min560" style="margin-top:4px">
-        <thead><tr><th>Season</th><th>Conference</th><th>Champion</th><th class="right">Record</th><th class="right">PF</th></tr></thead>
-        <tbody>${confRows.length?confRows.map(r=>r.winners.map((w,wi)=>`
-          <tr${wi===0?' style="border-top:2px solid var(--border)"':''}>
-            <td>${wi===0?`<span class="champ-year">${r.season}</span>`:''}</td>
-            <td><span class="div-tag" style="margin:0">${w.divName}</span></td>
-            <td><div class="team-cell">${avatarCore(w.name,w.tid,proxyLogo(w.logo),24,7)}<span class="fr-name">${w.name}</span></div></td>
-            <td class="right"><strong>${w.w}–${REGULAR_SEASON_END-w.w}</strong></td>
-            <td class="right pf">${w.pf.toFixed(1)}</td>
-          </tr>`).join('')).join(''):`<tr><td colspan="5"><div class="tab-loading">No completed regular seasons yet.</div></td></tr>`}</tbody>
-      </table></div>
+      ${confRows.length?confRows.map(r=>`
+        <div class="hist-item">
+          <div class="hist-item-year">${r.season} SEASON</div>
+          <div class="div-winners">
+            ${r.winners.map(w=>`
+              <div class="div-winner">
+                <div class="div-tag">${w.divName}</div>
+                <div style="display:flex;align-items:center;gap:9px">
+                  ${avatarCore(w.name,w.tid,proxyLogo(w.logo),32,9)}
+                  <div><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>`).join(''):`<div class="tab-loading">No completed regular seasons yet.</div>`}
     </div>`;
 }
+
 
 // Championship playoff bracket — traced backward from the finalists by who beat
 // whom each week (robust to non-standard seeding, byes, and reseeds).

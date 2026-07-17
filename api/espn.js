@@ -272,11 +272,21 @@ export default async function handler(req, res) {
             const stats = e.playerPoolEntry?.player?.stats || [];
             const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === wr.week);
             const pts = wk?.appliedTotal ?? 0;
+            // Exclude bye weeks (no game that week → no statSourceId 0 line) and
+            // weeks the player was injured/out (IR lineup slot, or an OUT-type
+            // injury status). Those weeks don't count toward tenure.
+            const onBye = !wk;
+            const st = String(e.injuryStatus || e.playerPoolEntry?.player?.injuryStatus || '').toUpperCase();
+            const outStatuses = ['OUT', 'INJURY_RESERVE', 'IR', 'SUSPENSION', 'PUP', 'NON_FOOTBALL_INJURY'];
+            const injuredOut = e.lineupSlotId === 21 || outStatuses.includes(st);
+            const available = !onBye && !injuredOut;
             const rec = bucket[pid] || (bucket[pid] = { n: null, w: 0, s: 0, p: 0 });
             rec.n = e.playerPoolEntry?.player?.fullName || rec.n;
-            rec.w++;
-            if (!BENCH_SLOTS.includes(e.lineupSlotId)) rec.s++;
             rec.p += pts;
+            if (available) {
+              rec.w++;
+              if (!BENCH_SLOTS.includes(e.lineupSlotId)) rec.s++;
+            }
           });
         });
       });
