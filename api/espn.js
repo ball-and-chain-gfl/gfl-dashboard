@@ -384,6 +384,38 @@ export default async function handler(req, res) {
       const weeks = Object.keys(wk).map(Number).sort((a, b) => a - b);
       const ptsFrom = (pid, from) => weeks.filter(w => w >= from).reduce((t, w) => t + (wk[w]?.[pid]?.pts || 0), 0);
 
+      // Prefer the REAL transaction log when ESPN still has it (live seasons) or
+      // when it's been archived — that's authoritative & complete. Reconstruction
+      // from rosters is the fallback for seasons ESPN has purged.
+      let realTrades = null;
+      try {
+        const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
+        const txFilter = { transactions: { filterType:{ value:['TRADE_ACCEPT'] }, limit:2000, offset:0 } };
+        const tr = await fetch(`${liveBase}?view=mTransactions2`, { headers:{ ...headers, 'x-fantasy-filter': JSON.stringify(txFilter) } });
+        if (tr.ok) {
+          const td = unwrap(await tr.json());
+          const raw = (td.transactions || []).filter(t => t.type === 'TRADE_ACCEPT' || t.type === 'TRADE');
+          if (raw.length) {
+            realTrades = raw.map(tx => {
+              const twk = tx.scoringPeriodId || 0, from = twk + 1;
+              const byTeam = {};
+              (tx.items || []).forEach(it => { if (it.playerId != null && it.toTeamId != null) (byTeam[it.toTeamId] || (byTeam[it.toTeamId] = [])).push(it.playerId); });
+              const teams = Object.entries(byTeam).map(([tid, pids]) => {
+                const players = pids.map(pid => ({ pid, n: name[pid] || `#${pid}`, pts: +ptsFrom(pid, from).toFixed(1) })).sort((a,b)=>b.pts-a.pts);
+                return { teamId: +tid, players, total: +players.reduce((s,p)=>s+p.pts,0).toFixed(1) };
+              });
+              return { week: from, teams };
+            }).filter(t => t.teams.length >= 2);
+          }
+        }
+      } catch {}
+      if (realTrades && realTrades.length) {
+        res.setHeader('Cache-Control', isHistory
+          ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+          : 'public, max-age=120, s-maxage=600, stale-while-revalidate=600');
+        return res.status(200).json({ season, count: realTrades.length, trades: realTrades, source: 'log' });
+      }
+
       // collect directional moves at each week transition
       const moves = [];
       for (let i = 1; i < weeks.length; i++) {
@@ -425,7 +457,7 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
         : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
-      return res.status(200).json({ season, count: trades.length, trades });
+      return res.status(200).json({ season, count: trades.length, trades, source: 'reconstructed' });
     } catch (err) { return res.status(500).json({ error: err.message, trades: [] }); }
   }
 

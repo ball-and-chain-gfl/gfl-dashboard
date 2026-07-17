@@ -26,6 +26,8 @@ let _tenure=null,_tenureLoading=false;  // owner -> pid -> {n, wAll, pAll, seaso
 let _transactions=[];                   // current season's transaction list (real/archive/inferred)
 let _draftCache={},_draftLoading=false; // season -> {picks, stats}
 let _tradeSort='unbalanced';            // 'unbalanced' | 'balanced' | 'week'
+let _tradeScope='season';               // 'season' | 'alltime'
+let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
 let _draftTeamSel=null;                 // team filter on draft tab
 const _logoColorCache={};               // teamId -> dominant logo color
 const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
@@ -193,17 +195,19 @@ function ownerOf(team){
 function tName(t){return t.name||`${t.location||''} ${t.nickname||''}`.trim()||t.abbrev||'Team';}
 async function fetchSeasonData(season){
   try{
-    const r=await fetch(`${BASE}?view=mMatchup&view=mTeam&seasonId=${season}`);
+    const r=await fetch(`${BASE}?view=mMatchup&view=mTeam&view=mSettings&seasonId=${season}`);
     if(!r.ok) return null;
     const d=await r.json();
     const owners={},names={},teams={};
+    const divisions={};
+    (d.settings?.scheduleSettings?.divisions||[]).forEach(dv=>{divisions[dv.id]=dv.name;});
     (d.teams||[]).forEach(t=>{
       const o=ownerOf(t);
       owners[t.id]=o;
       names[o]={name:tName(t),logo:t.logo||null,teamId:t.id};
       teams[t.id]={name:tName(t),logo:t.logo||null,owner:o,div:t.divisionId??0,rank:t.rankCalculatedFinal||0};
     });
-    return {season,schedule:d.schedule||[],owners,names,teams};
+    return {season,schedule:d.schedule||[],owners,names,teams,divisions};
   }catch{return null;}
 }
 async function buildAllTimeH2H(){
@@ -213,7 +217,7 @@ async function buildAllTimeH2H(){
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
     const {season,schedule,owners,names,teams}=res.value;
-    _seasonMeta[season]={owners,names,teams,schedule};
+    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{}};
     schedule.forEach(mu=>{
       if(!mu.home||!mu.away) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
@@ -261,6 +265,7 @@ function switchTab(name){
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   if(name==='tenure') ensureTenure();
   if(name==='draft') ensureDraft();
+  if(name==='trades') renderTradesTab();
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -989,75 +994,108 @@ function ptsFromWeek(pid,startWeek){
   for(const w in _weeklyData){const wn=Number(w);if(wn>=startWeek)t+=_weeklyData[wn]?.[pid]?.pts??0;}
   return t;
 }
-function buildTrades(){
-  const list=[];
-  (_transactions||[]).forEach(tx=>{
-    if(tx.type!=='TRADE_ACCEPT'&&tx.type!=='TRADE') return;
-    const week=tx.scoringPeriodId||0;
-    const recv={},teams=new Set();
-    (tx.items||[]).forEach(it=>{
-      if(it.playerId==null) return;
-      if(it.toTeamId!=null){(recv[it.toTeamId]||(recv[it.toTeamId]=[])).push(it.playerId);teams.add(it.toTeamId);}
-      if(it.fromTeamId!=null) teams.add(it.fromTeamId);
-    });
-    const ids=[...teams];
-    if(ids.length<2) return;
-    const mk=tid=>{
-      const players=(recv[tid]||[]).map(pid=>({pid,n:pName(pid),pts:ptsFromWeek(pid,week+1)}))
-        .sort((x,y)=>y.pts-x.pts);
-      return {tid,players,total:players.reduce((s,p)=>s+p.pts,0)};
-    };
-    const A=mk(ids[0]),B=mk(ids[1]);
-    list.push({week:week+1,a:A,b:B,margin:Math.abs(A.total-B.total)});
-  });
-  list.sort((x,y)=>y.margin-x.margin);
-  return list;
+async function fetchSeasonTrades(season){
+  if(_tradeCache[season]) return _tradeCache[season];
+  try{
+    const r=await fetch(`${BASE}?type=seasontrades&seasonId=${season}&v=3`);
+    const d=r.ok?await r.json():{trades:[],source:'error'};
+    _tradeCache[season]={trades:d.trades||[],source:d.source||'reconstructed'};
+  }catch{_tradeCache[season]={trades:[],source:'error'};}
+  return _tradeCache[season];
 }
 function setTradeSort(mode,btn){
   _tradeSort=mode;
-  document.querySelectorAll('#page-trades .filter-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#trade-sort .filter-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderTradesTab();
 }
+function setTradeScope(scope,btn){
+  _tradeScope=scope;
+  document.querySelectorAll('#trade-scope .filter-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderTradesTab();
+}
+// franchise (owner) resolution so all-time trades label correctly across renames
+function tradeTeamName(season,teamId){
+  const meta=_seasonMeta[season];
+  const o=meta?.owners?.[teamId];
+  if(o){const fr=_franchises.find(f=>f.owner===o); if(fr) return fr.name.trim();
+    const nm=meta.names?.[o]?.name; if(nm) return nm.trim();}
+  return (_teams.find(t=>t.id===teamId)?.name||`Team ${teamId}`).trim();
+}
+function tradeTeamAvatar(season,teamId){
+  const meta=_seasonMeta[season];
+  const o=meta?.owners?.[teamId];
+  if(o){const fr=_franchises.find(f=>f.owner===o)||{name:meta.names?.[o]?.name,logo:meta.names?.[o]?.logo,teamId};
+    return franchiseAvatar(fr,28,8);}
+  return logoImg(teamId);
+}
 async function renderTradesTab(){
   const body=document.getElementById('trades-body'); if(!body) return;
-  const trades=buildTrades();
-  if(!trades.length){body.innerHTML=`<div class="tab-loading">No trades found in the ${getSeason()} season.</div>`;return;}
-  if(_tradeSort==='balanced') trades.sort((x,y)=>x.margin-y.margin);
-  else if(_tradeSort==='week') trades.sort((x,y)=>x.week-y.week);
-  // default: buildTrades already sorts most-unbalanced first
-  const tids=new Set();trades.forEach(t=>{tids.add(t.a.tid);tids.add(t.b.tid);});
+  const scopeSeasons = _tradeScope==='alltime' ? ALL_SEASONS.filter(s=>_seasonMeta[s]) : [getSeason()];
+
+  body.dataset.loading='1';
+  if(_tradeScope==='alltime'&&scopeSeasons.some(s=>!_tradeCache[s])){
+    body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Gathering trades from every season…</div>`;
+  }
+  const results=await Promise.all(scopeSeasons.map(async s=>({season:s,...(await fetchSeasonTrades(s))})));
+
+  // flatten into display list
+  let list=[];
+  results.forEach(({season,trades,source})=>{
+    (trades||[]).forEach(tr=>{
+      if((tr.teams||[]).length<2) return;
+      const a=tr.teams[0],b=tr.teams[1];
+      list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total)});
+    });
+  });
+  if(!list.length){body.innerHTML=`<div class="tab-loading">No trades found${_tradeScope==='alltime'?'':` in the ${getSeason()} season`}.</div>`;return;}
+
+  if(_tradeSort==='balanced') list.sort((x,y)=>x.margin-y.margin);
+  else if(_tradeSort==='week') list.sort((x,y)=>(y.season-x.season)||(x.week-y.week));
+  else list.sort((x,y)=>y.margin-x.margin);
+
+  // colors keyed by franchise owner so they stay consistent across seasons
+  const colorKeys={};
+  list.forEach(t=>{[[t.season,t.a.teamId],[t.season,t.b.teamId]].forEach(([s,id])=>{
+    const o=_seasonMeta[s]?.owners?.[id]||`t${id}`; colorKeys[o]=id;
+  });});
   const colors={};
-  await Promise.all([...tids].map(async id=>{colors[id]=readableColor(await logoMainColor(id));}));
-  const tn=id=>(_teams.find(t=>t.id===id)?.name||`Team ${id}`).trim();
-  body.innerHTML=trades.map((tr,i)=>{
+  await Promise.all(Object.entries(colorKeys).map(async ([o,id])=>{colors[o]=readableColor(await logoMainColor(id));}));
+  const colOf=(s,id)=>colors[_seasonMeta[s]?.owners?.[id]||`t${id}`]||'var(--accent)';
+
+  const reconstructedAny=results.some(r=>r.source!=='log');
+  body.innerHTML=list.map((tr,i)=>{
     const la=Math.max(tr.a.total,0),lb=Math.max(tr.b.total,0);
     const shareA=(la+lb)>0?la/(la+lb):0.5;
     const fair=shareA>=0.45&&shareA<=0.55;
     const wA=Math.min(0.96,Math.max(0.04,shareA));
     const aWin=tr.a.total>=tr.b.total;
     const winner=aWin?tr.a:tr.b;
+    const cA=colOf(tr.season,tr.a.teamId),cB=colOf(tr.season,tr.b.teamId),cW=colOf(tr.season,winner.teamId);
     const verdict=fair
       ?`<span class="trade-verdict fair"><i class="fa fa-scale-balanced"></i>FAIR TRADE</span>`
-      :`<span class="trade-verdict" style="background:${colors[winner.tid]};color:#0b0b0b"><i class="fa fa-trophy"></i>${tn(winner.tid).toUpperCase()} WINS +${tr.margin.toFixed(1)}</span>`;
+      :`<span class="trade-verdict" style="background:${cW};color:#0b0b0b"><i class="fa fa-trophy"></i>${tradeTeamName(tr.season,winner.teamId).toUpperCase()} WINS +${tr.margin.toFixed(1)}</span>`;
     const sideLabel=(isWin)=>fair
       ?`<span class="trade-winlabel" style="color:var(--blue)"><i class="fa fa-scale-balanced"></i>Fair</span>`
       :isWin?`<span class="trade-winlabel" style="color:var(--green)"><i class="fa fa-trophy"></i>Winner</span>`
             :`<span class="trade-winlabel" style="color:var(--red)"><i class="fa fa-arrow-trend-down"></i>Lost</span>`;
     const side=(sd,right,isWin)=>`
       <div class="trade-side${right?' right':''}">
-        <div class="trade-team">${logoImg(sd.tid)}<div><div class="trade-team-name">${tn(sd.tid)}</div>${sideLabel(isWin)}</div></div>
+        <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div><div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div>${sideLabel(isWin)}</div></div>
         <div class="trade-recv" style="margin-bottom:4px">received:</div>
         ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name">${p.n}</span><span class="tp-dots"></span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
-        <div class="trade-total" style="color:${colors[sd.tid]}">${sd.total.toFixed(1)} pts</div>
+        <div class="trade-total" style="color:${colOf(tr.season,sd.teamId)}">${sd.total.toFixed(1)} pts</div>
       </div>`;
+    const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
     return`<div class="trade-card">
-      <div class="trade-head"><span class="trade-rank">#${i+1}</span>Week ${tr.week} trade${verdict}</div>
+      <div class="trade-head"><span class="trade-rank">#${i+1}</span>${seasonBadge}Week ${tr.week} trade${verdict}</div>
       <div class="trade-grid">${side(tr.a,false,aWin)}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(tr.b,true,!aWin)}</div>
-      <div class="trade-bar"><span style="width:${(wA*100).toFixed(1)}%;background:${colors[tr.a.tid]}"></span><span style="flex:1;background:${colors[tr.b.tid]}"></span></div>
-      <div class="trade-bar-labels"><span style="color:${colors[tr.a.tid]};font-weight:700">${(shareA*100).toFixed(0)}% of post-trade points</span><span style="color:${colors[tr.b.tid]};font-weight:700">${(100-shareA*100).toFixed(0)}%</span></div>
+      <div class="trade-bar"><span style="width:${(wA*100).toFixed(1)}%;background:${cA}"></span><span style="flex:1;background:${cB}"></span></div>
+      <div class="trade-bar-labels"><span style="color:${cA};font-weight:700">${(shareA*100).toFixed(0)}% of post-trade points</span><span style="color:${cB};font-weight:700">${(100-shareA*100).toFixed(0)}%</span></div>
     </div>`;
-  }).join('')+`<div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Each side shows the players that manager received and the points those players scored from the trade week onward. The bar splits by share of post-trade points captured — 45–55% counts as a fair trade.</div>`;
+  }).join('')+`<div style="padding:0 2px 16px;font-size:12px;color:var(--text3);line-height:1.6">Each side shows the players a manager received and the points those players scored from the trade week onward — the bar splits by share of post-trade points (45–55% = fair).${reconstructedAny?' Completed seasons are <b>reconstructed from weekly rosters</b> since ESPN deletes the trade log; a few trades whose returned player was immediately dropped or was a draft pick can\'t be recovered. Seasons from 2026 on are archived live and show every trade.':''}</div>`;
+  body.dataset.loading='';
 }
 
 // ── DRAFT TAB ──────────────────────────────────────────────────────────────────
@@ -1251,38 +1289,44 @@ function renderLeagueHistory(){
       <div class="sec wm" data-wm="&#xf091;">
         <div class="sec-head"><i class="fa fa-trophy"></i>Championship Games</div>
         ${champRows.length?champRows.map(r=>`
-          <div class="champ-row">
-            <div class="champ-year">${r.season}</div>
-            ${av(r.champ,34,9)}
-            <div class="champ-detail">
-              <div class="champ-title">🏆 ${r.champ.name}<span style="color:var(--text3);font-weight:400;font-size:12px;font-family:'Work Sans',sans-serif">defeats</span>${r.ru.name}</div>
-              <div class="champ-sub">${r.cPts!=null?`<span class="champ-score" style="color:var(--green)">${r.cPts.toFixed(1)}</span> — <span class="champ-score" style="color:var(--text3)">${r.rPts.toFixed(1)}</span>${r.week?` · Week ${r.week}`:''}`:'title game score unavailable'}</div>
+          <div class="hist-item">
+            <div class="hist-item-year">${r.season} CHAMPION</div>
+            <div class="champ-matchup">
+              <div class="champ-side win">${av(r.champ,40,10)}<div><div class="fr-name">${r.champ.name} 🏆</div><div class="champ-score" style="color:var(--green)">${r.cPts!=null?r.cPts.toFixed(1):'—'}</div></div></div>
+              <div class="champ-vs">def.</div>
+              <div class="champ-side">${av(r.ru,40,10)}<div><div class="fr-name">${r.ru.name}</div><div class="champ-score" style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</div></div></div>
             </div>
+            ${r.week?`<div class="hist-item-meta">Title game · Week ${r.week}</div>`:''}
           </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
       </div>
       <div class="sec wm" data-wm="&#xf5a2;">
         <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
+        <div class="hist-item" style="padding:6px 10px">
         ${hardware.length?hardware.map(t=>`
           <div class="trophy-row">
             ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
             <div class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
             <div class="trophy-badges">
               ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
-              ${t.confs?`<span class="trophy-badge conf">⭐ Conf ×${t.confs}</span>`:''}
+              ${t.confs?`<span class="trophy-badge conf">⭐ Div ×${t.confs}</span>`:''}
             </div>
           </div>`).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
+        </div>
       </div>
     </div>
     <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
-      <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
+      <div class="sec-head"><i class="fa fa-star"></i>Division Winners<span class="badge-info">best record in each division through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
       ${confRows.length?confRows.map(r=>`
-        <div class="champ-row">
-          <div class="champ-year">${r.season}</div>
-          <div class="champ-detail" style="display:flex;gap:26px;flex-wrap:wrap">
+        <div class="hist-item">
+          <div class="hist-item-year">${r.season} SEASON</div>
+          <div class="div-winners">
             ${r.winners.map(w=>`
-              <div style="display:flex;align-items:center;gap:9px">
-                ${avatarCore(w.name,w.tid,proxyLogo(w.logo),28,8)}
-                <div><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">Conference ${w.div+1} · ${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
+              <div class="div-winner">
+                <div class="div-tag">${w.divName}</div>
+                <div style="display:flex;align-items:center;gap:9px">
+                  ${avatarCore(w.name,w.tid,proxyLogo(w.logo),32,9)}
+                  <div><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
+                </div>
               </div>`).join('')}
           </div>
         </div>`).join(''):`<div class="tab-loading">No completed regular seasons yet.</div>`}
@@ -1527,8 +1571,13 @@ async function loadDashboard(){
       <!-- TRADES -->
       <div class="tab-page" id="page-trades">
         <div class="sec wm" data-wm="&#xf362;">
-          <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report — ${season}<span class="badge-info">${_txMeta.source.includes('inferred')?'reconstructed from rosters':_txMeta.source.includes('archive')?'from git archive':'from ESPN log'}</span></div>
-          <div class="standings-filters">
+          <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report</div>
+          <div class="standings-filters" id="trade-scope">
+            <span style="font-size:12px;color:var(--text3);margin-right:4px">Scope:</span>
+            <button class="filter-btn ${_tradeScope==='season'?'active':''}" onclick="setTradeScope('season',this)">This Season</button>
+            <button class="filter-btn ${_tradeScope==='alltime'?'active':''}" onclick="setTradeScope('alltime',this)">All-Time</button>
+          </div>
+          <div class="standings-filters" id="trade-sort">
             <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
             <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most Unbalanced</button>
             <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most Balanced</button>
