@@ -22,10 +22,12 @@ let _seasonMeta={};   // season -> { owners:{tid:guid}, names:{guid:{name,logo,t
 let _franchises=[];   // [{owner, name, logo, teamId, games}] — latest identity per owner
 let _weeklyData={};   // week -> pid -> {pts, slot, started, team, n}
 let _playerNames={};  // pid -> name
-let _tenure=null,_tenureLoading=false;  // owner -> pid -> {n, wAll, pAll, seasons:{y:{w,p}}}
+let _tenure=null,_tenureLoading=false;  // owner -> pid -> {n, wAll(roster), sAll(started), pAll, seasons:{y:{w,s,p}}}
 let _transactions=[];                   // current season's transaction list (real/archive/inferred)
 let _draftCache={},_draftLoading=false; // season -> {picks, stats}
 let _tradeSort='unbalanced';            // 'unbalanced' | 'balanced' | 'week'
+let _statsView='standings';             // 'standings' | 'c2' | 'c3'
+let _cmBreakdown={};                     // teamId -> computed {c1,c2,c3,detail} for breakdown tables
 let _tradeScope='season';               // 'season' | 'alltime'
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
 let _draftTeamSel=null;                 // team filter on draft tab
@@ -205,7 +207,7 @@ async function fetchSeasonData(season){
       const o=ownerOf(t);
       owners[t.id]=o;
       names[o]={name:tName(t),logo:t.logo||null,teamId:t.id};
-      teams[t.id]={name:tName(t),logo:t.logo||null,owner:o,div:t.divisionId??0,rank:t.rankCalculatedFinal||0};
+      teams[t.id]={name:tName(t),logo:t.logo||null,owner:o,div:t.divisionId??0,rank:t.rankCalculatedFinal||0,seed:t.playoffSeed||0};
     });
     return {season,schedule:d.schedule||[],owners,names,teams,divisions};
   }catch{return null;}
@@ -834,6 +836,73 @@ function sortAndHighlight(col,btn){
   _sortCol=col;_sortAsc=false;
   renderStandingsTable();
 }
+function setStatsView(v,btn){
+  _statsView=v;
+  document.querySelectorAll('#stats-subtabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('stats-standings').style.display=v==='standings'?'':'none';
+  document.getElementById('stats-c2').style.display=v==='c2'?'':'none';
+  document.getElementById('stats-c3').style.display=v==='c3'?'':'none';
+  if(v==='c2') renderC2Breakdown();
+  if(v==='c3') renderC3Breakdown();
+}
+function cmSourceNote(){
+  if(_cmMode==='none') return 'No coaching-metric data for this season.';
+  if(_cmMode==='official') return 'Headline scores for this season are the official commissioner values; the breakdown below is computed from weekly rosters to show the inputs.';
+  if(_cmMode==='inferred') return 'Reconstructed from weekly rosters (ESPN deleted this season\'s transaction log).';
+  return 'Computed live from the ESPN transaction log.';
+}
+function renderC2Breakdown(){
+  const el=document.getElementById('stats-c2'); if(!el) return;
+  if(_cmMode==='none'){el.innerHTML=`<div class="tab-loading">No trade data for this season.</div>`;return;}
+  const rows=[..._teams].map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail)
+    .sort((a,b)=>(b.bd.c2||0)-(a.bd.c2||0));
+  if(!rows.length){el.innerHTML=`<div class="tab-loading">No trades found for this season.</div>`;return;}
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6">${cmSourceNote()}<br><b>C2 = Σ(points scored by players received after each trade − points scored by players sent) ÷ 10.</b> Points count from the week after the trade onward.</div>`+
+  rows.map(({t,bd})=>{
+    const d=bd.detail||{};
+    const recv=(d.tradesReceived||[]);
+    const sent=(d.tradesSent||[]);
+    const gained=recv.reduce((s,r)=>s+r.pts,0), lost=sent.reduce((s,r)=>s+r.pts,0);
+    const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${pName(r.pid)} <span class="brk-wk">wk ${r.week+1}+</span></span><span style="color:${col};font-weight:600">${sign}${r.pts.toFixed(1)}</span></div>`;
+    return `<div class="hist-item">
+      <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c2)}">C2 ${bd.c2>=0?'+':''}${(bd.c2||0).toFixed(2)}</span></div>
+      ${(recv.length||sent.length)?`<div class="brk-cols">
+        <div><div class="brk-col-h" style="color:var(--green)">Received (+${gained.toFixed(1)})</div>${recv.length?recv.map(r=>line(r,'+','var(--green)')).join(''):'<div class="brk-empty">none</div>'}</div>
+        <div><div class="brk-col-h" style="color:var(--red)">Sent (−${lost.toFixed(1)})</div>${sent.length?sent.map(r=>line(r,'−','var(--red)')).join(''):'<div class="brk-empty">none</div>'}</div>
+      </div>
+      <div class="brk-formula">(${gained.toFixed(1)} − ${lost.toFixed(1)}) ÷ 10 = <b style="color:${cc(bd.c2)}">${(bd.c2||0).toFixed(2)}</b></div>`
+      :'<div class="brk-empty">No trades this season.</div>'}
+    </div>`;
+  }).join('');
+}
+function renderC3Breakdown(){
+  const el=document.getElementById('stats-c3'); if(!el) return;
+  if(_cmMode==='none'){el.innerHTML=`<div class="tab-loading">No waiver data for this season.</div>`;return;}
+  const rows=[..._teams].map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail)
+    .sort((a,b)=>(b.bd.c3||0)-(a.bd.c3||0));
+  if(!rows.length){el.innerHTML=`<div class="tab-loading">No waiver pickups found for this season.</div>`;return;}
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6">${cmSourceNote()}<br><b>C3 = Σ(lineup points a pickup scored ÷ bid margin) ÷ 10</b>, where bid margin = winning FAAB bid − next-highest bid (full bid when uncontested). Bids are estimated for reconstructed seasons.</div>`+
+  rows.map(({t,bd})=>{
+    const d=bd.detail||{};
+    const picks=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1));
+    return `<div class="hist-item">
+      <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
+      ${picks.length?`<div class="tscroll"><table class="min560" style="margin-top:4px">
+        <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
+        <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
+          <td>${pName(w.pid)}${w.est?'<span style="color:var(--text3);font-size:11px"> est.</span>':''}</td>
+          <td class="right">${w.week}</td>
+          <td class="right">$${w.bid}</td>
+          <td class="right" style="color:var(--text3)">${w.next?('$'+w.next):'—'}</td>
+          <td class="right">$${mar}</td>
+          <td class="right pf">${w.pts.toFixed(1)}</td>
+          <td class="right" style="font-weight:600">${(w.pts/mar).toFixed(2)}x</td>
+        </tr>`;}).join('')}</tbody>
+      </table></div>`:'<div class="brk-empty">No waiver pickups this season.</div>'}
+    </div>`;
+  }).join('');
+}
 function renderStandingsTable(){
   const teams=[..._teams];
   teams.sort((a,b)=>{
@@ -942,10 +1011,10 @@ async function ensureTenure(){
         const owner=owners[tid]||`team:${tid}`;
         const bucket=tenure[owner]||(tenure[owner]={});
         Object.entries(players).forEach(([pid,rec])=>{
-          const p=bucket[pid]||(bucket[pid]={n:rec.n,wAll:0,pAll:0,seasons:{}});
+          const p=bucket[pid]||(bucket[pid]={n:rec.n,wAll:0,sAll:0,pAll:0,seasons:{}});
           if(rec.n) p.n=rec.n;
-          p.wAll+=rec.w||0; p.pAll+=rec.p||0;
-          p.seasons[s]={w:rec.w||0,p:rec.p||0};
+          p.wAll+=rec.w||0; p.sAll+=rec.s||0; p.pAll+=rec.p||0;
+          p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0};
         });
       });
     });
@@ -967,24 +1036,42 @@ function renderTenureTable(){
   const q=(document.getElementById('tenure-search')?.value||'').trim().toLowerCase();
   const players=Object.entries(_tenure[owner]||{}).map(([pid,p])=>({
     pid, n:p.n||`Player #${pid}`,
-    wAll:p.wAll, pAll:p.pAll,
-    wYr:p.seasons[yr]?.w||0, pYr:p.seasons[yr]?.p||0,
+    wAll:p.wAll, sAll:p.sAll, pAll:p.pAll,
+    wYr:p.seasons[yr]?.w||0, sYr:p.seasons[yr]?.s||0, pYr:p.seasons[yr]?.p||0,
   }))
   .filter(p=>!q||p.n.toLowerCase().includes(q))
   .sort((a,b)=>b.wAll-a.wAll||b.pAll-a.pAll);
 
+  const dash='<span style="color:var(--text3)">—</span>';
   const shown=players.slice(0,100);
-  body.innerHTML=shown.length?`<div class="tscroll"><table class="min480">
-    <thead><tr><th>Player</th><th class="right">Weeks ${yr}</th><th class="right">Pts ${yr}</th><th class="right">Weeks all-time</th><th class="right">Pts all-time</th></tr></thead>
+  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640">
+    <thead>
+      <tr>
+        <th rowspan="2">Player</th>
+        <th colspan="3" class="right" style="border-bottom:1px solid var(--border)">${yr} season</th>
+        <th colspan="3" class="right" style="border-bottom:1px solid var(--border)">All-time</th>
+      </tr>
+      <tr>
+        <th class="right" title="Weeks in the starting lineup">Started</th>
+        <th class="right" title="Weeks on the roster (starter or bench)">Rostered</th>
+        <th class="right">Pts</th>
+        <th class="right" title="Weeks in the starting lineup">Started</th>
+        <th class="right" title="Weeks on the roster (starter or bench)">Rostered</th>
+        <th class="right">Pts</th>
+      </tr>
+    </thead>
     <tbody>${shown.map((p,i)=>`
       <tr>
         <td><span class="rank" style="margin-right:8px">${i+1}</span><span class="fr-name">${p.n}</span></td>
-        <td class="right">${p.wYr||'—'}</td>
-        <td class="right" style="color:var(--text2)">${p.wYr?p.pYr.toFixed(1):'—'}</td>
-        <td class="right"><strong>${p.wAll}</strong></td>
+        <td class="right"><strong>${p.sYr||dash}</strong></td>
+        <td class="right" style="color:var(--text2)">${p.wYr||dash}</td>
+        <td class="right" style="color:var(--text2)">${p.wYr?p.pYr.toFixed(1):dash}</td>
+        <td class="right"><strong>${p.sAll}</strong></td>
+        <td class="right" style="color:var(--text2)">${p.wAll}</td>
         <td class="right pf">${p.pAll.toFixed(1)}</td>
       </tr>`).join('')}</tbody>
-  </table></div>${players.length>100?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}`
+  </table></div>${players.length>100?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}
+  <div style="padding:4px 2px 16px;font-size:11px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench).</div>`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
 
@@ -1232,7 +1319,6 @@ function renderLeagueHistory(){
     const meta=_seasonMeta[s],T=meta.teams||{};
     Object.values(T).forEach(t=>{latestName[t.owner]={name:t.name,logo:t.logo,teamId:null};});
 
-    // Championship: ESPN's final calculated ranks (1 = champion, 2 = runner-up)
     let champ=null,ru=null;
     Object.entries(T).forEach(([tid,t])=>{
       if(t.rank===1)champ={tid:+tid,...t};
@@ -1253,7 +1339,7 @@ function renderLeagueHistory(){
       champCount[champ.owner]=(champCount[champ.owner]||0)+1;
     }
 
-    // Conference champs: best record in each division through week 14 (PF tiebreak)
+    // Conference winners: best record in each conference through week 14 (PF tiebreak)
     const rec={};
     Object.keys(T).forEach(tid=>rec[tid]={w:0,pf:0});
     let maxPlayed=0;
@@ -1285,53 +1371,134 @@ function renderLeagueHistory(){
   })).sort((x,y)=>y.rings-x.rings||y.confs-x.confs);
 
   body.innerHTML=`
-    <div class="two-col" style="margin-bottom:0">
-      <div class="sec wm" data-wm="&#xf091;">
-        <div class="sec-head"><i class="fa fa-trophy"></i>Championship Games</div>
-        ${champRows.length?champRows.map(r=>`
-          <div class="hist-item">
-            <div class="hist-item-year">${r.season} CHAMPION</div>
-            <div class="champ-matchup">
-              <div class="champ-side win">${av(r.champ,40,10)}<div><div class="fr-name">${r.champ.name} 🏆</div><div class="champ-score" style="color:var(--green)">${r.cPts!=null?r.cPts.toFixed(1):'—'}</div></div></div>
-              <div class="champ-vs">def.</div>
-              <div class="champ-side">${av(r.ru,40,10)}<div><div class="fr-name">${r.ru.name}</div><div class="champ-score" style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</div></div></div>
+    <div class="sec wm" data-wm="&#xf091;">
+      <div class="sec-head"><i class="fa fa-trophy"></i>Champions</div>
+      ${champRows.length?champRows.map(r=>`
+        <div class="hist-item champ-card">
+          <div class="champ-card-main">
+            <div class="ring-wrap">${ringSVG(r.season)}</div>
+            <div class="champ-card-info">
+              <div class="hist-item-year">${r.season} CHAMPION</div>
+              <div class="champ-winner-name">${r.champ.name}</div>
+              <div class="champ-final">def. ${r.ru.name} · <span style="color:var(--green);font-weight:700">${r.cPts!=null?r.cPts.toFixed(1):'—'}</span>–<span style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</span>${r.week?` · Wk ${r.week}`:''}</div>
+              <button class="bracket-btn" onclick="toggleBracket('${r.season}',this)"><i class="fa fa-sitemap"></i> View bracket</button>
             </div>
-            ${r.week?`<div class="hist-item-meta">Title game · Week ${r.week}</div>`:''}
-          </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
-      </div>
-      <div class="sec wm" data-wm="&#xf5a2;">
-        <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
-        <div class="hist-item" style="padding:6px 10px">
+          </div>
+          <div class="bracket-wrap" id="bracket-${r.season}" style="display:none"></div>
+        </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
+    </div>
+
+    <div class="sec wm" data-wm="&#xf5a2;">
+      <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
+      <div class="trophy-case">
         ${hardware.length?hardware.map(t=>`
-          <div class="trophy-row">
-            ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
-            <div class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
-            <div class="trophy-badges">
-              ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
-              ${t.confs?`<span class="trophy-badge conf">⭐ Div ×${t.confs}</span>`:''}
+          <div class="trophy-cabinet-row">
+            <div class="trophy-team">${avatarCore(t.name,0,proxyLogo(t.logo),30,8)}<span class="fr-name">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</span></div>
+            <div class="trophy-shelf">
+              ${Array.from({length:t.rings}).map(()=>`<div class="trophy-obj" title="League Champion">${ringSVG('',34)}</div>`).join('')}
+              ${Array.from({length:t.confs}).map(()=>`<div class="trophy-obj" title="Conference Champion">${trophySVG(40)}</div>`).join('')}
+              ${(!t.rings&&!t.confs)?'<span class="brk-empty">—</span>':''}
             </div>
+            <div class="trophy-count">${t.rings?`<span class="trophy-badge">${t.rings}× 🏆</span>`:''}${t.confs?`<span class="trophy-badge conf">${t.confs}× ⭐</span>`:''}</div>
           </div>`).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
-        </div>
       </div>
     </div>
-    <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
-      <div class="sec-head"><i class="fa fa-star"></i>Division Winners<span class="badge-info">best record in each division through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
-      ${confRows.length?confRows.map(r=>`
-        <div class="hist-item">
-          <div class="hist-item-year">${r.season} SEASON</div>
-          <div class="div-winners">
-            ${r.winners.map(w=>`
-              <div class="div-winner">
-                <div class="div-tag">${w.divName}</div>
-                <div style="display:flex;align-items:center;gap:9px">
-                  ${avatarCore(w.name,w.tid,proxyLogo(w.logo),32,9)}
-                  <div><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
-                </div>
-              </div>`).join('')}
-          </div>
-        </div>`).join(''):`<div class="tab-loading">No completed regular seasons yet.</div>`}
+
+    <div class="sec wm" data-wm="&#xf005;">
+      <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in each conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
+      <div class="tscroll"><table class="min560" style="margin-top:4px">
+        <thead><tr><th>Season</th><th>Conference</th><th>Champion</th><th class="right">Record</th><th class="right">PF</th></tr></thead>
+        <tbody>${confRows.length?confRows.map(r=>r.winners.map((w,wi)=>`
+          <tr${wi===0?' style="border-top:2px solid var(--border)"':''}>
+            <td>${wi===0?`<span class="champ-year">${r.season}</span>`:''}</td>
+            <td><span class="div-tag" style="margin:0">${w.divName}</span></td>
+            <td><div class="team-cell">${avatarCore(w.name,w.tid,proxyLogo(w.logo),24,7)}<span class="fr-name">${w.name}</span></div></td>
+            <td class="right"><strong>${w.w}–${REGULAR_SEASON_END-w.w}</strong></td>
+            <td class="right pf">${w.pf.toFixed(1)}</td>
+          </tr>`).join('')).join(''):`<tr><td colspan="5"><div class="tab-loading">No completed regular seasons yet.</div></td></tr>`}</tbody>
+      </table></div>
     </div>`;
 }
+
+// Championship playoff bracket, reconstructed from playoff seeds + advancement.
+function buildBracket(season){
+  const meta=_seasonMeta[season]; if(!meta) return null;
+  const T=meta.teams||{}, sched=meta.schedule||[];
+  const seeded=Object.entries(T).filter(([id,t])=>t.seed>=1&&t.seed<=6).map(([id,t])=>+id);
+  if(seeded.length<4) return null;
+  const played=w=>sched.filter(m=>m.matchupPeriodId===w&&m.home&&m.away&&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+  const gInfo=m=>{const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;const hw=hp>=ap;
+    return {a:{tid:m.home.teamId,pts:hp,win:hw},b:{tid:m.away.teamId,pts:ap,win:!hw}};};
+  // playoff weeks are the last 3 matchup periods with games among seeded teams
+  const weeksWithSeeded=[...new Set(sched.filter(m=>m.home&&m.away&&seeded.includes(m.home.teamId)&&seeded.includes(m.away.teamId)&&((m.home.totalPoints||0)>0)).map(m=>m.matchupPeriodId))].sort((a,b)=>a-b).filter(w=>w>REGULAR_SEASON_END);
+  if(!weeksWithSeeded.length) return null;
+  let alive=new Set(seeded);
+  const rounds=[];
+  let byes=[];
+  weeksWithSeeded.forEach((w,ri)=>{
+    const games=played(w).filter(m=>alive.has(m.home.teamId)&&alive.has(m.away.teamId)).map(gInfo);
+    if(!games.length) return;
+    const inGame=new Set(games.flatMap(g=>[g.a.tid,g.b.tid]));
+    if(ri===0) byes=[...alive].filter(t=>!inGame.has(t)); // top seeds with a first-round bye
+    // losers drop out
+    games.forEach(g=>{const loser=g.a.win?g.b.tid:g.a.tid;alive.delete(loser);});
+    rounds.push({week:w,games});
+  });
+  const names=weeksWithSeeded.length>=3?['Quarterfinals','Semifinals','Championship']:['Semifinals','Championship'];
+  rounds.forEach((r,i)=>r.name=names[i]||`Round ${i+1}`);
+  return {rounds,byes};
+}
+function toggleBracket(season,btn){
+  const el=document.getElementById('bracket-'+season); if(!el) return;
+  const open=el.style.display==='none';
+  el.style.display=open?'block':'none';
+  btn.innerHTML=open?'<i class="fa fa-sitemap"></i> Hide bracket':'<i class="fa fa-sitemap"></i> View bracket';
+  if(open&&!el.dataset.built){
+    const br=buildBracket(season);
+    const meta=_seasonMeta[season];
+    const nm=tid=>(meta?.names?.[meta?.owners?.[tid]]?.name||_teams.find(t=>t.id===tid)?.name||'Team').trim();
+    const avt=tid=>{const o=meta?.owners?.[tid];const info=meta?.names?.[o]||{};return avatarCore(info.name||'',tid,proxyLogo(info.logo),22,6);};
+    if(!br){el.innerHTML='<div class="brk-empty" style="padding:10px">Bracket data unavailable for this season.</div>';el.dataset.built='1';return;}
+    el.innerHTML=`<div class="bracket">
+      ${br.rounds.map(r=>`<div class="bracket-col">
+        <div class="bracket-round">${r.name}</div>
+        ${r.byes&&false?'':''}
+        ${r.games.map(g=>`<div class="bracket-game">
+          <div class="bracket-team ${g.a.win?'adv':''}">${avt(g.a.tid)}<span class="bracket-name">${nm(g.a.tid)}</span><span class="bracket-pts">${g.a.pts.toFixed(1)}</span></div>
+          <div class="bracket-team ${g.b.win?'adv':''}">${avt(g.b.tid)}<span class="bracket-name">${nm(g.b.tid)}</span><span class="bracket-pts">${g.b.pts.toFixed(1)}</span></div>
+        </div>`).join('')}
+        ${(r===br.rounds[0]&&br.byes.length)?`<div class="bracket-byes">Byes: ${br.byes.map(nm).join(', ')}</div>`:''}
+      </div>`).join('')}
+    </div>`;
+    el.dataset.built='1';
+  }
+}
+
+// ── Trophy & ring SVGs (on-brand gold hardware) ──────────────────────────────
+function trophySVG(sz){
+  return `<svg viewBox="0 0 48 60" width="${sz}" height="${sz*1.25}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="0.5" stop-color="var(--accent)"/><stop offset="1" stop-color="#a35f00"/></linearGradient></defs>
+    <path d="M14 6h20v10a10 10 0 0 1-20 0z" fill="url(#gold)"/>
+    <path d="M14 8H8a6 6 0 0 0 6 8z" fill="none" stroke="url(#gold)" stroke-width="2.5"/>
+    <path d="M34 8h6a6 6 0 0 1-6 8z" fill="none" stroke="url(#gold)" stroke-width="2.5"/>
+    <rect x="22" y="26" width="4" height="8" fill="url(#gold)"/>
+    <path d="M16 34h16l-2 6H18z" fill="url(#gold)"/>
+    <rect x="14" y="40" width="20" height="4" rx="1.5" fill="url(#gold)"/>
+    <rect x="11" y="44" width="26" height="5" rx="2" fill="#7a4a00"/>
+  </svg>`;
+}
+function ringSVG(label,sz){
+  const S=sz||64;
+  return `<svg viewBox="0 0 64 64" width="${S}" height="${S}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="0.5" stop-color="var(--accent)"/><stop offset="1" stop-color="#8f5400"/></linearGradient></defs>
+    <ellipse cx="32" cy="46" rx="15" ry="14" fill="none" stroke="url(#rg)" stroke-width="5"/>
+    <path d="M18 30 L24 16 H40 L46 30 A16 16 0 0 0 18 30 Z" fill="url(#rg)"/>
+    <rect x="24" y="14" width="16" height="18" rx="3" fill="#1a1205" stroke="url(#rg)" stroke-width="2"/>
+    <circle cx="32" cy="23" r="4.5" fill="url(#rg)"/>
+    ${label?`<text x="32" y="26" text-anchor="middle" font-size="7" font-family="'Big Shoulders Display',sans-serif" font-weight="800" fill="#1a1205">${String(label).slice(2)}</text>`:''}
+  </svg>`;
+}
+
 
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
 function selectVideo(videoId){
@@ -1466,6 +1633,10 @@ async function loadDashboard(){
     }
     _transactions=transactions;
 
+    // Always compute the full C2/C3 breakdown (with per-player detail) for the
+    // Trade ROI / Waiver ROI tables — even when the headline CM score is official.
+    try{ _cmBreakdown=(await computeCoaching(_teams,transactions,weeklyData)).breakdown; }catch{ _cmBreakdown={}; }
+
     const cmRanked=[..._teams].sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));
     const totalMoves=_teams.reduce((s,t)=>s+t.moves,0);
     const totalTrades=_teams.reduce((s,t)=>s+t.trades,0);
@@ -1538,17 +1709,17 @@ async function loadDashboard(){
           <div class="card stat-card"><div class="stat-label">Avg Points For</div><div class="stat-value">${avgPF.toFixed(1)}</div><div class="stat-sub">${season} season</div></div>
         </div>
         <div class="sec wm" data-wm="&#xe561;">
-          <div class="sec-head"><i class="fa fa-ranking-star"></i>${season} Standings</div>
-          <div class="standings-filters">
-            <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
-            <button class="filter-btn" onclick="sortAndHighlight('rank',this)">Record</button>
-            <button class="filter-btn active" onclick="sortAndHighlight('pf',this)">Points For</button>
-            <button class="filter-btn" onclick="sortAndHighlight('pa',this)">Points Against</button>
-            <button class="filter-btn" onclick="sortAndHighlight('moves',this)">Most Active</button>
-            <button class="filter-btn" onclick="sortAndHighlight('trades',this)">Most Trades</button>
-            <button class="filter-btn" onclick="sortAndHighlight('cm',this)">Coaching Metric</button>
+          <div class="standings-filters" id="stats-subtabs" style="padding-bottom:16px">
+            <button class="tab-btn ${_statsView==='standings'?'active':''}" onclick="setStatsView('standings',this)"><i class="fa fa-ranking-star"></i>${season} Standings</button>
+            <button class="tab-btn ${_statsView==='c2'?'active':''}" onclick="setStatsView('c2',this)"><i class="fa fa-right-left"></i>C2 · Trade ROI</button>
+            <button class="tab-btn ${_statsView==='c3'?'active':''}" onclick="setStatsView('c3',this)"><i class="fa fa-magnifying-glass-dollar"></i>C3 · Waiver ROI</button>
           </div>
-          <div class="tscroll"><table class="min640"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
+          <div id="stats-standings" ${_statsView==='standings'?'':'style="display:none"'}>
+            <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
+            <div class="tscroll"><table class="min640"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
+          </div>
+          <div id="stats-c2" ${_statsView==='c2'?'':'style="display:none"'}></div>
+          <div id="stats-c3" ${_statsView==='c3'?'':'style="display:none"'}></div>
         </div>
         <div class="two-col">
           <div class="sec">
