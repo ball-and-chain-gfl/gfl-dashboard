@@ -27,6 +27,7 @@ let _transactions=[];                   // current season's transaction list (re
 let _draftCache={},_draftLoading=false; // season -> {picks, stats}
 let _tradeSort='unbalanced';            // 'unbalanced' | 'balanced' | 'week'
 let _statsView='standings';             // 'standings' | 'c2' | 'c3'
+let _c3Team=null;                        // teamId for the C3 breakdown dropdown (defaults to Lebron's)
 let _profileTeam=null;                   // teamId string for the profile tab
 let _hardware={};                        // owner -> {rings,confs} (filled by renderLeagueHistory)
 let _cmBreakdown={};                     // teamId -> computed {c1,c2,c3,detail} for breakdown tables
@@ -272,6 +273,7 @@ function switchTab(name){
   if(name==='trades') renderTradesTab();
   if(name==='teams') renderProfile();
   if(name==='punishment') renderPunishment();
+  if(name==='standings') setStatsView(_statsView);
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -840,13 +842,13 @@ function sortAndHighlight(col,btn){
   _sortCol=col;_sortAsc=false;
   renderStandingsTable();
 }
-function setStatsView(v,btn){
+function setStatsView(v){
   _statsView=v;
-  document.querySelectorAll('#stats-subtabs .tab-btn').forEach(b=>b.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  document.getElementById('stats-standings').style.display=v==='standings'?'':'none';
-  document.getElementById('stats-c2').style.display=v==='c2'?'':'none';
-  document.getElementById('stats-c3').style.display=v==='c3'?'':'none';
+  document.querySelectorAll('#stats-subtabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  const st=document.getElementById('stats-standings'),c2=document.getElementById('stats-c2'),c3=document.getElementById('stats-c3');
+  if(st)st.style.display=v==='standings'?'':'none';
+  if(c2)c2.style.display=v==='c2'?'':'none';
+  if(c3)c3.style.display=v==='c3'?'':'none';
   if(v==='c2') renderC2Breakdown();
   if(v==='c3') renderC3Breakdown();
 }
@@ -883,14 +885,23 @@ function renderC2Breakdown(){
 function renderC3Breakdown(){
   const el=document.getElementById('stats-c3'); if(!el) return;
   if(_cmMode==='none'){el.innerHTML=`<div class="tab-loading">No waiver data for this season.</div>`;return;}
-  const rows=[..._teams].map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail)
-    .sort((a,b)=>(b.bd.c3||0)-(a.bd.c3||0));
-  if(!rows.length){el.innerHTML=`<div class="tab-loading">No waiver pickups found for this season.</div>`;return;}
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6">${cmSourceNote()}<br><b>C3 = Σ(lineup points a pickup scored ÷ bid margin) ÷ 10</b>, where bid margin = winning FAAB bid − next-highest bid (full bid when uncontested). Bids are estimated for reconstructed seasons.</div>`+
-  rows.map(({t,bd})=>{
-    const d=bd.detail||{};
-    const picks=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1));
-    return `<div class="hist-item">
+  // default the team selector to Lebron's 3rd Leg (or first team)
+  if(_c3Team==null||!_teams.some(t=>t.id===Number(_c3Team))){
+    const leb=_teams.find(t=>/lebron/i.test(t.name));
+    _c3Team=String((leb||_teams[0])?.id||'');
+  }
+  const opts=_teams.map(t=>`<option value="${t.id}" ${Number(_c3Team)===t.id?'selected':''}>${t.name}</option>`).join('');
+  const t=_teams.find(x=>x.id===Number(_c3Team));
+  const bd=_cmBreakdown[t?.id]||{};
+  const d=bd.detail||{};
+  const picks=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1));
+  el.innerHTML=`
+    <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6">${cmSourceNote()}<br><b>C3 = Σ(lineup points a pickup scored ÷ bid margin) ÷ 10</b>, where bid margin = winning FAAB bid − next-highest bid (full bid when uncontested). Bids are estimated for reconstructed seasons.</div>
+    <div class="picker-bar" style="padding:0 2px 14px">
+      <label for="c3-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
+      <select id="c3-team-select" onchange="_c3Team=this.value;renderC3Breakdown()">${opts}</select>
+    </div>
+    ${t?`<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
       ${picks.length?`<div class="tscroll"><table class="min560" style="margin-top:4px">
         <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
@@ -903,9 +914,8 @@ function renderC3Breakdown(){
           <td class="right pf">${w.pts.toFixed(1)}</td>
           <td class="right" style="font-weight:600">${(w.pts/mar).toFixed(2)}x</td>
         </tr>`;}).join('')}</tbody>
-      </table></div>`:'<div class="brk-empty">No waiver pickups this season.</div>'}
-    </div>`;
-  }).join('');
+      </table></div>`:'<div class="brk-empty">No waiver pickups for this team this season.</div>'}
+    </div>`:''}`;
 }
 function renderStandingsTable(){
   const teams=[..._teams];
@@ -1525,15 +1535,23 @@ function resolveTeamByName(q){
 }
 // Try to detect the two teams from the latest Ball & Chain video title.
 function detectMatchupFromVideo(){
-  const title=(_videos[0]?.title||'');
-  if(!title) return null;
+  const v=_videos[0]; if(!v) return null;
+  const text=((v.description||'')+' '+(v.title||'')).toLowerCase();
+  if(!text.trim()) return null;
+  // score each team by how many of its distinctive name-words appear, and where
+  const STOP=new Set(['team','the','football','fantasy','league','man','and','for','with','3rd','leg']);
   const found=[];
   _teams.forEach(t=>{
-    const words=(t.name||'').toLowerCase().split(/\s+/).filter(w=>w.length>3);
-    const hit=words.some(w=>title.toLowerCase().includes(w));
-    if(hit) found.push(t);
+    const words=(t.name||'').toLowerCase().split(/\s+/).filter(w=>w.length>2&&!STOP.has(w));
+    let firstIdx=Infinity,hits=0;
+    words.forEach(w=>{const i=text.indexOf(w);if(i>=0){hits++;firstIdx=Math.min(firstIdx,i);}});
+    if(hits>0) found.push({t,hits,firstIdx});
   });
-  return found.length>=2?[found[0],found[1]]:null;
+  // require at least one strong-word hit; order by appearance in the text
+  found.sort((x,y)=>x.firstIdx-y.firstIdx);
+  const uniq=[];const seen=new Set();
+  found.forEach(f=>{if(!seen.has(f.t.id)){seen.add(f.t.id);uniq.push(f.t);}});
+  return uniq.length>=2?[uniq[0],uniq[1]]:null;
 }
 function lastMeeting(ownerA,ownerB){
   let best=null;
@@ -1924,9 +1942,9 @@ async function loadDashboard(){
         </div>
         <div class="sec wm" data-wm="&#xe561;">
           <div class="standings-filters" id="stats-subtabs" style="padding-bottom:16px">
-            <button class="tab-btn ${_statsView==='standings'?'active':''}" onclick="setStatsView('standings',this)"><i class="fa fa-ranking-star"></i>${season} Standings</button>
-            <button class="tab-btn ${_statsView==='c2'?'active':''}" onclick="setStatsView('c2',this)"><i class="fa fa-right-left"></i>C2 · Trade ROI</button>
-            <button class="tab-btn ${_statsView==='c3'?'active':''}" onclick="setStatsView('c3',this)"><i class="fa fa-magnifying-glass-dollar"></i>C3 · Waiver ROI</button>
+            <button class="tab-btn ${_statsView==='standings'?'active':''}" data-view="standings" onclick="setStatsView('standings')"><i class="fa fa-ranking-star"></i>${season} Standings</button>
+            <button class="tab-btn ${_statsView==='c2'?'active':''}" data-view="c2" onclick="setStatsView('c2')"><i class="fa fa-right-left"></i>C2 · Trade ROI</button>
+            <button class="tab-btn ${_statsView==='c3'?'active':''}" data-view="c3" onclick="setStatsView('c3')"><i class="fa fa-magnifying-glass-dollar"></i>C3 · Waiver ROI</button>
           </div>
           <div id="stats-standings" ${_statsView==='standings'?'':'style="display:none"'}>
             <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>

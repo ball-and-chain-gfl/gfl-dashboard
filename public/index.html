@@ -64,8 +64,11 @@
     .dot.err{background:var(--red);}
 
     /* TAB BAR */
-    .tabbar{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);display:flex;gap:5px;padding:9px 20px;overflow-x:auto;scrollbar-width:none;}
-    .tabbar::-webkit-scrollbar{display:none;}
+    .tabbar{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);display:flex;gap:5px;padding:9px 20px 11px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+    .tabbar::-webkit-scrollbar{height:5px;}
+    .tabbar::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+    .tabbar::-webkit-scrollbar-thumb:hover{background:var(--text3);}
+    .tab-btn{flex:0 0 auto;}
     .tab-btn{background:none;border:none;color:var(--text3);padding:8px 16px;border-radius:8px;box-shadow:none;font-size:16px;font-weight:700;cursor:pointer;white-space:nowrap;transition:0.15s;display:flex;align-items:center;gap:7px;}
     .tab-btn i{font-size:12px;}
     .tab-btn:hover{color:var(--text);background:rgba(255,255,255,0.06);box-shadow:var(--btn-edge);}
@@ -619,8 +622,8 @@
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Tenure</button>
   <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="legacy" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
-  <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')"><i class="fa fa-person-running"></i>Marathons Ran</button>
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishment</button>
+  <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')"><i class="fa fa-person-running"></i>Marathons Ran</button>
 </nav>
 
 <main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>

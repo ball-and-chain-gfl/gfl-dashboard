@@ -79,6 +79,8 @@ export default async function handler(req, res) {
           title:     (b.match(/<title>(.*?)<\/title>/)            || [])[1] || 'Untitled',
           published: (b.match(/<published>(.*?)<\/published>/)    || [])[1] || '',
           thumb:     (b.match(/url="(https:\/\/i\.ytimg[^"]+)"/) || [])[1] || null,
+          description: ((b.match(/<media:description>([\s\S]*?)<\/media:description>/) || [])[1] || '')
+                        .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"'),
         };
       }).filter(v => v.videoId);
       return res.status(200).json({ videos });
