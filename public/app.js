@@ -550,7 +550,7 @@ function renderBig4(){
   const picked=BIG4.map(resolveBig4Entry);
   const anyPicked=picked.some(Boolean);
 
-  el.innerHTML=`<div class="section-header" style="padding:12px 16px">
+  el.innerHTML=`<div class="sec-head">
     <i class="fa fa-crown"></i>Balls Big 4
   </div>
   ${!anyPicked
@@ -964,7 +964,7 @@ function renderTenureTable(){
         <td class="right"><strong>${p.wAll}</strong></td>
         <td class="right pf">${p.pAll.toFixed(1)}</td>
       </tr>`).join('')}</tbody>
-  </table></div>${players.length>100?`<div style="padding:12px 18px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}`
+  </table></div>${players.length>100?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
 
@@ -1042,7 +1042,7 @@ async function renderTradesTab(){
       <div class="trade-bar"><span style="width:${(wA*100).toFixed(1)}%;background:${colors[tr.a.tid]}"></span><span style="flex:1;background:${colors[tr.b.tid]}"></span></div>
       <div class="trade-bar-labels"><span style="color:${colors[tr.a.tid]};font-weight:700">${(shareA*100).toFixed(0)}% of post-trade points</span><span style="color:${colors[tr.b.tid]};font-weight:700">${(100-shareA*100).toFixed(0)}%</span></div>
     </div>`;
-  }).join('')+`<div style="padding:0 18px 16px;font-size:12px;color:var(--text3)">Each side shows the players that manager received and the points those players scored from the trade week onward. The bar splits by share of post-trade points captured — 45–55% counts as a fair trade.</div>`;
+  }).join('')+`<div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Each side shows the players that manager received and the points those players scored from the trade week onward. The bar splits by share of post-trade points captured — 45–55% counts as a fair trade.</div>`;
 }
 
 // ── DRAFT TAB ──────────────────────────────────────────────────────────────────
@@ -1096,7 +1096,7 @@ function renderDraftTab(){
     <div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div>
   </div>`;
   if(_draftTeamSel==null||!_teams.some(t=>t.id===Number(_draftTeamSel))) _draftTeamSel=_teams[0]?.id;
-  body.innerHTML=`<div class="two-col" style="margin:0;padding:14px;gap:14px">
+  body.innerHTML=`<div class="two-col" style="margin:0 0 24px;gap:16px">
     <div class="card" style="box-shadow:none">
       <div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Draft Steals<span class="badge-info">beat their draft slot</span></div>
       ${steals.map(row).join('')}
@@ -1106,7 +1106,7 @@ function renderDraftTab(){
       ${busts.map(row).join('')}
     </div>
   </div>
-  <div class="card" style="box-shadow:none;margin:0 14px 14px">
+  <div class="card" style="margin:0 0 20px">
     <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Full Draft by Team<span class="badge-info">every pick · drafted vs finished</span></div>
     <div class="picker-bar">
       <label for="draft-team-select">Team:</label>
@@ -1114,7 +1114,7 @@ function renderDraftTab(){
     </div>
     <div id="draft-team-body"></div>
   </div>
-  <div style="padding:0 18px 16px;font-size:12px;color:var(--text3)">Finish rank compares total ${season} fantasy points (league scoring) across all NFL players. Delta = draft slot − finish rank, so +14 means a player drafted 16th who finished 2nd.</div>`;
+  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Finish rank compares total ${season} fantasy points (league scoring) across all NFL players. Delta = draft slot − finish rank, so +14 means a player drafted 16th who finished 2nd.</div>`;
   renderDraftTeamTable();
 }
 function renderDraftTeamTable(){
@@ -1233,8 +1233,8 @@ function renderLeagueHistory(){
 
   body.innerHTML=`
     <div class="two-col" style="margin-bottom:0">
-      <div class="card wm" data-wm="&#xf091;">
-        <div class="section-header"><i class="fa fa-trophy"></i>Championship Games</div>
+      <div class="sec wm" data-wm="&#xf091;">
+        <div class="sec-head"><i class="fa fa-trophy"></i>Championship Games</div>
         ${champRows.length?champRows.map(r=>`
           <div class="champ-row">
             <div class="champ-year">${r.season}</div>
@@ -1245,8 +1245,8 @@ function renderLeagueHistory(){
             </div>
           </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
       </div>
-      <div class="card wm" data-wm="&#xf5a2;">
-        <div class="section-header"><i class="fa fa-medal"></i>Trophy Case</div>
+      <div class="sec wm" data-wm="&#xf5a2;">
+        <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
         ${hardware.length?hardware.map(t=>`
           <div class="trophy-row">
             ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
@@ -1258,8 +1258,8 @@ function renderLeagueHistory(){
           </div>`).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
       </div>
     </div>
-    <div class="card wm" data-wm="&#xf005;" style="margin-top:20px">
-      <div class="section-header"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
+    <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
+      <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
       ${confRows.length?confRows.map(r=>`
         <div class="champ-row">
           <div class="champ-year">${r.season}</div>
@@ -1423,10 +1423,10 @@ async function loadDashboard(){
     app.innerHTML=`
       <!-- HOME -->
       <div class="tab-page" id="page-home">
-        <div class="card wm" data-wm="&#xf521;" style="margin-bottom:20px" id="big4-display"></div>
+        <div class="sec wm" data-wm="&#xf521;" id="big4-display" style="margin-bottom:28px"></div>
         <div class="top-grid">
-          <div class="card wm" data-wm="&#xf5dc;">
-            <div class="section-header"><i class="fa fa-brain"></i>Coaching Metric${_cmMode!=='none'?`<span class="badge-info">${_cmMode==='official'?'official league records · ':_cmMode==='inferred'?'reconstructed from rosters · ':''}Click for breakdown</span>`:''}</div>
+          <div class="sec wm" data-wm="&#xf5dc;">
+            <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric${_cmMode!=='none'?`<span class="badge-info">${_cmMode==='official'?'official league records · ':_cmMode==='inferred'?'reconstructed from rosters · ':''}Click for breakdown</span>`:''}</div>
             ${_cmMode==='none'
               ?`<div class="tab-loading" style="padding:40px 20px">No coaching metric data available for the ${season} season.</div>`
               :(()=>{
@@ -1446,8 +1446,8 @@ async function loadDashboard(){
                 }).join('');
               })()}
           </div>
-          <div class="card wm" data-wm="&#xf04b;">
-            <div class="section-header"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
+          <div class="sec">
+            <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
             ${firstVid
               ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
                 <div class="video-featured-title" id="vt">${firstVid.title}</div>
@@ -1461,14 +1461,14 @@ async function loadDashboard(){
 
       <!-- HEADLINES -->
       <div class="tab-page" id="page-headlines">
-        ${playedWeeks.length?`<div class="card wm" data-wm="&#xf1ea;">
-          <div class="section-header"><i class="fa fa-newspaper"></i>Weekly Matchup Headlines</div>
+        ${playedWeeks.length?`<div class="sec wm" data-wm="&#xf1ea;">
+          <div class="sec-head"><i class="fa fa-newspaper"></i>Weekly Matchup Headlines</div>
           <div class="headline-controls">
             <span style="font-size:12px;color:var(--text3);margin-right:4px">Week:</span>
             ${playedWeeks.map(w=>`<button class="week-btn ${w===_currentWeek?'active':''}" data-week="${w}" onclick="renderHeadlines(${w})">Wk ${w}</button>`).join('')}
           </div>
           <div class="headline-grid" id="headline-grid"></div>
-        </div>`:`<div class="card"><div class="tab-loading">No games played yet in ${season}.</div></div>`}
+        </div>`:`<div class="sec"><div class="tab-loading">No games played yet in ${season}.</div></div>`}
       </div>
 
       <!-- STANDINGS & STATS -->
@@ -1478,8 +1478,8 @@ async function loadDashboard(){
           <div class="card stat-card"><div class="stat-label">Total Trades</div><div class="stat-value">${totalTrades}</div><div class="stat-sub">across all teams</div></div>
           <div class="card stat-card"><div class="stat-label">Avg Points For</div><div class="stat-value">${avgPF.toFixed(1)}</div><div class="stat-sub">${season} season</div></div>
         </div>
-        <div class="card wm" data-wm="&#xe561;" style="margin-bottom:22px">
-          <div class="section-header"><i class="fa fa-ranking-star"></i>${season} Standings</div>
+        <div class="sec wm" data-wm="&#xe561;">
+          <div class="sec-head"><i class="fa fa-ranking-star"></i>${season} Standings</div>
           <div class="standings-filters">
             <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
             <button class="filter-btn" onclick="sortAndHighlight('rank',this)">Record</button>
@@ -1492,27 +1492,27 @@ async function loadDashboard(){
           <div class="tscroll"><table class="min640"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
         </div>
         <div class="two-col">
-          <div class="card">
-            <div class="section-header"><i class="fa fa-fire"></i>Highest Scoring</div>
+          <div class="sec">
+            <div class="sec-head"><i class="fa fa-fire"></i>Highest Scoring</div>
             <table><tbody>${[..._teams].sort((a,b)=>b.pf-a.pf).slice(0,6).map((t,i)=>`
               <tr><td><div class="team-cell">${logoImg(t.id)}<span class="rank" style="margin:0 6px">${i+1}</span>${t.name}</div></td><td class="right pf">${t.pf.toFixed(1)}</td></tr>`).join('')}</tbody></table>
           </div>
-          <div class="card">
-            <div class="section-header"><i class="fa fa-arrow-trend-up"></i>Most Active</div>
+          <div class="sec">
+            <div class="sec-head"><i class="fa fa-arrow-trend-up"></i>Most Active</div>
             <table><tbody>${[..._teams].sort((a,b)=>b.moves-a.moves).slice(0,6).map((t,i)=>`
               <tr><td><div class="team-cell">${logoImg(t.id)}<span class="rank" style="margin:0 6px">${i+1}</span>${t.name}</div></td><td class="right" style="color:var(--text2)">${t.moves}</td><td class="right" style="color:var(--blue)">${t.trades}</td></tr>`).join('')}</tbody></table>
           </div>
         </div>
-        <div class="card wm" data-wm="&#xf1da;">
-          <div class="section-header"><i class="fa fa-clock-rotate-left"></i>Recent Activity${_cmMode==='inferred'?'<span class="badge-info">reconstructed from weekly rosters</span>':''}</div>
+        <div class="sec wm" data-wm="&#xf1da;">
+          <div class="sec-head"><i class="fa fa-clock-rotate-left"></i>Recent Activity${_cmMode==='inferred'?'<span class="badge-info">reconstructed from weekly rosters</span>':''}</div>
           ${transactions.slice(0,10).map(tx=>renderTx(tx,teamMap)).filter(Boolean).join('')||`<div style="padding:28px;text-align:center;color:var(--text3)">No recent transactions</div>`}
         </div>
       </div>
 
       <!-- TRADES -->
       <div class="tab-page" id="page-trades">
-        <div class="card wm" data-wm="&#xf362;">
-          <div class="section-header"><i class="fa fa-right-left"></i>Trade Report — ${season}<span class="badge-info">${_txMeta.source.includes('inferred')?'reconstructed from rosters':_txMeta.source.includes('archive')?'from git archive':'from ESPN log'}</span></div>
+        <div class="sec wm" data-wm="&#xf362;">
+          <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report — ${season}<span class="badge-info">${_txMeta.source.includes('inferred')?'reconstructed from rosters':_txMeta.source.includes('archive')?'from git archive':'from ESPN log'}</span></div>
           <div class="standings-filters">
             <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
             <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most Unbalanced</button>
@@ -1525,16 +1525,16 @@ async function loadDashboard(){
 
       <!-- DRAFT -->
       <div class="tab-page" id="page-draft">
-        <div class="card wm" data-wm="&#xf46d;">
-          <div class="section-header"><i class="fa fa-clipboard-list"></i>Draft Report — ${season}<span class="badge-info">draft slot vs season finish</span></div>
+        <div class="sec wm" data-wm="&#xf46d;">
+          <div class="sec-head"><i class="fa fa-clipboard-list"></i>Draft Report — ${season}<span class="badge-info">draft slot vs season finish</span></div>
           <div id="draft-body"></div>
         </div>
       </div>
 
       <!-- MATCHUP HISTORY -->
       <div class="tab-page" id="page-history">
-        <div class="card wm" data-wm="&#xf24e;">
-          <div class="section-header"><i class="fa fa-scale-balanced"></i>Historical Matchup Records<span class="badge-info">all seasons · ${ALL_SEASONS[0]}–present</span></div>
+        <div class="sec wm" data-wm="&#xf24e;">
+          <div class="sec-head"><i class="fa fa-scale-balanced"></i>Historical Matchup Records<span class="badge-info">all seasons · ${ALL_SEASONS[0]}–present</span></div>
           <div class="picker-bar">
             <label for="hist-team-select">Team:</label>
             <select id="hist-team-select" onchange="renderHistoryTable()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>
@@ -1548,16 +1548,16 @@ async function loadDashboard(){
 
       <!-- MARATHON -->
       <div class="tab-page" id="page-marathon">
-        <div class="card wm" data-wm="&#xf70c;">
-          <div class="section-header"><i class="fa fa-person-running"></i>Marathons Ran</div>
+        <div class="sec wm" data-wm="&#xf70c;">
+          <div class="sec-head"><i class="fa fa-person-running"></i>Marathons Ran</div>
           <div class="marathon-hero" id="marathon-hero"></div>
         </div>
       </div>
 
       <!-- PLAYER TENURE -->
       <div class="tab-page" id="page-tenure">
-        <div class="card wm" data-wm="&#xf4fd;">
-          <div class="section-header"><i class="fa fa-user-clock"></i>Player Tenure<span class="badge-info">weeks rostered &amp; points · all seasons</span></div>
+        <div class="sec wm" data-wm="&#xf4fd;">
+          <div class="sec-head"><i class="fa fa-user-clock"></i>Player Tenure<span class="badge-info">weeks rostered &amp; points · all seasons</span></div>
           <div class="picker-bar">
             <label for="tenure-team-select">Team:</label>
             <select id="tenure-team-select" onchange="renderTenureTable()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>
