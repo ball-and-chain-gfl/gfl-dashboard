@@ -1420,33 +1420,39 @@ function renderLeagueHistory(){
     </div>`;
 }
 
-// Championship playoff bracket, reconstructed from playoff seeds + advancement.
+// Championship playoff bracket — traced backward from the finalists by who beat
+// whom each week (robust to non-standard seeding, byes, and reseeds).
 function buildBracket(season){
   const meta=_seasonMeta[season]; if(!meta) return null;
   const T=meta.teams||{}, sched=meta.schedule||[];
-  const seeded=Object.entries(T).filter(([id,t])=>t.seed>=1&&t.seed<=6).map(([id,t])=>+id);
-  if(seeded.length<4) return null;
-  const played=w=>sched.filter(m=>m.matchupPeriodId===w&&m.home&&m.away&&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
-  const gInfo=m=>{const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;const hw=hp>=ap;
-    return {a:{tid:m.home.teamId,pts:hp,win:hw},b:{tid:m.away.teamId,pts:ap,win:!hw}};};
-  // playoff weeks are the last 3 matchup periods with games among seeded teams
-  const weeksWithSeeded=[...new Set(sched.filter(m=>m.home&&m.away&&seeded.includes(m.home.teamId)&&seeded.includes(m.away.teamId)&&((m.home.totalPoints||0)>0)).map(m=>m.matchupPeriodId))].sort((a,b)=>a-b).filter(w=>w>REGULAR_SEASON_END);
-  if(!weeksWithSeeded.length) return null;
-  let alive=new Set(seeded);
-  const rounds=[];
-  let byes=[];
-  weeksWithSeeded.forEach((w,ri)=>{
-    const games=played(w).filter(m=>alive.has(m.home.teamId)&&alive.has(m.away.teamId)).map(gInfo);
-    if(!games.length) return;
-    const inGame=new Set(games.flatMap(g=>[g.a.tid,g.b.tid]));
-    if(ri===0) byes=[...alive].filter(t=>!inGame.has(t)); // top seeds with a first-round bye
-    // losers drop out
-    games.forEach(g=>{const loser=g.a.win?g.b.tid:g.a.tid;alive.delete(loser);});
-    rounds.push({week:w,games});
-  });
-  const names=weeksWithSeeded.length>=3?['Quarterfinals','Semifinals','Championship']:['Semifinals','Championship'];
+  let champ=null,ru=null;
+  Object.entries(T).forEach(([id,t])=>{if(t.rank===1)champ=+id;if(t.rank===2)ru=+id;});
+  if(champ==null||ru==null) return null;
+  const played=sched.filter(m=>m.home&&m.away&&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+  const periods=[...new Set(played.map(m=>m.matchupPeriodId))].sort((a,b)=>a-b);
+  if(!periods.length) return null;
+  const finalWeek=Math.max(...periods);
+  const gAt=w=>played.filter(m=>m.matchupPeriodId===w);
+  const winnerOf=m=>((m.home.totalPoints||0)>=(m.away.totalPoints||0))?m.home.teamId:m.away.teamId;
+  const info=m=>{const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0,hw=hp>=ap;return {a:{tid:m.home.teamId,pts:hp,win:hw},b:{tid:m.away.teamId,pts:ap,win:!hw}};};
+  const finalGame=gAt(finalWeek).find(m=>{const ids=[m.home.teamId,m.away.teamId];return ids.includes(champ)&&ids.includes(ru);});
+  if(!finalGame) return null;
+  let participants=new Set([champ,ru]);
+  const roundsRev=[{week:finalWeek,games:[info(finalGame)],byes:[]}];
+  let w=finalWeek-1,guard=0;
+  while(w>REGULAR_SEASON_END&&guard++<4){
+    const games=gAt(w).filter(m=>participants.has(winnerOf(m)));
+    if(!games.length) break;
+    const byes=[...participants].filter(t=>!games.some(m=>m.home.teamId===t||m.away.teamId===t));
+    roundsRev.push({week:w,games:games.map(info),byes});
+    participants=new Set(games.flatMap(m=>[m.home.teamId,m.away.teamId]));
+    w--;
+  }
+  const rounds=roundsRev.reverse();
+  const names=rounds.length>=3?['Quarterfinals','Semifinals','Championship']
+    :rounds.length===2?['Semifinals','Championship']:['Championship'];
   rounds.forEach((r,i)=>r.name=names[i]||`Round ${i+1}`);
-  return {rounds,byes};
+  return {rounds,byes:rounds[0]?.byes||[]};
 }
 function toggleBracket(season,btn){
   const el=document.getElementById('bracket-'+season); if(!el) return;
@@ -1467,7 +1473,7 @@ function toggleBracket(season,btn){
           <div class="bracket-team ${g.a.win?'adv':''}">${avt(g.a.tid)}<span class="bracket-name">${nm(g.a.tid)}</span><span class="bracket-pts">${g.a.pts.toFixed(1)}</span></div>
           <div class="bracket-team ${g.b.win?'adv':''}">${avt(g.b.tid)}<span class="bracket-name">${nm(g.b.tid)}</span><span class="bracket-pts">${g.b.pts.toFixed(1)}</span></div>
         </div>`).join('')}
-        ${(r===br.rounds[0]&&br.byes.length)?`<div class="bracket-byes">Byes: ${br.byes.map(nm).join(', ')}</div>`:''}
+        ${(r===br.rounds[0]&&br.byes.length)?`<div class="bracket-byes">Byes to next round: ${br.byes.map(nm).join(', ')}</div>`:''}
       </div>`).join('')}
     </div>`;
     el.dataset.built='1';
