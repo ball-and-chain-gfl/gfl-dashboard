@@ -30,6 +30,8 @@ let _statsView='standings';             // 'standings' | 'c2' | 'c3'
 let _c3Team=null;                        // teamId for the C3 breakdown dropdown (defaults to Lebron's)
 let _profileTeam=null;                   // teamId string for the profile tab
 let _hardware={};                        // owner -> {rings,confs} (filled by renderLeagueHistory)
+let _hardwareHonors={};                  // owner -> {rings,confs,awards} (filled by renderLeagueHistory)
+let _profileHonorYears={};               // owner -> {champ:[],conf:[]} year captions
 let _cmBreakdown={};                     // teamId -> computed {c1,c2,c3,detail} for breakdown tables
 let _tradeScope='season';               // 'season' | 'alltime'
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
@@ -120,6 +122,19 @@ function awardsForOwner(owner){
     });
   });
   return out;
+}
+const AWARD_SHORT={coy:'Coach of Yr',commitment:'Commitment',comeback:'Comeback',punishment:'Punishment',disappoint:'Disappointing'};
+// Shared honor-shelf tiles: championships, conference titles, and awards, each
+// with an icon and a clear label so it reads without guessing.
+function honorTiles(rings,confs,awards,years){
+  const tiles=[];
+  const tile=(emoji,label,count,cls,sub)=>`<div class="honor-tile ${cls}"><div class="honor-ic">${emoji}</div><div class="honor-lb">${label}${count>1?` <b>×${count}</b>`:''}</div>${sub?`<div class="honor-sub">${sub}</div>`:''}</div>`;
+  if(rings) tiles.push(tile('🏆','Champion',rings,'champ',(years&&years.champ&&years.champ.join(', '))||''));
+  if(confs) tiles.push(tile('⭐','Conference',confs,'conf',(years&&years.conf&&years.conf.join(', '))||''));
+  const byKey={};(awards||[]).forEach(aw=>{(byKey[aw.key]||(byKey[aw.key]={n:0,label:aw.label,yrs:[]})).n++;byKey[aw.key].yrs.push(aw.year);});
+  (_awardsData?.order||Object.keys(byKey)).forEach(k=>{const v=byKey[k];if(!v)return;
+    tiles.push(tile(v.label.emoji,AWARD_SHORT[k]||v.label.name,v.n,v.label.good===false?'bad':'award',v.yrs.join(', ')));});
+  return tiles.join('');
 }
 function normName(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
 function officialFor(team,entry){
@@ -1420,17 +1435,18 @@ function renderLeagueHistory(){
   Object.keys(_hardware).forEach(o=>ensureHonor(o,latestName[o]?.name||'Unknown',latestName[o]?.logo));
   const honors=Object.values(honorsMap).filter(h=>h.rings||h.confs||h.awards.length)
     .sort((a,b)=>b.rings-a.rings||b.confs-a.confs||b.awards.length-a.awards.length);
-  const awardChips=list=>{
-    const byKey={};list.forEach(aw=>{(byKey[aw.key]||(byKey[aw.key]={n:0,label:aw.label})).n++;});
-    return Object.entries(byKey).map(([k,v])=>`<span class="award-chip${v.label.good===false?' bad':''}" title="${v.label.name}">${v.label.emoji} ×${v.n}</span>`).join('');
-  };
+  // per-owner championship & conference years for the shelf tile captions
+  const honorYears={};
+  champRows.forEach(r=>{const o=r.champ.owner;(honorYears[o]||(honorYears[o]={champ:[],conf:[]})).champ.push(`'${String(r.season).slice(2)}`);});
+  confRows.forEach(r=>r.winners.forEach(w=>{(honorYears[w.owner]||(honorYears[w.owner]={champ:[],conf:[]})).conf.push(`'${String(r.season).slice(2)}`);}));
+  _hardwareHonors=honorsMap; _profileHonorYears=honorYears; // expose for profiles
 
   body.innerHTML=`
-    <div class="two-col" style="margin-bottom:0">
-      <div class="sec wm" data-wm="&#xf091;">
-        <div class="sec-head"><i class="fa fa-trophy"></i>Championship Games</div>
+    <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
+      <div class="sec-head"><i class="fa fa-trophy"></i>Championship Games</div>
+      <div class="champ-grid">
         ${champRows.length?champRows.map(r=>`
-          <div class="hist-item">
+          <div class="hist-item" style="margin:0">
             <div class="hist-item-year">${r.season} CHAMPION</div>
             <div class="champ-matchup">
               <div class="champ-side win">${av(r.champ,40,10)}<div><div class="fr-name">${r.champ.name} 🏆</div><div class="champ-score" style="color:var(--green)">${r.cPts!=null?r.cPts.toFixed(1):'—'}</div></div></div>
@@ -1442,20 +1458,17 @@ function renderLeagueHistory(){
             <div class="bracket-wrap" id="bracket-${r.season}" style="display:none"></div>
           </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
       </div>
-      <div class="sec wm" data-wm="&#xf5a2;">
-        <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
-        <div class="hist-item" style="padding:6px 10px">
-        ${honors.length?honors.map(t=>`
-          <div class="trophy-row">
-            ${avatarCore(t.name,0,proxyLogo(t.logo),28,8)}
-            <div class="fr-name tlink" data-tid="${(_teams.find(x=>_ownerMap[x.id]===t.owner)||{}).id||''}">${t.name}${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:12px;font-family:\'Work Sans\',sans-serif">(departed)</span>'}</div>
-            <div class="trophy-badges">
-              ${t.rings?`<span class="trophy-badge">🏆 ×${t.rings}</span>`:''}
-              ${t.confs?`<span class="trophy-badge conf">⭐ Conf ×${t.confs}</span>`:''}
-              ${awardChips(t.awards)}
-            </div>
-          </div>`).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
-        </div>
+    </div>
+    <div class="sec wm" data-wm="&#xf5a2;" style="margin-bottom:28px">
+      <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
+      <div class="trophy-cabinet">
+        ${honors.length?honors.map(t=>{
+          const tid=(_teams.find(x=>_ownerMap[x.id]===t.owner)||{}).id||'';
+          return `<div class="shelf">
+            <div class="shelf-name"><span class="fr-name tlink" data-tid="${tid}">${t.name}</span>${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:11px">(departed)</span>'}</div>
+            <div class="shelf-items">${honorTiles(t.rings,t.confs,t.awards,honorYears[t.owner])}</div>
+          </div>`;
+        }).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
       </div>
     </div>
     <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
@@ -1761,9 +1774,13 @@ function renderProfile(){
       ${logoImg(id,'big4-logo')}
       <div>
         <div class="prof-name">${t.name}</div>
-        <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''}${at.rings?` · <span style="color:var(--accent)">${at.rings}× 🏆</span>`:''}${at.confs?` · ${at.confs}× ⭐ Conf`:''}</div>
+        <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''} in the league</div>
       </div>
     </div>
+    ${(()=>{const aw=awardsForOwner(owner);if(!at.rings&&!at.confs&&!aw.length)return '';
+      const yrs=(_hardwareHonors[owner]&&{champ:[],conf:[]})||null;
+      return `<div class="sec-head" style="font-size:15px"><i class="fa fa-medal" style="color:var(--accent)"></i>Honors &amp; Awards</div>
+      <div class="shelf-items" style="margin-bottom:8px">${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}</div>`;})()}
     <div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
       ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seedTxt)}
@@ -1780,8 +1797,6 @@ function renderProfile(){
       ${stat('Championships',at.rings,at.rings?'🏆':'')}
       ${stat('Best Finish',at.best?`#${at.best}`:'—','')}
     </div>
-    ${(()=>{const aw=awardsForOwner(owner);if(!aw.length)return '';return `<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-award" style="color:var(--accent)"></i>Superlatives</div>
-      <div class="prof-awards" style="margin-bottom:8px">${aw.map(x=>`<div class="prof-award${x.label.good===false?' bad':''}"><span style="font-size:18px">${x.label.emoji}</span><div><div style="font-weight:600">${x.label.name}</div><div style="font-size:11px;color:var(--text3)"><span class="yr">${x.year}</span>${x.detail?` · ${x.detail}`:''}</div></div></div>`).join('')}</div>`;})()}
     ${oppRows.length?`<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
     <div class="tscroll"><table class="min480"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
     <tbody>${oppRows.map(r=>`<tr>
