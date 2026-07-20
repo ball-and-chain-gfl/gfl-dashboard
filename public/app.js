@@ -666,6 +666,36 @@ function seedOf(id){return standingsOrder().findIndex(t=>t.id===id)+1;}
 function playoffCut(){return Math.max(4,Math.ceil((_teams.length||12)/2));}
 function leagueWeeksPlayed(){return Math.max(0,..._teams.map(t=>t.wins+t.losses+t.ties));}
 function ord(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+
+// Generic click-to-sort for any <table class="srt">. Numeric columns sort
+// numerically, text columns alphabetically; click again to reverse.
+function initSortable(root){
+  (root||document).querySelectorAll('table.srt').forEach(tbl=>{
+    if(tbl.dataset.srt) return; tbl.dataset.srt='1';
+    if(!tbl.tHead||!tbl.tBodies[0]) return;
+    const hrow=tbl.tHead.rows[tbl.tHead.rows.length-1];
+    [...hrow.cells].forEach((th,ci)=>{
+      if(th.dataset.nosort!==undefined) return;
+      th.classList.add('srt-th');
+      th.addEventListener('click',()=>{
+        const asc=(tbl.dataset.col==String(ci))? tbl.dataset.asc!=='1' : false;
+        tbl.dataset.col=ci; tbl.dataset.asc=asc?'1':'0';
+        const tb=tbl.tBodies[0], rows=[...tb.rows];
+        const val=r=>{const c=r.cells[ci]; if(!c) return '';
+          const t=c.textContent.trim();
+          const num=parseFloat(t.replace(/[^0-9.\-]/g,''));
+          return (/[0-9]/.test(t)&&!isNaN(num))?num:t.toLowerCase();};
+        rows.sort((r1,r2)=>{const a1=val(r1),b1=val(r2);
+          if(typeof a1==='number'&&typeof b1==='number') return asc?a1-b1:b1-a1;
+          return asc?String(a1).localeCompare(String(b1)):String(b1).localeCompare(String(a1));});
+        rows.forEach(r=>tb.appendChild(r));
+        [...hrow.cells].forEach(h=>{h.classList.remove('sorted');const x=h.querySelector('.srt-arw');if(x)x.remove();});
+        th.classList.add('sorted');
+        const arw=document.createElement('span');arw.className='srt-arw';arw.textContent=asc?' ↑':' ↓';th.appendChild(arw);
+      });
+    });
+  });
+}
 function topStarter(week,teamId){
   const wd=_weeklyData[week]; if(!wd) return null;
   let best=null;
@@ -874,7 +904,7 @@ function renderC3Breakdown(){
     </div>
     ${t?`<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
-      ${picks.length?`<div class="tscroll"><table class="min560" style="margin-top:4px">
+      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px">
         <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
         <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
           <td>${pName(w.pid)}${w.est?'<span style="color:var(--text3);font-size:11px"> est.</span>':''}</td>
@@ -959,7 +989,7 @@ function renderHistoryTable(){
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
-    ${rows.length?`<div class="tscroll"><table class="min560">
+    ${rows.length?`<div class="tscroll"><table class="min560 srt">
       <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
       <tbody>${rows.map(r=>`
         <tr>
@@ -1029,20 +1059,16 @@ function renderTenureTable(){
 
   const dash='<span style="color:var(--text3)">—</span>';
   const shown=players.slice(0,100);
-  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640">
+  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640 srt">
     <thead>
       <tr>
-        <th rowspan="2">Player</th>
-        <th colspan="3" class="right" style="border-bottom:1px solid var(--border)">${yr} season</th>
-        <th colspan="3" class="right" style="border-bottom:1px solid var(--border)">All-time</th>
-      </tr>
-      <tr>
-        <th class="right" title="Weeks in the starting lineup">Started</th>
-        <th class="right" title="Weeks on the roster (starter or bench)">Rostered</th>
-        <th class="right">Pts</th>
-        <th class="right" title="Weeks in the starting lineup">Started</th>
-        <th class="right" title="Weeks on the roster (starter or bench)">Rostered</th>
-        <th class="right">Pts</th>
+        <th>Player</th>
+        <th class="right" title="Weeks in the starting lineup">Started ${yr}</th>
+        <th class="right" title="Weeks on the roster (starter or bench)">Rostered ${yr}</th>
+        <th class="right">Pts ${yr}</th>
+        <th class="right" title="Weeks in the starting lineup">Started all-time</th>
+        <th class="right" title="Weeks on the roster (starter or bench)">Rostered all-time</th>
+        <th class="right">Pts all-time</th>
       </tr>
     </thead>
     <tbody>${shown.map((p,i)=>`
@@ -1257,7 +1283,7 @@ function renderDraftTeamTable(){
   const rows=d.rows.filter(r=>r.teamId===tid);
   if(!rows.length){body.innerHTML=`<div class="tab-loading">No picks found for this team.</div>`;return;}
   const totalDelta=rows.reduce((s,r)=>s+r.delta,0);
-  body.innerHTML=`<div class="tscroll"><table class="min560">
+  body.innerHTML=`<div class="tscroll"><table class="min560 srt">
     <thead><tr><th>Pick</th><th>Player</th><th class="right">Pos: drafted → finished</th><th class="right">Overall: drafted → finished</th><th class="right">Pts</th><th class="right">Δ</th></tr></thead>
     <tbody>${rows.map(r=>`
       <tr>
@@ -1417,6 +1443,24 @@ function renderLeagueHistory(){
           </div>`).join('')}</div>`;
       })()}
     </div>
+    </div>
+    <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
+      <div class="sec-head"><i class="fa fa-clipboard-list"></i>All-Time Records<span class="badge-info">every season combined</span></div>
+      <div class="allrec-grid">
+        ${_franchises.map(fr=>{
+          const at=franchiseAllTime(fr.owner);
+          const g=at.w+at.l+at.t, pct=g?at.w/g:0;
+          const tid=(_teams.find(x=>_ownerMap[x.id]===fr.owner)||{}).id||'';
+          return `<div class="allrec-card">
+            ${avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),34,9)}
+            <div class="allrec-info">
+              <div class="fr-name tlink" data-tid="${tid}">${fr.name}</div>
+              <div class="allrec-rec">${at.w}–${at.l}${at.t?`–${at.t}`:''} <span style="color:${pct>=0.5?'var(--green)':'var(--red)'};font-weight:700">${(pct*100).toFixed(1)}%</span></div>
+              <div class="allrec-sub">${at.pf.toFixed(0)} PF · ${at.pa.toFixed(0)} PA · ${at.seasons} yr${at.seasons!==1?'s':''}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>
     <div class="sec wm" data-wm="&#xf559;" style="margin-top:8px">
       <div class="sec-head"><i class="fa fa-award"></i>Season Superlatives<span class="badge-info">commissioner-voted year-end awards</span></div>
@@ -1732,7 +1776,7 @@ function renderProfile(){
     ${(()=>{const aw=awardsForOwner(owner);if(!at.rings&&!at.confs&&!aw.length)return '';
       const yrs=(_hardwareHonors[owner]&&{champ:[],conf:[]})||null;
       return `<div class="sec-head" style="font-size:15px"><i class="fa fa-medal" style="color:var(--accent)"></i>Honors &amp; Awards</div>
-      <div class="shelf-items" style="margin-bottom:8px">${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}</div>`;})()}
+      <div class="prof-honors">${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}</div>`;})()}
     <div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
       ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seedTxt)}
@@ -1750,7 +1794,7 @@ function renderProfile(){
       ${stat('Best Finish',at.best?`#${at.best}`:'—','')}
     </div>
     ${oppRows.length?`<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
-    <div class="tscroll"><table class="min480"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
+    <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
     <tbody>${oppRows.map(r=>`<tr>
       <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>
       <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
@@ -2126,4 +2170,6 @@ document.addEventListener('click',e=>{
   e.preventDefault(); e.stopPropagation();
   openTeamProfile(id);
 });
+// auto-wire click-to-sort on any table.srt as it enters the DOM
+(function(){const app=document.getElementById('app');if(app){new MutationObserver(()=>initSortable()).observe(app,{childList:true,subtree:true});}})();
 loadDashboard();

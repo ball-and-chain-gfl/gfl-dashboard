@@ -398,6 +398,11 @@
     .badbeat-rank{font-family:'Big Shoulders Display',sans-serif;color:var(--red);font-weight:800;}
     @media (prefers-reduced-motion:reduce){.badbeat-needle{animation:none;}}
 
+.srt-th{cursor:pointer;user-select:none;transition:color .12s;}
+    .srt-th:hover{color:var(--text);}
+    .srt-th.sorted{color:var(--accent);}
+    .srt-arw{font-size:10px;opacity:.8;}
+
     /* HOME layout */
     .home-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:20px;margin-bottom:28px;align-items:start;}
     .home-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;}
@@ -414,6 +419,17 @@
     .hl-tab.active{background:rgba(255,179,71,0.14);box-shadow:var(--btn-edge-gold);}
     @media(max-width:640px){.hl-headline{font-size:19px;}}
     @media(max-width:1000px){.home-top,.home-bottom{grid-template-columns:1fr;}}
+
+    /* all-time records grid (3-4 across) */
+    .allrec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+    .allrec-card{display:flex;align-items:center;gap:11px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0;}
+    html[data-theme="light"] .allrec-card{background:rgba(0,0,0,0.03);}
+    .allrec-info{min-width:0;}
+    .allrec-rec{font-family:'Big Shoulders Display',sans-serif;font-size:20px;font-weight:700;margin-top:2px;}
+    .allrec-sub{font-size:11px;color:var(--text3);margin-top:1px;}
+    @media(max-width:1000px){.allrec-grid{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:760px){.allrec-grid{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:460px){.allrec-grid{grid-template-columns:1fr;}}
 
     /* champions clean list */
     .champ-list{display:flex;flex-direction:column;}
@@ -445,6 +461,10 @@
     .honor-tile.bad .honor-lb b{color:var(--red);}
     .honor-sub{font-size:10px;color:var(--text3);}
     @media(max-width:640px){.honor-tile{min-width:68px;}}
+
+.prof-honors{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:8px;}
+    .prof-honors .honor-tile{min-width:0;flex-direction:row;justify-content:flex-start;text-align:left;gap:10px;padding:12px 14px;}
+    .prof-honors .honor-ic{font-size:24px;}
 
     /* AWARDS / SUPERLATIVES */
     .award-chip{font-family:'Work Sans',sans-serif;font-size:11px;font-weight:700;background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:var(--blue);border-radius:999px;padding:2px 8px;white-space:nowrap;}
