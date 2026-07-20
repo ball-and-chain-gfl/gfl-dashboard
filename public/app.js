@@ -517,6 +517,19 @@ async function computeCoaching(teams, transactions, weeklyData){
 
 // ── CM MODAL ───────────────────────────────────────────────────────────────────
 function pName(pid){return _playerNames[pid]||`Player #${pid}`;}
+// ESPN player headshot (routed through the logo proxy). Falls back to a person
+// icon (or shield for D/ST) if ESPN has no image for that id.
+function playerImg(pid,size,name){
+  size=size||24;
+  const isDef=/d\/st|dst|defense/i.test(String(name||''));
+  const url=(pid!=null&&!isDef)?proxyLogo(`https://a.espncdn.com/i/headshots/nfl/players/full/${pid}.png`):null;
+  const box=`position:relative;width:${size}px;height:${size}px;border-radius:50%;flex:0 0 ${size}px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.08);overflow:hidden;vertical-align:middle;`;
+  const icon=`<i class="fa ${isDef?'fa-shield-halved':'fa-user'}" style="font-size:${Math.round(size*0.42)}px;color:var(--text3);opacity:.55"></i>`;
+  const img=url?`<img src="${url}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top" onerror="this.remove()"/>`:'';
+  return `<span class="phs" style="${box}">${icon}${img}</span>`;
+}
+// name with headshot, inline
+function pNameImg(pid,size,name){const n=name||pName(pid);return `<span class="pname">${playerImg(pid,size,n)}<span>${n}</span></span>`;}
 function openCMModal(teamId){
   if(_cmMode==='none') return;
   const team=_teams.find(t=>t.id===teamId);if(!team)return;
@@ -546,13 +559,13 @@ function openCMModal(teamId){
   const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,rawf=bd.raw||0;
 
   const tradeRows=[
-    ...(d.tradesReceived||[]).map(r=>`<div class="modal-comp-row"><span class="key">Got ${pName(r.pid)} (joined wk ${r.week+1})</span><span class="val" style="color:var(--green)">+${r.pts.toFixed(1)} pts</span></div>`),
-    ...(d.tradesSent||[]).map(r=>`<div class="modal-comp-row"><span class="key">Sent ${pName(r.pid)} (left wk ${r.week+1})</span><span class="val" style="color:var(--red)">−${r.pts.toFixed(1)} pts</span></div>`)
+    ...(d.tradesReceived||[]).map(r=>`<div class="modal-comp-row"><span class="key pname">${playerImg(r.pid,18,pName(r.pid))}<span>Got ${pName(r.pid)} (joined wk ${r.week+1})</span></span><span class="val" style="color:var(--green)">+${r.pts.toFixed(1)} pts</span></div>`),
+    ...(d.tradesSent||[]).map(r=>`<div class="modal-comp-row"><span class="key pname">${playerImg(r.pid,18,pName(r.pid))}<span>Sent ${pName(r.pid)} (left wk ${r.week+1})</span></span><span class="val" style="color:var(--red)">−${r.pts.toFixed(1)} pts</span></div>`)
   ].join('')||`<div class="modal-comp-row"><span class="key">No trades found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   const waiverRows=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1)).map(w=>{
     const mar=Math.max(w.margin??w.bid,1);
-    return `<div class="modal-comp-row"><span class="key">${pName(w.pid)} · wk ${w.week} · $${w.bid}${w.next?` (next bid $${w.next})`:''}${w.est?'<span style="opacity:0.6"> est.</span>':''}</span><span class="val">${w.pts.toFixed(1)} pts ÷ $${mar} = ${(w.pts/mar).toFixed(2)}x</span></div>`;
+    return `<div class="modal-comp-row"><span class="key pname">${playerImg(w.pid,18,pName(w.pid))}<span>${pName(w.pid)} · wk ${w.week} · $${w.bid}${w.next?` (next bid $${w.next})`:''}${w.est?'<span style="opacity:0.6"> est.</span>':''}</span></span><span class="val">${w.pts.toFixed(1)} pts ÷ $${mar} = ${(w.pts/mar).toFixed(2)}x</span></div>`;
   }).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
 
   const modeNote=_cmMode==='inferred'
@@ -907,7 +920,7 @@ function renderC3Breakdown(){
       ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px">
         <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
         <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
-          <td>${pName(w.pid)}${w.est?'<span style="color:var(--text3);font-size:11px"> est.</span>':''}</td>
+          <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span style="color:var(--text3);font-size:11px"> est.</span>':''}</span></td>
           <td class="right">${w.week}</td>
           <td class="right">$${w.bid}</td>
           <td class="right" style="color:var(--text3)">${w.next?('$'+w.next):'—'}</td>
@@ -1075,7 +1088,7 @@ function renderTenureTable(){
     </thead>
     <tbody>${shown.map((p,i)=>`
       <tr>
-        <td><span class="rank" style="margin-right:8px">${i+1}</span><span class="fr-name">${p.n}</span></td>
+        <td><span class="pname"><span class="rank" style="margin-right:4px">${i+1}</span>${playerImg(p.pid,22,p.n)}<span class="fr-name">${p.n}</span></span></td>
         <td class="right"><strong>${p.sYr||dash}</strong></td>
         <td class="right" style="color:var(--text2)">${p.wYr||dash}</td>
         <td class="right" style="color:var(--text2)">${p.wYr?p.pYr.toFixed(1):dash}</td>
@@ -1192,7 +1205,7 @@ async function renderTradesTab(){
       <div class="trade-side${right?' right':''}">
         <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div><div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div>${sideLabel(isWin)}</div></div>
         <div class="trade-recv" style="margin-bottom:4px">received:</div>
-        ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name">${p.n}</span><span class="tp-dots"></span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+        ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
         <div class="trade-total" style="color:${colOf(tr.season,sd.teamId)}">${sd.total.toFixed(1)} pts</div>
       </div>`;
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
@@ -1240,7 +1253,7 @@ function renderDraftTab(){
     const name=s?.n||_playerNames[pk.playerId]||`Player #${pk.playerId}`;
     const fin=rankOverall[pk.playerId]??null;
     const delta=fin!=null?pk.overall-fin:pk.overall-(stats.length+1);
-    return {name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,overall:pk.overall,round:pk.round,posDrafted:posDraftCount[posKey],fin,finPos:rankPos[pk.playerId]??null,pts:s?.pts??0,delta};
+    return {pid:pk.playerId,name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,overall:pk.overall,round:pk.round,posDrafted:posDraftCount[posKey],fin,finPos:rankPos[pk.playerId]??null,pts:s?.pts??0,delta};
   });
   d.rows=rows;
   const tn=id=>(_teams.find(t=>t.id===id)?.name||`Team ${id}`).trim();
@@ -1248,7 +1261,7 @@ function renderDraftTab(){
   const busts=rows.filter(r=>r.overall<=72).sort((x,y)=>x.delta-y.delta).slice(0,10);
   const row=(r,i)=>`<div class="draft-row">
     <div class="draft-rankn">${i+1}</div>
-    ${logoImg(r.teamId)}
+    ${playerImg(r.pid,40,r.name)}
     <div class="draft-info">
       <div class="draft-name">${r.name}<span class="draft-pos">${r.posName}</span></div>
       <div class="draft-mgr2">${tn(r.teamId)}</div>
@@ -1762,7 +1775,7 @@ function lineupHTML(owner){
   return `<div class="lineup-grid">${line.map(sl=>`
     <div class="lineup-slot${sl.pl?'':' empty'}">
       <div class="lineup-pos">${sl.label}</div>
-      ${sl.pl?`<div class="lineup-name">${sl.pl.n}</div><div class="lineup-stat">${sl.pl.s} GS · ${sl.pl.w} wks · ${sl.pl.pts.toFixed(0)} pts</div>`:`<div class="lineup-name" style="color:var(--text3)">—</div>`}
+      ${sl.pl?`${playerImg(sl.pl.pid,54,sl.pl.n)}<div class="lineup-name">${sl.pl.n}</div><div class="lineup-stat">${sl.pl.s} GS · ${sl.pl.w} wks · ${sl.pl.pts.toFixed(0)} pts</div>`:`${playerImg(null,54,'')}<div class="lineup-name" style="color:var(--text3)">—</div>`}
     </div>`).join('')}</div>
     <div style="padding:8px 2px 0;font-size:11px;color:var(--text3)">Most-started player at each spot, all-time (games started → weeks rostered → points).</div>`;
 }
@@ -1868,7 +1881,7 @@ function renderTx(tx,teamMap){
   const team=teamMap[tx.teamId]||'Unknown';
   const av=logoImg(tx.teamId,'team-logo-sm');
   const type=tx.type||'';const items=tx.items||[];
-  const named=pid=>_playerNames[pid]?` <strong>${_playerNames[pid]}</strong>`:'';
+  const named=pid=>_playerNames[pid]?` <span class="pname" style="display:inline-flex">${playerImg(pid,16,_playerNames[pid])}<strong>${_playerNames[pid]}</strong></span>`:'';
   if(type==='WAIVER'||type==='FREEAGENT'){
     const bid=tx.bidAmount!=null?` · <span style="color:var(--accent)">$${tx.bidAmount}${tx._estBid?' est.':''}</span>`:'';
     return items.filter(i=>i.type==='ADD').map(i=>`
