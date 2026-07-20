@@ -70,6 +70,7 @@ function applyDesign(d){
       try{localStorage.setItem('gfl-theme-prev',document.documentElement.dataset.theme||'dark');}catch{}
     }
     document.documentElement.dataset.theme='dark';
+    try{setTimeout(revealActive,20);}catch{}
   }else{
     let prev='dark';
     try{prev=localStorage.getItem('gfl-theme')||'dark';}catch{}
@@ -352,6 +353,17 @@ function switchTab(name){
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
+  revealActive();
+}
+// Fade-up reveal for the active tab's sections (elegant only). Uses a class +
+// reflow so it fires reliably on every tab switch and never leaves content hidden.
+function revealActive(){
+  if(document.documentElement.dataset.design!=='elegant')return;
+  const p=document.querySelector('.tab-page.active');if(!p)return;
+  const secs=p.querySelectorAll('.sec');
+  secs.forEach(s=>{s.classList.remove('rv');s.style.animationDelay='';});
+  void p.offsetWidth;
+  secs.forEach((s,i)=>{s.style.animationDelay=Math.min(i*0.05,0.3)+'s';s.classList.add('rv');});
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────

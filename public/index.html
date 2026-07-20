@@ -1005,8 +1005,9 @@
 
     /* Fade-up reveal as each section appears on tab change (their scroll reveal) */
     @keyframes nivisUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
-    html[data-design="elegant"] .tab-page.active .sec{animation:nivisUp .5s cubic-bezier(.2,.7,.2,1) both;}
-    html[data-design="elegant"] .tab-page.active .home-bottom .sec{animation-delay:.08s;}
+    /* Driven by revealActive() in JS so content is NEVER stuck hidden:
+       base .sec stays fully visible; only .rv (added on show) runs the reveal. */
+    html[data-design="elegant"] .sec.rv{animation:nivisUp .5s cubic-bezier(.2,.7,.2,1);}
 
   </style>
 </head>
