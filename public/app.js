@@ -1838,14 +1838,19 @@ function buildAllTimeLineup(owner){
   const used={};
   return slots.map(([label,pos])=>{const list=byPos(pos);const i=used[pos]||0;used[pos]=i+1;return {label,pl:list[i]||null};});
 }
+const LINEUP_POSC={QB:'#f8296d',RB:'#36ce85',WR:'#58a7ff',TE:'#ffae58',DEF:'#c17f60',K:'#bd66ff'};
 function lineupHTML(owner){
   const line=buildAllTimeLineup(owner);
   if(line.every(s=>!s.pl)) return `<div class="tab-loading" style="padding:24px">No roster history found for this team.</div>`;
-  return `<div class="lineup-grid">${line.map(sl=>`
-    <div class="lineup-slot${sl.pl?'':' empty'}">
-      <div class="lineup-pos">${sl.label}</div>
-      ${sl.pl?`${playerImg(sl.pl.pid,54,sl.pl.n)}<div class="lineup-name">${sl.pl.n}</div><div class="lineup-stat">${sl.pl.s} GS · ${sl.pl.w} wks · ${sl.pl.pts.toFixed(0)} pts</div>`:`${playerImg(null,54,'')}<div class="lineup-name" style="color:var(--text3)">—</div>`}
-    </div>`).join('')}</div>
+  return `<div class="lineup-list">${line.map(sl=>{
+    const c=LINEUP_POSC[sl.label]||'var(--accent)';
+    return `<div class="lineup-row">
+      <div class="lineup-slot-pos" style="background:${c}">${sl.label}</div>
+      ${sl.pl?`${playerImg(sl.pl.pid,42,sl.pl.n)}
+        <div class="lineup-pinfo"><div class="lineup-pname">${sl.pl.n}</div><div class="lineup-psub">${sl.pl.s} GS · ${sl.pl.w} wks rostered</div></div>
+        <div class="lineup-ppts"><span class="v">${sl.pl.pts.toFixed(0)}</span><span class="l">PTS</span></div>`
+        :`${playerImg(null,42,sl.label)}<div class="lineup-pinfo"><div class="lineup-pname" style="color:var(--text3)">Empty</div></div>`}
+    </div>`;}).join('')}</div>
     <div style="padding:8px 2px 0;font-size:11px;color:var(--text3)">Most-started player at each spot, all-time (games started → weeks rostered → points).</div>`;
 }
 async function renderProfile(){
@@ -1909,16 +1914,22 @@ async function renderProfile(){
       ${stat('fa-crown','Championships',at.rings,at.rings?'🏆':'')}
       ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','')}
     </div>
-    <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>All-Time Starting Lineup</div>
-    <div id="prof-lineup">${_tenure?lineupHTML(owner):`<div class="tab-loading" style="padding:24px"><i class="fa fa-circle-notch"></i>Building the all-time lineup…</div>`}</div>
-    ${oppRows.length?`<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
-    <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
-    <tbody>${oppRows.map(r=>`<tr>
-      <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>
-      <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
-      <td class="right" style="color:var(--red)">${r.l}</td>
-      <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
-    </tr>`).join('')}</tbody></table></div>`:''}`;
+    <div class="prof-cols">
+      <div class="prof-col">
+        <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>All-Time Starting Lineup</div>
+        <div id="prof-lineup">${_tenure?lineupHTML(owner):`<div class="tab-loading" style="padding:24px"><i class="fa fa-circle-notch"></i>Building the all-time lineup…</div>`}</div>
+      </div>
+      ${oppRows.length?`<div class="prof-col">
+        <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
+        <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
+        <tbody>${oppRows.map(r=>`<tr>
+          <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>
+          <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
+          <td class="right" style="color:var(--red)">${r.l}</td>
+          <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
+        </tr>`).join('')}</tbody></table></div>
+      </div>`:''}
+    </div>`;
   if(!_tenure){
     loadTenureData().then(()=>{
       const c=document.getElementById('prof-lineup');
