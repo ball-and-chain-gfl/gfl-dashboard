@@ -388,6 +388,40 @@
     @media(max-width:900px){.prof-stats{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:560px){.prof-stats{grid-template-columns:repeat(2,1fr);}}
 
+    /* bad beat o'meter */
+    .badbeat-empty{display:flex;flex-direction:column;align-items:center;gap:20px;padding:44px 20px;text-align:center;}
+    .badbeat-meter{width:180px;height:90px;border-radius:180px 180px 0 0;background:conic-gradient(from 180deg at 50% 100%,var(--green) 0deg,#e6c84f 90deg,var(--red) 180deg);position:relative;overflow:hidden;}
+    .badbeat-meter::after{content:'';position:absolute;left:14%;top:28%;width:72%;height:144%;border-radius:180px 180px 0 0;background:var(--bg);}
+    .badbeat-needle{position:absolute;left:50%;bottom:0;width:3px;height:74px;background:var(--text);transform-origin:bottom center;transform:translateX(-50%) rotate(38deg);z-index:2;border-radius:2px;animation:beatswing 2.6s ease-in-out infinite alternate;}
+    @keyframes beatswing{from{transform:translateX(-50%) rotate(-46deg);}to{transform:translateX(-50%) rotate(46deg);}}
+    .badbeat-empty-txt{font-size:14px;color:var(--text2);line-height:1.7;max-width:420px;}
+    .badbeat-rank{font-family:'Big Shoulders Display',sans-serif;color:var(--red);font-weight:800;}
+    @media (prefers-reduced-motion:reduce){.badbeat-needle{animation:none;}}
+
+    /* HOME layout */
+    .home-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:20px;margin-bottom:28px;align-items:start;}
+    .home-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;}
+    .home-right{display:flex;flex-direction:column;gap:20px;min-width:0;}
+    .home-top>*,.home-bottom>*{min-width:0;}
+    .hl-card{border:none!important;background:none!important;box-shadow:none!important;padding:6px 2px 2px!important;}
+    .hl-dots{display:flex;gap:7px;justify-content:center;padding:12px 0 4px;flex-wrap:wrap;}
+    .hl-dot{width:8px;height:8px;border-radius:50%;background:var(--border);cursor:pointer;transition:.15s;}
+    .hl-dot.active{background:var(--accent);transform:scale(1.25);}
+    .hl-dot:hover{background:var(--text3);}
+    @media(max-width:1000px){.home-top,.home-bottom{grid-template-columns:1fr;}}
+
+    /* champions clean list */
+    .champ-list{display:flex;flex-direction:column;}
+    .champ-line{padding:12px 4px;border-bottom:1px solid var(--border);}
+    .champ-line:last-child{border-bottom:none;}
+    .champ-line-yr{font-family:'Big Shoulders Display',sans-serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:6px;}
+    .champ-line-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    .champ-line-teams{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:15px;}
+    .champ-line-win{font-weight:700;}
+    .champ-line-score{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:18px;}
+    .champ-line-def{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+    @media(max-width:640px){.champ-line-teams{font-size:13px;gap:7px;}.champ-line-score{font-size:16px;}}
+
     /* champions grid — fills width, less empty space */
     .champ-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;}
     /* shelf-style trophy case */
@@ -653,7 +687,6 @@
 
 <nav class="tabbar" id="tabbar">
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
-  <button class="tab-btn" data-tab="headlines" onclick="switchTab('headlines')"><i class="fa fa-newspaper"></i>Headlines</button>
   <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Standings &amp; Stats</button>
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft</button>
@@ -662,6 +695,7 @@
   <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="legacy" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishment</button>
+  <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
   <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')"><i class="fa fa-person-running"></i>Marathons Ran</button>
 </nav>
 

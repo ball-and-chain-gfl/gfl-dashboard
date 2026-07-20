@@ -34,6 +34,7 @@ let _hardwareHonors={};                  // owner -> {rings,confs,awards} (fille
 let _profileHonorYears={};               // owner -> {champ:[],conf:[]} year captions
 let _cmBreakdown={};                     // teamId -> computed {c1,c2,c3,detail} for breakdown tables
 let _tradeScope='season';               // 'season' | 'alltime'
+let _tradeTeamFilter='';                 // owner id to filter trades by (optional)
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
 let _draftTeamSel=null;                 // team filter on draft tab
 const _logoColorCache={};               // teamId -> dominant logo color
@@ -319,6 +320,7 @@ function switchTab(name){
   if(name==='teams') renderProfile();
   if(name==='punishment') renderPunishment();
   if(name==='standings') setStatsView(_statsView);
+  if(name==='badbeat') renderBadBeat();
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -842,6 +844,41 @@ function generateHeadline(home,away,hPts,aPts,week){
   return pool[seed%pool.length];
 }
 
+let _hlGames=[],_hlIdx=0,_hlTimer=null;
+function hlPaint(){
+  const card=document.getElementById('hl-card'); if(!card||!_hlGames.length) return;
+  const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
+  const mu=_hlGames[_hlIdx%_hlGames.length];
+  const home={...teamMap[mu.home.teamId]||{name:'Home',wins:0,losses:0,pf:0},id:mu.home.teamId};
+  const away={...teamMap[mu.away.teamId]||{name:'Away',wins:0,losses:0,pf:0},id:mu.away.teamId};
+  const hPts=mu.home.totalPoints||0,aPts=mu.away.totalPoints||0;
+  const hWin=hPts>aPts,aWin=aPts>hPts;
+  card.innerHTML=`
+    <div class="headline-matchup">
+      <div class="headline-team-block">${logoImg(home.id,'team-logo-sm')}<span class="headline-team-name">${home.name}</span></div>
+      <div class="headline-vs">vs</div>
+      <div class="headline-team-block away">${logoImg(away.id,'team-logo-sm')}<span class="headline-team-name">${away.name}</span></div>
+    </div>
+    <div class="headline-score">
+      <div class="headline-pts ${hWin?'winner':aPts>0?'loser':''}">${hPts.toFixed(1)}</div>
+      <div class="headline-pts ${aWin?'winner':hPts>0?'loser':''}">${aPts.toFixed(1)}</div>
+    </div>
+    <div class="headline-blurb">${generateHeadline(home,away,hPts,aPts,_currentWeek)}</div>`;
+  document.querySelectorAll('#home-headlines .hl-dot').forEach((d,i)=>d.classList.toggle('active',i===(_hlIdx%_hlGames.length)));
+}
+function hlGoto(i){_hlIdx=i;hlPaint();if(_hlTimer){clearInterval(_hlTimer);_hlTimer=setInterval(hlNext,7000);}}
+function hlNext(){_hlIdx=(_hlIdx+1)%(_hlGames.length||1);hlPaint();}
+function renderHomeHeadlines(){
+  const wrap=document.getElementById('home-headlines'); if(!wrap) return;
+  _hlGames=_allMatchups.filter(mu=>mu.matchupPeriodId===_currentWeek&&mu.home&&mu.away&&((mu.home.totalPoints||0)>0||(mu.away.totalPoints||0)>0));
+  if(!_hlGames.length){wrap.innerHTML=`<div class="tab-loading" style="padding:30px">No games played yet in ${getSeason()}.</div>`;return;}
+  _hlIdx=0;
+  wrap.innerHTML=`<div class="hl-card headline-card" id="hl-card"></div>
+    <div class="hl-dots">${_hlGames.map((_,i)=>`<span class="hl-dot" onclick="hlGoto(${i})" title="Game ${i+1}"></span>`).join('')}</div>`;
+  hlPaint();
+  if(_hlTimer)clearInterval(_hlTimer);
+  _hlTimer=setInterval(hlNext,7000);
+}
 function renderHeadlines(week){
   _currentWeek=week;
   const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
@@ -1155,6 +1192,7 @@ function setTradeSort(mode,btn){
   if(btn)btn.classList.add('active');
   renderTradesTab();
 }
+function setTradeTeam(owner){_tradeTeamFilter=owner;renderTradesTab();}
 function setTradeScope(scope,btn){
   _tradeScope=scope;
   document.querySelectorAll('#trade-scope .filter-btn').forEach(b=>b.classList.remove('active'));
@@ -1195,7 +1233,14 @@ async function renderTradesTab(){
       list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total)});
     });
   });
-  if(!list.length){body.innerHTML=`<div class="tab-loading">No trades found${_tradeScope==='alltime'?'':` in the ${getSeason()} season`}.</div>`;return;}
+  // optional team filter (by franchise owner, works across seasons)
+  if(_tradeTeamFilter){
+    list=list.filter(tr=>{
+      const oa=_seasonMeta[tr.season]?.owners?.[tr.a.teamId], ob=_seasonMeta[tr.season]?.owners?.[tr.b.teamId];
+      return oa===_tradeTeamFilter||ob===_tradeTeamFilter;
+    });
+  }
+  if(!list.length){body.innerHTML=`<div class="tab-loading">No trades found${_tradeTeamFilter?' for this team':''}${_tradeScope==='alltime'?'':` in the ${getSeason()} season`}.</div>`;return;}
 
   if(_tradeSort==='balanced') list.sort((x,y)=>x.margin-y.margin);
   else if(_tradeSort==='week') list.sort((x,y)=>(y.season-x.season)||(x.week-y.week));
@@ -1443,32 +1488,24 @@ function renderLeagueHistory(){
 
   body.innerHTML=`
     <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
-      <div class="sec-head"><i class="fa fa-trophy"></i>Championship Games</div>
-      <div class="champ-grid">
+      <div class="sec-head"><i class="fa fa-trophy"></i>Champions</div>
+      <div class="champ-list">
         ${champRows.length?champRows.map(r=>`
-          <div class="hist-item" style="margin:0">
-            <div class="hist-item-year">${r.season} CHAMPION</div>
-            <div class="champ-matchup">
-              <div class="champ-side win">${av(r.champ,40,10)}<div><div class="fr-name">${r.champ.name} 🏆</div><div class="champ-score" style="color:var(--green)">${r.cPts!=null?r.cPts.toFixed(1):'—'}</div></div></div>
-              <div class="champ-vs">def.</div>
-              <div class="champ-side">${av(r.ru,40,10)}<div><div class="fr-name">${r.ru.name}</div><div class="champ-score" style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</div></div></div>
+          <div class="champ-line">
+            <div class="champ-line-yr">${r.season}</div>
+            <div class="champ-line-main">
+              <div class="champ-line-teams">
+                ${av(r.champ,32,9)}
+                <span class="fr-name tlink champ-line-win" data-tid="${(_teams.find(x=>_ownerMap[x.id]===r.champ.owner)||{}).id||''}">${r.champ.name}</span>
+                <span class="champ-line-score" style="color:var(--green)">${r.cPts!=null?r.cPts.toFixed(1):'—'}</span>
+                <span class="champ-line-def">def.</span>
+                <span class="champ-line-score" style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</span>
+                <span class="fr-name tlink" style="font-weight:400;color:var(--text2)" data-tid="${(_teams.find(x=>_ownerMap[x.id]===r.ru.owner)||{}).id||''}">${r.ru.name}</span>
+              </div>
+              <button class="bracket-btn" onclick="toggleBracket('${r.season}',this)"><i class="fa fa-sitemap"></i> Bracket</button>
             </div>
-            ${r.week?`<div class="hist-item-meta">Title game · Week ${r.week}</div>`:''}
-            <button class="bracket-btn" onclick="toggleBracket('${r.season}',this)"><i class="fa fa-sitemap"></i> View bracket</button>
             <div class="bracket-wrap" id="bracket-${r.season}" style="display:none"></div>
           </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
-      </div>
-    </div>
-    <div class="sec wm" data-wm="&#xf5a2;" style="margin-bottom:28px">
-      <div class="sec-head"><i class="fa fa-medal"></i>Trophy Case</div>
-      <div class="trophy-cabinet">
-        ${honors.length?honors.map(t=>{
-          const tid=(_teams.find(x=>_ownerMap[x.id]===t.owner)||{}).id||'';
-          return `<div class="shelf">
-            <div class="shelf-name"><span class="fr-name tlink" data-tid="${tid}">${t.name}</span>${_franchises.some(f=>f.owner===t.owner)?'':' <span style="color:var(--text3);font-size:11px">(departed)</span>'}</div>
-            <div class="shelf-items">${honorTiles(t.rings,t.confs,t.awards,honorYears[t.owner])}</div>
-          </div>`;
-        }).join(''):`<div class="tab-loading">No hardware handed out yet.</div>`}
       </div>
     </div>
     <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
@@ -1726,6 +1763,31 @@ function renderPunishment(){
     </div>`;
 }
 
+// ── BAD BEAT O'METER ─────────────────────────────────────────────────────────
+function renderBadBeat(){
+  const el=document.getElementById('badbeat-body'); if(!el) return;
+  const cfg=_CFG.badBeat||{};
+  const entries=cfg.entries||[];
+  if(!entries.length){
+    el.innerHTML=`<div class="badbeat-empty">
+      <div class="badbeat-meter"><div class="badbeat-needle"></div></div>
+      <div class="badbeat-empty-txt"><b>Bad Beat O'Meter is warming up.</b><br>${cfg.intro||"The most painful, unlucky losses in league history."}<br><span style="color:var(--text3);font-size:12px">Send me the entries and they'll drop in here.</span></div>
+    </div>`;
+    return;
+  }
+  el.innerHTML=`<div style="font-size:13px;color:var(--text2);margin:0 2px 14px">${cfg.intro||''}</div>`+
+    entries.slice().sort((a,b)=>(a.rank||99)-(b.rank||99)).map(e=>{
+      const fr=e.team?awardOwner(e.team):null;
+      const av=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),34,9):'';
+      return `<div class="hist-item"><div class="brk-head">
+        <span class="fr-name">${e.rank?`<span class="badbeat-rank">#${e.rank}</span>`:''} ${av} ${fr?fr.name:(e.team||'')}</span>
+        ${e.score?`<span class="brk-val" style="color:var(--red)">${e.score}</span>`:''}
+      </div>
+      ${e.week?`<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Week ${e.week}${e.season?` · ${e.season}`:''}</div>`:''}
+      ${e.note?`<div style="font-size:13px;color:var(--text2);line-height:1.5">${e.note}</div>`:''}</div>`;
+    }).join('');
+}
+
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 function franchiseAllTime(owner){
   let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99;const seasons=new Set();
@@ -1961,12 +2023,25 @@ async function loadDashboard(){
     app.innerHTML=`
       <!-- HOME -->
       <div class="tab-page" id="page-home">
-        <div class="sec wm" data-wm="&#xf521;" id="big4-display" style="margin-bottom:28px"></div>
-        <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
-          <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week<span class="badge-info">from the latest Ball &amp; Chain video</span></div>
-          <div id="motw"></div>
+        <!-- Row 1: Matchup (left) + Ball & Chain video (right) -->
+        <div class="home-top">
+          <div class="sec wm" data-wm="&#xf091;">
+            <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week<span class="badge-info">from the latest Ball &amp; Chain video</span></div>
+            <div id="motw"></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
+            ${firstVid
+              ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
+                <div class="video-featured-title" id="vt">${firstVid.title}</div>
+                ${_videos.length>1?`<div class="video-scroll-label">More Videos</div>
+                <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div>`:''}`
+              :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
+            }
+          </div>
         </div>
-        <div class="top-grid">
+        <!-- Row 2: Coaching Metric (left) + [Big4 top, Headlines bottom] (right) -->
+        <div class="home-bottom">
           <div class="sec wm" data-wm="&#xf5dc;">
             <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric${_cmMode!=='none'?`<span class="badge-info">${_cmMode==='official'?'official league records · ':_cmMode==='inferred'?'reconstructed from rosters · ':''}Click for breakdown</span>`:''}</div>
             ${_cmMode==='none'
@@ -1988,29 +2063,14 @@ async function loadDashboard(){
                 }).join('');
               })()}
           </div>
-          <div class="sec">
-            <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
-            ${firstVid
-              ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
-                <div class="video-featured-title" id="vt">${firstVid.title}</div>
-                ${_videos.length>1?`<div class="video-scroll-label">More Videos</div>
-                <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div>`:''}`
-              :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
-            }
+          <div class="home-right">
+            <div class="sec wm" data-wm="&#xf521;" id="big4-display"></div>
+            <div class="sec wm" data-wm="&#xf1ea;">
+              <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines${playedWeeks.length?`<span class="badge-info">Week ${_currentWeek} recap</span>`:''}</div>
+              <div id="home-headlines"></div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- HEADLINES -->
-      <div class="tab-page" id="page-headlines">
-        ${playedWeeks.length?`<div class="sec wm" data-wm="&#xf1ea;">
-          <div class="sec-head"><i class="fa fa-newspaper"></i>Weekly Matchup Headlines</div>
-          <div class="headline-controls">
-            <span style="font-size:12px;color:var(--text3);margin-right:4px">Week:</span>
-            ${playedWeeks.map(w=>`<button class="week-btn ${w===_currentWeek?'active':''}" data-week="${w}" onclick="renderHeadlines(${w})">Wk ${w}</button>`).join('')}
-          </div>
-          <div class="headline-grid" id="headline-grid"></div>
-        </div>`:`<div class="sec"><div class="tab-loading">No games played yet in ${season}.</div></div>`}
       </div>
 
       <!-- STANDINGS & STATS -->
@@ -2065,6 +2125,10 @@ async function loadDashboard(){
             <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most Unbalanced</button>
             <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most Balanced</button>
             <button class="filter-btn ${_tradeSort==='week'?'active':''}" onclick="setTradeSort('week',this)">By Week</button>
+          </div>
+          <div class="standings-filters" id="trade-team">
+            <span style="font-size:12px;color:var(--text3);margin-right:4px">Team:</span>
+            <select onchange="setTradeTeam(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
           </div>
           <div id="trades-body"></div>
         </div>
@@ -2132,6 +2196,14 @@ async function loadDashboard(){
           <div id="punishment-body"></div>
         </div>
       </div>
+
+      <!-- BAD BEAT O'METER -->
+      <div class="tab-page" id="page-badbeat">
+        <div class="sec wm" data-wm="&#xf7a9;">
+          <div class="sec-head"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</div>
+          <div id="badbeat-body"></div>
+        </div>
+      </div>
     `;
 
     renderStandingsTable();
@@ -2139,7 +2211,7 @@ async function loadDashboard(){
     renderMatchupOfWeek();
     renderPunishment();
     if(_profileTeam==null) _profileTeam=String(_teams[0]?.id||'');
-    if(playedWeeks.length) renderHeadlines(_currentWeek);
+    renderHomeHeadlines();
     renderHistoryTable();
     renderLeagueHistory();
     renderMarathon();

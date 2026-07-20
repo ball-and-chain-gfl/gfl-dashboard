@@ -63,4 +63,11 @@ window.GFL_CONFIG = {
     note: "Loser of the week pours (and chugs) the group's mystery beer blend.",
     options: ["Beer Pour", "Weatherman", "Fast Banana", "Willem Defoe", "Fruit Pledge", "Spicy Food"],
   },
+
+  /* BAD BEAT O'METER — worst luck / most painful losses. Fill `entries` with
+     items like { rank, team, week, note, score } once you send the details. */
+  badBeat: {
+    intro: "The most painful, unlucky, and soul-crushing losses in league history.",
+    entries: [],
+  },
 };
