@@ -676,174 +676,89 @@ function topStarter(week,teamId){
   return (best&&best.n)?best:null;
 }
 
-/* Pop-culture flavor packs keyed to team names. `win` lines fire when that team
-   wins, `loss` lines when it loses. In templates: c.W / c.L are <strong> names,
-   c.topW / c.topL are top starters {n, pts} or null. */
-const NAME_PACKS=[
-  {re:/marathon/i,
-   win:[c=>`${c.W} ran this one like Kipchoge — brutal, even splits until ${c.L} hit the wall at mile 20. Final: ${c.score}.`,
-        c=>`Like Forrest Gump, ${c.W} just felt like running… right past ${c.L}, ${c.score}. That's all they have to say about that.`,
-        c=>`26.2 miles? Try 17 weeks. ${c.W} keeps pacing the field, outlasting ${c.L} ${c.score}.`],
-   loss:[c=>`${c.L} pulled up with a cramp at mile three. ${c.W} jogged to the tape, ${c.score}.`,
-         c=>`Even Pheidippides delivered his message before collapsing — ${c.L} just collapsed. ${c.W} wins ${c.score}.`]},
-  {re:/motor\s*city|mulligan/i,
-   win:[c=>`Mom's spaghetti stayed down — ${c.W} seized the moment, lost themselves in it, and snap-backed to reality with a ${c.score} win over ${c.L}. You only get one shot.`,
-        c=>`No mulligan required. ${c.W} striped it down the fairway and walked off ${c.L} ${c.score}.`,
-        c=>`Detroit vs. Everybody — this week "everybody" was ${c.L}, and Detroit won ${c.score}.`],
-   loss:[c=>`${c.L} will absolutely be taking a mulligan on that one. ${c.W} plays it as it lies, ${c.score}.`,
-         c=>`Knees weak, arms heavy — ${c.L} choked ${c.score} against ${c.W}. Back to the lab again.`]},
-  {re:/bikini|goober|sponge/i,
-   win:[c=>`Is mayonnaise an instrument? No — but ${c.W} played ${c.L} like one, ${c.score}.`,
-        c=>`The Krusty Krab was slammed and ${c.W} kept up with every order, dropping ${c.winPts} on ${c.L}. Plankton-level scheming, Mr. Krabs-level profit.`,
-        c=>`I'M READY. ${c.W} was, anyway — ${c.L} clearly wasn't, ${c.score}.`],
-   loss:[c=>`A full Squidward performance from ${c.L}: technically present, spiritually at home with a canvas and self-portraits. ${c.W} wins ${c.score}.`,
-         c=>`Tartar sauce. ${c.L} needed the secret formula and served a plain patty instead — ${c.W} takes it ${c.score}.`]},
-  {re:/bismuth/i,
-   win:[c=>`${c.W} was not in danger this week. ${c.W} WAS the danger — ${c.L} answered the door when they knocked, ${c.score}.`,
-        c=>`Say my name. It's ${c.W}, ${c.score} winners over ${c.L}, and the product was 99.1% pure.`,
-        c=>`Chemistry is the study of transformation — and ${c.W} transformed ${c.L} into a cautionary tale, ${c.score}.`],
-   loss:[c=>`${c.L}'s cook got busted. ${c.W} ran the lab this week, ${c.score}. No half measures.`,
-         c=>`Turns out ${c.L} was the one who folded when somebody knocked — ${c.W} wins ${c.score}.`]},
-  {re:/florida/i,
-   win:[c=>`FLORIDA MAN WINS ${c.score}; WITNESSES SAY ${c.loserName.toUpperCase()} NEVER SAW IT COMING.`,
-        c=>`Florida Man does something incomprehensible and it WORKS — ${c.topW?`${c.topW.n} (${c.topW.pts.toFixed(1)}) was the alligator in the pool`:'chaos was the whole gameplan'}. ${c.W} over ${c.L}, ${c.score}.`,
-        c=>`You can't gameplan for Florida Man. ${c.L} tried. ${c.score}.`],
-   loss:[c=>`FLORIDA MAN DISCOVERS SCOREBOARD, DOES NOT CARE FOR IT — ${c.W} wins ${c.score}.`,
-         c=>`Even the gators felt bad for ${c.L} on this one. ${c.W} bites down ${c.score}.`]},
-  {re:/silly\s*willy|wonka/i,
-   win:[c=>`${c.W} found the golden ticket${c.topW?` — it was ${c.topW.n} (${c.topW.pts.toFixed(1)}) all along`:''} and toured right past ${c.L}, ${c.score}. Pure imagination.`,
-        c=>`The snozzberries taste like victory — ${c.W} over ${c.L}, ${c.score}.`],
-   loss:[c=>`"You get NOTHING. You LOSE. Good day, sir!" — the scoreboard, to ${c.L}, after ${c.W}'s ${c.score} win.`,
-         c=>`${c.L} went full Augustus Gloop: got greedy early, got stuck in the pipe by halftime. ${c.W} wins ${c.score}.`]},
-  {re:/lebron/i,
-   win:[c=>`${c.W} took their talents straight to the win column, dispatching ${c.L} ${c.score}. Not one, not two, not three…`,
-        c=>`That was the fantasy version of the 2016 chasedown block — ${c.W} erased everything ${c.L} had at the rim, ${c.score}.`,
-        c=>`The GOAT debate rages on, but this week's tape is clear: ${c.W} ${c.score} over ${c.L}.`],
-   loss:[c=>`The Decision this week: to lose. ${c.L} falls ${c.score} to ${c.W}, and the talents are staying home for film review.`,
-         c=>`Even the King has bad nights in Cleveland — ${c.L} drops this one ${c.score} to ${c.W}.`]},
-  {re:/tingl/i,
-   win:[c=>`${c.W}'s spidey-senses were tingling all week — they saw every move ${c.L} made coming, ${c.score}.`,
-        c=>`That tingle you feel is the win column growing — ${c.W} over ${c.L}, ${c.score}.`],
-   loss:[c=>`No tingle. No spidey-sense. No answers. ${c.L} falls ${c.score} to ${c.W}.`]},
-  {re:/miner/i,
-   win:[c=>`${c.W} struck gold${c.topW?` — ${c.topW.n} panned out for ${c.topW.pts.toFixed(1)}`:''} and out-dug ${c.L} ${c.score}. There's always money in the mine.`,
-        c=>`Diamonds are made under pressure, and ${c.W} just pressure-cooked ${c.L}, ${c.score}.`,
-        c=>`${c.W} went full Minecraft: mined all week, crafted a ${c.score} win, left ${c.L} staring at a creeper.`],
-   loss:[c=>`The canary stopped singing early. ${c.L}'s shaft caved in ${c.score} against ${c.W}.`,
-         c=>`${c.L} dug all week and hit nothing but rock — ${c.W} takes it ${c.score}.`]},
-  {re:/bryan\s*football\s*team/i,
-   win:[c=>`No mascot, no logo, no mercy — ${c.W} goes full Washington-Football-Team-era minimalism on ${c.L}, ${c.score}.`,
-        c=>`You don't need a brand when you have a record. ${c.W} handles ${c.L} ${c.score}.`],
-   loss:[c=>`Maybe it IS time for the rebrand — ${c.L} drops this one ${c.score} to ${c.W}.`]},
-  {re:/whittingham/i,
-   win:[c=>`${c.W} won this like a Whittingham-coached Utah team: suffocating, unglamorous, extremely effective. ${c.score} over ${c.L}.`,
-        c=>`${c.W} just did the corporate-sports-brand thing: quiet quarter, record profits. ${c.score} over ${c.L}.`],
-   loss:[c=>`Even hall-of-fame coaches drop road games — ${c.L} falls ${c.score} at the hands of ${c.W}.`]},
-  {re:/wiggl/i,
-   win:[c=>`The West Coast offense lives — ${c.W} dinked, dunked, and wiggled ${c.L} to death, ${c.score}.`,
-        c=>`Fruit salad, yummy yummy: ${c.W} made a whole meal of ${c.L}, ${c.score}. The Wiggles would be proud.`,
-        c=>`${c.W} found just enough wiggle room, slithering past ${c.L} ${c.score}.`],
-   loss:[c=>`No wiggle room left — ${c.L} comes up short ${c.score} against ${c.W}.`,
-         c=>`${c.L} did the wiggle. The scoreboard didn't move. ${c.W} wins ${c.score}.`]},
+/* Headline puns keyed to team names. Each entry is a short pun/reference
+   headline (h) + a one-sentence description (d) built from the matchup context
+   (c.W winner, c.L loser, c.score, c.topW top performer, c.diff margin). The
+   headline is ALWAYS a play on a name/player in the matchup — never generic. */
+const TEAM_PUNS=[
+  {re:/bryan football/i,e:[
+    {h:"Bryan's Song",d:c=>`No logo, no nickname, no problem — the Bryan Football Team rolled ${c.L} ${c.score}.`},
+    {h:"The Bryan Identity",d:c=>`The Bryan Football Team knew exactly who they were, erasing ${c.L} ${c.score}.`},
+    {h:"Brand-Name Beatdown",d:c=>`The most generic name in the league delivered the least generic result over ${c.L}, ${c.score}.`}]},
+  {re:/bikini|goober|sponge/i,e:[
+    {h:"Sweet Victory",d:c=>`Straight out of the Bubble Bowl — the Goobers nose-fluted ${c.L} ${c.score}.`},
+    {h:"Krabby Patty Formula",d:c=>`Secret recipe intact, the Goobers fry-cooked ${c.L} ${c.score}.`},
+    {h:"I'm Ready!",d:c=>`The Goobers reported for duty and mopped the floor with ${c.L}, ${c.score}.`}]},
+  {re:/bismuth/i,e:[
+    {h:"Heavy Metal",d:c=>`Bismuth hardened under pressure and crystallized ${c.L} into an L, ${c.score}.`},
+    {h:"Element of Surprise",d:c=>`Atomic number 83, loss number that stings for ${c.L} — Bismuth wins ${c.score}.`},
+    {h:"Periodic Beatdown",d:c=>`Bismuth ran the table like a chem final, ${c.score} past ${c.L}.`}]},
+  {re:/florida/i,e:[
+    {h:"Florida Man Strikes Again",d:c=>`Local man does something inexplicable, wins anyway — over ${c.L}, ${c.score}.`},
+    {h:"Sunshine State of Mind",d:c=>`Florida Man dunked ${c.L} in a ${c.score} bath of chaos.`},
+    {h:"Man Bites Dog",d:c=>`The headline writes itself: Florida Man devoured ${c.L}, ${c.score}.`}]},
+  {re:/silly\s*willy|wonka/i,e:[
+    {h:"Golden Ticket",d:c=>`Pure imagination, zero mercy — silly willy toured past ${c.L}, ${c.score}.`},
+    {h:"Willy Nilly",d:c=>`No plan, all payoff — silly willy stumbled into a ${c.score} win over ${c.L}.`},
+    {h:"Everlasting Gobstopper",d:c=>`silly willy's lineup just kept scoring, ${c.score} over ${c.L}.`}]},
+  {re:/lebron/i,e:[
+    {h:"Not 1, Not 2…",d:c=>`Lebron's 3rd Leg kept counting rings and stepped over ${c.L}, ${c.score}.`},
+    {h:"The Third Leg Stands",d:c=>`When it mattered, the extra leg held — past ${c.L} ${c.score}.`},
+    {h:"Taking Talents South",d:c=>`Lebron's 3rd Leg took its talents straight to the win column, ${c.score} over ${c.L}.`}]},
+  {re:/tingl/i,e:[
+    {h:"Spidey Senses",d:c=>`The Tinglers felt it coming and swung past ${c.L}, ${c.score}.`},
+    {h:"The Tingle Is Real",d:c=>`A full-body chill for ${c.L} as the Tinglers won ${c.score}.`},
+    {h:"Sends Shivers",d:c=>`The Tinglers sent ${c.L} home shaking, ${c.score}.`}]},
+  {re:/miner/i,e:[
+    {h:"Struck Gold",d:c=>`The Miners dug up a ${c.score} win and buried ${c.L}.`},
+    {h:"Money in the Mine",d:c=>`Diamond hands, diamond win — Midwest Miners over ${c.L}, ${c.score}.`},
+    {h:"Pickaxe to the Chin",d:c=>`The Miners chipped ${c.L} down to a ${c.score} loss.`}]},
+  {re:/marathon/i,e:[
+    {h:"Went the Distance",d:c=>`26.2 miles of misery for ${c.L} — Marathon Men win ${c.score}.`},
+    {h:"Second Wind",d:c=>`Marathon Men found another gear and ran down ${c.L}, ${c.score}.`},
+    {h:"Broke the Tape",d:c=>`${c.L} hit the wall; Marathon Men breezed through the finish, ${c.score}.`}]},
+  {re:/wiggl/i,e:[
+    {h:"Wiggle Room",d:c=>`Just enough wiggle to slip past ${c.L}, ${c.score}.`},
+    {h:"The Worm Turns",d:c=>`West Coast Wigglers wriggled free and left ${c.L} in a ${c.score} knot.`},
+    {h:"West Coast, Best Coast",d:c=>`The Wigglers squirmed to a ${c.score} win over ${c.L}.`}]},
+  {re:/whittingham|beatjimmy|jimmy/i,e:[
+    {h:"Utah Man, Sir",d:c=>`Whittingham Sports coached up a grinding ${c.score} win over ${c.L}.`},
+    {h:"Sports. Sports. Sports.",d:c=>`Whittingham Sports simply did sports better than ${c.L}, ${c.score}.`},
+    {h:"Corporate Takeover",d:c=>`The blandest brand in the league acquired a ${c.score} W against ${c.L}.`}]},
+  {re:/motor\s*city|mulligan/i,e:[
+    {h:"Mom's Spaghetti",d:c=>`Palms sweaty, knees weak — the Mulligans seized their shot at ${c.L}, ${c.score}.`},
+    {h:"No Do-Overs Needed",d:c=>`No mulligan required as Motor City striped ${c.L} ${c.score}.`},
+    {h:"Motor City Madness",d:c=>`Detroit muscle overpowered ${c.L}, ${c.score}.`}]},
+  /* legacy names (older seasons) */
+  {re:/skol|gabe davis/i,e:[{h:"SKOL Clap",d:c=>`SKOL chant all the way to a ${c.score} win over ${c.L}.`}]},
+  {re:/kirkland/i,e:[{h:"Bulk Discount",d:c=>`Kirkland Signature bought a ${c.score} win in bulk over ${c.L}.`}]},
+  {re:/naber/i,e:[{h:"Beautiful Day",d:c=>`A beautiful day in the neighborhood — Nabers over ${c.L}, ${c.score}.`}]},
+  {re:/wan.?dalicious/i,e:[{h:"D-E-L-I-C-I-O-U-S",d:c=>`Wan'dalicious spelled out a tasty ${c.score} win over ${c.L}.`}]},
+  {re:/justins?\s*jets/i,e:[{h:"Wheels Up",d:c=>`Justins Jets cleared for takeoff, ${c.score} over ${c.L}.`}]},
+  {re:/who gibbs/i,e:[{h:"Gibbs a Damn",d:c=>`Turns out they did give one — a ${c.score} win over ${c.L}.`}]},
 ];
 
 function generateHeadline(home,away,hPts,aPts,week){
-  const diff=Math.abs(hPts-aPts);
-  const winner=hPts>=aPts?home:away;
-  const loser =hPts>=aPts?away:home;
+  const winner=hPts>=aPts?home:away, loser=hPts>=aPts?away:home;
   const winPts=Math.max(hPts,aPts), losePts=Math.min(hPts,aPts);
-  const W=`<strong>${winner.name}</strong>`, L=`<strong>${loser.name}</strong>`;
-  const score=`${winPts.toFixed(1)}–${losePts.toFixed(1)}`;
-  const topW=topStarter(week,winner.id), topL=topStarter(week,loser.id);
-  const c={W,L,score,diff,winPts:winPts.toFixed(1),losePts:losePts.toFixed(1),topW,topL,winnerName:winner.name,loserName:loser.name};
-
-  const wRec=`${winner.wins}–${winner.losses}`, lRec=`${loser.wins}–${loser.losses}`;
-  const wSeed=seedOf(winner.id), lSeed=seedOf(loser.id), cut=playoffCut();
-  const lateSeason=leagueWeeksPlayed()>=9;
-
-  const s=h2h(winner.id,loser.id);
-  const sWin=hPts>=aPts?s.wA:s.wB, sLose=hPts>=aPts?s.wB:s.wA;
-  const at=allTimeH2H(winner.id,loser.id);
-  const atWin=hPts>=aPts?at.wA:at.wB, atLose=hPts>=aPts?at.wB:at.wA, atGames=at.games;
-
-  const nail=diff<2, close=diff<6, blowout=diff>=45, shootout=winPts>=150&&losePts>=125;
-  const high=winPts>=165, monster=winPts>=185, low=losePts>0&&losePts<80, bothLow=winPts<95;
-  const upset=(loser.wins>winner.wins)||(lSeed>0&&wSeed>0&&lSeed<wSeed-1);
-  const undefeatedW=winner.losses===0&&winner.wins>=3;
-  const winlessL=loser.wins===0&&loser.losses>=3;
-
+  const diff=Math.abs(hPts-aPts);
+  const topW=topStarter(week,winner.id);
+  const c={W:winner.name,L:loser.name,score:`${winPts.toFixed(1)}–${losePts.toFixed(1)}`,winPts,losePts,diff,topW};
   const pool=[];
-  const add=(line,weight=1)=>{for(let i=0;i<weight;i++)pool.push(line);};
-
-  // 1) Team-name pop-culture packs (heaviest weight — the signature flavor)
-  NAME_PACKS.forEach(p=>{
-    if(p.re.test(winner.name)) p.win.forEach(fn=>add(fn(c),3));
-    if(p.re.test(loser.name))  p.loss.forEach(fn=>add(fn(c),3));
-  });
-
-  // 2) Star-player storylines
-  if(topW&&topW.pts>=25){
-    add(`${topW.n} went full John Wick — ${topW.pts.toFixed(1)} points and everyone in ${L}'s lineup was just another henchman. ${W} wins ${score}.`,2);
-    add(`${W} rode ${topW.n} (${topW.pts.toFixed(1)}) like Gandalf arriving at Helm's Deep — right on time, absolutely decisive. ${score} over ${L}.`,2);
-    add(`Somewhere, ${topW.n}'s agent is drafting an email. ${topW.pts.toFixed(1)} points powered ${W} past ${L}, ${score}.`,2);
+  const pack=TEAM_PUNS.find(p=>p.re.test(winner.name));
+  if(pack) pack.e.forEach(e=>pool.push({h:e.h,d:e.d(c)}));
+  // a standout-player reference (still tied to who's in the matchup)
+  if(topW&&topW.pts>=30){
+    const last=String(topW.n).split(' ').slice(-1)[0];
+    pool.push({h:`The ${last} Show`,d:`${topW.n} erupted for ${topW.pts.toFixed(1)} to drag ${winner.name} past ${loser.name}, ${c.score}.`});
   }
-  if(topL&&topL.pts>=25&&winPts>losePts){
-    add(`${topL.n} put up ${topL.pts.toFixed(1)} and deserved so much better — the rest of ${L} pulled a full Ocean's Eleven and vanished. ${W} wins ${score}.`,2);
-    add(`${topL.n} (${topL.pts.toFixed(1)}) was Leo in The Revenant: incredible individual performance, brutal ending. ${W} over ${L}, ${score}.`,2);
+  if(!pool.length){
+    const w1=winner.name.replace(/^the\s+/i,'').split(' ').slice(0,2).join(' ');
+    pool.push({h:`${w1} Handle It`,d:`${winner.name} took care of ${loser.name}, ${c.score}.`});
   }
-
-  // 3) Outcome-driven pop culture
-  if(nail){
-    add(`${diff.toFixed(1)} points. That's the whole margin. ${W} survives ${L} like the final girl in a slasher flick, ${score}.`,2);
-    add(`Closer than the La La Land / Moonlight envelope — but after a review, ${W} actually won, ${score} over ${L}.`,2);
-  } else if(close){
-    add(`${W} escapes ${L} by ${diff.toFixed(1)}, ${score} — one bench decision from a different multiverse. No word yet from Doctor Strange on the other 14,000,605 outcomes.`);
-    add(`By the skin of their teeth: ${W} over ${L}, ${score}. Bragging rights secured, group chat notifications muted.`);
-  }
-  if(blowout){
-    add(`That wasn't a matchup, it was the Red Wedding — ${W} massacres ${L} by ${diff.toFixed(1)}, ${score}. The Lannisters send their regards.`,2);
-    add(`${L} got Thanos-snapped: half their hopes gone by halftime, the rest turned to dust in a ${score} loss to ${W}.`,2);
-    add(`${W} put ${L} in the Upside Down and unplugged the Christmas lights, ${score}.`);
-  }
-  if(shootout) add(`${W} and ${L} turned this into a Fast & Furious movie — no defense, pure nitrous, ${(winPts+losePts).toFixed(1)} combined. ${W} wins the drag race ${score}. Family.`,2);
-  if(monster) add(`${winPts.toFixed(1)} points?! ${W} went Super Saiyan on ${L}. Scouts are calling it the most points scored since the invention of the forward pass. ${score}.`,2);
-  else if(high) add(`${W} hung ${winPts.toFixed(1)} on ${L} like it was a Madden rookie-difficulty franchise, ${score}.`);
-  if(low) add(`${losePts.toFixed(1)} points from ${L} — a performance so quiet it could star in A Quiet Place 3. ${W} strolls, ${score}.`,2);
-  if(bothLow) add(`Two teams entered, neither brought offense — ${W} wins the rock fight ${score} over ${L}. Even the refs left early.`);
-
-  // 4) Rivalry / series context
-  if(atGames>=2){
-    if(atWin>atLose+1) add(`${W} owns this rivalry like Vader owns family reunions — ${atWin}–${atLose} all-time over ${L} after the ${score} win.`);
-    else if(atWin===atLose) add(`The all-time ledger was knotted at ${atLose}–${atLose} — until ${W} broke serve, ${score}. See you at the rematch.`);
-    else if(atWin<atLose) add(`${L} still leads the all-time series ${atLose}–${atWin}, but ${W} stole one back ${score} — a proper Empire Strikes Back move.`);
-  }
-  if(sWin+sLose>=2&&Math.abs(sWin-sLose)<=1) add(`These two just keep meeting — ${W} takes the latest chapter ${score}, ${sWin}–${sLose} between them this season. Somebody write the trilogy.`);
-
-  // 5) Standings stakes
-  if(lateSeason){
-    if(wSeed>0&&wSeed<=cut) add(`${W} (${wRec}) keeps a kung-fu grip on the ${ord(wSeed)} seed, handling ${L} ${score} with January in sight.`);
-    if(lSeed>cut) add(`${L} (${lRec}) is running out of runway — sitting ${ord(lSeed)} after a ${losePts.toFixed(1)}-point outing, the playoff math needs a Christopher Nolan timeline to work.`);
-    if(wSeed>cut) add(`Win or go home, and ${W} chose violence — beating ${L} ${score} to keep a flickering playoff pulse alive at ${wRec}.`);
-  }
-  if(undefeatedW) add(`Still perfect. ${W} moves to ${wRec}, swatting ${L} aside ${score}. The rest of the league is living in their villain era.`);
-  if(winlessL) add(`The misery tour continues for ${L} (${lRec}) after a ${score} loss. ${W} didn't even feel bad about it.`);
-  if(upset&&winner.wins>1) add(`Nobody had ${W} (${wRec}) in this bracket — a genuine March Madness moment against ${L} (${lRec}), ${score}. Throw the seedings out.`);
-
-  // 6) Evergreen fallbacks
-  const flavor=[
-    `${W} understood the assignment: ${winPts.toFixed(1)} points, one W, zero notes. ${L} falls ${score}.`,
-    `Main-character energy from ${W} — ${L} was an NPC in the ${score} storyline.`,
-    `${W} cooked. ${L} did the dishes. Final: ${score}.`,
-    `The scoreboard remains the league's best storyteller: ${W} ${winPts.toFixed(1)}, ${L} ${losePts.toFixed(1)}. Roll credits.`,
-    `${L} brought a spork to a lightsaber duel. ${W} wins ${score}.`,
-  ];
-  if(!pool.length) flavor.forEach(f=>add(f));
-  else add(flavor[hashStr(winner.name+loser.name)%flavor.length]);
-
-  const seed=hashStr(`${home.id}|${away.id}|${week}|${winPts.toFixed(1)}|${losePts.toFixed(1)}`);
+  const seed=hashStr(`${home.id}|${away.id}|${week}|${winPts.toFixed(1)}`);
   return pool[seed%pool.length];
 }
-
 let _hlGames=[],_hlIdx=0,_hlTimer=null;
 function hlPaint(){
   const card=document.getElementById('hl-card'); if(!card||!_hlGames.length) return;
@@ -853,8 +768,11 @@ function hlPaint(){
   const away={...teamMap[mu.away.teamId]||{name:'Away',wins:0,losses:0,pf:0},id:mu.away.teamId};
   const hPts=mu.home.totalPoints||0,aPts=mu.away.totalPoints||0;
   const hWin=hPts>aPts,aWin=aPts>hPts;
+  const hl=generateHeadline(home,away,hPts,aPts,_currentWeek);
   card.innerHTML=`
-    <div class="headline-matchup">
+    <div class="hl-headline">${hl.h}</div>
+    <div class="hl-desc">${hl.d}</div>
+    <div class="headline-matchup" style="margin-top:12px">
       <div class="headline-team-block">${logoImg(home.id,'team-logo-sm')}<span class="headline-team-name">${home.name}</span></div>
       <div class="headline-vs">vs</div>
       <div class="headline-team-block away">${logoImg(away.id,'team-logo-sm')}<span class="headline-team-name">${away.name}</span></div>
@@ -862,9 +780,9 @@ function hlPaint(){
     <div class="headline-score">
       <div class="headline-pts ${hWin?'winner':aPts>0?'loser':''}">${hPts.toFixed(1)}</div>
       <div class="headline-pts ${aWin?'winner':hPts>0?'loser':''}">${aPts.toFixed(1)}</div>
-    </div>
-    <div class="headline-blurb">${generateHeadline(home,away,hPts,aPts,_currentWeek)}</div>`;
-  document.querySelectorAll('#home-headlines .hl-dot').forEach((d,i)=>d.classList.toggle('active',i===(_hlIdx%_hlGames.length)));
+    </div>`;
+  const idx=_hlIdx%_hlGames.length;
+  document.querySelectorAll('#home-headlines .hl-tab').forEach((d,i)=>d.classList.toggle('active',i===idx));
 }
 function hlGoto(i){_hlIdx=i;hlPaint();if(_hlTimer){clearInterval(_hlTimer);_hlTimer=setInterval(hlNext,7000);}}
 function hlNext(){_hlIdx=(_hlIdx+1)%(_hlGames.length||1);hlPaint();}
@@ -873,45 +791,16 @@ function renderHomeHeadlines(){
   _hlGames=_allMatchups.filter(mu=>mu.matchupPeriodId===_currentWeek&&mu.home&&mu.away&&((mu.home.totalPoints||0)>0||(mu.away.totalPoints||0)>0));
   if(!_hlGames.length){wrap.innerHTML=`<div class="tab-loading" style="padding:30px">No games played yet in ${getSeason()}.</div>`;return;}
   _hlIdx=0;
-  wrap.innerHTML=`<div class="hl-card headline-card" id="hl-card"></div>
-    <div class="hl-dots">${_hlGames.map((_,i)=>`<span class="hl-dot" onclick="hlGoto(${i})" title="Game ${i+1}"></span>`).join('')}</div>`;
+  const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
+  wrap.innerHTML=`<div class="hl-tabs">${_hlGames.map((mu,i)=>{
+      const hn=(teamMap[mu.home.teamId]?.abbrev||'')||'?', an=(teamMap[mu.away.teamId]?.abbrev||'')||'?';
+      return `<button class="hl-tab" onclick="hlGoto(${i})" title="${teamMap[mu.home.teamId]?.name||''} vs ${teamMap[mu.away.teamId]?.name||''}">${logoImg(mu.home.teamId,'team-logo-sm')}<span class="hl-tab-x">/</span>${logoImg(mu.away.teamId,'team-logo-sm')}</button>`;
+    }).join('')}</div>
+    <div class="hl-card headline-card" id="hl-card"></div>`;
   hlPaint();
   if(_hlTimer)clearInterval(_hlTimer);
   _hlTimer=setInterval(hlNext,7000);
 }
-function renderHeadlines(week){
-  _currentWeek=week;
-  const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
-  document.querySelectorAll('.week-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.week)===week));
-  const grid=document.getElementById('headline-grid');if(!grid)return;
-  const weekMu=_allMatchups.filter(mu=>mu.matchupPeriodId===week&&mu.home&&mu.away);
-  if(!weekMu.length){grid.innerHTML=`<div style="padding:24px;color:var(--text3);font-size:12px;text-align:center">No data for Week ${week}</div>`;return;}
-  grid.innerHTML=weekMu.map(mu=>{
-    const home={...teamMap[mu.home.teamId]||{name:'Home',wins:0,losses:0,pf:0},id:mu.home.teamId};
-    const away={...teamMap[mu.away.teamId]||{name:'Away',wins:0,losses:0,pf:0},id:mu.away.teamId};
-    const hPts=mu.home.totalPoints||0,aPts=mu.away.totalPoints||0;
-    const hWin=hPts>aPts,aWin=aPts>hPts;
-    return`<div class="headline-card">
-      <div class="headline-matchup">
-        <div class="headline-team-block">
-          ${logoImg(home.id,'team-logo-sm')}
-          <span class="headline-team-name">${home.name}</span>
-        </div>
-        <div class="headline-vs">vs</div>
-        <div class="headline-team-block away">
-          ${logoImg(away.id,'team-logo-sm')}
-          <span class="headline-team-name">${away.name}</span>
-        </div>
-      </div>
-      <div class="headline-score">
-        <div class="headline-pts ${hWin?'winner':aPts>0?'loser':''}">${hPts.toFixed(1)}</div>
-        <div class="headline-pts ${aWin?'winner':hPts>0?'loser':''}">${aPts.toFixed(1)}</div>
-      </div>
-      <div class="headline-blurb">${generateHeadline(home,away,hPts,aPts,week)}</div>
-    </div>`;
-  }).join('');
-}
-
 // ── STANDINGS ──────────────────────────────────────────────────────────────────
 function sortStandings(col){
   if(_sortCol===col)_sortAsc=!_sortAsc;
@@ -1487,7 +1376,8 @@ function renderLeagueHistory(){
   _hardwareHonors=honorsMap; _profileHonorYears=honorYears; // expose for profiles
 
   body.innerHTML=`
-    <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
+    <div class="two-col" style="margin-bottom:28px;align-items:start">
+    <div class="sec wm" data-wm="&#xf091;">
       <div class="sec-head"><i class="fa fa-trophy"></i>Champions</div>
       <div class="champ-list">
         ${champRows.length?champRows.map(r=>`
@@ -1508,8 +1398,8 @@ function renderLeagueHistory(){
           </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
       </div>
     </div>
-    <div class="sec wm" data-wm="&#xf005;" style="margin-top:8px">
-      <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">best record in each conference through week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
+    <div class="sec wm" data-wm="&#xf005;">
+      <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
       ${(()=>{
         if(!confRows.length) return `<div class="tab-loading">No completed regular seasons yet.</div>`;
         const byDiv={};
@@ -1526,6 +1416,7 @@ function renderLeagueHistory(){
               </div>`).join('')}
           </div>`).join('')}</div>`;
       })()}
+    </div>
     </div>
     <div class="sec wm" data-wm="&#xf559;" style="margin-top:8px">
       <div class="sec-head"><i class="fa fa-award"></i>Season Superlatives<span class="badge-info">commissioner-voted year-end awards</span></div>
@@ -1712,7 +1603,6 @@ function renderMatchupOfWeek(){
     <div class="motw-facts">
       <div class="motw-fact"><div class="motw-fact-l">All-time series</div><div class="motw-fact-v">${at.games?`${at.wA}–${at.wB}`:'first meeting'}</div></div>
       <div class="motw-fact"><div class="motw-fact-l">Last meeting</div><div class="motw-fact-v">${last?`${last.aPts.toFixed(1)}–${last.bPts.toFixed(1)}`:'—'}</div><div class="motw-fact-s">${last?`${last.season} Wk ${last.week}`:'never played'}</div></div>
-      <div class="motw-fact"><div class="motw-fact-l">All-time combined</div><div class="motw-fact-v">${at.games} game${at.games!==1?'s':''}</div></div>
     </div>
     <div class="motw-takes">
       ${takeCol('The Ball 🔨','fa-hand-fist',cfg.ball,'var(--accent)')}
