@@ -130,11 +130,11 @@ const AWARD_SHORT={coy:'Coach of Yr',commitment:'Commitment',comeback:'Comeback'
 function honorTiles(rings,confs,awards,years){
   const tiles=[];
   const tile=(emoji,label,count,cls,sub)=>`<div class="honor-tile ${cls}"><div class="honor-ic">${emoji}</div><div class="honor-lb">${label}${count>1?` <b>×${count}</b>`:''}</div>${sub?`<div class="honor-sub">${sub}</div>`:''}</div>`;
-  if(rings) tiles.push(tile('🏆','Champion',rings,'champ',(years&&years.champ&&years.champ.join(', '))||''));
-  if(confs) tiles.push(tile('⭐','Conference',confs,'conf',(years&&years.conf&&years.conf.join(', '))||''));
+  if(rings) tiles.push(tile('🏆','Champion',rings,'champ hk-champ',(years&&years.champ&&years.champ.join(', '))||''));
+  if(confs) tiles.push(tile('⭐','Conference',confs,'conf hk-conf',(years&&years.conf&&years.conf.join(', '))||''));
   const byKey={};(awards||[]).forEach(aw=>{(byKey[aw.key]||(byKey[aw.key]={n:0,label:aw.label,yrs:[]})).n++;byKey[aw.key].yrs.push(aw.year);});
   (_awardsData?.order||Object.keys(byKey)).forEach(k=>{const v=byKey[k];if(!v)return;
-    tiles.push(tile(v.label.emoji,AWARD_SHORT[k]||v.label.name,v.n,v.label.good===false?'bad':'award',v.yrs.join(', ')));});
+    tiles.push(tile(v.label.emoji,AWARD_SHORT[k]||v.label.name,v.n,`hk-${k} ${v.label.good===false?'bad':'award'}`,v.yrs.join(', ')));});
   return tiles.join('');
 }
 function normName(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
@@ -1005,15 +1005,13 @@ function renderHistoryTable(){
 }
 
 // ── PLAYER TENURE TAB ──────────────────────────────────────────────────────────
-async function ensureTenure(){
-  if(_tenure){renderTenureTable();return;}
-  if(_tenureLoading) return;
-  _tenureLoading=true;
-  const body=document.getElementById('tenure-body');
-  if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:12px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
-  try{
+let _tenurePromise=null;
+async function loadTenureData(){
+  if(_tenure) return _tenure;
+  if(_tenurePromise) return _tenurePromise;
+  _tenurePromise=(async()=>{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=3`);
+      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=4`);
       if(!r.ok) return null;
       return {s, d:await r.json()};
     }));
@@ -1026,21 +1024,25 @@ async function ensureTenure(){
         const owner=owners[tid]||`team:${tid}`;
         const bucket=tenure[owner]||(tenure[owner]={});
         Object.entries(players).forEach(([pid,rec])=>{
-          const p=bucket[pid]||(bucket[pid]={n:rec.n,wAll:0,sAll:0,pAll:0,seasons:{}});
+          const p=bucket[pid]||(bucket[pid]={n:rec.n,pos:rec.pos,wAll:0,sAll:0,pAll:0,seasons:{}});
           if(rec.n) p.n=rec.n;
+          if(p.pos==null) p.pos=rec.pos;
           p.wAll+=rec.w||0; p.sAll+=rec.s||0; p.pAll+=rec.p||0;
           p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0};
         });
       });
     });
     _tenure=tenure;
-  }catch(e){
-    const b=document.getElementById('tenure-body');
-    if(b) b.innerHTML=`<div class="tab-loading" style="color:var(--red)">Failed to load roster history: ${e.message}</div>`;
-    _tenureLoading=false;
-    return;
-  }
-  _tenureLoading=false;
+    return _tenure;
+  })();
+  return _tenurePromise;
+}
+async function ensureTenure(){
+  if(_tenure){renderTenureTable();return;}
+  const body=document.getElementById('tenure-body');
+  if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:12px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
+  try{ await loadTenureData(); }
+  catch(e){ if(body) body.innerHTML=`<div class="tab-loading" style="color:var(--red)">Failed to load roster history: ${e.message}</div>`; return; }
   renderTenureTable();
 }
 function renderTenureTable(){
@@ -1725,27 +1727,44 @@ function renderBadBeat(){
 
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 function franchiseAllTime(owner){
-  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99;const seasons=new Set();
+  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0;const seasons=new Set();
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
     const owners=meta.owners||{},teams=meta.teams||{};
     const tid=Object.keys(owners).find(id=>owners[id]===owner);
     if(tid==null) return;
     seasons.add(s);
-    const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;if(ti.rank)best=Math.min(best,ti.rank);}
+    const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;if(ti.rank){best=Math.min(best,ti.rank);worst=Math.max(worst,ti.rank);}}
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
       if(String(m.home.teamId)===tid){pf+=hp;pa+=ap;if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
       else if(String(m.away.teamId)===tid){pf+=ap;pa+=hp;if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
     });
   });
-  return {w,l,t,pf,pa,seasons:seasons.size,rings,best:best===99?null:best,confs:(_hardware[owner]?.confs)||0};
+  return {w,l,t,pf,pa,seasons:seasons.size,rings,best:best===99?null:best,worst:worst||null,confs:(_hardware[owner]?.confs)||0};
 }
 function openTeamProfile(teamId){
   _profileTeam=String(teamId);
   const sel=document.getElementById('profile-team-select'); if(sel) sel.value=_profileTeam;
   switchTab('teams');
   document.querySelector('main')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function buildAllTimeLineup(owner){
+  const players=Object.entries((_tenure&&_tenure[owner])||{}).map(([pid,p])=>({pid,n:p.n||('#'+pid),pos:p.pos,s:p.sAll||0,w:p.wAll||0,pts:p.pAll||0}));
+  const byPos=pos=>players.filter(p=>p.pos===pos).sort((x,y)=>y.s-x.s||y.w-x.w||y.pts-x.pts);
+  const slots=[['QB',1],['RB',2],['RB',2],['TE',4],['WR',3],['WR',3],['DEF',16],['K',5]];
+  const used={};
+  return slots.map(([label,pos])=>{const list=byPos(pos);const i=used[pos]||0;used[pos]=i+1;return {label,pl:list[i]||null};});
+}
+function lineupHTML(owner){
+  const line=buildAllTimeLineup(owner);
+  if(line.every(s=>!s.pl)) return `<div class="tab-loading" style="padding:24px">No roster history found for this team.</div>`;
+  return `<div class="lineup-grid">${line.map(sl=>`
+    <div class="lineup-slot${sl.pl?'':' empty'}">
+      <div class="lineup-pos">${sl.label}</div>
+      ${sl.pl?`<div class="lineup-name">${sl.pl.n}</div><div class="lineup-stat">${sl.pl.s} GS · ${sl.pl.w} wks · ${sl.pl.pts.toFixed(0)} pts</div>`:`<div class="lineup-name" style="color:var(--text3)">—</div>`}
+    </div>`).join('')}</div>
+    <div style="padding:8px 2px 0;font-size:11px;color:var(--text3)">Most-started player at each spot, all-time (games started → weeks rostered → points).</div>`;
 }
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
@@ -1784,8 +1803,8 @@ async function renderProfile(){
           <div class="prof-chips">
             ${chip('All-Time',`${at.w}–${at.l}`,'')}
             ${chip('Win %',`${winpct.toFixed(1)}%`,winpct>=50?'var(--green)':'var(--red)')}
-            ${chip('Titles',`${at.rings}${at.rings?' 🏆':''}`,at.rings?'var(--accent)':'')}
-            ${chip('Best Finish',at.best?`#${at.best}`:'—','')}
+            ${chip('Best Finish',at.best?`#${at.best}`:'—','var(--green)')}
+            ${chip('Worst Finish',at.worst?`#${at.worst}`:'—','var(--red)')}
           </div>
         </div>
       </div>
@@ -1808,6 +1827,8 @@ async function renderProfile(){
       ${stat('fa-crown','Championships',at.rings,at.rings?'🏆':'')}
       ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','')}
     </div>
+    <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>All-Time Starting Lineup</div>
+    <div id="prof-lineup">${_tenure?lineupHTML(owner):`<div class="tab-loading" style="padding:24px"><i class="fa fa-circle-notch"></i>Building the all-time lineup…</div>`}</div>
     ${oppRows.length?`<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
     <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
     <tbody>${oppRows.map(r=>`<tr>
@@ -1816,6 +1837,13 @@ async function renderProfile(){
       <td class="right" style="color:var(--red)">${r.l}</td>
       <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
     </tr>`).join('')}</tbody></table></div>`:''}`;
+  if(!_tenure){
+    loadTenureData().then(()=>{
+      const c=document.getElementById('prof-lineup');
+      const stillHere=Number(document.getElementById('profile-team-select')?.value||_profileTeam)===id;
+      if(c&&stillHere) c.innerHTML=lineupHTML(owner);
+    }).catch(()=>{});
+  }
 }
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
 function selectVideo(videoId){
