@@ -54,6 +54,20 @@ function toggleTheme(){
   renderTradesTab(); // re-tint team colors for the new background
 }
 applyTheme(document.documentElement.dataset.theme||'dark');
+// ── DESIGN (classic vs elegant) ─────────────────────────────────────────────
+function applyDesign(d){
+  document.documentElement.dataset.design=d;
+  try{localStorage.setItem('gfl-design',d);}catch{}
+  const tt=document.getElementById('theme-toggle');
+  if(tt) tt.style.display=(d==='elegant')?'none':'';   // elegant is its own palette
+  const ic=document.querySelector('#design-toggle i');
+  if(ic) ic.className='fa '+(d==='elegant'?'fa-chess-rook':'fa-wand-magic-sparkles');
+}
+function toggleDesign(){
+  applyDesign(document.documentElement.dataset.design==='elegant'?'classic':'elegant');
+  try{renderTradesTab();}catch{}
+}
+applyDesign(document.documentElement.dataset.design||'classic');
 
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){

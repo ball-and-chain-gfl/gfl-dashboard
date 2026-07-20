@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ball & Chain GFL</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <script>document.documentElement.dataset.theme=localStorage.getItem('gfl-theme')||'dark';</script>
+  <script>document.documentElement.dataset.theme=localStorage.getItem('gfl-theme')||'dark';document.documentElement.dataset.design=localStorage.getItem('gfl-design')||'classic';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -752,6 +752,156 @@
       .trade-verdict i{display:none;}
       .headline-team-name{font-size:13px;}
     }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       ELEGANT DESIGN  ·  html[data-design="elegant"]
+       A self-contained premium restyle — warm charcoal + champagne gold,
+       Cormorant Garamond display serif over Jost. Airy, hairline, refined.
+       ═══════════════════════════════════════════════════════════════════════ */
+    html[data-design="elegant"]{
+      --bg:#0d0c0a;--bg2:#141210;--bg3:#1b1814;
+      --border:rgba(201,167,102,0.16);
+      --text:#efe8d8;--text2:#b8ad95;--text3:#867c68;
+      --accent:#c9a24b;--accent2:#a98235;
+      --green:#8fb08a;--red:#c98686;--blue:#93a7c4;--purple:#b9a0d8;
+      --btn-edge:none;--btn-edge-hover:none;--btn-edge-active:none;--btn-edge-gold:none;
+    }
+    html[data-design="elegant"] body{
+      font-family:'Jost',sans-serif;font-weight:300;letter-spacing:0.2px;
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(201,167,102,0.10), transparent 55%),
+        radial-gradient(90% 60% at 100% 100%, rgba(147,167,196,0.05), transparent 60%),
+        linear-gradient(180deg,#100e0b,#0a0908 60%);
+    }
+    html[data-design="elegant"] .bg-fx{display:none;}          /* drop the grain */
+    html[data-design="elegant"] .wm::after{display:none;}       /* drop watermark glyphs */
+
+    /* Type */
+    html[data-design="elegant"] .logo h1,
+    html[data-design="elegant"] .sec-head,
+    html[data-design="elegant"] .section-header,
+    html[data-design="elegant"] .modal-header h2,
+    html[data-design="elegant"] .prof-name,
+    html[data-design="elegant"] .champ-winner-name,
+    html[data-design="elegant"] .hl-headline,
+    html[data-design="elegant"] .punish-name,
+    html[data-design="elegant"] .marathon-team,
+    html[data-design="elegant"] .fr-name,
+    html[data-design="elegant"] .team-info .team-name,
+    html[data-design="elegant"] .coaching-name,
+    html[data-design="elegant"] .big4-name,
+    html[data-design="elegant"] .headline-team-name,
+    html[data-design="elegant"] .draft-name,
+    html[data-design="elegant"] .lineup-pname,
+    html[data-design="elegant"] .tp-name,
+    html[data-design="elegant"] .champ-title{
+      font-family:'Cormorant Garamond',Georgia,serif !important;letter-spacing:0.3px;}
+    html[data-design="elegant"] .logo h1{font-size:26px;font-weight:600;letter-spacing:1px;}
+    html[data-design="elegant"] .sec-head,html[data-design="elegant"] .section-header{font-size:24px;font-weight:600;letter-spacing:0.4px;}
+    html[data-design="elegant"] .prof-name{font-size:38px;font-weight:600;}
+    html[data-design="elegant"] .hl-headline{font-size:26px;font-weight:600;color:var(--accent);}
+    /* Big numbers → refined serif numerals */
+    html[data-design="elegant"] .stat-value,
+    html[data-design="elegant"] .prof-stat-v,
+    html[data-design="elegant"] .prof-chip-v,
+    html[data-design="elegant"] .coaching-score,
+    html[data-design="elegant"] .headline-pts,
+    html[data-design="elegant"] .h2h-total-rec,
+    html[data-design="elegant"] .trade-total,
+    html[data-design="elegant"] .gabe-pts,
+    html[data-design="elegant"] .lineup-ppts .v,
+    html[data-design="elegant"] .allrec-rec,
+    html[data-design="elegant"] .champ-line-yr,
+    html[data-design="elegant"] .champ-line-score,
+    html[data-design="elegant"] .conf-col-head,
+    html[data-design="elegant"] .modal-total-score,
+    html[data-design="elegant"] .modal-comp-value,
+    html[data-design="elegant"] .champ-year,
+    html[data-design="elegant"] .conf-win-yr,
+    html[data-design="elegant"] .marathon-big,
+    html[data-design="elegant"] .marathon-days,
+    html[data-design="elegant"] .brk-val,
+    html[data-design="elegant"] .honor-tile .honor-lb b{
+      font-family:'Cormorant Garamond',Georgia,serif !important;letter-spacing:0 !important;font-weight:700;}
+    html[data-design="elegant"] .badge-info{font-family:'Jost',sans-serif;text-transform:uppercase;letter-spacing:2px;font-size:9px;font-weight:400;background:transparent;border-color:var(--border);color:var(--text3);}
+
+    /* Header + tab bar */
+    html[data-design="elegant"] header{background:rgba(13,12,10,0.7);border-bottom:1px solid var(--border);backdrop-filter:blur(14px);}
+    html[data-design="elegant"] .tabbar{background:rgba(13,12,10,0.72);border-bottom:1px solid var(--border);padding:4px 20px 0;gap:2px;}
+    html[data-design="elegant"] .tab-btn{
+      font-family:'Jost',sans-serif !important;text-transform:uppercase;letter-spacing:2px;font-weight:400;font-size:11px;
+      background:none !important;box-shadow:none !important;border:none;border-bottom:2px solid transparent;border-radius:0;color:var(--text3);padding:12px 14px;}
+    html[data-design="elegant"] .tab-btn:hover{color:var(--text);background:none !important;}
+    html[data-design="elegant"] .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:none !important;}
+
+    /* Controls — flat, hairline */
+    html[data-design="elegant"] select,
+    html[data-design="elegant"] button,
+    html[data-design="elegant"] .filter-btn,
+    html[data-design="elegant"] .week-btn,
+    html[data-design="elegant"] .picker-bar input[type=text]{
+      background:transparent !important;box-shadow:none !important;border:1px solid var(--border) !important;border-radius:2px;color:var(--text2);
+      font-family:'Jost',sans-serif;letter-spacing:0.5px;transition:border-color .2s,color .2s;}
+    html[data-design="elegant"] select:hover,
+    html[data-design="elegant"] button:hover,
+    html[data-design="elegant"] .filter-btn:hover,
+    html[data-design="elegant"] .week-btn:hover{border-color:var(--accent) !important;color:var(--text);}
+    html[data-design="elegant"] .filter-btn.active,
+    html[data-design="elegant"] .week-btn.active{border-color:var(--accent) !important;color:var(--accent);background:rgba(201,167,102,0.06) !important;}
+    html[data-design="elegant"] #stats-subtabs .tab-btn,html[data-design="elegant"] #gabe-subtabs .tab-btn{border:1px solid var(--border);border-radius:2px;padding:8px 16px;}
+    html[data-design="elegant"] #stats-subtabs .tab-btn.active,html[data-design="elegant"] #gabe-subtabs .tab-btn.active{border-color:var(--accent);}
+
+    /* Cards / sections — airy, hairline, minimal shadow */
+    html[data-design="elegant"] .card,
+    html[data-design="elegant"] .sec,
+    html[data-design="elegant"] .hist-item,
+    html[data-design="elegant"] .trade-card,
+    html[data-design="elegant"] .stat-card,
+    html[data-design="elegant"] .prof-stat,
+    html[data-design="elegant"] .prof-chip,
+    html[data-design="elegant"] .lineup-list,
+    html[data-design="elegant"] .conf-col,
+    html[data-design="elegant"] .div-winner,
+    html[data-design="elegant"] .motw-fact,
+    html[data-design="elegant"] .motw-take,
+    html[data-design="elegant"] .motw-odds-team,
+    html[data-design="elegant"] .allrec-card,
+    html[data-design="elegant"] .gabe-ptbox,
+    html[data-design="elegant"] .honor-tile,
+    html[data-design="elegant"] .bracket-game,
+    html[data-design="elegant"] .punish-opt{
+      background:linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0)) !important;
+      border:1px solid var(--border) !important;border-radius:3px !important;box-shadow:none !important;}
+    html[data-design="elegant"] .sec{border:none !important;background:none !important;}
+    html[data-design="elegant"] .card{border-radius:3px !important;}
+    html[data-design="elegant"] .prof-stat::before{background:var(--accent);opacity:.5;width:2px;}
+    html[data-design="elegant"] .prof-stat:hover{transform:none;box-shadow:none;border-color:var(--accent) !important;}
+
+    /* Section header underline flourish */
+    html[data-design="elegant"] .sec-head{border-bottom:1px solid var(--border);padding-bottom:12px;gap:12px;}
+    html[data-design="elegant"] .sec-head i,html[data-design="elegant"] .section-header i{color:var(--accent);}
+
+    /* Tables — hairline, letterspaced heads */
+    html[data-design="elegant"] thead th{font-family:'Jost',sans-serif;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border);}
+    html[data-design="elegant"] tbody tr{border-top:1px solid var(--border);}
+    html[data-design="elegant"] tbody tr:hover{background:rgba(201,167,102,0.045);}
+
+    /* Chips, tiles, honors, headlines dots→gold */
+    html[data-design="elegant"] .prof-chip{background:rgba(255,255,255,0.02) !important;border-radius:3px !important;}
+    html[data-design="elegant"] .lineup-slot-pos{border-radius:2px;}
+    html[data-design="elegant"] .prof-banner{border-radius:3px !important;box-shadow:none !important;
+      background:radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--tc) 30%, transparent) 0%, transparent 60%), linear-gradient(180deg,rgba(255,255,255,0.02),transparent) !important;}
+    html[data-design="elegant"] .prof-badge .tm-avatar{border-radius:4px !important;}
+
+    /* Coaching bars, headline winner, misc accents already read from vars */
+    html[data-design="elegant"] .coaching-bar-fill{opacity:.9;}
+    html[data-design="elegant"] .video-featured,html[data-design="elegant"] .trade-card,html[data-design="elegant"] .lineup-list{border-radius:3px !important;}
+    html[data-design="elegant"] .gabe-heart svg{filter:drop-shadow(0 10px 26px rgba(0,0,0,0.55));}
+    html[data-design="elegant"] .modal,html[data-design="elegant"] .pin-box{border-radius:4px;background:var(--bg2);}
+
+    /* Footer */
+    html[data-design="elegant"] footer{letter-spacing:2px;text-transform:uppercase;font-size:10px;}
+
   </style>
 </head>
 <body>
@@ -789,6 +939,7 @@
   </div>
   <div class="controls">
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
+    <button id="design-toggle" onclick="toggleDesign()" title="Switch design" aria-label="Switch design"><i class="fa fa-wand-magic-sparkles"></i></button>
     <button id="theme-toggle" onclick="toggleTheme()" title="Light / dark mode" aria-label="Toggle light mode"><i class="fa fa-sun"></i></button>
     <select id="season-select" onchange="loadDashboard()">
       <option value="2026">2026 Season</option>
