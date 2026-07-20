@@ -54,37 +54,6 @@ function toggleTheme(){
   renderTradesTab(); // re-tint team colors for the new background
 }
 applyTheme(document.documentElement.dataset.theme||'dark');
-// ── DESIGN (classic vs elegant) ─────────────────────────────────────────────
-function applyDesign(d){
-  document.documentElement.dataset.design=d;
-  try{localStorage.setItem('gfl-design',d);}catch{}
-  const tt=document.getElementById('theme-toggle');
-  if(tt) tt.style.display=(d==='elegant')?'none':'';   // elegant is its own palette
-  const ic=document.querySelector('#design-toggle i');
-  if(ic) ic.className='fa '+(d==='elegant'?'fa-snowflake':'fa-wand-magic-sparkles');
-  // Elegant is a self-contained LIGHT design. Reuse the site's working light
-  // foundation (every component already renders correctly on light), then the
-  // elegant CSS block layers its own palette/fonts/shapes on top.
-  if(d==='elegant'){
-    if(document.documentElement.dataset.theme!=='dark'){
-      try{localStorage.setItem('gfl-theme-prev',document.documentElement.dataset.theme||'dark');}catch{}
-    }
-    document.documentElement.dataset.theme='dark';
-  }else{
-    let prev='dark';
-    try{prev=localStorage.getItem('gfl-theme')||'dark';}catch{}
-    try{if(localStorage.getItem('gfl-theme-prev')) prev=localStorage.getItem('gfl-theme-prev');}catch{}
-    document.documentElement.dataset.theme=prev;
-    const it=document.querySelector('#theme-toggle i');
-    if(it) it.className='fa '+(prev==='light'?'fa-moon':'fa-sun');
-  }
-}
-function toggleDesign(){
-  applyDesign(document.documentElement.dataset.design==='elegant'?'classic':'elegant');
-  try{renderTradesTab();}catch{}
-}
-applyDesign(document.documentElement.dataset.design||'classic');
-
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
   document.getElementById('dot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
