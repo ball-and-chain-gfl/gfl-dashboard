@@ -248,6 +248,65 @@ export default async function handler(req, res) {
   // Response: { season, teams: { [teamId]: { [playerId]: { n, w, s, p } } } }
   //   n = player name, w = weeks rostered, s = weeks started, p = points scored
   //   while on that roster (start or bench).
+  // ── Single player's weekly games with GFL matchup context ────────────────────
+  //   /api/espn?type=playergames&seasonId=2024&playerId=4243537
+  if (type === 'playergames') {
+    const pid = parseInt(req.query.playerId, 10);
+    if (!pid) return res.status(400).json({ error: 'playerId required' });
+    const BENCH_SLOTS = [20, 21, 24];
+    const REC = 53, YDS = 42, TD = 43;
+    try {
+      // schedule for matchup context
+      const schedRes = await fetch(leagueURL('mMatchup'), { headers });
+      const sched = (unwrap(await schedRes.json()).schedule) || [];
+      const weekIds = Array.from({ length: 18 }, (_, i) => i + 1);
+      const rosters = await Promise.all(weekIds.map(async w => {
+        try {
+          const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
+          if (!r.ok) return null;
+          return { week: w, data: unwrap(await r.json()) };
+        } catch { return null; }
+      }));
+      const finalWeek = (() => { for (const rr of rosters) if (rr?.data?.status?.finalScoringPeriod) return rr.data.status.finalScoringPeriod; return 17; })();
+      const games = [];
+      let name = null;
+      rosters.forEach(rr => {
+        if (!rr || rr.week > finalWeek) return;
+        (rr.data.teams || []).forEach(team => {
+          const e = (team.roster?.entries || []).find(x => x.playerId === pid);
+          if (!e) return;
+          const pl = e.playerPoolEntry?.player || {};
+          name = pl.fullName || name;
+          const st = (pl.stats || []).find(x => x.statSourceId === 0 && x.scoringPeriodId === rr.week);
+          if (!st) return; // bye / didn't play
+          const raw = st.stats || {};
+          const started = !BENCH_SLOTS.includes(e.lineupSlotId);
+          // matchup context
+          let opp = null, tp = null, op = null;
+          const mu = sched.find(m => m.matchupPeriodId === rr.week && m.home && m.away &&
+            (m.home.teamId === team.id || m.away.teamId === team.id));
+          if (mu) {
+            const home = mu.home.teamId === team.id;
+            tp = (home ? mu.home.totalPoints : mu.away.totalPoints) || 0;
+            op = (home ? mu.away.totalPoints : mu.home.totalPoints) || 0;
+            opp = home ? mu.away.teamId : mu.home.teamId;
+          }
+          games.push({
+            week: rr.week, teamId: team.id, started,
+            pts: +(st.appliedTotal ?? 0).toFixed(1),
+            rec: raw[REC] || 0, yds: raw[YDS] || 0, td: raw[TD] || 0,
+            oppTeamId: opp, teamPts: tp != null ? +tp.toFixed(1) : null, oppPts: op != null ? +op.toFixed(1) : null,
+            result: (tp != null && op != null) ? (tp > op ? 'W' : tp < op ? 'L' : 'T') : null,
+          });
+        });
+      });
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, playerId: pid, name, games });
+    } catch (err) { return res.status(500).json({ error: err.message, games: [] }); }
+  }
+
   if (type === 'seasontenure') {
     const BENCH_SLOTS = [20, 21, 24];
     const weekIds = Array.from({ length: 18 }, (_, i) => i + 1);
