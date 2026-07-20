@@ -433,6 +433,34 @@
     @media(max-width:900px){.prof-stats{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:560px){.prof-stats{grid-template-columns:repeat(2,1fr);}.prof-name{font-size:24px;}.prof-banner{padding:20px 16px;}.prof-banner-wm{width:150px;height:150px;}}}
 
+    /* GABE'S GREATNESS */
+    .gabe-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start;}
+    .gabe-game{display:flex;align-items:center;gap:14px;padding:13px 6px;border-bottom:1px solid var(--border);}
+    .gabe-game:last-child{border-bottom:none;}
+    .gabe-rank{font-family:'Big Shoulders Display',sans-serif;font-weight:800;color:var(--text3);font-size:16px;width:26px;text-align:center;flex-shrink:0;}
+    .gabe-ptbox{text-align:center;flex-shrink:0;background:linear-gradient(160deg,rgba(255,179,71,0.18),rgba(255,179,71,0.03));border:1px solid rgba(255,179,71,0.35);border-radius:12px;padding:8px 12px;min-width:66px;}
+    .gabe-pts{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:26px;line-height:1;color:var(--accent);}
+    .gabe-pts-l{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);}
+    .gabe-detail{min-width:0;flex:1;}
+    .gabe-line1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;}
+    .gabe-badge{font-family:'Work Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;border-radius:999px;padding:2px 8px;}
+    .gabe-badge.st{background:rgba(74,222,128,0.15);color:var(--green);}
+    .gabe-badge.bn{background:rgba(255,255,255,0.08);color:var(--text3);}
+    .gabe-when{font-size:12px;color:var(--text3);}
+    .gabe-stat{font-size:12px;color:var(--text2);margin-top:4px;}
+    .gabe-gfl{font-size:12px;color:var(--text3);margin-top:3px;}
+    .gabe-res{font-weight:800;font-family:'Big Shoulders Display',sans-serif;}
+    .gabe-res.w{color:var(--green);} .gabe-res.l{color:var(--red);}
+    /* monument */
+    .gabe-monument{position:sticky;top:88px;background:radial-gradient(120% 90% at 50% 0%,rgba(255,179,71,0.14),transparent 60%),linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);border-radius:16px;padding:24px 18px 18px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,0.07),0 20px 44px -30px rgba(0,0,0,0.8);}
+    html[data-theme="light"] .gabe-monument{background:radial-gradient(120% 90% at 50% 0%,rgba(255,179,71,0.18),transparent 60%),var(--bg2);}
+    .gabe-mon-head{position:relative;z-index:2;margin-bottom:-58px;display:flex;justify-content:center;}
+    .gabe-mon-head .phs{width:110px!important;height:110px!important;flex-basis:110px!important;border:4px solid var(--accent);box-shadow:0 10px 26px -10px rgba(0,0,0,0.8);}
+    .gabe-statue{display:block;margin:0 auto;max-width:240px;filter:drop-shadow(0 12px 24px rgba(0,0,0,0.5));}
+    .gabe-mon-cap{font-size:12px;color:var(--text3);margin-top:6px;}
+    @media(max-width:1000px){.gabe-layout{grid-template-columns:1fr;}.gabe-monument{position:static;max-width:320px;margin:0 auto;}}
+    @media(max-width:520px){.gabe-ptbox{min-width:56px;padding:6px 8px;}.gabe-pts{font-size:22px;}}
+
     /* bad beat o'meter */
     .badbeat-empty{display:flex;flex-direction:column;align-items:center;gap:20px;padding:44px 20px;text-align:center;}
     .badbeat-meter{width:180px;height:90px;border-radius:180px 180px 0 0;background:conic-gradient(from 180deg at 50% 100%,var(--green) 0deg,#e6c84f 90deg,var(--red) 180deg);position:relative;overflow:hidden;}
@@ -767,6 +795,7 @@
   <button class="tab-btn" data-tab="legacy" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishment</button>
   <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
+  <button class="tab-btn" data-tab="gabe" onclick="switchTab('gabe')"><i class="fa fa-dumbbell"></i>Gabe&#39;s Greatness</button>
   <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')"><i class="fa fa-person-running"></i>Marathons Ran</button>
 </nav>
 

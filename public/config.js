@@ -70,4 +70,7 @@ window.GFL_CONFIG = {
     intro: "The most painful, unlucky, and soul-crushing losses in league history.",
     entries: [],
   },
+
+  /* GABE'S GREATNESS — a shrine to Gabe Davis's finest fantasy outings in the GFL. */
+  gabe: { name: "Gabe Davis", playerId: 4243537 },
 };

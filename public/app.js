@@ -321,6 +321,7 @@ function switchTab(name){
   if(name==='punishment') renderPunishment();
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
+  if(name==='gabe') renderGabe();
 }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
@@ -1713,6 +1714,82 @@ function renderPunishment(){
     </div>`;
 }
 
+// ── GABE'S GREATNESS ─────────────────────────────────────────────────────────
+let _gabeGames=null,_gabePromise=null;
+function gabeMonument(pid){
+  return `<div class="gabe-monument">
+    <div class="gabe-mon-head">${playerImg(pid,120,'Gabe Davis')}</div>
+    <svg viewBox="0 0 240 320" width="100%" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="gabe-statue">
+      <defs>
+        <linearGradient id="marble" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffe9b0"/><stop offset="0.45" stop-color="#e8b25a"/><stop offset="1" stop-color="#9c6613"/>
+        </linearGradient>
+        <linearGradient id="ped" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a10"/><stop offset="1" stop-color="#1c1408"/></linearGradient>
+      </defs>
+      <!-- neck -->
+      <rect x="108" y="20" width="24" height="26" rx="6" fill="url(#marble)"/>
+      <!-- traps/shoulders -->
+      <path d="M60 84 Q120 40 180 84 L176 104 Q120 78 64 104 Z" fill="url(#marble)"/>
+      <!-- flexed arms (double-biceps) -->
+      <path d="M60 86 Q22 92 26 132 Q30 168 66 168 Q52 150 58 128 Q64 108 84 104 Z" fill="url(#marble)"/>
+      <path d="M180 86 Q218 92 214 132 Q210 168 174 168 Q188 150 182 128 Q176 108 156 104 Z" fill="url(#marble)"/>
+      <!-- forearms flexed up to head -->
+      <path d="M30 130 Q16 96 60 62 L74 74 Q40 100 48 132 Z" fill="url(#marble)"/>
+      <path d="M210 130 Q224 96 180 62 L166 74 Q200 100 192 132 Z" fill="url(#marble)"/>
+      <!-- chest + abs torso (V taper) -->
+      <path d="M68 100 Q120 86 172 100 L156 210 Q120 228 84 210 Z" fill="url(#marble)"/>
+      <!-- pec line + ab hints -->
+      <path d="M120 104 L120 196 M84 122 Q120 138 156 122" fill="none" stroke="#7a4f11" stroke-width="2.5" opacity="0.55"/>
+      <path d="M96 150 h48 M96 168 h48 M96 186 h48" stroke="#7a4f11" stroke-width="2" opacity="0.4"/>
+      <!-- pedestal -->
+      <rect x="56" y="212" width="128" height="18" rx="3" fill="url(#marble)"/>
+      <rect x="44" y="230" width="152" height="66" rx="6" fill="url(#ped)" stroke="url(#marble)" stroke-width="2"/>
+      <text x="120" y="262" text-anchor="middle" font-family="'Big Shoulders Display',sans-serif" font-weight="800" font-size="19" fill="url(#marble)" letter-spacing="1">GABE'S</text>
+      <text x="120" y="284" text-anchor="middle" font-family="'Big Shoulders Display',sans-serif" font-weight="800" font-size="19" fill="url(#marble)" letter-spacing="1">GREATNESS</text>
+    </svg>
+    <div class="gabe-mon-cap">A monument to the legend himself 💪</div>
+  </div>`;
+}
+async function loadGabe(pid){
+  if(_gabeGames) return _gabeGames;
+  if(_gabePromise) return _gabePromise;
+  _gabePromise=(async()=>{
+    const res=await Promise.allSettled(ALL_SEASONS.map(async s=>{
+      const r=await fetch(`${BASE}?type=playergames&seasonId=${s}&playerId=${pid}`);
+      return r.ok?{s,d:await r.json()}:null;
+    }));
+    const all=[];
+    res.forEach(rr=>{if(rr.status!=='fulfilled'||!rr.value)return;const {s,d}=rr.value;(d.games||[]).forEach(g=>all.push({...g,season:s}));});
+    _gabeGames=all; return all;
+  })();
+  return _gabePromise;
+}
+async function renderGabe(){
+  const body=document.getElementById('gabe-body'), mon=document.getElementById('gabe-monument');
+  if(!body) return;
+  const cfg=_CFG.gabe||{}; const pid=cfg.playerId||4243537;
+  if(mon) mon.innerHTML=gabeMonument(pid);
+  if(!_gabeGames){ body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Digging up every Gabe Davis box score…</div>`; }
+  const games=await loadGabe(pid);
+  if(!games.length){ body.innerHTML=`<div class="tab-loading">No Gabe Davis games found in league history.</div>`; return; }
+  const top=games.slice().sort((a,b)=>b.pts-a.pts).slice(0,15);
+  const best=top[0]?.pts||0;
+  body.innerHTML=`
+    <div style="font-size:13px;color:var(--text2);margin:0 2px 14px;line-height:1.6">Every week a GFL manager rostered Gabe Davis, ranked by fantasy points. His career GFL high: <b style="color:var(--accent)">${best.toFixed(1)}</b>.</div>
+    ${top.map((g,i)=>`
+      <div class="gabe-game">
+        <div class="gabe-rank">#${i+1}</div>
+        <div class="gabe-ptbox"><div class="gabe-pts">${g.pts.toFixed(1)}</div><div class="gabe-pts-l">pts</div></div>
+        <div class="gabe-detail">
+          <div class="gabe-line1">${tradeTeamAvatar(g.season,g.teamId)}<span class="fr-name">${tradeTeamName(g.season,g.teamId)}</span>
+            <span class="gabe-badge ${g.started?'st':'bn'}">${g.started?'STARTED':'BENCHED'}</span>
+            <span class="gabe-when">${g.season} · Wk ${g.week}</span></div>
+          <div class="gabe-stat">${g.rec} rec · ${g.yds} yds · ${g.td} TD</div>
+          ${g.oppTeamId!=null?`<div class="gabe-gfl">GFL game: <b>${tradeTeamName(g.season,g.teamId)}</b> ${g.teamPts??'—'}–${g.oppPts??'—'} ${tradeTeamName(g.season,g.oppTeamId)} <span class="gabe-res ${g.result==='W'?'w':g.result==='L'?'l':''}">${g.result||''}</span></div>`:''}
+        </div>
+      </div>`).join('')}`;
+}
+
 // ── BAD BEAT O'METER ─────────────────────────────────────────────────────────
 function renderBadBeat(){
   const el=document.getElementById('badbeat-body'); if(!el) return;
@@ -2191,6 +2268,17 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xf7a9;">
           <div class="sec-head"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</div>
           <div id="badbeat-body"></div>
+        </div>
+      </div>
+
+      <!-- GABE'S GREATNESS -->
+      <div class="tab-page" id="page-gabe">
+        <div class="gabe-layout">
+          <div class="sec wm" data-wm="&#xf44b;">
+            <div class="sec-head"><i class="fa fa-dumbbell"></i>Gabe's Greatness<span class="badge-info">Gabe Davis's finest GFL outings</span></div>
+            <div id="gabe-body"></div>
+          </div>
+          <div id="gabe-monument"></div>
         </div>
       </div>
     `;
