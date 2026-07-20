@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ball & Chain GFL</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <script>document.documentElement.dataset.theme=localStorage.getItem('gfl-theme')||'dark';document.documentElement.dataset.accent=localStorage.getItem('gfl-accent')||'gold';</script>
+  <script>document.documentElement.dataset.theme=localStorage.getItem('gfl-theme')||'dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -754,16 +754,6 @@
     }
 
 
-    /* ── ACCENT OPTIONS (dark mode only) ─────────────────────────────────
-       Default is gold (:root). Others complement the dark UI. Scoped to dark
-       so light mode keeps its own palette. --accent-rgb feeds the tinted
-       glows/active states that used to be hard-coded gold. */
-    html[data-theme="dark"][data-accent="azure"]{--accent:#5aa9ff;--accent2:#3f8fe6;--accent-rgb:90,169,255;}
-    html[data-theme="dark"][data-accent="emerald"]{--accent:#3fd07a;--accent2:#2fb768;--accent-rgb:63,208,122;}
-    html[data-theme="dark"][data-accent="violet"]{--accent:#b58cff;--accent2:#9a6ff0;--accent-rgb:181,140,255;}
-    html[data-theme="dark"][data-accent="teal"]{--accent:#33d6c4;--accent2:#22b7a7;--accent-rgb:51,214,196;}
-    html[data-theme="dark"][data-accent="rose"]{--accent:#ff6f9c;--accent2:#f04d82;--accent-rgb:255,111,156;}
-
     /* ── OPAQUE PANELS in dark mode (was translucent → hard to read) ─────── */
     html[data-theme="dark"] .card,
     html[data-theme="dark"] .big4-team,
@@ -793,14 +783,66 @@
     html[data-theme="dark"] .draft-pos{background:#22222a!important;}
     html[data-theme="dark"] .coaching-bar{background:#2a2a32!important;}
 
-    /* ── ACCENT PICKER (swatches next to the theme toggle) ──────────────── */
-    #accent-picker{display:flex;align-items:center;gap:6px;padding:0 2px;}
-    #accent-picker button.sw{width:17px;height:17px;min-width:0;padding:0!important;border:1.5px solid rgba(255,255,255,0.3)!important;
-      border-radius:50%!important;box-shadow:none!important;cursor:pointer;transition:transform .12s ease,border-color .12s ease;}
-    #accent-picker button.sw:hover{transform:scale(1.18);border-color:rgba(255,255,255,0.6)!important;}
-    #accent-picker button.sw.active{border-color:#fff!important;box-shadow:0 0 0 2px rgba(255,255,255,0.28)!important;}
-    html[data-theme="light"] #accent-picker{display:none;}
-    @media(max-width:640px){#accent-picker button.sw{width:15px;height:15px;}}
+
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       PER-TAB COLORS — each tab owns a signature color, used in the nav and,
+       when active, as the accent throughout that tab (dark mode).
+       ═══════════════════════════════════════════════════════════════════════ */
+    .tab-btn[data-tab=home]{--tc:#ffb347;}
+    .tab-btn[data-tab=standings]{--tc:#5aa9ff;}
+    .tab-btn[data-tab=trades]{--tc:#3fd07a;}
+    .tab-btn[data-tab=draft]{--tc:#b58cff;}
+    .tab-btn[data-tab=history]{--tc:#33d6c4;}
+    .tab-btn[data-tab=tenure]{--tc:#ff6f9c;}
+    .tab-btn[data-tab=teams]{--tc:#ff8f5a;}
+    .tab-btn[data-tab=legacy]{--tc:#f4c04d;}
+    .tab-btn[data-tab=punishment]{--tc:#ff5f5f;}
+    .tab-btn[data-tab=badbeat]{--tc:#e879f9;}
+    .tab-btn[data-tab=gabe]{--tc:#a3e635;}
+    .tab-btn[data-tab=marathon]{--tc:#22d3ee;}
+    .tab-btn i{color:var(--tc);opacity:.8;transition:opacity .15s;}
+    .tab-btn:hover{background:color-mix(in srgb,var(--tc) 10%,transparent)!important;color:var(--text)!important;}
+    .tab-btn:hover i{opacity:1;}
+    .tab-btn.active{background:color-mix(in srgb,var(--tc) 16%,transparent)!important;color:var(--tc)!important;}
+    .tab-btn.active i{color:var(--tc)!important;opacity:1;}
+    html[data-theme="light"] .tab-btn.active{background:color-mix(in srgb,var(--tc) 15%,transparent)!important;color:color-mix(in srgb,var(--tc) 72%,#000)!important;}
+    html[data-theme="light"] .tab-btn.active i{color:color-mix(in srgb,var(--tc) 72%,#000)!important;}
+    html[data-theme="light"] .tab-btn i{color:color-mix(in srgb,var(--tc) 70%,#000);}
+
+    /* Active tab's color becomes the page accent (dark mode) */
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#ffb347;--accent2:#ff923d;--accent-rgb:255,179,71;}
+    html[data-theme="dark"][data-tabaccent=standings]{--accent:#5aa9ff;--accent2:#3f8fe6;--accent-rgb:90,169,255;}
+    html[data-theme="dark"][data-tabaccent=trades]{--accent:#3fd07a;--accent2:#2fb768;--accent-rgb:63,208,122;}
+    html[data-theme="dark"][data-tabaccent=draft]{--accent:#b58cff;--accent2:#9a6ff0;--accent-rgb:181,140,255;}
+    html[data-theme="dark"][data-tabaccent=history]{--accent:#33d6c4;--accent2:#22b7a7;--accent-rgb:51,214,196;}
+    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#ff6f9c;--accent2:#f04d82;--accent-rgb:255,111,156;}
+    html[data-theme="dark"][data-tabaccent=teams]{--accent:#ff8f5a;--accent2:#f0743f;--accent-rgb:255,143,90;}
+    html[data-theme="dark"][data-tabaccent=legacy]{--accent:#f4c04d;--accent2:#e0a828;--accent-rgb:244,192,77;}
+    html[data-theme="dark"][data-tabaccent=punishment]{--accent:#ff5f5f;--accent2:#e84545;--accent-rgb:255,95,95;}
+    html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e879f9;--accent2:#d94ef0;--accent-rgb:232,121,249;}
+    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#a3e635;--accent2:#8bcc1f;--accent-rgb:163,230,53;}
+    html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#12b9d4;--accent-rgb:34,211,238;}
+
+    /* ── TEXTURED "TECH PREMIUM" BACKGROUND (dark) ──────────────────────────
+       Deep base + faint blueprint mesh + an accent-tinted top glow that shifts
+       with the active tab's color. Grain sits on top via .bg-fx. */
+    html[data-theme="dark"] body{
+      background:
+        radial-gradient(1150px 560px at 50% -8%, rgba(var(--accent-rgb),0.11), transparent 60%),
+        linear-gradient(rgba(255,255,255,0.023) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.023) 1px, transparent 1px),
+        radial-gradient(1200px 900px at 50% 0%, #131118 0%, #0b0a0e 46%, #070709 100%);
+      background-size: 100% 100%, 46px 46px, 46px 46px, 100% 100%;
+      background-attachment: fixed;
+      transition: background .4s ease;
+    }
+    html[data-theme="dark"] .bg-fx::after{opacity:0.06;}
+
+    /* ── MATCHUP HEADLINES: keep the headline a clean borderless block ────── */
+    html[data-theme="dark"] .hl-card,
+    .hl-card{background:none!important;border:none!important;box-shadow:none!important;padding:10px 2px 4px!important;}
+    .hl-tabs{padding:2px 0 14px;margin-bottom:12px;}
 
   </style>
 </head>
@@ -839,14 +881,6 @@
   </div>
   <div class="controls">
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
-    <div id="accent-picker" title="Accent color (dark mode)">
-      <button class="sw" data-accent="gold" style="background:#ffb347" onclick="setAccent('gold')" title="Gold" aria-label="Gold accent"></button>
-      <button class="sw" data-accent="azure" style="background:#5aa9ff" onclick="setAccent('azure')" title="Azure" aria-label="Azure accent"></button>
-      <button class="sw" data-accent="emerald" style="background:#3fd07a" onclick="setAccent('emerald')" title="Emerald" aria-label="Emerald accent"></button>
-      <button class="sw" data-accent="teal" style="background:#33d6c4" onclick="setAccent('teal')" title="Teal" aria-label="Teal accent"></button>
-      <button class="sw" data-accent="violet" style="background:#b58cff" onclick="setAccent('violet')" title="Violet" aria-label="Violet accent"></button>
-      <button class="sw" data-accent="rose" style="background:#ff6f9c" onclick="setAccent('rose')" title="Rose" aria-label="Rose accent"></button>
-    </div>
     <button id="theme-toggle" onclick="toggleTheme()" title="Light / dark mode" aria-label="Toggle light mode"><i class="fa fa-sun"></i></button>
     <select id="season-select" onchange="loadDashboard()">
       <option value="2026">2026 Season</option>

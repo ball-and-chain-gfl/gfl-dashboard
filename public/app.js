@@ -54,14 +54,6 @@ function toggleTheme(){
   renderTradesTab(); // re-tint team colors for the new background
 }
 applyTheme(document.documentElement.dataset.theme||'dark');
-// ── ACCENT COLOR (dark mode) ─────────────────────────────────────────────────
-function setAccent(name){
-  document.documentElement.dataset.accent=name;
-  try{localStorage.setItem('gfl-accent',name);}catch{}
-  document.querySelectorAll('#accent-picker .sw').forEach(b=>b.classList.toggle('active',b.dataset.accent===name));
-}
-(function(){const a=document.documentElement.dataset.accent||'gold';
-  document.querySelectorAll('#accent-picker .sw').forEach(b=>b.classList.toggle('active',b.dataset.accent===a));})();
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
   document.getElementById('dot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
@@ -319,6 +311,7 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 function switchTab(name){
   _activeTab=name;
+  document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   if(name==='tenure') ensureTenure();
