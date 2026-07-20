@@ -943,6 +943,71 @@
     /* Accent-tinted status dot */
     html[data-design="elegant"] .dot.live{background:var(--accent)!important;box-shadow:0 0 8px var(--accent)!important;}
 
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       ELEGANT · NIVIS MOTION & SPACING
+       Matches nivisgear.com's spacing language (1480px container, 8/12/16/24
+       rhythm) and its motion vocabulary: a uniform 0.3s ease on background /
+       color / border / transform / opacity / filter, hover lifts & image
+       zoom, underline-thicken links, a pulsing live dot, and a fade-up reveal
+       as each tab section appears (mirrors their scroll reveals). Elegant only.
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* Container width to match nivis (1480px / 12px gutters) */
+    html[data-design="elegant"] main{max-width:1480px;}
+
+    /* Unified 0.3s ease transition on every interactive/animatable surface */
+    html[data-design="elegant"] .tab-btn,
+    html[data-design="elegant"] button,
+    html[data-design="elegant"] select,
+    html[data-design="elegant"] .filter-btn,
+    html[data-design="elegant"] .week-btn,
+    html[data-design="elegant"] .hl-tab,
+    html[data-design="elegant"] .bn,
+    html[data-design="elegant"] .odd-chip,
+    html[data-design="elegant"] .card,
+    html[data-design="elegant"] .big4-team,
+    html[data-design="elegant"] .prof-stat,
+    html[data-design="elegant"] .trade-card,
+    html[data-design="elegant"] .hist-item,
+    html[data-design="elegant"] .coaching-row,
+    html[data-design="elegant"] .video-thumb,
+    html[data-design="elegant"] .video-thumb img,
+    html[data-design="elegant"] .logo img,
+    html[data-design="elegant"] .tlink,
+    html[data-design="elegant"] a{
+      transition:background-color .3s ease,color .3s ease,border-color .3s ease,
+                 transform .3s ease,opacity .3s ease,filter .3s ease,box-shadow .3s ease,
+                 text-decoration-thickness .2s ease!important;
+    }
+
+    /* Chunky uppercase controls (nivis buttons: uppercase, 4px, generous pad) */
+    html[data-design="elegant"] select{text-transform:uppercase;letter-spacing:0.8px;font-size:12px;padding-top:9px;padding-bottom:9px;}
+    html[data-design="elegant"] .tab-btn{padding-top:9px!important;padding-bottom:9px!important;}
+
+    /* Hover lift on cards, matching their transform-driven hovers */
+    html[data-design="elegant"] .card:hover,
+    html[data-design="elegant"] .trade-card:hover,
+    html[data-design="elegant"] .hist-item:hover{transform:translateY(-3px);border-color:rgba(191,238,22,0.45)!important;}
+    html[data-design="elegant"] .coaching-row:hover{transform:translateX(3px);}
+
+    /* Product-style image zoom on hover (video thumbnails) */
+    html[data-design="elegant"] .video-thumb{overflow:hidden;}
+    html[data-design="elegant"] .video-thumb:hover img{transform:scale(1.06);filter:brightness(1.1);}
+
+    /* Team-name links: underline thickens on hover (nivis link behaviour) */
+    html[data-design="elegant"] .tlink{text-underline-offset:3px;text-decoration-thickness:1px;}
+    html[data-design="elegant"] .tlink:hover{color:var(--accent)!important;text-decoration:underline;text-decoration-thickness:2px;}
+
+    /* Live dot: subtle pulse (echoes their subtlePulse keyframe) */
+    @keyframes nivisPulse{0%{box-shadow:0 0 0 0 rgba(191,238,22,0.5);}70%{box-shadow:0 0 0 6px rgba(191,238,22,0);}100%{box-shadow:0 0 0 0 rgba(191,238,22,0);}}
+    html[data-design="elegant"] .dot.live{animation:nivisPulse 2.2s ease-out infinite;}
+
+    /* Fade-up reveal as each section appears on tab change (their scroll reveal) */
+    @keyframes nivisUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
+    html[data-design="elegant"] .tab-page.active .sec{animation:nivisUp .5s cubic-bezier(.2,.7,.2,1) both;}
+    html[data-design="elegant"] .tab-page.active .home-bottom .sec{animation-delay:.08s;}
+
   </style>
 </head>
 <body>
