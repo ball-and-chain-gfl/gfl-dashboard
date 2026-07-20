@@ -394,7 +394,7 @@
     .badbeat-meter::after{content:'';position:absolute;left:14%;top:28%;width:72%;height:144%;border-radius:180px 180px 0 0;background:var(--bg);}
     .badbeat-needle{position:absolute;left:50%;bottom:0;width:3px;height:74px;background:var(--text);transform-origin:bottom center;transform:translateX(-50%) rotate(38deg);z-index:2;border-radius:2px;animation:beatswing 2.6s ease-in-out infinite alternate;}
     @keyframes beatswing{from{transform:translateX(-50%) rotate(-46deg);}to{transform:translateX(-50%) rotate(46deg);}}
-    .badbeat-empty-txt{font-size:14px;color:var(--text2);line-height:1.7;max-width:420px;}
+    .badbeat-empty-txt{font-size:14px;color:var(--text2);line-height:1.7;max-width:420px;width:100%;box-sizing:border-box;padding:0 6px;}
     .badbeat-rank{font-family:'Big Shoulders Display',sans-serif;color:var(--red);font-weight:800;}
     @media (prefers-reduced-motion:reduce){.badbeat-needle{animation:none;}}
 
