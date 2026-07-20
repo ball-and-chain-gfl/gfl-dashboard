@@ -1445,13 +1445,14 @@ function renderLeagueHistory(){
     </div>
     </div>
     <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
-      <div class="sec-head"><i class="fa fa-clipboard-list"></i>All-Time Records<span class="badge-info">every season combined</span></div>
+      <div class="sec-head"><i class="fa fa-clipboard-list"></i>All-Time Records<span class="badge-info">by win % · every season combined</span></div>
       <div class="allrec-grid">
-        ${_franchises.map(fr=>{
-          const at=franchiseAllTime(fr.owner);
-          const g=at.w+at.l+at.t, pct=g?at.w/g:0;
+        ${_franchises.map(fr=>{const at=franchiseAllTime(fr.owner);const g=at.w+at.l+at.t;return {fr,at,pct:g?at.w/g:0};})
+          .sort((a,b)=>b.pct-a.pct||b.at.w-a.at.w)
+          .map(({fr,at,pct},i)=>{
           const tid=(_teams.find(x=>_ownerMap[x.id]===fr.owner)||{}).id||'';
           return `<div class="allrec-card">
+            <span class="allrec-rank">${i+1}</span>
             ${avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),34,9)}
             <div class="allrec-info">
               <div class="fr-name tlink" data-tid="${tid}">${fr.name}</div>
@@ -1746,7 +1747,7 @@ function openTeamProfile(teamId){
   switchTab('teams');
   document.querySelector('main')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function renderProfile(){
+async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
   const sel=document.getElementById('profile-team-select');
   const id=Number(sel?.value||_profileTeam||_teams[0]?.id);
@@ -1754,44 +1755,58 @@ function renderProfile(){
   const owner=_ownerMap[id];
   const s=_scores[id]||0;
   const at=franchiseAllTime(owner);
-  const winpct=(at.w+at.l+at.t)?(at.w/(at.w+at.l+at.t)*100):0;
-  const stat=(label,val,sub,col)=>`<div class="prof-stat"><div class="prof-stat-l">${label}</div><div class="prof-stat-v" ${col?`style="color:${col}"`:''}>${val}</div>${sub?`<div class="prof-stat-s">${sub}</div>`:''}</div>`;
-  // all-time vs league
+  const g=at.w+at.l+at.t, winpct=g?(at.w/g*100):0;
+  const cur=_seasonMeta[getSeason()];
+  const seed=cur?.teams?.[id]?.seed||0;
+  const conf=cur?.teams?.[id]?(cur.divisions?.[cur.teams[id].div]||''):'';
+  const aw=awardsForOwner(owner);
+  const tcRaw=await logoMainColor(id);         // dominant logo color for the banner tint
+  const tc=readableColor(tcRaw);
+
+  const stat=(icon,label,val,sub,col)=>`<div class="prof-stat"><div class="prof-stat-top"><i class="fa ${icon}"></i><span class="prof-stat-l">${label}</span></div><div class="prof-stat-v" ${col?`style="color:${col}"`:''}>${val}</div>${sub?`<div class="prof-stat-s">${sub}</div>`:''}</div>`;
+  const chip=(label,val,col)=>`<div class="prof-chip"><div class="prof-chip-v" ${col?`style="color:${col}"`:''}>${val}</div><div class="prof-chip-l">${label}</div></div>`;
+
   const oppRows=_franchises.filter(f=>f.owner!==owner).map(opp=>{
     const key=owner<opp.owner?`${owner}|${opp.owner}`:`${opp.owner}|${owner}`;
     const k=_h2hAll[key]; if(!k||!k[owner]) return null;
-    const mine=k[owner],g=mine.games,wl=mine.w,t2=mine.t,ll=g-wl-t2;
-    return {opp,w:wl,l:ll,g,pct:g?wl/g:0};
+    const mine=k[owner],gg=mine.games,wl=mine.w,t2=mine.t,ll=gg-wl-t2;
+    return {opp,w:wl,l:ll,g:gg,pct:gg?wl/gg:0};
   }).filter(Boolean).sort((a,b)=>b.g-a.g);
-  const cur=_seasonMeta[getSeason()];
-  const seedTxt=cur?.teams?.[id]?.seed?`#${cur.teams[id].seed} seed`:'';
+
   el.innerHTML=`
-    <div class="prof-hero">
-      ${logoImg(id,'big4-logo')}
-      <div>
-        <div class="prof-name">${t.name}</div>
-        <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''} in the league</div>
+    <div class="prof-banner" style="--tc:${tcRaw}">
+      <div class="prof-banner-wm">${(_logoMap[id]?`<img src="${_logoMap[id]}" alt="" decoding="async"/>`:'')}</div>
+      <div class="prof-banner-row">
+        <div class="prof-badge">${logoImg(id,'big4-logo')}</div>
+        <div class="prof-headline">
+          <div class="prof-name">${t.name}</div>
+          <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''}${conf?` · ${conf} Conference`:''}${seed?` · #${seed} seed in ${getSeason()}`:''}</div>
+          <div class="prof-chips">
+            ${chip('All-Time',`${at.w}–${at.l}`,'')}
+            ${chip('Win %',`${winpct.toFixed(1)}%`,winpct>=50?'var(--green)':'var(--red)')}
+            ${chip('Titles',`${at.rings}${at.rings?' 🏆':''}`,at.rings?'var(--accent)':'')}
+            ${chip('Best Finish',at.best?`#${at.best}`:'—','')}
+          </div>
+        </div>
       </div>
     </div>
-    ${(()=>{const aw=awardsForOwner(owner);if(!at.rings&&!at.confs&&!aw.length)return '';
-      const yrs=(_hardwareHonors[owner]&&{champ:[],conf:[]})||null;
-      return `<div class="sec-head" style="font-size:15px"><i class="fa fa-medal" style="color:var(--accent)"></i>Honors &amp; Awards</div>
-      <div class="prof-honors">${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}</div>`;})()}
+    ${(at.rings||at.confs||aw.length)?`<div class="sec-head" style="font-size:15px"><i class="fa fa-medal" style="color:var(--accent)"></i>Honors &amp; Awards</div>
+      <div class="prof-honors">${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}</div>`:''}
     <div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
-      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seedTxt)}
-      ${stat('Points For',t.pf.toFixed(1),'',`var(--green)`)}
-      ${stat('Points Against',t.pa.toFixed(1),'',`var(--red)`)}
-      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),'',sc(s))}
-      ${stat('Moves',t.moves,`${t.trades} trades`)}
+      ${stat('fa-scale-balanced','Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seed?`#${seed} seed`:'')}
+      ${stat('fa-fire','Points For',t.pf.toFixed(1),'','var(--green)')}
+      ${stat('fa-shield-halved','Points Against',t.pa.toFixed(1),'','var(--red)')}
+      ${stat('fa-brain','Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),'',sc(s))}
+      ${stat('fa-arrow-trend-up','Moves',t.moves,`${t.trades} trades`)}
     </div>
     <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
     <div class="prof-stats">
-      ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,`${winpct.toFixed(1)}% win`,winpct>=50?'var(--green)':'var(--red)')}
-      ${stat('Points For',at.pf.toFixed(0),'',`var(--green)`)}
-      ${stat('Points Against',at.pa.toFixed(0),'',`var(--red)`)}
-      ${stat('Championships',at.rings,at.rings?'🏆':'')}
-      ${stat('Best Finish',at.best?`#${at.best}`:'—','')}
+      ${stat('fa-scale-balanced','Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,`${winpct.toFixed(1)}% win`,winpct>=50?'var(--green)':'var(--red)')}
+      ${stat('fa-fire','Points For',at.pf.toFixed(0),'','var(--green)')}
+      ${stat('fa-shield-halved','Points Against',at.pa.toFixed(0),'','var(--red)')}
+      ${stat('fa-crown','Championships',at.rings,at.rings?'🏆':'')}
+      ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','')}
     </div>
     ${oppRows.length?`<div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
     <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
@@ -1802,7 +1817,6 @@ function renderProfile(){
       <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
     </tr>`).join('')}</tbody></table></div>`:''}`;
 }
-
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
 function selectVideo(videoId){
   _activeVideoId=videoId;
