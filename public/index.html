@@ -994,6 +994,96 @@
     /* Footer */
     html[data-design="elegant"] footer{letter-spacing:2px;text-transform:uppercase;font-size:10px;color:var(--text3);}
 
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       ELEGANT · PER-PAGE LAYOUT (decimals-style editorial restructure)
+       These rules change the actual ARRANGEMENT of sections and cards for the
+       elegant design only — stacked full-width flow, borderless "bands" split
+       by hairlines, unified list cards, and an eyebrow rule over each heading.
+       Classic markup is untouched (everything is scoped to data-design).
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* Eyebrow tick above every in-page section heading (decimals signature) */
+    html[data-design="elegant"] .sec-head::before{
+      content:"";display:block;flex-basis:100%;width:34px;height:2px;
+      background:var(--text);opacity:0.38;margin-bottom:16px;
+    }
+
+    /* ── HOME: break the 2×2 quadrant grid into a calm stacked editorial flow ── */
+    html[data-design="elegant"] .home-top{grid-template-columns:1fr!important;gap:66px!important;margin-bottom:66px!important;}
+    html[data-design="elegant"] .home-bottom{grid-template-columns:1fr!important;gap:66px!important;}
+    html[data-design="elegant"] .home-right{gap:60px!important;}
+
+    /* Big 4 → one unified list card with numbered horizontal rows */
+    html[data-design="elegant"] .big4-grid{
+      grid-template-columns:1fr!important;gap:0!important;
+      background:var(--bg2)!important;border:1px solid var(--border)!important;
+      border-radius:20px!important;overflow:hidden;box-shadow:var(--el-card)!important;
+    }
+    html[data-design="elegant"] .big4-team{
+      background:transparent!important;border:none!important;border-radius:0!important;
+      box-shadow:none!important;border-top:1px solid var(--border)!important;
+      padding:18px 22px!important;align-items:center!important;transform:none!important;
+    }
+    html[data-design="elegant"] .big4-grid .big4-team:first-child{border-top:none!important;}
+    html[data-design="elegant"] .big4-team:hover{background:rgba(77,70,56,0.04)!important;box-shadow:none!important;transform:none!important;}
+
+    /* Headlines → borderless stacked editorial rows split by hairlines */
+    html[data-design="elegant"] .headline-grid{grid-template-columns:1fr!important;gap:0!important;}
+    html[data-design="elegant"] .headline-card{
+      background:transparent!important;border:none!important;border-radius:0!important;
+      box-shadow:none!important;border-top:1px solid var(--border)!important;padding:20px 2px!important;
+    }
+    html[data-design="elegant"] .headline-grid .headline-card:first-child{border-top:none!important;}
+
+    /* ── STANDINGS: 3 boxes → one cream "stat band" divided by vertical rules ── */
+    html[data-design="elegant"] .stat-grid{
+      grid-template-columns:repeat(3,1fr)!important;gap:0!important;margin-bottom:52px!important;
+      background:var(--bg2)!important;border:1px solid var(--border)!important;
+      border-radius:22px!important;overflow:hidden;box-shadow:var(--el-card)!important;
+    }
+    html[data-design="elegant"] .stat-card{
+      background:transparent!important;border:none!important;border-radius:0!important;box-shadow:none!important;
+      border-left:1px solid var(--border)!important;padding:34px 32px!important;
+    }
+    html[data-design="elegant"] .stat-grid .stat-card:first-child{border-left:none!important;}
+    /* Two-col mini-tables → more air between the pair */
+    html[data-design="elegant"] .two-col{gap:56px!important;margin-bottom:0!important;}
+
+    /* ── PROFILES: season stats → a stat band; honors → inline row; wider hero ── */
+    html[data-design="elegant"] .prof-stats{
+      grid-template-columns:repeat(5,1fr)!important;gap:0!important;
+      background:var(--bg2)!important;border:1px solid var(--border)!important;
+      border-radius:20px!important;overflow:hidden;box-shadow:var(--el-card)!important;
+    }
+    html[data-design="elegant"] .prof-stat{
+      background:transparent!important;border:none!important;border-radius:0!important;box-shadow:none!important;
+      border-left:1px solid var(--border)!important;padding:26px 20px!important;transform:none!important;
+    }
+    html[data-design="elegant"] .prof-stats .prof-stat:first-child{border-left:none!important;}
+    html[data-design="elegant"] .prof-stat:hover{transform:none!important;box-shadow:none!important;background:rgba(77,70,56,0.04)!important;}
+    /* Lineup vs each-team: asymmetric editorial split instead of 50/50 */
+    html[data-design="elegant"] .prof-cols{grid-template-columns:1.15fr 0.85fr!important;gap:40px!important;}
+
+    /* ── LEAGUE HISTORY: champions/records get generous stacked rhythm ──── */
+    html[data-design="elegant"] .div-winners{gap:28px!important;}
+    html[data-design="elegant"] .conf-cols{gap:28px!important;}
+    html[data-design="elegant"] .allrec-grid{gap:14px!important;}
+
+    /* ── MATCHUP OF THE WEEK: give the fact/take grids room to breathe ──── */
+    html[data-design="elegant"] .motw-facts{gap:20px!important;margin-bottom:26px!important;}
+    html[data-design="elegant"] .motw-takes{gap:26px!important;margin-bottom:26px!important;}
+
+    /* ── Responsive: collapse the bands cleanly on small screens ────────── */
+    @media(max-width:760px){
+      html[data-design="elegant"] .stat-grid{grid-template-columns:1fr!important;}
+      html[data-design="elegant"] .stat-card{border-left:none!important;border-top:1px solid var(--border)!important;}
+      html[data-design="elegant"] .stat-grid .stat-card:first-child{border-top:none!important;}
+      html[data-design="elegant"] .prof-stats{grid-template-columns:repeat(2,1fr)!important;}
+      html[data-design="elegant"] .prof-cols{grid-template-columns:1fr!important;}
+      html[data-design="elegant"] .home-top,html[data-design="elegant"] .home-bottom{gap:48px!important;}
+    }
+
   </style>
 </head>
 <body>
