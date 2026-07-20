@@ -853,6 +853,13 @@
     .hl-card{background:none!important;border:none!important;box-shadow:none!important;padding:10px 2px 4px!important;}
     .hl-tabs{padding:2px 0 14px;margin-bottom:12px;}
 
+    /* ── MOBILE FIX: allow grid items to shrink so wide inner tables scroll
+       within their .tscroll wrapper instead of forcing the whole page wider
+       (fixes Team Profiles horizontal overflow on phones) ────────────────── */
+    .prof-cols>*,.prof-col{min-width:0;}
+    .lineup-list{min-width:0;max-width:100%;}
+    .tscroll{min-width:0;}
+
   </style>
 </head>
 <body>
