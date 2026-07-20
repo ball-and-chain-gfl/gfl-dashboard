@@ -61,7 +61,23 @@ function applyDesign(d){
   const tt=document.getElementById('theme-toggle');
   if(tt) tt.style.display=(d==='elegant')?'none':'';   // elegant is its own palette
   const ic=document.querySelector('#design-toggle i');
-  if(ic) ic.className='fa '+(d==='elegant'?'fa-chess-rook':'fa-wand-magic-sparkles');
+  if(ic) ic.className='fa '+(d==='elegant'?'fa-feather-pointed':'fa-wand-magic-sparkles');
+  // Elegant is a self-contained LIGHT design. Reuse the site's working light
+  // foundation (every component already renders correctly on light), then the
+  // elegant CSS block layers its own palette/fonts/shapes on top.
+  if(d==='elegant'){
+    if(document.documentElement.dataset.theme!=='light'){
+      try{localStorage.setItem('gfl-theme-prev',document.documentElement.dataset.theme||'dark');}catch{}
+    }
+    document.documentElement.dataset.theme='light';
+  }else{
+    let prev='dark';
+    try{prev=localStorage.getItem('gfl-theme')||'dark';}catch{}
+    try{if(localStorage.getItem('gfl-theme-prev')) prev=localStorage.getItem('gfl-theme-prev');}catch{}
+    document.documentElement.dataset.theme=prev;
+    const it=document.querySelector('#theme-toggle i');
+    if(it) it.className='fa '+(prev==='light'?'fa-moon':'fa-sun');
+  }
 }
 function toggleDesign(){
   applyDesign(document.documentElement.dataset.design==='elegant'?'classic':'elegant');

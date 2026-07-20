@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ball & Chain GFL</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <script>document.documentElement.dataset.theme=localStorage.getItem('gfl-theme')||'dark';document.documentElement.dataset.design=localStorage.getItem('gfl-design')||'classic';</script>
+  <script>(function(){var d=localStorage.getItem('gfl-design')||'classic';document.documentElement.dataset.design=d;document.documentElement.dataset.theme=(d==='elegant')?'light':(localStorage.getItem('gfl-theme')||'dark');})();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -755,34 +755,39 @@
 
     /* ═══════════════════════════════════════════════════════════════════════
        ELEGANT DESIGN  ·  html[data-design="elegant"]
-       A self-contained premium restyle — warm charcoal + champagne gold,
-       Cormorant Garamond display serif over Jost. Airy, hairline, refined.
+       A ground-up, self-contained LIGHT design — an "editorial" identity that
+       is deliberately nothing like the classic dark theme. It rides on the
+       site's working light foundation (set in applyDesign) so every component
+       stays readable, then re-skins the whole surface: warm-paper canvas, a
+       deep pine-green accent, Bricolage Grotesque display over Inter Tight,
+       segmented pill navigation, and flat rounded cards with soft shadows.
        ═══════════════════════════════════════════════════════════════════════ */
     html[data-design="elegant"]{
-      --bg:#0d0c0a;--bg2:#141210;--bg3:#1b1814;
-      --border:rgba(201,167,102,0.16);
-      --text:#efe8d8;--text2:#b8ad95;--text3:#867c68;
-      --accent:#c9a24b;--accent2:#a98235;
-      --green:#8fb08a;--red:#c98686;--blue:#93a7c4;--purple:#b9a0d8;
+      --bg:#ebeee7;--bg2:#ffffff;--bg3:#f3f5ef;
+      --border:rgba(22,38,30,0.10);
+      --text:#141b17;--text2:#515a54;--text3:#8b948d;
+      --accent:#0f7f5b;--accent2:#0a5c42;
+      --green:#0f7f5b;--red:#c2453a;--blue:#2f6ad4;--purple:#7a49c7;
       --btn-edge:none;--btn-edge-hover:none;--btn-edge-active:none;--btn-edge-gold:none;
+      --el-shadow:0 1px 2px rgba(22,38,30,0.05),0 14px 32px -20px rgba(22,38,30,0.22);
+      --el-shadow-lift:0 2px 4px rgba(22,38,30,0.06),0 22px 46px -24px rgba(22,38,30,0.30);
     }
     html[data-design="elegant"] body{
-      font-family:'Jost',sans-serif;font-weight:300;letter-spacing:0.2px;
-      background:
-        radial-gradient(120% 80% at 50% -10%, rgba(201,167,102,0.10), transparent 55%),
-        radial-gradient(90% 60% at 100% 100%, rgba(147,167,196,0.05), transparent 60%),
-        linear-gradient(180deg,#100e0b,#0a0908 60%);
+      background:radial-gradient(1200px 600px at 50% -8%,#ffffff 0%,#eef1ea 46%,#e7ebe3 100%);
+      font-family:'Inter Tight',system-ui,sans-serif;color:var(--text);
+      letter-spacing:0.1px;
     }
-    html[data-design="elegant"] .bg-fx{display:none;}          /* drop the grain */
-    html[data-design="elegant"] .wm::after{display:none;}       /* drop watermark glyphs */
+    html[data-design="elegant"] .bg-fx{display:none;}
+    html[data-design="elegant"] .wm::after{display:none;}
 
-    /* Type */
+    /* ── Display type: Bricolage Grotesque ──────────────────────────────── */
     html[data-design="elegant"] .logo h1,
-    html[data-design="elegant"] .sec-head,
     html[data-design="elegant"] .section-header,
+    html[data-design="elegant"] .sec-head,
     html[data-design="elegant"] .modal-header h2,
     html[data-design="elegant"] .prof-name,
     html[data-design="elegant"] .champ-winner-name,
+    html[data-design="elegant"] .champ-title,
     html[data-design="elegant"] .hl-headline,
     html[data-design="elegant"] .punish-name,
     html[data-design="elegant"] .marathon-team,
@@ -794,13 +799,12 @@
     html[data-design="elegant"] .draft-name,
     html[data-design="elegant"] .lineup-pname,
     html[data-design="elegant"] .tp-name,
-    html[data-design="elegant"] .champ-title{
-      font-family:'Cormorant Garamond',Georgia,serif !important;letter-spacing:0.3px;}
-    html[data-design="elegant"] .logo h1{font-size:26px;font-weight:600;letter-spacing:1px;}
-    html[data-design="elegant"] .sec-head,html[data-design="elegant"] .section-header{font-size:24px;font-weight:600;letter-spacing:0.4px;}
-    html[data-design="elegant"] .prof-name{font-size:38px;font-weight:600;}
-    html[data-design="elegant"] .hl-headline{font-size:26px;font-weight:600;color:var(--accent);}
-    /* Big numbers → refined serif numerals */
+    html[data-design="elegant"] .trade-team-name,
+    html[data-design="elegant"] .conf-col-head,
+    html[data-design="elegant"] .big4-label{
+      font-family:'Bricolage Grotesque','Inter Tight',sans-serif!important;
+    }
+    /* Numeric display */
     html[data-design="elegant"] .stat-value,
     html[data-design="elegant"] .prof-stat-v,
     html[data-design="elegant"] .prof-chip-v,
@@ -811,96 +815,165 @@
     html[data-design="elegant"] .gabe-pts,
     html[data-design="elegant"] .lineup-ppts .v,
     html[data-design="elegant"] .allrec-rec,
-    html[data-design="elegant"] .champ-line-yr,
-    html[data-design="elegant"] .champ-line-score,
-    html[data-design="elegant"] .conf-col-head,
-    html[data-design="elegant"] .modal-total-score,
-    html[data-design="elegant"] .modal-comp-value,
     html[data-design="elegant"] .champ-year,
-    html[data-design="elegant"] .conf-win-yr,
+    html[data-design="elegant"] .champ-score,
     html[data-design="elegant"] .marathon-big,
     html[data-design="elegant"] .marathon-days,
-    html[data-design="elegant"] .brk-val,
-    html[data-design="elegant"] .honor-tile .honor-lb b{
-      font-family:'Cormorant Garamond',Georgia,serif !important;letter-spacing:0 !important;font-weight:700;}
-    html[data-design="elegant"] .badge-info{font-family:'Jost',sans-serif;text-transform:uppercase;letter-spacing:2px;font-size:9px;font-weight:400;background:transparent;border-color:var(--border);color:var(--text3);}
+    html[data-design="elegant"] .rank,
+    html[data-design="elegant"] .trade-rank,
+    html[data-design="elegant"] .draft-rankn,
+    html[data-design="elegant"] .coaching-rank,
+    html[data-design="elegant"] .modal-total-score,
+    html[data-design="elegant"] .modal-comp-value{
+      font-family:'Bricolage Grotesque','Inter Tight',sans-serif!important;
+      letter-spacing:-0.2px;font-variant-numeric:tabular-nums;
+    }
 
-    /* Header + tab bar */
-    html[data-design="elegant"] header{background:rgba(13,12,10,0.7);border-bottom:1px solid var(--border);backdrop-filter:blur(14px);}
-    html[data-design="elegant"] .tabbar{background:rgba(13,12,10,0.72);border-bottom:1px solid var(--border);padding:4px 20px 0;gap:2px;}
+    html[data-design="elegant"] .logo h1{font-size:22px;font-weight:800;letter-spacing:-0.6px;}
+    html[data-design="elegant"] .logo span{color:var(--text3);}
+    html[data-design="elegant"] .section-header,
+    html[data-design="elegant"] .sec-head{font-size:20px;font-weight:700;letter-spacing:-0.3px;color:var(--text);}
+    html[data-design="elegant"] .section-header i,
+    html[data-design="elegant"] .sec-head i{color:var(--accent);}
+    html[data-design="elegant"] .prof-name{font-size:40px;font-weight:800;letter-spacing:-1px;}
+    html[data-design="elegant"] .hl-headline{font-size:27px;font-weight:800;color:var(--text);letter-spacing:-0.5px;}
+
+    /* ── Header + segmented pill navigation ─────────────────────────────── */
+    html[data-design="elegant"] header{
+      background:rgba(255,255,255,0.82);backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--border);padding:14px 30px;
+    }
+    html[data-design="elegant"] .logo img{border-radius:14px;}
+    html[data-design="elegant"] .tabbar{
+      background:rgba(248,250,246,0.85);backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--border);padding:11px 22px 12px;gap:4px;
+    }
     html[data-design="elegant"] .tab-btn{
-      font-family:'Jost',sans-serif !important;text-transform:uppercase;letter-spacing:2px;font-weight:400;font-size:11px;
-      background:none !important;box-shadow:none !important;border:none;border-bottom:2px solid transparent;border-radius:0;color:var(--text3);padding:12px 14px;}
-    html[data-design="elegant"] .tab-btn:hover{color:var(--text);background:none !important;}
-    html[data-design="elegant"] .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:none !important;}
+      font-family:'Inter Tight',sans-serif!important;text-transform:none!important;
+      letter-spacing:0.1px!important;font-weight:600!important;font-size:14.5px!important;
+      color:var(--text2)!important;padding:8px 15px!important;border-radius:999px!important;
+      box-shadow:none!important;transition:background .18s,color .18s;
+    }
+    html[data-design="elegant"] .tab-btn i{color:var(--text3)!important;}
+    html[data-design="elegant"] .tab-btn:hover{
+      background:rgba(15,127,91,0.09)!important;color:var(--accent2)!important;box-shadow:none!important;
+    }
+    html[data-design="elegant"] .tab-btn:hover i{color:var(--accent)!important;}
+    html[data-design="elegant"] .tab-btn.active{
+      background:var(--accent)!important;color:#fff!important;
+      box-shadow:0 8px 18px -9px rgba(15,127,91,0.75)!important;
+    }
+    html[data-design="elegant"] .tab-btn.active i{color:#fff!important;}
 
-    /* Controls — flat, hairline */
-    html[data-design="elegant"] select,
+    /* ── Controls: clean outlined pills ─────────────────────────────────── */
     html[data-design="elegant"] button,
+    html[data-design="elegant"] select{
+      background:var(--bg2)!important;color:var(--text)!important;
+      border:1px solid var(--border)!important;box-shadow:none!important;
+      border-radius:999px!important;font-family:'Inter Tight',sans-serif;font-weight:500;
+      transition:border-color .15s,background .15s,color .15s;
+    }
+    html[data-design="elegant"] button:hover,
+    html[data-design="elegant"] select:hover{
+      border-color:var(--accent)!important;color:var(--accent2)!important;
+      background:var(--bg2)!important;box-shadow:none!important;
+    }
+    html[data-design="elegant"] #theme-toggle,
+    html[data-design="elegant"] #design-toggle{width:38px;height:38px;padding:0!important;display:flex;align-items:center;justify-content:center;}
+    html[data-design="elegant"] select option{background:#fff;color:var(--text);}
+
+    /* Filter / week / headline pills */
     html[data-design="elegant"] .filter-btn,
     html[data-design="elegant"] .week-btn,
-    html[data-design="elegant"] .picker-bar input[type=text]{
-      background:transparent !important;box-shadow:none !important;border:1px solid var(--border) !important;border-radius:2px;color:var(--text2);
-      font-family:'Jost',sans-serif;letter-spacing:0.5px;transition:border-color .2s,color .2s;}
-    html[data-design="elegant"] select:hover,
-    html[data-design="elegant"] button:hover,
+    html[data-design="elegant"] .hl-tab,
+    html[data-design="elegant"] .bn,
+    html[data-design="elegant"] .odd-chip{
+      background:var(--bg2)!important;border:1px solid var(--border)!important;
+      border-radius:999px!important;color:var(--text2)!important;box-shadow:none!important;
+      font-family:'Inter Tight',sans-serif!important;
+    }
     html[data-design="elegant"] .filter-btn:hover,
-    html[data-design="elegant"] .week-btn:hover{border-color:var(--accent) !important;color:var(--text);}
+    html[data-design="elegant"] .week-btn:hover,
+    html[data-design="elegant"] .hl-tab:hover,
+    html[data-design="elegant"] .bn:hover{border-color:var(--accent)!important;color:var(--accent2)!important;}
     html[data-design="elegant"] .filter-btn.active,
-    html[data-design="elegant"] .week-btn.active{border-color:var(--accent) !important;color:var(--accent);background:rgba(201,167,102,0.06) !important;}
-    html[data-design="elegant"] #stats-subtabs .tab-btn,html[data-design="elegant"] #gabe-subtabs .tab-btn{border:1px solid var(--border);border-radius:2px;padding:8px 16px;}
-    html[data-design="elegant"] #stats-subtabs .tab-btn.active,html[data-design="elegant"] #gabe-subtabs .tab-btn.active{border-color:var(--accent);}
+    html[data-design="elegant"] .week-btn.active,
+    html[data-design="elegant"] .hl-tab.active,
+    html[data-design="elegant"] .bn.active{
+      background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;
+    }
+    html[data-design="elegant"] .badge-info{
+      background:rgba(15,127,91,0.10)!important;color:var(--accent2)!important;
+      border:1px solid rgba(15,127,91,0.20)!important;font-family:'Inter Tight',sans-serif!important;font-weight:600;
+    }
 
-    /* Cards / sections — airy, hairline, minimal shadow */
+    /* ── Cards: flat white, generous radius, soft shadow ────────────────── */
     html[data-design="elegant"] .card,
-    html[data-design="elegant"] .sec,
-    html[data-design="elegant"] .hist-item,
+    html[data-design="elegant"] .big4-team,
+    html[data-design="elegant"] .headline-card,
     html[data-design="elegant"] .trade-card,
-    html[data-design="elegant"] .stat-card,
+    html[data-design="elegant"] .hist-item,
     html[data-design="elegant"] .prof-stat,
-    html[data-design="elegant"] .prof-chip,
+    html[data-design="elegant"] .lineup-slot,
     html[data-design="elegant"] .lineup-list,
-    html[data-design="elegant"] .conf-col,
-    html[data-design="elegant"] .div-winner,
+    html[data-design="elegant"] .gabe-monument,
+    html[data-design="elegant"] .video-featured{
+      background:var(--bg2)!important;border:1px solid var(--border)!important;
+      border-radius:20px!important;box-shadow:var(--el-shadow)!important;
+    }
+    html[data-design="elegant"] .big4-team,
+    html[data-design="elegant"] .headline-card,
+    html[data-design="elegant"] .prof-stat,
+    html[data-design="elegant"] .lineup-slot{border-radius:16px!important;}
+    html[data-design="elegant"] .prof-stat:hover,
+    html[data-design="elegant"] .big4-team:hover{box-shadow:var(--el-shadow-lift)!important;transform:translateY(-2px);}
+
+    /* Soft inner boxes → paper tint */
+    html[data-design="elegant"] .prof-chip,
     html[data-design="elegant"] .motw-fact,
     html[data-design="elegant"] .motw-take,
     html[data-design="elegant"] .motw-odds-team,
+    html[data-design="elegant"] .motw-take-item,
     html[data-design="elegant"] .allrec-card,
-    html[data-design="elegant"] .gabe-ptbox,
-    html[data-design="elegant"] .honor-tile,
-    html[data-design="elegant"] .bracket-game,
-    html[data-design="elegant"] .punish-opt{
-      background:linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0)) !important;
-      border:1px solid var(--border) !important;border-radius:3px !important;box-shadow:none !important;}
-    html[data-design="elegant"] .sec{border:none !important;background:none !important;}
-    html[data-design="elegant"] .card{border-radius:3px !important;}
-    html[data-design="elegant"] .prof-stat::before{background:var(--accent);opacity:.5;width:2px;}
-    html[data-design="elegant"] .prof-stat:hover{transform:none;box-shadow:none;border-color:var(--accent) !important;}
+    html[data-design="elegant"] .conf-col,
+    html[data-design="elegant"] .div-winner,
+    html[data-design="elegant"] .sup-detail,
+    html[data-design="elegant"] .draft-pos,
+    html[data-design="elegant"] .prof-award,
+    html[data-design="elegant"] .punish-opt,
+    html[data-design="elegant"] .modal-comp,
+    html[data-design="elegant"] .modal-total,
+    html[data-design="elegant"] .modal-formula,
+    html[data-design="elegant"] .modal-comp-row,
+    html[data-design="elegant"] .brk-row,
+    html[data-design="elegant"] .pin-box{
+      background:var(--bg3)!important;border-radius:12px!important;
+    }
+    html[data-design="elegant"] .coaching-bar{background:rgba(22,38,30,0.10)!important;}
+    html[data-design="elegant"] .coaching-row:hover,
+    html[data-design="elegant"] .champ-row:hover,
+    html[data-design="elegant"] tr:hover{background:rgba(15,127,91,0.05)!important;}
 
-    /* Section header underline flourish */
-    html[data-design="elegant"] .sec-head{border-bottom:1px solid var(--border);padding-bottom:12px;gap:12px;}
-    html[data-design="elegant"] .sec-head i,html[data-design="elegant"] .section-header i{color:var(--accent);}
+    /* Modal surface */
+    html[data-design="elegant"] .modal,
+    html[data-design="elegant"] .modal-header{background:var(--bg2)!important;border-radius:20px;}
+    html[data-design="elegant"] .modal{border:1px solid var(--border);box-shadow:0 30px 80px -30px rgba(22,38,30,0.5);}
 
-    /* Tables — hairline, letterspaced heads */
-    html[data-design="elegant"] thead th{font-family:'Jost',sans-serif;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border);}
-    html[data-design="elegant"] tbody tr{border-top:1px solid var(--border);}
-    html[data-design="elegant"] tbody tr:hover{background:rgba(201,167,102,0.045);}
+    /* ── Tables: airy + tabular figures ─────────────────────────────────── */
+    html[data-design="elegant"] table{font-variant-numeric:tabular-nums;}
+    html[data-design="elegant"] th{
+      text-transform:uppercase;letter-spacing:0.6px;font-size:10.5px;font-weight:700;
+      color:var(--text3);font-family:'Inter Tight',sans-serif;
+    }
+    html[data-design="elegant"] td{padding-top:11px;padding-bottom:11px;}
 
-    /* Chips, tiles, honors, headlines dots→gold */
-    html[data-design="elegant"] .prof-chip{background:rgba(255,255,255,0.02) !important;border-radius:3px !important;}
-    html[data-design="elegant"] .lineup-slot-pos{border-radius:2px;}
-    html[data-design="elegant"] .prof-banner{border-radius:3px !important;box-shadow:none !important;
-      background:radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--tc) 30%, transparent) 0%, transparent 60%), linear-gradient(180deg,rgba(255,255,255,0.02),transparent) !important;}
-    html[data-design="elegant"] .prof-badge .tm-avatar{border-radius:4px !important;}
-
-    /* Coaching bars, headline winner, misc accents already read from vars */
-    html[data-design="elegant"] .coaching-bar-fill{opacity:.9;}
-    html[data-design="elegant"] .video-featured,html[data-design="elegant"] .trade-card,html[data-design="elegant"] .lineup-list{border-radius:3px !important;}
-    html[data-design="elegant"] .gabe-heart svg{filter:drop-shadow(0 10px 26px rgba(0,0,0,0.55));}
-    html[data-design="elegant"] .modal,html[data-design="elegant"] .pin-box{border-radius:4px;background:var(--bg2);}
+    /* Hero banner: soften into a clean tinted panel */
+    html[data-design="elegant"] .prof-banner{
+      border-radius:22px!important;box-shadow:var(--el-shadow)!important;border:1px solid var(--border)!important;
+    }
 
     /* Footer */
-    html[data-design="elegant"] footer{letter-spacing:2px;text-transform:uppercase;font-size:10px;}
+    html[data-design="elegant"] footer{letter-spacing:1.5px;text-transform:uppercase;font-size:10px;color:var(--text3);}
 
   </style>
 </head>
