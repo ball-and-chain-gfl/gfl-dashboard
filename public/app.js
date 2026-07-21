@@ -40,6 +40,7 @@ let _tradeScope='season';               // 'season' | 'alltime'
 let _tradeTeamFilter='';                 // owner id to filter trades by (optional)
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
 let _draftTeamSel=null;                 // team filter on draft tab
+let _draftScope='year',_draftAllCache=null,_draftOwnerSel=null;
 const _logoColorCache={};               // teamId -> dominant logo color
 const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
 let _activeTab='home';
@@ -1287,16 +1288,13 @@ async function ensureDraft(){
   _draftLoading=false;
   renderDraftTab();
 }
-function renderDraftTab(){
-  const body=document.getElementById('draft-body'); if(!body) return;
-  const season=getSeason();
-  const d=_draftCache[season]; if(!d) return;
-  const {picks,stats}=d;
-  if(!picks.length||!stats.length){body.innerHTML=`<div class="tab-loading">No draft data available for the ${season} season.</div>`;return;}
+function computeDraftRows(picks, stats, season){
+  if(!picks||!picks.length||!stats||!stats.length) return [];
   const rankOverall={},rankPos={},posCount={},statById={};
   stats.forEach((p,i)=>{rankOverall[p.id]=i+1;posCount[p.pos]=(posCount[p.pos]||0)+1;rankPos[p.id]=posCount[p.pos];statById[p.id]=p;});
   const posDraftCount={};
-  const rows=picks.slice().sort((x,y)=>x.overall-y.overall).map(pk=>{
+  const owners=_seasonMeta[season]?.owners||{};
+  return picks.slice().sort((x,y)=>x.overall-y.overall).map(pk=>{
     const s=statById[pk.playerId];
     const pos=s?.pos??null,posKey=pos??'x';
     posDraftCount[posKey]=(posDraftCount[posKey]||0)+1;
@@ -1304,66 +1302,194 @@ function renderDraftTab(){
     const name=s?.n||_playerNames[pk.playerId]||`Player #${pk.playerId}`;
     const fin=rankOverall[pk.playerId]??null;
     const finPos=rankPos[pk.playerId]??null;
-    // positional delta: rank at position when drafted − finish rank at position
     const delta=finPos!=null?(posDrafted-finPos):(posDrafted-((posCount[pos]||0)+1));
-    return {pid:pk.playerId,name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,overall:pk.overall,round:pk.round,posDrafted,fin,finPos,pts:s?.pts??0,delta};
+    return {season,pid:pk.playerId,name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,owner:owners[pk.teamId]||null,overall:pk.overall,round:pk.round,posDrafted,fin,finPos,pts:s?.pts??0,delta};
   });
-  d.rows=rows;
-  const tn=id=>(_teams.find(t=>t.id===id)?.name||`Team ${id}`).trim();
-  const steals=rows.slice().sort((x,y)=>y.delta-x.delta).slice(0,10);
-  const busts=rows.filter(r=>r.overall<=72).sort((x,y)=>x.delta-y.delta).slice(0,10);
-  const row=(r,i)=>`<div class="draft-row">
+}
+async function loadAllDrafts(){
+  if(_draftAllCache) return _draftAllCache;
+  const results=await Promise.all(ALL_SEASONS.map(async s=>{
+    const [dr,st]=await Promise.all([
+      fetch(`${BASE}?type=draft&seasonId=${s}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`${BASE}?type=seasonstats&seasonId=${s}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
+    ]);
+    return {s, picks:dr?.picks||[], stats:st?.players||[]};
+  }));
+  const rows=[], teamDrafts=[], ownerTotals={}, ownerCounts={};
+  results.forEach(({s,picks,stats})=>{
+    const r=computeDraftRows(picks,stats,s);
+    if(!r.length) return;
+    rows.push(...r);
+    const totals={};
+    r.forEach(x=>{ if(x.owner==null) return; totals[x.owner]=(totals[x.owner]||0)+x.delta; });
+    const vals=Object.values(totals); if(!vals.length) return;
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;   // that season's league-average team Δ
+    Object.entries(totals).forEach(([owner,total])=>{
+      teamDrafts.push({owner,season:s,total,adj:total-avg,name:(_franchises.find(f=>f.owner===owner)?.name)||(_seasonMeta[s]?.names?.[owner]?.name)||owner});
+      ownerTotals[owner]=(ownerTotals[owner]||0)+total; ownerCounts[owner]=(ownerCounts[owner]||0)+1;
+    });
+  });
+  _draftAllCache={rows,teamDrafts,ownerTotals,ownerCounts};
+  return _draftAllCache;
+}
+function setDraftScope(s){ _draftScope=(s==='alltime'?'alltime':'year'); renderDraftTab(); }
+function draftRowTeam(r){
+  if(r.owner) return (_franchises.find(f=>f.owner===r.owner)?.name)||(_seasonMeta[r.season]?.names?.[r.owner]?.name)||`Team ${r.teamId}`;
+  return (_teams.find(t=>t.id===r.teamId)?.name)||`Team ${r.teamId}`;
+}
+function draftPickCard(r,i,showSeason){
+  return `<div class="draft-row">
     <div class="draft-rankn">${i+1}</div>
     ${playerImg(r.pid,40,r.name)}
     <div class="draft-info">
       <div class="draft-name">${r.name}<span class="draft-pos">${r.posName}</span></div>
-      <div class="draft-mgr2">${tn(r.teamId)}</div>
-      <div class="draft-line">Drafted <b>#${r.overall} overall</b> (${r.posName}${r.posDrafted} taken) → Finished ${r.fin!=null?`<b>#${r.fin} overall</b> (${r.posName}${r.finPos})`:`<b>outside the top ${stats.length}</b>`} · ${r.pts.toFixed(1)} pts</div>
+      <div class="draft-mgr2">${draftRowTeam(r)}${showSeason?` · ${r.season}`:''}</div>
+      <div class="draft-line">Drafted <b>${r.posName}${r.posDrafted}</b>${r.finPos!=null?` → finished <b>${r.posName}${r.finPos}</b>`:' → <b>unranked</b>'} · ${r.pts.toFixed(1)} pts</div>
     </div>
     <div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div>
   </div>`;
+}
+function draftClassCard(d,i){
+  return `<div class="draft-row">
+    <div class="draft-rankn">${i+1}</div>
+    <div class="draft-info">
+      <div class="draft-name">${d.name}<span class="draft-pos">${d.season}</span></div>
+      <div class="draft-line">Raw positional Δ ${d.total>0?'+':''}${d.total}</div>
+    </div>
+    <div class="draft-delta" style="color:${d.adj>0?'var(--green)':d.adj<0?'var(--red)':'var(--text2)'}">${d.adj>0?'+':''}${d.adj.toFixed(0)}</div>
+  </div>`;
+}
+function scoreBadge(rel,rank,n){
+  const col=rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)';
+  return `<span style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Draft Score <b style="font-family:'Big Shoulders Display',sans-serif;font-size:22px;color:${col};letter-spacing:0">${rel>0?'+':''}${rel.toFixed(0)}</b> <span style="color:var(--text2);font-size:13px">#${rank}/${n}</span></span>`;
+}
+function draftTeamTableHTML(rows,showSeason){
+  const totalDelta=rows.reduce((s,r)=>s+r.delta,0);
+  return `<div class="tscroll"><table class="min560 srt">
+    <thead><tr>${showSeason?'<th>Yr</th>':''}<th>Pick</th><th>Player</th><th class="right">Pos: drafted → finished</th><th class="right">Pts</th><th class="right">Δ</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr>
+      ${showSeason?`<td style="color:var(--text3)">${r.season}</td>`:''}
+      <td style="color:var(--text3);white-space:nowrap">Rd ${r.round} · #${r.overall}</td>
+      <td><span class="fr-name">${r.name}</span><span class="draft-pos">${r.posName}</span></td>
+      <td class="right" style="white-space:nowrap">${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="right pf">${r.pts.toFixed(1)}</td>
+      <td class="right" style="font-weight:800;font-family:'Big Shoulders Display',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>
+  <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">Net positional Δ: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks</div>`;
+}
+function renderDraftTab(){
+  const body=document.getElementById('draft-body'); if(!body) return;
+  const season=getSeason();
+  const scope=_draftScope;
+  const toggle=`<div class="standings-filters" style="padding:0 0 16px;gap:6px">
+    <button class="tab-btn ${scope==='year'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftScope('year')">This Year · ${season}</button>
+    <button class="tab-btn ${scope==='alltime'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftScope('alltime')">All-Time</button>
+  </div>`;
+  if(scope==='alltime'){
+    if(!_draftAllCache){
+      body.innerHTML=toggle+`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every draft from every season…</div>`;
+      loadAllDrafts().then(()=>{ if(_activeTab==='draft'&&_draftScope==='alltime') renderDraftTab(); })
+        .catch(()=>{ body.innerHTML=toggle+`<div class="tab-loading" style="color:var(--red)">Couldn't load all-time drafts.</div>`; });
+      return;
+    }
+    renderDraftAllTime(body,toggle);
+    return;
+  }
+  const d=_draftCache[season]; if(!d) return;
+  const rows=computeDraftRows(d.picks,d.stats,season); d.rows=rows;
+  if(!rows.length){ body.innerHTML=toggle+`<div class="tab-loading">No draft data available for the ${season} season.</div>`; return; }
+  const steals=rows.slice().sort((x,y)=>y.delta-x.delta).slice(0,10);
+  const busts=rows.filter(r=>r.overall<=72).sort((x,y)=>x.delta-y.delta).slice(0,10);
   if(_draftTeamSel==null||!_teams.some(t=>t.id===Number(_draftTeamSel))) _draftTeamSel=_teams[0]?.id;
-  body.innerHTML=`<div class="two-col" style="margin:0 0 24px;gap:16px">
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Draft Steals<span class="badge-info">beat their draft slot</span></div>
-      ${steals.map(row).join('')}
-    </div>
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Draft Busts<span class="badge-info">first 6 rounds</span></div>
-      ${busts.map(row).join('')}
-    </div>
-  </div>
-  <div class="card" style="margin:0 0 20px">
-    <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Full Draft by Team<span class="badge-info">every pick · drafted vs finished</span></div>
+  body.innerHTML=toggle+`
+  <div class="card" style="margin:0 0 22px">
+    <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Full Draft by Team<span id="draft-score" style="margin-left:auto"></span></div>
     <div class="picker-bar">
       <label for="draft-team-select">Team:</label>
       <select id="draft-team-select" onchange="_draftTeamSel=this.value;renderDraftTeamTable()">${_teams.map(t=>`<option value="${t.id}" ${Number(_draftTeamSel)===t.id?'selected':''}>${t.name}</option>`).join('')}</select>
     </div>
     <div id="draft-team-body"></div>
   </div>
-  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Ranks compare total ${season} fantasy points (league scoring) across all NFL players. Δ is positional: draft rank at the position − finish rank at the position — e.g. a QB drafted 15th (QB15) who finished as the QB2 is +13.</div>`;
+  <div class="two-col" style="margin:0 0 8px;gap:16px">
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Draft Steals<span class="badge-info">beat their draft slot</span></div>
+      ${steals.map((r,i)=>draftPickCard(r,i,false)).join('')}
+    </div>
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Draft Busts<span class="badge-info">first 6 rounds</span></div>
+      ${busts.map((r,i)=>draftPickCard(r,i,false)).join('')}
+    </div>
+  </div>
+  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Δ is positional: draft rank at the position − finish rank at the position (e.g. a QB drafted 15th who finished as the QB2 is +13). Draft Score = a team's summed Δ minus the league-average team Δ, with rank.</div>`;
+  renderDraftTeamTable();
+}
+function renderDraftAllTime(body,toggle){
+  const {rows,teamDrafts,ownerTotals}=_draftAllCache;
+  if(!rows.length){ body.innerHTML=toggle+`<div class="tab-loading">No all-time draft data available.</div>`; return; }
+  const steals=rows.slice().sort((x,y)=>y.delta-x.delta).slice(0,10);
+  const busts=rows.filter(r=>r.overall<=72).sort((x,y)=>x.delta-y.delta).slice(0,10);
+  const best=teamDrafts.slice().sort((a,b)=>b.adj-a.adj).slice(0,10);
+  const worst=teamDrafts.slice().sort((a,b)=>a.adj-b.adj).slice(0,10);
+  const owners=Object.keys(ownerTotals);
+  if(_draftOwnerSel==null||!owners.includes(_draftOwnerSel)) _draftOwnerSel=owners[0];
+  body.innerHTML=toggle+`
+  <div class="card" style="margin:0 0 22px">
+    <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Full Draft by Team · All-Time<span id="draft-score" style="margin-left:auto"></span></div>
+    <div class="picker-bar">
+      <label for="draft-owner-select">Team:</label>
+      <select id="draft-owner-select" onchange="_draftOwnerSel=this.value;renderDraftTeamTable()">${owners.map(o=>`<option value="${o}" ${_draftOwnerSel===o?'selected':''}>${(_franchises.find(f=>f.owner===o)?.name)||o}</option>`).join('')}</select>
+    </div>
+    <div id="draft-team-body"></div>
+  </div>
+  <div class="two-col" style="margin:0 0 22px;gap:16px">
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-trophy" style="color:var(--green)"></i>Best Drafts Ever<span class="badge-info">adjusted vs each year</span></div>
+      ${best.map((d,i)=>draftClassCard(d,i)).join('')}
+    </div>
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-fire" style="color:var(--red)"></i>Worst Drafts Ever<span class="badge-info">adjusted vs each year</span></div>
+      ${worst.map((d,i)=>draftClassCard(d,i)).join('')}
+    </div>
+  </div>
+  <div class="two-col" style="margin:0 0 8px;gap:16px">
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Steals Ever<span class="badge-info">any pick, any year</span></div>
+      ${steals.map((r,i)=>draftPickCard(r,i,true)).join('')}
+    </div>
+    <div class="card" style="box-shadow:none">
+      <div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Busts Ever<span class="badge-info">first 6 rounds</span></div>
+      ${busts.map((r,i)=>draftPickCard(r,i,true)).join('')}
+    </div>
+  </div>
+  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">"Best/Worst Drafts Ever" use each team's summed positional Δ for a season, adjusted by subtracting that season's league-average team Δ so different years compare fairly. Draft Score (top) is the all-time version of that adjustment.</div>`;
   renderDraftTeamTable();
 }
 function renderDraftTeamTable(){
   const body=document.getElementById('draft-team-body'); if(!body) return;
+  const scoreEl=document.getElementById('draft-score');
+  if(_draftScope==='alltime'){
+    const ac=_draftAllCache; if(!ac) return;
+    const owner=document.getElementById('draft-owner-select')?.value||_draftOwnerSel;
+    const rows=ac.rows.filter(r=>r.owner===owner).sort((a,b)=>(a.season-b.season)||(a.overall-b.overall));
+    const ot=ac.ownerTotals, os=Object.keys(ot);
+    const avg=os.length?os.reduce((s,o)=>s+ot[o],0)/os.length:0;
+    const ranked=os.map(o=>({o,t:ot[o]})).sort((a,b)=>b.t-a.t);
+    const rel=(ot[owner]||0)-avg, rank=ranked.findIndex(x=>x.o===owner)+1;
+    if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,ranked.length);
+    body.innerHTML=rows.length?draftTeamTableHTML(rows,true):`<div class="tab-loading">No picks found.</div>`;
+    return;
+  }
   const d=_draftCache[getSeason()]; if(!d?.rows) return;
   const tid=Number(document.getElementById('draft-team-select')?.value??_draftTeamSel);
   const rows=d.rows.filter(r=>r.teamId===tid);
-  if(!rows.length){body.innerHTML=`<div class="tab-loading">No picks found for this team.</div>`;return;}
-  const totalDelta=rows.reduce((s,r)=>s+r.delta,0);
-  body.innerHTML=`<div class="tscroll"><table class="min560 srt">
-    <thead><tr><th>Pick</th><th>Player</th><th class="right">Pos: drafted → finished</th><th class="right">Overall: drafted → finished</th><th class="right">Pts</th><th class="right">Δ</th></tr></thead>
-    <tbody>${rows.map(r=>`
-      <tr>
-        <td style="color:var(--text3);white-space:nowrap">Rd ${r.round} · #${r.overall}</td>
-        <td><span class="fr-name">${r.name}</span><span class="draft-pos">${r.posName}</span></td>
-        <td class="right" style="white-space:nowrap">${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
-        <td class="right" style="white-space:nowrap">#${r.overall} → ${r.fin!=null?`<b style="color:${r.fin<=r.overall?'var(--green)':'var(--red)'}">#${r.fin}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
-        <td class="right pf">${r.pts.toFixed(1)}</td>
-        <td class="right" style="font-weight:800;font-family:'Big Shoulders Display',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
-      </tr>`).join('')}</tbody>
-  </table></div>
-  <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">Net draft value: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks</div>`;
+  const totals={}; d.rows.forEach(r=>{totals[r.teamId]=(totals[r.teamId]||0)+r.delta;});
+  const ids=Object.keys(totals);
+  const avg=ids.length?ids.reduce((s,k)=>s+totals[k],0)/ids.length:0;
+  const ranked=ids.map(id=>({id:Number(id),t:totals[id]})).sort((a,b)=>b.t-a.t);
+  const rel=(totals[tid]||0)-avg, rank=ranked.findIndex(x=>x.id===tid)+1;
+  if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,ranked.length);
+  body.innerHTML=rows.length?draftTeamTableHTML(rows,false):`<div class="tab-loading">No picks found for this team.</div>`;
 }
 
 // ── MARATHON TAB ───────────────────────────────────────────────────────────────
