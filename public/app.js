@@ -1354,13 +1354,20 @@ function draftPickCard(r,i,showSeason){
 }
 function draftClassCard(d,i,showSeason){
   const v=d.total;
+  const fr=_franchises.find(f=>f.owner===d.owner);
   return `<div class="draft-row">
     <div class="draft-rankn">${i+1}</div>
+    ${fr?franchiseAvatar(fr,34):playerImg(null,34,d.name)}
     <div class="draft-info">
       <div class="draft-name">${d.name}${showSeason?`<span class="draft-pos">${d.season}</span>`:''}</div>
-      <div class="draft-line">Summed positional Δ across the draft</div>
     </div>
     <div class="draft-delta" style="color:${v>0?'var(--green)':v<0?'var(--red)':'var(--text2)'}">${v>0?'+':''}${v}</div>
+  </div>`;
+}
+function draftPickLists(steals,busts,showSeason){
+  return `<div class="two-col" style="margin:0 0 8px;gap:16px">
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Biggest Steals${showSeason?' Ever':''}<span class="badge-info">beat draft slot</span></div>${steals.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Worst Busts${showSeason?' Ever':''}<span class="badge-info">first 6 rounds</span></div>${busts.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
   </div>`;
 }
 function scoreBadge(rel,rank,season){
@@ -1415,13 +1422,10 @@ function renderDraftTab(){
 function listsHTML(best,worst,steals,busts,showSeason,note){
   return `
   <div class="two-col" style="margin:0 0 22px;gap:16px">
-    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-trophy" style="color:var(--green)"></i>Best Draft${showSeason?'s Ever':' Classes'}<span class="badge-info">positional Δ</span></div>${best.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
-    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-fire" style="color:var(--red)"></i>Worst Draft${showSeason?'s Ever':' Classes'}<span class="badge-info">positional Δ</span></div>${worst.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-trophy" style="color:var(--green)"></i>Best Drafts Ever<span class="badge-info">positional Δ</span></div>${best.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-fire" style="color:var(--red)"></i>Worst Drafts Ever<span class="badge-info">positional Δ</span></div>${worst.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
   </div>
-  <div class="two-col" style="margin:0 0 8px;gap:16px">
-    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Biggest Steals${showSeason?' Ever':''}<span class="badge-info">beat draft slot</span></div>${steals.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
-    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Worst Busts${showSeason?' Ever':''}<span class="badge-info">first 6 rounds</span></div>${busts.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
-  </div>
+  ${draftPickLists(steals,busts,showSeason)}
   <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">${note}</div>`;
 }
 function renderDraftLists(){
@@ -1446,12 +1450,14 @@ function renderDraftLists(){
   const steals=rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10);
   const busts=rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10);
   const totals={}; rows.forEach(r=>{ if(r.owner==null) return; totals[r.owner]=(totals[r.owner]||0)+r.delta; });
-  const owners=Object.keys(totals);
-  const avg=owners.length?owners.reduce((s,o)=>s+totals[o],0)/owners.length:0;
-  const yr=owners.map(o=>({owner:o,season,total:totals[o],adj:totals[o]-avg,name:(_franchises.find(f=>f.owner===o)?.name)||(_seasonMeta[season]?.names?.[o]?.name)||o}));
-  const best=yr.slice().sort((a,b)=>b.total-a.total).slice(0,12);
-  const worst=yr.slice().sort((a,b)=>a.total-b.total).slice(0,12);
-  el.innerHTML=listsHTML(best,worst,steals,busts,false,`Δ is positional: draft rank at the position − finish rank at the position (e.g. a QB drafted 15th who finished as the QB2 is +13). "Best/Worst Drafts" rank all 12 teams by their summed positional Δ.`);
+  const ranked=Object.keys(totals).map(o=>({owner:o,season,total:totals[o],name:(_franchises.find(f=>f.owner===o)?.name)||(_seasonMeta[season]?.names?.[o]?.name)||o})).sort((a,b)=>b.total-a.total);
+  el.innerHTML=`
+  <div class="card" style="box-shadow:none;margin:0 0 22px">
+    <div class="section-header" style="padding:13px 16px"><i class="fa fa-ranking-star"></i>Draft Rankings · ${season}<span class="badge-info">summed positional Δ</span></div>
+    ${ranked.map((d,i)=>draftClassCard(d,i,false)).join('')}
+  </div>
+  ${draftPickLists(steals,busts,false)}
+  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Δ is positional: draft rank at the position − finish rank at the position (e.g. a QB drafted 15th who finished as the QB2 is +13). Draft Rankings order all 12 teams by their summed positional Δ.</div>`;
 }
 function renderDraftTeamTable(){
   const body=document.getElementById('draft-team-body'); if(!body) return;
