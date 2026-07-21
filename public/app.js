@@ -1373,9 +1373,9 @@ function draftPickLists(steals,busts,showSeason){
 }
 function scoreBadge(rel,rank,season){
   const col=rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)';
-  return `<div class="draft-score-badge">
-    <div class="dsb-line"><b class="dsb-num">#${rank}</b><span class="dsb-lbl">ranked draft in ${season}</span></div>
-    <div class="dsb-line"><span class="dsb-lbl">Draft Score</span><b class="dsb-num" style="color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</b></div>
+  return `<div class="draft-score-wrap">
+    <div class="draft-score-box"><b class="dsb-num">${rank}</b><span class="dsb-lbl">ranked draft in ${season}</span></div>
+    <div class="draft-score-box"><b class="dsb-num" style="color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</b><span class="dsb-lbl">Draft Score</span></div>
   </div>`;
 }
 function draftTeamTableHTML(rows,showSeason){
