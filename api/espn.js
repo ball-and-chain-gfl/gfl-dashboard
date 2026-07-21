@@ -341,13 +341,13 @@ export default async function handler(req, res) {
             const outStatuses = ['OUT', 'INJURY_RESERVE', 'IR', 'SUSPENSION', 'PUP', 'NON_FOOTBALL_INJURY'];
             const injuredOut = e.lineupSlotId === 21 || outStatuses.includes(st);
             const available = !onBye && !injuredOut;
-            const rec = bucket[pid] || (bucket[pid] = { n: null, pos: null, w: 0, s: 0, p: 0 });
+            const rec = bucket[pid] || (bucket[pid] = { n: null, pos: null, w: 0, s: 0, p: 0, sp: 0 });
             rec.n = e.playerPoolEntry?.player?.fullName || rec.n;
             if (rec.pos == null) rec.pos = e.playerPoolEntry?.player?.defaultPositionId ?? null;
             rec.p += pts;
             if (available) {
               rec.w++;
-              if (!BENCH_SLOTS.includes(e.lineupSlotId)) rec.s++;
+              if (!BENCH_SLOTS.includes(e.lineupSlotId)) { rec.s++; rec.sp += pts; }  // points scored while started
             }
           });
         });

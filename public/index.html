@@ -24,7 +24,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <script>document.documentElement.dataset.theme=localStorage.getItem('gfl-theme')||'dark';</script>
+  <script>document.documentElement.dataset.theme='dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -722,7 +722,6 @@
       .controls{gap:6px;}
       select{padding:7px 26px 7px 11px;font-size:12px;}
       button{padding:7px 11px;font-size:12px;}
-      #theme-toggle{padding:7px 10px;}
       main{padding:16px 12px 40px;}
       .tabbar{padding:8px 10px;gap:4px;}
       .tab-btn{font-size:13px;padding:7px 11px;gap:6px;}
@@ -909,6 +908,28 @@
       .status span{display:none;}   /* save header space; keep the live dot */
     }
 
+
+    /* ── Scroll + header/nav fixes ─────────────────────────────────────── */
+    html,body{overflow-x:clip;}                 /* clip (not hidden) so wheel scroll works */
+    html.nav-lock,body.nav-lock{overflow:hidden;}   /* lock page scroll while drawer open */
+    .logo{cursor:pointer;}
+    .logo:active{opacity:.85;}
+    #hamburger{width:46px;height:46px;padding:0;font-size:21px;}
+    #hamburger i{font-size:21px;}
+    /* Mobile page-title strip (shows which tab you're on) */
+    #mobile-title{display:none;}
+    @media(max-width:768px){
+      header{flex-wrap:nowrap;}
+      .logo{flex:1 1 auto;min-width:0;}
+      .logo h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      .controls{flex:0 0 auto;}
+      #mobile-title{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:90;
+        padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+        background:rgba(10,10,10,0.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+        border-bottom:1px solid var(--border);font-family:'Fraunces',Georgia,serif;font-weight:700;font-size:20px;color:var(--text);}
+      #mobile-title i{font-size:16px;}
+    }
+
   </style>
 </head>
 <body>
@@ -940,14 +961,12 @@
 </div>
 
 <header>
-  <div class="logo">
+  <div class="logo" onclick="goHome()" title="Back to Home" role="button" tabindex="0">
     <img src="/logo.png" alt="GFL" onerror="this.style.display='none'"/>
     <div><h1>Ball &amp; Chain GFL</h1><span id="last-updated">Loading...</span></div>
   </div>
   <div class="controls">
-    <button id="hamburger" onclick="toggleMobileNav()" aria-label="Open menu" title="Menu"><i class="fa fa-bars"></i></button>
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
-    <button id="theme-toggle" onclick="toggleTheme()" title="Light / dark mode" aria-label="Toggle light mode"><i class="fa fa-sun"></i></button>
     <select id="season-select" onchange="loadDashboard()">
       <option value="2026">2026 Season</option>
       <option value="2025" selected>2025 Season</option>
@@ -955,7 +974,8 @@
       <option value="2023">2023 Season</option>
       <option value="2022">2022 Season</option>
     </select>
-    <button onclick="loadDashboard()"><i class="fa fa-rotate-right"></i></button>
+    <button onclick="loadDashboard()" title="Refresh"><i class="fa fa-rotate-right"></i></button>
+    <button id="hamburger" onclick="toggleMobileNav()" aria-label="Open menu" title="Menu"><i class="fa fa-bars"></i></button>
   </div>
 </header>
 
@@ -980,6 +1000,7 @@
   </div>
 </div>
 
+<div id="mobile-title" aria-hidden="true"></div>
 <main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>
 <footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 

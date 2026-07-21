@@ -46,17 +46,17 @@ let _activeTab='home';
 const ALL_SEASONS=['2022','2023','2024','2025','2026'];
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
-function applyTheme(t){
-  document.documentElement.dataset.theme=t;
-  try{localStorage.setItem('gfl-theme',t);}catch{}
-  const ic=document.querySelector('#theme-toggle i');
-  if(ic) ic.className='fa '+(t==='light'?'fa-moon':'fa-sun');
+document.documentElement.dataset.theme='dark';   // dark only — light mode removed
+const TAB_LABELS={home:'Home',standings:'Standings & Stats',trades:'Trades',draft:'Draft',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
+function updateMobileTitle(name){
+  const el=document.getElementById('mobile-title'); if(!el) return;
+  const btn=document.querySelector('#tabbar .tab-btn[data-tab="'+name+'"]');
+  const label=(btn&&btn.textContent.trim())||TAB_LABELS[name]||'';
+  const icon=(btn&&btn.querySelector('i'))?btn.querySelector('i').className:'fa fa-circle';
+  const tc=btn?(getComputedStyle(btn).getPropertyValue('--tc').trim()||'var(--accent)'):'var(--accent)';
+  el.innerHTML='<i class="'+icon+'" style="color:'+tc+'"></i><span>'+label+'</span>';
 }
-function toggleTheme(){
-  applyTheme(document.documentElement.dataset.theme==='light'?'dark':'light');
-  renderTradesTab(); // re-tint team colors for the new background
-}
-applyTheme(document.documentElement.dataset.theme||'dark');
+function goHome(){ try{toggleMobileNav(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
   document.getElementById('dot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
@@ -331,6 +331,7 @@ function switchTab(name){
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
   syncMobileNavActive();
+  updateMobileTitle(name);
 }
 // ── MOBILE NAV (hamburger drawer) ────────────────────────────────────────────
 function buildMobileNav(){
@@ -353,7 +354,8 @@ function toggleMobileNav(open){
   const show=(open===undefined)?!m.classList.contains('show'):!!open;
   if(show) buildMobileNav();
   m.classList.toggle('show',show);
-  document.body.style.overflow=show?'hidden':'';
+  document.documentElement.classList.toggle('nav-lock',show);
+  document.body.classList.toggle('nav-lock',show);
   const hi=document.querySelector('#hamburger i'); if(hi) hi.className='fa '+(show?'fa-xmark':'fa-bars');
 }
 function mobileGo(tab){ toggleMobileNav(false); switchTab(tab); window.scrollTo(0,0); }
@@ -968,6 +970,11 @@ function renderC3Breakdown(){
 }
 function renderStandingsTable(){
   const teams=[..._teams];
+  const atCache={};
+  _teams.forEach(t=>{const o=_ownerMap[t.id]; const at=o?franchiseAllTime(o):null; atCache[t.id]=at||{pf:0,pa:0,seasons:0};});
+  const atOf=t=>atCache[t.id]||{pf:0,pa:0,seasons:0};
+  const pfy=t=>{const a=atOf(t);return a.seasons?a.pf/a.seasons:0;};
+  const pay=t=>{const a=atOf(t);return a.seasons?a.pa/a.seasons:0;};
   teams.sort((a,b)=>{
     let va,vb;
     if(_sortCol==='rank'){va=a.wins/((a.wins+a.losses+a.ties)||1)+a.pf/1e7;vb=b.wins/((b.wins+b.losses+b.ties)||1)+b.pf/1e7;}
@@ -977,6 +984,10 @@ function renderStandingsTable(){
     else if(_sortCol==='moves'){va=a.moves;vb=b.moves;}
     else if(_sortCol==='trades'){va=a.trades;vb=b.trades;}
     else if(_sortCol==='cm'){va=_scores[a.id]||0;vb=_scores[b.id]||0;}
+    else if(_sortCol==='atpf'){va=atOf(a).pf;vb=atOf(b).pf;}
+    else if(_sortCol==='atpa'){va=atOf(a).pa;vb=atOf(b).pa;}
+    else if(_sortCol==='pfy'){va=pfy(a);vb=pfy(b);}
+    else if(_sortCol==='pay'){va=pay(a);vb=pay(b);}
     else return 0;
     return _sortAsc?va-vb:vb-va;
   });
@@ -988,7 +999,7 @@ function renderStandingsTable(){
   thead.innerHTML=`<tr>
     <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:12px;opacity:0.6">${arr('rank')}</span></th>
     <th>Team</th>${th('wins','W')}
-    <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}
+    <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}${th('atpf','AT PF')}${th('atpa','AT PA')}${th('pfy','PF/Yr')}${th('pay','PA/Yr')}
   </tr>`;
   tbody.innerHTML=teams.map((t,i)=>{
     const s=_scores[t.id]||0;
@@ -1002,6 +1013,10 @@ function renderStandingsTable(){
       <td class="right">${t.moves}</td>
       <td class="right">${t.trades}</td>
       <td class="right" style="color:${_cmMode==='none'?'var(--text3)':sc(s)};font-weight:600">${_cmMode==='none'?'—':s.toFixed(2)}</td>
+      <td class="right pf">${atOf(t).pf?atOf(t).pf.toFixed(0):'—'}</td>
+      <td class="right pa">${atOf(t).pa?atOf(t).pa.toFixed(0):'—'}</td>
+      <td class="right" style="color:var(--text2)">${atOf(t).seasons?pfy(t).toFixed(0):'—'}</td>
+      <td class="right" style="color:var(--text2)">${atOf(t).seasons?pay(t).toFixed(0):'—'}</td>
     </tr>`;
   }).join('');
 }
@@ -1059,7 +1074,7 @@ async function loadTenureData(){
   if(_tenurePromise) return _tenurePromise;
   _tenurePromise=(async()=>{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=4`);
+      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=5`);
       if(!r.ok) return null;
       return {s, d:await r.json()};
     }));
@@ -1072,11 +1087,11 @@ async function loadTenureData(){
         const owner=owners[tid]||`team:${tid}`;
         const bucket=tenure[owner]||(tenure[owner]={});
         Object.entries(players).forEach(([pid,rec])=>{
-          const p=bucket[pid]||(bucket[pid]={n:rec.n,pos:rec.pos,wAll:0,sAll:0,pAll:0,seasons:{}});
+          const p=bucket[pid]||(bucket[pid]={n:rec.n,pos:rec.pos,wAll:0,sAll:0,pAll:0,spAll:0,seasons:{}});
           if(rec.n) p.n=rec.n;
           if(p.pos==null) p.pos=rec.pos;
-          p.wAll+=rec.w||0; p.sAll+=rec.s||0; p.pAll+=rec.p||0;
-          p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0};
+          p.wAll+=rec.w||0; p.sAll+=rec.s||0; p.pAll+=rec.p||0; p.spAll+=rec.sp||0;
+          p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0,sp:rec.sp||0};
         });
       });
     });
@@ -1867,27 +1882,45 @@ function openTeamProfile(teamId){
   switchTab('teams');
   document.querySelector('main')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function buildAllTimeLineup(owner){
-  const players=Object.entries((_tenure&&_tenure[owner])||{}).map(([pid,p])=>({pid,n:p.n||('#'+pid),pos:p.pos,s:p.sAll||0,w:p.wAll||0,pts:p.pAll||0}));
-  const byPos=pos=>players.filter(p=>p.pos===pos).sort((x,y)=>y.s-x.s||y.w-x.w||y.pts-x.pts);
-  const slots=[['QB',1],['RB',2],['RB',2],['TE',4],['WR',3],['WR',3],['DEF',16],['K',5]];
-  const used={};
-  return slots.map(([label,pos])=>{const list=byPos(pos);const i=used[pos]||0;used[pos]=i+1;return {label,pl:list[i]||null};});
+function buildAllTimeLineup(owner, mode){
+  mode = mode==='ppg' ? 'ppg' : 'gs';
+  const players=Object.entries((_tenure&&_tenure[owner])||{}).map(([pid,p])=>{
+    const s=p.sAll||0, sp=p.spAll||0;
+    return {pid,n:p.n||('#'+pid),pos:p.pos,s,w:p.wAll||0,pts:p.pAll||0,sp,ppg:s>0?sp/s:0};
+  });
+  const cmp = mode==='ppg'
+    ? (x,y)=> y.ppg-x.ppg || y.s-x.s || y.pts-x.pts
+    : (x,y)=> y.s-x.s || y.w-x.w || y.pts-x.pts;
+  const pool=(mode==='ppg' ? players.filter(p=>p.s>=5) : players.filter(p=>p.s>0)).slice().sort(cmp);
+  const slots=[['QB',1],['RB',2],['RB',2],['WR',3],['WR',3],['TE',4],['FLEX',[2,3,4]],['DEF',16],['K',5]];
+  const used=new Set();
+  const pick=(m)=>{ for(const p of pool){ if(used.has(p.pid))continue; if(Array.isArray(m)?m.includes(p.pos):p.pos===m){used.add(p.pid);return p;} } return null; };
+  return slots.map(([label,m])=>({label, pl:pick(m)}));
 }
-const LINEUP_POSC={QB:'#f8296d',RB:'#36ce85',WR:'#58a7ff',TE:'#ffae58',DEF:'#c17f60',K:'#bd66ff'};
+const LINEUP_POSC={QB:'#f8296d',RB:'#36ce85',WR:'#58a7ff',TE:'#ffae58',DEF:'#c17f60',K:'#bd66ff',FLEX:'#9aa7b5'};
+let _lineupMode='gs';
+function setLineupMode(m,owner){ _lineupMode=(m==='ppg'?'ppg':'gs'); const c=document.getElementById('prof-lineup'); if(c) c.innerHTML=lineupHTML(owner); }
 function lineupHTML(owner){
-  const line=buildAllTimeLineup(owner);
-  if(line.every(s=>!s.pl)) return `<div class="tab-loading" style="padding:24px">No roster history found for this team.</div>`;
-  return `<div class="lineup-list">${line.map(sl=>{
+  const mode=_lineupMode;
+  const line=buildAllTimeLineup(owner,mode);
+  const tabBtn=(m,label)=>`<button class="tab-btn ${mode===m?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 12px" onclick="setLineupMode('${m}','${owner}')">${label}</button>`;
+  const tabs=`<div class="standings-filters" style="padding:0 0 12px;gap:6px">${tabBtn('gs','Games Started')}${tabBtn('ppg','Points / Start')}</div>`;
+  if(line.every(s=>!s.pl)) return tabs+`<div class="tab-loading" style="padding:24px">No roster history found for this team.</div>`;
+  const body=`<div class="lineup-list">${line.map(sl=>{
     const c=LINEUP_POSC[sl.label]||'var(--accent)';
+    let rv='—', rl='';
+    if(sl.pl){ if(mode==='ppg'){ rv=sl.pl.s>0?(sl.pl.sp/sl.pl.s).toFixed(1):'—'; rl='PPG'; } else { rv=String(sl.pl.s); rl='GS'; } }
     return `<div class="lineup-row">
       <div class="lineup-slot-pos" style="background:${c}">${sl.label}</div>
       ${sl.pl?`${playerImg(sl.pl.pid,42,sl.pl.n)}
-        <div class="lineup-pinfo"><div class="lineup-pname">${sl.pl.n}</div><div class="lineup-psub">${sl.pl.s} GS · ${sl.pl.w} wks rostered</div></div>
-        <div class="lineup-ppts"><span class="v">${sl.pl.pts.toFixed(0)}</span><span class="l">PTS</span></div>`
+        <div class="lineup-pinfo"><div class="lineup-pname">${sl.pl.n}</div><div class="lineup-psub">${sl.pl.s} GS · ${(sl.pl.sp/(sl.pl.s||1)).toFixed(1)} pts/start</div></div>
+        <div class="lineup-ppts"><span class="v">${rv}</span><span class="l">${rl}</span></div>`
         :`${playerImg(null,42,sl.label)}<div class="lineup-pinfo"><div class="lineup-pname" style="color:var(--text3)">Empty</div></div>`}
-    </div>`;}).join('')}</div>
-    <div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">Most-started player at each spot, all-time (games started → weeks rostered → points).</div>`;
+    </div>`;}).join('')}</div>`;
+  const note = mode==='ppg'
+    ? 'Highest points-per-start at each spot (min. 5 starts). FLEX = best remaining RB/WR/TE.'
+    : 'Most-started player at each spot, all-time (games started → weeks rostered → points). FLEX = best remaining RB/WR/TE.';
+  return tabs+body+`<div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">${note}</div>`;
 }
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
