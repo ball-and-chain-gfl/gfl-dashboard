@@ -2,6 +2,11 @@ const BASE='/api/espn';
 // ── Local cache (localStorage) for instant loads ────────────────────────────
 function cacheGet(k){try{const r=localStorage.getItem('gfl-cache:'+k);return r?JSON.parse(r):null;}catch{return null;}}
 function cacheSet(k,d){try{localStorage.setItem('gfl-cache:'+k,JSON.stringify({t:Date.now(),d}));}catch{}}
+// Historical data is archived as static JSON in /data — read that first (no ESPN call), fall back to the live proxy.
+async function histJSON(type, season, liveURL){
+  try{ const r=await fetch(`/data/${type}-${season}.json`); if(r.ok){ const j=await r.json(); if(j) return j; } }catch(e){}
+  try{ const r=await fetch(liveURL); return r.ok?await r.json():null; }catch(e){ return null; }
+}
 const TOTAL_WEEKS=17;
 const COMMISSIONER_PIN='1327';
 
@@ -40,11 +45,11 @@ let _tradeScope='season';               // 'season' | 'alltime'
 let _tradeTeamFilter='';                 // owner id to filter trades by (optional)
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
 let _draftTeamSel=null;                 // team filter on draft tab
-let _draftScope='year',_draftAllCache=null,_draftOwnerSel=null;
+let _draftListScope='year',_draftAllCache=null;
 const _logoColorCache={};               // teamId -> dominant logo color
 const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
 let _activeTab='home';
-const ALL_SEASONS=['2022','2023','2024','2025','2026'];
+const ALL_SEASONS=['2022','2023','2024','2025'];
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
@@ -246,9 +251,8 @@ function ownerOf(team){
 function tName(t){return t.name||`${t.location||''} ${t.nickname||''}`.trim()||t.abbrev||'Team';}
 async function fetchSeasonData(season){
   try{
-    const r=await fetch(`${BASE}?view=mMatchup&view=mTeam&view=mSettings&seasonId=${season}`);
-    if(!r.ok) return null;
-    const d=await r.json();
+    const d=await histJSON('season',season,`${BASE}?view=mMatchup&view=mTeam&view=mSettings&seasonId=${season}`);
+    if(!d) return null;
     const owners={},names={},teams={};
     const divisions={};
     (d.settings?.scheduleSettings?.divisions||[]).forEach(dv=>{divisions[dv.id]=dv.name;});
@@ -1075,9 +1079,9 @@ async function loadTenureData(){
   if(_tenurePromise) return _tenurePromise;
   _tenurePromise=(async()=>{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=5`);
-      if(!r.ok) return null;
-      return {s, d:await r.json()};
+      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=5`);
+      if(!d) return null;
+      return {s, d};
     }));
     const tenure={};
     results.forEach(rr=>{
@@ -1161,8 +1165,7 @@ function ptsFromWeek(pid,startWeek){
 async function fetchSeasonTrades(season){
   if(_tradeCache[season]) return _tradeCache[season];
   try{
-    const r=await fetch(`${BASE}?type=seasontrades&seasonId=${season}&v=3`);
-    const d=r.ok?await r.json():{trades:[],source:'error'};
+    const d=(await histJSON('trades',season,`${BASE}?type=seasontrades&seasonId=${season}&v=3`))||{trades:[],source:'error'};
     _tradeCache[season]={trades:d.trades||[],source:d.source||'reconstructed'};
   }catch{_tradeCache[season]={trades:[],source:'error'};}
   return _tradeCache[season];
@@ -1280,8 +1283,8 @@ async function ensureDraft(){
   body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading draft results &amp; season stats…</div>`;
   try{
     const [dr,st]=await Promise.all([
-      fetch(`${BASE}?type=draft&seasonId=${season}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch(`${BASE}?type=seasonstats&seasonId=${season}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
+      histJSON('draft',season,`${BASE}?type=draft&seasonId=${season}&v=2`),
+      histJSON('seasonstats',season,`${BASE}?type=seasonstats&seasonId=${season}&v=2`),
     ]);
     _draftCache[season]={picks:dr?.picks||[],stats:st?.players||[]};
   }catch{_draftCache[season]={picks:[],stats:[]};}
@@ -1310,8 +1313,8 @@ async function loadAllDrafts(){
   if(_draftAllCache) return _draftAllCache;
   const results=await Promise.all(ALL_SEASONS.map(async s=>{
     const [dr,st]=await Promise.all([
-      fetch(`${BASE}?type=draft&seasonId=${s}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch(`${BASE}?type=seasonstats&seasonId=${s}&v=2`).then(r=>r.ok?r.json():null).catch(()=>null),
+      histJSON('draft',s,`${BASE}?type=draft&seasonId=${s}&v=2`),
+      histJSON('seasonstats',s,`${BASE}?type=seasonstats&seasonId=${s}&v=2`),
     ]);
     return {s, picks:dr?.picks||[], stats:st?.players||[]};
   }));
@@ -1323,7 +1326,7 @@ async function loadAllDrafts(){
     const totals={};
     r.forEach(x=>{ if(x.owner==null) return; totals[x.owner]=(totals[x.owner]||0)+x.delta; });
     const vals=Object.values(totals); if(!vals.length) return;
-    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;   // that season's league-average team Δ
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
     Object.entries(totals).forEach(([owner,total])=>{
       teamDrafts.push({owner,season:s,total,adj:total-avg,name:(_franchises.find(f=>f.owner===owner)?.name)||(_seasonMeta[s]?.names?.[owner]?.name)||owner});
       ownerTotals[owner]=(ownerTotals[owner]||0)+total; ownerCounts[owner]=(ownerCounts[owner]||0)+1;
@@ -1332,7 +1335,7 @@ async function loadAllDrafts(){
   _draftAllCache={rows,teamDrafts,ownerTotals,ownerCounts};
   return _draftAllCache;
 }
-function setDraftScope(s){ _draftScope=(s==='alltime'?'alltime':'year'); renderDraftTab(); }
+function setDraftListScope(s){ _draftListScope=(s==='alltime'?'alltime':'year'); renderDraftTab(); }
 function draftRowTeam(r){
   if(r.owner) return (_franchises.find(f=>f.owner===r.owner)?.name)||(_seasonMeta[r.season]?.names?.[r.owner]?.name)||`Team ${r.teamId}`;
   return (_teams.find(t=>t.id===r.teamId)?.name)||`Team ${r.teamId}`;
@@ -1349,19 +1352,22 @@ function draftPickCard(r,i,showSeason){
     <div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div>
   </div>`;
 }
-function draftClassCard(d,i){
+function draftClassCard(d,i,showSeason){
   return `<div class="draft-row">
     <div class="draft-rankn">${i+1}</div>
     <div class="draft-info">
-      <div class="draft-name">${d.name}<span class="draft-pos">${d.season}</span></div>
+      <div class="draft-name">${d.name}${showSeason?`<span class="draft-pos">${d.season}</span>`:''}</div>
       <div class="draft-line">Raw positional Δ ${d.total>0?'+':''}${d.total}</div>
     </div>
     <div class="draft-delta" style="color:${d.adj>0?'var(--green)':d.adj<0?'var(--red)':'var(--text2)'}">${d.adj>0?'+':''}${d.adj.toFixed(0)}</div>
   </div>`;
 }
-function scoreBadge(rel,rank,n){
+function scoreBadge(rel,rank,season){
   const col=rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)';
-  return `<span style="display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Draft Score <b style="font-family:'Big Shoulders Display',sans-serif;font-size:22px;color:${col};letter-spacing:0">${rel>0?'+':''}${rel.toFixed(0)}</b> <span style="color:var(--text2);font-size:13px">#${rank}/${n}</span></span>`;
+  return `<div class="draft-score-badge">
+    <div class="dsb-rank">#${rank} ranked draft in ${season}</div>
+    <div class="dsb-score">Draft Score <b style="color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</b></div>
+  </div>`;
 }
 function draftTeamTableHTML(rows,showSeason){
   const totalDelta=rows.reduce((s,r)=>s+r.delta,0);
@@ -1381,29 +1387,18 @@ function draftTeamTableHTML(rows,showSeason){
 function renderDraftTab(){
   const body=document.getElementById('draft-body'); if(!body) return;
   const season=getSeason();
-  const scope=_draftScope;
-  const toggle=`<div class="standings-filters" style="padding:0 0 16px;gap:6px">
-    <button class="tab-btn ${scope==='year'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftScope('year')">This Year · ${season}</button>
-    <button class="tab-btn ${scope==='alltime'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftScope('alltime')">All-Time</button>
-  </div>`;
-  if(scope==='alltime'){
-    if(!_draftAllCache){
-      body.innerHTML=toggle+`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every draft from every season…</div>`;
-      loadAllDrafts().then(()=>{ if(_activeTab==='draft'&&_draftScope==='alltime') renderDraftTab(); })
-        .catch(()=>{ body.innerHTML=toggle+`<div class="tab-loading" style="color:var(--red)">Couldn't load all-time drafts.</div>`; });
-      return;
-    }
-    renderDraftAllTime(body,toggle);
-    return;
-  }
   const d=_draftCache[season]; if(!d) return;
   const rows=computeDraftRows(d.picks,d.stats,season); d.rows=rows;
-  if(!rows.length){ body.innerHTML=toggle+`<div class="tab-loading">No draft data available for the ${season} season.</div>`; return; }
-  const steals=rows.slice().sort((x,y)=>y.delta-x.delta).slice(0,10);
-  const busts=rows.filter(r=>r.overall<=72).sort((x,y)=>x.delta-y.delta).slice(0,10);
+  if(!rows.length){ body.innerHTML=`<div class="tab-loading">No draft data available for the ${season} season.</div>`; return; }
   if(_draftTeamSel==null||!_teams.some(t=>t.id===Number(_draftTeamSel))) _draftTeamSel=_teams[0]?.id;
-  body.innerHTML=toggle+`
-  <div class="card" style="margin:0 0 22px">
+  const scope=_draftListScope;
+  const toggle=`<div class="standings-filters" style="padding:2px 0 16px;gap:6px;align-items:center">
+    <span style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-right:2px">Rankings</span>
+    <button class="tab-btn ${scope==='year'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftListScope('year')">This Year · ${season}</button>
+    <button class="tab-btn ${scope==='alltime'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftListScope('alltime')">All-Time</button>
+  </div>`;
+  body.innerHTML=`
+  <div class="card" style="margin:0 0 24px">
     <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Full Draft by Team<span id="draft-score" style="margin-left:auto"></span></div>
     <div class="picker-bar">
       <label for="draft-team-select">Team:</label>
@@ -1411,76 +1406,56 @@ function renderDraftTab(){
     </div>
     <div id="draft-team-body"></div>
   </div>
-  <div class="two-col" style="margin:0 0 8px;gap:16px">
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Draft Steals<span class="badge-info">beat their draft slot</span></div>
-      ${steals.map((r,i)=>draftPickCard(r,i,false)).join('')}
-    </div>
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Draft Busts<span class="badge-info">first 6 rounds</span></div>
-      ${busts.map((r,i)=>draftPickCard(r,i,false)).join('')}
-    </div>
-  </div>
-  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Δ is positional: draft rank at the position − finish rank at the position (e.g. a QB drafted 15th who finished as the QB2 is +13). Draft Score = a team's summed Δ minus the league-average team Δ, with rank.</div>`;
+  ${toggle}
+  <div id="draft-lists"></div>`;
   renderDraftTeamTable();
+  renderDraftLists();
 }
-function renderDraftAllTime(body,toggle){
-  const {rows,teamDrafts,ownerTotals}=_draftAllCache;
-  if(!rows.length){ body.innerHTML=toggle+`<div class="tab-loading">No all-time draft data available.</div>`; return; }
-  const steals=rows.slice().sort((x,y)=>y.delta-x.delta).slice(0,10);
-  const busts=rows.filter(r=>r.overall<=72).sort((x,y)=>x.delta-y.delta).slice(0,10);
-  const best=teamDrafts.slice().sort((a,b)=>b.adj-a.adj).slice(0,10);
-  const worst=teamDrafts.slice().sort((a,b)=>a.adj-b.adj).slice(0,10);
-  const owners=Object.keys(ownerTotals);
-  if(_draftOwnerSel==null||!owners.includes(_draftOwnerSel)) _draftOwnerSel=owners[0];
-  body.innerHTML=toggle+`
-  <div class="card" style="margin:0 0 22px">
-    <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Full Draft by Team · All-Time<span id="draft-score" style="margin-left:auto"></span></div>
-    <div class="picker-bar">
-      <label for="draft-owner-select">Team:</label>
-      <select id="draft-owner-select" onchange="_draftOwnerSel=this.value;renderDraftTeamTable()">${owners.map(o=>`<option value="${o}" ${_draftOwnerSel===o?'selected':''}>${(_franchises.find(f=>f.owner===o)?.name)||o}</option>`).join('')}</select>
-    </div>
-    <div id="draft-team-body"></div>
-  </div>
+function listsHTML(best,worst,steals,busts,showSeason,note){
+  return `
   <div class="two-col" style="margin:0 0 22px;gap:16px">
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-trophy" style="color:var(--green)"></i>Best Drafts Ever<span class="badge-info">adjusted vs each year</span></div>
-      ${best.map((d,i)=>draftClassCard(d,i)).join('')}
-    </div>
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-fire" style="color:var(--red)"></i>Worst Drafts Ever<span class="badge-info">adjusted vs each year</span></div>
-      ${worst.map((d,i)=>draftClassCard(d,i)).join('')}
-    </div>
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-trophy" style="color:var(--green)"></i>Best Draft${showSeason?'s Ever':' Classes'}<span class="badge-info">adjusted Δ</span></div>${best.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-fire" style="color:var(--red)"></i>Worst Draft${showSeason?'s Ever':' Classes'}<span class="badge-info">adjusted Δ</span></div>${worst.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
   </div>
   <div class="two-col" style="margin:0 0 8px;gap:16px">
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Steals Ever<span class="badge-info">any pick, any year</span></div>
-      ${steals.map((r,i)=>draftPickCard(r,i,true)).join('')}
-    </div>
-    <div class="card" style="box-shadow:none">
-      <div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Busts Ever<span class="badge-info">first 6 rounds</span></div>
-      ${busts.map((r,i)=>draftPickCard(r,i,true)).join('')}
-    </div>
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-gem" style="color:var(--green)"></i>Biggest Steals${showSeason?' Ever':''}<span class="badge-info">beat draft slot</span></div>${steals.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
+    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Worst Busts${showSeason?' Ever':''}<span class="badge-info">first 6 rounds</span></div>${busts.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
   </div>
-  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">"Best/Worst Drafts Ever" use each team's summed positional Δ for a season, adjusted by subtracting that season's league-average team Δ so different years compare fairly. Draft Score (top) is the all-time version of that adjustment.</div>`;
-  renderDraftTeamTable();
+  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">${note}</div>`;
+}
+function renderDraftLists(){
+  const el=document.getElementById('draft-lists'); if(!el) return;
+  if(_draftListScope==='alltime'){
+    if(!_draftAllCache){
+      el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every draft from every season…</div>`;
+      loadAllDrafts().then(()=>{ if(_activeTab==='draft'&&_draftListScope==='alltime') renderDraftLists(); })
+        .catch(()=>{ el.innerHTML=`<div class="tab-loading" style="color:var(--red)">Couldn't load all-time drafts.</div>`; });
+      return;
+    }
+    const {rows,teamDrafts}=_draftAllCache;
+    const steals=rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10);
+    const busts=rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10);
+    const best=teamDrafts.slice().sort((a,b)=>b.adj-a.adj).slice(0,10);
+    const worst=teamDrafts.slice().sort((a,b)=>a.adj-b.adj).slice(0,10);
+    el.innerHTML=listsHTML(best,worst,steals,busts,true,`"Best/Worst Drafts Ever" use each team's summed positional \u0394 for a season, adjusted by subtracting that season's league-average team \u0394 so drafts from different years compare fairly.`);
+    return;
+  }
+  const season=getSeason();
+  const rows=(_draftCache[season]?.rows)||[];
+  const steals=rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10);
+  const busts=rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10);
+  const totals={}; rows.forEach(r=>{ if(r.owner==null) return; totals[r.owner]=(totals[r.owner]||0)+r.delta; });
+  const owners=Object.keys(totals);
+  const avg=owners.length?owners.reduce((s,o)=>s+totals[o],0)/owners.length:0;
+  const yr=owners.map(o=>({owner:o,season,total:totals[o],adj:totals[o]-avg,name:(_franchises.find(f=>f.owner===o)?.name)||(_seasonMeta[season]?.names?.[o]?.name)||o}));
+  const best=yr.slice().sort((a,b)=>b.adj-a.adj).slice(0,10);
+  const worst=yr.slice().sort((a,b)=>a.adj-b.adj).slice(0,10);
+  el.innerHTML=listsHTML(best,worst,steals,busts,false,`Δ is positional: draft rank at the position − finish rank at the position (e.g. a QB drafted 15th who finished as the QB2 is +13). "Best/Worst Drafts" rank each team's ${season} draft by summed Δ vs the league average.`);
 }
 function renderDraftTeamTable(){
   const body=document.getElementById('draft-team-body'); if(!body) return;
-  const scoreEl=document.getElementById('draft-score');
-  if(_draftScope==='alltime'){
-    const ac=_draftAllCache; if(!ac) return;
-    const owner=document.getElementById('draft-owner-select')?.value||_draftOwnerSel;
-    const rows=ac.rows.filter(r=>r.owner===owner).sort((a,b)=>(a.season-b.season)||(a.overall-b.overall));
-    const ot=ac.ownerTotals, os=Object.keys(ot);
-    const avg=os.length?os.reduce((s,o)=>s+ot[o],0)/os.length:0;
-    const ranked=os.map(o=>({o,t:ot[o]})).sort((a,b)=>b.t-a.t);
-    const rel=(ot[owner]||0)-avg, rank=ranked.findIndex(x=>x.o===owner)+1;
-    if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,ranked.length);
-    body.innerHTML=rows.length?draftTeamTableHTML(rows,true):`<div class="tab-loading">No picks found.</div>`;
-    return;
-  }
-  const d=_draftCache[getSeason()]; if(!d?.rows) return;
+  const season=getSeason();
+  const d=_draftCache[season]; if(!d?.rows) return;
   const tid=Number(document.getElementById('draft-team-select')?.value??_draftTeamSel);
   const rows=d.rows.filter(r=>r.teamId===tid);
   const totals={}; d.rows.forEach(r=>{totals[r.teamId]=(totals[r.teamId]||0)+r.delta;});
@@ -1488,7 +1463,7 @@ function renderDraftTeamTable(){
   const avg=ids.length?ids.reduce((s,k)=>s+totals[k],0)/ids.length:0;
   const ranked=ids.map(id=>({id:Number(id),t:totals[id]})).sort((a,b)=>b.t-a.t);
   const rel=(totals[tid]||0)-avg, rank=ranked.findIndex(x=>x.id===tid)+1;
-  if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,ranked.length);
+  const scoreEl=document.getElementById('draft-score'); if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,season);
   body.innerHTML=rows.length?draftTeamTableHTML(rows,false):`<div class="tab-loading">No picks found for this team.</div>`;
 }
 

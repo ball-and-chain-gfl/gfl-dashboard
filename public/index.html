@@ -953,6 +953,14 @@
       .controls #season-select{flex:1 1 auto;min-width:0;}
     }
 
+
+    /* ── Draft Score badge (Full Draft by Team) ─────────────────────────── */
+    .draft-score-badge{margin-left:auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);}
+    .dsb-rank{font-size:12px;text-transform:uppercase;letter-spacing:0.7px;color:var(--text3);font-weight:600;white-space:nowrap;}
+    .dsb-score{font-size:13px;color:var(--text2);display:flex;align-items:baseline;gap:6px;white-space:nowrap;}
+    .dsb-score b{font-family:'Big Shoulders Display',sans-serif;font-size:26px;letter-spacing:0;line-height:1;}
+    @media(max-width:640px){.draft-score-badge{margin-top:10px;width:100%;align-items:flex-start;text-align:left;}}
+
   </style>
 </head>
 <body>
@@ -997,7 +1005,6 @@
   <div class="controls">
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
     <select id="season-select" onchange="loadDashboard()">
-      <option value="2026">2026 Season</option>
       <option value="2025" selected>2025 Season</option>
       <option value="2024">2024 Season</option>
       <option value="2023">2023 Season</option>
