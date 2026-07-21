@@ -1,4 +1,7 @@
 const BASE='/api/espn';
+// ── Local cache (localStorage) for instant loads ────────────────────────────
+function cacheGet(k){try{const r=localStorage.getItem('gfl-cache:'+k);return r?JSON.parse(r):null;}catch{return null;}}
+function cacheSet(k,d){try{localStorage.setItem('gfl-cache:'+k,JSON.stringify({t:Date.now(),d}));}catch{}}
 const TOTAL_WEEKS=17;
 const COMMISSIONER_PIN='1327';
 
@@ -65,7 +68,12 @@ async function espnFetch(view){
   return r.json();
 }
 async function ytFetch(){
-  try{const r=await fetch(`${BASE}?type=youtube`);return r.ok?r.json():{videos:[]};}catch{return{videos:[]};}
+  const c=cacheGet('youtube');
+  // kick off a background refresh so the list stays current for next open
+  const refresh=fetch(`${BASE}?type=youtube`).then(r=>r.ok?r.json():null)
+    .then(j=>{if(j&&j.videos&&j.videos.length)cacheSet('youtube',j);return j;}).catch(()=>null);
+  if(c&&c.d&&c.d.videos&&c.d.videos.length) return c.d;   // instant from cache
+  return (await refresh)||{videos:[]};
 }
 async function txFetch(){
   let d={transactions:[],_source:'error'};
@@ -1735,6 +1743,8 @@ function gabeHeart(pid){
 async function loadGabe(pid){
   if(_gabeGames) return _gabeGames;
   if(_gabePromise) return _gabePromise;
+  const cached=cacheGet('gabe-v1:'+pid);          // gathered once, then reused
+  if(cached&&Array.isArray(cached.d)){_gabeGames=cached.d;return _gabeGames;}
   _gabePromise=(async()=>{
     const res=await Promise.allSettled(ALL_SEASONS.map(async s=>{
       const r=await fetch(`${BASE}?type=playergames&seasonId=${s}&playerId=${pid}`);
@@ -1742,7 +1752,7 @@ async function loadGabe(pid){
     }));
     const all=[];
     res.forEach(rr=>{if(rr.status!=='fulfilled'||!rr.value)return;const {s,d}=rr.value;(d.games||[]).forEach(g=>all.push({...g,season:s}));});
-    _gabeGames=all; return all;
+    _gabeGames=all; cacheSet('gabe-v1:'+pid,all); return all;
   })();
   return _gabePromise;
 }
