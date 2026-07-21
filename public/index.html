@@ -930,6 +930,29 @@
       #mobile-title i{font-size:16px;}
     }
 
+
+    /* ── MOBILE TAB DROPDOWN (replaces hamburger) + header layout ─────────── */
+    .hdr-top{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 auto;}
+    .tab-dd{display:none;position:relative;}
+    #tab-dd-btn{display:inline-flex;align-items:center;gap:8px;font-family:'Big Shoulders Display','Work Sans',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.3px;padding:9px 13px;max-width:62vw;}
+    #tab-dd-btn #tab-dd-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #tab-dd-ic{font-size:15px;}
+    .tab-dd-caret{font-size:11px!important;color:var(--text3);transition:transform .18s ease;}
+    .tab-dd-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:250px;max-height:72vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,0.6);z-index:2000;display:none;padding:6px;}
+    .tab-dd-menu.show{display:block;animation:fadein .15s ease;}
+    .tab-dd-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border-radius:8px;background:none;border:1px solid transparent;box-shadow:none;color:var(--text);font-size:15px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;}
+    .tab-dd-item i{color:var(--tc);width:20px;text-align:center;font-size:15px;flex-shrink:0;}
+    .tab-dd-item:hover{background:rgba(255,255,255,0.05);}
+    .tab-dd-item.active{background:color-mix(in srgb,var(--tc) 16%,transparent);border-color:color-mix(in srgb,var(--tc) 42%,transparent);color:var(--tc);}
+    .tab-dd-item.active i{color:var(--tc);}
+    @media(max-width:768px){
+      header{flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:10px;}
+      .hdr-top{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+      .tab-dd{display:block;}
+      .controls{width:100%;justify-content:flex-start;gap:8px;flex-wrap:nowrap;}
+      .controls #season-select{flex:1 1 auto;min-width:0;}
+    }
+
   </style>
 </head>
 <body>
@@ -961,9 +984,15 @@
 </div>
 
 <header>
-  <div class="logo" onclick="goHome()" title="Back to Home" role="button" tabindex="0">
-    <img src="/logo.png" alt="GFL" onerror="this.style.display='none'"/>
-    <div><h1>Ball &amp; Chain GFL</h1><span id="last-updated">Loading...</span></div>
+  <div class="hdr-top">
+    <div class="logo" onclick="goHome()" title="Back to Home" role="button" tabindex="0">
+      <img src="/logo.png" alt="GFL" onerror="this.style.display='none'"/>
+      <div><h1>Ball &amp; Chain GFL</h1><span id="last-updated">Loading...</span></div>
+    </div>
+    <div class="tab-dd" id="tab-dd">
+      <button id="tab-dd-btn" onclick="toggleTabDD()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><i class="fa fa-chevron-down tab-dd-caret"></i></button>
+      <div id="tab-dd-menu" class="tab-dd-menu"></div>
+    </div>
   </div>
   <div class="controls">
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
@@ -975,7 +1004,6 @@
       <option value="2022">2022 Season</option>
     </select>
     <button onclick="loadDashboard()" title="Refresh"><i class="fa fa-rotate-right"></i></button>
-    <button id="hamburger" onclick="toggleMobileNav()" aria-label="Open menu" title="Menu"><i class="fa fa-bars"></i></button>
   </div>
 </header>
 
@@ -993,14 +1021,7 @@
   <button class="tab-btn" data-tab="gabe" onclick="switchTab('gabe')"><i class="fa fa-dumbbell"></i>Gabe&#39;s Greatness</button>
   <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')"><i class="fa fa-person-running"></i>Marathons Ran</button>
 </nav>
-<div id="mobile-nav" class="mnav" onclick="if(event.target===this)toggleMobileNav(false)">
-  <div class="mnav-panel">
-    <div class="mnav-head"><span>Menu</span><button class="mnav-close" onclick="toggleMobileNav(false)" aria-label="Close menu"><i class="fa fa-xmark"></i></button></div>
-    <div id="mobile-nav-list" class="mnav-list"></div>
-  </div>
-</div>
 
-<div id="mobile-title" aria-hidden="true"></div>
 <main><div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>
 <footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 

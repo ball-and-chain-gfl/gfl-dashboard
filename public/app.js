@@ -48,15 +48,7 @@ const ALL_SEASONS=['2022','2023','2024','2025','2026'];
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
 const TAB_LABELS={home:'Home',standings:'Standings & Stats',trades:'Trades',draft:'Draft',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
-function updateMobileTitle(name){
-  const el=document.getElementById('mobile-title'); if(!el) return;
-  const btn=document.querySelector('#tabbar .tab-btn[data-tab="'+name+'"]');
-  const label=(btn&&btn.textContent.trim())||TAB_LABELS[name]||'';
-  const icon=(btn&&btn.querySelector('i'))?btn.querySelector('i').className:'fa fa-circle';
-  const tc=btn?(getComputedStyle(btn).getPropertyValue('--tc').trim()||'var(--accent)'):'var(--accent)';
-  el.innerHTML='<i class="'+icon+'" style="color:'+tc+'"></i><span>'+label+'</span>';
-}
-function goHome(){ try{toggleMobileNav(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
+function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
   document.getElementById('dot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
@@ -330,35 +322,43 @@ function switchTab(name){
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
-  syncMobileNavActive();
-  updateMobileTitle(name);
+  updateTabDD(name);
 }
-// ── MOBILE NAV (hamburger drawer) ────────────────────────────────────────────
-function buildMobileNav(){
-  const list=document.getElementById('mobile-nav-list'); if(!list) return;
+// ── MOBILE TAB DROPDOWN (replaces hamburger) ─────────────────────────────────
+function buildTabDD(){
+  const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
   const btns=[...document.querySelectorAll('#tabbar .tab-btn')];
-  list.innerHTML=btns.map(b=>{
+  menu.innerHTML=btns.map(b=>{
     const tab=b.dataset.tab;
     const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
     const label=b.textContent.trim();
     const tc=(getComputedStyle(b).getPropertyValue('--tc').trim())||'var(--accent)';
     const active=b.classList.contains('active')?' active':'';
-    return `<button class="mnav-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="mobileGo('${tab}')"><i class="${icon}"></i><span>${label}</span></button>`;
+    return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}"></i><span>${label}</span></button>`;
   }).join('');
 }
-function syncMobileNavActive(){
-  document.querySelectorAll('#mobile-nav-list .mnav-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===_activeTab));
-}
-function toggleMobileNav(open){
-  const m=document.getElementById('mobile-nav'); if(!m) return;
-  const show=(open===undefined)?!m.classList.contains('show'):!!open;
-  if(show) buildMobileNav();
-  m.classList.toggle('show',show);
+function toggleTabDD(open){
+  const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
+  const show=(open===undefined)?!menu.classList.contains('show'):!!open;
+  if(show) buildTabDD();
+  menu.classList.toggle('show',show);
   document.documentElement.classList.toggle('nav-lock',show);
   document.body.classList.toggle('nav-lock',show);
-  const hi=document.querySelector('#hamburger i'); if(hi) hi.className='fa '+(show?'fa-xmark':'fa-bars');
+  const caret=document.querySelector('.tab-dd-caret'); if(caret) caret.style.transform=show?'rotate(180deg)':'';
 }
-function mobileGo(tab){ toggleMobileNav(false); switchTab(tab); window.scrollTo(0,0); }
+function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0); }
+function updateTabDD(name){
+  const btn=document.querySelector('#tabbar .tab-btn[data-tab="'+name+'"]');
+  const ic=document.getElementById('tab-dd-ic'), lb=document.getElementById('tab-dd-lb'), b=document.getElementById('tab-dd-btn');
+  const label=(btn&&btn.textContent.trim())||TAB_LABELS[name]||'';
+  const icon=(btn&&btn.querySelector('i'))?btn.querySelector('i').className:'fa fa-circle';
+  const tc=btn?(getComputedStyle(btn).getPropertyValue('--tc').trim()||'var(--accent)'):'var(--accent)';
+  if(lb) lb.textContent=label;
+  if(ic){ ic.className=icon; ic.style.color=tc; }
+  if(b) b.style.setProperty('--tc',tc);
+  document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===name));
+}
+document.addEventListener('click',function(e){ const dd=document.getElementById('tab-dd'); if(dd&&!dd.contains(e.target)) toggleTabDD(false); });
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
 function openPinOverlay(action){
@@ -973,8 +973,8 @@ function renderStandingsTable(){
   const atCache={};
   _teams.forEach(t=>{const o=_ownerMap[t.id]; const at=o?franchiseAllTime(o):null; atCache[t.id]=at||{pf:0,pa:0,seasons:0};});
   const atOf=t=>atCache[t.id]||{pf:0,pa:0,seasons:0};
-  const pfy=t=>{const a=atOf(t);return a.seasons?a.pf/a.seasons:0;};
-  const pay=t=>{const a=atOf(t);return a.seasons?a.pa/a.seasons:0;};
+  const pfy=t=>{const a=atOf(t);return a.playedSeasons?a.pf/a.playedSeasons:0;};
+  const pay=t=>{const a=atOf(t);return a.playedSeasons?a.pa/a.playedSeasons:0;};
   teams.sort((a,b)=>{
     let va,vb;
     if(_sortCol==='rank'){va=a.wins/((a.wins+a.losses+a.ties)||1)+a.pf/1e7;vb=b.wins/((b.wins+b.losses+b.ties)||1)+b.pf/1e7;}
@@ -1015,8 +1015,8 @@ function renderStandingsTable(){
       <td class="right" style="color:${_cmMode==='none'?'var(--text3)':sc(s)};font-weight:600">${_cmMode==='none'?'—':s.toFixed(2)}</td>
       <td class="right pf">${atOf(t).pf?atOf(t).pf.toFixed(0):'—'}</td>
       <td class="right pa">${atOf(t).pa?atOf(t).pa.toFixed(0):'—'}</td>
-      <td class="right" style="color:var(--text2)">${atOf(t).seasons?pfy(t).toFixed(0):'—'}</td>
-      <td class="right" style="color:var(--text2)">${atOf(t).seasons?pay(t).toFixed(0):'—'}</td>
+      <td class="right" style="color:var(--text2)">${atOf(t).playedSeasons?pfy(t).toFixed(0):'—'}</td>
+      <td class="right" style="color:var(--text2)">${atOf(t).playedSeasons?pay(t).toFixed(0):'—'}</td>
     </tr>`;
   }).join('');
 }
@@ -1300,10 +1300,13 @@ function renderDraftTab(){
     const s=statById[pk.playerId];
     const pos=s?.pos??null,posKey=pos??'x';
     posDraftCount[posKey]=(posDraftCount[posKey]||0)+1;
+    const posDrafted=posDraftCount[posKey];
     const name=s?.n||_playerNames[pk.playerId]||`Player #${pk.playerId}`;
     const fin=rankOverall[pk.playerId]??null;
-    const delta=fin!=null?pk.overall-fin:pk.overall-(stats.length+1);
-    return {pid:pk.playerId,name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,overall:pk.overall,round:pk.round,posDrafted:posDraftCount[posKey],fin,finPos:rankPos[pk.playerId]??null,pts:s?.pts??0,delta};
+    const finPos=rankPos[pk.playerId]??null;
+    // positional delta: rank at position when drafted − finish rank at position
+    const delta=finPos!=null?(posDrafted-finPos):(posDrafted-((posCount[pos]||0)+1));
+    return {pid:pk.playerId,name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,overall:pk.overall,round:pk.round,posDrafted,fin,finPos,pts:s?.pts??0,delta};
   });
   d.rows=rows;
   const tn=id=>(_teams.find(t=>t.id===id)?.name||`Team ${id}`).trim();
@@ -1338,7 +1341,7 @@ function renderDraftTab(){
     </div>
     <div id="draft-team-body"></div>
   </div>
-  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Finish rank compares total ${season} fantasy points (league scoring) across all NFL players. Delta = draft slot − finish rank, so +14 means a player drafted 16th who finished 2nd.</div>`;
+  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Ranks compare total ${season} fantasy points (league scoring) across all NFL players. Δ is positional: draft rank at the position − finish rank at the position — e.g. a QB drafted 15th (QB15) who finished as the QB2 is +13.</div>`;
   renderDraftTeamTable();
 }
 function renderDraftTeamTable(){
@@ -1860,7 +1863,7 @@ function renderBadBeat(){
 
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 function franchiseAllTime(owner){
-  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0;const seasons=new Set();
+  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0;const seasons=new Set(),played=new Set();
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
     const owners=meta.owners||{},teams=meta.teams||{};
@@ -1870,11 +1873,11 @@ function franchiseAllTime(owner){
     const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;if(ti.rank){best=Math.min(best,ti.rank);worst=Math.max(worst,ti.rank);}}
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
-      if(String(m.home.teamId)===tid){pf+=hp;pa+=ap;if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
-      else if(String(m.away.teamId)===tid){pf+=ap;pa+=hp;if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
+      if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
+      else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
     });
   });
-  return {w,l,t,pf,pa,seasons:seasons.size,rings,best:best===99?null:best,worst:worst||null,confs:(_hardware[owner]?.confs)||0};
+  return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,best:best===99?null:best,worst:worst||null,confs:(_hardware[owner]?.confs)||0};
 }
 function openTeamProfile(teamId){
   _profileTeam=String(teamId);
@@ -1882,11 +1885,19 @@ function openTeamProfile(teamId){
   switchTab('teams');
   document.querySelector('main')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
+function fmtYears(arr){
+  const ys=(arr||[]).map(Number).filter(Boolean).sort((a,b)=>a-b); if(!ys.length) return '';
+  const runs=[]; let start=ys[0],prev=ys[0];
+  const push=()=>runs.push(start===prev?String(start):`${start}\u2013${String(prev).slice(2)}`);
+  for(let i=1;i<ys.length;i++){ if(ys[i]===prev+1){prev=ys[i];} else {push();start=prev=ys[i];} }
+  push(); return runs.join(', ');
+}
 function buildAllTimeLineup(owner, mode){
   mode = mode==='ppg' ? 'ppg' : 'gs';
   const players=Object.entries((_tenure&&_tenure[owner])||{}).map(([pid,p])=>{
     const s=p.sAll||0, sp=p.spAll||0;
-    return {pid,n:p.n||('#'+pid),pos:p.pos,s,w:p.wAll||0,pts:p.pAll||0,sp,ppg:s>0?sp/s:0};
+    const yrs=Object.keys(p.seasons||{}).filter(y=>((p.seasons[y]&&p.seasons[y].w)||0)>0).sort();
+    return {pid,n:p.n||('#'+pid),pos:p.pos,s,w:p.wAll||0,pts:p.pAll||0,sp,ppg:s>0?sp/s:0,yrs};
   });
   const cmp = mode==='ppg'
     ? (x,y)=> y.ppg-x.ppg || y.s-x.s || y.pts-x.pts
@@ -1913,7 +1924,7 @@ function lineupHTML(owner){
     return `<div class="lineup-row">
       <div class="lineup-slot-pos" style="background:${c}">${sl.label}</div>
       ${sl.pl?`${playerImg(sl.pl.pid,42,sl.pl.n)}
-        <div class="lineup-pinfo"><div class="lineup-pname">${sl.pl.n}</div><div class="lineup-psub">${sl.pl.s} GS · ${(sl.pl.sp/(sl.pl.s||1)).toFixed(1)} pts/start</div></div>
+        <div class="lineup-pinfo"><div class="lineup-pname">${sl.pl.n}</div><div class="lineup-psub">${sl.pl.s} GS · ${(sl.pl.sp/(sl.pl.s||1)).toFixed(1)} pts/start${sl.pl.yrs&&sl.pl.yrs.length?` · ${fmtYears(sl.pl.yrs)}`:''}</div></div>
         <div class="lineup-ppts"><span class="v">${rv}</span><span class="l">${rl}</span></div>`
         :`${playerImg(null,42,sl.label)}<div class="lineup-pinfo"><div class="lineup-pname" style="color:var(--text3)">Empty</div></div>`}
     </div>`;}).join('')}</div>`;
