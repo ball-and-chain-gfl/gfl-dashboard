@@ -1038,8 +1038,16 @@
 <script src="/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
+      // If an existing SW is replaced by a new build, reload once so the latest UI shows immediately.
+      var _hadController = !!navigator.serviceWorker.controller, _swReloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (_hadController && !_swReloaded) { _swReloaded = true; location.reload(); }
+      });
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').catch(function () {});
+        navigator.serviceWorker.register('/sw.js').then(function (reg) {
+          reg.update();
+          setInterval(function () { reg.update(); }, 60 * 60 * 1000);
+        }).catch(function () {});
       });
     }
   </script>
