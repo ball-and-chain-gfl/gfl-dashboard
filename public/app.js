@@ -53,6 +53,7 @@ const ALL_SEASONS=['2022','2023','2024','2025'];
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
+const TAB_COLORS={home:'#ffb347',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
 const TAB_LABELS={home:'Home',standings:'Standings & Stats',trades:'Trades',draft:'Draft',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -337,9 +338,9 @@ function buildTabDD(){
     const tab=b.dataset.tab;
     const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
     const label=b.textContent.trim();
-    const tc=(getComputedStyle(b).getPropertyValue('--tc').trim())||'var(--accent)';
-    const active=b.classList.contains('active')?' active':'';
-    return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}"></i><span>${label}</span></button>`;
+    const tc=TAB_COLORS[tab]||'var(--accent)';
+    const active=(tab===_activeTab)?' active':'';
+    return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
   }).join('');
 }
 function toggleTabDD(open){
@@ -357,7 +358,7 @@ function updateTabDD(name){
   const ic=document.getElementById('tab-dd-ic'), lb=document.getElementById('tab-dd-lb'), b=document.getElementById('tab-dd-btn');
   const label=(btn&&btn.textContent.trim())||TAB_LABELS[name]||'';
   const icon=(btn&&btn.querySelector('i'))?btn.querySelector('i').className:'fa fa-circle';
-  const tc=btn?(getComputedStyle(btn).getPropertyValue('--tc').trim()||'var(--accent)'):'var(--accent)';
+  const tc=TAB_COLORS[name]||'var(--accent)';
   if(lb) lb.textContent=label;
   if(ic){ ic.className=icon; ic.style.color=tc; }
   if(b) b.style.setProperty('--tc',tc);
@@ -1353,7 +1354,7 @@ function draftPickCard(r,i,showSeason){
   </div>`;
 }
 function draftClassCard(d,i,showSeason){
-  const v=d.total;
+  const v=(d.val!=null?d.val:d.total);
   const fr=_franchises.find(f=>f.owner===d.owner);
   return `<div class="draft-row">
     <div class="draft-rankn">${i+1}</div>
@@ -1361,7 +1362,7 @@ function draftClassCard(d,i,showSeason){
     <div class="draft-info">
       <div class="draft-name">${d.name}${showSeason?`<span class="draft-pos">${d.season}</span>`:''}</div>
     </div>
-    <div class="draft-delta" style="color:${v>0?'var(--green)':v<0?'var(--red)':'var(--text2)'}">${v>0?'+':''}${v}</div>
+    <div class="draft-delta" style="color:${v>0?'var(--green)':v<0?'var(--red)':'var(--text2)'}">${v>0?'+':''}${Math.round(v)}</div>
   </div>`;
 }
 function draftPickLists(steals,busts,showSeason){
@@ -1373,8 +1374,8 @@ function draftPickLists(steals,busts,showSeason){
 function scoreBadge(rel,rank,season){
   const col=rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)';
   return `<div class="draft-score-badge">
-    <div class="dsb-rank">#${rank} ranked draft in ${season}</div>
-    <div class="dsb-score">Draft Score <b style="color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</b></div>
+    <div class="dsb-line"><b class="dsb-num">#${rank}</b><span class="dsb-lbl">ranked draft in ${season}</span></div>
+    <div class="dsb-line"><span class="dsb-lbl">Draft Score</span><b class="dsb-num" style="color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</b></div>
   </div>`;
 }
 function draftTeamTableHTML(rows,showSeason){
@@ -1450,14 +1451,16 @@ function renderDraftLists(){
   const steals=rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10);
   const busts=rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10);
   const totals={}; rows.forEach(r=>{ if(r.owner==null) return; totals[r.owner]=(totals[r.owner]||0)+r.delta; });
-  const ranked=Object.keys(totals).map(o=>({owner:o,season,total:totals[o],name:(_franchises.find(f=>f.owner===o)?.name)||(_seasonMeta[season]?.names?.[o]?.name)||o})).sort((a,b)=>b.total-a.total);
+  const _os=Object.keys(totals);
+  const _avg=_os.length?_os.reduce((s,o)=>s+totals[o],0)/_os.length:0;
+  const ranked=_os.map(o=>({owner:o,season,total:totals[o],val:totals[o]-_avg,name:(_franchises.find(f=>f.owner===o)?.name)||(_seasonMeta[season]?.names?.[o]?.name)||o})).sort((a,b)=>b.val-a.val);
   el.innerHTML=`
   <div class="card" style="box-shadow:none;margin:0 0 22px">
-    <div class="section-header" style="padding:13px 16px"><i class="fa fa-ranking-star"></i>Draft Rankings · ${season}<span class="badge-info">summed positional Δ</span></div>
+    <div class="section-header" style="padding:13px 16px"><i class="fa fa-ranking-star"></i>Draft Rankings · ${season}<span class="badge-info">Draft Score vs league avg</span></div>
     ${ranked.map((d,i)=>draftClassCard(d,i,false)).join('')}
   </div>
   ${draftPickLists(steals,busts,false)}
-  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Δ is positional: draft rank at the position − finish rank at the position (e.g. a QB drafted 15th who finished as the QB2 is +13). Draft Rankings order all 12 teams by their summed positional Δ.</div>`;
+  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">Δ is positional: draft rank at the position − finish rank at the position (e.g. a QB drafted 15th who finished as the QB2 is +13). Draft Rankings order all 12 teams by their Draft Score: summed positional Δ minus the league average (same figure shown up top).</div>`;
 }
 function renderDraftTeamTable(){
   const body=document.getElementById('draft-team-body'); if(!body) return;
