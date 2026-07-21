@@ -330,7 +330,33 @@ function switchTab(name){
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
+  syncMobileNavActive();
 }
+// ── MOBILE NAV (hamburger drawer) ────────────────────────────────────────────
+function buildMobileNav(){
+  const list=document.getElementById('mobile-nav-list'); if(!list) return;
+  const btns=[...document.querySelectorAll('#tabbar .tab-btn')];
+  list.innerHTML=btns.map(b=>{
+    const tab=b.dataset.tab;
+    const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
+    const label=b.textContent.trim();
+    const tc=(getComputedStyle(b).getPropertyValue('--tc').trim())||'var(--accent)';
+    const active=b.classList.contains('active')?' active':'';
+    return `<button class="mnav-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="mobileGo('${tab}')"><i class="${icon}"></i><span>${label}</span></button>`;
+  }).join('');
+}
+function syncMobileNavActive(){
+  document.querySelectorAll('#mobile-nav-list .mnav-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===_activeTab));
+}
+function toggleMobileNav(open){
+  const m=document.getElementById('mobile-nav'); if(!m) return;
+  const show=(open===undefined)?!m.classList.contains('show'):!!open;
+  if(show) buildMobileNav();
+  m.classList.toggle('show',show);
+  document.body.style.overflow=show?'hidden':'';
+  const hi=document.querySelector('#hamburger i'); if(hi) hi.className='fa '+(show?'fa-xmark':'fa-bars');
+}
+function mobileGo(tab){ toggleMobileNav(false); switchTab(tab); window.scrollTo(0,0); }
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
 function openPinOverlay(action){
@@ -929,7 +955,7 @@ function renderC3Breakdown(){
       ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px">
         <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
         <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
-          <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span style="color:var(--text3);font-size:11px"> est.</span>':''}</span></td>
+          <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span style="color:var(--text3);font-size:12px"> est.</span>':''}</span></td>
           <td class="right">${w.week}</td>
           <td class="right">$${w.bid}</td>
           <td class="right" style="color:var(--text3)">${w.next?('$'+w.next):'—'}</td>
@@ -955,12 +981,12 @@ function renderStandingsTable(){
     return _sortAsc?va-vb:vb-va;
   });
   function arr(c){return _sortCol===c?(_sortAsc?'↑':'↓'):'⇅';}
-  function th(col,label,right=true){return`<th class="${right?'right':''} ${_sortCol===col?'sorted':''}" onclick="sortStandings('${col}')">${label} <span style="font-size:9px;opacity:0.6">${arr(col)}</span></th>`;}
+  function th(col,label,right=true){return`<th class="${right?'right':''} ${_sortCol===col?'sorted':''}" onclick="sortStandings('${col}')">${label} <span style="font-size:12px;opacity:0.6">${arr(col)}</span></th>`;}
   const thead=document.getElementById('standings-thead');
   const tbody=document.getElementById('standings-tbody');
   if(!thead||!tbody)return;
   thead.innerHTML=`<tr>
-    <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:9px;opacity:0.6">${arr('rank')}</span></th>
+    <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:12px;opacity:0.6">${arr('rank')}</span></th>
     <th>Team</th>${th('wins','W')}
     <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}
   </tr>`;
@@ -1106,7 +1132,7 @@ function renderTenureTable(){
         <td class="right pf">${p.pAll.toFixed(1)}</td>
       </tr>`).join('')}</tbody>
   </table></div>${players.length>100?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}
-  <div style="padding:4px 2px 16px;font-size:11px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench). Bye weeks and weeks a player was on IR or ruled out are not counted.</div>`
+  <div style="padding:4px 2px 16px;font-size:12px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench). Bye weeks and weeks a player was on IR or ruled out are not counted.</div>`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
 
@@ -1812,7 +1838,7 @@ function renderBadBeat(){
         <span class="fr-name">${e.rank?`<span class="badbeat-rank">#${e.rank}</span>`:''} ${av} ${fr?fr.name:(e.team||'')}</span>
         ${e.score?`<span class="brk-val" style="color:var(--red)">${e.score}</span>`:''}
       </div>
-      ${e.week?`<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Week ${e.week}${e.season?` · ${e.season}`:''}</div>`:''}
+      ${e.week?`<div style="font-size:12px;color:var(--text3);margin-bottom:6px">Week ${e.week}${e.season?` · ${e.season}`:''}</div>`:''}
       ${e.note?`<div style="font-size:13px;color:var(--text2);line-height:1.5">${e.note}</div>`:''}</div>`;
     }).join('');
 }
@@ -1861,7 +1887,7 @@ function lineupHTML(owner){
         <div class="lineup-ppts"><span class="v">${sl.pl.pts.toFixed(0)}</span><span class="l">PTS</span></div>`
         :`${playerImg(null,42,sl.label)}<div class="lineup-pinfo"><div class="lineup-pname" style="color:var(--text3)">Empty</div></div>`}
     </div>`;}).join('')}</div>
-    <div style="padding:8px 2px 0;font-size:11px;color:var(--text3)">Most-started player at each spot, all-time (games started → weeks rostered → points).</div>`;
+    <div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">Most-started player at each spot, all-time (games started → weeks rostered → points).</div>`;
 }
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
