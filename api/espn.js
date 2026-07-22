@@ -328,10 +328,10 @@ export default async function handler(req, res) {
         const sr = await fetch(leagueURL('mMatchup'), { headers });
         if (sr.ok) {
           const sd = unwrap(await sr.json());
+          const REG_END = 14; // regular season ends wk14; playoffs are wk15+
           (sd.schedule || []).forEach(mu => {
-            const tier = mu.playoffTierType;
-            if (!tier || tier === 'NONE') return;            // regular season -> skip
-            if (!mu.home || !mu.away) return;
+            if ((mu.matchupPeriodId || 0) <= REG_END) return; // regular season -> skip
+            if (!mu.home || !mu.away) return;                 // playoff bye -> not a game won
             const hp = mu.home.totalPoints || 0, ap = mu.away.totalPoints || 0;
             if (hp === 0 && ap === 0) return;                 // not played
             const wk = mu.matchupPeriodId;
