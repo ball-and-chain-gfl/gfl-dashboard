@@ -27,7 +27,7 @@
   <script>document.documentElement.dataset.theme='dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Readex+Pro:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -44,24 +44,24 @@
       --btn-edge-active:inset 0 2px 1px rgba(0,0,0,0.55),inset 1px 0 1px rgba(0,0,0,0.3),inset -1px 0 1px rgba(0,0,0,0.3);
       --btn-edge-gold:inset 0 1px 0 rgba(var(--accent-rgb),0.5),inset 1px 0 0 rgba(var(--accent-rgb),0.25),inset -1px 0 0 rgba(var(--accent-rgb),0.25),inset 0 -1px 0 rgba(0,0,0,0.7);
     }
-    body{background:radial-gradient(circle at top,#241404 0%,#080808 45%);color:var(--text);font-family:'Work Sans',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
+    body{background:radial-gradient(circle at top,#241404 0%,#080808 45%);color:var(--text);font-family:'Karla',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
     /* Type hierarchy —
        10-11px: uppercase micro-labels & meta · 12px: secondary info
-       13px: body & data rows · 14-15px: names, buttons, labels (Fraunces)
-       16-17px: card & modal titles (Fraunces)
-       18-36px: numbers by importance (Big Shoulders Display) */
-    .logo h1,.stat-value,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.trade-verdict,.marathon-big,.marathon-days,.champ-score,.modal-comp-value,.trade-rank,.draft-rankn,.coaching-rank,.rank,.champ-year{font-family:'Big Shoulders Display','Work Sans',sans-serif;letter-spacing:0.4px;}
+       13px: body & data rows · 14-15px: names, buttons, labels (Outfit)
+       16-17px: card & modal titles (Outfit)
+       18-36px: numbers by importance (Readex Pro) */
+    .logo h1,.stat-value,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.trade-verdict,.marathon-big,.marathon-days,.champ-score,.modal-comp-value,.trade-rank,.draft-rankn,.coaching-rank,.rank,.champ-year{font-family:'Readex Pro','Karla',sans-serif;letter-spacing:0.4px;}
     .coaching-score{font-size:20px;}
     .h2h-total-rec{font-size:28px;letter-spacing:0.8px;}
     .modal-comp-value{font-size:20px;}
     .coaching-rank,.draft-rankn{font-size:13px;}
     .trade-rank{font-size:16px;}
     .rank{font-size:13px;}
-    .section-header,.sec-head,.modal-header h2,.big4-name,.pin-box h3,.marathon-team,.trade-team-name,.champ-title,.team-info .team-name,.coaching-name,.headline-team-name,.draft-name,.tp-name,.fr-name,.modal-total-left .label,.modal-comp-label{font-family:'Fraunces',Georgia,serif;}
-    .tab-btn{font-family:'Big Shoulders Display','Work Sans',sans-serif;letter-spacing:0.8px;text-transform:uppercase;}
+    .section-header,.sec-head,.modal-header h2,.big4-name,.pin-box h3,.marathon-team,.trade-team-name,.champ-title,.team-info .team-name,.coaching-name,.headline-team-name,.draft-name,.tp-name,.fr-name,.modal-total-left .label,.modal-comp-label{font-family:'Outfit',Georgia,serif;}
+    .tab-btn{font-family:'Readex Pro','Karla',sans-serif;letter-spacing:0.8px;text-transform:uppercase;}
     .fr-name{font-size:15px;font-weight:600;}
     .logo h1{font-size:20px;font-weight:700;}
-    .badge-info,.week-btn,.filter-btn,.big4-label{font-family:'Work Sans',sans-serif;letter-spacing:0;}
+    .badge-info,.week-btn,.filter-btn,.big4-label{font-family:'Karla',sans-serif;letter-spacing:0;}
 
     /* HEADER */
     header{background:rgba(10,10,10,0.88);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;padding:12px 26px;gap:12px;flex-wrap:wrap;}
@@ -278,7 +278,7 @@
     .tp-dots{flex:1;min-width:14px;border-bottom:1px dotted rgba(255,255,255,0.22);transform:translateY(-3px);}
     .trade-side.right .trade-player{flex-direction:row-reverse;}
     .tp-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;}
-    .tp-pts{font-weight:700;flex-shrink:0;font-size:14px;font-family:'Big Shoulders Display',sans-serif;letter-spacing:0.5px;}
+    .tp-pts{font-weight:700;flex-shrink:0;font-size:14px;font-family:'Readex Pro',sans-serif;letter-spacing:0.5px;}
     .trade-total{font-weight:800;font-size:20px;margin-top:8px;}
     .trade-bar{display:flex;height:10px;margin:2px 16px 5px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.06);}
     .trade-bar span{display:block;height:100%;}
@@ -324,7 +324,7 @@
     /* C2/C3 BREAKDOWN */
     .brk-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
     .brk-head .fr-name{display:flex;align-items:center;gap:8px;}
-    .brk-val{font-family:'Big Shoulders Display',sans-serif;font-size:20px;font-weight:700;}
+    .brk-val{font-family:'Readex Pro',sans-serif;font-size:20px;font-weight:700;}
     .brk-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
     .brk-col-h{font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px;}
     .brk-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
@@ -338,7 +338,7 @@
     /* LEAGUE HISTORY containers */
     .hist-item{background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 12px 28px -24px rgba(0,0,0,0.7);}
     .hist-item:last-child{margin-bottom:0;}
-    .hist-item-year{font-family:'Big Shoulders Display',sans-serif;font-size:12px;letter-spacing:1.2px;color:var(--accent);margin-bottom:10px;font-weight:700;}
+    .hist-item-year{font-family:'Readex Pro',sans-serif;font-size:12px;letter-spacing:1.2px;color:var(--accent);margin-bottom:10px;font-weight:700;}
     .champ-matchup{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
     .champ-side{display:flex;align-items:center;gap:10px;flex:1;min-width:150px;}
     .champ-vs{font-size:12px;color:var(--text3);font-weight:700;flex-shrink:0;}
@@ -356,16 +356,16 @@
     .motw-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:6px 2px 16px;}
     .motw-team{display:flex;align-items:center;gap:12px;}
     .motw-team.right{flex-direction:row-reverse;text-align:right;}
-    .motw-vs{font-family:'Big Shoulders Display',sans-serif;font-size:24px;font-weight:800;color:var(--text3);}
+    .motw-vs{font-family:'Readex Pro',sans-serif;font-size:24px;font-weight:800;color:var(--text3);}
     .motw-facts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px;}
     .motw-fact{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:12px 14px;text-align:center;}
     html[data-theme="light"] .motw-fact,html[data-theme="light"] .motw-take,html[data-theme="light"] .motw-odds-team{background:rgba(0,0,0,0.03);}
     .motw-fact-l{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
-    .motw-fact-v{font-family:'Big Shoulders Display',sans-serif;font-size:24px;font-weight:700;}
+    .motw-fact-v{font-family:'Readex Pro',sans-serif;font-size:24px;font-weight:700;}
     .motw-fact-s{font-size:12px;color:var(--text3);margin-top:2px;}
     .motw-takes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
     .motw-take{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:12px 14px;}
-    .motw-take-h{font-family:'Fraunces',serif;font-weight:700;font-size:15px;margin-bottom:8px;}
+    .motw-take-h{font-family:'Outfit',serif;font-weight:700;font-size:15px;margin-bottom:8px;}
     .motw-take-item{font-size:13px;color:var(--text2);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);line-height:1.45;}
     html[data-theme="light"] .motw-take-item{border-color:rgba(0,0,0,0.06);}
     .motw-take-item:last-child{border-bottom:none;}
@@ -375,7 +375,7 @@
     .odd-row{display:flex;gap:10px;margin-top:8px;}
     .odd-chip{flex:1;text-align:center;background:rgba(255,255,255,0.04);border-radius:4px;padding:8px 4px;}
     .odd-label{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px;}
-    .odd-val{font-family:'Big Shoulders Display',sans-serif;font-size:24px;font-weight:800;}
+    .odd-val{font-family:'Readex Pro',sans-serif;font-size:24px;font-weight:800;}
     .odd-val.win{color:var(--green);}
     .odd-val.loss{color:var(--red);}
     @media(max-width:640px){.motw-facts{grid-template-columns:1fr;}.motw-takes,.motw-odds-grid{grid-template-columns:1fr;}}
@@ -383,16 +383,16 @@
     /* WEEKLY PUNISHMENT */
     .punish-hero{display:flex;align-items:center;gap:24px;padding:16px 2px 24px;flex-wrap:wrap;}
     .punish-art{flex-shrink:0;filter:drop-shadow(0 8px 18px rgba(var(--accent-rgb),0.25));}
-    .punish-week{font-family:'Big Shoulders Display',sans-serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:700;}
-    .punish-name{font-family:'Fraunces',serif;font-size:36px;font-weight:700;line-height:1.05;margin:4px 0 8px;}
+    .punish-week{font-family:'Readex Pro',sans-serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:700;}
+    .punish-name{font-family:'Outfit',serif;font-size:36px;font-weight:700;line-height:1.05;margin:4px 0 8px;}
     .punish-note{font-size:14px;color:var(--text2);max-width:460px;line-height:1.5;}
     .punish-menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px;}
-    .punish-opt{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:13px 15px;font-family:'Fraunces',serif;font-size:15px;font-weight:600;}
+    .punish-opt{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:13px 15px;font-family:'Outfit',serif;font-size:15px;font-weight:600;}
     html[data-theme="light"] .punish-opt{background:rgba(0,0,0,0.03);}
     .punish-opt i{color:var(--text3);width:20px;text-align:center;}
     .punish-opt.active{border-color:var(--accent);background:rgba(var(--accent-rgb),0.1);}
     .punish-opt.active i{color:var(--accent);}
-    .punish-tag{margin-left:auto;font-family:'Work Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;background:var(--accent);color:#0b0b0b;border-radius:999px;padding:2px 8px;}
+    .punish-tag{margin-left:auto;font-family:'Karla',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;background:var(--accent);color:#0b0b0b;border-radius:999px;padding:2px 8px;}
 
 .pname{display:inline-flex;align-items:center;gap:7px;min-width:0;}
     .pname>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -409,12 +409,12 @@
     html[data-theme="light"] .lineup-list{background:var(--bg2);}
     .lineup-row{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid var(--border);}
     .lineup-row:last-child{border-bottom:none;}
-    .lineup-slot-pos{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:12px;color:#0b0b0b;border-radius:4px;padding:4px 0;width:46px;text-align:center;flex-shrink:0;letter-spacing:.5px;}
+    .lineup-slot-pos{font-family:'Readex Pro',sans-serif;font-weight:800;font-size:12px;color:#0b0b0b;border-radius:4px;padding:4px 0;width:46px;text-align:center;flex-shrink:0;letter-spacing:.5px;}
     .lineup-pinfo{flex:1;min-width:0;}
-    .lineup-pname{font-family:'Fraunces',serif;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .lineup-pname{font-family:'Outfit',serif;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .lineup-psub{font-size:12px;color:var(--text3);margin-top:1px;}
     .lineup-ppts{text-align:right;flex-shrink:0;line-height:1;}
-    .lineup-ppts .v{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:20px;}
+    .lineup-ppts .v{font-family:'Readex Pro',sans-serif;font-weight:700;font-size:20px;}
     .lineup-ppts .l{display:block;font-size:12px;color:var(--text3);letter-spacing:1px;margin-top:1px;}
 
     /* all-time lineup */
@@ -422,8 +422,8 @@
     .lineup-slot{position:relative;background:linear-gradient(165deg,rgba(255,255,255,0.06),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px;text-align:center;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);}
     html[data-theme="light"] .lineup-slot{background:var(--bg2);}
     .lineup-slot.empty{opacity:.55;}
-    .lineup-pos{display:inline-block;font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;color:#0b0b0b;background:var(--accent);border-radius:999px;padding:2px 12px;margin-bottom:9px;}
-    .lineup-name{font-family:'Fraunces',serif;font-weight:600;font-size:15px;line-height:1.2;}
+    .lineup-pos{display:inline-block;font-family:'Readex Pro',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;color:#0b0b0b;background:var(--accent);border-radius:999px;padding:2px 12px;margin-bottom:9px;}
+    .lineup-name{font-family:'Outfit',serif;font-weight:600;font-size:15px;line-height:1.2;}
     .lineup-stat{font-size:12px;color:var(--text3);margin-top:4px;}
     @media(max-width:900px){.lineup-grid{grid-template-columns:repeat(2,1fr);}}
     @media(max-width:520px){.lineup-grid{grid-template-columns:repeat(2,1fr);}}
@@ -448,12 +448,12 @@
     .prof-banner-row{position:relative;display:flex;align-items:center;gap:18px;z-index:1;}
     .prof-badge .tm-avatar{width:64px!important;height:64px!important;flex:0 0 64px!important;border-radius:8px!important;box-shadow:0 10px 24px -12px rgba(0,0,0,0.7);}
     .prof-headline{min-width:0;}
-    .prof-name{font-family:'Fraunces',serif;font-size:30px;font-weight:700;line-height:1.02;}
+    .prof-name{font-family:'Outfit',serif;font-size:30px;font-weight:700;line-height:1.02;}
     .prof-sub{font-size:13px;color:var(--text2);margin-top:5px;}
     .prof-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;}
     .prof-chip{background:rgba(0,0,0,0.28);border:1px solid var(--border);border-radius:5px;padding:8px 14px;text-align:center;min-width:66px;backdrop-filter:blur(4px);}
     html[data-theme="light"] .prof-chip{background:rgba(255,255,255,0.7);}
-    .prof-chip-v{font-family:'Big Shoulders Display',sans-serif;font-size:22px;font-weight:700;line-height:1;}
+    .prof-chip-v{font-family:'Readex Pro',sans-serif;font-size:22px;font-weight:700;line-height:1;}
     .prof-chip-l{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-top:3px;}
     .prof-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:8px;}
     .prof-stat{position:relative;background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px 15px;overflow:hidden;transition:transform .15s,box-shadow .15s;}
@@ -463,7 +463,7 @@
     .prof-stat-top{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
     .prof-stat-top i{color:var(--accent);font-size:12px;opacity:.85;}
     .prof-stat-l{font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);}
-    .prof-stat-v{font-family:'Big Shoulders Display',sans-serif;font-size:28px;font-weight:700;line-height:1;}
+    .prof-stat-v{font-family:'Readex Pro',sans-serif;font-size:28px;font-weight:700;line-height:1;}
     .prof-stat-s{font-size:12px;color:var(--text3);margin-top:3px;}
     @media(max-width:900px){.prof-stats{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:560px){.prof-stats{grid-template-columns:repeat(2,1fr);}.prof-name{font-size:24px;}.prof-banner{padding:20px 16px;}.prof-banner-wm{width:150px;height:150px;}}
@@ -472,19 +472,19 @@
     .gabe-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start;}
     .gabe-game{display:flex;align-items:center;gap:14px;padding:13px 6px;border-bottom:1px solid var(--border);}
     .gabe-game:last-child{border-bottom:none;}
-    .gabe-rank{font-family:'Big Shoulders Display',sans-serif;font-weight:800;color:var(--text3);font-size:16px;width:26px;text-align:center;flex-shrink:0;}
+    .gabe-rank{font-family:'Readex Pro',sans-serif;font-weight:800;color:var(--text3);font-size:16px;width:26px;text-align:center;flex-shrink:0;}
     .gabe-ptbox{text-align:center;flex-shrink:0;background:linear-gradient(160deg,rgba(var(--accent-rgb),0.18),rgba(var(--accent-rgb),0.03));border:1px solid rgba(var(--accent-rgb),0.35);border-radius:6px;padding:8px 12px;min-width:66px;}
-    .gabe-pts{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:26px;line-height:1;color:var(--accent);}
+    .gabe-pts{font-family:'Readex Pro',sans-serif;font-weight:800;font-size:26px;line-height:1;color:var(--accent);}
     .gabe-pts-l{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);}
     .gabe-detail{min-width:0;flex:1;}
     .gabe-line1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;}
-    .gabe-badge{font-family:'Work Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;border-radius:999px;padding:2px 8px;}
+    .gabe-badge{font-family:'Karla',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;border-radius:999px;padding:2px 8px;}
     .gabe-badge.st{background:rgba(74,222,128,0.15);color:var(--green);}
     .gabe-badge.bn{background:rgba(255,255,255,0.08);color:var(--text3);}
     .gabe-when{font-size:12px;color:var(--text3);}
     .gabe-stat{font-size:12px;color:var(--text2);margin-top:4px;}
     .gabe-gfl{font-size:12px;color:var(--text3);margin-top:3px;}
-    .gabe-res{font-weight:800;font-family:'Big Shoulders Display',sans-serif;}
+    .gabe-res{font-weight:800;font-family:'Readex Pro',sans-serif;}
     .gabe-res.w{color:var(--green);} .gabe-res.l{color:var(--red);}
     /* monument */
     .gabe-monument{position:sticky;top:88px;background:radial-gradient(120% 90% at 50% 0%,rgba(var(--accent-rgb),0.14),transparent 60%),linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);border-radius:8px;padding:24px 18px 18px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,0.07),0 20px 44px -30px rgba(0,0,0,0.8);}
@@ -504,7 +504,7 @@
     .badbeat-needle{position:absolute;left:50%;bottom:0;width:3px;height:74px;background:var(--text);transform-origin:bottom center;transform:translateX(-50%) rotate(38deg);z-index:2;border-radius:2px;animation:beatswing 2.6s ease-in-out infinite alternate;}
     @keyframes beatswing{from{transform:translateX(-50%) rotate(-46deg);}to{transform:translateX(-50%) rotate(46deg);}}
     .badbeat-empty-txt{font-size:14px;color:var(--text2);line-height:1.7;max-width:420px;width:100%;box-sizing:border-box;padding:0 6px;}
-    .badbeat-rank{font-family:'Big Shoulders Display',sans-serif;color:var(--red);font-weight:800;}
+    .badbeat-rank{font-family:'Readex Pro',sans-serif;color:var(--red);font-weight:800;}
     @media (prefers-reduced-motion:reduce){.badbeat-needle{animation:none;}}
 
 .srt-th{cursor:pointer;user-select:none;transition:color .12s;}
@@ -518,7 +518,7 @@
     .home-right{display:flex;flex-direction:column;gap:20px;min-width:0;}
     .home-top>*,.home-bottom>*{min-width:0;}
     .hl-card{border:none!important;background:none!important;box-shadow:none!important;padding:6px 2px 2px!important;}
-    .hl-headline{font-family:'Fraunces',serif;font-weight:700;font-size:22px;line-height:1.15;color:var(--accent);}
+    .hl-headline{font-family:'Outfit',serif;font-weight:700;font-size:22px;line-height:1.15;color:var(--accent);}
     .hl-desc{font-size:13px;color:var(--text2);line-height:1.5;margin-top:5px;}
     .hl-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:2px 0 12px;margin-bottom:10px;border-bottom:1px solid var(--border);}
     .hl-tab{display:inline-flex;align-items:center;gap:2px;padding:4px 7px;border:none;background:rgba(255,255,255,0.05);box-shadow:var(--btn-edge);border-radius:4px;cursor:pointer;transition:all .15s;}
@@ -532,10 +532,10 @@
     /* all-time records grid (3-4 across) */
     .allrec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
     .allrec-card{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:6px;padding:12px 14px;min-width:0;}
-    .allrec-rank{font-family:'Big Shoulders Display',sans-serif;font-weight:700;color:var(--text3);font-size:15px;min-width:16px;text-align:center;}
+    .allrec-rank{font-family:'Readex Pro',sans-serif;font-weight:700;color:var(--text3);font-size:15px;min-width:16px;text-align:center;}
     html[data-theme="light"] .allrec-card{background:rgba(0,0,0,0.03);}
     .allrec-info{min-width:0;}
-    .allrec-rec{font-family:'Big Shoulders Display',sans-serif;font-size:20px;font-weight:700;margin-top:2px;}
+    .allrec-rec{font-family:'Readex Pro',sans-serif;font-size:20px;font-weight:700;margin-top:2px;}
     .allrec-sub{font-size:12px;color:var(--text3);margin-top:1px;}
     @media(max-width:1000px){.allrec-grid{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:760px){.allrec-grid{grid-template-columns:repeat(2,1fr);}}
@@ -545,11 +545,11 @@
     .champ-list{display:flex;flex-direction:column;}
     .champ-line{padding:12px 4px;border-bottom:1px solid var(--border);}
     .champ-line:last-child{border-bottom:none;}
-    .champ-line-yr{font-family:'Big Shoulders Display',sans-serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:6px;}
+    .champ-line-yr{font-family:'Readex Pro',sans-serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:6px;}
     .champ-line-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
     .champ-line-teams{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:15px;}
     .champ-line-win{font-weight:700;}
-    .champ-line-score{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:18px;}
+    .champ-line-score{font-family:'Readex Pro',sans-serif;font-weight:700;font-size:18px;}
     .champ-line-def{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
     @media(max-width:640px){.champ-line-teams{font-size:13px;gap:7px;}.champ-line-score{font-size:16px;}}
 
@@ -558,7 +558,7 @@
     /* shelf-style trophy case */
     .trophy-cabinet{display:flex;flex-direction:column;gap:0;}
     .shelf{padding:14px 4px 0;}
-    .shelf-name{font-family:'Fraunces',serif;font-weight:700;font-size:15px;margin-bottom:10px;}
+    .shelf-name{font-family:'Outfit',serif;font-weight:700;font-size:15px;margin-bottom:10px;}
     .shelf-items{display:flex;flex-wrap:wrap;gap:10px;padding-bottom:14px;border-bottom:3px solid rgba(var(--accent-rgb),0.28);box-shadow:0 4px 6px -4px rgba(0,0,0,0.5);}
     .honor-tile{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;min-width:78px;padding:8px 10px 9px;background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01));border:1px solid var(--border);border-radius:5px 10px 4px 4px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 6px 10px -8px rgba(0,0,0,0.6);text-align:center;}
     html[data-theme="light"] .honor-tile{background:linear-gradient(180deg,#fff,#f2f0ea);}
@@ -566,7 +566,7 @@
     .honor-tile.conf{border-color:rgba(96,165,250,0.4);}
     .honor-tile.bad{border-color:rgba(251,113,133,0.35);}
     .honor-ic{font-size:26px;line-height:1;}
-    .honor-lb{font-family:'Work Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text2);}
+    .honor-lb{font-family:'Karla',sans-serif;font-size:12px;font-weight:600;color:var(--text2);}
     .honor-lb b{color:var(--accent);}
     .honor-tile.bad .honor-lb b{color:var(--red);}
     .honor-sub{font-size:12px;color:var(--text3);}
@@ -577,12 +577,12 @@
     .prof-honors .honor-ic{font-size:24px;}
 
     /* AWARDS / SUPERLATIVES */
-    .award-chip{font-family:'Work Sans',sans-serif;font-size:12px;font-weight:700;background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:var(--blue);border-radius:999px;padding:2px 8px;white-space:nowrap;}
+    .award-chip{font-family:'Karla',sans-serif;font-size:12px;font-weight:700;background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:var(--blue);border-radius:999px;padding:2px 8px;white-space:nowrap;}
     .award-chip.bad{background:rgba(251,113,133,0.1);border-color:rgba(251,113,133,0.3);color:var(--red);}
     .sup-row{display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:center;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.05);}
     html[data-theme="light"] .sup-row{border-color:rgba(0,0,0,0.06);}
     .sup-row:last-child{border-bottom:none;}
-    .sup-award{font-family:'Fraunces',serif;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;}
+    .sup-award{font-family:'Outfit',serif;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;}
     .sup-row.bad .sup-award{color:var(--red);}
     .sup-emoji{font-size:20px;}
     .sup-winners{display:flex;flex-wrap:wrap;gap:8px 16px;}
@@ -593,18 +593,18 @@
     .prof-awards{display:flex;flex-wrap:wrap;gap:10px;}
     .prof-award{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:9px 13px;font-size:13px;}
     html[data-theme="light"] .prof-award{background:rgba(0,0,0,0.03);}
-    .prof-award .yr{font-family:'Big Shoulders Display',sans-serif;font-weight:700;color:var(--accent);}
+    .prof-award .yr{font-family:'Readex Pro',sans-serif;font-weight:700;color:var(--accent);}
     .prof-award.bad{border-color:rgba(251,113,133,0.25);}
 
     /* conference championship columns */
     .conf-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
     .conf-col{background:rgba(0,0,0,0.14);border:1px solid var(--border);border-radius:6px;padding:6px 12px 10px;}
     html[data-theme="light"] .conf-col{background:rgba(0,0,0,0.03);}
-    .conf-col-head{font-family:'Big Shoulders Display',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.5px;color:var(--blue);text-transform:uppercase;padding:10px 2px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+    .conf-col-head{font-family:'Readex Pro',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.5px;color:var(--blue);text-transform:uppercase;padding:10px 2px;border-bottom:1px solid var(--border);margin-bottom:4px;}
     .conf-win-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.05);}
     html[data-theme="light"] .conf-win-row{border-color:rgba(0,0,0,0.06);}
     .conf-win-row:last-child{border-bottom:none;}
-    .conf-win-yr{font-family:'Big Shoulders Display',sans-serif;font-weight:700;color:var(--accent);width:38px;flex-shrink:0;}
+    .conf-win-yr{font-family:'Readex Pro',sans-serif;font-weight:700;color:var(--accent);width:38px;flex-shrink:0;}
     .conf-win-info{min-width:0;}
     @media(max-width:640px){.conf-cols{grid-template-columns:1fr;}}
 
@@ -615,7 +615,7 @@
     .bracket-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
     .bracket{display:flex;gap:16px;overflow-x:auto;padding-bottom:6px;}
     .bracket-col{display:flex;flex-direction:column;justify-content:space-around;gap:12px;min-width:170px;flex:1;}
-    .bracket-round{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);font-weight:700;font-family:'Big Shoulders Display',sans-serif;}
+    .bracket-round{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);font-weight:700;font-family:'Readex Pro',sans-serif;}
     .bracket-game{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;overflow:hidden;}
     html[data-theme="light"] .bracket-game{background:rgba(0,0,0,0.03);}
     .bracket-team{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:13px;}
@@ -623,7 +623,7 @@
     .bracket-team.adv{background:rgba(var(--accent-rgb),0.1);}
     .bracket-team.adv .bracket-name{font-weight:700;}
     .bracket-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .bracket-pts{font-family:'Big Shoulders Display',sans-serif;font-weight:700;color:var(--text2);}
+    .bracket-pts{font-family:'Readex Pro',sans-serif;font-weight:700;color:var(--text2);}
     .bracket-team.adv .bracket-pts{color:var(--accent);}
     .bracket-byes{font-size:12px;color:var(--text3);margin-top:2px;}
 
@@ -926,7 +926,7 @@
       #mobile-title{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:90;
         padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
         background:rgba(10,10,10,0.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-        border-bottom:1px solid var(--border);font-family:'Fraunces',Georgia,serif;font-weight:700;font-size:20px;color:var(--text);}
+        border-bottom:1px solid var(--border);font-family:'Outfit',Georgia,serif;font-weight:700;font-size:20px;color:var(--text);}
       #mobile-title i{font-size:16px;}
     }
 
@@ -934,7 +934,7 @@
     /* ── MOBILE TAB DROPDOWN (replaces hamburger) + header layout ─────────── */
     .hdr-top{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 auto;}
     .tab-dd{display:none;position:relative;}
-    #tab-dd-btn{display:inline-flex;align-items:center;gap:8px;font-family:'Big Shoulders Display','Work Sans',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.3px;padding:9px 13px;max-width:62vw;}
+    #tab-dd-btn{display:inline-flex;align-items:center;gap:8px;font-family:'Readex Pro','Karla',sans-serif;font-weight:700;font-size:15px;letter-spacing:0.3px;padding:9px 13px;max-width:62vw;}
     #tab-dd-btn #tab-dd-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     #tab-dd-ic{font-size:15px;}
     .tab-dd-caret{font-size:11px!important;color:var(--text3);transition:transform .18s ease;}
@@ -957,11 +957,35 @@
     /* ── Draft Score badge (Full Draft by Team) ─────────────────────────── */
     .draft-score-wrap{margin-left:auto;display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;justify-content:flex-end;}
     .draft-score-box{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;padding:8px 13px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);text-align:right;}
-    .dsb-num{font-family:'Big Shoulders Display',sans-serif;font-size:22px;line-height:1;letter-spacing:0;color:var(--text);}
+    .dsb-num{font-family:'Readex Pro',sans-serif;font-size:22px;line-height:1;letter-spacing:0;color:var(--text);}
     .dsb-lbl{font-size:12px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);font-weight:600;}
     @media(max-width:640px){.draft-score-wrap{margin-top:10px;width:100%;justify-content:flex-start;}}
     /* keep the mobile tab dropdown above page content (header owns a higher stacking context) */
     header{z-index:200;}
+
+
+    /* ── Typography roles (Outfit headings · Readex Pro accents/numbers · Karla body) ── */
+    .logo h1{font-family:'Outfit',sans-serif!important;}
+    #tab-dd-btn,.tab-dd-item{font-family:'Outfit',sans-serif!important;text-transform:none;letter-spacing:0;}
+    /* Accent labels + short meta/record lines → Readex Pro, all-caps, spaced */
+    .badge-info,.big4-label,.big4-record,.big4-cm,.stat-label,.stat-sub,.team-sub,.coaching-sub,
+    .prof-stat-l,.prof-stat-s,.prof-chip-l,.dsb-lbl,.trade-recv,.trade-winlabel,.marathon-label,
+    .div-tag,.motw-fact-l,.motw-fact-s,.motw-odds-h,.odd-label,.brk-col-h,.champ-line-def,
+    .bracket-round,.gabe-pts-l,.honor-lb,.honor-sub,.sup-detail,.allrec-sub,.lineup-psub,
+    .conf-win-yr,.punish-tag,.gabe-badge,thead th{
+      font-family:'Readex Pro',sans-serif!important;text-transform:uppercase;letter-spacing:0.5px;
+    }
+
+    /* ── Nav: use the dropdown everywhere (no more scrolling tab bar) ─────── */
+    .tabbar{display:none!important;}
+    .tab-dd{display:block!important;}
+
+    /* ── All-time lineup: combined PPG + letter grade (points/start view) ── */
+    .lineup-grade{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);}
+    .lg-label{font-family:'Readex Pro',sans-serif;text-transform:uppercase;letter-spacing:0.6px;font-size:12px;color:var(--text3);}
+    .lg-score{font-family:'Readex Pro',sans-serif;font-size:28px;letter-spacing:0.5px;color:var(--text);line-height:1.05;}
+    .lg-grade{font-family:'Outfit',sans-serif;font-weight:800;font-size:40px;line-height:1;border:2px solid;border-radius:10px;padding:6px 16px;min-width:66px;text-align:center;}
+    .lg-note{padding:9px 2px 0;font-size:12px;color:var(--text3);}
 
   </style>
 </head>

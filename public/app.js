@@ -1388,7 +1388,7 @@ function draftTeamTableHTML(rows,showSeason){
       <td><span class="fr-name">${r.name}</span><span class="draft-pos">${r.posName}</span></td>
       <td class="right" style="white-space:nowrap">${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
       <td class="right pf">${r.pts.toFixed(1)}</td>
-      <td class="right" style="font-weight:800;font-family:'Big Shoulders Display',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
+      <td class="right" style="font-weight:800;font-family:'Readex Pro',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
     </tr>`).join('')}</tbody>
   </table></div>
   <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">Net positional Δ: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks</div>`;
@@ -1746,7 +1746,7 @@ function ringSVG(label,sz){
     <path d="M18 30 L24 16 H40 L46 30 A16 16 0 0 0 18 30 Z" fill="url(#rg)"/>
     <rect x="24" y="14" width="16" height="18" rx="3" fill="#1a1205" stroke="url(#rg)" stroke-width="2"/>
     <circle cx="32" cy="23" r="4.5" fill="url(#rg)"/>
-    ${label?`<text x="32" y="26" text-anchor="middle" font-size="7" font-family="'Big Shoulders Display',sans-serif" font-weight="800" fill="#1a1205">${String(label).slice(2)}</text>`:''}
+    ${label?`<text x="32" y="26" text-anchor="middle" font-size="7" font-family="'Readex Pro',sans-serif" font-weight="800" fill="#1a1205">${String(label).slice(2)}</text>`:''}
   </svg>`;
 }
 
@@ -2022,6 +2022,32 @@ function buildAllTimeLineup(owner, mode){
 const LINEUP_POSC={QB:'#f8296d',RB:'#36ce85',WR:'#58a7ff',TE:'#ffae58',DEF:'#c17f60',K:'#bd66ff',FLEX:'#9aa7b5'};
 let _lineupMode='gs';
 function setLineupMode(m,owner){ _lineupMode=(m==='ppg'?'ppg':'gs'); const c=document.getElementById('prof-lineup'); if(c) c.innerHTML=lineupHTML(owner); }
+let _ppgScoreCache=null;
+const PPG_GRADES=['F','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+'];
+function teamPPGScore(owner){
+  const line=buildAllTimeLineup(owner,'ppg');
+  return line.reduce((s,sl)=>s+(sl.pl?(sl.pl.ppg||0):0),0);
+}
+function allPPGScores(){
+  if(_ppgScoreCache) return _ppgScoreCache;
+  if(!_tenure) return {};
+  const m={}; (_franchises||[]).forEach(f=>{ m[f.owner]=teamPPGScore(f.owner); });
+  _ppgScoreCache=m; return m;
+}
+function gradeColor(g){const c=(g||'')[0];return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
+function ppgGradeFor(owner){
+  const m=allPPGScores();
+  const entries=Object.entries(m).filter(([o,v])=>v>0);
+  const score=m[owner]||0;
+  if(!entries.length) return {score,grade:'\u2014',rank:0,n:0};
+  const vals=entries.map(e=>e[1]);
+  const min=Math.min(...vals), max=Math.max(...vals);
+  const t=max>min?(score-min)/(max-min):1;
+  const grade=PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))];
+  const ranked=entries.slice().sort((a,b)=>b[1]-a[1]);
+  const rank=ranked.findIndex(([o])=>o===owner)+1;
+  return {score,grade,rank,n:ranked.length};
+}
 function lineupHTML(owner){
   const mode=_lineupMode;
   const line=buildAllTimeLineup(owner,mode);
@@ -2039,10 +2065,19 @@ function lineupHTML(owner){
         <div class="lineup-ppts"><span class="v">${rv}</span><span class="l">${rl}</span></div>`
         :`${playerImg(null,42,sl.label)}<div class="lineup-pinfo"><div class="lineup-pname" style="color:var(--text3)">Empty</div></div>`}
     </div>`;}).join('')}</div>`;
+  let grade='';
+  if(mode==='ppg'){
+    const g=ppgGradeFor(owner); const gc=gradeColor(g.grade);
+    grade=`<div class="lineup-grade">
+      <div><div class="lg-label">Combined PPG</div><div class="lg-score">${g.score.toFixed(1)}</div></div>
+      <div class="lg-grade" style="color:${gc};border-color:${gc}">${g.grade}</div>
+    </div>
+    <div class="lg-note">Sum of all 9 starters' points-per-start.${g.n?` Graded across all ${g.n} teams — ranked #${g.rank} of ${g.n}.`:''}</div>`;
+  }
   const note = mode==='ppg'
     ? 'Highest points-per-start at each spot (min. 5 starts). FLEX = best remaining RB/WR/TE.'
     : 'Most-started player at each spot, all-time (games started → weeks rostered → points). FLEX = best remaining RB/WR/TE.';
-  return tabs+body+`<div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">${note}</div>`;
+  return tabs+body+grade+`<div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">${note}</div>`;
 }
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
