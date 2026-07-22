@@ -27,7 +27,7 @@
   <script>document.documentElement.dataset.theme='dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Lexend:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Lexend:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -51,11 +51,11 @@
        16-17px: card & modal titles (Lexend)
        18-36px: numbers by importance (Inter) */
     .logo h1,.stat-value,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.trade-verdict,.marathon-big,.marathon-days,.champ-score,.modal-comp-value,.trade-rank,.draft-rankn,.coaching-rank,.rank,.champ-year{font-family:'Inter','DM Sans',sans-serif;letter-spacing:0.4px;}
-    .coaching-score{font-size:20px;}
-    .h2h-total-rec{font-size:28px;letter-spacing:0.8px;}
-    .modal-comp-value{font-size:20px;}
+    .coaching-score{font-size:16px;}
+    .h2h-total-rec{font-size:22px;letter-spacing:0.8px;}
+    .modal-comp-value{font-size:16px;}
     .coaching-rank,.draft-rankn{font-size:13px;}
-    .trade-rank{font-size:16px;}
+    .trade-rank{font-size:13px;}
     .rank{font-size:13px;}
     .section-header,.sec-head,.modal-header h2,.big4-name,.pin-box h3,.marathon-team,.trade-team-name,.champ-title,.team-info .team-name,.coaching-name,.headline-team-name,.draft-name,.tp-name,.fr-name,.modal-total-left .label,.modal-comp-label{font-family:'Lexend',Georgia,serif;}
     .tab-btn{font-family:'Inter','DM Sans',sans-serif;letter-spacing:0.8px;text-transform:uppercase;}
@@ -167,7 +167,7 @@
     .modal-total{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:14px 18px;}
     .modal-total-left .label{font-size:14px;font-weight:600;}
     .modal-total-left .sub{font-size:12px;color:var(--text3);margin-top:3px;}
-    .modal-total-score{font-size:28px;font-weight:800;}
+    .modal-total-score{font-size:22px;font-weight:800;}
     .modal-formula{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:14px 16px;}
     .eq-line{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;}
     .eq-line:last-child{margin-bottom:0;}
@@ -175,7 +175,7 @@
     .modal-comp{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:14px 18px;}
     .modal-comp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
     .modal-comp-label{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;}
-    .modal-comp-value{font-size:20px;font-weight:800;}
+    .modal-comp-value{font-size:16px;font-weight:800;}
     .modal-comp-breakdown{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;}
     .modal-comp-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 9px;background:rgba(255,255,255,0.03);border-radius:4px;gap:8px;}
     .modal-comp-row .key{color:var(--text3);}
@@ -213,7 +213,7 @@
     .headline-team-name{font-size:14px;font-weight:600;line-height:1.3;}
     .headline-vs{font-size:12px;color:var(--text3);padding:0 4px;flex-shrink:0;}
     .headline-score{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
-    .headline-pts{font-size:24px;font-weight:800;}
+    .headline-pts{font-size:19px;font-weight:800;}
     .headline-pts.winner{color:var(--green);}
     .headline-pts.loser{color:var(--text3);}
     .headline-blurb{font-size:13px;color:var(--text2);line-height:1.55;font-style:italic;}
@@ -223,7 +223,7 @@
     .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
     .stat-card{padding:20px 22px;}
     .stat-label{color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-size:12px;margin-bottom:8px;}
-    .stat-value{font-size:36px;font-weight:800;line-height:1;margin-bottom:4px;}
+    .stat-value{font-size:29px;font-weight:800;line-height:1;margin-bottom:4px;}
     .stat-sub{color:var(--text2);font-size:13px;}
 
     /* STANDINGS */
@@ -279,7 +279,7 @@
     .trade-side.right .trade-player{flex-direction:row-reverse;}
     .tp-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;}
     .tp-pts{font-weight:700;flex-shrink:0;font-size:14px;font-family:'Inter',sans-serif;letter-spacing:0.5px;}
-    .trade-total{font-weight:800;font-size:20px;margin-top:8px;}
+    .trade-total{font-weight:800;font-size:16px;margin-top:8px;}
     .trade-bar{display:flex;height:10px;margin:2px 16px 5px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.06);}
     .trade-bar span{display:block;height:100%;}
     .trade-bar-labels{display:flex;justify-content:space-between;padding:0 16px 12px;font-size:12px;color:var(--text3);}
@@ -297,24 +297,24 @@
     .draft-mgr{font-size:12px;color:var(--text3);font-weight:400;}
     .draft-mgr2{font-size:12px;color:var(--accent);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px;}
     .draft-line{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.5;}
-    .draft-delta{font-size:20px;font-weight:800;flex-shrink:0;min-width:48px;text-align:right;}
+    .draft-delta{font-size:16px;font-weight:800;flex-shrink:0;min-width:48px;text-align:right;}
 
     /* MARATHON TAB */
     .marathon-hero{text-align:center;padding:56px 20px 64px;}
     .marathon-team{font-size:24px;font-weight:700;margin:16px 0 30px;}
-    .marathon-big{font-size:128px;font-weight:800;line-height:0.9;color:var(--accent);text-shadow:0 0 60px rgba(var(--accent-rgb),0.25);}
-    .marathon-days{font-size:72px;font-weight:800;line-height:1;color:var(--blue);text-shadow:0 0 50px rgba(96,165,250,0.2);}
+    .marathon-big{font-size:102px;font-weight:800;line-height:0.9;color:var(--accent);text-shadow:0 0 60px rgba(var(--accent-rgb),0.25);}
+    .marathon-days{font-size:58px;font-weight:800;line-height:1;color:var(--blue);text-shadow:0 0 50px rgba(96,165,250,0.2);}
     .marathon-label{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);margin-top:10px;}
     .marathon-sep{border:none;border-top:1px solid var(--border);margin:44px auto;max-width:320px;}
 
     /* LEAGUE HISTORY TAB */
     .champ-row{display:flex;align-items:center;gap:14px;padding:15px 6px;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;}
     .champ-row:last-child{border-bottom:none;}
-    .champ-year{font-size:18px;font-weight:800;color:var(--accent);width:44px;flex-shrink:0;}
+    .champ-year{font-size:14px;font-weight:800;color:var(--accent);width:44px;flex-shrink:0;}
     .champ-detail{flex:1;min-width:220px;}
     .champ-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
     .champ-sub{font-size:12px;color:var(--text2);margin-top:3px;}
-    .champ-score{font-size:18px;font-weight:800;}
+    .champ-score{font-size:14px;font-weight:800;}
     .trophy-row{display:flex;align-items:center;gap:10px;padding:11px 6px;border-bottom:1px solid rgba(255,255,255,0.05);}
     .trophy-row:last-child{border-bottom:none;}
     .trophy-badges{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;font-size:12px;}
@@ -324,7 +324,7 @@
     /* C2/C3 BREAKDOWN */
     .brk-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
     .brk-head .fr-name{display:flex;align-items:center;gap:8px;}
-    .brk-val{font-family:'Inter',sans-serif;font-size:20px;font-weight:700;}
+    .brk-val{font-family:'Inter',sans-serif;font-size:16px;font-weight:700;}
     .brk-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
     .brk-col-h{font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px;}
     .brk-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
@@ -356,12 +356,12 @@
     .motw-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:6px 2px 16px;}
     .motw-team{display:flex;align-items:center;gap:12px;}
     .motw-team.right{flex-direction:row-reverse;text-align:right;}
-    .motw-vs{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;color:var(--text3);}
+    .motw-vs{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;color:var(--text3);}
     .motw-facts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px;}
     .motw-fact{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:12px 14px;text-align:center;}
     html[data-theme="light"] .motw-fact,html[data-theme="light"] .motw-take,html[data-theme="light"] .motw-odds-team{background:rgba(0,0,0,0.03);}
     .motw-fact-l{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
-    .motw-fact-v{font-family:'Inter',sans-serif;font-size:24px;font-weight:700;}
+    .motw-fact-v{font-family:'Inter',sans-serif;font-size:19px;font-weight:700;}
     .motw-fact-s{font-size:12px;color:var(--text3);margin-top:2px;}
     .motw-takes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
     .motw-take{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:12px 14px;}
@@ -375,7 +375,7 @@
     .odd-row{display:flex;gap:10px;margin-top:8px;}
     .odd-chip{flex:1;text-align:center;background:rgba(255,255,255,0.04);border-radius:4px;padding:8px 4px;}
     .odd-label{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px;}
-    .odd-val{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;}
+    .odd-val{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;}
     .odd-val.win{color:var(--green);}
     .odd-val.loss{color:var(--red);}
     @media(max-width:640px){.motw-facts{grid-template-columns:1fr;}.motw-takes,.motw-odds-grid{grid-template-columns:1fr;}}
@@ -414,7 +414,7 @@
     .lineup-pname{font-family:'Lexend',serif;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .lineup-psub{font-size:12px;color:var(--text3);margin-top:1px;}
     .lineup-ppts{text-align:right;flex-shrink:0;line-height:1;}
-    .lineup-ppts .v{font-family:'Inter',sans-serif;font-weight:700;font-size:20px;}
+    .lineup-ppts .v{font-family:'Inter',sans-serif;font-weight:700;font-size:16px;}
     .lineup-ppts .l{display:block;font-size:12px;color:var(--text3);letter-spacing:1px;margin-top:1px;}
 
     /* all-time lineup */
@@ -453,7 +453,7 @@
     .prof-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;}
     .prof-chip{background:rgba(0,0,0,0.28);border:1px solid var(--border);border-radius:5px;padding:8px 14px;text-align:center;min-width:66px;backdrop-filter:blur(4px);}
     html[data-theme="light"] .prof-chip{background:rgba(255,255,255,0.7);}
-    .prof-chip-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1;}
+    .prof-chip-v{font-family:'Inter',sans-serif;font-size:18px;font-weight:700;line-height:1;}
     .prof-chip-l{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-top:3px;}
     .prof-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:8px;}
     .prof-stat{position:relative;background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px 15px;overflow:hidden;transition:transform .15s,box-shadow .15s;}
@@ -463,7 +463,7 @@
     .prof-stat-top{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
     .prof-stat-top i{color:var(--accent);font-size:12px;opacity:.85;}
     .prof-stat-l{font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);}
-    .prof-stat-v{font-family:'Inter',sans-serif;font-size:28px;font-weight:700;line-height:1;}
+    .prof-stat-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1;}
     .prof-stat-s{font-size:12px;color:var(--text3);margin-top:3px;}
     @media(max-width:900px){.prof-stats{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:560px){.prof-stats{grid-template-columns:repeat(2,1fr);}.prof-name{font-size:24px;}.prof-banner{padding:20px 16px;}.prof-banner-wm{width:150px;height:150px;}}
@@ -474,7 +474,7 @@
     .gabe-game:last-child{border-bottom:none;}
     .gabe-rank{font-family:'Inter',sans-serif;font-weight:800;color:var(--text3);font-size:16px;width:26px;text-align:center;flex-shrink:0;}
     .gabe-ptbox{text-align:center;flex-shrink:0;background:linear-gradient(160deg,rgba(var(--accent-rgb),0.18),rgba(var(--accent-rgb),0.03));border:1px solid rgba(var(--accent-rgb),0.35);border-radius:6px;padding:8px 12px;min-width:66px;}
-    .gabe-pts{font-family:'Inter',sans-serif;font-weight:800;font-size:26px;line-height:1;color:var(--accent);}
+    .gabe-pts{font-family:'Inter',sans-serif;font-weight:800;font-size:21px;line-height:1;color:var(--accent);}
     .gabe-pts-l{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);}
     .gabe-detail{min-width:0;flex:1;}
     .gabe-line1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;}
@@ -495,7 +495,7 @@
     .gabe-heart svg{display:block;max-width:220px;margin:0 auto;filter:drop-shadow(0 12px 26px rgba(0,0,0,0.5));}
     .gabe-mon-cap{font-size:12px;color:var(--text3);margin-top:6px;}
     @media(max-width:1000px){.gabe-layout{grid-template-columns:1fr;}.gabe-monument{position:static;max-width:320px;margin:0 auto;}}
-    @media(max-width:520px){.gabe-ptbox{min-width:56px;padding:6px 8px;}.gabe-pts{font-size:22px;}}
+    @media(max-width:520px){.gabe-ptbox{min-width:56px;padding:6px 8px;}.gabe-pts{font-size:18px;}}
 
     /* bad beat o'meter */
     .badbeat-empty{display:flex;flex-direction:column;align-items:center;gap:20px;padding:44px 20px;text-align:center;}
@@ -535,7 +535,7 @@
     .allrec-rank{font-family:'Inter',sans-serif;font-weight:700;color:var(--text3);font-size:15px;min-width:16px;text-align:center;}
     html[data-theme="light"] .allrec-card{background:rgba(0,0,0,0.03);}
     .allrec-info{min-width:0;}
-    .allrec-rec{font-family:'Inter',sans-serif;font-size:20px;font-weight:700;margin-top:2px;}
+    .allrec-rec{font-family:'Inter',sans-serif;font-size:16px;font-weight:700;margin-top:2px;}
     .allrec-sub{font-size:12px;color:var(--text3);margin-top:1px;}
     @media(max-width:1000px){.allrec-grid{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:760px){.allrec-grid{grid-template-columns:repeat(2,1fr);}}
@@ -545,13 +545,13 @@
     .champ-list{display:flex;flex-direction:column;}
     .champ-line{padding:12px 4px;border-bottom:1px solid var(--border);}
     .champ-line:last-child{border-bottom:none;}
-    .champ-line-yr{font-family:'Inter',sans-serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:6px;}
+    .champ-line-yr{font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;}
     .champ-line-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
     .champ-line-teams{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:15px;}
     .champ-line-win{font-weight:700;}
-    .champ-line-score{font-family:'Inter',sans-serif;font-weight:700;font-size:18px;}
+    .champ-line-score{font-family:'Inter',sans-serif;font-weight:700;font-size:14px;}
     .champ-line-def{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
-    @media(max-width:640px){.champ-line-teams{font-size:13px;gap:7px;}.champ-line-score{font-size:16px;}}
+    @media(max-width:640px){.champ-line-teams{font-size:13px;gap:7px;}.champ-line-score{font-size:13px;}}
 
     /* champions grid — fills width, less empty space */
     .champ-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;}
@@ -634,7 +634,7 @@
     .picker-bar input[type=text]{background:#222;color:var(--text);border:none;box-shadow:var(--btn-edge);border-radius:4px;padding:8px 14px;font-size:13px;min-width:180px;}
     .picker-bar input[type=text]:focus{outline:none;box-shadow:var(--btn-edge-gold);}
     .h2h-total{display:flex;align-items:center;gap:14px;padding:16px 20px;background:rgba(var(--accent-rgb),0.05);border:1px solid rgba(var(--accent-rgb),0.18);border-radius:6px;margin-bottom:16px;flex-wrap:wrap;}
-    .h2h-total-rec{font-size:24px;font-weight:800;}
+    .h2h-total-rec{font-size:19px;font-weight:800;}
     .h2h-total-sub{font-size:12px;color:var(--text3);}
     .winpct-bar{width:70px;height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;display:inline-block;vertical-align:middle;}
     .winpct-fill{height:100%;border-radius:2px;display:block;}
@@ -732,7 +732,7 @@
       .big4-grid{grid-template-columns:1fr;gap:10px;}
       .stat-grid{gap:10px;}
       .stat-card{padding:16px 18px;}
-      .stat-value{font-size:30px;}
+      .stat-value{font-size:24px;}
       .headline-grid{grid-template-columns:1fr;}
       td,th{padding:8px 10px;font-size:12px;}
       thead th{font-size:12px;padding:8px 10px;}
@@ -741,22 +741,22 @@
       .picker-bar select{flex:1 1 auto;min-width:0;}
       .picker-bar input[type=text]{min-width:0;flex:1 1 140px;}
       .h2h-total{padding:14px 16px;gap:10px;}
-      .h2h-total-rec{font-size:24px;}
+      .h2h-total-rec{font-size:19px;}
       .modal{max-height:92vh;}
       .modal-body{padding:14px 14px;gap:10px;}
-      .modal-total-score{font-size:24px;}
+      .modal-total-score{font-size:19px;}
       .trade-grid{grid-template-columns:1fr 24px 1fr;}
       .trade-side{padding:12px 10px;}
       .trade-team-name{font-size:14px;}
       .tp-name,.tp-pts{font-size:13px;}
       .trade-verdict{font-size:12px;padding:4px 10px;}
       .draft-row{padding:10px 4px;gap:8px;}
-      .draft-delta{min-width:40px;font-size:18px;}
+      .draft-delta{min-width:40px;font-size:14px;}
       .draft-line{font-size:12px;}
-      .marathon-big{font-size:88px;}
-      .marathon-days{font-size:52px;}
+      .marathon-big{font-size:70px;}
+      .marathon-days{font-size:42px;}
       .marathon-team{font-size:20px;}
-      .champ-year{width:34px;font-size:16px;}
+      .champ-year{width:34px;font-size:13px;}
       .champ-title{font-size:14px;}
       .wm::after{font-size:96px;top:-18px;opacity:0.04;}
     }
@@ -958,7 +958,7 @@
     /* ── Draft Score badge (Full Draft by Team) ─────────────────────────── */
     .draft-score-wrap{margin-left:auto;display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;justify-content:flex-end;}
     .draft-score-box{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;padding:8px 13px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);text-align:right;}
-    .dsb-num{font-family:'Inter',sans-serif;font-size:22px;line-height:1;letter-spacing:0;color:var(--text);}
+    .dsb-num{font-family:'Inter',sans-serif;font-size:18px;line-height:1;letter-spacing:0;color:var(--text);}
     .dsb-lbl{font-size:12px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text3);font-weight:600;}
     @media(max-width:640px){.draft-score-wrap{margin-top:10px;width:100%;justify-content:flex-start;}}
     /* keep the mobile tab dropdown above page content (header owns a higher stacking context) */
@@ -969,7 +969,7 @@
     .logo h1{font-family:'Lexend',sans-serif!important;}
     #tab-dd-btn,.tab-dd-item{font-family:'Lexend',sans-serif!important;text-transform:none;letter-spacing:0;}
     /* Accent labels + short meta/record lines → Inter, all-caps, spaced */
-    .badge-info,.big4-label,.big4-record,.big4-cm,.stat-label,.stat-sub,.team-sub,.coaching-sub,.prof-stat-l,.prof-stat-s,.prof-chip-l,.dsb-lbl,.trade-recv,.trade-winlabel,.trade-verdict,.marathon-label,.div-tag,.motw-fact-l,.motw-fact-s,.motw-odds-h,.odd-label,.brk-col-h,.champ-line-def,.bracket-round,.gabe-pts-l,.honor-lb,.honor-sub,.sup-detail,.allrec-sub,.lineup-psub,.conf-win-yr,.punish-tag,.punish-week,.gabe-badge,.hist-item-year,.lg-label,.tab-btn,thead th{font-family:'Inter',sans-serif!important;font-weight:500!important;text-transform:uppercase!important;letter-spacing:2px!important;}
+    .badge-info,.big4-label,.big4-record,.big4-cm,.stat-label,.stat-sub,.team-sub,.coaching-sub,.prof-stat-l,.prof-stat-s,.prof-chip-l,.dsb-lbl,.trade-recv,.trade-winlabel,.trade-verdict,.marathon-label,.div-tag,.motw-fact-l,.motw-fact-s,.motw-odds-h,.odd-label,.brk-col-h,.champ-line-def,.bracket-round,.gabe-pts-l,.honor-lb,.honor-sub,.sup-detail,.allrec-sub,.lineup-psub,.conf-win-yr,.punish-tag,.punish-week,.gabe-badge,.hist-item-year,.lg-label,.tab-btn,thead th{font-family:'Inter',sans-serif!important;font-weight:500!important;text-transform:uppercase!important;letter-spacing:0.5px!important;}
 
     /* ── Nav: use the dropdown everywhere (no more scrolling tab bar) ─────── */
     .tabbar{display:none!important;}
@@ -978,7 +978,7 @@
     /* ── All-time lineup: combined PPG + letter grade (points/start view) ── */
     .lineup-grade{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);}
     .lg-label{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:0.6px;font-size:12px;color:var(--text3);}
-    .lg-score{font-family:'Inter',sans-serif;font-size:28px;letter-spacing:0.5px;color:var(--text);line-height:1.05;}
+    .lg-score{font-family:'Inter',sans-serif;font-size:22px;letter-spacing:0.5px;color:var(--text);line-height:1.05;}
     .lg-grade{font-family:'Lexend',sans-serif;font-weight:800;font-size:40px;line-height:1;border:2px solid;border-radius:10px;padding:6px 16px;min-width:66px;text-align:center;}
     .lg-note{padding:9px 2px 0;font-size:12px;color:var(--text3);}
 
@@ -1000,7 +1000,13 @@
     .rank,.champ-year,.tp-pts,.brk-val,.motw-vs,.motw-fact-v,.odd-val,.lineup-ppts .v,.prof-chip-v,
     .prof-stat-v,.gabe-rank,.gabe-pts,.gabe-res,.badbeat-rank,.allrec-rank,.allrec-rec,.champ-line-yr,
     .champ-line-score,.bracket-pts,.dsb-num,.lg-score{
-      font-family:'Inter',sans-serif!important;font-weight:600!important;letter-spacing:normal!important;
+      font-family:'Big Shoulders Display','Inter',sans-serif!important;font-weight:700!important;letter-spacing:normal!important;
+    }
+
+
+    /* Record / meta sub-lines are plain body text (not spaced accents) */
+    .big4-record,.big4-cm,.coaching-sub,.team-sub,.stat-sub,.prof-stat-s,.allrec-sub,.honor-sub,.champ-line-def,.sup-detail,.lineup-psub,.motw-fact-s{
+      font-family:'DM Sans',sans-serif!important;text-transform:none!important;letter-spacing:normal!important;font-weight:400!important;
     }
 
   </style>
