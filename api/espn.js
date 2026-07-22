@@ -322,6 +322,25 @@ export default async function handler(req, res) {
         for (const wr of weekResults) if (wr?.data?.status?.finalScoringPeriod) return wr.data.status.finalScoringPeriod;
         return 17;
       })();
+      // Playoff wins by week/team: which teams won a playoff matchup each week.
+      const poWin = {};
+      try {
+        const sr = await fetch(leagueURL('mMatchup'), { headers });
+        if (sr.ok) {
+          const sd = unwrap(await sr.json());
+          (sd.schedule || []).forEach(mu => {
+            const tier = mu.playoffTierType;
+            if (!tier || tier === 'NONE') return;            // regular season -> skip
+            if (!mu.home || !mu.away) return;
+            const hp = mu.home.totalPoints || 0, ap = mu.away.totalPoints || 0;
+            if (hp === 0 && ap === 0) return;                 // not played
+            const wk = mu.matchupPeriodId;
+            const winId = (mu.winner === 'HOME' || (mu.winner == null && hp > ap)) ? mu.home.teamId
+                        : (mu.winner === 'AWAY' || (mu.winner == null && ap > hp)) ? mu.away.teamId : null;
+            if (winId != null) (poWin[wk] || (poWin[wk] = {}))[winId] = true;
+          });
+        }
+      } catch {}
       const teams = {};
       weekResults.forEach(wr => {
         if (!wr || wr.week > finalWeek) return;
@@ -341,13 +360,13 @@ export default async function handler(req, res) {
             const outStatuses = ['OUT', 'INJURY_RESERVE', 'IR', 'SUSPENSION', 'PUP', 'NON_FOOTBALL_INJURY'];
             const injuredOut = e.lineupSlotId === 21 || outStatuses.includes(st);
             const available = !onBye && !injuredOut;
-            const rec = bucket[pid] || (bucket[pid] = { n: null, pos: null, w: 0, s: 0, p: 0, sp: 0 });
+            const rec = bucket[pid] || (bucket[pid] = { n: null, pos: null, w: 0, s: 0, p: 0, sp: 0, pw: 0 });
             rec.n = e.playerPoolEntry?.player?.fullName || rec.n;
             if (rec.pos == null) rec.pos = e.playerPoolEntry?.player?.defaultPositionId ?? null;
             rec.p += pts;
             if (available) {
               rec.w++;
-              if (!BENCH_SLOTS.includes(e.lineupSlotId)) { rec.s++; rec.sp += pts; }  // points scored while started
+              if (!BENCH_SLOTS.includes(e.lineupSlotId)) { rec.s++; rec.sp += pts; if (poWin[wr.week] && poWin[wr.week][team.id]) rec.pw++; }  // started; playoff win credit
             }
           });
         });

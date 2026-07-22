@@ -1121,7 +1121,7 @@ async function loadTenureData(){
   if(_tenurePromise) return _tenurePromise;
   _tenurePromise=(async()=>{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=5`);
+      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=6`);
       if(!d) return null;
       return {s, d};
     }));
@@ -1134,11 +1134,11 @@ async function loadTenureData(){
         const owner=owners[tid]||`team:${tid}`;
         const bucket=tenure[owner]||(tenure[owner]={});
         Object.entries(players).forEach(([pid,rec])=>{
-          const p=bucket[pid]||(bucket[pid]={n:rec.n,pos:rec.pos,wAll:0,sAll:0,pAll:0,spAll:0,seasons:{}});
+          const p=bucket[pid]||(bucket[pid]={n:rec.n,pos:rec.pos,wAll:0,sAll:0,pAll:0,spAll:0,pwAll:0,seasons:{}});
           if(rec.n) p.n=rec.n;
           if(p.pos==null) p.pos=rec.pos;
-          p.wAll+=rec.w||0; p.sAll+=rec.s||0; p.pAll+=rec.p||0; p.spAll+=rec.sp||0;
-          p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0,sp:rec.sp||0};
+          p.wAll+=rec.w||0; p.sAll+=rec.s||0; p.pAll+=rec.p||0; p.spAll+=rec.sp||0; p.pwAll+=rec.pw||0;
+          p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0,sp:rec.sp||0,pw:rec.pw||0};
         });
       });
     });
@@ -1163,7 +1163,7 @@ function renderTenureTable(){
   const q=(document.getElementById('tenure-search')?.value||'').trim().toLowerCase();
   const players=Object.entries(_tenure[owner]||{}).map(([pid,p])=>({
     pid, n:p.n||`Player #${pid}`,
-    wAll:p.wAll, sAll:p.sAll, pAll:p.pAll,
+    wAll:p.wAll, sAll:p.sAll, pAll:p.pAll, pwAll:p.pwAll||0,
     wYr:p.seasons[yr]?.w||0, sYr:p.seasons[yr]?.s||0, pYr:p.seasons[yr]?.p||0,
   }))
   .filter(p=>!q||p.n.toLowerCase().includes(q))
@@ -1181,6 +1181,7 @@ function renderTenureTable(){
         <th class="right" title="Weeks in the starting lineup">Started all-time</th>
         <th class="right" title="Weeks on the roster (starter or bench)">Rostered all-time</th>
         <th class="right">Pts all-time</th>
+        <th class="right" title="Playoff games won while started for this team">Playoff W</th>
       </tr>
     </thead>
     <tbody>${shown.map((p,i)=>`
@@ -1192,6 +1193,7 @@ function renderTenureTable(){
         <td class="right"><strong>${p.sAll}</strong></td>
         <td class="right" style="color:var(--text2)">${p.wAll}</td>
         <td class="right pf">${p.pAll.toFixed(1)}</td>
+        <td class="right" style="color:var(--accent);font-weight:600">${p.pwAll||dash}</td>
       </tr>`).join('')}</tbody>
   </table></div>${players.length>100?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}
   <div style="padding:4px 2px 16px;font-size:12px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench). Bye weeks and weeks a player was on IR or ruled out are not counted.</div>`
