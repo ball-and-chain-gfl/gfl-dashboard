@@ -1249,24 +1249,21 @@ async function renderTradesTab(){
     const aWin=tr.a.total>=tr.b.total;
     const winner=aWin?tr.a:tr.b;
     const cA=colOf(tr.season,tr.a.teamId),cB=colOf(tr.season,tr.b.teamId),cW=colOf(tr.season,winner.teamId);
-    const verdict=fair
-      ?`<span class="trade-verdict fair"><i class="fa fa-scale-balanced"></i>FAIR TRADE</span>`
-      :`<span class="trade-verdict" style="background:${cW};color:#0b0b0b"><i class="fa fa-trophy"></i>${tradeTeamName(tr.season,winner.teamId).toUpperCase()} WINS +${tr.margin.toFixed(1)}</span>`;
-    const sideLabel=(isWin)=>fair
-      ?`<span class="trade-winlabel" style="color:var(--blue)"><i class="fa fa-scale-balanced"></i>Fair</span>`
-      :isWin?`<span class="trade-winlabel" style="color:var(--green)"><i class="fa fa-trophy"></i>Winner</span>`
-            :`<span class="trade-winlabel" style="color:var(--red)"><i class="fa fa-arrow-trend-down"></i>Lost</span>`;
-    const side=(sd,right,isWin)=>`
-      <div class="trade-side${right?' right':''}">
-        <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div><div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div>${sideLabel(isWin)}</div></div>
+    const aState=fair?'even':(aWin?'won':'lost'), bState=fair?'even':(aWin?'lost':'won');
+    const side=(sd,right,state)=>{
+      const wl=state==='won'?'WON':state==='lost'?'LOST':'EVEN';
+      const nameCol=state==='won'?'var(--green)':state==='lost'?'var(--text2)':'var(--text)';
+      return `
+      <div class="trade-side ${state}${right?' right':''}" data-wl="${wl}">
+        <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div><div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div></div></div>
         <div class="trade-recv" style="margin-bottom:4px">received:</div>
-        ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+        ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname" style="color:${nameCol}">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
         <div class="trade-total" style="color:${colOf(tr.season,sd.teamId)}">${sd.total.toFixed(1)} pts</div>
-      </div>`;
+      </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
     return`<div class="trade-card">
-      <div class="trade-head"><span class="trade-rank">#${i+1}</span>${seasonBadge}Week ${tr.week} trade${verdict}</div>
-      <div class="trade-grid">${side(tr.a,false,aWin)}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(tr.b,true,!aWin)}</div>
+      <div class="trade-head"><span class="trade-rank">#${i+1}</span>${seasonBadge}Week ${tr.week} trade</div>
+      <div class="trade-grid">${side(tr.a,false,aState)}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(tr.b,true,bState)}</div>
       <div class="trade-bar"><span style="width:${(wA*100).toFixed(1)}%;background:${cA}"></span><span style="flex:1;background:${cB}"></span></div>
       <div class="trade-bar-labels"><span style="color:${cA};font-weight:700">${(shareA*100).toFixed(0)}% of post-trade points</span><span style="color:${cB};font-weight:700">${(100-shareA*100).toFixed(0)}%</span></div>
     </div>`;
@@ -2407,24 +2404,26 @@ async function loadDashboard(){
 
       <!-- TRADES -->
       <div class="tab-page" id="page-trades">
-        <div class="sec wm" data-wm="&#xf362;">
-          <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report</div>
-          <div class="standings-filters" id="trade-scope">
-            <span style="font-size:12px;color:var(--text3);margin-right:4px">Scope:</span>
-            <button class="filter-btn ${_tradeScope==='season'?'active':''}" onclick="setTradeScope('season',this)">This Season</button>
-            <button class="filter-btn ${_tradeScope==='alltime'?'active':''}" onclick="setTradeScope('alltime',this)">All-Time</button>
+        <div class="trades-layout">
+          <div class="trades-filters wm" data-wm="&#xf362;">
+            <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report</div>
+            <div class="standings-filters" id="trade-scope">
+              <span style="font-size:12px;color:var(--text3);margin-right:4px">Scope:</span>
+              <button class="filter-btn ${_tradeScope==='season'?'active':''}" onclick="setTradeScope('season',this)">This Season</button>
+              <button class="filter-btn ${_tradeScope==='alltime'?'active':''}" onclick="setTradeScope('alltime',this)">All-Time</button>
+            </div>
+            <div class="standings-filters" id="trade-sort">
+              <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
+              <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most Unbalanced</button>
+              <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most Balanced</button>
+              <button class="filter-btn ${_tradeSort==='week'?'active':''}" onclick="setTradeSort('week',this)">By Week</button>
+            </div>
+            <div class="standings-filters" id="trade-team">
+              <span style="font-size:12px;color:var(--text3);margin-right:4px">Team:</span>
+              <select onchange="setTradeTeam(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
+            </div>
           </div>
-          <div class="standings-filters" id="trade-sort">
-            <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
-            <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most Unbalanced</button>
-            <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most Balanced</button>
-            <button class="filter-btn ${_tradeSort==='week'?'active':''}" onclick="setTradeSort('week',this)">By Week</button>
-          </div>
-          <div class="standings-filters" id="trade-team">
-            <span style="font-size:12px;color:var(--text3);margin-right:4px">Team:</span>
-            <select onchange="setTradeTeam(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
-          </div>
-          <div id="trades-body"></div>
+          <div id="trades-body" class="trades-list"></div>
         </div>
       </div>
 
