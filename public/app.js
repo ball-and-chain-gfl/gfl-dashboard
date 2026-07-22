@@ -1388,7 +1388,7 @@ function draftTeamTableHTML(rows,showSeason){
       <td><span class="fr-name">${r.name}</span><span class="draft-pos">${r.posName}</span></td>
       <td class="right" style="white-space:nowrap">${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
       <td class="right pf">${r.pts.toFixed(1)}</td>
-      <td class="right" style="font-weight:800;font-family:'Roboto Mono',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
+      <td class="right" style="font-weight:600;font-family:'Inter',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
     </tr>`).join('')}</tbody>
   </table></div>
   <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">Net positional Δ: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks</div>`;
@@ -1746,7 +1746,7 @@ function ringSVG(label,sz){
     <path d="M18 30 L24 16 H40 L46 30 A16 16 0 0 0 18 30 Z" fill="url(#rg)"/>
     <rect x="24" y="14" width="16" height="18" rx="3" fill="#1a1205" stroke="url(#rg)" stroke-width="2"/>
     <circle cx="32" cy="23" r="4.5" fill="url(#rg)"/>
-    ${label?`<text x="32" y="26" text-anchor="middle" font-size="7" font-family="'Roboto Mono',sans-serif" font-weight="800" fill="#1a1205">${String(label).slice(2)}</text>`:''}
+    ${label?`<text x="32" y="26" text-anchor="middle" font-size="7" font-family="'Inter',sans-serif" font-weight="800" fill="#1a1205">${String(label).slice(2)}</text>`:''}
   </svg>`;
 }
 
@@ -2310,7 +2310,7 @@ async function loadDashboard(){
     const firstVid=_videos[0];
     _activeVideoId=firstVid?.videoId||null;
 
-    document.getElementById('last-updated').textContent='Updated '+new Date().toLocaleTimeString();
+    {const _lu=document.getElementById('last-updated'); if(_lu) _lu.textContent='Updated '+new Date().toLocaleTimeString();}
     setStatus('live','Live');
 
     const franchiseOpts=sel=>_franchises.map(f=>`<option value="${f.owner}" ${f.owner===sel?'selected':''}>${f.name}</option>`).join('');
@@ -2528,7 +2528,7 @@ async function loadDashboard(){
 
   }catch(err){
     setStatus('err','Error');
-    document.getElementById('last-updated').textContent='Failed to load';
+    {const _lu=document.getElementById('last-updated'); if(_lu) _lu.textContent='Failed to load';}
     document.getElementById('app').innerHTML=`<div class="err-box"><i class="fa fa-triangle-exclamation" style="margin-right:8px"></i>${err.message}</div>`;
     console.error(err);
   }
