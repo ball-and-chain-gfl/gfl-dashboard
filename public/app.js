@@ -1121,7 +1121,7 @@ async function loadTenureData(){
   if(_tenurePromise) return _tenurePromise;
   _tenurePromise=(async()=>{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=6`);
+      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=7`);
       if(!d) return null;
       return {s, d};
     }));
