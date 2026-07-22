@@ -328,6 +328,7 @@ function switchTab(name){
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
+  if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
   updateTabDD(name);
 }
 // ── MOBILE TAB DROPDOWN (replaces hamburger) ─────────────────────────────────
@@ -1028,6 +1029,38 @@ function renderStandingsTable(){
 }
 
 // ── MATCHUP HISTORY TAB ────────────────────────────────────────────────────────
+let _topScorers={},_topScorersLoaded=false,_topScorersPromise=null;
+async function loadHistoryScorers(){
+  if(_topScorersLoaded) return;
+  if(_topScorersPromise) return _topScorersPromise;
+  _topScorersPromise=(async()=>{
+    await Promise.all(ALL_SEASONS.map(async s=>{
+      const d=await histJSON('topscorers',s,`${BASE}?type=topscorers&seasonId=${s}&v=1`);
+      if(d&&d.teams) _topScorers[s]=d.teams;
+    }));
+    _topScorersLoaded=true;
+  })();
+  return _topScorersPromise;
+}
+function topScorer(season,teamId,week){ return (_topScorers[season]&&_topScorers[season][teamId]&&_topScorers[season][teamId][week])||null; }
+function h2hGames(ownerA,ownerB){
+  const out=[];
+  ALL_SEASONS.forEach(s=>{
+    const meta=_seasonMeta[s]; if(!meta) return; const owners=meta.owners||{};
+    (meta.schedule||[]).forEach(mu=>{
+      if(!mu.home||!mu.away) return;
+      const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
+      const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0; if(hp===0&&ap===0) return;
+      let mine,opp;
+      if(ho===ownerA&&ao===ownerB){mine=mu.home;opp=mu.away;}
+      else if(ho===ownerB&&ao===ownerA){mine=mu.away;opp=mu.home;}
+      else return;
+      out.push({season:s,week:mu.matchupPeriodId,myTeamId:mine.teamId,oppTeamId:opp.teamId,myScore:mine.totalPoints||0,oppScore:opp.totalPoints||0});
+    });
+  });
+  return out.sort((x,y)=>(y.season-x.season)||(y.week-x.week));
+}
+function toggleH2H(i){ const el=document.getElementById('h2hd-'+i); if(el) el.style.display=el.style.display==='none'?'':'none'; }
 function renderHistoryTable(){
   const body=document.getElementById('history-body'); if(!body) return;
   const sel=document.getElementById('hist-team-select');
@@ -1058,18 +1091,26 @@ function renderHistoryTable(){
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
-    ${rows.length?`<div class="tscroll"><table class="min560 srt">
+    ${rows.length?`<div style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll"><table class="min560">
       <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
-      <tbody>${rows.map(r=>`
-        <tr>
-          <td><div class="team-cell">${franchiseAvatar(r.opp,28,8)}<div class="team-info"><div class="team-name">${r.opp.name}</div><div class="team-sub">${r.g} game${r.g!==1?'s':''}</div></div></div></td>
+      <tbody>${rows.map((r,i)=>{const cols=tt?7:6;const games=h2hGames(owner,r.opp.owner);
+        const log=games.map(g=>{const win=g.myScore>g.oppScore;const ts=topScorer(g.season,g.myTeamId,g.week),to=topScorer(g.season,g.oppTeamId,g.week);
+          return `<div class="h2h-game">
+            <span class="h2h-game-yr">${g.season} · Wk ${g.week}</span>
+            <span class="h2h-game-side ${win?'w':'l'}"><span class="hs-team">${me?.name||''}</span> <b>${g.myScore.toFixed(1)}</b>${ts?`<span class="h2h-hs">${ts.n} · ${ts.pts}</span>`:''}</span>
+            <span class="h2h-vs">${win?'def.':'lost to'}</span>
+            <span class="h2h-game-side"><span class="hs-team">${r.opp.name}</span> <b>${g.oppScore.toFixed(1)}</b>${to?`<span class="h2h-hs">${to.n} · ${to.pts}</span>`:''}</span>
+          </div>`;}).join('');
+        return `<tr class="h2h-oppo" onclick="toggleH2H(${i})">
+          <td><div class="team-cell">${franchiseAvatar(r.opp,28,8)}<div class="team-info"><div class="team-name">${r.opp.name}</div><div class="team-sub">${r.g} game${r.g!==1?'s':''}</div></div><i class="fa fa-chevron-down h2h-caret"></i></div></td>
           <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
           <td class="right" style="color:var(--red)">${r.l}</td>
           ${tt?`<td class="right" style="color:var(--text3)">${r.t}</td>`:''}
           <td class="right"><span style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</span> <span class="winpct-bar"><span class="winpct-fill" style="width:${(r.pct*100).toFixed(0)}%;background:${r.pct>=0.5?'var(--green)':'var(--red)'};display:block"></span></span></td>
           <td class="right pf">${r.pf.toFixed(1)}</td>
           <td class="right pa">${r.pa.toFixed(1)}</td>
-        </tr>`).join('')}</tbody>
+        </tr>
+        <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
     </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}`;
 }
 

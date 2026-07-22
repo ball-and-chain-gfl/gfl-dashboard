@@ -360,6 +360,41 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }
 
+  // ── Top started scorer per team per week (for matchup-history game logs) ────────
+  if (type === 'topscorers') {
+    const BENCH_SLOTS = [20, 21, 24];
+    const weekIds = Array.from({ length: 18 }, (_, i) => i + 1);
+    try {
+      const weekResults = await Promise.all(weekIds.map(async w => {
+        try {
+          const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
+          if (!r.ok) return null;
+          return { week: w, data: unwrap(await r.json()) };
+        } catch { return null; }
+      }));
+      const teams = {};
+      weekResults.forEach(wr => {
+        if (!wr) return;
+        (wr.data.teams || []).forEach(team => {
+          let best = null;
+          (team.roster?.entries || []).forEach(e => {
+            if (BENCH_SLOTS.includes(e.lineupSlotId)) return; // starters only
+            const stats = e.playerPoolEntry?.player?.stats || [];
+            const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === wr.week);
+            const pts = wk?.appliedTotal;
+            if (pts == null) return;
+            if (!best || pts > best.pts) best = { pid: e.playerId, n: e.playerPoolEntry?.player?.fullName || ('#' + e.playerId), pts: Math.round(pts * 10) / 10 };
+          });
+          if (best) (teams[team.id] || (teams[team.id] = {}))[wr.week] = best;
+        });
+      });
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, teams });
+    } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
+  }
+
   // ── Draft results ─────────────────────────────────────────────────────────────
   if (type === 'draft') {
     try {

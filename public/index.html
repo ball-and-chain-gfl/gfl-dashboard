@@ -1049,6 +1049,24 @@
       .trade-side::before{font-size:48px;}
     }
 
+
+    /* ── Matchup history: clickable teams -> per-game log ── */
+    .h2h-oppo{cursor:pointer;transition:background .15s;}
+    .h2h-oppo:hover{background:rgba(255,255,255,0.04);}
+    .h2h-caret{font-size:10px;color:var(--text3);margin-left:6px;flex-shrink:0;}
+    .h2h-detail>td{padding:0 12px 12px!important;background:rgba(0,0,0,0.12);}
+    .h2h-log{display:flex;flex-direction:column;}
+    .h2h-game{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 4px;border-bottom:1px solid var(--border);font-size:13px;}
+    .h2h-game:last-child{border-bottom:none;}
+    .h2h-game-yr{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:0.5px;font-size:12px;color:var(--text3);min-width:96px;}
+    .h2h-game-side{display:flex;align-items:baseline;gap:6px;min-width:0;flex:1 1 200px;}
+    .h2h-game-side .hs-team{font-family:'Google Sans Flex',sans-serif;font-weight:500;}
+    .h2h-game-side.w .hs-team{color:var(--green);}
+    .h2h-game-side.l .hs-team{color:var(--text2);}
+    .h2h-game-side b{font-family:'DM Sans',sans-serif;font-weight:600;}
+    .h2h-hs{font-size:11.5px;color:var(--text3);white-space:nowrap;}
+    .h2h-vs{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0;}
+
   </style>
 </head>
 <body>
