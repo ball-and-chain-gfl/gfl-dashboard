@@ -1121,7 +1121,7 @@ async function loadTenureData(){
   if(_tenurePromise) return _tenurePromise;
   _tenurePromise=(async()=>{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=7`);
+      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=8`);
       if(!d) return null;
       return {s, d};
     }));
@@ -1285,30 +1285,30 @@ async function renderTradesTab(){
 
   const reconstructedAny=results.some(r=>r.source!=='log');
   body.innerHTML=list.map((tr,i)=>{
-    const la=Math.max(tr.a.total,0),lb=Math.max(tr.b.total,0);
-    const shareA=(la+lb)>0?la/(la+lb):0.5;
-    const fair=shareA>=0.45&&shareA<=0.55;
-    const wA=Math.min(0.96,Math.max(0.04,shareA));
+    const totA=Math.max(tr.a.total,0),totB=Math.max(tr.b.total,0);
     const aWin=tr.a.total>=tr.b.total;
-    const winner=aWin?tr.a:tr.b;
-    const cA=colOf(tr.season,tr.a.teamId),cB=colOf(tr.season,tr.b.teamId),cW=colOf(tr.season,winner.teamId);
-    const aState=fair?'even':(aWin?'won':'lost'), bState=fair?'even':(aWin?'lost':'won');
-    const side=(sd,right,state)=>{
-      const wl=state==='won'?'WON':state==='lost'?'LOST':'EVEN';
-      const nameCol=state==='won'?'var(--green)':state==='lost'?'var(--text2)':'var(--text)';
+    const winner=aWin?tr.a:tr.b, loser=aWin?tr.b:tr.a;
+    const wShare=(totA+totB)>0?Math.max(tr.a.total,tr.b.total)/(totA+totB):0.5;
+    const wPct=Math.min(0.96,Math.max(0.04,wShare));
+    const cW=colOf(tr.season,winner.teamId), cL=colOf(tr.season,loser.teamId);
+    const side=(sd,state)=>{
+      const col=state==='won'?'var(--green)':'var(--red)';
       return `
-      <div class="trade-side ${state}${right?' right':''}" data-wl="${wl}">
-        <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div><div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div></div></div>
-        <div class="trade-recv" style="margin-bottom:4px">received:</div>
-        ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname" style="color:${nameCol}">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
-        <div class="trade-total" style="color:${colOf(tr.season,sd.teamId)}">${sd.total.toFixed(1)} pts</div>
+      <div class="trade-side ${state}">
+        <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div></div>
+        <div class="trade-wl" style="border-color:${col}">
+          <div class="trade-wl-tag" style="color:${col}">${state==='won'?'WON':'LOST'}</div>
+          <div class="trade-recv">received</div>
+          ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${p.pts>=0?'var(--green)':'var(--red)'}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+        </div>
       </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
     return`<div class="trade-card">
       <div class="trade-head"><span class="trade-rank">#${i+1}</span>${seasonBadge}Week ${tr.week} trade</div>
-      <div class="trade-grid">${side(tr.a,false,aState)}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(tr.b,true,bState)}</div>
-      <div class="trade-bar"><span style="width:${(wA*100).toFixed(1)}%;background:${cA}"></span><span style="flex:1;background:${cB}"></span></div>
-      <div class="trade-bar-labels"><span style="color:${cA};font-weight:700">${(shareA*100).toFixed(0)}% of post-trade points</span><span style="color:${cB};font-weight:700">${(100-shareA*100).toFixed(0)}%</span></div>
+      <div class="trade-grid">${side(winner,'won')}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(loser,'lost')}</div>
+      <div class="trade-totals"><span style="color:${cW}">${winner.total.toFixed(1)} pts</span><span style="color:${cL}">${loser.total.toFixed(1)} pts</span></div>
+      <div class="trade-bar"><span style="width:${(wPct*100).toFixed(1)}%;background:${cW}"></span><span style="flex:1;background:${cL}"></span></div>
+      <div class="trade-bar-labels"><span style="color:${cW};font-weight:700">${(wShare*100).toFixed(0)}% of post-trade points</span><span style="color:${cL};font-weight:700">${(100-wShare*100).toFixed(0)}%</span></div>
     </div>`;
   }).join('')+`<div style="padding:0 2px 16px;font-size:12px;color:var(--text3);line-height:1.6">Each side shows the players a manager received and the points those players scored from the trade week onward — the bar splits by share of post-trade points (45–55% = fair).${reconstructedAny?' Completed seasons are <b>reconstructed from weekly rosters</b> since ESPN deletes the trade log; a few trades whose returned player was immediately dropped or was a draft pick can\'t be recovered. Seasons from 2026 on are archived live and show every trade.':''}</div>`;
   body.dataset.loading='';

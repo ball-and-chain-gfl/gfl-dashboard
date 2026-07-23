@@ -325,15 +325,19 @@ export default async function handler(req, res) {
       // Playoff wins by week/team: which teams won a playoff matchup each week.
       const poWin = {};
       try {
-        const sr = await fetch(leagueURL('mMatchup'), { headers });
+        const sr = await fetch(leagueURL(['mMatchup', 'mTeam', 'mSettings']), { headers });
         if (sr.ok) {
           const sd = unwrap(await sr.json());
           const REG_END = 14; // regular season ends wk14; playoffs are wk15+
+          const pt = sd.settings?.scheduleSettings?.playoffTeamCount || sd.settings?.playoffTeamCount || 6;
+          const seed = {}; (sd.teams || []).forEach(t => { seed[t.id] = t.playoffSeed || 0; });
+          const inBracket = id => { const sd2 = seed[id] || 0; return sd2 > 0 && sd2 <= pt; };
           (sd.schedule || []).forEach(mu => {
-            if ((mu.matchupPeriodId || 0) <= REG_END) return; // regular season -> skip
-            if (!mu.home || !mu.away) return;                 // playoff bye -> not a game won
+            if ((mu.matchupPeriodId || 0) <= REG_END) return;       // regular season -> skip
+            if (!mu.home || !mu.away) return;                       // bye -> not a game won
+            if (!inBracket(mu.home.teamId) || !inBracket(mu.away.teamId)) return; // consolation -> skip
             const hp = mu.home.totalPoints || 0, ap = mu.away.totalPoints || 0;
-            if (hp === 0 && ap === 0) return;                 // not played
+            if (hp === 0 && ap === 0) return;                       // not played
             const wk = mu.matchupPeriodId;
             const winId = (mu.winner === 'HOME' || (mu.winner == null && hp > ap)) ? mu.home.teamId
                         : (mu.winner === 'AWAY' || (mu.winner == null && ap > hp)) ? mu.away.teamId : null;

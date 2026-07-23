@@ -1037,16 +1037,12 @@
     .trades-layout{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:22px;align-items:start;}
     .trades-filters{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:14px;}
     .trades-filters .standings-filters{margin-bottom:10px;}
-    .trade-side{position:relative;overflow:hidden;}
-    .trade-side::before{content:attr(data-wl);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-8deg);font-family:'DM Sans',sans-serif;font-weight:800;font-size:62px;letter-spacing:2px;line-height:1;white-space:nowrap;pointer-events:none;z-index:0;}
-    .trade-side.won::before{color:var(--green);opacity:0.11;}
-    .trade-side.lost::before{color:var(--red);opacity:0.10;}
-    .trade-side.even::before{color:var(--text3);opacity:0.07;}
-    .trade-side>*{position:relative;z-index:1;}
+    .trade-wl{border:2px solid;border-radius:10px;padding:8px 12px 12px;margin-top:8px;}
+    .trade-wl-tag{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:1px;font-size:12px;font-weight:600;margin-bottom:6px;}
+    .trade-totals{display:flex;justify-content:space-between;font-family:'DM Sans',sans-serif;font-weight:600;font-size:15px;margin:14px 4px 4px;}
     @media(max-width:820px){
       .trades-layout{grid-template-columns:1fr;}
       .trades-filters{position:static;}
-      .trade-side::before{font-size:48px;}
     }
 
 
