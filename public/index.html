@@ -1109,6 +1109,20 @@
     .home-punish-note{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.4;}
     .home-punish-more{flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
     .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}
+
+    /* ── MOBILE: never cut off / truncate names & titles ─────────────────── */
+    @media(max-width:768px){
+      .coaching-name,.lineup-pname,.tp-name,.tp-name>span,.pname>span,.bracket-name,
+      .team-info .team-name,.trade-team-name,.headline-team-name,.marathon-team,
+      .champ-title,.champ-line-win,.video-featured-title,.tp-name.pname{
+        white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
+        text-align:left;
+      }
+      .big4-name{-webkit-line-clamp:unset!important;display:block!important;overflow:visible!important;}
+      /* keep the trade player row readable when the name wraps */
+      .trade-player{align-items:flex-start;}
+      .tp-dots{margin-top:8px;}
+    }
   </style>
 </head>
 <body>

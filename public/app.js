@@ -2458,7 +2458,7 @@ async function loadDashboard(){
         <!-- Row 1: Matchup (left) + Ball & Chain video (right) -->
         <div class="home-top">
           <div class="sec wm" data-wm="&#xf091;">
-            <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week<span class="badge-info">from the latest Ball &amp; Chain video</span></div>
+            <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
             <div id="motw"></div>
           </div>
           <div class="sec">
@@ -2475,7 +2475,7 @@ async function loadDashboard(){
         <!-- Row 2: Coaching Metric (left) + [Big4 top, Headlines bottom] (right) -->
         <div class="home-bottom">
           <div class="sec wm" data-wm="&#xf5dc;">
-            <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric${_cmMode!=='none'?`<span class="badge-info">${_cmMode==='official'?'official league records · ':_cmMode==='inferred'?'reconstructed from rosters · ':''}Click for breakdown</span>`:''}</div>
+            <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric</div>
             ${_cmMode==='none'
               ?`<div class="tab-loading" style="padding:40px 20px">No coaching metric data available for the ${season} season.</div>`
               :(()=>{
@@ -2502,7 +2502,7 @@ async function loadDashboard(){
               ${homePunishHTML()}
             </div>
             <div class="sec wm" data-wm="&#xf1ea;">
-              <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines${playedWeeks.length?`<span class="badge-info">Week ${_currentWeek} recap</span>`:''}</div>
+              <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
               <div id="home-headlines"></div>
             </div>
           </div>
