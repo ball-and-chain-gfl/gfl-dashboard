@@ -27,7 +27,7 @@
   <script>document.documentElement.dataset.theme='dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Google+Sans+Flex:wght@400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Google+Sans+Flex:wght@400..700&family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -599,16 +599,15 @@
     /* AWARDS / SUPERLATIVES */
     .award-chip{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:var(--blue);border-radius:999px;padding:2px 8px;white-space:nowrap;}
     .award-chip.bad{background:rgba(251,113,133,0.1);border-color:rgba(251,113,133,0.3);color:var(--red);}
-    .sup-row{display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:center;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.05);}
-    html[data-theme="light"] .sup-row{border-color:rgba(0,0,0,0.06);}
-    .sup-row:last-child{border-bottom:none;}
-    .sup-award{font-family:'Google Sans Flex',serif;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;}
+    .sup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
+    .sup-row{display:flex;flex-direction:column;gap:10px;align-items:stretch;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(160deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012));}
+    .sup-award{font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;text-transform:uppercase;letter-spacing:1.1px;display:flex;align-items:center;gap:9px;color:#f4c04d;padding-bottom:9px;border-bottom:1px solid var(--border);}
     .sup-row.bad .sup-award{color:var(--red);}
     .sup-emoji{font-size:20px;}
     .sup-winners{display:flex;flex-wrap:wrap;gap:8px 16px;}
     .sup-win{display:flex;align-items:center;gap:7px;font-size:13px;}
     .sup-detail{font-size:12px;color:var(--text3);background:rgba(255,255,255,0.05);border-radius:999px;padding:1px 8px;}
-    @media(max-width:640px){.sup-row{grid-template-columns:1fr;gap:6px;}}
+    @media(max-width:760px){.sup-grid{grid-template-columns:1fr;}}
     /* profile awards */
     .prof-awards{display:flex;flex-wrap:wrap;gap:10px;}
     .prof-award{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:9px 13px;font-size:13px;}
@@ -1049,7 +1048,9 @@
     @media(max-width:640px){.draft-score-wrap{margin:10px 0 0;width:100%;}}
     /* ── Draft Rankings: title + filters left, list right ── */
     .dr-card{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:22px;align-items:start;margin:0 0 22px;}
-    .dr-right{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+    .dr-right{background:transparent;border:none;border-radius:0;overflow:visible;display:flex;flex-direction:column;gap:8px;}
+    .draft-row-graded{background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:11px 16px;}
+    .draft-row-graded:last-child{border-bottom:1px solid var(--border);}
     .dr-filters{display:flex;gap:6px;flex-wrap:wrap;}
     .dr-note{font-size:12px;color:var(--text3);line-height:1.55;}
     @media(max-width:820px){.dr-card{grid-template-columns:1fr;}}

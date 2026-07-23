@@ -1307,7 +1307,7 @@ async function renderTradesTab(){
       </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
     return`<div class="trade-card">
-      <div class="trade-head"><span class="trade-rank">#${i+1}</span>${seasonBadge}Week ${tr.week} trade</div>
+      <div class="trade-head">${seasonBadge}Week ${tr.week} trade</div>
       <div class="trade-grid">${side(winner,'won')}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(loser,'lost')}</div>
       <div class="trade-totals"><span style="color:${cW}">${winner.total.toFixed(1)} pts</span><span style="color:${cL}">${loser.total.toFixed(1)} pts</span></div>
       <div class="trade-bar"><span style="width:${(wPct*100).toFixed(1)}%;background:${cW}"></span><span style="flex:1;background:${cL}"></span></div>
@@ -1399,14 +1399,16 @@ function draftPickCard(r,i,showSeason){
 function draftClassCard(d,i,showSeason,tint){
   const v=(d.val!=null?d.val:d.total);
   const fr=_franchises.find(f=>f.owner===d.owner);
-  const bg=tint?` style="background:linear-gradient(90deg, ${tint}2e, ${tint}12); border-left:4px solid ${tint}"`:'';
-  return `<div class="draft-row"${bg}>
+  const graded=tint?' draft-row-graded':'';
+  const bstyle=tint?` style="border-left-color:${tint}"`:'';
+  const dcol=tint||(v>0?'var(--green)':v<0?'var(--red)':'var(--text2)');
+  return `<div class="draft-row${graded}"${bstyle}>
     <div class="draft-rankn">${i+1}</div>
     ${fr?franchiseAvatar(fr,34):playerImg(null,34,d.name)}
     <div class="draft-info">
       <div class="draft-name">${d.name}${showSeason?`<span class="draft-pos">${d.season}</span>`:''}</div>
     </div>
-    <div class="draft-delta" style="color:${v>0?'var(--green)':v<0?'var(--red)':'var(--text2)'}">${v>0?'+':''}${Math.round(v)}</div>
+    <div class="draft-delta" style="color:${dcol}">${v>0?'+':''}${Math.round(v)}</div>
   </div>`;
 }
 function draftPickLists(steals,busts,showSeason){
@@ -1699,7 +1701,7 @@ function renderLeagueHistory(){
               <div class="sup-winners">${winners}</div>
             </div>`;
           }).join('');
-          return `<div class="hist-item"><div class="hist-item-year">${y} SEASON</div>${rows}</div>`;
+          return `<div class="hist-item"><div class="hist-item-year">${y} SEASON</div><div class="sup-grid">${rows}</div></div>`;
         }).join('');
       })()}
     </div>`;
@@ -2130,7 +2132,7 @@ function buildAllTimeLineup(owner, mode){
   return slots.map(([label,m])=>({label, pl:pick(m)}));
 }
 const LINEUP_POSC={QB:'#f8296d',RB:'#36ce85',WR:'#58a7ff',TE:'#ffae58',DEF:'#c17f60',K:'#bd66ff',FLEX:'#9aa7b5'};
-let _lineupMode='gs';
+let _lineupMode='ppg';
 function setLineupMode(m,owner){ _lineupMode=(m==='ppg'?'ppg':'gs'); const c=document.getElementById('prof-lineup'); if(c) c.innerHTML=lineupHTML(owner); }
 let _ppgScoreCache=null;
 const PPG_GRADES=['F','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+'];
@@ -2162,7 +2164,7 @@ function lineupHTML(owner){
   const mode=_lineupMode;
   const line=buildAllTimeLineup(owner,mode);
   const tabBtn=(m,label)=>`<button class="tab-btn ${mode===m?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 12px" onclick="setLineupMode('${m}','${owner}')">${label}</button>`;
-  const tabs=`<div class="standings-filters" style="padding:0 0 12px;gap:6px">${tabBtn('gs','Games Started')}${tabBtn('ppg','Points / Start')}</div>`;
+  const tabs=`<div class="standings-filters" style="padding:0 0 12px;gap:6px">${tabBtn('ppg','Points / Start')}${tabBtn('gs','Games Started')}</div>`;
   if(line.every(s=>!s.pl)) return tabs+`<div class="tab-loading" style="padding:24px">No roster history found for this team.</div>`;
   const body=`<div class="lineup-list">${line.map(sl=>{
     const c=LINEUP_POSC[sl.label]||'var(--accent)';
