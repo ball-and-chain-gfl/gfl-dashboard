@@ -1689,7 +1689,7 @@ function renderLeagueHistory(){
       </div>
     </div>
     <div class="sec wm" data-wm="&#xf559;" style="margin-top:8px">
-      <div class="sec-head"><i class="fa fa-award"></i>Season Superlatives<span class="badge-info">commissioner-voted year-end awards</span></div>
+      <div class="sec-head"><i class="fa fa-award"></i>Season Superlatives<span class="badge-info">GFL voted</span></div>
       ${(()=>{
         const yrs=_awardsData?Object.keys(_awardsData.years||{}).sort((a,b)=>b-a):[];
         if(!yrs.length) return `<div class="tab-loading">No awards recorded yet.</div>`;
@@ -1700,7 +1700,7 @@ function renderLeagueHistory(){
             const lab=_awardsData.labels[k]||{name:k,emoji:'🏅'};
             const winners=yr[k].map(e=>{const fr=awardOwner(e.team);const av=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),22,6):'';const nm=fr?fr.name:e.team;return `<span class="sup-win">${av}<span class="fr-name" ${fr?`data-tid="${(_teams.find(x=>_ownerMap[x.id]===fr.owner)||{}).id||''}"`:''} style="${fr?'':'color:var(--text3)'}">${nm}</span>${e.detail?`<span class="sup-detail">${e.detail}</span>`:''}</span>`;}).join('');
             return `<div class="sup-row${lab.good===false?' bad':''}">
-              <div class="sup-award">${lab.name}</div>
+              <div class="sup-award hk-${k}">${lab.name}</div>
               <div class="sup-winners">${winners}</div>
             </div>`;
           }).join('');

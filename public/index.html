@@ -456,10 +456,10 @@
     .prof-chip-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1;}
     .prof-chip-l{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-top:3px;}
     .prof-top2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
-    .prof-top2 .panel{margin-bottom:0;height:100%;}
+    .prof-top2 .panel{margin-bottom:0;}
     @media(max-width:900px){.prof-top2{grid-template-columns:1fr;}}
-    .prof-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:12px;margin-bottom:8px;}
-    .prof-stat{position:relative;background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px 15px;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+    .prof-stats{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px;}
+    .prof-stat{flex:1 1 140px;position:relative;background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px 15px;overflow:hidden;transition:transform .15s,box-shadow .15s;}
     html[data-theme="light"] .prof-stat{background:var(--bg2);}
     .prof-stat::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.55;}
     .prof-stat:hover{transform:translateY(-2px);box-shadow:0 14px 28px -20px rgba(0,0,0,0.7);}
@@ -468,8 +468,8 @@
     .prof-stat-l{font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);}
     .prof-stat-v{font-family:'Inter',sans-serif;font-size:28px;font-weight:700;line-height:1;}
     .prof-stat-s{font-size:12px;color:var(--text3);margin-top:3px;}
-    @media(max-width:900px){.prof-stats{grid-template-columns:repeat(3,1fr);}}
-    @media(max-width:560px){.prof-stats{grid-template-columns:repeat(2,1fr);}.prof-name{font-size:24px;}.prof-banner{padding:20px 16px;}.prof-banner-wm{width:150px;height:150px;}}
+    
+    @media(max-width:560px){.prof-name{font-size:24px;}.prof-banner{padding:20px 16px;}.prof-banner-wm{width:150px;height:150px;}}
 
     /* GABE'S GREATNESS */
     .gabe-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start;}
@@ -604,8 +604,12 @@
     .award-chip.bad{background:rgba(251,113,133,0.1);border-color:rgba(251,113,133,0.3);color:var(--red);}
     .sup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
     .sup-row{display:flex;flex-direction:column;gap:10px;align-items:stretch;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(160deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012));}
-    .sup-award{font-family:'Inter',sans-serif;font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.7px;display:flex;align-items:center;gap:9px;color:#f4c04d;padding-bottom:9px;border-bottom:1px solid var(--border);}
-    .sup-row.bad .sup-award{color:var(--red);}
+    .sup-award{font-family:'Google Sans Flex',Georgia,serif;font-weight:600;font-size:16px;display:flex;align-items:center;gap:9px;padding-bottom:9px;border-bottom:1px solid var(--border);}
+    .sup-award.hk-coy{color:#c084fc;}
+    .sup-award.hk-commitment{color:#4ade80;}
+    .sup-award.hk-comeback{color:#2dd4bf;}
+    .sup-award.hk-punishment{color:#ff923d;}
+    .sup-award.hk-disappoint{color:#fb7185;}
     .sup-emoji{font-size:20px;}
     .sup-winners{display:flex;flex-wrap:wrap;gap:8px 16px;}
     .sup-win{display:flex;align-items:center;gap:7px;font-size:13px;}
