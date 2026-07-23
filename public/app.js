@@ -2161,9 +2161,7 @@ async function renderProfile(){
           <div class="prof-chips">
             ${chip('All-Time',`${at.w}–${at.l}`,'')}
             ${chip('Win %',`${winpct.toFixed(1)}%`,winpct>=50?'var(--green)':'var(--red)')}
-            ${at.rings?chip('Titles',at.rings,'#f4c04d'):''}
-            ${at.confs?chip('Conf Titles',at.confs,'var(--blue)'):''}
-            ${aw.length?chip('Awards',aw.length,'var(--purple)'):''}
+            ${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}
           </div>
         </div>
       </div>
