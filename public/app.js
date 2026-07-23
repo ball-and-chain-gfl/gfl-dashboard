@@ -263,7 +263,8 @@ async function fetchSeasonData(season){
       names[o]={name:tName(t),logo:t.logo||null,teamId:t.id};
       teams[t.id]={name:tName(t),logo:t.logo||null,owner:o,div:t.divisionId??0,rank:t.rankCalculatedFinal||0,seed:t.playoffSeed||0};
     });
-    return {season,schedule:d.schedule||[],owners,names,teams,divisions};
+    const playoffTeamCount=d.settings?.scheduleSettings?.playoffTeamCount||d.settings?.playoffTeamCount||6;
+    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount};
   }catch{return null;}
 }
 async function buildAllTimeH2H(){
@@ -273,7 +274,7 @@ async function buildAllTimeH2H(){
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
     const {season,schedule,owners,names,teams}=res.value;
-    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{}};
+    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{},playoffTeamCount:res.value.playoffTeamCount||6};
     schedule.forEach(mu=>{
       if(!mu.home||!mu.away) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
@@ -2011,7 +2012,7 @@ function renderBadBeat(){
 
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 function franchiseAllTime(owner){
-  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0;const seasons=new Set(),played=new Set();
+  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0;const seasons=new Set(),played=new Set();
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
     const owners=meta.owners||{},teams=meta.teams||{};
@@ -2019,13 +2020,19 @@ function franchiseAllTime(owner){
     if(tid==null) return;
     seasons.add(s);
     const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;if(ti.rank){best=Math.min(best,ti.rank);worst=Math.max(worst,ti.rank);}}
+    const pt=meta.playoffTeamCount||6; const inBr=id=>{const sd=(teams[id]?.seed)||0;return sd>0&&sd<=pt;};
+    if(ti&&ti.seed>0&&ti.seed<=pt) poApp++;
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
       if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
       else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
+      if((m.matchupPeriodId||0)>14 && inBr(m.home.teamId) && inBr(m.away.teamId)){
+        if(String(m.home.teamId)===tid && (m.winner==='HOME'||(m.winner==null&&hp>ap))) poW++;
+        else if(String(m.away.teamId)===tid && (m.winner==='AWAY'||(m.winner==null&&ap>hp))) poW++;
+      }
     });
   });
-  return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,best:best===99?null:best,worst:worst||null,confs:(_hardware[owner]?.confs)||0};
+  return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,playoffWins:poW,playoffApps:poApp,best:best===99?null:best,worst:worst||null,confs:(_hardware[owner]?.confs)||0};
 }
 function openTeamProfile(teamId){
   _profileTeam=String(teamId);
@@ -2124,6 +2131,7 @@ async function renderProfile(){
   const owner=_ownerMap[id];
   const s=_scores[id]||0;
   const at=franchiseAllTime(owner);
+  const _bd=_cmBreakdown[id]||{}; const c2=_bd.c2, c3=_bd.c3;
   const g=at.w+at.l+at.t, winpct=g?(at.w/g*100):0;
   const cur=_seasonMeta[getSeason()];
   const seed=cur?.teams?.[id]?.seed||0;
@@ -2153,14 +2161,13 @@ async function renderProfile(){
           <div class="prof-chips">
             ${chip('All-Time',`${at.w}–${at.l}`,'')}
             ${chip('Win %',`${winpct.toFixed(1)}%`,winpct>=50?'var(--green)':'var(--red)')}
-            ${chip('Best Finish',at.best?`#${at.best}`:'—','var(--green)')}
-            ${chip('Worst Finish',at.worst?`#${at.worst}`:'—','var(--red)')}
+            ${at.rings?chip('Titles',at.rings,'#f4c04d'):''}
+            ${at.confs?chip('Conf Titles',at.confs,'var(--blue)'):''}
+            ${aw.length?chip('Awards',aw.length,'var(--purple)'):''}
           </div>
         </div>
       </div>
     </div>
-    ${(at.rings||at.confs||aw.length)?`<div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-medal" style="color:var(--accent)"></i>Honors &amp; Awards</div>
-      <div class="prof-honors">${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}</div></div>`:''}
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
       ${stat('fa-scale-balanced','Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seed?`#${seed} seed`:'')}
@@ -2168,6 +2175,8 @@ async function renderProfile(){
       ${stat('fa-shield-halved','Points Against',t.pa.toFixed(1),'','var(--red)')}
       ${stat('fa-brain','Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),'',sc(s))}
       ${stat('fa-arrow-trend-up','Moves',t.moves,`${t.trades} trades`)}
+      ${stat('fa-right-left','C2 · Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—','',sc(c2||0))}
+      ${stat('fa-magnifying-glass-dollar','C3 · Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—','',sc(c3||0))}
     </div>
     </div>
     <div class="panel"><div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
@@ -2176,7 +2185,10 @@ async function renderProfile(){
       ${stat('fa-fire','Points For',at.pf.toFixed(0),'','var(--green)')}
       ${stat('fa-shield-halved','Points Against',at.pa.toFixed(0),'','var(--red)')}
       ${stat('fa-crown','Championships',at.rings,at.rings?'🏆':'')}
-      ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','')}
+      ${stat('fa-trophy','Playoff Wins',at.playoffWins||0,'')}
+      ${stat('fa-calendar-check','Playoff Apps',at.playoffApps||0,'')}
+      ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','','var(--green)')}
+      ${stat('fa-arrow-down-9-1','Worst Finish',at.worst?`#${at.worst}`:'—','','var(--red)')}
     </div>
     </div>
     <div class="prof-cols">
