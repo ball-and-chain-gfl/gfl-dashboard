@@ -1986,30 +1986,93 @@ async function renderGabe(){
 }
 
 // ── BAD BEAT O'METER ─────────────────────────────────────────────────────────
+function badBeatData(season){
+  const meta=_seasonMeta[season]; if(!meta) return null;
+  const owners=meta.owners||{}, tms=meta.teams||{};
+  const REG=REGULAR_SEASON_END;
+  // weekly league averages (all played scores that week)
+  const byWeek={};
+  (meta.schedule||[]).forEach(mu=>{
+    const wk=mu.matchupPeriodId; if(!wk||wk>REG||!mu.home||!mu.away) return;
+    const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0; if(hp===0&&ap===0) return;
+    const a=byWeek[wk]||(byWeek[wk]=[]);
+    if(mu.home.teamId!=null) a.push(hp);
+    if(mu.away.teamId!=null) a.push(ap);
+  });
+  const wkAvg={}; Object.keys(byWeek).forEach(wk=>{const a=byWeek[wk]; wkAvg[wk]=a.reduce((s,x)=>s+x,0)/a.length;});
+  const T={};
+  const rec=id=>T[id]||(T[id]={id,owner:owners[id],name:tms[id]?.name||owners[id]||('Team '+id),logo:tms[id]?.logo||null,w:0,l:0,vaW:0,vaL:0,margins:[],lossOverAvg:0,games:0});
+  (meta.schedule||[]).forEach(mu=>{
+    const wk=mu.matchupPeriodId; if(!wk||wk>REG||!mu.home||!mu.away) return;
+    const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0; if(hp===0&&ap===0) return;
+    const hid=mu.home.teamId, aid=mu.away.teamId; if(hid==null||aid==null) return;
+    const H=rec(hid), A=rec(aid), avg=wkAvg[wk]||0;
+    H.games++; A.games++;
+    const homeWon = mu.winner==='HOME' || (mu.winner==null&&hp>ap);
+    const awayWon = mu.winner==='AWAY' || (mu.winner==null&&ap>hp);
+    if(homeWon){H.w++;A.l++;A.margins.push(hp-ap); if(ap>avg)A.lossOverAvg++;}
+    else if(awayWon){A.w++;H.l++;H.margins.push(ap-hp); if(hp>avg)H.lossOverAvg++;}
+    if(hp>avg)H.vaW++;else H.vaL++;
+    if(ap>avg)A.vaW++;else A.vaL++;
+  });
+  const list=Object.values(T).filter(t=>t.games>0);
+  if(!list.length) return null;
+  const med=arr=>{if(!arr.length)return 0;const s=arr.slice().sort((a,b)=>a-b),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+  list.forEach(t=>{
+    t.closest=t.margins.length?Math.min(...t.margins):0;
+    t.largest=t.margins.length?Math.max(...t.margins):0;
+    t.avgLoss=t.margins.length?t.margins.reduce((s,x)=>s+x,0)/t.margins.length:0;
+    t.median=med(t.margins);
+    t.lossU7=t.margins.filter(m=>m<7).length;
+    t.pctOver=t.l>0?(t.lossOverAvg/t.l):0; // fraction of losses scored over week avg
+  });
+  // RANK.EQ replication: desc = rank 1 is largest; asc = rank 1 is smallest (ties share rank)
+  const rd=(v,arr)=>1+arr.filter(x=>x>v).length;
+  const ra=(v,arr)=>1+arr.filter(x=>x<v).length;
+  const cA=list.map(t=>t.closest), mA=list.map(t=>t.median), uA=list.map(t=>t.lossU7), pA=list.map(t=>t.pctOver);
+  list.forEach(t=>{
+    t.rClose=rd(t.closest,cA);   // M
+    t.rMed=rd(t.median,mA);      // N
+    t.rU7=ra(t.lossU7,uA);       // O
+    t.rPov=ra(t.pctOver,pA)*1.5; // P (weighted 1.5x)
+    t.score=t.rClose+t.rMed+t.rU7+t.rPov;
+  });
+  list.sort((a,b)=>b.score-a.score);
+  list.forEach((t,i)=>t.rank=i+1);
+  return list;
+}
 function renderBadBeat(){
   const el=document.getElementById('badbeat-body'); if(!el) return;
-  const cfg=_CFG.badBeat||{};
-  const entries=cfg.entries||[];
-  if(!entries.length){
-    el.innerHTML=`<div class="badbeat-empty">
-      <div class="badbeat-meter"><div class="badbeat-needle"></div></div>
-      <div class="badbeat-empty-txt"><b>Bad Beat O'Meter is warming up.</b><br>${cfg.intro||"The most painful, unlucky losses in league history."}<br><span style="color:var(--text3);font-size:12px">Send me the entries and they'll drop in here.</span></div>
-    </div>`;
-    return;
-  }
-  el.innerHTML=`<div style="font-size:13px;color:var(--text2);margin:0 2px 14px">${cfg.intro||''}</div>`+
-    entries.slice().sort((a,b)=>(a.rank||99)-(b.rank||99)).map(e=>{
-      const fr=e.team?awardOwner(e.team):null;
-      const av=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),34,9):'';
-      return `<div class="hist-item"><div class="brk-head">
-        <span class="fr-name">${e.rank?`<span class="badbeat-rank">#${e.rank}</span>`:''} ${av} ${fr?fr.name:(e.team||'')}</span>
-        ${e.score?`<span class="brk-val" style="color:var(--red)">${e.score}</span>`:''}
-      </div>
-      ${e.week?`<div style="font-size:12px;color:var(--text3);margin-bottom:6px">Week ${e.week}${e.season?` · ${e.season}`:''}</div>`:''}
-      ${e.note?`<div style="font-size:13px;color:var(--text2);line-height:1.5">${e.note}</div>`:''}</div>`;
-    }).join('');
+  const season=getSeason();
+  const list=badBeatData(season);
+  if(!list){ el.innerHTML=`<div class="tab-loading" style="padding:26px">No matchup data for ${season} yet.</div>`; return; }
+  const num=(v,d=1)=>Number(v).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+  const intro=`How <b>unlucky</b> was each team through week ${REGULAR_SEASON_END}? The <b>Score</b> is a composite of four loss-luck ranks &mdash; Closest Loss, Median Loss, Losses under 7 points, and % of losses scored above the weekly average (weighted &times;1.5). A higher Score means a more bad-beaten season. The <b>vs&#8209;Avg</b> column is each team's record if every week were scored against that week's league average instead of their actual opponent.`;
+  const rows=list.map(t=>{
+    const av=avatarCore(t.name,t.id,proxyLogo(t.logo),26,7);
+    const luck=t.vaW-t.w; // vs-avg wins minus actual wins (positive = unlucky)
+    const luckTag = luck>0?` <span style="color:var(--green);font-size:11px;font-weight:600">+${luck}</span>` : (luck<0?` <span style="color:var(--red);font-size:11px;font-weight:600">${luck}</span>`:'');
+    return `<tr>
+      <td class="right"><span class="bb-rank">${t.rank}</span></td>
+      <td><span class="fr-name" style="gap:8px">${av}${t.name}</span></td>
+      <td class="right"><b style="color:var(--accent);font-size:15px">${num(t.score)}</b></td>
+      <td class="right">${t.vaW}&ndash;${t.vaL}${luckTag}</td>
+      <td class="right">${t.w}&ndash;${t.l}</td>
+      <td class="right">${num(t.closest)}</td>
+      <td class="right">${num(t.median)}</td>
+      <td class="right">${t.lossU7}</td>
+      <td class="right">${num(t.pctOver*100)}%</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin:0 2px 14px">${intro}</div>
+    <div class="tscroll"><table class="min720 srt">
+      <thead><tr>
+        <th class="right" data-nosort>#</th><th>Team</th>
+        <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
+        <th class="right">Closest&nbsp;L</th><th class="right">Median&nbsp;L</th><th class="right">L&lt;7</th><th class="right">%&nbsp;Over&nbsp;Avg</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="font-size:11.5px;color:var(--text3);margin:11px 2px 0;line-height:1.5">Regular season through week ${REGULAR_SEASON_END}. Closest&nbsp;L / Median&nbsp;L are margins of defeat in points; L&lt;7 counts losses by fewer than 7. % Over Avg = the share of a team's losses where it still outscored the week's league average &mdash; the purest bad-beat signal.</div>`;
 }
-
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 function franchiseAllTime(owner){
   let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0;const seasons=new Set(),played=new Set();
