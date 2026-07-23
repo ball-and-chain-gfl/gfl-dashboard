@@ -135,7 +135,7 @@ const AWARD_SHORT={coy:'Coach of Yr',commitment:'Commitment',comeback:'Comeback'
 // with an icon and a clear label so it reads without guessing.
 function honorTiles(rings,confs,awards,years){
   const tiles=[];
-  const tile=(emoji,label,count,cls,sub)=>`<div class="honor-tile ${cls}"><div class="honor-ic">${emoji}</div><div class="honor-lb">${label}${count>1?` <b>×${count}</b>`:''}</div>${sub?`<div class="honor-sub">${sub}</div>`:''}</div>`;
+  const tile=(emoji,label,count,cls,sub)=>`<div class="honor-tile ${cls}"><div class="honor-lb">${label}${count>1?` <b>×${count}</b>`:''}</div>${sub?`<div class="honor-sub">${sub}</div>`:''}</div>`;
   if(rings) tiles.push(tile('🏆','Champion',rings,'champ hk-champ',(years&&years.champ&&years.champ.join(', '))||''));
   if(confs) tiles.push(tile('⭐','Conference',confs,'conf hk-conf',(years&&years.conf&&years.conf.join(', '))||''));
   const byKey={};(awards||[]).forEach(aw=>{(byKey[aw.key]||(byKey[aw.key]={n:0,label:aw.label,yrs:[]})).n++;byKey[aw.key].yrs.push(aw.year);});
@@ -1259,7 +1259,9 @@ async function renderTradesTab(){
     (trades||[]).forEach(tr=>{
       if((tr.teams||[]).length<2) return;
       const a=tr.teams[0],b=tr.teams[1];
-      list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total)});
+      const _tA=Math.max(a.total,0),_tB=Math.max(b.total,0);
+      const share=(_tA+_tB)>0?Math.max(a.total,b.total)/(_tA+_tB):0.5;
+      list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total),share});
     });
   });
   // optional team filter (by franchise owner, works across seasons)
@@ -1271,9 +1273,9 @@ async function renderTradesTab(){
   }
   if(!list.length){body.innerHTML=`<div class="tab-loading">No trades found${_tradeTeamFilter?' for this team':''}${_tradeScope==='alltime'?'':` in the ${getSeason()} season`}.</div>`;return;}
 
-  if(_tradeSort==='balanced') list.sort((x,y)=>x.margin-y.margin);
+  if(_tradeSort==='balanced') list.sort((x,y)=>Math.abs(x.share-0.5)-Math.abs(y.share-0.5));
   else if(_tradeSort==='week') list.sort((x,y)=>(y.season-x.season)||(x.week-y.week));
-  else list.sort((x,y)=>y.margin-x.margin);
+  else list.sort((x,y)=>y.share-x.share);
 
   // colors keyed by franchise owner so they stay consistent across seasons
   const colorKeys={};
@@ -1394,10 +1396,11 @@ function draftPickCard(r,i,showSeason){
     <div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div>
   </div>`;
 }
-function draftClassCard(d,i,showSeason){
+function draftClassCard(d,i,showSeason,tint){
   const v=(d.val!=null?d.val:d.total);
   const fr=_franchises.find(f=>f.owner===d.owner);
-  return `<div class="draft-row">
+  const bg=tint?` style="background:linear-gradient(90deg, ${tint}2e, ${tint}12); border-left:4px solid ${tint}"`:'';
+  return `<div class="draft-row"${bg}>
     <div class="draft-rankn">${i+1}</div>
     ${fr?franchiseAvatar(fr,34):playerImg(null,34,d.name)}
     <div class="draft-info">
@@ -1496,7 +1499,7 @@ function renderDraftLists(){
       <div class="dr-filters" style="margin-bottom:14px">${toggle}</div>
       <div class="dr-note">Draft Score = each team's summed positional Δ (draft rank − finish rank per position) minus the league average. Higher means they drafted better than the field.</div>
     </div>
-    <div class="dr-right">${ranked.map((d,i)=>draftClassCard(d,i,false)).join('')}</div>
+    <div class="dr-right">${(()=>{const vs=ranked.map(d=>d.val);const mn=Math.min(...vs),mx=Math.max(...vs);return ranked.map((d,i)=>{const t=mx>mn?(d.val-mn)/(mx-mn):1;const tint=gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);return draftClassCard(d,i,false,tint);}).join('');})()}</div>
   </div>
   ${draftPickLists(steals,busts,false)}`;
 }
