@@ -1417,11 +1417,12 @@ function draftPickLists(steals,busts,showSeason){
     <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Worst Busts${showSeason?' Ever':''}<span class="badge-info">first 6 rounds</span></div>${busts.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
   </div>`;
 }
-function scoreBadge(rel,rank,season){
-  const col=rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)';
+function scoreBadge(rel,rank,season,grade,gcol){
+  const col=gcol||(rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)');
   return `<div class="draft-score-wrap">
-    <div class="dgrade"><div class="dgrade-num" style="border-color:var(--accent);color:var(--accent)">${rank}</div><div class="dgrade-lbl">ranked draft in ${season}</div></div>
+    <div class="dgrade"><div class="dgrade-num" style="border-color:var(--accent);color:var(--accent)">${rank}</div><div class="dgrade-lbl">Draft rank &middot; ${season}</div></div>
     <div class="dgrade"><div class="dgrade-num" style="border-color:${col};color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</div><div class="dgrade-lbl">Draft Score</div></div>
+    ${grade?`<div class="dgrade"><div class="dgrade-num" style="border-color:${col};color:${col}">${grade}</div><div class="dgrade-lbl">Draft Grade</div></div>`:''}
   </div>`;
 }
 function draftTeamTableHTML(rows,showSeason){
@@ -1516,7 +1517,9 @@ function renderDraftTeamTable(){
   const avg=ids.length?ids.reduce((s,k)=>s+totals[k],0)/ids.length:0;
   const ranked=ids.map(id=>({id:Number(id),t:totals[id]})).sort((a,b)=>b.t-a.t);
   const rel=(totals[tid]||0)-avg, rank=ranked.findIndex(x=>x.id===tid)+1;
-  const scoreEl=document.getElementById('draft-score'); if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,season);
+  const rels=ranked.map(x=>x.t-avg); const mn=Math.min(...rels), mx=Math.max(...rels);
+  const gt=mx>mn?(rel-mn)/(mx-mn):1; const grade=PPG_GRADES[Math.round(gt*(PPG_GRADES.length-1))]; const gcol=gradeColor(grade);
+  const scoreEl=document.getElementById('draft-score'); if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,season,grade,gcol);
   body.innerHTML=rows.length?draftTeamTableHTML(rows,false):`<div class="tab-loading">No picks found for this team.</div>`;
 }
 
@@ -1697,7 +1700,7 @@ function renderLeagueHistory(){
             const lab=_awardsData.labels[k]||{name:k,emoji:'🏅'};
             const winners=yr[k].map(e=>{const fr=awardOwner(e.team);const av=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),22,6):'';const nm=fr?fr.name:e.team;return `<span class="sup-win">${av}<span class="fr-name" ${fr?`data-tid="${(_teams.find(x=>_ownerMap[x.id]===fr.owner)||{}).id||''}"`:''} style="${fr?'':'color:var(--text3)'}">${nm}</span>${e.detail?`<span class="sup-detail">${e.detail}</span>`:''}</span>`;}).join('');
             return `<div class="sup-row${lab.good===false?' bad':''}">
-              <div class="sup-award"><span class="sup-emoji">${lab.emoji}</span>${lab.name}</div>
+              <div class="sup-award">${lab.name}</div>
               <div class="sup-winners">${winners}</div>
             </div>`;
           }).join('');
@@ -1900,6 +1903,21 @@ const PUNISH_ART={
   'spicy food':{icon:'&#xf06d;',svg:''},
 };
 const PUNISH_ICON={'weatherman':'fa-cloud-sun-rain','fast banana':'fa-person-running','willem defoe':'fa-masks-theater','fruit pledge':'fa-apple-whole','spicy food':'fa-pepper-hot','beer pour':'fa-beer-mug-empty'};
+function homePunishHTML(){
+  const cfg=_CFG.punishment||{};
+  if(!cfg.name && cfg.week==null) return '<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
+  const cur=(cfg.name||'').toLowerCase();
+  const icon=PUNISH_ICON[cur]||'fa-gavel';
+  return `<div class="home-punish">
+    <div class="home-punish-ic"><i class="fa ${icon}"></i></div>
+    <div class="home-punish-info">
+      <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
+      <div class="home-punish-name">${cfg.name||'TBD'}</div>
+      ${cfg.note?`<div class="home-punish-note">${cfg.note}</div>`:''}
+    </div>
+    <button class="home-punish-more" onclick="switchTab('punishment')">Details <i class="fa fa-arrow-right"></i></button>
+  </div>`;
+}
 function renderPunishment(){
   const el=document.getElementById('punishment-body'); if(!el) return;
   const cfg=_CFG.punishment||{};
@@ -2234,6 +2252,7 @@ async function renderProfile(){
         </div>
       </div>
     </div>
+    <div class="prof-top2">
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
       ${stat('fa-scale-balanced','Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seed?`#${seed} seed`:'')}
@@ -2255,6 +2274,7 @@ async function renderProfile(){
       ${stat('fa-calendar-check','Playoff Apps',at.playoffApps||0,'')}
       ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','','var(--green)')}
       ${stat('fa-arrow-down-9-1','Worst Finish',at.worst?`#${at.worst}`:'—','','var(--red)')}
+    </div>
     </div>
     </div>
     <div class="prof-cols">
@@ -2477,6 +2497,10 @@ async function loadDashboard(){
           </div>
           <div class="home-right">
             <div class="sec wm" data-wm="&#xf521;" id="big4-display"></div>
+            <div class="sec wm" data-wm="&#xf0e3;">
+              <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
+              ${homePunishHTML()}
+            </div>
             <div class="sec wm" data-wm="&#xf1ea;">
               <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines${playedWeeks.length?`<span class="badge-info">Week ${_currentWeek} recap</span>`:''}</div>
               <div id="home-headlines"></div>

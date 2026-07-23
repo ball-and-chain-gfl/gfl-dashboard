@@ -27,7 +27,7 @@
   <script>document.documentElement.dataset.theme='dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Google+Sans+Flex:wght@400..700&family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Google+Sans+Flex:wght@400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -358,20 +358,20 @@
     .motw-team.right{flex-direction:row-reverse;text-align:right;}
     .motw-vs{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;color:var(--text3);}
     .motw-facts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px;}
-    .motw-fact{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:12px 14px;text-align:center;}
-    html[data-theme="light"] .motw-fact,html[data-theme="light"] .motw-take,html[data-theme="light"] .motw-odds-team{background:rgba(0,0,0,0.03);}
+    .motw-fact{background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);border-radius:6px;padding:12px 14px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 12px 28px -22px rgba(0,0,0,0.7);}
+    html[data-theme="light"] .motw-fact,html[data-theme="light"] .motw-take,html[data-theme="light"] .motw-odds-team{background:var(--bg2);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 1px 2px rgba(0,0,0,0.07),0 16px 32px -26px rgba(0,0,0,0.3);}
     .motw-fact-l{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
     .motw-fact-v{font-family:'Inter',sans-serif;font-size:24px;font-weight:700;}
     .motw-fact-s{font-size:12px;color:var(--text3);margin-top:2px;}
     .motw-takes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
-    .motw-take{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:12px 14px;}
+    .motw-take{background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);border-radius:6px;padding:12px 14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 12px 28px -22px rgba(0,0,0,0.7);}
     .motw-take-h{font-family:'Google Sans Flex',serif;font-weight:700;font-size:15px;margin-bottom:8px;}
     .motw-take-item{font-size:13px;color:var(--text2);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);line-height:1.45;}
     html[data-theme="light"] .motw-take-item{border-color:rgba(0,0,0,0.06);}
     .motw-take-item:last-child{border-bottom:none;}
     .motw-odds-h{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
     .motw-odds-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-    .motw-odds-team{background:rgba(0,0,0,0.16);border:1px solid var(--border);border-radius:5px;padding:12px 14px;}
+    .motw-odds-team{background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);border-radius:6px;padding:12px 14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 12px 28px -22px rgba(0,0,0,0.7);}
     .odd-row{display:flex;gap:10px;margin-top:8px;}
     .odd-chip{flex:1;text-align:center;background:rgba(255,255,255,0.04);border-radius:4px;padding:8px 4px;}
     .odd-label{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px;}
@@ -455,7 +455,10 @@
     html[data-theme="light"] .prof-chip{background:rgba(255,255,255,0.7);}
     .prof-chip-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1;}
     .prof-chip-l{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-top:3px;}
-    .prof-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:8px;}
+    .prof-top2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+    .prof-top2 .panel{margin-bottom:0;height:100%;}
+    @media(max-width:900px){.prof-top2{grid-template-columns:1fr;}}
+    .prof-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:12px;margin-bottom:8px;}
     .prof-stat{position:relative;background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px 15px;overflow:hidden;transition:transform .15s,box-shadow .15s;}
     html[data-theme="light"] .prof-stat{background:var(--bg2);}
     .prof-stat::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.55;}
@@ -601,7 +604,7 @@
     .award-chip.bad{background:rgba(251,113,133,0.1);border-color:rgba(251,113,133,0.3);color:var(--red);}
     .sup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
     .sup-row{display:flex;flex-direction:column;gap:10px;align-items:stretch;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(160deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012));}
-    .sup-award{font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;text-transform:uppercase;letter-spacing:1.1px;display:flex;align-items:center;gap:9px;color:#f4c04d;padding-bottom:9px;border-bottom:1px solid var(--border);}
+    .sup-award{font-family:'Inter',sans-serif;font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.7px;display:flex;align-items:center;gap:9px;color:#f4c04d;padding-bottom:9px;border-bottom:1px solid var(--border);}
     .sup-row.bad .sup-award{color:var(--red);}
     .sup-emoji{font-size:20px;}
     .sup-winners{display:flex;flex-wrap:wrap;gap:8px 16px;}
@@ -800,14 +803,14 @@
     html[data-theme="dark"] .hist-item,
     html[data-theme="dark"] .prof-stat,
     html[data-theme="dark"] .lineup-list,
-    html[data-theme="dark"] .lineup-slot{background:linear-gradient(160deg,#1c1c21,#151519)!important;}
+    html[data-theme="dark"] .lineup-slot,
+    html[data-theme="dark"] .motw-fact,
+    html[data-theme="dark"] .motw-take,
+    html[data-theme="dark"] .motw-odds-team{background:linear-gradient(160deg,#1c1c21,#151519)!important;}
     html[data-theme="dark"] .modal-total,
     html[data-theme="dark"] .modal-comp,
     html[data-theme="dark"] .modal-formula,
     html[data-theme="dark"] .modal-comp-row,
-    html[data-theme="dark"] .motw-fact,
-    html[data-theme="dark"] .motw-take,
-    html[data-theme="dark"] .motw-odds-team,
     html[data-theme="dark"] .conf-col,
     html[data-theme="dark"] .div-winner,
     html[data-theme="dark"] .allrec-card,
@@ -1044,7 +1047,7 @@
     .draft-score-wrap{margin-left:auto;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
     .dgrade{display:flex;flex-direction:column;align-items:center;gap:6px;}
     .dgrade-num{font-family:'DM Sans',sans-serif;font-weight:600;font-size:32px;line-height:1;border:2px solid;border-radius:10px;padding:6px 16px;min-width:64px;text-align:center;}
-    .dgrade-lbl{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:0.5px;font-size:12px;color:var(--text3);text-align:center;max-width:130px;}
+    .dgrade-lbl{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:0.5px;font-size:12px;color:var(--text3);text-align:center;white-space:nowrap;}
     @media(max-width:640px){.draft-score-wrap{margin:10px 0 0;width:100%;}}
     /* ── Draft Rankings: title + filters left, list right ── */
     .dr-card{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:22px;align-items:start;margin:0 0 22px;}
@@ -1092,6 +1095,16 @@
 
     .bb-rank{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:6px;background:var(--bg3);color:var(--text2);font-weight:700;font-size:12px;}
     .badbeat-body table td.right,.badbeat-body table th.right{white-space:nowrap;}
+
+    /* Punishment of the Week (home) */
+    .home-punish{display:flex;align-items:center;gap:14px;}
+    .home-punish-ic{width:46px;height:46px;flex:0 0 46px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);color:var(--accent);font-size:22px;}
+    .home-punish-info{flex:1;min-width:0;}
+    .home-punish-week{font-family:'Inter',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
+    .home-punish-name{font-family:'Google Sans Flex',serif;font-weight:700;font-size:18px;margin-top:2px;}
+    .home-punish-note{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.4;}
+    .home-punish-more{flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+    .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}
   </style>
 </head>
 <body>
