@@ -342,7 +342,7 @@ function setPageBg(tab){
     }
   } else {
     if(vid){ if(!vid.paused) vid.pause(); vid.style.display='none'; }
-    if(img){ img.style.display='block'; img.style.backgroundImage=`url("${m.src}")`; }
+    if(img){ img.style.display='block'; img.style.backgroundImage=`linear-gradient(rgba(6,6,9,${m.ov}),rgba(6,6,9,${m.ov})), url("${m.src}")`; }
   }
 }
 function switchTab(name){
