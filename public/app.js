@@ -318,14 +318,12 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  home:     {type:'video', src:'/bg/home.mp4',  poster:'/bg/home.jpg',  ov:0.55},
-  teams:    {type:'video', src:'/bg/teams.mp4', poster:'/bg/teams.jpg', ov:0.55},
-  legacy:   {type:'image', src:'/bg/legacy.webp',    ov:0.72},
-  standings:{type:'image', src:'/bg/standings.webp', ov:0.50},
-  draft:    {type:'image', src:'/bg/draft.webp',     ov:0.55},
-  trades:   {type:'image', src:'/bg/trades.webp',    ov:0.62},
-  history:  {type:'image', src:'/bg/history.webp',   ov:0.66},
-  tenure:   {type:'image', src:'/bg/tenure.webp',    ov:0.58},
+  home:     {type:'video', src:'/bg/home.mp4',  poster:'/bg/home.jpg',  ov:0.6},
+  standings:{type:'image', src:'/bg/standings.webp', ov:0.6},
+  draft:    {type:'image', src:'/bg/draft.webp',     ov:0.6},
+  trades:   {type:'image', src:'/bg/trades.webp',    ov:0.6},
+  history:  {type:'image', src:'/bg/history.webp',   ov:0.6},
+  tenure:   {type:'image', src:'/bg/tenure.webp',    ov:0.6},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
@@ -1203,7 +1201,7 @@ function renderTenureTable(){
   .sort((a,b)=>b.wAll-a.wAll||b.pAll-a.pAll);
 
   const dash='<span style="color:var(--text3)">—</span>';
-  const shown=players.slice(0,100);
+  const shown=players.slice(0,50);
   body.innerHTML=shown.length?`<div class="tscroll"><table class="min640 srt">
     <thead>
       <tr>
@@ -1228,7 +1226,7 @@ function renderTenureTable(){
         <td class="right pf">${p.pAll.toFixed(1)}</td>
         <td class="right" style="color:var(--accent);font-weight:600">${p.pwAll||dash}</td>
       </tr>`).join('')}</tbody>
-  </table></div>${players.length>100?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 100 of ${players.length} — use search to find others.</div>`:''}
+  </table></div>${players.length>50?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 50 of ${players.length} — use search to find others.</div>`:''}
   <div style="padding:4px 2px 16px;font-size:12px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench). Bye weeks and weeks a player was on IR or ruled out are not counted.</div>`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
 }
@@ -2560,18 +2558,6 @@ async function loadDashboard(){
           </div>
           <div id="stats-c2" ${_statsView==='c2'?'':'style="display:none"'}></div>
           <div id="stats-c3" ${_statsView==='c3'?'':'style="display:none"'}></div>
-        </div>
-        <div class="two-col">
-          <div class="sec">
-            <div class="sec-head"><i class="fa fa-fire"></i>Highest Scoring</div>
-            <table><tbody>${[..._teams].sort((a,b)=>b.pf-a.pf).slice(0,6).map((t,i)=>`
-              <tr><td><div class="team-cell">${logoImg(t.id)}<span class="rank" style="margin:0 6px">${i+1}</span>${t.name}</div></td><td class="right pf">${t.pf.toFixed(1)}</td></tr>`).join('')}</tbody></table>
-          </div>
-          <div class="sec">
-            <div class="sec-head"><i class="fa fa-arrow-trend-up"></i>Most Active</div>
-            <table><tbody>${[..._teams].sort((a,b)=>b.moves-a.moves).slice(0,6).map((t,i)=>`
-              <tr><td><div class="team-cell">${logoImg(t.id)}<span class="rank" style="margin:0 6px">${i+1}</span>${t.name}</div></td><td class="right" style="color:var(--text2)">${t.moves}</td><td class="right" style="color:var(--blue)">${t.trades}</td></tr>`).join('')}</tbody></table>
-          </div>
         </div>
         <div class="sec wm" data-wm="&#xf1da;">
           <div class="sec-head"><i class="fa fa-clock-rotate-left"></i>Recent Activity${_cmMode==='inferred'?'<span class="badge-info">reconstructed from weekly rosters</span>':''}</div>

@@ -686,7 +686,7 @@
 
     /* WATERMARK ICONS — oversized glyphs bleeding past card corners */
     .wm{position:relative;isolation:isolate;}
-    .wm::after{content:attr(data-wm);font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;right:-4px;top:-26px;font-size:132px;line-height:1;color:var(--accent);opacity:0.045;pointer-events:none;transform:rotate(-10deg);z-index:-1;}
+    .wm::after{display:none!important;}
 
     :where(button,select,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
@@ -1131,9 +1131,7 @@
     #pgbg-video,#pgbg-image{position:absolute;inset:0;width:100%;height:100%;}
     #pgbg-video{object-fit:cover;}
     #pgbg-image{background-size:cover;background-position:center;background-repeat:no-repeat;display:none;}
-    #pgbg-overlay{position:absolute;inset:0;
-      background:
-        radial-gradient(140% 120% at 50% -10%, rgba(6,6,9,calc(var(--ov,0.6) - 0.12)) 0%, rgba(6,6,9,var(--ov,0.6)) 55%, rgba(6,6,9,calc(var(--ov,0.6) + 0.12)) 100%);}
+    #pgbg-overlay{position:absolute;inset:0;background:rgba(6,6,9,var(--ov,0.6));}
     /* grain sits above the media */
     .bg-fx{z-index:0;}
     main,footer{position:relative;z-index:1;}
