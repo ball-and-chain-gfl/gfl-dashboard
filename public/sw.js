@@ -4,7 +4,7 @@
 // app from getting stuck on an old cached version.
 // STATIC DATA (/data/*.json): stale-while-revalidate (fast; historical, rarely changes).
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v14';
+const CACHE = 'gfl-v15';
 const APP_SHELL = [
   '/', '/index.html', '/app.js', '/config.js',
   '/manifest.webmanifest', '/logo.png',
@@ -28,6 +28,7 @@ self.addEventListener('fetch', (e) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.pathname.startsWith('/api/')) return;      // live data: network
+  if (url.pathname.startsWith('/bg/')) return;       // background media: native (range requests)
   if (url.origin !== self.location.origin) return;    // cross-origin: browser handles
 
   // Static archived data: stale-while-revalidate.

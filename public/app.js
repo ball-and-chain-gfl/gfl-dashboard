@@ -316,9 +316,41 @@ function allTimeH2H(idA,idB){
 }
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
+// ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
+const PAGE_BG={
+  home:     {type:'video', src:'/bg/home.mp4',  poster:'/bg/home.jpg',  ov:0.55},
+  teams:    {type:'video', src:'/bg/teams.mp4', poster:'/bg/teams.jpg', ov:0.55},
+  legacy:   {type:'image', src:'/bg/legacy.webp',    ov:0.72},
+  standings:{type:'image', src:'/bg/standings.webp', ov:0.50},
+  draft:    {type:'image', src:'/bg/draft.webp',     ov:0.55},
+  trades:   {type:'image', src:'/bg/trades.webp',    ov:0.62},
+  history:  {type:'image', src:'/bg/history.webp',   ov:0.66},
+  tenure:   {type:'image', src:'/bg/tenure.webp',    ov:0.58},
+};
+function setPageBg(tab){
+  const wrap=document.getElementById('pgbg'); if(!wrap) return;
+  const vid=document.getElementById('pgbg-video'), img=document.getElementById('pgbg-image');
+  const m=PAGE_BG[tab];
+  if(!m){ wrap.style.display='none'; if(vid&&!vid.paused) vid.pause(); document.documentElement.classList.remove('has-pagebg'); return; }
+  wrap.style.display='block';
+  document.documentElement.classList.add('has-pagebg');
+  wrap.style.setProperty('--ov', m.ov);
+  if(m.type==='video'){
+    if(img) img.style.display='none';
+    if(vid){
+      vid.style.display='block';
+      if(vid.dataset.src!==m.src){ vid.dataset.src=m.src; if(m.poster) vid.poster=m.poster; vid.src=m.src; vid.load(); }
+      const p=vid.play(); if(p&&p.catch) p.catch(()=>{});
+    }
+  } else {
+    if(vid){ if(!vid.paused) vid.pause(); vid.style.display='none'; }
+    if(img){ img.style.display='block'; img.style.backgroundImage=`url("${m.src}")`; }
+  }
+}
 function switchTab(name){
   _activeTab=name;
   document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
+  setPageBg(name);
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   if(name==='tenure') ensureTenure();
