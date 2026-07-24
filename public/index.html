@@ -1136,7 +1136,8 @@
         radial-gradient(140% 120% at 50% -10%, rgba(6,6,9,calc(var(--ov,0.6) - 0.12)) 0%, rgba(6,6,9,var(--ov,0.6)) 55%, rgba(6,6,9,calc(var(--ov,0.6) + 0.12)) 100%);}
     /* grain sits above the media */
     .bg-fx{z-index:0;}
-    header,.tabbar,main,footer,#mobile-title{position:relative;z-index:1;}
+    main,footer{position:relative;z-index:1;}
+    header,.tabbar,#mobile-title{position:relative;z-index:200;}
     /* When a page background is active, float the big panels as translucent glass so the media reads through.
        Small info containers keep their existing look. */
     html[data-theme="dark"].has-pagebg .card,
@@ -1146,8 +1147,8 @@
     html[data-theme="dark"].has-pagebg #page-home .home-right>.sec,
     html[data-theme="dark"].has-pagebg #page-legacy .sec,
     html[data-theme="dark"].has-pagebg .trades-filters{
-      background:rgba(12,12,17,0.60)!important;
-      -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);
+      background:rgba(12,12,17,0.74)!important;
+      -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
       border-color:rgba(255,255,255,0.09)!important;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 22px 46px -30px rgba(0,0,0,0.85)!important;
     }
