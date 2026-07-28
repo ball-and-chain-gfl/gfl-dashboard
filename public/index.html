@@ -1318,6 +1318,13 @@
     .vid-more>summary:hover{color:var(--accent);}
     .vid-caret{font-size:10px;transition:transform .18s ease;}
     .vid-more[open] .vid-caret{transform:rotate(180deg);}
+
+    /* Balls Big 4: record / PF / CM aligned on the right of each card */
+    .big4-stats{margin-left:auto;display:flex;gap:14px;align-items:center;flex:0 0 auto;}
+    .b4s{text-align:right;}
+    .b4s-l{display:block;font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:500;}
+    .b4s-v{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;line-height:1.2;white-space:nowrap;}
+    @media(max-width:520px){.big4-stats{gap:10px;}.b4s-v{font-size:13px;}}
   </style>
 </head>
 <body>

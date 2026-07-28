@@ -685,7 +685,7 @@ function openCMModal(teamId){
     document.getElementById('cm-title').textContent=team.name;
     document.getElementById('cm-body').innerHTML=`
       <div class="modal-total">
-        <div class="modal-total-left"><div class="label">Coaching Metric Score</div><div class="sub">${legacy?'Legacy 2024 weighted-metric formula':'Official league formula'} · higher = better</div></div>
+        <div class="modal-total-left"><div class="label">Coaching Metric Score</div></div>
         <div class="modal-total-score" style="color:${s>0?'var(--green)':s<0?'var(--red)':'var(--text2)'}">${s.toFixed(3)}</div>
       </div>
       ${legacy?'':`<div class="modal-formula">
@@ -795,8 +795,11 @@ function renderBig4(){
         <div class="big4-info">
           <div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div>
           <div class="big4-name">${t.name}</div>
-          <div class="big4-record">${t.wins}–${t.losses} · ${t.pf.toFixed(0)} PF</div>
-          ${_cmMode==='none'?'':`<div class="big4-cm" style="color:${sc(s)}">CM: ${s.toFixed(2)}</div>`}
+        </div>
+        <div class="big4-stats">
+          <div class="b4s"><span class="b4s-l">Record</span><span class="b4s-v">${t.wins}–${t.losses}</span></div>
+          <div class="b4s"><span class="b4s-l">PF</span><span class="b4s-v">${t.pf.toFixed(0)}</span></div>
+          ${_cmMode==='none'?'':`<div class="b4s"><span class="b4s-l">CM</span><span class="b4s-v" style="color:${sc(s)}">${s.toFixed(2)}</span></div>`}
         </div>
       </div>`;
     }).join('')}</div>`}`;
@@ -2098,7 +2101,6 @@ function homePunishHTML(){
     <div class="home-punish-info">
       <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
       <div class="home-punish-name">${cfg.name||'TBD'}</div>
-      ${cfg.note?`<div class="home-punish-note">${cfg.note}</div>`:''}
     </div>
     <button class="home-punish-more" onclick="switchTab('punishment')">Details <i class="fa fa-arrow-right"></i></button>
   </div>`;
