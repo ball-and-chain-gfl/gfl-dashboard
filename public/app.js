@@ -1182,8 +1182,10 @@ function pastMatchupsHTML(owner,me,rows){
       <div class="pm-list">${lines}</div>
     </details>`;}).join('');
   if(!blocks) return '';
-  return `<div class="sec-head" style="font-size:15px;margin-top:20px"><i class="fa fa-clock-rotate-left"></i>Past Matchups</div>
-    <div class="pm-wrap">${blocks}</div>`;
+  return `<div class="pm-section">
+    <div class="sec-head" style="font-size:15px;margin-top:20px"><i class="fa fa-clock-rotate-left"></i>Past Matchups</div>
+    <div class="pm-wrap">${blocks}</div>
+  </div>`;
 }
 function renderHistoryTable(){
   const body=document.getElementById('history-body'); if(!body) return;
@@ -1215,7 +1217,7 @@ function renderHistoryTable(){
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
-    ${rows.length?`<div style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll"><table class="min560">
+    ${rows.length?`<div class="hint-tap" style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll"><table class="min560">
       <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
       <tbody>${rows.map((r,i)=>{const cols=tt?7:6;const games=h2hGames(owner,r.opp.owner);
         const log=games.map(g=>{const win=g.myScore>g.oppScore;const ts=topScorer(g.season,g.myTeamId,g.week),to=topScorer(g.season,g.oppTeamId,g.week);

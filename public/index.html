@@ -1255,6 +1255,16 @@
     .pd-grade{font-family:'DM Sans',sans-serif;font-weight:600;font-size:17px;line-height:1;border:2px solid;border-radius:7px;padding:4px 10px;min-width:46px;text-align:center;}
     .pd-score{font-family:'Inter',sans-serif;font-size:15px;font-weight:700;flex:1;}
     .pd-rank{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+
+    /* Past Matchups is a mobile-only view; the desktop table keeps its inline dropdown */
+    @media(min-width:769px){ .pm-section{display:none!important;} }
+    @media(max-width:768px){
+      /* on phones the table row dropdown is redundant (Past Matchups covers it) */
+      #page-history tr.h2h-detail{display:none!important;}
+      #page-history .h2h-caret{display:none!important;}
+      #page-history tr.h2h-oppo{cursor:default;}
+      #page-history .hint-tap{display:none!important;}
+    }
   </style>
 </head>
 <body>
