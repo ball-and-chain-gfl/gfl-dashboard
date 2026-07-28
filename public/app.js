@@ -1162,6 +1162,19 @@ function h2hGames(ownerA,ownerB){
   return out.sort((x,y)=>(y.season-x.season)||(y.week-x.week));
 }
 function toggleH2H(i){ const el=document.getElementById('h2hd-'+i); if(el) el.style.display=el.style.display==='none'?'':'none'; }
+function histMobileHTML(owner,rows,hasT){
+  const abbr=fr=>{const t=_teams.find(x=>_ownerMap[x.id]===fr.owner); return (t&&t.abbrev)||teamInitials(fr.name);};
+  const head=`<div class="hm-row hm-head"><span class="hm-team">Team</span><span>W</span><span>L</span><span>Win%</span><span>PF</span><span>PA</span></div>`;
+  const body=rows.map(r=>`<div class="hm-row">
+      <span class="hm-team">${franchiseAvatar(r.opp,22,6)}<span class="hm-ab">${abbr(r.opp)}</span></span>
+      <span class="hm-w">${r.w}</span>
+      <span class="hm-l">${r.l}</span>
+      <span class="hm-pct" style="color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</span>
+      <span class="hm-pf">${r.pf.toFixed(0)}</span>
+      <span class="hm-pa">${r.pa.toFixed(0)}</span>
+    </div>`).join('');
+  return `<div class="hm-list">${head}${body}</div>`;
+}
 function pastMatchupsHTML(owner,me,rows){
   const abbr=fr=>{const t=_teams.find(x=>_ownerMap[x.id]===fr.owner); return (t&&t.abbrev)||teamInitials(fr.name);};
   const myAb=me?abbr(me):'';
@@ -1217,7 +1230,7 @@ function renderHistoryTable(){
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
-    ${rows.length?`<div class="hint-tap" style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll"><table class="min560">
+    ${rows.length?`${histMobileHTML(owner,rows,!!tt)}<div class="hint-tap" style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll hist-tbl"><table class="min560">
       <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
       <tbody>${rows.map((r,i)=>{const cols=tt?7:6;const games=h2hGames(owner,r.opp.owner);
         const log=games.map(g=>{const win=g.myScore>g.oppScore;const ts=topScorer(g.season,g.myTeamId,g.week),to=topScorer(g.season,g.oppTeamId,g.week);

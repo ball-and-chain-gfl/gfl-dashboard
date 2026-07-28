@@ -1265,6 +1265,26 @@
       #page-history tr.h2h-oppo{cursor:default;}
       #page-history .hint-tap{display:none!important;}
     }
+
+    /* ── Matchup History: mobile-only no-scroll list (desktop keeps the table) ── */
+    .hm-list{display:none;}
+    @media(max-width:768px){
+      .hm-list{display:block;}
+      #page-history .hist-tbl{display:none!important;}     /* hide the table on phones */
+      .hm-row{display:grid;grid-template-columns:minmax(0,1fr) 22px 22px 40px 42px 42px;
+        align-items:center;gap:6px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.06);}
+      .hm-row:last-child{border-bottom:none;}
+      .hm-row>span{text-align:right;font-family:'Inter',sans-serif;font-size:12px;white-space:nowrap;}
+      .hm-team{display:flex;align-items:center;gap:7px;text-align:left!important;min-width:0;}
+      .hm-ab{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.4px;}
+      .hm-head{border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:6px;}
+      .hm-head>span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:500;}
+      .hm-head .hm-team{color:var(--text3);}
+      .hm-w{color:var(--green);font-weight:700;}
+      .hm-l{color:var(--red);}
+      .hm-pct{font-weight:600;}
+      .hm-pf,.hm-pa{color:var(--text2);}
+    }
   </style>
 </head>
 <body>
