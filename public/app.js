@@ -719,7 +719,7 @@ function openCMModal(teamId){
   document.getElementById('cm-title').textContent=team.name;
   document.getElementById('cm-body').innerHTML=`
     <div class="modal-total">
-      <div class="modal-total-left"><div class="label">Coaching Metric Score</div><div class="sub">Z-score · higher = better</div></div>
+      <div class="modal-total-left"><div class="label">Coaching Metric Score</div></div>
       <div class="modal-total-score" style="color:${sc(s)}">${s.toFixed(3)}</div>
     </div>
     ${modeNote}
