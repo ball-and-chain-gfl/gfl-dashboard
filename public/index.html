@@ -1285,6 +1285,17 @@
       .hm-pct{font-weight:600;}
       .hm-pf,.hm-pa{color:var(--text2);}
     }
+
+    /* PF / PA on the right of the all-time record container */
+    .h2h-total-pfpa{margin-left:auto;display:flex;gap:18px;align-items:center;}
+    .htp{text-align:right;}
+    .htp-l{display:block;font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:500;}
+    .htp-v{font-family:'Inter',sans-serif;font-size:17px;font-weight:700;line-height:1.15;}
+    @media(max-width:560px){.h2h-total-pfpa{gap:14px;}.htp-v{font-size:15px;}}
+    /* sortable headers on the mobile history list */
+    .hm-head .hm-sort{cursor:pointer;user-select:none;}
+    .hm-head .hm-sort.sorted{color:var(--accent)!important;}
+    .hm-arw{font-style:normal;font-size:9px;}
   </style>
 </head>
 <body>

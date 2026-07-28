@@ -1162,16 +1162,34 @@ function h2hGames(ownerA,ownerB){
   return out.sort((x,y)=>(y.season-x.season)||(y.week-x.week));
 }
 function toggleH2H(i){ const el=document.getElementById('h2hd-'+i); if(el) el.style.display=el.style.display==='none'?'':'none'; }
+let _hmSort={col:null,asc:false};
+function sortHM(col){
+  const list=document.querySelector('.hm-list'); if(!list) return;
+  const asc=(_hmSort.col===col)? !_hmSort.asc : (col===0);   // text asc first, numbers desc first
+  _hmSort={col,asc};
+  const rows=[...list.querySelectorAll('.hm-row:not(.hm-head)')];
+  const val=r=>{const c=r.children[col]; const v=c?.dataset.v ?? c?.textContent ?? '';
+    const n=parseFloat(v); return (v!==''&&!isNaN(n))?n:String(v).toLowerCase();};
+  rows.sort((a,b)=>{const x=val(a),y=val(b);
+    if(typeof x==='number'&&typeof y==='number') return asc?x-y:y-x;
+    return asc?String(x).localeCompare(String(y)):String(y).localeCompare(String(x));});
+  rows.forEach(r=>list.appendChild(r));
+  list.querySelectorAll('.hm-head .hm-sort').forEach((s,i)=>{
+    s.classList.toggle('sorted',i===col);
+    const arw=s.querySelector('.hm-arw'); if(arw) arw.textContent=(i===col)?(asc?' ↑':' ↓'):'';
+  });
+}
 function histMobileHTML(owner,rows,hasT){
   const abbr=fr=>{const t=_teams.find(x=>_ownerMap[x.id]===fr.owner); return (t&&t.abbrev)||teamInitials(fr.name);};
-  const head=`<div class="hm-row hm-head"><span class="hm-team">Team</span><span>W</span><span>L</span><span>Win%</span><span>PF</span><span>PA</span></div>`;
+  const cols=['Team','W','L','Win%','PF','PA'];
+  const head=`<div class="hm-row hm-head">${cols.map((c,i)=>`<span class="${i===0?'hm-team ':''}hm-sort" data-col="${i}" onclick="sortHM(${i})">${c}<i class="hm-arw"></i></span>`).join('')}</div>`;
   const body=rows.map(r=>`<div class="hm-row">
-      <span class="hm-team">${franchiseAvatar(r.opp,22,6)}<span class="hm-ab">${abbr(r.opp)}</span></span>
-      <span class="hm-w">${r.w}</span>
-      <span class="hm-l">${r.l}</span>
-      <span class="hm-pct" style="color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</span>
-      <span class="hm-pf">${r.pf.toFixed(0)}</span>
-      <span class="hm-pa">${r.pa.toFixed(0)}</span>
+      <span class="hm-team" data-v="${abbr(r.opp)}">${franchiseAvatar(r.opp,22,6)}<span class="hm-ab">${abbr(r.opp)}</span></span>
+      <span class="hm-w" data-v="${r.w}">${r.w}</span>
+      <span class="hm-l" data-v="${r.l}">${r.l}</span>
+      <span class="hm-pct" data-v="${r.pct}" style="color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</span>
+      <span class="hm-pf" data-v="${r.pf}">${r.pf.toFixed(0)}</span>
+      <span class="hm-pa" data-v="${r.pa}">${r.pa.toFixed(0)}</span>
     </div>`).join('');
   return `<div class="hm-list">${head}${body}</div>`;
 }
@@ -1227,7 +1245,10 @@ function renderHistoryTable(){
       ${franchiseAvatar(me,38,9)}
       <div>
         <div class="h2h-total-rec">${tw}–${tl}${tt?`–${tt}`:''} <span style="font-size:12px;color:${tpct>=0.5?'var(--green)':'var(--red)'}">(${(tpct*100).toFixed(1)}%)</span></div>
-        <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
+      </div>
+      <div class="h2h-total-pfpa">
+        <div class="htp"><span class="htp-l">PF</span><span class="htp-v" style="color:var(--green)">${tpf.toFixed(1)}</span></div>
+        <div class="htp"><span class="htp-l">PA</span><span class="htp-v" style="color:var(--red)">${tpa.toFixed(1)}</span></div>
       </div>
     </div>
     ${rows.length?`${histMobileHTML(owner,rows,!!tt)}<div class="hint-tap" style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll hist-tbl"><table class="min560">
