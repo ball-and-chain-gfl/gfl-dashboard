@@ -1179,6 +1179,32 @@ function sortHM(col){
     const arw=s.querySelector('.hm-arw'); if(arw) arw.textContent=(i===col)?(asc?' ↑':' ↓'):'';
   });
 }
+let _histSort={col:null,asc:false};
+// Sort the desktop matchup-history table while keeping each expandable
+// detail row glued to the opponent row it belongs to.
+function sortHistTable(col){
+  const tbl=document.querySelector('#page-history table'); if(!tbl) return;
+  const body=tbl.tBodies[0]; if(!body) return;
+  const asc=(_histSort.col===col)? !_histSort.asc : (col===0);
+  _histSort={col,asc};
+  const pairs=[];
+  [...body.rows].forEach(r=>{
+    if(r.classList.contains('h2h-detail')){ if(pairs.length) pairs[pairs.length-1].detail=r; }
+    else pairs.push({main:r,detail:null});
+  });
+  const val=r=>{const c=r.cells[col]; if(!c) return '';
+    const t=c.textContent.replace(/[↑↓]/g,'').trim();
+    const n=parseFloat(t.replace(/[^0-9.\-]/g,''));
+    return (/[0-9]/.test(t)&&!isNaN(n))?n:t.toLowerCase();};
+  pairs.sort((p,q)=>{const x=val(p.main),y=val(q.main);
+    if(typeof x==='number'&&typeof y==='number') return asc?x-y:y-x;
+    return asc?String(x).localeCompare(String(y)):String(y).localeCompare(String(x));});
+  pairs.forEach(p=>{body.appendChild(p.main); if(p.detail) body.appendChild(p.detail);});
+  tbl.querySelectorAll('thead .hs-th').forEach((th,i)=>{
+    th.classList.toggle('sorted',i===col);
+    const arw=th.querySelector('.hs-arw'); if(arw) arw.textContent=(i===col)?(asc?' ↑':' ↓'):'';
+  });
+}
 function histMobileHTML(owner,rows,hasT){
   const abbr=fr=>{const t=_teams.find(x=>_ownerMap[x.id]===fr.owner); return (t&&t.abbrev)||teamInitials(fr.name);};
   const cols=['Team','W','L','Win%','PF','PA'];
@@ -1243,8 +1269,9 @@ function renderHistoryTable(){
   body.innerHTML=`
     <div class="h2h-total">
       ${franchiseAvatar(me,38,9)}
-      <div>
-        <div class="h2h-total-rec">${tw}–${tl}${tt?`–${tt}`:''} <span style="font-size:12px;color:${tpct>=0.5?'var(--green)':'var(--red)'}">(${(tpct*100).toFixed(1)}%)</span></div>
+      <div class="h2h-total-main">
+        <div class="h2h-total-rec">${tw}–${tl}${tt?`–${tt}`:''}</div>
+        <div class="h2h-total-pct" style="color:${tpct>=0.5?'var(--green)':'var(--red)'}">${(tpct*100).toFixed(1)}%</div>
       </div>
       <div class="h2h-total-pfpa">
         <div class="htp"><span class="htp-l">PF</span><span class="htp-v" style="color:var(--green)">${tpf.toFixed(1)}</span></div>
@@ -1252,7 +1279,7 @@ function renderHistoryTable(){
       </div>
     </div>
     ${rows.length?`${histMobileHTML(owner,rows,!!tt)}<div class="hint-tap" style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll hist-tbl"><table class="min560">
-      <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
+      <thead><tr>${['Opponent','W','L',...(tt?['T']:[]),'Win %','PF','PA'].map((c,i)=>`<th class="hs-th${i?' right':''}" data-col="${i}" onclick="sortHistTable(${i})">${c}<i class="hs-arw"></i></th>`).join('')}</tr></thead>
       <tbody>${rows.map((r,i)=>{const cols=tt?7:6;const games=h2hGames(owner,r.opp.owner);
         const log=games.map(g=>{const win=g.myScore>g.oppScore;const ts=topScorer(g.season,g.myTeamId,g.week),to=topScorer(g.season,g.oppTeamId,g.week);
           return `<div class="h2h-game">
