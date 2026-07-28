@@ -458,16 +458,16 @@
     .prof-top2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
     .prof-top2 .panel{margin-bottom:0;}
     @media(max-width:900px){.prof-top2{grid-template-columns:1fr;}}
-    .prof-stats{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px;}
-    .prof-stat{flex:1 1 140px;position:relative;background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px 15px;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+    .prof-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:2px 10px;margin-bottom:2px;}
+    .prof-stat{position:relative;background:none;border:none;border-radius:0;padding:9px 2px;overflow:visible;}
     html[data-theme="light"] .prof-stat{background:var(--bg2);}
     .prof-stat::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.55;}
     .prof-stat:hover{transform:translateY(-2px);box-shadow:0 14px 28px -20px rgba(0,0,0,0.7);}
-    .prof-stat-top{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+    .prof-stat-top{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
     .prof-stat-top i{color:var(--accent);font-size:12px;opacity:.85;}
-    .prof-stat-l{font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);}
-    .prof-stat-v{font-family:'Inter',sans-serif;font-size:28px;font-weight:700;line-height:1;}
-    .prof-stat-s{font-size:12px;color:var(--text3);margin-top:3px;}
+    .prof-stat-l{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .prof-stat-v{font-family:'Inter',sans-serif;font-size:23px;font-weight:700;line-height:1;}
+    .prof-stat-s{display:none;}
     
     @media(max-width:560px){.prof-name{font-size:24px;}.prof-banner{padding:20px 16px;}.prof-banner-wm{width:150px;height:150px;}}
 
@@ -1058,7 +1058,7 @@
     /* ── Draft Rankings: title + filters left, list right ── */
     .dr-card{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:22px;align-items:start;margin:0 0 22px;}
     .dr-right{background:transparent;border:none;border-radius:0;overflow:visible;display:flex;flex-direction:column;gap:8px;}
-    .draft-row-graded{background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:11px 16px;}
+    .draft-row-graded{background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--dtint,var(--accent));border-radius:10px;padding:11px 16px;}
     .draft-row-graded:last-child{border-bottom:1px solid var(--border);}
     .dr-filters{display:flex;gap:6px;flex-wrap:wrap;}
     .dr-note{font-size:12px;color:var(--text3);line-height:1.55;}
@@ -1129,7 +1129,7 @@
     /* ── PER-PAGE BACKGROUND MEDIA (videos / images, color-matched) ──────── */
     #pgbg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;display:none;background:#070709;}
     #pgbg-video,#pgbg-image{position:absolute;inset:0;width:100%;height:100%;}
-    #pgbg-video{object-fit:cover;filter:brightness(0.1) saturate(1.05);}
+    #pgbg-video{object-fit:cover;filter:brightness(0.2) saturate(1.05);}
     #pgbg-image{background-size:cover;background-position:center;background-repeat:no-repeat;display:none;}
     #pgbg-overlay{position:absolute;inset:0;background:radial-gradient(130% 130% at 50% 0%, transparent 40%, rgba(6,6,9,0.35) 100%);}
     /* grain sits above the media */
@@ -1146,7 +1146,6 @@
     html[data-theme="dark"] #page-home .home-right>.sec,
     html[data-theme="dark"] #page-legacy .sec,
     html[data-theme="dark"] .trades-filters,
-    html[data-theme="dark"] .dr-right>.draft-row-graded,
     html[data-theme="dark"] .tab-page>.sec:not(:has(.card)):not(:has(.dr-card)),
     html[data-theme="dark"] .tab-page>.two-col>.sec,
     html[data-theme="dark"] .gabe-layout>.sec{
@@ -1203,6 +1202,19 @@
       /* keep bars/sparklines from stretching oddly inside the card rows */
       table.mtbl td .winpct-bar{display:none;}
     }
+
+    /* Draft Rankings rows: card look + colored grade stripe on the left */
+    html[data-theme="dark"] .dr-right>.draft-row-graded{
+      background:rgba(255,255,255,0.035)!important;
+      border:1px solid rgba(255,255,255,0.08)!important;
+      border-left:4px solid var(--dtint,var(--accent))!important;
+      border-radius:4px!important;
+      -webkit-backdrop-filter:blur(13px);backdrop-filter:blur(13px);
+      box-shadow:none!important;
+    }
+
+    /* remove the oval subheading pills from section headings sitewide */
+    .sec-head .badge-info,.section-header .badge-info{display:none!important;}
   </style>
 </head>
 <body>

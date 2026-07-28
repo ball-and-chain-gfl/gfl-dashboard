@@ -318,12 +318,12 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  home:     {type:'video', src:'/bg/home.mp4',  poster:'/bg/home.jpg',  ov:0.6},
-  standings:{type:'image', src:'/bg/standings.webp', ov:0.6},
-  draft:    {type:'image', src:'/bg/draft.webp',     ov:0.6},
-  trades:   {type:'image', src:'/bg/trades.webp',    ov:0.6},
-  history:  {type:'image', src:'/bg/history.webp',   ov:0.6},
-  tenure:   {type:'image', src:'/bg/tenure.webp',    ov:0.6},
+  home:     {type:'video', src:'/bg/home.mp4',  poster:'/bg/home.jpg',  ov:0.8},
+  standings:{type:'image', src:'/bg/standings.webp', ov:0.8},
+  draft:    {type:'image', src:'/bg/draft.webp',     ov:0.8},
+  trades:   {type:'image', src:'/bg/trades.webp',    ov:0.8},
+  history:  {type:'image', src:'/bg/history.webp',   ov:0.8},
+  tenure:   {type:'image', src:'/bg/tenure.webp',    ov:0.8},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
@@ -1461,7 +1461,7 @@ function draftClassCard(d,i,showSeason,tint){
   const v=(d.val!=null?d.val:d.total);
   const fr=_franchises.find(f=>f.owner===d.owner);
   const graded=tint?' draft-row-graded':'';
-  const bstyle=tint?` style="border-left-color:${tint}"`:'';
+  const bstyle=tint?` style="--dtint:${tint}"`:'';
   const dcol=tint||(v>0?'var(--green)':v<0?'var(--red)':'var(--text2)');
   return `<div class="draft-row${graded}"${bstyle}>
     <div class="draft-rankn">${i+1}</div>
