@@ -27,7 +27,7 @@
   <script>document.documentElement.dataset.theme='dark';</script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Google+Sans+Flex:wght@400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&family=Google+Sans+Flex:wght@400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     :root{
@@ -1150,6 +1150,24 @@
       border-color:rgba(255,255,255,0.09)!important;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 22px 46px -30px rgba(0,0,0,0.85)!important;
     }
+
+    /* ── HOMEPAGE CARD DESIGN (Figma "svc" card) ─────────────────────────── */
+    html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-bottom>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-right>.sec{
+      background:rgba(255,255,255,0.035)!important;
+      border:1px solid rgba(255,255,255,0.08)!important;
+      border-radius:4px!important;
+      -webkit-backdrop-filter:blur(13px);backdrop-filter:blur(13px);
+      box-shadow:none!important;
+    }
+    /* gold serif-italic index accent (e.g. "\2014 01") above each card heading */
+    #page-home .svc-idx{flex-basis:100%;order:-1;font-family:'Fraunces',Georgia,serif;font-style:italic;font-weight:400;
+      font-size:14px;letter-spacing:0.6px;color:#E0B67B;margin:0 0 2px;}
+    /* tie the card headings to the gold accent */
+    #page-home .sec-head i{color:#E0B67B;}
+    #page-home .home-punish-more{color:#E0B67B;border-color:rgba(224,182,123,0.4);}
+    #page-home .home-punish-more:hover{color:#E0B67B;border-color:#E0B67B;}
   </style>
 </head>
 <body>
