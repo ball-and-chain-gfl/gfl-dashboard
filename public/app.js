@@ -357,7 +357,7 @@ function shortName(n){
 }
 function applyShortNames(root){
   const mob=window.matchMedia('(max-width:768px)').matches;
-  (root||document).querySelectorAll('.pname>span:not(.phs),.tp-name>span:not(.phs),.lineup-pname,td .team-cell>.fr-name').forEach(el=>{
+  (root||document).querySelectorAll('.pname>span:not(.phs),.tp-name>span:not(.phs),.lineup-pname,.pl-name,td .team-cell>.fr-name').forEach(el=>{
     if(el.querySelector('*')) return;                       // only plain text nodes
     if(mob){
       if(el.dataset.fullname==null) el.dataset.fullname=el.textContent;
@@ -1512,7 +1512,7 @@ function draftPickCard(r,i,showSeason){
     <div class="draft-rankn">${i+1}</div>
     ${playerImg(r.pid,40,r.name)}
     <div class="draft-info">
-      <div class="draft-name">${r.name}<span class="draft-pos">${r.posName}</span></div>
+      <div class="draft-name"><span class="pl-name">${r.name}</span><span class="draft-pos">${r.posName}</span></div>
       <div class="draft-mgr2">${draftRowTeam(r)}${showSeason?` · ${r.season}`:''}</div>
       <div class="draft-line">Drafted <b>${r.posName}${r.posDrafted}</b>${r.finPos!=null?` → finished <b>${r.posName}${r.finPos}</b>`:' → <b>unranked</b>'} · ${r.pts.toFixed(1)} pts</div>
     </div>
