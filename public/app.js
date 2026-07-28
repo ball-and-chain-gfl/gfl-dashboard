@@ -353,7 +353,7 @@ function labelTables(root){
   (root||document).querySelectorAll('table').forEach(tbl=>{
     const head=tbl.tHead; if(!head||!head.rows.length) return;
     const hrow=head.rows[head.rows.length-1];
-    const labels=[...hrow.cells].map(th=>th.textContent.replace(/[\u2191\u2193]/g,'').trim());
+    const labels=[...hrow.cells].map(th=>{const c=th.cloneNode(true);c.querySelectorAll('span,i').forEach(s=>s.remove());return c.textContent.replace(/[\u2191\u2193\u21C5\u25B2\u25BC]/g,'').replace(/\s+/g,' ').trim();});
     tbl.classList.add('mtbl');
     const body=tbl.tBodies[0]; if(!body) return;
     [...body.rows].forEach(tr=>{
