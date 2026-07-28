@@ -2683,26 +2683,26 @@ async function loadDashboard(){
         <!-- Row 1: Matchup (left) + Ball & Chain video (right) -->
         <div class="home-top">
           <div class="home-vid-col">
-          <div class="sec">
-            <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
-            ${firstVid
-              ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
-                <div class="video-featured-title" id="vt">${firstVid.title}</div>
-                ${_videos.length>1?`<details class="vid-more"><summary><span>More Videos</span><i class="fa fa-chevron-down vid-caret"></i></summary>
-                <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div></details>`:''}`
-              :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
-            }
+            <div class="sec">
+              <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
+              ${firstVid
+                ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
+                  <div class="video-featured-title" id="vt">${firstVid.title}</div>
+                  ${_videos.length>1?`<details class="vid-more"><summary><span>More Videos</span><i class="fa fa-chevron-down vid-caret"></i></summary>
+                  <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div></details>`:''}`
+                :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
+              }
+            </div>
           </div>
           <div class="home-left-col">
-          <div class="sec wm" data-wm="&#xf0e3;">
-            <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
-            ${homePunishHTML()}
-          </div>
-          <div class="sec wm" data-wm="&#xf091;">
-            <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
-            <div id="motw"></div>
-          </div>
-          </div>
+            <div class="sec wm" data-wm="&#xf0e3;">
+              <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
+              ${homePunishHTML()}
+            </div>
+            <div class="sec wm" data-wm="&#xf091;">
+              <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
+              <div id="motw"></div>
+            </div>
           </div>
         </div>
         <!-- Row 2: Coaching Metric (left) + [Big4 top, Headlines bottom] (right) -->
