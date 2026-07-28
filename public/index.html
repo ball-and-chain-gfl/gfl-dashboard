@@ -1065,8 +1065,10 @@
     .trades-layout{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:22px;align-items:start;}
     .trades-filters{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:14px;}
     .trades-filters .standings-filters{margin-bottom:10px;}
-    .trade-wl{border:2px solid;border-radius:10px;padding:8px 12px 12px;margin-top:8px;}
-    .trade-wl-tag{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:1px;font-size:12px;font-weight:600;margin-bottom:6px;}
+    .trade-wl{border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:10px 12px 12px;margin-top:8px;}
+    .trade-wl.won{background:rgba(63,208,122,0.10);}
+    .trade-wl.lost{background:rgba(255,95,95,0.10);}
+
     .trade-totals{display:flex;justify-content:space-between;font-family:'DM Sans',sans-serif;font-weight:600;font-size:15px;margin:14px 16px 4px;}
     @media(max-width:820px){
       .trades-layout{grid-template-columns:1fr;}
@@ -1171,32 +1173,30 @@
     #page-home .home-punish-more{color:#E0B67B;border-color:rgba(224,182,123,0.4);}
     #page-home .home-punish-more:hover{color:#E0B67B;border-color:#E0B67B;}
 
-    /* ── MOBILE: tables become compact label/value cards (no side-scrolling) ── */
+    /* ── MOBILE: keep real tables (sortable/filterable) but tighten + stick the name column ── */
     @media(max-width:768px){
-      /* stop forcing wide minimums so nothing needs horizontal scrolling */
-      .tscroll table.min480,.tscroll table.min560,.tscroll table.min640,.tscroll table.min720{min-width:0!important;}
-      .tscroll{overflow-x:visible;}
-      table.mtbl{display:block;}
-      table.mtbl thead{display:none;}
-      table.mtbl tbody{display:block;}
-      table.mtbl tbody tr{display:block;border:1px solid rgba(255,255,255,0.08);border-radius:4px;
-        background:rgba(255,255,255,0.035);margin:0 0 8px;padding:10px 12px;}
-      table.mtbl tbody tr:hover{background:rgba(255,255,255,0.05);}
-      table.mtbl td{display:flex;align-items:center;justify-content:space-between;gap:12px;
-        width:auto;padding:3px 0;border:none;text-align:right;font-size:13px;}
-      table.mtbl td::before{content:attr(data-label);flex:0 0 auto;text-align:left;
-        font-family:'Inter',sans-serif;font-size:11px;font-weight:500;text-transform:uppercase;
-        letter-spacing:0.5px;color:var(--text3);}
-      /* cells with no column label (or the identity cell) span the full row as a title */
-      table.mtbl td[data-label=""]::before{content:none;}
-      table.mtbl td.mtd-title{display:block;text-align:left;padding:0 0 8px;margin-bottom:4px;
-        border-bottom:1px solid rgba(255,255,255,0.07);}
-      table.mtbl td.mtd-title::before{content:none;}
-      table.mtbl td.mtd-title .team-cell{gap:9px;}
-      /* secondary columns are hidden on phones to keep each card compact */
-      table.mtbl td.mhide,table.mtbl th.mhide{display:none!important;}
-      /* keep bars/sparklines from stretching oddly inside the card rows */
-      table.mtbl td .winpct-bar{display:none;}
+      .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+      /* tighter rows/cells so more data fits per screen */
+      table.mtbl td,table.mtbl th{padding:6px 8px!important;font-size:12px;}
+      table.mtbl thead th{font-size:10.5px;letter-spacing:0.3px!important;padding:6px 8px!important;}
+      table.mtbl td{white-space:nowrap;}
+      table.mtbl .team-cell{gap:6px;}
+      /* secondary columns stay visible on mobile now that the table scrolls */
+      table.mtbl td.mhide,table.mtbl th.mhide{display:table-cell!important;}
+      /* sticky identity column so you always know which row is which */
+      table.mtbl.stick1 td:first-child,table.mtbl.stick1 th:first-child,
+      table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){
+        position:sticky;z-index:3;background:#141419;
+        box-shadow:1px 0 0 rgba(255,255,255,0.10);}
+      table.mtbl.stick1 td:first-child,table.mtbl.stick1 th:first-child{left:0;}
+      table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){left:var(--c1w,34px);}
+      table.mtbl.stick2 td:first-child,table.mtbl.stick2 th:first-child{
+        position:sticky;left:0;z-index:3;background:#141419;padding-right:2px!important;}
+      table.mtbl thead th{background:#141419;}
+      /* team photo + abbreviation instead of the full name in table cells */
+      table.mtbl td.has-abbr .team-name{display:none;}
+      table.mtbl td.has-abbr .team-sub{font-size:12.5px!important;color:var(--text)!important;font-weight:600!important;letter-spacing:0.3px!important;}
+      table.mtbl td .fr-name{font-size:12.5px;}
     }
 
     /* Draft Rankings rows: card look + colored grade stripe on the left */
@@ -1252,9 +1252,8 @@
     <option value="2023">2023 Season</option>
     <option value="2022">2022 Season</option>
   </select>
-  <div class="controls">
+  <div class="controls" style="display:none">
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
-    <button onclick="loadDashboard()" title="Refresh"><i class="fa fa-rotate-right"></i></button>
   </div>
   <div class="tab-dd" id="tab-dd">
     <button id="tab-dd-btn" onclick="toggleTabDD()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><i class="fa fa-chevron-down tab-dd-caret"></i></button>

@@ -357,11 +357,24 @@ function labelTables(root){
     tbl.classList.add('mtbl');
     const hide=(tbl.dataset.mhide||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     const body=tbl.tBodies[0]; if(!body) return;
+    // which column holds the team/player identity? that column sticks to the left on phones
+    const first=body.rows[0];
+    if(first){
+      let idIdx=[...first.cells].findIndex(c=>c.querySelector('.team-cell,.fr-name,.pname,.tp-name'));
+      if(idIdx<0) idIdx=0;
+      tbl.classList.remove('stick1','stick2');
+      tbl.classList.add(idIdx<=0?'stick1':'stick2');
+      if(idIdx===1){
+        const w=Math.round(first.cells[0].getBoundingClientRect().width)||34;
+        tbl.style.setProperty('--c1w',w+'px');
+      }
+    }
     [...body.rows].forEach(tr=>{
       [...tr.cells].forEach((td,i)=>{
         const lb=labels[i]||'';
         if(td.getAttribute('data-label')!==lb) td.setAttribute('data-label',lb);
         if(hide.length){ const h=hide.includes(lb.toLowerCase()); td.classList.toggle('mhide',h); if(hrow.cells[i]) hrow.cells[i].classList.toggle('mhide',h); }
+        if(td.querySelector('.team-cell .team-sub')) td.classList.add('has-abbr');
         // the cell holding the team/player identity becomes the card title
         if(td.querySelector('.team-cell,.fr-name,.pname,.tp-name')) td.classList.add('mtd-title');
       });
@@ -1360,8 +1373,7 @@ async function renderTradesTab(){
       return `
       <div class="trade-side ${state}">
         <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div></div>
-        <div class="trade-wl" style="border-color:${col}">
-          <div class="trade-wl-tag" style="color:${col}">${state==='won'?'WON':'LOST'}</div>
+        <div class="trade-wl ${state}">
           <div class="trade-recv">received</div>
           ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${state==='lost'?'var(--red)':(p.pts>=0?'var(--green)':'var(--red)')}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
         </div>
