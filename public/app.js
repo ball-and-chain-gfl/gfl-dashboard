@@ -714,7 +714,7 @@ function renderBig4(){
   const anyPicked=picked.some(Boolean);
 
   el.innerHTML=`<div class="sec-head">
-    <span class="svc-idx">— 04</span><i class="fa fa-crown"></i>Balls Big 4
+    <i class="fa fa-crown"></i>Balls Big 4
   </div>
   ${!anyPicked
     ?`<div class="big4-empty">Set your Big 4 in <code>config.js</code>.</div>`
@@ -2488,11 +2488,11 @@ async function loadDashboard(){
         <!-- Row 1: Matchup (left) + Ball & Chain video (right) -->
         <div class="home-top">
           <div class="sec wm" data-wm="&#xf091;">
-            <div class="sec-head"><span class="svc-idx">— 01</span><i class="fa fa-fire"></i>Matchup of the Week</div>
+            <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
             <div id="motw"></div>
           </div>
           <div class="sec">
-            <div class="sec-head"><span class="svc-idx">— 02</span><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
+            <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
             ${firstVid
               ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
                 <div class="video-featured-title" id="vt">${firstVid.title}</div>
@@ -2505,7 +2505,7 @@ async function loadDashboard(){
         <!-- Row 2: Coaching Metric (left) + [Big4 top, Headlines bottom] (right) -->
         <div class="home-bottom">
           <div class="sec wm" data-wm="&#xf5dc;">
-            <div class="sec-head"><span class="svc-idx">— 03</span><i class="fa fa-brain"></i>Coaching Metric</div>
+            <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric</div>
             ${_cmMode==='none'
               ?`<div class="tab-loading" style="padding:40px 20px">No coaching metric data available for the ${season} season.</div>`
               :(()=>{
@@ -2528,11 +2528,11 @@ async function loadDashboard(){
           <div class="home-right">
             <div class="sec wm" data-wm="&#xf521;" id="big4-display"></div>
             <div class="sec wm" data-wm="&#xf0e3;">
-              <div class="sec-head"><span class="svc-idx">— 05</span><i class="fa fa-gavel"></i>Punishment of the Week</div>
+              <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
               ${homePunishHTML()}
             </div>
             <div class="sec wm" data-wm="&#xf1ea;">
-              <div class="sec-head"><span class="svc-idx">— 06</span><i class="fa fa-newspaper"></i>Matchup Headlines</div>
+              <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
               <div id="home-headlines"></div>
             </div>
           </div>
