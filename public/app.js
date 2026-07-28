@@ -53,7 +53,7 @@ const ALL_SEASONS=['2022','2023','2024','2025'];
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
-const TAB_COLORS={home:'#ffb347',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
+const TAB_COLORS={home:'#E0B67B',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
 const TAB_LABELS={home:'Home',standings:'Standings & Stats',trades:'Trades',draft:'Draft',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -344,6 +344,35 @@ function setPageBg(tab){
     if(vid){ if(!vid.paused) vid.pause(); vid.style.display='none'; }
     if(img){ img.style.display='block'; img.style.backgroundImage=`linear-gradient(rgba(6,6,9,${m.ov}),rgba(6,6,9,${m.ov})), url("${m.src}")`; }
   }
+}
+// ── MOBILE TABLES ────────────────────────────────────────────────────────────
+// Tag every data cell with its column label so phones can render each row as a
+// compact card (label left / value right) instead of a horizontally scrolling
+// table. Runs automatically after any render via a debounced observer.
+function labelTables(root){
+  (root||document).querySelectorAll('table').forEach(tbl=>{
+    const head=tbl.tHead; if(!head||!head.rows.length) return;
+    const hrow=head.rows[head.rows.length-1];
+    const labels=[...hrow.cells].map(th=>th.textContent.replace(/[\u2191\u2193]/g,'').trim());
+    tbl.classList.add('mtbl');
+    const body=tbl.tBodies[0]; if(!body) return;
+    [...body.rows].forEach(tr=>{
+      [...tr.cells].forEach((td,i)=>{
+        const lb=labels[i]||'';
+        if(td.getAttribute('data-label')!==lb) td.setAttribute('data-label',lb);
+        // the cell holding the team/player identity becomes the card title
+        if(td.querySelector('.team-cell,.fr-name,.pname,.tp-name')) td.classList.add('mtd-title');
+      });
+    });
+  });
+}
+let _mtblTimer=null;
+function initMobileTables(){
+  const run=()=>{ try{ labelTables(document); }catch(e){} };
+  run();
+  const target=document.querySelector('main')||document.body;
+  new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
+    .observe(target,{childList:true,subtree:true});
 }
 function switchTab(name){
   _activeTab=name;
@@ -2706,3 +2735,5 @@ document.addEventListener('click',e=>{
 // auto-wire click-to-sort on any table.srt as it enters the DOM
 (function(){const app=document.getElementById('app');if(app){new MutationObserver(()=>initSortable()).observe(app,{childList:true,subtree:true});}})();
 loadDashboard();
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();

@@ -861,7 +861,7 @@
     html[data-theme="light"] .tab-btn i{color:color-mix(in srgb,var(--tc) 70%,#000);}
 
     /* Active tab's color becomes the page accent (dark mode) */
-    html[data-theme="dark"][data-tabaccent=home]{--accent:#ffb347;--accent2:#ff923d;--accent-rgb:255,179,71;}
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#c99a5c;--accent-rgb:224,182,123;}
     html[data-theme="dark"][data-tabaccent=standings]{--accent:#5aa9ff;--accent2:#3f8fe6;--accent-rgb:90,169,255;}
     html[data-theme="dark"][data-tabaccent=trades]{--accent:#3fd07a;--accent2:#2fb768;--accent-rgb:63,208,122;}
     html[data-theme="dark"][data-tabaccent=draft]{--accent:#b58cff;--accent2:#9a6ff0;--accent-rgb:181,140,255;}
@@ -1138,18 +1138,26 @@
     header,.tabbar,#mobile-title{position:relative;z-index:200;}
     /* When a page background is active, float the big panels as translucent glass so the media reads through.
        Small info containers keep their existing look. */
-    html[data-theme="dark"].has-pagebg .card,
-    html[data-theme="dark"].has-pagebg .panel,
-    html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-bottom>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-right>.sec,
-    html[data-theme="dark"].has-pagebg #page-legacy .sec,
-    html[data-theme="dark"].has-pagebg .trades-filters{
-      background:rgba(12,12,17,0.74)!important;
-      -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
-      border-color:rgba(255,255,255,0.09)!important;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 22px 46px -30px rgba(0,0,0,0.85)!important;
+    /* ── SITEWIDE CARD DESIGN (Figma "svc" card) — per-tab accent preserved ── */
+    html[data-theme="dark"] .card,
+    html[data-theme="dark"] .panel,
+    html[data-theme="dark"] #page-home .home-top>.sec,
+    html[data-theme="dark"] #page-home .home-bottom>.sec,
+    html[data-theme="dark"] #page-home .home-right>.sec,
+    html[data-theme="dark"] #page-legacy .sec,
+    html[data-theme="dark"] .trades-filters,
+    html[data-theme="dark"] .dr-right>.draft-row-graded,
+    html[data-theme="dark"] main>.tab-page>.sec,
+    html[data-theme="dark"] main>.tab-page>.two-col>.sec{
+      background:rgba(255,255,255,0.035)!important;
+      border:1px solid rgba(255,255,255,0.08)!important;
+      border-radius:4px!important;
+      -webkit-backdrop-filter:blur(13px);backdrop-filter:blur(13px);
+      box-shadow:none!important;
     }
+    /* give the bare section wrappers card padding now that they read as cards */
+    html[data-theme="dark"] main>.tab-page>.sec,
+    html[data-theme="dark"] main>.tab-page>.two-col>.sec{padding:16px 18px;}
 
     /* ── HOMEPAGE CARD DESIGN (Figma "svc" card) ─────────────────────────── */
     html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
@@ -1165,6 +1173,32 @@
     #page-home .sec-head i{color:#E0B67B;}
     #page-home .home-punish-more{color:#E0B67B;border-color:rgba(224,182,123,0.4);}
     #page-home .home-punish-more:hover{color:#E0B67B;border-color:#E0B67B;}
+
+    /* ── MOBILE: tables become compact label/value cards (no side-scrolling) ── */
+    @media(max-width:768px){
+      /* stop forcing wide minimums so nothing needs horizontal scrolling */
+      .tscroll table.min480,.tscroll table.min560,.tscroll table.min640,.tscroll table.min720{min-width:0!important;}
+      .tscroll{overflow-x:visible;}
+      table.mtbl{display:block;}
+      table.mtbl thead{display:none;}
+      table.mtbl tbody{display:block;}
+      table.mtbl tbody tr{display:block;border:1px solid rgba(255,255,255,0.08);border-radius:4px;
+        background:rgba(255,255,255,0.035);margin:0 0 8px;padding:10px 12px;}
+      table.mtbl tbody tr:hover{background:rgba(255,255,255,0.05);}
+      table.mtbl td{display:flex;align-items:center;justify-content:space-between;gap:12px;
+        width:auto;padding:3px 0;border:none;text-align:right;font-size:13px;}
+      table.mtbl td::before{content:attr(data-label);flex:0 0 auto;text-align:left;
+        font-family:'Inter',sans-serif;font-size:11px;font-weight:500;text-transform:uppercase;
+        letter-spacing:0.5px;color:var(--text3);}
+      /* cells with no column label (or the identity cell) span the full row as a title */
+      table.mtbl td[data-label=""]::before{content:none;}
+      table.mtbl td.mtd-title{display:block;text-align:left;padding:0 0 8px;margin-bottom:4px;
+        border-bottom:1px solid rgba(255,255,255,0.07);}
+      table.mtbl td.mtd-title::before{content:none;}
+      table.mtbl td.mtd-title .team-cell{gap:9px;}
+      /* keep bars/sparklines from stretching oddly inside the card rows */
+      table.mtbl td .winpct-bar{display:none;}
+    }
   </style>
 </head>
 <body>
