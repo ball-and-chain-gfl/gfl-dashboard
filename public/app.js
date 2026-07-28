@@ -1215,7 +1215,7 @@ function renderHistoryTable(){
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
-    ${rows.length?`<div class="tscroll"><table class="min560">
+    ${rows.length?`<div style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll"><table class="min560">
       <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
       <tbody>${rows.map((r,i)=>{const cols=tt?7:6;const games=h2hGames(owner,r.opp.owner);
         const log=games.map(g=>{const win=g.myScore>g.oppScore;const ts=topScorer(g.season,g.myTeamId,g.week),to=topScorer(g.season,g.oppTeamId,g.week);
@@ -1225,8 +1225,8 @@ function renderHistoryTable(){
             <span class="h2h-vs">${win?'def.':'lost to'}</span>
             <span class="h2h-game-side"><span class="hs-team">${r.opp.name}</span> <b>${g.oppScore.toFixed(1)}</b>${to?`<span class="h2h-hs">${to.n} · ${to.pts}</span>`:''}</span>
           </div>`;}).join('');
-        return `<tr>
-          <td><div class="team-cell">${franchiseAvatar(r.opp,28,8)}<div class="team-info"><div class="team-name">${r.opp.name}</div><div class="team-sub">${r.g} game${r.g!==1?'s':''}</div></div></div></td>
+        return `<tr class="h2h-oppo" onclick="toggleH2H(${i})">
+          <td><div class="team-cell">${franchiseAvatar(r.opp,28,8)}<div class="team-info"><div class="team-name">${r.opp.name}</div><div class="team-sub">${r.g} game${r.g!==1?'s':''}</div></div><i class="fa fa-chevron-down h2h-caret"></i></div></td>
           <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
           <td class="right" style="color:var(--red)">${r.l}</td>
           ${tt?`<td class="right" style="color:var(--text3)">${r.t}</td>`:''}
@@ -1234,7 +1234,7 @@ function renderHistoryTable(){
           <td class="right pf">${r.pf.toFixed(1)}</td>
           <td class="right pa">${r.pa.toFixed(1)}</td>
         </tr>
-        `;}).join('')}</tbody>
+        <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
     </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}
     ${rows.length?pastMatchupsHTML(owner,me,rows):''}`;
 }
@@ -1417,7 +1417,7 @@ async function renderTradesTab(){
     const winner=aWin?tr.a:tr.b, loser=aWin?tr.b:tr.a;
     const wShare=(totA+totB)>0?Math.max(tr.a.total,tr.b.total)/(totA+totB):0.5;
     const wPct=Math.min(0.96,Math.max(0.04,wShare));
-    const cW=colOf(tr.season,winner.teamId), cL=colOf(tr.season,loser.teamId);
+    const cW='var(--green)', cL='var(--red)';
     const side=(sd,state)=>{
       const col=state==='won'?'var(--green)':'var(--red)';
       return `
@@ -2221,7 +2221,7 @@ function renderBadBeat(){
 }
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 function franchiseAllTime(owner){
-  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0;const seasons=new Set(),played=new Set();
+  let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0,hi=null,lo=null;const seasons=new Set(),played=new Set();
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
     const owners=meta.owners||{},teams=meta.teams||{};
@@ -2233,15 +2233,15 @@ function franchiseAllTime(owner){
     if(ti&&ti.seed>0&&ti.seed<=pt) poApp++;
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
-      if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
-      else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
+      if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
+      else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
       if((m.matchupPeriodId||0)>14 && inBr(m.home.teamId) && inBr(m.away.teamId)){
         if(String(m.home.teamId)===tid && (m.winner==='HOME'||(m.winner==null&&hp>ap))) poW++;
         else if(String(m.away.teamId)===tid && (m.winner==='AWAY'||(m.winner==null&&ap>hp))) poW++;
       }
     });
   });
-  return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,playoffWins:poW,playoffApps:poApp,best:best===99?null:best,worst:worst||null,confs:(_hardware[owner]?.confs)||0};
+  return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,playoffWins:poW,playoffApps:poApp,best:best===99?null:best,worst:worst||null,hi,lo,confs:(_hardware[owner]?.confs)||0};
 }
 function openTeamProfile(teamId){
   _profileTeam=String(teamId);
@@ -2332,6 +2332,31 @@ function lineupHTML(owner){
     : 'Most-started player at each spot, all-time (games started → weeks rostered → points). FLEX = best remaining RB/WR/TE.';
   return tabs+body+grade+`<div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">${note}</div>`;
 }
+function profileDraftsHTML(owner){
+  const dc=_draftAllCache;
+  if(!dc){ return `<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Crunching past drafts…</div>`; }
+  const mine=(dc.teamDrafts||[]).filter(d=>d.owner===owner);
+  if(!mine.length) return `<div class="tab-loading" style="padding:22px">No draft history for this team.</div>`;
+  // grade each of this manager's drafts on the same scale the Draft page uses:
+  // adj = summed positional delta minus that season's league average.
+  const bySeason={};
+  (dc.teamDrafts||[]).forEach(d=>{ (bySeason[d.season]||(bySeason[d.season]=[])).push(d.adj); });
+  const rows=mine.slice().sort((x,y)=>y.season-x.season).map(d=>{
+    const vals=bySeason[d.season]||[d.adj];
+    const mn=Math.min(...vals), mx=Math.max(...vals);
+    const t=mx>mn?(d.adj-mn)/(mx-mn):1;
+    const grade=PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))];
+    const col=gradeColor(grade);
+    const rank=vals.slice().sort((p,q)=>q-p).indexOf(d.adj)+1;
+    return `<div class="pd-row">
+      <span class="pd-yr">${d.season}</span>
+      <span class="pd-grade" style="color:${col};border-color:${col}">${grade}</span>
+      <span class="pd-score" style="color:${col}">${d.adj>0?'+':''}${Math.round(d.adj)}</span>
+      <span class="pd-rank">#${rank} of ${vals.length}</span>
+    </div>`;}).join('');
+  return `<div class="pd-list">${rows}</div>
+    <div style="font-size:11.5px;color:var(--text3);padding:9px 2px 0;line-height:1.5">Draft Score = summed positional &Delta; (draft rank &minus; finish rank per pick) minus that season's league average; graded across the league that year.</div>`;
+}
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
   const sel=document.getElementById('profile-team-select');
@@ -2397,10 +2422,16 @@ async function renderProfile(){
       ${stat('fa-calendar-check','Playoff Apps',at.playoffApps||0,'')}
       ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','','var(--green)')}
       ${stat('fa-arrow-down-9-1','Worst Finish',at.worst?`#${at.worst}`:'—','','var(--red)')}
+      ${stat('fa-bolt','Highest Score',at.hi?at.hi.pts.toFixed(1):'—','','var(--green)')}
+      ${stat('fa-arrow-down','Lowest Score',at.lo?at.lo.pts.toFixed(1):'—','','var(--red)')}
     </div>
     </div>
     </div>
     <div class="prof-cols">
+      <div class="prof-col panel">
+        <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>Draft Grades by Year</div>
+        <div id="prof-drafts">${profileDraftsHTML(owner)}</div>
+      </div>
       <div class="prof-col panel">
         <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>All-Time Starting Lineup</div>
         <div id="prof-lineup">${_tenure?lineupHTML(owner):`<div class="tab-loading" style="padding:24px"><i class="fa fa-circle-notch"></i>Building the all-time lineup…</div>`}</div>
@@ -2421,6 +2452,13 @@ async function renderProfile(){
       const c=document.getElementById('prof-lineup');
       const stillHere=Number(document.getElementById('profile-team-select')?.value||_profileTeam)===id;
       if(c&&stillHere) c.innerHTML=lineupHTML(owner);
+    }).catch(()=>{});
+  }
+  if(!_draftAllCache){
+    loadAllDrafts().then(()=>{
+      const d=document.getElementById('prof-drafts');
+      const stillHere=Number(document.getElementById('profile-team-select')?.value||_profileTeam)===id;
+      if(d&&stillHere) d.innerHTML=profileDraftsHTML(owner);
     }).catch(()=>{});
   }
 }
