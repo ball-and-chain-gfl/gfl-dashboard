@@ -2682,9 +2682,15 @@ async function loadDashboard(){
       <div class="tab-page" id="page-home">
         <!-- Row 1: Matchup (left) + Ball & Chain video (right) -->
         <div class="home-top">
+          <div class="home-left-col">
+          <div class="sec wm" data-wm="&#xf0e3;">
+            <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
+            ${homePunishHTML()}
+          </div>
           <div class="sec wm" data-wm="&#xf091;">
             <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
             <div id="motw"></div>
+          </div>
           </div>
           <div class="home-vid-col">
           <div class="sec">
@@ -2696,10 +2702,6 @@ async function loadDashboard(){
                 <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div></details>`:''}`
               :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
             }
-          </div>
-          <div class="sec wm" data-wm="&#xf0e3;">
-            <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
-            ${homePunishHTML()}
           </div>
           </div>
         </div>

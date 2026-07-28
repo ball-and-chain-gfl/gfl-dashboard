@@ -1032,11 +1032,9 @@
 
 
     /* ── Home: swap matchup <-> media (matchup on the right) ── */
-    #page-home .home-top>.sec:nth-child(1){order:2;}
-    #page-home .home-top>.sec:nth-child(2){order:1;}
     /* ── Section containers to de-clutter Home / League History / Profiles ── */
     .panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
-    #page-home .home-vid-col>.sec,#page-home .home-top>.sec,#page-home .home-bottom>.sec,#page-home .home-right>.sec{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:0;}
+    #page-home .home-vid-col>.sec,#page-home .home-left-col>.sec,#page-home .home-top>.sec,#page-home .home-bottom>.sec,#page-home .home-right>.sec{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:0;}
     #page-legacy .sec{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:20px;}
     #page-teams .panel{margin-bottom:16px;}
     #page-teams .prof-col.panel{margin-bottom:0;}
@@ -1136,6 +1134,7 @@
     html[data-theme="dark"] .panel,
     html[data-theme="dark"] #page-home .home-top>.sec,
     html[data-theme="dark"] #page-home .home-vid-col>.sec,
+    html[data-theme="dark"] #page-home .home-left-col>.sec,
     html[data-theme="dark"] #page-home .home-bottom>.sec,
     html[data-theme="dark"] #page-home .home-right>.sec,
     html[data-theme="dark"] #page-legacy .sec,
@@ -1157,6 +1156,7 @@
     /* ── HOMEPAGE CARD DESIGN (Figma "svc" card) ─────────────────────────── */
     html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
     html[data-theme="dark"].has-pagebg #page-home .home-vid-col>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-left-col>.sec,
     html[data-theme="dark"].has-pagebg #page-home .home-bottom>.sec,
     html[data-theme="dark"].has-pagebg #page-home .home-right>.sec{
       background:rgba(255,255,255,0.035)!important;
@@ -1325,6 +1325,16 @@
     .b4s-l{display:block;font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:500;}
     .b4s-v{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;line-height:1.2;white-space:nowrap;}
     @media(max-width:520px){.big4-stats{gap:10px;}.b4s-v{font-size:13px;}}
+
+    /* home top row: left column stacks Punishment above Matchup of the Week (desktop) */
+    .home-left-col{display:flex;flex-direction:column;gap:16px;min-width:0;}
+    @media(max-width:1000px){
+      /* on phones/tablets keep the original order: video first, then punishment, then matchup */
+      .home-top{display:flex;flex-direction:column;}
+      .home-top .home-vid-col{order:1;}
+      .home-top .home-left-col{order:2;}
+      .home-top .home-left-col,.home-top .home-vid-col{gap:16px;}
+    }
   </style>
 </head>
 <body>
