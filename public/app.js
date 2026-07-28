@@ -388,6 +388,9 @@ function initMobileTables(){
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
     .observe(target,{childList:true,subtree:true});
+  // keep the sticky name-column offset correct through resize / rotation
+  window.addEventListener('resize',()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,150); });
+  window.addEventListener('orientationchange',()=>setTimeout(run,250));
 }
 function switchTab(name){
   _activeTab=name;
