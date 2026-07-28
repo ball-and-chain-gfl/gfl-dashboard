@@ -355,11 +355,13 @@ function labelTables(root){
     const hrow=head.rows[head.rows.length-1];
     const labels=[...hrow.cells].map(th=>{const c=th.cloneNode(true);c.querySelectorAll('span,i').forEach(s=>s.remove());return c.textContent.replace(/[\u2191\u2193\u21C5\u25B2\u25BC]/g,'').replace(/\s+/g,' ').trim();});
     tbl.classList.add('mtbl');
+    const hide=(tbl.dataset.mhide||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     const body=tbl.tBodies[0]; if(!body) return;
     [...body.rows].forEach(tr=>{
       [...tr.cells].forEach((td,i)=>{
         const lb=labels[i]||'';
         if(td.getAttribute('data-label')!==lb) td.setAttribute('data-label',lb);
+        if(hide.length){ const h=hide.includes(lb.toLowerCase()); td.classList.toggle('mhide',h); if(hrow.cells[i]) hrow.cells[i].classList.toggle('mhide',h); }
         // the cell holding the team/player identity becomes the card title
         if(td.querySelector('.team-cell,.fr-name,.pname,.tp-name')) td.classList.add('mtd-title');
       });
@@ -1021,7 +1023,7 @@ function renderC3Breakdown(){
     </div>
     ${t?`<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
-      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px">
+      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Next,Margin">
         <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
         <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
           <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span style="color:var(--text3);font-size:12px"> est.</span>':''}</span></td>
@@ -1231,7 +1233,7 @@ function renderTenureTable(){
 
   const dash='<span style="color:var(--text3)">—</span>';
   const shown=players.slice(0,50);
-  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640 srt">
+  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640 srt" data-mhide="Rostered ${yr},Rostered all-time">
     <thead>
       <tr>
         <th>Player</th>
@@ -2147,7 +2149,7 @@ function renderBadBeat(){
     </tr>`;
   }).join('');
   el.innerHTML=`<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin:0 2px 14px">${intro}</div>
-    <div class="tscroll"><table class="min720 srt">
+    <div class="tscroll"><table class="min720 srt" data-mhide="Closest L,Median L">
       <thead><tr>
         <th class="right" data-nosort>#</th><th>Team</th>
         <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
@@ -2583,7 +2585,7 @@ async function loadDashboard(){
           </div>
           <div id="stats-standings" ${_statsView==='standings'?'':'style="display:none"'}>
             <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
-            <div class="tscroll"><table class="min640"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
+            <div class="tscroll"><table class="min640" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
           <div id="stats-c2" ${_statsView==='c2'?'':'style="display:none"'}></div>
           <div id="stats-c3" ${_statsView==='c3'?'':'style="display:none"'}></div>

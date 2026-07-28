@@ -1196,6 +1196,8 @@
         border-bottom:1px solid rgba(255,255,255,0.07);}
       table.mtbl td.mtd-title::before{content:none;}
       table.mtbl td.mtd-title .team-cell{gap:9px;}
+      /* secondary columns are hidden on phones to keep each card compact */
+      table.mtbl td.mhide,table.mtbl th.mhide{display:none!important;}
       /* keep bars/sparklines from stretching oddly inside the card rows */
       table.mtbl td .winpct-bar{display:none;}
     }
