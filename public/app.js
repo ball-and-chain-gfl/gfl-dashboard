@@ -688,7 +688,6 @@ function openCMModal(teamId){
         <div class="modal-total-left"><div class="label">Coaching Metric Score</div><div class="sub">${legacy?'Legacy 2024 weighted-metric formula':'Official league formula'} · higher = better</div></div>
         <div class="modal-total-score" style="color:${s>0?'var(--green)':s<0?'var(--red)':'var(--text2)'}">${s.toFixed(3)}</div>
       </div>
-      <div class="modal-note"><i class="fa fa-book" style="margin-right:6px;color:var(--blue)"></i>Official commissioner-calculated value from the league's Coaching Metric spreadsheet${bd.source?` (<b>${bd.source}</b>)`:''}, archived in the site's repository so it survives ESPN's data deletion.${legacy?' The 2024 season used a different formula, so only the final weighted-metric value is available — no component breakdown.':''}</div>
       ${legacy?'':`<div class="modal-formula">
         <div style="font-size:12px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
         <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span><span style="font-weight:700;color:${cc(bd.c1)}">${bd.c1.toFixed(3)}</span></div>
@@ -795,7 +794,7 @@ function renderBig4(){
         ${logoImg(t.id,'big4-logo')}
         <div class="big4-info">
           <div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div>
-          <div class="big4-name tlink" data-tid="${t.id}">${t.name}</div>
+          <div class="big4-name">${t.name}</div>
           <div class="big4-record">${t.wins}–${t.losses} · ${t.pf.toFixed(0)} PF</div>
           ${_cmMode==='none'?'':`<div class="big4-cm" style="color:${sc(s)}">CM: ${s.toFixed(2)}</div>`}
         </div>
@@ -2685,15 +2684,21 @@ async function loadDashboard(){
             <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
             <div id="motw"></div>
           </div>
+          <div class="home-vid-col">
           <div class="sec">
             <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
             ${firstVid
               ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
                 <div class="video-featured-title" id="vt">${firstVid.title}</div>
-                ${_videos.length>1?`<div class="video-scroll-label">More Videos</div>
-                <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div>`:''}`
+                ${_videos.length>1?`<details class="vid-more"><summary><span>More Videos</span><i class="fa fa-chevron-down vid-caret"></i></summary>
+                <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div></details>`:''}`
               :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
             }
+          </div>
+          <div class="sec wm" data-wm="&#xf0e3;">
+            <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
+            ${homePunishHTML()}
+          </div>
           </div>
         </div>
         <!-- Row 2: Coaching Metric (left) + [Big4 top, Headlines bottom] (right) -->
@@ -2711,7 +2716,7 @@ async function loadDashboard(){
                   return`<div class="coaching-row" onclick="openCMModal(${t.id})">
                     <div class="coaching-rank">${i===0?'🥇':i+1}</div>
                     ${logoImg(t.id)}
-                    <div class="coaching-info"><div class="coaching-name tlink" data-tid="${t.id}">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
+                    <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
                     <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${cmBar(s)}%;background:${cmCol(s)}"></div></div>
                     <div class="coaching-score" style="color:${cmCol(s)}">${s.toFixed(2)}</div>
                     <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
@@ -2721,10 +2726,6 @@ async function loadDashboard(){
           </div>
           <div class="home-right">
             <div class="sec wm" data-wm="&#xf521;" id="big4-display"></div>
-            <div class="sec wm" data-wm="&#xf0e3;">
-              <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
-              ${homePunishHTML()}
-            </div>
             <div class="sec wm" data-wm="&#xf1ea;">
               <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
               <div id="home-headlines"></div>
