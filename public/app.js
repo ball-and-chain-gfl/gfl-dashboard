@@ -345,6 +345,29 @@ function setPageBg(tab){
     if(img){ img.style.display='block'; img.style.backgroundImage=`linear-gradient(rgba(6,6,9,${m.ov}),rgba(6,6,9,${m.ov})), url("${m.src}")`; }
   }
 }
+// Abbreviate player first names on phones ("Zach Ertz" -> "Z. Ertz").
+function shortName(n){
+  const s=String(n||'').trim();
+  if(!s||/d\/st|dst|defense/i.test(s)) return s;
+  const p=s.split(/\s+/);
+  if(p.length<2) return s;
+  const first=p[0].replace(/[^A-Za-z]/g,'');
+  if(!first) return s;
+  return first[0].toUpperCase()+'. '+p.slice(1).join(' ');
+}
+function applyShortNames(root){
+  const mob=window.matchMedia('(max-width:768px)').matches;
+  (root||document).querySelectorAll('.pname>span:not(.phs),.tp-name>span:not(.phs),.lineup-pname,td .team-cell>.fr-name').forEach(el=>{
+    if(el.querySelector('*')) return;                       // only plain text nodes
+    if(mob){
+      if(el.dataset.fullname==null) el.dataset.fullname=el.textContent;
+      const s=shortName(el.dataset.fullname);
+      if(el.textContent!==s) el.textContent=s;
+    } else if(el.dataset.fullname!=null){
+      if(el.textContent!==el.dataset.fullname) el.textContent=el.dataset.fullname;
+    }
+  });
+}
 // ── MOBILE TABLES ────────────────────────────────────────────────────────────
 // Tag every data cell with its column label so phones can render each row as a
 // compact card (label left / value right) instead of a horizontally scrolling
@@ -383,7 +406,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -1139,6 +1162,29 @@ function h2hGames(ownerA,ownerB){
   return out.sort((x,y)=>(y.season-x.season)||(y.week-x.week));
 }
 function toggleH2H(i){ const el=document.getElementById('h2hd-'+i); if(el) el.style.display=el.style.display==='none'?'':'none'; }
+function pastMatchupsHTML(owner,me,rows){
+  const abbr=fr=>{const t=_teams.find(x=>_ownerMap[x.id]===fr.owner); return (t&&t.abbrev)||teamInitials(fr.name);};
+  const myAb=me?abbr(me):'';
+  const blocks=rows.map(r=>{
+    const games=h2hGames(owner,r.opp.owner);
+    if(!games.length) return '';
+    const lines=games.map(g=>{
+      const win=g.myScore>g.oppScore;
+      return `<div class="pm-row">
+        <span class="pm-when">${g.season} · Wk ${g.week}</span>
+        <span class="pm-team ${win?'w':'l'}">${franchiseAvatar(me,20,5)}<span class="pm-ab">${myAb}</span><b>${g.myScore.toFixed(1)}</b></span>
+        <span class="pm-dash">–</span>
+        <span class="pm-team ${win?'l':'w'}"><b>${g.oppScore.toFixed(1)}</b><span class="pm-ab">${abbr(r.opp)}</span>${franchiseAvatar(r.opp,20,5)}</span>
+      </div>`;}).join('');
+    return `<details class="pm-group">
+      <summary>${franchiseAvatar(r.opp,24,6)}<span class="pm-opp">${r.opp.name}</span>
+        <span class="pm-rec">${r.w}–${r.l}${r.t?`–${r.t}`:''}</span><i class="fa fa-chevron-down pm-caret"></i></summary>
+      <div class="pm-list">${lines}</div>
+    </details>`;}).join('');
+  if(!blocks) return '';
+  return `<div class="sec-head" style="font-size:15px;margin-top:20px"><i class="fa fa-clock-rotate-left"></i>Past Matchups</div>
+    <div class="pm-wrap">${blocks}</div>`;
+}
 function renderHistoryTable(){
   const body=document.getElementById('history-body'); if(!body) return;
   const sel=document.getElementById('hist-team-select');
@@ -1169,7 +1215,7 @@ function renderHistoryTable(){
         <div class="h2h-total-sub">${me?.name||''} · all-time vs the league · ${tg} games · ${tpf.toFixed(1)} PF / ${tpa.toFixed(1)} PA</div>
       </div>
     </div>
-    ${rows.length?`<div style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll"><table class="min560">
+    ${rows.length?`<div class="tscroll"><table class="min560">
       <thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th>${tt?'<th class="right">T</th>':''}<th class="right">Win %</th><th class="right">PF</th><th class="right">PA</th></tr></thead>
       <tbody>${rows.map((r,i)=>{const cols=tt?7:6;const games=h2hGames(owner,r.opp.owner);
         const log=games.map(g=>{const win=g.myScore>g.oppScore;const ts=topScorer(g.season,g.myTeamId,g.week),to=topScorer(g.season,g.oppTeamId,g.week);
@@ -1179,8 +1225,8 @@ function renderHistoryTable(){
             <span class="h2h-vs">${win?'def.':'lost to'}</span>
             <span class="h2h-game-side"><span class="hs-team">${r.opp.name}</span> <b>${g.oppScore.toFixed(1)}</b>${to?`<span class="h2h-hs">${to.n} · ${to.pts}</span>`:''}</span>
           </div>`;}).join('');
-        return `<tr class="h2h-oppo" onclick="toggleH2H(${i})">
-          <td><div class="team-cell">${franchiseAvatar(r.opp,28,8)}<div class="team-info"><div class="team-name">${r.opp.name}</div><div class="team-sub">${r.g} game${r.g!==1?'s':''}</div></div><i class="fa fa-chevron-down h2h-caret"></i></div></td>
+        return `<tr>
+          <td><div class="team-cell">${franchiseAvatar(r.opp,28,8)}<div class="team-info"><div class="team-name">${r.opp.name}</div><div class="team-sub">${r.g} game${r.g!==1?'s':''}</div></div></div></td>
           <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
           <td class="right" style="color:var(--red)">${r.l}</td>
           ${tt?`<td class="right" style="color:var(--text3)">${r.t}</td>`:''}
@@ -1188,8 +1234,9 @@ function renderHistoryTable(){
           <td class="right pf">${r.pf.toFixed(1)}</td>
           <td class="right pa">${r.pa.toFixed(1)}</td>
         </tr>
-        <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
-    </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}`;
+        `;}).join('')}</tbody>
+    </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}
+    ${rows.length?pastMatchupsHTML(owner,me,rows):''}`;
 }
 
 // ── PLAYER TENURE TAB ──────────────────────────────────────────────────────────
