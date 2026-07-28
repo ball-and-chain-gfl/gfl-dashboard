@@ -1156,8 +1156,9 @@
       box-shadow:none!important;
     }
     /* give the bare section wrappers card padding now that they read as cards */
-    html[data-theme="dark"] main>.tab-page>.sec,
-    html[data-theme="dark"] main>.tab-page>.two-col>.sec{padding:16px 18px;}
+    html[data-theme="dark"] .tab-page>.sec:not(:has(.card)):not(:has(.dr-card)),
+    html[data-theme="dark"] .tab-page>.two-col>.sec,
+    html[data-theme="dark"] .gabe-layout>.sec{padding:16px 18px;}
 
     /* ── HOMEPAGE CARD DESIGN (Figma "svc" card) ─────────────────────────── */
     html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
