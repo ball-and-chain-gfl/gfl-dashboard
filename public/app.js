@@ -1042,7 +1042,7 @@ function renderC3Breakdown(){
       ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Next,Margin">
         <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
         <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
-          <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span style="color:var(--text3);font-size:12px"> est.</span>':''}</span></td>
+          <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span class="est-tag" style="color:var(--text3);font-size:12px"> est.</span>':''}</span></td>
           <td class="right">${w.week}</td>
           <td class="right">$${w.bid}</td>
           <td class="right" style="color:var(--text3)">${w.next?('$'+w.next):'—'}</td>
@@ -1375,8 +1375,8 @@ async function renderTradesTab(){
       const col=state==='won'?'var(--green)':'var(--red)';
       return `
       <div class="trade-side ${state}">
-        <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div></div>
         <div class="trade-wl ${state}">
+          <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div></div>
           <div class="trade-recv">received</div>
           ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${state==='lost'?'var(--red)':(p.pts>=0?'var(--green)':'var(--red)')}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
         </div>

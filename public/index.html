@@ -266,11 +266,11 @@
     .trade-card:last-child{margin-bottom:18px;}
     .trade-head{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;}
     .trade-rank{color:var(--accent);font-weight:800;}
-    .trade-grid{display:grid;grid-template-columns:1fr 34px 1fr;}
-    .trade-side{padding:12px 16px;min-width:0;}
+    .trade-grid{display:grid;grid-template-columns:1fr 20px 1fr;gap:0;}
+    .trade-side{padding:12px 8px;min-width:0;}
     .trade-side.right{text-align:right;}
     .trade-vs{display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:16px;}
-    .trade-team{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    .trade-team{display:flex;align-items:center;gap:8px;margin:0 0 9px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,0.08);}
     .trade-side.right .trade-team{flex-direction:row-reverse;}
     .trade-team-name{font-size:15px;font-weight:700;line-height:1.25;}
     .trade-recv{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-top:1px;}
@@ -1065,7 +1065,7 @@
     .trades-layout{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:22px;align-items:start;}
     .trades-filters{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:14px;}
     .trades-filters .standings-filters{margin-bottom:10px;}
-    .trade-wl{border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:10px 12px 12px;margin-top:8px;}
+    .trade-wl{border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:11px 13px 12px;margin-top:0;}
     .trade-wl.won{background:rgba(63,208,122,0.10);}
     .trade-wl.lost{background:rgba(255,95,95,0.10);}
 
@@ -1197,6 +1197,8 @@
       table.mtbl td.has-abbr .team-name{display:none;}
       table.mtbl td.has-abbr .team-sub{font-size:12.5px!important;color:var(--text)!important;font-weight:600!important;letter-spacing:0.3px!important;}
       table.mtbl td .fr-name{font-size:12.5px;}
+      /* drop the ' est.' qualifier on phones to save width */
+      .est-tag{display:none!important;}
     }
 
     /* Draft Rankings rows: card look + colored grade stripe on the left */
