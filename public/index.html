@@ -1343,10 +1343,12 @@
     /* banner picks up the same opaque black, keeping the team-colour wash on top */
     /* profile hero uses the same accent-tinted panel as the matchup-history record block */
     #page-teams .prof-banner{
-      background:rgba(var(--accent-rgb),0.05)!important;
+      /* accent tint over the black card, so it reads exactly like the record block
+         does inside its container on the Matchup History tab */
+      background:linear-gradient(rgba(var(--accent-rgb),0.05),rgba(var(--accent-rgb),0.05)),rgba(0,0,0,0.7)!important;
       border:1px solid rgba(var(--accent-rgb),0.18)!important;
       border-radius:6px!important;
-      -webkit-backdrop-filter:none;backdrop-filter:none;
+      -webkit-backdrop-filter:blur(13px);backdrop-filter:blur(13px);
       box-shadow:none!important;}
     /* the all-time lineup list sits inside a panel — match the card family */
     html[data-theme="dark"] #page-teams .lineup-list{background:rgba(0,0,0,0.35)!important;border-color:rgba(255,255,255,0.08);}
