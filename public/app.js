@@ -382,13 +382,30 @@ function applyShortNames(root){
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
 const LQ_COUNT=10;
 const LQ_TABS=['home','standings','trades','draft','history','tenure','teams','legacy','punishment','badbeat','gabe','marathon'];
-// edge + how far the blob hangs outside the card, as a fraction of its own size
+// default edge/offset per shape (used where the current look is already approved)
 const LQ_POS=[
-  {e:'b',x:-0.18,out:0.42},{e:'b',x:0.30,out:0.46},{e:'b',x:0.80,out:0.40},
-  {e:'t',x:0.78,out:0.44},{e:'b',x:-0.10,out:0.38},{e:'t',x:-0.16,out:0.44},
-  {e:'b',x:0.72,out:0.46},{e:'b',x:0.22,out:0.50},{e:'b',x:0.86,out:0.36},
-  {e:'t',x:-0.12,out:0.46},
+  {c:'bl'},{c:'bc'},{c:'br'},{c:'tr'},{c:'bl'},
+  {c:'tl'},{c:'br'},{c:'bc'},{c:'br'},{c:'tl'},
 ];
+// per-page / per-card placement overrides
+function lqCorner(tab,el,dflt){
+  const head=(el.querySelector('.sec-head,.section-header')?.textContent||'').toLowerCase();
+  if(tab==='standings'||tab==='history'||tab==='tenure'||tab==='gabe') return 'tr';
+  if(tab==='trades') return 'br';
+  if(tab==='teams'&&head.indexOf('draft grades')>=0) return 'br';
+  if(tab==='draft'&&(head.indexOf('steal')>=0||head.indexOf('bust')>=0)) return 'tr';
+  return dflt;
+}
+function lqGeom(c,cw,w,h){
+  const outX=Math.round(w*0.62), outY=Math.round(h*0.45);
+  switch(c){
+    case 'tr': return {left:cw-outX, top:-outY};
+    case 'br': return {left:cw-outX, bottom:-outY};
+    case 'tl': return {left:-Math.round(w*0.30), top:-outY};
+    case 'bc': return {left:Math.round((cw-w)/2), bottom:-Math.round(h*0.48)};
+    case 'bl': default: return {left:-Math.round(w*0.30), bottom:-Math.round(h*0.42)};
+  }
+}
 function applyLiquidCards(){
   LQ_TABS.forEach((tab,ti)=>{
     const page=document.getElementById('page-'+tab); if(!page) return;
@@ -399,17 +416,19 @@ function applyLiquidCards(){
       return r.height>=150 && r.width>=260;
     });
     cards.forEach((el,i)=>{
-      const n=(((ti*7)+i)%LQ_COUNT)+1, p=LQ_POS[n-1];
+      const n=(((ti*7)+i)%LQ_COUNT)+1;
+      const corner=lqCorner(tab,el,LQ_POS[n-1].c);
       const r=el.getBoundingClientRect();
       const w=Math.round(r.width*0.62), h=Math.round(w*1.393);
+      const g=lqGeom(corner,Math.round(r.width),w,h);
       let blob=el.querySelector(':scope > .lq-blob');
       if(!blob){ blob=document.createElement('span'); blob.className='lq-blob'; el.insertBefore(blob,el.firstChild); }
-      el.classList.add('lq'); el.dataset.lq=n;
-      blob.className='lq-blob lq-'+n+(p.e==='t'?' lq-top':'');
+      el.classList.add('lq'); el.dataset.lq=n; el.dataset.lqc=corner;
+      blob.className='lq-blob lq-'+n;
       blob.style.width=w+'px'; blob.style.height=h+'px';
-      blob.style.left=Math.round(r.width*p.x)+'px';
-      if(p.e==='b'){ blob.style.bottom=(-Math.round(h*p.out))+'px'; blob.style.top='auto'; }
-      else { blob.style.top=(-Math.round(h*p.out))+'px'; blob.style.bottom='auto'; }
+      blob.style.left=g.left+'px';
+      if(g.top!=null){ blob.style.top=g.top+'px'; blob.style.bottom='auto'; }
+      else { blob.style.bottom=g.bottom+'px'; blob.style.top='auto'; }
     });
   });
 }
