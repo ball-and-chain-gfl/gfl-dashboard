@@ -543,21 +543,11 @@
 
     /* champions clean list */
     .champ-list{display:flex;flex-direction:column;gap:12px;}
-    .champ-line{position:relative;padding:15px 18px;border-radius:6px;border:1px solid rgba(201,164,102,0.35);
-      background:
-        linear-gradient(100deg,
-          rgba(255,255,255,0.035) 0%,
-          rgba(214,178,110,0.16) 18%,
-          rgba(255,240,205,0.22) 30%,
-          rgba(176,140,78,0.12) 44%,
-          rgba(255,255,255,0.03) 58%,
-          rgba(214,178,110,0.15) 76%,
-          rgba(255,240,205,0.19) 88%,
-          rgba(160,126,66,0.10) 100%);
-      box-shadow:inset 0 1px 0 rgba(255,244,214,0.20),inset 0 -1px 0 rgba(120,92,42,0.22),0 10px 24px -20px rgba(0,0,0,0.8);}
-    .champ-line:last-child{border-bottom:1px solid rgba(244,192,77,0.42);}
-    .champ-line-win{color:#EBD9AE!important;text-shadow:0 1px 1px rgba(0,0,0,0.45);}
-    html[data-theme="light"] .champ-line{border-color:rgba(170,132,58,0.45);background:linear-gradient(100deg,#fdf6e6 0%,#f0dfb8 30%,#fffaf0 50%,#eedfb6 74%,#fbf3e2 100%);}
+    .champ-line{position:relative;padding:15px 18px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);
+      background:rgba(255,255,255,0.035);box-shadow:none;}
+    .champ-line:last-child{border-bottom:1px solid rgba(255,255,255,0.08);}
+    .champ-line-win{color:var(--accent)!important;}
+    html[data-theme="light"] .champ-line{border-color:rgba(0,0,0,0.12);background:var(--bg2);}
     html[data-theme="light"] .champ-line-win{color:#8a6410!important;text-shadow:none;}
     .champ-line-yr{font-family:'Inter',sans-serif;font-size:20px;font-weight:700;color:var(--accent);margin-bottom:6px;}
     .champ-line-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}

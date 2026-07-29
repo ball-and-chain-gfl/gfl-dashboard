@@ -318,19 +318,19 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  // monochrome grain textures, numbered in nav order and wrapping after 6
-  home:      {type:'image', src:'/bg/tex1.webp', ov:0.8},
-  standings: {type:'image', src:'/bg/tex2.webp', ov:0.8},
-  trades:    {type:'image', src:'/bg/tex3.webp', ov:0.8},
-  draft:     {type:'image', src:'/bg/tex4.webp', ov:0.8},
-  history:   {type:'image', src:'/bg/tex5.webp', ov:0.8},
-  tenure:    {type:'image', src:'/bg/tex6.webp', ov:0.8},
-  teams:     {type:'image', src:'/bg/tex1.webp', ov:0.8},
-  legacy:    {type:'image', src:'/bg/tex2.webp', ov:0.8},
-  punishment:{type:'image', src:'/bg/tex3.webp', ov:0.8},
-  badbeat:   {type:'image', src:'/bg/tex4.webp', ov:0.8},
-  gabe:      {type:'image', src:'/bg/tex5.webp', ov:0.8},
-  marathon:  {type:'image', src:'/bg/tex6.webp', ov:0.8},
+  // 10 monochrome grain textures, used unaltered; tabs 11-12 repeat textures 1 and 2
+  home:      {type:'image', src:'/bg/tex1.png',   ov:0.6},
+  standings: {type:'image', src:'/bg/tex2.webp',  ov:0.6},
+  trades:    {type:'image', src:'/bg/tex3.webp',  ov:0.6},
+  draft:     {type:'image', src:'/bg/tex4.webp',  ov:0.6},
+  history:   {type:'image', src:'/bg/tex5.webp',  ov:0.6},
+  tenure:    {type:'image', src:'/bg/tex6.webp',  ov:0.6},
+  teams:     {type:'image', src:'/bg/tex7.webp',  ov:0.6},
+  legacy:    {type:'image', src:'/bg/tex8.webp',  ov:0.6},
+  punishment:{type:'image', src:'/bg/tex9.webp',  ov:0.6},
+  badbeat:   {type:'image', src:'/bg/tex10.webp', ov:0.6},
+  gabe:      {type:'image', src:'/bg/tex1.png',   ov:0.6},
+  marathon:  {type:'image', src:'/bg/tex2.webp',  ov:0.6},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
