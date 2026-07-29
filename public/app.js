@@ -381,17 +381,21 @@ function applyShortNames(root){
 // Give each large display card one of the 10 "Liquid Colored Shapes" bleeding in
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
 const LQ_COUNT=10;
+const LQ_TABS=['home','standings','trades','draft','history','tenure','teams','legacy','punishment','badbeat','gabe','marathon'];
 function applyLiquidCards(){
-  document.querySelectorAll('.tab-page').forEach(page=>{
-    const cards=[...page.querySelectorAll('.card,.panel,.sec')].filter(el=>{
+  LQ_TABS.forEach((tab,ti)=>{
+    const page=document.getElementById('page-'+tab); if(!page) return;
+    const cards=[...page.querySelectorAll('.card,.panel,.sec,.trades-filters')].filter(el=>{
       if(el.closest('.modal')) return false;
-      if(el.querySelector('.card,.panel')) return false;        // outer wrappers stay clean
+      if(el.querySelector('.card,.panel')) return false;      // outer wrappers stay clean
       const r=el.getBoundingClientRect();
-      return r.height>=150 && r.width>=260;                     // large cards only
+      return r.height>=150 && r.width>=260;                   // large cards only (hidden tabs measure 0)
     });
     cards.forEach((el,i)=>{
-      if(el.dataset.lq) return;
-      const n=(i%LQ_COUNT)+1;
+      // deterministic spread so every one of the 10 shapes gets used across the site
+      const n=(((ti*7)+i)%LQ_COUNT)+1;
+      if(el.dataset.lq===String(n)) return;
+      el.classList.remove(...[...el.classList].filter(c=>/^lq-\d+$/.test(c)));
       el.dataset.lq=n; el.classList.add('lq','lq-'+n);
     });
   });
