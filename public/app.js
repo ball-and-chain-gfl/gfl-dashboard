@@ -377,6 +377,25 @@ function applyShortNames(root){
     }
   });
 }
+// ── LIQUID EDGE ACCENTS ──────────────────────────────────────────────────────
+// Give each large display card one of the 10 "Liquid Colored Shapes" bleeding in
+// off an edge. Assignment is deterministic per page so a card keeps its shape.
+const LQ_COUNT=10;
+function applyLiquidCards(){
+  document.querySelectorAll('.tab-page').forEach(page=>{
+    const cards=[...page.querySelectorAll('.card,.panel,.sec')].filter(el=>{
+      if(el.closest('.modal')) return false;
+      if(el.querySelector('.card,.panel')) return false;        // outer wrappers stay clean
+      const r=el.getBoundingClientRect();
+      return r.height>=150 && r.width>=260;                     // large cards only
+    });
+    cards.forEach((el,i)=>{
+      if(el.dataset.lq) return;
+      const n=(i%LQ_COUNT)+1;
+      el.dataset.lq=n; el.classList.add('lq','lq-'+n);
+    });
+  });
+}
 // ── MOBILE TABLES ────────────────────────────────────────────────────────────
 // Tag every data cell with its column label so phones can render each row as a
 // compact card (label left / value right) instead of a horizontally scrolling
@@ -415,7 +434,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); applyLiquidCards(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })

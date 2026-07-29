@@ -1370,6 +1370,31 @@
       .lg-chip{margin-left:0;width:100%;justify-content:space-between;}
       .lg-chip-txt{align-items:flex-start;}
     }
+
+    /* ── LIQUID EDGE ACCENT on large cards ───────────────────────────────────
+       A "Liquid Colored Shapes" blob is positioned mostly outside the card so
+       only part of it bleeds past the edge, then clipped by the card box. */
+    .lq{position:relative;overflow:hidden;}
+    .lq>*{position:relative;z-index:1;}
+    .lq::after{
+      content:'';position:absolute;z-index:0;pointer-events:none;
+      aspect-ratio:620/864;
+      background-repeat:no-repeat;background-position:center;background-size:contain;
+      opacity:0.85;filter:saturate(1.05);}
+    .lq-1::after{background-image:url("/bg/liquid/01.webp");left:-14%;bottom:-46%;width:62%;}
+    .lq-2::after{background-image:url("/bg/liquid/02.webp");left:22%;bottom:-52%;width:66%;}
+    .lq-3::after{background-image:url("/bg/liquid/03.webp");right:-16%;bottom:-44%;width:60%;}
+    .lq-4::after{background-image:url("/bg/liquid/04.webp");right:-20%;top:-44%;width:58%;}
+    .lq-5::after{background-image:url("/bg/liquid/05.webp");left:-18%;bottom:-40%;width:56%;}
+    .lq-6::after{background-image:url("/bg/liquid/06.webp");left:-20%;top:-46%;width:58%;}
+    .lq-7::after{background-image:url("/bg/liquid/07.webp");right:-14%;bottom:-50%;width:64%;}
+    .lq-8::after{background-image:url("/bg/liquid/08.webp");left:14%;bottom:-54%;width:70%;}
+    .lq-9::after{background-image:url("/bg/liquid/09.webp");right:-22%;bottom:-38%;width:54%;}
+    .lq-10::after{background-image:url("/bg/liquid/10.webp");left:-16%;top:-48%;width:60%;}
+    @media(max-width:768px){
+      /* smaller peek on phones so it never crowds the content */
+      .lq::after{opacity:0.8;transform:scale(0.82);}
+    }
   </style>
 </head>
 <body>
