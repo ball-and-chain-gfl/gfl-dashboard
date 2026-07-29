@@ -383,10 +383,6 @@ function applyShortNames(root){
 const LQ_COUNT=10;
 const LQ_TABS=['home','standings','trades','draft','history','tenure','teams','legacy','punishment','badbeat','gabe','marathon'];
 const LQ_POS=[{c:'bl'},{c:'bc'},{c:'br'},{c:'tr'},{c:'bl'},{c:'tl'},{c:'br'},{c:'bc'},{c:'br'},{c:'tl'}];
-// semi-transparent "grey" tiles the colour is allowed to sit behind (text on them stays readable)
-const LQ_COVERS='.motw-fact,.motw-take,.motw-odds-team,.big4-team,.hist-item,.champ-line,.sup-row,'
- +'.allrec-card,.lineup-list,.draft-row-graded,.trade-wl,.stat-card,.pd-row,.conf-col,.bracket-game,'
- +'.punish-opt,.video-featured,.pm-group,.hm-row,.prof-stat,.dgrade,.lineup-row';
 function lqCorner(tab,el,dflt){
   const head=(el.querySelector('.sec-head,.section-header')?.textContent||'').toLowerCase();
   if(tab==='standings'||tab==='history'||tab==='tenure'||tab==='gabe') return 'tr';
@@ -395,18 +391,20 @@ function lqCorner(tab,el,dflt){
   if(tab==='draft'&&(head.indexOf('steal')>=0||head.indexOf('bust')>=0)) return 'tr';
   return dflt;
 }
-// pick the cover tile closest to the requested corner of the card
-function lqPickCover(el,corner,cr){
-  const covers=[...el.querySelectorAll(LQ_COVERS)].map(c=>c.getBoundingClientRect())
-    .filter(r=>r.width>=90&&r.height>=48&&r.width*r.height>=6000);
-  if(!covers.length) return null;
-  const tx=(corner==='tr'||corner==='br')?cr.right:(corner==='bc'?cr.left+cr.width/2:cr.left);
-  const ty=(corner==='tr'||corner==='tl')?cr.top:cr.bottom;
-  covers.sort((p,q)=>{
-    const dp=Math.hypot((p.left+p.width/2)-tx,(p.top+p.height/2)-ty);
-    const dq=Math.hypot((q.left+q.width/2)-tx,(q.top+q.height/2)-ty);
-    return dp-dq;});
-  return covers[0];
+// Find empty bands inside a card — vertical space no content occupies. Colour may only
+// live here (or behind a tile), never under text.
+function lqEmptyBands(el,cr){
+  const cs=getComputedStyle(el);
+  const padT=parseFloat(cs.paddingTop)||0, padB=parseFloat(cs.paddingBottom)||0;
+  const kids=[...el.children].filter(k=>!k.classList.contains('lq-blob'))
+    .map(k=>k.getBoundingClientRect()).filter(r=>r.height>0);
+  const bands=[]; let y=cr.top+padT;
+  kids.sort((p,q)=>p.top-q.top).forEach(r=>{
+    if(r.top-y>=44) bands.push({top:y,bottom:r.top});
+    y=Math.max(y,r.bottom);
+  });
+  if((cr.bottom-padB)-y>=44) bands.push({top:y,bottom:cr.bottom-padB});
+  return bands.map(b=>({top:b.top-cr.top,h:b.bottom-b.top}));
 }
 function applyLiquidCards(){
   LQ_TABS.forEach((tab,ti)=>{
@@ -421,25 +419,26 @@ function applyLiquidCards(){
       const n=(((ti*7)+i)%LQ_COUNT)+1;
       const corner=lqCorner(tab,el,LQ_POS[n-1].c);
       const cr=el.getBoundingClientRect();
-      const cover=lqPickCover(el,corner,cr);
+      const bands=lqEmptyBands(el,cr);
       let blob=el.querySelector(':scope > .lq-blob');
-      // no grey tile to hide under -> no colour on this card (readability rule)
-      if(!cover){ if(blob) blob.remove(); el.classList.remove('lq'); delete el.dataset.lq; return; }
+      if(!bands.length){                       // nowhere safe -> no colour on this card
+        if(blob) blob.remove(); el.classList.remove('lq'); delete el.dataset.lq; return;
+      }
+      // prefer the band nearest the requested corner, then the tallest
+      const wantTop=(corner==='tr'||corner==='tl');
+      bands.sort((p,q)=> wantTop ? (p.top-q.top)||(q.h-p.h) : ((q.top+q.h)-(p.top+p.h))||(q.h-p.h));
+      const band=bands[0];
       if(!blob){ blob=document.createElement('span'); blob.className='lq-blob'; el.insertBefore(blob,el.firstChild); }
       el.classList.add('lq'); el.dataset.lq=n; el.dataset.lqc=corner;
       blob.className='lq-blob lq-'+n;
-      // size to the tile it hides behind, then hang it off the nearest card edge
-      const w=Math.round(Math.min(cr.width*0.62,Math.max(cover.width*1.25,150)));
-      const h=Math.round(w*1.393);
-      const covCx=cover.left+cover.width/2-cr.left;
-      blob.style.width=w+'px'; blob.style.height=h+'px';
-      blob.style.left=Math.round(Math.max(-w*0.18,Math.min(cr.width-w*0.82,covCx-w/2)))+'px';
-      const top=(corner==='tr'||corner==='tl');
-      const overhang=Math.round(h-Math.min(h*0.62,cover.height+16));
-      if(top){ blob.style.top=(-overhang)+'px'; blob.style.bottom='auto';
-               blob.style.setProperty('--lqy',(cover.top-cr.top)+'px'); }
-      else { blob.style.bottom=(-overhang)+'px'; blob.style.top='auto';
-             blob.style.setProperty('--lqy',(cr.bottom-cover.bottom)+'px'); }
+      const w=Math.round(cr.width*(corner==='bc'?0.72:0.52));
+      blob.style.width=w+'px';
+      blob.style.height=Math.round(band.h)+'px';       // stays inside the empty band
+      blob.style.top=Math.round(band.top)+'px';
+      blob.style.bottom='auto';
+      const right=(corner==='tr'||corner==='br');
+      blob.style.left=Math.round(right?(cr.width-w*0.86):(corner==='bc'?(cr.width-w)/2:-w*0.14))+'px';
+      blob.style.backgroundPosition=(right?'right':'left')+' '+(wantTop?'top':'bottom');
     });
   });
 }
