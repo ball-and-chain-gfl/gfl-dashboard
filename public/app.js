@@ -318,19 +318,19 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  // 10 monochrome grain textures, used unaltered; tabs 11-12 repeat textures 1 and 2
-  home:      {type:'image', src:'/bg/tex1.png',   ov:0.6},
-  standings: {type:'image', src:'/bg/tex2.webp',  ov:0.6},
-  trades:    {type:'image', src:'/bg/tex3.webp',  ov:0.6},
-  draft:     {type:'image', src:'/bg/tex4.webp',  ov:0.6},
-  history:   {type:'image', src:'/bg/tex5.webp',  ov:0.6},
-  tenure:    {type:'image', src:'/bg/tex6.webp',  ov:0.6},
-  teams:     {type:'image', src:'/bg/tex7.webp',  ov:0.6},
-  legacy:    {type:'image', src:'/bg/tex8.webp',  ov:0.6},
-  punishment:{type:'image', src:'/bg/tex9.webp',  ov:0.6},
-  badbeat:   {type:'image', src:'/bg/tex10.webp', ov:0.6},
-  gabe:      {type:'image', src:'/bg/tex1.png',   ov:0.6},
-  marathon:  {type:'image', src:'/bg/tex2.webp',  ov:0.6},
+  // Monochrome Grain Texture 01-10, used unaltered; tabs 11-12 repeat 01 and 02
+  home:      {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2001.jpg', ov:0.6},
+  standings: {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2002.jpg', ov:0.6},
+  trades:    {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2003.jpg', ov:0.6},
+  draft:     {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2004.jpg', ov:0.6},
+  history:   {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2005.jpg', ov:0.6},
+  tenure:    {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2006.jpg', ov:0.6},
+  teams:     {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2007.jpg', ov:0.6},
+  legacy:    {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2008.jpg', ov:0.6},
+  punishment:{type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2009.jpg', ov:0.6},
+  badbeat:   {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2010.jpg', ov:0.6},
+  gabe:      {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2001.jpg', ov:0.6},
+  marathon:  {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2002.jpg', ov:0.6},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
