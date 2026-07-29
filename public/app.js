@@ -382,21 +382,34 @@ function applyShortNames(root){
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
 const LQ_COUNT=10;
 const LQ_TABS=['home','standings','trades','draft','history','tenure','teams','legacy','punishment','badbeat','gabe','marathon'];
+// edge + how far the blob hangs outside the card, as a fraction of its own size
+const LQ_POS=[
+  {e:'b',x:-0.18,out:0.42},{e:'b',x:0.30,out:0.46},{e:'b',x:0.80,out:0.40},
+  {e:'t',x:0.78,out:0.44},{e:'b',x:-0.10,out:0.38},{e:'t',x:-0.16,out:0.44},
+  {e:'b',x:0.72,out:0.46},{e:'b',x:0.22,out:0.50},{e:'b',x:0.86,out:0.36},
+  {e:'t',x:-0.12,out:0.46},
+];
 function applyLiquidCards(){
   LQ_TABS.forEach((tab,ti)=>{
     const page=document.getElementById('page-'+tab); if(!page) return;
     const cards=[...page.querySelectorAll('.card,.panel,.sec,.trades-filters')].filter(el=>{
       if(el.closest('.modal')) return false;
-      if(el.querySelector('.card,.panel')) return false;      // outer wrappers stay clean
+      if(el.querySelector('.card,.panel')) return false;
       const r=el.getBoundingClientRect();
-      return r.height>=150 && r.width>=260;                   // large cards only (hidden tabs measure 0)
+      return r.height>=150 && r.width>=260;
     });
     cards.forEach((el,i)=>{
-      // deterministic spread so every one of the 10 shapes gets used across the site
-      const n=(((ti*7)+i)%LQ_COUNT)+1;
-      if(el.dataset.lq===String(n)) return;
-      el.classList.remove(...[...el.classList].filter(c=>/^lq-\d+$/.test(c)));
-      el.dataset.lq=n; el.classList.add('lq','lq-'+n);
+      const n=(((ti*7)+i)%LQ_COUNT)+1, p=LQ_POS[n-1];
+      const r=el.getBoundingClientRect();
+      const w=Math.round(r.width*0.62), h=Math.round(w*1.393);
+      let blob=el.querySelector(':scope > .lq-blob');
+      if(!blob){ blob=document.createElement('span'); blob.className='lq-blob'; el.insertBefore(blob,el.firstChild); }
+      el.classList.add('lq'); el.dataset.lq=n;
+      blob.className='lq-blob lq-'+n+(p.e==='t'?' lq-top':'');
+      blob.style.width=w+'px'; blob.style.height=h+'px';
+      blob.style.left=Math.round(r.width*p.x)+'px';
+      if(p.e==='b'){ blob.style.bottom=(-Math.round(h*p.out))+'px'; blob.style.top='auto'; }
+      else { blob.style.top=(-Math.round(h*p.out))+'px'; blob.style.bottom='auto'; }
     });
   });
 }

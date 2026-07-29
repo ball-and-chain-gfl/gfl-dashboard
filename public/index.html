@@ -1372,40 +1372,29 @@
     }
 
     /* ── LIQUID EDGE ACCENT on large cards ───────────────────────────────────
-       A "Liquid Colored Shapes" blob is positioned mostly outside the card so
-       only part of it bleeds past the edge, then clipped by the card box. */
+       A "Liquid Colored Shapes" blob is sized/placed in JS so it hangs mostly
+       outside the card; the card clips it, giving the off-the-edge effect. */
     .lq{position:relative;overflow:hidden;}
-    .lq>*{position:relative;z-index:1;}
-    .lq::after{
-      content:'';position:absolute;z-index:0;pointer-events:none;
-      height:150%;                       /* explicit box: aspect-ratio alone collapsed to 0 */
-      background-repeat:no-repeat;background-size:100% auto;
+    .lq>*:not(.lq-blob){position:relative;z-index:1;}
+    .lq-blob{position:absolute;z-index:0;pointer-events:none;display:block;
+      background-repeat:no-repeat;background-position:center;background-size:100% 100%;
       opacity:0.95;filter:saturate(1.08);
-      /* fade the blob out as it reaches into the card so content stays readable */
-      background-position:bottom center;
-      /* bottom-bleed: element hangs below the card, so its lower half is opaque and it
-         fades out as it reaches up into the content */
-      -webkit-mask-image:linear-gradient(to top,#000 0%,#000 46%,rgba(0,0,0,0.5) 66%,transparent 88%);
-      mask-image:linear-gradient(to top,#000 0%,#000 46%,rgba(0,0,0,0.5) 66%,transparent 88%);}
-    /* variants that bleed in from the top fade downward instead */
-    .lq-4::after,.lq-6::after,.lq-10::after{
-      background-position:top center;
-      -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 46%,rgba(0,0,0,0.5) 66%,transparent 88%);
-      mask-image:linear-gradient(to bottom,#000 0%,#000 46%,rgba(0,0,0,0.5) 66%,transparent 88%);}
-    .lq-1::after{background-image:url("/bg/liquid/01.webp");left:-14%;bottom:-46%;width:62%;}
-    .lq-2::after{background-image:url("/bg/liquid/02.webp");left:22%;bottom:-52%;width:66%;}
-    .lq-3::after{background-image:url("/bg/liquid/03.webp");right:-16%;bottom:-44%;width:60%;}
-    .lq-4::after{background-image:url("/bg/liquid/04.webp");right:-20%;top:-44%;width:58%;}
-    .lq-5::after{background-image:url("/bg/liquid/05.webp");left:-18%;bottom:-40%;width:56%;}
-    .lq-6::after{background-image:url("/bg/liquid/06.webp");left:-20%;top:-46%;width:58%;}
-    .lq-7::after{background-image:url("/bg/liquid/07.webp");right:-14%;bottom:-50%;width:64%;}
-    .lq-8::after{background-image:url("/bg/liquid/08.webp");left:14%;bottom:-54%;width:70%;}
-    .lq-9::after{background-image:url("/bg/liquid/09.webp");right:-22%;bottom:-38%;width:54%;}
-    .lq-10::after{background-image:url("/bg/liquid/10.webp");left:-16%;top:-48%;width:60%;}
-    @media(max-width:768px){
-      /* smaller peek on phones so it never crowds the content */
-      .lq::after{opacity:0.9;transform:scale(0.85);}
-    }
+      -webkit-mask-image:linear-gradient(to top,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);
+      mask-image:linear-gradient(to top,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);}
+    .lq-blob.lq-top{
+      -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);
+      mask-image:linear-gradient(to bottom,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);}
+    .lq-blob.lq-1{background-image:url("/bg/liquid/01.webp");}
+    .lq-blob.lq-2{background-image:url("/bg/liquid/02.webp");}
+    .lq-blob.lq-3{background-image:url("/bg/liquid/03.webp");}
+    .lq-blob.lq-4{background-image:url("/bg/liquid/04.webp");}
+    .lq-blob.lq-5{background-image:url("/bg/liquid/05.webp");}
+    .lq-blob.lq-6{background-image:url("/bg/liquid/06.webp");}
+    .lq-blob.lq-7{background-image:url("/bg/liquid/07.webp");}
+    .lq-blob.lq-8{background-image:url("/bg/liquid/08.webp");}
+    .lq-blob.lq-9{background-image:url("/bg/liquid/09.webp");}
+    .lq-blob.lq-10{background-image:url("/bg/liquid/10.webp");}
+    @media(max-width:768px){ .lq-blob{opacity:0.9;} }
   </style>
 </head>
 <body>
