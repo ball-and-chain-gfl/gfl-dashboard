@@ -1382,12 +1382,12 @@
       background-repeat:no-repeat;background-position:center;background-size:contain;
       opacity:0.95;filter:saturate(1.08);
       /* fade the blob out as it reaches into the card so content stays readable */
-      -webkit-mask-image:linear-gradient(to top,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);
-      mask-image:linear-gradient(to top,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);}
+      -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.35) 26%,rgba(0,0,0,0.8) 45%,#000 60%);
+      mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,0.35) 26%,rgba(0,0,0,0.8) 45%,#000 60%);}
     /* variants that bleed in from the top fade downward instead */
     .lq-4::after,.lq-6::after,.lq-10::after{
-      -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);
-      mask-image:linear-gradient(to bottom,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);}
+      -webkit-mask-image:linear-gradient(to top,transparent 0%,rgba(0,0,0,0.35) 26%,rgba(0,0,0,0.8) 45%,#000 60%);
+      mask-image:linear-gradient(to top,transparent 0%,rgba(0,0,0,0.35) 26%,rgba(0,0,0,0.8) 45%,#000 60%);}
     .lq-1::after{background-image:url("/bg/liquid/01.webp");left:-14%;bottom:-46%;width:62%;}
     .lq-2::after{background-image:url("/bg/liquid/02.webp");left:22%;bottom:-52%;width:66%;}
     .lq-3::after{background-image:url("/bg/liquid/03.webp");right:-16%;bottom:-44%;width:60%;}
