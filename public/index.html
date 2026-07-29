@@ -1335,6 +1335,20 @@
     .odds-caret{font-size:10px;transition:transform .18s ease;}
     details.motw-odds[open] .odds-caret{transform:rotate(180deg);}
     details.motw-odds[open]>summary{margin-bottom:8px;}
+
+    /* ── TEAM PROFILES: no outer container; inner containers carry the black card theme ── */
+    html[data-theme="dark"] #page-teams>.sec{
+      background:none!important;border:none!important;border-radius:0!important;padding:0!important;
+      -webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none!important;}
+    /* banner picks up the same opaque black, keeping the team-colour wash on top */
+    #page-teams .prof-banner{
+      background:radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--tc) 34%, transparent) 0%, transparent 58%), rgba(0,0,0,0.7)!important;
+      border:1px solid rgba(255,255,255,0.08)!important;border-radius:4px!important;
+      -webkit-backdrop-filter:blur(13px);backdrop-filter:blur(13px);
+      box-shadow:none!important;}
+    /* the all-time lineup list sits inside a panel — match the card family */
+    html[data-theme="dark"] #page-teams .lineup-list{background:rgba(0,0,0,0.35)!important;border-color:rgba(255,255,255,0.08);}
+    html[data-theme="dark"] #page-teams .lineup-grade{background:rgba(0,0,0,0.35);border-color:rgba(255,255,255,0.08);}
   </style>
 </head>
 <body>
