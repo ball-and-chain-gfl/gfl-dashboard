@@ -1380,14 +1380,14 @@
       content:'';position:absolute;z-index:0;pointer-events:none;
       aspect-ratio:620/864;
       background-repeat:no-repeat;background-position:center;background-size:contain;
-      opacity:0.62;filter:saturate(1.05);
+      opacity:0.95;filter:saturate(1.08);
       /* fade the blob out as it reaches into the card so content stays readable */
-      -webkit-mask-image:linear-gradient(to top,#000 22%,rgba(0,0,0,0.35) 62%,transparent 92%);
-      mask-image:linear-gradient(to top,#000 22%,rgba(0,0,0,0.35) 62%,transparent 92%);}
+      -webkit-mask-image:linear-gradient(to top,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);
+      mask-image:linear-gradient(to top,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);}
     /* variants that bleed in from the top fade downward instead */
     .lq-4::after,.lq-6::after,.lq-10::after{
-      -webkit-mask-image:linear-gradient(to bottom,#000 22%,rgba(0,0,0,0.35) 62%,transparent 92%);
-      mask-image:linear-gradient(to bottom,#000 22%,rgba(0,0,0,0.35) 62%,transparent 92%);}
+      -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);
+      mask-image:linear-gradient(to bottom,#000 0%,#000 20%,rgba(0,0,0,0.45) 40%,transparent 62%);}
     .lq-1::after{background-image:url("/bg/liquid/01.webp");left:-14%;bottom:-46%;width:62%;}
     .lq-2::after{background-image:url("/bg/liquid/02.webp");left:22%;bottom:-52%;width:66%;}
     .lq-3::after{background-image:url("/bg/liquid/03.webp");right:-16%;bottom:-44%;width:60%;}
@@ -1400,7 +1400,7 @@
     .lq-10::after{background-image:url("/bg/liquid/10.webp");left:-16%;top:-48%;width:60%;}
     @media(max-width:768px){
       /* smaller peek on phones so it never crowds the content */
-      .lq::after{opacity:0.55;transform:scale(0.8);}
+      .lq::after{opacity:0.9;transform:scale(0.85);}
     }
   </style>
 </head>
