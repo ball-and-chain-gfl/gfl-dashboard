@@ -451,8 +451,10 @@ function switchTab(name){
   _activeTab=name;
   document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
   setPageBg(name);
-  // the newly visible page can now be measured, so tag its large cards
-  requestAnimationFrame(()=>{ try{ applyLiquidCards(); }catch(e){} });
+  // the newly visible page can now be measured, so tag its large cards.
+  // a couple of follow-ups catch tabs that re-render their own content after switching.
+  const lqPass=()=>{ try{ applyLiquidCards(); }catch(e){} };
+  requestAnimationFrame(lqPass); setTimeout(lqPass,350); setTimeout(lqPass,1200);
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   if(name==='tenure') ensureTenure();
