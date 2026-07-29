@@ -318,19 +318,19 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  // Monochrome Grain Texture 01-10, used unaltered; tabs 11-12 repeat 01 and 02
-  home:      {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2001.jpg', ov:0.6},
-  standings: {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2002.jpg', ov:0.6},
-  trades:    {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2003.jpg', ov:0.6},
-  draft:     {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2004.jpg', ov:0.6},
-  history:   {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2005.jpg', ov:0.6},
-  tenure:    {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2006.jpg', ov:0.6},
-  teams:     {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2007.jpg', ov:0.6},
-  legacy:    {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2008.jpg', ov:0.6},
-  punishment:{type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2009.jpg', ov:0.6},
-  badbeat:   {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2010.jpg', ov:0.6},
-  gabe:      {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2001.jpg', ov:0.6},
-  marathon:  {type:'image', src:'/possible-gfl-assets/Monochrome%20Grain%20Texture%2002.jpg', ov:0.6},
+  // Monochrome Grain Texture 01-10 (optimized); mobile uses the 90deg-rotated portrait crop
+  home:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.6},
+  standings: {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.6},
+  trades:    {type:'image', src:'/bg/tex/d03.webp', msrc:'/bg/tex/m03.webp', ov:0.6},
+  draft:     {type:'image', src:'/bg/tex/d04.webp', msrc:'/bg/tex/m04.webp', ov:0.6},
+  history:   {type:'image', src:'/bg/tex/d05.webp', msrc:'/bg/tex/m05.webp', ov:0.6},
+  tenure:    {type:'image', src:'/bg/tex/d06.webp', msrc:'/bg/tex/m06.webp', ov:0.6},
+  teams:     {type:'image', src:'/bg/tex/d07.webp', msrc:'/bg/tex/m07.webp', ov:0.6},
+  legacy:    {type:'image', src:'/bg/tex/d08.webp', msrc:'/bg/tex/m08.webp', ov:0.6},
+  punishment:{type:'image', src:'/bg/tex/d09.webp', msrc:'/bg/tex/m09.webp', ov:0.6},
+  badbeat:   {type:'image', src:'/bg/tex/d10.webp', msrc:'/bg/tex/m10.webp', ov:0.6},
+  gabe:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.6},
+  marathon:  {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.6},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
@@ -349,7 +349,9 @@ function setPageBg(tab){
     }
   } else {
     if(vid){ if(!vid.paused) vid.pause(); vid.style.display='none'; }
-    if(img){ img.style.display='block'; img.style.backgroundImage=`linear-gradient(rgba(6,6,9,${m.ov}),rgba(6,6,9,${m.ov})), url("${m.src}")`; }
+    const mob=window.matchMedia('(max-width:768px)').matches;
+    const url=(mob&&m.msrc)?m.msrc:m.src;
+    if(img){ img.style.display='block'; img.style.backgroundImage=`linear-gradient(rgba(6,6,9,${m.ov}),rgba(6,6,9,${m.ov})), url("${url}")`; }
   }
 }
 // Abbreviate player first names on phones ("Zach Ertz" -> "Z. Ertz").
@@ -419,7 +421,7 @@ function initMobileTables(){
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
     .observe(target,{childList:true,subtree:true});
   // keep the sticky name-column offset correct through resize / rotation
-  window.addEventListener('resize',()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,150); });
+  window.addEventListener('resize',()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(()=>{run(); setPageBg(_activeTab);},150); });
   window.addEventListener('orientationchange',()=>setTimeout(run,250));
 }
 function switchTab(name){
@@ -2499,24 +2501,26 @@ async function renderProfile(){
     </div>
     </div>
     <div class="prof-cols">
-      <div class="prof-col panel">
-        <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>Draft Grades by Year</div>
-        <div id="prof-drafts">${profileDraftsHTML(owner)}</div>
+      <div class="prof-colstack">
+        <div class="prof-col panel">
+          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>Draft Grades by Year</div>
+          <div id="prof-drafts">${profileDraftsHTML(owner)}</div>
+        </div>
+        ${oppRows.length?`<div class="prof-col panel">
+          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
+          <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
+          <tbody>${oppRows.map(r=>`<tr>
+            <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>
+            <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
+            <td class="right" style="color:var(--red)">${r.l}</td>
+            <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
+          </tr>`).join('')}</tbody></table></div>
+        </div>`:''}
       </div>
       <div class="prof-col panel">
         <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>All-Time Starting Lineup</div>
         <div id="prof-lineup">${_tenure?lineupHTML(owner):`<div class="tab-loading" style="padding:24px"><i class="fa fa-circle-notch"></i>Building the all-time lineup…</div>`}</div>
       </div>
-      ${oppRows.length?`<div class="prof-col panel">
-        <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
-        <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
-        <tbody>${oppRows.map(r=>`<tr>
-          <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>
-          <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
-          <td class="right" style="color:var(--red)">${r.l}</td>
-          <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
-        </tr>`).join('')}</tbody></table></div>
-      </div>`:''}
     </div>`;
   if(!_tenure){
     loadTenureData().then(()=>{
