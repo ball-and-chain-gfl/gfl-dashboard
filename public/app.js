@@ -319,18 +319,18 @@ function allTimeH2H(idA,idB){
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
   // Monochrome Grain Texture 01-10 (optimized); mobile uses the 90deg-rotated portrait crop
-  home:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.6},
-  standings: {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.6},
-  trades:    {type:'image', src:'/bg/tex/d03.webp', msrc:'/bg/tex/m03.webp', ov:0.6},
-  draft:     {type:'image', src:'/bg/tex/d04.webp', msrc:'/bg/tex/m04.webp', ov:0.6},
-  history:   {type:'image', src:'/bg/tex/d05.webp', msrc:'/bg/tex/m05.webp', ov:0.6},
-  tenure:    {type:'image', src:'/bg/tex/d06.webp', msrc:'/bg/tex/m06.webp', ov:0.6},
-  teams:     {type:'image', src:'/bg/tex/d07.webp', msrc:'/bg/tex/m07.webp', ov:0.6},
-  legacy:    {type:'image', src:'/bg/tex/d08.webp', msrc:'/bg/tex/m08.webp', ov:0.6},
-  punishment:{type:'image', src:'/bg/tex/d09.webp', msrc:'/bg/tex/m09.webp', ov:0.6},
-  badbeat:   {type:'image', src:'/bg/tex/d10.webp', msrc:'/bg/tex/m10.webp', ov:0.6},
-  gabe:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.6},
-  marathon:  {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.6},
+  home:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.95},
+  standings: {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.95},
+  trades:    {type:'image', src:'/bg/tex/d03.webp', msrc:'/bg/tex/m03.webp', ov:0.95},
+  draft:     {type:'image', src:'/bg/tex/d04.webp', msrc:'/bg/tex/m04.webp', ov:0.95},
+  history:   {type:'image', src:'/bg/tex/d05.webp', msrc:'/bg/tex/m05.webp', ov:0.95},
+  tenure:    {type:'image', src:'/bg/tex/d06.webp', msrc:'/bg/tex/m06.webp', ov:0.95},
+  teams:     {type:'image', src:'/bg/tex/d07.webp', msrc:'/bg/tex/m07.webp', ov:0.95},
+  legacy:    {type:'image', src:'/bg/tex/d08.webp', msrc:'/bg/tex/m08.webp', ov:0.95},
+  punishment:{type:'image', src:'/bg/tex/d09.webp', msrc:'/bg/tex/m09.webp', ov:0.95},
+  badbeat:   {type:'image', src:'/bg/tex/d10.webp', msrc:'/bg/tex/m10.webp', ov:0.95},
+  gabe:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.95},
+  marathon:  {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.95},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
@@ -382,12 +382,11 @@ function applyShortNames(root){
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
 const LQ_COUNT=10;
 const LQ_TABS=['home','standings','trades','draft','history','tenure','teams','legacy','punishment','badbeat','gabe','marathon'];
-// default edge/offset per shape (used where the current look is already approved)
-const LQ_POS=[
-  {c:'bl'},{c:'bc'},{c:'br'},{c:'tr'},{c:'bl'},
-  {c:'tl'},{c:'br'},{c:'bc'},{c:'br'},{c:'tl'},
-];
-// per-page / per-card placement overrides
+const LQ_POS=[{c:'bl'},{c:'bc'},{c:'br'},{c:'tr'},{c:'bl'},{c:'tl'},{c:'br'},{c:'bc'},{c:'br'},{c:'tl'}];
+// semi-transparent "grey" tiles the colour is allowed to sit behind (text on them stays readable)
+const LQ_COVERS='.motw-fact,.motw-take,.motw-odds-team,.big4-team,.hist-item,.champ-line,.sup-row,'
+ +'.allrec-card,.lineup-list,.draft-row-graded,.trade-wl,.stat-card,.pd-row,.conf-col,.bracket-game,'
+ +'.punish-opt,.video-featured,.pm-group,.hm-row,.prof-stat,.dgrade,.lineup-row';
 function lqCorner(tab,el,dflt){
   const head=(el.querySelector('.sec-head,.section-header')?.textContent||'').toLowerCase();
   if(tab==='standings'||tab==='history'||tab==='tenure'||tab==='gabe') return 'tr';
@@ -396,15 +395,18 @@ function lqCorner(tab,el,dflt){
   if(tab==='draft'&&(head.indexOf('steal')>=0||head.indexOf('bust')>=0)) return 'tr';
   return dflt;
 }
-function lqGeom(c,cw,w,h){
-  const outX=Math.round(w*0.62), outY=Math.round(h*0.45);
-  switch(c){
-    case 'tr': return {left:cw-outX, top:-outY};
-    case 'br': return {left:cw-outX, bottom:-outY};
-    case 'tl': return {left:-Math.round(w*0.30), top:-outY};
-    case 'bc': return {left:Math.round((cw-w)/2), bottom:-Math.round(h*0.48)};
-    case 'bl': default: return {left:-Math.round(w*0.30), bottom:-Math.round(h*0.42)};
-  }
+// pick the cover tile closest to the requested corner of the card
+function lqPickCover(el,corner,cr){
+  const covers=[...el.querySelectorAll(LQ_COVERS)].map(c=>c.getBoundingClientRect())
+    .filter(r=>r.width>=90&&r.height>=48&&r.width*r.height>=6000);
+  if(!covers.length) return null;
+  const tx=(corner==='tr'||corner==='br')?cr.right:(corner==='bc'?cr.left+cr.width/2:cr.left);
+  const ty=(corner==='tr'||corner==='tl')?cr.top:cr.bottom;
+  covers.sort((p,q)=>{
+    const dp=Math.hypot((p.left+p.width/2)-tx,(p.top+p.height/2)-ty);
+    const dq=Math.hypot((q.left+q.width/2)-tx,(q.top+q.height/2)-ty);
+    return dp-dq;});
+  return covers[0];
 }
 function applyLiquidCards(){
   LQ_TABS.forEach((tab,ti)=>{
@@ -418,17 +420,26 @@ function applyLiquidCards(){
     cards.forEach((el,i)=>{
       const n=(((ti*7)+i)%LQ_COUNT)+1;
       const corner=lqCorner(tab,el,LQ_POS[n-1].c);
-      const r=el.getBoundingClientRect();
-      const w=Math.round(r.width*0.62), h=Math.round(w*1.393);
-      const g=lqGeom(corner,Math.round(r.width),w,h);
+      const cr=el.getBoundingClientRect();
+      const cover=lqPickCover(el,corner,cr);
       let blob=el.querySelector(':scope > .lq-blob');
+      // no grey tile to hide under -> no colour on this card (readability rule)
+      if(!cover){ if(blob) blob.remove(); el.classList.remove('lq'); delete el.dataset.lq; return; }
       if(!blob){ blob=document.createElement('span'); blob.className='lq-blob'; el.insertBefore(blob,el.firstChild); }
       el.classList.add('lq'); el.dataset.lq=n; el.dataset.lqc=corner;
       blob.className='lq-blob lq-'+n;
+      // size to the tile it hides behind, then hang it off the nearest card edge
+      const w=Math.round(Math.min(cr.width*0.62,Math.max(cover.width*1.25,150)));
+      const h=Math.round(w*1.393);
+      const covCx=cover.left+cover.width/2-cr.left;
       blob.style.width=w+'px'; blob.style.height=h+'px';
-      blob.style.left=g.left+'px';
-      if(g.top!=null){ blob.style.top=g.top+'px'; blob.style.bottom='auto'; }
-      else { blob.style.bottom=g.bottom+'px'; blob.style.top='auto'; }
+      blob.style.left=Math.round(Math.max(-w*0.18,Math.min(cr.width-w*0.82,covCx-w/2)))+'px';
+      const top=(corner==='tr'||corner==='tl');
+      const overhang=Math.round(h-Math.min(h*0.62,cover.height+16));
+      if(top){ blob.style.top=(-overhang)+'px'; blob.style.bottom='auto';
+               blob.style.setProperty('--lqy',(cover.top-cr.top)+'px'); }
+      else { blob.style.bottom=(-overhang)+'px'; blob.style.top='auto';
+             blob.style.setProperty('--lqy',(cr.bottom-cover.bottom)+'px'); }
     });
   });
 }
