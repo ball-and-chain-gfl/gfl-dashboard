@@ -391,20 +391,31 @@ function lqCorner(tab,el,dflt){
   if(tab==='draft'&&(head.indexOf('steal')>=0||head.indexOf('bust')>=0)) return 'tr';
   return dflt;
 }
-// Find empty bands inside a card — vertical space no content occupies. Colour may only
-// live here (or behind a tile), never under text.
-function lqEmptyBands(el,cr){
-  const cs=getComputedStyle(el);
-  const padT=parseFloat(cs.paddingTop)||0, padB=parseFloat(cs.paddingBottom)||0;
-  const kids=[...el.children].filter(k=>!k.classList.contains('lq-blob'))
-    .map(k=>k.getBoundingClientRect()).filter(r=>r.height>0);
-  const bands=[]; let y=cr.top+padT;
-  kids.sort((p,q)=>p.top-q.top).forEach(r=>{
-    if(r.top-y>=44) bands.push({top:y,bottom:r.top});
-    y=Math.max(y,r.bottom);
-  });
-  if((cr.bottom-padB)-y>=44) bands.push({top:y,bottom:cr.bottom-padB});
-  return bands.map(b=>({top:b.top-cr.top,h:b.bottom-b.top}));
+function lqOpaque(el){
+  const c=getComputedStyle(el);
+  if(c.backgroundImage&&c.backgroundImage!=='none'&&c.backgroundImage.indexOf('gradient')>=0) return true;
+  const m=(c.backgroundColor||'').match(/rgba?\(([^)]+)\)/);
+  if(!m) return false; const p=m[1].split(',').map(Number);
+  return (p.length<4?1:p[3])>=0.85;
+}
+// Text that is NOT sitting on an opaque tile — colour must never overlap these.
+function lqExposedText(card){
+  const out=[];
+  const w=document.createTreeWalker(card,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.nodeValue.trim()?1:2});
+  let n;
+  while((n=w.nextNode())){
+    let p=n.parentElement, shielded=false;
+    while(p&&p!==card){ if(lqOpaque(p)){shielded=true;break;} p=p.parentElement; }
+    if(shielded) continue;
+    const r=document.createRange(); r.selectNodeContents(n);
+    const rr=r.getBoundingClientRect();
+    if(rr.width>2&&rr.height>2) out.push(rr);
+  }
+  return out;
+}
+function lqOverlaps(b,rects){
+  return rects.some(t=>Math.min(b.right,t.right)-Math.max(b.left,t.left)>3
+                    && Math.min(b.bottom,t.bottom)-Math.max(b.top,t.top)>3);
 }
 function applyLiquidCards(){
   LQ_TABS.forEach((tab,ti)=>{
@@ -419,26 +430,30 @@ function applyLiquidCards(){
       const n=(((ti*7)+i)%LQ_COUNT)+1;
       const corner=lqCorner(tab,el,LQ_POS[n-1].c);
       const cr=el.getBoundingClientRect();
-      const bands=lqEmptyBands(el,cr);
-      let blob=el.querySelector(':scope > .lq-blob');
-      if(!bands.length){                       // nowhere safe -> no colour on this card
-        if(blob) blob.remove(); el.classList.remove('lq'); delete el.dataset.lq; return;
+      const exposed=lqExposedText(el);
+      const right=(corner==='tr'||corner==='br'), top=(corner==='tr'||corner==='tl');
+      // try progressively smaller//more-inset boxes anchored to the requested corner
+      let pick=null;
+      for(const fw of [0.55,0.46,0.38,0.30,0.24]){
+        const w=Math.round(cr.width*fw), h=Math.round(w*1.10);
+        for(const inset of [0,0.12,0.26,0.42]){
+          const x = right ? cr.width-w-Math.round(cr.width*0)+0 : 0;
+          const left = right ? cr.width-w : (corner==='bc' ? Math.round((cr.width-w)/2) : 0);
+          const t = top ? Math.round(cr.height*inset) : Math.round(cr.height-h-cr.height*inset);
+          if(t<0||t+h>cr.height) continue;
+          const box={left:cr.left+left,right:cr.left+left+w,top:cr.top+t,bottom:cr.top+t+h};
+          if(!lqOverlaps(box,exposed)){ pick={w,h,left,top:t}; break; }
+        }
+        if(pick) break;
       }
-      // prefer the band nearest the requested corner, then the tallest
-      const wantTop=(corner==='tr'||corner==='tl');
-      bands.sort((p,q)=> wantTop ? (p.top-q.top)||(q.h-p.h) : ((q.top+q.h)-(p.top+p.h))||(q.h-p.h));
-      const band=bands[0];
+      let blob=el.querySelector(':scope > .lq-blob');
+      if(!pick){ if(blob) blob.remove(); el.classList.remove('lq'); delete el.dataset.lq; return; }
       if(!blob){ blob=document.createElement('span'); blob.className='lq-blob'; el.insertBefore(blob,el.firstChild); }
       el.classList.add('lq'); el.dataset.lq=n; el.dataset.lqc=corner;
       blob.className='lq-blob lq-'+n;
-      const w=Math.round(cr.width*(corner==='bc'?0.72:0.52));
-      blob.style.width=w+'px';
-      blob.style.height=Math.round(band.h)+'px';       // stays inside the empty band
-      blob.style.top=Math.round(band.top)+'px';
-      blob.style.bottom='auto';
-      const right=(corner==='tr'||corner==='br');
-      blob.style.left=Math.round(right?(cr.width-w*0.86):(corner==='bc'?(cr.width-w)/2:-w*0.14))+'px';
-      blob.style.backgroundPosition=(right?'right':'left')+' '+(wantTop?'top':'bottom');
+      blob.style.width=pick.w+'px'; blob.style.height=pick.h+'px';
+      blob.style.left=pick.left+'px'; blob.style.top=pick.top+'px'; blob.style.bottom='auto';
+      blob.style.backgroundPosition=(right?'right':'left')+' '+(top?'top':'bottom');
     });
   });
 }
