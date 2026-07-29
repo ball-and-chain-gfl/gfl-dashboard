@@ -1378,12 +1378,13 @@
     .lq>*:not(.lq-blob){position:relative;z-index:1;}
     .lq-blob{position:absolute;z-index:0;pointer-events:none;display:block;
       background-repeat:no-repeat;background-position:center;background-size:100% 100%;
-      opacity:0.95;filter:saturate(1.08);
-      -webkit-mask-image:linear-gradient(to top,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);
-      mask-image:linear-gradient(to top,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);}
+      opacity:0.88;filter:saturate(1.08);
+      /* radial fade out of the card edge so the bleed reads organic, not boxy */
+      -webkit-mask-image:radial-gradient(115% 95% at 50% 100%,#000 26%,rgba(0,0,0,0.55) 55%,transparent 82%);
+      mask-image:radial-gradient(115% 95% at 50% 100%,#000 26%,rgba(0,0,0,0.55) 55%,transparent 82%);}
     .lq-blob.lq-top{
-      -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);
-      mask-image:linear-gradient(to bottom,#000 0%,#000 44%,rgba(0,0,0,0.55) 64%,transparent 86%);}
+      -webkit-mask-image:radial-gradient(115% 95% at 50% 0%,#000 26%,rgba(0,0,0,0.55) 55%,transparent 82%);
+      mask-image:radial-gradient(115% 95% at 50% 0%,#000 26%,rgba(0,0,0,0.55) 55%,transparent 82%);}
     .lq-blob.lq-1{background-image:url("/bg/liquid/01.webp");}
     .lq-blob.lq-2{background-image:url("/bg/liquid/02.webp");}
     .lq-blob.lq-3{background-image:url("/bg/liquid/03.webp");}
