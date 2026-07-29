@@ -2378,8 +2378,8 @@ function lineupHTML(owner){
   const mode=_lineupMode;
   const line=buildAllTimeLineup(owner,mode);
   const tabBtn=(m,label)=>`<button class="tab-btn ${mode===m?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 12px" onclick="setLineupMode('${m}','${owner}')">${label}</button>`;
-  const tabs=`<div class="standings-filters" style="padding:0 0 12px;gap:6px">${tabBtn('ppg','Points / Start')}${tabBtn('gs','Games Started')}</div>`;
-  if(line.every(s=>!s.pl)) return tabs+`<div class="tab-loading" style="padding:24px">No roster history found for this team.</div>`;
+  const tabsOnly=`<div class="standings-filters" style="padding:0;gap:6px">${tabBtn('ppg','Points / Start')}${tabBtn('gs','Games Started')}</div>`;
+  if(line.every(s=>!s.pl)) return `<div class="lineup-topbar">${tabsOnly}</div><div class="tab-loading" style="padding:24px">No roster history found for this team.</div>`;
   const body=`<div class="lineup-list">${line.map(sl=>{
     const c=LINEUP_POSC[sl.label]||'var(--accent)';
     let rv='—', rl='';
@@ -2391,19 +2391,19 @@ function lineupHTML(owner){
         <div class="lineup-ppts"><span class="v">${rv}</span><span class="l">${rl}</span></div>`
         :`${playerImg(null,42,sl.label)}<div class="lineup-pinfo"><div class="lineup-pname" style="color:var(--text3)">Empty</div></div>`}
     </div>`;}).join('')}</div>`;
-  let grade='';
+  let gradeChip='', gradeNote='';
   if(mode==='ppg'){
     const g=ppgGradeFor(owner); const gc=gradeColor(g.grade);
-    grade=`<div class="lineup-grade">
-      <div><div class="lg-label">Combined PPG</div><div class="lg-score">${g.score.toFixed(1)}</div></div>
+    gradeChip=`<div class="lg-chip">
+      <div class="lg-chip-txt"><span class="lg-label">Combined PPG</span><span class="lg-score">${g.score.toFixed(1)}</span></div>
       <div class="lg-grade" style="color:${gc};border-color:${gc}">${g.grade}</div>
-    </div>
-    <div class="lg-note">Sum of all 9 starters' points-per-start.${g.n?` Graded across all ${g.n} teams — ranked #${g.rank} of ${g.n}.`:''}</div>`;
+    </div>`;
+    gradeNote=`<div class="lg-note">Sum of all 9 starters' points-per-start.${g.n?` Graded across all ${g.n} teams — ranked #${g.rank} of ${g.n}.`:''}</div>`;
   }
   const note = mode==='ppg'
     ? 'Highest points-per-start at each spot (min. 5 starts). FLEX = best remaining RB/WR/TE.'
     : 'Most-started player at each spot, all-time (games started → weeks rostered → points). FLEX = best remaining RB/WR/TE.';
-  return tabs+body+grade+`<div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">${note}</div>`;
+  return `<div class="lineup-topbar">${tabsOnly}${gradeChip}</div>`+body+gradeNote+`<div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">${note}</div>`;
 }
 function profileDraftsHTML(owner){
   const dc=_draftAllCache;
