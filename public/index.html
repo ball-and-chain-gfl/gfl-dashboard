@@ -1337,6 +1337,14 @@
       .motw-fact{padding:10px 8px;}
       .motw-fact-v{font-size:19px;}
     }
+
+    /* Playoff odds: collapsed dropdown by default */
+    details.motw-odds>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;list-style:none;}
+    details.motw-odds>summary::-webkit-details-marker{display:none;}
+    details.motw-odds>summary:hover{color:var(--text2);}
+    .odds-caret{font-size:10px;transition:transform .18s ease;}
+    details.motw-odds[open] .odds-caret{transform:rotate(180deg);}
+    details.motw-odds[open]>summary{margin-bottom:8px;}
   </style>
 </head>
 <body>

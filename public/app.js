@@ -318,12 +318,19 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  home:     {type:'video', src:'/bg/home.mp4',  poster:'/bg/home.jpg',  ov:0.8},
-  standings:{type:'image', src:'/bg/standings.webp', ov:0.8},
-  draft:    {type:'image', src:'/bg/draft.webp',     ov:0.8},
-  trades:   {type:'image', src:'/bg/trades.webp',    ov:0.8},
-  history:  {type:'image', src:'/bg/history.webp',   ov:0.8},
-  tenure:   {type:'image', src:'/bg/tenure.webp',    ov:0.8},
+  // monochrome grain textures, numbered in nav order and wrapping after 6
+  home:      {type:'image', src:'/bg/tex1.webp', ov:0.8},
+  standings: {type:'image', src:'/bg/tex2.webp', ov:0.8},
+  trades:    {type:'image', src:'/bg/tex3.webp', ov:0.8},
+  draft:     {type:'image', src:'/bg/tex4.webp', ov:0.8},
+  history:   {type:'image', src:'/bg/tex5.webp', ov:0.8},
+  tenure:    {type:'image', src:'/bg/tex6.webp', ov:0.8},
+  teams:     {type:'image', src:'/bg/tex1.webp', ov:0.8},
+  legacy:    {type:'image', src:'/bg/tex2.webp', ov:0.8},
+  punishment:{type:'image', src:'/bg/tex3.webp', ov:0.8},
+  badbeat:   {type:'image', src:'/bg/tex4.webp', ov:0.8},
+  gabe:      {type:'image', src:'/bg/tex5.webp', ov:0.8},
+  marathon:  {type:'image', src:'/bg/tex6.webp', ov:0.8},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
@@ -2066,8 +2073,8 @@ function renderMatchupOfWeek(){
       ${takeCol('The Ball 🔨','fa-hand-fist',cfg.ball,'var(--accent)')}
       ${takeCol('The Chain ⛓️','fa-link',cfg.chain,'var(--blue)')}
     </div>
-    <div class="motw-odds">
-      <div class="motw-odds-h">Playoff odds</div>
+    <details class="motw-odds">
+      <summary class="motw-odds-h"><span>Playoff odds</span><i class="fa fa-chevron-down odds-caret"></i></summary>
       <div class="motw-odds-grid">
         <div class="motw-odds-team">
           <div class="fr-name">${A.name}</div>
@@ -2078,7 +2085,7 @@ function renderMatchupOfWeek(){
           <div class="odd-row">${oddChip('With a win',odds.away?.win,'win')}${oddChip('With a loss',odds.away?.loss,'loss')}</div>
         </div>
       </div>
-    </div>`;
+    </details>`;
 }
 
 // ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
