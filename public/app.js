@@ -1638,7 +1638,7 @@ function scoreBadge(rel,rank,season,grade,gcol){
 let _dmSort={col:null,asc:false};
 function sortDM(col){
   const list=document.querySelector('.dm-list'); if(!list) return;
-  const asc=(_dmSort.col===col)? !_dmSort.asc : (col<=1);
+  const asc=(_dmSort.col===col)? !_dmSort.asc : (col<=2||col===3);
   _dmSort={col,asc};
   const rows=[...list.querySelectorAll('.dm-row:not(.dm-head)')];
   const val=r=>{const c=r.children[col]; const v=c?.dataset.v ?? c?.textContent ?? '';
@@ -1652,17 +1652,19 @@ function sortDM(col){
     const ar=s.querySelector('.dm-arw'); if(ar) ar.textContent=(i===col)?(asc?' \u2191':' \u2193'):'';
   });
 }
-// Mobile-only compact draft list: fits pick, player, pos change, pts and delta on one line.
+// Mobile-only draft list, built on the same pattern as the matchup-history list:
+// Round | Pick | Player | Drafted (pos rank) | Finish (pos rank) | Delta
 function draftMobileHTML(rows){
-  const cols=['#','Player','Pos','Pts','\u0394'];
-  const head=`<div class="dm-row dm-head">${cols.map((c,i)=>`<span class="dm-sort" data-col="${i}" onclick="sortDM(${i})">${c}<i class="dm-arw"></i></span>`).join('')}</div>`;
+  const cols=['Rd','Pick','Player','Draft','Finish','\u0394'];
+  const head=`<div class="dm-row dm-head">${cols.map((c,i)=>`<span class="${i===2?'dm-player ':''}dm-sort" data-col="${i}" onclick="sortDM(${i})">${c}<i class="dm-arw"></i></span>`).join('')}</div>`;
   const body=rows.map(r=>{
     const better=r.finPos!=null&&r.finPos<=r.posDrafted;
     return `<div class="dm-row">
+      <span class="dm-rd" data-v="${r.round}">${r.round}</span>
       <span class="dm-pick" data-v="${r.overall}">${r.overall}</span>
-      <span class="dm-player">${playerImg(r.pid,20,r.name)}<span class="pl-name">${r.name}</span></span>
-      <span class="dm-pos" data-v="${r.finPos!=null?r.finPos:999}">${r.posName}${r.posDrafted}<i>\u2192</i>${r.finPos!=null?`<b style="color:${better?'var(--green)':'var(--red)'}">${r.finPos}</b>`:'<b style="color:var(--text3)">\u2014</b>'}</span>
-      <span class="dm-pts" data-v="${r.pts}">${r.pts.toFixed(0)}</span>
+      <span class="dm-player" data-v="${r.name}">${playerImg(r.pid,20,r.name)}<span class="pl-name">${r.name}</span></span>
+      <span class="dm-drafted" data-v="${r.posDrafted}">${r.posName}${r.posDrafted}</span>
+      <span class="dm-finish" data-v="${r.finPos!=null?r.finPos:999}" style="color:${r.finPos==null?'var(--text3)':(better?'var(--green)':'var(--red)')}">${r.finPos!=null?r.posName+r.finPos:'\u2014'}</span>
       <span class="dm-delta" data-v="${r.delta}" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</span>
     </div>`;}).join('');
   return `<div class="dm-list">${head}${body}</div>`;
