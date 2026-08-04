@@ -318,19 +318,19 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  // Monochrome Grain Texture 01-10 (optimized); mobile uses the 90deg-rotated portrait crop
-  home:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.95},
-  standings: {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.95},
-  trades:    {type:'image', src:'/bg/tex/d03.webp', msrc:'/bg/tex/m03.webp', ov:0.95},
-  draft:     {type:'image', src:'/bg/tex/d04.webp', msrc:'/bg/tex/m04.webp', ov:0.95},
-  history:   {type:'image', src:'/bg/tex/d05.webp', msrc:'/bg/tex/m05.webp', ov:0.95},
-  tenure:    {type:'image', src:'/bg/tex/d06.webp', msrc:'/bg/tex/m06.webp', ov:0.95},
-  teams:     {type:'image', src:'/bg/tex/d07.webp', msrc:'/bg/tex/m07.webp', ov:0.95},
-  legacy:    {type:'image', src:'/bg/tex/d08.webp', msrc:'/bg/tex/m08.webp', ov:0.95},
-  punishment:{type:'image', src:'/bg/tex/d09.webp', msrc:'/bg/tex/m09.webp', ov:0.95},
-  badbeat:   {type:'image', src:'/bg/tex/d10.webp', msrc:'/bg/tex/m10.webp', ov:0.95},
-  gabe:      {type:'image', src:'/bg/tex/d01.webp', msrc:'/bg/tex/m01.webp', ov:0.95},
-  marathon:  {type:'image', src:'/bg/tex/d02.webp', msrc:'/bg/tex/m02.webp', ov:0.95},
+  // two looping background videos, alternating down the tab list
+  home:      {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0.95},
+  standings: {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0.95},
+  trades:    {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0.95},
+  draft:     {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0.95},
+  history:   {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0.95},
+  tenure:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0.95},
+  teams:     {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0.95},
+  legacy:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0.95},
+  punishment:{type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0.95},
+  badbeat:   {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0.95},
+  gabe:      {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0.95},
+  marathon:  {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0.95},
 };
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
@@ -380,58 +380,6 @@ function applyShortNames(root){
 // ── LIQUID EDGE ACCENTS ──────────────────────────────────────────────────────
 // Give each large display card one of the 10 "Liquid Colored Shapes" bleeding in
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
-const LQ_COUNT=10;
-const LQ_TABS=['home','standings','trades','draft','history','tenure','teams','legacy','punishment','badbeat','gabe','marathon'];
-// default edge/offset per shape (used where the current look is already approved)
-const LQ_POS=[
-  {c:'bl'},{c:'bc'},{c:'br'},{c:'tr'},{c:'bl'},
-  {c:'tl'},{c:'br'},{c:'bc'},{c:'br'},{c:'tl'},
-];
-// per-page / per-card placement overrides
-function lqCorner(tab,el,dflt){
-  const head=(el.querySelector('.sec-head,.section-header')?.textContent||'').toLowerCase();
-  if(tab==='standings'||tab==='history'||tab==='tenure'||tab==='gabe') return 'tr';
-  if(tab==='trades') return 'br';
-  if(tab==='teams'&&head.indexOf('draft grades')>=0) return 'br';
-  if(tab==='draft'&&(head.indexOf('steal')>=0||head.indexOf('bust')>=0)) return 'tr';
-  return dflt;
-}
-function lqGeom(c,cw,w,h){
-  const outX=Math.round(w*0.62), outY=Math.round(h*0.45);
-  switch(c){
-    case 'tr': return {left:cw-outX, top:-outY};
-    case 'br': return {left:cw-outX, bottom:-outY};
-    case 'tl': return {left:-Math.round(w*0.30), top:-outY};
-    case 'bc': return {left:Math.round((cw-w)/2), bottom:-Math.round(h*0.48)};
-    case 'bl': default: return {left:-Math.round(w*0.30), bottom:-Math.round(h*0.42)};
-  }
-}
-function applyLiquidCards(){
-  LQ_TABS.forEach((tab,ti)=>{
-    const page=document.getElementById('page-'+tab); if(!page) return;
-    const cards=[...page.querySelectorAll('.card,.panel,.sec,.trades-filters')].filter(el=>{
-      if(el.closest('.modal')) return false;
-      if(el.querySelector('.card,.panel')) return false;
-      const r=el.getBoundingClientRect();
-      return r.height>=150 && r.width>=260;
-    });
-    cards.forEach((el,i)=>{
-      const n=(((ti*7)+i)%LQ_COUNT)+1;
-      const corner=lqCorner(tab,el,LQ_POS[n-1].c);
-      const r=el.getBoundingClientRect();
-      const w=Math.round(r.width*0.62), h=Math.round(w*1.393);
-      const g=lqGeom(corner,Math.round(r.width),w,h);
-      let blob=el.querySelector(':scope > .lq-blob');
-      if(!blob){ blob=document.createElement('span'); blob.className='lq-blob'; el.insertBefore(blob,el.firstChild); }
-      el.classList.add('lq'); el.dataset.lq=n; el.dataset.lqc=corner;
-      blob.className='lq-blob lq-'+n;
-      blob.style.width=w+'px'; blob.style.height=h+'px';
-      blob.style.left=g.left+'px';
-      if(g.top!=null){ blob.style.top=g.top+'px'; blob.style.bottom='auto'; }
-      else { blob.style.bottom=g.bottom+'px'; blob.style.top='auto'; }
-    });
-  });
-}
 // ── MOBILE TABLES ────────────────────────────────────────────────────────────
 // Tag every data cell with its column label so phones can render each row as a
 // compact card (label left / value right) instead of a horizontally scrolling
@@ -470,7 +418,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); applyLiquidCards(); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -483,10 +431,6 @@ function switchTab(name){
   _activeTab=name;
   document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
   setPageBg(name);
-  // the newly visible page can now be measured, so tag its large cards.
-  // a couple of follow-ups catch tabs that re-render their own content after switching.
-  const lqPass=()=>{ try{ applyLiquidCards(); }catch(e){} };
-  requestAnimationFrame(lqPass); setTimeout(lqPass,350); setTimeout(lqPass,1200);
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
   if(name==='tenure') ensureTenure();

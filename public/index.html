@@ -1109,9 +1109,9 @@
     /* ── PER-PAGE BACKGROUND MEDIA (videos / images, color-matched) ──────── */
     #pgbg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;display:none;background:#070709;}
     #pgbg-video,#pgbg-image{position:absolute;inset:0;width:100%;height:100%;}
-    #pgbg-video{object-fit:cover;filter:brightness(0.2) saturate(1.05);}
+    #pgbg-video{object-fit:cover;}
     #pgbg-image{background-size:cover;background-position:center center;background-repeat:no-repeat;display:none;}
-    #pgbg-overlay{position:absolute;inset:0;background:radial-gradient(130% 130% at 50% 0%, transparent 40%, rgba(6,6,9,0.35) 100%);}
+    #pgbg-overlay{position:absolute;inset:0;background:rgba(6,6,9,var(--ov,0.95));}
     /* grain sits above the media */
     .bg-fx{z-index:0;}
     main,footer{position:relative;z-index:1;}
@@ -1370,24 +1370,6 @@
       .lg-chip-txt{align-items:flex-start;}
     }
 
-    /* ── LIQUID EDGE ACCENT on large cards ───────────────────────────────────
-       A "Liquid Colored Shapes" blob is sized/placed in JS so it hangs mostly
-       outside the card; the card clips it, giving the off-the-edge effect. */
-    .lq{position:relative;overflow:hidden;}
-    .lq>*:not(.lq-blob){position:relative;z-index:1;}
-    .lq-blob{position:absolute;z-index:0;pointer-events:none;display:block;
-      background-repeat:no-repeat;background-position:center;background-size:100% 100%;
-      opacity:1;}
-    .lq-blob.lq-1{background-image:url("/bg/liquid/01.webp");}
-    .lq-blob.lq-2{background-image:url("/bg/liquid/02.webp");}
-    .lq-blob.lq-3{background-image:url("/bg/liquid/03.webp");}
-    .lq-blob.lq-4{background-image:url("/bg/liquid/04.webp");}
-    .lq-blob.lq-5{background-image:url("/bg/liquid/05.webp");}
-    .lq-blob.lq-6{background-image:url("/bg/liquid/06.webp");}
-    .lq-blob.lq-7{background-image:url("/bg/liquid/07.webp");}
-    .lq-blob.lq-8{background-image:url("/bg/liquid/08.webp");}
-    .lq-blob.lq-9{background-image:url("/bg/liquid/09.webp");}
-    .lq-blob.lq-10{background-image:url("/bg/liquid/10.webp");}
 
   </style>
 </head>
