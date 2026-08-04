@@ -380,6 +380,16 @@ function applyShortNames(root){
 // ── LIQUID EDGE ACCENTS ──────────────────────────────────────────────────────
 // Give each large display card one of the 10 "Liquid Colored Shapes" bleeding in
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
+// On phones the season selector shows just the year, so a long tab name in the
+// header doesn't push the controls onto a second line.
+function seasonLabel(){
+  const sel=document.getElementById('season-select'); if(!sel) return;
+  const mob=window.matchMedia('(max-width:768px)').matches;
+  [...sel.options].forEach(o=>{
+    const t=mob?o.value:(o.value+' Season');
+    if(o.textContent!==t) o.textContent=t;
+  });
+}
 // ── MOBILE TABLES ────────────────────────────────────────────────────────────
 // Tag every data cell with its column label so phones can render each row as a
 // compact card (label left / value right) instead of a horizontally scrolling
@@ -418,7 +428,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
