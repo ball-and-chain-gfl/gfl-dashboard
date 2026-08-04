@@ -1397,6 +1397,13 @@
       .dm-head .dm-sort.sorted{color:var(--accent);}
       .dm-arw{font-style:normal;font-size:9px;}
     }
+
+    @media(max-width:768px){
+      /* header stays on one row: the tab name truncates instead of wrapping */
+      header{flex-wrap:nowrap!important;}
+      #tab-dd-btn{max-width:calc(100vw - 210px)!important;}
+      #season-select{flex:0 0 auto;}
+    }
   </style>
 </head>
 <body>
