@@ -1401,7 +1401,8 @@
     @media(max-width:768px){
       /* header stays on one row: the tab name truncates instead of wrapping */
       header{flex-wrap:nowrap!important;}
-      #tab-dd-btn{max-width:calc(100vw - 238px)!important;}
+      .tab-dd{max-width:calc(100vw - 238px)!important;min-width:0;}
+      #tab-dd-btn{max-width:100%!important;width:100%;}
       #season-select{flex:0 0 auto;}
     }
   </style>
