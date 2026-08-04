@@ -1033,6 +1033,13 @@
     .dgrade-num{font-family:'DM Sans',sans-serif;font-weight:600;font-size:32px;line-height:1;border:2px solid;border-radius:10px;padding:6px 16px;min-width:64px;text-align:center;}
     .dgrade-lbl{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:0.5px;font-size:12px;color:var(--text3);text-align:center;white-space:nowrap;}
     @media(max-width:640px){.draft-score-wrap{margin:10px 0 0;width:100%;}}
+    /* mobile: keep rank / score / grade on a single line */
+    @media(max-width:768px){
+      .draft-score-wrap{flex-wrap:nowrap!important;gap:14px;width:100%;justify-content:flex-start;}
+      .draft-score-wrap .dgrade{flex:0 0 auto;min-width:0;}
+      .draft-score-wrap .dgrade-num{font-size:24px;padding:5px 11px;min-width:54px;border-radius:8px;}
+      .draft-score-wrap .dgrade-lbl{font-size:10.5px;letter-spacing:0.4px;}
+    }
     /* ── Draft Rankings: title + filters left, list right ── */
     .dr-card{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:22px;align-items:start;margin:0 0 22px;}
     .dr-right{background:transparent;border:none;border-radius:0;overflow:visible;display:flex;flex-direction:column;gap:8px;}

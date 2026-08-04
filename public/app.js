@@ -1630,7 +1630,7 @@ function draftPickLists(steals,busts,showSeason){
 function scoreBadge(rel,rank,season,grade,gcol){
   const col=gcol||(rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)');
   return `<div class="draft-score-wrap">
-    <div class="dgrade"><div class="dgrade-num" style="border-color:var(--accent);color:var(--accent)">${rank}</div><div class="dgrade-lbl">Draft rank &middot; ${season}</div></div>
+    <div class="dgrade"><div class="dgrade-num" style="border-color:var(--accent);color:var(--accent)">${rank}</div><div class="dgrade-lbl">Draft rank</div></div>
     <div class="dgrade"><div class="dgrade-num" style="border-color:${col};color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</div><div class="dgrade-lbl">Draft Score</div></div>
     ${grade?`<div class="dgrade"><div class="dgrade-num" style="border-color:${col};color:${col}">${grade}</div><div class="dgrade-lbl">Draft Grade</div></div>`:''}
   </div>`;
