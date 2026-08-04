@@ -1625,9 +1625,41 @@ function scoreBadge(rel,rank,season,grade,gcol){
     ${grade?`<div class="dgrade"><div class="dgrade-num" style="border-color:${col};color:${col}">${grade}</div><div class="dgrade-lbl">Draft Grade</div></div>`:''}
   </div>`;
 }
+let _dmSort={col:null,asc:false};
+function sortDM(col){
+  const list=document.querySelector('.dm-list'); if(!list) return;
+  const asc=(_dmSort.col===col)? !_dmSort.asc : (col<=1);
+  _dmSort={col,asc};
+  const rows=[...list.querySelectorAll('.dm-row:not(.dm-head)')];
+  const val=r=>{const c=r.children[col]; const v=c?.dataset.v ?? c?.textContent ?? '';
+    const n=parseFloat(v); return (v!==''&&!isNaN(n))?n:String(v).toLowerCase();};
+  rows.sort((x,y)=>{const p=val(x),q=val(y);
+    if(typeof p==='number'&&typeof q==='number') return asc?p-q:q-p;
+    return asc?String(p).localeCompare(String(q)):String(q).localeCompare(String(p));});
+  rows.forEach(r=>list.appendChild(r));
+  list.querySelectorAll('.dm-head .dm-sort').forEach((s,i)=>{
+    s.classList.toggle('sorted',i===col);
+    const ar=s.querySelector('.dm-arw'); if(ar) ar.textContent=(i===col)?(asc?' \u2191':' \u2193'):'';
+  });
+}
+// Mobile-only compact draft list: fits pick, player, pos change, pts and delta on one line.
+function draftMobileHTML(rows){
+  const cols=['#','Player','Pos','Pts','\u0394'];
+  const head=`<div class="dm-row dm-head">${cols.map((c,i)=>`<span class="dm-sort" data-col="${i}" onclick="sortDM(${i})">${c}<i class="dm-arw"></i></span>`).join('')}</div>`;
+  const body=rows.map(r=>{
+    const better=r.finPos!=null&&r.finPos<=r.posDrafted;
+    return `<div class="dm-row">
+      <span class="dm-pick" data-v="${r.overall}">${r.overall}</span>
+      <span class="dm-player">${playerImg(r.pid,20,r.name)}<span class="pl-name">${r.name}</span></span>
+      <span class="dm-pos" data-v="${r.finPos!=null?r.finPos:999}">${r.posName}${r.posDrafted}<i>\u2192</i>${r.finPos!=null?`<b style="color:${better?'var(--green)':'var(--red)'}">${r.finPos}</b>`:'<b style="color:var(--text3)">\u2014</b>'}</span>
+      <span class="dm-pts" data-v="${r.pts}">${r.pts.toFixed(0)}</span>
+      <span class="dm-delta" data-v="${r.delta}" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</span>
+    </div>`;}).join('');
+  return `<div class="dm-list">${head}${body}</div>`;
+}
 function draftTeamTableHTML(rows,showSeason){
   const totalDelta=rows.reduce((s,r)=>s+r.delta,0);
-  return `<div class="tscroll"><table class="min560 srt">
+  return draftMobileHTML(rows)+`<div class="tscroll draft-tbl"><table class="min560 srt">
     <thead><tr>${showSeason?'<th>Yr</th>':''}<th>Pick</th><th>Player</th><th class="right">Pos: drafted → finished</th><th class="right">Pts</th><th class="right">Δ</th></tr></thead>
     <tbody>${rows.map(r=>`<tr>
       ${showSeason?`<td style="color:var(--text3)">${r.season}</td>`:''}

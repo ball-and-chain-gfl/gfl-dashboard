@@ -1371,6 +1371,32 @@
     }
 
 
+
+    /* ── Draft "Full Draft by Team": mobile-only one-line list (no side scroll) ── */
+    .dm-list{display:none;}
+    @media(max-width:768px){
+      .dm-list{display:block;padding:0 2px;}
+      #page-draft .draft-tbl{display:none!important;}
+      .dm-row{display:grid;grid-template-columns:22px minmax(0,1fr) 56px 34px 30px;
+        align-items:center;gap:6px;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,0.06);}
+      .dm-row:last-child{border-bottom:none;}
+      .dm-row>span{font-family:'Inter',sans-serif;font-size:12px;white-space:nowrap;text-align:right;}
+      .dm-pick{color:var(--text3);font-size:11px;text-align:left!important;}
+      .dm-player{display:flex;align-items:center;gap:6px;min-width:0;text-align:left!important;}
+      .dm-player .pl-name{font-family:'Google Sans Flex',Georgia,serif;font-size:12.5px;font-weight:600;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+      .dm-player .phs{flex:0 0 20px;}
+      .dm-pos{color:var(--text2);font-size:11.5px;letter-spacing:.2px;}
+      .dm-pos i{font-style:normal;color:var(--text3);margin:0 1px;}
+      .dm-pos b{font-weight:700;}
+      .dm-pts{color:var(--text2);}
+      .dm-delta{font-weight:700;}
+      .dm-head{border-bottom:1px solid rgba(255,255,255,0.14);padding-bottom:6px;}
+      .dm-head>span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);
+        font-weight:500;cursor:pointer;user-select:none;}
+      .dm-head .dm-sort.sorted{color:var(--accent);}
+      .dm-arw{font-style:normal;font-size:9px;}
+    }
   </style>
 </head>
 <body>
