@@ -1372,26 +1372,31 @@
 
 
 
-    /* ── Draft "Full Draft by Team": mobile-only list, same pattern as Matchup History ── */
+    /* ── Draft "Full Draft by Team": mobile-only list (18px gutters, all left-aligned) ── */
     .dm-list{display:none;}
     @media(max-width:768px){
-      .dm-list{display:block;}
+      .dm-list{display:block;padding:0 18px 4px;}          /* 18px is the closest content gets to the edge */
       #page-draft .draft-tbl{display:none!important;}
-      .dm-row{display:grid;grid-template-columns:20px 26px minmax(0,1fr) 38px 40px 30px;
-        align-items:center;gap:6px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.06);}
+      #page-draft .card>.section-header{padding:13px 18px!important;}
+      #page-draft .card .picker-bar{padding:12px 18px!important;}
+      #page-draft #draft-team-body>div:last-child{padding-left:18px!important;padding-right:18px!important;}
+      /* player column is capped so the Draft position sits close to the name */
+      .dm-row{display:grid;grid-template-columns:20px 28px minmax(0,148px) 42px 44px 34px;
+        align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
       .dm-row:last-child{border-bottom:none;}
-      .dm-row>span{text-align:right;font-family:'Inter',sans-serif;font-size:12px;white-space:nowrap;}
-      .dm-player{display:flex;align-items:center;gap:7px;text-align:left!important;min-width:0;}
+      /* every value left-aligned so it lines up under its column title */
+      .dm-row>span{text-align:left;font-family:'Inter',sans-serif;font-size:12px;white-space:nowrap;}
+      .dm-player{display:flex;align-items:center;gap:7px;min-width:0;}
       .dm-player .pl-name{font-family:'Google Sans Flex',Georgia,serif;font-size:12.5px;font-weight:600;
         overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
       .dm-player .phs{flex:0 0 20px;}
       .dm-head{border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:6px;}
       .dm-head>span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);
-        font-weight:500;cursor:pointer;user-select:none;}
+        font-weight:500;cursor:pointer;user-select:none;text-align:left;}
       .dm-head .dm-player{color:var(--text3);}
       .dm-head .dm-sort.sorted{color:var(--accent);}
       .dm-arw{font-style:normal;font-size:9px;}
-      .dm-rd,.dm-pick{color:var(--text3);text-align:left!important;}
+      .dm-rd,.dm-pick{color:var(--text3);}
       .dm-drafted{color:var(--text2);}
       .dm-finish{font-weight:600;}
       .dm-delta{font-weight:700;}
