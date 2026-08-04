@@ -318,18 +318,18 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
-  // two looping background videos, alternating down the tab list (no darkening overlay)
-  home:      {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0},
+  // one looping background video on every page
+  home:      {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   standings: {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  trades:    {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0},
+  trades:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   draft:     {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  history:   {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0},
+  history:   {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   tenure:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  teams:     {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0},
+  teams:     {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   legacy:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  punishment:{type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0},
+  punishment:{type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   badbeat:   {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  gabe:      {type:'video', src:'/bg/vid/v1.mp4', poster:'/bg/vid/v1.jpg', ov:0},
+  gabe:      {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   marathon:  {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
 };
 function setPageBg(tab){
