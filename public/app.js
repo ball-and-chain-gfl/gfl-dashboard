@@ -561,6 +561,7 @@ function toggleTabDD(open){
   document.documentElement.classList.toggle('nav-lock',show);
   document.body.classList.toggle('nav-lock',show);
   const b=document.getElementById('tab-dd-btn'); if(b) b.classList.toggle('open',show);
+  if(show){ const nv=document.getElementById('floatnav'); if(nv) menu.style.top=Math.round(nv.getBoundingClientRect().bottom+8)+'px'; }
 }
 function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0); }
 document.addEventListener('click',e=>{
