@@ -553,13 +553,27 @@ function buildTabDD(){
     return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
   }).join('');
 }
+let _navLockY=0;
+function navLock(on){
+  const html=document.documentElement, body=document.body;
+  if(on){
+    _navLockY=window.scrollY||window.pageYOffset||0;
+    html.classList.add('nav-lock'); body.classList.add('nav-lock');
+    body.style.position='fixed'; body.style.top=(-_navLockY)+'px';
+    body.style.left='0'; body.style.right='0'; body.style.width='100%';
+  }else{
+    html.classList.remove('nav-lock'); body.classList.remove('nav-lock');
+    body.style.position=''; body.style.top=''; body.style.left=''; body.style.right=''; body.style.width='';
+    window.scrollTo(0,_navLockY);
+  }
+}
 function toggleTabDD(open){
   const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
   const show=(open===undefined)?!menu.classList.contains('show'):!!open;
   if(show) buildTabDD();
   menu.classList.toggle('show',show);
-  document.documentElement.classList.toggle('nav-lock',show);
-  document.body.classList.toggle('nav-lock',show);
+  navLock(show);
+  const scrim=document.getElementById('nav-scrim'); if(scrim) scrim.classList.toggle('show',show);
   const b=document.getElementById('tab-dd-btn'); if(b) b.classList.toggle('open',show);
   if(show){ const nv=document.getElementById('floatnav'); if(nv) menu.style.top=Math.round(nv.getBoundingClientRect().bottom+8)+'px'; }
 }
