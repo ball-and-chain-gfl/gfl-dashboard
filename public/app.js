@@ -1156,7 +1156,7 @@ function renderLineupIQ(){
   </div>`;
 }
 let _liqSort={col:'pct',asc:false};
-function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:(col==='miss')}; renderLineupIQ(); }
+function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:false}; renderLineupIQ(); } // first click = highest first, like every other table
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
 function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?'#E0B67B':'var(--red)'; }
 function renderStandingsTable(){
