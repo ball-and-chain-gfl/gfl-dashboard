@@ -418,6 +418,101 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }
 
+  // ── Lineup IQ: correct sit/start decisions + points left on the bench ────────
+  // For every regular-season week we rebuild that team's optimal lineup from the
+  // players it actually rostered, using the same slot template it started that
+  // week (RB/WR/TE are all FLEX-eligible). A started slot only counts as a
+  // "decision" when the roster held at least one other player eligible for it —
+  // one kicker on the roster is not a choice. The slot is correct when the
+  // player started is part of the optimal lineup. Byes, IR and players who
+  // never took the field are ignored on both sides.
+  if (type === 'lineupiq') {
+    const BENCH = [20, 21, 24];                       // bench / IR / taxi
+    const IR_SLOT = 21;
+    // lineupSlotId -> eligible defaultPositionId list
+    const SLOT_POS = {
+      0:[1], 1:[1], 2:[2], 3:[2,3], 4:[3], 5:[3,4], 6:[4], 7:[1,2,3,4],
+      16:[16], 17:[5], 23:[2,3,4],
+    };
+    const OUT = ['OUT','INJURY_RESERVE','IR','SUSPENSION','PUP','NON_FOOTBALL_INJURY','DOUBTFUL'];
+    try {
+      // regular-season length (playoffs start right after it)
+      let regEnd = 14;
+      try {
+        const sr = await fetch(leagueURL(['mSettings'], { forceLive: true }), { headers });
+        if (sr.ok) {
+          const sd = unwrap(await sr.json());
+          const ss = sd.settings?.scheduleSettings || {};
+          const total = ss.matchupPeriodCount || 17;
+          const poRounds = (ss.playoffMatchupPeriodLength || 1) * Math.ceil(Math.log2(ss.playoffTeamCount || 6));
+          if (total > poRounds) regEnd = total - poRounds;
+        }
+      } catch {}
+      const weekIds = Array.from({ length: regEnd }, (_, i) => i + 1);
+      const weekResults = await Promise.all(weekIds.map(async w => {
+        try {
+          const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
+          if (!r.ok) return null;
+          return { week: w, data: unwrap(await r.json()) };
+        } catch { return null; }
+      }));
+      const teams = {};
+      weekResults.forEach(wr => {
+        if (!wr) return;
+        (wr.data.teams || []).forEach(team => {
+          const entries = team.roster?.entries || [];
+          if (!entries.length) return;
+          const pool = [];        // everyone who could legally have been started
+          const starters = [];    // { slot, player }
+          entries.forEach(e => {
+            const pl = e.playerPoolEntry?.player || {};
+            const wk = (pl.stats || []).find(x => x.statSourceId === 0 && x.scoringPeriodId === wr.week);
+            const played = !!wk;                              // no line => bye / never active
+            const st = String(e.injuryStatus || pl.injuryStatus || '').toUpperCase();
+            const usable = played && e.lineupSlotId !== IR_SLOT && !OUT.includes(st);
+            const p = { pid: e.playerId, pos: pl.defaultPositionId ?? null, pts: wk?.appliedTotal ?? 0, usable };
+            if (!BENCH.includes(e.lineupSlotId)) starters.push({ slot: e.lineupSlotId, p });
+            if (usable) pool.push(p);
+          });
+          if (!starters.length) return;
+          // slot template = exactly what they started, hardest slots filled first
+          const slots = starters.map(s => s.slot)
+            .sort((a, b) => (SLOT_POS[a]?.length || 9) - (SLOT_POS[b]?.length || 9));
+          const remaining = pool.slice().sort((a, b) => b.pts - a.pts);
+          const taken = new Set();
+          const optimal = new Set();
+          let optPts = 0;
+          slots.forEach(slot => {
+            const ok = SLOT_POS[slot];
+            const pick = remaining.find(p => !taken.has(p.pid) && (!ok || ok.includes(p.pos)));
+            if (!pick) return;
+            taken.add(pick.pid); optimal.add(pick.pid); optPts += pick.pts;
+          });
+          let actPts = 0, decisions = 0, correct = 0;
+          starters.forEach(({ slot, p }) => {
+            actPts += p.pts;
+            const ok = SLOT_POS[slot];
+            // was there any other eligible body on the roster for this slot?
+            const alt = pool.some(x => x.pid !== p.pid && (!ok || ok.includes(x.pos)));
+            if (!alt) return;
+            decisions++;
+            if (optimal.has(p.pid)) correct++;
+          });
+          const bucket = teams[team.id] || (teams[team.id] = { weeks: 0, decisions: 0, correct: 0, missed: 0 });
+          bucket.weeks++;
+          bucket.decisions += decisions;
+          bucket.correct += correct;
+          bucket.missed += Math.max(optPts - actPts, 0);
+        });
+      });
+      Object.values(teams).forEach(t => { t.missed = Math.round(t.missed * 10) / 10; });
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, regEnd, teams });
+    } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
+  }
+
   // ── Draft results ─────────────────────────────────────────────────────────────
   if (type === 'draft') {
     try {
