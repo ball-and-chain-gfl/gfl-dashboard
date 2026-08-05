@@ -586,7 +586,13 @@ function toggleTabDD(open){
   navLock(show);
   const scrim=document.getElementById('nav-scrim'); if(scrim) scrim.classList.toggle('show',show);
   const b=document.getElementById('tab-dd-btn'); if(b) b.classList.toggle('open',show);
-  if(show){ const nv=document.getElementById('floatnav'); if(nv) menu.style.top=Math.round(nv.getBoundingClientRect().bottom+8)+'px'; }
+  if(show){
+    const place=()=>{ const nv=document.getElementById('floatnav');
+      if(nv) menu.style.top=Math.round(nv.getBoundingClientRect().bottom+14)+'px';
+      /* only allow an inner scroll when the list genuinely doesn't fit */
+      menu.style.overflowY=(menu.scrollHeight>menu.clientHeight+1)?'auto':'hidden'; };
+    place(); requestAnimationFrame(place);
+  }
 }
 function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0); }
 document.addEventListener('click',e=>{
