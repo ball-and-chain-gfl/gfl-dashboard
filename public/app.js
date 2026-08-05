@@ -3259,7 +3259,18 @@ let _sbStake=100;
 let _sbCache=null;
 let _sbSlipOpen=false;
 
-function sbSeason(){ return Number(ALL_SEASONS[ALL_SEASONS.length-1])+1; }
+// The futures season is the one being played next: if the newest season has a
+// schedule but nothing played yet, that's it — otherwise it's the year after the
+// last completed season.
+function sbSeason(){
+  for(let i=ALL_SEASONS.length-1;i>=0;i--){
+    const y=ALL_SEASONS[i], meta=_seasonMeta[y];
+    if(!meta||!(meta.schedule||[]).length) continue;
+    const played=(meta.schedule||[]).some(m=>m.home&&m.away&&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+    return played?Number(y)+1:Number(y);
+  }
+  return Number(ALL_SEASONS[ALL_SEASONS.length-1])+1;
+}
 function amFmt(o){ return o==null?'—':(o>0?'+'+o:''+o); }
 function amFromProb(p){
   if(!(p>0&&p<1)) return null;
