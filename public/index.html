@@ -432,8 +432,8 @@
     /* champion gold · conference blue · coach of the year purple · engagement green
        · punishment orange · most disappointing red · comeback pink */
     .honor-tile.hk-champ{--hk:224,182,123;}
-    .honor-tile.hk-conf{--hk:96,165,250;}
-    .honor-tile.hk-coy{--hk:192,132,252;}
+    .honor-tile.hk-conf{--hk:192,132,252;}
+    .honor-tile.hk-coy{--hk:96,165,250;}
     .honor-tile.hk-commitment{--hk:74,222,128;}
     .honor-tile.hk-comeback{--hk:244,114,182;}
     .honor-tile.hk-punishment{--hk:255,146,61;}
@@ -608,7 +608,7 @@
     .sup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
     .sup-row{display:flex;flex-direction:column;gap:10px;align-items:stretch;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(160deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012));}
     .sup-award{font-family:'Google Sans Flex',Georgia,serif;font-weight:600;font-size:16px;display:flex;align-items:center;gap:9px;padding-bottom:9px;border-bottom:1px solid var(--border);}
-    .sup-award.hk-coy{color:#c084fc;}
+    .sup-award.hk-coy{color:#60a5fa;}
     .sup-award.hk-commitment{color:#4ade80;}
     .sup-award.hk-comeback{color:#2dd4bf;}
     .sup-award.hk-punishment{color:#ff923d;}
@@ -1147,7 +1147,7 @@
     .lh-col+.lh-col{margin-top:0;}
     #lh-sups .lh-col{margin-bottom:20px;}
     /* all-time records */
-    .lh-recs{display:flex;flex-direction:column;}
+    .lh-recs{flex-direction:column;}
     .lh-rec{display:grid;grid-template-columns:26px minmax(0,1fr) 74px 62px 62px 62px 66px;align-items:center;gap:10px;
       padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.06);}
     .lh-rec:last-child{border-bottom:none;}
@@ -1161,12 +1161,27 @@
     .lh-pf{color:var(--text2);}
     .lh-pa{color:var(--text3);}
     .lh-yrs{color:var(--text3);}
+    /* all-time records: 4-up card grid on desktop */
+    .lh-reccards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+    .lh-rcard{display:flex;gap:10px;align-items:flex-start;background:rgba(0,0,0,0.2);border:1px solid var(--border);
+      border-radius:6px;padding:12px 13px;min-width:0;-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);}
+    html[data-theme="light"] .lh-rcard{background:rgba(0,0,0,0.03);}
+    .lh-rcard-rk{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--accent);min-width:14px;line-height:1.5;}
+    .lh-rcard-body{min-width:0;flex:1;}
+    .lh-rcard-top{display:flex;align-items:center;gap:8px;min-width:0;}
+    .lh-rcard-nm{font-family:'Google Sans Flex',Georgia,serif;font-size:13.5px;font-weight:600;line-height:1.2;min-width:0;}
+    .lh-rcard-rec{display:flex;align-items:baseline;gap:8px;font-family:'Inter',sans-serif;font-size:17px;font-weight:700;margin-top:7px;}
+    .lh-rcard-pct{font-size:14px;font-weight:700;}
+    .lh-rcard-sub{font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);margin-top:3px;letter-spacing:.2px;}
+    .lh-recs{display:none;}
+    @media(max-width:1180px){.lh-reccards{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:768px){.lh-reccards{display:none;}.lh-recs{display:flex;}}
     /* superlatives */
     .lh-sup-rows{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
     .lh-sup-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
       padding:8px 2px;border-bottom:1px solid rgba(255,255,255,0.055);min-width:0;}
     .lh-sup-award{font-family:'Google Sans Flex',Georgia,serif;font-weight:600;font-size:13.5px;white-space:nowrap;}
-    .lh-sup-award.hk-coy{color:#c084fc;} .lh-sup-award.hk-commitment{color:#4ade80;}
+    .lh-sup-award.hk-coy{color:#60a5fa;} .lh-sup-award.hk-commitment{color:#4ade80;}
     .lh-sup-award.hk-comeback{color:#f472b6;} .lh-sup-award.hk-punishment{color:#ff923d;}
     .lh-sup-award.hk-disappoint{color:#ff5f5f;}
     .lh-sup-wins{display:flex;flex-wrap:wrap;gap:5px 12px;justify-content:flex-end;min-width:0;}

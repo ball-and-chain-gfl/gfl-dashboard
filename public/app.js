@@ -2114,7 +2114,16 @@ function renderLeagueHistory(){
     const pcts=recs.map(r=>r.pct);
     const mn=Math.min(...pcts), mx=Math.max(...pcts);
     const col=v=>{ if(mx===mn) return gradeColor('A'); return gradeColor(PPG_GRADES[Math.round((v-mn)/(mx-mn)*(PPG_GRADES.length-1))]); };
-    return `<div class="lh-recs">
+    const cards=`<div class="lh-reccards">${recs.map(({fr,at,pct},i)=>`
+      <div class="lh-rcard">
+        <span class="lh-rcard-rk">${i+1}</span>
+        <div class="lh-rcard-body">
+          <div class="lh-rcard-top">${avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),24,7)}<span class="lh-rcard-nm tlink" data-tid="${tidOf(fr.owner)}">${fr.name}</span></div>
+          <div class="lh-rcard-rec">${at.w}–${at.l}${at.t?`–${at.t}`:''}<span class="lh-rcard-pct" style="color:${col(pct)}">${(pct*100).toFixed(1)}%</span></div>
+          <div class="lh-rcard-sub">${at.pf.toFixed(0)} PF · ${at.pa.toFixed(0)} PA · ${at.seasons} season${at.seasons!==1?'s':''}</div>
+        </div>
+      </div>`).join('')}</div>`;
+    return cards+`<div class="lh-recs">
       <div class="lh-rec lh-rec-head"><span>#</span><span>Team</span><span class="r">Record</span><span class="r">Win%</span><span class="r">PF</span><span class="r">PA</span><span class="r lh-yrs">Seasons</span></div>
       ${recs.map(({fr,at,pct},i)=>`<div class="lh-rec">
         <span class="lh-rk">${i+1}</span>
