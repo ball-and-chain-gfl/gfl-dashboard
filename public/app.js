@@ -2608,7 +2608,7 @@ function renderBadBeat(){
       <thead><tr>
         <th data-nosort>#</th><th>Team</th>
         <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
-        <th class="right">Closest&nbsp;L</th><th class="right">Median&nbsp;L</th><th class="right">L&lt;7</th><th class="right">%&nbsp;Over&nbsp;Avg</th>
+        <th class="right">Closest&nbsp;L</th><th class="right">Median&nbsp;L</th><th class="right">L&lt;7</th><th class="right" title="Share of losses where they still outscored the week's league average">Over Avg</th>
       </tr></thead><tbody>${rows}</tbody></table></div>
     <div style="font-size:11.5px;color:var(--text3);margin:11px 2px 0;line-height:1.5">Regular season through week ${regEndOf(getSeason())}. Closest&nbsp;L / Median&nbsp;L are margins of defeat in points; L&lt;7 counts losses by fewer than 7. % Over Avg = the share of a team's losses where it still outscored the week's league average &mdash; the purest bad-beat signal.</div>`;
   badBeatCols();
