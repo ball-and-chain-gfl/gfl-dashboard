@@ -468,7 +468,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -2596,13 +2596,31 @@ function renderBadBeat(){
     </tr>`;
   }).join('');
   el.innerHTML=`<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin:0 2px 14px">${intro}</div>
-    <div class="tscroll"><table class="min720 srt" data-mhide="Closest L,Median L">
+    <div class="tscroll"><table class="min720 srt bb-tbl" data-mhide="Closest L,Median L">
       <thead><tr>
         <th data-nosort>#</th><th>Team</th>
         <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
         <th class="right">Closest&nbsp;L</th><th class="right">Median&nbsp;L</th><th class="right">L&lt;7</th><th class="right">%&nbsp;Over&nbsp;Avg</th>
       </tr></thead><tbody>${rows}</tbody></table></div>
     <div style="font-size:11.5px;color:var(--text3);margin:11px 2px 0;line-height:1.5">Regular season through week ${regEndOf(getSeason())}. Closest&nbsp;L / Median&nbsp;L are margins of defeat in points; L&lt;7 counts losses by fewer than 7. % Over Avg = the share of a team's losses where it still outscored the week's league average &mdash; the purest bad-beat signal.</div>`;
+  badBeatCols();
+}
+// Bad Beat table: pull the rank tight to the team and leave exactly 8px between
+// the longest team name and the start of the Score column.
+function badBeatCols(){
+  const t=document.querySelector('#badbeat-body table.bb-tbl'); if(!t) return;
+  const body=t.tBodies[0]; if(!body||!body.rows.length) return;
+  t.style.setProperty('--bbteam','460px');          // unconstrain, then measure
+  t.style.setProperty('--bbrank','60px');
+  let mx=0;
+  body.querySelectorAll('td:nth-child(2) .team-cell').forEach(c=>{const w=c.getBoundingClientRect().width; if(w>mx) mx=w;});
+  let rk=0;
+  body.querySelectorAll('td:nth-child(1) .rank').forEach(c=>{const w=c.getBoundingClientRect().width; if(w>rk) rk=w;});
+  const c2=body.rows[0].cells[1], c1=body.rows[0].cells[0];
+  const padL2=parseFloat(getComputedStyle(c2).paddingLeft)||0;
+  const padL1=parseFloat(getComputedStyle(c1).paddingLeft)||0;
+  if(mx>0) t.style.setProperty('--bbteam',Math.ceil(padL2+mx+8)+'px');
+  if(rk>0) t.style.setProperty('--bbrank',Math.ceil(padL1+rk+6)+'px');
 }
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 let _brCache={};

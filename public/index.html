@@ -1276,6 +1276,11 @@
     /* Honor/award tiles inside the profile hero chip row */
     .prof-chips .honor-tile{min-width:auto;}
 
+    /* Bad Beat: rank hugs the team, 8px from the longest name to the Score column */
+    #page-badbeat .bb-tbl{table-layout:fixed;}
+    #page-badbeat .bb-tbl th:nth-child(1),#page-badbeat .bb-tbl td:nth-child(1){width:var(--bbrank,34px);padding-right:0!important;}
+    #page-badbeat .bb-tbl th:nth-child(2),#page-badbeat .bb-tbl td:nth-child(2){width:var(--bbteam,200px);}
+    #page-badbeat .bb-tbl .team-cell{white-space:nowrap;}
     .bb-rank{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:6px;background:var(--bg3);color:var(--text2);font-weight:700;font-size:12px;}
     .badbeat-body table td.right,.badbeat-body table th.right{white-space:nowrap;}
 
@@ -1430,7 +1435,7 @@
       #page-history table.mtbl td:first-child{min-width:132px;padding-right:10px!important;}
       /* profile "All-Time vs Each Team" + Bad Beat: keep every column readable, don't let the
          sticky name column swallow the row */
-        #page-teams table.mtbl td:first-child,#page-badbeat table.mtbl td:nth-child(2){max-width:150px;}
+        #page-teams table.mtbl td:first-child{max-width:150px;}
       #page-teams table.mtbl td:first-child .fr-name,#page-badbeat table.mtbl td:nth-child(2) .fr-name{
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block;max-width:104px;vertical-align:middle;}
       #page-teams table.mtbl td,#page-badbeat table.mtbl td{padding:6px 9px!important;}
