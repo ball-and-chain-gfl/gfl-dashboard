@@ -2963,7 +2963,10 @@ function profileOverviewHTML(owner){
     // ranked against the rest of the league
     const avgBy={};
     ((dc&&dc.teamDrafts)||[]).forEach(d=>{ (avgBy[d.owner]||(avgBy[d.owner]=[])).push(d.adj); });
-    const avgs=Object.entries(avgBy).map(([o,v])=>({owner:o,avg:v.reduce((a,b)=>a+b,0)/v.length}));
+    // rank only against the 12 franchises currently in the league (teamDrafts also
+    // carries owners who have since left)
+    const avgs=Object.entries(avgBy).map(([o,v])=>({owner:o,avg:v.reduce((a,b)=>a+b,0)/v.length}))
+      .filter(x=>_franchises.some(f=>f.owner===x.owner));
     const mine=avgs.find(x=>x.owner===owner);
     let allRow='';
     if(mine&&avgs.length>1){
