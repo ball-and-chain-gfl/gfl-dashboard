@@ -1442,28 +1442,28 @@ function renderTenureTable(){
 
   const dash='<span style="color:var(--text3)">—</span>';
   const shown=players.slice(0,50);
-  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640 srt" data-mhide="Rostered ${yr},Rostered all-time">
+  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640 srt tenure-tbl" data-mhide="All Rostered,${yr} Rostered">
     <thead>
       <tr>
         <th>Player</th>
-        <th class="right" title="Weeks in the starting lineup">Started ${yr}</th>
-        <th class="right" title="Weeks on the roster (starter or bench)">Rostered ${yr}</th>
-        <th class="right">Pts ${yr}</th>
-        <th class="right" title="Weeks in the starting lineup">Started all-time</th>
-        <th class="right" title="Weeks on the roster (starter or bench)">Rostered all-time</th>
-        <th class="right">Pts all-time</th>
-        <th class="right" title="Playoff games won while started for this team">Playoff W</th>
+        <th class="right" title="Weeks in the starting lineup, every season">All Starts</th>
+        <th class="right" title="Weeks on the roster (starter or bench), every season">All Rostered</th>
+        <th class="right" title="Points scored for GFL teams, every season">All PTS</th>
+        <th class="right" title="Weeks in the starting lineup">${yr} Starts</th>
+        <th class="right" title="Weeks on the roster (starter or bench)">${yr} Rostered</th>
+        <th class="right" title="Points scored in ${yr}">${yr} PTS</th>
+        <th class="right" title="Playoff games won while started for this team">Playoff Wins</th>
       </tr>
     </thead>
     <tbody>${shown.map((p,i)=>`
       <tr>
         <td><span class="pname"><span class="rank" style="margin-right:4px">${i+1}</span>${playerImg(p.pid,22,p.n)}<span class="fr-name">${p.n}</span></span></td>
-        <td class="right"><strong>${p.sYr||dash}</strong></td>
-        <td class="right" style="color:var(--text2)">${p.wYr||dash}</td>
-        <td class="right" style="color:var(--text2)">${p.wYr?p.pYr.toFixed(1):dash}</td>
         <td class="right"><strong>${p.sAll}</strong></td>
         <td class="right" style="color:var(--text2)">${p.wAll}</td>
         <td class="right pf">${p.pAll.toFixed(1)}</td>
+        <td class="right"><strong>${p.sYr||dash}</strong></td>
+        <td class="right" style="color:var(--text2)">${p.wYr||dash}</td>
+        <td class="right" style="color:var(--text2)">${p.wYr?p.pYr.toFixed(1):dash}</td>
         <td class="right" style="color:var(--accent);font-weight:600">${p.pwAll||dash}</td>
       </tr>`).join('')}</tbody>
   </table></div>${players.length>50?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 50 of ${players.length} — use search to find others.</div>`:''}

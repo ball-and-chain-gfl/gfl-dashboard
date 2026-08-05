@@ -1091,6 +1091,12 @@
     .trades-layout{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:22px;align-items:start;}
     .trades-filters{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:14px;}
     .trades-filters .standings-filters{margin-bottom:10px;}
+    /* ── Player Tenure: alternate column shading so columns read apart ── */
+    .tenure-tbl th:nth-child(even),.tenure-tbl td:nth-child(even){background:rgba(255,255,255,0.035);}
+    .tenure-tbl th:nth-child(odd):not(:first-child),.tenure-tbl td:nth-child(odd):not(:first-child){background:rgba(255,255,255,0.012);}
+    .tenure-tbl .pname .fr-name,.tenure-tbl .pname{white-space:nowrap;}
+    html[data-theme="light"] .tenure-tbl th:nth-child(even),html[data-theme="light"] .tenure-tbl td:nth-child(even){background:rgba(0,0,0,0.035);}
+    html[data-theme="light"] .tenure-tbl th:nth-child(odd):not(:first-child),html[data-theme="light"] .tenure-tbl td:nth-child(odd):not(:first-child){background:rgba(0,0,0,0.012);}
     /* ── Lineup IQ panel (Standings & Stats sub-tab) ── */
     .liq-list{display:flex;flex-direction:column;}
     .liq-row{display:grid;grid-template-columns:26px minmax(0,1fr) 82px minmax(120px,1.1fr) 92px;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.06);}
@@ -1323,7 +1329,12 @@
       #page-tenure table.mtbl .pname{gap:5px;}
       #page-tenure table.mtbl .pname .rank{margin-right:0!important;}
       #page-tenure table.mtbl .phs,#page-tenure table.mtbl .pname img{width:20px!important;height:20px!important;}
-      #page-tenure table.mtbl td .fr-name{font-size:12px;}
+      #page-tenure table.mtbl td .fr-name{font-size:12px;white-space:nowrap;}
+      /* every data column the same width, player column sized to the longest name */
+      #page-tenure table.tenure-tbl{table-layout:fixed;width:auto;}
+      #page-tenure table.tenure-tbl th:first-child,#page-tenure table.tenure-tbl td:first-child{width:152px;}
+      #page-tenure table.tenure-tbl th:not(:first-child),#page-tenure table.tenure-tbl td:not(:first-child){width:56px;}
+      #page-tenure table.tenure-tbl .pname{white-space:nowrap;}
     }
 
     /* ── Profile: Draft Grades by Year ───────────────────────────────────── */
