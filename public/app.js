@@ -1124,7 +1124,9 @@ function loadLineupIQ(){
     .then(d=>{ _liq[season]=(d&&d.teams)||{}; })
     .catch(()=>{ _liq[season]={}; })
     .finally(()=>{ _liqLoading[season]=false;
-      if(_activeTab==='standings'&&getSeason()===season) renderStandingsTable(); });
+      // repaint whenever the table is on the page — the user may be on another
+      // tab while this resolves, and it won't re-render on its own later
+      if(getSeason()===season&&document.getElementById('standings-tbody')) renderStandingsTable(); });
 }
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
 function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?'#E0B67B':'var(--red)'; }
