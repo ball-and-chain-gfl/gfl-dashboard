@@ -2729,10 +2729,8 @@ async function renderProfile(){
         <div class="prof-badge">${logoImg(id,'big4-logo')}</div>
         <div class="prof-headline">
           <div class="prof-name">${t.name}</div>
-          <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''}${conf?` · ${conf} Conference`:''}${seed?` · #${seed} seed in ${getSeason()}`:''}</div>
+          <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''}${conf?` · ${conf} Conference`:''}</div>
           <div class="prof-chips">
-            ${chip('All-Time',`${at.w}–${at.l}`,'')}
-            ${chip('Win %',`${winpct.toFixed(1)}%`,winpct>=50?'var(--green)':'var(--red)')}
             ${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}
           </div>
         </div>

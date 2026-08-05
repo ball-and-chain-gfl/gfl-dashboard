@@ -4,7 +4,7 @@
 // app from getting stuck on an old cached version.
 // STATIC DATA (/data/*.json): stale-while-revalidate (fast; historical, rarely changes).
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v121';
+const CACHE = 'gfl-v122';
 const APP_SHELL = [
   '/', '/index.html', '/app.js', '/config.js',
   '/manifest.webmanifest', '/logo.png',

@@ -466,7 +466,19 @@
     .prof-stat-s{display:none;}
     html[data-theme="light"] .prof-stat{border-bottom-color:rgba(0,0,0,0.07);}
     
-    @media(max-width:560px){.prof-name{font-size:24px;}.prof-banner{padding:20px 16px;}.prof-banner-wm{width:150px;height:150px;}}
+    @media(max-width:768px){
+      /* hero on phones: logo + name on one line, honours wrap underneath */
+      .prof-banner{padding:16px 18px;margin-bottom:16px;border-radius:6px;}
+      .prof-banner-row{gap:12px;align-items:center;}
+      .prof-badge .tm-avatar{width:46px!important;height:46px!important;flex:0 0 46px!important;border-radius:7px!important;}
+      .prof-name{font-size:21px;line-height:1.1;}
+      .prof-sub{font-size:12px;margin-top:3px;}
+      .prof-banner-wm{width:120px;height:120px;right:-22px;opacity:0.1;}
+      .prof-chips{gap:7px;margin-top:12px;}
+      .prof-chips .honor-tile{min-width:0;padding:6px 9px 7px;border-radius:4px 8px 3px 3px;}
+      .prof-chips .honor-lb{font-size:9.5px!important;}
+      .prof-chips .honor-sub{font-size:9px!important;}
+    }
 
     /* GABE'S GREATNESS */
     .gabe-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start;}
