@@ -2610,17 +2610,20 @@ function renderBadBeat(){
 function badBeatCols(){
   const t=document.querySelector('#badbeat-body table.bb-tbl'); if(!t) return;
   const body=t.tBodies[0]; if(!body||!body.rows.length) return;
-  t.style.setProperty('--bbteam','460px');          // unconstrain, then measure
-  t.style.setProperty('--bbrank','60px');
+  // measure shrink-to-fit content, not the stretched flex container
+  t.classList.add('bb-measure');
   let mx=0;
   body.querySelectorAll('td:nth-child(2) .team-cell').forEach(c=>{const w=c.getBoundingClientRect().width; if(w>mx) mx=w;});
+  const th=t.tHead&&t.tHead.rows[0].cells[1];
+  if(th){ const s2=th.querySelector('span'); const hw=(s2?s2.getBoundingClientRect().width:0); if(hw>mx) mx=hw; }
   let rk=0;
   body.querySelectorAll('td:nth-child(1) .rank').forEach(c=>{const w=c.getBoundingClientRect().width; if(w>rk) rk=w;});
-  const c2=body.rows[0].cells[1], c1=body.rows[0].cells[0];
-  const padL2=parseFloat(getComputedStyle(c2).paddingLeft)||0;
+  t.classList.remove('bb-measure');
+  const c1=body.rows[0].cells[0], c2=body.rows[0].cells[1];
   const padL1=parseFloat(getComputedStyle(c1).paddingLeft)||0;
+  const padL2=parseFloat(getComputedStyle(c2).paddingLeft)||0;
+  if(rk>0) t.style.setProperty('--bbrank',Math.ceil(padL1+rk)+'px');
   if(mx>0) t.style.setProperty('--bbteam',Math.ceil(padL2+mx+8)+'px');
-  if(rk>0) t.style.setProperty('--bbrank',Math.ceil(padL1+rk+6)+'px');
 }
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 let _brCache={};
