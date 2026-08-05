@@ -2699,13 +2699,15 @@ function bracketOf(season){
 }
 function franchiseAllTime(owner){
   let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0,hi=null,lo=null;const seasons=new Set(),played=new Set();
+  let top3=0,over150=0,under80=0;const finishes=[];
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
     const owners=meta.owners||{},teams=meta.teams||{};
     const tid=Object.keys(owners).find(id=>owners[id]===owner);
     if(tid==null) return;
     seasons.add(s);
-    const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;if(ti.rank){best=Math.min(best,ti.rank);worst=Math.max(worst,ti.rank);}}
+    const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;
+      if(ti.rank){best=Math.min(best,ti.rank);worst=Math.max(worst,ti.rank);finishes.push(ti.rank);if(ti.rank<=3)top3++;}}
     // playoff appearances and wins come from the real bracket, not from seeds
     const br=bracketOf(s), myId=Number(tid);
     if(br){
@@ -2718,11 +2720,14 @@ function franchiseAllTime(owner){
     }
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
-      if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
-      else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
+      if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hp>150)over150++;if(hp<80)under80++;if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
+      else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(ap>150)over150++;if(ap<80)under80++;if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
     });
   });
-  return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,playoffWins:poW,playoffApps:poApp,best:best===99?null:best,worst:worst||null,hi,lo,confs:(_hardware[owner]?.confs)||0};
+  const avgFinish=finishes.length?finishes.reduce((a,b)=>a+b,0)/finishes.length:null;
+  return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,playoffWins:poW,playoffApps:poApp,
+    best:best===99?null:best,worst:worst||null,hi,lo,top3,avgFinish,over150,under80,
+    confs:(_hardware[owner]?.confs)||0};
 }
 function openTeamProfile(teamId){
   _profileTeam=String(teamId);
@@ -2952,11 +2957,15 @@ async function renderProfile(){
       ${stat('Points Against',at.pa.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pa/a.playedSeasons:null),at.playedSeasons?at.pa/at.playedSeasons:null,false))}
       ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—',scaleCol(atVals(a=>a.hi?a.hi.pts:null),at.hi?at.hi.pts:null,true))}
       ${stat('Lowest Score',at.lo?at.lo.pts.toFixed(1):'—',scaleCol(atVals(a=>a.lo?a.lo.pts:null),at.lo?at.lo.pts:null,true))}
+      ${stat('Scores Over 150',at.over150||0,scaleCol(atVals(a=>a.over150||0),at.over150||0,true))}
+      ${stat('Scores Under 80',at.under80||0,scaleCol(atVals(a=>a.under80||0),at.under80||0,false))}
       ${stat('Championships',at.rings,scaleCol(atVals(a=>a.rings),at.rings,true))}
+      ${stat('Top-3 Finishes',at.top3||0,scaleCol(atVals(a=>a.top3||0),at.top3||0,true))}
       ${stat('Playoff Apps',at.playoffApps||0,scaleCol(atVals(a=>a.playoffApps||0),at.playoffApps||0,true))}
       ${stat('Playoff Wins',at.playoffWins||0,scaleCol(atVals(a=>a.playoffWins||0),at.playoffWins||0,true))}
       ${stat('Best Finish',at.best?`#${at.best}`:'—',scaleCol(atVals(a=>a.best),at.best,false))}
       ${stat('Worst Finish',at.worst?`#${at.worst}`:'—',scaleCol(atVals(a=>a.worst),at.worst,false))}
+      ${stat('Avg Finish',at.avgFinish!=null?`#${at.avgFinish.toFixed(1)}`:'—',scaleCol(atVals(a=>a.avgFinish),at.avgFinish,false))}
     </div>
     </div>
     </div>
