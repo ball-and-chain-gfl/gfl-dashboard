@@ -2629,7 +2629,7 @@ function lineupHTML(owner){
   if(mode==='ppg'){
     const g=ppgGradeFor(owner); const gc=gradeColor(g.grade);
     gradeChip=`<div class="lg-chip">
-      <div class="lg-chip-txt"><span class="lg-label">Combined PPG</span><span class="lg-score">${g.score.toFixed(1)}</span></div>
+      <div class="lg-chip-txt"><span class="lg-label">All Time GFL Team Grade</span><span class="lg-score">${g.score.toFixed(1)}</span></div>
       <div class="lg-grade" style="color:${gc};border-color:${gc}">${g.grade}</div>
     </div>`;
     gradeNote=`<div class="lg-note">Sum of all 9 starters' points-per-start.${g.n?` Graded across all ${g.n} teams — ranked #${g.rank} of ${g.n}.`:''}</div>`;
@@ -2638,6 +2638,36 @@ function lineupHTML(owner){
     ? 'Highest points-per-start at each spot (min. 5 starts). FLEX = best remaining RB/WR/TE.'
     : 'Most-started player at each spot, all-time (games started → weeks rostered → points). FLEX = best remaining RB/WR/TE.';
   return `<div class="lineup-topbar">${tabsOnly}${gradeChip}</div>`+body+gradeNote+`<div style="padding:8px 2px 0;font-size:12px;color:var(--text3)">${note}</div>`;
+}
+// All-Time vs Each Team on phones: the same one-line list the Matchup History
+// tab uses, so the section never needs a sideways scroll.
+function profOppMobileHTML(rows){
+  const abbr=fr=>{const t=_teams.find(x=>_ownerMap[x.id]===fr.owner); return (t&&t.abbrev)||teamInitials(fr.name);};
+  const cols=['Team','W','L','Win%'];
+  const head=`<div class="om-row om-head">${cols.map((c,i)=>`<span class="${i===0?'om-team ':''}om-sort" data-col="${i}" onclick="sortOM(this,${i})">${c}<i class="om-arw"></i></span>`).join('')}</div>`;
+  const body=rows.map(r=>`<div class="om-row">
+      <span class="om-team" data-v="${abbr(r.opp)}">${franchiseAvatar(r.opp,22,6)}<span class="om-ab">${abbr(r.opp)}</span></span>
+      <span data-v="${r.w}" style="color:var(--green);font-weight:700">${r.w}</span>
+      <span data-v="${r.l}" style="color:var(--red)">${r.l}</span>
+      <span data-v="${r.pct}" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</span>
+    </div>`).join('');
+  return `<div class="om-list">${head}${body}</div>`;
+}
+let _omSort={col:null,asc:false};
+function sortOM(el,col){
+  const list=el.closest('.om-list'); if(!list) return;
+  const asc=(_omSort.col===col)?!_omSort.asc:(col===0);
+  _omSort={col,asc};
+  const rows=[...list.querySelectorAll('.om-row:not(.om-head)')];
+  const val=r=>{const c=r.children[col];const v=c?.dataset.v??c?.textContent??'';const n=parseFloat(v);return (v!==''&&!isNaN(n))?n:String(v).toLowerCase();};
+  rows.sort((x,y)=>{const p=val(x),q=val(y);
+    if(typeof p==='number'&&typeof q==='number') return asc?p-q:q-p;
+    return asc?String(p).localeCompare(String(q)):String(q).localeCompare(String(p));});
+  rows.forEach(r=>list.appendChild(r));
+  list.querySelectorAll('.om-head .om-sort').forEach((sp,i)=>{
+    sp.classList.toggle('sorted',i===col);
+    const a=sp.querySelector('.om-arw'); if(a) a.textContent=(i===col)?(asc?' \u2191':' \u2193'):'';
+  });
 }
 function profileDraftsHTML(owner){
   const dc=_draftAllCache;
@@ -2743,8 +2773,9 @@ async function renderProfile(){
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>Draft Grades by Year</div>
           <div id="prof-drafts">${profileDraftsHTML(owner)}</div>
         </div>
-        ${oppRows.length?`<div class="prof-col panel">
+        ${oppRows.length?`<div class="prof-col panel prof-opp">
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
+          ${profOppMobileHTML(oppRows)}
           <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
           <tbody>${oppRows.map(r=>`<tr>
             <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>

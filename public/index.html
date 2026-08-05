@@ -1353,6 +1353,25 @@
     }
 
     /* ── Matchup History: mobile-only no-scroll list (desktop keeps the table) ── */
+    .om-list{display:none;}
+    @media(max-width:768px){
+      /* All-Time vs Each Team: one-line rows, no sideways scroll */
+      .om-list{display:block;}
+      .prof-opp .tscroll{display:none!important;}
+      .om-row{display:grid;grid-template-columns:minmax(0,1fr) 30px 30px 48px;align-items:center;gap:8px;
+        padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+      .om-row:last-child{border-bottom:none;}
+      .om-row>span{text-align:right;font-family:'Inter',sans-serif;font-size:12px;white-space:nowrap;}
+      .om-team{display:flex;align-items:center;gap:7px;text-align:left!important;min-width:0;}
+      .om-ab{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.4px;}
+      .om-head{border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:6px;}
+      .om-head>span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:500;cursor:pointer;user-select:none;}
+      .om-head .om-sort.sorted{color:var(--accent)!important;}
+      .om-arw{font-style:normal;font-size:9px;}
+      /* the long grade label wraps instead of squeezing the tabs */
+      .lg-chip-txt{max-width:120px;}
+      .lg-chip .lg-label{white-space:normal;text-align:right;line-height:1.2;}
+    }
     .hm-list{display:none;}
     @media(max-width:768px){
       .hm-list{display:block;}
