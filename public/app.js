@@ -57,8 +57,8 @@ const ALL_SEASONS=['2022','2023','2024','2025'];
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
-const TAB_COLORS={home:'#E0B67B',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',standings:'Standings & Stats',trades:'Trades',draft:'Draft',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
+const TAB_COLORS={home:'#E0B67B',book:'#3fd07a',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
+const TAB_LABELS={home:'Home',book:'Sportsbook',standings:'Standings & Stats',trades:'Trades',draft:'Draft',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -328,6 +328,7 @@ function allTimeH2H(idA,idB){
 const PAGE_BG={
   // one looping background video on every page
   home:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  book:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   standings: {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   trades:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   draft:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
@@ -492,6 +493,7 @@ function switchTab(name){
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
+  if(name==='book') renderBook();
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
     // switchTab clears .active from every .tab-btn on the page
@@ -3022,6 +3024,362 @@ async function renderProfile(){
     }).catch(()=>{});
   }
 }
+// ── SPORTSBOOK ───────────────────────────────────────────────────────────────
+// Play-money futures board. Every line is derived from this league's own
+// history: recency-weighted record and scoring, playoff results, top-3 rate,
+// rings, coaching metric, scoring blow-ups and duds. Probabilities are turned
+// into American prices with a book-style hold, so the field always adds to more
+// than 100% exactly like a real sportsbook.
+let _sbView='futures';       // futures | props | awards | achieve | team
+let _sbTeamSel=null;         // owner for the By Team view
+let _slip=[];                // [{k,mk,mkLabel,pick,pickLabel,odds}]
+let _sbStake=100;
+let _sbCache=null;
+let _sbSlipOpen=false;
+
+function sbSeason(){ return Number(ALL_SEASONS[ALL_SEASONS.length-1])+1; }
+function amFmt(o){ return o==null?'—':(o>0?'+'+o:''+o); }
+function amFromProb(p){
+  if(!(p>0&&p<1)) return null;
+  if(p>=0.5){ const v=100*p/(1-p); return -(v>=200?Math.round(v/10)*10:Math.round(v/5)*5); }
+  const v=100*(1-p)/p;
+  return v>=400?Math.round(v/50)*50:v>=200?Math.round(v/25)*25:v>=140?Math.round(v/10)*10:Math.round(v/5)*5;
+}
+function amToDec(o){ return o>0?1+o/100:1+100/Math.abs(o); }
+function probFromAm(o){ return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100); }
+function sbZ(arr){
+  const m=arr.reduce((a,b)=>a+b,0)/(arr.length||1);
+  const sd=Math.sqrt(arr.reduce((a,b)=>a+(b-m)*(b-m),0)/(arr.length||1))||1;
+  return arr.map(v=>(v-m)/sd);
+}
+function sbSoftmax(vals,k){
+  const mx=Math.max(...vals), e=vals.map(v=>Math.exp((v-mx)*k)), s=e.reduce((a,b)=>a+b,0);
+  return e.map(v=>v/s);
+}
+// per-season regular-season splits for one franchise
+function sbSplits(owner){
+  const out=[];
+  ALL_SEASONS.forEach(s=>{
+    const meta=_seasonMeta[s]; if(!meta) return;
+    const tid=Object.keys(meta.owners||{}).find(id=>meta.owners[id]===owner); if(tid==null) return;
+    let g=0,w=0,pf=0,pa=0;
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away) return;
+      if((m.matchupPeriodId||99)>regEndOf(s)) return;
+      const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0; if(hp===0&&ap===0) return;
+      if(String(m.home.teamId)===tid){ g++; pf+=hp; pa+=ap; if(hp>ap) w++; }
+      else if(String(m.away.teamId)===tid){ g++; pf+=ap; pa+=hp; if(ap>hp) w++; }
+    });
+    const ti=meta.teams[tid];
+    if(g) out.push({season:Number(s),g,w,pf,pa,rank:ti?ti.rank:null});
+  });
+  return out;
+}
+function sbBuild(){
+  if(_sbCache) return _sbCache;
+  if(!_franchises.length||!Object.keys(_seasonMeta).length) return null;
+  const latest=ALL_SEASONS[ALL_SEASONS.length-1];
+  const meta=_seasonMeta[latest]||{teams:{},owners:{},divisions:{}};
+  const HOLD=0.075;                 // outright market hold
+  const TWOWAY=0.024;               // per side on two-way markets
+
+  const rows=_franchises.map(fr=>{
+    const at=franchiseAllTime(fr.owner), sp=sbSplits(fr.owner);
+    let wn=0,wd=0,pfn=0,pan=0;
+    sp.forEach(x=>{ const k=Math.pow(1.6,ALL_SEASONS.indexOf(String(x.season)));
+      wn+=x.w*k; wd+=x.g*k; pfn+=x.pf*k; pan+=x.pa*k; });
+    const tidStr=Object.keys(meta.owners||{}).find(id=>meta.owners[id]===fr.owner);
+    const tid=tidStr!=null?Number(tidStr):null;
+    const cur=_teams.find(t=>_ownerMap[t.id]===fr.owner);
+    const seasons=Math.max(1,at.seasons||1), played=Math.max(1,at.playedSeasons||1);
+    const aw=awardsForOwner(fr.owner);
+    const cnt=k=>aw.filter(a=>a.key===k).length;
+    return {fr,owner:fr.owner,name:fr.name.trim(),at,sp,tid,curId:cur?cur.id:null,
+      conf:(tid!=null&&meta.teams[tid])?(meta.divisions[meta.teams[tid].div]||''):'',
+      winPct:wd?wn/wd:0.5, ppg:wd?pfn/wd:105, papg:wd?pan/wd:105,
+      poApp:(at.playoffApps||0)/seasons, poWin:(at.playoffWins||0)/seasons,
+      top3:(at.top3||0)/seasons, rings:(at.rings||0)/seasons,
+      o150:(at.over150||0)/played, u80:(at.under80||0)/played,
+      hi:at.hi?at.hi.pts:0, moves:cur?cur.moves:0, cm:(cur?_scores[cur.id]:0)||0,
+      lastRank:sp.length?sp[sp.length-1].rank||6:6, seasons,
+      coy:cnt('coy'), commit:cnt('commitment'), comeback:cnt('comeback'), disappoint:cnt('disappoint')};
+  });
+  const Z=f=>sbZ(rows.map(f));
+  const zWin=Z(r=>r.winPct), zPpg=Z(r=>r.ppg), zPa=Z(r=>r.papg), zPo=Z(r=>r.poWin),
+        zT3=Z(r=>r.top3), zRg=Z(r=>r.rings), zHi=Z(r=>r.hi), z150=Z(r=>r.o150),
+        z80=Z(r=>r.u80), zMv=Z(r=>r.moves), zCm=Z(r=>r.cm), zLast=Z(r=>r.lastRank),
+        zCoy=Z(r=>r.coy), zCommit=Z(r=>r.commit);
+  rows.forEach((r,i)=>{
+    r.rating=1.15*zWin[i]+0.95*zPpg[i]-0.20*zPa[i]+0.45*zPo[i]+0.30*zT3[i]+0.25*zRg[i]+0.10*zCm[i];
+    r.z={win:zWin[i],ppg:zPpg[i],pa:zPa[i],hi:zHi[i],o150:z150[i],u80:z80[i],mv:zMv[i],
+         last:zLast[i],coy:zCoy[i],commit:zCommit[i]};
+  });
+  const ratings=rows.map(r=>r.rating);
+  const lgPpg=rows.reduce((a,r)=>a+r.ppg,0)/rows.length;
+  const GAMES=regEndOf(latest)||14;
+
+  // ── helpers that build market objects ──
+  const outright=(key,title,sub,probs,badge,icon)=>{
+    const tot=probs.reduce((a,b)=>a+b,0)||1;
+    const picks=rows.map((r,i)=>{
+      const p=Math.max(0.008,(probs[i]/tot))*(1+HOLD);
+      const o=amFromProb(Math.min(0.95,p));
+      return {owner:r.owner,name:r.name,tid:r.tid,odds:o,prob:probFromAm(o),fair:probs[i]/tot};
+    }).sort((a,b)=>b.fair-a.fair);
+    return {key,title,sub,type:'outright',badge:badge||'Outright',icon:icon||'fa-trophy',picks};
+  };
+  const yesno=(key,title,sub,probs,badge,icon)=>({key,title,sub,type:'yesno',badge:badge||'Yes / No',
+    icon:icon||'fa-check-double',
+    picks:rows.map((r,i)=>{
+      const p=Math.min(0.94,Math.max(0.06,probs[i]));
+      const y=amFromProb(Math.min(0.96,p+TWOWAY)), n=amFromProb(Math.min(0.96,(1-p)+TWOWAY));
+      return {owner:r.owner,name:r.name,tid:r.tid,yes:y,no:n,fair:p};
+    }).sort((a,b)=>b.fair-a.fair)});
+  const overunder=(key,title,sub,vals,slope,round,badge,icon)=>({key,title,sub,type:'ou',
+    badge:badge||'Over / Under',icon:icon||'fa-arrows-up-down',
+    picks:rows.map((r,i)=>{
+      const exp=vals[i];
+      const line=round===0.5?Math.round(exp*2)/2:Math.round(exp/round)*round+(round>=5?0.5:0);
+      const pOver=Math.min(0.70,Math.max(0.30,0.5+(exp-line)*slope));
+      return {owner:r.owner,name:r.name,tid:r.tid,line,exp,
+        over:amFromProb(Math.min(0.95,pOver+TWOWAY)), under:amFromProb(Math.min(0.95,(1-pOver)+TWOWAY)),
+        fair:exp};
+    }).sort((a,b)=>b.fair-a.fair)});
+
+  // ── FUTURES ──
+  const champ=outright('champ',`${sbSeason()} GFL Championship`,'Who lifts the trophy',
+    sbSoftmax(ratings,1.05),'Outright','fa-trophy');
+  const confs={};
+  rows.forEach(r=>{ (confs[r.conf||'League']||(confs[r.conf||'League']=[])).push(r); });
+  const confMarkets=Object.entries(confs).filter(([,arr])=>arr.length>1).map(([cname,arr])=>{
+    const pr=sbSoftmax(arr.map(r=>r.rating),1.15);
+    const tot=pr.reduce((a,b)=>a+b,0)||1;
+    return {key:'conf-'+cname,title:`${cname} Conference Winner`,sub:'Best record in the conference',
+      type:'outright',badge:'Outright',icon:'fa-star',
+      picks:arr.map((r,i)=>{const p=Math.max(0.02,pr[i]/tot)*(1+HOLD*0.8);const o=amFromProb(Math.min(0.95,p));
+        return {owner:r.owner,name:r.name,tid:r.tid,odds:o,prob:probFromAm(o),fair:pr[i]/tot};})
+        .sort((a,b)=>b.fair-a.fair)};
+  });
+  // make the playoffs: logistic on rating, solved so the field sums to 6 of 12
+  const spots=Math.min(6,Math.round(rows.length/2));
+  let lo=-6,hiC=6,c=0;
+  for(let it=0;it<60;it++){ c=(lo+hiC)/2;
+    const s=ratings.reduce((a,v)=>a+1/(1+Math.exp(-(1.25*v+c))),0);
+    if(s>spots) hiC=c; else lo=c; }
+  const pPlayoffs=ratings.map(v=>1/(1+Math.exp(-(1.25*v+c))));
+  const playoffs=yesno('playoffs',`${sbSeason()} Playoff Berth`,`Top ${spots} of ${rows.length} make the bracket`,
+    pPlayoffs,'Yes / No','fa-calendar-check');
+  const lastPlace=outright('last',`${sbSeason()} Last Place`,'Finishes bottom of the league — punishment duty',
+    sbSoftmax(ratings.map(v=>-v),0.95),'Outright','fa-gavel');
+
+  // ── TEAM PROPS ──
+  const wins=overunder('wins',`Regular Season Wins`,`${GAMES}-game regular season`,
+    ratings.map(v=>Math.min(GAMES-1.5,Math.max(1.5,GAMES*Math.min(0.74,Math.max(0.26,1/(1+Math.exp(-0.85*v))))))),
+    0.30,0.5,'Over / Under','fa-arrows-up-down');
+  const pfTotals=overunder('pf','Total Points Scored',`Regular season total, ${GAMES} games`,
+    rows.map(r=>(lgPpg+0.55*(r.ppg-lgPpg))*GAMES),0.0055,5,'Over / Under','fa-fire');
+  const paTotals=overunder('pa','Total Points Against',`Regular season total, ${GAMES} games`,
+    rows.map(r=>(lgPpg+0.25*(r.papg-lgPpg))*GAMES),0.0055,5,'Over / Under','fa-shield-halved');
+  const mostPf=outright('mostpf','Most Points Scored','League leader in points for',
+    sbSoftmax(rows.map(r=>r.z.ppg),1.35),'Outright','fa-fire');
+  const fewestPf=outright('fewpf','Fewest Points Scored','League low in points for',
+    sbSoftmax(rows.map(r=>-r.z.ppg),1.35),'Outright','fa-battery-empty');
+  const mostPa=outright('mostpa','Most Points Against','Takes the most incoming fire',
+    sbSoftmax(rows.map(r=>r.z.pa),0.65),'Outright','fa-shield-halved');
+
+  // ── AWARDS ──
+  const coy=outright('coy','Coach of the Year','GFL voted',
+    sbSoftmax(rows.map(r=>0.9*r.rating+0.55*r.z.coy),1.0),'Outright','fa-brain');
+  const disappoint=outright('disappoint','Most Disappointing Team','Expectations vs reality',
+    sbSoftmax(rows.map(r=>0.85*r.rating-0.25*r.z.last),0.9),'Outright','fa-face-frown');
+  const comeback=outright('comeback','Comeback Team of the Year','Biggest jump off last season',
+    sbSoftmax(rows.map(r=>0.85*r.z.last+0.35*r.z.ppg),0.95),'Outright','fa-rotate-left');
+  const commit=outright('commit','League Commitment Award','Most active, most involved',
+    sbSoftmax(rows.map(r=>0.75*r.z.mv+0.65*r.z.commit),1.0),'Outright','fa-hand-fist');
+
+  // ── ACHIEVEMENTS ──
+  const highWeek=outright('highweek','Highest Single Week','Top score of any team in any week',
+    sbSoftmax(rows.map(r=>0.75*r.z.ppg+0.5*r.z.hi),1.05),'Outright','fa-bolt');
+  const most150=outright('most150','Most 150+ Point Games','Blow-up weeks',
+    sbSoftmax(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg),1.0),'Outright','fa-rocket');
+  const most80=outright('most80','Most Sub-80 Duds','Weeks the offense never showed',
+    sbSoftmax(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg),1.0),'Outright','fa-face-dizzy');
+  const anyRing=yesno('firstring','Wins Their First Ring','Franchises still without a title',
+    rows.map((r,i)=>r.at.rings?0.06:Math.min(0.55,Math.max(0.05,champ.picks.find(p=>p.owner===r.owner).fair*1.05))),
+    'Yes / No','fa-ring');
+
+  const groups={
+    futures:[champ,...confMarkets,playoffs,lastPlace],
+    props:[wins,pfTotals,paTotals,mostPf,fewestPf,mostPa],
+    awards:[coy,disappoint,comeback,commit],
+    achieve:[highWeek,most150,most80,anyRing],
+  };
+  _sbCache={rows,groups,season:sbSeason(),games:GAMES,spots};
+  return _sbCache;
+}
+
+// ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
+const SB_GROUPS=[
+  {k:'futures',label:'Futures',icon:'fa-trophy'},
+  {k:'props',label:'Team Props',icon:'fa-chart-simple'},
+  {k:'awards',label:'Awards',icon:'fa-award'},
+  {k:'achieve',label:'Achievements',icon:'fa-bolt'},
+  {k:'team',label:'By Team',icon:'fa-id-badge'},
+];
+function sbAvatar(owner,size){
+  const fr=_franchises.find(f=>f.owner===owner);
+  return fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),size||24,7):'';
+}
+function sbTeamAb(owner,name){ return drAbbr(owner,name); }
+function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
+function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra){
+  if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
+  const on=sbSel(mk,pick)?' on':'';
+  const args=[mk,mkLabel,pick,pickLabel,odds].map(v=>typeof v==='string'?`'${String(v).replace(/'/g,"\\'")}'`:v).join(',');
+  return `<button class="sb-odds${on}${extra?' '+extra:''}" data-k="${mk}|${pick}" onclick="sbPick(${args})">
+    ${extra==='sb-two'?`<span class="sb-o-lbl">${pickLabel}</span>`:''}<span class="sb-o-val">${amFmt(odds)}</span></button>`;
+}
+function sbMarketHTML(m){
+  const rows=m.picks.map(p=>{
+    const nm=`<span class="sb-tm">${sbAvatar(p.owner,22)}<span class="sb-nm">${p.name}</span><span class="sb-ab">${sbTeamAb(p.owner,p.name)}</span></span>`;
+    if(m.type==='outright'){
+      return `<div class="sb-row">${nm}
+        <span class="sb-imp">${(p.prob*100).toFixed(1)}%</span>
+        ${sbBtn(m.key,m.title,p.owner,p.name,p.odds)}</div>`;
+    }
+    if(m.type==='yesno'){
+      return `<div class="sb-row sb-row2">${nm}
+        ${sbBtn(m.key,m.title,p.owner+':yes',p.name+' — Yes',p.yes,'sb-two')}
+        ${sbBtn(m.key,m.title,p.owner+':no',p.name+' — No',p.no,'sb-two')}</div>`;
+    }
+    const ln=m.key==='wins'?p.line.toFixed(1):p.line.toFixed(1);
+    return `<div class="sb-row sb-row2">${nm}
+      ${sbBtn(m.key,m.title,p.owner+':o',`${p.name} — Over ${ln}`,p.over,'sb-two')}
+      ${sbBtn(m.key,m.title,p.owner+':u',`${p.name} — Under ${ln}`,p.under,'sb-two')}</div>`;
+  }).join('');
+  const head=m.type==='outright'
+    ? `<div class="sb-row sb-head"><span>Team</span><span class="sb-imp">Implied</span><span class="sb-oh">Odds</span></div>`
+    : m.type==='yesno'
+      ? `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Yes</span><span class="sb-oh">No</span></div>`
+      : `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>`;
+  return `<div class="sb-market">
+    <div class="sb-mhead"><i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span><span class="badge-info">${m.badge}</span></div>
+    <div class="sb-msub">${m.sub}</div>
+    <div class="sb-rows">${head}${rows}</div>
+  </div>`;
+}
+function sbTeamViewHTML(book){
+  if(_sbTeamSel==null||!book.rows.some(r=>r.owner===_sbTeamSel)) _sbTeamSel=book.rows.slice().sort((a,b)=>b.rating-a.rating)[0].owner;
+  const owner=_sbTeamSel;
+  const r=book.rows.find(x=>x.owner===owner);
+  const opts=book.rows.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .map(x=>`<option value="${x.owner}" ${x.owner===owner?'selected':''}>${x.name}</option>`).join('');
+  const lines=[];
+  Object.values(book.groups).flat().forEach(m=>{
+    const p=m.picks.find(x=>x.owner===owner); if(!p) return;
+    if(m.type==='outright') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner,r.name,p.odds)],note:(p.prob*100).toFixed(1)+'% implied'});
+    else if(m.type==='yesno') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner+':yes',r.name+' — Yes',p.yes,'sb-two'),sbBtn(m.key,m.title,owner+':no',r.name+' — No',p.no,'sb-two')],note:'Yes / No'});
+    else lines.push({m,label:m.title+' · '+p.line.toFixed(1),cells:[sbBtn(m.key,m.title,owner+':o',`${r.name} — Over ${p.line.toFixed(1)}`,p.over,'sb-two'),sbBtn(m.key,m.title,owner+':u',`${r.name} — Under ${p.line.toFixed(1)}`,p.under,'sb-two')],note:'projection '+(m.key==='wins'?p.exp.toFixed(1)+' wins':Math.round(p.exp)+' pts')});
+  });
+  const at=r.at;
+  return `<div class="sb-market">
+    <div class="sb-mhead"><i class="fa fa-id-badge"></i><span class="sb-mt">Team Card</span><span class="badge-info">every market</span></div>
+    <div class="picker-bar" style="padding:10px 0 12px"><label for="sb-team">Team:</label>
+      <select id="sb-team" onchange="sbSetTeam(this.value)">${opts}</select></div>
+    <div class="sb-tcard">
+      <div class="sb-tc-top">${sbAvatar(owner,40)}<div><div class="sb-tc-nm">${r.name}</div>
+        <div class="sb-tc-sub">${at.w}–${at.l} all-time · ${r.ppg.toFixed(1)} PPG · ${at.rings} ring${at.rings===1?'':'s'} · ${at.playoffApps||0} playoff app${(at.playoffApps||0)===1?'':'s'}</div></div>
+        <div class="sb-tc-rate"><span class="v">${r.rating>=0?'+':''}${r.rating.toFixed(2)}</span><span class="l">power rating</span></div></div>
+    </div>
+    <div class="sb-rows">${lines.map(l=>`<div class="sb-trow">
+      <span class="sb-tl"><span class="sb-tl-m">${l.label}</span><span class="sb-tl-n">${l.note}</span></span>
+      <span class="sb-tc-odds">${l.cells.join('')}</span></div>`).join('')}</div>
+  </div>`;
+}
+function sbSlipHTML(){
+  const n=_slip.length;
+  const dec=_slip.reduce((a,s)=>a*amToDec(s.odds),1);
+  const stake=Math.max(0,Number(_sbStake)||0);
+  const payout=stake*dec;
+  const parlay=n?amFromProb(1/dec):null;
+  return `<div class="sb-slip-head"><i class="fa fa-receipt"></i>Bet Slip<span class="sb-slip-n">${n}</span>
+      ${n?`<button class="sb-clear" onclick="sbClear()">Clear</button>`:''}</div>
+    ${n?`<div class="sb-slip-list">${_slip.map(s=>`<div class="sb-slip-item">
+        <div class="sb-si-txt"><div class="sb-si-pick">${s.pickLabel}</div><div class="sb-si-mkt">${s.mkLabel}</div></div>
+        <div class="sb-si-odds">${amFmt(s.odds)}</div>
+        <button class="sb-si-x" onclick="sbDrop('${s.k.replace(/'/g,"\\'")}')" aria-label="Remove"><i class="fa fa-xmark"></i></button>
+      </div>`).join('')}</div>
+      <div class="sb-stake">
+        <label for="sb-stake-in">Stake</label>
+        <input id="sb-stake-in" type="number" min="0" step="10" value="${stake}" oninput="sbStake(this.value)"/>
+        <span class="sb-cur">GFL bucks</span>
+      </div>
+      <div class="sb-totals">
+        <div class="sb-tot"><span>${n>1?'Parlay odds':'Odds'}</span><b>${amFmt(n>1?parlay:_slip[0].odds)}</b></div>
+        <div class="sb-tot"><span>To win</span><b class="sb-win">${(payout-stake).toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
+        <div class="sb-tot sb-tot-big"><span>Payout</span><b>${payout.toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
+      </div>`
+    :`<div class="sb-slip-empty">Tap any price to add it here.<br/>Multiple picks become a parlay.</div>`}
+    <div class="sb-slip-note">Play money only. Lines are generated from GFL history — nothing is wagered, nothing is saved.</div>`;
+}
+function sbPick(mk,mkLabel,pick,pickLabel,odds){
+  const k=mk+'|'+pick;
+  const i=_slip.findIndex(x=>x.k===k);
+  if(i>=0) _slip.splice(i,1);
+  else{
+    const j=_slip.findIndex(x=>x.mk===mk&&x.pick.split(':')[0]===String(pick).split(':')[0]);
+    if(j>=0) _slip.splice(j,1);                        // one side per team per market
+    _slip.push({k,mk,mkLabel,pick:String(pick),pickLabel,odds});
+  }
+  sbSyncButtons(); sbRenderSlip();
+}
+function sbDrop(k){ _slip=_slip.filter(x=>x.k!==k); sbSyncButtons(); sbRenderSlip(); }
+function sbClear(){ _slip=[]; sbSyncButtons(); sbRenderSlip(); }
+function sbStake(v){ _sbStake=v; sbRenderSlip(); }
+function sbSyncButtons(){
+  document.querySelectorAll('#page-book .sb-odds[data-k]').forEach(b=>{
+    b.classList.toggle('on',_slip.some(x=>x.k===b.dataset.k));
+  });
+  const fab=document.getElementById('sb-fab-n'); if(fab) fab.textContent=_slip.length;
+  const fab2=document.getElementById('sb-fab'); if(fab2) fab2.classList.toggle('has',_slip.length>0);
+}
+function sbRenderSlip(){
+  const el=document.getElementById('sb-slip'); if(el) el.innerHTML=sbSlipHTML();
+  sbSyncButtons();
+}
+function sbSetView(v){ _sbView=v;
+  document.querySelectorAll('#sb-tabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  renderBook();
+}
+function sbSetTeam(o){ _sbTeamSel=o; renderBook(); }
+function sbToggleSlip(open){
+  _sbSlipOpen=(open===undefined)?!_sbSlipOpen:!!open;
+  const w=document.getElementById('sb-slip-wrap'); if(w) w.classList.toggle('open',_sbSlipOpen);
+}
+function renderBook(){
+  const el=document.getElementById('book-body'); if(!el) return;
+  const book=sbBuild();
+  if(!book){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Setting the lines…</div>`; return; }
+  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')"><i class="fa ${g.icon}"></i>${g.label}</button>`).join('');
+  const board=_sbView==='team'?sbTeamViewHTML(book):(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
+  el.innerHTML=`
+    <div class="sb-bar">
+      <div class="sb-bar-l"><span class="sb-live"><i class="fa fa-circle"></i>Lines set</span>
+        <span class="sb-bar-t">${book.season} GFL Futures</span></div>
+      <div class="sb-bar-r">${book.rows.length} teams · ${Object.values(book.groups).flat().length} markets</div>
+    </div>
+    <div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>
+    <div class="sb-layout">
+      <div class="sb-board">${board}</div>
+      <div class="sb-slip-wrap" id="sb-slip-wrap">
+        <button class="sb-slip-close" onclick="sbToggleSlip(false)" aria-label="Close"><i class="fa fa-chevron-down"></i></button>
+        <div class="sb-slip" id="sb-slip">${sbSlipHTML()}</div>
+      </div>
+    </div>
+    <button class="sb-fab${_slip.length?' has':''}" id="sb-fab" onclick="sbToggleSlip()"><i class="fa fa-receipt"></i>Bet slip<span class="sb-fab-n" id="sb-fab-n">${_slip.length}</span></button>`;
+  sbSyncButtons();
+}
+
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
 function selectVideo(videoId){
   _activeVideoId=videoId;
@@ -3308,6 +3666,14 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xf70c;">
           <div class="sec-head"><i class="fa fa-person-running"></i>Marathons Ran</div>
           <div class="marathon-hero" id="marathon-hero"></div>
+        </div>
+      </div>
+
+      <!-- SPORTSBOOK -->
+      <div class="tab-page" id="page-book">
+        <div class="sec wm" data-wm="&#xf51e;">
+          <div class="sec-head"><i class="fa fa-coins"></i>The Sportsbook<span class="badge-info">play money · lines from GFL history</span></div>
+          <div id="book-body"></div>
         </div>
       </div>
 
