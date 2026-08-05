@@ -327,19 +327,26 @@ function allTimeH2H(idA,idB){
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 const PAGE_BG={
   // one looping background video on every page
-  home:      {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  standings: {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  trades:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  draft:     {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  history:   {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  tenure:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  teams:     {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  legacy:    {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  punishment:{type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  badbeat:   {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  gabe:      {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  marathon:  {type:'video', src:'/bg/vid/v2.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  home:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  standings: {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  trades:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  draft:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  history:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  tenure:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  teams:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  legacy:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  punishment:{type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  badbeat:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  gabe:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  marathon:  {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
 };
+function startPageBgVideo(vid,src){
+  const go=()=>{ if(vid.dataset.src!==src) return; vid.src=src; vid.load();
+    const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); };
+  const soon=()=>{ if(window.requestIdleCallback) requestIdleCallback(go,{timeout:1500}); else setTimeout(go,400); };
+  if(document.readyState==='complete') soon();
+  else window.addEventListener('load',soon,{once:true});
+}
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
   const vid=document.getElementById('pgbg-video'), img=document.getElementById('pgbg-image');
@@ -352,8 +359,13 @@ function setPageBg(tab){
     if(img) img.style.display='none';
     if(vid){
       vid.style.display='block';
-      if(vid.dataset.src!==m.src){ vid.dataset.src=m.src; if(m.poster) vid.poster=m.poster; vid.src=m.src; vid.load(); }
-      const p=vid.play(); if(p&&p.catch) p.catch(()=>{});
+      // phones get a lighter encode, and it only starts downloading once the page
+      // is up — the poster frame carries the look until then
+      const mob=window.matchMedia('(max-width:768px)').matches;
+      const src=(mob&&m.msrc)?m.msrc:m.src;
+      if(m.poster&&!vid.getAttribute('poster')) vid.setAttribute('poster',m.poster);
+      if(vid.dataset.src!==src){ vid.dataset.src=src; startPageBgVideo(vid,src); }
+      else { const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); }
     }
   } else {
     if(vid){ if(!vid.paused) vid.pause(); vid.style.display='none'; }
