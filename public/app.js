@@ -47,8 +47,8 @@ let _tradeCache={};                     // season -> {trades,source} from /api/e
 let _draftTeamSel=null;                 // team filter on draft tab
 let _draftAllCache=null;
 let _draftView='year';        // year | ysteals | ybusts | best | worst | steals | busts
-let _draftPickScope='alltime';// scope for the mobile "Steals & Busts" group
-let _draftPickLast='steals'; // last steals/busts view chosen
+let _draftPickScope='year';   // scope for the mobile "Steals & Busts" group
+let _draftPickLast='ysteals'; // last steals/busts view chosen (current year by default)
 let _drWasMobile=null;
 const _logoColorCache={};               // teamId -> dominant logo color
 const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
@@ -1847,8 +1847,8 @@ function draftListsMobileHTML(season){
   }else{
     const isAll=(_draftView==='steals'||_draftView==='busts');
     const scope=`<div class="dr-scope">
-      <button class="tab-btn${!isAll?' active':''}" style="--tc:var(--accent)" onclick="setDraftPickScope('year')">${season}</button>
-      <button class="tab-btn${isAll?' active':''}" style="--tc:var(--accent)" onclick="setDraftPickScope('alltime')">All-Time</button>
+      <button class="dr-sbtn${!isAll?' active':''}" onclick="setDraftPickScope('year')">${season}</button>
+      <button class="dr-sbtn${isAll?' active':''}" onclick="setDraftPickScope('alltime')">All-Time</button>
     </div>`;
     if(isAll&&drNeedAll()) body=scope+drLoading();
     else{ const d=isAll?draftAllData():draftYearData(season);
