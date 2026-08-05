@@ -394,8 +394,6 @@ function tenureNameWidth(){
   tbl.style.setProperty('--tnw','420px');                 // unconstrain, then measure
   let max=0;
   tbl.querySelectorAll('tbody td:first-child .pname').forEach(p=>{const w=p.getBoundingClientRect().width; if(w>max) max=w;});
-  const h=tbl.querySelector('thead th:first-child');
-  if(h){ const hw=h.scrollWidth-8; if(hw>max) max=hw; }
   if(max>0) tbl.style.setProperty('--tnw',Math.ceil(max+8)+'px');
   else tbl.style.removeProperty('--tnw');
 }
