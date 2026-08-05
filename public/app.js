@@ -533,6 +533,7 @@ function scrollNavToActive(smooth){
   const btn=bar.querySelector('.tab-btn.active'); if(!btn) return;
   const target=Math.max(0,Math.min(bar.scrollWidth-bar.clientWidth,
     btn.offsetLeft-(bar.clientWidth-btn.offsetWidth)/2));
+  try{ btn.scrollIntoView({inline:'center',block:'nearest',behavior:smooth===false?'auto':'smooth'}); }catch(e){}
   if(smooth!==false&&bar.scrollTo){ try{ bar.scrollTo({left:target,behavior:'smooth'}); }catch(e){} }
   // some engines ignore smooth scrollTo on a freshly shown element — set it too
   requestAnimationFrame(()=>{ if(Math.abs(bar.scrollLeft-target)>2) bar.scrollLeft=target; });
