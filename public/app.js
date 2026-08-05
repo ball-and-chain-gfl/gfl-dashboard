@@ -2956,7 +2956,7 @@ async function loadDashboard(){
             <button class="tab-btn ${_statsView==='c3'?'active':''}" data-view="c3" onclick="setStatsView('c3')"><i class="fa fa-magnifying-glass-dollar"></i>Waiver ROI</button>
           </div>
           <div id="stats-standings" ${_statsView==='standings'?'':'style="display:none"'}>
-            <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
+            <div style="font-size:12px;color:var(--text3);margin:0 2px 10px;line-height:1.6">Click any column header to sort. <b>Lineup IQ</b> = share of start/sit calls that matched the optimal lineup — regular season only, counting a slot only when another eligible player was on the roster. <b>Missed Pts</b> = points left on the bench vs. that perfect lineup.</div>
             <div class="tscroll"><table class="min640" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
           <div id="stats-c2" ${_statsView==='c2'?'':'style="display:none"'}></div>
