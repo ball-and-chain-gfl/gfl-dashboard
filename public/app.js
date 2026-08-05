@@ -492,7 +492,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); stripeProfileStats(); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); stripeProfileStats(); scrollNavToActive(false); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -527,12 +527,15 @@ function switchTab(name){
   scrollNavToActive();
 }
 // phones: keep the selected pill centred in the scrolling nav
-function scrollNavToActive(){
+function scrollNavToActive(smooth){
   const bar=document.getElementById('tabbar'); if(!bar) return;
-  if(getComputedStyle(bar).display==='none') return;
+  if(bar.scrollWidth<=bar.clientWidth+1) return;              // nothing to scroll
   const btn=bar.querySelector('.tab-btn.active'); if(!btn) return;
-  const target=btn.offsetLeft-(bar.clientWidth-btn.offsetWidth)/2;
-  bar.scrollTo({left:Math.max(0,target),behavior:'smooth'});
+  const target=Math.max(0,Math.min(bar.scrollWidth-bar.clientWidth,
+    btn.offsetLeft-(bar.clientWidth-btn.offsetWidth)/2));
+  if(smooth!==false&&bar.scrollTo){ try{ bar.scrollTo({left:target,behavior:'smooth'}); }catch(e){} }
+  // some engines ignore smooth scrollTo on a freshly shown element — set it too
+  requestAnimationFrame(()=>{ if(Math.abs(bar.scrollLeft-target)>2) bar.scrollLeft=target; });
 }
 // ── MOBILE TAB DROPDOWN (replaces hamburger) ─────────────────────────────────
 function buildTabDD(){
