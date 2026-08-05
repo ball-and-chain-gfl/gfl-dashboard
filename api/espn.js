@@ -439,13 +439,25 @@ export default async function handler(req, res) {
       // regular-season length (playoffs start right after it)
       // ESPN's matchupPeriodCount is the number of REGULAR-season matchup
       // periods (playoff weeks come after it), so it is the regular-season end.
-      let regEnd = 14;
+      let regEnd = 14, regSource = 'default';
       try {
-        const sr = await fetch(leagueURL(['mSettings'], { forceLive: true }), { headers });
+        const sr = await fetch(leagueURL(['mSettings', 'mMatchup'], { forceLive: true }), { headers });
         if (sr.ok) {
           const sd = unwrap(await sr.json());
-          const n = sd.settings?.scheduleSettings?.matchupPeriodCount;
-          if (n >= 8 && n <= 18) regEnd = n;
+          // Authoritative: playoff matchups carry a playoffTierType, regular
+          // season ones don't. The last non-playoff period is the season end.
+          let last = 0;
+          (sd.schedule || []).forEach(mu => {
+            const tier = String(mu.playoffTierType || 'NONE').toUpperCase();
+            if (tier !== 'NONE') return;
+            const mp = mu.matchupPeriodId || 0;
+            if (mp > last) last = mp;
+          });
+          if (last >= 8 && last <= 18) { regEnd = last; regSource = 'schedule'; }
+          else {
+            const n = sd.settings?.scheduleSettings?.matchupPeriodCount;
+            if (n >= 8 && n <= 18) { regEnd = n; regSource = 'settings'; }
+          }
         }
       } catch {}
       const weekIds = Array.from({ length: regEnd }, (_, i) => i + 1);
@@ -526,7 +538,7 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
         : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
-      return res.status(200).json({ season, regEnd, teams, ...(dbgTeam != null ? { detail } : {}) });
+      return res.status(200).json({ season, regEnd, regSource, teams, ...(dbgTeam != null ? { detail } : {}) });
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }
 
