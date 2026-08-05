@@ -328,7 +328,8 @@ export default async function handler(req, res) {
         const sr = await fetch(leagueURL(['mMatchup', 'mTeam', 'mSettings']), { headers });
         if (sr.ok) {
           const sd = unwrap(await sr.json());
-          const REG_END = 14; // regular season ends wk14; playoffs are wk15+
+          const mpc = sd.settings?.scheduleSettings?.matchupPeriodCount;
+          const REG_END = (mpc >= 8 && mpc <= 18) ? mpc : 14; // playoffs start after the regular season
           const pt = sd.settings?.scheduleSettings?.playoffTeamCount || sd.settings?.playoffTeamCount || 6;
           const seed = {}; (sd.teams || []).forEach(t => { seed[t.id] = t.playoffSeed || 0; });
           const inBracket = id => { const sd2 = seed[id] || 0; return sd2 > 0 && sd2 <= pt; };

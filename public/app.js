@@ -268,7 +268,11 @@ async function fetchSeasonData(season){
       teams[t.id]={name:tName(t),logo:t.logo||null,owner:o,div:t.divisionId??0,rank:t.rankCalculatedFinal||0,seed:t.playoffSeed||0};
     });
     const playoffTeamCount=d.settings?.scheduleSettings?.playoffTeamCount||d.settings?.playoffTeamCount||6;
-    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount};
+    // ESPN's matchupPeriodCount IS the regular season length; playoffs start after
+    // it. It has not been the same every year (2022 ran 15 weeks, later years 14).
+    const mpc=d.settings?.scheduleSettings?.matchupPeriodCount;
+    const regEndY=(mpc>=8&&mpc<=18)?mpc:14;
+    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY};
   }catch{return null;}
 }
 async function buildAllTimeH2H(){
@@ -278,7 +282,7 @@ async function buildAllTimeH2H(){
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
     const {season,schedule,owners,names,teams}=res.value;
-    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{},playoffTeamCount:res.value.playoffTeamCount||6};
+    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{},playoffTeamCount:res.value.playoffTeamCount||6,regEnd:res.value.regEnd||14};
     schedule.forEach(mu=>{
       if(!mu.home||!mu.away) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
@@ -1994,7 +1998,8 @@ function renderMarathon(){
 }
 
 // ── LEAGUE HISTORY TAB ─────────────────────────────────────────────────────────
-const REGULAR_SEASON_END=14; // conference champs decided after this matchup period
+const REGULAR_SEASON_END=14; // fallback only — real value comes from each season's settings
+function regEndOf(season){ const n=_seasonMeta[season]?.regEnd; return (n>=8&&n<=18)?n:REGULAR_SEASON_END; }
 let _lhView='champs';        // champs | conf | records | sups
 function renderLeagueHistory(){
   const body=document.getElementById('legacy-body'); if(!body) return;
@@ -2035,11 +2040,11 @@ function renderLeagueHistory(){
       const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;
       if(hp===0&&ap===0)return;
       maxPlayed=Math.max(maxPlayed,m.matchupPeriodId||0);
-      if((m.matchupPeriodId||99)>REGULAR_SEASON_END)return;
+      if((m.matchupPeriodId||99)>regEndOf(s))return;
       if(rec[m.home.teamId]){rec[m.home.teamId].pf+=hp;if(hp>ap||m.winner==='HOME')rec[m.home.teamId].w++;}
       if(rec[m.away.teamId]){rec[m.away.teamId].pf+=ap;if(ap>hp||m.winner==='AWAY')rec[m.away.teamId].w++;}
     });
-    if(maxPlayed>=REGULAR_SEASON_END){
+    if(maxPlayed>=regEndOf(s)){
       const byDiv={};
       Object.entries(T).forEach(([tid,t])=>{(byDiv[t.div]||(byDiv[t.div]=[])).push({tid:+tid,...t,...rec[tid]});});
       const winners=Object.entries(byDiv).map(([d,arr])=>{
@@ -2102,7 +2107,7 @@ function renderLeagueHistory(){
           <div class="lh-row lh-row-2">
             <span class="lh-yr">${season}</span>
             <span class="lh-main">${avatarCore(w.name,w.tid,proxyLogo(w.logo),22,6)}<span class="lh-win tlink">${nm(w.owner,w.name)}</span></span>
-            <span class="lh-meta">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(0)} PF</span>
+            <span class="lh-meta">${w.w}–${regEndOf(season)-w.w} · ${w.pf.toFixed(0)} PF</span>
           </div>`).join('')}</div>
       </div>`).join('')}</div>`;
   })();
@@ -2166,7 +2171,7 @@ function renderLeagueHistory(){
       </div>
       <div id="lh-champs" ${_lhView==='champs'?'':'style="display:none"'}>${champsHTML}</div>
       <div id="lh-conf" ${_lhView==='conf'?'':'style="display:none"'}>
-        <div class="lh-note">Conference winners are decided on record through week ${REGULAR_SEASON_END}, points for as the tiebreak.</div>
+        <div class="lh-note">Conference winners are decided on record at the end of each season's regular season (week ${regEndOf(seasons[0])} in ${seasons[0]}), points for as the tiebreak.</div>
         ${confHTML}</div>
       <div id="lh-records" ${_lhView==='records'?'':'style="display:none"'}>
         <div class="lh-note">Every season combined, ranked by win percentage.</div>
@@ -2215,7 +2220,7 @@ function buildBracket(season){
   let participants=new Set([champ,ru]);
   const roundsRev=[{week:finalWeek,games:[info(finalGame)],byes:[]}];
   let w=finalWeek-1,guard=0;
-  while(w>REGULAR_SEASON_END&&guard++<4){
+  while(w>regEndOf(season)&&guard++<4){
     const games=gAt(w).filter(m=>participants.has(winnerOf(m)));
     if(!games.length) break;
     const byes=[...participants].filter(t=>!games.some(m=>m.home.teamId===t||m.away.teamId===t));
@@ -2495,7 +2500,7 @@ async function renderGabe(){
 function badBeatData(season){
   const meta=_seasonMeta[season]; if(!meta) return null;
   const owners=meta.owners||{}, tms=meta.teams||{};
-  const REG=REGULAR_SEASON_END;
+  const REG=regEndOf(season);
   // weekly league averages (all played scores that week)
   const byWeek={};
   (meta.schedule||[]).forEach(mu=>{
@@ -2553,7 +2558,7 @@ function renderBadBeat(){
   const list=badBeatData(season);
   if(!list){ el.innerHTML=`<div class="tab-loading" style="padding:26px">No matchup data for ${season} yet.</div>`; return; }
   const num=(v,d=1)=>Number(v).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
-  const intro=`How <b>unlucky</b> was each team through week ${REGULAR_SEASON_END}? The <b>Score</b> is a composite of four loss-luck ranks &mdash; Closest Loss, Median Loss, Losses under 7 points, and % of losses scored above the weekly average (weighted &times;1.5). A higher Score means a more bad-beaten season. The <b>vs&#8209;Avg</b> column is each team's record if every week were scored against that week's league average instead of their actual opponent.`;
+  const intro=`How <b>unlucky</b> was each team through week ${regEndOf(getSeason())}? The <b>Score</b> is a composite of four loss-luck ranks &mdash; Closest Loss, Median Loss, Losses under 7 points, and % of losses scored above the weekly average (weighted &times;1.5). A higher Score means a more bad-beaten season. The <b>vs&#8209;Avg</b> column is each team's record if every week were scored against that week's league average instead of their actual opponent.`;
   const rows=list.map(t=>{
     const av=avatarCore(t.name,t.id,proxyLogo(t.logo),26,7);
     const luck=t.vaW-t.w; // vs-avg wins minus actual wins (positive = unlucky)
@@ -2577,7 +2582,7 @@ function renderBadBeat(){
         <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
         <th class="right">Closest&nbsp;L</th><th class="right">Median&nbsp;L</th><th class="right">L&lt;7</th><th class="right">%&nbsp;Over&nbsp;Avg</th>
       </tr></thead><tbody>${rows}</tbody></table></div>
-    <div style="font-size:11.5px;color:var(--text3);margin:11px 2px 0;line-height:1.5">Regular season through week ${REGULAR_SEASON_END}. Closest&nbsp;L / Median&nbsp;L are margins of defeat in points; L&lt;7 counts losses by fewer than 7. % Over Avg = the share of a team's losses where it still outscored the week's league average &mdash; the purest bad-beat signal.</div>`;
+    <div style="font-size:11.5px;color:var(--text3);margin:11px 2px 0;line-height:1.5">Regular season through week ${regEndOf(getSeason())}. Closest&nbsp;L / Median&nbsp;L are margins of defeat in points; L&lt;7 counts losses by fewer than 7. % Over Avg = the share of a team's losses where it still outscored the week's league average &mdash; the purest bad-beat signal.</div>`;
 }
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 function franchiseAllTime(owner){
@@ -2595,7 +2600,7 @@ function franchiseAllTime(owner){
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
       if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
       else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
-      if((m.matchupPeriodId||0)>14 && inBr(m.home.teamId) && inBr(m.away.teamId)){
+      if((m.matchupPeriodId||0)>regEndOf(s) && inBr(m.home.teamId) && inBr(m.away.teamId)){
         if(String(m.home.teamId)===tid && (m.winner==='HOME'||(m.winner==null&&hp>ap))) poW++;
         else if(String(m.away.teamId)===tid && (m.winner==='AWAY'||(m.winner==null&&ap>hp))) poW++;
       }
