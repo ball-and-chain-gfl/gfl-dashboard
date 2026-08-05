@@ -2734,6 +2734,12 @@ function allPPGScores(){
   const m={}; (_franchises||[]).forEach(f=>{ m[f.owner]=teamPPGScore(f.owner); });
   _ppgScoreCache=m; return m;
 }
+function gradeTint(hex,a){
+  const m=String(hex||'').match(/^#?([0-9a-f]{6})$/i);
+  if(!m) return `rgba(255,255,255,${a})`;
+  const n=parseInt(m[1],16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
 function gradeColor(g){const c=(g||'')[0];return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
 function ppgGradeFor(owner){
   const m=allPPGScores();
@@ -2902,7 +2908,7 @@ function enemiesHTML(owner){
 // ── SEASON-BY-SEASON OVERVIEW (team profile) ─────────────────────────────────
 // One row per season: record, finish, scoring, draft grade, how the playoffs
 // went and any hardware picked up that year.
-function profileOverviewHTML(owner){
+function profileOverviewHTML(owner,draftOnly){
   const dc=_draftAllCache;
   const sp=sbSplits(owner);                       // regular-season splits per season
   if(!sp.length) return `<div class="tab-loading" style="padding:22px">No season history for this team.</div>`;
@@ -2959,24 +2965,31 @@ function profileOverviewHTML(owner){
         <span class="r dg-score" style="color:${col}">${adj>0?'+':''}${Math.round(adj)}</span>
         <span class="r dg-rank">#${rk} of ${vals.length}</span>
       </div>`;}).join('');
-    // all-time draft grade: each franchise's average draft score, graded and
-    // ranked against the rest of the league
-    const avgBy={};
-    ((dc&&dc.teamDrafts)||[]).forEach(d=>{ (avgBy[d.owner]||(avgBy[d.owner]=[])).push(d.adj); });
-    // rank only against the 12 franchises currently in the league (teamDrafts also
-    // carries owners who have since left)
-    const avgs=Object.entries(avgBy).map(([o,v])=>({owner:o,avg:v.reduce((a,b)=>a+b,0)/v.length}))
-      .filter(x=>_franchises.some(f=>f.owner===x.owner));
+    // all-time draft grade: average each franchise's per-season LETTER grades
+    // (rank follows that same average) among the 12 current franchises
+    const gradeIdx=(season,adj)=>{
+      const vals=bySeason[season]||[adj];
+      const mn=Math.min(...vals), mx=Math.max(...vals);
+      const tt=mx>mn?(adj-mn)/(mx-mn):1;
+      return Math.round(tt*(PPG_GRADES.length-1));
+    };
+    const perOwner={};
+    ((dc&&dc.teamDrafts)||[]).forEach(d=>{
+      const o=perOwner[d.owner]||(perOwner[d.owner]={gi:[],adj:[]});
+      o.gi.push(gradeIdx(String(d.season),d.adj)); o.adj.push(d.adj);
+    });
+    const avgs=Object.entries(perOwner)
+      .filter(([o])=>_franchises.some(f=>f.owner===o))
+      .map(([o,v])=>({owner:o,
+        gi:v.gi.reduce((a,b)=>a+b,0)/v.gi.length,
+        avg:v.adj.reduce((a,b)=>a+b,0)/v.adj.length}));
     const mine=avgs.find(x=>x.owner===owner);
     let allRow='';
     if(mine&&avgs.length>1){
-      const vals=avgs.map(x=>x.avg);
-      const mn=Math.min(...vals), mx=Math.max(...vals);
-      const tt=mx>mn?(mine.avg-mn)/(mx-mn):1;
-      const g=PPG_GRADES[Math.round(tt*(PPG_GRADES.length-1))];
+      const g=PPG_GRADES[Math.max(0,Math.min(PPG_GRADES.length-1,Math.round(mine.gi)))];
       const c=gradeColor(g);
-      const rk=avgs.slice().sort((a,b)=>b.avg-a.avg).findIndex(x=>x.owner===owner)+1;
-      allRow=`<div class="dg-row dg-total">
+      const rk=avgs.slice().sort((a,b)=>b.gi-a.gi||b.avg-a.avg).findIndex(x=>x.owner===owner)+1;
+      allRow=`<div class="dg-row dg-total" style="background:${gradeTint(c,0.13)};border-top-color:${gradeTint(c,0.45)}">
         <span class="dg-yr dg-all">All-Time</span>
         <span class="dg-grade" style="color:${c};border-color:${c}">${g}</span>
         <span class="r dg-score" style="color:${c}">${mine.avg>0?'+':''}${mine.avg.toFixed(1)}</span>
@@ -2992,14 +3005,16 @@ function profileOverviewHTML(owner){
       : '';
   }
 
+  if(draftOnly) return draftBlock||`<div class="tab-loading" style="padding:18px">No draft history for this team.</div>`;
   return `<div class="ov-list">
     <div class="ov-row ov-head"><span>Year</span><span>Record</span><span class="r">Finish</span><span class="r ov-pf ov-hpf">PF</span><span class="r ov-pa ov-hpa">PA</span><span class="r">Postseason</span></div>
     ${rows}
-  </div>
-  <div class="ov-block">
-    <div class="ov-bhead"><i class="fa fa-clipboard-list"></i>Draft Grades</div>
-    ${draftBlock}
   </div>`;
+}
+// the draft block is its own panel now
+function profileDraftBlockHTML(owner){
+  const html=profileOverviewHTML(owner,true);
+  return html;
 }
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
@@ -3105,6 +3120,10 @@ async function renderProfile(){
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>GFL Overview<span class="badge-info">season by season</span></div>
           <div id="prof-drafts">${profileOverviewHTML(owner)}</div>
         </div>
+        <div class="prof-col panel prof-dg">
+          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>Draft Grades<span class="badge-info">by season</span></div>
+          <div id="prof-draftgrades">${profileDraftBlockHTML(owner)}</div>
+        </div>
         <div class="prof-col panel">
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-skull-crossbones" style="color:var(--red)"></i>Biggest Enemies<span class="badge-info">most points scored against them</span></div>
           <div id="prof-enemies">${enemiesHTML(owner)}</div>
@@ -3139,8 +3158,9 @@ async function renderProfile(){
   if(!_draftAllCache){
     loadAllDrafts().then(()=>{
       const d=document.getElementById('prof-drafts');
+      const dg=document.getElementById('prof-draftgrades');
       const stillHere=Number(document.getElementById('profile-team-select')?.value||_profileTeam)===id;
-      if(d&&stillHere) d.innerHTML=profileOverviewHTML(owner);
+      if(stillHere){ if(d) d.innerHTML=profileOverviewHTML(owner); if(dg) dg.innerHTML=profileDraftBlockHTML(owner); }
     }).catch(()=>{});
   }
 }
