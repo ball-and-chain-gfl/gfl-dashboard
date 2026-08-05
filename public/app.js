@@ -2725,7 +2725,6 @@ function franchiseAllTime(owner){
     const owners=meta.owners||{},teams=meta.teams||{};
     const tid=Object.keys(owners).find(id=>owners[id]===owner);
     if(tid==null) return;
-    seasons.add(s);
     const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;
       if(ti.rank){best=Math.min(best,ti.rank);worst=Math.max(worst,ti.rank);finishes.push(ti.rank);if(ti.rank<=3)top3++;}}
     // playoff appearances and wins come from the real bracket, not from seeds
@@ -2746,6 +2745,7 @@ function franchiseAllTime(owner){
         results.push({s:Number(s),wk:m.matchupPeriodId||0,r:ap>hp?1:(ap<hp?-1:0)});if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
     });
   });
+  played.forEach(y=>seasons.add(y));           // only seasons actually played
   const avgFinish=finishes.length?finishes.reduce((a,b)=>a+b,0)/finishes.length:null;
   // longest win / losing streaks across every game in chronological order
   results.sort((a,b)=>a.s-b.s||a.wk-b.wk);
