@@ -2575,26 +2575,30 @@ function renderBadBeat(){
   if(!list){ el.innerHTML=`<div class="tab-loading" style="padding:26px">No matchup data for ${season} yet.</div>`; return; }
   const num=(v,d=1)=>Number(v).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
   const intro=`How <b>unlucky</b> was each team through week ${regEndOf(getSeason())}? The <b>Score</b> is a composite of four loss-luck ranks &mdash; Closest Loss, Median Loss, Losses under 7 points, and % of losses scored above the weekly average (weighted &times;1.5). A higher Score means a more bad-beaten season. The <b>vs&#8209;Avg</b> column is each team's record if every week were scored against that week's league average instead of their actual opponent.`;
+  // same row anatomy as the Standings & Stats table: rank chip, team cell with
+  // logo + name + abbreviation, right-aligned numerics
   const rows=list.map(t=>{
-    const av=avatarCore(t.name,t.id,proxyLogo(t.logo),26,7);
+    const cur=_teams.find(x=>x.id===t.id);
+    const ab=(cur&&cur.abbrev)||teamInitials(t.name);
+    const av=cur?logoImg(t.id):avatarCore(t.name,t.id,proxyLogo(t.logo),28,8);
     const luck=t.vaW-t.w; // vs-avg wins minus actual wins (positive = unlucky)
     const luckTag = luck>0?` <span style="color:var(--green);font-size:11px;font-weight:600">+${luck}</span>` : (luck<0?` <span style="color:var(--red);font-size:11px;font-weight:600">${luck}</span>`:'');
     return `<tr>
-      <td class="right"><span class="bb-rank">${t.rank}</span></td>
-      <td><span class="fr-name" style="gap:8px">${av}${t.name}</span></td>
-      <td class="right"><b style="color:var(--accent);font-size:15px">${num(t.score)}</b></td>
+      <td><span class="rank">${t.rank}</span></td>
+      <td><div class="team-cell">${av}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${t.name}</div><div class="team-sub">${ab}</div></div></div></td>
+      <td class="right"><strong style="color:var(--accent)">${num(t.score)}</strong></td>
       <td class="right">${t.vaW}&ndash;${t.vaL}${luckTag}</td>
       <td class="right">${t.w}&ndash;${t.l}</td>
-      <td class="right">${num(t.closest)}</td>
-      <td class="right">${num(t.median)}</td>
+      <td class="right" style="color:var(--text2)">${num(t.closest)}</td>
+      <td class="right" style="color:var(--text2)">${num(t.median)}</td>
       <td class="right">${t.lossU7}</td>
-      <td class="right">${num(t.pctOver*100)}%</td>
+      <td class="right" style="color:var(--text2)">${num(t.pctOver*100)}%</td>
     </tr>`;
   }).join('');
   el.innerHTML=`<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin:0 2px 14px">${intro}</div>
     <div class="tscroll"><table class="min720 srt" data-mhide="Closest L,Median L">
       <thead><tr>
-        <th class="right" data-nosort>#</th><th>Team</th>
+        <th data-nosort>#</th><th>Team</th>
         <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
         <th class="right">Closest&nbsp;L</th><th class="right">Median&nbsp;L</th><th class="right">L&lt;7</th><th class="right">%&nbsp;Over&nbsp;Avg</th>
       </tr></thead><tbody>${rows}</tbody></table></div>
