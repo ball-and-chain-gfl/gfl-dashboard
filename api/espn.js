@@ -437,15 +437,15 @@ export default async function handler(req, res) {
     const OUT = ['OUT','INJURY_RESERVE','IR','SUSPENSION','PUP','NON_FOOTBALL_INJURY','DOUBTFUL'];
     try {
       // regular-season length (playoffs start right after it)
+      // ESPN's matchupPeriodCount is the number of REGULAR-season matchup
+      // periods (playoff weeks come after it), so it is the regular-season end.
       let regEnd = 14;
       try {
         const sr = await fetch(leagueURL(['mSettings'], { forceLive: true }), { headers });
         if (sr.ok) {
           const sd = unwrap(await sr.json());
-          const ss = sd.settings?.scheduleSettings || {};
-          const total = ss.matchupPeriodCount || 17;
-          const poRounds = (ss.playoffMatchupPeriodLength || 1) * Math.ceil(Math.log2(ss.playoffTeamCount || 6));
-          if (total > poRounds) regEnd = total - poRounds;
+          const n = sd.settings?.scheduleSettings?.matchupPeriodCount;
+          if (n >= 8 && n <= 18) regEnd = n;
         }
       } catch {}
       const weekIds = Array.from({ length: regEnd }, (_, i) => i + 1);
