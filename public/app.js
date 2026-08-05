@@ -580,7 +580,7 @@ function updateTabDD(name){
   if(b) b.style.setProperty('--tc',tc);
   document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===name));
 }
-document.addEventListener('click',function(e){ const dd=document.getElementById('tab-dd'); if(dd&&!dd.contains(e.target)) toggleTabDD(false); });
+document.addEventListener('click',function(e){ const dd=document.getElementById('tab-dd'), mn=document.getElementById('tab-dd-menu'); if(dd&&!dd.contains(e.target)&&!(mn&&mn.contains(e.target))) toggleTabDD(false); });
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
 function openPinOverlay(action){
