@@ -2906,12 +2906,14 @@ function profileOverviewHTML(owner){
   const mineDraft={};
   ((dc&&dc.teamDrafts)||[]).filter(d=>d.owner===owner).forEach(d=>{ mineDraft[d.season]=d.adj; });
   const aw=awardsForOwner(owner);
-  const rows=sp.slice().sort((a,b)=>b.season-a.season).map(x=>{
+  const seasons=sp.slice().sort((a,b)=>b.season-a.season);
+
+  // ── season results ──
+  const rows=seasons.map(x=>{
     const s=String(x.season), meta=_seasonMeta[s]||{};
     const tid=Object.keys(meta.owners||{}).find(id=>meta.owners[id]===owner);
     const ti=tid!=null?meta.teams[tid]:null;
     const rank=ti?ti.rank:null;
-    // playoff run from the traced bracket
     const br=bracketOf(s); let po='Missed', poCol='var(--text3)';
     if(br&&tid!=null){
       const me=Number(tid); let inB=false, wins=0;
@@ -2921,16 +2923,6 @@ function profileOverviewHTML(owner){
       else if(rank===2){ po='Runner-up'; poCol='var(--green)'; }
       else if(inB){ po=wins?`Playoffs · ${wins}W`:'Playoffs'; poCol='var(--text2)'; }
     }
-    const adj=mineDraft[s];
-    let grade='—', gcol='var(--text3)', gscore='';
-    if(adj!=null){
-      const vals=bySeason[s]||[adj];
-      const mn=Math.min(...vals), mx=Math.max(...vals);
-      const t=mx>mn?(adj-mn)/(mx-mn):1;
-      grade=PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))];
-      gcol=gradeColor(grade);
-      gscore=(adj>0?'+':'')+Math.round(adj);
-    }
     const yrAwards=aw.filter(a=>String(a.year)===s)
       .map(a=>`<span class="ov-aw hk-${a.key}">${AWARD_SHORT[a.key]||a.label.name}</span>`).join('');
     const conf=ti?(meta.divisions&&meta.divisions[ti.div])||'':'';
@@ -2939,21 +2931,51 @@ function profileOverviewHTML(owner){
       <span class="ov-yr">${s}</span>
       <span class="ov-rec"><b style="color:${wpct>=0.5?'var(--green)':'var(--red)'}">${x.w}–${x.g-x.w}</b><span class="ov-sub">${conf||'—'}</span></span>
       <span class="r ov-fin">${rank?'#'+rank:'—'}</span>
-      <span class="r ov-pf">${x.pf.toFixed(0)}</span>
-      <span class="r ov-pa">${x.pa.toFixed(0)}</span>
-      <span class="ov-draft">${adj!=null?`<span class="ov-grade" style="color:${gcol};border-color:${gcol}">${grade}</span><span class="ov-gs" style="color:${gcol}">${gscore}</span>`:'<span class="ov-gs">—</span>'}</span>
+      <span class="r ov-pf ov-hpf">${x.pf.toFixed(0)}</span>
+      <span class="r ov-pa ov-hpa">${x.pa.toFixed(0)}</span>
       <span class="ov-po" style="color:${poCol}">${po}</span>
       <span class="ov-awards">${yrAwards||'<span class="ov-none">—</span>'}</span>
     </div>`;}).join('');
+
+  // ── draft grades, in their own block underneath ──
+  let draftBlock;
+  if(!dc){
+    draftBlock=`<div class="tab-loading" style="padding:16px 2px"><i class="fa fa-circle-notch"></i>Crunching past drafts…</div>`;
+  }else{
+    const dRows=seasons.filter(x=>mineDraft[String(x.season)]!=null).map(x=>{
+      const s=String(x.season), adj=mineDraft[s];
+      const vals=bySeason[s]||[adj];
+      const mn=Math.min(...vals), mx=Math.max(...vals);
+      const t=mx>mn?(adj-mn)/(mx-mn):1;
+      const grade=PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))];
+      const col=gradeColor(grade);
+      const rk=vals.slice().sort((p,q)=>q-p).indexOf(adj)+1;
+      return `<div class="dg-row">
+        <span class="dg-yr">${s}</span>
+        <span class="dg-grade" style="color:${col};border-color:${col}">${grade}</span>
+        <span class="r dg-score" style="color:${col}">${adj>0?'+':''}${Math.round(adj)}</span>
+        <span class="r dg-rank">#${rk} of ${vals.length}</span>
+      </div>`;}).join('');
+    draftBlock=dRows
+      ? `<div class="dg-list">
+          <div class="dg-row dg-head"><span>Year</span><span>Grade</span><span class="r">Score</span><span class="r">League rank</span></div>
+          ${dRows}
+         </div>
+         <div class="ov-note">Draft Score = summed positional &Delta; (draft rank &minus; finish rank per pick) minus that season's league average, graded across the league that year.</div>`
+      : `<div class="ov-note">No draft history for this team.</div>`;
+  }
+
   const at=franchiseAllTime(owner);
   return `<div class="ov-list">
-    <div class="ov-row ov-head"><span>Year</span><span>Record</span><span class="r">Finish</span><span class="r ov-pf ov-hpf">PF</span><span class="r ov-pa ov-hpa">PA</span><span>Draft</span><span>Postseason</span><span>Hardware</span></div>
+    <div class="ov-row ov-head"><span>Year</span><span>Record</span><span class="r">Finish</span><span class="r ov-pf ov-hpf">PF</span><span class="r ov-pa ov-hpa">PA</span><span>Postseason</span><span>Hardware</span></div>
     ${rows}
   </div>
-  <div class="ov-foot">${sp.length} season${sp.length===1?'':'s'} · ${at.w}–${at.l} all-time · ${at.rings} championship${at.rings===1?'':'s'} · ${at.playoffApps||0} playoff appearance${(at.playoffApps||0)===1?'':'s'}${dc?'':' · draft grades still loading'}
-    <br/>Draft Score = summed positional &Delta; (draft rank &minus; finish rank per pick) minus that season's league average, graded across the league that year.</div>`;
+  <div class="ov-foot">${seasons.length} season${seasons.length===1?'':'s'} · ${at.w}–${at.l} all-time · ${at.rings} championship${at.rings===1?'':'s'} · ${at.playoffApps||0} playoff appearance${(at.playoffApps||0)===1?'':'s'}</div>
+  <div class="ov-block">
+    <div class="ov-bhead"><i class="fa fa-clipboard-list"></i>Draft Grades</div>
+    ${draftBlock}
+  </div>`;
 }
-
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
   const sel=document.getElementById('profile-team-select');
