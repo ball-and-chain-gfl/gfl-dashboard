@@ -2629,8 +2629,8 @@ function lineupHTML(owner){
   if(mode==='ppg'){
     const g=ppgGradeFor(owner); const gc=gradeColor(g.grade);
     gradeChip=`<div class="lg-chip">
-      <div class="lg-chip-txt"><span class="lg-label">All Time GFL Team Grade</span><span class="lg-score">${g.score.toFixed(1)}</span></div>
-      <div class="lg-grade" style="color:${gc};border-color:${gc}">${g.grade}</div>
+      <div class="lg-chip-num"><span class="lg-score">${g.score.toFixed(1)}</span><span class="lg-label">PPG</span></div>
+      <div class="lg-gwrap"><span class="lg-glabel">All Time GFL Team Grade</span><div class="lg-grade" style="color:${gc};border-color:${gc}">${g.grade}</div></div>
     </div>`;
     gradeNote=`<div class="lg-note">Sum of all 9 starters' points-per-start.${g.n?` Graded across all ${g.n} teams — ranked #${g.rank} of ${g.n}.`:''}</div>`;
   }
