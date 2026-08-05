@@ -2681,7 +2681,8 @@ async function renderProfile(){
   const tcRaw=await logoMainColor(id);         // dominant logo color for the banner tint
   const tc=readableColor(tcRaw);
 
-  const stat=(icon,label,val,sub,col)=>`<div class="prof-stat"><div class="prof-stat-top"><i class="fa ${icon}"></i><span class="prof-stat-l">${label}</span></div><div class="prof-stat-v" ${col?`style="color:${col}"`:''}>${val}</div>${sub?`<div class="prof-stat-s">${sub}</div>`:''}</div>`;
+  // label left, value right — no icons, one line per stat
+  const stat=(label,val,col)=>`<div class="prof-stat"><span class="prof-stat-l">${label}</span><span class="prof-stat-v" ${col?`style="color:${col}"`:''}>${val}</span></div>`;
   const chip=(label,val,col)=>`<div class="prof-chip"><div class="prof-chip-v" ${col?`style="color:${col}"`:''}>${val}</div><div class="prof-chip-l">${label}</div></div>`;
 
   const oppRows=_franchises.filter(f=>f.owner!==owner).map(opp=>{
@@ -2710,27 +2711,29 @@ async function renderProfile(){
     <div class="prof-top2">
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
-      ${stat('fa-scale-balanced','Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,seed?`#${seed} seed`:'')}
-      ${stat('fa-fire','Points For',t.pf.toFixed(1),'','var(--green)')}
-      ${stat('fa-shield-halved','Points Against',t.pa.toFixed(1),'','var(--red)')}
-      ${stat('fa-brain','Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),'',sc(s))}
-      ${stat('fa-arrow-trend-up','Moves',t.moves,`${t.trades} trades`)}
-      ${stat('fa-right-left','C2 · Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—','',sc(c2||0))}
-      ${stat('fa-magnifying-glass-dollar','C3 · Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—','',sc(c3||0))}
+      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`)}
+      ${stat('Points For',t.pf.toFixed(1),'var(--green)')}
+      ${stat('Points Against',t.pa.toFixed(1),'var(--red)')}
+      ${stat('Moves',t.moves)}
+      ${stat('Trades',t.trades)}
+      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),sc(s))}
+      ${stat('Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—',sc(c2||0))}
+      ${stat('Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—',sc(c3||0))}
     </div>
     </div>
     <div class="panel"><div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
     <div class="prof-stats">
-      ${stat('fa-scale-balanced','Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,`${winpct.toFixed(1)}% win`,winpct>=50?'var(--green)':'var(--red)')}
-      ${stat('fa-fire','Points For',at.pf.toFixed(0),'','var(--green)')}
-      ${stat('fa-shield-halved','Points Against',at.pa.toFixed(0),'','var(--red)')}
-      ${stat('fa-crown','Championships',at.rings,at.rings?'🏆':'')}
-      ${stat('fa-trophy','Playoff Wins',at.playoffWins||0,'')}
-      ${stat('fa-calendar-check','Playoff Apps',at.playoffApps||0,'')}
-      ${stat('fa-ranking-star','Best Finish',at.best?`#${at.best}`:'—','','var(--green)')}
-      ${stat('fa-arrow-down-9-1','Worst Finish',at.worst?`#${at.worst}`:'—','','var(--red)')}
-      ${stat('fa-bolt','Highest Score',at.hi?at.hi.pts.toFixed(1):'—','','var(--green)')}
-      ${stat('fa-arrow-down','Lowest Score',at.lo?at.lo.pts.toFixed(1):'—','','var(--red)')}
+      ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,winpct>=50?'var(--green)':'var(--red)')}
+      ${stat('Win %',`${winpct.toFixed(1)}%`,winpct>=50?'var(--green)':'var(--red)')}
+      ${stat('Points For',at.pf.toFixed(0),'var(--green)')}
+      ${stat('Points Against',at.pa.toFixed(0),'var(--red)')}
+      ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—','var(--green)')}
+      ${stat('Lowest Score',at.lo?at.lo.pts.toFixed(1):'—','var(--red)')}
+      ${stat('Championships',at.rings)}
+      ${stat('Playoff Apps',at.playoffApps||0)}
+      ${stat('Playoff Wins',at.playoffWins||0)}
+      ${stat('Best Finish',at.best?`#${at.best}`:'—','var(--green)')}
+      ${stat('Worst Finish',at.worst?`#${at.worst}`:'—','var(--red)')}
     </div>
     </div>
     </div>
