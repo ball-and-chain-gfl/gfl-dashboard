@@ -1137,7 +1137,9 @@ function loadLineupIQ(){
     .then(d=>{ _liq[season]=(d&&d.teams)||{}; })
     .catch(()=>{ _liq[season]={}; })
     .finally(()=>{ _liqLoading[season]=false;
-      if(getSeason()===season&&document.getElementById('stats-liq')) renderLineupIQ(); });
+      if(getSeason()!==season) return;
+      if(document.getElementById('stats-liq')) renderLineupIQ();
+      if(_activeTab==='teams'&&document.getElementById('profile-body')) renderProfile(); });
 }
 function renderLineupIQ(){
   const el=document.getElementById('stats-liq'); if(!el) return;
@@ -2711,6 +2713,25 @@ async function renderProfile(){
   const tcRaw=await logoMainColor(id);         // dominant logo color for the banner tint
   const tc=readableColor(tcRaw);
 
+  // Colour every stat the way the draft page grades teams: rank the value against
+  // the rest of the league in that same category and paint it on the A+→F scale.
+  const _atAll={}; _franchises.forEach(f=>{ _atAll[f.owner]=franchiseAllTime(f.owner); });
+  const _liqSeason=_liq[getSeason()]||{};
+  const scaleCol=(vals,v,higherBetter)=>{
+    const list=vals.filter(x=>x!=null&&!isNaN(x));
+    if(v==null||isNaN(v)||list.length<2) return '';
+    const mn=Math.min(...list), mx=Math.max(...list);
+    if(mx===mn) return gradeColor('A');
+    let t=(v-mn)/(mx-mn); if(!higherBetter) t=1-t;
+    return gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);
+  };
+  const seasonVals=f=>_teams.map(f);
+  const atVals=f=>_franchises.map(x=>f(_atAll[x.owner],x.owner));
+  const liqPctOf=o=>{const tid=_teams.find(x=>_ownerMap[x.id]===o)?.id; const d=tid!=null?_liqSeason[tid]:null;
+    return (d&&d.decisions)?d.correct/d.decisions*100:null;};
+  const myLiq=_liqSeason[id], myLiqPct=(myLiq&&myLiq.decisions)?myLiq.correct/myLiq.decisions*100:null;
+  const winPctOf=x=>{const g=x.wins+x.losses+(x.ties||0); return g?x.wins/g:0;};
+
   // label left, value right — no icons, one line per stat
   const stat=(label,val,col)=>`<div class="prof-stat"><span class="prof-stat-l">${label}</span><span class="prof-stat-v" ${col?`style="color:${col}"`:''}>${val}</span></div>`;
   const chip=(label,val,col)=>`<div class="prof-chip"><div class="prof-chip-v" ${col?`style="color:${col}"`:''}>${val}</div><div class="prof-chip-l">${label}</div></div>`;
@@ -2739,29 +2760,31 @@ async function renderProfile(){
     <div class="prof-top2">
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
-      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`)}
-      ${stat('Points For',t.pf.toFixed(1),'var(--green)')}
-      ${stat('Points Against',t.pa.toFixed(1),'var(--red)')}
+      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,scaleCol(seasonVals(winPctOf),winPctOf(t),true))}
+      ${stat('Points For',t.pf.toFixed(1),scaleCol(seasonVals(x=>x.pf),t.pf,true))}
+      ${stat('Points Against',t.pa.toFixed(1),scaleCol(seasonVals(x=>x.pa),t.pa,false))}
       ${stat('Moves',t.moves)}
       ${stat('Trades',t.trades)}
-      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),sc(s))}
-      ${stat('Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—',sc(c2||0))}
-      ${stat('Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—',sc(c3||0))}
+      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),_cmMode==='none'?'':scaleCol(seasonVals(x=>_scores[x.id]||0),s,true))}
+      ${stat('Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c2),c2,true))}
+      ${stat('Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c3),c3,true))}
+      ${stat('Lineup IQ',myLiqPct!=null?myLiqPct.toFixed(1)+'%':'—',scaleCol(_teams.map(x=>{const d=_liqSeason[x.id];return (d&&d.decisions)?d.correct/d.decisions*100:null;}),myLiqPct,true))}
+      ${stat('Missed Points',myLiq?myLiq.missed.toFixed(1):'—',scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false))}
     </div>
     </div>
     <div class="panel"><div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
     <div class="prof-stats">
-      ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,winpct>=50?'var(--green)':'var(--red)')}
-      ${stat('Win %',`${winpct.toFixed(1)}%`,winpct>=50?'var(--green)':'var(--red)')}
-      ${stat('Points For',at.pf.toFixed(0),'var(--green)')}
-      ${stat('Points Against',at.pa.toFixed(0),'var(--red)')}
-      ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—','var(--green)')}
-      ${stat('Lowest Score',at.lo?at.lo.pts.toFixed(1):'—','var(--red)')}
-      ${stat('Championships',at.rings)}
-      ${stat('Playoff Apps',at.playoffApps||0)}
-      ${stat('Playoff Wins',at.playoffWins||0)}
-      ${stat('Best Finish',at.best?`#${at.best}`:'—','var(--green)')}
-      ${stat('Worst Finish',at.worst?`#${at.worst}`:'—','var(--red)')}
+      ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
+      ${stat('Win %',`${winpct.toFixed(1)}%`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
+      ${stat('Points For',at.pf.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pf/a.playedSeasons:null),at.playedSeasons?at.pf/at.playedSeasons:null,true))}
+      ${stat('Points Against',at.pa.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pa/a.playedSeasons:null),at.playedSeasons?at.pa/at.playedSeasons:null,false))}
+      ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—',scaleCol(atVals(a=>a.hi?a.hi.pts:null),at.hi?at.hi.pts:null,true))}
+      ${stat('Lowest Score',at.lo?at.lo.pts.toFixed(1):'—',scaleCol(atVals(a=>a.lo?a.lo.pts:null),at.lo?at.lo.pts:null,true))}
+      ${stat('Championships',at.rings,scaleCol(atVals(a=>a.rings),at.rings,true))}
+      ${stat('Playoff Apps',at.playoffApps||0,scaleCol(atVals(a=>a.playoffApps||0),at.playoffApps||0,true))}
+      ${stat('Playoff Wins',at.playoffWins||0,scaleCol(atVals(a=>a.playoffWins||0),at.playoffWins||0,true))}
+      ${stat('Best Finish',at.best?`#${at.best}`:'—',scaleCol(atVals(a=>a.best),at.best,false))}
+      ${stat('Worst Finish',at.worst?`#${at.worst}`:'—',scaleCol(atVals(a=>a.worst),at.worst,false))}
     </div>
     </div>
     </div>
@@ -2795,6 +2818,7 @@ async function renderProfile(){
       if(c&&stillHere) c.innerHTML=lineupHTML(owner);
     }).catch(()=>{});
   }
+  if(!_liq[getSeason()]){ loadLineupIQ(); }
   if(!_draftAllCache){
     loadAllDrafts().then(()=>{
       const d=document.getElementById('prof-drafts');
