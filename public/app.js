@@ -495,7 +495,7 @@ function switchTab(name){
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
     // switchTab clears .active from every .tab-btn on the page
-    if(window.matchMedia('(max-width:768px)').matches) _lhView='champs';
+    if(window.matchMedia('(max-width:768px)').matches) _lhView='records';
     setLHView(_lhView);
   }
   updateTabDD(name);
@@ -2016,7 +2016,7 @@ function renderMarathon(){
 // ── LEAGUE HISTORY TAB ─────────────────────────────────────────────────────────
 const REGULAR_SEASON_END=14; // fallback only — real value comes from each season's settings
 function regEndOf(season){ const n=_seasonMeta[season]?.regEnd; return (n>=8&&n<=18)?n:REGULAR_SEASON_END; }
-let _lhView='champs';        // champs | conf | records | sups
+let _lhView='records';       // records | champs | conf | sups
 function renderLeagueHistory(){
   const body=document.getElementById('legacy-body'); if(!body) return;
   const seasons=ALL_SEASONS.filter(s=>_seasonMeta[s]?.teams).sort((x,y)=>y-x);
@@ -2177,37 +2177,32 @@ function renderLeagueHistory(){
   })();
 
   const tab=(v,icon,label)=>`<button class="tab-btn ${_lhView===v?'active':''}" data-view="${v}" onclick="setLHView('${v}')"><i class="fa ${icon}"></i>${label}</button>`;
+  const head=(icon,label)=>`<div class="lh-sec-head"><i class="fa ${icon}"></i>${label}</div>`;
   body.innerHTML=`
     <div class="sec wm" data-wm="&#xf091;">
       <div class="standings-filters lh-tabs" id="lh-subtabs" style="padding-bottom:15px">
+        ${tab('records','fa-clipboard-list','All-Time Records')}
         ${tab('champs','fa-trophy','Champions')}
         ${tab('conf','fa-star','Conference')}
-        ${tab('records','fa-clipboard-list','All-Time Records')}
         ${tab('sups','fa-award','Superlatives')}
       </div>
-      <div id="lh-champs" ${_lhView==='champs'?'':'style="display:none"'}>${champsHTML}</div>
-      <div id="lh-conf" ${_lhView==='conf'?'':'style="display:none"'}>
-        <div class="lh-note">Conference winners are decided on record at the end of each season's regular season (week ${regEndOf(seasons[0])} in ${seasons[0]}), points for as the tiebreak.</div>
-        ${confHTML}</div>
       <div id="lh-records" ${_lhView==='records'?'':'style="display:none"'}>
+        ${head('fa-clipboard-list','All-Time Records')}
         <div class="lh-note">Every season combined, ranked by win percentage.</div>
         ${recsHTML}</div>
+      <div id="lh-champs" ${_lhView==='champs'?'':'style="display:none"'}>
+        ${head('fa-trophy','Champions')}
+        ${champsHTML}</div>
+      <div id="lh-conf" ${_lhView==='conf'?'':'style="display:none"'}>
+        ${head('fa-star','Conference Championships')}
+        <div class="lh-note">Conference winners are decided on record at the end of each season's regular season (week ${regEndOf(seasons[0])} in ${seasons[0]}), points for as the tiebreak.</div>
+        ${confHTML}</div>
       <div id="lh-sups" ${_lhView==='sups'?'':'style="display:none"'}>
+        ${head('fa-award','Season Superlatives')}
         <div class="lh-note">GFL voted, season by season.</div>
         ${supsHTML}</div>
     </div>`;
   openDesktopBrackets();
-}
-// Brackets ride open on desktop and stay closed on phones (where they'd bury
-// the rest of the list).
-function openDesktopBrackets(){
-  if(window.matchMedia('(max-width:768px)').matches) return;
-  document.querySelectorAll('#lh-champs .lh-row').forEach(row=>{
-    const wrap=row.querySelector('.bracket-wrap'), btn=row.querySelector('.lh-brk');
-    if(!wrap||!btn||wrap.style.display!=='none') return;
-    const season=(wrap.id||'').replace('bracket-','');
-    if(season) toggleBracket(season,btn);
-  });
 }
 function setLHView(v){
   _lhView=v;
