@@ -1134,12 +1134,18 @@ function renderLineupIQ(){
   if(!data){ loadLineupIQ();
     el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Rebuilding every optimal lineup of the ${season} season…</div>`; return; }
   const rows=_teams.map(t=>{const d=data[t.id]; return d&&d.decisions?{t,d,pct:d.correct/d.decisions*100}:null;})
-    .filter(Boolean).sort((a,b)=>b.pct-a.pct);
+    .filter(Boolean);
+  rows.sort((a,b)=>{
+    const v=_liqSort.col==='miss'?[a.d.missed,b.d.missed]:[a.pct,b.pct];
+    return _liqSort.asc?v[0]-v[1]:v[1]-v[0];
+  });
+  const arr=c=>_liqSort.col===c?(_liqSort.asc?'\u2191':'\u2193'):'\u21C5';
+  const sh=(c,label,cls)=>`<span class="${cls||''} liq-sort${_liqSort.col===c?' sorted':''}" onclick="sortLIQ('${c}')">${label} <span class="liq-arw">${arr(c)}</span></span>`;
   if(!rows.length){ el.innerHTML=`<div class="tab-loading">No weekly roster data for the ${season} season.</div>`; return; }
   const worst=Math.max(...rows.map(r=>r.d.missed))||1;
   el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, regular season only (${data._weeks||rows[0].d.weeks} weeks). A starting spot only counts as a decision when another eligible player was on the roster that week — one kicker is not a choice. RB, WR and TE all count as FLEX-eligible. Byes, IR and players who never took the field are ignored. <b>Missed points</b> = what a perfect lineup would have scored, minus what was actually started.</div>
   <div class="liq-list">
-    <div class="liq-row liq-head"><span>#</span><span>Team</span><span class="right">Lineup IQ</span><span class="liq-barcell">Correct calls</span><span class="right">Missed pts</span></div>
+    <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}</div>
     ${rows.map((r,i)=>`<div class="liq-row">
       <span class="liq-rk">${i+1}</span>
       <span class="liq-team"><div class="team-cell">${logoImg(r.t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${r.t.id}">${r.t.name}</div><div class="team-sub">${r.t.abbrev}</div></div></div></span>
@@ -1149,6 +1155,8 @@ function renderLineupIQ(){
     </div>`).join('')}
   </div>`;
 }
+let _liqSort={col:'pct',asc:false};
+function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:(col==='miss')}; renderLineupIQ(); }
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
 function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?'#E0B67B':'var(--red)'; }
 function renderStandingsTable(){
