@@ -1765,13 +1765,17 @@ function drPanel(v,season,inner,cls){
   return `<div class="card dr-panel${cls?' '+cls:''}" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa ${v.icon}" style="color:${v.col}"></i>${v.title(season)}<span class="badge-info">${v.badge}</span></div>${inner}</div>`;
 }
 // compact card used inside the side-by-side mobile pairs
+function drAbbr(owner,name){
+  const t=_teams.find(x=>_ownerMap[x.id]===owner);
+  return (t&&t.abbrev)||teamInitials(name);
+}
 function draftClassCardMini(d,i,showSeason,tint){
   const val=(d.val!=null?d.val:d.total);
   const fr=_franchises.find(f=>f.owner===d.owner);
   const dcol=tint||(val>0?'var(--green)':val<0?'var(--red)':'var(--text2)');
   return `<div class="dpm${tint?' dpm-tint':''}"${tint?` style="--dtint:${tint}"`:''}>
-    <div class="dpm-top"><span class="dpm-rk">${i+1}</span>${fr?franchiseAvatar(fr,20):''}<span class="dpm-name">${d.name}</span></div>
-    <div class="dpm-bot">${showSeason?`<span class="dpm-pts">${d.season}</span>`:'<span class="dpm-pts"></span>'}<span class="dpm-delta" style="color:${dcol}">${val>0?'+':''}${Math.round(val)}</span></div>
+    <div class="dpm-top"><span class="dpm-rk">${i+1}</span>${fr?franchiseAvatar(fr,20):''}<span class="dpm-name">${drAbbr(d.owner,d.name)}</span></div>
+    <div class="dpm-bot dpm-ind">${showSeason?`<span class="dpm-pts">${d.season}</span>`:'<span class="dpm-pts"></span>'}<span class="dpm-delta" style="color:${dcol}">${val>0?'+':''}${Math.round(val)}</span></div>
   </div>`;
 }
 function draftPickCardMini(r,i,showSeason){
@@ -1822,11 +1826,11 @@ function draftListsDesktopHTML(season){
 }
 function draftListsMobileHTML(season){
   const grp=DRAFT_VIEWS[_draftView].grp;
-  const mb=(g,label,target)=>`<button class="tab-btn${grp===g?' active':''}" style="--tc:var(--accent)" onclick="setDraftView('${target}')">${label}</button>`;
+  const mb=(g,label,target,icon,col)=>`<button class="dr-vtab dr-mtab${grp===g?' active':''}" onclick="setDraftView('${target}')"><i class="fa ${icon}" style="color:${col}"></i>${label}</button>`;
   const tabs=`<div class="dr-mtabs">
-    ${mb('year',season+' Rankings','year')}
-    ${mb('drafts','All-Time Drafts','best')}
-    ${mb('picks','Steals &amp; Busts',_draftPickLast)}
+    ${mb('year',season+' Rankings','year','fa-ranking-star','var(--accent)')}
+    ${mb('drafts','All-Time Drafts','best','fa-trophy','var(--green)')}
+    ${mb('picks','Steals &amp; Busts',_draftPickLast,'fa-gem','var(--green)')}
   </div>`;
   let body='';
   if(grp==='year'){
