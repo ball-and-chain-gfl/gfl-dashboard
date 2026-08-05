@@ -1100,14 +1100,12 @@
       .trades-layout{grid-template-columns:1fr;}
       .trades-filters{position:static;}
     }
-    /* mobile: trade filters fill the row edge to edge, one group per row */
-    @media(max-width:768px){
-      .trades-filters .standings-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 0 2px;align-items:stretch;}
-      .trades-filters .standings-filters>span{grid-column:1/-1;margin:0 0 1px!important;}
-      .trades-filters #trade-sort{grid-template-columns:1fr 1fr 1fr;}
-      .trades-filters #trade-team select{grid-column:1/-1;width:100%;}
-      .trades-filters .filter-btn{display:flex;align-items:center;justify-content:center;width:100%;padding:9px 6px;font-size:11.5px;white-space:normal;line-height:1.25;text-align:center;border-radius:6px;}
-    }
+    /* trade filters fill the row edge to edge, one group per row (all screen sizes) */
+    .trades-filters .standings-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 0 2px;align-items:stretch;}
+    .trades-filters .standings-filters>span{grid-column:1/-1;margin:0 0 1px!important;}
+    .trades-filters #trade-sort{grid-template-columns:1fr 1fr 1fr;}
+    .trades-filters #trade-team select{grid-column:1/-1;width:100%;}
+    .trades-filters .filter-btn{display:flex;align-items:center;justify-content:center;width:100%;padding:9px 6px;font-size:11.5px;white-space:normal;line-height:1.25;text-align:center;border-radius:6px;}
 
 
     /* ── Matchup history: clickable teams -> per-game log ── */

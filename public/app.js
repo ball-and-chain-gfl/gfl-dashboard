@@ -33,7 +33,7 @@ let _playerNames={};  // pid -> name
 let _tenure=null,_tenureLoading=false;  // owner -> pid -> {n, wAll(roster), sAll(started), pAll, seasons:{y:{w,s,p}}}
 let _transactions=[];                   // current season's transaction list (real/archive/inferred)
 let _draftCache={},_draftLoading=false; // season -> {picks, stats}
-let _tradeSort='unbalanced';            // 'unbalanced' | 'balanced' | 'week'
+let _tradeSort='week';                  // 'week' | 'unbalanced' | 'balanced'
 let _statsView='standings';             // 'standings' | 'c2' | 'c3'
 let _c3Team=null;                        // teamId for the C3 breakdown dropdown (defaults to Lebron's)
 let _profileTeam=null;                   // teamId string for the profile tab
@@ -2954,9 +2954,9 @@ async function loadDashboard(){
             </div>
             <div class="standings-filters" id="trade-sort">
               <span style="font-size:12px;color:var(--text3);margin-right:4px">Sort:</span>
-              <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most Unbalanced</button>
-              <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most Balanced</button>
-              <button class="filter-btn ${_tradeSort==='week'?'active':''}" onclick="setTradeSort('week',this)">By Week</button>
+              <button class="filter-btn ${_tradeSort==='week'?'active':''}" onclick="setTradeSort('week',this)">By<br>Week</button>
+              <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most<br>Unbalanced</button>
+              <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most<br>Balanced</button>
             </div>
             <div class="standings-filters" id="trade-team">
               <span style="font-size:12px;color:var(--text3);margin-right:4px">Team:</span>
