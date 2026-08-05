@@ -1342,6 +1342,20 @@
     #sb-portal{display:none;}
     @media(max-width:1000px){.sb-layout{grid-template-columns:1fr;}.sb-slip-wrap{position:static;}}
     @media(max-width:768px){
+      /* phones: drop the outer page card and step every surface one shade darker */
+      #page-book>.sec{background:none!important;border:none!important;box-shadow:none!important;
+        -webkit-backdrop-filter:none!important;backdrop-filter:none!important;padding:0 18px!important;}
+      #page-book>.sec>.sec-head{padding-left:0!important;padding-right:0!important;}
+      .sb-bar{background:rgba(0,0,0,0.30);border-color:rgba(255,255,255,0.09);}
+      .sb-market{background:linear-gradient(rgba(0,0,0,0.26),rgba(0,0,0,0.32));
+        border-color:rgba(255,255,255,0.10);box-shadow:0 12px 26px -22px rgba(0,0,0,0.95);}
+      .sb-mhead{background:rgba(0,0,0,0.34);border-bottom-color:rgba(255,255,255,0.09);}
+      .sb-head{background:rgba(0,0,0,0.42)!important;}
+      .sb-row:not(.sb-head):nth-of-type(even){background:rgba(0,0,0,0.20);}
+      .sb-row:not(.sb-head):hover{background:rgba(0,0,0,0.28);}
+      .sb-odds{background:rgba(0,0,0,0.34);border-color:rgba(255,255,255,0.16);}
+      .sb-tcard{background:rgba(0,0,0,0.36);}
+      .sb-trow:nth-of-type(even){background:rgba(0,0,0,0.20);}
       /* phones: abbreviations, two-across prices, slip becomes a bottom sheet */
       .sb-bar{padding-bottom:12px;}
       .sb-bar-t{font-size:13.5px;}
@@ -1907,7 +1921,8 @@
 
     /* All-Time Starting Lineup: grade chip rides at the top-right beside the tabs */
     .lineup-topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 0 12px;}
-    .lg-chip{margin-left:auto;display:flex;align-items:center;gap:14px;flex:0 0 auto;}
+    .lg-chip{margin-left:auto;display:flex;align-items:center;gap:14px;flex:0 0 auto;
+      padding:8px 12px;border:1px solid rgba(255,255,255,0.14);border-radius:9px;}
     .lg-chip-num{display:flex;align-items:baseline;gap:5px;}
     .lg-chip .lg-label{font-size:9.5px!important;letter-spacing:.5px!important;}
     .lg-chip .lg-score{font-size:17px!important;line-height:1.1!important;}

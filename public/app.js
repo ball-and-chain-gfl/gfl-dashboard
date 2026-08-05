@@ -2774,7 +2774,7 @@ function lineupHTML(owner){
   let gradeChip='', gradeNote='';
   if(mode==='ppg'){
     const g=ppgGradeFor(owner); const gc=gradeColor(g.grade);
-    gradeChip=`<div class="lg-chip">
+    gradeChip=`<div class="lg-chip" style="background:${gradeTint(gc,0.13)};border-color:${gradeTint(gc,0.45)}">
       <div class="lg-chip-num"><span class="lg-score">${g.score.toFixed(1)}</span><span class="lg-label">PPG</span></div>
       <div class="lg-gwrap"><span class="lg-glabel">All Time GFL Team Grade</span><div class="lg-grade" style="color:${gc};border-color:${gc}">${g.grade}</div></div>
     </div>`;
