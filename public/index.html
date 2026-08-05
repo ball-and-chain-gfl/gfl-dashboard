@@ -861,14 +861,15 @@
     .tab-btn[data-tab=badbeat]{--tc:#e879f9;}
     .tab-btn[data-tab=gabe]{--tc:#a3e635;}
     .tab-btn[data-tab=marathon]{--tc:#22d3ee;}
-    .tab-btn i{color:var(--tc);opacity:.8;transition:opacity .15s;}
-    .tab-btn:hover{background:color-mix(in srgb,var(--tc) 10%,transparent)!important;color:var(--text)!important;}
+    .tab-btn i{color:var(--tc,var(--accent));opacity:.8;transition:opacity .15s;}
+    .tab-btn:hover{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,transparent)!important;color:var(--text)!important;}
     .tab-btn:hover i{opacity:1;}
-    .tab-btn.active{background:color-mix(in srgb,var(--tc) 16%,transparent)!important;color:var(--tc)!important;}
-    .tab-btn.active i{color:var(--tc)!important;opacity:1;}
-    html[data-theme="light"] .tab-btn.active{background:color-mix(in srgb,var(--tc) 15%,transparent)!important;color:color-mix(in srgb,var(--tc) 72%,#000)!important;}
-    html[data-theme="light"] .tab-btn.active i{color:color-mix(in srgb,var(--tc) 72%,#000)!important;}
-    html[data-theme="light"] .tab-btn i{color:color-mix(in srgb,var(--tc) 70%,#000);}
+    .tab-btn.active{background:color-mix(in srgb,var(--tc,var(--accent)) 20%,transparent)!important;
+      color:var(--tc,var(--accent))!important;border-color:var(--tc,var(--accent))!important;}
+    .tab-btn.active i{color:var(--tc,var(--accent))!important;opacity:1;}
+    html[data-theme="light"] .tab-btn.active{background:color-mix(in srgb,var(--tc,var(--accent)) 15%,transparent)!important;color:color-mix(in srgb,var(--tc,var(--accent)) 72%,#000)!important;}
+    html[data-theme="light"] .tab-btn.active i{color:color-mix(in srgb,var(--tc,var(--accent)) 72%,#000)!important;}
+    html[data-theme="light"] .tab-btn i{color:color-mix(in srgb,var(--tc,var(--accent)) 70%,#000);}
 
     /* Active tab's color becomes the page accent (dark mode) */
     html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#c99a5c;--accent-rgb:224,182,123;}
