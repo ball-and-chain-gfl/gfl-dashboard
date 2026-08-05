@@ -429,13 +429,18 @@
     @media(max-width:520px){.lineup-grid{grid-template-columns:repeat(2,1fr);}}
 
     /* honor tile gradients — themed to each award */
-    .honor-tile.hk-champ{background:linear-gradient(160deg,rgba(var(--accent-rgb),0.28),rgba(var(--accent-rgb),0.05));border-color:rgba(var(--accent-rgb),0.5);}
-    .honor-tile.hk-conf{background:linear-gradient(160deg,rgba(96,165,250,0.24),rgba(96,165,250,0.04));border-color:rgba(96,165,250,0.45);}
-    .honor-tile.hk-coy{background:linear-gradient(160deg,rgba(192,132,252,0.24),rgba(192,132,252,0.04));border-color:rgba(192,132,252,0.45);}
-    .honor-tile.hk-commitment{background:linear-gradient(160deg,rgba(74,222,128,0.22),rgba(74,222,128,0.04));border-color:rgba(74,222,128,0.4);}
-    .honor-tile.hk-comeback{background:linear-gradient(160deg,rgba(45,212,191,0.24),rgba(45,212,191,0.04));border-color:rgba(45,212,191,0.45);}
-    .honor-tile.hk-punishment{background:linear-gradient(160deg,rgba(255,146,61,0.26),rgba(255,146,61,0.05));border-color:rgba(255,146,61,0.45);}
-    .honor-tile.hk-disappoint{background:linear-gradient(160deg,rgba(251,113,133,0.22),rgba(251,113,133,0.04));border-color:rgba(251,113,133,0.45);}
+    /* champion gold · conference blue · coach of the year purple · engagement green
+       · punishment orange · most disappointing red · comeback pink */
+    .honor-tile.hk-champ{--hk:224,182,123;}
+    .honor-tile.hk-conf{--hk:96,165,250;}
+    .honor-tile.hk-coy{--hk:192,132,252;}
+    .honor-tile.hk-commitment{--hk:74,222,128;}
+    .honor-tile.hk-comeback{--hk:244,114,182;}
+    .honor-tile.hk-punishment{--hk:255,146,61;}
+    .honor-tile.hk-disappoint{--hk:255,95,95;}
+    .honor-tile[class*="hk-"]{background:linear-gradient(160deg,rgba(var(--hk),0.26),rgba(var(--hk),0.05));border-color:rgba(var(--hk),0.48);}
+    .honor-tile[class*="hk-"] .honor-lb{color:rgb(var(--hk));}
+    .honor-tile[class*="hk-"] .honor-lb b{color:rgb(var(--hk));}
     .prof-honors .honor-tile{box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px -18px rgba(0,0,0,0.7);}
 
     /* TEAM PROFILE — premium */
