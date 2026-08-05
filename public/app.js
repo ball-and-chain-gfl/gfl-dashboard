@@ -446,7 +446,11 @@ function labelTables(root){
       tbl.classList.remove('stick1','stick2');
       tbl.classList.add(idIdx<=0?'stick1':'stick2');
       if(idIdx===1){
-        const w=Math.round(first.cells[0].getBoundingClientRect().width)||34;
+        // round up and include the header cell: a fractional width here is what
+        // opens a sliver between the two sticky columns while scrolling
+        const hrow0=head.rows[head.rows.length-1];
+        const w=Math.ceil(Math.max(first.cells[0].getBoundingClientRect().width,
+                                   hrow0?.cells[0]?.getBoundingClientRect().width||0))||34;
         tbl.style.setProperty('--c1w',w+'px');
       }
     }

@@ -1372,9 +1372,13 @@
         position:sticky;z-index:3;background:#0a0a0c;
         box-shadow:1px 0 0 rgba(255,255,255,0.10);}
       table.mtbl.stick1 td:first-child,table.mtbl.stick1 th:first-child{left:0;}
-      table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){left:var(--c1w,34px);}
+      /* pull the second sticky column back a hair and paint the seam, so no
+         scrolling content can peek through between # and Team */
+      table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){left:calc(var(--c1w,34px) - 1px);}
       table.mtbl.stick2 td:first-child,table.mtbl.stick2 th:first-child{
-        position:sticky;left:0;z-index:3;background:#0a0a0c;padding-right:2px!important;}
+        position:sticky;left:0;z-index:4;background:#0a0a0c;padding-right:2px!important;
+        box-shadow:3px 0 0 #0a0a0c;}
+      table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){z-index:3;}
       table.mtbl thead th{background:#0a0a0c;}
       /* team photo + abbreviation instead of the full name in table cells */
       table.mtbl td.has-abbr .team-name{display:none;}
