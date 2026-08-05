@@ -3138,7 +3138,7 @@ function sbBuild(){
   const yesno=(key,title,sub,probs,badge,icon)=>({key,title,sub,type:'yesno',badge:badge||'Yes / No',
     icon:icon||'fa-check-double',
     picks:rows.map((r,i)=>{
-      const p=Math.min(0.94,Math.max(0.06,probs[i]));
+      const p=Math.min(0.88,Math.max(0.10,probs[i]));
       const y=amFromProb(Math.min(0.96,p+TWOWAY)), n=amFromProb(Math.min(0.96,(1-p)+TWOWAY));
       return {owner:r.owner,name:r.name,tid:r.tid,yes:y,no:n,fair:p};
     }).sort((a,b)=>b.fair-a.fair)});
@@ -3240,12 +3240,12 @@ function sbAvatar(owner,size){
 }
 function sbTeamAb(owner,name){ return drAbbr(owner,name); }
 function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
-function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra){
+function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
   const on=sbSel(mk,pick)?' on':'';
   const args=[mk,mkLabel,pick,pickLabel,odds].map(v=>typeof v==='string'?`'${String(v).replace(/'/g,"\\'")}'`:v).join(',');
   return `<button class="sb-odds${on}${extra?' '+extra:''}" data-k="${mk}|${pick}" onclick="sbPick(${args})">
-    ${extra==='sb-two'?`<span class="sb-o-lbl">${pickLabel}</span>`:''}<span class="sb-o-val">${amFmt(odds)}</span></button>`;
+    ${btnLabel?`<span class="sb-o-lbl">${btnLabel}</span>`:''}<span class="sb-o-val">${amFmt(odds)}</span></button>`;
 }
 function sbMarketHTML(m){
   const rows=m.picks.map(p=>{
@@ -3257,13 +3257,13 @@ function sbMarketHTML(m){
     }
     if(m.type==='yesno'){
       return `<div class="sb-row sb-row2">${nm}
-        ${sbBtn(m.key,m.title,p.owner+':yes',p.name+' — Yes',p.yes,'sb-two')}
-        ${sbBtn(m.key,m.title,p.owner+':no',p.name+' — No',p.no,'sb-two')}</div>`;
+        ${sbBtn(m.key,m.title,p.owner+':yes',p.name+' — Yes',p.yes,'sb-two','Yes')}
+        ${sbBtn(m.key,m.title,p.owner+':no',p.name+' — No',p.no,'sb-two','No')}</div>`;
     }
     const ln=m.key==='wins'?p.line.toFixed(1):p.line.toFixed(1);
     return `<div class="sb-row sb-row2">${nm}
-      ${sbBtn(m.key,m.title,p.owner+':o',`${p.name} — Over ${ln}`,p.over,'sb-two')}
-      ${sbBtn(m.key,m.title,p.owner+':u',`${p.name} — Under ${ln}`,p.under,'sb-two')}</div>`;
+      ${sbBtn(m.key,m.title,p.owner+':o',`${p.name} — Over ${ln}`,p.over,'sb-two','O '+ln)}
+      ${sbBtn(m.key,m.title,p.owner+':u',`${p.name} — Under ${ln}`,p.under,'sb-two','U '+ln)}</div>`;
   }).join('');
   const head=m.type==='outright'
     ? `<div class="sb-row sb-head"><span>Team</span><span class="sb-imp">Implied</span><span class="sb-oh">Odds</span></div>`
@@ -3286,8 +3286,8 @@ function sbTeamViewHTML(book){
   Object.values(book.groups).flat().forEach(m=>{
     const p=m.picks.find(x=>x.owner===owner); if(!p) return;
     if(m.type==='outright') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner,r.name,p.odds)],note:(p.prob*100).toFixed(1)+'% implied'});
-    else if(m.type==='yesno') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner+':yes',r.name+' — Yes',p.yes,'sb-two'),sbBtn(m.key,m.title,owner+':no',r.name+' — No',p.no,'sb-two')],note:'Yes / No'});
-    else lines.push({m,label:m.title+' · '+p.line.toFixed(1),cells:[sbBtn(m.key,m.title,owner+':o',`${r.name} — Over ${p.line.toFixed(1)}`,p.over,'sb-two'),sbBtn(m.key,m.title,owner+':u',`${r.name} — Under ${p.line.toFixed(1)}`,p.under,'sb-two')],note:'projection '+(m.key==='wins'?p.exp.toFixed(1)+' wins':Math.round(p.exp)+' pts')});
+    else if(m.type==='yesno') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner+':yes',r.name+' — Yes',p.yes,'sb-two','Yes'),sbBtn(m.key,m.title,owner+':no',r.name+' — No',p.no,'sb-two','No')],note:'Yes / No'});
+    else lines.push({m,label:m.title+' · '+p.line.toFixed(1),cells:[sbBtn(m.key,m.title,owner+':o',`${r.name} — Over ${p.line.toFixed(1)}`,p.over,'sb-two','O '+p.line.toFixed(1)),sbBtn(m.key,m.title,owner+':u',`${r.name} — Under ${p.line.toFixed(1)}`,p.under,'sb-two','U '+p.line.toFixed(1))],note:'projection '+(m.key==='wins'?p.exp.toFixed(1)+' wins':Math.round(p.exp)+' pts')});
   });
   const at=r.at;
   return `<div class="sb-market">
