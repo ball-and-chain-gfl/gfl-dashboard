@@ -2360,6 +2360,40 @@ function lastMeeting(ownerA,ownerB){
   });
   return best;
 }
+// Sportsbook lines for the matchup of the week: a head-to-head moneyline priced
+// off the two power ratings, plus each side's championship and playoff numbers.
+function motwOddsHTML(A,B){
+  const book=(typeof sbBuild==='function')?sbBuild():null;
+  if(!book) return '';
+  const rA=book.rows.find(r=>r.owner===_ownerMap[A.id]), rB=book.rows.find(r=>r.owner===_ownerMap[B.id]);
+  if(!rA||!rB) return '';
+  const mk=k=>Object.values(book.groups).flat().find(m=>m.key===k);
+  const champ=mk('champ'), po=mk('playoffs');
+  const pickOf=(m,o)=>m?m.picks.find(p=>p.owner===o):null;
+  const cA=pickOf(champ,rA.owner), cB=pickOf(champ,rB.owner);
+  const pA=pickOf(po,rA.owner), pB=pickOf(po,rB.owner);
+  // head to head: logistic on the rating gap, then a standard two-way hold
+  const pWinA=Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(rA.rating-rB.rating)*0.55))));
+  const mlA=amFromProb(Math.min(0.95,pWinA+0.025)), mlB=amFromProb(Math.min(0.95,(1-pWinA)+0.025));
+  const total=Math.round(((rA.ppg+rB.ppg)*0.5)*2)/2*2;   // combined points, to the nearest point
+  const line=Math.round(total*2)/2+0.5;
+  const spread=Math.abs(rA.ppg-rB.ppg)*0.55;
+  const sp=(Math.round(spread*2)/2).toFixed(1);
+  const favA=rA.ppg>=rB.ppg;
+  const cell=(lbl,val,sub)=>`<div class="mo-cell"><div class="mo-l">${lbl}</div><div class="mo-v">${val}</div>${sub?`<div class="mo-s">${sub}</div>`:''}</div>`;
+  return `<div class="motw-book">
+    <div class="mo-head"><i class="fa fa-coins"></i>B&amp;C Sportsbook<span class="badge-info">this matchup</span></div>
+    <div class="mo-grid">
+      ${cell('Moneyline',`${amFmt(mlA)} / ${amFmt(mlB)}`,`${sbTeamAb(rA.owner,rA.name)} / ${sbTeamAb(rB.owner,rB.name)}`)}
+      ${cell('Spread',`${favA?sbTeamAb(rA.owner,rA.name):sbTeamAb(rB.owner,rB.name)} \u2212${sp}`,'projected margin')}
+      ${cell('Total',`O/U ${line.toFixed(1)}`,'combined points')}
+    </div>
+    <div class="mo-grid mo-grid2">
+      ${cell('Championship',`${cA?amFmt(cA.odds):'—'} / ${cB?amFmt(cB.odds):'—'}`,'to win it all')}
+      ${cell('Playoff berth',`${pA?amFmt(pA.yes):'—'} / ${pB?amFmt(pB.yes):'—'}`,'yes price')}
+    </div>
+  </div>`;
+}
 function renderMatchupOfWeek(){
   const el=document.getElementById('motw'); if(!el) return;
   const cfg=_CFG.matchup||{};
@@ -2373,10 +2407,6 @@ function renderMatchupOfWeek(){
   const last=lastMeeting(oA,oB);
   const odds=cfg.odds||{home:{},away:{}};
   const oddChip=(label,pct,cls)=>`<div class="odd-chip"><div class="odd-label">${label}</div><div class="odd-val ${cls}">${pct!=null?pct+'%':'—'}</div></div>`;
-  const takeCol=(title,icon,arr,col)=>`<div class="motw-take">
-    <div class="motw-take-h" style="color:${col}"><i class="fa ${icon}"></i> ${title}</div>
-    ${(arr||[]).map(t=>`<div class="motw-take-item">${t}</div>`).join('')||'<div class="motw-take-item" style="color:var(--text3)">—</div>'}
-  </div>`;
   el.innerHTML=`
     <div class="motw-head">
       <div class="motw-team">${logoImg(A.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${A.name}</div><div style="font-size:12px;color:var(--text3)">${A.wins}–${A.losses} · ${A.pf.toFixed(0)} PF</div></div></div>
@@ -2387,10 +2417,7 @@ function renderMatchupOfWeek(){
       <div class="motw-fact"><div class="motw-fact-l">All-time series</div><div class="motw-fact-v">${at.games?`${at.wA}–${at.wB}`:'first meeting'}</div></div>
       <div class="motw-fact"><div class="motw-fact-l">Last meeting</div><div class="motw-fact-v">${last?`${last.aPts.toFixed(1)}–${last.bPts.toFixed(1)}`:'—'}</div><div class="motw-fact-s">${last?`${last.season} Wk ${last.week}`:'never played'}</div></div>
     </div>
-    <div class="motw-takes">
-      ${takeCol('The Ball 🔨','fa-hand-fist',cfg.ball,'var(--accent)')}
-      ${takeCol('The Chain ⛓️','fa-link',cfg.chain,'var(--blue)')}
-    </div>
+    ${motwOddsHTML(A,B)}
     <details class="motw-odds">
       <summary class="motw-odds-h"><span>Playoff odds</span><i class="fa fa-chevron-down odds-caret"></i></summary>
       <div class="motw-odds-grid">
@@ -3381,6 +3408,7 @@ function sbBuild(){
 
 // ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
 const SB_GROUPS=[
+  {k:'week',label:'This Week',icon:'fa-calendar-week'},
   {k:'futures',label:'Futures',icon:'fa-trophy'},
   {k:'props',label:'Team Props',icon:'fa-chart-simple'},
   {k:'awards',label:'Awards',icon:'fa-award'},
@@ -3537,12 +3565,109 @@ function sbToggleSlip(open){
   const p=document.getElementById('sb-portal'); if(p) p.classList.toggle('open',_sbSlipOpen);
   const c=document.getElementById('sb-dock-c'); if(c) c.style.transform=_sbSlipOpen?'rotate(180deg)':'';
 }
+// ── IN-SEASON BOARD (weekly games + waiver market) ───────────────────────────
+// Weekly matchup lines come from the schedule plus each team's power rating and
+// scoring; the waiver market prices what managers actually paid that week.
+function sbWeekData(){
+  const book=sbBuild(); if(!book) return null;
+  const season=getSeason(), meta=_seasonMeta[season];
+  if(!meta) return null;
+  const played=new Set(), all=new Set();
+  (meta.schedule||[]).forEach(m=>{
+    if(!m.home||!m.away) return;
+    const wk=m.matchupPeriodId||0; if(!wk) return;
+    all.add(wk);
+    if((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0) played.add(wk);
+  });
+  const lastPlayed=played.size?Math.max(...played):0;
+  const next=[...all].sort((a,b)=>a-b).find(w=>w>lastPlayed);
+  const week=next||lastPlayed;                     // upcoming week if the season is live
+  const live=!!next;
+  const games=(meta.schedule||[]).filter(m=>(m.matchupPeriodId||0)===week&&m.home&&m.away).map(m=>{
+    const rowOf=tid=>book.rows.find(r=>r.tid===tid);
+    const a=rowOf(m.home.teamId), b=rowOf(m.away.teamId);
+    const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+    const done=hp>0||ap>0;
+    if(!a||!b) return null;
+    const pA=Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(a.rating-b.rating)*0.55))));
+    const total=Math.round(((a.ppg+b.ppg))*2)/2;
+    return {week,a,b,done,hp,ap,
+      mlA:amFromProb(Math.min(0.95,pA+0.025)), mlB:amFromProb(Math.min(0.95,(1-pA)+0.025)),
+      spread:Math.round(Math.abs(a.ppg-b.ppg)*0.55*2)/2,
+      favA:a.ppg>=b.ppg,
+      line:Math.round(total)+0.5,
+      overP:amFromProb(0.5+0.024), underP:amFromProb(0.5+0.024),
+      winA:done?hp>ap:null};
+  }).filter(Boolean);
+  // waiver market: the biggest FAAB spends of that week
+  const buys=[];
+  Object.entries(_cmBreakdown||{}).forEach(([tid,bd])=>{
+    ((bd.detail&&bd.detail.waiverPickups)||[]).forEach(w=>{
+      if(w.week!==week) return;
+      const r=book.rows.find(x=>x.tid===Number(tid));
+      buys.push({pid:w.pid,bid:w.bid,est:w.est,pts:w.pts,team:r?r.name:('Team '+tid),owner:r?r.owner:null});
+    });
+  });
+  buys.sort((x,y)=>y.bid-x.bid);
+  return {book,season,week,live,games,buys:buys.slice(0,8)};
+}
+function sbWeekHTML(){
+  const d=sbWeekData();
+  if(!d) return `<div class="tab-loading">No schedule data for this season.</div>`;
+  const nm=r=>`<span class="sb-tm">${sbAvatar(r.owner,22)}<span class="sb-nm">${r.name}</span><span class="sb-ab">${sbTeamAb(r.owner,r.name)}</span></span>`;
+  const games=d.games.map(g=>{
+    const key='wk'+g.week+'-'+g.a.tid+'-'+g.b.tid;
+    const res=g.done?`<span class="wk-final">Final ${g.hp.toFixed(1)}–${g.ap.toFixed(1)}</span>`:'';
+    const mark=w=>g.done?(w?'<i class="fa fa-check wk-hit"></i>':'<i class="fa fa-xmark wk-miss"></i>'):'';
+    return `<div class="wk-game">
+      <div class="wk-side">${nm(g.a)}${mark(g.winA===true)}
+        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two','Win')}</div>
+      <div class="wk-side">${nm(g.b)}${mark(g.winA===false)}
+        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.b.owner+':ml',`${g.b.name} moneyline`,g.mlB,'sb-two','Win')}</div>
+      <div class="wk-extra">
+        <span class="wk-x-l">Spread</span>
+        ${sbBtn(key+'-sp',`Week ${g.week} spread`,(g.favA?g.a.owner:g.b.owner)+':sp',`${(g.favA?g.a.name:g.b.name)} −${g.spread.toFixed(1)}`,-115,'sb-two','−'+g.spread.toFixed(1))}
+        <span class="wk-x-l">Total</span>
+        ${sbBtn(key+'-tot',`Week ${g.week} total`,'over',`Over ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.overP,'sb-two','O '+g.line.toFixed(1))}
+        ${sbBtn(key+'-tot',`Week ${g.week} total`,'under',`Under ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.underP,'sb-two','U '+g.line.toFixed(1))}
+      </div>
+      ${res}
+    </div>`;}).join('');
+  const waiver=d.buys.length?d.buys.map((b,i)=>{
+    const line=Math.max(1,Math.round(b.bid))+0.5;
+    const key='fa'+b.pid+'-'+d.week;
+    return `<div class="sb-row sb-row2">
+      <span class="sb-tm">${playerImg(b.pid,22,pName(b.pid))}<span class="wk-pl">${pName(b.pid)}</span><span class="wk-pt">${b.team}</span></span>
+      ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'o',`${pName(b.pid)} — Over $${line.toFixed(1)} FAAB`,-110,'sb-two','O '+line.toFixed(1))}
+      ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'u',`${pName(b.pid)} — Under $${line.toFixed(1)} FAAB`,-110,'sb-two','U '+line.toFixed(1))}
+    </div>`;}).join(''):`<div class="sb-msub" style="padding:12px 14px">No waiver activity recorded for week ${d.week}.</div>`;
+  return `<div class="sb-market">
+      <div class="sb-mhead"><i class="fa fa-calendar-week"></i><span class="sb-mt">Week ${d.week} Matchups</span>
+        <span class="badge-info">${d.live?'open':'settled'}</span></div>
+      <div class="sb-msub">${d.live
+        ? `Lines for the upcoming week — moneyline, spread and combined total.`
+        : `The ${d.season} season is complete, so week ${d.week}'s board is shown settled against what actually happened.`}</div>
+      <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
+    </div>
+    <div class="sb-market">
+      <div class="sb-mhead"><i class="fa fa-hand-holding-dollar"></i><span class="sb-mt">Waiver Wire</span>
+        <span class="badge-info">FAAB over / under</span></div>
+      <div class="sb-msub">What managers paid for week ${d.week} pickups. Bids are estimated for seasons ESPN has purged.</div>
+      <div class="sb-rows">
+        <div class="sb-row sb-row2 sb-head"><span>Player</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>
+        ${waiver}
+      </div>
+    </div>`;
+}
+
 function renderBook(){
   const el=document.getElementById('book-body'); if(!el) return;
   const book=sbBuild();
   if(!book){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Setting the lines…</div>`; return; }
   const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')"><i class="fa ${g.icon}"></i>${g.label}</button>`).join('');
-  const board=_sbView==='team'?sbTeamViewHTML(book):(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
+  const board=_sbView==='team'?sbTeamViewHTML(book)
+    :_sbView==='week'?sbWeekHTML()
+    :(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
   el.innerHTML=`
     <div class="sb-bar">
       <div class="sb-bar-l"><span class="sb-live"><i class="fa fa-circle"></i>Lines set</span>

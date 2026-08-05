@@ -1229,6 +1229,47 @@
       .lh-sup-award{font-size:13px;}
       .sup-detail{font-size:11px;}
     }
+    /* ── Matchup of the Week: sportsbook strip ── */
+    .motw-book{margin-top:14px;border:1px solid rgba(var(--accent-rgb),0.28);border-radius:8px;overflow:hidden;
+      background:rgba(0,0,0,0.22);}
+    .mo-head{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(var(--accent-rgb),0.10);
+      border-bottom:1px solid rgba(255,255,255,0.08);font-family:'Google Sans Flex',Georgia,serif;
+      font-size:13px;font-weight:600;}
+    .mo-head i{color:var(--accent);font-size:12px;}
+    .mo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.07);}
+    .mo-grid2{grid-template-columns:repeat(2,1fr);}
+    .mo-cell{background:rgba(0,0,0,0.28);padding:9px 12px;min-width:0;}
+    .mo-l{font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;}
+    .mo-v{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--accent);margin-top:3px;white-space:nowrap;}
+    .mo-s{font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-top:2px;}
+    @media(max-width:768px){
+      .mo-grid{grid-template-columns:1fr 1fr;}
+      .mo-v{font-size:13px;}
+    }
+    /* ── Sportsbook: weekly board ── */
+    .wk-list{display:flex;flex-direction:column;}
+    .wk-game{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 14px;padding:11px 14px;
+      border-bottom:1px solid rgba(255,255,255,0.06);align-items:center;}
+    .wk-game:last-child{border-bottom:none;}
+    .wk-side{display:grid;grid-template-columns:minmax(0,1fr) 84px;align-items:center;gap:10px;min-width:0;}
+    .wk-side .sb-tm{min-width:0;}
+    .wk-extra{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+      padding-top:8px;border-top:1px dashed rgba(255,255,255,0.08);}
+    .wk-x-l{font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;}
+    .wk-extra .sb-odds{width:auto;min-width:84px;flex:0 0 auto;}
+    .wk-final{grid-column:1/-1;font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;
+      letter-spacing:.5px;color:var(--text3);}
+    .wk-hit{color:var(--green);font-size:11px;margin-left:6px;}
+    .wk-miss{color:var(--red);font-size:11px;margin-left:6px;}
+    .wk-pl{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .wk-pt{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-left:6px;white-space:nowrap;}
+    @media(max-width:768px){
+      .wk-game{grid-template-columns:1fr;gap:7px;padding:10px 12px;}
+      .wk-side{grid-template-columns:minmax(0,1fr) 76px;}
+      .wk-extra{gap:6px;}
+      .wk-extra .sb-odds{min-width:70px;}
+      .wk-pt{display:none;}
+    }
     /* ── SPORTSBOOK ─────────────────────────────────────────────────────────── */
     .sb-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
       padding:10px 14px;margin-bottom:14px;background:rgba(0,0,0,0.2);
@@ -1912,6 +1953,10 @@
 
     /* ── TEAM PROFILES: no outer container; inner containers carry the black card theme ── */
     /* banner picks up the same opaque black, keeping the team-colour wash on top */
+    /* team profiles sit straight on the page — no outer card */
+    #page-teams>.sec{background:none!important;border:none!important;box-shadow:none!important;
+      -webkit-backdrop-filter:none!important;backdrop-filter:none!important;padding:0!important;}
+    #page-teams>.sec>.picker-bar{padding:0 0 14px!important;}
     /* profile hero uses the same accent-tinted panel as the matchup-history record block */
     #page-teams .prof-banner{
       /* accent tint over the black card, so it reads exactly like the record block
