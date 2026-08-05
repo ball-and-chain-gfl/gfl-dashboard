@@ -386,6 +386,11 @@ function applyShortNames(root){
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
 // On phones the season selector shows just the year, so a long tab name in the
 // header doesn't push the controls onto a second line.
+function tradeScopeLabel(){
+  const b=document.getElementById('trade-scope-season'); if(!b) return;
+  const t=window.matchMedia('(max-width:768px)').matches?String(getSeason()):'This Season';
+  if(b.textContent!==t) b.textContent=t;
+}
 function seasonLabel(){
   const sel=document.getElementById('season-select'); if(!sel) return;
   const mob=window.matchMedia('(max-width:768px)').matches;
@@ -432,7 +437,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -2944,7 +2949,7 @@ async function loadDashboard(){
             <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report</div>
             <div class="standings-filters" id="trade-scope">
               <span style="font-size:12px;color:var(--text3);margin-right:4px">Scope:</span>
-              <button class="filter-btn ${_tradeScope==='season'?'active':''}" onclick="setTradeScope('season',this)">This Season</button>
+              <button id="trade-scope-season" class="filter-btn ${_tradeScope==='season'?'active':''}" onclick="setTradeScope('season',this)">This Season</button>
               <button class="filter-btn ${_tradeScope==='alltime'?'active':''}" onclick="setTradeScope('alltime',this)">All-Time</button>
             </div>
             <div class="standings-filters" id="trade-sort">
