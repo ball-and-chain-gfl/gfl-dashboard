@@ -2375,11 +2375,9 @@ function motwOddsHTML(A,B){
   // head to head: logistic on the rating gap, then a standard two-way hold
   const pWinA=Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(rA.rating-rB.rating)*0.55))));
   const mlA=amFromProb(Math.min(0.95,pWinA+0.025)), mlB=amFromProb(Math.min(0.95,(1-pWinA)+0.025));
-  const total=Math.round(((rA.ppg+rB.ppg)*0.5)*2)/2*2;   // combined points, to the nearest point
-  const line=Math.round(total*2)/2+0.5;
-  const spread=Math.abs(rA.ppg-rB.ppg)*0.55;
-  const sp=(Math.round(spread*2)/2).toFixed(1);
-  const favA=rA.ppg>=rB.ppg;
+  const line=Math.round(rA.ppg+rB.ppg)+0.5;              // combined points
+  const favA=rA.rating>=rB.rating;                        // same side the moneyline favours
+  const sp=(Math.max(0.5,Math.round(Math.abs(rA.rating-rB.rating)*3.0*2)/2)).toFixed(1);
   const cell=(lbl,val,sub)=>`<div class="mo-cell"><div class="mo-l">${lbl}</div><div class="mo-v">${val}</div>${sub?`<div class="mo-s">${sub}</div>`:''}</div>`;
   return `<div class="motw-book">
     <div class="mo-head"><i class="fa fa-coins"></i>B&amp;C Sportsbook<span class="badge-info">this matchup</span></div>
@@ -3590,12 +3588,11 @@ function sbWeekData(){
     const done=hp>0||ap>0;
     if(!a||!b) return null;
     const pA=Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(a.rating-b.rating)*0.55))));
-    const total=Math.round(((a.ppg+b.ppg))*2)/2;
     return {week,a,b,done,hp,ap,
       mlA:amFromProb(Math.min(0.95,pA+0.025)), mlB:amFromProb(Math.min(0.95,(1-pA)+0.025)),
-      spread:Math.round(Math.abs(a.ppg-b.ppg)*0.55*2)/2,
-      favA:a.ppg>=b.ppg,
-      line:Math.round(total)+0.5,
+      spread:Math.max(0.5,Math.round(Math.abs(a.rating-b.rating)*3.0*2)/2),
+      favA:a.rating>=b.rating,
+      line:Math.round(a.ppg+b.ppg)+0.5,
       overP:amFromProb(0.5+0.024), underP:amFromProb(0.5+0.024),
       winA:done?hp>ap:null};
   }).filter(Boolean);
