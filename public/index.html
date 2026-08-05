@@ -1279,7 +1279,8 @@
     /* Bad Beat: rank hugs the team, 8px from the longest name to the Score column */
     #page-badbeat .bb-tbl{table-layout:fixed;}
     #page-badbeat .bb-tbl th:nth-child(1),#page-badbeat .bb-tbl td:nth-child(1){width:var(--bbrank,34px);padding-right:0!important;}
-    #page-badbeat .bb-tbl th:nth-child(2),#page-badbeat .bb-tbl td:nth-child(2){width:var(--bbteam,200px);padding-left:8px!important;}
+    #page-badbeat .bb-tbl th:nth-child(2),#page-badbeat .bb-tbl td:nth-child(2){width:var(--bbteam,200px);padding-left:8px!important;padding-right:0!important;}
+    #page-badbeat .bb-tbl td:nth-child(2) .team-cell{width:max-content;}
     #page-badbeat .bb-tbl .team-cell{white-space:nowrap;}
     #page-badbeat .bb-tbl.bb-measure th:nth-child(1),#page-badbeat .bb-tbl.bb-measure td:nth-child(1),
     #page-badbeat .bb-tbl.bb-measure th:nth-child(2),#page-badbeat .bb-tbl.bb-measure td:nth-child(2){width:auto;}
