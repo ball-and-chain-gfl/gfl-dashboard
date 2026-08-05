@@ -1491,6 +1491,12 @@ async function renderTradesTab(){
       return oa===_tradeTeamFilter||ob===_tradeTeamFilter;
     });
   }
+  const _cnt=document.getElementById('trade-count');
+  if(_cnt){
+    const _sc=_tradeScope==='alltime'?'all-time':String(getSeason());
+    const _tm=_tradeTeamFilter?((_franchises.find(f=>f.owner===_tradeTeamFilter)?.name)||''):'';
+    _cnt.innerHTML=`<span class="tc-num">${list.length}</span><span class="tc-lbl">${list.length===1?'trade':'trades'} · ${_sc}${_tm?' · '+_tm:''}</span>`;
+  }
   if(!list.length){body.innerHTML=`<div class="tab-loading">No trades found${_tradeTeamFilter?' for this team':''}${_tradeScope==='alltime'?'':` in the ${getSeason()} season`}.</div>`;return;}
 
   if(_tradeSort==='balanced') list.sort((x,y)=>Math.abs(x.share-0.5)-Math.abs(y.share-0.5));
@@ -2843,10 +2849,6 @@ async function loadDashboard(){
     try{ _cmBreakdown=(await computeCoaching(_teams,transactions,weeklyData)).breakdown; }catch{ _cmBreakdown={}; }
 
     const cmRanked=[..._teams].sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));
-    const totalMoves=_teams.reduce((s,t)=>s+t.moves,0);
-    const totalTrades=_teams.reduce((s,t)=>s+t.trades,0);
-    const totalDrops=_teams.reduce((s,t)=>s+t.drops,0);
-    const avgPF=_teams.reduce((s,t)=>s+t.pf,0)/(_teams.length||1);
     const firstVid=_videos[0];
     _activeVideoId=firstVid?.videoId||null;
 
@@ -2918,11 +2920,6 @@ async function loadDashboard(){
 
       <!-- STANDINGS & STATS -->
       <div class="tab-page" id="page-standings">
-        <div class="stat-grid">
-          <div class="card stat-card"><div class="stat-label">Total Moves</div><div class="stat-value">${totalMoves}</div><div class="stat-sub">${totalMoves} adds · ${totalDrops} drops</div></div>
-          <div class="card stat-card"><div class="stat-label">Total Trades</div><div class="stat-value">${totalTrades}</div><div class="stat-sub">across all teams</div></div>
-          <div class="card stat-card"><div class="stat-label">Avg Points For</div><div class="stat-value">${avgPF.toFixed(1)}</div><div class="stat-sub">${season} season</div></div>
-        </div>
         <div class="sec wm" data-wm="&#xe561;">
           <div class="standings-filters" id="stats-subtabs" style="padding-bottom:16px">
             <button class="tab-btn ${_statsView==='standings'?'active':''}" data-view="standings" onclick="setStatsView('standings')"><i class="fa fa-ranking-star"></i>${season} Standings</button>
@@ -2947,6 +2944,7 @@ async function loadDashboard(){
         <div class="trades-layout">
           <div class="trades-filters wm" data-wm="&#xf362;">
             <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report</div>
+            <div class="trade-count" id="trade-count"></div>
             <div class="standings-filters" id="trade-scope">
               <span style="font-size:12px;color:var(--text3);margin-right:4px">Scope:</span>
               <button id="trade-scope-season" class="filter-btn ${_tradeScope==='season'?'active':''}" onclick="setTradeScope('season',this)">This Season</button>
