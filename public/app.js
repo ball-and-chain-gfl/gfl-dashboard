@@ -492,7 +492,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); stripeProfileStats(); scrollNavToActive(false); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); stripeProfileStats(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -533,8 +533,10 @@ function scrollNavToActive(smooth){
   const btn=bar.querySelector('.tab-btn.active'); if(!btn) return;
   const target=Math.max(0,Math.min(bar.scrollWidth-bar.clientWidth,
     btn.offsetLeft-(bar.clientWidth-btn.offsetWidth)/2));
-  try{ btn.scrollIntoView({inline:'center',block:'nearest',behavior:smooth===false?'auto':'smooth'}); }catch(e){}
+  // only ever scroll the strip itself — scrollIntoView() would also scroll the
+  // page, which is what kept snapping the view back to the top
   if(smooth!==false&&bar.scrollTo){ try{ bar.scrollTo({left:target,behavior:'smooth'}); }catch(e){} }
+  else bar.scrollLeft=target;
   // some engines ignore smooth scrollTo on a freshly shown element — set it too
   requestAnimationFrame(()=>{ if(Math.abs(bar.scrollLeft-target)>2) bar.scrollLeft=target; });
 }
@@ -1999,6 +2001,8 @@ function draftListsMobileHTML(season){
   }
   return tabs+body;
 }
+let _navRsz;
+window.addEventListener('resize',()=>{ clearTimeout(_navRsz); _navRsz=setTimeout(()=>scrollNavToActive(false),200); });
 let _lhRsz;
 window.addEventListener('resize',()=>{ clearTimeout(_lhRsz); _lhRsz=setTimeout(()=>{
   if(_activeTab==='legacy'&&_lhView==='champs') openDesktopBrackets();
