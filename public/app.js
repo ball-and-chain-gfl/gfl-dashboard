@@ -278,7 +278,7 @@ async function fetchSeasonData(season){
 async function buildAllTimeH2H(){
   const results=await Promise.allSettled(ALL_SEASONS.map(fetchSeasonData));
   const ledger={},games={};
-  _seasonMeta={};
+  _seasonMeta={}; _brCache={};
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
     const {season,schedule,owners,names,teams}=res.value;
@@ -2585,6 +2585,14 @@ function renderBadBeat(){
     <div style="font-size:11.5px;color:var(--text3);margin:11px 2px 0;line-height:1.5">Regular season through week ${regEndOf(getSeason())}. Closest&nbsp;L / Median&nbsp;L are margins of defeat in points; L&lt;7 counts losses by fewer than 7. % Over Avg = the share of a team's losses where it still outscored the week's league average &mdash; the purest bad-beat signal.</div>`;
 }
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
+let _brCache={};
+// The winners' bracket, traced from the finalists — ESPN's playoffSeed can't be
+// trusted for this league (manual matchup edits mean the 7 seed has made the
+// bracket while the 6 seed went to the consolation ladder).
+function bracketOf(season){
+  if(!(season in _brCache)){ try{ _brCache[season]=buildBracket(season); }catch{ _brCache[season]=null; } }
+  return _brCache[season];
+}
 function franchiseAllTime(owner){
   let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0,hi=null,lo=null;const seasons=new Set(),played=new Set();
   ALL_SEASONS.forEach(s=>{
@@ -2594,16 +2602,20 @@ function franchiseAllTime(owner){
     if(tid==null) return;
     seasons.add(s);
     const ti=teams[tid]; if(ti){if(ti.rank===1)rings++;if(ti.rank){best=Math.min(best,ti.rank);worst=Math.max(worst,ti.rank);}}
-    const pt=meta.playoffTeamCount||6; const inBr=id=>{const sd=(teams[id]?.seed)||0;return sd>0&&sd<=pt;};
-    if(ti&&ti.seed>0&&ti.seed<=pt) poApp++;
+    // playoff appearances and wins come from the real bracket, not from seeds
+    const br=bracketOf(s), myId=Number(tid);
+    if(br){
+      let inBracket=false;
+      (br.rounds||[]).forEach(r=>{
+        (r.games||[]).forEach(g=>[g.a,g.b].forEach(side=>{ if(side.tid===myId){ inBracket=true; if(side.win) poW++; } }));
+        (r.byes||[]).forEach(b=>{ if(Number(b)===myId) inBracket=true; });
+      });
+      if(inBracket) poApp++;
+    }
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
       if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
       else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
-      if((m.matchupPeriodId||0)>regEndOf(s) && inBr(m.home.teamId) && inBr(m.away.teamId)){
-        if(String(m.home.teamId)===tid && (m.winner==='HOME'||(m.winner==null&&hp>ap))) poW++;
-        else if(String(m.away.teamId)===tid && (m.winner==='AWAY'||(m.winner==null&&ap>hp))) poW++;
-      }
     });
   });
   return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,playoffWins:poW,playoffApps:poApp,best:best===99?null:best,worst:worst||null,hi,lo,confs:(_hardware[owner]?.confs)||0};
