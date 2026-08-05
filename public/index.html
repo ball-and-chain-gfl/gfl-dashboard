@@ -484,6 +484,11 @@
       .prof-chips .honor-tile{min-width:0;padding:6px 9px 7px;border-radius:4px 8px 3px 3px;}
       .prof-chips .honor-lb{font-size:9.5px!important;}
       .prof-chips .honor-sub{font-size:9px!important;}
+      /* phones: All-Time Starting Lineup sits right under the All-Time panel,
+         ahead of Draft Grades by Year */
+      #page-teams .prof-cols{display:flex;flex-direction:column;gap:16px;}
+      #page-teams .prof-cols>.prof-col.panel{order:-1;}
+      #page-teams .prof-cols>.prof-colstack{order:0;}
     }
 
     /* GABE'S GREATNESS */
