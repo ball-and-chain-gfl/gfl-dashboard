@@ -560,9 +560,15 @@ function toggleTabDD(open){
   menu.classList.toggle('show',show);
   document.documentElement.classList.toggle('nav-lock',show);
   document.body.classList.toggle('nav-lock',show);
-  const caret=document.querySelector('.tab-dd-caret'); if(caret) caret.style.transform=show?'rotate(180deg)':'';
+  const b=document.getElementById('tab-dd-btn'); if(b) b.classList.toggle('open',show);
 }
 function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0); }
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('tab-dd-menu');
+  if(!menu||!menu.classList.contains('show')) return;
+  if(e.target.closest('#tab-dd')||e.target.closest('#tab-dd-menu')) return;
+  toggleTabDD(false);
+},true);
 function updateTabDD(name){
   const btn=document.querySelector('#tabbar .tab-btn[data-tab="'+name+'"]');
   const ic=document.getElementById('tab-dd-ic'), lb=document.getElementById('tab-dd-lb'), b=document.getElementById('tab-dd-btn');

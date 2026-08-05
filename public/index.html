@@ -828,6 +828,17 @@
     html[data-theme="dark"] .lineup-slot,
     html[data-theme="dark"] .motw-fact,
     html[data-theme="dark"] .motw-take{background:linear-gradient(160deg,#1c1c21,#151519)!important;}
+    /* homepage uses a flat tone instead of that gradient */
+    html[data-theme="dark"] #page-home .card,
+    html[data-theme="dark"] #page-home .stat-card,
+    html[data-theme="dark"] #page-home .big4-team,
+    html[data-theme="dark"] #page-home .coaching-row,
+    html[data-theme="dark"] #page-home .headline-card,
+    html[data-theme="dark"] #page-home .hist-item,
+    html[data-theme="dark"] #page-home .lineup-list,
+    html[data-theme="dark"] #page-home .lineup-slot,
+    html[data-theme="dark"] #page-home .motw-fact,
+    html[data-theme="dark"] #page-home .motw-take{background:#242422!important;}
     html[data-theme="dark"] .modal-total,
     html[data-theme="dark"] .modal-comp,
     html[data-theme="dark"] .modal-formula,
@@ -1017,37 +1028,50 @@
     /* Accent labels + short meta/record lines → Inter, all-caps, spaced */
     .badge-info,.big4-label,.big4-record,.big4-cm,.stat-label,.stat-sub,.team-sub,.coaching-sub,.prof-stat-l,.prof-stat-s,.prof-chip-l,.dsb-lbl,.trade-recv,.trade-winlabel,.trade-verdict,.marathon-label,.div-tag,.motw-fact-l,.motw-fact-s,.motw-odds-h,.odd-label,.brk-col-h,.champ-line-def,.bracket-round,.gabe-pts-l,.honor-lb,.honor-sub,.sup-detail,.allrec-sub,.lineup-psub,.conf-win-yr,.punish-tag,.punish-week,.gabe-badge,.hist-item-year,.lg-label,.tab-btn,thead th{font-family:'Inter',sans-serif!important;font-weight:500!important;text-transform:uppercase!important;letter-spacing:0.5px!important;}
 
-    /* ── Nav: dropdown on desktop, scrolling tab strip on phones ──────────── */
+    /* ── Nav: one floating capsule (logo · season · page · menu) ───────────── */
     .tabbar{display:none!important;}
-    .tab-dd{display:block!important;}
+    #mobile-title{display:none!important;}
+    #floatnav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:400;
+      display:inline-flex;align-items:center;gap:10px;flex-wrap:nowrap;width:auto;
+      max-width:calc(100vw - 24px);padding:8px 10px 8px 14px;border-radius:999px;
+      background:rgba(10,10,12,0.72);-webkit-backdrop-filter:blur(22px) saturate(1.25);
+      backdrop-filter:blur(22px) saturate(1.25);border:1px solid rgba(255,255,255,0.14);
+      box-shadow:0 18px 44px -22px rgba(0,0,0,0.95),inset 0 1px 0 rgba(255,255,255,0.07);}
+    #floatnav .logo{flex:0 0 auto;margin:0;}
+    #floatnav .logo img{height:34px;}
+    #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;}
+    #tab-dd-btn{display:inline-flex;align-items:center;gap:9px;min-width:0;max-width:46vw;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:999px;
+      padding:7px 8px 7px 14px;color:var(--text);font-size:14px;font-weight:700;letter-spacing:0.2px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:background .15s,border-color .15s;}
+    #tab-dd-btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.26);}
+    #tab-dd-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #tab-dd-ic{font-size:14px;color:var(--accent);flex:0 0 auto;}
+    .nav-burger{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+      flex:0 0 auto;border-radius:999px;background:rgba(255,255,255,0.10);color:var(--text);}
+    .nav-burger i{font-size:13px;}
+    #tab-dd-btn:hover .nav-burger{background:rgba(var(--accent-rgb),0.28);color:#fff;}
+    #tab-dd-btn.open{background:rgba(var(--accent-rgb),0.18);border-color:rgba(var(--accent-rgb),0.45);}
+    #tab-dd-btn.open .nav-burger{background:rgb(var(--accent-rgb));color:#07120b;}
+    /* dropdown floats under the capsule */
+    .tab-dd-menu{position:fixed;top:72px;left:50%;transform:translateX(-50%);
+      width:min(340px,calc(100vw - 24px));max-height:min(70vh,560px);overflow-y:auto;
+      background:rgba(12,12,14,0.94);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+      border:1px solid rgba(255,255,255,0.14);border-radius:18px;padding:8px;
+      box-shadow:0 28px 70px -26px rgba(0,0,0,0.95);z-index:401;}
+    .tab-dd-item{border-radius:999px;padding:10px 14px;}
+    /* content clears the floating bar */
+    main{padding-top:78px;}
     @media(max-width:768px){
-      /* hide the dropdown, bring back a horizontally scrolling nav */
-      .tab-dd{display:none!important;}
-      #mobile-title{display:none!important;}
-      .tabbar{display:flex!important;position:sticky;top:0;z-index:150;gap:8px;
-        padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)/0.0001*0);
-        padding-bottom:10px;
-        background:rgba(10,10,10,0.55);-webkit-backdrop-filter:blur(22px) saturate(1.25);
-        backdrop-filter:blur(22px) saturate(1.25);border-bottom:1px solid rgba(255,255,255,0.10);
-        overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;
-        scrollbar-width:none;-ms-overflow-style:none;
-        -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent 100%);
-        mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent 100%);}
-      .tabbar::-webkit-scrollbar{display:none;height:0;}
-      .tabbar .tab-btn{flex:0 0 auto;scroll-snap-align:center;font-size:12px;padding:8px 13px;border-radius:999px;
-        background:rgba(255,255,255,0.06)!important;border:1px solid rgba(255,255,255,0.16)!important;
-        color:var(--text2)!important;letter-spacing:.5px;}
-      .tabbar .tab-btn i{font-size:11px;opacity:.9;}
-      .tabbar .tab-btn.active{background:color-mix(in srgb,var(--tc,var(--accent)) 26%,rgba(0,0,0,0.5))!important;
-        border-color:var(--tc,var(--accent))!important;color:#fff!important;
-        box-shadow:0 2px 12px -5px color-mix(in srgb,var(--tc,var(--accent)) 80%,transparent)!important;}
-      .tabbar .tab-btn.active i{color:#fff!important;opacity:1;}
-      /* header: logo left, season pill hard right */
-      header{flex-wrap:nowrap!important;gap:10px;padding:10px 14px;}
-      .logo{order:1;flex:1 1 auto;min-width:0;}
-      #season-select{order:2;margin-left:auto!important;margin-right:0!important;flex:0 0 auto;}
+      #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);gap:8px;padding:7px 8px 7px 12px;}
+      #floatnav .logo img{height:28px;}
+      #tab-dd-btn{font-size:13px;padding:6px 7px 6px 12px;max-width:42vw;}
+      .nav-burger{width:28px;height:28px;}
+      .tab-dd-menu{top:calc(env(safe-area-inset-top,0px) + 64px);}
+      main{padding-top:calc(env(safe-area-inset-top,0px) + 70px);}
     }
     /* modern season pill */
+    #floatnav #season-select{order:0;margin:0!important;flex:0 0 auto;}
     #season-select{background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.16);border-radius:999px;
       padding:8px 30px 8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.6px;
       text-transform:uppercase;color:var(--text);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
@@ -2115,7 +2139,7 @@
   </div>
 </div>
 
-<header>
+<header id="floatnav">
   <div class="logo" onclick="goHome()" title="Back to Home" role="button" tabindex="0">
     <img src="/logo-mark.webp" alt="Ball &amp; Chain GFL" onerror="this.style.display='none'"/>
   </div>
@@ -2129,7 +2153,7 @@
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
   </div>
   <div class="tab-dd" id="tab-dd">
-    <button id="tab-dd-btn" onclick="toggleTabDD()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><i class="fa fa-chevron-down tab-dd-caret"></i></button>
+    <button id="tab-dd-btn" onclick="toggleTabDD()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><span class="nav-burger"><i class="fa fa-bars"></i></span></button>
     <div id="tab-dd-menu" class="tab-dd-menu"></div>
   </div>
 </header>
