@@ -472,6 +472,12 @@ function switchTab(name){
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
+  if(name==='legacy'){
+    // phones always open on Champions; the sub-tab highlight is re-applied because
+    // switchTab clears .active from every .tab-btn on the page
+    if(window.matchMedia('(max-width:768px)').matches) _lhView='champs';
+    setLHView(_lhView);
+  }
   updateTabDD(name);
 }
 // ── MOBILE TAB DROPDOWN (replaces hamburger) ─────────────────────────────────
@@ -2218,7 +2224,7 @@ function toggleBracket(season,btn){
   const el=document.getElementById('bracket-'+season); if(!el) return;
   const open=el.style.display==='none';
   el.style.display=open?'block':'none';
-  btn.innerHTML=open?'<i class="fa fa-sitemap"></i> Hide bracket':'<i class="fa fa-sitemap"></i> View bracket';
+  btn.innerHTML=`<i class="fa fa-sitemap"></i><span class="lh-brk-t">${open?'Hide bracket':'View bracket'}</span>`;
   if(open&&!el.dataset.built){
     const br=buildBracket(season);
     const meta=_seasonMeta[season];
