@@ -48,6 +48,7 @@ let _draftTeamSel=null;                 // team filter on draft tab
 let _draftAllCache=null;
 let _draftView='year';        // year | ysteals | ybusts | best | worst | steals | busts
 let _draftPickScope='alltime';// scope for the mobile "Steals & Busts" group
+let _draftPickLast='steals'; // last steals/busts view chosen
 let _drWasMobile=null;
 const _logoColorCache={};               // teamId -> dominant logo color
 const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
@@ -1729,8 +1730,10 @@ const DRAFT_VIEWS={
            title:()=>'Worst Busts Ever', badge:'first 6 rounds',
            note:'Every early pick (first six rounds) from every season, ranked by how far it fell short of its draft slot.'},
 };
-function setDraftView(v){ _draftView=v; renderDraftLists(); }
-function setDraftPickScope(sc){ _draftPickScope=(sc==='year'?'year':'alltime'); _draftView=(sc==='year'?'ysteals':'steals'); renderDraftLists(); }
+function setDraftView(v){ _draftView=v;
+  if(v==='steals'||v==='busts'||v==='ysteals'||v==='ybusts'){ _draftPickLast=v; _draftPickScope=(v==='steals'||v==='busts')?'alltime':'year'; }
+  renderDraftLists(); }
+function setDraftPickScope(sc){ setDraftView(sc==='year'?'ysteals':'steals'); }
 function drIsMobile(){ return window.matchMedia('(max-width:768px)').matches; }
 function draftYearData(season){
   const rows=(_draftCache[season]?.rows)||[];
@@ -1823,7 +1826,7 @@ function draftListsMobileHTML(season){
   const tabs=`<div class="dr-mtabs">
     ${mb('year',season+' Rankings','year')}
     ${mb('drafts','All-Time Drafts','best')}
-    ${mb('picks','Steals &amp; Busts',_draftPickScope==='year'?'ysteals':'steals')}
+    ${mb('picks','Steals &amp; Busts',_draftPickLast)}
   </div>`;
   let body='';
   if(grp==='year'){
@@ -1838,7 +1841,7 @@ function draftListsMobileHTML(season){
       </div>
       <div class="dr-note" style="margin-top:14px">${DRAFT_VIEWS.best.note}</div>`; }
   }else{
-    const isAll=_draftPickScope!=='year';
+    const isAll=(_draftView==='steals'||_draftView==='busts');
     const scope=`<div class="dr-scope">
       <button class="tab-btn${!isAll?' active':''}" style="--tc:var(--accent)" onclick="setDraftPickScope('year')">${season}</button>
       <button class="tab-btn${isAll?' active':''}" style="--tc:var(--accent)" onclick="setDraftPickScope('alltime')">All-Time</button>
