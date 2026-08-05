@@ -524,6 +524,15 @@ function switchTab(name){
     setLHView(_lhView);
   }
   updateTabDD(name);
+  scrollNavToActive();
+}
+// phones: keep the selected pill centred in the scrolling nav
+function scrollNavToActive(){
+  const bar=document.getElementById('tabbar'); if(!bar) return;
+  if(getComputedStyle(bar).display==='none') return;
+  const btn=bar.querySelector('.tab-btn.active'); if(!btn) return;
+  const target=btn.offsetLeft-(bar.clientWidth-btn.offsetWidth)/2;
+  bar.scrollTo({left:Math.max(0,target),behavior:'smooth'});
 }
 // ── MOBILE TAB DROPDOWN (replaces hamburger) ─────────────────────────────────
 function buildTabDD(){
