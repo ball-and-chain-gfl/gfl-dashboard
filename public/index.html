@@ -1385,11 +1385,11 @@
     }
     /* ── GFL Overview: season-by-season table in the team profile ── */
     .ov-list{display:flex;flex-direction:column;}
-    .ov-row{display:grid;grid-template-columns:54px minmax(0,1fr) 54px minmax(0,64px) minmax(0,64px) minmax(0,118px);
-      align-items:center;gap:12px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
+    .ov-row{display:grid;grid-template-columns:52px auto 52px 62px 62px minmax(0,1fr);
+      align-items:center;gap:14px;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,0.055);}
     .ov-row:last-child{border-bottom:none;}
     .ov-row:nth-of-type(even){background:rgba(255,255,255,0.028);}
-    .ov-head{padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,0.12);background:none!important;}
+    .ov-head{padding:0 10px 7px;border-bottom:1px solid rgba(255,255,255,0.12);background:none!important;}
     .ov-head>span{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.5px;
       color:var(--text3);font-weight:600;}
     .ov-row .r{text-align:right;}
@@ -1408,11 +1408,11 @@
       font-weight:600;color:var(--text);margin-bottom:8px;}
     .ov-bhead i{color:var(--accent);font-size:12px;}
     .dg-list{display:flex;flex-direction:column;}
-    .dg-row{display:grid;grid-template-columns:54px 52px minmax(0,1fr) minmax(0,112px);align-items:center;gap:12px;
-      padding:8px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
+    .dg-row{display:grid;grid-template-columns:52px 50px auto minmax(0,1fr);align-items:center;gap:14px;
+      padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.055);}
     .dg-row:last-child{border-bottom:none;}
     .dg-row:nth-of-type(even){background:rgba(255,255,255,0.028);}
-    .dg-head{padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,0.12);background:none!important;}
+    .dg-head{padding:0 10px 7px;border-bottom:1px solid rgba(255,255,255,0.12);background:none!important;}
     .dg-head>span{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;}
     .dg-row .r{text-align:right;}
     .dg-yr{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.4px;}
@@ -1433,17 +1433,20 @@
     .ov-foot{font-size:11.5px;color:var(--text3);line-height:1.6;padding:11px 2px 0;}
     html[data-theme="light"] .ov-row{border-bottom-color:rgba(0,0,0,0.07);}
     @media(max-width:1100px){
-      .ov-row{grid-template-columns:48px minmax(0,1fr) 46px minmax(0,56px) minmax(0,56px) minmax(0,104px);gap:10px;}
+      .ov-row{grid-template-columns:48px auto 46px 54px 54px minmax(0,1fr);gap:12px;}
     }
     @media(max-width:768px){
       /* phones: year · record · finish · draft · postseason */
       /* phones: year · record · finish · postseason (PF/PA drop out), even gutters */
-      .ov-row{grid-template-columns:38px minmax(0,1fr) 40px minmax(0,84px)!important;gap:9px;padding:9px 0;}
+      /* phones: tight left group, postseason takes the slack, 10px side padding */
+      .ov-row{grid-template-columns:36px auto 38px minmax(0,1fr)!important;gap:10px;padding:9px 10px;}
+      .ov-head{padding:0 10px 7px;}
       .ov-head>span{font-size:9px;letter-spacing:.3px;}
       .ov-pf,.ov-pa,.ov-hpf,.ov-hpa{display:none!important;}
       .ov-po{white-space:normal;line-height:1.25;font-size:10px;}
       .ov-list,.dg-list{min-width:0;}
-      .dg-row{grid-template-columns:38px 46px minmax(0,1fr) minmax(0,74px)!important;gap:10px;padding:8px 0;}
+      .dg-row{grid-template-columns:36px 44px auto minmax(0,1fr)!important;gap:10px;padding:8px 10px;}
+      .dg-head{padding:0 10px 7px;}
       .dg-rank{font-size:10.5px;}
       .dg-score{font-size:12.5px;}
       .ov-block{margin-top:14px;padding-top:12px;}
