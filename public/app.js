@@ -2627,7 +2627,7 @@ function badBeatCols(){
     let m=c.getBoundingClientRect().width;
     for(const r of body.rows){ const cell=r.cells[i]; if(!cell) continue;
       const x=cell.getBoundingClientRect().width; if(x>m) m=x; }
-    return Math.ceil(m)+2;
+    return Math.ceil(m)+3;
   });
   t.classList.remove('bb-measure');
   widths.forEach((w,i)=>t.style.setProperty('--bbc'+(i+1), w?w+'px':'0px'));
