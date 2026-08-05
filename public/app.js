@@ -2959,21 +2959,40 @@ function profileOverviewHTML(owner){
         <span class="r dg-score" style="color:${col}">${adj>0?'+':''}${Math.round(adj)}</span>
         <span class="r dg-rank">#${rk} of ${vals.length}</span>
       </div>`;}).join('');
+    // all-time draft grade: each franchise's average draft score, graded and
+    // ranked against the rest of the league
+    const avgBy={};
+    ((dc&&dc.teamDrafts)||[]).forEach(d=>{ (avgBy[d.owner]||(avgBy[d.owner]=[])).push(d.adj); });
+    const avgs=Object.entries(avgBy).map(([o,v])=>({owner:o,avg:v.reduce((a,b)=>a+b,0)/v.length}));
+    const mine=avgs.find(x=>x.owner===owner);
+    let allRow='';
+    if(mine&&avgs.length>1){
+      const vals=avgs.map(x=>x.avg);
+      const mn=Math.min(...vals), mx=Math.max(...vals);
+      const tt=mx>mn?(mine.avg-mn)/(mx-mn):1;
+      const g=PPG_GRADES[Math.round(tt*(PPG_GRADES.length-1))];
+      const c=gradeColor(g);
+      const rk=avgs.slice().sort((a,b)=>b.avg-a.avg).findIndex(x=>x.owner===owner)+1;
+      allRow=`<div class="dg-row dg-total">
+        <span class="dg-yr dg-all">All-Time</span>
+        <span class="dg-grade" style="color:${c};border-color:${c}">${g}</span>
+        <span class="r dg-score" style="color:${c}">${mine.avg>0?'+':''}${mine.avg.toFixed(1)}</span>
+        <span class="r dg-rank">#${rk} of ${avgs.length}</span>
+      </div>`;
+    }
     draftBlock=dRows
       ? `<div class="dg-list">
           <div class="dg-row dg-head"><span>Year</span><span>Grade</span><span class="r">Score</span><span class="r">League rank</span></div>
           ${dRows}
-         </div>
-         <div class="ov-note">Draft Score = summed positional &Delta; (draft rank &minus; finish rank per pick) minus that season's league average, graded across the league that year.</div>`
-      : `<div class="ov-note">No draft history for this team.</div>`;
+          ${allRow}
+         </div>`
+      : '';
   }
 
-  const at=franchiseAllTime(owner);
   return `<div class="ov-list">
     <div class="ov-row ov-head"><span>Year</span><span>Record</span><span class="r">Finish</span><span class="r ov-pf ov-hpf">PF</span><span class="r ov-pa ov-hpa">PA</span><span class="r">Postseason</span></div>
     ${rows}
   </div>
-  <div class="ov-foot">${seasons.length} season${seasons.length===1?'':'s'} · ${at.w}–${at.l} all-time · ${at.rings} championship${at.rings===1?'':'s'} · ${at.playoffApps||0} playoff appearance${(at.playoffApps||0)===1?'':'s'}</div>
   <div class="ov-block">
     <div class="ov-bhead"><i class="fa fa-clipboard-list"></i>Draft Grades</div>
     ${draftBlock}
