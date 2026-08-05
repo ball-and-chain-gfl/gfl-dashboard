@@ -2709,7 +2709,7 @@ function bracketOf(season){
 }
 function franchiseAllTime(owner){
   let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0,hi=null,lo=null;const seasons=new Set(),played=new Set();
-  let top3=0,over150=0,under80=0;const finishes=[];
+  let top3=0,over150=0,under80=0;const finishes=[];const results=[];
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
     const owners=meta.owners||{},teams=meta.teams||{};
@@ -2730,13 +2730,23 @@ function franchiseAllTime(owner){
     }
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
-      if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hp>150)over150++;if(hp<80)under80++;if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
-      else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(ap>150)over150++;if(ap<80)under80++;if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
+      if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hp>150)over150++;if(hp<80)under80++;
+        results.push({s:Number(s),wk:m.matchupPeriodId||0,r:hp>ap?1:(hp<ap?-1:0)});if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
+      else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(ap>150)over150++;if(ap<80)under80++;
+        results.push({s:Number(s),wk:m.matchupPeriodId||0,r:ap>hp?1:(ap<hp?-1:0)});if(hi==null||ap>hi.pts)hi={pts:ap,season:s,week:m.matchupPeriodId};if(lo==null||ap<lo.pts)lo={pts:ap,season:s,week:m.matchupPeriodId};if(m.winner==='AWAY'||ap>hp)w++;else if(ap<hp)l++;else t++;}
     });
   });
   const avgFinish=finishes.length?finishes.reduce((a,b)=>a+b,0)/finishes.length:null;
+  // longest win / losing streaks across every game in chronological order
+  results.sort((a,b)=>a.s-b.s||a.wk-b.wk);
+  let wStreak=0,lStreak=0,cw=0,cl=0;
+  results.forEach(g=>{
+    if(g.r===1){ cw++; cl=0; } else if(g.r===-1){ cl++; cw=0; } else { cw=0; cl=0; }
+    if(cw>wStreak) wStreak=cw; if(cl>lStreak) lStreak=cl;
+  });
   return {w,l,t,pf,pa,seasons:seasons.size,playedSeasons:played.size,rings,playoffWins:poW,playoffApps:poApp,
     best:best===99?null:best,worst:worst||null,hi,lo,top3,avgFinish,over150,under80,
+    winStreak:wStreak,loseStreak:lStreak,
     confs:(_hardware[owner]?.confs)||0};
 }
 function openTeamProfile(teamId){
@@ -2883,6 +2893,67 @@ function profileDraftsHTML(owner){
   return `<div class="pd-list">${rows}</div>
     <div style="font-size:11.5px;color:var(--text3);padding:9px 2px 0;line-height:1.5">Draft Score = summed positional &Delta; (draft rank &minus; finish rank per pick) minus that season's league average; graded across the league that year.</div>`;
 }
+// ── SEASON-BY-SEASON OVERVIEW (team profile) ─────────────────────────────────
+// One row per season: record, finish, scoring, draft grade, how the playoffs
+// went and any hardware picked up that year.
+function profileOverviewHTML(owner){
+  const dc=_draftAllCache;
+  const sp=sbSplits(owner);                       // regular-season splits per season
+  if(!sp.length) return `<div class="tab-loading" style="padding:22px">No season history for this team.</div>`;
+  // league-wide draft spread per season so the grade matches the Draft page
+  const bySeason={};
+  ((dc&&dc.teamDrafts)||[]).forEach(d=>{ (bySeason[d.season]||(bySeason[d.season]=[])).push(d.adj); });
+  const mineDraft={};
+  ((dc&&dc.teamDrafts)||[]).filter(d=>d.owner===owner).forEach(d=>{ mineDraft[d.season]=d.adj; });
+  const aw=awardsForOwner(owner);
+  const rows=sp.slice().sort((a,b)=>b.season-a.season).map(x=>{
+    const s=String(x.season), meta=_seasonMeta[s]||{};
+    const tid=Object.keys(meta.owners||{}).find(id=>meta.owners[id]===owner);
+    const ti=tid!=null?meta.teams[tid]:null;
+    const rank=ti?ti.rank:null;
+    // playoff run from the traced bracket
+    const br=bracketOf(s); let po='Missed', poCol='var(--text3)';
+    if(br&&tid!=null){
+      const me=Number(tid); let inB=false, wins=0;
+      (br.rounds||[]).forEach(r=>{ (r.games||[]).forEach(g=>[g.a,g.b].forEach(sd=>{ if(sd.tid===me){ inB=true; if(sd.win) wins++; } }));
+        (r.byes||[]).forEach(b=>{ if(Number(b)===me) inB=true; }); });
+      if(rank===1){ po='Champion'; poCol='var(--accent)'; }
+      else if(rank===2){ po='Runner-up'; poCol='var(--green)'; }
+      else if(inB){ po=wins?`Playoffs · ${wins}W`:'Playoffs'; poCol='var(--text2)'; }
+    }
+    const adj=mineDraft[s];
+    let grade='—', gcol='var(--text3)', gscore='';
+    if(adj!=null){
+      const vals=bySeason[s]||[adj];
+      const mn=Math.min(...vals), mx=Math.max(...vals);
+      const t=mx>mn?(adj-mn)/(mx-mn):1;
+      grade=PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))];
+      gcol=gradeColor(grade);
+      gscore=(adj>0?'+':'')+Math.round(adj);
+    }
+    const yrAwards=aw.filter(a=>String(a.year)===s)
+      .map(a=>`<span class="ov-aw hk-${a.key}">${AWARD_SHORT[a.key]||a.label.name}</span>`).join('');
+    const conf=ti?(meta.divisions&&meta.divisions[ti.div])||'':'';
+    const wpct=x.g?x.w/x.g:0;
+    return `<div class="ov-row">
+      <span class="ov-yr">${s}</span>
+      <span class="ov-rec"><b style="color:${wpct>=0.5?'var(--green)':'var(--red)'}">${x.w}–${x.g-x.w}</b><span class="ov-sub">${conf||'—'}</span></span>
+      <span class="r ov-fin">${rank?'#'+rank:'—'}</span>
+      <span class="r ov-pf">${x.pf.toFixed(0)}</span>
+      <span class="r ov-pa">${x.pa.toFixed(0)}</span>
+      <span class="ov-draft">${adj!=null?`<span class="ov-grade" style="color:${gcol};border-color:${gcol}">${grade}</span><span class="ov-gs" style="color:${gcol}">${gscore}</span>`:'<span class="ov-gs">—</span>'}</span>
+      <span class="ov-po" style="color:${poCol}">${po}</span>
+      <span class="ov-awards">${yrAwards||'<span class="ov-none">—</span>'}</span>
+    </div>`;}).join('');
+  const at=franchiseAllTime(owner);
+  return `<div class="ov-list">
+    <div class="ov-row ov-head"><span>Year</span><span>Record</span><span class="r">Finish</span><span class="r ov-pf ov-hpf">PF</span><span class="r ov-pa ov-hpa">PA</span><span>Draft</span><span>Postseason</span><span>Hardware</span></div>
+    ${rows}
+  </div>
+  <div class="ov-foot">${sp.length} season${sp.length===1?'':'s'} · ${at.w}–${at.l} all-time · ${at.rings} championship${at.rings===1?'':'s'} · ${at.playoffApps||0} playoff appearance${(at.playoffApps||0)===1?'':'s'}${dc?'':' · draft grades still loading'}
+    <br/>Draft Score = summed positional &Delta; (draft rank &minus; finish rank per pick) minus that season's league average, graded across the league that year.</div>`;
+}
+
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
   const sel=document.getElementById('profile-team-select');
@@ -2967,6 +3038,8 @@ async function renderProfile(){
       ${stat('Points Against',at.pa.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pa/a.playedSeasons:null),at.playedSeasons?at.pa/at.playedSeasons:null,false))}
       ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—',scaleCol(atVals(a=>a.hi?a.hi.pts:null),at.hi?at.hi.pts:null,true))}
       ${stat('Lowest Score',at.lo?at.lo.pts.toFixed(1):'—',scaleCol(atVals(a=>a.lo?a.lo.pts:null),at.lo?at.lo.pts:null,true))}
+      ${stat('Longest Win Streak',at.winStreak||0,scaleCol(atVals(a=>a.winStreak||0),at.winStreak||0,true))}
+      ${stat('Longest Losing Streak',at.loseStreak||0,scaleCol(atVals(a=>a.loseStreak||0),at.loseStreak||0,false))}
       ${stat('Scores Over 150',at.over150||0,scaleCol(atVals(a=>a.over150||0),at.over150||0,true))}
       ${stat('Scores Under 80',at.under80||0,scaleCol(atVals(a=>a.under80||0),at.under80||0,false))}
       ${stat('Championships',at.rings,scaleCol(atVals(a=>a.rings),at.rings,true))}
@@ -2981,9 +3054,9 @@ async function renderProfile(){
     </div>
     <div class="prof-cols">
       <div class="prof-colstack">
-        <div class="prof-col panel">
-          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>Draft Grades by Year</div>
-          <div id="prof-drafts">${profileDraftsHTML(owner)}</div>
+        <div class="prof-col panel prof-ov">
+          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>GFL Overview<span class="badge-info">season by season</span></div>
+          <div id="prof-drafts">${profileOverviewHTML(owner)}</div>
         </div>
         <div class="prof-col panel">
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-skull-crossbones" style="color:var(--red)"></i>Biggest Enemies<span class="badge-info">most points scored against them</span></div>
@@ -3020,7 +3093,7 @@ async function renderProfile(){
     loadAllDrafts().then(()=>{
       const d=document.getElementById('prof-drafts');
       const stillHere=Number(document.getElementById('profile-team-select')?.value||_profileTeam)===id;
-      if(d&&stillHere) d.innerHTML=profileDraftsHTML(owner);
+      if(d&&stillHere) d.innerHTML=profileOverviewHTML(owner);
     }).catch(()=>{});
   }
 }
