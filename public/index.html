@@ -1318,7 +1318,9 @@
     .sb-tot-big b{font-size:19px;color:var(--accent);}
     .sb-slip-note{font-size:10.5px;color:var(--text3);line-height:1.55;padding-top:10px;margin-top:8px;
       border-top:1px solid rgba(255,255,255,0.07);}
-    .sb-fab{display:none;}
+    /* body-level dock + sheet: fixed positioning can't live inside the blurred
+       section (backdrop-filter creates a containing block) */
+    #sb-portal{display:none;}
     @media(max-width:1000px){.sb-layout{grid-template-columns:1fr;}.sb-slip-wrap{position:static;}}
     @media(max-width:768px){
       /* phones: abbreviations, two-across prices, slip becomes a bottom sheet */
@@ -1336,21 +1338,30 @@
       .sb-o-val{font-size:13px;}
       .sb-trow{grid-template-columns:minmax(0,1fr) 164px;gap:8px;}
       .sb-tc-odds{grid-template-columns:1fr 1fr;gap:6px;}
-      /* bottom sheet */
-      .sb-slip-wrap{position:fixed;left:0;right:0;bottom:0;z-index:180;transform:translateY(calc(100% + 20px));
-        transition:transform .22s ease;max-height:76vh;overflow:auto;padding:0 12px calc(12px + env(safe-area-inset-bottom));}
-      .sb-slip-wrap.open{transform:translateY(0);}
-      .sb-slip{border-radius:12px 12px 0 0;background:rgba(8,8,10,0.96);}
-      .sb-slip-close{display:flex;align-items:center;justify-content:center;width:100%;height:26px;margin:0;
-        background:none;border:none;color:var(--text3);cursor:pointer;}
-      .sb-fab{display:flex;align-items:center;gap:8px;position:fixed;right:14px;
-        bottom:calc(16px + env(safe-area-inset-bottom));z-index:170;
-        background:rgba(8,8,10,0.92);border:1px solid rgba(255,255,255,0.18);border-radius:999px;
-        padding:11px 16px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;
-        letter-spacing:.5px;color:var(--text);box-shadow:0 8px 22px -10px rgba(0,0,0,0.9);cursor:pointer;}
-      .sb-fab.has{background:rgba(var(--accent-rgb),0.9);border-color:var(--accent);color:#08130c;}
-      .sb-fab-n{font-weight:700;background:rgba(0,0,0,0.25);border-radius:999px;padding:1px 7px;}
-      .sb-fab.has .sb-fab-n{background:rgba(0,0,0,0.22);}
+      /* the in-layout slip is desktop-only; phones use the docked sheet */
+      .sb-slip-wrap{display:none;}
+      #sb-portal.on{display:block;}
+      #sb-portal .sb-dock{position:fixed;left:0;right:0;bottom:0;z-index:190;
+        display:flex;align-items:center;gap:10px;
+        padding:13px 16px calc(13px + env(safe-area-inset-bottom));
+        background:rgba(8,8,10,0.96);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+        border-top:1px solid rgba(255,255,255,0.14);cursor:pointer;
+        font-family:'Inter',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+        color:var(--text);box-shadow:0 -8px 24px -14px rgba(0,0,0,0.9);}
+      #sb-portal .sb-dock i{color:var(--accent);font-size:13px;}
+      #sb-portal .sb-dock.has{background:rgba(var(--accent-rgb),0.92);color:#08130c;border-top-color:var(--accent);}
+      #sb-portal .sb-dock.has i{color:#08130c;}
+      .sb-dock-n{font-weight:700;background:rgba(255,255,255,0.12);border-radius:999px;padding:1px 8px;}
+      #sb-portal .sb-dock.has .sb-dock-n{background:rgba(0,0,0,0.22);}
+      .sb-dock-c{margin-left:auto;transition:transform .2s ease;}
+      #sb-portal .sb-sheet{position:fixed;left:0;right:0;z-index:189;
+        bottom:calc(48px + env(safe-area-inset-bottom));max-height:70vh;overflow:auto;
+        transform:translateY(calc(100% + 60px));transition:transform .24s ease;padding:0 10px;}
+      #sb-portal.open .sb-sheet{transform:translateY(0);}
+      #sb-portal .sb-slip{border-radius:12px 12px 0 0;background:rgba(8,8,10,0.97);
+        -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);}
+      /* keep the last board rows clear of the dock */
+      #page-book{padding-bottom:64px;}
     }
     /* ── Biggest Enemies (team profile) ── */
     .en-list{display:flex;flex-direction:column;}

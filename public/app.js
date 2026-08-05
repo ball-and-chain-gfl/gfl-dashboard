@@ -493,7 +493,7 @@ function switchTab(name){
   if(name==='badbeat') renderBadBeat();
   if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
-  if(name==='book') renderBook();
+  if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
     // switchTab clears .active from every .tab-btn on the page
@@ -3138,7 +3138,7 @@ function sbBuild(){
   const yesno=(key,title,sub,probs,badge,icon)=>({key,title,sub,type:'yesno',badge:badge||'Yes / No',
     icon:icon||'fa-check-double',
     picks:rows.map((r,i)=>{
-      const p=Math.min(0.88,Math.max(0.10,probs[i]));
+      const p=Math.min(0.86,Math.max(0.14,probs[i]));
       const y=amFromProb(Math.min(0.96,p+TWOWAY)), n=amFromProb(Math.min(0.96,(1-p)+TWOWAY));
       return {owner:r.owner,name:r.name,tid:r.tid,yes:y,no:n,fair:p};
     }).sort((a,b)=>b.fair-a.fair)});
@@ -3155,11 +3155,11 @@ function sbBuild(){
 
   // ── FUTURES ──
   const champ=outright('champ',`${sbSeason()} GFL Championship`,'Who lifts the trophy',
-    sbProbs(ratings,0.78,0.18),'Outright','fa-trophy');
+    sbProbs(ratings,0.70,0.46),'Outright','fa-trophy');
   const confs={};
   rows.forEach(r=>{ (confs[r.conf||'League']||(confs[r.conf||'League']=[])).push(r); });
   const confMarkets=Object.entries(confs).filter(([,arr])=>arr.length>1).map(([cname,arr])=>{
-    const pr=sbProbs(arr.map(r=>r.rating),0.85,0.14);
+    const pr=sbProbs(arr.map(r=>r.rating),0.80,0.30);
     const tot=pr.reduce((a,b)=>a+b,0)||1;
     return {key:'conf-'+cname,title:`${cname} Conference Winner`,sub:'Best record in the conference',
       type:'outright',badge:'Outright',icon:'fa-star',
@@ -3178,7 +3178,7 @@ function sbBuild(){
   const playoffs=yesno('playoffs',`${sbSeason()} Playoff Berth`,`Top ${spots} of ${rows.length} make the bracket`,
     pPlayoffs,'Yes / No','fa-calendar-check');
   const lastPlace=outright('last',`${sbSeason()} Last Place`,'Finishes bottom of the league — punishment duty',
-    sbProbs(ratings.map(v=>-v),0.72,0.18),'Outright','fa-gavel');
+    sbProbs(ratings.map(v=>-v),0.68,0.44),'Outright','fa-gavel');
 
   // ── TEAM PROPS ──
   const wins=overunder('wins',`Regular Season Wins`,`${GAMES}-game regular season`,
@@ -3189,29 +3189,29 @@ function sbBuild(){
   const paTotals=overunder('pa','Total Points Against',`Regular season total, ${GAMES} games`,
     rows.map(r=>(lgPpg+0.25*(r.papg-lgPpg))*GAMES),0.0055,5,'Over / Under','fa-shield-halved');
   const mostPf=outright('mostpf','Most Points Scored','League leader in points for',
-    sbProbs(rows.map(r=>r.z.ppg),0.85,0.14),'Outright','fa-fire');
+    sbProbs(rows.map(r=>r.z.ppg),0.80,0.40),'Outright','fa-fire');
   const fewestPf=outright('fewpf','Fewest Points Scored','League low in points for',
-    sbProbs(rows.map(r=>-r.z.ppg),0.85,0.14),'Outright','fa-battery-empty');
+    sbProbs(rows.map(r=>-r.z.ppg),0.80,0.40),'Outright','fa-battery-empty');
   const mostPa=outright('mostpa','Most Points Against','Takes the most incoming fire',
-    sbProbs(rows.map(r=>r.z.pa),0.42,0.30),'Outright','fa-shield-halved');
+    sbProbs(rows.map(r=>r.z.pa),0.40,0.58),'Outright','fa-shield-halved');
 
   // ── AWARDS ──
   const coy=outright('coy','Coach of the Year','GFL voted',
-    sbProbs(rows.map(r=>0.9*r.rating+0.55*r.z.coy),0.72,0.18),'Outright','fa-brain');
+    sbProbs(rows.map(r=>0.9*r.rating+0.55*r.z.coy),0.70,0.44),'Outright','fa-brain');
   const disappoint=outright('disappoint','Most Disappointing Team','Expectations vs reality',
-    sbProbs(rows.map(r=>0.85*r.rating-0.25*r.z.last),0.62,0.22),'Outright','fa-face-frown');
+    sbProbs(rows.map(r=>0.85*r.rating-0.25*r.z.last),0.60,0.48),'Outright','fa-face-frown');
   const comeback=outright('comeback','Comeback Team of the Year','Biggest jump off last season',
-    sbProbs(rows.map(r=>0.85*r.z.last+0.35*r.z.ppg),0.68,0.20),'Outright','fa-rotate-left');
+    sbProbs(rows.map(r=>0.85*r.z.last+0.35*r.z.ppg),0.66,0.44),'Outright','fa-rotate-left');
   const commit=outright('commit','League Commitment Award','Most active, most involved',
-    sbProbs(rows.map(r=>0.75*r.z.mv+0.65*r.z.commit),0.70,0.20),'Outright','fa-hand-fist');
+    sbProbs(rows.map(r=>0.75*r.z.mv+0.65*r.z.commit),0.68,0.44),'Outright','fa-hand-fist');
 
   // ── ACHIEVEMENTS ──
   const highWeek=outright('highweek','Highest Single Week','Top score of any team in any week',
-    sbProbs(rows.map(r=>0.75*r.z.ppg+0.5*r.z.hi),0.72,0.18),'Outright','fa-bolt');
+    sbProbs(rows.map(r=>0.75*r.z.ppg+0.5*r.z.hi),0.70,0.42),'Outright','fa-bolt');
   const most150=outright('most150','Most 150+ Point Games','Blow-up weeks',
-    sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg),0.75,0.18),'Outright','fa-rocket');
+    sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg),0.72,0.42),'Outright','fa-rocket');
   const most80=outright('most80','Most Sub-80 Duds','Weeks the offense never showed',
-    sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg),0.75,0.18),'Outright','fa-face-dizzy');
+    sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg),0.72,0.42),'Outright','fa-face-dizzy');
   const anyRing=yesno('firstring','Wins Their First Ring','Franchises still without a title',
     rows.map((r,i)=>r.at.rings?0.06:Math.min(0.55,Math.max(0.05,champ.picks.find(p=>p.owner===r.owner).fair*1.05))),
     'Yes / No','fa-ring');
@@ -3348,12 +3348,31 @@ function sbSyncButtons(){
   document.querySelectorAll('#page-book .sb-odds[data-k]').forEach(b=>{
     b.classList.toggle('on',_slip.some(x=>x.k===b.dataset.k));
   });
-  const fab=document.getElementById('sb-fab-n'); if(fab) fab.textContent=_slip.length;
-  const fab2=document.getElementById('sb-fab'); if(fab2) fab2.classList.toggle('has',_slip.length>0);
+  const n=document.getElementById('sb-dock-n'); if(n) n.textContent=_slip.length;
+  const d=document.getElementById('sb-dock'); if(d) d.classList.toggle('has',_slip.length>0);
+}
+function sbPortal(){
+  let el=document.getElementById('sb-portal');
+  if(!el){
+    el=document.createElement('div'); el.id='sb-portal';
+    el.innerHTML=`<div class="sb-dock" id="sb-dock" onclick="sbToggleSlip()">
+        <i class="fa fa-receipt"></i><span class="sb-dock-t">Bet slip</span>
+        <span class="sb-dock-n" id="sb-dock-n">0</span>
+        <i class="fa fa-chevron-up sb-dock-c" id="sb-dock-c"></i></div>
+      <div class="sb-sheet" id="sb-sheet"><div class="sb-slip sb-slip-target" id="sb-slip-m"></div></div>`;
+    document.body.appendChild(el);
+  }
+  return el;
 }
 function sbRenderSlip(){
-  const el=document.getElementById('sb-slip'); if(el) el.innerHTML=sbSlipHTML();
+  sbPortal();
+  document.querySelectorAll('.sb-slip-target').forEach(el=>{ el.innerHTML=sbSlipHTML(); });
   sbSyncButtons();
+}
+function sbShowPortal(on){
+  const el=sbPortal();
+  el.classList.toggle('on',!!on);
+  if(!on){ _sbSlipOpen=false; el.classList.remove('open'); }
 }
 function sbSetView(v){ _sbView=v;
   document.querySelectorAll('#sb-tabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
@@ -3362,7 +3381,8 @@ function sbSetView(v){ _sbView=v;
 function sbSetTeam(o){ _sbTeamSel=o; renderBook(); }
 function sbToggleSlip(open){
   _sbSlipOpen=(open===undefined)?!_sbSlipOpen:!!open;
-  const w=document.getElementById('sb-slip-wrap'); if(w) w.classList.toggle('open',_sbSlipOpen);
+  const p=document.getElementById('sb-portal'); if(p) p.classList.toggle('open',_sbSlipOpen);
+  const c=document.getElementById('sb-dock-c'); if(c) c.style.transform=_sbSlipOpen?'rotate(180deg)':'';
 }
 function renderBook(){
   const el=document.getElementById('book-body'); if(!el) return;
@@ -3380,12 +3400,11 @@ function renderBook(){
     <div class="sb-layout">
       <div class="sb-board">${board}</div>
       <div class="sb-slip-wrap" id="sb-slip-wrap">
-        <button class="sb-slip-close" onclick="sbToggleSlip(false)" aria-label="Close"><i class="fa fa-chevron-down"></i></button>
-        <div class="sb-slip" id="sb-slip">${sbSlipHTML()}</div>
+        <div class="sb-slip sb-slip-target" id="sb-slip">${sbSlipHTML()}</div>
       </div>
-    </div>
-    <button class="sb-fab${_slip.length?' has':''}" id="sb-fab" onclick="sbToggleSlip()"><i class="fa fa-receipt"></i>Bet slip<span class="sb-fab-n" id="sb-fab-n">${_slip.length}</span></button>`;
-  sbSyncButtons();
+    </div>`;
+  sbShowPortal(true);
+  sbRenderSlip();
 }
 
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
