@@ -1118,6 +1118,83 @@
     .tenure-tbl .pname .fr-name,.tenure-tbl .pname{white-space:nowrap;}
     html[data-theme="light"] .tenure-tbl th:nth-child(even),html[data-theme="light"] .tenure-tbl td:nth-child(even){background:rgba(0,0,0,0.035);}
     html[data-theme="light"] .tenure-tbl th:nth-child(odd):not(:first-child),html[data-theme="light"] .tenure-tbl td:nth-child(odd):not(:first-child){background:rgba(0,0,0,0.012);}
+    /* ── League History: compact rows, one sub-tab at a time ───────────────── */
+    .lh-tabs{gap:6px;flex-wrap:wrap;}
+    .lh-note{font-size:12px;color:var(--text3);line-height:1.6;margin:0 2px 14px;}
+    .lh-list{display:flex;flex-direction:column;}
+    .lh-row{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:12px;
+      padding:10px 2px;border-bottom:1px solid rgba(255,255,255,0.06);}
+    .lh-row:last-child{border-bottom:none;}
+    .lh-row-2{grid-template-columns:52px minmax(0,1fr) auto;}
+    .lh-yr{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:.4px;color:var(--accent);}
+    .lh-main{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:nowrap;}
+    .lh-name{font-family:'Google Sans Flex',Georgia,serif;font-size:14px;font-weight:600;white-space:nowrap;}
+    .lh-ab{display:none;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.4px;}
+    .lh-win .lh-name,.lh-win .lh-ab{color:var(--accent);}
+    .lh-lose .lh-name,.lh-lose .lh-ab{color:var(--text2);font-weight:500;}
+    .lh-sc{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--text3);}
+    .lh-sc-w{color:var(--green);}
+    .lh-def{font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+    .lh-meta{font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);white-space:nowrap;}
+    .lh-brk{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);
+      border-radius:6px;padding:5px 10px;font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;
+      letter-spacing:.5px;color:var(--text2);cursor:pointer;transition:background .15s,color .15s;}
+    .lh-brk:hover{background:rgba(var(--accent-rgb),0.16);border-color:rgba(var(--accent-rgb),0.4);color:var(--text);}
+    .lh-row .bracket-wrap{grid-column:1/-1;}
+    .lh-cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;}
+    .lh-col-head{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:.7px;font-size:11px;
+      font-weight:600;color:var(--text3);padding:0 2px 8px;border-bottom:1px solid rgba(255,255,255,0.12);margin-bottom:4px;}
+    .lh-col+.lh-col{margin-top:0;}
+    #lh-sups .lh-col{margin-bottom:20px;}
+    /* all-time records */
+    .lh-recs{display:flex;flex-direction:column;}
+    .lh-rec{display:grid;grid-template-columns:26px minmax(0,1fr) 74px 62px 62px 62px 66px;align-items:center;gap:10px;
+      padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.06);}
+    .lh-rec:last-child{border-bottom:none;}
+    .lh-rec .r{text-align:right;font-family:'Inter',sans-serif;font-size:13px;white-space:nowrap;}
+    .lh-rec-head{padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,0.12);}
+    .lh-rec-head>span{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;}
+    .lh-rk{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--accent);text-align:center;}
+    .lh-team{display:flex;align-items:center;gap:8px;min-width:0;}
+    .lh-recval{font-weight:700;}
+    .lh-pct{font-weight:700;}
+    .lh-pf{color:var(--text2);}
+    .lh-pa{color:var(--text3);}
+    .lh-yrs{color:var(--text3);}
+    /* superlatives */
+    .lh-sup-rows{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
+    .lh-sup-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+      padding:8px 2px;border-bottom:1px solid rgba(255,255,255,0.055);min-width:0;}
+    .lh-sup-award{font-family:'Google Sans Flex',Georgia,serif;font-weight:600;font-size:13.5px;white-space:nowrap;}
+    .lh-sup-award.hk-coy{color:#c084fc;} .lh-sup-award.hk-commitment{color:#4ade80;}
+    .lh-sup-award.hk-comeback{color:#f472b6;} .lh-sup-award.hk-punishment{color:#ff923d;}
+    .lh-sup-award.hk-disappoint{color:#ff5f5f;}
+    .lh-sup-wins{display:flex;flex-wrap:wrap;gap:5px 12px;justify-content:flex-end;min-width:0;}
+    .lh-sup-win{display:flex;align-items:center;gap:6px;font-size:13px;}
+    html[data-theme="light"] .lh-row,html[data-theme="light"] .lh-rec,html[data-theme="light"] .lh-sup-row{border-bottom-color:rgba(0,0,0,0.07);}
+    @media(max-width:900px){.lh-cols{grid-template-columns:1fr;gap:18px;}.lh-sup-rows{grid-template-columns:1fr;}}
+    @media(max-width:768px){
+      /* phones: abbreviations keep every row on one line, no sideways scroll */
+      .lh-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+      .lh-tabs .tab-btn{width:100%;justify-content:center;text-align:center;font-size:11.5px;padding:8px 6px;}
+      .lh-name{display:none;}
+      .lh-ab{display:inline;}
+      .lh-row{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;padding:9px 0;}
+      .lh-yr{font-size:12.5px;}
+      .lh-main{gap:6px;}
+      .lh-sc{font-size:12.5px;}
+      .lh-brk{padding:5px 7px;gap:0;}
+      .lh-brk-t{display:none;}
+      .lh-meta{font-size:11px;}
+      .lh-rec{grid-template-columns:20px minmax(0,1fr) 60px 50px 44px 44px;gap:6px;padding:9px 0;}
+      .lh-rec .r{font-size:12px;}
+      .lh-rec .lh-yrs{display:none;}
+      .lh-rec-head>span{font-size:9.5px;}
+      .lh-sup-row{flex-direction:column;align-items:flex-start;gap:4px;padding:9px 0;}
+      .lh-sup-wins{justify-content:flex-start;}
+      .lh-sup-award{font-size:13px;}
+      .sup-detail{font-size:11px;}
+    }
     /* ── Lineup IQ panel (Standings & Stats sub-tab) ── */
     .liq-list{display:flex;flex-direction:column;}
     .liq-row{display:grid;grid-template-columns:26px minmax(0,1fr) 82px minmax(120px,1.1fr) 92px;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.06);}

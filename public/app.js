@@ -1985,6 +1985,7 @@ function renderMarathon(){
 
 // ── LEAGUE HISTORY TAB ─────────────────────────────────────────────────────────
 const REGULAR_SEASON_END=14; // conference champs decided after this matchup period
+let _lhView='champs';        // champs | conf | records | sups
 function renderLeagueHistory(){
   const body=document.getElementById('legacy-body'); if(!body) return;
   const seasons=ALL_SEASONS.filter(s=>_seasonMeta[s]?.teams).sort((x,y)=>y-x);
@@ -2059,90 +2060,108 @@ function renderLeagueHistory(){
   confRows.forEach(r=>r.winners.forEach(w=>{(honorYears[w.owner]||(honorYears[w.owner]={champ:[],conf:[]})).conf.push(`'${String(r.season).slice(2)}`);}));
   _hardwareHonors=honorsMap; _profileHonorYears=honorYears; // expose for profiles
 
+  const tidOf=o=>(_teams.find(x=>_ownerMap[x.id]===o)||{}).id||'';
+  const nm=(owner,name)=>`<span class="lh-name" data-tid="${tidOf(owner)}">${name}</span><span class="lh-ab">${drAbbr(owner,name)}</span>`;
+
+  // ── Champions: one line per season, bracket opens underneath ──
+  const champsHTML=champRows.length?`<div class="lh-list">${champRows.map(r=>`
+    <div class="lh-row">
+      <span class="lh-yr">${r.season}</span>
+      <span class="lh-main">
+        ${av(r.champ,22,6)}<span class="lh-win tlink">${nm(r.champ.owner,r.champ.name)}</span>
+        <span class="lh-sc lh-sc-w">${r.cPts!=null?r.cPts.toFixed(1):'—'}</span>
+        <span class="lh-def">def.</span>
+        <span class="lh-sc">${r.rPts!=null?r.rPts.toFixed(1):'—'}</span>
+        ${av(r.ru,22,6)}<span class="lh-lose tlink">${nm(r.ru.owner,r.ru.name)}</span>
+      </span>
+      <button class="lh-brk" onclick="toggleBracket('${r.season}',this)"><i class="fa fa-sitemap"></i><span class="lh-brk-t">Bracket</span></button>
+      <div class="bracket-wrap" id="bracket-${r.season}" style="display:none"></div>
+    </div>`).join('')}</div>`
+    :`<div class="tab-loading">No completed championships yet.</div>`;
+
+  // ── Conference titles: a tight column per conference ──
+  const confHTML=(()=>{
+    if(!confRows.length) return `<div class="tab-loading">No completed regular seasons yet.</div>`;
+    const byDiv={};
+    confRows.forEach(r=>r.winners.forEach(w=>{(byDiv[w.div]||(byDiv[w.div]={name:w.divName,rows:[]})).rows.push({season:r.season,w});}));
+    const cols=Object.entries(byDiv).sort((a,b)=>a[0]-b[0]);
+    return `<div class="lh-cols">${cols.map(([id,c])=>`
+      <div class="lh-col">
+        <div class="lh-col-head">${c.name}</div>
+        <div class="lh-list">${c.rows.map(({season,w})=>`
+          <div class="lh-row lh-row-2">
+            <span class="lh-yr">${season}</span>
+            <span class="lh-main">${avatarCore(w.name,w.tid,proxyLogo(w.logo),22,6)}<span class="lh-win tlink">${nm(w.owner,w.name)}</span></span>
+            <span class="lh-meta">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(0)} PF</span>
+          </div>`).join('')}</div>
+      </div>`).join('')}</div>`;
+  })();
+
+  // ── All-Time records: one sortable-looking line per franchise ──
+  const recsHTML=(()=>{
+    const recs=_franchises.map(fr=>{const at=franchiseAllTime(fr.owner);const gg=at.w+at.l+at.t;return {fr,at,pct:gg?at.w/gg:0};})
+      .sort((a,b)=>b.pct-a.pct||b.at.w-a.at.w);
+    const pcts=recs.map(r=>r.pct);
+    const mn=Math.min(...pcts), mx=Math.max(...pcts);
+    const col=v=>{ if(mx===mn) return gradeColor('A'); return gradeColor(PPG_GRADES[Math.round((v-mn)/(mx-mn)*(PPG_GRADES.length-1))]); };
+    return `<div class="lh-recs">
+      <div class="lh-rec lh-rec-head"><span>#</span><span>Team</span><span class="r">Record</span><span class="r">Win%</span><span class="r">PF</span><span class="r">PA</span><span class="r lh-yrs">Seasons</span></div>
+      ${recs.map(({fr,at,pct},i)=>`<div class="lh-rec">
+        <span class="lh-rk">${i+1}</span>
+        <span class="lh-team">${avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),22,6)}<span class="tlink">${nm(fr.owner,fr.name)}</span></span>
+        <span class="r lh-recval">${at.w}–${at.l}${at.t?`–${at.t}`:''}</span>
+        <span class="r lh-pct" style="color:${col(pct)}">${(pct*100).toFixed(1)}%</span>
+        <span class="r lh-pf">${at.pf.toFixed(0)}</span>
+        <span class="r lh-pa">${at.pa.toFixed(0)}</span>
+        <span class="r lh-yrs">${at.seasons}</span>
+      </div>`).join('')}
+    </div>`;
+  })();
+
+  // ── Superlatives: award name + winners on one line, grouped by season ──
+  const supsHTML=(()=>{
+    const yrs=_awardsData?Object.keys(_awardsData.years||{}).sort((a,b)=>b-a):[];
+    if(!yrs.length) return `<div class="tab-loading">No awards recorded yet.</div>`;
+    const order=_awardsData.order||[];
+    return yrs.map(y=>{
+      const yr=_awardsData.years[y];
+      const rows=order.filter(k=>yr[k]&&yr[k].length).map(k=>{
+        const lab=_awardsData.labels[k]||{name:k};
+        const wins=yr[k].map(e=>{const fr=awardOwner(e.team);
+          const a=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),20,5):'';
+          return `<span class="lh-sup-win">${a}${fr?`<span class="tlink">${nm(fr.owner,fr.name)}</span>`:`<span class="lh-name" style="color:var(--text3)">${e.team}</span>`}${e.detail?`<span class="sup-detail">${e.detail}</span>`:''}</span>`;}).join('');
+        return `<div class="lh-sup-row"><span class="lh-sup-award hk-${k}">${lab.name}</span><span class="lh-sup-wins">${wins}</span></div>`;
+      }).join('');
+      return `<div class="lh-col"><div class="lh-col-head">${y} Season</div><div class="lh-sup-rows">${rows}</div></div>`;
+    }).join('');
+  })();
+
+  const tab=(v,icon,label)=>`<button class="tab-btn ${_lhView===v?'active':''}" data-view="${v}" onclick="setLHView('${v}')"><i class="fa ${icon}"></i>${label}</button>`;
   body.innerHTML=`
-    <div class="two-col" style="margin-bottom:28px;align-items:start">
     <div class="sec wm" data-wm="&#xf091;">
-      <div class="sec-head"><i class="fa fa-trophy"></i>Champions</div>
-      <div class="champ-list">
-        ${champRows.length?champRows.map(r=>`
-          <div class="champ-line">
-            <div class="champ-line-yr">${r.season}</div>
-            <div class="champ-line-main">
-              <div class="champ-line-teams">
-                ${av(r.champ,32,9)}
-                <span class="fr-name tlink champ-line-win" data-tid="${(_teams.find(x=>_ownerMap[x.id]===r.champ.owner)||{}).id||''}">${r.champ.name}</span>
-                <span class="champ-line-score" style="color:var(--green)">${r.cPts!=null?r.cPts.toFixed(1):'—'}</span>
-                <span class="champ-line-def">def.</span>
-                <span class="champ-line-score" style="color:var(--text3)">${r.rPts!=null?r.rPts.toFixed(1):'—'}</span>
-                <span class="fr-name tlink" style="font-weight:400;color:var(--text2)" data-tid="${(_teams.find(x=>_ownerMap[x.id]===r.ru.owner)||{}).id||''}">${r.ru.name}</span>
-              </div>
-              <button class="bracket-btn" onclick="toggleBracket('${r.season}',this)"><i class="fa fa-sitemap"></i> Bracket</button>
-            </div>
-            <div class="bracket-wrap" id="bracket-${r.season}" style="display:none"></div>
-          </div>`).join(''):`<div class="tab-loading">No completed championships yet.</div>`}
+      <div class="standings-filters lh-tabs" id="lh-subtabs" style="padding-bottom:15px">
+        ${tab('champs','fa-trophy','Champions')}
+        ${tab('conf','fa-star','Conference')}
+        ${tab('records','fa-clipboard-list','All-Time Records')}
+        ${tab('sups','fa-award','Superlatives')}
       </div>
-    </div>
-    <div class="sec wm" data-wm="&#xf005;">
-      <div class="sec-head"><i class="fa fa-star"></i>Conference Championships<span class="badge-info">week ${REGULAR_SEASON_END} · PF tiebreak</span></div>
-      ${(()=>{
-        if(!confRows.length) return `<div class="tab-loading">No completed regular seasons yet.</div>`;
-        const byDiv={};
-        confRows.forEach(r=>r.winners.forEach(w=>{(byDiv[w.div]||(byDiv[w.div]={name:w.divName,rows:[]})).rows.push({season:r.season,w});}));
-        const cols=Object.entries(byDiv).sort((a,b)=>a[0]-b[0]);
-        return `<div class="conf-cols">${cols.map(([id,c])=>`
-          <div class="conf-col">
-            <div class="conf-col-head">${c.name}</div>
-            ${c.rows.map(({season,w})=>`
-              <div class="conf-win-row">
-                <span class="conf-win-yr">${season}</span>
-                ${avatarCore(w.name,w.tid,proxyLogo(w.logo),28,8)}
-                <div class="conf-win-info"><div class="fr-name">${w.name}</div><div style="font-size:12px;color:var(--text3)">${w.w}–${REGULAR_SEASON_END-w.w} · ${w.pf.toFixed(1)} PF</div></div>
-              </div>`).join('')}
-          </div>`).join('')}</div>`;
-      })()}
-    </div>
-    </div>
-    <div class="sec wm" data-wm="&#xf091;" style="margin-bottom:28px">
-      <div class="sec-head"><i class="fa fa-clipboard-list"></i>All-Time Records<span class="badge-info">by win % · every season combined</span></div>
-      <div class="allrec-grid">
-        ${_franchises.map(fr=>{const at=franchiseAllTime(fr.owner);const g=at.w+at.l+at.t;return {fr,at,pct:g?at.w/g:0};})
-          .sort((a,b)=>b.pct-a.pct||b.at.w-a.at.w)
-          .map(({fr,at,pct},i)=>{
-          const tid=(_teams.find(x=>_ownerMap[x.id]===fr.owner)||{}).id||'';
-          return `<div class="allrec-card">
-            <span class="allrec-rank">${i+1}</span>
-            ${avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),34,9)}
-            <div class="allrec-info">
-              <div class="fr-name tlink" data-tid="${tid}">${fr.name}</div>
-              <div class="allrec-rec">${at.w}–${at.l}${at.t?`–${at.t}`:''} <span style="color:${pct>=0.5?'var(--green)':'var(--red)'};font-weight:700">${(pct*100).toFixed(1)}%</span></div>
-              <div class="allrec-sub">${at.pf.toFixed(0)} PF · ${at.pa.toFixed(0)} PA · ${at.seasons} yr${at.seasons!==1?'s':''}</div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-    <div class="sec wm" data-wm="&#xf559;" style="margin-top:8px">
-      <div class="sec-head"><i class="fa fa-award"></i>Season Superlatives<span class="badge-info">GFL voted</span></div>
-      ${(()=>{
-        const yrs=_awardsData?Object.keys(_awardsData.years||{}).sort((a,b)=>b-a):[];
-        if(!yrs.length) return `<div class="tab-loading">No awards recorded yet.</div>`;
-        const order=_awardsData.order||[];
-        return yrs.map(y=>{
-          const yr=_awardsData.years[y];
-          const rows=order.filter(k=>yr[k]&&yr[k].length).map(k=>{
-            const lab=_awardsData.labels[k]||{name:k,emoji:'🏅'};
-            const winners=yr[k].map(e=>{const fr=awardOwner(e.team);const av=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),22,6):'';const nm=fr?fr.name:e.team;return `<span class="sup-win">${av}<span class="fr-name" ${fr?`data-tid="${(_teams.find(x=>_ownerMap[x.id]===fr.owner)||{}).id||''}"`:''} style="${fr?'':'color:var(--text3)'}">${nm}</span>${e.detail?`<span class="sup-detail">${e.detail}</span>`:''}</span>`;}).join('');
-            return `<div class="sup-row${lab.good===false?' bad':''}">
-              <div class="sup-award hk-${k}">${lab.name}</div>
-              <div class="sup-winners">${winners}</div>
-            </div>`;
-          }).join('');
-          return `<div class="hist-item"><div class="hist-item-year">${y} SEASON</div><div class="sup-grid">${rows}</div></div>`;
-        }).join('');
-      })()}
+      <div id="lh-champs" ${_lhView==='champs'?'':'style="display:none"'}>${champsHTML}</div>
+      <div id="lh-conf" ${_lhView==='conf'?'':'style="display:none"'}>
+        <div class="lh-note">Conference winners are decided on record through week ${REGULAR_SEASON_END}, points for as the tiebreak.</div>
+        ${confHTML}</div>
+      <div id="lh-records" ${_lhView==='records'?'':'style="display:none"'}>
+        <div class="lh-note">Every season combined, ranked by win percentage.</div>
+        ${recsHTML}</div>
+      <div id="lh-sups" ${_lhView==='sups'?'':'style="display:none"'}>
+        <div class="lh-note">GFL voted, season by season.</div>
+        ${supsHTML}</div>
     </div>`;
 }
-
+function setLHView(v){
+  _lhView=v;
+  document.querySelectorAll('#lh-subtabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  ['champs','conf','records','sups'].forEach(k=>{const el=document.getElementById('lh-'+k); if(el) el.style.display=(k===v)?'':'none';});
+}
 
 // Championship playoff bracket — traced backward from the finalists by who beat
 // whom each week (robust to non-standard seeding, byes, and reseeds).
