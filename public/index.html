@@ -1320,21 +1320,18 @@
       #page-teams .prof-col .tscroll,#page-badbeat .tscroll{overflow-x:auto;}
       #page-history table.mtbl .team-info .team-name{display:block!important;font-size:12px;line-height:1.2;}
       #page-history table.mtbl .team-info .team-sub{display:none;}
-      /* Player Tenure: stop the 640px stretch, pull the columns together and
-         line every value up under its own heading */
-      #page-tenure .tscroll table.min640{min-width:0;width:100%;}
-      #page-tenure table.mtbl th,#page-tenure table.mtbl td{padding:6px 4px!important;text-align:left!important;}
-      #page-tenure table.mtbl thead th{font-size:10px;line-height:1.25;white-space:normal;vertical-align:bottom;}
-      #page-tenure table.mtbl td:first-child{padding-right:8px!important;}
-      #page-tenure table.mtbl .pname{gap:5px;}
-      #page-tenure table.mtbl .pname .rank{margin-right:0!important;}
-      #page-tenure table.mtbl .phs,#page-tenure table.mtbl .pname img{width:20px!important;height:20px!important;}
-      #page-tenure table.mtbl td .fr-name{font-size:12px;white-space:nowrap;}
-      /* every data column the same width, player column sized to the longest name */
-      #page-tenure table.tenure-tbl{table-layout:fixed;width:562px;}  /* 170 + 7 x 56 */
-      #page-tenure table.tenure-tbl th:first-child,#page-tenure table.tenure-tbl td:first-child{width:170px;}
-      #page-tenure table.tenure-tbl th:not(:first-child),#page-tenure table.tenure-tbl td:not(:first-child){width:56px;}
-      #page-tenure table.tenure-tbl .pname{white-space:nowrap;}
+      /* Player Tenure: no 640px stretch, equal data columns, name column snug
+         to the longest name (never wrapping) with an 8px gap to the numbers */
+      #page-tenure .tscroll table{min-width:0!important;width:auto!important;table-layout:auto!important;}
+      #page-tenure table th,#page-tenure table td{padding:6px 5px!important;text-align:left!important;}
+      #page-tenure table thead th{font-size:10px;line-height:1.25;white-space:normal;vertical-align:bottom;}
+      #page-tenure table th:not(:first-child),#page-tenure table td:not(:first-child){min-width:56px;width:56px;}
+      /* the name never wraps and never breaks onto a second line */
+      #page-tenure table td:first-child,#page-tenure table th:first-child{white-space:nowrap!important;width:auto;}
+      #page-tenure table td:first-child .pname{display:inline-flex!important;flex-wrap:nowrap!important;white-space:nowrap!important;gap:5px;max-width:none;}
+      #page-tenure table td:first-child .fr-name{font-size:12px;white-space:nowrap!important;overflow:visible;flex:0 0 auto;}
+      #page-tenure table .pname .rank{margin-right:0!important;flex:0 0 auto;}
+      #page-tenure table .phs,#page-tenure table .pname img{width:20px!important;height:20px!important;flex:0 0 auto;}
     }
 
     /* ── Profile: Draft Grades by Year ───────────────────────────────────── */
