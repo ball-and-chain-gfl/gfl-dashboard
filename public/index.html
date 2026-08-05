@@ -1322,12 +1322,12 @@
       #page-history table.mtbl .team-info .team-sub{display:none;}
       /* Player Tenure: no 640px stretch, equal data columns, name column snug
          to the longest name (never wrapping) with an 8px gap to the numbers */
-      #page-tenure .tscroll table{min-width:0!important;width:auto!important;table-layout:auto!important;}
+      #page-tenure .tscroll table{min-width:0!important;width:588px!important;table-layout:fixed!important;}  /* 168 + 7 x 60 */
       #page-tenure table th,#page-tenure table td{padding:6px 5px!important;text-align:left!important;}
       #page-tenure table thead th{font-size:10px;line-height:1.25;white-space:normal;vertical-align:bottom;}
-      #page-tenure table th:not(:first-child),#page-tenure table td:not(:first-child){min-width:56px;width:56px;}
+      #page-tenure table th:not(:first-child),#page-tenure table td:not(:first-child){width:60px;}
       /* the name never wraps and never breaks onto a second line */
-      #page-tenure table td:first-child,#page-tenure table th:first-child{white-space:nowrap!important;width:auto;}
+      #page-tenure table td:first-child,#page-tenure table th:first-child{white-space:nowrap!important;width:168px;padding-right:3px!important;}
       #page-tenure table td:first-child .pname{display:inline-flex!important;flex-wrap:nowrap!important;white-space:nowrap!important;gap:5px;max-width:none;}
       #page-tenure table td:first-child .fr-name{font-size:12px;white-space:nowrap!important;overflow:visible;flex:0 0 auto;}
       #page-tenure table .pname .rank{margin-right:0!important;flex:0 0 auto;}
