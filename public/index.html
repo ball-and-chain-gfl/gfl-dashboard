@@ -1091,6 +1091,27 @@
     .trades-layout{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:22px;align-items:start;}
     .trades-filters{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:14px;}
     .trades-filters .standings-filters{margin-bottom:10px;}
+    /* ── Lineup IQ panel (Standings & Stats sub-tab) ── */
+    .liq-list{display:flex;flex-direction:column;}
+    .liq-row{display:grid;grid-template-columns:26px minmax(0,1fr) 82px minmax(120px,1.1fr) 92px;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,0.06);}
+    .liq-row:last-child{border-bottom:none;}
+    .liq-head{padding:0 4px 9px;}
+    .liq-head>span{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);font-weight:600;}
+    .liq-row .right{text-align:right;}
+    .liq-rk{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--accent);text-align:center;}
+    .liq-pct{font-family:'Inter','DM Sans',sans-serif;font-size:19px;font-weight:700;letter-spacing:0.4px;}
+    .liq-barcell{display:flex;align-items:center;gap:9px;min-width:0;}
+    .liq-bar{flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;min-width:40px;}
+    .liq-bar-fill{display:block;height:100%;border-radius:4px;}
+    .liq-frac{font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);white-space:nowrap;}
+    .liq-miss{font-family:'Inter','DM Sans',sans-serif;font-size:15px;font-weight:600;color:var(--red);}
+    @media(max-width:768px){
+      .liq-row{grid-template-columns:20px minmax(0,1fr) 62px 60px;gap:8px;padding:10px 0;}
+      .liq-row .liq-barcell{display:none;}
+      .liq-pct{font-size:16px;}
+      .liq-miss{font-size:13px;}
+      .liq-head>span{font-size:10px;}
+    }
     .trade-count{display:flex;align-items:baseline;gap:7px;margin:0 0 12px;padding:0 0 11px;border-bottom:1px solid var(--border);}
     .tc-num{font-family:'Inter','DM Sans',sans-serif;font-size:22px;font-weight:700;line-height:1;letter-spacing:0.4px;color:var(--accent);}
     .tc-lbl{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);font-weight:600;line-height:1.3;}

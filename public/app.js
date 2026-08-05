@@ -1037,12 +1037,14 @@ function sortAndHighlight(col,btn){
 function setStatsView(v){
   _statsView=v;
   document.querySelectorAll('#stats-subtabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  const st=document.getElementById('stats-standings'),c2=document.getElementById('stats-c2'),c3=document.getElementById('stats-c3');
+  const st=document.getElementById('stats-standings'),c2=document.getElementById('stats-c2'),c3=document.getElementById('stats-c3'),lq=document.getElementById('stats-liq');
   if(st)st.style.display=v==='standings'?'':'none';
   if(c2)c2.style.display=v==='c2'?'':'none';
   if(c3)c3.style.display=v==='c3'?'':'none';
+  if(lq)lq.style.display=v==='liq'?'':'none';
   if(v==='c2') renderC2Breakdown();
   if(v==='c3') renderC3Breakdown();
+  if(v==='liq') renderLineupIQ();
 }
 function cmSourceNote(){
   if(_cmMode==='none') return 'No coaching-metric data for this season.';
@@ -1124,18 +1126,31 @@ function loadLineupIQ(){
     .then(d=>{ _liq[season]=(d&&d.teams)||{}; })
     .catch(()=>{ _liq[season]={}; })
     .finally(()=>{ _liqLoading[season]=false;
-      // repaint whenever the table is on the page — the user may be on another
-      // tab while this resolves, and it won't re-render on its own later
-      if(getSeason()===season&&document.getElementById('standings-tbody')) renderStandingsTable(); });
+      if(getSeason()===season&&document.getElementById('stats-liq')) renderLineupIQ(); });
+}
+function renderLineupIQ(){
+  const el=document.getElementById('stats-liq'); if(!el) return;
+  const season=getSeason(), data=_liq[season];
+  if(!data){ loadLineupIQ();
+    el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Rebuilding every optimal lineup of the ${season} season…</div>`; return; }
+  const rows=_teams.map(t=>{const d=data[t.id]; return d&&d.decisions?{t,d,pct:d.correct/d.decisions*100}:null;})
+    .filter(Boolean).sort((a,b)=>b.pct-a.pct);
+  if(!rows.length){ el.innerHTML=`<div class="tab-loading">No weekly roster data for the ${season} season.</div>`; return; }
+  const worst=Math.max(...rows.map(r=>r.d.missed))||1;
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, regular season only (${data._weeks||rows[0].d.weeks} weeks). A starting spot only counts as a decision when another eligible player was on the roster that week — one kicker is not a choice. RB, WR and TE all count as FLEX-eligible. Byes, IR and players who never took the field are ignored. <b>Missed points</b> = what a perfect lineup would have scored, minus what was actually started.</div>
+  <div class="liq-list">
+    <div class="liq-row liq-head"><span>#</span><span>Team</span><span class="right">Lineup IQ</span><span class="liq-barcell">Correct calls</span><span class="right">Missed pts</span></div>
+    ${rows.map((r,i)=>`<div class="liq-row">
+      <span class="liq-rk">${i+1}</span>
+      <span class="liq-team"><div class="team-cell">${logoImg(r.t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${r.t.id}">${r.t.name}</div><div class="team-sub">${r.t.abbrev}</div></div></div></span>
+      <span class="right liq-pct" style="color:${liqColor(r.pct)}">${r.pct.toFixed(1)}%</span>
+      <span class="liq-barcell"><span class="liq-bar"><span class="liq-bar-fill" style="width:${r.pct.toFixed(1)}%;background:${liqColor(r.pct)}"></span></span><span class="liq-frac">${r.d.correct} / ${r.d.decisions}</span></span>
+      <span class="right liq-miss" style="opacity:${(0.45+0.55*r.d.missed/worst).toFixed(2)}">${r.d.missed.toFixed(1)}</span>
+    </div>`).join('')}
+  </div>`;
 }
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
 function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?'#E0B67B':'var(--red)'; }
-function liqCells(teamId){
-  const d=_liq[getSeason()]?.[teamId], p=liqPct(teamId);
-  if(p==null) return `<td class="right" style="color:var(--text3)">${_liqLoading[getSeason()]?'…':'—'}</td><td class="right" style="color:var(--text3)">${_liqLoading[getSeason()]?'…':'—'}</td>`;
-  return `<td class="right" style="color:${liqColor(p)};font-weight:600">${p.toFixed(1)}%</td>`+
-         `<td class="right" style="color:var(--red)">${d.missed.toFixed(1)}</td>`;
-}
 function renderStandingsTable(){
   const teams=[..._teams];
   const atCache={};
@@ -1156,21 +1171,18 @@ function renderStandingsTable(){
     else if(_sortCol==='atpa'){va=atOf(a).pa;vb=atOf(b).pa;}
     else if(_sortCol==='pfy'){va=pfy(a);vb=pfy(b);}
     else if(_sortCol==='pay'){va=pay(a);vb=pay(b);}
-    else if(_sortCol==='liq'){va=liqPct(a.id)??-1;vb=liqPct(b.id)??-1;}
-    else if(_sortCol==='miss'){va=liqOf(a.id)?liqOf(a.id).missed:-1;vb=liqOf(b.id)?liqOf(b.id).missed:-1;}
     else return 0;
     return _sortAsc?va-vb:vb-va;
   });
   function arr(c){return _sortCol===c?(_sortAsc?'↑':'↓'):'⇅';}
   function th(col,label,right=true){return`<th class="${right?'right':''} ${_sortCol===col?'sorted':''}" onclick="sortStandings('${col}')">${label} <span style="font-size:12px;opacity:0.6">${arr(col)}</span></th>`;}
-  loadLineupIQ();
   const thead=document.getElementById('standings-thead');
   const tbody=document.getElementById('standings-tbody');
   if(!thead||!tbody)return;
   thead.innerHTML=`<tr>
     <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:12px;opacity:0.6">${arr('rank')}</span></th>
     <th>Team</th>${th('wins','W')}
-    <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}${th('liq','Lineup IQ')}${th('miss','Missed Pts')}${th('atpf','AT PF')}${th('atpa','AT PA')}${th('pfy','PF/Yr')}${th('pay','PA/Yr')}
+    <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}${th('atpf','AT PF')}${th('atpa','AT PA')}${th('pfy','PF/Yr')}${th('pay','PA/Yr')}
   </tr>`;
   tbody.innerHTML=teams.map((t,i)=>{
     const s=_scores[t.id]||0;
@@ -1184,7 +1196,6 @@ function renderStandingsTable(){
       <td class="right">${t.moves}</td>
       <td class="right">${t.trades}</td>
       <td class="right" style="color:${_cmMode==='none'?'var(--text3)':sc(s)};font-weight:600">${_cmMode==='none'?'—':s.toFixed(2)}</td>
-      ${liqCells(t.id)}
       <td class="right pf">${atOf(t).pf?atOf(t).pf.toFixed(0):'—'}</td>
       <td class="right pa">${atOf(t).pa?atOf(t).pa.toFixed(0):'—'}</td>
       <td class="right" style="color:var(--text2)">${atOf(t).playedSeasons?pfy(t).toFixed(0):'—'}</td>
@@ -2956,13 +2967,15 @@ async function loadDashboard(){
             <button class="tab-btn ${_statsView==='standings'?'active':''}" data-view="standings" onclick="setStatsView('standings')"><i class="fa fa-ranking-star"></i>${season} Standings</button>
             <button class="tab-btn ${_statsView==='c2'?'active':''}" data-view="c2" onclick="setStatsView('c2')"><i class="fa fa-right-left"></i>Trade ROI</button>
             <button class="tab-btn ${_statsView==='c3'?'active':''}" data-view="c3" onclick="setStatsView('c3')"><i class="fa fa-magnifying-glass-dollar"></i>Waiver ROI</button>
+            <button class="tab-btn ${_statsView==='liq'?'active':''}" data-view="liq" onclick="setStatsView('liq')"><i class="fa fa-brain"></i>Lineup IQ</button>
           </div>
           <div id="stats-standings" ${_statsView==='standings'?'':'style="display:none"'}>
-            <div style="font-size:12px;color:var(--text3);margin:0 2px 10px;line-height:1.6">Click any column header to sort. <b>Lineup IQ</b> = share of start/sit calls that matched the optimal lineup — regular season only, counting a slot only when another eligible player was on the roster. <b>Missed Pts</b> = points left on the bench vs. that perfect lineup.</div>
+            <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
             <div class="tscroll"><table class="min640" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
           <div id="stats-c2" ${_statsView==='c2'?'':'style="display:none"'}></div>
           <div id="stats-c3" ${_statsView==='c3'?'':'style="display:none"'}></div>
+          <div id="stats-liq" ${_statsView==='liq'?'':'style="display:none"'}></div>
         </div>
         <div class="sec wm" data-wm="&#xf1da;">
           <div class="sec-head"><i class="fa fa-clock-rotate-left"></i>Recent Activity${_cmMode==='inferred'?'<span class="badge-info">reconstructed from weekly rosters</span>':''}</div>
