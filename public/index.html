@@ -1314,6 +1314,14 @@
       #page-teams .prof-col .tscroll,#page-badbeat .tscroll{overflow-x:auto;}
       #page-history table.mtbl .team-info .team-name{display:block!important;font-size:12px;line-height:1.2;}
       #page-history table.mtbl .team-info .team-sub{display:none;}
+      /* Player Tenure: stop the 640px stretch, pull the columns together and
+         line every value up under its own heading */
+      #page-tenure .tscroll table.min640{min-width:0;width:100%;}
+      #page-tenure table.mtbl th,#page-tenure table.mtbl td{padding:6px 5px!important;text-align:left!important;}
+      #page-tenure table.mtbl thead th{font-size:10px;line-height:1.25;white-space:normal;vertical-align:bottom;}
+      #page-tenure table.mtbl td:first-child{padding-right:8px!important;}
+      #page-tenure table.mtbl .pname{gap:5px;}
+      #page-tenure table.mtbl td .fr-name{font-size:12px;}
     }
 
     /* ── Profile: Draft Grades by Year ───────────────────────────────────── */
