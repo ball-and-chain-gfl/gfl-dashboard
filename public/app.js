@@ -386,6 +386,19 @@ function applyShortNames(root){
 // off an edge. Assignment is deterministic per page so a card keeps its shape.
 // On phones the season selector shows just the year, so a long tab name in the
 // header doesn't push the controls onto a second line.
+// Phones: size the tenure name column to the widest name it actually holds, so
+// the numbers start exactly 8px after the longest name and nothing ever wraps.
+function tenureNameWidth(){
+  const tbl=document.querySelector('#page-tenure table.tenure-tbl'); if(!tbl) return;
+  if(!window.matchMedia('(max-width:768px)').matches){ tbl.style.removeProperty('--tnw'); return; }
+  tbl.style.setProperty('--tnw','420px');                 // unconstrain, then measure
+  let max=0;
+  tbl.querySelectorAll('tbody td:first-child .pname').forEach(p=>{const w=p.getBoundingClientRect().width; if(w>max) max=w;});
+  const h=tbl.querySelector('thead th:first-child');
+  if(h){ const hw=h.scrollWidth-8; if(hw>max) max=hw; }
+  if(max>0) tbl.style.setProperty('--tnw',Math.ceil(max+8)+'px');
+  else tbl.style.removeProperty('--tnw');
+}
 function tradeScopeLabel(){
   const b=document.getElementById('trade-scope-season'); if(!b) return;
   const t=window.matchMedia('(max-width:768px)').matches?String(getSeason()):'This Season';
@@ -437,7 +450,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
