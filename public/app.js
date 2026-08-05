@@ -1935,6 +1935,10 @@ function draftListsMobileHTML(season){
   }
   return tabs+body;
 }
+let _lhRsz;
+window.addEventListener('resize',()=>{ clearTimeout(_lhRsz); _lhRsz=setTimeout(()=>{
+  if(_activeTab==='legacy'&&_lhView==='champs') openDesktopBrackets();
+},200); });
 let _drRsz;
 window.addEventListener('resize',()=>{ clearTimeout(_drRsz); _drRsz=setTimeout(()=>{
   if(_activeTab==='draft'&&_drWasMobile!==null&&_drWasMobile!==drIsMobile()) renderDraftLists();
@@ -2156,11 +2160,24 @@ function renderLeagueHistory(){
         <div class="lh-note">GFL voted, season by season.</div>
         ${supsHTML}</div>
     </div>`;
+  openDesktopBrackets();
+}
+// Brackets ride open on desktop and stay closed on phones (where they'd bury
+// the rest of the list).
+function openDesktopBrackets(){
+  if(window.matchMedia('(max-width:768px)').matches) return;
+  document.querySelectorAll('#lh-champs .lh-row').forEach(row=>{
+    const wrap=row.querySelector('.bracket-wrap'), btn=row.querySelector('.lh-brk');
+    if(!wrap||!btn||wrap.style.display!=='none') return;
+    const season=(wrap.id||'').replace('bracket-','');
+    if(season) toggleBracket(season,btn);
+  });
 }
 function setLHView(v){
   _lhView=v;
   document.querySelectorAll('#lh-subtabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   ['champs','conf','records','sups'].forEach(k=>{const el=document.getElementById('lh-'+k); if(el) el.style.display=(k===v)?'':'none';});
+  if(v==='champs') openDesktopBrackets();
 }
 
 // Championship playoff bracket — traced backward from the finalists by who beat
