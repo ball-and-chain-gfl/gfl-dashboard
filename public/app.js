@@ -2617,86 +2617,21 @@ function renderBadBeat(){
 // the longest team name and the start of the Score column.
 function badBeatCols(){
   const t=document.querySelector('#badbeat-body table.bb-tbl'); if(!t) return;
-  const body=t.tBodies[0]; if(!body||!body.rows.length) return;
-  // measure shrink-to-fit content, not the stretched flex container
+  const head=t.tHead&&t.tHead.rows[0], body=t.tBodies&&t.tBodies[0];
+  if(!head||!body||!body.rows.length) return;
+  // measure at natural width, then pin each column to its own content so the
+  // table is only as wide as it needs to be (no stretched, far-apart columns)
   t.classList.add('bb-measure');
-  let mx=0;
-  body.querySelectorAll('td:nth-child(2) .team-cell').forEach(c=>{const w=c.getBoundingClientRect().width; if(w>mx) mx=w;});
-  const th=t.tHead&&t.tHead.rows[0].cells[1];
-  if(th){ const s2=th.querySelector('span'); const hw=(s2?s2.getBoundingClientRect().width:0); if(hw>mx) mx=hw; }
-  let rk=0;
-  body.querySelectorAll('td:nth-child(1) .rank').forEach(c=>{const w=c.getBoundingClientRect().width; if(w>rk) rk=w;});
+  const widths=[...head.cells].map((c,i)=>{
+    if(getComputedStyle(c).display==='none') return 0;
+    let m=c.getBoundingClientRect().width;
+    for(const r of body.rows){ const cell=r.cells[i]; if(!cell) continue;
+      const x=cell.getBoundingClientRect().width; if(x>m) m=x; }
+    return Math.ceil(m)+2;
+  });
   t.classList.remove('bb-measure');
-  const c1=body.rows[0].cells[0], c2=body.rows[0].cells[1];
-  const padL1=parseFloat(getComputedStyle(c1).paddingLeft)||0;
-  const padL2=parseFloat(getComputedStyle(c2).paddingLeft)||0;
-  if(rk>0) t.style.setProperty('--bbrank',Math.ceil(padL1+rk)+'px');
-  if(mx>0) t.style.setProperty('--bbteam',Math.ceil(padL2+mx+8)+'px');
-}
-// Zebra-stripe the profile stat rows. The stats sit in an auto-fit grid, so the
-// column count changes with width — work out the real rows before tagging.
-function stripeProfileStats(){
-  document.querySelectorAll('#page-teams .prof-stats').forEach(g=>{
-    const cols=(getComputedStyle(g).gridTemplateColumns||'').split(' ').filter(Boolean).length||1;
-    [...g.children].forEach((el,i)=>{ el.classList.toggle('pstat-alt', Math.floor(i/cols)%2===1); });
-  });
-}
-// ── BIGGEST ENEMIES ──────────────────────────────────────────────────────────
-// Weekly starting lineups, paired with the schedule, tell us which players have
-// scored the most against a given franchise (and how those games went).
-let _lineups=null,_lineupsLoading=false;
-function loadLineups(){
-  if(_lineups||_lineupsLoading) return;
-  _lineupsLoading=true;
-  Promise.all(ALL_SEASONS.map(async s=>({s,d:await histJSON('lineups',s,`${BASE}?type=lineups&seasonId=${s}&v=1`)})))
-    .then(res=>{ const out={}; res.forEach(({s,d})=>{ if(d&&d.weeks) out[s]=d; }); _lineups=out; })
-    .catch(()=>{ _lineups={}; })
-    .finally(()=>{ _lineupsLoading=false;
-      if(_activeTab==='teams'&&document.getElementById('prof-enemies')) renderProfile(); });
-}
-function enemiesFor(owner){
-  if(!_lineups) return null;
-  const agg={};
-  ALL_SEASONS.forEach(s=>{
-    const L=_lineups[s], meta=_seasonMeta[s]; if(!L||!meta) return;
-    const myTid=Object.keys(meta.owners||{}).find(id=>meta.owners[id]===owner); if(myTid==null) return;
-    (meta.schedule||[]).forEach(m=>{
-      if(!m.home||!m.away) return;
-      const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0; if(hp===0&&ap===0) return;
-      let oppTid=null, oppWon=false;
-      if(String(m.home.teamId)===myTid){ oppTid=m.away.teamId; oppWon=ap>hp; }
-      else if(String(m.away.teamId)===myTid){ oppTid=m.home.teamId; oppWon=hp>ap; }
-      else return;
-      const arr=L.weeks&&L.weeks[m.matchupPeriodId]&&L.weeks[m.matchupPeriodId][oppTid];
-      if(!arr) return;
-      arr.forEach(([pid,pts])=>{
-        const r=agg[pid]||(agg[pid]={pid,name:(L.names&&L.names[pid])||('#'+pid),pts:0,g:0,w:0});
-        r.pts+=pts; r.g++; if(oppWon) r.w++;
-        if(L.names&&L.names[pid]) r.name=L.names[pid];
-      });
-    });
-  });
-  return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
-}
-function enemiesHTML(owner){
-  const list=enemiesFor(owner);
-  if(!list){ loadLineups();
-    return `<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Digging through every lineup they've faced…</div>`; }
-  if(!list.length) return `<div class="tab-loading" style="padding:22px">No opposing lineup data yet.</div>`;
-  const mxp=list[0].pts||1;
-  return `<div class="en-list">
-    <div class="en-row en-head"><span>#</span><span>Player</span><span class="r">Points</span><span class="r">Record</span><span class="r">PPG</span></div>
-    ${list.map((r,i)=>{
-      const pct=r.g?r.w/r.g:0;
-      return `<div class="en-row">
-        <span class="en-rk">${i+1}</span>
-        <span class="en-p">${playerImg(r.pid,24,r.name)}<span class="en-nm">${r.name}</span></span>
-        <span class="r en-pts">${r.pts.toFixed(1)}</span>
-        <span class="r en-rec" style="color:${pct>0.5?'var(--red)':pct<0.5?'var(--green)':'var(--text2)'}">${r.w}–${r.g-r.w}</span>
-        <span class="r en-ppg">${(r.pts/r.g).toFixed(1)}</span>
-      </div>`;}).join('')}
-  </div>
-  <div class="en-note">Points scored against this team by opposing starters, all seasons. <b>Record</b> is how those games finished for the player's side; <b>PPG</b> is their average in games against this franchise.</div>`;
+  widths.forEach((w,i)=>t.style.setProperty('--bbc'+(i+1), w?w+'px':'0px'));
+  t.style.setProperty('--bbw', widths.reduce((a,b)=>a+b,0)+'px');
 }
 // ── TEAM PROFILE ─────────────────────────────────────────────────────────────
 let _brCache={};

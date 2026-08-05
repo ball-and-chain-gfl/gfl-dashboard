@@ -1548,15 +1548,30 @@
     /* Honor/award tiles inside the profile hero chip row */
     .prof-chips .honor-tile{min-width:auto;}
 
-    /* Bad Beat: rank hugs the team, 8px from the longest name to the Score column */
-    #page-badbeat .bb-tbl{table-layout:fixed;}
-    #page-badbeat .bb-tbl th:nth-child(1),#page-badbeat .bb-tbl td:nth-child(1){width:var(--bbrank,34px);padding-right:0!important;}
-    #page-badbeat .bb-tbl th:nth-child(2),#page-badbeat .bb-tbl td:nth-child(2){width:var(--bbteam,200px);padding-left:8px!important;padding-right:0!important;}
-    #page-badbeat .bb-tbl td:nth-child(2) .team-cell{width:max-content;}
+    /* Bad Beat: every column sized to its own content, all left aligned */
+    #page-badbeat .bb-tbl{table-layout:fixed;width:var(--bbw,100%);}
+    #page-badbeat .tscroll table.min720{min-width:0;}
+    #page-badbeat .bb-tbl th,#page-badbeat .bb-tbl td{text-align:left!important;white-space:nowrap;
+      padding:7px 9px!important;}
+    #page-badbeat .bb-tbl th:first-child,#page-badbeat .bb-tbl td:first-child{padding-right:2px!important;}
+    #page-badbeat .bb-tbl td:nth-child(2){padding-left:6px!important;}
     #page-badbeat .bb-tbl .team-cell{white-space:nowrap;}
-    #page-badbeat .bb-tbl.bb-measure th:nth-child(1),#page-badbeat .bb-tbl.bb-measure td:nth-child(1),
-    #page-badbeat .bb-tbl.bb-measure th:nth-child(2),#page-badbeat .bb-tbl.bb-measure td:nth-child(2){width:auto;}
-    #page-badbeat .bb-tbl.bb-measure td:nth-child(2) .team-cell{width:max-content;}
+    /* measurement pass: natural widths */
+    #page-badbeat .bb-tbl.bb-measure{table-layout:auto!important;width:auto!important;}
+    #page-badbeat .bb-tbl.bb-measure th,#page-badbeat .bb-tbl.bb-measure td{width:auto!important;}
+    #page-badbeat .bb-tbl th:nth-child(1),#page-badbeat .bb-tbl td:nth-child(1){width:var(--bbc1,auto);}
+    #page-badbeat .bb-tbl th:nth-child(2),#page-badbeat .bb-tbl td:nth-child(2){width:var(--bbc2,auto);}
+    #page-badbeat .bb-tbl th:nth-child(3),#page-badbeat .bb-tbl td:nth-child(3){width:var(--bbc3,auto);}
+    #page-badbeat .bb-tbl th:nth-child(4),#page-badbeat .bb-tbl td:nth-child(4){width:var(--bbc4,auto);}
+    #page-badbeat .bb-tbl th:nth-child(5),#page-badbeat .bb-tbl td:nth-child(5){width:var(--bbc5,auto);}
+    #page-badbeat .bb-tbl th:nth-child(6),#page-badbeat .bb-tbl td:nth-child(6){width:var(--bbc6,auto);}
+    #page-badbeat .bb-tbl th:nth-child(7),#page-badbeat .bb-tbl td:nth-child(7){width:var(--bbc7,auto);}
+    #page-badbeat .bb-tbl th:nth-child(8),#page-badbeat .bb-tbl td:nth-child(8){width:var(--bbc8,auto);}
+    #page-badbeat .bb-tbl th:nth-child(9),#page-badbeat .bb-tbl td:nth-child(9){width:var(--bbc9,auto);}
+    @media(max-width:768px){
+      #page-badbeat .bb-tbl th,#page-badbeat .bb-tbl td{padding:6px 7px!important;font-size:12px;}
+      #page-badbeat .bb-tbl thead th{font-size:10px;}
+    }
     .bb-rank{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:6px;background:var(--bg3);color:var(--text2);font-weight:700;font-size:12px;}
     .badbeat-body table td.right,.badbeat-body table th.right{white-space:nowrap;}
 
