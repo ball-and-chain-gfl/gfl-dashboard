@@ -2204,6 +2204,17 @@ function renderLeagueHistory(){
     </div>`;
   openDesktopBrackets();
 }
+// Brackets ride open on desktop and stay closed on phones (where they'd bury
+// the rest of the list).
+function openDesktopBrackets(){
+  if(window.matchMedia('(max-width:768px)').matches) return;
+  document.querySelectorAll('#lh-champs .lh-row').forEach(row=>{
+    const wrap=row.querySelector('.bracket-wrap'), btn=row.querySelector('.lh-brk');
+    if(!wrap||!btn||wrap.style.display!=='none') return;
+    const season=(wrap.id||'').replace('bracket-','');
+    if(season) toggleBracket(season,btn);
+  });
+}
 function setLHView(v){
   _lhView=v;
   document.querySelectorAll('#lh-subtabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
