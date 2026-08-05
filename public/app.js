@@ -562,8 +562,27 @@ function syncTabDDActive(){
 }
 /* open on pointerdown so the menu appears the instant a finger lands */
 let _ddPD=0;
-function tabDDPointer(e){ if(e&&e.button>0) return; _ddPD=Date.now(); toggleTabDD(); }
+/* the capsule never moves, so its offset is measured off the tap path and cached */
+function positionTabDD(){
+  const nv=document.getElementById('floatnav'), menu=document.getElementById('tab-dd-menu');
+  if(!nv||!menu) return;
+  document.documentElement.style.setProperty('--ddtop',Math.round(nv.getBoundingClientRect().bottom+14)+'px');
+  menu.style.overflowY=(menu.scrollHeight>menu.clientHeight+1)?'auto':'hidden';
+}
+function tabDDPointer(e){
+  if(e&&e.type==='pointerdown'&&e.button>0) return;
+  if(Date.now()-_ddPD<700) return;      /* touchstart and pointerdown both fire */
+  _ddPD=Date.now(); toggleTabDD();
+}
 function tabDDClick(){ if(Date.now()-_ddPD<700) return; toggleTabDD(); }
+/* a tap that turns into a drag shouldn't leave the menu open */
+document.addEventListener('touchmove',function(e){
+  if(!_ddPD||Date.now()-_ddPD>400) return;
+  const t=e.touches&&e.touches[0]; if(!t) return;
+  const btn=document.getElementById('tab-dd-btn'); if(!btn) return;
+  const r=btn.getBoundingClientRect();
+  if(t.clientY<r.top-30||t.clientY>r.bottom+30) toggleTabDD(false);
+},{passive:true});
 let _navLockY=0;
 function navLock(on){
   const html=document.documentElement, body=document.body;
@@ -586,13 +605,7 @@ function toggleTabDD(open){
   navLock(show);
   const scrim=document.getElementById('nav-scrim'); if(scrim) scrim.classList.toggle('show',show);
   const b=document.getElementById('tab-dd-btn'); if(b) b.classList.toggle('open',show);
-  if(show){
-    const place=()=>{ const nv=document.getElementById('floatnav');
-      if(nv) menu.style.top=Math.round(nv.getBoundingClientRect().bottom+14)+'px';
-      /* only allow an inner scroll when the list genuinely doesn't fit */
-      menu.style.overflowY=(menu.scrollHeight>menu.clientHeight+1)?'auto':'hidden'; };
-    place(); requestAnimationFrame(place);
-  }
+
 }
 function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0); }
 document.addEventListener('click',e=>{
@@ -611,6 +624,7 @@ function updateTabDD(name){
   if(ic){ ic.className=icon; ic.style.color=tc; }
   if(b) b.style.setProperty('--tc',tc);
   document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===name));
+  requestAnimationFrame(positionTabDD);
 }
 document.addEventListener('click',function(e){ const dd=document.getElementById('tab-dd'), mn=document.getElementById('tab-dd-menu'); if(dd&&!dd.contains(e.target)&&!(mn&&mn.contains(e.target))) toggleTabDD(false); });
 
@@ -4178,4 +4192,7 @@ loadDashboard();
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();
 /* pre-render the nav menu so the first tap has nothing to build */
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',buildTabDD); else buildTabDD();
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});
+else { buildTabDD(); positionTabDD(); }
+window.addEventListener('resize',()=>{ clearTimeout(window._ddRsz); window._ddRsz=setTimeout(positionTabDD,150); });
+window.addEventListener('orientationchange',()=>setTimeout(positionTabDD,300));
