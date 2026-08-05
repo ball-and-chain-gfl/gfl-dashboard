@@ -2923,8 +2923,6 @@ function profileOverviewHTML(owner){
       else if(rank===2){ po='Runner-up'; poCol='var(--green)'; }
       else if(inB){ po=wins?`Playoffs · ${wins}W`:'Playoffs'; poCol='var(--text2)'; }
     }
-    const yrAwards=aw.filter(a=>String(a.year)===s)
-      .map(a=>`<span class="ov-aw hk-${a.key}">${AWARD_SHORT[a.key]||a.label.name}</span>`).join('');
     const conf=ti?(meta.divisions&&meta.divisions[ti.div])||'':'';
     const wpct=x.g?x.w/x.g:0;
     return `<div class="ov-row">
@@ -2933,8 +2931,7 @@ function profileOverviewHTML(owner){
       <span class="r ov-fin">${rank?'#'+rank:'—'}</span>
       <span class="r ov-pf ov-hpf">${x.pf.toFixed(0)}</span>
       <span class="r ov-pa ov-hpa">${x.pa.toFixed(0)}</span>
-      <span class="ov-po" style="color:${poCol}">${po}</span>
-      <span class="ov-awards">${yrAwards||'<span class="ov-none">—</span>'}</span>
+      <span class="r ov-po" style="color:${poCol}">${po}</span>
     </div>`;}).join('');
 
   // ── draft grades, in their own block underneath ──
@@ -2967,7 +2964,7 @@ function profileOverviewHTML(owner){
 
   const at=franchiseAllTime(owner);
   return `<div class="ov-list">
-    <div class="ov-row ov-head"><span>Year</span><span>Record</span><span class="r">Finish</span><span class="r ov-pf ov-hpf">PF</span><span class="r ov-pa ov-hpa">PA</span><span>Postseason</span><span>Hardware</span></div>
+    <div class="ov-row ov-head"><span>Year</span><span>Record</span><span class="r">Finish</span><span class="r ov-pf ov-hpf">PF</span><span class="r ov-pa ov-hpa">PA</span><span class="r">Postseason</span></div>
     ${rows}
   </div>
   <div class="ov-foot">${seasons.length} season${seasons.length===1?'':'s'} · ${at.w}–${at.l} all-time · ${at.rings} championship${at.rings===1?'':'s'} · ${at.playoffApps||0} playoff appearance${(at.playoffApps||0)===1?'':'s'}</div>
