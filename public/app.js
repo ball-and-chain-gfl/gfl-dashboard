@@ -3212,15 +3212,22 @@ function sbBuild(){
     sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg),0.72,0.42),'Outright','fa-rocket');
   const most80=outright('most80','Most Sub-80 Duds','Weeks the offense never showed',
     sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg),0.72,0.42),'Outright','fa-face-dizzy');
-  const anyRing=yesno('firstring','Wins Their First Ring','Franchises still without a title',
-    rows.map((r,i)=>r.at.rings?0.06:Math.min(0.55,Math.max(0.05,champ.picks.find(p=>p.owner===r.owner).fair*1.05))),
-    'Yes / No','fa-ring');
+  // only franchises that have never won can win a FIRST ring — former champions
+  // don't belong in this market at all
+  const ringless=rows.filter(r=>!r.at.rings);
+  const anyRing=ringless.length?{key:'firstring',title:'Wins Their First Ring',
+    sub:`${ringless.length} franchises are still chasing a title`,type:'yesno',badge:'Yes / No',icon:'fa-ring',
+    picks:ringless.map(r=>{
+      const p=Math.min(0.42,Math.max(0.05,(champ.picks.find(x=>x.owner===r.owner)||{fair:0.06}).fair));
+      return {owner:r.owner,name:r.name,tid:r.tid,
+        yes:amFromProb(Math.min(0.95,p+TWOWAY)), no:amFromProb(Math.min(0.96,(1-p)+TWOWAY)), fair:p};
+    }).sort((a,b)=>b.fair-a.fair)}:null;
 
   const groups={
     futures:[champ,...confMarkets,playoffs,lastPlace],
     props:[wins,pfTotals,paTotals,mostPf,fewestPf,mostPa],
     awards:[coy,disappoint,comeback,commit],
-    achieve:[highWeek,most150,most80,anyRing],
+    achieve:[highWeek,most150,most80,...(anyRing?[anyRing]:[])],
   };
   _sbCache={rows,groups,season:sbSeason(),games:GAMES,spots};
   return _sbCache;
