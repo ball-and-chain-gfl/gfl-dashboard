@@ -45,7 +45,10 @@ let _tradeScope='season';               // 'season' | 'alltime'
 let _tradeTeamFilter='';                 // owner id to filter trades by (optional)
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
 let _draftTeamSel=null;                 // team filter on draft tab
-let _draftListScope='year',_draftAllCache=null;
+let _draftAllCache=null;
+let _draftView='year';        // year | ysteals | ybusts | best | worst | steals | busts
+let _draftPickScope='alltime';// scope for the mobile "Steals & Busts" group
+let _drWasMobile=null;
 const _logoColorCache={};               // teamId -> dominant logo color
 const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
 let _activeTab='home';
@@ -1589,7 +1592,6 @@ async function loadAllDrafts(){
   _draftAllCache={rows,teamDrafts,ownerTotals,ownerCounts};
   return _draftAllCache;
 }
-function setDraftListScope(s){ _draftListScope=(s==='alltime'?'alltime':'year'); renderDraftTab(); }
 function draftRowTeam(r){
   if(r.owner) return (_franchises.find(f=>f.owner===r.owner)?.name)||(_seasonMeta[r.season]?.names?.[r.owner]?.name)||`Team ${r.teamId}`;
   return (_teams.find(t=>t.id===r.teamId)?.name)||`Team ${r.teamId}`;
@@ -1601,9 +1603,9 @@ function draftPickCard(r,i,showSeason){
     <div class="draft-info">
       <div class="draft-name"><span class="pl-name">${r.name}</span><span class="draft-pos">${r.posName}</span></div>
       <div class="draft-mgr2">${draftRowTeam(r)}${showSeason?` · ${r.season}`:''}</div>
-      <div class="draft-line">Drafted <b>${r.posName}${r.posDrafted}</b>${r.finPos!=null?` → finished <b>${r.posName}${r.finPos}</b>`:' → <b>unranked</b>'} · ${r.pts.toFixed(1)} pts</div>
+      <div class="draft-line"><b>${r.posName}${r.posDrafted}</b> → ${r.finPos!=null?`<b>${r.posName}${r.finPos}</b>`:'<b>unranked</b>'}</div>
     </div>
-    <div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div>
+    <div class="draft-dwrap"><div class="draft-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</div><div class="draft-pts">${r.pts.toFixed(1)} pts</div></div>
   </div>`;
 }
 function draftClassCard(d,i,showSeason,tint){
@@ -1704,52 +1706,158 @@ function renderDraftTab(){
   renderDraftTeamTable();
   renderDraftLists();
 }
-function listsHTML(best,worst,steals,busts,showSeason,note){
-  return `
-  <div class="two-col" style="margin:0 0 22px;gap:16px">
-    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-trophy" style="color:var(--green)"></i>Best Drafts Ever<span class="badge-info">positional Δ</span></div>${best.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
-    <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-fire" style="color:var(--red)"></i>Worst Drafts Ever<span class="badge-info">positional Δ</span></div>${worst.map((d,i)=>draftClassCard(d,i,showSeason)).join('')}</div>
-  </div>
-  ${draftPickLists(steals,busts,showSeason)}
-  <div style="padding:0 2px 16px;font-size:12px;color:var(--text3)">${note}</div>`;
-}
-function renderDraftLists(){
-  const el=document.getElementById('draft-lists'); if(!el) return;
-  const season=getSeason();
-  const toggle=`<button class="tab-btn ${_draftListScope==='year'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftListScope('year')">This Year · ${season}</button><button class="tab-btn ${_draftListScope==='alltime'?'active':''}" style="--tc:var(--accent);font-size:13px;padding:7px 13px" onclick="setDraftListScope('alltime')">All-Time</button>`;
-  if(_draftListScope==='alltime'){
-    if(!_draftAllCache){
-      el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every draft from every season…</div>`;
-      loadAllDrafts().then(()=>{ if(_activeTab==='draft'&&_draftListScope==='alltime') renderDraftLists(); })
-        .catch(()=>{ el.innerHTML=`<div class="tab-loading" style="color:var(--red)">Couldn't load all-time drafts.</div>`; });
-      return;
-    }
-    const {rows,teamDrafts}=_draftAllCache;
-    const steals=rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10);
-    const busts=rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10);
-    const best=teamDrafts.slice().sort((a,b)=>b.total-a.total).slice(0,10);
-    const worst=teamDrafts.slice().sort((a,b)=>a.total-b.total).slice(0,10);
-    el.innerHTML=`<div class="dr-filters" style="margin:0 0 16px">${toggle}</div>`+listsHTML(best,worst,steals,busts,true,`"Best/Worst Drafts Ever" rank each team's draft by its summed positional Δ (position draft rank − position finish rank, summed across every pick).`);
-    return;
-  }
+const DRAFT_VIEWS={
+  year:   {grp:'year',  all:false, tab:'Draft Rankings', icon:'fa-ranking-star', col:'var(--accent)',
+           title:s=>`Draft Rankings · ${s}`, badge:'vs league average',
+           note:'Draft Score = each team’s summed positional Δ (draft rank − finish rank per position) minus the league average. Higher means they drafted better than the field.'},
+  ysteals:{grp:'picks', all:false, tab:'Biggest Steals', icon:'fa-gem', col:'var(--green)',
+           title:s=>`Biggest Steals · ${s}`, badge:'beat draft slot',
+           note:'Steals are the picks that finished far higher at their position than where they were drafted.'},
+  ybusts: {grp:'picks', all:false, tab:'Worst Busts', icon:'fa-heart-crack', col:'var(--red)',
+           title:s=>`Worst Busts · ${s}`, badge:'first 6 rounds',
+           note:'Busts are early picks (first six rounds) that finished well below their draft slot at their position.'},
+  best:   {grp:'drafts',all:true,  tab:'Best Drafts', icon:'fa-trophy', col:'var(--green)',
+           title:()=>'Best Drafts Ever', badge:'positional Δ',
+           note:'Best Drafts Ever ranks every team-season by its summed positional Δ (position draft rank − position finish rank, summed across every pick).'},
+  worst:  {grp:'drafts',all:true,  tab:'Worst Drafts', icon:'fa-fire', col:'var(--red)',
+           title:()=>'Worst Drafts Ever', badge:'positional Δ',
+           note:'Worst Drafts Ever ranks every team-season by its summed positional Δ (position draft rank − position finish rank, summed across every pick).'},
+  steals: {grp:'picks', all:true,  tab:'Biggest Steals', icon:'fa-gem', col:'var(--green)',
+           title:()=>'Biggest Steals Ever', badge:'beat draft slot',
+           note:'Every pick from every season, ranked by how far it beat its draft slot at its position.'},
+  busts:  {grp:'picks', all:true,  tab:'Worst Busts', icon:'fa-heart-crack', col:'var(--red)',
+           title:()=>'Worst Busts Ever', badge:'first 6 rounds',
+           note:'Every early pick (first six rounds) from every season, ranked by how far it fell short of its draft slot.'},
+};
+function setDraftView(v){ _draftView=v; renderDraftLists(); }
+function setDraftPickScope(sc){ _draftPickScope=(sc==='year'?'year':'alltime'); _draftView=(sc==='year'?'ysteals':'steals'); renderDraftLists(); }
+function drIsMobile(){ return window.matchMedia('(max-width:768px)').matches; }
+function draftYearData(season){
   const rows=(_draftCache[season]?.rows)||[];
   const steals=rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10);
   const busts=rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10);
   const totals={}; rows.forEach(r=>{ if(r.owner==null) return; totals[r.owner]=(totals[r.owner]||0)+r.delta; });
-  const _os=Object.keys(totals);
-  const _avg=_os.length?_os.reduce((s,o)=>s+totals[o],0)/_os.length:0;
-  const ranked=_os.map(o=>({owner:o,season,total:totals[o],val:totals[o]-_avg,name:(_franchises.find(f=>f.owner===o)?.name)||(_seasonMeta[season]?.names?.[o]?.name)||o})).sort((a,b)=>b.val-a.val);
-  el.innerHTML=`
-  <div class="dr-card">
-    <div class="dr-left">
-      <div class="section-header" style="padding:0 0 12px;border-bottom:none"><i class="fa fa-ranking-star"></i>Draft Rankings · ${season}</div>
-      <div class="dr-filters" style="margin-bottom:14px">${toggle}</div>
-      <div class="dr-note">Draft Score = each team's summed positional Δ (draft rank − finish rank per position) minus the league average. Higher means they drafted better than the field.</div>
-    </div>
-    <div class="dr-right">${(()=>{const vs=ranked.map(d=>d.val);const mn=Math.min(...vs),mx=Math.max(...vs);return ranked.map((d,i)=>{const t=mx>mn?(d.val-mn)/(mx-mn):1;const tint=gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);return draftClassCard(d,i,false,tint);}).join('');})()}</div>
-  </div>
-  ${draftPickLists(steals,busts,false)}`;
+  const os=Object.keys(totals);
+  const avg=os.length?os.reduce((a,o)=>a+totals[o],0)/os.length:0;
+  const ranked=os.map(o=>({owner:o,season,total:totals[o],val:totals[o]-avg,
+    name:(_franchises.find(f=>f.owner===o)?.name)||(_seasonMeta[season]?.names?.[o]?.name)||o})).sort((a,b)=>b.val-a.val);
+  return {rows,steals,busts,ranked};
 }
+function draftAllData(){
+  const {rows,teamDrafts}=_draftAllCache;
+  return {
+    steals:rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10),
+    busts:rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10),
+    best:teamDrafts.slice().sort((a,b)=>b.total-a.total).slice(0,10),
+    worst:teamDrafts.slice().sort((a,b)=>a.total-b.total).slice(0,10),
+  };
+}
+function rankedListHTML(ranked){
+  const vs=ranked.map(d=>d.val); const mn=Math.min(...vs),mx=Math.max(...vs);
+  return ranked.map((d,i)=>{const t=mx>mn?(d.val-mn)/(mx-mn):1;
+    const tint=gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);
+    return draftClassCard(d,i,false,tint);}).join('');
+}
+function drPanel(v,season,inner,cls){
+  return `<div class="card dr-panel${cls?' '+cls:''}" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa ${v.icon}" style="color:${v.col}"></i>${v.title(season)}<span class="badge-info">${v.badge}</span></div>${inner}</div>`;
+}
+// compact card used inside the side-by-side mobile pairs
+function draftClassCardMini(d,i,showSeason,tint){
+  const val=(d.val!=null?d.val:d.total);
+  const fr=_franchises.find(f=>f.owner===d.owner);
+  const dcol=tint||(val>0?'var(--green)':val<0?'var(--red)':'var(--text2)');
+  return `<div class="dpm${tint?' dpm-tint':''}"${tint?` style="--dtint:${tint}"`:''}>
+    <div class="dpm-top"><span class="dpm-rk">${i+1}</span>${fr?franchiseAvatar(fr,20):''}<span class="dpm-name">${d.name}</span></div>
+    <div class="dpm-bot">${showSeason?`<span class="dpm-pts">${d.season}</span>`:'<span class="dpm-pts"></span>'}<span class="dpm-delta" style="color:${dcol}">${val>0?'+':''}${Math.round(val)}</span></div>
+  </div>`;
+}
+function draftPickCardMini(r,i,showSeason){
+  return `<div class="dpm">
+    <div class="dpm-top"><span class="dpm-rk">${i+1}</span>${playerImg(r.pid,20,r.name)}<span class="dpm-name">${r.name}</span></div>
+    <div class="dpm-sub">${draftRowTeam(r)}${showSeason?` · ${r.season}`:''}</div>
+    <div class="dpm-line"><b>${r.posName}${r.posDrafted}</b> → ${r.finPos!=null?`<b>${r.posName}${r.finPos}</b>`:'<b>unranked</b>'}</div>
+    <div class="dpm-bot"><span class="dpm-pts">${r.pts.toFixed(1)} pts</span><span class="dpm-delta" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</span></div>
+  </div>`;
+}
+function drLoading(){ return `<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every draft from every season…</div>`; }
+function drNeedAll(){ if(_draftAllCache) return false;
+  loadAllDrafts().then(()=>{ if(_activeTab==='draft') renderDraftLists(); })
+    .catch(()=>{ const el=document.getElementById('draft-lists'); if(el) el.innerHTML=`<div class="tab-loading" style="color:var(--red)">Couldn’t load all-time drafts.</div>`; });
+  return true;
+}
+function renderDraftLists(){
+  const el=document.getElementById('draft-lists'); if(!el) return;
+  const season=getSeason();
+  if(!DRAFT_VIEWS[_draftView]) _draftView='year';
+  _drWasMobile=drIsMobile();
+  el.innerHTML=_drWasMobile?draftListsMobileHTML(season):draftListsDesktopHTML(season);
+}
+function draftListsDesktopHTML(season){
+  const v=DRAFT_VIEWS[_draftView];
+  const btn=k=>{const x=DRAFT_VIEWS[k];
+    return `<button class="dr-vtab${_draftView===k?' active':''}" onclick="setDraftView('${k}')"><i class="fa ${x.icon}" style="color:${x.col}"></i>${x.tab}</button>`;};
+  const tabs=`<div class="dr-tabgrp">This Year · ${season}</div>
+    <div class="dr-vtabs">${['year','ysteals','ybusts'].map(btn).join('')}</div>
+    <div class="dr-tabgrp">All-Time</div>
+    <div class="dr-vtabs">${['best','worst','steals','busts'].map(btn).join('')}</div>`;
+  let right='';
+  if(v.all&&drNeedAll()) right=drLoading();
+  else if(_draftView==='year') right=rankedListHTML(draftYearData(season).ranked);
+  else{
+    const d=v.all?draftAllData():draftYearData(season);
+    const key=({ysteals:'steals',ybusts:'busts',steals:'steals',busts:'busts',best:'best',worst:'worst'})[_draftView];
+    right=drPanel(v,season,(d[key]||[]).map((r,i)=>v.grp==='drafts'?draftClassCard(r,i,true):draftPickCard(r,i,v.all)).join(''));
+  }
+  return `<div class="dr-card">
+    <div class="dr-left dr-tabbox">
+      <div class="section-header" style="padding:0 0 12px;border-bottom:none"><i class="fa fa-ranking-star"></i>Draft Report</div>
+      ${tabs}
+      <div class="dr-note">${v.note}</div>
+    </div>
+    <div class="dr-right">${right}</div>
+  </div>`;
+}
+function draftListsMobileHTML(season){
+  const grp=DRAFT_VIEWS[_draftView].grp;
+  const mb=(g,label,target)=>`<button class="tab-btn${grp===g?' active':''}" style="--tc:var(--accent)" onclick="setDraftView('${target}')">${label}</button>`;
+  const tabs=`<div class="dr-mtabs">
+    ${mb('year',season+' Rankings','year')}
+    ${mb('drafts','All-Time Drafts','best')}
+    ${mb('picks','Steals &amp; Busts',_draftPickScope==='year'?'ysteals':'steals')}
+  </div>`;
+  let body='';
+  if(grp==='year'){
+    body=`<div class="dr-right">${rankedListHTML(draftYearData(season).ranked)}</div>
+      <div class="dr-note" style="margin-top:14px">${DRAFT_VIEWS.year.note}</div>`;
+  }else if(grp==='drafts'){
+    if(drNeedAll()) body=drLoading();
+    else{ const d=draftAllData();
+      body=`<div class="dv-pair">
+        ${drPanel(DRAFT_VIEWS.best,season,d.best.map((r,i)=>draftClassCardMini(r,i,true)).join(''),'dr-mini')}
+        ${drPanel(DRAFT_VIEWS.worst,season,d.worst.map((r,i)=>draftClassCardMini(r,i,true)).join(''),'dr-mini')}
+      </div>
+      <div class="dr-note" style="margin-top:14px">${DRAFT_VIEWS.best.note}</div>`; }
+  }else{
+    const isAll=_draftPickScope!=='year';
+    const scope=`<div class="dr-scope">
+      <button class="tab-btn${!isAll?' active':''}" style="--tc:var(--accent)" onclick="setDraftPickScope('year')">${season}</button>
+      <button class="tab-btn${isAll?' active':''}" style="--tc:var(--accent)" onclick="setDraftPickScope('alltime')">All-Time</button>
+    </div>`;
+    if(isAll&&drNeedAll()) body=scope+drLoading();
+    else{ const d=isAll?draftAllData():draftYearData(season);
+      const sv=isAll?DRAFT_VIEWS.steals:DRAFT_VIEWS.ysteals, bv=isAll?DRAFT_VIEWS.busts:DRAFT_VIEWS.ybusts;
+      body=scope+`<div class="dv-pair">
+        ${drPanel(sv,season,d.steals.map((r,i)=>draftPickCardMini(r,i,isAll)).join(''),'dr-mini')}
+        ${drPanel(bv,season,d.busts.map((r,i)=>draftPickCardMini(r,i,isAll)).join(''),'dr-mini')}
+      </div>
+      <div class="dr-note" style="margin-top:14px">${sv.note}</div>`; }
+  }
+  return tabs+body;
+}
+let _drRsz;
+window.addEventListener('resize',()=>{ clearTimeout(_drRsz); _drRsz=setTimeout(()=>{
+  if(_activeTab==='draft'&&_drWasMobile!==null&&_drWasMobile!==drIsMobile()) renderDraftLists();
+},180); });
 function renderDraftTeamTable(){
   const body=document.getElementById('draft-team-body'); if(!body) return;
   const season=getSeason();
