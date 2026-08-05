@@ -457,6 +457,8 @@ export default async function handler(req, res) {
         } catch { return null; }
       }));
       const teams = {};
+      const dbgTeam = req.query.debugTeam ? Number(req.query.debugTeam) : null;
+      const detail = [];
       weekResults.forEach(wr => {
         if (!wr) return;
         (wr.data.teams || []).forEach(team => {
@@ -498,6 +500,21 @@ export default async function handler(req, res) {
             decisions++;
             if (optimal.has(p.pid)) correct++;
           });
+          if (dbgTeam === team.id) {
+            const nm = {};
+            entries.forEach(e => { nm[e.playerId] = (e.playerPoolEntry?.player?.fullName || '#' + e.playerId); });
+            detail.push({
+              week: wr.week, actPts: Math.round(actPts * 10) / 10, optPts: Math.round(optPts * 10) / 10,
+              decisions, correct,
+              started: starters.map(({ slot, p }) => ({ slot, pos: p.pos, n: nm[p.pid], pts: p.pts, inOpt: optimal.has(p.pid) })),
+              bench: entries.filter(e => BENCH.includes(e.lineupSlotId)).map(e => {
+                const pl = e.playerPoolEntry?.player || {};
+                const wk = (pl.stats || []).find(x => x.statSourceId === 0 && x.scoringPeriodId === wr.week);
+                return { n: pl.fullName, pos: pl.defaultPositionId, slot: e.lineupSlotId, pts: wk?.appliedTotal ?? null,
+                         inj: e.injuryStatus || null, inOpt: optimal.has(e.playerId) };
+              }),
+            });
+          }
           const bucket = teams[team.id] || (teams[team.id] = { weeks: 0, decisions: 0, correct: 0, missed: 0 });
           bucket.weeks++;
           bucket.decisions += decisions;
@@ -509,7 +526,7 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
         : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
-      return res.status(200).json({ season, regEnd, teams });
+      return res.status(200).json({ season, regEnd, teams, ...(dbgTeam != null ? { detail } : {}) });
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }
 
