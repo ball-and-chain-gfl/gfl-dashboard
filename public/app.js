@@ -2405,7 +2405,7 @@ function motwOddsHTML(A,B){
   const go=`onclick="motwToBook('${rA.owner}','${rB.owner}')"`;
   return `<div class="motw-book motw-book-link" ${go} role="button" tabindex="0"
       onkeypress="if(event.key==='Enter')motwToBook('${rA.owner}','${rB.owner}')">
-    <div class="mo-head"><i class="fa fa-coins"></i>B&amp;C Sportsbook<span class="badge-info">this matchup</span>
+    <div class="mo-head"><i class="fa fa-coins"></i>B&amp;C Sportsbook
       <span class="mo-go">Open board <i class="fa fa-arrow-right"></i></span></div>
     <div class="mo-grid">
       ${cell('Moneyline',`${amFmt(mlA)} / ${amFmt(mlB)}`,`${sbTeamAb(rA.owner,rA.name)} / ${sbTeamAb(rB.owner,rB.name)}`)}
