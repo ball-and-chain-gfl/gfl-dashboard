@@ -53,7 +53,30 @@ let _drWasMobile=null;
 const _logoColorCache={};               // teamId -> dominant logo color
 const POS_NAMES={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
 let _activeTab='home';
-const ALL_SEASONS=['2022','2023','2024','2025'];
+// Seasons are discovered, not hardcoded: everything from 2022 up to the current
+// NFL season year, so a brand-new season appears on its own (the API simply
+// returns nothing for a year that hasn't started, and it drops out below).
+const SEASON_START=2022;
+function nflSeasonYear(){
+  const d=new Date();
+  // the NFL year rolls over in March; before that we're still in last year's season
+  return d.getUTCMonth()>=2 ? d.getUTCFullYear() : d.getUTCFullYear()-1;
+}
+const ALL_SEASONS=(()=>{
+  const out=[]; for(let y=SEASON_START;y<=nflSeasonYear();y++) out.push(String(y));
+  return out;
+})();
+function refreshSeasonOptions(){
+  const sel=document.getElementById('season-select'); if(!sel) return;
+  const have=new Set([...sel.options].map(o=>o.value));
+  const want=ALL_SEASONS.filter(y=>_seasonMeta[y]).sort((a,b)=>b-a);
+  if(!want.length) return;
+  if(want.every(y=>have.has(y))&&want.length===sel.options.length) return;
+  const cur=sel.value;
+  sel.innerHTML=want.map(y=>`<option value="${y}">${y} Season</option>`).join('');
+  sel.value=want.includes(cur)?cur:want[0];
+  try{ seasonLabel(); }catch(e){}
+}
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
@@ -2379,8 +2402,11 @@ function motwOddsHTML(A,B){
   const favA=rA.rating>=rB.rating;                        // same side the moneyline favours
   const sp=(Math.max(0.5,Math.round(Math.abs(rA.rating-rB.rating)*3.0*2)/2)).toFixed(1);
   const cell=(lbl,val,sub)=>`<div class="mo-cell"><div class="mo-l">${lbl}</div><div class="mo-v">${val}</div>${sub?`<div class="mo-s">${sub}</div>`:''}</div>`;
-  return `<div class="motw-book">
-    <div class="mo-head"><i class="fa fa-coins"></i>B&amp;C Sportsbook<span class="badge-info">this matchup</span></div>
+  const go=`onclick="motwToBook('${rA.owner}','${rB.owner}')"`;
+  return `<div class="motw-book motw-book-link" ${go} role="button" tabindex="0"
+      onkeypress="if(event.key==='Enter')motwToBook('${rA.owner}','${rB.owner}')">
+    <div class="mo-head"><i class="fa fa-coins"></i>B&amp;C Sportsbook<span class="badge-info">this matchup</span>
+      <span class="mo-go">Open board <i class="fa fa-arrow-right"></i></span></div>
     <div class="mo-grid">
       ${cell('Moneyline',`${amFmt(mlA)} / ${amFmt(mlB)}`,`${sbTeamAb(rA.owner,rA.name)} / ${sbTeamAb(rB.owner,rB.name)}`)}
       ${cell('Spread',`${favA?sbTeamAb(rA.owner,rA.name):sbTeamAb(rB.owner,rB.name)} \u2212${sp}`,'projected margin')}
@@ -2391,6 +2417,24 @@ function motwOddsHTML(A,B){
       ${cell('Playoff berth',`${pA?amFmt(pA.yes):'—'} / ${pB?amFmt(pB.yes):'—'}`,'yes price')}
     </div>
   </div>`;
+}
+// Jump from the homepage strip straight to this matchup on the weekly board.
+function motwToBook(oA,oB){
+  _sbView='week';
+  switchTab('book');
+  window.scrollTo(0,0);
+  const find=()=>{
+    const row=[...document.querySelectorAll('#page-book .wk-game')].find(g=>g.dataset.a===oA&&g.dataset.b===oB)
+      ||[...document.querySelectorAll('#page-book .wk-game')].find(g=>g.dataset.a===oB&&g.dataset.b===oA);
+    if(!row) return false;
+    row.classList.add('wk-focus');
+    row.scrollIntoView({block:'center',behavior:'smooth'});
+    setTimeout(()=>row.classList.remove('wk-focus'),2600);
+    return true;
+  };
+  let tries=0;
+  const tick=()=>{ if(find()||tries++>20) return; setTimeout(tick,120); };
+  setTimeout(tick,80);
 }
 function renderMatchupOfWeek(){
   const el=document.getElementById('motw'); if(!el) return;
@@ -3117,7 +3161,7 @@ async function renderProfile(){
       ${stat('Missed Points',myLiq?myLiq.missed.toFixed(1):'—',scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false))}
     </div>
     </div>
-    <div class="panel"><div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
+    <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
     <div class="prof-stats">
       ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
       ${stat('Win %',`${winpct.toFixed(1)}%`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
@@ -3616,7 +3660,7 @@ function sbWeekHTML(){
     const key='wk'+g.week+'-'+g.a.tid+'-'+g.b.tid;
     const res=g.done?`<span class="wk-final">Final ${g.hp.toFixed(1)}–${g.ap.toFixed(1)}</span>`:'';
     const mark=w=>g.done?(w?'<i class="fa fa-check wk-hit"></i>':'<i class="fa fa-xmark wk-miss"></i>'):'';
-    return `<div class="wk-game">
+    return `<div class="wk-game" data-a="${g.a.owner}" data-b="${g.b.owner}">
       <div class="wk-side">${nm(g.a)}${mark(g.winA===true)}
         ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two','Win')}</div>
       <div class="wk-side">${nm(g.b)}${mark(g.winA===false)}
@@ -4031,6 +4075,7 @@ async function loadDashboard(){
       </div>
     `;
 
+    refreshSeasonOptions();
     renderStandingsTable();
     renderBig4();
     renderMatchupOfWeek();

@@ -1230,8 +1230,16 @@
       .sup-detail{font-size:11px;}
     }
     /* ── Matchup of the Week: sportsbook strip ── */
-    .motw-book{margin-top:14px;border:1px solid rgba(var(--accent-rgb),0.28);border-radius:8px;overflow:hidden;
+    .motw-book{margin:14px 0 16px;border:1px solid rgba(var(--accent-rgb),0.28);border-radius:8px;overflow:hidden;
       background:rgba(0,0,0,0.22);}
+    .motw-book-link{cursor:pointer;transition:border-color .15s,background .15s;}
+    .motw-book-link:hover{border-color:rgba(var(--accent-rgb),0.55);background:rgba(0,0,0,0.3);}
+    .mo-go{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;
+      font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);font-weight:600;}
+    .mo-go i{font-size:9px;}
+    /* the weekly game we jumped to */
+    .wk-focus{background:rgba(var(--accent-rgb),0.12);box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),0.45);
+      border-radius:8px;}
     .mo-head{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(var(--accent-rgb),0.10);
       border-bottom:1px solid rgba(255,255,255,0.08);font-family:'Google Sans Flex',Georgia,serif;
       font-size:13px;font-weight:600;}
@@ -1245,6 +1253,9 @@
     @media(max-width:768px){
       .mo-grid{grid-template-columns:1fr 1fr;}
       .mo-v{font-size:13px;}
+      /* keep clear of the playoff-odds button underneath */
+      .motw-book{margin:16px 0 22px;}
+      .mo-go{font-size:9px;}
     }
     /* ── Sportsbook: weekly board ── */
     .wk-list{display:flex;flex-direction:column;}
