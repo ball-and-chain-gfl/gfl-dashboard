@@ -468,7 +468,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); stripeProfileStats(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -2631,6 +2631,14 @@ function badBeatCols(){
   if(rk>0) t.style.setProperty('--bbrank',Math.ceil(padL1+rk)+'px');
   if(mx>0) t.style.setProperty('--bbteam',Math.ceil(padL2+mx+8)+'px');
 }
+// Zebra-stripe the profile stat rows. The stats sit in an auto-fit grid, so the
+// column count changes with width — work out the real rows before tagging.
+function stripeProfileStats(){
+  document.querySelectorAll('#page-teams .prof-stats').forEach(g=>{
+    const cols=(getComputedStyle(g).gridTemplateColumns||'').split(' ').filter(Boolean).length||1;
+    [...g.children].forEach((el,i)=>{ el.classList.toggle('pstat-alt', Math.floor(i/cols)%2===1); });
+  });
+}
 // ── BIGGEST ENEMIES ──────────────────────────────────────────────────────────
 // Weekly starting lineups, paired with the schedule, tell us which players have
 // scored the most against a given franchise (and how those games went).
@@ -3003,6 +3011,7 @@ async function renderProfile(){
       if(c&&stillHere) c.innerHTML=lineupHTML(owner);
     }).catch(()=>{});
   }
+  stripeProfileStats();
   if(!_liq[getSeason()]){ loadLineupIQ(); }
   if(!_lineups) loadLineups();
   if(!_draftAllCache){
