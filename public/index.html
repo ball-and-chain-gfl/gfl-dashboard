@@ -469,7 +469,8 @@
     @media(max-width:768px){
       /* hero on phones: logo + name on one line, honours wrap underneath */
       .prof-banner{padding:16px 18px;margin-bottom:16px;border-radius:6px;}
-      .prof-banner-row{gap:12px;align-items:center;}
+      /* logo lines up with the team name, not the middle of the whole block */
+      .prof-banner-row{gap:12px;align-items:flex-start;}
       .prof-badge .tm-avatar{width:46px!important;height:46px!important;flex:0 0 46px!important;border-radius:7px!important;}
       .prof-name{font-size:21px;line-height:1.1;}
       .prof-sub{font-size:12px;margin-top:3px;}
