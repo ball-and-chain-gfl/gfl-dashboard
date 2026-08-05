@@ -1340,9 +1340,16 @@
       .sb-tc-odds{grid-template-columns:1fr 1fr;gap:6px;}
       /* the in-layout slip is desktop-only; phones use the docked sheet */
       .sb-slip-wrap{display:none;}
-      #sb-portal.on{display:block;}
-      #sb-portal .sb-dock{position:fixed;left:0;right:0;bottom:0;z-index:190;
-        display:flex;align-items:center;gap:10px;
+      /* portal is a body-level flex column pinned to the bottom: sheet on top of
+         the dock, so nothing depends on guessing the dock's height */
+      #sb-portal.on{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;z-index:190;
+        pointer-events:none;}
+      #sb-portal .sb-sheet{pointer-events:auto;max-height:0;overflow:hidden;padding:0 10px;
+        transition:max-height .26s ease;}
+      #sb-portal.open .sb-sheet{max-height:64vh;overflow:auto;}
+      #sb-portal .sb-slip{border-radius:12px 12px 0 0;background:rgba(8,8,10,0.97);
+        -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);}
+      #sb-portal .sb-dock{pointer-events:auto;display:flex;align-items:center;gap:10px;
         padding:13px 16px calc(13px + env(safe-area-inset-bottom));
         background:rgba(8,8,10,0.96);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
         border-top:1px solid rgba(255,255,255,0.14);cursor:pointer;
@@ -1354,12 +1361,6 @@
       .sb-dock-n{font-weight:700;background:rgba(255,255,255,0.12);border-radius:999px;padding:1px 8px;}
       #sb-portal .sb-dock.has .sb-dock-n{background:rgba(0,0,0,0.22);}
       .sb-dock-c{margin-left:auto;transition:transform .2s ease;}
-      #sb-portal .sb-sheet{position:fixed;left:0;right:0;z-index:189;
-        bottom:calc(48px + env(safe-area-inset-bottom));max-height:70vh;overflow:auto;
-        transform:translateY(calc(100% + 60px));transition:transform .24s ease;padding:0 10px;}
-      #sb-portal.open .sb-sheet{transform:translateY(0);}
-      #sb-portal .sb-slip{border-radius:12px 12px 0 0;background:rgba(8,8,10,0.97);
-        -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);}
       /* keep the last board rows clear of the dock */
       #page-book{padding-bottom:64px;}
     }
