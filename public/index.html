@@ -1551,8 +1551,11 @@
     /* home video column: video card + punishment card stacked */
     .home-vid-col{display:flex;flex-direction:column;gap:16px;min-width:0;}
     /* "More Videos" collapsed dropdown */
-    .vid-more{margin-top:12px;}
+    .vid-more{margin-top:16px;}
     .vid-more>summary{padding:9px 13px;}
+    /* open: give the thumbnail strip room so it doesn't crowd the player */
+    .vid-more[open]>summary{margin-bottom:14px;}
+    .vid-more[open] .video-list{padding-top:2px;}
     .vid-more>summary::-webkit-details-marker{display:none;}
     /* "More Videos" / "Playoff odds" read as real buttons, not labels */
     .vid-more>summary,details.motw-odds>summary{
