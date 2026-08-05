@@ -419,6 +419,44 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }
 
+  // ── Weekly starting lineups (who scored against whom) ───────────────────────
+  // Per week, per team: the players that were actually in the lineup and what
+  // they scored. The client pairs these with the schedule to work out which
+  // players have done the most damage to a given franchise.
+  if (type === 'lineups') {
+    const BENCH = [20, 21, 24];
+    const weekIds = Array.from({ length: 18 }, (_, i) => i + 1);
+    try {
+      const weekResults = await Promise.all(weekIds.map(async w => {
+        try {
+          const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
+          if (!r.ok) return null;
+          return { week: w, data: unwrap(await r.json()) };
+        } catch { return null; }
+      }));
+      const weeks = {}, names = {};
+      weekResults.forEach(wr => {
+        if (!wr) return;
+        (wr.data.teams || []).forEach(team => {
+          const arr = [];
+          (team.roster?.entries || []).forEach(e => {
+            if (BENCH.includes(e.lineupSlotId)) return;         // starters only
+            const pl = e.playerPoolEntry?.player || {};
+            const wk = (pl.stats || []).find(x => x.statSourceId === 0 && x.scoringPeriodId === wr.week);
+            if (!wk) return;                                     // bye / never played
+            names[e.playerId] = pl.fullName || ('#' + e.playerId);
+            arr.push([e.playerId, Math.round((wk.appliedTotal || 0) * 10) / 10]);
+          });
+          if (arr.length) (weeks[wr.week] || (weeks[wr.week] = {}))[team.id] = arr;
+        });
+      });
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, weeks, names });
+    } catch (err) { return res.status(500).json({ error: err.message, weeks: {}, names: {} }); }
+  }
+
   // ── Lineup IQ: correct sit/start decisions + points left on the bench ────────
   // For every regular-season week we rebuild that team's optimal lineup from the
   // players it actually rostered, using the same slot template it started that
