@@ -541,9 +541,13 @@ function scrollNavToActive(smooth){
   requestAnimationFrame(()=>{ if(Math.abs(bar.scrollLeft-target)>2) bar.scrollLeft=target; });
 }
 // ── MOBILE TAB DROPDOWN (replaces hamburger) ─────────────────────────────────
+let _ddSig='';
 function buildTabDD(){
   const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
   const btns=[...document.querySelectorAll('#tabbar .tab-btn')].filter(b=>b.style.display!=='none');
+  const sig=btns.map(b=>b.dataset.tab).join(',');
+  if(sig===_ddSig&&menu.children.length){ syncTabDDActive(); return; }   /* already built */
+  _ddSig=sig;
   menu.innerHTML=btns.map(b=>{
     const tab=b.dataset.tab;
     const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
@@ -553,6 +557,13 @@ function buildTabDD(){
     return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
   }).join('');
 }
+function syncTabDDActive(){
+  document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===_activeTab));
+}
+/* open on pointerdown so the menu appears the instant a finger lands */
+let _ddPD=0;
+function tabDDPointer(e){ if(e&&e.button>0) return; _ddPD=Date.now(); toggleTabDD(); }
+function tabDDClick(){ if(Date.now()-_ddPD<700) return; toggleTabDD(); }
 let _navLockY=0;
 function navLock(on){
   const html=document.documentElement, body=document.body;
@@ -4160,3 +4171,5 @@ document.addEventListener('click',e=>{
 loadDashboard();
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();
+/* pre-render the nav menu so the first tap has nothing to build */
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',buildTabDD); else buildTabDD();

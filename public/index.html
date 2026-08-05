@@ -967,11 +967,12 @@
 
     /* ── Scroll + header/nav fixes ─────────────────────────────────────── */
     html,body{overflow-x:clip;}                 /* clip (not hidden) so wheel scroll works */
+    html{scrollbar-gutter:stable;}
+    @media(max-width:768px){ html,body{overflow-x:hidden;overflow-x:clip;max-width:100%;} }
     html.nav-lock,body.nav-lock{overflow:hidden;}   /* lock page scroll while drawer open */
     html.nav-lock,body.nav-lock{touch-action:none;overscroll-behavior:none;}
-    #nav-scrim{position:fixed;inset:0;z-index:395;background:rgba(4,4,6,0.62);
-      -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
-      opacity:0;pointer-events:none;transition:opacity .18s ease;}
+    #nav-scrim{position:fixed;inset:0;z-index:395;background:rgba(4,4,6,0.66);
+      opacity:0;pointer-events:none;transition:opacity .1s linear;will-change:opacity;}
     #nav-scrim.show{opacity:1;pointer-events:auto;}
     .logo{cursor:pointer;}
     .logo:active{opacity:.85;}
@@ -1062,9 +1063,13 @@
     /* dropdown floats under the capsule */
     .tab-dd-menu{position:fixed;top:72px;left:12px;right:12px;transform:none;
       width:min(340px,calc(100vw - 24px));margin-left:auto;margin-right:auto;max-height:min(70vh,560px);overflow-y:auto;
-      background:rgba(12,12,14,0.94);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+      background:#0f0f12;
       border:1px solid rgba(255,255,255,0.14);border-radius:18px;padding:8px;
-      box-shadow:0 28px 70px -26px rgba(0,0,0,0.95);z-index:401;}
+      box-shadow:0 28px 70px -26px rgba(0,0,0,0.95);z-index:401;
+      /* kept in the DOM so opening is a paint, not a layout */
+      display:block!important;visibility:hidden;opacity:0;pointer-events:none;
+      animation:none!important;transition:opacity .1s linear;will-change:opacity;}
+    .tab-dd-menu.show{visibility:visible;opacity:1;pointer-events:auto;}
     .tab-dd-item{border-radius:999px;padding:10px 14px;}
     .tab-dd-menu{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.22) transparent;}
     .tab-dd-menu::-webkit-scrollbar{width:6px;}
@@ -2166,7 +2171,7 @@
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>
   </div>
   <div class="tab-dd" id="tab-dd">
-    <button id="tab-dd-btn" onclick="toggleTabDD()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><span class="nav-burger"><i class="fa fa-bars"></i></span></button>
+    <button id="tab-dd-btn" onpointerdown="tabDDPointer(event)" onclick="tabDDClick()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><span class="nav-burger"><i class="fa fa-bars"></i></span></button>
   </div>
 </header>
 <div id="tab-dd-menu" class="tab-dd-menu"></div>
