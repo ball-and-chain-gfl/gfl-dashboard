@@ -612,6 +612,28 @@ function toggleTabDD(open){
 
 }
 function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0); }
+/* ── KEEP THE PAGE STILL ON CLICK ────────────────────────────────────────────
+   Sub-tabs, filters and sort headers re-render whole panels, so the browser's
+   scroll anchoring can leave you somewhere else on the page. Pin the control
+   you clicked: measure where it sits in the viewport, then put it back. */
+const STILL_SEL='.tab-btn,.filter-btn,.week-btn,.hl-tab,.dr-vtab,.dr-sbtn,.bracket-btn,.sb-odds,'
+  +'.dm-sort,thead th,.tc-scope,.trade-scope,.dr-scope,.lq-sort,.liq-sort,.st-sort,summary';
+function keepStill(el){
+  if(!el) return;
+  const before=el.getBoundingClientRect().top;
+  const fix=()=>{ if(!document.body.contains(el)) return;
+    const d=el.getBoundingClientRect().top-before;
+    if(Math.abs(d)>1&&Math.abs(d)<4000) window.scrollBy(0,d); };
+  requestAnimationFrame(fix); setTimeout(fix,90); setTimeout(fix,260);
+}
+document.addEventListener('click',function(e){
+  if(document.getElementById('tab-dd-menu')?.classList.contains('show')) return;  /* nav handles itself */
+  const el=e.target.closest(STILL_SEL);
+  if(!el||!el.closest('main')) return;
+  if(el.closest('#tab-dd')||el.closest('#tabbar')) return;   /* main nav intentionally goes to top */
+  keepStill(el);
+},true);
+
 document.addEventListener('click',e=>{
   const menu=document.getElementById('tab-dd-menu');
   if(!menu||!menu.classList.contains('show')) return;
