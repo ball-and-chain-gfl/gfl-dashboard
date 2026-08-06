@@ -81,6 +81,30 @@ function refreshSeasonOptions(){
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
 const TAB_COLORS={home:'#E0B67B',book:'#3fd07a',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
+/* ── LIGHT MODE ─────────────────────────────────────────────────────────────
+   Everything here is additive: dark is the default on every load and its
+   colours are untouched. Deleting this block, the light CSS block and the
+   #theme-btn markup restores the original site exactly. */
+const TAB_COLORS_LIGHT={home:'#8f6412',book:'#12784a',standings:'#1565c9',trades:'#12784a',draft:'#6435c9',history:'#0c7a70',tenure:'#b81f56',teams:'#b8501c',legacy:'#9a6b0b',punishment:'#bd2130',badbeat:'#9b1fb5',gabe:'#4d7a12',marathon:'#0e7490'};
+function isLight(){ return document.documentElement.dataset.theme==='light'; }
+function tabColor(tab){ return (isLight()?TAB_COLORS_LIGHT:TAB_COLORS)[tab]||'var(--accent)'; }
+function setTheme(t){
+  document.documentElement.dataset.theme=(t==='light')?'light':'dark';
+  const b=document.getElementById('theme-btn');
+  if(b){ b.classList.toggle('lit',isLight()); b.setAttribute('aria-label',isLight()?'Switch to dark mode':'Switch to light mode'); }
+  setPageBg(_activeTab);
+  rerenderForTheme();
+}
+function toggleTheme(){ setTheme(isLight()?'dark':'light'); }
+/* inline colours are baked into rendered HTML, so redraw what's on screen */
+function rerenderForTheme(){
+  const safe=f=>{ try{ f(); }catch(e){} };
+  safe(()=>renderBig4()); safe(()=>renderMatchupOfWeek()); safe(()=>renderHomeHeadlines());
+  safe(()=>renderStandingsTable()); safe(()=>renderLeagueHistory()); safe(()=>renderTradesTab());
+  safe(()=>{ if(_tenure) renderTenureTable(); });
+  safe(()=>buildTabDD());
+  safe(()=>switchTab(_activeTab));
+}
 const TAB_LABELS={home:'Home',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Drafts',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -371,10 +395,11 @@ function startPageBgVideo(vid,src){
   if(document.readyState==='complete') soon();
   else window.addEventListener('load',soon,{once:true});
 }
+const LIGHT_BG={type:'video', src:'/bg/vid/rb.mp4', msrc:'/bg/vid/rb-m.mp4', poster:'/bg/vid/rb.jpg', ov:0};
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
   const vid=document.getElementById('pgbg-video'), img=document.getElementById('pgbg-image');
-  const m=PAGE_BG[tab];
+  const m=isLight()?LIGHT_BG:PAGE_BG[tab];
   if(!m){ wrap.style.display='none'; if(vid&&!vid.paused) vid.pause(); document.documentElement.classList.remove('has-pagebg'); return; }
   wrap.style.display='block';
   document.documentElement.classList.add('has-pagebg');
@@ -387,7 +412,7 @@ function setPageBg(tab){
       // is up — the poster frame carries the look until then
       const mob=window.matchMedia('(max-width:768px)').matches;
       const src=(mob&&m.msrc)?m.msrc:m.src;
-      if(m.poster&&!vid.getAttribute('poster')) vid.setAttribute('poster',m.poster);
+      if(m.poster&&vid.getAttribute('poster')!==m.poster) vid.setAttribute('poster',m.poster);
       if(vid.dataset.src!==src){ vid.dataset.src=src; startPageBgVideo(vid,src); }
       else { const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); }
     }
@@ -545,14 +570,14 @@ let _ddSig='';
 function buildTabDD(){
   const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
   const btns=[...document.querySelectorAll('#tabbar .tab-btn')].filter(b=>b.style.display!=='none');
-  const sig=btns.map(b=>b.dataset.tab).join(',');
+  const sig=btns.map(b=>b.dataset.tab).join(',')+'|'+(isLight()?'l':'d');
   if(sig===_ddSig&&menu.children.length){ syncTabDDActive(); return; }   /* already built */
   _ddSig=sig;
   menu.innerHTML=btns.map(b=>{
     const tab=b.dataset.tab;
     const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
     const label=b.textContent.trim();
-    const tc=TAB_COLORS[tab]||'var(--accent)';
+    const tc=tabColor(tab);
     const active=(tab===_activeTab)?' active':'';
     return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
   }).join('');
@@ -619,7 +644,7 @@ function updateTabDD(name){
   const ic=document.getElementById('tab-dd-ic'), lb=document.getElementById('tab-dd-lb'), b=document.getElementById('tab-dd-btn');
   const label=(btn&&btn.textContent.trim())||TAB_LABELS[name]||'';
   const icon=(btn&&btn.querySelector('i'))?btn.querySelector('i').className:'fa fa-circle';
-  const tc=TAB_COLORS[name]||'var(--accent)';
+  const tc=tabColor(name);
   if(lb) lb.textContent=label;
   if(ic){ ic.className=icon; ic.style.color=tc; }
   if(b) b.style.setProperty('--tc',tc);
@@ -1289,7 +1314,7 @@ function renderLineupIQ(){
 let _liqSort={col:'pct',asc:false};
 function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:false}; renderLineupIQ(); } // first click = highest first, like every other table
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
-function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?'#E0B67B':'var(--red)'; }
+function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?(isLight()?'#9a6b0b':'#E0B67B'):'var(--red)'; }
 function renderStandingsTable(){
   const teams=[..._teams];
   const atCache={};
@@ -2878,7 +2903,9 @@ function gradeTint(hex,a){
   const n=parseInt(m[1],16);
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 }
-function gradeColor(g){const c=(g||'')[0];return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
+function gradeColor(g){const c=(g||'')[0];
+  if(isLight()) return c==='A'?'#12784a':c==='B'?'#4d7a12':c==='C'?'#9a6b0b':c==='D'?'#b8501c':'#bd2130';
+  return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
 function ppgGradeFor(owner){
   const m=allPPGScores();
   const entries=Object.entries(m).filter(([o,v])=>v>0);
