@@ -987,21 +987,28 @@ function renderBig4(){
   startBig4Reel();
 }
 /* JS marquee: always running, draggable left/right, resumes the moment you let go */
-let _b4rRAF=null,_b4rX=0,_b4rLast=0,_b4rDrag=false;
+let _b4rRAF=null,_b4rX=0,_b4rLast=0,_b4rDrag=false,_b4rSeen=0;
+function b4rWrap(){ const t=document.getElementById('big4-reel-track'); if(!t) return;
+  const w=t.scrollWidth/2||1; while(_b4rX<=-w) _b4rX+=w; while(_b4rX>0) _b4rX-=w; }
+function b4rDraw(){ const t=document.getElementById('big4-reel-track'); if(t) t.style.transform=`translate3d(${_b4rX}px,0,0)`; }
+function b4rTick(dt){ if(_b4rDrag) return; _b4rX-=dt*0.032; b4rWrap(); b4rDraw(); }   /* ~32px per second */
 function startBig4Reel(){
   const mask=document.getElementById('big4-reel-mask'), track=document.getElementById('big4-reel-track');
   if(!mask||!track) return;
   if(_b4rRAF) cancelAnimationFrame(_b4rRAF);
-  const half=()=>track.scrollWidth/2||1;
-  const wrap=()=>{ const w=half(); while(_b4rX<=-w) _b4rX+=w; while(_b4rX>0) _b4rX-=w; };
-  const draw=()=>{ track.style.transform=`translate3d(${_b4rX}px,0,0)`; };
+  const wrap=b4rWrap, draw=b4rDraw;
   const step=ts=>{
     if(!_b4rLast) _b4rLast=ts;
-    const dt=Math.min(64,ts-_b4rLast); _b4rLast=ts;
-    if(!_b4rDrag&&!document.hidden){ _b4rX-=dt*0.032; wrap(); draw(); }   /* ~32px per second */
+    const dt=Math.min(64,ts-_b4rLast); _b4rLast=ts; _b4rSeen=Date.now();
+    if(!document.hidden) b4rTick(dt);
     _b4rRAF=requestAnimationFrame(step);
   };
   _b4rRAF=requestAnimationFrame(step);
+  /* if the browser starves rAF (low power, throttling) keep the reel moving anyway */
+  if(!window._b4rWatch) window._b4rWatch=setInterval(()=>{
+    if(document.hidden||_b4rDrag) return;
+    if(Date.now()-_b4rSeen>600){ b4rTick(400); }
+  },500);
 
   if(mask.dataset.wired) return; mask.dataset.wired='1';
   let sx=0,sX=0,moved=false;
