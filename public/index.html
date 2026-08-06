@@ -711,33 +711,63 @@
     footer{text-align:center;color:var(--text3);padding:40px 20px;font-size:12px;}
     /* ── BALLS BIG 4 REEL (homepage only) ─────────────────────────────────── */
     #big4-reel{display:none;}
-    html[data-tabaccent=home] #big4-reel{display:block;position:fixed;left:0;right:0;bottom:0;z-index:180;
-      background:rgba(10,10,12,0.82);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    html[data-tabaccent=home] #big4-reel{display:flex;align-items:stretch;position:fixed;left:0;right:0;bottom:0;z-index:180;
+      background:rgba(10,10,12,0.86);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
       border-top:1px solid rgba(255,255,255,0.12);box-shadow:0 -10px 30px -18px rgba(0,0,0,0.95);
       padding-bottom:env(safe-area-inset-bottom,0px);}
-    .b4r-mask{overflow:hidden;position:relative;
-      mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);
-      -webkit-mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);}
-    .b4r-track{display:flex;align-items:center;gap:0;width:max-content;
-      animation:b4rScroll 42s linear infinite;will-change:transform;}
-    #big4-reel:hover .b4r-track{animation-play-state:paused;}
-    @keyframes b4rScroll{from{transform:translate3d(0,0,0);}to{transform:translate3d(-50%,0,0);}}
-    @media(prefers-reduced-motion:reduce){ .b4r-track{animation:none;} }
-    .b4r-item{display:inline-flex;align-items:center;gap:9px;padding:9px 20px;white-space:nowrap;
-      border-right:1px solid rgba(255,255,255,0.08);}
-    .b4r-badge{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
-      color:#0d0d0f;background:var(--accent);border-radius:999px;padding:2px 8px;}
+    .b4r-title{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:0 14px;
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
+      color:#0d0d0f;background:var(--accent);}
+    .b4r-nav{flex:0 0 auto;width:30px;padding:0;border:none;border-radius:0;background:rgba(255,255,255,0.05);
+      color:var(--text2);cursor:pointer;box-shadow:none;font-size:11px;}
+    .b4r-nav:hover{background:rgba(255,255,255,0.12);color:var(--text);}
+    .b4r-mask{flex:1 1 auto;overflow:hidden;position:relative;cursor:grab;touch-action:pan-y;
+      mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);
+      -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);}
+    .b4r-mask.dragging{cursor:grabbing;}
+    .b4r-track{display:flex;align-items:center;gap:0;width:max-content;will-change:transform;user-select:none;}
+    .b4r-item{display:inline-flex;align-items:center;gap:8px;padding:9px 22px;white-space:nowrap;}
+    .b4r-num{font-family:'Inter',sans-serif;font-size:12px;font-weight:800;color:var(--accent);}
+    .b4r-nick{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
+      color:var(--text3);}
     .b4r-logo{width:20px;height:20px;border-radius:5px;object-fit:cover;flex:0 0 20px;}
     .b4r-name{font-family:'Google Sans Flex',sans-serif;font-size:13px;font-weight:600;}
-    .b4r-stat{font-family:'Inter',sans-serif;font-size:12px;color:var(--text2);}
-    .b4r-stat b{color:var(--text);font-weight:700;}
-    .b4r-dot{color:var(--text3);font-size:10px;}
+    .b4r-rec{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text2);}
     html[data-tabaccent=home] main{padding-bottom:96px;}
+
+    /* ── HOMEPAGE: fewer boxes. The section wrappers go transparent so the
+       modules inside (video, matchup facts, punishment strip, rows) read as the
+       content, not as cards inside cards. ───────────────────────────────────── */
+    html[data-theme="dark"] #page-home .home-top>.sec,
+    html[data-theme="dark"] #page-home .home-vid-col>.sec,
+    html[data-theme="dark"] #page-home .home-left-col>.sec,
+    html[data-theme="dark"] #page-home .home-bottom>.sec,
+    html[data-theme="dark"] #page-home .home-right>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-vid-col>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-left-col>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-bottom>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-right>.sec{
+      background:none!important;border:none!important;box-shadow:none!important;
+      -webkit-backdrop-filter:none;backdrop-filter:none;padding:0!important;}
+    /* headings sit on the page with a hairline instead of a card edge */
+    #page-home .sec-head{padding:0 2px 10px;border-bottom:1px solid rgba(255,255,255,0.09);margin-bottom:14px;}
+    #page-home .sec{margin-bottom:26px;}
+    #page-home .home-vid-col,#page-home .home-left-col{gap:26px;}
+    /* the punishment strip keeps a surface so it doesn't float */
+    #page-home .home-punish{background:#242422;border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+    #page-home .coaching-row{padding:12px 10px;border-radius:8px;}
     @media(max-width:768px){
-      .b4r-item{padding:8px 14px;gap:7px;}
+      #page-home .sec{margin-bottom:22px;}
+      #page-home .home-vid-col,#page-home .home-left-col{gap:22px;}
+    }
+    @media(max-width:768px){
+      .b4r-item{padding:8px 15px;gap:7px;}
       .b4r-name{font-size:12px;}
-      .b4r-stat{font-size:11px;}
+      .b4r-title{padding:0 11px;font-size:10px;letter-spacing:.9px;}
+      .b4r-nav{width:26px;}
       html[data-tabaccent=home] main{padding-bottom:84px;}
+    }
     }
 
 
@@ -2182,7 +2212,12 @@
 <div class="bg-fx" aria-hidden="true"></div>
 <div id="nav-scrim" aria-hidden="true" onclick="toggleTabDD(false)"></div>
 <!-- Balls Big 4 news reel: homepage only, scrolls along the bottom -->
-<div id="big4-reel" aria-hidden="true"><div class="b4r-mask"><div class="b4r-track" id="big4-reel-track"></div></div></div>
+<div id="big4-reel">
+  <span class="b4r-title">Balls Big 4</span>
+  <button class="b4r-nav" id="b4r-prev" aria-label="Scroll left"><i class="fa fa-chevron-left"></i></button>
+  <div class="b4r-mask" id="big4-reel-mask"><div class="b4r-track" id="big4-reel-track"></div></div>
+  <button class="b4r-nav" id="b4r-next" aria-label="Scroll right"><i class="fa fa-chevron-right"></i></button>
+</div>
 
 <!-- PIN GATE -->
 <div class="pin-overlay" id="pin-overlay">

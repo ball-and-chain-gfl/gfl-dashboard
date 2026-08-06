@@ -973,24 +973,52 @@ function resolveBig4Entry(entry){
 }
 function renderBig4(){
   const track=document.getElementById('big4-reel-track'); if(!track) return;
-  const picked=BIG4.map(resolveBig4Entry).map((t,i)=>({t,label:BIG4_LABELS[i]||'Featured'})).filter(x=>x.t);
+  const picked=BIG4.map(resolveBig4Entry).map((t,i)=>({t,nick:BIG4_LABELS[i]||'Featured'})).filter(x=>x.t);
   if(!picked.length){ track.innerHTML=''; return; }
-  const item=({t,label})=>{
-    const s=_scores[t.id]||0;
-    return `<span class="b4r-item">
-      <span class="b4r-badge">${label}</span>
+  const item=({t,nick},i)=>`<span class="b4r-item">
+      <span class="b4r-num">${i+1}.</span>
+      <span class="b4r-nick">${nick}</span>
       ${logoImg(t.id,'b4r-logo')}
       <span class="b4r-name">${t.name}</span>
-      <span class="b4r-dot">•</span>
-      <span class="b4r-stat"><b>${t.wins}–${t.losses}</b> record</span>
-      <span class="b4r-dot">•</span>
-      <span class="b4r-stat"><b>${t.pf.toFixed(0)}</b> PF</span>
-      ${_cmMode==='none'?'':`<span class="b4r-dot">•</span><span class="b4r-stat">CM <b style="color:${sc(s)}">${s.toFixed(2)}</b></span>`}
+      <span class="b4r-rec">${t.wins}–${t.losses}</span>
     </span>`;
-  };
   const once=picked.map(item).join('');
-  /* the strip is duplicated so the -50% scroll loops seamlessly */
-  track.innerHTML=once+once;
+  track.innerHTML=once+once;   /* duplicated so the loop is seamless */
+  startBig4Reel();
+}
+/* JS marquee: always running, draggable left/right, resumes the moment you let go */
+let _b4rRAF=null,_b4rX=0,_b4rLast=0,_b4rDrag=false;
+function startBig4Reel(){
+  const mask=document.getElementById('big4-reel-mask'), track=document.getElementById('big4-reel-track');
+  if(!mask||!track) return;
+  if(_b4rRAF) cancelAnimationFrame(_b4rRAF);
+  const half=()=>track.scrollWidth/2||1;
+  const wrap=()=>{ const w=half(); while(_b4rX<=-w) _b4rX+=w; while(_b4rX>0) _b4rX-=w; };
+  const draw=()=>{ track.style.transform=`translate3d(${_b4rX}px,0,0)`; };
+  const step=ts=>{
+    if(!_b4rLast) _b4rLast=ts;
+    const dt=Math.min(64,ts-_b4rLast); _b4rLast=ts;
+    if(!_b4rDrag&&!document.hidden){ _b4rX-=dt*0.032; wrap(); draw(); }   /* ~32px per second */
+    _b4rRAF=requestAnimationFrame(step);
+  };
+  _b4rRAF=requestAnimationFrame(step);
+
+  if(mask.dataset.wired) return; mask.dataset.wired='1';
+  let sx=0,sX=0,moved=false;
+  const down=e=>{ _b4rDrag=true; moved=false; sx=(e.touches?e.touches[0].clientX:e.clientX); sX=_b4rX; mask.classList.add('dragging'); };
+  const move=e=>{ if(!_b4rDrag) return;
+    const x=(e.touches?e.touches[0].clientX:e.clientX), d=x-sx;
+    if(Math.abs(d)>4) moved=true;
+    _b4rX=sX+d; wrap(); draw(); };
+  const up=()=>{ if(!_b4rDrag) return; _b4rDrag=false; mask.classList.remove('dragging'); };   /* auto-scroll picks straight back up */
+  mask.addEventListener('pointerdown',down); mask.addEventListener('pointermove',move);
+  window.addEventListener('pointerup',up); window.addEventListener('pointercancel',up);
+  mask.addEventListener('touchstart',down,{passive:true}); mask.addEventListener('touchmove',move,{passive:true});
+  window.addEventListener('touchend',up); mask.addEventListener('click',e=>{ if(moved){e.preventDefault();e.stopPropagation();} },true);
+  const nudge=px=>{ _b4rX+=px; wrap(); draw(); };
+  document.getElementById('b4r-prev')?.addEventListener('click',()=>nudge(240));
+  document.getElementById('b4r-next')?.addEventListener('click',()=>nudge(-240));
+  document.addEventListener('visibilitychange',()=>{ _b4rLast=0; });
 }
 
 // ── HEADLINES ──────────────────────────────────────────────────────────────────
