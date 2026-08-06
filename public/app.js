@@ -1945,10 +1945,10 @@ const DRAFT_VIEWS={
            note:'Busts are early picks (first six rounds) that finished well below their draft slot at their position.'},
   best:   {grp:'drafts',all:true,  tab:'Best Drafts', icon:'fa-trophy', col:'var(--green)',
            title:()=>'Best Drafts Ever', badge:'positional Δ',
-           note:'Best Drafts Ever ranks every team-season by its positional Δ (position draft rank − position finish rank, summed across every pick) measured against that season\'s league average, so different draft sizes and scoring years compare fairly.'},
+           note:'Best Drafts Ever ranks every team-season by its raw draft score — positional Δ (position draft rank − position finish rank) summed across every pick.'},
   worst:  {grp:'drafts',all:true,  tab:'Worst Drafts', icon:'fa-fire', col:'var(--red)',
            title:()=>'Worst Drafts Ever', badge:'positional Δ',
-           note:'Worst Drafts Ever ranks every team-season by its positional Δ (position draft rank − position finish rank, summed across every pick) measured against that season\'s league average, so different draft sizes and scoring years compare fairly.'},
+           note:'Worst Drafts Ever ranks every team-season by its raw draft score — positional Δ (position draft rank − position finish rank) summed across every pick.'},
   steals: {grp:'picks', all:true,  tab:'Biggest Steals', icon:'fa-gem', col:'var(--green)',
            title:()=>'Biggest Steals Ever', badge:'beat draft slot',
            note:'Every pick from every season, ranked by how far it beat its draft slot at its position.'},
@@ -1974,9 +1974,9 @@ function draftYearData(season){
 }
 function draftAllData(){
   const {rows,teamDrafts}=_draftAllCache;
-  /* every draft class is scored against its own season's average, so 13-pick and
-     14-pick years — and years where more players beat their slot — compare fairly */
-  const classes=teamDrafts.map(d=>({...d,val:d.adj}));
+  /* these two lists use the raw draft score (summed positional Δ), not the
+     season-adjusted one the yearly rankings use */
+  const classes=teamDrafts.map(d=>({...d,val:d.total}));
   return {
     steals:rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10),
     busts:rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10),
