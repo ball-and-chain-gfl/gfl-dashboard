@@ -1531,7 +1531,8 @@
       #sb-portal.on{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;z-index:190;
         pointer-events:none;}
       #sb-portal .sb-sheet{pointer-events:auto;max-height:0;overflow:hidden;padding:0;
-        transition:max-height .26s ease;}
+        transition:max-height .26s ease;scrollbar-width:none;-ms-overflow-style:none;}
+      #sb-portal .sb-sheet::-webkit-scrollbar{width:0;height:0;}
       #sb-portal.open .sb-sheet{max-height:64vh;overflow:auto;}
       /* the slip runs edge to edge on phones — no side gutters, no side border */
       #sb-portal .sb-slip{border-radius:14px 14px 0 0;background:rgba(8,8,10,0.97);
