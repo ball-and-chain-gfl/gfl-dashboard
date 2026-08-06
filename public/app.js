@@ -85,7 +85,7 @@ const TAB_COLORS={home:'#E0B67B',book:'#3fd07a',standings:'#5aa9ff',trades:'#3fd
    Everything here is additive: dark is the default on every load and its
    colours are untouched. Deleting this block, the light CSS block and the
    #theme-btn markup restores the original site exactly. */
-const TAB_COLORS_LIGHT={home:'#8f6412',book:'#12784a',standings:'#1565c9',trades:'#12784a',draft:'#6435c9',history:'#0c7a70',tenure:'#b81f56',teams:'#b8501c',legacy:'#9a6b0b',punishment:'#bd2130',badbeat:'#9b1fb5',gabe:'#4d7a12',marathon:'#0e7490'};
+const TAB_COLORS_LIGHT={home:'#8a6420',book:'#12704b',standings:'#1c5aa8',trades:'#12704b',draft:'#5b3bb0',history:'#0e6f6a',tenure:'#ab2359',teams:'#a04a1e',legacy:'#8a5f14',punishment:'#b02a35',badbeat:'#8e2a9e',gabe:'#4a6f16',marathon:'#10687f'};
 function isLight(){ return document.documentElement.dataset.theme==='light'; }
 function tabColor(tab){ return (isLight()?TAB_COLORS_LIGHT:TAB_COLORS)[tab]||'var(--accent)'; }
 function setTheme(t){
@@ -1318,7 +1318,7 @@ function renderLineupIQ(){
 let _liqSort={col:'pct',asc:false};
 function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:false}; renderLineupIQ(); } // first click = highest first, like every other table
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
-function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?(isLight()?'#8a5f0a':'#E0B67B'):'var(--red)'; }
+function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?(isLight()?'#8a6420':'#E0B67B'):'var(--red)'; }
 function renderStandingsTable(){
   const teams=[..._teams];
   const atCache={};
@@ -2908,7 +2908,7 @@ function gradeTint(hex,a){
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 }
 function gradeColor(g){const c=(g||'')[0];
-  if(isLight()) return c==='A'?'#0f6b41':c==='B'?'#3f6410':c==='C'?'#8a5f0a':c==='D'?'#a34617':'#ab1e2b';
+  if(isLight()) return c==='A'?'#12704b':c==='B'?'#4a6f16':c==='C'?'#8a6420':c==='D'?'#a04a1e':'#b02a35';
   return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
 function ppgGradeFor(owner){
   const m=allPPGScores();

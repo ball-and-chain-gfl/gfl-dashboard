@@ -773,11 +773,14 @@
       --bg:#f7f8ec;--bg2:rgba(247,248,236,0.88);--bg3:rgba(247,248,236,0.66);
       --border:rgba(36,36,34,0.14);
       --text:#242422;--text2:rgba(36,36,34,0.8);--text3:rgba(36,36,34,0.68);
-      --green:#0f7a45;--red:#c0223c;--blue:#1c5fd0;--purple:#6b30c9;
-      --glass:rgba(247,248,236,0.74);
-      --glass2:rgba(247,248,236,0.52);
-      --gline:rgba(36,36,34,0.10);
-      --gshadow:inset 0 1px 0 rgba(255,255,255,0.8),0 1px 2px rgba(36,36,34,0.06),0 22px 46px -34px rgba(36,36,34,0.6);
+      --green:#12704b;--red:#b0293c;--blue:#1c5aa8;--purple:#5b3bb0;
+      --glass:rgba(247,248,236,0.62);
+      --glass2:rgba(247,248,236,0.46);
+      --gline:rgba(36,36,34,0.09);
+      --gshadow:inset 0 1px 0 rgba(255,255,255,0.85),0 1px 2px rgba(36,36,34,0.05),0 26px 52px -36px rgba(36,36,34,0.5);
+      --grad-outer:linear-gradient(158deg,rgba(255,255,255,0.62),rgba(255,255,255,0.24) 55%,rgba(var(--accent-rgb),0.05));
+      --grad-inner:linear-gradient(158deg,rgba(var(--accent-rgb),0.13),rgba(var(--accent-rgb),0.06));
+      --r-card:18px;--r-inner:13px;
       --btn-edge:inset 0 1px 0 rgba(255,255,255,0.75),inset 1px 0 0 rgba(255,255,255,0.4),inset -1px 0 0 rgba(255,255,255,0.4),inset 0 -1px 0 rgba(36,36,34,0.16);
       --btn-edge-hover:inset 0 1px 0 rgba(255,255,255,0.9),inset 1px 0 0 rgba(255,255,255,0.5),inset -1px 0 0 rgba(255,255,255,0.5),inset 0 -1px 0 rgba(36,36,34,0.22);
       --btn-edge-active:inset 0 2px 2px rgba(36,36,34,0.18),inset 1px 0 1px rgba(36,36,34,0.1),inset -1px 0 1px rgba(36,36,34,0.1);
@@ -786,19 +789,19 @@
       background-image:repeating-linear-gradient(115deg,rgba(36,36,34,0.028) 0 2px,rgba(36,36,34,0) 2px 13px);
     }
     /* each tab drives the accent, deepened so it stays legible on light glass */
-    html[data-theme="light"][data-tabaccent=home]{--accent:#80590f;--accent2:#63440b;--accent-rgb:128,89,15;}
-    html[data-theme="light"][data-tabaccent=book]{--accent:#0f6b41;--accent2:#0b5433;--accent-rgb:15,107,65;}
-    html[data-theme="light"][data-tabaccent=standings]{--accent:#1565c9;--accent2:#0f4d9c;--accent-rgb:21,101,201;}
-    html[data-theme="light"][data-tabaccent=trades]{--accent:#0f6b41;--accent2:#0b5433;--accent-rgb:15,107,65;}
-    html[data-theme="light"][data-tabaccent=draft]{--accent:#6435c9;--accent2:#4e28a0;--accent-rgb:100,53,201;}
-    html[data-theme="light"][data-tabaccent=history]{--accent:#0c7a70;--accent2:#095e56;--accent-rgb:12,122,112;}
-    html[data-theme="light"][data-tabaccent=tenure]{--accent:#b81f56;--accent2:#8f1743;--accent-rgb:184,31,86;}
-    html[data-theme="light"][data-tabaccent=teams]{--accent:#a34617;--accent2:#823711;--accent-rgb:163,70,23;}
-    html[data-theme="light"][data-tabaccent=legacy]{--accent:#8a5f0a;--accent2:#6d4b08;--accent-rgb:138,95,10;}
-    html[data-theme="light"][data-tabaccent=punishment]{--accent:#bd2130;--accent2:#951a26;--accent-rgb:189,33,48;}
-    html[data-theme="light"][data-tabaccent=badbeat]{--accent:#9b1fb5;--accent2:#7a188e;--accent-rgb:155,31,181;}
-    html[data-theme="light"][data-tabaccent=gabe]{--accent:#41680f;--accent2:#33520c;--accent-rgb:65,104,15;}
-    html[data-theme="light"][data-tabaccent=marathon]{--accent:#0e7490;--accent2:#0a5a70;--accent-rgb:14,116,144;}
+    html[data-theme="light"][data-tabaccent=home]{--accent:#8a6420;--accent2:#6b4d18;--accent-rgb:138,100,32;}
+    html[data-theme="light"][data-tabaccent=book]{--accent:#12704b;--accent2:#0d573a;--accent-rgb:18,112,75;}
+    html[data-theme="light"][data-tabaccent=standings]{--accent:#1c5aa8;--accent2:#154784;--accent-rgb:28,90,168;}
+    html[data-theme="light"][data-tabaccent=trades]{--accent:#12704b;--accent2:#0d573a;--accent-rgb:18,112,75;}
+    html[data-theme="light"][data-tabaccent=draft]{--accent:#5b3bb0;--accent2:#472e8a;--accent-rgb:91,59,176;}
+    html[data-theme="light"][data-tabaccent=history]{--accent:#0e6f6a;--accent2:#0a5551;--accent-rgb:14,111,106;}
+    html[data-theme="light"][data-tabaccent=tenure]{--accent:#ab2359;--accent2:#861b45;--accent-rgb:171,35,89;}
+    html[data-theme="light"][data-tabaccent=teams]{--accent:#a04a1e;--accent2:#7d3a17;--accent-rgb:160,74,30;}
+    html[data-theme="light"][data-tabaccent=legacy]{--accent:#8a5f14;--accent2:#6c4a10;--accent-rgb:138,95,20;}
+    html[data-theme="light"][data-tabaccent=punishment]{--accent:#b02a35;--accent2:#8a2129;--accent-rgb:176,42,53;}
+    html[data-theme="light"][data-tabaccent=badbeat]{--accent:#8e2a9e;--accent2:#70217c;--accent-rgb:142,42,158;}
+    html[data-theme="light"][data-tabaccent=gabe]{--accent:#4a6f16;--accent2:#3a5711;--accent-rgb:74,111,22;}
+    html[data-theme="light"][data-tabaccent=marathon]{--accent:#10687f;--accent2:#0c5163;--accent-rgb:16,104,127;}
 
     /* ── canvas & ambient background ── */
     html[data-theme="light"] body{background:radial-gradient(circle at top,#fffdf0 0%,#f7f8ec 45%);color:var(--text);}
@@ -841,9 +844,10 @@
     html[data-theme="light"] .bracket-game,
     html[data-theme="light"] .honor-tile{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       border-color:var(--gline);
+      border-radius:var(--r-card);
       box-shadow:var(--gshadow);
       color:var(--text);
     }
@@ -867,7 +871,8 @@
     html[data-theme="light"] .home-punish-ic,
     html[data-theme="light"] .h2h-detail>td,
     html[data-theme="light"] .pm-group{
-      background-color:rgba(36,36,34,0.05)!important;background-image:none!important;color:var(--text);}
+      background-color:rgba(247,248,236,0.5)!important;background-image:var(--grad-inner)!important;
+      border-radius:var(--r-inner);color:var(--text);}
     html[data-theme="light"] .badge-info,
     html[data-theme="light"] .odd-chip{border-color:var(--gline);color:var(--text2);}
 
@@ -986,6 +991,29 @@
     html[data-theme="light"] .prof-stat,
     html[data-theme="light"] .section-header{border-color:rgba(36,36,34,0.1);}
     html[data-theme="light"] footer{color:var(--text3);}
+    /* rounder containers throughout light mode */
+    html[data-theme="light"] .sec,html[data-theme="light"] .tab-page>.sec,html[data-theme="light"] .panel,
+    html[data-theme="light"] .tscroll,html[data-theme="light"] .sb-market,html[data-theme="light"] .sb-tcard,
+    html[data-theme="light"] .sb-bar,html[data-theme="light"] .sb-slip,html[data-theme="light"] .dr-tabbox,
+    html[data-theme="light"] .modal,html[data-theme="light"] .pin-box,html[data-theme="light"] .lh-rcard,
+    html[data-theme="light"] .lh-brk,html[data-theme="light"] .mo-grid,html[data-theme="light"] .motw-book,
+    html[data-theme="light"] .trade-card,html[data-theme="light"] .hist-item,html[data-theme="light"] .headline-card,
+    html[data-theme="light"] .big4-team,html[data-theme="light"] .prof-banner,html[data-theme="light"] .gabe-monument,
+    html[data-theme="light"] .honor-tile,html[data-theme="light"] .dr-right>.draft-row-graded{border-radius:var(--r-card)!important;}
+    html[data-theme="light"] .lineup-slot,html[data-theme="light"] .stat-card,html[data-theme="light"] .motw-fact,
+    html[data-theme="light"] .motw-take,html[data-theme="light"] .mo-cell,html[data-theme="light"] .conf-col,
+    html[data-theme="light"] .allrec-card,html[data-theme="light"] .prof-award,html[data-theme="light"] .sup-row,
+    html[data-theme="light"] .sup-detail,html[data-theme="light"] .bracket-game,html[data-theme="light"] .punish-opt,
+    html[data-theme="light"] .div-winner,html[data-theme="light"] .champ-line,html[data-theme="light"] .modal-total,
+    html[data-theme="light"] .modal-comp,html[data-theme="light"] .modal-formula,html[data-theme="light"] .modal-comp-row,
+    html[data-theme="light"] .pm-group,html[data-theme="light"] .sb-mhead,html[data-theme="light"] .sb-head,
+    html[data-theme="light"] .sb-totals,html[data-theme="light"] .home-punish-ic,
+    html[data-theme="light"] .lineup-list{border-radius:var(--r-inner)!important;}
+    html[data-theme="light"] .tab-btn,html[data-theme="light"] .filter-btn,html[data-theme="light"] .week-btn,
+    html[data-theme="light"] .dr-sbtn,html[data-theme="light"] .dr-vtab,html[data-theme="light"] .bracket-btn,
+    html[data-theme="light"] .sb-odds,html[data-theme="light"] #sb-tabs .tab-btn,html[data-theme="light"] .home-punish-more,
+    html[data-theme="light"] .vid-more>summary,html[data-theme="light"] details.motw-odds>summary{border-radius:999px!important;}
+    html[data-theme="light"] .section-header{border-radius:var(--r-card) var(--r-card) 0 0;}
     /* honours keep their identity but at a depth that reads on light glass */
     html[data-theme="light"] .honor-tile.hk-champ,html[data-theme="light"] .ov-aw.hk-champ{--hk:143,100,18;}
     html[data-theme="light"] .honor-tile.hk-conf,html[data-theme="light"] .ov-aw.hk-conf{--hk:100,53,201;}
@@ -1019,9 +1047,9 @@ html[data-theme="light"] .card,
     html[data-theme="light"] .motw-fact,
     html[data-theme="light"] .motw-take{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      border:1px solid var(--gline)!important;border-radius:4px!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      border:1px solid var(--gline)!important;border-radius:var(--r-card)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       box-shadow:var(--gshadow)!important;color:var(--text);}
 html[data-theme="light"] #page-home .card,
     html[data-theme="light"] #page-home .stat-card,
@@ -1033,9 +1061,9 @@ html[data-theme="light"] #page-home .card,
     html[data-theme="light"] #page-home .motw-fact,
     html[data-theme="light"] #page-home .motw-take{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      border:1px solid var(--gline)!important;border-radius:4px!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      border:1px solid var(--gline)!important;border-radius:var(--r-card)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       box-shadow:var(--gshadow)!important;color:var(--text);}
 html[data-theme="light"] .modal-total,
     html[data-theme="light"] .modal-comp,
@@ -1051,7 +1079,7 @@ html[data-theme="light"] .modal-total,
     html[data-theme="light"] .odd-chip,
     html[data-theme="light"] .badge-info,
     html[data-theme="light"] .sup-detail,
-    html[data-theme="light"] .draft-pos{background-color:rgba(36,36,34,0.05)!important;background-image:none!important;color:var(--text);}
+    html[data-theme="light"] .draft-pos{background-color:rgba(247,248,236,0.5)!important;background-image:var(--grad-inner)!important;border-radius:var(--r-inner);color:var(--text);}
 html[data-theme="light"] .coaching-bar{background:rgba(36,36,34,0.12)!important;}
 html[data-theme="light"] .card,
     html[data-theme="light"] .panel,
@@ -1066,9 +1094,9 @@ html[data-theme="light"] .card,
     html[data-theme="light"] .tab-page>.two-col>.sec,
     html[data-theme="light"] .gabe-layout>.sec{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      border:1px solid var(--gline)!important;border-radius:4px!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      border:1px solid var(--gline)!important;border-radius:var(--r-card)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       box-shadow:var(--gshadow)!important;color:var(--text);}
 html[data-theme="light"] .tab-page>.sec:not(:has(.card)):not(:has(.dr-card)),
     html[data-theme="light"] .tab-page>.two-col>.sec,
@@ -1079,27 +1107,27 @@ html[data-theme="light"].has-pagebg #page-home .home-top>.sec,
     html[data-theme="light"].has-pagebg #page-home .home-bottom>.sec,
     html[data-theme="light"].has-pagebg #page-home .home-right>.sec{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      border:1px solid var(--gline)!important;border-radius:4px!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      border:1px solid var(--gline)!important;border-radius:var(--r-card)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       box-shadow:var(--gshadow)!important;color:var(--text);}
 html[data-theme="light"] .dr-right>.draft-row-graded{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      border:1px solid var(--gline)!important;border-radius:4px!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      border:1px solid var(--gline)!important;border-radius:var(--r-card)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       box-shadow:var(--gshadow)!important;color:var(--text);}
 html[data-theme="light"] #page-teams .lineup-list{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      border:1px solid var(--gline)!important;border-radius:4px!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      border:1px solid var(--gline)!important;border-radius:var(--r-card)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       box-shadow:var(--gshadow)!important;color:var(--text);}
 html[data-theme="light"] #page-teams .lineup-grade{
       background-color:var(--glass)!important;
-      background-image:linear-gradient(158deg,rgba(255,255,255,0.6),rgba(var(--accent-rgb),0.09))!important;
-      border:1px solid var(--gline)!important;border-radius:4px!important;
-      -webkit-backdrop-filter:blur(20px) saturate(1.35);backdrop-filter:blur(20px) saturate(1.35);
+      background-image:var(--grad-outer)!important;
+      border:1px solid var(--gline)!important;border-radius:var(--r-card)!important;
+      -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5);
       box-shadow:var(--gshadow)!important;color:var(--text);}
     /* remaining dark-only literals that aren't theme-scoped */
     html[data-theme="light"] #page-home .sec-head i{color:var(--accent);}
