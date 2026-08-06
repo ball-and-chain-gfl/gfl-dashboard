@@ -1777,6 +1777,11 @@ async function ensureDraft(){
 }
 function computeDraftRows(picks, stats, season){
   if(!picks||!picks.length||!stats||!stats.length) return [];
+  /* an upcoming season returns a placeholder board (playerId -1) and a stat sheet
+     with no points — that isn't a draft, so keep it out of every draft list */
+  picks=picks.filter(p=>p&&p.playerId>0);
+  if(!picks.length) return [];
+  if(!stats.some(p=>(p.pts||0)>0)) return [];
   const rankOverall={},rankPos={},posCount={},statById={};
   stats.forEach((p,i)=>{rankOverall[p.id]=i+1;posCount[p.pos]=(posCount[p.pos]||0)+1;rankPos[p.id]=posCount[p.pos];statById[p.id]=p;});
   const posDraftCount={};
