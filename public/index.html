@@ -734,36 +734,6 @@
     .b4r-name{font-family:'Google Sans Flex',sans-serif;font-size:13px;font-weight:600;}
     .b4r-rec{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text2);}
     html[data-tabaccent=home] main{padding-bottom:96px;}
-
-    /* ── HOMEPAGE: heading on the page, content in its own container ───────── */
-    html[data-theme="dark"] #page-home .home-top>.sec,
-    html[data-theme="dark"] #page-home .home-vid-col>.sec,
-    html[data-theme="dark"] #page-home .home-left-col>.sec,
-    html[data-theme="dark"] #page-home .home-bottom>.sec,
-    html[data-theme="dark"] #page-home .home-right>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-vid-col>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-left-col>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-bottom>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-right>.sec{
-      background:none!important;border:none!important;box-shadow:none!important;
-      -webkit-backdrop-filter:none;backdrop-filter:none;padding:0!important;}
-    #page-home .sec-head{padding:0 4px 12px;}
-    /* one surface per module — nothing sits loose on the background */
-    #page-home .home-box{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);
-      border-radius:8px;padding:14px 16px;-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);}
-    #page-home .home-box.motw-head{margin-bottom:12px;}
-    #page-home .home-box.home-cm{padding:6px 10px;}
-    #page-home .home-cm .coaching-row:last-child{border-bottom:none;}
-    #page-home .video-featured{border-radius:6px;}
-    #page-home .video-featured-title{padding:10px 2px 0;}
-    #page-home .vid-more{margin-top:12px;}
-    #page-home .sec{margin-bottom:24px;}
-    @media(max-width:768px){
-      #page-home .home-box{padding:12px 13px;}
-      #page-home .home-box.home-cm{padding:4px 8px;}
-      #page-home .sec{margin-bottom:20px;}
-    }
     @media(max-width:768px){
       .b4r-item{padding:8px 15px;gap:7px;}
       .b4r-name{font-size:12px;}
@@ -2206,6 +2176,37 @@
       #tab-dd-btn{max-width:100%!important;width:100%;}
       #season-select{flex:0 0 auto;}
     }
+
+    /* ── HOMEPAGE: heading on the page, content in its own container ───────── */
+    html[data-theme="dark"] #page-home .home-top>.sec,
+    html[data-theme="dark"] #page-home .home-vid-col>.sec,
+    html[data-theme="dark"] #page-home .home-left-col>.sec,
+    html[data-theme="dark"] #page-home .home-bottom>.sec,
+    html[data-theme="dark"] #page-home .home-right>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-vid-col>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-left-col>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-bottom>.sec,
+    html[data-theme="dark"].has-pagebg #page-home .home-right>.sec{
+      background:none!important;border:none!important;box-shadow:none!important;
+      -webkit-backdrop-filter:none;backdrop-filter:none;padding:0!important;}
+    #page-home .sec-head{padding:0 4px 12px;}
+    /* one surface per module — nothing sits loose on the background */
+    #page-home .home-box{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);
+      border-radius:8px;padding:14px 16px;-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);}
+    #page-home .home-box.motw-head{margin-bottom:12px;}
+    #page-home .home-box.home-cm{padding:6px 10px;}
+    #page-home .home-cm .coaching-row:last-child{border-bottom:none;}
+    #page-home .video-featured{border-radius:6px;}
+    #page-home .video-featured-title{padding:10px 2px 0;}
+    #page-home .vid-more{margin-top:12px;}
+    #page-home .sec{margin-bottom:24px;}
+    @media(max-width:768px){
+      #page-home .home-box{padding:12px 13px;}
+      #page-home .home-box.home-cm{padding:4px 8px;}
+      #page-home .sec{margin-bottom:20px;}
+    }
+
   </style>
 </head>
 <body>
