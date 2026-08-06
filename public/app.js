@@ -200,7 +200,7 @@ function teamColor(id){
 }
 function avatarCore(name,id,url,size,radius){
   const fs=Math.max(9,Math.round(size*0.42));
-  const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#fff;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
+  const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#f7f8ec;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
   const img=url?`<img src="${url}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--bg2)" onerror="this.remove()"/>`:'';
   return `<span class="tm-avatar" style="${wrap}">${teamInitials(name)}${img}</span>`;
 }
@@ -972,31 +972,25 @@ function resolveBig4Entry(entry){
       || null;
 }
 function renderBig4(){
-  const el=document.getElementById('big4-display');if(!el)return;
-  const picked=BIG4.map(resolveBig4Entry);
-  const anyPicked=picked.some(Boolean);
-
-  el.innerHTML=`<div class="sec-head">
-    <i class="fa fa-crown"></i>Balls Big 4
-  </div>
-  ${!anyPicked
-    ?`<div class="big4-empty">Set your Big 4 in <code>config.js</code>.</div>`
-    :`<div class="big4-grid">${picked.map((t,i)=>{
-      if(!t) return `<div class="big4-team"><div class="big4-info"><div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div><div class="big4-record" style="color:var(--text3)">— empty slot —</div></div></div>`;
-      const s=_scores[t.id]||0;
-      return`<div class="big4-team">
-        ${logoImg(t.id,'big4-logo')}
-        <div class="big4-info">
-          <div class="big4-label">${BIG4_LABELS[i]||'Featured'}</div>
-          <div class="big4-name">${t.name}</div>
-        </div>
-        <div class="big4-stats">
-          <div class="b4s"><span class="b4s-l">Record</span><span class="b4s-v">${t.wins}–${t.losses}</span></div>
-          <div class="b4s"><span class="b4s-l">PF</span><span class="b4s-v">${t.pf.toFixed(0)}</span></div>
-          ${_cmMode==='none'?'':`<div class="b4s"><span class="b4s-l">CM</span><span class="b4s-v" style="color:${sc(s)}">${s.toFixed(2)}</span></div>`}
-        </div>
-      </div>`;
-    }).join('')}</div>`}`;
+  const track=document.getElementById('big4-reel-track'); if(!track) return;
+  const picked=BIG4.map(resolveBig4Entry).map((t,i)=>({t,label:BIG4_LABELS[i]||'Featured'})).filter(x=>x.t);
+  if(!picked.length){ track.innerHTML=''; return; }
+  const item=({t,label})=>{
+    const s=_scores[t.id]||0;
+    return `<span class="b4r-item">
+      <span class="b4r-badge">${label}</span>
+      ${logoImg(t.id,'b4r-logo')}
+      <span class="b4r-name">${t.name}</span>
+      <span class="b4r-dot">•</span>
+      <span class="b4r-stat"><b>${t.wins}–${t.losses}</b> record</span>
+      <span class="b4r-dot">•</span>
+      <span class="b4r-stat"><b>${t.pf.toFixed(0)}</b> PF</span>
+      ${_cmMode==='none'?'':`<span class="b4r-dot">•</span><span class="b4r-stat">CM <b style="color:${sc(s)}">${s.toFixed(2)}</b></span>`}
+    </span>`;
+  };
+  const once=picked.map(item).join('');
+  /* the strip is duplicated so the -50% scroll loops seamlessly */
+  track.innerHTML=once+once;
 }
 
 // ── HEADLINES ──────────────────────────────────────────────────────────────────
@@ -2575,8 +2569,8 @@ function renderMatchupOfWeek(){
       <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${B.name}</div><div style="font-size:12px;color:var(--text3)">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
     </div>
     <div class="motw-facts">
-      <div class="motw-fact"><div class="motw-fact-l">All-time series</div><div class="motw-fact-v">${at.games?`${at.wA}–${at.wB}`:'first meeting'}</div></div>
-      <div class="motw-fact"><div class="motw-fact-l">Last meeting</div><div class="motw-fact-v">${last?`${last.aPts.toFixed(1)}–${last.bPts.toFixed(1)}`:'—'}</div><div class="motw-fact-s">${last?`${last.season} Wk ${last.week}`:'never played'}</div></div>
+      <div class="motw-fact"><span class="motw-fact-l">Series</span><span class="motw-fact-v">${at.games?`${at.wA}–${at.wB}`:'1st'}</span></div>
+      <div class="motw-fact"><span class="motw-fact-l">Last</span><span class="motw-fact-v">${last?`${last.aPts.toFixed(1)}–${last.bPts.toFixed(1)}`:'—'}</span><span class="motw-fact-s">${last?`${last.season} Wk ${last.week}`:'never played'}</span></div>
     </div>
     ${motwOddsHTML(A,B)}
     <details class="motw-odds">
@@ -4055,7 +4049,6 @@ async function loadDashboard(){
               })()}
           </div>
           <div class="home-right">
-            <div class="sec wm" data-wm="&#xf521;" id="big4-display"></div>
             <!-- Matchup Headlines: hidden for now -->
             <div class="sec wm" data-wm="&#xf1ea;" style="display:none">
               <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
