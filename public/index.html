@@ -1144,6 +1144,30 @@ html[data-theme="light"] #page-teams .lineup-grade{
       html[data-theme="light"] table.mtbl thead th{background:#eceddb;}
     }
 
+    /* final word: nested panels keep the colour + the smaller radius, even where
+       the mirrored card rules also matched them */
+    html[data-theme="light"] .motw-fact,
+    html[data-theme="light"] .motw-take,
+    html[data-theme="light"] .lineup-slot,
+    html[data-theme="light"] .stat-card,
+    html[data-theme="light"] .mo-cell,
+    html[data-theme="light"] .sup-detail,
+    html[data-theme="light"] .modal-total,
+    html[data-theme="light"] .modal-comp,
+    html[data-theme="light"] .modal-formula,
+    html[data-theme="light"] .modal-comp-row,
+    html[data-theme="light"] .prof-award,
+    html[data-theme="light"] .conf-col,
+    html[data-theme="light"] .allrec-card,
+    html[data-theme="light"] .bracket-game,
+    html[data-theme="light"] .punish-opt,
+    html[data-theme="light"] .div-winner{
+      background-color:rgba(247,248,236,0.5)!important;
+      background-image:var(--grad-inner)!important;
+      border-radius:var(--r-inner)!important;
+      -webkit-backdrop-filter:none;backdrop-filter:none;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.6)!important;color:var(--text);}
+
 
     @media(max-width:1000px){
       .top-grid,.two-col{grid-template-columns:1fr;}
