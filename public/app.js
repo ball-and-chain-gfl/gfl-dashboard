@@ -1318,7 +1318,7 @@ function renderLineupIQ(){
 let _liqSort={col:'pct',asc:false};
 function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:false}; renderLineupIQ(); } // first click = highest first, like every other table
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
-function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?(isLight()?'#9a6b0b':'#E0B67B'):'var(--red)'; }
+function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?(isLight()?'#8a5f0a':'#E0B67B'):'var(--red)'; }
 function renderStandingsTable(){
   const teams=[..._teams];
   const atCache={};
@@ -2908,7 +2908,7 @@ function gradeTint(hex,a){
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 }
 function gradeColor(g){const c=(g||'')[0];
-  if(isLight()) return c==='A'?'#12784a':c==='B'?'#4d7a12':c==='C'?'#9a6b0b':c==='D'?'#b8501c':'#bd2130';
+  if(isLight()) return c==='A'?'#0f6b41':c==='B'?'#3f6410':c==='C'?'#8a5f0a':c==='D'?'#a34617':'#ab1e2b';
   return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
 function ppgGradeFor(owner){
   const m=allPPGScores();
