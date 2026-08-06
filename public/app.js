@@ -94,6 +94,10 @@ function setTheme(t){
   if(b){ b.classList.toggle('lit',isLight()); b.setAttribute('aria-label',isLight()?'Switch to dark mode':'Switch to light mode'); }
   setPageBg(_activeTab);
   rerenderForTheme();
+  /* the ambient loop swaps source with the theme — make sure it keeps playing */
+  const v=document.getElementById('pgbg-video');
+  if(v){ const kick=()=>{ const p=v.play(); if(p&&p.catch) p.catch(()=>{}); };
+    kick(); setTimeout(kick,400); setTimeout(kick,1200); }
 }
 function toggleTheme(){ setTheme(isLight()?'dark':'light'); }
 /* inline colours are baked into rendered HTML, so redraw what's on screen */

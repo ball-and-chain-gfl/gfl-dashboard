@@ -772,7 +772,7 @@
       --lw:#f7f8ec;--ink:#242422;
       --bg:#f7f8ec;--bg2:rgba(247,248,236,0.88);--bg3:rgba(247,248,236,0.66);
       --border:rgba(36,36,34,0.14);
-      --text:#242422;--text2:rgba(36,36,34,0.72);--text3:rgba(36,36,34,0.5);
+      --text:#242422;--text2:rgba(36,36,34,0.8);--text3:rgba(36,36,34,0.68);
       --green:#0f7a45;--red:#c0223c;--blue:#1c5fd0;--purple:#6b30c9;
       --glass:rgba(247,248,236,0.74);
       --glass2:rgba(247,248,236,0.52);
@@ -986,6 +986,25 @@
     html[data-theme="light"] .prof-stat,
     html[data-theme="light"] .section-header{border-color:rgba(36,36,34,0.1);}
     html[data-theme="light"] footer{color:var(--text3);}
+    /* honours keep their identity but at a depth that reads on light glass */
+    html[data-theme="light"] .honor-tile.hk-champ,html[data-theme="light"] .ov-aw.hk-champ{--hk:143,100,18;}
+    html[data-theme="light"] .honor-tile.hk-conf,html[data-theme="light"] .ov-aw.hk-conf{--hk:100,53,201;}
+    html[data-theme="light"] .honor-tile.hk-coy,html[data-theme="light"] .ov-aw.hk-coy{--hk:21,101,201;}
+    html[data-theme="light"] .honor-tile.hk-commitment,html[data-theme="light"] .ov-aw.hk-commitment{--hk:15,122,69;}
+    html[data-theme="light"] .honor-tile.hk-comeback,html[data-theme="light"] .ov-aw.hk-comeback{--hk:184,31,86;}
+    html[data-theme="light"] .honor-tile.hk-punishment,html[data-theme="light"] .ov-aw.hk-punishment{--hk:184,80,28;}
+    html[data-theme="light"] .honor-tile.hk-disappoint,html[data-theme="light"] .ov-aw.hk-disappoint{--hk:189,33,48;}
+    html[data-theme="light"] .sup-award.hk-coy,html[data-theme="light"] .lh-sup-award.hk-coy{color:#1565c9;}
+    html[data-theme="light"] .sup-award.hk-commitment,html[data-theme="light"] .lh-sup-award.hk-commitment{color:#0f7a45;}
+    html[data-theme="light"] .sup-award.hk-comeback,html[data-theme="light"] .lh-sup-award.hk-comeback{color:#b81f56;}
+    html[data-theme="light"] .sup-award.hk-punishment,html[data-theme="light"] .lh-sup-award.hk-punishment{color:#b8501c;}
+    html[data-theme="light"] .sup-award.hk-disappoint,html[data-theme="light"] .lh-sup-award.hk-disappoint{color:#bd2130;}
+    html[data-theme="light"] .trophy-badge.conf{color:#6435c9;}
+    html[data-theme="light"] #tab-dd-btn:hover .nav-burger{color:var(--accent);}
+    html[data-theme="light"] .vid-more[open]>summary,
+    html[data-theme="light"] details.motw-odds[open]>summary{color:var(--text);}
+    html[data-theme="light"] .vid-more>summary,
+    html[data-theme="light"] details.motw-odds>summary{background:rgba(36,36,34,0.05);border-color:var(--gline);color:var(--text2);}
 
     /* light counterparts of the dark-only surface rules (same selectors) */
 html[data-theme="light"] .card,
