@@ -81,34 +81,6 @@ function refreshSeasonOptions(){
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
 const TAB_COLORS={home:'#E0B67B',book:'#3fd07a',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
-/* ── LIGHT MODE ─────────────────────────────────────────────────────────────
-   Everything here is additive: dark is the default on every load and its
-   colours are untouched. Deleting this block, the light CSS block and the
-   #theme-btn markup restores the original site exactly. */
-const TAB_COLORS_LIGHT={home:'#8a6420',book:'#12704b',standings:'#1c5aa8',trades:'#12704b',draft:'#5b3bb0',history:'#0e6f6a',tenure:'#ab2359',teams:'#a04a1e',legacy:'#8a5f14',punishment:'#b02a35',badbeat:'#8e2a9e',gabe:'#4a6f16',marathon:'#10687f'};
-function isLight(){ return document.documentElement.dataset.theme==='light'; }
-function tabColor(tab){ return (isLight()?TAB_COLORS_LIGHT:TAB_COLORS)[tab]||'var(--accent)'; }
-function setTheme(t){
-  document.documentElement.dataset.theme=(t==='light')?'light':'dark';
-  const b=document.getElementById('theme-btn');
-  if(b){ b.classList.toggle('lit',isLight()); b.setAttribute('aria-label',isLight()?'Switch to dark mode':'Switch to light mode'); }
-  setPageBg(_activeTab);
-  rerenderForTheme();
-  /* the ambient loop swaps source with the theme — make sure it keeps playing */
-  const v=document.getElementById('pgbg-video');
-  if(v){ const kick=()=>{ const p=v.play(); if(p&&p.catch) p.catch(()=>{}); };
-    kick(); setTimeout(kick,400); setTimeout(kick,1200); }
-}
-function toggleTheme(){ setTheme(isLight()?'dark':'light'); }
-/* inline colours are baked into rendered HTML, so redraw what's on screen */
-function rerenderForTheme(){
-  const safe=f=>{ try{ f(); }catch(e){} };
-  safe(()=>renderBig4()); safe(()=>renderMatchupOfWeek()); safe(()=>renderHomeHeadlines());
-  safe(()=>renderStandingsTable()); safe(()=>renderLeagueHistory()); safe(()=>renderTradesTab());
-  safe(()=>{ if(_tenure) renderTenureTable(); });
-  safe(()=>buildTabDD());
-  safe(()=>switchTab(_activeTab));
-}
 const TAB_LABELS={home:'Home',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Drafts',history:'Matchup History',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -376,21 +348,23 @@ function allTimeH2H(idA,idB){
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
+/* ambient loop. To go back to the old grain video swap RB for V2 below. */
+const RB={type:'video', src:'/bg/vid/rb.mp4', msrc:'/bg/vid/rb-m.mp4', poster:'/bg/vid/rb.jpg', ov:0.62};
+const V2={type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0};
 const PAGE_BG={
-  // one looping background video on every page
-  home:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  book:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  standings: {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  trades:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  draft:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  history:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  tenure:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  teams:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  legacy:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  punishment:{type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  badbeat:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  gabe:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  marathon:  {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  home: RB,
+  book: RB,
+  standings: RB,
+  trades: RB,
+  draft: RB,
+  history: RB,
+  tenure: RB,
+  teams: RB,
+  legacy: RB,
+  punishment: RB,
+  badbeat: RB,
+  gabe: RB,
+  marathon: RB,
 };
 function startPageBgVideo(vid,src){
   const go=()=>{ if(vid.dataset.src!==src) return; vid.src=src; vid.load();
@@ -399,11 +373,10 @@ function startPageBgVideo(vid,src){
   if(document.readyState==='complete') soon();
   else window.addEventListener('load',soon,{once:true});
 }
-const LIGHT_BG={type:'video', src:'/bg/vid/rb.mp4', msrc:'/bg/vid/rb-m.mp4', poster:'/bg/vid/rb.jpg', ov:0};
 function setPageBg(tab){
   const wrap=document.getElementById('pgbg'); if(!wrap) return;
   const vid=document.getElementById('pgbg-video'), img=document.getElementById('pgbg-image');
-  const m=isLight()?LIGHT_BG:PAGE_BG[tab];
+  const m=PAGE_BG[tab];
   if(!m){ wrap.style.display='none'; if(vid&&!vid.paused) vid.pause(); document.documentElement.classList.remove('has-pagebg'); return; }
   wrap.style.display='block';
   document.documentElement.classList.add('has-pagebg');
@@ -416,7 +389,7 @@ function setPageBg(tab){
       // is up — the poster frame carries the look until then
       const mob=window.matchMedia('(max-width:768px)').matches;
       const src=(mob&&m.msrc)?m.msrc:m.src;
-      if(m.poster&&vid.getAttribute('poster')!==m.poster) vid.setAttribute('poster',m.poster);
+      if(m.poster&&!vid.getAttribute('poster')) vid.setAttribute('poster',m.poster);
       if(vid.dataset.src!==src){ vid.dataset.src=src; startPageBgVideo(vid,src); }
       else { const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); }
     }
@@ -574,14 +547,14 @@ let _ddSig='';
 function buildTabDD(){
   const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
   const btns=[...document.querySelectorAll('#tabbar .tab-btn')].filter(b=>b.style.display!=='none');
-  const sig=btns.map(b=>b.dataset.tab).join(',')+'|'+(isLight()?'l':'d');
+  const sig=btns.map(b=>b.dataset.tab).join(',');
   if(sig===_ddSig&&menu.children.length){ syncTabDDActive(); return; }   /* already built */
   _ddSig=sig;
   menu.innerHTML=btns.map(b=>{
     const tab=b.dataset.tab;
     const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
     const label=b.textContent.trim();
-    const tc=tabColor(tab);
+    const tc=TAB_COLORS[tab]||'var(--accent)';
     const active=(tab===_activeTab)?' active':'';
     return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
   }).join('');
@@ -648,7 +621,7 @@ function updateTabDD(name){
   const ic=document.getElementById('tab-dd-ic'), lb=document.getElementById('tab-dd-lb'), b=document.getElementById('tab-dd-btn');
   const label=(btn&&btn.textContent.trim())||TAB_LABELS[name]||'';
   const icon=(btn&&btn.querySelector('i'))?btn.querySelector('i').className:'fa fa-circle';
-  const tc=tabColor(name);
+  const tc=TAB_COLORS[name]||'var(--accent)';
   if(lb) lb.textContent=label;
   if(ic){ ic.className=icon; ic.style.color=tc; }
   if(b) b.style.setProperty('--tc',tc);
@@ -1318,7 +1291,7 @@ function renderLineupIQ(){
 let _liqSort={col:'pct',asc:false};
 function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:false}; renderLineupIQ(); } // first click = highest first, like every other table
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
-function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?(isLight()?'#8a6420':'#E0B67B'):'var(--red)'; }
+function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?'#E0B67B':'var(--red)'; }
 function renderStandingsTable(){
   const teams=[..._teams];
   const atCache={};
@@ -2907,9 +2880,7 @@ function gradeTint(hex,a){
   const n=parseInt(m[1],16);
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 }
-function gradeColor(g){const c=(g||'')[0];
-  if(isLight()) return c==='A'?'#12704b':c==='B'?'#4a6f16':c==='C'?'#8a6420':c==='D'?'#a04a1e':'#b02a35';
-  return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
+function gradeColor(g){const c=(g||'')[0];return c==='A'?'#3fd07a':c==='B'?'#a3e635':c==='C'?'#f4c04d':c==='D'?'#ff8f5a':'#ff5f5f';}
 function ppgGradeFor(owner){
   const m=allPPGScores();
   const entries=Object.entries(m).filter(([o,v])=>v>0);
