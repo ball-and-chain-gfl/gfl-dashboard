@@ -348,23 +348,21 @@ function allTimeH2H(idA,idB){
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
-/* ambient loop. To go back to the old grain video swap RB for V2 below. */
-const RB={type:'video', src:'/bg/vid/rb.mp4', msrc:'/bg/vid/rb-m.mp4', poster:'/bg/vid/rb.jpg', ov:0.42};
-const V2={type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0};
+// ── PER-PAGE BACKGROUNDS (one looping ambient video on every page) ──────────
 const PAGE_BG={
-  home: RB,
-  book: RB,
-  standings: RB,
-  trades: RB,
-  draft: RB,
-  history: RB,
-  tenure: RB,
-  teams: RB,
-  legacy: RB,
-  punishment: RB,
-  badbeat: RB,
-  gabe: RB,
-  marathon: RB,
+  home:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  book:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  standings: {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  trades:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  draft:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  history:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  tenure:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  teams:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  legacy:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  punishment:{type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  badbeat:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  gabe:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  marathon:  {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
 };
 function startPageBgVideo(vid,src){
   const go=()=>{ if(vid.dataset.src!==src) return; vid.src=src; vid.load();
@@ -583,11 +581,14 @@ document.addEventListener('touchmove',function(e){
   const t=e.touches&&e.touches[0]; if(!t) return;
   const btn=document.getElementById('tab-dd-btn'); if(!btn) return;
   const r=btn.getBoundingClientRect();
-  if(t.clientY<r.top-30||t.clientY>r.bottom+30) toggleTabDD(false);
+  if(t.clientY<r.top-30||t.clientY>r.bottom+30) toggleTabDD(false);   /* no-ops when closed */
 },{passive:true});
 let _navLockY=0;
+let _navLocked=false;
 function navLock(on){
   const html=document.documentElement, body=document.body;
+  if(!!on===_navLocked) return;          /* never touch scroll unless the state changes */
+  _navLocked=!!on;
   if(on){
     _navLockY=window.scrollY||window.pageYOffset||0;
     html.classList.add('nav-lock'); body.classList.add('nav-lock');
@@ -602,6 +603,7 @@ function navLock(on){
 function toggleTabDD(open){
   const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
   const show=(open===undefined)?!menu.classList.contains('show'):!!open;
+  if(show===menu.classList.contains('show')) return;   /* already in that state */
   if(show) buildTabDD();
   menu.classList.toggle('show',show);
   navLock(show);
@@ -628,7 +630,9 @@ function updateTabDD(name){
   document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===name));
   requestAnimationFrame(positionTabDD);
 }
-document.addEventListener('click',function(e){ const dd=document.getElementById('tab-dd'), mn=document.getElementById('tab-dd-menu'); if(dd&&!dd.contains(e.target)&&!(mn&&mn.contains(e.target))) toggleTabDD(false); });
+document.addEventListener('click',function(e){ const dd=document.getElementById('tab-dd'), mn=document.getElementById('tab-dd-menu');
+  if(!mn||!mn.classList.contains('show')) return;
+  if(dd&&!dd.contains(e.target)&&!(mn&&mn.contains(e.target))) toggleTabDD(false); });
 
 // ── PIN ────────────────────────────────────────────────────────────────────────
 function openPinOverlay(action){
