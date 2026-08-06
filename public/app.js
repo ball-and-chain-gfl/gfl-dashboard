@@ -620,10 +620,16 @@ const STILL_SEL='.tab-btn,.filter-btn,.week-btn,.hl-tab,.dr-vtab,.dr-sbtn,.brack
   +'.dm-sort,thead th,.tc-scope,.trade-scope,.dr-scope,.lq-sort,.liq-sort,.st-sort,summary';
 function keepStill(el){
   if(!el) return;
-  const before=el.getBoundingClientRect().top;
-  const fix=()=>{ if(!document.body.contains(el)) return;
-    const d=el.getBoundingClientRect().top-before;
-    if(Math.abs(d)>1&&Math.abs(d)<4000) window.scrollBy(0,d); };
+  /* re-renders replace the button itself, so also pin a container that survives */
+  const box=el.closest('.sec,.card,.tab-page')||el.parentElement;
+  const bEl=el.getBoundingClientRect().top, bBox=box?box.getBoundingClientRect().top:null;
+  const fix=()=>{
+    const live=document.body.contains(el)?el:(box&&document.body.contains(box)?box:null);
+    if(!live) return;
+    const base=(live===el)?bEl:bBox;
+    const d=live.getBoundingClientRect().top-base;
+    if(Math.abs(d)>1&&Math.abs(d)<4000) window.scrollBy(0,d);
+  };
   requestAnimationFrame(fix); setTimeout(fix,90); setTimeout(fix,260);
 }
 document.addEventListener('click',function(e){
