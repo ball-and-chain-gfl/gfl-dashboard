@@ -2598,7 +2598,7 @@ function renderMatchupOfWeek(){
   const odds=cfg.odds||{home:{},away:{}};
   const oddChip=(label,pct,cls)=>`<div class="odd-chip"><div class="odd-label">${label}</div><div class="odd-val ${cls}">${pct!=null?pct+'%':'—'}</div></div>`;
   el.innerHTML=`
-    <div class="motw-head">
+    <div class="motw-head home-box">
       <div class="motw-team">${logoImg(A.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${A.name}</div><div style="font-size:12px;color:var(--text3)">${A.wins}–${A.losses} · ${A.pf.toFixed(0)} PF</div></div></div>
       <div class="motw-vs">VS</div>
       <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${B.name}</div><div style="font-size:12px;color:var(--text3)">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
@@ -4040,19 +4040,19 @@ async function loadDashboard(){
           <div class="home-vid-col">
             <div class="sec">
               <div class="sec-head"><i class="fa-brands fa-youtube" style="color:#ff0000"></i>Ball &amp; Chain Media</div>
-              ${firstVid
+              <div class="home-box">${firstVid
                 ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
                   <div class="video-featured-title" id="vt">${firstVid.title}</div>
                   ${_videos.length>1?`<details class="vid-more"><summary><span>More Videos</span><i class="fa fa-chevron-down vid-caret"></i></summary>
                   <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div></details>`:''}`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
-              }
+              }</div>
             </div>
           </div>
           <div class="home-left-col">
             <div class="sec wm" data-wm="&#xf0e3;">
               <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
-              ${homePunishHTML()}
+              <div class="home-box">${homePunishHTML()}</div>
             </div>
             <div class="sec wm" data-wm="&#xf091;">
               <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
@@ -4064,7 +4064,7 @@ async function loadDashboard(){
         <div class="home-bottom">
           <div class="sec wm" data-wm="&#xf5dc;">
             <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric</div>
-            ${_cmMode==='none'
+            <div class="home-box home-cm">${_cmMode==='none'
               ?`<div class="tab-loading" style="padding:40px 20px">No coaching metric data available for the ${season} season.</div>`
               :(()=>{
                 const cmMax=Math.max(1,...Object.values(_scores).map(v=>Math.abs(v||0)));
@@ -4081,7 +4081,7 @@ async function loadDashboard(){
                     <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
                   </div>`;
                 }).join('');
-              })()}
+              })()}</div>
           </div>
           <div class="home-right">
             <!-- Matchup Headlines: hidden for now -->
