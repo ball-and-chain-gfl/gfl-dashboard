@@ -734,33 +734,6 @@
     .b4r-name{font-family:'Google Sans Flex',sans-serif;font-size:13px;font-weight:600;}
     .b4r-rec{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text2);}
     html[data-tabaccent=home] main{padding-bottom:96px;}
-
-    /* ── HOMEPAGE: fewer boxes. The section wrappers go transparent so the
-       modules inside (video, matchup facts, punishment strip, rows) read as the
-       content, not as cards inside cards. ───────────────────────────────────── */
-    html[data-theme="dark"] #page-home .home-top>.sec,
-    html[data-theme="dark"] #page-home .home-vid-col>.sec,
-    html[data-theme="dark"] #page-home .home-left-col>.sec,
-    html[data-theme="dark"] #page-home .home-bottom>.sec,
-    html[data-theme="dark"] #page-home .home-right>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-top>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-vid-col>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-left-col>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-bottom>.sec,
-    html[data-theme="dark"].has-pagebg #page-home .home-right>.sec{
-      background:none!important;border:none!important;box-shadow:none!important;
-      -webkit-backdrop-filter:none;backdrop-filter:none;padding:0!important;}
-    /* headings sit on the page with a hairline instead of a card edge */
-    #page-home .sec-head{padding:0 2px 10px;border-bottom:1px solid rgba(255,255,255,0.09);margin-bottom:14px;}
-    #page-home .sec{margin-bottom:26px;}
-    #page-home .home-vid-col,#page-home .home-left-col{gap:26px;}
-    /* the punishment strip keeps a surface so it doesn't float */
-    #page-home .home-punish{background:#242422;border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
-    #page-home .coaching-row{padding:12px 10px;border-radius:8px;}
-    @media(max-width:768px){
-      #page-home .sec{margin-bottom:22px;}
-      #page-home .home-vid-col,#page-home .home-left-col{gap:22px;}
-    }
     @media(max-width:768px){
       .b4r-item{padding:8px 15px;gap:7px;}
       .b4r-name{font-size:12px;}
