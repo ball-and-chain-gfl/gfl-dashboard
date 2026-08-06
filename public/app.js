@@ -349,7 +349,7 @@ function allTimeH2H(idA,idB){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 // ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
 /* ambient loop. To go back to the old grain video swap RB for V2 below. */
-const RB={type:'video', src:'/bg/vid/rb.mp4', msrc:'/bg/vid/rb-m.mp4', poster:'/bg/vid/rb.jpg', ov:0.62};
+const RB={type:'video', src:'/bg/vid/rb.mp4', msrc:'/bg/vid/rb-m.mp4', poster:'/bg/vid/rb.jpg', ov:0.42};
 const V2={type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0};
 const PAGE_BG={
   home: RB,
