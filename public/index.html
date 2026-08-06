@@ -1530,11 +1530,13 @@
          the dock, so nothing depends on guessing the dock's height */
       #sb-portal.on{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:0;z-index:190;
         pointer-events:none;}
-      #sb-portal .sb-sheet{pointer-events:auto;max-height:0;overflow:hidden;padding:0 10px;
+      #sb-portal .sb-sheet{pointer-events:auto;max-height:0;overflow:hidden;padding:0;
         transition:max-height .26s ease;}
       #sb-portal.open .sb-sheet{max-height:64vh;overflow:auto;}
-      #sb-portal .sb-slip{border-radius:12px 12px 0 0;background:rgba(8,8,10,0.97);
-        -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);}
+      /* the slip runs edge to edge on phones — no side gutters, no side border */
+      #sb-portal .sb-slip{border-radius:14px 14px 0 0;background:rgba(8,8,10,0.97);
+        -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+        margin:0;width:100%;border-left:none;border-right:none;border-bottom:none;}
       #sb-portal .sb-dock{pointer-events:auto;display:flex;align-items:center;gap:10px;
         padding:13px 16px calc(13px + env(safe-area-inset-bottom));
         background:rgba(8,8,10,0.96);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
