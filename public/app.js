@@ -1945,10 +1945,10 @@ const DRAFT_VIEWS={
            note:'Busts are early picks (first six rounds) that finished well below their draft slot at their position.'},
   best:   {grp:'drafts',all:true,  tab:'Best Drafts', icon:'fa-trophy', col:'var(--green)',
            title:()=>'Best Drafts Ever', badge:'positional Δ',
-           note:'Best Drafts Ever ranks every team-season by its summed positional Δ (position draft rank − position finish rank, summed across every pick).'},
+           note:'Best Drafts Ever ranks every team-season by its positional Δ (position draft rank − position finish rank, summed across every pick) measured against that season\'s league average, so different draft sizes and scoring years compare fairly.'},
   worst:  {grp:'drafts',all:true,  tab:'Worst Drafts', icon:'fa-fire', col:'var(--red)',
            title:()=>'Worst Drafts Ever', badge:'positional Δ',
-           note:'Worst Drafts Ever ranks every team-season by its summed positional Δ (position draft rank − position finish rank, summed across every pick).'},
+           note:'Worst Drafts Ever ranks every team-season by its positional Δ (position draft rank − position finish rank, summed across every pick) measured against that season\'s league average, so different draft sizes and scoring years compare fairly.'},
   steals: {grp:'picks', all:true,  tab:'Biggest Steals', icon:'fa-gem', col:'var(--green)',
            title:()=>'Biggest Steals Ever', badge:'beat draft slot',
            note:'Every pick from every season, ranked by how far it beat its draft slot at its position.'},
@@ -1974,12 +1974,23 @@ function draftYearData(season){
 }
 function draftAllData(){
   const {rows,teamDrafts}=_draftAllCache;
+  /* every draft class is scored against its own season's average, so 13-pick and
+     14-pick years — and years where more players beat their slot — compare fairly */
+  const classes=teamDrafts.map(d=>({...d,val:d.adj}));
   return {
     steals:rows.slice().sort((a,b)=>b.delta-a.delta).slice(0,10),
     busts:rows.filter(r=>r.overall<=72).sort((a,b)=>a.delta-b.delta).slice(0,10),
-    best:teamDrafts.slice().sort((a,b)=>b.total-a.total).slice(0,10),
-    worst:teamDrafts.slice().sort((a,b)=>a.total-b.total).slice(0,10),
+    best:classes.slice().sort((a,b)=>b.val-a.val).slice(0,10),
+    worst:classes.slice().sort((a,b)=>a.val-b.val).slice(0,10),
+    classes,
   };
+}
+/* grade colour for an all-time draft class, scaled across every class ever */
+function draftClassTint(val,classes){
+  const vs=(classes||[]).map(d=>d.val); if(vs.length<2) return null;
+  const mn=Math.min(...vs), mx=Math.max(...vs);
+  const t=mx>mn?(val-mn)/(mx-mn):1;
+  return gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);
 }
 function rankedListHTML(ranked){
   const vs=ranked.map(d=>d.val); const mn=Math.min(...vs),mx=Math.max(...vs);
@@ -2039,7 +2050,7 @@ function draftListsDesktopHTML(season){
   else{
     const d=v.all?draftAllData():draftYearData(season);
     const key=({ysteals:'steals',ybusts:'busts',steals:'steals',busts:'busts',best:'best',worst:'worst'})[_draftView];
-    right=drPanel(v,season,(d[key]||[]).map((r,i)=>v.grp==='drafts'?draftClassCard(r,i,true):draftPickCard(r,i,v.all)).join(''));
+    right=drPanel(v,season,(d[key]||[]).map((r,i)=>v.grp==='drafts'?draftClassCard(r,i,true,draftClassTint(r.val!=null?r.val:r.total,d.classes)):draftPickCard(r,i,v.all)).join(''));
   }
   return `<div class="dr-card">
     <div class="dr-left dr-tabbox">
@@ -2066,8 +2077,8 @@ function draftListsMobileHTML(season){
     if(drNeedAll()) body=drLoading();
     else{ const d=draftAllData();
       body=`<div class="dv-pair">
-        ${drPanel(DRAFT_VIEWS.best,season,d.best.map((r,i)=>draftClassCardMini(r,i,true)).join(''),'dr-mini')}
-        ${drPanel(DRAFT_VIEWS.worst,season,d.worst.map((r,i)=>draftClassCardMini(r,i,true)).join(''),'dr-mini')}
+        ${drPanel(DRAFT_VIEWS.best,season,d.best.map((r,i)=>draftClassCardMini(r,i,true,draftClassTint(r.val,d.classes))).join(''),'dr-mini')}
+        ${drPanel(DRAFT_VIEWS.worst,season,d.worst.map((r,i)=>draftClassCardMini(r,i,true,draftClassTint(r.val,d.classes))).join(''),'dr-mini')}
       </div>
       <div class="dr-note" style="margin-top:14px">${DRAFT_VIEWS.best.note}</div>`; }
   }else{
