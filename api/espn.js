@@ -65,6 +65,36 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(502).json({ error: err.message }); }
   }
 
+  // ── YOUTUBE FEED (shared) ────────────────────────────────────────────────────
+  // YouTube answers datacenter IPs with a random 404/500 roughly half the time,
+  // so try a few URL variants before giving up.
+  async function fetchYouTubeFeed() {
+    const cid = 'UCUoUwKYMkspanOjX5_6d5-Q';
+    const urls = [
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&hl=en`,
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}`,
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&hl=en&gl=US`,
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&persist_hl=1&hl=en`,
+    ];
+    const hdrs = {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+      'Accept': 'application/atom+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const u = urls[attempt % urls.length];
+      try {
+        const r = await fetch(u, { headers: hdrs });
+        if (r.ok) {
+          const xml = await r.text();
+          if (xml.includes('<entry>')) return xml;
+        }
+      } catch (e) { /* keep trying */ }
+      await new Promise(s => setTimeout(s, 120 + attempt * 80));
+    }
+    return null;
+  }
+
   // ── WIDGET PAYLOAD ───────────────────────────────────────────────────────────
   // One compact document for the iPhone home-screen widget: the newest Ball &
   // Chain video, a badge colour that rotates every week, and the matchup the
@@ -87,8 +117,7 @@ export default async function handler(req, res) {
 
     // newest video
     try {
-      const rssRes = await fetch('https://www.youtube.com/feeds/videos.xml?channel_id=UCUoUwKYMkspanOjX5_6d5-Q');
-      const xml = await rssRes.text();
+      const xml = (await fetchYouTubeFeed()) || '';
       const b = (xml.match(/<entry>([\s\S]*?)<\/entry>/) || [])[1] || '';
       const dec = s => String(s || '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
       const id = (b.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1] || null;
@@ -140,16 +169,16 @@ export default async function handler(req, res) {
       }
     } catch (err) { out.teamsError = err.message; }
 
-    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=900, stale-while-revalidate=3600');
+    res.setHeader('Cache-Control', out.video
+      ? 'public, max-age=300, s-maxage=900, stale-while-revalidate=86400'
+      : 'public, max-age=15, s-maxage=30');
     return res.status(200).json(out);
   }
 
   // ── YouTube RSS ──────────────────────────────────────────────────────────────
   if (type === 'youtube') {
-    const channelId = 'UCUoUwKYMkspanOjX5_6d5-Q';
     try {
-      const rssRes = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-      const xml    = await rssRes.text();
+      const xml = (await fetchYouTubeFeed()) || '';
       const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
       const videos  = entries.slice(0, 15).map(m => {
         const b = m[1];
@@ -162,6 +191,9 @@ export default async function handler(req, res) {
                         .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"'),
         };
       }).filter(v => v.videoId);
+      res.setHeader('Cache-Control', videos.length
+        ? 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'
+        : 'public, max-age=15, s-maxage=30');
       return res.status(200).json({ videos });
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }
