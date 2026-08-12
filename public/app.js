@@ -4621,5 +4621,72 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});
 else { buildTabDD(); positionTabDD(); }
+
+/* ── AUTO-UPDATE ────────────────────────────────────────────────────────────
+   Installed home-screen copies (Share → Add to Home Screen) run as a standalone
+   web app that iOS freezes and thaws for days without ever re-loading the page,
+   so a plain service-worker registration alone never notices a new build.
+   This watches the deployed build itself: HEAD /index.html + /app.js with
+   cache:'no-store' (HEAD skips the service worker, no-store skips the HTTP
+   cache) and compares their ETags with the ones the running copy booted from.
+   A change means a new deploy is live → refresh the SW, then reload once.
+   No version constant to bump: any push to main changes an ETag. */
+const UPD_WATCH=['/index.html','/app.js'];
+const UPD_POLL=5*60*1000;      // background poll while the app is open
+const UPD_IDLE=30*1000;        // if found mid-session, wait for a quiet moment
+const UPD_FLOOR=45*1000;       // never reload twice inside this window
+let _bootFp=null, _updPending=false, _idleTimer=null;
+
+async function updFingerprint(){
+  const parts=[];
+  for(const f of UPD_WATCH){
+    try{
+      const r=await fetch(f+'?fp='+Date.now(),{method:'HEAD',cache:'no-store'});
+      if(!r.ok) return null;
+      parts.push(r.headers.get('etag')||r.headers.get('last-modified')||'');
+    }catch(e){ return null; }   // offline: try again next time
+  }
+  const fp=parts.join('|');
+  return /[^|]/.test(fp)?fp:null;
+}
+function updReload(){
+  let last=0; try{ last=+(sessionStorage.getItem('gfl-upd-reload')||0); }catch(e){}
+  if(Date.now()-last<UPD_FLOOR) return;                 // guard against loops
+  try{ sessionStorage.setItem('gfl-upd-reload',String(Date.now())); }catch(e){}
+  location.reload();
+}
+async function updApply(){
+  try{
+    const reg=await navigator.serviceWorker.getRegistration();
+    if(reg){ await reg.update(); }                       // pull the new worker first
+  }catch(e){}
+  updReload();
+}
+function updArmIdle(){
+  clearTimeout(_idleTimer);
+  _idleTimer=setTimeout(()=>{ if(_updPending) updApply(); },UPD_IDLE);
+}
+async function updCheck(reason){
+  if(document.visibilityState!=='visible') return;
+  if(_updPending && reason==='resume') return updApply();
+  const fp=await updFingerprint();
+  if(!fp) return;
+  if(!_bootFp){ _bootFp=fp; return; }
+  if(fp===_bootFp) return;
+  if(reason==='resume') return updApply();              // safest moment to reload
+  _updPending=true; updArmIdle();                       // mid-session: wait for a pause
+}
+function initAutoUpdate(){
+  updFingerprint().then(fp=>{ if(fp&&!_bootFp) _bootFp=fp; });
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') updCheck('resume'); });
+  window.addEventListener('pageshow',()=>updCheck('resume'));
+  window.addEventListener('focus',()=>updCheck('resume'));
+  window.addEventListener('online',()=>updCheck('resume'));
+  setInterval(()=>updCheck('poll'),UPD_POLL);
+  ['pointerdown','keydown','scroll','touchstart'].forEach(ev=>
+    window.addEventListener(ev,()=>{ if(_updPending) updArmIdle(); },{passive:true}));
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initAutoUpdate); else initAutoUpdate();
+
 window.addEventListener('resize',()=>{ clearTimeout(window._ddRsz); window._ddRsz=setTimeout(positionTabDD,150); });
 window.addEventListener('orientationchange',()=>setTimeout(positionTabDD,300));

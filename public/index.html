@@ -2533,7 +2533,21 @@
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('/sw.js').then(function (reg) {
           reg.update();
-          setInterval(function () { reg.update(); }, 60 * 60 * 1000);
+          setInterval(function () { reg.update(); }, 30 * 60 * 1000);
+          // A standalone home-screen app is frozen while backgrounded, so timers
+          // stop: re-check for a new worker every time it comes back to the front.
+          var poke = function () { if (document.visibilityState === 'visible') { try { reg.update(); } catch (e) {} } };
+          document.addEventListener('visibilitychange', poke);
+          window.addEventListener('pageshow', poke);
+          window.addEventListener('focus', poke);
+          reg.addEventListener('updatefound', function () {
+            var nw = reg.installing || reg.waiting;
+            if (nw) nw.addEventListener('statechange', function () {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+              }
+            });
+          });
         }).catch(function () {});
       });
     }

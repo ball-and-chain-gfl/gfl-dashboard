@@ -4,7 +4,7 @@
 // app from getting stuck on an old cached version.
 // STATIC DATA (/data/*.json): stale-while-revalidate (fast; historical, rarely changes).
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v255';
+const CACHE = 'gfl-v256';
 const APP_SHELL = [
   '/', '/index.html', '/app.js', '/config.js',
   '/manifest.webmanifest', '/logo.png',
@@ -13,6 +13,10 @@ const APP_SHELL = [
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(APP_SHELL).catch(() => {})));
   self.skipWaiting();
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
@@ -46,10 +50,20 @@ self.addEventListener('fetch', (e) => {
   }
 
   // App shell + everything else same-origin: network-first, cache fallback.
+  // HTML/JS/CSS/manifest are fetched with cache:'no-store' so a stale HTTP-cache
+  // copy can never be handed back to an installed home-screen app.
+  const bustable = /\.(?:html|js|css|webmanifest|json)$/.test(url.pathname)
+    || url.pathname === '/' || request.mode === 'navigate';
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      const res = await fetch(request);
+      let res;
+      if (bustable) {
+        try { res = await fetch(request, { cache: 'no-store' }); }
+        catch (e2) { res = await fetch(request); }
+      } else {
+        res = await fetch(request);
+      }
       if (res && res.status === 200 && res.type === 'basic') cache.put(request, res.clone());
       return res;
     } catch (err) {
