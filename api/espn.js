@@ -109,10 +109,15 @@ export default async function handler(req, res) {
     return null;
   }
 
-  async function ytFromChannelPage() {
+  async function ytFromChannelPage(attempt = 0) {
     try {
-      const r = await fetch(`https://www.youtube.com/channel/${YT_CHANNEL}/videos?hl=en`, { headers: ytHeaders });
-      if (!r.ok) return null;
+      const urls = [
+        `https://www.youtube.com/channel/${YT_CHANNEL}/videos?hl=en`,
+        `https://m.youtube.com/channel/${YT_CHANNEL}/videos?hl=en`,
+        `https://www.youtube.com/channel/${YT_CHANNEL}/videos?hl=en&gl=US`,
+      ];
+      const r = await fetch(urls[attempt % urls.length], { headers: ytHeaders });
+      if (!r.ok) return attempt < 3 ? ytFromChannelPage(attempt + 1) : null;
       const html = await r.text();
       const out = [], seen = new Set();
       const re = /"videoId":"([\w-]{11})"/g;
@@ -131,7 +136,24 @@ export default async function handler(req, res) {
           thumb: ytThumb(id), description: '',
         });
       }
-      return out.length ? out : null;
+      if (out.length) return out;
+      return attempt < 3 ? ytFromChannelPage(attempt + 1) : null;
+    } catch (e) { return attempt < 3 ? ytFromChannelPage(attempt + 1) : null; }
+  }
+
+  // last resort: the snapshot committed at public/data/videos.json, refreshed by
+  // the scheduled GitHub Action. Keeps the widget and the video list populated
+  // even when YouTube refuses every request from this IP.
+  async function ytFromSnapshot(req) {
+    try {
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      if (!host) return null;
+      const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0];
+      const r = await fetch(`${proto}://${host}/data/videos.json`);
+      if (!r.ok) return null;
+      const j = await r.json();
+      const list = Array.isArray(j) ? j : (j.videos || []);
+      return list.length ? list.map(v => ({ ageText: null, description: '', thumb: ytThumb(v.videoId), ...v, stale: true })) : null;
     } catch (e) { return null; }
   }
 
@@ -146,7 +168,7 @@ export default async function handler(req, res) {
   }
 
   async function ytVideos({ withDescription = true } = {}) {
-    const list = (await ytFromRSS()) || (await ytFromChannelPage()) || [];
+    const list = (await ytFromRSS()) || (await ytFromChannelPage()) || (await ytFromSnapshot(req)) || [];
     if (withDescription && list.length && !list[0].description) {
       list[0].description = await ytDescription(list[0].videoId);
     }
