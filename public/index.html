@@ -118,7 +118,10 @@
     .top-grid .sec,.two-col .sec{margin-bottom:0;}
     .sec-head{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;padding:2px 2px 14px;flex-wrap:wrap;}
     .sec-head i{color:var(--accent);}
-    html,body{overflow-x:hidden;max-width:100%;}
+    /* clip, never hidden, on body: `hidden` makes body its own scroll container and
+       iOS then scrolls fixed elements (the nav and the reel) along with the page */
+    html{overflow-x:hidden;}
+    body{overflow-x:clip;overflow-y:visible;max-width:100%;}
     .big4-grid>*,.stat-grid>*,.headline-grid>*{min-width:0;}
 
     /* BALLS BIG 4 */
@@ -997,11 +1000,11 @@
 
 
     /* ── Scroll + header/nav fixes ─────────────────────────────────────── */
-    html,body{overflow-x:clip;}                 /* clip (not hidden) so wheel scroll works */
+    html{overflow-x:clip;}   body{overflow-x:clip;overflow-y:visible;}   /* clip keeps body out of the scroll chain */
     html{scrollbar-gutter:stable;}
     @media(max-width:768px){
       html{overflow-x:hidden!important;}
-      body{overflow-x:hidden!important;max-width:100%;}
+      body{overflow-x:clip!important;overflow-y:visible!important;max-width:100%;}
       main,footer,#floatnav,.tab-dd-menu{max-width:100%;}
     }
     html.nav-lock,body.nav-lock{overflow:hidden;}   /* lock page scroll while drawer open */
