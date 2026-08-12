@@ -95,6 +95,41 @@ export default async function handler(req, res) {
     return null;
   }
 
+  // ── YOUTUBE SOURCE DIAGNOSTIC ────────────────────────────────────────────────
+  // Which way of reading the channel actually works from Vercel's IPs?
+  // Visit: /api/espn?type=ytdiag
+  if (type === 'ytdiag') {
+    const cid = 'UCUoUwKYMkspanOjX5_6d5-Q';
+    const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+    const tries = [
+      ['rss www',        `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&hl=en`],
+      ['rss bare',       `https://youtube.com/feeds/videos.xml?channel_id=${cid}`],
+      ['rss m',          `https://m.youtube.com/feeds/videos.xml?channel_id=${cid}`],
+      ['channel page',   `https://www.youtube.com/channel/${cid}/videos?hl=en`],
+      ['channel mobile', `https://m.youtube.com/channel/${cid}/videos?hl=en`],
+      ['embed page',     `https://www.youtube.com/embed/videoseries?list=UU${cid.slice(2)}`],
+      ['uploads rss',    `https://www.youtube.com/feeds/videos.xml?playlist_id=UU${cid.slice(2)}`],
+    ];
+    const out = [];
+    for (const [name, url] of tries) {
+      const rec = { name, url };
+      try {
+        const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9', 'Accept': '*/*' } });
+        rec.status = r.status;
+        const body = await r.text();
+        rec.bytes = body.length;
+        rec.hasEntry = body.includes('<entry>');
+        const vid = (body.match(/"videoId":"([\w-]{11})"/) || body.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/) || [])[1] || null;
+        rec.firstVideoId = vid;
+        const ttl = (body.match(/<title>([^<]{3,120})<\/title>/) || body.match(/"title":\{"runs":\[\{"text":"([^"]{3,120})"/) || [])[1] || null;
+        rec.firstTitle = ttl;
+      } catch (e) { rec.error = e.message; }
+      out.push(rec);
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ tried: out });
+  }
+
   // ── WIDGET PAYLOAD ───────────────────────────────────────────────────────────
   // One compact document for the iPhone home-screen widget: the newest Ball &
   // Chain video, a badge colour that rotates every week, and the matchup the
