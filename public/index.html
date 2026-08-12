@@ -1984,7 +1984,7 @@
       box-shadow:none!important;
     }
     /* tie the card headings to the gold accent */
-    #page-home .sec-head i{color:#E0B67B;}
+    #page-home .sec-head i{color:var(--accent);}
     #page-home .home-punish-more{color:#E0B67B;border-color:rgba(224,182,123,0.4);}
     #page-home .home-punish-more:hover{color:#E0B67B;border-color:#E0B67B;}
 
@@ -2409,6 +2409,32 @@
       font-family:"roca",sans-serif!important;font-weight:400!important;font-size:20px!important;}
     /* the draft mini-cards keep their compact heading size */
     .dr-mini>.section-header{font-size:13px!important;}
+  
+    /* ── HOMEPAGE: each module carries its own tab colour ──────────────────
+       Overriding --accent/--accent-rgb on the module wrapper is enough: every
+       icon, border, bar and CTA inside already reads those two properties.
+       Media and Matchup of the Week inherit the page's gold, unchanged. */
+    #page-home .mod-punish{--accent:#ff5f5f;--accent-rgb:255,95,95;}
+    #page-home .mod-cm{--accent:#5aa9ff;--accent-rgb:90,169,255;}
+    #page-home .motw-book{--accent:#3fd07a;--accent-rgb:63,208,122;}
+    #page-home .home-punish-more{color:var(--accent);border-color:rgba(var(--accent-rgb),0.4);}
+    #page-home .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}
+
+    /* ── Punishment of the Week: no heading, a solid punishment-red box ────
+       #242422 on #ff5f5f is 5.3:1, so every label, name, icon and the CTA are
+       set in it solid rather than at an opacity that would drop below 4.5:1. */
+    #page-home .punish-box{background:#ff5f5f!important;border:0!important;
+      border-radius:10px!important;padding:14px 16px!important;}
+    #page-home .punish-box .home-punish-week{color:#242422;font-weight:600;opacity:1;}
+    #page-home .punish-box .home-punish-name,
+    #page-home .punish-box .home-punish-note{color:#242422;}
+    #page-home .punish-box .home-punish-ic{background:rgba(36,36,34,0.16);
+      border:1px solid rgba(36,36,34,0.32);color:#242422;}
+    #page-home .punish-box .home-punish-more{color:#242422!important;
+      border-color:rgba(36,36,34,0.45)!important;background:rgba(255,255,255,0.22);font-weight:600;}
+    #page-home .punish-box .home-punish-more:hover{color:#ff5f5f!important;
+      background:#242422;border-color:#242422!important;}
+    #page-home .mod-punish.wm::before,#page-home .mod-punish.wm::after{opacity:0.05;}
   </style>
 </head>
 <body>

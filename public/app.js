@@ -4385,9 +4385,8 @@ async function loadDashboard(){
             </div>
           </div>
           <div class="home-left-col">
-            <div class="sec wm" data-wm="&#xf0e3;">
-              <div class="sec-head"><i class="fa fa-gavel"></i>Punishment of the Week</div>
-              <div class="home-box">${homePunishHTML()}</div>
+            <div class="sec wm mod-punish" data-wm="&#xf0e3;">
+              <div class="home-box punish-box">${homePunishHTML()}</div>
             </div>
             <div class="sec wm" data-wm="&#xf091;">
               <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
@@ -4397,7 +4396,7 @@ async function loadDashboard(){
         </div>
         <!-- Row 2: Coaching Metric (left) + [Big4 top, Headlines bottom] (right) -->
         <div class="home-bottom">
-          <div class="sec wm" data-wm="&#xf5dc;">
+          <div class="sec wm mod-cm" data-wm="&#xf5dc;">
             <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric</div>
             <div class="home-box home-cm">${_cmMode==='none'
               ?`<div class="tab-loading" style="padding:40px 20px">No coaching metric data available for the ${season} season.</div>`
