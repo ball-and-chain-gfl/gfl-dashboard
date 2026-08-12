@@ -1671,6 +1671,29 @@
       .ov-head>span{font-size:9.5px;}
     }
     /* ── Biggest Enemies (team profile) ── */
+    /* ── RIVALS (team profile) ── */
+    .rv-list{display:flex;flex-direction:column;}
+    .rv-head,.rv-row{display:grid;grid-template-columns:58px minmax(0,1fr) 74px 54px 92px;align-items:center;gap:10px;
+      padding:10px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
+    .rv-head{padding:0 2px 7px;border-bottom:1px solid rgba(255,255,255,0.12);}
+    .rv-head>span{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+    .rv-row:last-child{border-bottom:none;}
+    .rv-row .r{text-align:right;font-family:'Inter',sans-serif;font-size:13px;white-space:nowrap;}
+    .rv-head .r{text-align:right;}
+    .rv-wk{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;}
+    .rv-team{display:flex;align-items:center;gap:9px;min-width:0;}
+    .rv-nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rv-rec{font-weight:700;}
+    .rv-pf{color:var(--text3);font-size:12px;}
+    html[data-theme="light"] .rv-row{border-bottom-color:rgba(0,0,0,0.07);}
+    html[data-theme="light"] .rv-head{border-bottom-color:rgba(0,0,0,0.14);}
+    @media(max-width:768px){
+      .rv-head,.rv-row{grid-template-columns:44px minmax(0,1fr) 62px 44px;gap:7px;padding:9px 0;}
+      .rv-head .rv-pf,.rv-row .rv-pf{display:none;}
+      .rv-row .r{font-size:12px;}
+      .rv-nm{font-size:12.5px;}
+      .rv-wk{font-size:11px;}
+    }
     .en-list{display:flex;flex-direction:column;}
     .en-row{display:grid;grid-template-columns:22px minmax(0,1fr) 62px 54px 50px;align-items:center;gap:10px;
       padding:8px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}

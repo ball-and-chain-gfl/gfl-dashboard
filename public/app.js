@@ -3102,6 +3102,65 @@ function enemiesFor(owner){
   });
   return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
 }
+/* ── RIVALS ──────────────────────────────────────────────────────────────────
+   A manager's rivals are whoever they played in weeks 12, 13 and 14 of 2025.
+   That schedule is the source of truth — earlier years paired those weeks
+   differently, so we only read 2025 and then look the records up all-time. */
+const RIVAL_SEASON='2025';
+const RIVAL_WEEKS=[12,13,14];
+function rivalsFor(owner){
+  const meta=_seasonMeta[RIVAL_SEASON]; if(!meta||!meta.schedule) return [];
+  const owners=meta.owners||{};
+  const out=[];
+  meta.schedule.forEach(mu=>{
+    if(!mu.home||!mu.away) return;
+    const wk=mu.matchupPeriodId;
+    if(!RIVAL_WEEKS.includes(wk)) return;
+    const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
+    if(!ho||!ao||ho===ao) return;
+    if(ho!==owner&&ao!==owner) return;
+    const oppOwner=(ho===owner)?ao:ho;
+    const mine=(ho===owner)?mu.home:mu.away, theirs=(ho===owner)?mu.away:mu.home;
+    // all-time head to head, every season, regular season and playoffs
+    const key=owner<oppOwner?`${owner}|${oppOwner}`:`${oppOwner}|${owner}`;
+    const k=_h2hAll[key]||{};
+    const m=k[owner], o=k[oppOwner];
+    const g=m?m.games:0, w=m?m.w:0, t=m?m.t:0;
+    const fr=_franchises.find(f=>f.owner===oppOwner);
+    const nm=(fr&&fr.name)||meta.names?.[oppOwner]?.name||'Unknown';
+    out.push({
+      week:wk, owner:oppOwner, name:nm,
+      teamId:(fr&&fr.teamId)||meta.names?.[oppOwner]?.teamId||0,
+      logo:(fr&&fr.logo)||meta.names?.[oppOwner]?.logo||null,
+      w, l:Math.max(0,g-w-t), t, g, pct:g?w/g:0,
+      pf:m?m.pf:0, pa:o?o.pf:0,
+      lastPts:(mine.totalPoints||0), lastOppPts:(theirs.totalPoints||0),
+    });
+  });
+  return out.sort((x,y)=>x.week-y.week);
+}
+function rivalsHTML(owner){
+  const rows=rivalsFor(owner);
+  if(!rows.length) return `<div class="tab-loading" style="padding:22px 12px">No ${RIVAL_SEASON} rivalry-week matchups for this manager.</div>`;
+  return `<div class="rv-list">${rows.map(r=>{
+    const col=r.g?scaleTwo(r.pct):'var(--text2)';
+    const rec=`${r.w}–${r.l}${r.t?`–${r.t}`:''}`;
+    return `<div class="rv-row">
+      <span class="rv-wk">Wk ${r.week}</span>
+      <span class="rv-team">${avatarCore(r.name,r.teamId||0,proxyLogo(r.logo),22,6)}<span class="rv-nm tlink" data-tid="${r.teamId||''}">${r.name}</span></span>
+      <span class="r rv-rec">${rec}</span>
+      <span class="r rv-pct" style="color:${col}">${r.g?(r.pct*100).toFixed(0)+'%':'—'}</span>
+      <span class="r rv-pf">${r.g?`${Math.round(r.pf)}–${Math.round(r.pa)}`:'—'}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+/* green when they own the matchup, red when they don't */
+function scaleTwo(pct){
+  if(pct>=0.66) return 'var(--green)';
+  if(pct>=0.5)  return 'var(--accent)';
+  if(pct>=0.34) return '#ff8f5a';
+  return 'var(--red)';
+}
 function enemiesHTML(owner){
   const list=enemiesFor(owner);
   if(!list){ loadLineups();
@@ -3340,6 +3399,11 @@ async function renderProfile(){
         <div class="prof-col panel prof-dg">
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>Draft Grades<span class="badge-info">by season</span></div>
           <div id="prof-draftgrades">${profileDraftBlockHTML(owner)}</div>
+        </div>
+        <div class="prof-col panel prof-rv">
+          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-fire" style="color:var(--accent)"></i>Rivals<span class="badge-info">${RIVAL_SEASON} weeks ${RIVAL_WEEKS.join(', ')}</span></div>
+          <div class="rv-head"><span class="rv-wk">Week</span><span class="rv-team">Rival</span><span class="r">All-time</span><span class="r">Win%</span><span class="r">PF–PA</span></div>
+          <div id="prof-rivals">${rivalsHTML(owner)}</div>
         </div>
         <div class="prof-col panel">
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-skull-crossbones" style="color:var(--red)"></i>Biggest Enemies<span class="badge-info">most points scored against them</span></div>
