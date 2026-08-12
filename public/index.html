@@ -1672,6 +1672,46 @@
       .ov-head>span{font-size:9.5px;}
     }
     /* ── Biggest Enemies (team profile) ── */
+    /* ── TWO-KEY SIGN IN ── */
+    #me-btn{position:fixed;right:16px;bottom:16px;z-index:420;width:46px;height:46px;padding:0;
+      border-radius:999px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+      background:rgba(18,18,17,0.74);border:1px solid rgba(255,255,255,0.16);color:#f7f8ec;
+      -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+      box-shadow:0 16px 34px -20px rgba(0,0,0,0.9);transition:background .18s,border-color .18s;}
+    #me-btn i{font-size:16px;}
+    #me-btn.on{background:rgba(var(--accent-rgb),0.9);border-color:rgb(var(--accent-rgb));color:#0d0d0f;}
+    #me-btn:hover{border-color:rgba(255,255,255,0.32);}
+    .me-ini{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;letter-spacing:.3px;}
+    /* the Big 4 reel owns the bottom of the homepage — lift the button above it */
+    html[data-tabaccent=home] #me-btn{bottom:70px;}
+    #si-modal{position:fixed;inset:0;z-index:520;display:none;align-items:center;justify-content:center;padding:20px;
+      background:rgba(6,6,9,0.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
+    #si-modal.show{display:flex;}
+    .si-box{width:min(360px,100%);background:#242422;border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;
+      box-shadow:0 40px 80px -40px rgba(0,0,0,0.95);}
+    .si-head{display:flex;align-items:center;gap:9px;font-family:'Google Sans Flex',sans-serif;font-size:16px;font-weight:700;
+      padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+    .si-head i{color:var(--accent);font-size:14px;}
+    .si-x{margin-left:auto;background:rgba(255,255,255,0.06);border:none;border-radius:999px;width:26px;height:26px;
+      color:var(--text2);cursor:pointer;padding:0;box-shadow:none;display:inline-flex;align-items:center;justify-content:center;}
+    .si-l{display:block;font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.6px;
+      color:var(--text3);margin:0 0 5px;}
+    .si-i{width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+      color:var(--text);font-size:14px;font-family:inherit;margin-bottom:12px;box-sizing:border-box;}
+    .si-i:focus{outline:2px solid rgba(var(--accent-rgb),0.5);outline-offset:1px;}
+    .si-go{width:100%;background:rgb(var(--accent-rgb));color:#0d0d0f;border:none;border-radius:8px;padding:11px;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;}
+    .si-note{margin-top:11px;font-size:11.5px;line-height:1.5;color:var(--text3);}
+    .si-msg{margin-top:10px;font-size:12px;color:var(--text2);min-height:16px;}
+    .si-msg.bad{color:var(--red);}
+    .si-in{font-size:14px;margin-bottom:14px;}
+    .si-in b{color:var(--accent);}
+    .si-sub{font-size:12px;color:var(--text3);margin-top:4px;}
+    @media(max-width:768px){
+      #me-btn{width:42px;height:42px;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);}
+      html[data-tabaccent=home] #me-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 62px);}
+      .si-box{padding:16px 15px 14px;}
+    }
     /* ── UPCOMING SCHEDULE ── */
     .sch-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:18px;}
     .sch-chip{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;}
@@ -2293,6 +2333,14 @@
 <div class="bg-fx" aria-hidden="true"></div>
 <div id="nav-scrim" aria-hidden="true" onclick="toggleTabDD(false)"></div>
 <!-- Balls Big 4 news reel: homepage only, scrolls along the bottom -->
+<button id="me-btn" onclick="openSignIn()" aria-label="Sign in" title="Sign in"><i class="fa fa-user"></i></button>
+<div id="si-modal" onclick="if(event.target===this)closeSignIn()">
+  <div class="si-box">
+    <div class="si-head"><i class="fa fa-key"></i>Two-key sign in<button class="si-x" onclick="closeSignIn()" aria-label="Close"><i class="fa fa-xmark"></i></button></div>
+    <div id="si-body"></div>
+    <div id="si-msg" class="si-msg"></div>
+  </div>
+</div>
 <div id="big4-reel">
   <span class="b4r-title">Balls Big 4</span>
   <button class="b4r-nav" id="b4r-prev" aria-label="Scroll left"><i class="fa fa-chevron-left"></i></button>
