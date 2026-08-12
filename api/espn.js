@@ -65,6 +65,85 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(502).json({ error: err.message }); }
   }
 
+  // ── WIDGET PAYLOAD ───────────────────────────────────────────────────────────
+  // One compact document for the iPhone home-screen widget: the newest Ball &
+  // Chain video, a badge colour that rotates every week, and the matchup the
+  // video is about (detected from its title/description, same as the site).
+  // Visit: /api/widget  or  /api/espn?type=widget
+  if (type === 'widget') {
+    const BADGE_COLORS = ['#3fd07a','#5aa9ff','#E0B67B','#e879f9','#33d6c4','#ff8f5a','#b58cff','#a3e635'];
+    // ISO-ish week index, stable for everyone in the league
+    const isoWeek = d => {
+      const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+      const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+      return Math.ceil((((t - y0) / 86400000) + 1) / 7);
+    };
+    const now = new Date();
+    const week = isoWeek(now);
+    const badge = { text: 'New B&C Video', color: BADGE_COLORS[(week + now.getUTCFullYear()) % BADGE_COLORS.length], week };
+
+    const out = { generated: now.toISOString(), season, badge, video: null, matchup: null };
+
+    // newest video
+    try {
+      const rssRes = await fetch('https://www.youtube.com/feeds/videos.xml?channel_id=UCUoUwKYMkspanOjX5_6d5-Q');
+      const xml = await rssRes.text();
+      const b = (xml.match(/<entry>([\s\S]*?)<\/entry>/) || [])[1] || '';
+      const dec = s => String(s || '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
+      const id = (b.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1] || null;
+      if (id) {
+        const published = (b.match(/<published>(.*?)<\/published>/) || [])[1] || null;
+        out.video = {
+          videoId: id,
+          title: dec((b.match(/<title>(.*?)<\/title>/) || [])[1] || 'Untitled'),
+          description: dec((b.match(/<media:description>([\s\S]*?)<\/media:description>/) || [])[1] || ''),
+          published,
+          ageDays: published ? Math.max(0, Math.floor((now - new Date(published)) / 86400000)) : null,
+          thumb: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+          thumbFallback: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+          url: `https://www.youtube.com/watch?v=${id}`,
+        };
+      }
+    } catch (err) { out.videoError = err.message; }
+
+    // teams for the current season, then find the two named in the video
+    try {
+      const r = await fetch(leagueURL(['mTeam','mSettings'], { forceLive: true }), { headers });
+      if (r.ok) {
+        const d = unwrap(await r.json());
+        const teams = (d.teams || []).map(t => ({
+          id: t.id,
+          name: (t.name || `${t.location || ''} ${t.nickname || ''}`).trim(),
+          wins: t.record?.overall?.wins ?? 0,
+          losses: t.record?.overall?.losses ?? 0,
+          pf: Math.round((t.record?.overall?.pointsFor ?? 0) * 10) / 10,
+        }));
+        out.week = d.status?.currentMatchupPeriod ?? null;
+        const text = ((out.video?.description || '') + ' ' + (out.video?.title || '')).toLowerCase();
+        if (text.trim() && teams.length) {
+          const STOP = new Set(['team','the','football','fantasy','league','man','and','for','with','3rd','leg']);
+          const hits = [];
+          teams.forEach(t => {
+            const words = t.name.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !STOP.has(w));
+            let firstIdx = Infinity, n = 0;
+            words.forEach(w => { const i = text.indexOf(w); if (i >= 0) { n++; firstIdx = Math.min(firstIdx, i); } });
+            if (n > 0) hits.push({ t, firstIdx });
+          });
+          hits.sort((x, y) => x.firstIdx - y.firstIdx);
+          const seen = new Set(), pick = [];
+          hits.forEach(hh => { if (!seen.has(hh.t.id)) { seen.add(hh.t.id); pick.push(hh.t); } });
+          if (pick.length >= 2) out.matchup = { a: pick[0], b: pick[1] };
+        }
+        out.standings = teams.slice().sort((x, y) =>
+          (y.wins - y.losses) - (x.wins - x.losses) || y.pf - x.pf).slice(0, 3);
+      }
+    } catch (err) { out.teamsError = err.message; }
+
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=900, stale-while-revalidate=3600');
+    return res.status(200).json(out);
+  }
+
   // ── YouTube RSS ──────────────────────────────────────────────────────────────
   if (type === 'youtube') {
     const channelId = 'UCUoUwKYMkspanOjX5_6d5-Q';
