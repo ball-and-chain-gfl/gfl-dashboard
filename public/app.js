@@ -514,6 +514,7 @@ function switchTab(name){
   }
   const h1=document.getElementById('page-h1');
   if(h1) h1.textContent=TAB_LABELS[name]||'';
+  try{ h1FontApply(); }catch(e){}
   updateTabDD(name);
   scrollNavToActive();
 }
@@ -3090,6 +3091,35 @@ function enemiesFor(owner){
   });
   return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
 }
+/* ── TEMPORARY: page-title font tryout ──────────────────────────────────────
+   Cycles the bold faces in the Adobe kit so the h1 can be judged in place.
+   Remove this block, the #h1font-btn markup and its CSS when a winner is picked. */
+const H1_FONTS=[
+  {label:'Google Sans Flex (current)', stack:"'Google Sans Flex',Georgia,serif", weight:700},
+  {label:'Roca 700',                   stack:'"roca",sans-serif',               weight:700},
+  {label:'Roca 800',                   stack:'"roca",sans-serif',               weight:800},
+  {label:'Alga 700',                   stack:'"alga",serif',                    weight:700},
+  {label:'Dolly 700',                  stack:'"dolly-new",serif',               weight:700},
+  {label:'Legitima 500',               stack:'"legitima",serif',                weight:500},
+  {label:'Dolly Small Caps',           stack:'"dolly-small-caps-new",serif',    weight:400},
+];
+let _h1Font=0;
+function h1FontApply(){
+  const f=H1_FONTS[_h1Font%H1_FONTS.length];
+  const h1=document.getElementById('page-h1'); if(!h1) return;
+  h1.style.fontFamily=f.stack; h1.style.fontWeight=f.weight;
+  let tag=document.getElementById('h1font-name');
+  if(!tag){ tag=document.createElement('div'); tag.id='h1font-name'; h1.insertAdjacentElement('afterend',tag); }
+  tag.textContent=`title font: ${f.label} — tap Aa for the next one`;
+  try{ localStorage.setItem('gfl-h1font',String(_h1Font)); }catch(e){}
+}
+function h1FontNext(){ _h1Font=(_h1Font+1)%H1_FONTS.length; h1FontApply(); }
+function h1FontInit(){
+  try{ const s=parseInt(localStorage.getItem('gfl-h1font')||'0',10); if(!isNaN(s)) _h1Font=s; }catch(e){}
+  h1FontApply();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',h1FontInit); else h1FontInit();
+
 // ── TWO-KEY SIGN IN ──────────────────────────────────────────────────────────
 /* Deliberately informal: two keys address a document in Firestore and unlock
    whatever that profile remembers. No accounts, no email, no auth provider.
