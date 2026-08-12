@@ -1089,7 +1089,7 @@
     #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;order:2;}
     /* icon + hamburger only — the page name lives in the h1 now */
     #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;
-      justify-content:center;gap:8px;width:86px;height:44px;box-sizing:border-box;
+      justify-content:center;gap:8px;width:100px;height:44px;box-sizing:border-box;
       background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:8px;
       padding:0 8px 0 12px;color:var(--text);font-size:14px;font-weight:700;letter-spacing:0.2px;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:background .15s,border-color .15s;}
@@ -1125,18 +1125,28 @@
     @media(max-width:768px){
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
       #floatnav .logo img{height:40px;}
-      #floatnav #tab-dd-btn{font-size:13px;height:40px;width:74px;padding:0 6px 0 9px;}
-      #floatnav #season-select{height:40px;width:auto;min-width:74px;font-size:12.5px;padding:0 28px 0 12px;}
-      .tab-dd-menu{right:10px;width:min(340px,calc(100% - 20px));}
+      #floatnav #tab-dd-btn{font-size:13px;height:40px;width:82px;padding:0 7px 0 10px;}
+      #floatnav #season-select{height:40px;width:82px;font-size:13px;padding:0 26px 0 12px;}
+      #me-btn{width:40px;height:40px;}
       .nav-burger{width:28px;height:28px;}
-      .tab-dd-menu{top:var(--ddtop,calc(env(safe-area-inset-top,0px) + 72px));}
+      .tab-dd-menu{right:10px;width:min(340px,calc(100% - 20px));
+        top:var(--ddtop,calc(env(safe-area-inset-top,0px) + 72px));}
       main{padding-top:calc(env(safe-area-inset-top,0px) + 84px);}
+    }
+    /* narrowest phones: pull the row in so all four controls still breathe */
+    @media(max-width:360px){
+      #floatnav{gap:6px;padding:7px 8px;}
+      #floatnav .logo img{height:36px;}
+      #floatnav #tab-dd-btn{width:74px;height:36px;padding:0 6px 0 8px;}
+      #floatnav #season-select{width:74px;height:36px;font-size:12.5px;padding:0 24px 0 10px;}
+      #me-btn{width:36px;height:36px;}
+      .nav-burger{width:26px;height:26px;}
     }
     /* modern season pill */
     #floatnav #season-select{order:1;margin:0!important;flex:0 0 auto;}
     /* width follows the content so the year can never clip, with a floor so it still
        matches the menu button */
-    #season-select{height:44px;width:auto;min-width:86px;box-sizing:border-box;text-align:center;font-size:13px;padding:0 32px 0 15px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.16);border-radius:8px;
+    #season-select{height:44px;width:100px;box-sizing:border-box;text-align:center;font-size:13.5px;padding:0 30px 0 14px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.16);border-radius:8px;
       padding:8px 30px 8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.6px;
       text-transform:uppercase;color:var(--text);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
       -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
