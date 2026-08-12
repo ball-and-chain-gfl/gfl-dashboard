@@ -16,11 +16,49 @@ const cache = fm.joinPath(fm.cacheDirectory(), 'gfl-widget-cache.json');
 const imgDir= fm.joinPath(fm.cacheDirectory(), 'gfl-widget-img');
 if (!fm.fileExists(imgDir)) fm.createDirectory(imgDir, true);
 
+/* YouTube blocks datacenter IPs (Vercel, GitHub, everything), but a phone on
+   wifi or cellular reads the feed fine — so ask YouTube directly here and treat
+   the API's copy as the fallback rather than the source of truth. */
+async function newestFromYouTube() {
+  const urls = [
+    'https://www.youtube.com/feeds/videos.xml?channel_id=UCUoUwKYMkspanOjX5_6d5-Q&hl=en',
+    'https://www.youtube.com/feeds/videos.xml?channel_id=UCUoUwKYMkspanOjX5_6d5-Q',
+  ];
+  for (const u of urls) {
+    try {
+      const xml = await new Request(u).loadString();
+      const entry = (xml.match(/<entry>([\s\S]*?)<\/entry>/) || [])[1];
+      if (!entry) continue;
+      const id = (entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1];
+      if (!id) continue;
+      const dec = t => String(t || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+      const published = (entry.match(/<published>(.*?)<\/published>/) || [])[1] || null;
+      return {
+        videoId: id,
+        title: dec((entry.match(/<title>(.*?)<\/title>/) || [])[1] || 'Untitled'),
+        published,
+        ageDays: published ? Math.max(0, Math.floor((Date.now() - new Date(published)) / 86400000)) : null,
+        ageText: null,
+        thumb: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+        thumbFallback: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+      };
+    } catch (e) { /* try the next url */ }
+  }
+  return null;
+}
+
 async function getData() {
+  let d = null;
   try {
-    const d = await new Request(`${API}?t=${Date.now()}`).loadJSON();
-    if (d && d.badge) { fm.writeString(cache, JSON.stringify(d)); return d; }
-  } catch (e) { /* fall through to the cached copy */ }
+    d = await new Request(`${API}?t=${Date.now()}`).loadJSON();
+  } catch (e) { /* offline — cached copy below */ }
+  if (d && d.badge) {
+    const live = await newestFromYouTube();
+    if (live) d.video = live;                     // phone-fresh beats server-cached
+    fm.writeString(cache, JSON.stringify(d));
+    return d;
+  }
   try { return JSON.parse(fm.readString(cache)); } catch (e) { return null; }
 }
 

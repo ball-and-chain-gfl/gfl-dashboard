@@ -230,8 +230,32 @@ export default async function handler(req, res) {
           wins: t.record?.overall?.wins ?? 0,
           losses: t.record?.overall?.losses ?? 0,
           pf: Math.round((t.record?.overall?.pointsFor ?? 0) * 10) / 10,
+          logo: t.logo || null,
         }));
         out.week = d.status?.currentMatchupPeriod ?? null;
+
+        // the site's featured matchup comes from public/config.js — read the same
+        // values so the widget always agrees with the homepage
+        let cfg = null;
+        try {
+          const host = req.headers['x-forwarded-host'] || req.headers.host;
+          const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0];
+          const cr = await fetch(`${proto}://${host}/config.js`);
+          if (cr.ok) {
+            const js = await cr.text();
+            const block = (js.match(/matchup:\s*\{([\s\S]*?)\n\s*\},/) || [])[1] || '';
+            cfg = {
+              week: parseInt((block.match(/week:\s*(\d+)/) || [])[1] || '', 10) || null,
+              home: (block.match(/home:\s*"([^"]*)"/) || [])[1] || '',
+              away: (block.match(/away:\s*"([^"]*)"/) || [])[1] || '',
+            };
+          }
+        } catch (e) { /* fall back to detection below */ }
+        const byName = q => q && teams.find(t => t.name.toLowerCase().includes(String(q).toLowerCase()));
+        if (cfg) {
+          const A = byName(cfg.home), B = byName(cfg.away);
+          if (A && B) { out.matchup = { a: A, b: B }; out.matchupWeek = cfg.week; }
+        }
         const text = ((out.video?.description || '') + ' ' + (out.video?.title || '')).toLowerCase();
         if (text.trim() && teams.length) {
           const STOP = new Set(['team','the','football','fantasy','league','man','and','for','with','3rd','leg']);
@@ -245,7 +269,7 @@ export default async function handler(req, res) {
           hits.sort((x, y) => x.firstIdx - y.firstIdx);
           const seen = new Set(), pick = [];
           hits.forEach(hh => { if (!seen.has(hh.t.id)) { seen.add(hh.t.id); pick.push(hh.t); } });
-          if (pick.length >= 2) out.matchup = { a: pick[0], b: pick[1] };
+          if (!out.matchup && pick.length >= 2) out.matchup = { a: pick[0], b: pick[1] };
         }
         out.standings = teams.slice().sort((x, y) =>
           (y.wins - y.losses) - (x.wins - x.losses) || y.pf - x.pf).slice(0, 3);
