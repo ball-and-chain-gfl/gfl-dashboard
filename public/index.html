@@ -718,9 +718,6 @@
     .b4r-title{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:0 14px;
       font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
       color:#0d0d0f;background:var(--accent);}
-    .b4r-nav{flex:0 0 auto;width:30px;padding:0;border:none;border-radius:0;background:rgba(255,255,255,0.05);
-      color:var(--text2);cursor:pointer;box-shadow:none;font-size:11px;}
-    .b4r-nav:hover{background:rgba(255,255,255,0.12);color:var(--text);}
     .b4r-mask{flex:1 1 auto;overflow:hidden;position:relative;cursor:grab;touch-action:pan-y;
       mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);
       -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);}
@@ -738,8 +735,7 @@
       .b4r-item{padding:8px 15px;gap:7px;}
       .b4r-name{font-size:12px;}
       .b4r-title{padding:0 11px;font-size:10px;letter-spacing:.9px;}
-      .b4r-nav{width:26px;}
-      html[data-tabaccent=home] main{padding-bottom:84px;}
+        html[data-tabaccent=home] main{padding-bottom:84px;}
     }
     }
 
@@ -1078,18 +1074,23 @@
     .tabbar{display:none!important;}
     #mobile-title{display:none!important;}
     #floatnav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:400;
-      display:inline-flex;align-items:center;gap:10px;flex-wrap:nowrap;width:auto;
-      max-width:calc(100% - 24px);padding:8px 10px 8px 14px;border-radius:999px;
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;width:auto;
+      max-width:calc(100% - 24px);padding:8px 16px 8px 74px;border-radius:999px;
       background:rgba(10,10,12,0.72);-webkit-backdrop-filter:blur(22px) saturate(1.25);
       backdrop-filter:blur(22px) saturate(1.25);border:1px solid rgba(255,255,255,0.14);
       box-shadow:0 18px 44px -22px rgba(0,0,0,0.95),inset 0 1px 0 rgba(255,255,255,0.07);}
-    #floatnav .logo{flex:0 0 auto;margin:0;order:0;}
+    /* logo pinned to the left edge; the two controls sit centred in the pill */
+    #floatnav{position:fixed;}
+    #floatnav .logo{position:absolute;left:14px;top:50%;transform:translateY(-50%);flex:0 0 auto;margin:0;}
     #floatnav .logo img{height:40px;}
     #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;order:2;}
-    #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;gap:9px;min-width:0;max-width:46vw;
+    /* icon + hamburger only — the page name lives in the h1 now */
+    #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;
+      justify-content:center;gap:8px;min-width:0;height:38px;box-sizing:border-box;
       background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:999px;
-      padding:7px 8px 7px 14px;color:var(--text);font-size:14px;font-weight:700;letter-spacing:0.2px;
+      padding:0 8px 0 12px;color:var(--text);font-size:14px;font-weight:700;letter-spacing:0.2px;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:background .15s,border-color .15s;}
+    #tab-dd-lb{display:none!important;}
     #tab-dd-btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.26);}
     #tab-dd-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     #tab-dd-ic{font-size:14px;color:var(--accent);flex:0 0 auto;}
@@ -1119,16 +1120,18 @@
     /* content clears the floating bar */
     main{padding-top:92px;}
     @media(max-width:768px){
-      #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);gap:8px;padding:7px 8px 7px 12px;}
-      #floatnav .logo img{height:33px;}
-      #tab-dd-btn{font-size:13px;padding:6px 7px 6px 12px;max-width:42vw;}
+      #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);gap:8px;padding:7px 13px 7px 60px;}
+      #floatnav .logo{left:11px;}
+      #floatnav .logo img{height:31px;}
+      #tab-dd-btn{font-size:13px;height:34px;padding:0 7px 0 11px;}
+      #season-select{height:34px;}
       .nav-burger{width:28px;height:28px;}
       .tab-dd-menu{top:var(--ddtop,calc(env(safe-area-inset-top,0px) + 72px));}
       main{padding-top:calc(env(safe-area-inset-top,0px) + 84px);}
     }
     /* modern season pill */
     #floatnav #season-select{order:1;margin:0!important;flex:0 0 auto;}
-    #season-select{background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.16);border-radius:999px;
+    #season-select{height:38px;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.16);border-radius:999px;
       padding:8px 30px 8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.6px;
       text-transform:uppercase;color:var(--text);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
       -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
@@ -2359,9 +2362,7 @@
 </div>
 <div id="big4-reel">
   <span class="b4r-title">Balls Big 4</span>
-  <button class="b4r-nav" id="b4r-prev" aria-label="Scroll left"><i class="fa fa-chevron-left"></i></button>
   <div class="b4r-mask" id="big4-reel-mask"><div class="b4r-track" id="big4-reel-track"></div></div>
-  <button class="b4r-nav" id="b4r-next" aria-label="Scroll right"><i class="fa fa-chevron-right"></i></button>
 </div>
 
 <!-- PIN GATE -->
@@ -2392,10 +2393,10 @@
     <img src="/logo-mark.webp" alt="Ball &amp; Chain GFL" onerror="this.style.display='none'"/>
   </div>
   <select id="season-select" onchange="loadDashboard()">
-    <option value="2025" selected>2025 Season</option>
-    <option value="2024">2024 Season</option>
-    <option value="2023">2023 Season</option>
-    <option value="2022">2022 Season</option>
+    <option value="2025" selected>2025</option>
+    <option value="2024">2024</option>
+    <option value="2023">2023</option>
+    <option value="2022">2022</option>
   </select>
   <div class="controls" style="display:none">
     <div class="status"><div class="dot" id="dot"></div><span id="dot-label">–</span></div>

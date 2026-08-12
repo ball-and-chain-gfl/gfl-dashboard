@@ -74,7 +74,7 @@ function refreshSeasonOptions(){
   if(!want.length) return;
   if(want.every(y=>have.has(y))&&want.length===sel.options.length) return;
   const cur=sel.value;
-  sel.innerHTML=want.map(y=>`<option value="${y}">${y} Season</option>`).join('');
+  sel.innerHTML=want.map(y=>`<option value="${y}">${y}</option>`).join('');
   sel.value=want.includes(cur)?cur:want[0];
   try{ seasonLabel(); }catch(e){}
 }
@@ -434,7 +434,7 @@ function seasonLabel(){
   const sel=document.getElementById('season-select'); if(!sel) return;
   const mob=window.matchMedia('(max-width:768px)').matches;
   [...sel.options].forEach(o=>{
-    const t=mob?o.value:(o.value+' Season');
+    const t=o.value;                       // the pill stays compact: year only
     if(o.textContent!==t) o.textContent=t;
   });
 }
@@ -1013,9 +1013,6 @@ function startBig4Reel(){
   window.addEventListener('pointerup',up); window.addEventListener('pointercancel',up);
   mask.addEventListener('touchstart',down,{passive:true}); mask.addEventListener('touchmove',move,{passive:true});
   window.addEventListener('touchend',up); mask.addEventListener('click',e=>{ if(moved){e.preventDefault();e.stopPropagation();} },true);
-  const nudge=px=>{ _b4rX+=px; wrap(); draw(); };
-  document.getElementById('b4r-prev')?.addEventListener('click',()=>nudge(240));
-  document.getElementById('b4r-next')?.addEventListener('click',()=>nudge(-240));
   document.addEventListener('visibilitychange',()=>{ _b4rLast=0; });
 }
 
