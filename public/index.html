@@ -1081,7 +1081,9 @@
       backdrop-filter:blur(22px) saturate(1.25);border:1px solid rgba(255,255,255,0.14);
       box-shadow:0 18px 44px -22px rgba(0,0,0,0.95),inset 0 1px 0 rgba(255,255,255,0.07);}
     /* left group: logo + year · right group: menu + profile */
-    #floatnav .logo{position:static;flex:0 0 auto;margin:0;display:flex;align-items:center;}
+    /* explicit order so the two groups can't drift: logo, year | menu, profile */
+    #floatnav .logo{position:static;flex:0 0 auto;margin:0;display:flex;align-items:center;order:0;}
+    #floatnav #me-btn{order:3;}
     #floatnav .tab-dd{margin-left:auto;}
     #floatnav .logo img{height:44px;width:auto;}
     #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;order:2;}
