@@ -167,8 +167,13 @@ export default async function handler(req, res) {
     } catch (e) { return ''; }
   }
 
-  async function ytVideos({ withDescription = true } = {}) {
-    const list = (await ytFromRSS()) || (await ytFromChannelPage()) || (await ytFromSnapshot(req)) || [];
+  let ytSource = 'none';
+  async function ytVideos({ withDescription = true, allowSnapshot = true } = {}) {
+    let list = await ytFromRSS();
+    if (list) ytSource = 'rss';
+    if (!list) { list = await ytFromChannelPage(); if (list) ytSource = 'page'; }
+    if (!list && allowSnapshot) { list = await ytFromSnapshot(req); if (list) ytSource = 'snapshot'; }
+    list = list || [];
     if (withDescription && list.length && !list[0].description) {
       list[0].description = await ytDescription(list[0].videoId);
     }
@@ -198,6 +203,7 @@ export default async function handler(req, res) {
     // newest video
     try {
       const v = (await ytVideos())[0];
+      out.videoSource = ytSource;
       if (v) {
         out.video = {
           videoId: v.videoId,
@@ -255,11 +261,14 @@ export default async function handler(req, res) {
   // ── YouTube RSS ──────────────────────────────────────────────────────────────
   if (type === 'youtube') {
     try {
-      const videos = await ytVideos();
+      // fresh=1 skips the committed snapshot, so the refresh Action never writes
+      // the snapshot back over itself
+      const fresh = req.query.fresh === '1';
+      const videos = await ytVideos({ allowSnapshot: !fresh });
       res.setHeader('Cache-Control', videos.length
         ? 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'
         : 'public, max-age=15, s-maxage=30');
-      return res.status(200).json({ videos });
+      return res.status(200).json({ videos, source: ytSource });
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }
 

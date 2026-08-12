@@ -96,7 +96,27 @@ async function fromChannelPage() {
   return null;
 }
 
-const videos = (await fromRSS()) || (await fromChannelPage());
+/* GitHub's runners are blocked by YouTube as well, but Vercel's aren't — so if
+   the direct routes fail, read through our own endpoint (fresh=1 makes it skip
+   this very snapshot, so we never copy the file onto itself). */
+async function fromOwnApi() {
+  for (let i = 0; i < 4; i++) {
+    const txt = await get(`https://gfl-dashboard.vercel.app/api/espn?type=youtube&fresh=1&n=${Date.now()}`);
+    if (txt) {
+      try {
+        const j = JSON.parse(txt);
+        if (j.videos && j.videos.length && j.source && j.source !== 'snapshot') {
+          console.log('source: own api (' + j.source + ')');
+          return j.videos;
+        }
+      } catch {}
+    }
+    await sleep(2500);
+  }
+  return null;
+}
+
+const videos = (await fromRSS()) || (await fromChannelPage()) || (await fromOwnApi());
 if (!videos || !videos.length) {
   console.error('every source failed — leaving the existing snapshot alone');
   process.exit(existsSync(OUT) ? 0 : 1);   // don't fail the job if we already have data
