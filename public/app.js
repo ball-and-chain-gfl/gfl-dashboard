@@ -37,6 +37,7 @@ let _tradeSort='week';                  // 'week' | 'unbalanced' | 'balanced'
 let _statsView='standings';             // 'standings' | 'c2' | 'c3'
 let _c3Team=null;                        // teamId for the C3 breakdown dropdown (defaults to Lebron's)
 let _profileTeam=null;                   // teamId string for the profile tab
+let _schedTeam=null;                     // teamId string for the schedule tab
 let _hardware={};                        // owner -> {rings,confs} (filled by renderLeagueHistory)
 let _hardwareHonors={};                  // owner -> {rings,confs,awards} (filled by renderLeagueHistory)
 let _profileHonorYears={};               // owner -> {champ:[],conf:[]} year captions
@@ -80,8 +81,8 @@ function refreshSeasonOptions(){
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
-const TAB_COLORS={home:'#E0B67B',book:'#3fd07a',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',book:'B&C Sportsbook',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
+const TAB_COLORS={home:'#E0B67B',book:'#3fd07a',schedule:'#22d3ee',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
+const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -352,6 +353,7 @@ function allTimeH2H(idA,idB){
 const PAGE_BG={
   home:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   book:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
+  schedule:  {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   standings: {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   trades:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
   draft:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
@@ -511,6 +513,7 @@ function switchTab(name){
   if(name==='draft') ensureDraft();
   if(name==='trades') renderTradesTab();
   if(name==='teams') renderProfile();
+  if(name==='schedule') renderSchedule();
   if(name==='punishment') renderPunishment();
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
@@ -3102,6 +3105,125 @@ function enemiesFor(owner){
   });
   return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
 }
+// ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
+/* Which season still has games left? Preseason gives the whole slate; mid-season
+   gives whatever's left of the current one. */
+function schedSeason(){
+  for(let i=ALL_SEASONS.length-1;i>=0;i--){
+    const y=ALL_SEASONS[i], meta=_seasonMeta[y];
+    if(!meta||!(meta.schedule||[]).length) continue;
+    const games=(meta.schedule||[]).filter(m=>m.home&&m.away&&(m.matchupPeriodId||0)>0);
+    if(!games.length) continue;
+    const unplayed=games.filter(m=>!((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+    if(unplayed.length) return {season:y,meta,games,unplayed,
+      live:games.length!==unplayed.length,regEnd:meta.regEnd||14};
+  }
+  const y=ALL_SEASONS[ALL_SEASONS.length-1];
+  return {season:y,meta:_seasonMeta[y]||{schedule:[]},games:[],unplayed:[],live:false,regEnd:14};
+}
+/* one win probability model for the whole site — the same logistic the
+   sportsbook prices its weekly lines with */
+function schedWinProb(a,b){
+  if(!a||!b) return 0.5;
+  return Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(a.rating-b.rating)*0.55))));
+}
+function schedRows(owner){
+  const book=sbBuild(); if(!book) return null;
+  const info=schedSeason(); const meta=info.meta; if(!meta) return null;
+  const owners=meta.owners||{};
+  const rowOf=o=>book.rows.find(r=>r.owner===o);
+  const me=rowOf(owner); if(!me) return null;
+  const out=[];
+  info.unplayed.forEach(m=>{
+    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+    if(!ho||!ao||ho===ao) return;
+    if(ho!==owner&&ao!==owner) return;
+    const oppOwner=(ho===owner)?ao:ho;
+    const opp=rowOf(oppOwner); if(!opp) return;
+    const wk=m.matchupPeriodId;
+    const p=schedWinProb(me,opp);
+    // last completed season for the opponent, plus the all-time head to head
+    const lastSp=(opp.sp||[]).filter(s=>s.g>0).slice(-1)[0]||null;
+    const key=owner<oppOwner?`${owner}|${oppOwner}`:`${oppOwner}|${owner}`;
+    const k=_h2hAll[key]||{}; const mine=k[owner];
+    const g=mine?mine.games:0, w=mine?mine.w:0, t=mine?mine.t:0;
+    out.push({week:wk, playoff:wk>(info.regEnd||14), opp, oppOwner,
+      p, ml:amFromProb(Math.min(0.95,p+0.025)),
+      spread:Math.max(0.5,Math.round(Math.abs(me.rating-opp.rating)*3.0*2)/2),
+      fav:me.rating>=opp.rating,
+      total:Math.round(me.ppg+opp.ppg)+0.5,
+      oppRec:lastSp?`${lastSp.w}–${lastSp.l}`:'—', oppPpg:opp.ppg,
+      h2h:g?`${w}–${Math.max(0,g-w-t)}${t?`–${t}`:''}`:'—', h2hPct:g?w/g:null});
+  });
+  out.sort((x,y)=>x.week-y.week);
+  // strength of schedule: mean opponent rating, ranked against the league
+  const sosOf=o=>{
+    const r=rowOf(o); if(!r) return null;
+    const mine=info.unplayed.filter(m=>owners[m.home.teamId]===o||owners[m.away.teamId]===o);
+    if(!mine.length) return null;
+    const vals=mine.map(m=>{const oo=(owners[m.home.teamId]===o)?owners[m.away.teamId]:owners[m.home.teamId];
+      const rr=rowOf(oo); return rr?rr.rating:0;});
+    return vals.reduce((x,y)=>x+y,0)/vals.length;
+  };
+  const sos=sosOf(owner);
+  const allSos=_franchises.map(f=>({owner:f.owner,sos:sosOf(f.owner)})).filter(x=>x.sos!=null)
+    .sort((x,y)=>y.sos-x.sos);                       // hardest first
+  const sosRank=allSos.findIndex(x=>x.owner===owner)+1;
+  const projW=out.reduce((s,r)=>s+r.p,0);
+  return {info,me,rows:out,sos,sosRank,sosCount:allSos.length,
+    projW, projL:out.length-projW,
+    toughest:out.slice().sort((x,y)=>x.p-y.p)[0]||null,
+    easiest:out.slice().sort((x,y)=>y.p-x.p)[0]||null};
+}
+function schedPctCol(p){
+  if(p>=0.62) return 'var(--green)';
+  if(p>=0.52) return '#a3e635';
+  if(p>=0.48) return 'var(--accent)';
+  if(p>=0.38) return '#ff8f5a';
+  return 'var(--red)';
+}
+function renderSchedule(){
+  const el=document.getElementById('sched-body'); if(!el) return;
+  if(!_franchises.length){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading schedule…</div>`; return; }
+  if(_schedTeam==null) _schedTeam=String(_teams[0]?.id||'');
+  const sel=document.getElementById('sched-team-select');
+  if(sel&&sel.value!==String(_schedTeam)) sel.value=String(_schedTeam);
+  const owner=_ownerMap[Number(_schedTeam)];
+  const d=owner?schedRows(owner):null;
+  if(!d||!d.rows.length){
+    el.innerHTML=`<div class="tab-loading" style="padding:40px 16px">No unplayed games on the schedule right now.</div>`;
+    return;
+  }
+  const chip=(label,val,col)=>`<div class="sch-chip"><div class="sch-chip-v" ${col?`style="color:${col}"`:''}>${val}</div><div class="sch-chip-l">${label}</div></div>`;
+  const nm=r=>`<span class="sch-team">${sbAvatar(r.opp.owner,22)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span></span>`;
+  const sosPct=d.sosCount?1-(d.sosRank-1)/Math.max(1,d.sosCount-1):0.5;
+  el.innerHTML=`
+    <div class="sch-sum">
+      ${chip(`${d.info.season} projection`,`${d.projW.toFixed(1)}–${d.projL.toFixed(1)}`,schedPctCol(d.projW/Math.max(1,d.rows.length)))}
+      ${chip('Games left',d.rows.length,'')}
+      ${chip('Schedule strength',`#${d.sosRank} of ${d.sosCount}`,schedPctCol(sosPct))}
+      ${d.toughest?chip(`Toughest · wk ${d.toughest.week}`,sbTeamAb(d.toughest.opp.owner,d.toughest.opp.name),'var(--red)'):''}
+      ${d.easiest?chip(`Easiest · wk ${d.easiest.week}`,sbTeamAb(d.easiest.opp.owner,d.easiest.opp.name),'var(--green)'):''}
+    </div>
+    <div class="sch-head">
+      <span>Wk</span><span>Opponent</span>
+      <span class="r sch-c1">${ALL_SEASONS.filter(y=>_seasonMeta[y]&&(_seasonMeta[y].schedule||[]).some(m=>m.home&&((m.home.totalPoints||0)>0))).slice(-1)[0]||'Last'} rec</span>
+      <span class="r sch-c2">Opp PPG</span><span class="r sch-c3">All-time</span>
+      <span class="r">Win%</span><span class="r sch-c4">Line</span><span class="r">Odds</span>
+    </div>
+    <div class="sch-list">${d.rows.map(r=>`
+      <div class="sch-row">
+        <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
+        ${nm(r)}
+        <span class="r sch-c1">${r.oppRec}</span>
+        <span class="r sch-c2">${r.oppPpg.toFixed(1)}</span>
+        <span class="r sch-c3" ${r.h2hPct!=null?`style="color:${schedPctCol(r.h2hPct)}"`:''}>${r.h2h}</span>
+        <span class="r sch-p" style="color:${schedPctCol(r.p)}">${Math.round(r.p*100)}%</span>
+        <span class="r sch-c4">${r.fav?'−':'+'}${r.spread.toFixed(1)}</span>
+        <span class="r sch-ml">${amFmt(r.ml)}</span>
+      </div>`).join('')}</div>
+    <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with — season-weighted record, scoring, points against and playoff history. Line is the projected margin; odds include the book's usual hold.</div>`;
+}
 /* ── RIVALS ──────────────────────────────────────────────────────────────────
    A manager's rivals are whoever they played in weeks 12, 13 and 14 of 2025.
    That schedule is the source of truth — earlier years paired those weeks
@@ -4269,6 +4391,18 @@ async function loadDashboard(){
         </div>
       </div>
 
+      <!-- UPCOMING SCHEDULE -->
+      <div class="tab-page" id="page-schedule">
+        <div class="sec">
+          <div class="sec-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
+          <div class="picker-bar" style="padding-bottom:16px">
+            <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
+            <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+          </div>
+          <div id="sched-body"></div>
+        </div>
+      </div>
+
       <!-- WEEKLY PUNISHMENT -->
       <div class="tab-page" id="page-punishment">
         <div class="sec wm" data-wm="&#xf0fc;">
@@ -4308,6 +4442,7 @@ async function loadDashboard(){
     renderLeagueHistory();
     renderMarathon();
     renderTradesTab();
+    renderSchedule();
     if(_activeTab==='draft') ensureDraft();
     switchTab(_activeTab);
     if(_activeTab!=='tenure'&&_tenure) renderTenureTable();
