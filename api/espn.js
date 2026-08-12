@@ -65,69 +65,92 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(502).json({ error: err.message }); }
   }
 
-  // ── YOUTUBE FEED (shared) ────────────────────────────────────────────────────
-  // YouTube answers datacenter IPs with a random 404/500 roughly half the time,
-  // so try a few URL variants before giving up.
-  async function fetchYouTubeFeed() {
-    const cid = 'UCUoUwKYMkspanOjX5_6d5-Q';
-    const urls = [
-      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&hl=en`,
-      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}`,
-      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&hl=en&gl=US`,
-      `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&persist_hl=1&hl=en`,
-    ];
-    const hdrs = {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
-      'Accept': 'application/atom+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    };
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const u = urls[attempt % urls.length];
+  // ── YOUTUBE SOURCE (shared) ──────────────────────────────────────────────────
+  // YouTube's RSS feed 404s Vercel's IPs, but the channel page serves normally,
+  // so read the feed when it answers and parse the page when it doesn't. Both
+  // paths return the same shape.
+  const YT_CHANNEL = 'UCUoUwKYMkspanOjX5_6d5-Q';
+  const ytHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9', 'Accept': '*/*',
+  };
+  const ytDecode = s => String(s || '')
+    .replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\n/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  const ytThumb = id => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+
+  async function ytFromRSS() {
+    for (const u of [
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CHANNEL}&hl=en`,
+      `https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CHANNEL}`,
+    ]) {
       try {
-        const r = await fetch(u, { headers: hdrs });
-        if (r.ok) {
-          const xml = await r.text();
-          if (xml.includes('<entry>')) return xml;
-        }
-      } catch (e) { /* keep trying */ }
-      await new Promise(s => setTimeout(s, 120 + attempt * 80));
+        const r = await fetch(u, { headers: ytHeaders });
+        if (!r.ok) continue;
+        const xml = await r.text();
+        if (!xml.includes('<entry>')) continue;
+        const list = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].slice(0, 15).map(m => {
+          const b = m[1];
+          const id = (b.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1] || null;
+          if (!id) return null;
+          return {
+            videoId: id,
+            title: ytDecode((b.match(/<title>(.*?)<\/title>/) || [])[1] || 'Untitled'),
+            published: (b.match(/<published>(.*?)<\/published>/) || [])[1] || null,
+            ageText: null,
+            thumb: (b.match(/url="(https:\/\/i\.ytimg[^"]+)"/) || [])[1] || ytThumb(id),
+            description: ytDecode((b.match(/<media:description>([\s\S]*?)<\/media:description>/) || [])[1] || ''),
+          };
+        }).filter(Boolean);
+        if (list.length) return list;
+      } catch (e) { /* next url */ }
     }
     return null;
   }
 
-  // ── YOUTUBE SOURCE DIAGNOSTIC ────────────────────────────────────────────────
-  // Which way of reading the channel actually works from Vercel's IPs?
-  // Visit: /api/espn?type=ytdiag
-  if (type === 'ytdiag') {
-    const cid = 'UCUoUwKYMkspanOjX5_6d5-Q';
-    const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
-    const tries = [
-      ['rss www',        `https://www.youtube.com/feeds/videos.xml?channel_id=${cid}&hl=en`],
-      ['rss bare',       `https://youtube.com/feeds/videos.xml?channel_id=${cid}`],
-      ['rss m',          `https://m.youtube.com/feeds/videos.xml?channel_id=${cid}`],
-      ['channel page',   `https://www.youtube.com/channel/${cid}/videos?hl=en`],
-      ['channel mobile', `https://m.youtube.com/channel/${cid}/videos?hl=en`],
-      ['embed page',     `https://www.youtube.com/embed/videoseries?list=UU${cid.slice(2)}`],
-      ['uploads rss',    `https://www.youtube.com/feeds/videos.xml?playlist_id=UU${cid.slice(2)}`],
-    ];
-    const out = [];
-    for (const [name, url] of tries) {
-      const rec = { name, url };
-      try {
-        const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9', 'Accept': '*/*' } });
-        rec.status = r.status;
-        const body = await r.text();
-        rec.bytes = body.length;
-        rec.hasEntry = body.includes('<entry>');
-        const vid = (body.match(/"videoId":"([\w-]{11})"/) || body.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/) || [])[1] || null;
-        rec.firstVideoId = vid;
-        const ttl = (body.match(/<title>([^<]{3,120})<\/title>/) || body.match(/"title":\{"runs":\[\{"text":"([^"]{3,120})"/) || [])[1] || null;
-        rec.firstTitle = ttl;
-      } catch (e) { rec.error = e.message; }
-      out.push(rec);
+  async function ytFromChannelPage() {
+    try {
+      const r = await fetch(`https://www.youtube.com/channel/${YT_CHANNEL}/videos?hl=en`, { headers: ytHeaders });
+      if (!r.ok) return null;
+      const html = await r.text();
+      const out = [], seen = new Set();
+      const re = /"videoId":"([\w-]{11})"/g;
+      let m;
+      while ((m = re.exec(html)) && out.length < 15) {
+        const id = m[1];
+        if (seen.has(id)) continue;
+        const win = html.slice(m.index, m.index + 1600);
+        const title = (win.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/) ||
+                       win.match(/"title":\{"simpleText":"((?:[^"\\]|\\.)*)"/) || [])[1];
+        if (!title) continue;                    // shelves and related rails have no title here
+        seen.add(id);
+        out.push({
+          videoId: id, title: ytDecode(title), published: null,
+          ageText: (win.match(/"publishedTimeText":\{"simpleText":"([^"]+)"/) || [])[1] || null,
+          thumb: ytThumb(id), description: '',
+        });
+      }
+      return out.length ? out : null;
+    } catch (e) { return null; }
+  }
+
+  // the watch page carries the description that matchup detection reads
+  async function ytDescription(id) {
+    try {
+      const r = await fetch(`https://www.youtube.com/watch?v=${id}&hl=en`, { headers: ytHeaders });
+      if (!r.ok) return '';
+      const html = await r.text();
+      return ytDecode((html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/) || [])[1] || '');
+    } catch (e) { return ''; }
+  }
+
+  async function ytVideos({ withDescription = true } = {}) {
+    const list = (await ytFromRSS()) || (await ytFromChannelPage()) || [];
+    if (withDescription && list.length && !list[0].description) {
+      list[0].description = await ytDescription(list[0].videoId);
     }
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ tried: out });
+    return list;
   }
 
   // ── WIDGET PAYLOAD ───────────────────────────────────────────────────────────
@@ -152,21 +175,18 @@ export default async function handler(req, res) {
 
     // newest video
     try {
-      const xml = (await fetchYouTubeFeed()) || '';
-      const b = (xml.match(/<entry>([\s\S]*?)<\/entry>/) || [])[1] || '';
-      const dec = s => String(s || '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
-      const id = (b.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1] || null;
-      if (id) {
-        const published = (b.match(/<published>(.*?)<\/published>/) || [])[1] || null;
+      const v = (await ytVideos())[0];
+      if (v) {
         out.video = {
-          videoId: id,
-          title: dec((b.match(/<title>(.*?)<\/title>/) || [])[1] || 'Untitled'),
-          description: dec((b.match(/<media:description>([\s\S]*?)<\/media:description>/) || [])[1] || ''),
-          published,
-          ageDays: published ? Math.max(0, Math.floor((now - new Date(published)) / 86400000)) : null,
-          thumb: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-          thumbFallback: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
-          url: `https://www.youtube.com/watch?v=${id}`,
+          videoId: v.videoId,
+          title: v.title,
+          description: v.description || '',
+          published: v.published || null,
+          ageDays: v.published ? Math.max(0, Math.floor((now - new Date(v.published)) / 86400000)) : null,
+          ageText: v.ageText || null,
+          thumb: `https://i.ytimg.com/vi/${v.videoId}/maxresdefault.jpg`,
+          thumbFallback: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+          url: `https://www.youtube.com/watch?v=${v.videoId}`,
         };
       }
     } catch (err) { out.videoError = err.message; }
@@ -213,19 +233,7 @@ export default async function handler(req, res) {
   // ── YouTube RSS ──────────────────────────────────────────────────────────────
   if (type === 'youtube') {
     try {
-      const xml = (await fetchYouTubeFeed()) || '';
-      const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)];
-      const videos  = entries.slice(0, 15).map(m => {
-        const b = m[1];
-        return {
-          videoId:   (b.match(/<yt:videoId>(.*?)<\/yt:videoId>/) || [])[1] || null,
-          title:     (b.match(/<title>(.*?)<\/title>/)            || [])[1] || 'Untitled',
-          published: (b.match(/<published>(.*?)<\/published>/)    || [])[1] || '',
-          thumb:     (b.match(/url="(https:\/\/i\.ytimg[^"]+)"/) || [])[1] || null,
-          description: ((b.match(/<media:description>([\s\S]*?)<\/media:description>/) || [])[1] || '')
-                        .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"'),
-        };
-      }).filter(v => v.videoId);
+      const videos = await ytVideos();
       res.setHeader('Cache-Control', videos.length
         ? 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'
         : 'public, max-age=15, s-maxage=30');
