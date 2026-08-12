@@ -348,24 +348,10 @@ function allTimeH2H(idA,idB){
 }
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
-// ── PER-PAGE BACKGROUNDS (color-matched to each tab) ─────────────────────────
-// ── PER-PAGE BACKGROUNDS (one looping ambient video on every page) ──────────
-const PAGE_BG={
-  home:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  book:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  schedule:  {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  standings: {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  trades:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  draft:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  history:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  tenure:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  teams:     {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  legacy:    {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  punishment:{type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  badbeat:   {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  gabe:      {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-  marathon:  {type:'video', src:'/bg/vid/v2.mp4', msrc:'/bg/vid/v2-m.mp4', poster:'/bg/vid/v2.jpg', ov:0},
-};
+// ── PER-PAGE BACKGROUNDS ─────────────────────────────────────────────────────
+// Retired: pages are a flat matte now. Leaving the map empty makes setPageBg
+// hide the media layer entirely; put the entries back to bring the video back.
+const PAGE_BG={};
 function startPageBgVideo(vid,src){
   const go=()=>{ if(vid.dataset.src!==src) return; vid.src=src; vid.load();
     const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); };
@@ -526,6 +512,8 @@ function switchTab(name){
     if(window.matchMedia('(max-width:768px)').matches) _lhView='records';
     setLHView(_lhView);
   }
+  const h1=document.getElementById('page-h1');
+  if(h1) h1.textContent=TAB_LABELS[name]||'';
   updateTabDD(name);
   scrollNavToActive();
 }
