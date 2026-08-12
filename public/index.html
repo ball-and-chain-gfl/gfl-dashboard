@@ -2423,12 +2423,12 @@
     /* ── Punishment of the Week: no heading, a solid punishment-red box ────
        #242422 on #ff5f5f is 5.3:1, so every label, name, icon and the CTA are
        set in it solid rather than at an opacity that would drop below 4.5:1. */
-    #page-home .punish-box{background:#ff5f5f!important;border:0!important;
-      border-radius:10px!important;padding:14px 16px!important;}
-    #page-home .punish-box .home-punish-week{color:#242422;font-weight:600;opacity:1;}
-    #page-home .punish-box .home-punish-name,
-    #page-home .punish-box .home-punish-note{color:#242422;}
-    #page-home .punish-box .home-punish-ic{background:rgba(36,36,34,0.16);
+    html[data-theme="dark"] #page-home .home-box.punish-box{background:#ff5f5f!important;
+      border:0!important;border-radius:10px!important;padding:14px 16px!important;}
+    html[data-theme="dark"] #page-home .punish-box .home-punish-week{color:#242422;font-weight:600;opacity:1;}
+    html[data-theme="dark"] #page-home .punish-box .home-punish-name,
+    html[data-theme="dark"] #page-home .punish-box .home-punish-note{color:#242422;}
+    html[data-theme="dark"] #page-home .punish-box .home-punish-ic{background:rgba(36,36,34,0.16);
       border:1px solid rgba(36,36,34,0.32);color:#242422;}
     #page-home .punish-box .home-punish-more{color:#242422!important;
       border-color:rgba(36,36,34,0.45)!important;background:rgba(255,255,255,0.22);font-weight:600;}
