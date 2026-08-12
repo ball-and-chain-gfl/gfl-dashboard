@@ -1073,21 +1073,22 @@
     /* ── Nav: one floating capsule (logo · season · page · menu) ───────────── */
     .tabbar{display:none!important;}
     #mobile-title{display:none!important;}
-    #floatnav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:400;
-      display:inline-flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;width:auto;
-      max-width:calc(100% - 24px);padding:8px 74px;border-radius:999px;
+    /* floats full width with the same inset on the sides as the top */
+    #floatnav{position:fixed;top:14px;left:14px;right:14px;transform:none;z-index:400;
+      display:flex;align-items:center;gap:10px;flex-wrap:nowrap;width:auto;
+      max-width:none;padding:8px 12px;border-radius:8px;
       background:rgba(10,10,12,0.72);-webkit-backdrop-filter:blur(22px) saturate(1.25);
       backdrop-filter:blur(22px) saturate(1.25);border:1px solid rgba(255,255,255,0.14);
       box-shadow:0 18px 44px -22px rgba(0,0,0,0.95),inset 0 1px 0 rgba(255,255,255,0.07);}
-    /* logo pinned to the left edge; the two controls sit centred in the pill */
-    #floatnav{position:fixed;}
-    #floatnav .logo{position:absolute;left:14px;top:50%;transform:translateY(-50%);flex:0 0 auto;margin:0;}
-    #floatnav .logo img{height:40px;}
+    /* left group: logo + year · right group: menu + profile */
+    #floatnav .logo{position:static;flex:0 0 auto;margin:0;display:flex;align-items:center;}
+    #floatnav .tab-dd{margin-left:auto;}
+    #floatnav .logo img{height:44px;width:auto;}
     #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;order:2;}
     /* icon + hamburger only — the page name lives in the h1 now */
     #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;
-      justify-content:center;gap:8px;width:84px;height:38px;box-sizing:border-box;
-      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:999px;
+      justify-content:center;gap:8px;width:86px;height:44px;box-sizing:border-box;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:8px;
       padding:0 8px 0 12px;color:var(--text);font-size:14px;font-weight:700;letter-spacing:0.2px;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:background .15s,border-color .15s;}
     #tab-dd-lb{display:none!important;}
@@ -1102,11 +1103,11 @@
     #tab-dd-btn.open{background:rgba(var(--accent-rgb),0.18);border-color:rgba(var(--accent-rgb),0.45);}
     #tab-dd-btn.open .nav-burger{background:rgb(var(--accent-rgb));color:#07120b;}
     /* dropdown floats under the capsule */
-    .tab-dd-menu{position:fixed;top:var(--ddtop,72px);left:12px;right:12px;transform:none;
-      width:min(340px,calc(100% - 24px));margin-left:auto;margin-right:auto;
+    .tab-dd-menu{position:fixed;top:var(--ddtop,72px);left:auto;right:14px;transform:none;
+      width:min(340px,calc(100% - 28px));margin:0;
       max-height:min(86vh,700px);overflow-y:hidden;overscroll-behavior:contain;
       background:#0f0f12;
-      border:1px solid rgba(255,255,255,0.14);border-radius:18px;padding:8px;
+      border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:8px;
       box-shadow:0 28px 70px -26px rgba(0,0,0,0.95);z-index:399;
       /* kept in the DOM so opening is a paint, not a layout */
       display:block!important;visibility:hidden;opacity:0;pointer-events:none;
@@ -1120,18 +1121,18 @@
     /* content clears the floating bar */
     main{padding-top:92px;}
     @media(max-width:768px){
-      #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);gap:8px;padding:7px 58px;}
-      #floatnav .logo{left:11px;}
-      #floatnav .logo img{height:31px;}
-      #floatnav #tab-dd-btn{font-size:13px;height:34px;width:76px;padding:0 6px 0 10px;}
-      #floatnav #season-select{height:34px;width:76px;}
+      #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
+      #floatnav .logo img{height:40px;}
+      #floatnav #tab-dd-btn{font-size:13px;height:40px;width:74px;padding:0 6px 0 9px;}
+      #floatnav #season-select{height:40px;width:70px;font-size:12.5px;}
+      .tab-dd-menu{right:10px;width:min(340px,calc(100% - 20px));}
       .nav-burger{width:28px;height:28px;}
       .tab-dd-menu{top:var(--ddtop,calc(env(safe-area-inset-top,0px) + 72px));}
       main{padding-top:calc(env(safe-area-inset-top,0px) + 84px);}
     }
     /* modern season pill */
     #floatnav #season-select{order:1;margin:0!important;flex:0 0 auto;}
-    #season-select{height:38px;width:84px;box-sizing:border-box;text-align:center;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.16);border-radius:999px;
+    #season-select{height:44px;width:86px;box-sizing:border-box;text-align:center;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.16);border-radius:8px;
       padding:8px 30px 8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.6px;
       text-transform:uppercase;color:var(--text);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
       -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
@@ -1666,17 +1667,14 @@
     }
     /* ── Biggest Enemies (team profile) ── */
     /* ── TWO-KEY SIGN IN ── */
-    #me-btn{position:fixed;right:16px;bottom:16px;z-index:420;width:46px;height:46px;padding:0;
-      border-radius:999px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
-      background:rgba(18,18,17,0.74);border:1px solid rgba(255,255,255,0.16);color:#f7f8ec;
-      -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
-      box-shadow:0 16px 34px -20px rgba(0,0,0,0.9);transition:background .18s,border-color .18s;}
+    #me-btn{flex:0 0 auto;width:44px;height:44px;padding:0;box-sizing:border-box;
+      border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);color:var(--text);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:background .18s,border-color .18s;}
     #me-btn i{font-size:16px;}
     #me-btn.on{background:rgba(var(--accent-rgb),0.9);border-color:rgb(var(--accent-rgb));color:#0d0d0f;}
     #me-btn:hover{border-color:rgba(255,255,255,0.32);}
     .me-ini{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;letter-spacing:.3px;}
-    /* the Big 4 reel owns the bottom of the homepage — lift the button above it */
-    html[data-tabaccent=home] #me-btn{bottom:70px;}
     #si-modal{position:fixed;inset:0;z-index:520;display:none;align-items:center;justify-content:center;padding:20px;
       background:rgba(6,6,9,0.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
     #si-modal.show{display:flex;}
@@ -1701,8 +1699,7 @@
     .si-in b{color:var(--accent);}
     .si-sub{font-size:12px;color:var(--text3);margin-top:4px;}
     @media(max-width:768px){
-      #me-btn{width:42px;height:42px;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);}
-      html[data-tabaccent=home] #me-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 62px);}
+      #me-btn{width:40px;height:40px;}
       .si-box{padding:16px 15px 14px;}
     }
     /* ── UPCOMING SCHEDULE ── */
@@ -2352,7 +2349,6 @@
 <div class="bg-fx" aria-hidden="true"></div>
 <div id="nav-scrim" aria-hidden="true" onclick="toggleTabDD(false)"></div>
 <!-- Balls Big 4 news reel: homepage only, scrolls along the bottom -->
-<button id="me-btn" onclick="openSignIn()" aria-label="Sign in" title="Sign in"><i class="fa fa-user"></i></button>
 <div id="si-modal" onclick="if(event.target===this)closeSignIn()">
   <div class="si-box">
     <div class="si-head"><i class="fa fa-key"></i>Two-key sign in<button class="si-x" onclick="closeSignIn()" aria-label="Close"><i class="fa fa-xmark"></i></button></div>
@@ -2404,6 +2400,7 @@
   <div class="tab-dd" id="tab-dd">
     <button id="tab-dd-btn" ontouchstart="tabDDPointer(event)" onpointerdown="tabDDPointer(event)" onclick="tabDDClick()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><span class="nav-burger"><i class="fa fa-bars"></i></span></button>
   </div>
+  <button id="me-btn" onclick="openSignIn()" aria-label="Sign in" title="Sign in"><i class="fa fa-user"></i></button>
 </header>
 <div id="tab-dd-menu" class="tab-dd-menu"></div>
 
