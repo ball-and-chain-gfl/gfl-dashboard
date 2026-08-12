@@ -3121,11 +3121,40 @@ function schedSeason(){
   const y=ALL_SEASONS[ALL_SEASONS.length-1];
   return {season:y,meta:_seasonMeta[y]||{schedule:[]},games:[],unplayed:[],live:false,regEnd:14};
 }
-/* one win probability model for the whole site — the same logistic the
-   sportsbook prices its weekly lines with */
+/* Projected margin drives everything: mostly the scoring gap, nudged by the
+   power rating, then run through the normal curve. Weekly fantasy margins
+   scatter with a standard deviation around 30 points. */
+const SCHED_SD=30;
+function schedNormCdf(z){                      // Abramowitz & Stegun 26.2.17
+  const t=1/(1+0.2316419*Math.abs(z));
+  const poly=t*(0.319381530+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));
+  const v=1-Math.exp(-z*z/2)/Math.sqrt(2*Math.PI)*poly;
+  return z>=0?v:1-v;
+}
+function schedMargin(a,b){
+  if(!a||!b) return 0;
+  return (a.ppg-b.ppg)*0.75+(a.rating-b.rating)*1.2;
+}
 function schedWinProb(a,b){
   if(!a||!b) return 0.5;
-  return Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(a.rating-b.rating)*0.55))));
+  return Math.min(0.95,Math.max(0.05,schedNormCdf(schedMargin(a,b)/SCHED_SD)));
+}
+/* Nothing on the calendar yet? Lay out a deterministic round robin so the tab
+   still shows something useful. Marked as a sample everywhere it appears, and
+   every number attached to it (records, head to head, ratings) is still real. */
+function schedDummy(){
+  const n=_franchises.length; if(n<2) return null;
+  const ids=_franchises.map(f=>f.owner);
+  const weeks=[]; const rot=ids.slice();
+  const rounds=Math.max(1,n-1);
+  for(let w=1;w<=14;w++){
+    const r=(w-1)%rounds;
+    const order=[rot[0],...rot.slice(1).slice(-r).concat(rot.slice(1).slice(0,rot.length-1-r))];
+    const games=[];
+    for(let i=0;i<Math.floor(n/2);i++) games.push([order[i],order[n-1-i]]);
+    weeks.push({week:w,games});
+  }
+  return weeks;
 }
 function schedRows(owner){
   const book=sbBuild(); if(!book) return null;
@@ -3134,28 +3163,41 @@ function schedRows(owner){
   const rowOf=o=>book.rows.find(r=>r.owner===o);
   const me=rowOf(owner); if(!me) return null;
   const out=[];
-  info.unplayed.forEach(m=>{
-    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+  const rivalWeeks={}; rivalsFor(owner).forEach(r=>{ rivalWeeks[r.owner]=r.week; });
+  // real slate when ESPN has one, otherwise the sample round robin
+  let pairs=info.unplayed.map(m=>({week:m.matchupPeriodId,
+    ho:owners[m.home.teamId], ao:owners[m.away.teamId]}));
+  let sample=false;
+  if(!pairs.length){
+    const dz=schedDummy()||[];
+    pairs=[]; sample=true;
+    dz.forEach(wk=>wk.games.forEach(([x,y])=>pairs.push({week:wk.week,ho:x,ao:y})));
+  }
+  pairs.forEach(m=>{
+    const ho=m.ho, ao=m.ao;
     if(!ho||!ao||ho===ao) return;
     if(ho!==owner&&ao!==owner) return;
     const oppOwner=(ho===owner)?ao:ho;
     const opp=rowOf(oppOwner); if(!opp) return;
-    const wk=m.matchupPeriodId;
+    const wk=m.week;
     const p=schedWinProb(me,opp);
     // last completed season for the opponent, plus the all-time head to head
     const lastSp=(opp.sp||[]).filter(s=>s.g>0).slice(-1)[0]||null;
+    const lastRec=lastSp?`${lastSp.w}–${Math.max(0,lastSp.g-lastSp.w)}`:'—';
     const key=owner<oppOwner?`${owner}|${oppOwner}`:`${oppOwner}|${owner}`;
     const k=_h2hAll[key]||{}; const mine=k[owner];
     const g=mine?mine.games:0, w=mine?mine.w:0, t=mine?mine.t:0;
     out.push({week:wk, playoff:wk>(info.regEnd||14), opp, oppOwner,
       p, ml:amFromProb(Math.min(0.95,p+0.025)),
-      spread:Math.max(0.5,Math.round(Math.abs(me.rating-opp.rating)*3.0*2)/2),
-      fav:me.rating>=opp.rating,
+      spread:Math.max(0.5,Math.round(Math.abs(schedMargin(me,opp))*2)/2),
+      fav:schedMargin(me,opp)>=0,
       total:Math.round(me.ppg+opp.ppg)+0.5,
-      oppRec:lastSp?`${lastSp.w}–${lastSp.l}`:'—', oppPpg:opp.ppg,
+      oppRec:lastRec, oppSeason:lastSp?lastSp.season:null, oppPpg:opp.ppg,
+      rival:rivalWeeks[oppOwner]!=null, rivalWeek:rivalWeeks[oppOwner]??null,
       h2h:g?`${w}–${Math.max(0,g-w-t)}${t?`–${t}`:''}`:'—', h2hPct:g?w/g:null});
   });
   out.sort((x,y)=>x.week-y.week);
+  const sampleSlate=sample;
   // strength of schedule: mean opponent rating, ranked against the league
   const sosOf=o=>{
     const r=rowOf(o); if(!r) return null;
@@ -3172,6 +3214,7 @@ function schedRows(owner){
   const projW=out.reduce((s,r)=>s+r.p,0);
   return {info,me,rows:out,sos,sosRank,sosCount:allSos.length,
     projW, projL:out.length-projW,
+    sample:sampleSlate, rivals:out.filter(r=>r.rival).length,
     toughest:out.slice().sort((x,y)=>x.p-y.p)[0]||null,
     easiest:out.slice().sort((x,y)=>y.p-x.p)[0]||null};
 }
@@ -3195,24 +3238,31 @@ function renderSchedule(){
     return;
   }
   const chip=(label,val,col)=>`<div class="sch-chip"><div class="sch-chip-v" ${col?`style="color:${col}"`:''}>${val}</div><div class="sch-chip-l">${label}</div></div>`;
-  const nm=r=>`<span class="sch-team">${sbAvatar(r.opp.owner,22)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span></span>`;
+  const nm=r=>`<span class="sch-team">${sbAvatar(r.opp.owner,22)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span>${r.rival?`<span class="sch-rival" title="Rivalry game — 2025 week ${r.rivalWeek}">RIVAL</span>`:''}</span>`;
   const sosPct=d.sosCount?1-(d.sosRank-1)/Math.max(1,d.sosCount-1):0.5;
+  const recSeason=(d.rows.find(r=>r.oppSeason)||{}).oppSeason||'Last';
   el.innerHTML=`
+    <div class="sch-flag"><i class="fa fa-triangle-exclamation"></i>
+      ${d.sample
+        ? `The ${d.info.season} season isn't set up yet — this is a <b>sample slate</b> so the page has something to show. Opponent records, head-to-head and win odds are all real.`
+        : `${d.info.season} slate is <b>provisional</b> until the league finalises the season. Records, head-to-head and odds are real.`}
+    </div>
     <div class="sch-sum">
       ${chip(`${d.info.season} projection`,`${d.projW.toFixed(1)}–${d.projL.toFixed(1)}`,schedPctCol(d.projW/Math.max(1,d.rows.length)))}
-      ${chip('Games left',d.rows.length,'')}
+      ${chip('Games',d.rows.length,'')}
+      ${chip('Rivalry games',d.rivals,d.rivals?'var(--accent)':'')}
       ${chip('Schedule strength',`#${d.sosRank} of ${d.sosCount}`,schedPctCol(sosPct))}
       ${d.toughest?chip(`Toughest · wk ${d.toughest.week}`,sbTeamAb(d.toughest.opp.owner,d.toughest.opp.name),'var(--red)'):''}
       ${d.easiest?chip(`Easiest · wk ${d.easiest.week}`,sbTeamAb(d.easiest.opp.owner,d.easiest.opp.name),'var(--green)'):''}
     </div>
     <div class="sch-head">
       <span>Wk</span><span>Opponent</span>
-      <span class="r sch-c1">${ALL_SEASONS.filter(y=>_seasonMeta[y]&&(_seasonMeta[y].schedule||[]).some(m=>m.home&&((m.home.totalPoints||0)>0))).slice(-1)[0]||'Last'} rec</span>
+      <span class="r sch-c1">${recSeason} rec</span>
       <span class="r sch-c2">Opp PPG</span><span class="r sch-c3">All-time</span>
       <span class="r">Win%</span><span class="r sch-c4">Line</span><span class="r">Odds</span>
     </div>
     <div class="sch-list">${d.rows.map(r=>`
-      <div class="sch-row">
+      <div class="sch-row${r.rival?' sch-rrow':''}">
         <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
         ${nm(r)}
         <span class="r sch-c1">${r.oppRec}</span>
