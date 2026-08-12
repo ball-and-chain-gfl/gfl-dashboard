@@ -3105,6 +3105,120 @@ function enemiesFor(owner){
   });
   return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
 }
+// ── TWO-KEY SIGN IN ──────────────────────────────────────────────────────────
+/* Deliberately informal: two keys address a document in Firestore and unlock
+   whatever that profile remembers. No accounts, no email, no auth provider.
+   Everything here fails soft — if Firestore is unreachable the site behaves
+   exactly as it does signed out. */
+const GFL_DB={project:'ball-and-chain-dashboard',key:'AIzaSyCOfZYqsD3VZmym7AW0DDX_JQnBYCZhJDA'};
+const gflDocUrl=id=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles/${encodeURIComponent(id)}?key=${GFL_DB.key}`;
+const gflCollUrl=id=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles?documentId=${encodeURIComponent(id)}&key=${GFL_DB.key}`;
+const keySlug=s=>String(s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
+let _me=null;                                  // {k1,k2,teamId} once signed in
+
+function meLoad(){ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } }
+function meSave(){ try{ _me?localStorage.setItem('gfl-me',JSON.stringify(_me)):localStorage.removeItem('gfl-me'); }catch(e){} }
+
+/* Firestore REST speaks typed values; keep the mapping in one place */
+const fsOut=o=>{const f={};Object.entries(o).forEach(([k,v])=>{f[k]={stringValue:String(v==null?'':v)};});return {fields:f};};
+const fsIn=d=>{const o={};Object.entries((d&&d.fields)||{}).forEach(([k,v])=>{o[k]=v.stringValue??v.integerValue??v.booleanValue??'';});return o;};
+
+async function gflFetchProfile(id){
+  try{ const r=await fetch(gflDocUrl(id),{cache:'no-store'});
+    if(r.status===404) return {missing:true};
+    if(!r.ok) return {error:'lookup failed'};
+    return {data:fsIn(await r.json())};
+  }catch(e){ return {error:'offline'}; }
+}
+async function gflCreateProfile(id,obj){
+  try{ const r=await fetch(gflCollUrl(id),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(obj))});
+    return r.ok?{ok:true}:{error:'could not create'};
+  }catch(e){ return {error:'offline'}; }
+}
+async function gflPatchProfile(id,obj){
+  const mask=Object.keys(obj).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  try{ const r=await fetch(gflDocUrl(id)+'&'+mask,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(obj))});
+    return r.ok?{ok:true}:{error:'could not save'};
+  }catch(e){ return {error:'offline'}; }
+}
+
+function signInMsg(t,bad){ const el=document.getElementById('si-msg'); if(!el) return;
+  el.textContent=t||''; el.className='si-msg'+(bad?' bad':''); }
+
+async function gflSignIn(){
+  const k1=(document.getElementById('si-k1')||{}).value||'';
+  const k2=(document.getElementById('si-k2')||{}).value||'';
+  if(!keySlug(k1)||!String(k2).trim()) return signInMsg('Both keys are needed.',true);
+  const id=keySlug(k1);
+  signInMsg('Checking…');
+  const res=await gflFetchProfile(id);
+  if(res.error) return signInMsg(res.error==='offline'?'No connection — try again.':res.error,true);
+  if(res.missing){
+    const teamId=String(_profileTeam||_teams[0]?.id||'');
+    const c=await gflCreateProfile(id,{k2:String(k2).trim(),teamId});
+    if(c.error) return signInMsg(c.error,true);
+    _me={k1:id,k2:String(k2).trim(),teamId}; meSave(); applyMe(); closeSignIn();
+    return;
+  }
+  if(String(res.data.k2||'')!==String(k2).trim()) return signInMsg('That second key does not match.',true);
+  _me={k1:id,k2:String(k2).trim(),teamId:res.data.teamId||''}; meSave(); applyMe(); closeSignIn();
+}
+function gflSignOut(){ _me=null; meSave(); applyMe(); closeSignIn(); }
+
+/* remember-my-team: called whenever a team dropdown changes */
+function meSetTeam(teamId){
+  if(!_me||!teamId||String(teamId)===String(_me.teamId)) return;
+  _me.teamId=String(teamId); meSave(); renderMeChip();
+  gflPatchProfile(_me.k1,{teamId:_me.teamId});
+}
+
+function myTeamName(){
+  if(!_me||!_me.teamId) return null;
+  const t=_teams.find(x=>String(x.id)===String(_me.teamId));
+  return t?t.name:null;
+}
+function renderMeChip(){
+  const b=document.getElementById('me-btn'); if(!b) return;
+  const nm=myTeamName();
+  b.classList.toggle('on',!!_me);
+  b.title=_me?`Signed in as ${_me.k1}${nm?` · ${nm}`:''}`:'Sign in';
+  b.innerHTML=_me?`<span class="me-ini">${_me.k1.slice(0,2).toUpperCase()}</span>`:'<i class="fa fa-user"></i>';
+}
+/* preselect the remembered team everywhere it matters */
+function applyMe(){
+  renderMeChip();
+  if(_me&&_me.teamId&&_teams.some(t=>String(t.id)===String(_me.teamId))){
+    _profileTeam=String(_me.teamId); _schedTeam=String(_me.teamId);
+    const p=document.getElementById('profile-team-select'); if(p) p.value=_profileTeam;
+    const s=document.getElementById('sched-team-select'); if(s) s.value=_schedTeam;
+    if(_activeTab==='teams') renderProfile();
+    if(_activeTab==='schedule') renderSchedule();
+  }
+}
+function openSignIn(){
+  const m=document.getElementById('si-modal'); if(!m) return;
+  const nm=myTeamName();
+  document.getElementById('si-body').innerHTML=_me
+    ? `<div class="si-in">Signed in as <b>${_me.k1}</b>${nm?`<div class="si-sub">Remembering ${nm}</div>`:''}</div>
+       <button class="si-go" onclick="gflSignOut()">Sign out</button>`
+    : `<label class="si-l">Key 1</label><input id="si-k1" class="si-i" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="anything you'll remember"/>
+       <label class="si-l">Key 2</label><input id="si-k2" class="si-i" type="password" autocomplete="off" placeholder="second key"/>
+       <button class="si-go" onclick="gflSignIn()">Unlock</button>
+       <div class="si-note">New key pair? It saves itself the first time. Signed out, the site works exactly the same.</div>`;
+  signInMsg('');
+  m.classList.add('show');
+  document.documentElement.classList.add('si-open');
+  setTimeout(()=>{const i=document.getElementById('si-k1'); if(i) i.focus();},80);
+}
+function closeSignIn(){
+  const m=document.getElementById('si-modal'); if(m) m.classList.remove('show');
+  document.documentElement.classList.remove('si-open');
+}
+function initSignIn(){
+  _me=meLoad();
+  renderMeChip();
+  if(_me) applyMe();
+}
 // ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
 /* Which season still has games left? Preseason gives the whole slate; mid-season
    gives whatever's left of the current one. */
@@ -4435,7 +4549,7 @@ async function loadDashboard(){
         <div class="sec">
           <div class="picker-bar" style="padding-bottom:16px">
             <label for="profile-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
-            <select id="profile-team-select" onchange="_profileTeam=this.value;renderProfile()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+            <select id="profile-team-select" onchange="_profileTeam=this.value;meSetTeam(this.value);renderProfile()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
           </div>
           <div id="profile-body"></div>
         </div>
@@ -4447,7 +4561,7 @@ async function loadDashboard(){
           <div class="sec-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
           <div class="picker-bar" style="padding-bottom:16px">
             <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
-            <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+            <select id="sched-team-select" onchange="_schedTeam=this.value;meSetTeam(this.value);renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
           </div>
           <div id="sched-body"></div>
         </div>
@@ -4493,6 +4607,7 @@ async function loadDashboard(){
     renderMarathon();
     renderTradesTab();
     renderSchedule();
+    applyMe();
     if(_activeTab==='draft') ensureDraft();
     switchTab(_activeTab);
     if(_activeTab!=='tenure'&&_tenure) renderTenureTable();
@@ -4518,6 +4633,7 @@ document.addEventListener('click',e=>{
 loadDashboard();
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initSignIn); else initSignIn();
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});
 else { buildTabDD(); positionTabDD(); }
