@@ -2360,8 +2360,9 @@
     #h1font-btn:hover{background:rgba(var(--accent-rgb),0.2);border-color:rgba(var(--accent-rgb),0.5);}
     #h1font-name{display:block;margin:-14px 0 18px;font-family:'Inter',sans-serif;font-size:10.5px;
       letter-spacing:1px;text-transform:uppercase;color:var(--accent);}
-    @media(max-width:768px){ #h1font-btn{width:40px;height:40px;font-size:13px;} }
-    @media(max-width:360px){ #h1font-btn{width:34px;height:34px;font-size:12px;} }
+    /* keeps one nav row with real slack: 375px had 7.9px spare at 40px, 320px had 0 */
+    @media(max-width:768px){ #floatnav #h1font-btn{width:34px;height:34px;font-size:12.5px;} }
+    @media(max-width:360px){ #floatnav{gap:5px;} #floatnav #h1font-btn{width:30px;height:30px;font-size:11.5px;} }
     /* ── PAGE TITLE ───────────────────────────────────────────────────────── */
     .page-h1{font-family:'Google Sans Flex',Georgia,serif;font-size:34px;font-weight:700;line-height:1.05;
       letter-spacing:-0.5px;color:var(--text);margin:0 0 22px;padding-bottom:14px;
