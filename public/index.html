@@ -1683,12 +1683,16 @@
     .rv-wk{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;}
     .rv-team{display:flex;align-items:center;gap:9px;min-width:0;}
     .rv-nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rv-ab{display:none;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;letter-spacing:.4px;white-space:nowrap;}
     .rv-rec{font-weight:700;}
     .rv-pf{color:var(--text3);font-size:12px;}
     html[data-theme="light"] .rv-row{border-bottom-color:rgba(0,0,0,0.07);}
     html[data-theme="light"] .rv-head{border-bottom-color:rgba(0,0,0,0.14);}
     @media(max-width:768px){
-      .rv-head,.rv-row{grid-template-columns:44px minmax(0,1fr) 62px 44px;gap:7px;padding:9px 0;}
+      /* phones show the abbreviation, so nothing gets cut off */
+      .rv-head,.rv-row{grid-template-columns:40px minmax(0,1fr) 60px 44px;gap:7px;padding:9px 0;}
+      .rv-nm{display:none;}
+      .rv-ab{display:inline;}
       .rv-head .rv-pf,.rv-row .rv-pf{display:none;}
       .rv-row .r{font-size:12px;}
       .rv-nm{font-size:12.5px;}

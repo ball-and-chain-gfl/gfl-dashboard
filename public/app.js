@@ -3147,7 +3147,7 @@ function rivalsHTML(owner){
     const rec=`${r.w}–${r.l}${r.t?`–${r.t}`:''}`;
     return `<div class="rv-row">
       <span class="rv-wk">Wk ${r.week}</span>
-      <span class="rv-team">${avatarCore(r.name,r.teamId||0,proxyLogo(r.logo),22,6)}<span class="rv-nm tlink" data-tid="${r.teamId||''}">${r.name}</span></span>
+      <span class="rv-team">${avatarCore(r.name,r.teamId||0,proxyLogo(r.logo),22,6)}<span class="rv-nm tlink" data-tid="${r.teamId||''}">${r.name}</span><span class="rv-ab tlink" data-tid="${r.teamId||''}">${drAbbr(r.owner,r.name)}</span></span>
       <span class="r rv-rec">${rec}</span>
       <span class="r rv-pct" style="color:${col}">${r.g?(r.pct*100).toFixed(0)+'%':'—'}</span>
       <span class="r rv-pf">${r.g?`${Math.round(r.pf)}–${Math.round(r.pa)}`:'—'}</span>
