@@ -1125,8 +1125,8 @@
     .tab-dd-menu::-webkit-scrollbar{width:6px;}
     .tab-dd-menu::-webkit-scrollbar-track{background:transparent;}
     .tab-dd-menu::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.22);border-radius:999px;}
-    /* content clears the floating bar */
-    main{padding-top:92px;}
+    /* content clears the floating bar (bar ends at 76px; this leaves a 38px gap) */
+    main{padding-top:114px;}
     @media(max-width:768px){
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
       #floatnav .logo img{height:40px;}
@@ -1136,7 +1136,7 @@
       .nav-burger{width:28px;height:28px;}
       .tab-dd-menu{right:10px;width:min(340px,calc(100% - 20px));
         top:var(--ddtop,calc(env(safe-area-inset-top,0px) + 72px));}
-      main{padding-top:calc(env(safe-area-inset-top,0px) + 84px);}
+      main{padding-top:calc(env(safe-area-inset-top,0px) + 104px);}
     }
     /* narrowest phones: pull the row in so all four controls still breathe */
     @media(max-width:360px){
