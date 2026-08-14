@@ -70,8 +70,22 @@ shell but every tab fails with `ESPN API 404`, because the frontend calls
 vercel dev
 ```
 
-Needs `vercel login`, `vercel link`, then `vercel env pull` to populate a local
-`.env`. `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.
+Needs `vercel login` and `vercel link` first. Then, two gotchas:
+
+1. **`vercel dev` reads `.env`, not `.env.local`.** `vercel env pull` writes to
+   `.env.local` by default, so the pulled file is ignored and every route fails
+   with `500 ESPN credentials not configured`. Copy it: `cp .env.local .env`.
+2. **`ESPN_S2`, `ESPN_SWID` and `GITHUB_TOKEN` are typed Sensitive in Vercel**,
+   and Sensitive values cannot be read back. `vercel env pull` writes an
+   11-character placeholder for each instead of the real value. They have to be
+   filled in by hand.
+
+`ESPN_S2` is the ~320-char `espn_s2` cookie from a logged-in
+`fantasy.espn.com` session (DevTools → Application → Cookies). `ESPN_SWID` is
+the 38-char GUID in braces recorded in `README.md`. A quick way to tell they are
+in the right slots is length: 320 vs 38.
+
+`.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.
 
 ## Archiving
 
