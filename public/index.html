@@ -2435,6 +2435,31 @@
     #page-home .punish-box .home-punish-more:hover{color:#ff5f5f!important;
       background:#242422;border-color:#242422!important;}
     #page-home .mod-punish.wm::before,#page-home .mod-punish.wm::after{opacity:0.05;}
+  
+    /* ── Playoff Hardware (Player Tenure) ─────────────────────────────────── */
+    .hw-sort{display:flex;align-items:center;gap:8px;padding:0 2px 12px;font-family:'Inter',sans-serif;
+      font-size:11px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);}
+    .hw-head,.hw-row{display:grid;grid-template-columns:minmax(0,1fr) 62px 96px 78px;
+      align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.06);}
+    .hw-head{padding:0 2px 7px;border-bottom:1px solid rgba(255,255,255,0.12);
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.7px;
+      text-transform:uppercase;color:var(--text3);}
+    .hw-row:last-of-type{border-bottom:none;}
+    .hw-p{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px;}
+    .hw-p .rank{flex:0 0 auto;color:var(--text3);font-size:12px;min-width:18px;}
+    .hw-p .fr-name{min-width:0;}
+    .hw-rings{color:var(--accent);font-weight:700;white-space:nowrap;}
+    .hw-rings i{font-size:11px;margin-right:5px;}
+    .hw-pw{font-weight:600;}
+    .hw-when{display:flex;flex-wrap:wrap;gap:4px;}
+    .hw-yr{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;
+      color:var(--accent);background:rgba(var(--accent-rgb),0.14);
+      border:1px solid rgba(var(--accent-rgb),0.34);border-radius:999px;padding:1px 6px;}
+    @media(max-width:560px){
+      .hw-head,.hw-row{grid-template-columns:minmax(0,1fr) 46px 58px;gap:8px;}
+      .hw-when{display:none;}
+      .hw-p{font-size:13.5px;}
+    }
   </style>
 </head>
 <body>

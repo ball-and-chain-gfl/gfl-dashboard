@@ -1651,6 +1651,72 @@ function renderTenureTable(){
   </table></div>${players.length>50?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 50 of ${players.length} — use search to find others.</div>`:''}
   <div style="padding:4px 2px 16px;font-size:12px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench). Bye weeks and weeks a player was on IR or ruled out are not counted.</div>`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
+  try{ renderTenureHardware(); }catch(e){}
+}
+
+
+/* ── PLAYOFF HARDWARE (player tenure, composite) ───────────────────────────
+   Deliberately team-agnostic: a player's playoff wins and rings are summed
+   across every roster they ever sat on, so the team dropdown above does not
+   filter this section.
+   playoff wins  = weeks the player was in the STARTING lineup for a team that
+                   won a playoff game (already computed per season as `pw`).
+   championships = seasons where the player started at least one playoff win
+                   FOR THE TEAM THAT WON THE TITLE, i.e. they were part of the
+                   winning run. A champion wins every playoff game it plays, so
+                   pw>0 under the champion's owner is exactly that test. */
+let _hwSort='rings';
+function champOwnerBySeason(){
+  const out={};
+  ALL_SEASONS.forEach(s=>{
+    const T=_seasonMeta[s]?.teams||{};
+    for(const tid in T){ if(T[tid].rank===1){ out[s]=T[tid].owner; break; } }
+  });
+  return out;
+}
+function tenureHardwareRows(){
+  if(!_tenure) return [];
+  const champ=champOwnerBySeason(), agg={};
+  Object.entries(_tenure).forEach(([owner,players])=>{
+    Object.entries(players).forEach(([pid,p])=>{
+      const a=agg[pid]||(agg[pid]={pid,n:p.n||`Player #${pid}`,pos:p.pos,pw:0,rings:[]});
+      if(p.n) a.n=p.n;
+      Object.entries(p.seasons||{}).forEach(([y,d])=>{
+        a.pw+=d.pw||0;
+        if(champ[y]===owner && (d.pw||0)>0) a.rings.push(y);
+      });
+    });
+  });
+  const rows=Object.values(agg).filter(a=>a.rings.length||a.pw).map(a=>{ a.rings.sort(); return a; });
+  return _hwSort==='pw'
+    ? rows.sort((x,y)=>y.pw-x.pw||y.rings.length-x.rings.length||x.n.localeCompare(y.n))
+    : rows.sort((x,y)=>y.rings.length-x.rings.length||y.pw-x.pw||x.n.localeCompare(y.n));
+}
+function setHwSort(k){ _hwSort=k; renderTenureHardware(); }
+function renderTenureHardware(){
+  const box=document.getElementById('tenure-hw'); if(!box) return;
+  const rows=tenureHardwareRows();
+  if(!rows.length){ box.innerHTML='<div class="tab-loading">No playoff results yet.</div>'; return; }
+  const ringYears=r=>r.rings.map(y=>`<span class="hw-yr">'${String(y).slice(2)}</span>`).join('');
+  const dash='<span style="color:var(--text3)">—</span>';
+  box.innerHTML=`<div class="hw-sort">
+      <span>Sort</span>
+      <button class="filter-btn ${_hwSort==='rings'?'active':''}" onclick="setHwSort('rings')">Titles</button>
+      <button class="filter-btn ${_hwSort==='pw'?'active':''}" onclick="setHwSort('pw')">Playoff Wins</button>
+    </div>
+    <div class="hw-head">
+      <span>Player</span><span class="right">Titles</span>
+      <span class="hw-when">Won</span><span class="right">Playoff Wins</span>
+    </div>
+    ${rows.map((r,i)=>`<div class="hw-row">
+      <span class="hw-p"><span class="rank">${i+1}</span>${playerImg(r.pid,22,r.n)}<span class="fr-name">${r.n}</span></span>
+      <span class="right hw-rings">${r.rings.length?`<i class="fa fa-trophy"></i>${r.rings.length}`:dash}</span>
+      <span class="hw-when">${r.rings.length?ringYears(r):dash}</span>
+      <span class="right hw-pw">${r.pw||dash}</span>
+    </div>`).join('')}
+    <div style="padding:10px 2px 16px;font-size:12px;color:var(--text3)">
+      <b>Playoff Wins</b> = weeks started for a team that won a playoff game, every team a player has been on.
+      <b>Titles</b> = seasons they started a playoff win for that year's champion.</div>`;
 }
 
 // ── TRADES TAB ─────────────────────────────────────────────────────────────────
@@ -4525,6 +4591,10 @@ async function loadDashboard(){
             <input type="text" id="tenure-search" placeholder="Search player…" oninput="renderTenureTable()"/>
           </div>
           <div id="tenure-body"></div>
+        </div>
+        <div class="sec wm" data-wm="&#xf091;">
+          <div class="sec-head"><i class="fa fa-trophy"></i>Playoff Hardware<span class="badge-info">every team combined · all seasons</span></div>
+          <div id="tenure-hw"></div>
         </div>
       </div>
 
