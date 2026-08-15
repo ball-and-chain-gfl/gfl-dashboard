@@ -4233,18 +4233,13 @@ function renderMyProfile(){
       <div class="mp-c"><span class="mp-l">Championships</span><span class="mp-v">${at.rings}</span></div>`:''}
       <div class="mp-c"><span class="mp-l">This week's pick</span><span class="mp-v">${votedName||'—'}</span></div>
     </div>
-    <div class="mp-row">
-      <label class="mp-l" for="mp-team">Linked team</label>
-      <select id="mp-team" onchange="mpSetTeam(this.value)">
-        ${_teams.map(x=>`<option value="${x.id}" ${String(x.id)===String(_me.teamId)?'selected':''}>${x.name}</option>`).join('')}
-      </select>
-    </div>
+    <!-- No team picker: the linked team comes from the sign-in key and is fixed.
+         The header above already names it. -->
     <div class="mp-actions">
       <button class="mv-btn" onclick="switchTab('teams')">Open team profile</button>
       <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
     </div>`;
 }
-function mpSetTeam(v){ meSetTeam(v); renderMyProfile(); }
 function openSignIn(){
   const m=document.getElementById('si-modal'); if(!m) return;
   const nm=myTeamName();
@@ -5738,7 +5733,7 @@ async function loadDashboard(){
         <div class="sec">
           <div class="picker-bar" style="padding-bottom:16px">
             <label for="profile-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
-            <select id="profile-team-select" onchange="_profileTeam=this.value;meSetTeam(this.value);renderProfile()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+            <select id="profile-team-select" onchange="_profileTeam=this.value;renderProfile()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
           </div>
           <div id="profile-body"></div>
         </div>
@@ -5750,7 +5745,7 @@ async function loadDashboard(){
           <div class="sec-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
           <div class="picker-bar" style="padding-bottom:16px">
             <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
-            <select id="sched-team-select" onchange="_schedTeam=this.value;meSetTeam(this.value);renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+            <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
           </div>
           <div id="sched-body"></div>
         </div>
