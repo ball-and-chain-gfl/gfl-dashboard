@@ -1120,7 +1120,9 @@
        --grad    the pair as a gradient. Everything on the PAGE that used to be
                  a flat accent fill (page title, meters, pills, primary
                  buttons) paints with this instead. */
-    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}
+    /* home is deliberately a single gold — both stops match, so anything using
+       --grad (the Big 4 bar, the title rule) renders flat rather than shifting */
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0B67B;--accent-rgb:224,182,123;}
     html[data-theme="dark"][data-tabaccent=teams]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
     html[data-theme="dark"][data-tabaccent=schedule]{--accent:#E89845;--accent2:#E8AF41;--accent-rgb:232,152,69;}
     html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}
