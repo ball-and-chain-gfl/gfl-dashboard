@@ -1116,6 +1116,43 @@
     html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
+    /* ── Live Around the League ───────────────────────────────────────────── */
+    .lv-head{display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:10px;
+      font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:11px;}
+    .lv-dot{width:7px;height:7px;border-radius:999px;background:var(--text3);flex:0 0 auto;}
+    .lv-dot.on{background:#5DE883;box-shadow:0 0 0 0 rgba(93,232,131,0.6);animation:lvPulse 1.9s infinite;}
+    @keyframes lvPulse{70%{box-shadow:0 0 0 7px rgba(93,232,131,0);}100%{box-shadow:0 0 0 0 rgba(93,232,131,0);}}
+    .lv-stamp{margin-left:auto;text-transform:none;letter-spacing:.3px;}
+    .lv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;}
+    .lv-card{border:1px solid var(--border);border-radius:9px;padding:11px 12px;min-width:0;}
+    .lv-teams{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+    .lv-t{display:flex;align-items:baseline;gap:7px;min-width:0;}
+    .lv-t.lv-r{justify-content:flex-end;}
+    .lv-nm{font-family:'Google Sans Flex',Georgia,serif;font-size:12.5px;font-weight:600;
+      min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lv-sc{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text2);}
+    .lv-sc.lv-up{color:var(--text);}
+    .lv-oddsbar{display:flex;height:5px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.07);}
+    .lv-of{height:100%;}
+    .lv-of.a{background:#e8433f;} .lv-of.b{background:#5a89e8;}
+    .lv-meta{display:flex;justify-content:space-between;gap:8px;font-family:'Inter',sans-serif;
+      font-size:10px;color:var(--text3);margin-top:5px;}
+    .lv-spark{width:100%;height:34px;margin-top:6px;display:block;}
+    .lv-nospark{font-family:'Inter',sans-serif;font-size:9.5px;color:var(--text3);
+      margin-top:8px;height:34px;display:flex;align-items:center;}
+    .lv-note{font-size:11.5px;color:var(--text3);line-height:1.5;padding:12px 2px 0;}
+    .lv-recs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:16px;
+      padding-top:14px;border-top:1px solid rgba(255,255,255,0.10);}
+    .lv-rec-h{display:flex;align-items:center;gap:7px;font-family:'Inter',sans-serif;font-size:10px;
+      font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .lv-rrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:baseline;gap:9px;
+      padding:5px 2px;border-bottom:1px solid rgba(255,255,255,0.05);}
+    .lv-rrow:last-child{border-bottom:none;}
+    .lv-rn{font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lv-rv{font-family:'Inter',sans-serif;font-size:13px;font-weight:800;color:var(--accent2,var(--accent));}
+    .lv-rw{font-family:'Inter',sans-serif;font-size:9.5px;color:var(--text3);white-space:nowrap;}
+    .lv-rnone{font-size:12px;color:var(--text3);line-height:1.5;}
+
     /* ── Messages ─────────────────────────────────────────────────────────── */
     .msg-compose{border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:16px;}
     .msg-compose textarea{width:100%;resize:vertical;min-height:44px;background:none;border:none;

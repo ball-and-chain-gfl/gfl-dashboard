@@ -509,7 +509,8 @@ function switchTab(name){
   if(name==='badbeat') renderBadBeat();
   if(name==='messages') initMessages();
   if(name==='gabe') renderGabe();
-  if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
+  if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); liveStart(); }
+  else liveStop();                     // only poll while the live board is on screen
   if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -3519,6 +3520,251 @@ function enemiesFor(owner){
   });
   return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
 }
+/* ── LIVE MATCHUPS ──────────────────────────────────────────────────────────
+   ESPN only ever reports where a matchup stands right now — there is no
+   in-game history to ask for. So the history is built by watching: while the
+   tab is open the scores are polled, and any time a number actually moves the
+   new totals are appended to a per-week document in Firestore. That series is
+   what the graphs, the largest-lead figures and the comeback records are all
+   read back out of.
+
+   One document per week holds every matchup's series, written as
+   [[minutesIntoWeek, aPts, bPts], …]. Before saving, whatever is already
+   stored is merged in, so two people watching at once extend the same series
+   rather than clobbering each other.
+
+   Nothing backfills. 2022-2025 have no recorded series and never will; this
+   starts collecting the first time somebody loads the page during a 2026
+   game. */
+const LIVE_POLL_MS=60000;
+let _liveTimer=null,_liveSeries={},_liveInfo=null,_liveBusy=false,_liveSaved=0;
+const liveDocUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
+const liveCollUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live?documentId=${encodeURIComponent(k)}&key=${GFL_DB.key}`;
+const liveMKey=(a,b)=>[a,b].sort().join('~');
+
+/* which week is on the clock: the earliest one that still has an unplayed game */
+function liveWeekInfo(){
+  const season=ALL_SEASONS[ALL_SEASONS.length-1], meta=_seasonMeta[season];
+  if(!meta) return null;
+  const byWeek={};
+  (meta.schedule||[]).forEach(m=>{
+    if(!m.home||!m.away) return;
+    const w=m.matchupPeriodId||0; if(!w||w>(meta.regEnd||14)+3) return;
+    (byWeek[w]||(byWeek[w]=[])).push(m);
+  });
+  const weeks=Object.keys(byWeek).map(Number).sort((a,b)=>a-b);
+  let live=null,last=null;
+  weeks.forEach(w=>{
+    const any=byWeek[w].some(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
+    const all=byWeek[w].every(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
+    if(any) last=w;
+    if(live==null&&!all) live=w;
+  });
+  const week=live||last||weeks[0];
+  return {season,week,meta,games:byWeek[week]||[],inProgress:live!=null};
+}
+async function liveLoadSeries(key){
+  try{
+    const r=await fetch(liveDocUrl(key),{cache:'no-store'});
+    if(r.status===404) return {};
+    if(!r.ok) return null;
+    const f=fsIn(await r.json());
+    try{ return JSON.parse(f.series||'{}')||{}; }catch(e){ return {}; }
+  }catch(e){ return null; }
+}
+async function liveSaveSeries(key,series){
+  const body=JSON.stringify(fsOut({series:JSON.stringify(series),updated:String(Date.now())}));
+  const hdr={'Content-Type':'application/json'};
+  try{
+    const r=await fetch(liveDocUrl(key)+'&updateMask.fieldPaths=series&updateMask.fieldPaths=updated',
+      {method:'PATCH',headers:hdr,body});
+    if(r.ok) return true;
+    const c=await fetch(liveCollUrl(key),{method:'POST',headers:hdr,body});
+    return c.ok;
+  }catch(e){ return false; }
+}
+/* one poll: read the live scoreboard, append anything that moved, redraw */
+async function livePoll(){
+  if(_liveBusy) return; _liveBusy=true;
+  try{
+    const info=liveWeekInfo(); if(!info){_liveBusy=false;return;}
+    const owners=info.meta.owners||{};
+    let games=info.games;
+    // ask ESPN directly so an in-progress week reflects the current minute
+    try{
+      const r=await fetch(`${BASE}?view=mMatchup&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
+      if(r.ok){
+        const j=await r.json();
+        const fresh=(j.schedule||[]).filter(m=>(m.matchupPeriodId||0)===info.week&&m.home&&m.away);
+        if(fresh.length) games=fresh;
+      }
+    }catch(e){}
+    const key=liveKeyFor(info);
+    if(!_liveInfo||_liveInfo.key!==key){
+      const stored=await liveLoadSeries(key);
+      _liveSeries=stored||{};
+    }
+    _liveInfo={...info,key,games};
+    const t=Math.round(Date.now()/60000);          // minute resolution is plenty
+    let changed=false;
+    games.forEach(m=>{
+      const ao=owners[m.home.teamId], bo=owners[m.away.teamId];
+      if(!ao||!bo) return;
+      const k=liveMKey(ao,bo);
+      const aFirst=[ao,bo].sort()[0]===ao;
+      const a=aFirst?(m.home.totalPoints||0):(m.away.totalPoints||0);
+      const b=aFirst?(m.away.totalPoints||0):(m.home.totalPoints||0);
+      if(a===0&&b===0) return;                     // nothing has happened yet
+      const arr=_liveSeries[k]||(_liveSeries[k]=[]);
+      const prev=arr[arr.length-1];
+      if(!prev||prev[1]!==a||prev[2]!==b){ arr.push([t,a,b]); changed=true; }
+    });
+    if(changed){
+      _liveSaved=Date.now();
+      const remote=await liveLoadSeries(key);      // merge, so parallel watchers do not clobber
+      if(remote){
+        Object.entries(remote).forEach(([k,arr])=>{
+          const mine=_liveSeries[k]||[];
+          const seen=new Set(mine.map(p=>p.join(',')));
+          arr.forEach(p=>{ if(!seen.has(p.join(','))) mine.push(p); });
+          mine.sort((x,y)=>x[0]-y[0]);
+          _liveSeries[k]=mine;
+        });
+      }
+      await liveSaveSeries(key,_liveSeries);
+    }
+    renderLiveMatchups();
+  }catch(e){}
+  _liveBusy=false;
+}
+const liveKeyFor=info=>`${info.season}-w${info.week}`;
+function liveStart(){
+  liveStop();
+  livePoll();
+  _liveTimer=setInterval(()=>{ if(document.visibilityState==='visible') livePoll(); },LIVE_POLL_MS);
+  document.addEventListener('visibilitychange',liveVis);
+}
+function liveVis(){ if(document.visibilityState==='visible') livePoll(); }
+function liveStop(){ if(_liveTimer) clearInterval(_liveTimer); _liveTimer=null;
+  document.removeEventListener('visibilitychange',liveVis); }
+
+/* margin sparkline — the shape of the game, zero line through the middle */
+function liveSpark(series,w=150,h=34){
+  if(!series||series.length<2) return `<div class="lv-nospark">no movement recorded yet</div>`;
+  const marg=series.map(p=>p[1]-p[2]);
+  const mx=Math.max(6,...marg.map(Math.abs));
+  const step=w/(series.length-1);
+  const y=v=>h/2-(v/mx)*(h/2-2);
+  const pts=marg.map((v,i)=>`${(i*step).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const last=marg[marg.length-1];
+  const col=last>0?'#5DE883':last<0?'#E8687E':'var(--text3)';
+  return `<svg class="lv-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="0" y1="${h/2}" x2="${w}" y2="${h/2}" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+/* biggest comeback and largest lead, read back out of the recorded series */
+function liveRecordsFrom(seriesByWeek){
+  const best={};                                   // owner -> {deficit, week, opp}
+  const leads={};
+  Object.entries(seriesByWeek).forEach(([wkKey,byMatch])=>{
+    Object.entries(byMatch||{}).forEach(([k,arr])=>{
+      if(!arr||arr.length<2) return;
+      const [a,b]=k.split('~');
+      const fin=arr[arr.length-1];
+      const winner=fin[1]>fin[2]?a:fin[2]>fin[1]?b:null;
+      if(!winner) return;
+      let worst=0,lead=0;
+      arr.forEach(p=>{
+        const m=p[1]-p[2];                          // + means a leads
+        const winnerMargin=winner===a?m:-m;
+        if(winnerMargin<worst) worst=winnerMargin;
+        if(Math.abs(m)>Math.abs(lead)) lead=m;
+      });
+      const deficit=Math.abs(worst);
+      if(deficit>0&&(!best[winner]||deficit>best[winner].deficit))
+        best[winner]={deficit,week:wkKey,opp:winner===a?b:a};
+      const leader=lead>0?a:b;
+      const mag=Math.abs(lead);
+      if(!leads[leader]||mag>leads[leader].lead) leads[leader]={lead:mag,week:wkKey,opp:leader===a?b:a};
+    });
+  });
+  return {best,leads};
+}
+function renderLiveMatchups(){
+  const el=document.getElementById('live-body'); if(!el) return;
+  const info=_liveInfo;
+  if(!info){ el.innerHTML=`<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Checking the scoreboard…</div>`; return; }
+  const owners=info.meta.owners||{};
+  const nm=o=>(_franchises.find(f=>f.owner===o)||{}).name||info.meta.names?.[o]?.name||o;
+  const rowOf=o=>{const b=sbBuild();return b?b.rows.find(r=>r.owner===o):null;};
+  const cards=(info.games||[]).map(m=>{
+    const ao=owners[m.home.teamId], bo=owners[m.away.teamId];
+    if(!ao||!bo) return '';
+    const k=liveMKey(ao,bo), aFirst=[ao,bo].sort()[0]===ao;
+    const a=aFirst?(m.home.totalPoints||0):(m.away.totalPoints||0);
+    const b=aFirst?(m.away.totalPoints||0):(m.home.totalPoints||0);
+    const an=aFirst?nm(ao):nm(bo), bn=aFirst?nm(bo):nm(ao);
+    const aOwner=aFirst?ao:bo, bOwner=aFirst?bo:ao;
+    const arr=_liveSeries[k]||[];
+    const margins=arr.map(p=>p[1]-p[2]);
+    const biggest=margins.length?margins.reduce((x,y)=>Math.abs(y)>Math.abs(x)?y:x,0):(a-b);
+    // live odds: remaining scoring is unknown, so price the current margin
+    const p=schedWinProb(rowOf(aOwner),rowOf(bOwner));
+    const live=Math.min(0.99,Math.max(0.01,schedNormCdf(((a-b)*0.55+(p-0.5)*22)/18)));
+    const started=a>0||b>0;
+    return `<div class="lv-card">
+      <div class="lv-teams">
+        <span class="lv-t"><span class="lv-nm">${an}</span><span class="lv-sc${a>=b?' lv-up':''}">${a.toFixed(1)}</span></span>
+        <span class="lv-t lv-r"><span class="lv-sc${b>a?' lv-up':''}">${b.toFixed(1)}</span><span class="lv-nm">${bn}</span></span>
+      </div>
+      <div class="lv-oddsbar" title="${an} ${Math.round(live*100)}%">
+        <span class="lv-of a" style="width:${(live*100).toFixed(1)}%"></span>
+        <span class="lv-of b" style="width:${(100-live*100).toFixed(1)}%"></span>
+      </div>
+      <div class="lv-meta">
+        <span>${started?`${Math.round(live*100)}% / ${100-Math.round(live*100)}%`:'not started'}</span>
+        <span>${arr.length>1?`biggest lead ${Math.abs(biggest).toFixed(1)}`:'&nbsp;'}</span>
+      </div>
+      ${liveSpark(arr)}
+    </div>`;}).join('');
+  const stamp=_liveSaved?`updated ${msgAgo(_liveSaved)}`:'watching';
+  el.innerHTML=`
+    <div class="lv-head">
+      <span class="lv-dot${info.inProgress?' on':''}"></span>
+      <span>${info.season} · Week ${info.week}</span>
+      <span class="lv-stamp">${info.inProgress?stamp:'week complete'}</span>
+    </div>
+    <div class="lv-grid">${cards||'<div class="lr-none">No matchups scheduled.</div>'}</div>
+    <div class="lv-note">Scores are polled every ${LIVE_POLL_MS/1000}s while this page is open and a point is recorded whenever one moves. ESPN publishes only the current total, so the history below is what the league has watched — it starts from the ${ALL_SEASONS[ALL_SEASONS.length-1]} season and cannot be backfilled.</div>
+    <div id="live-records"></div>`;
+  renderLiveRecords();
+}
+async function renderLiveRecords(){
+  const el=document.getElementById('live-records'); if(!el) return;
+  const key=_liveInfo?_liveInfo.key:null;
+  const all={}; if(key) all[key]=_liveSeries;
+  const {best,leads}=liveRecordsFrom(all);
+  const nm=o=>(_franchises.find(f=>f.owner===o)||{}).name||o;
+  const cb=Object.entries(best).sort((a,b)=>b[1].deficit-a[1].deficit).slice(0,6);
+  const ld=Object.entries(leads).sort((a,b)=>b[1].lead-a[1].lead).slice(0,6);
+  el.innerHTML=`
+    <div class="lv-recs">
+      <div class="lv-rec">
+        <div class="lv-rec-h"><i class="fa fa-arrow-trend-up"></i>Biggest comebacks</div>
+        ${cb.length?cb.map(([o,r])=>`<div class="lv-rrow"><span class="lv-rn">${nm(o)}</span>
+          <span class="lv-rv">−${r.deficit.toFixed(1)}</span><span class="lv-rw">${r.week.replace('-w',' wk ')}</span></div>`).join('')
+          :'<div class="lv-rnone">Nothing recorded yet — this fills in as games are watched.</div>'}
+      </div>
+      <div class="lv-rec">
+        <div class="lv-rec-h"><i class="fa fa-bolt"></i>Largest leads held</div>
+        ${ld.length?ld.map(([o,r])=>`<div class="lv-rrow"><span class="lv-rn">${nm(o)}</span>
+          <span class="lv-rv">+${r.lead.toFixed(1)}</span><span class="lv-rw">${r.week.replace('-w',' wk ')}</span></div>`).join('')
+          :'<div class="lv-rnone">Nothing recorded yet.</div>'}
+      </div>
+    </div>`;
+}
+
 /* ── MESSAGES ───────────────────────────────────────────────────────────────
    A league board. Messages live in their own Firestore collection rather than
    inside profiles, because a shared page of documents would eventually crowd
@@ -5237,6 +5483,10 @@ async function loadDashboard(){
 
       <!-- MATCHUP HISTORY -->
       <div class="tab-page" id="page-history">
+        <div class="sec wm" data-wm="&#xf0e7;">
+          <div class="sec-head"><i class="fa fa-tower-broadcast"></i>Live Around the League<span class="badge-info">updates while this page is open</span></div>
+          <div id="live-body"></div>
+        </div>
         <div class="sec wm" data-wm="&#xf24e;">
           <div class="sec-head"><i class="fa fa-scale-balanced"></i>Historical Matchup Records<span class="badge-info">all seasons · ${ALL_SEASONS[0]}–present</span></div>
           <div class="picker-bar">
