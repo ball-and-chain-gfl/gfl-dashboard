@@ -372,10 +372,23 @@
     .tlink:hover{color:var(--accent);text-decoration:underline;text-underline-offset:2px;}
 
     /* MATCHUP OF THE WEEK */
-    .motw-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:6px 2px 16px;}
-    .motw-team{display:flex;align-items:center;gap:12px;}
+    .motw-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:14px;padding:6px 2px 16px;}
+    .motw-team{display:flex;align-items:center;gap:12px;min-width:0;}
     .motw-team.right{flex-direction:row-reverse;text-align:right;}
+    .motw-team>:first-child{flex:0 0 auto;}
+    /* team names stay on one line — they shrink and ellipsis rather than wrap */
+    .motw-tinfo{min-width:0;flex:1 1 auto;}
+    .motw-tname{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .motw-trec{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .motw-vs{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;color:var(--text3);}
+    @media(max-width:768px){
+      .motw-head{gap:8px;}
+      .motw-team{gap:8px;}
+      .motw-tname{font-size:13.5px;}
+      .motw-trec{font-size:10.5px;}
+      .motw-vs{font-size:17px;}
+      .motw-head .big4-logo,.motw-head .team-logo{width:30px!important;height:30px!important;}
+    }
     /* ── Matchup pick'em ──────────────────────────────────────────────────── */
     .motw-vote{margin:0 0 14px;padding:12px 12px 10px;border:1px solid var(--border);border-radius:8px;}
     .mv-h{display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -1332,7 +1345,13 @@
     .dr-mini>.section-header .badge-info{font-size:9.5px;padding:2px 6px;}
     .dpm{padding:9px 11px;border-bottom:1px solid rgba(255,255,255,0.05);}
     .dpm:last-child{border-bottom:none;}
+    /* The grade stripe needs clearance or the rank digit sits right on it.
+       `.card > *` zeroes left padding with !important, so these have to
+       out-rank it — that reset is why the digits were flush to the stripe. */
     .dpm-tint{border-left:3px solid var(--dtint,var(--accent));}
+    .card>.dpm{padding-left:11px!important;}
+    .card>.dpm-tint{padding-left:13px!important;}
+    .dpm-tint .dpm-bot.dpm-ind{padding-left:19px;}
     .dpm-top{display:flex;align-items:center;gap:6px;min-width:0;}
     .dpm-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--accent);min-width:11px;flex-shrink:0;}
     .dpm-name{font-family:'Google Sans Flex',Georgia,serif;font-size:12.5px;font-weight:600;line-height:1.25;min-width:0;}
@@ -2098,6 +2117,19 @@
     #page-home .home-punish-more{color:#E0B67B;border-color:rgba(224,182,123,0.4);}
     #page-home .home-punish-more:hover{color:#E0B67B;border-color:#E0B67B;}
 
+    /* ── Waiver ROI: the seven columns were spreading across the full width,
+       leaving big gaps between short numbers. Numerics shrink to their content
+       and the player column absorbs the slack; on phones the two secondary
+       columns drop out so the table fits without scrolling. ────────────────── */
+    #stats-c3 table th:not(:first-child),#stats-c3 table td:not(:first-child){
+      width:1%;white-space:nowrap;}
+    #stats-c3 table th,#stats-c3 table td{padding-left:10px;padding-right:10px;}
+    @media(max-width:768px){
+      #stats-c3 .tscroll table{min-width:0;}
+      #stats-c3 table td.mhide,#stats-c3 table th.mhide{display:none!important;}
+      #stats-c3 table th,#stats-c3 table td{padding-left:5px!important;padding-right:5px!important;}
+    }
+
     /* ── MOBILE: keep real tables (sortable/filterable) but tighten + stick the name column ── */
     @media(max-width:768px){
       .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
@@ -2379,9 +2411,10 @@
       #page-draft .card>.section-header{padding:13px 2px!important;}
       #page-draft .card .picker-bar{padding:12px 2px!important;}
       #page-draft #draft-team-body>div:last-child{padding-left:2px!important;padding-right:2px!important;}
-      /* player column is capped so the Draft position sits close to the name */
-      .dm-row{display:grid;grid-template-columns:20px 28px minmax(0,112px) 42px 44px minmax(34px,1fr);
-        align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+      /* the name takes the slack: capping it truncated players while the last
+         column sat half empty */
+      .dm-row{display:grid;grid-template-columns:18px 26px minmax(0,1fr) 44px 46px 40px;
+        align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
       .dm-row:last-child{border-bottom:none;}
       /* every value left-aligned so it lines up under its column title */
       .dm-row>span{text-align:left;font-family:'Inter',sans-serif;font-size:12px;white-space:nowrap;}

@@ -2787,9 +2787,9 @@ function renderMatchupOfWeek(){
   const oddChip=(label,pct,cls)=>`<div class="odd-chip"><div class="odd-label">${label}</div><div class="odd-val ${cls}">${pct!=null?pct+'%':'—'}</div></div>`;
   el.innerHTML=`
     <div class="motw-head home-box">
-      <div class="motw-team">${logoImg(A.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${A.name}</div><div style="font-size:12px;color:var(--text3)">${A.wins}–${A.losses} · ${A.pf.toFixed(0)} PF</div></div></div>
+      <div class="motw-team">${logoImg(A.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${A.name}</div><div class="motw-trec">${A.wins}–${A.losses} · ${A.pf.toFixed(0)} PF</div></div></div>
       <div class="motw-vs">VS</div>
-      <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${B.name}</div><div style="font-size:12px;color:var(--text3)">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
+      <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${B.name}</div><div class="motw-trec">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
     </div>
     <div class="motw-vote" id="motw-vote"></div>
     ${motwCompareHTML(A,B,at,last)}
