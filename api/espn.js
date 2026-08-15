@@ -180,6 +180,45 @@ export default async function handler(req, res) {
     return list;
   }
 
+  // ── NFL STATE (live change trigger) ─────────────────────────────────────────
+  // ESPN's fantasy API has no push, so the only way to notice a score move is to
+  // ask again. Asking the *fantasy* endpoint on a tight loop is wasteful; asking
+  // the public NFL scoreboard is not, because it says whether anything in the
+  // league has actually happened. This returns a small digest of that board, so
+  // the client can poll cheaply and only reach for fantasy scores when the NFL
+  // itself moved. Deliberately a summary — ~280KB in, a few hundred bytes out.
+  if (type === 'nflstate') {
+    try {
+      const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', {
+        headers: { 'User-Agent': 'gfl-dashboard', Accept: 'application/json' },
+      });
+      if (!r.ok) return res.status(502).json({ error: `scoreboard ${r.status}` });
+      const d = await r.json();
+      const games = (d.events || []).map(e => {
+        const c = (e.competitions || [])[0] || {};
+        const st = c.status || e.status || {};
+        const comp = c.competitors || [];
+        const home = comp.find(x => x.homeAway === 'home') || {};
+        const away = comp.find(x => x.homeAway === 'away') || {};
+        return {
+          id: e.id,
+          n: e.shortName || '',
+          s: st.type?.state || '',            // pre | in | post
+          p: st.period || 0,
+          c: st.displayClock || '',
+          h: Number(home.score || 0),
+          a: Number(away.score || 0),
+        };
+      });
+      // one string that changes whenever anything on the field does
+      const sig = games.map(g => `${g.id}:${g.s}:${g.p}:${g.c}:${g.h}:${g.a}`).join('|');
+      const anyLive = games.some(g => g.s === 'in');
+      res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5');
+      return res.status(200).json({ week: d.week?.number || null, season: d.season?.year || null,
+        anyLive, count: games.length, sig, games });
+    } catch (err) { return res.status(500).json({ error: err.message }); }
+  }
+
   // ── YouTube RSS ──────────────────────────────────────────────────────────────
   if (type === 'youtube') {
     try {

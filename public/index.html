@@ -2692,11 +2692,18 @@
     #page-home .video-featured{border-radius:6px;}
     #page-home .video-featured-title{padding:10px 2px 0;}
     #page-home .vid-more{margin-top:12px;}
-    #page-home .sec{margin-bottom:24px;}
+    #page-home .sec{margin-bottom:38px;}
+    /* the three stacked rows need more air between them than the cards inside
+       them do, so the row gaps are set separately from the module spacing */
+    #page-home .home-top,#page-home .home-bottom{margin-bottom:38px;}
+    #page-home .home-left-col,#page-home .home-vid-col,#page-home .home-right{gap:24px;}
+    #page-home .mod-live{margin-top:4px;}
     @media(max-width:768px){
       #page-home .home-box{padding:12px 13px;}
       #page-home .home-box.home-cm{padding:4px 8px;}
-      #page-home .sec{margin-bottom:20px;}
+      #page-home .sec{margin-bottom:30px;}
+      #page-home .home-top,#page-home .home-bottom{margin-bottom:30px;}
+      #page-home .home-left-col,#page-home .home-vid-col,#page-home .home-right{gap:20px;}
     }
 
     /* ── MATTE PAGES: panels are outlines in the page colour, no fill ─────── */
@@ -2799,6 +2806,8 @@
     #page-home .mod-cm{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .motw-book{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    #page-home .mod-live{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .home-punish-more{color:var(--accent);border-color:rgba(var(--accent-rgb),0.4);}
     #page-home .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}

@@ -510,8 +510,8 @@ function switchTab(name){
   if(name==='messages') initMessages();
   if(name==='profile') renderMyProfile();
   if(name==='gabe') renderGabe();
-  if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); liveStart(); }
-  else liveStop();                     // only poll while the live board is on screen
+  if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
+  if(name==='home') liveStart(); else liveStop();   // the live board lives on the homepage
   if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -3651,33 +3651,68 @@ async function livePoll(){
   _liveBusy=false;
 }
 const liveKeyFor=info=>`${info.season}-w${info.week}`;
-/* how long to wait before asking again, given how live things look right now */
-function liveInterval(){
-  if(!_liveInfo||!_liveInfo.inProgress) return LIVE_IDLE;
-  const started=Object.keys(_liveSeries).length>0;
-  if(!started) return LIVE_BASE;
-  return (Date.now()-_liveSaved<LIVE_HOT_MS)?LIVE_FAST:LIVE_BASE;
+/* ── NFL-driven trigger ─────────────────────────────────────────────────────
+   Fantasy points still come from ESPN's fantasy API — it owns this league's
+   scoring rules, and recomputing them from raw stats would risk our totals
+   quietly disagreeing with the official ones. What the public NFL scoreboard
+   gives us instead is a cheap answer to "did anything happen at all", so the
+   expensive fantasy call is only made when the field actually moved.
+   /api/espn?type=nflstate returns a digest of the whole board in ~1.7KB. */
+const NFL_LIVE_MS=10000;    // something is being played: watch closely
+const NFL_QUIET_MS=120000;  // nothing kicked off: just keep an eye out
+let _nflSig=null,_nflLive=false,_nflSeen=0;
+async function nflState(){
+  try{
+    const r=await fetch(`${BASE}?type=nflstate`,{cache:'no-store'});
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
 }
-function liveSchedule(){
+/* one beat: ask the cheap endpoint, and only reach for fantasy if it moved */
+async function liveTick(force){
+  const st=await nflState();
+  let moved=!!force;
+  if(st){
+    _nflLive=!!st.anyLive; _nflSeen=Date.now();
+    if(st.sig!==_nflSig){ if(_nflSig!==null) moved=true; _nflSig=st.sig; }
+  }else if(force===undefined){
+    moved=true;                       // digest unavailable — fall back to polling directly
+  }
+  if(moved||!Object.keys(_liveSeries).length) await livePoll();
+  else renderLiveMatchups();          // keeps the cadence readout honest
+}
+function liveInterval(){
+  if(_nflLive) return NFL_LIVE_MS;
+  if(!_liveInfo||!_liveInfo.inProgress) return LIVE_IDLE;
+  return NFL_QUIET_MS;
+}
+function liveSchedule(override){
   if(_liveTimer) clearTimeout(_liveTimer);
-  const ms=liveInterval();
+  const ms=override||liveInterval();
   _liveNext=Date.now()+ms;
   _liveTimer=setTimeout(async()=>{
-    if(document.visibilityState==='visible') await livePoll();
+    if(document.visibilityState==='visible') await liveTick();
     liveSchedule();
   },ms);
 }
 function liveStart(){
   liveStop();
-  livePoll().then(liveSchedule);
+  /* Schedule before the async work, not after. The homepage render can run
+     again while the first fetch is still in flight, and each liveStart begins
+     by clearing the timer — so a timer that only got set at the end of the
+     chain could be cancelled forever and the board would quietly stop
+     updating. Setting it up front means one always exists; the chain just
+     re-times it once the real cadence is known. */
+  liveSchedule(8000);      // short bootstrap tick; the chain re-times it properly
+  livePoll().then(()=>liveTick(false)).then(()=>liveSchedule()).catch(()=>liveSchedule());
   document.addEventListener('visibilitychange',liveVis);
 }
 /* coming back to the tab should never show a stale board */
-function liveVis(){ if(document.visibilityState==='visible'){ livePoll().then(liveSchedule); } }
+function liveVis(){ if(document.visibilityState==='visible'){ liveTick(true).then(liveSchedule); } }
 function liveStop(){ if(_liveTimer) clearTimeout(_liveTimer); _liveTimer=null; _liveNext=0;
   document.removeEventListener('visibilitychange',liveVis); }
 /* manual nudge from the board */
-function liveRefreshNow(){ livePoll().then(liveSchedule); }
+function liveRefreshNow(){ liveTick(true).then(liveSchedule); }
 
 /* margin sparkline — the shape of the game, zero line through the middle */
 function liveSpark(series,w=150,h=34){
@@ -3762,15 +3797,16 @@ function renderLiveMatchups(){
   const secs=Math.round(liveInterval()/1000);
   const hot=_liveSaved&&Date.now()-_liveSaved<LIVE_HOT_MS;
   const stamp=_liveSaved?`last change ${msgAgo(_liveSaved)}`:'no changes yet';
+  const nfl=_nflLive?'NFL games in progress':(_nflSeen?'no NFL games live':'checking the NFL board');
   el.innerHTML=`
     <div class="lv-head">
-      <span class="lv-dot${info.inProgress?' on':''}${hot?' hot':''}"></span>
+      <span class="lv-dot${_nflLive?' on hot':info.inProgress?' on':''}"></span>
       <span>${info.season} · Week ${info.week}</span>
-      <span class="lv-stamp">${info.inProgress?`${stamp} · checking every ${secs}s`:'week complete'}
+      <span class="lv-stamp">${info.inProgress?`${stamp} · ${nfl} · every ${secs}s`:'week complete'}
         <button class="lv-now" onclick="liveRefreshNow()" title="Check now"><i class="fa fa-rotate-right"></i></button></span>
     </div>
     <div class="lv-grid">${cards||'<div class="lr-none">No matchups scheduled.</div>'}</div>
-    <div class="lv-note">ESPN publishes only the current total — there is no feed that announces a score change — so the board asks again on a cadence instead: every ${LIVE_FAST/1000}s while points are landing, ${LIVE_BASE/1000}s when a window goes quiet, and it idles once the week is settled. A point is recorded the moment a score moves and never when it hasn't, so the graphs below are the real shape of each game. History starts from ${ALL_SEASONS[ALL_SEASONS.length-1]} and cannot be backfilled.</div>
+    <div class="lv-note">Nothing pushes a fantasy score, so the board watches the public NFL scoreboard instead — a ~1.7KB digest, every ${NFL_LIVE_MS/1000}s while games are being played and ${NFL_QUIET_MS/1000}s when none are. The moment anything on the field moves, the fantasy scores are pulled straight away. Points still come from ESPN's fantasy API so the totals match the app exactly; a point is recorded when a score moves and never when it hasn't. History starts from ${ALL_SEASONS[ALL_SEASONS.length-1]} and cannot be backfilled.</div>
     <div id="live-records"></div>`;
   renderLiveRecords();
 }
@@ -5505,6 +5541,11 @@ async function loadDashboard(){
             </div>
           </div>
         </div>
+        <!-- Row 3: the live board sits last, under everything else -->
+        <div class="sec wm mod-live" data-wm="&#xf0e7;">
+          <div class="sec-head"><i class="fa fa-tower-broadcast"></i>Live Around the League<span class="badge-info">updates while this page is open</span></div>
+          <div class="home-box" id="live-body"></div>
+        </div>
       </div>
 
       <!-- STANDINGS & STATS -->
@@ -5562,10 +5603,6 @@ async function loadDashboard(){
 
       <!-- MATCHUP HISTORY -->
       <div class="tab-page" id="page-history">
-        <div class="sec wm" data-wm="&#xf0e7;">
-          <div class="sec-head"><i class="fa fa-tower-broadcast"></i>Live Around the League<span class="badge-info">updates while this page is open</span></div>
-          <div id="live-body"></div>
-        </div>
         <div class="sec wm" data-wm="&#xf24e;">
           <div class="sec-head"><i class="fa fa-scale-balanced"></i>Historical Matchup Records<span class="badge-info">all seasons · ${ALL_SEASONS[0]}–present</span></div>
           <div class="picker-bar">
@@ -5679,6 +5716,9 @@ async function loadDashboard(){
     renderBig4();
     renderMatchupOfWeek();
     renderPunishment();
+    /* the board is on the homepage, which is where the app opens — switchTab
+       only fires when you navigate, so the first load has to start it too */
+    if(_activeTab==='home') liveStart();
     if(_profileTeam==null) _profileTeam=String(_teams[0]?.id||'');
     renderHomeHeadlines();
     renderHistoryTable();
