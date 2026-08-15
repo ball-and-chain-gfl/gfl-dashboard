@@ -1116,6 +1116,29 @@
     html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
+    /* ── My Profile (header button destination) ───────────────────────────── */
+    html[data-theme="dark"][data-tabaccent=profile]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}
+    .mp-head{display:flex;align-items:center;gap:13px;margin-bottom:16px;}
+    .mp-name{font-family:'Google Sans Flex',Georgia,serif;font-size:20px;font-weight:700;line-height:1.15;}
+    .mp-sub{font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);margin-top:2px;}
+    .mp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0 16px;margin-bottom:16px;}
+    .mp-c{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 2px;
+      border-bottom:1px solid rgba(255,255,255,0.055);}
+    html[data-theme="light"] .mp-c{border-bottom-color:rgba(0,0,0,0.07);}
+    .mp-l{font-family:'Inter',sans-serif;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    .mp-v{font-family:'Inter',sans-serif;font-size:14.5px;font-weight:700;white-space:nowrap;}
+    .mp-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+    .mp-row select{flex:1 1 180px;font-size:13px;padding:8px 10px;border-radius:7px;
+      background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;}
+    html[data-theme="light"] .mp-row select{background:rgba(0,0,0,0.04);}
+    .mp-actions{display:flex;gap:9px;flex-wrap:wrap;}
+    .mp-actions .mv-btn{width:auto;padding:9px 16px;}
+    .mp-out-btn{border-color:rgba(232,67,63,0.45);color:#e8685f;}
+    .mp-out-btn:hover{border-color:#e8433f;color:#e8685f;}
+    .mp-out{padding:22px 2px;color:var(--text3);}
+    .mp-out p{margin:0 0 12px;font-size:13.5px;}
+    .mp-out .mv-btn{width:auto;padding:9px 18px;}
+
     /* ── Live Around the League ───────────────────────────────────────────── */
     .lv-head{display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:10px;
       font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:11px;}
@@ -2908,7 +2931,7 @@
   <div class="tab-dd" id="tab-dd">
     <button id="tab-dd-btn" ontouchstart="tabDDPointer(event)" onpointerdown="tabDDPointer(event)" onclick="tabDDClick()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><span class="nav-burger"><i class="fa fa-bars"></i></span></button>
   </div>
-  <button id="me-btn" onclick="openSignIn()" aria-label="Sign in" title="Sign in"><i class="fa fa-user"></i></button>
+  <button id="me-btn" onclick="meBtnClick()" aria-label="Sign in" title="Sign in"><i class="fa fa-user"></i></button>
 </header>
 <div id="tab-dd-menu" class="tab-dd-menu"></div>
 

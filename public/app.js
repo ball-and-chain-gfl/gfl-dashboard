@@ -85,7 +85,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
 /* Hand-picked primaries — see the matching --tc / --tabaccent blocks in
    index.html for these plus each tab's secondary. Nav shows the primary only. */
 const TAB_COLORS={home:'#E0B67B',teams:'#E84146',schedule:'#E89845',book:'#3fd07a',legacy:'#E8BC56',history:'#587DE8',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#63E0E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages'};
+const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -508,6 +508,7 @@ function switchTab(name){
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
   if(name==='messages') initMessages();
+  if(name==='profile') renderMyProfile();
   if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); liveStart(); }
   else liveStop();                     // only poll while the live board is on screen
@@ -1347,7 +1348,11 @@ function renderLineupIQ(){
 let _liqSort={col:'pct',asc:false};
 function sortLIQ(col){ _liqSort={col,asc:_liqSort.col===col?!_liqSort.asc:false}; renderLineupIQ(); } // first click = highest first, like every other table
 function liqPct(teamId){ const d=_liq[getSeason()]?.[teamId]; return (d&&d.decisions)?(d.correct/d.decisions*100):null; }
-function liqColor(p){ return p>=85?'var(--green)':p>=78?'var(--accent)':p>=72?'#E0B67B':'var(--red)'; }
+/* Fixed colours, deliberately not var(--accent): this tier used to inherit the
+   tab accent, which turned every good score purple the moment Advanced Stats
+   became a purple tab. Blue is the tier above green — only 2023's 86.0 has
+   cleared it so far. */
+function liqColor(p){ return p>=85?'#5A89E8':p>=78?'var(--green)':p>=72?'#E0B67B':'var(--red)'; }
 function renderStandingsTable(){
   const teams=[..._teams];
   const atCache={};
@@ -4049,6 +4054,51 @@ function applyMe(){
   }
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
 }
+/* the header button is a sign-in prompt when signed out, and your profile
+   page once you are in — the sign-out control moved onto that page */
+function meBtnClick(){ if(_me) switchTab('profile'); else openSignIn(); }
+function renderMyProfile(){
+  const el=document.getElementById('profile-page-body'); if(!el) return;
+  if(!_me){ el.innerHTML=`<div class="mp-out">
+      <p>You are signed out.</p>
+      <button class="mv-btn" onclick="openSignIn()">Sign in</button></div>`; return; }
+  const tid=Number(_me.teamId);
+  const t=_teams.find(x=>x.id===tid);
+  const owner=_ownerMap[tid];
+  const at=owner?franchiseAllTime(owner):null;
+  const budget=_seasonMeta[getSeason()]?.faabBudget||0;
+  const left=budget?budget-Math.max(0,Math.min(budget,t?.budgetSpent||0)):null;
+  const myVotes=(()=>{ const k=motwVoteKey(); const t2=_motwVotes||{};
+    for(const [team,list] of Object.entries(t2)) if(list.some(v=>v.voter===_me.k1)) return team; return null; })();
+  const votedName=myVotes?(_teams.find(x=>String(x.id)===String(myVotes))||{}).name:null;
+  el.innerHTML=`
+    <div class="mp-head">
+      ${t?logoImg(t.id,'big4-logo'):'<i class="fa fa-user"></i>'}
+      <div class="mp-id">
+        <div class="mp-name">${t?t.name:'No team linked'}</div>
+        <div class="mp-sub">signed in as <b>${_me.k1}</b></div>
+      </div>
+    </div>
+    <div class="mp-grid">
+      ${t?`<div class="mp-c"><span class="mp-l">${getSeason()} record</span><span class="mp-v">${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}</span></div>
+      <div class="mp-c"><span class="mp-l">Points for</span><span class="mp-v">${t.pf.toFixed(0)}</span></div>`:''}
+      ${left!=null?`<div class="mp-c"><span class="mp-l">FAAB left</span><span class="mp-v">$${left}</span></div>`:''}
+      ${at?`<div class="mp-c"><span class="mp-l">All-time</span><span class="mp-v">${at.w}–${at.l}</span></div>
+      <div class="mp-c"><span class="mp-l">Championships</span><span class="mp-v">${at.rings}</span></div>`:''}
+      <div class="mp-c"><span class="mp-l">This week's pick</span><span class="mp-v">${votedName||'—'}</span></div>
+    </div>
+    <div class="mp-row">
+      <label class="mp-l" for="mp-team">Linked team</label>
+      <select id="mp-team" onchange="mpSetTeam(this.value)">
+        ${_teams.map(x=>`<option value="${x.id}" ${String(x.id)===String(_me.teamId)?'selected':''}>${x.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="mp-actions">
+      <button class="mv-btn" onclick="switchTab('teams')">Open team profile</button>
+      <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
+    </div>`;
+}
+function mpSetTeam(v){ meSetTeam(v); renderMyProfile(); }
 function openSignIn(){
   const m=document.getElementById('si-modal'); if(!m) return;
   const nm=myTeamName();
@@ -5592,6 +5642,13 @@ async function loadDashboard(){
       </div>
 
       <!-- BAD BEAT O'METER -->
+      <!-- MY PROFILE (reached from the header button, not the tab bar) -->
+      <div class="tab-page" id="page-profile">
+        <div class="sec wm" data-wm="&#xf007;">
+          <div id="profile-page-body"></div>
+        </div>
+      </div>
+
       <!-- MESSAGES -->
       <div class="tab-page" id="page-messages">
         <div class="sec wm" data-wm="&#xf086;">
