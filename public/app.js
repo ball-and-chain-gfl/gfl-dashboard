@@ -2644,6 +2644,127 @@ function motwToBook(oA,oB){
   const tick=()=>{ if(find()||tries++>20) return; setTimeout(tick,120); };
   setTimeout(tick,80);
 }
+/* ── MATCHUP OF THE WEEK: pick'em ──────────────────────────────────────────
+   Signed-in profiles pick a side; the bar splits on the tally and each voter's
+   own team badge sits under the side they backed. Voting while signed out
+   opens the sign-in dialog instead. Fails soft: if Firestore is unreachable the
+   bar simply shows no votes and the buttons still explain themselves. */
+let _motwVotes=null,_motwVoteBusy=false;
+const motwVoteKey=()=>`vote_${getSeason()}_w${(_CFG.matchup||{}).week??0}`;
+function motwPair(){
+  const cfg=_CFG.matchup||{};
+  let pair=null;
+  if(cfg.auto) pair=detectMatchupFromVideo();
+  if(!pair){const h=resolveTeamByName(cfg.home),a=resolveTeamByName(cfg.away);if(h&&a)pair=[h,a];}
+  return pair;
+}
+async function loadMotwVotes(){
+  const rows=await gflListProfiles();
+  if(!rows) return null;
+  const key=motwVoteKey(), tally={};
+  rows.forEach(p=>{
+    const pick=String(p[key]||'').trim();
+    if(!pick) return;
+    (tally[pick]||(tally[pick]=[])).push({voter:p.id,team:String(p.teamId||'').trim()});
+  });
+  return tally;
+}
+async function refreshMotwVotes(){
+  const t=await loadMotwVotes();
+  if(t){ _motwVotes=t; renderMotwVoteBar(); }
+}
+function renderMotwVoteBar(){
+  const box=document.getElementById('motw-vote'); if(!box) return;
+  const pair=motwPair(); if(!pair) return;
+  const [A,B]=pair, key=motwVoteKey();
+  const t=_motwVotes||{};
+  const va=(t[String(A.id)]||[]), vb=(t[String(B.id)]||[]);
+  const na=va.length, nb=vb.length, tot=na+nb;
+  const pa=tot?Math.round(na/tot*100):50, pb=tot?100-pa:50;
+  const mine=_me?String((t[String(A.id)]||[]).some(v=>v.voter===_me.k1)?A.id
+    :(t[String(B.id)]||[]).some(v=>v.voter===_me.k1)?B.id:''):'';
+  const badges=list=>list.map(v=>{
+    const tid=Number(v.team);
+    return _teams.some(x=>x.id===tid)?`<span class="mv-badge" title="${v.voter}">${logoImg(tid,'team-logo-sm')}</span>`:'';
+  }).join('');
+  box.innerHTML=`
+    <div class="mv-h">Who wins?${tot?`<span class="mv-count">${tot} vote${tot===1?'':'s'}</span>`:''}</div>
+    <div class="mv-bar" role="img" aria-label="${na} for ${A.name}, ${nb} for ${B.name}">
+      <div class="mv-fill a" style="width:${tot?pa:0}%"></div>
+      <div class="mv-fill b" style="width:${tot?pb:0}%"></div>
+    </div>
+    <div class="mv-pcts"><span>${tot?`${pa}% · ${na}`:'—'}</span><span>${tot?`${pb}% · ${nb}`:'—'}</span></div>
+    <div class="mv-btns">
+      <button class="mv-btn${mine==String(A.id)?' picked':''}" ${_motwVoteBusy?'disabled':''} onclick="castMotwVote(${A.id})">
+        ${mine==String(A.id)?'<i class="fa fa-check"></i>':''}${A.abbrev||A.name}
+      </button>
+      <button class="mv-btn${mine==String(B.id)?' picked':''}" ${_motwVoteBusy?'disabled':''} onclick="castMotwVote(${B.id})">
+        ${mine==String(B.id)?'<i class="fa fa-check"></i>':''}${B.abbrev||B.name}
+      </button>
+    </div>
+    <div class="mv-voters"><div class="mv-side">${badges(va)}</div><div class="mv-side right">${badges(vb)}</div></div>
+    ${_me?'':'<div class="mv-note">Sign in to cast a pick.</div>'}`;
+}
+async function castMotwVote(teamId){
+  if(!_me){ openSignIn(); return; }
+  if(_motwVoteBusy) return;
+  _motwVoteBusy=true; renderMotwVoteBar();
+  const res=await gflPatchProfile(_me.k1,{[motwVoteKey()]:String(teamId)});
+  _motwVoteBusy=false;
+  if(res&&res.error){
+    const box=document.getElementById('motw-vote');
+    if(box&&!box.querySelector('.mv-err')) box.insertAdjacentHTML('beforeend','<div class="mv-note mv-err">Could not save that pick — try again.</div>');
+    return;
+  }
+  await refreshMotwVotes();
+}
+
+/* Head-to-head comparison table, laid out like the All-Time panel on a team
+   profile: one metric per row, both teams' values on either side of the label.
+   The stronger side is tinted, so the shape of the matchup reads at a glance. */
+function motwCompareHTML(A,B,at,last){
+  const gA=A.wins+A.losses+(A.ties||0), gB=B.wins+B.losses+(B.ties||0);
+  const pctA=gA?A.wins/gA*100:null, pctB=gB?B.wins/gB*100:null;
+  const cmA=_cmMode==='none'?null:_scores[A.id], cmB=_cmMode==='none'?null:_scores[B.id];
+  /* `dir` is which way is better: 1 higher, -1 lower, 0/undefined neither.
+     `showA`/`showB` override the rendered text when it is not just the number
+     being compared (Record is ranked on win %, but reads as W–L). */
+  const row=(label,a,b,fmt,dir,sub,showA,showB)=>{
+    const f=(v,over)=>over!=null?over
+      :(v==null||(typeof v==='number'&&!isFinite(v)))?'—':fmt(v);
+    let ab=false,bb=false;
+    if(dir&&typeof a==='number'&&typeof b==='number'&&isFinite(a)&&isFinite(b)&&a!==b){
+      ab=dir>0?a>b:a<b; bb=!ab;
+    }
+    return `<div class="mc-row">
+      <span class="mc-v${ab?' better':''}">${f(a,showA)}</span>
+      <span class="mc-l">${label}${sub?`<span class="mc-sub">${sub}</span>`:''}</span>
+      <span class="mc-v${bb?' better':''}">${f(b,showB)}</span>
+    </div>`;
+  };
+  const rec=t=>`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`;
+  const one=v=>Number(v).toFixed(1);
+  const two=v=>Number(v).toFixed(2);
+  return `<div class="motw-cmp">
+    <div class="mc-row mc-head"><span class="mc-v">${A.abbrev||'A'}</span><span class="mc-l">${getSeason()} season</span><span class="mc-v">${B.abbrev||'B'}</span></div>
+    ${row('Record',pctA,pctB,String,1,'',rec(A),rec(B))}
+    ${row('Win %',pctA,pctB,v=>one(v)+'%',1)}
+    ${row('Points For',A.pf,B.pf,v=>Number(v).toFixed(0),1)}
+    ${row('Points Against',A.pa,B.pa,v=>Number(v).toFixed(0),-1)}
+    ${row('Avg / Game',gA?A.pf/gA:null,gB?B.pf/gB:null,one,1)}
+    ${row('Point Diff',A.pf-A.pa,B.pf-B.pa,v=>(v>0?'+':'')+Number(v).toFixed(0),1)}
+    ${row('Coaching Metric',cmA,cmB,two,1)}
+    ${row('Moves',A.moves,B.moves,v=>String(v),0)}
+    ${row('Trades',A.trades,B.trades,v=>String(v),0)}
+    <div class="mc-row mc-head"><span class="mc-v"></span><span class="mc-l">Head to head</span><span class="mc-v"></span></div>
+    ${at.games
+      ? row('All-Time Series',at.wA,at.wB,v=>String(v),1,`${at.games} meeting${at.games===1?'':'s'}`)
+      : `<div class="mc-row"><span class="mc-v">—</span><span class="mc-l">All-Time Series<span class="mc-sub">first meeting</span></span><span class="mc-v">—</span></div>`}
+    ${last
+      ? row('Last Meeting',last.aPts,last.bPts,one,1,`${last.season} Wk ${last.week}`)
+      : `<div class="mc-row"><span class="mc-v">—</span><span class="mc-l">Last Meeting<span class="mc-sub">never played</span></span><span class="mc-v">—</span></div>`}
+  </div>`;
+}
 function renderMatchupOfWeek(){
   const el=document.getElementById('motw'); if(!el) return;
   const cfg=_CFG.matchup||{};
@@ -2663,10 +2784,8 @@ function renderMatchupOfWeek(){
       <div class="motw-vs">VS</div>
       <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div><div class="fr-name" style="font-size:17px">${B.name}</div><div style="font-size:12px;color:var(--text3)">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
     </div>
-    <div class="motw-facts">
-      <div class="motw-fact"><span class="motw-fact-l">Series</span><span class="motw-fact-v">${at.games?`${at.wA}–${at.wB}`:'1st'}</span></div>
-      <div class="motw-fact"><span class="motw-fact-l">Last</span><span class="motw-fact-v">${last?`${last.aPts.toFixed(1)}–${last.bPts.toFixed(1)}`:'—'}</span><span class="motw-fact-s">${last?`${last.season} Wk ${last.week}`:'never played'}</span></div>
-    </div>
+    <div class="motw-vote" id="motw-vote"></div>
+    ${motwCompareHTML(A,B,at,last)}
     ${motwOddsHTML(A,B)}
     <details class="motw-odds">
       <summary class="motw-odds-h"><span>Playoff odds</span><i class="fa fa-chevron-down odds-caret"></i></summary>
@@ -2681,6 +2800,8 @@ function renderMatchupOfWeek(){
         </div>
       </div>
     </details>`;
+  renderMotwVoteBar();                       // paint immediately from cache
+  if(!_motwVotes) refreshMotwVotes();        // then fill in from Firestore
 }
 
 // ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
@@ -3235,6 +3356,21 @@ async function gflPatchProfile(id,obj){
   }catch(e){ return {error:'offline'}; }
 }
 
+/* Votes live as a field on the voter's own profile document rather than in a
+   separate collection, so no new Firestore rules are needed — sign in already
+   creates and patches these docs. One field per matchup: vote_<season>_w<week>
+   holds the team id that profile picked. Field name is a plain identifier so
+   it needs no quoting in an updateMask path. */
+async function gflListProfiles(){
+  try{
+    const url=`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles?key=${GFL_DB.key}&pageSize=300`;
+    const r=await fetch(url,{cache:'no-store'});
+    if(!r.ok) return null;
+    const j=await r.json();
+    return (j.documents||[]).map(d=>({id:decodeURIComponent((d.name||'').split('/').pop()||''),...fsIn(d)}));
+  }catch(e){ return null; }
+}
+
 function signInMsg(t,bad){ const el=document.getElementById('si-msg'); if(!el) return;
   el.textContent=t||''; el.className='si-msg'+(bad?' bad':''); }
 
@@ -3287,6 +3423,7 @@ function applyMe(){
     if(_activeTab==='teams') renderProfile();
     if(_activeTab==='schedule') renderSchedule();
   }
+  try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
 }
 function openSignIn(){
   const m=document.getElementById('si-modal'); if(!m) return;
