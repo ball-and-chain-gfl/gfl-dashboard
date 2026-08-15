@@ -429,28 +429,66 @@ export default async function handler(req, res) {
         for (const wr of weekResults) if (wr?.data?.status?.finalScoringPeriod) return wr.data.status.finalScoringPeriod;
         return 17;
       })();
-      // Playoff wins by week/team: which teams won a playoff matchup each week.
-      const poWin = {};
+      // The winners' bracket, traced back from the two finalists.
+      //
+      // ESPN's playoffSeed cannot be trusted in this league — manual matchup
+      // edits have put a 7 seed in the bracket while a 6 seed went to the
+      // consolation ladder (2025: Lebron's 3rd Leg won the title as the 7
+      // seed), and the leagueHistory endpoint does not return playoffTierType.
+      // Filtering on the seed silently dropped every game the champion played,
+      // so the title team's players got no playoff credit at all. This mirrors
+      // buildBracket() in app.js: start from the rank-1 vs rank-2 final and
+      // walk backwards, keeping each round's games whose winner is still alive.
+      //
+      // poWin[wk][teamId]  — team won a bracket game that week
+      // poPlay[wk][teamId] — team played a bracket game that week
+      // poGP[teamId]       — bracket games the team played all postseason
+      //                      (a first-round bye is not a game)
+      const poWin = {}, poPlay = {}, poGP = {};
       try {
         const sr = await fetch(leagueURL(['mMatchup', 'mTeam', 'mSettings']), { headers });
         if (sr.ok) {
           const sd = unwrap(await sr.json());
           const mpc = sd.settings?.scheduleSettings?.matchupPeriodCount;
           const REG_END = (mpc >= 8 && mpc <= 18) ? mpc : 14; // playoffs start after the regular season
-          const pt = sd.settings?.scheduleSettings?.playoffTeamCount || sd.settings?.playoffTeamCount || 6;
-          const seed = {}; (sd.teams || []).forEach(t => { seed[t.id] = t.playoffSeed || 0; });
-          const inBracket = id => { const sd2 = seed[id] || 0; return sd2 > 0 && sd2 <= pt; };
-          (sd.schedule || []).forEach(mu => {
-            if ((mu.matchupPeriodId || 0) <= REG_END) return;       // regular season -> skip
-            if (!mu.home || !mu.away) return;                       // bye -> not a game won
-            if (!inBracket(mu.home.teamId) || !inBracket(mu.away.teamId)) return; // consolation -> skip
-            const hp = mu.home.totalPoints || 0, ap = mu.away.totalPoints || 0;
-            if (hp === 0 && ap === 0) return;                       // not played
-            const wk = mu.matchupPeriodId;
-            const winId = (mu.winner === 'HOME' || (mu.winner == null && hp > ap)) ? mu.home.teamId
-                        : (mu.winner === 'AWAY' || (mu.winner == null && ap > hp)) ? mu.away.teamId : null;
-            if (winId != null) (poWin[wk] || (poWin[wk] = {}))[winId] = true;
+          let champ = null, runnerUp = null;
+          (sd.teams || []).forEach(t => {
+            if (t.rankCalculatedFinal === 1) champ = t.id;
+            if (t.rankCalculatedFinal === 2) runnerUp = t.id;
           });
+          const played = (sd.schedule || []).filter(m => m.home && m.away
+            && ((m.home.totalPoints || 0) > 0 || (m.away.totalPoints || 0) > 0));
+          const winnerOf = m => ((m.home.totalPoints || 0) >= (m.away.totalPoints || 0))
+            ? m.home.teamId : m.away.teamId;
+          const at = w => played.filter(m => m.matchupPeriodId === w);
+          if (champ != null && runnerUp != null && played.length) {
+            const finalWeek = Math.max(...played.map(m => m.matchupPeriodId || 0));
+            const finalGame = at(finalWeek).find(m => {
+              const ids = [m.home.teamId, m.away.teamId];
+              return ids.includes(champ) && ids.includes(runnerUp);
+            });
+            if (finalGame) {
+              const credit = m => {
+                const wk = m.matchupPeriodId;
+                (poWin[wk] || (poWin[wk] = {}))[winnerOf(m)] = true;
+                const pp = poPlay[wk] || (poPlay[wk] = {});
+                [m.home.teamId, m.away.teamId].forEach(id => {
+                  pp[id] = true;
+                  poGP[id] = (poGP[id] || 0) + 1;
+                });
+              };
+              credit(finalGame);
+              let alive = new Set([champ, runnerUp]);
+              let w = finalWeek - 1, guard = 0;
+              while (w > REG_END && guard++ < 4) {
+                const games = at(w).filter(m => alive.has(winnerOf(m)));
+                if (!games.length) break;
+                games.forEach(credit);
+                alive = new Set(games.flatMap(m => [m.home.teamId, m.away.teamId]));
+                w--;
+              }
+            }
+          }
         }
       } catch {}
       const teams = {};
@@ -472,13 +510,17 @@ export default async function handler(req, res) {
             const outStatuses = ['OUT', 'INJURY_RESERVE', 'IR', 'SUSPENSION', 'PUP', 'NON_FOOTBALL_INJURY'];
             const injuredOut = e.lineupSlotId === 21 || outStatuses.includes(st);
             const available = !onBye && !injuredOut;
-            const rec = bucket[pid] || (bucket[pid] = { n: null, pos: null, w: 0, s: 0, p: 0, sp: 0, pw: 0 });
+            const rec = bucket[pid] || (bucket[pid] = { n: null, pos: null, w: 0, s: 0, p: 0, sp: 0, pw: 0, pg: 0 });
             rec.n = e.playerPoolEntry?.player?.fullName || rec.n;
             if (rec.pos == null) rec.pos = e.playerPoolEntry?.player?.defaultPositionId ?? null;
             rec.p += pts;
             if (available) {
               rec.w++;
-              if (!BENCH_SLOTS.includes(e.lineupSlotId)) { rec.s++; rec.sp += pts; if (poWin[wr.week] && poWin[wr.week][team.id]) rec.pw++; }  // started; playoff win credit
+              if (!BENCH_SLOTS.includes(e.lineupSlotId)) {
+                rec.s++; rec.sp += pts;
+                if (poWin[wr.week] && poWin[wr.week][team.id]) rec.pw++;   // started a bracket win
+                if (poPlay[wr.week] && poPlay[wr.week][team.id]) rec.pg++; // started a bracket game
+              }
             }
           });
         });
@@ -487,7 +529,7 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
         : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
-      return res.status(200).json({ season, teams });
+      return res.status(200).json({ season, teams, poGP });
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }
 

@@ -31,6 +31,7 @@ let _franchises=[];   // [{owner, name, logo, teamId, games}] — latest identit
 let _weeklyData={};   // week -> pid -> {pts, slot, started, team, n}
 let _playerNames={};  // pid -> name
 let _tenure=null,_tenureLoading=false;  // owner -> pid -> {n, wAll(roster), sAll(started), pAll, seasons:{y:{w,s,p}}}
+let _tenurePoGP={};                     // season -> owner -> playoff bracket games that team played
 let _transactions=[];                   // current season's transaction list (real/archive/inferred)
 let _draftCache={},_draftLoading=false; // season -> {picks, stats}
 let _tradeSort='week';                  // 'week' | 'unbalanced' | 'balanced'
@@ -1574,15 +1575,19 @@ async function loadTenureData(){
   if(_tenurePromise) return _tenurePromise;
   _tenurePromise=(async()=>{
     const results=await Promise.allSettled(ALL_SEASONS.map(async s=>{
-      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=8`);
+      const d=await histJSON('tenure',s,`${BASE}?type=seasontenure&seasonId=${s}&v=9`);
       if(!d) return null;
       return {s, d};
     }));
-    const tenure={};
+    const tenure={},poGP={};
     results.forEach(rr=>{
       if(rr.status!=='fulfilled'||!rr.value) return;
       const {s,d}=rr.value;
       const owners=_seasonMeta[s]?.owners||{};
+      // bracket games each team actually played that postseason, by owner
+      Object.entries(d.poGP||{}).forEach(([tid,n])=>{
+        (poGP[s]||(poGP[s]={}))[owners[tid]||`team:${tid}`]=n||0;
+      });
       Object.entries(d.teams||{}).forEach(([tid,players])=>{
         const owner=owners[tid]||`team:${tid}`;
         const bucket=tenure[owner]||(tenure[owner]={});
@@ -1591,11 +1596,11 @@ async function loadTenureData(){
           if(rec.n) p.n=rec.n;
           if(p.pos==null) p.pos=rec.pos;
           p.wAll+=rec.w||0; p.sAll+=rec.s||0; p.pAll+=rec.p||0; p.spAll+=rec.sp||0; p.pwAll+=rec.pw||0;
-          p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0,sp:rec.sp||0,pw:rec.pw||0};
+          p.seasons[s]={w:rec.w||0,s:rec.s||0,p:rec.p||0,sp:rec.sp||0,pw:rec.pw||0,pg:rec.pg||0};
         });
       });
     });
-    _tenure=tenure;
+    _tenure=tenure; _tenurePoGP=poGP;
     return _tenure;
   })();
   return _tenurePromise;
@@ -1661,10 +1666,13 @@ function renderTenureTable(){
    filter this section.
    playoff wins  = weeks the player was in the STARTING lineup for a team that
                    won a playoff game (already computed per season as `pw`).
-   championships = seasons where the player started at least one playoff win
-                   FOR THE TEAM THAT WON THE TITLE, i.e. they were part of the
-                   winning run. A champion wins every playoff game it plays, so
-                   pw>0 under the champion's owner is exactly that test. */
+   championships = seasons where the player STARTED EVERY playoff game the
+                   champion actually played. Bench weeks earn nothing, and a
+                   first-round bye is not a game, so a champion that was seeded
+                   into round two needs two starts rather than three. `pg` is
+                   the player's started bracket games and `_tenurePoGP` is how
+                   many the team played, both from the traced winners' bracket
+                   rather than ESPN's unreliable playoffSeed. */
 let _hwSort='rings';
 function champOwnerBySeason(){
   const out={};
@@ -1683,7 +1691,8 @@ function tenureHardwareRows(){
       if(p.n) a.n=p.n;
       Object.entries(p.seasons||{}).forEach(([y,d])=>{
         a.pw+=d.pw||0;
-        if(champ[y]===owner && (d.pw||0)>0) a.rings.push(y);
+        const need=_tenurePoGP[y]?.[owner]||0;   // games the champion played
+        if(champ[y]===owner && need>0 && (d.pg||0)>=need) a.rings.push(y);
       });
     });
   });
