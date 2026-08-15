@@ -299,7 +299,8 @@ async function fetchSeasonData(season){
     // it. It has not been the same every year (2022 ran 15 weeks, later years 14).
     const mpc=d.settings?.scheduleSettings?.matchupPeriodCount;
     const regEndY=(mpc>=8&&mpc<=18)?mpc:14;
-    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY};
+    const faabBudget=d.settings?.acquisitionSettings?.acquisitionBudget||0;
+    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget};
   }catch{return null;}
 }
 async function buildAllTimeH2H(){
@@ -309,7 +310,7 @@ async function buildAllTimeH2H(){
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
     const {season,schedule,owners,names,teams}=res.value;
-    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{},playoffTeamCount:res.value.playoffTeamCount||6,regEnd:res.value.regEnd||14};
+    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{},playoffTeamCount:res.value.playoffTeamCount||6,regEnd:res.value.regEnd||14,faabBudget:res.value.faabBudget||0};
     schedule.forEach(mu=>{
       if(!mu.home||!mu.away) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
@@ -1916,6 +1917,22 @@ async function loadAllDrafts(){
   _draftAllCache={rows,teamDrafts,ownerTotals,ownerCounts};
   return _draftAllCache;
 }
+/* FAAB left, shown beside the team name on a profile. ESPN reports the budget
+   on league settings and the spend on each team, so remaining is the
+   difference; the bar is what is left, not what is gone. */
+function faabChipHTML(t){
+  const budget=_seasonMeta[getSeason()]?.faabBudget||0;
+  if(!budget||!t) return '';
+  const spent=Math.max(0,Math.min(budget,t.budgetSpent||0));
+  const left=budget-spent, pct=budget?left/budget*100:0;
+  const col=pct>=50?'var(--green)':pct>=20?'var(--accent)':'var(--red)';
+  return `<div class="prof-faab" title="$${spent} of $${budget} spent">
+    <div class="pf-top"><span class="pf-l">FAAB left</span>
+      <span class="pf-v" style="color:${col}">$${left}</span>
+      <span class="pf-of">of $${budget}</span></div>
+    <div class="pf-bar"><div class="pf-fill" style="width:${pct.toFixed(1)}%;background:${col}"></div></div>
+  </div>`;
+}
 function draftRowTeam(r){
   if(r.owner) return (_franchises.find(f=>f.owner===r.owner)?.name)||(_seasonMeta[r.season]?.names?.[r.owner]?.name)||`Team ${r.teamId}`;
   return (_teams.find(t=>t.id===r.teamId)?.name)||`Team ${r.teamId}`;
@@ -2811,6 +2828,120 @@ function renderMatchupOfWeek(){
   if(!_motwVotes) refreshMotwVotes();        // then fill in from Firestore
 }
 
+/* ── LEGACY REPORT ──────────────────────────────────────────────────────────
+   What last week did to the all-time table. Nothing is stored: every game
+   carries its season and week, so the career table can be rebuilt as of any
+   cutoff. The report is the difference between the table through the last
+   completed week and the table through the week before it — so it lands on
+   its own once the week's games are final, which is Tuesday morning, and it
+   backfills correctly for any week already played. */
+function allTimeThrough(season,week){
+  const agg={};
+  const touch=o=>agg[o]||(agg[o]={w:0,l:0,t:0,pf:0,pa:0,g:0,hi:0});
+  ALL_SEASONS.forEach(s=>{
+    if(Number(s)>Number(season)) return;
+    const meta=_seasonMeta[s]; if(!meta) return;
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away) return;
+      const wk=m.matchupPeriodId||0;
+      if(Number(s)===Number(season)&&wk>week) return;
+      const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+      if(hp===0&&ap===0) return;
+      const ho=meta.owners?.[m.home.teamId], ao=meta.owners?.[m.away.teamId];
+      if(!ho||!ao) return;
+      const H=touch(ho),A=touch(ao);
+      H.g++;A.g++; H.pf+=hp;H.pa+=ap; A.pf+=ap;A.pa+=hp;
+      H.hi=Math.max(H.hi,hp); A.hi=Math.max(A.hi,ap);
+      if(hp>ap){H.w++;A.l++;} else if(ap>hp){A.w++;H.l++;} else {H.t++;A.t++;}
+    });
+  });
+  return agg;
+}
+/* the last week anywhere in league history that actually has results */
+function lastCompletedWeek(){
+  for(let i=ALL_SEASONS.length-1;i>=0;i--){
+    const s=ALL_SEASONS[i], meta=_seasonMeta[s]; if(!meta) continue;
+    let mx=0;
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away) return;
+      if((m.home.totalPoints||0)===0&&(m.away.totalPoints||0)===0) return;
+      mx=Math.max(mx,m.matchupPeriodId||0);
+    });
+    if(mx) return {season:s,week:mx};
+  }
+  return null;
+}
+const LEGACY_METRICS=[
+  {k:'wins', label:'All-Time Wins',   val:a=>a.w,                 fmt:v=>v},
+  {k:'pf',   label:'All-Time Points', val:a=>a.pf,                fmt:v=>Math.round(v).toLocaleString()},
+  {k:'pct',  label:'All-Time Win %',  val:a=>a.g?a.w/a.g:0,       fmt:v=>(v*100).toFixed(1)+'%'},
+];
+function legacyReportData(){
+  const at=lastCompletedWeek(); if(!at) return null;
+  const now=allTimeThrough(at.season,at.week);
+  const before=allTimeThrough(at.week>1?at.season:String(Number(at.season)-1), at.week>1?at.week-1:99);
+  const owners=Object.keys(now); if(owners.length<2) return null;
+  const nameOf=o=>(_franchises.find(f=>f.owner===o)||{}).name
+    ||_seasonMeta[at.season]?.names?.[o]?.name||o;
+  const rankIn=(tbl,val)=>{
+    const rows=Object.keys(tbl).map(o=>({o,v:val(tbl[o])})).sort((a,b)=>b.v-a.v);
+    const r={}; rows.forEach((x,i)=>r[x.o]=i+1); return r;
+  };
+  const moves=[];
+  LEGACY_METRICS.forEach(m=>{
+    const rNow=rankIn(now,m.val), rWas=rankIn(before,m.val);
+    owners.forEach(o=>{
+      if(!before[o]||!rWas[o]) return;                 // no prior standing to move from
+      const a=rWas[o], b=rNow[o];
+      if(a===b) return;
+      moves.push({owner:o,name:nameOf(o),metric:m.label,from:a,to:b,
+        dir:b<a?'up':'down',value:m.fmt(m.val(now[o]))});
+    });
+  });
+  moves.sort((x,y)=>Math.abs(y.from-y.to)-Math.abs(x.from-x.to)||x.to-y.to);
+  // records broken during the week
+  const records=[];
+  const bestNow=Math.max(...owners.map(o=>now[o].hi));
+  const bestWas=Math.max(...Object.keys(before).map(o=>before[o].hi),0);
+  if(bestNow>bestWas){
+    const who=owners.find(o=>now[o].hi===bestNow);
+    records.push({txt:`${nameOf(who)} set a new league record for the highest single-game score`,val:bestNow.toFixed(1)});
+  }
+  LEGACY_METRICS.forEach(m=>{
+    const rNow=rankIn(now,m.val), rWas=rankIn(before,m.val);
+    const leadNow=owners.find(o=>rNow[o]===1), leadWas=Object.keys(before).find(o=>rWas[o]===1);
+    if(leadNow&&leadWas&&leadNow!==leadWas)
+      records.push({txt:`${nameOf(leadNow)} took over the ${m.label.toLowerCase()} lead from ${nameOf(leadWas)}`,val:m.fmt(m.val(now[leadNow]))});
+  });
+  return {season:at.season,week:at.week,moves,records,
+    table:LEGACY_METRICS.map(m=>{
+      const r=rankIn(now,m.val);
+      const top=owners.slice().sort((a,b)=>r[a]-r[b])[0];
+      return {label:m.label,leader:nameOf(top),value:m.fmt(m.val(now[top]))};
+    })};
+}
+function legacyReportHTML(){
+  const d=legacyReportData();
+  if(!d) return '<div class="tab-loading" style="padding:22px">No completed weeks yet.</div>';
+  const arrow=x=>x.dir==='up'
+    ? `<i class="fa fa-arrow-up lr-up"></i>`
+    : `<i class="fa fa-arrow-down lr-down"></i>`;
+  const movesHTML=d.moves.length
+    ? d.moves.slice(0,8).map(m=>`<div class="lr-row">
+        ${arrow(m)}
+        <span class="lr-who"><span class="lr-nm">${m.name}</span><span class="lr-mt">${m.metric}</span></span>
+        <span class="lr-mv">#${m.from} → <b class="${m.dir==='up'?'lr-up':'lr-down'}">#${m.to}</b></span>
+      </div>`).join('')
+    : `<div class="lr-none">No all-time positions changed in week ${d.week}.</div>`;
+  return `
+    <div class="lr-week">Week ${d.week} · ${d.season} — all-time table movement</div>
+    ${d.records.length?`<div class="lr-recs">${d.records.map(r=>
+      `<div class="lr-rec"><i class="fa fa-certificate"></i><span>${r.txt}</span><b>${r.val}</b></div>`).join('')}</div>`:''}
+    <div class="lr-list">${movesHTML}</div>
+    <div class="lr-leaders">${d.table.map(t=>
+      `<div class="lr-lead"><span class="lr-lead-l">${t.label}</span><span class="lr-lead-n">${t.leader}</span><span class="lr-lead-v">${t.value}</span></div>`).join('')}</div>`;
+}
+
 // ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
 const PUNISH_ART={
   'beer pour':{icon:'&#xf0fc;',svg:`<svg viewBox="0 0 90 100" width="120" height="133" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="beer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffcf5c"/><stop offset="1" stop-color="#c9860d"/></linearGradient></defs><rect x="20" y="26" width="42" height="64" rx="6" fill="none" stroke="var(--accent)" stroke-width="3"/><rect x="24" y="40" width="34" height="46" rx="3" fill="url(#beer)"/><rect x="24" y="34" width="34" height="9" rx="3" fill="#fff8ec"/><ellipse cx="30" cy="33" rx="5" ry="4" fill="#fff8ec"/><ellipse cx="42" cy="31" rx="6" ry="5" fill="#fff8ec"/><ellipse cx="53" cy="33" rx="5" ry="4" fill="#fff8ec"/><path d="M62 38h10a8 8 0 0 1 0 24h-10" fill="none" stroke="var(--accent)" stroke-width="3"/><circle cx="34" cy="55" r="2" fill="#fff8ec" opacity="0.6"/><circle cx="46" cy="66" r="2.4" fill="#fff8ec" opacity="0.5"/><circle cx="40" cy="74" r="1.8" fill="#fff8ec" opacity="0.5"/></svg>`},
@@ -3631,6 +3762,113 @@ async function toggleSchedOpp(el){
       <span class="sd-st">${p.starts} start${p.starts===1?'':'s'}</span>
     </div>`).join('')}</div>`;
 }
+/* ── PLAYOFF OUTLOOK ────────────────────────────────────────────────────────
+   Monte Carlo over whatever is left on the calendar. Every remaining game is
+   decided by schedWinProb, which already blends the power ratings — weighted
+   record, scoring for and against, playoff history and the rest — so the
+   forecast moves on its own as results land and those ratings shift.
+
+   Each run also carries simulated points, because points for is the tiebreak
+   in this league; without it, equal records would resolve arbitrarily. The
+   range of outcomes is the 10th to 90th percentile of a team's final win
+   total across every run, so it widens early in the year and tightens as the
+   schedule empties. With no games left it reports the settled table. */
+const PO_RUNS=4000;
+let _poCache=null;
+function playoffOutlook(){
+  if(_poCache) return _poCache;
+  const book=sbBuild(); if(!book) return null;
+  const info=schedSeason(), meta=info.meta; if(!meta||!meta.owners) return null;
+  const owners=meta.owners, regEnd=info.regEnd||14;
+  const rowOf=o=>book.rows.find(r=>r.owner===o);
+  const list=Object.values(owners).filter((o,i,a)=>o&&a.indexOf(o)===i);
+  if(list.length<2) return null;
+  const spots=meta.playoffTeamCount||6;
+
+  // standings so far, from games that have actually been played
+  const base={}; list.forEach(o=>base[o]={w:0,l:0,t:0,pf:0});
+  (meta.schedule||[]).forEach(m=>{
+    if(!m.home||!m.away) return;
+    if((m.matchupPeriodId||0)>regEnd) return;                 // regular season only
+    const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+    if(hp===0&&ap===0) return;
+    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+    if(!base[ho]||!base[ao]) return;
+    base[ho].pf+=hp; base[ao].pf+=ap;
+    if(hp>ap){base[ho].w++;base[ao].l++;}
+    else if(ap>hp){base[ao].w++;base[ho].l++;}
+    else {base[ho].t++;base[ao].t++;}
+  });
+
+  const left=(meta.schedule||[]).filter(m=>m.home&&m.away
+    && (m.matchupPeriodId||0)>0 && (m.matchupPeriodId||0)<=regEnd
+    && !((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0))
+    .map(m=>({a:owners[m.home.teamId],b:owners[m.away.teamId]}))
+    .filter(g=>g.a&&g.b&&g.a!==g.b&&base[g.a]&&base[g.b]);
+
+  const pre={}; left.forEach(g=>{ const k=g.a+'|'+g.b;
+    if(pre[k]==null) pre[k]=schedWinProb(rowOf(g.a),rowOf(g.b)); });
+  const ppg={}; list.forEach(o=>{ ppg[o]=(rowOf(o)||{}).ppg||105; });
+
+  const made={},seedSum={},winTotals={};
+  list.forEach(o=>{made[o]=0;seedSum[o]=0;winTotals[o]=[];});
+  // Box-Muller, so simulated weekly scores scatter like real ones
+  const gauss=()=>{const u=1-Math.random(),v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+
+  for(let n=0;n<PO_RUNS;n++){
+    const w={},pf={};
+    list.forEach(o=>{w[o]=base[o].w+base[o].t*0.5;pf[o]=base[o].pf;});
+    left.forEach(g=>{
+      const p=pre[g.a+'|'+g.b];
+      if(Math.random()<p) w[g.a]++; else w[g.b]++;
+      pf[g.a]+=Math.max(0,ppg[g.a]+gauss()*SCHED_SD*0.7);
+      pf[g.b]+=Math.max(0,ppg[g.b]+gauss()*SCHED_SD*0.7);
+    });
+    const order=list.slice().sort((x,y)=>w[y]-w[x]||pf[y]-pf[x]);
+    order.forEach((o,i)=>{ if(i<spots) made[o]++; seedSum[o]+=i+1; });
+    list.forEach(o=>winTotals[o].push(w[o]));
+  }
+
+  const pct=(arr,q)=>{const s=arr.slice().sort((a,b)=>a-b);
+    return s[Math.min(s.length-1,Math.max(0,Math.round((s.length-1)*q)))];};
+  const teams=list.map(o=>{
+    const t=winTotals[o];
+    return {owner:o, name:(_franchises.find(f=>f.owner===o)||{}).name||meta.names?.[o]?.name||o,
+      played:base[o], odds:made[o]/PO_RUNS, seed:seedSum[o]/PO_RUNS,
+      lo:pct(t,0.10), med:pct(t,0.50), hi:pct(t,0.90)};
+  }).sort((a,b)=>b.odds-a.odds||a.seed-b.seed);
+  const maxW=Math.max(1,...teams.map(t=>t.hi));
+  _poCache={teams,spots,left:left.length,runs:PO_RUNS,season:info.season,maxW,regEnd};
+  return _poCache;
+}
+function playoffOutlookHTML(){
+  const d=playoffOutlook();
+  if(!d) return '';
+  const pctTxt=v=>v>=0.995?'>99%':v<=0.005?'<1%':Math.round(v*100)+'%';
+  const col=v=>v>=0.85?'var(--green)':v>=0.5?'var(--accent)':v>=0.15?'var(--text2)':'var(--red)';
+  const rows=d.teams.map((t,i)=>{
+    const inCut=i<d.spots;
+    const l=t.lo/d.maxW*100, h=t.hi/d.maxW*100, m=t.med/d.maxW*100;
+    return `<div class="po-row${inCut?' po-in':''}">
+      <span class="po-rk">${i+1}</span>
+      <span class="po-nm">${t.name}</span>
+      <span class="po-rec">${t.played.w}–${t.played.l}${t.played.t?`–${t.played.t}`:''}</span>
+      <span class="po-range" title="${t.lo}–${t.hi} wins, median ${t.med}">
+        <span class="po-track"><span class="po-band" style="left:${l}%;width:${Math.max(2,h-l)}%"></span>
+        <span class="po-med" style="left:${m}%"></span></span>
+        <span class="po-rtxt">${t.lo}–${t.hi}</span>
+      </span>
+      <span class="po-odds" style="color:${col(t.odds)}">${pctTxt(t.odds)}</span>
+    </div>`;}).join('');
+  return `<div class="sec po-sec">
+    <div class="sec-head"><i class="fa fa-chart-simple"></i>Playoff Outlook
+      <span class="badge-info">${d.left?`${d.left} games left · ${d.runs.toLocaleString()} simulations`:'regular season complete'}</span></div>
+    <div class="po-head"><span></span><span>Team</span><span>Rec</span><span>Range of outcomes</span><span class="r">Playoffs</span></div>
+    <div class="po-list">${rows}</div>
+    <div class="po-note">Every remaining game is simulated ${d.runs.toLocaleString()} times using the same power ratings the sportsbook prices with. The bar spans each team's 10th to 90th percentile win total, the notch is the median, and the top ${d.spots} shaded rows are the current projected field.</div>
+  </div>`;
+}
 function renderSchedule(){
   const el=document.getElementById('sched-body'); if(!el) return;
   if(!_franchises.length){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading schedule…</div>`; return; }
@@ -3669,6 +3907,7 @@ function renderSchedule(){
         <span class="r sch-ml">${amFmt(r.ml)}</span>
       </div>
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
+    ${playoffOutlookHTML()}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with — season-weighted record, scoring, points against and playoff history. Line is the projected margin; odds include the book's usual hold.</div>`;
 }
 /* ── RIVALS ──────────────────────────────────────────────────────────────────
@@ -3916,6 +4155,7 @@ async function renderProfile(){
         <div class="prof-headline">
           <div class="prof-name">${t.name}</div>
           <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''}${conf?` · ${conf} Conference`:''}</div>
+          ${faabChipHTML(t)}
           <div class="prof-chips">
             ${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}
           </div>
@@ -4727,6 +4967,10 @@ async function loadDashboard(){
               })()}</div>
           </div>
           <div class="home-right">
+            <div class="sec wm mod-legacy" data-wm="&#xf091;">
+              <div class="sec-head"><i class="fa fa-landmark"></i>Legacy Report</div>
+              <div class="home-box" id="legacy-report">${legacyReportHTML()}</div>
+            </div>
             <!-- Matchup Headlines: hidden for now -->
             <div class="sec wm" data-wm="&#xf1ea;" style="display:none">
               <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>

@@ -389,6 +389,82 @@
       .motw-vs{font-size:17px;}
       .motw-head .big4-logo,.motw-head .team-logo{width:30px!important;height:30px!important;}
     }
+    /* ── Legacy Report (homepage) ─────────────────────────────────────────── */
+    #page-home .mod-legacy{--accent:#E8BC56;--accent2:#E8AA56;--accent-rgb:232,188,86;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    .lr-week{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.8px;
+      text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .lr-recs{display:flex;flex-direction:column;gap:6px;margin-bottom:11px;}
+    .lr-rec{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);
+      line-height:1.4;padding:8px 10px;border:1px solid rgba(var(--accent-rgb),0.4);border-radius:7px;}
+    .lr-rec i{color:var(--accent);font-size:11px;flex:0 0 auto;}
+    .lr-rec b{margin-left:auto;font-family:'Inter',sans-serif;color:var(--accent);white-space:nowrap;}
+    .lr-list{display:flex;flex-direction:column;}
+    /* the metric sits under the name — without it a team appearing three times
+       gives no clue which table moved */
+    .lr-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:8px;
+      padding:7px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
+    .lr-who{display:flex;flex-direction:column;gap:1px;min-width:0;}
+    html[data-theme="light"] .lr-row{border-bottom-color:rgba(0,0,0,0.07);}
+    .lr-row:last-child{border-bottom:none;}
+    .lr-up{color:var(--green);} .lr-down{color:var(--red);}
+    .lr-row>i{font-size:10px;}
+    .lr-nm{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lr-mt{font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.4px;text-transform:uppercase;
+      color:var(--text3);white-space:nowrap;}
+    .lr-mv{font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);white-space:nowrap;}
+    .lr-none{font-size:12.5px;color:var(--text3);padding:6px 2px;}
+    .lr-leaders{display:flex;flex-direction:column;gap:0;margin-top:11px;
+      padding-top:10px;border-top:1px solid rgba(255,255,255,0.10);}
+    .lr-lead{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr) auto;align-items:baseline;gap:8px;padding:4px 2px;}
+    .lr-lead-l{font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);white-space:nowrap;}
+    .lr-lead-n{font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lr-lead-v{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;color:var(--accent2,var(--accent));white-space:nowrap;}
+
+    /* ── Playoff Outlook (Schedule tab) ───────────────────────────────────── */
+    .po-sec{margin-top:26px;}
+    .po-head,.po-row{display:grid;grid-template-columns:22px minmax(0,1fr) 54px minmax(96px,1.15fr) 52px;
+      align-items:center;gap:9px;padding:8px 6px;}
+    .po-head{padding:0 6px 7px;border-bottom:1px solid rgba(255,255,255,0.12);
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);}
+    .po-head .r,.po-row .po-odds{text-align:right;}
+    .po-row{border-bottom:1px solid rgba(255,255,255,0.055);}
+    html[data-theme="light"] .po-row{border-bottom-color:rgba(0,0,0,0.07);}
+    .po-row:last-child{border-bottom:none;}
+    /* the projected field is shaded so the cut line is obvious */
+    .po-row.po-in{background:color-mix(in srgb,var(--accent) 8%,transparent);}
+    .po-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--accent2,var(--accent));text-align:center;}
+    .po-nm{font-family:'Google Sans Flex',Georgia,serif;font-size:13.5px;font-weight:600;
+      min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .po-rec{font-family:'Inter',sans-serif;font-size:12px;color:var(--text2);white-space:nowrap;}
+    .po-range{display:flex;align-items:center;gap:7px;min-width:0;}
+    .po-track{position:relative;flex:1 1 auto;height:7px;border-radius:999px;
+      background:rgba(255,255,255,0.08);min-width:0;}
+    html[data-theme="light"] .po-track{background:rgba(0,0,0,0.09);}
+    .po-band{position:absolute;top:0;bottom:0;border-radius:999px;background:var(--grad);opacity:.85;}
+    .po-med{position:absolute;top:-2px;width:2px;height:11px;background:var(--text);border-radius:1px;}
+    .po-rtxt{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);white-space:nowrap;flex:0 0 auto;}
+    .po-odds{font-family:'Inter',sans-serif;font-size:13px;font-weight:800;white-space:nowrap;}
+    .po-note{font-size:11.5px;color:var(--text3);line-height:1.5;padding:12px 6px 0;}
+    @media(max-width:768px){
+      .po-head,.po-row{grid-template-columns:18px minmax(0,1fr) 46px minmax(70px,1fr) 44px;gap:6px;padding:7px 2px;}
+      .po-nm{font-size:12.5px;}
+      .po-rtxt{display:none;}
+    }
+
+    /* ── FAAB remaining, on the team profile headline ─────────────────────── */
+    .prof-faab{margin-top:9px;max-width:230px;}
+    .pf-top{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;}
+    .pf-l{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.7px;
+      text-transform:uppercase;color:var(--text3);}
+    .pf-v{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;line-height:1;}
+    .pf-of{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);}
+    .pf-bar{height:5px;border-radius:999px;background:rgba(255,255,255,0.09);overflow:hidden;}
+    html[data-theme="light"] .pf-bar{background:rgba(0,0,0,0.10);}
+    .pf-fill{height:100%;border-radius:999px;transition:width .4s ease;}
+    @media(max-width:768px){.prof-faab{max-width:100%;}}
+
     /* ── Matchup pick'em ──────────────────────────────────────────────────── */
     .motw-vote{margin:0 0 14px;padding:12px 12px 10px;border:1px solid var(--border);border-radius:8px;}
     .mv-h{display:flex;align-items:center;justify-content:space-between;gap:8px;
