@@ -5633,8 +5633,8 @@ async function loadDashboard(){
           <div class="home-vid-col">
             <div class="sec">
               <div class="home-box">${firstVid
-                ?`<div class="vid-scroll">
-                    <div class="vid-wrap"><span class="vid-new" style="--nv:${newVideoColor()}">New video</span>
+                ?`<div class="vid-scroll" style="--nv:${newVideoColor()}">
+                    <div class="vid-wrap"><span class="vid-new">New video</span>
                       <div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div></div>
                     ${_videos.slice(1,3).map(v=>`<button class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></button>`).join('')}
                     <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">

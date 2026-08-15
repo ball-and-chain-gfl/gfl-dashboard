@@ -453,21 +453,25 @@
     /* The featured player and the recent thumbs live on one horizontal track,
        so the whole section scrolls as a unit. The player is a full-width panel
        that snaps, and the ribbon rides inside it. */
-    .vid-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;
+    /* Every slide is the same width as the featured player, so the track reads
+       as one carousel. The scrollbar is held 4px clear of the video and takes
+       the week's ribbon colour, which is what signals it can be scrolled. */
+    .vid-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;
       scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
-      scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.22) transparent;}
-    .vid-scroll::-webkit-scrollbar{height:6px;}
-    .vid-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.22);border-radius:999px;}
-    .vid-scroll>*{scroll-snap-align:start;}
-    .vid-scroll .vid-wrap{flex:0 0 100%;min-width:0;}
-    .vid-scroll .video-thumb{flex:0 0 150px;background:none;border:1px solid var(--border);
-      border-radius:8px;padding:0;overflow:hidden;cursor:pointer;text-align:left;color:var(--text);
-      align-self:flex-start;}
-    .vid-scroll .video-thumb img{width:100%;height:84px;object-fit:cover;display:block;}
-    .vid-scroll .video-thumb-title{font-size:11.5px;line-height:1.35;padding:7px 8px;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .vid-scroll .video-thumb:hover,.vid-scroll .video-thumb.active{border-color:rgba(var(--accent-rgb),0.55);}
-    .vid-ch{flex:0 0 150px;align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      scrollbar-width:thin;scrollbar-color:var(--nv,var(--accent)) transparent;}
+    .vid-scroll::-webkit-scrollbar{height:5px;}
+    .vid-scroll::-webkit-scrollbar-track{background:transparent;margin-top:4px;}
+    .vid-scroll::-webkit-scrollbar-thumb{background:var(--nv,var(--accent));border-radius:999px;}
+    .vid-scroll>*{scroll-snap-align:start;flex:0 0 100%;min-width:0;}
+    .vid-scroll .video-thumb{background:none;border:none;border-radius:6px;padding:0;
+      overflow:hidden;cursor:pointer;text-align:left;color:var(--text);}
+    /* same 16:9 box as the featured player */
+    .vid-scroll .video-thumb img{width:100%;aspect-ratio:16/9;height:auto;object-fit:cover;
+      display:block;border-radius:6px;}
+    .vid-scroll .video-thumb-title{font-size:12.5px;line-height:1.35;padding:8px 2px 0;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text2);}
+    .vid-scroll .video-thumb:hover .video-thumb-title{color:var(--text);}
+    .vid-ch{align-self:stretch;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;
       gap:7px;border:1px dashed rgba(var(--accent-rgb),0.45);border-radius:8px;text-decoration:none;
       color:var(--accent);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;
       text-align:center;padding:10px;}
@@ -488,6 +492,38 @@
       background:var(--nv,#E0B67B);filter:brightness(0.55);
       clip-path:polygon(0 0,100% 0,0 100%);}
     @media(max-width:768px){.vid-new{top:10px;font-size:9px;padding:4px 10px 4px 11px;}}
+
+    /* Betting cards sit on a neutral outline. The accent border made every card
+       on the board read as highlighted, which is what the colour is for. */
+    html[data-theme] #page-book .sb-market,
+    html[data-theme] #page-book .sb-bar{border-color:rgba(255,255,255,0.11)!important;}
+    html[data-theme="light"] #page-book .sb-market,
+    html[data-theme="light"] #page-book .sb-bar{border-color:rgba(0,0,0,0.12)!important;}
+
+    /* Champions gets the raised treatment the Legacy Report has */
+    html[data-theme] #lh-champs{border:1px solid var(--border);border-radius:10px;
+      padding:14px 16px;background:rgba(255,255,255,0.018);
+      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05);}
+    html[data-theme="light"] #lh-champs{background:var(--bg2);
+      box-shadow:0 10px 24px -16px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.10),inset 0 1px 0 #fff;}
+
+    /* Trade cards lift off the page background instead of blending into it */
+    html[data-theme] .trade-card{background:rgba(255,255,255,0.032)!important;}
+    html[data-theme="light"] .trade-card{background:var(--bg2)!important;}
+    /* and the filter rail above them is tightened up */
+    /* Compacting the trade filter rail. The sitewide matte reset already strips
+       its padding, so the height comes entirely from the children — these are
+       scoped by page id to beat the later, more specific mobile rules. */
+    #page-trades .trades-filters .sec-head{font-size:14px;padding:0 0 7px!important;}
+    #page-trades .trades-filters .trade-count{margin:0 0 7px!important;font-size:11.5px;}
+    #page-trades .trades-filters .standings-filters{gap:5px!important;margin:0 0 7px!important;
+      padding:0!important;}
+    #page-trades .trades-filters .standings-filters:last-child{margin-bottom:0!important;}
+    #page-trades .trades-filters .standings-filters>span{margin:0 0 1px!important;font-size:11px;}
+    #page-trades .trades-filters .filter-btn{padding:6px 7px!important;font-size:11px!important;
+      line-height:1.2!important;border-radius:6px;}
+    #page-trades .trades-filters select{padding:6px 22px 6px 9px!important;font-size:12px;}
 
     /* ── Raised cards ─────────────────────────────────────────────────────────
        The same lift the Legacy Report has, applied to the other standalone
@@ -2884,6 +2920,12 @@
     #page-home .home-top,#page-home .home-bottom{margin-bottom:40px;}
     #page-home .home-left-col,#page-home .home-vid-col,#page-home .home-right{gap:40px;}
     #page-home .mod-live{margin-top:0;}
+    /* The right column currently holds only the hidden Matchup Headlines. An
+       empty-but-present grid item still claims a row, which added a phantom
+       40px row-gap under Coaching Metric on phones. This hides the column only
+       while every child of it is hidden, so it comes back on its own the day
+       Matchup Headlines is switched on again. */
+    #page-home .home-right:not(:has(> :not([style*="display:none"]))){display:none;}
     @media(max-width:768px){
       #page-home .home-box{padding:12px 13px;}
       #page-home .home-box.home-cm{padding:4px 8px;}
