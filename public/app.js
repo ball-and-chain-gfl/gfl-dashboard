@@ -2873,9 +2873,13 @@ function lastCompletedWeek(){
   return null;
 }
 const LEGACY_METRICS=[
-  {k:'wins', label:'All-Time Wins',   val:a=>a.w,                 fmt:v=>v},
-  {k:'pf',   label:'All-Time Points', val:a=>a.pf,                fmt:v=>Math.round(v).toLocaleString()},
-  {k:'pct',  label:'All-Time Win %',  val:a=>a.g?a.w/a.g:0,       fmt:v=>(v*100).toFixed(1)+'%'},
+  {k:'wins', label:'All-Time Wins',    val:a=>a.w,                  fmt:v=>v},
+  {k:'pf',   label:'All-Time Points',  val:a=>a.pf,                 fmt:v=>Math.round(v).toLocaleString()},
+  {k:'pct',  label:'All-Time Win %',   val:a=>a.g?a.w/a.g:0,        fmt:v=>(v*100).toFixed(1)+'%'},
+  {k:'ppg',  label:'All-Time PPG',     val:a=>a.g?a.pf/a.g:0,       fmt:v=>v.toFixed(1)},
+  {k:'best', label:'Highest Score',    val:a=>a.hi,                 fmt:v=>v.toFixed(1)},
+  {k:'diff', label:'Points Differential',val:a=>a.pf-a.pa,          fmt:v=>(v>=0?'+':'')+Math.round(v).toLocaleString()},
+  {k:'papg', label:'Points Against/Gm',val:a=>a.g?-(a.pa/a.g):0,    fmt:v=>(-v).toFixed(1)},
 ];
 function legacyReportData(){
   const at=lastCompletedWeek(); if(!at) return null;
@@ -2962,29 +2966,23 @@ function legacyReportHTML(){
       ${_franchises.map(f=>`<option value="${f.owner}" ${_lrTeam===f.owner?'selected':''}>${f.name}</option>`).join('')}
     </select></div>`;
 
+  // one team: the same most-recent-week report, filtered to them
   if(_lrTeam){
-    const hist=legacyTeamHistory(_lrTeam);
     const nm=(_franchises.find(f=>f.owner===_lrTeam)||{}).name||'Team';
-    if(!hist||!hist.length) return picker+`<div class="lr-none">No history for ${nm} yet.</div>`;
-    const cur=hist[0];
-    const rows=hist.filter(h=>h.changes.length).slice(0,12).map(h=>`
-      <div class="lr-wk">
-        <div class="lr-wk-h">${h.season} · Week ${h.week}</div>
-        ${h.changes.map(c=>`<div class="lr-row">
-          ${arrow(c.dir)}
-          <span class="lr-who"><span class="lr-mt">${c.metric}</span></span>
-          <span class="lr-mv">#${c.from} → <b class="${c.dir==='up'?'lr-up':'lr-down'}">#${c.to}</b></span>
-        </div>`).join('')}
-      </div>`).join('');
+    const mine=d.moves.filter(m=>m.owner===_lrTeam);
     return picker+`
-      <div class="lr-week">${nm} — week-by-week all-time movement</div>
-      <div class="lr-now">${LEGACY_METRICS.map(m=>
-        `<div class="lr-nowc"><span class="lr-nowl">${m.label}</span><span class="lr-nowr">#${cur.ranks[m.k]}</span><span class="lr-nowv">${cur.vals[m.k]}</span></div>`).join('')}</div>
-      ${rows||`<div class="lr-none">${nm} has not changed all-time position in any recorded week.</div>`}`;
+      <div class="lr-week">Week ${d.week} · ${d.season} — ${nm}</div>
+      ${mine.length
+        ? `<div class="lr-list">${mine.map(m=>`<div class="lr-row">
+            ${arrow(m.dir)}
+            <span class="lr-who"><span class="lr-mt">${m.metric}</span></span>
+            <span class="lr-mv">#${m.from} → <b class="${m.dir==='up'?'lr-up':'lr-down'}">#${m.to}</b></span>
+          </div>`).join('')}</div>`
+        : `<div class="lr-none">${nm} held every all-time position in week ${d.week}.</div>`}`;
   }
 
   const movesHTML=d.moves.length
-    ? d.moves.slice(0,8).map(m=>`<div class="lr-row">
+    ? d.moves.map(m=>`<div class="lr-row">
         ${arrow(m.dir)}
         <span class="lr-who"><span class="lr-nm">${m.name}</span><span class="lr-mt">${m.metric}</span></span>
         <span class="lr-mv">#${m.from} → <b class="${m.dir==='up'?'lr-up':'lr-down'}">#${m.to}</b></span>

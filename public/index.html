@@ -2261,10 +2261,19 @@
        treatment as the draft-by-team list: left-aligned, hairline row rules,
        uppercase column heads, numerics shrunk to their content with the player
        column absorbing the slack. On phones the two secondary columns drop. */
-    #stats-c3 table{border-collapse:collapse;background:none;}
+    /* fixed proportional columns: letting the name cell absorb every spare
+       pixel left the player marooned on the left with the numbers bunched far
+       to the right. These widths space the five columns evenly instead. */
+    #stats-c3 table{border-collapse:collapse;background:none;table-layout:fixed;width:100%;}
+    #stats-c3 table th:nth-child(1),#stats-c3 table td:nth-child(1){width:36%;}
+    #stats-c3 table th:nth-child(2),#stats-c3 table td:nth-child(2){width:11%;}
+    #stats-c3 table th:nth-child(3),#stats-c3 table td:nth-child(3){width:14%;}
+    #stats-c3 table th:nth-child(6),#stats-c3 table td:nth-child(6){width:22%;}
+    #stats-c3 table th:nth-child(7),#stats-c3 table td:nth-child(7){width:17%;}
     #stats-c3 table th:not(:first-child),#stats-c3 table td:not(:first-child){
-      width:1%;white-space:nowrap;text-align:left;}
-    #stats-c3 table th,#stats-c3 table td{padding:8px 10px;border:none;
+      white-space:nowrap;text-align:right;}
+    #stats-c3 table td:first-child{overflow:hidden;text-overflow:ellipsis;}
+    #stats-c3 table th,#stats-c3 table td{padding:8px 6px;border:none;
       border-bottom:1px solid rgba(255,255,255,0.055);background:none;}
     html[data-theme="light"] #stats-c3 table th,html[data-theme="light"] #stats-c3 table td{
       border-bottom-color:rgba(0,0,0,0.07);}
@@ -2279,7 +2288,9 @@
       #stats-c3 .tscroll{overflow-x:visible;}
       #stats-c3 .tscroll table{min-width:0;}
       #stats-c3 table td.mhide,#stats-c3 table th.mhide{display:none!important;}
-      #stats-c3 table th,#stats-c3 table td{padding-left:2px!important;padding-right:6px!important;}
+      #stats-c3 table th,#stats-c3 table td{padding-left:2px!important;padding-right:4px!important;}
+      #stats-c3 table td:first-child{padding-right:2px!important;}
+      #stats-c3 .pname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     }
 
     /* ── MOBILE: keep real tables (sortable/filterable) but tighten + stick the name column ── */
