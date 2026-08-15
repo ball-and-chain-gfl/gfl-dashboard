@@ -144,7 +144,7 @@
     .coaching-row{display:flex;align-items:center;gap:10px;padding:12px 6px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;user-select:none;border-radius:8px;}
     .coaching-row:last-child{border-bottom:none;}
     .coaching-row:hover{background:rgba(255,255,255,0.03);}
-    .coaching-rank{font-size:12px;font-weight:700;color:var(--accent);width:20px;text-align:center;flex-shrink:0;}
+    .coaching-rank{font-size:12px;font-weight:700;color:var(--accent2,var(--accent));width:20px;text-align:center;flex-shrink:0;}
     .coaching-info{flex:1;min-width:0;}
     .coaching-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .coaching-sub{font-size:12px;color:var(--text3);margin-top:1px;}
@@ -241,6 +241,12 @@
 
     /* STANDINGS */
     .standings-filters{display:flex;gap:7px;padding:0 2px 14px;flex-wrap:wrap;align-items:center;}
+    /* Advanced Stats: the four views sit 2x2 on phones instead of wrapping ragged */
+    @media(max-width:768px){
+      #stats-subtabs{display:grid!important;grid-template-columns:1fr 1fr;gap:8px;}
+      #stats-subtabs .tab-btn{width:100%;justify-content:center;text-align:center;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    }
     .filter-btn{background:rgba(255,255,255,0.05);color:var(--text2);border:none;box-shadow:var(--btn-edge);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:all .15s;}
     .filter-btn:hover{color:var(--text);background:rgba(255,255,255,0.08);box-shadow:var(--btn-edge-hover);}
     .filter-btn:active{box-shadow:var(--btn-edge-active);}
@@ -255,7 +261,7 @@
     tbody tr{border-top:1px solid rgba(255,255,255,0.05);transition:background 0.12s;}
     tbody tr:hover{background:rgba(255,255,255,0.02);}
     .right{text-align:right;}
-    .rank{color:var(--accent);font-weight:700;min-width:20px;display:inline-block;}
+    .rank{color:var(--accent2,var(--accent));font-weight:700;min-width:20px;display:inline-block;}
     .team-cell{display:flex;align-items:center;gap:8px;}
     .team-info .team-name{font-weight:600;font-size:15px;}
     .team-info .team-sub{font-size:12px;color:var(--text3);}
@@ -278,7 +284,7 @@
     .trade-card{border:1px solid rgba(255,255,255,0.08);border-radius:8px;margin:0 0 16px;overflow:hidden;background:none;box-shadow:none;}
     .trade-card:last-child{margin-bottom:18px;}
     .trade-head{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;}
-    .trade-rank{color:var(--accent);font-weight:800;}
+    .trade-rank{color:var(--accent2,var(--accent));font-weight:800;}
     .trade-grid{display:grid;grid-template-columns:1fr 20px 1fr;gap:0;}
     .trade-side{padding:12px 8px;min-width:0;}
     .trade-side.right{text-align:right;}
@@ -303,7 +309,7 @@
     /* DRAFT TAB */
     .draft-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,0.05);}
     .draft-row:last-child{border-bottom:none;}
-    .draft-rankn{font-size:12px;font-weight:700;color:var(--accent);width:20px;text-align:center;flex-shrink:0;}
+    .draft-rankn{font-size:12px;font-weight:700;color:var(--accent2,var(--accent));width:20px;text-align:center;flex-shrink:0;}
     .draft-info{flex:1;min-width:0;}
     .draft-name{font-size:15px;font-weight:600;}
     .draft-pos{font-size:12px;color:var(--text3);background:rgba(255,255,255,0.06);border-radius:999px;padding:1px 6px;margin-left:5px;vertical-align:middle;}
@@ -323,7 +329,7 @@
     /* LEAGUE HISTORY TAB */
     .champ-row{display:flex;align-items:center;gap:14px;padding:15px 6px;border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;}
     .champ-row:last-child{border-bottom:none;}
-    .champ-year{font-size:18px;font-weight:800;color:var(--accent);width:44px;flex-shrink:0;}
+    .champ-year{font-size:18px;font-weight:800;color:var(--accent2,var(--accent));width:44px;flex-shrink:0;}
     .champ-detail{flex:1;min-width:220px;}
     .champ-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
     .champ-sub{font-size:12px;color:var(--text2);margin-top:3px;}
@@ -351,7 +357,7 @@
     /* LEAGUE HISTORY containers */
     .hist-item{background:linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015));border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 12px 28px -24px rgba(0,0,0,0.7);}
     .hist-item:last-child{margin-bottom:0;}
-    .hist-item-year{font-family:'Inter',sans-serif;font-size:12px;letter-spacing:1.2px;color:var(--accent);margin-bottom:10px;font-weight:700;}
+    .hist-item-year{font-family:'Inter',sans-serif;font-size:12px;letter-spacing:1.2px;color:var(--accent2,var(--accent));margin-bottom:10px;font-weight:700;}
     .champ-matchup{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
     .champ-side{display:flex;align-items:center;gap:10px;flex:1;min-width:150px;}
     .champ-vs{font-size:12px;color:var(--text3);font-weight:700;flex-shrink:0;}
@@ -712,7 +718,7 @@
     .conf-win-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.05);}
     html[data-theme="light"] .conf-win-row{border-color:rgba(0,0,0,0.06);}
     .conf-win-row:last-child{border-bottom:none;}
-    .conf-win-yr{font-family:'Inter',sans-serif;font-weight:700;color:var(--accent);width:38px;flex-shrink:0;}
+    .conf-win-yr{font-family:'Inter',sans-serif;font-weight:700;color:var(--accent2,var(--accent));width:38px;flex-shrink:0;}
     .conf-win-info{min-width:0;}
     @media(max-width:640px){.conf-cols{grid-template-columns:1fr;}}
 
@@ -956,17 +962,23 @@
        PER-TAB COLORS — each tab owns a signature color, used in the nav and,
        when active, as the accent throughout that tab (dark mode).
        ═══════════════════════════════════════════════════════════════════════ */
-    .tab-btn[data-tab=home]{--tc:#ffb347;}
-    .tab-btn[data-tab=standings]{--tc:#5aa9ff;}
-    .tab-btn[data-tab=trades]{--tc:#3fd07a;}
-    .tab-btn[data-tab=draft]{--tc:#b58cff;}
-    .tab-btn[data-tab=history]{--tc:#33d6c4;}
-    .tab-btn[data-tab=tenure]{--tc:#ff6f9c;}
-    .tab-btn[data-tab=teams]{--tc:#ff8f5a;}
-    .tab-btn[data-tab=legacy]{--tc:#f4c04d;}
+    /* The twelve visible tabs sit exactly 30 degrees apart around the wheel, in
+       their existing wheel order so each keeps roughly the identity it had. No
+       two tabs share a colour family any more. Nav uses the primary only. */
+    .tab-btn[data-tab=teams]{--tc:#e89368;}      /*  20 */
+    .tab-btn[data-tab=home]{--tc:#e4cb4e;}       /*  50 */
+    .tab-btn[data-tab=legacy]{--tc:#b2e44e;}     /*  80 */
+    .tab-btn[data-tab=gabe]{--tc:#67e44e;}       /* 110 */
+    .tab-btn[data-tab=book]{--tc:#4ee480;}       /* 140 */
+    .tab-btn[data-tab=trades]{--tc:#4ee4cb;}     /* 170 */
+    .tab-btn[data-tab=history]{--tc:#68bee8;}    /* 200 */
+    .tab-btn[data-tab=schedule]{--tc:#687ee8;}   /* 230 */
+    .tab-btn[data-tab=standings]{--tc:#a07aeb;}  /* 260 */
+    .tab-btn[data-tab=draft]{--tc:#d87aeb;}      /* 290 */
+    .tab-btn[data-tab=badbeat]{--tc:#e868be;}    /* 320 */
+    .tab-btn[data-tab=tenure]{--tc:#e8687e;}     /* 350 */
+    /* hidden tabs keep their own colours; they are not on the wheel */
     .tab-btn[data-tab=punishment]{--tc:#ff5f5f;}
-    .tab-btn[data-tab=badbeat]{--tc:#e879f9;}
-    .tab-btn[data-tab=gabe]{--tc:#a3e635;}
     .tab-btn[data-tab=marathon]{--tc:#22d3ee;}
     .tab-btn i{color:var(--tc,var(--accent));opacity:.8;transition:opacity .15s;}
     .tab-btn:hover{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,transparent)!important;color:var(--text)!important;}
@@ -988,20 +1000,20 @@
        --grad    the pair as a gradient. Everything on the PAGE that used to be
                  a flat accent fill (page title, meters, pills, primary
                  buttons) paints with this instead. */
-    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}      /* gold 33° → wheat 50° */
-    html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}       /* green 145° → emerald 165° */
-    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#22d3ee;--accent2:#22a6ee;--accent-rgb:34,211,238;}   /* cyan 187° → sky 205° */
-    html[data-theme="dark"][data-tabaccent=standings]{--accent:#5aa9ff;--accent2:#8f8aff;--accent-rgb:90,169,255;}  /* blue 212° → indigo 242° */
-    html[data-theme="dark"][data-tabaccent=trades]{--accent:#3fd07a;--accent2:#62d04a;--accent-rgb:63,208,122;}     /* green 145° → lime 105° */
-    html[data-theme="dark"][data-tabaccent=draft]{--accent:#b58cff;--accent2:#8c9cff;--accent-rgb:181,140,255;}     /* purple 262° → periwinkle 232° */
-    html[data-theme="dark"][data-tabaccent=history]{--accent:#33d6c4;--accent2:#33b0d6;--accent-rgb:51,214,196;}    /* teal 172° → cyan 193° */
-    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#ff6f9c;--accent2:#ff6fd4;--accent-rgb:255,111,156;}    /* pink 340° → fuchsia 318° */
-    html[data-theme="dark"][data-tabaccent=teams]{--accent:#ff8f5a;--accent2:#ffbf5a;--accent-rgb:255,143,90;}      /* orange 20° → amber 40° */
-    html[data-theme="dark"][data-tabaccent=legacy]{--accent:#f4c04d;--accent2:#f49a4d;--accent-rgb:244,192,77;}     /* yellow 42° → orange 25° */
-    html[data-theme="dark"][data-tabaccent=punishment]{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;}  /* red 0° → orange 20° */
-    html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e879f9;--accent2:#b579f9;--accent-rgb:232,121,249;}   /* magenta 292° → violet 268° */
-    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#a3e635;--accent2:#d3e635;--accent-rgb:163,230,53;}       /* lime 82° → yellow-lime 66° */
-    html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#22eec9;--accent-rgb:34,211,238;}   /* cyan 187° → aqua 167° */
+    html[data-theme="dark"][data-tabaccent=teams]{--accent:#e89368;--accent2:#e8b368;--accent-rgb:232,147,104;}     /*  20 → 35 */
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#e4cb4e;--accent2:#d8e44e;--accent-rgb:228,203,78;}       /*  50 → 65 */
+    html[data-theme="dark"][data-tabaccent=legacy]{--accent:#b2e44e;--accent2:#8ce44e;--accent-rgb:178,228,78;}     /*  80 → 95 */
+    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#67e44e;--accent2:#4ee45a;--accent-rgb:103,228,78;}       /* 110 → 125 */
+    html[data-theme="dark"][data-tabaccent=book]{--accent:#4ee480;--accent2:#4ee4a6;--accent-rgb:78,228,128;}       /* 140 → 155 */
+    html[data-theme="dark"][data-tabaccent=trades]{--accent:#4ee4cb;--accent2:#4ed8e4;--accent-rgb:78,228,203;}     /* 170 → 185 */
+    html[data-theme="dark"][data-tabaccent=history]{--accent:#68bee8;--accent2:#689ee8;--accent-rgb:104,190,232;}   /* 200 → 215 */
+    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#687ee8;--accent2:#7368e8;--accent-rgb:104,126,232;}  /* 230 → 245 */
+    html[data-theme="dark"][data-tabaccent=standings]{--accent:#a07aeb;--accent2:#bc7aeb;--accent-rgb:160,122,235;} /* 260 → 275 */
+    html[data-theme="dark"][data-tabaccent=draft]{--accent:#d87aeb;--accent2:#eb7ae2;--accent-rgb:216,122,235;}     /* 290 → 305 */
+    html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e868be;--accent2:#e8689e;--accent-rgb:232,104,190;}   /* 320 → 335 */
+    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#e8687e;--accent2:#e87368;--accent-rgb:232,104,126;}    /* 350 →   5 */
+    html[data-theme="dark"][data-tabaccent=punishment]{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;}
+    html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#22eec9;--accent-rgb:34,211,238;}
     :root{--grad:linear-gradient(135deg,var(--accent),var(--accent2));}
 
     /* ── TEXTURED "TECH PREMIUM" BACKGROUND (dark) ──────────────────────────
@@ -1310,7 +1322,7 @@
     .dr-sbtn:hover{background:rgba(255,255,255,0.11);color:var(--text);}
     .dr-sbtn:active{transform:translateY(1px);}
     .dr-sbtn.active{background:rgba(var(--accent-rgb),0.22);border-color:var(--accent);color:#f7f8ec;}
-    .dv-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
+    .dv-pair{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
     .dv-pair>.card{min-width:0;}
     .dr-mini>.section-header{padding:11px 12px!important;font-size:13px;line-height:1.25;flex-wrap:wrap;gap:5px;}
     .dr-mini>.section-header .badge-info{font-size:9.5px;padding:2px 6px;}
@@ -1346,7 +1358,7 @@
       padding:10px 2px;border-bottom:1px solid rgba(255,255,255,0.06);}
     .lh-row:last-child{border-bottom:none;}
     .lh-row-2{grid-template-columns:52px minmax(0,1fr) auto;}
-    .lh-yr{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:.4px;color:var(--accent);}
+    .lh-yr{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:.4px;color:var(--accent2,var(--accent));}
     .lh-main{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:nowrap;}
     .lh-name{font-family:'Google Sans Flex',Georgia,serif;font-size:14px;font-weight:600;white-space:nowrap;}
     .lh-ab{display:none;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.4px;}
@@ -1362,8 +1374,9 @@
     .lh-brk:hover{background:rgba(var(--accent-rgb),0.16);border-color:rgba(var(--accent-rgb),0.4);color:var(--text);}
     .lh-row .bracket-wrap{grid-column:1/-1;}
     .lh-cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;}
+    /* the season banner takes the same colour as the .lh-yr year chips above */
     .lh-col-head{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:.7px;font-size:11px;
-      font-weight:600;color:var(--text3);padding:0 2px 8px;border-bottom:1px solid rgba(255,255,255,0.12);margin-bottom:4px;}
+      font-weight:600;color:var(--accent2,var(--accent));padding:0 2px 8px;border-bottom:1px solid rgba(255,255,255,0.12);margin-bottom:4px;}
     .lh-col+.lh-col{margin-top:0;}
     #lh-sups .lh-col{margin-bottom:20px;}
     /* all-time records */
@@ -1793,6 +1806,24 @@
     .sch-chip-v{font-family:'Inter',sans-serif;font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .sch-chip-l{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-top:3px;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* opponent drawer: toughest players to face */
+    .sch-open{cursor:pointer;}
+    .sch-caret{font-size:9px;margin-left:6px;color:var(--text3);transition:transform .18s ease;flex:0 0 auto;}
+    .sch-row-open .sch-caret{transform:rotate(180deg);color:var(--accent);}
+    .sch-detail{display:none;}
+    .sch-detail.open{display:block;padding:10px 10px 12px;margin:0 0 6px;
+      border:1px solid rgba(var(--accent-rgb),0.32);border-radius:8px;
+      background:rgba(255,255,255,0.02);}
+    html[data-theme="light"] .sch-detail.open{background:rgba(0,0,0,0.02);}
+    .sd-h{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.7px;
+      text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+    .sd-msg{font-size:12px;color:var(--text3);padding:2px 0;}
+    .sd-list{display:flex;flex-direction:column;gap:6px;}
+    .sd-row{display:grid;grid-template-columns:16px auto minmax(0,1fr) auto auto;align-items:center;gap:9px;}
+    .sd-rank{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--accent2,var(--accent));}
+    .sd-name{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .sd-ppg{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--accent);}
+    .sd-st{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);white-space:nowrap;}
     .sch-head,.sch-row{display:grid;grid-template-columns:38px minmax(0,1fr) 68px 74px 78px 62px 62px 66px;
       align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
     .sch-head{padding:0 2px 7px;border-bottom:1px solid rgba(255,255,255,0.12);}
@@ -2323,14 +2354,18 @@
 
 
 
-    /* ── Draft "Full Draft by Team": mobile-only list (18px gutters, all left-aligned) ── */
+    /* ── Draft by team: mobile-only list, all left-aligned ──────────────────
+       These used to carry an 18px gutter of their own from when the card was
+       the outermost box. `main` now supplies the page gutter, so that extra
+       inset stacked on top of it and pushed the draft content 30px in while
+       the page title sat at 12px. 2px here lines the two up. */
     .dm-list{display:none;}
     @media(max-width:768px){
-      .dm-list{display:block;padding:0 18px 4px;}          /* 18px is the closest content gets to the edge */
+      .dm-list{display:block;padding:0 2px 4px;}
       #page-draft .draft-tbl{display:none!important;}
-      #page-draft .card>.section-header{padding:13px 18px!important;}
-      #page-draft .card .picker-bar{padding:12px 18px!important;}
-      #page-draft #draft-team-body>div:last-child{padding-left:18px!important;padding-right:18px!important;}
+      #page-draft .card>.section-header{padding:13px 2px!important;}
+      #page-draft .card .picker-bar{padding:12px 2px!important;}
+      #page-draft #draft-team-body>div:last-child{padding-left:2px!important;padding-right:2px!important;}
       /* player column is capped so the Draft position sits close to the name */
       .dm-row{display:grid;grid-template-columns:20px 28px minmax(0,112px) 42px 44px minmax(34px,1fr);
         align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
@@ -2406,7 +2441,9 @@
     html[data-theme="dark"] .gabe-layout>.sec,
     html[data-theme="dark"] .dr-right>.draft-row-graded,
     #page-home .home-box,
-    .trade-card,.dr-tabbox,.lh-rcard,.sb-market,.sb-slip,.sb-tcard,.sb-bar,
+    /* trade cards deliberately excluded: they only need separation, so they keep
+       the neutral hairline rather than an accent-tinted outline */
+    .dr-tabbox,.lh-rcard,.sb-market,.sb-slip,.sb-tcard,.sb-bar,
     .mo-grid,.motw-book,.si-box{
       border-color:rgba(var(--accent-rgb),0.55)!important;}
     /* the graded draft rows keep their grade stripe on the left edge */
@@ -2486,9 +2523,9 @@
        otherwise keep painting the page's gradient. */
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
-    #page-home .mod-cm{--accent:#5aa9ff;--accent2:#8f8aff;--accent-rgb:90,169,255;
+    #page-home .mod-cm{--accent:#68bee8;--accent2:#689ee8;--accent-rgb:104,190,232;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
-    #page-home .motw-book{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;
+    #page-home .motw-book{--accent:#4ee480;--accent2:#4ee4a6;--accent-rgb:78,228,128;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .home-punish-more{color:var(--accent);border-color:rgba(var(--accent-rgb),0.4);}
     #page-home .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}
@@ -2521,6 +2558,10 @@
     .pr-list li{font-size:13.5px;color:var(--text2);line-height:1.45;}
     .pr-list li::marker{color:var(--accent);font-weight:700;}
     #punish-overlay .punish-menu{grid-template-columns:1fr;gap:8px;margin-top:0;}
+    .pr-pick{width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--text);
+      transition:border-color .15s,background .15s;}
+    .pr-pick:hover{border-color:rgba(var(--accent-rgb),0.5);}
+    .pr-empty{color:var(--text3);font-style:italic;}
 
     /* ── Playoff Hardware (Player Tenure) ─────────────────────────────────── */
     .hw-sort{display:flex;align-items:center;gap:8px;padding:0 2px 12px;font-family:'Inter',sans-serif;

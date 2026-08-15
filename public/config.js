@@ -72,6 +72,18 @@ window.GFL_CONFIG = {
       "It gets carried out on camera before the next week's games kick off.",
       "Duck it and you inherit the following week's punishment on top of your own.",
     ],
+    /* What each punishment actually involves. Click any entry in the popup's
+       menu to read it; it opens on whichever one is set above for this week.
+       Keys must match the `options` spelling. Blank ones just prompt you to
+       write them — nothing here is invented for you. */
+    details: {
+      "Beer Pour": "Loser of the week pours (and chugs) the group's mystery beer blend.",
+      "Weatherman": "",
+      "Fast Banana": "",
+      "Willem Defoe": "",
+      "Fruit Pledge": "",
+      "Spicy Food": "",
+    },
   },
 
   /* BAD BEAT O'METER — worst luck / most painful losses. Fill `entries` with

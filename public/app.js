@@ -82,7 +82,9 @@ function refreshSeasonOptions(){
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
-const TAB_COLORS={home:'#E0B67B',book:'#3fd07a',schedule:'#22d3ee',standings:'#5aa9ff',trades:'#3fd07a',draft:'#b58cff',history:'#33d6c4',tenure:'#ff6f9c',teams:'#ff8f5a',legacy:'#f4c04d',punishment:'#ff5f5f',badbeat:'#e879f9',gabe:'#a3e635',marathon:'#22d3ee'};
+/* Twelve visible tabs, 30 degrees apart around the wheel — see the matching
+   --tc / --tabaccent blocks in index.html. Nav shows the primary only. */
+const TAB_COLORS={teams:'#e89368',home:'#e4cb4e',legacy:'#b2e44e',gabe:'#67e44e',book:'#4ee480',trades:'#4ee4cb',history:'#68bee8',schedule:'#687ee8',standings:'#a07aeb',draft:'#d87aeb',badbeat:'#e868be',tenure:'#e8687e',punishment:'#ff5f5f',marathon:'#22d3ee'};
 const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -1951,10 +1953,18 @@ function draftPickLists(steals,busts,showSeason){
     <div class="card" style="box-shadow:none"><div class="section-header" style="padding:13px 16px"><i class="fa fa-heart-crack" style="color:var(--red)"></i>Worst Busts${showSeason?' Ever':''}<span class="badge-info">first 6 rounds</span></div>${busts.map((r,i)=>draftPickCard(r,i,showSeason)).join('')}</div>
   </div>`;
 }
-function scoreBadge(rel,rank,season,grade,gcol){
+function scoreBadge(rel,rank,season,grade,gcol,rankOf){
   const col=gcol||(rel>0?'var(--green)':rel<0?'var(--red)':'var(--text2)');
+  /* Draft rank rides the same green-to-red scale as the grade, mapped straight
+     off the placing: 1st is an A, last is an F, evenly spaced between. */
+  const rcol=(()=>{
+    const n=Number(rankOf)||0, r=Number(rank)||0;
+    if(!n||!r||n<2) return gradeColor('A');
+    const t=1-(r-1)/(n-1);                       // 1 = best placing, 0 = worst
+    return gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);
+  })();
   return `<div class="draft-score-wrap">
-    <div class="dgrade"><div class="dgrade-num" style="border-color:var(--accent);color:var(--accent)">${rank}</div><div class="dgrade-lbl">Draft rank</div></div>
+    <div class="dgrade"><div class="dgrade-num" style="border-color:${rcol};color:${rcol}">${rank}</div><div class="dgrade-lbl">Draft rank</div></div>
     <div class="dgrade"><div class="dgrade-num" style="border-color:${col};color:${col}">${rel>0?'+':''}${rel.toFixed(0)}</div><div class="dgrade-lbl">Draft Score</div></div>
     ${grade?`<div class="dgrade"><div class="dgrade-num" style="border-color:${col};color:${col}">${grade}</div><div class="dgrade-lbl">Draft Grade</div></div>`:''}
   </div>`;
@@ -2017,7 +2027,7 @@ function renderDraftTab(){
   if(_draftTeamSel==null||!_teams.some(t=>t.id===Number(_draftTeamSel))) _draftTeamSel=_teams[0]?.id;
   body.innerHTML=`
   <div class="card" style="margin:0 0 24px">
-    <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Full Draft by Team<span id="draft-score" style="margin-left:auto"></span></div>
+    <div class="section-header" style="padding:13px 16px"><span id="draft-score" style="margin-left:auto"></span></div>
     <div class="picker-bar">
       <label for="draft-team-select">Team:</label>
       <select id="draft-team-select" onchange="_draftTeamSel=this.value;renderDraftTeamTable()">${_teams.map(t=>`<option value="${t.id}" ${Number(_draftTeamSel)===t.id?'selected':''}>${t.name}</option>`).join('')}</select>
@@ -2216,7 +2226,7 @@ function renderDraftTeamTable(){
   const rel=(totals[tid]||0)-avg, rank=ranked.findIndex(x=>x.id===tid)+1;
   const rels=ranked.map(x=>x.t-avg); const mn=Math.min(...rels), mx=Math.max(...rels);
   const gt=mx>mn?(rel-mn)/(mx-mn):1; const grade=PPG_GRADES[Math.round(gt*(PPG_GRADES.length-1))]; const gcol=gradeColor(grade);
-  const scoreEl=document.getElementById('draft-score'); if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,season,grade,gcol);
+  const scoreEl=document.getElementById('draft-score'); if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,season,grade,gcol,ranked.length);
   body.innerHTML=rows.length?draftTeamTableHTML(rows,false):`<div class="tab-loading">No picks found for this team.</div>`;
 }
 
@@ -2433,7 +2443,6 @@ function renderLeagueHistory(){
         ${confHTML}</div>
       <div id="lh-sups" ${_lhView==='sups'?'':'style="display:none"'}>
         ${head('fa-award','Season Superlatives')}
-        <div class="lh-note">GFL voted, season by season.</div>
         ${supsHTML}</div>
     </div>`;
   openDesktopBrackets();
@@ -2851,27 +2860,37 @@ function renderPunishment(){
 
 /* The Punishment tab is retired; its content lives in a popup off the homepage
    module's CTA. Same config in config.js, so the weekly edit is unchanged. */
+/* Which punishment the popup is showing. Reset to this week's every time the
+   popup opens, so it never remembers a previous browse. */
+let _prSel=null;
+function selectPunish(name){ _prSel=name; const b=document.getElementById('punish-rules-body'); if(b) b.innerHTML=punishRulesHTML(); }
 function punishRulesHTML(){
   const cfg=_CFG.punishment||{};
-  const cur=(cfg.name||'').toLowerCase();
+  const week=cfg.name||'';
+  const sel=_prSel||week;                       // defaults to this week's
+  const selL=sel.toLowerCase(), curL=week.toLowerCase();
   const opts=cfg.options||[];
+  const detail=(cfg.details||{})[sel] || (selL===curL?cfg.note:'') || '';
   return `
     <div class="pr-hero">
-      <div class="pr-ic"><i class="fa ${PUNISH_ICON[cur]||'fa-gavel'}"></i></div>
+      <div class="pr-ic"><i class="fa ${PUNISH_ICON[selL]||'fa-gavel'}"></i></div>
       <div>
-        <div class="pr-week">Week ${cfg.week??'—'} Punishment</div>
-        <div class="pr-name">${cfg.name||'TBD'}</div>
+        <div class="pr-week">${selL===curL?`Week ${cfg.week??'—'} Punishment`:'From the menu'}</div>
+        <div class="pr-name">${sel||'TBD'}</div>
       </div>
     </div>
-    ${cfg.note?`<p class="pr-note">${cfg.note}</p>`:''}
+    <p class="pr-note${detail?'':' pr-empty'}">${detail||'No description written for this one yet — add it under <b>punishment.details</b> in config.js.'}</p>
     ${(cfg.rules||[]).length?`<div class="pr-rules">
       <div class="pr-h">How it works</div>
       <ol class="pr-list">${cfg.rules.map(r=>`<li>${r}</li>`).join('')}</ol>
     </div>`:''}
     <div class="pr-rules">
-      <div class="pr-h">The menu</div>
+      <div class="pr-h">The menu — tap any to read it</div>
       <div class="punish-menu">
-        ${opts.map(o=>`<div class="punish-opt ${o.toLowerCase()===cur?'active':''}"><i class="fa ${PUNISH_ICON[o.toLowerCase()]||'fa-circle'}"></i>${o}${o.toLowerCase()===cur?'<span class="punish-tag">THIS WEEK</span>':''}</div>`).join('')||'<div class="pr-note">No options set.</div>'}
+        ${opts.map(o=>{const l=o.toLowerCase();
+          return `<button class="punish-opt pr-pick${l===selL?' active':''}" onclick="selectPunish(${JSON.stringify(o).replace(/"/g,'&quot;')})">
+            <i class="fa ${PUNISH_ICON[l]||'fa-circle'}"></i>${o}${l===curL?'<span class="punish-tag">THIS WEEK</span>':''}
+          </button>`;}).join('')||'<div class="pr-note">No options set.</div>'}
       </div>
     </div>`;
 }
@@ -2879,6 +2898,7 @@ function openPunishRules(){
   const body=document.getElementById('punish-rules-body');
   const ov=document.getElementById('punish-overlay');
   if(!body||!ov) return;
+  _prSel=null;                         // always opens on this week's punishment
   body.innerHTML=punishRulesHTML();
   ov.classList.add('open');
 }
@@ -3017,7 +3037,6 @@ function renderBadBeat(){
   const list=badBeatData(season);
   if(!list){ el.innerHTML=`<div class="tab-loading" style="padding:26px">No matchup data for ${season} yet.</div>`; return; }
   const num=(v,d=1)=>Number(v).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
-  const intro=`How <b>unlucky</b> was each team through week ${regEndOf(getSeason())}? The <b>Score</b> is a composite of four loss-luck ranks &mdash; Closest Loss, Median Loss, Losses under 7 points, and % of losses scored above the weekly average (weighted &times;1.5). A higher Score means a more bad-beaten season. The <b>vs&#8209;Avg</b> column is each team's record if every week were scored against that week's league average instead of their actual opponent.`;
   // same row anatomy as the Standings & Stats table: rank chip, team cell with
   // logo + name + abbreviation, right-aligned numerics
   const rows=list.map(t=>{
@@ -3038,8 +3057,7 @@ function renderBadBeat(){
       <td class="right" style="color:var(--text2)">${num(t.pctOver*100)}%</td>
     </tr>`;
   }).join('');
-  el.innerHTML=`<div style="font-size:12.5px;color:var(--text2);line-height:1.55;margin:0 2px 14px">${intro}</div>
-    <div class="tscroll"><table class="min720 srt bb-tbl" data-mhide="Closest L,Median L">
+  el.innerHTML=`<div class="tscroll"><table class="min720 srt bb-tbl" data-mhide="Closest L,Median L">
       <thead><tr>
         <th data-nosort>#</th><th>Team</th>
         <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
@@ -3570,6 +3588,52 @@ function schedPctCol(p){
   if(p>=0.38) return '#ff8f5a';
   return 'var(--red)';
 }
+/* Toughest players to face: the opponent's best starters by points per start
+   in the scheduled season. Tenure data only exists for seasons that have been
+   played, so an upcoming season simply reports that it has nothing yet. */
+const SCHED_MIN_STARTS=4;   // a one-week cameo is not a hard player to face
+function schedTopPlayers(owner,season,n=3){
+  const t=_tenure&&_tenure[owner];
+  if(!t) return null;
+  const all=[];
+  Object.entries(t).forEach(([pid,p])=>{
+    const s=p.seasons&&p.seasons[season];
+    if(!s||!s.s) return;                     // never started for them that year
+    all.push({pid,n:p.n||('#'+pid),ppg:(s.sp||0)/s.s,starts:s.s});
+  });
+  const by=(a,b)=>b.ppg-a.ppg||b.starts-a.starts;
+  // Rank on a real sample first. A single 25-point week from a streamed
+  // defence would otherwise outrank a back who started all year.
+  const solid=all.filter(p=>p.starts>=SCHED_MIN_STARTS).sort(by);
+  if(solid.length>=n) return solid.slice(0,n);
+  const rest=all.filter(p=>p.starts<SCHED_MIN_STARTS).sort(by);
+  return solid.concat(rest).slice(0,n);
+}
+async function toggleSchedOpp(el){
+  const row=el.closest('.sch-row'); if(!row) return;
+  const box=row.nextElementSibling;
+  if(!box||!box.classList.contains('sch-detail')) return;
+  const open=!box.classList.contains('open');
+  // one drawer at a time
+  document.querySelectorAll('.sch-detail.open').forEach(d=>{d.classList.remove('open');d.previousElementSibling?.classList.remove('sch-row-open');});
+  if(!open) return;
+  box.classList.add('open'); row.classList.add('sch-row-open');
+  const season=box.dataset.season, owner=el.dataset.opp, name=el.dataset.name||'This team';
+  box.innerHTML='<div class="sd-msg">Loading…</div>';
+  try{ await loadTenureData(); }catch(e){}
+  const top=schedTopPlayers(owner,season,3);
+  if(!top||!top.length){
+    box.innerHTML=`<div class="sd-msg">No ${season} player data yet.</div>`;
+    return;
+  }
+  box.innerHTML=`<div class="sd-h">Toughest to face · ${name} — top ${top.length} by ${season} points per start</div>
+    <div class="sd-list">${top.map((p,i)=>`<div class="sd-row">
+      <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
+      <span class="sd-name">${p.n}</span>
+      <span class="sd-ppg">${p.ppg.toFixed(1)}</span>
+      <span class="sd-st">${p.starts} start${p.starts===1?'':'s'}</span>
+    </div>`).join('')}</div>`;
+}
 function renderSchedule(){
   const el=document.getElementById('sched-body'); if(!el) return;
   if(!_franchises.length){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading schedule…</div>`; return; }
@@ -3582,24 +3646,14 @@ function renderSchedule(){
     el.innerHTML=`<div class="tab-loading" style="padding:40px 16px">No unplayed games on the schedule right now.</div>`;
     return;
   }
-  const chip=(label,val,col)=>`<div class="sch-chip"><div class="sch-chip-v" ${col?`style="color:${col}"`:''}>${val}</div><div class="sch-chip-l">${label}</div></div>`;
-  const nm=r=>`<span class="sch-team">${sbAvatar(r.opp.owner,22)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span>${r.rival?`<span class="sch-rival" title="Rivalry game — 2025 week ${r.rivalWeek}">RIVAL</span>`:''}</span>`;
+  /* the opponent name opens a drawer with their toughest players to face */
+  const nm=r=>`<span class="sch-team sch-open" role="button" tabindex="0"
+    data-opp="${r.opp.owner}" data-name="${String(r.opp.name).replace(/"/g,'&quot;')}"
+    onclick="toggleSchedOpp(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSchedOpp(this);}"
+    >${sbAvatar(r.opp.owner,22)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span>${r.rival?`<span class="sch-rival" title="Rivalry game — 2025 week ${r.rivalWeek}">RIVAL</span>`:''}<i class="fa fa-chevron-down sch-caret"></i></span>`;
   const sosPct=d.sosCount?1-(d.sosRank-1)/Math.max(1,d.sosCount-1):0.5;
   const recSeason=(d.rows.find(r=>r.oppSeason)||{}).oppSeason||'Last';
   el.innerHTML=`
-    <div class="sch-flag"><i class="fa fa-triangle-exclamation"></i>
-      ${d.sample
-        ? `The ${d.info.season} season isn't set up yet — this is a <b>sample slate</b> so the page has something to show. Opponent records, head-to-head and win odds are all real.`
-        : `${d.info.season} slate is <b>provisional</b> until the league finalises the season. Records, head-to-head and odds are real.`}
-    </div>
-    <div class="sch-sum">
-      ${chip(`${d.info.season} projection`,`${d.projW.toFixed(1)}–${d.projL.toFixed(1)}`,schedPctCol(d.projW/Math.max(1,d.rows.length)))}
-      ${chip('Games',d.rows.length,'')}
-      ${chip('Rivalry games',d.rivals,d.rivals?'var(--accent)':'')}
-      ${chip('Schedule strength',`#${d.sosRank} of ${d.sosCount}`,schedPctCol(sosPct))}
-      ${d.toughest?chip(`Toughest · wk ${d.toughest.week}`,sbTeamAb(d.toughest.opp.owner,d.toughest.opp.name),'var(--red)'):''}
-      ${d.easiest?chip(`Easiest · wk ${d.easiest.week}`,sbTeamAb(d.easiest.opp.owner,d.easiest.opp.name),'var(--green)'):''}
-    </div>
     <div class="sch-head">
       <span>Wk</span><span>Opponent</span>
       <span class="r sch-c1">${recSeason} rec</span>
@@ -3616,7 +3670,8 @@ function renderSchedule(){
         <span class="r sch-p" style="color:${schedPctCol(r.p)}">${Math.round(r.p*100)}%</span>
         <span class="r sch-c4">${r.fav?'−':'+'}${r.spread.toFixed(1)}</span>
         <span class="r sch-ml">${amFmt(r.ml)}</span>
-      </div>`).join('')}</div>
+      </div>
+      <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with — season-weighted record, scoring, points against and playoff history. Line is the projected margin; odds include the book's usual hold.</div>`;
 }
 /* ── RIVALS ──────────────────────────────────────────────────────────────────
@@ -4688,10 +4743,6 @@ async function loadDashboard(){
           <div id="stats-c3" ${_statsView==='c3'?'':'style="display:none"'}></div>
           <div id="stats-liq" ${_statsView==='liq'?'':'style="display:none"'}></div>
         </div>
-        <div class="sec wm" data-wm="&#xf1da;">
-          <div class="sec-head"><i class="fa fa-clock-rotate-left"></i>Recent Activity${_cmMode==='inferred'?'<span class="badge-info">reconstructed from weekly rosters</span>':''}</div>
-          ${transactions.slice(0,10).map(tx=>renderTx(tx,teamMap)).filter(Boolean).join('')||`<div style="padding:28px;text-align:center;color:var(--text3)">No recent transactions</div>`}
-        </div>
       </div>
 
       <!-- TRADES -->
@@ -4754,7 +4805,6 @@ async function loadDashboard(){
       <!-- SPORTSBOOK -->
       <div class="tab-page" id="page-book">
         <div class="sec wm" data-wm="&#xf51e;">
-          <div class="sec-head"><i class="fa fa-coins"></i>B&amp;C Sportsbook<span class="badge-info">play money · lines from GFL history</span></div>
           <div id="book-body"></div>
         </div>
       </div>
@@ -4762,7 +4812,6 @@ async function loadDashboard(){
       <!-- PLAYER TENURE -->
       <div class="tab-page" id="page-tenure">
         <div class="sec wm" data-wm="&#xf4fd;">
-          <div class="sec-head"><i class="fa fa-user-clock"></i>Player Tenure<span class="badge-info">weeks rostered &amp; points · all seasons</span></div>
           <div class="picker-bar">
             <label for="tenure-team-select">Team:</label>
             <select id="tenure-team-select" onchange="renderTenureTable()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>
@@ -4810,7 +4859,6 @@ async function loadDashboard(){
       <!-- BAD BEAT O'METER -->
       <div class="tab-page" id="page-badbeat">
         <div class="sec wm" data-wm="&#xf7a9;">
-          <div class="sec-head"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</div>
           <div id="badbeat-body"></div>
         </div>
       </div>
