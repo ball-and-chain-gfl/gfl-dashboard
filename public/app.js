@@ -3538,13 +3538,16 @@ function newVideoColor(){
    by reading the page's own top-level headings rather than a hand-kept list,
    so it can never drift out of step with what is actually rendered. Anchors are
    assigned on the fly and scrolling is offset for the fixed nav capsule. */
+const sectionHeadsIn=page=>[...page.querySelectorAll('.sec-head, .section-header, .lh-sec-head')]
+  .filter(h=>h.offsetParent!==null && !h.closest('.modal') && h.textContent.trim());
 function buildSectionNav(tab){
   const bar=document.getElementById('sec-nav'); if(!bar) return;
   const page=document.getElementById('page-'+tab);
   if(!page){ bar.innerHTML=''; bar.hidden=true; return; }
-  // only headings that are a direct section head of this page, in document order
-  const heads=[...page.querySelectorAll('.sec>.sec-head, .sec>.section-header')]
-    .filter(h=>h.offsetParent!==null);
+  // Every visible heading on the page, whatever wraps it. Tabs nest their
+  // headings differently — Team Profiles puts them in .panel, League History
+  // uses .lh-sec-head — so keying off the section wrapper missed most of them.
+  const heads=sectionHeadsIn(page);
   if(heads.length<2){ bar.innerHTML=''; bar.hidden=true; return; }
   const items=heads.map((h,i)=>{
     // heading text without the little badge that follows it
@@ -3559,9 +3562,10 @@ function buildSectionNav(tab){
 }
 function jumpToSection(btn){
   const page=document.getElementById('page-'+_activeTab); if(!page) return;
-  const heads=[...page.querySelectorAll('.sec>.sec-head, .sec>.section-header')]
-    .filter(h=>h.offsetParent!==null);
-  const el=(heads[Number(btn.dataset.sx)]||{}).closest?heads[Number(btn.dataset.sx)].closest('.sec'):null;
+  const heads=sectionHeadsIn(page);
+  // scroll to the heading itself — the wrapper differs per tab and sometimes
+  // spans several sections, which would land in the wrong place
+  const el=heads[Number(btn.dataset.sx)];
   if(!el) return;
   const nav=document.getElementById('floatnav');
   const pad=(nav?nav.getBoundingClientRect().bottom:70)+14;

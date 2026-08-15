@@ -419,11 +419,12 @@
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
 
     /* ── Section jump nav ─────────────────────────────────────────────────── */
-    .sec-nav{display:flex;flex-wrap:wrap;gap:7px;margin:-8px 0 26px;}
+    .sec-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:7px;margin:-8px 0 26px;}
     .sec-nav[hidden]{display:none;}
     .sx-chip{background:rgba(var(--accent-rgb),0.09);border:1px solid rgba(var(--accent-rgb),0.30);
       border-radius:999px;padding:5px 12px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
-      letter-spacing:.3px;color:var(--accent);cursor:pointer;white-space:nowrap;
+      letter-spacing:.3px;color:var(--accent);cursor:pointer;text-align:center;min-width:0;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
       transition:background .14s,border-color .14s,transform .07s;}
     .sx-chip:hover{background:rgba(var(--accent-rgb),0.18);border-color:rgba(var(--accent-rgb),0.55);}
     .sx-chip:active{transform:translateY(1px);}
@@ -448,16 +449,16 @@
 
     /* ── "New video" banner: wraps from behind the player around its edge ──── */
     .vid-wrap{position:relative;}
-    .vid-new{position:absolute;top:14px;left:-8px;z-index:3;display:inline-flex;align-items:center;gap:6px;
+    .vid-new{position:absolute;top:14px;right:-8px;z-index:3;display:inline-flex;align-items:center;gap:6px;
       padding:5px 14px 5px 12px;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
       letter-spacing:1px;text-transform:uppercase;color:#0d0d0f;
-      background:var(--nv,#E0B67B);border-radius:3px 3px 3px 0;
+      background:var(--nv,#E0B67B);border-radius:3px 3px 0 3px;
       box-shadow:0 6px 16px -8px rgba(0,0,0,0.9);pointer-events:none;}
     /* the fold: a darker triangle tucking the ribbon back behind the video */
     .vid-new::after{content:"";position:absolute;left:0;bottom:-6px;width:8px;height:6px;
       background:var(--nv,#E0B67B);filter:brightness(0.55);
       clip-path:polygon(0 0,100% 0,100% 100%);}
-    @media(max-width:768px){.vid-new{top:10px;font-size:9px;padding:4px 11px 4px 10px;}}
+    @media(max-width:768px){.vid-new{top:10px;font-size:9px;padding:4px 10px 4px 11px;}}
 
     /* ── Raised cards ─────────────────────────────────────────────────────────
        The same lift the Legacy Report has, applied to the other standalone
@@ -569,16 +570,14 @@
     .mv-pcts{display:flex;justify-content:space-between;font-family:'Inter',sans-serif;
       font-size:11px;font-weight:700;color:var(--text2);margin-top:6px;}
     .mv-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
-    /* read as real buttons: raised face, edge, and a press */
+    /* same face as the sportsbook tab buttons, without their accent colour */
     .mv-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 10px;
-      background:linear-gradient(rgba(255,255,255,0.09),rgba(255,255,255,0.03));
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.10),0 2px 8px -4px rgba(0,0,0,0.75);
-      font-weight:700;transition:background .14s,border-color .14s,color .14s,transform .07s,box-shadow .14s;}
-    .mv-btn:active:not(:disabled){transform:translateY(1px);
-      box-shadow:inset 0 1px 3px rgba(0,0,0,0.45);}
-    .mv-btn.picked{box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 3px 12px -5px rgba(var(--accent-rgb),0.6);}
-    html[data-theme="light"] .mv-btn{background:linear-gradient(#fff,rgba(0,0,0,0.03));
-      box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(0,0,0,0.10);}
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.14);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 1px 2px rgba(0,0,0,0.25);
+      font-weight:700;transition:background .15s,border-color .15s,color .15s,transform .08s;}
+    .mv-btn:active:not(:disabled){transform:translateY(1px);}
+    html[data-theme="light"] .mv-btn{background:rgba(0,0,0,0.04);border-color:rgba(0,0,0,0.14);
+      box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(0,0,0,0.08);}
     .mv-btn-legacy{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;
       background:none;border:1px solid var(--border);border-radius:8px;color:var(--text2);
       font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;
@@ -906,7 +905,7 @@
     .conf-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
     .conf-col{background:rgba(0,0,0,0.14);border:1px solid var(--border);border-radius:6px;padding:6px 12px 10px;}
     html[data-theme="light"] .conf-col{background:rgba(0,0,0,0.03);}
-    .conf-col-head{font-family:'Inter',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.5px;color:var(--text);text-transform:uppercase;padding:10px 2px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+    .conf-col-head{font-family:'Inter',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.5px;color:var(--blue);text-transform:uppercase;padding:10px 2px;border-bottom:1px solid var(--border);margin-bottom:4px;}
     .conf-win-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,0.05);}
     html[data-theme="light"] .conf-win-row{border-color:rgba(0,0,0,0.06);}
     .conf-win-row:last-child{border-bottom:none;}
@@ -1243,12 +1242,16 @@
     .lv-now:hover{border-color:var(--accent);color:var(--accent);}
     .lv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;}
     .lv-card{border:1px solid var(--border);border-radius:9px;padding:11px 12px;min-width:0;}
-    .lv-teams{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
-    .lv-t{display:flex;align-items:baseline;gap:7px;min-width:0;}
-    .lv-t.lv-r{justify-content:flex-end;}
+    /* logo + name on the outside, both scores meeting in the middle */
+    /* six cells: logo · name · score | score · name · logo */
+    .lv-teams{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto minmax(0,1fr) auto;
+      align-items:center;gap:8px;margin-bottom:8px;}
+    .lv-t{display:contents;}
     .lv-nm{font-family:'Google Sans Flex',Georgia,serif;font-size:12.5px;font-weight:600;
       min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .lv-sc{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text2);}
+    .lv-sc{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text2);
+      text-align:center;min-width:46px;}
+    .lv-t.lv-r .lv-nm{text-align:right;}
     .lv-sc.lv-up{color:var(--text);}
     .lv-oddsbar{display:flex;height:5px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.07);}
     .lv-of{height:100%;}
@@ -1739,6 +1742,9 @@
     /* the season banner takes the same colour as the .lh-yr year chips above */
     .lh-col-head{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:.7px;font-size:11px;
       font-weight:600;color:var(--accent2,var(--accent));padding:0 2px 8px;border-bottom:1px solid rgba(255,255,255,0.12);margin-bottom:4px;}
+    /* East / West read as headings, not accent labels — the year headings in
+       Season Superlatives keep the accent, so this is scoped to conferences */
+    #lh-conf .lh-col-head{color:var(--text);}
     .lh-col+.lh-col{margin-top:0;}
     #lh-sups .lh-col{margin-bottom:20px;}
     /* all-time records */
