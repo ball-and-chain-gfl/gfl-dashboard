@@ -85,7 +85,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
 /* Hand-picked primaries — see the matching --tc / --tabaccent blocks in
    index.html for these plus each tab's secondary. Nav shows the primary only. */
 const TAB_COLORS={home:'#E0B67B',teams:'#E84146',schedule:'#E89845',book:'#3fd07a',legacy:'#E8BC56',history:'#587DE8',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#63E0E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
+const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -507,6 +507,7 @@ function switchTab(name){
   if(name==='punishment') renderPunishment();
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
+  if(name==='messages') initMessages();
   if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
   if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
@@ -2913,33 +2914,87 @@ function legacyReportData(){
     if(leadNow&&leadWas&&leadNow!==leadWas)
       records.push({txt:`${nameOf(leadNow)} took over the ${m.label.toLowerCase()} lead from ${nameOf(leadWas)}`,val:m.fmt(m.val(now[leadNow]))});
   });
-  return {season:at.season,week:at.week,moves,records,
-    table:LEGACY_METRICS.map(m=>{
-      const r=rankIn(now,m.val);
-      const top=owners.slice().sort((a,b)=>r[a]-r[b])[0];
-      return {label:m.label,leader:nameOf(top),value:m.fmt(m.val(now[top]))};
-    })};
+  return {season:at.season,week:at.week,moves,records};
 }
+/* Week-by-week history for one team. The all-time table is rebuildable at any
+   cutoff, so this walks every played week and records where that team stood —
+   which means the full history back to the first season is available now,
+   rather than only from the day snapshots started being written. */
+function legacyTeamHistory(owner){
+  const weeks=[];
+  ALL_SEASONS.forEach(s=>{
+    const meta=_seasonMeta[s]; if(!meta) return;
+    const played=new Set();
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away) return;
+      if((m.home.totalPoints||0)===0&&(m.away.totalPoints||0)===0) return;
+      played.add(m.matchupPeriodId||0);
+    });
+    [...played].filter(Boolean).sort((a,b)=>a-b).forEach(w=>weeks.push({season:s,week:w}));
+  });
+  if(!weeks.length) return null;
+  const rankOf=(tbl,val,o)=>{
+    const rows=Object.keys(tbl).map(k=>({k,v:val(tbl[k])})).sort((a,b)=>b.v-a.v);
+    const i=rows.findIndex(x=>x.k===o); return i<0?null:i+1;
+  };
+  const out=[];
+  let prev=null;
+  weeks.forEach(pt=>{
+    const tbl=allTimeThrough(pt.season,pt.week);
+    if(!tbl[owner]) { prev=null; return; }
+    const snap={season:pt.season,week:pt.week,ranks:{},vals:{}};
+    LEGACY_METRICS.forEach(m=>{ snap.ranks[m.k]=rankOf(tbl,m.val,owner); snap.vals[m.k]=m.fmt(m.val(tbl[owner])); });
+    snap.changes=prev?LEGACY_METRICS.filter(m=>prev.ranks[m.k]!=null&&snap.ranks[m.k]!=null&&prev.ranks[m.k]!==snap.ranks[m.k])
+      .map(m=>({metric:m.label,from:prev.ranks[m.k],to:snap.ranks[m.k],dir:snap.ranks[m.k]<prev.ranks[m.k]?'up':'down'})):[];
+    out.push(snap); prev=snap;
+  });
+  return out.reverse();     // newest first
+}
+let _lrTeam='';                       // '' = whole league
+function setLegacyTeam(v){ _lrTeam=v||''; const b=document.getElementById('legacy-report'); if(b) b.innerHTML=legacyReportHTML(); }
 function legacyReportHTML(){
   const d=legacyReportData();
   if(!d) return '<div class="tab-loading" style="padding:22px">No completed weeks yet.</div>';
-  const arrow=x=>x.dir==='up'
-    ? `<i class="fa fa-arrow-up lr-up"></i>`
-    : `<i class="fa fa-arrow-down lr-down"></i>`;
+  const arrow=dir=>`<i class="fa fa-arrow-${dir==='up'?'up lr-up':'down lr-down'}"></i>`;
+  const picker=`<div class="lr-pick">
+    <select onchange="setLegacyTeam(this.value)" aria-label="Legacy Report team">
+      <option value="" ${_lrTeam?'':'selected'}>Whole league</option>
+      ${_franchises.map(f=>`<option value="${f.owner}" ${_lrTeam===f.owner?'selected':''}>${f.name}</option>`).join('')}
+    </select></div>`;
+
+  if(_lrTeam){
+    const hist=legacyTeamHistory(_lrTeam);
+    const nm=(_franchises.find(f=>f.owner===_lrTeam)||{}).name||'Team';
+    if(!hist||!hist.length) return picker+`<div class="lr-none">No history for ${nm} yet.</div>`;
+    const cur=hist[0];
+    const rows=hist.filter(h=>h.changes.length).slice(0,12).map(h=>`
+      <div class="lr-wk">
+        <div class="lr-wk-h">${h.season} · Week ${h.week}</div>
+        ${h.changes.map(c=>`<div class="lr-row">
+          ${arrow(c.dir)}
+          <span class="lr-who"><span class="lr-mt">${c.metric}</span></span>
+          <span class="lr-mv">#${c.from} → <b class="${c.dir==='up'?'lr-up':'lr-down'}">#${c.to}</b></span>
+        </div>`).join('')}
+      </div>`).join('');
+    return picker+`
+      <div class="lr-week">${nm} — week-by-week all-time movement</div>
+      <div class="lr-now">${LEGACY_METRICS.map(m=>
+        `<div class="lr-nowc"><span class="lr-nowl">${m.label}</span><span class="lr-nowr">#${cur.ranks[m.k]}</span><span class="lr-nowv">${cur.vals[m.k]}</span></div>`).join('')}</div>
+      ${rows||`<div class="lr-none">${nm} has not changed all-time position in any recorded week.</div>`}`;
+  }
+
   const movesHTML=d.moves.length
     ? d.moves.slice(0,8).map(m=>`<div class="lr-row">
-        ${arrow(m)}
+        ${arrow(m.dir)}
         <span class="lr-who"><span class="lr-nm">${m.name}</span><span class="lr-mt">${m.metric}</span></span>
         <span class="lr-mv">#${m.from} → <b class="${m.dir==='up'?'lr-up':'lr-down'}">#${m.to}</b></span>
       </div>`).join('')
     : `<div class="lr-none">No all-time positions changed in week ${d.week}.</div>`;
-  return `
+  return picker+`
     <div class="lr-week">Week ${d.week} · ${d.season} — all-time table movement</div>
     ${d.records.length?`<div class="lr-recs">${d.records.map(r=>
       `<div class="lr-rec"><i class="fa fa-certificate"></i><span>${r.txt}</span><b>${r.val}</b></div>`).join('')}</div>`:''}
-    <div class="lr-list">${movesHTML}</div>
-    <div class="lr-leaders">${d.table.map(t=>
-      `<div class="lr-lead"><span class="lr-lead-l">${t.label}</span><span class="lr-lead-n">${t.leader}</span><span class="lr-lead-v">${t.value}</span></div>`).join('')}</div>`;
+    <div class="lr-list">${movesHTML}</div>`;
 }
 
 // ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
@@ -3466,6 +3521,155 @@ function enemiesFor(owner){
   });
   return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
 }
+/* ── MESSAGES ───────────────────────────────────────────────────────────────
+   A league board. Messages live in their own Firestore collection rather than
+   inside profiles, because a shared page of documents would eventually crowd
+   out the profile reads the pick'em tally depends on.
+
+   Reactions are stored on the message as one JSON string: keys are either an
+   emoji or `pid:<playerId>` for a player sticker, values are the profile ids
+   that reacted. One field means one write per reaction, and re-reacting
+   toggles rather than stacking. Everything fails soft — if the collection is
+   not readable the tab explains what is missing instead of erroring. */
+const MSG_EMOJI=['🔥','😂','💀','🫡','😭','🏆'];
+let _msgs=null,_msgErr=null,_msgBusy=false,_msgStickers=null;
+const msgBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/messages`;
+const msgKey=()=>`key=${GFL_DB.key}`;
+
+async function msgList(){
+  try{
+    const r=await fetch(`${msgBase()}?${msgKey()}&pageSize=200`,{cache:'no-store'});
+    if(r.status===403){ _msgErr='rules'; return null; }
+    if(!r.ok){ _msgErr='fetch'; return null; }
+    const j=await r.json();
+    _msgErr=null;
+    return (j.documents||[]).map(d=>{
+      const f=fsIn(d);
+      let re={}; try{ re=JSON.parse(f.reactions||'{}')||{}; }catch(e){}
+      return {id:(d.name||'').split('/').pop(),ts:Number(f.ts)||0,user:f.user||'',
+        team:f.team||'',text:f.text||'',reactions:re};
+    }).sort((a,b)=>b.ts-a.ts);
+  }catch(e){ _msgErr='offline'; return null; }
+}
+async function msgSend(){
+  if(!_me){ openSignIn(); return; }
+  const box=document.getElementById('msg-input'); if(!box) return;
+  const text=(box.value||'').trim(); if(!text) return;
+  if(_msgBusy) return; _msgBusy=true;
+  const id=`${Date.now()}-${_me.k1}`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
+  const body=fsOut({ts:String(Date.now()),user:_me.k1,team:String(_me.teamId||''),text:text.slice(0,600),reactions:'{}'});
+  try{
+    const r=await fetch(`${msgBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){ box.value=''; await msgRefresh(); }
+    else { _msgErr=r.status===403?'rules':'send'; renderMessages(); }
+  }catch(e){ _msgErr='offline'; renderMessages(); }
+  _msgBusy=false;
+}
+async function msgReact(id,key){
+  if(!_me){ openSignIn(); return; }
+  const m=(_msgs||[]).find(x=>x.id===id); if(!m) return;
+  const re={...m.reactions};
+  const who=re[key]?re[key].slice():[];
+  const i=who.indexOf(_me.k1);
+  if(i>=0) who.splice(i,1); else who.push(_me.k1);
+  if(who.length) re[key]=who; else delete re[key];
+  m.reactions=re; renderMessages();                       // optimistic
+  try{
+    await fetch(`${msgBase()}/${encodeURIComponent(id)}?${msgKey()}&updateMask.fieldPaths=reactions`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut({reactions:JSON.stringify(re)}))});
+  }catch(e){}
+}
+async function msgRefresh(){ const l=await msgList(); if(l){_msgs=l;} renderMessages(); }
+/* sticker palette: the league's biggest scorers, so the faces mean something */
+async function msgStickers(){
+  if(_msgStickers) return _msgStickers;
+  try{ await loadTenureData(); }catch(e){}
+  const season=ALL_SEASONS[ALL_SEASONS.length-1];
+  const agg={};
+  Object.values(_tenure||{}).forEach(players=>{
+    Object.entries(players).forEach(([pid,p])=>{
+      const s=p.seasons&&(p.seasons[season]||p.seasons[ALL_SEASONS[ALL_SEASONS.length-2]]);
+      if(!s||!s.sp) return;
+      const cur=agg[pid]||(agg[pid]={pid,n:p.n||('#'+pid),pts:0});
+      cur.pts+=s.sp; if(p.n) cur.n=p.n;
+    });
+  });
+  _msgStickers=Object.values(agg).sort((a,b)=>b.pts-a.pts).slice(0,12);
+  return _msgStickers;
+}
+function msgAgo(ts){
+  const s=Math.max(0,(Date.now()-ts)/1000);
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+function renderMessages(){
+  const el=document.getElementById('messages-body'); if(!el) return;
+  const teamOf=o=>{
+    const m=(_msgs||[]).find(x=>x.user===o);
+    return m?Number(m.team):null;
+  };
+  const nameOf=(user,team)=>{
+    const t=_teams.find(x=>String(x.id)===String(team));
+    return t?t.name:(user||'Someone');
+  };
+  if(_msgErr==='rules'){
+    return void(el.innerHTML=`<div class="msg-setup">
+      <div class="msg-setup-h"><i class="fa fa-lock"></i>One Firestore rule away</div>
+      <p>The board is built and ready, but the database only allows the <b>profiles</b> collection right now, so messages can't be read or written yet.</p>
+      <p>In the Firebase console → Firestore → Rules, add a <b>messages</b> block alongside the existing profiles one, then publish:</p>
+      <pre class="msg-code">match /messages/{id} {
+  allow read, create, update: if true;
+}</pre>
+      <p class="msg-setup-n">That mirrors however profiles is already permitted. Reload this page afterwards and the board comes to life — nothing else needs changing.</p>
+      <button class="mv-btn" onclick="msgRefresh()">Try again</button>
+    </div>`);
+  }
+  const list=_msgs||[];
+  const stickers=_msgStickers||[];
+  const composer=`<div class="msg-compose">
+    <textarea id="msg-input" rows="2" maxlength="600" placeholder="${_me?'Say something to the league…':'Sign in to post'}" ${_me?'':'disabled'}></textarea>
+    <div class="msg-compose-b">
+      <span class="msg-hint">${_me?`posting as ${myTeamName()||'you'}`:'Signed out'}</span>
+      <button class="mv-btn msg-send" onclick="${_me?'msgSend()':'openSignIn()'}">${_me?'Post':'Sign in'}</button>
+    </div>
+  </div>`;
+  const reactBar=m=>{
+    const mine=k=>_me&&(m.reactions[k]||[]).includes(_me.k1);
+    const chips=Object.entries(m.reactions).map(([k,users])=>{
+      const isPid=k.startsWith('pid:');
+      const face=isPid?playerImg(Number(k.slice(4)),18,''):`<span class="mr-e">${k}</span>`;
+      return `<button class="msg-chip${mine(k)?' on':''}" onclick="msgReact('${m.id}','${k}')">${face}<span class="mr-n">${users.length}</span></button>`;
+    }).join('');
+    return `<div class="msg-reacts">${chips}
+      <details class="msg-add"><summary title="React">+</summary>
+        <div class="msg-pal">
+          <div class="msg-pal-r">${MSG_EMOJI.map(e=>`<button class="msg-pb" onclick="msgReact('${m.id}','${e}')">${e}</button>`).join('')}</div>
+          <div class="msg-pal-l">Player stickers</div>
+          <div class="msg-pal-r">${stickers.map(s=>`<button class="msg-pb msg-pb-p" title="${s.n}" onclick="msgReact('${m.id}','pid:${s.pid}')">${playerImg(s.pid,26,s.n)}</button>`).join('')||'<span class="msg-hint">loading…</span>'}</div>
+        </div>
+      </details></div>`;
+  };
+  const rows=list.length?list.map(m=>`<div class="msg-item">
+      <div class="msg-av">${m.team?logoImg(Number(m.team),'team-logo-sm'):'<i class="fa fa-user"></i>'}</div>
+      <div class="msg-main">
+        <div class="msg-meta"><span class="msg-who">${nameOf(m.user,m.team)}</span><span class="msg-when">${msgAgo(m.ts)}</span></div>
+        <div class="msg-text">${String(m.text).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
+        ${reactBar(m)}
+      </div>
+    </div>`).join('')
+    :`<div class="lr-none">No messages yet${_me?' — say the first thing.':'.'}</div>`;
+  el.innerHTML=composer+`<div class="msg-list">${rows}</div>`;
+  void teamOf;
+}
+async function initMessages(){
+  renderMessages();
+  msgStickers().then(()=>renderMessages());
+  await msgRefresh();
+}
+
 // ── TWO-KEY SIGN IN ──────────────────────────────────────────────────────────
 /* Deliberately informal: two keys address a document in Firestore and unlock
    whatever that profile remembers. No accounts, no email, no auth provider.
@@ -5111,6 +5315,13 @@ async function loadDashboard(){
       </div>
 
       <!-- BAD BEAT O'METER -->
+      <!-- MESSAGES -->
+      <div class="tab-page" id="page-messages">
+        <div class="sec wm" data-wm="&#xf086;">
+          <div id="messages-body"></div>
+        </div>
+      </div>
+
       <div class="tab-page" id="page-badbeat">
         <div class="sec wm" data-wm="&#xf7a9;">
           <div id="badbeat-body"></div>
