@@ -84,7 +84,7 @@ function refreshSeasonOptions(){
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
 /* Hand-picked primaries — see the matching --tc / --tabaccent blocks in
    index.html for these plus each tab's secondary. Nav shows the primary only. */
-const TAB_COLORS={home:'#E0B67B',teams:'#E86043',schedule:'#66E89D',book:'#3fd07a',legacy:'#E8BC56',history:'#E8C656',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#60B8E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
+const TAB_COLORS={home:'#E0B67B',teams:'#E84146',schedule:'#E89845',book:'#3fd07a',legacy:'#E8BC56',history:'#587DE8',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#63E0E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
 const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -4458,9 +4458,10 @@ function sbWeekHTML(){
     const sp=g.spread.toFixed(1);
     const spreadCell=side=>{
       const isFav=(side==='a')===!!g.favA;
+      // same two-line shape as a live price so the column stays aligned
       return isFav
         ? sbBtn(key+'-sp',`Week ${g.week} spread`,(g.favA?g.a.owner:g.b.owner)+':sp',`${(g.favA?g.a.name:g.b.name)} −${sp}`,-115,'sb-two','−'+sp)
-        : `<span class="sb-odds sb-odds-off wk-dog">+${sp}</span>`;
+        : `<span class="sb-odds wk-dog"><span class="sb-o-lbl">+${sp}</span><span class="sb-o-val">—</span></span>`;
     };
     return `<div class="wk-game" data-a="${g.a.owner}" data-b="${g.b.owner}">
       <div class="wk-r wk-rhead"><span></span><span>Win</span><span>Spread</span><span>Total</span></div>

@@ -970,14 +970,14 @@
        ═══════════════════════════════════════════════════════════════════════ */
     /* Hand-picked per tab. Nav uses the primary only. */
     .tab-btn[data-tab=home]{--tc:#E0B67B;}
-    .tab-btn[data-tab=teams]{--tc:#E86043;}
-    .tab-btn[data-tab=schedule]{--tc:#66E89D;}
+    .tab-btn[data-tab=teams]{--tc:#E84146;}
+    .tab-btn[data-tab=schedule]{--tc:#E89845;}
     .tab-btn[data-tab=book]{--tc:#3fd07a;}
     .tab-btn[data-tab=legacy]{--tc:#E8BC56;}
-    .tab-btn[data-tab=history]{--tc:#E8C656;}
+    .tab-btn[data-tab=history]{--tc:#587DE8;}
     .tab-btn[data-tab=standings]{--tc:#6C6AE8;}
     .tab-btn[data-tab=badbeat]{--tc:#E860AF;}
-    .tab-btn[data-tab=draft]{--tc:#60B8E8;}
+    .tab-btn[data-tab=draft]{--tc:#63E0E8;}
     .tab-btn[data-tab=trades]{--tc:#9F61E8;}
     .tab-btn[data-tab=tenure]{--tc:#5CE8B3;}
     .tab-btn[data-tab=gabe]{--tc:#CBE853;}
@@ -1005,14 +1005,14 @@
                  a flat accent fill (page title, meters, pills, primary
                  buttons) paints with this instead. */
     html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}
-    html[data-theme="dark"][data-tabaccent=teams]{--accent:#E86043;--accent2:#E84543;--accent-rgb:232,96,67;}
-    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#66E89D;--accent2:#66E8C9;--accent-rgb:102,232,157;}
+    html[data-theme="dark"][data-tabaccent=teams]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
+    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#E89845;--accent2:#E8AF41;--accent-rgb:232,152,69;}
     html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}
     html[data-theme="dark"][data-tabaccent=legacy]{--accent:#E8BC56;--accent2:#E8AA56;--accent-rgb:232,188,86;}
-    html[data-theme="dark"][data-tabaccent=history]{--accent:#E8C656;--accent2:#E8B456;--accent-rgb:232,198,86;}
+    html[data-theme="dark"][data-tabaccent=history]{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;}
     html[data-theme="dark"][data-tabaccent=standings]{--accent:#6C6AE8;--accent2:#6B90E8;--accent-rgb:108,106,232;}
     html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#E860AF;--accent2:#DA5FE8;--accent-rgb:232,96,175;}
-    html[data-theme="dark"][data-tabaccent=draft]{--accent:#60B8E8;--accent2:#5A89E8;--accent-rgb:96,184,232;}
+    html[data-theme="dark"][data-tabaccent=draft]{--accent:#63E0E8;--accent2:#64E8C5;--accent-rgb:99,224,232;}
     html[data-theme="dark"][data-tabaccent=trades]{--accent:#9F61E8;--accent2:#7461E8;--accent-rgb:159,97,232;}
     html[data-theme="dark"][data-tabaccent=tenure]{--accent:#5CE8B3;--accent2:#5DE883;--accent-rgb:92,232,179;}
     html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
@@ -1497,9 +1497,14 @@
     .wk-rhead>span{font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
       letter-spacing:.7px;text-transform:uppercase;color:var(--text3);text-align:center;padding-bottom:2px;}
     .wk-rhead>span:first-child{text-align:left;}
+    .wk-r{align-items:stretch;}          /* every cell matches the tallest */
     .wk-r .sb-odds{width:100%;min-width:0;}
-    .wk-dog{display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;
-      font-size:12px;font-weight:700;color:var(--text3);}
+    /* the underdog's spread is not priced, so it keeps the button's shape but
+       reads as inert — no fill, no hover, no pointer */
+    .wk-dog{background:none;border-color:rgba(255,255,255,0.10);box-shadow:none;cursor:default;}
+    .wk-dog .sb-o-lbl{color:var(--text2);}
+    .wk-dog .sb-o-val{color:var(--text3);}
+    .wk-dog:hover{background:none;border-color:rgba(255,255,255,0.10);box-shadow:none;transform:none;}
     .wk-final{font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;
       letter-spacing:.5px;color:var(--text3);display:block;margin-top:8px;}
     .wk-hit{color:var(--green);font-size:11px;margin-left:6px;}
@@ -2531,7 +2536,7 @@
        otherwise keep painting the page's gradient. */
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
-    #page-home .mod-cm{--accent:#60B8E8;--accent2:#5A89E8;--accent-rgb:96,184,232;
+    #page-home .mod-cm{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .motw-book{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
