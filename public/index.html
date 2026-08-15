@@ -416,7 +416,11 @@
     .lr-none{font-size:12.5px;color:var(--text3);padding:6px 2px;}
     /* on the team profile it sits between the hero and the season panels */
     .lr-sec{border:1px solid rgba(var(--accent-rgb),0.35);border-radius:10px;
-      padding:14px 16px;margin:0 0 20px;}
+      padding:14px 16px;margin:0 0 20px;background:rgba(255,255,255,0.018);
+      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05);}
+    html[data-theme="light"] .lr-sec{background:var(--bg2);
+      box-shadow:0 10px 24px -16px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.10),inset 0 1px 0 #fff;}
     .lr-sec .sec-head{padding:0 0 11px;}
     .lr-pick{margin-bottom:10px;}
     .lr-pick select{width:100%;font-size:12.5px;padding:7px 9px;border-radius:7px;
@@ -497,7 +501,17 @@
     .mv-pcts{display:flex;justify-content:space-between;font-family:'Inter',sans-serif;
       font-size:11px;font-weight:700;color:var(--text2);margin-top:6px;}
     .mv-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
-    .mv-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;
+    /* read as real buttons: raised face, edge, and a press */
+    .mv-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 10px;
+      background:linear-gradient(rgba(255,255,255,0.09),rgba(255,255,255,0.03));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.10),0 2px 8px -4px rgba(0,0,0,0.75);
+      font-weight:700;transition:background .14s,border-color .14s,color .14s,transform .07s,box-shadow .14s;}
+    .mv-btn:active:not(:disabled){transform:translateY(1px);
+      box-shadow:inset 0 1px 3px rgba(0,0,0,0.45);}
+    .mv-btn.picked{box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 3px 12px -5px rgba(var(--accent-rgb),0.6);}
+    html[data-theme="light"] .mv-btn{background:linear-gradient(#fff,rgba(0,0,0,0.03));
+      box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(0,0,0,0.10);}
+    .mv-btn-legacy{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;
       background:none;border:1px solid var(--border);border-radius:8px;color:var(--text2);
       font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;
       text-transform:uppercase;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;
@@ -1184,7 +1198,52 @@
     .lv-rw{font-family:'Inter',sans-serif;font-size:9.5px;color:var(--text3);white-space:nowrap;}
     .lv-rnone{font-size:12px;color:var(--text3);line-height:1.5;}
 
+    /* ── iOS: never zoom on focus ─────────────────────────────────────────────
+       Safari zooms the page whenever a focused field is under 16px, and it does
+       not zoom back out afterwards — which is why the page stayed magnified
+       after signing in or sending a message. 16px on every real text field is
+       the only fix that does not disable pinch-zoom for everyone. Sizing is
+       kept visually small with padding rather than font-size. */
+    @media(max-width:820px){
+      input[type=text],input[type=password],input[type=search],input[type=email],
+      input[type=number],input[type=tel],textarea,select,
+      .pin-input,.si-in,#msg-input,#tenure-search,.picker-bar input[type=text]{
+        font-size:16px!important;}
+      /* keep the visual scale despite the larger text */
+      select{padding-top:6px;padding-bottom:6px;}
+      .picker-bar input[type=text]{padding-top:6px;padding-bottom:6px;}
+    }
+
     /* ── Messages ─────────────────────────────────────────────────────────── */
+    /* composer reads as a message box: rounded field, send button on the end */
+    .msg-inrow{display:flex;align-items:flex-end;gap:8px;}
+    .msg-compose .msg-inrow textarea{flex:1 1 auto;min-height:40px;max-height:140px;resize:none;
+      background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:20px;
+      padding:10px 15px;line-height:1.35;overflow-y:auto;}
+    html[data-theme="light"] .msg-compose .msg-inrow textarea{background:rgba(0,0,0,0.04);}
+    .msg-compose .msg-inrow textarea:focus{outline:none;border-color:rgba(var(--accent-rgb),0.55);
+      background:rgba(255,255,255,0.07);}
+    .msg-go{flex:0 0 auto;width:40px;height:40px;border-radius:999px;border:1px solid rgba(var(--accent-rgb),0.5);
+      background:linear-gradient(rgba(var(--accent-rgb),0.22),rgba(var(--accent-rgb),0.10));
+      color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;
+      font-size:14px;transition:background .14s,transform .07s;}
+    .msg-go:hover{background:linear-gradient(rgba(var(--accent-rgb),0.34),rgba(var(--accent-rgb),0.18));}
+    .msg-go:active{transform:translateY(1px);}
+    .msg-tools{display:flex;align-items:center;gap:10px;margin-top:8px;padding-left:4px;}
+    .msg-tool{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);
+      border-radius:999px;padding:5px 11px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
+      color:var(--text2);cursor:pointer;}
+    .msg-tool:hover{border-color:rgba(var(--accent-rgb),0.5);color:var(--accent);}
+    .msg-tool i{font-size:11px;color:var(--accent);}
+    .msg-plays{margin-top:9px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;}
+    .msg-plays-l{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);margin-bottom:7px;}
+    .msg-plays-r{display:flex;flex-wrap:wrap;gap:6px;}
+    .msg-play{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.04);
+      border:1px solid var(--border);border-radius:999px;padding:4px 11px 4px 4px;cursor:pointer;color:var(--text);}
+    .msg-play:hover{border-color:rgba(var(--accent-rgb),0.55);background:rgba(var(--accent-rgb),0.10);}
+    .msg-play-n{font-family:'Google Sans Flex',Georgia,serif;font-size:12px;font-weight:600;}
+    .msg-play-p{font-family:'Inter',sans-serif;font-size:12px;font-weight:800;color:var(--accent2,var(--accent));}
     .msg-compose{border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:16px;}
     .msg-compose textarea{width:100%;resize:vertical;min-height:44px;background:none;border:none;
       color:var(--text);font-family:inherit;font-size:13.5px;line-height:1.45;outline:none;}
@@ -2735,9 +2794,27 @@
       border-left-color:var(--dtint,rgb(var(--accent-rgb)))!important;}
 
     /* ── PAGE TITLE ───────────────────────────────────────────────────────── */
+    /* The rule under the title is its own gradient band, animated left to right
+       on a loop. It is a background-position slide on a 3x-wide gradient, so it
+       runs on the compositor rather than repainting, and it collapses to a flat
+       line for anyone who asks for reduced motion. */
     .page-h1{font-family:"roca",sans-serif;font-size:34px;font-weight:800;line-height:1.05;
-      letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;padding-bottom:0;
-      border-bottom:1px solid rgba(var(--accent-rgb),0.45);}
+      letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;padding-bottom:9px;
+      border-bottom:none;position:relative;}
+    .page-h1::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;
+      background:linear-gradient(90deg,
+        rgba(var(--accent-rgb),0.25) 0%,
+        var(--accent) 18%,
+        var(--accent2,var(--accent)) 34%,
+        rgba(var(--accent-rgb),0.25) 52%,
+        var(--accent) 68%,
+        var(--accent2,var(--accent)) 84%,
+        rgba(var(--accent-rgb),0.25) 100%);
+      background-size:300% 100%;animation:h1Slide 6s linear infinite;}
+    @keyframes h1Slide{from{background-position:0% 50%;}to{background-position:-200% 50%;}}
+    @media(prefers-reduced-motion:reduce){
+      .page-h1::after{animation:none;background:rgba(var(--accent-rgb),0.45);}
+    }
     /* The gradient goes on an inline span, not the h1: the h1 stays full width
        so its rule still spans the column, while the gradient box hugs the text
        and both colours actually show. `color` on the h1 is the fallback. */

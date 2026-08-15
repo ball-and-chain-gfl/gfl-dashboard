@@ -3829,7 +3829,7 @@ async function renderLiveRecords(){
    toggles rather than stacking. Everything fails soft — if the collection is
    not readable the tab explains what is missing instead of erroring. */
 const MSG_EMOJI=['🔥','😂','💀','🫡','😭','🏆'];
-let _msgs=null,_msgErr=null,_msgBusy=false,_msgStickers=null;
+let _msgs=null,_msgErr=null,_msgBusy=false;
 const msgBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/messages`;
 const msgKey=()=>`key=${GFL_DB.key}`;
 
@@ -3878,29 +3878,69 @@ async function msgReact(id,key){
   }catch(e){}
 }
 async function msgRefresh(){ const l=await msgList(); if(l){_msgs=l;} renderMessages(); }
-/* sticker palette: the league's biggest scorers, so the faces mean something */
-async function msgStickers(){
-  if(_msgStickers) return _msgStickers;
-  try{ await loadTenureData(); }catch(e){}
-  const season=ALL_SEASONS[ALL_SEASONS.length-1];
-  const agg={};
-  Object.values(_tenure||{}).forEach(players=>{
-    Object.entries(players).forEach(([pid,p])=>{
-      const s=p.seasons&&(p.seasons[season]||p.seasons[ALL_SEASONS[ALL_SEASONS.length-2]]);
-      if(!s||!s.sp) return;
-      const cur=agg[pid]||(agg[pid]={pid,n:p.n||('#'+pid),pts:0});
-      cur.pts+=s.sp; if(p.n) cur.n=p.n;
-    });
-  });
-  _msgStickers=Object.values(agg).sort((a,b)=>b.pts-a.pts).slice(0,12);
-  return _msgStickers;
-}
 function msgAgo(ts){
   const s=Math.max(0,(Date.now()-ts)/1000);
   if(s<60) return 'just now';
   if(s<3600) return Math.floor(s/60)+'m ago';
   if(s<86400) return Math.floor(s/3600)+'h ago';
   return Math.floor(s/86400)+'d ago';
+}
+/* The chat is a weekly room. It rolls over Tuesday at 6am local — late enough
+   that Monday night is finished and the week is genuinely over. Nothing is
+   deleted; the board simply shows the current week. */
+function msgWeekStart(now=new Date()){
+  const x=new Date(now);
+  x.setHours(6,0,0,0);
+  let back=(x.getDay()-2+7)%7;                       // days since Tuesday
+  if(x.getDay()===2 && now.getHours()<6) back=7;     // pre-dawn Tuesday is still last week
+  x.setDate(x.getDate()-back);
+  return x.getTime();
+}
+function msgWeekLabel(){
+  const s=new Date(msgWeekStart());
+  return s.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+/* textarea that grows with what you type, like a real message box */
+function msgGrow(el){ el.style.height='auto'; el.style.height=Math.min(140,el.scrollHeight)+'px'; }
+function msgKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); msgSend(); } }
+function msgTogglePlays(){
+  const b=document.getElementById('msg-plays'); if(!b) return;
+  b.hidden=!b.hidden;
+  if(!b.hidden&&!(_msgPlays||[]).length) msgLoadPlays();
+}
+/* the signed-in manager's own scorers this week — the taunt material */
+let _msgPlays=null,_msgPlaysLoading=false;
+async function msgLoadPlays(){
+  if(_msgPlaysLoading||!_me) return;
+  _msgPlaysLoading=true; renderMessages();
+  try{
+    const info=liveWeekInfo();
+    const tid=_me.teamId;
+    if(info&&tid){
+      const r=await fetch(`${BASE}?view=mRoster&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
+      if(r.ok){
+        const j=await r.json();
+        const t=(j.teams||[]).find(x=>String(x.id)===String(tid));
+        const BENCH=[20,21,24];
+        _msgPlays=((t&&t.roster&&t.roster.entries)||[])
+          .filter(e=>!BENCH.includes(e.lineupSlotId))
+          .map(e=>{ const p=e.playerPoolEntry?.player||{};
+            const wk=(p.stats||[]).find(s=>s.statSourceId===0&&s.scoringPeriodId===info.week);
+            return {pid:e.playerId,n:p.fullName||('#'+e.playerId),pts:wk?.appliedTotal??0}; })
+          .filter(p=>p.pts>0).sort((a,b)=>b.pts-a.pts).slice(0,8);
+      }
+    }
+    if(!_msgPlays) _msgPlays=[];
+  }catch(e){ _msgPlays=[]; }
+  _msgPlaysLoading=false; renderMessages();
+}
+const MSG_TAUNTS=['just put up','just dropped','just hung','just went for'];
+function msgTaunt(pid,name,pts){
+  const box=document.getElementById('msg-input'); if(!box) return;
+  const verb=MSG_TAUNTS[Math.floor(Math.random()*MSG_TAUNTS.length)];
+  box.value=`🔥 ${name} ${verb} ${Number(pts).toFixed(1)} for me this week.`;
+  const b=document.getElementById('msg-plays'); if(b) b.hidden=true;
+  box.focus(); msgGrow(box);
 }
 function renderMessages(){
   const el=document.getElementById('messages-body'); if(!el) return;
@@ -3924,28 +3964,46 @@ function renderMessages(){
       <button class="mv-btn" onclick="msgRefresh()">Try again</button>
     </div>`);
   }
-  const list=_msgs||[];
-  const stickers=_msgStickers||[];
-  const composer=`<div class="msg-compose">
-    <textarea id="msg-input" rows="2" maxlength="600" placeholder="${_me?'Say something to the league…':'Sign in to post'}" ${_me?'':'disabled'}></textarea>
-    <div class="msg-compose-b">
-      <span class="msg-hint">${_me?`posting as ${myTeamName()||'you'}`:'Signed out'}</span>
-      <button class="mv-btn msg-send" onclick="${_me?'msgSend()':'openSignIn()'}">${_me?'Post':'Sign in'}</button>
+  /* the board is a weekly room — it clears every Tuesday morning, once Monday
+     night is done. Older posts stay in the database, they just stop showing. */
+  const wkStart=msgWeekStart();
+  const list=(_msgs||[]).filter(m=>Number(m.ts)>=wkStart);
+  const plays=_msgPlays||[];
+  const composer=`<div class="msg-compose${_me?'':' msg-out'}">
+    <div class="msg-inrow">
+      <textarea id="msg-input" rows="1" maxlength="600"
+        placeholder="${_me?'Message the league…':'Sign in to post'}" ${_me?'':'disabled'}
+        oninput="msgGrow(this)" onkeydown="msgKeydown(event)"></textarea>
+      <button class="msg-go" ${_me?'onclick="msgSend()"':'onclick="openSignIn()"'} aria-label="${_me?'Send':'Sign in'}">
+        <i class="fa fa-${_me?'paper-plane':'right-to-bracket'}"></i>
+      </button>
     </div>
+    ${_me?`<div class="msg-tools">
+      <button class="msg-tool" onclick="msgTogglePlays()"><i class="fa fa-fire"></i>Big play</button>
+      <span class="msg-hint">as ${myTeamName()||'you'}</span>
+    </div>
+    <div class="msg-plays" id="msg-plays" hidden>
+      ${plays.length
+        ? `<div class="msg-plays-l">Your week — pick one to taunt with</div>
+           <div class="msg-plays-r">${plays.map(p=>`
+             <button class="msg-play" onclick="msgTaunt(${p.pid},'${String(p.n).replace(/'/g,"\\'")}',${p.pts})">
+               ${playerImg(p.pid,28,p.n)}
+               <span class="msg-play-n">${p.n}</span>
+               <span class="msg-play-p">${p.pts.toFixed(1)}</span>
+             </button>`).join('')}</div>`
+        : `<div class="msg-hint" style="padding:6px 2px">${_msgPlaysLoading?'Loading your week…':'No scoring players found for this week yet.'}</div>`}
+    </div>`:''}
   </div>`;
+  /* plain emoji reactions only — the player faces moved into the composer as
+     big-play taunts, which is what they were actually wanted for */
   const reactBar=m=>{
     const mine=k=>_me&&(m.reactions[k]||[]).includes(_me.k1);
-    const chips=Object.entries(m.reactions).map(([k,users])=>{
-      const isPid=k.startsWith('pid:');
-      const face=isPid?playerImg(Number(k.slice(4)),18,''):`<span class="mr-e">${k}</span>`;
-      return `<button class="msg-chip${mine(k)?' on':''}" onclick="msgReact('${m.id}','${k}')">${face}<span class="mr-n">${users.length}</span></button>`;
-    }).join('');
+    const chips=Object.entries(m.reactions).map(([k,users])=>
+      `<button class="msg-chip${mine(k)?' on':''}" onclick="msgReact('${m.id}','${k}')"><span class="mr-e">${k}</span><span class="mr-n">${users.length}</span></button>`).join('');
     return `<div class="msg-reacts">${chips}
       <details class="msg-add"><summary title="React">+</summary>
         <div class="msg-pal">
           <div class="msg-pal-r">${MSG_EMOJI.map(e=>`<button class="msg-pb" onclick="msgReact('${m.id}','${e}')">${e}</button>`).join('')}</div>
-          <div class="msg-pal-l">Player stickers</div>
-          <div class="msg-pal-r">${stickers.map(s=>`<button class="msg-pb msg-pb-p" title="${s.n}" onclick="msgReact('${m.id}','pid:${s.pid}')">${playerImg(s.pid,26,s.n)}</button>`).join('')||'<span class="msg-hint">loading…</span>'}</div>
         </div>
       </details></div>`;
   };
@@ -3963,7 +4021,7 @@ function renderMessages(){
 }
 async function initMessages(){
   renderMessages();
-  msgStickers().then(()=>renderMessages());
+  if(_me) msgLoadPlays();
   await msgRefresh();
 }
 
@@ -4729,19 +4787,10 @@ async function renderProfile(){
       ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
       ${stat('Win %',`${winpct.toFixed(1)}%`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
       ${stat('Points For',at.pf.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pf/a.playedSeasons:null),at.playedSeasons?at.pf/at.playedSeasons:null,true))}
-      ${stat('Points Against',at.pa.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pa/a.playedSeasons:null),at.playedSeasons?at.pa/at.playedSeasons:null,false))}
       ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—',scaleCol(atVals(a=>a.hi?a.hi.pts:null),at.hi?at.hi.pts:null,true))}
-      ${stat('Lowest Score',at.lo?at.lo.pts.toFixed(1):'—',scaleCol(atVals(a=>a.lo?a.lo.pts:null),at.lo?at.lo.pts:null,true))}
-      ${stat('Longest Win Streak',at.winStreak||0,scaleCol(atVals(a=>a.winStreak||0),at.winStreak||0,true))}
-      ${stat('Longest Losing Streak',at.loseStreak||0,scaleCol(atVals(a=>a.loseStreak||0),at.loseStreak||0,false))}
-      ${stat('Scores Over 150',at.over150||0,scaleCol(atVals(a=>a.over150||0),at.over150||0,true))}
-      ${stat('Scores Under 80',at.under80||0,scaleCol(atVals(a=>a.under80||0),at.under80||0,false))}
       ${stat('Championships',at.rings,scaleCol(atVals(a=>a.rings),at.rings,true))}
-      ${stat('Top-3 Finishes',at.top3||0,scaleCol(atVals(a=>a.top3||0),at.top3||0,true))}
       ${stat('Playoff Apps',at.playoffApps||0,scaleCol(atVals(a=>a.playoffApps||0),at.playoffApps||0,true))}
-      ${stat('Playoff Wins',at.playoffWins||0,scaleCol(atVals(a=>a.playoffWins||0),at.playoffWins||0,true))}
       ${stat('Best Finish',at.best?`#${at.best}`:'—',scaleCol(atVals(a=>a.best),at.best,false))}
-      ${stat('Worst Finish',at.worst?`#${at.worst}`:'—',scaleCol(atVals(a=>a.worst),at.worst,false))}
       ${stat('Avg Finish',at.avgFinish!=null?`#${at.avgFinish.toFixed(1)}`:'—',scaleCol(atVals(a=>a.avgFinish),at.avgFinish,false))}
     </div>
     </div>
