@@ -3536,8 +3536,16 @@ function enemiesFor(owner){
    Nothing backfills. 2022-2025 have no recorded series and never will; this
    starts collecting the first time somebody loads the page during a 2026
    game. */
-const LIVE_POLL_MS=60000;
-let _liveTimer=null,_liveSeries={},_liveInfo=null,_liveBusy=false,_liveSaved=0;
+/* ESPN has no push, webhook or stream — the only way to learn a score changed
+   is to ask again. So the cadence adapts instead: while points are actually
+   landing it asks every 15s, it eases off when a window goes quiet, and it
+   idles right down once the week is settled. A change is applied the moment it
+   is seen, and an unchanged score is never recorded. */
+const LIVE_FAST=15000;      // something scored in the last few minutes
+const LIVE_BASE=45000;      // games live but quiet
+const LIVE_IDLE=300000;     // week complete or not started
+const LIVE_HOT_MS=240000;   // how long a change keeps the fast cadence
+let _liveTimer=null,_liveSeries={},_liveInfo=null,_liveBusy=false,_liveSaved=0,_liveNext=0;
 const liveDocUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
 const liveCollUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live?documentId=${encodeURIComponent(k)}&key=${GFL_DB.key}`;
 const liveMKey=(a,b)=>[a,b].sort().join('~');
@@ -3638,15 +3646,33 @@ async function livePoll(){
   _liveBusy=false;
 }
 const liveKeyFor=info=>`${info.season}-w${info.week}`;
+/* how long to wait before asking again, given how live things look right now */
+function liveInterval(){
+  if(!_liveInfo||!_liveInfo.inProgress) return LIVE_IDLE;
+  const started=Object.keys(_liveSeries).length>0;
+  if(!started) return LIVE_BASE;
+  return (Date.now()-_liveSaved<LIVE_HOT_MS)?LIVE_FAST:LIVE_BASE;
+}
+function liveSchedule(){
+  if(_liveTimer) clearTimeout(_liveTimer);
+  const ms=liveInterval();
+  _liveNext=Date.now()+ms;
+  _liveTimer=setTimeout(async()=>{
+    if(document.visibilityState==='visible') await livePoll();
+    liveSchedule();
+  },ms);
+}
 function liveStart(){
   liveStop();
-  livePoll();
-  _liveTimer=setInterval(()=>{ if(document.visibilityState==='visible') livePoll(); },LIVE_POLL_MS);
+  livePoll().then(liveSchedule);
   document.addEventListener('visibilitychange',liveVis);
 }
-function liveVis(){ if(document.visibilityState==='visible') livePoll(); }
-function liveStop(){ if(_liveTimer) clearInterval(_liveTimer); _liveTimer=null;
+/* coming back to the tab should never show a stale board */
+function liveVis(){ if(document.visibilityState==='visible'){ livePoll().then(liveSchedule); } }
+function liveStop(){ if(_liveTimer) clearTimeout(_liveTimer); _liveTimer=null; _liveNext=0;
   document.removeEventListener('visibilitychange',liveVis); }
+/* manual nudge from the board */
+function liveRefreshNow(){ livePoll().then(liveSchedule); }
 
 /* margin sparkline — the shape of the game, zero line through the middle */
 function liveSpark(series,w=150,h=34){
@@ -3728,15 +3754,18 @@ function renderLiveMatchups(){
       </div>
       ${liveSpark(arr)}
     </div>`;}).join('');
-  const stamp=_liveSaved?`updated ${msgAgo(_liveSaved)}`:'watching';
+  const secs=Math.round(liveInterval()/1000);
+  const hot=_liveSaved&&Date.now()-_liveSaved<LIVE_HOT_MS;
+  const stamp=_liveSaved?`last change ${msgAgo(_liveSaved)}`:'no changes yet';
   el.innerHTML=`
     <div class="lv-head">
-      <span class="lv-dot${info.inProgress?' on':''}"></span>
+      <span class="lv-dot${info.inProgress?' on':''}${hot?' hot':''}"></span>
       <span>${info.season} · Week ${info.week}</span>
-      <span class="lv-stamp">${info.inProgress?stamp:'week complete'}</span>
+      <span class="lv-stamp">${info.inProgress?`${stamp} · checking every ${secs}s`:'week complete'}
+        <button class="lv-now" onclick="liveRefreshNow()" title="Check now"><i class="fa fa-rotate-right"></i></button></span>
     </div>
     <div class="lv-grid">${cards||'<div class="lr-none">No matchups scheduled.</div>'}</div>
-    <div class="lv-note">Scores are polled every ${LIVE_POLL_MS/1000}s while this page is open and a point is recorded whenever one moves. ESPN publishes only the current total, so the history below is what the league has watched — it starts from the ${ALL_SEASONS[ALL_SEASONS.length-1]} season and cannot be backfilled.</div>
+    <div class="lv-note">ESPN publishes only the current total — there is no feed that announces a score change — so the board asks again on a cadence instead: every ${LIVE_FAST/1000}s while points are landing, ${LIVE_BASE/1000}s when a window goes quiet, and it idles once the week is settled. A point is recorded the moment a score moves and never when it hasn't, so the graphs below are the real shape of each game. History starts from ${ALL_SEASONS[ALL_SEASONS.length-1]} and cannot be backfilled.</div>
     <div id="live-records"></div>`;
   renderLiveRecords();
 }

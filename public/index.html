@@ -1122,7 +1122,11 @@
     .lv-dot{width:7px;height:7px;border-radius:999px;background:var(--text3);flex:0 0 auto;}
     .lv-dot.on{background:#5DE883;box-shadow:0 0 0 0 rgba(93,232,131,0.6);animation:lvPulse 1.9s infinite;}
     @keyframes lvPulse{70%{box-shadow:0 0 0 7px rgba(93,232,131,0);}100%{box-shadow:0 0 0 0 rgba(93,232,131,0);}}
-    .lv-stamp{margin-left:auto;text-transform:none;letter-spacing:.3px;}
+    .lv-stamp{margin-left:auto;text-transform:none;letter-spacing:.3px;display:flex;align-items:center;gap:7px;}
+    .lv-dot.hot{background:#E8C656;box-shadow:0 0 0 0 rgba(232,198,86,0.7);animation:lvPulse 1s infinite;}
+    .lv-now{background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;
+      width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;}
+    .lv-now:hover{border-color:var(--accent);color:var(--accent);}
     .lv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;}
     .lv-card{border:1px solid var(--border);border-radius:9px;padding:11px 12px;min-width:0;}
     .lv-teams{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
