@@ -56,12 +56,22 @@ window.GFL_CONFIG = {
   },
 
   /* WEEKLY PUNISHMENT. Set the current week's punishment; `options` is the menu
-     the league picks from. */
+     the league picks from. There is no Punishment tab any more — the homepage
+     module's "Details" button opens a popup built from everything here.
+     `rules` is the numbered "How it works" list in that popup. EDIT THESE to
+     match how the league actually runs it; they are a starting point, not
+     gospel. Add or remove lines freely. */
   punishment: {
     week: 1,
     name: "Beer Pour",
     note: "Loser of the week pours (and chugs) the group's mystery beer blend.",
     options: ["Beer Pour", "Weatherman", "Fast Banana", "Willem Defoe", "Fruit Pledge", "Spicy Food"],
+    rules: [
+      "Whoever loses the week takes the punishment — lowest score if there is a tie.",
+      "The league picks that week's punishment from the menu below.",
+      "It gets carried out on camera before the next week's games kick off.",
+      "Duck it and you inherit the following week's punishment on top of your own.",
+    ],
   },
 
   /* BAD BEAT O'METER — worst luck / most painful losses. Fill `entries` with

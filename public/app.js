@@ -1666,13 +1666,11 @@ function renderTenureTable(){
    filter this section.
    playoff wins  = weeks the player was in the STARTING lineup for a team that
                    won a playoff game (already computed per season as `pw`).
-   championships = seasons where the player STARTED EVERY playoff game the
-                   champion actually played. Bench weeks earn nothing, and a
-                   first-round bye is not a game, so a champion that was seeded
-                   into round two needs two starts rather than three. `pg` is
-                   the player's started bracket games and `_tenurePoGP` is how
-                   many the team played, both from the traced winners' bracket
-                   rather than ESPN's unreliable playoffSeed. */
+   championships = seasons where the player started ANY playoff game on the
+                   title team's run — one start is enough. Bench weeks still
+                   earn nothing. `pg` counts started bracket games, taken from
+                   the traced winners' bracket rather than ESPN's unreliable
+                   playoffSeed. */
 let _hwSort='rings';
 function champOwnerBySeason(){
   const out={};
@@ -1691,8 +1689,7 @@ function tenureHardwareRows(){
       if(p.n) a.n=p.n;
       Object.entries(p.seasons||{}).forEach(([y,d])=>{
         a.pw+=d.pw||0;
-        const need=_tenurePoGP[y]?.[owner]||0;   // games the champion played
-        if(champ[y]===owner && need>0 && (d.pg||0)>=need) a.rings.push(y);
+        if(champ[y]===owner && (d.pg||0)>0) a.rings.push(y);
       });
     });
   });
@@ -2707,7 +2704,7 @@ function homePunishHTML(){
       <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
       <div class="home-punish-name">${cfg.name||'TBD'}</div>
     </div>
-    <button class="home-punish-more" onclick="switchTab('punishment')">Details <i class="fa fa-arrow-right"></i></button>
+    <button class="home-punish-more" onclick="openPunishRules()">Details <i class="fa fa-arrow-right"></i></button>
   </div>`;
 }
 function renderPunishment(){
@@ -2729,6 +2726,42 @@ function renderPunishment(){
       ${(cfg.options||[]).map(o=>`<div class="punish-opt ${o.toLowerCase()===cur?'active':''}"><i class="fa ${PUNISH_ICON[o.toLowerCase()]||'fa-circle'}"></i>${o}${o.toLowerCase()===cur?'<span class="punish-tag">THIS WEEK</span>':''}</div>`).join('')}
     </div>`;
 }
+
+/* The Punishment tab is retired; its content lives in a popup off the homepage
+   module's CTA. Same config in config.js, so the weekly edit is unchanged. */
+function punishRulesHTML(){
+  const cfg=_CFG.punishment||{};
+  const cur=(cfg.name||'').toLowerCase();
+  const opts=cfg.options||[];
+  return `
+    <div class="pr-hero">
+      <div class="pr-ic"><i class="fa ${PUNISH_ICON[cur]||'fa-gavel'}"></i></div>
+      <div>
+        <div class="pr-week">Week ${cfg.week??'—'} Punishment</div>
+        <div class="pr-name">${cfg.name||'TBD'}</div>
+      </div>
+    </div>
+    ${cfg.note?`<p class="pr-note">${cfg.note}</p>`:''}
+    ${(cfg.rules||[]).length?`<div class="pr-rules">
+      <div class="pr-h">How it works</div>
+      <ol class="pr-list">${cfg.rules.map(r=>`<li>${r}</li>`).join('')}</ol>
+    </div>`:''}
+    <div class="pr-rules">
+      <div class="pr-h">The menu</div>
+      <div class="punish-menu">
+        ${opts.map(o=>`<div class="punish-opt ${o.toLowerCase()===cur?'active':''}"><i class="fa ${PUNISH_ICON[o.toLowerCase()]||'fa-circle'}"></i>${o}${o.toLowerCase()===cur?'<span class="punish-tag">THIS WEEK</span>':''}</div>`).join('')||'<div class="pr-note">No options set.</div>'}
+      </div>
+    </div>`;
+}
+function openPunishRules(){
+  const body=document.getElementById('punish-rules-body');
+  const ov=document.getElementById('punish-overlay');
+  if(!body||!ov) return;
+  body.innerHTML=punishRulesHTML();
+  ov.classList.add('open');
+}
+function closePunishRules(e){ if(e.target===document.getElementById('punish-overlay')) closePunishRulesDirect(); }
+function closePunishRulesDirect(){ document.getElementById('punish-overlay')?.classList.remove('open'); }
 
 // ── GABE'S GREATNESS ─────────────────────────────────────────────────────────
 let _gabeGames=null,_gabePromise=null,_gabeView='started';
