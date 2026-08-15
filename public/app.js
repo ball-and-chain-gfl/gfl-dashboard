@@ -9,6 +9,7 @@ async function histJSON(type, season, liveURL){
 }
 const TOTAL_WEEKS=17;
 const COMMISSIONER_PIN='1327';
+const YT_CHANNEL_ID='UCUoUwKYMkspanOjX5_6d5-Q';   // Ball & Chain Media (matches api/espn.js)
 
 /* ─────────────────────────────────────────────────────────────────────────────
    BALLS BIG 4  —  EDIT IN config.js (loaded before this file), NOT here.
@@ -524,6 +525,18 @@ function switchTab(name){
   if(h1){ const s=h1.querySelector('span')||h1; s.textContent=TAB_LABELS[name]||''; }
   buildSectionNav(name);
   watchSectionNav(name);
+  /* A new tab always opens at the top. Without this the browser keeps the
+     scroll position from the tab you just left, so arriving after a jump chip
+     dropped you mid-page. scroll-behavior is suspended for the reset so it
+     lands immediately instead of animating back up. */
+  (function(){
+    const doc=document.scrollingElement||document.documentElement;
+    const prev=document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior='auto';
+    doc.scrollTop=0;
+    requestAnimationFrame(()=>{ document.documentElement.style.scrollBehavior=prev; });
+    setTimeout(()=>{ document.documentElement.style.scrollBehavior=prev; },80);
+  })();
   updateTabDD(name);
   scrollNavToActive();
 }
@@ -2053,13 +2066,14 @@ function renderDraftTab(){
   if(_draftTeamSel==null||!_teams.some(t=>t.id===Number(_draftTeamSel))) _draftTeamSel=_teams[0]?.id;
   body.innerHTML=`
   <div class="card" style="margin:0 0 24px">
-    <div class="section-header" style="padding:13px 16px"><span id="draft-score" style="margin-left:auto"></span></div>
+    <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Draft by Team<span id="draft-score" style="margin-left:auto"></span></div>
     <div class="picker-bar">
       <label for="draft-team-select">Team:</label>
       <select id="draft-team-select" onchange="_draftTeamSel=this.value;renderDraftTeamTable()">${_teams.map(t=>`<option value="${t.id}" ${Number(_draftTeamSel)===t.id?'selected':''}>${t.name}</option>`).join('')}</select>
     </div>
     <div id="draft-team-body"></div>
   </div>
+  <div class="sec-head" style="padding-top:4px"><i class="fa fa-ranking-star"></i>Draft Rankings<span class="badge-info">rankings · all-time drafts · steals &amp; busts</span></div>
   <div id="draft-lists"></div>`;
   renderDraftTeamTable();
   renderDraftLists();
@@ -2185,7 +2199,7 @@ function draftListsDesktopHTML(season){
   }
   return `<div class="dr-card">
     <div class="dr-left dr-tabbox">
-      <div class="section-header" style="padding:0 0 12px;border-bottom:none"><i class="fa fa-ranking-star"></i>Draft Report</div>
+      <div class="section-header" style="padding:0 0 12px;border-bottom:none"><i class="fa fa-ranking-star"></i>Draft Rankings</div>
       ${tabs}
       <div class="dr-note">${v.note}</div>
     </div>
@@ -2758,7 +2772,7 @@ async function castMotwVote(teamId){
 /* Head-to-head comparison table, laid out like the All-Time panel on a team
    profile: one metric per row, both teams' values on either side of the label.
    The stronger side is tinted, so the shape of the matchup reads at a glance. */
-function motwCompareHTML(A,B,at,last){
+function motwCompareHTML(A,B,at,last,odds){
   const gA=A.wins+A.losses+(A.ties||0), gB=B.wins+B.losses+(B.ties||0);
   const pctA=gA?A.wins/gA*100:null, pctB=gB?B.wins/gB*100:null;
   const cmA=_cmMode==='none'?null:_scores[A.id], cmB=_cmMode==='none'?null:_scores[B.id];
@@ -2798,7 +2812,18 @@ function motwCompareHTML(A,B,at,last){
     ${last
       ? row('Last Meeting',last.aPts,last.bPts,one,1,`${last.season} Wk ${last.week}`)
       : `<div class="mc-row"><span class="mc-v">—</span><span class="mc-l">Last Meeting<span class="mc-sub">never played</span></span><span class="mc-v">—</span></div>`}
+    ${motwOddsRows(odds,row)}
   </div>`;
+}
+/* Playoff odds as rows of the same comparison table rather than a separate
+   dropdown. Values come from config.js already as whole percentages. */
+function motwOddsRows(odds,row){
+  const a=(odds&&odds.home)||{}, b=(odds&&odds.away)||{};
+  if(a.win==null&&a.loss==null&&b.win==null&&b.loss==null) return '';
+  const pc=v=>v==null?'—':`${v}%`;
+  return `<div class="mc-row mc-head"><span class="mc-v"></span><span class="mc-l">Playoff odds</span><span class="mc-v"></span></div>
+    ${row('With a Win',a.win,b.win,pc,1)}
+    ${row('With a Loss',a.loss,b.loss,pc,1)}`;
 }
 function renderMatchupOfWeek(){
   const el=document.getElementById('motw'); if(!el) return;
@@ -2812,7 +2837,6 @@ function renderMatchupOfWeek(){
   const at=allTimeH2H(A.id,B.id);           // {wA,wB,games}
   const last=lastMeeting(oA,oB);
   const odds=cfg.odds||{home:{},away:{}};
-  const oddChip=(label,pct,cls)=>`<div class="odd-chip"><div class="odd-label">${label}</div><div class="odd-val ${cls}">${pct!=null?pct+'%':'—'}</div></div>`;
   el.innerHTML=`
     <div class="motw-head home-box">
       <div class="motw-team">${logoImg(A.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${A.name}</div><div class="motw-trec">${A.wins}–${A.losses} · ${A.pf.toFixed(0)} PF</div></div></div>
@@ -2820,21 +2844,8 @@ function renderMatchupOfWeek(){
       <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${B.name}</div><div class="motw-trec">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
     </div>
     <div class="motw-vote" id="motw-vote"></div>
-    ${motwCompareHTML(A,B,at,last)}
-    ${motwOddsHTML(A,B)}
-    <details class="motw-odds">
-      <summary class="motw-odds-h"><span>Playoff odds</span><i class="fa fa-chevron-down odds-caret"></i></summary>
-      <div class="motw-odds-grid">
-        <div class="motw-odds-team">
-          <div class="fr-name">${A.name}</div>
-          <div class="odd-row">${oddChip('With a win',odds.home?.win,'win')}${oddChip('With a loss',odds.home?.loss,'loss')}</div>
-        </div>
-        <div class="motw-odds-team">
-          <div class="fr-name">${B.name}</div>
-          <div class="odd-row">${oddChip('With a win',odds.away?.win,'win')}${oddChip('With a loss',odds.away?.loss,'loss')}</div>
-        </div>
-      </div>
-    </details>`;
+    ${motwCompareHTML(A,B,at,last,odds)}
+    ${motwOddsHTML(A,B)}`;
   renderMotwVoteBar();                       // paint immediately from cache
   if(!_motwVotes) refreshMotwVotes();        // then fill in from Firestore
 }
@@ -3567,9 +3578,11 @@ function buildSectionNav(tab){
   const heads=sectionHeadsIn(page);
   if(heads.length<2){ bar.innerHTML=''; bar.hidden=true; return; }
   const items=heads.map((h,i)=>{
-    // heading text without the little badge that follows it
-    const t=[...h.childNodes].filter(n=>n.nodeType===3||!(n.classList&&n.classList.contains('badge-info')))
-      .map(n=>n.textContent).join('').replace(/\s+/g,' ').trim();
+    // heading text only — strip trailing badges and any live score readouts
+    // that headings sometimes carry (the draft one embeds a grade block)
+    const c=h.cloneNode(true);
+    c.querySelectorAll('.badge-info,[id$="-score"],.dsb-lbl,.lg-grade').forEach(n=>n.remove());
+    const t=(c.textContent||'').replace(/\s+/g,' ').replace(/[—–-]\s*\d{4}\s*$/,'').trim();
     // resolved by position at click time, not by a stored id: the page re-renders
     // when its data arrives, which would strip any id assigned up front
     return t?`<button class="sx-chip" data-sx="${i}" onclick="jumpToSection(this)">${t}</button>`:'';
@@ -4250,8 +4263,6 @@ function renderMyProfile(){
       ${t?`<div class="mp-c"><span class="mp-l">${getSeason()} record</span><span class="mp-v">${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}</span></div>
       <div class="mp-c"><span class="mp-l">Points for</span><span class="mp-v">${t.pf.toFixed(0)}</span></div>`:''}
       ${left!=null?`<div class="mp-c"><span class="mp-l">FAAB left</span><span class="mp-v">$${left}</span></div>`:''}
-      ${at?`<div class="mp-c"><span class="mp-l">All-time</span><span class="mp-v">${at.w}–${at.l}</span></div>
-      <div class="mp-c"><span class="mp-l">Championships</span><span class="mp-v">${at.rings}</span></div>`:''}
       <div class="mp-c"><span class="mp-l">This week's pick</span><span class="mp-v">${votedName||'—'}</span></div>
     </div>
     <!-- No team picker: the linked team comes from the sign-in key and is fixed.
@@ -4867,9 +4878,18 @@ async function renderProfile(){
       ${stat('Missed Points',myLiq?myLiq.missed.toFixed(1):'—',scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false))}
     </div>
     </div>
+    <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
+    <div class="prof-stats">
+      ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
+      ${stat('Win %',`${winpct.toFixed(1)}%`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
+      ${stat('Points For',at.pf.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pf/a.playedSeasons:null),at.playedSeasons?at.pf/at.playedSeasons:null,true))}
+      ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—',scaleCol(atVals(a=>a.hi?a.hi.pts:null),at.hi?at.hi.pts:null,true))}
+      ${stat('Championships',at.rings,scaleCol(atVals(a=>a.rings),at.rings,true))}
+      ${stat('Playoff Apps',at.playoffApps||0,scaleCol(atVals(a=>a.playoffApps||0),at.playoffApps||0,true))}
+      ${stat('Best Finish',at.best?`#${at.best}`:'—',scaleCol(atVals(a=>a.best),at.best,false))}
+      ${stat('Avg Finish',at.avgFinish!=null?`#${at.avgFinish.toFixed(1)}`:'—',scaleCol(atVals(a=>a.avgFinish),at.avgFinish,false))}
     </div>
-    <!-- All-Time panel retired: rings and honours already sit in the hero, and
-         the rest was more detail than the profile needs. -->
+    </div>
     </div>
     <div class="prof-cols">
       <div class="prof-colstack">
@@ -5595,8 +5615,11 @@ async function loadDashboard(){
               <div class="home-box">${firstVid
                 ?`<div class="vid-wrap"><span class="vid-new" style="--nv:${newVideoColor()}">New video</span>
                   <div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div></div>
-                  ${_videos.length>1?`<details class="vid-more"><summary><span>More Videos</span><i class="fa fa-chevron-down vid-caret"></i></summary>
-                  <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div></details>`:''}`
+                  ${_videos.length>1?`<div class="vid-strip">
+                    ${_videos.slice(1,3).map(v=>`<button class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></button>`).join('')}
+                    <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
+                      <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>
+                  </div>`:''}`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
             </div>
@@ -5736,6 +5759,7 @@ async function loadDashboard(){
       <!-- PLAYER TENURE -->
       <div class="tab-page" id="page-tenure">
         <div class="sec wm" data-wm="&#xf4fd;">
+          <div class="sec-head"><i class="fa fa-user-clock"></i>Weeks &amp; Points<span class="badge-info">rostered &amp; started · all seasons</span></div>
           <div class="picker-bar">
             <label for="tenure-team-select">Team:</label>
             <select id="tenure-team-select" onchange="renderTenureTable()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>

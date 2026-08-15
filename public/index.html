@@ -447,6 +447,28 @@
     .bb-key-n{font-size:11px;color:var(--text3);margin-top:10px;padding-top:9px;
       border-top:1px solid rgba(255,255,255,0.07);}
 
+    /* ── Recent videos strip ──────────────────────────────────────────────────
+       Two most recent behind the featured one, then a link out to the channel.
+       Scrolls sideways rather than hiding behind a disclosure. */
+    .vid-strip{display:flex;gap:10px;margin-top:14px;overflow-x:auto;padding-bottom:4px;
+      -webkit-overflow-scrolling:touch;scrollbar-width:thin;
+      scrollbar-color:rgba(255,255,255,0.22) transparent;}
+    .vid-strip::-webkit-scrollbar{height:6px;}
+    .vid-strip::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.22);border-radius:999px;}
+    .vid-strip .video-thumb{flex:0 0 150px;background:none;border:1px solid var(--border);
+      border-radius:8px;padding:0;overflow:hidden;cursor:pointer;text-align:left;color:var(--text);}
+    .vid-strip .video-thumb img{width:100%;height:84px;object-fit:cover;display:block;}
+    .vid-strip .video-thumb-title{font-size:11.5px;line-height:1.35;padding:7px 8px;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .vid-strip .video-thumb:hover,.vid-strip .video-thumb.active{border-color:rgba(var(--accent-rgb),0.55);}
+    .vid-ch{flex:0 0 150px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:7px;border:1px dashed rgba(var(--accent-rgb),0.45);border-radius:8px;text-decoration:none;
+      color:var(--accent);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;
+      text-align:center;padding:10px;}
+    .vid-ch:hover{background:rgba(var(--accent-rgb),0.10);border-style:solid;}
+    .vid-ch i{font-size:17px;}
+    .vid-ch .vid-ch-a{font-size:11px;}
+
     /* ── "New video" banner: wraps from behind the player around its edge ──── */
     .vid-wrap{position:relative;}
     .vid-new{position:absolute;top:14px;right:-8px;z-index:3;display:inline-flex;align-items:center;gap:6px;
@@ -454,10 +476,11 @@
       letter-spacing:1px;text-transform:uppercase;color:#0d0d0f;
       background:var(--nv,#E0B67B);border-radius:3px 3px 0 3px;
       box-shadow:0 6px 16px -8px rgba(0,0,0,0.9);pointer-events:none;}
-    /* the fold: a darker triangle tucking the ribbon back behind the video */
-    .vid-new::after{content:"";position:absolute;left:0;bottom:-6px;width:8px;height:6px;
+    /* the fold: a darker triangle under the overhang, tapering back toward the
+       player so the ribbon reads as wrapping around its right-hand edge */
+    .vid-new::after{content:"";position:absolute;right:0;bottom:-6px;width:8px;height:6px;
       background:var(--nv,#E0B67B);filter:brightness(0.55);
-      clip-path:polygon(0 0,100% 0,100% 100%);}
+      clip-path:polygon(0 0,100% 0,0 100%);}
     @media(max-width:768px){.vid-new{top:10px;font-size:9px;padding:4px 10px 4px 11px;}}
 
     /* ── Raised cards ─────────────────────────────────────────────────────────
@@ -606,6 +629,12 @@
       white-space:nowrap;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;}
     .mc-row>.mc-v:first-child{text-align:left;}
     .mc-row>.mc-v:last-child{text-align:right;}
+    /* banded rows, matching the profile stat lists. Counting restarts after
+       each sub-heading so the striping reads per block, not across the whole
+       table. */
+    .motw-cmp .mc-row:not(.mc-head):nth-of-type(even){background:rgba(255,255,255,0.035);}
+    html[data-theme="light"] .motw-cmp .mc-row:not(.mc-head):nth-of-type(even){background:rgba(0,0,0,0.035);}
+    .motw-cmp .mc-row{border-radius:3px;}
     .mc-v.better{color:var(--green);}
     .mc-v.worse{color:var(--red);}
     /* the header row is labels, not a comparison — never colour it */
