@@ -82,9 +82,9 @@ function refreshSeasonOptions(){
 
 // ── THEME ──────────────────────────────────────────────────────────────────────
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
-/* Twelve visible tabs, 30 degrees apart around the wheel — see the matching
-   --tc / --tabaccent blocks in index.html. Nav shows the primary only. */
-const TAB_COLORS={teams:'#e89368',home:'#e4cb4e',legacy:'#b2e44e',gabe:'#67e44e',book:'#4ee480',trades:'#4ee4cb',history:'#68bee8',schedule:'#687ee8',standings:'#a07aeb',draft:'#d87aeb',badbeat:'#e868be',tenure:'#e8687e',punishment:'#ff5f5f',marathon:'#22d3ee'};
+/* Hand-picked primaries — see the matching --tc / --tabaccent blocks in
+   index.html for these plus each tab's secondary. Nav shows the primary only. */
+const TAB_COLORS={home:'#E0B67B',teams:'#E86043',schedule:'#66E89D',book:'#3fd07a',legacy:'#E8BC56',history:'#E8C656',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#60B8E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
 const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -2758,14 +2758,11 @@ function motwCompareHTML(A,B,at,last){
   return `<div class="motw-cmp">
     <div class="mc-row mc-head"><span class="mc-v">${A.abbrev||'A'}</span><span class="mc-l">${getSeason()} season</span><span class="mc-v">${B.abbrev||'B'}</span></div>
     ${row('Record',pctA,pctB,String,1,'',rec(A),rec(B))}
-    ${row('Win %',pctA,pctB,v=>one(v)+'%',1)}
     ${row('Points For',A.pf,B.pf,v=>Number(v).toFixed(0),1)}
     ${row('Points Against',A.pa,B.pa,v=>Number(v).toFixed(0),-1)}
     ${row('Avg / Game',gA?A.pf/gA:null,gB?B.pf/gB:null,one,1)}
     ${row('Point Diff',A.pf-A.pa,B.pf-B.pa,v=>(v>0?'+':'')+Number(v).toFixed(0),1)}
     ${row('Coaching Metric',cmA,cmB,two,1)}
-    ${row('Moves',A.moves,B.moves,v=>String(v),0)}
-    ${row('Trades',A.trades,B.trades,v=>String(v),0)}
     <div class="mc-row mc-head"><span class="mc-v"></span><span class="mc-l">Head to head</span><span class="mc-v"></span></div>
     ${at.games
       ? row('All-Time Series',at.wA,at.wB,v=>String(v),1,`${at.games} meeting${at.games===1?'':'s'}`)
@@ -4455,16 +4452,28 @@ function sbWeekHTML(){
     const key='wk'+g.week+'-'+g.a.tid+'-'+g.b.tid;
     const res=g.done?`<span class="wk-final">Final ${g.hp.toFixed(1)}–${g.ap.toFixed(1)}</span>`:'';
     const mark=w=>g.done?(w?'<i class="fa fa-check wk-hit"></i>':'<i class="fa fa-xmark wk-miss"></i>'):'';
+    /* One row per team with the three markets in fixed columns, the way a real
+       book prints a board. The spread is only priced on the favourite, so the
+       underdog shows its number greyed rather than leaving a hole. */
+    const sp=g.spread.toFixed(1);
+    const spreadCell=side=>{
+      const isFav=(side==='a')===!!g.favA;
+      return isFav
+        ? sbBtn(key+'-sp',`Week ${g.week} spread`,(g.favA?g.a.owner:g.b.owner)+':sp',`${(g.favA?g.a.name:g.b.name)} −${sp}`,-115,'sb-two','−'+sp)
+        : `<span class="sb-odds sb-odds-off wk-dog">+${sp}</span>`;
+    };
     return `<div class="wk-game" data-a="${g.a.owner}" data-b="${g.b.owner}">
-      <div class="wk-side">${nm(g.a)}${mark(g.winA===true)}
-        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two','Win')}</div>
-      <div class="wk-side">${nm(g.b)}${mark(g.winA===false)}
-        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.b.owner+':ml',`${g.b.name} moneyline`,g.mlB,'sb-two','Win')}</div>
-      <div class="wk-extra">
-        <span class="wk-x-l">Spread</span>
-        ${sbBtn(key+'-sp',`Week ${g.week} spread`,(g.favA?g.a.owner:g.b.owner)+':sp',`${(g.favA?g.a.name:g.b.name)} −${g.spread.toFixed(1)}`,-115,'sb-two','−'+g.spread.toFixed(1))}
-        <span class="wk-x-l">Total</span>
+      <div class="wk-r wk-rhead"><span></span><span>Win</span><span>Spread</span><span>Total</span></div>
+      <div class="wk-r">
+        <span class="wk-team">${nm(g.a)}${mark(g.winA===true)}</span>
+        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two')}
+        ${spreadCell('a')}
         ${sbBtn(key+'-tot',`Week ${g.week} total`,'over',`Over ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.overP,'sb-two','O '+g.line.toFixed(1))}
+      </div>
+      <div class="wk-r">
+        <span class="wk-team">${nm(g.b)}${mark(g.winA===false)}</span>
+        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.b.owner+':ml',`${g.b.name} moneyline`,g.mlB,'sb-two')}
+        ${spreadCell('b')}
         ${sbBtn(key+'-tot',`Week ${g.week} total`,'under',`Under ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.underP,'sb-two','U '+g.line.toFixed(1))}
       </div>
       ${res}

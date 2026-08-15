@@ -384,9 +384,15 @@
     .mv-count{color:var(--text3);opacity:.8;}
     .mv-bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.07);}
     html[data-theme="light"] .mv-bar{background:rgba(0,0,0,0.08);}
+    /* the two sides are read against each other, so they take fixed opposing
+       colours rather than the tab accent */
     .mv-fill{height:100%;transition:width .35s cubic-bezier(.2,.7,.2,1);}
-    .mv-fill.a{background:var(--grad);}
-    .mv-fill.b{background:color-mix(in srgb,var(--accent) 38%,transparent);}
+    .mv-fill.a{background:linear-gradient(90deg,#e8433f,#e8685f);}
+    .mv-fill.b{background:linear-gradient(90deg,#5a89e8,#3f6fe8);}
+    .mv-pcts span:first-child{color:#e8685f;}
+    .mv-pcts span:last-child{color:#6b90e8;}
+    .mv-btns .mv-btn:first-child.picked{border-color:#e8433f;color:#e8685f;background:rgba(232,67,63,0.14);}
+    .mv-btns .mv-btn:last-child.picked{border-color:#5a89e8;color:#6b90e8;background:rgba(90,137,232,0.14);}
     .mv-pcts{display:flex;justify-content:space-between;font-family:'Inter',sans-serif;
       font-size:11px;font-weight:700;color:var(--text2);margin-top:6px;}
     .mv-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
@@ -962,22 +968,20 @@
        PER-TAB COLORS — each tab owns a signature color, used in the nav and,
        when active, as the accent throughout that tab (dark mode).
        ═══════════════════════════════════════════════════════════════════════ */
-    /* The twelve visible tabs sit exactly 30 degrees apart around the wheel, in
-       their existing wheel order so each keeps roughly the identity it had. No
-       two tabs share a colour family any more. Nav uses the primary only. */
-    .tab-btn[data-tab=teams]{--tc:#e89368;}      /*  20 */
-    .tab-btn[data-tab=home]{--tc:#e4cb4e;}       /*  50 */
-    .tab-btn[data-tab=legacy]{--tc:#b2e44e;}     /*  80 */
-    .tab-btn[data-tab=gabe]{--tc:#67e44e;}       /* 110 */
-    .tab-btn[data-tab=book]{--tc:#4ee480;}       /* 140 */
-    .tab-btn[data-tab=trades]{--tc:#4ee4cb;}     /* 170 */
-    .tab-btn[data-tab=history]{--tc:#68bee8;}    /* 200 */
-    .tab-btn[data-tab=schedule]{--tc:#687ee8;}   /* 230 */
-    .tab-btn[data-tab=standings]{--tc:#a07aeb;}  /* 260 */
-    .tab-btn[data-tab=draft]{--tc:#d87aeb;}      /* 290 */
-    .tab-btn[data-tab=badbeat]{--tc:#e868be;}    /* 320 */
-    .tab-btn[data-tab=tenure]{--tc:#e8687e;}     /* 350 */
-    /* hidden tabs keep their own colours; they are not on the wheel */
+    /* Hand-picked per tab. Nav uses the primary only. */
+    .tab-btn[data-tab=home]{--tc:#E0B67B;}
+    .tab-btn[data-tab=teams]{--tc:#E86043;}
+    .tab-btn[data-tab=schedule]{--tc:#66E89D;}
+    .tab-btn[data-tab=book]{--tc:#3fd07a;}
+    .tab-btn[data-tab=legacy]{--tc:#E8BC56;}
+    .tab-btn[data-tab=history]{--tc:#E8C656;}
+    .tab-btn[data-tab=standings]{--tc:#6C6AE8;}
+    .tab-btn[data-tab=badbeat]{--tc:#E860AF;}
+    .tab-btn[data-tab=draft]{--tc:#60B8E8;}
+    .tab-btn[data-tab=trades]{--tc:#9F61E8;}
+    .tab-btn[data-tab=tenure]{--tc:#5CE8B3;}
+    .tab-btn[data-tab=gabe]{--tc:#CBE853;}
+    /* hidden tabs keep their own colours */
     .tab-btn[data-tab=punishment]{--tc:#ff5f5f;}
     .tab-btn[data-tab=marathon]{--tc:#22d3ee;}
     .tab-btn i{color:var(--tc,var(--accent));opacity:.8;transition:opacity .15s;}
@@ -1000,18 +1004,18 @@
        --grad    the pair as a gradient. Everything on the PAGE that used to be
                  a flat accent fill (page title, meters, pills, primary
                  buttons) paints with this instead. */
-    html[data-theme="dark"][data-tabaccent=teams]{--accent:#e89368;--accent2:#e8b368;--accent-rgb:232,147,104;}     /*  20 → 35 */
-    html[data-theme="dark"][data-tabaccent=home]{--accent:#e4cb4e;--accent2:#d8e44e;--accent-rgb:228,203,78;}       /*  50 → 65 */
-    html[data-theme="dark"][data-tabaccent=legacy]{--accent:#b2e44e;--accent2:#8ce44e;--accent-rgb:178,228,78;}     /*  80 → 95 */
-    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#67e44e;--accent2:#4ee45a;--accent-rgb:103,228,78;}       /* 110 → 125 */
-    html[data-theme="dark"][data-tabaccent=book]{--accent:#4ee480;--accent2:#4ee4a6;--accent-rgb:78,228,128;}       /* 140 → 155 */
-    html[data-theme="dark"][data-tabaccent=trades]{--accent:#4ee4cb;--accent2:#4ed8e4;--accent-rgb:78,228,203;}     /* 170 → 185 */
-    html[data-theme="dark"][data-tabaccent=history]{--accent:#68bee8;--accent2:#689ee8;--accent-rgb:104,190,232;}   /* 200 → 215 */
-    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#687ee8;--accent2:#7368e8;--accent-rgb:104,126,232;}  /* 230 → 245 */
-    html[data-theme="dark"][data-tabaccent=standings]{--accent:#a07aeb;--accent2:#bc7aeb;--accent-rgb:160,122,235;} /* 260 → 275 */
-    html[data-theme="dark"][data-tabaccent=draft]{--accent:#d87aeb;--accent2:#eb7ae2;--accent-rgb:216,122,235;}     /* 290 → 305 */
-    html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e868be;--accent2:#e8689e;--accent-rgb:232,104,190;}   /* 320 → 335 */
-    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#e8687e;--accent2:#e87368;--accent-rgb:232,104,126;}    /* 350 →   5 */
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}
+    html[data-theme="dark"][data-tabaccent=teams]{--accent:#E86043;--accent2:#E84543;--accent-rgb:232,96,67;}
+    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#66E89D;--accent2:#66E8C9;--accent-rgb:102,232,157;}
+    html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}
+    html[data-theme="dark"][data-tabaccent=legacy]{--accent:#E8BC56;--accent2:#E8AA56;--accent-rgb:232,188,86;}
+    html[data-theme="dark"][data-tabaccent=history]{--accent:#E8C656;--accent2:#E8B456;--accent-rgb:232,198,86;}
+    html[data-theme="dark"][data-tabaccent=standings]{--accent:#6C6AE8;--accent2:#6B90E8;--accent-rgb:108,106,232;}
+    html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#E860AF;--accent2:#DA5FE8;--accent-rgb:232,96,175;}
+    html[data-theme="dark"][data-tabaccent=draft]{--accent:#60B8E8;--accent2:#5A89E8;--accent-rgb:96,184,232;}
+    html[data-theme="dark"][data-tabaccent=trades]{--accent:#9F61E8;--accent2:#7461E8;--accent-rgb:159,97,232;}
+    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#5CE8B3;--accent2:#5DE883;--accent-rgb:92,232,179;}
+    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=punishment]{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;}
     html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#22eec9;--accent-rgb:34,211,238;}
     :root{--grad:linear-gradient(135deg,var(--accent),var(--accent2));}
@@ -1480,27 +1484,31 @@
       .mo-go{font-size:9px;}
     }
     /* ── Sportsbook: weekly board ── */
+    /* Board layout: a team per row, markets in fixed columns, so every price
+       lines up down the page instead of wrapping wherever it lands. */
     .wk-list{display:flex;flex-direction:column;}
-    .wk-game{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 14px;padding:11px 14px;
-      border-bottom:1px solid rgba(255,255,255,0.06);align-items:center;}
+    .wk-game{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.06);}
     .wk-game:last-child{border-bottom:none;}
-    .wk-side{display:grid;grid-template-columns:minmax(0,1fr) 84px;align-items:center;gap:10px;min-width:0;}
-    .wk-side .sb-tm{min-width:0;}
-    .wk-extra{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-      padding-top:8px;border-top:1px dashed rgba(255,255,255,0.08);}
-    .wk-x-l{font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;}
-    .wk-extra .sb-odds{width:auto;min-width:84px;flex:0 0 auto;}
-    .wk-final{grid-column:1/-1;font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;
-      letter-spacing:.5px;color:var(--text3);}
+    .wk-r{display:grid;grid-template-columns:minmax(0,1fr) 78px 78px 78px;
+      align-items:center;gap:8px;}
+    .wk-r+.wk-r{margin-top:6px;}
+    .wk-team{display:flex;align-items:center;min-width:0;}
+    .wk-team .sb-tm{min-width:0;}
+    .wk-rhead>span{font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
+      letter-spacing:.7px;text-transform:uppercase;color:var(--text3);text-align:center;padding-bottom:2px;}
+    .wk-rhead>span:first-child{text-align:left;}
+    .wk-r .sb-odds{width:100%;min-width:0;}
+    .wk-dog{display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;
+      font-size:12px;font-weight:700;color:var(--text3);}
+    .wk-final{font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;
+      letter-spacing:.5px;color:var(--text3);display:block;margin-top:8px;}
     .wk-hit{color:var(--green);font-size:11px;margin-left:6px;}
     .wk-miss{color:var(--red);font-size:11px;margin-left:6px;}
     .wk-pl{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .wk-pt{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-left:6px;white-space:nowrap;}
     @media(max-width:768px){
-      .wk-game{grid-template-columns:1fr;gap:7px;padding:10px 12px;}
-      .wk-side{grid-template-columns:minmax(0,1fr) 76px;}
-      .wk-extra{gap:6px;}
-      .wk-extra .sb-odds{min-width:70px;}
+      .wk-game{padding:10px 12px;}
+      .wk-r{grid-template-columns:minmax(0,1fr) 62px 62px 62px;gap:5px;}
       .wk-pt{display:none;}
     }
     /* ── SPORTSBOOK ─────────────────────────────────────────────────────────── */
@@ -2523,9 +2531,9 @@
        otherwise keep painting the page's gradient. */
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
-    #page-home .mod-cm{--accent:#68bee8;--accent2:#689ee8;--accent-rgb:104,190,232;
+    #page-home .mod-cm{--accent:#60B8E8;--accent2:#5A89E8;--accent-rgb:96,184,232;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
-    #page-home .motw-book{--accent:#4ee480;--accent2:#4ee4a6;--accent-rgb:78,228,128;
+    #page-home .motw-book{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .home-punish-more{color:var(--accent);border-color:rgba(var(--accent-rgb),0.4);}
     #page-home .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}
