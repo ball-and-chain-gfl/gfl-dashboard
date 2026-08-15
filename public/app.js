@@ -2960,45 +2960,28 @@ function legacyTeamHistory(owner){
   });
   return out.reverse();     // newest first
 }
-let _lrTeam='';                       // '' = whole league
-function setLegacyTeam(v){ _lrTeam=v||''; const b=document.getElementById('legacy-report'); if(b) b.innerHTML=legacyReportHTML(); }
-function legacyReportHTML(){
+/* Lives on the team profile now, so it always reports the team being viewed —
+   no picker of its own, and never the whole league. */
+function legacyReportHTML(owner){
   const d=legacyReportData();
-  if(!d) return '<div class="tab-loading" style="padding:22px">No completed weeks yet.</div>';
+  if(!d||!owner) return '';
   const arrow=dir=>`<i class="fa fa-arrow-${dir==='up'?'up lr-up':'down lr-down'}"></i>`;
-  const picker=`<div class="lr-pick">
-    <select onchange="setLegacyTeam(this.value)" aria-label="Legacy Report team">
-      <option value="" ${_lrTeam?'':'selected'}>Whole league</option>
-      ${_franchises.map(f=>`<option value="${f.owner}" ${_lrTeam===f.owner?'selected':''}>${f.name}</option>`).join('')}
-    </select></div>`;
-
-  // one team: the same most-recent-week report, filtered to them
-  if(_lrTeam){
-    const nm=(_franchises.find(f=>f.owner===_lrTeam)||{}).name||'Team';
-    const mine=d.moves.filter(m=>m.owner===_lrTeam);
-    return picker+`
-      <div class="lr-week">Week ${d.week} · ${d.season} — ${nm}</div>
-      ${mine.length
-        ? `<div class="lr-list">${mine.map(m=>`<div class="lr-row">
-            ${arrow(m.dir)}
-            <span class="lr-who"><span class="lr-mt">${m.metric}</span></span>
-            <span class="lr-mv">#${m.from} → <b class="${m.dir==='up'?'lr-up':'lr-down'}">#${m.to}</b></span>
-          </div>`).join('')}</div>`
-        : `<div class="lr-none">${nm} held every all-time position in week ${d.week}.</div>`}`;
-  }
-
-  const movesHTML=d.moves.length
-    ? d.moves.map(m=>`<div class="lr-row">
-        ${arrow(m.dir)}
-        <span class="lr-who"><span class="lr-nm">${m.name}</span><span class="lr-mt">${m.metric}</span></span>
-        <span class="lr-mv">#${m.from} → <b class="${m.dir==='up'?'lr-up':'lr-down'}">#${m.to}</b></span>
-      </div>`).join('')
-    : `<div class="lr-none">No all-time positions changed in week ${d.week}.</div>`;
-  return picker+`
-    <div class="lr-week">Week ${d.week} · ${d.season} — all-time table movement</div>
-    ${d.records.length?`<div class="lr-recs">${d.records.map(r=>
+  const nm=(_franchises.find(f=>f.owner===owner)||{}).name||'This team';
+  const mine=d.moves.filter(m=>m.owner===owner);
+  const recs=d.records.filter(r=>r.txt.indexOf(nm)===0);
+  return `<div class="sec lr-sec">
+    <div class="sec-head" style="font-size:15px"><i class="fa fa-landmark" style="color:var(--accent)"></i>Legacy Report
+      <span class="badge-info">week ${d.week} · ${d.season}</span></div>
+    ${recs.length?`<div class="lr-recs">${recs.map(r=>
       `<div class="lr-rec"><i class="fa fa-certificate"></i><span>${r.txt}</span><b>${r.val}</b></div>`).join('')}</div>`:''}
-    <div class="lr-list">${movesHTML}</div>`;
+    ${mine.length
+      ? `<div class="lr-list">${mine.map(m=>`<div class="lr-row">
+          ${arrow(m.dir)}
+          <span class="lr-who"><span class="lr-mt">${m.metric}</span></span>
+          <span class="lr-mv">#${m.from} → <b class="${m.dir==='up'?'lr-up':'lr-down'}">#${m.to}</b></span>
+        </div>`).join('')}</div>`
+      : `<div class="lr-none">${nm} held every all-time position in week ${d.week}.</div>`}
+  </div>`;
 }
 
 // ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
@@ -4725,6 +4708,7 @@ async function renderProfile(){
         </div>
       </div>
     </div>
+    ${legacyReportHTML(owner)}
     <div class="prof-top2">
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
@@ -5530,10 +5514,6 @@ async function loadDashboard(){
               })()}</div>
           </div>
           <div class="home-right">
-            <div class="sec wm mod-legacy" data-wm="&#xf091;">
-              <div class="sec-head"><i class="fa fa-landmark"></i>Legacy Report</div>
-              <div class="home-box" id="legacy-report">${legacyReportHTML()}</div>
-            </div>
             <!-- Matchup Headlines: hidden for now -->
             <div class="sec wm" data-wm="&#xf1ea;" style="display:none">
               <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
@@ -5547,6 +5527,7 @@ async function loadDashboard(){
           <div class="home-box" id="live-body"></div>
         </div>
       </div>
+      <!-- (Legacy Report now lives on the team profile, under the hero) -->
 
       <!-- STANDINGS & STATS -->
       <div class="tab-page" id="page-standings">
