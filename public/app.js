@@ -522,6 +522,7 @@ function switchTab(name){
   const h1=document.getElementById('page-h1');
   /* the label lives in a span so the gradient sizes to the text, not the rule */
   if(h1){ const s=h1.querySelector('span')||h1; s.textContent=TAB_LABELS[name]||''; }
+  buildSectionNav(name);
   updateTabDD(name);
   scrollNavToActive();
 }
@@ -2770,10 +2771,12 @@ function motwCompareHTML(A,B,at,last){
     if(dir&&typeof a==='number'&&typeof b==='number'&&isFinite(a)&&isFinite(b)&&a!==b){
       ab=dir>0?a>b:a<b; bb=!ab;
     }
+    // the favoured side reads green and the other red, the way the rest of the
+    // site colours a comparison; ties stay neutral
     return `<div class="mc-row">
-      <span class="mc-v${ab?' better':''}">${f(a,showA)}</span>
+      <span class="mc-v${ab?' better':bb?' worse':''}">${f(a,showA)}</span>
       <span class="mc-l">${label}${sub?`<span class="mc-sub">${sub}</span>`:''}</span>
-      <span class="mc-v${bb?' better':''}">${f(b,showB)}</span>
+      <span class="mc-v${bb?' better':ab?' worse':''}">${f(b,showB)}</span>
     </div>`;
   };
   const rec=t=>`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`;
@@ -3233,7 +3236,19 @@ function renderBadBeat(){
         <th class="right">Score</th><th class="right">vs&#8209;Avg</th><th class="right">Record</th>
         <th class="right">Closest&nbsp;L</th><th class="right">Median&nbsp;L</th><th class="right">L&lt;7</th><th class="right" title="Share of losses where they still outscored the week's league average">%&nbsp;Over&nbsp;Avg</th>
       </tr></thead><tbody>${rows}</tbody></table></div>
-    <div style="font-size:11.5px;color:var(--text3);margin:11px 2px 0;line-height:1.5">Regular season through week ${regEndOf(getSeason())}. Closest&nbsp;L / Median&nbsp;L are margins of defeat in points; L&lt;7 counts losses by fewer than 7. % Over Avg = the share of a team's losses where it still outscored the week's league average &mdash; the purest bad-beat signal.</div>`;
+    <div class="bb-key">
+      <div class="bb-key-h">What each column means</div>
+      <div class="bb-key-g">
+        <div class="bb-key-i"><b>Score</b><span>Overall bad-beat rating — higher means unluckier.</span></div>
+        <div class="bb-key-i"><b>vs-Avg</b><span>Record if they'd played the league average each week, with the gap to their real record.</span></div>
+        <div class="bb-key-i"><b>Record</b><span>Actual wins and losses.</span></div>
+        <div class="bb-key-i"><b>Closest L</b><span>Narrowest margin of defeat, in points.</span></div>
+        <div class="bb-key-i"><b>Median L</b><span>Typical margin of defeat, in points.</span></div>
+        <div class="bb-key-i"><b>L&lt;7</b><span>Losses by fewer than 7 points.</span></div>
+        <div class="bb-key-i"><b>% Over Avg</b><span>Share of losses where they still beat the week's league average — the purest bad-beat signal.</span></div>
+      </div>
+      <div class="bb-key-n">Regular season through week ${regEndOf(getSeason())}.</div>
+    </div>`;
   badBeatCols();
 }
 // Bad Beat table: pull the rank tight to the team and leave exactly 8px between
@@ -3508,6 +3523,61 @@ function enemiesFor(owner){
   });
   return Object.values(agg).filter(r=>r.g>0).sort((a,b)=>b.pts-a.pts||b.g-a.g).slice(0,10);
 }
+/* The "New video" ribbon changes colour every week. Driven off the week number
+   rather than a random pick, so it is stable for everyone all week and only
+   turns over when the chat week does. */
+const NEW_VID_COLORS=['#E86043','#E89845','#E8C656','#66E89D','#5CE8B3','#63E0E8',
+                      '#587DE8','#6C6AE8','#9F61E8','#E860AF','#CBE853','#E0B67B'];
+function newVideoColor(){
+  const wk=Math.floor(msgWeekStart()/604800000);   // Tuesday-anchored week index
+  return NEW_VID_COLORS[((wk%NEW_VID_COLORS.length)+NEW_VID_COLORS.length)%NEW_VID_COLORS.length];
+}
+
+/* ── SECTION JUMP NAV ───────────────────────────────────────────────────────
+   Under the title rule, a row of chips listing the sections on this tab. Built
+   by reading the page's own top-level headings rather than a hand-kept list,
+   so it can never drift out of step with what is actually rendered. Anchors are
+   assigned on the fly and scrolling is offset for the fixed nav capsule. */
+function buildSectionNav(tab){
+  const bar=document.getElementById('sec-nav'); if(!bar) return;
+  const page=document.getElementById('page-'+tab);
+  if(!page){ bar.innerHTML=''; bar.hidden=true; return; }
+  // only headings that are a direct section head of this page, in document order
+  const heads=[...page.querySelectorAll('.sec>.sec-head, .sec>.section-header')]
+    .filter(h=>h.offsetParent!==null);
+  if(heads.length<2){ bar.innerHTML=''; bar.hidden=true; return; }
+  const items=heads.map((h,i)=>{
+    // heading text without the little badge that follows it
+    const t=[...h.childNodes].filter(n=>n.nodeType===3||!(n.classList&&n.classList.contains('badge-info')))
+      .map(n=>n.textContent).join('').replace(/\s+/g,' ').trim();
+    // resolved by position at click time, not by a stored id: the page re-renders
+    // when its data arrives, which would strip any id assigned up front
+    return t?`<button class="sx-chip" data-sx="${i}" onclick="jumpToSection(this)">${t}</button>`:'';
+  }).filter(Boolean).join('');
+  bar.innerHTML=items;
+  bar.hidden=!items;
+}
+function jumpToSection(btn){
+  const page=document.getElementById('page-'+_activeTab); if(!page) return;
+  const heads=[...page.querySelectorAll('.sec>.sec-head, .sec>.section-header')]
+    .filter(h=>h.offsetParent!==null);
+  const el=(heads[Number(btn.dataset.sx)]||{}).closest?heads[Number(btn.dataset.sx)].closest('.sec'):null;
+  if(!el) return;
+  const nav=document.getElementById('floatnav');
+  const pad=(nav?nav.getBoundingClientRect().bottom:70)+14;
+  const y=Math.max(0,el.getBoundingClientRect().top+window.pageYOffset-pad);
+  smoothScrollTo(y);
+}
+/* A plain scrollTop assignment, deliberately. Both behavior:'smooth' and a
+   rAF-driven animation depend on the compositor running, and silently do
+   nothing where it isn't — which left the jump chips dead. Assigning scrollTop
+   always lands, and `html{scroll-behavior:smooth}` in the stylesheet gives real
+   browsers the easing for free (and is disabled under reduced motion there). */
+function smoothScrollTo(target){
+  const doc=document.scrollingElement||document.documentElement;
+  doc.scrollTop=target;
+}
+
 /* ── LIVE MATCHUPS ──────────────────────────────────────────────────────────
    ESPN only ever reports where a matchup stands right now — there is no
    in-game history to ask for. So the history is built by watching: while the
@@ -3764,8 +3834,8 @@ function renderLiveMatchups(){
     const started=a>0||b>0;
     return `<div class="lv-card">
       <div class="lv-teams">
-        <span class="lv-t"><span class="lv-nm">${an}</span><span class="lv-sc${a>=b?' lv-up':''}">${a.toFixed(1)}</span></span>
-        <span class="lv-t lv-r"><span class="lv-sc${b>a?' lv-up':''}">${b.toFixed(1)}</span><span class="lv-nm">${bn}</span></span>
+        <span class="lv-t">${logoImg(aFirst?m.home.teamId:m.away.teamId,'lv-logo')}<span class="lv-nm">${an}</span><span class="lv-sc${a>=b?' lv-up':''}">${a.toFixed(1)}</span></span>
+        <span class="lv-t lv-r"><span class="lv-sc${b>a?' lv-up':''}">${b.toFixed(1)}</span><span class="lv-nm">${bn}</span>${logoImg(aFirst?m.away.teamId:m.home.teamId,'lv-logo')}</span>
       </div>
       <div class="lv-oddsbar" title="${an} ${Math.round(live*100)}%">
         <span class="lv-of a" style="width:${(live*100).toFixed(1)}%"></span>
@@ -3789,7 +3859,6 @@ function renderLiveMatchups(){
         <button class="lv-now" onclick="liveRefreshNow()" title="Check now"><i class="fa fa-rotate-right"></i></button></span>
     </div>
     <div class="lv-grid">${cards||'<div class="lr-none">No matchups scheduled.</div>'}</div>
-    <div class="lv-note">Nothing pushes a fantasy score, so the board watches the public NFL scoreboard instead — a ~1.7KB digest, every ${NFL_LIVE_MS/1000}s while games are being played and ${NFL_QUIET_MS/1000}s when none are. The moment anything on the field moves, the fantasy scores are pulled straight away. Points still come from ESPN's fantasy API so the totals match the app exactly; a point is recorded when a score moves and never when it hasn't. History starts from ${ALL_SEASONS[ALL_SEASONS.length-1]} and cannot be backfilled.</div>
     <div id="live-records"></div>`;
   renderLiveRecords();
 }
@@ -4782,18 +4851,9 @@ async function renderProfile(){
       ${stat('Missed Points',myLiq?myLiq.missed.toFixed(1):'—',scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false))}
     </div>
     </div>
-    <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
-    <div class="prof-stats">
-      ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
-      ${stat('Win %',`${winpct.toFixed(1)}%`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
-      ${stat('Points For',at.pf.toFixed(0),scaleCol(atVals(a=>a.playedSeasons?a.pf/a.playedSeasons:null),at.playedSeasons?at.pf/at.playedSeasons:null,true))}
-      ${stat('Highest Score',at.hi?at.hi.pts.toFixed(1):'—',scaleCol(atVals(a=>a.hi?a.hi.pts:null),at.hi?at.hi.pts:null,true))}
-      ${stat('Championships',at.rings,scaleCol(atVals(a=>a.rings),at.rings,true))}
-      ${stat('Playoff Apps',at.playoffApps||0,scaleCol(atVals(a=>a.playoffApps||0),at.playoffApps||0,true))}
-      ${stat('Best Finish',at.best?`#${at.best}`:'—',scaleCol(atVals(a=>a.best),at.best,false))}
-      ${stat('Avg Finish',at.avgFinish!=null?`#${at.avgFinish.toFixed(1)}`:'—',scaleCol(atVals(a=>a.avgFinish),at.avgFinish,false))}
     </div>
-    </div>
+    <!-- All-Time panel retired: rings and honours already sit in the hero, and
+         the rest was more detail than the profile needs. -->
     </div>
     <div class="prof-cols">
       <div class="prof-colstack">
@@ -4805,13 +4865,8 @@ async function renderProfile(){
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>Draft Grades<span class="badge-info">by season</span></div>
           <div id="prof-draftgrades">${profileDraftBlockHTML(owner)}</div>
         </div>
-        <div class="prof-col panel prof-rv">
-          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-fire" style="color:var(--accent)"></i>Rivals<span class="badge-info">${RIVAL_SEASON} weeks ${RIVAL_WEEKS.join(', ')}</span></div>
-          <div class="rv-head"><span class="rv-wk">Week</span><span class="rv-team">Rival</span><span class="r">All-time</span><span class="r">Win%</span><span class="r">PF–PA</span></div>
-          <div id="prof-rivals">${rivalsHTML(owner)}</div>
-        </div>
         <div class="prof-col panel">
-          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-skull-crossbones" style="color:var(--red)"></i>Biggest Enemies<span class="badge-info">most points scored against them</span></div>
+          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-skull-crossbones" style="color:var(--accent)"></i>Biggest Enemies<span class="badge-info">most points scored against them</span></div>
           <div id="prof-enemies">${enemiesHTML(owner)}</div>
         </div>
         ${oppRows.length?`<div class="prof-col panel prof-opp">
@@ -5522,7 +5577,8 @@ async function loadDashboard(){
           <div class="home-vid-col">
             <div class="sec">
               <div class="home-box">${firstVid
-                ?`<div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div>
+                ?`<div class="vid-wrap"><span class="vid-new" style="--nv:${newVideoColor()}">New video</span>
+                  <div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div></div>
                   ${_videos.length>1?`<details class="vid-more"><summary><span>More Videos</span><i class="fa fa-chevron-down vid-caret"></i></summary>
                   <div class="video-list">${_videos.map(v=>`<div class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></div>`).join('')}</div></details>`:''}`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
