@@ -2066,7 +2066,9 @@ function renderDraftTab(){
   if(_draftTeamSel==null||!_teams.some(t=>t.id===Number(_draftTeamSel))) _draftTeamSel=_teams[0]?.id;
   body.innerHTML=`
   <div class="card" style="margin:0 0 24px">
-    <div class="section-header" style="padding:13px 16px"><i class="fa fa-list-ol"></i>Draft by Team<span id="draft-score" style="margin-left:auto"></span></div>
+    <!-- no label: this belongs to the Draft Report section above it, and a
+         heading here would earn a third jump chip -->
+    <div class="section-header" style="padding:13px 16px"><span id="draft-score" style="margin-left:auto"></span></div>
     <div class="picker-bar">
       <label for="draft-team-select">Team:</label>
       <select id="draft-team-select" onchange="_draftTeamSel=this.value;renderDraftTeamTable()">${_teams.map(t=>`<option value="${t.id}" ${Number(_draftTeamSel)===t.id?'selected':''}>${t.name}</option>`).join('')}</select>
@@ -3550,8 +3552,24 @@ function newVideoColor(){
    by reading the page's own top-level headings rather than a hand-kept list,
    so it can never drift out of step with what is actually rendered. Anchors are
    assigned on the fly and scrolling is offset for the fixed nav capsule. */
-const sectionHeadsIn=page=>[...page.querySelectorAll('.sec-head, .section-header, .lh-sec-head')]
-  .filter(h=>h.offsetParent!==null && !h.closest('.modal') && h.textContent.trim());
+/* One list used by both the chip builder and the jump, so a heading that
+   produces no label can never shift the two out of step. Ordered the way the
+   page reads — top row left to right, then the next row — because the
+   homepage lays its sections out in columns and DOM order zig-zags. */
+function sectionEntriesIn(page){
+  return [...page.querySelectorAll('.sec-head, .section-header, .lh-sec-head')]
+    .filter(h=>h.offsetParent!==null && !h.closest('.modal'))
+    .map(h=>{
+      const c=h.cloneNode(true);
+      c.querySelectorAll('.badge-info,[id$="-score"],.dsb-lbl,.lg-grade').forEach(n=>n.remove());
+      const label=(c.textContent||'').replace(/\s+/g,' ').replace(/[—–-]\s*\d{4}\s*$/,'').trim();
+      const r=h.getBoundingClientRect();
+      return {h,label,top:r.top+window.pageYOffset,left:r.left};
+    })
+    .filter(x=>x.label)
+    .sort((a,b)=>Math.abs(a.top-b.top)>40 ? a.top-b.top : a.left-b.left);
+}
+const sectionHeadsIn=page=>sectionEntriesIn(page).map(x=>x.h);
 /* Most tabs render their sections only once their data arrives, so a nav built
    at switch time sees an empty page — Team Profiles came up with no chips at
    all on a cold load. Watching the page and rebuilding when it changes covers
@@ -3575,20 +3593,13 @@ function buildSectionNav(tab){
   // Every visible heading on the page, whatever wraps it. Tabs nest their
   // headings differently — Team Profiles puts them in .panel, League History
   // uses .lh-sec-head — so keying off the section wrapper missed most of them.
-  const heads=sectionHeadsIn(page);
-  if(heads.length<2){ bar.innerHTML=''; bar.hidden=true; return; }
-  const items=heads.map((h,i)=>{
-    // heading text only — strip trailing badges and any live score readouts
-    // that headings sometimes carry (the draft one embeds a grade block)
-    const c=h.cloneNode(true);
-    c.querySelectorAll('.badge-info,[id$="-score"],.dsb-lbl,.lg-grade').forEach(n=>n.remove());
-    const t=(c.textContent||'').replace(/\s+/g,' ').replace(/[—–-]\s*\d{4}\s*$/,'').trim();
-    // resolved by position at click time, not by a stored id: the page re-renders
-    // when its data arrives, which would strip any id assigned up front
-    return t?`<button class="sx-chip" data-sx="${i}" onclick="jumpToSection(this)">${t}</button>`:'';
-  }).filter(Boolean).join('');
-  bar.innerHTML=items;
-  bar.hidden=!items;
+  const entries=sectionEntriesIn(page);
+  if(entries.length<2){ bar.innerHTML=''; bar.hidden=true; return; }
+  // index into the same ordered list the jump re-derives at click time — the
+  // page re-renders when its data lands, so ids assigned up front would vanish
+  bar.innerHTML=entries.map((e,i)=>
+    `<button class="sx-chip" data-sx="${i}" onclick="jumpToSection(this)">${e.label}</button>`).join('');
+  bar.hidden=false;
 }
 function jumpToSection(btn){
   const page=document.getElementById('page-'+_activeTab); if(!page) return;
@@ -5622,13 +5633,13 @@ async function loadDashboard(){
           <div class="home-vid-col">
             <div class="sec">
               <div class="home-box">${firstVid
-                ?`<div class="vid-wrap"><span class="vid-new" style="--nv:${newVideoColor()}">New video</span>
-                  <div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div></div>
-                  ${_videos.length>1?`<div class="vid-strip">
+                ?`<div class="vid-scroll">
+                    <div class="vid-wrap"><span class="vid-new" style="--nv:${newVideoColor()}">New video</span>
+                      <div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div></div>
                     ${_videos.slice(1,3).map(v=>`<button class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></button>`).join('')}
                     <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
                       <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>
-                  </div>`:''}`
+                  </div>`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
             </div>
