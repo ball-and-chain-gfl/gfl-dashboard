@@ -514,7 +514,8 @@ function switchTab(name){
     setLHView(_lhView);
   }
   const h1=document.getElementById('page-h1');
-  if(h1) h1.textContent=TAB_LABELS[name]||'';
+  /* the label lives in a span so the gradient sizes to the text, not the rule */
+  if(h1){ const s=h1.querySelector('span')||h1; s.textContent=TAB_LABELS[name]||''; }
   updateTabDD(name);
   scrollNavToActive();
 }

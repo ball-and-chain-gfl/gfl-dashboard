@@ -161,7 +161,7 @@
     .pin-box p{font-size:13px;color:var(--text3);margin-bottom:20px;}
     .pin-input{width:100%;background:#222;color:var(--text);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:11px 14px;font-size:18px;text-align:center;letter-spacing:8px;margin-bottom:10px;}
     .pin-input:focus{outline:none;border-color:var(--accent);}
-    .pin-submit{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -1px 0 rgba(0,0,0,0.35);}
+    .pin-submit{width:100%;background:var(--grad);color:#000;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -1px 0 rgba(0,0,0,0.35);}
     .pin-submit:active{box-shadow:inset 0 2px 2px rgba(0,0,0,0.35);}
     .pin-submit:hover{background:var(--accent2);}
     .pin-error{font-size:12px;color:var(--red);margin-top:6px;min-height:18px;}
@@ -379,7 +379,7 @@
     .mv-bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.07);}
     html[data-theme="light"] .mv-bar{background:rgba(0,0,0,0.08);}
     .mv-fill{height:100%;transition:width .35s cubic-bezier(.2,.7,.2,1);}
-    .mv-fill.a{background:var(--accent);}
+    .mv-fill.a{background:var(--grad);}
     .mv-fill.b{background:color-mix(in srgb,var(--accent) 38%,transparent);}
     .mv-pcts{display:flex;justify-content:space-between;font-family:'Inter',sans-serif;
       font-size:11px;font-weight:700;color:var(--text2);margin-top:6px;}
@@ -468,7 +468,7 @@
     .punish-opt i{color:var(--text3);width:20px;text-align:center;}
     .punish-opt.active{border-color:var(--accent);background:rgba(var(--accent-rgb),0.1);}
     .punish-opt.active i{color:var(--accent);}
-    .punish-tag{margin-left:auto;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;background:var(--accent);color:#0b0b0b;border-radius:999px;padding:2px 8px;}
+    .punish-tag{margin-left:auto;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;background:var(--grad);color:#0b0b0b;border-radius:999px;padding:2px 8px;}
 
 .pname{display:inline-flex;align-items:center;gap:7px;min-width:0;}
     .pname>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -498,7 +498,7 @@
     .lineup-slot{position:relative;background:linear-gradient(165deg,rgba(255,255,255,0.06),rgba(255,255,255,0.012));border:1px solid var(--border);border-radius:6px;padding:14px;text-align:center;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);}
     html[data-theme="light"] .lineup-slot{background:var(--bg2);}
     .lineup-slot.empty{opacity:.55;}
-    .lineup-pos{display:inline-block;font-family:'Inter',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;color:#0b0b0b;background:var(--accent);border-radius:999px;padding:2px 12px;margin-bottom:9px;}
+    .lineup-pos{display:inline-block;font-family:'Inter',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;color:#0b0b0b;background:var(--grad);border-radius:999px;padding:2px 12px;margin-bottom:9px;}
     .lineup-name{font-family:'Google Sans Flex',serif;font-weight:600;font-size:15px;line-height:1.2;}
     .lineup-stat{font-size:12px;color:var(--text3);margin-top:4px;}
     @media(max-width:900px){.lineup-grid{grid-template-columns:repeat(2,1fr);}}
@@ -781,7 +781,7 @@
       padding-bottom:env(safe-area-inset-bottom,0px);}
     .b4r-title{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:0 14px;
       font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
-      color:#0d0d0f;background:var(--accent);}
+      color:#0d0d0f;background:var(--grad);}
     .b4r-mask{flex:1 1 auto;overflow:hidden;position:relative;cursor:grab;touch-action:pan-y;
       mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);
       -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);}
@@ -809,7 +809,7 @@
       --bg:#f7f6f3;--bg2:#f7f8ec;--bg3:#eceae5;
       --border:rgba(0,0,0,0.1);
       --text:#1c1a17;--text2:#4c4741;--text3:#8b857c;
-      --accent:#b26a00;--accent2:#8f5400;--accent-rgb:178,106,0;
+      --accent:#b26a00;--accent2:#b29000;--accent-rgb:178,106,0;   /* amber 36° → gold 48° */
       --green:#158443;--red:#d43d57;--blue:#2563eb;--purple:#7c3aed;
       --btn-edge:inset 0 1px 0 #e3e3e3,inset 1px 0 0 #e3e3e3,inset -1px 0 0 #e3e3e3,inset 0 -1px 0 #b5b5b5;
       --btn-edge-hover:inset 0 1px 0 #d8d8d8,inset 1px 0 0 #d8d8d8,inset -1px 0 0 #d8d8d8,inset 0 -1px 0 #a8a8a8;
@@ -978,21 +978,31 @@
     html[data-theme="light"] .tab-btn.active i{color:color-mix(in srgb,var(--tc,var(--accent)) 72%,#000)!important;}
     html[data-theme="light"] .tab-btn i{color:color-mix(in srgb,var(--tc,var(--accent)) 70%,#000);}
 
-    /* Active tab's color becomes the page accent (dark mode) */
-    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#c99a5c;--accent-rgb:224,182,123;}
-    html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#2fa860;--accent-rgb:63,208,122;}
-    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#22d3ee;--accent2:#12aac2;--accent-rgb:34,211,238;}
-    html[data-theme="dark"][data-tabaccent=standings]{--accent:#5aa9ff;--accent2:#3d87d6;--accent-rgb:90,169,255;}
-    html[data-theme="dark"][data-tabaccent=trades]{--accent:#3fd07a;--accent2:#2fa860;--accent-rgb:63,208,122;}
-    html[data-theme="dark"][data-tabaccent=draft]{--accent:#b58cff;--accent2:#9169d6;--accent-rgb:181,140,255;}
-    html[data-theme="dark"][data-tabaccent=history]{--accent:#33d6c4;--accent2:#21ac9d;--accent-rgb:51,214,196;}
-    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#ff6f9c;--accent2:#d64f7c;--accent-rgb:255,111,156;}
-    html[data-theme="dark"][data-tabaccent=teams]{--accent:#ff8f5a;--accent2:#d66f3f;--accent-rgb:255,143,90;}
-    html[data-theme="dark"][data-tabaccent=legacy]{--accent:#f4c04d;--accent2:#cc9c33;--accent-rgb:244,192,77;}
-    html[data-theme="dark"][data-tabaccent=punishment]{--accent:#ff5f5f;--accent2:#d63f3f;--accent-rgb:255,95,95;}
-    html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e879f9;--accent2:#c057d6;--accent-rgb:232,121,249;}
-    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#a3e635;--accent2:#82bb22;--accent-rgb:163,230,53;}
-    html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#12aac2;--accent-rgb:34,211,238;}
+    /* ── Per-tab colour: one primary, one analogous secondary ────────────────
+       --accent  primary. This alone drives the nav: the dropdown, the mobile
+                 drawer and the tab buttons never use the secondary, so the menu
+                 stays a flat single colour per tab.
+       --accent2 secondary. Always within ~40° of the primary on the colour
+                 wheel — adjacent, never complementary — so the pair reads as
+                 one hue shifting rather than two colours fighting.
+       --grad    the pair as a gradient. Everything on the PAGE that used to be
+                 a flat accent fill (page title, meters, pills, primary
+                 buttons) paints with this instead. */
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}      /* gold 33° → wheat 50° */
+    html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}       /* green 145° → emerald 165° */
+    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#22d3ee;--accent2:#22a6ee;--accent-rgb:34,211,238;}   /* cyan 187° → sky 205° */
+    html[data-theme="dark"][data-tabaccent=standings]{--accent:#5aa9ff;--accent2:#8f8aff;--accent-rgb:90,169,255;}  /* blue 212° → indigo 242° */
+    html[data-theme="dark"][data-tabaccent=trades]{--accent:#3fd07a;--accent2:#62d04a;--accent-rgb:63,208,122;}     /* green 145° → lime 105° */
+    html[data-theme="dark"][data-tabaccent=draft]{--accent:#b58cff;--accent2:#8c9cff;--accent-rgb:181,140,255;}     /* purple 262° → periwinkle 232° */
+    html[data-theme="dark"][data-tabaccent=history]{--accent:#33d6c4;--accent2:#33b0d6;--accent-rgb:51,214,196;}    /* teal 172° → cyan 193° */
+    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#ff6f9c;--accent2:#ff6fd4;--accent-rgb:255,111,156;}    /* pink 340° → fuchsia 318° */
+    html[data-theme="dark"][data-tabaccent=teams]{--accent:#ff8f5a;--accent2:#ffbf5a;--accent-rgb:255,143,90;}      /* orange 20° → amber 40° */
+    html[data-theme="dark"][data-tabaccent=legacy]{--accent:#f4c04d;--accent2:#f49a4d;--accent-rgb:244,192,77;}     /* yellow 42° → orange 25° */
+    html[data-theme="dark"][data-tabaccent=punishment]{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;}  /* red 0° → orange 20° */
+    html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e879f9;--accent2:#b579f9;--accent-rgb:232,121,249;}   /* magenta 292° → violet 268° */
+    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#a3e635;--accent2:#d3e635;--accent-rgb:163,230,53;}       /* lime 82° → yellow-lime 66° */
+    html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#22eec9;--accent-rgb:34,211,238;}   /* cyan 187° → aqua 167° */
+    :root{--grad:linear-gradient(135deg,var(--accent),var(--accent2));}
 
     /* ── TEXTURED "TECH PREMIUM" BACKGROUND (dark) ──────────────────────────
        Deep base + faint blueprint mesh + an accent-tinted top glow that shifts
@@ -1765,7 +1775,7 @@
     .si-i{width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
       color:var(--text);font-size:14px;font-family:inherit;margin-bottom:12px;box-sizing:border-box;}
     .si-i:focus{outline:2px solid rgba(var(--accent-rgb),0.5);outline-offset:1px;}
-    .si-go{width:100%;background:rgb(var(--accent-rgb));color:#0d0d0f;border:none;border-radius:8px;padding:11px;
+    .si-go{width:100%;background:var(--grad);color:#0d0d0f;border:none;border-radius:8px;padding:11px;
       font-family:'Inter',sans-serif;font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;}
     .si-note{margin-top:11px;font-size:11.5px;line-height:1.5;color:var(--text3);}
     .si-msg{margin-top:10px;font-size:12px;color:var(--text2);min-height:16px;}
@@ -2407,6 +2417,11 @@
     .page-h1{font-family:"roca",sans-serif;font-size:34px;font-weight:800;line-height:1.05;
       letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;padding-bottom:0;
       border-bottom:1px solid rgba(var(--accent-rgb),0.45);}
+    /* The gradient goes on an inline span, not the h1: the h1 stays full width
+       so its rule still spans the column, while the gradient box hugs the text
+       and both colours actually show. `color` on the h1 is the fallback. */
+    .page-h1>span{background:var(--grad);-webkit-background-clip:text;background-clip:text;
+      -webkit-text-fill-color:transparent;}
     @media(max-width:768px){
       .page-h1{font-size:34px;margin:0 0 16px;padding-bottom:0;letter-spacing:-0.2px;}
     }
@@ -2466,9 +2481,15 @@
        Overriding --accent/--accent-rgb on the module wrapper is enough: every
        icon, border, bar and CTA inside already reads those two properties.
        Media and Matchup of the Week inherit the page's gold, unchanged. */
-    #page-home .mod-punish{--accent:#ff5f5f;--accent-rgb:255,95,95;}
-    #page-home .mod-cm{--accent:#5aa9ff;--accent-rgb:90,169,255;}
-    #page-home .motw-book{--accent:#3fd07a;--accent-rgb:63,208,122;}
+    /* --grad is redeclared alongside each override: it is substituted at the
+       element that declares it, so a module changing only --accent would
+       otherwise keep painting the page's gradient. */
+    #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    #page-home .mod-cm{--accent:#5aa9ff;--accent2:#8f8aff;--accent-rgb:90,169,255;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    #page-home .motw-book{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .home-punish-more{color:var(--accent);border-color:rgba(var(--accent-rgb),0.4);}
     #page-home .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}
 
@@ -2485,7 +2506,8 @@
     #page-home .mod-punish.wm::before,#page-home .mod-punish.wm::after{opacity:0.05;}
   
     /* ── Punishment rules popup (the retired tab, as a modal) ─────────────── */
-    #punish-overlay{--accent:#ff5f5f;--accent-rgb:255,95,95;}
+    #punish-overlay{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     .pr-hero{display:flex;align-items:center;gap:14px;}
     .pr-ic{width:52px;height:52px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;
       border-radius:10px;border:1px solid rgba(var(--accent-rgb),0.45);color:var(--accent);font-size:24px;}
@@ -2620,7 +2642,7 @@
   <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')" style="display:none"><i class="fa fa-person-running"></i>Marathons Ran</button>
 </nav>
 
-<main><h1 id="page-h1" class="page-h1">Home</h1>
+<main><h1 id="page-h1" class="page-h1"><span>Home</span></h1>
 <div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>
 <footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 
