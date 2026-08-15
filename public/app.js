@@ -523,6 +523,7 @@ function switchTab(name){
   /* the label lives in a span so the gradient sizes to the text, not the rule */
   if(h1){ const s=h1.querySelector('span')||h1; s.textContent=TAB_LABELS[name]||''; }
   buildSectionNav(name);
+  watchSectionNav(name);
   updateTabDD(name);
   scrollNavToActive();
 }
@@ -3540,6 +3541,22 @@ function newVideoColor(){
    assigned on the fly and scrolling is offset for the fixed nav capsule. */
 const sectionHeadsIn=page=>[...page.querySelectorAll('.sec-head, .section-header, .lh-sec-head')]
   .filter(h=>h.offsetParent!==null && !h.closest('.modal') && h.textContent.trim());
+/* Most tabs render their sections only once their data arrives, so a nav built
+   at switch time sees an empty page — Team Profiles came up with no chips at
+   all on a cold load. Watching the page and rebuilding when it changes covers
+   every tab without each render function having to remember to call back.
+   #sec-nav sits outside the page, so rebuilding cannot retrigger this. */
+let _secNavObs=null,_secNavTimer=null;
+function watchSectionNav(tab){
+  if(_secNavObs){ _secNavObs.disconnect(); _secNavObs=null; }
+  clearTimeout(_secNavTimer);
+  const page=document.getElementById('page-'+tab); if(!page) return;
+  _secNavObs=new MutationObserver(()=>{
+    clearTimeout(_secNavTimer);
+    _secNavTimer=setTimeout(()=>{ if(_activeTab===tab) buildSectionNav(tab); },200);
+  });
+  _secNavObs.observe(page,{childList:true,subtree:true});
+}
 function buildSectionNav(tab){
   const bar=document.getElementById('sec-nav'); if(!bar) return;
   const page=document.getElementById('page-'+tab);
