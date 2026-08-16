@@ -418,21 +418,29 @@
     html{scroll-behavior:smooth;}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
 
-    /* ── Balls Big 4 (homepage section) ───────────────────────────────────── */
-    .b4-row{display:flex;align-items:center;gap:11px;padding:9px 2px;cursor:pointer;
-      border-bottom:1px solid rgba(255,255,255,0.055);}
-    html[data-theme="light"] .b4-row{border-bottom-color:rgba(0,0,0,0.07);}
-    .b4-row:last-child{border-bottom:none;}
-    .b4-row:hover{background:rgba(255,255,255,0.03);}
-    .b4-num{font-family:'Inter',sans-serif;font-size:12px;font-weight:800;color:var(--accent);
-      min-width:14px;flex:0 0 auto;}
-    .b4-row .tm-avatar{width:30px!important;height:30px!important;flex:0 0 30px!important;border-radius:7px!important;}
-    .b4-info{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto;}
-    .b4-name{font-family:'Google Sans Flex',Georgia,serif;font-size:13.5px;font-weight:600;
+    /* ── Balls Big 4: 2x2, display only ───────────────────────────────────── */
+    #big4-body{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .b4-cell{border:1px solid var(--border);border-radius:9px;padding:11px 12px;min-width:0;
+      display:flex;flex-direction:column;gap:7px;}
+    .b4-top{display:flex;align-items:center;gap:7px;min-width:0;}
+    .b4-num{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;color:var(--accent);flex:0 0 auto;}
+    .b4-nick{font-family:'Inter',sans-serif;font-size:9px;font-weight:600;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);min-width:0;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap;}
+    .b4-mid{display:flex;align-items:center;gap:8px;min-width:0;}
+    .b4-cell .tm-avatar{width:28px!important;height:28px!important;flex:0 0 28px!important;border-radius:7px!important;}
+    .b4-name{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;min-width:0;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .b4-nick{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.6px;
-      text-transform:uppercase;color:var(--text3);}
-    .b4-rec{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text2);flex:0 0 auto;}
+    .b4-rec{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text2);}
+
+    /* Latest message: its own raised card, no heading — same as the punishment */
+    html[data-theme] #page-home .home-box.msg-box{
+      background:none!important;border:1px solid rgba(var(--accent-rgb),0.55)!important;
+      border-radius:10px!important;padding:14px 16px!important;
+      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05)!important;}
+    html[data-theme="light"] #page-home .home-box.msg-box{
+      box-shadow:0 10px 24px -16px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.10),inset 0 1px 0 #fff!important;}
 
     /* ── Latest message (homepage section) ────────────────────────────────── */
     .hm-msg{display:flex;align-items:flex-start;gap:11px;cursor:pointer;}
@@ -491,19 +499,23 @@
     .sec-nav[hidden]{display:none;}
     /* inline variant sits under a filter row, not under the title rule */
     .sec-nav-local{margin:0 0 18px;}
-    .sx-chip{background:rgba(var(--accent-rgb),0.09);border:1px solid rgba(var(--accent-rgb),0.30);
-      border-radius:999px;padding:5px 12px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
-      letter-spacing:.3px;color:var(--accent);cursor:pointer;text-align:center;min-width:0;
+    /* Legibility over decoration: the label is near-white rather than the tab
+       accent, which on the darker palettes was too low-contrast to read at this
+       size. The accent stays as tint and outline so the chips still carry the
+       tab's identity. Same footprint, a shade larger and heavier. */
+    .sx-chip{background:rgba(var(--accent-rgb),0.15);border:1px solid rgba(var(--accent-rgb),0.42);
+      border-radius:999px;padding:6px 11px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
+      letter-spacing:.2px;color:var(--text);cursor:pointer;text-align:center;min-width:0;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
       transition:background .14s,border-color .14s,transform .07s;}
-    .sx-chip:hover{background:rgba(var(--accent-rgb),0.18);border-color:rgba(var(--accent-rgb),0.55);}
+    .sx-chip:hover{background:rgba(var(--accent-rgb),0.26);border-color:rgb(var(--accent-rgb));}
     .sx-chip:active{transform:translateY(1px);}
-    html[data-theme="light"] .sx-chip{color:color-mix(in srgb,var(--accent) 70%,#000);}
+    html[data-theme="light"] .sx-chip{color:#1c1a17;background:rgba(var(--accent-rgb),0.22);
+      border-color:rgba(var(--accent-rgb),0.55);}
     @media(max-width:768px){
-      .sec-nav{gap:6px;margin:-4px 0 20px;overflow-x:auto;flex-wrap:nowrap;
-        -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px;}
-      .sec-nav::-webkit-scrollbar{display:none;}
-      .sx-chip{font-size:10.5px;padding:5px 11px;}
+      /* grid, not the old scrolling row — the chips must all fit */
+      .sec-nav{gap:6px;margin:-4px 0 20px;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));}
+      .sx-chip{font-size:11.5px;padding:6px 8px;letter-spacing:.1px;}
     }
 
     /* ── Bad Beat column key ──────────────────────────────────────────────── */
@@ -3126,6 +3138,8 @@
     /* --grad is redeclared alongside each override: it is substituted at the
        element that declares it, so a module changing only --accent would
        otherwise keep painting the page's gradient. */
+    #page-home .mod-msg{--accent:#5CE8B3;--accent2:#5DE883;--accent-rgb:92,232,179;}
+    #page-home .mod-big4{--accent:#E8C656;--accent2:#E8B456;--accent-rgb:232,198,86;}
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .mod-cm{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;

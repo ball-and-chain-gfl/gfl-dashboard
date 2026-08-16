@@ -992,11 +992,10 @@ function renderBig4(){
   const picked=BIG4.map(resolveBig4Entry).map((t,i)=>({t,nick:BIG4_LABELS[i]||'Featured'})).filter(x=>x.t);
   if(!picked.length){ box.innerHTML='<div class="lr-none">No Big 4 picks set — edit <b>config.js</b>.</div>'; return; }
   box.innerHTML=picked.map(({t,nick},i)=>`
-    <div class="b4-row" onclick="_profileTeam='${t.id}';switchTab('teams')" role="button" tabindex="0">
-      <span class="b4-num">${i+1}</span>
-      ${logoImg(t.id,'b4-logo')}
-      <span class="b4-info"><span class="b4-name">${t.name}</span><span class="b4-nick">${nick}</span></span>
-      <span class="b4-rec">${t.wins}–${t.losses}</span>
+    <div class="b4-cell">
+      <div class="b4-top"><span class="b4-num">${i+1}</span><span class="b4-nick">${nick}</span></div>
+      <div class="b4-mid">${logoImg(t.id,'b4-logo')}<span class="b4-name">${t.name}</span></div>
+      <div class="b4-rec">${t.wins}–${t.losses}</div>
     </div>`).join('');
 }
 /* JS marquee: always running, draggable left/right, resumes the moment you let go */
@@ -5761,29 +5760,9 @@ async function loadDashboard(){
             </div>
           </div>
         </div>
-        <!-- Row 2: Coaching Metric (left) + [Big4 top, Headlines bottom] (right) -->
+        <!-- Coaching Metric moved to Advanced Stats, where it now heads its own
+             view alongside the three ROI breakdowns. -->
         <div class="home-bottom">
-          <div class="sec wm mod-cm" data-wm="&#xf5dc;">
-            <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric</div>
-            <div class="home-box home-cm">${_cmMode==='none'
-              ?`<div class="tab-loading" style="padding:40px 20px">No coaching metric data available for the ${season} season.</div>`
-              :(()=>{
-                const cmMax=Math.max(1,...Object.values(_scores).map(v=>Math.abs(v||0)));
-                const cmBar=v=>Math.min(100,Math.max(0,((v/cmMax)+1)/2*100)).toFixed(1);
-                const cmCol=v=>v>cmMax*0.15?'var(--green)':v<-cmMax*0.15?'var(--red)':'var(--text2)';
-                return cmRanked.map((t,i)=>{
-                  const s=_scores[t.id]||0;
-                  return`<div class="coaching-row" onclick="openCMModal(${t.id})">
-                    <div class="coaching-rank">${i===0?'🥇':i+1}</div>
-                    ${logoImg(t.id)}
-                    <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
-                    <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${cmBar(s)}%;background:${cmCol(s)}"></div></div>
-                    <div class="coaching-score" style="color:${cmCol(s)}">${s.toFixed(2)}</div>
-                    <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
-                  </div>`;
-                }).join('');
-              })()}</div>
-          </div>
           <div class="home-right">
             <!-- Matchup Headlines: hidden for now -->
             <div class="sec wm" data-wm="&#xf1ea;" style="display:none">
@@ -5796,9 +5775,9 @@ async function loadDashboard(){
           <div class="sec-head"><i class="fa fa-star"></i>Balls Big 4</div>
           <div class="home-box" id="big4-body"></div>
         </div>
+        <!-- no heading: the card speaks for itself, like the punishment box -->
         <div class="sec wm mod-msg" data-wm="&#xf086;">
-          <div class="sec-head"><i class="fa fa-comments"></i>Latest Message</div>
-          <div class="home-box" id="home-msg"></div>
+          <div class="home-box msg-box" id="home-msg"></div>
         </div>
         <!-- Row 3: the live board sits last, under everything else -->
         <div class="sec wm mod-live" data-wm="&#xf0e7;">
