@@ -1286,7 +1286,7 @@ function renderC2Breakdown(){
   const rows=[..._teams].map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail)
     .sort((a,b)=>(b.bd.c2||0)-(a.bd.c2||0));
   if(!rows.length){el.innerHTML=`<div class="tab-loading">No trades found for this season.</div>`;return;}
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6">${cmSourceNote()}<br><b>C2 = Σ(points scored by players received after each trade − points scored by players sent) ÷ 10.</b> Points count from the week after the trade onward.</div>`+
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the week after each trade.</div>`+
   rows.map(({t,bd})=>{
     const d=bd.detail||{};
     const recv=(d.tradesReceived||[]);
@@ -1318,7 +1318,7 @@ function renderC3Breakdown(){
   const d=bd.detail||{};
   const picks=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1));
   el.innerHTML=`
-    <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6">${cmSourceNote()}<br><b>C3 = Σ(lineup points a pickup scored ÷ bid margin) ÷ 10</b>, where bid margin = winning FAAB bid − next-highest bid (full bid when uncontested). Bids are estimated for reconstructed seasons.</div>
+    <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C3</b> = lineup points each waiver pickup scored, divided by what it cost to win the bid.</div>
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c3-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
       <select id="c3-team-select" onchange="_c3Team=this.value;renderC3Breakdown()">${opts}</select>
@@ -1373,7 +1373,7 @@ function renderLineupIQ(){
   const sh=(c,label,cls)=>`<span class="${cls||''} liq-sort${_liqSort.col===c?' sorted':''}" onclick="sortLIQ('${c}')">${label} <span class="liq-arw">${arr(c)}</span></span>`;
   if(!rows.length){ el.innerHTML=`<div class="tab-loading">No weekly roster data for the ${season} season.</div>`; return; }
   const worst=Math.max(...rows.map(r=>r.d.missed))||1;
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, regular season only (${data._weeks||rows[0].d.weeks} weeks). A starting spot only counts as a decision when another eligible player was on the roster that week — one kicker is not a choice. RB, WR and TE all count as FLEX-eligible. Byes, IR and players who never took the field are ignored. <b>Missed points</b> = what a perfect lineup would have scored, minus what was actually started.</div>
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, with <b>Missed points</b> the difference in score.</div>
   <div class="liq-list">
     <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}</div>
     ${rows.map((r,i)=>`<div class="liq-row">
@@ -2108,7 +2108,7 @@ function renderDraftTab(){
 const DRAFT_VIEWS={
   year:   {grp:'year',  all:false, tab:'Draft Rankings', icon:'fa-ranking-star', col:'var(--accent)',
            title:s=>`Draft Rankings · ${s}`, badge:'vs league average',
-           note:'Draft Score = each team’s summed positional Δ (draft rank − finish rank per position) minus the league average. Higher means they drafted better than the field.'},
+           note:'Draft Score is each team’s summed positional Δ against the league average, so higher means they drafted better than the field.'},
   ysteals:{grp:'picks', all:false, tab:'Biggest Steals', icon:'fa-gem', col:'var(--green)',
            title:s=>`Biggest Steals · ${s}`, badge:'beat draft slot',
            note:'Steals are the picks that finished far higher at their position than where they were drafted.'},
@@ -2117,10 +2117,10 @@ const DRAFT_VIEWS={
            note:'Busts are early picks (first six rounds) that finished well below their draft slot at their position.'},
   best:   {grp:'drafts',all:true,  tab:'Best Drafts', icon:'fa-trophy', col:'var(--green)',
            title:()=>'Best Drafts Ever', badge:'positional Δ',
-           note:'Best Drafts Ever ranks every team-season by its raw draft score — positional Δ (position draft rank − position finish rank) summed across every pick.'},
+           note:'Every team-season ranked by raw draft score.'},
   worst:  {grp:'drafts',all:true,  tab:'Worst Drafts', icon:'fa-fire', col:'var(--red)',
            title:()=>'Worst Drafts Ever', badge:'positional Δ',
-           note:'Worst Drafts Ever ranks every team-season by its raw draft score — positional Δ (position draft rank − position finish rank) summed across every pick.'},
+           note:'Every team-season ranked by raw draft score.'},
   steals: {grp:'picks', all:true,  tab:'Biggest Steals', icon:'fa-gem', col:'var(--green)',
            title:()=>'Biggest Steals Ever', badge:'beat draft slot',
            note:'Every pick from every season, ranked by how far it beat its draft slot at its position.'},
@@ -2506,7 +2506,7 @@ function renderLeagueHistory(){
         ${champsHTML}</div>
       <div id="lh-conf" ${_lhView==='conf'?'':'style="display:none"'}>
         ${head('fa-star','Conference Championships')}
-        <div class="lh-note">Conference winners are decided on record at the end of each season's regular season (week ${regEndOf(seasons[0])} in ${seasons[0]}), points for as the tiebreak.</div>
+        <div class="lh-note">Conference winners are decided on regular-season record, with points for as the tiebreak.</div>
         ${confHTML}</div>
       <div id="lh-sups" ${_lhView==='sups'?'':'style="display:none"'}>
         ${head('fa-award','Season Superlatives')}
@@ -4793,7 +4793,7 @@ function renderSchedule(){
       </div>
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
     ${playoffOutlookHTML()}
-    <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with — season-weighted record, scoring, points against and playoff history. Line is the projected margin; odds include the book's usual hold.</div>`;
+    <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
 }
 /* ── RIVALS ──────────────────────────────────────────────────────────────────
    A manager's rivals are whoever they played in weeks 12, 13 and 14 of 2025.
