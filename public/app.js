@@ -15,8 +15,6 @@ const YT_CHANNEL_ID='UCUoUwKYMkspanOjX5_6d5-Q';   // Ball & Chain Media (matches
    BALLS BIG 4  —  EDIT IN config.js (loaded before this file), NOT here.
 ─────────────────────────────────────────────────────────────────────────────── */
 const _CFG = (typeof window!=='undefined' && window.GFL_CONFIG) ? window.GFL_CONFIG : {};
-const BIG4 = Array.isArray(_CFG.big4) ? _CFG.big4 : ['','','',''];
-const BIG4_LABELS = Array.isArray(_CFG.labels) ? _CFG.labels : ['#1 Pick','Dark Horse','Sleeper','Wild Card'];
 
 let _teams=[],_scores={},_breakdown={},_sortCol='pf',_sortAsc=false;
 let _videos=[],_activeVideoId=null;
@@ -512,7 +510,7 @@ function switchTab(name){
   if(name==='profile') renderMyProfile();
   if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
-  if(name==='home'){ liveStart(); renderBig4(); renderHomeMessage(); wireVidRail(); } else liveStop();   // the live board lives on the homepage
+  if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); } else liveStop();   // the live board lives on the homepage
   if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -976,68 +974,6 @@ function closeCMModal(e){if(e.target===document.getElementById('cm-overlay'))clo
 function closeCMModalDirect(){document.getElementById('cm-overlay').classList.remove('open');}
 
 // ── BIG 4 ──────────────────────────────────────────────────────────────────────
-function resolveBig4Entry(entry){
-  if(entry==null||entry==='') return null;
-  if(typeof entry==='number') return _teams.find(t=>t.id===entry)||null;
-  const q=String(entry).trim().toLowerCase();
-  if(/^\d+$/.test(q)) {const byId=_teams.find(t=>t.id===Number(q)); if(byId) return byId;}
-  return _teams.find(t=>(t.name||'').toLowerCase()===q)
-      || _teams.find(t=>(t.name||'').toLowerCase().includes(q))
-      || null;
-}
-/* Big 4 is a homepage section now rather than the fixed reel that used to ride
-   along the bottom of the screen. */
-function renderBig4(){
-  const box=document.getElementById('big4-body'); if(!box) return;
-  const picked=BIG4.map(resolveBig4Entry).map((t,i)=>({t,nick:BIG4_LABELS[i]||'Featured'})).filter(x=>x.t);
-  if(!picked.length){ box.innerHTML='<div class="lr-none">No Big 4 picks set — edit <b>config.js</b>.</div>'; return; }
-  box.innerHTML=picked.map(({t,nick},i)=>`
-    <div class="b4-cell">
-      <div class="b4-top"><span class="b4-num">${i+1}</span><span class="b4-nick">${nick}</span></div>
-      <div class="b4-mid">${logoImg(t.id,'b4-logo')}<span class="b4-name">${t.name}</span></div>
-      <div class="b4-rec">${t.wins}–${t.losses}</div>
-    </div>`).join('');
-}
-/* JS marquee: always running, draggable left/right, resumes the moment you let go */
-let _b4rRAF=null,_b4rX=0,_b4rLast=0,_b4rDrag=false,_b4rSeen=0;
-function b4rWrap(){ const t=document.getElementById('big4-reel-track'); if(!t) return;
-  const w=t.scrollWidth/2||1; while(_b4rX<=-w) _b4rX+=w; while(_b4rX>0) _b4rX-=w; }
-function b4rDraw(){ const t=document.getElementById('big4-reel-track'); if(t) t.style.transform=`translate3d(${_b4rX}px,0,0)`; }
-function b4rTick(dt){ if(_b4rDrag) return; _b4rX-=dt*0.032; b4rWrap(); b4rDraw(); }   /* ~32px per second */
-function startBig4Reel(){
-  const mask=document.getElementById('big4-reel-mask'), track=document.getElementById('big4-reel-track');
-  if(!mask||!track) return;
-  if(_b4rRAF) cancelAnimationFrame(_b4rRAF);
-  const wrap=b4rWrap, draw=b4rDraw;
-  const step=ts=>{
-    if(!_b4rLast) _b4rLast=ts;
-    const dt=Math.min(64,ts-_b4rLast); _b4rLast=ts; _b4rSeen=Date.now();
-    if(!document.hidden) b4rTick(dt);
-    _b4rRAF=requestAnimationFrame(step);
-  };
-  _b4rRAF=requestAnimationFrame(step);
-  /* if the browser starves rAF (low power, throttling) keep the reel moving anyway */
-  if(!window._b4rWatch) window._b4rWatch=setInterval(()=>{
-    if(document.hidden||_b4rDrag) return;
-    if(Date.now()-_b4rSeen>600){ b4rTick(400); }
-  },500);
-
-  if(mask.dataset.wired) return; mask.dataset.wired='1';
-  let sx=0,sX=0,moved=false;
-  const down=e=>{ _b4rDrag=true; moved=false; sx=(e.touches?e.touches[0].clientX:e.clientX); sX=_b4rX; mask.classList.add('dragging'); };
-  const move=e=>{ if(!_b4rDrag) return;
-    const x=(e.touches?e.touches[0].clientX:e.clientX), d=x-sx;
-    if(Math.abs(d)>4) moved=true;
-    _b4rX=sX+d; wrap(); draw(); };
-  const up=()=>{ if(!_b4rDrag) return; _b4rDrag=false; mask.classList.remove('dragging'); };   /* auto-scroll picks straight back up */
-  mask.addEventListener('pointerdown',down); mask.addEventListener('pointermove',move);
-  window.addEventListener('pointerup',up); window.addEventListener('pointercancel',up);
-  mask.addEventListener('touchstart',down,{passive:true}); mask.addEventListener('touchmove',move,{passive:true});
-  window.addEventListener('touchend',up); mask.addEventListener('click',e=>{ if(moved){e.preventDefault();e.stopPropagation();} },true);
-  document.addEventListener('visibilitychange',()=>{ _b4rLast=0; });
-}
-
-// ── HEADLINES ──────────────────────────────────────────────────────────────────
 function h2h(idA,idB){
   let wA=0,wB=0;
   _allMatchups.forEach(mu=>{
@@ -3687,7 +3623,6 @@ const SX_ABBR={
   'Biggest Enemies':'Enemies',
   'Draft Grades':'Grades',
   'GFL Overview':'Overview',
-  'Balls Big 4':'Big 4',
 };
 const sxShort=l=>SX_ABBR[l]||l;
 /* Choose an explicit column count so the last row is never a single orphan
@@ -4064,20 +3999,32 @@ function renderLiveMatchups(){
     const p=schedWinProb(rowOf(aOwner),rowOf(bOwner));
     const live=Math.min(0.99,Math.max(0.01,schedNormCdf(((a-b)*0.55+(p-0.5)*22)/18)));
     const started=a>0||b>0;
+    /* Scoreboard rows the way a sports app lays them out: one line per team,
+       logo and name left, score right, the leader in full white with a marker.
+       Everything else is secondary and sits underneath. */
+    const aId=aFirst?m.home.teamId:m.away.teamId, bId=aFirst?m.away.teamId:m.home.teamId;
+    const rec=id=>{const t=_teams.find(x=>x.id===id);return t?`${t.wins}-${t.losses}`:'';};
+    const row=(id,name,score,lead)=>`<div class="lv-row${lead?' lv-lead':''}">
+        ${logoImg(id,'lv-logo')}
+        <span class="lv-nm">${name}</span>
+        <span class="lv-rec">${rec(id)}</span>
+        <span class="lv-sc">${score.toFixed(1)}</span>
+        <span class="lv-mark">${lead?'<i class="fa fa-caret-left"></i>':''}</span>
+      </div>`;
     return `<div class="lv-card">
-      <div class="lv-teams">
-        <span class="lv-t">${logoImg(aFirst?m.home.teamId:m.away.teamId,'lv-logo')}<span class="lv-nm">${an}</span><span class="lv-sc${a>=b?' lv-up':''}">${a.toFixed(1)}</span></span>
-        <span class="lv-t lv-r"><span class="lv-sc${b>a?' lv-up':''}">${b.toFixed(1)}</span><span class="lv-nm">${bn}</span>${logoImg(aFirst?m.away.teamId:m.home.teamId,'lv-logo')}</span>
+      <div class="lv-status">${started?'<span class="lv-live">In progress</span>':'<span class="lv-pre">Not started</span>'}</div>
+      ${row(aId,an,a,started&&a>b)}
+      ${row(bId,bn,b,started&&b>a)}
+      <div class="lv-foot">
+        <div class="lv-oddsbar" title="${an} ${Math.round(live*100)}%">
+          <span class="lv-of a" style="width:${(live*100).toFixed(1)}%"></span>
+          <span class="lv-of b" style="width:${(100-live*100).toFixed(1)}%"></span>
+        </div>
+        <div class="lv-meta">
+          <span>${started?`${Math.round(live*100)}% win`:'&nbsp;'}</span>
+          <span>${arr.length>1?`lead ${Math.abs(biggest).toFixed(1)}`:'&nbsp;'}</span>
+        </div>
       </div>
-      <div class="lv-oddsbar" title="${an} ${Math.round(live*100)}%">
-        <span class="lv-of a" style="width:${(live*100).toFixed(1)}%"></span>
-        <span class="lv-of b" style="width:${(100-live*100).toFixed(1)}%"></span>
-      </div>
-      <div class="lv-meta">
-        <span>${started?`${Math.round(live*100)}% / ${100-Math.round(live*100)}%`:'not started'}</span>
-        <span>${arr.length>1?`biggest lead ${Math.abs(biggest).toFixed(1)}`:'&nbsp;'}</span>
-      </div>
-      ${liveSpark(arr)}
     </div>`;}).join('');
   const secs=Math.round(liveInterval()/1000);
   const hot=_liveSaved&&Date.now()-_liveSaved<LIVE_HOT_MS;
@@ -5854,10 +5801,6 @@ async function loadDashboard(){
             </div>
           </div>
         </div>
-        <div class="sec wm mod-big4" data-wm="&#xf091;">
-          <div class="sec-head"><i class="fa fa-star"></i>Balls Big 4</div>
-          <div class="home-box" id="big4-body"></div>
-        </div>
         <!-- no heading: the card speaks for itself, like the punishment box -->
         <div class="sec wm mod-msg" data-wm="&#xf086;">
           <div class="home-box msg-box" id="home-msg"></div>
@@ -6052,7 +5995,6 @@ async function loadDashboard(){
 
     refreshSeasonOptions();
     renderStandingsTable();
-    renderBig4();
     renderMatchupOfWeek();
     renderPunishment();
     /* the board is on the homepage, which is where the app opens — switchTab

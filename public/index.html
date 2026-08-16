@@ -418,20 +418,6 @@
     html{scroll-behavior:smooth;}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
 
-    /* ── Balls Big 4: 2x2, display only ───────────────────────────────────── */
-    #big4-body{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    .b4-cell{border:1px solid var(--border);border-radius:9px;padding:11px 12px;min-width:0;
-      display:flex;flex-direction:column;gap:7px;}
-    .b4-top{display:flex;align-items:center;gap:7px;min-width:0;}
-    .b4-num{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;color:var(--accent);flex:0 0 auto;}
-    .b4-nick{font-family:'Inter',sans-serif;font-size:9px;font-weight:600;letter-spacing:.6px;
-      text-transform:uppercase;color:var(--text3);min-width:0;overflow:hidden;
-      text-overflow:ellipsis;white-space:nowrap;}
-    .b4-mid{display:flex;align-items:center;gap:8px;min-width:0;}
-    .b4-cell .tm-avatar{width:28px!important;height:28px!important;flex:0 0 28px!important;border-radius:7px!important;}
-    .b4-name{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;min-width:0;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .b4-rec{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text2);}
 
     /* Latest message: its own raised card, no heading — same as the punishment */
     html[data-theme] #page-home .home-box.msg-box{
@@ -622,6 +608,27 @@
     #page-trades .trades-filters .filter-btn{padding:6px 7px!important;font-size:11px!important;
       line-height:1.2!important;border-radius:6px;}
     #page-trades .trades-filters select{padding:6px 22px 6px 9px!important;font-size:12px;}
+
+    /* ── Trade cards: condensed ───────────────────────────────────────────────
+       Tightened purely by spacing and type scale — every player name, team name
+       and label is still rendered in full, nothing is clipped or abbreviated.
+       The "received" label per side is dropped because the arrow between the
+       two columns already says which direction things moved. */
+    #page-trades .trade-head{padding:7px 12px!important;font-size:11.5px;gap:6px;}
+    #page-trades .trade-side{padding:9px 7px!important;}
+    #page-trades .trade-team{margin:0 0 6px!important;padding-bottom:6px!important;gap:7px;}
+    #page-trades .trade-team .tm-avatar{width:22px!important;height:22px!important;flex:0 0 22px!important;border-radius:5px!important;}
+    #page-trades .trade-team-name{font-size:12.5px;line-height:1.25;}
+    #page-trades .trade-recv{display:none;}
+    #page-trades .trade-player{padding:2px 0!important;gap:6px;font-size:12px;}
+    #page-trades .tp-name{font-size:12.5px;}
+    #page-trades .trade-player .phs{width:16px!important;height:16px!important;flex:0 0 16px!important;}
+    #page-trades .tp-pts{font-size:12.5px;}
+    #page-trades .trade-totals{padding:5px 12px 0!important;font-size:12px;}
+    #page-trades .trade-bar{height:7px!important;margin:4px 12px 4px!important;}
+    #page-trades .trade-bar-labels{padding:0 12px 9px!important;font-size:10.5px;}
+    #page-trades .trade-card{margin:0 0 11px!important;}
+    #page-trades .trade-vs{font-size:11px;}
 
     /* ── Raised cards ─────────────────────────────────────────────────────────
        The same lift the Legacy Report has, applied to the other standalone
@@ -1149,32 +1156,7 @@
 
     footer{text-align:center;color:var(--text3);padding:40px 20px;font-size:12px;}
     /* ── BALLS BIG 4 REEL (homepage only) ─────────────────────────────────── */
-    #big4-reel{display:none;}
-    html[data-tabaccent=home] #big4-reel{display:flex;align-items:stretch;position:fixed;left:0;right:0;bottom:0;z-index:180;
-      background:rgba(10,10,12,0.86);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
-      border-top:1px solid rgba(255,255,255,0.12);box-shadow:0 -10px 30px -18px rgba(0,0,0,0.95);
-      padding-bottom:env(safe-area-inset-bottom,0px);}
-    .b4r-title{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:0 14px;
-      font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
-      color:#0d0d0f;background:var(--grad);}
-    .b4r-mask{flex:1 1 auto;overflow:hidden;position:relative;cursor:grab;touch-action:pan-y;
-      mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);
-      -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);}
-    .b4r-mask.dragging{cursor:grabbing;}
-    .b4r-track{display:flex;align-items:center;gap:0;width:max-content;will-change:transform;user-select:none;}
-    .b4r-item{display:inline-flex;align-items:center;gap:8px;padding:9px 22px;white-space:nowrap;}
-    .b4r-num{font-family:'Inter',sans-serif;font-size:12px;font-weight:800;color:var(--accent);}
-    .b4r-nick{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;
-      color:var(--text3);}
-    .b4r-logo{width:20px;height:20px;border-radius:5px;object-fit:cover;flex:0 0 20px;}
-    .b4r-name{font-family:'Google Sans Flex',sans-serif;font-size:13px;font-weight:600;}
-    .b4r-rec{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text2);}
-    html[data-tabaccent=home] main{padding-bottom:96px;}
     @media(max-width:768px){
-      .b4r-item{padding:8px 15px;gap:7px;}
-      .b4r-name{font-size:12px;}
-      .b4r-title{padding:0 11px;font-size:10px;letter-spacing:.9px;}
-        html[data-tabaccent=home] main{padding-bottom:84px;}
     }
     }
 
@@ -1420,17 +1402,25 @@
     .lv-now:hover{border-color:var(--accent);color:var(--accent);}
     .lv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;}
     .lv-card{border:1px solid var(--border);border-radius:9px;padding:11px 12px;min-width:0;}
-    /* logo + name on the outside, both scores meeting in the middle */
-    /* six cells: logo · name · score | score · name · logo */
-    .lv-teams{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto minmax(0,1fr) auto;
-      align-items:center;gap:8px;margin-bottom:8px;}
-    .lv-t{display:contents;}
-    .lv-nm{font-family:'Google Sans Flex',Georgia,serif;font-size:12.5px;font-weight:600;
+    /* ── Live cards: sports-app scoreboard rows ──────────────────────────────
+       One line per team — logo, name, record, score — with the leader in full
+       white and a caret marker. Odds and lead sit underneath as secondary. */
+    .lv-status{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.8px;
+      text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+    .lv-live{color:#5DE883;} .lv-pre{color:var(--text3);}
+    .lv-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto 54px 10px;
+      align-items:center;gap:9px;padding:6px 0;}
+    .lv-row+.lv-row{border-top:1px solid rgba(255,255,255,0.06);}
+    html[data-theme="light"] .lv-row+.lv-row{border-top-color:rgba(0,0,0,0.07);}
+    .lv-row .tm-avatar{width:22px!important;height:22px!important;flex:0 0 22px!important;border-radius:5px!important;}
+    .lv-nm{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;color:var(--text2);
       min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .lv-sc{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text2);
-      text-align:center;min-width:46px;}
-    .lv-t.lv-r .lv-nm{text-align:right;}
-    .lv-sc.lv-up{color:var(--text);}
+    .lv-rec{font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text3);white-space:nowrap;}
+    .lv-sc{font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:var(--text3);text-align:right;}
+    .lv-mark{color:var(--accent);font-size:12px;}
+    .lv-lead .lv-nm{color:var(--text);font-weight:700;}
+    .lv-lead .lv-sc{color:var(--text);font-weight:800;}
+    .lv-foot{margin-top:9px;}
     .lv-oddsbar{display:flex;height:5px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.07);}
     .lv-of{height:100%;}
     .lv-of.a{background:#e8433f;} .lv-of.b{background:#5a89e8;}
@@ -1696,10 +1686,46 @@
     /* floats full width with the same inset on the sides as the top */
     #floatnav{position:fixed;top:14px;left:14px;right:14px;transform:none;z-index:400;
       display:flex;align-items:center;gap:10px;flex-wrap:nowrap;width:auto;
-      max-width:none;padding:8px 12px;border-radius:8px;
-      background:rgba(10,10,12,0.72);-webkit-backdrop-filter:blur(22px) saturate(1.25);
-      backdrop-filter:blur(22px) saturate(1.25);border:1px solid rgba(255,255,255,0.14);
-      box-shadow:0 18px 44px -22px rgba(0,0,0,0.95),inset 0 1px 0 rgba(255,255,255,0.07);}
+      max-width:none;padding:8px 12px;border-radius:10px;overflow:hidden;isolation:isolate;
+      /* Iridescent glass: a heavily blurred, over-saturated backdrop with a
+         soft spectral wash laid over it. The hues are low-alpha so the bar
+         still reads as glass rather than as a coloured panel. */
+      background:
+        linear-gradient(115deg,
+          rgba(255,120,180,0.13) 0%,
+          rgba(150,140,255,0.11) 22%,
+          rgba(90,200,255,0.10) 44%,
+          rgba(110,255,200,0.10) 64%,
+          rgba(255,220,130,0.11) 84%,
+          rgba(255,130,160,0.13) 100%),
+        rgba(12,12,16,0.62);
+      background-size:220% 100%,auto;
+      -webkit-backdrop-filter:blur(26px) saturate(1.9);
+      backdrop-filter:blur(26px) saturate(1.9);
+      border:1px solid rgba(255,255,255,0.16);
+      box-shadow:0 18px 44px -22px rgba(0,0,0,0.95),
+        inset 0 1px 0 rgba(255,255,255,0.16),
+        inset 0 -1px 0 rgba(255,255,255,0.05);
+      animation:navSheen 18s linear infinite;}
+    /* the sheen drifts so the iridescence shifts as you look at it */
+    @keyframes navSheen{from{background-position:0% 50%,0 0;}to{background-position:220% 50%,0 0;}}
+    @media(prefers-reduced-motion:reduce){#floatnav{animation:none;}}
+    /* a thin spectral edge along the top, the way real iridescent glass catches light */
+    #floatnav::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+      background:linear-gradient(180deg,rgba(255,255,255,0.10),transparent 42%);z-index:-1;}
+    html[data-theme="light"] #floatnav{
+      background:
+        linear-gradient(115deg,
+          rgba(255,120,180,0.16) 0%,
+          rgba(150,140,255,0.14) 22%,
+          rgba(90,200,255,0.13) 44%,
+          rgba(110,255,200,0.13) 64%,
+          rgba(255,220,130,0.14) 84%,
+          rgba(255,130,160,0.16) 100%),
+        rgba(255,255,255,0.66);
+      background-size:220% 100%,auto;
+      border-color:rgba(0,0,0,0.10);
+      box-shadow:0 18px 40px -24px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.9);}
     /* left group: logo + year · right group: menu + profile */
     /* explicit order so the two groups can't drift: logo, year | menu, profile */
     #floatnav .logo{position:static;flex:0 0 auto;margin:0;display:flex;align-items:center;order:0;}
@@ -2877,7 +2903,6 @@
     .vid-caret{font-size:10px;transition:transform .18s ease;}
     .vid-more[open] .vid-caret{transform:rotate(180deg);}
 
-    /* Balls Big 4: record / PF / CM aligned on the right of each card */
     .big4-stats{margin-left:auto;display:flex;gap:14px;align-items:center;flex:0 0 auto;}
     .b4s{text-align:right;}
     .b4s-l{display:block;font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:500;}
@@ -3146,7 +3171,6 @@
        element that declares it, so a module changing only --accent would
        otherwise keep painting the page's gradient. */
     /* mod-msg deliberately has no accent override: it inherits the page gold */
-    #page-home .mod-big4{--accent:#E8C656;--accent2:#E8B456;--accent-rgb:232,198,86;}
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .mod-cm{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;
@@ -3223,7 +3247,6 @@
 <div id="pgbg" aria-hidden="true"><video id="pgbg-video" muted loop playsinline preload="none"></video><div id="pgbg-image"></div><div id="pgbg-overlay"></div></div>
 <div class="bg-fx" aria-hidden="true"></div>
 <div id="nav-scrim" aria-hidden="true" onclick="toggleTabDD(false)"></div>
-<!-- Balls Big 4 news reel: homepage only, scrolls along the bottom -->
 <div id="si-modal" onclick="if(event.target===this)closeSignIn()">
   <div class="si-box">
     <div class="si-head"><i class="fa fa-key"></i>Two-key sign in<button class="si-x" onclick="closeSignIn()" aria-label="Close"><i class="fa fa-xmark"></i></button></div>
@@ -3237,7 +3260,6 @@
 <div class="pin-overlay" id="pin-overlay">
   <div class="pin-box">
     <h3>🔒 Commissioner Access</h3>
-    <p>Enter your PIN to edit the Balls Big 4</p>
     <input class="pin-input" id="pin-input" type="password" maxlength="6" placeholder="••••" inputmode="numeric"/>
     <div class="pin-error" id="pin-error"></div>
     <button class="pin-submit" onclick="submitPin()">Unlock</button>
@@ -3268,9 +3290,7 @@
 </div>
 
 <header id="floatnav">
-  <div class="logo" onclick="goHome()" title="Back to Home" role="button" tabindex="0">
-    <img src="/logo-mark.webp" alt="Ball &amp; Chain GFL" onerror="this.style.display='none'"/>
-  </div>
+  <!-- logo removed from the bar; the season picker leads now -->
   <select id="season-select" onchange="loadDashboard()">
     <option value="2025" selected>2025</option>
     <option value="2024">2024</option>
