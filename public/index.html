@@ -418,6 +418,66 @@
     html{scroll-behavior:smooth;}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
 
+    /* ── Balls Big 4 (homepage section) ───────────────────────────────────── */
+    .b4-row{display:flex;align-items:center;gap:11px;padding:9px 2px;cursor:pointer;
+      border-bottom:1px solid rgba(255,255,255,0.055);}
+    html[data-theme="light"] .b4-row{border-bottom-color:rgba(0,0,0,0.07);}
+    .b4-row:last-child{border-bottom:none;}
+    .b4-row:hover{background:rgba(255,255,255,0.03);}
+    .b4-num{font-family:'Inter',sans-serif;font-size:12px;font-weight:800;color:var(--accent);
+      min-width:14px;flex:0 0 auto;}
+    .b4-row .tm-avatar{width:30px!important;height:30px!important;flex:0 0 30px!important;border-radius:7px!important;}
+    .b4-info{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto;}
+    .b4-name{font-family:'Google Sans Flex',Georgia,serif;font-size:13.5px;font-weight:600;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .b4-nick{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);}
+    .b4-rec{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text2);flex:0 0 auto;}
+
+    /* ── Latest message (homepage section) ────────────────────────────────── */
+    .hm-msg{display:flex;align-items:flex-start;gap:11px;cursor:pointer;}
+    .hm-av .tm-avatar{width:32px!important;height:32px!important;flex:0 0 32px!important;border-radius:8px!important;}
+    .hm-body{min-width:0;flex:1 1 auto;}
+    .hm-meta{display:flex;align-items:baseline;gap:8px;}
+    .hm-who{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:700;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .hm-when{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);flex:0 0 auto;}
+    .hm-text{font-size:13px;line-height:1.45;color:var(--text2);margin-top:3px;
+      display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+    .hm-reacts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+    .hm-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;
+      background:rgba(255,255,255,0.06);border-radius:999px;padding:2px 7px;}
+    .hm-chip b{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);}
+    .hm-arw{color:var(--text3);font-size:12px;align-self:center;flex:0 0 auto;}
+    .hm-empty{font-size:13px;color:var(--text3);display:flex;flex-direction:column;
+      align-items:flex-start;gap:10px;}
+    .hm-go{width:auto;padding:7px 14px;}
+
+    /* ── Your matchup: pinned bar ─────────────────────────────────────────── */
+    #my-matchup{position:fixed;left:0;right:0;bottom:0;z-index:190;
+      padding:0 10px calc(env(safe-area-inset-bottom,0px) + 8px);pointer-events:none;}
+    #my-matchup .mm-bar{pointer-events:auto;}
+    .mm-bar{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;
+      background:rgba(12,12,14,0.92);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+      border:1px solid rgba(255,255,255,0.14);border-radius:10px;
+      box-shadow:0 -6px 26px -12px rgba(0,0,0,0.95),0 2px 8px -4px rgba(0,0,0,0.8);}
+    html[data-theme="light"] .mm-bar{background:rgba(255,255,255,0.94);border-color:rgba(0,0,0,0.12);}
+    .mm-bar:not(.mm-fixed){position:static;margin-top:14px;background:none;border:1px solid var(--border);
+      box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;}
+    .mm-tag{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.8px;
+      text-transform:uppercase;color:var(--accent);flex:0 0 auto;}
+    .mm-side{display:flex;align-items:center;gap:6px;min-width:0;}
+    .mm-side.mm-r{margin-left:0;}
+    .mm-bar .tm-avatar{width:20px!important;height:20px!important;flex:0 0 20px!important;border-radius:5px!important;}
+    .mm-sc{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--text2);}
+    .mm-sc.mm-up{color:#5DE883;} .mm-sc.mm-down{color:#E8687E;}
+    .mm-vs{font-family:'Inter',sans-serif;font-size:9.5px;color:var(--text3);}
+    .mm-spark{margin-left:auto;width:60px;flex:0 0 60px;line-height:0;}
+    .mm-spark .lv-spark{height:18px;margin:0;}
+    /* keep the pinned bar from covering the end of the page */
+    html[data-tabaccent] body:has(#my-matchup) main{padding-bottom:96px;}
+    @media(max-width:768px){.mm-tag{display:none;}}
+
     /* Advanced Stats: two filters, so they share the width evenly */
     #stats-subtabs.st-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
     #stats-subtabs.st-two .tab-btn{width:100%;justify-content:center;text-align:center;}
@@ -429,6 +489,8 @@
     /* ── Section jump nav ─────────────────────────────────────────────────── */
     .sec-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:7px;margin:-8px 0 26px;}
     .sec-nav[hidden]{display:none;}
+    /* inline variant sits under a filter row, not under the title rule */
+    .sec-nav-local{margin:0 0 18px;}
     .sx-chip{background:rgba(var(--accent-rgb),0.09);border:1px solid rgba(var(--accent-rgb),0.30);
       border-radius:999px;padding:5px 12px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
       letter-spacing:.3px;color:var(--accent);cursor:pointer;text-align:center;min-width:0;
@@ -471,14 +533,23 @@
     .vid-scroll::-webkit-scrollbar-track{background:transparent;margin-top:4px;}
     .vid-scroll::-webkit-scrollbar-thumb{background:var(--nv,var(--accent));border-radius:999px;}
     .vid-scroll>*{scroll-snap-align:start;flex:0 0 100%;min-width:0;}
-    .vid-scroll .video-thumb{background:none;border:none;border-radius:6px;padding:0;
-      overflow:hidden;cursor:pointer;text-align:left;color:var(--text);}
+    .vid-scroll .video-thumb{background:none!important;border:none;border-radius:6px;padding:0;
+      overflow:hidden;cursor:pointer;text-align:left;color:var(--text);line-height:0;}
     /* same 16:9 box as the featured player */
     .vid-scroll .video-thumb img{width:100%;aspect-ratio:16/9;height:auto;object-fit:cover;
       display:block;border-radius:6px;}
-    .vid-scroll .video-thumb-title{font-size:12.5px;line-height:1.35;padding:8px 2px 0;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text2);}
-    .vid-scroll .video-thumb:hover .video-thumb-title{color:var(--text);}
+    /* titles are on the thumbnails already */
+    .vid-scroll .video-thumb-title{display:none!important;}
+    /* Always-on scroll indicator. Overlay scrollbars hide themselves on macOS
+       and iOS, so the affordance is drawn rather than relying on the native
+       bar — the thumb tracks scroll position and takes the ribbon colour. */
+    .vid-scroll{scrollbar-width:none;}
+    .vid-scroll::-webkit-scrollbar{display:none;}
+    .vid-rail{height:3px;border-radius:999px;background:rgba(255,255,255,0.12);
+      margin-top:4px;overflow:hidden;}
+    html[data-theme="light"] .vid-rail{background:rgba(0,0,0,0.12);}
+    .vid-rail-thumb{height:100%;border-radius:999px;background:var(--nv,var(--accent));
+      transform-origin:left center;transition:transform .08s linear;}
     .vid-ch{align-self:stretch;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;
       gap:7px;border:1px dashed rgba(var(--accent-rgb),0.45);border-radius:8px;text-decoration:none;
       color:var(--accent);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;
@@ -3139,10 +3210,7 @@
     <div id="si-msg" class="si-msg"></div>
   </div>
 </div>
-<div id="big4-reel">
-  <span class="b4r-title">Balls Big 4</span>
-  <div class="b4r-mask" id="big4-reel-mask"><div class="b4r-track" id="big4-reel-track"></div></div>
-</div>
+<!-- Big 4 is a homepage section now; the fixed bottom reel is retired. -->
 
 <!-- PIN GATE -->
 <div class="pin-overlay" id="pin-overlay">

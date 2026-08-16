@@ -512,7 +512,7 @@ function switchTab(name){
   if(name==='profile') renderMyProfile();
   if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
-  if(name==='home') liveStart(); else liveStop();   // the live board lives on the homepage
+  if(name==='home'){ liveStart(); renderBig4(); renderHomeMessage(); wireVidRail(); } else liveStop();   // the live board lives on the homepage
   if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -985,20 +985,19 @@ function resolveBig4Entry(entry){
       || _teams.find(t=>(t.name||'').toLowerCase().includes(q))
       || null;
 }
+/* Big 4 is a homepage section now rather than the fixed reel that used to ride
+   along the bottom of the screen. */
 function renderBig4(){
-  const track=document.getElementById('big4-reel-track'); if(!track) return;
+  const box=document.getElementById('big4-body'); if(!box) return;
   const picked=BIG4.map(resolveBig4Entry).map((t,i)=>({t,nick:BIG4_LABELS[i]||'Featured'})).filter(x=>x.t);
-  if(!picked.length){ track.innerHTML=''; return; }
-  const item=({t,nick},i)=>`<span class="b4r-item">
-      <span class="b4r-num">${i+1}.</span>
-      <span class="b4r-nick">${nick}</span>
-      ${logoImg(t.id,'b4r-logo')}
-      <span class="b4r-name">${t.name}</span>
-      <span class="b4r-rec">${t.wins}–${t.losses}</span>
-    </span>`;
-  const once=picked.map(item).join('');
-  track.innerHTML=once+once;   /* duplicated so the loop is seamless */
-  startBig4Reel();
+  if(!picked.length){ box.innerHTML='<div class="lr-none">No Big 4 picks set — edit <b>config.js</b>.</div>'; return; }
+  box.innerHTML=picked.map(({t,nick},i)=>`
+    <div class="b4-row" onclick="_profileTeam='${t.id}';switchTab('teams')" role="button" tabindex="0">
+      <span class="b4-num">${i+1}</span>
+      ${logoImg(t.id,'b4-logo')}
+      <span class="b4-info"><span class="b4-name">${t.name}</span><span class="b4-nick">${nick}</span></span>
+      <span class="b4-rec">${t.wins}–${t.losses}</span>
+    </div>`).join('');
 }
 /* JS marquee: always running, draggable left/right, resumes the moment you let go */
 let _b4rRAF=null,_b4rX=0,_b4rLast=0,_b4rDrag=false,_b4rSeen=0;
@@ -3573,6 +3572,47 @@ function newVideoColor(){
   return NEW_VID_COLORS[((wk%NEW_VID_COLORS.length)+NEW_VID_COLORS.length)%NEW_VID_COLORS.length];
 }
 
+/* drives the drawn scroll indicator under the video carousel */
+function wireVidRail(){
+  const sc=document.querySelector('.vid-scroll'), th=document.getElementById('vid-rail-thumb');
+  if(!sc||!th||sc.dataset.railed) return;
+  sc.dataset.railed='1';
+  const draw=()=>{
+    const max=sc.scrollWidth-sc.clientWidth;
+    const frac=sc.clientWidth/Math.max(1,sc.scrollWidth);
+    th.style.width=(frac*100).toFixed(2)+'%';
+    const p=max>0?sc.scrollLeft/max:0;
+    th.style.transform=`translateX(${(p*(100/Math.max(frac,0.0001)-100)).toFixed(2)}%)`;
+  };
+  sc.addEventListener('scroll',draw,{passive:true});
+  window.addEventListener('resize',draw);
+  draw();
+}
+
+/* Most recent board post, surfaced on the homepage. Reads the same weekly
+   window the Messages tab shows, so a stale post from last week never sits
+   here pretending to be current. */
+async function renderHomeMessage(){
+  const el=document.getElementById('home-msg'); if(!el) return;
+  if(!_msgs){ el.innerHTML='<div class="lr-none">Loading…</div>'; const l=await msgList(); if(l) _msgs=l; }
+  const wk=msgWeekStart();
+  const list=(_msgs||[]).filter(m=>Number(m.ts)>=wk);
+  const m=list[0];
+  if(!m){ el.innerHTML=`<div class="hm-empty">Nothing said yet this week.
+    <button class="mv-btn hm-go" onclick="switchTab('messages')">Open the board</button></div>`; return; }
+  const t=_teams.find(x=>String(x.id)===String(m.team));
+  const reacts=Object.entries(m.reactions||{});
+  el.innerHTML=`<div class="hm-msg" onclick="switchTab('messages')" role="button" tabindex="0">
+    <div class="hm-av">${m.team?logoImg(Number(m.team)):'<i class="fa fa-user"></i>'}</div>
+    <div class="hm-body">
+      <div class="hm-meta"><span class="hm-who">${t?t.name:(m.user||'Someone')}</span><span class="hm-when">${msgAgo(m.ts)}</span></div>
+      <div class="hm-text">${String(m.text).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
+      ${reacts.length?`<div class="hm-reacts">${reacts.slice(0,5).map(([k,u])=>`<span class="hm-chip">${k}<b>${u.length}</b></span>`).join('')}</div>`:''}
+    </div>
+    <i class="fa fa-chevron-right hm-arw"></i>
+  </div>`;
+}
+
 /* ── SECTION JUMP NAV ───────────────────────────────────────────────────────
    Under the title rule, a row of chips listing the sections on this tab. Built
    by reading the page's own top-level headings rather than a hand-kept list,
@@ -3616,9 +3656,14 @@ function watchSectionNav(tab){
     attributes:true,attributeFilter:['style','class']});
 }
 function buildSectionNav(tab){
-  const bar=document.getElementById('sec-nav'); if(!bar) return;
+  const top=document.getElementById('sec-nav'); if(!top) return;
   const page=document.getElementById('page-'+tab);
-  if(!page){ bar.innerHTML=''; bar.hidden=true; return; }
+  if(!page){ top.innerHTML=''; top.hidden=true; return; }
+  /* a page can host the bar itself (Advanced Stats puts it under its filters,
+     where it reads as belonging to the selected filter rather than the tab) */
+  const local=page.querySelector('.sec-nav-local');
+  const bar=local||top;
+  if(local){ top.innerHTML=''; top.hidden=true; }
   // Every visible heading on the page, whatever wraps it. Tabs nest their
   // headings differently — Team Profiles puts them in .panel, League History
   // uses .lh-sec-head — so keying off the section wrapper missed most of them.
@@ -3884,6 +3929,36 @@ function liveRecordsFrom(seriesByWeek){
   });
   return {best,leads};
 }
+/* Your own matchup, as a compact bar pinned to the bottom of every screen.
+   Only while signed in — signed out there is no "your team" to show. The same
+   markup is reused at the foot of the live board. */
+function myMatchupHTML(compact){
+  const info=_liveInfo; if(!info||!_me||!_me.teamId) return '';
+  const owners=info.meta.owners||{};
+  const mine=Number(_me.teamId);
+  const g=(info.games||[]).find(m=>m.home.teamId===mine||m.away.teamId===mine);
+  if(!g) return '';
+  const home=g.home.teamId===mine;
+  const me=home?g.home:g.away, opp=home?g.away:g.home;
+  const a=me.totalPoints||0, b=opp.totalPoints||0;
+  const k=liveMKey(owners[me.teamId],owners[opp.teamId]);
+  const arr=_liveSeries[k]||[];
+  const state=a>b?'up':b>a?'down':'even';
+  return `<div class="mm-bar${compact?' mm-fixed':''}" onclick="switchTab('home')" role="button" tabindex="0">
+    <span class="mm-tag">Your matchup</span>
+    <span class="mm-side">${logoImg(me.teamId,'mm-logo')}<span class="mm-sc mm-${state}">${a.toFixed(1)}</span></span>
+    <span class="mm-vs">vs</span>
+    <span class="mm-side mm-r"><span class="mm-sc">${b.toFixed(1)}</span>${logoImg(opp.teamId,'mm-logo')}</span>
+    ${arr.length>1?`<span class="mm-spark">${liveSpark(arr,60,18)}</span>`:''}
+  </div>`;
+}
+function renderMyMatchupBar(){
+  let bar=document.getElementById('my-matchup');
+  const html=myMatchupHTML(true);
+  if(!html){ if(bar) bar.remove(); return; }
+  if(!bar){ bar=document.createElement('div'); bar.id='my-matchup'; document.body.appendChild(bar); }
+  bar.innerHTML=html;
+}
 function renderLiveMatchups(){
   const el=document.getElementById('live-body'); if(!el) return;
   const info=_liveInfo;
@@ -3933,8 +4008,10 @@ function renderLiveMatchups(){
         <button class="lv-now" onclick="liveRefreshNow()" title="Check now"><i class="fa fa-rotate-right"></i></button></span>
     </div>
     <div class="lv-grid">${cards||'<div class="lr-none">No matchups scheduled.</div>'}</div>
+    ${myMatchupHTML(false)}
     <div id="live-records"></div>`;
   renderLiveRecords();
+  renderMyMatchupBar();
 }
 async function renderLiveRecords(){
   const el=document.getElementById('live-records'); if(!el) return;
@@ -5668,7 +5745,8 @@ async function loadDashboard(){
                     ${_videos.slice(1,3).map(v=>`<button class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></button>`).join('')}
                     <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
                       <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>
-                  </div>`
+                  </div>
+                  <div class="vid-rail" style="--nv:${newVideoColor()}"><div class="vid-rail-thumb" id="vid-rail-thumb"></div></div>`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
             </div>
@@ -5714,6 +5792,14 @@ async function loadDashboard(){
             </div>
           </div>
         </div>
+        <div class="sec wm mod-big4" data-wm="&#xf091;">
+          <div class="sec-head"><i class="fa fa-star"></i>Balls Big 4</div>
+          <div class="home-box" id="big4-body"></div>
+        </div>
+        <div class="sec wm mod-msg" data-wm="&#xf086;">
+          <div class="sec-head"><i class="fa fa-comments"></i>Latest Message</div>
+          <div class="home-box" id="home-msg"></div>
+        </div>
         <!-- Row 3: the live board sits last, under everything else -->
         <div class="sec wm mod-live" data-wm="&#xf0e7;">
           <div class="sec-head"><i class="fa fa-tower-broadcast"></i>Live Around the League<span class="badge-info">updates while this page is open</span></div>
@@ -5733,6 +5819,8 @@ async function loadDashboard(){
             <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
             <div class="tscroll"><table class="min640" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
+          <!-- the jump bar lives here, under the filters, not under the title -->
+          <nav class="sec-nav sec-nav-local" aria-label="Sections on this page" hidden></nav>
           <!-- one view, four sections: the jump chips are built from these heads -->
           <div id="stats-cm" ${_statsView==='cm'?'':'style="display:none"'}>
             <div class="sec">
