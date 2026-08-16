@@ -1748,6 +1748,19 @@ function tradeTeamName(season,teamId){
   return (_teams.find(t=>t.id===teamId)?.name||`Team ${teamId}`).trim();
 }
 /* abbreviation, so both sides of a trade fit side by side on a phone */
+/* Share of post-trade points -> the site's A+ to F colour ramp. A 50/50 split
+   lands mid-scale for both sides; the further a side is ahead, the greener it
+   gets, and the further behind, the redder. */
+function tradeShareColor(share){
+  const t=Math.min(1,Math.max(0,share));
+  return gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);
+}
+/* the same colour as a low-alpha wash for the panel behind each side */
+function tradeShareTint(share){
+  const hex=tradeShareColor(share);
+  const n=parseInt(hex.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},0.11)`;
+}
 function tradeTeamAb(season,teamId){
   const o=_seasonMeta[season]?.owners?.[teamId];
   return drAbbr(o,tradeTeamName(season,teamId));
@@ -1815,21 +1828,26 @@ async function renderTradesTab(){
     const winner=aWin?tr.a:tr.b, loser=aWin?tr.b:tr.a;
     const wShare=(totA+totB)>0?Math.max(tr.a.total,tr.b.total)/(totA+totB):0.5;
     const wPct=Math.min(0.96,Math.max(0.04,wShare));
-    const cW='var(--green)', cL='var(--red)';
+    /* Same A+→F ramp the rest of the site grades on, so a lopsided trade reads
+       deep green against deep red and a 50/50 one sits neutral for both sides
+       rather than every trade being flat green vs flat red. */
+    const cW=tradeShareColor(wShare), cL=tradeShareColor(1-wShare);
+    const tintW=tradeShareTint(wShare), tintL=tradeShareTint(1-wShare);
     const side=(sd,state)=>{
-      const col=state==='won'?'var(--green)':'var(--red)';
+      const tint=state==='won'?tintW:tintL;
+      const pcol=state==='won'?cW:cL;
       return `
       <div class="trade-side ${state}">
-        <div class="trade-wl ${state}">
+        <div class="trade-wl ${state}" style="background:${tint}">
           <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamAb(tr.season,sd.teamId)}</div></div>
           <div class="trade-recv">received</div>
-          ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${state==='lost'?'var(--red)':(p.pts>=0?'var(--green)':'var(--red)')}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+          ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${pcol}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
         </div>
       </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
     return`<div class="trade-card">
       <div class="trade-head">${seasonBadge}Week ${tr.week} trade</div>
-      <div class="trade-grid">${side(winner,'won')}<div class="trade-vs"><i class="fa fa-right-left"></i></div>${side(loser,'lost')}</div>
+      <div class="trade-grid">${side(winner,'won')}<div class="trade-vs"></div>${side(loser,'lost')}</div>
       <div class="trade-totals"><span style="color:${cW}">${winner.total.toFixed(1)} pts</span><span style="color:${cL}">${loser.total.toFixed(1)} pts</span></div>
       <div class="trade-bar"><span style="width:${(wPct*100).toFixed(1)}%;background:${cW}"></span><span style="flex:1;background:${cL}"></span></div>
       <div class="trade-bar-labels"><span style="color:${cW};font-weight:700">${(wShare*100).toFixed(0)}% of post-trade points</span><span style="color:${cL};font-weight:700">${(100-wShare*100).toFixed(0)}%</span></div>
