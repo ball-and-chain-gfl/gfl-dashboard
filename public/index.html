@@ -609,6 +609,10 @@
       line-height:1.2!important;border-radius:6px;}
     #page-trades .trades-filters select{padding:6px 22px 6px 9px!important;font-size:12px;}
 
+    /* the sportsbook block is the last thing in the matchup section; its own
+       bottom margin was adding dead space before the next section began */
+    #page-home .motw-book{margin-bottom:0!important;}
+
     /* ── Trade cards: condensed ───────────────────────────────────────────────
        Tightened purely by spacing and type scale — every player name, team name
        and label is still rendered in full, nothing is clipped or abbreviated.
@@ -1405,10 +1409,15 @@
     /* ── Live cards: sports-app scoreboard rows ──────────────────────────────
        One line per team — logo, name, record, score — with the leader in full
        white and a caret marker. Odds and lead sit underneath as secondary. */
-    .lv-status{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.8px;
+    .lv-status{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+      font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.8px;
       text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
     .lv-live{color:#5DE883;} .lv-pre{color:var(--text3);}
-    .lv-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto 54px 10px;
+    .lv-lead-n{font-weight:600;letter-spacing:.4px;text-transform:none;color:var(--text3);}
+    .lv-pct{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text3);
+      text-align:right;white-space:nowrap;}
+    .lv-lead .lv-pct{color:var(--accent);}
+    .lv-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto 38px 54px;
       align-items:center;gap:9px;padding:6px 0;}
     .lv-row+.lv-row{border-top:1px solid rgba(255,255,255,0.06);}
     html[data-theme="light"] .lv-row+.lv-row{border-top-color:rgba(0,0,0,0.07);}
@@ -1687,51 +1696,77 @@
     #floatnav{position:fixed;top:14px;left:14px;right:14px;transform:none;z-index:400;
       display:flex;align-items:center;gap:10px;flex-wrap:nowrap;width:auto;
       max-width:none;padding:8px 12px;border-radius:10px;overflow:hidden;isolation:isolate;
-      /* Iridescent glass: a heavily blurred, over-saturated backdrop with a
-         soft spectral wash laid over it. The hues are low-alpha so the bar
-         still reads as glass rather than as a coloured panel. */
+      /* Refractive glass. The read comes from the optics rather than colour:
+         a hard blur with a brightness lift, angled specular streaks that catch
+         light across the surface, and a bright top edge falling to a dark
+         bottom one so the bar has thickness. Only a trace of hue survives, at
+         the two ends where real glass disperses most. */
       background:
-        linear-gradient(115deg,
-          rgba(255,120,180,0.13) 0%,
-          rgba(150,140,255,0.11) 22%,
-          rgba(90,200,255,0.10) 44%,
-          rgba(110,255,200,0.10) 64%,
-          rgba(255,220,130,0.11) 84%,
-          rgba(255,130,160,0.13) 100%),
-        rgba(12,12,16,0.62);
-      background-size:220% 100%,auto;
-      -webkit-backdrop-filter:blur(26px) saturate(1.9);
-      backdrop-filter:blur(26px) saturate(1.9);
-      border:1px solid rgba(255,255,255,0.16);
+        /* specular streaks — the refraction */
+        repeating-linear-gradient(104deg,
+          rgba(255,255,255,0.00) 0px,
+          rgba(255,255,255,0.055) 2px,
+          rgba(255,255,255,0.00) 5px,
+          rgba(255,255,255,0.00) 22px),
+        /* a soft sheen sweeping the length */
+        linear-gradient(100deg,
+          rgba(255,255,255,0.00) 0%,
+          rgba(255,255,255,0.10) 30%,
+          rgba(255,255,255,0.03) 50%,
+          rgba(255,255,255,0.09) 72%,
+          rgba(255,255,255,0.00) 100%),
+        /* the last of the colour: cool at one end, warm at the other */
+        linear-gradient(100deg,
+          rgba(120,190,255,0.06) 0%,
+          rgba(255,255,255,0.00) 42%,
+          rgba(255,255,255,0.00) 62%,
+          rgba(255,190,140,0.06) 100%),
+        rgba(14,14,18,0.58);
+      background-size:auto,240% 100%,240% 100%,auto;
+      -webkit-backdrop-filter:blur(30px) saturate(1.35) brightness(1.12);
+      backdrop-filter:blur(30px) saturate(1.35) brightness(1.12);
+      border:1px solid rgba(255,255,255,0.18);
       box-shadow:0 18px 44px -22px rgba(0,0,0,0.95),
-        inset 0 1px 0 rgba(255,255,255,0.16),
-        inset 0 -1px 0 rgba(255,255,255,0.05);
-      animation:navSheen 18s linear infinite;}
-    /* the sheen drifts so the iridescence shifts as you look at it */
-    @keyframes navSheen{from{background-position:0% 50%,0 0;}to{background-position:220% 50%,0 0;}}
+        inset 0 1px 0 rgba(255,255,255,0.30),
+        inset 0 -1px 0 rgba(0,0,0,0.45),
+        inset 1px 0 0 rgba(255,255,255,0.07),
+        inset -1px 0 0 rgba(255,255,255,0.07);
+      animation:navSheen 22s linear infinite;}
+    /* only the sheen layers travel; the streaks stay put like etched glass */
+    @keyframes navSheen{from{background-position:0 0,0% 50%,0% 50%,0 0;}
+                        to{background-position:0 0,240% 50%,240% 50%,0 0;}}
     @media(prefers-reduced-motion:reduce){#floatnav{animation:none;}}
-    /* a thin spectral edge along the top, the way real iridescent glass catches light */
+    /* a bright lip along the top edge, the way thick glass catches light */
     #floatnav::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-      background:linear-gradient(180deg,rgba(255,255,255,0.10),transparent 42%);z-index:-1;}
+      background:linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.02) 38%,transparent 60%);}
+    #floatnav>*{position:relative;z-index:1;}
     html[data-theme="light"] #floatnav{
       background:
-        linear-gradient(115deg,
-          rgba(255,120,180,0.16) 0%,
-          rgba(150,140,255,0.14) 22%,
-          rgba(90,200,255,0.13) 44%,
-          rgba(110,255,200,0.13) 64%,
-          rgba(255,220,130,0.14) 84%,
-          rgba(255,130,160,0.16) 100%),
-        rgba(255,255,255,0.66);
-      background-size:220% 100%,auto;
+        repeating-linear-gradient(104deg,
+          rgba(255,255,255,0.00) 0px,rgba(255,255,255,0.5) 2px,
+          rgba(255,255,255,0.00) 5px,rgba(255,255,255,0.00) 22px),
+        linear-gradient(100deg,rgba(255,255,255,0.00) 0%,rgba(255,255,255,0.55) 30%,
+          rgba(255,255,255,0.20) 50%,rgba(255,255,255,0.50) 72%,rgba(255,255,255,0.00) 100%),
+        linear-gradient(100deg,rgba(120,190,255,0.10) 0%,rgba(255,255,255,0.00) 42%,
+          rgba(255,255,255,0.00) 62%,rgba(255,190,140,0.10) 100%),
+        rgba(255,255,255,0.58);
+      background-size:auto,240% 100%,240% 100%,auto;
       border-color:rgba(0,0,0,0.10);
-      box-shadow:0 18px 40px -24px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.9);}
+      box-shadow:0 18px 40px -24px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.95),inset 0 -1px 0 rgba(0,0,0,0.08);}
     /* left group: logo + year · right group: menu + profile */
     /* explicit order so the two groups can't drift: logo, year | menu, profile */
-    #floatnav .logo{position:static;flex:0 0 auto;margin:0;display:flex;align-items:center;order:0;}
+    /* the mark sits in its own black tile, matching the profile button's box */
+    #floatnav .logo{position:static;flex:0 0 auto;margin:0;order:0;cursor:pointer;
+      width:44px;height:44px;box-sizing:border-box;border-radius:8px;
+      display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
+      background:#0b0b0d;border:1px solid rgba(255,255,255,0.16);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:border-color .18s;}
+    #floatnav .logo:hover{border-color:rgba(255,255,255,0.34);}
+    html[data-theme="light"] #floatnav .logo{background:#0b0b0d;border-color:rgba(0,0,0,0.18);}
     #floatnav #me-btn{order:3;}
     #floatnav .tab-dd{margin-left:auto;}
-    #floatnav .logo img{height:44px;width:auto;}
+    #floatnav .logo img{height:32px;width:auto;display:block;}
     #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;order:2;}
     /* icon + hamburger only — the page name lives in the h1 now */
     #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;
@@ -1770,7 +1805,8 @@
     main{padding-top:114px;}
     @media(max-width:768px){
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
-      #floatnav .logo img{height:40px;}
+      #floatnav .logo{width:40px;height:40px;}
+      #floatnav .logo img{height:28px;}
       #floatnav #tab-dd-btn{font-size:13px;height:40px;width:82px;padding:0 7px 0 10px;}
       #floatnav #season-select{height:40px;width:82px;font-size:13px;padding:0 26px 0 12px;}
       #floatnav #me-btn{width:40px;height:40px;}
@@ -1782,7 +1818,8 @@
     /* narrowest phones: pull the row in so all four controls still breathe */
     @media(max-width:360px){
       #floatnav{gap:6px;padding:7px 8px;}
-      #floatnav .logo img{height:36px;}
+      #floatnav .logo{width:36px;height:36px;}
+      #floatnav .logo img{height:25px;}
       #floatnav #tab-dd-btn{width:74px;height:36px;padding:0 6px 0 8px;}
       #floatnav #season-select{width:74px;height:36px;font-size:12.5px;padding:0 24px 0 10px;}
       #floatnav #me-btn{width:36px;height:36px;}
@@ -3290,7 +3327,9 @@
 </div>
 
 <header id="floatnav">
-  <!-- logo removed from the bar; the season picker leads now -->
+  <div class="logo" onclick="goHome()" title="Back to Home" role="button" tabindex="0">
+    <img src="/logo-mark.webp" alt="Ball &amp; Chain GFL" onerror="this.style.display='none'"/>
+  </div>
   <select id="season-select" onchange="loadDashboard()">
     <option value="2025" selected>2025</option>
     <option value="2024">2024</option>

@@ -4004,27 +4004,23 @@ function renderLiveMatchups(){
        Everything else is secondary and sits underneath. */
     const aId=aFirst?m.home.teamId:m.away.teamId, bId=aFirst?m.away.teamId:m.home.teamId;
     const rec=id=>{const t=_teams.find(x=>x.id===id);return t?`${t.wins}-${t.losses}`:'';};
-    const row=(id,name,score,lead)=>`<div class="lv-row${lead?' lv-lead':''}">
+    /* win probability reads per team, on that team's own line — a single split
+       bar underneath had nothing to attach itself to once the card became rows */
+    const pctA=Math.round(live*100), pctB=100-pctA;
+    const row=(id,name,score,lead,pct)=>`<div class="lv-row${lead?' lv-lead':''}">
         ${logoImg(id,'lv-logo')}
         <span class="lv-nm">${name}</span>
         <span class="lv-rec">${rec(id)}</span>
+        <span class="lv-pct">${started?pct+'%':''}</span>
         <span class="lv-sc">${score.toFixed(1)}</span>
-        <span class="lv-mark">${lead?'<i class="fa fa-caret-left"></i>':''}</span>
       </div>`;
     return `<div class="lv-card">
-      <div class="lv-status">${started?'<span class="lv-live">In progress</span>':'<span class="lv-pre">Not started</span>'}</div>
-      ${row(aId,an,a,started&&a>b)}
-      ${row(bId,bn,b,started&&b>a)}
-      <div class="lv-foot">
-        <div class="lv-oddsbar" title="${an} ${Math.round(live*100)}%">
-          <span class="lv-of a" style="width:${(live*100).toFixed(1)}%"></span>
-          <span class="lv-of b" style="width:${(100-live*100).toFixed(1)}%"></span>
-        </div>
-        <div class="lv-meta">
-          <span>${started?`${Math.round(live*100)}% win`:'&nbsp;'}</span>
-          <span>${arr.length>1?`lead ${Math.abs(biggest).toFixed(1)}`:'&nbsp;'}</span>
-        </div>
+      <div class="lv-status">
+        <span class="${started?'lv-live':'lv-pre'}">${started?'In progress':'Not started'}</span>
+        ${arr.length>1?`<span class="lv-lead-n">largest lead ${Math.abs(biggest).toFixed(1)}</span>`:''}
       </div>
+      ${row(aId,an,a,started&&a>b,pctA)}
+      ${row(bId,bn,b,started&&b>a,pctB)}
     </div>`;}).join('');
   const secs=Math.round(liveInterval()/1000);
   const hot=_liveSaved&&Date.now()-_liveSaved<LIVE_HOT_MS;
@@ -5792,14 +5788,12 @@ async function loadDashboard(){
         </div>
         <!-- Coaching Metric moved to Advanced Stats, where it now heads its own
              view alongside the three ROI breakdowns. -->
-        <div class="home-bottom">
-          <div class="home-right">
-            <!-- Matchup Headlines: hidden for now -->
-            <div class="sec wm" data-wm="&#xf1ea;" style="display:none">
-              <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
-              <div id="home-headlines"></div>
-            </div>
-          </div>
+        <!-- Matchup Headlines: hidden for now. Kept out of a grid wrapper —
+             an empty .home-bottom still contributed its own 40px margin, which
+             is what pushed the message card away from the sportsbook. -->
+        <div class="sec wm" data-wm="&#xf1ea;" style="display:none">
+          <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
+          <div id="home-headlines"></div>
         </div>
         <!-- no heading: the card speaks for itself, like the punishment box -->
         <div class="sec wm mod-msg" data-wm="&#xf086;">
