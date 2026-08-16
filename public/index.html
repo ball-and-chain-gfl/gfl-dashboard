@@ -436,18 +436,20 @@
     /* Latest message: its own raised card, no heading — same as the punishment */
     html[data-theme] #page-home .home-box.msg-box{
       background:none!important;border:1px solid rgba(var(--accent-rgb),0.55)!important;
-      border-radius:10px!important;padding:14px 16px!important;
+      border-radius:10px!important;padding:12px 14px!important;
       box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5),
         inset 0 1px 0 rgba(255,255,255,0.05)!important;}
     html[data-theme="light"] #page-home .home-box.msg-box{
       box-shadow:0 10px 24px -16px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.10),inset 0 1px 0 #fff!important;}
 
     /* ── Latest message (homepage section) ────────────────────────────────── */
-    .hm-msg{display:flex;align-items:flex-start;gap:11px;cursor:pointer;}
-    .hm-av .tm-avatar{width:32px!important;height:32px!important;flex:0 0 32px!important;border-radius:8px!important;}
+    .hm-h{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.9px;
+      text-transform:uppercase;color:var(--accent);margin-bottom:9px;}
+    .hm-msg{display:flex;align-items:flex-start;gap:9px;cursor:pointer;}
+    .hm-av .tm-avatar{width:26px!important;height:26px!important;flex:0 0 26px!important;border-radius:6px!important;}
     .hm-body{min-width:0;flex:1 1 auto;}
     .hm-meta{display:flex;align-items:baseline;gap:8px;}
-    .hm-who{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:700;
+    .hm-who{font-family:'Google Sans Flex',Georgia,serif;font-size:12px;font-weight:700;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .hm-when{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);flex:0 0 auto;}
     .hm-text{font-size:13px;line-height:1.45;color:var(--text2);margin-top:3px;
@@ -506,10 +508,15 @@
     .sx-chip{background:rgba(var(--accent-rgb),0.15);border:1px solid rgba(var(--accent-rgb),0.42);
       border-radius:999px;padding:6px 11px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
       letter-spacing:.2px;color:var(--text);cursor:pointer;text-align:center;min-width:0;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      /* wrap rather than clip: a label is never cut off */
+      white-space:normal;line-height:1.2;overflow-wrap:anywhere;
+      display:flex;align-items:center;justify-content:center;
       transition:background .14s,border-color .14s,transform .07s;}
     .sx-chip:hover{background:rgba(var(--accent-rgb),0.26);border-color:rgb(var(--accent-rgb));}
     .sx-chip:active{transform:translateY(1px);}
+    /* selected state, used where the chips act as a switcher */
+    .sx-chip.on{background:rgba(var(--accent-rgb),0.34);border-color:rgb(var(--accent-rgb));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.12);}
     html[data-theme="light"] .sx-chip{color:#1c1a17;background:rgba(var(--accent-rgb),0.22);
       border-color:rgba(var(--accent-rgb),0.55);}
     @media(max-width:768px){
@@ -3138,7 +3145,7 @@
     /* --grad is redeclared alongside each override: it is substituted at the
        element that declares it, so a module changing only --accent would
        otherwise keep painting the page's gradient. */
-    #page-home .mod-msg{--accent:#5CE8B3;--accent2:#5DE883;--accent-rgb:92,232,179;}
+    /* mod-msg deliberately has no accent override: it inherits the page gold */
     #page-home .mod-big4{--accent:#E8C656;--accent2:#E8B456;--accent-rgb:232,198,86;}
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}

@@ -1252,6 +1252,7 @@ function setStatsView(v){
     renderLineupIQ();
   }
   buildSectionNav('standings');                    // views differ in section count
+  if(v==='cm') showCMSection(_cmSection);          // one section at a time, overall first
 }
 /* the homepage's ranked coaching-metric list, reused here */
 function renderStatsCM(){
@@ -3601,7 +3602,8 @@ async function renderHomeMessage(){
     <button class="mv-btn hm-go" onclick="switchTab('messages')">Open the board</button></div>`; return; }
   const t=_teams.find(x=>String(x.id)===String(m.team));
   const reacts=Object.entries(m.reactions||{});
-  el.innerHTML=`<div class="hm-msg" onclick="switchTab('messages')" role="button" tabindex="0">
+  el.innerHTML=`<div class="hm-h">Latest message</div>
+  <div class="hm-msg" onclick="switchTab('messages')" role="button" tabindex="0">
     <div class="hm-av">${m.team?logoImg(Number(m.team)):'<i class="fa fa-user"></i>'}</div>
     <div class="hm-body">
       <div class="hm-meta"><span class="hm-who">${t?t.name:(m.user||'Someone')}</span><span class="hm-when">${msgAgo(m.ts)}</span></div>
@@ -3654,6 +3656,41 @@ function watchSectionNav(tab){
   _secNavObs.observe(page,{childList:true,subtree:true,
     attributes:true,attributeFilter:['style','class']});
 }
+/* Chip labels are shortened rather than clipped — a truncated label is worse
+   than an abbreviated one. The full text stays in the title attribute. */
+const SX_ABBR={
+  'All-Time Starting Lineup':'AT Lineup',
+  'All-Time vs Each Team':'AT vs Team',
+  'Live Around the League':'Live League',
+  'Historical Matchup Records':'Matchup Records',
+  'Conference Championships':'Conferences',
+  'Season Superlatives':'Superlatives',
+  'Weeks & Points':'Weeks & Pts',
+  'Playoff Hardware':'Hardware',
+  'Matchup of the Week':'Matchup',
+  'All-Time Records':'AT Records',
+  'Legacy Report':'Legacy',
+  'Draft Rankings':'Rankings',
+  'Draft Report':'Report',
+  'Biggest Enemies':'Enemies',
+  'Draft Grades':'Grades',
+  'GFL Overview':'Overview',
+  'Balls Big 4':'Big 4',
+};
+const sxShort=l=>SX_ABBR[l]||l;
+/* Choose an explicit column count so the last row is never a single orphan
+   chip. auto-fit cannot express that, since it only knows the track width. */
+function fitSectionNav(bar,n){
+  const w=bar.clientWidth||0; if(!w||!n) return;
+  const min=window.matchMedia('(max-width:768px)').matches?94:124;
+  const gap=parseFloat(getComputedStyle(bar).columnGap)||7;
+  let max=Math.max(1,Math.floor((w+gap)/(min+gap)));
+  max=Math.min(max,n);
+  let cols=max;
+  // walk down until the remainder is not exactly one
+  while(cols>1 && n>cols && n%cols===1) cols--;
+  bar.style.gridTemplateColumns=`repeat(${cols},minmax(0,1fr))`;
+}
 function buildSectionNav(tab){
   const top=document.getElementById('sec-nav'); if(!top) return;
   const page=document.getElementById('page-'+tab);
@@ -3666,16 +3703,49 @@ function buildSectionNav(tab){
   // Every visible heading on the page, whatever wraps it. Tabs nest their
   // headings differently — Team Profiles puts them in .panel, League History
   // uses .lh-sec-head — so keying off the section wrapper missed most of them.
-  const entries=sectionEntriesIn(page);
+  /* Advanced Stats' coaching sections are tabbed, so only one is on screen at a
+     time — their chips have to come from all four regardless of visibility, or
+     the bar would collapse to a single chip the moment a tab was chosen. */
+  const cm=page.querySelector('#stats-cm');
+  const cmOn=cm&&getComputedStyle(cm).display!=='none';
+  const entries=cmOn
+    ? [...cm.children].filter(c=>c.classList.contains('sec'))
+        .map(s=>s.querySelector('.sec-head')).filter(Boolean)
+        .map(h=>({h,label:(h.textContent||'').replace(/\s+/g,' ').trim()
+          .replace(/(tap a team.*|\d{4} · .*)$/,'').trim()}))
+    : sectionEntriesIn(page);
   if(entries.length<2){ bar.innerHTML=''; bar.hidden=true; return; }
   // index into the same ordered list the jump re-derives at click time — the
   // page re-renders when its data lands, so ids assigned up front would vanish
   bar.innerHTML=entries.map((e,i)=>
-    `<button class="sx-chip" data-sx="${i}" onclick="jumpToSection(this)">${e.label}</button>`).join('');
+    `<button class="sx-chip" data-sx="${i}" title="${e.label}" onclick="jumpToSection(this)">${sxShort(e.label)}</button>`).join('');
   bar.hidden=false;
+  fitSectionNav(bar,entries.length);
+  // the bar is rebuilt whenever the page mutates, so the switcher's selected
+  // state has to be re-applied here rather than only when a chip is clicked
+  if(cmOn) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_cmSection));
+}
+/* Inside Advanced Stats the four coaching sections behave as tabs: one at a
+   time, the overall metric by default. The chips double as the switcher there
+   rather than scrolling a long stack. */
+let _cmSection=0;
+function showCMSection(i){
+  const wrap=document.getElementById('stats-cm'); if(!wrap) return;
+  const secs=[...wrap.children].filter(c=>c.classList.contains('sec'));
+  if(!secs.length) return;
+  _cmSection=Math.max(0,Math.min(secs.length-1,i));
+  secs.forEach((s,n)=>{ s.style.display=n===_cmSection?'':'none'; });
+  const bar=document.querySelector('#page-standings .sec-nav-local');
+  if(bar) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_cmSection));
 }
 function jumpToSection(btn){
   const page=document.getElementById('page-'+_activeTab); if(!page) return;
+  // Advanced Stats swaps sections instead of scrolling to them
+  if(_activeTab==='standings' && document.getElementById('stats-cm')){
+    showCMSection(Number(btn.dataset.sx));
+    smoothScrollTo(0);
+    return;
+  }
   const heads=sectionHeadsIn(page);
   // scroll to the heading itself — the wrapper differs per tab and sometimes
   // spans several sections, which would land in the wrong place
@@ -4007,10 +4077,9 @@ function renderLiveMatchups(){
         <button class="lv-now" onclick="liveRefreshNow()" title="Check now"><i class="fa fa-rotate-right"></i></button></span>
     </div>
     <div class="lv-grid">${cards||'<div class="lr-none">No matchups scheduled.</div>'}</div>
-    ${myMatchupHTML(false)}
     <div id="live-records"></div>`;
   renderLiveRecords();
-  renderMyMatchupBar();
+  renderMyMatchupBar();   // your own matchup lives only in the pinned bar
 }
 async function renderLiveRecords(){
   const el=document.getElementById('live-records'); if(!el) return;
