@@ -3642,19 +3642,31 @@ const sectionHeadsIn=page=>sectionEntriesIn(page).map(x=>x.h);
    all on a cold load. Watching the page and rebuilding when it changes covers
    every tab without each render function having to remember to call back.
    #sec-nav sits outside the page, so rebuilding cannot retrigger this. */
-let _secNavObs=null,_secNavTimer=null;
+let _secNavObs=null,_secNavTimer=null,_secNavBusy=false;
 function watchSectionNav(tab){
   if(_secNavObs){ _secNavObs.disconnect(); _secNavObs=null; }
   clearTimeout(_secNavTimer);
   const page=document.getElementById('page-'+tab); if(!page) return;
-  _secNavObs=new MutationObserver(()=>{
+  _secNavObs=new MutationObserver(recs=>{
+    /* Ignore anything we caused ourselves inside a jump bar. Advanced Stats
+       hosts its bar within the page, so rebuilding it mutates the element being
+       observed — which rebuilt it again, and the chips flickered continuously. */
+    if(_secNavBusy) return;
+    const outside=recs.some(r=>{
+      const el=r.target&&(r.target.nodeType===1?r.target:r.target.parentElement);
+      return !el || !el.closest || !el.closest('.sec-nav');
+    });
+    if(!outside) return;
     clearTimeout(_secNavTimer);
     _secNavTimer=setTimeout(()=>{ if(_activeTab===tab) buildSectionNav(tab); },200);
   });
-  // attributes too: sub-tabs swap views by toggling inline display, which
-  // changes which sections are visible without touching the DOM tree
-  _secNavObs.observe(page,{childList:true,subtree:true,
-    attributes:true,attributeFilter:['style','class']});
+  /* childList only, deliberately. initMobileTables watches main for childList
+     and its pass always rewrites table classes, so watching attributes here
+     closed a loop: our rebuild wrote innerHTML, that woke their observer, their
+     class churn woke ours, and the chips flickered forever. View switches are
+     the only attribute-driven change that matters and setStatsView rebuilds the
+     bar itself, so nothing is lost. */
+  _secNavObs.observe(page,{childList:true,subtree:true});
 }
 /* Chip labels are shortened rather than clipped — a truncated label is worse
    than an abbreviated one. The full text stays in the title attribute. */
@@ -3693,8 +3705,9 @@ function fitSectionNav(bar,n){
 }
 function buildSectionNav(tab){
   const top=document.getElementById('sec-nav'); if(!top) return;
+  _secNavBusy=true;   // our own writes must not retrigger the observer
   const page=document.getElementById('page-'+tab);
-  if(!page){ top.innerHTML=''; top.hidden=true; return; }
+  if(!page){ top.innerHTML=''; top.hidden=true; _secNavBusy=false; return; }
   /* a page can host the bar itself (Advanced Stats puts it under its filters,
      where it reads as belonging to the selected filter rather than the tab) */
   const local=page.querySelector('.sec-nav-local');
@@ -3714,7 +3727,7 @@ function buildSectionNav(tab){
         .map(h=>({h,label:(h.textContent||'').replace(/\s+/g,' ').trim()
           .replace(/(tap a team.*|\d{4} · .*)$/,'').trim()}))
     : sectionEntriesIn(page);
-  if(entries.length<2){ bar.innerHTML=''; bar.hidden=true; return; }
+  if(entries.length<2){ bar.innerHTML=''; bar.hidden=true; _secNavBusy=false; return; }
   // index into the same ordered list the jump re-derives at click time — the
   // page re-renders when its data lands, so ids assigned up front would vanish
   bar.innerHTML=entries.map((e,i)=>
@@ -3724,6 +3737,7 @@ function buildSectionNav(tab){
   // the bar is rebuilt whenever the page mutates, so the switcher's selected
   // state has to be re-applied here rather than only when a chip is clicked
   if(cmOn) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_cmSection));
+  _secNavBusy=false;
 }
 /* Inside Advanced Stats the four coaching sections behave as tabs: one at a
    time, the overall metric by default. The chips double as the switcher there
