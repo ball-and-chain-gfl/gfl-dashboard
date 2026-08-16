@@ -628,7 +628,9 @@
     #page-trades .tp-name{font-size:12.5px;}
     #page-trades .trade-player .phs{width:16px!important;height:16px!important;flex:0 0 16px!important;}
     #page-trades .tp-pts{font-size:12.5px;}
-    #page-trades .trade-totals{padding:5px 12px 0!important;font-size:12px;}
+    /* margin AND padding were stacking, so the point totals sat inset from the
+       bar they label — the margin goes, the 12px padding matches the bar */
+    #page-trades .trade-totals{margin:0!important;padding:5px 12px 0!important;font-size:12px;}
     #page-trades .trade-bar{height:7px!important;margin:4px 12px 4px!important;}
     #page-trades .trade-bar-labels{padding:0 12px 9px!important;font-size:10.5px;}
     #page-trades .trade-card{margin:0 0 11px!important;}
@@ -1245,8 +1247,8 @@
       .modal{max-height:92vh;}
       .modal-body{padding:14px 14px;gap:10px;}
       .modal-total-score{font-size:24px;}
-      .trade-grid{grid-template-columns:1fr;gap:6px;}
-      .trade-grid .trade-vs{display:none;}
+      /* both sides stay side by side — abbreviations make them fit */
+      .trade-grid{grid-template-columns:1fr 16px 1fr;gap:0;}
       .trade-bar span:first-child{background:var(--green)!important;}
       .trade-team-name{color:var(--text)!important;}
       .trade-bar span:last-child{background:var(--red)!important;}
@@ -1695,19 +1697,13 @@
     /* floats full width with the same inset on the sides as the top */
     #floatnav{position:fixed;top:14px;left:14px;right:14px;transform:none;z-index:400;
       display:flex;align-items:center;gap:10px;flex-wrap:nowrap;width:auto;
-      max-width:none;padding:8px 12px;border-radius:10px;overflow:hidden;isolation:isolate;
+      max-width:none;padding:8px 12px;border-radius:4px;overflow:hidden;isolation:isolate;
       /* Refractive glass. The read comes from the optics rather than colour:
          a hard blur with a brightness lift, angled specular streaks that catch
          light across the surface, and a bright top edge falling to a dark
          bottom one so the bar has thickness. Only a trace of hue survives, at
          the two ends where real glass disperses most. */
       background:
-        /* specular streaks — the refraction */
-        repeating-linear-gradient(104deg,
-          rgba(255,255,255,0.00) 0px,
-          rgba(255,255,255,0.055) 2px,
-          rgba(255,255,255,0.00) 5px,
-          rgba(255,255,255,0.00) 22px),
         /* a soft sheen sweeping the length */
         linear-gradient(100deg,
           rgba(255,255,255,0.00) 0%,
@@ -1722,7 +1718,7 @@
           rgba(255,255,255,0.00) 62%,
           rgba(255,190,140,0.06) 100%),
         rgba(14,14,18,0.58);
-      background-size:auto,240% 100%,240% 100%,auto;
+      background-size:240% 100%,240% 100%,auto;
       -webkit-backdrop-filter:blur(30px) saturate(1.35) brightness(1.12);
       backdrop-filter:blur(30px) saturate(1.35) brightness(1.12);
       border:1px solid rgba(255,255,255,0.18);
@@ -1742,9 +1738,6 @@
     #floatnav>*{position:relative;z-index:1;}
     html[data-theme="light"] #floatnav{
       background:
-        repeating-linear-gradient(104deg,
-          rgba(255,255,255,0.00) 0px,rgba(255,255,255,0.5) 2px,
-          rgba(255,255,255,0.00) 5px,rgba(255,255,255,0.00) 22px),
         linear-gradient(100deg,rgba(255,255,255,0.00) 0%,rgba(255,255,255,0.55) 30%,
           rgba(255,255,255,0.20) 50%,rgba(255,255,255,0.50) 72%,rgba(255,255,255,0.00) 100%),
         linear-gradient(100deg,rgba(120,190,255,0.10) 0%,rgba(255,255,255,0.00) 42%,
@@ -1756,14 +1749,18 @@
         inset 0 1px 0 rgba(255,255,255,0.95),inset 0 -1px 0 rgba(0,0,0,0.08);}
     /* left group: logo + year · right group: menu + profile */
     /* explicit order so the two groups can't drift: logo, year | menu, profile */
-    /* the mark sits in its own black tile, matching the profile button's box */
+    /* the mark keeps the same box as the profile button, but flat — no fill,
+       square corners, just an outline */
     #floatnav .logo{position:static;flex:0 0 auto;margin:0;order:0;cursor:pointer;
-      width:44px;height:44px;box-sizing:border-box;border-radius:8px;
+      width:44px;height:44px;box-sizing:border-box;border-radius:3px;
       display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
-      background:#0b0b0d;border:1px solid rgba(255,255,255,0.16);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:border-color .18s;}
+      background:none;border:1px solid rgba(255,255,255,0.16);
+      box-shadow:none;transition:border-color .18s;}
     #floatnav .logo:hover{border-color:rgba(255,255,255,0.34);}
-    html[data-theme="light"] #floatnav .logo{background:#0b0b0d;border-color:rgba(0,0,0,0.18);}
+    /* flat, squared controls throughout the bar */
+    #floatnav .logo,#floatnav #me-btn,#floatnav #tab-dd-btn,
+    #floatnav #season-select,#floatnav .nav-burger{border-radius:3px!important;}
+    html[data-theme="light"] #floatnav .logo{background:none;border-color:rgba(0,0,0,0.18);}
     #floatnav #me-btn{order:3;}
     #floatnav .tab-dd{margin-left:auto;}
     #floatnav .logo img{height:32px;width:auto;display:block;}

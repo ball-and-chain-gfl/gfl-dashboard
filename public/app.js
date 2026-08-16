@@ -1747,6 +1747,11 @@ function tradeTeamName(season,teamId){
     const nm=meta.names?.[o]?.name; if(nm) return nm.trim();}
   return (_teams.find(t=>t.id===teamId)?.name||`Team ${teamId}`).trim();
 }
+/* abbreviation, so both sides of a trade fit side by side on a phone */
+function tradeTeamAb(season,teamId){
+  const o=_seasonMeta[season]?.owners?.[teamId];
+  return drAbbr(o,tradeTeamName(season,teamId));
+}
 function tradeTeamAvatar(season,teamId){
   const meta=_seasonMeta[season];
   const o=meta?.owners?.[teamId];
@@ -1816,7 +1821,7 @@ async function renderTradesTab(){
       return `
       <div class="trade-side ${state}">
         <div class="trade-wl ${state}">
-          <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamName(tr.season,sd.teamId)}</div></div>
+          <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamAb(tr.season,sd.teamId)}</div></div>
           <div class="trade-recv">received</div>
           ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-dots"></span><span class="tp-pts" style="color:${state==='lost'?'var(--red)':(p.pts>=0?'var(--green)':'var(--red)')}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
         </div>
@@ -2802,9 +2807,9 @@ function renderMatchupOfWeek(){
   const odds=cfg.odds||{home:{},away:{}};
   el.innerHTML=`
     <div class="motw-head home-box">
-      <div class="motw-team">${logoImg(A.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${A.name}</div><div class="motw-trec">${A.wins}–${A.losses} · ${A.pf.toFixed(0)} PF</div></div></div>
+      <div class="motw-team">${logoImg(A.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${A.name}</div></div></div>
       <div class="motw-vs">VS</div>
-      <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${B.name}</div><div class="motw-trec">${B.wins}–${B.losses} · ${B.pf.toFixed(0)} PF</div></div></div>
+      <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${B.name}</div></div></div>
     </div>
     <div class="motw-vote" id="motw-vote"></div>
     ${motwCompareHTML(A,B,at,last,odds)}
