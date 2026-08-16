@@ -1932,11 +1932,12 @@ function faabChipHTML(t){
   const spent=Math.max(0,Math.min(budget,t.budgetSpent||0));
   const left=budget-spent, pct=budget?left/budget*100:0;
   const col=pct>=50?'var(--green)':pct>=20?'var(--accent)':'var(--red)';
+  // vertical gauge on the right of the hero: it fills from the bottom, so the
+  // column height reads directly as budget remaining
   return `<div class="prof-faab" title="$${spent} of $${budget} spent">
-    <div class="pf-top"><span class="pf-l">FAAB left</span>
-      <span class="pf-v" style="color:${col}">$${left}</span>
-      <span class="pf-of">of $${budget}</span></div>
-    <div class="pf-bar"><div class="pf-fill" style="width:${pct.toFixed(1)}%;background:${col}"></div></div>
+    <span class="pf-v" style="color:${col}">$${left}</span>
+    <div class="pf-bar"><div class="pf-fill" style="height:${pct.toFixed(1)}%;background:${col}"></div></div>
+    <span class="pf-l">FAAB</span>
   </div>`;
 }
 function draftRowTeam(r){
@@ -3733,6 +3734,15 @@ function jumpToSection(btn){
    nothing where it isn't — which left the jump chips dead. Assigning scrollTop
    always lands, and `html{scroll-behavior:smooth}` in the stylesheet gives real
    browsers the easing for free (and is disabled under reduced motion there). */
+/* show the back-to-top control once the page has actually been scrolled */
+function initToTop(){
+  const btn=document.getElementById('to-top'); if(!btn) return;
+  const doc=document.scrollingElement||document.documentElement;
+  const sync=()=>btn.classList.toggle('show',doc.scrollTop>260);
+  window.addEventListener('scroll',sync,{passive:true});
+  window.addEventListener('resize',sync);
+  sync();
+}
 function smoothScrollTo(target){
   const doc=document.scrollingElement||document.documentElement;
   doc.scrollTop=target;
@@ -5020,11 +5030,11 @@ async function renderProfile(){
         <div class="prof-headline">
           <div class="prof-name">${t.name}</div>
           <div class="prof-sub">${at.seasons} season${at.seasons!==1?'s':''}${conf?` · ${conf} Conference`:''}</div>
-          ${faabChipHTML(t)}
           <div class="prof-chips">
             ${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}
           </div>
         </div>
+        ${faabChipHTML(t)}
       </div>
     </div>
     ${legacyReportHTML(owner)}
@@ -6050,7 +6060,10 @@ document.addEventListener('click',e=>{
 loadDashboard();
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initSignIn); else initSignIn();
+/* each init is isolated: they shared a statement, so a throw in the first
+   silently prevented the second from ever running */
+function bootUI(){ try{initSignIn();}catch(e){} try{initToTop();}catch(e){} }
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootUI); else bootUI();
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});
 else { buildTabDD(); positionTabDD(); }
