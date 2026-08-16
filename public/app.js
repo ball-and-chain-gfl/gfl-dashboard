@@ -36,7 +36,7 @@ let _tenurePoGP={};                     // season -> owner -> playoff bracket ga
 let _transactions=[];                   // current season's transaction list (real/archive/inferred)
 let _draftCache={},_draftLoading=false; // season -> {picks, stats}
 let _tradeSort='week';                  // 'week' | 'unbalanced' | 'balanced'
-let _statsView='standings';             // 'standings' | 'c2' | 'c3'
+let _statsView='standings';             // 'standings' | 'cm'
 let _c3Team=null;                        // teamId for the C3 breakdown dropdown (defaults to Lebron's)
 let _profileTeam=null;                   // teamId string for the profile tab
 let _schedTeam=null;                     // teamId string for the schedule tab
@@ -1237,17 +1237,43 @@ function sortAndHighlight(col,btn){
   _sortCol=col;_sortAsc=false;
   renderStandingsTable();
 }
+/* Two views only. Standings is unchanged; Coaching Metric collects the ranked
+   list from the homepage plus the three breakdowns that used to be their own
+   sub-tabs, stacked as sections so the jump chips can move between them. */
 function setStatsView(v){
+  if(v==='c2'||v==='c3'||v==='liq') v='cm';        // old sub-tabs fold into one
   _statsView=v;
   document.querySelectorAll('#stats-subtabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  const st=document.getElementById('stats-standings'),c2=document.getElementById('stats-c2'),c3=document.getElementById('stats-c3'),lq=document.getElementById('stats-liq');
+  const st=document.getElementById('stats-standings'), cm=document.getElementById('stats-cm');
   if(st)st.style.display=v==='standings'?'':'none';
-  if(c2)c2.style.display=v==='c2'?'':'none';
-  if(c3)c3.style.display=v==='c3'?'':'none';
-  if(lq)lq.style.display=v==='liq'?'':'none';
-  if(v==='c2') renderC2Breakdown();
-  if(v==='c3') renderC3Breakdown();
-  if(v==='liq') renderLineupIQ();
+  if(cm)cm.style.display=v==='cm'?'':'none';
+  if(v==='cm'){
+    renderStatsCM();
+    renderC2Breakdown();
+    renderC3Breakdown();
+    renderLineupIQ();
+  }
+  buildSectionNav('standings');                    // views differ in section count
+}
+/* the homepage's ranked coaching-metric list, reused here */
+function renderStatsCM(){
+  const el=document.getElementById('stats-cm-list'); if(!el) return;
+  if(_cmMode==='none'){ el.innerHTML=`<div class="tab-loading" style="padding:26px">No coaching metric data for the ${getSeason()} season.</div>`; return; }
+  const ranked=_teams.slice().sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));
+  const mx=Math.max(1,...Object.values(_scores).map(v=>Math.abs(v||0)));
+  const bar=v=>Math.min(100,Math.max(0,((v/mx)+1)/2*100)).toFixed(1);
+  const col=v=>v>mx*0.15?'var(--green)':v<-mx*0.15?'var(--red)':'var(--text2)';
+  el.innerHTML=ranked.map((t,i)=>{
+    const s=_scores[t.id]||0;
+    return `<div class="coaching-row" onclick="openCMModal(${t.id})">
+      <div class="coaching-rank">${i===0?'🥇':i+1}</div>
+      ${logoImg(t.id)}
+      <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${t.wins}W · ${t.losses}L · ${t.pf.toFixed(0)} PF</div></div>
+      <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${bar(s)}%;background:${col(s)}"></div></div>
+      <div class="coaching-score" style="color:${col(s)}">${s.toFixed(2)}</div>
+      <div class="coaching-chevron"><i class="fa fa-chevron-right"></i></div>
+    </div>`;
+  }).join('');
 }
 function cmSourceNote(){
   if(_cmMode==='none') return 'No coaching-metric data for this season.';
@@ -3584,7 +3610,10 @@ function watchSectionNav(tab){
     clearTimeout(_secNavTimer);
     _secNavTimer=setTimeout(()=>{ if(_activeTab===tab) buildSectionNav(tab); },200);
   });
-  _secNavObs.observe(page,{childList:true,subtree:true});
+  // attributes too: sub-tabs swap views by toggling inline display, which
+  // changes which sections are visible without touching the DOM tree
+  _secNavObs.observe(page,{childList:true,subtree:true,
+    attributes:true,attributeFilter:['style','class']});
 }
 function buildSectionNav(tab){
   const bar=document.getElementById('sec-nav'); if(!bar) return;
@@ -5696,19 +5725,33 @@ async function loadDashboard(){
       <!-- STANDINGS & STATS -->
       <div class="tab-page" id="page-standings">
         <div class="sec wm" data-wm="&#xe561;">
-          <div class="standings-filters" id="stats-subtabs" style="padding-bottom:16px">
+          <div class="standings-filters st-two" id="stats-subtabs" style="padding-bottom:16px">
             <button class="tab-btn ${_statsView==='standings'?'active':''}" data-view="standings" onclick="setStatsView('standings')"><i class="fa fa-ranking-star"></i>${season} Standings</button>
-            <button class="tab-btn ${_statsView==='c2'?'active':''}" data-view="c2" onclick="setStatsView('c2')"><i class="fa fa-right-left"></i>Trade ROI</button>
-            <button class="tab-btn ${_statsView==='c3'?'active':''}" data-view="c3" onclick="setStatsView('c3')"><i class="fa fa-magnifying-glass-dollar"></i>Waiver ROI</button>
-            <button class="tab-btn ${_statsView==='liq'?'active':''}" data-view="liq" onclick="setStatsView('liq')"><i class="fa fa-brain"></i>Lineup IQ</button>
+            <button class="tab-btn ${_statsView==='cm'?'active':''}" data-view="cm" onclick="setStatsView('cm')"><i class="fa fa-brain"></i>Coaching Metric</button>
           </div>
           <div id="stats-standings" ${_statsView==='standings'?'':'style="display:none"'}>
             <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
             <div class="tscroll"><table class="min640" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
-          <div id="stats-c2" ${_statsView==='c2'?'':'style="display:none"'}></div>
-          <div id="stats-c3" ${_statsView==='c3'?'':'style="display:none"'}></div>
-          <div id="stats-liq" ${_statsView==='liq'?'':'style="display:none"'}></div>
+          <!-- one view, four sections: the jump chips are built from these heads -->
+          <div id="stats-cm" ${_statsView==='cm'?'':'style="display:none"'}>
+            <div class="sec">
+              <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric<span class="badge-info">${season} · tap a team for the breakdown</span></div>
+              <div id="stats-cm-list" class="home-cm"></div>
+            </div>
+            <div class="sec">
+              <div class="sec-head"><i class="fa fa-right-left"></i>Trade ROI</div>
+              <div id="stats-c2"></div>
+            </div>
+            <div class="sec">
+              <div class="sec-head"><i class="fa fa-magnifying-glass-dollar"></i>Waiver ROI</div>
+              <div id="stats-c3"></div>
+            </div>
+            <div class="sec">
+              <div class="sec-head"><i class="fa fa-brain"></i>Lineup IQ</div>
+              <div id="stats-liq"></div>
+            </div>
+          </div>
         </div>
       </div>
 

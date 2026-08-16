@@ -418,6 +418,14 @@
     html{scroll-behavior:smooth;}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
 
+    /* Advanced Stats: two filters, so they share the width evenly */
+    #stats-subtabs.st-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    #stats-subtabs.st-two .tab-btn{width:100%;justify-content:center;text-align:center;}
+    /* the four Coaching Metric blocks are plain stacked sections */
+    #stats-cm>.sec{margin:0 0 26px;}
+    #stats-cm>.sec:last-child{margin-bottom:0;}
+    #stats-cm .home-cm{border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
+
     /* ── Section jump nav ─────────────────────────────────────────────────── */
     .sec-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:7px;margin:-8px 0 26px;}
     .sec-nav[hidden]{display:none;}
