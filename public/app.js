@@ -1847,7 +1847,9 @@ async function renderTradesTab(){
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
     return`<div class="trade-card">
       <div class="trade-head">${seasonBadge}Week ${tr.week} trade</div>
-      <div class="trade-grid">${side(winner,'won')}<div class="trade-vs"></div>${side(loser,'lost')}</div>
+      <!-- two children for two columns: the old divider cell would wrap the
+           loser onto a second row now that there is no gap track -->
+      <div class="trade-grid">${side(winner,'won')}${side(loser,'lost')}</div>
       <div class="trade-totals"><span style="color:${cW}">${winner.total.toFixed(1)} pts</span><span style="color:${cL}">${loser.total.toFixed(1)} pts</span></div>
       <div class="trade-bar"><span style="width:${(wPct*100).toFixed(1)}%;background:${cW}"></span><span style="flex:1;background:${cL}"></span></div>
       <div class="trade-bar-labels"><span style="color:${cW};font-weight:700">${(wShare*100).toFixed(0)}% of post-trade points</span><span style="color:${cL};font-weight:700">${(100-wShare*100).toFixed(0)}%</span></div>
@@ -2972,8 +2974,9 @@ function legacyReportHTML(owner){
   const mine=d.moves.filter(m=>m.owner===owner);
   const recs=d.records.filter(r=>r.txt.indexOf(nm)===0);
   return `<div class="sec lr-sec">
+    <!-- plain span, not .badge-info: those are hidden inside section heads -->
     <div class="sec-head" style="font-size:15px"><i class="fa fa-landmark" style="color:var(--accent)"></i>Legacy Report
-      <span class="badge-info">week ${d.week} · ${d.season}</span></div>
+      <span class="lr-wk-tag">Week ${d.week} · ${d.season}</span></div>
     ${recs.length?`<div class="lr-recs">${recs.map(r=>
       `<div class="lr-rec"><i class="fa fa-certificate"></i><span>${r.txt}</span><b>${r.val}</b></div>`).join('')}</div>`:''}
     ${mine.length
@@ -5023,6 +5026,7 @@ async function renderProfile(){
   }).filter(Boolean).sort((a,b)=>b.g-a.g);
 
   el.innerHTML=`
+    <div class="prof-hero">
     <div class="prof-banner" style="--tc:${tcRaw}">
       <div class="prof-banner-wm">${(_logoMap[id]?`<img src="${_logoMap[id]}" alt="" decoding="async"/>`:'')}</div>
       <div class="prof-banner-row">
@@ -5034,8 +5038,9 @@ async function renderProfile(){
             ${honorTiles(at.rings,at.confs,aw,_profileHonorYears[owner])}
           </div>
         </div>
-        ${faabChipHTML(t)}
       </div>
+    </div>
+    ${faabChipHTML(t)}
     </div>
     ${legacyReportHTML(owner)}
     <div class="prof-top2">
