@@ -503,6 +503,23 @@
     .rs-sub{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.8px;
       text-transform:uppercase;color:var(--text3);margin:14px 0 4px;padding-top:10px;
       border-top:1px solid rgba(255,255,255,0.10);}
+    /* This Week — top performers */
+    .wt-row{display:grid;grid-template-columns:20px 26px minmax(0,1fr) 22px 54px;
+      align-items:center;gap:9px;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
+    html[data-theme="light"] .wt-row{border-bottom-color:rgba(0,0,0,0.07);}
+    .wt-row:last-child{border-bottom:none;}
+    .wt-rank{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;color:var(--accent);}
+    .wt-row .phs{width:26px!important;height:26px!important;flex:0 0 26px!important;}
+    .wt-row .tm-avatar{width:22px!important;height:22px!important;flex:0 0 22px!important;border-radius:5px!important;}
+    .wt-name{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;
+      min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      display:flex;align-items:baseline;gap:7px;}
+    .wt-slot{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);flex:0 0 auto;}
+    .wt-pts{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;text-align:right;}
+    #page-week>.sec{margin-bottom:34px;}
+    #page-week>.sec:last-child{margin-bottom:0;}
+
     /* This Week: your own matchup called out */
     .wk-mine{border-color:rgba(var(--accent-rgb),0.55);}
     .wk-tag{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.7px;

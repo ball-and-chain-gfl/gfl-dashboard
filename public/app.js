@@ -3673,6 +3673,60 @@ function renderWeek(){
     <div class="rs-head"><span>${info.season} · Week ${info.week}</span>
       <span class="rs-tot">${games.length} matchup${games.length===1?'':'s'}</span></div>
     <div class="lv-grid">${games.map(card).join('')||'<div class="lr-none">No matchups scheduled.</div>'}</div>`;
+  weekPunishment();
+  weekMoves(info);
+  weekTopPerformers(info);
+}
+/* the punishment on the clock, same card the homepage shows */
+function weekPunishment(){
+  const el=document.getElementById('week-punish'); if(!el) return;
+  el.innerHTML=homePunishHTML();
+}
+/* adds, drops and trades processed in the current week */
+function weekMoves(info){
+  const el=document.getElementById('week-moves'); if(!el) return;
+  const teamMap={}; _teams.forEach(t=>teamMap[t.id]=t.name);
+  const wk=Number(info.week);
+  const mine=(_transactions||[]).filter(t=>Number(t.scoringPeriodId)===wk);
+  const rows=mine.slice(0,12).map(tx=>renderTx(tx,teamMap)).filter(Boolean).join('');
+  el.innerHTML=rows||`<div class="lr-none">No moves recorded in week ${info.week} yet.</div>`;
+}
+/* the week's best started performances across the whole league */
+let _weekTopCache=null;
+async function weekTopPerformers(info){
+  const el=document.getElementById('week-top'); if(!el) return;
+  const key=`${info.season}-${info.week}`;
+  if(!_weekTopCache||_weekTopCache.key!==key){
+    el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading this week's lineups…</div>`;
+    try{
+      const r=await fetch(`${BASE}?view=mRoster&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
+      const j=r.ok?await r.json():{};
+      const owners=info.meta.owners||{};
+      const out=[];
+      (j.teams||[]).forEach(t=>{
+        ((t.roster&&t.roster.entries)||[]).forEach(e=>{
+          if(BENCH_SLOTS.includes(e.lineupSlotId)) return;      // started only
+          const p=e.playerPoolEntry?.player||{};
+          const wk=(p.stats||[]).find(s=>s.statSourceId===0&&s.scoringPeriodId===Number(info.week));
+          const pts=wk?.appliedTotal;
+          if(pts==null) return;
+          out.push({pid:e.playerId,n:p.fullName||('#'+e.playerId),pts,tid:t.id,
+            slot:SLOT_NAMES[e.lineupSlotId]||''});
+        });
+      });
+      out.sort((a,b)=>b.pts-a.pts);
+      _weekTopCache={key,rows:out.slice(0,10)};
+    }catch(err){ el.innerHTML=`<div class="lr-none">Could not read lineups: ${err.message}</div>`; return; }
+  }
+  const rows=_weekTopCache.rows;
+  if(!rows.length){ el.innerHTML=`<div class="lr-none">No scores posted for week ${info.week} yet.</div>`; return; }
+  el.innerHTML=rows.map((p,i)=>`<div class="wt-row">
+      <span class="wt-rank">${i+1}</span>
+      ${playerImg(p.pid,26,p.n)}
+      <span class="wt-name">${p.n}<span class="wt-slot">${p.slot}</span></span>
+      ${logoImg(p.tid,'wt-logo')}
+      <span class="wt-pts">${p.pts.toFixed(1)}</span>
+    </div>`).join('');
 }
 
 /* ── SECTION JUMP NAV ───────────────────────────────────────────────────────
@@ -6059,11 +6113,23 @@ async function loadDashboard(){
       </div>
 
       <!-- PLAYER TENURE -->
-      <!-- THIS WEEK -->
+      <!-- THIS WEEK — everything on the clock, gathered in one place -->
       <div class="tab-page" id="page-week">
         <div class="sec wm" data-wm="&#xf0e7;">
-          <div class="sec-head"><i class="fa fa-bolt"></i>This Week</div>
+          <div class="sec-head"><i class="fa fa-bolt"></i>Scoreboard</div>
           <div id="week-body"></div>
+        </div>
+        <div class="sec wm" data-wm="&#xf091;">
+          <div class="sec-head"><i class="fa fa-fire"></i>Top Performers</div>
+          <div id="week-top"></div>
+        </div>
+        <div class="sec wm mod-punish" data-wm="&#xf0e3;">
+          <div class="sec-head"><i class="fa fa-gavel"></i>Punishment</div>
+          <div class="home-box punish-box" id="week-punish"></div>
+        </div>
+        <div class="sec wm" data-wm="&#xf1da;">
+          <div class="sec-head"><i class="fa fa-arrow-right-arrow-left"></i>Moves This Week</div>
+          <div id="week-moves"></div>
         </div>
       </div>
 
