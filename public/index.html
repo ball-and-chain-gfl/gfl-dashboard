@@ -532,19 +532,26 @@
        accent, which on the darker palettes was too low-contrast to read at this
        size. The accent stays as tint and outline so the chips still carry the
        tab's identity. Same footprint, a shade larger and heavier. */
-    .sx-chip{background:rgba(var(--accent-rgb),0.15);border:1px solid rgba(var(--accent-rgb),0.42);
+    /* Each chip carries its own solid base under the accent tint. The bar is
+       transparent, so without this the page scrolls straight through them and
+       the labels stop being readable once the bar pins. */
+    .sx-chip{background:
+        linear-gradient(rgba(var(--accent-rgb),0.20),rgba(var(--accent-rgb),0.20)),
+        rgba(20,20,23,0.96);
+      -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+      border:1px solid rgba(var(--accent-rgb),0.42);
       border-radius:999px;padding:6px 11px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
       letter-spacing:.2px;color:var(--text);cursor:pointer;text-align:center;min-width:0;
       /* wrap rather than clip: a label is never cut off */
       white-space:normal;line-height:1.2;overflow-wrap:anywhere;
       display:flex;align-items:center;justify-content:center;
       transition:background .14s,border-color .14s,transform .07s;}
-    .sx-chip:hover{background:rgba(var(--accent-rgb),0.26);border-color:rgb(var(--accent-rgb));}
+    .sx-chip:hover{background:linear-gradient(rgba(var(--accent-rgb),0.32),rgba(var(--accent-rgb),0.32)),rgba(20,20,23,0.96);border-color:rgb(var(--accent-rgb));}
     .sx-chip:active{transform:translateY(1px);}
     /* selected state, used where the chips act as a switcher */
-    .sx-chip.on{background:rgba(var(--accent-rgb),0.34);border-color:rgb(var(--accent-rgb));
+    .sx-chip.on{background:linear-gradient(rgba(var(--accent-rgb),0.40),rgba(var(--accent-rgb),0.40)),rgba(20,20,23,0.96);border-color:rgb(var(--accent-rgb));
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.12);}
-    html[data-theme="light"] .sx-chip{color:#1c1a17;background:rgba(var(--accent-rgb),0.22);
+    html[data-theme="light"] .sx-chip{color:#1c1a17;background:linear-gradient(rgba(var(--accent-rgb),0.26),rgba(var(--accent-rgb),0.26)),rgba(255,255,255,0.96);
       border-color:rgba(var(--accent-rgb),0.55);}
     @media(max-width:768px){
       /* grid, not the old scrolling row — the chips must all fit */
