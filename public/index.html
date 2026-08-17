@@ -1788,6 +1788,11 @@
     html.nav-lock{background:#171716;}
     html[data-theme="light"].nav-lock{background:var(--bg2);}
     body.nav-lock{min-height:100vh;}
+    /* The pinned matchup bar sits below the scrim, so with the nav open it was
+       dimmed into a grey slab across the bottom of the screen. It only appears
+       when signed in, which is why it read as a phantom bar rather than as
+       itself. Hide it for as long as the nav is open. */
+    html.nav-lock #my-matchup{display:none;}
     #nav-scrim{position:fixed;inset:0;z-index:395;background:rgba(4,4,6,0.66);
       opacity:0;pointer-events:none;transition:opacity .1s linear;will-change:opacity;}
     #nav-scrim.show{opacity:1;pointer-events:auto;}

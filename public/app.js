@@ -6184,8 +6184,8 @@ async function loadDashboard(){
 
       <!-- ROSTER -->
       <div class="tab-page" id="page-roster">
+        <!-- no heading: the page title already says Rosters -->
         <div class="sec wm" data-wm="&#xf500;">
-          <div class="sec-head"><i class="fa fa-people-group"></i>My Roster</div>
           <div id="roster-body"></div>
         </div>
       </div>
