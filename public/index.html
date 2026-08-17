@@ -519,8 +519,10 @@
        content showing through the gap between the nav and the chips. */
     .sec-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:7px;margin:-8px 0 26px;
       position:sticky;z-index:380;top:calc(env(safe-area-inset-top,0px) + 82px);
-      padding:8px 0;background:var(--bg);
-      -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+      /* frosted, not filled — a solid --bg read as a black slab against the
+         page, which is a lighter shade */
+      padding:8px 0;background:transparent;
+      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
     .sec-nav[hidden]{display:none;}
     /* inline variant sits under a filter row, not under the title rule */
     .sec-nav-local{margin:0 0 18px;}

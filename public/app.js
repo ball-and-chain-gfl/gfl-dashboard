@@ -3591,7 +3591,7 @@ function sectionEntriesIn(page){
     .filter(h=>h.offsetParent!==null && !h.closest('.modal'))
     .map(h=>{
       const c=h.cloneNode(true);
-      c.querySelectorAll('.badge-info,[id$="-score"],.dsb-lbl,.lg-grade').forEach(n=>n.remove());
+      c.querySelectorAll('.badge-info,[id$="-score"],.dsb-lbl,.lg-grade,.lr-wk-tag').forEach(n=>n.remove());
       const label=(c.textContent||'').replace(/\s+/g,' ').replace(/[—–-]\s*\d{4}\s*$/,'').trim();
       const r=h.getBoundingClientRect();
       return {h,label,top:r.top+window.pageYOffset,left:r.left};
@@ -3644,7 +3644,6 @@ const SX_ABBR={
   'Playoff Hardware':'Hardware',
   'Matchup of the Week':'Matchup',
   'All-Time Records':'AT Records',
-  'Legacy Report':'Legacy',
   'Draft Rankings':'Rankings',
   'Draft Report':'Report',
   'Biggest Enemies':'Enemies',
