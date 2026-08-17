@@ -84,7 +84,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
 /* Hand-picked primaries — see the matching --tc / --tabaccent blocks in
    index.html for these plus each tab's secondary. Nav shows the primary only. */
 const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',schedule:'#E89845',book:'#3fd07a',legacy:'#E8BC56',history:'#587DE8',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#63E0E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',week:'This Week',roster:'Roster',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
+const TAB_LABELS={home:'Home',week:'This Week',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -569,7 +569,10 @@ function buildTabDD(){
     const label=b.textContent.trim();
     const tc=TAB_COLORS[tab]||'var(--accent)';
     const active=(tab===_activeTab)?' active':'';
-    return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
+    // a tab marked with data-group opens a new section: rule first, then label
+    const div=b.dataset.group
+      ? `<div class="tab-dd-sep"><span class="tab-dd-rule"></span><span class="tab-dd-sep-l">${b.dataset.group}</span></div>` : '';
+    return div+`<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
   }).join('');
 }
 function syncTabDDActive(){
@@ -3619,21 +3622,31 @@ async function renderHomeMessage(){
 const SLOT_NAMES={0:'QB',2:'RB',3:'RB/WR',4:'WR',5:'WR/TE',6:'TE',7:'OP',16:'D/ST',17:'K',
   20:'BE',21:'IR',23:'FLEX',24:'ER'};
 const BENCH_SLOTS=[20,21,24];
-let _rosterCache=null;
+let _rosterCache=null,_rosterTeam=null;
+function setRosterTeam(id){ _rosterTeam=String(id); renderRoster(); }
+/* every team as a tile, so any roster is one tap away */
+function rosterPickerHTML(){
+  const cur=String(_rosterTeam||'');
+  return `<div class="rp-grid">${_teams.map(t=>`
+    <button class="rp-cell${String(t.id)===cur?' on':''}" onclick="setRosterTeam(${t.id})" title="${t.name}">
+      ${logoImg(t.id,'rp-logo')}
+      <span class="rp-ab">${(t.abbrev||teamInitials(t.name))}</span>
+    </button>`).join('')}</div>`;
+}
 async function renderRoster(){
   const el=document.getElementById('roster-body'); if(!el) return;
-  if(!_me||!_me.teamId){
-    el.innerHTML=`<div class="hm-empty">Sign in to see your roster.
-      <button class="mv-btn hm-go" onclick="openSignIn()">Sign in</button></div>`; return; }
+  // default to your own team once signed in, otherwise the first team
+  if(!_rosterTeam) _rosterTeam=String((_me&&_me.teamId)||_teams[0]?.id||'');
+  if(!_rosterTeam){ el.innerHTML='<div class="tab-loading" style="padding:24px">No teams yet.</div>'; return; }
   const info=liveWeekInfo();
   if(!info){ el.innerHTML='<div class="tab-loading" style="padding:24px">No season data yet.</div>'; return; }
-  const key=`${info.season}-${info.week}-${_me.teamId}`;
+  const key=`${info.season}-${info.week}-${_rosterTeam}`;
   if(!_rosterCache||_rosterCache.key!==key){
-    el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading your roster…</div>`;
+    el.innerHTML=rosterPickerHTML()+`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading roster…</div>`;
     try{
       const r=await fetch(`${BASE}?view=mRoster&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
       const j=r.ok?await r.json():{};
-      const t=(j.teams||[]).find(x=>String(x.id)===String(_me.teamId));
+      const t=(j.teams||[]).find(x=>String(x.id)===String(_rosterTeam));
       const rows=((t&&t.roster&&t.roster.entries)||[]).map(e=>{
         const p=e.playerPoolEntry?.player||{};
         const wk=(p.stats||[]).find(s=>s.statSourceId===0&&s.scoringPeriodId===info.week);
@@ -3645,11 +3658,11 @@ async function renderRoster(){
           bench:BENCH_SLOTS.includes(e.lineupSlotId)};
       });
       _rosterCache={key,rows,season:info.season,week:info.week};
-    }catch(err){ el.innerHTML=`<div class="tab-loading" style="color:var(--red)">Could not load roster: ${err.message}</div>`; return; }
+    }catch(err){ el.innerHTML=rosterPickerHTML()+`<div class="tab-loading" style="color:var(--red)">Could not load roster: ${err.message}</div>`; return; }
   }
   const {rows,season,week}=_rosterCache;
   // ESPN returns the teams but no entries until a season has drafted
-  if(!rows.length){ el.innerHTML=`<div class="lr-none">No ${season} roster yet — this fills in once the draft is done.</div>`; return; }
+  if(!rows.length){ el.innerHTML=rosterPickerHTML()+`<div class="lr-none">No ${season} roster yet — this fills in once the draft is done.</div>`; return; }
   const num=v=>v==null?'—':Number(v).toFixed(1);
   const injTag=s=>!s||s==='ACTIVE'||s==='NORMAL'?'':
     `<span class="rs-inj ${/OUT|INJURY_RESERVE|IR|SUSPENSION/.test(s)?'bad':''}">${s.slice(0,3)}</span>`;
@@ -3662,8 +3675,9 @@ async function renderRoster(){
     </div>`;
   const starters=rows.filter(p=>!p.bench), bench=rows.filter(p=>p.bench);
   const tot=a=>a.reduce((s,p)=>s+(p.pts||0),0);
-  el.innerHTML=`
-    <div class="rs-head"><span>${season} · Week ${week}</span><span class="rs-tot">${tot(starters).toFixed(1)} pts</span></div>
+  const tn=(_teams.find(t=>String(t.id)===String(_rosterTeam))||{}).name||'';
+  el.innerHTML=rosterPickerHTML()+`
+    <div class="rs-head"><span>${tn} · Week ${week}</span><span class="rs-tot">${tot(starters).toFixed(1)} pts</span></div>
     <div class="rs-cols"><span class="rs-slot">Slot</span><span></span><span class="rs-name">Player</span>
       <span class="rs-proj">Proj</span><span class="rs-pts">Pts</span></div>
     ${starters.map(line).join('')}
@@ -4625,7 +4639,7 @@ function applyMe(){
     if(_activeTab==='schedule') renderSchedule();
   }
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
-  _rosterCache=null;
+  _rosterCache=null; _rosterTeam=null;
   if(_activeTab==='roster') renderRoster();
   if(_activeTab==='week') renderWeek();
 }

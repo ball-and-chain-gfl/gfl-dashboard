@@ -493,6 +493,19 @@
     .lh-gabe-body .gabe-pts{font-size:15px;}
     .lh-gabe-body .gabe-name{font-size:12.5px;}
 
+    /* ── Roster: team picker, 2 across ────────────────────────────────────── */
+    .rp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:16px;}
+    .rp-cell{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;
+      background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;
+      color:var(--text2);min-width:0;text-align:left;}
+    .rp-cell:hover{border-color:rgba(var(--accent-rgb),0.45);color:var(--text);}
+    .rp-cell.on{border-color:var(--accent);color:var(--accent);
+      background:color-mix(in srgb,var(--accent) 14%,transparent);}
+    .rp-cell .tm-avatar{width:24px!important;height:24px!important;flex:0 0 24px!important;border-radius:6px!important;}
+    .rp-ab{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;letter-spacing:.5px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    @media(min-width:760px){.rp-grid{grid-template-columns:repeat(6,1fr);}}
+
     /* ── Roster ───────────────────────────────────────────────────────────── */
     .rs-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
       font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.8px;
@@ -1796,6 +1809,13 @@
     .tab-dd-menu.show{display:block;animation:ddfade .15s ease;}
     @keyframes ddfade{from{opacity:0;}to{opacity:1;}}
     .tab-dd-item{display:flex;align-items:center;gap:11px;width:100%;padding:8px 12px;border-radius:8px;background:none;border:1px solid transparent;box-shadow:none;color:var(--text);font-size:15px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;}
+    /* section divider: full-width rule with its label right-aligned against it */
+    .tab-dd-sep{display:flex;align-items:center;gap:10px;width:100%;padding:12px 4px 5px;}
+    .tab-dd-sep:first-child{padding-top:2px;}
+    .tab-dd-rule{flex:1 1 auto;height:1px;background:rgba(255,255,255,0.16);}
+    html[data-theme="light"] .tab-dd-rule{background:rgba(0,0,0,0.16);}
+    .tab-dd-sep-l{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
+      letter-spacing:1px;text-transform:uppercase;color:var(--text3);}
     .tab-dd-item i{color:var(--tc);width:20px;text-align:center;font-size:15px;flex-shrink:0;}
     .tab-dd-item:hover{background:rgba(255,255,255,0.05);}
     .tab-dd-item.active{background:color-mix(in srgb,var(--tc) 16%,transparent);border-color:color-mix(in srgb,var(--tc) 42%,transparent);color:var(--tc);}
@@ -3449,23 +3469,20 @@
 <nav class="tabbar" id="tabbar">
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
   <button class="tab-btn" data-tab="week" onclick="switchTab('week')"><i class="fa fa-bolt"></i>This Week</button>
-  <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Roster</button>
-  <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
-  <button class="tab-btn" data-tab="schedule" onclick="switchTab('schedule')"><i class="fa fa-calendar-days"></i>Schedule</button>
   <button class="tab-btn" data-tab="book" onclick="switchTab('book')"><i class="fa fa-coins"></i>B&amp;C Sportsbook</button>
-  <button class="tab-btn" data-tab="legacy" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
-  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Previous Matchups</button>
-  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Advanced Stats</button>
-  <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
-  <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Reports</button>
-  <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
-  <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
-  <!-- Punishment: retired as a tab. The homepage module's CTA opens the rules
-       popup instead (openPunishRules). Kept hidden so the dropdown, the mobile
-       drawer and the tab colours all skip it. -->
-  <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')" style="display:none"><i class="fa fa-gavel"></i>Punishment</button>
   <button class="tab-btn" data-tab="messages" onclick="switchTab('messages')"><i class="fa fa-comments"></i>Messages</button>
-  <!-- Gabe's Greatness: now a collapsed section at the foot of League History -->
+  <button class="tab-btn" data-tab="teams" data-group="Team Data" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
+  <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Rosters</button>
+  <button class="tab-btn" data-tab="schedule" onclick="switchTab('schedule')"><i class="fa fa-calendar-days"></i>Schedules</button>
+  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Previous Matchups</button>
+  <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
+  <button class="tab-btn" data-tab="legacy" data-group="Analytics" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
+  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Advanced Stats</button>
+  <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Report</button>
+  <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
+  <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
+  <!-- hidden: Punishment opens from the homepage CTA, Gabe's sits in League History -->
+  <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')" style="display:none"><i class="fa fa-gavel"></i>Punishment</button>
   <button class="tab-btn" data-tab="gabe" onclick="switchTab('gabe')" style="display:none"><i class="fa fa-dumbbell"></i>Gabe&#39;s Greatness</button>
   <!-- Marathons Ran: hidden for now -->
   <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')" style="display:none"><i class="fa fa-person-running"></i>Marathons Ran</button>
