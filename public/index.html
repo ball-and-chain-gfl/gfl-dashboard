@@ -474,6 +474,9 @@
     html[data-tabaccent] body:has(#my-matchup) main{padding-bottom:96px;}
     @media(max-width:768px){.mm-tag{display:none;}}
 
+    /* Player Tenure: team select above the view switcher, one view at a time */
+    .tn-picker{padding-bottom:14px;}
+    #tenure-views>.sec{margin:0;}
     /* Advanced Stats: two filters, so they share the width evenly */
     #stats-subtabs.st-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
     #stats-subtabs.st-two .tab-btn{width:100%;justify-content:center;text-align:center;}
@@ -982,7 +985,15 @@
     .prof-headline{min-width:0;}
     .prof-name{font-family:'Google Sans Flex',serif;font-size:30px;font-weight:700;line-height:1.02;}
     .prof-sub{font-size:13px;color:var(--text2);margin-top:5px;}
-    .prof-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;}
+    /* Honours stack full width, one per line: award on the left, the years it
+       was won on the right. */
+    .prof-chips{display:flex;flex-direction:column;gap:4px;margin-top:14px;}
+    .prof-chips .honor-tile{display:flex;align-items:baseline;justify-content:space-between;
+      gap:12px;width:100%;padding:5px 10px;border-radius:5px;min-width:0;}
+    .prof-chips .honor-lb{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;
+      letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;}
+    .prof-chips .honor-sub{font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text2);
+      margin:0;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .prof-chip{background:rgba(0,0,0,0.28);border:1px solid var(--border);border-radius:5px;padding:8px 14px;text-align:center;min-width:66px;backdrop-filter:blur(4px);}
     html[data-theme="light"] .prof-chip{background:rgba(255,255,255,0.7);}
     .prof-chip-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1;}

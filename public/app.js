@@ -1593,12 +1593,14 @@ async function loadTenureData(){
   return _tenurePromise;
 }
 async function ensureTenure(){
+  showTenureSection(_tnSection);            // one view at a time, from the off
   if(_tenure){renderTenureTable();return;}
   const body=document.getElementById('tenure-body');
   if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:12px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
   try{ await loadTenureData(); }
   catch(e){ if(body) body.innerHTML=`<div class="tab-loading" style="color:var(--red)">Failed to load roster history: ${e.message}</div>`; return; }
   renderTenureTable();
+  showTenureSection(_tnSection);
 }
 function renderTenureTable(){
   const body=document.getElementById('tenure-body'); if(!body||!_tenure) return;
@@ -3682,8 +3684,10 @@ function buildSectionNav(tab){
      the bar would collapse to a single chip the moment a tab was chosen. */
   const cm=page.querySelector('#stats-cm');
   const cmOn=cm&&getComputedStyle(cm).display!=='none';
-  const entries=cmOn
-    ? [...cm.children].filter(c=>c.classList.contains('sec'))
+  const tn=page.querySelector('#tenure-views');
+  const host=cmOn?cm:(tn||null);
+  const entries=host
+    ? [...host.children].filter(c=>c.classList.contains('sec'))
         .map(s=>s.querySelector('.sec-head')).filter(Boolean)
         .map(h=>({h,label:(h.textContent||'').replace(/\s+/g,' ').trim()
           .replace(/(tap a team.*|\d{4} · .*)$/,'').trim()}))
@@ -3698,6 +3702,7 @@ function buildSectionNav(tab){
   // the bar is rebuilt whenever the page mutates, so the switcher's selected
   // state has to be re-applied here rather than only when a chip is clicked
   if(cmOn) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_cmSection));
+  else if(tn) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_tnSection));
   _secNavBusy=false;
 }
 /* Inside Advanced Stats the four coaching sections behave as tabs: one at a
@@ -3713,11 +3718,35 @@ function showCMSection(i){
   const bar=document.querySelector('#page-standings .sec-nav-local');
   if(bar) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_cmSection));
 }
+/* Player Tenure works the same way: one view at a time, chips as the switcher,
+   with the team select sitting above them all. */
+let _tnSection=0;
+function showTenureSection(i){
+  const wrap=document.getElementById('tenure-views'); if(!wrap) return;
+  const secs=[...wrap.children].filter(c=>c.classList.contains('sec'));
+  if(!secs.length) return;
+  _tnSection=Math.max(0,Math.min(secs.length-1,i));
+  secs.forEach((s,n)=>{ s.style.display=n===_tnSection?'':'none'; });
+  const bar=document.querySelector('#page-tenure .sec-nav-local');
+  if(bar) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_tnSection));
+  if(_tnSection===2) renderTenureEnemies();
+}
+function renderTenureEnemies(){
+  const el=document.getElementById('tenure-enemies'); if(!el) return;
+  const sel=document.getElementById('tenure-team-select');
+  const owner=sel?.value||_franchises[0]?.owner;
+  el.innerHTML=owner?enemiesHTML(owner):'';
+}
 function jumpToSection(btn){
   const page=document.getElementById('page-'+_activeTab); if(!page) return;
   // Advanced Stats swaps sections instead of scrolling to them
   if(_activeTab==='standings' && document.getElementById('stats-cm')){
     showCMSection(Number(btn.dataset.sx));
+    smoothScrollTo(0);
+    return;
+  }
+  if(_activeTab==='tenure' && document.getElementById('tenure-views')){
+    showTenureSection(Number(btn.dataset.sx));
     smoothScrollTo(0);
     return;
   }
@@ -5089,21 +5118,7 @@ async function renderProfile(){
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>Draft Grades<span class="badge-info">by season</span></div>
           <div id="prof-draftgrades">${profileDraftBlockHTML(owner)}</div>
         </div>
-        <div class="prof-col panel">
-          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-skull-crossbones" style="color:var(--accent)"></i>Biggest Enemies<span class="badge-info">most points scored against them</span></div>
-          <div id="prof-enemies">${enemiesHTML(owner)}</div>
-        </div>
-        ${oppRows.length?`<div class="prof-col panel prof-opp">
-          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-scale-balanced"></i>All-Time vs Each Team</div>
-          ${profOppMobileHTML(oppRows)}
-          <div class="tscroll"><table class="min480 srt"><thead><tr><th>Opponent</th><th class="right">W</th><th class="right">L</th><th class="right">Win%</th></tr></thead>
-          <tbody>${oppRows.map(r=>`<tr>
-            <td><div class="team-cell">${franchiseAvatar(r.opp,24,7)}<span class="fr-name">${r.opp.name}</span></div></td>
-            <td class="right" style="color:var(--green);font-weight:700">${r.w}</td>
-            <td class="right" style="color:var(--red)">${r.l}</td>
-            <td class="right" style="font-weight:600;color:${r.pct>=0.5?'var(--green)':'var(--red)'}">${(r.pct*100).toFixed(0)}%</td>
-          </tr>`).join('')}</tbody></table></div>
-        </div>`:''}
+        <!-- Biggest Enemies moved to Player Tenure; All-Time vs Each Team retired -->
       </div>
       <div class="prof-col panel">
         <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>All-Time Starting Lineup</div>
@@ -5945,18 +5960,28 @@ async function loadDashboard(){
 
       <!-- PLAYER TENURE -->
       <div class="tab-page" id="page-tenure">
-        <div class="sec wm" data-wm="&#xf4fd;">
-          <div class="sec-head"><i class="fa fa-user-clock"></i>Weeks &amp; Points<span class="badge-info">rostered &amp; started · all seasons</span></div>
-          <div class="picker-bar">
-            <label for="tenure-team-select">Team:</label>
-            <select id="tenure-team-select" onchange="renderTenureTable()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>
-            <input type="text" id="tenure-search" placeholder="Search player…" oninput="renderTenureTable()"/>
-          </div>
-          <div id="tenure-body"></div>
+        <!-- team select sits above the views: it scopes all of them -->
+        <div class="picker-bar tn-picker">
+          <label for="tenure-team-select">Team:</label>
+          <select id="tenure-team-select" onchange="renderTenureTable();renderTenureEnemies()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>
         </div>
-        <div class="sec wm" data-wm="&#xf091;">
-          <div class="sec-head"><i class="fa fa-trophy"></i>Playoff Hardware<span class="badge-info">every team combined · all seasons</span></div>
-          <div id="tenure-hw"></div>
+        <nav class="sec-nav sec-nav-local" aria-label="Sections on this page" hidden></nav>
+        <div id="tenure-views">
+          <div class="sec wm" data-wm="&#xf4fd;">
+            <div class="sec-head"><i class="fa fa-user-clock"></i>Weeks &amp; Points</div>
+            <div class="picker-bar">
+              <input type="text" id="tenure-search" placeholder="Search player…" oninput="renderTenureTable()"/>
+            </div>
+            <div id="tenure-body"></div>
+          </div>
+          <div class="sec wm" data-wm="&#xf091;">
+            <div class="sec-head"><i class="fa fa-trophy"></i>Playoff Hardware</div>
+            <div id="tenure-hw"></div>
+          </div>
+          <div class="sec wm" data-wm="&#xf714;">
+            <div class="sec-head"><i class="fa fa-skull-crossbones"></i>Biggest Enemies</div>
+            <div id="tenure-enemies"></div>
+          </div>
         </div>
       </div>
 
