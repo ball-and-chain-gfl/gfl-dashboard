@@ -3731,6 +3731,10 @@ function showTenureSection(i){
   secs.forEach((s,n)=>{ s.style.display=n===_tnSection?'':'none'; });
   const bar=document.querySelector('#page-tenure .sec-nav-local');
   if(bar) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_tnSection));
+  // Playoff Hardware aggregates every roster a player ever sat on, so the team
+  // picker has nothing to act on there
+  const pick=document.getElementById('tenure-picker');
+  if(pick) pick.style.display=_tnSection===1?'none':'';
   if(_tnSection===2) renderTenureEnemies();
 }
 function renderTenureEnemies(){
@@ -5953,12 +5957,12 @@ async function loadDashboard(){
 
       <!-- PLAYER TENURE -->
       <div class="tab-page" id="page-tenure">
-        <!-- team select sits above the views: it scopes all of them -->
-        <div class="picker-bar tn-picker">
+        <nav class="sec-nav sec-nav-local sx-filters" aria-label="Sections on this page" hidden></nav>
+        <!-- below the filters, and hidden on Hardware, which is league-wide -->
+        <div class="picker-bar tn-picker" id="tenure-picker">
           <label for="tenure-team-select">Team:</label>
           <select id="tenure-team-select" onchange="renderTenureTable();renderTenureEnemies()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>
         </div>
-        <nav class="sec-nav sec-nav-local sx-filters" aria-label="Sections on this page" hidden></nav>
         <div id="tenure-views">
           <div class="sec wm" data-wm="&#xf4fd;">
             <div class="sec-head"><i class="fa fa-user-clock"></i>Weeks &amp; Points</div>

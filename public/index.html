@@ -474,8 +474,10 @@
     html[data-tabaccent] body:has(#my-matchup) main{padding-bottom:96px;}
     @media(max-width:768px){.mm-tag{display:none;}}
 
-    /* Player Data: team select above the view switcher, one view at a time */
-    .tn-picker{padding-bottom:14px;}
+    /* Player Data: filters, then the team select, one view at a time */
+    .tn-picker{padding:14px 0 16px;}
+    /* these read as page filters, not a floating jump bar, so they stay put */
+    #page-tenure .sx-filters{position:static;}
     #tenure-views>.sec{margin:0;}
     /* the switcher reads as filter buttons, matching Advanced Stats, rather
        than as the pill-shaped jump chips used elsewhere */
