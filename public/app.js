@@ -1753,11 +1753,15 @@ function tradeTeamName(season,teamId){
   return (_teams.find(t=>t.id===teamId)?.name||`Team ${teamId}`).trim();
 }
 /* abbreviation, so both sides of a trade fit side by side on a phone */
-/* Share of post-trade points on a three-stop scale: red when a side lost the
-   trade, blue at an even split, green when it won. Blue sits at the midpoint
-   deliberately — an even trade is a good outcome for both sides, not a
-   mediocre one, so it should not read as the amber "middling" of a grade ramp. */
-const TRADE_RED='#fb7185', TRADE_BLUE='#60a5fa', TRADE_GREEN='#4ade80';
+/* Green through amber to red, stretched to the trades actually on screen.
+   A fixed 0-100% mapping wasted most of the range: real splits cluster between
+   about 50% and 75%, so everything came out a muted mid-tone. _tradeSpread is
+   the widest gap from even in the current filter group, so the most lopsided
+   trade in view anchors full green against full red and everything else scales
+   between. It is recomputed per filter, so the colours always describe the set
+   being looked at rather than a theoretical 0-100. */
+const TRADE_RED='#fb7185', TRADE_AMBER='#f4c04d', TRADE_GREEN='#4ade80';
+let _tradeSpread=0.5;
 function mixHex(a,b,t){
   const p=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
   const [r1,g1,b1]=p(a),[r2,g2,b2]=p(b);
@@ -1765,9 +1769,10 @@ function mixHex(a,b,t){
   return `rgb(${c(r1,r2)},${c(g1,g2)},${c(b1,b2)})`;
 }
 function tradeShareColor(share){
-  const t=Math.min(1,Math.max(0,share));
-  return t>=0.5 ? mixHex(TRADE_BLUE,TRADE_GREEN,(t-0.5)/0.5)
-                : mixHex(TRADE_RED,TRADE_BLUE,t/0.5);
+  const d=Math.max(0.02,_tradeSpread);                  // guard an all-even set
+  const t=Math.min(1,Math.max(0,0.5+(share-0.5)/(2*d)));
+  return t>=0.5 ? mixHex(TRADE_AMBER,TRADE_GREEN,(t-0.5)/0.5)
+                : mixHex(TRADE_RED,TRADE_AMBER,t/0.5);
 }
 /* the same colour as a low-alpha wash for the panel behind each side */
 function tradeShareTint(share){
@@ -1834,6 +1839,13 @@ async function renderTradesTab(){
   const colOf=(s,id)=>colors[_seasonMeta[s]?.owners?.[id]||`t${id}`]||'var(--accent)';
 
   const reconstructedAny=results.some(r=>r.source!=='log');
+  /* anchor the colour scale to this filter group before drawing any of it:
+     the widest gap from an even split becomes the full green / full red end */
+  _tradeSpread=list.reduce((mx,tr)=>{
+    const a=Math.max(tr.a.total,0), b=Math.max(tr.b.total,0);
+    if(a+b<=0) return mx;
+    return Math.max(mx,Math.abs(Math.max(a,b)/(a+b)-0.5));
+  },0);
   body.innerHTML=list.map((tr,i)=>{
     const totA=Math.max(tr.a.total,0),totB=Math.max(tr.b.total,0);
     const aWin=tr.a.total>=tr.b.total;
@@ -3928,7 +3940,12 @@ function jumpToSection(btn){
   const el=heads[Number(btn.dataset.sx)];
   if(!el) return;
   const nav=document.getElementById('floatnav');
-  const pad=(nav?nav.getBoundingClientRect().bottom:70)+14;
+  // clear the chip bar as well as the nav — the bar pins directly under the
+  // nav, so offsetting by the nav alone parked the heading behind the chips
+  const barEl=btn.closest('.sec-nav');
+  const barH=(barEl&&getComputedStyle(barEl).position==='sticky')
+    ? barEl.getBoundingClientRect().height : 0;
+  const pad=(nav?nav.getBoundingClientRect().bottom:70)+barH+14;
   const y=Math.max(0,el.getBoundingClientRect().top+window.pageYOffset-pad);
   smoothScrollTo(y);
 }
