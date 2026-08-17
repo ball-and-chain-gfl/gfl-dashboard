@@ -474,9 +474,22 @@
     html[data-tabaccent] body:has(#my-matchup) main{padding-bottom:96px;}
     @media(max-width:768px){.mm-tag{display:none;}}
 
-    /* Player Tenure: team select above the view switcher, one view at a time */
+    /* Player Data: team select above the view switcher, one view at a time */
     .tn-picker{padding-bottom:14px;}
     #tenure-views>.sec{margin:0;}
+    /* the switcher reads as filter buttons, matching Advanced Stats, rather
+       than as the pill-shaped jump chips used elsewhere */
+    .sx-filters .sx-chip{border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;
+      letter-spacing:.3px;text-transform:none;
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.14);
+      color:var(--text2);backdrop-filter:none;-webkit-backdrop-filter:none;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 1px 2px rgba(0,0,0,0.25);}
+    .sx-filters .sx-chip:hover{background:color-mix(in srgb,var(--accent) 12%,transparent);
+      color:var(--text);border-color:rgba(255,255,255,0.22);}
+    .sx-filters .sx-chip.on{background:color-mix(in srgb,var(--accent) 20%,transparent);
+      color:var(--accent);border-color:var(--accent);}
+    html[data-theme="light"] .sx-filters .sx-chip{background:rgba(0,0,0,0.04);color:#4c4741;
+      border-color:rgba(0,0,0,0.14);}
     /* Advanced Stats: two filters, so they share the width evenly */
     #stats-subtabs.st-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
     #stats-subtabs.st-two .tab-btn{width:100%;justify-content:center;text-align:center;}
@@ -484,37 +497,6 @@
     #stats-cm>.sec{margin:0 0 26px;}
     #stats-cm>.sec:last-child{margin-bottom:0;}
     #stats-cm .home-cm{border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
-
-    /* ── Back to top ──────────────────────────────────────────────────────────
-       Sits just under the floating nav on the right, in the active tab's
-       colour. Hidden until there is something to scroll back from. */
-    /* colour-mix off --accent rather than rgba(var(--accent-rgb)): the rgb
-       triple resolved stale here, so the button kept the previous tab's hue */
-    #to-top{position:fixed;right:14px;z-index:390;
-      top:calc(env(safe-area-inset-top,0px) + 84px);
-      width:38px;height:38px;border-radius:999px;cursor:pointer;
-      display:flex!important;align-items:center;justify-content:center;
-      background:rgba(10,10,12,0.72);
-      /* border rides on currentColor. var(--accent) resolved correctly for
-         `color` but kept returning the root fallback for border-color on this
-         element, in both shorthand and longhand form; keying off the text
-         colour makes the border follow the tab for certain. */
-      color:var(--accent);
-      border-width:1px;border-style:solid;border-color:currentColor;
-      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-      box-shadow:0 8px 22px -12px rgba(0,0,0,0.9);
-      opacity:0;transform:translateY(-6px);pointer-events:none;
-      transition:opacity .18s,transform .18s,background .15s,border-color .15s;}
-    #to-top.show{opacity:1;transform:translateY(0);pointer-events:auto;}
-    #to-top:hover{background:rgba(20,20,24,0.86);}
-    html[data-theme="light"] #to-top{background:rgba(255,255,255,0.86);}
-    #to-top:active{transform:translateY(1px);}
-    #to-top i{font-size:14px;}
-    @media(max-width:768px){
-      #to-top{right:10px;width:34px;height:34px;
-        top:calc(env(safe-area-inset-top,0px) + 74px);}
-      #to-top i{font-size:13px;}
-    }
 
     /* ── Section jump nav ─────────────────────────────────────────────────── */
     /* Sticky under the floating nav. Sits where it always did on load and only
@@ -988,7 +970,10 @@
     /* Honours stack full width, one per line: award on the left, the years it
        was won on the right. */
     .prof-chips{display:flex;flex-direction:column;gap:4px;margin-top:14px;}
-    .prof-chips .honor-tile{display:flex;align-items:baseline;justify-content:space-between;
+    /* flex-direction:row is explicit — the base .honor-tile is a column, which
+       is what kept pushing the years onto their own line */
+    .prof-chips .honor-tile{display:flex;flex-direction:row;flex-wrap:nowrap;
+      align-items:baseline;justify-content:space-between;
       gap:12px;width:100%;padding:5px 10px;border-radius:5px;min-width:0;}
     .prof-chips .honor-lb{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;
       letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;}
@@ -3373,7 +3358,7 @@
   <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Reports</button>
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
-  <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Tenure</button>
+  <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <!-- Punishment: retired as a tab. The homepage module's CTA opens the rules
        popup instead (openPunishRules). Kept hidden so the dropdown, the mobile
        drawer and the tab colours all skip it. -->
@@ -3386,8 +3371,6 @@
 
 <main><h1 id="page-h1" class="page-h1"><span>Home</span></h1>
 <nav id="sec-nav" class="sec-nav" aria-label="Sections on this page" hidden></nav>
-<button id="to-top" type="button" aria-label="Back to top" title="Back to top"
-  onclick="smoothScrollTo(0)"><i class="fa fa-arrow-up"></i></button>
 <div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div></main>
 <footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 

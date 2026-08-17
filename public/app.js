@@ -84,7 +84,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
 /* Hand-picked primaries — see the matching --tc / --tabaccent blocks in
    index.html for these plus each tab's secondary. Nav shows the primary only. */
 const TAB_COLORS={home:'#E0B67B',teams:'#E84146',schedule:'#E89845',book:'#3fd07a',legacy:'#E8BC56',history:'#587DE8',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#63E0E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Tenure',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
+const TAB_LABELS={home:'Home',book:'B&C Sportsbook',schedule:'Schedule',standings:'Advanced Stats',trades:'Trades',draft:'Draft Reports',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -166,11 +166,13 @@ const AWARD_SHORT={coy:'Coach of Yr',commitment:'Commitment',comeback:'Comeback'
 function honorTiles(rings,confs,awards,years){
   const tiles=[];
   const tile=(emoji,label,count,cls,sub)=>`<div class="honor-tile ${cls}"><div class="honor-lb">${label}${count>1?` <b>×${count}</b>`:''}</div>${sub?`<div class="honor-sub">${sub}</div>`:''}</div>`;
-  if(rings) tiles.push(tile('🏆','Champion',rings,'champ hk-champ',(years&&years.champ&&years.champ.join(', '))||''));
-  if(confs) tiles.push(tile('⭐','Conference',confs,'conf hk-conf',(years&&years.conf&&years.conf.join(', '))||''));
+  if(rings) tiles.push(tile('🏆','Champion',rings,'champ hk-champ',(years&&years.champ&&years.champ.join(' '))||''));
+  if(confs) tiles.push(tile('⭐','Conference',confs,'conf hk-conf',(years&&years.conf&&years.conf.join(' '))||''));
   const byKey={};(awards||[]).forEach(aw=>{(byKey[aw.key]||(byKey[aw.key]={n:0,label:aw.label,yrs:[]})).n++;byKey[aw.key].yrs.push(aw.year);});
+  // years short-form ('25) so several fit on one line beside the award name
+  const yr=y=>`'${String(y).slice(2)}`;
   (_awardsData?.order||Object.keys(byKey)).forEach(k=>{const v=byKey[k];if(!v)return;
-    tiles.push(tile(v.label.emoji,AWARD_SHORT[k]||v.label.name,v.n,`hk-${k} ${v.label.good===false?'bad':'award'}`,v.yrs.join(', ')));});
+    tiles.push(tile(v.label.emoji,AWARD_SHORT[k]||v.label.name,v.n,`hk-${k} ${v.label.good===false?'bad':'award'}`,v.yrs.map(yr).join(' ')));});
   return tiles.join('');
 }
 function normName(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
@@ -3765,15 +3767,6 @@ function jumpToSection(btn){
    nothing where it isn't — which left the jump chips dead. Assigning scrollTop
    always lands, and `html{scroll-behavior:smooth}` in the stylesheet gives real
    browsers the easing for free (and is disabled under reduced motion there). */
-/* show the back-to-top control once the page has actually been scrolled */
-function initToTop(){
-  const btn=document.getElementById('to-top'); if(!btn) return;
-  const doc=document.scrollingElement||document.documentElement;
-  const sync=()=>btn.classList.toggle('show',doc.scrollTop>260);
-  window.addEventListener('scroll',sync,{passive:true});
-  window.addEventListener('resize',sync);
-  sync();
-}
 function smoothScrollTo(target){
   const doc=document.scrollingElement||document.documentElement;
   doc.scrollTop=target;
@@ -5965,7 +5958,7 @@ async function loadDashboard(){
           <label for="tenure-team-select">Team:</label>
           <select id="tenure-team-select" onchange="renderTenureTable();renderTenureEnemies()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>
         </div>
-        <nav class="sec-nav sec-nav-local" aria-label="Sections on this page" hidden></nav>
+        <nav class="sec-nav sec-nav-local sx-filters" aria-label="Sections on this page" hidden></nav>
         <div id="tenure-views">
           <div class="sec wm" data-wm="&#xf4fd;">
             <div class="sec-head"><i class="fa fa-user-clock"></i>Weeks &amp; Points</div>
@@ -6091,7 +6084,7 @@ loadDashboard();
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();
 /* each init is isolated: they shared a statement, so a throw in the first
    silently prevented the second from ever running */
-function bootUI(){ try{initSignIn();}catch(e){} try{initToTop();}catch(e){} }
+function bootUI(){ try{initSignIn();}catch(e){} }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootUI); else bootUI();
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});
