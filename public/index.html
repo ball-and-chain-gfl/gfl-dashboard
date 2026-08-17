@@ -1065,7 +1065,10 @@
       .prof-chips .honor-sub{font-size:9px!important;}
       /* phones: All-Time Starting Lineup sits right under the All-Time panel,
          ahead of Draft Grades by Year */
-      #page-teams .prof-cols{display:flex;flex-direction:column;gap:16px;}
+      /* align-items:start is inherited from the grid rule and means "size to
+         content" once this is a flex column — which left the stacked column
+         narrower than the page */
+      #page-teams .prof-cols{display:flex;flex-direction:column;gap:16px;align-items:stretch;}
       #page-teams .prof-cols>.prof-col.panel{order:-1;}
       #page-teams .prof-cols>.prof-colstack{order:0;}
     }
