@@ -3185,30 +3185,45 @@
        on a loop. It is a background-position slide on a 3x-wide gradient, so it
        runs on the compositor rather than repainting, and it collapses to a flat
        line for anyone who asks for reduced motion. */
+    /* The title sits in a full-width recessed panel: an inset shadow sinks it
+       into the page, and a gradient runs continuously around its border.
+       The border is a conic gradient on a pseudo-element, masked to the edge
+       only, with the angle animated — that is what makes it travel around all
+       four sides rather than sliding along one. */
+    @property --h1ang{syntax:'<angle>';initial-value:0deg;inherits:false;}
     .page-h1{font-family:"roca",sans-serif;font-size:34px;font-weight:800;line-height:1.05;
-      letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;padding-bottom:9px;
-      border-bottom:none;position:relative;}
-    .page-h1::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;
-      background:linear-gradient(90deg,
-        rgba(var(--accent-rgb),0.25) 0%,
-        var(--accent) 18%,
-        var(--accent2,var(--accent)) 34%,
-        rgba(var(--accent-rgb),0.25) 52%,
-        var(--accent) 68%,
-        var(--accent2,var(--accent)) 84%,
-        rgba(var(--accent-rgb),0.25) 100%);
-      background-size:300% 100%;animation:h1Slide 6s linear infinite;}
-    @keyframes h1Slide{from{background-position:0% 50%;}to{background-position:-200% 50%;}}
+      letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;
+      position:relative;padding:18px 20px;border-radius:12px;
+      background:rgba(0,0,0,0.22);
+      box-shadow:inset 0 3px 16px rgba(0,0,0,0.62),
+        inset 0 -1px 0 rgba(255,255,255,0.05),
+        inset 0 1px 0 rgba(0,0,0,0.5);}
+    html[data-theme="light"] .page-h1{background:rgba(0,0,0,0.05);
+      box-shadow:inset 0 3px 12px rgba(0,0,0,0.14),inset 0 -1px 0 rgba(255,255,255,0.7);}
+    .page-h1::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;
+      background:conic-gradient(from var(--h1ang),
+        rgba(var(--accent-rgb),0.10) 0deg,
+        var(--accent) 70deg,
+        var(--accent2,var(--accent)) 140deg,
+        rgba(var(--accent-rgb),0.10) 210deg,
+        var(--accent) 290deg,
+        rgba(var(--accent-rgb),0.10) 360deg);
+      /* keep only the 2px edge: fill minus content box */
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      mask-composite:exclude;pointer-events:none;
+      animation:h1Orbit 7s linear infinite;}
+    @keyframes h1Orbit{to{--h1ang:360deg;}}
     @media(prefers-reduced-motion:reduce){
       .page-h1::after{animation:none;background:rgba(var(--accent-rgb),0.45);}
     }
     /* The gradient goes on an inline span, not the h1: the h1 stays full width
-       so its rule still spans the column, while the gradient box hugs the text
+       so its panel still spans the column, while the gradient box hugs the text
        and both colours actually show. `color` on the h1 is the fallback. */
     .page-h1>span{background:var(--grad);-webkit-background-clip:text;background-clip:text;
       -webkit-text-fill-color:transparent;}
     @media(max-width:768px){
-      .page-h1{font-size:34px;margin:0 0 16px;padding-bottom:0;letter-spacing:-0.2px;}
+      .page-h1{font-size:30px;margin:0 0 16px;padding:14px 16px;letter-spacing:-0.2px;}
     }
 
   
