@@ -474,6 +474,40 @@
     html[data-tabaccent] body:has(#my-matchup) main{padding-bottom:96px;}
     @media(max-width:768px){.mm-tag{display:none;}}
 
+    /* ── Roster ───────────────────────────────────────────────────────────── */
+    .rs-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+      font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.8px;
+      text-transform:uppercase;color:var(--text3);margin-bottom:10px;}
+    .rs-tot{color:var(--accent);}
+    .rs-cols,.rs-row{display:grid;grid-template-columns:42px 26px minmax(0,1fr) 46px 50px;
+      align-items:center;gap:9px;}
+    .rs-cols{padding:0 2px 6px;border-bottom:1px solid rgba(255,255,255,0.12);
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);}
+    .rs-row{padding:7px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
+    html[data-theme="light"] .rs-row{border-bottom-color:rgba(0,0,0,0.07);}
+    .rs-row:last-child{border-bottom:none;}
+    .rs-row .phs,.rs-row .tm-avatar{width:26px!important;height:26px!important;flex:0 0 26px!important;}
+    .rs-slot{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.5px;
+      color:var(--accent);text-transform:uppercase;}
+    .rs-bench .rs-slot{color:var(--text3);}
+    .rs-name{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;
+      min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      display:flex;align-items:center;gap:6px;}
+    .rs-inj{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.4px;
+      color:var(--accent2,var(--accent));border:1px solid currentColor;border-radius:3px;padding:0 3px;}
+    .rs-inj.bad{color:var(--red);}
+    .rs-proj{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);text-align:right;}
+    .rs-pts{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;text-align:right;}
+    .rs-bench .rs-pts{color:var(--text2);font-weight:700;}
+    .rs-sub{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.8px;
+      text-transform:uppercase;color:var(--text3);margin:14px 0 4px;padding-top:10px;
+      border-top:1px solid rgba(255,255,255,0.10);}
+    /* This Week: your own matchup called out */
+    .wk-mine{border-color:rgba(var(--accent-rgb),0.55);}
+    .wk-tag{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.7px;
+      text-transform:uppercase;color:var(--accent);}
+
     /* Player Data: filters, then the team select, one view at a time */
     .tn-picker{padding:14px 0 16px;}
     /* these read as page filters, not a floating jump bar, so they stay put */
@@ -1378,6 +1412,8 @@
        ═══════════════════════════════════════════════════════════════════════ */
     /* Hand-picked per tab. Nav uses the primary only. */
     .tab-btn[data-tab=home]{--tc:#E0B67B;}
+    .tab-btn[data-tab=week]{--tc:#E8437E;}
+    .tab-btn[data-tab=roster]{--tc:#43C9E8;}
     .tab-btn[data-tab=teams]{--tc:#E84146;}
     .tab-btn[data-tab=schedule]{--tc:#E89845;}
     .tab-btn[data-tab=book]{--tc:#3fd07a;}
@@ -1416,6 +1452,8 @@
     /* home is deliberately a single gold — both stops match, so anything using
        --grad (the Big 4 bar, the title rule) renders flat rather than shifting */
     html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0B67B;--accent-rgb:224,182,123;}
+    html[data-theme="dark"][data-tabaccent=week]{--accent:#E8437E;--accent2:#E86043;--accent-rgb:232,67,126;}
+    html[data-theme="dark"][data-tabaccent=roster]{--accent:#43C9E8;--accent2:#43E8C0;--accent-rgb:67,201,232;}
     html[data-theme="dark"][data-tabaccent=teams]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
     html[data-theme="dark"][data-tabaccent=schedule]{--accent:#E89845;--accent2:#E8AF41;--accent-rgb:232,152,69;}
     html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}
@@ -2393,6 +2431,10 @@
       background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);color:var(--text);
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);transition:background .18s,border-color .18s;}
     #me-btn i{font-size:16px;}
+    /* the linked team's logo fills the button when signed in */
+    #me-btn .tm-avatar{width:100%!important;height:100%!important;flex:1 1 auto!important;
+      border-radius:7px!important;}
+    #me-btn.on{padding:2px;}
     #me-btn.on{background:rgba(var(--accent-rgb),0.9);border-color:rgb(var(--accent-rgb));color:#0d0d0f;}
     #me-btn:hover{border-color:rgba(255,255,255,0.32);}
     .me-ini{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;letter-spacing:.3px;}
@@ -3351,6 +3393,8 @@
 
 <nav class="tabbar" id="tabbar">
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
+  <button class="tab-btn" data-tab="week" onclick="switchTab('week')"><i class="fa fa-bolt"></i>This Week</button>
+  <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Roster</button>
   <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="schedule" onclick="switchTab('schedule')"><i class="fa fa-calendar-days"></i>Schedule</button>
   <button class="tab-btn" data-tab="book" onclick="switchTab('book')"><i class="fa fa-coins"></i>B&amp;C Sportsbook</button>
