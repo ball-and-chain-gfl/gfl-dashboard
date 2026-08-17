@@ -1862,7 +1862,7 @@
     .tab-dd-menu::-webkit-scrollbar-track{background:transparent;}
     .tab-dd-menu::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.22);border-radius:999px;}
     /* content clears the floating bar (bar ends at 76px; this leaves a 38px gap) */
-    main{padding-top:114px;}
+    main{padding-top:96px;}
     @media(max-width:768px){
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
       #floatnav .logo{width:40px;height:40px;}
@@ -1873,7 +1873,7 @@
       .nav-burger{width:28px;height:28px;}
       .tab-dd-menu{right:10px;width:min(340px,calc(100% - 20px));
         top:var(--ddtop,calc(env(safe-area-inset-top,0px) + 72px));}
-      main{padding-top:calc(env(safe-area-inset-top,0px) + 104px);}
+      main{padding-top:calc(env(safe-area-inset-top,0px) + 86px);}
     }
     /* narrowest phones: pull the row in so all four controls still breathe */
     @media(max-width:360px){
@@ -2451,7 +2451,7 @@
     /* the linked team's logo fills the button when signed in */
     #me-btn .tm-avatar{width:100%!important;height:100%!important;flex:1 1 auto!important;
       border-radius:7px!important;}
-    #me-btn.on{padding:2px;}
+    #me-btn.on{padding:1px;}
     #me-btn.on{background:rgba(var(--accent-rgb),0.9);border-color:rgb(var(--accent-rgb));color:#0d0d0f;}
     #me-btn:hover{border-color:rgba(255,255,255,0.32);}
     .me-ini{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;letter-spacing:.3px;}
@@ -3193,7 +3193,8 @@
     @property --h1ang{syntax:'<angle>';initial-value:0deg;inherits:false;}
     .page-h1{font-family:"roca",sans-serif;font-size:34px;font-weight:800;line-height:1.05;
       letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;
-      position:relative;padding:18px 20px;border-radius:12px;
+      position:relative;padding:20px 20px 14px;border-radius:12px;
+      display:flex;align-items:center;
       background:rgba(0,0,0,0.22);
       box-shadow:inset 0 3px 16px rgba(0,0,0,0.62),
         inset 0 -1px 0 rgba(255,255,255,0.05),
@@ -3223,7 +3224,7 @@
     .page-h1>span{background:var(--grad);-webkit-background-clip:text;background-clip:text;
       -webkit-text-fill-color:transparent;}
     @media(max-width:768px){
-      .page-h1{font-size:30px;margin:0 0 16px;padding:14px 16px;letter-spacing:-0.2px;}
+      .page-h1{font-size:30px;margin:0 0 16px;padding:17px 16px 11px;letter-spacing:-0.2px;}
     }
 
   
