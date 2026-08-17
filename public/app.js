@@ -512,7 +512,6 @@ function switchTab(name){
   if(name==='badbeat') renderBadBeat();
   if(name==='messages') initMessages();
   if(name==='profile') renderMyProfile();
-  if(name==='gabe') renderGabe();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
   if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); } else liveStop();   // the live board lives on the homepage
   if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
@@ -1754,18 +1753,25 @@ function tradeTeamName(season,teamId){
   return (_teams.find(t=>t.id===teamId)?.name||`Team ${teamId}`).trim();
 }
 /* abbreviation, so both sides of a trade fit side by side on a phone */
-/* Share of post-trade points -> the site's A+ to F colour ramp. A 50/50 split
-   lands mid-scale for both sides; the further a side is ahead, the greener it
-   gets, and the further behind, the redder. */
+/* Share of post-trade points on a three-stop scale: red when a side lost the
+   trade, blue at an even split, green when it won. Blue sits at the midpoint
+   deliberately — an even trade is a good outcome for both sides, not a
+   mediocre one, so it should not read as the amber "middling" of a grade ramp. */
+const TRADE_RED='#fb7185', TRADE_BLUE='#60a5fa', TRADE_GREEN='#4ade80';
+function mixHex(a,b,t){
+  const p=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+  const [r1,g1,b1]=p(a),[r2,g2,b2]=p(b);
+  const c=(x,y)=>Math.round(x+(y-x)*t);
+  return `rgb(${c(r1,r2)},${c(g1,g2)},${c(b1,b2)})`;
+}
 function tradeShareColor(share){
   const t=Math.min(1,Math.max(0,share));
-  return gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]);
+  return t>=0.5 ? mixHex(TRADE_BLUE,TRADE_GREEN,(t-0.5)/0.5)
+                : mixHex(TRADE_RED,TRADE_BLUE,t/0.5);
 }
 /* the same colour as a low-alpha wash for the panel behind each side */
 function tradeShareTint(share){
-  const hex=tradeShareColor(share);
-  const n=parseInt(hex.slice(1),16);
-  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},0.11)`;
+  return tradeShareColor(share).replace('rgb(','rgba(').replace(')',',0.11)');
 }
 function tradeTeamAb(season,teamId){
   const o=_seasonMeta[season]?.owners?.[teamId];
@@ -2479,8 +2485,20 @@ function renderLeagueHistory(){
       <div id="lh-sups" ${_lhView==='sups'?'':'style="display:none"'}>
         ${head('fa-award','Season Superlatives')}
         ${supsHTML}</div>
-    </div>`;
+    </div>
+    <!-- Gabe's Greatness lives here now, collapsed at the foot of the page.
+         A <summary> rather than a .sec-head, so it stays off the jump bar. -->
+    <details class="lh-gabe">
+      <summary><i class="fa fa-dumbbell"></i><span>Gabe's Greatness</span><i class="fa fa-chevron-down gb-caret"></i></summary>
+      <div class="lh-gabe-body">
+        <div id="gabe-monument"></div>
+        <div id="gabe-body"></div>
+      </div>
+    </details>`;
   openDesktopBrackets();
+  const gd=document.querySelector('.lh-gabe');
+  if(gd&&!gd.dataset.wired){ gd.dataset.wired='1';
+    gd.addEventListener('toggle',()=>{ if(gd.open) renderGabe(); }); }
 }
 // Brackets ride open on desktop and stay closed on phones (where they'd bury
 // the rest of the list).
@@ -6220,15 +6238,7 @@ async function loadDashboard(){
       </div>
 
       <!-- GABE'S GREATNESS -->
-      <div class="tab-page" id="page-gabe">
-        <div class="gabe-layout">
-          <div class="sec wm" data-wm="&#xf44b;">
-            <div class="sec-head"><i class="fa fa-dumbbell"></i>Gabe's Greatness<span class="badge-info">Gabe Davis's finest GFL outings</span></div>
-            <div id="gabe-body"></div>
-          </div>
-          <div id="gabe-monument"></div>
-        </div>
-      </div>
+      <!-- Gabe's Greatness moved into League History as a collapsed section -->
     `;
 
     refreshSeasonOptions();
