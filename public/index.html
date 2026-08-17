@@ -476,8 +476,11 @@
     .mm-vs{font-family:'Inter',sans-serif;font-size:9.5px;color:var(--text3);}
     .mm-spark{margin-left:auto;width:60px;flex:0 0 60px;line-height:0;}
     .mm-spark .lv-spark{height:18px;margin:0;}
+    /* The sportsbook has its own bet slip pinned to the bottom, so the matchup
+       bar hovers over it. Drop it there, and with it the space reserved below. */
+    html[data-tabaccent=book] #my-matchup{display:none;}
     /* keep the pinned bar from covering the end of the page */
-    html[data-tabaccent] body:has(#my-matchup) main{padding-bottom:96px;}
+    html[data-tabaccent]:not([data-tabaccent=book]) body:has(#my-matchup) main{padding-bottom:96px;}
     @media(max-width:768px){.mm-tag{display:none;}}
 
     /* ── Gabe's Greatness: collapsed at the foot of League History ─────────── */
@@ -1839,9 +1842,9 @@
     .tab-dd-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:250px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,0.6);z-index:2000;display:none;padding:6px;}
     .tab-dd-menu.show{display:block;animation:ddfade .15s ease;}
     @keyframes ddfade{from{opacity:0;}to{opacity:1;}}
-    .tab-dd-item{display:flex;align-items:center;gap:11px;width:100%;padding:8px 12px;border-radius:8px;background:none;border:1px solid transparent;box-shadow:none;color:var(--text);font-size:15px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;}
+    .tab-dd-item{display:flex;align-items:center;gap:11px;width:100%;padding:7px 12px;border-radius:8px;background:none;border:1px solid transparent;box-shadow:none;color:var(--text);font-size:15px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;}
     /* section divider: full-width rule with its label right-aligned against it */
-    .tab-dd-sep{display:flex;align-items:center;gap:10px;width:100%;padding:12px 4px 5px;}
+    .tab-dd-sep{display:flex;align-items:center;gap:10px;width:100%;padding:9px 4px 4px;}
     .tab-dd-sep:first-child{padding-top:2px;}
     .tab-dd-rule{flex:1 1 auto;height:1px;background:rgba(255,255,255,0.16);}
     html[data-theme="light"] .tab-dd-rule{background:rgba(0,0,0,0.16);}
@@ -1929,7 +1932,7 @@
       display:block!important;visibility:hidden;opacity:0;pointer-events:none;
       animation:none!important;transition:opacity .1s linear;will-change:opacity;}
     .tab-dd-menu.show{visibility:visible;opacity:1;pointer-events:auto;}
-    .tab-dd-item{border-radius:999px;padding:9px 14px;}
+    .tab-dd-item{border-radius:999px;padding:8px 14px;}
     .tab-dd-menu{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.22) transparent;}
     .tab-dd-menu::-webkit-scrollbar{width:6px;}
     .tab-dd-menu::-webkit-scrollbar-track{background:transparent;}
