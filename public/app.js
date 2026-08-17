@@ -3644,7 +3644,7 @@ const SX_ABBR={
   'Historical Matchup Records':'Matchup Records',
   'Conference Championships':'Conferences',
   'Season Superlatives':'Superlatives',
-  'Weeks & Points':'Weeks & Pts',
+  'Player Tenure':'Tenure',
   'Playoff Hardware':'Hardware',
   'Matchup of the Week':'Matchup',
   'All-Time Records':'AT Records',
@@ -5965,7 +5965,7 @@ async function loadDashboard(){
         </div>
         <div id="tenure-views">
           <div class="sec wm" data-wm="&#xf4fd;">
-            <div class="sec-head"><i class="fa fa-user-clock"></i>Weeks &amp; Points</div>
+            <div class="sec-head"><i class="fa fa-user-clock"></i>Player Tenure</div>
             <div class="picker-bar">
               <input type="text" id="tenure-search" placeholder="Search player…" oninput="renderTenureTable()"/>
             </div>
