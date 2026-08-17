@@ -38,6 +38,10 @@
       --text:#f7f8ec;--text2:#b7b7b7;--text3:#7b7b7b;
       --accent:#ffb347;--accent2:#ff923d;--accent-rgb:255,179,71;
       --green:#4ade80;--red:#fb7185;--blue:#60a5fa;--purple:#c084fc;
+      /* One source of truth for the nav dim: the scrim paints it, and html
+         re-composites it over the page colour while locked (see .nav-lock). */
+      --scrim:rgba(4,4,6,0.66);
+      --page-bg:#171716;
       /* pressable control edges (Shopify Help Center keycap treatment, dark theme):
          rest = light top/side hairlines + darker bottom edge (raised)
          hover = brighter edges · active = dark inset top (pressed in) */
@@ -46,9 +50,11 @@
       --btn-edge-active:inset 0 2px 1px rgba(0,0,0,0.55),inset 1px 0 1px rgba(0,0,0,0.3),inset -1px 0 1px rgba(0,0,0,0.3);
       --btn-edge-gold:inset 0 1px 0 rgba(var(--accent-rgb),0.5),inset 1px 0 0 rgba(var(--accent-rgb),0.25),inset -1px 0 0 rgba(var(--accent-rgb),0.25),inset 0 -1px 0 rgba(0,0,0,0.7);
     }
-    /* html carries the dark base so iOS rubber-band overscroll never shows white */
-    html{background:#171716;}
-    body{background:#171716;color:var(--text);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
+    /* html carries the page base so iOS rubber-band overscroll never shows white.
+       It has to be the theme's own colour: light kept the dark value here, which
+       left dark strips at the edges of a light page. */
+    html{background:var(--page-bg);}
+    body{background:var(--page-bg);color:var(--text);font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
     /* Type hierarchy —
        10-11px: uppercase micro-labels & meta · 12px: secondary info
        13px: body & data rows · 14-15px: names, buttons, labels (Google Sans Flex)
@@ -1333,7 +1339,8 @@
       --btn-edge-active:inset 0 2px 1px rgba(26,26,26,0.2),inset 1px 0 1px rgba(26,26,26,0.12),inset -1px 0 1px rgba(26,26,26,0.12);
       --btn-edge-gold:inset 0 1px 0 rgba(178,106,0,0.55),inset 1px 0 0 rgba(178,106,0,0.3),inset -1px 0 0 rgba(178,106,0,0.3),inset 0 -1px 0 rgba(120,70,10,0.55);
     }
-    html[data-theme="light"] body{background:radial-gradient(circle at top,#f7ead2 0%,#f7f6f3 45%);}
+    html[data-theme="light"]{--page-bg:radial-gradient(circle at top,#f7ead2 0%,#f7f6f3 45%);}
+    html[data-theme="light"] body{background:var(--page-bg);}
     html[data-theme="light"] header,html[data-theme="light"] .tabbar{background:rgba(250,249,246,0.9);}
     html[data-theme="light"] .card,html[data-theme="light"] .big4-team,html[data-theme="light"] .headline-card,html[data-theme="light"] .trade-card{background:var(--bg2);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 1px 2px rgba(0,0,0,0.07),0 16px 32px -26px rgba(0,0,0,0.3);}
     html[data-theme="light"] select,html[data-theme="light"] .picker-bar input[type=text],html[data-theme="light"] .pin-input{background-color:var(--bg2);color:var(--text);}
@@ -1782,24 +1789,23 @@
     html.nav-lock,body.nav-lock{overflow:hidden;}   /* lock page scroll while drawer open */
     html.nav-lock,body.nav-lock{overscroll-behavior:none;}
     /* Locking sets body{position:fixed}, which drops it out of flow and lets
-       the document collapse to viewport height. Wherever body's content ends,
-       html's own darker background showed through as a band under the scrim.
-       Matching the page colour and keeping body at full height removes it. */
-    /* The scrim is position:fixed, so it covers the layout viewport — but on
-       mobile the visual viewport extends past it, behind the status bar and
-       above the browser toolbar. Those strips show html's background with no
-       scrim over them, which is why matching the plain page colour still left
-       a pale band top and bottom. html takes the page colour ALREADY DIMMED by
-       the scrim (#171716 under rgba(4,4,6,0.66)), so the strips match. */
-    html.nav-lock{background:#0a0a0b;}
-    html[data-theme="light"].nav-lock{background:#59595b;}
+       the document collapse to viewport height; the scrim, being fixed, only
+       covers the layout viewport. On mobile the canvas is painted across the
+       whole visual viewport, so strips at the top and bottom show html's own
+       background with no scrim over them — the grey bands.
+       Only the canvas can paint in those strips, so the scrim cannot be
+       stretched to cover them: html has to carry the dimmed colour itself.
+       Rather than hard-code a composite, html takes the page background with
+       the scrim layered over it, which matches by construction — and matches
+       the light theme's gradient, which no flat colour can. */
+    html.nav-lock{background:linear-gradient(var(--scrim),var(--scrim)),var(--page-bg);}
     body.nav-lock{min-height:100vh;}
     /* The pinned matchup bar sits below the scrim, so with the nav open it was
        dimmed into a grey slab across the bottom of the screen. It only appears
        when signed in, which is why it read as a phantom bar rather than as
        itself. Hide it for as long as the nav is open. */
     html.nav-lock #my-matchup{display:none;}
-    #nav-scrim{position:fixed;inset:0;z-index:395;background:rgba(4,4,6,0.66);
+    #nav-scrim{position:fixed;inset:0;z-index:395;background:var(--scrim);
       opacity:0;pointer-events:none;transition:opacity .1s linear;will-change:opacity;}
     #nav-scrim.show{opacity:1;pointer-events:auto;}
     .logo{cursor:pointer;}
