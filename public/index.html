@@ -1785,8 +1785,14 @@
        the document collapse to viewport height. Wherever body's content ends,
        html's own darker background showed through as a band under the scrim.
        Matching the page colour and keeping body at full height removes it. */
-    html.nav-lock{background:#171716;}
-    html[data-theme="light"].nav-lock{background:var(--bg2);}
+    /* The scrim is position:fixed, so it covers the layout viewport — but on
+       mobile the visual viewport extends past it, behind the status bar and
+       above the browser toolbar. Those strips show html's background with no
+       scrim over them, which is why matching the plain page colour still left
+       a pale band top and bottom. html takes the page colour ALREADY DIMMED by
+       the scrim (#171716 under rgba(4,4,6,0.66)), so the strips match. */
+    html.nav-lock{background:#0a0a0b;}
+    html[data-theme="light"].nav-lock{background:#59595b;}
     body.nav-lock{min-height:100vh;}
     /* The pinned matchup bar sits below the scrim, so with the nav open it was
        dimmed into a grey slab across the bottom of the screen. It only appears
