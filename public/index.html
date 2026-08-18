@@ -1356,6 +1356,15 @@
     .punish-opt i{color:var(--text3);width:20px;text-align:center;}
     .punish-opt.active{border-color:var(--accent);background:rgba(var(--accent-rgb),0.1);}
     .punish-opt.active i{color:var(--accent);}
+    /* trade deadline marker in the Schedules table */
+    .sch-deadline{display:flex;align-items:center;gap:10px;padding:4px 2px 6px;}
+    .sch-dl-l{flex:1 1 auto;height:1px;background:rgba(var(--accent-rgb),0.35);}
+    .sch-dl-t{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--accent);white-space:nowrap;}
+    .sch-dl-t i{font-size:10px;}
+    @media(max-width:520px){ .sch-dl-t{font-size:8.5px;letter-spacing:.3px;} }
+
     .punish-tag{margin-left:auto;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;background:var(--grad);color:#0b0b0b;border-radius:999px;padding:2px 8px;}
 
 .pname{display:inline-flex;align-items:center;gap:7px;min-width:0;}
@@ -1831,7 +1840,7 @@
        when active, as the accent throughout that tab (dark mode).
        ═══════════════════════════════════════════════════════════════════════ */
     /* Hand-picked per tab. Nav uses the primary only. */
-    .tab-btn[data-tab=home]{--tc:#dea634;}
+    .tab-btn[data-tab=home]{--tc:#E0B67B;}
     .tab-btn[data-tab=week]{--tc:#E8437E;}
     .tab-btn[data-tab=roster]{--tc:#43C9E8;}
     .tab-btn[data-tab=teams]{--tc:#E84146;}
@@ -1842,7 +1851,7 @@
     .tab-btn[data-tab=standings]{--tc:#6C6AE8;}
     .tab-btn[data-tab=badbeat]{--tc:#e78dd4;}
     .tab-btn[data-tab=draft]{--tc:#0fcacc;}
-    .tab-btn[data-tab=trades]{--tc:#ca98f5;}
+    .tab-btn[data-tab=trades]{--tc:#b979fe;}
     .tab-btn[data-tab=tenure]{--tc:#1ecdaa;}
     .tab-btn[data-tab=messages]{--tc:#E8D24E;}
     .tab-btn[data-tab=gabe]{--tc:#CBE853;}
@@ -1871,7 +1880,7 @@
                  buttons) paints with this instead. */
     /* home is deliberately a single gold — both stops match, so anything using
        --grad (the Big 4 bar, the title rule) renders flat rather than shifting */
-    html[data-theme="dark"][data-tabaccent=home]{--accent:#dea634;--accent2:#bcb73d;--accent-rgb:222,166,52;}
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0B67B;--accent-rgb:224,182,123;}
     /* Home runs a rainbow for now, pending a colour being picked. --accent stays
        a single gold so everything that needs one flat colour still has one; what
        changes is the two gradients — the title's orbiting border and the rule
@@ -1880,13 +1889,13 @@
        the sweep does not flare bright in the yellows and go dim in the blues. */
     html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
       background:conic-gradient(from var(--h1ang),
-        #fe8a88 0deg,#f0a24a 51deg,#c9b53d 103deg,#3fce8f 154deg,
-        #0fcacc 206deg,#6cb7ff 257deg,#ca98f5 309deg,#fe8a88 360deg);}
+        #fe8a88 0deg,#f0a24a 51deg,#daa932 103deg,#3fce8f 154deg,
+        #0fcacc 206deg,#6cb7ff 257deg,#b979fe 309deg,#fe8a88 360deg);}
     html[data-theme="dark"][data-tabaccent=home] .sec-head::after,
     html[data-theme="dark"][data-tabaccent=home] .section-header::after,
     html[data-theme="dark"][data-tabaccent=home] .lh-sec-head::after{
       background:linear-gradient(90deg,
-        #fe8a88,#f0a24a,#c9b53d,#3fce8f,#0fcacc,#6cb7ff,#ca98f5,#fe8a88);
+        #fe8a88,#f0a24a,#daa932,#3fce8f,#0fcacc,#6cb7ff,#b979fe,#fe8a88);
       background-size:200% 100%;}
     html[data-theme="dark"][data-tabaccent=week]{--accent:#E8437E;--accent2:#E86043;--accent-rgb:232,67,126;}
     html[data-theme="dark"][data-tabaccent=roster]{--accent:#43C9E8;--accent2:#43E8C0;--accent-rgb:67,201,232;}
@@ -1898,7 +1907,7 @@
     html[data-theme="dark"][data-tabaccent=standings]{--accent:#6C6AE8;--accent2:#6B90E8;--accent-rgb:108,106,232;}
     html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e78dd4;--accent2:#f889ac;--accent-rgb:231,141,212;}
     html[data-theme="dark"][data-tabaccent=draft]{--accent:#0fcacc;--accent2:#04c4f0;--accent-rgb:15,202,204;}
-    html[data-theme="dark"][data-tabaccent=trades]{--accent:#ca98f5;--accent2:#e68ed6;--accent-rgb:202,152,245;}
+    html[data-theme="dark"][data-tabaccent=trades]{--accent:#b979fe;--accent2:#de6ad7;--accent-rgb:185,121,254;}
     html[data-theme="dark"][data-tabaccent=tenure]{--accent:#1ecdaa;--accent2:#0cc9d1;--accent-rgb:30,205,170;}
     html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
@@ -3874,7 +3883,23 @@
     .pr-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;}
     .pr-list li{font-size:13.5px;color:var(--text2);line-height:1.45;}
     .pr-list li::marker{color:var(--accent);font-weight:700;}
+    /* This week's punishment leads at full width, the other six in a 2x3 grid
+       beneath it. The grid tiles stack their icon over the label so six fit on
+       a phone without the names wrapping awkwardly. */
     #punish-overlay .punish-menu{grid-template-columns:1fr;gap:8px;margin-top:0;}
+    #punish-overlay .pr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      grid-auto-rows:1fr;gap:8px;margin-top:8px;}
+    #punish-overlay .punish-opt.pr-big{width:100%;display:flex;align-items:center;gap:12px;
+      padding:14px 16px;font-size:17px;border-color:rgba(var(--accent-rgb),0.55);
+      background:linear-gradient(rgba(var(--accent-rgb),0.10),rgba(var(--accent-rgb),0.10)),rgba(0,0,0,0.16);}
+    #punish-overlay .punish-opt.pr-big i{font-size:22px;color:var(--accent);}
+    #punish-overlay .pr-grid .punish-opt{flex-direction:column;justify-content:center;
+      align-items:center;text-align:center;gap:7px;padding:12px 8px;font-size:13px;line-height:1.25;}
+    #punish-overlay .pr-grid .punish-opt i{font-size:18px;color:var(--accent);opacity:.9;}
+    #punish-overlay .pr-grid .punish-opt span{min-width:0;overflow-wrap:anywhere;}
+    /* the "this week" pill belongs on the featured tile, not floated in a
+       centred grid cell */
+    #punish-overlay .pr-grid .punish-tag{display:none;}
     .pr-pick{width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--text);
       transition:border-color .15s,background .15s;}
     .pr-pick:hover{border-color:rgba(var(--accent-rgb),0.5);}

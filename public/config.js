@@ -71,6 +71,17 @@ window.GFL_CONFIG = {
      EACH WEEK: bump `week` and replace the five questions. `correct` is the
      zero-based index of the right answer in `a`. Leave `reveal` false while the
      week is live; flip it to true afterwards to show everyone how they did. */
+  /* TESTING ONLY — how many minutes a GFL Bucks cycle lasts. Set to 5 so the
+     reset can be watched without waiting for Tuesday. Set to 0 (or delete this
+     line) to go back to the real Tuesday-to-Tuesday week. Bets already placed
+     stay attached to the cycle they were made in either way. */
+  bucksTestMinutes: 5,
+
+  /* Last week trades can be made. Drawn as a line in the Schedules table before
+     the first week past it. Set to 0 to hide it. 11 is a placeholder — change
+     it to whatever the league actually runs. */
+  tradeDeadlineWeek: 11,
+
   ballKnowledge: {
     week: 1,
     reveal: false,
@@ -107,7 +118,10 @@ window.GFL_CONFIG = {
     week: 1,
     name: "Beer Pour",
     note: "Loser of the week pours (and chugs) the group's mystery beer blend.",
-    options: ["Beer Pour", "Weatherman", "Fast Banana", "Willem Defoe", "Fruit Pledge", "Spicy Food"],
+    /* Seven: the week's pick leads the popup at full width, the other six
+       fill a 2x3 grid under it. Rename the placeholder to whatever the
+       seventh actually is. */
+    options: ["Beer Pour", "Weatherman", "Fast Banana", "Willem Defoe", "Fruit Pledge", "Spicy Food", "TBD Seventh"],
     rules: [
       "Whoever loses the week takes the punishment — lowest score if there is a tie.",
       "The league picks that week's punishment from the menu below.",
@@ -125,6 +139,7 @@ window.GFL_CONFIG = {
       "Willem Defoe": "",
       "Fruit Pledge": "",
       "Spicy Food": "",
+      "TBD Seventh": "",
     },
   },
 

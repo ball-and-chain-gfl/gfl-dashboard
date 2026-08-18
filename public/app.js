@@ -83,7 +83,12 @@ function refreshSeasonOptions(){
 document.documentElement.dataset.theme='dark';   // dark only — light mode removed
 /* Hand-picked primaries — see the matching --tc / --tabaccent blocks in
    index.html for these plus each tab's secondary. Nav shows the primary only. */
-const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',schedule:'#E89845',book:'#3fd07a',legacy:'#E8BC56',history:'#587DE8',standings:'#6C6AE8',badbeat:'#E860AF',draft:'#63E0E8',trades:'#9F61E8',tenure:'#5CE8B3',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
+/* The nav menu is built in JS and reads its icon colours from here, not from
+   the --tc custom properties in the stylesheet. Both have to be changed
+   together — a palette change made only in CSS leaves the nav on the old set,
+   which is exactly what happened last time. Keep this in step with the
+   .tab-btn[data-tab=…]{--tc} block in index.html. */
+const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',schedule:'#fb9167',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#b979fe',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
 const TAB_LABELS={home:'Home',week:'This Week',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -3097,12 +3102,21 @@ function punishRulesHTML(){
          icon. cfg.rules is left in config so it can come back if wanted. -->
     <div class="pr-rules">
       <div class="pr-h">The menu — tap any to read it</div>
-      <div class="punish-menu">
-        ${opts.map(o=>{const l=o.toLowerCase();
-          return `<button class="punish-opt pr-pick${l===selL?' active':''}" onclick="selectPunish(${JSON.stringify(o).replace(/"/g,'&quot;')})">
-            <i class="fa ${PUNISH_ICON[l]||'fa-circle'}"></i>${o}${l===curL?'<span class="punish-tag">THIS WEEK</span>':''}
-          </button>`;}).join('')||'<div class="pr-note">No options set.</div>'}
-      </div>
+      ${(() => {
+        /* This week's punishment leads at full width; the rest sit under it in
+           a 2x3 grid. Built by pulling the current one out of the list rather
+           than assuming it is first, so reordering config cannot break it. */
+        const tile=(o,big)=>{const l=o.toLowerCase();
+          return `<button class="punish-opt pr-pick${big?' pr-big':''}${l===selL?' active':''}"
+            onclick="selectPunish(${JSON.stringify(o).replace(/"/g,'&quot;')})">
+            <i class="fa ${PUNISH_ICON[l]||'fa-circle'}"></i><span>${o}</span>
+            ${l===curL?'<span class="punish-tag">THIS WEEK</span>':''}</button>`;};
+        const lead=opts.find(o=>o.toLowerCase()===curL);
+        const rest=opts.filter(o=>o.toLowerCase()!==curL);
+        if(!opts.length) return '<div class="pr-note">No options set.</div>';
+        return `${lead?tile(lead,true):''}
+          <div class="punish-menu pr-grid">${rest.map(o=>tile(o,false)).join('')}</div>`;
+      })()}
     </div>`;
 }
 /* The overlay only covers the viewport, so leaving the page scrollable behind
@@ -4956,8 +4970,8 @@ function playoffOutlook(){
     if(pre[k]==null) pre[k]=schedWinProb(rowOf(g.a),rowOf(g.b)); });
   const ppg={}; list.forEach(o=>{ ppg[o]=(rowOf(o)||{}).ppg||105; });
 
-  const made={},seedSum={},winTotals={};
-  list.forEach(o=>{made[o]=0;seedSum[o]=0;winTotals[o]=[];});
+  const made={},seedSum={},winTotals={},finishes={};
+  list.forEach(o=>{made[o]=0;seedSum[o]=0;winTotals[o]=[];finishes[o]=[];});
   // Box-Muller, so simulated weekly scores scatter like real ones
   const gauss=()=>{const u=1-Math.random(),v=Math.random();
     return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
@@ -4972,38 +4986,49 @@ function playoffOutlook(){
       pf[g.b]+=Math.max(0,ppg[g.b]+gauss()*SCHED_SD*0.7);
     });
     const order=list.slice().sort((x,y)=>w[y]-w[x]||pf[y]-pf[x]);
-    order.forEach((o,i)=>{ if(i<spots) made[o]++; seedSum[o]+=i+1; });
+    order.forEach((o,i)=>{ if(i<spots) made[o]++; seedSum[o]+=i+1; finishes[o].push(i+1); });
     list.forEach(o=>winTotals[o].push(w[o]));
   }
 
   const pct=(arr,q)=>{const s=arr.slice().sort((a,b)=>a-b);
     return s[Math.min(s.length-1,Math.max(0,Math.round((s.length-1)*q)))];};
   const teams=list.map(o=>{
-    const t=winTotals[o];
-    return {owner:o, name:(_franchises.find(f=>f.owner===o)||{}).name||meta.names?.[o]?.name||o,
+    const t=winTotals[o], f=finishes[o];
+    /* Finishes are the full observed span, not a 10th-90th band: the question
+       is where a season could still end up, and with nothing played that is
+       genuinely anywhere from first to last. Trimming the tails would report a
+       narrower range than the simulation actually produced. */
+    return {owner:o, name:(_franchises.find(f2=>f2.owner===o)||{}).name||meta.names?.[o]?.name||o,
       played:base[o], odds:made[o]/PO_RUNS, seed:seedSum[o]/PO_RUNS,
-      lo:pct(t,0.10), med:pct(t,0.50), hi:pct(t,0.90)};
+      lo:pct(t,0.10), med:pct(t,0.50), hi:pct(t,0.90),
+      fBest:Math.min(...f), fWorst:Math.max(...f), fMed:pct(f,0.50)};
   }).sort((a,b)=>b.odds-a.odds||a.seed-b.seed);
   const maxW=Math.max(1,...teams.map(t=>t.hi));
-  _poCache={teams,spots,left:left.length,runs:PO_RUNS,season:info.season,maxW,regEnd};
+  _poCache={teams,spots,left:left.length,runs:PO_RUNS,season:info.season,maxW,regEnd,size:list.length};
   return _poCache;
 }
+const ordinal=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
 function playoffOutlookHTML(){
   const d=playoffOutlook();
   if(!d) return '';
   const pctTxt=v=>v>=0.995?'>99%':v<=0.005?'<1%':Math.round(v*100)+'%';
   const col=v=>v>=0.85?'var(--green)':v>=0.5?'var(--accent)':v>=0.15?'var(--text2)':'var(--red)';
+  /* Where a team can still finish, not how many games it can still win. The
+     bar runs first place at the left to last at the right, so a wide band is a
+     season still wide open and a short one near the left is a lock. */
+  const N=d.size||d.teams.length;
+  const posPct=p=>N<2?0:(p-1)/(N-1)*100;
   const rows=d.teams.map((t,i)=>{
     const inCut=i<d.spots;
-    const l=t.lo/d.maxW*100, h=t.hi/d.maxW*100, m=t.med/d.maxW*100;
+    const l=posPct(t.fBest), r=posPct(t.fWorst), m=posPct(t.fMed);
     return `<div class="po-row${inCut?' po-in':''}">
       <span class="po-rk">${i+1}</span>
       <span class="po-nm">${t.name}</span>
       <span class="po-rec">${t.played.w}–${t.played.l}${t.played.t?`–${t.played.t}`:''}</span>
-      <span class="po-range" title="${t.lo}–${t.hi} wins, median ${t.med}">
-        <span class="po-track"><span class="po-band" style="left:${l}%;width:${Math.max(2,h-l)}%"></span>
+      <span class="po-range" title="Can finish anywhere from ${ordinal(t.fBest)} to ${ordinal(t.fWorst)}; median ${ordinal(t.fMed)}. Projected ${t.lo}–${t.hi} wins.">
+        <span class="po-track"><span class="po-band" style="left:${l}%;width:${Math.max(2,r-l)}%"></span>
         <span class="po-med" style="left:${m}%"></span></span>
-        <span class="po-rtxt">${t.lo}–${t.hi}</span>
+        <span class="po-rtxt">${ordinal(t.fBest)}–${ordinal(t.fWorst)}</span>
       </span>
       <span class="po-odds" style="color:${col(t.odds)}">${pctTxt(t.odds)}</span>
     </div>`;}).join('');
@@ -5012,7 +5037,7 @@ function playoffOutlookHTML(){
       <span class="badge-info">${d.left?`${d.left} games left · ${d.runs.toLocaleString()} simulations`:'regular season complete'}</span></div>
     <div class="po-head"><span></span><span>Team</span><span>Rec</span><span>Range of outcomes</span><span class="r">Playoffs</span></div>
     <div class="po-list">${rows}</div>
-    <div class="po-note">Every remaining game is simulated ${d.runs.toLocaleString()} times using the same power ratings the sportsbook prices with. The bar spans each team's 10th to 90th percentile win total, the notch is the median, and the top ${d.spots} shaded rows are the current projected field.</div>
+    <div class="po-note">Every remaining game is simulated ${d.runs.toLocaleString()} times using the same power ratings the sportsbook prices with. The bar spans every finishing position a team reached across those runs — first at the left, ${ordinal(N)} at the right — with the notch at its median finish. Before a game is played the whole league can still land anywhere, so every range opens at 1st–${ordinal(N)} and narrows as results come in. The top ${d.spots} shaded rows are the current projected field.</div>
   </div>`;
 }
 function renderSchedule(){
@@ -5041,7 +5066,19 @@ function renderSchedule(){
       <span class="r sch-c2">Opp PPG</span><span class="r sch-c3">All-time</span>
       <span class="r">Win%</span><span class="r sch-c4">Line</span><span class="r">Odds</span>
     </div>
-    <div class="sch-list">${d.rows.map(r=>`
+    <div class="sch-list">${d.rows.map((r,i)=>`
+      ${(() => {
+        /* The deadline falls between two weeks, so it is drawn before the first
+           game past it rather than attached to a row. Skipped when the schedule
+           on screen already starts after it. */
+        const dl=Number(_CFG.tradeDeadlineWeek||0);
+        if(!dl||r.playoff||r.week<=dl) return '';
+        const prev=d.rows[i-1];
+        if(prev&&!prev.playoff&&prev.week>dl) return '';
+        return `<div class="sch-deadline"><span class="sch-dl-l"></span>
+          <span class="sch-dl-t"><i class="fa fa-gavel"></i>Trade deadline · after week ${dl}</span>
+          <span class="sch-dl-l"></span></div>`;
+      })()}
       <div class="sch-row${r.rival?' sch-rrow':''}">
         <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
         ${nm(r)}
@@ -5629,7 +5666,17 @@ let _bets=null,_betErr=null,_betBusy=false;
 /* The Tuesday 6am boundary the league already runs on. msgWeekStart used to
    own this rule; both callers share it now so the board and the bucks week can
    never disagree about when a week turned over. */
+/* TESTING: config.bucksTestMinutes shortens the bucks cycle so the whole reset
+   can be watched in a few minutes instead of waiting a week. Set it to 0 or
+   remove it to go back to Tuesday 6am. Nothing else in the app knows the
+   difference — every bucks helper reads the week through here. */
+const bucksTestMs=()=>{
+  const m=Number((_CFG.bucksTestMinutes??0));
+  return m>0 ? m*60*1000 : 0;
+};
 function tueWeekStart(now=new Date()){
+  const t=bucksTestMs();
+  if(t) return Math.floor(now.getTime()/t)*t;        // fixed-length buckets while testing
   const x=new Date(now);
   x.setHours(6,0,0,0);
   let back=(x.getDay()-2+7)%7;                       // days since Tuesday
@@ -5639,11 +5686,19 @@ function tueWeekStart(now=new Date()){
 }
 function bucksWeekKey(now=new Date()){
   const d=new Date(tueWeekStart(now));
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const p=n=>String(n).padStart(2,'0');
+  const day=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  /* a date alone cannot separate buckets that all fall on the same day, so the
+     testing cycle carries the time of day too */
+  return bucksTestMs() ? `${day}T${p(d.getHours())}${p(d.getMinutes())}` : day;
 }
-function bucksWeekEnd(now=new Date()){ return tueWeekStart(now)+7*24*3600*1000; }
+function bucksWeekEnd(now=new Date()){ return tueWeekStart(now)+(bucksTestMs()||7*24*3600*1000); }
 function bucksResetsIn(now=new Date()){
-  const ms=bucksWeekEnd(now)-now.getTime();
+  const ms=Math.max(0,bucksWeekEnd(now)-now.getTime());
+  if(bucksTestMs()){
+    const m=Math.floor(ms/60000), s=Math.floor(ms%60000/1000);
+    return m>0?`${m}m ${s}s`:`${s}s`;
+  }
   const d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000);
   return d>0?`${d}d ${h}h`:`${h}h`;
 }
