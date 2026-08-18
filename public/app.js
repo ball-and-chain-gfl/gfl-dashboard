@@ -2093,7 +2093,7 @@ function renderDraftTab(){
     <div id="draft-team-body"></div>
   </div>
   <div class="sec-head" style="padding-top:4px"><i class="fa fa-ranking-star"></i>Draft Rankings<span class="badge-info">rankings · all-time drafts · steals &amp; busts</span></div>
-  <div id="draft-lists"></div>`;
+  <div id="draft-lists" data-nochip></div>`;
   renderDraftTeamTable();
   renderDraftLists();
 }
@@ -3810,8 +3810,12 @@ async function weekTopPerformers(info){
    page reads — top row left to right, then the next row — because the
    homepage lays its sections out in columns and DOM order zig-zags. */
 function sectionEntriesIn(page){
+  /* [data-nochip] marks a subtree whose headings title a view rather than a
+     section of the page — the draft panels retitle themselves as you switch
+     between Rankings, All-Time Drafts and Steals & Busts, which otherwise
+     spawns a fresh chip at the top every time. */
   return [...page.querySelectorAll('.sec-head, .section-header, .lh-sec-head')]
-    .filter(h=>h.offsetParent!==null && !h.closest('.modal'))
+    .filter(h=>h.offsetParent!==null && !h.closest('.modal') && !h.closest('[data-nochip]'))
     .map(h=>{
       const c=h.cloneNode(true);
       c.querySelectorAll('.badge-info,[id$="-score"],.dsb-lbl,.lg-grade,.lr-wk-tag').forEach(n=>n.remove());
@@ -5636,7 +5640,8 @@ const betsThisWeek=()=>betsMine().filter(b=>b.wk===bucksWeekKey());
 function bucksStaked(){ return betsThisWeek().reduce((a,b)=>a+b.stake,0); }
 function bucksReturned(){ return betsThisWeek().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
 function bucksBalance(){ return Math.max(0,BUCKS_WEEKLY-bucksStaked()+bucksReturned()); }
-const bucksFmt=v=>Math.round(v).toLocaleString();
+/* Always shown as money, and the currency is always "GFL Bucks" in full. */
+const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
 
 async function betList(){
   try{
@@ -5935,11 +5940,9 @@ function myBetsHTML(){
   const won=all.filter(b=>b.status==='won').length;
   const lost=all.filter(b=>b.status==='lost').length;   // voids count to neither
   const ledger=`<div class="sb-ledger">
-    <div class="sb-led"><span>Balance</span><b>${bucksFmt(bal)}</b></div>
-    <div class="sb-led"><span>Staked this week</span><b>${bucksFmt(staked)}</b></div>
-    <div class="sb-led"><span>Returned</span><b>${bucksFmt(back)}</b></div>
+    <div class="sb-led"><span>GFL Bucks</span><b>${bucksFmt(bal)}</b></div>
     <div class="sb-led"><span>Record</span><b>${won}-${lost}${open?` · ${open} open`:''}</b></div>
-    <div class="sb-led sb-led-note">Resets to ${BUCKS_WEEKLY} in ${bucksResetsIn()}</div>
+    <div class="sb-led sb-led-note">Resets to ${bucksFmt(BUCKS_WEEKLY)} in ${bucksResetsIn()}</div>
   </div>
   ${betsClearable().length?`<div class="sb-clearsettled-row">
     <button class="sb-clear" onclick="sbClearSettled()" ${_betBusy?'disabled':''}>
@@ -6038,10 +6041,10 @@ function sbSlipHTML(){
       <div class="sb-stake">
         <label for="sb-stake-in">Stake</label>
         <input id="sb-stake-in" type="number" min="0" step="10" max="${bal}" value="${stake}" oninput="sbStake(this.value)"/>
-        <span class="sb-cur">GFL bucks</span>
+        <span class="sb-cur">GFL Bucks</span>
       </div>
       <div class="sb-quick">
-        ${[25,50,100].filter(v=>v<=bal).map(v=>`<button onclick="sbStake(${v})">${v}</button>`).join('')}
+        ${[25,50,100].filter(v=>v<=bal).map(v=>`<button onclick="sbStake(${v})">${bucksFmt(v)}</button>`).join('')}
         <button onclick="sbStake(${bal})">All in</button>
       </div>
       <div class="sb-totals">
@@ -6059,7 +6062,7 @@ function sbSlipHTML(){
         :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
         :'Could not place that bet. Try again.'}</div>`:''}`
     :`<div class="sb-slip-empty">Tap any price to add it here.<br/>Multiple picks become a parlay.</div>`}
-    <div class="sb-slip-note">Play money. Every team gets ${BUCKS_WEEKLY} GFL bucks a week, Tuesday to Tuesday — unspent bucks do not carry over.</div>`;
+    <div class="sb-slip-note">Play money. Every team gets ${bucksFmt(BUCKS_WEEKLY)} GFL Bucks a week, Tuesday to Tuesday — unspent GFL Bucks do not carry over.</div>`;
 }
 function sbPick(mk,mkLabel,pick,pickLabel,odds){
   const k=mk+'|'+pick;
@@ -6238,7 +6241,7 @@ function renderBook(){
   el.innerHTML=`
     <button class="sb-mine-btn ${_sbView==='mine'?'on':''}" onclick="sbSetView('mine')">
       <i class="fa fa-wallet"></i><span class="sb-mine-t">My Bets</span>
-      ${_me?`<span class="sb-mine-bal">${bucksFmt(bucksBalance())} bucks</span>`:'<span class="sb-mine-bal">Sign in</span>'}
+      ${_me?`<span class="sb-mine-bal">${bucksFmt(bucksBalance())}</span>`:'<span class="sb-mine-bal">Sign in</span>'}
     </button>
     <div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>
     <div class="sb-layout">

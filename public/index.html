@@ -176,7 +176,20 @@
     /* MODALS */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity 0.2s;}
     .modal-overlay.open{opacity:1;pointer-events:all;}
-    .modal{background:#141414;border:1px solid rgba(255,255,255,0.12);border-radius:8px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.7);transform:translateY(12px);transition:transform 0.2s;}
+    .modal{background:#141414;border:1px solid rgba(255,255,255,0.12);border-radius:8px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.7);transform:translateY(12px);transition:transform 0.2s;
+      overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+    /* vh is the toolbar-hidden viewport on phones, so 88vh can run taller than
+       what is actually on screen and the sheet overflows with no way to reach
+       the bottom. dvh tracks the visible height instead; the subtraction is the
+       overlay's own padding. overscroll-behavior keeps the scroll inside. */
+    @supports (height:100dvh){ .modal{max-height:calc(100dvh - 40px);} }
+    @media(max-width:768px){
+      .modal-overlay{padding:12px;}
+      .modal{max-height:88vh;}
+    }
+    @supports (height:100dvh){
+      @media(max-width:768px){ .modal{max-height:calc(100dvh - 24px);} }
+    }
     .modal-overlay.open .modal{transform:translateY(0);}
     .modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#141414;z-index:1;}
     .modal-header h2{font-size:17px;font-weight:700;}
@@ -268,7 +281,7 @@
     .sb-place:hover:not(:disabled){filter:brightness(1.08);}
     .sb-place:disabled{opacity:.45;cursor:not-allowed;}
     .sb-slip-err{margin-top:8px;font-size:11.5px;color:var(--red);line-height:1.45;}
-    .sb-ledger{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;}
+    .sb-ledger{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px;}
     .sb-led{padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);min-width:0;}
     .sb-led span{display:block;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
