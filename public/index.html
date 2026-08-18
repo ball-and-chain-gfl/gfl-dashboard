@@ -694,8 +694,13 @@
     .bank-t{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.6px;
       text-transform:uppercase;color:var(--text3);}
     .bank-net{font-family:'Inter',sans-serif;font-size:20px;font-weight:800;line-height:1;}
-    .bank-chart{width:100%;}
-    .bank-svg{display:block;width:100%;height:132px;}
+    .bank-chart{width:100%;position:relative;}
+    .bank-svg{display:block;width:100%;height:114px;}
+    /* HTML rather than <text>, so the labels keep their proportions while the
+       chart itself stretches to the container */
+    .bank-axis{position:relative;height:14px;margin-top:2px;}
+    .bank-x{position:absolute;top:0;white-space:nowrap;
+      font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.3px;color:var(--text3);}
     .bank-foot{display:flex;align-items:center;justify-content:space-between;margin-top:4px;
       font-family:'Inter',sans-serif;font-size:10px;letter-spacing:.4px;
       text-transform:uppercase;color:var(--text3);}
@@ -3704,8 +3709,12 @@
     /* The gradient goes on an inline span, not the h1: the h1 stays full width
        so its panel still spans the column, while the gradient box hugs the text
        and both colours actually show. `color` on the h1 is the fallback. */
-    .page-h1>span{background:var(--grad);-webkit-background-clip:text;background-clip:text;
-      -webkit-text-fill-color:transparent;}
+    /* Flat white for now. The gradient fill is left here commented rather than
+       deleted, since this is a hold until a colour is picked:
+       background:var(--grad);-webkit-background-clip:text;background-clip:text;
+       -webkit-text-fill-color:transparent; */
+    .page-h1>span{background:none;-webkit-background-clip:border-box;background-clip:border-box;
+      color:#fff;-webkit-text-fill-color:#fff;}
     @media(max-width:768px){
       .page-h1{font-size:30px;margin:0 0 16px;padding:17px 16px 11px;letter-spacing:-0.2px;}
     }

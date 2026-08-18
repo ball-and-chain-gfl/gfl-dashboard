@@ -6027,8 +6027,23 @@ function bankSeries(){
   weeks.forEach(w=>{ run+=byWeek[w]; pts.push({wk:w,val:run,delta:byWeek[w]}); });
   return {pts,net:run-BUCKS_WEEKLY};
 }
-function bankChartSVG(pts,W=600,H=132){
-  const padL=8,padR=8,padT=12,padB=18;
+/* The chart stretches to whatever width it is given, which means the viewBox is
+   scaled unevenly — x by about half, y not at all. Strokes survive that via
+   vector-effect, but text does not: the labels came out squashed to half width
+   at full height. They are HTML now, positioned to the same x as the points, so
+   they are drawn by the page rather than the stretched canvas. */
+function bankAxisHTML(pts,W=600,padL=8,padR=8){
+  return pts.map((p,i)=>{
+    if(pts.length>7 && i%2 && i!==pts.length-1) return '';
+    const x=padL+(pts.length<2?0:i*(W-padL-padR)/(pts.length-1));
+    const pct=(x/W*100).toFixed(2);
+    const shift=i===0?'0':i===pts.length-1?'-100%':'-50%';
+    const d=p.start?'Start':new Date(p.wk+'T00:00:00').toLocaleDateString(undefined,{month:'numeric',day:'numeric'});
+    return `<span class="bank-x" style="left:${pct}%;transform:translateX(${shift})">${d}</span>`;
+  }).join('');
+}
+function bankChartSVG(pts,W=600,H=114){
+  const padL=8,padR=8,padT=12,padB=10;
   const vals=pts.map(p=>p.val);
   let lo=Math.min(...vals,BUCKS_WEEKLY), hi=Math.max(...vals,BUCKS_WEEKLY);
   if(hi-lo<20){ const m=(hi+lo)/2; lo=m-10; hi=m+10; }
@@ -6045,13 +6060,6 @@ function bankChartSVG(pts,W=600,H=132){
     return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.val).toFixed(1)}" r="${last?4:2.6}"
       fill="${p.start?'var(--text3)':col}" ${last?`stroke="var(--bg2)" stroke-width="2"`:''}/>`;
   }).join('');
-  const labels=pts.map((p,i)=>{
-    if(pts.length>7 && i%2 && i!==pts.length-1) return '';      // thin them out when crowded
-    const d=p.start?'Start':new Date(p.wk+'T00:00:00').toLocaleDateString(undefined,{month:'numeric',day:'numeric'});
-    const anchor=i===0?'start':i===pts.length-1?'end':'middle';
-    return `<text x="${x(i).toFixed(1)}" y="${H-5}" text-anchor="${anchor}"
-      font-size="9" fill="var(--text3)" font-family="Inter,sans-serif">${d}</text>`;
-  }).join('');
   return `<svg class="bank-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
       aria-label="GFL Bucks profit by week">
     <defs><linearGradient id="bankfill" x1="0" y1="0" x2="0" y2="1">
@@ -6063,24 +6071,28 @@ function bankChartSVG(pts,W=600,H=132){
     <path d="${area}" fill="url(#bankfill)"/>
     <path d="${line}" fill="none" stroke="${col}" stroke-width="2.2"
       stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-    ${dots}${labels}
+    ${dots}
   </svg>`;
 }
 function bankHTML(){
   if(!_me) return '';
   const s=bankSeries();
   const net=s?s.net:0;
-  const up=net>=0;
-  const col=up?'#3fd07a':'#e8687e';
+  const even=net===0;
+  const up=net>0;
+  /* an exact break-even is neither up nor down, so it takes the neutral colour
+     and drops the sign rather than reading "+$0" */
+  const col=even?'var(--text2)':up?'#3fd07a':'#e8687e';
   return `<div class="bank-sec">
     <div class="bank-head">
       <span class="bank-t">Where you stand</span>
-      <span class="bank-net" style="color:${col}">${up?'+':'−'}${bucksFmt(Math.abs(net))}</span>
+      <span class="bank-net" style="color:${col}">${even?'':up?'+':'−'}${bucksFmt(Math.abs(net))}</span>
     </div>
-    ${s?`<div class="bank-chart">${bankChartSVG(s.pts)}</div>
+    ${s?`<div class="bank-chart">${bankChartSVG(s.pts)}
+        <div class="bank-axis">${bankAxisHTML(s.pts)}</div></div>
       <div class="bank-foot">
         <span>${s.pts.length-1} week${s.pts.length-1===1?'':'s'} settled</span>
-        <span class="bank-state" style="color:${col}">${net===0?'Break even':up?'In the black':'In the red'}</span>
+        <span class="bank-state" style="color:${col}">${even?'Break even':up?'In the black':'In the red'}</span>
       </div>`
     :`<div class="bank-empty">Nothing settled yet — the line starts once your first bets are graded.</div>`}
   </div>`;
