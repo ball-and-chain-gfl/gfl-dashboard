@@ -4253,9 +4253,26 @@ function myMatchupHTML(compact){
     ${arr.length>1?`<span class="mm-spark">${liveSpark(arr,60,18)}</span>`:''}
   </div>`;
 }
+/* The pinned bar carries the week's punishment rather than a live score. It is
+   the only place the punishment lives now — the card that used to sit beside
+   the video is gone — so it renders from config alone and does not wait on a
+   sign-in or a game being in progress. */
+function punishBarHTML(){
+  const cfg=_CFG.punishment||{};
+  if(!cfg.name && cfg.week==null) return '';
+  const icon=PUNISH_ICON[(cfg.name||'').toLowerCase()]||'fa-gavel';
+  return `<div class="pb-bar">
+    <span class="pb-ic"><i class="fa ${icon}"></i></span>
+    <span class="pb-txt">
+      <span class="pb-wk">Week ${cfg.week??'—'} Punishment</span>
+      <span class="pb-name">${cfg.name||'TBD'}</span>
+    </span>
+    <button class="pb-more" onclick="openPunishRules()">Details <i class="fa fa-arrow-right"></i></button>
+  </div>`;
+}
 function renderMyMatchupBar(){
   let bar=document.getElementById('my-matchup');
-  const html=myMatchupHTML(true);
+  const html=punishBarHTML();
   if(!html){ if(bar) bar.remove(); return; }
   if(!bar){ bar=document.createElement('div'); bar.id='my-matchup'; document.body.appendChild(bar); }
   bar.innerHTML=html;
@@ -4658,6 +4675,7 @@ function applyMe(){
     if(_activeTab==='schedule') renderSchedule();
   }
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
+  try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
   _rosterCache=null; _rosterTeam=null;
   if(_activeTab==='roster') renderRoster();
   if(_activeTab==='week') renderWeek();
@@ -5682,6 +5700,132 @@ async function sbPlaceBet(){
   _betBusy=false; sbRenderSlip();
 }
 
+/* ── BALL KNOWLEDGE ─────────────────────────────────────────────────────────
+   Five weekly trivia questions on the homepage. Answers live as a field on the
+   manager's profile document, the same place the Matchup of the Week vote is
+   kept — so nothing new had to be opened up in Firestore, and a manager's
+   answers follow them between devices.
+
+   Unanswered questions sit at the top expanded; answering one collapses it and
+   drops it to the bottom of the stack, so the next question is always the one
+   in front of you. Reopening a collapsed card lets the answer be changed. */
+const bkKey=()=>`bk_${getSeason()}_w${(_CFG.ballKnowledge||{}).week??0}`;
+let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
+
+/* _me holds only the two keys and a team, so the saved answers have to be read
+   off the profile document itself. Local answers win on conflict: they are the
+   ones just tapped on this device. */
+async function bkSync(){
+  if(!_me||_bkFetched) return;
+  _bkFetched=true;
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    const raw=res&&res.data?res.data[bkKey()]:null;
+    if(!raw) return;
+    const srv=JSON.parse(raw);
+    _bkAnswers={...srv,...bkLoadAnswers()};
+    localStorage.setItem(bkKey(),JSON.stringify(_bkAnswers));
+    renderBallKnowledge();
+  }catch(e){}
+}
+function bkReset(){ _bkAnswers=null; _bkFetched=false; _bkOpen=null; renderBallKnowledge(); }
+
+function bkQuestions(){ return (_CFG.ballKnowledge||{}).questions||[]; }
+function bkLoadAnswers(){
+  if(_bkAnswers) return _bkAnswers;
+  let raw='';
+  if(_me&&_me[bkKey()]!=null) raw=String(_me[bkKey()]);
+  else raw=localStorage.getItem(bkKey())||'';        // signed out, or before the profile lands
+  try{ _bkAnswers=raw?JSON.parse(raw):{}; }catch{ _bkAnswers={}; }
+  return _bkAnswers;
+}
+async function bkAnswer(qi,ai){
+  if(_bkBusy) return;
+  const ans=bkLoadAnswers();
+  ans[qi]=ai;
+  _bkOpen=null;
+  localStorage.setItem(bkKey(),JSON.stringify(ans));   // instant, and the fallback when signed out
+  renderBallKnowledge();
+  if(_me){
+    _bkBusy=true;
+    try{ await gflPatchProfile(_me.k1,{[bkKey()]:JSON.stringify(ans)}); }catch(e){}
+    _bkBusy=false;
+  }
+}
+function bkReopen(qi){ _bkOpen=(_bkOpen===qi?null:qi); renderBallKnowledge(); }
+
+function renderBallKnowledge(){
+  const el=document.getElementById('bk-body'); if(!el) return;
+  bkSync();                                  // fire and forget; re-renders if it finds saved answers
+  const sec=document.getElementById('bk-sec');
+  const qs=bkQuestions();
+  if(!qs.length){ if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  const cfg=_CFG.ballKnowledge||{};
+  const ans=bkLoadAnswers();
+  const answered=qs.map((_,i)=>i).filter(i=>ans[i]!=null);
+  const pending =qs.map((_,i)=>i).filter(i=>ans[i]==null);
+  const done=pending.length===0;
+
+  /* pending first, then answered — that is the "drops to the bottom" order */
+  const order=[...pending,...answered];
+  const cards=order.map(i=>{
+    const q=qs[i], picked=ans[i];
+    /* every unanswered question shows its options; answering is what collapses
+       one, and a collapsed one reopens on tap to be changed */
+    const isOpen = picked==null ? true : _bkOpen===i;
+    const right = cfg.reveal && picked!=null ? (picked===q.correct) : null;
+    const state = picked==null?'bk-todo':(right===null?'bk-done':right?'bk-right':'bk-wrong');
+    if(!isOpen){
+      return `<button class="bk-card ${state} bk-collapsed" onclick="bkReopen(${i})">
+        <span class="bk-q">${q.q}</span>
+        <span class="bk-picked">${picked!=null?q.a[picked]:''}</span>
+        <i class="fa fa-chevron-down bk-chev"></i>
+      </button>`;
+    }
+    return `<div class="bk-card ${state} bk-open">
+      <div class="bk-q">${q.q}</div>
+      <div class="bk-opts">
+        ${q.a.map((opt,ai)=>`<button class="bk-opt${picked===ai?' on':''}" onclick="bkAnswer(${i},${ai})">${opt}</button>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div class="bk-meta"><span>Week ${cfg.week??'—'}</span>
+      <span class="bk-count">${answered.length} of ${qs.length}</span></div>
+    <div class="bk-stack">${cards}</div>
+    ${done?`<div class="bk-fin"><i class="fa fa-circle-check"></i>All in for this week — tap any question to change your answer.</div>`:''}`;
+
+  bkPlace(done);
+}
+
+/* When the set is finished the card leaves the top row and settles at the foot
+   of the page. Moving a node mid-flight would jump, so the travel is measured
+   first and played back as a transform — the element is already in its new home
+   while it animates from where it used to be. */
+function bkPlace(done){
+  const sec=document.getElementById('bk-sec'); if(!sec) return;
+  const page=document.getElementById('page-home'); if(!page) return;
+  const atBottom=sec.parentElement===page && sec===page.lastElementChild;
+  if(done===_bkDone && (!done||atBottom)) return;
+  _bkDone=done;
+  if(!done) return;                       // returns to its slot on the next full render
+  if(atBottom) return;
+  const from=sec.getBoundingClientRect();
+  page.appendChild(sec);
+  sec.classList.add('bk-moved');
+  const to=sec.getBoundingClientRect();
+  const dx=from.left-to.left, dy=from.top-to.top;
+  if(!dx&&!dy) return;
+  sec.style.transition='none';
+  sec.style.transform=`translate(${dx}px,${dy}px)`;
+  sec.offsetHeight;                       // commit the start position
+  sec.style.transition='transform .55s cubic-bezier(.22,.7,.2,1)';
+  sec.style.transform='';
+  setTimeout(()=>{ sec.style.transition=''; },600);
+}
+
 /* ── Pulling a bet back ─────────────────────────────────────────────────────
    A bet can be taken back until the week's football starts. Once any game in
    the current bucks week has kicked off everything locks, and earlier weeks
@@ -6422,11 +6566,13 @@ async function loadDashboard(){
     app.innerHTML=`
       <!-- HOME -->
       <div class="tab-page" id="page-home">
-        <!-- Row 1: punishment + Matchup of the Week (left), video (right) -->
+        <!-- Row 1: Ball Knowledge + Matchup of the Week (left), video (right).
+             The punishment moved to the pinned bar at the foot of the screen. -->
         <div class="home-top">
           <div class="home-left-col">
-            <div class="sec wm mod-punish" data-wm="&#xf0e3;">
-              <div class="home-box punish-box">${homePunishHTML()}</div>
+            <div class="sec wm mod-bk" data-wm="&#xf059;" id="bk-sec">
+              <div class="sec-head"><i class="fa fa-brain"></i>Ball Knowledge</div>
+              <div id="bk-body"></div>
             </div>
             <div class="sec wm" data-wm="&#xf091;">
               <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
@@ -6655,6 +6801,8 @@ async function loadDashboard(){
     renderStandingsTable();
     renderMatchupOfWeek();
     renderPunishment();
+    renderMyMatchupBar();   // punishment bar: config-driven, so it can paint now
+    renderBallKnowledge();
     /* the board is on the homepage, which is where the app opens — switchTab
        only fires when you navigate, so the first load has to start it too */
     if(_activeTab==='home') liveStart();

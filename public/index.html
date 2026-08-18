@@ -190,6 +190,23 @@
     @supports (height:100dvh){
       @media(max-width:768px){ .modal{max-height:calc(100dvh - 24px);} }
     }
+    /* Installed to an iOS home screen there is no browser chrome, so dvh is the
+       whole screen — including the strips behind the notch and the home
+       indicator. A sheet sized to it runs under both, which is why the top of
+       the modal was unreachable and the bottom looked cut off. The overlay pads
+       by the insets and the sheet subtracts them, so it fits the area actually
+       on screen. */
+    @media (display-mode:standalone){
+      .modal-overlay{
+        padding-top:calc(12px + env(safe-area-inset-top,0px));
+        padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));}
+      .modal{max-height:calc(100vh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));}
+    }
+    @supports (height:100dvh){
+      @media (display-mode:standalone){
+        .modal{max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));}
+      }
+    }
     .modal-overlay.open .modal{transform:translateY(0);}
     .modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#141414;z-index:1;}
     .modal-header h2{font-size:17px;font-weight:700;}
@@ -585,6 +602,43 @@
     /* ── Latest message (homepage section) ────────────────────────────────── */
     .hm-h{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.9px;
       text-transform:uppercase;color:var(--accent);margin-bottom:9px;}
+    /* ── Ball Knowledge ────────────────────────────────────────────────────
+       Answered questions collapse to a single row and sink to the bottom of the
+       stack, so the one you still owe an answer to is always on top. */
+    .bk-meta{display:flex;align-items:center;justify-content:space-between;
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);margin-bottom:9px;}
+    .bk-count{color:var(--accent);}
+    .bk-stack{display:flex;flex-direction:column;gap:8px;}
+    .bk-card{border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,0.18);
+      text-align:left;font-family:inherit;color:var(--text);width:100%;
+      transition:border-color .18s,background .18s;}
+    html[data-theme="light"] .bk-card{background:rgba(0,0,0,0.03);}
+    .bk-open{padding:11px 12px;}
+    .bk-collapsed{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;}
+    .bk-collapsed:hover{border-color:rgba(var(--accent-rgb),0.45);}
+    .bk-q{font-size:13.5px;font-weight:600;line-height:1.35;min-width:0;flex:1 1 auto;}
+    .bk-collapsed .bk-q{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--text2);}
+    .bk-picked{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--accent);
+      flex:0 0 auto;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .bk-chev{font-size:10px;color:var(--text3);flex:0 0 auto;}
+    .bk-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
+    .bk-opt{padding:9px 10px;border-radius:8px;border:1px solid var(--border);
+      background:rgba(255,255,255,0.03);color:var(--text);cursor:pointer;
+      font-family:inherit;font-size:12.5px;font-weight:600;line-height:1.3;text-align:center;
+      transition:border-color .15s,background .15s;}
+    html[data-theme="light"] .bk-opt{background:rgba(0,0,0,0.03);}
+    .bk-opt:hover{border-color:rgba(var(--accent-rgb),0.5);background:rgba(var(--accent-rgb),0.08);}
+    .bk-opt.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+    .bk-right{border-color:rgba(63,208,122,0.5);}
+    .bk-right .bk-picked{color:#3fd07a;}
+    .bk-wrong{border-color:rgba(232,104,126,0.5);}
+    .bk-wrong .bk-picked{color:#e8687e;}
+    .bk-fin{display:flex;align-items:center;gap:7px;margin-top:10px;
+      font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);}
+    .bk-fin i{color:var(--accent);}
+    @media(max-width:420px){ .bk-opts{grid-template-columns:1fr;} }
+
     .hm-msg{display:flex;align-items:flex-start;gap:9px;cursor:pointer;}
     .hm-av .tm-avatar{width:26px!important;height:26px!important;flex:0 0 26px!important;border-radius:6px!important;}
     .hm-body{min-width:0;flex:1 1 auto;}
@@ -606,7 +660,28 @@
     /* ── Your matchup: pinned bar ─────────────────────────────────────────── */
     #my-matchup{position:fixed;left:0;right:0;bottom:0;z-index:190;
       padding:0 10px calc(env(safe-area-inset-bottom,0px) + 8px);pointer-events:none;}
-    #my-matchup .mm-bar{pointer-events:auto;}
+    #my-matchup .mm-bar,#my-matchup .pb-bar{pointer-events:auto;}
+    /* ── Pinned punishment bar ─────────────────────────────────────────────
+       Sits where the live tracker used to. Its own red accent rather than the
+       tab's, so it reads the same on every page. */
+    .pb-bar{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+      display:flex;align-items:center;gap:10px;padding:8px 12px;
+      background:rgba(12,12,14,0.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+      border:1px solid rgba(var(--accent-rgb),0.42);border-radius:10px;
+      box-shadow:0 -6px 26px -12px rgba(0,0,0,0.95),0 2px 8px -4px rgba(0,0,0,0.8);}
+    html[data-theme="light"] .pb-bar{background:rgba(255,255,255,0.96);border-color:rgba(var(--accent-rgb),0.4);}
+    .pb-ic{width:30px;height:30px;flex:0 0 30px;display:flex;align-items:center;justify-content:center;
+      border-radius:8px;border:1px solid rgba(var(--accent-rgb),0.45);color:var(--accent);font-size:14px;}
+    .pb-txt{display:flex;flex-direction:column;min-width:0;flex:1 1 auto;}
+    .pb-wk{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);line-height:1.2;}
+    .pb-name{font-family:'Google Sans Flex',serif;font-weight:700;font-size:14.5px;line-height:1.2;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pb-more{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.3px;
+      padding:7px 11px;border-radius:8px;background:none;color:var(--accent);
+      border:1px solid rgba(var(--accent-rgb),0.45);}
+    .pb-more:hover{background:rgba(var(--accent-rgb),0.12);}
     .mm-bar{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;
       background:rgba(12,12,14,0.92);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
       border:1px solid rgba(255,255,255,0.14);border-radius:10px;
@@ -3270,42 +3345,19 @@
          grid items directly, which lets Matchup of the Week — far too wide for
          half a phone — span the full width underneath instead of being trapped
          in the punishment column. */
-      /* The card matches the whole video column — poster, track padding and the
-         scroll rail — so both sides of the row end level. That only reads well
-         now the carousel is tight to its poster; back when a stray min-height
-         made the track 60px taller, stretching to it left the card half empty. */
-      .home-top{display:grid;
-        grid-template-columns:minmax(0,0.92fr) minmax(0,1.08fr);
-        grid-template-areas:"punish video" "motw motw";
-        gap:20px 12px;align-items:stretch;}
+      /* One column on a phone, in the order asked for: the video, then Ball
+         Knowledge under it, then Matchup of the Week. Ball Knowledge needs the
+         full width — four answer buttons will not fit in half a phone — so
+         nothing shares a row here. */
+      .home-top{display:grid;grid-template-columns:1fr;
+        grid-template-areas:"video" "bk" "motw";
+        gap:20px;align-items:start;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
-      .home-top .mod-punish{grid-area:punish;}
+      .home-top .mod-bk{grid-area:bk;}
       .home-top .home-vid-col>.sec{grid-area:video;}
-      .home-top .home-left-col>.sec:not(.mod-punish){grid-area:motw;}
+      .home-top .home-left-col>.sec:not(.mod-bk){grid-area:motw;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}
-      /* Icon left, its text to the right of it, and the Details button on its
-         own line beneath — the card is only ~150px across, too narrow to hold
-         all three on one row. The flex chain lets the contents centre
-         themselves in whatever height the video sets. */
-      /* The punish-box rule sets padding with !important and carries an id, so
-         this has to out-specify it AND repeat !important — otherwise the card
-         keeps its 14px and stays taller than the poster. 6px lands the card on
-         the thumbnail's height. */
-      /* Narrower side padding buys the text and the button real width in a
-         ~150px card; the box fills the stretched card so the contents can sit
-         centred in it. */
-      html[data-theme] #page-home .home-top .mod-punish{display:flex;flex-direction:column;}
-      html[data-theme] #page-home .home-top .mod-punish .punish-box{
-        padding:8px 10px!important;flex:1;display:flex;align-items:center;}
-      .home-top .home-punish{flex-direction:row;align-items:center;flex-wrap:wrap;
-        gap:7px 8px;width:100%;}
-      .home-top .home-punish-ic{width:30px;height:30px;flex:0 0 30px;font-size:14px;border-radius:8px;}
-      .home-top .home-punish-info{flex:1 1 0;min-width:0;}
-      .home-top .home-punish-week{font-size:9px;letter-spacing:.2px;line-height:1.2;}
-      .home-top .home-punish-name{font-size:14.5px;line-height:1.15;}
-      .home-top .home-punish-more{flex:1 0 100%;width:100%;text-align:center;
-        padding:6px 4px;font-size:11px;letter-spacing:.3px;}
     }
 
     /* Playoff odds: collapsed dropdown by default */
@@ -3641,6 +3693,8 @@
        otherwise keep painting the page's gradient. */
     /* mod-msg deliberately has no accent override: it inherits the page gold */
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    #page-home .mod-bk{--accent:#c98cf1;--accent2:#8ca8f1;--accent-rgb:201,140,241;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .mod-cm{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}

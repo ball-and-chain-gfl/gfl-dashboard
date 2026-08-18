@@ -61,6 +61,33 @@ window.GFL_CONFIG = {
      `rules` is the numbered "How it works" list in that popup. EDIT THESE to
      match how the league actually runs it; they are a starting point, not
      gospel. Add or remove lines freely. */
+  /* ── BALL KNOWLEDGE (homepage) ─────────────────────────────────────────────
+     Five trivia questions a week, sitting between the video and Matchup of the
+     Week. Answering one collapses it and drops it to the bottom of the stack;
+     once all five are in, the whole card slides down to the foot of the page.
+     Answers save against the signed-in profile, so they follow a manager
+     between devices and can be changed by reopening a question.
+
+     EACH WEEK: bump `week` and replace the five questions. `correct` is the
+     zero-based index of the right answer in `a`. Leave `reveal` false while the
+     week is live; flip it to true afterwards to show everyone how they did. */
+  ballKnowledge: {
+    week: 1,
+    reveal: false,
+    questions: [
+      { q: "Which team has the most GFL championships?",
+        a: ["The Bryan Football Team", "Lebron's 3rd Leg", "Florida Man", "Bismuth"], correct: 0 },
+      { q: "How many teams are in the GFL?",
+        a: ["10", "12", "14", "16"], correct: 1 },
+      { q: "What does a team's Coaching Metric measure?",
+        a: ["Total points scored", "Points left on the bench", "Lineup decisions vs the optimal lineup", "Waiver spending"], correct: 2 },
+      { q: "In fantasy scoring, how many points is a receiving touchdown worth in the GFL?",
+        a: ["4", "6", "3", "8"], correct: 1 },
+      { q: "What happens to unspent GFL Bucks at the end of a week?",
+        a: ["They roll over", "They double", "They disappear", "They convert to FAAB"], correct: 2 },
+    ],
+  },
+
   punishment: {
     week: 1,
     name: "Beer Pour",
