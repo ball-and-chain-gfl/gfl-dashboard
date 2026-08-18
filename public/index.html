@@ -260,16 +260,30 @@
     }
 
     /* My Bets takes the strip the futures bar used to hold */
-    .sb-mine-btn{display:flex;align-items:center;gap:10px;width:100%;margin-bottom:12px;
-      padding:11px 14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;
-      background:var(--bg2);color:var(--text);font-family:'Inter',sans-serif;
-      font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
-    .sb-mine-btn i{color:var(--accent);font-size:14px;}
-    .sb-mine-btn:hover{border-color:var(--accent);}
-    .sb-mine-btn.on{border-color:var(--accent);
-      background:linear-gradient(rgba(var(--accent-rgb),0.14),rgba(var(--accent-rgb),0.14)),var(--bg2);
-      color:var(--accent);}
-    .sb-mine-bal{margin-left:auto;font-weight:800;color:var(--accent);text-transform:none;letter-spacing:0;}
+    /* Reads as a button rather than another tab: filled in the accent, raised
+       off the page and with the label in the dark, so it does not sit flush
+       with the outlined view tabs directly beneath it. */
+    .sb-mine-btn{display:flex;align-items:center;gap:10px;width:100%;margin-bottom:14px;
+      padding:13px 16px;border:none;border-radius:11px;cursor:pointer;
+      background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
+      color:#0b0f0c;font-family:'Inter',sans-serif;
+      font-size:12.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+      box-shadow:0 6px 18px -8px rgba(var(--accent-rgb),0.85),
+        inset 0 1px 0 rgba(255,255,255,0.28);
+      transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;}
+    .sb-mine-btn i{color:#0b0f0c;font-size:14px;}
+    .sb-mine-btn:hover{filter:brightness(1.06);
+      box-shadow:0 9px 22px -8px rgba(var(--accent-rgb),0.95),inset 0 1px 0 rgba(255,255,255,0.32);}
+    .sb-mine-btn:active{transform:translateY(1px);}
+    /* pressed-in while its view is the one on screen */
+    .sb-mine-btn.on{box-shadow:0 2px 8px -6px rgba(var(--accent-rgb),0.9),
+      inset 0 2px 7px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.16);
+      filter:brightness(0.97);}
+    .sb-mine-btn.on i{opacity:.85;}
+    /* sits on the filled button now, so it takes a dark chip rather than the
+       accent colour it used to borrow */
+    .sb-mine-bal{margin-left:auto;font-weight:800;color:#0b0f0c;text-transform:none;letter-spacing:0;
+      background:rgba(0,0,0,0.16);border-radius:999px;padding:3px 10px;font-size:12px;}
     .sb-pull{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:9px;
       padding:8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:none;
       color:var(--text2);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
@@ -306,6 +320,7 @@
     .sb-place:disabled{opacity:.45;cursor:not-allowed;}
     .sb-slip-err{margin-top:8px;font-size:11.5px;color:var(--red);line-height:1.45;}
     .sb-ledger{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px;}
+    .sb-ledger:has(+ .bank-sec){margin-bottom:0;}
     .sb-led{padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);min-width:0;}
     .sb-led span{display:block;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
@@ -639,6 +654,72 @@
     .bk-opt.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
     .bk-q-tap{display:flex;align-items:center;gap:8px;cursor:pointer;}
     .bk-q-tap .bk-chev{margin-left:auto;}
+
+    /* ── Weekly picks ──────────────────────────────────────────────────────── */
+    .pk-card{border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,0.18);
+      text-align:left;font-family:inherit;color:var(--text);width:100%;}
+    html[data-theme="light"] .pk-card{background:rgba(0,0,0,0.03);}
+    .pk-open{padding:11px 12px;}
+    .pk-collapsed{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;}
+    .pk-collapsed:hover{border-color:rgba(var(--accent-rgb),0.45);}
+    .pk-mu{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);flex:1 1 auto;min-width:0;}
+    .pk-mu-tap{display:flex;align-items:center;gap:8px;cursor:pointer;}
+    .pk-mu-tap .bk-chev{margin-left:auto;}
+    .pk-picked{display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;
+      font-size:12px;font-weight:800;color:var(--accent);flex:0 0 auto;}
+    .pk-sides{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px;}
+    .pk-side{display:flex;align-items:center;justify-content:center;gap:7px;min-height:52px;
+      padding:8px 9px;border-radius:8px;border:1px solid var(--border);
+      background:rgba(255,255,255,0.03);color:var(--text);cursor:pointer;
+      font-family:inherit;font-size:12px;font-weight:700;line-height:1.25;text-align:center;
+      transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;}
+    html[data-theme="light"] .pk-side{background:rgba(0,0,0,0.03);}
+    @media (hover:hover){
+      .pk-side:hover{border-color:rgba(var(--accent-rgb),0.5);background:rgba(var(--accent-rgb),0.08);}
+    }
+    .pk-side:focus{outline:none;}
+    .pk-side.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+    .pk-side span{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+    .pk-logo,.pk-side .tm-avatar{width:22px!important;height:22px!important;flex:0 0 22px!important;
+      border-radius:6px!important;}
+
+    /* ── Bankroll: where you stand ─────────────────────────────────────────── */
+    /* the board already gaps its children by 16px; a margin here just stacks on
+       top of that and the ledger's own bottom margin */
+    .bank-sec{margin:0;padding:13px 14px;border:1px solid var(--border);
+      border-radius:11px;background:rgba(0,0,0,0.2);}
+    html[data-theme="light"] .bank-sec{background:rgba(0,0,0,0.03);}
+    .bank-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+    .bank-t{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);}
+    .bank-net{font-family:'Inter',sans-serif;font-size:20px;font-weight:800;line-height:1;}
+    .bank-chart{width:100%;}
+    .bank-svg{display:block;width:100%;height:132px;}
+    .bank-foot{display:flex;align-items:center;justify-content:space-between;margin-top:4px;
+      font-family:'Inter',sans-serif;font-size:10px;letter-spacing:.4px;
+      text-transform:uppercase;color:var(--text3);}
+    .bank-state{font-weight:700;}
+    .bank-empty{font-size:12.5px;color:var(--text3);line-height:1.5;padding:4px 0 2px;}
+
+    /* ── Most cursed ───────────────────────────────────────────────────────── */
+    .curse-box{display:flex;align-items:center;gap:13px;cursor:pointer;
+      padding:13px 14px;border:1px solid rgba(var(--accent-rgb),0.4);border-radius:11px;
+      background:rgba(var(--accent-rgb),0.06);transition:border-color .15s,background .15s;}
+    .curse-box:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),0.11);}
+    .curse-ic{flex:0 0 auto;}
+    .curse-txt{min-width:0;flex:1 1 auto;}
+    .curse-lbl{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.7px;
+      text-transform:uppercase;color:var(--accent);}
+    .curse-name{font-family:'Google Sans Flex',serif;font-weight:700;font-size:16px;line-height:1.2;
+      margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .curse-sub{font-size:11.5px;color:var(--text3);line-height:1.35;margin-top:3px;}
+    .curse-score{flex:0 0 auto;text-align:right;}
+    .curse-score b{display:block;font-family:'Inter',sans-serif;font-size:19px;font-weight:800;
+      color:var(--accent);line-height:1;}
+    .curse-score span{font-family:'Inter',sans-serif;font-size:8.5px;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);}
+    @media(max-width:420px){ .curse-sub{display:none;} }
 
     /* ── Ball Knowledge IQ meter (team profile) ────────────────────────────── */
     .bkiq-sec{margin-bottom:14px;}
@@ -1748,7 +1829,7 @@
     .tab-btn[data-tab=home]{--tc:#dea634;}
     .tab-btn[data-tab=week]{--tc:#E8437E;}
     .tab-btn[data-tab=roster]{--tc:#43C9E8;}
-    .tab-btn[data-tab=teams]{--tc:#fe8a88;}
+    .tab-btn[data-tab=teams]{--tc:#E84146;}
     .tab-btn[data-tab=schedule]{--tc:#fb9167;}
     .tab-btn[data-tab=book]{--tc:#3fd07a;}
     .tab-btn[data-tab=legacy]{--tc:#f09a4a;}
@@ -1786,9 +1867,25 @@
     /* home is deliberately a single gold — both stops match, so anything using
        --grad (the Big 4 bar, the title rule) renders flat rather than shifting */
     html[data-theme="dark"][data-tabaccent=home]{--accent:#dea634;--accent2:#bcb73d;--accent-rgb:222,166,52;}
+    /* Home runs a rainbow for now, pending a colour being picked. --accent stays
+       a single gold so everything that needs one flat colour still has one; what
+       changes is the two gradients — the title's orbiting border and the rule
+       under each heading — which sweep the whole wheel instead of two hues.
+       Every stop is at the same OKLCH lightness as the rest of the palette, so
+       the sweep does not flare bright in the yellows and go dim in the blues. */
+    html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
+      background:conic-gradient(from var(--h1ang),
+        #fe8a88 0deg,#f0a24a 51deg,#c9b53d 103deg,#3fce8f 154deg,
+        #0fcacc 206deg,#6cb7ff 257deg,#ca98f5 309deg,#fe8a88 360deg);}
+    html[data-theme="dark"][data-tabaccent=home] .sec-head::after,
+    html[data-theme="dark"][data-tabaccent=home] .section-header::after,
+    html[data-theme="dark"][data-tabaccent=home] .lh-sec-head::after{
+      background:linear-gradient(90deg,
+        #fe8a88,#f0a24a,#c9b53d,#3fce8f,#0fcacc,#6cb7ff,#ca98f5,#fe8a88);
+      background-size:200% 100%;}
     html[data-theme="dark"][data-tabaccent=week]{--accent:#E8437E;--accent2:#E86043;--accent-rgb:232,67,126;}
     html[data-theme="dark"][data-tabaccent=roster]{--accent:#43C9E8;--accent2:#43E8C0;--accent-rgb:67,201,232;}
-    html[data-theme="dark"][data-tabaccent=teams]{--accent:#fe8a88;--accent2:#f8935d;--accent-rgb:254,138,136;}
+    html[data-theme="dark"][data-tabaccent=teams]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
     html[data-theme="dark"][data-tabaccent=schedule]{--accent:#fb9167;--accent2:#eb9e41;--accent-rgb:251,145,103;}
     html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}
     html[data-theme="dark"][data-tabaccent=legacy]{--accent:#f09a4a;--accent2:#d7aa32;--accent-rgb:240,154,74;}
@@ -3381,12 +3478,13 @@
          full width — four answer buttons will not fit in half a phone — so
          nothing shares a row here. */
       .home-top{display:grid;grid-template-columns:1fr;
-        grid-template-areas:"video" "bk" "motw";
+        grid-template-areas:"video" "bk" "pk" "motw";
         gap:20px;align-items:start;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
       .home-top .mod-bk{grid-area:bk;}
+      .home-top .mod-pk{grid-area:pk;}
       .home-top .home-vid-col>.sec{grid-area:video;}
-      .home-top .home-left-col>.sec:not(.mod-bk){grid-area:motw;}
+      .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk){grid-area:motw;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}
     }
@@ -3726,6 +3824,10 @@
     #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .mod-bk{--accent:#c98cf1;--accent2:#8ca8f1;--accent-rgb:201,140,241;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    #page-home .mod-pk{--accent:#6cb7ff;--accent2:#9baafe;--accent-rgb:108,183,255;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    #page-home .mod-curse{--accent:#e78dd4;--accent2:#f889ac;--accent-rgb:231,141,212;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .mod-cm{--accent:#587DE8;--accent2:#58AAE8;--accent-rgb:88,125,232;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}

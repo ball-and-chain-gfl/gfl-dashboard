@@ -4675,6 +4675,7 @@ function applyMe(){
   }
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
+  try{ pkReset(); }catch(e){}             // and their weekly picks
   _rosterCache=null; _rosterTeam=null;
   if(_activeTab==='roster') renderRoster();
   if(_activeTab==='week') renderWeek();
@@ -5842,6 +5843,118 @@ function bkPlace(done){
   setTimeout(()=>{ sec.style.transition=''; },600);
 }
 
+/* ── Weekly picks ───────────────────────────────────────────────────────────
+   Pick a side in every game on the slate. Same shape as Ball Knowledge — one
+   on screen at a time, picking collapses it and drops it to the bottom — but
+   deliberately no tally: Matchup of the Week is where the league's split is
+   shown, and seeing it here would colour the picks it is collecting.
+   Stored on the profile beside the Ball Knowledge answers. */
+const pkKey=()=>{
+  const c=_CFG.ballKnowledge||{};
+  const r=c.resetToken?`_r${c.resetToken}`:'';
+  return `pk_${getSeason()}_w${(_liveInfo||liveWeekInfo()||{}).week??0}${r}`;
+};
+let _pkPicks=null,_pkBusy=false,_pkOpen=null,_pkFetched=false;
+
+function pkGames(){
+  const info=_liveInfo||liveWeekInfo();
+  return info&&info.games?info.games.filter(g=>g.home&&g.away):[];
+}
+function pkLoad(){
+  if(_pkPicks) return _pkPicks;
+  let raw=localStorage.getItem(pkKey())||'';
+  try{ _pkPicks=raw?JSON.parse(raw):{}; }catch{ _pkPicks={}; }
+  return _pkPicks;
+}
+async function pkSync(){
+  if(!_me||_pkFetched) return;
+  _pkFetched=true;
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    const raw=res&&res.data?res.data[pkKey()]:null;
+    if(!raw) return;
+    _pkPicks={...JSON.parse(raw),...pkLoad()};
+    localStorage.setItem(pkKey(),JSON.stringify(_pkPicks));
+    renderWeekPicks();
+  }catch(e){}
+}
+function pkReset(){ _pkPicks=null; _pkFetched=false; _pkOpen=null; renderWeekPicks(); }
+async function pkPick(gi,teamId,el){
+  if(_pkBusy) return;
+  if(el&&el.blur) el.blur();
+  const p=pkLoad(); p[gi]=String(teamId); _pkOpen=null;
+  localStorage.setItem(pkKey(),JSON.stringify(p));
+  renderWeekPicks();
+  if(_me){ _pkBusy=true; try{ await gflPatchProfile(_me.k1,{[pkKey()]:JSON.stringify(p)}); }catch(e){} _pkBusy=false; }
+}
+function pkToggle(gi){ _pkOpen=(_pkOpen===gi?null:gi); renderWeekPicks(); }
+
+function renderWeekPicks(){
+  const el=document.getElementById('pk-body'); if(!el) return;
+  pkSync();
+  const sec=document.getElementById('pk-sec');
+  const games=pkGames();
+  if(!games.length){ if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  const picks=pkLoad();
+  const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
+  const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
+  const done=games.map((_,i)=>i).filter(i=>picks[i]!=null);
+  const todo=games.map((_,i)=>i).filter(i=>picks[i]==null);
+  const order=[...todo,...done];
+  const cards=order.map(i=>{
+    const g=games[i], mine=picks[i];
+    const open = mine==null ? (i===todo[0] && _pkOpen==null) : _pkOpen===i;
+    if(!open){
+      if(mine==null) return '';
+      return `<button class="pk-card pk-collapsed" onclick="pkToggle(${i})">
+        <span class="pk-mu">${ab(g.away.teamId)} @ ${ab(g.home.teamId)}</span>
+        <span class="pk-picked">${logoImg(Number(mine),'pk-logo')}${ab(Number(mine))}</span>
+        <i class="fa fa-chevron-down bk-chev"></i></button>`;
+    }
+    const side=(t,label)=>`<button type="button" class="pk-side${String(mine)===String(t)?' on':''}"
+      onclick="pkPick(${i},${t},this)">${logoImg(t,'pk-logo')}<span>${label}</span></button>`;
+    return `<div class="pk-card pk-open">
+      <div class="pk-mu${mine!=null?' pk-mu-tap':''}" ${mine!=null?`onclick="pkToggle(${i})"`:''}>
+        ${ab(g.away.teamId)} @ ${ab(g.home.teamId)}
+        ${mine!=null?'<i class="fa fa-chevron-up bk-chev"></i>':''}</div>
+      <div class="pk-sides">${side(g.away.teamId,nm(g.away.teamId))}${side(g.home.teamId,nm(g.home.teamId))}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`
+    <div class="bk-meta"><span>Week ${(_liveInfo||liveWeekInfo()||{}).week??'—'}</span>
+      <span class="bk-count">${done.length} of ${games.length}</span></div>
+    <div class="bk-stack">${cards}</div>
+    ${todo.length===0?`<div class="bk-fin"><i class="fa fa-circle-check"></i>Picks are in — tap any game to change one.</div>`:''}`;
+}
+
+/* ── Most cursed ────────────────────────────────────────────────────────────
+   Bad Beat O'Meter's top of the table, surfaced on the homepage. */
+function renderCursed(){
+  const el=document.getElementById('curse-body'); if(!el) return;
+  const html=cursedHTML();
+  const sec=document.getElementById('curse-sec');
+  if(!html){ if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  el.innerHTML=html;
+}
+function cursedHTML(){
+  const list=badBeatData(getSeason());
+  if(!list||!list.length) return '';
+  const t=list[0];
+  const cur=_teams.find(x=>x.id===t.id);
+  const av=cur?logoImg(t.id,'big4-logo'):avatarCore(t.name,t.id,proxyLogo(t.logo),44,10);
+  return `<div class="curse-box" onclick="switchTab('badbeat')" role="button" tabindex="0">
+    <div class="curse-ic">${av}</div>
+    <div class="curse-txt">
+      <div class="curse-lbl">Most Cursed Player</div>
+      <div class="curse-name">${t.name}</div>
+      <div class="curse-sub">${t.vaW}–${t.vaL} against the field but ${t.w}–${t.l} on the scoreboard</div>
+    </div>
+    <div class="curse-score"><b>${Number(t.score).toFixed(1)}</b><span>curse</span></div>
+  </div>`;
+}
+
 /* ── Ball Knowledge IQ ──────────────────────────────────────────────────────
    A team's standing on the week's questions, shown on its profile. Everyone
    opens at the average and moves a step per graded answer.
@@ -5889,6 +6002,87 @@ function bkIQHTML(teamId){
       <span class="bkiq-dot" style="left:${pct.toFixed(1)}%;background:${col}"></span>
     </div>
     <div class="bkiq-scale"><span>${iq.min}</span><span>${iq.avg} · average</span><span>${iq.max}</span></div>
+  </div>`;
+}
+
+/* ── Bankroll: where you stand since week one ───────────────────────────────
+   Each bucks week resets to 100, so a running balance says nothing about how
+   you are actually doing. What does is the profit banked each week — returns
+   minus stakes on everything settled — carried forward. The line opens at 100
+   the week before the first bet, so the start sits on the same footing as any
+   other week and every move after it is real profit or loss.
+
+   Open bets are left out: their stake is committed but their return is not
+   known yet, so counting them would show a loss that may not happen. */
+function bankSeries(){
+  const mine=betsMine().filter(b=>b.status!=='open');
+  const byWeek={};
+  mine.forEach(b=>{ byWeek[b.wk]=(byWeek[b.wk]||0)+((b.ret||0)-(b.stake||0)); });
+  const weeks=Object.keys(byWeek).sort();
+  if(!weeks.length) return null;
+  const back=d=>{ const t=new Date(d+'T00:00:00'); t.setDate(t.getDate()-7);
+    return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; };
+  const pts=[{wk:back(weeks[0]),val:BUCKS_WEEKLY,delta:0,start:true}];
+  let run=BUCKS_WEEKLY;
+  weeks.forEach(w=>{ run+=byWeek[w]; pts.push({wk:w,val:run,delta:byWeek[w]}); });
+  return {pts,net:run-BUCKS_WEEKLY};
+}
+function bankChartSVG(pts,W=600,H=132){
+  const padL=8,padR=8,padT=12,padB=18;
+  const vals=pts.map(p=>p.val);
+  let lo=Math.min(...vals,BUCKS_WEEKLY), hi=Math.max(...vals,BUCKS_WEEKLY);
+  if(hi-lo<20){ const m=(hi+lo)/2; lo=m-10; hi=m+10; }
+  const pad=(hi-lo)*0.15; lo-=pad; hi+=pad;
+  const x=i=>padL+(pts.length<2?0:i*(W-padL-padR)/(pts.length-1));
+  const y=v=>padT+(hi-v)/(hi-lo)*(H-padT-padB);
+  const base=y(BUCKS_WEEKLY);
+  const line=pts.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.val).toFixed(1)}`).join(' ');
+  const area=`${line} L${x(pts.length-1).toFixed(1)},${base.toFixed(1)} L${x(0).toFixed(1)},${base.toFixed(1)} Z`;
+  const up=pts[pts.length-1].val>=BUCKS_WEEKLY;
+  const col=up?'#3fd07a':'#e8687e';
+  const dots=pts.map((p,i)=>{
+    const last=i===pts.length-1;
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.val).toFixed(1)}" r="${last?4:2.6}"
+      fill="${p.start?'var(--text3)':col}" ${last?`stroke="var(--bg2)" stroke-width="2"`:''}/>`;
+  }).join('');
+  const labels=pts.map((p,i)=>{
+    if(pts.length>7 && i%2 && i!==pts.length-1) return '';      // thin them out when crowded
+    const d=p.start?'Start':new Date(p.wk+'T00:00:00').toLocaleDateString(undefined,{month:'numeric',day:'numeric'});
+    const anchor=i===0?'start':i===pts.length-1?'end':'middle';
+    return `<text x="${x(i).toFixed(1)}" y="${H-5}" text-anchor="${anchor}"
+      font-size="9" fill="var(--text3)" font-family="Inter,sans-serif">${d}</text>`;
+  }).join('');
+  return `<svg class="bank-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+      aria-label="GFL Bucks profit by week">
+    <defs><linearGradient id="bankfill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${col}" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="${col}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <line x1="${padL}" y1="${base.toFixed(1)}" x2="${W-padR}" y2="${base.toFixed(1)}"
+      stroke="var(--text3)" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="3 3"/>
+    <path d="${area}" fill="url(#bankfill)"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="2.2"
+      stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    ${dots}${labels}
+  </svg>`;
+}
+function bankHTML(){
+  if(!_me) return '';
+  const s=bankSeries();
+  const net=s?s.net:0;
+  const up=net>=0;
+  const col=up?'#3fd07a':'#e8687e';
+  return `<div class="bank-sec">
+    <div class="bank-head">
+      <span class="bank-t">Where you stand</span>
+      <span class="bank-net" style="color:${col}">${up?'+':'−'}${bucksFmt(Math.abs(net))}</span>
+    </div>
+    ${s?`<div class="bank-chart">${bankChartSVG(s.pts)}</div>
+      <div class="bank-foot">
+        <span>${s.pts.length-1} week${s.pts.length-1===1?'':'s'} settled</span>
+        <span class="bank-state" style="color:${col}">${net===0?'Break even':up?'In the black':'In the red'}</span>
+      </div>`
+    :`<div class="bank-empty">Nothing settled yet — the line starts once your first bets are graded.</div>`}
   </div>`;
 }
 
@@ -6147,6 +6341,7 @@ function myBetsHTML(){
     <div class="sb-led"><span>Record</span><b>${won}-${lost}${open?` · ${open} open`:''}</b></div>
     <div class="sb-led sb-led-note">Resets to ${bucksFmt(BUCKS_WEEKLY)} in ${bucksResetsIn()}</div>
   </div>
+  ${bankHTML()}
   ${betsClearable().length?`<div class="sb-clearsettled-row">
     <button class="sb-clear" onclick="sbClearSettled()" ${_betBusy?'disabled':''}>
       <i class="fa fa-broom"></i> Clear settled (${betsClearable().length})</button></div>`:''}`;
@@ -6640,6 +6835,10 @@ async function loadDashboard(){
               <div class="sec-head"><i class="fa fa-brain"></i>Ball Knowledge</div>
               <div id="bk-body"></div>
             </div>
+            <div class="sec wm mod-pk" data-wm="&#xf0e7;" id="pk-sec">
+              <div class="sec-head"><i class="fa fa-hand-pointer"></i>Weekly Picks</div>
+              <div id="pk-body"></div>
+            </div>
             <div class="sec wm" data-wm="&#xf091;">
               <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
               <div id="motw"></div>
@@ -6673,6 +6872,12 @@ async function loadDashboard(){
         <!-- Live Around the League removed: This Week covers the same ground.
              The poll itself still runs — it feeds the pinned matchup bar and
              This Week — it just no longer renders a board here. -->
+        <!-- Last on the page, until Ball Knowledge is finished and slides below
+             it — that card is explicitly meant to end up last once it is done. -->
+        <div class="sec wm mod-curse" data-wm="&#xf7a9;" id="curse-sec">
+          <div class="sec-head"><i class="fa fa-hat-wizard"></i>Most Cursed</div>
+          <div id="curse-body"></div>
+        </div>
       </div>
       <!-- (Legacy Report now lives on the team profile, under the hero) -->
 
@@ -6715,7 +6920,8 @@ async function loadDashboard(){
       <div class="tab-page" id="page-trades">
         <div class="trades-layout">
           <div class="trades-filters wm" data-wm="&#xf362;">
-            <div class="sec-head"><i class="fa fa-right-left"></i>Trade Report</div>
+            <!-- no heading: the page title already says Trades, and a second
+                 one here just repeated it above the filters -->
             <div class="trade-count" id="trade-count"></div>
             <div class="standings-filters" id="trade-scope">
               <span style="font-size:12px;color:var(--text3);margin-right:4px">Scope:</span>
@@ -6869,6 +7075,8 @@ async function loadDashboard(){
     renderPunishment();
     renderMyMatchupBar();   // punishment bar: config-driven, so it can paint now
     renderBallKnowledge();
+    renderWeekPicks();
+    renderCursed();
     /* Only needed to grade the IQ meter, which sits at the average until the
        week is revealed — so the fetch is skipped entirely until then. */
     if((_CFG.ballKnowledge||{}).reveal){
