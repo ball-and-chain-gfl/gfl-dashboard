@@ -1028,6 +1028,11 @@
       display:block;border-radius:6px;}
     /* titles are on the thumbnails already */
     .vid-scroll .video-thumb-title{display:none!important;}
+    /* the thumbs are links out to YouTube now, so they carry the mark */
+    .vid-scroll .video-thumb{position:relative;display:block;}
+    .vid-out{position:absolute;right:18px;bottom:8px;width:26px;height:26px;border-radius:6px;
+      display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.62);
+      color:#fff;font-size:13px;pointer-events:none;}
     /* Always-on scroll indicator. Overlay scrollbars hide themselves on macOS
        and iOS, so the affordance is drawn rather than relying on the native
        bar — the thumb tracks scroll position and takes the ribbon colour. */
@@ -1356,6 +1361,36 @@
     .punish-opt i{color:var(--text3);width:20px;text-align:center;}
     .punish-opt.active{border-color:var(--accent);background:rgba(var(--accent-rgb),0.1);}
     .punish-opt.active i{color:var(--accent);}
+    /* ── Locker room (My Profile) ──────────────────────────────────────────
+       Pixel art, so the SVG is allowed to go soft nowhere: crisp edges in the
+       markup and nearest-neighbour scaling here. */
+    .lk-wrap{border:1px solid var(--border);border-radius:11px;overflow:hidden;
+      background:#15151a;margin:14px 0 16px;}
+    .lk-bar{display:flex;align-items:center;justify-content:space-between;
+      padding:9px 13px;background:rgba(0,0,0,0.35);border-bottom:1px solid var(--border);
+      font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.7px;
+      text-transform:uppercase;color:var(--text3);}
+    .lk-ab{color:var(--accent);font-weight:800;}
+    .lk-svg{display:block;width:100%;height:auto;aspect-ratio:160/100;
+      image-rendering:pixelated;image-rendering:crisp-edges;}
+    .lk-cap{padding:8px 13px 10px;font-family:'Inter',sans-serif;font-size:10px;
+      letter-spacing:.4px;text-transform:uppercase;color:var(--text3);text-align:center;}
+
+    /* ── Matchup Stats: season table, head to head and playoff odds, folded
+       away so the card leads with the teams and the vote ─────────────────── */
+    .motw-stats{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;}
+    .motw-stats-s{display:flex;align-items:center;gap:9px;cursor:pointer;list-style:none;
+      padding:11px 13px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+      letter-spacing:.6px;text-transform:uppercase;color:var(--text2);
+      background:rgba(0,0,0,0.18);}
+    html[data-theme="light"] .motw-stats-s{background:rgba(0,0,0,0.03);}
+    .motw-stats-s::-webkit-details-marker{display:none;}
+    .motw-stats-s>i:first-child{color:var(--accent);font-size:12px;}
+    .ms-chev{margin-left:auto;font-size:10px;color:var(--text3);transition:transform .2s ease;}
+    .motw-stats[open] .ms-chev{transform:rotate(180deg);}
+    .motw-stats-b{padding:2px 11px 11px;}
+    .motw-stats-b .motw-cmp{margin:0;}
+
     /* trade deadline marker in the Schedules table */
     .sch-deadline{display:flex;align-items:center;gap:10px;padding:4px 2px 6px;}
     .sch-dl-l{flex:1 1 auto;height:1px;background:rgba(var(--accent-rgb),0.35);}

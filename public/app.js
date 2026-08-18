@@ -2875,7 +2875,10 @@ function renderMatchupOfWeek(){
       </div>
       <div class="motw-vote" id="motw-vote"></div>
     </div>
-    ${motwCompareHTML(A,B,at,last,odds)}
+    <details class="motw-stats">
+      <summary class="motw-stats-s"><i class="fa fa-table-list"></i>Matchup Stats<i class="fa fa-chevron-down ms-chev"></i></summary>
+      <div class="motw-stats-b">${motwCompareHTML(A,B,at,last,odds)}</div>
+    </details>
     ${motwOddsHTML(A,B)}`;
   renderMotwVoteBar();                       // paint immediately from cache
   if(!_motwVotes) refreshMotwVotes();        // then fill in from Firestore
@@ -4680,12 +4683,28 @@ function renderMeChip(){
 /* preselect the remembered team everywhere it matters */
 function applyMe(){
   renderMeChip();
+  /* Every team picker on the site opens on the signed-in team. They still hold
+     whatever you switch them to while you move around — this only sets the
+     starting point, and only on load or on signing in. */
   if(_me&&_me.teamId&&_teams.some(t=>String(t.id)===String(_me.teamId))){
-    _profileTeam=String(_me.teamId); _schedTeam=String(_me.teamId);
-    const p=document.getElementById('profile-team-select'); if(p) p.value=_profileTeam;
-    const s=document.getElementById('sched-team-select'); if(s) s.value=_schedTeam;
+    const tid=String(_me.teamId), owner=_ownerMap[Number(tid)];
+    _profileTeam=tid; _schedTeam=tid; _draftTeamSel=tid;
+    /* the history and tenure pickers are read straight off the DOM, so setting
+       their value is the whole job; the sportsbook keeps its own variable */
+    if(owner) _sbTeamSel=owner;
+    const setSel=(id,v)=>{ const e=document.getElementById(id);
+      if(e&&v!=null&&[...e.options].some(o=>o.value===String(v))) e.value=String(v); };
+    setSel('profile-team-select',tid);
+    setSel('sched-team-select',tid);
+    setSel('draft-team-select',tid);
+    setSel('hist-team-select',owner);
+    setSel('tenure-team-select',owner);
+    setSel('sb-team',owner);
     if(_activeTab==='teams') renderProfile();
     if(_activeTab==='schedule') renderSchedule();
+    if(_activeTab==='draft') try{ renderDraftTeamTable(); }catch(e){}
+    if(_activeTab==='history') try{ renderHistoryTable(); }catch(e){}
+    if(_activeTab==='tenure') try{ renderTenureTable(); renderTenureEnemies(); }catch(e){}
   }
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
@@ -4697,6 +4716,101 @@ function applyMe(){
 /* the header button is a sign-in prompt when signed out, and your profile
    page once you are in — the sign-out control moved onto that page */
 function meBtnClick(){ if(_me) switchTab('profile'); else openSignIn(); }
+/* ── Locker room ────────────────────────────────────────────────────────────
+   A pixel-art bay on your profile, in your own colours. Drawn as an SVG on a
+   fixed 160x100 grid with shape-rendering:crispEdges, so every rectangle lands
+   on a whole pixel and it scales up without going soft — a real bitmap would
+   blur or need a dozen assets, one per team.
+
+   Everything on the wall is derived from the team: two colours pulled from the
+   logo, the abbreviation on the jersey, and the number of championship banners
+   from the honours already computed elsewhere. */
+function lockerRoomHTML(t){
+  if(!t) return '';
+  const owner=_ownerMap[t.id];
+  const at=owner?franchiseAllTime(owner):null;
+  const rings=Number(at&&at.rings)||0;      // a count, not a list of years
+  const ab=(t.abbrev||teamInitials(t.name)||'GFL').slice(0,4).toUpperCase();
+  /* logoMainColor is async and caches; if it has not run for this team yet the
+     synchronous teamColor fallback is fine. Both can come back as #rrggbb or
+     rgb(...), so parse either rather than assuming — mixHex only reads hex. */
+  const parse=s=>{
+    if(!s) return [138,143,152];
+    const m=String(s).match(/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/);
+    if(m) return [+m[1],+m[2],+m[3]];
+    const h=String(s).replace('#','');
+    if(h.length===6) return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));
+    return [138,143,152];
+  };
+  const base=parse(_logoColorCache[t.id]||teamColor(t.id));
+  const mix=(rgb,to,k)=>`rgb(${rgb.map((v,i)=>Math.round(v+(to[i]-v)*k)).join(',')})`;
+  const c1=`rgb(${base.join(',')})`;
+  const c2=mix(base,[255,255,255],0.34);
+  const dark=mix(base,[0,0,0],0.55);
+  const P=(x,y,w,h,f,o)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}"${o?` opacity="${o}"`:''}/>`;
+  /* Pennants hang centred over the bay rather than from the left, so one title
+     does not read as a stray flag in an empty corner. */
+  const nb=Math.min(rings,5);
+  const banners=Array.from({length:nb},(_,i)=>{
+    const x=Math.round(80-(nb*13-4)/2)+i*13;
+    return P(x,5,9,11,c2)+P(x+1,16,7,2,c2)+P(x+3,18,3,2,c2)+P(x+2,8,5,2,dark);
+  }).join('');
+  return `<div class="lk-wrap">
+    <div class="lk-bar"><span>Locker Room</span><span class="lk-ab">${ab}</span></div>
+    <svg class="lk-svg" viewBox="0 0 160 100" shape-rendering="crispEdges" role="img"
+        aria-label="Pixel art locker room for ${t.name}">
+      ${P(0,0,160,100,'#1b1b20')}
+      ${P(0,0,160,26,'#15151a')}
+      ${P(0,25,160,1,dark)}
+      ${banners}
+      ${P(0,84,160,16,'#121216')}
+      ${Array.from({length:20},(_,i)=>P(i*8,84,7,1,'#22222a')).join('')}
+
+      ${/* the bay: back panel, side walls, top shelf */''}
+      ${P(52,26,56,58,dark)}
+      ${P(52,26,56,3,c1)}
+      ${P(50,26,2,58,'#2a2a33')}
+      ${P(108,26,2,58,'#2a2a33')}
+      ${P(52,40,56,2,'#2a2a33')}
+
+      ${/* jersey on the hook, with the abbreviation across the chest */''}
+      ${P(66,44,28,30,c1)}
+      ${P(62,46,4,10,c1)}${P(94,46,4,10,c1)}
+      ${P(72,44,16,4,c2)}
+      ${P(68,54,24,9,dark)}
+      <text x="80" y="61" text-anchor="middle" font-family="'Courier New',monospace"
+        font-size="8" font-weight="700" fill="${c2}">${ab}</text>
+      ${P(79,36,2,8,'#3a3a44')}
+
+      ${/* helmet on the shelf */''}
+      ${P(56,31,10,7,c1)}${P(55,34,1,4,c1)}${P(66,34,3,2,c2)}
+      ${/* ball on the shelf */''}
+      ${P(96,32,9,6,'#6b4423')}${P(99,34,3,1,'#e8e8e8')}
+
+      ${/* bench and cleats */''}
+      ${P(56,76,48,4,'#3a2f27')}
+      ${P(58,80,3,4,'#2a2119')}${P(99,80,3,4,'#2a2119')}
+      ${P(60,79,8,4,c2)}${P(70,79,8,4,c2)}
+
+      ${/* a stool and a bucket, so the room is not all symmetry */''}
+      ${P(20,68,12,3,'#3a2f27')}${P(22,71,2,13,'#2a2119')}${P(28,71,2,13,'#2a2119')}
+      ${P(126,72,12,12,'#4a4a55')}${P(126,72,12,2,'#5a5a66')}
+      ${P(128,66,8,6,c1)}
+
+      ${/* wall clock on the left, whiteboard on the right — the upper wall was
+            bare either side of the pennants */''}
+      ${P(22,34,12,12,'#2f2f38')}${P(24,36,8,8,'#d8d8e0')}${P(27,38,1,4,'#2f2f38')}${P(28,41,3,1,'#2f2f38')}
+      ${P(120,32,26,18,'#d8d8e0')}${P(122,34,22,14,'#ececf2')}
+      ${P(124,37,12,1,c1)}${P(124,40,16,1,'#9a9aa6')}${P(124,43,9,1,'#9a9aa6')}
+      ${P(131,50,4,3,'#8a8a96')}
+
+      ${/* towel over the bench end and a taped-up ball, small signs of use */''}
+      ${P(88,74,12,3,c2,'0.8')}
+      ${P(38,80,10,4,'#3a3a44')}${P(40,78,6,2,'#3a3a44')}
+    </svg>
+    <div class="lk-cap">${rings?`${rings} banner${rings===1?'':'s'} on the wall`:'No banners yet — go win one'}</div>
+  </div>`;
+}
 function renderMyProfile(){
   const el=document.getElementById('profile-page-body'); if(!el) return;
   if(!_me){ el.innerHTML=`<div class="mp-out">
@@ -4706,11 +4820,6 @@ function renderMyProfile(){
   const t=_teams.find(x=>x.id===tid);
   const owner=_ownerMap[tid];
   const at=owner?franchiseAllTime(owner):null;
-  const budget=_seasonMeta[getSeason()]?.faabBudget||0;
-  const left=budget?budget-Math.max(0,Math.min(budget,t?.budgetSpent||0)):null;
-  const myVotes=(()=>{ const k=motwVoteKey(); const t2=_motwVotes||{};
-    for(const [team,list] of Object.entries(t2)) if(list.some(v=>v.voter===_me.k1)) return team; return null; })();
-  const votedName=myVotes?(_teams.find(x=>String(x.id)===String(myVotes))||{}).name:null;
   el.innerHTML=`
     <div class="mp-head">
       ${t?logoImg(t.id,'big4-logo'):'<i class="fa fa-user"></i>'}
@@ -4719,18 +4828,21 @@ function renderMyProfile(){
         <div class="mp-sub">signed in as <b>${_me.k1}</b></div>
       </div>
     </div>
-    <div class="mp-grid">
-      ${t?`<div class="mp-c"><span class="mp-l">${getSeason()} record</span><span class="mp-v">${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}</span></div>
-      <div class="mp-c"><span class="mp-l">Points for</span><span class="mp-v">${t.pf.toFixed(0)}</span></div>`:''}
-      ${left!=null?`<div class="mp-c"><span class="mp-l">FAAB left</span><span class="mp-v">$${left}</span></div>`:''}
-      <div class="mp-c"><span class="mp-l">This week's pick</span><span class="mp-v">${votedName||'—'}</span></div>
-    </div>
+    ${lockerRoomHTML(t)}
+    ${/* the locker takes its colour from the logo, which is sampled
+          asynchronously — warm it and repaint if this is the first look */''}
     <!-- No team picker: the linked team comes from the sign-in key and is fixed.
          The header above already names it. -->
     <div class="mp-actions">
       <button class="mv-btn" onclick="switchTab('teams')">Open team profile</button>
       <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
     </div>`;
+  /* The logo colour is sampled from the image, so on a cold load — arriving
+     straight here without opening a team profile first — the cache is empty and
+     the room falls back to grey. Warm it once and repaint. */
+  if(t && !_logoColorCache[t.id]){
+    logoMainColor(t.id).then(()=>{ if(_activeTab==='profile') renderMyProfile(); }).catch(()=>{});
+  }
 }
 function openSignIn(){
   const m=document.getElementById('si-modal'); if(!m) return;
@@ -4992,6 +5104,7 @@ function playoffOutlook(){
 
   const pct=(arr,q)=>{const s=arr.slice().sort((a,b)=>a-b);
     return s[Math.min(s.length-1,Math.max(0,Math.round((s.length-1)*q)))];};
+  const playedAny=list.some(o=>base[o].w||base[o].l||base[o].t);
   const teams=list.map(o=>{
     const t=winTotals[o], f=finishes[o];
     /* Finishes are the full observed span, not a 10th-90th band: the question
@@ -5002,9 +5115,30 @@ function playoffOutlook(){
       played:base[o], odds:made[o]/PO_RUNS, seed:seedSum[o]/PO_RUNS,
       lo:pct(t,0.10), med:pct(t,0.50), hi:pct(t,0.90),
       fBest:Math.min(...f), fWorst:Math.max(...f), fMed:pct(f,0.50)};
+  }).map(t=>{
+    /* Before a game is played every team can finish anywhere, full stop. The
+       sampler does not always agree — a strong team can go a few thousand runs
+       without ever landing last — but that is the simulation failing to reach a
+       tail, not a real bound, so the unplayed case is stated outright. */
+    if(!playedAny){ t.fBest=1; t.fWorst=list.length; }
+    return t;
   }).sort((a,b)=>b.odds-a.odds||a.seed-b.seed);
+  /* Where each team sits in the table right now, which is what the notch marks.
+     Before anything is played every record is identical, so rather than let the
+     points-for tiebreak invent an order out of nothing, the whole league is put
+     at the midpoint — which is the honest answer to "where are you now". */
+  const mid=(list.length+1)/2;
+  const nowRank={};
+  if(playedAny){
+    list.slice().sort((x,y)=>
+      (base[y].w+base[y].t*0.5)-(base[x].w+base[x].t*0.5) || base[y].pf-base[x].pf)
+      .forEach((o,i)=>{ nowRank[o]=i+1; });
+  } else list.forEach(o=>{ nowRank[o]=mid; });
+  teams.forEach(t=>{ t.now=nowRank[t.owner]; });
+
   const maxW=Math.max(1,...teams.map(t=>t.hi));
-  _poCache={teams,spots,left:left.length,runs:PO_RUNS,season:info.season,maxW,regEnd,size:list.length};
+  _poCache={teams,spots,left:left.length,runs:PO_RUNS,season:info.season,maxW,regEnd,
+    size:list.length,played:playedAny};
   return _poCache;
 }
 const ordinal=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
@@ -5020,12 +5154,13 @@ function playoffOutlookHTML(){
   const posPct=p=>N<2?0:(p-1)/(N-1)*100;
   const rows=d.teams.map((t,i)=>{
     const inCut=i<d.spots;
-    const l=posPct(t.fBest), r=posPct(t.fWorst), m=posPct(t.fMed);
+    const l=posPct(t.fBest), r=posPct(t.fWorst), m=posPct(t.now);
+    const nowTxt=d.played?`currently ${ordinal(Math.round(t.now))}`:'level with the league';
     return `<div class="po-row${inCut?' po-in':''}">
       <span class="po-rk">${i+1}</span>
       <span class="po-nm">${t.name}</span>
       <span class="po-rec">${t.played.w}–${t.played.l}${t.played.t?`–${t.played.t}`:''}</span>
-      <span class="po-range" title="Can finish anywhere from ${ordinal(t.fBest)} to ${ordinal(t.fWorst)}; median ${ordinal(t.fMed)}. Projected ${t.lo}–${t.hi} wins.">
+      <span class="po-range" title="Can finish anywhere from ${ordinal(t.fBest)} to ${ordinal(t.fWorst)}; ${nowTxt}. Projected ${t.lo}–${t.hi} wins.">
         <span class="po-track"><span class="po-band" style="left:${l}%;width:${Math.max(2,r-l)}%"></span>
         <span class="po-med" style="left:${m}%"></span></span>
         <span class="po-rtxt">${ordinal(t.fBest)}–${ordinal(t.fWorst)}</span>
@@ -5037,7 +5172,7 @@ function playoffOutlookHTML(){
       <span class="badge-info">${d.left?`${d.left} games left · ${d.runs.toLocaleString()} simulations`:'regular season complete'}</span></div>
     <div class="po-head"><span></span><span>Team</span><span>Rec</span><span>Range of outcomes</span><span class="r">Playoffs</span></div>
     <div class="po-list">${rows}</div>
-    <div class="po-note">Every remaining game is simulated ${d.runs.toLocaleString()} times using the same power ratings the sportsbook prices with. The bar spans every finishing position a team reached across those runs — first at the left, ${ordinal(N)} at the right — with the notch at its median finish. Before a game is played the whole league can still land anywhere, so every range opens at 1st–${ordinal(N)} and narrows as results come in. The top ${d.spots} shaded rows are the current projected field.</div>
+    <div class="po-note">Every remaining game is simulated ${d.runs.toLocaleString()} times using the same power ratings the sportsbook prices with. The bar spans every finishing position a team reached across those runs — first at the left, ${ordinal(N)} at the right — with the notch marking where that team sits in the table right now. Before a game is played the whole league can still land anywhere, so every range opens at 1st–${ordinal(N)} with the notch dead centre, and both tighten as results come in. The top ${d.spots} shaded rows are the current projected field.</div>
   </div>`;
 }
 function renderSchedule(){
@@ -6917,7 +7052,9 @@ async function loadDashboard(){
                 ?`<div class="vid-scroll" style="--nv:${newVideoColor()}">
                     <div class="vid-wrap"><span class="vid-new">New video</span>
                       <div class="video-featured" id="vfeat">${videoFacadeHTML(firstVid.videoId)}</div></div>
-                    ${_videos.slice(1,3).map(v=>`<button class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></button>`).join('')}
+                    ${/* the thumbs open the video on YouTube rather than swapping
+                          the embed — the featured player stays playable in place */''}
+                    ${_videos.slice(1,3).map(v=>`<a class="video-thumb" href="https://www.youtube.com/watch?v=${v.videoId}" target="_blank" rel="noopener" data-vid="${v.videoId}" title="${String(v.title).replace(/"/g,'&quot;')}"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><span class="vid-out"><i class="fa-brands fa-youtube"></i></span><div class="video-thumb-title">${v.title}</div></a>`).join('')}
                     <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
                       <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>
                   </div>
