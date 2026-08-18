@@ -3591,7 +3591,35 @@
     .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
     .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))),
     .lh-sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))){
-      justify-content:center;text-align:center;}
+      justify-content:center;text-align:center;position:relative;}
+
+    /* A short rounded rule under each centred heading, dividing it from its
+       content. Same gradient language as the title's orbiting border, but
+       travelling left to right: the bar is two tiles wide and its position
+       slides by exactly one tile, and both ends of the gradient are the same
+       faded accent so the loop is seamless.
+       It is absolutely positioned rather than a flex item — as a flex child its
+       hypothetical size is clamped by max-width, so it would sit on the title's
+       line instead of wrapping below it. */
+    @keyframes headRule{to{background-position:-200% 0;}}
+    .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::after,
+    .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))::after,
+    .lh-sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::after{
+      content:"";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);
+      width:clamp(44px,16%,78px);height:3px;border-radius:999px;pointer-events:none;
+      background:linear-gradient(90deg,
+        rgba(var(--accent-rgb),0.14),
+        var(--accent),
+        var(--accent2,var(--accent)),
+        rgba(var(--accent-rgb),0.14));
+      background-size:200% 100%;
+      animation:headRule 3.2s linear infinite;}
+    /* .section-header already draws a full-width rule; the divider replaces it
+       rather than stacking a second line under the same heading. */
+    .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){border-bottom:none;}
+    @media(prefers-reduced-motion:reduce){
+      .sec-head::after,.section-header::after,.lh-sec-head::after{animation:none;}
+    }
   
     /* ── HOMEPAGE: each module carries its own tab colour ──────────────────
        Overriding --accent/--accent-rgb on the module wrapper is enough: every
