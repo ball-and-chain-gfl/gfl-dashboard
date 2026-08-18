@@ -3113,6 +3113,27 @@ function punishRulesHTML(){
       </div>
     </div>`;
 }
+/* The overlay only covers the viewport, so leaving the page scrollable behind
+   it slides the dimmed content around under a fixed sheet. Same lock the nav
+   drawer uses. */
+/* overflow:hidden alone does not hold here — the phone rules set
+   body{overflow-y:visible!important} and the page scrolls straight through it.
+   Pinning body and offsetting it by the current scroll is what actually stops
+   the page, and it restores the position on close. */
+let _lockY=0;
+function modalLock(on){
+  const b=document.body, d=document.documentElement;
+  if(on){
+    _lockY=window.scrollY||d.scrollTop||0;
+    b.style.position='fixed'; b.style.top=`-${_lockY}px`;
+    b.style.left='0'; b.style.right='0'; b.style.width='100%';
+    d.classList.add('modal-lock'); b.classList.add('modal-lock');
+  }else{
+    b.style.position=''; b.style.top=''; b.style.left=''; b.style.right=''; b.style.width='';
+    d.classList.remove('modal-lock'); b.classList.remove('modal-lock');
+    window.scrollTo(0,_lockY);
+  }
+}
 function openPunishRules(){
   const body=document.getElementById('punish-rules-body');
   const ov=document.getElementById('punish-overlay');
@@ -3120,9 +3141,10 @@ function openPunishRules(){
   _prSel=null;                         // always opens on this week's punishment
   body.innerHTML=punishRulesHTML();
   ov.classList.add('open');
+  modalLock(true);
 }
 function closePunishRules(e){ if(e.target===document.getElementById('punish-overlay')) closePunishRulesDirect(); }
-function closePunishRulesDirect(){ document.getElementById('punish-overlay')?.classList.remove('open'); }
+function closePunishRulesDirect(){ document.getElementById('punish-overlay')?.classList.remove('open'); modalLock(false); }
 
 // ── GABE'S GREATNESS ─────────────────────────────────────────────────────────
 let _gabeGames=null,_gabePromise=null,_gabeView='started';
@@ -5629,7 +5651,8 @@ async function betList(){
       return {id:(d.name||'').split('/').pop(),owner:f.owner||'',team:f.team||'',
         season:f.season||'',wk:f.wk||'',ts:Number(f.ts)||0,
         stake:Number(f.stake)||0,odds:Number(f.odds)||0,payout:Number(f.payout)||0,
-        legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0};
+        legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0,
+        hidden:String(f.hidden||'')==='1'};
     }).sort((a,b)=>b.ts-a.ts);
   }catch(e){ _betErr='offline'; return null; }
 }
@@ -5698,6 +5721,26 @@ async function sbVoidBet(id){
     if(r.ok){ b.status='void'; b.ret=b.stake; b.settledTs=Date.now(); }
     else _betErr=r.status===403?'rules':'send';
   }catch(e){ _betErr='offline'; }
+  _betBusy=false; renderMyBets();
+}
+
+/* Clearing a finished bet off the stack hides the row; it never deletes it and
+   never touches the ledger. The week's balance is derived by replaying every
+   bet in it, so a cleared loss must still have cost its stake and a cleared win
+   must still have paid — hiding only decides what the list shows. */
+function betsClearable(){ return betsMine().filter(b=>b.status!=='open'&&!b.hidden); }
+async function sbClearSettled(){
+  const done=betsClearable();
+  if(!done.length||_betBusy) return;
+  _betBusy=true; _betErr=null; renderMyBets();
+  for(const b of done){
+    try{
+      const r=await fetch(`${betBase()}/${encodeURIComponent(b.id)}?${msgKey()}&updateMask.fieldPaths=hidden`,
+        {method:'PATCH',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify(fsOut({hidden:'1'}))});
+      if(r.ok) b.hidden=true; else _betErr=r.status===403?'rules':'send';
+    }catch(e){ _betErr='offline'; }
+  }
   _betBusy=false; renderMyBets();
 }
 
@@ -5885,18 +5928,22 @@ function myBetsHTML(){
   if(_betErr==='rules') return `<div class="sb-mine-empty"><i class="fa fa-lock"></i>
     <div>The <code>bets</code> collection is not readable yet — its Firestore rule still needs publishing.</div></div>`;
   if(_bets===null) return `<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Loading your bets…</div>`;
-  const mine=betsMine();
+  const all=betsMine();                 // ledger reflects every bet, cleared or not
+  const mine=all.filter(b=>!b.hidden);  // the list shows what has not been cleared
   const bal=bucksBalance(), staked=bucksStaked(), back=bucksReturned();
-  const open=mine.filter(b=>b.status==='open').length;
-  const won=mine.filter(b=>b.status==='won').length;
-  const lost=mine.filter(b=>b.status==='lost').length;   // voids count to neither
+  const open=all.filter(b=>b.status==='open').length;
+  const won=all.filter(b=>b.status==='won').length;
+  const lost=all.filter(b=>b.status==='lost').length;   // voids count to neither
   const ledger=`<div class="sb-ledger">
     <div class="sb-led"><span>Balance</span><b>${bucksFmt(bal)}</b></div>
     <div class="sb-led"><span>Staked this week</span><b>${bucksFmt(staked)}</b></div>
     <div class="sb-led"><span>Returned</span><b>${bucksFmt(back)}</b></div>
     <div class="sb-led"><span>Record</span><b>${won}-${lost}${open?` · ${open} open`:''}</b></div>
     <div class="sb-led sb-led-note">Resets to ${BUCKS_WEEKLY} in ${bucksResetsIn()}</div>
-  </div>`;
+  </div>
+  ${betsClearable().length?`<div class="sb-clearsettled-row">
+    <button class="sb-clear" onclick="sbClearSettled()" ${_betBusy?'disabled':''}>
+      <i class="fa fa-broom"></i> Clear settled (${betsClearable().length})</button></div>`:''}`;
   if(!mine.length) return ledger+`<div class="sb-mine-empty"><i class="fa fa-receipt"></i>
     <div>No bets yet. Tap any price to build a slip.</div></div>`;
   const weeks={};
@@ -6415,10 +6462,6 @@ async function loadDashboard(){
           <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
           <div id="home-headlines"></div>
         </div>
-        <!-- no heading: the card speaks for itself, like the punishment box -->
-        <div class="sec wm mod-msg" data-wm="&#xf086;">
-          <div class="home-box msg-box" id="home-msg"></div>
-        </div>
         <!-- Live Around the League removed: This Week covers the same ground.
              The poll itself still runs — it feeds the pinned matchup bar and
              This Week — it just no longer renders a board here. -->
@@ -6509,14 +6552,6 @@ async function loadDashboard(){
       <!-- LEAGUE HISTORY -->
       <div class="tab-page" id="page-legacy"><div id="legacy-body"></div></div>
 
-      <!-- MARATHON -->
-      <div class="tab-page" id="page-marathon">
-        <div class="sec wm" data-wm="&#xf70c;">
-          <div class="sec-head"><i class="fa fa-person-running"></i>Marathons Ran</div>
-          <div class="marathon-hero" id="marathon-hero"></div>
-        </div>
-      </div>
-
       <!-- SPORTSBOOK -->
       <div class="tab-page" id="page-book">
         <div class="sec wm" data-wm="&#xf51e;">
@@ -6602,26 +6637,11 @@ async function loadDashboard(){
         </div>
       </div>
 
-      <!-- WEEKLY PUNISHMENT -->
-      <div class="tab-page" id="page-punishment">
-        <div class="sec wm" data-wm="&#xf0fc;">
-          <div class="sec-head"><i class="fa fa-gavel"></i>Weekly Punishment</div>
-          <div id="punishment-body"></div>
-        </div>
-      </div>
-
       <!-- BAD BEAT O'METER -->
       <!-- MY PROFILE (reached from the header button, not the tab bar) -->
       <div class="tab-page" id="page-profile">
         <div class="sec wm" data-wm="&#xf007;">
           <div id="profile-page-body"></div>
-        </div>
-      </div>
-
-      <!-- MESSAGES -->
-      <div class="tab-page" id="page-messages">
-        <div class="sec wm" data-wm="&#xf086;">
-          <div id="messages-body"></div>
         </div>
       </div>
 

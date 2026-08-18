@@ -253,9 +253,10 @@
       white-space:nowrap;flex:0 0 auto;}
     .sb-bank-v{font-family:'Inter',sans-serif;font-size:17px;font-weight:800;color:var(--accent);margin-left:auto;}
     .sb-bank-r{font-size:10px;color:var(--text3);white-space:nowrap;}
-    .sb-slip-actions{display:flex;justify-content:flex-end;padding:2px 15px 0;}
+    /* both of these sat hard against the rules above and below them */
+    .sb-slip-actions{display:flex;justify-content:flex-end;padding:10px 15px 4px;}
     .sb-slip-actions .sb-clear{position:static;}
-    .sb-quick{display:flex;gap:6px;margin:8px 0 2px;}
+    .sb-quick{display:flex;gap:6px;margin:8px 0 14px;}
     .sb-quick button{flex:1;padding:6px 4px;font-size:11px;font-family:'Inter',sans-serif;font-weight:700;
       border:1px solid var(--border);border-radius:7px;background:none;color:var(--text2);cursor:pointer;}
     .sb-quick button:hover{color:var(--accent);border-color:var(--accent);}
@@ -273,6 +274,8 @@
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
     .sb-led b{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text);}
     .sb-led-note{grid-column:1/-1;padding:7px 10px;font-size:10.5px;color:var(--text3);text-align:center;}
+    .sb-clearsettled-row{display:flex;justify-content:flex-end;margin:-6px 0 12px;}
+    .sb-clearsettled-row .sb-clear{position:static;}
     .sb-mine-empty{padding:34px 20px;text-align:center;color:var(--text3);font-size:13px;
       display:flex;flex-direction:column;align-items:center;gap:11px;}
     .sb-mine-empty i{font-size:26px;color:var(--text3);opacity:.7;}
@@ -283,8 +286,18 @@
       text-transform:uppercase;color:var(--text3);padding:0 2px 7px;}
     .sb-bet{border:1px solid var(--border);border-left:3px solid var(--text3);border-radius:9px;
       background:var(--bg2);padding:11px 12px;margin-bottom:9px;}
-    .sb-bet-won{border-left-color:var(--green);} .sb-bet-lost{border-left-color:var(--red);}
-    .sb-bet-push{border-left-color:var(--text3);} .sb-bet-open{border-left-color:var(--accent);}
+    /* An open bet is the only live thing on the page, so it carries the green
+       outright — tinted fill and a green edge. Everything settled recedes:
+       losses read red, wins a muted green, pushes and pulls grey out. */
+    .sb-bet-open{border-color:rgba(63,208,122,0.45);border-left-color:#3fd07a;
+      background:linear-gradient(rgba(63,208,122,0.10),rgba(63,208,122,0.10)),var(--bg2);
+      box-shadow:0 0 0 1px rgba(63,208,122,0.12);}
+    /* border-color has to come first — it resets all four sides and would
+       otherwise wipe the left edge set before it. */
+    .sb-bet-lost{border-color:rgba(212,61,87,0.35);border-left-color:var(--red);
+      background:linear-gradient(rgba(212,61,87,0.07),rgba(212,61,87,0.07)),var(--bg2);}
+    .sb-bet-won{border-left-color:var(--green);opacity:.82;}
+    .sb-bet-push{border-left-color:var(--text3);opacity:.72;}
     .sb-bet-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
     .sb-bet-tag{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.5px;
       text-transform:uppercase;color:var(--text3);}
@@ -1916,6 +1929,11 @@
       main,footer,#floatnav,.tab-dd-menu{max-width:100%;}
     }
     html.nav-lock,body.nav-lock{overflow:hidden;}   /* lock page scroll while drawer open */
+    /* Same treatment for the punishment sheet, including the composited
+       background so the strips outside the fixed overlay match the dimmed page
+       rather than flashing the undimmed one. */
+    html.modal-lock,body.modal-lock{overflow:hidden;overscroll-behavior:none;}
+    html.modal-lock{background:linear-gradient(rgba(0,0,0,0.78),rgba(0,0,0,0.78)),var(--page-bg);}
     html.nav-lock,body.nav-lock{overscroll-behavior:none;}
     /* Locking sets body{position:fixed}, which drops it out of flow and lets
        the document collapse to viewport height; the scrim, being fixed, only
@@ -2554,7 +2572,9 @@
       /* match the inset the bank and the picks already sit on */
       #sb-portal .sb-quick{padding:0 15px;}
       /* the slip runs edge to edge on phones — no side gutters, no side border */
-      #sb-portal .sb-slip{border-radius:14px 14px 0 0;background:rgba(8,8,10,0.97);
+      /* Square against the dock: the sheet sits directly under the green bar,
+         so rounded top corners cut notches out of it. */
+      #sb-portal .sb-slip{border-radius:0;background:rgba(8,8,10,0.97);
         -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
         margin:0;width:100%;border-left:none;border-right:none;border-bottom:none;}
       #sb-portal .sb-dock{pointer-events:auto;display:flex;align-items:center;gap:10px;
@@ -3686,7 +3706,6 @@
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
   <button class="tab-btn" data-tab="week" onclick="switchTab('week')"><i class="fa fa-bolt"></i>This Week</button>
   <button class="tab-btn" data-tab="book" onclick="switchTab('book')"><i class="fa fa-coins"></i>B&amp;C Sportsbook</button>
-  <button class="tab-btn" data-tab="messages" onclick="switchTab('messages')"><i class="fa fa-comments"></i>Messages</button>
   <button class="tab-btn" data-tab="teams" data-group="Team Data" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Rosters</button>
   <button class="tab-btn" data-tab="schedule" onclick="switchTab('schedule')"><i class="fa fa-calendar-days"></i>Schedules</button>
@@ -3698,10 +3717,7 @@
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
   <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
   <!-- hidden: Punishment opens from the homepage CTA, Gabe's sits in League History -->
-  <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')" style="display:none"><i class="fa fa-gavel"></i>Punishment</button>
-  <button class="tab-btn" data-tab="gabe" onclick="switchTab('gabe')" style="display:none"><i class="fa fa-dumbbell"></i>Gabe&#39;s Greatness</button>
   <!-- Marathons Ran: hidden for now -->
-  <button class="tab-btn" data-tab="marathon" onclick="switchTab('marathon')" style="display:none"><i class="fa fa-person-running"></i>Marathons Ran</button>
 </nav>
 
 <main><h1 id="page-h1" class="page-h1"><span>Home</span><span class="page-h1-aside" id="page-h1-aside"></span></h1>
