@@ -3591,7 +3591,18 @@
     .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
     .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))),
     .lh-sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))){
-      justify-content:center;text-align:center;position:relative;}
+      justify-content:center;text-align:center;position:relative;
+      /* Breathing room, since these headings shipped with 0-2px above and 5px
+         under the rule. The block reads: 16px, text, 11px, rule, 16px — so the
+         bottom padding is 11 + the rule's 3px + 16. Horizontal padding is left
+         to whatever each heading already had.
+         !important because per-page rules like #page-home .sec-head set padding
+         with an id and would otherwise win outright. */
+      padding-top:16px!important;padding-bottom:30px!important;}
+    /* The trades filter panel sets its heading's padding with an id and
+       !important, which outranks the rule above — and at 7px of box the divider
+       would have floated over the text rather than under it. */
+    #page-trades .trades-filters .sec-head{padding:16px 0 30px!important;}
 
     /* A short rounded rule under each centred heading, dividing it from its
        content. Same gradient language as the title's orbiting border, but
@@ -3605,7 +3616,7 @@
     .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::after,
     .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))::after,
     .lh-sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::after{
-      content:"";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);
+      content:"";position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
       width:clamp(44px,16%,78px);height:3px;border-radius:999px;pointer-events:none;
       background:linear-gradient(90deg,
         rgba(var(--accent-rgb),0.14),
