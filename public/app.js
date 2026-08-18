@@ -5973,8 +5973,10 @@ function sbSlipHTML(){
   const stake=Math.min(bal,Math.max(0,Number(_sbStake)||0));
   const payout=stake*dec;
   const parlay=n?amFromProb(1/dec):null;
-  return `<div class="sb-slip-head"><i class="fa fa-receipt"></i>Bet Slip<span class="sb-slip-n">${n}</span>
-      ${n?`<button class="sb-clear" onclick="sbClear()">Clear</button>`:''}</div>
+  /* No Clear here: on phones the dock already titles the sheet, so this header
+     is hidden and anything living in it would go with it. Clear sits under the
+     picks instead, next to what it actually clears. */
+  return `<div class="sb-slip-head"><i class="fa fa-receipt"></i>Bet Slip<span class="sb-slip-n">${n}</span></div>
     ${_me?`<div class="sb-bank">
         <span class="sb-bank-l"><i class="fa fa-wallet"></i>GFL Bucks</span>
         <span class="sb-bank-v">${bucksFmt(bal)}</span>
@@ -5985,6 +5987,7 @@ function sbSlipHTML(){
         <div class="sb-si-odds">${amFmt(s.odds)}</div>
         <button class="sb-si-x" onclick="sbDrop('${s.k.replace(/'/g,"\\'")}')" aria-label="Remove"><i class="fa fa-xmark"></i></button>
       </div>`).join('')}</div>
+      <div class="sb-slip-actions"><button class="sb-clear" onclick="sbClear()">Clear all</button></div>
       <div class="sb-stake">
         <label for="sb-stake-in">Stake</label>
         <input id="sb-stake-in" type="number" min="0" step="10" max="${bal}" value="${stake}" oninput="sbStake(this.value)"/>
