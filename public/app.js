@@ -4095,6 +4095,7 @@ async function livePoll(){
       await liveSaveSeries(key,_liveSeries);
     }
     renderLiveMatchups();
+    renderMyMatchupBar();   // the pinned bar is independent of the live board
   }catch(e){}
   _liveBusy=false;
 }
@@ -4127,7 +4128,7 @@ async function liveTick(force){
     moved=true;                       // digest unavailable — fall back to polling directly
   }
   if(moved||!Object.keys(_liveSeries).length) await livePoll();
-  else renderLiveMatchups();          // keeps the cadence readout honest
+  else { renderLiveMatchups(); renderMyMatchupBar(); }   // keeps the cadence readout honest
 }
 function liveInterval(){
   if(_nflLive) return NFL_LIVE_MS;
@@ -4294,7 +4295,6 @@ function renderLiveMatchups(){
     <div class="lv-grid">${cards||'<div class="lr-none">No matchups scheduled.</div>'}</div>
     <div id="live-records"></div>`;
   renderLiveRecords();
-  renderMyMatchupBar();   // your own matchup lives only in the pinned bar
 }
 async function renderLiveRecords(){
   const el=document.getElementById('live-records'); if(!el) return;
@@ -6014,8 +6014,17 @@ async function loadDashboard(){
     app.innerHTML=`
       <!-- HOME -->
       <div class="tab-page" id="page-home">
-        <!-- Row 1: Matchup (left) + Ball & Chain video (right) -->
+        <!-- Row 1: punishment + Matchup of the Week (left), video (right) -->
         <div class="home-top">
+          <div class="home-left-col">
+            <div class="sec wm mod-punish" data-wm="&#xf0e3;">
+              <div class="home-box punish-box">${homePunishHTML()}</div>
+            </div>
+            <div class="sec wm" data-wm="&#xf091;">
+              <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
+              <div id="motw"></div>
+            </div>
+          </div>
           <div class="home-vid-col">
             <div class="sec">
               <div class="home-box">${firstVid
@@ -6029,15 +6038,6 @@ async function loadDashboard(){
                   <div class="vid-rail" style="--nv:${newVideoColor()}"><div class="vid-rail-thumb" id="vid-rail-thumb"></div></div>`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
-            </div>
-          </div>
-          <div class="home-left-col">
-            <div class="sec wm mod-punish" data-wm="&#xf0e3;">
-              <div class="home-box punish-box">${homePunishHTML()}</div>
-            </div>
-            <div class="sec wm" data-wm="&#xf091;">
-              <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
-              <div id="motw"></div>
             </div>
           </div>
         </div>
@@ -6054,11 +6054,9 @@ async function loadDashboard(){
         <div class="sec wm mod-msg" data-wm="&#xf086;">
           <div class="home-box msg-box" id="home-msg"></div>
         </div>
-        <!-- Row 3: the live board sits last, under everything else -->
-        <div class="sec wm mod-live" data-wm="&#xf0e7;">
-          <div class="sec-head"><i class="fa fa-tower-broadcast"></i>Live Around the League<span class="badge-info">updates while this page is open</span></div>
-          <div class="home-box" id="live-body"></div>
-        </div>
+        <!-- Live Around the League removed: This Week covers the same ground.
+             The poll itself still runs — it feeds the pinned matchup bar and
+             This Week — it just no longer renders a board here. -->
       </div>
       <!-- (Legacy Report now lives on the team profile, under the hero) -->
 

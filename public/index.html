@@ -1166,7 +1166,7 @@
     .srt-arw{font-size:12px;opacity:.8;}
 
     /* HOME layout */
-    .home-top{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:40px;margin-bottom:28px;align-items:start;}
+    .home-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:40px;margin-bottom:28px;align-items:start;}
     .home-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:start;}
     .home-right{display:flex;flex-direction:column;gap:20px;min-width:0;}
     .home-top>*,.home-bottom>*{min-width:0;}
@@ -3087,8 +3087,12 @@
     /* home top row: left column stacks Punishment above Matchup of the Week (desktop) */
     .home-left-col{display:flex;flex-direction:column;gap:40px;min-width:0;}
     @media(max-width:1000px){
-      /* on phones/tablets keep the original order: video first, then punishment, then matchup */
+      /* on phones/tablets keep the original order: video first, then punishment,
+         then matchup. Desktop puts punishment first in the DOM so it lands in the
+         left column, so stacked layouts have to pull the video back to the top —
+         otherwise it sits below the full Matchup of the Week table. */
       .home-top{display:flex;flex-direction:column;}
+      .home-top .home-vid-col{order:-1;}
       .home-top .home-left-col,.home-top .home-vid-col{gap:40px;width:100%;min-width:0;max-width:100%;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}
