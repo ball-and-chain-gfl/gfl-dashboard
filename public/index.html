@@ -223,14 +223,21 @@
     .video-featured iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
     /* Aside beside the page title. It must opt out of .page-h1>span, which
        clips its background to the text and makes the fill transparent. */
+    /* Pinned rather than in flow, so the title centres against the full panel
+       instead of against whatever space the pill leaves over. */
     .page-h1>span.page-h1-aside{background:none;-webkit-background-clip:border-box;
       background-clip:border-box;-webkit-text-fill-color:initial;
-      margin-left:auto;flex:0 0 auto;display:flex;align-items:center;}
+      position:absolute;right:20px;top:50%;transform:translateY(-50%);
+      flex:0 0 auto;display:flex;align-items:center;}
     .page-h1>span.page-h1-aside:empty{display:none;}
-    /* The pill shares the title's line, so on a phone it has to give the
-       heading room — at full size it leaves 229px for a 239px title and the
-       heading wraps to two lines. */
+    /* A centred title runs through where the pinned pill sits — 239px of title
+       centred in 351px reaches 307, the pill starts at 272. On a phone the pill
+       drops onto its own line under the title and centres with it; there is no
+       room to have both on one line once the title is centred. */
     @media(max-width:768px){
+      .page-h1{flex-wrap:wrap;}
+      .page-h1>span.page-h1-aside{position:static;transform:none;
+        flex:0 0 100%;justify-content:center;margin-top:7px;}
       .page-h1-aside .sb-live{font-size:8.5px;letter-spacing:.3px;gap:4px;padding:3px 7px;}
       .page-h1-aside .sb-live i{font-size:5px;}
     }
@@ -3489,7 +3496,7 @@
     .page-h1{font-family:"roca",sans-serif;font-size:34px;font-weight:800;line-height:1.05;
       letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;
       position:relative;padding:20px 20px 14px;border-radius:12px;
-      display:flex;align-items:center;
+      display:flex;align-items:center;justify-content:center;text-align:center;
       background:rgba(0,0,0,0.22);
       box-shadow:inset 0 3px 16px rgba(0,0,0,0.62),
         inset 0 -1px 0 rgba(255,255,255,0.05),
@@ -3572,6 +3579,19 @@
       font-family:"roca",sans-serif!important;font-weight:400!important;font-size:20px!important;}
     /* the draft mini-cards keep their compact heading size */
     .dr-mini>.section-header{font-size:13px!important;}
+
+    /* ── Centred headings ──────────────────────────────────────────────────
+       A Roca heading that stands on its own is centred, icon included, since
+       the icon is a flex child and rides along. A heading that carries
+       something on the other side of it stays left so the pair still reads as
+       a row — the Legacy Report's week tag and the draft score readout are the
+       only two on the site, confirmed by walking every tab.
+       .badge-info is exempted because it is display:none inside these
+       headings sitewide, so it is not actually "next to" anything. */
+    .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
+    .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))),
+    .lh-sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))){
+      justify-content:center;text-align:center;}
   
     /* ── HOMEPAGE: each module carries its own tab colour ──────────────────
        Overriding --accent/--accent-rgb on the module wrapper is enough: every
