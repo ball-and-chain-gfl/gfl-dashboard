@@ -500,6 +500,9 @@ function switchTab(name){
   setPageBg(name);
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
+  /* Cleared before the per-tab renders below, not after: a renderer that fills
+     the aside would otherwise have its work wiped on the way out. */
+  {const a=document.getElementById('page-h1-aside'); if(a) a.innerHTML='';}
   if(name==='tenure') ensureTenure();
   if(name==='roster') renderRoster();
   if(name==='week') renderWeek();
@@ -2866,12 +2869,14 @@ function renderMatchupOfWeek(){
   const last=lastMeeting(oA,oB);
   const odds=cfg.odds||{home:{},away:{}};
   el.innerHTML=`
-    <div class="motw-head home-box">
-      <div class="motw-team">${logoImg(A.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${A.name}</div></div></div>
-      <div class="motw-vs">VS</div>
-      <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${B.name}</div></div></div>
+    <div class="motw-panel home-box">
+      <div class="motw-head">
+        <div class="motw-team">${logoImg(A.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${A.name}</div></div></div>
+        <div class="motw-vs">VS</div>
+        <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${B.name}</div></div></div>
+      </div>
+      <div class="motw-vote" id="motw-vote"></div>
     </div>
-    <div class="motw-vote" id="motw-vote"></div>
     ${motwCompareHTML(A,B,at,last,odds)}
     ${motwOddsHTML(A,B)}`;
   renderMotwVoteBar();                       // paint immediately from cache
@@ -5351,7 +5356,7 @@ async function renderProfile(){
 let _sbView='futures';       // futures | props | awards | achieve | team
 let _sbTeamSel=null;         // owner for the By Team view
 let _slip=[];                // [{k,mk,mkLabel,pick,pickLabel,odds}]
-let _sbStake=100;
+let _sbStake=10;
 let _sbCache=null;
 let _sbSlipOpen=false;
 
@@ -5650,10 +5655,50 @@ async function sbPlaceBet(){
   try{
     const r=await fetch(`${betBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(r.ok){ _slip=[]; _sbStake=Math.min(BUCKS_WEEKLY,100); await betRefresh(); sbSyncButtons(); renderMyBets(); }
+    if(r.ok){ _slip=[]; _sbStake=10; await betRefresh(); sbSyncButtons(); renderMyBets(); }
     else _betErr=r.status===403?'rules':'send';
   }catch(e){ _betErr='offline'; }
   _betBusy=false; sbRenderSlip();
+}
+
+/* ── Pulling a bet back ─────────────────────────────────────────────────────
+   A bet can be taken back until the week's football starts. Once any game in
+   the current bucks week has kicked off everything locks, and earlier weeks
+   are locked outright.
+
+   Cancelling voids rather than deletes: the stake is returned and the row
+   stays on the ledger. That is why the Firestore rules withhold delete — a
+   losing bet must never be able to disappear, and a void is an event worth
+   being able to see. */
+/* "Started" means this league's week has started, not the NFL's. The public
+   scoreboard is the wrong clock: in August it reports preseason games already
+   final, which would lock every bet before a fantasy season even exists. The
+   fantasy week is the honest signal — once any matchup in it has put a point
+   on the board, the week is under way and the slips are set. */
+function weekHasStarted(){
+  let info=_liveInfo;
+  if(!info && typeof liveWeekInfo==='function'){ try{ info=liveWeekInfo(); }catch(e){} }
+  if(!info||!info.games||!info.games.length) return false;
+  return info.games.some(g=>((g.home&&g.home.totalPoints)||0)>0
+                          ||((g.away&&g.away.totalPoints)||0)>0);
+}
+function betCancellable(b){
+  return !!_me && b.owner===_me.k1 && b.status==='open'
+    && b.wk===bucksWeekKey() && !weekHasStarted();
+}
+async function sbVoidBet(id){
+  const b=(_bets||[]).find(x=>x.id===id);
+  if(!b||!betCancellable(b)||_betBusy) return;
+  _betBusy=true; _betErr=null; renderMyBets();
+  const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
+  try{
+    const r=await fetch(`${betBase()}/${encodeURIComponent(id)}?${msgKey()}&${mask}`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify(fsOut({status:'void',ret:String(b.stake),settledTs:String(Date.now())}))});
+    if(r.ok){ b.status='void'; b.ret=b.stake; b.settledTs=Date.now(); }
+    else _betErr=r.status===403?'rules':'send';
+  }catch(e){ _betErr='offline'; }
+  _betBusy=false; renderMyBets();
 }
 
 /* ── Settling ───────────────────────────────────────────────────────────────
@@ -5755,7 +5800,6 @@ function betGrade(bet){
 
 // ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
 const SB_GROUPS=[
-  {k:'mine',label:'My Bets',icon:'fa-wallet'},
   {k:'week',label:'This Week',icon:'fa-calendar-week'},
   {k:'futures',label:'Futures',icon:'fa-trophy'},
   {k:'props',label:'Team Props',icon:'fa-chart-simple'},
@@ -5845,7 +5889,7 @@ function myBetsHTML(){
   const bal=bucksBalance(), staked=bucksStaked(), back=bucksReturned();
   const open=mine.filter(b=>b.status==='open').length;
   const won=mine.filter(b=>b.status==='won').length;
-  const lost=mine.filter(b=>b.status==='lost').length;
+  const lost=mine.filter(b=>b.status==='lost').length;   // voids count to neither
   const ledger=`<div class="sb-ledger">
     <div class="sb-led"><span>Balance</span><b>${bucksFmt(bal)}</b></div>
     <div class="sb-led"><span>Staked this week</span><b>${bucksFmt(staked)}</b></div>
@@ -5860,9 +5904,11 @@ function myBetsHTML(){
   const cur=bucksWeekKey();
   const cards=Object.keys(weeks).sort().reverse().map(wk=>{
     const list=weeks[wk].map(b=>{
-      const cls=b.status==='won'?'won':b.status==='lost'?'lost':b.status==='push'?'push':'open';
+      const cls=b.status==='won'?'won':b.status==='lost'?'lost'
+        :b.status==='push'?'push':b.status==='void'?'void':'open';
       const legs=b.legs.map(l=>`<div class="sb-bl"><span class="sb-bl-p">${l.pickLabel}</span>
         <span class="sb-bl-m">${l.mkLabel}</span><span class="sb-bl-o">${amFmt(l.odds)}</span></div>`).join('');
+      const canPull=betCancellable(b);
       return `<div class="sb-bet sb-bet-${cls}">
         <div class="sb-bet-top">
           <span class="sb-bet-tag">${b.legs.length>1?`${b.legs.length}-leg parlay`:'Single'}</span>
@@ -5870,6 +5916,7 @@ function myBetsHTML(){
             b.status==='won'?`Won +${bucksFmt(b.ret-b.stake)}`
             :b.status==='lost'?`Lost ${bucksFmt(b.stake)}`
             :b.status==='push'?'Push'
+            :b.status==='void'?'Pulled'
             :'Open'}</span>
         </div>
         <div class="sb-bet-legs">${legs}</div>
@@ -5878,6 +5925,9 @@ function myBetsHTML(){
           <span>${amFmt(b.odds)}</span>
           <span>${b.status==='open'?'To return':'Returned'} <b>${bucksFmt(b.status==='open'?b.payout:b.ret)}</b></span>
         </div>
+        ${canPull?`<button class="sb-pull" onclick="sbVoidBet('${b.id.replace(/'/g,"\\'")}')" ${_betBusy?'disabled':''}>
+            <i class="fa fa-rotate-left"></i>Remove bet · ${bucksFmt(b.stake)} back</button>`
+          :b.status==="open"&&b.wk===cur&&weekHasStarted()?`<div class="sb-lockmsg"><i class="fa fa-lock"></i>Locked — the week is under way</div>`:''}
       </div>`;
     }).join('');
     const d=new Date(wk+'T00:00:00');
@@ -6131,12 +6181,15 @@ function renderBook(){
     :_sbView==='week'?sbWeekHTML()
     :_sbView==='mine'?myBetsHTML()
     :(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
+  /* "Lines set" rides beside the page title; My Bets takes the strip the
+     futures bar used to hold, so the ledger is one tap from anywhere. */
+  const aside=document.getElementById('page-h1-aside');
+  if(aside) aside.innerHTML=`<span class="sb-live"><i class="fa fa-circle"></i>Lines set</span>`;
   el.innerHTML=`
-    <div class="sb-bar">
-      <div class="sb-bar-l"><span class="sb-live"><i class="fa fa-circle"></i>Lines set</span>
-        <span class="sb-bar-t">${book.season} GFL Futures</span></div>
-      <div class="sb-bar-r">${book.rows.length} teams · ${Object.values(book.groups).flat().length} markets</div>
-    </div>
+    <button class="sb-mine-btn ${_sbView==='mine'?'on':''}" onclick="sbSetView('mine')">
+      <i class="fa fa-wallet"></i><span class="sb-mine-t">My Bets</span>
+      ${_me?`<span class="sb-mine-bal">${bucksFmt(bucksBalance())} bucks</span>`:'<span class="sb-mine-bal">Sign in</span>'}
+    </button>
     <div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>
     <div class="sb-layout">
       <div class="sb-board">${board}</div>
