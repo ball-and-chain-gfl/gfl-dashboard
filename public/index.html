@@ -208,6 +208,20 @@
     /* YOUTUBE */
     .video-featured{position:relative;width:100%;padding-top:56.25%;border-radius:8px;overflow:hidden;border:1px solid var(--border);box-shadow:0 16px 36px -24px rgba(0,0,0,0.7);}
     .video-featured iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+    /* our own poster, so the player reads cleanly at any width (see videoFacadeHTML) */
+    .vid-facade{position:absolute;inset:0;width:100%;height:100%;padding:0;border:none;background:#000;
+      cursor:pointer;display:block;overflow:hidden;border-radius:inherit;box-shadow:none;}
+    .vid-facade img{width:100%;height:100%;object-fit:cover;display:block;
+      transition:transform .35s ease,filter .25s ease;}
+    .vid-facade:hover img{transform:scale(1.035);filter:brightness(1.06);}
+    .vid-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:clamp(34px,17%,58px);aspect-ratio:1;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(12,12,14,0.62);border:1.5px solid rgba(255,255,255,0.9);
+      color:#fff;font-size:clamp(11px,6%,18px);padding-left:.12em;
+      -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+      transition:background .2s ease,transform .2s ease;}
+    .vid-facade:hover .vid-play{background:var(--accent);transform:translate(-50%,-50%) scale(1.07);}
     .video-featured-title{padding:10px 4px 0;font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .video-scroll-label{padding:14px 4px 8px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);}
     .video-list{display:flex;gap:9px;overflow-x:auto;padding:0 2px 6px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
@@ -3087,15 +3101,27 @@
     /* home top row: left column stacks Punishment above Matchup of the Week (desktop) */
     .home-left-col{display:flex;flex-direction:column;gap:40px;min-width:0;}
     @media(max-width:1000px){
-      /* on phones/tablets keep the original order: video first, then punishment,
-         then matchup. Desktop puts punishment first in the DOM so it lands in the
-         left column, so stacked layouts have to pull the video back to the top —
-         otherwise it sits below the full Matchup of the Week table. */
-      .home-top{display:flex;flex-direction:column;}
-      .home-top .home-vid-col{order:-1;}
-      .home-top .home-left-col,.home-top .home-vid-col{gap:40px;width:100%;min-width:0;max-width:100%;}
+      /* Phones keep the same reading as desktop: punishment left, video right.
+         The two column wrappers go display:contents so their sections become
+         grid items directly, which lets Matchup of the Week — far too wide for
+         half a phone — span the full width underneath instead of being trapped
+         in the punishment column. */
+      .home-top{display:grid;
+        grid-template-columns:minmax(0,0.92fr) minmax(0,1.08fr);
+        grid-template-areas:"punish video" "motw motw";
+        gap:20px 12px;}
+      .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
+      .home-top .mod-punish{grid-area:punish;}
+      .home-top .home-vid-col>.sec{grid-area:video;}
+      .home-top .home-left-col>.sec:not(.mod-punish){grid-area:motw;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}
+      /* the punishment card is a row on desktop; half a phone cannot hold that,
+         so it stacks and the Details button drops to its own full-width line */
+      .home-top .home-punish{flex-direction:column;align-items:flex-start;gap:9px;}
+      .home-top .home-punish-ic{width:38px;height:38px;flex:0 0 38px;font-size:18px;}
+      .home-top .home-punish-name{font-size:16px;line-height:1.2;}
+      .home-top .home-punish-more{width:100%;text-align:center;padding:7px 8px;}
     }
 
     /* Playoff odds: collapsed dropdown by default */

@@ -5865,12 +5865,37 @@ function renderBook(){
 }
 
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
+/* A YouTube embed paints its own poster — title bar, channel name, "Watch on
+   YouTube", a big play button — and none of it scales down. Beside the
+   punishment card the player is about 170px wide on a phone, where that chrome
+   swamps the frame. So the resting state is our own poster: the thumbnail plus
+   one play glyph, styled to fit whatever width it gets. The real iframe is
+   only built on tap, which also means the homepage no longer loads a YouTube
+   player nobody has asked to watch. */
+function videoFacadeHTML(videoId){
+  const v=_videos.find(x=>x.videoId===videoId)||{};
+  const thumb=v.thumb||`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  return `<button class="vid-facade" data-vid="${videoId}" onclick="playVideo('${videoId}')"
+      aria-label="Play ${(v.title||'video').replace(/"/g,'&quot;')}">
+    <img src="${thumb}" alt="" loading="lazy"/>
+    <span class="vid-play"><i class="fa fa-play"></i></span>
+  </button>`;
+}
+function playVideo(videoId){
+  const box=document.getElementById('vfeat'); if(!box) return;
+  box.innerHTML=`<iframe id="vi" src="https://www.youtube.com/embed/${videoId}?autoplay=1"
+    allow="accelerometer;autoplay;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>`;
+}
 function selectVideo(videoId){
   _activeVideoId=videoId;
-  const iframe=document.getElementById('vi');
+  const box=document.getElementById('vfeat');
   const title=document.getElementById('vt');
   const v=_videos.find(v=>v.videoId===videoId);
-  if(iframe)iframe.src=`https://www.youtube.com/embed/${videoId}`;
+  // If a video is already playing, switching swaps the player straight over;
+  // otherwise stay on the poster so picking a thumb does not start playback.
+  if(box) box.innerHTML=document.getElementById('vi')
+    ? `<iframe id="vi" src="https://www.youtube.com/embed/${videoId}?autoplay=1" allow="accelerometer;autoplay;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>`
+    : videoFacadeHTML(videoId);
   if(title&&v)title.textContent=v.title;
   document.querySelectorAll('.video-thumb').forEach(el=>el.classList.toggle('active',el.dataset.vid===videoId));
 }
@@ -6030,7 +6055,7 @@ async function loadDashboard(){
               <div class="home-box">${firstVid
                 ?`<div class="vid-scroll" style="--nv:${newVideoColor()}">
                     <div class="vid-wrap"><span class="vid-new">New video</span>
-                      <div class="video-featured"><iframe id="vi" src="https://www.youtube.com/embed/${firstVid.videoId}" allowfullscreen loading="lazy"></iframe></div></div>
+                      <div class="video-featured" id="vfeat">${videoFacadeHTML(firstVid.videoId)}</div></div>
                     ${_videos.slice(1,3).map(v=>`<button class="video-thumb ${v.videoId===_activeVideoId?'active':''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><div class="video-thumb-title">${v.title}</div></button>`).join('')}
                     <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
                       <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>
