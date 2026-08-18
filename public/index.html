@@ -3169,22 +3169,32 @@
          grid items directly, which lets Matchup of the Week — far too wide for
          half a phone — span the full width underneath instead of being trapped
          in the punishment column. */
+      /* align-items:stretch overrides the base row's align-items:start, which is
+         what makes the punishment card take the same height as the video beside
+         it rather than shrinking to its own content. */
       .home-top{display:grid;
         grid-template-columns:minmax(0,0.92fr) minmax(0,1.08fr);
         grid-template-areas:"punish video" "motw motw";
-        gap:20px 12px;}
+        gap:20px 12px;align-items:stretch;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
       .home-top .mod-punish{grid-area:punish;}
       .home-top .home-vid-col>.sec{grid-area:video;}
       .home-top .home-left-col>.sec:not(.mod-punish){grid-area:motw;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}
-      /* the punishment card is a row on desktop; half a phone cannot hold that,
-         so it stacks and the Details button drops to its own full-width line */
-      .home-top .home-punish{flex-direction:column;align-items:flex-start;gap:9px;}
-      .home-top .home-punish-ic{width:38px;height:38px;flex:0 0 38px;font-size:18px;}
-      .home-top .home-punish-name{font-size:16px;line-height:1.2;}
-      .home-top .home-punish-more{width:100%;text-align:center;padding:7px 8px;}
+      /* Icon left, its text to the right of it, and the Details button on its
+         own line beneath — the card is only ~150px across, too narrow to hold
+         all three on one row. The flex chain lets the contents centre
+         themselves in whatever height the video sets. */
+      .home-top .mod-punish{display:flex;flex-direction:column;}
+      .home-top .mod-punish .punish-box{flex:1;display:flex;align-items:center;}
+      .home-top .home-punish{flex-direction:row;align-items:center;flex-wrap:wrap;
+        gap:8px 10px;width:100%;}
+      .home-top .home-punish-ic{width:34px;height:34px;flex:0 0 34px;font-size:16px;}
+      .home-top .home-punish-info{flex:1 1 0;min-width:0;}
+      .home-top .home-punish-week{font-size:10.5px;letter-spacing:.4px;line-height:1.25;}
+      .home-top .home-punish-name{font-size:15px;line-height:1.2;}
+      .home-top .home-punish-more{flex:1 0 100%;width:100%;text-align:center;padding:7px 8px;}
     }
 
     /* Playoff odds: collapsed dropdown by default */
