@@ -208,6 +208,69 @@
     /* YOUTUBE */
     .video-featured{position:relative;width:100%;padding-top:56.25%;border-radius:8px;overflow:hidden;border:1px solid var(--border);box-shadow:0 16px 36px -24px rgba(0,0,0,0.7);}
     .video-featured iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+    /* ── GFL Bucks: bankroll, place button, bet history ────────────────────── */
+    .sb-bank{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;padding:9px 11px;margin-bottom:10px;
+      border:1px solid rgba(var(--accent-rgb),0.35);border-radius:9px;
+      background:linear-gradient(rgba(var(--accent-rgb),0.10),rgba(var(--accent-rgb),0.10));}
+    .sb-bank-l{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:6px;
+      white-space:nowrap;flex:0 0 auto;}
+    .sb-bank-v{font-family:'Inter',sans-serif;font-size:17px;font-weight:800;color:var(--accent);margin-left:auto;}
+    .sb-bank-r{font-size:10px;color:var(--text3);white-space:nowrap;}
+    .sb-quick{display:flex;gap:6px;margin:8px 0 2px;}
+    .sb-quick button{flex:1;padding:6px 4px;font-size:11px;font-family:'Inter',sans-serif;font-weight:700;
+      border:1px solid var(--border);border-radius:7px;background:none;color:var(--text2);cursor:pointer;}
+    .sb-quick button:hover{color:var(--accent);border-color:var(--accent);}
+    .sb-place{width:100%;margin-top:10px;padding:11px;border-radius:9px;cursor:pointer;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:800;letter-spacing:.4px;
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      border:1px solid rgba(var(--accent-rgb),0.55);color:#0d0d0e;
+      background:linear-gradient(160deg,var(--accent),var(--accent2));}
+    .sb-place:hover:not(:disabled){filter:brightness(1.08);}
+    .sb-place:disabled{opacity:.45;cursor:not-allowed;}
+    .sb-slip-err{margin-top:8px;font-size:11.5px;color:var(--red);line-height:1.45;}
+    .sb-ledger{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;}
+    .sb-led{padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--bg2);min-width:0;}
+    .sb-led span{display:block;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    .sb-led b{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text);}
+    .sb-led-note{grid-column:1/-1;padding:7px 10px;font-size:10.5px;color:var(--text3);text-align:center;}
+    .sb-mine-empty{padding:34px 20px;text-align:center;color:var(--text3);font-size:13px;
+      display:flex;flex-direction:column;align-items:center;gap:11px;}
+    .sb-mine-empty i{font-size:26px;color:var(--text3);opacity:.7;}
+    .sb-mine-empty .sb-place{max-width:220px;}
+    .sb-week{margin-bottom:16px;}
+    .sb-week-h{display:flex;align-items:center;justify-content:space-between;
+      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);padding:0 2px 7px;}
+    .sb-bet{border:1px solid var(--border);border-left:3px solid var(--text3);border-radius:9px;
+      background:var(--bg2);padding:11px 12px;margin-bottom:9px;}
+    .sb-bet-won{border-left-color:var(--green);} .sb-bet-lost{border-left-color:var(--red);}
+    .sb-bet-push{border-left-color:var(--text3);} .sb-bet-open{border-left-color:var(--accent);}
+    .sb-bet-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+    .sb-bet-tag{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);}
+    .sb-bet-st{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;}
+    .sb-st-won{color:var(--green);} .sb-st-lost{color:var(--red);}
+    .sb-st-open{color:var(--accent);} .sb-st-push{color:var(--text2);}
+    /* Columns are pinned rather than auto-placed: an item spanning both rows
+       (the odds) otherwise wins column 1 and pushes the pick to the right. */
+    .sb-bl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:5px 0;
+      border-top:1px solid var(--border);}
+    .sb-bl:first-child{border-top:none;}
+    .sb-bl-p{grid-column:1;grid-row:1;font-size:12.5px;font-weight:600;color:var(--text);min-width:0;}
+    .sb-bl-m{grid-column:1;grid-row:2;font-size:10.5px;color:var(--text3);}
+    .sb-bl-o{grid-column:2;grid-row:1/3;align-self:center;text-align:right;
+      font-family:'Inter',sans-serif;font-size:12px;font-weight:800;color:var(--text2);}
+    .sb-bet-foot{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;
+      border-top:1px solid var(--border);font-size:10.5px;color:var(--text3);}
+    .sb-bet-foot b{color:var(--text);font-family:'Inter',sans-serif;font-size:12px;}
+    @media(max-width:620px){
+      .sb-ledger{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .sb-led b{font-size:15px;}
+      .sb-bet-foot{flex-wrap:wrap;row-gap:4px;}
+    }
+
     /* our own poster, so the player reads cleanly at any width (see videoFacadeHTML) */
     .vid-facade{position:absolute;inset:0;width:100%;height:100%;padding:0;border:none;background:#000;
       cursor:pointer;display:block;overflow:hidden;border-radius:inherit;box-shadow:none;}

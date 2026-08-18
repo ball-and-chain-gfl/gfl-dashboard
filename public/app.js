@@ -514,7 +514,7 @@ function switchTab(name){
   if(name==='profile') renderMyProfile();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
   if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); } else liveStop();   // the live board lives on the homepage
-  if(name==='book') renderBook(); else if(typeof sbShowPortal==='function') sbShowPortal(false);
+  if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
     // switchTab clears .active from every .tab-btn on the page
@@ -4391,14 +4391,9 @@ function msgAgo(ts){
 /* The chat is a weekly room. It rolls over Tuesday at 6am local — late enough
    that Monday night is finished and the week is genuinely over. Nothing is
    deleted; the board simply shows the current week. */
-function msgWeekStart(now=new Date()){
-  const x=new Date(now);
-  x.setHours(6,0,0,0);
-  let back=(x.getDay()-2+7)%7;                       // days since Tuesday
-  if(x.getDay()===2 && now.getHours()<6) back=7;     // pre-dawn Tuesday is still last week
-  x.setDate(x.getDate()-back);
-  return x.getTime();
-}
+/* The league week turns over Tuesday 6am; tueWeekStart owns that rule so the
+   board and the GFL bucks week can never disagree about when it happened. */
+function msgWeekStart(now=new Date()){ return tueWeekStart(now); }
 function msgWeekLabel(){
   const s=new Date(msgWeekStart());
   return s.toLocaleDateString(undefined,{month:'short',day:'numeric'});
@@ -5573,8 +5568,194 @@ function sbBuild(){
   return _sbCache;
 }
 
+/* ── GFL BUCKS ──────────────────────────────────────────────────────────────
+   Every team gets 100 bucks a week, Tuesday 6am to Tuesday 6am, and it does
+   not carry: each new week starts at 100 again regardless of what was left.
+
+   Because of that reset the balance is *derived* rather than stored — it is
+   100 minus what this week's bets staked, plus what this week's settled bets
+   returned. There is no balance document to drift out of sync with the bets,
+   and a bet is the only thing that can move the number.
+
+   Bets live in their own Firestore collection keyed to the profile that placed
+   them, so "my bets" is a filter rather than a per-user document. */
+const BUCKS_WEEKLY=100;
+const betBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/bets`;
+let _bets=null,_betErr=null,_betBusy=false;
+
+/* The Tuesday 6am boundary the league already runs on. msgWeekStart used to
+   own this rule; both callers share it now so the board and the bucks week can
+   never disagree about when a week turned over. */
+function tueWeekStart(now=new Date()){
+  const x=new Date(now);
+  x.setHours(6,0,0,0);
+  let back=(x.getDay()-2+7)%7;                       // days since Tuesday
+  if(x.getDay()===2 && now.getHours()<6) back=7;     // pre-dawn Tuesday is still last week
+  x.setDate(x.getDate()-back);
+  return x.getTime();
+}
+function bucksWeekKey(now=new Date()){
+  const d=new Date(tueWeekStart(now));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function bucksWeekEnd(now=new Date()){ return tueWeekStart(now)+7*24*3600*1000; }
+function bucksResetsIn(now=new Date()){
+  const ms=bucksWeekEnd(now)-now.getTime();
+  const d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000);
+  return d>0?`${d}d ${h}h`:`${h}h`;
+}
+const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1);
+const betsThisWeek=()=>betsMine().filter(b=>b.wk===bucksWeekKey());
+function bucksStaked(){ return betsThisWeek().reduce((a,b)=>a+b.stake,0); }
+function bucksReturned(){ return betsThisWeek().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
+function bucksBalance(){ return Math.max(0,BUCKS_WEEKLY-bucksStaked()+bucksReturned()); }
+const bucksFmt=v=>Math.round(v).toLocaleString();
+
+async function betList(){
+  try{
+    const r=await fetch(`${betBase()}?${msgKey()}&pageSize=300`,{cache:'no-store'});
+    if(r.status===403){ _betErr='rules'; return null; }
+    if(!r.ok){ _betErr='fetch'; return null; }
+    const j=await r.json();
+    _betErr=null;
+    return (j.documents||[]).map(d=>{
+      const f=fsIn(d);
+      let legs=[]; try{ legs=JSON.parse(f.legs||'[]')||[]; }catch(e){}
+      return {id:(d.name||'').split('/').pop(),owner:f.owner||'',team:f.team||'',
+        season:f.season||'',wk:f.wk||'',ts:Number(f.ts)||0,
+        stake:Number(f.stake)||0,odds:Number(f.odds)||0,payout:Number(f.payout)||0,
+        legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0};
+    }).sort((a,b)=>b.ts-a.ts);
+  }catch(e){ _betErr='offline'; return null; }
+}
+async function betRefresh(){ const l=await betList(); if(l) _bets=l; }
+
+async function sbPlaceBet(){
+  if(!_me){ openSignIn(); return; }
+  if(!_slip.length||_betBusy) return;
+  const stake=Math.round(Math.max(0,Number(_sbStake)||0));
+  if(stake<=0){ _betErr='stake'; sbRenderSlip(); return; }
+  if(stake>bucksBalance()){ _betErr='funds'; sbRenderSlip(); return; }
+  _betBusy=true; _betErr=null; sbRenderSlip();
+  const dec=_slip.reduce((a,s)=>a*amToDec(s.odds),1);
+  const odds=_slip.length>1?amFromProb(1/dec):_slip[0].odds;
+  const id=`${Date.now()}-${_me.k1}`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
+  const body=fsOut({
+    owner:_me.k1, team:String(_me.teamId||''), season:String(sbSeason()),
+    wk:bucksWeekKey(), ts:String(Date.now()),
+    stake:String(stake), odds:String(odds), payout:String(Math.round(stake*dec)),
+    legs:JSON.stringify(_slip.map(s=>({mk:s.mk,mkLabel:s.mkLabel,pick:s.pick,pickLabel:s.pickLabel,odds:s.odds}))),
+    status:'open', settledTs:'0', ret:'0',
+  });
+  try{
+    const r=await fetch(`${betBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){ _slip=[]; _sbStake=Math.min(BUCKS_WEEKLY,100); await betRefresh(); sbSyncButtons(); renderMyBets(); }
+    else _betErr=r.status===403?'rules':'send';
+  }catch(e){ _betErr='offline'; }
+  _betBusy=false; sbRenderSlip();
+}
+
+/* ── Settling ───────────────────────────────────────────────────────────────
+   A leg is graded only when its market has an answer. Most of this book is
+   season-long futures, so nothing settles until a season is final — and the
+   four award markets are decided by a league vote rather than by the data, so
+   they are never auto-graded and are reported as needing a manual call.
+   Returns null for "cannot grade yet", true/false once it can. */
+function betLegResult(leg,season){
+  const [ownerRaw,side]=String(leg.pick).split(':');
+  const owner=ownerRaw;
+  const fin=sbFinals(season); if(!fin) return null;
+  const num=v=>typeof v==='number'&&isFinite(v)?v:null;
+  const line=(()=>{const m=/(?:Over|Under)\s+([\d.]+)/.exec(leg.pickLabel||'');return m?Number(m[1]):null;})();
+  const ou=(val,over)=>{const v=num(val);if(v==null||line==null)return null;if(v===line)return 'push';return over?v>line:v<line;};
+  switch(leg.mk){
+    case 'champ':     return fin.champ==null?null:fin.champ===owner;
+    case 'last':      return fin.last==null?null:fin.last===owner;
+    case 'firstring': return fin.champ==null?null:fin.champ===owner;
+    case 'playoffs':  return fin.playoff==null?null:(fin.playoff.includes(owner)===(side==='yes'));
+    case 'mostpf':    return fin.mostPf==null?null:fin.mostPf===owner;
+    case 'fewpf':     return fin.fewPf==null?null:fin.fewPf===owner;
+    case 'mostpa':    return fin.mostPa==null?null:fin.mostPa===owner;
+    case 'highweek':  return fin.highWeek==null?null:fin.highWeek===owner;
+    case 'most150':   return fin.most150==null?null:fin.most150===owner;
+    case 'most80':    return fin.most80==null?null:fin.most80===owner;
+    case 'wins':      return ou(fin.wins[owner],side==='o');
+    case 'pf':        return ou(fin.pf[owner],side==='o');
+    case 'pa':        return ou(fin.pa[owner],side==='o');
+    default:
+      if(String(leg.mk).startsWith('conf-'))
+        return fin.confWinners==null?null:fin.confWinners[leg.mk.slice(5)]===owner;
+      return null;      // coy / disappoint / comeback / commit — league vote
+  }
+}
+/* Everything a season's markets can be graded against, or null while the
+   season is still running. Built from the schedule rather than from standings
+   fields, and capped at regEnd, because every line in this book is written
+   against the regular season. A season counts as decided once a team carries
+   rankCalculatedFinal 1. */
+const _finalsCache={};
+function sbFinals(season){
+  if(season in _finalsCache) return _finalsCache[season];
+  const meta=_seasonMeta[season];
+  if(!meta) return null;                              // not loaded — ask again later
+  const owners=meta.owners||{}, T=meta.teams||{}, regEnd=regEndOf(season);
+  const ids=Object.keys(T);
+  const champId=ids.find(id=>T[id].rank===1);
+  if(!ids.length||champId==null) return (_finalsCache[season]=null);
+  const lastId=ids.reduce((a,b)=>(T[b].rank||0)>(T[a].rank||0)?b:a,ids[0]);
+
+  const rec={}; ids.forEach(id=>rec[id]={w:0,g:0,pf:0,pa:0,hi:0,o150:0,u80:0});
+  (meta.schedule||[]).forEach(m=>{
+    if(!m.home||!m.away) return;
+    if((m.matchupPeriodId||99)>regEnd) return;
+    const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+    if(hp===0&&ap===0) return;
+    [[String(m.home.teamId),hp,ap],[String(m.away.teamId),ap,hp]].forEach(([id,f,ag])=>{
+      const r=rec[id]; if(!r) return;
+      r.g++; r.pf+=f; r.pa+=ag; if(f>ag) r.w++;
+      if(f>r.hi) r.hi=f;
+      if(f>=150) r.o150++;
+      if(f<80) r.u80++;
+    });
+  });
+  const played=ids.filter(id=>rec[id].g);
+  if(!played.length) return (_finalsCache[season]=null);
+
+  const own=id=>owners[id];
+  const best=(val,better)=>{let bi=null;played.forEach(id=>{
+    if(bi==null||better(val(rec[id]),val(rec[bi]))) bi=id;});return bi==null?null:own(bi);};
+  const map=f=>{const o={};played.forEach(id=>{const ow=own(id);if(ow)o[ow]=f(rec[id]);});return o;};
+  const rank=(a,b)=>rec[b].w-rec[a].w||rec[b].pf-rec[a].pf;
+
+  const playoff=played.slice().sort(rank).slice(0,meta.playoffTeamCount||6).map(own).filter(Boolean);
+  const conf={};
+  played.forEach(id=>{
+    const c=(meta.divisions||{})[T[id].div]||'League';
+    if(!conf[c]||rank(id,conf[c])<0) conf[c]=id;
+  });
+  Object.keys(conf).forEach(c=>{conf[c]=own(conf[c]);});
+
+  return (_finalsCache[season]={
+    champ:own(champId), last:own(lastId), playoff, confWinners:conf,
+    wins:map(r=>r.w), pf:map(r=>r.pf), pa:map(r=>r.pa),
+    mostPf:best(r=>r.pf,(a,b)=>a>b), fewPf:best(r=>r.pf,(a,b)=>a<b),
+    mostPa:best(r=>r.pa,(a,b)=>a>b), highWeek:best(r=>r.hi,(a,b)=>a>b),
+    most150:best(r=>r.o150,(a,b)=>a>b), most80:best(r=>r.u80,(a,b)=>a>b),
+  });
+}
+function betGrade(bet){
+  const res=bet.legs.map(l=>betLegResult(l,bet.season));
+  if(res.some(r=>r===false)) return {status:'lost',ret:0};
+  if(res.some(r=>r===null))  return null;                 // still open
+  const pushes=res.filter(r=>r==='push').length;
+  if(pushes===res.length)    return {status:'push',ret:bet.stake};
+  return {status:'won',ret:bet.payout};
+}
+
 // ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
 const SB_GROUPS=[
+  {k:'mine',label:'My Bets',icon:'fa-wallet'},
   {k:'week',label:'This Week',icon:'fa-calendar-week'},
   {k:'futures',label:'Futures',icon:'fa-trophy'},
   {k:'props',label:'Team Props',icon:'fa-chart-simple'},
@@ -5624,6 +5805,89 @@ function sbMarketHTML(m){
     <div class="sb-rows">${head}${rows}</div>
   </div>`;
 }
+function renderMyBets(){ if(_activeTab==='book') renderBook(); }
+let _betsInit=false;
+async function initBets(){
+  if(_betsInit) return; _betsInit=true;
+  await betRefresh();
+  renderMyBets();
+  betSettleAll();
+}
+/* Grade every open bet whose markets now have an answer and write the result
+   back. Safe to run repeatedly: betGrade returns null while a season is still
+   undecided, and a settled bet is never revisited. */
+async function betSettleAll(){
+  if(!_bets||!_bets.length) return;
+  let changed=false;
+  for(const b of _bets.filter(x=>x.status==='open')){
+    const g=betGrade(b); if(!g) continue;
+    const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
+    try{
+      const r=await fetch(`${betBase()}/${encodeURIComponent(b.id)}?${msgKey()}&${mask}`,
+        {method:'PATCH',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify(fsOut({status:g.status,ret:String(g.ret),settledTs:String(Date.now())}))});
+      if(r.ok){ b.status=g.status; b.ret=g.ret; b.settledTs=Date.now(); changed=true; }
+    }catch(e){}
+  }
+  if(changed) renderMyBets();
+}
+
+/* Every bet this profile has placed, newest first, with the week's ledger on
+   top. Grouped by bucks week so a settled week reads as its own scoreboard. */
+function myBetsHTML(){
+  if(!_me) return `<div class="sb-mine-empty"><i class="fa fa-wallet"></i>
+    <div>Sign in to track your bets.</div>
+    <button class="sb-place" onclick="openSignIn()"><i class="fa fa-right-to-bracket"></i>Sign in</button></div>`;
+  if(_betErr==='rules') return `<div class="sb-mine-empty"><i class="fa fa-lock"></i>
+    <div>The <code>bets</code> collection is not readable yet — its Firestore rule still needs publishing.</div></div>`;
+  if(_bets===null) return `<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Loading your bets…</div>`;
+  const mine=betsMine();
+  const bal=bucksBalance(), staked=bucksStaked(), back=bucksReturned();
+  const open=mine.filter(b=>b.status==='open').length;
+  const won=mine.filter(b=>b.status==='won').length;
+  const lost=mine.filter(b=>b.status==='lost').length;
+  const ledger=`<div class="sb-ledger">
+    <div class="sb-led"><span>Balance</span><b>${bucksFmt(bal)}</b></div>
+    <div class="sb-led"><span>Staked this week</span><b>${bucksFmt(staked)}</b></div>
+    <div class="sb-led"><span>Returned</span><b>${bucksFmt(back)}</b></div>
+    <div class="sb-led"><span>Record</span><b>${won}-${lost}${open?` · ${open} open`:''}</b></div>
+    <div class="sb-led sb-led-note">Resets to ${BUCKS_WEEKLY} in ${bucksResetsIn()}</div>
+  </div>`;
+  if(!mine.length) return ledger+`<div class="sb-mine-empty"><i class="fa fa-receipt"></i>
+    <div>No bets yet. Tap any price to build a slip.</div></div>`;
+  const weeks={};
+  mine.forEach(b=>{(weeks[b.wk]||(weeks[b.wk]=[])).push(b);});
+  const cur=bucksWeekKey();
+  const cards=Object.keys(weeks).sort().reverse().map(wk=>{
+    const list=weeks[wk].map(b=>{
+      const cls=b.status==='won'?'won':b.status==='lost'?'lost':b.status==='push'?'push':'open';
+      const legs=b.legs.map(l=>`<div class="sb-bl"><span class="sb-bl-p">${l.pickLabel}</span>
+        <span class="sb-bl-m">${l.mkLabel}</span><span class="sb-bl-o">${amFmt(l.odds)}</span></div>`).join('');
+      return `<div class="sb-bet sb-bet-${cls}">
+        <div class="sb-bet-top">
+          <span class="sb-bet-tag">${b.legs.length>1?`${b.legs.length}-leg parlay`:'Single'}</span>
+          <span class="sb-bet-st sb-st-${cls}">${
+            b.status==='won'?`Won +${bucksFmt(b.ret-b.stake)}`
+            :b.status==='lost'?`Lost ${bucksFmt(b.stake)}`
+            :b.status==='push'?'Push'
+            :'Open'}</span>
+        </div>
+        <div class="sb-bet-legs">${legs}</div>
+        <div class="sb-bet-foot">
+          <span>Stake <b>${bucksFmt(b.stake)}</b></span>
+          <span>${amFmt(b.odds)}</span>
+          <span>${b.status==='open'?'To return':'Returned'} <b>${bucksFmt(b.status==='open'?b.payout:b.ret)}</b></span>
+        </div>
+      </div>`;
+    }).join('');
+    const d=new Date(wk+'T00:00:00');
+    return `<div class="sb-week">
+      <div class="sb-week-h">${wk===cur?'This week':d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}
+        <span>${weeks[wk].length} bet${weeks[wk].length>1?'s':''}</span></div>
+      ${list}</div>`;
+  }).join('');
+  return ledger+cards;
+}
 function sbTeamViewHTML(book){
   if(_sbTeamSel==null||!book.rows.some(r=>r.owner===_sbTeamSel)) _sbTeamSel=book.rows.slice().sort((a,b)=>b.rating-a.rating)[0].owner;
   const owner=_sbTeamSel;
@@ -5655,11 +5919,17 @@ function sbTeamViewHTML(book){
 function sbSlipHTML(){
   const n=_slip.length;
   const dec=_slip.reduce((a,s)=>a*amToDec(s.odds),1);
-  const stake=Math.max(0,Number(_sbStake)||0);
+  const bal=bucksBalance();
+  const stake=Math.min(bal,Math.max(0,Number(_sbStake)||0));
   const payout=stake*dec;
   const parlay=n?amFromProb(1/dec):null;
   return `<div class="sb-slip-head"><i class="fa fa-receipt"></i>Bet Slip<span class="sb-slip-n">${n}</span>
       ${n?`<button class="sb-clear" onclick="sbClear()">Clear</button>`:''}</div>
+    ${_me?`<div class="sb-bank">
+        <span class="sb-bank-l"><i class="fa fa-wallet"></i>GFL Bucks</span>
+        <span class="sb-bank-v">${bucksFmt(bal)}</span>
+        <span class="sb-bank-r">resets in ${bucksResetsIn()}</span>
+      </div>`:''}
     ${n?`<div class="sb-slip-list">${_slip.map(s=>`<div class="sb-slip-item">
         <div class="sb-si-txt"><div class="sb-si-pick">${s.pickLabel}</div><div class="sb-si-mkt">${s.mkLabel}</div></div>
         <div class="sb-si-odds">${amFmt(s.odds)}</div>
@@ -5667,16 +5937,29 @@ function sbSlipHTML(){
       </div>`).join('')}</div>
       <div class="sb-stake">
         <label for="sb-stake-in">Stake</label>
-        <input id="sb-stake-in" type="number" min="0" step="10" value="${stake}" oninput="sbStake(this.value)"/>
+        <input id="sb-stake-in" type="number" min="0" step="10" max="${bal}" value="${stake}" oninput="sbStake(this.value)"/>
         <span class="sb-cur">GFL bucks</span>
+      </div>
+      <div class="sb-quick">
+        ${[25,50,100].filter(v=>v<=bal).map(v=>`<button onclick="sbStake(${v})">${v}</button>`).join('')}
+        <button onclick="sbStake(${bal})">All in</button>
       </div>
       <div class="sb-totals">
         <div class="sb-tot"><span>${n>1?'Parlay odds':'Odds'}</span><b>${amFmt(n>1?parlay:_slip[0].odds)}</b></div>
         <div class="sb-tot"><span>To win</span><b class="sb-win">${(payout-stake).toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
         <div class="sb-tot sb-tot-big"><span>Payout</span><b>${payout.toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
-      </div>`
+      </div>
+      ${!_me?`<button class="sb-place" onclick="openSignIn()"><i class="fa fa-right-to-bracket"></i>Sign in to bet</button>`
+        :`<button class="sb-place" onclick="sbPlaceBet()" ${_betBusy||stake<=0||stake>bal?'disabled':''}>
+            ${_betBusy?'<i class="fa fa-circle-notch fa-spin"></i>Placing…'
+              :`<i class="fa fa-check"></i>Place bet · ${bucksFmt(stake)}`}</button>`}
+      ${_betErr?`<div class="sb-slip-err">${
+        _betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
+        :_betErr==='stake'?'Enter a stake first.'
+        :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
+        :'Could not place that bet. Try again.'}</div>`:''}`
     :`<div class="sb-slip-empty">Tap any price to add it here.<br/>Multiple picks become a parlay.</div>`}
-    <div class="sb-slip-note">Play money only. Lines are generated from GFL history — nothing is wagered, nothing is saved.</div>`;
+    <div class="sb-slip-note">Play money. Every team gets ${BUCKS_WEEKLY} GFL bucks a week, Tuesday to Tuesday — unspent bucks do not carry over.</div>`;
 }
 function sbPick(mk,mkLabel,pick,pickLabel,odds){
   const k=mk+'|'+pick;
@@ -5846,6 +6129,7 @@ function renderBook(){
   const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')"><i class="fa ${g.icon}"></i>${g.label}</button>`).join('');
   const board=_sbView==='team'?sbTeamViewHTML(book)
     :_sbView==='week'?sbWeekHTML()
+    :_sbView==='mine'?myBetsHTML()
     :(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
   el.innerHTML=`
     <div class="sb-bar">
