@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /profiles/{profile} {
+      allow read, write: if true;
+    }
+    match /messages/{message} {
+      allow read, write: if true;
+    }
+    match /live/{doc} {
+      allow read, write: if true;
+    }
+    // GFL bucks wagers. Update is required as well as create: settlement
+    // patches status, ret and settledTs onto a bet after its markets resolve.
+    // Delete is withheld deliberately — the weekly balance is derived by
+    // replaying this collection, so removing a bet would silently rewrite
+    // history and hand back a losing stake.
+    match /bets/{bet} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+  }
+}
