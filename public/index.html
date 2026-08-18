@@ -2369,14 +2369,18 @@
       font-size:13px;font-weight:600;}
     .mo-head i{color:var(--accent);font-size:12px;}
     .mo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.07);}
-    .mo-grid2{grid-template-columns:repeat(2,1fr);}
     .mo-cell{background:rgba(0,0,0,0.28);padding:9px 12px;min-width:0;}
     .mo-l{font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;}
     .mo-v{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--accent);margin-top:3px;white-space:nowrap;}
     .mo-s{font-family:'Inter',sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-top:2px;}
     @media(max-width:768px){
-      .mo-grid{grid-template-columns:1fr 1fr;}
-      .mo-v{font-size:13px;}
+      /* three prices, three columns — the two-up split was for when the card
+         also carried the championship and playoff futures, and with those gone
+         it just orphans the Total on a row of its own */
+      .mo-grid{grid-template-columns:repeat(3,1fr);}
+      .mo-cell{padding:9px 7px;}
+      .mo-v{font-size:12px;}
+      .mo-l,.mo-s{font-size:8.5px;letter-spacing:.3px;}
       /* keep clear of the playoff-odds button underneath */
       .motw-book{margin:16px 0 22px;}
       .mo-go{font-size:9px;}

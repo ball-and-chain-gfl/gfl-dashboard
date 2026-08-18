@@ -2679,11 +2679,8 @@ function motwOddsHTML(A,B){
   if(!book) return '';
   const rA=book.rows.find(r=>r.owner===_ownerMap[A.id]), rB=book.rows.find(r=>r.owner===_ownerMap[B.id]);
   if(!rA||!rB) return '';
-  const mk=k=>Object.values(book.groups).flat().find(m=>m.key===k);
-  const champ=mk('champ'), po=mk('playoffs');
-  const pickOf=(m,o)=>m?m.picks.find(p=>p.owner===o):null;
-  const cA=pickOf(champ,rA.owner), cB=pickOf(champ,rB.owner);
-  const pA=pickOf(po,rA.owner), pB=pickOf(po,rB.owner);
+  // Only prices derived from this matchup belong here — the championship and
+  // playoff-berth futures live on the board, not in a matchup card.
   // head to head: logistic on the rating gap, then a standard two-way hold
   const pWinA=Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(rA.rating-rB.rating)*0.55))));
   const mlA=amFromProb(Math.min(0.95,pWinA+0.025)), mlB=amFromProb(Math.min(0.95,(1-pWinA)+0.025));
@@ -2700,10 +2697,6 @@ function motwOddsHTML(A,B){
       ${cell('Moneyline',`${amFmt(mlA)} / ${amFmt(mlB)}`,`${sbTeamAb(rA.owner,rA.name)} / ${sbTeamAb(rB.owner,rB.name)}`)}
       ${cell('Spread',`${favA?sbTeamAb(rA.owner,rA.name):sbTeamAb(rB.owner,rB.name)} \u2212${sp}`,'projected margin')}
       ${cell('Total',`O/U ${line.toFixed(1)}`,'combined points')}
-    </div>
-    <div class="mo-grid mo-grid2">
-      ${cell('Championship',`${cA?amFmt(cA.odds):'—'} / ${cB?amFmt(cB.odds):'—'}`,'to win it all')}
-      ${cell('Playoff berth',`${pA?amFmt(pA.yes):'—'} / ${pB?amFmt(pB.yes):'—'}`,'yes price')}
     </div>
   </div>`;
 }
