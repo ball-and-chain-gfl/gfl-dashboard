@@ -3169,13 +3169,16 @@
          grid items directly, which lets Matchup of the Week — far too wide for
          half a phone — span the full width underneath instead of being trapped
          in the punishment column. */
-      /* align-items:stretch overrides the base row's align-items:start, which is
-         what makes the punishment card take the same height as the video beside
-         it rather than shrinking to its own content. */
+      /* Items sit at the top of the row. Stretching the punishment card is
+         wrong here: the video *section* runs ~60px taller than the poster
+         inside it, because the carousel is as tall as its thumb slides and
+         carries the scroll rail underneath. Matching the section left the
+         card's content floating in dead space, so it is sized to hug its own
+         content, which lands it level with the poster instead. */
       .home-top{display:grid;
         grid-template-columns:minmax(0,0.92fr) minmax(0,1.08fr);
         grid-template-areas:"punish video" "motw motw";
-        gap:20px 12px;align-items:stretch;}
+        gap:20px 12px;align-items:start;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
       .home-top .mod-punish{grid-area:punish;}
       .home-top .home-vid-col>.sec{grid-area:video;}
@@ -3186,10 +3189,13 @@
          own line beneath — the card is only ~150px across, too narrow to hold
          all three on one row. The flex chain lets the contents centre
          themselves in whatever height the video sets. */
-      .home-top .mod-punish{display:flex;flex-direction:column;}
-      .home-top .mod-punish .punish-box{flex:1;display:flex;align-items:center;}
+      /* The punish-box rule sets padding with !important and carries an id, so
+         this has to out-specify it AND repeat !important — otherwise the card
+         keeps its 14px and stays taller than the poster. 6px lands the card on
+         the thumbnail's height. */
+      html[data-theme] #page-home .home-top .mod-punish .punish-box{padding:6px 16px!important;}
       .home-top .home-punish{flex-direction:row;align-items:center;flex-wrap:wrap;
-        gap:8px 10px;width:100%;}
+        gap:7px 10px;width:100%;}
       .home-top .home-punish-ic{width:34px;height:34px;flex:0 0 34px;font-size:16px;}
       .home-top .home-punish-info{flex:1 1 0;min-width:0;}
       .home-top .home-punish-week{font-size:10.5px;letter-spacing:.4px;line-height:1.25;}
