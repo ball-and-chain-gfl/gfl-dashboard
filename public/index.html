@@ -622,14 +622,46 @@
     .bk-picked{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--accent);
       flex:0 0 auto;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .bk-chev{font-size:10px;color:var(--text3);flex:0 0 auto;}
+    /* always two across, two down */
     .bk-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
     .bk-opt{padding:9px 10px;border-radius:8px;border:1px solid var(--border);
       background:rgba(255,255,255,0.03);color:var(--text);cursor:pointer;
       font-family:inherit;font-size:12.5px;font-weight:600;line-height:1.3;text-align:center;
-      transition:border-color .15s,background .15s;}
+      min-height:52px;display:flex;align-items:center;justify-content:center;
+      transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;}
     html[data-theme="light"] .bk-opt{background:rgba(0,0,0,0.03);}
-    .bk-opt:hover{border-color:rgba(var(--accent-rgb),0.5);background:rgba(var(--accent-rgb),0.08);}
+    /* hover only where there is a real pointer — on a touch screen it sticks to
+       the last tapped slot and reads as a pre-selected answer */
+    @media (hover:hover){
+      .bk-opt:hover{border-color:rgba(var(--accent-rgb),0.5);background:rgba(var(--accent-rgb),0.08);}
+    }
+    .bk-opt:focus{outline:none;}
     .bk-opt.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+    .bk-q-tap{display:flex;align-items:center;gap:8px;cursor:pointer;}
+    .bk-q-tap .bk-chev{margin-left:auto;}
+
+    /* ── Ball Knowledge IQ meter (team profile) ────────────────────────────── */
+    .bkiq-sec{margin-bottom:14px;}
+    .bkiq-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+    .bkiq-t{display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;
+      font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);}
+    .bkiq-t i{color:#c98cf1;font-size:12px;}
+    .bkiq-v{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;line-height:1;}
+    .bkiq-track{position:relative;height:8px;border-radius:999px;
+      background:rgba(255,255,255,0.09);overflow:visible;}
+    html[data-theme="light"] .bkiq-track{background:rgba(0,0,0,0.09);}
+    .bkiq-fill{position:absolute;left:0;top:0;height:100%;border-radius:999px;
+      transition:width .4s cubic-bezier(.22,.7,.2,1);}
+    /* the average tick, so "middle" is visible rather than implied */
+    .bkiq-mid{position:absolute;left:50%;top:-3px;width:1px;height:14px;
+      background:rgba(255,255,255,0.28);transform:translateX(-50%);}
+    html[data-theme="light"] .bkiq-mid{background:rgba(0,0,0,0.25);}
+    .bkiq-dot{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;
+      transform:translate(-50%,-50%);border:2px solid var(--bg2);
+      box-shadow:0 1px 6px rgba(0,0,0,0.55);transition:left .4s cubic-bezier(.22,.7,.2,1);}
+    .bkiq-scale{display:flex;justify-content:space-between;margin-top:7px;
+      font-family:'Inter',sans-serif;font-size:9px;letter-spacing:.4px;
+      text-transform:uppercase;color:var(--text3);}
     .bk-right{border-color:rgba(63,208,122,0.5);}
     .bk-right .bk-picked{color:#3fd07a;}
     .bk-wrong{border-color:rgba(232,104,126,0.5);}
@@ -637,7 +669,6 @@
     .bk-fin{display:flex;align-items:center;gap:7px;margin-top:10px;
       font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);}
     .bk-fin i{color:var(--accent);}
-    @media(max-width:420px){ .bk-opts{grid-template-columns:1fr;} }
 
     .hm-msg{display:flex;align-items:flex-start;gap:9px;cursor:pointer;}
     .hm-av .tm-avatar{width:26px!important;height:26px!important;flex:0 0 26px!important;border-radius:6px!important;}

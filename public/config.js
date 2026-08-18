@@ -74,6 +74,21 @@ window.GFL_CONFIG = {
   ballKnowledge: {
     week: 1,
     reveal: false,
+    /* Bump this to wipe the slate. It is part of the key answers are stored
+       under, so raising it makes every saved answer — on every device and on
+       every profile — invisible and the week starts fresh. Handy while
+       testing; nothing has to be deleted by hand. */
+    resetToken: 2,
+    /* The Ball Knowledge IQ meter on each team profile. Everyone starts at
+       `avg` — dead centre of the bar — and moves `step` points per question,
+       up for a right answer and down for a wrong one.
+       `min` and `max` are the lowest and highest IQs ever claimed to have been
+       recorded. Both are pop-trivia figures rather than anything clinical: 228
+       is the Guinness number for Marilyn vos Savant, and the low end has no
+       real record at all, so 40 is a stand-in. Change either freely.
+       Because avg is not the midpoint of min and max, the bar maps the two
+       halves separately so 100 still lands in the middle. */
+    iq: { min: 40, max: 228, avg: 100, step: 8 },
     questions: [
       { q: "Which team has the most GFL championships?",
         a: ["The Bryan Football Team", "Lebron's 3rd Leg", "Florida Man", "Bismuth"], correct: 0 },

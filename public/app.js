@@ -3092,10 +3092,9 @@ function punishRulesHTML(){
       </div>
     </div>
     <p class="pr-note${detail?'':' pr-empty'}">${detail||'No description written for this one yet — add it under <b>punishment.details</b> in config.js.'}</p>
-    ${(cfg.rules||[]).length?`<div class="pr-rules">
-      <div class="pr-h">How it works</div>
-      <ol class="pr-list">${cfg.rules.map(r=>`<li>${r}</li>`).join('')}</ol>
-    </div>`:''}
+    <!-- "How it works" is deliberately not rendered: it was the bulk of the
+         sheet's height and pushed it past the screen on an installed home-screen
+         icon. cfg.rules is left in config so it can come back if wanted. -->
     <div class="pr-rules">
       <div class="pr-h">The menu — tap any to read it</div>
       <div class="punish-menu">
@@ -5310,6 +5309,7 @@ async function renderProfile(){
     </div>
     ${faabChipHTML(t)}
     </div>
+    ${bkIQHTML(id)}
     ${legacyReportHTML(owner)}
     <div class="prof-top2">
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
@@ -5709,7 +5709,13 @@ async function sbPlaceBet(){
    Unanswered questions sit at the top expanded; answering one collapses it and
    drops it to the bottom of the stack, so the next question is always the one
    in front of you. Reopening a collapsed card lets the answer be changed. */
-const bkKey=()=>`bk_${getSeason()}_w${(_CFG.ballKnowledge||{}).week??0}`;
+/* resetToken is part of the key, so bumping it in config orphans every stored
+   answer at once rather than needing them deleted per device and per profile. */
+const bkKey=()=>{
+  const c=_CFG.ballKnowledge||{};
+  const r=c.resetToken?`_r${c.resetToken}`:'';
+  return `bk_${getSeason()}_w${c.week??0}${r}`;
+};
 let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
 
 /* _me holds only the two keys and a team, so the saved answers have to be read
@@ -5739,8 +5745,12 @@ function bkLoadAnswers(){
   try{ _bkAnswers=raw?JSON.parse(raw):{}; }catch{ _bkAnswers={}; }
   return _bkAnswers;
 }
-async function bkAnswer(qi,ai){
+async function bkAnswer(qi,ai,el){
   if(_bkBusy) return;
+  /* The grid is rebuilt in place, so the button that lands in the slot just
+     tapped inherits the pressed/hover state and the next question opens with
+     an answer looking pre-picked. Dropping focus first resets it. */
+  if(el&&el.blur) el.blur();
   const ans=bkLoadAnswers();
   ans[qi]=ai;
   _bkOpen=null;
@@ -5771,22 +5781,28 @@ function renderBallKnowledge(){
   const order=[...pending,...answered];
   const cards=order.map(i=>{
     const q=qs[i], picked=ans[i];
-    /* every unanswered question shows its options; answering is what collapses
-       one, and a collapsed one reopens on tap to be changed */
-    const isOpen = picked==null ? true : _bkOpen===i;
+    /* One question on screen at a time: the next only appears once this one is
+       answered. Answered questions collapse to a row and can be reopened — and
+       tapped again to close without having to re-pick. */
+    const isOpen = picked==null ? (i===pending[0] && _bkOpen==null) : _bkOpen===i;
     const right = cfg.reveal && picked!=null ? (picked===q.correct) : null;
     const state = picked==null?'bk-todo':(right===null?'bk-done':right?'bk-right':'bk-wrong');
     if(!isOpen){
+      if(picked==null) return '';                 // still queued — not on screen yet
       return `<button class="bk-card ${state} bk-collapsed" onclick="bkReopen(${i})">
         <span class="bk-q">${q.q}</span>
-        <span class="bk-picked">${picked!=null?q.a[picked]:''}</span>
+        <span class="bk-picked">${q.a[picked]}</span>
         <i class="fa fa-chevron-down bk-chev"></i>
       </button>`;
     }
+    /* the heading is the toggle for an answered question, so it can be shut
+       again without having to re-pick */
     return `<div class="bk-card ${state} bk-open">
-      <div class="bk-q">${q.q}</div>
+      <div class="bk-q${picked!=null?' bk-q-tap':''}" ${picked!=null?`onclick="bkReopen(${i})"`:''}>
+        ${q.q}${picked!=null?'<i class="fa fa-chevron-up bk-chev"></i>':''}
+      </div>
       <div class="bk-opts">
-        ${q.a.map((opt,ai)=>`<button class="bk-opt${picked===ai?' on':''}" onclick="bkAnswer(${i},${ai})">${opt}</button>`).join('')}
+        ${q.a.map((opt,ai)=>`<button type="button" class="bk-opt${picked===ai?' on':''}" onclick="bkAnswer(${i},${ai},this)">${opt}</button>`).join('')}
       </div>
     </div>`;
   }).join('');
@@ -5824,6 +5840,56 @@ function bkPlace(done){
   sec.style.transition='transform .55s cubic-bezier(.22,.7,.2,1)';
   sec.style.transform='';
   setTimeout(()=>{ sec.style.transition=''; },600);
+}
+
+/* ── Ball Knowledge IQ ──────────────────────────────────────────────────────
+   A team's standing on the week's questions, shown on its profile. Everyone
+   opens at the average and moves a step per graded answer.
+
+   Nothing is graded until the week's `reveal` is turned on, so before that the
+   whole league sits dead centre — which is the intended starting state rather
+   than a placeholder. */
+const bkIQCfg=()=>Object.assign({min:40,max:228,avg:100,step:8},(_CFG.ballKnowledge||{}).iq||{});
+let _bkProfiles=null;
+
+function bkIQFor(teamId){
+  const cfg=_CFG.ballKnowledge||{}, iq=bkIQCfg();
+  if(!cfg.reveal||!_bkProfiles) return iq.avg;
+  const qs=cfg.questions||[];
+  const rows=_bkProfiles.filter(p=>String(p.teamId||'')===String(teamId));
+  if(!rows.length) return iq.avg;
+  let right=0,wrong=0;
+  rows.forEach(p=>{
+    let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch{ ans={}; }
+    qs.forEach((q,i)=>{ if(ans[i]==null) return; if(ans[i]===q.correct) right++; else wrong++; });
+  });
+  return Math.max(iq.min,Math.min(iq.max,iq.avg+(right-wrong)*iq.step));
+}
+/* min..avg fills the left half and avg..max the right, so the average sits at
+   the midpoint even though it is nowhere near the midpoint of the range. */
+function bkIQPct(v){
+  const {min,max,avg}=bkIQCfg();
+  return v<=avg ? (v-min)/(avg-min)*50 : 50+(v-avg)/(max-avg)*50;
+}
+function bkIQColor(v){
+  const p=bkIQPct(v)/100;
+  return p>=0.5 ? mixHex('#f4c04d','#3fd07a',(p-0.5)/0.5) : mixHex('#ff5f5f','#f4c04d',p/0.5);
+}
+function bkIQHTML(teamId){
+  const cfg=_CFG.ballKnowledge||{}; if(!(cfg.questions||[]).length) return '';
+  const iq=bkIQCfg(), v=bkIQFor(teamId), pct=bkIQPct(v), col=bkIQColor(v);
+  return `<div class="sec bkiq-sec">
+    <div class="bkiq-head">
+      <span class="bkiq-t"><i class="fa fa-brain"></i>Ball Knowledge IQ</span>
+      <span class="bkiq-v" style="color:${col}">${Math.round(v)}</span>
+    </div>
+    <div class="bkiq-track">
+      <span class="bkiq-mid"></span>
+      <span class="bkiq-fill" style="width:${pct.toFixed(1)}%;background:${col}"></span>
+      <span class="bkiq-dot" style="left:${pct.toFixed(1)}%;background:${col}"></span>
+    </div>
+    <div class="bkiq-scale"><span>${iq.min}</span><span>${iq.avg} · average</span><span>${iq.max}</span></div>
+  </div>`;
 }
 
 /* ── Pulling a bet back ─────────────────────────────────────────────────────
@@ -6803,6 +6869,15 @@ async function loadDashboard(){
     renderPunishment();
     renderMyMatchupBar();   // punishment bar: config-driven, so it can paint now
     renderBallKnowledge();
+    /* Only needed to grade the IQ meter, which sits at the average until the
+       week is revealed — so the fetch is skipped entirely until then. */
+    if((_CFG.ballKnowledge||{}).reveal){
+      gflListProfiles().then(rows=>{
+        if(!rows) return;
+        _bkProfiles=rows;
+        if(_activeTab==='teams') renderProfile();
+      }).catch(()=>{});
+    }
     /* the board is on the homepage, which is where the app opens — switchTab
        only fires when you navigate, so the first load has to start it too */
     if(_activeTab==='home') liveStart();
