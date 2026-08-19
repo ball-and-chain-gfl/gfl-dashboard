@@ -1596,12 +1596,13 @@
       overflow:hidden;text-overflow:ellipsis;}
     .fm-spot .fm-nm{top:calc(100% + 14px);}
     /* the dummy line: never filled, just enough to read as a front five */
-    /* dark rounded squares, sitting on the line with the receivers — clearly
-       placeholders rather than spots anyone fills */
-    .fm-ol{position:absolute;transform:translate(-50%,-50%);width:22px;height:22px;
-      border-radius:6px;background:rgba(0,0,0,0.5);
-      border:1px solid rgba(255,255,255,0.12);}
-    @media(max-width:520px){ .fm-ol{width:17px;height:17px;border-radius:5px;} }
+    /* Same footprint and fill as a player spot, so the line reads as part of the
+       formation rather than a different kind of thing — square instead of round
+       is the only difference, which is what marks them as placeholders. */
+    .fm-ol{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;
+      border-radius:8px;background:rgba(0,0,0,0.28);
+      border:2px dashed rgba(255,255,255,0.28);box-sizing:border-box;}
+    @media(max-width:520px){ .fm-ol{width:28px;height:28px;border-radius:7px;} }
     .fm-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;}
     .fm-btm{display:flex;align-items:center;justify-content:center;gap:9px;
       padding:9px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,0.2);}
@@ -1623,7 +1624,7 @@
       font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.7px;
       text-transform:uppercase;color:var(--text3);}
     .lk-ab{color:var(--accent);font-weight:800;}
-    .lk-svg{display:block;width:100%;height:auto;aspect-ratio:640/300;
+    .lk-svg{display:block;width:100%;height:auto;aspect-ratio:960/420;
       image-rendering:pixelated;image-rendering:crisp-edges;}
     .lk-cap{padding:8px 13px 10px;font-family:'Inter',sans-serif;font-size:10px;
       letter-spacing:.4px;text-transform:uppercase;color:var(--text3);text-align:center;}

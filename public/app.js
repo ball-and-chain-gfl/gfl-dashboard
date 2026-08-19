@@ -3595,7 +3595,12 @@ function loadLineups(){
     .then(res=>{ const out={}; res.forEach(({s,d})=>{ if(d&&d.weeks) out[s]=d; }); _lineups=out; })
     .catch(()=>{ _lineups={}; })
     .finally(()=>{ _lineupsLoading=false;
-      if(_activeTab==='teams'&&document.getElementById('prof-enemies')) renderProfile(); });
+      /* Biggest Enemies lives on Player Data now. Only the team profile was
+         being repainted here, so the table sat on "Loading" until a tab switch
+         forced a fresh render. */
+      if(_activeTab==='teams'&&document.getElementById('prof-enemies')) renderProfile();
+      if(document.getElementById('tenure-enemies')) try{ renderTenureEnemies(); }catch(e){}
+    });
 }
 function enemiesFor(owner){
   if(!_lineups) return null;
@@ -3703,17 +3708,20 @@ function rosterPickerHTML(){
    it, which is what makes it read as a formation rather than scattered spots.
    The quarterback lines up directly behind the centre. */
 const FORMATION_Y=32;
+/* The tight end sits at the end of the line, immediately outside the tackle,
+   the way an inline tight end lines up — the receivers split wide of him. */
 const FORMATION=[
-  {k:'WR',  slot:4,  x:7,  y:FORMATION_Y},
-  {k:'TE',  slot:6,  x:70, y:FORMATION_Y},
-  {k:'WR',  slot:4,  x:92, y:FORMATION_Y},
-  {k:'QB',  slot:0,  x:41, y:56},
-  {k:'RB',  slot:2,  x:28, y:76},
-  {k:'RB',  slot:2,  x:54, y:76},
+  {k:'WR',  slot:4,  x:8,  y:FORMATION_Y},
+  {k:'TE',  slot:6,  x:56, y:FORMATION_Y},
+  {k:'WR',  slot:4,  x:91, y:FORMATION_Y},
+  {k:'QB',  slot:0,  x:38, y:57},
+  {k:'RB',  slot:2,  x:25, y:77},
+  {k:'RB',  slot:2,  x:51, y:77},
 ];
 /* Five linemen, drawn but never filled — the league does not roster them. The
-   middle one is the centre, and the quarterback's x matches it. */
-const FORMATION_OL=[29,35,41,47,53];
+   middle one is the centre, and the quarterback's x matches it. Spacing is the
+   same step the tight end continues, so the six read as one line. */
+const FORMATION_OL=[26,32,38,44,50];
 const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
 function formationHTML(rows){
   const pool={};
@@ -5003,11 +5011,8 @@ function lockerRoomHTML(t){
   if(!t) return '';
   const owner=_ownerMap[t.id];
   const at=owner?franchiseAllTime(owner):null;
-  const rings=Number(at&&at.rings)||0;      // a count, not a list of years
+  const rings=Number(at&&at.rings)||0;
   const ab=(t.abbrev||teamInitials(t.name)||'GFL').slice(0,4).toUpperCase();
-  /* logoMainColor is async and caches; if it has not run for this team yet the
-     synchronous teamColor fallback is fine. Both can come back as #rrggbb or
-     rgb(...), so parse either rather than assuming. */
   const parse=s=>{
     if(!s) return [138,143,152];
     const m=String(s).match(/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/);
@@ -5019,49 +5024,24 @@ function lockerRoomHTML(t){
   const base=parse(_logoColorCache[t.id]||teamColor(t.id));
   const mix=(rgb,to,k)=>'rgb('+rgb.map((v,i)=>Math.round(v+(to[i]-v)*k)).join(',')+')';
   const c1='rgb('+base.join(',')+')';
-  const c2=mix(base,[255,255,255],0.30);
+  const c2=mix(base,[255,255,255],0.28);
   const c3=mix(base,[255,255,255],0.58);
-  const dk=mix(base,[0,0,0],0.52);
-  const dp=mix(base,[0,0,0],0.72);
+  const dk=mix(base,[0,0,0],0.50);
+  const dp=mix(base,[0,0,0],0.70);
   const P=(x,y,w,h,f,o)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+f+'"'+(o?' opacity="'+o+'"':'')+'/>';
 
-  /* A 640x300 grid — four times the pixels of the last pass, which is what buys
-     the shading: every surface gets a light edge and a shadow rather than being
-     one flat block. Wide, because the room now runs the full width of the card. */
-  const W=640,H=300;
-
-  // one locker bay, repeated across the back wall
-  const bay=(x,w,lead)=>{
-    const d=[];
-    d.push(P(x,60,w,180,lead?dk:dp));
-    d.push(P(x,60,w,5,c1));                       // top rail
-    d.push(P(x,65,w,2,c2,'0.5'));
-    d.push(P(x,238,w,4,'#26262e'));               // floor lip
-    d.push(P(x-3,60,3,182,'#2c2c36'));            // divider
-    d.push(P(x+w,60,3,182,'#2c2c36'));
-    d.push(P(x+6,104,w-12,3,'#33333e'));          // shelf
-    d.push(P(x+6,101,w-12,3,c2,'0.35'));
-    d.push(P(x+8,168,w-16,5,'#3a2f27'));          // bench
-    d.push(P(x+8,165,w-16,3,'#4a3d33'));
-    return d.join('');
-  };
-
-  const jersey=(x)=>[
-    P(x+34,120,5,13,'#3a3a44'), P(x+22,133,29,4,'#3a3a44'),          // hanger
-    P(x,138,74,74,c1),                                                // body
-    P(x-16,143,16,30,c1), P(x+74,143,16,30,c1),                       // sleeves
-    P(x-16,167,16,6,c2),   P(x+74,167,16,6,c2),                       // cuffs
-    P(x+18,138,38,8,c3),                                              // collar
-    P(x,206,74,6,c2),                                                 // hem
-    P(x+8,158,58,28,dp),                                              // number panel
-  ].join('');
+  /* 960x420 — a little over twice the pixels again, which is what lets a desk
+     read as a desk: drawer fronts, handles, a lamp with a cord, paper with
+     lines on it. Four things and nothing else, so each has room to be legible:
+     the locker with the jersey, the shelf above it, the desk, and the plant. */
+  const W=960,H=420;
 
   const pennants=(()=>{
     const n=Math.min(rings,6);
     return Array.from({length:n},(_,i)=>{
-      const x=Math.round(W/2-(n*30-10)/2)+i*30;
-      return P(x,12,22,26,c2)+P(x+2,38,18,5,c2)+P(x+7,43,8,5,c2)
-        +P(x+5,19,12,4,dp)+P(x+7,27,8,3,dp);
+      const x=Math.round(W/2-(n*40-14)/2)+i*40;
+      return P(x,14,28,34,c2)+P(x+3,48,22,6,c2)+P(x+9,54,10,6,c2)
+        +P(x+6,24,16,5,dp)+P(x+9,35,10,4,dp);
     }).join('');
   })();
 
@@ -5071,76 +5051,83 @@ function lockerRoomHTML(t){
     +'<svg class="lk-svg" viewBox="0 0 '+W+' '+H+'" shape-rendering="crispEdges" role="img"'
     +' aria-label="Pixel art locker room for '+t.name+'">'
       +P(0,0,W,H,'#1b1b20')
-      +P(0,0,W,58,'#15151a')
-      +P(0,56,W,2,dp)
-      // wall panelling
-      +Array.from({length:32},(_,i)=>P(i*20,58,1,182,'#202027')).join('')
+      +P(0,0,W,74,'#15151a')
+      +P(0,72,W,3,dp)
+      +Array.from({length:32},(_,i)=>P(i*30,75,2,255,'#202027')).join('')
       +pennants
 
-      // three bays: side, main, side
-      +bay(96,120,false)
-      +bay(248,148,true)
-      +bay(420,120,false)
+      /* ── THE LOCKER: an open bay, the jersey hanging in it ─────────────── */
+      +P(300,86,250,244,dp)                       // interior
+      +P(300,86,250,8,c1)                          // top rail
+      +P(294,86,6,244,'#2e2e38')                   // left post
+      +P(550,86,6,244,'#2e2e38')                   // right post
+      +P(300,322,250,8,'#26262e')                  // base
+      +P(306,92,238,4,c2,'0.35')                   // inner highlight
+      // nameplate
+      +P(376,100,98,26,dp)+P(380,104,90,18,c1)
+      +'<text x="425" y="118" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="15" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      // hanger and jersey
+      +P(421,140,8,16,'#3a3a44')+P(400,156,50,5,'#3a3a44')
+      +P(370,162,110,104,c1)                       // body
+      +P(346,168,24,44,c1)+P(480,168,24,44,c1)     // sleeves
+      +P(346,204,24,8,c2)+P(480,204,24,8,c2)       // cuffs
+      +P(398,162,54,10,c3)                         // collar
+      +P(370,258,110,8,c2)                         // hem
+      +P(384,190,82,42,dp)                         // number panel
+      +'<text x="425" y="222" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="30" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      // cleats on the locker floor
+      +P(322,300,44,20,c2)+P(322,294,44,7,c3)
+      +P(376,300,44,20,c2)+P(376,294,44,7,c3)
 
-      // the main bay dressed
-      +P(288,66,68,18,dp)+P(291,69,62,12,c1)
-      +'<text x="322" y="79" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="12" font-weight="700" fill="'+c3+'">'+ab+'</text>'
-      +jersey(285)
-      +'<text x="322" y="180" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="22" font-weight="700" fill="'+c3+'">'+ab+'</text>'
-      // helmet and ball on the main shelf
-      +P(258,80,26,20,c1)+P(255,88,3,10,c1)+P(284,88,8,5,c3)+P(260,77,20,4,c3)
-      +P(366,82,24,16,'#6b4423')+P(372,88,12,3,'#e8e8e8')
-      +P(369,84,3,12,'#5a3a1e')+P(384,84,3,12,'#5a3a1e')
-      // cleats and a towel on the bench
-      +P(272,150,22,12,c2)+P(272,147,22,3,c3)
-      +P(300,150,22,12,c2)+P(300,147,22,3,c3)
-      +P(336,146,30,8,c3,'0.85')+P(340,154,22,5,c3,'0.6')
+      /* ── THE SHELF: above the locker, with a helmet and a ball ─────────── */
+      +P(286,60,278,10,'#3a3a46')                  // plank
+      +P(286,56,278,5,'#4a4a58')                   // front edge
+      +P(300,70,8,16,'#2a2a33')+P(542,70,8,16,'#2a2a33')   // brackets
+      // helmet
+      +P(320,26,44,30,c1)+P(314,38,7,14,c1)+P(364,38,14,8,c3)
+      +P(326,22,32,6,c3)
+      // ball
+      +P(470,30,40,26,'#6b4423')+P(480,42,20,4,'#e8e8e8')
+      +P(476,34,4,18,'#5a3a1e')+P(500,34,4,18,'#5a3a1e')
 
-      // side bays: spare kit, so they are not empty boxes
-      +P(120,116,60,58,c1,'0.55')+P(126,110,48,7,c3,'0.5')
-      +P(444,116,60,58,c1,'0.4')+P(450,110,48,7,c3,'0.4')
-      +P(132,178,36,10,'#2a2119')+P(456,178,36,10,'#2a2119')
+      /* ── THE DESK: drawers, a lamp, a playbook, papers ─────────────────── */
+      +P(620,236,250,14,'#4a3d33')                 // top
+      +P(620,232,250,5,'#5c4c3f')                  // front lip
+      +P(628,250,80,80,'#3a2f27')                  // drawer stack
+      +P(632,258,72,20,'#463930')+P(632,282,72,20,'#463930')+P(632,306,72,20,'#463930')
+      +P(658,266,20,4,'#6a5a4a')+P(658,290,20,4,'#6a5a4a')+P(658,314,20,4,'#6a5a4a')
+      +P(846,250,16,80,'#3a2f27')                  // far leg
+      // lamp
+      +P(800,196,10,40,'#2f2f38')
+      +P(778,178,54,20,'#3f3f4a')+P(782,198,46,6,'#d8d0a8','0.55')
+      +P(792,182,26,10,'#f0e6b8')
+      // playbook and loose paper
+      +P(646,214,60,22,c1)+P(650,218,52,4,c3)+P(650,226,36,3,c3,'0.7')
+      +P(716,220,54,16,'#e6e6ee')+P(722,224,42,2,'#9a9aa6')+P(722,229,30,2,'#9a9aa6')
+      // stool tucked under the desk
+      +P(742,250,52,8,'#3a2f27')+P(748,258,7,46,'#2a2119')+P(781,258,7,46,'#2a2119')
 
-      // floor
-      +P(0,240,W,60,'#121216')
-      +Array.from({length:40},(_,i)=>P(i*16,240,15,2,'#22222a')).join('')
-      +Array.from({length:20},(_,i)=>P(i*32,268,31,2,'#1c1c23')).join('')
-
-      // clock, far left of the upper wall
-      +P(30,16,34,34,'#2f2f38')+P(35,21,24,24,'#d8d8e0')
-      +P(46,26,3,10,'#2f2f38')+P(47,34,9,3,'#2f2f38')+P(30,16,34,3,'#3f3f4a')
-
-      // whiteboard, far right
-      +P(548,16,72,50,'#d8d8e0')+P(553,21,62,40,'#ececf2')
-      +P(558,29,32,3,c1)+P(558,38,44,3,'#9a9aa6')+P(558,47,24,3,'#9a9aa6')
-      +P(586,44,14,8,c1)+P(576,66,16,4,'#8a8a96')
-
-      // stool and the plant
-      +P(28,196,56,7,'#3a2f27')+P(28,193,56,3,'#4a3d33')
-      +P(36,203,6,37,'#2a2119')+P(70,203,6,37,'#2a2119')
-      +P(36,222,40,5,'#2a2119')
-      /* the plant is the control: a hit area over it, with the can and the
-         drops drawn in and revealed by the animation class */
+      /* ── THE PLANT: on the desk, at the near end ───────────────────────── */
       +'<g class="lk-plantg" role="button" tabindex="0" onclick="waterPlant()"'
       +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
-        +P(12,40,100,200,'#000','0')            // generous tap target, invisible
+        +P(856,120,120,120,'#000','0')
         +plantSVG(st.stage,P)
         +'<g class="lk-can">'
-          +P(88,74,30,20,'#9aa4b0')+P(88,74,30,4,'#b4bcc6')
-          +P(116,80,14,5,'#9aa4b0')+P(128,84,10,4,'#9aa4b0')
-          +P(78,78,12,5,'#9aa4b0')
+          +P(824,138,44,30,'#9aa4b0')+P(824,138,44,6,'#b4bcc6')
+          +P(866,148,20,7,'#9aa4b0')+P(884,154,14,6,'#9aa4b0')
+          +P(810,144,16,7,'#9aa4b0')
         +'</g>'
         +'<g class="lk-drops">'
-          +P(120,96,4,9,'#5bc8f5')+P(130,104,4,9,'#5bc8f5')+P(112,108,4,9,'#5bc8f5')
+          +P(876,170,6,13,'#5bc8f5')+P(890,182,6,13,'#5bc8f5')+P(864,188,6,13,'#5bc8f5')
         +'</g>'
       +'</g>'
 
-      // laundry bin and a stray ball, bottom right
-      +P(556,190,52,50,'#4a4a55')+P(556,190,52,5,'#5a5a66')
-      +P(564,178,36,12,c1)+P(570,172,24,7,c2)
-      +P(524,222,22,16,'#6b4423')+P(530,228,10,3,'#e8e8e8')
+      /* ── FLOOR ─────────────────────────────────────────────────────────── */
+      +P(0,330,W,90,'#121216')
+      +Array.from({length:32},(_,i)=>P(i*30,330,29,3,'#22222a')).join('')
+      +Array.from({length:16},(_,i)=>P(i*60,372,58,3,'#1c1c23')).join('')
     +'</svg>'
   +'</div>';
 }
@@ -5194,46 +5181,49 @@ async function plantSync(){
 /* Each stage is drawn rather than tinted, so the shape changes as it declines:
    upright and full, then shorter, then leaves angling down, then bare. Drawn to
    sit on the stool at x 28..84, whose top is y 193. */
+/* Each stage is drawn rather than tinted, so the shape changes as it declines:
+   upright and full, then shorter, then leaves angling down, then bare. It sits
+   on the near end of the desk, whose top is y 236. */
 function plantSVG(stage,P){
-  const potX=40, potTop=152, potH=41;
-  const pot=P(potX,potTop,34,potH,'#8a5a3a')
-    +P(potX,potTop,34,7,'#9a6a46')
-    +P(potX-3,potTop-4,40,6,'#7a4a2e')
-    +P(potX+2,potTop+10,4,26,'#7a4a2e','0.5');      // a little shading down one side
-  const soil=P(potX+3,potTop+4,28,5,'#3a2a1e');
+  const potX=886, potTop=196, potH=40;
+  const pot=P(potX,potTop,44,potH,'#8a5a3a')
+    +P(potX,potTop,44,8,'#9a6a46')
+    +P(potX-4,potTop-5,52,7,'#7a4a2e')
+    +P(potX+3,potTop+12,5,24,'#7a4a2e','0.5');
+  const soil=P(potX+4,potTop+5,36,6,'#3a2a1e');
   const G =['#4ade80','#3fc46e','#8ab84a','#b0a03a','#8a6a30','#6b5030'][stage];
   const G2=['#86efac','#6ee7a0','#a8c96a','#c8b855','#a08040','#7a5c38'][stage];
-  const stem=(y,h)=>P(54,y,6,h,G);
+  const stem=(y,h)=>P(904,y,8,h,G);
   let p='';
   if(stage===0){
-    p=stem(104,50)
-      +P(30,108,24,8,G)  +P(60,100,24,8,G2)
-      +P(34,124,20,7,G2) +P(60,120,20,7,G)
-      +P(38,90,16,7,G2)  +P(60,84,16,7,G)
-      +P(42,74,12,7,G)   +P(60,70,12,7,G2)
-      +P(48,58,18,12,'#f0a0c0')+P(52,52,10,7,'#f8c0d8')   // a flower, only when thriving
-      +P(51,64,3,3,'#e080a8');
+    p=stem(140,58)
+      +P(874,146,30,10,G)  +P(912,136,30,10,G2)
+      +P(878,164,26,9,G2)  +P(912,158,26,9,G)
+      +P(882,124,22,9,G2)  +P(912,116,22,9,G)
+      +P(888,106,16,9,G)   +P(912,100,16,9,G2)
+      +P(894,84,26,16,'#f0a0c0')+P(900,74,14,10,'#f8c0d8')
+      +P(898,92,5,4,'#e080a8');
   }else if(stage===1){
-    p=stem(112,42)
-      +P(32,116,22,8,G)  +P(60,110,22,8,G2)
-      +P(36,132,18,7,G2) +P(60,128,18,7,G)
-      +P(40,98,14,7,G2)  +P(60,94,14,7,G);
+    p=stem(152,46)
+      +P(878,158,26,10,G)  +P(912,150,26,10,G2)
+      +P(882,176,22,9,G2)  +P(912,170,22,9,G)
+      +P(886,136,18,9,G2)  +P(912,130,18,9,G);
   }else if(stage===2){
-    p=stem(124,30)
-      +P(34,128,20,7,G)  +P(60,124,20,7,G2)
-      +P(38,142,16,6,G2) +P(60,140,14,6,G);
+    p=stem(168,30)
+      +P(882,172,22,9,G)   +P(912,166,22,9,G2)
+      +P(886,188,18,8,G2)  +P(912,184,16,8,G);
   }else if(stage===3){
-    p=stem(134,20)
-      +P(36,140,18,6,G)  +P(30,146,8,6,G)               // leaves angling down
-      +P(60,138,16,6,G2) +P(74,144,8,6,G2);
+    p=stem(180,18)
+      +P(884,186,20,8,G)   +P(876,194,10,8,G)
+      +P(912,182,18,8,G2)  +P(930,190,10,8,G2);
   }else if(stage===4){
-    p=stem(142,12)
-      +P(40,146,14,5,G)  +P(34,151,7,5,G)
-      +P(60,145,12,5,G2)
-      +P(16,236,10,4,G,'0.7')+P(90,236,10,4,G,'0.7');   // leaves on the floor
+    p=stem(188,10)
+      +P(890,192,14,7,G)   +P(882,199,9,7,G)
+      +P(912,190,12,7,G2)
+      +P(846,330,14,5,G,'0.7')+P(944,330,14,5,G,'0.7');
   }else{
-    p=stem(142,12)+P(48,138,5,5,G)
-      +P(12,236,12,4,G,'0.55')+P(88,236,12,4,G,'0.55')+P(50,238,12,4,G,'0.45');
+    p=stem(188,10)+P(896,182,7,7,G)
+      +P(840,330,16,5,G,'0.55')+P(942,330,16,5,G,'0.55')+P(892,334,16,5,G,'0.45');
   }
   return pot+soil+p;
 }
@@ -5728,7 +5718,7 @@ function enemiesHTML(owner){
   if(!list.length) return `<div class="tab-loading" style="padding:22px">No opposing lineup data yet.</div>`;
   const mxp=list[0].pts||1;
   return `<div class="en-list">
-    <div class="en-row en-head"><span>#</span><span>Player</span><span class="r">Points</span><span class="r">Record vs. Team</span><span class="r">PPG</span></div>
+    <div class="en-row en-head"><span>#</span><span>Player</span><span class="r">Points</span><span class="r">vs. Team</span><span class="r">PPG</span></div>
     ${list.map((r,i)=>{
       const pct=r.g?r.w/r.g:0;
       return `<div class="en-row">

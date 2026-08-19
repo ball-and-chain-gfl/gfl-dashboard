@@ -85,8 +85,10 @@ window.GFL_CONFIG = {
   betsResetBefore: 1787110650000,
 
   /* TESTING ONLY — how long one locker-room plant stage lasts, in minutes.
+     Fractions are fine: 0.25 is fifteen seconds a stage, so the plant runs
+     from thriving to dead in about a minute and a half.
      0 (or delete) uses the real three days per stage. */
-  plantTestMinutes: 1,
+  plantTestMinutes: 0.25,
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it. 11 is a placeholder — change
