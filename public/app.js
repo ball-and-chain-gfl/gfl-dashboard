@@ -1606,6 +1606,26 @@ async function loadTenureData(){
   })();
   return _tenurePromise;
 }
+/* How many times this franchise has spent a pick on a player, across every
+   season. Built from loadAllDrafts(), which is the same board the Draft tab
+   reads, so the two can never disagree. Note computeDraftRows() drops a season
+   whose stat sheet has no points yet — an upcoming draft is a placeholder
+   board, not a draft — so a pick made for a season that has not been played
+   does not count here either. */
+let _draftCounts=null,_draftCountsPromise=null,_draftCountsPainted=false;
+function draftCounts(){
+  if(_draftCounts) return _draftCounts;
+  if(!_draftCountsPromise){
+    _draftCountsPromise=loadAllDrafts().then(({rows})=>{
+      const m={};
+      rows.forEach(r=>{ if(r.owner==null) return;
+        const o=m[r.owner]||(m[r.owner]={});
+        o[r.pid]=(o[r.pid]||0)+1; });
+      return (_draftCounts=m);
+    }).catch(()=>(_draftCounts={}));
+  }
+  return null;                                  // not here yet; caller repaints
+}
 async function ensureTenure(){
   showTenureSection(_tnSection);            // one view at a time, from the off
   if(_tenure){renderTenureTable();return;}
@@ -1622,9 +1642,18 @@ function renderTenureTable(){
   const owner=sel?.value||_franchises[0]?.owner;
   const yr=getSeason();
   const q=(document.getElementById('tenure-search')?.value||'').trim().toLowerCase();
+  /* the draft board loads separately from the roster history; paint the table
+     as soon as tenure is ready and fill the column in when the board lands */
+  const dc=draftCounts();
+  if(!dc&&!_draftCountsPainted){
+    _draftCountsPainted=true;
+    _draftCountsPromise.then(()=>{ try{ renderTenureTable(); }catch(e){} });
+  }
+  const drafted=(dc&&dc[owner])||null;
   const players=Object.entries(_tenure[owner]||{}).map(([pid,p])=>({
     pid, n:p.n||`Player #${pid}`,
     wAll:p.wAll, sAll:p.sAll, pAll:p.pAll, pwAll:p.pwAll||0,
+    nDraft:drafted?(drafted[pid]||0):null,
     wYr:p.seasons[yr]?.w||0, sYr:p.seasons[yr]?.s||0, pYr:p.seasons[yr]?.p||0,
   }))
   .filter(p=>!q||p.n.toLowerCase().includes(q))
@@ -1638,6 +1667,7 @@ function renderTenureTable(){
         <th>Player</th>
         <th class="right" title="Weeks in the starting lineup, every season">All Starts</th>
         <th class="right" title="Weeks on the roster (starter or bench), every season">All Rostered</th>
+        <th class="right" title="Times this team has spent a draft pick on this player">Times Drafted</th>
         <th class="right" title="Points scored for GFL teams, every season">All PTS</th>
         <th class="right" title="Weeks in the starting lineup">${yr} Starts</th>
         <th class="right" title="Weeks on the roster (starter or bench)">${yr} Rostered</th>
@@ -1650,6 +1680,8 @@ function renderTenureTable(){
         <td><span class="pname"><span class="rank" style="margin-right:4px">${i+1}</span>${playerImg(p.pid,22,p.n)}<span class="fr-name">${p.n}</span></span></td>
         <td class="right"><strong>${p.sAll}</strong></td>
         <td class="right" style="color:var(--text2)">${p.wAll}</td>
+        <td class="right"${p.nDraft?' style="color:var(--accent);font-weight:600"':''}>${
+          p.nDraft==null?'<span style="color:var(--text3)">·</span>':(p.nDraft||dash)}</td>
         <td class="right pf">${p.pAll.toFixed(1)}</td>
         <td class="right"><strong>${p.sYr||dash}</strong></td>
         <td class="right" style="color:var(--text2)">${p.wYr||dash}</td>
@@ -6805,11 +6837,21 @@ async function pkSync(){
   _pkFetched=true;
   try{
     const res=await gflFetchProfile(_me.k1);
-    const raw=res&&res.data?res.data[pkKey()]:null;
-    if(!raw) return;
-    _pkPicks={...JSON.parse(raw),...pkLoad()};
-    localStorage.setItem(lsKey(pkKey()),JSON.stringify(_pkPicks));
+    const d=res&&res.data;
+    if(!d) return;
+    /* Whether the slate was submitted lives on the profile as well as the
+       device. It used to be local only, so signing in anywhere else — or on the
+       same phone after the storage was cleared — reopened a slate that was
+       already in and asked for it again. */
+    const sub=String(d[pkSubKey()]||'')==='1';
+    if(sub){ _pkSubmitted=true; localStorage.setItem(lsKey(pkSubKey()),'1'); }
+    const raw=d[pkKey()];
+    if(raw){
+      _pkPicks=sub?JSON.parse(raw):{...JSON.parse(raw),...pkLoad()};
+      localStorage.setItem(lsKey(pkKey()),JSON.stringify(_pkPicks));
+    }
     renderWeekPicks();
+    try{ orderHomeTodo(); }catch(e){}
   }catch(e){}
 }
 function pkReset(){ _pkPicks=null; _pkFetched=false; _pkSubmitted=null; renderWeekPicks(); }
@@ -6838,7 +6880,8 @@ async function pkSubmit(){
   const p=pkLoad();
   if(Object.keys(p).length!==pkGames().length) return;
   _pkBusy=true; renderWeekPicks();
-  if(_me){ try{ await gflPatchProfile(_me.k1,{[pkKey()]:JSON.stringify(p)}); }catch(e){} }
+  if(_me){ try{ await gflPatchProfile(_me.k1,
+    {[pkKey()]:JSON.stringify(p),[pkSubKey()]:'1'}); }catch(e){} }
   _pkSubmitted=true; localStorage.setItem(lsKey(pkSubKey()),'1');
   _pkBusy=false; renderWeekPicks();
 }
@@ -6846,6 +6889,8 @@ async function pkSubmit(){
 function pkReopen(){
   if(pkLocked()) return;
   _pkSubmitted=false; localStorage.removeItem(lsKey(pkSubKey()));
+  /* clear it on the profile too, or the next sign-in would resurrect it */
+  if(_me){ try{ gflPatchProfile(_me.k1,{[pkSubKey()]:''}); }catch(e){} }
   renderWeekPicks();
 }
 
@@ -6887,7 +6932,7 @@ function renderWeekPicks(){
      screen for something already decided. */
   if(sent&&!pkLocked()){
     el.innerHTML=`
-      <details class="cp-fold">
+      <details class="cp-fold"${_pkFoldOpen?' open':''} ontoggle="foldKeep('pk',this)">
         <summary class="cp-fold-s"><i class="fa fa-check"></i>Picks are in
           <span class="cp-fold-n">${done.length} of ${games.length}</span>
           <i class="fa fa-chevron-down ms-chev"></i></summary>
@@ -6940,6 +6985,13 @@ const HOME_TODO=[
   {id:'bk-sec', done:()=>{ const qs=bkQuestions(); if(!qs.length) return true;
     const a=bkLoadAnswers(); return qs.every((_,i)=>a[i]!=null); }},
 ];
+/* Outstanding cards rise to the top of the stack, finished ones sink. All
+   three travel rather than jump: the slot change is applied, then each card is
+   measured before and after and played back from where it used to be, so the
+   move is visible instead of the stack silently being in a different order the
+   next time you look at it. Same curve as the Ball Knowledge card's trip to the
+   foot of the page, quicker because the distance is a fraction of it. */
+let _htFirst=true;
 function orderHomeTodo(){
   const rows=HOME_TODO.map((t,i)=>{
     const el=document.getElementById(t.id);
@@ -6948,10 +7000,45 @@ function orderHomeTodo(){
   }).filter(r=>r.el);
   if(!rows.length) return;
   rows.sort((a,b)=>(a.done?1:0)-(b.done?1:0) || a.i-b.i);
+
+  /* Any inversion still sitting on a card from a previous call has to come off
+     before measuring, or the "before" box is a displaced one and the next
+     inversion compounds it. */
+  rows.forEach(r=>{ if(r.el.style.transform){
+    r.el.style.transition=''; r.el.style.transform=''; r.el.style.zIndex=''; } });
+
+  /* Nothing to animate on the very first paint, when the order is not actually
+     changing, or when the tab is hidden — requestAnimationFrame does not run in
+     a background tab, so the cards would sit inverted until it came forward. */
+  const moved=rows.some((r,n)=>r.el.style.order!==String(n));
+  const animate=!_htFirst && moved && !document.hidden
+    && !matchMedia('(prefers-reduced-motion:reduce)').matches;
+  _htFirst=false;
+  const before=animate?rows.map(r=>r.el.getBoundingClientRect()):null;
+
   rows.forEach((r,n)=>{
     r.el.style.order=String(n);
     /* the phone grid places by area, so the slot has to move too */
     r.el.style.gridArea='s'+(n+1);
+  });
+  if(!animate) return;
+
+  rows.forEach((r,n)=>{
+    const from=before[n], to=r.el.getBoundingClientRect();
+    if(!from.height||!to.height) return;
+    const dx=from.left-to.left, dy=from.top-to.top;
+    if(!dx&&!dy) return;
+    r.el.style.transition='none';
+    r.el.style.transform='translate('+dx+'px,'+dy+'px)';
+    r.el.style.zIndex='2';
+  });
+  requestAnimationFrame(()=>{
+    rows.forEach(r=>{
+      if(!r.el.style.transform) return;
+      r.el.style.transition='transform .62s cubic-bezier(.3,.75,.25,1)';
+      r.el.style.transform='';
+      setTimeout(()=>{ r.el.style.transition=''; r.el.style.zIndex=''; },700);
+    });
   });
 }
 
@@ -6970,6 +7057,10 @@ let _cpBallot=null,_cpRows=null,_cpBusy=false,_cpFetched=false;
    profile round-trip lands — otherwise the reorder briefly disagrees with what
    the manager just did */
 let _cpJustSent=false;
+/* whether the "your ballot"/"picks are in" folds were left open, so a rebuild
+   on the league poll does not close them while they are being read */
+let _cpFoldOpen=false,_pkFoldOpen=false;
+function foldKeep(which,el){ if(which==='cp') _cpFoldOpen=el.open; else _pkFoldOpen=el.open; }
 
 function cpMyBallot(){
   if(_cpBallot) return _cpBallot;
@@ -7060,25 +7151,38 @@ function renderCoachesPoll(){
       <span class="cp-nm">${r.t.name}</span>
       <span class="cp-avg">${r.avg.toFixed(2)}</span>
     </div>`).join('')}</div>`;
-  if(complete&&mineIn){ el.innerHTML=results; return; }
   const b=cpMyBallot();
   const done=b.length===_teams.length;
+  /* the ballot this manager sent, drawn as a ranked list */
+  const myBallotList=()=>{
+    const mine=b.length===_teams.length?b:null;
+    if(!mine) return '<div class="cp-note">Ballot saved.</div>';
+    return `<div class="cp-list">${mine.map((id,i)=>{
+      const t=_teams.find(x=>String(x.id)===String(id));
+      return t?`<div class="cp-res"><span class="cp-rk">${i+1}</span>
+        ${logoImg(t.id,'cp-logo')}<span class="cp-nm">${t.name}</span></div>`:'';
+    }).join('')}</div>`;
+  };
+  if(complete&&mineIn){
+    el.innerHTML=results+`
+      <details class="cp-fold cp-mine"${_cpFoldOpen?' open':''} ontoggle="foldKeep('cp',this)">
+        <summary class="cp-fold-s"><i class="fa fa-check"></i>Your ballot
+          <i class="fa fa-chevron-down ms-chev"></i></summary>
+        <div class="cp-fold-b">${myBallotList()}</div>
+      </details>`;
+    return;
+  }
   /* Voted, but the poll has not reached the reveal yet: the ballot folds away
      to a line. It has done its job, and leaving twelve tiles open holds space
      the results will want. */
   if(mineIn){
-    const mine=b.length===_teams.length?b:null;
     el.innerHTML=`
-      <details class="cp-fold">
+      <details class="cp-fold"${_cpFoldOpen?' open':''} ontoggle="foldKeep('cp',this)">
         <summary class="cp-fold-s"><i class="fa fa-check"></i>Your ballot is in
           <span class="cp-fold-n">${ballots} of ${total}</span>
           <i class="fa fa-chevron-down ms-chev"></i></summary>
         <div class="cp-fold-b">
-          ${mine?`<div class="cp-list">${mine.map((id,i)=>{
-            const t=_teams.find(x=>String(x.id)===String(id));
-            return t?`<div class="cp-res"><span class="cp-rk">${i+1}</span>
-              ${logoImg(t.id,'cp-logo')}<span class="cp-nm">${t.name}</span></div>`:'';
-          }).join('')}</div>`:'<div class="cp-note">Ballot saved.</div>'}
+          ${myBallotList()}
           <div class="cp-meta" style="margin-top:10px">Results show once ${REVEAL_AT} ballots are in.</div>
         </div>
       </details>`;
