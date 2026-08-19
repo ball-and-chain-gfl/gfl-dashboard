@@ -655,7 +655,28 @@
     .bk-q-tap{display:flex;align-items:center;gap:8px;cursor:pointer;}
     .bk-q-tap .bk-chev{margin-left:auto;}
 
-    /* ── Weekly picks ──────────────────────────────────────────────────────── */
+    /* ── Weekly picks: a grid, one cell per game ───────────────────────────
+       Every game is on screen at once and a pick is a single tap, rather than
+       opening and closing a card per matchup. */
+    .pk-grid{display:grid;grid-template-columns:1fr;gap:6px;}
+    @media(min-width:560px){ .pk-grid{grid-template-columns:1fr 1fr;} }
+    .pk-g{display:flex;align-items:stretch;gap:4px;padding:4px;border-radius:9px;
+      border:1px solid var(--border);background:rgba(0,0,0,0.2);}
+    html[data-theme="light"] .pk-g{background:rgba(0,0,0,0.03);}
+    .pk-g.picked{border-color:rgba(var(--accent-rgb),0.45);}
+    .pk-s{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;
+      gap:6px;padding:8px 6px;border-radius:7px;border:1px solid transparent;
+      background:none;color:var(--text2);cursor:pointer;font-family:'Inter',sans-serif;
+      font-size:11px;font-weight:800;letter-spacing:.3px;
+      -webkit-tap-highlight-color:transparent;transition:background .15s,color .15s,border-color .15s;}
+    @media (hover:hover){ .pk-s:hover{background:rgba(255,255,255,0.05);color:var(--text);} }
+    .pk-s:focus{outline:none;}
+    .pk-s.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.18);color:var(--accent);}
+    .pk-s span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pk-at{flex:0 0 auto;display:flex;align-items:center;font-family:'Inter',sans-serif;
+      font-size:9px;font-weight:700;color:var(--text3);}
+
+    /* ── Weekly picks (legacy card styles, still used by nothing) ─────────── */
     .pk-card{border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,0.18);
       text-align:left;font-family:inherit;color:var(--text);width:100%;}
     html[data-theme="light"] .pk-card{background:rgba(0,0,0,0.03);}
@@ -3647,12 +3668,13 @@
          full width — four answer buttons will not fit in half a phone — so
          nothing shares a row here. */
       .home-top{display:grid;grid-template-columns:1fr;
-        grid-template-areas:"video" "bk" "pk" "motw";
+        grid-template-areas:"video" "cp" "bk" "pk" "motw";
         gap:20px;align-items:start;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
       .home-top .mod-bk{grid-area:bk;}
       .home-top .mod-pk{grid-area:pk;}
-      .home-top .home-vid-col>.sec{grid-area:video;}
+      .home-top .mod-cp{grid-area:cp;}
+      .home-top .home-vid-col>.sec:not(.mod-cp){grid-area:video;}
       .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk){grid-area:motw;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}

@@ -77,6 +77,13 @@ window.GFL_CONFIG = {
      stay attached to the cycle they were made in either way. */
   bucksTestMinutes: 5,
 
+  /* Bets placed before this moment are ignored everywhere — My Bets, the
+     balance and the bankroll chart. The Firestore rules withhold delete on
+     purpose (a losing bet must not be able to vanish), so a clean slate is
+     drawn with a line rather than by deleting anything. Raise it to now to
+     start over again; set to 0 to count everything ever placed. */
+  betsResetBefore: 1787110650000,
+
   /* TESTING ONLY — how long one locker-room plant stage lasts, in minutes.
      0 (or delete) uses the real three days per stage. */
   plantTestMinutes: 0,

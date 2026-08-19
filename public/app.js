@@ -3807,9 +3807,10 @@ function renderWeek(){
     <div class="rs-head"><span>${info.season} · Week ${info.week}</span>
       <span class="rs-tot">${games.length} matchup${games.length===1?'':'s'}</span></div>
     <div class="lv-grid">${games.map(card).join('')||'<div class="lr-none">No matchups scheduled.</div>'}</div>`;
-  weekPunishment();
-  weekMoves(info);
-  weekTopPerformers(info);
+  /* Top Performers, Punishment and Moves are no longer on this page; League
+     Action covers the moves and the punishment rides the pinned bar. Their
+     renderers still guard on a missing element, so they are simply not called. */
+  renderLeagueAction();
 }
 /* the punishment on the clock, same card the homepage shows */
 function weekPunishment(){
@@ -4680,7 +4681,14 @@ async function gflListProfiles(){
     const r=await fetch(url,{cache:'no-store'});
     if(!r.ok) return null;
     const j=await r.json();
-    return (j.documents||[]).map(d=>({id:decodeURIComponent((d.name||'').split('/').pop()||''),...fsIn(d)}));
+    const rows=(j.documents||[]).map(d=>({id:decodeURIComponent((d.name||'').split('/').pop()||''),...fsIn(d)}));
+    /* Only the twelve league accounts count. Documents left over from when
+       sign-in would mint one for any name are still in the collection, and two
+       of them point at Florida Man — which is why that team was showing up
+       twice in the vote badges. Filtering here fixes every tally at once
+       rather than each caller remembering to. */
+    const allowed=teamAccountIds();
+    return allowed.size ? rows.filter(p=>allowed.has(p.id)) : rows;
   }catch(e){ return null; }
 }
 
@@ -6006,7 +6014,10 @@ function bucksResetsIn(now=new Date()){
   const d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000);
   return d>0?`${d}d ${h}h`:`${h}h`;
 }
-const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1);
+/* Bets from before the reset line are ignored rather than deleted — the rules
+   withhold delete so a losing bet cannot be made to vanish. */
+const betsAfterReset=b=>Number(b.ts||0)>=Number(_CFG.betsResetBefore||0);
+const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1&&betsAfterReset(b));
 const betsThisWeek=()=>betsMine().filter(b=>b.wk===bucksWeekKey());
 function bucksStaked(){ return betsThisWeek().reduce((a,b)=>a+b.stake,0); }
 function bucksReturned(){ return betsThisWeek().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
@@ -6213,7 +6224,7 @@ const pkKey=()=>{
   const r=c.resetToken?`_r${c.resetToken}`:'';
   return `pk_${getSeason()}_w${(_liveInfo||liveWeekInfo()||{}).week??0}${r}`;
 };
-let _pkPicks=null,_pkBusy=false,_pkOpen=null,_pkFetched=false;
+let _pkPicks=null,_pkBusy=false,_pkFetched=false;
 
 function pkGames(){
   const info=_liveInfo||liveWeekInfo();
@@ -6237,16 +6248,15 @@ async function pkSync(){
     renderWeekPicks();
   }catch(e){}
 }
-function pkReset(){ _pkPicks=null; _pkFetched=false; _pkOpen=null; renderWeekPicks(); }
+function pkReset(){ _pkPicks=null; _pkFetched=false; renderWeekPicks(); }
 async function pkPick(gi,teamId,el){
   if(_pkBusy) return;
   if(el&&el.blur) el.blur();
-  const p=pkLoad(); p[gi]=String(teamId); _pkOpen=null;
+  const p=pkLoad(); p[gi]=String(teamId);
   localStorage.setItem(pkKey(),JSON.stringify(p));
   renderWeekPicks();
   if(_me){ _pkBusy=true; try{ await gflPatchProfile(_me.k1,{[pkKey()]:JSON.stringify(p)}); }catch(e){} _pkBusy=false; }
 }
-function pkToggle(gi){ _pkOpen=(_pkOpen===gi?null:gi); renderWeekPicks(); }
 
 function renderWeekPicks(){
   const el=document.getElementById('pk-body'); if(!el) return;
@@ -6259,32 +6269,23 @@ function renderWeekPicks(){
   const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
   const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
   const done=games.map((_,i)=>i).filter(i=>picks[i]!=null);
-  const todo=games.map((_,i)=>i).filter(i=>picks[i]==null);
-  const order=[...todo,...done];
-  const cards=order.map(i=>{
+  /* A grid rather than a stack of dropdowns: every game is on screen at once
+     and a pick is one tap on the side you want, with no opening or closing.
+     Both sides of a game sit in one cell so the pair always reads together. */
+  const cell=(i)=>{
     const g=games[i], mine=picks[i];
-    const open = mine==null ? (i===todo[0] && _pkOpen==null) : _pkOpen===i;
-    if(!open){
-      if(mine==null) return '';
-      return `<button class="pk-card pk-collapsed" onclick="pkToggle(${i})">
-        <span class="pk-mu">${ab(g.away.teamId)} @ ${ab(g.home.teamId)}</span>
-        <span class="pk-picked">${logoImg(Number(mine),'pk-logo')}${ab(Number(mine))}</span>
-        <i class="fa fa-chevron-down bk-chev"></i></button>`;
-    }
-    const side=(t,label)=>`<button type="button" class="pk-side${String(mine)===String(t)?' on':''}"
-      onclick="pkPick(${i},${t},this)">${logoImg(t,'pk-logo')}<span>${label}</span></button>`;
-    return `<div class="pk-card pk-open">
-      <div class="pk-mu${mine!=null?' pk-mu-tap':''}" ${mine!=null?`onclick="pkToggle(${i})"`:''}>
-        ${ab(g.away.teamId)} @ ${ab(g.home.teamId)}
-        ${mine!=null?'<i class="fa fa-chevron-up bk-chev"></i>':''}</div>
-      <div class="pk-sides">${side(g.away.teamId,nm(g.away.teamId))}${side(g.home.teamId,nm(g.home.teamId))}</div>
+    const side=t=>`<button type="button" class="pk-s${String(mine)===String(t)?' on':''}"
+      onclick="pkPick(${i},${t},this)" title="${nm(t).replace(/"/g,'&quot;')}">
+      ${logoImg(t,'pk-logo')}<span>${ab(t)}</span></button>`;
+    return `<div class="pk-g${mine!=null?' picked':''}">
+      ${side(g.away.teamId)}<span class="pk-at">@</span>${side(g.home.teamId)}
     </div>`;
-  }).join('');
+  };
   el.innerHTML=`
     <div class="bk-meta"><span>Week ${(_liveInfo||liveWeekInfo()||{}).week??'—'}</span>
       <span class="bk-count">${done.length} of ${games.length}</span></div>
-    <div class="bk-stack">${cards}</div>
-    ${todo.length===0?`<div class="bk-fin"><i class="fa fa-circle-check"></i>Picks are in — tap any game to change one.</div>`:''}`;
+    <div class="pk-grid">${games.map((_,i)=>cell(i)).join('')}</div>
+    ${done.length===games.length?`<div class="bk-fin"><i class="fa fa-circle-check"></i>Picks are in — tap another side to change one.</div>`:''}`;
 }
 
 /* ── Coaches' Poll ──────────────────────────────────────────────────────────
@@ -7412,6 +7413,10 @@ async function loadDashboard(){
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
             </div>
+            <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
+              <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches&#39; Poll</div>
+              <div id="cp-body"></div>
+            </div>
           </div>
         </div>
         <!-- Coaching Metric moved to Advanced Stats, where it now heads its own
@@ -7428,14 +7433,6 @@ async function loadDashboard(){
              This Week — it just no longer renders a board here. -->
         <!-- Last on the page, until Ball Knowledge is finished and slides below
              it — that card is explicitly meant to end up last once it is done. -->
-        <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
-          <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches' Poll</div>
-          <div id="cp-body"></div>
-        </div>
-        <div class="sec wm mod-la" data-wm="&#xf0a1;" id="la-sec">
-          <div class="sec-head"><i class="fa fa-bolt"></i>League Action</div>
-          <div id="la-body"></div>
-        </div>
         <div class="sec wm mod-curse" data-wm="&#xf7a9;" id="curse-sec">
           <div class="sec-head"><i class="fa fa-hat-wizard"></i>Most Cursed</div>
           <div id="curse-body"></div>
@@ -7542,17 +7539,11 @@ async function loadDashboard(){
           <div class="sec-head"><i class="fa fa-bolt"></i>Scoreboard</div>
           <div id="week-body"></div>
         </div>
-        <div class="sec wm" data-wm="&#xf091;">
-          <div class="sec-head"><i class="fa fa-fire"></i>Top Performers</div>
-          <div id="week-top"></div>
-        </div>
-        <div class="sec wm mod-punish" data-wm="&#xf0e3;">
-          <div class="sec-head"><i class="fa fa-gavel"></i>Punishment</div>
-          <div class="home-box punish-box" id="week-punish"></div>
-        </div>
-        <div class="sec wm" data-wm="&#xf1da;">
-          <div class="sec-head"><i class="fa fa-arrow-right-arrow-left"></i>Moves This Week</div>
-          <div id="week-moves"></div>
+        <!-- Top Performers, Punishment and Moves are gone: the punishment lives
+             in the pinned bar, and Moves is what League Action replaces. -->
+        <div class="sec wm mod-la" data-wm="&#xf0a1;" id="la-sec">
+          <div class="sec-head"><i class="fa fa-bolt"></i>League Action</div>
+          <div id="la-body"></div>
         </div>
       </div>
 
