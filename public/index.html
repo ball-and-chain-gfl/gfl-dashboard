@@ -780,7 +780,11 @@
     @media(max-width:420px){ .curse-sub{display:none;} }
 
     /* ── Ball Knowledge IQ meter (team profile) ────────────────────────────── */
-    /* its own card rather than floating between the hero and the report */
+    /* The meter now sits at the foot of the profile hero rather than in a card
+       of its own. It needs the same stacking as .prof-banner-row, or the hero's
+       watermark logo would sit over the track. .bkiq-sec is what it used to
+       wear; kept in case the standalone card is ever wanted back. */
+    .bkiq-inhero{position:relative;z-index:1;margin-top:18px;}
     .bkiq-sec{margin-bottom:14px;padding:13px 15px;border:1px solid var(--border);
       border-radius:11px;background:rgba(0,0,0,0.2);}
     html[data-theme="light"] .bkiq-sec{background:rgba(0,0,0,0.03);}
@@ -2650,16 +2654,19 @@
     /* explicit order so the two groups can't drift: logo, year | menu, profile */
     /* the mark keeps the same box as the profile button, but flat — no fill,
        just an outline. Radius matches the restored bar and its other controls. */
+    /* Same fill and blur as the season dropdown beside it, and nothing else —
+       no border, no padding, no inset highlight. The mark is a transparent PNG,
+       so it runs to the edges of the box. */
     #floatnav .logo{position:static;flex:0 0 auto;margin:0;order:0;cursor:pointer;
-      width:44px;height:44px;box-sizing:border-box;border-radius:8px;
+      width:44px;height:44px;box-sizing:border-box;border-radius:8px;padding:0;
       display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
-      background:none;border:1px solid rgba(255,255,255,0.16);
-      box-shadow:none;transition:border-color .18s;}
-    #floatnav .logo:hover{border-color:rgba(255,255,255,0.34);}
-    html[data-theme="light"] #floatnav .logo{background:none;border-color:rgba(0,0,0,0.18);}
+      background:rgba(0,0,0,0.35);border:0;
+      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+      box-shadow:none;transition:background-color .15s;}
+    #floatnav .logo:hover{background-color:rgba(0,0,0,0.5);}
     #floatnav #me-btn{order:3;}
     #floatnav .tab-dd{margin-left:auto;}
-    #floatnav .logo img{height:32px;width:auto;display:block;}
+    #floatnav .logo img{height:100%;width:auto;display:block;}
     #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;order:2;}
     /* icon + hamburger only — the page name lives in the h1 now */
     #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;
@@ -2699,7 +2706,6 @@
     @media(max-width:768px){
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
       #floatnav .logo{width:40px;height:40px;}
-      #floatnav .logo img{height:29px;}
       #floatnav #tab-dd-btn{font-size:13px;height:40px;width:82px;padding:0 7px 0 10px;}
       #floatnav #season-select{height:40px;width:82px;font-size:13px;padding:0 26px 0 12px;}
       #floatnav #me-btn{width:40px;height:40px;}
@@ -2712,7 +2718,6 @@
     @media(max-width:360px){
       #floatnav{gap:6px;padding:7px 8px;}
       #floatnav .logo{width:36px;height:36px;}
-      #floatnav .logo img{height:26px;}
       #floatnav #tab-dd-btn{width:74px;height:36px;padding:0 6px 0 8px;}
       #floatnav #season-select{width:74px;height:36px;font-size:12.5px;padding:0 24px 0 10px;}
       #floatnav #me-btn{width:36px;height:36px;}

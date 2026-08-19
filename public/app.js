@@ -6224,10 +6224,10 @@ async function renderProfile(){
           </div>
         </div>
       </div>
+      ${bkIQHTML(id)}
     </div>
     <!-- FAAB gauge removed from the hero on request -->
     </div>
-    ${bkIQHTML(id)}
     ${legacyReportHTML(owner)}
     <div class="prof-top2">
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
@@ -7394,7 +7394,9 @@ function bkIQColor(v){
 function bkIQHTML(teamId){
   const cfg=_CFG.ballKnowledge||{}; if(!(cfg.questions||[]).length) return '';
   const iq=bkIQCfg(), v=bkIQFor(teamId), pct=bkIQPct(v), col=bkIQColor(v);
-  return `<div class="sec bkiq-sec">
+  /* No card of its own any more: this sits at the foot of the profile hero,
+     inside the black panel, so the wrapper carries position only. */
+  return `<div class="bkiq-inhero">
     <div class="bkiq-head">
       <span class="bkiq-t"><i class="fa fa-brain"></i>Ball Knowledge IQ</span>
       <span class="bkiq-v" style="color:${col}">${Math.round(v)}</span>
