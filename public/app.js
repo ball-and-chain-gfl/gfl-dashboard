@@ -6533,9 +6533,19 @@ async function pkSync(){
     renderWeekPicks();
   }catch(e){}
 }
-function pkReset(){ _pkPicks=null; _pkFetched=false; renderWeekPicks(); }
+function pkReset(){ _pkPicks=null; _pkFetched=false; _pkSubmitted=null; renderWeekPicks(); }
+/* Picks are held on the device until they are submitted, the same as a poll
+   ballot. Saving each tap straight to the profile made every half-formed slate
+   look final, and left no moment where a manager says "these are mine". */
+const pkSubKey=()=>pkKey()+'_sub';
+function pkSubmitted(){
+  if(_pkSubmitted!=null) return _pkSubmitted;
+  _pkSubmitted=localStorage.getItem(lsKey(pkSubKey()))==='1';
+  return _pkSubmitted;
+}
+let _pkSubmitted=null;
 async function pkPick(gi,teamId,el){
-  if(_pkBusy||pkLocked()) return;
+  if(_pkBusy||pkLocked()||pkSubmitted()) return;
   if(el&&el.blur) el.blur();
   const p=pkLoad();
   /* tapping the side you already have clears it, rather than doing nothing */
@@ -6543,7 +6553,21 @@ async function pkPick(gi,teamId,el){
   else p[gi]=String(teamId);
   localStorage.setItem(lsKey(pkKey()),JSON.stringify(p));
   renderWeekPicks();
-  if(_me){ _pkBusy=true; try{ await gflPatchProfile(_me.k1,{[pkKey()]:JSON.stringify(p)}); }catch(e){} _pkBusy=false; }
+}
+async function pkSubmit(){
+  if(_pkBusy||pkLocked()) return;
+  const p=pkLoad();
+  if(Object.keys(p).length!==pkGames().length) return;
+  _pkBusy=true; renderWeekPicks();
+  if(_me){ try{ await gflPatchProfile(_me.k1,{[pkKey()]:JSON.stringify(p)}); }catch(e){} }
+  _pkSubmitted=true; localStorage.setItem(lsKey(pkSubKey()),'1');
+  _pkBusy=false; renderWeekPicks();
+}
+/* reopening lets a slate be changed right up until the games start */
+function pkReopen(){
+  if(pkLocked()) return;
+  _pkSubmitted=false; localStorage.removeItem(lsKey(pkSubKey()));
+  renderWeekPicks();
 }
 
 function renderWeekPicks(){
@@ -6557,7 +6581,8 @@ function renderWeekPicks(){
   const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
   const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
   const done=games.map((_,i)=>i).filter(i=>picks[i]!=null);
-  const locked=pkLocked();
+  const locked=pkLocked()||pkSubmitted();
+  const sent=pkSubmitted();
   /* The Matchup of the Week leads the stack. That section is hidden, so this is
      where the pick on it now lives — outlined in the home gold and worth double,
      which is the whole reason to call it out. */
@@ -6580,8 +6605,13 @@ function renderWeekPicks(){
     <div class="bk-meta"><span>Week ${(_liveInfo||liveWeekInfo()||{}).week??'—'}</span>
       <span class="bk-count">${done.length} of ${games.length}</span></div>
     <div class="pk-grid">${order.map(cell).join('')}</div>
-    ${locked?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
-      :done.length===games.length?`<div class="bk-fin"><i class="fa fa-circle-check"></i>Picks are in — tap a side again to clear it, or the other to switch.</div>`:''}`;
+    ${pkLocked()?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
+      :sent?`<div class="pk-sent">
+          <span><i class="fa fa-circle-check"></i>Picks submitted</span>
+          <button class="pk-reopen" onclick="pkReopen()">Change them</button>
+        </div>`
+      :`<button class="pk-go" ${done.length===games.length&&!_pkBusy?'':'disabled'} onclick="pkSubmit()">
+          ${_pkBusy?'Saving…':done.length===games.length?'Submit picks':`Pick all ${games.length}`}</button>`}`;
 }
 /* Picks close when the week's football does. weekHasStarted is the same signal
    the sportsbook and bet-cancellation use, so none of the three can disagree
@@ -7620,7 +7650,10 @@ function renderBook(){
   const el=document.getElementById('book-body'); if(!el) return;
   const book=sbBuild();
   if(!book){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Setting the lines…</div>`; return; }
-  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')"><i class="fa ${g.icon}"></i>${g.label}</button>`).join('');
+  /* no icons on the view filters — six of them side by side was more symbol
+     than signal. The My Bets button keeps its wallet, being a different kind
+     of control rather than one of a set. */
+  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
   const board=_sbView==='team'?sbTeamViewHTML(book)
     :_sbView==='week'?sbWeekHTML()
     :_sbView==='mine'?myBetsHTML()
