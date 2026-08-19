@@ -5237,6 +5237,12 @@ function renderMyProfile(){
     <div class="mp-actions">
       <button class="mv-btn" onclick="switchTab('teams')">Open team profile</button>
       <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
+      ${''/* how the plant is doing, without having to read the picture */}
+      <span class="mp-plant s${plantStage().stage}">
+        <i class="fa fa-seedling"></i>
+        <span class="mp-plant-l">Plant</span>
+        <span class="mp-plant-v">${plantStage().label}</span>
+      </span>
     </div>`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
      straight here without opening a team profile first — the cache is empty and
@@ -5883,7 +5889,7 @@ async function renderProfile(){
         </div>
       </div>
     </div>
-    ${faabChipHTML(t)}
+    <!-- FAAB gauge removed from the hero on request -->
     </div>
     ${bkIQHTML(id)}
     ${legacyReportHTML(owner)}
@@ -6338,6 +6344,18 @@ async function bkSync(){
   }catch(e){}
 }
 function bkReset(){ _bkAnswers=null; _bkFetched=false; _bkOpen=null; renderBallKnowledge(); }
+/* Step back to the most recently answered question and clear it, so it is
+   asked again. Only reachable while the set is still open. */
+async function bkBack(){
+  const ans=bkLoadAnswers();
+  const done=Object.keys(ans).map(Number).sort((a,b)=>a-b);
+  if(!done.length) return;
+  const last=done[done.length-1];
+  delete ans[last];
+  localStorage.setItem(lsKey(bkKey()),JSON.stringify(ans));
+  renderBallKnowledge();
+  if(_me){ try{ await gflPatchProfile(_me.k1,{[bkKey()]:JSON.stringify(ans)}); }catch(e){} }
+}
 
 function bkQuestions(){ return (_CFG.ballKnowledge||{}).questions||[]; }
 function bkLoadAnswers(){
@@ -6392,7 +6410,12 @@ function renderBallKnowledge(){
         <div class="bk-opts">
           ${q.a.map((opt,ai)=>`<button type="button" class="bk-opt" onclick="bkAnswer(${i},${ai},this)">${opt}</button>`).join('')}
         </div>
-      </div>`;
+      </div>
+      ${''/* going back re-opens the last one answered, so a misfire can be
+             corrected — but only while the set is still open. Once it is graded
+             the answers are settled and there is no way back in. */}
+      ${answered.length?`<button class="bk-back" onclick="bkBack()">
+        <i class="fa fa-arrow-left"></i>Back to the last question</button>`:''}`;
     bkPlace(false);
     return;
   }
@@ -6440,13 +6463,19 @@ function bkPlace(done){
   sec.classList.add('bk-moved');
   const to=sec.getBoundingClientRect();
   const dx=from.left-to.left, dy=from.top-to.top;
-  if(!dx&&!dy) return;
+  if(!dx&&!dy){ sec.scrollIntoView({block:'center',behavior:'smooth'}); return; }
   sec.style.transition='none';
   sec.style.transform=`translate(${dx}px,${dy}px)`;
   sec.offsetHeight;                       // commit the start position
-  sec.style.transition='transform .55s cubic-bezier(.22,.7,.2,1)';
+  /* Slower than a normal reflow on purpose, and the page follows it down. The
+     card travelling to the foot of the page is the only cue that the set is
+     finished and where the result now lives, so it has to be watchable rather
+     than a jump that happens off screen. */
+  sec.style.transition='transform 1.1s cubic-bezier(.3,.75,.25,1)';
   sec.style.transform='';
-  setTimeout(()=>{ sec.style.transition=''; },600);
+  try{ sec.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){}
+  setTimeout(()=>{ sec.style.transition=''; sec.classList.add('bk-landed'); },1150);
+  setTimeout(()=>{ sec.classList.remove('bk-landed'); },2400);
 }
 
 /* ── Weekly picks ───────────────────────────────────────────────────────────
@@ -6486,9 +6515,12 @@ async function pkSync(){
 }
 function pkReset(){ _pkPicks=null; _pkFetched=false; renderWeekPicks(); }
 async function pkPick(gi,teamId,el){
-  if(_pkBusy) return;
+  if(_pkBusy||pkLocked()) return;
   if(el&&el.blur) el.blur();
-  const p=pkLoad(); p[gi]=String(teamId);
+  const p=pkLoad();
+  /* tapping the side you already have clears it, rather than doing nothing */
+  if(String(p[gi])===String(teamId)) delete p[gi];
+  else p[gi]=String(teamId);
   localStorage.setItem(lsKey(pkKey()),JSON.stringify(p));
   renderWeekPicks();
   if(_me){ _pkBusy=true; try{ await gflPatchProfile(_me.k1,{[pkKey()]:JSON.stringify(p)}); }catch(e){} _pkBusy=false; }
@@ -6505,23 +6537,45 @@ function renderWeekPicks(){
   const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
   const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
   const done=games.map((_,i)=>i).filter(i=>picks[i]!=null);
+  const locked=pkLocked();
+  /* The Matchup of the Week leads the stack. That section is hidden, so this is
+     where the pick on it now lives — outlined in the home gold and worth double,
+     which is the whole reason to call it out. */
+  const motw=pkMotwIndex(games);
+  const order=motw>=0?[motw,...games.map((_,i)=>i).filter(i=>i!==motw)]:games.map((_,i)=>i);
   /* A grid rather than a stack of dropdowns: every game is on screen at once
      and a pick is one tap on the side you want, with no opening or closing.
      Both sides of a game sit in one cell so the pair always reads together. */
   const cell=(i)=>{
-    const g=games[i], mine=picks[i];
+    const g=games[i], mine=picks[i], big=i===motw;
     const side=t=>`<button type="button" class="pk-s${String(mine)===String(t)?' on':''}"
-      onclick="pkPick(${i},${t},this)" title="${nm(t).replace(/"/g,'&quot;')}">
+      ${locked?'disabled':`onclick="pkPick(${i},${t},this)"`} title="${nm(t).replace(/"/g,'&quot;')}">
       ${logoImg(t,'pk-logo')}<span>${ab(t)}</span></button>`;
-    return `<div class="pk-g${mine!=null?' picked':''}">
-      ${side(g.away.teamId)}<span class="pk-at">@</span>${side(g.home.teamId)}
+    return `<div class="pk-g${mine!=null?' picked':''}${big?' pk-motw':''}${locked?' pk-lock':''}">
+      ${big?`<div class="pk-badge"><i class="fa fa-fire"></i>Matchup of the Week · double</div>`:''}
+      <div class="pk-sides2">${side(g.away.teamId)}<span class="pk-at">@</span>${side(g.home.teamId)}</div>
     </div>`;
   };
   el.innerHTML=`
     <div class="bk-meta"><span>Week ${(_liveInfo||liveWeekInfo()||{}).week??'—'}</span>
       <span class="bk-count">${done.length} of ${games.length}</span></div>
-    <div class="pk-grid">${games.map((_,i)=>cell(i)).join('')}</div>
-    ${done.length===games.length?`<div class="bk-fin"><i class="fa fa-circle-check"></i>Picks are in — tap another side to change one.</div>`:''}`;
+    <div class="pk-grid">${order.map(cell).join('')}</div>
+    ${locked?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
+      :done.length===games.length?`<div class="bk-fin"><i class="fa fa-circle-check"></i>Picks are in — tap a side again to clear it, or the other to switch.</div>`:''}`;
+}
+/* Picks close when the week's football does. weekHasStarted is the same signal
+   the sportsbook and bet-cancellation use, so none of the three can disagree
+   about whether a week is under way. */
+function pkLocked(){ return weekHasStarted(); }
+/* which game on the slate is the Matchup of the Week, if it is on this slate */
+function pkMotwIndex(games){
+  const pair=(typeof motwPair==='function')?motwPair():null;
+  if(!pair) return -1;
+  const [A,B]=pair;
+  return games.findIndex(g=>{
+    const ids=[g.home.teamId,g.away.teamId].map(String);
+    return ids.includes(String(A.id))&&ids.includes(String(B.id));
+  });
 }
 
 /* ── Coaches' Poll ──────────────────────────────────────────────────────────
@@ -6799,13 +6853,15 @@ function bkPickScore(p){
     let picks={}; try{ picks=JSON.parse(p[k]||'{}'); }catch{ return; }
     const meta=_seasonMeta[getSeason()]; if(!meta) return;
     const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===wk&&m.home&&m.away);
+    const motw=pkMotwIndex(games);
     Object.entries(picks).forEach(([gi,teamId])=>{
       const g=games[Number(gi)]; if(!g) return;
       const hp=g.home.totalPoints||0, ap=g.away.totalPoints||0;
       if(hp===0&&ap===0) return;                       // not played
       const winner=hp>ap?g.home.teamId:ap>hp?g.away.teamId:null;
       if(winner==null) return;                          // a tie pays neither way
-      s+=(String(winner)===String(teamId)?1:-1);
+      const w=(Number(gi)===motw)?2:1;                  // the featured game counts double
+      s+=(String(winner)===String(teamId)?w:-w);
     });
   });
   return s;
@@ -7107,7 +7163,7 @@ function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
    at kickoff for exactly that reason, so weekly markets close the moment any
    game in the week starts. Season futures stay open, the way they do at a real
    book: they are settled months out and a single Sunday does not decide them. */
-function sbWeekLocked(){ return _nflStarted===true; }
+function sbWeekLocked(){ return weekHasStarted(); }
 function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
   /* a weekly market with the football already running is shown but dead */
@@ -7732,10 +7788,10 @@ async function loadDashboard(){
               <div class="sec-head"><i class="fa fa-hand-pointer"></i>Weekly Picks</div>
               <div id="pk-body"></div>
             </div>
-            <div class="sec wm" data-wm="&#xf091;">
-              <div class="sec-head"><i class="fa fa-fire"></i>Matchup of the Week</div>
-              <div id="motw"></div>
-            </div>
+            <!-- Matchup of the Week is hidden for now. The markup and
+                 renderMatchupOfWeek() are both still here; putting the block
+                 back and restoring the call in the boot sequence brings it
+                 back exactly as it was. Its pick now leads the weekly stack. -->
           </div>
           <div class="home-vid-col">
             <div class="sec">
@@ -7968,7 +8024,10 @@ async function loadDashboard(){
 
     refreshSeasonOptions();
     renderStandingsTable();
-    renderMatchupOfWeek();
+    /* Matchup of the Week is hidden — see the homepage markup. Skipping the
+       render is the point: it built a comparison table and ran a vote fetch on
+       every load. */
+    // renderMatchupOfWeek();
     renderPunishment();
     renderMyMatchupBar();   // punishment bar: config-driven, so it can paint now
     renderBallKnowledge();

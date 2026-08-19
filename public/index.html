@@ -680,6 +680,18 @@
     .pk-s:focus{outline:none;}
     .pk-s.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.18);color:var(--accent);}
     .pk-s span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    /* the featured game: home gold, a badge, and a little more presence */
+    .pk-sides2{display:flex;align-items:stretch;gap:4px;}
+    .pk-g{flex-direction:column;}
+    .pk-motw{border-color:#E0B67B;background:rgba(224,182,123,0.09);
+      box-shadow:0 0 0 1px rgba(224,182,123,0.35) inset;}
+    .pk-badge{display:flex;align-items:center;gap:6px;padding:5px 7px 3px;
+      font-family:'Inter',sans-serif;font-size:9px;font-weight:800;letter-spacing:.6px;
+      text-transform:uppercase;color:#E0B67B;}
+    .pk-motw .pk-s.on{border-color:#E0B67B;background:rgba(224,182,123,0.2);color:#E0B67B;}
+    /* closed once the week starts */
+    .pk-lock{opacity:.55;}
+    .pk-lock .pk-s{cursor:not-allowed;}
     .pk-at{flex:0 0 auto;display:flex;align-items:center;font-family:'Inter',sans-serif;
       font-size:9px;font-weight:700;color:var(--text3);}
 
@@ -797,6 +809,17 @@
     .bkr-a{flex:0 0 auto;max-width:42%;overflow:hidden;text-overflow:ellipsis;
       white-space:nowrap;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;}
     .bkr.ok .bkr-a{color:#3fd07a;} .bkr.no .bkr-a{color:#e8687e;}
+    /* the swing lands with a beat of its own, so the number is noticed */
+    .bk-delta-v{animation:bkPop .7s cubic-bezier(.2,1.4,.4,1) .15s both;}
+    @keyframes bkPop{0%{opacity:0;transform:scale(.5) translateY(8px);}
+      60%{opacity:1;transform:scale(1.15) translateY(0);}
+      100%{opacity:1;transform:scale(1) translateY(0);}}
+    /* a brief glow where the card comes to rest */
+    .bk-landed{box-shadow:0 0 0 2px rgba(var(--accent-rgb),0.5),0 12px 40px -18px rgba(var(--accent-rgb),0.8);
+      transition:box-shadow .4s ease;}
+    @media(prefers-reduced-motion:reduce){
+      .bk-delta-v{animation:none;}
+    }
     .bk-delta{display:flex;align-items:center;gap:10px;margin-top:10px;padding:11px 13px;
       border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,0.22);}
     .bk-delta-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:800;line-height:1;}
@@ -804,6 +827,12 @@
     .bk-delta.flat .bk-delta-v{color:var(--text2);}
     .bk-delta-l{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    /* step back to the previous question while the set is still open */
+    .bk-back{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
+      margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--border);
+      background:none;color:var(--text3);cursor:pointer;font-family:'Inter',sans-serif;
+      font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;}
+    .bk-back:hover{border-color:var(--accent);color:var(--accent);}
     .bk-fin{display:flex;align-items:center;gap:7px;margin-top:10px;
       font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);}
     .bk-fin i{color:var(--accent);}
@@ -1589,6 +1618,18 @@
       image-rendering:pixelated;image-rendering:crisp-edges;}
     .lk-cap{padding:8px 13px 10px;font-family:'Inter',sans-serif;font-size:10px;
       letter-spacing:.4px;text-transform:uppercase;color:var(--text3);text-align:center;}
+    /* plant status, sitting with the profile actions */
+    .mp-plant{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;
+      border-radius:9px;border:1px solid var(--border);background:rgba(0,0,0,0.2);}
+    .mp-plant-l{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    .mp-plant-v{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;}
+    .mp-plant.s0 i,.mp-plant.s0 .mp-plant-v{color:#4ade80;}
+    .mp-plant.s1 i,.mp-plant.s1 .mp-plant-v{color:#3fc46e;}
+    .mp-plant.s2 i,.mp-plant.s2 .mp-plant-v{color:#b0a03a;}
+    .mp-plant.s3 i,.mp-plant.s3 .mp-plant-v{color:#d08a3a;}
+    .mp-plant.s4 i,.mp-plant.s4 .mp-plant-v{color:#c86a4a;}
+    .mp-plant.s5 i,.mp-plant.s5 .mp-plant-v{color:#8a7060;}
     /* The plant is the watering control: tap it and a can tips in and pours.
        Both are drawn into the svg and hidden until the class lands, so the
        animation needs no second render. */
