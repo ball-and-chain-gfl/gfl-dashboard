@@ -4641,7 +4641,6 @@ async function initMessages(){
    exactly as it does signed out. */
 const GFL_DB={project:'ball-and-chain-dashboard',key:'AIzaSyCOfZYqsD3VZmym7AW0DDX_JQnBYCZhJDA'};
 const gflDocUrl=id=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles/${encodeURIComponent(id)}?key=${GFL_DB.key}`;
-const gflCollUrl=id=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles?documentId=${encodeURIComponent(id)}&key=${GFL_DB.key}`;
 const keySlug=s=>String(s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
 let _me=null;                                  // {k1,k2,teamId} once signed in
 
@@ -4659,11 +4658,10 @@ async function gflFetchProfile(id){
     return {data:fsIn(await r.json())};
   }catch(e){ return {error:'offline'}; }
 }
-async function gflCreateProfile(id,obj){
-  try{ const r=await fetch(gflCollUrl(id),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(obj))});
-    return r.ok?{ok:true}:{error:'could not create'};
-  }catch(e){ return {error:'offline'}; }
-}
+/* No profile-creating helper on purpose. The twelve accounts already exist and
+   the app must not be able to mint a thirteenth — restoring a create path is
+   what would reopen the hole. New managers get a document added deliberately,
+   outside the app. */
 async function gflPatchProfile(id,obj){
   const mask=Object.keys(obj).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
   try{ const r=await fetch(gflDocUrl(id)+'&'+mask,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(obj))});
@@ -4689,22 +4687,30 @@ async function gflListProfiles(){
 function signInMsg(t,bad){ const el=document.getElementById('si-msg'); if(!el) return;
   el.textContent=t||''; el.className='si-msg'+(bad?' bad':''); }
 
+/* The league is twelve managers and no more. Sign-in used to create a profile
+   for any unrecognised name, which is how bf, tt and idisoxnd came to exist —
+   anyone could invent an account and point it at somebody else's team. The
+   accounts are now a closed set: the twelve team abbreviations, nothing else,
+   and no path that writes a new one. */
+const teamAccountIds=()=>new Set(_teams.map(t=>keySlug(t.abbrev||teamInitials(t.name))).filter(Boolean));
 async function gflSignIn(){
   const k1=(document.getElementById('si-k1')||{}).value||'';
   const k2=(document.getElementById('si-k2')||{}).value||'';
   if(!keySlug(k1)||!String(k2).trim()) return signInMsg('Both keys are needed.',true);
   const id=keySlug(k1);
+  /* Checked against the loaded teams rather than a hard-coded list, so a
+     renamed franchise does not lock its manager out. If teams have not loaded
+     yet the profile lookup below still gates it — there is no branch that
+     creates one either way. */
+  const allowed=teamAccountIds();
+  if(allowed.size && !allowed.has(id)) return signInMsg('That is not a league account.',true);
   signInMsg('Checking…');
   const res=await gflFetchProfile(id);
   if(res.error) return signInMsg(res.error==='offline'?'No connection — try again.':res.error,true);
-  if(res.missing){
-    const teamId=String(_profileTeam||_teams[0]?.id||'');
-    const c=await gflCreateProfile(id,{k2:String(k2).trim(),teamId});
-    if(c.error) return signInMsg(c.error,true);
-    _me={k1:id,k2:String(k2).trim(),teamId}; meSave(); applyMe(); closeSignIn();
-    return;
-  }
+  if(res.missing) return signInMsg('That is not a league account.',true);
   if(String(res.data.k2||'')!==String(k2).trim()) return signInMsg('That second key does not match.',true);
+  /* the team comes off the stored profile, never from whatever the page had
+     selected — that was how a made-up account could attach itself to any team */
   _me={k1:id,k2:String(k2).trim(),teamId:res.data.teamId||''}; meSave(); applyMe(); closeSignIn();
 }
 function gflSignOut(){ _me=null; meSave(); applyMe(); closeSignIn(); }
@@ -5016,7 +5022,7 @@ function openSignIn(){
     : `<label class="si-l">Key 1</label><input id="si-k1" class="si-i" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="anything you'll remember"/>
        <label class="si-l">Key 2</label><input id="si-k2" class="si-i" type="password" autocomplete="off" placeholder="second key"/>
        <button class="si-go" onclick="gflSignIn()">Unlock</button>
-       <div class="si-note">New key pair? It saves itself the first time. Signed out, the site works exactly the same.</div>`;
+       <div class="si-note">Key 1 is your team's abbreviation. Accounts are fixed to the twelve teams — there is no sign-up. Signed out, the site works exactly the same.</div>`;
   signInMsg('');
   m.classList.add('show');
   document.documentElement.classList.add('si-open');
