@@ -89,7 +89,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',schedule:'#fb9167',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#b979fe',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',week:'Forecast',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
+const TAB_LABELS={home:'Home',week:'Forecast',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -3108,33 +3108,52 @@ function homePunishHTML(){
       <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
       <div class="home-punish-name">${cfg.name||'TBD'}</div>
     </div>
-    <button class="home-punish-more" onclick="openPunishRules()">Details <i class="fa fa-arrow-right"></i></button>
+    <button class="home-punish-more" onclick="switchTab('punishment')">Details <i class="fa fa-arrow-right"></i></button>
   </div>`;
 }
+/* The Punishments tab. Everything the Details sheet used to hold — the picked
+   punishment, its write-up and the tappable menu — plus the season schedule
+   under it. punishRulesHTML() is shared with nothing else now, but it stays a
+   separate function because selectPunish() repaints only that half when you
+   tap through the menu. */
 function renderPunishment(){
   const el=document.getElementById('punishment-body'); if(!el) return;
   const cfg=_CFG.punishment||{};
-  const cur=(cfg.name||'').toLowerCase();
-  const art=PUNISH_ART[cur]||{};
+  if(!cfg.name && cfg.week==null){
+    el.innerHTML='<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
+    return;
+  }
   el.innerHTML=`
-    <div class="punish-hero">
-      <div class="punish-art">${art.svg||`<i class="fa ${PUNISH_ICON[cur]||'fa-gavel'}" style="font-size:96px;color:var(--accent)"></i>`}</div>
-      <div class="punish-info">
-        <div class="punish-week">Week ${cfg.week??'—'} Punishment</div>
-        <div class="punish-name">${cfg.name||'TBD'}</div>
-        <div class="punish-note">${cfg.note||''}</div>
-      </div>
-    </div>
-    <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-list-check"></i>Punishment Menu</div>
-    <div class="punish-menu">
-      ${(cfg.options||[]).map(o=>`<div class="punish-opt ${o.toLowerCase()===cur?'active':''}"><i class="fa ${PUNISH_ICON[o.toLowerCase()]||'fa-circle'}"></i>${o}${o.toLowerCase()===cur?'<span class="punish-tag">THIS WEEK</span>':''}</div>`).join('')}
-    </div>`;
+    <div class="sec"><div class="sec-head"><i class="fa fa-gavel"></i>This Week</div>
+      <div id="punish-rules-body">${punishRulesHTML()}</div></div>
+    <div class="sec"><div class="sec-head"><i class="fa fa-calendar-days"></i>Season Schedule</div>
+      ${punishScheduleHTML()}</div>`;
+}
+/* Weeks 1 to 14 and what is on the line each one. The current week — the one
+   punishment.week names — is outlined rather than filled, so it reads as
+   "you are here" without competing with the row content. */
+function punishScheduleHTML(){
+  const cfg=_CFG.punishment||{};
+  const sch=cfg.schedule||{};
+  const cur=Number(cfg.week);
+  const rows=[];
+  for(let w=1;w<=14;w++){
+    const name=String(sch[w]||'').trim();
+    const l=name.toLowerCase();
+    const on=w===cur;
+    rows.push(`<div class="ps-row${on?' ps-now':''}">
+      <span class="ps-wk">Week ${w}</span>
+      <span class="ps-name${name?'':' ps-tbd'}">
+        <i class="fa ${name?(PUNISH_ICON[l]||'fa-circle'):'fa-minus'}"></i>${name||'TBD'}</span>
+      ${on?'<span class="punish-tag">THIS WEEK</span>':''}
+    </div>`);
+  }
+  return `<div class="ps-list">${rows.join('')}</div>
+    <div class="ps-note">Set each week under <b>punishment.schedule</b> in config.js.</div>`;
 }
 
-/* The Punishment tab is retired; its content lives in a popup off the homepage
-   module's CTA. Same config in config.js, so the weekly edit is unchanged. */
-/* Which punishment the popup is showing. Reset to this week's every time the
-   popup opens, so it never remembers a previous browse. */
+/* Which punishment the tab is showing. Reset to this week's on every render,
+   so it never remembers a previous browse. */
 let _prSel=null;
 function selectPunish(name){ _prSel=name; const b=document.getElementById('punish-rules-body'); if(b) b.innerHTML=punishRulesHTML(); }
 function punishRulesHTML(){
@@ -3196,17 +3215,6 @@ function modalLock(on){
     window.scrollTo(0,_lockY);
   }
 }
-function openPunishRules(){
-  const body=document.getElementById('punish-rules-body');
-  const ov=document.getElementById('punish-overlay');
-  if(!body||!ov) return;
-  _prSel=null;                         // always opens on this week's punishment
-  body.innerHTML=punishRulesHTML();
-  ov.classList.add('open');
-  modalLock(true);
-}
-function closePunishRules(e){ if(e.target===document.getElementById('punish-overlay')) closePunishRulesDirect(); }
-function closePunishRulesDirect(){ document.getElementById('punish-overlay')?.classList.remove('open'); modalLock(false); }
 
 // ── GABE'S GREATNESS ─────────────────────────────────────────────────────────
 let _gabeGames=null,_gabePromise=null,_gabeView='started';
@@ -4614,7 +4622,7 @@ function punishBarHTML(){
       <span class="pb-wk">Week ${cfg.week??'—'} Punishment</span>
       <span class="pb-name">${cfg.name||'TBD'}</span>
     </span>
-    <button class="pb-more" onclick="openPunishRules()">Details <i class="fa fa-arrow-right"></i></button>
+    <button class="pb-more" onclick="switchTab('punishment')">Details <i class="fa fa-arrow-right"></i></button>
   </div>`;
 }
 function renderMyMatchupBar(){
@@ -8467,6 +8475,10 @@ async function loadDashboard(){
       <div class="tab-page" id="page-legacy"><div id="legacy-body"></div></div>
 
       <!-- SPORTSBOOK -->
+      <div class="tab-page" id="page-punishment">
+        <div id="punishment-body"></div>
+      </div>
+
       <div class="tab-page" id="page-book">
         <div class="sec wm" data-wm="&#xf51e;">
           <div id="book-body"></div>

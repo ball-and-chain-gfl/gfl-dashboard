@@ -1044,7 +1044,9 @@
     .sec-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:7px;margin:-8px 0 26px;
       position:sticky;z-index:380;top:var(--navbot,calc(env(safe-area-inset-top,0px) + 82px));
       /* the bar itself stays transparent; the drawer below does the covering */
-      padding:8px 0;background:transparent;}
+      --secpad:10px;
+      padding:var(--secpad) max(0px,calc(var(--secpad) - var(--navside,2px)));
+      background:transparent;}
     /* The drawer. It lives behind the chips and one notch below them in the
        bar's own stacking context, and starts translated a full height up —
        which puts it inside the nav, whose z-index of 400 hides it. Docking
@@ -1052,9 +1054,9 @@
        team profile hero. It reaches the nav's side edges via --navside and
        hangs 6px past the chips so the rounded bottom has somewhere to sit. */
     .sec-nav::before{content:"";position:absolute;z-index:-1;pointer-events:none;
-      top:0;bottom:-6px;left:calc(var(--navside,2px) * -1);right:calc(var(--navside,2px) * -1);
+      top:0;bottom:0;left:calc(var(--navside,2px) * -1);right:calc(var(--navside,2px) * -1);
       border-radius:0 0 12px 12px;
-      background:rgba(0,0,0,0.92);
+      background:rgba(0,0,0,0.3);
       -webkit-backdrop-filter:blur(22px) saturate(1.3);
       backdrop-filter:blur(22px) saturate(1.3);
       box-shadow:0 18px 34px -26px rgba(0,0,0,0.95);
@@ -1077,28 +1079,45 @@
     /* Each chip carries its own solid base under the accent tint. The bar is
        transparent, so without this the page scrolls straight through them and
        the labels stop being readable once the bar pins. */
-    .sx-chip{background:
-        linear-gradient(rgba(var(--accent-rgb),0.20),rgba(var(--accent-rgb),0.20)),
-        rgba(20,20,23,0.96);
-      -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-      border:1px solid rgba(var(--accent-rgb),0.42);
-      border-radius:999px;padding:6px 11px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
-      letter-spacing:.2px;color:var(--text);cursor:pointer;text-align:center;min-width:0;
+    /* As plain as it goes: white label, one flat fill, no tint, no blur, no
+       outline, and the 8px corner the nav's own controls use. */
+    .sx-chip{background:rgba(255,255,255,0.07);border:0;
+      border-radius:8px;padding:7px 11px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
+      letter-spacing:.2px;color:#fff;cursor:pointer;text-align:center;min-width:0;
       /* wrap rather than clip: a label is never cut off */
       white-space:normal;line-height:1.2;overflow-wrap:anywhere;
       display:flex;align-items:center;justify-content:center;
-      transition:background .14s,border-color .14s,transform .07s;}
-    .sx-chip:hover{background:linear-gradient(rgba(var(--accent-rgb),0.32),rgba(var(--accent-rgb),0.32)),rgba(20,20,23,0.96);border-color:rgb(var(--accent-rgb));}
-    .sx-chip:active{transform:translateY(1px);}
+      transition:background .14s;}
+    .sx-chip:hover{background:rgba(255,255,255,0.14);}
     /* selected state, used where the chips act as a switcher */
-    .sx-chip.on{background:linear-gradient(rgba(var(--accent-rgb),0.40),rgba(var(--accent-rgb),0.40)),rgba(20,20,23,0.96);border-color:rgb(var(--accent-rgb));
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.12);}
-    html[data-theme="light"] .sx-chip{color:#1c1a17;background:linear-gradient(rgba(var(--accent-rgb),0.26),rgba(var(--accent-rgb),0.26)),rgba(255,255,255,0.96);
-      border-color:rgba(var(--accent-rgb),0.55);}
+    .sx-chip.on{background:rgba(255,255,255,0.22);}
+    html[data-theme="light"] .sx-chip{color:#fff;background:rgba(0,0,0,0.45);}
     @media(max-width:768px){
       /* grid, not the old scrolling row — the chips must all fit */
       .sec-nav{gap:6px;margin:-4px 0 20px;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));}
       .sx-chip{font-size:11.5px;padding:6px 8px;letter-spacing:.1px;}
+    }
+
+    /* ── Punishments: the season schedule ─────────────────────────────────
+       One row per week. The current week is outlined rather than filled, so it
+       reads as "you are here" without competing with the row's own content. */
+    .ps-list{display:flex;flex-direction:column;gap:6px;}
+    .ps-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:9px;
+      background:rgba(255,255,255,0.04);border:1px solid transparent;}
+    .ps-row.ps-now{border-color:rgb(var(--accent-rgb));background:rgba(var(--accent-rgb),0.10);}
+    .ps-wk{flex:0 0 74px;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
+      letter-spacing:.7px;text-transform:uppercase;color:var(--text3);}
+    .ps-row.ps-now .ps-wk{color:var(--accent);}
+    .ps-name{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:9px;
+      font-family:'Inter',sans-serif;font-size:13.5px;font-weight:700;color:var(--text);}
+    .ps-name i{width:16px;text-align:center;color:var(--accent);font-size:12px;}
+    .ps-name.ps-tbd{color:var(--text3);font-weight:600;}
+    .ps-name.ps-tbd i{color:var(--text3);}
+    .ps-note{margin-top:12px;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);}
+    @media(max-width:768px){
+      .ps-row{padding:10px 11px;gap:9px;}
+      .ps-wk{flex-basis:62px;font-size:10px;}
+      .ps-name{font-size:12.5px;}
     }
 
     /* ── Bad Beat column key ──────────────────────────────────────────────── */
@@ -4340,7 +4359,7 @@
     #page-home .mod-punish.wm::before,#page-home .mod-punish.wm::after{opacity:0.05;}
   
     /* ── Punishment rules popup (the retired tab, as a modal) ─────────────── */
-    #punish-overlay{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+    #page-punishment{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     .pr-hero{display:flex;align-items:center;gap:14px;}
     .pr-ic{width:52px;height:52px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;
@@ -4357,20 +4376,20 @@
     /* This week's punishment leads at full width, the other six in a 2x3 grid
        beneath it. The grid tiles stack their icon over the label so six fit on
        a phone without the names wrapping awkwardly. */
-    #punish-overlay .punish-menu{grid-template-columns:1fr;gap:8px;margin-top:0;}
-    #punish-overlay .pr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    #page-punishment .punish-menu{grid-template-columns:1fr;gap:8px;margin-top:0;}
+    #page-punishment .pr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
       grid-auto-rows:1fr;gap:8px;margin-top:8px;}
-    #punish-overlay .punish-opt.pr-big{width:100%;display:flex;align-items:center;gap:12px;
+    #page-punishment .punish-opt.pr-big{width:100%;display:flex;align-items:center;gap:12px;
       padding:14px 16px;font-size:17px;border-color:rgba(var(--accent-rgb),0.55);
       background:linear-gradient(rgba(var(--accent-rgb),0.10),rgba(var(--accent-rgb),0.10)),rgba(0,0,0,0.16);}
-    #punish-overlay .punish-opt.pr-big i{font-size:22px;color:var(--accent);}
-    #punish-overlay .pr-grid .punish-opt{flex-direction:column;justify-content:center;
+    #page-punishment .punish-opt.pr-big i{font-size:22px;color:var(--accent);}
+    #page-punishment .pr-grid .punish-opt{flex-direction:column;justify-content:center;
       align-items:center;text-align:center;gap:7px;padding:12px 8px;font-size:13px;line-height:1.25;}
-    #punish-overlay .pr-grid .punish-opt i{font-size:18px;color:var(--accent);opacity:.9;}
-    #punish-overlay .pr-grid .punish-opt span{min-width:0;overflow-wrap:anywhere;}
+    #page-punishment .pr-grid .punish-opt i{font-size:18px;color:var(--accent);opacity:.9;}
+    #page-punishment .pr-grid .punish-opt span{min-width:0;overflow-wrap:anywhere;}
     /* the "this week" pill belongs on the featured tile, not floated in a
        centred grid cell */
-    #punish-overlay .pr-grid .punish-tag{display:none;}
+    #page-punishment .pr-grid .punish-tag{display:none;}
     .pr-pick{width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--text);
       transition:border-color .15s,background .15s;}
     .pr-pick:hover{border-color:rgba(var(--accent-rgb),0.5);}
@@ -4429,15 +4448,6 @@
 </div>
 
 <!-- PUNISHMENT RULES MODAL (replaces the retired Punishment tab) -->
-<div class="modal-overlay" id="punish-overlay" onclick="closePunishRules(event)">
-  <div class="modal">
-    <div class="modal-header">
-      <h2>Punishment Rules</h2>
-      <button class="modal-close" onclick="closePunishRulesDirect()"><i class="fa fa-xmark"></i></button>
-    </div>
-    <div class="modal-body" id="punish-rules-body"></div>
-  </div>
-</div>
 
 <!-- COACHING MODAL -->
 <div class="modal-overlay" id="cm-overlay" onclick="closeCMModal(event)">
@@ -4474,6 +4484,7 @@
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
   <button class="tab-btn" data-tab="week" onclick="switchTab('week')"><i class="fa fa-bolt"></i>Forecast</button>
   <button class="tab-btn" data-tab="book" onclick="switchTab('book')"><i class="fa fa-coins"></i>B&amp;C Sportsbook</button>
+  <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishments</button>
   <button class="tab-btn" data-tab="teams" data-group="Team Data" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Rosters</button>
   <button class="tab-btn" data-tab="schedule" onclick="switchTab('schedule')"><i class="fa fa-calendar-days"></i>Schedules</button>

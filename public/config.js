@@ -142,8 +142,19 @@ window.GFL_CONFIG = {
       "It gets carried out on camera before the next week's games kick off.",
       "Duck it and you inherit the following week's punishment on top of your own.",
     ],
-    /* What each punishment actually involves. Click any entry in the popup's
-       menu to read it; it opens on whichever one is set above for this week.
+    /* THE SEASON SCHEDULE — which punishment is on the line each week, weeks
+       1 to 14. Keys are week numbers, values must match the `options`
+       spelling above. Only week 1 is filled in, because it is the only one
+       that has actually been set; every other week reads TBD on the
+       Punishments tab until you put a name here. Nothing is invented for you.
+       The row for `week` above is outlined on that tab as the current one. */
+    schedule: {
+      1: "Beer Pour",
+      2: "", 3: "", 4: "", 5: "", 6: "", 7: "",
+      8: "", 9: "", 10: "", 11: "", 12: "", 13: "", 14: "",
+    },
+    /* What each punishment actually involves. Click any entry in the menu to
+       read it; it opens on whichever one is set above for this week.
        Keys must match the `options` spelling. Blank ones just prompt you to
        write them — nothing here is invented for you. */
     details: {
