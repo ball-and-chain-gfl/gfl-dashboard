@@ -4762,7 +4762,8 @@ function applyMe(){
   }
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
-  try{ pkReset(); }catch(e){}             // and their weekly picks
+  try{ pkReset(); }catch(e){}
+  try{ _cpBallot=null; _cpFetched=false; renderCoachesPoll(); }catch(e){}             // and their weekly picks
   _rosterCache=null; _rosterTeam=null;
   if(_activeTab==='roster') renderRoster();
   if(_activeTab==='week') renderWeek();
@@ -6280,6 +6281,187 @@ function renderWeekPicks(){
     ${todo.length===0?`<div class="bk-fin"><i class="fa fa-circle-check"></i>Picks are in — tap any game to change one.</div>`:''}`;
 }
 
+/* ── Coaches' Poll ──────────────────────────────────────────────────────────
+   Post-draft rankings. Everyone numbers the teams best to worst; the league
+   average of those numbers is the poll. Ballots stay hidden until every manager
+   has voted, so nobody can anchor on a running total — the same reason the
+   weekly picks card shows no tally.
+
+   A ballot is one field on the profile: team ids in ranked order. The count of
+   ballots comes from reading the profiles, the same way the Matchup of the Week
+   vote already does, so no new collection was needed. */
+const cpKey=()=>`cp_${getSeason()}`;
+let _cpBallot=null,_cpRows=null,_cpBusy=false,_cpFetched=false;
+
+function cpMyBallot(){
+  if(_cpBallot) return _cpBallot;
+  try{ _cpBallot=JSON.parse(localStorage.getItem(cpKey())||'[]'); }catch{ _cpBallot=[]; }
+  return _cpBallot;
+}
+async function cpSync(){
+  if(_cpFetched) return; _cpFetched=true;
+  try{
+    const rows=await gflListProfiles();
+    if(rows){ _cpRows=rows; renderCoachesPoll(); }
+  }catch(e){}
+}
+function cpToggle(teamId){
+  const b=cpMyBallot().slice();
+  const i=b.indexOf(String(teamId));
+  if(i>=0) b.splice(i,1); else b.push(String(teamId));
+  _cpBallot=b; localStorage.setItem(cpKey(),JSON.stringify(b));
+  renderCoachesPoll();
+}
+function cpClear(){ _cpBallot=[]; localStorage.setItem(cpKey(),'[]'); renderCoachesPoll(); }
+async function cpSubmit(){
+  if(!_me||_cpBusy) return;
+  const b=cpMyBallot();
+  if(b.length!==_teams.length) return;
+  _cpBusy=true; renderCoachesPoll();
+  try{
+    await gflPatchProfile(_me.k1,{[cpKey()]:JSON.stringify(b)});
+    _cpFetched=false; await cpSync();
+  }catch(e){}
+  _cpBusy=false; renderCoachesPoll();
+}
+/* average rank across every submitted ballot */
+function cpTally(){
+  const rows=_cpRows||[];
+  const ballots=[];
+  rows.forEach(p=>{
+    let b=null; try{ b=JSON.parse(p[cpKey()]||'null'); }catch{ b=null; }
+    if(Array.isArray(b)&&b.length===_teams.length) ballots.push(b);
+  });
+  if(!ballots.length) return {ballots:0,rank:[]};
+  const sum={},n=ballots.length;
+  _teams.forEach(t=>{sum[t.id]=0;});
+  ballots.forEach(b=>b.forEach((id,i)=>{ if(sum[id]!=null) sum[id]+=i+1; }));
+  const rank=_teams.map(t=>({t,avg:sum[t.id]/n})).sort((a,b)=>a.avg-b.avg);
+  return {ballots:n,rank};
+}
+function renderCoachesPoll(){
+  const el=document.getElementById('cp-body'); if(!el) return;
+  cpSync();
+  const sec=document.getElementById('cp-sec');
+  if(!_teams.length){ if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  const {ballots,rank}=cpTally();
+  const total=_franchises.length||_teams.length;
+  const complete=ballots>=total;
+
+  if(!_me){
+    el.innerHTML=`<div class="cp-note">Sign in to cast a ballot.</div>
+      <div class="cp-meta">${ballots} of ${total} ballots in</div>`;
+    return;
+  }
+  if(complete){
+    el.innerHTML=`<div class="cp-meta">Final · ${ballots} ballot${ballots===1?'':'s'}</div>
+      <div class="cp-list">${rank.map((r,i)=>`<div class="cp-res">
+        <span class="cp-rk">${i+1}</span>
+        ${logoImg(r.t.id,'cp-logo')}
+        <span class="cp-nm">${r.t.name}</span>
+        <span class="cp-avg">${r.avg.toFixed(2)}</span>
+      </div>`).join('')}</div>`;
+    return;
+  }
+  const b=cpMyBallot();
+  const done=b.length===_teams.length;
+  el.innerHTML=`
+    <div class="cp-meta">${ballots} of ${total} ballots in · results unlock when everyone has voted</div>
+    <div class="cp-pick">${_teams.map(t=>{
+      const pos=b.indexOf(String(t.id));
+      return `<button class="cp-t${pos>=0?' on':''}" onclick="cpToggle(${t.id})">
+        ${pos>=0?`<span class="cp-num">${pos+1}</span>`:'<span class="cp-num cp-none"></span>'}
+        ${logoImg(t.id,'cp-logo')}
+        <span class="cp-nm">${t.abbrev||teamInitials(t.name)}</span>
+      </button>`;}).join('')}</div>
+    <div class="cp-actions">
+      <button class="cp-reset" onclick="cpClear()">Reset</button>
+      <button class="cp-go" ${done&&!_cpBusy?'':'disabled'} onclick="cpSubmit()">
+        ${_cpBusy?'Saving…':done?'Submit ballot':`Rank all ${_teams.length}`}</button>
+    </div>`;
+}
+
+/* ── League Action ──────────────────────────────────────────────────────────
+   Everything happening around the league in one compact feed — adds, drops and
+   trades, newest first, one line each so a lot fits without scrolling far.
+
+   Dismissals are per manager and kept locally rather than on the profile: this
+   is a "I have seen that" list, not league data, and it should not follow
+   anyone onto a second device or be worth a round trip. Clearing hides an item
+   from the feed; nothing is deleted, and the transactions themselves are still
+   read from ESPN as they always were. */
+const laSeenKey=()=>'la_seen_'+(_me?_me.k1:'guest');
+let _laSeen=null;
+function laSeen(){
+  if(_laSeen) return _laSeen;
+  try{ _laSeen=new Set(JSON.parse(localStorage.getItem(laSeenKey())||'[]')); }
+  catch{ _laSeen=new Set(); }
+  return _laSeen;
+}
+function laSave(){ localStorage.setItem(laSeenKey(),JSON.stringify([...laSeen()])); }
+function laDismiss(id){ laSeen().add(id); laSave(); renderLeagueAction(); }
+function laClearAll(){ laItems().forEach(i=>laSeen().add(i.id)); laSave(); renderLeagueAction(); }
+function laRestore(){ _laSeen=new Set(); laSave(); renderLeagueAction(); }
+
+/* One flat list of events. A transaction can carry several players, so each
+   add/drop becomes its own line while a trade stays one. */
+function laItems(){
+  const teamMap={}; _teams.forEach(t=>teamMap[t.id]=t);
+  const out=[];
+  (_transactions||[]).forEach((tx,ti)=>{
+    const when=Number(tx.processedDate||0);
+    const team=teamMap[tx.teamId];
+    const ab=team?(team.abbrev||teamInitials(team.name)):'—';
+    const type=tx.type||'', items=tx.items||[];
+    const base=`${when||'x'}-${tx.teamId}-${ti}`;
+    const nameOf=pid=>_playerNames[pid]||('#'+pid);
+    if(type==='WAIVER'||type==='FREEAGENT'){
+      items.forEach((i,k)=>{
+        if(i.type!=='ADD'&&i.type!=='DROP') return;
+        out.push({id:`${base}-${k}`, when, kind:i.type==='ADD'?'add':'drop',
+          teamId:tx.teamId, ab, player:nameOf(i.playerId),
+          note:i.type==='ADD'?(tx.bidAmount!=null?`$${tx.bidAmount}`:(type==='WAIVER'?'waiver':'FA')):''});
+      });
+    }else if(type==='TRADE_ACCEPT'||type==='TRADE'){
+      out.push({id:`${base}-tr`, when, kind:'trade', teamId:tx.teamId, ab,
+        player:items.map(i=>nameOf(i.playerId)).filter(Boolean).slice(0,3).join(', '),
+        note:`${items.length} player${items.length!==1?'s':''}`});
+    }
+  });
+  return out.sort((a,b)=>b.when-a.when);
+}
+function renderLeagueAction(){
+  const el=document.getElementById('la-body'); if(!el) return;
+  const sec=document.getElementById('la-sec');
+  const all=laItems();
+  if(!all.length){ if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  const seen=laSeen();
+  const list=all.filter(i=>!seen.has(i.id)).slice(0,40);
+  const hidden=all.length-list.length;
+  const ICON={add:'fa-plus',drop:'fa-minus',trade:'fa-right-left'};
+  const ago=ms=>{ if(!ms) return ''; const d=Math.floor((Date.now()-ms)/86400000);
+    if(d>0) return d+'d'; const h=Math.floor((Date.now()-ms)/3600000);
+    return h>0?h+'h':'now'; };
+  const rows=list.map(i=>`<div class="la-row la-${i.kind}">
+      <span class="la-ic"><i class="fa ${ICON[i.kind]}"></i></span>
+      <span class="la-ab">${i.ab}</span>
+      <span class="la-p">${i.player}</span>
+      ${i.note?`<span class="la-n">${i.note}</span>`:''}
+      <span class="la-t">${ago(i.when)}</span>
+      <button class="la-x" onclick="laDismiss('${i.id}')" aria-label="Clear"><i class="fa fa-xmark"></i></button>
+    </div>`).join('');
+  el.innerHTML=`
+    <div class="la-top">
+      <span class="la-count">${list.length} item${list.length===1?'':'s'}</span>
+      ${list.length?`<button class="la-clear" onclick="laClearAll()"><i class="fa fa-broom"></i>Clear all</button>`:''}
+    </div>
+    ${list.length?`<div class="la-list">${rows}</div>`
+      :`<div class="la-empty">All caught up.</div>`}
+    ${hidden?`<button class="la-restore" onclick="laRestore()">Show ${hidden} cleared</button>`:''}`;
+}
+
 /* ── Most cursed ────────────────────────────────────────────────────────────
    Bad Beat O'Meter's top of the table, surfaced on the homepage. */
 function renderCursed(){
@@ -7240,6 +7422,14 @@ async function loadDashboard(){
              This Week — it just no longer renders a board here. -->
         <!-- Last on the page, until Ball Knowledge is finished and slides below
              it — that card is explicitly meant to end up last once it is done. -->
+        <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
+          <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches' Poll</div>
+          <div id="cp-body"></div>
+        </div>
+        <div class="sec wm mod-la" data-wm="&#xf0a1;" id="la-sec">
+          <div class="sec-head"><i class="fa fa-bolt"></i>League Action</div>
+          <div id="la-body"></div>
+        </div>
         <div class="sec wm mod-curse" data-wm="&#xf7a9;" id="curse-sec">
           <div class="sec-head"><i class="fa fa-hat-wizard"></i>Most Cursed</div>
           <div id="curse-body"></div>
@@ -7442,6 +7632,8 @@ async function loadDashboard(){
     renderMyMatchupBar();   // punishment bar: config-driven, so it can paint now
     renderBallKnowledge();
     renderWeekPicks();
+    renderCoachesPoll();
+    renderLeagueAction();
     renderCursed();
     /* Only needed to grade the IQ meter, which sits at the average until the
        week is revealed — so the fetch is skipped entirely until then. */
