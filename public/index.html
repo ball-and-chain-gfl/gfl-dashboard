@@ -3942,13 +3942,19 @@
     #page-teams>.sec{background:none!important;border:none!important;box-shadow:none!important;
       -webkit-backdrop-filter:none!important;backdrop-filter:none!important;padding:0!important;}
     #page-teams>.sec>.picker-bar{padding:0 0 14px!important;}
-    /* profile hero uses the same accent-tinted panel as the matchup-history record block */
+    /* Profile hero: near-opaque black glass, no border. The blur is a real
+       backdrop-filter rather than a painted-on gradient, so it frosts whatever
+       is actually behind it — today that is the flat matte, because PAGE_BG is
+       empty and the media layer stays hidden, so it reads as a solid black
+       panel. Restore an entry to PAGE_BG and this starts frosting the artwork
+       with no further change here. Kept at 0.92 because "almost opaque" is the
+       look asked for; the blur is what carries the glass at the edges. */
     #page-teams .prof-banner{
-      /* accent tint over the black card, so it reads exactly like the record block
-         does inside its container on the Matchup History tab */
-      background:linear-gradient(rgba(var(--accent-rgb),0.05),rgba(var(--accent-rgb),0.05))!important;
-      border:1px solid rgba(var(--accent-rgb),0.18)!important;
-      border-radius:6px!important;
+      background:rgba(0,0,0,0.92)!important;
+      -webkit-backdrop-filter:blur(22px) saturate(1.3);
+      backdrop-filter:blur(22px) saturate(1.3);
+      border:0!important;
+      border-radius:10px!important;
       box-shadow:none!important;}
     /* the all-time lineup list sits inside a panel — match the card family */
     html[data-theme="dark"] #page-teams .lineup-list{background:rgba(0,0,0,0.35)!important;border-color:rgba(255,255,255,0.08);}
