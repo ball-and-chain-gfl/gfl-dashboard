@@ -1641,29 +1641,40 @@
     /* ── Locker room (My Profile) ──────────────────────────────────────────
        Pixel art, so the SVG is allowed to go soft nowhere: crisp edges in the
        markup and nearest-neighbour scaling here. */
-    .lk-wrap{border:1px solid var(--border);border-radius:11px;overflow:hidden;
-      background:#15151a;margin:14px 0 16px;}
-    .lk-bar{display:flex;align-items:center;justify-content:space-between;
-      padding:9px 13px;background:rgba(0,0,0,0.35);border-bottom:1px solid var(--border);
-      font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.7px;
-      text-transform:uppercase;color:var(--text3);}
-    .lk-ab{color:var(--accent);font-weight:800;}
-    .lk-svg{display:block;width:100%;height:auto;aspect-ratio:1280/560;
+    .lk-block{margin:14px 0 16px;}
+    /* No frame: the art breaks out of the page's padding and runs to both edges
+       of the screen. 100vw counts the scrollbar, so the width is taken from the
+       viewport that is actually there and the pull is half the difference
+       between that and the column the block sits in. */
+    .lk-wrap{background:#15151a;border:0;border-radius:0;overflow:hidden;
+      width:100vw;max-width:100vw;margin-inline:calc(50% - 50vw);}
+    @supports (width:100dvw){
+      .lk-wrap{width:100dvw;max-width:100dvw;margin-inline:calc(50% - 50dvw);}
+    }
+    .lk-svg{display:block;width:100%;height:auto;aspect-ratio:2560/1120;
       image-rendering:pixelated;image-rendering:crisp-edges;}
     /* a keepsake names itself when tapped */
     .lk-wrap{position:relative;}
     .lk-item{cursor:pointer;}
     .lk-bubble{position:absolute;transform:translate(-50%,-100%);z-index:3;
       display:flex;flex-direction:column;gap:2px;pointer-events:none;
-      margin-top:-10px;padding:8px 11px;border-radius:9px;max-width:70%;
+      margin-top:-10px;padding:8px 11px;border-radius:9px;
+      max-width:min(220px,calc(100vw - 16px));
       background:#f2f2f6;color:#15151a;box-shadow:0 8px 22px -10px rgba(0,0,0,0.9);
       opacity:0;transition:opacity .18s ease,transform .18s ease;}
     .lk-bubble.in{opacity:1;transform:translate(-50%,-100%) translateY(-3px);}
     .lk-bubble b{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;}
     .lk-bubble span{font-family:'Inter',sans-serif;font-size:10px;color:#4a4a55;}
-    .lk-bubble::after{content:'';position:absolute;left:50%;bottom:-6px;
+    /* the tail is placed by lkSay so it keeps pointing at the keepsake even
+       when the box itself had to slide away from the edge of the screen */
+    .lk-bubble::after{content:'';position:absolute;left:var(--lk-tail,50%);bottom:-6px;
       transform:translateX(-50%);border-left:7px solid transparent;
       border-right:7px solid transparent;border-top:7px solid #f2f2f6;}
+    /* no room above: the bubble hangs below its keepsake and the tail flips */
+    .lk-bubble.below{transform:translate(-50%,0);margin-top:10px;}
+    .lk-bubble.below.in{transform:translate(-50%,0) translateY(3px);}
+    .lk-bubble.below::after{bottom:auto;top:-6px;
+      border-top:0;border-bottom:7px solid #f2f2f6;}
     .lk-cap{padding:8px 13px 10px;font-family:'Inter',sans-serif;font-size:10px;
       letter-spacing:.4px;text-transform:uppercase;color:var(--text3);text-align:center;}
     /* plant status, sitting with the profile actions */

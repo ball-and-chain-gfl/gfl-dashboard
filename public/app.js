@@ -5034,19 +5034,55 @@ function lkTag(title, note, body){
 /* Point a bubble at whatever was tapped. Positioned against the wrapper in
    percentages taken from the item's own box, so it follows the art at any
    width without needing the svg's internal coordinates. */
+/* Point a bubble at whatever was tapped, then push it back inside the screen if
+   it would hang off an edge. Clamping the anchor in percentages was not enough:
+   the bubble is centred on its anchor and can be up to 220px wide, so a
+   keepsake near either edge still lost half of it — and now that the art runs
+   the full width of the screen, the edges are the screen's edges. So it is
+   measured after insertion and clamped in pixels against the viewport, with the
+   tail left pointing at the thing that was tapped rather than travelling with
+   the box. A bubble that would sit above the top of the screen flips below its
+   anchor instead. */
 function lkSay(ev){
   const g = ev.currentTarget;
   const wrap = g.closest('.lk-wrap'); if(!wrap) return;
   wrap.querySelectorAll('.lk-bubble').forEach(b => b.remove());
   const wb = wrap.getBoundingClientRect(), gb = g.getBoundingClientRect();
-  const left = ((gb.left + gb.width/2 - wb.left) / wb.width) * 100;
-  const top  = ((gb.top - wb.top) / wb.height) * 100;
+  const anchorX = gb.left + gb.width/2;
   const b = document.createElement('div');
   b.className = 'lk-bubble';
-  b.style.left = Math.max(16, Math.min(84, left)) + '%';
-  b.style.top  = Math.max(4, top) + '%';
+  b.style.left = (anchorX - wb.left) + 'px';
+  b.style.top  = (gb.top - wb.top) + 'px';
   b.innerHTML = '<b>' + g.dataset.t + '</b><span>' + g.dataset.n + '</span>';
   wrap.appendChild(b);
+
+  const M = 8;                                    // breathing room at the edge
+  const vw = document.documentElement.clientWidth;
+  const bw = b.offsetWidth, bh = b.offsetHeight;
+  let x = anchorX;                                // where the box wants centring
+  if (x - bw/2 < M)      x = M + bw/2;
+  if (x + bw/2 > vw - M) x = vw - M - bw/2;
+  b.style.left = (x - wb.left) + 'px';
+  /* the tail stays under the keepsake, however far the box had to move */
+  const tail = Math.max(12, Math.min(bw - 12, anchorX - (x - bw/2)));
+  b.style.setProperty('--lk-tail', tail + 'px');
+
+  /* not enough room above? sit under the keepsake and turn the tail over */
+  if (gb.top - bh - 10 < M) {
+    b.classList.add('below');
+    b.style.top = (gb.bottom - wb.top) + 'px';
+  }
+  /* and if it still hangs off the top or the bottom — a keepsake can be right
+     at the edge of the art with the art itself at the edge of the screen —
+     shift it back by however much it overhangs. Measured rather than computed,
+     because the transform differs between the two positions. */
+  const vh = document.documentElement.clientHeight;
+  const br = b.getBoundingClientRect();
+  let dy = 0;
+  if (br.top < M) dy = M - br.top;
+  else if (br.bottom > vh - M) dy = -(br.bottom - (vh - M));
+  if (dy) b.style.top = (parseFloat(b.style.top) + dy) + 'px';
+
   requestAnimationFrame(() => b.classList.add('in'));
   clearTimeout(lkSay._t);
   lkSay._t = setTimeout(() => { b.classList.remove('in');
@@ -5156,15 +5192,19 @@ function lockerRoomHTML(t){
   const dk=mix(base,[0,0,0],0.46);
   const dp=mix(base,[0,0,0],0.66);
   const dv=mix(base,[0,0,0],0.80);              // deepest shadow
-  const P=(x,y,w,h,f,o)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+f+'"'+(o?' opacity="'+o+'"':'')+'/>';
-
-  /* 1280x560 — a third again in each direction over the last pass, which is
-     what pays for the detail that was not affordable before: every surface now
-     carries a lit edge and a shadow rather than one flat tone, the locker has
-     vent slots, the desk has grain and a drawer gap, the jersey has shoulder
-     seams and sleeve stripes, and the lamp throws a pool of light. */
-  const W=1280,H=560;
-  const FLOOR=440;
+  /* 2560x1120 — twice the grid in each direction. Every coordinate below is
+     still written in the old 1280x560 space and P doubles it on the way out,
+     so nothing moved; what the extra grid buys is R, which draws in raw units
+     and can therefore put a line half a block wide. The fine passes marked
+     "R:" are the new pixels: brighter one-unit highlights riding on top of the
+     lit edges, one-unit shadow lines under them, finer wall and wood grain,
+     and hairlines around the vents and seams. Same room, same objects, same
+     positions — just resolved twice as finely. */
+  const S=2;
+  const R=(x,y,w,h,f,o)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+f+'"'+(o?' opacity="'+o+'"':'')+'/>';
+  const P=(x,y,w,h,f,o)=>R(x*S,y*S,w*S,h*S,f,o);
+  const W=2560,H=1120;
+  const FLOOR=440;                      // still base units; P scales it
 
   const pennants=(()=>{
     const n=Math.min(rings,6);
@@ -5178,35 +5218,46 @@ function lockerRoomHTML(t){
   })();
 
   const st=plantStage();
-  return '<div class="lk-wrap">'
-    +'<div class="lk-bar"><span>Locker Room</span><span class="lk-ab">'+ab+'</span></div>'
+  return '<div class="lk-block">'
+    +'<div class="sec-head lk-head"><i class="fa fa-shirt"></i>Locker Room</div>'
+    +'<div class="lk-wrap">'
     +'<svg class="lk-svg" viewBox="0 0 '+W+' '+H+'" shape-rendering="crispEdges" role="img"'
     +' aria-label="Pixel art locker room for '+t.name+'">'
-      +P(0,0,W,H,'#1b1b20')
-      +P(0,0,W,98,'#15151a')
-      +P(0,96,W,3,dv)+P(0,99,W,2,'#25252d')
-      /* panelled wall: a groove and a highlight per panel */
-      +Array.from({length:32},(_,i)=>P(i*40,101,2,FLOOR-101,'#1f1f26')+P(i*40+2,101,1,FLOOR-101,'#26262f')).join('')
+      +R(0,0,W,H,'#1b1b20')
+      +R(0,0,W,196,'#15151a')
+      +P(0,96,W/S,3,dv)+P(0,99,W/S,2,'#25252d')
+      /* panelled wall: a groove, a lit return and — R: — a hairline core */
+      +Array.from({length:32},(_,i)=>P(i*40,101,2,FLOOR-101,'#1f1f26')
+        +P(i*40+2,101,1,FLOOR-101,'#26262f')
+        +R(i*80+3,202,1,(FLOOR-101)*S,'#15151a')).join('')
       +pennants
 
       /* ── THE LOCKER ────────────────────────────────────────────────────── */
       +P(400,115,334,325,dp)                       // interior
       +P(400,115,334,10,c1)+P(400,125,334,3,cL)    // top rail + lit edge
+      +R(800,230,668,1,c3,'0.55')                  // R: hairline along the rail
       +P(392,115,8,325,'#2e2e38')+P(392,115,3,325,'#3a3a46')   // left post
       +P(734,115,8,325,'#2e2e38')+P(739,115,3,325,'#26262e')   // right post
+      +R(785,230,1,650,'#4a4a58','0.6')            // R: lit nose on the left post
       +P(400,115,334,4,dv,'0.6')                   // inner top shadow
       +P(400,430,334,10,'#26262e')+P(400,428,334,2,'#33333e')  // base
-      /* vent slots down the back panel */
-      +Array.from({length:6},(_,i)=>P(414,150+i*46,10,22,dv)+P(710,150+i*46,10,22,dv)).join('')
+      /* vent slots down the back panel, each with — R: — a lit lower lip and a
+         one-unit core, which is what makes a slot read as cut rather than drawn */
+      +Array.from({length:6},(_,i)=>P(414,150+i*46,10,22,dv)+P(710,150+i*46,10,22,dv)
+        +R(828,300+i*92,20,1,'#000','0.55')+R(1420,300+i*92,20,1,'#000','0.55')
+        +R(828,343+i*92,20,1,cL,'0.30')+R(1420,343+i*92,20,1,cL,'0.30')).join('')
       /* nameplate */
       +P(500,128,134,34,dv)+P(504,132,126,26,c1)+P(504,132,126,3,cL)
-      +'<text x="567" y="151" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="17" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      +'<text x="1134" y="302" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="34" font-weight="700" fill="'+c3+'">'+ab+'</text>'
       /* hanger and jersey */
       +P(562,186,10,22,'#3a3a44')+P(560,184,14,4,'#4a4a56')
       +P(534,208,66,6,'#3a3a44')
       +P(494,216,146,140,c1)                       // body
       +P(494,216,146,4,cL)                         // lit shoulder line
+      +R(988,432,292,1,c3,'0.5')                   // R: hairline on the shoulder
+      +R(988,712,292,1,dv,'0.35')                  // R: crease above the hem
+      +R(1132,440,1,272,dv,'0.22')+R(1136,440,1,272,cL,'0.18')  // R: centre seam
       +P(462,224,32,58,c1)+P(640,224,32,58,c1)     // sleeves
       +P(462,224,32,3,cL)+P(640,224,32,3,cL)
       +P(462,258,32,8,c2)+P(640,258,32,8,c2)       // cuffs
@@ -5216,8 +5267,8 @@ function lockerRoomHTML(t){
       +P(534,230,66,4,dv,'0.4')
       +P(494,342,146,14,c2)+P(494,354,146,3,dv,'0.4')   // hem
       +P(510,254,114,58,dv)+P(512,256,110,54,dp)   // number panel
-      +'<text x="567" y="296" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="40" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      +'<text x="1134" y="592" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="80" font-weight="700" fill="'+c3+'">'+ab+'</text>'
       /* cleats on the locker floor */
       +P(424,394,58,26,c2)+P(424,390,58,5,c3)+P(424,414,58,6,dv,'0.5')
       +Array.from({length:4},(_,i)=>P(432+i*12,398,5,5,dv,'0.5')).join('')
@@ -5240,6 +5291,9 @@ function lockerRoomHTML(t){
       +P(827,315,340,18,'#4a3d33')+P(827,311,340,6,'#5f4e40')  // top + lit edge
       +P(827,333,340,5,'#33291f')                              // underside shadow
       +Array.from({length:9},(_,i)=>P(840+i*36,318,26,2,'#54463a','0.6')).join('')  // grain
+      /* R: half-width grain between the boards, and a lit nose on the front edge */
+      +Array.from({length:9},(_,i)=>R(1716+i*72,646,38,1,'#5f5044','0.45')).join('')
+      +R(1654,622,680,1,'#75604e','0.6')
       +P(837,338,108,102,'#3a2f27')                            // drawer stack
       +P(841,346,100,26,'#463930')+P(841,344,100,2,'#54463a')
       +P(841,376,100,26,'#463930')+P(841,374,100,2,'#54463a')
@@ -5272,7 +5326,7 @@ function lockerRoomHTML(t){
       /* ── THE PLANT ─────────────────────────────────────────────────────── */
       +'<g class="lk-plantg" role="button" tabindex="0" onclick="waterPlant()"'
       +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
-        +P(70,160,225,284,'#000','0')
+        +P(70,250,190,190,'#000','0')
         +plantSVG(st.stage,P)
         +'<g class="lk-can">'
           +P(96,258,64,42,'#9aa4b0')+P(96,258,64,8,'#b4bcc6')+P(96,292,64,8,'#7d8792')
@@ -5285,15 +5339,20 @@ function lockerRoomHTML(t){
       +'</g>'
 
       /* ── FLOOR ─────────────────────────────────────────────────────────── */
-      +P(0,FLOOR,W,H-FLOOR,'#121216')
-      +P(0,FLOOR,W,4,'#2a2a33')
+      +R(0,FLOOR*S,W,H-FLOOR*S,'#121216')
+      +P(0,FLOOR,W/S,4,'#2a2a33')
+      +R(0,FLOOR*S-1,W,1,'#3a3a46','0.5')         // R: lit nose on the floor edge
       +Array.from({length:32},(_,i)=>P(i*40,FLOOR,38,3,'#22222a')).join('')
       +Array.from({length:16},(_,i)=>P(i*80,FLOOR+42,78,3,'#1c1c23')).join('')
       +Array.from({length:16},(_,i)=>P(i*80,FLOOR+92,78,3,'#191920')).join('')
+      /* R: a hairline seam between every board, which at the old grid would
+         have been a full block and read as a stripe rather than a joint */
+      +Array.from({length:32},(_,i)=>R(i*80,FLOOR*S+6,80,1,'#0e0e12','0.7')).join('')
+      +Array.from({length:16},(_,i)=>R(i*160,FLOOR*S+90,158,1,'#0e0e12','0.55')).join('')
       +P(400,FLOOR,334,10,'#000','0.28')          // shadow cast by the locker
       +P(827,FLOOR,340,8,'#000','0.22')           // and by the desk
     +'</svg>'
-  +'</div>';
+  +'</div></div>';
 }
 
 /* ── The locker room plant ──────────────────────────────────────────────────
@@ -5367,73 +5426,59 @@ async function plantSync(){
    A leaf is three stepped bands narrowing to a tip, not a flat bar: at this
    resolution the taper is what stops a healthy plant reading as a stack of
    green dashes. Every leaf also carries a shaded lower edge and a midrib. */
+/* Kept deliberately simple: a small pot and a handful of leaves, drawn in one
+   flat green with a shaded underside. The stages change its shape rather than
+   only its colour — upright, then shorter, then hanging, then a bare stem over
+   shed leaves. Coordinates are in the base 1280x560 space; P doubles them.
+   Leaves are staggered rather than mirrored in pairs, and the stem leans a
+   little, so it does not read as a symmetrical fir tree the way an evenly
+   paired plant does. */
 function plantSVG(stage,P){
-  const cx=196, potW=70, potH=58;
-  const potX=cx-potW/2, potTop=440-potH;                    // 382
-  const saucer=P(potX-11,434,potW+22,6,'#6d3f26')+P(potX-11,434,potW+22,2,'#7d4a2e');
+  const cx=192, potW=52, potH=42;
+  const potX=cx-potW/2, potTop=440-potH;                    // 398
   const pot=P(potX,potTop,potW,potH,'#8a5a3a')
-    +P(potX,potTop,potW,11,'#9a6a46')                       // lit rim
-    +P(potX-8,potTop-9,potW+16,11,'#7a4a2e')                // lip
-    +P(potX-8,potTop-9,potW+16,3,'#8f5a38')
-    +P(potX+potW-11,potTop+11,11,potH-11,'#6d3f26','0.75')  // shaded side
-    +P(potX+7,potTop+17,6,28,'#a0745a','0.45');             // highlight
-  const soil=P(potX+8,potTop+7,potW-16,10,'#3a2a1e')
-    +P(potX+15,potTop+9,15,4,'#4a382a');
+    +P(potX,potTop,potW,8,'#9a6a46')                        // lit rim
+    +P(potX-6,potTop-7,potW+12,8,'#7a4a2e')                 // lip
+    +P(potX+potW-8,potTop+8,8,potH-8,'#6d3f26','0.7')       // shaded side
+    +P(potX+6,potTop+14,5,18,'#a0745a','0.4')               // highlight
+    +P(potX+6,potTop+5,potW-12,7,'#3a2a1e');                // soil
   const G =['#4ade80','#3fc46e','#8ab84a','#b0a03a','#8a6a30','#6b5030'][stage];
-  const G2=['#86efac','#6ee7a0','#a8c96a','#c8b855','#a08040','#7a5c38'][stage];
   const GD=['#2f9e5c','#2c8f50','#668f34','#867a26','#664e22','#4e3a24'][stage];
-  /* the stem always reaches the soil, so nothing floats */
-  const stem=(y)=>P(cx-7,y,14,388-y,G)+P(cx-7,y,4,388-y,G2,'0.5')+P(cx+3,y,4,388-y,GD,'0.55');
-  /* dir 1 puts the tip on the right, -1 on the left */
-  const leaf=(x,y,w,h,f,dir)=>{
-    const t=Math.max(5,Math.round(w*0.20)), m=Math.round(w*0.34), b=w-t-m;
-    const bx=dir>0?x:x+w-b, mx=dir>0?x+b:x+t, tx=dir>0?x+b+m:x;
-    const hm=Math.max(4,h-4), ht=Math.max(3,h-9);
-    const my=y+((h-hm)>>1), ty=y+((h-ht)>>1);
-    return P(bx,y,b,h,f)+P(mx,my,m,hm,f)+P(tx,ty,t,ht,f)
-      +P(bx,y+h-3,b,3,GD,'0.5')+P(mx,my+hm-3,m,3,GD,'0.5')
-      +P(dir>0?bx:mx,y+(h>>1)-1,b+m,2,GD,'0.32');
-  };
-  const fallen=(x,y,w,o)=>P(x,y,w,7,G,o)+P(x+(w>>1)-2,y-3,w-8,4,G,o)+P(x,y+5,w,2,GD,o);
+  /* the stem always reaches the soil */
+  const stem=(y,lean)=>P(cx-4+(lean||0),y,8,404-y,G)+P(cx+1+(lean||0),y,3,404-y,GD,'0.5');
+  const leaf=(x,y,w,h)=>P(x,y,w,h,G)+P(x,y+h-2,w,2,GD,'0.5');
+  const fallen=(x,y,w,o)=>P(x,y,w,5,G,o)+P(x,y+3,w,2,GD,o);
   let p='';
   if(stage===0){
-    p=stem(206)
-      +leaf(203,232,60,17,G2,1)  +leaf(129,248,60,17,G,-1)
-      +leaf(203,268,66,19,G,1)   +leaf(123,286,66,19,G2,-1)
-      +leaf(203,308,58,17,G2,1)  +leaf(131,324,58,17,G,-1)
-      +leaf(203,344,46,15,G,1)   +leaf(143,356,46,15,G2,-1)
-      +leaf(203,210,40,14,G,1)   +leaf(149,220,40,14,G2,-1)
-      /* bloom */
-      +P(178,178,36,24,'#f0a0c0')+P(186,168,20,12,'#f8c0d8')
-      +P(172,186,8,12,'#e88ab4')+P(212,186,8,12,'#e88ab4')
-      +P(190,186,12,9,'#e07098')+P(188,172,8,7,'#fbd6e6');
+    p=stem(300,1)
+      +leaf(196,318,34,10)+leaf(154,332,34,10)
+      +leaf(196,344,28,9) +leaf(160,300,30,9)
+      +leaf(196,292,26,9)
+      +P(180,282,22,12,'#f0a0c0')+P(186,276,12,7,'#f8c0d8');   // one small bloom
   }else if(stage===1){
-    p=stem(256)
-      +leaf(203,278,58,17,G2,1)  +leaf(131,294,58,17,G,-1)
-      +leaf(203,314,62,18,G,1)   +leaf(127,330,62,18,G2,-1)
-      +leaf(203,350,44,15,G2,1)  +leaf(145,360,44,15,G,-1)
-      +leaf(203,258,36,13,G,1)   +leaf(153,266,36,13,G2,-1);
+    p=stem(322,1)
+      +leaf(196,338,32,10)+leaf(158,352,32,10)
+      +leaf(196,362,26,9) +leaf(164,322,28,9);
   }else if(stage===2){
-    p=stem(306)
-      +leaf(203,322,54,16,G,1)   +leaf(135,338,54,16,G2,-1)
-      +leaf(203,352,44,14,G2,1)  +leaf(145,362,44,14,G,-1)
-      +leaf(203,308,32,12,G2,1);
+    p=stem(350)
+      +leaf(196,360,28,9)+leaf(164,372,28,9)
+      +leaf(196,380,22,8);
   }else if(stage===3){
-    /* leaves have started to hang */
-    p=stem(338)
-      +leaf(203,352,46,14,G,1)   +P(243,364,14,16,G)+P(243,377,14,3,GD,'0.5')
-      +leaf(143,362,46,14,G2,-1) +P(135,374,14,16,G2)+P(135,387,14,3,GD,'0.5')
-      +fallen(96,430,26,'0.7');
+    /* they have started to hang */
+    p=stem(372)
+      +leaf(196,378,24,8)+P(218,385,10,11,G)
+      +leaf(166,386,24,8)+P(162,393,10,11,G)
+      +fallen(126,434,18,'0.7');
   }else if(stage===4){
-    p=stem(360)
-      +P(203,368,30,12,G)+P(203,377,30,3,GD,'0.5')+P(231,372,12,14,G)
-      +P(159,374,30,12,G2)+P(159,383,30,3,GD,'0.5')+P(149,378,12,14,G2)
-      +fallen(88,430,26,'0.7')+fallen(272,430,26,'0.65');
+    p=stem(386)
+      +P(196,390,20,8,G)+P(214,394,9,10,G)
+      +P(170,394,20,8,G)
+      +fallen(120,434,18,'0.7')+fallen(248,434,18,'0.6');
   }else{
-    p=stem(366)+P(186,356,16,12,G)+P(186,365,16,3,GD,'0.6')
-      +fallen(80,430,28,'0.55')+fallen(268,430,28,'0.5')+fallen(176,434,26,'0.45');
+    p=stem(390)+P(186,384,11,7,G)
+      +fallen(114,434,20,'0.5')+fallen(246,434,20,'0.45')+fallen(180,436,18,'0.4');
   }
-  return saucer+pot+soil+p;
+  return pot+p;
 }
 function renderMyProfile(){
   const el=document.getElementById('profile-page-body'); if(!el) return;
