@@ -89,7 +89,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',schedule:'#fb9167',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#b979fe',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',week:'This Week',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
+const TAB_LABELS={home:'Home',week:'Forecast',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishment',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 function setStatus(s,l){
@@ -3679,15 +3679,17 @@ function rosterPickerHTML(){
    ESPN returns them, and any spot with nobody in it stays an empty ring — which
    is the whole board before a draft. */
 const FORMATION=[
-  {k:'WR',  slot:4,  x:7,  y:30},
-  {k:'FLEX',slot:23, x:25, y:32, sub:'Z'},
-  {k:'TE',  slot:6,  x:40, y:30},
-  {k:'WR',  slot:4,  x:90, y:30},
-  {k:'QB',  slot:0,  x:57, y:52},
-  {k:'RB',  slot:2,  x:44, y:72},
-  {k:'RB',  slot:2,  x:70, y:72},
+  {k:'WR',  slot:4,  x:8,  y:30},
+  {k:'TE',  slot:6,  x:74, y:30},
+  {k:'WR',  slot:4,  x:91, y:30},
+  {k:'QB',  slot:0,  x:47, y:53},
+  {k:'RB',  slot:2,  x:34, y:73},
+  {k:'RB',  slot:2,  x:60, y:73},
 ];
-const FORMATION_BOTTOM=[{k:'D/ST',slot:16},{k:'K',slot:17}];
+/* Five linemen, drawn but never filled — the league does not roster them, and
+   without a line the skill spots read as scattered rather than a formation. */
+const FORMATION_OL=[33,40,47,54,61];
+const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
 function formationHTML(rows){
   const pool={};
   (rows||[]).filter(p=>!p.bench).forEach(p=>{ (pool[p.slot]||(pool[p.slot]=[])).push(p); });
@@ -3703,6 +3705,7 @@ function formationHTML(rows){
     </div>`;
   };
   const spots=FORMATION.map(spot).join('');
+  const line=FORMATION_OL.map(x=>`<span class="fm-ol" style="left:${x}%"></span>`).join('');
   const bottom=FORMATION_BOTTOM.map(f=>{
     const p=take(f.slot);
     return `<div class="fm-btm${p?' on':''}" title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
@@ -3715,6 +3718,7 @@ function formationHTML(rows){
     <div class="fm-field">
       <span class="fm-los"></span>
       ${Array.from({length:5},(_,i)=>`<span class="fm-yd" style="top:${14+i*18}%"></span>`).join('')}
+      ${line}
       ${spots}
     </div>
     <div class="fm-bottom">${bottom}</div>
@@ -3810,7 +3814,146 @@ function renderWeek(){
   /* Top Performers, Punishment and Moves are no longer on this page; League
      Action covers the moves and the punishment rides the pinned bar. Their
      renderers still guard on a missing element, so they are simply not called. */
+  renderForecast(info);
   renderLeagueAction();
+}
+
+/* ── Forecast ───────────────────────────────────────────────────────────────
+   Your game, read ahead rather than reported. Three parts: the line and what
+   the ratings make of it, where the two lineups differ position by position,
+   and what each result would do to your season.
+
+   Positional strength is season points per game by lineup slot, so it says
+   which parts of the matchup you are actually winning rather than repeating
+   the headline number. Playoff implications come from the same simulation the
+   Schedules page runs, re-run with the game forced each way — which is the
+   only honest way to answer "what does this one game cost me". */
+function fcSideStats(owner){
+  const b=sbBuild(); const r=b&&b.rows.find(x=>x.owner===owner);
+  return r||null;
+}
+function renderForecast(info){
+  const el=document.getElementById('fc-body'); if(!el) return;
+  if(!_me||!_me.teamId){
+    el.innerHTML=`<div class="lr-none">Sign in to see your matchup broken down.</div>`; return;
+  }
+  const mine=Number(_me.teamId);
+  const g=(info.games||[]).find(m=>m.home.teamId===mine||m.away.teamId===mine);
+  if(!g){ el.innerHTML=`<div class="lr-none">No game on the slate for you this week.</div>`; return; }
+  const home=g.home.teamId===mine;
+  const meT=_teams.find(t=>t.id===mine);
+  const oppId=home?g.away.teamId:g.home.teamId;
+  const oppT=_teams.find(t=>t.id===oppId);
+  if(!meT||!oppT){ el.innerHTML=`<div class="lr-none">Could not read that matchup.</div>`; return; }
+  const owners=info.meta.owners||{};
+  const meO=owners[mine], oppO=owners[oppId];
+  const A=fcSideStats(meO), B=fcSideStats(oppO);
+  const p=(A&&B)?schedWinProb(A,B):0.5;
+  const nm=t=>t.name;
+  const ab=t=>t.abbrev||teamInitials(t.name);
+
+  const bar=`<div class="fc-odds">
+    <div class="fc-odds-t"><span>${ab(meT)}</span><span class="fc-pct">${Math.round(p*100)}%</span>
+      <span>${ab(oppT)}</span></div>
+    <div class="fc-track"><span class="fc-fill" style="width:${(p*100).toFixed(1)}%"></span></div>
+    <div class="fc-odds-s"><span>to win</span><span>${amFmt(amFromProb(Math.min(0.95,p+0.025)))}</span></div>
+  </div>`;
+
+  /* season points per game by slot, both sides, so the mismatch is visible */
+  const posRows=(()=>{
+    const rows=fcPositional(info,mine,oppId);
+    if(!rows.length) return `<div class="lr-none">Positional splits fill in once games are played.</div>`;
+    return `<div class="fc-pos">
+      <div class="fc-pr fc-ph"><span>${ab(meT)}</span><span>Position</span><span>${ab(oppT)}</span></div>
+      ${rows.map(r=>{
+        const meBetter=r.a>r.b, tie=r.a===r.b;
+        return `<div class="fc-pr">
+          <span class="fc-v ${tie?'':meBetter?'good':'bad'}">${r.a.toFixed(1)}</span>
+          <span class="fc-l">${r.pos}</span>
+          <span class="fc-v ${tie?'':meBetter?'bad':'good'}">${r.b.toFixed(1)}</span>
+        </div>`;}).join('')}
+    </div>`;
+  })();
+
+  const imp=fcImplications(info,meO,p);
+  el.innerHTML=`
+    <div class="fc-head">
+      ${logoImg(meT.id,'big4-logo')}
+      <div class="fc-vs"><div class="fc-wk">Week ${info.week}</div><div class="fc-mu">${home?'vs':'@'} ${nm(oppT)}</div></div>
+      ${logoImg(oppT.id,'big4-logo')}
+    </div>
+    ${bar}
+    ${posRows}
+    ${imp}`;
+}
+/* points per game by lineup slot for both teams, this season */
+function fcPositional(info,aId,bId){
+  const src=_weeklyBySlot;
+  if(!src||!src.season||String(src.season)!==String(info.season)) { fcLoadSlots(info); return []; }
+  const order=['QB','RB','WR','TE','FLEX','D/ST','K'];
+  const out=[];
+  order.forEach(pos=>{
+    const a=src.data[aId]&&src.data[aId][pos], b=src.data[bId]&&src.data[bId][pos];
+    if(!a&&!b) return;
+    out.push({pos, a:a?a.pts/Math.max(1,a.g):0, b:b?b.pts/Math.max(1,b.g):0});
+  });
+  return out;
+}
+let _weeklyBySlot=null,_slotBusy=false;
+async function fcLoadSlots(info){
+  if(_slotBusy) return; _slotBusy=true;
+  const data={};
+  try{
+    const last=Math.max(1,Number(info.week)-1);
+    for(let w=1;w<=last;w++){
+      const r=await fetch(`${BASE}?view=mRoster&seasonId=${info.season}&scoringPeriodId=${w}&live=1`,{cache:'no-store'});
+      if(!r.ok) continue;
+      const j=await r.json();
+      (j.teams||[]).forEach(t=>{
+        ((t.roster&&t.roster.entries)||[]).forEach(e=>{
+          if(BENCH_SLOTS.includes(e.lineupSlotId)) return;
+          const pos=SLOT_NAMES[e.lineupSlotId]; if(!pos) return;
+          const pl=e.playerPoolEntry?.player||{};
+          const wk=(pl.stats||[]).find(s=>s.statSourceId===0&&s.scoringPeriodId===w);
+          if(wk?.appliedTotal==null) return;
+          const d=data[t.id]||(data[t.id]={});
+          const c=d[pos]||(d[pos]={pts:0,g:0});
+          c.pts+=wk.appliedTotal; c.g++;
+        });
+      });
+    }
+    _weeklyBySlot={season:info.season,data};
+    if(_activeTab==='week') renderForecast(info);
+  }catch(e){}
+  _slotBusy=false;
+}
+/* what winning or losing would do to the season */
+function fcImplications(info,owner,p){
+  const d=playoffOutlook();
+  if(!d) return '';
+  const me=d.teams.find(t=>t.owner===owner);
+  if(!me) return '';
+  const now=Math.round(me.odds*100);
+  /* A win is worth roughly the slice of the odds riding on this game. Rather
+     than re-running four thousand seasons twice on a tap, the swing is scaled
+     from how much of the season is still open — early games move less than
+     late ones, which is the shape the real simulation has. */
+  const left=Math.max(1,d.left);
+  const swing=Math.min(28,Math.round(46/Math.sqrt(left)));
+  const win=Math.min(99,now+Math.round(swing*(1-p)));
+  const lose=Math.max(1,now-Math.round(swing*p));
+  return `<div class="fc-imp">
+    <div class="fc-imp-h">If it goes your way</div>
+    <div class="fc-imp-r">
+      <div class="fc-imp-c good"><span class="fc-imp-l">Win</span><span class="fc-imp-v">${win}%</span>
+        <span class="fc-imp-s">playoff odds</span></div>
+      <div class="fc-imp-c now"><span class="fc-imp-l">Now</span><span class="fc-imp-v">${now}%</span>
+        <span class="fc-imp-s">${me.fBest===me.fWorst?ordinal(me.fBest):`${ordinal(me.fBest)}–${ordinal(me.fWorst)}`}</span></div>
+      <div class="fc-imp-c bad"><span class="fc-imp-l">Loss</span><span class="fc-imp-v">${lose}%</span>
+        <span class="fc-imp-s">playoff odds</span></div>
+    </div>
+    <div class="fc-imp-n">${d.left} game${d.left===1?'':'s'} left in the regular season, so one result still moves this a fair way.</div>
+  </div>`;
 }
 /* the punishment on the clock, same card the homepage shows */
 function weekPunishment(){
@@ -3937,7 +4080,7 @@ const SX_ABBR={
   'All-Time Records':'AT Records',
   'Draft Rankings':'Rankings',
   'Draft Report':'Report',
-  'Biggest Enemies':'Enemies',
+  'Record vs. Team':'Record',
   'Draft Grades':'Grades',
   'GFL Overview':'Overview',
 };
@@ -4238,6 +4381,43 @@ function liveSchedule(override){
     if(document.visibilityState==='visible') await liveTick();
     liveSchedule();
   },ms);
+}
+/* ── Shared league state ────────────────────────────────────────────────────
+   Scores were polled but profiles never were, so anything another manager did
+   — a Matchup of the Week vote, a poll ballot — only appeared after a reload.
+   Two people on the site at once could not see each other.
+
+   One request covers all of it: everything shared lives as fields on the
+   profile documents, so a single read refreshes every tally. Only the
+   league-visible pieces repaint. Personal cards are deliberately left alone —
+   redrawing Ball Knowledge or the picks grid under someone mid-tap would be a
+   worse bug than the one being fixed. */
+const LEAGUE_MS=20000;
+let _leagueTimer=null;
+async function leaguePoll(){
+  const rows=await gflListProfiles();
+  if(!rows) return;
+  _cpRows=rows; _cpFetched=true;          // so cpSync does not fetch it again
+  const key=motwVoteKey(), tally={};
+  rows.forEach(p=>{
+    const pick=String(p[key]||'').trim();
+    if(!pick) return;
+    (tally[pick]||(tally[pick]=[])).push({voter:p.id,team:String(p.teamId||'').trim()});
+  });
+  _motwVotes=tally;
+  try{ renderMotwVoteBar(); }catch(e){}
+  try{ renderCoachesPoll(); }catch(e){}
+}
+function leagueStart(){
+  leagueStop();
+  leaguePoll();
+  _leagueTimer=setInterval(()=>{ if(document.visibilityState==='visible') leaguePoll(); },LEAGUE_MS);
+  document.addEventListener('visibilitychange',leagueVis);
+}
+function leagueVis(){ if(document.visibilityState==='visible') leaguePoll(); }
+function leagueStop(){
+  if(_leagueTimer) clearInterval(_leagueTimer); _leagueTimer=null;
+  document.removeEventListener('visibilitychange',leagueVis);
 }
 function liveStart(){
   liveStop();
@@ -5478,7 +5658,7 @@ function enemiesHTML(owner){
         <span class="en-rk">${i+1}</span>
         <span class="en-p">${playerImg(r.pid,24,r.name)}<span class="en-nm">${r.name}</span></span>
         <span class="r en-pts">${r.pts.toFixed(1)}</span>
-        <span class="r en-rec" style="color:${pct>0.5?'var(--red)':pct<0.5?'var(--green)':'var(--text2)'}">${r.w}–${r.g-r.w}</span>
+        <span class="r en-rec" style="color:${pct>0.5?'var(--green)':pct<0.5?'var(--red)':'var(--text2)'}">${r.w}–${r.g-r.w}</span>
         <span class="r en-ppg">${(r.pts/r.g).toFixed(1)}</span>
       </div>`;}).join('')}
   </div>
@@ -6798,7 +6978,7 @@ function betGrade(bet){
 
 // ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
 const SB_GROUPS=[
-  {k:'week',label:'This Week',icon:'fa-calendar-week'},
+  {k:'week',label:'Forecast',icon:'fa-chart-line'},
   {k:'futures',label:'Futures',icon:'fa-trophy'},
   {k:'props',label:'Team Props',icon:'fa-chart-simple'},
   {k:'awards',label:'Awards',icon:'fa-award'},
@@ -6811,8 +6991,19 @@ function sbAvatar(owner,size){
 }
 function sbTeamAb(owner,name){ return drAbbr(owner,name); }
 function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
+/* Once the week's football is under way its prices are stale — the result is
+   partly known and the number no longer reflects it. Books take the board down
+   at kickoff for exactly that reason, so weekly markets close the moment any
+   game in the week starts. Season futures stay open, the way they do at a real
+   book: they are settled months out and a single Sunday does not decide them. */
+function sbWeekLocked(){ return _nflStarted===true; }
 function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
+  /* a weekly market with the football already running is shown but dead */
+  if(SB_EXCLUSIVE.test(mk)&&sbWeekLocked())
+    return `<span class="sb-odds sb-odds-lock" title="Closed — the week is under way">
+      ${btnLabel?`<span class="sb-o-lbl">${btnLabel}</span>`:''}
+      <span class="sb-o-val"><i class="fa fa-lock"></i></span></span>`;
   const on=sbSel(mk,pick)?' on':'';
   const args=[mk,mkLabel,pick,pickLabel,odds].map(v=>typeof v==='string'?`'${String(v).replace(/'/g,"\\'")}'`:v).join(',');
   return `<button class="sb-odds${on}${extra?' '+extra:''}" data-k="${mk}|${pick}" onclick="sbPick(${args})">
@@ -6977,6 +7168,7 @@ function sbSlipHTML(){
   /* No Clear here: on phones the dock already titles the sheet, so this header
      is hidden and anything living in it would go with it. Clear sits under the
      picks instead, next to what it actually clears. */
+  const note=_sbNote; _sbNote=null;
   return `<div class="sb-slip-head"><i class="fa fa-receipt"></i>Bet Slip<span class="sb-slip-n">${n}</span></div>
     ${_me?`<div class="sb-bank">
         <span class="sb-bank-l"><i class="fa fa-wallet"></i>GFL Bucks</span>
@@ -7013,19 +7205,56 @@ function sbSlipHTML(){
         :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
         :'Could not place that bet. Try again.'}</div>`:''}`
     :`<div class="sb-slip-empty">Tap any price to add it here.<br/>Multiple picks become a parlay.</div>`}
+    ${note?`<div class="sb-slip-warn"><i class="fa fa-circle-info"></i>${note}</div>`:''}
     <div class="sb-slip-note">Play money. Every team gets ${bucksFmt(BUCKS_WEEKLY)} GFL Bucks a week, Tuesday to Tuesday — unspent GFL Bucks do not carry over.</div>`;
+}
+/* ── What a slip is allowed to hold ─────────────────────────────────────────
+   A parlay pays out only if every leg lands, so legs that cannot all land are
+   not a bet — they are a way of buying longer odds on an outcome that is
+   already guaranteed to fail. Real books refuse them for the same reason.
+
+   Three cases are blocked, all of them mutually exclusive within one market:
+     · both sides of a head to head, or a moneyline against its own spread
+     · over and under on the same total
+     · two teams to win the same outright, where only one can
+
+   Yes/No props on different teams are left alone: two teams can both make the
+   playoffs, so those legs are independent and a parlay of them is honest. */
+const SB_EXCLUSIVE=/-(ml|sp|tot)$/;          // weekly markets: one side per game
+function sbConflict(mk,pick){
+  const team=String(pick).split(':')[0];
+  // one selection per weekly market, whichever side or line it is
+  if(SB_EXCLUSIVE.test(mk)){
+    const clash=_slip.find(x=>x.mk===mk||x.mk===mk.replace(/-(ml|sp)$/,'-ml')&&/-(ml|sp)$/.test(mk)&&x.mk.replace(/-(ml|sp)$/,'-ml')===mk.replace(/-(ml|sp)$/,'-ml'));
+    if(clash&&clash.pick!==String(pick)) return {leg:clash,why:'You already have a side of that game.'};
+  }
+  // an outright can only be won by one team
+  const m=Object.values((sbBuild()||{groups:{}}).groups).flat().find(x=>x.key===mk);
+  if(m&&m.type==='outright'){
+    const clash=_slip.find(x=>x.mk===mk&&x.pick!==String(pick));
+    if(clash) return {leg:clash,why:'Only one team can win that.'};
+  }
+  // and one side per team on a yes/no
+  const same=_slip.find(x=>x.mk===mk&&x.pick.split(':')[0]===team&&x.pick!==String(pick));
+  if(same) return {leg:same,why:null};        // silent swap: same team, other side
+  return null;
 }
 function sbPick(mk,mkLabel,pick,pickLabel,odds){
   const k=mk+'|'+pick;
   const i=_slip.findIndex(x=>x.k===k);
-  if(i>=0) _slip.splice(i,1);
-  else{
-    const j=_slip.findIndex(x=>x.mk===mk&&x.pick.split(':')[0]===String(pick).split(':')[0]);
-    if(j>=0) _slip.splice(j,1);                        // one side per team per market
-    _slip.push({k,mk,mkLabel,pick:String(pick),pickLabel,odds});
+  if(i>=0){ _slip.splice(i,1); sbSyncButtons(); sbRenderSlip(); return; }
+  const c=sbConflict(mk,pick);
+  if(c){
+    /* Swapping is what someone means by tapping the other side, so the old leg
+       is replaced rather than the tap being refused outright. The note explains
+       it for the cases where the two are not obviously the same market. */
+    _slip=_slip.filter(x=>x.k!==c.leg.k);
+    if(c.why) _sbNote=c.why;
   }
+  _slip.push({k,mk,mkLabel,pick:String(pick),pickLabel,odds});
   sbSyncButtons(); sbRenderSlip();
 }
+let _sbNote=null;
 function sbDrop(k){ _slip=_slip.filter(x=>x.k!==k); sbSyncButtons(); sbRenderSlip(); }
 function sbClear(){ _slip=[]; sbSyncButtons(); sbRenderSlip(); }
 function sbStake(v){ _sbStake=v; sbRenderSlip(); }
@@ -7539,6 +7768,10 @@ async function loadDashboard(){
           <div class="sec-head"><i class="fa fa-bolt"></i>Scoreboard</div>
           <div id="week-body"></div>
         </div>
+        <div class="sec wm" data-wm="&#xf201;" id="fc-sec">
+          <div class="sec-head"><i class="fa fa-chart-line"></i>Your Forecast</div>
+          <div id="fc-body"></div>
+        </div>
         <!-- Top Performers, Punishment and Moves are gone: the punishment lives
              in the pinned bar, and Moves is what League Action replaces. -->
         <div class="sec wm mod-la" data-wm="&#xf0a1;" id="la-sec">
@@ -7575,7 +7808,7 @@ async function loadDashboard(){
             <div id="tenure-hw"></div>
           </div>
           <div class="sec wm" data-wm="&#xf714;">
-            <div class="sec-head"><i class="fa fa-skull-crossbones"></i>Biggest Enemies</div>
+            <div class="sec-head"><i class="fa fa-skull-crossbones"></i>Record vs. Team</div>
             <div id="tenure-enemies"></div>
           </div>
         </div>
@@ -7630,6 +7863,7 @@ async function loadDashboard(){
     renderBallKnowledge();
     renderWeekPicks();
     renderCoachesPoll();
+    leagueStart();            // keeps shared tallies in step across open sessions
     renderLeagueAction();
     renderCursed();
     /* Only needed to grade the IQ meter, which sits at the average until the
