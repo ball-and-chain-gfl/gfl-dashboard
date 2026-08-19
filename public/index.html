@@ -3895,6 +3895,22 @@
       .home-top .mod-cp{grid-area:s1;}
       .home-top .home-vid-col>.sec:not(.mod-cp){grid-area:video;}
       .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk):not(.mod-cp){grid-area:motw;}
+      /* A named row nothing occupies is still a row, and still pays for the gap
+         on either side of it. Two of these can be empty: motw is empty whenever
+         Matchup of the Week is out of the markup, and s3 empties when Ball
+         Knowledge finishes its set and moves to the foot of the page. Left in,
+         the grid trails 40px past its last card and the moved section lands
+         twice as far from what is above it as the cards sit from each other.
+         Each combination gets the template that only names the rows in use. */
+      .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk))){
+        grid-template-areas:"video" "s1" "s2" "s3";}
+      .home-top:not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "motw";}
+      .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk))){
+        grid-template-areas:"video" "s1" "s2";}
+      /* and the card carries on the grid's own rhythm rather than the wider
+         margin the grid keeps for the rest of the page */
+      #page-home:has(.bk-moved) .home-top{margin-bottom:20px;}
+      .bk-moved{margin-top:0;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}
     }
