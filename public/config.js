@@ -43,9 +43,9 @@ window.GFL_CONFIG = {
      `odds` are playoff-odds percentages you set manually for now. */
   matchup: {
     week: 1,
-    auto: true,
-    home: "Lebron",
-    away: "Florida",
+    auto: false,   // set by hand below; auto-detect would override it from the video title
+    home: "Florida",
+    away: "Wigglers",
     ball:  ["Lebron's ceiling is the highest in the league right now",
             "The waiver pickups are finally paying off",
             "Defense has quietly been a top-3 unit"],
@@ -86,7 +86,7 @@ window.GFL_CONFIG = {
 
   /* TESTING ONLY — how long one locker-room plant stage lasts, in minutes.
      0 (or delete) uses the real three days per stage. */
-  plantTestMinutes: 0,
+  plantTestMinutes: 1,
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it. 11 is a placeholder — change

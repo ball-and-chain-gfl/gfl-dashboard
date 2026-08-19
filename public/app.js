@@ -2090,17 +2090,38 @@ function renderDraftTab(){
   <div class="card" style="margin:0 0 24px">
     <!-- no label: this belongs to the Draft Report section above it, and a
          heading here would earn a third jump chip -->
-    <div class="section-header" style="padding:13px 16px"><span id="draft-score" style="margin-left:auto"></span></div>
+    ${''/* the picker comes first: the numbers under it describe whichever team
+           is selected, so reading them before the selector is backwards */}
     <div class="picker-bar">
       <label for="draft-team-select">Team:</label>
-      <select id="draft-team-select" onchange="_draftTeamSel=this.value;renderDraftTeamTable()">${_teams.map(t=>`<option value="${t.id}" ${Number(_draftTeamSel)===t.id?'selected':''}>${t.name}</option>`).join('')}</select>
+      <select id="draft-team-select" onchange="_draftTeamSel=this.value;renderDraftTeamTable();renderDraftGrades()">${_teams.map(t=>`<option value="${t.id}" ${Number(_draftTeamSel)===t.id?'selected':''}>${t.name}</option>`).join('')}</select>
     </div>
+    <div class="section-header dr-scorehead" style="padding:4px 16px 13px"><span id="draft-score"></span></div>
     <div id="draft-team-body"></div>
+  </div>
+  ${''/* Draft Grades moves here from the team profile: it is season-by-season
+         draft work, which belongs with the draft report rather than beside a
+         team's all-time record. */}
+  <div class="sec wm" data-wm="&#xf46d;">
+    <div class="sec-head"><i class="fa fa-clipboard-list"></i>Draft Grades<span class="badge-info">by season</span></div>
+    <div id="draft-grades-body"></div>
   </div>
   <div class="sec-head" style="padding-top:4px"><i class="fa fa-ranking-star"></i>Draft Rankings<span class="badge-info">rankings · all-time drafts · steals &amp; busts</span></div>
   <div id="draft-lists" data-nochip></div>`;
   renderDraftTeamTable();
+  renderDraftGrades();
   renderDraftLists();
+}
+/* Draft Grades follows the team picker above it, the same as the score chips */
+function renderDraftGrades(){
+  const el=document.getElementById('draft-grades-body'); if(!el) return;
+  const owner=_ownerMap[Number(_draftTeamSel)];
+  if(!owner){ el.innerHTML=''; return; }
+  el.innerHTML=profileDraftBlockHTML(owner);
+  /* the block reads every season's draft, so repaint once that cache lands */
+  if(!_draftAllCache) loadAllDrafts().then(()=>{
+    if(_activeTab==='draft') renderDraftGrades();
+  }).catch(()=>{});
 }
 const DRAFT_VIEWS={
   year:   {grp:'year',  all:false, tab:'Draft Rankings', icon:'fa-ranking-star', col:'var(--accent)',
@@ -3678,17 +3699,21 @@ function rosterPickerHTML(){
    spot is filled from the roster by lineup slot, taking players in the order
    ESPN returns them, and any spot with nobody in it stays an empty ring — which
    is the whole board before a draft. */
+/* The line of scrimmage: receivers, tight end and the five linemen all sit on
+   it, which is what makes it read as a formation rather than scattered spots.
+   The quarterback lines up directly behind the centre. */
+const FORMATION_Y=32;
 const FORMATION=[
-  {k:'WR',  slot:4,  x:8,  y:30},
-  {k:'TE',  slot:6,  x:74, y:30},
-  {k:'WR',  slot:4,  x:91, y:30},
-  {k:'QB',  slot:0,  x:47, y:53},
-  {k:'RB',  slot:2,  x:34, y:73},
-  {k:'RB',  slot:2,  x:60, y:73},
+  {k:'WR',  slot:4,  x:7,  y:FORMATION_Y},
+  {k:'TE',  slot:6,  x:70, y:FORMATION_Y},
+  {k:'WR',  slot:4,  x:92, y:FORMATION_Y},
+  {k:'QB',  slot:0,  x:41, y:56},
+  {k:'RB',  slot:2,  x:28, y:76},
+  {k:'RB',  slot:2,  x:54, y:76},
 ];
-/* Five linemen, drawn but never filled — the league does not roster them, and
-   without a line the skill spots read as scattered rather than a formation. */
-const FORMATION_OL=[33,40,47,54,61];
+/* Five linemen, drawn but never filled — the league does not roster them. The
+   middle one is the centre, and the quarterback's x matches it. */
+const FORMATION_OL=[29,35,41,47,53];
 const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
 function formationHTML(rows){
   const pool={};
@@ -3705,7 +3730,7 @@ function formationHTML(rows){
     </div>`;
   };
   const spots=FORMATION.map(spot).join('');
-  const line=FORMATION_OL.map(x=>`<span class="fm-ol" style="left:${x}%"></span>`).join('');
+  const line=FORMATION_OL.map(x=>`<span class="fm-ol" style="left:${x}%;top:${FORMATION_Y}%"></span>`).join('');
   const bottom=FORMATION_BOTTOM.map(f=>{
     const p=take(f.slot);
     return `<div class="fm-btm${p?' on':''}" title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
@@ -5936,10 +5961,8 @@ async function renderProfile(){
           <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-chart-line" style="color:var(--accent)"></i>GFL Overview<span class="badge-info">season by season</span></div>
           <div id="prof-drafts">${profileOverviewHTML(owner)}</div>
         </div>
-        <div class="prof-col panel prof-dg">
-          <div class="sec-head" style="font-size:15px;margin-top:8px"><i class="fa fa-clipboard-list" style="color:var(--accent)"></i>Draft Grades<span class="badge-info">by season</span></div>
-          <div id="prof-draftgrades">${profileDraftBlockHTML(owner)}</div>
-        </div>
+        <!-- Draft Grades moved to the Draft Report tab, where the rest of the
+             draft work lives -->
         <!-- Biggest Enemies moved to Player Tenure; All-Time vs Each Team retired -->
       </div>
       <div class="prof-col panel">
@@ -5960,9 +5983,8 @@ async function renderProfile(){
   if(!_draftAllCache){
     loadAllDrafts().then(()=>{
       const d=document.getElementById('prof-drafts');
-      const dg=document.getElementById('prof-draftgrades');
       const stillHere=Number(document.getElementById('profile-team-select')?.value||_profileTeam)===id;
-      if(stillHere){ if(d) d.innerHTML=profileOverviewHTML(owner); if(dg) dg.innerHTML=profileDraftBlockHTML(owner); }
+      if(stillHere&&d) d.innerHTML=profileOverviewHTML(owner);
     }).catch(()=>{});
   }
 }
