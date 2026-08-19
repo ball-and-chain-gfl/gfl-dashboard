@@ -5650,18 +5650,46 @@ function initSignIn(){
 // ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
 /* Which season still has games left? Preseason gives the whole slate; mid-season
    gives whatever's left of the current one. */
+/* The Schedules tab reads the year in the nav. A season still in progress gives
+   the projection table; one that is finished gives the results instead, which is
+   why `complete` is carried alongside `unplayed`. */
 function schedSeason(){
-  for(let i=ALL_SEASONS.length-1;i>=0;i--){
-    const y=ALL_SEASONS[i], meta=_seasonMeta[y];
-    if(!meta||!(meta.schedule||[]).length) continue;
-    const games=(meta.schedule||[]).filter(m=>m.home&&m.away&&(m.matchupPeriodId||0)>0);
-    if(!games.length) continue;
-    const unplayed=games.filter(m=>!((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
-    if(unplayed.length) return {season:y,meta,games,unplayed,
-      live:games.length!==unplayed.length,regEnd:meta.regEnd||14};
-  }
-  const y=ALL_SEASONS[ALL_SEASONS.length-1];
-  return {season:y,meta:_seasonMeta[y]||{schedule:[]},games:[],unplayed:[],live:false,regEnd:14};
+  const y=String(getSeason());
+  const meta=_seasonMeta[y];
+  const games=((meta&&meta.schedule)||[]).filter(m=>m.home&&m.away&&(m.matchupPeriodId||0)>0);
+  const played=games.filter(m=>((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+  const unplayed=games.filter(m=>!((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+  return {season:y,meta:meta||{schedule:[]},games,played,unplayed,
+    live:played.length>0&&unplayed.length>0,
+    complete:games.length>0&&unplayed.length===0,
+    regEnd:(meta&&meta.regEnd)||14};
+}
+/* Every game this franchise played that season, in order, with the result.
+   Read straight off the season's own schedule, so it needs no new fetch. */
+function schedPlayedRows(owner){
+  const info=schedSeason(); const meta=info.meta; if(!meta||!meta.owners) return null;
+  const owners=meta.owners;
+  const out=[];
+  info.played.forEach(m=>{
+    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+    if(!ho||!ao||ho===ao) return;
+    if(ho!==owner&&ao!==owner) return;
+    const meHome=ho===owner;
+    const mine=meHome?m.home:m.away, theirs=meHome?m.away:m.home;
+    const my=mine.totalPoints||0, their=theirs.totalPoints||0;
+    const oppOwner=meHome?ao:ho;
+    const fr=_franchises.find(f=>f.owner===oppOwner);
+    const oppName=(fr&&fr.name)||(meta.names&&meta.names[oppOwner]&&meta.names[oppOwner].name)
+      ||(meta.teams&&meta.teams[theirs.teamId]&&meta.teams[theirs.teamId].name)||'Team';
+    out.push({week:m.matchupPeriodId, playoff:(m.matchupPeriodId||0)>info.regEnd,
+      oppOwner, oppName, my, their,
+      res:my>their?'W':their>my?'L':'T', margin:my-their});
+  });
+  out.sort((a,b)=>a.week-b.week);
+  const w=out.filter(r=>r.res==='W').length, l=out.filter(r=>r.res==='L').length,
+        t=out.filter(r=>r.res==='T').length;
+  return {rows:out,info,w,l,t,
+    pf:out.reduce((a,r)=>a+r.my,0), pa:out.reduce((a,r)=>a+r.their,0)};
 }
 /* Projected margin drives everything: mostly the scoring gap, nudged by the
    power rating, then run through the normal curve. Weekly fantasy margins
@@ -5825,11 +5853,48 @@ async function toggleSchedOpp(el){
    total across every run, so it widens early in the year and tightens as the
    schedule empties. With no games left it reports the settled table. */
 const PO_RUNS=4000;
-let _poCache=null;
+let _poCache=null,_poCacheSeason=null;
 function playoffOutlook(){
-  if(_poCache) return _poCache;
+  const cs=String(getSeason());
+  if(_poCache&&_poCacheSeason===cs) return _poCache;
+  if(_poCacheSeason!==cs) _poCache=null;
+  _poCacheSeason=cs;
   const book=sbBuild(); if(!book) return null;
   const info=schedSeason(), meta=info.meta; if(!meta||!meta.owners) return null;
+
+  /* A finished season is not a forecast. Who made it is already known, so the
+     field reads 100% and everyone else 0% rather than a simulation of games
+     that have all been played. Qualification is the regular-season seed against
+     the league's playoff spot count. */
+  if(info.complete){
+    const owners=meta.owners, spots=meta.playoffTeamCount||6;
+    const regEnd=info.regEnd||14;
+    const rec={}; Object.values(owners).forEach(o=>{ if(o) rec[o]={w:0,l:0,t:0}; });
+    (meta.schedule||[]).forEach(m=>{
+      if(!m.home||!m.away||(m.matchupPeriodId||0)>regEnd) return;
+      const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+      if(hp===0&&ap===0) return;
+      const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+      if(!rec[ho]||!rec[ao]) return;
+      if(hp>ap){rec[ho].w++;rec[ao].l++;} else if(ap>hp){rec[ao].w++;rec[ho].l++;}
+      else {rec[ho].t++;rec[ao].t++;}
+    });
+    const seedOf={},nameOf={};
+    Object.entries(meta.teams||{}).forEach(([tid,tm])=>{
+      if(!tm||!tm.owner) return;
+      seedOf[tm.owner]=Number(tm.seed)||99;
+      const fr=_franchises.find(f=>f.owner===tm.owner);
+      nameOf[tm.owner]=(fr&&fr.name)||tm.name||'Team';
+    });
+    const teams=Object.keys(rec).map(o=>{
+      const sd=seedOf[o]||99, made=sd<=spots;
+      return {owner:o,name:nameOf[o]||'Team',played:rec[o],
+        odds:made?1:0, now:sd, fBest:sd, fWorst:sd, lo:rec[o].w, hi:rec[o].w, seed:sd};
+    }).sort((a,b)=>a.seed-b.seed);
+    _poCache={teams,spots,left:0,runs:0,season:info.season,
+      maxW:regEnd,regEnd,played:true,final:true,size:teams.length};
+    return _poCache;
+  }
   const owners=meta.owners, regEnd=info.regEnd||14;
   const rowOf=o=>book.rows.find(r=>r.owner===o);
   const list=Object.values(owners).filter((o,i,a)=>o&&a.indexOf(o)===i);
@@ -5946,6 +6011,19 @@ function playoffOutlookHTML(){
       </span>
       <span class="po-odds" style="color:${col(t.odds)}">${pctTxt(t.odds)}</span>
     </div>`;}).join('');
+  if(d.final) return `<div class="sec po-sec">
+    <div class="sec-head"><i class="fa fa-chart-simple"></i>Playoff Field
+      <span class="badge-info">${d.season} · final</span></div>
+    <div class="po-head"><span></span><span>Team</span><span>Rec</span><span>Seed</span><span class="r">Playoffs</span></div>
+    <div class="po-list">${d.teams.map((t,i)=>`<div class="po-row${i<d.spots?' po-in':''}">
+      <span class="po-rk">${i+1}</span>
+      <span class="po-nm">${t.name}</span>
+      <span class="po-rec">${t.played.w}–${t.played.l}${t.played.t?`–${t.played.t}`:''}</span>
+      <span class="po-seed">${t.seed<=d.spots?`#${t.seed} seed`:'—'}</span>
+      <span class="po-odds" style="color:${t.odds?'var(--green)':'var(--red)'}">${t.odds?'100%':'0%'}</span>
+    </div>`).join('')}</div>
+    <div class="po-note">${d.season} is finished, so this is the field as it actually fell rather than a projection — the top ${d.spots} seeds made the playoffs, everyone else did not.</div>
+  </div>`;
   return `<div class="sec po-sec">
     <div class="sec-head"><i class="fa fa-chart-simple"></i>Playoff Outlook
       <span class="badge-info">${d.left?`${d.left} games left · ${d.runs.toLocaleString()} simulations`:'regular season complete'}</span></div>
@@ -5956,14 +6034,21 @@ function playoffOutlookHTML(){
 }
 function renderSchedule(){
   const el=document.getElementById('sched-body'); if(!el) return;
+  /* a finished season is a record, not a schedule — say so in the heading */
+  {const h=document.getElementById('sched-head'); if(h){ const i=schedSeason();
+    const done=i.complete;
+    h.innerHTML=`<i class="fa fa-calendar-days"></i>${done?i.season+' Results':'Upcoming Schedule'}<span class="badge-info">${done?'final scores':'win odds from the B&amp;C power ratings'}</span>`; }}
   if(!_franchises.length){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading schedule…</div>`; return; }
   if(_schedTeam==null) _schedTeam=String(_teams[0]?.id||'');
   const sel=document.getElementById('sched-team-select');
   if(sel&&sel.value!==String(_schedTeam)) sel.value=String(_schedTeam);
   const owner=_ownerMap[Number(_schedTeam)];
+  /* a finished season shows what actually happened rather than a projection */
+  const done=schedSeason();
+  if(done.complete){ el.innerHTML=schedResultsHTML(owner); return; }
   const d=owner?schedRows(owner):null;
   if(!d||!d.rows.length){
-    el.innerHTML=`<div class="tab-loading" style="padding:40px 16px">No unplayed games on the schedule right now.</div>`;
+    el.innerHTML=`<div class="tab-loading" style="padding:40px 16px">No unplayed games on the schedule for ${done.season}.</div>`;
     return;
   }
   /* the opponent name opens a drawer with their toughest players to face */
@@ -6008,6 +6093,40 @@ function renderSchedule(){
     ${playoffOutlookHTML()}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
 }
+/* A finished season, week by week: who they played, the score, and whether it
+   was a win. Won rows carry a green edge and lost rows a red one, the same
+   device the current week uses on the live table. */
+function schedResultsHTML(owner){
+  const d=owner?schedPlayedRows(owner):null;
+  const info=schedSeason();
+  if(!d||!d.rows.length){
+    return `<div class="tab-loading" style="padding:40px 16px">No games on record for ${info.season}.</div>`;
+  }
+  const rec=`${d.w}–${d.l}${d.t?`–${d.t}`:''}`;
+  const rows=d.rows.map(r=>{
+    const cls=r.res==='W'?' sch-won':r.res==='L'?' sch-lost':'';
+    const fr=_franchises.find(f=>f.owner===r.oppOwner);
+    return `<div class="sch-row sch-res${cls}">
+      <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
+      <span class="sch-team"><span class="sch-nm">${r.oppName}</span>
+        <span class="sch-ab">${sbTeamAb(r.oppOwner,r.oppName)}</span></span>
+      <span class="r sch-res-b">${r.res}</span>
+      <span class="r sch-score">${r.my.toFixed(1)} – ${r.their.toFixed(1)}</span>
+      <span class="r sch-marg">${r.margin>0?'+':''}${r.margin.toFixed(1)}</span>
+    </div>`;}).join('');
+  return `<div class="sch-reshead">
+      <span class="sch-resy">${info.season} season</span>
+      <span class="sch-resr">${rec}<span class="sch-respf">${d.pf.toFixed(1)} PF · ${d.pa.toFixed(1)} PA</span></span>
+    </div>
+    <div class="sch-head sch-head-res">
+      <span>Wk</span><span>Opponent</span><span class="r">Result</span>
+      <span class="r">Score</span><span class="r">Margin</span>
+    </div>
+    <div class="sch-list">${rows}</div>
+    ${playoffOutlookHTML()}
+    <div class="sch-note">Final results for ${info.season}, taken from the league's own scoreboard.</div>`;
+}
+
 /* ── RIVALS ──────────────────────────────────────────────────────────────────
    A manager's rivals are whoever they played in weeks 12, 13 and 14 of 2025.
    That schedule is the source of truth — earlier years paired those weeks
@@ -6198,6 +6317,32 @@ function profileDraftBlockHTML(owner){
   const html=profileOverviewHTML(owner,true);
   return html;
 }
+/* The profile's season block has its own year, independent of the nav. The
+   figures come from the per-season rows the sportsbook build already carries
+   (w/g/pf/pa/rank per franchise, every season), so switching years costs no
+   network at all.
+   The advanced metrics below them — coaching, the two ROIs, lineup IQ, moves,
+   trades — are only computed for the season the app has actually loaded, which
+   is the nav's year. Pick any other year and those read "—" rather than
+   showing the loaded season's numbers under the wrong heading. */
+let _profSeason=null;
+function profSeason(){ return _profSeason||getSeason(); }
+function setProfSeason(y){ _profSeason=String(y); renderProfile(); }
+function profSeasonRow(owner,year){
+  const b=(typeof sbBuild==='function')?sbBuild():null;
+  const r=b&&b.rows?b.rows.find(x=>x.owner===owner):null;
+  if(!r||!r.sp) return null;
+  return r.sp.find(x=>String(x.season)===String(year))||null;
+}
+/* every season this franchise actually played, newest first */
+function profSeasonYears(owner){
+  const b=(typeof sbBuild==='function')?sbBuild():null;
+  const r=b&&b.rows?b.rows.find(x=>x.owner===owner):null;
+  const played=(r&&r.sp?r.sp:[]).filter(x=>x.g>0).map(x=>String(x.season));
+  const cur=String(getSeason());
+  if(!played.includes(cur)) played.push(cur);
+  return played.sort().reverse();
+}
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
   const sel=document.getElementById('profile-team-select');
@@ -6265,20 +6410,38 @@ async function renderProfile(){
     </div>
     ${legacyReportHTML(owner)}
     <div class="prof-top2">
-    <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
+    ${(() => {
+      const py=profSeason(), live=String(py)===String(getSeason());
+      const sp=profSeasonRow(owner,py);
+      const yrs=profSeasonYears(owner);
+      const dash='—';
+      /* live season: the loaded team object. any other year: the season row. */
+      const rec=live?`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`
+        :(sp?`${sp.w}–${Math.max(0,sp.g-sp.w)}`:dash);
+      const pf=live?t.pf:(sp?sp.pf:null);
+      const pa=live?t.pa:(sp?sp.pa:null);
+      const gp=live?(t.wins+t.losses+(t.ties||0)):(sp?sp.g:0);
+      const pick=`<select class="prof-yr" aria-label="Season"
+        onchange="setProfSeason(this.value)">${yrs.map(y=>
+        `<option value="${y}"${String(y)===String(py)?' selected':''}>${y}</option>`).join('')}</select>`;
+      return `<div class="panel"><div class="sec-head prof-yr-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${pick} Season</div>
     <div class="prof-stats">
-      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,scaleCol(seasonVals(winPctOf),winPctOf(t),true))}
-      ${stat('Points For',t.pf.toFixed(1),scaleCol(seasonVals(x=>x.pf),t.pf,true))}
-      ${stat('Points Against',t.pa.toFixed(1),scaleCol(seasonVals(x=>x.pa),t.pa,false))}
-      ${stat('Moves',t.moves)}
-      ${stat('Trades',t.trades)}
-      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),_cmMode==='none'?'':scaleCol(seasonVals(x=>_scores[x.id]||0),s,true))}
-      ${stat('Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c2),c2,true))}
-      ${stat('Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c3),c3,true))}
-      ${stat('Lineup IQ',myLiqPct!=null?myLiqPct.toFixed(1)+'%':'—',scaleCol(_teams.map(x=>{const d=_liqSeason[x.id];return (d&&d.decisions)?d.correct/d.decisions*100:null;}),myLiqPct,true))}
-      ${stat('Missed Points',myLiq?myLiq.missed.toFixed(1):'—',scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false))}
+      ${stat('Record',rec,live?scaleCol(seasonVals(winPctOf),winPctOf(t),true):'')}
+      ${stat('Points For',pf!=null?pf.toFixed(1):dash,live?scaleCol(seasonVals(x=>x.pf),t.pf,true):'')}
+      ${stat('Points Against',pa!=null?pa.toFixed(1):dash,live?scaleCol(seasonVals(x=>x.pa),t.pa,false):'')}
+      ${stat('Points/Game',gp&&pf!=null?(pf/gp).toFixed(1):dash,'')}
+      ${stat('Finish',sp&&sp.rank?`#${sp.rank}`:dash,'')}
+      ${stat('Moves',live?t.moves:dash)}
+      ${stat('Trades',live?t.trades:dash)}
+      ${stat('Coaching Metric',!live?dash:(_cmMode==='none'?dash:s.toFixed(2)),(!live||_cmMode==='none')?'':scaleCol(seasonVals(x=>_scores[x.id]||0),s,true))}
+      ${stat('Trade ROI',!live?dash:(c2!=null?(c2>=0?'+':'')+c2.toFixed(2):dash),live?scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c2),c2,true):'')}
+      ${stat('Waiver ROI',!live?dash:(c3!=null?(c3>=0?'+':'')+c3.toFixed(2):dash),live?scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c3),c3,true):'')}
+      ${stat('Lineup IQ',!live?dash:(myLiqPct!=null?myLiqPct.toFixed(1)+'%':dash),live?scaleCol(_teams.map(x=>{const d=_liqSeason[x.id];return (d&&d.decisions)?d.correct/d.decisions*100:null;}),myLiqPct,true):'')}
+      ${stat('Missed Points',!live?dash:(myLiq?myLiq.missed.toFixed(1):dash),live?scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false):'')}
     </div>
-    </div>
+    ${live?'':`<div class="prof-yr-note">Coaching, the ROIs, lineup IQ, moves and trades are only computed for ${getSeason()}, the season loaded in the nav.</div>`}
+    </div>`;
+    })()}
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
     <div class="prof-stats">
       ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
@@ -8552,7 +8715,7 @@ async function loadDashboard(){
       <!-- UPCOMING SCHEDULE -->
       <div class="tab-page" id="page-schedule">
         <div class="sec">
-          <div class="sec-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
+          <div class="sec-head" id="sched-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
           <div class="picker-bar" style="padding-bottom:16px">
             <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
             <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
