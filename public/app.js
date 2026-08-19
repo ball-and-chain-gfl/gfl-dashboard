@@ -3663,11 +3663,12 @@ function enemiesFor(owner){
    turns over when the chat week does. */
 const NEW_VID_COLORS=['#E86043','#E89845','#E8C656','#66E89D','#5CE8B3','#63E0E8',
                       '#587DE8','#6C6AE8','#9F61E8','#E860AF','#CBE853','#E0B67B'];
-/* The ribbon and the scroll rail take the homepage gold rather than cycling a
-   palette — they sit inside the home module and were the one thing in it
-   wearing a different colour each week. NEW_VID_COLORS is left in place if the
-   rotation is ever wanted back. */
-function newVideoColor(){ return '#E0B67B'; }
+/* The ribbon and the scroll rail take the Coaches' Poll accent — the module
+   directly under the video — rather than cycling a palette, so the top of the
+   homepage reads as one colour. Keep this in step with #page-home .mod-cp's
+   --accent in the stylesheet. NEW_VID_COLORS is left in place if the rotation
+   is ever wanted back. */
+function newVideoColor(){ return '#f09a4a'; }
 
 /* drives the drawn scroll indicator under the video carousel */
 function wireVidRail(){
@@ -4163,6 +4164,31 @@ function fitSectionNav(bar,n){
   while(cols>1 && n>cols && n%cols===1) cols--;
   bar.style.gridTemplateColumns=`repeat(${cols},minmax(0,1fr))`;
 }
+/* The chip bar is sticky. Once it lands under the nav, a dark frosted drawer
+   slides down from behind the nav and sits under it — flush at the top, rounded
+   at the bottom. The nav's bottom edge is measured rather than hardcoded, so the
+   bar docks exactly against it at every breakpoint and under the iOS safe-area
+   inset; --navside is how far the bar is inset from the nav's sides, which lets
+   the drawer widen to the nav's edges. */
+let _dockRaf=0;
+function syncNavDock(){
+  const nav=document.getElementById('floatnav'); if(!nav) return;
+  const nb=nav.getBoundingClientRect();
+  document.documentElement.style.setProperty('--navbot',Math.round(nb.bottom)+'px');
+  document.querySelectorAll('.sec-nav').forEach(bar=>{
+    if(bar.hidden){ bar.classList.remove('stuck'); return; }
+    const r=bar.getBoundingClientRect();
+    bar.style.setProperty('--navside',Math.max(0,Math.round(r.left-nb.left))+'px');
+    bar.classList.toggle('stuck',r.top<=nb.bottom+1);
+  });
+}
+function onDockScroll(){
+  if(_dockRaf) return;
+  _dockRaf=requestAnimationFrame(()=>{ _dockRaf=0; syncNavDock(); });
+}
+addEventListener('scroll',onDockScroll,{passive:true});
+addEventListener('resize',onDockScroll);
+
 function buildSectionNav(tab){
   const top=document.getElementById('sec-nav'); if(!top) return;
   _secNavBusy=true;   // our own writes must not retrigger the observer
@@ -4200,6 +4226,7 @@ function buildSectionNav(tab){
     `<button class="sx-chip" data-sx="${i}" title="${e.label}" onclick="jumpToSection(this)">${sxShort(e.label)}</button>`).join('');
   bar.hidden=false;
   fitSectionNav(bar,entries.length);
+  syncNavDock();
   // the bar is rebuilt whenever the page mutates, so the switcher's selected
   // state has to be re-applied here rather than only when a chip is clicked
   if(cmOn) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_cmSection));

@@ -1042,15 +1042,33 @@
        pins once the page scrolls past it; the padding and background stop page
        content showing through the gap between the nav and the chips. */
     .sec-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:7px;margin:-8px 0 26px;
-      position:sticky;z-index:380;top:calc(env(safe-area-inset-top,0px) + 82px);
-      /* fully transparent: no fill and no backdrop blur, so only the chips
-         themselves are visible. Page content passes behind them when pinned. */
+      position:sticky;z-index:380;top:var(--navbot,calc(env(safe-area-inset-top,0px) + 82px));
+      /* the bar itself stays transparent; the drawer below does the covering */
       padding:8px 0;background:transparent;}
+    /* The drawer. It lives behind the chips and one notch below them in the
+       bar's own stacking context, and starts translated a full height up —
+       which puts it inside the nav, whose z-index of 400 hides it. Docking
+       slides it down out from under the nav. Same dark frosted glass as the
+       team profile hero. It reaches the nav's side edges via --navside and
+       hangs 6px past the chips so the rounded bottom has somewhere to sit. */
+    .sec-nav::before{content:"";position:absolute;z-index:-1;pointer-events:none;
+      top:0;bottom:-6px;left:calc(var(--navside,2px) * -1);right:calc(var(--navside,2px) * -1);
+      border-radius:0 0 12px 12px;
+      background:rgba(0,0,0,0.92);
+      -webkit-backdrop-filter:blur(22px) saturate(1.3);
+      backdrop-filter:blur(22px) saturate(1.3);
+      box-shadow:0 18px 34px -26px rgba(0,0,0,0.95);
+      transform:translateY(-100%);opacity:0;
+      transition:transform .26s cubic-bezier(.3,.75,.25,1),opacity .18s ease;}
+    .sec-nav.stuck::before{transform:translateY(0);opacity:1;}
+    @media(prefers-reduced-motion:reduce){
+      .sec-nav::before{transition:opacity .18s ease;transform:translateY(0);}
+    }
     .sec-nav[hidden]{display:none;}
     /* inline variant sits under a filter row, not under the title rule */
     .sec-nav-local{margin:0 0 18px;}
     @media(max-width:768px){
-      .sec-nav{top:calc(env(safe-area-inset-top,0px) + 72px);}
+      .sec-nav{top:var(--navbot,calc(env(safe-area-inset-top,0px) + 72px));}
     }
     /* Legibility over decoration: the label is near-white rather than the tab
        accent, which on the darker palettes was too low-contrast to read at this
