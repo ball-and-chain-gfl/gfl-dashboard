@@ -4080,7 +4080,7 @@ const SX_ABBR={
   'All-Time Records':'AT Records',
   'Draft Rankings':'Rankings',
   'Draft Report':'Report',
-  'Record vs. Team':'Record',
+  'Biggest Enemies':'Enemies',
   'Draft Grades':'Grades',
   'GFL Overview':'Overview',
 };
@@ -5096,7 +5096,21 @@ function lockerRoomHTML(t){
       +P(28,196,56,7,'#3a2f27')+P(28,193,56,3,'#4a3d33')
       +P(36,203,6,37,'#2a2119')+P(70,203,6,37,'#2a2119')
       +P(36,222,40,5,'#2a2119')
-      +plantSVG(st.stage,P)
+      /* the plant is the control: a hit area over it, with the can and the
+         drops drawn in and revealed by the animation class */
+      +'<g class="lk-plantg" role="button" tabindex="0" onclick="waterPlant()"'
+      +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
+        +P(12,40,100,200,'#000','0')            // generous tap target, invisible
+        +plantSVG(st.stage,P)
+        +'<g class="lk-can">'
+          +P(88,74,30,20,'#9aa4b0')+P(88,74,30,4,'#b4bcc6')
+          +P(116,80,14,5,'#9aa4b0')+P(128,84,10,4,'#9aa4b0')
+          +P(78,78,12,5,'#9aa4b0')
+        +'</g>'
+        +'<g class="lk-drops">'
+          +P(120,96,4,9,'#5bc8f5')+P(130,104,4,9,'#5bc8f5')+P(112,108,4,9,'#5bc8f5')
+        +'</g>'
+      +'</g>'
 
       // laundry bin and a stray ball, bottom right
       +P(556,190,52,50,'#4a4a55')+P(556,190,52,5,'#5a5a66')
@@ -5131,7 +5145,14 @@ function plantStage(){
 async function waterPlant(){
   const now=String(Date.now());
   localStorage.setItem(plantKey(),now);
-  renderMyProfile();
+  /* Play the pour before repainting. Re-rendering immediately would replace the
+     node mid-animation and nothing would be seen; the room is redrawn once the
+     can has finished, which is also when the new stage should appear. */
+  const g=document.querySelector('.lk-plantg');
+  if(g){
+    g.classList.add('watering');
+    setTimeout(()=>{ renderMyProfile(); },1150);
+  }else renderMyProfile();
   if(_me){ try{ await gflPatchProfile(_me.k1,{plantWatered:now}); }catch(e){} }
 }
 async function plantSync(){
@@ -5215,9 +5236,6 @@ function renderMyProfile(){
          The header above already names it. -->
     <div class="mp-actions">
       <button class="mv-btn" onclick="switchTab('teams')">Open team profile</button>
-      ${''/* watering sits with the other actions rather than under the room */}
-      <button class="mv-btn mp-water" onclick="waterPlant()" title="${plantStage().label}">
-        <i class="fa fa-droplet"></i>${plantStage().stage>=5?'Revive':'Water'}</button>
       <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
     </div>`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
@@ -5679,7 +5697,7 @@ function enemiesHTML(owner){
   if(!list.length) return `<div class="tab-loading" style="padding:22px">No opposing lineup data yet.</div>`;
   const mxp=list[0].pts||1;
   return `<div class="en-list">
-    <div class="en-row en-head"><span>#</span><span>Player</span><span class="r">Points</span><span class="r">Record</span><span class="r">PPG</span></div>
+    <div class="en-row en-head"><span>#</span><span>Player</span><span class="r">Points</span><span class="r">Record vs. Team</span><span class="r">PPG</span></div>
     ${list.map((r,i)=>{
       const pct=r.g?r.w/r.g:0;
       return `<div class="en-row">
@@ -6290,6 +6308,12 @@ async function sbPlaceBet(){
    in front of you. Reopening a collapsed card lets the answer be changed. */
 /* resetToken is part of the key, so bumping it in config orphans every stored
    answer at once rather than needing them deleted per device and per profile. */
+/* The Firestore field name has to stay stable — it is a field on that
+   manager's own document, so it is already per profile. The localStorage copy
+   is not: it is per device, so signing out and back in as someone else used to
+   show them the last manager's answers. Everything cached locally is namespaced
+   by whoever is signed in. */
+const lsKey=k=>(_me?_me.k1:'guest')+':'+k;
 const bkKey=()=>{
   const c=_CFG.ballKnowledge||{};
   const r=c.resetToken?`_r${c.resetToken}`:'';
@@ -6309,7 +6333,7 @@ async function bkSync(){
     if(!raw) return;
     const srv=JSON.parse(raw);
     _bkAnswers={...srv,...bkLoadAnswers()};
-    localStorage.setItem(bkKey(),JSON.stringify(_bkAnswers));
+    localStorage.setItem(lsKey(bkKey()),JSON.stringify(_bkAnswers));
     renderBallKnowledge();
   }catch(e){}
 }
@@ -6320,7 +6344,7 @@ function bkLoadAnswers(){
   if(_bkAnswers) return _bkAnswers;
   let raw='';
   if(_me&&_me[bkKey()]!=null) raw=String(_me[bkKey()]);
-  else raw=localStorage.getItem(bkKey())||'';        // signed out, or before the profile lands
+  else raw=localStorage.getItem(lsKey(bkKey()))||'';   // signed out, or before the profile lands
   try{ _bkAnswers=raw?JSON.parse(raw):{}; }catch{ _bkAnswers={}; }
   return _bkAnswers;
 }
@@ -6333,7 +6357,7 @@ async function bkAnswer(qi,ai,el){
   const ans=bkLoadAnswers();
   ans[qi]=ai;
   _bkOpen=null;
-  localStorage.setItem(bkKey(),JSON.stringify(ans));   // instant, and the fallback when signed out
+  localStorage.setItem(lsKey(bkKey()),JSON.stringify(ans));   // instant, and the fallback when signed out
   renderBallKnowledge();
   if(_me){
     _bkBusy=true;
@@ -6444,7 +6468,7 @@ function pkGames(){
 }
 function pkLoad(){
   if(_pkPicks) return _pkPicks;
-  let raw=localStorage.getItem(pkKey())||'';
+  let raw=localStorage.getItem(lsKey(pkKey()))||'';
   try{ _pkPicks=raw?JSON.parse(raw):{}; }catch{ _pkPicks={}; }
   return _pkPicks;
 }
@@ -6456,7 +6480,7 @@ async function pkSync(){
     const raw=res&&res.data?res.data[pkKey()]:null;
     if(!raw) return;
     _pkPicks={...JSON.parse(raw),...pkLoad()};
-    localStorage.setItem(pkKey(),JSON.stringify(_pkPicks));
+    localStorage.setItem(lsKey(pkKey()),JSON.stringify(_pkPicks));
     renderWeekPicks();
   }catch(e){}
 }
@@ -6465,7 +6489,7 @@ async function pkPick(gi,teamId,el){
   if(_pkBusy) return;
   if(el&&el.blur) el.blur();
   const p=pkLoad(); p[gi]=String(teamId);
-  localStorage.setItem(pkKey(),JSON.stringify(p));
+  localStorage.setItem(lsKey(pkKey()),JSON.stringify(p));
   renderWeekPicks();
   if(_me){ _pkBusy=true; try{ await gflPatchProfile(_me.k1,{[pkKey()]:JSON.stringify(p)}); }catch(e){} _pkBusy=false; }
 }
@@ -6514,7 +6538,17 @@ let _cpBallot=null,_cpRows=null,_cpBusy=false,_cpFetched=false;
 
 function cpMyBallot(){
   if(_cpBallot) return _cpBallot;
-  try{ _cpBallot=JSON.parse(localStorage.getItem(cpKey())||'[]'); }catch{ _cpBallot=[]; }
+  try{ _cpBallot=JSON.parse(localStorage.getItem(lsKey(cpKey()))||'[]'); }catch{ _cpBallot=[]; }
+  /* nothing cached on this device — adopt whatever this manager already
+     submitted, so a ballot follows them rather than looking unfilled */
+  if(!_cpBallot.length&&_me&&_cpRows){
+    const row=_cpRows.find(p=>p.id===_me.k1);
+    if(row&&row[cpKey()]){
+      try{ const srv=JSON.parse(row[cpKey()]);
+        if(Array.isArray(srv)&&srv.length){ _cpBallot=srv;
+          localStorage.setItem(lsKey(cpKey()),JSON.stringify(srv)); } }catch(e){}
+    }
+  }
   return _cpBallot;
 }
 async function cpSync(){
@@ -6528,10 +6562,10 @@ function cpToggle(teamId){
   const b=cpMyBallot().slice();
   const i=b.indexOf(String(teamId));
   if(i>=0) b.splice(i,1); else b.push(String(teamId));
-  _cpBallot=b; localStorage.setItem(cpKey(),JSON.stringify(b));
+  _cpBallot=b; localStorage.setItem(lsKey(cpKey()),JSON.stringify(b));
   renderCoachesPoll();
 }
-function cpClear(){ _cpBallot=[]; localStorage.setItem(cpKey(),'[]'); renderCoachesPoll(); }
+function cpClear(){ _cpBallot=[]; localStorage.setItem(lsKey(cpKey()),'[]'); renderCoachesPoll(); }
 async function cpSubmit(){
   if(!_me||_cpBusy) return;
   const b=cpMyBallot();
@@ -7055,7 +7089,7 @@ function betGrade(bet){
 
 // ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
 const SB_GROUPS=[
-  {k:'week',label:'Forecast',icon:'fa-chart-line'},
+  {k:'week',label:'Forecast',icon:'fa-bolt'},
   {k:'futures',label:'Futures',icon:'fa-trophy'},
   {k:'props',label:'Team Props',icon:'fa-chart-simple'},
   {k:'awards',label:'Awards',icon:'fa-award'},
@@ -7885,7 +7919,7 @@ async function loadDashboard(){
             <div id="tenure-hw"></div>
           </div>
           <div class="sec wm" data-wm="&#xf714;">
-            <div class="sec-head"><i class="fa fa-skull-crossbones"></i>Record vs. Team</div>
+            <div class="sec-head"><i class="fa fa-skull-crossbones"></i>Biggest Enemies</div>
             <div id="tenure-enemies"></div>
           </div>
         </div>
