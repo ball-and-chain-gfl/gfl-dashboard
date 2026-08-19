@@ -5206,20 +5206,52 @@ function lockerRoomHTML(t){
   const W=2560,H=1120;
   const FLOOR=440;                      // still base units; P scales it
 
+  /* Championship banners, hung from a rod in the top-left band — the shelf
+     owns x 381 on. Each carries the year it was won, which is the thing a
+     banner is actually for, and is tappable like a keepsake.
+     Sized off the room rather than off a phone: the whole 1280-unit room is
+     drawn into about 375px, so a banner has to be around 80 units wide before
+     its year survives that scale as readable text. Width and pitch both come
+     down as the titles pile up, so six still fit clear of the shelf.
+     Years come from the same map the Playoff Hardware tiles caption themselves
+     with. On a cold profile load the league history may not have run yet, so a
+     banner with no year still hangs — it just says nothing. */
   const pennants=(()=>{
+    const yrs=(_profileHonorYears[owner]&&_profileHonorYears[owner].champ)||[];
     const n=Math.min(rings,6);
+    if(!n) return '';
+    const w=n<=4?80:(n===5?64:54);
+    const h=Math.round(w*1.45);
+    const pitch=n<2?0:Math.min(w+8,Math.floor((338-w)/(n-1)));
+    /* Courier advances 0.6em a glyph, so a three-glyph year runs 1.8 font
+       sizes wide — anything past w*0.45 spills off the banner and into its
+       neighbour. This lands about 10px tall on a phone, which reads. */
+    const fsz=Math.round(w*0.44);
     return Array.from({length:n},(_,i)=>{
-      const x=24+i*54;   // the left of the top band — the shelf owns x 381 on
-      return P(x,18,30,44,c2)+P(x+30,18,4,44,dk)          // body + shaded edge
-        +P(x+3,62,24,7,c2)+P(x+11,69,10,7,c2)             // tail
-        +P(x+7,28,16,5,dv)+P(x+11,40,8,4,dv)              // mark
-        +P(x,18,30,3,c3);                                  // top hem
+      const x=36+i*pitch, cx=x+Math.round(w/2), yr=yrs[i]||'';
+      /* the face carries the short year the way the league writes it, 24' */
+      const face=yr?yr.replace("'",'')+String.fromCharCode(8217):'';
+      const body=
+        P(x-4,2,w+8,5,'#3a3a46')+P(x-4,2,w+8,2,'#4a4a58')          // rod
+        +P(x,7,w,h,c2)+P(x,7,w,5,c3)                                // body + top hem
+        +P(x+w-6,12,6,h-5,dk,'0.55')                                // shaded edge
+        +R((x+2)*S,(7+h)*S-2,(w-4)*S,2,dv,'0.35')                   // R: fold above the tail
+        +P(x+3,7+h,w-6,8,c2)                                        // tail
+        +P(x+Math.round(w*0.22),15+h,Math.round(w*0.56),8,c2)
+        +P(x+Math.round(w*0.40),23+h,Math.round(w*0.20),7,c2)
+        +P(cx-7,16,14,11,'#e8c15a')+P(cx-7,16,14,3,'#f6dc9a')       // little trophy
+        +P(cx-3,27,6,5,'#c99a34')+P(cx-10,32,20,5,'#8a6a24')
+        +(yr?'<text x="'+(cx*S)+'" y="'+Math.round((7+h*0.74)*S)+'" text-anchor="middle"'
+          +' font-family="\'Courier New\',monospace" font-size="'+(fsz*S)+'" font-weight="700"'
+          +' fill="'+dv+'">'+face+'</text>':'');
+      return lkTag('Championship banner',
+        yr?('GFL champion — '+yr.replace("'","20")):'GFL champion', body);
     }).join('');
   })();
 
   const st=plantStage();
   return '<div class="lk-block">'
-    +'<div class="sec-head lk-head"><i class="fa fa-shirt"></i>Locker Room</div>'
+    +'<div class="sec-head lk-head">Locker Room</div>'
     +'<div class="lk-wrap">'
     +'<svg class="lk-svg" viewBox="0 0 '+W+' '+H+'" shape-rendering="crispEdges" role="img"'
     +' aria-label="Pixel art locker room for '+t.name+'">'
