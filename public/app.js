@@ -4982,7 +4982,7 @@ function lockerRoomHTML(t){
   const ab=(t.abbrev||teamInitials(t.name)||'GFL').slice(0,4).toUpperCase();
   /* logoMainColor is async and caches; if it has not run for this team yet the
      synchronous teamColor fallback is fine. Both can come back as #rrggbb or
-     rgb(...), so parse either rather than assuming — mixHex only reads hex. */
+     rgb(...), so parse either rather than assuming. */
   const parse=s=>{
     if(!s) return [138,143,152];
     const m=String(s).match(/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/);
@@ -4994,103 +4994,115 @@ function lockerRoomHTML(t){
   const base=parse(_logoColorCache[t.id]||teamColor(t.id));
   const mix=(rgb,to,k)=>'rgb('+rgb.map((v,i)=>Math.round(v+(to[i]-v)*k)).join(',')+')';
   const c1='rgb('+base.join(',')+')';
-  const c2=mix(base,[255,255,255],0.34);
-  const c3=mix(base,[255,255,255],0.62);
-  const dark=mix(base,[0,0,0],0.55);
-  const deep=mix(base,[0,0,0],0.74);
+  const c2=mix(base,[255,255,255],0.30);
+  const c3=mix(base,[255,255,255],0.58);
+  const dk=mix(base,[0,0,0],0.52);
+  const dp=mix(base,[0,0,0],0.72);
   const P=(x,y,w,h,f,o)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+f+'"'+(o?' opacity="'+o+'"':'')+'/>';
 
-  /* Pennants hang centred over the bay rather than from the left, so one title
-     does not read as a stray flag in an empty corner. */
-  const nb=Math.min(rings,6);
-  const banners=Array.from({length:nb},(_,i)=>{
-    const x=Math.round(160-(nb*26-8)/2)+i*26;
-    return P(x,10,18,22,c2)+P(x+2,32,14,4,c2)+P(x+6,36,6,4,c2)
-      +P(x+4,16,10,4,deep)+P(x+6,22,6,3,deep);
-  }).join('');
+  /* A 640x300 grid — four times the pixels of the last pass, which is what buys
+     the shading: every surface gets a light edge and a shadow rather than being
+     one flat block. Wide, because the room now runs the full width of the card. */
+  const W=640,H=300;
+
+  // one locker bay, repeated across the back wall
+  const bay=(x,w,lead)=>{
+    const d=[];
+    d.push(P(x,60,w,180,lead?dk:dp));
+    d.push(P(x,60,w,5,c1));                       // top rail
+    d.push(P(x,65,w,2,c2,'0.5'));
+    d.push(P(x,238,w,4,'#26262e'));               // floor lip
+    d.push(P(x-3,60,3,182,'#2c2c36'));            // divider
+    d.push(P(x+w,60,3,182,'#2c2c36'));
+    d.push(P(x+6,104,w-12,3,'#33333e'));          // shelf
+    d.push(P(x+6,101,w-12,3,c2,'0.35'));
+    d.push(P(x+8,168,w-16,5,'#3a2f27'));          // bench
+    d.push(P(x+8,165,w-16,3,'#4a3d33'));
+    return d.join('');
+  };
+
+  const jersey=(x)=>[
+    P(x+34,120,5,13,'#3a3a44'), P(x+22,133,29,4,'#3a3a44'),          // hanger
+    P(x,138,74,74,c1),                                                // body
+    P(x-16,143,16,30,c1), P(x+74,143,16,30,c1),                       // sleeves
+    P(x-16,167,16,6,c2),   P(x+74,167,16,6,c2),                       // cuffs
+    P(x+18,138,38,8,c3),                                              // collar
+    P(x,206,74,6,c2),                                                 // hem
+    P(x+8,158,58,28,dp),                                              // number panel
+  ].join('');
+
+  const pennants=(()=>{
+    const n=Math.min(rings,6);
+    return Array.from({length:n},(_,i)=>{
+      const x=Math.round(W/2-(n*30-10)/2)+i*30;
+      return P(x,12,22,26,c2)+P(x+2,38,18,5,c2)+P(x+7,43,8,5,c2)
+        +P(x+5,19,12,4,dp)+P(x+7,27,8,3,dp);
+    }).join('');
+  })();
 
   const st=plantStage();
   return '<div class="lk-wrap">'
     +'<div class="lk-bar"><span>Locker Room</span><span class="lk-ab">'+ab+'</span></div>'
-    +'<svg class="lk-svg" viewBox="0 0 320 200" shape-rendering="crispEdges" role="img"'
+    +'<svg class="lk-svg" viewBox="0 0 '+W+' '+H+'" shape-rendering="crispEdges" role="img"'
     +' aria-label="Pixel art locker room for '+t.name+'">'
-      +P(0,0,320,200,'#1b1b20')
-      +P(0,0,320,52,'#15151a')
-      +P(0,50,320,2,deep)
-      /* wall panelling, so the back wall is not a flat field */
-      +Array.from({length:16},(_,i)=>P(i*20,52,1,116,'#1f1f26')).join('')
-      +banners
+      +P(0,0,W,H,'#1b1b20')
+      +P(0,0,W,58,'#15151a')
+      +P(0,56,W,2,dp)
+      // wall panelling
+      +Array.from({length:32},(_,i)=>P(i*20,58,1,182,'#202027')).join('')
+      +pennants
 
-      /* ── the bay ─────────────────────────────────────────────────────── */
-      +P(104,52,112,116,dark)
-      +P(104,52,112,6,c1)
-      +P(100,52,4,116,'#2a2a33')
-      +P(216,52,4,116,'#2a2a33')
-      +P(104,80,112,4,'#2a2a33')          /* shelf */
-      +P(104,78,112,2,c2,'0.5')
-      +P(104,164,112,4,'#26262e')         /* bay floor lip */
-      /* nameplate above the bay */
-      +P(138,58,44,14,deep)+P(140,60,40,10,c1)
-      +'<text x="160" y="69" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="9" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      // three bays: side, main, side
+      +bay(96,120,false)
+      +bay(248,148,true)
+      +bay(420,120,false)
 
-      /* ── jersey on the hook ──────────────────────────────────────────── */
-      +P(158,86,4,10,'#3a3a44')            /* hanger stem */
-      +P(150,94,20,3,'#3a3a44')            /* hanger bar */
-      +P(132,98,56,58,c1)                  /* body */
-      +P(120,102,12,22,c1)+P(188,102,12,22,c1)   /* sleeves */
-      +P(120,120,12,4,c2)+P(188,120,12,4,c2)     /* cuffs */
-      +P(146,98,28,6,c3)                   /* collar */
-      +P(132,150,56,6,c2)                  /* hem */
-      +P(138,112,44,20,deep)               /* number panel */
-      +'<text x="160" y="128" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="16" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      // the main bay dressed
+      +P(288,66,68,18,dp)+P(291,69,62,12,c1)
+      +'<text x="322" y="79" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="12" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      +jersey(285)
+      +'<text x="322" y="180" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="22" font-weight="700" fill="'+c3+'">'+ab+'</text>'
+      // helmet and ball on the main shelf
+      +P(258,80,26,20,c1)+P(255,88,3,10,c1)+P(284,88,8,5,c3)+P(260,77,20,4,c3)
+      +P(366,82,24,16,'#6b4423')+P(372,88,12,3,'#e8e8e8')
+      +P(369,84,3,12,'#5a3a1e')+P(384,84,3,12,'#5a3a1e')
+      // cleats and a towel on the bench
+      +P(272,150,22,12,c2)+P(272,147,22,3,c3)
+      +P(300,150,22,12,c2)+P(300,147,22,3,c3)
+      +P(336,146,30,8,c3,'0.85')+P(340,154,22,5,c3,'0.6')
 
-      /* ── shelf clutter ───────────────────────────────────────────────── */
-      +P(110,62,20,14,c1)+P(108,66,2,8,c1)+P(130,66,6,4,c3)   /* helmet + facemask */
-      +P(112,60,16,3,c3)                                       /* helmet stripe */
-      +P(192,64,18,12,'#6b4423')+P(196,68,10,2,'#e8e8e8')      /* ball */
-      +P(194,66,2,8,'#5a3a1e')+P(206,66,2,8,'#5a3a1e')
+      // side bays: spare kit, so they are not empty boxes
+      +P(120,116,60,58,c1,'0.55')+P(126,110,48,7,c3,'0.5')
+      +P(444,116,60,58,c1,'0.4')+P(450,110,48,7,c3,'0.4')
+      +P(132,178,36,10,'#2a2119')+P(456,178,36,10,'#2a2119')
 
-      /* ── bench, cleats, towel ────────────────────────────────────────── */
-      +P(112,158,96,7,'#3a2f27')
-      +P(112,156,96,2,'#4a3d33')
-      +P(118,165,6,3,'#2a2119')+P(196,165,6,3,'#2a2119')
-      +P(120,148,16,8,c2)+P(140,148,16,8,c2)                   /* cleats */
-      +P(120,146,16,2,c3)+P(140,146,16,2,c3)
-      +P(178,146,22,6,c3,'0.85')+P(180,152,18,4,c3,'0.6')      /* towel over the end */
+      // floor
+      +P(0,240,W,60,'#121216')
+      +Array.from({length:40},(_,i)=>P(i*16,240,15,2,'#22222a')).join('')
+      +Array.from({length:20},(_,i)=>P(i*32,268,31,2,'#1c1c23')).join('')
 
-      /* ── floor ───────────────────────────────────────────────────────── */
-      +P(0,168,320,32,'#121216')
-      +Array.from({length:20},(_,i)=>P(i*16,168,15,2,'#22222a')).join('')
-      +Array.from({length:10},(_,i)=>P(i*32,184,31,2,'#1c1c23')).join('')
+      // clock, far left of the upper wall
+      +P(30,16,34,34,'#2f2f38')+P(35,21,24,24,'#d8d8e0')
+      +P(46,26,3,10,'#2f2f38')+P(47,34,9,3,'#2f2f38')+P(30,16,34,3,'#3f3f4a')
 
-      /* ── left wall: clock ────────────────────────────────────────────── */
-      +P(22,12,26,26,'#2f2f38')+P(26,16,18,18,'#d8d8e0')
-      +P(34,20,2,7,'#2f2f38')+P(35,25,6,2,'#2f2f38')
-      +P(22,12,26,2,'#3f3f4a')
+      // whiteboard, far right
+      +P(548,16,72,50,'#d8d8e0')+P(553,21,62,40,'#ececf2')
+      +P(558,29,32,3,c1)+P(558,38,44,3,'#9a9aa6')+P(558,47,24,3,'#9a9aa6')
+      +P(586,44,14,8,c1)+P(576,66,16,4,'#8a8a96')
 
-      /* ── right wall: whiteboard with a play on it ────────────────────── */
-      +P(240,60,60,42,'#d8d8e0')+P(244,64,52,34,'#ececf2')
-      +P(248,70,26,2,c1)+P(248,78,36,2,'#9a9aa6')
-      +P(248,86,18,2,'#9a9aa6')+P(270,84,10,6,c1)
-      +P(264,102,12,6,'#8a8a96')
-
-      /* ── stool with the plant on it ──────────────────────────────────── */
-      +P(36,132,44,6,'#3a2f27')+P(36,130,44,2,'#4a3d33')
-      +P(42,138,5,30,'#2a2119')+P(69,138,5,30,'#2a2119')
-      +P(42,152,32,4,'#2a2119')
+      // stool and the plant
+      +P(28,196,56,7,'#3a2f27')+P(28,193,56,3,'#4a3d33')
+      +P(36,203,6,37,'#2a2119')+P(70,203,6,37,'#2a2119')
+      +P(36,222,40,5,'#2a2119')
       +plantSVG(st.stage,P)
 
-      /* ── laundry bin ─────────────────────────────────────────────────── */
-      +P(256,130,38,38,'#4a4a55')+P(256,130,38,4,'#5a5a66')
-      +P(262,120,26,10,c1)+P(266,116,18,6,c2)
+      // laundry bin and a stray ball, bottom right
+      +P(556,190,52,50,'#4a4a55')+P(556,190,52,5,'#5a5a66')
+      +P(564,178,36,12,c1)+P(570,172,24,7,c2)
+      +P(524,222,22,16,'#6b4423')+P(530,228,10,3,'#e8e8e8')
     +'</svg>'
-    +'<button class="lk-plant" onclick="waterPlant()" title="Water the plant">'
-      +'<i class="fa fa-droplet"></i><span>'+st.label+'</span>'
-      +'<span class="lk-water">'+(st.stage>=5?'Revive':'Water')+'</span>'
-    +'</button>'
-    +'<div class="lk-cap">'+(rings?rings+' banner'+(rings===1?'':'s')+' on the wall':'No banners yet — go win one')+'</div>'
   +'</div>';
 }
 
@@ -5133,39 +5145,51 @@ async function plantSync(){
 }
 /* Each stage is drawn rather than tinted, so the shape changes as it declines:
    upright and full, then shorter, then leaves angling down, then bare. */
+/* Each stage is drawn rather than tinted, so the shape changes as it declines:
+   upright and full, then shorter, then leaves angling down, then bare. Drawn to
+   sit on the stool at x 28..84, whose top is y 193. */
 function plantSVG(stage,P){
-  const pot=P(46,110,24,22,'#8a5a3a')+P(46,110,24,4,'#9a6a46')+P(44,108,28,4,'#7a4a2e');
-  const soil=P(48,112,20,3,'#3a2a1e');
-  const G=['#4ade80','#3fc46e','#8ab84a','#b0a03a','#8a6a30','#6b5030'][stage];
+  const potX=40, potTop=152, potH=41;
+  const pot=P(potX,potTop,34,potH,'#8a5a3a')
+    +P(potX,potTop,34,7,'#9a6a46')
+    +P(potX-3,potTop-4,40,6,'#7a4a2e')
+    +P(potX+2,potTop+10,4,26,'#7a4a2e','0.5');      // a little shading down one side
+  const soil=P(potX+3,potTop+4,28,5,'#3a2a1e');
+  const G =['#4ade80','#3fc46e','#8ab84a','#b0a03a','#8a6a30','#6b5030'][stage];
   const G2=['#86efac','#6ee7a0','#a8c96a','#c8b855','#a08040','#7a5c38'][stage];
-  const leaf=(x,y,w,h,f)=>P(x,y,w,h,f);
-  let plant='';
+  const stem=(y,h)=>P(54,y,6,h,G);
+  let p='';
   if(stage===0){
-    plant=P(56,86,4,24,G)
-      +leaf(44,88,12,5,G)+leaf(60,84,12,5,G2)+leaf(46,98,10,5,G2)+leaf(60,96,10,5,G)
-      +leaf(48,80,8,5,G2)+leaf(58,76,8,5,G)
-      +P(54,70,8,6,'#f0a0c0')+P(56,68,4,3,'#f8c0d8');      /* a flower, only when thriving */
+    p=stem(104,50)
+      +P(30,108,24,8,G)  +P(60,100,24,8,G2)
+      +P(34,124,20,7,G2) +P(60,120,20,7,G)
+      +P(38,90,16,7,G2)  +P(60,84,16,7,G)
+      +P(42,74,12,7,G)   +P(60,70,12,7,G2)
+      +P(48,58,18,12,'#f0a0c0')+P(52,52,10,7,'#f8c0d8')   // a flower, only when thriving
+      +P(51,64,3,3,'#e080a8');
   }else if(stage===1){
-    plant=P(56,90,4,20,G)
-      +leaf(45,92,11,5,G)+leaf(60,88,11,5,G2)+leaf(47,101,9,5,G2)+leaf(60,99,9,5,G)
-      +leaf(50,84,6,4,G2);
+    p=stem(112,42)
+      +P(32,116,22,8,G)  +P(60,110,22,8,G2)
+      +P(36,132,18,7,G2) +P(60,128,18,7,G)
+      +P(40,98,14,7,G2)  +P(60,94,14,7,G);
   }else if(stage===2){
-    plant=P(56,96,4,14,G)
-      +leaf(46,98,10,5,G)+leaf(60,95,10,5,G2)+leaf(48,105,8,4,G2);
+    p=stem(124,30)
+      +P(34,128,20,7,G)  +P(60,124,20,7,G2)
+      +P(38,142,16,6,G2) +P(60,140,14,6,G);
   }else if(stage===3){
-    plant=P(56,100,4,10,G)
-      +leaf(46,104,10,4,G)+P(44,108,4,4,G)                  /* leaves angling down */
-      +leaf(60,102,9,4,G2)+P(68,106,4,4,G2);
+    p=stem(134,20)
+      +P(36,140,18,6,G)  +P(30,146,8,6,G)               // leaves angling down
+      +P(60,138,16,6,G2) +P(74,144,8,6,G2);
   }else if(stage===4){
-    plant=P(56,104,4,6,G)
-      +P(48,108,8,3,G)+P(46,111,4,3,G)
-      +P(60,107,6,3,G2)
-      +P(40,128,5,3,G,'0.7')+P(72,128,5,3,G,'0.7');         /* leaves on the floor */
+    p=stem(142,12)
+      +P(40,146,14,5,G)  +P(34,151,7,5,G)
+      +P(60,145,12,5,G2)
+      +P(16,236,10,4,G,'0.7')+P(90,236,10,4,G,'0.7');   // leaves on the floor
   }else{
-    plant=P(56,104,4,6,G)+P(53,102,3,3,G)
-      +P(38,128,6,3,G,'0.6')+P(70,128,6,3,G,'0.6')+P(52,130,6,3,G,'0.5');
+    p=stem(142,12)+P(48,138,5,5,G)
+      +P(12,236,12,4,G,'0.55')+P(88,236,12,4,G,'0.55')+P(50,238,12,4,G,'0.45');
   }
-  return pot+soil+plant;
+  return pot+soil+p;
 }
 function renderMyProfile(){
   const el=document.getElementById('profile-page-body'); if(!el) return;
@@ -5191,6 +5215,9 @@ function renderMyProfile(){
          The header above already names it. -->
     <div class="mp-actions">
       <button class="mv-btn" onclick="switchTab('teams')">Open team profile</button>
+      ${''/* watering sits with the other actions rather than under the room */}
+      <button class="mv-btn mp-water" onclick="waterPlant()" title="${plantStage().label}">
+        <i class="fa fa-droplet"></i>${plantStage().stage>=5?'Revive':'Water'}</button>
       <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
     </div>`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
@@ -5477,7 +5504,7 @@ function playoffOutlook(){
        sampler does not always agree — a strong team can go a few thousand runs
        without ever landing last — but that is the simulation failing to reach a
        tail, not a real bound, so the unplayed case is stated outright. */
-    if(!playedAny){ t.fBest=1; t.fWorst=list.length; }
+    if(!playedAny){ t.fBest=1; t.fWorst=list.length; t.odds=spots/list.length; }
     return t;
   }).sort((a,b)=>b.odds-a.odds||a.seed-b.seed);
   /* Where each team sits in the table right now, which is what the notch marks.
@@ -5571,7 +5598,8 @@ function renderSchedule(){
           <span class="sch-dl-t"><i class="fa fa-gavel"></i>Trade deadline · after week ${dl}</span>
           <span class="sch-dl-l"></span></div>`;
       })()}
-      <div class="sch-row${r.rival?' sch-rrow':''}">
+      ${''/* the week on the clock is outlined; before kickoff that is week 1 */}
+      <div class="sch-row${r.rival?' sch-rrow':''}${!r.playoff&&r.week===Math.max(1,Number(d.info.week)||1)?' sch-now':''}">
         <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
         ${nm(r)}
         <span class="r sch-c1">${r.oppRec}</span>
@@ -6326,45 +6354,49 @@ function renderBallKnowledge(){
   const ans=bkLoadAnswers();
   const answered=qs.map((_,i)=>i).filter(i=>ans[i]!=null);
   const pending =qs.map((_,i)=>i).filter(i=>ans[i]==null);
-  const done=pending.length===0;
 
-  /* pending first, then answered — that is the "drops to the bottom" order */
-  const order=[...pending,...answered];
-  const cards=order.map(i=>{
-    const q=qs[i], picked=ans[i];
-    /* One question on screen at a time: the next only appears once this one is
-       answered. Answered questions collapse to a row and can be reopened — and
-       tapped again to close without having to re-pick. */
-    const isOpen = picked==null ? (i===pending[0] && _bkOpen==null) : _bkOpen===i;
-    const right = cfg.reveal && picked!=null ? (picked===q.correct) : null;
-    const state = picked==null?'bk-todo':(right===null?'bk-done':right?'bk-right':'bk-wrong');
-    if(!isOpen){
-      if(picked==null) return '';                 // still queued — not on screen yet
-      return `<button class="bk-card ${state} bk-collapsed" onclick="bkReopen(${i})">
-        <span class="bk-q">${q.q}</span>
-        <span class="bk-picked">${q.a[picked]}</span>
-        <i class="fa fa-chevron-down bk-chev"></i>
-      </button>`;
-    }
-    /* the heading is the toggle for an answered question, so it can be shut
-       again without having to re-pick */
-    return `<div class="bk-card ${state} bk-open">
-      <div class="bk-q${picked!=null?' bk-q-tap':''}" ${picked!=null?`onclick="bkReopen(${i})"`:''}>
-        ${q.q}${picked!=null?'<i class="fa fa-chevron-up bk-chev"></i>':''}
-      </div>
-      <div class="bk-opts">
-        ${q.a.map((opt,ai)=>`<button type="button" class="bk-opt${picked===ai?' on':''}" onclick="bkAnswer(${i},${ai},this)">${opt}</button>`).join('')}
-      </div>
+  /* One tap answers a question and it is gone — no collapsing and no reopening.
+     The set is graded together at the end instead, which is also what stops
+     anyone walking their answers to a perfect score. */
+  if(pending.length){
+    const i=pending[0], q=qs[i];
+    el.innerHTML=`
+      <div class="bk-meta"><span>Week ${cfg.week??'—'}</span>
+        <span class="bk-count">${answered.length} of ${qs.length}</span></div>
+      <div class="bk-card bk-open">
+        <div class="bk-q">${q.q}</div>
+        <div class="bk-opts">
+          ${q.a.map((opt,ai)=>`<button type="button" class="bk-opt" onclick="bkAnswer(${i},${ai},this)">${opt}</button>`).join('')}
+        </div>
+      </div>`;
+    bkPlace(false);
+    return;
+  }
+
+  /* All in: the condensed scorecard. One line per question, coloured by whether
+     it landed, with what the set moved your Ball Knowledge by underneath. */
+  const iq=bkIQCfg();
+  let right=0;
+  const rows=qs.map((q,i)=>{
+    const ok=ans[i]===q.correct; if(ok) right++;
+    return `<div class="bkr ${ok?'ok':'no'}">
+      <i class="fa ${ok?'fa-check':'fa-xmark'}"></i>
+      <span class="bkr-q">${q.q}</span>
+      <span class="bkr-a">${ok?q.a[ans[i]]:q.a[q.correct]}</span>
     </div>`;
   }).join('');
-
+  const wrong=qs.length-right;
+  const delta=(right-wrong)*iq.step;
+  const word=delta>0?'gained':delta<0?'lost':'held';
   el.innerHTML=`
     <div class="bk-meta"><span>Week ${cfg.week??'—'}</span>
-      <span class="bk-count">${answered.length} of ${qs.length}</span></div>
-    <div class="bk-stack">${cards}</div>
-    ${done?`<div class="bk-fin"><i class="fa fa-circle-check"></i>All in for this week — tap any question to change your answer.</div>`:''}`;
-
-  bkPlace(done);
+      <span class="bk-count">${right} of ${qs.length} right</span></div>
+    <div class="bk-score">${rows}</div>
+    <div class="bk-delta ${delta>0?'up':delta<0?'down':'flat'}">
+      <span class="bk-delta-v">${delta>0?'+':delta<0?'−':''}${Math.abs(delta)}</span>
+      <span class="bk-delta-l">Ball Knowledge ${word}</span>
+    </div>`;
+  bkPlace(true);
 }
 
 /* When the set is finished the card leaves the top row and settles at the foot
@@ -6534,27 +6566,32 @@ function renderCoachesPoll(){
   if(sec) sec.style.display='';
   const {ballots,rank}=cpTally();
   const total=_franchises.length||_teams.length;
-  const complete=ballots>=total;
+  /* Seven is enough to be a poll rather than a couple of opinions; the rest
+     can still come in and shift it after that. */
+  const REVEAL_AT=7;
+  const complete=ballots>=REVEAL_AT;
 
   if(!_me){
     el.innerHTML=`<div class="cp-note">Sign in to cast a ballot.</div>
       <div class="cp-meta">${ballots} of ${total} ballots in</div>`;
     return;
   }
-  if(complete){
-    el.innerHTML=`<div class="cp-meta">Final · ${ballots} ballot${ballots===1?'':'s'}</div>
-      <div class="cp-list">${rank.map((r,i)=>`<div class="cp-res">
-        <span class="cp-rk">${i+1}</span>
-        ${logoImg(r.t.id,'cp-logo')}
-        <span class="cp-nm">${r.t.name}</span>
-        <span class="cp-avg">${r.avg.toFixed(2)}</span>
-      </div>`).join('')}</div>`;
-    return;
-  }
+  /* Once it is showing, a manager who has not voted still gets the ballot
+     underneath — the poll stays open and keeps moving as the rest come in. */
+  const mineIn=!!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()]);
+  const results=`<div class="cp-meta">${ballots} of ${total} ballots in${ballots<total?' · still open':''}</div>
+    <div class="cp-list">${rank.map((r,i)=>`<div class="cp-res">
+      <span class="cp-rk">${i+1}</span>
+      ${logoImg(r.t.id,'cp-logo')}
+      <span class="cp-nm">${r.t.name}</span>
+      <span class="cp-avg">${r.avg.toFixed(2)}</span>
+    </div>`).join('')}</div>`;
+  if(complete&&mineIn){ el.innerHTML=results; return; }
   const b=cpMyBallot();
   const done=b.length===_teams.length;
   el.innerHTML=`
-    <div class="cp-meta">${ballots} of ${total} ballots in · results unlock when everyone has voted</div>
+    ${complete?results+'<div class="cp-meta" style="margin-top:14px">Add your ballot</div>':
+      `<div class="cp-meta">${ballots} of ${total} ballots in · results show at ${REVEAL_AT}</div>`}
     <div class="cp-pick">${_teams.map(t=>{
       const pos=b.indexOf(String(t.id));
       return `<button class="cp-t${pos>=0?' on':''}" onclick="cpToggle(${t.id})">
@@ -6686,18 +6723,58 @@ function cursedHTML(){
 const bkIQCfg=()=>Object.assign({min:40,max:228,avg:100,step:8},(_CFG.ballKnowledge||{}).iq||{});
 let _bkProfiles=null;
 
+/* Ball Knowledge is not just the quiz. Three things move it, all of them a
+   read on the league rather than luck:
+     · the weekly trivia — a right answer up, a wrong one down
+     · the weekly picks, once the games they call have been played
+     · settled bets, which are the same judgement with something on it
+   Bets move it at a quarter step, because a parlay can be several legs of the
+   same opinion and should not outweigh five separate questions. */
 function bkIQFor(teamId){
   const cfg=_CFG.ballKnowledge||{}, iq=bkIQCfg();
-  if(!cfg.reveal||!_bkProfiles) return iq.avg;
-  const qs=cfg.questions||[];
+  if(!_bkProfiles) return iq.avg;
   const rows=_bkProfiles.filter(p=>String(p.teamId||'')===String(teamId));
   if(!rows.length) return iq.avg;
-  let right=0,wrong=0;
+  let score=0;
   rows.forEach(p=>{
-    let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch{ ans={}; }
-    qs.forEach((q,i)=>{ if(ans[i]==null) return; if(ans[i]===q.correct) right++; else wrong++; });
+    // trivia
+    if(cfg.reveal){
+      const qs=cfg.questions||[];
+      let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch{ ans={}; }
+      qs.forEach((q,i)=>{ if(ans[i]==null) return; score+=(ans[i]===q.correct?1:-1); });
+    }
+    // weekly picks, graded against results that exist
+    score+=bkPickScore(p);
   });
-  return Math.max(iq.min,Math.min(iq.max,iq.avg+(right-wrong)*iq.step));
+  // settled bets belonging to this team
+  const owners=rows.map(p=>p.id);
+  (_bets||[]).forEach(b=>{
+    if(!owners.includes(b.owner)) return;
+    if(b.status==='won') score+=0.25;
+    else if(b.status==='lost') score-=0.25;
+  });
+  return Math.max(iq.min,Math.min(iq.max,Math.round(iq.avg+score*iq.step)));
+}
+/* how a manager's weekly picks turned out, over every week still in the
+   profile — only games with a finished result count */
+function bkPickScore(p){
+  let s=0;
+  Object.keys(p).forEach(k=>{
+    if(!/^pk_/.test(k)) return;
+    const wk=Number((k.match(/_w(\d+)/)||[])[1]||0); if(!wk) return;
+    let picks={}; try{ picks=JSON.parse(p[k]||'{}'); }catch{ return; }
+    const meta=_seasonMeta[getSeason()]; if(!meta) return;
+    const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===wk&&m.home&&m.away);
+    Object.entries(picks).forEach(([gi,teamId])=>{
+      const g=games[Number(gi)]; if(!g) return;
+      const hp=g.home.totalPoints||0, ap=g.away.totalPoints||0;
+      if(hp===0&&ap===0) return;                       // not played
+      const winner=hp>ap?g.home.teamId:ap>hp?g.away.teamId:null;
+      if(winner==null) return;                          // a tie pays neither way
+      s+=(String(winner)===String(teamId)?1:-1);
+    });
+  });
+  return s;
 }
 /* min..avg fills the left half and avg..max the right, so the average sits at
    the midpoint even though it is nowhere near the midpoint of the range. */
@@ -7866,9 +7943,10 @@ async function loadDashboard(){
     leagueStart();            // keeps shared tallies in step across open sessions
     renderLeagueAction();
     renderCursed();
-    /* Only needed to grade the IQ meter, which sits at the average until the
-       week is revealed — so the fetch is skipped entirely until then. */
-    if((_CFG.ballKnowledge||{}).reveal){
+    /* Feeds the Ball Knowledge IQ meter, which now reads picks and settled bets
+       as well as the trivia — so it is needed whether or not the week has been
+       revealed. */
+    {
       gflListProfiles().then(rows=>{
         if(!rows) return;
         _bkProfiles=rows;

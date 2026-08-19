@@ -755,7 +755,10 @@
     @media(max-width:420px){ .curse-sub{display:none;} }
 
     /* ── Ball Knowledge IQ meter (team profile) ────────────────────────────── */
-    .bkiq-sec{margin-bottom:14px;}
+    /* its own card rather than floating between the hero and the report */
+    .bkiq-sec{margin-bottom:14px;padding:13px 15px;border:1px solid var(--border);
+      border-radius:11px;background:rgba(0,0,0,0.2);}
+    html[data-theme="light"] .bkiq-sec{background:rgba(0,0,0,0.03);}
     .bkiq-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
     .bkiq-t{display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;
       font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);}
@@ -780,6 +783,27 @@
     .bk-right .bk-picked{color:#3fd07a;}
     .bk-wrong{border-color:rgba(232,104,126,0.5);}
     .bk-wrong .bk-picked{color:#e8687e;}
+    /* the end-of-set scorecard: one line a question, then the swing */
+    .bk-score{display:flex;flex-direction:column;gap:4px;}
+    .bkr{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;
+      background:rgba(0,0,0,0.2);font-size:12px;min-width:0;}
+    html[data-theme="light"] .bkr{background:rgba(0,0,0,0.03);}
+    .bkr>i{flex:0 0 auto;width:16px;height:16px;border-radius:5px;display:flex;
+      align-items:center;justify-content:center;font-size:8px;}
+    .bkr.ok>i{background:rgba(63,208,122,0.2);color:#3fd07a;}
+    .bkr.no>i{background:rgba(232,104,126,0.2);color:#e8687e;}
+    .bkr-q{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;color:var(--text2);}
+    .bkr-a{flex:0 0 auto;max-width:42%;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;}
+    .bkr.ok .bkr-a{color:#3fd07a;} .bkr.no .bkr-a{color:#e8687e;}
+    .bk-delta{display:flex;align-items:center;gap:10px;margin-top:10px;padding:11px 13px;
+      border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,0.22);}
+    .bk-delta-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:800;line-height:1;}
+    .bk-delta.up .bk-delta-v{color:#3fd07a;} .bk-delta.down .bk-delta-v{color:#e8687e;}
+    .bk-delta.flat .bk-delta-v{color:var(--text2);}
+    .bk-delta-l{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
     .bk-fin{display:flex;align-items:center;gap:7px;margin-top:10px;
       font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);}
     .bk-fin i{color:var(--accent);}
@@ -1561,20 +1585,12 @@
       font-family:'Inter',sans-serif;font-size:10px;font-weight:700;letter-spacing:.7px;
       text-transform:uppercase;color:var(--text3);}
     .lk-ab{color:var(--accent);font-weight:800;}
-    .lk-svg{display:block;width:100%;height:auto;aspect-ratio:160/100;
+    .lk-svg{display:block;width:100%;height:auto;aspect-ratio:640/300;
       image-rendering:pixelated;image-rendering:crisp-edges;}
     .lk-cap{padding:8px 13px 10px;font-family:'Inter',sans-serif;font-size:10px;
       letter-spacing:.4px;text-transform:uppercase;color:var(--text3);text-align:center;}
-    /* watering control, under the room */
-    .lk-plant{display:flex;align-items:center;gap:9px;width:100%;cursor:pointer;
-      padding:10px 13px;background:rgba(0,0,0,0.3);border:none;
-      border-top:1px solid var(--border);color:var(--text2);
-      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
-      letter-spacing:.5px;text-transform:uppercase;}
-    .lk-plant:hover{background:rgba(0,0,0,0.42);}
-    .lk-plant>i{color:#5bc8f5;font-size:13px;}
-    .lk-water{margin-left:auto;color:#0b0f0c;background:#5bc8f5;border-radius:999px;
-      padding:4px 12px;font-weight:800;font-size:10.5px;}
+    /* watering moved in with the profile actions */
+    .mp-water i{color:#5bc8f5;margin-right:6px;}
 
     /* ── Matchup Stats: season table, head to head and playoff odds, folded
        away so the card leads with the teams and the vote ─────────────────── */
@@ -3213,11 +3229,16 @@
     .sd-ppg{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--accent);}
     .sd-st{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);white-space:nowrap;}
     .sch-head,.sch-row{display:grid;grid-template-columns:38px minmax(0,1fr) 68px 74px 78px 62px 62px 66px;
-      align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,0.055);}
-    .sch-head{padding:0 2px 7px;border-bottom:1px solid rgba(255,255,255,0.12);}
+      align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.055);}
+    .sch-head{padding:0 12px 7px;border-bottom:1px solid rgba(255,255,255,0.12);}
     .sch-head>span{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
     .sch-head .r,.sch-row .r{text-align:right;}
     .sch-row:last-child{border-bottom:none;}
+    /* the week on the clock */
+    .sch-now{border:1px solid rgba(var(--accent-rgb),0.55);border-radius:9px;
+      background:rgba(var(--accent-rgb),0.07);}
+    .sch-now .sch-wk{color:var(--accent);}
+
     .sch-row .r{font-family:'Inter',sans-serif;font-size:13px;white-space:nowrap;}
     .sch-wk{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--accent);}
     .sch-team{display:flex;align-items:center;gap:9px;min-width:0;}
@@ -3245,7 +3266,7 @@
       /* labels wrap rather than truncate on narrow phones */
       .sch-chip-l{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3;font-size:9.5px;}
       /* five cells, five columns — Line drops out, the odds carry the same read */
-      .sch-head,.sch-row{grid-template-columns:28px minmax(0,1fr) 46px 48px 56px;gap:6px;padding:9px 0;}
+      .sch-head,.sch-row{grid-template-columns:28px minmax(0,1fr) 46px 48px 56px;gap:6px;padding:9px 10px;}
       .sch-c1,.sch-c2,.sch-c4{display:none;}
       .sch-nm{display:none;}
       .sch-ab{display:inline;}
@@ -4040,6 +4061,14 @@
        !important, which outranks the rule above — and at 7px of box the divider
        would have floated over the text rather than under it. */
     #page-trades .trades-filters .sec-head{padding:16px 0 40px!important;}
+    /* The draft panels retitle themselves as you switch between Rankings,
+       All-Time Drafts and Steals & Busts. They are view headings, not sections
+       of the page, so they take neither the centring nor the animated rule. */
+    #page-draft [data-nochip] .section-header,
+    #page-draft .dr-tabbox .section-header{justify-content:flex-start;text-align:left;
+      padding-top:0!important;padding-bottom:12px!important;}
+    #page-draft [data-nochip] .section-header::after,
+    #page-draft .dr-tabbox .section-header::after{content:none;}
 
     /* A short rounded rule under each centred heading, dividing it from its
        content. Same gradient language as the title's orbiting border, but
