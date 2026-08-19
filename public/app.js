@@ -3711,17 +3711,18 @@ const FORMATION_Y=32;
 /* The tight end sits at the end of the line, immediately outside the tackle,
    the way an inline tight end lines up — the receivers split wide of him. */
 const FORMATION=[
-  {k:'WR',  slot:4,  x:8,  y:FORMATION_Y},
-  {k:'TE',  slot:6,  x:56, y:FORMATION_Y},
-  {k:'WR',  slot:4,  x:91, y:FORMATION_Y},
-  {k:'QB',  slot:0,  x:38, y:57},
-  {k:'RB',  slot:2,  x:25, y:77},
-  {k:'RB',  slot:2,  x:51, y:77},
+  {k:'WR',  slot:4,  x:6,  y:FORMATION_Y},
+  {k:'TE',  slot:6,  x:77, y:FORMATION_Y},
+  {k:'WR',  slot:4,  x:94, y:FORMATION_Y},
+  {k:'QB',  slot:0,  x:50, y:58},
+  {k:'RB',  slot:2,  x:39, y:79},
+  {k:'RB',  slot:2,  x:61, y:79},
 ];
-/* Five linemen, drawn but never filled — the league does not roster them. The
-   middle one is the centre, and the quarterback's x matches it. Spacing is the
-   same step the tight end continues, so the six read as one line. */
-const FORMATION_OL=[26,32,38,44,50];
+/* Five linemen, drawn but never filled — the league does not roster them.
+   Centred on the field, and spaced 9% apart: a box is 28-34px wide against a
+   field of 350-630, so anything tighter than about 8% has them overlapping.
+   The middle one is the centre, and the quarterback and backs sit behind it. */
+const FORMATION_OL=[32,41,50,59,68];
 const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
 function formationHTML(rows){
   const pool={};
@@ -5109,18 +5110,18 @@ function lockerRoomHTML(t){
       // stool tucked under the desk
       +P(742,250,52,8,'#3a2f27')+P(748,258,7,46,'#2a2119')+P(781,258,7,46,'#2a2119')
 
-      /* ── THE PLANT: on the desk, at the near end ───────────────────────── */
+      /* ── THE PLANT: on the floor, centred in the space left of the locker ─ */
       +'<g class="lk-plantg" role="button" tabindex="0" onclick="waterPlant()"'
       +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
-        +P(856,120,120,120,'#000','0')
+        +P(64,150,166,182,'#000','0')
         +plantSVG(st.stage,P)
         +'<g class="lk-can">'
-          +P(824,138,44,30,'#9aa4b0')+P(824,138,44,6,'#b4bcc6')
-          +P(866,148,20,7,'#9aa4b0')+P(884,154,14,6,'#9aa4b0')
-          +P(810,144,16,7,'#9aa4b0')
+          +P(72,196,48,32,'#9aa4b0')+P(72,196,48,7,'#b4bcc6')
+          +P(118,206,22,8,'#9aa4b0')+P(138,213,15,7,'#9aa4b0')
+          +P(56,202,17,8,'#9aa4b0')
         +'</g>'
         +'<g class="lk-drops">'
-          +P(876,170,6,13,'#5bc8f5')+P(890,182,6,13,'#5bc8f5')+P(864,188,6,13,'#5bc8f5')
+          +P(130,230,7,14,'#5bc8f5')+P(144,244,7,14,'#5bc8f5')+P(118,250,7,14,'#5bc8f5')
         +'</g>'
       +'</g>'
 
@@ -5184,46 +5185,53 @@ async function plantSync(){
 /* Each stage is drawn rather than tinted, so the shape changes as it declines:
    upright and full, then shorter, then leaves angling down, then bare. It sits
    on the near end of the desk, whose top is y 236. */
+/* Each stage is drawn rather than tinted, so the shape changes as it declines:
+   upright and full, then shorter, then leaves angling down, then bare.
+   It stands on the floor in the open space left of the locker — the locker's
+   post is at x 294, so the pot is centred on x 147, and the floor line is
+   y 330, so the pot sits on it. */
 function plantSVG(stage,P){
-  const potX=886, potTop=196, potH=40;
-  const pot=P(potX,potTop,44,potH,'#8a5a3a')
-    +P(potX,potTop,44,8,'#9a6a46')
-    +P(potX-4,potTop-5,52,7,'#7a4a2e')
-    +P(potX+3,potTop+12,5,24,'#7a4a2e','0.5');
-  const soil=P(potX+4,potTop+5,36,6,'#3a2a1e');
+  const cx=147, potW=48, potH=44;
+  const potX=cx-potW/2, potTop=330-potH;          // 286
+  const pot=P(potX,potTop,potW,potH,'#8a5a3a')
+    +P(potX,potTop,potW,9,'#9a6a46')
+    +P(potX-5,potTop-6,potW+10,8,'#7a4a2e')
+    +P(potX+4,potTop+13,6,26,'#7a4a2e','0.5');
+  const soil=P(potX+5,potTop+6,potW-10,7,'#3a2a1e');
   const G =['#4ade80','#3fc46e','#8ab84a','#b0a03a','#8a6a30','#6b5030'][stage];
   const G2=['#86efac','#6ee7a0','#a8c96a','#c8b855','#a08040','#7a5c38'][stage];
-  const stem=(y,h)=>P(904,y,8,h,G);
+  const stem=(y,h)=>P(cx-4,y,8,h,G);
+  const L=(x,y,w,h,f)=>P(x,y,w,h,f);
   let p='';
   if(stage===0){
-    p=stem(140,58)
-      +P(874,146,30,10,G)  +P(912,136,30,10,G2)
-      +P(878,164,26,9,G2)  +P(912,158,26,9,G)
-      +P(882,124,22,9,G2)  +P(912,116,22,9,G)
-      +P(888,106,16,9,G)   +P(912,100,16,9,G2)
-      +P(894,84,26,16,'#f0a0c0')+P(900,74,14,10,'#f8c0d8')
-      +P(898,92,5,4,'#e080a8');
+    p=stem(228,60)
+      +L(115,234,32,10,G)   +L(147,224,32,10,G2)
+      +L(119,252,28,9,G2)   +L(147,246,28,9,G)
+      +L(123,212,24,9,G2)   +L(147,204,24,9,G)
+      +L(129,194,18,9,G)    +L(147,188,18,9,G2)
+      +P(134,170,28,17,'#f0a0c0')+P(140,160,15,10,'#f8c0d8')
+      +P(138,178,5,4,'#e080a8');
   }else if(stage===1){
-    p=stem(152,46)
-      +P(878,158,26,10,G)  +P(912,150,26,10,G2)
-      +P(882,176,22,9,G2)  +P(912,170,22,9,G)
-      +P(886,136,18,9,G2)  +P(912,130,18,9,G);
+    p=stem(240,48)
+      +L(119,246,28,10,G)   +L(147,238,28,10,G2)
+      +L(123,264,24,9,G2)   +L(147,258,24,9,G)
+      +L(127,224,20,9,G2)   +L(147,218,20,9,G);
   }else if(stage===2){
-    p=stem(168,30)
-      +P(882,172,22,9,G)   +P(912,166,22,9,G2)
-      +P(886,188,18,8,G2)  +P(912,184,16,8,G);
+    p=stem(256,32)
+      +L(123,260,24,9,G)    +L(147,254,24,9,G2)
+      +L(127,276,20,8,G2)   +L(147,272,18,8,G);
   }else if(stage===3){
-    p=stem(180,18)
-      +P(884,186,20,8,G)   +P(876,194,10,8,G)
-      +P(912,182,18,8,G2)  +P(930,190,10,8,G2);
+    p=stem(268,20)
+      +L(125,274,22,8,G)    +P(117,282,10,8,G)
+      +L(147,270,20,8,G2)   +P(167,278,10,8,G2);
   }else if(stage===4){
-    p=stem(188,10)
-      +P(890,192,14,7,G)   +P(882,199,9,7,G)
-      +P(912,190,12,7,G2)
-      +P(846,330,14,5,G,'0.7')+P(944,330,14,5,G,'0.7');
+    p=stem(276,12)
+      +P(131,280,16,7,G)    +P(123,287,9,7,G)
+      +P(147,278,14,7,G2)
+      +P(78,322,16,6,G,'0.7')+P(206,322,16,6,G,'0.7');
   }else{
-    p=stem(188,10)+P(896,182,7,7,G)
-      +P(840,330,16,5,G,'0.55')+P(942,330,16,5,G,'0.55')+P(892,334,16,5,G,'0.45');
+    p=stem(276,12)+P(138,270,7,7,G)
+      +P(70,322,18,6,G,'0.55')+P(210,322,18,6,G,'0.55')+P(132,326,18,6,G,'0.45');
   }
   return pot+soil+p;
 }
@@ -6668,7 +6676,9 @@ function renderCoachesPoll(){
   const total=_franchises.length||_teams.length;
   /* Seven is enough to be a poll rather than a couple of opinions; the rest
      can still come in and shift it after that. */
-  const REVEAL_AT=7;
+  /* TESTING: two ballots is enough to show the poll. Put this back to 7 when
+     the real thing runs. */
+  const REVEAL_AT=2;
   const complete=ballots>=REVEAL_AT;
 
   if(!_me){
@@ -6676,8 +6686,10 @@ function renderCoachesPoll(){
       <div class="cp-meta">${ballots} of ${total} ballots in</div>`;
     return;
   }
-  /* Once it is showing, a manager who has not voted still gets the ballot
-     underneath — the poll stays open and keeps moving as the rest come in. */
+  /* Results are withheld from anyone who has not voted, however many ballots
+     are in. Seeing the standings first would tell you what the league thinks
+     before you say what you think, which is the one thing a poll cannot allow —
+     the late voters would just be ratifying it. */
   const mineIn=!!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()]);
   const results=`<div class="cp-meta">${ballots} of ${total} ballots in${ballots<total?' · still open':''}</div>
     <div class="cp-list">${rank.map((r,i)=>`<div class="cp-res">
@@ -6689,9 +6701,29 @@ function renderCoachesPoll(){
   if(complete&&mineIn){ el.innerHTML=results; return; }
   const b=cpMyBallot();
   const done=b.length===_teams.length;
+  /* Voted, but the poll has not reached the reveal yet: the ballot folds away
+     to a line. It has done its job, and leaving twelve tiles open holds space
+     the results will want. */
+  if(mineIn){
+    const mine=b.length===_teams.length?b:null;
+    el.innerHTML=`
+      <details class="cp-fold">
+        <summary class="cp-fold-s"><i class="fa fa-check"></i>Your ballot is in
+          <span class="cp-fold-n">${ballots} of ${total}</span>
+          <i class="fa fa-chevron-down ms-chev"></i></summary>
+        <div class="cp-fold-b">
+          ${mine?`<div class="cp-list">${mine.map((id,i)=>{
+            const t=_teams.find(x=>String(x.id)===String(id));
+            return t?`<div class="cp-res"><span class="cp-rk">${i+1}</span>
+              ${logoImg(t.id,'cp-logo')}<span class="cp-nm">${t.name}</span></div>`:'';
+          }).join('')}</div>`:'<div class="cp-note">Ballot saved.</div>'}
+          <div class="cp-meta" style="margin-top:10px">Results show once ${REVEAL_AT} ballots are in.</div>
+        </div>
+      </details>`;
+    return;
+  }
   el.innerHTML=`
-    ${complete?results+'<div class="cp-meta" style="margin-top:14px">Add your ballot</div>':
-      `<div class="cp-meta">${ballots} of ${total} ballots in · results show at ${REVEAL_AT}</div>`}
+    <div class="cp-meta">${ballots} of ${total} ballots in · ${complete?'results are in — cast your ballot to see them':`results show at ${REVEAL_AT}`}</div>
     <div class="cp-pick">${_teams.map(t=>{
       const pos=b.indexOf(String(t.id));
       return `<button class="cp-t${pos>=0?' on':''}" onclick="cpToggle(${t.id})">

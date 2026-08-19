@@ -1472,6 +1472,17 @@
       color:#0b0f0c;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
       letter-spacing:.5px;text-transform:uppercase;}
     .cp-go:disabled{opacity:.4;cursor:default;filter:grayscale(.5);}
+    /* the ballot folds away once it is cast */
+    .cp-fold{border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+    .cp-fold-s{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;
+      padding:11px 13px;background:rgba(0,0,0,0.2);font-family:'Inter',sans-serif;
+      font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+      color:var(--text2);}
+    .cp-fold-s::-webkit-details-marker{display:none;}
+    .cp-fold-s>i:first-child{color:#3fd07a;}
+    .cp-fold-n{margin-left:auto;color:var(--text3);}
+    .cp-fold[open] .ms-chev{transform:rotate(180deg);}
+    .cp-fold-b{padding:11px 13px;}
     .cp-list{display:flex;flex-direction:column;gap:4px;}
     .cp-res{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;
       background:rgba(0,0,0,0.2);}
