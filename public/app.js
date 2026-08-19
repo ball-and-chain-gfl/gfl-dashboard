@@ -3631,10 +3631,11 @@ function enemiesFor(owner){
    turns over when the chat week does. */
 const NEW_VID_COLORS=['#E86043','#E89845','#E8C656','#66E89D','#5CE8B3','#63E0E8',
                       '#587DE8','#6C6AE8','#9F61E8','#E860AF','#CBE853','#E0B67B'];
-function newVideoColor(){
-  const wk=Math.floor(msgWeekStart()/604800000);   // Tuesday-anchored week index
-  return NEW_VID_COLORS[((wk%NEW_VID_COLORS.length)+NEW_VID_COLORS.length)%NEW_VID_COLORS.length];
-}
+/* The ribbon and the scroll rail take the homepage gold rather than cycling a
+   palette — they sit inside the home module and were the one thing in it
+   wearing a different colour each week. NEW_VID_COLORS is left in place if the
+   rotation is ever wanted back. */
+function newVideoColor(){ return '#E0B67B'; }
 
 /* drives the drawn scroll indicator under the video carousel */
 function wireVidRail(){
@@ -3896,7 +3897,7 @@ function renderForecast(info){
   /* season points per game by slot, both sides, so the mismatch is visible */
   const posRows=(()=>{
     const rows=fcPositional(info,mine,oppId);
-    if(!rows.length) return `<div class="lr-none">Positional splits fill in once games are played.</div>`;
+    if(!rows.length) return '';
     return `<div class="fc-pos">
       <div class="fc-pr fc-ph"><span>${ab(meT)}</span><span>Position</span><span>${ab(oppT)}</span></div>
       ${rows.map(r=>{
@@ -3977,7 +3978,6 @@ function fcImplications(info,owner,p){
   const win=Math.min(99,now+Math.round(swing*(1-p)));
   const lose=Math.max(1,now-Math.round(swing*p));
   return `<div class="fc-imp">
-    <div class="fc-imp-h">If it goes your way</div>
     <div class="fc-imp-r">
       <div class="fc-imp-c good"><span class="fc-imp-l">Win</span><span class="fc-imp-v">${win}%</span>
         <span class="fc-imp-s">playoff odds</span></div>
@@ -3986,7 +3986,6 @@ function fcImplications(info,owner,p){
       <div class="fc-imp-c bad"><span class="fc-imp-l">Loss</span><span class="fc-imp-v">${lose}%</span>
         <span class="fc-imp-s">playoff odds</span></div>
     </div>
-    <div class="fc-imp-n">${d.left} game${d.left===1?'':'s'} left in the regular season, so one result still moves this a fair way.</div>
   </div>`;
 }
 /* the punishment on the clock, same card the homepage shows */
@@ -4118,7 +4117,9 @@ const SX_ABBR={
   'Draft Grades':'Grades',
   'GFL Overview':'Overview',
 };
-const sxShort=l=>SX_ABBR[l]||l;
+/* The picks heading carries the live week number, so it cannot be a fixed key
+   in the map above — the chip abbreviates it by shape instead. */
+const sxShort=l=>SX_ABBR[l] || (/^Week .+ Matchup Picks$/.test(l) ? 'Weekly Picks' : l);
 /* Choose an explicit column count so the last row is never a single orphan
    chip. auto-fit cannot express that, since it only knows the track width. */
 function fitSectionNav(bar,n){
@@ -4991,7 +4992,7 @@ function applyMe(){
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
   try{ pkReset(); }catch(e){}
-  try{ _cpBallot=null; _cpFetched=false; renderCoachesPoll(); }catch(e){}             // and their weekly picks
+  try{ _cpBallot=null; _cpFetched=false; _cpJustSent=false; renderCoachesPoll(); }catch(e){}   // a new manager starts fresh
   _rosterCache=null; _rosterTeam=null;
   if(_activeTab==='roster') renderRoster();
   if(_activeTab==='week') renderWeek();
@@ -5024,6 +5025,36 @@ function meBtnClick(){ if(_me) switchTab('profile'); else openSignIn(); }
      punishment  the beer mug, which is what the punishment usually is
      disappoint  a deflated ball on the floor
 */
+/* Each keepsake is wrapped so a tap can name it. The label and the honour it
+   came from travel on the group, and the bubble is drawn in HTML over the svg
+   rather than inside it — text in a stretched viewBox comes out squashed. */
+function lkTag(title, note, body){
+  const esc = v => String(v).replace(/"/g, '&quot;');
+  return '<g class="lk-item" data-t="' + esc(title) + '" data-n="' + esc(note) +
+         '" onclick="lkSay(event)">' + body + '</g>';
+}
+/* Point a bubble at whatever was tapped. Positioned against the wrapper in
+   percentages taken from the item's own box, so it follows the art at any
+   width without needing the svg's internal coordinates. */
+function lkSay(ev){
+  const g = ev.currentTarget;
+  const wrap = g.closest('.lk-wrap'); if(!wrap) return;
+  wrap.querySelectorAll('.lk-bubble').forEach(b => b.remove());
+  const wb = wrap.getBoundingClientRect(), gb = g.getBoundingClientRect();
+  const left = ((gb.left + gb.width/2 - wb.left) / wb.width) * 100;
+  const top  = ((gb.top - wb.top) / wb.height) * 100;
+  const b = document.createElement('div');
+  b.className = 'lk-bubble';
+  b.style.left = Math.max(16, Math.min(84, left)) + '%';
+  b.style.top  = Math.max(4, top) + '%';
+  b.innerHTML = '<b>' + g.dataset.t + '</b><span>' + g.dataset.n + '</span>';
+  wrap.appendChild(b);
+  requestAnimationFrame(() => b.classList.add('in'));
+  clearTimeout(lkSay._t);
+  lkSay._t = setTimeout(() => { b.classList.remove('in');
+    setTimeout(() => b.remove(), 220); }, 3200);
+  ev.stopPropagation();
+}
 function lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp){
   const aw=(typeof awardsForOwner==='function')?(awardsForOwner(owner)||[]):[];
   const has=k=>aw.some(a=>a.key===k);
@@ -5034,54 +5065,63 @@ function lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp){
   // champion — trophies on the shelf, right of the ball
   for(let i=0;i<Math.min(rings,3);i++){
     const x=536+i*30;
-    out.push(P(x+6,24,10,14,'#e8c15a')     // cup
+    out.push(lkTag('Championship trophy','GFL champion — '+rings+' title'+(rings>1?'s':''),
+      P(x+6,24,10,14,'#e8c15a')     // cup
       +P(x+3,22,16,4,'#f0d68a')            // rim
       +P(x+2,28,4,6,'#e8c15a')+P(x+16,28,4,6,'#e8c15a')   // handles
       +P(x+9,38,4,8,'#c99a34')             // stem
-      +P(x+4,46,14,6,'#8a6a24'));          // base
+      +P(x+4,46,14,6,'#8a6a24')));          // base
   }
   // conference — a plaque hung on the wall right of the locker
   if(confs){
-    out.push(P(596,120,74,54,'#4a3a2a')+P(602,126,62,42,'#6b5a44')
+    out.push(lkTag('Conference plaque','Conference champion — '+confs+' title'+(confs>1?'s':''),
+      P(596,120,74,54,'#4a3a2a')+P(602,126,62,42,'#6b5a44')
       +P(610,136,46,5,c1)+P(610,148,34,4,'#d8c9a8')
       +P(610,158,26,4,'#d8c9a8')
-      +(confs>1?P(646,156,16,10,'#e8c15a'):''));
+      +(confs>1?P(646,156,16,10,'#e8c15a'):'')));
   }
   // coach of the year — whistle on the locker hook, clipboard leaning
   if(has('coy')){
-    out.push(P(500,140,4,26,'#8a8f98')          // lanyard
+    out.push(lkTag("Coach's whistle",'Coach of the Year',
+      P(500,140,4,26,'#8a8f98')
       +P(492,166,20,12,'#c9ccd2')+P(510,170,7,5,'#c9ccd2')
-      +P(496,170,5,5,'#5a5f68'));
-    out.push(P(596,258,40,52,'#c9ccd2')+P(600,262,32,44,'#ececf2')
+      +P(496,170,5,5,'#5a5f68')));
+    out.push(lkTag('Clipboard','Coach of the Year',
+      P(596,258,40,52,'#c9ccd2')+P(600,262,32,44,'#ececf2')
       +P(606,252,20,8,'#8a8f98')
-      +P(604,272,24,3,'#9a9aa6')+P(604,280,18,3,'#9a9aa6')+P(604,288,22,3,'#9a9aa6'));
+      +P(604,272,24,3,'#9a9aa6')+P(604,280,18,3,'#9a9aa6')+P(604,288,22,3,'#9a9aa6')));
   }
   // commitment — a packed duffel by the locker
   if(has('commitment')){
-    out.push(P(232,292,74,38,dk)+P(232,292,74,7,c2)
+    out.push(lkTag('Packed duffel','Commitment award',
+      P(232,292,74,38,dk)+P(232,292,74,7,c2)
       +P(248,286,42,7,dk)+P(258,280,22,7,dk)          // handles
       +P(240,304,58,4,c1,'0.7')
-      +P(292,300,10,14,'#2a2a33'));
+      +P(292,300,10,14,'#2a2a33')));
   }
   // comeback — tape roll and a crutch leaning on the locker post
   if(has('comeback')){
-    out.push(P(880,300,30,30,'#e8e4d8')+P(890,310,10,10,'#c9c4b4')
-      +P(880,296,30,5,'#f4f0e4'));
-    out.push(P(566,150,7,178,'#c9b48a')             // shaft
+    out.push(lkTag('Roll of tape','Comeback of the Year',
+      P(880,300,30,30,'#e8e4d8')+P(890,310,10,10,'#c9c4b4')
+      +P(880,296,30,5,'#f4f0e4')));
+    out.push(lkTag('Crutch','Comeback of the Year',
+      P(566,150,7,178,'#c9b48a')
       +P(556,146,27,8,'#c9b48a')                    // armrest
-      +P(560,206,20,6,'#b09a70'));
+      +P(560,206,20,6,'#b09a70')));
   }
   // punishment — the beer mug on the desk
   if(has('punishment')){
     const nx=706;
-    out.push(P(nx,206,30,30,'#d8a24a')+P(nx,200,30,7,'#f0e6c8')
+    out.push(lkTag('Beer mug','Punishment served — '+n('punishment')+'x',
+      P(nx,206,30,30,'#d8a24a')+P(nx,200,30,7,'#f0e6c8')
       +P(nx+30,212,9,14,'#d8a24a')+P(nx+3,212,4,20,'#e8b86a','0.7')
-      +(n('punishment')>1?P(nx+42,214,22,22,'#d8a24a')+P(nx+42,208,22,6,'#f0e6c8'):''));
+      +(n('punishment')>1?P(nx+42,214,22,22,'#d8a24a')+P(nx+42,208,22,6,'#f0e6c8'):'')));
   }
   // most disappointing — a deflated ball on the floor
   if(has('disappoint')){
-    out.push(P(408,352,44,16,'#5a3a1e')+P(414,348,32,5,'#6b4423')
-      +P(422,358,16,3,'#e8e8e8','0.7'));
+    out.push(lkTag('Deflated ball','Most Disappointing',
+      P(408,352,44,16,'#5a3a1e')+P(414,348,32,5,'#6b4423')
+      +P(422,358,16,3,'#e8e8e8','0.7')));
   }
   return out.join('');
 }
@@ -6515,6 +6555,7 @@ function renderBallKnowledge(){
       ${answered.length?`<button class="bk-back" onclick="bkBack()">
         <i class="fa fa-arrow-left"></i>Back to the last question</button>`:''}`;
     bkPlace(false);
+    orderHomeTodo();
     return;
   }
 
@@ -6542,6 +6583,7 @@ function renderBallKnowledge(){
       <span class="bk-delta-l">Ball Knowledge ${word}</span>
     </div>`;
   bkPlace(true);
+  orderHomeTodo();
 }
 
 /* When the set is finished the card leaves the top row and settles at the foot
@@ -6680,6 +6722,8 @@ function renderWeekPicks(){
     </div>`;
   };
   const wk=(_liveInfo||liveWeekInfo()||{}).week??'—';
+  /* the heading carries the week; the jump chip abbreviates it back down */
+  {const h=document.getElementById('pk-title'); if(h) h.textContent=`Week ${wk} Matchup Picks`;}
   /* Submitted, and the week has not started: the grid folds to a line that
      opens to show the slate. Twelve tiles of finished business is a lot of
      screen for something already decided. */
@@ -6697,6 +6741,7 @@ function renderWeekPicks(){
           </div>
         </div>
       </details>`;
+    orderHomeTodo();
     return;
   }
   el.innerHTML=`
@@ -6706,6 +6751,7 @@ function renderWeekPicks(){
     ${pkLocked()?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
       :`<button class="pk-go" ${done.length===games.length&&!_pkBusy?'':'disabled'} onclick="pkSubmit()">
           ${_pkBusy?'Saving…':done.length===games.length?'Submit picks':`Pick all ${games.length}`}</button>`}`;
+  orderHomeTodo();
 }
 /* Picks close when the week's football does. weekHasStarted is the same signal
    the sportsbook and bet-cancellation use, so none of the three can disagree
@@ -6722,6 +6768,35 @@ function pkMotwIndex(games){
   });
 }
 
+/* ── What still needs doing goes first ──────────────────────────────────────
+   Anything outstanding rises to the top of the stack, directly under the video;
+   finished cards sink below it. Among equals the order is the canonical one —
+   poll, picks, trivia — so a manager with everything done and a manager with
+   nothing done see the same page, and only a half-finished one gets reordered.
+
+   Done means the same thing a card means by it: a ballot cast, a slate
+   submitted, all five questions answered. */
+const HOME_TODO=[
+  {id:'cp-sec', done:()=>_cpJustSent || !!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()])},
+  {id:'pk-sec', done:()=>pkSubmitted()||pkLocked()},
+  {id:'bk-sec', done:()=>{ const qs=bkQuestions(); if(!qs.length) return true;
+    const a=bkLoadAnswers(); return qs.every((_,i)=>a[i]!=null); }},
+];
+function orderHomeTodo(){
+  const rows=HOME_TODO.map((t,i)=>{
+    const el=document.getElementById(t.id);
+    let done=false; try{ done=!!t.done(); }catch(e){}
+    return {el,done,i};
+  }).filter(r=>r.el);
+  if(!rows.length) return;
+  rows.sort((a,b)=>(a.done?1:0)-(b.done?1:0) || a.i-b.i);
+  rows.forEach((r,n)=>{
+    r.el.style.order=String(n);
+    /* the phone grid places by area, so the slot has to move too */
+    r.el.style.gridArea='s'+(n+1);
+  });
+}
+
 /* ── Coaches' Poll ──────────────────────────────────────────────────────────
    Post-draft rankings. Everyone numbers the teams best to worst; the league
    average of those numbers is the poll. Ballots stay hidden until every manager
@@ -6733,6 +6808,10 @@ function pkMotwIndex(games){
    vote already does, so no new collection was needed. */
 const cpKey=()=>`cp_${getSeason()}`;
 let _cpBallot=null,_cpRows=null,_cpBusy=false,_cpFetched=false;
+/* set the moment a ballot is sent, so the card counts as done before the
+   profile round-trip lands — otherwise the reorder briefly disagrees with what
+   the manager just did */
+let _cpJustSent=false;
 
 function cpMyBallot(){
   if(_cpBallot) return _cpBallot;
@@ -6770,6 +6849,7 @@ async function cpSubmit(){
   if(b.length!==_teams.length) return;
   _cpBusy=true; renderCoachesPoll();
   try{
+    _cpJustSent=true;
     await gflPatchProfile(_me.k1,{[cpKey()]:JSON.stringify(b)});
     _cpFetched=false; await cpSync();
   }catch(e){}
@@ -6860,6 +6940,7 @@ function renderCoachesPoll(){
       <button class="cp-go" ${done&&!_cpBusy?'':'disabled'} onclick="cpSubmit()">
         ${_cpBusy?'Saving…':done?'Submit ballot':`Rank all ${_teams.length}`}</button>
     </div>`;
+  orderHomeTodo();
 }
 
 /* ── League Action ──────────────────────────────────────────────────────────
@@ -7951,12 +8032,16 @@ async function loadDashboard(){
              The punishment moved to the pinned bar at the foot of the screen. -->
         <div class="home-top">
           <div class="home-left-col">
+            <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
+              <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches&#39; Poll</div>
+              <div id="cp-body"></div>
+            </div>
             <div class="sec wm mod-bk" data-wm="&#xf059;" id="bk-sec">
               <div class="sec-head"><i class="fa fa-brain"></i>Ball Knowledge</div>
               <div id="bk-body"></div>
             </div>
             <div class="sec wm mod-pk" data-wm="&#xf0e7;" id="pk-sec">
-              <div class="sec-head"><i class="fa fa-hand-pointer"></i>Weekly Picks</div>
+              <div class="sec-head"><i class="fa fa-burst"></i><span id="pk-title">Matchup Picks</span></div>
               <div id="pk-body"></div>
             </div>
             <!-- Matchup of the Week is hidden for now. The markup and
@@ -7979,10 +8064,6 @@ async function loadDashboard(){
                   <div class="vid-rail" style="--nv:${newVideoColor()}"><div class="vid-rail-thumb" id="vid-rail-thumb"></div></div>`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
-            </div>
-            <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
-              <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches&#39; Poll</div>
-              <div id="cp-body"></div>
             </div>
           </div>
         </div>
@@ -8100,13 +8181,13 @@ async function loadDashboard(){
       <!-- PLAYER TENURE -->
       <!-- THIS WEEK — everything on the clock, gathered in one place -->
       <div class="tab-page" id="page-week">
-        <div class="sec wm" data-wm="&#xf0e7;">
-          <div class="sec-head"><i class="fa fa-bolt"></i>Scoreboard</div>
-          <div id="week-body"></div>
-        </div>
         <div class="sec wm" data-wm="&#xf201;" id="fc-sec">
           <div class="sec-head"><i class="fa fa-chart-line"></i>Your Forecast</div>
           <div id="fc-body"></div>
+        </div>
+        <div class="sec wm" data-wm="&#xf0e7;">
+          <div class="sec-head"><i class="fa fa-bolt"></i>Scoreboard</div>
+          <div id="week-body"></div>
         </div>
         <!-- Top Performers, Punishment and Moves are gone: the punishment lives
              in the pinned bar, and Moves is what League Action replaces. -->
