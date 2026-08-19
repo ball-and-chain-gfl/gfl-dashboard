@@ -5008,6 +5008,83 @@ function meBtnClick(){ if(_me) switchTab('profile'); else openSignIn(); }
    Everything on the wall is derived from the team: two colours pulled from the
    logo, the abbreviation on the jersey, and the number of championship banners
    from the honours already computed elsewhere. */
+/* ── Superlative keepsakes ──────────────────────────────────────────────────
+   One object per honour a team has actually won, placed into the empty parts of
+   the room. Kept in its own function on purpose: the room drawing above is the
+   design as it stood and is not touched by any of this, so the keepsakes can be
+   turned off by simply not calling it.
+
+   Each is meant to be recognisable on its own terms rather than a generic
+   trophy with a different label:
+     champion    a gold trophy on the shelf, one per title
+     conference  a hung plaque beside the locker
+     coy         a coach's whistle on the locker hook and a clipboard
+     commitment  a packed duffel bag, always there, always ready
+     comeback    a roll of tape and a crutch left leaning
+     punishment  the beer mug, which is what the punishment usually is
+     disappoint  a deflated ball on the floor
+*/
+function lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp){
+  const aw=(typeof awardsForOwner==='function')?(awardsForOwner(owner)||[]):[];
+  const has=k=>aw.some(a=>a.key===k);
+  const n=k=>aw.filter(a=>a.key===k).length;
+  const rings=Number(at&&at.rings)||0, confs=Number(at&&at.confs)||0;
+  const out=[];
+
+  // champion — trophies on the shelf, right of the ball
+  for(let i=0;i<Math.min(rings,3);i++){
+    const x=536+i*30;
+    out.push(P(x+6,24,10,14,'#e8c15a')     // cup
+      +P(x+3,22,16,4,'#f0d68a')            // rim
+      +P(x+2,28,4,6,'#e8c15a')+P(x+16,28,4,6,'#e8c15a')   // handles
+      +P(x+9,38,4,8,'#c99a34')             // stem
+      +P(x+4,46,14,6,'#8a6a24'));          // base
+  }
+  // conference — a plaque hung on the wall right of the locker
+  if(confs){
+    out.push(P(596,120,74,54,'#4a3a2a')+P(602,126,62,42,'#6b5a44')
+      +P(610,136,46,5,c1)+P(610,148,34,4,'#d8c9a8')
+      +P(610,158,26,4,'#d8c9a8')
+      +(confs>1?P(646,156,16,10,'#e8c15a'):''));
+  }
+  // coach of the year — whistle on the locker hook, clipboard leaning
+  if(has('coy')){
+    out.push(P(500,140,4,26,'#8a8f98')          // lanyard
+      +P(492,166,20,12,'#c9ccd2')+P(510,170,7,5,'#c9ccd2')
+      +P(496,170,5,5,'#5a5f68'));
+    out.push(P(596,258,40,52,'#c9ccd2')+P(600,262,32,44,'#ececf2')
+      +P(606,252,20,8,'#8a8f98')
+      +P(604,272,24,3,'#9a9aa6')+P(604,280,18,3,'#9a9aa6')+P(604,288,22,3,'#9a9aa6'));
+  }
+  // commitment — a packed duffel by the locker
+  if(has('commitment')){
+    out.push(P(232,292,74,38,dk)+P(232,292,74,7,c2)
+      +P(248,286,42,7,dk)+P(258,280,22,7,dk)          // handles
+      +P(240,304,58,4,c1,'0.7')
+      +P(292,300,10,14,'#2a2a33'));
+  }
+  // comeback — tape roll and a crutch leaning on the locker post
+  if(has('comeback')){
+    out.push(P(880,300,30,30,'#e8e4d8')+P(890,310,10,10,'#c9c4b4')
+      +P(880,296,30,5,'#f4f0e4'));
+    out.push(P(566,150,7,178,'#c9b48a')             // shaft
+      +P(556,146,27,8,'#c9b48a')                    // armrest
+      +P(560,206,20,6,'#b09a70'));
+  }
+  // punishment — the beer mug on the desk
+  if(has('punishment')){
+    const nx=706;
+    out.push(P(nx,206,30,30,'#d8a24a')+P(nx,200,30,7,'#f0e6c8')
+      +P(nx+30,212,9,14,'#d8a24a')+P(nx+3,212,4,20,'#e8b86a','0.7')
+      +(n('punishment')>1?P(nx+42,214,22,22,'#d8a24a')+P(nx+42,208,22,6,'#f0e6c8'):''));
+  }
+  // most disappointing — a deflated ball on the floor
+  if(has('disappoint')){
+    out.push(P(408,352,44,16,'#5a3a1e')+P(414,348,32,5,'#6b4423')
+      +P(422,358,16,3,'#e8e8e8','0.7'));
+  }
+  return out.join('');
+}
 function lockerRoomHTML(t){
   if(!t) return '';
   const owner=_ownerMap[t.id];
@@ -5126,6 +5203,7 @@ function lockerRoomHTML(t){
       +'</g>'
 
       /* ── FLOOR ─────────────────────────────────────────────────────────── */
+      +lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp)
       +P(0,330,W,90,'#121216')
       +Array.from({length:32},(_,i)=>P(i*30,330,29,3,'#22222a')).join('')
       +Array.from({length:16},(_,i)=>P(i*60,372,58,3,'#1c1c23')).join('')
@@ -6601,15 +6679,31 @@ function renderWeekPicks(){
       <div class="pk-sides2">${side(g.away.teamId)}<span class="pk-at">@</span>${side(g.home.teamId)}</div>
     </div>`;
   };
+  const wk=(_liveInfo||liveWeekInfo()||{}).week??'—';
+  /* Submitted, and the week has not started: the grid folds to a line that
+     opens to show the slate. Twelve tiles of finished business is a lot of
+     screen for something already decided. */
+  if(sent&&!pkLocked()){
+    el.innerHTML=`
+      <details class="cp-fold">
+        <summary class="cp-fold-s"><i class="fa fa-check"></i>Picks are in
+          <span class="cp-fold-n">${done.length} of ${games.length}</span>
+          <i class="fa fa-chevron-down ms-chev"></i></summary>
+        <div class="cp-fold-b">
+          <div class="pk-grid">${order.map(cell).join('')}</div>
+          <div class="pk-sent">
+            <span>Change them any time before the first game of the week</span>
+            <button class="pk-reopen" onclick="pkReopen()">Reopen</button>
+          </div>
+        </div>
+      </details>`;
+    return;
+  }
   el.innerHTML=`
-    <div class="bk-meta"><span>Week ${(_liveInfo||liveWeekInfo()||{}).week??'—'}</span>
+    <div class="bk-meta"><span>Week ${wk}</span>
       <span class="bk-count">${done.length} of ${games.length}</span></div>
     <div class="pk-grid">${order.map(cell).join('')}</div>
     ${pkLocked()?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
-      :sent?`<div class="pk-sent">
-          <span><i class="fa fa-circle-check"></i>Picks submitted</span>
-          <button class="pk-reopen" onclick="pkReopen()">Change them</button>
-        </div>`
       :`<button class="pk-go" ${done.length===games.length&&!_pkBusy?'':'disabled'} onclick="pkSubmit()">
           ${_pkBusy?'Saving…':done.length===games.length?'Submit picks':`Pick all ${games.length}`}</button>`}`;
 }
@@ -7906,10 +8000,8 @@ async function loadDashboard(){
              This Week — it just no longer renders a board here. -->
         <!-- Last on the page, until Ball Knowledge is finished and slides below
              it — that card is explicitly meant to end up last once it is done. -->
-        <div class="sec wm mod-curse" data-wm="&#xf7a9;" id="curse-sec">
-          <div class="sec-head"><i class="fa fa-hat-wizard"></i>Most Cursed</div>
-          <div id="curse-body"></div>
-        </div>
+        <!-- Most Cursed removed from the homepage; it still leads the Bad Beat
+             O'Meter tab, and cursedHTML/renderCursed remain for reuse. -->
       </div>
       <!-- (Legacy Report now lives on the team profile, under the hero) -->
 
@@ -8112,7 +8204,6 @@ async function loadDashboard(){
     renderCoachesPoll();
     leagueStart();            // keeps shared tallies in step across open sessions
     renderLeagueAction();
-    renderCursed();
     /* Feeds the Ball Knowledge IQ meter, which now reads picks and settled bets
        as well as the trivia — so it is needed whether or not the week has been
        revealed. */
