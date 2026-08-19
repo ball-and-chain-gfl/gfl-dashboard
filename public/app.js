@@ -309,10 +309,94 @@ async function fetchSeasonData(season){
     return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget};
   }catch{return null;}
 }
+/* ── WHICH POSTSEASON GAMES COUNT ────────────────────────────────────────────
+   Judged by bracket round, never by week number — 2022 ran a 15-week regular
+   season, so its rounds are weeks 16-18 while every other year runs 15-17.
+
+   Both sides of the postseason are three-round, six-team brackets with two
+   byes. The playoff side advances by winning; the losers' bracket escapes by
+   winning once, so there you continue by LOSING. Either way each round has two
+   real games, then two, then one.
+
+   A game counts when:
+     · it is a real bracket game on either side, or
+     · it is in the final round, where every game is a placement game.
+
+   That leaves out the round-1 bye filler — the two teams sitting out are
+   scheduled against each other, and both carry on regardless of the result —
+   and the round-2 consolation games between teams that are already safe or
+   already eliminated. It is decided per game, so it can never count for one
+   team and not the other. */
+let _pcCache={};
+/* the losers' bracket, walked back from the game that decides the season loser.
+   Mirrors buildBracket, except the team that continues is the one that lost. */
+function buildLoserBracket(season){
+  const meta=_seasonMeta[season]; if(!meta) return null;
+  const T=meta.teams||{}, sched=meta.schedule||[];
+  const ranked=Object.entries(T).map(([id,t])=>({id:Number(id),rank:Number(t.rank)||0}))
+    .filter(x=>x.rank>0).sort((a,b)=>b.rank-a.rank);
+  if(ranked.length<2) return null;
+  const last=ranked[0].id, prev=ranked[1].id;
+  const played=sched.filter(m=>m.home&&m.away&&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+  if(!played.length) return null;
+  const finalWeek=Math.max(...played.map(m=>m.matchupPeriodId||0));
+  const gAt=w=>played.filter(m=>(m.matchupPeriodId||0)===w);
+  const loserOf=m=>((m.home.totalPoints||0)>=(m.away.totalPoints||0))?m.away.teamId:m.home.teamId;
+  const fin=gAt(finalWeek).find(m=>{const ids=[m.home.teamId,m.away.teamId];
+    return ids.includes(last)&&ids.includes(prev);});
+  if(!fin) return null;
+  let participants=new Set([last,prev]);
+  const rev=[{week:finalWeek,games:[fin]}];
+  let w=finalWeek-1,guard=0;
+  while(w>regEndOf(season)&&guard++<4){
+    /* a real elimination game sends exactly one of its teams onward; when both
+       are already through it is the bye filler, not a game */
+    const games=gAt(w).filter(m=>participants.has(loserOf(m))
+      && !(participants.has(m.home.teamId)&&participants.has(m.away.teamId)));
+    if(!games.length) break;
+    rev.push({week:w,games});
+    participants=new Set(games.flatMap(m=>[m.home.teamId,m.away.teamId]));
+    w--;
+  }
+  return {rounds:rev.reverse()};
+}
+function loserBracketOf(season){
+  const k='LB:'+season;
+  if(!(k in _pcCache)){ try{ _pcCache[k]=buildLoserBracket(season); }catch{ _pcCache[k]=null; } }
+  return _pcCache[k];
+}
+/* every real bracket game that season, keyed week:home:away */
+function postRealSet(season){
+  const k='SET:'+season;
+  if(_pcCache[k]) return _pcCache[k];
+  const set=new Set();
+  const br=bracketOf(season);
+  if(br)(br.rounds||[]).forEach(r=>(r.games||[]).forEach(g=>set.add(r.week+':'+g.a.tid+':'+g.b.tid)));
+  const lb=loserBracketOf(season);
+  if(lb)(lb.rounds||[]).forEach(r=>r.games.forEach(m=>set.add(r.week+':'+m.home.teamId+':'+m.away.teamId)));
+  return (_pcCache[k]=set);
+}
+function finalRoundWeek(season){
+  const k='FW:'+season;
+  if(_pcCache[k]!=null) return _pcCache[k];
+  const meta=_seasonMeta[season];
+  const played=((meta&&meta.schedule)||[]).filter(m=>m.home&&m.away
+    &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+  return (_pcCache[k]=played.length?Math.max(...played.map(m=>m.matchupPeriodId||0)):0);
+}
+/* the one question everything else asks */
+function postGameCounts(season,mu){
+  const meta=_seasonMeta[season]; if(!meta||!mu||!mu.home||!mu.away) return true;
+  const w=Number(mu.matchupPeriodId)||0, regEnd=meta.regEnd||14;
+  if(!w||w<=regEnd) return true;                       // regular season
+  if(w===finalRoundWeek(season)) return true;          // final round: all placements count
+  return postRealSet(season).has(w+':'+mu.home.teamId+':'+mu.away.teamId);
+}
+
 async function buildAllTimeH2H(){
   const results=await Promise.allSettled(ALL_SEASONS.map(fetchSeasonData));
   const ledger={},games={};
-  _seasonMeta={}; _brCache={};
+  _seasonMeta={}; _brCache={}; _pcCache={};
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
     const {season,schedule,owners,names,teams}=res.value;
@@ -324,15 +408,18 @@ async function buildAllTimeH2H(){
       const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
       const win=mu.winner; // "HOME" | "AWAY" | "TIE" | "UNDECIDED"/undefined
       if((win==null||win==='UNDECIDED')&&hp===0&&ap===0) return; // not played
+      /* a dead consolation game counts for neither side */
+      if(!postGameCounts(season,mu)) return;
+      const hOn=true, aOn=true;
       const key=ho<ao?`${ho}|${ao}`:`${ao}|${ho}`;
       const k=ledger[key]||(ledger[key]={});
       (k[ho]||(k[ho]={w:0,t:0,pf:0,games:0}));
       (k[ao]||(k[ao]={w:0,t:0,pf:0,games:0}));
-      k[ho].games++; k[ao].games++; k[ho].pf+=hp; k[ao].pf+=ap;
-      games[ho]=(games[ho]||0)+1; games[ao]=(games[ao]||0)+1;
-      if(win==='HOME'||(win==null&&hp>ap)) k[ho].w++;
-      else if(win==='AWAY'||(win==null&&ap>hp)) k[ao].w++;
-      else {k[ho].t++;k[ao].t++;}
+      if(hOn){ k[ho].games++; k[ho].pf+=hp; games[ho]=(games[ho]||0)+1; }
+      if(aOn){ k[ao].games++; k[ao].pf+=ap; games[ao]=(games[ao]||0)+1; }
+      if(win==='HOME'||(win==null&&hp>ap)){ if(hOn) k[ho].w++; }
+      else if(win==='AWAY'||(win==null&&ap>hp)){ if(aOn) k[ao].w++; }
+      else { if(hOn) k[ho].t++; if(aOn) k[ao].t++; }
     });
   });
   _h2hAll=ledger;
@@ -3446,6 +3533,7 @@ function franchiseAllTime(owner){
     }
     (meta.schedule||[]).forEach(m=>{
       if(!m.home||!m.away)return;const hp=m.home.totalPoints||0,ap=m.away.totalPoints||0;if(hp===0&&ap===0)return;
+      if(!postGameCounts(s,m)) return;                     // dead consolation game
       if(String(m.home.teamId)===tid){played.add(s);pf+=hp;pa+=ap;if(hp>150)over150++;if(hp<80)under80++;
         results.push({s:Number(s),wk:m.matchupPeriodId||0,r:hp>ap?1:(hp<ap?-1:0)});if(hi==null||hp>hi.pts)hi={pts:hp,season:s,week:m.matchupPeriodId};if(lo==null||hp<lo.pts)lo={pts:hp,season:s,week:m.matchupPeriodId};if(m.winner==='HOME'||hp>ap)w++;else if(hp<ap)l++;else t++;}
       else if(String(m.away.teamId)===tid){played.add(s);pf+=ap;pa+=hp;if(ap>150)over150++;if(ap<80)under80++;
@@ -5682,14 +5770,15 @@ function schedPlayedRows(owner){
     const oppName=(fr&&fr.name)||(meta.names&&meta.names[oppOwner]&&meta.names[oppOwner].name)
       ||(meta.teams&&meta.teams[theirs.teamId]&&meta.teams[theirs.teamId].name)||'Team';
     out.push({week:m.matchupPeriodId, playoff:(m.matchupPeriodId||0)>info.regEnd,
-      oppOwner, oppName, my, their,
+      oppOwner, oppName, my, their, counts:postGameCounts(info.season,m),
       res:my>their?'W':their>my?'L':'T', margin:my-their});
   });
   out.sort((a,b)=>a.week-b.week);
-  const w=out.filter(r=>r.res==='W').length, l=out.filter(r=>r.res==='L').length,
-        t=out.filter(r=>r.res==='T').length;
-  return {rows:out,info,w,l,t,
-    pf:out.reduce((a,r)=>a+r.my,0), pa:out.reduce((a,r)=>a+r.their,0)};
+  const live=out.filter(r=>r.counts);
+  const w=live.filter(r=>r.res==='W').length, l=live.filter(r=>r.res==='L').length,
+        t=live.filter(r=>r.res==='T').length;
+  return {rows:out,info,w,l,t,dead:out.length-live.length,
+    pf:live.reduce((a,r)=>a+r.my,0), pa:live.reduce((a,r)=>a+r.their,0)};
 }
 /* Projected margin drives everything: mostly the scoring gap, nudged by the
    power rating, then run through the normal curve. Weekly fantasy margins
@@ -6104,13 +6193,14 @@ function schedResultsHTML(owner){
   }
   const rec=`${d.w}–${d.l}${d.t?`–${d.t}`:''}`;
   const rows=d.rows.map(r=>{
-    const cls=r.res==='W'?' sch-won':r.res==='L'?' sch-lost':'';
+    const cls=!r.counts?' sch-dead':(r.res==='W'?' sch-won':r.res==='L'?' sch-lost':'');
     const fr=_franchises.find(f=>f.owner===r.oppOwner);
     return `<div class="sch-row sch-res${cls}">
       <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
       <span class="sch-team"><span class="sch-nm">${r.oppName}</span>
-        <span class="sch-ab">${sbTeamAb(r.oppOwner,r.oppName)}</span></span>
-      <span class="r sch-res-b">${r.res}</span>
+        <span class="sch-ab">${sbTeamAb(r.oppOwner,r.oppName)}</span>
+        ${r.counts?'':'<span class="sch-dead-tag">no bearing</span>'}</span>
+      <span class="r sch-res-b">${r.counts?r.res:'—'}</span>
       <span class="r sch-score">${r.my.toFixed(1)} – ${r.their.toFixed(1)}</span>
       <span class="r sch-marg">${r.margin>0?'+':''}${r.margin.toFixed(1)}</span>
     </div>`;}).join('');
@@ -6124,7 +6214,8 @@ function schedResultsHTML(owner){
     </div>
     <div class="sch-list">${rows}</div>
     ${playoffOutlookHTML()}
-    <div class="sch-note">Final results for ${info.season}, taken from the league's own scoreboard.</div>`;
+    <div class="sch-note">Final results for ${info.season}, taken from the league's own scoreboard.${
+      d.dead?` ${d.dead} postseason game${d.dead===1?'':'s'} had nothing riding on ${d.dead===1?'it':'them'} — shown, but left out of the record and the points.`:''}</div>`;
 }
 
 /* ── RIVALS ──────────────────────────────────────────────────────────────────
