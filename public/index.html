@@ -1641,6 +1641,9 @@
     /* ── Locker room (My Profile) ──────────────────────────────────────────
        Pixel art, so the SVG is allowed to go soft nowhere: crisp edges in the
        markup and nearest-neighbour scaling here. */
+    /* the ballot fold hangs under the poll standings and was butted straight
+       up against the last row of them */
+    .cp-fold.cp-mine{margin-top:18px;}
     .lk-block{margin:14px 0 16px;}
     /* No frame: the art breaks out of the page's padding and runs to both edges
        of the screen. 100vw counts the scrollbar, so the width is taken from the
@@ -2648,14 +2651,15 @@
     /* the mark keeps the same box as the profile button, but flat — no fill,
        just an outline. Radius matches the restored bar and its other controls. */
     #floatnav .logo{position:static;flex:0 0 auto;margin:0;order:0;cursor:pointer;
-      height:44px;box-sizing:border-box;
-      display:inline-flex;align-items:center;justify-content:center;
-      background:none;border:0;border-radius:0;padding:0;overflow:visible;
-      box-shadow:none;transition:opacity .18s;}
-    #floatnav .logo:hover{opacity:0.82;}
+      width:44px;height:44px;box-sizing:border-box;border-radius:8px;
+      display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
+      background:none;border:1px solid rgba(255,255,255,0.16);
+      box-shadow:none;transition:border-color .18s;}
+    #floatnav .logo:hover{border-color:rgba(255,255,255,0.34);}
+    html[data-theme="light"] #floatnav .logo{background:none;border-color:rgba(0,0,0,0.18);}
     #floatnav #me-btn{order:3;}
     #floatnav .tab-dd{margin-left:auto;}
-    #floatnav .logo img{height:44px;width:auto;display:block;}
+    #floatnav .logo img{height:32px;width:auto;display:block;}
     #floatnav .tab-dd{display:block!important;position:static;flex:0 1 auto;min-width:0;order:2;}
     /* icon + hamburger only — the page name lives in the h1 now */
     #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;
@@ -2694,8 +2698,8 @@
     main{padding-top:96px;}
     @media(max-width:768px){
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
-      #floatnav .logo{height:40px;}
-      #floatnav .logo img{height:40px;}
+      #floatnav .logo{width:40px;height:40px;}
+      #floatnav .logo img{height:29px;}
       #floatnav #tab-dd-btn{font-size:13px;height:40px;width:82px;padding:0 7px 0 10px;}
       #floatnav #season-select{height:40px;width:82px;font-size:13px;padding:0 26px 0 12px;}
       #floatnav #me-btn{width:40px;height:40px;}
@@ -2707,8 +2711,8 @@
     /* narrowest phones: pull the row in so all four controls still breathe */
     @media(max-width:360px){
       #floatnav{gap:6px;padding:7px 8px;}
-      #floatnav .logo{height:36px;}
-      #floatnav .logo img{height:36px;}
+      #floatnav .logo{width:36px;height:36px;}
+      #floatnav .logo img{height:26px;}
       #floatnav #tab-dd-btn{width:74px;height:36px;padding:0 6px 0 8px;}
       #floatnav #season-select{width:74px;height:36px;font-size:12.5px;padding:0 24px 0 10px;}
       #floatnav #me-btn{width:36px;height:36px;}

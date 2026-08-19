@@ -4168,6 +4168,10 @@ function buildSectionNav(tab){
   _secNavBusy=true;   // our own writes must not retrigger the observer
   const page=document.getElementById('page-'+tab);
   if(!page){ top.innerHTML=''; top.hidden=true; _secNavBusy=false; return; }
+  /* The homepage is three cards and a video that reorder themselves as things
+     get done — chips naming sections that move are more noise than navigation.
+     Every other tab keeps them. */
+  if(tab==='home'){ top.innerHTML=''; top.hidden=true; _secNavBusy=false; return; }
   /* a page can host the bar itself (Advanced Stats puts it under its filters,
      where it reads as belonging to the selected filter rather than the tab) */
   const local=page.querySelector('.sec-nav-local');
@@ -7327,8 +7331,8 @@ let _bkProfiles=null;
      · the weekly trivia — a right answer up, a wrong one down
      · the weekly picks, once the games they call have been played
      · settled bets, which are the same judgement with something on it
-   Bets move it at a quarter step, because a parlay can be several legs of the
-   same opinion and should not outweigh five separate questions. */
+   All three carry the same weight: one point up for a right call, one down for
+   a wrong one, and the Matchup of the Week pick counts double. */
 function bkIQFor(teamId){
   const cfg=_CFG.ballKnowledge||{}, iq=bkIQCfg();
   if(!_bkProfiles) return iq.avg;
@@ -7349,8 +7353,8 @@ function bkIQFor(teamId){
   const owners=rows.map(p=>p.id);
   (_bets||[]).forEach(b=>{
     if(!owners.includes(b.owner)) return;
-    if(b.status==='won') score+=0.25;
-    else if(b.status==='lost') score-=0.25;
+    if(b.status==='won') score+=1;
+    else if(b.status==='lost') score-=1;
   });
   return Math.max(iq.min,Math.min(iq.max,Math.round(iq.avg+score*iq.step)));
 }
