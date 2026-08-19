@@ -4117,9 +4117,7 @@ const SX_ABBR={
   'Draft Grades':'Grades',
   'GFL Overview':'Overview',
 };
-/* The picks heading carries the live week number, so it cannot be a fixed key
-   in the map above — the chip abbreviates it by shape instead. */
-const sxShort=l=>SX_ABBR[l] || (/^Week .+ Matchup Picks$/.test(l) ? 'Weekly Picks' : l);
+const sxShort=l=>SX_ABBR[l]||l;
 /* Choose an explicit column count so the last row is never a single orphan
    chip. auto-fit cannot express that, since it only knows the track width. */
 function fitSectionNav(bar,n){
@@ -6805,9 +6803,8 @@ function renderWeekPicks(){
       <div class="pk-sides2">${side(g.away.teamId)}<span class="pk-at">@</span>${side(g.home.teamId)}</div>
     </div>`;
   };
+  /* the week number still labels the body's meta line, just not the heading */
   const wk=(_liveInfo||liveWeekInfo()||{}).week??'—';
-  /* the heading carries the week; the jump chip abbreviates it back down */
-  {const h=document.getElementById('pk-title'); if(h) h.textContent=`Week ${wk} Matchup Picks`;}
   /* Submitted, and the week has not started: the grid folds to a line that
      opens to show the slate. Twelve tiles of finished business is a lot of
      screen for something already decided. */
@@ -8125,7 +8122,7 @@ async function loadDashboard(){
               <div id="bk-body"></div>
             </div>
             <div class="sec wm mod-pk" data-wm="&#xf0e7;" id="pk-sec">
-              <div class="sec-head"><i class="fa fa-burst"></i><span id="pk-title">Matchup Picks</span></div>
+              <div class="sec-head"><i class="fa fa-burst"></i>Matchup Picks</div>
               <div id="pk-body"></div>
             </div>
             <!-- Matchup of the Week is hidden for now. The markup and
