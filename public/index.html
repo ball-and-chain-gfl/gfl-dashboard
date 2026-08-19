@@ -2654,16 +2654,17 @@
     /* explicit order so the two groups can't drift: logo, year | menu, profile */
     /* the mark keeps the same box as the profile button, but flat — no fill,
        just an outline. Radius matches the restored bar and its other controls. */
-    /* Same fill and blur as the season dropdown beside it, and nothing else —
-       no border, no padding, no inset highlight. The mark is a transparent PNG,
-       so it runs to the edges of the box. */
-    #floatnav .logo{position:static;flex:0 0 auto;margin:0;order:0;cursor:pointer;
-      width:44px;height:44px;box-sizing:border-box;border-radius:8px;padding:0;
+    /* Flush to the bar's left, top and bottom: the negative margins cancel the
+       bar's own padding on those three sides, and align-self:stretch makes the
+       margin box the height of the row so the border box reaches both padding
+       edges. Transparent, no border, no padding of its own. The corners follow
+       the bar's radius on the side it meets. */
+    #floatnav .logo{position:static;flex:0 0 auto;order:0;cursor:pointer;
+      margin:-8px 0 -8px -12px;align-self:center;width:60px;height:60px;
+      box-sizing:border-box;border-radius:8px 0 0 8px;padding:0;
       display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
-      background:rgba(0,0,0,0.35);border:0;
-      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-      box-shadow:none;transition:background-color .15s;}
-    #floatnav .logo:hover{background-color:rgba(0,0,0,0.5);}
+      background:none;border:0;box-shadow:none;transition:opacity .15s;}
+    #floatnav .logo:hover{opacity:0.82;}
     #floatnav #me-btn{order:3;}
     #floatnav .tab-dd{margin-left:auto;}
     #floatnav .logo img{height:100%;width:auto;display:block;}
@@ -2705,7 +2706,7 @@
     main{padding-top:96px;}
     @media(max-width:768px){
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
-      #floatnav .logo{width:40px;height:40px;}
+      #floatnav .logo{margin:-7px 0 -7px -9px;width:54px;height:54px;}
       #floatnav #tab-dd-btn{font-size:13px;height:40px;width:82px;padding:0 7px 0 10px;}
       #floatnav #season-select{height:40px;width:82px;font-size:13px;padding:0 26px 0 12px;}
       #floatnav #me-btn{width:40px;height:40px;}
@@ -2717,7 +2718,7 @@
     /* narrowest phones: pull the row in so all four controls still breathe */
     @media(max-width:360px){
       #floatnav{gap:6px;padding:7px 8px;}
-      #floatnav .logo{width:36px;height:36px;}
+      #floatnav .logo{margin:-7px 0 -7px -8px;width:50px;height:50px;}
       #floatnav #tab-dd-btn{width:74px;height:36px;padding:0 6px 0 8px;}
       #floatnav #season-select{width:74px;height:36px;font-size:12.5px;padding:0 24px 0 10px;}
       #floatnav #me-btn{width:36px;height:36px;}
