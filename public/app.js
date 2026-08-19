@@ -92,6 +92,37 @@ const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146'
 const TAB_LABELS={home:'Home',week:'Forecast',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
+/* The year in the nav only means anything on the tabs that show one season at a
+   time. Everywhere else it is hidden — the homepage, Forecast, the Sportsbook,
+   Punishments, Rosters, Previous Matchups, Player Data and League History are
+   either about right now or about every season at once, so a year control there
+   is either meaningless or actively misleading.
+   Hiding it is not enough on its own: pick 2022 on Team Profiles, walk to the
+   homepage, and the page would still be built from 2022 data with no visible
+   control to explain why. So stepping onto one of those tabs also snaps the
+   year back to the newest season and reloads, but only when it had actually
+   been moved — the common case costs nothing. */
+const SEASON_TABS=new Set(['teams','schedule','standings','draft','trades']);
+/* The season to fall back to is the newest one that has actually been played,
+   not simply the newest on file: a season is listed as soon as ESPN publishes
+   its schedule, so the very newest can be a full year with no games in it. */
+function newestSeason(){
+  const have=ALL_SEASONS.filter(y=>_seasonMeta[y]).sort((a,b)=>Number(b)-Number(a));
+  const played=have.find(y=>((_seasonMeta[y].schedule)||[]).some(m=>m.home&&m.away
+    &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)));
+  return played||have[0]||ALL_SEASONS[ALL_SEASONS.length-1];
+}
+function syncSeasonPicker(tab){
+  const sel=document.getElementById('season-select'); if(!sel) return;
+  const scoped=SEASON_TABS.has(tab);
+  sel.style.display=scoped?'':'none';
+  if(scoped) return;
+  const newest=newestSeason();
+  if(newest&&sel.value&&sel.value!==String(newest)){
+    sel.value=String(newest);
+    try{ loadDashboard(); }catch(e){}
+  }
+}
 function setStatus(s,l){
   document.getElementById('dot').className='dot'+(s==='live'?' live':s==='err'?' err':'');
   document.getElementById('dot-label').textContent=l;
@@ -588,6 +619,7 @@ function initMobileTables(){
 }
 function switchTab(name){
   _activeTab=name;
+  syncSeasonPicker(name);
   document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
   setPageBg(name);
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
@@ -6408,32 +6440,6 @@ function profileDraftBlockHTML(owner){
   const html=profileOverviewHTML(owner,true);
   return html;
 }
-/* The profile's season block has its own year, independent of the nav. The
-   figures come from the per-season rows the sportsbook build already carries
-   (w/g/pf/pa/rank per franchise, every season), so switching years costs no
-   network at all.
-   The advanced metrics below them — coaching, the two ROIs, lineup IQ, moves,
-   trades — are only computed for the season the app has actually loaded, which
-   is the nav's year. Pick any other year and those read "—" rather than
-   showing the loaded season's numbers under the wrong heading. */
-let _profSeason=null;
-function profSeason(){ return _profSeason||getSeason(); }
-function setProfSeason(y){ _profSeason=String(y); renderProfile(); }
-function profSeasonRow(owner,year){
-  const b=(typeof sbBuild==='function')?sbBuild():null;
-  const r=b&&b.rows?b.rows.find(x=>x.owner===owner):null;
-  if(!r||!r.sp) return null;
-  return r.sp.find(x=>String(x.season)===String(year))||null;
-}
-/* every season this franchise actually played, newest first */
-function profSeasonYears(owner){
-  const b=(typeof sbBuild==='function')?sbBuild():null;
-  const r=b&&b.rows?b.rows.find(x=>x.owner===owner):null;
-  const played=(r&&r.sp?r.sp:[]).filter(x=>x.g>0).map(x=>String(x.season));
-  const cur=String(getSeason());
-  if(!played.includes(cur)) played.push(cur);
-  return played.sort().reverse();
-}
 async function renderProfile(){
   const el=document.getElementById('profile-body'); if(!el) return;
   const sel=document.getElementById('profile-team-select');
@@ -6501,38 +6507,20 @@ async function renderProfile(){
     </div>
     ${legacyReportHTML(owner)}
     <div class="prof-top2">
-    ${(() => {
-      const py=profSeason(), live=String(py)===String(getSeason());
-      const sp=profSeasonRow(owner,py);
-      const yrs=profSeasonYears(owner);
-      const dash='—';
-      /* live season: the loaded team object. any other year: the season row. */
-      const rec=live?`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`
-        :(sp?`${sp.w}–${Math.max(0,sp.g-sp.w)}`:dash);
-      const pf=live?t.pf:(sp?sp.pf:null);
-      const pa=live?t.pa:(sp?sp.pa:null);
-      const gp=live?(t.wins+t.losses+(t.ties||0)):(sp?sp.g:0);
-      const pick=`<select class="prof-yr" aria-label="Season"
-        onchange="setProfSeason(this.value)">${yrs.map(y=>
-        `<option value="${y}"${String(y)===String(py)?' selected':''}>${y}</option>`).join('')}</select>`;
-      return `<div class="panel"><div class="sec-head prof-yr-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${pick} Season</div>
+    <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
     <div class="prof-stats">
-      ${stat('Record',rec,live?scaleCol(seasonVals(winPctOf),winPctOf(t),true):'')}
-      ${stat('Points For',pf!=null?pf.toFixed(1):dash,live?scaleCol(seasonVals(x=>x.pf),t.pf,true):'')}
-      ${stat('Points Against',pa!=null?pa.toFixed(1):dash,live?scaleCol(seasonVals(x=>x.pa),t.pa,false):'')}
-      ${stat('Points/Game',gp&&pf!=null?(pf/gp).toFixed(1):dash,'')}
-      ${stat('Finish',sp&&sp.rank?`#${sp.rank}`:dash,'')}
-      ${stat('Moves',live?t.moves:dash)}
-      ${stat('Trades',live?t.trades:dash)}
-      ${stat('Coaching Metric',!live?dash:(_cmMode==='none'?dash:s.toFixed(2)),(!live||_cmMode==='none')?'':scaleCol(seasonVals(x=>_scores[x.id]||0),s,true))}
-      ${stat('Trade ROI',!live?dash:(c2!=null?(c2>=0?'+':'')+c2.toFixed(2):dash),live?scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c2),c2,true):'')}
-      ${stat('Waiver ROI',!live?dash:(c3!=null?(c3>=0?'+':'')+c3.toFixed(2):dash),live?scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c3),c3,true):'')}
-      ${stat('Lineup IQ',!live?dash:(myLiqPct!=null?myLiqPct.toFixed(1)+'%':dash),live?scaleCol(_teams.map(x=>{const d=_liqSeason[x.id];return (d&&d.decisions)?d.correct/d.decisions*100:null;}),myLiqPct,true):'')}
-      ${stat('Missed Points',!live?dash:(myLiq?myLiq.missed.toFixed(1):dash),live?scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false):'')}
+      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,scaleCol(seasonVals(winPctOf),winPctOf(t),true))}
+      ${stat('Points For',t.pf.toFixed(1),scaleCol(seasonVals(x=>x.pf),t.pf,true))}
+      ${stat('Points Against',t.pa.toFixed(1),scaleCol(seasonVals(x=>x.pa),t.pa,false))}
+      ${stat('Moves',t.moves)}
+      ${stat('Trades',t.trades)}
+      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),_cmMode==='none'?'':scaleCol(seasonVals(x=>_scores[x.id]||0),s,true))}
+      ${stat('Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c2),c2,true))}
+      ${stat('Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c3),c3,true))}
+      ${stat('Lineup IQ',myLiqPct!=null?myLiqPct.toFixed(1)+'%':'—',scaleCol(_teams.map(x=>{const d=_liqSeason[x.id];return (d&&d.decisions)?d.correct/d.decisions*100:null;}),myLiqPct,true))}
+      ${stat('Missed Points',myLiq?myLiq.missed.toFixed(1):'—',scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false))}
     </div>
-    ${live?'':`<div class="prof-yr-note">Coaching, the ROIs, lineup IQ, moves and trades are only computed for ${getSeason()}, the season loaded in the nav.</div>`}
-    </div>`;
-    })()}
+    </div>
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
     <div class="prof-stats">
       ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}
