@@ -77,6 +77,10 @@ window.GFL_CONFIG = {
      stay attached to the cycle they were made in either way. */
   bucksTestMinutes: 5,
 
+  /* TESTING ONLY — how long one locker-room plant stage lasts, in minutes.
+     0 (or delete) uses the real three days per stage. */
+  plantTestMinutes: 0,
+
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it. 11 is a placeholder — change
      it to whatever the league actually runs. */

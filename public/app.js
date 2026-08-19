@@ -3669,6 +3669,58 @@ function rosterPickerHTML(){
       <span class="rp-ab">${(t.abbrev||teamInitials(t.name))}</span>
     </button>`).join('')}</div>`;
 }
+/* ── Formation view ─────────────────────────────────────────────────────────
+   The starters laid out as an offence rather than a list: receivers split wide,
+   the flex in the slot beside the tight end, the quarterback behind them and
+   both backs in the backfield, with the defence and kicker on their own row.
+
+   Positions are percentages of the field box so it scales with the screen. Each
+   spot is filled from the roster by lineup slot, taking players in the order
+   ESPN returns them, and any spot with nobody in it stays an empty ring — which
+   is the whole board before a draft. */
+const FORMATION=[
+  {k:'WR',  slot:4,  x:7,  y:30},
+  {k:'FLEX',slot:23, x:25, y:32, sub:'Z'},
+  {k:'TE',  slot:6,  x:40, y:30},
+  {k:'WR',  slot:4,  x:90, y:30},
+  {k:'QB',  slot:0,  x:57, y:52},
+  {k:'RB',  slot:2,  x:44, y:72},
+  {k:'RB',  slot:2,  x:70, y:72},
+];
+const FORMATION_BOTTOM=[{k:'D/ST',slot:16},{k:'K',slot:17}];
+function formationHTML(rows){
+  const pool={};
+  (rows||[]).filter(p=>!p.bench).forEach(p=>{ (pool[p.slot]||(pool[p.slot]=[])).push(p); });
+  const take=slot=>(pool[slot]&&pool[slot].shift())||null;
+  const initials=n=>String(n||'').split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+  const spot=(f)=>{
+    const p=take(f.slot);
+    return `<div class="fm-spot${p?' on':''}" style="left:${f.x}%;top:${f.y}%"
+      title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
+      <span class="fm-ring">${p?initials(p.n):''}</span>
+      <span class="fm-lbl">${f.sub||f.k}</span>
+      ${p?`<span class="fm-nm">${String(p.n).split(' ').slice(-1)[0]}</span>`:''}
+    </div>`;
+  };
+  const spots=FORMATION.map(spot).join('');
+  const bottom=FORMATION_BOTTOM.map(f=>{
+    const p=take(f.slot);
+    return `<div class="fm-btm${p?' on':''}" title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
+      <span class="fm-ring">${p?initials(p.n):''}</span>
+      <span class="fm-lbl">${f.k}</span>
+      ${p?`<span class="fm-nm">${String(p.n).split(' ').slice(-1)[0]}</span>`:''}
+    </div>`;}).join('');
+  const filled=(rows||[]).filter(p=>!p.bench).length;
+  return `<div class="fm-wrap">
+    <div class="fm-field">
+      <span class="fm-los"></span>
+      ${Array.from({length:5},(_,i)=>`<span class="fm-yd" style="top:${14+i*18}%"></span>`).join('')}
+      ${spots}
+    </div>
+    <div class="fm-bottom">${bottom}</div>
+    ${filled?'':'<div class="fm-empty">Every spot opens up once the draft is done.</div>'}
+  </div>`;
+}
 async function renderRoster(){
   const el=document.getElementById('roster-body'); if(!el) return;
   // default to your own team once signed in, otherwise the first team
@@ -3698,7 +3750,9 @@ async function renderRoster(){
   }
   const {rows,season,week}=_rosterCache;
   // ESPN returns the teams but no entries until a season has drafted
-  if(!rows.length){ el.innerHTML=rosterPickerHTML()+`<div class="lr-none">No ${season} roster yet — this fills in once the draft is done.</div>`; return; }
+  /* Before a draft the formation is the whole view — an empty board still says
+     what the lineup is going to look like, which a "no roster yet" line does not. */
+  if(!rows.length){ el.innerHTML=rosterPickerHTML()+formationHTML([]); return; }
   const num=v=>v==null?'—':Number(v).toFixed(1);
   const injTag=s=>!s||s==='ACTIVE'||s==='NORMAL'?'':
     `<span class="rs-inj ${/OUT|INJURY_RESERVE|IR|SUSPENSION/.test(s)?'bad':''}">${s.slice(0,3)}</span>`;
@@ -3712,7 +3766,7 @@ async function renderRoster(){
   const starters=rows.filter(p=>!p.bench), bench=rows.filter(p=>p.bench);
   const tot=a=>a.reduce((s,p)=>s+(p.pts||0),0);
   const tn=(_teams.find(t=>String(t.id)===String(_rosterTeam))||{}).name||'';
-  el.innerHTML=rosterPickerHTML()+`
+  el.innerHTML=rosterPickerHTML()+formationHTML(rows)+`
     <div class="rs-head"><span>${tn} · Week ${week}</span><span class="rs-tot">${tot(starters).toFixed(1)} pts</span></div>
     <div class="rs-cols"><span class="rs-slot">Slot</span><span></span><span class="rs-name">Player</span>
       <span class="rs-proj">Proj</span><span class="rs-pts">Pts</span></div>
@@ -4743,73 +4797,180 @@ function lockerRoomHTML(t){
     return [138,143,152];
   };
   const base=parse(_logoColorCache[t.id]||teamColor(t.id));
-  const mix=(rgb,to,k)=>`rgb(${rgb.map((v,i)=>Math.round(v+(to[i]-v)*k)).join(',')})`;
-  const c1=`rgb(${base.join(',')})`;
+  const mix=(rgb,to,k)=>'rgb('+rgb.map((v,i)=>Math.round(v+(to[i]-v)*k)).join(',')+')';
+  const c1='rgb('+base.join(',')+')';
   const c2=mix(base,[255,255,255],0.34);
+  const c3=mix(base,[255,255,255],0.62);
   const dark=mix(base,[0,0,0],0.55);
-  const P=(x,y,w,h,f,o)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}"${o?` opacity="${o}"`:''}/>`;
+  const deep=mix(base,[0,0,0],0.74);
+  const P=(x,y,w,h,f,o)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+f+'"'+(o?' opacity="'+o+'"':'')+'/>';
+
   /* Pennants hang centred over the bay rather than from the left, so one title
      does not read as a stray flag in an empty corner. */
-  const nb=Math.min(rings,5);
+  const nb=Math.min(rings,6);
   const banners=Array.from({length:nb},(_,i)=>{
-    const x=Math.round(80-(nb*13-4)/2)+i*13;
-    return P(x,5,9,11,c2)+P(x+1,16,7,2,c2)+P(x+3,18,3,2,c2)+P(x+2,8,5,2,dark);
+    const x=Math.round(160-(nb*26-8)/2)+i*26;
+    return P(x,10,18,22,c2)+P(x+2,32,14,4,c2)+P(x+6,36,6,4,c2)
+      +P(x+4,16,10,4,deep)+P(x+6,22,6,3,deep);
   }).join('');
-  return `<div class="lk-wrap">
-    <div class="lk-bar"><span>Locker Room</span><span class="lk-ab">${ab}</span></div>
-    <svg class="lk-svg" viewBox="0 0 160 100" shape-rendering="crispEdges" role="img"
-        aria-label="Pixel art locker room for ${t.name}">
-      ${P(0,0,160,100,'#1b1b20')}
-      ${P(0,0,160,26,'#15151a')}
-      ${P(0,25,160,1,dark)}
-      ${banners}
-      ${P(0,84,160,16,'#121216')}
-      ${Array.from({length:20},(_,i)=>P(i*8,84,7,1,'#22222a')).join('')}
 
-      ${/* the bay: back panel, side walls, top shelf */''}
-      ${P(52,26,56,58,dark)}
-      ${P(52,26,56,3,c1)}
-      ${P(50,26,2,58,'#2a2a33')}
-      ${P(108,26,2,58,'#2a2a33')}
-      ${P(52,40,56,2,'#2a2a33')}
+  const st=plantStage();
+  return '<div class="lk-wrap">'
+    +'<div class="lk-bar"><span>Locker Room</span><span class="lk-ab">'+ab+'</span></div>'
+    +'<svg class="lk-svg" viewBox="0 0 320 200" shape-rendering="crispEdges" role="img"'
+    +' aria-label="Pixel art locker room for '+t.name+'">'
+      +P(0,0,320,200,'#1b1b20')
+      +P(0,0,320,52,'#15151a')
+      +P(0,50,320,2,deep)
+      /* wall panelling, so the back wall is not a flat field */
+      +Array.from({length:16},(_,i)=>P(i*20,52,1,116,'#1f1f26')).join('')
+      +banners
 
-      ${/* jersey on the hook, with the abbreviation across the chest */''}
-      ${P(66,44,28,30,c1)}
-      ${P(62,46,4,10,c1)}${P(94,46,4,10,c1)}
-      ${P(72,44,16,4,c2)}
-      ${P(68,54,24,9,dark)}
-      <text x="80" y="61" text-anchor="middle" font-family="'Courier New',monospace"
-        font-size="8" font-weight="700" fill="${c2}">${ab}</text>
-      ${P(79,36,2,8,'#3a3a44')}
+      /* ── the bay ─────────────────────────────────────────────────────── */
+      +P(104,52,112,116,dark)
+      +P(104,52,112,6,c1)
+      +P(100,52,4,116,'#2a2a33')
+      +P(216,52,4,116,'#2a2a33')
+      +P(104,80,112,4,'#2a2a33')          /* shelf */
+      +P(104,78,112,2,c2,'0.5')
+      +P(104,164,112,4,'#26262e')         /* bay floor lip */
+      /* nameplate above the bay */
+      +P(138,58,44,14,deep)+P(140,60,40,10,c1)
+      +'<text x="160" y="69" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="9" font-weight="700" fill="'+c3+'">'+ab+'</text>'
 
-      ${/* helmet on the shelf */''}
-      ${P(56,31,10,7,c1)}${P(55,34,1,4,c1)}${P(66,34,3,2,c2)}
-      ${/* ball on the shelf */''}
-      ${P(96,32,9,6,'#6b4423')}${P(99,34,3,1,'#e8e8e8')}
+      /* ── jersey on the hook ──────────────────────────────────────────── */
+      +P(158,86,4,10,'#3a3a44')            /* hanger stem */
+      +P(150,94,20,3,'#3a3a44')            /* hanger bar */
+      +P(132,98,56,58,c1)                  /* body */
+      +P(120,102,12,22,c1)+P(188,102,12,22,c1)   /* sleeves */
+      +P(120,120,12,4,c2)+P(188,120,12,4,c2)     /* cuffs */
+      +P(146,98,28,6,c3)                   /* collar */
+      +P(132,150,56,6,c2)                  /* hem */
+      +P(138,112,44,20,deep)               /* number panel */
+      +'<text x="160" y="128" text-anchor="middle" font-family="\'Courier New\',monospace"'
+      +' font-size="16" font-weight="700" fill="'+c3+'">'+ab+'</text>'
 
-      ${/* bench and cleats */''}
-      ${P(56,76,48,4,'#3a2f27')}
-      ${P(58,80,3,4,'#2a2119')}${P(99,80,3,4,'#2a2119')}
-      ${P(60,79,8,4,c2)}${P(70,79,8,4,c2)}
+      /* ── shelf clutter ───────────────────────────────────────────────── */
+      +P(110,62,20,14,c1)+P(108,66,2,8,c1)+P(130,66,6,4,c3)   /* helmet + facemask */
+      +P(112,60,16,3,c3)                                       /* helmet stripe */
+      +P(192,64,18,12,'#6b4423')+P(196,68,10,2,'#e8e8e8')      /* ball */
+      +P(194,66,2,8,'#5a3a1e')+P(206,66,2,8,'#5a3a1e')
 
-      ${/* a stool and a bucket, so the room is not all symmetry */''}
-      ${P(20,68,12,3,'#3a2f27')}${P(22,71,2,13,'#2a2119')}${P(28,71,2,13,'#2a2119')}
-      ${P(126,72,12,12,'#4a4a55')}${P(126,72,12,2,'#5a5a66')}
-      ${P(128,66,8,6,c1)}
+      /* ── bench, cleats, towel ────────────────────────────────────────── */
+      +P(112,158,96,7,'#3a2f27')
+      +P(112,156,96,2,'#4a3d33')
+      +P(118,165,6,3,'#2a2119')+P(196,165,6,3,'#2a2119')
+      +P(120,148,16,8,c2)+P(140,148,16,8,c2)                   /* cleats */
+      +P(120,146,16,2,c3)+P(140,146,16,2,c3)
+      +P(178,146,22,6,c3,'0.85')+P(180,152,18,4,c3,'0.6')      /* towel over the end */
 
-      ${/* wall clock on the left, whiteboard on the right — the upper wall was
-            bare either side of the pennants */''}
-      ${P(22,34,12,12,'#2f2f38')}${P(24,36,8,8,'#d8d8e0')}${P(27,38,1,4,'#2f2f38')}${P(28,41,3,1,'#2f2f38')}
-      ${P(120,32,26,18,'#d8d8e0')}${P(122,34,22,14,'#ececf2')}
-      ${P(124,37,12,1,c1)}${P(124,40,16,1,'#9a9aa6')}${P(124,43,9,1,'#9a9aa6')}
-      ${P(131,50,4,3,'#8a8a96')}
+      /* ── floor ───────────────────────────────────────────────────────── */
+      +P(0,168,320,32,'#121216')
+      +Array.from({length:20},(_,i)=>P(i*16,168,15,2,'#22222a')).join('')
+      +Array.from({length:10},(_,i)=>P(i*32,184,31,2,'#1c1c23')).join('')
 
-      ${/* towel over the bench end and a taped-up ball, small signs of use */''}
-      ${P(88,74,12,3,c2,'0.8')}
-      ${P(38,80,10,4,'#3a3a44')}${P(40,78,6,2,'#3a3a44')}
-    </svg>
-    <div class="lk-cap">${rings?`${rings} banner${rings===1?'':'s'} on the wall`:'No banners yet — go win one'}</div>
-  </div>`;
+      /* ── left wall: clock ────────────────────────────────────────────── */
+      +P(22,12,26,26,'#2f2f38')+P(26,16,18,18,'#d8d8e0')
+      +P(34,20,2,7,'#2f2f38')+P(35,25,6,2,'#2f2f38')
+      +P(22,12,26,2,'#3f3f4a')
+
+      /* ── right wall: whiteboard with a play on it ────────────────────── */
+      +P(240,60,60,42,'#d8d8e0')+P(244,64,52,34,'#ececf2')
+      +P(248,70,26,2,c1)+P(248,78,36,2,'#9a9aa6')
+      +P(248,86,18,2,'#9a9aa6')+P(270,84,10,6,c1)
+      +P(264,102,12,6,'#8a8a96')
+
+      /* ── stool with the plant on it ──────────────────────────────────── */
+      +P(36,132,44,6,'#3a2f27')+P(36,130,44,2,'#4a3d33')
+      +P(42,138,5,30,'#2a2119')+P(69,138,5,30,'#2a2119')
+      +P(42,152,32,4,'#2a2119')
+      +plantSVG(st.stage,P)
+
+      /* ── laundry bin ─────────────────────────────────────────────────── */
+      +P(256,130,38,38,'#4a4a55')+P(256,130,38,4,'#5a5a66')
+      +P(262,120,26,10,c1)+P(266,116,18,6,c2)
+    +'</svg>'
+    +'<button class="lk-plant" onclick="waterPlant()" title="Water the plant">'
+      +'<i class="fa fa-droplet"></i><span>'+st.label+'</span>'
+      +'<span class="lk-water">'+(st.stage>=5?'Revive':'Water')+'</span>'
+    +'</button>'
+    +'<div class="lk-cap">'+(rings?rings+' banner'+(rings===1?'':'s')+' on the wall':'No banners yet — go win one')+'</div>'
+  +'</div>';
+}
+
+/* ── The locker room plant ──────────────────────────────────────────────────
+   Six stages. It holds for one watering interval, then loses a stage for every
+   interval that passes without one — thriving, healthy, dry, drooping, wilting,
+   dead. Watering at any point resets it to thriving, including from dead: the
+   alternative is a profile with a permanently dead plant on it, which is a
+   worse thing to own than a forgiving one.
+
+   State is a single timestamp, kept per profile so it follows a manager, with
+   localStorage covering signed-out and acting as the instant write. */
+const PLANT_STAGES=['Thriving','Healthy','Getting dry','Drooping','Wilting','Dead'];
+const plantKey=()=>'plant_'+(_me?_me.k1:'guest');
+const plantMs=()=>{
+  const m=Number(_CFG.plantTestMinutes??0);
+  return m>0?m*60*1000:3*24*3600*1000;        // three days unless testing
+};
+function plantStage(){
+  const raw=Number(localStorage.getItem(plantKey())||0);
+  if(!raw) return {stage:0,label:PLANT_STAGES[0],fresh:true};
+  const n=Math.floor((Date.now()-raw)/plantMs());
+  const stage=Math.max(0,Math.min(5,n));
+  return {stage,label:PLANT_STAGES[stage],fresh:false};
+}
+async function waterPlant(){
+  const now=String(Date.now());
+  localStorage.setItem(plantKey(),now);
+  renderMyProfile();
+  if(_me){ try{ await gflPatchProfile(_me.k1,{plantWatered:now}); }catch(e){} }
+}
+async function plantSync(){
+  if(!_me) return;
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    const srv=res&&res.data?Number(res.data.plantWatered||0):0;
+    const loc=Number(localStorage.getItem(plantKey())||0);
+    if(srv>loc){ localStorage.setItem(plantKey(),String(srv)); renderMyProfile(); }
+  }catch(e){}
+}
+/* Each stage is drawn rather than tinted, so the shape changes as it declines:
+   upright and full, then shorter, then leaves angling down, then bare. */
+function plantSVG(stage,P){
+  const pot=P(46,110,24,22,'#8a5a3a')+P(46,110,24,4,'#9a6a46')+P(44,108,28,4,'#7a4a2e');
+  const soil=P(48,112,20,3,'#3a2a1e');
+  const G=['#4ade80','#3fc46e','#8ab84a','#b0a03a','#8a6a30','#6b5030'][stage];
+  const G2=['#86efac','#6ee7a0','#a8c96a','#c8b855','#a08040','#7a5c38'][stage];
+  const leaf=(x,y,w,h,f)=>P(x,y,w,h,f);
+  let plant='';
+  if(stage===0){
+    plant=P(56,86,4,24,G)
+      +leaf(44,88,12,5,G)+leaf(60,84,12,5,G2)+leaf(46,98,10,5,G2)+leaf(60,96,10,5,G)
+      +leaf(48,80,8,5,G2)+leaf(58,76,8,5,G)
+      +P(54,70,8,6,'#f0a0c0')+P(56,68,4,3,'#f8c0d8');      /* a flower, only when thriving */
+  }else if(stage===1){
+    plant=P(56,90,4,20,G)
+      +leaf(45,92,11,5,G)+leaf(60,88,11,5,G2)+leaf(47,101,9,5,G2)+leaf(60,99,9,5,G)
+      +leaf(50,84,6,4,G2);
+  }else if(stage===2){
+    plant=P(56,96,4,14,G)
+      +leaf(46,98,10,5,G)+leaf(60,95,10,5,G2)+leaf(48,105,8,4,G2);
+  }else if(stage===3){
+    plant=P(56,100,4,10,G)
+      +leaf(46,104,10,4,G)+P(44,108,4,4,G)                  /* leaves angling down */
+      +leaf(60,102,9,4,G2)+P(68,106,4,4,G2);
+  }else if(stage===4){
+    plant=P(56,104,4,6,G)
+      +P(48,108,8,3,G)+P(46,111,4,3,G)
+      +P(60,107,6,3,G2)
+      +P(40,128,5,3,G,'0.7')+P(72,128,5,3,G,'0.7');         /* leaves on the floor */
+  }else{
+    plant=P(56,104,4,6,G)+P(53,102,3,3,G)
+      +P(38,128,6,3,G,'0.6')+P(70,128,6,3,G,'0.6')+P(52,130,6,3,G,'0.5');
+  }
+  return pot+soil+plant;
 }
 function renderMyProfile(){
   const el=document.getElementById('profile-page-body'); if(!el) return;
@@ -4840,6 +5001,7 @@ function renderMyProfile(){
   /* The logo colour is sampled from the image, so on a cold load — arriving
      straight here without opening a team profile first — the cache is empty and
      the room falls back to grey. Warm it once and repaint. */
+  plantSync();                              // pull this manager's last watering
   if(t && !_logoColorCache[t.id]){
     logoMainColor(t.id).then(()=>{ if(_activeTab==='profile') renderMyProfile(); }).catch(()=>{});
   }

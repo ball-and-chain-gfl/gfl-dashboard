@@ -1361,6 +1361,39 @@
     .punish-opt i{color:var(--text3);width:20px;text-align:center;}
     .punish-opt.active{border-color:var(--accent);background:rgba(var(--accent-rgb),0.1);}
     .punish-opt.active i{color:var(--accent);}
+    /* ── Formation (Rosters) ───────────────────────────────────────────────
+       Spots are placed as percentages of the field, so the shape holds at any
+       width rather than needing a second layout for phones. */
+    .fm-wrap{margin:0 0 18px;}
+    .fm-field{position:relative;aspect-ratio:16/10;border-radius:12px;overflow:hidden;
+      background:linear-gradient(175deg,#16301f,#102618);
+      border:1px solid rgba(255,255,255,0.09);}
+    html[data-theme="light"] .fm-field{background:linear-gradient(175deg,#1d4029,#16301f);}
+    .fm-yd{position:absolute;left:0;right:0;height:1px;background:rgba(255,255,255,0.07);}
+    .fm-los{position:absolute;left:0;right:0;top:41%;height:2px;background:rgba(255,255,255,0.18);}
+    .fm-spot{position:absolute;transform:translate(-50%,-50%);display:flex;
+      flex-direction:column;align-items:center;gap:3px;width:56px;}
+    .fm-ring{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+      justify-content:center;border:2px dashed rgba(255,255,255,0.28);
+      background:rgba(0,0,0,0.28);font-family:'Inter',sans-serif;font-size:11px;
+      font-weight:800;color:var(--text2);}
+    .fm-spot.on .fm-ring,.fm-btm.on .fm-ring{border-style:solid;border-color:var(--accent);
+      background:rgba(var(--accent-rgb),0.2);color:var(--accent);}
+    .fm-lbl{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.5px;
+      text-transform:uppercase;color:rgba(255,255,255,0.55);}
+    .fm-nm{font-family:'Inter',sans-serif;font-size:9px;color:#fff;max-width:56px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .fm-bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+    .fm-btm{display:flex;align-items:center;justify-content:center;gap:9px;
+      padding:9px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,0.2);}
+    .fm-btm .fm-ring{width:28px;height:28px;font-size:10px;}
+    .fm-empty{margin-top:9px;text-align:center;font-family:'Inter',sans-serif;
+      font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
+    @media(max-width:520px){
+      .fm-spot{width:44px;} .fm-ring{width:28px;height:28px;font-size:10px;}
+      .fm-nm{font-size:8px;max-width:44px;} .fm-lbl{font-size:7.5px;}
+    }
+
     /* ── Locker room (My Profile) ──────────────────────────────────────────
        Pixel art, so the SVG is allowed to go soft nowhere: crisp edges in the
        markup and nearest-neighbour scaling here. */
@@ -1375,6 +1408,16 @@
       image-rendering:pixelated;image-rendering:crisp-edges;}
     .lk-cap{padding:8px 13px 10px;font-family:'Inter',sans-serif;font-size:10px;
       letter-spacing:.4px;text-transform:uppercase;color:var(--text3);text-align:center;}
+    /* watering control, under the room */
+    .lk-plant{display:flex;align-items:center;gap:9px;width:100%;cursor:pointer;
+      padding:10px 13px;background:rgba(0,0,0,0.3);border:none;
+      border-top:1px solid var(--border);color:var(--text2);
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;}
+    .lk-plant:hover{background:rgba(0,0,0,0.42);}
+    .lk-plant>i{color:#5bc8f5;font-size:13px;}
+    .lk-water{margin-left:auto;color:#0b0f0c;background:#5bc8f5;border-radius:999px;
+      padding:4px 12px;font-weight:800;font-size:10.5px;}
 
     /* ── Matchup Stats: season table, head to head and playoff odds, folded
        away so the card leads with the teams and the vote ─────────────────── */
