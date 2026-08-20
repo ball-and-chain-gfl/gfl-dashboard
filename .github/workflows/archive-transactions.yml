@@ -1,0 +1,44 @@
+name: Archive transactions
+
+# ESPN only serves the detailed transaction log while a season is ACTIVE. Once
+# it ends, mTransactions2 returns no `transactions` key and the activity feed
+# 404s — which is why 2022-2025 waiver history is gone for good. The only way to
+# keep it is to snapshot it while the season is running, so this does not depend
+# on anyone remembering.
+#
+# Waivers process Wednesday morning US time, so this runs a few hours after and
+# again later in the week as a safety net. The script merges by transaction id,
+# so running twice costs nothing and a missed run loses nothing as long as ESPN
+# is still serving the row.
+on:
+  schedule:
+    - cron: '30 14 * * 3'   # Wed 14:30 UTC — after Wednesday waivers clear
+    - cron: '30 14 * * 0'   # Sun 14:30 UTC — catches anything mid-week
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to archive (blank = current)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check the bid rule still holds
+        run: node scripts/test-next-bid.mjs
+      - name: Archive
+        run: node scripts/archive-transactions.mjs ${{ github.event.inputs.season }}
+      - name: Commit if it changed
+        run: |
+          git config user.name  'gfl-bot'
+          git config user.email 'gfl-bot@users.noreply.github.com'
+          git add public/data/transactions-*.json
+          git diff --staged --quiet || git commit -m 'Archive transactions [skip ci]'
+          git push
