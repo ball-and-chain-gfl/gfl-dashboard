@@ -1706,7 +1706,76 @@ function renderHistoryTable(){
         </tr>
         <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
     </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}
-    ${rows.length?pastMatchupsHTML(owner,me,rows):''}`;
+    ${rows.length?pastMatchupsHTML(owner,me,rows):''}
+    ${swingsHTML()}`;
+}
+
+/* ── BIGGEST WIN / BIGGEST LOSS ──────────────────────────────────────────────
+   One row per franchise: the largest margin they ever won by and who it was
+   against, and the largest they ever lost by and who did it to them.
+
+   Only games that counted are considered, the same rule the records use — a
+   dead-rubber consolation blowout is not somebody's biggest win. Margin is the
+   tiebreak's first term; if two games somehow tie exactly, the earlier one is
+   kept, which keeps the answer stable between renders. */
+function biggestSwings(){
+  const best={}, worst={};
+  ALL_SEASONS.forEach(s=>{
+    const meta=_seasonMeta[s]; if(!meta) return;
+    const owners=meta.owners||{};
+    (meta.schedule||[]).forEach(mu=>{
+      if(!mu.home||!mu.away) return;
+      const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
+      if(hp===0&&ap===0) return;
+      if(!postGameCounts(s,mu)) return;
+      const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
+      if(!ho||!ao||ho===ao) return;
+      const wk=mu.matchupPeriodId||0;
+      [[ho,hp,ao,ap],[ao,ap,ho,hp]].forEach(([me,my,them,their])=>{
+        const margin=my-their;
+        if(margin===0) return;                       // a tie is neither
+        const row={season:s,week:wk,opp:them,my,their,margin:Math.abs(margin)};
+        if(margin>0){ if(!best[me]||row.margin>best[me].margin) best[me]=row; }
+        else        { if(!worst[me]||row.margin>worst[me].margin) worst[me]=row; }
+      });
+    });
+  });
+  return {best,worst};
+}
+function swingsHTML(){
+  const {best,worst}=biggestSwings();
+  const list=_franchises.filter(f=>best[f.owner]||worst[f.owner]);
+  if(!list.length) return '';
+  const nameOf=o=>(_franchises.find(f=>f.owner===o)||{}).name||'A departed team';
+  /* Not a table. Two columns of this much detail cannot fit 375px, and a
+     horizontally scrolling table hid the whole Biggest loss column — so the
+     pair sits side by side where there is room and stacks where there is not. */
+  const panel=(g,kind)=>{
+    const label=kind==='w'?'Biggest win':'Biggest loss';
+    if(!g) return `<div class="sw-p sw-${kind}"><div class="sw-lab">${label}</div>
+      <div class="sw-none">No result yet</div></div>`;
+    const fr=_franchises.find(f=>f.owner===g.opp);
+    return `<div class="sw-p sw-${kind}">
+      <div class="sw-lab">${label}</div>
+      <div class="sw-top">
+        <span class="sw-marg">${kind==='w'?'+':'−'}${g.margin.toFixed(1)}</span>
+        <span class="sw-score">${g.my.toFixed(1)} – ${g.their.toFixed(1)}</span>
+      </div>
+      <div class="sw-opp">${fr?franchiseAvatar(fr,20,5):''}
+        <span class="sw-oppn"><span class="sw-verb">${kind==='w'?'beat':'lost to'}</span> ${nameOf(g.opp)}</span>
+      </div>
+      <div class="sw-when">${g.season} · Week ${g.week}</div>
+    </div>`;
+  };
+  const cards=list.map(f=>`<div class="sw-card">
+    <div class="sw-team">${franchiseAvatar(f,26,7)}<span>${f.name}</span></div>
+    <div class="sw-pair">${panel(best[f.owner],'w')}${panel(worst[f.owner],'l')}</div>
+  </div>`).join('');
+  return `<div class="sec wm sw-sec" data-wm="&#xf091;">
+    <div class="sec-head"><i class="fa fa-arrows-up-down"></i>Biggest Win &amp; Biggest Loss<span class="badge-info">every team · all seasons</span></div>
+    <div class="sw-list">${cards}</div>
+    <div class="sw-note">Margin of victory, every season. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
+  </div>`;
 }
 
 // ── PLAYER TENURE TAB ──────────────────────────────────────────────────────────
@@ -4286,7 +4355,8 @@ const SX_ABBR={
   'All-Time Starting Lineup':'AT Lineup',
   'All-Time vs Each Team':'AT vs Team',
   'Live Around the League':'Live League',
-  'Historical Matchup Records':'Matchup Records',
+  'Head-to-Head Records':'H2H Records',
+  'Biggest Win & Biggest Loss':'Big Swings',
   'Conference Championships':'Conferences',
   'Season Superlatives':'Superlatives',
   'Player Tenure':'Tenure',
@@ -8933,7 +9003,7 @@ async function loadDashboard(){
       <!-- MATCHUP HISTORY -->
       <div class="tab-page" id="page-history">
         <div class="sec wm" data-wm="&#xf24e;">
-          <div class="sec-head"><i class="fa fa-scale-balanced"></i>Historical Matchup Records<span class="badge-info">all seasons · ${ALL_SEASONS[0]}–present</span></div>
+          <div class="sec-head"><i class="fa fa-scale-balanced"></i>Head-to-Head Records<span class="badge-info">all seasons · ${ALL_SEASONS[0]}–present</span></div>
           <div class="picker-bar">
             <label for="hist-team-select">Team:</label>
             <select id="hist-team-select" onchange="renderHistoryTable()">${franchiseOpts(_ownerMap[_teams[0]?.id])}</select>

@@ -1098,6 +1098,39 @@
       .sx-chip{font-size:11.5px;padding:6px 8px;letter-spacing:.1px;}
     }
 
+    /* ── Biggest win / biggest loss ───────────────────────────────────────
+       One card per team holding two panels. They sit side by side when there is
+       room and stack below 640px — a table could not carry this much per cell
+       at phone width without scrolling the second column out of sight. */
+    .sw-list{display:flex;flex-direction:column;gap:10px;}
+    .sw-card{padding:12px 13px;border-radius:11px;background:rgba(255,255,255,0.03);
+      border:1px solid var(--border);}
+    .sw-team{display:flex;align-items:center;gap:9px;margin-bottom:10px;
+      font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--text);}
+    .sw-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .sw-p{padding:10px 11px;border-radius:9px;background:rgba(0,0,0,0.28);
+      border-left:3px solid transparent;min-width:0;}
+    .sw-w{border-left-color:var(--green);}
+    .sw-l{border-left-color:var(--red);}
+    .sw-lab{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+      letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+    .sw-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+    .sw-marg{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;line-height:1;}
+    .sw-w .sw-marg{color:var(--green);}
+    .sw-l .sw-marg{color:var(--red);}
+    .sw-score{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+      color:var(--text2);white-space:nowrap;}
+    .sw-opp{display:flex;align-items:center;gap:7px;margin-top:7px;min-width:0;}
+    .sw-oppn{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);
+      min-width:0;overflow:hidden;text-overflow:ellipsis;}
+    .sw-verb{color:var(--text3);}
+    .sw-when{margin-top:5px;font-family:'Inter',sans-serif;font-size:10.5px;
+      letter-spacing:.3px;text-transform:uppercase;color:var(--text3);}
+    .sw-none{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text3);}
+    .sw-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
+      line-height:1.5;color:var(--text3);}
+    @media(max-width:640px){ .sw-pair{grid-template-columns:1fr;} }
+
     /* ── Sportsbook: going in on a parlay together ────────────────────────
        Pending invitations lead the My Bets panel — they are the only thing on
        it asking for an answer — and the control that sends one hangs under the
