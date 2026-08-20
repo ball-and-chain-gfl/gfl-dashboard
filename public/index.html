@@ -1134,7 +1134,7 @@
        it, and the name is what is being read. */
     .mg-sec{margin-top:32px;}
     .mg-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
-    .mg-col{padding:11px 11px 12px;min-width:0;}
+    .mg-col{padding:0;min-width:0;}
     .mg-colh{display:flex;align-items:center;gap:7px;padding-bottom:10px;margin-bottom:9px;
       border-bottom:1px solid rgba(255,255,255,0.09);
       font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
@@ -1142,7 +1142,7 @@
     .mg-colh i{font-size:11px;}
     .mg-colh-big i{color:var(--green);}
     .mg-colh-close i{color:var(--accent);}
-    .mgc{min-width:0;margin-top:7px;padding:9px 9px 9px 10px;
+    .mgc{min-width:0;margin-top:7px;padding:9px 11px 9px 11px;
       border-radius:7px;border-left:3px solid rgba(255,255,255,0.14);
       background:rgba(255,255,255,0.035);}
     .mgc:first-of-type{margin-top:0;}
@@ -1175,12 +1175,19 @@
 
     /* ── Team Extremes: the selected team's four corners in one card ─────── */
     .mgt-sec{margin-top:32px;}
-    .mgt-card{padding:13px 12px 7px;}
-    .mgt-team{display:flex;align-items:center;gap:9px;padding:0 2px 11px;margin-bottom:3px;
+    /* the raised treatment Champions has in League History — this is one
+       collected card rather than a list on the page, so it says so */
+    .mgt-card{padding:14px 16px 8px;border:1px solid var(--border);border-radius:10px;
+      background:rgba(255,255,255,0.018);
+      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05);}
+    html[data-theme="light"] .mgt-card{background:var(--bg2);
+      box-shadow:0 10px 24px -16px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.10),inset 0 1px 0 #fff;}
+    .mgt-team{display:flex;align-items:center;gap:9px;padding:0 0 11px;margin-bottom:3px;
       border-bottom:1px solid rgba(255,255,255,0.09);
       font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--text);}
     .mgt-row{display:grid;grid-template-columns:104px auto minmax(0,1fr) auto auto;
-      align-items:baseline;gap:10px;padding:11px 8px 11px 12px;
+      align-items:baseline;gap:10px;padding:11px 2px 11px 12px;
       border-left:3px solid transparent;font-family:'Inter',sans-serif;}
     .mgt-row+.mgt-row{border-top:1px solid rgba(255,255,255,0.05);}
     .mgt-w{border-left-color:var(--green);}
@@ -1199,14 +1206,14 @@
 
     @media(max-width:768px){
       .mg-pair{gap:8px;}
-      .mg-col{padding:9px 9px 10px;}
-      .mgc{padding:8px 8px 8px 9px;}
+      .mg-col{padding:0;}
+      .mgc{padding:8px 10px;}
       .mgc-marg{font-size:14.5px;}
       .mgc-w,.mgc-l{font-size:11px;}
       /* the label moves onto its own line and the score drops: the margin
          already says how far apart it finished */
       .mgt-row{grid-template-columns:auto minmax(0,1fr) auto;gap:2px 9px;
-        padding:10px 8px 11px 11px;}
+        padding:10px 2px 11px 11px;}
       .mgt-lab{grid-column:1/-1;}
       .mgt-sc{display:none;}
       .mgt-opp{font-size:12px;}
@@ -2521,14 +2528,13 @@
     html[data-theme="dark"][data-tabaccent=week]{--accent:#E8437E;--accent2:#E86043;--accent-rgb:232,67,126;}
     html[data-theme="dark"][data-tabaccent=roster]{--accent:#43C9E8;--accent2:#43E8C0;--accent-rgb:67,201,232;}
     html[data-theme="dark"][data-tabaccent=teams]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
-    html[data-theme="dark"][data-tabaccent=schedule]{--accent:#fb9167;--accent2:#eb9e41;--accent-rgb:251,145,103;}
     html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}
     html[data-theme="dark"][data-tabaccent=legacy]{--accent:#f09a4a;--accent2:#d7aa32;--accent-rgb:240,154,74;}
     html[data-theme="dark"][data-tabaccent=history]{--accent:#6cb7ff;--accent2:#9baafe;--accent-rgb:108,183,255;}
     html[data-theme="dark"][data-tabaccent=standings]{--accent:#6C6AE8;--accent2:#6B90E8;--accent-rgb:108,106,232;}
     html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e78dd4;--accent2:#f889ac;--accent-rgb:231,141,212;}
     html[data-theme="dark"][data-tabaccent=draft]{--accent:#0fcacc;--accent2:#04c4f0;--accent-rgb:15,202,204;}
-    html[data-theme="dark"][data-tabaccent=trades]{--accent:#b979fe;--accent2:#de6ad7;--accent-rgb:185,121,254;}
+    html[data-theme="dark"][data-tabaccent=trades]{--accent:#fb9167;--accent2:#eb9e41;--accent-rgb:251,145,103;}
     html[data-theme="dark"][data-tabaccent=tenure]{--accent:#1ecdaa;--accent2:#0cc9d1;--accent-rgb:30,205,170;}
     html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
@@ -4691,7 +4697,6 @@
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishments</button>
   <button class="tab-btn" data-tab="teams" data-group="Team Data" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Rosters</button>
-  <button class="tab-btn" data-tab="schedule" onclick="switchTab('schedule')"><i class="fa fa-calendar-days"></i>Schedules</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Previous Matchups</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <button class="tab-btn" data-tab="legacy" data-group="Analytics" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>

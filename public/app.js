@@ -88,8 +88,8 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',schedule:'#fb9167',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#b979fe',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',week:'Forecast',roster:'Rosters',book:'B&C Sportsbook',schedule:'Schedules',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
+const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
+const TAB_LABELS={home:'Home',week:'Forecast',roster:'Rosters',book:'B&C Sportsbook',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -102,7 +102,7 @@ function getSeason(){return document.getElementById('season-select').value;}
    control to explain why. So stepping onto one of those tabs also snaps the
    year back to the newest season and reloads, but only when it had actually
    been moved — the common case costs nothing. */
-const SEASON_TABS=new Set(['teams','schedule','standings','draft','trades']);
+const SEASON_TABS=new Set(['teams','standings','draft','trades']);
 /* The season to fall back to is the newest one that has actually been played,
    not simply the newest on file: a season is listed as soon as ESPN publishes
    its schedule, so the very newest can be a full year with no games in it. */
@@ -655,7 +655,6 @@ function switchTab(name){
   if(name==='draft') ensureDraft();
   if(name==='trades') renderTradesTab();
   if(name==='teams') renderProfile();
-  if(name==='schedule') renderSchedule();
   if(name==='punishment') renderPunishment();
   if(name==='standings') setStatsView(_statsView);
   if(name==='badbeat') renderBadBeat();
@@ -1648,7 +1647,7 @@ function pastMatchupsHTML(owner,me,rows){
     </details>`;}).join('');
   if(!blocks) return '';
   return `<div class="pm-section">
-    <div class="sec-head" style="font-size:15px;margin-top:20px"><i class="fa fa-clock-rotate-left"></i>Past Matchups</div>
+    <div class="sec-head" style="font-size:15px;margin-top:20px"><i class="fa fa-clock-rotate-left"></i>All Past Matchups</div>
     <div class="pm-wrap">${blocks}</div>
   </div>`;
 }
@@ -1777,11 +1776,11 @@ function marginsHTML(){
   return `<div class="sec wm mg-sec" data-wm="&#xf091;">
     <div class="sec-head"><i class="fa fa-arrows-left-right"></i>Matchup Extremes<span class="badge-info">every season</span></div>
     <div class="mg-pair" data-nochip>
-      <div class="card mg-col">
+      <div class="mg-col">
         <div class="mg-colh mg-colh-big"><i class="fa fa-explosion"></i>Biggest Blowouts</div>
         ${mgTopCol(true)}
       </div>
-      <div class="card mg-col">
+      <div class="mg-col">
         <div class="mg-colh mg-colh-close"><i class="fa fa-compress"></i>Closest Games</div>
         ${mgTopCol(false)}
       </div>
@@ -1815,7 +1814,7 @@ function mgTeamCardHTML(owner){
   };
   return `<div class="sec wm mgt-sec" data-wm="&#xf140;">
     <div class="sec-head"><i class="fa fa-bullseye"></i>Team Extremes<span class="badge-info">${fr.name}</span></div>
-    <div class="card mgt-card">
+    <div class="mgt-card">
       <div class="mgt-team">${franchiseAvatar(fr,26,7)}<span>${fr.name}</span></div>
       ${row(pick(wins,true),'Biggest win',true)}
       ${row(pick(wins,false),'Closest win',true)}
@@ -4115,43 +4114,12 @@ async function renderRoster(){
 /* ── THIS WEEK ──────────────────────────────────────────────────────────────
    The week on the clock at a glance: every matchup, and your own first. */
 function renderWeek(){
-  const el=document.getElementById('week-body'); if(!el) return;
   const info=_liveInfo||liveWeekInfo();
-  if(!info){ el.innerHTML='<div class="tab-loading" style="padding:24px">No season data yet.</div>'; return; }
-  const owners=info.meta.owners||{};
-  const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
-  const rec=id=>{const t=_teams.find(x=>x.id===id);return t?`${t.wins}-${t.losses}`:'';};
-  const mine=_me&&_me.teamId?Number(_me.teamId):null;
-  const games=(info.games||[]).slice().sort((a,b)=>{
-    const am=a.home.teamId===mine||a.away.teamId===mine, bm=b.home.teamId===mine||b.away.teamId===mine;
-    return (bm?1:0)-(am?1:0);
-  });
-  const card=m=>{
-    const a=m.home.totalPoints||0,b=m.away.totalPoints||0;
-    const started=a>0||b>0;
-    const yours=mine&&(m.home.teamId===mine||m.away.teamId===mine);
-    const row=(id,score,lead)=>`<div class="lv-row${lead?' lv-lead':''}">
-        ${logoImg(id,'lv-logo')}<span class="lv-nm">${nm(id)}</span>
-        <span class="lv-rec">${rec(id)}</span><span class="lv-pct"></span>
-        <span class="lv-sc">${score.toFixed(1)}</span></div>`;
-    return `<div class="lv-card${yours?' wk-mine':''}">
-      <div class="lv-status"><span class="${started?'lv-live':'lv-pre'}">${started?'In progress':'Not started'}</span>
-        ${yours?'<span class="wk-tag">Your matchup</span>':''}</div>
-      ${row(m.home.teamId,a,started&&a>b)}
-      ${row(m.away.teamId,b,started&&b>a)}
-    </div>`;
-  };
-  el.innerHTML=`
-    <div class="rs-head"><span>${info.season} · Week ${info.week}</span>
-      <span class="rs-tot">${games.length} matchup${games.length===1?'':'s'}</span></div>
-    <div class="lv-grid">${games.map(card).join('')||'<div class="lr-none">No matchups scheduled.</div>'}</div>`;
-  /* Top Performers, Punishment and Moves are no longer on this page; League
-     Action covers the moves and the punishment rides the pinned bar. Their
-     renderers still guard on a missing element, so they are simply not called. */
-  renderForecast(info);
-  renderLeagueAction();
+  if(info) renderForecast(info);
+  else { const el=document.getElementById('fc-body');
+    if(el) el.innerHTML='<div class="tab-loading" style="padding:24px">No season data yet.</div>'; }
+  renderSchedule();
 }
-
 /* ── Forecast ───────────────────────────────────────────────────────────────
    Your game, read ahead rather than reported. Three parts: the line and what
    the ratings make of it, where the two lineups differ position by position,
@@ -5486,7 +5454,7 @@ function applyMe(){
     setSel('tenure-team-select',owner);
     setSel('sb-team',owner);
     if(_activeTab==='teams') renderProfile();
-    if(_activeTab==='schedule') renderSchedule();
+    if(_activeTab==='week') renderSchedule();
     if(_activeTab==='draft') try{ renderDraftTeamTable(); }catch(e){}
     if(_activeTab==='history') try{ renderHistoryTable(); }catch(e){}
     if(_activeTab==='tenure') try{ renderTenureTable(); renderTenureEnemies(); }catch(e){}
@@ -6083,7 +6051,7 @@ function initSignIn(){
 // ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
 /* Which season still has games left? Preseason gives the whole slate; mid-season
    gives whatever's left of the current one. */
-/* The Schedules tab reads the year in the nav. A season still in progress gives
+/* The schedule reads the year in the nav. A season still in progress gives
    the projection table; one that is finished gives the results instead, which is
    why `complete` is carried alongside `unplayed`. */
 function schedSeason(){
@@ -9210,15 +9178,16 @@ async function loadDashboard(){
           <div class="sec-head"><i class="fa fa-chart-line"></i>Your Forecast</div>
           <div id="fc-body"></div>
         </div>
-        <div class="sec wm" data-wm="&#xf0e7;">
-          <div class="sec-head"><i class="fa fa-bolt"></i>Scoreboard</div>
-          <div id="week-body"></div>
-        </div>
-        <!-- Top Performers, Punishment and Moves are gone: the punishment lives
-             in the pinned bar, and Moves is what League Action replaces. -->
-        <div class="sec wm mod-la" data-wm="&#xf0a1;" id="la-sec">
-          <div class="sec-head"><i class="fa fa-bolt"></i>League Action</div>
-          <div id="la-body"></div>
+        <!-- The Schedules tab folded in here: the week ahead belongs beside
+             the read on your own game, not a tab away. The Scoreboard and
+             League Action are gone; the live board is on the homepage. -->
+        <div class="sec">
+          <div class="sec-head" id="sched-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
+          <div class="picker-bar" style="padding-bottom:16px">
+            <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
+            <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+          </div>
+          <div id="sched-body"></div>
         </div>
       </div>
 
@@ -9264,18 +9233,6 @@ async function loadDashboard(){
             <select id="profile-team-select" onchange="_profileTeam=this.value;renderProfile()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
           </div>
           <div id="profile-body"></div>
-        </div>
-      </div>
-
-      <!-- UPCOMING SCHEDULE -->
-      <div class="tab-page" id="page-schedule">
-        <div class="sec">
-          <div class="sec-head" id="sched-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
-          <div class="picker-bar" style="padding-bottom:16px">
-            <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
-            <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
-          </div>
-          <div id="sched-body"></div>
         </div>
       </div>
 
