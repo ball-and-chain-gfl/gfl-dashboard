@@ -639,6 +639,7 @@ function initMobileTables(){
   window.addEventListener('orientationchange',()=>setTimeout(run,250));
 }
 function switchTab(name){
+  try{ undockPicker(); }catch(e){}      // before the page changes under it
   _activeTab=name;
   syncSeasonPicker(name);
   document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
@@ -1744,37 +1745,38 @@ function biggestSwings(){
 }
 function swingsHTML(){
   const {best,worst}=biggestSwings();
-  const list=_franchises.filter(f=>best[f.owner]||worst[f.owner]);
-  if(!list.length) return '';
+  if(!_franchises.some(f=>best[f.owner]||worst[f.owner])) return '';
   const nameOf=o=>(_franchises.find(f=>f.owner===o)||{}).name||'A departed team';
-  /* Not a table. Two columns of this much detail cannot fit 375px, and a
-     horizontally scrolling table hid the whole Biggest loss column — so the
-     pair sits side by side where there is room and stacks where there is not. */
-  const panel=(g,kind)=>{
-    const label=kind==='w'?'Biggest win':'Biggest loss';
-    if(!g) return `<div class="sw-p sw-${kind}"><div class="sw-lab">${label}</div>
-      <div class="sw-none">No result yet</div></div>`;
-    const fr=_franchises.find(f=>f.owner===g.opp);
-    return `<div class="sw-p sw-${kind}">
-      <div class="sw-lab">${label}</div>
-      <div class="sw-top">
-        <span class="sw-marg">${kind==='w'?'+':'−'}${g.margin.toFixed(1)}</span>
-        <span class="sw-score">${g.my.toFixed(1)} – ${g.their.toFixed(1)}</span>
-      </div>
-      <div class="sw-opp">${fr?franchiseAvatar(fr,20,5):''}
-        <span class="sw-oppn"><span class="sw-verb">${kind==='w'?'beat':'lost to'}</span> ${nameOf(g.opp)}</span>
-      </div>
-      <div class="sw-when">${g.season} · Week ${g.week}</div>
-    </div>`;
+  const abbrOf=o=>{const t=_teams.find(x=>_ownerMap[x.id]===o);
+    return (t&&t.abbrev)||teamInitials(nameOf(o));};
+  /* Two columns holding a list each, the same shape the All-Time Drafts view
+     uses — the per-team card was far too heavy for twelve of them. Ranked by
+     margin so the column reads as a leaderboard rather than an alphabet. */
+  const col=(src,kind)=>{
+    const rows=_franchises.filter(f=>src[f.owner])
+      .map(f=>({f,g:src[f.owner]}))
+      .sort((a,b)=>b.g.margin-a.g.margin);
+    return rows.map((r,n)=>`<div class="swm swm-${kind}">
+      <div class="swm-top"><span class="swm-rk">${n+1}</span>${franchiseAvatar(r.f,20)}
+        <span class="swm-name">${abbrOf(r.f.owner)}</span>
+        <span class="swm-marg">${kind==='w'?'+':'−'}${r.g.margin.toFixed(1)}</span></div>
+      <div class="swm-bot"><span class="swm-opp">${kind==='w'?'beat':'lost to'} ${abbrOf(r.g.opp)}</span>
+        <span class="swm-when">${r.g.season} · wk ${r.g.week}</span></div>
+    </div>`).join('');
   };
-  const cards=list.map(f=>`<div class="sw-card">
-    <div class="sw-team">${franchiseAvatar(f,26,7)}<span>${f.name}</span></div>
-    <div class="sw-pair">${panel(best[f.owner],'w')}${panel(worst[f.owner],'l')}</div>
-  </div>`).join('');
   return `<div class="sec wm sw-sec" data-wm="&#xf091;">
     <div class="sec-head"><i class="fa fa-arrows-up-down"></i>Biggest Win &amp; Biggest Loss<span class="badge-info">every team · all seasons</span></div>
-    <div class="sw-list">${cards}</div>
-    <div class="sw-note">Margin of victory, every season. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
+    <div class="dv-pair sw-pair" data-nochip>
+      <div class="card dr-mini sw-col">
+        <div class="section-header"><i class="fa fa-arrow-up" style="color:var(--green)"></i>Biggest win</div>
+        ${col(best,'w')}
+      </div>
+      <div class="card dr-mini sw-col">
+        <div class="section-header"><i class="fa fa-arrow-down" style="color:var(--red)"></i>Biggest loss</div>
+        ${col(worst,'l')}
+      </div>
+    </div>
+    <div class="sw-note">Margin of victory, every season, ranked. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
   </div>`;
 }
 
@@ -4389,6 +4391,77 @@ function fitSectionNav(bar,n){
    bar docks exactly against it at every breakpoint and under the iOS safe-area
    inset; --navside is how far the bar is inset from the nav's sides, which lets
    the drawer widen to the nav's edges. */
+/* ── TEAM PICKER DOCKING ─────────────────────────────────────────────────────
+   A page's team dropdown rides into the chip drawer once it scrolls behind the
+   nav, and drops back into place on the way up.
+
+   The element itself moves rather than a copy being made, so the select keeps
+   its value, its id and its onchange — a clone would need all three kept in
+   step and would drift the moment either was touched. A placeholder of the same
+   height holds the original spot, which does two jobs: the page does not jump
+   when the picker leaves, and the test for putting it back reads a position
+   that is not itself affected by the docking. Testing the picker's own position
+   while docked would flip-flop every frame.
+
+   If a render replaces the picker's container while it is docked, the fresh
+   markup already contains a new picker — so the docked one is dropped rather
+   than put back, which would otherwise leave two selects sharing an id. */
+let _dockedPicker=null,_dockedHome=null,_dockedBar=null;
+/* the chip bar in use for this page: its own if it has one, else the global */
+function activeChipBar(){
+  const page=document.getElementById('page-'+_activeTab);
+  return (page&&page.querySelector('.sec-nav-local'))||document.getElementById('sec-nav');
+}
+function pagePicker(){
+  const page=document.getElementById('page-'+_activeTab); if(!page) return null;
+  return [...page.querySelectorAll('.picker-bar')]
+    .find(p=>p.querySelector('select')&&p.offsetParent!==null)||null;
+}
+function undockPicker(){
+  if(!_dockedPicker) return;
+  const p=_dockedPicker, home=_dockedHome;
+  _dockedPicker=null; _dockedHome=null;
+  p.classList.remove('picker-docked');
+  if(home&&home.isConnected){
+    home.parentNode.insertBefore(p,home);
+    home.remove();
+  }else{
+    p.remove();               // its page was re-rendered; a fresh one is there
+  }
+  const bar=_dockedBar||document.getElementById('sec-nav');
+  _dockedBar=null;
+  if(bar){
+    bar.classList.remove('has-dock');
+    if(bar.dataset.dockOnly){ bar.hidden=true; delete bar.dataset.dockOnly; }
+  }
+}
+function syncPickerDock(){
+  const bar=activeChipBar(), nav=document.getElementById('floatnav');
+  if(!bar||!nav) return;
+  const line=nav.getBoundingClientRect().bottom;
+  if(_dockedPicker){
+    const gone=!_dockedHome||!_dockedHome.isConnected
+      ||!document.getElementById('page-'+_activeTab)?.contains(_dockedHome);
+    const back=_dockedHome&&_dockedHome.isConnected
+      &&_dockedHome.getBoundingClientRect().top>line+2;
+    if(gone||back) undockPicker();
+    else return;
+  }
+  const p=pagePicker(); if(!p) return;
+  const r=p.getBoundingClientRect();
+  if(r.height&&r.bottom<=line){
+    const ph=document.createElement('div');
+    ph.className='picker-ph';
+    ph.style.height=r.height+'px';
+    p.parentNode.insertBefore(ph,p);
+    bar.insertBefore(p,bar.firstChild);      // above the chips, not after them
+    p.classList.add('picker-docked');
+    _dockedPicker=p; _dockedHome=ph; _dockedBar=bar;
+    bar.classList.add('has-dock');
+    if(bar.hidden){ bar.hidden=false; bar.dataset.dockOnly='1'; }
+  }
+}
+
 let _dockRaf=0;
 function syncNavDock(){
   const nav=document.getElementById('floatnav'); if(!nav) return;
@@ -4400,6 +4473,7 @@ function syncNavDock(){
     bar.style.setProperty('--navside',Math.max(0,Math.round(r.left-nb.left))+'px');
     bar.classList.toggle('stuck',r.top<=nb.bottom+1);
   });
+  try{ syncPickerDock(); }catch(e){}
 }
 function onDockScroll(){
   if(_dockRaf) return;
@@ -4421,7 +4495,12 @@ function buildSectionNav(tab){
      where it reads as belonging to the selected filter rather than the tab) */
   const local=page.querySelector('.sec-nav-local');
   const bar=local||top;
-  if(local){ top.innerHTML=''; top.hidden=true; }
+  if(local){
+    /* clearing the global bar must not take a docked picker with it */
+    if(_dockedPicker&&top.contains(_dockedPicker)) local.insertBefore(_dockedPicker,local.firstChild);
+    top.innerHTML=''; top.hidden=true;
+    if(_dockedPicker&&local.contains(_dockedPicker)) _dockedBar=local;
+  }
   // Every visible heading on the page, whatever wraps it. Tabs nest their
   // headings differently — Team Profiles puts them in .panel, League History
   // uses .lh-sec-head — so keying off the section wrapper missed most of them.
@@ -4438,11 +4517,20 @@ function buildSectionNav(tab){
         .map(h=>({h,label:(h.textContent||'').replace(/\s+/g,' ').trim()
           .replace(/(tap a team.*|\d{4} · .*)$/,'').trim()}))
     : sectionEntriesIn(page);
-  if(entries.length<2){ bar.innerHTML=''; bar.hidden=true; _secNavBusy=false; return; }
+  if(entries.length<2){
+    bar.innerHTML='';
+    /* a docked picker is the one thing in here that is not a chip; if it is
+       riding along, the bar stays up for it rather than being hidden */
+    if(_dockedPicker){ bar.appendChild(_dockedPicker); bar.hidden=false; }
+    else bar.hidden=true;
+    _secNavBusy=false; return;
+  }
   // index into the same ordered list the jump re-derives at click time — the
   // page re-renders when its data lands, so ids assigned up front would vanish
+  const keepDock=(_dockedPicker&&bar.contains(_dockedPicker))?_dockedPicker:null;
   bar.innerHTML=entries.map((e,i)=>
     `<button class="sx-chip" data-sx="${i}" title="${e.label}" onclick="jumpToSection(this)">${sxShort(e.label)}</button>`).join('');
+  if(keepDock) bar.insertBefore(keepDock,bar.firstChild);   // survives the rebuild
   bar.hidden=false;
   fitSectionNav(bar,entries.length);
   syncNavDock();

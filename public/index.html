@@ -1066,6 +1066,16 @@
     @media(prefers-reduced-motion:reduce){
       .sec-nav::before{transition:opacity .18s ease;transform:translateY(0);}
     }
+    /* a docked picker spans the drawer above the chips, and drops the padding
+       it carries in the page so it sits on the drawer's own rhythm */
+    .sec-nav-local>.picker-bar.picker-docked,
+    .sec-nav>.picker-bar.picker-docked{grid-column:1/-1;padding:0!important;margin:0 0 8px;
+      gap:8px;flex-wrap:nowrap;}
+    .sec-nav-local>.picker-bar.picker-docked label,
+    .sec-nav>.picker-bar.picker-docked label{flex:0 0 auto;font-size:12px;}
+    .sec-nav-local>.picker-bar.picker-docked select,
+    .sec-nav>.picker-bar.picker-docked select{flex:1 1 auto;min-width:0;}
+    .picker-ph{pointer-events:none;}
     .sec-nav[hidden]{display:none;}
     /* inline variant sits under a filter row, not under the title rule */
     .sec-nav-local{margin:0 0 18px;}
@@ -1099,37 +1109,38 @@
     }
 
     /* ── Biggest win / biggest loss ───────────────────────────────────────
-       One card per team holding two panels. They sit side by side when there is
-       room and stack below 640px — a table could not carry this much per cell
-       at phone width without scrolling the second column out of sight. */
-    .sw-list{display:flex;flex-direction:column;gap:10px;}
-    .sw-card{padding:12px 13px;border-radius:11px;background:rgba(255,255,255,0.03);
-      border:1px solid var(--border);}
-    .sw-team{display:flex;align-items:center;gap:9px;margin-bottom:10px;
-      font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--text);}
-    .sw-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-    .sw-p{padding:10px 11px;border-radius:9px;background:rgba(0,0,0,0.28);
-      border-left:3px solid transparent;min-width:0;}
-    .sw-w{border-left-color:var(--green);}
-    .sw-l{border-left-color:var(--red);}
-    .sw-lab{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
-      letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
-    .sw-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
-    .sw-marg{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;line-height:1;}
-    .sw-w .sw-marg{color:var(--green);}
-    .sw-l .sw-marg{color:var(--red);}
-    .sw-score{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
-      color:var(--text2);white-space:nowrap;}
-    .sw-opp{display:flex;align-items:center;gap:7px;margin-top:7px;min-width:0;}
-    .sw-oppn{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);
-      min-width:0;overflow:hidden;text-overflow:ellipsis;}
-    .sw-verb{color:var(--text3);}
-    .sw-when{margin-top:5px;font-family:'Inter',sans-serif;font-size:10.5px;
-      letter-spacing:.3px;text-transform:uppercase;color:var(--text3);}
-    .sw-none{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text3);}
+       Two ranked lists side by side, borrowing the All-Time Drafts shape
+       (.dv-pair + .dr-mini) so it reads as part of the same family. Two columns
+       at every width, which is the point — twelve full-width cards was far too
+       much page for what each one says. */
+    .sw-pair{gap:12px;}
+    .sw-col{padding:12px 12px 6px;min-width:0;}
+    .swm{padding:7px 0;border-top:1px solid rgba(255,255,255,0.07);min-width:0;}
+    .swm:first-of-type{border-top:0;}
+    .swm-top{display:flex;align-items:center;gap:6px;min-width:0;}
+    .swm-rk{flex:0 0 auto;min-width:13px;font-family:'Inter',sans-serif;font-size:10px;
+      font-weight:800;color:var(--text3);}
+    .swm-name{flex:1 1 auto;min-width:0;font-family:'Inter',sans-serif;font-size:12px;
+      font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .swm-marg{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:800;}
+    .swm-w .swm-marg{color:var(--green);}
+    .swm-l .swm-marg{color:var(--red);}
+    .swm-bot{display:flex;align-items:baseline;justify-content:space-between;gap:6px;
+      margin-top:2px;padding-left:19px;min-width:0;}
+    .swm-opp{font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text2);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .swm-when{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:9.5px;
+      letter-spacing:.2px;text-transform:uppercase;color:var(--text3);}
     .sw-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
       line-height:1.5;color:var(--text3);}
-    @media(max-width:640px){ .sw-pair{grid-template-columns:1fr;} }
+    @media(max-width:768px){
+      .sw-pair{gap:8px;}
+      .sw-col{padding:10px 9px 5px;}
+      .swm-name{font-size:11px;}
+      .swm-marg{font-size:12.5px;}
+      .swm-bot{padding-left:0;}
+      .swm-opp{font-size:10px;}
+    }
 
     /* ── Sportsbook: going in on a parlay together ────────────────────────
        Pending invitations lead the My Bets panel — they are the only thing on
