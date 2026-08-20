@@ -1708,28 +1708,21 @@ function renderHistoryTable(){
         <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
     </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}
     ${marginsHTML()}
+    ${mgTeamCardHTML(owner)}
     ${rows.length?pastMatchupsHTML(owner,me,rows):''}`;
 }
 
 /* ── MARGINS ─────────────────────────────────────────────────────────────────
-   How far apart games finished: the blowouts and the nailbiters, by team and
-   across the league. Four views on the same underlying set, the same shape the
-   Draft Report uses for its Rankings switch.
+   How far apart games finished. Two league-wide top tens side by side — the
+   widest gaps and the tightest — and, below, the selected team's own four
+   extremes gathered into one card.
 
-   Only games that counted are considered, the same rule the records use — a
+   Only games that counted are considered, the same rule the records use, so a
    dead-rubber consolation blowout is not somebody's biggest win.
 
-   Names come from the season the game was played in, not from today's roster,
-   so a franchise that has since left is still called what it was called then
-   rather than collapsing to an abbreviation nobody recognises. */
-let _mgView='bigTeam';
-function setMgView(v){
-  _mgView=v;
-  const el=document.getElementById('mg-body');
-  if(el) el.innerHTML=mgBodyHTML();
-  document.querySelectorAll('.mg-tab').forEach(b=>
-    b.classList.toggle('active',b.dataset.mg===v));
-}
+   Names come from the season the game was played in rather than today's
+   roster, so a franchise that has since left is still called what it was
+   called then. */
 function mgSeasonName(season,owner){
   const m=_seasonMeta[season];
   const n=m&&m.names&&m.names[owner]&&m.names[owner].name;
@@ -1760,94 +1753,73 @@ function mgAllGames(){
   });
   return out;
 }
-/* per franchise: their widest and narrowest win, and the same for losses */
-function mgByTeam(){
-  const games=mgAllGames();
-  const t={};
-  const put=(o,key,g,cmp)=>{
-    const b=(t[o]||(t[o]={}));
-    if(!b[key]||cmp(g.margin,b[key].margin)) b[key]=g;
-  };
-  const wider=(a,b)=>a>b, tighter=(a,b)=>a<b;
-  games.forEach(g=>{
-    put(g.win,'bigWin',g,wider);   put(g.win,'closeWin',g,tighter);
-    put(g.lose,'bigLoss',g,wider); put(g.lose,'closeLoss',g,tighter);
-  });
-  return t;
-}
-function mgLine(g,owner,kind){
-  if(!g) return `<div class="mg-line mg-none">No result yet</div>`;
-  const won=g.win===owner;
-  const opp=won?g.lose:g.win;
-  const mine=won?g.winPts:g.losePts, theirs=won?g.losePts:g.winPts;
-  return `<div class="mg-line mg-${won?'w':'l'}">
-    <span class="mg-marg">${won?'+':'−'}${g.margin.toFixed(1)}</span>
-    <span class="mg-opp"><span class="mg-verb">${won?'beat':'lost to'}</span> ${mgSeasonName(g.season,opp)}</span>
-    <span class="mg-sc">${mine.toFixed(1)}–${theirs.toFixed(1)}</span>
-    <span class="mg-when">${g.season} · Wk ${g.week}</span>
-  </div>`;
-}
-function mgTeamHTML(big){
-  const t=mgByTeam();
-  const rows=_franchises.map(f=>{
-    const b=t[f.owner]||{};
-    const w=big?b.bigWin:b.closeWin, l=big?b.bigLoss:b.closeLoss;
-    if(!w&&!l) return '';
-    return `<div class="mg-card">
-      <div class="mg-team">${franchiseAvatar(f,24,6)}<span>${f.name}</span></div>
-      ${mgLine(w,f.owner,'w')}
-      ${mgLine(l,f.owner,'l')}
-    </div>`;
-  }).join('');
-  return `<div class="mg-list">${rows}</div>`;
-}
-function mgTopHTML(big){
+/* a ten-deep column, narrow enough to sit two abreast */
+function mgTopCol(big){
   const games=mgAllGames()
     .sort((a,b)=>big?(b.margin-a.margin):(a.margin-b.margin))
     .slice(0,10);
   if(!games.length) return '<div class="mg-none">Nothing to rank yet.</div>';
-  const rows=games.map((g,i)=>{
+  return games.map((g,i)=>{
     const wf=_franchises.find(f=>f.owner===g.win), lf=_franchises.find(f=>f.owner===g.lose);
-    return `<div class="mg-top">
-      <span class="mg-rk">${i+1}</span>
-      <div class="mg-topmain">
-        <div class="mg-topline">
-          <span class="mg-side mg-wside">${wf?franchiseAvatar(wf,20,5):''}${mgSeasonName(g.season,g.win)}</span>
-          <span class="mg-def">def.</span>
-          <span class="mg-side">${lf?franchiseAvatar(lf,20,5):''}${mgSeasonName(g.season,g.lose)}</span>
-        </div>
-        <div class="mg-topsub">${g.winPts.toFixed(1)} – ${g.losePts.toFixed(1)} · ${g.season} · Week ${g.week}</div>
-      </div>
-      <span class="mg-topmarg${big?'':' mg-tight'}">${big?'+':''}${g.margin.toFixed(1)}</span>
+    return `<div class="mgc">
+      <div class="mgc-h"><span class="mgc-rk">${i+1}</span>
+        <span class="mgc-marg${big?'':' mg-tight'}">${big?'+':''}${g.margin.toFixed(1)}</span></div>
+      <div class="mgc-w">${wf?franchiseAvatar(wf,18,4):''}<span>${mgSeasonName(g.season,g.win)}</span></div>
+      <div class="mgc-l">${lf?franchiseAvatar(lf,18,4):''}<span>${mgSeasonName(g.season,g.lose)}</span></div>
+      <div class="mgc-f">${g.winPts.toFixed(1)}–${g.losePts.toFixed(1)} · ${g.season} wk ${g.week}</div>
     </div>`;}).join('');
-  return `<div class="mg-list">${rows}</div>`;
-}
-function mgBodyHTML(){
-  switch(_mgView){
-    case 'bigTop':    return mgTopHTML(true);
-    case 'closeTeam': return mgTeamHTML(false);
-    case 'closeTop':  return mgTopHTML(false);
-    default:          return mgTeamHTML(true);
-  }
 }
 function marginsHTML(){
   if(!_franchises.length) return '';
-  const tab=(v,top,bot)=>`<button class="dr-vtab dr-mtab mg-tab${_mgView===v?' active':''}"
-    data-mg="${v}" onclick="setMgView('${v}')">
-    <span class="mg-t1">${top}</span><span class="mg-t2">${bot}</span></button>`;
-  const note=_mgView.startsWith('big')
-    ? 'The widest gaps on record.'
-    : 'The tightest games on record.';
   return `<div class="sec wm mg-sec" data-wm="&#xf091;">
     <div class="sec-head"><i class="fa fa-arrows-left-right"></i>Margins<span class="badge-info">every season</span></div>
-    <div class="dr-mtabs mg-tabs" data-nochip>
-      ${tab('bigTeam','Biggest','By Team')}
-      ${tab('bigTop','Biggest','Top 10')}
-      ${tab('closeTeam','Closest','By Team')}
-      ${tab('closeTop','Closest','Top 10')}
+    <div class="mg-pair" data-nochip>
+      <div class="card mg-col">
+        <div class="mg-colh mg-colh-big"><i class="fa fa-arrows-left-right"></i>Biggest gaps</div>
+        ${mgTopCol(true)}
+      </div>
+      <div class="card mg-col">
+        <div class="mg-colh mg-colh-close"><i class="fa fa-compress"></i>Closest games</div>
+        ${mgTopCol(false)}
+      </div>
     </div>
-    <div id="mg-body">${mgBodyHTML()}</div>
-    <div class="mg-note">${note} Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
+    <div class="mg-note">The ten widest and the ten tightest results in league history. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
+  </div>`;
+}
+/* ── ONE TEAM'S EXTREMES ─────────────────────────────────────────────────────
+   The four corners for whoever the dropdown is on: widest and tightest win,
+   widest and tightest loss, in a single card rather than four lists. */
+function mgTeamCardHTML(owner){
+  if(!owner) return '';
+  const fr=_franchises.find(f=>f.owner===owner); if(!fr) return '';
+  const games=mgAllGames().filter(g=>g.win===owner||g.lose===owner);
+  if(!games.length) return '';
+  const wins=games.filter(g=>g.win===owner), losses=games.filter(g=>g.lose===owner);
+  const pick=(arr,big)=>arr.length
+    ? arr.slice().sort((a,b)=>big?(b.margin-a.margin):(a.margin-b.margin))[0] : null;
+  const row=(g,label,won)=>{
+    if(!g) return `<div class="mgt-row"><span class="mgt-lab">${label}</span>
+      <span class="mg-none">No result yet</span></div>`;
+    const opp=won?g.lose:g.win;
+    const mine=won?g.winPts:g.losePts, theirs=won?g.losePts:g.winPts;
+    return `<div class="mgt-row mgt-${won?'w':'l'}">
+      <span class="mgt-lab">${label}</span>
+      <span class="mgt-marg">${won?'+':'−'}${g.margin.toFixed(1)}</span>
+      <span class="mgt-opp"><span class="mgt-verb">${won?'beat':'lost to'}</span> ${mgSeasonName(g.season,opp)}</span>
+      <span class="mgt-sc">${mine.toFixed(1)}–${theirs.toFixed(1)}</span>
+      <span class="mgt-when">${g.season} · Wk ${g.week}</span>
+    </div>`;
+  };
+  return `<div class="sec wm mgt-sec" data-wm="&#xf0e7;">
+    <div class="sec-head"><i class="fa fa-user-group"></i>Team Margins<span class="badge-info">${fr.name}</span></div>
+    <div class="card mgt-card">
+      <div class="mgt-team">${franchiseAvatar(fr,26,7)}<span>${fr.name}</span></div>
+      ${row(pick(wins,true),'Biggest win',true)}
+      ${row(pick(wins,false),'Closest win',true)}
+      ${row(pick(losses,true),'Biggest loss',false)}
+      ${row(pick(losses,false),'Closest loss',false)}
+    </div>
+    <div class="mgt-note">The four corners for whoever is selected above — widest and tightest, won and lost.</div>
   </div>`;
 }
 
@@ -4482,10 +4454,12 @@ function fitSectionNav(bar,n){
 let _dockedPicker=null,_dockedHome=null,_dockedBar=null,_dockBusy=false;
 const DOCK_MS=260;
 /* the chip bar in use for this page: its own if it has one, else the global */
-function activeChipBar(){
-  const page=document.getElementById('page-'+_activeTab);
-  return (page&&page.querySelector('.sec-nav-local'))||document.getElementById('sec-nav');
-}
+/* Always the global bar. A page's own chip row is not sticky in practice —
+   on Player Data it had scrolled 1300px off screen by the time the picker
+   wanted to dock, so the picker went somewhere nobody could see. The global bar
+   is the one pinned under the nav, and it is shown for the picker alone on
+   pages that have no chips of their own. */
+function activeChipBar(){ return document.getElementById('sec-nav'); }
 function pagePicker(){
   const page=document.getElementById('page-'+_activeTab); if(!page) return null;
   return [...page.querySelectorAll('.picker-bar')]
@@ -4502,17 +4476,17 @@ function undockPicker(instant){
     if(home&&home.isConnected){ home.parentNode.insertBefore(p,home); home.remove(); }
     else p.remove();            // its page was re-rendered; a fresh one is there
     if(bar){
-      bar.classList.remove('has-dock');
+      bar.classList.remove('has-dock','dock-only');
+      bar.style.removeProperty('--dockh');
       if(bar.dataset.dockOnly){ bar.hidden=true; delete bar.dataset.dockOnly; }
     }
     _dockBusy=false;
   };
-  if(instant||!home||!home.isConnected){ finish(); return; }
+  if(instant||!home||!home.isConnected){ if(bar) bar.style.setProperty('--dockh','0px'); finish(); return; }
   _dockBusy=true;
-  p.style.transition=`height ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1), opacity .14s ease, margin ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1)`;
+  p.style.transition='opacity .14s ease';
   p.style.opacity='0';
-  p.style.height='0px';
-  p.style.marginBottom='0px';
+  if(bar) bar.style.setProperty('--dockh','0px');   // the drawer closes back up
   setTimeout(finish,DOCK_MS);
 }
 function syncPickerDock(){
@@ -4542,18 +4516,23 @@ function syncPickerDock(){
   p.classList.add('picker-docked');
   _dockedPicker=p; _dockedHome=ph; _dockedBar=bar;
   bar.classList.add('has-dock');
+  bar.classList.toggle('dock-only',!bar.querySelector('.sx-chip'));
   if(bar.hidden){ bar.hidden=false; bar.dataset.dockOnly='1'; }
 
-  /* closed, then opened on the next frame so the transition has two states */
-  p.style.transition='none';
-  p.style.height='0px'; p.style.opacity='0'; p.style.marginBottom='0px';
+  /* The picker is taken out of flow and the drawer is grown underneath it by
+     --dockh, an animatable custom property. Growing the bar's own box would
+     push every following element down the page — which is exactly the jolt
+     this is avoiding — so the bar keeps the height its chips give it and the
+     backdrop reaches past it instead. One property drives both the backdrop
+     and the picker's height, so they cannot drift apart. */
+  bar.style.setProperty('--dockh','0px');
+  p.style.transition='none'; p.style.opacity='0';
   p.offsetHeight;                            // commit the closed state
   requestAnimationFrame(()=>{
     if(_dockedPicker!==p) return;
-    p.style.transition=`height ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1), opacity .22s ease ${Math.round(DOCK_MS*0.45)}ms, margin ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1)`;
-    p.style.height=h+'px';
+    p.style.transition=`opacity .22s ease ${Math.round(DOCK_MS*0.45)}ms`;
+    bar.style.setProperty('--dockh',h+'px');
     p.style.opacity='1';
-    p.style.marginBottom='9px';
   });
 }
 
@@ -4591,10 +4570,14 @@ function buildSectionNav(tab){
   const local=page.querySelector('.sec-nav-local');
   const bar=local||top;
   if(local){
-    /* clearing the global bar must not take a docked picker with it */
-    if(_dockedPicker&&top.contains(_dockedPicker)) local.insertBefore(_dockedPicker,local.firstChild);
-    top.innerHTML=''; top.hidden=true;
-    if(_dockedPicker&&local.contains(_dockedPicker)) _dockedBar=local;
+    /* This page has its own chip row, so the global bar carries no chips of its
+       own — but it is the one actually pinned under the nav, and it may be
+       holding a docked picker. Keep the picker and leave the bar up for it;
+       hide it only when it is genuinely empty. */
+    const keep=(_dockedPicker&&top.contains(_dockedPicker))?_dockedPicker:null;
+    top.innerHTML='';
+    if(keep){ top.appendChild(keep); top.hidden=false; }
+    else top.hidden=true;
   }
   // Every visible heading on the page, whatever wraps it. Tabs nest their
   // headings differently — Team Profiles puts them in .panel, League History

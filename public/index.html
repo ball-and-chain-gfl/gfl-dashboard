@@ -1068,16 +1068,22 @@
     }
     /* a docked picker spans the drawer above the chips, and drops the padding
        it carries in the page so it sits on the drawer's own rhythm */
-    /* Docked: the drawer opens above the chips and the picker fades into the
-       space. Height, opacity and margin are all set inline from a measured
-       value, so nothing snaps when the transition ends. */
-    .sec-nav-local>.picker-bar.picker-docked,
-    .sec-nav>.picker-bar.picker-docked{grid-column:1/-1;padding:0!important;
-      gap:8px;flex-wrap:nowrap;overflow:hidden;box-sizing:border-box;}
-    .sec-nav-local>.picker-bar.picker-docked label,
+    /* Docked: the picker hangs below the chips, out of flow, and the drawer's
+       backdrop is stretched down over it by --dockh. Out of flow is the whole
+       point — growing the bar's own box pushes the rest of the page down and
+       moves the reader, which is the jolt this avoids. --dockh is registered
+       so it can be transitioned; one property animates the backdrop and the
+       picker together. */
+    @property --dockh{syntax:'<length>';inherits:true;initial-value:0px;}
+    .sec-nav{--dockh:0px;transition:--dockh .26s cubic-bezier(.3,.75,.25,1);}
+    .sec-nav::before{bottom:calc(-1 * var(--dockh));}
+    .sec-nav>.picker-bar.picker-docked{position:absolute;left:0;right:0;top:100%;
+      height:var(--dockh);overflow:hidden;box-sizing:border-box;
+      padding:0!important;margin:0;gap:8px;flex-wrap:nowrap;z-index:1;}
     .sec-nav>.picker-bar.picker-docked label{flex:0 0 auto;font-size:12px;}
-    .sec-nav-local>.picker-bar.picker-docked select,
     .sec-nav>.picker-bar.picker-docked select{flex:1 1 auto;min-width:0;}
+    /* nothing but the picker in there: no chip padding to leave a blank strip */
+    .sec-nav.dock-only{padding-top:0;padding-bottom:0;}
     .picker-ph{pointer-events:none;}
     .sec-nav[hidden]{display:none;}
     /* inline variant sits under a filter row, not under the title rule */
@@ -1112,66 +1118,72 @@
     }
 
     /* ── Margins ──────────────────────────────────────────────────────────
-       Full-width rows rather than two columns: team names are written out in
-       full now, and two of those side by side does not fit a phone at any
-       sensible size. Four tabs carry what the second column used to. */
+       Two league-wide top tens abreast. Each entry stacks — rank and margin,
+       then winner, then loser, then the line score — because two written-out
+       team names cannot share a line inside half a phone. */
     .mg-sec{margin-top:32px;}
-    .dr-mtabs.mg-tabs{grid-template-columns:repeat(4,1fr);}
-    .mg-tab .mg-t1{font-weight:800;letter-spacing:.3px;}
-    .mg-tab .mg-t2{font-size:10.5px;color:var(--text3);}
-    .mg-tab.active .mg-t2{color:var(--text2);}
-    .mg-list{display:flex;flex-direction:column;gap:8px;}
-
-    /* by team */
-    .mg-card{padding:11px 13px;border-radius:11px;background:rgba(255,255,255,0.03);
-      border:1px solid var(--border);}
-    .mg-team{display:flex;align-items:center;gap:8px;margin-bottom:8px;
-      font-family:'Inter',sans-serif;font-size:13.5px;font-weight:800;color:var(--text);}
-    .mg-line{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;
-      align-items:baseline;gap:10px;padding:6px 0 6px 9px;border-left:3px solid transparent;
-      font-family:'Inter',sans-serif;}
-    .mg-line+.mg-line{margin-top:4px;}
-    .mg-w{border-left-color:var(--green);}
-    .mg-l{border-left-color:var(--red);}
-    .mg-marg{font-size:15px;font-weight:800;white-space:nowrap;}
-    .mg-w .mg-marg{color:var(--green);}
-    .mg-l .mg-marg{color:var(--red);}
-    .mg-opp{font-size:12.5px;color:var(--text);min-width:0;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .mg-verb{color:var(--text3);}
-    .mg-sc{font-size:11.5px;font-weight:600;color:var(--text2);white-space:nowrap;}
-    .mg-when{font-size:10px;letter-spacing:.2px;text-transform:uppercase;
-      color:var(--text3);white-space:nowrap;}
-    .mg-none{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text3);padding:6px 0;}
-
-    /* top ten */
-    .mg-top{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:11px;
-      background:rgba(255,255,255,0.03);border:1px solid var(--border);}
-    .mg-rk{flex:0 0 auto;min-width:18px;font-family:'Inter',sans-serif;font-size:13px;
-      font-weight:800;color:var(--text3);}
-    .mg-topmain{flex:1 1 auto;min-width:0;}
-    .mg-topline{display:flex;align-items:center;gap:7px;flex-wrap:wrap;
-      font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);}
-    .mg-side{display:inline-flex;align-items:center;gap:6px;min-width:0;}
-    .mg-wside{font-weight:700;}
-    .mg-def{color:var(--text3);font-size:11px;}
-    .mg-topsub{margin-top:4px;font-family:'Inter',sans-serif;font-size:10.5px;
+    .mg-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
+    .mg-col{padding:10px 10px 4px;min-width:0;}
+    .mg-colh{display:flex;align-items:center;gap:7px;padding-bottom:9px;margin-bottom:4px;
+      border-bottom:1px solid rgba(255,255,255,0.09);
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
+      letter-spacing:.6px;text-transform:uppercase;color:var(--text2);}
+    .mg-colh i{font-size:11px;}
+    .mg-colh-big i{color:var(--green);}
+    .mg-colh-close i{color:var(--accent);}
+    .mgc{padding:9px 0;border-top:1px solid rgba(255,255,255,0.06);min-width:0;}
+    .mgc:first-of-type{border-top:0;}
+    .mgc-h{display:flex;align-items:baseline;justify-content:space-between;gap:6px;}
+    .mgc-rk{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;color:var(--text3);}
+    .mgc-marg{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:var(--green);}
+    .mgc-marg.mg-tight{color:var(--accent);}
+    .mgc-w,.mgc-l{display:flex;align-items:center;gap:6px;margin-top:4px;min-width:0;
+      font-family:'Inter',sans-serif;font-size:11.5px;}
+    .mgc-w{color:var(--text);font-weight:700;}
+    .mgc-l{color:var(--text3);}
+    .mgc-w span,.mgc-l span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .mgc-f{margin-top:5px;font-family:'Inter',sans-serif;font-size:9.5px;
       letter-spacing:.2px;text-transform:uppercase;color:var(--text3);}
-    .mg-topmarg{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:17px;font-weight:800;
-      color:var(--green);}
-    .mg-topmarg.mg-tight{color:var(--accent);}
-    .mg-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
+    .mg-none{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);padding:6px 0;}
+    .mg-note,.mgt-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
       line-height:1.5;color:var(--text3);}
 
+    /* ── Team Margins: the selected team's four corners in one card ──────── */
+    .mgt-sec{margin-top:32px;}
+    .mgt-card{padding:13px 14px;}
+    .mgt-team{display:flex;align-items:center;gap:9px;padding-bottom:10px;margin-bottom:6px;
+      border-bottom:1px solid rgba(255,255,255,0.09);
+      font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--text);}
+    .mgt-row{display:grid;grid-template-columns:104px auto minmax(0,1fr) auto auto;
+      align-items:baseline;gap:10px;padding:8px 0 8px 9px;border-left:3px solid transparent;
+      font-family:'Inter',sans-serif;}
+    .mgt-row+.mgt-row{border-top:1px solid rgba(255,255,255,0.05);}
+    .mgt-w{border-left-color:var(--green);}
+    .mgt-l{border-left-color:var(--red);}
+    .mgt-lab{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+      color:var(--text3);}
+    .mgt-marg{font-size:15px;font-weight:800;white-space:nowrap;}
+    .mgt-w .mgt-marg{color:var(--green);}
+    .mgt-l .mgt-marg{color:var(--red);}
+    .mgt-opp{font-size:12.5px;color:var(--text);min-width:0;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .mgt-verb{color:var(--text3);}
+    .mgt-sc{font-size:11.5px;font-weight:600;color:var(--text2);white-space:nowrap;}
+    .mgt-when{font-size:10px;letter-spacing:.2px;text-transform:uppercase;
+      color:var(--text3);white-space:nowrap;}
+
     @media(max-width:768px){
-      .dr-mtabs.mg-tabs{grid-template-columns:1fr 1fr;}
-      /* the score drops first: the margin already says how far apart it was */
-      .mg-line{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;}
-      .mg-sc{display:none;}
-      .mg-marg{font-size:14px;}
-      .mg-opp{font-size:12px;}
-      .mg-topline{font-size:12px;}
-      .mg-topmarg{font-size:15px;}
+      .mg-pair{gap:8px;}
+      .mg-col{padding:8px 8px 3px;}
+      .mgc-marg{font-size:14px;}
+      .mgc-w,.mgc-l{font-size:11px;}
+      /* the label moves onto its own line and the score drops: the margin
+         already says how far apart it finished */
+      .mgt-row{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;
+        padding-left:8px;row-gap:2px;}
+      .mgt-lab{grid-column:1/-1;}
+      .mgt-sc{display:none;}
+      .mgt-opp{font-size:12px;}
     }
 
     /* ── Sportsbook: going in on a parlay together ────────────────────────
