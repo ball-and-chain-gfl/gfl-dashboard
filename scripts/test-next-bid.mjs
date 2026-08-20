@@ -1,7 +1,8 @@
 /* Exercise the next-highest-bid rule from scripts/archive-transactions.mjs on a
    fixture, since 2026 has no real transactions yet to test against. */
 import fs from 'fs';
-const src=fs.readFileSync('C:/dev/gfl-dashboard/scripts/archive-transactions.mjs','utf8');
+import path from 'path';
+const src=fs.readFileSync(path.resolve('scripts/archive-transactions.mjs'),'utf8');
 
 const FAILED = new Set(['FAILED','CANCELED','CANCELLED','DECLINED','REVERSED','VOID','INVALID']);
 function compute(all){
