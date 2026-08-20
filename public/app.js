@@ -4616,9 +4616,32 @@ function liveSchedule(override){
    league-visible pieces repaint. Personal cards are deliberately left alone —
    redrawing Ball Knowledge or the picks grid under someone mid-tap would be a
    worse bug than the one being fixed. */
-const LEAGUE_MS=20000;
+/* ── FIRESTORE READ BUDGET ───────────────────────────────────────────────────
+   The free tier allows 50,000 document reads a day. Every leaguePoll reads the
+   whole profiles collection — fifteen documents — so at the old 20-second
+   interval a single tab left open burned about 2,700 reads an hour, and three
+   or four managers with the app open exhausted the day's allowance and took
+   every Firestore-backed feature down at once: ballots would not submit, bets
+   would not load, bets would not place.
+
+   Two changes hold it down. The interval is two minutes rather than twenty
+   seconds, and the poll only runs while the homepage is actually on screen —
+   it is the only page showing the tallies it fetches. That is roughly a
+   thirtieth of the previous traffic.
+
+   And when Firestore does answer 429, one latch stops every poll for the rest
+   of the session and the UI says so, instead of each feature failing silently
+   and looking like a bug. */
+let _fsQuota=false;
+function fsNoteResponse(r){
+  if(r&&r.status===429){ _fsQuota=true; try{ leagueStop(); }catch(e){} }
+  return r;
+}
+const LEAGUE_MS=120000;
 let _leagueTimer=null;
 async function leaguePoll(){
+  if(_fsQuota) return;
+  if(_activeTab!=='home') return;        // nothing on any other page reads this
   const rows=await gflListProfiles();
   if(!rows) return;
   _cpRows=rows; _cpFetched=true;          // so cpSync does not fetch it again
@@ -4635,7 +4658,7 @@ async function leaguePoll(){
 function leagueStart(){
   leagueStop();
   leaguePoll();
-  _leagueTimer=setInterval(()=>{ if(document.visibilityState==='visible') leaguePoll(); },LEAGUE_MS);
+  _leagueTimer=setInterval(()=>{ if(document.visibilityState==='visible'&&!_fsQuota) leaguePoll(); },LEAGUE_MS);
   document.addEventListener('visibilitychange',leagueVis);
 }
 function leagueVis(){ if(document.visibilityState==='visible') leaguePoll(); }
@@ -5069,8 +5092,8 @@ async function gflFetchProfile(id){
    outside the app. */
 async function gflPatchProfile(id,obj){
   const mask=Object.keys(obj).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
-  try{ const r=await fetch(gflDocUrl(id)+'&'+mask,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(obj))});
-    return r.ok?{ok:true}:{error:'could not save'};
+  try{ const r=fsNoteResponse(await fetch(gflDocUrl(id)+'&'+mask,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(obj))}));
+    return r.ok?{ok:true}:{error:r.status===429?'quota':'could not save'};
   }catch(e){ return {error:'offline'}; }
 }
 
@@ -5082,7 +5105,7 @@ async function gflPatchProfile(id,obj){
 async function gflListProfiles(){
   try{
     const url=`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles?key=${GFL_DB.key}&pageSize=300`;
-    const r=await fetch(url,{cache:'no-store'});
+    const r=fsNoteResponse(await fetch(url,{cache:'no-store'}));
     if(!r.ok) return null;
     const j=await r.json();
     const rows=(j.documents||[]).map(d=>({id:decodeURIComponent((d.name||'').split('/').pop()||''),...fsIn(d)}));
@@ -6873,8 +6896,9 @@ const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
 
 async function betList(){
   try{
-    const r=await fetch(`${betBase()}?${msgKey()}&pageSize=300`,{cache:'no-store'});
+    const r=fsNoteResponse(await fetch(`${betBase()}?${msgKey()}&pageSize=300`,{cache:'no-store'}));
     if(r.status===403){ _betErr='rules'; return null; }
+    if(r.status===429){ _betErr='quota'; return null; }
     if(!r.ok){ _betErr='fetch'; return null; }
     const j=await r.json();
     _betErr=null;
@@ -6912,8 +6936,9 @@ async function sbPlaceBet(){
   try{
     const r=await fetch(`${betBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    fsNoteResponse(r);
     if(r.ok){ _slip=[]; _sbStake=10; await betRefresh(); sbSyncButtons(); renderMyBets(); }
-    else _betErr=r.status===403?'rules':'send';
+    else _betErr=r.status===403?'rules':r.status===429?'quota':'send';
   }catch(e){ _betErr='offline'; }
   _betBusy=false; sbRenderSlip();
 }
@@ -7378,16 +7403,25 @@ function cpToggle(teamId){
   renderCoachesPoll();
 }
 function cpClear(){ _cpBallot=[]; localStorage.setItem(lsKey(cpKey()),'[]'); renderCoachesPoll(); }
+/* The ballot used to be marked sent before the write was attempted and the
+   result was thrown away, so a refused save — a quota block, most of all —
+   folded the card away as though it had gone through and quietly lost the
+   ballot. Now nothing is marked sent until the write comes back ok. */
+let _cpErr=null;
 async function cpSubmit(){
   if(!_me||_cpBusy) return;
   const b=cpMyBallot();
   if(b.length!==_teams.length) return;
-  _cpBusy=true; renderCoachesPoll();
+  _cpBusy=true; _cpErr=null; renderCoachesPoll();
   try{
-    _cpJustSent=true;
-    await gflPatchProfile(_me.k1,{[cpKey()]:JSON.stringify(b)});
-    _cpFetched=false; await cpSync();
-  }catch(e){}
+    const res=await gflPatchProfile(_me.k1,{[cpKey()]:JSON.stringify(b)});
+    if(res&&res.ok){
+      _cpJustSent=true;
+      _cpFetched=false; await cpSync();
+    }else{
+      _cpErr=(res&&res.error==='quota')?'quota':'send';
+    }
+  }catch(e){ _cpErr='send'; }
   _cpBusy=false; renderCoachesPoll();
 }
 /* average rank across every submitted ballot */
@@ -7483,6 +7517,9 @@ function renderCoachesPoll(){
         ${logoImg(t.id,'cp-logo')}
         <span class="cp-nm">${t.abbrev||teamInitials(t.name)}</span>
       </button>`;}).join('')}</div>
+    ${_cpErr?`<div class="cp-err">${_cpErr==='quota'
+      ?'The league database has hit its daily free-tier limit — your ballot was not saved. Try again after it resets at midnight Pacific.'
+      :'That did not save. Check your connection and try again.'}</div>`:''}
     <div class="cp-actions">
       <button class="cp-reset" onclick="cpClear()">Reset</button>
       <button class="cp-go" ${done&&!_cpBusy?'':'disabled'} onclick="cpSubmit()">
@@ -8167,6 +8204,10 @@ function myBetsHTML(){
     <button class="sb-place" onclick="openSignIn()"><i class="fa fa-right-to-bracket"></i>Sign in</button></div>`;
   if(_betErr==='rules') return `<div class="sb-mine-empty"><i class="fa fa-lock"></i>
     <div>The <code>bets</code> collection is not readable yet — its Firestore rule still needs publishing.</div></div>`;
+  if(_betErr==='quota'||_fsQuota) return `<div class="sb-mine-empty"><i class="fa fa-hourglass-half"></i>
+    <div><b>The league database has hit its daily free-tier limit.</b><br>
+    Nothing is broken and nothing is lost — bets, ballots and picks all come back
+    when the quota resets at midnight Pacific.</div></div>`;
   if(_bets===null) return `<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Loading your bets…</div>`;
   const all=betsMine();                 // ledger reflects every bet, cleared or not
   const mine=all.filter(b=>!b.hidden);  // the list shows what has not been cleared
@@ -8299,6 +8340,7 @@ function sbSlipHTML(){
       ${_betErr?`<div class="sb-slip-err">${
         _betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
         :_betErr==='stake'?'Enter a stake first.'
+        :_betErr==='quota'?'The league database has hit its daily free-tier limit — try again after it resets at midnight Pacific.'
         :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
         :'Could not place that bet. Try again.'}</div>`:''}`
     :`<div class="sb-slip-empty">Tap any price to add it here.<br/>Multiple picks become a parlay.</div>`}
