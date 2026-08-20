@@ -1045,7 +1045,12 @@
       position:sticky;z-index:380;top:var(--navbot,calc(env(safe-area-inset-top,0px) + 82px));
       /* the bar itself stays transparent; the drawer below does the covering */
       --secpad:10px;
-      padding:var(--secpad) max(0px,calc(var(--secpad) - var(--navside,2px)));
+      /* the drawer reaches --navside past the bar on each side, so the bar's
+         own side padding is short by that much to land the chips a clean
+         --secpad in from the drawer's edge. The docked picker uses the same
+         figure so it lines up with them. */
+      --secpad-x:max(0px,calc(var(--secpad) - var(--navside,2px)));
+      padding:var(--secpad) var(--secpad-x);
       background:transparent;}
     /* The drawer. It lives behind the chips and one notch below them in the
        bar's own stacking context, and starts translated a full height up —
@@ -1077,13 +1082,16 @@
     @property --dockh{syntax:'<length>';inherits:true;initial-value:0px;}
     .sec-nav{--dockh:0px;transition:--dockh .26s cubic-bezier(.3,.75,.25,1);}
     .sec-nav::before{bottom:calc(-1 * var(--dockh));}
-    .sec-nav>.picker-bar.picker-docked{position:absolute;left:0;right:0;top:100%;
+    .sec-nav>.picker-bar.picker-docked{position:absolute;top:100%;
+      left:var(--secpad-x);right:var(--secpad-x);
       height:var(--dockh);overflow:hidden;box-sizing:border-box;
-      padding:0!important;margin:0;gap:8px;flex-wrap:nowrap;z-index:1;}
+      padding:0 0 var(--secpad) 0!important;margin:0;gap:8px;flex-wrap:nowrap;z-index:1;}
     .sec-nav>.picker-bar.picker-docked label{flex:0 0 auto;font-size:12px;}
     .sec-nav>.picker-bar.picker-docked select{flex:1 1 auto;min-width:0;}
-    /* nothing but the picker in there: no chip padding to leave a blank strip */
-    .sec-nav.dock-only{padding-top:0;padding-bottom:0;}
+    /* Nothing but the picker in there. The bar collapses to its top padding,
+       which is what holds the picker clear of the nav — the same gap the first
+       row of chips would have had. */
+    .sec-nav.dock-only{padding-bottom:0;}
     .picker-ph{pointer-events:none;}
     .sec-nav[hidden]{display:none;}
     /* inline variant sits under a filter row, not under the title rule */
@@ -1117,46 +1125,63 @@
       .sx-chip{font-size:11.5px;padding:6px 8px;letter-spacing:.1px;}
     }
 
-    /* ── Margins ──────────────────────────────────────────────────────────
-       Two league-wide top tens abreast. Each entry stacks — rank and margin,
-       then winner, then loser, then the line score — because two written-out
-       team names cannot share a line inside half a phone. */
+    /* ── Matchup Extremes ─────────────────────────────────────────────────
+       Two league-wide top fives abreast. Each entry is its own tile so the
+       four facts inside it read as one result rather than four loose lines,
+       and stacks — rank and margin, winner, loser, then the line score —
+       because two written-out team names cannot share a row inside half a
+       phone. No badges: at this width the logo crowded out the name next to
+       it, and the name is what is being read. */
     .mg-sec{margin-top:32px;}
     .mg-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
-    .mg-col{padding:10px 10px 4px;min-width:0;}
-    .mg-colh{display:flex;align-items:center;gap:7px;padding-bottom:9px;margin-bottom:4px;
+    .mg-col{padding:11px 11px 12px;min-width:0;}
+    .mg-colh{display:flex;align-items:center;gap:7px;padding-bottom:10px;margin-bottom:9px;
       border-bottom:1px solid rgba(255,255,255,0.09);
       font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
-      letter-spacing:.6px;text-transform:uppercase;color:var(--text2);}
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
     .mg-colh i{font-size:11px;}
     .mg-colh-big i{color:var(--green);}
     .mg-colh-close i{color:var(--accent);}
-    .mgc{padding:9px 0;border-top:1px solid rgba(255,255,255,0.06);min-width:0;}
-    .mgc:first-of-type{border-top:0;}
-    .mgc-h{display:flex;align-items:baseline;justify-content:space-between;gap:6px;}
-    .mgc-rk{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;color:var(--text3);}
-    .mgc-marg{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:var(--green);}
+    .mgc{min-width:0;margin-top:7px;padding:9px 9px 9px 10px;
+      border-radius:7px;border-left:3px solid rgba(255,255,255,0.14);
+      background:rgba(255,255,255,0.035);}
+    .mgc:first-of-type{margin-top:0;}
+    /* the tile borrows its column's colour, so a tile is placeable without
+       having to look back up at the heading */
+    .mg-col:has(.mg-colh-big) .mgc{border-left-color:var(--green);}
+    .mg-col:has(.mg-colh-close) .mgc{border-left-color:var(--accent);}
+    .mgc-h{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+    .mgc-rk{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+      width:17px;height:17px;border-radius:5px;background:rgba(255,255,255,0.09);
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;color:var(--text2);}
+    .mgc-marg{font-family:'Inter',sans-serif;font-size:15.5px;font-weight:800;
+      letter-spacing:-.3px;color:var(--green);}
     .mgc-marg.mg-tight{color:var(--accent);}
-    .mgc-w,.mgc-l{display:flex;align-items:center;gap:6px;margin-top:4px;min-width:0;
-      font-family:'Inter',sans-serif;font-size:11.5px;}
-    .mgc-w{color:var(--text);font-weight:700;}
-    .mgc-l{color:var(--text3);}
-    .mgc-w span,.mgc-l span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .mgc-f{margin-top:5px;font-family:'Inter',sans-serif;font-size:9.5px;
-      letter-spacing:.2px;text-transform:uppercase;color:var(--text3);}
+    .mgc-w{margin-top:7px;font-family:'Inter',sans-serif;font-size:11.5px;
+      font-weight:700;line-height:1.3;color:var(--text);overflow-wrap:anywhere;}
+    .mgc-l{margin-top:3px;font-family:'Inter',sans-serif;font-size:11.5px;
+      line-height:1.3;color:var(--text3);overflow-wrap:anywhere;}
+    .mgc-def{margin-right:4px;font-size:9px;font-weight:800;letter-spacing:.5px;
+      text-transform:uppercase;opacity:.7;}
+    .mgc-f{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;
+      gap:2px 6px;margin-top:8px;padding-top:7px;
+      border-top:1px solid rgba(255,255,255,0.07);font-family:'Inter',sans-serif;}
+    .mgc-sc{font-size:11px;font-weight:700;color:var(--text2);white-space:nowrap;}
+    .mgc-wk{font-size:9px;letter-spacing:.3px;text-transform:uppercase;
+      color:var(--text3);white-space:nowrap;}
     .mg-none{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);padding:6px 0;}
     .mg-note,.mgt-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
       line-height:1.5;color:var(--text3);}
 
-    /* ── Team Margins: the selected team's four corners in one card ──────── */
+    /* ── Team Extremes: the selected team's four corners in one card ─────── */
     .mgt-sec{margin-top:32px;}
-    .mgt-card{padding:13px 14px;}
-    .mgt-team{display:flex;align-items:center;gap:9px;padding-bottom:10px;margin-bottom:6px;
+    .mgt-card{padding:13px 12px 7px;}
+    .mgt-team{display:flex;align-items:center;gap:9px;padding:0 2px 11px;margin-bottom:3px;
       border-bottom:1px solid rgba(255,255,255,0.09);
       font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--text);}
     .mgt-row{display:grid;grid-template-columns:104px auto minmax(0,1fr) auto auto;
-      align-items:baseline;gap:10px;padding:8px 0 8px 9px;border-left:3px solid transparent;
-      font-family:'Inter',sans-serif;}
+      align-items:baseline;gap:10px;padding:11px 8px 11px 12px;
+      border-left:3px solid transparent;font-family:'Inter',sans-serif;}
     .mgt-row+.mgt-row{border-top:1px solid rgba(255,255,255,0.05);}
     .mgt-w{border-left-color:var(--green);}
     .mgt-l{border-left-color:var(--red);}
@@ -1174,13 +1199,14 @@
 
     @media(max-width:768px){
       .mg-pair{gap:8px;}
-      .mg-col{padding:8px 8px 3px;}
-      .mgc-marg{font-size:14px;}
+      .mg-col{padding:9px 9px 10px;}
+      .mgc{padding:8px 8px 8px 9px;}
+      .mgc-marg{font-size:14.5px;}
       .mgc-w,.mgc-l{font-size:11px;}
       /* the label moves onto its own line and the score drops: the margin
          already says how far apart it finished */
-      .mgt-row{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;
-        padding-left:8px;row-gap:2px;}
+      .mgt-row{grid-template-columns:auto minmax(0,1fr) auto;gap:2px 9px;
+        padding:10px 8px 11px 11px;}
       .mgt-lab{grid-column:1/-1;}
       .mgt-sc{display:none;}
       .mgt-opp{font-size:12px;}

@@ -1753,37 +1753,40 @@ function mgAllGames(){
   });
   return out;
 }
-/* a ten-deep column, narrow enough to sit two abreast */
+/* Five deep, narrow enough to sit two abreast. No badges: at half a phone the
+   logo crowded out the name standing beside it, and the name is the thing
+   being read. "def." carries which way round the result went, so neither team
+   has to be worked out from position alone. */
 function mgTopCol(big){
   const games=mgAllGames()
     .sort((a,b)=>big?(b.margin-a.margin):(a.margin-b.margin))
-    .slice(0,10);
+    .slice(0,5);
   if(!games.length) return '<div class="mg-none">Nothing to rank yet.</div>';
-  return games.map((g,i)=>{
-    const wf=_franchises.find(f=>f.owner===g.win), lf=_franchises.find(f=>f.owner===g.lose);
-    return `<div class="mgc">
-      <div class="mgc-h"><span class="mgc-rk">${i+1}</span>
-        <span class="mgc-marg${big?'':' mg-tight'}">${big?'+':''}${g.margin.toFixed(1)}</span></div>
-      <div class="mgc-w">${wf?franchiseAvatar(wf,18,4):''}<span>${mgSeasonName(g.season,g.win)}</span></div>
-      <div class="mgc-l">${lf?franchiseAvatar(lf,18,4):''}<span>${mgSeasonName(g.season,g.lose)}</span></div>
-      <div class="mgc-f">${g.winPts.toFixed(1)}–${g.losePts.toFixed(1)} · ${g.season} wk ${g.week}</div>
-    </div>`;}).join('');
+  return games.map((g,i)=>`<div class="mgc">
+      <div class="mgc-h">
+        <span class="mgc-rk">${i+1}</span>
+        <span class="mgc-marg${big?'':' mg-tight'}">${big?'+':''}${g.margin.toFixed(1)}</span>
+      </div>
+      <div class="mgc-w">${mgSeasonName(g.season,g.win)}</div>
+      <div class="mgc-l"><span class="mgc-def">def.</span>${mgSeasonName(g.season,g.lose)}</div>
+      <div class="mgc-f"><span class="mgc-sc">${g.winPts.toFixed(1)}–${g.losePts.toFixed(1)}</span><span class="mgc-wk">${g.season} · Wk ${g.week}</span></div>
+    </div>`).join('');
 }
 function marginsHTML(){
   if(!_franchises.length) return '';
   return `<div class="sec wm mg-sec" data-wm="&#xf091;">
-    <div class="sec-head"><i class="fa fa-arrows-left-right"></i>Margins<span class="badge-info">every season</span></div>
+    <div class="sec-head"><i class="fa fa-arrows-left-right"></i>Matchup Extremes<span class="badge-info">every season</span></div>
     <div class="mg-pair" data-nochip>
       <div class="card mg-col">
-        <div class="mg-colh mg-colh-big"><i class="fa fa-arrows-left-right"></i>Biggest gaps</div>
+        <div class="mg-colh mg-colh-big"><i class="fa fa-explosion"></i>Biggest Blowouts</div>
         ${mgTopCol(true)}
       </div>
       <div class="card mg-col">
-        <div class="mg-colh mg-colh-close"><i class="fa fa-compress"></i>Closest games</div>
+        <div class="mg-colh mg-colh-close"><i class="fa fa-compress"></i>Closest Games</div>
         ${mgTopCol(false)}
       </div>
     </div>
-    <div class="mg-note">The ten widest and the ten tightest results in league history. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
+    <div class="mg-note">The five widest and the five tightest results in league history. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
   </div>`;
 }
 /* ── ONE TEAM'S EXTREMES ─────────────────────────────────────────────────────
@@ -1810,8 +1813,8 @@ function mgTeamCardHTML(owner){
       <span class="mgt-when">${g.season} · Wk ${g.week}</span>
     </div>`;
   };
-  return `<div class="sec wm mgt-sec" data-wm="&#xf0e7;">
-    <div class="sec-head"><i class="fa fa-user-group"></i>Team Margins<span class="badge-info">${fr.name}</span></div>
+  return `<div class="sec wm mgt-sec" data-wm="&#xf140;">
+    <div class="sec-head"><i class="fa fa-bullseye"></i>Team Extremes<span class="badge-info">${fr.name}</span></div>
     <div class="card mgt-card">
       <div class="mgt-team">${franchiseAvatar(fr,26,7)}<span>${fr.name}</span></div>
       ${row(pick(wins,true),'Biggest win',true)}
@@ -4508,6 +4511,14 @@ function syncPickerDock(){
   if(!r.height||r.bottom>line) return;
 
   const h=Math.round(r.height);
+  /* The drawer opens to the control plus one gap, so the space under the select
+     matches the space the chips keep from the drawer's edges. It is the select
+     that is measured, not the picker row: the row carries its own vertical
+     padding in the page, which docked would read as slack below the control
+     and put it 17px off the drawer's edge against the chips' 10. */
+  const pad=Math.round(parseFloat(getComputedStyle(bar).getPropertyValue('--secpad')))||10;
+  const ctl=p.querySelector('select,input,button');
+  const ch=Math.round((ctl?ctl.getBoundingClientRect().height:0)||r.height);
   const ph=document.createElement('div');
   ph.className='picker-ph';
   ph.style.height=h+'px';
@@ -4531,7 +4542,7 @@ function syncPickerDock(){
   requestAnimationFrame(()=>{
     if(_dockedPicker!==p) return;
     p.style.transition=`opacity .22s ease ${Math.round(DOCK_MS*0.45)}ms`;
-    bar.style.setProperty('--dockh',h+'px');
+    bar.style.setProperty('--dockh',(ch+pad)+'px');
     p.style.opacity='1';
   });
 }
