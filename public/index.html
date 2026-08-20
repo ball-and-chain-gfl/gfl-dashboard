@@ -1102,6 +1102,12 @@
        Pending invitations lead the My Bets panel — they are the only thing on
        it asking for an answer — and the control that sends one hangs under the
        bet it came from. */
+    .cp-refresh{margin-left:8px;width:22px;height:22px;flex:0 0 auto;border-radius:6px;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+      background:rgba(255,255,255,0.07);border:0;color:var(--text3);font-size:10px;
+      transition:background .14s,color .14s;}
+    .cp-refresh:hover{background:rgba(var(--accent-rgb),0.22);color:var(--accent);}
+    .cp-refresh:disabled{opacity:.5;cursor:default;}
     .cp-err{margin:10px 0 0;padding:9px 12px;border-radius:8px;background:rgba(232,104,126,0.14);
       color:var(--red);font-family:'Inter',sans-serif;font-size:12px;line-height:1.45;}
     .sb-invites{margin:0 0 16px;padding:13px 14px 14px;border-radius:12px;

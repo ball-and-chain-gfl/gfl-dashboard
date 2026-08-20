@@ -640,7 +640,7 @@ function switchTab(name){
   if(name==='messages') initMessages();
   if(name==='profile') renderMyProfile();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
-  if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); } else liveStop();   // the live board lives on the homepage
+  if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); try{ leaguePoll(); }catch(e){} } else liveStop();   // the live board lives on the homepage
   if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -4637,11 +4637,28 @@ function fsNoteResponse(r){
   if(r&&r.status===429){ _fsQuota=true; try{ leagueStop(); }catch(e){} }
   return r;
 }
-const LEAGUE_MS=120000;
+/* No background polling at all. The shared tallies only move when somebody
+   casts a ballot or a vote — a handful of times a week between twelve people —
+   so asking on a timer spends the whole day's read allowance to learn nothing
+   almost every time. Reads now happen only when something might actually have
+   changed:
+     · when the dashboard first loads
+     · when this manager writes something, which refreshes straight after
+     · when the homepage is opened, or the tab comes back to the foreground
+   The last one is throttled, so flicking between tabs is not a read per switch.
+   That is a few dozen reads a day per manager instead of tens of thousands.
+
+   The one thing this gives up: another manager's ballot landing while you sit
+   on the homepage doing nothing will not appear until you leave and come back.
+   Seeing that live needs a real-time listener, which the REST API cannot do —
+   see the note on leagueStart. */
+const LEAGUE_GAP=5*60*1000;
+let _leagueLast=0;
 let _leagueTimer=null;
-async function leaguePoll(){
+async function leaguePoll(force){
   if(_fsQuota) return;
   if(_activeTab!=='home') return;        // nothing on any other page reads this
+  if(!force && Date.now()-_leagueLast<LEAGUE_GAP) return;
   const rows=await gflListProfiles();
   if(!rows) return;
   _cpRows=rows; _cpFetched=true;          // so cpSync does not fetch it again
@@ -4655,10 +4672,14 @@ async function leaguePoll(){
   try{ renderMotwVoteBar(); }catch(e){}
   try{ renderCoachesPoll(); }catch(e){}
 }
+/* Firestore's REST API has no subscribe — real-time listeners live in the
+   Firebase JS SDK, which this app deliberately does not carry. If live updates
+   between open sessions are ever wanted, that is the change to make: a listener
+   costs one read per document when it attaches and then only reads documents
+   that actually change, which is cheaper than any polling interval. */
 function leagueStart(){
   leagueStop();
-  leaguePoll();
-  _leagueTimer=setInterval(()=>{ if(document.visibilityState==='visible'&&!_fsQuota) leaguePoll(); },LEAGUE_MS);
+  leaguePoll(true);
   document.addEventListener('visibilitychange',leagueVis);
 }
 function leagueVis(){ if(document.visibilityState==='visible') leaguePoll(); }
@@ -5105,6 +5126,7 @@ async function gflPatchProfile(id,obj){
 async function gflListProfiles(){
   try{
     const url=`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles?key=${GFL_DB.key}&pageSize=300`;
+    _leagueLast=Date.now();                 // any full read resets the throttle
     const r=fsNoteResponse(await fetch(url,{cache:'no-store'}));
     if(!r.ok) return null;
     const j=await r.json();
@@ -7407,7 +7429,15 @@ function cpClear(){ _cpBallot=[]; localStorage.setItem(lsKey(cpKey()),'[]'); ren
    result was thrown away, so a refused save — a quota block, most of all —
    folded the card away as though it had gone through and quietly lost the
    ballot. Now nothing is marked sent until the write comes back ok. */
-let _cpErr=null;
+let _cpErr=null,_cpRefreshing=false;
+async function cpRefresh(){
+  if(_cpRefreshing||_fsQuota) return;
+  _cpRefreshing=true; renderCoachesPoll();
+  try{ await leaguePoll(true); }catch(e){}
+  _cpRefreshing=false; renderCoachesPoll();
+}
+const cpRefreshBtn=()=>`<button class="cp-refresh" onclick="cpRefresh()" ${_cpRefreshing?'disabled':''}
+  title="Check for new ballots"><i class="fa fa-rotate${_cpRefreshing?' fa-spin':''}"></i></button>`;
 async function cpSubmit(){
   if(!_me||_cpBusy) return;
   const b=cpMyBallot();
@@ -7417,7 +7447,7 @@ async function cpSubmit(){
     const res=await gflPatchProfile(_me.k1,{[cpKey()]:JSON.stringify(b)});
     if(res&&res.ok){
       _cpJustSent=true;
-      _cpFetched=false; await cpSync();
+      _cpFetched=false; await leaguePoll(true);
     }else{
       _cpErr=(res&&res.error==='quota')?'quota':'send';
     }
@@ -7464,7 +7494,7 @@ function renderCoachesPoll(){
      before you say what you think, which is the one thing a poll cannot allow —
      the late voters would just be ratifying it. */
   const mineIn=!!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()]);
-  const results=`<div class="cp-meta">${ballots} of ${total} ballots in${ballots<total?' · still open':''}</div>
+  const results=`<div class="cp-meta">${ballots} of ${total} ballots in${ballots<total?' · still open':''}${cpRefreshBtn()}</div>
     <div class="cp-list">${rank.map((r,i)=>`<div class="cp-res">
       <span class="cp-rk">${i+1}</span>
       ${logoImg(r.t.id,'cp-logo')}
@@ -7499,7 +7529,7 @@ function renderCoachesPoll(){
     el.innerHTML=`
       <details class="cp-fold"${_cpFoldOpen?' open':''} ontoggle="foldKeep('cp',this)">
         <summary class="cp-fold-s"><i class="fa fa-check"></i>Your ballot is in
-          <span class="cp-fold-n">${ballots} of ${total}</span>
+          <span class="cp-fold-n">${ballots} of ${total}</span>${cpRefreshBtn()}
           <i class="fa fa-chevron-down ms-chev"></i></summary>
         <div class="cp-fold-b">
           ${myBallotList()}
@@ -7509,7 +7539,7 @@ function renderCoachesPoll(){
     return;
   }
   el.innerHTML=`
-    <div class="cp-meta">${ballots} of ${total} ballots in · ${complete?'results are in — cast your ballot to see them':`results show at ${REVEAL_AT}`}</div>
+    <div class="cp-meta">${ballots} of ${total} ballots in · ${complete?'results are in — cast your ballot to see them':`results show at ${REVEAL_AT}`}${cpRefreshBtn()}</div>
     <div class="cp-pick">${_teams.map(t=>{
       const pos=b.indexOf(String(t.id));
       return `<button class="cp-t${pos>=0?' on':''}" onclick="cpToggle(${t.id})">
