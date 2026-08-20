@@ -102,7 +102,7 @@ function getSeason(){return document.getElementById('season-select').value;}
    control to explain why. So stepping onto one of those tabs also snaps the
    year back to the newest season and reloads, but only when it had actually
    been moved — the common case costs nothing. */
-const SEASON_TABS=new Set(['teams','standings','draft','trades']);
+const SEASON_TABS=new Set(['week','teams','standings','draft','trades']);
 /* The season to fall back to is the newest one that has actually been played,
    not simply the newest on file: a season is listed as soon as ESPN publishes
    its schedule, so the very newest can be a full year with no games in it. */
@@ -4113,11 +4113,24 @@ async function renderRoster(){
 
 /* ── THIS WEEK ──────────────────────────────────────────────────────────────
    The week on the clock at a glance: every matchup, and your own first. */
+/* Your Forecast reads the live board, and the live board is pinned to the
+   newest season on file whatever the nav says — liveWeekInfo() does not take a
+   year. On any other season it would be describing this season's game under
+   that season's heading, so it comes off the page entirely rather than being
+   left there saying something untrue. The jump chip goes with it: the nav skips
+   headings with no offsetParent. */
+function fcOnLiveSeason(){
+  return String(getSeason())===String(ALL_SEASONS[ALL_SEASONS.length-1]);
+}
 function renderWeek(){
-  const info=_liveInfo||liveWeekInfo();
-  if(info) renderForecast(info);
-  else { const el=document.getElementById('fc-body');
-    if(el) el.innerHTML='<div class="tab-loading" style="padding:24px">No season data yet.</div>'; }
+  const live=fcOnLiveSeason();
+  {const sec=document.getElementById('fc-sec'); if(sec) sec.hidden=!live;}
+  if(live){
+    const info=_liveInfo||liveWeekInfo();
+    if(info) renderForecast(info);
+    else { const el=document.getElementById('fc-body');
+      if(el) el.innerHTML='<div class="tab-loading" style="padding:24px">No season data yet.</div>'; }
+  }
   renderSchedule();
 }
 /* ── Forecast ───────────────────────────────────────────────────────────────
@@ -4225,7 +4238,7 @@ async function fcLoadSlots(info){
       });
     }
     _weeklyBySlot={season:info.season,data};
-    if(_activeTab==='week') renderForecast(info);
+    if(_activeTab==='week'&&fcOnLiveSeason()) renderForecast(info);
   }catch(e){}
   _slotBusy=false;
 }
