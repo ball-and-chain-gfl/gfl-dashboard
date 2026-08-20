@@ -639,7 +639,7 @@ function initMobileTables(){
   window.addEventListener('orientationchange',()=>setTimeout(run,250));
 }
 function switchTab(name){
-  try{ undockPicker(); }catch(e){}      // before the page changes under it
+  try{ undockPicker(true); }catch(e){}   // before the page changes under it
   _activeTab=name;
   syncSeasonPicker(name);
   document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
@@ -1707,20 +1707,39 @@ function renderHistoryTable(){
         </tr>
         <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
     </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}
-    ${rows.length?pastMatchupsHTML(owner,me,rows):''}
-    ${swingsHTML()}`;
+    ${marginsHTML()}
+    ${rows.length?pastMatchupsHTML(owner,me,rows):''}`;
 }
 
-/* ── BIGGEST WIN / BIGGEST LOSS ──────────────────────────────────────────────
-   One row per franchise: the largest margin they ever won by and who it was
-   against, and the largest they ever lost by and who did it to them.
+/* ── MARGINS ─────────────────────────────────────────────────────────────────
+   How far apart games finished: the blowouts and the nailbiters, by team and
+   across the league. Four views on the same underlying set, the same shape the
+   Draft Report uses for its Rankings switch.
 
    Only games that counted are considered, the same rule the records use — a
-   dead-rubber consolation blowout is not somebody's biggest win. Margin is the
-   tiebreak's first term; if two games somehow tie exactly, the earlier one is
-   kept, which keeps the answer stable between renders. */
-function biggestSwings(){
-  const best={}, worst={};
+   dead-rubber consolation blowout is not somebody's biggest win.
+
+   Names come from the season the game was played in, not from today's roster,
+   so a franchise that has since left is still called what it was called then
+   rather than collapsing to an abbreviation nobody recognises. */
+let _mgView='bigTeam';
+function setMgView(v){
+  _mgView=v;
+  const el=document.getElementById('mg-body');
+  if(el) el.innerHTML=mgBodyHTML();
+  document.querySelectorAll('.mg-tab').forEach(b=>
+    b.classList.toggle('active',b.dataset.mg===v));
+}
+function mgSeasonName(season,owner){
+  const m=_seasonMeta[season];
+  const n=m&&m.names&&m.names[owner]&&m.names[owner].name;
+  if(n) return n;
+  const fr=_franchises.find(f=>f.owner===owner);
+  return (fr&&fr.name)||'A former team';
+}
+/* every counting game once, from the winner's point of view */
+function mgAllGames(){
+  const out=[];
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
     const owners=meta.owners||{};
@@ -1728,49 +1747,107 @@ function biggestSwings(){
       if(!mu.home||!mu.away) return;
       const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
       if(hp===0&&ap===0) return;
+      if(hp===ap) return;                       // a tie has no margin
       if(!postGameCounts(s,mu)) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
       if(!ho||!ao||ho===ao) return;
-      const wk=mu.matchupPeriodId||0;
-      [[ho,hp,ao,ap],[ao,ap,ho,hp]].forEach(([me,my,them,their])=>{
-        const margin=my-their;
-        if(margin===0) return;                       // a tie is neither
-        const row={season:s,week:wk,opp:them,my,their,margin:Math.abs(margin)};
-        if(margin>0){ if(!best[me]||row.margin>best[me].margin) best[me]=row; }
-        else        { if(!worst[me]||row.margin>worst[me].margin) worst[me]=row; }
-      });
+      const homeWon=hp>ap;
+      out.push({season:s,week:mu.matchupPeriodId||0,
+        win:homeWon?ho:ao, lose:homeWon?ao:ho,
+        winPts:homeWon?hp:ap, losePts:homeWon?ap:hp,
+        margin:Math.abs(hp-ap)});
     });
   });
-  return {best,worst};
+  return out;
 }
-function swingsHTML(){
-  const {best,worst}=biggestSwings();
-  if(!_franchises.some(f=>best[f.owner]||worst[f.owner])) return '';
-  const nameOf=o=>(_franchises.find(f=>f.owner===o)||{}).name||'A departed team';
-  const abbrOf=o=>{const t=_teams.find(x=>_ownerMap[x.id]===o);
-    return (t&&t.abbrev)||teamInitials(nameOf(o));};
-  /* Two columns holding a list each, the same shape the All-Time Drafts view
-     uses — the per-team card was far too heavy for twelve of them. Ranked by
-     margin so the column reads as a leaderboard rather than an alphabet. */
-  const col=(src,kind)=>{
-    const rows=_franchises.filter(f=>src[f.owner])
-      .map(f=>({f,g:src[f.owner]}))
-      .sort((a,b)=>b.g.margin-a.g.margin);
-    return rows.map((r,n)=>`<div class="swm swm-${kind}">
-      <div class="swm-top"><span class="swm-rk">${n+1}</span>${franchiseAvatar(r.f,20)}
-        <span class="swm-name">${abbrOf(r.f.owner)}</span>
-        <span class="swm-marg">${kind==='w'?'+':'−'}${r.g.margin.toFixed(1)}</span></div>
-      <div class="swm-bot"><span class="swm-opp">${kind==='w'?'beat':'lost to'} ${abbrOf(r.g.opp)}</span>
-        <span class="swm-when">${r.g.season} · wk ${r.g.week}</span></div>
-    </div>`).join('');
+/* per franchise: their widest and narrowest win, and the same for losses */
+function mgByTeam(){
+  const games=mgAllGames();
+  const t={};
+  const put=(o,key,g,cmp)=>{
+    const b=(t[o]||(t[o]={}));
+    if(!b[key]||cmp(g.margin,b[key].margin)) b[key]=g;
   };
-  return `<div class="sec wm sw-sec" data-wm="&#xf091;">
-    <div class="sec-head"><i class="fa fa-arrows-up-down"></i>Biggest Win &amp; Biggest Loss<span class="badge-info">every team · all seasons</span></div>
-    <div class="dv-pair sw-pair" data-nochip>
-      <div class="card dr-mini sw-col">${col(best,'w')}</div>
-      <div class="card dr-mini sw-col">${col(worst,'l')}</div>
+  const wider=(a,b)=>a>b, tighter=(a,b)=>a<b;
+  games.forEach(g=>{
+    put(g.win,'bigWin',g,wider);   put(g.win,'closeWin',g,tighter);
+    put(g.lose,'bigLoss',g,wider); put(g.lose,'closeLoss',g,tighter);
+  });
+  return t;
+}
+function mgLine(g,owner,kind){
+  if(!g) return `<div class="mg-line mg-none">No result yet</div>`;
+  const won=g.win===owner;
+  const opp=won?g.lose:g.win;
+  const mine=won?g.winPts:g.losePts, theirs=won?g.losePts:g.winPts;
+  return `<div class="mg-line mg-${won?'w':'l'}">
+    <span class="mg-marg">${won?'+':'−'}${g.margin.toFixed(1)}</span>
+    <span class="mg-opp"><span class="mg-verb">${won?'beat':'lost to'}</span> ${mgSeasonName(g.season,opp)}</span>
+    <span class="mg-sc">${mine.toFixed(1)}–${theirs.toFixed(1)}</span>
+    <span class="mg-when">${g.season} · Wk ${g.week}</span>
+  </div>`;
+}
+function mgTeamHTML(big){
+  const t=mgByTeam();
+  const rows=_franchises.map(f=>{
+    const b=t[f.owner]||{};
+    const w=big?b.bigWin:b.closeWin, l=big?b.bigLoss:b.closeLoss;
+    if(!w&&!l) return '';
+    return `<div class="mg-card">
+      <div class="mg-team">${franchiseAvatar(f,24,6)}<span>${f.name}</span></div>
+      ${mgLine(w,f.owner,'w')}
+      ${mgLine(l,f.owner,'l')}
+    </div>`;
+  }).join('');
+  return `<div class="mg-list">${rows}</div>`;
+}
+function mgTopHTML(big){
+  const games=mgAllGames()
+    .sort((a,b)=>big?(b.margin-a.margin):(a.margin-b.margin))
+    .slice(0,10);
+  if(!games.length) return '<div class="mg-none">Nothing to rank yet.</div>';
+  const rows=games.map((g,i)=>{
+    const wf=_franchises.find(f=>f.owner===g.win), lf=_franchises.find(f=>f.owner===g.lose);
+    return `<div class="mg-top">
+      <span class="mg-rk">${i+1}</span>
+      <div class="mg-topmain">
+        <div class="mg-topline">
+          <span class="mg-side mg-wside">${wf?franchiseAvatar(wf,20,5):''}${mgSeasonName(g.season,g.win)}</span>
+          <span class="mg-def">def.</span>
+          <span class="mg-side">${lf?franchiseAvatar(lf,20,5):''}${mgSeasonName(g.season,g.lose)}</span>
+        </div>
+        <div class="mg-topsub">${g.winPts.toFixed(1)} – ${g.losePts.toFixed(1)} · ${g.season} · Week ${g.week}</div>
+      </div>
+      <span class="mg-topmarg${big?'':' mg-tight'}">${big?'+':''}${g.margin.toFixed(1)}</span>
+    </div>`;}).join('');
+  return `<div class="mg-list">${rows}</div>`;
+}
+function mgBodyHTML(){
+  switch(_mgView){
+    case 'bigTop':    return mgTopHTML(true);
+    case 'closeTeam': return mgTeamHTML(false);
+    case 'closeTop':  return mgTopHTML(false);
+    default:          return mgTeamHTML(true);
+  }
+}
+function marginsHTML(){
+  if(!_franchises.length) return '';
+  const tab=(v,top,bot)=>`<button class="dr-vtab dr-mtab mg-tab${_mgView===v?' active':''}"
+    data-mg="${v}" onclick="setMgView('${v}')">
+    <span class="mg-t1">${top}</span><span class="mg-t2">${bot}</span></button>`;
+  const note=_mgView.startsWith('big')
+    ? 'The widest gaps on record.'
+    : 'The tightest games on record.';
+  return `<div class="sec wm mg-sec" data-wm="&#xf091;">
+    <div class="sec-head"><i class="fa fa-arrows-left-right"></i>Margins<span class="badge-info">every season</span></div>
+    <div class="dr-mtabs mg-tabs" data-nochip>
+      ${tab('bigTeam','Biggest','By Team')}
+      ${tab('bigTop','Biggest','Top 10')}
+      ${tab('closeTeam','Closest','By Team')}
+      ${tab('closeTop','Closest','Top 10')}
     </div>
-    <div class="sw-note">Margin of victory, every season, ranked. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
+    <div id="mg-body">${mgBodyHTML()}</div>
+    <div class="mg-note">${note} Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
   </div>`;
 }
 
@@ -4352,7 +4429,7 @@ const SX_ABBR={
   'All-Time vs Each Team':'AT vs Team',
   'Live Around the League':'Live League',
   'Head-to-Head Records':'H2H Records',
-  'Biggest Win & Biggest Loss':'Big Swings',
+
   'Conference Championships':'Conferences',
   'Season Superlatives':'Superlatives',
   'Player Tenure':'Tenure',
@@ -4390,17 +4467,20 @@ function fitSectionNav(bar,n){
    nav, and drops back into place on the way up.
 
    The element itself moves rather than a copy being made, so the select keeps
-   its value, its id and its onchange — a clone would need all three kept in
-   step and would drift the moment either was touched. A placeholder of the same
-   height holds the original spot, which does two jobs: the page does not jump
-   when the picker leaves, and the test for putting it back reads a position
-   that is not itself affected by the docking. Testing the picker's own position
-   while docked would flip-flop every frame.
+   its value, its id and its onchange. A placeholder of the same height holds
+   the original spot: the page does not jump when it leaves, and the test for
+   putting it back reads a position that docking does not itself move — reading
+   the picker's own position while docked flip-flops every frame.
 
-   If a render replaces the picker's container while it is docked, the fresh
-   markup already contains a new picker — so the docked one is dropped rather
-   than put back, which would otherwise leave two selects sharing an id. */
-let _dockedPicker=null,_dockedHome=null,_dockedBar=null;
+   The animation is driven off a MEASURED height rather than a guessed
+   max-height. Guessing meant the element snapped to its real size the moment
+   the keyframe finished, which is where the second jump came from. Now the
+   drawer opens to exactly the height the picker will occupy, and the picker
+   fades in behind that, so the container makes space first and the content
+   arrives into it. Both directions are animated, and the DOM move on the way
+   out waits for the collapse to finish. */
+let _dockedPicker=null,_dockedHome=null,_dockedBar=null,_dockBusy=false;
+const DOCK_MS=260;
 /* the chip bar in use for this page: its own if it has one, else the global */
 function activeChipBar(){
   const page=document.getElementById('page-'+_activeTab);
@@ -4411,49 +4491,70 @@ function pagePicker(){
   return [...page.querySelectorAll('.picker-bar')]
     .find(p=>p.querySelector('select')&&p.offsetParent!==null)||null;
 }
-function undockPicker(){
+/* put it back where it came from, once the collapse has played */
+function undockPicker(instant){
   if(!_dockedPicker) return;
-  const p=_dockedPicker, home=_dockedHome;
-  _dockedPicker=null; _dockedHome=null;
-  p.classList.remove('picker-docked');
-  if(home&&home.isConnected){
-    home.parentNode.insertBefore(p,home);
-    home.remove();
-  }else{
-    p.remove();               // its page was re-rendered; a fresh one is there
-  }
-  const bar=_dockedBar||document.getElementById('sec-nav');
-  _dockedBar=null;
-  if(bar){
-    bar.classList.remove('has-dock');
-    if(bar.dataset.dockOnly){ bar.hidden=true; delete bar.dataset.dockOnly; }
-  }
+  const p=_dockedPicker, home=_dockedHome, bar=_dockedBar;
+  _dockedPicker=null; _dockedHome=null; _dockedBar=null;
+  const finish=()=>{
+    p.style.cssText='';
+    p.classList.remove('picker-docked');
+    if(home&&home.isConnected){ home.parentNode.insertBefore(p,home); home.remove(); }
+    else p.remove();            // its page was re-rendered; a fresh one is there
+    if(bar){
+      bar.classList.remove('has-dock');
+      if(bar.dataset.dockOnly){ bar.hidden=true; delete bar.dataset.dockOnly; }
+    }
+    _dockBusy=false;
+  };
+  if(instant||!home||!home.isConnected){ finish(); return; }
+  _dockBusy=true;
+  p.style.transition=`height ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1), opacity .14s ease, margin ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1)`;
+  p.style.opacity='0';
+  p.style.height='0px';
+  p.style.marginBottom='0px';
+  setTimeout(finish,DOCK_MS);
 }
 function syncPickerDock(){
+  if(_dockBusy) return;
   const bar=activeChipBar(), nav=document.getElementById('floatnav');
   if(!bar||!nav) return;
   const line=nav.getBoundingClientRect().bottom;
   if(_dockedPicker){
     const gone=!_dockedHome||!_dockedHome.isConnected
       ||!document.getElementById('page-'+_activeTab)?.contains(_dockedHome);
-    const back=_dockedHome&&_dockedHome.isConnected
-      &&_dockedHome.getBoundingClientRect().top>line+2;
-    if(gone||back) undockPicker();
-    else return;
+    if(gone){ undockPicker(true); return; }
+    /* a wider band than the docking test, so a page that re-renders to a
+       slightly different height cannot chatter across the boundary */
+    if(_dockedHome.getBoundingClientRect().top>line+12) undockPicker();
+    return;
   }
   const p=pagePicker(); if(!p) return;
   const r=p.getBoundingClientRect();
-  if(r.height&&r.bottom<=line){
-    const ph=document.createElement('div');
-    ph.className='picker-ph';
-    ph.style.height=r.height+'px';
-    p.parentNode.insertBefore(ph,p);
-    bar.appendChild(p);                      // under the chips; the drawer grows to it
-    p.classList.add('picker-docked');
-    _dockedPicker=p; _dockedHome=ph; _dockedBar=bar;
-    bar.classList.add('has-dock');
-    if(bar.hidden){ bar.hidden=false; bar.dataset.dockOnly='1'; }
-  }
+  if(!r.height||r.bottom>line) return;
+
+  const h=Math.round(r.height);
+  const ph=document.createElement('div');
+  ph.className='picker-ph';
+  ph.style.height=h+'px';
+  p.parentNode.insertBefore(ph,p);
+  bar.insertBefore(p,bar.firstChild);        // the space opens above the chips
+  p.classList.add('picker-docked');
+  _dockedPicker=p; _dockedHome=ph; _dockedBar=bar;
+  bar.classList.add('has-dock');
+  if(bar.hidden){ bar.hidden=false; bar.dataset.dockOnly='1'; }
+
+  /* closed, then opened on the next frame so the transition has two states */
+  p.style.transition='none';
+  p.style.height='0px'; p.style.opacity='0'; p.style.marginBottom='0px';
+  p.offsetHeight;                            // commit the closed state
+  requestAnimationFrame(()=>{
+    if(_dockedPicker!==p) return;
+    p.style.transition=`height ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1), opacity .22s ease ${Math.round(DOCK_MS*0.45)}ms, margin ${DOCK_MS}ms cubic-bezier(.3,.75,.25,1)`;
+    p.style.height=h+'px';
+    p.style.opacity='1';
+    p.style.marginBottom='9px';
+  });
 }
 
 let _dockRaf=0;
@@ -4491,7 +4592,7 @@ function buildSectionNav(tab){
   const bar=local||top;
   if(local){
     /* clearing the global bar must not take a docked picker with it */
-    if(_dockedPicker&&top.contains(_dockedPicker)) local.appendChild(_dockedPicker);
+    if(_dockedPicker&&top.contains(_dockedPicker)) local.insertBefore(_dockedPicker,local.firstChild);
     top.innerHTML=''; top.hidden=true;
     if(_dockedPicker&&local.contains(_dockedPicker)) _dockedBar=local;
   }
@@ -4524,7 +4625,7 @@ function buildSectionNav(tab){
   const keepDock=(_dockedPicker&&bar.contains(_dockedPicker))?_dockedPicker:null;
   bar.innerHTML=entries.map((e,i)=>
     `<button class="sx-chip" data-sx="${i}" title="${e.label}" onclick="jumpToSection(this)">${sxShort(e.label)}</button>`).join('');
-  if(keepDock) bar.appendChild(keepDock);                  // survives the rebuild
+  if(keepDock) bar.insertBefore(keepDock,bar.firstChild);   // survives the rebuild
   bar.hidden=false;
   fitSectionNav(bar,entries.length);
   syncNavDock();

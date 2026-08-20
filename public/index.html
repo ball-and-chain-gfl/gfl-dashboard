@@ -1068,21 +1068,12 @@
     }
     /* a docked picker spans the drawer above the chips, and drops the padding
        it carries in the page so it sits on the drawer's own rhythm */
-    /* It arrives at the foot of the drawer and the drawer stretches to take it:
-       the bar's height follows its content, so animating the picker open is what
-       animates the container growing. */
-    @keyframes pickerTakeUp{
-      from{opacity:0;max-height:0;margin-top:0;transform:translateY(-8px);}
-      to{opacity:1;max-height:56px;margin-top:9px;transform:none;}
-    }
+    /* Docked: the drawer opens above the chips and the picker fades into the
+       space. Height, opacity and margin are all set inline from a measured
+       value, so nothing snaps when the transition ends. */
     .sec-nav-local>.picker-bar.picker-docked,
-    .sec-nav>.picker-bar.picker-docked{grid-column:1/-1;padding:0!important;margin:9px 0 0;
-      gap:8px;flex-wrap:nowrap;overflow:hidden;
-      animation:pickerTakeUp .28s cubic-bezier(.3,.75,.25,1);}
-    @media(prefers-reduced-motion:reduce){
-      .sec-nav>.picker-bar.picker-docked,
-      .sec-nav-local>.picker-bar.picker-docked{animation:none;}
-    }
+    .sec-nav>.picker-bar.picker-docked{grid-column:1/-1;padding:0!important;
+      gap:8px;flex-wrap:nowrap;overflow:hidden;box-sizing:border-box;}
     .sec-nav-local>.picker-bar.picker-docked label,
     .sec-nav>.picker-bar.picker-docked label{flex:0 0 auto;font-size:12px;}
     .sec-nav-local>.picker-bar.picker-docked select,
@@ -1120,39 +1111,67 @@
       .sx-chip{font-size:11.5px;padding:6px 8px;letter-spacing:.1px;}
     }
 
-    /* ── Biggest win / biggest loss ───────────────────────────────────────
-       Two ranked lists side by side, the All-Time Drafts shape. No column
-       headings: the sign and the colour say which side is which, and the note
-       under the block carries the rest. */
-    .sw-sec{margin-top:32px;}                 /* the block above it ends flush */
-    .sw-pair{gap:12px;}
-    .sw-col{padding:6px 12px;min-width:0;}
-    .swm{padding:11px 0;border-top:1px solid rgba(255,255,255,0.07);min-width:0;}
-    .swm:first-child{border-top:0;}
-    .swm-top{display:flex;align-items:center;gap:7px;min-width:0;}
-    .swm-rk{flex:0 0 auto;min-width:14px;font-family:'Inter',sans-serif;font-size:11px;
-      font-weight:800;color:var(--text3);}
-    .swm-name{flex:1 1 auto;min-width:0;font-family:'Inter',sans-serif;font-size:13px;
-      font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .swm-marg{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:16px;font-weight:800;}
-    .swm-w .swm-marg{color:var(--green);}
-    .swm-l .swm-marg{color:var(--red);}
-    .swm-bot{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
-      margin-top:4px;padding-left:21px;min-width:0;}
-    .swm-opp{font-family:'Inter',sans-serif;font-size:12px;color:var(--text2);
+    /* ── Margins ──────────────────────────────────────────────────────────
+       Full-width rows rather than two columns: team names are written out in
+       full now, and two of those side by side does not fit a phone at any
+       sensible size. Four tabs carry what the second column used to. */
+    .mg-sec{margin-top:32px;}
+    .dr-mtabs.mg-tabs{grid-template-columns:repeat(4,1fr);}
+    .mg-tab .mg-t1{font-weight:800;letter-spacing:.3px;}
+    .mg-tab .mg-t2{font-size:10.5px;color:var(--text3);}
+    .mg-tab.active .mg-t2{color:var(--text2);}
+    .mg-list{display:flex;flex-direction:column;gap:8px;}
+
+    /* by team */
+    .mg-card{padding:11px 13px;border-radius:11px;background:rgba(255,255,255,0.03);
+      border:1px solid var(--border);}
+    .mg-team{display:flex;align-items:center;gap:8px;margin-bottom:8px;
+      font-family:'Inter',sans-serif;font-size:13.5px;font-weight:800;color:var(--text);}
+    .mg-line{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;
+      align-items:baseline;gap:10px;padding:6px 0 6px 9px;border-left:3px solid transparent;
+      font-family:'Inter',sans-serif;}
+    .mg-line+.mg-line{margin-top:4px;}
+    .mg-w{border-left-color:var(--green);}
+    .mg-l{border-left-color:var(--red);}
+    .mg-marg{font-size:15px;font-weight:800;white-space:nowrap;}
+    .mg-w .mg-marg{color:var(--green);}
+    .mg-l .mg-marg{color:var(--red);}
+    .mg-opp{font-size:12.5px;color:var(--text);min-width:0;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .swm-when{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:10px;
+    .mg-verb{color:var(--text3);}
+    .mg-sc{font-size:11.5px;font-weight:600;color:var(--text2);white-space:nowrap;}
+    .mg-when{font-size:10px;letter-spacing:.2px;text-transform:uppercase;
+      color:var(--text3);white-space:nowrap;}
+    .mg-none{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text3);padding:6px 0;}
+
+    /* top ten */
+    .mg-top{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:11px;
+      background:rgba(255,255,255,0.03);border:1px solid var(--border);}
+    .mg-rk{flex:0 0 auto;min-width:18px;font-family:'Inter',sans-serif;font-size:13px;
+      font-weight:800;color:var(--text3);}
+    .mg-topmain{flex:1 1 auto;min-width:0;}
+    .mg-topline{display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+      font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);}
+    .mg-side{display:inline-flex;align-items:center;gap:6px;min-width:0;}
+    .mg-wside{font-weight:700;}
+    .mg-def{color:var(--text3);font-size:11px;}
+    .mg-topsub{margin-top:4px;font-family:'Inter',sans-serif;font-size:10.5px;
       letter-spacing:.2px;text-transform:uppercase;color:var(--text3);}
-    .sw-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
+    .mg-topmarg{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:17px;font-weight:800;
+      color:var(--green);}
+    .mg-topmarg.mg-tight{color:var(--accent);}
+    .mg-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
       line-height:1.5;color:var(--text3);}
+
     @media(max-width:768px){
-      .sw-pair{gap:8px;}
-      .sw-col{padding:4px 10px;}
-      .swm{padding:10px 0;}
-      .swm-name{font-size:12px;}
-      .swm-marg{font-size:14.5px;}
-      .swm-bot{padding-left:0;margin-top:3px;}
-      .swm-opp{font-size:11px;}
+      .dr-mtabs.mg-tabs{grid-template-columns:1fr 1fr;}
+      /* the score drops first: the margin already says how far apart it was */
+      .mg-line{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;}
+      .mg-sc{display:none;}
+      .mg-marg{font-size:14px;}
+      .mg-opp{font-size:12px;}
+      .mg-topline{font-size:12px;}
+      .mg-topmarg{font-size:15px;}
     }
 
     /* ── Sportsbook: going in on a parlay together ────────────────────────
