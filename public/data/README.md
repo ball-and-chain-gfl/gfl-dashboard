@@ -37,3 +37,21 @@ Run `node scripts/archive-season.mjs` after a season ends. It skips anything
 already archived and refuses to write a season that is not finished, so it is
 safe to run repeatedly. lineups-<season>.json and lineupiq-<season>.json are
 written by the same pass.
+
+## transactions-<season>.json — MUST be captured during the season
+
+ESPN only serves the detailed transaction log while a season is ACTIVE. Once it
+ends, mTransactions2 returns no `transactions` key and the activity feed 404s.
+That is why 2022-2025 waiver history is gone and cannot be recovered.
+
+Run this weekly while a season is running:
+
+    node scripts/archive-transactions.mjs
+
+It merges with whatever is already archived (keyed by transaction id), so a row
+captured in week 3 survives after ESPN stops serving it. Re-running is safe.
+
+Each waiver pickup is stored with `bid` and `nextBid` — the next highest bid on
+that same player that same week, or 0 if nobody else was in. Losing claims are
+kept in `transactions` as the evidence for `nextBid` but are not themselves
+pickups. `node scripts/test-next-bid.mjs` covers that rule.

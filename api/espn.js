@@ -397,6 +397,46 @@ export default async function handler(req, res) {
   }
 
   // ── Transactions (waivers / free agents / trades) — used for C2/C3 ───────────
+  // ── RAW TRANSACTION DUMP ─────────────────────────────────────────────────────
+  // Everything ESPN will give us about transactions, unnormalised and unfiltered,
+  // for the archiver to freeze while the season is still live.
+  //
+  // The normalised `transactions` endpoint below is lossy on purpose — it emits
+  // only executed moves, because that is all the activity feed carries. Losing
+  // waiver bids can only come from mTransactions2, and only while the season is
+  // ACTIVE. So this returns the raw arrays and lets the archiver decide, rather
+  // than throwing away the one field that makes "next highest bid" possible.
+  if (type === 'txdump') {
+    const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
+    const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
+    // no filterType: a type filter drops FAILED claims, which are the losing bids
+    const allTx = { transactions: { limit: 5000, offset: 0 } };
+    const topicsFilter = { topics: {
+      filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000, limitPerMessageSet:{ value:1000 }, offset:0,
+      sortMessageDate:{ sortPriority:1, sortAsc:false },
+    }};
+    const out = { season, fetchedAt: new Date().toISOString(), sources: [] };
+    const grab = async (name, url, filter) => {
+      const rec = { name, status: null, count: 0 };
+      try {
+        const r = await fetch(url, { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(filter) } });
+        rec.status = r.status;
+        if (r.ok) {
+          const d = unwrap(await r.json());
+          if (Array.isArray(d.transactions)) { rec.count = d.transactions.length; out.transactions = (out.transactions||[]).concat(d.transactions); }
+          if (Array.isArray(d.topics))       { rec.topics = d.topics.length;      out.topics       = (out.topics||[]).concat(d.topics); }
+        }
+      } catch (e) { rec.error = String(e).slice(0, 160); }
+      out.sources.push(rec);
+    };
+    await grab('live_mTx2_all', `${liveBase}?view=mTransactions2`, allTx);
+    await grab('hist_mTx2_all', `${histBase}&view=mTransactions2`, allTx);
+    await grab('live_comm', `${liveBase}/communication/?view=kona_league_communication`, topicsFilter);
+    out.transactions = out.transactions || [];
+    out.topics = out.topics || [];
+    return res.status(200).json(out);
+  }
+
   // ESPN only retains the detailed transaction log while a season is ACTIVE.
   // For completed seasons mTransactions2 comes back without a `transactions`
   // key. We try every plausible source and report which one worked; the client
