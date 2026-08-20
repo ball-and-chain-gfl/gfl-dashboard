@@ -152,9 +152,30 @@ async function txFetch(){
   }
   return d;
 }
+/* A finished season's weekly scores can never change again, so they are
+   archived in the repo as one file per season instead of being pulled a week
+   at a time. This was seventeen API calls on every single page load, each one
+   several seconds — comfortably the most expensive thing the app did.
+   The promise is cached rather than the value, so the seventeen callers that
+   fire together share one fetch instead of racing seventeen. A season with no
+   archive — the one currently being played — falls through to ESPN as before. */
+let _weeklyStatic={};
+function weeklyArchive(season){
+  if(!_weeklyStatic[season]) _weeklyStatic[season]=(async()=>{
+    try{
+      const r=await fetch(`/data/weekly-${season}.json`);
+      if(r.ok){ const j=await r.json(); if(j&&j.weeks) return j.weeks; }
+    }catch(e){}
+    return null;
+  })();
+  return _weeklyStatic[season];
+}
 async function fetchPlayerWeekScores(week){
+  const season=getSeason();
+  const arc=await weeklyArchive(season);
+  if(arc&&arc[week]) return arc[week];
   try{
-    const r=await fetch(`${BASE}?type=playerscores&seasonId=${getSeason()}&scoringPeriodId=${week}`);
+    const r=await fetch(`${BASE}?type=playerscores&seasonId=${season}&scoringPeriodId=${week}`);
     return r.ok?(await r.json()).players||{}:{};
   }catch{return{};}
 }

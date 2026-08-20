@@ -25,3 +25,15 @@ without touching anything.
 `https://gfl-dashboard.vercel.app/api/archive?seasonId=<year>` in a browser,
 save the JSON as `public/data/transactions-<year>.json`, commit, and push.
 Do this before the season ends (by week 17) if the cron/token isn't set up.
+
+## weekly-<season>.json — archived by scripts/archive-season.mjs
+
+A finished season's per-week player scores, all weeks in one file. These used
+to be seventeen separate API calls on every page load, each taking seconds;
+they are now one static fetch. Written only for seasons whose every scheduled
+game has been played, so an in-progress season still goes to ESPN live.
+
+Run `node scripts/archive-season.mjs` after a season ends. It skips anything
+already archived and refuses to write a season that is not finished, so it is
+safe to run repeatedly. lineups-<season>.json and lineupiq-<season>.json are
+written by the same pass.
