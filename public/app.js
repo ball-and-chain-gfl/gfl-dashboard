@@ -1767,14 +1767,8 @@ function swingsHTML(){
   return `<div class="sec wm sw-sec" data-wm="&#xf091;">
     <div class="sec-head"><i class="fa fa-arrows-up-down"></i>Biggest Win &amp; Biggest Loss<span class="badge-info">every team · all seasons</span></div>
     <div class="dv-pair sw-pair" data-nochip>
-      <div class="card dr-mini sw-col">
-        <div class="section-header"><i class="fa fa-arrow-up" style="color:var(--green)"></i>Biggest win</div>
-        ${col(best,'w')}
-      </div>
-      <div class="card dr-mini sw-col">
-        <div class="section-header"><i class="fa fa-arrow-down" style="color:var(--red)"></i>Biggest loss</div>
-        ${col(worst,'l')}
-      </div>
+      <div class="card dr-mini sw-col">${col(best,'w')}</div>
+      <div class="card dr-mini sw-col">${col(worst,'l')}</div>
     </div>
     <div class="sw-note">Margin of victory, every season, ranked. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
   </div>`;
@@ -4454,7 +4448,7 @@ function syncPickerDock(){
     ph.className='picker-ph';
     ph.style.height=r.height+'px';
     p.parentNode.insertBefore(ph,p);
-    bar.insertBefore(p,bar.firstChild);      // above the chips, not after them
+    bar.appendChild(p);                      // under the chips; the drawer grows to it
     p.classList.add('picker-docked');
     _dockedPicker=p; _dockedHome=ph; _dockedBar=bar;
     bar.classList.add('has-dock');
@@ -4497,7 +4491,7 @@ function buildSectionNav(tab){
   const bar=local||top;
   if(local){
     /* clearing the global bar must not take a docked picker with it */
-    if(_dockedPicker&&top.contains(_dockedPicker)) local.insertBefore(_dockedPicker,local.firstChild);
+    if(_dockedPicker&&top.contains(_dockedPicker)) local.appendChild(_dockedPicker);
     top.innerHTML=''; top.hidden=true;
     if(_dockedPicker&&local.contains(_dockedPicker)) _dockedBar=local;
   }
@@ -4530,7 +4524,7 @@ function buildSectionNav(tab){
   const keepDock=(_dockedPicker&&bar.contains(_dockedPicker))?_dockedPicker:null;
   bar.innerHTML=entries.map((e,i)=>
     `<button class="sx-chip" data-sx="${i}" title="${e.label}" onclick="jumpToSection(this)">${sxShort(e.label)}</button>`).join('');
-  if(keepDock) bar.insertBefore(keepDock,bar.firstChild);   // survives the rebuild
+  if(keepDock) bar.appendChild(keepDock);                  // survives the rebuild
   bar.hidden=false;
   fitSectionNav(bar,entries.length);
   syncNavDock();
