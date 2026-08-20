@@ -6861,8 +6861,12 @@ function bucksResetsIn(now=new Date()){
 const betsAfterReset=b=>Number(b.ts||0)>=Number(_CFG.betsResetBefore||0);
 const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1&&betsAfterReset(b));
 const betsThisWeek=()=>betsMine().filter(b=>b.wk===bucksWeekKey());
-function bucksStaked(){ return betsThisWeek().reduce((a,b)=>a+b.stake,0); }
-function bucksReturned(){ return betsThisWeek().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
+/* An invitation is an offer, not a wager: nothing is staked until it is taken
+   up, and a declined one never was. Both stay out of every money figure. */
+const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
+const betsLiveThisWeek=()=>betsThisWeek().filter(betIsLive);
+function bucksStaked(){ return betsLiveThisWeek().reduce((a,b)=>a+b.stake,0); }
+function bucksReturned(){ return betsLiveThisWeek().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
 function bucksBalance(){ return Math.max(0,BUCKS_WEEKLY-bucksStaked()+bucksReturned()); }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
@@ -6881,6 +6885,7 @@ async function betList(){
         season:f.season||'',wk:f.wk||'',ts:Number(f.ts)||0,
         stake:Number(f.stake)||0,odds:Number(f.odds)||0,payout:Number(f.payout)||0,
         legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0,
+        invitedBy:f.invitedBy||'', srcBet:f.srcBet||'',
         hidden:String(f.hidden||'')==='1'};
     }).sort((a,b)=>b.ts-a.ts);
   }catch(e){ _betErr='offline'; return null; }
@@ -7697,7 +7702,7 @@ function bkIQHTML(teamId){
    Open bets are left out: their stake is committed but their return is not
    known yet, so counting them would show a loss that may not happen. */
 function bankSeries(){
-  const mine=betsMine().filter(b=>b.status!=='open');
+  const mine=betsMine().filter(b=>b.status!=='open'&&betIsLive(b));
   const byWeek={};
   mine.forEach(b=>{ byWeek[b.wk]=(byWeek[b.wk]||0)+((b.ret||0)-(b.stake||0)); });
   const weeks=Object.keys(byWeek).sort();
@@ -7824,7 +7829,7 @@ async function sbVoidBet(id){
    never touches the ledger. The week's balance is derived by replaying every
    bet in it, so a cleared loss must still have cost its stake and a cleared win
    must still have paid — hiding only decides what the list shows. */
-function betsClearable(){ return betsMine().filter(b=>b.status!=='open'&&!b.hidden); }
+function betsClearable(){ return betsMine().filter(b=>b.status!=='open'&&!b.hidden&&betIsLive(b)); }
 async function sbClearSettled(){
   const done=betsClearable();
   if(!done.length||_betBusy) return;
@@ -8001,6 +8006,69 @@ function sbMarketHTML(m){
 }
 function renderMyBets(){ if(_activeTab==='book') renderBook(); }
 let _betsInit=false;
+/* ── GOING IN ON A PARLAY TOGETHER ──────────────────────────────────────────
+   An invitation is just another bet document, owned by the person invited and
+   parked at status 'invite'. It carries the original's legs, price and stake —
+   the whole point is that both are in for the same — plus who sent it and which
+   bet it came from. Accepting flips it to 'open' and it grades like any other;
+   declining flips it to 'declined'. Neither state counts as money staked, and
+   nothing is ever deleted, which is what the Firestore rules require anyway. */
+let _inviteFor=null,_inviteErr=null;
+/* the league's sign-in accounts, which is what a bet is owned by */
+function betAccounts(){
+  return _teams.map(t=>({k1:keySlug(t.abbrev||teamInitials(t.name)),name:t.name}))
+    .filter(x=>x.k1);
+}
+const betAccountName=k1=>(betAccounts().find(a=>a.k1===k1)||{}).name||k1;
+/* everyone already holding an invitation to this bet */
+const betInvitesFor=id=>(_bets||[]).filter(b=>b.srcBet===id);
+function betInviteOpen(id){ _inviteFor=(_inviteFor===id?null:id); _inviteErr=null; renderMyBets(); }
+async function sbSendInvite(betId,to){
+  if(!_me||_betBusy||!to) return;
+  const src=(_bets||[]).find(b=>b.id===betId);
+  if(!src||src.owner!==_me.k1||src.status!=='open') return;
+  if(betInvitesFor(betId).some(b=>b.owner===to)) return;   // already asked
+  _betBusy=true; _inviteErr=null; renderMyBets();
+  const id=`${Date.now()}-${to}-inv`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
+  const body=fsOut({
+    owner:to, team:'', season:String(src.season||sbSeason()),
+    wk:src.wk, ts:String(Date.now()),
+    stake:String(src.stake), odds:String(src.odds), payout:String(src.payout),
+    legs:JSON.stringify(src.legs||[]),
+    status:'invite', settledTs:'0', ret:'0',
+    invitedBy:_me.k1, srcBet:betId,
+  });
+  try{
+    const r=await fetch(`${betBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){ _inviteFor=null; await betRefresh(); }
+    else _inviteErr=r.status===403?'rules':'send';
+  }catch(e){ _inviteErr='offline'; }
+  _betBusy=false; renderMyBets();
+}
+async function sbInviteRespond(id,accept){
+  if(!_me||_betBusy) return;
+  const inv=(_bets||[]).find(b=>b.id===id);
+  if(!inv||inv.owner!==_me.k1||inv.status!=='invite') return;
+  if(accept){
+    /* the stake has to be there now, not when it was offered */
+    if(inv.stake>bucksBalance()){ _inviteErr='funds'; renderMyBets(); return; }
+    const src=(_bets||[]).find(b=>b.id===inv.srcBet);
+    if(src&&src.status!=='open'){ _inviteErr='gone'; renderMyBets(); return; }
+  }
+  _betBusy=true; _inviteErr=null; renderMyBets();
+  const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=team&updateMask.fieldPaths=ts';
+  try{
+    const r=await fetch(`${betBase()}/${encodeURIComponent(id)}?${msgKey()}&${mask}`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify(fsOut({status:accept?'open':'declined',
+         team:String(_me.teamId||''),ts:String(Date.now())}))});
+    if(r.ok){ inv.status=accept?'open':'declined'; inv.team=String(_me.teamId||''); await betRefresh(); }
+    else _inviteErr=r.status===403?'rules':'send';
+  }catch(e){ _inviteErr='offline'; }
+  _betBusy=false; renderMyBets();
+}
+
 async function initBets(){
   if(_betsInit) return; _betsInit=true;
   await betRefresh();
@@ -8026,6 +8094,71 @@ async function betSettleAll(){
   if(changed) renderMyBets();
 }
 
+/* Invitations waiting on an answer. Shown before the ledger because they are
+   the only thing on the page asking the manager to do something. */
+function sbInvitesHTML(){
+  if(!_me) return '';
+  const pend=betsMine().filter(b=>b.status==='invite');
+  if(!pend.length) return '';
+  const err=_inviteErr==='funds'?'Not enough GFL Bucks for that stake right now.'
+    :_inviteErr==='gone'?'That bet is no longer open — the invite has lapsed.'
+    :_inviteErr==='rules'?'The bets collection is not writable yet.'
+    :_inviteErr?'Could not send that. Try again.':'';
+  return `<div class="sb-invites">
+    <div class="sb-invites-h"><i class="fa fa-user-plus"></i>In on a parlay?
+      <span>${pend.length}</span></div>
+    ${err?`<div class="sb-invite-err">${err}</div>`:''}
+    ${pend.map(b=>{
+      const src=(_bets||[]).find(x=>x.id===b.srcBet);
+      const stale=src&&src.status!=='open';
+      const bid=b.id.replace(/'/g,"\\'");
+      return `<div class="sb-invite${stale?' sb-invite-stale':''}">
+        <div class="sb-invite-top"><b>${betAccountName(b.invitedBy)}</b> wants you in on
+          ${b.legs.length>1?`a ${b.legs.length}-leg parlay`:'a bet'}</div>
+        <div class="sb-bet-legs">${b.legs.map(l=>`<div class="sb-bl">
+          <span class="sb-bl-p">${l.pickLabel}</span><span class="sb-bl-m">${l.mkLabel}</span>
+          <span class="sb-bl-o">${amFmt(l.odds)}</span></div>`).join('')}</div>
+        <div class="sb-bet-foot">
+          <span>Your stake <b>${bucksFmt(b.stake)}</b></span>
+          <span>${amFmt(b.odds)}</span>
+          <span>To return <b>${bucksFmt(b.payout)}</b></span>
+        </div>
+        ${stale?'<div class="sb-lockmsg"><i class="fa fa-lock"></i>Their bet was pulled — this has lapsed</div>':''}
+        <div class="sb-invite-acts">
+          <button class="sb-place" ${_betBusy||stale?'disabled':''}
+            onclick="sbInviteRespond('${bid}',true)">
+            <i class="fa fa-check"></i>I&#39;m in · ${bucksFmt(b.stake)}</button>
+          <button class="sb-pull" ${_betBusy?'disabled':''}
+            onclick="sbInviteRespond('${bid}',false)">
+            <i class="fa fa-xmark"></i>No thanks</button>
+        </div>
+      </div>`;}).join('')}
+  </div>`;
+}
+/* The control that sends one, hung under a bet you own and still have open. */
+function sbInviteBoxHTML(b){
+  if(!_me||b.owner!==_me.k1||b.status!=='open') return '';
+  const asked=betInvitesFor(b.id);
+  const taken=new Set(asked.map(x=>x.owner));
+  const left=betAccounts().filter(a=>a.k1!==_me.k1&&!taken.has(a.k1));
+  const badge=asked.length?`<div class="sb-inv-sent">${asked.map(x=>
+    `<span class="sb-inv-chip sb-inv-${x.status}">${betAccountName(x.owner)} · ${
+      x.status==='invite'?'asked':x.status==='declined'?'declined':'in'}</span>`).join('')}</div>`:'';
+  const bid=b.id.replace(/'/g,"\\'");
+  if(_inviteFor!==b.id){
+    return badge+(left.length?`<button class="sb-invite-btn" onclick="betInviteOpen('${bid}')">
+      <i class="fa fa-user-plus"></i>Invite someone in</button>`:'');
+  }
+  return badge+`<div class="sb-invite-pick">
+    <select id="inv-sel-${b.id}" aria-label="Invite">
+      ${left.map(a=>`<option value="${a.k1}">${a.name}</option>`).join('')}</select>
+    <button class="sb-place" ${_betBusy?'disabled':''}
+      onclick="sbSendInvite('${bid}',document.getElementById('inv-sel-${b.id}').value)">
+      Send · ${bucksFmt(b.stake)} each</button>
+    <button class="sb-pull" onclick="betInviteOpen('${bid}')">Cancel</button>
+  </div>`;
+}
+
 /* Every bet this profile has placed, newest first, with the week's ledger on
    top. Grouped by bucks week so a settled week reads as its own scoreboard. */
 function myBetsHTML(){
@@ -8047,13 +8180,14 @@ function myBetsHTML(){
     <div class="sb-led sb-led-note">Resets to ${bucksFmt(BUCKS_WEEKLY)} in ${bucksResetsIn()}</div>
   </div>
   ${bankHTML()}
+  ${sbInvitesHTML()}
   ${betsClearable().length?`<div class="sb-clearsettled-row">
     <button class="sb-clear" onclick="sbClearSettled()" ${_betBusy?'disabled':''}>
       <i class="fa fa-broom"></i> Clear settled (${betsClearable().length})</button></div>`:''}`;
   if(!mine.length) return ledger+`<div class="sb-mine-empty"><i class="fa fa-receipt"></i>
     <div>No bets yet. Tap any price to build a slip.</div></div>`;
   const weeks={};
-  mine.forEach(b=>{(weeks[b.wk]||(weeks[b.wk]=[])).push(b);});
+  mine.filter(b=>b.status!=='invite').forEach(b=>{(weeks[b.wk]||(weeks[b.wk]=[])).push(b);});
   const cur=bucksWeekKey();
   const cards=Object.keys(weeks).sort().reverse().map(wk=>{
     const list=weeks[wk].map(b=>{
@@ -8078,6 +8212,8 @@ function myBetsHTML(){
           <span>${amFmt(b.odds)}</span>
           <span>${b.status==='open'?'To return':'Returned'} <b>${bucksFmt(b.status==='open'?b.payout:b.ret)}</b></span>
         </div>
+        ${b.invitedBy?`<div class="sb-inv-from"><i class="fa fa-user-group"></i>In with ${betAccountName(b.invitedBy)}</div>`:''}
+        ${sbInviteBoxHTML(b)}
         ${canPull?`<button class="sb-pull" onclick="sbVoidBet('${b.id.replace(/'/g,"\\'")}')" ${_betBusy?'disabled':''}>
             <i class="fa fa-rotate-left"></i>Remove bet · ${bucksFmt(b.stake)} back</button>`
           :b.status==="open"&&b.wk===cur&&weekHasStarted()?`<div class="sb-lockmsg"><i class="fa fa-lock"></i>Locked — the week is under way</div>`:''}

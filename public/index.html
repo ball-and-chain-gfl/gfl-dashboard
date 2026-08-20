@@ -1098,24 +1098,51 @@
       .sx-chip{font-size:11.5px;padding:6px 8px;letter-spacing:.1px;}
     }
 
-    /* ── Team profile: the season block's own year picker ─────────────────
-       Sits inline in the heading where the year used to be plain text, so the
-       icon and the word "Season" stay put and only the year is selectable. */
-    .prof-yr-head{gap:8px;}
-    select.prof-yr{-webkit-appearance:none;appearance:none;font:inherit;
-      color:var(--accent);background:rgba(var(--accent-rgb),0.10);
-      border:1px solid rgba(var(--accent-rgb),0.35);border-radius:7px;
-      padding:1px 22px 1px 9px;cursor:pointer;line-height:1.35;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
-      background-repeat:no-repeat;background-position:right 7px center;
-      transition:border-color .15s,background-color .15s;}
-    select.prof-yr:hover{border-color:rgba(var(--accent-rgb),0.65);
-      background-color:rgba(var(--accent-rgb),0.16);}
-    select.prof-yr:focus{outline:none;border-color:var(--accent);
-      box-shadow:0 0 0 3px rgba(var(--accent-rgb),0.18);}
-    select.prof-yr option{background:#15151a;color:var(--text);}
-    .prof-yr-note{margin-top:12px;font-family:'Inter',sans-serif;font-size:11px;
-      line-height:1.5;color:var(--text3);}
+    /* ── Sportsbook: going in on a parlay together ────────────────────────
+       Pending invitations lead the My Bets panel — they are the only thing on
+       it asking for an answer — and the control that sends one hangs under the
+       bet it came from. */
+    .sb-invites{margin:0 0 16px;padding:13px 14px 14px;border-radius:12px;
+      border:1px solid rgba(var(--accent-rgb),0.40);
+      background:linear-gradient(rgba(var(--accent-rgb),0.09),rgba(var(--accent-rgb),0.03));}
+    .sb-invites-h{display:flex;align-items:center;gap:9px;margin-bottom:11px;
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;
+      letter-spacing:.7px;text-transform:uppercase;color:var(--accent);}
+    .sb-invites-h i{font-size:12px;}
+    .sb-invites-h span{margin-left:auto;padding:1px 8px;border-radius:999px;
+      background:rgb(var(--accent-rgb));color:#0d0d0f;font-size:11px;font-weight:800;}
+    .sb-invite{padding:11px 12px;border-radius:10px;background:rgba(0,0,0,0.30);
+      border:1px solid rgba(255,255,255,0.09);}
+    .sb-invite+.sb-invite{margin-top:9px;}
+    .sb-invite-stale{opacity:0.55;}
+    .sb-invite-top{font-family:'Inter',sans-serif;font-size:13px;color:var(--text2);
+      margin-bottom:9px;line-height:1.4;}
+    .sb-invite-top b{color:var(--text);}
+    .sb-invite-acts{display:flex;gap:8px;margin-top:10px;}
+    .sb-invite-acts .sb-place,.sb-invite-acts .sb-pull{flex:1 1 0;margin:0;}
+    .sb-invite-err{margin-bottom:10px;padding:8px 11px;border-radius:8px;
+      background:rgba(232,104,126,0.14);color:var(--red);
+      font-family:'Inter',sans-serif;font-size:12px;}
+    /* the sending side */
+    .sb-invite-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+      margin-top:9px;padding:9px 12px;border-radius:9px;cursor:pointer;
+      background:rgba(255,255,255,0.06);border:1px dashed rgba(255,255,255,0.22);
+      color:var(--text2);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
+      transition:background .14s,border-color .14s,color .14s;}
+    .sb-invite-btn:hover{background:rgba(var(--accent-rgb),0.14);
+      border-color:rgba(var(--accent-rgb),0.5);color:var(--text);}
+    .sb-invite-pick{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;}
+    .sb-invite-pick select{flex:1 1 130px;min-width:0;padding:8px 10px;border-radius:8px;
+      background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.16);color:var(--text);
+      font-family:'Inter',sans-serif;font-size:12.5px;}
+    .sb-invite-pick .sb-place,.sb-invite-pick .sb-pull{flex:0 0 auto;margin:0;}
+    .sb-inv-sent{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+    .sb-inv-chip{padding:3px 9px;border-radius:999px;font-family:'Inter',sans-serif;
+      font-size:10.5px;font-weight:700;background:rgba(255,255,255,0.07);color:var(--text3);}
+    .sb-inv-chip.sb-inv-open{background:rgba(63,208,122,0.16);color:var(--green);}
+    .sb-inv-chip.sb-inv-declined{background:rgba(232,104,126,0.14);color:var(--red);}
+    .sb-inv-from{display:flex;align-items:center;gap:7px;margin-top:9px;
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--accent);}
 
     /* ── Schedules: a finished season's results ───────────────────────────
        Won rows carry a green left edge, lost rows a red one — the same device
