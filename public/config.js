@@ -71,11 +71,17 @@ window.GFL_CONFIG = {
      EACH WEEK: bump `week` and replace the five questions. `correct` is the
      zero-based index of the right answer in `a`. Leave `reveal` false while the
      week is live; flip it to true afterwards to show everyone how they did. */
-  /* TESTING ONLY — how many minutes a GFL Bucks cycle lasts. Set to 5 so the
-     reset can be watched without waiting for Tuesday. Set to 0 (or delete this
-     line) to go back to the real Tuesday-to-Tuesday week. Bets already placed
-     stay attached to the cycle they were made in either way. */
-  bucksTestMinutes: 5,
+  /* TESTING ONLY — how many minutes a GFL Bucks cycle lasts, standing in for
+     the real Tuesday-to-Tuesday week. Set to 0 (or delete this line) to go back
+     to the real thing. Bets already placed stay attached to the cycle they were
+     made in either way.
+
+     Now that bucks compound rather than reset, this does more than hurry a
+     countdown along: a fresh allowance lands every cycle and is kept, so a
+     short cycle inflates every bank in the league. At 30 minutes that is 48
+     allowances a day — about $4,800 banked for doing nothing. Fine for
+     watching the mechanic work, worth turning off before the season counts. */
+  bucksTestMinutes: 30,
 
   /* Bets placed before this moment are ignored everywhere — My Bets, the
      balance and the bankroll chart. The Firestore rules withhold delete on
