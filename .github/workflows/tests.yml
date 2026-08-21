@@ -17,5 +17,7 @@ jobs:
         run: node --check public/app.js
       - name: invites and bucks
         run: node scripts/test-invites.mjs
+      - name: bank and easter egg
+        run: node scripts/test-bank-egg.mjs
       - name: next-highest waiver bid
         run: node scripts/test-next-bid.mjs

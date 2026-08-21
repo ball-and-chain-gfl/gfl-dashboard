@@ -674,6 +674,8 @@ function switchTab(name){
   if(h1){ const s=h1.querySelector('span')||h1; s.textContent=TAB_LABELS[name]||''; }
   buildSectionNav(name);
   watchSectionNav(name);
+  try{ renderBetsBar(); }catch(e){}
+  try{ eggPaint(); }catch(e){}
   /* A new tab always opens at the top. Without this the browser keeps the
      scroll position from the tab you just left, so arriving after a jump chip
      dropped you mid-page. scroll-behavior is suspended for the reset so it
@@ -4539,6 +4541,12 @@ function syncNavDock(){
     bar.style.setProperty('--navside',Math.max(0,Math.round(r.left-nb.left))+'px');
     bar.classList.toggle('stuck',r.top<=nb.bottom+1);
   });
+  const bets=document.getElementById('bets-bar');
+  if(bets&&!bets.hidden){
+    const r=bets.getBoundingClientRect();
+    bets.style.setProperty('--navside',Math.max(0,Math.round(r.left-nb.left))+'px');
+    bets.classList.toggle('stuck',r.top<=nb.bottom+1);
+  }
   try{ syncPickerDock(); }catch(e){}
 }
 function onDockScroll(){
@@ -5472,6 +5480,7 @@ function applyMe(){
     if(_activeTab==='history') try{ renderHistoryTable(); }catch(e){}
     if(_activeTab==='tenure') try{ renderTenureTable(); renderTenureEnemies(); }catch(e){}
   }
+  try{ eggReset(); }catch(e){}            // this manager's finds, not the last one's
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
   try{ pkReset(); }catch(e){}
@@ -6028,6 +6037,12 @@ function renderMyProfile(){
         <span class="mp-plant-l">Plant</span>
         <span class="mp-plant-v">${plantStage().label}</span>
       </span>
+      ${/* what the hunt has been worth, beside the locker */''}
+      <span class="mp-egg${eggsFound().size?' on':''}">
+        <i class="fa fa-egg"></i>
+        <span class="mp-egg-l">Eggs found</span>
+        <span class="mp-egg-v">${eggsFound().size}${eggsFound().size?` · ${bucksFmt(eggBucks())}`:''}</span>
+      </span>
     </div>`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
      straight here without opening a team profile first — the cache is empty and
@@ -6061,6 +6076,10 @@ function initSignIn(){
   renderMeChip();
   if(_me) applyMe();
 }
+/* Finds are per manager, so signing in or out swaps the list the balance is
+   built from — dropping the cache is what stops one account showing another's
+   haul on a shared device. */
+function eggReset(){ _eggs=null; try{ eggSync(); }catch(e){} try{ eggPaint(); }catch(e){} }
 // ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
 /* Which season still has games left? Preseason gives the whole slate; mid-season
    gives whatever's left of the current one. */
@@ -7107,6 +7126,148 @@ function sbBuild(){
 
    Bets live in their own Firestore collection keyed to the profile that placed
    them, so "my bets" is a filter rather than a per-user document. */
+
+/* ── THE EASTER EGG ──────────────────────────────────────────────────────────
+   One pixel egg is hidden somewhere on the site at any moment. It moves every
+   five minutes, and where it goes is worked out rather than stored: the clock
+   is divided into five-minute windows and the window number seeds a small
+   deterministic generator, which picks the page and the spot on it. Every
+   device runs the same arithmetic on the same window, so everyone is hunting
+   the same egg in the same place without a single byte crossing the network.
+
+   Nothing marks an unfound egg. If nobody spots it inside its five minutes the
+   window rolls and a new one is somewhere else — there is no queue and no
+   catching up, which is what makes finding one worth something.
+
+   Only the finder's claim is written down, as a list of window numbers on
+   their own profile document. That list is also the receipt: the bank pays ten
+   GFL Bucks per entry, so a find is worth the same whenever it is counted, and
+   replaying the ledger on another device produces the same balance. */
+const EGG_MS=5*60*1000, EGG_PRIZE=10;
+const eggWindow=(t=Date.now())=>Math.floor(t/EGG_MS);
+/* mulberry32: tiny, and identical in every browser — which matters more here
+   than quality, since two managers disagreeing about the spot would be a bug */
+function eggRand(seed){
+  let a=seed>>>0;
+  return ()=>{
+    a=(a+0x6D2B79F5)>>>0;
+    let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t;
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+/* The homepage is left out — it is the first thing everyone sees and finding it
+   there would take no looking. So is the profile page, which is where the
+   finds are reported. */
+const EGG_TABS=['week','book','punishment','teams','roster','history',
+                'tenure','legacy','standings','draft','trades','badbeat'];
+function eggSpot(w=eggWindow()){
+  const r=eggRand(Math.imul(w,2654435761));
+  const tab=EGG_TABS[Math.floor(r()*EGG_TABS.length)];
+  /* kept off the top of the page on purpose: an egg level with the title would
+     be sitting in plain sight before anyone had scrolled */
+  return {w, tab, x:0.05+r()*0.86, y:0.20+r()*0.70};
+}
+
+let _eggs=null, _eggTimer=null, _eggBusy=false;
+const eggKey=()=>lsKey('eggs');
+function eggsFound(){
+  if(_eggs) return _eggs;
+  let list=[];
+  try{ list=JSON.parse(localStorage.getItem(eggKey())||'[]')||[]; }catch(e){}
+  return (_eggs=new Set(list.map(Number).filter(n=>!isNaN(n))));
+}
+function eggBucks(){ return eggsFound().size*EGG_PRIZE; }
+function eggSave(){
+  const list=[...eggsFound()];
+  try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
+  if(_me) try{ gflPatchProfile(_me.k1,{eggs:JSON.stringify(list)}); }catch(e){}
+}
+/* The list on the profile is the record; the device copy is only so the
+   balance is right before the network answers. Merged rather than replaced,
+   so a find made on a phone is not lost by opening a laptop. */
+async function eggSync(){
+  if(!_me) return;
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.eggs)||'[]')||[]; }catch(e){}
+    const before=eggsFound().size;
+    srv.map(Number).filter(n=>!isNaN(n)).forEach(n=>eggsFound().add(n));
+    if(eggsFound().size!==before){
+      try{ localStorage.setItem(eggKey(),JSON.stringify([...eggsFound()])); }catch(e){}
+      eggPaint();
+      if(_activeTab==='profile') renderMyProfile();
+      if(_activeTab==='book') renderBook();
+    }
+  }catch(e){}
+}
+const EGG_SVG=`<svg viewBox="0 0 14 17" width="28" height="34" aria-hidden="true">
+  <g shape-rendering="crispEdges">
+    <rect x="5" y="0" width="4" height="1" fill="#f2e4c8"/>
+    <rect x="3" y="1" width="8" height="2" fill="#f2e4c8"/>
+    <rect x="2" y="3" width="10" height="3" fill="#f2e4c8"/>
+    <rect x="1" y="6" width="12" height="7" fill="#f2e4c8"/>
+    <rect x="2" y="13" width="10" height="2" fill="#f2e4c8"/>
+    <rect x="3" y="15" width="8" height="1" fill="#e0cfae"/>
+    <rect x="1" y="6" width="12" height="2" fill="#e86a7e"/>
+    <rect x="1" y="10" width="12" height="2" fill="#4da3ff"/>
+    <rect x="2" y="8" width="2" height="2" fill="#3fd07a"/>
+    <rect x="6" y="8" width="2" height="2" fill="#3fd07a"/>
+    <rect x="10" y="8" width="2" height="2" fill="#3fd07a"/>
+    <rect x="3" y="2" width="2" height="3" fill="#fffdf5" opacity=".75"/>
+  </g></svg>`;
+function eggEl(){ return document.getElementById('gfl-egg'); }
+/* Painted into #app rather than the page, so it sits over whatever section
+   happens to be at that fraction of the page and no tab has to know about it. */
+function eggPaint(){
+  const cur=eggEl();
+  const spot=eggSpot();
+  const app=document.getElementById('app');
+  const wrong=!app||_activeTab!==spot.tab||eggsFound().has(spot.w);
+  if(wrong){ if(cur&&!cur.classList.contains('egg-pop')) cur.remove(); return; }
+  if(cur&&Number(cur.dataset.w)===spot.w) return;   // already out, same window
+  if(cur) cur.remove();
+  const b=document.createElement('button');
+  b.id='gfl-egg'; b.className='gfl-egg'; b.dataset.w=String(spot.w);
+  b.type='button';
+  b.setAttribute('aria-label','A hidden Easter egg — tap to claim it');
+  b.style.left=(spot.x*100).toFixed(2)+'%';
+  b.style.top=(spot.y*100).toFixed(2)+'%';
+  b.innerHTML=EGG_SVG;
+  b.onclick=eggClaim;
+  app.appendChild(b);
+}
+async function eggClaim(){
+  const el=eggEl(); if(!el||_eggBusy) return;
+  const w=Number(el.dataset.w);
+  if(eggsFound().has(w)) return;
+  if(!_me){ openSignIn(); return; }
+  _eggBusy=true;
+  eggsFound().add(w);
+  /* burst first, bookkeeping after: the tap should feel instant even when the
+     write is slow, and the claim is already recorded locally by this point */
+  el.classList.add('egg-pop');
+  el.disabled=true;
+  const prize=document.createElement('span');
+  prize.className='egg-prize';
+  prize.textContent='+'+bucksFmt(EGG_PRIZE);
+  el.appendChild(prize);
+  setTimeout(()=>{ el.remove(); },900);
+  eggSave();
+  _eggBusy=false;
+  if(_activeTab==='book') renderBook();
+  try{ renderBetsBar(); }catch(e){}
+}
+/* Wakes at the window boundary rather than on an interval, so the egg moves at
+   the same instant on every device instead of drifting by however long each
+   one happened to have been open. */
+function eggStart(){
+  if(_eggTimer) clearTimeout(_eggTimer);
+  eggPaint();
+  const next=(eggWindow()+1)*EGG_MS-Date.now();
+  _eggTimer=setTimeout(eggStart,Math.max(1000,next+50));
+}
+
 const BUCKS_WEEKLY=100;
 const betBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/bets`;
 let _bets=null,_betErr=null,_betBusy=false;
@@ -7159,9 +7320,41 @@ const betsThisWeek=()=>betsMine().filter(b=>b.wk===bucksWeekKey());
    up, and a declined one never was. Both stay out of every money figure. */
 const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
 const betsLiveThisWeek=()=>betsThisWeek().filter(betIsLive);
-function bucksStaked(){ return betsLiveThisWeek().reduce((a,b)=>a+b.stake,0); }
-function bucksReturned(){ return betsLiveThisWeek().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
-function bucksBalance(){ return Math.max(0,BUCKS_WEEKLY-bucksStaked()+bucksReturned()); }
+/* ── THE BANK ────────────────────────────────────────────────────────────────
+   GFL Bucks used to be wiped and reissued every cycle, so a good week bought
+   nothing and a bad one cost nothing past Tuesday. They compound now: the
+   allowance still lands every cycle, and it stacks on whatever is already
+   there, so winnings are worth keeping and a loss follows you.
+
+   Nothing is stored. The balance is still derived by replaying the ledger —
+   every allowance earned, minus everything staked, plus everything returned —
+   which is what keeps two devices from ever disagreeing about it and what
+   makes a cleared bet still cost what it cost.
+
+   Allowances accrue from the cycle of a manager's first bet, not from a fixed
+   league epoch. That way someone who has never bet holds exactly one
+   allowance rather than a season's worth of back pay, and someone who has been
+   playing since week one is credited for every cycle they were in. */
+function bucksCycles(now=Date.now()){
+  const len=bucksTestMs()||7*24*3600*1000;
+  const to=tueWeekStart(new Date(now));
+  let from=to;
+  betsMine().forEach(b=>{
+    const t=tueWeekStart(new Date(Number(b.ts)||now));
+    if(t<from) from=t;
+  });
+  /* rounded, not floored: a real week is 7 days by wall clock, so the two
+     Tuesdays either side of a daylight-saving change are an hour apart */
+  return Math.max(1,Math.round((to-from)/len)+1);
+}
+function bucksAllowance(){ return BUCKS_WEEKLY*bucksCycles(); }
+/* every live bet ever, not just this cycle's — that is the whole change */
+const betsLiveAll=()=>betsMine().filter(betIsLive);
+function bucksStaked(){ return betsLiveAll().reduce((a,b)=>a+b.stake,0); }
+function bucksReturned(){ return betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
+function bucksBalance(){
+  return Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks());
+}
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
 
@@ -8009,11 +8202,12 @@ function bkIQHTML(teamId){
 }
 
 /* ── Bankroll: where you stand since week one ───────────────────────────────
-   Each bucks week resets to 100, so a running balance says nothing about how
-   you are actually doing. What does is the profit banked each week — returns
-   minus stakes on everything settled — carried forward. The line opens at 100
-   the week before the first bet, so the start sits on the same footing as any
-   other week and every move after it is real profit or loss.
+   The balance now carries over, but it also takes an allowance every cycle, so
+   a rising balance does not by itself mean a manager is any good at this. What
+   does is the profit banked each week — returns minus stakes on everything
+   settled — carried forward, which is what this line still plots. The line
+   opens at 100 the week before the first bet, so the start sits on the same
+   footing as any other week and every move after it is real profit or loss.
 
    Open bets are left out: their stake is committed but their return is not
    known yet, so counting them would show a loss that may not happen. */
@@ -8537,7 +8731,7 @@ function myBetsHTML(){
   const ledger=`<div class="sb-ledger">
     <div class="sb-led"><span>GFL Bucks</span><b>${bucksFmt(bal)}</b></div>
     <div class="sb-led"><span>Record</span><b>${won}-${lost}${open?` · ${open} open`:''}</b></div>
-    <div class="sb-led sb-led-note">Resets to ${bucksFmt(BUCKS_WEEKLY)} in ${bucksResetsIn()}</div>
+    <div class="sb-led sb-led-note">Next ${bucksFmt(BUCKS_WEEKLY)} lands in ${bucksResetsIn()} · yours to keep</div>
   </div>
   ${bankHTML()}
   ${sbInvitesHTML()}
@@ -8630,7 +8824,7 @@ function sbSlipHTML(){
     ${_me?`<div class="sb-bank">
         <span class="sb-bank-l"><i class="fa fa-wallet"></i>GFL Bucks</span>
         <span class="sb-bank-v">${bucksFmt(bal)}</span>
-        <span class="sb-bank-r">resets in ${bucksResetsIn()}</span>
+        <span class="sb-bank-r">+${bucksFmt(BUCKS_WEEKLY)} in ${bucksResetsIn()}</span>
       </div>`:''}
     ${n?`<div class="sb-slip-list">${_slip.map(s=>`<div class="sb-slip-item">
         <div class="sb-si-txt"><div class="sb-si-pick">${s.pickLabel}</div><div class="sb-si-mkt">${s.mkLabel}</div></div>
@@ -8664,7 +8858,7 @@ function sbSlipHTML(){
         :'Could not place that bet. Try again.'}</div>`:''}`
     :`<div class="sb-slip-empty">Tap any price to add it here.<br/>Multiple picks become a parlay.</div>`}
     ${note?`<div class="sb-slip-warn"><i class="fa fa-circle-info"></i>${note}</div>`:''}
-    <div class="sb-slip-note">Play money. Every team gets ${bucksFmt(BUCKS_WEEKLY)} GFL Bucks a week, Tuesday to Tuesday — unspent GFL Bucks do not carry over.</div>`;
+    <div class="sb-slip-note">Play money. Every team gets ${bucksFmt(BUCKS_WEEKLY)} GFL Bucks a week, Tuesday to Tuesday, and it all carries over — win it and it is yours to keep.</div>`;
 }
 /* ── What a slip is allowed to hold ─────────────────────────────────────────
    A parlay pays out only if every leg lands, so legs that cannot all land are
@@ -8863,6 +9057,33 @@ function sbWeekHTML(){
     </div>`;
 }
 
+/* ── THE WALLET BAR ──────────────────────────────────────────────────────────
+   My Bets used to be a button at the top of the sportsbook page, which meant
+   scrolling back up to it. It hangs off the nav now, like the jump chips do —
+   but it is deliberately its own element with its own classes and its own
+   sticky behaviour, not a chip bar wearing a different hat. The two share a
+   look, not a lifecycle: chips are rebuilt from whatever headings a page
+   happens to have, and this is one fixed control that only the sportsbook
+   shows. Tangling them would mean every future change to one had to be checked
+   against the other.
+
+   There is no contention for the slot under the nav: the sportsbook is one of
+   the tabs that raises no jump chips at all, so the chip bar is hidden there. */
+function renderBetsBar(){
+  const bar=document.getElementById('bets-bar'); if(!bar) return;
+  if(_activeTab!=='book'){
+    if(!bar.hidden){ bar.hidden=true; bar.innerHTML=''; bar.classList.remove('stuck'); }
+    return;
+  }
+  bar.hidden=false;
+  const on=_sbView==='mine';
+  bar.innerHTML=`<button class="bets-btn${on?' on':''}" onclick="sbSetView('mine')"
+      aria-pressed="${on}">
+      <i class="fa fa-wallet"></i><span class="bets-btn-t">My Bets</span>
+      <span class="bets-btn-bal">${_me?bucksFmt(bucksBalance()):'Sign in'}</span>
+    </button>`;
+  try{ syncNavDock(); }catch(e){}
+}
 function renderBook(){
   const el=document.getElementById('book-body'); if(!el) return;
   const book=sbBuild();
@@ -8879,11 +9100,8 @@ function renderBook(){
      futures bar used to hold, so the ledger is one tap from anywhere. */
   const aside=document.getElementById('page-h1-aside');
   if(aside) aside.innerHTML=`<span class="sb-live"><i class="fa fa-circle"></i>Lines set</span>`;
+  /* My Bets is not on the page any more — it rides the nav, in #bets-bar */
   el.innerHTML=`
-    <button class="sb-mine-btn ${_sbView==='mine'?'on':''}" onclick="sbSetView('mine')">
-      <i class="fa fa-wallet"></i><span class="sb-mine-t">My Bets</span>
-      ${_me?`<span class="sb-mine-bal">${bucksFmt(bucksBalance())}</span>`:'<span class="sb-mine-bal">Sign in</span>'}
-    </button>
     <div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>
     <div class="sb-layout">
       <div class="sb-board">${board}</div>
@@ -8893,6 +9111,7 @@ function renderBook(){
     </div>`;
   sbShowPortal(true);
   sbRenderSlip();
+  renderBetsBar();
 }
 
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
@@ -9362,13 +9581,22 @@ document.addEventListener('click',e=>{
   openTeamProfile(id);
 });
 // auto-wire click-to-sort on any table.srt as it enters the DOM
-(function(){const app=document.getElementById('app');if(app){new MutationObserver(()=>initSortable()).observe(app,{childList:true,subtree:true});}})();
+/* #app is rebuilt wholesale by loadDashboard and by some tab renders, which
+   discards anything parked on it — the egg included. Repainting from the same
+   observer that rewires sortable tables means the egg comes back after any
+   rebuild rather than only the paths someone remembered to hook. It cannot
+   loop: eggPaint returns without touching the DOM once the egg on screen is
+   the one the current window calls for. */
+(function(){const app=document.getElementById('app');if(app){
+  new MutationObserver(()=>{ initSortable(); try{ eggPaint(); }catch(e){} })
+    .observe(app,{childList:true,subtree:true});
+}})();
 loadDashboard();
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();
 /* each init is isolated: they shared a statement, so a throw in the first
    silently prevented the second from ever running */
-function bootUI(){ try{initSignIn();}catch(e){} }
+function bootUI(){ try{initSignIn();}catch(e){} try{eggStart();}catch(e){} try{eggSync();}catch(e){} }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootUI); else bootUI();
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});

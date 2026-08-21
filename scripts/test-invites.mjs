@@ -29,6 +29,7 @@ const parts=[
   grab('const betsMine=()=>'),
   grab('const betsThisWeek=()=>'),
   grab('const betsLiveThisWeek=()=>'),
+  grab('const betsLiveAll=()=>'),
   grab('function bucksStaked(){'),
   grab('function bucksReturned(){'),
   grab('function bucksBalance(){'),
@@ -39,6 +40,11 @@ let _bets=[], _me=null, _CFG={betsResetBefore:0}, _WEEK='W2', _STARTED=false;
 const BUCKS_WEEKLY=1000;
 const bucksWeekKey=()=>_WEEK;
 const weekHasStarted=()=>_STARTED;
+/* The bank's own arithmetic — how many allowances have accrued, what the egg
+   hunt has paid — is covered by test-bank-egg.mjs. Held flat here so these
+   cases stay about invitations: one allowance, no eggs. */
+const bucksAllowance=()=>BUCKS_WEEKLY;
+const eggBucks=()=>0;
 ${parts.join('\n')}
 return {
   set(b,me,wk,started){ _bets=b; _me=me; _WEEK=wk; _STARTED=started; },
