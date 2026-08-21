@@ -1072,6 +1072,51 @@
     .sec-nav.dock-only{padding-bottom:0;}
     .picker-ph{pointer-events:none;}
 
+    /* ── The page glow ────────────────────────────────────────────────────────
+       A slow wash of the tab's own colour rising off the bottom edge of the
+       screen. Fixed to the viewport rather than the page, so it stays put
+       while everything scrolls past it, and faded out well before the top of
+       its band so it never sits behind anything being read.
+
+       --accent already changes per tab, so this needs no per-page rules: the
+       colour follows whatever page you are on. Three blobs on different
+       durations, which keeps them from lining up into an obvious loop.
+
+       z-index 0 with the page raised above it, and pointer-events off, so it
+       cannot take a tap meant for the content. */
+    #page-glow{position:fixed;left:0;right:0;bottom:0;height:min(38vh,300px);
+      z-index:0;pointer-events:none;overflow:hidden;
+      -webkit-mask-image:linear-gradient(to top,#000 0%,rgba(0,0,0,.85) 30%,rgba(0,0,0,.35) 62%,transparent 100%);
+      mask-image:linear-gradient(to top,#000 0%,rgba(0,0,0,.85) 30%,rgba(0,0,0,.35) 62%,transparent 100%);}
+    #page-glow b{position:absolute;display:block;border-radius:50%;
+      background:radial-gradient(circle at 50% 50%,
+        rgba(var(--accent-rgb),0.30) 0%,
+        rgba(var(--accent-rgb),0.11) 45%,
+        rgba(var(--accent-rgb),0) 72%);
+      filter:blur(18px);will-change:transform,opacity;}
+    #page-glow b:nth-child(1){left:-14%;bottom:-30%;width:78%;padding-top:78%;
+      animation:glow-a 13s ease-in-out infinite;}
+    #page-glow b:nth-child(2){left:32%;bottom:-38%;width:64%;padding-top:64%;
+      animation:glow-b 17s ease-in-out infinite;}
+    #page-glow b:nth-child(3){left:8%;bottom:-26%;width:52%;padding-top:52%;
+      animation:glow-c 21s ease-in-out infinite;}
+    @keyframes glow-a{
+      0%,100%{transform:translate3d(0,6%,0) scale(1);opacity:.62;}
+      50%{transform:translate3d(12%,-6%,0) scale(1.14);opacity:.95;}}
+    @keyframes glow-b{
+      0%,100%{transform:translate3d(0,4%,0) scale(1.06);opacity:.5;}
+      50%{transform:translate3d(-14%,-9%,0) scale(.92);opacity:.85;}}
+    @keyframes glow-c{
+      0%,100%{transform:translate3d(0,0,0) scale(.95);opacity:.42;}
+      50%{transform:translate3d(18%,-12%,0) scale(1.2);opacity:.75;}}
+    /* the glow is decoration; nobody should have to sit through it moving */
+    @media(prefers-reduced-motion:reduce){
+      #page-glow b{animation:none;opacity:.6;}
+    }
+    /* everything that is actually content sits above it */
+    main{position:relative;z-index:1;}
+    footer{position:relative;z-index:1;}
+
     /* ── The wallet bar ───────────────────────────────────────────────────────
        Deliberately its own set of rules rather than a variant of .sec-nav.
        It shares the drawer's look — same offset under the nav, same frosted
@@ -2917,6 +2962,15 @@
        when signed in, which is why it read as a phantom bar rather than as
        itself. Hide it for as long as the nav is open. */
     html.nav-lock #my-matchup{display:none;}
+    /* These three cover the whole viewport and were only ever faded to
+       opacity 0, never taken out of the render tree. Two of them carry a
+       backdrop-filter, which makes each one a full-screen backdrop root — so
+       the moment the sticky drawer's own backdrop-filter came in on scroll, it
+       resolved against that root and washed the entire page instead of the
+       50px strip behind it. That is the "everything goes lighter when you
+       scroll" on every tab. Hidden means hidden: no paint, no backdrop root. */
+    #nav-scrim:not(.show),#pin-overlay:not(.show),#cm-overlay:not(.show){
+      visibility:hidden;-webkit-backdrop-filter:none;backdrop-filter:none;}
     #nav-scrim{position:fixed;inset:0;z-index:395;background:var(--scrim);
       opacity:0;pointer-events:none;transition:opacity .1s linear;will-change:opacity;}
     #nav-scrim.show{opacity:1;pointer-events:auto;}
@@ -4809,6 +4863,9 @@
   <!-- Marathons Ran: hidden for now -->
 </nav>
 
+<!-- The tab's colour, washing up off the bottom edge. Purely decorative, so
+     it is inert to the pointer and hidden from the reading order. -->
+<div id="page-glow" aria-hidden="true"><b></b><b></b><b></b></div>
 <main><h1 id="page-h1" class="page-h1"><span>Home</span><span class="page-h1-aside" id="page-h1-aside"></span></h1>
 <nav id="sec-nav" class="sec-nav" aria-label="Sections on this page" hidden></nav>
 <!-- The sportsbook's wallet. Sticky under the nav like the jump chips, and
