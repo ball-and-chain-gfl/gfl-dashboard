@@ -571,7 +571,11 @@ function tenureNameWidth(){
   tbl.style.setProperty('--tnw','420px');                 // unconstrain, then measure
   let max=0;
   tbl.querySelectorAll('tbody td:first-child .pname').forEach(p=>{const w=p.getBoundingClientRect().width; if(w>max) max=w;});
-  if(max>0) tbl.style.setProperty('--tnw',Math.ceil(max+8)+'px');
+  /* Snug to the longest name, but only up to a share of the screen: one
+     "J. Smith-Njigba" used to set the width for all fifty rows and push the
+     numbers off the side. Past the cap the name ellipsizes instead. */
+  const cap=Math.max(96,Math.round(window.innerWidth*0.31));
+  if(max>0) tbl.style.setProperty('--tnw',Math.min(cap,Math.ceil(max+8))+'px');
   else tbl.style.removeProperty('--tnw');
 }
 function tradeScopeLabel(){
@@ -1921,15 +1925,20 @@ function renderTenureTable(){
      long a player has been kept and how much they gave over that time — and
      one season's slice sat oddly next to four all-time totals while pushing
      the table two columns past the width of a phone. */
-  body.innerHTML=shown.length?`<div class="tscroll"><table class="min640 srt tenure-tbl" data-mhide="All Rostered">
+  /* No min-width: with the single-season columns gone there is little enough
+     left to fit a phone outright, and a table you have to drag sideways to
+     read is worse than one column fewer. Rostered is the one that drops on a
+     phone — it is the least interesting of the five and always within a game
+     or two of Starts. */
+  body.innerHTML=shown.length?`<div class="tscroll"><table class="srt tenure-tbl">
     <thead>
       <tr>
         <th>Player</th>
-        <th class="right" title="Weeks in the starting lineup, every season">All Starts</th>
-        <th class="right" title="Weeks on the roster (starter or bench), every season">All Rostered</th>
-        <th class="right" title="Times this team has spent a draft pick on this player">Times Drafted</th>
-        <th class="right" title="Points scored for GFL teams, every season">All PTS</th>
-        <th class="right" title="Playoff games won while started for this team">Playoff Wins</th>
+        <th class="right" title="Weeks in the starting lineup, every season">Starts</th>
+        <th class="right" title="Weeks on the roster (starter or bench), every season">Roster</th>
+        <th class="right" title="Times this team has spent a draft pick on this player">Drafts</th>
+        <th class="right" title="Points scored for GFL teams, every season">Points</th>
+        <th class="right" title="Playoff games won while started for this team">PO W</th>
       </tr>
     </thead>
     <tbody>${shown.map((p,i)=>`
@@ -6906,7 +6915,85 @@ async function renderProfile(){
 // rings, coaching metric, scoring blow-ups and duds. Probabilities are turned
 // into American prices with a book-style hold, so the field always adds to more
 // than 100% exactly like a real sportsbook.
-let _sbView='futures';       // futures | props | awards | achieve | team
+let _sbView='season';        // week | season | team | mine
+/* ── WHERE THE MONEY IS ──────────────────────────────────────────────────────
+   The board used to be a pure model: it priced every market off ratings and
+   never looked up again, so a price was the same on Sunday night as it was
+   before anyone had bet a dollar. It moves now.
+
+   Every live bet in the league is read back and totalled by selection. A price
+   is then the model blended toward what the money says, which is the direction
+   a real book moves: weight of money on one side shortens it and lengthens
+   everything else, so backing the crowd late pays less and taking the
+   unfashionable side pays more.
+
+   Two deliberate choices. The blend is capped, so money bends the model rather
+   than replacing it — twelve managers on a hundred a week is not a deep enough
+   market to be trusted on its own. And a bet keeps the price it was struck at,
+   which is what makes moving early worth anything.
+
+   Legs name their selection the same way the slip does: an outright is the
+   owner key, a two-way is owner:yes / owner:no / owner:o / owner:u. */
+const SB_MONEY_MAX=0.45;      // most of the price the money may ever own
+const SB_MONEY_REF=500;       // handle at which it reaches half of that
+let _sbMoney=null, _sbMoneyKey='';
+function sbMoneyKey(){
+  if(!_bets) return '';
+  let k='';
+  for(const b of _bets){
+    if(!betIsLive(b)||b.status==='void') continue;
+    if(!betsAfterReset(b)) continue;
+    k+=b.id+':'+b.status+';';
+  }
+  return k;
+}
+function sbMoneyBook(){
+  const key=sbMoneyKey();
+  if(_sbMoney&&_sbMoneyKey===key) return _sbMoney;
+  const season=String(sbSeason());
+  const book={};
+  (_bets||[]).forEach(b=>{
+    if(!betIsLive(b)||b.status==='void') return;
+    if(!betsAfterReset(b)) return;
+    if(String(b.season||'')!==season) return;
+    const stake=Number(b.stake)||0; if(stake<=0) return;
+    /* A parlay stakes one amount across several legs. Splitting it evenly
+       stops a four-leg slip from shouting four times as loud as a single. */
+    const legs=(b.legs||[]).filter(l=>l&&l.mk!=null);
+    if(!legs.length) return;
+    const each=stake/legs.length;
+    legs.forEach(l=>{
+      const m=book[l.mk]||(book[l.mk]={picks:{},total:0});
+      m.picks[l.pick]=(m.picks[l.pick]||0)+each;
+      m.total+=each;
+    });
+  });
+  _sbMoneyKey=key;
+  return (_sbMoney=book);
+}
+/* how far the money is allowed to pull a price, given how much of it there is */
+function sbMoneyPull(total){
+  if(!(total>0)) return 0;
+  return SB_MONEY_MAX*total/(total+SB_MONEY_REF);
+}
+/* Blend a set of model probabilities toward the money laid on them. Shares are
+   taken over the picks named here, so a two-way market passes its own pair and
+   an outright passes the whole field. */
+function sbBlend(mk,keys,probs){
+  const book=sbMoneyBook()[mk];
+  if(!book) return probs.slice();
+  const staked=keys.map(k=>book.picks[k]||0);
+  const tot=staked.reduce((a,b)=>a+b,0);
+  if(!(tot>0)) return probs.slice();
+  const k=sbMoneyPull(tot);
+  const pTot=probs.reduce((a,b)=>a+b,0)||1;
+  return probs.map((p,i)=>(1-k)*(p/pTot)+k*(staked[i]/tot));
+}
+/* what has actually been laid on one selection, for the board to show */
+function sbStakeOn(mk,pick){
+  const b=sbMoneyBook()[mk];
+  return b?(b.picks[pick]||0):0;
+}
 let _sbTeamSel=null;         // owner for the By Team view
 let _slip=[];                // [{k,mk,mkLabel,pick,pickLabel,odds}]
 let _sbStake=10;
@@ -6970,7 +7057,10 @@ function sbSplits(owner){
   return out;
 }
 function sbBuild(){
-  if(_sbCache) return _sbCache;
+  /* the board is a function of the season and of the money on it, so both go
+     in the cache key — otherwise a bet would not move a price until reload */
+  const stamp=String(sbSeason())+'|'+sbMoneyKey();
+  if(_sbCache&&_sbCache.stamp===stamp) return _sbCache;
   if(!_franchises.length||!Object.keys(_seasonMeta).length) return null;
   const latest=ALL_SEASONS[ALL_SEASONS.length-1];
   const meta=_seasonMeta[latest]||{teams:{},owners:{},divisions:{}};
@@ -7013,31 +7103,50 @@ function sbBuild(){
   const GAMES=regEndOf(latest)||14;
 
   // ── helpers that build market objects ──
+  /* Each builder prices twice: once off the model alone, which is the opening
+     line and never changes, and once with the money folded in, which is what
+     is on the board. Showing both is what makes a move visible. */
+  const priced=(p)=>{ const o=amFromProb(Math.min(0.95,Math.max(0.005,p))); return o; };
   const outright=(key,title,sub,probs,badge,icon)=>{
     const tot=probs.reduce((a,b)=>a+b,0)||1;
+    const base=rows.map((_,i)=>probs[i]/tot);
+    const keys=rows.map(r=>r.owner);
+    const moved=sbBlend(key,keys,base);
     const picks=rows.map((r,i)=>{
-      const p=Math.max(0.008,(probs[i]/tot))*(1+HOLD);
-      const o=amFromProb(Math.min(0.95,p));
-      return {owner:r.owner,name:r.name,tid:r.tid,odds:o,prob:probFromAm(o),fair:probs[i]/tot};
+      const open=priced(Math.max(0.008,base[i])*(1+HOLD));
+      const o=priced(Math.max(0.008,moved[i])*(1+HOLD));
+      return {owner:r.owner,name:r.name,tid:r.tid,odds:o,open,prob:probFromAm(o),
+        fair:base[i],handle:sbStakeOn(key,r.owner)};
     }).sort((a,b)=>b.fair-a.fair);
-    return {key,title,sub,type:'outright',badge:badge||'Outright',icon:icon||'fa-trophy',picks};
+    return {key,title,sub,type:'outright',icon:icon||'fa-trophy',picks};
   };
-  const yesno=(key,title,sub,probs,badge,icon)=>({key,title,sub,type:'yesno',badge:badge||'Yes / No',
+  const yesno=(key,title,sub,probs,badge,icon)=>({key,title,sub,type:'yesno',
     icon:icon||'fa-check-double',
     picks:rows.map((r,i)=>{
       const p=Math.min(0.86,Math.max(0.14,probs[i]));
-      const y=amFromProb(Math.min(0.96,p+TWOWAY)), n=amFromProb(Math.min(0.96,(1-p)+TWOWAY));
-      return {owner:r.owner,name:r.name,tid:r.tid,yes:y,no:n,fair:p};
+      /* two-way, so the shares are between this team's own yes and no */
+      const [py]=sbBlend(key,[r.owner+':yes',r.owner+':no'],[p,1-p]);
+      const q=Math.min(0.92,Math.max(0.08,py));
+      return {owner:r.owner,name:r.name,tid:r.tid,
+        yes:priced(Math.min(0.96,q+TWOWAY)), no:priced(Math.min(0.96,(1-q)+TWOWAY)),
+        openYes:priced(Math.min(0.96,p+TWOWAY)), openNo:priced(Math.min(0.96,(1-p)+TWOWAY)),
+        fair:p, handleYes:sbStakeOn(key,r.owner+':yes'), handleNo:sbStakeOn(key,r.owner+':no')};
     }).sort((a,b)=>b.fair-a.fair)});
   const overunder=(key,title,sub,vals,slope,round,badge,icon)=>({key,title,sub,type:'ou',
-    badge:badge||'Over / Under',icon:icon||'fa-arrows-up-down',
+    icon:icon||'fa-arrows-up-down',
     picks:rows.map((r,i)=>{
       const exp=vals[i];
       const line=round===0.5?Math.round(exp*2)/2:Math.round(exp/round)*round+(round>=5?0.5:0);
       const pOver=Math.min(0.70,Math.max(0.30,0.5+(exp-line)*slope));
+      /* the line itself is left where the model put it and the price moves
+         around it — a line that walked as well would make an old slip hard to
+         read back against the board */
+      const [po]=sbBlend(key,[r.owner+':o',r.owner+':u'],[pOver,1-pOver]);
+      const q=Math.min(0.88,Math.max(0.12,po));
       return {owner:r.owner,name:r.name,tid:r.tid,line,exp,
-        over:amFromProb(Math.min(0.95,pOver+TWOWAY)), under:amFromProb(Math.min(0.95,(1-pOver)+TWOWAY)),
-        fair:exp};
+        over:priced(Math.min(0.95,q+TWOWAY)), under:priced(Math.min(0.95,(1-q)+TWOWAY)),
+        openOver:priced(Math.min(0.95,pOver+TWOWAY)), openUnder:priced(Math.min(0.95,(1-pOver)+TWOWAY)),
+        fair:exp, handleO:sbStakeOn(key,r.owner+':o'), handleU:sbStakeOn(key,r.owner+':u')};
     }).sort((a,b)=>b.fair-a.fair)});
 
   /* ── FUTURES ──
@@ -7067,17 +7176,11 @@ function sbBuild(){
   const pPlayoffs=zr.map(v=>1/(1+Math.exp(-(1.05*v+c))));
   const playoffs=yesno('playoffs',`${sbSeason()} Playoff Berth`,`Top ${spots} of ${rows.length} make the bracket`,
     pPlayoffs,'Yes / No','fa-calendar-check');
-  const lastPlace=outright('last',`${sbSeason()} Last Place`,'Finishes bottom of the regular season — punishment duty',
-    sbProbs(ratings.map(v=>-v),0.68,0.44),'Outright','fa-gavel');
 
   // ── TEAM PROPS ──
   const wins=overunder('wins',`Regular Season Wins`,`${GAMES}-game regular season`,
     zr.map(v=>Math.min(GAMES-2,Math.max(2,GAMES*Math.min(0.70,Math.max(0.30,1/(1+Math.exp(-0.62*v))))))),
     0.30,0.5,'Over / Under','fa-arrows-up-down');
-  const pfTotals=overunder('pf','Total Points Scored',`Regular season total, ${GAMES} games`,
-    rows.map(r=>(lgPpg+0.55*(r.ppg-lgPpg))*GAMES),0.0055,5,'Over / Under','fa-fire');
-  const paTotals=overunder('pa','Total Points Against',`Regular season total, ${GAMES} games`,
-    rows.map(r=>(lgPpg+0.25*(r.papg-lgPpg))*GAMES),0.0055,5,'Over / Under','fa-shield-halved');
   const mostPf=outright('mostpf','Most Points Scored','League leader in points for',
     sbProbs(rows.map(r=>r.z.ppg),0.80,0.40),'Outright','fa-fire');
   const fewestPf=outright('fewpf','Fewest Points Scored','League low in points for',
@@ -7086,18 +7189,16 @@ function sbBuild(){
     sbProbs(rows.map(r=>r.z.pa),0.40,0.58),'Outright','fa-shield-halved');
 
   // ── ACHIEVEMENTS ──
-  const highWeek=outright('highweek','Highest Single Week','Top score of any team in any week',
+  const highWeek=outright('highweek','Highest Single Week','Top regular-season score by any team in any week',
     sbProbs(rows.map(r=>0.75*r.z.ppg+0.5*r.z.hi),0.70,0.42),'Outright','fa-bolt');
-  const most150=outright('most150','Most 150+ Point Games','Blow-up weeks',
+  const most150=outright('most150','Most 150+ Point Games','Blow-up weeks in the regular season',
     sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg),0.72,0.42),'Outright','fa-rocket');
-  const most80=outright('most80','Most Sub-80 Duds','Weeks the offense never showed',
+  const most80=outright('most80','Most Sub-80 Duds','Regular-season weeks the offense never showed',
     sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg),0.72,0.42),'Outright','fa-face-dizzy');
   const groups={
-    futures:[...confMarkets,playoffs,lastPlace],
-    props:[wins,pfTotals,paTotals,mostPf,fewestPf,mostPa],
-    achieve:[highWeek,most150,most80],
+    season:[...confMarkets,playoffs,wins,mostPf,fewestPf,mostPa,highWeek,most150,most80],
   };
-  _sbCache={rows,groups,season:sbSeason(),games:GAMES,spots};
+  _sbCache={rows,groups,season:sbSeason(),games:GAMES,spots,stamp};
   return _sbCache;
 }
 
@@ -8472,11 +8573,13 @@ function betGrade(bet){
 }
 
 // ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
+/* Every market left on the board is written against the regular season, so
+   they all settle on the same afternoon. Splitting them across Futures, Team
+   Props and Achievements implied three different deadlines that no longer
+   exist — they are one board now. */
 const SB_GROUPS=[
   {k:'week',label:'Forecast',icon:'fa-bolt'},
-  {k:'futures',label:'Futures',icon:'fa-trophy'},
-  {k:'props',label:'Team Props',icon:'fa-chart-simple'},
-  {k:'achieve',label:'Achievements',icon:'fa-bolt'},
+  {k:'season',label:'Regular Season',icon:'fa-trophy'},
   {k:'team',label:'By Team',icon:'fa-id-badge'},
 ];
 function sbAvatar(owner,size){
@@ -8503,12 +8606,24 @@ function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   return `<button class="sb-odds${on}${extra?' '+extra:''}" data-k="${mk}|${pick}" onclick="sbPick(${args})">
     ${btnLabel?`<span class="sb-o-lbl">${btnLabel}</span>`:''}<span class="sb-o-val">${amFmt(odds)}</span></button>`;
 }
+/* A price with money behind it shows how far it has come off the opening
+   line. Shorter is the crowd's side and pays less; longer is what is left for
+   anyone willing to take the other one. Without this the board just quietly
+   changes and nobody can tell it is doing anything. */
+function sbDrift(open,now){
+  if(open==null||now==null||open===now) return '';
+  /* American prices are not a number line — -150 is shorter than +150 — so
+     the comparison has to happen in probability, where bigger is shorter. */
+  const shorter=probFromAm(now)>probFromAm(open);
+  return `<span class="sb-drift ${shorter?'dn':'up'}" title="Opened at ${amFmt(open)}">
+    <i class="fa fa-caret-${shorter?'down':'up'}"></i></span>`;
+}
 function sbMarketHTML(m){
   const rows=m.picks.map(p=>{
     const nm=`<span class="sb-tm">${sbAvatar(p.owner,22)}<span class="sb-nm">${p.name}</span><span class="sb-ab">${sbTeamAb(p.owner,p.name)}</span></span>`;
     if(m.type==='outright'){
       return `<div class="sb-row">${nm}
-        <span class="sb-imp">${(p.prob*100).toFixed(1)}%</span>
+        <span class="sb-imp">${(p.prob*100).toFixed(1)}%${sbDrift(p.open,p.odds)}</span>
         ${sbBtn(m.key,m.title,p.owner,p.name,p.odds)}</div>`;
     }
     if(m.type==='yesno'){
@@ -8527,7 +8642,7 @@ function sbMarketHTML(m){
       ? `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Yes</span><span class="sb-oh">No</span></div>`
       : `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>`;
   return `<div class="sb-market">
-    <div class="sb-mhead"><i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span><span class="badge-info">${m.badge}</span></div>
+    <div class="sb-mhead"><i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span></div>
     <div class="sb-msub">${m.sub}</div>
     <div class="sb-rows">${head}${rows}</div>
   </div>`;
@@ -8745,7 +8860,7 @@ function myBetsHTML(){
   const ledger=`<div class="sb-ledger">
     <div class="sb-led"><span>GFL Bucks</span><b>${bucksFmt(bal)}</b></div>
     <div class="sb-led"><span>Record</span><b>${won}-${lost}${open?` · ${open} open`:''}</b></div>
-    <div class="sb-led sb-led-note">Next ${bucksFmt(BUCKS_WEEKLY)} lands in ${bucksResetsIn()} · yours to keep</div>
+    <div class="sb-led sb-led-note">Next ${bucksFmt(BUCKS_WEEKLY)} lands in ${bucksResetsIn()}</div>
   </div>
   ${bankHTML()}
   ${sbInvitesHTML()}
@@ -9108,7 +9223,13 @@ function renderBook(){
   const board=_sbView==='team'?sbTeamViewHTML(book)
     :_sbView==='week'?sbWeekHTML()
     :_sbView==='mine'?myBetsHTML()
-    :(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
+    :(book.groups[_sbView]||[]).length
+      ? `<div class="sb-boardnote"><i class="fa fa-calendar-check"></i>
+          <span>Every market here is settled on the <b>regular season</b> — nothing
+          waits on the playoffs. Prices move with the money: the more that goes on
+          a side, the less it pays.</span></div>`
+        +(book.groups[_sbView]||[]).map(sbMarketHTML).join('')
+      : '';
   /* "Lines set" rides beside the page title; My Bets takes the strip the
      futures bar used to hold, so the ledger is one tap from anywhere. */
   const aside=document.getElementById('page-h1-aside');
