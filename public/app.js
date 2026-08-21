@@ -3492,19 +3492,27 @@ function gabeHeart(pid){
     <div class="gabe-mon-cap">The heart of the GFL 💛</div>
   </div>`;
 }
+/* Gabe is done playing, so his book is closed. The 43 games are committed to
+   the repo as /data/gabe.json rather than gathered from five separate ESPN
+   calls every time somebody opens the section — which also means the section
+   still works for a season ESPN has since purged. The live path is kept only
+   as a fallback for a missing file; nothing about it should need to run. */
 async function loadGabe(pid){
   if(_gabeGames) return _gabeGames;
   if(_gabePromise) return _gabePromise;
-  const cached=cacheGet('gabe-v1:'+pid);          // gathered once, then reused
-  if(cached&&Array.isArray(cached.d)){_gabeGames=cached.d;return _gabeGames;}
   _gabePromise=(async()=>{
+    try{
+      const r=await fetch('/data/gabe.json');
+      if(r.ok){ const j=await r.json();
+        if(j&&Array.isArray(j.games)&&j.games.length) return (_gabeGames=j.games); }
+    }catch(e){}
     const res=await Promise.allSettled(ALL_SEASONS.map(async s=>{
       const r=await fetch(`${BASE}?type=playergames&seasonId=${s}&playerId=${pid}`);
       return r.ok?{s,d:await r.json()}:null;
     }));
     const all=[];
     res.forEach(rr=>{if(rr.status!=='fulfilled'||!rr.value)return;const {s,d}=rr.value;(d.games||[]).forEach(g=>all.push({...g,season:s}));});
-    _gabeGames=all; cacheSet('gabe-v1:'+pid,all); return all;
+    _gabeGames=all; return all;
   })();
   return _gabePromise;
 }
@@ -3514,7 +3522,7 @@ async function renderGabe(){
   if(!body) return;
   const cfg=_CFG.gabe||{}; const pid=cfg.playerId||4243537;
   if(mon) mon.innerHTML=gabeHeart(pid);
-  if(!_gabeGames){ body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Digging up every Gabe Davis box score…</div>`; }
+  if(!_gabeGames){ body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Opening the Gabe Davis file…</div>`; }
   const games=await loadGabe(pid);
   if(!games.length){ body.innerHTML=`<div class="tab-loading">No Gabe Davis games found in league history.</div>`; return; }
   const subtab=(v,label)=>`<button class="tab-btn ${_gabeView===v?'active':''}" onclick="setGabeView('${v}')">${label}</button>`;
@@ -6043,6 +6051,13 @@ function renderMyProfile(){
         <span class="mp-egg-l">Eggs found</span>
         <span class="mp-egg-v">${eggsFound().size}${eggsFound().size?` · ${bucksFmt(eggBucks())}`:''}</span>
       </span>
+      ${/* and whether there is one going begging right now */''}
+      <span class="mp-eggnow ${eggClaimedNow()?'got':'live'}">
+        <i class="fa ${eggClaimedNow()?'fa-circle-check':'fa-magnifying-glass'}"></i>
+        <span class="mp-eggnow-t">${eggClaimedNow()
+          ?'You got this one'
+          :`One out there — ${bucksFmt(EGG_PRIZE)}`}</span>
+      </span>
     </div>`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
      straight here without opening a team profile first — the cache is empty and
@@ -7029,9 +7044,12 @@ function sbBuild(){
         fair:exp};
     }).sort((a,b)=>b.fair-a.fair)});
 
-  // ── FUTURES ──
-  const champ=outright('champ',`${sbSeason()} GFL Championship`,'Who lifts the trophy',
-    sbProbs(ratings,0.70,0.46),'Outright','fa-trophy');
+  /* ── FUTURES ──
+     Nothing here is written past the end of the regular season. The
+     championship and First-Time Champion needed a bracket to settle, and the
+     four award markets were decided by a league vote rather than by the data —
+     which meant they could never be graded automatically and sat open forever.
+     They are off the board. */
   const confs={};
   rows.forEach(r=>{ (confs[r.conf||'League']||(confs[r.conf||'League']=[])).push(r); });
   const confMarkets=Object.entries(confs).filter(([,arr])=>arr.length>1).map(([cname,arr])=>{
@@ -7053,7 +7071,7 @@ function sbBuild(){
   const pPlayoffs=zr.map(v=>1/(1+Math.exp(-(1.05*v+c))));
   const playoffs=yesno('playoffs',`${sbSeason()} Playoff Berth`,`Top ${spots} of ${rows.length} make the bracket`,
     pPlayoffs,'Yes / No','fa-calendar-check');
-  const lastPlace=outright('last',`${sbSeason()} Last Place`,'Finishes bottom of the league — punishment duty',
+  const lastPlace=outright('last',`${sbSeason()} Last Place`,'Finishes bottom of the regular season — punishment duty',
     sbProbs(ratings.map(v=>-v),0.68,0.44),'Outright','fa-gavel');
 
   // ── TEAM PROPS ──
@@ -7071,16 +7089,6 @@ function sbBuild(){
   const mostPa=outright('mostpa','Most Points Against','Takes the most incoming fire',
     sbProbs(rows.map(r=>r.z.pa),0.40,0.58),'Outright','fa-shield-halved');
 
-  // ── AWARDS ──
-  const coy=outright('coy','Coach of the Year','GFL voted',
-    sbProbs(rows.map(r=>0.9*r.rating+0.55*r.z.coy),0.70,0.44),'Outright','fa-brain');
-  const disappoint=outright('disappoint','Most Disappointing Team','Expectations vs reality',
-    sbProbs(rows.map(r=>0.85*r.rating-0.25*r.z.last),0.60,0.48),'Outright','fa-face-frown');
-  const comeback=outright('comeback','Comeback Team of the Year','Biggest jump off last season',
-    sbProbs(rows.map(r=>0.85*r.z.last+0.35*r.z.ppg),0.66,0.44),'Outright','fa-rotate-left');
-  const commit=outright('commit','League Commitment Award','Most active, most involved',
-    sbProbs(rows.map(r=>0.75*r.z.mv+0.65*r.z.commit),0.68,0.44),'Outright','fa-hand-fist');
-
   // ── ACHIEVEMENTS ──
   const highWeek=outright('highweek','Highest Single Week','Top score of any team in any week',
     sbProbs(rows.map(r=>0.75*r.z.ppg+0.5*r.z.hi),0.70,0.42),'Outright','fa-bolt');
@@ -7088,28 +7096,10 @@ function sbBuild(){
     sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg),0.72,0.42),'Outright','fa-rocket');
   const most80=outright('most80','Most Sub-80 Duds','Weeks the offense never showed',
     sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg),0.72,0.42),'Outright','fa-face-dizzy');
-  // only franchises that have never won can win a FIRST ring, and it reads better
-  // as an outright than as a Yes/No carrying -2000 on the No side
-  const ringless=rows.filter(r=>!r.at.rings);
-  let anyRing=null;
-  if(ringless.length>1){
-    const raw=ringless.map(r=>(champ.picks.find(x=>x.owner===r.owner)||{fair:0.05}).fair);
-    const tot=raw.reduce((a,b)=>a+b,0)||1;
-    anyRing={key:'firstring',title:'First-Time Champion',
-      sub:`${ringless.length} franchises have never won — which one breaks through`,
-      type:'outright',badge:'Outright',icon:'fa-ring',
-      picks:ringless.map((r,i)=>{
-        const p=Math.max(0.02,raw[i]/tot)*(1+HOLD);
-        const o=amFromProb(Math.min(0.95,p));
-        return {owner:r.owner,name:r.name,tid:r.tid,odds:o,prob:probFromAm(o),fair:raw[i]/tot};
-      }).sort((a,b)=>b.fair-a.fair)};
-  }
-
   const groups={
-    futures:[champ,...confMarkets,playoffs,lastPlace],
+    futures:[...confMarkets,playoffs,lastPlace],
     props:[wins,pfTotals,paTotals,mostPf,fewestPf,mostPa],
-    awards:[coy,disappoint,comeback,commit],
-    achieve:[highWeek,most150,most80,...(anyRing?[anyRing]:[])],
+    achieve:[highWeek,most150,most80],
   };
   _sbCache={rows,groups,season:sbSeason(),games:GAMES,spots};
   return _sbCache;
@@ -7178,6 +7168,10 @@ function eggsFound(){
   return (_eggs=new Set(list.map(Number).filter(n=>!isNaN(n))));
 }
 function eggBucks(){ return eggsFound().size*EGG_PRIZE; }
+/* Whether this window's egg is still going begging. Deliberately says nothing
+   about where it is — only that there is one, which is the part worth knowing
+   without spoiling the hunt. */
+const eggClaimedNow=()=>eggsFound().has(eggWindow());
 function eggSave(){
   const list=[...eggsFound()];
   try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
@@ -7201,21 +7195,11 @@ async function eggSync(){
     }
   }catch(e){}
 }
-const EGG_SVG=`<svg viewBox="0 0 14 17" width="28" height="34" aria-hidden="true">
-  <g shape-rendering="crispEdges">
-    <rect x="5" y="0" width="4" height="1" fill="#f2e4c8"/>
-    <rect x="3" y="1" width="8" height="2" fill="#f2e4c8"/>
-    <rect x="2" y="3" width="10" height="3" fill="#f2e4c8"/>
-    <rect x="1" y="6" width="12" height="7" fill="#f2e4c8"/>
-    <rect x="2" y="13" width="10" height="2" fill="#f2e4c8"/>
-    <rect x="3" y="15" width="8" height="1" fill="#e0cfae"/>
-    <rect x="1" y="6" width="12" height="2" fill="#e86a7e"/>
-    <rect x="1" y="10" width="12" height="2" fill="#4da3ff"/>
-    <rect x="2" y="8" width="2" height="2" fill="#3fd07a"/>
-    <rect x="6" y="8" width="2" height="2" fill="#3fd07a"/>
-    <rect x="10" y="8" width="2" height="2" fill="#3fd07a"/>
-    <rect x="3" y="2" width="2" height="3" fill="#fffdf5" opacity=".75"/>
-  </g></svg>`;
+/* 24x31 rather than the 14x17 it started at — enough cells for the silhouette
+   to curve instead of step, and for the shell to carry a highlight, a shaded
+   edge and banding. Generated from an egg curve and frozen here as plain
+   markup: nothing computes it at runtime. */
+const EGG_SVG=`<svg viewBox="0 0 24 31" width="34" height="44" aria-hidden="true"><g shape-rendering="crispEdges"><rect x="10" y="0" width="4" height="1" fill="#f4e6c9"/><rect x="8" y="1" width="8" height="1" fill="#f4e6c9"/><rect x="14" y="1" width="2" height="1" fill="#dcc79d"/><rect x="7" y="2" width="10" height="1" fill="#f4e6c9"/><rect x="15" y="2" width="2" height="1" fill="#dcc79d"/><rect x="6" y="3" width="12" height="1" fill="#f4e6c9"/><rect x="16" y="3" width="2" height="1" fill="#dcc79d"/><rect x="6" y="4" width="12" height="1" fill="#f4e6c9"/><rect x="16" y="4" width="2" height="1" fill="#dcc79d"/><rect x="5" y="5" width="14" height="1" fill="#f4e6c9"/><rect x="17" y="5" width="2" height="1" fill="#dcc79d"/><rect x="4" y="6" width="16" height="1" fill="#f4e6c9"/><rect x="18" y="6" width="2" height="1" fill="#dcc79d"/><rect x="4" y="7" width="16" height="1" fill="#f4e6c9"/><rect x="18" y="7" width="2" height="1" fill="#dcc79d"/><rect x="3" y="8" width="18" height="1" fill="#f4e6c9"/><rect x="19" y="8" width="2" height="1" fill="#dcc79d"/><rect x="3" y="9" width="18" height="1" fill="#f4e6c9"/><rect x="19" y="9" width="2" height="1" fill="#dcc79d"/><rect x="2" y="10" width="20" height="1" fill="#f4e6c9"/><rect x="20" y="10" width="2" height="1" fill="#dcc79d"/><rect x="2" y="11" width="20" height="1" fill="#f4e6c9"/><rect x="20" y="11" width="2" height="1" fill="#dcc79d"/><rect x="1" y="12" width="22" height="1" fill="#f4e6c9"/><rect x="21" y="12" width="2" height="1" fill="#dcc79d"/><rect x="1" y="13" width="22" height="1" fill="#f4e6c9"/><rect x="21" y="13" width="2" height="1" fill="#dcc79d"/><rect x="1" y="14" width="22" height="1" fill="#f4e6c9"/><rect x="21" y="14" width="2" height="1" fill="#dcc79d"/><rect x="0" y="15" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="15" width="2" height="1" fill="#dcc79d"/><rect x="0" y="16" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="16" width="2" height="1" fill="#dcc79d"/><rect x="0" y="17" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="17" width="2" height="1" fill="#dcc79d"/><rect x="0" y="18" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="18" width="2" height="1" fill="#dcc79d"/><rect x="0" y="19" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="19" width="2" height="1" fill="#dcc79d"/><rect x="0" y="20" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="20" width="2" height="1" fill="#dcc79d"/><rect x="0" y="21" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="21" width="2" height="1" fill="#dcc79d"/><rect x="0" y="22" width="24" height="1" fill="#f4e6c9"/><rect x="22" y="22" width="2" height="1" fill="#dcc79d"/><rect x="1" y="23" width="22" height="1" fill="#f4e6c9"/><rect x="21" y="23" width="2" height="1" fill="#dcc79d"/><rect x="1" y="24" width="22" height="1" fill="#f4e6c9"/><rect x="21" y="24" width="2" height="1" fill="#dcc79d"/><rect x="1" y="25" width="22" height="1" fill="#f4e6c9"/><rect x="21" y="25" width="2" height="1" fill="#dcc79d"/><rect x="2" y="26" width="20" height="1" fill="#f4e6c9"/><rect x="20" y="26" width="2" height="1" fill="#dcc79d"/><rect x="3" y="27" width="18" height="1" fill="#f4e6c9"/><rect x="19" y="27" width="2" height="1" fill="#dcc79d"/><rect x="3" y="27" width="18" height="1" fill="#dcc79d"/><rect x="4" y="28" width="16" height="1" fill="#f4e6c9"/><rect x="18" y="28" width="2" height="1" fill="#dcc79d"/><rect x="4" y="28" width="16" height="1" fill="#dcc79d"/><rect x="6" y="29" width="12" height="1" fill="#f4e6c9"/><rect x="16" y="29" width="2" height="1" fill="#dcc79d"/><rect x="6" y="29" width="12" height="1" fill="#dcc79d"/><rect x="6" y="29" width="12" height="1" fill="#c9b183"/><rect x="8" y="30" width="8" height="1" fill="#f4e6c9"/><rect x="14" y="30" width="2" height="1" fill="#dcc79d"/><rect x="8" y="30" width="8" height="1" fill="#c9b183"/><rect x="7" y="4" width="3" height="1" fill="#fffaf0"/><rect x="6" y="5" width="3" height="1" fill="#fffaf0"/><rect x="5" y="6" width="2" height="1" fill="#fffaf0"/><rect x="5" y="7" width="2" height="1" fill="#fffaf0"/><rect x="5" y="8" width="2" height="1" fill="#fffaf0"/><rect x="2" y="10" width="20" height="1" fill="#e8687e"/><rect x="20" y="10" width="2" height="1" fill="#c84f64"/><rect x="2" y="11" width="20" height="1" fill="#e8687e"/><rect x="20" y="11" width="2" height="1" fill="#c84f64"/><rect x="1" y="12" width="22" height="1" fill="#c84f64"/><rect x="21" y="12" width="2" height="1" fill="#c84f64"/><rect x="0" y="20" width="24" height="1" fill="#4da3ff"/><rect x="22" y="20" width="2" height="1" fill="#3080da"/><rect x="0" y="21" width="24" height="1" fill="#4da3ff"/><rect x="22" y="21" width="2" height="1" fill="#3080da"/><rect x="0" y="22" width="24" height="1" fill="#3080da"/><rect x="22" y="22" width="2" height="1" fill="#3080da"/><rect x="3" y="15" width="1" height="1" fill="#3fd07a"/><rect x="2" y="16" width="3" height="1" fill="#3fd07a"/><rect x="3" y="17" width="1" height="1" fill="#3fd07a"/><rect x="8" y="15" width="1" height="1" fill="#3fd07a"/><rect x="7" y="16" width="3" height="1" fill="#3fd07a"/><rect x="8" y="17" width="1" height="1" fill="#3fd07a"/><rect x="13" y="15" width="1" height="1" fill="#3fd07a"/><rect x="12" y="16" width="3" height="1" fill="#3fd07a"/><rect x="13" y="17" width="1" height="1" fill="#3fd07a"/><rect x="18" y="15" width="1" height="1" fill="#3fd07a"/><rect x="17" y="16" width="3" height="1" fill="#3fd07a"/><rect x="18" y="17" width="1" height="1" fill="#3fd07a"/><rect x="8" y="7" width="1" height="1" fill="#bff0d4"/><rect x="17" y="8" width="1" height="1" fill="#bff0d4"/><rect x="4" y="25" width="1" height="1" fill="#bff0d4"/><rect x="18" y="26" width="1" height="1" fill="#bff0d4"/></g></svg>`;
 function eggEl(){ return document.getElementById('gfl-egg'); }
 /* Painted into #app rather than the page, so it sits over whatever section
    happens to be at that fraction of the page and no tab has to know about it. */
@@ -7256,6 +7240,7 @@ async function eggClaim(){
   eggSave();
   _eggBusy=false;
   if(_activeTab==='book') renderBook();
+  if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
   try{ renderBetsBar(); }catch(e){}
 }
 /* Wakes at the window boundary rather than on an interval, so the egg moves at
@@ -7264,6 +7249,7 @@ async function eggClaim(){
 function eggStart(){
   if(_eggTimer) clearTimeout(_eggTimer);
   eggPaint();
+  if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
   const next=(eggWindow()+1)*EGG_MS-Date.now();
   _eggTimer=setTimeout(eggStart,Math.max(1000,next+50));
 }
@@ -7300,6 +7286,30 @@ function bucksWeekKey(now=new Date()){
   /* a date alone cannot separate buckets that all fall on the same day, so the
      testing cycle carries the time of day too */
   return bucksTestMs() ? `${day}T${p(d.getHours())}${p(d.getMinutes())}` : day;
+}
+/* A week key is 2026-08-21, or 2026-08-21T2130 while the short test cycle is
+   on. Date parses the first and rejects the second, so anything that printed a
+   week heading read "Invalid Date" the moment the test cycle was running.
+   Parsed by hand rather than by Date so both forms land in local time. */
+function bucksWeekParts(wk){
+  const m=/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2})(\d{2}))?$/.exec(String(wk||''));
+  if(!m) return null;
+  return {d:new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)), timed:m[4]!=null};
+}
+function bucksWeekDate(wk){ const p=bucksWeekParts(wk); return p?p.d:null; }
+/* On the real week a date is the whole story; on a short test cycle every
+   bucket falls on the same day, so the clock is what tells them apart.
+
+   Which form to print is read off the key itself rather than off the current
+   test flag — bets keep the key they were made under, so a ledger can hold
+   both kinds at once and turning the flag on must not relabel every older
+   week as midnight. */
+function bucksWeekLabel(wk){
+  const p=bucksWeekParts(wk);
+  if(!p) return String(wk||'');
+  return p.timed
+    ? p.d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})
+    : p.d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
 }
 function bucksWeekEnd(now=new Date()){ return tueWeekStart(now)+(bucksTestMs()||7*24*3600*1000); }
 function bucksResetsIn(now=new Date()){
@@ -8217,8 +8227,12 @@ function bankSeries(){
   mine.forEach(b=>{ byWeek[b.wk]=(byWeek[b.wk]||0)+((b.ret||0)-(b.stake||0)); });
   const weeks=Object.keys(byWeek).sort();
   if(!weeks.length) return null;
-  const back=d=>{ const t=new Date(d+'T00:00:00'); t.setDate(t.getDate()-7);
-    return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; };
+  /* one cycle before the first bet, so the line opens on the same footing as
+     any other cycle — and one cycle means one cycle, whatever length it is */
+  const back=d=>{
+    const t=bucksWeekDate(d);
+    return t?bucksWeekKey(new Date(t.getTime()-(bucksTestMs()||7*24*3600*1000))):d;
+  };
   const pts=[{wk:back(weeks[0]),val:BUCKS_WEEKLY,delta:0,start:true}];
   let run=BUCKS_WEEKLY;
   weeks.forEach(w=>{ run+=byWeek[w]; pts.push({wk:w,val:run,delta:byWeek[w]}); });
@@ -8235,7 +8249,7 @@ function bankAxisHTML(pts,W=600,padL=8,padR=8){
     const x=padL+(pts.length<2?0:i*(W-padL-padR)/(pts.length-1));
     const pct=(x/W*100).toFixed(2);
     const shift=i===0?'0':i===pts.length-1?'-100%':'-50%';
-    const d=p.start?'Start':new Date(p.wk+'T00:00:00').toLocaleDateString(undefined,{month:'numeric',day:'numeric'});
+    const d=p.start?'Start':bucksWeekLabel(p.wk);
     return `<span class="bank-x" style="left:${pct}%;transform:translateX(${shift})">${d}</span>`;
   }).join('');
 }
@@ -8360,10 +8374,11 @@ async function sbClearSettled(){
 }
 
 /* ── Settling ───────────────────────────────────────────────────────────────
-   A leg is graded only when its market has an answer. Most of this book is
-   season-long futures, so nothing settles until a season is final — and the
-   four award markets are decided by a league vote rather than by the data, so
-   they are never auto-graded and are reported as needing a manual call.
+   A leg is graded only when its market has an answer, and every market on the
+   board is now written against the regular season — so the whole book settles
+   the moment the regular season is final, rather than waiting on a bracket.
+   The retired markets keep their cases below: they can no longer be bet, but a
+   slip written before they came off must still be able to settle.
    Returns null for "cannot grade yet", true/false once it can. */
 function betLegResult(leg,season){
   const [ownerRaw,side]=String(leg.pick).split(':');
@@ -8461,7 +8476,6 @@ const SB_GROUPS=[
   {k:'week',label:'Forecast',icon:'fa-bolt'},
   {k:'futures',label:'Futures',icon:'fa-trophy'},
   {k:'props',label:'Team Props',icon:'fa-chart-simple'},
-  {k:'awards',label:'Awards',icon:'fa-award'},
   {k:'achieve',label:'Achievements',icon:'fa-bolt'},
   {k:'team',label:'By Team',icon:'fa-id-badge'},
 ];
@@ -8773,9 +8787,8 @@ function myBetsHTML(){
           :b.status==="open"&&b.wk===cur&&weekHasStarted()?`<div class="sb-lockmsg"><i class="fa fa-lock"></i>Locked — the week is under way</div>`:''}
       </div>`;
     }).join('');
-    const d=new Date(wk+'T00:00:00');
     return `<div class="sb-week">
-      <div class="sb-week-h">${wk===cur?'This week':d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}
+      <div class="sb-week-h">${wk===cur?'This week':bucksWeekLabel(wk)}
         <span>${weeks[wk].length} bet${weeks[wk].length>1?'s':''}</span></div>
       ${list}</div>`;
   }).join('');

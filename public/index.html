@@ -1124,10 +1124,16 @@
        and it does not announce itself — the whole point is that it takes a
        moment to spot. */
     #app{position:relative;}
+    /* The global button rule paints a panel — background, radius and the
+       --btn-edge shadow — which framed the egg in a little box. All three have
+       to be turned off by name; only the background was, so the edge kept
+       drawing the frame. */
     .gfl-egg{position:absolute;z-index:60;padding:0;border:0;background:none;
+      box-shadow:none;border-radius:0;
       cursor:pointer;line-height:0;
-      filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+      filter:drop-shadow(0 2px 5px rgba(0,0,0,0.55));
       animation:egg-in .45s cubic-bezier(.2,1.3,.4,1) both;}
+    .gfl-egg:hover{box-shadow:none;}
     .gfl-egg svg{display:block;}
     .gfl-egg:hover{transform:scale(1.12) rotate(-4deg);}
     .gfl-egg:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;}
@@ -2620,6 +2626,19 @@
     .mp-egg.on i{color:var(--green);}
     .mp-egg-v{color:var(--text);font-weight:800;text-transform:none;letter-spacing:0;}
     .mp-egg.on .mp-egg-v{color:var(--green);}
+    /* whether this window's egg is still unclaimed — same chip shape as the
+       tally beside it, so the two read as one pair */
+    .mp-eggnow{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;
+      border:1px solid var(--border);border-radius:9px;
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;}
+    .mp-eggnow i{font-size:12px;}
+    .mp-eggnow.live{border-color:rgba(var(--accent-rgb),0.5);
+      background:rgba(var(--accent-rgb),0.09);color:var(--text2);}
+    .mp-eggnow.live i{color:var(--accent);}
+    .mp-eggnow.got{border-color:rgba(63,208,122,0.4);background:rgba(63,208,122,0.07);
+      color:var(--text3);}
+    .mp-eggnow.got i{color:var(--green);}
 
     /* ── My Profile (header button destination) ───────────────────────────── */
     html[data-theme="dark"][data-tabaccent=profile]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}

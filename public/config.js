@@ -88,7 +88,7 @@ window.GFL_CONFIG = {
      purpose (a losing bet must not be able to vanish), so a clean slate is
      drawn with a line rather than by deleting anything. Raise it to now to
      start over again; set to 0 to count everything ever placed. */
-  betsResetBefore: 1787110650000,
+  betsResetBefore: 1787348483576,
 
   /* TESTING ONLY — how long one locker-room plant stage lasts, in minutes.
      Fractions are fine: 0.25 is fifteen seconds a stage, so the plant runs
