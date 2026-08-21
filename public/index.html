@@ -1084,6 +1084,52 @@
     .sec-nav.dock-only{padding-bottom:0;}
     .picker-ph{pointer-events:none;}
 
+    /* ── The wallet bar ───────────────────────────────────────────────────────
+       Deliberately its own set of rules rather than a variant of .sec-nav.
+       It shares the drawer's look — same offset under the nav, same frosted
+       panel reaching to the nav's side edges — because it should read as part
+       of the same furniture. It shares none of its behaviour: no chips, no
+       rebuild, no docking, one control that only the sportsbook puts up. */
+    .bets-bar{position:sticky;z-index:379;
+      top:var(--navbot,calc(env(safe-area-inset-top,0px) + 82px));
+      margin:-8px 0 22px;--betspad:10px;
+      padding:var(--betspad) max(0px,calc(var(--betspad) - var(--navside,2px)));
+      background:transparent;}
+    .bets-bar[hidden]{display:none;}
+    .bets-bar::before{content:"";position:absolute;z-index:-1;pointer-events:none;
+      top:0;bottom:0;left:calc(var(--navside,2px) * -1);right:calc(var(--navside,2px) * -1);
+      border-radius:0 0 12px 12px;
+      background:rgba(0,0,0,0.3);
+      -webkit-backdrop-filter:blur(22px) saturate(1.3);
+      backdrop-filter:blur(22px) saturate(1.3);
+      box-shadow:0 18px 34px -26px rgba(0,0,0,0.95);
+      transform:translateY(-100%);opacity:0;
+      transition:transform .26s cubic-bezier(.3,.75,.25,1),opacity .18s ease;}
+    .bets-bar.stuck::before{transform:translateY(0);opacity:1;}
+    @media(prefers-reduced-motion:reduce){
+      .bets-bar::before{transition:opacity .18s ease;transform:translateY(0);}
+    }
+    .bets-btn{display:flex;align-items:center;gap:10px;width:100%;
+      padding:11px 14px;border:none;border-radius:10px;cursor:pointer;
+      background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
+      color:#0b0f0c;font-family:'Inter',sans-serif;
+      font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+      box-shadow:0 2px 6px -3px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.22);
+      transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;}
+    .bets-btn i{color:#0b0f0c;font-size:14px;}
+    .bets-btn:hover{filter:brightness(1.05);}
+    .bets-btn:active{transform:translateY(1px);}
+    .bets-btn.on{box-shadow:inset 0 2px 7px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.16);
+      filter:brightness(0.97);}
+    .bets-btn.on i{opacity:.85;}
+    .bets-btn-bal{margin-left:auto;font-weight:800;color:#0b0f0c;
+      text-transform:none;letter-spacing:0;font-size:12px;
+      background:rgba(0,0,0,0.16);border-radius:999px;padding:3px 10px;}
+    @media(max-width:768px){
+      .bets-bar{top:var(--navbot,calc(env(safe-area-inset-top,0px) + 72px));}
+      .bets-btn{padding:10px 12px;font-size:11.5px;}
+    }
+
     /* ── The Easter egg ───────────────────────────────────────────────────────
        Positioned as a fraction of #app rather than pinned to any section, so it
        can land anywhere on a page without that page knowing about it. Small,
@@ -1931,6 +1977,24 @@
       .fm-nm{font-size:8px;max-width:52px;} .fm-lbl{font-size:7.5px;}
     }
 
+    /* A homepage card with nothing to show a signed-out reader still has to
+       look like a card. The poll used to drop to two lines of bare text, which
+       read as the page having lost its styling rather than as a prompt. */
+    .home-signin{display:flex;flex-direction:column;align-items:center;gap:11px;
+      padding:22px 16px;border-radius:12px;text-align:center;
+      border:1px solid rgba(var(--accent-rgb),0.35);
+      background:rgba(var(--accent-rgb),0.06);}
+    .home-signin-t{font-family:'Inter',sans-serif;font-size:13.5px;color:var(--text2);
+      line-height:1.5;}
+    .home-signin-b{padding:9px 18px;border-radius:9px;box-shadow:none;
+      border:1px solid rgba(var(--accent-rgb),0.6);
+      background:rgba(var(--accent-rgb),0.16);color:var(--text);
+      font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;}
+    .home-signin-b:hover{background:rgba(var(--accent-rgb),0.24);}
+    .home-signin-m{font-family:'Inter',sans-serif;font-size:11px;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+
     /* ── Notifications ────────────────────────────────────────────────────────
        One card at a time, because a stack of eleven kinds of alert is a feed
        nobody reads. The card carries the colour of what it is reporting, and
@@ -2686,32 +2750,6 @@
     html[data-theme="dark"][data-tabaccent=tenure]{--accent:#1ecdaa;--accent2:#0cc9d1;--accent-rgb:30,205,170;}
     html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
-
-    /* Beside the plant, same shape: what the egg hunt has been worth. Lit only
-       once something has actually been found. */
-    .mp-egg{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;
-      border:1px solid var(--border);border-radius:9px;
-      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
-      letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
-    .mp-egg i{font-size:12px;color:var(--text3);}
-    .mp-egg.on{border-color:rgba(63,208,122,0.45);background:rgba(63,208,122,0.08);
-      color:var(--text2);}
-    .mp-egg.on i{color:var(--green);}
-    .mp-egg-v{color:var(--text);font-weight:800;text-transform:none;letter-spacing:0;}
-    .mp-egg.on .mp-egg-v{color:var(--green);}
-    /* whether this window's egg is still unclaimed — same chip shape as the
-       tally beside it, so the two read as one pair */
-    .mp-eggnow{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;
-      border:1px solid var(--border);border-radius:9px;
-      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
-      letter-spacing:.4px;text-transform:uppercase;}
-    .mp-eggnow i{font-size:12px;}
-    .mp-eggnow.live{border-color:rgba(var(--accent-rgb),0.5);
-      background:rgba(var(--accent-rgb),0.09);color:var(--text2);}
-    .mp-eggnow.live i{color:var(--accent);}
-    .mp-eggnow.got{border-color:rgba(63,208,122,0.4);background:rgba(63,208,122,0.07);
-      color:var(--text3);}
-    .mp-eggnow.got i{color:var(--green);}
 
     /* ── My Profile (header button destination) ───────────────────────────── */
     html[data-theme="dark"][data-tabaccent=profile]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}

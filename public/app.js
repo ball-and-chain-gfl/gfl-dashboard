@@ -6073,19 +6073,6 @@ function renderMyProfile(){
         <span class="mp-plant-l">Plant</span>
         <span class="mp-plant-v">${plantStage().label}</span>
       </span>
-      ${/* what the hunt has been worth, beside the locker */''}
-      <span class="mp-egg${eggsFound().size?' on':''}">
-        <i class="fa fa-egg"></i>
-        <span class="mp-egg-l">Eggs found</span>
-        <span class="mp-egg-v">${eggsFound().size}${eggsFound().size?` · ${bucksFmt(eggBucks())}`:''}</span>
-      </span>
-      ${/* and whether there is one going begging right now */''}
-      <span class="mp-eggnow ${eggClaimedNow()?'got':'live'}">
-        <i class="fa ${eggClaimedNow()?'fa-circle-check':'fa-magnifying-glass'}"></i>
-        <span class="mp-eggnow-t">${eggClaimedNow()
-          ?'You got this one'
-          :`One out there — ${bucksFmt(EGG_PRIZE)}`}</span>
-      </span>
     </div>`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
      straight here without opening a team profile first — the cache is empty and
@@ -7288,10 +7275,6 @@ function eggsFound(){
   return (_eggs=new Set(list.map(Number).filter(n=>!isNaN(n))));
 }
 function eggBucks(){ return eggsFound().size*EGG_PRIZE; }
-/* Whether this window's egg is still going begging. Deliberately says nothing
-   about where it is — only that there is one, which is the part worth knowing
-   without spoiling the hunt. */
-const eggClaimedNow=()=>eggsFound().has(eggWindow());
 function eggSave(){
   const list=[...eggsFound()];
   try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
@@ -7364,7 +7347,6 @@ async function eggClaim(){
   eggSave();
   _eggBusy=false;
   if(_activeTab==='book') renderBook();
-  if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
   try{ renderBetsBar(); }catch(e){}
 }
 /* Wakes at the window boundary rather than on an interval, so the egg moves at
@@ -7373,7 +7355,6 @@ async function eggClaim(){
 function eggStart(){
   if(_eggTimer) clearTimeout(_eggTimer);
   eggPaint();
-  if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
   const next=(eggWindow()+1)*EGG_MS-Date.now();
   _eggTimer=setTimeout(eggStart,Math.max(1000,next+50));
 }
@@ -8450,8 +8431,11 @@ function renderCoachesPoll(){
   const complete=ballots>=REVEAL_AT;
 
   if(!_me){
-    el.innerHTML=`<div class="cp-note">Sign in to cast a ballot.</div>
-      <div class="cp-meta">${ballots} of ${total} ballots in</div>`;
+    el.innerHTML=`<div class="home-signin">
+      <div class="home-signin-t">Sign in to rank the league and see where everyone else has it.</div>
+      <button class="home-signin-b" onclick="openSignIn()">Sign in</button>
+      <div class="home-signin-m">${ballots} of ${total} ballots in</div>
+    </div>`;
     return;
   }
   /* Results are withheld from anyone who has not voted, however many ballots
