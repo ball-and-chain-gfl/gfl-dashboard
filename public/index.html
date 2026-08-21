@@ -1995,6 +1995,21 @@
     .home-signin-m{font-family:'Inter',sans-serif;font-size:11px;
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
 
+    /* Beside the plant: how many eggs have been found, and whether one is
+       still out there. No money on either — the bank is the sportsbook's job. */
+    .mp-egg,.mp-eggnow{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;
+      border:1px solid var(--border);border-radius:9px;
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
+    .mp-egg-e{font-size:13px;line-height:1;}
+    .mp-egg-v{color:var(--text);font-weight:800;}
+    .mp-egg.on{border-color:rgba(63,208,122,0.45);background:rgba(63,208,122,0.08);color:var(--text2);}
+    .mp-egg.on .mp-egg-v{color:var(--green);}
+    .mp-eggnow.live{border-color:rgba(var(--accent-rgb),0.5);
+      background:rgba(var(--accent-rgb),0.09);color:var(--text2);}
+    .mp-eggnow.got{border-color:rgba(63,208,122,0.4);background:rgba(63,208,122,0.07);
+      color:var(--text3);}
+
     /* ── Notifications ────────────────────────────────────────────────────────
        One card at a time, because a stack of eleven kinds of alert is a feed
        nobody reads. The card carries the colour of what it is reporting, and
@@ -2018,6 +2033,8 @@
     .nt-gold .nt-ico{color:#E8BC56;}
     .nt-t{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
       letter-spacing:.6px;text-transform:uppercase;color:var(--text2);flex:1 1 auto;min-width:0;}
+    .nt-day{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:10px;
+      font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--text3);}
     .nt-x{flex:0 0 auto;width:24px;height:24px;padding:0;border-radius:7px;
       background:none;box-shadow:none;color:var(--text3);font-size:12px;}
     .nt-x:hover{color:var(--text);background:rgba(255,255,255,0.07);}

@@ -71,6 +71,12 @@ window.GFL_CONFIG = {
      EACH WEEK: bump `week` and replace the five questions. `correct` is the
      zero-based index of the right answer in `a`. Leave `reveal` false while the
      week is live; flip it to true afterwards to show everyone how they did. */
+  /* One dummy notification of every kind, so the whole set can be seen while
+     the league is quiet. Set to false once the season starts and the real ones
+     begin arriving — the demo cards are keyed on fixed ids, so any that have
+     already been swiped away will stay away. */
+  notifications: { demo: true },
+
   /* TESTING ONLY — how many minutes a GFL Bucks cycle lasts, standing in for
      the real Tuesday-to-Tuesday week. Set to 0 (or delete this line) to go back
      to the real thing. Bets already placed stay attached to the cycle they were

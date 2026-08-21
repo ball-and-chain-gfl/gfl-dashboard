@@ -5517,6 +5517,7 @@ function applyMe(){
     if(_activeTab==='tenure') try{ renderTenureTable(); renderTenureEnemies(); }catch(e){}
   }
   try{ eggReset(); }catch(e){}            // this manager's finds, not the last one's
+  try{ ntReset(); }catch(e){}             // and their dismissals, from their profile
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
   try{ pkReset(); }catch(e){}
@@ -6072,6 +6073,17 @@ function renderMyProfile(){
         <i class="fa fa-seedling"></i>
         <span class="mp-plant-l">Plant</span>
         <span class="mp-plant-v">${plantStage().label}</span>
+      </span>
+      ${/* how the hunt is going — the count and whether one is still out
+            there, with no mention of what it paid */''}
+      <span class="mp-egg${eggsFound().size?' on':''}">
+        <span class="mp-egg-e">🥚</span>
+        <span class="mp-egg-l">Eggs found</span>
+        <span class="mp-egg-v">${eggsFound().size}</span>
+      </span>
+      <span class="mp-eggnow ${eggClaimedNow()?'got':'live'}">
+        <span class="mp-egg-e">🥚</span>
+        <span class="mp-eggnow-t">${eggClaimedNow()?'You got this one':'One out there'}</span>
       </span>
     </div>`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
@@ -7275,6 +7287,9 @@ function eggsFound(){
   return (_eggs=new Set(list.map(Number).filter(n=>!isNaN(n))));
 }
 function eggBucks(){ return eggsFound().size*EGG_PRIZE; }
+/* Whether this window's egg is still going begging. Says nothing about where
+   it is — only that there is one, which is the part worth knowing. */
+const eggClaimedNow=()=>eggsFound().has(eggWindow());
 function eggSave(){
   const list=[...eggsFound()];
   try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
@@ -7347,6 +7362,7 @@ async function eggClaim(){
   eggSave();
   _eggBusy=false;
   if(_activeTab==='book') renderBook();
+  if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
   try{ renderBetsBar(); }catch(e){}
 }
 /* Wakes at the window boundary rather than on an interval, so the egg moves at
@@ -7355,6 +7371,7 @@ async function eggClaim(){
 function eggStart(){
   if(_eggTimer) clearTimeout(_eggTimer);
   eggPaint();
+  if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
   const next=(eggWindow()+1)*EGG_MS-Date.now();
   _eggTimer=setTimeout(eggStart,Math.max(1000,next+50));
 }
@@ -7890,22 +7907,86 @@ const NT_KINDS={
   streakW:{icon:'fa-arrow-trend-up',  tone:'good'},
   streakL:{icon:'fa-arrow-trend-down',tone:'bad'},
 };
-let _ntSeen=null, _ntIdx=0, _ntTradeSeason=null;
+let _ntSeen=null, _ntIdx=0, _ntTradeSeason=null, _ntDay=null, _ntDayTimer=null;
 const ntKey=()=>lsKey('nt-seen');
+/* What has been swiped away lives on the manager's profile, so clearing a card
+   on a phone clears it on a laptop too. The device copy is kept alongside it
+   only so the card is right before the network answers — the profile is the
+   record and the two are merged, never replaced, or a swipe made on one device
+   would be undone by opening another. */
 function ntSeen(){
   if(_ntSeen) return _ntSeen;
   let a=[]; try{ a=JSON.parse(localStorage.getItem(ntKey())||'[]')||[]; }catch(e){}
   return (_ntSeen=new Set(a.filter(x=>typeof x==='string')));
 }
-function ntMarkSeen(id){
-  ntSeen().add(id);
+function ntSaveSeen(extra){
   /* Only ids still being produced are worth keeping. Without this the list
      grows forever as weeks roll past and old events stop being generated. */
+  let keep=[...ntSeen()];
   try{
     const live=new Set(ntAll().map(n=>n.id));
-    const keep=[...ntSeen()].filter(x=>live.has(x)||x===id);
-    localStorage.setItem(ntKey(),JSON.stringify(keep));
+    keep=keep.filter(x=>live.has(x)||x===extra);
   }catch(e){}
+  try{ localStorage.setItem(ntKey(),JSON.stringify(keep)); }catch(e){}
+  if(_me) try{ gflPatchProfile(_me.k1,{ntSeen:JSON.stringify(keep)}); }catch(e){}
+}
+function ntMarkSeen(id){ ntSeen().add(id); ntSaveSeen(id); }
+/* pulled once on sign-in, merged both ways so neither side loses a swipe */
+async function ntSync(){
+  if(!_me) return;
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.ntSeen)||'[]')||[]; }catch(e){}
+    const before=ntSeen().size;
+    srv.filter(x=>typeof x==='string').forEach(x=>ntSeen().add(x));
+    if(ntSeen().size!==before){
+      try{ localStorage.setItem(ntKey(),JSON.stringify([...ntSeen()])); }catch(e){}
+      if(_activeTab==='home'){ renderNotifications(); try{ orderHomeTodo(); }catch(e){} }
+    }
+  }catch(e){}
+}
+function ntReset(){ _ntSeen=null; _ntIdx=0; try{ ntSync(); }catch(e){}
+  if(_activeTab==='home'){ try{ renderNotifications(); }catch(e){} } }
+
+/* ── When a card is allowed to appear ────────────────────────────────────────
+   The league runs on a Tuesday. Everything that comes out of a week's football
+   — blowouts, one-score finishes, rivalry wins, perfect slates, streaks — is
+   held until the Tuesday after that week, which is when the last game is in and
+   when people actually want to read it. Everything else is dated to the day it
+   happened and shows up that day: a Wednesday trade is a Wednesday card.
+
+   Cards dated ahead of today are held back rather than dropped, so nothing has
+   to be regenerated when the day turns over. */
+const ntToday=()=>{const d=new Date(); d.setHours(0,0,0,0); return d.getTime();};
+const ntDayOf=t=>{const d=new Date(t); d.setHours(0,0,0,0); return d.getTime();};
+/* The Tuesday a week's football was read out on — the one on or before the
+   moment given, not the one coming. Looking forward dated results that had
+   already been played to a day still in the future, which held every one of
+   them back for up to a week. */
+function ntResultsDay(t){
+  const d=new Date(t); d.setHours(0,0,0,0);
+  const back=(d.getDay()-2+7)%7;             // 2 = Tuesday
+  d.setDate(d.getDate()-back);
+  return d.getTime();
+}
+function ntWhen(day){
+  const today=ntToday();
+  const diff=Math.round((today-day)/86400000);
+  if(diff<=0) return 'Today';
+  if(diff===1) return 'Yesterday';
+  if(diff<7) return new Date(day).toLocaleDateString(undefined,{weekday:'long'});
+  return new Date(day).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+/* re-render when the date rolls over, so "Today" stops lying and anything
+   held for tomorrow appears without a reload */
+function ntStartDayWatch(){
+  if(_ntDayTimer) clearTimeout(_ntDayTimer);
+  _ntDay=ntToday();
+  const next=new Date(); next.setHours(24,0,0,30);
+  _ntDayTimer=setTimeout(()=>{
+    if(_activeTab==='home'){ try{ renderNotifications(); orderHomeTodo(); }catch(e){} }
+    ntStartDayWatch();
+  },Math.max(60000,next.getTime()-Date.now()));
 }
 /* the newest season with a game actually played */
 function ntSeason(){
@@ -7939,6 +8020,7 @@ function ntFromWeek(out){
   const season=ntSeason(); if(!season) return;
   const lw=ntLastWeek(season); if(!lw) return;
   const owners=lw.meta.owners||{};
+  const day=ntResultsDay(Date.now());      // this week's football, read on Tuesday
   lw.games.forEach(mu=>{
     const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
     if(hp===ap) return;
@@ -7949,18 +8031,18 @@ function ntFromWeek(out){
     const margin=Math.abs(hp-ap);
     const wp=homeWon?hp:ap, lp=homeWon?ap:hp;
     const score=`${wp.toFixed(1)}–${lp.toFixed(1)}`;
-    if(margin>=40) out.push({kind:'blowout',
+    if(margin>=40) out.push({kind:'blowout', day,
       id:`bl:${season}:${lw.week}:${win}`,
       title:'Blown out',
       body:`<b>${ntName(season,win)}</b> put <b>${margin.toFixed(1)}</b> on <b>${ntName(season,lose)}</b> — ${score}, week ${lw.week}.`});
-    else if(margin<6) out.push({kind:'wire',
+    else if(margin<6) out.push({kind:'wire', day,
       id:`nw:${season}:${lw.week}:${win}`,
       title:'Down to the wire',
       body:`<b>${ntName(season,win)}</b> edged <b>${ntName(season,lose)}</b> by <b>${margin.toFixed(1)}</b> — ${score}, week ${lw.week}.`});
     /* a rivalry game is one of the three that made them rivals in the first
        place, so it is read off the rival list rather than guessed at */
     try{
-      if(rivalsFor(win).some(r=>r.owner===lose)) out.push({kind:'rival',
+      if(rivalsFor(win).some(r=>r.owner===lose)) out.push({kind:'rival', day,
         id:`rv:${season}:${lw.week}:${win}`,
         title:'Rivalry settled',
         body:`<b>${ntName(season,win)}</b> beat their rival <b>${ntName(season,lose)}</b>, ${score}.`});
@@ -7994,10 +8076,11 @@ function ntStreaks(out){
     let n=0;
     for(let i=res.length-1;i>=0&&res[i]===last;i--) n++;
     if(n<5) return;
+    const day=ntResultsDay(Date.now());
     out.push(last
-      ?{kind:'streakW', id:`sw:${owner}:${n}`, title:`${n} in a row`,
+      ?{kind:'streakW', day, id:`sw:${owner}:${n}`, title:`${n} in a row`,
         body:`<b>${ntName(season,owner)}</b> has won <b>${n}</b> straight.`}
-      :{kind:'streakL', id:`sl:${owner}:${n}`, title:`${n} straight losses`,
+      :{kind:'streakL', day, id:`sl:${owner}:${n}`, title:`${n} straight losses`,
         body:`<b>${ntName(season,owner)}</b> has not won in <b>${n}</b> games.`});
   });
 }
@@ -8013,7 +8096,7 @@ function ntPlants(out){
     const nm=(_teams.find(x=>x.id===tid)||{}).name||p.id;
     /* keyed by the watering that led to it, so one death is reported once and
        the next one after a re-water is a new card */
-    out.push({kind:'plant', id:`pl:${p.id}:${t}`, title:'A plant has died',
+    out.push({kind:'plant', day:ntDayOf(t+5*ms), id:`pl:${p.id}:${t}`, title:'A plant has died',
       body:`<b>${nm}</b> let theirs go. Six days without water.`});
   });
 }
@@ -8040,7 +8123,7 @@ function ntPerfectPicks(out){
     const hit=vals.filter(v=>want.includes(v)).length;
     if(hit!==nGames) return;
     const nm=(_teams.find(x=>x.id===Number(p.teamId||0))||{}).name||p.id;
-    out.push({kind:'perfect', id:`pp:${season}:${lw.week}:${p.id}`,
+    out.push({kind:'perfect', day:ntResultsDay(Date.now()), id:`pp:${season}:${lw.week}:${p.id}`,
       title:'A perfect slate',
       body:`<b>${nm}</b> called every game in week ${lw.week} — ${nGames} for ${nGames}.`});
   });
@@ -8052,7 +8135,8 @@ function ntBigFaab(out){
     if(!(bid>100)) return;
     const nm=t.teamName||(_teams.find(x=>x.id===Number(t.teamId))||{}).name||'Someone';
     const pl=t.playerName||t.player||'a player';
-    out.push({kind:'faab', id:`fb:${t.id||(nm+':'+pl+':'+bid)}`,
+    out.push({kind:'faab', day:ntDayOf(Number(t.date||t.proposedDate)||Date.now()),
+      id:`fb:${t.id||(nm+':'+pl+':'+bid)}`,
       title:'Big money on the wire',
       body:`<b>${nm}</b> spent <b>$${bid}</b> of FAAB on <b>${pl}</b>.`});
   });
@@ -8073,7 +8157,7 @@ function ntTrades(out){
     const teams=tr.teams||[]; if(teams.length<2) return;
     const id=`td:${season}:${tr.id||teams.map(t=>t.teamId).join('-')+':'+(tr.date||'')}`;
     const nm=t=>(_teams.find(x=>x.id===Number(t.teamId))||{}).name||('Team '+t.teamId);
-    out.push({kind:'trade', id, title:'A trade went through',
+    out.push({kind:'trade', day:ntDayOf(Number(tr.date||tr.proposedDate)||Date.now()), id, title:'A trade went through',
       body:`<b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b> swapped. Who won it?`,
       vote:{id, sides:[{k:String(teams[0].teamId),label:nm(teams[0])},
                        {k:String(teams[1].teamId),label:nm(teams[1])}]}});
@@ -8083,7 +8167,7 @@ function ntTrades(out){
 function ntParlays(out){
   if(!_me) return;
   betsMine().filter(b=>b.status==='invite'&&!inviteLapsed(b)).forEach(b=>{
-    out.push({kind:'parlay', id:`pi:${b.id}`, title:'You have been asked in',
+    out.push({kind:'parlay', day:ntDayOf(Number(b.ts)||Date.now()), id:`pi:${b.id}`, title:'You have been asked in',
       body:`<b>${betAccountName(b.invitedBy)}</b> wants you in on ${b.legs.length>1?`a ${b.legs.length}-leg parlay`:'a bet'} — ${bucksFmt(b.stake)}.`,
       go:'bets'});
   });
@@ -8117,18 +8201,59 @@ function ntCrowns(out){
   if(!prev) return;                       // first run: learn, do not announce
   NT_CROWNS.forEach(c=>{
     if(!now[c.k]||!prev[c.k]||now[c.k]===prev[c.k]) return;
-    out.push({kind:'crown', id:`cr:${c.k}:${now[c.k]}`, title:'New at the top',
+    out.push({kind:'crown', day:ntToday(), id:`cr:${c.k}:${now[c.k]}`, title:'New at the top',
       body:`<b>${ntName(ntSeason(),now[c.k])}</b> now leads the league in <b>${c.label}</b>.`});
   });
 }
 
+/* One of everything, so the whole set can be looked at out of season. Turned
+   on and off in config; the ids are fixed strings, so a demo card that has been
+   swiped away stays away. */
+function ntDemo(out){
+  if(!(_CFG.notifications||{}).demo) return;
+  const d=ntToday(), day=n=>d-n*86400000;
+  const T2=ntResultsDay(Date.now());
+  out.push(
+   {kind:'blowout',day:T2,id:'demo:blowout',title:'Blown out',
+    body:'<b>Motor City Mulligans</b> put <b>52.4</b> on <b>Waddle House</b> — 168.2–115.8, week 3.'},
+   {kind:'wire',day:T2,id:'demo:wire',title:'Down to the wire',
+    body:'<b>Bikini Bottom Goobers</b> edged <b>Florida Man</b> by <b>0.8</b> — 121.4–120.6, week 3.'},
+   {kind:'rival',day:T2,id:'demo:rival',title:'Rivalry settled',
+    body:'<b>The Bryan Football Team</b> beat their rival <b>Lebron&#39;s 3rd Leg</b>, 143.0–98.7.'},
+   {kind:'perfect',day:T2,id:'demo:perfect',title:'A perfect slate',
+    body:'<b>Tuckasegee Tinglers</b> called every game in week 3 — 6 for 6.'},
+   {kind:'streakW',day:T2,id:'demo:streakw',title:'6 in a row',
+    body:'<b>Motor City Mulligans</b> has won <b>6</b> straight.'},
+   {kind:'streakL',day:T2,id:'demo:streakl',title:'5 straight losses',
+    body:'<b>Midwest Miners</b> has not won in <b>5</b> games.'},
+   {kind:'plant',day:day(1),id:'demo:plant',title:'A plant has died',
+    body:'<b>Kunk</b> let theirs go. Six days without water.'},
+   {kind:'crown',day:day(2),id:'demo:crown',title:'New at the top',
+    body:'<b>Bikini Bottom Goobers</b> now leads the league in <b>all-time points</b>.'},
+   {kind:'faab',day:day(3),id:'demo:faab',title:'Big money on the wire',
+    body:'<b>Waddle House</b> spent <b>$147</b> of FAAB on <b>Jaylen Wright</b>.'},
+   {kind:'parlay',day:d,id:'demo:parlay',title:'You have been asked in',
+    body:'<b>Motor City Mulligans</b> wants you in on a 3-leg parlay — $75.',go:'bets'},
+   {kind:'trade',day:d,id:'demo:trade',title:'A trade went through',
+    body:'<b>Midwest Miners</b> and <b>Bismuth</b> swapped. Who won it?',
+    vote:{id:'demo_trade',sides:[{k:'a',label:'Midwest Miners'},{k:'b',label:'Bismuth'}]}},
+  );
+}
 function ntAll(){
   const out=[];
-  [ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks]
+  [ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
+  /* anything with no date of its own belongs to today */
+  out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
   return out;
 }
-function ntLive(){ return ntAll().filter(n=>!ntSeen().has(n.id)); }
+/* Nothing appears before its day, and the newest sits first — the week's
+   results on Tuesday, then whatever has happened since, in order. */
+function ntLive(){
+  const today=ntToday();
+  return ntAll().filter(n=>!ntSeen().has(n.id)&&n.day<=today)
+    .sort((a,b)=>b.day-a.day);
+}
 /* the card counts as done once the stack is empty, which is what sinks it */
 function ntDone(){ return ntLive().length===0; }
 
@@ -8188,6 +8313,7 @@ function renderNotifications(){
       <div class="nt-top">
         <span class="nt-ico"><i class="fa ${meta.icon}"></i></span>
         <span class="nt-t">${n.title}</span>
+        <span class="nt-day">${ntWhen(n.day)}</span>
         <button class="nt-x" onclick="ntDismiss('${String(n.id).replace(/'/g,"\\'")}')"
           aria-label="Dismiss"><i class="fa fa-xmark"></i></button>
       </div>
@@ -10130,7 +10256,8 @@ loadDashboard();
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initMobileTables); else initMobileTables();
 /* each init is isolated: they shared a statement, so a throw in the first
    silently prevented the second from ever running */
-function bootUI(){ try{initSignIn();}catch(e){} try{eggStart();}catch(e){} try{eggSync();}catch(e){} }
+function bootUI(){ try{initSignIn();}catch(e){} try{eggStart();}catch(e){} try{eggSync();}catch(e){}
+  try{ntStartDayWatch();}catch(e){} try{ntSync();}catch(e){} }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootUI); else bootUI();
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});
