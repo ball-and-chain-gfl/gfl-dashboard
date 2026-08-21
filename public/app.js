@@ -565,19 +565,6 @@ function applyShortNames(root){
 // header doesn't push the controls onto a second line.
 // Phones: size the tenure name column to the widest name it actually holds, so
 // the numbers start exactly 8px after the longest name and nothing ever wraps.
-function tenureNameWidth(){
-  const tbl=document.querySelector('#page-tenure table.tenure-tbl'); if(!tbl) return;
-  if(!window.matchMedia('(max-width:768px)').matches){ tbl.style.removeProperty('--tnw'); return; }
-  tbl.style.setProperty('--tnw','420px');                 // unconstrain, then measure
-  let max=0;
-  tbl.querySelectorAll('tbody td:first-child .pname').forEach(p=>{const w=p.getBoundingClientRect().width; if(w>max) max=w;});
-  /* Snug to the longest name, but only up to a share of the screen: one
-     "J. Smith-Njigba" used to set the width for all fifty rows and push the
-     numbers off the side. Past the cap the name ellipsizes instead. */
-  const cap=Math.max(96,Math.round(window.innerWidth*0.31));
-  if(max>0) tbl.style.setProperty('--tnw',Math.min(cap,Math.ceil(max+8))+'px');
-  else tbl.style.removeProperty('--tnw');
-}
 function tradeScopeLabel(){
   const b=document.getElementById('trade-scope-season'); if(!b) return;
   const t=window.matchMedia('(max-width:768px)').matches?String(getSeason()):'This Season';
@@ -633,7 +620,7 @@ function labelTables(root){
 }
 let _mtblTimer=null;
 function initMobileTables(){
-  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); tenureNameWidth(); badBeatCols(); stripeProfileStats(); }catch(e){} };
+  const run=()=>{ try{ labelTables(document); applyShortNames(document); seasonLabel(); tradeScopeLabel(); badBeatCols(); stripeProfileStats(); }catch(e){} };
   run();
   const target=document.querySelector('main')||document.body;
   new MutationObserver(()=>{ clearTimeout(_mtblTimer); _mtblTimer=setTimeout(run,120); })
@@ -665,7 +652,7 @@ function switchTab(name){
   if(name==='messages') initMessages();
   if(name==='profile') renderMyProfile();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
-  if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); try{ leaguePoll(); }catch(e){} } else liveStop();   // the live board lives on the homepage
+  if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){} } else liveStop();   // the live board lives on the homepage
   if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -1925,38 +1912,68 @@ function renderTenureTable(){
      long a player has been kept and how much they gave over that time — and
      one season's slice sat oddly next to four all-time totals while pushing
      the table two columns past the width of a phone. */
-  /* No min-width: with the single-season columns gone there is little enough
-     left to fit a phone outright, and a table you have to drag sideways to
-     read is worse than one column fewer. Rostered is the one that drops on a
-     phone — it is the least interesting of the five and always within a game
-     or two of Starts. */
-  body.innerHTML=shown.length?`<div class="tscroll"><table class="srt tenure-tbl">
-    <thead>
-      <tr>
-        <th>Player</th>
-        <th class="right" title="Weeks in the starting lineup, every season">Starts</th>
-        <th class="right" title="Weeks on the roster (starter or bench), every season">Roster</th>
-        <th class="right" title="Times this team has spent a draft pick on this player">Drafts</th>
-        <th class="right" title="Points scored for GFL teams, every season">Points</th>
-        <th class="right" title="Playoff games won while started for this team">PO W</th>
-      </tr>
-    </thead>
-    <tbody>${shown.map((p,i)=>`
-      <tr>
-        <td><span class="pname"><span class="rank" style="margin-right:4px">${i+1}</span>${playerImg(p.pid,22,p.n)}<span class="fr-name">${p.n}</span></span></td>
-        <td class="right"><strong>${p.sAll}</strong></td>
-        <td class="right" style="color:var(--text2)">${p.wAll}</td>
-        <td class="right"${p.nDraft?' style="color:var(--accent);font-weight:600"':''}>${
-          p.nDraft==null?'<span style="color:var(--text3)">·</span>':(p.nDraft||dash)}</td>
-        <td class="right pf">${p.pAll.toFixed(1)}</td>
-        <td class="right" style="color:var(--accent);font-weight:600">${p.pwAll||dash}</td>
-      </tr>`).join('')}</tbody>
-  </table></div>${players.length>50?`<div style="padding:12px 2px;font-size:12px;color:var(--text3)">Showing top 50 of ${players.length} — use search to find others.</div>`:''}
-  <div style="padding:4px 2px 16px;font-size:12px;color:var(--text3)"><b>Started</b> = weeks in the active lineup · <b>Rostered</b> = weeks on the roster (starter or bench). Bye weeks and weeks a player was on IR or ruled out are not counted.</div>`
+  /* Built as a grid list rather than a table, the same way the Draft Report
+     lays its picks out. A table sizes itself to its widest cell and then makes
+     the page carry it sideways; a grid is told what each column gets and the
+     name absorbs whatever is left, so the whole row is on screen at any width.
+     Sorting comes with it — every cell carries the raw value, so the header can
+     reorder without re-rendering. */
+  body.innerHTML=shown.length?tenureListHTML(shown)
+    +(players.length>50?`<div class="tn-more">Showing top 50 of ${players.length} — use search to find others.</div>`:'')
+    +`<div class="tn-note"><b>Starts</b> = weeks in the active lineup ·
+      <b>Roster</b> = weeks on the roster, starting or benched. Bye weeks, and weeks
+      a player was on IR or ruled out, are not counted.</div>`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
   try{ renderTenureHardware(); }catch(e){}
 }
 
+
+/* One row per player, every column a fixed share except the name, which takes
+   what is left. Each cell carries its raw value on data-v so sorting never has
+   to parse a formatted number back out of the text. */
+let _tnSort={col:1,asc:false};
+function tenureListHTML(rows){
+  const cols=[
+    {k:'#',    cls:'tn-rk',  t:'Order in this list'},
+    {k:'Player',cls:'tn-player',t:'Player'},
+    {k:'Start',cls:'tn-st', t:'Weeks in the starting lineup, every season'},
+    {k:'Rost',cls:'tn-ro', t:'Weeks on the roster (starter or bench), every season'},
+    {k:'Draft',cls:'tn-dr', t:'Times this team has spent a draft pick on this player'},
+    {k:'Pts',cls:'tn-pts',t:'Points scored for GFL teams, every season'},
+    {k:'PO W',  cls:'tn-pw', t:'Playoff games won while started for this team'},
+  ];
+  const head=`<div class="tn-row tn-head">${cols.map((c,i)=>
+    `<span class="${c.cls} tn-sort" data-col="${i}" title="${c.t}" onclick="sortTN(${i})">${c.k}<i class="tn-arw"></i></span>`
+  ).join('')}</div>`;
+  const dash='<span class="tn-dash">—</span>';
+  const body=rows.map((p,i)=>`<div class="tn-row">
+    <span class="tn-rk" data-v="${i+1}">${i+1}</span>
+    <span class="tn-player" data-v="${String(p.n||'').replace(/"/g,'&quot;')}">${playerImg(p.pid,20,p.n)}<span class="pl-name">${p.n}</span></span>
+    <span class="tn-st" data-v="${p.sAll}">${p.sAll}</span>
+    <span class="tn-ro" data-v="${p.wAll}">${p.wAll}</span>
+    <span class="tn-dr" data-v="${p.nDraft==null?-1:p.nDraft}">${p.nDraft==null?'<span class="tn-dash">·</span>':(p.nDraft||dash)}</span>
+    <span class="tn-pts" data-v="${p.pAll}">${p.pAll.toFixed(1)}</span>
+    <span class="tn-pw" data-v="${p.pwAll}">${p.pwAll||dash}</span>
+  </div>`).join('');
+  return `<div class="tn-list">${head}${body}</div>`;
+}
+function sortTN(col){
+  const list=document.querySelector('.tn-list'); if(!list) return;
+  /* names read best A–Z first, numbers biggest first */
+  const asc=(_tnSort.col===col)? !_tnSort.asc : (col===0||col===1);
+  _tnSort={col,asc};
+  const rows=[...list.querySelectorAll('.tn-row:not(.tn-head)')];
+  const val=r=>{const c=r.children[col]; const v=c?.dataset.v ?? c?.textContent ?? '';
+    const n=parseFloat(v); return (v!==''&&!isNaN(n))?n:String(v).toLowerCase();};
+  rows.sort((x,y)=>{const p=val(x),q=val(y);
+    if(typeof p==='number'&&typeof q==='number') return asc?p-q:q-p;
+    return asc?String(p).localeCompare(String(q)):String(q).localeCompare(String(p));});
+  rows.forEach(r=>list.appendChild(r));
+  list.querySelectorAll('.tn-head .tn-sort').forEach((sp,i)=>{
+    sp.classList.toggle('sorted',i===col);
+    const ar=sp.querySelector('.tn-arw'); if(ar) ar.textContent=(i===col)?(asc?' \u2191':' \u2193'):'';
+  });
+}
 
 /* ── PLAYOFF HARDWARE (player tenure, composite) ───────────────────────────
    Deliberately team-agnostic: a player's playoff wins and rings are summed
@@ -4459,7 +4476,12 @@ const DOCK_MS=260;
    is the one pinned under the nav, and it is shown for the picker alone on
    pages that have no chips of their own. */
 function activeChipBar(){ return document.getElementById('sec-nav'); }
+/* The sportsbook is the one page that already hangs something off the nav —
+   the wallet — and there is only one slot down there. Docking the Team Card's
+   selector into it dropped the selector straight on top of My Bets, so on this
+   page the selector stays where it is. */
 function pagePicker(){
+  if(_activeTab==='book') return null;
   const page=document.getElementById('page-'+_activeTab); if(!page) return null;
   return [...page.querySelectorAll('.picker-bar')]
     .find(p=>p.querySelector('select')&&p.offsetParent!==null)||null;
@@ -4941,6 +4963,7 @@ async function leaguePoll(force){
   _motwVotes=tally;
   try{ renderMotwVoteBar(); }catch(e){}
   try{ renderCoachesPoll(); }catch(e){}
+  try{ renderNotifications(); orderHomeTodo(); }catch(e){}
 }
 /* Firestore's REST API has no subscribe — real-time listeners live in the
    Firebase JS SDK, which this app deliberately does not carry. If live updates
@@ -7857,16 +7880,405 @@ function pkMotwIndex(games){
   });
 }
 
+
+/* ── NOTIFICATIONS ───────────────────────────────────────────────────────────
+   The league's week, one card at a time. Everything here is derived from data
+   the site already holds — schedules, profiles, the transaction log, the bet
+   collection — rather than being written anywhere: there is no notification
+   store to keep in sync, and nothing new is asked of Firestore. Rebuild the
+   list and the same events come back with the same ids.
+
+   Those ids are the whole trick. A notification's id is a description of the
+   event it reports (blowout, season, week, winner), so dismissing one can be
+   recorded as a single string and the same event will not come back next time
+   the list is built. Dismissals live on the device: they are worth nothing to
+   anyone else, and putting them on the profile would mean a write per swipe.
+
+   One at a time, deliberately. A stack of eleven kinds of alert is a feed
+   nobody reads; a single card with a count is a thing you deal with. */
+const NT_KINDS={
+  blowout:{icon:'fa-explosion',   tone:'hot'},
+  wire:   {icon:'fa-stopwatch',   tone:'cool'},
+  perfect:{icon:'fa-bullseye',    tone:'good'},
+  plant:  {icon:'fa-seedling',    tone:'bad'},
+  crown:  {icon:'fa-crown',       tone:'gold'},
+  faab:   {icon:'fa-sack-dollar', tone:'gold'},
+  rival:  {icon:'fa-fire',        tone:'hot'},
+  trade:  {icon:'fa-right-left',  tone:'cool'},
+  parlay: {icon:'fa-user-group',  tone:'good'},
+  streakW:{icon:'fa-arrow-trend-up',  tone:'good'},
+  streakL:{icon:'fa-arrow-trend-down',tone:'bad'},
+};
+let _ntSeen=null, _ntIdx=0, _ntTradeSeason=null;
+const ntKey=()=>lsKey('nt-seen');
+function ntSeen(){
+  if(_ntSeen) return _ntSeen;
+  let a=[]; try{ a=JSON.parse(localStorage.getItem(ntKey())||'[]')||[]; }catch(e){}
+  return (_ntSeen=new Set(a.filter(x=>typeof x==='string')));
+}
+function ntMarkSeen(id){
+  ntSeen().add(id);
+  /* Only ids still being produced are worth keeping. Without this the list
+     grows forever as weeks roll past and old events stop being generated. */
+  try{
+    const live=new Set(ntAll().map(n=>n.id));
+    const keep=[...ntSeen()].filter(x=>live.has(x)||x===id);
+    localStorage.setItem(ntKey(),JSON.stringify(keep));
+  }catch(e){}
+}
+/* the newest season with a game actually played */
+function ntSeason(){
+  for(let i=ALL_SEASONS.length-1;i>=0;i--){
+    const m=_seasonMeta[ALL_SEASONS[i]];
+    if(m&&(m.schedule||[]).some(x=>x.home&&x.away&&((x.home.totalPoints||0)>0||(x.away.totalPoints||0)>0)))
+      return ALL_SEASONS[i];
+  }
+  return null;
+}
+/* the last week of that season where every game has a score on it */
+function ntLastWeek(season){
+  const meta=_seasonMeta[season]; if(!meta) return null;
+  const byWeek={};
+  (meta.schedule||[]).forEach(m=>{
+    if(!m.home||!m.away) return;
+    const w=Number(m.matchupPeriodId)||0; if(!w) return;
+    (byWeek[w]||(byWeek[w]=[])).push(m);
+  });
+  let last=null;
+  Object.keys(byWeek).map(Number).sort((a,b)=>a-b).forEach(w=>{
+    if(byWeek[w].every(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)) last=w;
+  });
+  return last==null?null:{week:last,games:byWeek[last],meta};
+}
+const ntName=(season,owner)=>mgSeasonName(season,owner);
+
+/* ── the generators. Each one is wrapped by the caller, so a source that is
+      not loaded yet costs a missing card rather than an empty homepage. ── */
+function ntFromWeek(out){
+  const season=ntSeason(); if(!season) return;
+  const lw=ntLastWeek(season); if(!lw) return;
+  const owners=lw.meta.owners||{};
+  lw.games.forEach(mu=>{
+    const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
+    if(hp===ap) return;
+    const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
+    if(!ho||!ao||ho===ao) return;
+    const homeWon=hp>ap;
+    const win=homeWon?ho:ao, lose=homeWon?ao:ho;
+    const margin=Math.abs(hp-ap);
+    const wp=homeWon?hp:ap, lp=homeWon?ap:hp;
+    const score=`${wp.toFixed(1)}–${lp.toFixed(1)}`;
+    if(margin>=40) out.push({kind:'blowout',
+      id:`bl:${season}:${lw.week}:${win}`,
+      title:'Blown out',
+      body:`<b>${ntName(season,win)}</b> put <b>${margin.toFixed(1)}</b> on <b>${ntName(season,lose)}</b> — ${score}, week ${lw.week}.`});
+    else if(margin<6) out.push({kind:'wire',
+      id:`nw:${season}:${lw.week}:${win}`,
+      title:'Down to the wire',
+      body:`<b>${ntName(season,win)}</b> edged <b>${ntName(season,lose)}</b> by <b>${margin.toFixed(1)}</b> — ${score}, week ${lw.week}.`});
+    /* a rivalry game is one of the three that made them rivals in the first
+       place, so it is read off the rival list rather than guessed at */
+    try{
+      if(rivalsFor(win).some(r=>r.owner===lose)) out.push({kind:'rival',
+        id:`rv:${season}:${lw.week}:${win}`,
+        title:'Rivalry settled',
+        body:`<b>${ntName(season,win)}</b> beat their rival <b>${ntName(season,lose)}</b>, ${score}.`});
+    }catch(e){}
+  });
+}
+/* current run of wins or losses, read backwards through every season in order */
+function ntStreaks(out){
+  const season=ntSeason(); if(!season) return;
+  const byOwner={};
+  ALL_SEASONS.forEach(s=>{
+    const meta=_seasonMeta[s]; if(!meta) return;
+    const owners=meta.owners||{};
+    (meta.schedule||[]).slice()
+      .sort((a,b)=>(a.matchupPeriodId||0)-(b.matchupPeriodId||0))
+      .forEach(mu=>{
+        if(!mu.home||!mu.away) return;
+        const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
+        if(hp===0&&ap===0) return;
+        if(hp===ap) return;
+        if(!postGameCounts(s,mu)) return;
+        const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
+        if(!ho||!ao||ho===ao) return;
+        (byOwner[ho]||(byOwner[ho]=[])).push(hp>ap);
+        (byOwner[ao]||(byOwner[ao]=[])).push(ap>hp);
+      });
+  });
+  Object.entries(byOwner).forEach(([owner,res])=>{
+    if(res.length<5) return;
+    const last=res[res.length-1];
+    let n=0;
+    for(let i=res.length-1;i>=0&&res[i]===last;i--) n++;
+    if(n<5) return;
+    out.push(last
+      ?{kind:'streakW', id:`sw:${owner}:${n}`, title:`${n} in a row`,
+        body:`<b>${ntName(season,owner)}</b> has won <b>${n}</b> straight.`}
+      :{kind:'streakL', id:`sl:${owner}:${n}`, title:`${n} straight losses`,
+        body:`<b>${ntName(season,owner)}</b> has not won in <b>${n}</b> games.`});
+  });
+}
+/* everyone's plant, from the profiles the homepage already reads */
+function ntPlants(out){
+  const rows=_cpRows||[]; if(!rows.length) return;
+  const ms=plantMs();
+  rows.forEach(p=>{
+    const t=Number(p.plantWatered||0); if(!t) return;
+    const stage=Math.floor((Date.now()-t)/ms);
+    if(stage<5) return;
+    const tid=Number(p.teamId||0);
+    const nm=(_teams.find(x=>x.id===tid)||{}).name||p.id;
+    /* keyed by the watering that led to it, so one death is reported once and
+       the next one after a re-water is a new card */
+    out.push({kind:'plant', id:`pl:${p.id}:${t}`, title:'A plant has died',
+      body:`<b>${nm}</b> let theirs go. Six days without water.`});
+  });
+}
+/* a clean slate on the week's picks, for anyone in the league */
+function ntPerfectPicks(out){
+  const rows=_cpRows||[]; if(!rows.length) return;
+  const season=ntSeason(); if(!season) return;
+  const lw=ntLastWeek(season); if(!lw) return;
+  const owners=lw.meta.owners||{};
+  const winners={};
+  lw.games.forEach(mu=>{
+    const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
+    if(hp===ap) return;
+    winners[[mu.home.teamId,mu.away.teamId].sort().join('-')]=String(hp>ap?mu.home.teamId:mu.away.teamId);
+  });
+  const nGames=Object.keys(winners).length; if(!nGames) return;
+  const key=`pk_${season}_w${lw.week}`;
+  rows.forEach(p=>{
+    let picks=null; try{ picks=JSON.parse(p[key]||'null'); }catch(e){}
+    if(!picks||typeof picks!=='object') return;
+    const vals=Object.values(picks).map(String);
+    if(vals.length!==nGames) return;
+    const want=Object.values(winners);
+    const hit=vals.filter(v=>want.includes(v)).length;
+    if(hit!==nGames) return;
+    const nm=(_teams.find(x=>x.id===Number(p.teamId||0))||{}).name||p.id;
+    out.push({kind:'perfect', id:`pp:${season}:${lw.week}:${p.id}`,
+      title:'A perfect slate',
+      body:`<b>${nm}</b> called every game in week ${lw.week} — ${nGames} for ${nGames}.`});
+  });
+}
+/* a waiver claim that cost real money */
+function ntBigFaab(out){
+  (_transactions||[]).forEach(t=>{
+    const bid=Number(t.bid||t.bidAmount||0);
+    if(!(bid>100)) return;
+    const nm=t.teamName||(_teams.find(x=>x.id===Number(t.teamId))||{}).name||'Someone';
+    const pl=t.playerName||t.player||'a player';
+    out.push({kind:'faab', id:`fb:${t.id||(nm+':'+pl+':'+bid)}`,
+      title:'Big money on the wire',
+      body:`<b>${nm}</b> spent <b>$${bid}</b> of FAAB on <b>${pl}</b>.`});
+  });
+}
+/* the trade board, with a vote on who came out ahead */
+function ntTrades(out){
+  const season=ntSeason(); if(!season) return;
+  const cached=_tradeCache&&_tradeCache[season];
+  if(!cached){
+    /* pulled once, then the card repaints itself when it lands */
+    if(_ntTradeSeason!==season&&typeof fetchSeasonTrades==='function'){
+      _ntTradeSeason=season;
+      fetchSeasonTrades(season).then(()=>{ if(_activeTab==='home') renderNotifications(); }).catch(()=>{});
+    }
+    return;
+  }
+  (cached.trades||[]).forEach(tr=>{
+    const teams=tr.teams||[]; if(teams.length<2) return;
+    const id=`td:${season}:${tr.id||teams.map(t=>t.teamId).join('-')+':'+(tr.date||'')}`;
+    const nm=t=>(_teams.find(x=>x.id===Number(t.teamId))||{}).name||('Team '+t.teamId);
+    out.push({kind:'trade', id, title:'A trade went through',
+      body:`<b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b> swapped. Who won it?`,
+      vote:{id, sides:[{k:String(teams[0].teamId),label:nm(teams[0])},
+                       {k:String(teams[1].teamId),label:nm(teams[1])}]}});
+  });
+}
+/* a parlay waiting on an answer, which is the one card with somewhere to go */
+function ntParlays(out){
+  if(!_me) return;
+  betsMine().filter(b=>b.status==='invite'&&!inviteLapsed(b)).forEach(b=>{
+    out.push({kind:'parlay', id:`pi:${b.id}`, title:'You have been asked in',
+      body:`<b>${betAccountName(b.invitedBy)}</b> wants you in on ${b.legs.length>1?`a ${b.legs.length}-leg parlay`:'a bet'} — ${bucksFmt(b.stake)}.`,
+      go:'bets'});
+  });
+}
+/* Somebody taking over top spot in one of the all-time tables. There is no
+   history to compare against, so the current leader is remembered on the device
+   and a card is raised only when the name changes — the first build records the
+   holders quietly rather than announcing eight leaders nobody just took. */
+const NT_CROWNS=[
+  {k:'w',    label:'all-time wins',        val:at=>at.w},
+  {k:'pf',   label:'all-time points',      val:at=>at.pf},
+  {k:'rings',label:'championships',        val:at=>at.rings},
+  {k:'pct',  label:'all-time win rate',    val:at=>{const g=at.w+at.l+at.t; return g?at.w/g:0;}},
+];
+function ntCrowns(out){
+  if(!_franchises||!_franchises.length) return;
+  const prevRaw=localStorage.getItem(lsKey('nt-lead'));
+  let prev=null; try{ prev=JSON.parse(prevRaw||'null'); }catch(e){}
+  const now={};
+  NT_CROWNS.forEach(c=>{
+    let best=null,bv=-Infinity;
+    _franchises.forEach(f=>{
+      let at=null; try{ at=franchiseAllTime(f.owner); }catch(e){}
+      if(!at) return;
+      const v=c.val(at);
+      if(v>bv){ bv=v; best=f.owner; }
+    });
+    if(best) now[c.k]=best;
+  });
+  try{ localStorage.setItem(lsKey('nt-lead'),JSON.stringify(now)); }catch(e){}
+  if(!prev) return;                       // first run: learn, do not announce
+  NT_CROWNS.forEach(c=>{
+    if(!now[c.k]||!prev[c.k]||now[c.k]===prev[c.k]) return;
+    out.push({kind:'crown', id:`cr:${c.k}:${now[c.k]}`, title:'New at the top',
+      body:`<b>${ntName(ntSeason(),now[c.k])}</b> now leads the league in <b>${c.label}</b>.`});
+  });
+}
+
+function ntAll(){
+  const out=[];
+  [ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks]
+    .forEach(fn=>{ try{ fn(out); }catch(e){} });
+  return out;
+}
+function ntLive(){ return ntAll().filter(n=>!ntSeen().has(n.id)); }
+/* the card counts as done once the stack is empty, which is what sinks it */
+function ntDone(){ return ntLive().length===0; }
+
+/* ── the card ───────────────────────────────────────────────────────────── */
+function ntVoteTally(vid){
+  const rows=_cpRows||[]; const t={};
+  rows.forEach(p=>{ const v=String(p['tv_'+vid]||'').trim(); if(v) t[v]=(t[v]||0)+1; });
+  return t;
+}
+function ntMyVote(vid){
+  if(!_me) return '';
+  const me=(_cpRows||[]).find(p=>p.id===_me.k1);
+  return me?String(me['tv_'+vid]||''):'';
+}
+async function ntVote(vid,side){
+  if(!_me){ openSignIn(); return; }
+  const fieldSafe=String(vid).replace(/[^a-zA-Z0-9_]/g,'_');
+  try{ await gflPatchProfile(_me.k1,{['tv_'+fieldSafe]:String(side)}); }catch(e){}
+  const me=(_cpRows||[]).find(p=>p.id===_me.k1);
+  if(me) me['tv_'+fieldSafe]=String(side);
+  renderNotifications();
+}
+function ntGo(where){
+  if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
+}
+function ntDismiss(id){
+  ntMarkSeen(id);
+  const n=ntLive().length;
+  if(_ntIdx>=n) _ntIdx=Math.max(0,n-1);
+  renderNotifications();
+  try{ orderHomeTodo(); }catch(e){}
+}
+function ntStep(d){
+  const n=ntLive().length; if(!n) return;
+  _ntIdx=(_ntIdx+d+n)%n;
+  renderNotifications();
+}
+function renderNotifications(){
+  const el=document.getElementById('nt-body'); if(!el) return;
+  const list=ntLive();
+  const cnt=document.getElementById('nt-count');
+  if(cnt) cnt.textContent=list.length?String(list.length):'';
+  if(!list.length){
+    el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
+      <span>Nothing new. You are all caught up.</span></div>`;
+    return;
+  }
+  if(_ntIdx>=list.length) _ntIdx=0;
+  const n=list[_ntIdx];
+  const meta=NT_KINDS[n.kind]||{icon:'fa-bell',tone:'cool'};
+  const fieldSafe=n.vote?String(n.vote.id).replace(/[^a-zA-Z0-9_]/g,'_'):'';
+  const tally=n.vote?ntVoteTally(fieldSafe):null;
+  const mine=n.vote?ntMyVote(fieldSafe):'';
+  const total=tally?Object.values(tally).reduce((a,b)=>a+b,0):0;
+  el.innerHTML=`
+    <div class="nt-card nt-${meta.tone}" id="nt-card" data-id="${String(n.id).replace(/"/g,'&quot;')}">
+      <div class="nt-top">
+        <span class="nt-ico"><i class="fa ${meta.icon}"></i></span>
+        <span class="nt-t">${n.title}</span>
+        <button class="nt-x" onclick="ntDismiss('${String(n.id).replace(/'/g,"\\'")}')"
+          aria-label="Dismiss"><i class="fa fa-xmark"></i></button>
+      </div>
+      <div class="nt-body">${n.body}</div>
+      ${n.vote?`<div class="nt-vote">${n.vote.sides.map(s=>`
+          <button class="nt-vb${mine===s.k?' on':''}" onclick="ntVote('${fieldSafe}','${s.k}')">
+            <span class="nt-vb-l">${s.label}</span>
+            ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
+          </button>`).join('')}</div>
+        ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`:''}
+      ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
+    </div>
+    <div class="nt-foot">
+      <button class="nt-nav" onclick="ntStep(-1)" ${list.length<2?'disabled':''} aria-label="Previous"><i class="fa fa-chevron-left"></i></button>
+      <span class="nt-pos">${_ntIdx+1} of ${list.length}<span class="nt-hint">swipe to clear</span></span>
+      <button class="nt-nav" onclick="ntStep(1)" ${list.length<2?'disabled':''} aria-label="Next"><i class="fa fa-chevron-right"></i></button>
+    </div>`;
+  ntWireSwipe();
+}
+/* Swipe to clear. Pointer events rather than touch, so a trackpad drag works
+   the same as a thumb; the card follows the finger and only leaves if it is
+   thrown far enough or fast enough, which is what stops a scroll that starts
+   on the card from throwing it away. */
+function ntWireSwipe(){
+  const card=document.getElementById('nt-card'); if(!card) return;
+  let x0=0,y0=0,t0=0,dx=0,drag=false,locked=null;
+  const end=()=>{
+    card.style.transition='transform .22s ease, opacity .22s ease';
+    const dt=Math.max(1,Date.now()-t0);
+    const fling=Math.abs(dx)/dt>0.5;
+    if(Math.abs(dx)>90||fling){
+      card.style.transform=`translateX(${dx>0?400:-400}px) rotate(${dx>0?6:-6}deg)`;
+      card.style.opacity='0';
+      setTimeout(()=>ntDismiss(card.dataset.id||''),190);
+    }else{
+      card.style.transform=''; card.style.opacity='';
+    }
+    drag=false; locked=null; dx=0;
+  };
+  card.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button')) return;      // a vote is not a swipe
+    drag=true; locked=null; x0=e.clientX; y0=e.clientY; t0=Date.now(); dx=0;
+    card.style.transition='none';
+  });
+  card.addEventListener('pointermove',e=>{
+    if(!drag) return;
+    const mx=e.clientX-x0, my=e.clientY-y0;
+    /* decide once whether this gesture is a swipe or a scroll, then stick to
+       it — re-deciding mid-drag is what makes a card twitch under a scroll */
+    if(locked==null&&(Math.abs(mx)>6||Math.abs(my)>6)) locked=Math.abs(mx)>Math.abs(my)?'x':'y';
+    if(locked!=='x') return;
+    e.preventDefault();
+    dx=mx;
+    card.style.transform=`translateX(${dx}px) rotate(${dx*0.02}deg)`;
+    card.style.opacity=String(Math.max(0.3,1-Math.abs(dx)/260));
+  });
+  card.addEventListener('pointerup',end);
+  card.addEventListener('pointercancel',end);
+  card.addEventListener('pointerleave',e=>{ if(drag) end(); });
+}
+
 /* ── What still needs doing goes first ──────────────────────────────────────
    Anything outstanding rises to the top of the stack, directly under the video;
    finished cards sink below it. Among equals the order is the canonical one —
-   poll, picks, trivia — so a manager with everything done and a manager with
+   poll, notifications, picks, trivia — so a manager with everything done and one with
    nothing done see the same page, and only a half-finished one gets reordered.
 
    Done means the same thing a card means by it: a ballot cast, a slate
    submitted, all five questions answered. */
 const HOME_TODO=[
   {id:'cp-sec', done:()=>_cpJustSent || !!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()])},
+  {id:'nt-sec', done:()=>ntDone()},
   {id:'pk-sec', done:()=>pkSubmitted()||pkLocked()},
   {id:'bk-sec', done:()=>{ const qs=bkQuestions(); if(!qs.length) return true;
     const a=bkLoadAnswers(); return qs.every((_,i)=>a[i]!=null); }},
@@ -8924,8 +9336,8 @@ function sbTeamViewHTML(book){
   });
   const at=r.at;
   return `<div class="sb-market">
-    <div class="sb-mhead"><i class="fa fa-id-badge"></i><span class="sb-mt">Team Card</span><span class="badge-info">every market</span></div>
-    <div class="picker-bar" style="padding:10px 0 12px"><label for="sb-team">Team:</label>
+    <div class="sb-mhead"><i class="fa fa-id-badge"></i><span class="sb-mt">Team Card</span></div>
+    <div class="picker-bar" style="padding:18px 0 12px"><label for="sb-team">Team:</label>
       <select id="sb-team" onchange="sbSetTeam(this.value)">${opts}</select></div>
     <div class="sb-tcard">
       <div class="sb-tc-top">${sbAvatar(owner,40)}<div><div class="sb-tc-nm">${r.name}</div>
@@ -9430,6 +9842,10 @@ async function loadDashboard(){
             <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
               <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches&#39; Poll</div>
               <div id="cp-body"></div>
+            </div>
+            <div class="sec wm mod-nt" data-wm="&#xf0f3;" id="nt-sec">
+              <div class="sec-head"><i class="fa fa-bell"></i>Notifications<span class="badge-info" id="nt-count"></span></div>
+              <div id="nt-body"></div>
             </div>
             <div class="sec wm mod-bk" data-wm="&#xf059;" id="bk-sec">
               <div class="sec-head"><i class="fa fa-brain"></i>Ball Knowledge</div>

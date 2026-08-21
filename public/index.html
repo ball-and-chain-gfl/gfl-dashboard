@@ -1084,89 +1084,6 @@
     .sec-nav.dock-only{padding-bottom:0;}
     .picker-ph{pointer-events:none;}
 
-    /* ── The page glow ────────────────────────────────────────────────────────
-       Not pinned to the screen — it is the last thing on the page, so it turns
-       up when you have actually read to the bottom rather than following you
-       around. Same trick as the border on every page title: a conic gradient
-       rotated by an animated angle, which is why the two move alike. Solid
-       colour rather than a blur, with the band's own edges softened so it
-       still belongs to the page.
-
-       --accent changes per tab, so this needs no per-page rules. */
-    @property --glowang{syntax:'<angle>';initial-value:0deg;inherits:false;}
-    #page-glow{position:relative;height:132px;margin:34px 0 0;border-radius:14px;
-      overflow:hidden;isolation:isolate;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.07),
-        inset 0 -1px 0 rgba(0,0,0,0.45);}
-    #page-glow::before{content:"";position:absolute;inset:-40%;
-      background:conic-gradient(from var(--glowang),
-        rgba(var(--accent-rgb),0.16) 0deg,
-        var(--accent) 62deg,
-        var(--accent2,var(--accent)) 128deg,
-        rgba(var(--accent-rgb),0.12) 196deg,
-        var(--accent) 286deg,
-        rgba(var(--accent-rgb),0.16) 360deg);
-      animation:glowOrbit 9s linear infinite;}
-    /* a soft top edge so the band rises out of the page rather than being
-       stamped onto it, and a floor so it sits down cleanly */
-    #page-glow::after{content:"";position:absolute;inset:0;
-      background:linear-gradient(to bottom,
-        var(--bg) 0%, rgba(0,0,0,0.28) 34%, rgba(0,0,0,0) 62%);}
-    @keyframes glowOrbit{to{--glowang:360deg;}}
-    @media(prefers-reduced-motion:reduce){
-      #page-glow::before{animation:none;}
-    }
-    @media(max-width:768px){
-      #page-glow{height:108px;margin-top:26px;}
-    }
-
-
-    /* ── The wallet bar ───────────────────────────────────────────────────────
-       Deliberately its own set of rules rather than a variant of .sec-nav.
-       It shares the drawer's look — same offset under the nav, same frosted
-       panel reaching to the nav's side edges — because it should read as part
-       of the same furniture. It shares none of its behaviour: no chips, no
-       rebuild, no docking, one control that only the sportsbook puts up. */
-    .bets-bar{position:sticky;z-index:379;
-      top:var(--navbot,calc(env(safe-area-inset-top,0px) + 82px));
-      margin:-8px 0 22px;--betspad:10px;
-      padding:var(--betspad) max(0px,calc(var(--betspad) - var(--navside,2px)));
-      background:transparent;}
-    .bets-bar[hidden]{display:none;}
-    .bets-bar::before{content:"";position:absolute;z-index:-1;pointer-events:none;
-      top:0;bottom:0;left:calc(var(--navside,2px) * -1);right:calc(var(--navside,2px) * -1);
-      border-radius:0 0 12px 12px;
-      background:rgba(0,0,0,0.3);
-      -webkit-backdrop-filter:blur(22px) saturate(1.3);
-      backdrop-filter:blur(22px) saturate(1.3);
-      box-shadow:0 18px 34px -26px rgba(0,0,0,0.95);
-      transform:translateY(-100%);opacity:0;
-      transition:transform .26s cubic-bezier(.3,.75,.25,1),opacity .18s ease;}
-    .bets-bar.stuck::before{transform:translateY(0);opacity:1;}
-    @media(prefers-reduced-motion:reduce){
-      .bets-bar::before{transition:opacity .18s ease;transform:translateY(0);}
-    }
-    .bets-btn{display:flex;align-items:center;gap:10px;width:100%;
-      padding:11px 14px;border:none;border-radius:10px;cursor:pointer;
-      background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
-      color:#0b0f0c;font-family:'Inter',sans-serif;
-      font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-      box-shadow:0 2px 6px -3px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.22);
-      transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;}
-    .bets-btn i{color:#0b0f0c;font-size:14px;}
-    .bets-btn:hover{filter:brightness(1.05);}
-    .bets-btn:active{transform:translateY(1px);}
-    .bets-btn.on{box-shadow:inset 0 2px 7px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.16);
-      filter:brightness(0.97);}
-    .bets-btn.on i{opacity:.85;}
-    .bets-btn-bal{margin-left:auto;font-weight:800;color:#0b0f0c;
-      text-transform:none;letter-spacing:0;font-size:12px;
-      background:rgba(0,0,0,0.16);border-radius:999px;padding:3px 10px;}
-    @media(max-width:768px){
-      .bets-bar{top:var(--navbot,calc(env(safe-area-inset-top,0px) + 72px));}
-      .bets-btn{padding:10px 12px;font-size:11.5px;}
-    }
-
     /* ── The Easter egg ───────────────────────────────────────────────────────
        Positioned as a fraction of #app rather than pinned to any section, so it
        can land anywhere on a page without that page knowing about it. Small,
@@ -2014,6 +1931,68 @@
       .fm-nm{font-size:8px;max-width:52px;} .fm-lbl{font-size:7.5px;}
     }
 
+    /* ── Notifications ────────────────────────────────────────────────────────
+       One card at a time, because a stack of eleven kinds of alert is a feed
+       nobody reads. The card carries the colour of what it is reporting, and
+       can be thrown off to either side. */
+    #page-home .mod-nt{--accent:#7E9CFF;--accent2:#5C7CF0;--accent-rgb:126,156,255;}
+    .nt-card{position:relative;padding:14px 14px 13px;border-radius:12px;
+      border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.035);
+      touch-action:pan-y;cursor:grab;user-select:none;}
+    .nt-card:active{cursor:grabbing;}
+    .nt-hot{border-color:rgba(232,104,126,0.45);background:rgba(232,104,126,0.07);}
+    .nt-cool{border-color:rgba(126,156,255,0.45);background:rgba(126,156,255,0.07);}
+    .nt-good{border-color:rgba(63,208,122,0.45);background:rgba(63,208,122,0.07);}
+    .nt-bad{border-color:rgba(232,104,126,0.40);background:rgba(232,104,126,0.05);}
+    .nt-gold{border-color:rgba(232,188,86,0.45);background:rgba(232,188,86,0.07);}
+    .nt-top{display:flex;align-items:center;gap:9px;}
+    .nt-ico{display:inline-flex;align-items:center;justify-content:center;
+      width:26px;height:26px;border-radius:8px;flex:0 0 auto;
+      background:rgba(255,255,255,0.08);font-size:12px;}
+    .nt-hot .nt-ico{color:#e8687e;} .nt-cool .nt-ico{color:#7E9CFF;}
+    .nt-good .nt-ico{color:#3fd07a;} .nt-bad .nt-ico{color:#e8687e;}
+    .nt-gold .nt-ico{color:#E8BC56;}
+    .nt-t{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
+      letter-spacing:.6px;text-transform:uppercase;color:var(--text2);flex:1 1 auto;min-width:0;}
+    .nt-x{flex:0 0 auto;width:24px;height:24px;padding:0;border-radius:7px;
+      background:none;box-shadow:none;color:var(--text3);font-size:12px;}
+    .nt-x:hover{color:var(--text);background:rgba(255,255,255,0.07);}
+    .nt-body{margin-top:9px;font-size:13.5px;line-height:1.5;color:var(--text2);}
+    .nt-body b{color:var(--text);}
+    .nt-vote{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+    .nt-vb{display:flex;align-items:center;justify-content:space-between;gap:6px;
+      padding:9px 11px;border-radius:9px;background:rgba(255,255,255,0.05);
+      box-shadow:none;border:1px solid rgba(255,255,255,0.10);
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text2);
+      text-align:left;min-width:0;}
+    .nt-vb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    .nt-vb-n{flex:0 0 auto;font-size:11px;color:var(--text3);}
+    .nt-vb.on{border-color:rgba(var(--accent-rgb),0.7);background:rgba(var(--accent-rgb),0.14);color:var(--text);}
+    .nt-vb.on .nt-vb-n{color:var(--accent);}
+    .nt-vn{margin-top:7px;font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text3);}
+    .nt-go{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:9px 14px;
+      border-radius:9px;background:rgba(var(--accent-rgb),0.16);
+      border:1px solid rgba(var(--accent-rgb),0.5);box-shadow:none;
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text);}
+    .nt-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;}
+    .nt-nav{width:30px;height:30px;padding:0;border-radius:8px;background:rgba(255,255,255,0.05);
+      box-shadow:none;color:var(--text2);font-size:12px;}
+    .nt-nav:disabled{opacity:.3;cursor:default;}
+    .nt-pos{display:flex;align-items:baseline;gap:8px;font-family:'Inter',sans-serif;
+      font-size:11px;color:var(--text3);}
+    .nt-hint{font-size:10px;opacity:.72;}
+    .nt-clear{display:flex;align-items:center;gap:9px;padding:15px 4px;
+      font-family:'Inter',sans-serif;font-size:13px;color:var(--text3);}
+    .nt-clear i{color:var(--green);font-size:13px;}
+    @media(max-width:400px){
+      .nt-vote{grid-template-columns:1fr;}
+    }
+    /* the hint is how anyone learns the card can be thrown away, so it only
+       goes when there is genuinely no room for it */
+    @media(max-width:330px){
+      .nt-hint{display:none;}
+    }
+
     /* ── Locker room (My Profile) ──────────────────────────────────────────
        Pixel art, so the SVG is allowed to go soft nowhere: crisp edges in the
        markup and nearest-neighbour scaling here. */
@@ -2420,7 +2399,51 @@
     /* RESPONSIVE TABLES */
     .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;}
     .tscroll table.min640{min-width:640px;}
-    .tenure-tbl{width:100%;}
+    /* ── Player Tenure ────────────────────────────────────────────────────────
+       A grid list rather than a table, laid out like the Draft Report's picks.
+       Every column is given a fixed share and the name takes what is left, so
+       the row fits any width instead of the page having to carry a table
+       sideways. Cells stretch the full height of the row and the numeric ones
+       carry a faint fill, which draws each column as a continuous band. */
+    .tn-list{display:block;padding:0 2px 4px;}
+    .tn-row{display:grid;
+      grid-template-columns:22px minmax(0,1fr) 44px 38px 44px 50px 36px;
+      align-items:stretch;gap:0;border-bottom:1px solid rgba(255,255,255,0.06);}
+    .tn-row:last-child{border-bottom:none;}
+    .tn-row>span{display:flex;align-items:center;padding:9px 5px;
+      font-family:'Inter',sans-serif;font-size:12px;white-space:nowrap;min-width:0;}
+    /* the bands: every other data column tinted, so a long row stays readable
+       straight across */
+    .tn-st,.tn-dr,.tn-pw{background:rgba(255,255,255,0.035);}
+    .tn-ro,.tn-pts{background:rgba(255,255,255,0.012);}
+    html[data-theme="light"] .tn-st,html[data-theme="light"] .tn-dr,html[data-theme="light"] .tn-pw{background:rgba(0,0,0,0.035);}
+    html[data-theme="light"] .tn-ro,html[data-theme="light"] .tn-pts{background:rgba(0,0,0,0.012);}
+    .tn-rk{color:var(--text3);font-size:11px;justify-content:flex-end;padding-right:7px;}
+    .tn-player{gap:7px;overflow:hidden;}
+    .tn-player .pl-name{font-family:'Google Sans Flex',Georgia,serif;font-size:12.5px;
+      font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    .tn-player .phs,.tn-player img{flex:0 0 20px;}
+    .tn-st{font-weight:700;color:var(--text);}
+    .tn-ro{color:var(--text2);}
+    .tn-dr{color:var(--accent);font-weight:600;}
+    .tn-pts{font-family:'DM Sans',sans-serif;font-weight:600;color:var(--green);}
+    .tn-pw{color:var(--accent);font-weight:600;}
+    .tn-dash{color:var(--text3);}
+    .tn-head{border-bottom:1px solid rgba(255,255,255,0.12);}
+    .tn-head>span{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;
+      color:var(--text3);font-weight:500;cursor:pointer;user-select:none;
+      padding-top:6px;padding-bottom:6px;align-items:flex-end;}
+    .tn-head .tn-sort.sorted{color:var(--accent);}
+    .tn-arw{font-style:normal;font-size:9px;}
+    .tn-more,.tn-note{padding:12px 4px 0;font-family:'Inter',sans-serif;
+      font-size:12px;line-height:1.5;color:var(--text3);}
+    .tn-note b{color:var(--text2);}
+    @media(max-width:400px){
+      .tn-row{grid-template-columns:20px minmax(0,1fr) 42px 36px 42px 48px 34px;}
+      .tn-row>span{padding:8px 3px;font-size:11.5px;}
+      .tn-player .pl-name{font-size:12px;}
+      .tn-head>span{font-size:9px;letter-spacing:.2px;}
+    }
     .tscroll table.min720{min-width:720px;}
     .tscroll table.min560{min-width:560px;}
     .tscroll table.min480{min-width:480px;}
@@ -3263,11 +3286,6 @@
     .trades-filters{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:14px;}
     .trades-filters .standings-filters{margin-bottom:10px;}
     /* ── Player Tenure: alternate column shading so columns read apart ── */
-    .tenure-tbl th:nth-child(even),.tenure-tbl td:nth-child(even){background:rgba(255,255,255,0.035);}
-    .tenure-tbl th:nth-child(odd):not(:first-child),.tenure-tbl td:nth-child(odd):not(:first-child){background:rgba(255,255,255,0.012);}
-    .tenure-tbl .pname .fr-name,.tenure-tbl .pname{white-space:nowrap;}
-    html[data-theme="light"] .tenure-tbl th:nth-child(even),html[data-theme="light"] .tenure-tbl td:nth-child(even){background:rgba(0,0,0,0.035);}
-    html[data-theme="light"] .tenure-tbl th:nth-child(odd):not(:first-child),html[data-theme="light"] .tenure-tbl td:nth-child(odd):not(:first-child){background:rgba(0,0,0,0.012);}
     /* ── League History: compact rows, one sub-tab at a time ───────────────── */
     .lh-tabs{gap:6px;flex-wrap:wrap;}
     .lh-note{font-size:12px;color:var(--text3);line-height:1.6;margin:0 2px 14px;}
@@ -4176,32 +4194,6 @@
       #page-teams .prof-col .tscroll,#page-badbeat .tscroll{overflow-x:auto;}
       #page-history table.mtbl .team-info .team-name{display:block!important;font-size:12px;line-height:1.2;}
       #page-history table.mtbl .team-info .team-sub{display:none;}
-      /* Player Tenure fits the screen. It used to be sized as "name column plus
-         seven data columns of 68px", which was a fixed 620px wide and always
-         dragged sideways — and it stayed that wide after three of those columns
-         were dropped. It is 100% now: the five data columns split whatever the
-         name column leaves, and the name is what gives way, since a clipped
-         surname still identifies a player but a number cut in half does not. */
-      #page-tenure .tscroll{overflow-x:visible;}
-      #page-tenure .tscroll table{min-width:0!important;table-layout:fixed!important;width:100%!important;}
-      #page-tenure table th,#page-tenure table td{padding:6px 3px!important;text-align:left!important;}
-      /* the headings are the widest thing in a 47px column, so they get their
-         own tighter type and almost no side padding — the numbers under them
-         are what the column is actually for */
-      #page-tenure table thead th{font-size:9px;line-height:1.2;white-space:nowrap;
-        vertical-align:bottom;letter-spacing:0!important;
-        padding-left:2px!important;padding-right:2px!important;}
-      #page-tenure table th:not(:first-child),#page-tenure table td:not(:first-child){width:auto;font-size:11.5px;}
-      /* the cell has to clip as well as the name inside it, or a long one
-         (Cowboys D/ST, P. Freiermuth) walks straight over the Starts column */
-      #page-tenure table td:first-child,#page-tenure table th:first-child{white-space:nowrap!important;
-        width:var(--tnw,124px);max-width:var(--tnw,124px);overflow:hidden;
-        padding-left:4px!important;padding-right:2px!important;}
-      #page-tenure table td:first-child .pname{display:flex!important;flex-wrap:nowrap!important;white-space:nowrap!important;gap:4px;max-width:100%;min-width:0;align-items:center;}
-      #page-tenure table td:first-child .fr-name{font-size:11.5px;white-space:nowrap!important;
-        overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto;}
-      #page-tenure table .pname .rank{margin-right:0!important;flex:0 0 auto;font-size:10px;}
-      #page-tenure table .phs,#page-tenure table .pname img{width:18px!important;height:18px!important;flex:0 0 auto;}
     }
 
     /* ── Profile: Draft Grades by Year ───────────────────────────────────── */
@@ -4329,16 +4321,17 @@
          full width — four answer buttons will not fit in half a phone — so
          nothing shares a row here. */
       .home-top{display:grid;grid-template-columns:1fr;
-        grid-template-areas:"video" "s1" "s2" "s3" "motw";
+        grid-template-areas:"video" "s1" "s2" "s3" "s4" "motw";
         gap:20px;align-items:start;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
       /* the three to-do cards take numbered slots; orderHomeTodo assigns which,
          so whatever is outstanding sits directly under the video */
-      .home-top .mod-bk{grid-area:s3;}
-      .home-top .mod-pk{grid-area:s2;}
+      .home-top .mod-bk{grid-area:s4;}
+      .home-top .mod-pk{grid-area:s3;}
+      .home-top .mod-nt{grid-area:s2;}
       .home-top .mod-cp{grid-area:s1;}
       .home-top .home-vid-col>.sec:not(.mod-cp){grid-area:video;}
-      .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk):not(.mod-cp){grid-area:motw;}
+      .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk):not(.mod-cp):not(.mod-nt){grid-area:motw;}
       /* A named row nothing occupies is still a row, and still pays for the gap
          on either side of it. Two of these can be empty: motw is empty whenever
          Matchup of the Week is out of the markup, and s3 empties when Ball
@@ -4346,11 +4339,11 @@
          the grid trails 40px past its last card and the moved section lands
          twice as far from what is above it as the cards sit from each other.
          Each combination gets the template that only names the rows in use. */
-      .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk))){
+      .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt))){
+        grid-template-areas:"video" "s1" "s2" "s3" "s4";}
+      .home-top:not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "s3" "motw";}
+      .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt))){
         grid-template-areas:"video" "s1" "s2" "s3";}
-      .home-top:not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "motw";}
-      .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk))){
-        grid-template-areas:"video" "s1" "s2";}
       /* and the card carries on the grid's own rhythm rather than the wider
          margin the grid keeps for the rest of the page */
       #page-home:has(.bk-moved) .home-top{margin-bottom:20px;}
@@ -4889,9 +4882,7 @@
      fixed control, not a bar built from the page's headings. -->
 <div id="bets-bar" class="bets-bar" hidden></div>
 <div id="app"><div class="loading"><i class="fa fa-circle-notch"></i>Loading dashboard...</div></div>
-<!-- The tab's colour, at the actual bottom of the page. Decoration only, so it
-     is inert to the pointer and out of the reading order. -->
-<div id="page-glow" aria-hidden="true"></div></main>
+</main>
 <footer>Ball &amp; Chain GFL &nbsp;·&nbsp; Powered by ESPN Fantasy Football</footer>
 
 <script src="/config.js"></script>
