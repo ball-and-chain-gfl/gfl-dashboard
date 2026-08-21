@@ -8122,6 +8122,10 @@ function weekHasStarted(){
   return info.games.some(g=>((g.home&&g.home.totalPoints)||0)>0
                           ||((g.away&&g.away.totalPoints)||0)>0);
 }
+/* The same test for a bet you built and one you came in on: your own slip,
+   this week's, and the football not yet under way. Backing out of an invited
+   bet writes only to your own document — whoever raised it keeps theirs, and
+   so does everyone else who came in. */
 function betCancellable(b){
   return !!_me && b.owner===_me.k1 && b.status==='open'
     && b.wk===bucksWeekKey() && !weekHasStarted();
@@ -8330,6 +8334,27 @@ let _betsInit=false;
    declining flips it to 'declined'. Neither state counts as money staked, and
    nothing is ever deleted, which is what the Firestore rules require anyway. */
 let _inviteFor=null,_inviteErr=null;
+/* How many people one bet may be opened up to. Declining gives the seat back:
+   the cap is on how many are in or still being asked, not on how many were
+   ever approached. */
+const INVITE_MAX=4;
+/* An invitation belongs to the bucks week it was raised in. Accepting it after
+   that would stake this week's allowance on markets that have already been
+   decided — a free look at a known result — so it lapses at the reset. Within
+   its own week it stays live right through kickoff: getting in on a parlay
+   while the games are running is the point of it. */
+function inviteLapsed(inv){
+  if(!inv) return true;
+  if(inv.wk!==bucksWeekKey()) return true;
+  const src=(_bets||[]).find(b=>b.id===inv.srcBet);
+  return !!src&&src.status!=='open';
+}
+/* Only the manager who built the bet can open it up. Someone who came in on an
+   invitation holds a copy, not the original, and a copy cannot be passed on. */
+const canInviteOn=b=>!!_me&&!!b&&b.owner===_me.k1&&b.status==='open'&&!b.invitedBy;
+/* asked or in — a declined seat is free again */
+const betInviteSeats=id=>betInvitesFor(id)
+  .filter(x=>x.status!=='declined'&&x.status!=='void').length;
 /* the league's sign-in accounts, which is what a bet is owned by */
 function betAccounts(){
   return _teams.map(t=>({k1:keySlug(t.abbrev||teamInitials(t.name)),name:t.name}))
@@ -8342,10 +8367,15 @@ function betInviteOpen(id){ _inviteFor=(_inviteFor===id?null:id); _inviteErr=nul
 async function sbSendInvite(betId,to){
   if(!_me||_betBusy||!to) return;
   const src=(_bets||[]).find(b=>b.id===betId);
-  if(!src||src.owner!==_me.k1||src.status!=='open') return;
+  if(!canInviteOn(src)) return;
   if(betInvitesFor(betId).some(b=>b.owner===to)) return;   // already asked
+  if(betInviteSeats(betId)>=INVITE_MAX){ _inviteErr='full'; renderMyBets(); return; }
   _betBusy=true; _inviteErr=null; renderMyBets();
-  const id=`${Date.now()}-${to}-inv`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
+  /* Derived from the bet and the person rather than the clock. Two managers
+     inviting the same person in the same millisecond used to race for one id;
+     and a second attempt at the same person now lands on the same document
+     instead of quietly making a duplicate invitation. */
+  const id=`inv-${betId}-${to}`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
   const body=fsOut({
     owner:to, team:'', season:String(src.season||sbSeason()),
     wk:src.wk, ts:String(Date.now()),
@@ -8369,8 +8399,7 @@ async function sbInviteRespond(id,accept){
   if(accept){
     /* the stake has to be there now, not when it was offered */
     if(inv.stake>bucksBalance()){ _inviteErr='funds'; renderMyBets(); return; }
-    const src=(_bets||[]).find(b=>b.id===inv.srcBet);
-    if(src&&src.status!=='open'){ _inviteErr='gone'; renderMyBets(); return; }
+    if(inviteLapsed(inv)){ _inviteErr='gone'; renderMyBets(); return; }
   }
   _betBusy=true; _inviteErr=null; renderMyBets();
   const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=team&updateMask.fieldPaths=ts';
@@ -8414,20 +8443,24 @@ async function betSettleAll(){
    the only thing on the page asking the manager to do something. */
 function sbInvitesHTML(){
   if(!_me) return '';
-  const pend=betsMine().filter(b=>b.status==='invite');
+  /* A lapsed invitation comes off the feed rather than sitting there greyed
+     out: there is nothing left to answer, and the reset took the week it
+     belonged to with it. Nothing is deleted — the document stays at 'invite'
+     and simply stops being current. */
+  const pend=betsMine().filter(b=>b.status==='invite'&&!inviteLapsed(b));
   if(!pend.length) return '';
   const err=_inviteErr==='funds'?'Not enough GFL Bucks for that stake right now.'
     :_inviteErr==='gone'?'That bet is no longer open — the invite has lapsed.'
     :_inviteErr==='rules'?'The bets collection is not writable yet.'
+    :_inviteErr==='full'?`That bet is already open to ${INVITE_MAX} people.`
     :_inviteErr?'Could not send that. Try again.':'';
   return `<div class="sb-invites">
     <div class="sb-invites-h"><i class="fa fa-user-plus"></i>In on a parlay?
       <span>${pend.length}</span></div>
     ${err?`<div class="sb-invite-err">${err}</div>`:''}
     ${pend.map(b=>{
-      const src=(_bets||[]).find(x=>x.id===b.srcBet);
-      const stale=src&&src.status!=='open';
       const bid=b.id.replace(/'/g,"\\'");
+      const stale=false;                    // a lapsed one never reaches here
       return `<div class="sb-invite${stale?' sb-invite-stale':''}">
         <div class="sb-invite-top"><b>${betAccountName(b.invitedBy)}</b> wants you in on
           ${b.legs.length>1?`a ${b.legs.length}-leg parlay`:'a bet'}</div>
@@ -8453,17 +8486,24 @@ function sbInvitesHTML(){
 }
 /* The control that sends one, hung under a bet you own and still have open. */
 function sbInviteBoxHTML(b){
-  if(!_me||b.owner!==_me.k1||b.status!=='open') return '';
+  if(!canInviteOn(b)) return '';
   const asked=betInvitesFor(b.id);
   const taken=new Set(asked.map(x=>x.owner));
-  const left=betAccounts().filter(a=>a.k1!==_me.k1&&!taken.has(a.k1));
+  const seats=betInviteSeats(b.id);
+  const left=seats>=INVITE_MAX?[]:betAccounts().filter(a=>a.k1!==_me.k1&&!taken.has(a.k1));
   const badge=asked.length?`<div class="sb-inv-sent">${asked.map(x=>
     `<span class="sb-inv-chip sb-inv-${x.status}">${betAccountName(x.owner)} · ${
-      x.status==='invite'?'asked':x.status==='declined'?'declined':'in'}</span>`).join('')}</div>`:'';
+      x.status==='invite'?'asked':x.status==='declined'?'declined'
+      :x.status==='void'?'backed out':'in'}</span>`).join('')}</div>`:'';
   const bid=b.id.replace(/'/g,"\\'");
   if(_inviteFor!==b.id){
-    return badge+(left.length?`<button class="sb-invite-btn" onclick="betInviteOpen('${bid}')">
-      <i class="fa fa-user-plus"></i>Invite someone in</button>`:'');
+    return badge+(left.length
+      ?`<button class="sb-invite-btn" onclick="betInviteOpen('${bid}')">
+        <i class="fa fa-user-plus"></i>Invite someone in
+        <span class="sb-inv-left">${seats}/${INVITE_MAX}</span></button>`
+      :seats>=INVITE_MAX
+        ?`<div class="sb-inv-full"><i class="fa fa-user-check"></i>Open to ${INVITE_MAX} people — that is the lot</div>`
+        :'');
   }
   return badge+`<div class="sb-invite-pick">
     <select id="inv-sel-${b.id}" aria-label="Invite">
@@ -8471,7 +8511,7 @@ function sbInviteBoxHTML(b){
     <button class="sb-place" ${_betBusy?'disabled':''}
       onclick="sbSendInvite('${bid}',document.getElementById('inv-sel-${b.id}').value)">
       Send · ${bucksFmt(b.stake)} each</button>
-    <button class="sb-pull" onclick="betInviteOpen('${bid}')">Cancel</button>
+    <button class="sb-pull" onclick="betInviteOpen('${bid}')">Close</button>
   </div>`;
 }
 
@@ -8535,7 +8575,7 @@ function myBetsHTML(){
         ${b.invitedBy?`<div class="sb-inv-from"><i class="fa fa-user-group"></i>In with ${betAccountName(b.invitedBy)}</div>`:''}
         ${sbInviteBoxHTML(b)}
         ${canPull?`<button class="sb-pull" onclick="sbVoidBet('${b.id.replace(/'/g,"\\'")}')" ${_betBusy?'disabled':''}>
-            <i class="fa fa-rotate-left"></i>Remove bet · ${bucksFmt(b.stake)} back</button>`
+            <i class="fa fa-rotate-left"></i>${b.invitedBy?'Back out':'Remove bet'} · ${bucksFmt(b.stake)} back</button>`
           :b.status==="open"&&b.wk===cur&&weekHasStarted()?`<div class="sb-lockmsg"><i class="fa fa-lock"></i>Locked — the week is under way</div>`:''}
       </div>`;
     }).join('');

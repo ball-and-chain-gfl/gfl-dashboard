@@ -1,0 +1,21 @@
+# The sportsbook's money rules are the one part of the site where a quiet
+# mistake costs someone their week's bucks, so they get checked on every push.
+name: tests
+on:
+  push:
+    paths: ['public/app.js', 'scripts/**', '.github/workflows/tests.yml']
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: app.js parses
+        run: node --check public/app.js
+      - name: invites and bucks
+        run: node scripts/test-invites.mjs
+      - name: next-highest waiver bid
+        run: node scripts/test-next-bid.mjs
