@@ -89,7 +89,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',week:'Forecast',roster:'Rosters',book:'B&C Sportsbook',standings:'Advanced Stats',trades:'Trades',draft:'Draft Report',history:'Previous Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -4231,7 +4231,13 @@ function renderForecast(info){
     </div>
     ${bar}
     ${posRows}
-    ${imp}`;
+    ${imp}
+    ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;
+}
+/* the sign-in key a team's manager uses, which is what a profile is filed under */
+function fcOppKey(t){
+  if(!t) return '';
+  return keySlug(t.abbrev||teamInitials(t.name));
 }
 /* points per game by lineup slot for both teams, this season */
 function fcPositional(info,aId,bId){
@@ -5525,6 +5531,7 @@ function applyMe(){
     if(_activeTab==='tenure') try{ renderTenureTable(); renderTenureEnemies(); }catch(e){}
   }
   try{ eggReset(); }catch(e){}            // this manager's finds, not the last one's
+  try{ ttReset(); }catch(e){}             // and whatever has been said to them
   try{ ntReset(); }catch(e){}             // and their dismissals, from their profile
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
@@ -6130,6 +6137,8 @@ function initSignIn(){
    built from — dropping the cache is what stops one account showing another's
    haul on a shared device. */
 function eggReset(){ _eggs=null; try{ eggSync(); }catch(e){} try{ eggPaint(); }catch(e){} }
+/* messages waiting on my own profile, and whether mine has been read */
+function ttReset(){ _ttIn={}; _ttPending=null; try{ ttSync(); }catch(e){} }
 // ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
 /* Which season still has games left? Preseason gives the whole slate; mid-season
    gives whatever's left of the current one. */
@@ -6521,7 +6530,7 @@ function renderSchedule(){
   /* a finished season is a record, not a schedule — say so in the heading */
   {const h=document.getElementById('sched-head'); if(h){ const i=schedSeason();
     const done=i.complete;
-    h.innerHTML=`<i class="fa fa-calendar-days"></i>${done?i.season+' Results':'Upcoming Schedule'}<span class="badge-info">${done?'final scores':'win odds from the B&amp;C power ratings'}</span>`; }}
+    h.innerHTML=`<i class="fa fa-calendar-days"></i>${done?i.season+' Results':'Schedule'}<span class="badge-info">${done?'final scores':'win odds from the B&amp;C power ratings'}</span>`; }}
   if(!_franchises.length){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Loading schedule…</div>`; return; }
   if(_schedTeam==null) _schedTeam=String(_teams[0]?.id||'');
   const sel=document.getElementById('sched-team-select');
@@ -8275,6 +8284,7 @@ const NT_KINDS={
   parlay: {icon:'fa-user-group',  tone:'good'},
   streakW:{icon:'fa-arrow-trend-up',  tone:'good'},
   streakL:{icon:'fa-arrow-trend-down',tone:'bad'},
+  trash:  {icon:'fa-comment-dots', tone:'hot'},
 };
 let _ntSeen=null, _ntIdx=0, _ntTradeSeason=null, _ntDay=null, _ntDayTimer=null;
 const ntKey=()=>lsKey('nt-seen');
@@ -8314,8 +8324,20 @@ async function ntSync(){
     }
   }catch(e){}
 }
+/* Signing in or out: drop this manager's list and pull the new one. */
 function ntReset(){ _ntSeen=null; _ntIdx=0; try{ ntSync(); }catch(e){}
   if(_activeTab==='home'){ try{ renderNotifications(); }catch(e){} } }
+/* Putting every swiped card back. This cannot go through ntReset — that drops
+   the cache and then calls ntSync, which reads the profile and puts every
+   dismissed id straight back, so "start over" restored exactly what it had just
+   cleared. The record has to be emptied on both sides and left alone. */
+async function ntRestart(){
+  _ntSeen=new Set(); _ntIdx=0;
+  try{ localStorage.removeItem(ntKey()); }catch(e){}
+  if(_me) try{ await gflPatchProfile(_me.k1,{ntSeen:'[]'}); }catch(e){}
+  try{ renderNotifications(); }catch(e){}
+  try{ orderHomeTodo(); }catch(e){}
+}
 
 /* ── When a card is allowed to appear ────────────────────────────────────────
    The league runs on a Tuesday. Everything that comes out of a week's football
@@ -8583,6 +8605,8 @@ function ntDemo(out){
   const d=ntToday(), day=n=>d-n*86400000;
   const T2=ntResultsDay(Date.now());
   out.push(
+   {kind:'trash',day:d,id:'demo:trash',title:'From Motor City Mulligans',
+    body:'<b>Motor City Mulligans</b> says: “Enjoy the bye week, you will need the rest.”'},
    {kind:'blowout',day:T2,id:'demo:blowout',title:'Blown out',
     body:'<b>Motor City Mulligans</b> put <b>52.4</b> on <b>Waddle House</b> — 168.2–115.8, week 3.'},
    {kind:'wire',day:T2,id:'demo:wire',title:'Down to the wire',
@@ -8608,9 +8632,93 @@ function ntDemo(out){
     vote:{id:'demo_trade',sides:[{k:'a',label:'Midwest Miners'},{k:'b',label:'Bismuth'}]}},
   );
 }
+/* ── TRASH TALK ──────────────────────────────────────────────────────────────
+   A line sent to the manager you are playing this week. It is written onto
+   *their* profile document, one field per sender, and read back out of your own
+   — so it needs no new collection and no new rules, the same trick the poll and
+   the picks already use.
+
+   One at a time. The field is the whole state: while it holds something, the
+   sender cannot write another, and swiping the card away clears it, which is
+   what frees them to send again. That is deliberately the recipient's call
+   rather than a timer — the point of the limit is that it is answered. */
+const ttField=from=>'tt_'+keySlug(from);
+function ttParse(v){ try{ const o=JSON.parse(v||'null'); return (o&&o.t)?o:null; }catch(e){ return null; } }
+/* every line currently sitting on my own profile */
+let _ttIn={}, _ttOutBusy=false, _ttErr='';
+function ntTrash(out){
+  Object.entries(_ttIn||{}).forEach(([from,m])=>{
+    if(!m||!m.t) return;
+    out.push({id:'tt:'+from+':'+m.ts, kind:'trash', day:ntDayOf(m.ts),
+      title:'From '+betAccountName(from),
+      body:'<b>'+betAccountName(from)+'</b> says: “'+String(m.t).replace(/[<>]/g,'')+'”'});
+  });
+}
+/* Swiping a trash-talk card clears the field it came from, which is what lets
+   that manager send another. Every other kind only records the swipe. */
+async function ttClear(from){
+  delete _ttIn[from];
+  if(_me) try{ await gflPatchProfile(_me.k1,{[ttField(from)]:''}); }catch(e){}
+}
+async function ttSync(){
+  if(!_me) return;
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    const d=(res&&res.data)||{};
+    const next={};
+    Object.keys(d).forEach(k=>{ if(!k.startsWith('tt_')) return;
+      const m=ttParse(d[k]); if(m) next[k.slice(3)]=m; });
+    if(JSON.stringify(next)!==JSON.stringify(_ttIn)){
+      _ttIn=next;
+      if(_activeTab==='home'){ try{ renderNotifications(); }catch(e){} try{ orderHomeTodo(); }catch(e){} }
+    }
+  }catch(e){}
+}
+/* whether this manager still has a line sitting unread on the opponent */
+let _ttPending=null;
+async function ttCheck(oppK1){
+  if(!_me||!oppK1) return;
+  try{
+    const res=await gflFetchProfile(oppK1);
+    const v=(res&&res.data)?res.data[ttField(_me.k1)]:'';
+    const now=!!ttParse(v);
+    if(now!==_ttPending){ _ttPending=now; if(_activeTab==='week') renderWeek(); }
+  }catch(e){}
+}
+async function ttSend(oppK1){
+  const box=document.getElementById('tt-text');
+  if(!box||!_me||_ttOutBusy) return;
+  const text=String(box.value||'').trim().slice(0,240);
+  if(!text){ _ttErr='Write something first.'; renderWeek(); return; }
+  _ttOutBusy=true; _ttErr=''; renderWeek();
+  const res=await gflPatchProfile(oppK1,{[ttField(_me.k1)]:JSON.stringify({t:text,ts:Date.now()})});
+  _ttOutBusy=false;
+  if(res&&res.ok){ _ttPending=true; }
+  else _ttErr=(res&&res.error==='quota')?'Firestore is over quota — try later.':'Could not send that.';
+  renderWeek();
+}
+function ttBoxHTML(oppK1,oppName){
+  if(!_me||!oppK1) return '';
+  if(_ttPending===null){ ttCheck(oppK1); }
+  if(_ttPending) return `<div class="tt-box tt-sent">
+    <div class="tt-h"><i class="fa fa-paper-plane"></i>Message sent</div>
+    <div class="tt-note">${oppName} has one from you waiting. You can send another
+      once they have cleared it.</div>
+  </div>`;
+  return `<div class="tt-box">
+    <div class="tt-h"><i class="fa fa-comment-dots"></i>Say something to ${oppName}</div>
+    <textarea id="tt-text" class="tt-text" rows="2" maxlength="240"
+      placeholder="One message at a time — make it count…"></textarea>
+    ${_ttErr?`<div class="tt-err">${_ttErr}</div>`:''}
+    <button class="tt-send" ${_ttOutBusy?'disabled':''}
+      onclick="ttSend('${String(oppK1).replace(/'/g,"\\'")}')">
+      <i class="fa fa-paper-plane"></i>${_ttOutBusy?'Sending…':'Send'}</button>
+  </div>`;
+}
+
 function ntAll(){
   const out=[];
-  [ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntDemo]
+  [ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntTrash,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -8649,6 +8757,12 @@ function ntGo(where){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
 }
 function ntDismiss(id){
+  /* a trash-talk card is the sender's one slot: clearing it is what gives it
+     back to them, so the swipe has to reach the field and not just the log */
+  if(String(id).startsWith('tt:')){
+    const from=String(id).split(':')[1];
+    try{ ttClear(from); }catch(e){}
+  }
   ntMarkSeen(id);
   const n=ntLive().length;
   if(_ntIdx>=n) _ntIdx=Math.max(0,n-1);
@@ -8668,7 +8782,7 @@ function renderNotifications(){
   if(!list.length){
     el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
       <span>Nothing new. You are all caught up.</span></div>
-      <div class="home-redo-row">${homeRestartBtn('nt')}</div>`;
+      ${ntSeen().size?`<div class="home-redo-row">${homeRestartBtn('nt')}</div>`:''}`;
     return;
   }
   if(_ntIdx>=list.length) _ntIdx=0;
@@ -8773,7 +8887,7 @@ async function homeRestart(which){
     renderCoachesPoll();
   }
   if(which==='pk') pkReopen();
-  if(which==='nt') ntReset();
+  if(which==='nt') await ntRestart();
   orderHomeTodo();
 }
 const homeRestartBtn=which=>`<button class="home-redo" onclick="homeRestart('${which}')">
@@ -10511,7 +10625,7 @@ async function loadDashboard(){
              the read on your own game, not a tab away. The Scoreboard and
              League Action are gone; the live board is on the homepage. -->
         <div class="sec">
-          <div class="sec-head" id="sched-head"><i class="fa fa-calendar-days"></i>Upcoming Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
+          <div class="sec-head" id="sched-head"><i class="fa fa-calendar-days"></i>Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
           <div class="picker-bar" style="padding-bottom:16px">
             <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
             <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
@@ -10654,7 +10768,7 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 /* each init is isolated: they shared a statement, so a throw in the first
    silently prevented the second from ever running */
 function bootUI(){ try{initSignIn();}catch(e){} try{eggStart();}catch(e){} try{eggSync();}catch(e){}
-  try{ntStartDayWatch();}catch(e){} try{ntSync();}catch(e){} }
+  try{ntStartDayWatch();}catch(e){} try{ntSync();}catch(e){} try{ttSync();}catch(e){} }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootUI); else bootUI();
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});
