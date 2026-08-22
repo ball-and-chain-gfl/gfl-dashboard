@@ -4476,12 +4476,17 @@ function fitSectionNav(bar,n){
 let _dockedPicker=null,_dockedHome=null,_dockedBar=null,_dockBusy=false;
 const DOCK_MS=260;
 /* the chip bar in use for this page: its own if it has one, else the global */
-/* Always the global bar. A page's own chip row is not sticky in practice —
-   on Player Data it had scrolled 1300px off screen by the time the picker
-   wanted to dock, so the picker went somewhere nobody could see. The global bar
-   is the one pinned under the nav, and it is shown for the picker alone on
-   pages that have no chips of their own. */
-function activeChipBar(){ return document.getElementById('sec-nav'); }
+/* Whichever bar is actually pinned under the nav. Advanced Stats keeps its own
+   jump bar and that is the one holding the chips, so a picker docked into the
+   global bar landed on top of them; Player Data's row is not sticky at all, so
+   there the global bar is still the answer. Asking about position rather than
+   about the class is what tells the two apart. */
+function activeChipBar(){
+  const page=document.getElementById('page-'+_activeTab);
+  const local=page&&page.querySelector('.sec-nav-local');
+  if(local&&!local.hidden&&getComputedStyle(local).position==='sticky') return local;
+  return document.getElementById('sec-nav');
+}
 /* The sportsbook is the one page that already hangs something off the nav —
    the wallet — and there is only one slot down there. Docking the Team Card's
    selector into it dropped the selector straight on top of My Bets, so on this

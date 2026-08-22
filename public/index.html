@@ -3198,7 +3198,11 @@
        resolved against that root and washed the entire page instead of the
        50px strip behind it. That is the "everything goes lighter when you
        scroll" on every tab. Hidden means hidden: no paint, no backdrop root. */
-    #nav-scrim:not(.show),#pin-overlay:not(.show),#cm-overlay:not(.show){
+    /* Each of these opens on its own class and they are not the same word: the
+       scrim shows, the two modals open. Testing all three for .show meant the
+       modals were held at visibility:hidden even while open, so tapping a
+       coaching-metric row did nothing you could see. */
+    #nav-scrim:not(.show),#pin-overlay:not(.open),#cm-overlay:not(.open){
       visibility:hidden;-webkit-backdrop-filter:none;backdrop-filter:none;}
     #nav-scrim{position:fixed;inset:0;z-index:395;background:var(--scrim);
       opacity:0;pointer-events:none;transition:opacity .1s linear;will-change:opacity;}
@@ -5066,15 +5070,15 @@
 
 <nav class="tabbar" id="tabbar">
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')"><i class="fa fa-house"></i>Home</button>
-  <button class="tab-btn" data-tab="week" onclick="switchTab('week')"><i class="fa fa-bolt"></i>Forecast</button>
+  <button class="tab-btn" data-tab="week" onclick="switchTab('week')"><i class="fa fa-bolt"></i>Schedule</button>
   <button class="tab-btn" data-tab="book" onclick="switchTab('book')"><i class="fa fa-coins"></i>B&amp;C Sportsbook</button>
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishments</button>
   <button class="tab-btn" data-tab="teams" data-group="Team Data" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Rosters</button>
-  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Previous Matchups</button>
+  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Head to Head</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <button class="tab-btn" data-tab="legacy" data-group="Analytics" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
-  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Advanced Stats</button>
+  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Stats &amp; Standings</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Report</button>
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
   <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
