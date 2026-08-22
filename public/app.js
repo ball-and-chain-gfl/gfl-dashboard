@@ -9656,7 +9656,7 @@ function sbMarketHTML(m){
     const nm=`<span class="sb-tm">${sbAvatar(p.owner,22)}<span class="sb-nm">${p.name}</span><span class="sb-ab">${sbTeamAb(p.owner,p.name)}</span></span>`;
     if(m.type==='outright'){
       return `<div class="sb-row">${nm}
-        <span class="sb-imp">${(p.prob*100).toFixed(1)}%${sbDrift(p.open,p.odds)}</span>
+        <span class="sb-imp">${sbDrift(p.open,p.odds)}<span class="sb-imp-v">${(p.prob*100).toFixed(1)}%</span></span>
         ${sbBtn(m.key,m.title,p.owner,p.name,p.odds)}</div>`;
     }
     if(m.type==='yesno'){
