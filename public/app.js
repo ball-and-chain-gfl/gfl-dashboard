@@ -1693,18 +1693,9 @@ function renderHistoryTable(){
 
   const tg=tw+tl+tt;
   const tpct=tg?(tw/tg):0;
+  /* The summary hero is gone: the crest and the totals it showed are already
+     on the team profile, and the table underneath is what this section is for. */
   body.innerHTML=`
-    <div class="h2h-total">
-      ${franchiseAvatar(me,38,9)}
-      <div class="h2h-total-main">
-        <div class="h2h-total-rec">${tw}–${tl}${tt?`–${tt}`:''}</div>
-        <div class="h2h-total-pct" style="color:${tpct>=0.5?'var(--green)':'var(--red)'}">${(tpct*100).toFixed(1)}%</div>
-      </div>
-      <div class="h2h-total-pfpa">
-        <div class="htp"><span class="htp-l">PF</span><span class="htp-v" style="color:var(--green)">${tpf.toFixed(1)}</span></div>
-        <div class="htp"><span class="htp-l">PA</span><span class="htp-v" style="color:var(--red)">${tpa.toFixed(1)}</span></div>
-      </div>
-    </div>
     ${rows.length?`${histMobileHTML(owner,rows,!!tt)}<div class="hint-tap" style="font-size:12px;color:var(--text3);margin:0 2px 8px">Tap a team to see every head-to-head game.</div><div class="tscroll hist-tbl"><table class="min560">
       <thead><tr>${['Opponent','W','L',...(tt?['T']:[]),'Win %','PF','PA'].map((c,i)=>`<th class="hs-th${i?' right':''}" data-col="${i}" onclick="sortHistTable(${i})">${c}<i class="hs-arw"></i></th>`).join('')}</tr></thead>
       <tbody>${rows.map((r,i)=>{const cols=tt?7:6;const games=h2hGames(owner,r.opp.owner);
