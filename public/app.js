@@ -5911,13 +5911,35 @@ function lockerRoomHTML(t){
       +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
         +P(70,250,190,190,'#000','0')
         +plantSVG(st.stage,P)
+        /* A proper can: arched handle, a rim wider than the body, a tapered
+           tin, and a spout that climbs out of the shoulder to a flared rose.
+
+           Aimed by measurement rather than by eye. The plant as drawn occupies
+           x 154..230 on this grid and centres on 192; tipping the can 22
+           degrees clockwise about its own bounding-box centre carries the rose
+           to exactly that x, which is what puts the water on the plant instead
+           of on the floor beside it. It is held clear of the bloom, whose top is
+           y 276, so the stream is visible rather than the spout resting on the
+           flower. Move either piece and the rose has to be re-aimed with it. */
         +'<g class="lk-can">'
-          +P(96,258,64,42,'#9aa4b0')+P(96,258,64,8,'#b4bcc6')+P(96,292,64,8,'#7d8792')
-          +P(158,272,28,10,'#9aa4b0')+P(184,282,18,8,'#9aa4b0')
-          +P(74,266,22,10,'#9aa4b0')
+          /* handle */
+          +P(117,210,8,15,'#8b95a1')+P(125,204,28,8,'#9aa4b0')+P(147,210,8,15,'#8b95a1')
+          /* rim, then the tin */
+          +P(109,224,56,8,'#b4bcc6')
+          +P(113,232,48,26,'#9aa4b0')
+          +P(115,258,44,9,'#7d8792')
+          +P(119,267,36,6,'#6d7681')
+          /* a seam down the tin so it does not read as a flat slab */
+          +P(121,232,4,26,'#a8b2be')
+          /* spout climbing out of the shoulder */
+          +P(159,237,14,9,'#9aa4b0')+P(171,243,14,9,'#9aa4b0')+P(183,249,12,9,'#8b95a1')
+          /* the rose on the end */
+          +P(193,245,10,16,'#b4bcc6')+P(203,249,5,9,'#7d8792')
         +'</g>'
+        /* drawn where the rose ends up once the can has tipped, so the water
+           leaves the spout instead of appearing beside it */
         +'<g class="lk-drops">'
-          +P(174,304,9,18,'#5bc8f5')+P(192,324,9,18,'#5bc8f5')+P(158,334,9,18,'#5bc8f5')
+          +P(186,270,7,11,'#5bc8f5')+P(191,280,7,11,'#7fd8f8')+P(185,290,7,9,'#5bc8f5')
         +'</g>'
       +'</g>'
 
@@ -8827,14 +8849,21 @@ function ntAll(){
    results on Tuesday, then whatever has happened since, in order. */
 function ntLive(){
   const today=ntToday();
-  const list=ntAll().filter(n=>!ntSeen().has(n.id)&&n.day<=today)
-    .sort((a,b)=>b.day-a.day);
+  let list=ntAll().filter(n=>n.day<=today).sort((a,b)=>b.day-a.day);
   /* Preview: one of each kind and no more. The real generators produce as many
      as the league earns — fourteen trades in a season is fourteen cards — which
-     is right in play and useless when the point is to look over the set. */
-  if(!(_CFG.notifications||{}).demo) return list;
-  const seen=new Set();
-  return list.filter(n=>{ if(seen.has(n.kind)) return false; seen.add(n.kind); return true; });
+     is right in play and useless when the point is to look the set over.
+
+     The thinning has to happen before the swiped ones are taken out, not after.
+     Filtering first meant clearing the one trade card promoted the next trade
+     card into its place, so a kind could be swiped away over and over and the
+     feed looked full of duplicates. Choosing the representative first means
+     each kind has exactly one card, and clearing it clears that kind. */
+  if((_CFG.notifications||{}).demo){
+    const kinds=new Set();
+    list=list.filter(n=>{ if(kinds.has(n.kind)) return false; kinds.add(n.kind); return true; });
+  }
+  return list.filter(n=>!ntSeen().has(n.id));
 }
 /* the card counts as done once the stack is empty, which is what sinks it */
 function ntDone(){ return ntLive().length===0; }

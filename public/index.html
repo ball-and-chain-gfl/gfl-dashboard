@@ -2281,21 +2281,24 @@
     .lk-can,.lk-drops{opacity:0;}
     .lk-plantg.watering .lk-can{animation:lkCan 1.1s ease-in-out;}
     .lk-plantg.watering .lk-drops{animation:lkDrops 1.1s ease-in-out;}
+    /* Clockwise: a can pours by dipping the spout, and the spout is on the
+       right. The old -24deg lifted it instead, which is half of why the water
+       never looked connected to it. */
     @keyframes lkCan{
       0%{opacity:0;transform:translate(26px,-18px) rotate(0deg);}
       22%{opacity:1;transform:translate(0,0) rotate(0deg);}
-      38%,72%{opacity:1;transform:translate(-6px,4px) rotate(-24deg);}
+      38%,72%{opacity:1;transform:translate(4px,2px) rotate(22deg);}
       88%{opacity:1;transform:translate(0,0) rotate(0deg);}
       100%{opacity:0;transform:translate(26px,-18px) rotate(0deg);}
     }
-    /* The pour is aimed at the pot, which is centred on x 147 in the grid the
-       locker is drawn on. The stream used to drift 10px left of that and keep
-       going, so it read as falling beside the plant rather than into it. */
+    /* Straight down out of the rose. The drops are already drawn under where
+       the spout ends up once the can has tipped, so they only have to fall —
+       no sideways drift, which is what used to carry them off the pot. */
     @keyframes lkDrops{
-      0%,34%{opacity:0;transform:translate(0,0);}
-      44%{opacity:1;transform:translate(-6px,6px);}
-      70%{opacity:1;transform:translate(-24px,44px);}
-      78%,100%{opacity:0;transform:translate(-28px,52px);}
+      0%,34%{opacity:0;transform:translate(0,-8px);}
+      44%{opacity:1;transform:translate(0,0);}
+      70%{opacity:1;transform:translate(0,16px);}
+      78%,100%{opacity:0;transform:translate(0,26px);}
     }
     .lk-can,.lk-drops{transform-box:fill-box;transform-origin:center;}
     @media(prefers-reduced-motion:reduce){
