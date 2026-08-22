@@ -3037,11 +3037,17 @@
 
 
     /* ── Scroll + header/nav fixes ─────────────────────────────────────── */
-    html{overflow-x:clip;}   body{overflow-x:clip;overflow-y:visible;}   /* clip keeps body out of the scroll chain */
+    /* The horizontal clip lives on html alone. overflow:clip makes an element a
+       containing block for FIXED descendants as well as absolute ones — WebKit
+       honours that even when the other axis is visible, Chromium does not. With
+       it on body, the pinned punishment bar measured itself against the body box
+       instead of the viewport and rode up the page as you scrolled, on iPhones
+       only. html still clips, so nothing scrolls sideways either way. */
+    html{overflow-x:clip;}   body{overflow-x:visible;overflow-y:visible;}
     html{scrollbar-gutter:stable;}
     @media(max-width:768px){
       html{overflow-x:hidden!important;}
-      body{overflow-x:clip!important;overflow-y:visible!important;max-width:100%;}
+      body{overflow-x:visible!important;overflow-y:visible!important;max-width:100%;}
       main,footer,#floatnav,.tab-dd-menu{max-width:100%;}
     }
     html.nav-lock,body.nav-lock{overflow:hidden;}   /* lock page scroll while drawer open */
