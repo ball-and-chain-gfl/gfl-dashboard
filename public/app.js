@@ -8273,19 +8273,78 @@ function pkMotwIndex(games){
    One at a time, deliberately. A stack of eleven kinds of alert is a feed
    nobody reads; a single card with a count is a thing you deal with. */
 const NT_KINDS={
-  blowout:{icon:'fa-explosion',   tone:'hot'},
+  blowout:{icon:'fa-explosion',   tone:'warm'},
   wire:   {icon:'fa-stopwatch',   tone:'cool'},
   perfect:{icon:'fa-bullseye',    tone:'good'},
-  plant:  {icon:'fa-seedling',    tone:'bad'},
+  plant:  {icon:'fa-seedling',    tone:'earth'},
   crown:  {icon:'fa-crown',       tone:'gold'},
   faab:   {icon:'fa-sack-dollar', tone:'gold'},
-  rival:  {icon:'fa-fire',        tone:'hot'},
+  rival:  {icon:'fa-hand-fist',   tone:'royal'},
   trade:  {icon:'fa-right-left',  tone:'cool'},
-  parlay: {icon:'fa-user-group',  tone:'good'},
-  streakW:{icon:'fa-arrow-trend-up',  tone:'good'},
-  streakL:{icon:'fa-arrow-trend-down',tone:'bad'},
+  parlay: {icon:'fa-dollar-sign', tone:'good'},
+  streakW:{icon:'fa-arrow-trend-up',  tone:'ember'},
+  streakL:{icon:'fa-arrow-trend-down',tone:'ember'},
   trash:  {icon:'fa-comment-dots', tone:'hot'},
 };
+/* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
+   These cards were paragraphs with the numbers bolded inside them, which meant
+   reading a sentence to find out a score. Anything with a result in it draws
+   the result instead: both crests, both names, both totals, and the margin —
+   so the news is taken in at a glance and the line of text underneath only has
+   to say what kind of thing happened.
+
+   Every block here is built from owners rather than team ids, so a card about
+   an old season still names and badges the franchise as it was then. */
+function ntCrest(owner,size){
+  const fr=(_franchises||[]).find(f=>f.owner===owner);
+  try{ if(fr) return franchiseAvatar(fr,size||24,7); }catch(e){}
+  return '<span class="nt-crest-x"></span>';
+}
+/* a two-line scoreboard: winner on top, loser under, margin down the side */
+function ntScore(a,b,note){
+  const m=Math.abs((a.pts||0)-(b.pts||0));
+  const side=(s,cls)=>`<div class="nt-side ${cls}">
+      <span class="nt-side-c">${ntCrest(s.owner,24)}</span>
+      <span class="nt-side-n">${s.name}</span>
+      <span class="nt-side-v">${(s.pts||0).toFixed(1)}</span>
+    </div>`;
+  return `<div class="nt-score">
+    <div class="nt-sides">${side(a,'won')}${side(b,'lost')}</div>
+    <div class="nt-marg"><span class="nt-marg-v">${m.toFixed(1)}</span>
+      <span class="nt-marg-l">${note||'margin'}</span></div>
+  </div>`;
+}
+/* what changed hands, both directions */
+function ntSwap(a,b){
+  const col=(s,dir)=>`<div class="nt-sw-side">
+      <div class="nt-sw-h">${ntCrest(s.owner,20)}<span>${s.name}</span></div>
+      <div class="nt-sw-l">${(s.got||[]).map(p=>`<span class="nt-sw-p">${p}</span>`).join('')}</div>
+    </div>`;
+  return `<div class="nt-swap">
+    ${col(a)}
+    <div class="nt-sw-arr"><i class="fa fa-right-left"></i></div>
+    ${col(b)}
+  </div>`;
+}
+/* a run of results, most recent last */
+function ntStreak(owner,name,n,won){
+  const pips=Array.from({length:Math.min(n,10)},()=>
+    `<span class="nt-pip ${won?'w':'l'}">${won?'W':'L'}</span>`).join('');
+  return `<div class="nt-run">
+    <div class="nt-run-h">${ntCrest(owner,24)}<span class="nt-run-n">${name}</span>
+      <span class="nt-run-c ${won?'w':'l'}">${n}</span></div>
+    <div class="nt-pips">${pips}</div>
+  </div>`;
+}
+/* one number that is the whole story */
+function ntStat(owner,name,value,label){
+  return `<div class="nt-stat">
+    <span class="nt-stat-c">${ntCrest(owner,26)}</span>
+    <span class="nt-stat-n">${name}</span>
+    <span class="nt-stat-v">${value}</span>
+    <span class="nt-stat-l">${label}</span>
+  </div>`;
+}
 let _ntSeen=null, _ntIdx=0, _ntTradeSeason=null, _ntDay=null, _ntDayTimer=null;
 const ntKey=()=>lsKey('nt-seen');
 /* What has been swiped away lives on the manager's profile, so clearing a card
@@ -8422,21 +8481,26 @@ function ntFromWeek(out){
     const margin=Math.abs(hp-ap);
     const wp=homeWon?hp:ap, lp=homeWon?ap:hp;
     const score=`${wp.toFixed(1)}–${lp.toFixed(1)}`;
+    const W={owner:win,name:ntName(season,win),pts:wp};
+    const L={owner:lose,name:ntName(season,lose),pts:lp};
     if(margin>=40) out.push({kind:'blowout', day,
       id:`bl:${season}:${lw.week}:${win}`,
       title:'Blown out',
-      body:`<b>${ntName(season,win)}</b> put <b>${margin.toFixed(1)}</b> on <b>${ntName(season,lose)}</b> — ${score}, week ${lw.week}.`});
+      art:ntScore(W,L,'margin'),
+      body:`Week ${lw.week}`});
     else if(margin<6) out.push({kind:'wire', day,
       id:`nw:${season}:${lw.week}:${win}`,
       title:'Down to the wire',
-      body:`<b>${ntName(season,win)}</b> edged <b>${ntName(season,lose)}</b> by <b>${margin.toFixed(1)}</b> — ${score}, week ${lw.week}.`});
+      art:ntScore(W,L,'apart'),
+      body:`Week ${lw.week}`});
     /* a rivalry game is one of the three that made them rivals in the first
        place, so it is read off the rival list rather than guessed at */
     try{
       if(rivalsFor(win).some(r=>r.owner===lose)) out.push({kind:'rival', day,
         id:`rv:${season}:${lw.week}:${win}`,
         title:'Rivalry settled',
-        body:`<b>${ntName(season,win)}</b> beat their rival <b>${ntName(season,lose)}</b>, ${score}.`});
+        art:ntScore(W,L,'margin'),
+        body:`A rivalry game, week ${lw.week}`});
     }catch(e){}
   });
 }
@@ -8468,11 +8532,14 @@ function ntStreaks(out){
     for(let i=res.length-1;i>=0&&res[i]===last;i--) n++;
     if(n<5) return;
     const day=ntResultsDay(Date.now());
+    const who=ntName(season,owner);
     out.push(last
       ?{kind:'streakW', day, id:`sw:${owner}:${n}`, title:`${n} in a row`,
-        body:`<b>${ntName(season,owner)}</b> has won <b>${n}</b> straight.`}
+        art:ntStreak(owner,who,n,true),
+        body:`<b>${who}</b> have won <b>${n}</b> straight.`}
       :{kind:'streakL', day, id:`sl:${owner}:${n}`, title:`${n} straight losses`,
-        body:`<b>${ntName(season,owner)}</b> has not won in <b>${n}</b> games.`});
+        art:ntStreak(owner,who,n,false),
+        body:`<b>${who}</b> have not won in <b>${n}</b>.`});
   });
 }
 /* everyone's plant, from the profiles the homepage already reads */
@@ -8488,7 +8555,8 @@ function ntPlants(out){
     /* keyed by the watering that led to it, so one death is reported once and
        the next one after a re-water is a new card */
     out.push({kind:'plant', day:ntDayOf(t+5*ms), id:`pl:${p.id}:${t}`, title:'A plant has died',
-      body:`<b>${nm}</b> let theirs go. Six days without water.`});
+      art:ntStat(_ownerMap[tid],nm,'6 days','without water'),
+      body:`<b>${nm}</b> let their plant die. How could they.`});
   });
 }
 /* a clean slate on the week's picks, for anyone in the league */
@@ -8548,8 +8616,12 @@ function ntTrades(out){
     const teams=tr.teams||[]; if(teams.length<2) return;
     const id=`td:${season}:${tr.id||teams.map(t=>t.teamId).join('-')+':'+(tr.date||'')}`;
     const nm=t=>(_teams.find(x=>x.id===Number(t.teamId))||{}).name||('Team '+t.teamId);
+    const own=t=>_ownerMap[Number(t.teamId)];
+    const got=t=>(t.players||[]).map(p=>p.n).filter(Boolean);
     out.push({kind:'trade', day:ntDayOf(Number(tr.date||tr.proposedDate)||Date.now()), id, title:'A trade went through',
-      body:`<b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b> swapped. Who won it?`,
+      art:ntSwap({owner:own(teams[0]),name:nm(teams[0]),got:got(teams[0])},
+                 {owner:own(teams[1]),name:nm(teams[1]),got:got(teams[1])}),
+      body:`There has been a trade between <b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b>. Who won?`,
       vote:{id, sides:[{k:String(teams[0].teamId),label:nm(teams[0])},
                        {k:String(teams[1].teamId),label:nm(teams[1])}]}});
   });
@@ -8600,36 +8672,58 @@ function ntCrowns(out){
 /* One of everything, so the whole set can be looked at out of season. Turned
    on and off in config; the ids are fixed strings, so a demo card that has been
    swiped away stays away. */
+/* One card of every kind, so the whole set can be looked over before a season
+   is running. Owners are read off the real franchise list where there is one,
+   so the crests and names are the league's own. */
 function ntDemo(out){
   if(!(_CFG.notifications||{}).demo) return;
   const d=ntToday(), day=n=>d-n*86400000;
   const T2=ntResultsDay(Date.now());
+  const fr=_franchises||[];
+  const o=i=>(fr[i%Math.max(1,fr.length)]||{}).owner||('demo'+i);
+  const nm=i=>(fr[i%Math.max(1,fr.length)]||{}).name||'A team';
+  const S=(i,pts)=>({owner:o(i),name:nm(i),pts});
   out.push(
-   {kind:'trash',day:d,id:'demo:trash',title:'From Motor City Mulligans',
-    body:'<b>Motor City Mulligans</b> says: “Enjoy the bye week, you will need the rest.”'},
+   {kind:'trash',day:d,id:'demo:trash',title:'From '+nm(3),
+    body:'<b>'+nm(3)+'</b> says: “Enjoy the bye week, you will need the rest.”'},
+
    {kind:'blowout',day:T2,id:'demo:blowout',title:'Blown out',
-    body:'<b>Motor City Mulligans</b> put <b>52.4</b> on <b>Waddle House</b> — 168.2–115.8, week 3.'},
+    art:ntScore(S(3,168.2),S(6,115.8),'margin'), body:'Week 3'},
+
    {kind:'wire',day:T2,id:'demo:wire',title:'Down to the wire',
-    body:'<b>Bikini Bottom Goobers</b> edged <b>Florida Man</b> by <b>0.8</b> — 121.4–120.6, week 3.'},
+    art:ntScore(S(0,121.4),S(4,120.6),'apart'), body:'Week 3'},
+
    {kind:'rival',day:T2,id:'demo:rival',title:'Rivalry settled',
-    body:'<b>The Bryan Football Team</b> beat their rival <b>Lebron&#39;s 3rd Leg</b>, 143.0–98.7.'},
+    art:ntScore(S(1,143.0),S(2,98.7),'margin'), body:'A rivalry game, week 3'},
+
    {kind:'perfect',day:T2,id:'demo:perfect',title:'A perfect slate',
-    body:'<b>Tuckasegee Tinglers</b> called every game in week 3 — 6 for 6.'},
+    art:ntStat(o(5),nm(5),'6 / 6','every game called'), body:'Week 3 matchup picks'},
+
    {kind:'streakW',day:T2,id:'demo:streakw',title:'6 in a row',
-    body:'<b>Motor City Mulligans</b> has won <b>6</b> straight.'},
+    art:ntStreak(o(3),nm(3),6,true), body:'<b>'+nm(3)+'</b> have won six straight.'},
+
    {kind:'streakL',day:T2,id:'demo:streakl',title:'5 straight losses',
-    body:'<b>Midwest Miners</b> has not won in <b>5</b> games.'},
+    art:ntStreak(o(7),nm(7),5,false), body:'<b>'+nm(7)+'</b> have not won in five.'},
+
    {kind:'plant',day:day(1),id:'demo:plant',title:'A plant has died',
-    body:'<b>Kunk</b> let theirs go. Six days without water.'},
+    art:ntStat(o(8),nm(8),'6 days','without water'),
+    body:'<b>'+nm(8)+'</b> let their plant die. How could they.'},
+
    {kind:'crown',day:day(2),id:'demo:crown',title:'New at the top',
-    body:'<b>Bikini Bottom Goobers</b> now leads the league in <b>all-time points</b>.'},
+    art:ntStat(o(0),nm(0),'8,412.6','all-time points'), body:'First in the league.'},
+
    {kind:'faab',day:day(3),id:'demo:faab',title:'Big money on the wire',
-    body:'<b>Waddle House</b> spent <b>$147</b> of FAAB on <b>Jaylen Wright</b>.'},
+    art:ntStat(o(6),nm(6),'$147','on Jaylen Wright'), body:'Next-highest bid was $38.'},
+
    {kind:'parlay',day:d,id:'demo:parlay',title:'You have been asked in',
-    body:'<b>Motor City Mulligans</b> wants you in on a 3-leg parlay — $75.',go:'bets'},
+    art:ntStat(o(3),nm(3),'$75','a 3-leg parlay'),
+    body:'Take it and you are in for the same.', go:'bets'},
+
    {kind:'trade',day:d,id:'demo:trade',title:'A trade went through',
-    body:'<b>Midwest Miners</b> and <b>Bismuth</b> swapped. Who won it?',
-    vote:{id:'demo_trade',sides:[{k:'a',label:'Midwest Miners'},{k:'b',label:'Bismuth'}]}},
+    art:ntSwap({owner:o(7),name:nm(7),got:['Bijan Robinson','Jake Ferguson']},
+               {owner:o(9),name:nm(9),got:['Puka Nacua','a 2027 2nd']}),
+    body:'There has been a trade between <b>'+nm(7)+'</b> and <b>'+nm(9)+'</b>. Who won?',
+    vote:{id:'demo_trade',sides:[{k:'a',label:nm(7)},{k:'b',label:nm(9)}]}},
   );
 }
 /* ── TRASH TALK ──────────────────────────────────────────────────────────────
@@ -8728,8 +8822,14 @@ function ntAll(){
    results on Tuesday, then whatever has happened since, in order. */
 function ntLive(){
   const today=ntToday();
-  return ntAll().filter(n=>!ntSeen().has(n.id)&&n.day<=today)
+  const list=ntAll().filter(n=>!ntSeen().has(n.id)&&n.day<=today)
     .sort((a,b)=>b.day-a.day);
+  /* Preview: one of each kind and no more. The real generators produce as many
+     as the league earns — fourteen trades in a season is fourteen cards — which
+     is right in play and useless when the point is to look over the set. */
+  if(!(_CFG.notifications||{}).demo) return list;
+  const seen=new Set();
+  return list.filter(n=>{ if(seen.has(n.kind)) return false; seen.add(n.kind); return true; });
 }
 /* the card counts as done once the stack is empty, which is what sinks it */
 function ntDone(){ return ntLive().length===0; }
@@ -8801,7 +8901,8 @@ function renderNotifications(){
         <button class="nt-x" onclick="ntDismiss('${String(n.id).replace(/'/g,"\\'")}')"
           aria-label="Dismiss"><i class="fa fa-xmark"></i></button>
       </div>
-      <div class="nt-body">${n.body}</div>
+      ${n.art?`<div class="nt-art">${n.art}</div>`:''}
+      ${n.body?`<div class="nt-body">${n.body}</div>`:''}
       ${n.vote?`<div class="nt-vote">${n.vote.sides.map(s=>`
           <button class="nt-vb${mine===s.k?' on':''}" onclick="ntVote('${fieldSafe}','${s.k}')">
             <span class="nt-vb-l">${s.label}</span>
