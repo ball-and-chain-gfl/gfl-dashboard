@@ -3119,13 +3119,13 @@
     .tab-dd-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;
       margin-top:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.10);}
     .tab-dd-pair .tab-dd-item{
-      flex-direction:column;align-items:flex-start;gap:7px;
-      padding:12px;border-radius:10px;
+      flex-direction:row;align-items:center;gap:9px;
+      padding:11px 12px;border-radius:10px;
       border:1px solid transparent;
       background:rgba(0,0,0,0.2);
-      font-size:14px;white-space:normal;line-height:1.25;min-width:0;}
+      font-size:13px;white-space:normal;line-height:1.2;min-width:0;}
     .tab-dd-pair .tab-dd-item span{white-space:normal;overflow-wrap:anywhere;}
-    .tab-dd-pair .tab-dd-item i{font-size:15px;}
+    .tab-dd-pair .tab-dd-item i{font-size:15px;flex:0 0 auto;}
     .tab-dd-pair .tab-dd-item:hover{border-color:var(--tc);
       background:rgba(255,255,255,0.06);}
     .tab-dd-pair .tab-dd-item.active{border-color:var(--tc);}
@@ -3198,6 +3198,7 @@
     #tab-dd-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;
       justify-content:center;gap:8px;width:100px;height:44px;box-sizing:border-box;
       background:rgba(0,0,0,0.2);border-radius:8px;
+      border:1px solid rgba(255,255,255,0.13);
       padding:0 8px 0 12px;color:var(--text);font-size:14px;font-weight:700;letter-spacing:0.2px;
       box-shadow:none;transition:background .15s,border-color .15s;}
     #tab-dd-lb{display:none!important;}
@@ -3257,7 +3258,10 @@
     #floatnav #season-select{order:1;margin:0!important;flex:0 0 auto;}
     /* width follows the content so the year can never clip, with a floor so it still
        matches the menu button */
+    /* the same hairline as the page selector beside it: the two are a matched
+       pair in the bar, and an edge on one only would read as a mistake */
     #season-select{height:44px;width:100px;box-sizing:border-box;text-align:center;background:rgba(0,0,0,0.2);border-radius:8px;
+      border:1px solid rgba(255,255,255,0.13);
       padding:8px 30px 8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:.6px;
       text-transform:uppercase;color:var(--text);box-shadow:none;
       -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
