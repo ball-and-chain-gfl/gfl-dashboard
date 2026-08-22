@@ -2061,6 +2061,9 @@
     /* The clue under a Ball Knowledge question — the stats, the ranks, the
        college — set apart from the question itself so the two do not run
        together. */
+    /* which of the eight this is, shown only while the whole set is on screen */
+    .bk-kind{margin-bottom:8px;font-family:'Inter',sans-serif;font-size:9.5px;
+      font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--accent);}
     .bk-note{margin:9px 0 2px;padding:9px 11px;border-radius:9px;
       background:rgba(255,255,255,0.045);
       font-family:'Inter',sans-serif;font-size:12.5px;line-height:1.6;color:var(--text2);}
@@ -2914,6 +2917,11 @@
     html[data-theme="dark"][data-tabaccent=history]{--accent:#6cb7ff;--accent2:#9baafe;--accent-rgb:108,183,255;}
     html[data-theme="dark"][data-tabaccent=standings]{--accent:#6C6AE8;--accent2:#6B90E8;--accent-rgb:108,106,232;}
     html[data-theme="dark"][data-tabaccent=badbeat]{--accent:#e78dd4;--accent2:#f889ac;--accent-rgb:231,141,212;}
+    /* Coaching Metric. The menu icon reads TAB_COLORS and the page reads this,
+       so the two have to carry the same hex or the tab and the page it opens
+       disagree — which is what happened when the tab was added without a rule
+       here and the page fell back to the default accent. */
+    html[data-theme="dark"][data-tabaccent=cm]{--accent:#CBE4FF;--accent2:#8CB9E8;--accent-rgb:203,228,255;}
     html[data-theme="dark"][data-tabaccent=draft]{--accent:#0fcacc;--accent2:#04c4f0;--accent-rgb:15,202,204;}
     html[data-theme="dark"][data-tabaccent=trades]{--accent:#fb9167;--accent2:#eb9e41;--accent-rgb:251,145,103;}
     html[data-theme="dark"][data-tabaccent=tenure]{--accent:#1ecdaa;--accent2:#0cc9d1;--accent-rgb:30,205,170;}

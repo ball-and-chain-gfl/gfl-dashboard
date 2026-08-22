@@ -88,7 +88,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee',cm:'#AF6BF2'};
+const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee',cm:'#CBE4FF'};
 const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -8065,18 +8065,28 @@ function renderBallKnowledge(){
      The set is graded together at the end instead, which is also what stops
      anyone walking their answers to a perfect score. */
   if(pending.length){
-    const i=pending[0], q=qs[i];
-    el.innerHTML=`
-      <div class="bk-meta"><span>Week ${bkWeek()}</span>
-        <span class="bk-count">${answered.length} of ${qs.length}</span></div>
-      <div class="bk-card bk-open">
+    /* One question at a time is the point in play: answer it and the next
+       arrives, and there is no walking the set. In preview the point is the
+       opposite — the whole set is there to be looked over — so every
+       outstanding question is laid out at once. */
+    const showAll=!!(_CFG.ballKnowledge||{}).previewAll;
+    const card=(i)=>{
+      const q=qs[i];
+      return `<div class="bk-card bk-open">
+        ${showAll?`<div class="bk-kind">${i+1} · ${q.kind}</div>`:''}
         <div class="bk-q">${q.q}</div>
         ${q.graph?`<div class="bk-graphwrap">${bkGraphSVG(q.graph)}</div>`:''}
         ${q.note?`<div class="bk-note">${q.note}</div>`:''}
         <div class="bk-opts">
           ${q.a.map((opt,ai)=>`<button type="button" class="bk-opt" onclick="bkAnswer(${i},${ai},this)">${opt}</button>`).join('')}
         </div>
-      </div>
+      </div>`;
+    };
+    const i=pending[0];
+    el.innerHTML=`
+      <div class="bk-meta"><span>Week ${bkWeek()}</span>
+        <span class="bk-count">${answered.length} of ${qs.length}</span></div>
+      ${showAll?pending.map(card).join(''):card(i)}
       ${''/* going back re-opens the last one answered, so a misfire can be
              corrected — but only while the set is still open. Once it is graded
              the answers are settled and there is no way back in. */}
