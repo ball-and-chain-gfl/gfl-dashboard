@@ -1100,6 +1100,36 @@
       border:1px solid rgba(255,255,255,0.13);}
     .sx-chip:hover,.tab-dd-item:hover,.mv-btn:hover,.sb-odds:hover,.nt-nav:hover,
     .tab-btn:hover{border-color:rgba(255,255,255,0.2);}
+    /* ── The jump-chip surface, applied by request to six specific controls ───
+       Every selector here names its container as well as its class, so nothing
+       that merely shares a class name is caught: #sb-tabs is the sportsbook's
+       own view row, #page-tenure scopes the Player Data switcher, and so on. */
+    #bk-body .bk-opt,
+    #bk-body .bk-back,
+    #sb-tabs .tab-btn,
+    #page-book .sb-odds,
+    #page-tenure .sx-filters .sx-chip,
+    #page-draft .dr-vtab{
+      background:rgba(255,255,255,0.07);
+      border:1px solid rgba(255,255,255,0.13);
+      box-shadow:none;
+      backdrop-filter:none;-webkit-backdrop-filter:none;}
+    #bk-body .bk-opt:hover,
+    #bk-body .bk-back:hover,
+    #sb-tabs .tab-btn:hover,
+    #page-book .sb-odds:hover,
+    #page-tenure .sx-filters .sx-chip:hover,
+    #page-draft .dr-vtab:hover{
+      background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
+    /* the selected one still has to look selected */
+    #sb-tabs .tab-btn.active,
+    #page-tenure .sx-filters .sx-chip.on,
+    #page-draft .dr-vtab.active{
+      background:color-mix(in srgb,var(--accent) 20%,rgba(255,255,255,0.07));
+      border-color:var(--accent);color:var(--accent);}
+    #page-book .sb-odds.on{
+      background:color-mix(in srgb,var(--accent) 22%,rgba(255,255,255,0.07));
+      border-color:var(--accent);}
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────
@@ -2911,6 +2941,10 @@
     html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
+    /* the name takes the space it needs and sign out sits at the far edge */
+    .mp-head .mp-id{flex:1 1 auto;min-width:0;}
+    .mp-head .mp-out-btn{flex:0 0 auto;margin-left:auto;align-self:center;}
+
     /* ── My Profile (header button destination) ───────────────────────────── */
     html[data-theme="dark"][data-tabaccent=profile]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}
     .mp-head{display:flex;align-items:center;gap:13px;margin-bottom:16px;}
@@ -3827,10 +3861,13 @@
       #page-book>.sec>.sec-head{padding:0 0 12px!important;}
       /* market tabs need to read clearly with no card behind them */
       /* a darker fill than the rest, because these sit with no card behind them */
-      #sb-tabs .tab-btn{background:rgba(0,0,0,0.55)!important;border-color:transparent!important;
+      /* the chip surface holds here too — this used to force its own dark fill
+         and a transparent edge, which beat the shared rule on phones only */
+      #sb-tabs .tab-btn{background:rgba(255,255,255,0.07)!important;
+        border-color:rgba(255,255,255,0.13)!important;
         color:var(--text)!important;box-shadow:none!important;}
       #sb-tabs .tab-btn i{opacity:1;}
-      #sb-tabs .tab-btn.active{background:color-mix(in srgb,var(--accent) 32%,rgba(0,0,0,0.55))!important;
+      #sb-tabs .tab-btn.active{background:color-mix(in srgb,var(--accent) 20%,rgba(255,255,255,0.07))!important;
         border-color:var(--accent)!important;color:#f7f8ec!important;}
       #sb-tabs .tab-btn.active i{color:#f7f8ec!important;}
       .sb-bar{background:none;border-color:rgba(255,255,255,0.10);}

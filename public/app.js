@@ -6147,6 +6147,8 @@ function renderMyProfile(){
         <div class="mp-name">${t?t.name:'No team linked'}</div>
         <div class="mp-sub">signed in as <b>${_me.k1}</b></div>
       </div>
+      ${/* sign out sits with the identity it ends, not in a row of actions */''}
+      <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
     </div>
     ${lockerRoomHTML(t)}
     ${/* the locker takes its colour from the logo, which is sampled
@@ -6154,8 +6156,6 @@ function renderMyProfile(){
     <!-- No team picker: the linked team comes from the sign-in key and is fixed.
          The header above already names it. -->
     <div class="mp-actions">
-      <button class="mv-btn" onclick="switchTab('teams')">Open team profile</button>
-      <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
       ${''/* how the plant is doing, without having to read the picture */}
       <span class="mp-plant s${plantStage().stage}">
         <i class="fa fa-seedling"></i>
