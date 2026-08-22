@@ -111,7 +111,14 @@ window.GFL_CONFIG = {
      from this season — the league's own records, the full NFL player pool and
      the committed bios file — so there is nothing to edit here each Tuesday.
      resetToken still works: bump it to orphan every stored answer at once. */
-  ballKnowledge: { resetToken: 0, reveal: false },
+  ballKnowledge: {
+    resetToken: 0,
+    reveal: false,
+    /* TESTING — serve one of every kind of question instead of the weekly five,
+       and let the graph question through before week 5. Set false for the real
+       five-a-week set. */
+    previewAll: true,
+  },
 
   punishment: {
     week: 1,

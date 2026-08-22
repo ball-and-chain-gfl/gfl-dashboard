@@ -4571,6 +4571,14 @@ function syncNavDock(){
   const nb=nav.getBoundingClientRect();
   document.documentElement.style.setProperty('--navbot',Math.round(nb.bottom)+'px');
   document.querySelectorAll('.sec-nav').forEach(bar=>{
+    /* Only the global bar pins under the nav, so only the global bar may wear
+       the drawer. A page's own chip row scrolls away with the page — its top
+       goes hundreds of pixels above the nav and stays there, which had it
+       marked "stuck" forever. That left a frosted panel with a backdrop-filter
+       switched on permanently, and a stray backdrop root is what washes a whole
+       page rather than the strip behind it. Same fault as the three hidden
+       overlays, on the two pages that carry a local row. */
+    if(bar.classList.contains('sec-nav-local')){ bar.classList.remove('stuck'); return; }
     if(bar.hidden){ bar.classList.remove('stuck'); return; }
     const r=bar.getBoundingClientRect();
     bar.style.setProperty('--navside',Math.max(0,Math.round(r.left-nb.left))+'px');
@@ -7129,14 +7137,21 @@ function sbBuild(){
      line and never changes, and once with the money folded in, which is what
      is on the board. Showing both is what makes a move visible. */
   const priced=(p)=>{ const o=amFromProb(Math.min(0.95,Math.max(0.005,p))); return o; };
-  const outright=(key,title,sub,probs,badge,icon)=>{
+  /* `only` prices a subset of the league rather than all twelve — the
+     conference markets are six-horse races, and they used to build their picks
+     by hand for exactly that reason. Building them here instead is what puts
+     them on the same money blend as everything else; hand-rolled, they were the
+     one board a bet could never move. */
+  const outright=(key,title,sub,probs,badge,icon,only,holdMul)=>{
+    const rs=only||rows;
     const tot=probs.reduce((a,b)=>a+b,0)||1;
-    const base=rows.map((_,i)=>probs[i]/tot);
-    const keys=rows.map(r=>r.owner);
+    const base=rs.map((_,i)=>probs[i]/tot);
+    const keys=rs.map(r=>r.owner);
     const moved=sbBlend(key,keys,base);
-    const picks=rows.map((r,i)=>{
-      const open=priced(Math.max(0.008,base[i])*(1+HOLD));
-      const o=priced(Math.max(0.008,moved[i])*(1+HOLD));
+    const h=1+HOLD*(holdMul==null?1:holdMul);
+    const picks=rs.map((r,i)=>{
+      const open=priced(Math.max(0.008,base[i])*h);
+      const o=priced(Math.max(0.008,moved[i])*h);
       return {owner:r.owner,name:r.name,tid:r.tid,odds:o,open,prob:probFromAm(o),
         fair:base[i],handle:sbStakeOn(key,r.owner)};
     }).sort((a,b)=>b.fair-a.fair);
@@ -7179,15 +7194,9 @@ function sbBuild(){
      They are off the board. */
   const confs={};
   rows.forEach(r=>{ (confs[r.conf||'League']||(confs[r.conf||'League']=[])).push(r); });
-  const confMarkets=Object.entries(confs).filter(([,arr])=>arr.length>1).map(([cname,arr])=>{
-    const pr=sbProbs(arr.map(r=>r.rating),0.80,0.30);
-    const tot=pr.reduce((a,b)=>a+b,0)||1;
-    return {key:'conf-'+cname,title:`${cname} Conference Winner`,sub:'Best record in the conference',
-      type:'outright',badge:'Outright',icon:'fa-star',
-      picks:arr.map((r,i)=>{const p=Math.max(0.02,pr[i]/tot)*(1+HOLD*0.8);const o=amFromProb(Math.min(0.95,p));
-        return {owner:r.owner,name:r.name,tid:r.tid,odds:o,prob:probFromAm(o),fair:pr[i]/tot};})
-        .sort((a,b)=>b.fair-a.fair)};
-  });
+  const confMarkets=Object.entries(confs).filter(([,arr])=>arr.length>1).map(([cname,arr])=>
+    outright('conf-'+cname,`${cname} Conference Winner`,'Best record in the conference',
+      sbProbs(arr.map(r=>r.rating),0.80,0.30),null,'fa-star',arr,0.8));
   // make the playoffs: logistic on rating, solved so the field sums to 6 of 12
   const spots=Math.min(6,Math.round(rows.length/2));
   const zr=sbZ(ratings);
@@ -7924,7 +7933,12 @@ function bkQuestions(){
   /* both are fire-and-forget: they repaint the card when they land, and until
      then the generators that need them simply decline to build */
   bkLoadPool(); bkLoadBios();
-  const qs=bkBuildWeek(season,week,5);
+  /* previewAll turns the weekly five into one of every kind, so the whole set
+     can be looked over before a season is running. The graph question is
+     normally held back until after week 5; in preview it is let through, or
+     there would be nothing to look at. */
+  const all=!!(_CFG.ballKnowledge||{}).previewAll;
+  const qs=bkBuildWeek(season,all?99:week,all?BK_KINDS.length:5);
   if(qs.length) _bkQCache={key,qs};
   return qs;
 }
@@ -8027,13 +8041,14 @@ function renderBallKnowledge(){
   const delta=(right-wrong)*iq.step;
   const word=delta>0?'gained':delta<0?'lost':'held';
   el.innerHTML=`
-    <div class="bk-meta"><span>Week ${cfg.week??'—'}</span>
+    <div class="bk-meta"><span>Week ${bkWeek()}</span>
       <span class="bk-count">${right} of ${qs.length} right</span></div>
     <div class="bk-score">${rows}</div>
     <div class="bk-delta ${delta>0?'up':delta<0?'down':'flat'}">
       <span class="bk-delta-v">${delta>0?'+':delta<0?'−':''}${Math.abs(delta)}</span>
       <span class="bk-delta-l">Ball Knowledge ${word}</span>
-    </div>`;
+    </div>
+    ${homeRestartBtn('bk')}`;
   bkPlace(true);
   orderHomeTodo();
 }
@@ -8652,7 +8667,8 @@ function renderNotifications(){
   if(cnt) cnt.textContent=list.length?String(list.length):'';
   if(!list.length){
     el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
-      <span>Nothing new. You are all caught up.</span></div>`;
+      <span>Nothing new. You are all caught up.</span></div>
+      <div class="home-redo-row">${homeRestartBtn('nt')}</div>`;
     return;
   }
   if(_ntIdx>=list.length) _ntIdx=0;
@@ -8737,6 +8753,31 @@ function ntWireSwipe(){
 
    Done means the same thing a card means by it: a ballot cast, a slate
    submitted, all five questions answered. */
+/* Putting a finished card back to the start. Nothing here is destructive
+   beyond the card it names: each clears its own stored answer, locally and on
+   the profile, and repaints. It exists so the reorder can actually be watched
+   — a card that only ever completes once is a thing you get to see move a
+   single time. */
+async function homeRestart(which){
+  if(which==='bk'){
+    _bkAnswers={}; _bkOpen=null; _bkDone=false;
+    localStorage.removeItem(lsKey(bkKey()));
+    if(_me) try{ await gflPatchProfile(_me.k1,{[bkKey()]:''}); }catch(e){}
+    renderBallKnowledge();
+  }
+  if(which==='cp'){
+    _cpJustSent=false; _cpFetched=false;
+    localStorage.removeItem(lsKey(cpKey()));
+    if(_me) try{ await gflPatchProfile(_me.k1,{[cpKey()]:''}); }catch(e){}
+    if(_cpRows&&_me) _cpRows.forEach(p=>{ if(p.id===_me.k1) delete p[cpKey()]; });
+    renderCoachesPoll();
+  }
+  if(which==='pk') pkReopen();
+  if(which==='nt') ntReset();
+  orderHomeTodo();
+}
+const homeRestartBtn=which=>`<button class="home-redo" onclick="homeRestart('${which}')">
+  <i class="fa fa-rotate-left"></i>Start over</button>`;
 const HOME_TODO=[
   {id:'cp-sec', done:()=>_cpJustSent || !!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()])},
   {id:'nt-sec', done:()=>ntDone()},
@@ -8948,7 +8989,8 @@ function renderCoachesPoll(){
         <summary class="cp-fold-s"><i class="fa fa-check"></i>Your ballot
           <i class="fa fa-chevron-down ms-chev"></i></summary>
         <div class="cp-fold-b">${myBallotList()}</div>
-      </details>`;
+      </details>
+      ${homeRestartBtn('cp')}`;
     return;
   }
   /* Voted, but the poll has not reached the reveal yet: the ballot folds away
@@ -8964,7 +9006,8 @@ function renderCoachesPoll(){
           ${myBallotList()}
           <div class="cp-meta" style="margin-top:10px">Results show once ${REVEAL_AT} ballots are in.</div>
         </div>
-      </details>`;
+      </details>
+      ${homeRestartBtn('cp')}`;
     return;
   }
   el.innerHTML=`
