@@ -3115,16 +3115,27 @@
        is what makes them a deliberate pair. */
     .tab-dd-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
     .tab-dd-grid .tab-dd-item{min-width:0;}
-    .tab-dd-grid .tab-dd-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    .tab-dd-grid .tab-dd-item{gap:8px;font-size:14px;}
+    /* Two across needs about 110px of text per column, which 375 has and 320 does
+       not — at that width "B&C Sportsbook" runs past its button whatever the type
+       size. Below 360 the grid falls back to one per row, which is the honest
+       answer: the labels stay whole rather than being shrunk to nearly fit. */
+    @media(max-width:360px){
+      .tab-dd-grid{grid-template-columns:1fr;}
+    }
+    .tab-dd-grid .tab-dd-item span{white-space:nowrap;min-width:0;}
     .tab-dd-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;
       margin-top:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.10);}
     .tab-dd-pair .tab-dd-item{
-      flex-direction:row;align-items:center;gap:9px;
-      padding:11px 12px;border-radius:10px;
+      flex-direction:row;align-items:center;gap:8px;
+      padding:9px 10px;border-radius:10px;
       border:1px solid transparent;
       background:rgba(0,0,0,0.2);
       font-size:13px;white-space:normal;line-height:1.2;min-width:0;}
-    .tab-dd-pair .tab-dd-item span{white-space:normal;overflow-wrap:anywhere;}
+    /* one line, same as every other item: at 12px padding "Bad Beat O'Meter"
+       landed exactly on its limit and wrapped, leaving the row 55px against the
+       38px of the grid above it */
+    .tab-dd-pair .tab-dd-item span{white-space:nowrap;min-width:0;}
     .tab-dd-pair .tab-dd-item i{font-size:15px;flex:0 0 auto;}
     .tab-dd-pair .tab-dd-item:hover{border-color:var(--tc);
       background:rgba(255,255,255,0.06);}
@@ -3227,7 +3238,10 @@
       display:block!important;visibility:hidden;opacity:0;pointer-events:none;
       animation:none!important;transition:opacity .1s linear;will-change:opacity;}
     .tab-dd-menu.show{visibility:visible;opacity:1;pointer-events:auto;}
-    .tab-dd-item{border-radius:999px;padding:8px 14px;}
+    /* 10px, matching the two at the foot of the menu — the pill made them read
+       as a different kind of control. Padding is tighter than it was because two
+       across leaves ~104px for text and "B&C Sportsbook" wants 117. */
+    .tab-dd-item{border-radius:10px;padding:9px 10px;}
     .tab-dd-menu{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.22) transparent;}
     .tab-dd-menu::-webkit-scrollbar{width:6px;}
     .tab-dd-menu::-webkit-scrollbar-track{background:transparent;}
