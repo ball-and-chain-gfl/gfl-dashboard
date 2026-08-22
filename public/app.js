@@ -8046,6 +8046,14 @@ async function bkAnswer(qi,ai,el){
   ans[qi]=ai;
   _bkOpen=null;
   localStorage.setItem(lsKey(bkKey()),JSON.stringify(ans));   // instant, and the fallback when signed out
+  /* Let the answered card leave before the next is drawn. Without it the words
+     change under the finger that just tapped and it reads as the question
+     having been edited rather than answered. Short enough not to be a wait. */
+  const card=el&&el.closest?el.closest('.bk-card'):null;
+  if(card&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+    card.classList.add('bk-leave');
+    await new Promise(r=>setTimeout(r,190));
+  }
   renderBallKnowledge();
   if(_me){
     _bkBusy=true;
@@ -8071,15 +8079,15 @@ function renderBallKnowledge(){
      The set is graded together at the end instead, which is also what stops
      anyone walking their answers to a perfect score. */
   if(pending.length){
-    /* One question at a time is the point in play: answer it and the next
-       arrives, and there is no walking the set. In preview the point is the
-       opposite — the whole set is there to be looked over — so every
-       outstanding question is laid out at once. */
-    const showAll=!!(_CFG.ballKnowledge||{}).previewAll;
+    /* One at a time, the way the notification stack reads — except there is
+       nothing to swipe. Answering retires the card and the next takes its slot.
+       Which of the set this is stays on show while previewAll is on, since that
+       is the only way to tell one kind from another while looking them over. */
+    const showKind=!!(_CFG.ballKnowledge||{}).previewAll;
     const card=(i)=>{
       const q=qs[i];
-      return `<div class="bk-card bk-open">
-        ${showAll?`<div class="bk-kind">${i+1} · ${q.kind}</div>`:''}
+      return `<div class="bk-card bk-open bk-enter">
+        ${showKind?`<div class="bk-kind">${i+1} · ${q.kind}</div>`:''}
         <div class="bk-q">${q.q}</div>
         ${q.graph?`<div class="bk-graphwrap">${bkGraphSVG(q.graph)}</div>`:''}
         ${q.note?`<div class="bk-note">${q.note}</div>`:''}
@@ -8092,7 +8100,7 @@ function renderBallKnowledge(){
     el.innerHTML=`
       <div class="bk-meta"><span>Week ${bkWeek()}</span>
         <span class="bk-count">${answered.length} of ${qs.length}</span></div>
-      ${showAll?pending.map(card).join(''):card(i)}
+      ${card(i)}
       ${''/* going back re-opens the last one answered, so a misfire can be
              corrected — but only while the set is still open. Once it is graded
              the answers are settled and there is no way back in. */}

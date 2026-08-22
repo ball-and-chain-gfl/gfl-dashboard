@@ -2061,7 +2061,16 @@
     /* The clue under a Ball Knowledge question — the stats, the ranks, the
        college — set apart from the question itself so the two do not run
        together. */
-    /* which of the eight this is, shown only while the whole set is on screen */
+    /* Answered: the card lifts away. Arriving: the next rises into the slot it
+       left. Both are short — this is a hand-off, not a transition to sit through. */
+    .bk-card.bk-leave{animation:bkLeave .19s ease-in forwards;pointer-events:none;}
+    @keyframes bkLeave{to{opacity:0;transform:translateY(-10px) scale(.985);}}
+    .bk-card.bk-enter{animation:bkEnter .26s cubic-bezier(.3,.8,.35,1) both;}
+    @keyframes bkEnter{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+    @media(prefers-reduced-motion:reduce){
+      .bk-card.bk-leave,.bk-card.bk-enter{animation:none;}
+    }
+    /* which of the set this is, shown only while previewing the kinds */
     .bk-kind{margin-bottom:8px;font-family:'Inter',sans-serif;font-size:9.5px;
       font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--accent);}
     .bk-note{margin:9px 0 2px;padding:9px 11px;border-radius:9px;
