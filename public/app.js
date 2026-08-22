@@ -10583,7 +10583,7 @@ function renderBook(){
   el.innerHTML=`
     ${_sbView==='mine'
       ? `<button class="sb-back" onclick="sbSetView('season')">
-          <i class="fa fa-arrow-left"></i>Return to the sportsbook</button>`
+          Return to the sportsbook<i class="fa fa-arrow-right"></i></button>`
       : `<div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>`}
     <div class="sb-layout">
       <div class="sb-board">${board}</div>
