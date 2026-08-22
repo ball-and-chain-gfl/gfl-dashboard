@@ -3245,6 +3245,22 @@
     .tab-dd-menu.show{display:block;animation:ddfade .15s ease;}
     @keyframes ddfade{from{opacity:0;}to{opacity:1;}}
     .tab-dd-item{display:flex;align-items:center;gap:11px;width:100%;padding:7px 12px;border-radius:8px;background:none;border:1px solid transparent;box-shadow:none;color:var(--text);font-size:15px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;}
+    /* The paired row at the foot of the menu. Outlined rather than flush:
+       two half-width buttons with no edge read as a broken row, and the border
+       is what makes them a deliberate pair. */
+    .tab-dd-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;
+      margin-top:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.10);}
+    .tab-dd-pair .tab-dd-item{
+      flex-direction:column;align-items:flex-start;gap:7px;
+      padding:12px;border-radius:10px;
+      border:1px solid rgba(255,255,255,0.16);
+      background:rgba(255,255,255,0.03);
+      font-size:14px;white-space:normal;line-height:1.25;min-width:0;}
+    .tab-dd-pair .tab-dd-item span{white-space:normal;overflow-wrap:anywhere;}
+    .tab-dd-pair .tab-dd-item i{font-size:15px;}
+    .tab-dd-pair .tab-dd-item:hover{border-color:var(--tc);
+      background:rgba(255,255,255,0.06);}
+    .tab-dd-pair .tab-dd-item.active{border-color:var(--tc);}
     /* section divider: full-width rule with its label right-aligned against it */
     .tab-dd-sep{display:flex;align-items:center;gap:10px;width:100%;padding:9px 4px 4px;}
     .tab-dd-sep:first-child{padding-top:2px;}
@@ -5087,7 +5103,11 @@
   <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Stats &amp; Standings</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Report</button>
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
-  <button class="tab-btn" data-tab="badbeat" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
+  <!-- data-pair puts these two side by side at the foot of the menu: both are
+       curiosities rather than places you go to look something up, and a full
+       row each overstated them. -->
+  <button class="tab-btn" data-tab="badbeat" data-pair="1" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
+  <button class="tab-btn" data-tab="cm" data-pair="1" onclick="switchTab('cm')"><i class="fa fa-brain"></i>Coaching Metric</button>
   <!-- hidden: Punishment opens from the homepage CTA, Gabe's sits in League History -->
   <!-- Marathons Ran: hidden for now -->
 </nav>

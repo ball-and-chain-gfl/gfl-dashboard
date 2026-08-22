@@ -88,8 +88,8 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile'};
+const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee',cm:'#AF6BF2'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -647,7 +647,8 @@ function switchTab(name){
   if(name==='trades') renderTradesTab();
   if(name==='teams') renderProfile();
   if(name==='punishment') renderPunishment();
-  if(name==='standings') setStatsView(_statsView);
+  if(name==='standings') renderStandings();
+  if(name==='cm') renderCoachingMetric();
   if(name==='badbeat') renderBadBeat();
   if(name==='messages') initMessages();
   if(name==='profile') renderMyProfile();
@@ -704,7 +705,22 @@ function buildTabDD(){
   const sig=btns.map(b=>b.dataset.tab).join(',');
   if(sig===_ddSig&&menu.children.length){ syncTabDDActive(); return; }   /* already built */
   _ddSig=sig;
-  menu.innerHTML=btns.map(b=>{
+  /* Buttons carrying data-pair are gathered into one row instead of taking a
+     full line each. They are the two curiosities at the foot of the menu, and
+     side by side they read as a pair rather than as two more destinations. */
+  const item=b=>{
+    const tab=b.dataset.tab;
+    const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
+    const label=b.textContent.trim();
+    const tc=TAB_COLORS[tab]||'var(--accent)';
+    const active=(tab===_activeTab)?' active':'';
+    return `<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}"
+      onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
+  };
+  const paired=btns.filter(b=>b.dataset.pair);
+  const solo=btns.filter(b=>!b.dataset.pair);
+  const pairRow=paired.length?`<div class="tab-dd-pair">${paired.map(item).join('')}</div>`:'';
+  menu.innerHTML=solo.map(b=>{
     const tab=b.dataset.tab;
     const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
     const label=b.textContent.trim();
@@ -713,8 +729,8 @@ function buildTabDD(){
     // a tab marked with data-group opens a new section: rule first, then label
     const div=b.dataset.group
       ? `<div class="tab-dd-sep"><span class="tab-dd-rule"></span><span class="tab-dd-sep-l">${b.dataset.group}</span></div>` : '';
-    return div+`<button class="tab-dd-item${active}" data-tab="${tab}" style="--tc:${tc}" onclick="tabDDGo('${tab}')"><i class="${icon}" style="color:${tc}"></i><span>${label}</span></button>`;
-  }).join('');
+    return div+item(b);
+  }).join('')+pairRow;
 }
 function syncTabDDActive(){
   document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===_activeTab));
@@ -1321,6 +1337,16 @@ function sortAndHighlight(col,btn){
 /* Two views only. Standings is unchanged; Coaching Metric collects the ranked
    list from the homepage plus the three breakdowns that used to be their own
    sub-tabs, stacked as sections so the jump chips can move between them. */
+/* Standings is a single table again. Kept as a thin wrapper rather than
+   inlining it, because several callers repaint the page after data lands. */
+function renderStandings(){ try{ renderStandingsTable(); }catch(e){} }
+function renderCoachingMetric(){
+  try{ renderStatsCM(); }catch(e){}
+  try{ renderC2Breakdown(); }catch(e){}
+  try{ renderC3Breakdown(); }catch(e){}
+  try{ renderLineupIQ(); }catch(e){}
+  try{ showCMSection(_cmSection); }catch(e){}
+}
 function setStatsView(v){
   if(v==='c2'||v==='c3'||v==='liq') v='cm';        // old sub-tabs fold into one
   _statsView=v;
@@ -4639,7 +4665,7 @@ function buildSectionNav(tab){
   /* Advanced Stats' coaching sections are tabbed, so only one is on screen at a
      time — their chips have to come from all four regardless of visibility, or
      the bar would collapse to a single chip the moment a tab was chosen. */
-  const cm=page.querySelector('#stats-cm');
+  const cm=page.querySelector('#stats-cm');   // the Coaching Metric tab
   const cmOn=cm&&getComputedStyle(cm).display!=='none';
   const tn=page.querySelector('#tenure-views');
   const host=cmOn?cm:(tn||null);
@@ -4682,7 +4708,7 @@ function showCMSection(i){
   if(!secs.length) return;
   _cmSection=Math.max(0,Math.min(secs.length-1,i));
   secs.forEach((s,n)=>{ s.style.display=n===_cmSection?'':'none'; });
-  const bar=document.querySelector('#page-standings .sec-nav-local');
+  const bar=document.querySelector('#page-cm .sec-nav-local');
   if(bar) bar.querySelectorAll('.sx-chip').forEach((c,n)=>c.classList.toggle('on',n===_cmSection));
 }
 /* Player Tenure works the same way: one view at a time, chips as the switcher,
@@ -4711,7 +4737,7 @@ function renderTenureEnemies(){
 function jumpToSection(btn){
   const page=document.getElementById('page-'+_activeTab); if(!page) return;
   // Advanced Stats swaps sections instead of scrolling to them
-  if(_activeTab==='standings' && document.getElementById('stats-cm')){
+  if(_activeTab==='cm' && document.getElementById('stats-cm')){
     showCMSection(Number(btn.dataset.sx));
     smoothScrollTo(0);
     return;
@@ -10656,18 +10682,21 @@ async function loadDashboard(){
       <!-- STANDINGS & STATS -->
       <div class="tab-page" id="page-standings">
         <div class="sec wm" data-wm="&#xe561;">
-          <div class="standings-filters st-two" id="stats-subtabs" style="padding-bottom:16px">
-            <button class="tab-btn ${_statsView==='standings'?'active':''}" data-view="standings" onclick="setStatsView('standings')"><i class="fa fa-ranking-star"></i>${season} Standings</button>
-            <button class="tab-btn ${_statsView==='cm'?'active':''}" data-view="cm" onclick="setStatsView('cm')"><i class="fa fa-brain"></i>Coaching Metric</button>
-          </div>
-          <div id="stats-standings" ${_statsView==='standings'?'':'style="display:none"'}>
+          <div id="stats-standings">
             <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
             <div class="tscroll"><table class="min640" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
-          <!-- the jump bar lives here, under the filters, not under the title -->
+        </div>
+      </div>
+
+      <!-- COACHING METRIC — its own tab now. It was a second view bolted onto
+           Stats & Standings, which meant four sections' worth of analysis lived
+           behind a filter button nobody pressed. -->
+      <div class="tab-page" id="page-cm">
+        <div class="sec wm" data-wm="&#xf5dc;">
+          <!-- the jump bar lives here, above the sections it moves between -->
           <nav class="sec-nav sec-nav-local" aria-label="Sections on this page" hidden></nav>
-          <!-- one view, four sections: the jump chips are built from these heads -->
-          <div id="stats-cm" ${_statsView==='cm'?'':'style="display:none"'}>
+          <div id="stats-cm">
             <div class="sec">
               <div class="sec-head"><i class="fa fa-brain"></i>Coaching Metric<span class="badge-info">${season} · tap a team for the breakdown</span></div>
               <div id="stats-cm-list" class="home-cm"></div>
