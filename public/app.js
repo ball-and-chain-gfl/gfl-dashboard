@@ -10754,15 +10754,15 @@ function renderBetsBar(){
   }
   bar.hidden=false;
   const on=_sbView==='mine', fo=_sbView==='folio';
-  let pv=0; try{ pv=invValue(); }catch(e){}
+  /* Just the labels. Both figures are the first thing inside the view each
+     button opens, so carrying them here said everything twice and left the two
+     buttons looking busy. */
   bar.innerHTML=`<div class="bets-pair">
     <button class="bets-btn${on?' on':''}" onclick="sbSetView('mine')" aria-pressed="${on}">
       <i class="fa fa-wallet"></i><span class="bets-btn-t">My Bets</span>
-      <span class="bets-btn-bal">${_me?bucksFmt(bucksBalance()):'Sign in'}</span>
     </button>
     <button class="bets-btn${fo?' on':''}" onclick="sbSetView('folio')" aria-pressed="${fo}">
       <i class="fa fa-chart-pie"></i><span class="bets-btn-t">My Portfolio</span>
-      <span class="bets-btn-bal">${_me?invFmt(pv):'Sign in'}</span>
     </button>
   </div>`;
   try{ syncNavDock(); }catch(e){}
