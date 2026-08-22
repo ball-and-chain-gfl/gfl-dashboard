@@ -89,7 +89,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#CBE4FF',week:'#E8437E',roster:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#E84146',marathon:'#22d3ee',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile',cm:'Coaching Metric'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -720,17 +720,18 @@ function buildTabDD(){
   const paired=btns.filter(b=>b.dataset.pair);
   const solo=btns.filter(b=>!b.dataset.pair);
   const pairRow=paired.length?`<div class="tab-dd-pair">${paired.map(item).join('')}</div>`:'';
-  menu.innerHTML=solo.map(b=>{
-    const tab=b.dataset.tab;
-    const icon=(b.querySelector('i')||{}).className||'fa fa-circle';
-    const label=b.textContent.trim();
-    const tc=TAB_COLORS[tab]||'var(--accent)';
-    const active=(tab===_activeTab)?' active':'';
-    // a tab marked with data-group opens a new section: rule first, then label
-    const div=b.dataset.group
-      ? `<div class="tab-dd-sep"><span class="tab-dd-rule"></span><span class="tab-dd-sep-l">${b.dataset.group}</span></div>` : '';
-    return div+item(b);
-  }).join('')+pairRow;
+  /* Each section holds four tabs, so they sit two by two rather than in one
+     long column — the menu reads as three blocks instead of a list to scan.
+     A tab carrying data-group opens the next section. */
+  const groups=[];
+  solo.forEach(b=>{
+    if(!groups.length || b.dataset.group) groups.push({label:b.dataset.group||'', items:[]});
+    groups[groups.length-1].items.push(b);
+  });
+  menu.innerHTML=groups.map(g=>
+    (g.label?`<div class="tab-dd-sep"><span class="tab-dd-rule"></span><span class="tab-dd-sep-l">${g.label}</span></div>`:'')
+    +`<div class="tab-dd-grid">${g.items.map(item).join('')}</div>`
+  ).join('')+pairRow;
 }
 function syncTabDDActive(){
   document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===_activeTab));
