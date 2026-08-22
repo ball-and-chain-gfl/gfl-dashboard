@@ -1,0 +1,1326 @@
+{
+ "note": "College and draft year. Neither changes, so this is committed rather than fetched.",
+ "captured": "2026-08-21",
+ "players": {
+  "8439": {
+   "name": "Aaron Rodgers",
+   "college": "California",
+   "draftYear": 2005,
+   "pos": "QB"
+  },
+  "10621": {
+   "name": "Nick Folk",
+   "college": "Arizona",
+   "draftYear": 2007,
+   "pos": "PK"
+  },
+  "11122": {
+   "name": "Matt Prater",
+   "college": "UCF",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "11252": {
+   "name": "Joe Flacco",
+   "college": "Delaware",
+   "draftYear": 2008,
+   "pos": "QB"
+  },
+  "12483": {
+   "name": "Matthew Stafford",
+   "college": "Georgia",
+   "draftYear": 2009,
+   "pos": "QB"
+  },
+  "14880": {
+   "name": "Kirk Cousins",
+   "college": "Michigan State",
+   "draftYear": 2012,
+   "pos": "QB"
+  },
+  "15818": {
+   "name": "Keenan Allen",
+   "college": "California",
+   "draftYear": 2013,
+   "pos": "WR"
+  },
+  "15835": {
+   "name": "Zach Ertz",
+   "college": "Stanford",
+   "draftYear": 2013,
+   "pos": "-"
+  },
+  "15847": {
+   "name": "Travis Kelce",
+   "college": "Cincinnati",
+   "draftYear": 2013,
+   "pos": "TE"
+  },
+  "15864": {
+   "name": "Geno Smith",
+   "college": "West Virginia",
+   "draftYear": 2013,
+   "pos": "QB"
+  },
+  "16339": {
+   "name": "Brandon McManus",
+   "college": "Temple",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "16800": {
+   "name": "Davante Adams",
+   "college": "Fresno State",
+   "draftYear": 2014,
+   "pos": "WR"
+  },
+  "17372": {
+   "name": "Chris Boswell",
+   "college": "Rice",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "17427": {
+   "name": "Cairo Santos",
+   "college": "Tulane",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "2473037": {
+   "name": "Jason Myers",
+   "college": "Marist",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "2576925": {
+   "name": "Darren Waller",
+   "college": "Georgia Tech",
+   "draftYear": 2015,
+   "pos": "TE"
+  },
+  "2576980": {
+   "name": "Marcus Mariota",
+   "college": "Oregon",
+   "draftYear": 2015,
+   "pos": "QB"
+  },
+  "2577417": {
+   "name": "Dak Prescott",
+   "college": "Mississippi State",
+   "draftYear": 2016,
+   "pos": "QB"
+  },
+  "2578570": {
+   "name": "Jacoby Brissett",
+   "college": "NC State",
+   "draftYear": 2016,
+   "pos": "QB"
+  },
+  "2971573": {
+   "name": "Ka'imi Fairbairn",
+   "college": "UCLA",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "2976212": {
+   "name": "Stefon Diggs",
+   "college": "Maryland",
+   "draftYear": 2015,
+   "pos": "WR"
+  },
+  "2977187": {
+   "name": "Cooper Kupp",
+   "college": "Eastern Washington",
+   "draftYear": 2017,
+   "pos": "WR"
+  },
+  "2985659": {
+   "name": "Wil Lutz",
+   "college": "Georgia State",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "2991662": {
+   "name": "Mack Hollins",
+   "college": "North Carolina",
+   "draftYear": 2017,
+   "pos": "WR"
+  },
+  "3040151": {
+   "name": "George Kittle",
+   "college": "Iowa",
+   "draftYear": 2017,
+   "pos": "TE"
+  },
+  "3042519": {
+   "name": "Aaron Jones Sr.",
+   "college": "UTEP",
+   "draftYear": 2017,
+   "pos": "RB"
+  },
+  "3043078": {
+   "name": "Derrick Henry",
+   "college": "Alabama",
+   "draftYear": 2016,
+   "pos": "RB"
+  },
+  "3043234": {
+   "name": "Zane Gonzalez",
+   "college": "Arizona State",
+   "draftYear": 2017,
+   "pos": "PK"
+  },
+  "3045523": {
+   "name": "Kendrick Bourne",
+   "college": "Eastern Washington",
+   "draftYear": null,
+   "pos": "WR"
+  },
+  "3046439": {
+   "name": "Hunter Henry",
+   "college": "Arkansas",
+   "draftYear": 2016,
+   "pos": "TE"
+  },
+  "3046779": {
+   "name": "Jared Goff",
+   "college": "California",
+   "draftYear": 2016,
+   "pos": "QB"
+  },
+  "3050478": {
+   "name": "Jake Elliott",
+   "college": "Memphis",
+   "draftYear": 2017,
+   "pos": "PK"
+  },
+  "3051876": {
+   "name": "Evan Engram",
+   "college": "Ole Miss",
+   "draftYear": 2017,
+   "pos": "TE"
+  },
+  "3051909": {
+   "name": "Daniel Carlson",
+   "college": "Auburn",
+   "draftYear": 2018,
+   "pos": "PK"
+  },
+  "3052587": {
+   "name": "Baker Mayfield",
+   "college": "Oklahoma",
+   "draftYear": 2018,
+   "pos": "QB"
+  },
+  "3054850": {
+   "name": "Alvin Kamara",
+   "college": "Tennessee",
+   "draftYear": 2017,
+   "pos": "RB"
+  },
+  "3055899": {
+   "name": "Harrison Butker",
+   "college": "Georgia Tech",
+   "draftYear": 2017,
+   "pos": "PK"
+  },
+  "3059915": {
+   "name": "Kareem Hunt",
+   "college": "Toledo",
+   "draftYear": 2017,
+   "pos": "RB"
+  },
+  "3116365": {
+   "name": "Mark Andrews",
+   "college": "Oklahoma",
+   "draftYear": 2018,
+   "pos": "TE"
+  },
+  "3117251": {
+   "name": "Christian McCaffrey",
+   "college": "Stanford",
+   "draftYear": 2017,
+   "pos": "RB"
+  },
+  "3117256": {
+   "name": "Dalton Schultz",
+   "college": "Stanford",
+   "draftYear": 2018,
+   "pos": "TE"
+  },
+  "3121023": {
+   "name": "Dallas Goedert",
+   "college": "South Dakota State",
+   "draftYear": 2018,
+   "pos": "TE"
+  },
+  "3121422": {
+   "name": "Terry McLaurin",
+   "college": "Ohio State",
+   "draftYear": 2019,
+   "pos": "WR"
+  },
+  "3124084": {
+   "name": "Joey Slye",
+   "college": "Virginia Tech",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "3126486": {
+   "name": "Deebo Samuel Sr.",
+   "college": "South Carolina",
+   "draftYear": 2019,
+   "pos": "WR"
+  },
+  "3128429": {
+   "name": "Courtland Sutton",
+   "college": "SMU",
+   "draftYear": 2018,
+   "pos": "WR"
+  },
+  "3139477": {
+   "name": "Patrick Mahomes",
+   "college": "Texas Tech",
+   "draftYear": 2017,
+   "pos": "QB"
+  },
+  "3150744": {
+   "name": "Chase McLaughlin",
+   "college": "Illinois",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "3886598": {
+   "name": "Jauan Jennings",
+   "college": "Tennessee",
+   "draftYear": 2020,
+   "pos": "WR"
+  },
+  "3912547": {
+   "name": "Sam Darnold",
+   "college": "USC",
+   "draftYear": 2018,
+   "pos": "QB"
+  },
+  "3915411": {
+   "name": "Ty Johnson",
+   "college": "Maryland",
+   "draftYear": 2019,
+   "pos": "RB"
+  },
+  "3915416": {
+   "name": "DJ Moore",
+   "college": "Maryland",
+   "draftYear": 2018,
+   "pos": "WR"
+  },
+  "3915511": {
+   "name": "Joe Burrow",
+   "college": "LSU",
+   "draftYear": 2020,
+   "pos": "QB"
+  },
+  "3916148": {
+   "name": "Tony Pollard",
+   "college": "Memphis",
+   "draftYear": 2019,
+   "pos": "RB"
+  },
+  "3916387": {
+   "name": "Lamar Jackson",
+   "college": "Louisville",
+   "draftYear": 2018,
+   "pos": "QB"
+  },
+  "3916433": {
+   "name": "Jakobi Meyers",
+   "college": "NC State",
+   "draftYear": null,
+   "pos": "WR"
+  },
+  "3916945": {
+   "name": "Darius Slayton",
+   "college": "Auburn",
+   "draftYear": 2019,
+   "pos": "WR"
+  },
+  "3917792": {
+   "name": "Daniel Jones",
+   "college": "Duke",
+   "draftYear": 2019,
+   "pos": "QB"
+  },
+  "3918298": {
+   "name": "Josh Allen",
+   "college": "Wyoming",
+   "draftYear": 2018,
+   "pos": "QB"
+  },
+  "3929630": {
+   "name": "Saquon Barkley",
+   "college": "Penn State",
+   "draftYear": 2018,
+   "pos": "RB"
+  },
+  "3929645": {
+   "name": "Juwan Johnson",
+   "college": "Oregon",
+   "draftYear": null,
+   "pos": "TE"
+  },
+  "3930086": {
+   "name": "Dawson Knox",
+   "college": "Ole Miss",
+   "draftYear": 2019,
+   "pos": "TE"
+  },
+  "3953687": {
+   "name": "Brandon Aubrey",
+   "college": "Notre Dame",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4032473": {
+   "name": "Rashid Shaheed",
+   "college": "Weber State",
+   "draftYear": null,
+   "pos": "WR"
+  },
+  "4034949": {
+   "name": "Eddy Pineiro",
+   "college": "Florida",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4035538": {
+   "name": "David Montgomery",
+   "college": "Iowa State",
+   "draftYear": 2019,
+   "pos": "RB"
+  },
+  "4035687": {
+   "name": "Michael Pittman Jr.",
+   "college": "USC",
+   "draftYear": 2020,
+   "pos": "WR"
+  },
+  "4036133": {
+   "name": "T.J. Hockenson",
+   "college": "Iowa",
+   "draftYear": 2019,
+   "pos": "TE"
+  },
+  "4036378": {
+   "name": "Jordan Love",
+   "college": "Utah State",
+   "draftYear": 2020,
+   "pos": "QB"
+  },
+  "4038815": {
+   "name": "Rico Dowdle",
+   "college": "South Carolina",
+   "draftYear": null,
+   "pos": "RB"
+  },
+  "4038941": {
+   "name": "Justin Herbert",
+   "college": "Oregon",
+   "draftYear": 2020,
+   "pos": "QB"
+  },
+  "4040715": {
+   "name": "Jalen Hurts",
+   "college": "Oklahoma",
+   "draftYear": 2020,
+   "pos": "QB"
+  },
+  "4040761": {
+   "name": "Devin Singletary",
+   "college": "Florida Atlantic",
+   "draftYear": 2019,
+   "pos": "RB"
+  },
+  "4047365": {
+   "name": "Josh Jacobs",
+   "college": "Alabama",
+   "draftYear": 2019,
+   "pos": "RB"
+  },
+  "4047646": {
+   "name": "A.J. Brown",
+   "college": "Ole Miss",
+   "draftYear": 2019,
+   "pos": "WR"
+  },
+  "4047650": {
+   "name": "DK Metcalf",
+   "college": "Ole Miss",
+   "draftYear": 2019,
+   "pos": "WR"
+  },
+  "4239993": {
+   "name": "Tee Higgins",
+   "college": "Clemson",
+   "draftYear": 2020,
+   "pos": "WR"
+  },
+  "4239996": {
+   "name": "Travis Etienne Jr.",
+   "college": "Clemson",
+   "draftYear": 2021,
+   "pos": "RB"
+  },
+  "4240657": {
+   "name": "Michael Carter",
+   "college": "North Carolina",
+   "draftYear": 2021,
+   "pos": "RB"
+  },
+  "4241372": {
+   "name": "Hollywood Brown",
+   "college": "Oklahoma",
+   "draftYear": 2019,
+   "pos": "WR"
+  },
+  "4241389": {
+   "name": "CeeDee Lamb",
+   "college": "Oklahoma",
+   "draftYear": 2020,
+   "pos": "WR"
+  },
+  "4241416": {
+   "name": "Chuba Hubbard",
+   "college": "Oklahoma State",
+   "draftYear": 2021,
+   "pos": "RB"
+  },
+  "4241463": {
+   "name": "Jerry Jeudy",
+   "college": "Alabama",
+   "draftYear": 2020,
+   "pos": "WR"
+  },
+  "4241464": {
+   "name": "Mac Jones",
+   "college": "Alabama",
+   "draftYear": 2021,
+   "pos": "QB"
+  },
+  "4241478": {
+   "name": "DeVonta Smith",
+   "college": "Alabama",
+   "draftYear": 2021,
+   "pos": "WR"
+  },
+  "4241479": {
+   "name": "Tua Tagovailoa",
+   "college": "Alabama",
+   "draftYear": 2020,
+   "pos": "QB"
+  },
+  "4241985": {
+   "name": "J.K. Dobbins",
+   "college": "Ohio State",
+   "draftYear": 2020,
+   "pos": "RB"
+  },
+  "4242335": {
+   "name": "Jonathan Taylor",
+   "college": "Wisconsin",
+   "draftYear": 2020,
+   "pos": "RB"
+  },
+  "4242355": {
+   "name": "Jake Ferguson",
+   "college": "Wisconsin",
+   "draftYear": 2022,
+   "pos": "TE"
+  },
+  "4242557": {
+   "name": "Colby Parkinson",
+   "college": "Stanford",
+   "draftYear": 2020,
+   "pos": "TE"
+  },
+  "4243331": {
+   "name": "Cade Otton",
+   "college": "Washington",
+   "draftYear": 2022,
+   "pos": "TE"
+  },
+  "4243371": {
+   "name": "Riley Patterson",
+   "college": "Memphis",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4248528": {
+   "name": "Christian Watson",
+   "college": "North Dakota State",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4258173": {
+   "name": "Nico Collins",
+   "college": "Michigan",
+   "draftYear": 2021,
+   "pos": "WR"
+  },
+  "4258620": {
+   "name": "Andre Szmyt",
+   "college": "Syracuse",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4259147": {
+   "name": "Jake Tonges",
+   "college": "California",
+   "draftYear": null,
+   "pos": "TE"
+  },
+  "4259545": {
+   "name": "D'Andre Swift",
+   "college": "Georgia",
+   "draftYear": 2020,
+   "pos": "RB"
+  },
+  "4259619": {
+   "name": "Blake Grupe",
+   "college": "Notre Dame",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4262921": {
+   "name": "Justin Jefferson",
+   "college": "LSU",
+   "draftYear": 2020,
+   "pos": "WR"
+  },
+  "4360078": {
+   "name": "Alec Pierce",
+   "college": "Cincinnati",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4360234": {
+   "name": "Evan McPherson",
+   "college": "Florida",
+   "draftYear": 2021,
+   "pos": "PK"
+  },
+  "4360248": {
+   "name": "Kyle Pitts Sr.",
+   "college": "Florida",
+   "draftYear": 2021,
+   "pos": "TE"
+  },
+  "4360310": {
+   "name": "Trevor Lawrence",
+   "college": "Clemson",
+   "draftYear": 2021,
+   "pos": "QB"
+  },
+  "4360423": {
+   "name": "Michael Penix Jr.",
+   "college": "Washington",
+   "draftYear": 2024,
+   "pos": "QB"
+  },
+  "4360516": {
+   "name": "Tyrone Tracy Jr.",
+   "college": "Purdue",
+   "draftYear": 2024,
+   "pos": "RB"
+  },
+  "4360569": {
+   "name": "Jordan Mason",
+   "college": "Georgia Tech",
+   "draftYear": null,
+   "pos": "RB"
+  },
+  "4360635": {
+   "name": "Chig Okonkwo",
+   "college": "Maryland",
+   "draftYear": 2022,
+   "pos": "TE"
+  },
+  "4360689": {
+   "name": "Tyler Shough",
+   "college": "Louisville",
+   "draftYear": 2025,
+   "pos": "QB"
+  },
+  "4360761": {
+   "name": "Michael Wilson",
+   "college": "Stanford",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4361307": {
+   "name": "Trey McBride",
+   "college": "Colorado State",
+   "draftYear": 2022,
+   "pos": "TE"
+  },
+  "4361370": {
+   "name": "Chris Olave",
+   "college": "Ohio State",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4361411": {
+   "name": "Pat Freiermuth",
+   "college": "Penn State",
+   "draftYear": 2021,
+   "pos": "TE"
+  },
+  "4361432": {
+   "name": "Romeo Doubs",
+   "college": "Nevada",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4361579": {
+   "name": "Javonte Williams",
+   "college": "North Carolina",
+   "draftYear": 2021,
+   "pos": "RB"
+  },
+  "4361741": {
+   "name": "Brock Purdy",
+   "college": "Iowa State",
+   "draftYear": 2022,
+   "pos": "QB"
+  },
+  "4362081": {
+   "name": "Cameron Dicker",
+   "college": "Texas",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4362238": {
+   "name": "Chase Brown",
+   "college": "Illinois",
+   "draftYear": 2023,
+   "pos": "RB"
+  },
+  "4362619": {
+   "name": "Chris Rodriguez Jr.",
+   "college": "Kentucky",
+   "draftYear": 2023,
+   "pos": "RB"
+  },
+  "4362628": {
+   "name": "Ja'Marr Chase",
+   "college": "LSU",
+   "draftYear": 2021,
+   "pos": "WR"
+  },
+  "4362887": {
+   "name": "Justin Fields",
+   "college": "Ohio State",
+   "draftYear": 2021,
+   "pos": "QB"
+  },
+  "4363538": {
+   "name": "Chad Ryland",
+   "college": "Maryland",
+   "draftYear": 2023,
+   "pos": "PK"
+  },
+  "4368003": {
+   "name": "Andrei Iosivas",
+   "college": "Princeton",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4371733": {
+   "name": "Kenny Gainwell",
+   "college": "Memphis",
+   "draftYear": 2021,
+   "pos": "RB"
+  },
+  "4372016": {
+   "name": "Jaylen Waddle",
+   "college": "Alabama",
+   "draftYear": 2021,
+   "pos": "WR"
+  },
+  "4373626": {
+   "name": "Tyler Allgeier",
+   "college": "BYU",
+   "draftYear": 2022,
+   "pos": "RB"
+  },
+  "4373678": {
+   "name": "Khalil Shakir",
+   "college": "Boise State",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4374302": {
+   "name": "Amon-Ra St. Brown",
+   "college": "USC",
+   "draftYear": 2021,
+   "pos": "WR"
+  },
+  "4379399": {
+   "name": "James Cook III",
+   "college": "Georgia",
+   "draftYear": 2022,
+   "pos": "RB"
+  },
+  "4382466": {
+   "name": "Jalen Nailor",
+   "college": "Michigan State",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4385690": {
+   "name": "Dalton Kincaid",
+   "college": "Utah",
+   "draftYear": 2023,
+   "pos": "TE"
+  },
+  "4426338": {
+   "name": "Bo Nix",
+   "college": "Oregon",
+   "draftYear": 2024,
+   "pos": "QB"
+  },
+  "4426339": {
+   "name": "Spencer Rattler",
+   "college": "South Carolina",
+   "draftYear": 2024,
+   "pos": "QB"
+  },
+  "4426348": {
+   "name": "Jayden Daniels",
+   "college": "LSU",
+   "draftYear": 2024,
+   "pos": "QB"
+  },
+  "4426354": {
+   "name": "George Pickens",
+   "college": "Georgia",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4426385": {
+   "name": "Zach Charbonnet",
+   "college": "UCLA",
+   "draftYear": 2023,
+   "pos": "RB"
+  },
+  "4426388": {
+   "name": "Jameson Williams",
+   "college": "Alabama",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4426502": {
+   "name": "Drake London",
+   "college": "USC",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4426515": {
+   "name": "Puka Nacua",
+   "college": "BYU",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4427095": {
+   "name": "DeMario Douglas",
+   "college": "Liberty",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4427366": {
+   "name": "Breece Hall",
+   "college": "Iowa State",
+   "draftYear": 2022,
+   "pos": "RB"
+  },
+  "4427728": {
+   "name": "Bam Knight",
+   "college": "NC State",
+   "draftYear": null,
+   "pos": "RB"
+  },
+  "4428331": {
+   "name": "Rashee Rice",
+   "college": "SMU",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4428557": {
+   "name": "Tyjae Spears",
+   "college": "Tulane",
+   "draftYear": 2023,
+   "pos": "RB"
+  },
+  "4428718": {
+   "name": "Tre Tucker",
+   "college": "Cincinnati",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4429022": {
+   "name": "Kayshon Boutte",
+   "college": "LSU",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4429025": {
+   "name": "Quentin Johnston",
+   "college": "TCU",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4429059": {
+   "name": "Woody Marks",
+   "college": "USC",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4429096": {
+   "name": "Blake Corum",
+   "college": "Michigan",
+   "draftYear": 2024,
+   "pos": "RB"
+  },
+  "4429148": {
+   "name": "Theo Johnson",
+   "college": "Penn State",
+   "draftYear": 2024,
+   "pos": "TE"
+  },
+  "4429160": {
+   "name": "De'Von Achane",
+   "college": "Texas A&M",
+   "draftYear": 2023,
+   "pos": "RB"
+  },
+  "4429205": {
+   "name": "Jordan Addison",
+   "college": "USC",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4429615": {
+   "name": "Zay Flowers",
+   "college": "Boston College",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4429795": {
+   "name": "Jahmyr Gibbs",
+   "college": "Alabama",
+   "draftYear": 2023,
+   "pos": "RB"
+  },
+  "4430027": {
+   "name": "Sam LaPorta",
+   "college": "Iowa",
+   "draftYear": 2023,
+   "pos": "TE"
+  },
+  "4430034": {
+   "name": "Xavier Legette",
+   "college": "South Carolina",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4430539": {
+   "name": "Brenton Strange",
+   "college": "Penn State",
+   "draftYear": 2023,
+   "pos": "TE"
+  },
+  "4430737": {
+   "name": "Kyren Williams",
+   "college": "Notre Dame",
+   "draftYear": 2022,
+   "pos": "RB"
+  },
+  "4430807": {
+   "name": "Bijan Robinson",
+   "college": "Texas",
+   "draftYear": 2023,
+   "pos": "RB"
+  },
+  "4430871": {
+   "name": "Sean Tucker",
+   "college": "Syracuse",
+   "draftYear": null,
+   "pos": "RB"
+  },
+  "4430878": {
+   "name": "Jaxon Smith-Njigba",
+   "college": "Ohio State",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4430968": {
+   "name": "Kimani Vidal",
+   "college": "Troy",
+   "draftYear": 2024,
+   "pos": "RB"
+  },
+  "4431268": {
+   "name": "Chimere Dike",
+   "college": "Florida",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4431280": {
+   "name": "Troy Franklin",
+   "college": "Oregon",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4431299": {
+   "name": "Rome Odunze",
+   "college": "Washington",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4431452": {
+   "name": "Drake Maye",
+   "college": "North Carolina",
+   "draftYear": 2024,
+   "pos": "QB"
+  },
+  "4431459": {
+   "name": "Tyler Warren",
+   "college": "Penn State",
+   "draftYear": 2025,
+   "pos": "TE"
+  },
+  "4431611": {
+   "name": "Caleb Williams",
+   "college": "USC",
+   "draftYear": 2024,
+   "pos": "QB"
+  },
+  "4432577": {
+   "name": "C.J. Stroud",
+   "college": "Ohio State",
+   "draftYear": 2023,
+   "pos": "QB"
+  },
+  "4432620": {
+   "name": "Parker Washington",
+   "college": "Penn State",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4432665": {
+   "name": "Brock Bowers",
+   "college": "Georgia",
+   "draftYear": 2024,
+   "pos": "TE"
+  },
+  "4432708": {
+   "name": "Marvin Harrison Jr.",
+   "college": "Ohio State",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4432710": {
+   "name": "TreVeyon Henderson",
+   "college": "Ohio State",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4432773": {
+   "name": "Brian Thomas Jr.",
+   "college": "LSU",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4433970": {
+   "name": "J.J. McCarthy",
+   "college": "Michigan",
+   "draftYear": 2024,
+   "pos": "QB"
+  },
+  "4567048": {
+   "name": "Kenneth Walker III",
+   "college": "Michigan State",
+   "draftYear": 2022,
+   "pos": "RB"
+  },
+  "4567104": {
+   "name": "Will Reichard",
+   "college": "Alabama",
+   "draftYear": 2024,
+   "pos": "PK"
+  },
+  "4567750": {
+   "name": "Emeka Egbuka",
+   "college": "Ohio State",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4568263": {
+   "name": "Ryan Fitzgerald",
+   "college": "Florida State",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4568490": {
+   "name": "RJ Harvey",
+   "college": "UCF",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4569173": {
+   "name": "Rhamondre Stevenson",
+   "college": "Oklahoma",
+   "draftYear": 2021,
+   "pos": "RB"
+  },
+  "4569587": {
+   "name": "Wan'Dale Robinson",
+   "college": "Kentucky",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4569603": {
+   "name": "Malik Washington",
+   "college": "Virginia",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4569618": {
+   "name": "Garrett Wilson",
+   "college": "Ohio State",
+   "draftYear": 2022,
+   "pos": "WR"
+  },
+  "4569923": {
+   "name": "Andy Borregales",
+   "college": "Miami",
+   "draftYear": 2025,
+   "pos": "PK"
+  },
+  "4569987": {
+   "name": "Jaylen Warren",
+   "college": "Oklahoma State",
+   "draftYear": null,
+   "pos": "RB"
+  },
+  "4572680": {
+   "name": "Tucker Kraft",
+   "college": "South Dakota State",
+   "draftYear": 2023,
+   "pos": "TE"
+  },
+  "4575131": {
+   "name": "Jacory Croskey-Merritt",
+   "college": "Arizona",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4576297": {
+   "name": "AJ Barner",
+   "college": "Michigan",
+   "draftYear": 2024,
+   "pos": "TE"
+  },
+  "4595342": {
+   "name": "Oronde Gadsden",
+   "college": "Syracuse",
+   "draftYear": 2025,
+   "pos": "TE"
+  },
+  "4596448": {
+   "name": "Bucky Irving",
+   "college": "Oregon",
+   "draftYear": 2024,
+   "pos": "RB"
+  },
+  "4608686": {
+   "name": "Kyle Monangai",
+   "college": "Rutgers",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4608810": {
+   "name": "Tez Johnson",
+   "college": "Oregon",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4612826": {
+   "name": "Ladd McConkey",
+   "college": "Georgia",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4635008": {
+   "name": "Keon Coleman",
+   "college": "Florida State",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4683062": {
+   "name": "Xavier Worthy",
+   "college": "Texas",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4685278": {
+   "name": "Luther Burden III",
+   "college": "Missouri",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4685382": {
+   "name": "Omarion Hampton",
+   "college": "North Carolina",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4685472": {
+   "name": "Tetairoa McMillan",
+   "college": "Arizona",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4685702": {
+   "name": "Quinshon Judkins",
+   "college": "Ohio State",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4685720": {
+   "name": "Bryce Young",
+   "college": "Alabama",
+   "draftYear": 2023,
+   "pos": "QB"
+  },
+  "4686361": {
+   "name": "Cam Little",
+   "college": "Arkansas",
+   "draftYear": 2024,
+   "pos": "PK"
+  },
+  "4686422": {
+   "name": "Xavier Hutchinson",
+   "college": "Iowa State",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4686472": {
+   "name": "Marvin Mims Jr.",
+   "college": "Oklahoma",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4686728": {
+   "name": "Gunnar Helm",
+   "college": "Texas",
+   "draftYear": 2025,
+   "pos": "TE"
+  },
+  "4688380": {
+   "name": "Cam Ward",
+   "college": "Miami",
+   "draftYear": 2025,
+   "pos": "QB"
+  },
+  "4688813": {
+   "name": "Josh Downs",
+   "college": "North Carolina",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
+  "4689114": {
+   "name": "Jaxson Dart",
+   "college": "Ole Miss",
+   "draftYear": 2025,
+   "pos": "QB"
+  },
+  "4689936": {
+   "name": "Jake Bates",
+   "college": "Arkansas",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "4695883": {
+   "name": "Jalen Coker",
+   "college": "Holy Cross",
+   "draftYear": null,
+   "pos": "WR"
+  },
+  "4696981": {
+   "name": "Cam Skattebo",
+   "college": "Arizona State",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "4697745": {
+   "name": "Tyler Loop",
+   "college": "Arizona",
+   "draftYear": 2025,
+   "pos": "PK"
+  },
+  "4697815": {
+   "name": "Rachaad White",
+   "college": "Arizona State",
+   "draftYear": 2022,
+   "pos": "RB"
+  },
+  "4723086": {
+   "name": "Colston Loveland",
+   "college": "Michigan",
+   "draftYear": 2025,
+   "pos": "TE"
+  },
+  "4808766": {
+   "name": "Mason Taylor",
+   "college": "LSU",
+   "draftYear": 2025,
+   "pos": "TE"
+  },
+  "4877706": {
+   "name": "Jayden Higgins",
+   "college": "Iowa State",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4883647": {
+   "name": "Elic Ayomanor",
+   "college": "Stanford",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4887558": {
+   "name": "Emanuel Wilson",
+   "college": "Fort Valley State",
+   "draftYear": null,
+   "pos": "RB"
+  },
+  "4890973": {
+   "name": "Ashton Jeanty",
+   "college": "Boise State",
+   "draftYear": 2025,
+   "pos": "RB"
+  },
+  "5083076": {
+   "name": "Harold Fannin Jr.",
+   "college": "Bowling Green",
+   "draftYear": 2025,
+   "pos": "TE"
+  },
+  "5083754": {
+   "name": "Ryan Flournoy",
+   "college": "Southeast Missouri State",
+   "draftYear": 2024,
+   "pos": "WR"
+  }
+ }
+}

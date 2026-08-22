@@ -107,38 +107,11 @@ window.GFL_CONFIG = {
      it to whatever the league actually runs. */
   tradeDeadlineWeek: 11,
 
-  ballKnowledge: {
-    week: 1,
-    reveal: false,
-    /* Bump this to wipe the slate. It is part of the key answers are stored
-       under, so raising it makes every saved answer — on every device and on
-       every profile — invisible and the week starts fresh. Handy while
-       testing; nothing has to be deleted by hand. */
-    resetToken: 2,
-    /* The Ball Knowledge IQ meter on each team profile. Everyone starts at
-       `avg` — dead centre of the bar — and moves `step` points per question,
-       up for a right answer and down for a wrong one. Trivia answers, weekly
-       picks and settled bets all move it by the same amount.
-       `min` and `max` are the lowest and highest IQs ever claimed to have been
-       recorded. Both are pop-trivia figures rather than anything clinical: 228
-       is the Guinness number for Marilyn vos Savant, and the low end has no
-       real record at all, so 40 is a stand-in. Change either freely.
-       Because avg is not the midpoint of min and max, the bar maps the two
-       halves separately so 100 still lands in the middle. */
-    iq: { min: 40, max: 228, avg: 100, step: 2 },
-    questions: [
-      { q: "Which team has the most GFL championships?",
-        a: ["The Bryan Football Team", "Lebron's 3rd Leg", "Florida Man", "Bismuth"], correct: 0 },
-      { q: "How many teams are in the GFL?",
-        a: ["10", "12", "14", "16"], correct: 1 },
-      { q: "What does a team's Coaching Metric measure?",
-        a: ["Total points scored", "Points left on the bench", "Lineup decisions vs the optimal lineup", "Waiver spending"], correct: 2 },
-      { q: "In fantasy scoring, how many points is a receiving touchdown worth in the GFL?",
-        a: ["4", "6", "3", "8"], correct: 1 },
-      { q: "What happens to unspent GFL Bucks at the end of a week?",
-        a: ["They roll over", "They double", "They disappear", "They convert to FAAB"], correct: 2 },
-    ],
-  },
+  /* Ball Knowledge writes itself now. The five weekly questions are generated
+     from this season — the league's own records, the full NFL player pool and
+     the committed bios file — so there is nothing to edit here each Tuesday.
+     resetToken still works: bump it to orphan every stored answer at once. */
+  ballKnowledge: { resetToken: 0, reveal: false },
 
   punishment: {
     week: 1,

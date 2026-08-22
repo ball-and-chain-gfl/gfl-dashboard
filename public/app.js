@@ -7539,6 +7539,327 @@ async function sbPlaceBet(){
   _betBusy=false; sbRenderSlip();
 }
 
+
+
+/* ── the eight kinds of question ──────────────────────────────────────────────
+   Each takes a seeded generator and returns {q, a[4], correct, note} or null if
+   the data it needs is not there. None of them writes anything down: the same
+   seed rebuilds the same question. */
+
+/* 1 — a manager, described by three of their own numbers */
+function bkqManager(r){
+  if(!_franchises||_franchises.length<4) return null;
+  const rows=_franchises.map(f=>{ let at=null; try{ at=franchiseAllTime(f.owner); }catch(e){}
+    return at?{f,at}:null; }).filter(Boolean);
+  if(rows.length<4) return null;
+  const pick=bkPick(r,rows);
+  const g=pick.at.w+pick.at.l+pick.at.t;
+  const facts=[
+    {k:'all-time record', v:`${pick.at.w}–${pick.at.l}${pick.at.t?'–'+pick.at.t:''}`},
+    {k:'all-time points', v:pick.at.pf.toFixed(1)},
+    {k:'seasons played', v:String(pick.at.seasons)},
+    {k:'championships', v:String(pick.at.rings)},
+    {k:'win rate', v:g?(pick.at.w/g*100).toFixed(1)+'%':'—'},
+    {k:'playoff appearances', v:String(pick.at.playoffApps||0)},
+  ];
+  const three=bkShuffle(r,facts).slice(0,3);
+  const o=bkOptions(r,pick,rows,x=>x.f.name);
+  if(!o) return null;
+  return {kind:'manager', q:'Which manager is this?',
+    note:three.map(f=>`<b>${f.v}</b> ${f.k}`).join(' · '),
+    a:o.a, correct:o.correct};
+}
+
+/* 2 — an NFL team, described by one of its fantasy totals */
+function bkqNflStat(r){
+  const pool=_bkPool||[]; if(pool.length<50) return null;
+  const byTeam={};
+  pool.forEach(p=>{ const t=bkTeamOf(p); if(!t||!(p.total>0)) return;
+    const b=byTeam[t]||(byTeam[t]={t,total:0,best:null,qb:0,rb:0,wr:0});
+    b.total+=p.total;
+    if(!b.best||p.total>b.best.total) b.best=p;
+    if(p.pos===1) b.qb+=p.total; if(p.pos===2) b.rb+=p.total; if(p.pos===3) b.wr+=p.total;
+  });
+  const teams=Object.values(byTeam).filter(b=>b.total>0);
+  if(teams.length<4) return null;
+  const metrics=[
+    {k:'total', label:'the most fantasy points from their whole roster'},
+    {k:'rb',    label:'the most fantasy points from their running backs'},
+    {k:'wr',    label:'the most fantasy points from their wide receivers'},
+    {k:'qb',    label:'the most fantasy points from the quarterback position'},
+  ];
+  const m=bkPick(r,metrics);
+  const sorted=teams.slice().sort((a,b)=>b[m.k]-a[m.k]);
+  const right=sorted[0];
+  const o=bkOptions(r,right,sorted.slice(1,12),x=>NFL_FULL[x.t]||x.t);
+  if(!o) return null;
+  return {kind:'nflstat', q:`Which NFL team had ${m.label} in ${bkSeason()}?`,
+    note:`<b>${right[m.k].toFixed(1)}</b> points`, a:o.a, correct:o.correct};
+}
+
+/* 3 — four position groups, one scores more per game than the rest */
+function bkqGroup(r){
+  const pool=_bkPool||[]; if(pool.length<50) return null;
+  const pos=bkPick(r,[2,3,4]);                    // RB / WR / TE
+  const posN=POS_NAMES[pos];
+  const byTeam={};
+  pool.forEach(p=>{ if(p.pos!==pos||!(p.total>0)) return;
+    const t=bkTeamOf(p); if(!t) return;
+    (byTeam[t]||(byTeam[t]={t,total:0})).total+=p.total; });
+  const groups=Object.values(byTeam).filter(g=>g.total>0)
+    .sort((a,b)=>b.total-a.total).slice(0,16);
+  if(groups.length<4) return null;
+  const four=bkShuffle(r,groups).slice(0,4).sort((a,b)=>b.total-a.total);
+  const right=four[0];
+  const opts=bkShuffle(r,four);
+  return {kind:'group',
+    q:`Whose ${posN}s put up the most fantasy points in ${bkSeason()}?`,
+    note:'Every '+posN+' on the roster, added together',
+    a:opts.map(g=>`${NFL_FULL[g.t]||g.t} ${posN}s`),
+    correct:opts.findIndex(g=>g.t===right.t)};
+}
+
+/* 4 — a player, given only where they finished at their position */
+function bkqRank(r){
+  const notable=bkNotable(30); if(notable.length<12) return null;
+  const p=bkPick(r,notable);
+  const rank=bkRankOf(p); if(!rank) return null;
+  const same=bkRanked(p.pos).slice(0,40).filter(x=>x.id!==p.id);
+  if(same.length<3) return null;
+  const o=bkOptions(r,p,same,x=>x.name);
+  if(!o) return null;
+  return {kind:'rank', q:`Who finished ${bkSeason()} as the <b>${bkPosOf(p)}${rank}</b> in full PPR?`,
+    note:`<b>${p.total.toFixed(1)}</b> points`, a:o.a, correct:o.correct};
+}
+
+/* 5 — a player, from the shape of their last six weeks. Held back until the
+       season has enough weeks behind it for a line to be worth reading.
+
+   The pool carries season totals but not a week-by-week line, and asking ESPN
+   for eighteen weekly splits across seven hundred players to draw one chart
+   would be absurd. Only one player's line is ever needed, so it is fetched for
+   that player alone and kept — a single call, once a week, for the player the
+   seed lands on. */
+let _bkLine={};
+function bkWeekly(pid){
+  if(_bkLine[pid]!==undefined) return _bkLine[pid];
+  _bkLine[pid]=null;
+  fetch(`/api/espn?type=playergames&seasonId=${bkSeason()}&playerId=${pid}`)
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{ const g={};
+      ((j&&j.games)||[]).forEach(x=>{ if(x.week) g[x.week]=x.pts; });
+      _bkLine[pid]=Object.keys(g).length?g:{};
+      _bkQCache={key:'',qs:[]};            // rebuild now the line is in
+      renderBallKnowledge();
+    }).catch(()=>{ _bkLine[pid]={}; });
+  return null;
+}
+function bkqGraph(r,week){
+  if(week<=5) return null;
+  /* only players the league has actually rostered — a chart of someone nobody
+     has ever owned is not a question, it is a coin flip */
+  const owned=new Set();
+  Object.values(_tenure||{}).forEach(byPid=>Object.keys(byPid||{}).forEach(id=>owned.add(String(id))));
+  let notable=bkNotable(24);
+  if(owned.size>40) notable=notable.filter(p=>owned.has(String(p.id)));
+  if(notable.length<8) return null;
+  const p=bkPick(r,notable);
+  const line=bkWeekly(p.id);
+  if(!line) return null;                   // still on its way
+  const ws=Object.keys(line).map(Number).filter(w=>w<=week).sort((a,b)=>a-b);
+  const show=ws.slice(-6);
+  if(show.length<3) return null;
+  const same=bkRanked(p.pos).slice(0,40).filter(x=>x.id!==p.id);
+  const o=bkOptions(r,p,same,x=>x.name);
+  if(!o) return null;
+  return {kind:'graph', q:'Whose season is this?',
+    graph:show.map(w=>({w,v:line[w]})), a:o.a, correct:o.correct,
+    note:`${bkPosOf(p)} · last ${show.length} weeks`};
+}
+
+/* 6 — a player, from where they came from and when */
+function bkqBio(r){
+  const bios=_bkBios; if(!bios) return null;
+  const ids=Object.keys(bios).filter(id=>bios[id].college&&bios[id].draftYear);
+  if(ids.length<12) return null;
+  const id=bkPick(r,ids), b=bios[id];
+  /* The wrong three have to play the same position. The clue names it, so a
+     tight end sitting among three running backs answers itself. */
+  let others=ids.filter(x=>x!==id).map(x=>bios[x]).filter(x=>x.pos===b.pos);
+  if(others.length<3) others=ids.filter(x=>x!==id).map(x=>bios[x]);
+  const o=bkOptions(r,b,others,x=>x.name);
+  if(!o) return null;
+  return {kind:'bio', q:'Which player is this?',
+    note:`<b>${b.college}</b> · ${b.pos||'—'} · drafted <b>${b.draftYear}</b>`,
+    a:o.a, correct:o.correct};
+}
+
+/* 7 — an NFL team, from where its three best finished at their positions */
+function bkqTeamRanks(r){
+  const pool=_bkPool||[]; if(pool.length<50) return null;
+  const byTeam={};
+  pool.forEach(p=>{ const t=bkTeamOf(p); if(!t||!(p.total>0)) return;
+    (byTeam[t]||(byTeam[t]=[])).push(p); });
+  const teams=Object.keys(byTeam).filter(t=>byTeam[t].length>=3);
+  if(teams.length<4) return null;
+  /* only teams whose best three are actually placed — a roster of unranked
+     names gives nothing to reason from */
+  const usable=teams.filter(t=>{
+    const top=byTeam[t].slice().sort((a,b)=>b.total-a.total).slice(0,3);
+    return top.every(p=>{ const rk=bkRankOf(p); return rk&&rk<=48; });
+  });
+  if(usable.length<4) return null;
+  const t=bkPick(r,usable);
+  const top=byTeam[t].slice().sort((a,b)=>b.total-a.total).slice(0,3)
+    .map(p=>`${bkPosOf(p)}${bkRankOf(p)}`);
+  const o=bkOptions(r,{t},usable.map(x=>({t:x})),x=>NFL_FULL[x.t]||x.t);
+  if(!o) return null;
+  return {kind:'teamranks', q:'Whose three best fantasy seasons are these?',
+    note:top.map(x=>`<b>${x}</b>`).join(' · '), a:o.a, correct:o.correct};
+}
+
+/* 8 — the NFL division carrying the most GFL points */
+function bkqDivision(r){
+  const pool=_bkPool||[]; if(pool.length<50) return null;
+  const rostered=new Set();
+  Object.values(_tenure||{}).forEach(byPid=>Object.keys(byPid||{}).forEach(pid=>rostered.add(String(pid))));
+  const use=rostered.size>40 ? pool.filter(p=>rostered.has(String(p.id))) : pool;
+  const tot={};
+  Object.keys(NFL_DIV).forEach(d=>tot[d]=0);
+  use.forEach(p=>{ const t=bkTeamOf(p); if(!t||!(p.total>0)) return;
+    const d=Object.keys(NFL_DIV).find(k=>NFL_DIV[k].includes(t));
+    if(d) tot[d]+=p.total; });
+  const divs=Object.keys(tot).filter(d=>tot[d]>0).sort((a,b)=>tot[b]-tot[a]);
+  if(divs.length<4) return null;
+  const right=divs[0];
+  const four=bkShuffle(r,[right,...bkShuffle(r,divs.slice(1)).slice(0,3)]);
+  return {kind:'division',
+    q:`Which NFL division put the most fantasy points on GFL rosters in ${bkSeason()}?`,
+    note:'Every rostered player, added up by the division their NFL team plays in',
+    a:four.map(DIV_NAME), correct:four.indexOf(right)};
+}
+
+/* The five for a given week. Kinds are drawn in a seeded order and each is
+   asked for a question; one that cannot build drops out and the next takes its
+   place, so a thin week still fills up rather than showing gaps. */
+const BK_KINDS=[bkqManager,bkqNflStat,bkqGroup,bkqRank,bkqGraph,bkqBio,bkqTeamRanks,bkqDivision];
+function bkBuildWeek(season,week,n){
+  const out=[];
+  const seed=Math.imul((Number(season)||0)*100+(Number(week)||0),2654435761);
+  /* each question gets its own stream, or one generator's draws would shift
+     every question after it whenever its data changed */
+  const order=bkShuffle(bkRand(seed),BK_KINDS.map((_,i)=>i));
+  for(let pass=0;pass<3&&out.length<(n||5);pass++){
+    for(const i of order){
+      if(out.length>=(n||5)) break;
+      let q=null;
+      try{ q=BK_KINDS[i](bkRand(seed+Math.imul(i+1,0x9E3779B1)+pass*7919),week); }catch(e){}
+      if(q&&!out.some(x=>x.kind===q.kind)) out.push(q);
+    }
+    if(!out.length) break;
+  }
+  return out;
+}
+
+/* ── BALL KNOWLEDGE: the question engine ─────────────────────────────────────
+   The five weekly questions are generated from this season rather than written
+   out by hand. Everything they ask about is already on the site or one cached
+   call away: the league's own records, the full NFL player pool with season
+   totals, and a committed file of college and draft years.
+
+   Every question is four options with exactly one right answer, and every one
+   is built from a seeded generator keyed on the season and week — so the whole
+   league gets the same five questions in the same order, and reloading the page
+   does not reroll them.
+
+   The generators return null when their data is not there yet. A week that
+   cannot fill five questions falls back to whichever kinds can answer, which is
+   what stops week one from being blank. */
+const NFL_TEAMS={1:'ATL',2:'BUF',3:'CHI',4:'CIN',5:'CLE',6:'DAL',7:'DEN',8:'DET',9:'GB',10:'TEN',
+  11:'IND',12:'KC',13:'LV',14:'LAR',15:'MIA',16:'MIN',17:'NE',18:'NO',19:'NYG',20:'NYJ',
+  21:'PHI',22:'ARI',23:'PIT',24:'LAC',25:'SF',26:'SEA',27:'TB',28:'WSH',29:'CAR',30:'JAX',
+  33:'BAL',34:'HOU'};
+const NFL_FULL={ATL:'Atlanta',BUF:'Buffalo',CHI:'Chicago',CIN:'Cincinnati',CLE:'Cleveland',
+  DAL:'Dallas',DEN:'Denver',DET:'Detroit',GB:'Green Bay',TEN:'Tennessee',IND:'Indianapolis',
+  KC:'Kansas City',LV:'Las Vegas',LAR:'the Rams',MIA:'Miami',MIN:'Minnesota',NE:'New England',
+  NO:'New Orleans',NYG:'the Giants',NYJ:'the Jets',PHI:'Philadelphia',ARI:'Arizona',
+  PIT:'Pittsburgh',LAC:'the Chargers',SF:'San Francisco',SEA:'Seattle',TB:'Tampa Bay',
+  WSH:'Washington',CAR:'Carolina',JAX:'Jacksonville',BAL:'Baltimore',HOU:'Houston'};
+const NFL_DIV={AFC_EAST:['BUF','MIA','NE','NYJ'],AFC_NORTH:['BAL','CIN','CLE','PIT'],
+  AFC_SOUTH:['HOU','IND','JAX','TEN'],AFC_WEST:['DEN','KC','LV','LAC'],
+  NFC_EAST:['DAL','NYG','PHI','WSH'],NFC_NORTH:['CHI','DET','GB','MIN'],
+  NFC_SOUTH:['ATL','CAR','NO','TB'],NFC_WEST:['ARI','LAR','SF','SEA']};
+const DIV_NAME=k=>k.replace('_',' ').replace('AFC','AFC').replace('NFC','NFC')
+  .toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()).replace('Afc','AFC').replace('Nfc','NFC');
+
+/* one generator, seeded from the season and week, so the league sees one set */
+function bkRand(seed){
+  let a=seed>>>0;
+  return ()=>{ a=(a+0x6D2B79F5)>>>0; let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; };
+}
+const bkPick=(r,arr)=>arr[Math.floor(r()*arr.length)];
+function bkShuffle(r,arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+/* four options with the answer among them, in a seeded order */
+function bkOptions(r,right,wrongPool,label){
+  const wrong=bkShuffle(r,wrongPool.filter(x=>label(x)!==label(right))).slice(0,3);
+  if(wrong.length<3) return null;
+  const all=bkShuffle(r,[right,...wrong]);
+  return {a:all.map(label), correct:all.findIndex(x=>label(x)===label(right))};
+}
+
+/* ── the data the questions are built from ─────────────────────────────────── */
+let _bkPool=null,_bkPoolPromise=null,_bkBios=null,_bkBiosPromise=null;
+function bkSeason(){
+  for(let i=ALL_SEASONS.length-1;i>=0;i--){
+    const m=_seasonMeta[ALL_SEASONS[i]];
+    if(m&&(m.schedule||[]).some(x=>x.home&&x.away&&((x.home.totalPoints||0)>0||(x.away.totalPoints||0)>0)))
+      return ALL_SEASONS[i];
+  }
+  return ALL_SEASONS[ALL_SEASONS.length-1];
+}
+function bkLoadPool(){
+  if(_bkPool) return _bkPool;
+  if(!_bkPoolPromise){
+    _bkPoolPromise=fetch(`/api/espn?type=pool&seasonId=${bkSeason()}&limit=700`)
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{ _bkPool=(j&&j.players)||[]; renderBallKnowledge(); return _bkPool; })
+      .catch(()=>{ _bkPool=[]; return _bkPool; });
+  }
+  return null;
+}
+function bkLoadBios(){
+  if(_bkBios) return _bkBios;
+  if(!_bkBiosPromise){
+    _bkBiosPromise=fetch('/data/bios.json').then(r=>r.ok?r.json():null)
+      .then(j=>{ _bkBios=(j&&j.players)||{}; renderBallKnowledge(); return _bkBios; })
+      .catch(()=>{ _bkBios={}; return _bkBios; });
+  }
+  return null;
+}
+/* season leaders by position, which is what a "WR4" means */
+function bkRanked(pos){
+  const pool=_bkPool||[];
+  return pool.filter(p=>p.pos===pos&&p.total>0).sort((a,b)=>b.total-a.total);
+}
+function bkRankOf(p){
+  const list=bkRanked(p.pos);
+  const i=list.findIndex(x=>x.id===p.id);
+  return i<0?null:i+1;
+}
+const bkPosOf=p=>POS_NAMES[p.pos]||'?';
+const bkTeamOf=p=>NFL_TEAMS[p.proTeamId]||null;
+/* who a question is allowed to be about: recognisable, not a deep bench arm */
+function bkNotable(minRank){
+  const out=[];
+  [1,2,3,4].forEach(pos=>bkRanked(pos).slice(0,minRank||36).forEach(p=>out.push(p)));
+  return out;
+}
+
 /* ── BALL KNOWLEDGE ─────────────────────────────────────────────────────────
    Five weekly trivia questions on the homepage. Answers live as a field on the
    manager's profile document, the same place the Matchup of the Week vote is
@@ -7559,7 +7880,7 @@ const lsKey=k=>(_me?_me.k1:'guest')+':'+k;
 const bkKey=()=>{
   const c=_CFG.ballKnowledge||{};
   const r=c.resetToken?`_r${c.resetToken}`:'';
-  return `bk_${getSeason()}_w${c.week??0}${r}`;
+  return `bk_${bkSeason()}_w${bkWeek()}${r}`;
 };
 let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
 
@@ -7593,7 +7914,38 @@ async function bkBack(){
   if(_me){ try{ await gflPatchProfile(_me.k1,{[bkKey()]:JSON.stringify(ans)}); }catch(e){} }
 }
 
-function bkQuestions(){ return (_CFG.ballKnowledge||{}).questions||[]; }
+/* The week the questions belong to is the league's own current week, not a
+   number kept in config — there is nothing left to edit by hand each Tuesday. */
+function bkWeek(){ return Number((_liveInfo||liveWeekInfo()||{}).week)||1; }
+let _bkQCache={key:'',qs:[]};
+function bkQuestions(){
+  const season=bkSeason(), week=bkWeek(), key=season+':'+week;
+  if(_bkQCache.key===key&&_bkQCache.qs.length) return _bkQCache.qs;
+  /* both are fire-and-forget: they repaint the card when they land, and until
+     then the generators that need them simply decline to build */
+  bkLoadPool(); bkLoadBios();
+  const qs=bkBuildWeek(season,week,5);
+  if(qs.length) _bkQCache={key,qs};
+  return qs;
+}
+/* A sparkline of the weeks shown, drawn rather than described — the shape is
+   the question. No axis labels: a week number would narrow it down for anyone
+   who remembers a bye. */
+function bkGraphSVG(pts){
+  if(!pts||pts.length<2) return '';
+  const W=280,H=84,pad=8;
+  const vs=pts.map(p=>p.v);
+  const lo=Math.min(0,...vs), hi=Math.max(...vs,1);
+  const x=i=>pad+i*(W-pad*2)/(pts.length-1);
+  const y=v=>H-pad-((v-lo)/((hi-lo)||1))*(H-pad*2);
+  const line=pts.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  const dots=pts.map((p,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3" fill="var(--accent)"/>`).join('');
+  const labels=pts.map((p,i)=>`<text x="${x(i).toFixed(1)}" y="${(y(p.v)-8).toFixed(1)}" text-anchor="middle"
+    font-size="9" fill="var(--text3)" font-family="Inter,sans-serif">${p.v.toFixed(1)}</text>`).join('');
+  return `<svg class="bk-graph" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly fantasy points">
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round"/>${dots}${labels}</svg>`;
+}
 function bkLoadAnswers(){
   if(_bkAnswers) return _bkAnswers;
   let raw='';
@@ -7639,10 +7991,12 @@ function renderBallKnowledge(){
   if(pending.length){
     const i=pending[0], q=qs[i];
     el.innerHTML=`
-      <div class="bk-meta"><span>Week ${cfg.week??'—'}</span>
+      <div class="bk-meta"><span>Week ${bkWeek()}</span>
         <span class="bk-count">${answered.length} of ${qs.length}</span></div>
       <div class="bk-card bk-open">
         <div class="bk-q">${q.q}</div>
+        ${q.graph?`<div class="bk-graphwrap">${bkGraphSVG(q.graph)}</div>`:''}
+        ${q.note?`<div class="bk-note">${q.note}</div>`:''}
         <div class="bk-opts">
           ${q.a.map((opt,ai)=>`<button type="button" class="bk-opt" onclick="bkAnswer(${i},${ai},this)">${opt}</button>`).join('')}
         </div>

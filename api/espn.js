@@ -1085,6 +1085,93 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message, trades: [] }); }
   }
 
+  // ── PLAYER POOL ──────────────────────────────────────────────────────────────
+  // Every player in the league's universe, not only the ones on a GFL roster —
+  // Ball Knowledge asks about NFL position groups and league-wide position
+  // ranks, and both are wrong if free agents are missing. ESPN gates this
+  // behind an X-Fantasy-Filter header, which the generic passthrough does not
+  // forward, so the pool gets its own route that builds the filter itself.
+  //
+  // Returns a compact shape on purpose: the raw payload for 700 players with
+  // eighteen weekly splits each is megabytes, and all that is wanted from it is
+  // a name, a team, a position, a season total and a line of weekly scores.
+  //   /api/espn?type=pool&seasonId=2025&limit=700
+  if (type === 'pool') {
+    const limit = Math.min(1200, Math.max(1, parseInt(req.query.limit || '700', 10)));
+    // splitTypeId 0 is the season row, 1 is a single week; sourceId 0 is what
+    // was actually scored rather than what ESPN projected. Asking for both
+    // splits in one call is what makes a season total and a week-by-week line
+    // come back together.
+    const filter = {
+      players: {
+        limit,
+        sortPercOwned: { sortAsc: false, sortPriority: 1 },
+        filterStatsForExternalIds: { value: [parseInt(season, 10)] },
+        filterStatsForSourceIds: { value: [0] },
+        filterStatsForSplitTypeIds: { value: [0, 1] },
+      },
+    };
+    try {
+      const r = await fetch(leagueURL('kona_player_info'), {
+        headers: { ...headers, 'X-Fantasy-Filter': JSON.stringify(filter) },
+      });
+      if (!r.ok) return res.status(r.status).json({ error: `ESPN ${r.status}`, players: [] });
+      const j = unwrap(await r.json());
+      const players = (j.players || []).map(entry => {
+        const p = entry.player || {};
+        const stats = p.stats || [];
+        // statSourceId 0 is what actually happened; 1 is ESPN's projection
+        const seasonRow = stats.find(x => x.statSourceId === 0 && x.statSplitTypeId === 0);
+        const wk = {};
+        stats.forEach(x => {
+          if (x.statSourceId !== 0 || x.statSplitTypeId !== 1) return;
+          const w = x.scoringPeriodId;
+          if (!w || w < 1 || w > 18) return;
+          const v = x.appliedTotal;
+          if (typeof v === 'number') wk[w] = +v.toFixed(1);
+        });
+        return {
+          id: p.id, name: p.fullName, proTeamId: p.proTeamId ?? 0,
+          pos: p.defaultPositionId ?? 0,
+          owned: +((p.ownership && p.ownership.percentOwned) || 0).toFixed(1),
+          total: seasonRow && typeof seasonRow.appliedTotal === 'number' ? +seasonRow.appliedTotal.toFixed(1) : 0,
+          weeks: wk,
+        };
+      }).filter(p => p.id && p.name);
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=600, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=600, s-maxage=7200, stale-while-revalidate=7200');
+      return res.status(200).json({ season, count: players.length, players });
+    } catch (err) { return res.status(500).json({ error: err.message, players: [] }); }
+  }
+
+  // ── ATHLETE BIO ──────────────────────────────────────────────────────────────
+  // College and draft year are not in the fantasy API at all. They live on
+  // ESPN's public site API, which needs no cookies — one call per player, so
+  // this is meant to be run once by a script and committed, not called live.
+  //   /api/espn?type=athlete&playerId=4362628
+  if (type === 'athlete') {
+    const pid = parseInt(req.query.playerId, 10);
+    if (!pid) return res.status(400).json({ error: 'playerId required' });
+    try {
+      const r = await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${pid}`,
+        { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) return res.status(r.status).json({ error: `ESPN ${r.status}` });
+      const j = await r.json();
+      const a = j.athlete || j;
+      // "2021: Rd 1, Pk 5 (CIN)" — the year is all that is wanted from it
+      const dm = /^(\d{4})/.exec(a.displayDraft || '');
+      return res.status(200).json({
+        id: pid, name: a.displayName || null,
+        college: (a.college && (a.college.name || a.college.shortName)) || null,
+        pos: (a.position && a.position.abbreviation) || null,
+        team: (a.team && a.team.abbreviation) || null,
+        draftYear: dm ? Number(dm[1]) : null,
+        draft: a.displayDraft || null,
+      });
+    } catch (err) { return res.status(500).json({ error: err.message }); }
+  }
+
   // ── Generic view passthrough (supports multiple ?view= params) ───────────────
   const views = view || 'mTeam';
   let url = leagueURL(views, { forceLive: req.query.live === '1' });
