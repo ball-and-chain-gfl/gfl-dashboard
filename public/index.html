@@ -83,9 +83,25 @@
     select:hover{box-shadow:none;background-color:#262626;}
     select:active{box-shadow:none;}
     select option{background:#222;color:var(--text);}
-    button{background:rgba(255,255,255,0.07);color:var(--text);border:none;box-shadow:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;transition:all .15s;}
+    button{background:rgba(255,255,255,0.07);color:var(--text);border:none;box-shadow:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;transition:background .15s,transform .09s ease;}
     button:hover{background:rgba(255,255,255,0.1);box-shadow:none;}
+
+    /* The one piece of feedback a thumb ever gets. There were 72 :hover rules
+       against 15 :active ones, and hover does not exist on a phone — so on the
+       platform this is built for, most controls did nothing when pressed. This
+       applies to anything clickable, not only <button>, since plenty of the
+       controls here are divs with an onclick. */
+    button:active,[onclick]:active,[role="button"]:active,summary:active{
+      transform:scale(0.97);}
     button:active{background:rgba(255,255,255,0.04);box-shadow:none;}
+    @media(prefers-reduced-motion:reduce){
+      button:active,[onclick]:active,[role="button"]:active,summary:active{transform:none;}
+    }
+    /* Nothing that is a whole row or a bare icon should shrink — it reads as the
+       page twitching rather than a press. Those get their own treatment below. */
+    .coaching-row:active,.hm-row:active,.dm-row:active,.tn-row:active,
+    .sb-row:active,.lh-row:active,.nt-card:active,.gfl-egg:active,#logo:active{
+      transform:none;}
     .status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);}
     .dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;}
     .dot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
@@ -140,7 +156,14 @@
 
     /* TOP GRID */
     /* COACHING METRIC */
+    /* This row already carries a real chevron in its markup, which is exactly
+       the affordance a row-shaped control wants: it says the row opens
+       something rather than pretending to be a button. The CSS ::after I had
+       added here was a second one, and a dead one — the browser read the
+       "\f054" escape as an empty string. All it needed was to move on press. */
     .coaching-row{display:flex;align-items:center;gap:10px;padding:12px 6px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;user-select:none;border-radius:8px;}
+    .coaching-row .coaching-chevron{transition:transform .12s ease,color .12s ease;}
+    .coaching-row:active .coaching-chevron{transform:translateX(3px);color:var(--accent);}
     .coaching-row:last-child{border-bottom:none;}
     .coaching-row:hover{background:rgba(255,255,255,0.03);}
     .coaching-rank{font-size:12px;font-weight:700;color:var(--accent2,var(--accent));width:20px;text-align:center;flex-shrink:0;}
@@ -160,11 +183,11 @@
     .pin-box p{font-size:13px;color:var(--text3);margin-bottom:20px;}
     .pin-input{width:100%;background:#222;color:var(--text);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:11px 14px;font-size:18px;text-align:center;letter-spacing:8px;margin-bottom:10px;}
     .pin-input:focus{outline:none;border-color:var(--accent);}
-    .pin-submit{width:100%;background:var(--grad);color:#000;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:none;}
+    .pin-submit{width:100%;background:var(--grad);color:#000;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:none;}
     .pin-submit:active{box-shadow:none;}
     .pin-submit:hover{background:var(--accent2);}
     .pin-error{font-size:12px;color:var(--red);margin-top:6px;min-height:18px;}
-    .pin-cancel{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:10px;display:block;width:100%;}
+    .pin-cancel{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:6px;padding:13px;display:block;width:100%;}
 
     /* MODALS */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity 0.2s;}
@@ -203,7 +226,7 @@
     .modal-overlay.open .modal{transform:translateY(0);}
     .modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#141414;z-index:1;}
     .modal-header h2{font-size:17px;font-weight:700;}
-    .modal-close{background:rgba(0,0,0,0.2);border-radius:8px;color:var(--text);cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:0.15s;}
+    .modal-close{background:rgba(0,0,0,0.2);border-radius:8px;color:var(--text);cursor:pointer;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:0.15s;}
     .modal-close:hover{background:rgba(255,255,255,0.14);}
     .modal-body{padding:18px 22px;display:flex;flex-direction:column;gap:13px;}
     .modal-total{display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.2);border-radius:6px;padding:14px 18px;}
@@ -630,7 +653,7 @@
     .pk-s.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.18);color:var(--accent);}
     .pk-s span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     /* picks are submitted, not saved on every tap */
-    .pk-go{width:100%;margin-top:10px;padding:11px;border-radius:9px;border:none;cursor:pointer;
+    .pk-go{width:100%;margin-top:10px;padding:14px;border-radius:9px;border:none;cursor:pointer;
       background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
       color:#0b0f0c;font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;
       letter-spacing:.5px;text-transform:uppercase;}
@@ -846,7 +869,7 @@
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .pb-more{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;cursor:pointer;
       font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.3px;
-      padding:7px 11px;border-radius:8px;background:none;color:var(--accent);
+      padding:11px 14px;border-radius:8px;background:none;color:var(--accent);
       border:1px solid rgba(var(--accent-rgb),0.45);}
     .pb-more:hover{background:rgba(var(--accent-rgb),0.12);}
     .mm-bar{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;
@@ -1981,7 +2004,7 @@
       background:rgba(var(--accent-rgb),0.06);}
     .home-signin-t{font-family:'Inter',sans-serif;font-size:13.5px;color:var(--text2);
       line-height:1.5;}
-    .home-signin-b{padding:9px 18px;border-radius:9px;box-shadow:none;
+    .home-signin-b{padding:13px 22px;border-radius:9px;box-shadow:none;
       border:1px solid rgba(var(--accent-rgb),0.6);
       background:rgba(var(--accent-rgb),0.16);color:var(--text);
       font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
@@ -2068,7 +2091,7 @@
       letter-spacing:.6px;text-transform:uppercase;color:var(--text2);flex:1 1 auto;min-width:0;}
     .nt-day{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:10px;
       font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--text3);}
-    .nt-x{flex:0 0 auto;width:24px;height:24px;padding:0;border-radius:7px;
+    .nt-x{flex:0 0 auto;width:38px;height:38px;margin:-7px -7px -7px 0;padding:0;border-radius:9px;
       background:none;box-shadow:none;color:var(--text3);font-size:12px;}
     .nt-x:hover{color:var(--text);background:rgba(255,255,255,0.07);}
     /* ── What a card draws ────────────────────────────────────────────────────
@@ -2104,6 +2127,27 @@
     .nt-swap{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr);
       gap:8px;align-items:start;}
     .nt-sw-side{min-width:0;padding:9px 10px;border-radius:9px;background:rgba(255,255,255,0.05);}
+
+    /* ── The Tuesday standings table ──────────────────────────────────────────
+       Twelve rows, so everything is trimmed to what a phone can hold: rank,
+       crest, name, record, and how far the team moved. */
+    .nts{display:flex;flex-direction:column;}
+    .nts-row{display:grid;grid-template-columns:18px 20px minmax(0,1fr) auto 34px;
+      align-items:center;gap:8px;padding:5px 0;
+      border-bottom:1px solid rgba(255,255,255,0.05);font-family:'Inter',sans-serif;}
+    .nts-row:last-child{border-bottom:none;}
+    .nts-rk{font-size:10.5px;font-weight:800;color:var(--text3);text-align:right;}
+    .nts-c{display:flex;align-items:center;}
+    .nts-n{font-size:12px;font-weight:700;color:var(--text);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    .nts-rec{font-size:11px;color:var(--text2);white-space:nowrap;}
+    .nts-mv{display:flex;align-items:center;justify-content:flex-end;gap:3px;
+      font-size:11px;font-weight:800;}
+    .nts-mv i{font-size:10px;}
+    .nts-mv.up{color:var(--green);}
+    .nts-mv.dn{color:var(--red);}
+    .nts-mv.flat{color:var(--text3);}
+    .nts-mv.flat i{font-size:8px;opacity:.6;}
     .nt-sw-h{display:flex;align-items:center;gap:7px;margin-bottom:7px;min-width:0;}
     .nt-sw-h span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
       font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text);}
@@ -2166,7 +2210,7 @@
       border:1px solid rgba(var(--accent-rgb),0.5);box-shadow:none;
       font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text);}
     .nt-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;}
-    .nt-nav{width:30px;height:30px;padding:0;border-radius:8px;background:rgba(255,255,255,0.05);
+    .nt-nav{width:40px;height:40px;padding:0;border-radius:9px;background:rgba(255,255,255,0.05);
       box-shadow:none;color:var(--text2);font-size:12px;}
     .nt-nav:disabled{opacity:.3;cursor:default;}
     .nt-pos{display:flex;align-items:baseline;gap:8px;font-family:'Inter',sans-serif;

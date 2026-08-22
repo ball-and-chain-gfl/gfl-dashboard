@@ -8375,6 +8375,7 @@ const NT_KINDS={
   streakW:{icon:'fa-arrow-trend-up',  tone:'ember'},
   streakL:{icon:'fa-arrow-trend-down',tone:'ember'},
   trash:  {icon:'fa-comment-dots', tone:'hot'},
+  standings:{icon:'fa-ranking-star', tone:'cool'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -8773,6 +8774,17 @@ function ntDemo(out){
   const o=i=>(fr[i%Math.max(1,fr.length)]||{}).owner||('demo'+i);
   const nm=i=>(fr[i%Math.max(1,fr.length)]||{}).name||'A team';
   const S=(i,pts)=>({owner:o(i),name:nm(i),pts});
+  /* the standings card, with movement made up so the arrows can be seen */
+  {
+    const moves=[2,0,-1,3,0,0,-2,1,0,-3,4,-4];
+    const recs=['5–1','5–1','4–2','4–2','3–3','3–3','3–3','2–4','2–4','2–4','1–5','1–5'];
+    const rows=fr.slice(0,12).map((f,i)=>({owner:f.owner, name:f.name, rank:i+1,
+      move:moves[i]||0, rec:recs[i]||'0–0', pf:0}));
+    if(rows.length) out.push({kind:'standings', day:T2, pin:1, id:'demo:standings',
+      title:'Where everyone stands · week 6',
+      art:ntStandingsArt(rows),
+      body:'<b>'+rows.filter(r=>r.move).length+'</b> teams moved.'});
+  }
   out.push(
    {kind:'trash',day:d,id:'demo:trash',title:'From '+nm(3),
     body:'<b>'+nm(3)+'</b> says: “Enjoy the bye week, you will need the rest.”'},
@@ -8900,9 +8912,78 @@ function ttBoxHTML(oppK1,oppName){
   </div>`;
 }
 
+/* ── TUESDAY: WHERE EVERYONE STANDS ──────────────────────────────────────────
+   The week's football is in, so the table has moved. This is the one card that
+   reports on all twelve at once rather than on a single result, which is why it
+   leads the stack rather than taking its turn in it.
+
+   Standings are rebuilt twice — through last week and through the week before —
+   and the difference is the movement. Ties on record break on points for, the
+   same way the league's own table does. */
+function ntTable(season,throughWeek){
+  const meta=_seasonMeta[season]; if(!meta) return null;
+  const owners=meta.owners||{};
+  const rec={};
+  (meta.schedule||[]).forEach(m=>{
+    const w=Number(m.matchupPeriodId)||0;
+    if(!w||w>throughWeek||!m.home||!m.away) return;
+    const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+    if(hp===0&&ap===0) return;
+    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+    if(!ho||!ao||ho===ao) return;
+    const r=o=>rec[o]||(rec[o]={o,w:0,l:0,t:0,pf:0});
+    const H=r(ho), Aw=r(ao);
+    H.pf+=hp; Aw.pf+=ap;
+    if(hp>ap){ H.w++; Aw.l++; } else if(ap>hp){ Aw.w++; H.l++; } else { H.t++; Aw.t++; }
+  });
+  const rows=Object.values(rec);
+  if(rows.length<2) return null;
+  rows.sort((a,b)=>{ const ga=a.w+a.l+a.t, gb=b.w+b.l+b.t;
+    const pa=ga?a.w/ga:0, pb=gb?b.w/gb:0;
+    return pb-pa || b.pf-a.pf; });
+  const at={}; rows.forEach((r,i)=>at[r.o]=i+1);
+  return {rows,at};
+}
+function ntStandingsRows(season,week){
+  const now=ntTable(season,week), was=ntTable(season,week-1);
+  if(!now) return null;
+  return now.rows.map((r,i)=>{
+    const prev=was?was.at[r.o]:null;
+    return {owner:r.o, name:ntName(season,r.o), rank:i+1,
+      move:(prev==null?0:prev-(i+1)),
+      rec:`${r.w}–${r.l}${r.t?'–'+r.t:''}`, pf:r.pf};
+  });
+}
+/* drawn as a table: twelve rows of prose would be unreadable */
+function ntStandingsArt(rows){
+  return `<div class="nts">
+    ${rows.map(r=>{
+      const dir=r.move>0?'up':r.move<0?'dn':'flat';
+      const arrow=r.move>0?'fa-caret-up':r.move<0?'fa-caret-down':'fa-minus';
+      return `<div class="nts-row">
+        <span class="nts-rk">${r.rank}</span>
+        <span class="nts-c">${ntCrest(r.owner,20)}</span>
+        <span class="nts-n">${r.name}</span>
+        <span class="nts-rec">${r.rec}</span>
+        <span class="nts-mv ${dir}"><i class="fa ${arrow}"></i>${r.move?Math.abs(r.move):''}</span>
+      </div>`;}).join('')}
+  </div>`;
+}
+function ntStandings(out){
+  const season=ntSeason(); if(!season) return;
+  const lw=ntLastWeek(season); if(!lw||lw.week<2) return;
+  const rows=ntStandingsRows(season,lw.week); if(!rows) return;
+  const movers=rows.filter(r=>r.move!==0).length;
+  out.push({kind:'standings', day:ntResultsDay(Date.now()), pin:1,
+    id:`st:${season}:${lw.week}`,
+    title:`Where everyone stands · week ${lw.week}`,
+    art:ntStandingsArt(rows),
+    body:movers?`<b>${movers}</b> team${movers===1?'':'s'} moved.`:'Nobody moved this week.'});
+}
+
 function ntAll(){
   const out=[];
-  [ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntTrash,ntDemo]
+  [ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntTrash,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -8912,7 +8993,10 @@ function ntAll(){
    results on Tuesday, then whatever has happened since, in order. */
 function ntLive(){
   const today=ntToday();
-  let list=ntAll().filter(n=>n.day<=today).sort((a,b)=>b.day-a.day);
+  /* pinned first, then newest: the Tuesday standings card is the week's
+     summary and belongs at the top of the stack rather than in date order */
+  let list=ntAll().filter(n=>n.day<=today)
+    .sort((a,b)=>(b.pin?1:0)-(a.pin?1:0) || b.day-a.day);
   /* Preview: one of each kind and no more. The real generators produce as many
      as the league earns — fourteen trades in a season is fourteen cards — which
      is right in play and useless when the point is to look the set over.
