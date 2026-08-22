@@ -2288,11 +2288,14 @@
       88%{opacity:1;transform:translate(0,0) rotate(0deg);}
       100%{opacity:0;transform:translate(26px,-18px) rotate(0deg);}
     }
+    /* The pour is aimed at the pot, which is centred on x 147 in the grid the
+       locker is drawn on. The stream used to drift 10px left of that and keep
+       going, so it read as falling beside the plant rather than into it. */
     @keyframes lkDrops{
       0%,34%{opacity:0;transform:translate(0,0);}
-      44%{opacity:1;transform:translate(-16px,6px);}
-      70%{opacity:1;transform:translate(-34px,46px);}
-      78%,100%{opacity:0;transform:translate(-38px,56px);}
+      44%{opacity:1;transform:translate(-6px,6px);}
+      70%{opacity:1;transform:translate(-24px,44px);}
+      78%,100%{opacity:0;transform:translate(-28px,52px);}
     }
     .lk-can,.lk-drops{transform-box:fill-box;transform-origin:center;}
     @media(prefers-reduced-motion:reduce){
