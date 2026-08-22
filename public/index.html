@@ -83,7 +83,14 @@
     select:hover{box-shadow:none;background-color:#262626;}
     select:active{box-shadow:none;}
     select option{background:#222;color:var(--text);}
-    button{background:rgba(255,255,255,0.07);color:var(--text);border:none;box-shadow:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;transition:background .15s,transform .09s ease;}
+    /* Just off the fill rather than drawn on top of it: 0.07 background against
+       a 0.13 edge reads as the shape having an edge, not as an outline. Enough
+       to see where a control ends without turning the page into boxes. */
+    button{background:rgba(255,255,255,0.07);color:var(--text);
+      border:1px solid rgba(255,255,255,0.13);box-shadow:none;border-radius:8px;
+      padding:8px 14px;cursor:pointer;font-size:13px;
+      transition:background .15s,border-color .15s,transform .09s ease;}
+    button:hover{border-color:rgba(255,255,255,0.2);}
     button:hover{background:rgba(255,255,255,0.1);box-shadow:none;}
 
     /* The one piece of feedback a thumb ever gets. There were 72 :hover rules
@@ -100,7 +107,11 @@
     /* Nothing that is a whole row or a bare icon should shrink — it reads as the
        page twitching rather than a press. Those get their own treatment below. */
     .coaching-row:active,.hm-row:active,.dm-row:active,.tn-row:active,
-    .sb-row:active,.lh-row:active,.nt-card:active,.gfl-egg:active,#logo:active{
+    .sb-row:active,.lh-row:active,.nt-card:active,.gfl-egg:active,#logo:active,
+    /* the plant is a <g> inside the locker-room svg: a scale there is in user
+       units against the whole drawing, so it shifted the pot rather than
+       nudging a control. It has its own watering animation anyway. */
+    .lk-plantg:active,.lk-plantg *:active{
       transform:none;}
     .status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);}
     .dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;}
@@ -183,7 +194,7 @@
     .pin-box p{font-size:13px;color:var(--text3);margin-bottom:20px;}
     .pin-input{width:100%;background:#222;color:var(--text);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:11px 14px;font-size:18px;text-align:center;letter-spacing:8px;margin-bottom:10px;}
     .pin-input:focus{outline:none;border-color:var(--accent);}
-    .pin-submit{width:100%;background:var(--grad);color:#000;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:none;}
+    .pin-submit{width:100%;background:var(--grad);color:#000;border:1px solid rgba(0,0,0,0.18);border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:none;}
     .pin-submit:active{box-shadow:none;}
     .pin-submit:hover{background:var(--accent2);}
     .pin-error{font-size:12px;color:var(--red);margin-top:6px;min-height:18px;}
@@ -437,7 +448,7 @@
       #stats-subtabs .tab-btn{width:100%;justify-content:center;text-align:center;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     }
-    .filter-btn{background:rgba(255,255,255,0.05);color:var(--text2);border:none;box-shadow:none;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:all .15s;}
+    .filter-btn{background:rgba(255,255,255,0.05);color:var(--text2);border:1px solid rgba(255,255,255,0.13);box-shadow:none;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:all .15s;}
     .filter-btn:hover{color:var(--text);background:rgba(255,255,255,0.08);box-shadow:none;}
     .filter-btn:active{box-shadow:none;}
     .filter-btn.active{background:rgba(var(--accent-rgb),0.12);color:var(--accent);font-weight:600;box-shadow:none;}
@@ -653,7 +664,7 @@
     .pk-s.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.18);color:var(--accent);}
     .pk-s span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     /* picks are submitted, not saved on every tap */
-    .pk-go{width:100%;margin-top:10px;padding:14px;border-radius:9px;border:none;cursor:pointer;
+    .pk-go{width:100%;margin-top:10px;padding:14px;border-radius:9px;border:1px solid rgba(255,255,255,0.13);cursor:pointer;
       background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
       color:#0b0f0c;font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;
       letter-spacing:.5px;text-transform:uppercase;}
@@ -1081,6 +1092,14 @@
     .sec-nav.dock-only{height:0;min-height:0;padding:0;margin:0;}
     /* the gap above the control now comes from the picker rather than the bar */
     .sec-nav.dock-only>.picker-bar.picker-docked{padding:var(--secpad) 0!important;}
+    /* Controls that are not <button> elements take the same edge, so pressable
+       things look alike wherever they are. Anything already carrying an accent
+       or status border keeps its own. */
+    .sx-chip,.tab-dd-item,.bets-btn,.mv-btn,.sb-odds,.sb-pull,.nt-vb,.nt-nav,
+    .home-redo,.pk-side,.cp-t,.dr-sbtn,.tab-btn{
+      border:1px solid rgba(255,255,255,0.13);}
+    .sx-chip:hover,.tab-dd-item:hover,.mv-btn:hover,.sb-odds:hover,.nt-nav:hover,
+    .tab-btn:hover{border-color:rgba(255,255,255,0.2);}
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────
@@ -1109,7 +1128,9 @@
       .bets-bar::before{transition:opacity .18s ease;transform:translateY(0);}
     }
     .bets-btn{display:flex;align-items:center;gap:10px;width:100%;
-      padding:11px 14px;border:none;border-radius:10px;cursor:pointer;
+      /* a filled accent button gets a dark edge, not a light one — a white
+         hairline on the accent reads as a halo */
+      padding:11px 14px;border:1px solid rgba(0,0,0,0.18);border-radius:10px;cursor:pointer;
       background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
       color:#0b0f0c;font-family:'Inter',sans-serif;
       font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
@@ -1187,7 +1208,7 @@
        the labels stop being readable once the bar pins. */
     /* As plain as it goes: white label, one flat fill, no tint, no blur, no
        outline, and the 8px corner the nav's own controls use. */
-    .sx-chip{background:rgba(255,255,255,0.07);border:0;
+    .sx-chip{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);
       border-radius:8px;padding:7px 11px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
       letter-spacing:.2px;color:#fff;cursor:pointer;text-align:center;min-width:0;
       /* wrap rather than clip: a label is never cut off */
@@ -1963,6 +1984,35 @@
        testing affordance more than a feature, and it should not compete with
        whatever the card is showing. */
     .home-redo-row{display:flex;justify-content:center;}
+
+    /* ── Last meeting ─────────────────────────────────────────────────────────
+       Under the projections, because it is the only thing on the page that has
+       already happened. Your side on the left, theirs on the right, the verdict
+       between them. */
+    .fcl{margin-top:16px;padding:12px 13px;border-radius:11px;
+      background:rgba(0,0,0,0.2);}
+    .fcl-h{display:flex;align-items:center;gap:8px;margin-bottom:11px;
+      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;
+      letter-spacing:.6px;text-transform:uppercase;color:var(--text3);}
+    .fcl-h i{color:var(--accent);font-size:11px;}
+    .fcl-when{margin-left:auto;letter-spacing:.3px;}
+    .fcl-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+      align-items:center;gap:10px;}
+    .fcl-side{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;
+      text-align:center;}
+    .fcl-logo{width:30px!important;height:30px!important;border-radius:7px;}
+    .fcl-n{font-family:'Inter',sans-serif;font-size:11px;color:var(--text2);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+    .fcl-side.w .fcl-n{color:var(--text);font-weight:700;}
+    .fcl-v{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;
+      letter-spacing:-.4px;color:var(--text3);}
+    .fcl-side.w .fcl-v{color:var(--text);}
+    .fcl-mid{flex:0 0 auto;padding:4px 10px;border-radius:999px;
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+      letter-spacing:.7px;}
+    .fcl-mid.w{background:rgba(63,208,122,0.16);color:var(--green);}
+    .fcl-mid.l{background:rgba(232,104,126,0.16);color:var(--red);}
+    .fcl-mid.t{background:rgba(255,255,255,0.08);color:var(--text3);}
 
     /* ── Trash talk ───────────────────────────────────────────────────────────
        Sits at the foot of Your Forecast, under everything that says who ought
@@ -3976,7 +4026,7 @@
     .sch-caret{font-size:9px;margin-left:6px;color:var(--text3);transition:transform .18s ease;flex:0 0 auto;}
     .sch-row-open .sch-caret{transform:rotate(180deg);color:var(--accent);}
     .sch-detail{display:none;}
-    .sch-detail.open{display:block;padding:10px 10px 12px;margin:0 0 6px;
+    .sch-detail.open{display:block;padding:12px;margin:8px 0 10px;
       border:1px solid rgba(var(--accent-rgb),0.32);border-radius:8px;
       background:rgba(255,255,255,0.02);}
     html[data-theme="light"] .sch-detail.open{background:rgba(0,0,0,0.02);}

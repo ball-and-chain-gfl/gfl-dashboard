@@ -4250,7 +4250,32 @@ function renderForecast(info){
     ${bar}
     ${posRows}
     ${imp}
+    ${fcLastMeetingHTML(meO,oppO,meT,oppT)}
     ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;
+}
+/* The last time these two played. Sits under the projections because it is the
+   one number on the page that already happened — everything above it is a
+   guess, and this is the record. Nothing is shown if they have never met. */
+function fcLastMeetingHTML(meO,oppO,meT,oppT){
+  if(!meO||!oppO) return '';
+  let g=null;
+  try{ g=(h2hGames(meO,oppO)||[])[0]; }catch(e){}
+  if(!g) return '';
+  const won=g.myScore>g.oppScore, tied=g.myScore===g.oppScore;
+  const side=(t,pts,win)=>`<div class="fcl-side${win?' w':''}">
+      <span class="fcl-c">${logoImg(t.id,'fcl-logo')}</span>
+      <span class="fcl-n">${t.name}</span>
+      <span class="fcl-v">${pts.toFixed(1)}</span>
+    </div>`;
+  return `<div class="fcl">
+    <div class="fcl-h"><i class="fa fa-clock-rotate-left"></i>Last meeting
+      <span class="fcl-when">${g.season} · Week ${g.week}</span></div>
+    <div class="fcl-row">
+      ${side(meT,g.myScore,won)}
+      <span class="fcl-mid ${tied?'t':won?'w':'l'}">${tied?'TIE':won?'WON':'LOST'}</span>
+      ${side(oppT,g.oppScore,!won&&!tied)}
+    </div>
+  </div>`;
 }
 /* the sign-in key a team's manager uses, which is what a profile is filed under */
 function fcOppKey(t){
