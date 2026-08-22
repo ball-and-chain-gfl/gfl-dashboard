@@ -7898,7 +7898,7 @@ function bkLoadPool(){
   if(!_bkPoolPromise){
     _bkPoolPromise=fetch(`/api/espn?type=pool&seasonId=${bkSeason()}&limit=700`)
       .then(r=>r.ok?r.json():null)
-      .then(j=>{ _bkPool=(j&&j.players)||[]; renderBallKnowledge(); return _bkPool; })
+      .then(j=>{ _bkPool=(j&&j.players)||[]; _bkQCache={key:'',qs:[]}; renderBallKnowledge(); return _bkPool; })
       .catch(()=>{ _bkPool=[]; return _bkPool; });
   }
   return null;
@@ -7907,7 +7907,7 @@ function bkLoadBios(){
   if(_bkBios) return _bkBios;
   if(!_bkBiosPromise){
     _bkBiosPromise=fetch('/data/bios.json').then(r=>r.ok?r.json():null)
-      .then(j=>{ _bkBios=(j&&j.players)||{}; renderBallKnowledge(); return _bkBios; })
+      .then(j=>{ _bkBios=(j&&j.players)||{}; _bkQCache={key:'',qs:[]}; renderBallKnowledge(); return _bkBios; })
       .catch(()=>{ _bkBios={}; return _bkBios; });
   }
   return null;
@@ -8000,8 +8000,14 @@ function bkQuestions(){
      normally held back until after week 5; in preview it is let through, or
      there would be nothing to look at. */
   const all=!!(_CFG.ballKnowledge||{}).previewAll;
-  const qs=bkBuildWeek(season,all?99:week,all?BK_KINDS.length:5);
-  if(qs.length) _bkQCache={key,qs};
+  const want=all?BK_KINDS.length:5;
+  const qs=bkBuildWeek(season,all?99:week,want);
+  /* Only a full set is worth keeping. The pool and the bios arrive after the
+     first paint, and until they do most generators decline — so the first build
+     can come back with just the one question that needs neither. Caching that
+     pinned the card to a single question for the rest of the session, because
+     the key is only the season and the week and never changed again. */
+  if(qs.length>=want) _bkQCache={key,qs};
   return qs;
 }
 /* A sparkline of the weeks shown, drawn rather than described — the shape is
@@ -8133,9 +8139,27 @@ function bkPlace(done){
   const sec=document.getElementById('bk-sec'); if(!sec) return;
   const page=document.getElementById('page-home'); if(!page) return;
   const atBottom=sec.parentElement===page && sec===page.lastElementChild;
+  /* Coming back from finished. The card was appended to the foot of the page
+     when the set was completed, and the comment here used to claim it returned
+     to its slot on the next render — nothing ever moved it. Starting over left
+     it parked at the bottom: no longer a grid item of .home-top, so the slot
+     orderHomeTodo hands it does nothing, and the page keeps the tightened
+     margin that only makes sense while the card is down there. That is the
+     spacing going wrong above it. */
+  if(!done && atBottom){
+    const col=page.querySelector('.home-left-col');
+    if(col){
+      col.appendChild(sec);
+      sec.classList.remove('bk-moved');
+      sec.style.transition=''; sec.style.transform=''; sec.style.zIndex='';
+      _bkDone=false;
+      try{ orderHomeTodo(); }catch(e){}
+    }
+    return;
+  }
   if(done===_bkDone && (!done||atBottom)) return;
   _bkDone=done;
-  if(!done) return;                       // returns to its slot on the next full render
+  if(!done) return;
   if(atBottom) return;
   const from=sec.getBoundingClientRect();
   page.appendChild(sec);
