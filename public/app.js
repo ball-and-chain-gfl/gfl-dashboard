@@ -5583,6 +5583,7 @@ function applyMe(){
   }
   try{ eggReset(); }catch(e){}            // this manager's finds, not the last one's
   try{ ttReset(); }catch(e){}             // and whatever has been said to them
+  try{ invResetAll(); }catch(e){}         // and whatever they hold
   try{ ntReset(); }catch(e){}             // and their dismissals, from their profile
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
@@ -6212,6 +6213,8 @@ function initSignIn(){
 function eggReset(){ _eggs=null; try{ eggSync(); }catch(e){} try{ eggPaint(); }catch(e){} }
 /* messages waiting on my own profile, and whether mine has been read */
 function ttReset(){ _ttIn={}; _ttPending=null; try{ ttSync(); }catch(e){} }
+/* the share ledger is per manager too */
+function invResetAll(){ try{ invReset(); }catch(e){} }
 // ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
 /* Which season still has games left? Preseason gives the whole slate; mid-season
    gives whatever's left of the current one. */
@@ -7315,6 +7318,206 @@ function sbBuild(){
   return _sbCache;
 }
 
+
+/* ── THE MARKET ──────────────────────────────────────────────────────────────
+   Shares in a franchise, bought and sold with GFL Bucks.
+
+   HOW A PRICE IS SET. A share is priced off how the team is actually doing this
+   season, not off its all-time record — the sportsbook's rating is weighted
+   across every year, which is right for a futures line and wrong for something
+   meant to move week to week. Three things, all measured against the league
+   rather than in absolute terms:
+
+     record   what fraction of games they have won, against the league's 0.500
+     scoring  points per game, against the league's average
+     form     the last three weeks, so a hot streak shows up before the record
+
+   Each is a ratio that equals 1.00 for a perfectly average team, so a team that
+   is average on all three prices at exactly the base. Before a ball is kicked
+   every team is average on all three by definition, which is why everyone opens
+   at the same price without that having to be special-cased.
+
+   The index is then divided by the league's own mean, which keeps the average
+   share worth the base price forever. That is the one genuinely market-like
+   property worth having here: the money is finite, so one team climbing means
+   the others slip. Without it a good season would simply inflate all twelve.
+
+   WHAT IS DELIBERATELY NOT MODELLED. Real prices also move on order flow — a
+   crowd of buyers pushes a price up on its own. With twelve people who can see
+   each other's moves that is trivially gamed: buy, watch your own purchase lift
+   the price, sell. So demand does not move the price here. Results do. */
+const INV_BASE=10;              // what an average share is worth
+/* Money on this board is shown to the cent. bucksFmt rounds to the whole buck,
+   which is right for a balance and hides everything a market does. */
+const invFmt=v=>'$'+(Math.round((Number(v)||0)*100)/100).toFixed(2);
+const INV_FORM_WEEKS=3;
+
+/* every team's current-season record, scoring and recent form */
+function invStats(season,throughWeek){
+  const meta=_seasonMeta[season]; if(!meta) return null;
+  const owners=meta.owners||{};
+  const rec={};
+  const r=o=>rec[o]||(rec[o]={o,w:0,g:0,pf:0,recent:[]});
+  (meta.schedule||[]).forEach(m=>{
+    const wk=Number(m.matchupPeriodId)||0;
+    if(!wk||(throughWeek!=null&&wk>throughWeek)||!m.home||!m.away) return;
+    const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+    if(hp===0&&ap===0) return;
+    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+    if(!ho||!ao||ho===ao) return;
+    const H=r(ho), A=r(ao);
+    H.g++; A.g++; H.pf+=hp; A.pf+=ap;
+    if(hp>ap) H.w++; else if(ap>hp) A.w++; else { H.w+=0.5; A.w+=0.5; }
+    H.recent.push({wk,pts:hp,won:hp>ap}); A.recent.push({wk,pts:ap,won:ap>hp});
+  });
+  const rows=Object.values(rec);
+  return rows.length?rows:null;
+}
+/* the price of one share in every team, and what it was a week ago */
+let _invCache=null;
+function invBoard(){
+  const season=ntSeason&&ntSeason();
+  const stamp=String(season)+'|'+(_franchises||[]).length;
+  if(_invCache&&_invCache.stamp===stamp) return _invCache;
+
+  const fr=(_franchises||[]);
+  if(!fr.length) return null;
+  const lw=season?(ntLastWeek(season)||{}).week:null;
+
+  const priceAt=(through)=>{
+    const rows=season?invStats(season,through):null;
+    const byOwner={};
+    if(rows){
+      const lgPpg=rows.reduce((a,x)=>a+x.pf,0)/Math.max(1,rows.reduce((a,x)=>a+x.g,0));
+      rows.forEach(x=>{
+        const gp=Math.max(1,x.g);
+        const winR=(x.w/gp)/0.5;                       // 1.00 at .500
+        const ppgR=lgPpg?(x.pf/gp)/lgPpg:1;            // 1.00 at league average
+        const form=x.recent.slice(-INV_FORM_WEEKS);
+        const formR=(form.length&&lgPpg)
+          ? (form.reduce((a,f)=>a+f.pts,0)/form.length)/lgPpg : 1;
+        byOwner[x.o]=0.45*winR+0.35*ppgR+0.20*formR;
+      });
+    }
+    /* anyone with no games yet sits at the league's own middle */
+    const vals=fr.map(f=>byOwner[f.owner]!=null?byOwner[f.owner]:1);
+    const mean=vals.reduce((a,b)=>a+b,0)/vals.length || 1;
+    const out={};
+    fr.forEach((f,i)=>{ out[f.owner]=Math.max(1,+(INV_BASE*vals[i]/mean).toFixed(2)); });
+    return out;
+  };
+
+  const now=priceAt(lw), prev=priceAt(lw!=null?lw-1:null);
+  const list=fr.map(f=>{
+    const p=now[f.owner], was=prev[f.owner];
+    return {owner:f.owner, name:f.name, fr:f, price:p, prev:was,
+      chg:+(p-was).toFixed(2), pct:was?+(((p-was)/was)*100).toFixed(1):0};
+  }).sort((a,b)=>b.price-a.price);
+  return (_invCache={stamp,season,week:lw,list,priceOf:now});
+}
+const invPrice=owner=>{ const b=invBoard(); return b?(b.priceOf[owner]||INV_BASE):INV_BASE; };
+
+/* ── the ledger ──────────────────────────────────────────────────────────────
+   Every buy and sell, on the manager's own profile. Holdings are replayed from
+   it rather than stored as a number, the same way the bucks balance is — two
+   devices can never disagree about a total they both derive. */
+let _inv=null;
+const invKey=()=>lsKey('inv');
+function invLots(){
+  if(_inv) return _inv;
+  let a=[]; try{ a=JSON.parse(localStorage.getItem(invKey())||'[]')||[]; }catch(e){}
+  return (_inv=Array.isArray(a)?a:[]);
+}
+function invSave(){
+  const a=invLots();
+  try{ localStorage.setItem(invKey(),JSON.stringify(a)); }catch(e){}
+  if(_me) try{ gflPatchProfile(_me.k1,{inv:JSON.stringify(a)}); }catch(e){}
+}
+/* Merged rather than replaced. Taking the server copy outright would throw
+   away a trade made while the profile write was failing — the device would show
+   it, the next sync would silently undo it. Each entry is stamped with the
+   moment it happened, so the union of both sides is the true ledger. */
+async function invSync(){
+  if(!_me) return;
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.inv)||'[]')||[]; }catch(e){}
+    if(!Array.isArray(srv)) return;
+    const seen=new Set(), merged=[];
+    [...srv,...invLots()].forEach(l=>{
+      if(!l||!l.o) return;
+      const k=[l.o,l.s,l.p,l.t,l.k].join('|');
+      if(seen.has(k)) return; seen.add(k); merged.push(l);
+    });
+    merged.sort((x,y)=>(Number(x.t)||0)-(Number(y.t)||0));
+    if(JSON.stringify(merged)===JSON.stringify(invLots())) return;
+    _inv=merged;
+    try{ localStorage.setItem(invKey(),JSON.stringify(merged)); }catch(e){}
+    /* if the device knew something the profile did not, put it back */
+    if(merged.length!==srv.length&&_me)
+      try{ gflPatchProfile(_me.k1,{inv:JSON.stringify(merged)}); }catch(e){}
+    if(_activeTab==='book') renderBook();
+  }catch(e){}
+}
+function invReset(){ _inv=null; try{ invSync(); }catch(e){} }
+/* shares held in each team, replayed */
+function invHoldings(){
+  const h={};
+  invLots().forEach(l=>{
+    const n=Number(l.s)||0; if(!n||!l.o) return;
+    h[l.o]=(h[l.o]||0)+(l.k==='s'?-n:n);
+  });
+  Object.keys(h).forEach(o=>{ if(h[o]<=0.0001) delete h[o]; });
+  return h;
+}
+/* what each holding cost on average, for the profit line */
+function invCostBasis(owner){
+  let sh=0, cost=0;
+  invLots().forEach(l=>{
+    if(l.o!==owner) return;
+    const n=Number(l.s)||0, px=Number(l.p)||0;
+    if(l.k==='s'){ const avg=sh?cost/sh:0; sh-=n; cost-=avg*n; }
+    else { sh+=n; cost+=n*px; }
+  });
+  return sh>0?cost/sh:0;
+}
+/* cash currently tied up in shares — this is what leaves the bucks balance */
+function invNetSpent(){
+  let net=0;
+  invLots().forEach(l=>{
+    const v=(Number(l.s)||0)*(Number(l.p)||0);
+    net+=(l.k==='s'?-v:v);
+  });
+  return net;
+}
+function invValue(){
+  const h=invHoldings();
+  return Object.keys(h).reduce((a,o)=>a+h[o]*invPrice(o),0);
+}
+function invProfit(){ return invValue()-Object.keys(invHoldings())
+  .reduce((a,o)=>a+invHoldings()[o]*invCostBasis(o),0); }
+
+let _invBusy=false,_invErr='';
+async function invTrade(owner,shares,sell){
+  if(!_me){ openSignIn(); return; }
+  if(_invBusy) return;
+  const n=Math.max(0,Math.floor(Number(shares)||0));
+  if(!n){ _invErr='Pick a number of shares first.'; renderBook(); return; }
+  const px=invPrice(owner);
+  if(sell){
+    const have=invHoldings()[owner]||0;
+    if(n>have){ _invErr='You only hold '+have+'.'; renderBook(); return; }
+  } else if(n*px>bucksBalance()){
+    _invErr='Not enough GFL Bucks for that.'; renderBook(); return;
+  }
+  _invBusy=true; _invErr=''; renderBook();
+  invLots().push({o:owner,s:n,p:px,t:Date.now(),k:sell?'s':'b'});
+  invSave();
+  _invBusy=false;
+  renderBook();
+  try{ renderBetsBar(); }catch(e){}
+}
+
 /* ── GFL BUCKS ──────────────────────────────────────────────────────────────
    Every team gets 100 bucks a week, Tuesday 6am to Tuesday 6am, and it does
    not carry: each new week starts at 100 again regardless of what was left.
@@ -7576,7 +7779,10 @@ const betsLiveAll=()=>betsMine().filter(betIsLive);
 function bucksStaked(){ return betsLiveAll().reduce((a,b)=>a+b.stake,0); }
 function bucksReturned(){ return betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
 function bucksBalance(){
-  return Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks());
+  /* shares are bought with the same money as bets, so what is tied up in them
+     has to leave the balance — and come back when they are sold */
+  let inv=0; try{ inv=invNetSpent(); }catch(e){}
+  return Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv);
 }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
@@ -9923,6 +10129,7 @@ const SB_GROUPS=[
   {k:'season',label:'Regular Season',icon:'fa-trophy'},
   {k:'team',label:'By Team',icon:'fa-id-badge'},
   {k:'week',label:'This Week',icon:'fa-bolt'},
+  {k:'invest',label:'Investments',icon:'fa-chart-line'},
 ];
 function sbAvatar(owner,size){
   const fr=_franchises.find(f=>f.owner===owner);
@@ -10546,14 +10753,105 @@ function renderBetsBar(){
     return;
   }
   bar.hidden=false;
-  const on=_sbView==='mine';
-  bar.innerHTML=`<button class="bets-btn${on?' on':''}" onclick="sbSetView('mine')"
-      aria-pressed="${on}">
+  const on=_sbView==='mine', fo=_sbView==='folio';
+  let pv=0; try{ pv=invValue(); }catch(e){}
+  bar.innerHTML=`<div class="bets-pair">
+    <button class="bets-btn${on?' on':''}" onclick="sbSetView('mine')" aria-pressed="${on}">
       <i class="fa fa-wallet"></i><span class="bets-btn-t">My Bets</span>
       <span class="bets-btn-bal">${_me?bucksFmt(bucksBalance()):'Sign in'}</span>
-    </button>`;
+    </button>
+    <button class="bets-btn${fo?' on':''}" onclick="sbSetView('folio')" aria-pressed="${fo}">
+      <i class="fa fa-chart-pie"></i><span class="bets-btn-t">My Portfolio</span>
+      <span class="bets-btn-bal">${_me?invFmt(pv):'Sign in'}</span>
+    </button>
+  </div>`;
   try{ syncNavDock(); }catch(e){}
 }
+
+let _invQty={};
+function invSetQty(o,v){ _invQty[o]=Math.max(0,Math.floor(Number(v)||0)); renderBook(); }
+function invStep(o,d){ invSetQty(o,(_invQty[o]||0)+d); }
+
+function invBoardHTML(){
+  const b=invBoard();
+  if(!b) return '<div class="tab-loading" style="padding:30px">Loading the market…</div>';
+  const cash=bucksBalance();
+  const rows=b.list.map(x=>{
+    const q=_invQty[x.owner]||0, cost=q*x.price;
+    const dir=x.chg>0?'up':x.chg<0?'dn':'flat';
+    const held=invHoldings()[x.owner]||0;
+    return `<div class="iv-card">
+      <div class="iv-top">
+        <span class="iv-c">${franchiseAvatar(x.fr,26,7)}</span>
+        <span class="iv-n">${x.name}${held?`<span class="iv-held">${held} held</span>`:''}</span>
+        <span class="iv-px">
+          <span class="iv-px-v">${invFmt(x.price)}</span>
+          <span class="iv-chg ${dir}">${x.chg>0?'▲':x.chg<0?'▼':'–'}${x.chg?Math.abs(x.pct)+'%':''}</span>
+        </span>
+      </div>
+      <div class="iv-buy">
+        <button class="iv-step" onclick="invStep('${x.owner}',-1)" ${q?'':'disabled'}>−</button>
+        <span class="iv-q">${q}</span>
+        <button class="iv-step" onclick="invStep('${x.owner}',1)">+</button>
+        <button class="iv-go" ${(!q||cost>cash||_invBusy)?'disabled':''}
+          onclick="invTrade('${x.owner}',${q},false)">
+          Buy${q?' · '+invFmt(cost):''}</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="sb-boardnote"><i class="fa fa-chart-line"></i>
+      <span>A share is priced on how the team is doing <b>this season</b> — record,
+      scoring and the last three weeks, each measured against the league. The
+      average share is always ${invFmt(INV_BASE)}, so one team climbing means
+      another slips.</span></div>
+    ${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
+    <div class="iv-cash">Cash available <b>${invFmt(cash)}</b></div>
+    <div class="iv-list">${rows}</div>`;
+}
+
+function invPortfolioHTML(){
+  if(!_me) return `<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
+    <div>Sign in to hold shares.</div></div>`;
+  const b=invBoard();
+  if(!b) return '<div class="tab-loading" style="padding:30px">Loading…</div>';
+  const h=invHoldings();
+  const owners=Object.keys(h);
+  const val=invValue(), basis=owners.reduce((a,o)=>a+h[o]*invCostBasis(o),0);
+  const pl=val-basis;
+  const head=`<div class="sb-ledger">
+    <div class="sb-led"><span>Portfolio</span><b>${invFmt(val)}</b></div>
+    <div class="sb-led"><span>Profit</span><b style="color:${pl>0?'var(--green)':pl<0?'var(--red)':'var(--text2)'}">${pl>0?'+':pl<0?'−':''}${invFmt(Math.abs(pl))}</b></div>
+    <div class="sb-led sb-led-note">Cash available ${invFmt(bucksBalance())}</div>
+  </div>`;
+  if(!owners.length) return head+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
+    <div>No shares yet. The market is on the Investments tab.</div></div>`;
+  const rows=owners.map(o=>{
+    const fr=(_franchises||[]).find(f=>f.owner===o);
+    const px=invPrice(o), cb=invCostBasis(o), sh=h[o];
+    const gain=(px-cb)*sh, pct=cb?((px-cb)/cb*100):0;
+    const q=Math.min(sh,_invQty['s_'+o]||0);
+    return `<div class="iv-card">
+      <div class="iv-top">
+        <span class="iv-c">${fr?franchiseAvatar(fr,26,7):''}</span>
+        <span class="iv-n">${fr?fr.name:o}<span class="iv-held">${sh} share${sh===1?'':'s'} · avg ${invFmt(cb)}</span></span>
+        <span class="iv-px">
+          <span class="iv-px-v">${invFmt(sh*px)}</span>
+          <span class="iv-chg ${gain>0?'up':gain<0?'dn':'flat'}">${gain>0?'▲':gain<0?'▼':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
+        </span>
+      </div>
+      <div class="iv-buy">
+        <button class="iv-step" onclick="invStep('s_${o}',-1)" ${q?'':'disabled'}>−</button>
+        <span class="iv-q">${q}</span>
+        <button class="iv-step" onclick="invStep('s_${o}',1)" ${q>=sh?'disabled':''}>+</button>
+        <button class="iv-go iv-sell" ${(!q||_invBusy)?'disabled':''}
+          onclick="invTrade('${o}',${q},true)">
+          Sell${q?' · '+invFmt(q*px):''}</button>
+      </div>
+    </div>`;
+  }).join('');
+  return head+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}<div class="iv-list">${rows}</div>`;
+}
+
 function renderBook(){
   const el=document.getElementById('book-body'); if(!el) return;
   const book=sbBuild();
@@ -10561,9 +10859,11 @@ function renderBook(){
   /* no icons on the view filters — six of them side by side was more symbol
      than signal. The My Bets button keeps its wallet, being a different kind
      of control rather than one of a set. */
-  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}${g.k==='week'?' sb-wide':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
+  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
   const board=_sbView==='team'?sbTeamViewHTML(book)
     :_sbView==='week'?sbWeekHTML()
+    :_sbView==='invest'?invBoardHTML()
+    :_sbView==='folio'?invPortfolioHTML()
     :_sbView==='mine'?myBetsHTML()
     :(book.groups[_sbView]||[]).length
       ? `<div class="sb-boardnote"><i class="fa fa-calendar-check"></i>
@@ -10581,7 +10881,7 @@ function renderBook(){
      not what you are looking at. A way back takes their place, the same width
      as the wallet button above it so the two read as a pair. */
   el.innerHTML=`
-    ${_sbView==='mine'
+    ${(_sbView==='mine'||_sbView==='folio')
       ? `<button class="sb-back" onclick="sbSetView('season')">
           Return to the sportsbook<i class="fa fa-arrow-right"></i></button>`
       : `<div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>`}
@@ -11086,7 +11386,8 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 /* each init is isolated: they shared a statement, so a throw in the first
    silently prevented the second from ever running */
 function bootUI(){ try{initSignIn();}catch(e){} try{eggStart();}catch(e){} try{eggSync();}catch(e){}
-  try{ntStartDayWatch();}catch(e){} try{ntSync();}catch(e){} try{ttSync();}catch(e){} }
+  try{ntStartDayWatch();}catch(e){} try{ntSync();}catch(e){} try{ttSync();}catch(e){}
+  try{invSync();}catch(e){} }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootUI); else bootUI();
 /* pre-render the nav menu so the first tap has nothing to build */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{buildTabDD();positionTabDD();});

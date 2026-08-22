@@ -1141,6 +1141,44 @@
       font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;}
     .sb-back:hover{background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
     .sb-back i{font-size:12px;color:var(--accent);}
+    /* ── The market ───────────────────────────────────────────────────────────
+       One card per team: crest, name, price and the week's move on top, the
+       trade controls underneath. Same surfaces as everything else on the board. */
+    .iv-cash{margin:0 0 12px;padding:9px 12px;border-radius:9px;
+      background:rgba(0,0,0,0.2);font-family:'Inter',sans-serif;font-size:11.5px;
+      letter-spacing:.3px;text-transform:uppercase;color:var(--text3);}
+    .iv-cash b{color:var(--text);font-size:13px;letter-spacing:0;text-transform:none;}
+    .iv-err{margin:0 0 10px;padding:9px 12px;border-radius:9px;
+      background:rgba(232,104,126,0.1);border:1px solid rgba(232,104,126,0.4);
+      font-family:'Inter',sans-serif;font-size:12px;color:var(--red);}
+    .iv-list{display:flex;flex-direction:column;gap:8px;}
+    .iv-card{padding:11px 12px;border-radius:11px;background:rgba(0,0,0,0.2);}
+    .iv-top{display:flex;align-items:center;gap:10px;}
+    .iv-c{flex:0 0 auto;display:flex;}
+    .iv-n{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;
+      font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;color:var(--text);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .iv-held{font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;
+      color:var(--text3);}
+    .iv-px{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+    .iv-px-v{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;
+      letter-spacing:-.3px;color:var(--text);}
+    .iv-chg{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.2px;}
+    .iv-chg.up{color:var(--green);} .iv-chg.dn{color:var(--red);} .iv-chg.flat{color:var(--text3);}
+    .iv-buy{display:flex;align-items:center;gap:7px;margin-top:10px;}
+    .iv-step{flex:0 0 auto;width:34px;height:34px;padding:0;border-radius:8px;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);
+      color:var(--text);font-size:15px;font-weight:700;line-height:1;}
+    .iv-step:disabled{opacity:.35;}
+    .iv-q{flex:0 0 34px;text-align:center;font-family:'Inter',sans-serif;
+      font-size:14px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
+    .iv-go{flex:1 1 auto;min-width:0;height:34px;padding:0 12px;border-radius:8px;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);
+      color:var(--text);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;}
+    .iv-go:not(:disabled):hover{background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
+    .iv-go:disabled{opacity:.4;}
+    .iv-go.iv-sell:not(:disabled){border-color:rgba(232,104,126,0.45);color:var(--red);}
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────
@@ -1167,6 +1205,15 @@
     .bets-bar.stuck::before{transform:translateY(0);opacity:1;}
     @media(prefers-reduced-motion:reduce){
       .bets-bar::before{transition:opacity .18s ease;transform:translateY(0);}
+    }
+    .bets-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .bets-pair .bets-btn{min-width:0;padding-left:11px;padding-right:11px;}
+    .bets-pair .bets-btn-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    .bets-pair .bets-btn-bal{margin-left:auto;padding:3px 7px;font-size:11px;}
+    @media(max-width:400px){
+      .bets-pair .bets-btn{font-size:10.5px;gap:6px;padding-left:9px;padding-right:9px;}
+      .bets-pair .bets-btn i{font-size:12px;}
+      .bets-pair .bets-btn-bal{display:none;}
     }
     .bets-btn{display:flex;align-items:center;gap:10px;width:100%;
       /* a filled accent button gets a dark edge, not a light one — a white
