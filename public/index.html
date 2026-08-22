@@ -2890,19 +2890,21 @@
        --grad    the pair as a gradient. Everything on the PAGE that used to be
                  a flat accent fill (page title, meters, pills, primary
                  buttons) paints with this instead. */
-    /* home is deliberately a single gold — both stops match, so anything using
-       --grad (the Big 4 bar, the title rule) renders flat rather than shifting */
-    html[data-theme="dark"][data-tabaccent=home]{--accent:#E0B67B;--accent2:#E0B67B;--accent-rgb:224,182,123;}
-    /* Home runs a rainbow for now, pending a colour being picked. --accent stays
-       a single gold so everything that needs one flat colour still has one; what
-       changes is the two gradients — the title's orbiting border and the rule
-       under each heading — which sweep the whole wheel instead of two hues.
-       Every stop is at the same OKLCH lightness as the rest of the palette, so
-       the sweep does not flare bright in the yellows and go dim in the blues. */
+    /* Home takes the pale blue. Both stops match, so anything using --grad (the
+       Big 4 bar, the title rule) renders flat rather than shifting, and every
+       icon on the page picks it up as its flat colour. */
+    html[data-theme="dark"][data-tabaccent=home]{--accent:#CBE4FF;--accent2:#8CB9E8;--accent-rgb:203,228,255;
+      --pageaccent:#CBE4FF;}
+    /* Home keeps its rainbow in two places, and only two: the title's orbiting
+       border and the rule under each heading. The border runs a pastel of it —
+       every stop lifted in lightness — so it sits with the pale blue the rest
+       of the page is now painted in rather than shouting over it. The rules
+       under the headings keep the full-strength sweep, which is what stops the
+       page going uniformly soft. */
     html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
       background:conic-gradient(from var(--h1ang),
-        #fe8a88 0deg,#f0a24a 51deg,#daa932 103deg,#3fce8f 154deg,
-        #0fcacc 206deg,#6cb7ff 257deg,#b979fe 309deg,#fe8a88 360deg);}
+        #ffb8b6 0deg,#f8c489 51deg,#eccd7f 103deg,#8ee5bd 154deg,
+        #7ee3e4 206deg,#a8d3ff 257deg,#d5aeff 309deg,#ffb8b6 360deg);}
     html[data-theme="dark"][data-tabaccent=home] .sec-head::after,
     html[data-theme="dark"][data-tabaccent=home] .section-header::after,
     html[data-theme="dark"][data-tabaccent=home] .lh-sec-head::after{
@@ -2921,7 +2923,7 @@
        so the two have to carry the same hex or the tab and the page it opens
        disagree — which is what happened when the tab was added without a rule
        here and the page fell back to the default accent. */
-    html[data-theme="dark"][data-tabaccent=cm]{--accent:#CBE4FF;--accent2:#8CB9E8;--accent-rgb:203,228,255;}
+    html[data-theme="dark"][data-tabaccent=cm]{--accent:#E0B67B;--accent2:#E0B67B;--accent-rgb:224,182,123;}
     html[data-theme="dark"][data-tabaccent=draft]{--accent:#0fcacc;--accent2:#04c4f0;--accent-rgb:15,202,204;}
     html[data-theme="dark"][data-tabaccent=trades]{--accent:#fb9167;--accent2:#eb9e41;--accent-rgb:251,145,103;}
     html[data-theme="dark"][data-tabaccent=tenure]{--accent:#1ecdaa;--accent2:#0cc9d1;--accent-rgb:30,205,170;}
@@ -4314,7 +4316,12 @@
       box-shadow:none!important;
     }
     /* tie the card headings to the gold accent */
-    #page-home .sec-head i{color:var(--accent);}
+    /* Each card on the homepage overrides --accent for its own furniture — the
+       poll's meters, the picks' buttons — which is why every heading icon used
+       to be a different hue. The icons read a token those overrides do not
+       touch, so they all carry the page's colour while each card keeps its own
+       for everything else. */
+    #page-home .sec-head i{color:var(--pageaccent,var(--accent));}
     #page-home .home-punish-more{color:#E0B67B;border-color:rgba(224,182,123,0.4);}
     #page-home .home-punish-more:hover{color:#E0B67B;border-color:#E0B67B;}
 

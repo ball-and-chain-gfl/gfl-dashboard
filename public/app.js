@@ -88,7 +88,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#E0B67B',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee',cm:'#CBE4FF'};
+const TAB_COLORS={home:'#CBE4FF',week:'#E8437E',roster:'#43C9E8',teams:'#E84146',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#fb9167',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#ff5f5f',marathon:'#22d3ee',cm:'#E0B67B'};
 const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Stats & Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
