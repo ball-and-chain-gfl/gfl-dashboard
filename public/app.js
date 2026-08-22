@@ -9917,10 +9917,12 @@ function betGrade(bet){
    they all settle on the same afternoon. Splitting them across Futures, Team
    Props and Achievements implied three different deadlines that no longer
    exist — they are one board now. */
+/* Regular Season and By Team share the top row; This Week takes the full width
+   underneath, since it is the one that changes every week and wants the room. */
 const SB_GROUPS=[
-  {k:'week',label:'Forecast',icon:'fa-bolt'},
   {k:'season',label:'Regular Season',icon:'fa-trophy'},
   {k:'team',label:'By Team',icon:'fa-id-badge'},
+  {k:'week',label:'This Week',icon:'fa-bolt'},
 ];
 function sbAvatar(owner,size){
   const fr=_franchises.find(f=>f.owner===owner);
@@ -10559,7 +10561,7 @@ function renderBook(){
   /* no icons on the view filters — six of them side by side was more symbol
      than signal. The My Bets button keeps its wallet, being a different kind
      of control rather than one of a set. */
-  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
+  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}${g.k==='week'?' sb-wide':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
   const board=_sbView==='team'?sbTeamViewHTML(book)
     :_sbView==='week'?sbWeekHTML()
     :_sbView==='mine'?myBetsHTML()
@@ -10575,8 +10577,14 @@ function renderBook(){
   const aside=document.getElementById('page-h1-aside');
   if(aside) aside.innerHTML=`<span class="sb-live"><i class="fa fa-circle"></i>Lines set</span>`;
   /* My Bets is not on the page any more — it rides the nav, in #bets-bar */
+  /* In My Bets the view tabs are gone — they switch the board, and the board is
+     not what you are looking at. A way back takes their place, the same width
+     as the wallet button above it so the two read as a pair. */
   el.innerHTML=`
-    <div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>
+    ${_sbView==='mine'
+      ? `<button class="sb-back" onclick="sbSetView('season')">
+          <i class="fa fa-arrow-left"></i>Return to the sportsbook</button>`
+      : `<div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>`}
     <div class="sb-layout">
       <div class="sb-board">${board}</div>
       <div class="sb-slip-wrap" id="sb-slip-wrap">

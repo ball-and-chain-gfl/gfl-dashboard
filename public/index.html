@@ -1130,6 +1130,15 @@
     #page-book .sb-odds.on{
       background:color-mix(in srgb,var(--accent) 22%,rgba(255,255,255,0.07));
       border-color:var(--accent);}
+    /* Same shape and width as the wallet button it sits under. */
+    .sb-back{display:flex;align-items:center;justify-content:center;gap:9px;
+      width:calc(100% - 2*max(0px,calc(10px - var(--navside,2px))));
+      margin:0 auto 14px;padding:11px 14px;border-radius:10px;cursor:pointer;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);
+      box-shadow:none;color:var(--text);font-family:'Inter',sans-serif;
+      font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;}
+    .sb-back:hover{background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
+    .sb-back i{font-size:12px;color:var(--accent);}
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────
@@ -1560,7 +1569,7 @@
       box-shadow:0 10px 24px -16px rgba(0,0,0,0.35),0 1px 3px rgba(0,0,0,0.10);}
 
     /* Trade cards lift off the page background instead of blending into it */
-    html[data-theme] .trade-card{background:rgba(255,255,255,0.032)!important;}
+    html[data-theme] .trade-card{background:rgba(0,0,0,0.2)!important;}
     html[data-theme="light"] .trade-card{background:var(--bg2)!important;}
     /* and the filter rail above them is tightened up */
     /* Compacting the trade filter rail. The sitewide matte reset already strips
@@ -2141,7 +2150,7 @@
        fill rather than layering over it — that is by design here: the colour is
        the card's surface. What lifts it off the page is the shadow, not a
        brighter ground. */
-    .nt-card{position:relative;padding:14px 14px 13px;border-radius:12px;
+    .nt-card{position:relative;padding:11px 12px 12px;border-radius:12px;
       background:rgba(0,0,0,0.2);
       box-shadow:0 6px 16px -8px rgba(0,0,0,0.8),0 2px 5px -3px rgba(0,0,0,0.55);
       touch-action:pan-y;cursor:grab;user-select:none;}
@@ -2171,7 +2180,7 @@
       letter-spacing:.6px;text-transform:uppercase;color:var(--text2);flex:1 1 auto;min-width:0;}
     .nt-day{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:10px;
       font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--text3);}
-    .nt-x{flex:0 0 auto;width:38px;height:38px;margin:-7px -7px -7px 0;padding:0;border-radius:9px;
+    .nt-x{flex:0 0 auto;width:28px;height:28px;margin:-4px -4px -4px 0;padding:0;border-radius:8px;
       background:none;box-shadow:none;color:var(--text3);font-size:12px;}
     .nt-x:hover{color:var(--text);background:rgba(255,255,255,0.07);}
     /* ── What a card draws ────────────────────────────────────────────────────
@@ -3881,7 +3890,14 @@
       .sb-bar{padding-bottom:12px;}
       .sb-bar-t{font-size:13.5px;}
       .sb-bar-r{display:none;}
-      .sb-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+      /* Inset to the same line as the My Bets button above: that bar pads by
+         --betspad less --navside, so the tabs take the same 8px and the two
+         stacks share an edge instead of the tabs running wider. */
+      .sb-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;
+        padding-left:max(0px,calc(10px - var(--navside,2px)));
+        padding-right:max(0px,calc(10px - var(--navside,2px)));}
+      /* the full-width one sits under the pair */
+      .sb-tabs .tab-btn.sb-wide{grid-column:1/-1;}
       .sb-tabs .tab-btn{width:100%;justify-content:center;text-align:center;font-size:11.5px;padding:8px 6px;}
       .sb-market{padding:12px 12px 4px;}
       .sb-nm{display:none;}
@@ -4401,17 +4417,22 @@
       /* sticky identity column so you always know which row is which */
       table.mtbl.stick1 td:first-child,table.mtbl.stick1 th:first-child,
       table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){
-        position:sticky;z-index:3;background:#0a0a0c;
-        box-shadow:1px 0 0 rgba(255,255,255,0.10);}
+        /* A sticky cell has to be opaque or the scrolling content shows through
+           it, so it cannot take the 0.2 fill — it takes the page's own colour
+           instead of a near-black that read as a dark block. And the seam is a
+           soft fade rather than the 1px white rule that looked like a stray
+           line beside the numbers. */
+        position:sticky;z-index:3;background:var(--page-bg);
+        box-shadow:8px 0 10px -8px rgba(0,0,0,0.75);}
       table.mtbl.stick1 td:first-child,table.mtbl.stick1 th:first-child{left:0;}
       /* pull the second sticky column back a hair and paint the seam, so no
          scrolling content can peek through between # and Team */
       table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){left:calc(var(--c1w,34px) - 1px);}
       table.mtbl.stick2 td:first-child,table.mtbl.stick2 th:first-child{
-        position:sticky;left:0;z-index:4;background:#0a0a0c;padding-right:2px!important;
-        box-shadow:3px 0 0 #0a0a0c;}
+        position:sticky;left:0;z-index:4;background:var(--page-bg);padding-right:2px!important;
+        box-shadow:3px 0 0 var(--page-bg);}
       table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){z-index:3;}
-      table.mtbl thead th{background:#0a0a0c;}
+      table.mtbl thead th{background:var(--page-bg);}
       /* team photo + abbreviation instead of the full name in table cells */
       table.mtbl td.has-abbr .team-name{display:none;}
       table.mtbl td.has-abbr .team-sub{font-size:12.5px!important;color:var(--text)!important;font-weight:600!important;letter-spacing:0.3px!important;}
@@ -4646,7 +4667,7 @@
       border-radius:10px!important;
       box-shadow:none!important;}
     /* the all-time lineup list sits inside a panel — match the card family */
-    html[data-theme="dark"] #page-teams .lineup-list{background:rgba(0,0,0,0.35)!important;border-color:rgba(255,255,255,0.08);}
+    html[data-theme="dark"] #page-teams .lineup-list{background:rgba(0,0,0,0.2)!important;border-color:transparent;}
     html[data-theme="dark"] #page-teams .lineup-grade{background:rgba(0,0,0,0.35);border-color:rgba(255,255,255,0.08);}
     /* the team picker now sits on the page texture, so lift its label contrast */
     #page-teams .picker-bar label{color:var(--text2)!important;text-shadow:0 1px 2px rgba(0,0,0,0.8);}
