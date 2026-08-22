@@ -869,7 +869,7 @@
     /* ── Pinned punishment bar ─────────────────────────────────────────────
        Sits where the live tracker used to. Its own red accent rather than the
        tab's, so it reads the same on every page. */
-    .pb-bar{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+    .pb-bar{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;
       display:flex;align-items:center;gap:10px;padding:8px 12px;
       background:rgba(12,12,14,0.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
       border:1px solid rgba(var(--accent-rgb),0.42);border-radius:10px;
@@ -2864,7 +2864,7 @@
     .tab-btn[data-tab=home]{--tc:#E0B67B;}
     .tab-btn[data-tab=week]{--tc:#E8437E;}
     .tab-btn[data-tab=roster]{--tc:#43C9E8;}
-    .tab-btn[data-tab=teams]{--tc:#E84146;}
+    .tab-btn[data-tab=teams]{--tc:#ff5f5f;}
     .tab-btn[data-tab=schedule]{--tc:#fb9167;}
     .tab-btn[data-tab=book]{--tc:#3fd07a;}
     .tab-btn[data-tab=legacy]{--tc:#f09a4a;}
@@ -2877,7 +2877,7 @@
     .tab-btn[data-tab=messages]{--tc:#E8D24E;}
     .tab-btn[data-tab=gabe]{--tc:#CBE853;}
     /* hidden tabs keep their own colours */
-    .tab-btn[data-tab=punishment]{--tc:#ff5f5f;}
+    .tab-btn[data-tab=punishment]{--tc:#E84146;}
     .tab-btn[data-tab=marathon]{--tc:#22d3ee;}
     .tab-btn i{color:var(--tc,var(--accent));opacity:.8;transition:opacity .15s;}
     .tab-btn:hover{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,transparent)!important;color:var(--text)!important;}
@@ -2922,7 +2922,7 @@
       background-size:200% 100%;}
     html[data-theme="dark"][data-tabaccent=week]{--accent:#E8437E;--accent2:#E86043;--accent-rgb:232,67,126;}
     html[data-theme="dark"][data-tabaccent=roster]{--accent:#43C9E8;--accent2:#43E8C0;--accent-rgb:67,201,232;}
-    html[data-theme="dark"][data-tabaccent=teams]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
+    html[data-theme="dark"][data-tabaccent=teams]{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;}
     html[data-theme="dark"][data-tabaccent=book]{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;}
     html[data-theme="dark"][data-tabaccent=legacy]{--accent:#f09a4a;--accent2:#d7aa32;--accent-rgb:240,154,74;}
     html[data-theme="dark"][data-tabaccent=history]{--accent:#6cb7ff;--accent2:#9baafe;--accent-rgb:108,183,255;}
@@ -3117,7 +3117,7 @@
       padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
       color:var(--text);white-space:pre;overflow-x:auto;margin:0 0 10px;}
     html[data-theme="light"] .msg-code{background:rgba(0,0,0,0.05);}
-    html[data-theme="dark"][data-tabaccent=punishment]{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;}
+    html[data-theme="dark"][data-tabaccent=punishment]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
     html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#22eec9;--accent-rgb:34,211,238;}
     :root{--grad:linear-gradient(135deg,var(--accent),var(--accent2));}
 
@@ -4959,7 +4959,7 @@
        element that declares it, so a module changing only --accent would
        otherwise keep painting the page's gradient. */
     /* mod-msg deliberately has no accent override: it inherits the page gold */
-    #page-home .mod-punish{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+    #page-home .mod-punish{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .mod-bk{--accent:#c98cf1;--accent2:#8ca8f1;--accent-rgb:201,140,241;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
@@ -4993,7 +4993,7 @@
     #page-home .mod-punish.wm::before,#page-home .mod-punish.wm::after{opacity:0.05;}
   
     /* ── Punishment rules popup (the retired tab, as a modal) ─────────────── */
-    #page-punishment{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;
+    #page-punishment{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     .pr-hero{display:flex;align-items:center;gap:14px;}
     .pr-ic{width:52px;height:52px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;
