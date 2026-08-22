@@ -1062,12 +1062,11 @@
     .sec-nav.stuck::before{transform:translateY(0);opacity:1;
       -webkit-backdrop-filter:blur(22px) saturate(1.3);
       backdrop-filter:blur(22px) saturate(1.3);}
-    /* A page-local row never pins, so it never earns .stuck and would show no
-       panel at all — which left its chips sitting on bare page. It gets the
-       panel outright instead, and being a flat fill rather than a blur it is
-       never a backdrop root. Same look as the pinned bar on every other page. */
-    .sec-nav-local::before{transform:none;opacity:1;
-      -webkit-backdrop-filter:none;backdrop-filter:none;}
+    /* Advanced Stats' local row is a genuine jump bar: it pins, so it fades the
+       drawer in on sticking exactly like the global one, and needs no rule here.
+       Player Data's row is not a jump bar at all — it is a view switcher held
+       to the page above, so it takes no drawer and no panel. */
+    .sx-filters::before{content:none;}
     @media(prefers-reduced-motion:reduce){
       .sec-nav::before{transition:opacity .18s ease;transform:translateY(0);}
     }

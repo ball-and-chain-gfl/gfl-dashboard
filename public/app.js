@@ -4577,14 +4577,14 @@ function syncNavDock(){
   const nb=nav.getBoundingClientRect();
   document.documentElement.style.setProperty('--navbot',Math.round(nb.bottom)+'px');
   document.querySelectorAll('.sec-nav').forEach(bar=>{
-    /* Only the global bar pins under the nav, so only the global bar may wear
-       the drawer. A page's own chip row scrolls away with the page — its top
-       goes hundreds of pixels above the nav and stays there, which had it
-       marked "stuck" forever. That left a frosted panel with a backdrop-filter
-       switched on permanently, and a stray backdrop root is what washes a whole
-       page rather than the strip behind it. Same fault as the three hidden
-       overlays, on the two pages that carry a local row. */
-    if(bar.classList.contains('sec-nav-local')){ bar.classList.remove('stuck'); return; }
+    /* Ask the bar whether it actually pins, rather than assuming from its
+       class. Two different things wear .sec-nav-local: Advanced Stats' row is a
+       real jump bar and sticks, while Player Data's is a view switcher that
+       CSS deliberately pins to the page (position:static). Only something that
+       can pin can be "stuck", and only something stuck may wear the drawer —
+       a bar that never pins was being marked stuck forever, which left a
+       backdrop-filter running and washed the page behind it. */
+    if(getComputedStyle(bar).position!=='sticky'){ bar.classList.remove('stuck'); return; }
     if(bar.hidden){ bar.classList.remove('stuck'); return; }
     const r=bar.getBoundingClientRect();
     bar.style.setProperty('--navside',Math.max(0,Math.round(r.left-nb.left))+'px');
