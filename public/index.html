@@ -1049,7 +1049,15 @@
     /* Nothing but the picker in there. The bar collapses to its top padding,
        which is what holds the picker clear of the nav — the same gap the first
        row of chips would have had. */
-    .sec-nav.dock-only{padding-bottom:0;}
+    /* A bar raised only to carry the picker must cost the page nothing: it was
+       going from display:none to 10px of padding plus a 26px bottom margin, so
+       docking grew the document by 26px and undocking took it back — which is
+       the jump on the way back up. Everything visible here is out of flow (the
+       drawer is a ::before, the picker is absolute), so the bar itself can be a
+       zero-height anchor. */
+    .sec-nav.dock-only{height:0;min-height:0;padding:0;margin:0;}
+    /* the gap above the control now comes from the picker rather than the bar */
+    .sec-nav.dock-only>.picker-bar.picker-docked{padding:var(--secpad) 0!important;}
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────

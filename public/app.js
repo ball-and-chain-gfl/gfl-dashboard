@@ -4598,7 +4598,10 @@ function syncPickerDock(){
   requestAnimationFrame(()=>{
     if(_dockedPicker!==p) return;
     p.style.transition=`opacity .22s ease ${Math.round(DOCK_MS*0.45)}ms`;
-    bar.style.setProperty('--dockh',(ch+pad)+'px');
+    /* a picker-only drawer pads both ends, since the bar above it is now
+       zero-height and no longer supplies the top gap */
+    const only=bar.classList.contains('dock-only');
+    bar.style.setProperty('--dockh',(ch+pad*(only?2:1))+'px');
     p.style.opacity='1';
   });
 }
