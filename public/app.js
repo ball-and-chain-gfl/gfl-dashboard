@@ -7276,7 +7276,12 @@ function sbOutrightAny(key,title,sub,ents,probs,icon,holdMul,entLabel){
    multiplier on the yes side and leave the near-certain no side alone. */
 function sbYesNoAny(key,title,sub,ents,probs,icon,opt){
   const o=opt||{}, lo=o.lo==null?0.14:o.lo, hi=o.hi==null?0.86:o.hi;
+  /* yesOnly prints one column. Some two-way markets are only really one bet:
+     when the yes side is a hundred-to-one shot the no side is a formality that
+     lays the league's whole bankroll to win pocket change, and it is on the
+     board only because the shape of a two-way market says it has to be. */
   return {key,title,sub,type:'yesno',entLabel:o.entLabel||'Team',
+    yesOnly:!!o.yesOnly,
     icon:icon||'fa-check-double',
     picks:ents.map((e,i)=>{
       const p=Math.min(hi,Math.max(lo,probs[i]));
@@ -10597,6 +10602,10 @@ function sbMarketHTML(m){
         ${sbBtn(m.key,m.title,p.owner,p.name,p.odds)}</div>`;
     }
     if(m.type==='yesno'){
+      /* one column: the header already says Yes, so the button carries the
+         price alone rather than repeating the word on every row */
+      if(m.yesOnly) return `<div class="sb-row sb-row1">${nm}
+        ${sbBtn(m.key,m.title,p.owner+':yes',p.name+' — Yes',p.yes)}</div>`;
       return `<div class="sb-row sb-row2">${nm}
         ${sbBtn(m.key,m.title,p.owner+':yes',p.name+' — Yes',p.yes,'sb-two','Yes')}
         ${sbBtn(m.key,m.title,p.owner+':no',p.name+' — No',p.no,'sb-two','No')}</div>`;
@@ -10610,7 +10619,9 @@ function sbMarketHTML(m){
   const head=m.type==='outright'
     ? `<div class="sb-row sb-head"><span>${el}</span><span class="sb-imp">Implied</span><span class="sb-oh">Odds</span></div>`
     : m.type==='yesno'
-      ? `<div class="sb-row sb-row2 sb-head"><span>${el}</span><span class="sb-oh">Yes</span><span class="sb-oh">No</span></div>`
+      ? (m.yesOnly
+        ? `<div class="sb-row sb-row1 sb-head"><span>${el}</span><span class="sb-oh">Yes</span></div>`
+        : `<div class="sb-row sb-row2 sb-head"><span>${el}</span><span class="sb-oh">Yes</span><span class="sb-oh">No</span></div>`)
       : `<div class="sb-row sb-row2 sb-head"><span>${el}</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>`;
   /* Ten markets of twelve rows each is a very long page to scroll past to
      reach the one you wanted. Each folds behind its own title; the first opens
@@ -11262,7 +11273,7 @@ function sbWeekMarkets(book,games,week){
   out.push(sbYesNoAny('wk'+week+'-donut',`Week ${week} Donut`,
     'Does this team score exactly zero? It has never happened. Someone will still bet it.',
     te,rows.map(r=>0.007*Math.exp(-0.40*(r.z.ppg||0))),
-    'fa-ring',{lo:0.004,hi:0.015,mul:true}));
+    'fa-ring',{lo:0.004,hi:0.015,mul:true,yesOnly:true}));
   return out;
 }
 function sbWeekHTML(){
