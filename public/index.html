@@ -3885,22 +3885,40 @@
        the column labels, rows separated by a single rule, and prices as quiet
        outlines. Colour is spent in one place only: the leg you have taken. */
     .sb-market{background:rgba(0,0,0,0.2);border:1px solid transparent;
-      border-radius:12px;overflow:hidden;}
+      border-radius:10px;overflow:hidden;}
     html[data-theme="light"] .sb-market{background:rgba(0,0,0,0.03);}
-    /* The bar is one line: title left, chevron right, centred between equal
-       padding. It used to reserve room underneath for the description, which
-       is what pushed the title up off centre. */
+    /* The bar is one line: title left, state and chevron right, centred between
+       equal padding. It used to reserve room underneath for the description,
+       which is what pushed the title up off centre. */
     /* One tight line. The bar is the whole control, so it takes no press tint
        and no scale — the panel opening underneath is the feedback, and a grey
        flash on a full-width bar reads as the row being selected. */
-    .sb-mhead{display:flex;align-items:center;gap:9px;flex-wrap:nowrap;
-      width:100%;padding:10px 13px;border:0;border-radius:0;min-height:0;
-      background:none;box-shadow:none;cursor:pointer;text-align:left;
+    /* Same clothes as the folds on the homepage — the coaches' poll ballot and
+       the weekly picks. Those two set the house style for "a block that folds
+       away": compact uppercase Inter on a strip a shade darker than the card it
+       tops. The sportsbook wore a serif title at fifteen pixels instead, which
+       made ten stacked bars read as ten headings rather than ten controls. */
+    .sb-mhead{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;
+      width:100%;padding:11px 13px;border:0;border-radius:0;min-height:0;
+      background:rgba(0,0,0,0.2);box-shadow:none;cursor:pointer;text-align:left;
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text2);
       transition:none;}
-    .sb-mhead:hover,.sb-mhead:active,.sb-mhead:focus{background:none;box-shadow:none;}
+    html[data-theme="light"] .sb-mhead{background:rgba(0,0,0,0.05);}
+    .sb-mhead:hover,.sb-mhead:active,.sb-mhead:focus{background:rgba(0,0,0,0.2);box-shadow:none;}
+    html[data-theme="light"] .sb-mhead:hover,
+    html[data-theme="light"] .sb-mhead:active,
+    html[data-theme="light"] .sb-mhead:focus{background:rgba(0,0,0,0.05);}
     .sb-mhead:active{transform:none;}
-    .sb-mhead .sb-mt{flex:1 1 auto;min-width:0;line-height:1.2;font-size:14px;}
-    .sb-mhead .sb-mchev{font-size:11px;}
+    /* Team Card's bar is a label, not a control: it is a div rather than a
+       button and must not offer a hand it does nothing with. */
+    div.sb-mhead{cursor:default;}
+    /* the serif .sb-mt below is the page's market title; inside the bar it is
+       the bar's own label and takes the bar's type */
+    .sb-mhead .sb-mt{flex:1 1 auto;min-width:0;line-height:1.2;
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
+    .sb-mhead .sb-mchev{font-size:10px;}
     /* the market icons were dropped on purpose — the chevron is not one of
        them, it is the control that says the market folds */
     .sb-mhead i{display:none;}
@@ -3909,6 +3927,9 @@
     .sb-mhead .badge-info{margin-left:auto;background:none;border:none;padding:0;
       font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.5px;
       text-transform:uppercase;color:var(--text3);}
+    /* the global dark-theme pill fill is !important, so stripping it here has
+       to be too — in the bar this is the fold's count line, not a badge */
+    html[data-theme="dark"] .sb-mhead .badge-info{background:none!important;}
     .sb-msub{font-size:11.5px;color:var(--text3);margin:0;padding:3px 14px 10px;}
     .sb-rows{display:flex;flex-direction:column;padding:0 0 4px;}
     .sb-row{display:grid;grid-template-columns:minmax(0,1fr) 58px 84px;align-items:center;gap:10px;
@@ -4062,7 +4083,11 @@
       /* the full-width one sits under the pair */
       .sb-tabs .tab-btn.sb-wide{grid-column:1/-1;}
       .sb-tabs .tab-btn{width:100%;justify-content:center;text-align:center;font-size:11.5px;padding:8px 6px;}
-      .sb-market{padding:12px 12px 4px;}
+      /* No inset on the card itself. Every child already carries its own
+         horizontal padding, and the twelve pixels here were holding the title
+         bar off the card edge — which is fine for a bare heading and wrong for
+         a strip with a background, which has to run the full width. */
+      .sb-market{padding:0 0 4px;}
       /* On a narrow screen a franchise row drops its full name for its
          abbreviation. A player or matchup row must not: the name IS the pick,
          and its second line is the team that owns them, so swapping the two

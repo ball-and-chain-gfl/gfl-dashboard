@@ -10617,10 +10617,10 @@ function sbMarketHTML(m){
      by default so the board is never a wall of closed bars. Open state is kept
      per market so a bet does not close what you were reading. */
   const open=!!_sbOpenMk[m.key];
-  /* sb-fold is what the folding CSS keys on. Team Card and the weekly board
-     build their own .sb-market blocks by hand and never fold — without this
-     they inherited display:none on their rows with no header to open them,
-     which is why By Team came up blank. */
+  /* sb-fold is what the folding CSS keys on, and only blocks that actually
+     fold may carry it. Team Card builds its own .sb-market by hand and stays
+     open — without the class being opt-in it inherited display:none on its
+     rows with no header to open them, which is why By Team came up blank. */
   return `<div class="sb-market sb-fold${open?' open':''}" data-mk="${m.key}">
     <button class="sb-mhead" onclick="sbToggleMk('${m.key}')" aria-expanded="${!!open}">
       <i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span>
@@ -11308,26 +11308,38 @@ function sbWeekHTML(){
       ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'o',`${pName(b.pid)} — Over $${line.toFixed(1)} FAAB`,-110,'sb-two','O '+line.toFixed(1))}
       ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'u',`${pName(b.pid)} — Under $${line.toFixed(1)} FAAB`,-110,'sb-two','U '+line.toFixed(1))}
     </div>`;}).join(''):`<div class="sb-msub" style="padding:12px 14px">No waiver activity recorded for week ${d.week}.</div>`;
-  /* The matchup board and the waiver market are built by hand and never fold;
-     everything else on the week is a normal folding market. */
+  /* The matchup board and the waiver market are hand-built rather than passed
+     through sbMarketHTML — their bodies are a game board and a FAAB ladder, not
+     a column of priced rows — but they fold like everything else on the week.
+     Six matchups and eight pickups left open were most of the page's scroll,
+     and the markets between them were unreachable without going past both. */
   const marks=(d.marks||[]).map(sbMarketHTML).join('');
-  return `<div class="sb-market">
-      <div class="sb-mhead"><i class="fa fa-calendar-week"></i><span class="sb-mt">Week ${d.week} Matchups</span>
-        <span class="badge-info">${d.live?'open':'settled'}</span></div>
-      <div class="sb-msub">${d.live
-        ? `Lines for the upcoming week — moneyline, spread and combined total.`
-        : `The ${d.season} season is complete, so week ${d.week}'s board is shown settled against what actually happened.`}</div>
-      <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
+  const wkOpen=!!_sbOpenMk['wk-board'], faabOpen=!!_sbOpenMk['wk-faab'];
+  return `<div class="sb-market sb-fold${wkOpen?' open':''}" data-mk="wk-board">
+      <button class="sb-mhead" onclick="sbToggleMk('wk-board')" aria-expanded="${wkOpen}">
+        <span class="sb-mt">Week ${d.week} Matchups</span>
+        <span class="badge-info">${d.live?'open':'settled'}</span>
+        <i class="fa fa-chevron-down sb-mchev"></i>
+      </button>
+      <div class="sb-rows"><div class="sb-rows-in">
+        <div class="sb-msub-in">${d.live
+          ? `Lines for the upcoming week — moneyline, spread and combined total.`
+          : `The ${d.season} season is complete, so week ${d.week}'s board is shown settled against what actually happened.`}</div>
+        <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
+      </div></div>
     </div>
     ${marks}
-    <div class="sb-market">
-      <div class="sb-mhead"><i class="fa fa-hand-holding-dollar"></i><span class="sb-mt">Waiver Wire</span>
-        <span class="badge-info">FAAB over / under</span></div>
-      <div class="sb-msub">What managers paid for week ${d.week} pickups. Bids are estimated for seasons ESPN has purged.</div>
-      <div class="sb-rows">
+    <div class="sb-market sb-fold${faabOpen?' open':''}" data-mk="wk-faab">
+      <button class="sb-mhead" onclick="sbToggleMk('wk-faab')" aria-expanded="${faabOpen}">
+        <span class="sb-mt">Waiver Wire</span>
+        <span class="badge-info">FAAB over / under</span>
+        <i class="fa fa-chevron-down sb-mchev"></i>
+      </button>
+      <div class="sb-rows"><div class="sb-rows-in">
+        <div class="sb-msub-in">What managers paid for week ${d.week} pickups. Bids are estimated for seasons ESPN has purged.</div>
         <div class="sb-row sb-row2 sb-head"><span>Player</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>
         ${waiver}
-      </div>
+      </div></div>
     </div>`;
 }
 
