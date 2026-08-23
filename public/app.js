@@ -7245,6 +7245,113 @@ function sbProbs(vals,k,blend){
   const z=sbZ(vals), p=sbSoftmax(z,k==null?0.75:k), n=vals.length||1, b=blend==null?0.16:blend;
   return p.map(v=>v*(1-b)+b/n);
 }
+const SB_HOLD=0.075;              // outright market hold
+const SB_TWOWAY=0.024;            // per side on two-way markets
+/* the 0.5% floor is what caps the longest shot on the board at +19900 */
+const sbPrice=(p,floor)=>amFromProb(Math.min(0.95,Math.max(floor==null?0.005:floor,p)));
+
+/* An entrant is {k,name,av,ab}: k is what the bet is keyed on, av the leading
+   graphic (a headshot, a franchise avatar, or nothing for a matchup). */
+function sbOutrightAny(key,title,sub,ents,probs,icon,holdMul,entLabel){
+  const tot=probs.reduce((a,b)=>a+b,0)||1;
+  const base=ents.map((_,i)=>probs[i]/tot);
+  const moved=sbBlend(key,ents.map(e=>e.k),base);
+  const h=1+SB_HOLD*(holdMul==null?1:holdMul);
+  const picks=ents.map((e,i)=>{
+    const open=sbPrice(Math.max(0.008,base[i])*h);
+    const o=sbPrice(Math.max(0.008,moved[i])*h);
+    return {owner:e.k,name:e.name,av:e.av==null?null:e.av,ab:e.ab||'',tail:!!e.tail,
+      odds:o,open,prob:probFromAm(o),fair:base[i],handle:sbStakeOn(key,e.k)};
+  /* An "anyone else" line is usually the likeliest single outcome on the
+     board, but it is not a favourite — it is the part of the field nobody
+     bothered to name. Sorting it to the top would read as one. It sits at the
+     foot, which is where a book prints it. */
+  }).sort((a,b)=>(a.tail?1:0)-(b.tail?1:0)||b.fair-a.fair);
+  return {key,title,sub,type:'outright',entLabel:entLabel||'Team',icon:icon||'fa-trophy',picks};
+}
+/* Two-way, with the clamps handed in. A market where every row is a long shot
+   needs different bounds from one where every row is a coin flip, and it also
+   needs a different kind of margin: adding a flat 2.4% to a 0.6% chance is not
+   a hold, it is a fivefold markup. Those markets take the margin as a
+   multiplier on the yes side and leave the near-certain no side alone. */
+function sbYesNoAny(key,title,sub,ents,probs,icon,opt){
+  const o=opt||{}, lo=o.lo==null?0.14:o.lo, hi=o.hi==null?0.86:o.hi;
+  return {key,title,sub,type:'yesno',entLabel:o.entLabel||'Team',
+    icon:icon||'fa-check-double',
+    picks:ents.map((e,i)=>{
+      const p=Math.min(hi,Math.max(lo,probs[i]));
+      const [py]=sbBlend(key,[e.k+':yes',e.k+':no'],[p,1-p]);
+      const q=Math.min(0.98,Math.max(0.002,py));
+      const yes=o.mul?sbPrice(q*(1+SB_HOLD*4)):sbPrice(Math.min(0.96,q+SB_TWOWAY));
+      const no =o.mul?sbPrice(Math.min(0.97,(1-q)+0.015)):sbPrice(Math.min(0.96,(1-q)+SB_TWOWAY));
+      return {owner:e.k,name:e.name,av:e.av==null?null:e.av,ab:e.ab||'',
+        yes,no,
+        openYes:o.mul?sbPrice(p*(1+SB_HOLD*4)):sbPrice(Math.min(0.96,p+SB_TWOWAY)),
+        openNo :o.mul?sbPrice(Math.min(0.97,(1-p)+0.015)):sbPrice(Math.min(0.96,(1-p)+SB_TWOWAY)),
+        fair:p, handleYes:sbStakeOn(key,e.k+':yes'), handleNo:sbStakeOn(key,e.k+':no')};
+    }).sort((a,b)=>b.fair-a.fair)};
+}
+/* Solve the logistic offset so a field of n entrants sums to exactly k winners.
+   A market for "top two seed" has to add up to two, not to twelve independent
+   guesses that happen to average out. */
+function sbSolveK(z,k,slope){
+  const a=slope==null?1.05:slope;
+  let lo=-8,hi=8,c=0;
+  for(let it=0;it<60;it++){ c=(lo+hi)/2;
+    const sum=z.reduce((t,v)=>t+1/(1+Math.exp(-(a*v+c))),0);
+    if(sum>k) hi=c; else lo=c; }
+  return z.map(v=>1/(1+Math.exp(-(a*v+c))));
+}
+
+/* "Who scores the most" is a question about the maximum of a set of random
+   variables, not about their ranking, and a softmax over the projections
+   answers the wrong one — it hands the also-rans a share proportional to how
+   good they are rather than to how often they actually finish first.
+
+   So the week is simulated. Each player's score is drawn around their
+   projection with a spread that scales with it, because that is how fantasy
+   scoring behaves: a quarterback projected for twenty lands near twenty far
+   more reliably than a receiver projected for the same, whose week is one long
+   touchdown away from either side of it. The floor on the spread keeps a low
+   projection from being treated as a certainty of scoring nothing.
+
+   Seeded deliberately. The board has to price identically every time it is
+   built or a market would drift on every repaint. */
+function sbTopProbs(means,seed){
+  const n=means.length; if(!n) return [];
+  let x=((seed||12345)>>>0)||1;
+  const rnd=()=>{ x^=x<<13; x>>>=0; x^=x>>>17; x^=x<<5; x>>>=0; return (x>>>0)/4294967296; };
+  /* Spread is wide and only partly proportional. A fantasy week is not a
+     tight distribution around its projection — the flat term is what lets a
+     bench player projected for four put up twenty on two touchdowns, which is
+     the single most common way one of these markets actually settles. Without
+     it the top projection on a roster priced like a coin flip to lead it. */
+  const sd=means.map(m=>0.60*m+4);
+  const win=new Array(n).fill(0), N=4000;
+  for(let it=0;it<N;it++){
+    let bi=0,bv=-1e9;
+    for(let i=0;i<n;i++){
+      const u=Math.max(1e-9,rnd()), v=rnd();               // Box–Muller
+      const sc=means[i]+sd[i]*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+      if(sc>bv){ bv=sc; bi=i; }
+    }
+    win[bi]++;
+  }
+  return win.map(w=>w/N);
+}
+
+/* the pool, keyed by player id, with a per-week projection */
+function sbPlayerProj(){
+  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+  if(!pool||!pool.length){ try{ bkLoadPool(); }catch(e){} return null; }
+  const out={};
+  pool.forEach(p=>{ out[String(p.id)]={name:p.name,pos:p.pos,
+    /* ESPN publishes a season projection; a week of it is that over the
+       seventeen, which is all a ranking needs and all this prices on */
+    wk:(p.proj||p.total||0)/17}; });
+  return out;
+}
+
 // per-season regular-season splits for one franchise
 function sbSplits(owner){
   const out=[];
@@ -7305,27 +7412,46 @@ const SB_LIVE_FULL=8;        // games after which it counts for all of that
    wrong about where the data comes from.
 
    Held once per season-week and reused; when it lands the board rebuilds. */
-let _sbRosters=null,_sbRostersKey='',_sbRostersBusy=false;
+/* Held per season-week rather than in one slot. Two callers now want
+   different weeks — the rating wants the last week actually played, the weekly
+   board wants the one about to be played — and a single slot had them evicting
+   each other's answer and refetching forever, each landing repriced the board
+   and sent the other one back to the network. */
+const _sbRosters={}; const _sbRostersBusy={};
 function sbRosters(season,week){
   const key=season+':'+week;
-  if(_sbRostersKey===key) return _sbRosters;
-  if(_sbRostersBusy) return null;
-  _sbRostersBusy=true;
-  fetch(`${BASE}?view=mRoster&seasonId=${season}&scoringPeriodId=${week}&live=1`,{cache:'no-store'})
+  if(_sbRosters[key]) return _sbRosters[key];
+  if(_sbRostersBusy[key]) return null;
+  _sbRostersBusy[key]=true;
+  /* The latch has to come off however this ends. A request that simply hangs
+     used to leave it on for the life of the page, and six markets that depend
+     on the rosters would quietly never appear — no error, no spinner, just a
+     board that was missing half of itself until someone reloaded. */
+  const done=()=>{ _sbRostersBusy[key]=false; };
+  const ctl=typeof AbortController!=='undefined'?new AbortController():null;
+  const timer=setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(e){} done(); },20000);
+  fetch(`${BASE}?view=mRoster&seasonId=${season}&scoringPeriodId=${week}&live=1`,
+        ctl?{cache:'no-store',signal:ctl.signal}:{cache:'no-store'})
     .then(r=>r.ok?r.json():null)
     .then(j=>{
+      clearTimeout(timer);
+      /* An empty answer is not an answer. Caching {} would have every market
+         that reads this decide the rosters are simply empty and stay wrong for
+         the rest of the session rather than trying again. */
+      const teams=(j&&j.teams)||[];
+      if(!teams.length){ done(); return; }
       const out={};
-      ((j&&j.teams)||[]).forEach(t=>{
+      teams.forEach(t=>{
         out[t.id]=((t.roster&&t.roster.entries)||[]).map(e=>({
           pid:e.playerId, slot:e.lineupSlotId,
           pos:(e.playerPoolEntry&&e.playerPoolEntry.player&&e.playerPoolEntry.player.defaultPositionId)||0,
         }));
       });
-      _sbRosters=out; _sbRostersKey=key; _sbRostersBusy=false;
+      _sbRosters[key]=out; done();
       _sbCache=null;                                   // reprice with it
       if(_activeTab==='book') try{ renderBook(); }catch(e){}
     })
-    .catch(()=>{ _sbRostersBusy=false; });
+    .catch(()=>{ clearTimeout(timer); done(); });
   return null;
 }
 
@@ -7585,8 +7711,24 @@ function sbBuild(){
     sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg+0.35*(r.z.vol||0)+0.30*(r.z.form||0)),0.72,0.42),'Outright','fa-rocket');
   const most80=outright('most80','Most Sub-80 Duds','Regular-season weeks the offense never showed',
     sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg+0.35*(r.z.vol||0)-0.30*(r.z.form||0)),0.72,0.42),'Outright','fa-face-dizzy');
+  /* ── WHERE THE SEASON LEAVES YOU ──
+     Two markets on the ends of the final table. Both are all-or-nothing on a
+     fixed number of places, so they are solved to sum to two rather than left
+     as twelve separate guesses — otherwise the board would happily sell four
+     teams a 40% chance of the same two seeds. The slope is steeper than the
+     playoff market's because the very top and the very bottom separate harder
+     than the middle does. */
+  const pTop2=sbSolveK(zr,2,1.35);
+  const topSeed=sbYesNoAny('topseed',`${sbSeason()} Top Two Seed`,
+    'Finishes the regular season as the 1 or 2 seed — a first-round bye',
+    rows.map(r=>({k:r.owner,name:r.name})),pTop2,'fa-crown',{lo:0.02,hi:0.62});
+  const pBot2=sbSolveK(zr.map(v=>-v),2,1.35);
+  const botSeed=sbYesNoAny('botseed',`${sbSeason()} Bottom Two Seed`,
+    'Finishes 11th or 12th — the losers bracket',
+    rows.map(r=>({k:r.owner,name:r.name})),pBot2,'fa-trash-can',{lo:0.02,hi:0.62});
   const groups={
-    season:[...confMarkets,playoffs,wins,mostPf,fewestPf,mostPa,highWeek,most150,most80],
+    season:[...confMarkets,playoffs,wins,mostPf,fewestPf,mostPa,highWeek,most150,most80,
+      topSeed,botSeed],
   };
   _sbCache={rows,groups,season:sbSeason(),games:GAMES,spots,stamp};
   return _sbCache;
@@ -10443,7 +10585,12 @@ function sbDrift(open,now){
 }
 function sbMarketHTML(m){
   const rows=m.picks.map(p=>{
-    const nm=`<span class="sb-tm">${sbAvatar(p.owner,22)}<span class="sb-nm">${p.name}</span><span class="sb-ab">${sbTeamAb(p.owner,p.name)}</span></span>`;
+    /* A pick carries its own graphic when it is not a franchise — a headshot
+       for a player market, nothing at all for a matchup. */
+    const nm=p.av!=null
+      ? `<span class="sb-tm sb-tm-free">${p.av}<span class="sb-txt"><span class="sb-nm">${p.name}</span>${
+          p.ab?`<span class="sb-ab">${p.ab}</span>`:''}</span></span>`
+      : `<span class="sb-tm">${sbAvatar(p.owner,22)}<span class="sb-nm">${p.name}</span><span class="sb-ab">${sbTeamAb(p.owner,p.name)}</span></span>`;
     if(m.type==='outright'){
       return `<div class="sb-row">${nm}
         <span class="sb-imp">${sbDrift(p.open,p.odds)}<span class="sb-imp-v">${(p.prob*100).toFixed(1)}%</span></span>
@@ -10459,11 +10606,12 @@ function sbMarketHTML(m){
       ${sbBtn(m.key,m.title,p.owner+':o',`${p.name} — Over ${ln}`,p.over,'sb-two','O '+ln)}
       ${sbBtn(m.key,m.title,p.owner+':u',`${p.name} — Under ${ln}`,p.under,'sb-two','U '+ln)}</div>`;
   }).join('');
+  const el=m.entLabel||'Team';
   const head=m.type==='outright'
-    ? `<div class="sb-row sb-head"><span>Team</span><span class="sb-imp">Implied</span><span class="sb-oh">Odds</span></div>`
+    ? `<div class="sb-row sb-head"><span>${el}</span><span class="sb-imp">Implied</span><span class="sb-oh">Odds</span></div>`
     : m.type==='yesno'
-      ? `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Yes</span><span class="sb-oh">No</span></div>`
-      : `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>`;
+      ? `<div class="sb-row sb-row2 sb-head"><span>${el}</span><span class="sb-oh">Yes</span><span class="sb-oh">No</span></div>`
+      : `<div class="sb-row sb-row2 sb-head"><span>${el}</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>`;
   /* Ten markets of twelve rows each is a very long page to scroll past to
      reach the one you wanted. Each folds behind its own title; the first opens
      by default so the board is never a wall of closed bars. Open state is kept
@@ -10758,6 +10906,47 @@ function myBetsHTML(){
   }).join('');
   return ledger+cards;
 }
+/* ── WHO LEADS THIS ROSTER THIS WEEK ─────────────────────────────────────────
+   Four named players and a fifth pick that covers everybody else on the roster
+   at once. The fifth is not filler: on a sixteen-man roster the other twelve
+   between them win this more often than any single one of the four, so leaving
+   it off would have priced the four as if they were the whole field and made
+   every one of them look like better value than it is. */
+function sbTeamTopMarket(book,owner,week){
+  const r=book.rows.find(x=>x.owner===owner); if(!r) return '';
+  const proj=sbPlayerProj(), rost=sbRosters(getSeason(),week);
+  if(!proj||!rost) return '';
+  const mine=rost[r.tid]; if(!mine||!mine.length) return '';
+  const list=mine.map(e=>({pid:e.pid,p:proj[String(e.pid)]}))
+    .filter(x=>x.p&&x.p.wk>0).sort((a,b)=>b.p.wk-a.p.wk);
+  if(list.length<5) return '';
+  const four=list.slice(0,4), rest=list.slice(4);
+  /* Simulated over the whole roster, so the four named prices and the field's
+     price are the same number cut two ways rather than two separate guesses. */
+  const all=sbTopProbs(list.map(x=>x.p.wk),(r.tid||1)*7919+week);
+  const p=[...all.slice(0,4),all.slice(4).reduce((a,v)=>a+v,0)];
+  const ents=[...four.map(x=>({k:'p'+x.pid,name:x.p.name,
+      av:playerImg(x.pid,22,x.p.name),ab:POS_NAMES[x.p.pos]||''})),
+    {k:'field',name:'Anyone else',tail:true,
+      av:'<span class="sb-field-av"><i class="fa fa-users"></i></span>',
+      ab:rest.length+' players'}];
+  const m=sbOutrightAny('tt'+owner+'-'+week,`Week ${week} Top Scorer`,
+    `Which player on ${r.name} scores the most this week, on ESPN projections`,
+    ents,p,'fa-user-astronaut',1,'Player');
+  return sbMarketHTML(m);
+}
+function sbWeekOf(){
+  const meta=_seasonMeta[getSeason()]; if(!meta) return 1;
+  const played=new Set(), all=new Set();
+  (meta.schedule||[]).forEach(m=>{
+    if(!m.home||!m.away) return;
+    const wk=m.matchupPeriodId||0; if(!wk) return;
+    all.add(wk);
+    if((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0) played.add(wk);
+  });
+  const last=played.size?Math.max(...played):0;
+  return [...all].sort((a,b)=>a-b).find(w=>w>last)||last||1;
+}
 function sbTeamViewHTML(book){
   if(_sbTeamSel==null||!book.rows.some(r=>r.owner===_sbTeamSel)) _sbTeamSel=book.rows.slice().sort((a,b)=>b.rating-a.rating)[0].owner;
   const owner=_sbTeamSel;
@@ -10766,6 +10955,9 @@ function sbTeamViewHTML(book){
     .map(x=>`<option value="${x.owner}" ${x.owner===owner?'selected':''}>${x.name}</option>`).join('');
   const lines=[];
   Object.values(book.groups).flat().forEach(m=>{
+    /* A player or matchup market has rows keyed by player id or by matchup,
+       never by owner, so it has nothing to say on a team's card. */
+    if(m.entLabel&&m.entLabel!=='Team') return;
     const p=m.picks.find(x=>x.owner===owner); if(!p) return;
     if(m.type==='outright') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner,r.name,p.odds)],note:(p.prob*100).toFixed(1)+'% implied'});
     else if(m.type==='yesno') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner+':yes',r.name+' — Yes',p.yes,'sb-two','Yes'),sbBtn(m.key,m.title,owner+':no',r.name+' — No',p.no,'sb-two','No')],note:'Yes / No'});
@@ -10784,7 +10976,8 @@ function sbTeamViewHTML(book){
     <div class="sb-rows">${lines.map(l=>`<div class="sb-trow">
       <span class="sb-tl"><span class="sb-tl-m">${l.label}</span><span class="sb-tl-n">${l.note}</span></span>
       <span class="sb-tc-odds">${l.cells.join('')}</span></div>`).join('')}</div>
-  </div>`;
+  </div>
+  ${sbTeamTopMarket(book,owner,sbWeekOf())}`;
 }
 function sbSlipHTML(){
   const n=_slip.length;
@@ -10970,7 +11163,107 @@ function sbWeekData(){
     });
   });
   buys.sort((x,y)=>y.bid-x.bid);
-  return {book,season,week,live,games,buys:buys.slice(0,8)};
+  return {book,season,week,live,games,buys:buys.slice(0,8),marks:sbWeekMarkets(book,games,week)};
+}
+
+/* ── SIX MARKETS ON THE WEEK ─────────────────────────────────────────────────
+   Everything here is about one week rather than the season, which changes what
+   matters. Over seventeen weeks the better team wins; over one, variance is
+   most of the story — so a team's own week-to-week spread is a real term in
+   every one of these, and it pushes the same team toward both the high score
+   and the low one. That is not a contradiction. A boom-or-bust roster is
+   exactly the roster that turns up at both ends of the table. */
+function sbWeekMarkets(book,games,week){
+  const rows=book.rows;
+  if(!rows||rows.length<2) return [];
+  const z=r=>({ppg:r.z.ppg||0,form:r.z.form||0,rost:r.z.roster||0,vol:r.z.vol||0});
+  const out=[];
+
+  /* 1 & 2 — the top and bottom score of the week.
+     Roster carries more here than in any season market: over one week what
+     ESPN projects the players to score is closer to the truth than what the
+     franchise has averaged since 2015. */
+  const te=rows.map(r=>({k:r.owner,name:r.name}));
+  out.push(sbOutrightAny('wk'+week+'-high',`Week ${week} Top Score`,
+    'Highest team score of the week',te,
+    sbProbs(rows.map(r=>{const v=z(r); return 0.80*v.ppg+0.50*v.form+0.75*v.rost+0.35*v.vol;}),0.62,0.42),
+    'fa-fire',1,'Team'));
+  out.push(sbOutrightAny('wk'+week+'-low',`Week ${week} Low Score`,
+    'Lowest team score of the week',te,
+    sbProbs(rows.map(r=>{const v=z(r); return -0.80*v.ppg-0.50*v.form-0.75*v.rost+0.35*v.vol;}),0.62,0.42),
+    'fa-battery-empty',1,'Team'));
+
+  /* 3 & 4 — the shape of the week's six games.
+     The margin the model already put on each matchup is the whole signal; two
+     volatile teams simply widen whatever it says, which makes their game both
+     the likeliest blowout and the least likely nail-biter. */
+  if(games.length>1){
+    /* "Bikini Bottom Goobers vs Team silly willy" is not a row that fits a
+       phone, and it clipped on every one of the six. The pair of crests plus
+       the abbreviations is how the matchup board immediately above these names
+       the same twelve teams, so these follow it rather than inventing a second
+       way to write a fixture. No second line: the full pair does not fit one
+       either, and a clipped subtitle is worse than none. */
+    const ge=games.map(g=>({k:'g'+g.a.tid+'-'+g.b.tid,
+      name:sbTeamAb(g.a.owner,g.a.name)+' v '+sbTeamAb(g.b.owner,g.b.name),
+      av:'<span class="sb-duo">'+sbAvatar(g.a.owner,20)+sbAvatar(g.b.owner,20)+'</span>',
+      ab:''}));
+    const vol=games.map(g=>((g.a.z.vol||0)+(g.b.z.vol||0))/2);
+    out.push(sbOutrightAny('wk'+week+'-close',`Week ${week} Closest Game`,
+      'Smallest final margin of the six',ge,
+      sbProbs(games.map((g,i)=>-1.0*g.spread-0.55*vol[i]),0.80,0.30),
+      'fa-compress',1,'Matchup'));
+    out.push(sbOutrightAny('wk'+week+'-blow',`Week ${week} Biggest Blowout`,
+      'Largest final margin of the six',ge,
+      sbProbs(games.map((g,i)=>1.0*g.spread+0.55*vol[i]),0.80,0.30),
+      'fa-explosion',1,'Matchup'));
+  }
+
+  /* 5 — the week's top scorer, out of everyone anybody owns.
+     Priced straight off ESPN's own projections, which is the only genuinely
+     forward-looking number in the data. Free agents are left out: a player
+     nobody rosters cannot score for anybody. */
+  const proj=sbPlayerProj();
+  const rost=sbRosters(getSeason(),week);
+  if(proj&&rost){
+    const own={};
+    Object.keys(rost).forEach(tid=>{
+      const o=(book.rows.find(r=>r.tid===Number(tid))||{}).name||'';
+      rost[tid].forEach(e=>{ own[String(e.pid)]=o; });
+    });
+    /* The whole rostered field is simulated, not just the names on the board.
+       Pricing only the top ten against each other would normalise their ten
+       chances to a certainty and sell every one of them at roughly double what
+       it is worth — one of the ten would have to win it. The eleventh name
+       down often does. */
+    const cand=Object.keys(own).map(pid=>({pid,p:proj[pid]}))
+      .filter(x=>x.p&&x.p.wk>0).sort((a,b)=>b.p.wk-a.p.wk).slice(0,60);
+    const NAMED=20;
+    if(cand.length>NAMED){
+      const pw=sbTopProbs(cand.map(c=>c.p.wk),week*7919+11);
+      const ents=[...cand.slice(0,NAMED).map(c=>({k:'p'+c.pid,name:c.p.name,
+          av:playerImg(Number(c.pid),22,c.p.name),ab:own[c.pid]})),
+        {k:'field',name:'Anyone else',tail:true,
+          av:'<span class="sb-field-av"><i class="fa fa-users"></i></span>',
+          ab:(cand.length-NAMED)+'+ players'}];
+      out.push(sbOutrightAny('wk'+week+'-player',`Week ${week} Top Player`,
+        'Highest-scoring rostered player of the week, on ESPN projections',
+        ents,[...pw.slice(0,NAMED),pw.slice(NAMED).reduce((a,v)=>a+v,0)],
+        'fa-medal',1,'Player'));
+    }
+  }
+
+  /* 6 — the donut.
+     A fantasy team scoring nothing at all takes an empty lineup, which is a
+     manager problem rather than a football one, so nothing in the data really
+     predicts it. It opens as a near-flat long shot with a small lean toward the
+     weakest offences, and the clamps hold the whole board between +6500 and
+     +19900 so a joke bet cannot pay out the league's entire economy. */
+  out.push(sbYesNoAny('wk'+week+'-donut',`Week ${week} Donut`,
+    'Does this team score exactly zero? It has never happened. Someone will still bet it.',
+    te,rows.map(r=>0.007*Math.exp(-0.40*(r.z.ppg||0))),
+    'fa-ring',{lo:0.004,hi:0.015,mul:true}));
+  return out;
 }
 function sbWeekHTML(){
   const d=sbWeekData();
@@ -11015,6 +11308,9 @@ function sbWeekHTML(){
       ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'o',`${pName(b.pid)} — Over $${line.toFixed(1)} FAAB`,-110,'sb-two','O '+line.toFixed(1))}
       ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'u',`${pName(b.pid)} — Under $${line.toFixed(1)} FAAB`,-110,'sb-two','U '+line.toFixed(1))}
     </div>`;}).join(''):`<div class="sb-msub" style="padding:12px 14px">No waiver activity recorded for week ${d.week}.</div>`;
+  /* The matchup board and the waiver market are built by hand and never fold;
+     everything else on the week is a normal folding market. */
+  const marks=(d.marks||[]).map(sbMarketHTML).join('');
   return `<div class="sb-market">
       <div class="sb-mhead"><i class="fa fa-calendar-week"></i><span class="sb-mt">Week ${d.week} Matchups</span>
         <span class="badge-info">${d.live?'open':'settled'}</span></div>
@@ -11023,6 +11319,7 @@ function sbWeekHTML(){
         : `The ${d.season} season is complete, so week ${d.week}'s board is shown settled against what actually happened.`}</div>
       <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
     </div>
+    ${marks}
     <div class="sb-market">
       <div class="sb-mhead"><i class="fa fa-hand-holding-dollar"></i><span class="sb-mt">Waiver Wire</span>
         <span class="badge-info">FAAB over / under</span></div>

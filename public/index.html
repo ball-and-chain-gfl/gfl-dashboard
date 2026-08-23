@@ -3926,7 +3926,22 @@
     .sb-tm{display:flex;align-items:center;gap:9px;min-width:0;}
     .sb-nm{font-family:'Google Sans Flex',Georgia,serif;font-size:13.5px;font-weight:600;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* the 'anyone else' row has no headshot, so it takes a mark the same size
+       to keep the column of names lined up with the rest */
+    .sb-field-av{display:inline-flex;align-items:center;justify-content:center;
+      width:22px;height:22px;flex:0 0 22px;border-radius:50%;
+      background:rgba(255,255,255,0.08);color:var(--text3);font-size:10px;}
     .sb-ab{display:none;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;letter-spacing:.4px;}
+    /* A player or matchup row is not a franchise: its second line is the team
+       that owns the player, which is a subtitle rather than a stand-in for the
+       name. It stacks under the name and stays at every width. */
+    .sb-tm-free{align-items:center;}
+    /* the two crests of a fixture, overlapped the way a fixture is drawn */
+    .sb-duo{display:inline-flex;flex:0 0 auto;align-items:center;}
+    .sb-duo>*:last-child{margin-left:-7px;}
+    .sb-tm-free .sb-txt{display:flex;flex-direction:column;gap:1px;min-width:0;}
+    .sb-tm-free .sb-ab{display:block;font-size:10px;font-weight:500;letter-spacing:.2px;
+      color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     /* The arrow rides beside the implied number rather than under it: a second
        line pushed the row taller and read as a separate fact instead of a note
        on that one. nowrap keeps them together when the column is tight. */
@@ -4048,8 +4063,14 @@
       .sb-tabs .tab-btn.sb-wide{grid-column:1/-1;}
       .sb-tabs .tab-btn{width:100%;justify-content:center;text-align:center;font-size:11.5px;padding:8px 6px;}
       .sb-market{padding:12px 12px 4px;}
+      /* On a narrow screen a franchise row drops its full name for its
+         abbreviation. A player or matchup row must not: the name IS the pick,
+         and its second line is the team that owns them, so swapping the two
+         showed the owner where the player should be. */
       .sb-nm{display:none;}
       .sb-ab{display:inline;}
+      .sb-tm-free .sb-nm{display:block;font-size:12.5px;}
+      .sb-tm-free .sb-ab{display:block;}
       .sb-row{grid-template-columns:minmax(0,1fr) 46px 78px;gap:7px;}
       .sb-row2{grid-template-columns:minmax(0,1fr) 78px 78px;}
       .sb-odds{min-height:36px;}
