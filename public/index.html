@@ -1186,13 +1186,13 @@
     .iv-go.iv-sell:not(:disabled){border-color:rgba(232,104,126,0.45);color:var(--red);}
     /* ── A market folds behind its title ─────────────────────────────────── */
     .sb-mhead .sb-mt{flex:0 0 auto;}
-    .sb-msub-in{flex:1 1 100%;order:3;font-family:'Inter',sans-serif;font-size:11.5px;
-      color:var(--text3);line-height:1.4;}
+    .sb-msub-in{padding:0 14px 12px;font-family:'Inter',sans-serif;font-size:11.5px;
+      color:var(--text3);line-height:1.45;}
     .sb-mchev{margin-left:auto;flex:0 0 auto;font-size:12px;color:var(--text3);
       transition:transform .18s ease;}
     .sb-market.open .sb-mchev{transform:rotate(180deg);}
-    .sb-market>.sb-rows{display:none;}
-    .sb-market.open>.sb-rows{display:block;}
+    .sb-fold>.sb-rows{display:none;}
+    .sb-fold.open>.sb-rows{display:block;}
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────
@@ -2094,12 +2094,20 @@
        smaller than the starters on purpose: the lineup is the thing being read
        and the bench is context around it. */
     .fm-benchrow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px;}
-    .fm-bn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-      padding:8px 4px;border-radius:9px;border:1px solid transparent;background:rgba(0,0,0,0.2);
-      min-width:0;}
-    .fm-bn .fm-ring{width:26px;height:26px;font-size:9.5px;}
-    .fm-bn .fm-lbl{font-size:7.5px;}
-    .fm-bn .fm-nm{font-size:8px;max-width:100%;}
+    /* The head sits flush with the floor of the card and rises out of it, the
+       way a player comes up off the bench. Label first, name over the head. */
+    .fm-bn{position:relative;display:flex;flex-direction:column;align-items:center;
+      gap:2px;padding:7px 3px 0;border-radius:9px;border:1px solid transparent;
+      background:rgba(0,0,0,0.2);min-width:0;overflow:hidden;min-height:74px;}
+    .fm-bn .fm-lbl{font-size:7.5px;order:1;}
+    .fm-bn .fm-nm{position:static;transform:none;order:2;font-size:8px;max-width:100%;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .fm-bn .fm-ring{order:3;width:34px;height:34px;margin-top:auto;
+      border:0;border-radius:8px 8px 0 0;background:none;overflow:hidden;}
+    /* the photo is anchored to its own bottom so the crop keeps the face */
+    .fm-bn .fm-ring .phs{width:100%!important;height:100%!important;border-radius:0!important;}
+    .fm-bn .fm-ring .phs img{object-position:top center!important;}
+    .fm-bn.on .fm-ring{border:0;}
     /* the last slot is not a bench slot and should not read as one */
     .fm-ir{background:rgba(232,104,126,0.09);}
     .fm-ir .fm-lbl{color:var(--red);}
@@ -2109,8 +2117,8 @@
     .rs-demo i{margin-top:2px;color:var(--accent);flex:0 0 auto;}
     @media(max-width:420px){
       .fm-benchrow{gap:4px;}
-      .fm-bn{padding:6px 2px;}
-      .fm-bn .fm-ring{width:22px;height:22px;font-size:8.5px;}
+      .fm-bn{padding:6px 2px 0;min-height:66px;}
+      .fm-bn .fm-ring{width:30px;height:30px;}
       .fm-bn .fm-nm{font-size:7px;}
     }
     .fm-empty{margin-top:9px;text-align:center;font-family:'Inter',sans-serif;

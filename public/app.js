@@ -7549,7 +7549,18 @@ function sbBuild(){
   const fewestPf=outright('fewpf','Fewest Points Scored','League low in points for',
     sbProbs(rows.map(r=>-r.z.ppg-0.55*(r.z.form||0)-0.60*(r.z.roster||0)),0.80,0.40),'Outright','fa-battery-empty');
   const mostPa=outright('mostpa','Most Points Against','Takes the most incoming fire',
-    sbProbs(rows.map(r=>r.z.pa),0.40,0.58),'Outright','fa-shield-halved');
+    /* Nothing a manager does decides this — it is whoever happens to be
+       drawn against them having a good week. So it opens at close to a
+       twelve-way coin flip and only earns a shape as the season supplies one:
+       10% career lean at the start, rising toward the live signal as the games
+       come in. Blend 0.90 is what pulls it back toward even. */
+    sbProbs(rows.map(r=>{
+      const live=_sbLiveWeight||0;                 // 0 in week one, 0.55 by week eight
+      return (1-live)*(0.10*r.z.pa)+live*(0.70*r.z.pa+0.30*(r.z.form||0));
+    /* And the flattening itself relaxes. A constant 0.90 would hold the
+       market near even all year no matter what actually happened; it eases to
+       0.55 as the season fills in, so real points-against earns a real shape. */
+    }),0.40,0.90-0.35*(_sbLiveWeight||0)/SB_LIVE_MAX),'Outright','fa-shield-halved');
 
   // ── ACHIEVEMENTS ──
   /* a big week needs a good offence and a wide spread — a steady team almost
@@ -10444,13 +10455,16 @@ function sbMarketHTML(m){
      by default so the board is never a wall of closed bars. Open state is kept
      per market so a bet does not close what you were reading. */
   const open=!!_sbOpenMk[m.key];
-  return `<div class="sb-market${open?' open':''}">
+  /* sb-fold is what the folding CSS keys on. Team Card and the weekly board
+     build their own .sb-market blocks by hand and never fold — without this
+     they inherited display:none on their rows with no header to open them,
+     which is why By Team came up blank. */
+  return `<div class="sb-market sb-fold${open?' open':''}">
     <button class="sb-mhead" onclick="sbToggleMk('${m.key}')" aria-expanded="${!!open}">
       <i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span>
-      <span class="sb-msub-in">${m.sub}</span>
       <i class="fa fa-chevron-down sb-mchev"></i>
     </button>
-    <div class="sb-rows">${head}${rows}</div>
+    <div class="sb-rows"><div class="sb-msub-in">${m.sub}</div>${head}${rows}</div>
   </div>`;
 }
 /* which market is open, and which one opens itself */
