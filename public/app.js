@@ -7115,7 +7115,7 @@ function sbStakeOn(mk,pick){
 let _sbTeamSel=null;         // owner for the By Team view
 let _slip=[];                // [{k,mk,mkLabel,pick,pickLabel,odds}]
 let _sbStake=10;
-let _sbCache=null;
+let _sbCache=null,_sbLiveWeight=0,_sbLivePlayed=0;
 let _sbSlipOpen=false;
 
 // The futures season is the one being played next: if the newest season has a
@@ -7174,6 +7174,83 @@ function sbSplits(owner){
   });
   return out;
 }
+
+/* ── WHAT THIS SEASON SAYS ───────────────────────────────────────────────────
+   The rating underneath every price was built entirely from career record,
+   weighted so recent years count for more. That is the right basis for a line
+   posted in August and an increasingly poor one by October: a team that has
+   started 0–6 was still being priced on who they used to be.
+
+   These four signals are all about right now, and all of them were already
+   being gathered for other parts of the site — none of this needs a new call.
+
+     form     this season's record and scoring, and the last three weeks on top,
+              so a team playing well shows up before the record catches up
+     vol      week-to-week swing. Not good or bad on its own, but it is what
+              separates a team that will post the season's highest week from one
+              that grinds out the same number every Sunday
+
+   Two more were built and taken back out: roster strength from the NFL player
+   pool, and Lineup IQ. Both are genuinely predictive and both are already
+   gathered — but only on other tabs. _tenure loads on Player Data and _liq on
+   Coaching Metric, so on the Sportsbook they are usually absent, and a price
+   that depends on which tabs you happened to visit first is worse than a
+   simpler price. They belong here the day that data is loaded league-wide.
+
+   Everything below comes out of _seasonMeta, which is always in memory, so the
+   board is the same for everyone whatever route they took to it.
+
+   HOW MUCH THEY COUNT. Early in a season there is almost no current-season
+   evidence, and leaning on three games would make the board lurch after every
+   upset. So the live blend is weighted by how much football has been played,
+   reaching full strength around week eight. In week one this is a no-op and the
+   board is the career model exactly as it was. */
+const SB_LIVE_MAX=0.55;      // most of the rating this season may ever own
+const SB_LIVE_FULL=8;        // games after which it counts for all of that
+
+function sbLiveSignals(rows,season){
+  const out={form:{},vol:{},played:0};
+  if(!season) return out;
+  const meta=_seasonMeta[season]; if(!meta) return out;
+  const owners=meta.owners||{};
+
+  /* ── form: this season's record, scoring and last three weeks ── */
+  const rec={};
+  const R=o=>rec[o]||(rec[o]={w:0,g:0,pf:0,weeks:[]});
+  (meta.schedule||[]).forEach(m=>{
+    const wk=Number(m.matchupPeriodId)||0;
+    if(!wk||!m.home||!m.away) return;
+    const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+    if(hp===0&&ap===0) return;
+    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+    if(!ho||!ao||ho===ao) return;
+    const H=R(ho), A=R(ao);
+    H.g++; A.g++; H.pf+=hp; A.pf+=ap;
+    H.weeks.push({wk,pts:hp}); A.weeks.push({wk,pts:ap});
+    if(hp>ap) H.w++; else if(ap>hp) A.w++; else { H.w+=0.5; A.w+=0.5; }
+  });
+  const played=Math.max(0,...rows.map(r=>(rec[r.owner]||{}).g||0));
+  out.played=played;
+  if(!played) return out;
+  const lgPpg=(()=>{ let p=0,g=0; Object.values(rec).forEach(x=>{p+=x.pf;g+=x.g;}); return g?p/g:100; })();
+  rows.forEach(r=>{
+    const x=rec[r.owner]; if(!x||!x.g) return;
+    const wr=(x.w/x.g-0.5)*2;                                   // −1 … +1
+    const sc=lgPpg?((x.pf/x.g)/lgPpg-1):0;
+    const last=x.weeks.slice(-3);
+    const fm=(last.length&&lgPpg)?((last.reduce((a,b)=>a+b.pts,0)/last.length)/lgPpg-1):0;
+    out.form[r.owner]=0.50*wr+0.30*sc+0.20*fm;
+    /* the spread of their weekly scores, as a fraction of their own average */
+    if(x.weeks.length>2){
+      const m2=x.pf/x.g;
+      const v=Math.sqrt(x.weeks.reduce((a,b)=>a+(b.pts-m2)*(b.pts-m2),0)/x.weeks.length);
+      out.vol[r.owner]=m2?v/m2:0;
+    }
+  });
+
+  return out;
+}
+
 function sbBuild(){
   /* the board is a function of the season and of the money on it, so both go
      in the cache key — otherwise a bet would not move a price until reload */
@@ -7212,10 +7289,31 @@ function sbBuild(){
         z80=Z(r=>r.u80), zMv=Z(r=>r.moves), zCm=Z(r=>r.cm), zLast=Z(r=>r.lastRank),
         zCoy=Z(r=>r.coy), zCommit=Z(r=>r.commit);
   rows.forEach((r,i)=>{
-    r.rating=1.15*zWin[i]+0.95*zPpg[i]-0.20*zPa[i]+0.45*zPo[i]+0.30*zT3[i]+0.25*zRg[i]+0.10*zCm[i];
+    r.career=1.15*zWin[i]+0.95*zPpg[i]-0.20*zPa[i]+0.45*zPo[i]+0.30*zT3[i]+0.25*zRg[i]+0.10*zCm[i];
+    r.rating=r.career;
     r.z={win:zWin[i],ppg:zPpg[i],pa:zPa[i],hi:zHi[i],o150:z150[i],u80:z80[i],mv:zMv[i],
          last:zLast[i],coy:zCoy[i],commit:zCommit[i]};
   });
+  /* Now the part that knows what has happened this year. Each live signal is
+     z-scored across the league so it is on the same scale as the career terms,
+     and the blend grows with the number of games behind it — nothing at all in
+     week one, everything it is going to be by week eight. */
+  (function(){
+    const live=sbLiveSignals(rows,ntSeason&&ntSeason());
+    const has=k=>rows.some(r=>live[k][r.owner]!=null);
+    const zf=k=>{ const v=rows.map(r=>live[k][r.owner]!=null?live[k][r.owner]:0); return sbZ(v); };
+    const zForm=has('form')?zf('form'):rows.map(()=>0);
+    const zVol =has('vol')?zf('vol'):rows.map(()=>0);
+    const w=Math.min(1,(live.played||0)/SB_LIVE_FULL)*SB_LIVE_MAX;
+    rows.forEach((r,i)=>{
+      /* form is already a blend of record, scoring and the last three weeks, so
+         it goes in whole rather than being split apart again */
+      r.live=zForm[i];
+      r.z.form=zForm[i]; r.z.vol=zVol[i];
+      r.rating=(1-w)*r.career+w*r.live;
+    });
+    _sbLiveWeight=w; _sbLivePlayed=live.played||0;
+  })();
   const ratings=rows.map(r=>r.rating);
   const lgPpg=rows.reduce((a,r)=>a+r.ppg,0)/rows.length;
   const GAMES=regEndOf(latest)||14;
@@ -7301,19 +7399,21 @@ function sbBuild(){
     zr.map(v=>Math.min(GAMES-2,Math.max(2,GAMES*Math.min(0.70,Math.max(0.30,1/(1+Math.exp(-0.62*v))))))),
     0.30,0.5,'Over / Under','fa-arrows-up-down');
   const mostPf=outright('mostpf','Most Points Scored','League leader in points for',
-    sbProbs(rows.map(r=>r.z.ppg),0.80,0.40),'Outright','fa-fire');
+    sbProbs(rows.map(r=>r.z.ppg+0.55*(r.z.form||0)),0.80,0.40),'Outright','fa-fire');
   const fewestPf=outright('fewpf','Fewest Points Scored','League low in points for',
-    sbProbs(rows.map(r=>-r.z.ppg),0.80,0.40),'Outright','fa-battery-empty');
+    sbProbs(rows.map(r=>-r.z.ppg-0.55*(r.z.form||0)),0.80,0.40),'Outright','fa-battery-empty');
   const mostPa=outright('mostpa','Most Points Against','Takes the most incoming fire',
     sbProbs(rows.map(r=>r.z.pa),0.40,0.58),'Outright','fa-shield-halved');
 
   // ── ACHIEVEMENTS ──
+  /* a big week needs a good offence and a wide spread — a steady team almost
+     never posts the league's best score even when it is the best team */
   const highWeek=outright('highweek','Highest Single Week','Top regular-season score by any team in any week',
-    sbProbs(rows.map(r=>0.75*r.z.ppg+0.5*r.z.hi),0.70,0.42),'Outright','fa-bolt');
+    sbProbs(rows.map(r=>0.60*r.z.ppg+0.40*r.z.hi+0.45*(r.z.vol||0)+0.35*(r.z.form||0)),0.70,0.42),'Outright','fa-bolt');
   const most150=outright('most150','Most 150+ Point Games','Blow-up weeks in the regular season',
-    sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg),0.72,0.42),'Outright','fa-rocket');
+    sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg+0.35*(r.z.vol||0)+0.30*(r.z.form||0)),0.72,0.42),'Outright','fa-rocket');
   const most80=outright('most80','Most Sub-80 Duds','Regular-season weeks the offense never showed',
-    sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg),0.72,0.42),'Outright','fa-face-dizzy');
+    sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg+0.35*(r.z.vol||0)-0.30*(r.z.form||0)),0.72,0.42),'Outright','fa-face-dizzy');
   const groups={
     season:[...confMarkets,playoffs,wins,mostPf,fewestPf,mostPa,highWeek,most150,most80],
   };
