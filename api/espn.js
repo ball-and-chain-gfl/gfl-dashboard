@@ -1107,7 +1107,7 @@ export default async function handler(req, res) {
         limit,
         sortPercOwned: { sortAsc: false, sortPriority: 1 },
         filterStatsForExternalIds: { value: [parseInt(season, 10)] },
-        filterStatsForSourceIds: { value: [0] },
+        filterStatsForSourceIds: { value: [0, 1] },
         filterStatsForSplitTypeIds: { value: [0, 1] },
       },
     };
@@ -1122,6 +1122,8 @@ export default async function handler(req, res) {
         const stats = p.stats || [];
         // statSourceId 0 is what actually happened; 1 is ESPN's projection
         const seasonRow = stats.find(x => x.statSourceId === 0 && x.statSplitTypeId === 0);
+        // ESPN's own season projection for the same player
+        const projRow = stats.find(x => x.statSourceId === 1 && x.statSplitTypeId === 0);
         const wk = {};
         stats.forEach(x => {
           if (x.statSourceId !== 0 || x.statSplitTypeId !== 1) return;
@@ -1135,6 +1137,7 @@ export default async function handler(req, res) {
           pos: p.defaultPositionId ?? 0,
           owned: +((p.ownership && p.ownership.percentOwned) || 0).toFixed(1),
           total: seasonRow && typeof seasonRow.appliedTotal === 'number' ? +seasonRow.appliedTotal.toFixed(1) : 0,
+          proj: projRow && typeof projRow.appliedTotal === 'number' ? +projRow.appliedTotal.toFixed(1) : 0,
           weeks: wk,
         };
       }).filter(p => p.id && p.name);

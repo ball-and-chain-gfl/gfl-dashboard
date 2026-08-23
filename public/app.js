@@ -1459,8 +1459,11 @@ function renderC3Breakdown(){
 let _liq={};                 // season -> { teamId: {weeks,decisions,correct,missed} }
 let _liqLoading={};
 function liqOf(teamId){ const d=_liq[getSeason()]; return d?d[teamId]:null; }
-function loadLineupIQ(){
-  const season=getSeason();
+/* Takes an optional season. Without one it follows the nav year, which is
+   what every existing caller wants; the sportsbook passes the season it is
+   actually pricing rather than relying on the two happening to agree. */
+function loadLineupIQ(want){
+  const season=want||getSeason();
   if(_liq[season]||_liqLoading[season]) return;
   _liqLoading[season]=true;
   histJSON('lineupiq',season,`${BASE}?type=lineupiq&seasonId=${season}&v=1`)
@@ -4083,18 +4086,29 @@ const FORMATION_BENCH=[
   {k:'BN',slot:20},{k:'BN',slot:20},{k:'BN',slot:20},
   {k:'BN',slot:20},{k:'BN',slot:20},{k:'IR',slot:21,ir:true},
 ];
+/* The last word is not the last name: "Brian Thomas Jr." is Thomas, and
+   "Marvin Harrison Jr." is Harrison. Suffixes come off first. */
+const FM_SUFFIX=/^(jr|sr|ii|iii|iv|v)\.?$/i;
+function lastNameOf(n){
+  const parts=String(n||'').trim().split(/\s+/);
+  while(parts.length>1&&FM_SUFFIX.test(parts[parts.length-1])) parts.pop();
+  return parts[parts.length-1]||'';
+}
 function formationHTML(rows){
   const pool={};
   (rows||[]).filter(p=>!p.bench).forEach(p=>{ (pool[p.slot]||(pool[p.slot]=[])).push(p); });
   const take=slot=>(pool[slot]&&pool[slot].shift())||null;
-  const initials=n=>String(n||'').split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
   const spot=(f)=>{
     const p=take(f.slot);
-    return `<div class="fm-spot${p?' on':''}" style="left:${f.x}%;top:${f.y}%"
+    /* A name is centred on its spot, so one sitting at 6% or 94% would hang
+       half of itself off the field. The two outside positions anchor to their
+       own edge instead of their centre. */
+    const edge=f.x<=15?' fm-edgeL':f.x>=85?' fm-edgeR':'';
+    return `<div class="fm-spot${p?' on':''}${edge}" style="left:${f.x}%;top:${f.y}%"
       title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
-      <span class="fm-ring">${p?initials(p.n):''}</span>
+      <span class="fm-ring">${p?playerImg(p.pid,34,p.n):''}</span>
       <span class="fm-lbl">${f.sub||f.k}</span>
-      ${p?`<span class="fm-nm">${String(p.n).split(' ').slice(-1)[0]}</span>`:''}
+      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
     </div>`;
   };
   const spots=FORMATION.map(spot).join('');
@@ -4102,9 +4116,9 @@ function formationHTML(rows){
   const bottom=FORMATION_BOTTOM.map(f=>{
     const p=take(f.slot);
     return `<div class="fm-btm${p?' on':''}" title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
-      <span class="fm-ring">${p?initials(p.n):''}</span>
+      <span class="fm-ring">${p?playerImg(p.pid,28,p.n):''}</span>
       <span class="fm-lbl">${f.k}</span>
-      ${p?`<span class="fm-nm">${String(p.n).split(' ').slice(-1)[0]}</span>`:''}
+      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
     </div>`;}).join('');
   /* the bench draws from the players the starters did not take */
   const benchPool={};
@@ -4114,9 +4128,9 @@ function formationHTML(rows){
     const p=takeBench(f.slot);
     return `<div class="fm-bn${p?' on':''}${f.ir?' fm-ir':''}"
       title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
-      <span class="fm-ring">${p?initials(p.n):''}</span>
+      <span class="fm-ring">${p?playerImg(p.pid,26,p.n):''}</span>
       <span class="fm-lbl">${f.k}</span>
-      ${p?`<span class="fm-nm">${String(p.n).split(' ').slice(-1)[0]}</span>`:''}
+      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
     </div>`;}).join('');
   const filled=(rows||[]).filter(p=>!p.bench).length;
   return `<div class="fm-wrap">
@@ -7270,8 +7284,39 @@ function sbSplits(owner){
 const SB_LIVE_MAX=0.55;      // most of the rating this season may ever own
 const SB_LIVE_FULL=8;        // games after which it counts for all of that
 
+/* ── WHO IS ON EACH ROSTER ───────────────────────────────────────────────────
+   One mRoster call returns all twelve rosters at once, which is what makes
+   roster strength cheap enough to price on. An earlier pass skipped it on the
+   assumption it needed the tenure crunch — seventeen calls — which was simply
+   wrong about where the data comes from.
+
+   Held once per season-week and reused; when it lands the board rebuilds. */
+let _sbRosters=null,_sbRostersKey='',_sbRostersBusy=false;
+function sbRosters(season,week){
+  const key=season+':'+week;
+  if(_sbRostersKey===key) return _sbRosters;
+  if(_sbRostersBusy) return null;
+  _sbRostersBusy=true;
+  fetch(`${BASE}?view=mRoster&seasonId=${season}&scoringPeriodId=${week}&live=1`,{cache:'no-store'})
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{
+      const out={};
+      ((j&&j.teams)||[]).forEach(t=>{
+        out[t.id]=((t.roster&&t.roster.entries)||[]).map(e=>({
+          pid:e.playerId, slot:e.lineupSlotId,
+          pos:(e.playerPoolEntry&&e.playerPoolEntry.player&&e.playerPoolEntry.player.defaultPositionId)||0,
+        }));
+      });
+      _sbRosters=out; _sbRostersKey=key; _sbRostersBusy=false;
+      _sbCache=null;                                   // reprice with it
+      if(_activeTab==='book') try{ renderBook(); }catch(e){}
+    })
+    .catch(()=>{ _sbRostersBusy=false; });
+  return null;
+}
+
 function sbLiveSignals(rows,season){
-  const out={form:{},vol:{},played:0};
+  const out={form:{},vol:{},roster:{},lineup:{},played:0};
   if(!season) return out;
   const meta=_seasonMeta[season]; if(!meta) return out;
   const owners=meta.owners||{};
@@ -7309,7 +7354,38 @@ function sbLiveSignals(rows,season){
       out.vol[r.owner]=m2?v/m2:0;
     }
   });
+  /* ── roster: what ESPN projects the players they hold will score ──
+     Measured on the nine that would actually start — a deep bench does not win
+     games, and counting sixteen players would reward hoarding. ESPN's own
+     season projection is the number used, which is the most forward-looking
+     thing available anywhere in the data. */
+  try{
+    const lw=ntLastWeek(season);
+    const rosters=sbRosters(season,(lw&&lw.week)||1);
+    const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+    if(!pool||!pool.length) try{ bkLoadPool(); }catch(e){}
+    if(rosters&&pool&&pool.length){
+      const proj={}; pool.forEach(p=>{ proj[String(p.id)]=p.proj||p.total||0; });
+      const owners=meta.owners||{};
+      Object.keys(rosters).forEach(tid=>{
+        const o=owners[tid]; if(!o) return;
+        const vals=rosters[tid].map(e=>proj[String(e.pid)]||0).sort((a,b)=>b-a);
+        if(vals.length) out.roster[o]=vals.slice(0,9).reduce((a,b)=>a+b,0);
+      });
+    }
+  }catch(e){}
 
+  /* ── lineup: how often the right players were actually started ──
+     A strong roster only converts if it is in the lineup. One cached call. */
+  try{
+    if(typeof loadLineupIQ==='function') loadLineupIQ(season);
+    const l=(typeof _liq!=='undefined'&&_liq)?_liq[season]:null;
+    if(l&&Object.keys(l).length) rows.forEach(r=>{
+      const tid=r.curId!=null?r.curId:r.tid;
+      const d=tid!=null?l[tid]:null;
+      if(d&&d.decisions) out.lineup[r.owner]=d.correct/d.decisions;
+    });
+  }catch(e){}
   return out;
 }
 
@@ -7351,7 +7427,11 @@ function sbBuild(){
         z80=Z(r=>r.u80), zMv=Z(r=>r.moves), zCm=Z(r=>r.cm), zLast=Z(r=>r.lastRank),
         zCoy=Z(r=>r.coy), zCommit=Z(r=>r.commit);
   rows.forEach((r,i)=>{
-    r.career=1.15*zWin[i]+0.95*zPpg[i]-0.20*zPa[i]+0.45*zPo[i]+0.30*zT3[i]+0.25*zRg[i]+0.10*zCm[i];
+    /* Points against is not in here. It is what other managers scored on you —
+       nothing a manager picks, starts or trades changes it, so rating a team
+       down for it was punishing them for the schedule. It still prices the one
+       market that is explicitly about it. */
+    r.career=1.15*zWin[i]+0.95*zPpg[i]+0.45*zPo[i]+0.30*zT3[i]+0.25*zRg[i]+0.10*zCm[i];
     r.rating=r.career;
     r.z={win:zWin[i],ppg:zPpg[i],pa:zPa[i],hi:zHi[i],o150:z150[i],u80:z80[i],mv:zMv[i],
          last:zLast[i],coy:zCoy[i],commit:zCommit[i]};
@@ -7366,12 +7446,16 @@ function sbBuild(){
     const zf=k=>{ const v=rows.map(r=>live[k][r.owner]!=null?live[k][r.owner]:0); return sbZ(v); };
     const zForm=has('form')?zf('form'):rows.map(()=>0);
     const zVol =has('vol')?zf('vol'):rows.map(()=>0);
+    const zRost=has('roster')?zf('roster'):rows.map(()=>0);
+    const zLine=has('lineup')?zf('lineup'):rows.map(()=>0);
     const w=Math.min(1,(live.played||0)/SB_LIVE_FULL)*SB_LIVE_MAX;
     rows.forEach((r,i)=>{
-      /* form is already a blend of record, scoring and the last three weeks, so
-         it goes in whole rather than being split apart again */
-      r.live=zForm[i];
-      r.z.form=zForm[i]; r.z.vol=zVol[i];
+      /* Form is already a blend of record, scoring and the last three weeks, so
+         it goes in whole. Roster carries real weight because it is the only
+         term about the weeks ahead rather than the ones behind; lineup is a
+         smaller correction on top of it. */
+      r.live=1.00*zForm[i]+0.75*zRost[i]+0.30*zLine[i];
+      r.z.form=zForm[i]; r.z.vol=zVol[i]; r.z.roster=zRost[i]; r.z.lineup=zLine[i];
       r.rating=(1-w)*r.career+w*r.live;
     });
     _sbLiveWeight=w; _sbLivePlayed=live.played||0;
@@ -7461,9 +7545,9 @@ function sbBuild(){
     zr.map(v=>Math.min(GAMES-2,Math.max(2,GAMES*Math.min(0.70,Math.max(0.30,1/(1+Math.exp(-0.62*v))))))),
     0.30,0.5,'Over / Under','fa-arrows-up-down');
   const mostPf=outright('mostpf','Most Points Scored','League leader in points for',
-    sbProbs(rows.map(r=>r.z.ppg+0.55*(r.z.form||0)),0.80,0.40),'Outright','fa-fire');
+    sbProbs(rows.map(r=>r.z.ppg+0.55*(r.z.form||0)+0.60*(r.z.roster||0)),0.80,0.40),'Outright','fa-fire');
   const fewestPf=outright('fewpf','Fewest Points Scored','League low in points for',
-    sbProbs(rows.map(r=>-r.z.ppg-0.55*(r.z.form||0)),0.80,0.40),'Outright','fa-battery-empty');
+    sbProbs(rows.map(r=>-r.z.ppg-0.55*(r.z.form||0)-0.60*(r.z.roster||0)),0.80,0.40),'Outright','fa-battery-empty');
   const mostPa=outright('mostpa','Most Points Against','Takes the most incoming fire',
     sbProbs(rows.map(r=>r.z.pa),0.40,0.58),'Outright','fa-shield-halved');
 
@@ -7471,7 +7555,7 @@ function sbBuild(){
   /* a big week needs a good offence and a wide spread — a steady team almost
      never posts the league's best score even when it is the best team */
   const highWeek=outright('highweek','Highest Single Week','Top regular-season score by any team in any week',
-    sbProbs(rows.map(r=>0.60*r.z.ppg+0.40*r.z.hi+0.45*(r.z.vol||0)+0.35*(r.z.form||0)),0.70,0.42),'Outright','fa-bolt');
+    sbProbs(rows.map(r=>0.60*r.z.ppg+0.40*r.z.hi+0.45*(r.z.vol||0)+0.35*(r.z.form||0)+0.35*(r.z.roster||0)),0.70,0.42),'Outright','fa-bolt');
   const most150=outright('most150','Most 150+ Point Games','Blow-up weeks in the regular season',
     sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg+0.35*(r.z.vol||0)+0.30*(r.z.form||0)),0.72,0.42),'Outright','fa-rocket');
   const most80=outright('most80','Most Sub-80 Duds','Regular-season weeks the offense never showed',

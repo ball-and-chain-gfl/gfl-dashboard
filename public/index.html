@@ -2058,10 +2058,20 @@
       justify-content:center;border:2px dashed rgba(255,255,255,0.28);
       background:rgba(0,0,0,0.28);font-family:'Inter',sans-serif;font-size:11px;
       font-weight:800;color:var(--text2);}
+    .fm-ring .phs{width:100%!important;height:100%!important;flex:1 1 auto!important;}
+    .fm-ring .phs{width:100%!important;height:100%!important;flex:1 1 auto!important;}
     .fm-spot.on .fm-ring,.fm-btm.on .fm-ring{border-style:solid;border-color:var(--accent);
       background:rgba(var(--accent-rgb),0.2);color:var(--accent);}
     .fm-spot .fm-lbl,.fm-spot .fm-nm{position:absolute;left:50%;transform:translateX(-50%);
       white-space:nowrap;}
+    /* an outside receiver's name runs inward from its own edge, so it can never
+       leave the field however long it is */
+    .fm-spot.fm-edgeL .fm-nm{left:0;transform:none;text-align:left;}
+    .fm-spot.fm-edgeR .fm-nm{left:auto;right:0;transform:none;text-align:right;}
+    /* an outside receiver's name runs inward from its own edge, so it can never
+       leave the field however long it is */
+    .fm-spot.fm-edgeL .fm-nm{left:0;transform:none;text-align:left;}
+    .fm-spot.fm-edgeR .fm-nm{left:auto;right:0;transform:none;text-align:right;}
     .fm-lbl{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.5px;
       text-transform:uppercase;color:rgba(255,255,255,0.55);}
     .fm-spot .fm-lbl{top:calc(100% + 3px);}
