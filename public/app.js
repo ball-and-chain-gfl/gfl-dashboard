@@ -4076,6 +4076,13 @@ const FORMATION=[
    The middle one is the centre, and the quarterback and backs sit behind it. */
 const FORMATION_OL=[32,41,50,59,68];
 const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
+/* Five on the bench and one on IR, in a row of their own under the starters.
+   Drawn from the same board rather than listed separately, because who is
+   sitting is part of reading a lineup. */
+const FORMATION_BENCH=[
+  {k:'BN',slot:20},{k:'BN',slot:20},{k:'BN',slot:20},
+  {k:'BN',slot:20},{k:'BN',slot:20},{k:'IR',slot:21,ir:true},
+];
 function formationHTML(rows){
   const pool={};
   (rows||[]).filter(p=>!p.bench).forEach(p=>{ (pool[p.slot]||(pool[p.slot]=[])).push(p); });
@@ -4099,6 +4106,18 @@ function formationHTML(rows){
       <span class="fm-lbl">${f.k}</span>
       ${p?`<span class="fm-nm">${String(p.n).split(' ').slice(-1)[0]}</span>`:''}
     </div>`;}).join('');
+  /* the bench draws from the players the starters did not take */
+  const benchPool={};
+  (rows||[]).filter(p=>p.bench).forEach(p=>{ (benchPool[p.slot]||(benchPool[p.slot]=[])).push(p); });
+  const takeBench=slot=>(benchPool[slot]&&benchPool[slot].shift())||null;
+  const bench=FORMATION_BENCH.map(f=>{
+    const p=takeBench(f.slot);
+    return `<div class="fm-bn${p?' on':''}${f.ir?' fm-ir':''}"
+      title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
+      <span class="fm-ring">${p?initials(p.n):''}</span>
+      <span class="fm-lbl">${f.k}</span>
+      ${p?`<span class="fm-nm">${String(p.n).split(' ').slice(-1)[0]}</span>`:''}
+    </div>`;}).join('');
   const filled=(rows||[]).filter(p=>!p.bench).length;
   return `<div class="fm-wrap">
     <div class="fm-field">
@@ -4108,8 +4127,43 @@ function formationHTML(rows){
       ${spots}
     </div>
     <div class="fm-bottom">${bottom}</div>
+    <div class="fm-benchrow">${bench}</div>
     ${filled?'':'<div class="fm-empty">Every spot opens up once the draft is done.</div>'}
   </div>`;
+}
+/* ── A ROSTER TO LOOK AT ─────────────────────────────────────────────────────
+   ESPN returns the twelve teams but no players until a draft has happened, so
+   the board sits empty for the whole off-season. This fills it from the real
+   NFL player pool — the same one Ball Knowledge is built on — picking the
+   highest scorers at each position so the shapes and names are plausible.
+
+   It is a stand-in and says so on the board. The moment ESPN returns actual
+   entries this never runs again, because it only fires on an empty roster. */
+function rosterDemoRows(){
+  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+  if(!pool||!pool.length){ try{ bkLoadPool(); }catch(e){} return []; }
+  const seen=new Set();
+  const best=(pos,n)=>pool.filter(p=>p.pos===pos&&p.total>0&&!seen.has(p.id))
+    .sort((a,b)=>b.total-a.total).slice(0,n)
+    .map(p=>{ seen.add(p.id); return p; });
+  /* one team's worth: a starting eleven and six on the bench */
+  const plan=[
+    [1,'QB',0,1],[2,'RB',2,2],[3,'WR',4,2],[4,'TE',6,1],
+    [2,'RB',23,1],[16,'D/ST',16,1],[5,'K',17,1],
+  ];
+  const out=[];
+  plan.forEach(([pos,label,slot,n])=>{
+    best(pos,n).forEach(p=>out.push({pid:p.id,n:p.name,slot,pos:SLOT_NAMES[slot]||label,
+      pts:null,proj:+(p.total/17).toFixed(1),inj:'',bench:false}));
+  });
+  /* the bench: the next best at the skill positions, then one on IR */
+  const bn=[...best(2,2),...best(3,2),...best(1,1)];
+  bn.forEach(p=>out.push({pid:p.id,n:p.name,slot:20,pos:'BE',
+    pts:null,proj:+(p.total/17).toFixed(1),inj:'',bench:true}));
+  const ir=best(4,1)[0];
+  if(ir) out.push({pid:ir.id,n:ir.name,slot:21,pos:'IR',
+    pts:null,proj:+(ir.total/17).toFixed(1),inj:'OUT',bench:true});
+  return out;
 }
 async function renderRoster(){
   const el=document.getElementById('roster-body'); if(!el) return;
@@ -4142,7 +4196,15 @@ async function renderRoster(){
   // ESPN returns the teams but no entries until a season has drafted
   /* Before a draft the formation is the whole view — an empty board still says
      what the lineup is going to look like, which a "no roster yet" line does not. */
-  if(!rows.length){ el.innerHTML=rosterPickerHTML()+formationHTML([]); return; }
+  if(!rows.length){
+    const demo=rosterDemoRows();
+    el.innerHTML=rosterPickerHTML()
+      +(demo.length?`<div class="rs-demo"><i class="fa fa-flask"></i>
+          No draft yet — this is a stand-in roster so the board can be seen.
+          It disappears the moment real entries arrive.</div>`:'')
+      +formationHTML(demo);
+    return;
+  }
   const num=v=>v==null?'—':Number(v).toFixed(1);
   const injTag=s=>!s||s==='ACTIVE'||s==='NORMAL'?'':
     `<span class="rs-inj ${/OUT|INJURY_RESERVE|IR|SUSPENSION/.test(s)?'bad':''}">${s.slice(0,3)}</span>`;
@@ -10297,7 +10359,7 @@ function sbMarketHTML(m){
      reach the one you wanted. Each folds behind its own title; the first opens
      by default so the board is never a wall of closed bars. Open state is kept
      per market so a bet does not close what you were reading. */
-  const open=_sbOpenMk[m.key]!==false&&(_sbOpenMk[m.key]||m.key===_sbFirstMk);
+  const open=!!_sbOpenMk[m.key];
   return `<div class="sb-market${open?' open':''}">
     <button class="sb-mhead" onclick="sbToggleMk('${m.key}')" aria-expanded="${!!open}">
       <i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span>
@@ -10308,11 +10370,8 @@ function sbMarketHTML(m){
   </div>`;
 }
 /* which market is open, and which one opens itself */
-let _sbOpenMk={}, _sbFirstMk=null;
-function sbToggleMk(k){
-  _sbOpenMk[k]=!(_sbOpenMk[k]!==false&&(_sbOpenMk[k]||k===_sbFirstMk));
-  renderBook();
-}
+let _sbOpenMk={};
+function sbToggleMk(k){ _sbOpenMk[k]=!_sbOpenMk[k]; renderBook(); }
 function renderMyBets(){ if(_activeTab==='book') renderBook(); }
 let _betsInit=false;
 /* ── GOING IN ON A PARLAY TOGETHER ──────────────────────────────────────────
@@ -10977,9 +11036,7 @@ function renderBook(){
     :_sbView==='invest'?invBoardHTML()
     :_sbView==='folio'?invPortfolioHTML()
     :_sbView==='mine'?myBetsHTML()
-    :(()=>{ const g=book.groups[_sbView]||[];
-        _sbFirstMk=g.length?g[0].key:null;
-        return g.map(sbMarketHTML).join(''); })();
+    :(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
   /* "Lines set" rides beside the page title; My Bets takes the strip the
      futures bar used to hold, so the ledger is one tap from anywhere. */
   const aside=document.getElementById('page-h1-aside');

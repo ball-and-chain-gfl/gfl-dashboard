@@ -2080,6 +2080,29 @@
     .fm-btm{display:flex;align-items:center;justify-content:center;gap:9px;
       padding:9px;border-radius:10px;border:1px solid transparent;background:rgba(0,0,0,0.2);}
     .fm-btm .fm-ring{width:28px;height:28px;font-size:10px;}
+    /* Six across on one row — five bench and the IR spot at the end. They are
+       smaller than the starters on purpose: the lineup is the thing being read
+       and the bench is context around it. */
+    .fm-benchrow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px;}
+    .fm-bn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+      padding:8px 4px;border-radius:9px;border:1px solid transparent;background:rgba(0,0,0,0.2);
+      min-width:0;}
+    .fm-bn .fm-ring{width:26px;height:26px;font-size:9.5px;}
+    .fm-bn .fm-lbl{font-size:7.5px;}
+    .fm-bn .fm-nm{font-size:8px;max-width:100%;}
+    /* the last slot is not a bench slot and should not read as one */
+    .fm-ir{background:rgba(232,104,126,0.09);}
+    .fm-ir .fm-lbl{color:var(--red);}
+    .rs-demo{display:flex;align-items:flex-start;gap:9px;margin:0 0 12px;padding:10px 12px;
+      border-radius:9px;background:rgba(var(--accent-rgb),0.08);
+      font-family:'Inter',sans-serif;font-size:11.5px;line-height:1.5;color:var(--text2);}
+    .rs-demo i{margin-top:2px;color:var(--accent);flex:0 0 auto;}
+    @media(max-width:420px){
+      .fm-benchrow{gap:4px;}
+      .fm-bn{padding:6px 2px;}
+      .fm-bn .fm-ring{width:22px;height:22px;font-size:8.5px;}
+      .fm-bn .fm-nm{font-size:7px;}
+    }
     .fm-empty{margin-top:9px;text-align:center;font-family:'Inter',sans-serif;
       font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
     @media(max-width:520px){
