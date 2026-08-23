@@ -11189,9 +11189,9 @@ async function loadDashboard(){
               <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most<br>Unbalanced</button>
               <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most<br>Balanced</button>
             </div>
-            <div class="standings-filters" id="trade-team">
-              <span style="font-size:12px;color:var(--text3);margin-right:4px">Team:</span>
-              <select onchange="setTradeTeam(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
+            <div class="picker-bar" id="trade-team">
+              <label for="trade-team-select">Team:</label>
+              <select id="trade-team-select" onchange="setTradeTeam(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
             </div>
           </div>
           <div id="trades-body" class="trades-list"></div>
