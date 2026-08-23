@@ -1186,7 +1186,7 @@
     .iv-go.iv-sell:not(:disabled){border-color:rgba(232,104,126,0.45);color:var(--red);}
     /* ── A market folds behind its title ─────────────────────────────────── */
     .sb-mhead .sb-mt{flex:0 0 auto;}
-    .sb-msub-in{padding:0 14px 12px;font-family:'Inter',sans-serif;font-size:11.5px;
+    .sb-msub-in{padding:0 13px 10px;font-family:'Inter',sans-serif;font-size:11.5px;
       color:var(--text3);line-height:1.45;}
     .sb-mchev{margin-left:auto;flex:0 0 auto;font-size:12px;color:var(--text3);
       transition:transform .18s ease;}
@@ -2089,14 +2089,34 @@
     .fm-card:not(.on){opacity:.5;}
     .fm-card:not(.on) .fm-ring{background:rgba(255,255,255,0.04);}
 
-    /* on the field: placed by its centre, clamped so it cannot cross a touchline */
-    .fm-spot{position:absolute;transform:translateX(-50%);width:58px;}
-    /* three rows of 72px cards need the room; the old field was drawn for dots */
-    .fm-field{min-height:300px;}
-    .fm-spot .fm-card{min-height:72px;}
-    .fm-spot .fm-nm{font-size:11px;}
-    .fm-spot .fm-ring{width:40px;height:40px;}
-    .fm-edgeL{transform:none;} .fm-edgeR{transform:translateX(-100%);}
+    /* The dummy front five. Never filled — the league does not roster linemen —
+       and square rather than round, which is what marks them as placeholders. */
+    .fm-ol{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;
+      border-radius:8px;background:rgba(0,0,0,0.28);
+      border:2px dashed rgba(255,255,255,0.28);box-sizing:border-box;}
+    @media(max-width:520px){
+      .fm-ol{width:28px;height:28px;border-radius:7px;}
+      .fm-spot{width:28px;height:28px;}
+      .fm-spot .fm-ring{width:28px;height:28px;}
+    }
+    /* ── on the field: a ring on a pitch, the way it was ─────────────────── */
+    .fm-spot{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;}
+    .fm-spot .fm-ring{width:34px;height:34px;border-radius:50%;display:flex;
+      align-items:center;justify-content:center;border:2px dashed rgba(255,255,255,0.28);
+      background:rgba(0,0,0,0.28);margin-top:0;overflow:hidden;}
+    .fm-spot .fm-ring .phs{width:100%!important;height:100%!important;
+      border-radius:50%!important;background:transparent!important;}
+    .fm-spot .fm-ring .phs img{object-position:top center!important;}
+    .fm-spot.on .fm-ring{border-style:solid;border-color:var(--accent);
+      background:rgba(var(--accent-rgb),0.2);}
+    .fm-spot .fm-lbl,.fm-spot .fm-nm{position:absolute;left:50%;transform:translateX(-50%);
+      white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;}
+    .fm-spot .fm-lbl{top:calc(100% + 3px);font-family:'Inter',sans-serif;font-size:8.5px;
+      font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,0.55);}
+    .fm-spot .fm-nm{top:calc(100% + 15px);font-family:'Inter',sans-serif;font-size:10px;
+      font-weight:700;color:#fff;}
+    /* the receivers sit inboard enough that a centred name always clears the
+       touchline, so nothing needs a special anchor */
 
     /* the FLEX / D-ST / K row */
     .fm-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;}
@@ -3855,7 +3875,7 @@
     .sb-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;}
     /* Closed bars sit close; the gap was set when every market was a tall open
        card and reads as a wide margin now that most of them are one line. */
-    .sb-board{display:flex;flex-direction:column;gap:8px;min-width:0;}
+    .sb-board{display:flex;flex-direction:column;gap:6px;min-width:0;}
     /* three surface levels: page card → market card → header strip, plus zebra rows */
     /* same surface as the homepage cards: black 20% + 15px blur */
     /* A market is one card with one background. It used to layer four tones —
@@ -3870,10 +3890,17 @@
     /* The bar is one line: title left, chevron right, centred between equal
        padding. It used to reserve room underneath for the description, which
        is what pushed the title up off centre. */
+    /* One tight line. The bar is the whole control, so it takes no press tint
+       and no scale — the panel opening underneath is the feedback, and a grey
+       flash on a full-width bar reads as the row being selected. */
     .sb-mhead{display:flex;align-items:center;gap:9px;flex-wrap:nowrap;
-      width:100%;padding:14px;border:0;border-radius:0;min-height:52px;
-      background:none;box-shadow:none;cursor:pointer;text-align:left;}
-    .sb-mhead .sb-mt{flex:1 1 auto;min-width:0;line-height:1.2;}
+      width:100%;padding:10px 13px;border:0;border-radius:0;min-height:0;
+      background:none;box-shadow:none;cursor:pointer;text-align:left;
+      transition:none;}
+    .sb-mhead:hover,.sb-mhead:active,.sb-mhead:focus{background:none;box-shadow:none;}
+    .sb-mhead:active{transform:none;}
+    .sb-mhead .sb-mt{flex:1 1 auto;min-width:0;line-height:1.2;font-size:14px;}
+    .sb-mhead .sb-mchev{font-size:11px;}
     /* the market icons were dropped on purpose — the chevron is not one of
        them, it is the control that says the market folds */
     .sb-mhead i{display:none;}

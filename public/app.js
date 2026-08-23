@@ -4071,22 +4071,22 @@ const POS_OF_SLOT={0:0,2:2,3:2,4:4,5:4,6:6,16:16,17:17,23:23};
 /* a bench card tints by what the player actually is, not by the slot they sit in */
 const posColor=(slot,ppos)=>POS_COLORS[POS_OF_SLOT[slot]!=null?POS_OF_SLOT[slot]:ppos]
   ||POS_COLORS[ppos]||'#8A98A8';
-const FORMATION_Y=8;
+const FORMATION_Y=32;
 /* The tight end sits at the end of the line, immediately outside the tackle,
    the way an inline tight end lines up — the receivers split wide of him. */
 const FORMATION=[
-  {k:'WR',  slot:4,  x:2,  y:FORMATION_Y},
-  {k:'TE',  slot:6,  x:60, y:FORMATION_Y},
-  {k:'WR',  slot:4,  x:98, y:FORMATION_Y},
-  {k:'QB',  slot:0,  x:50, y:40},
-  {k:'RB',  slot:2,  x:34, y:70},
-  {k:'RB',  slot:2,  x:66, y:70},
+  {k:'WR',  slot:4,  x:12, y:FORMATION_Y},
+  {k:'TE',  slot:6,  x:64, y:FORMATION_Y},
+  {k:'WR',  slot:4,  x:88, y:FORMATION_Y},
+  {k:'QB',  slot:0,  x:50, y:58},
+  {k:'RB',  slot:2,  x:39, y:79},
+  {k:'RB',  slot:2,  x:61, y:79},
 ];
 /* Five linemen, drawn but never filled — the league does not roster them.
    Centred on the field, and spaced 9% apart: a box is 28-34px wide against a
    field of 350-630, so anything tighter than about 8% has them overlapping.
    The middle one is the centre, and the quarterback and backs sit behind it. */
-const FORMATION_OL=[24,30,36,42,48];
+const FORMATION_OL=[30,38,46,54,62];
 const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
 /* Five on the bench and one on IR, in a row of their own under the starters.
    Drawn from the same board rather than listed separately, because who is
@@ -4120,10 +4120,18 @@ function formationHTML(rows){
       <span class="fm-ring">${p?playerImg(p.pid,40,p.n):''}</span>
     </div>`;
   };
+  /* The field keeps the ring: a formation reads as marks on a pitch, and cards
+     on it turned the diagram into a list. Everything below it — FLEX, D/ST, K,
+     the bench and IR — stays a card, where there is room for one. */
   const spot=(f)=>{
     const p=take(f.slot);
-    const edge=f.x<=15?' fm-edgeL':f.x>=85?' fm-edgeR':'';
-    return `<div class="fm-spot${edge}" style="left:${f.x}%;top:${f.y}%">${card(f,p,'fm-onfield')}</div>`;
+    const edge='';
+    return `<div class="fm-spot${p?' on':''}${edge}" style="left:${f.x}%;top:${f.y}%"
+      title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
+      <span class="fm-ring">${p?playerImg(p.pid,34,p.n):''}</span>
+      <span class="fm-lbl">${f.sub||f.k}</span>
+      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
+    </div>`;
   };
   const spots=FORMATION.map(spot).join('');
   const line=FORMATION_OL.map(x=>`<span class="fm-ol" style="left:${x}%;top:${FORMATION_Y}%"></span>`).join('');
