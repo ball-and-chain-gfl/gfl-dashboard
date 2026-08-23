@@ -1191,8 +1191,16 @@
     .sb-mchev{margin-left:auto;flex:0 0 auto;font-size:12px;color:var(--text3);
       transition:transform .18s ease;}
     .sb-market.open .sb-mchev{transform:rotate(180deg);}
-    .sb-fold>.sb-rows{display:none;}
-    .sb-fold.open>.sb-rows{display:block;}
+    /* grid-template-rows animates from nothing to auto, which is the one way
+       to ease a panel open without knowing its height in advance */
+    .sb-fold>.sb-rows{display:grid;grid-template-rows:0fr;
+      transition:grid-template-rows .26s cubic-bezier(.3,.75,.25,1);}
+    .sb-fold>.sb-rows>.sb-rows-in{min-height:0;overflow:hidden;}
+    .sb-fold:not(.open)>.sb-rows{visibility:hidden;}
+    .sb-fold.open>.sb-rows{grid-template-rows:1fr;visibility:visible;}
+    @media(prefers-reduced-motion:reduce){
+      .sb-fold>.sb-rows{transition:none;}
+    }
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────
@@ -2053,80 +2061,71 @@
     /* The ring is what sits on the line, so the spot is exactly ring-sized and
        the label and name hang below it absolutely. Including them in the box
        would push the ring above the line by half their height. */
-    .fm-spot{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;}
-    .fm-ring{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
-      justify-content:center;border:2px dashed rgba(255,255,255,0.28);
-      background:rgba(0,0,0,0.28);font-family:'Inter',sans-serif;font-size:11px;
-      font-weight:800;color:var(--text2);}
-    .fm-ring .phs{width:100%!important;height:100%!important;flex:1 1 auto!important;}
-    .fm-ring .phs{width:100%!important;height:100%!important;flex:1 1 auto!important;}
-    .fm-spot.on .fm-ring,.fm-btm.on .fm-ring{border-style:solid;border-color:var(--accent);
-      background:rgba(var(--accent-rgb),0.2);color:var(--accent);}
-    .fm-spot .fm-lbl,.fm-spot .fm-nm{position:absolute;left:50%;transform:translateX(-50%);
-      white-space:nowrap;}
-    /* an outside receiver's name runs inward from its own edge, so it can never
-       leave the field however long it is */
-    .fm-spot.fm-edgeL .fm-nm{left:0;transform:none;text-align:left;}
-    .fm-spot.fm-edgeR .fm-nm{left:auto;right:0;transform:none;text-align:right;}
-    /* an outside receiver's name runs inward from its own edge, so it can never
-       leave the field however long it is */
-    .fm-spot.fm-edgeL .fm-nm{left:0;transform:none;text-align:left;}
-    .fm-spot.fm-edgeR .fm-nm{left:auto;right:0;transform:none;text-align:right;}
-    .fm-lbl{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.5px;
-      text-transform:uppercase;color:rgba(255,255,255,0.55);}
-    .fm-spot .fm-lbl{top:calc(100% + 3px);}
-    .fm-nm{font-family:'Inter',sans-serif;font-size:9px;color:#fff;max-width:66px;
-      overflow:hidden;text-overflow:ellipsis;}
-    .fm-spot .fm-nm{top:calc(100% + 14px);}
-    /* the dummy line: never filled, just enough to read as a front five */
-    /* Same footprint and fill as a player spot, so the line reads as part of the
-       formation rather than a different kind of thing — square instead of round
-       is the only difference, which is what marks them as placeholders. */
-    .fm-ol{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;
-      border-radius:8px;background:rgba(0,0,0,0.28);
-      border:2px dashed rgba(255,255,255,0.28);box-sizing:border-box;}
-    @media(max-width:520px){ .fm-ol{width:28px;height:28px;border-radius:7px;} }
+    /* ── One card, three placements ────────────────────────────────────────
+       Field, bottom row and bench all draw the same thing: the position label,
+       the last name, then the head rising out of the floor. --pc is the ESPN
+       colour for that position, used as a wash and an edge rather than a fill —
+       twelve saturated cards would read as a chart, not a team sheet. */
+    .fm-card{position:relative;display:flex;flex-direction:column;align-items:center;
+      gap:2px;padding:6px 3px 0;border-radius:9px;overflow:hidden;min-width:0;
+      background:linear-gradient(180deg,
+        color-mix(in srgb,var(--pc) 18%,transparent) 0%,
+        color-mix(in srgb,var(--pc) 7%,rgba(0,0,0,0.28)) 100%);
+      box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pc) 26%,transparent);}
+    .fm-card .fm-lbl{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;
+      color:color-mix(in srgb,var(--pc) 72%,#fff);}
+    /* A long name wraps rather than being cut. Clipping 'Smith-Njigba' to save
+       one line defeats the point of making the names bigger. */
+    .fm-card .fm-nm{font-family:'Inter',sans-serif;font-weight:700;color:#fff;
+      max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.12;
+      text-align:center;}
+    .fm-card .fm-ring{margin-top:auto;border:0;border-radius:7px 7px 0 0;
+      background:none;overflow:hidden;}
+    .fm-card .fm-ring .phs{width:100%!important;height:100%!important;
+      border-radius:0!important;background:transparent!important;}
+    .fm-card .fm-ring .phs img{object-position:top center!important;}
+    /* an empty slot keeps its shape so the formation still reads */
+    .fm-card:not(.on){opacity:.5;}
+    .fm-card:not(.on) .fm-ring{background:rgba(255,255,255,0.04);}
+
+    /* on the field: placed by its centre, clamped so it cannot cross a touchline */
+    .fm-spot{position:absolute;transform:translateX(-50%);width:58px;}
+    /* three rows of 72px cards need the room; the old field was drawn for dots */
+    .fm-field{min-height:300px;}
+    .fm-spot .fm-card{min-height:72px;}
+    .fm-spot .fm-nm{font-size:11px;}
+    .fm-spot .fm-ring{width:40px;height:40px;}
+    .fm-edgeL{transform:none;} .fm-edgeR{transform:translateX(-100%);}
+
+    /* the FLEX / D-ST / K row */
     .fm-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;}
-    .fm-btm{display:flex;align-items:center;justify-content:center;gap:9px;
-      padding:9px;border-radius:10px;border:1px solid transparent;background:rgba(0,0,0,0.2);}
-    .fm-btm .fm-ring{width:28px;height:28px;font-size:10px;}
-    /* Six across on one row — five bench and the IR spot at the end. They are
-       smaller than the starters on purpose: the lineup is the thing being read
-       and the bench is context around it. */
+    .fm-btm{min-height:76px;}
+    .fm-btm .fm-nm{font-size:12px;}
+    .fm-btm .fm-ring{width:42px;height:42px;}
+
+    /* five on the bench and one on IR */
     .fm-benchrow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px;}
-    /* The head sits flush with the floor of the card and rises out of it, the
-       way a player comes up off the bench. Label first, name over the head. */
-    .fm-bn{position:relative;display:flex;flex-direction:column;align-items:center;
-      gap:2px;padding:7px 3px 0;border-radius:9px;border:1px solid transparent;
-      background:rgba(0,0,0,0.2);min-width:0;overflow:hidden;min-height:74px;}
-    .fm-bn .fm-lbl{font-size:7.5px;order:1;}
-    .fm-bn .fm-nm{position:static;transform:none;order:2;font-size:8px;max-width:100%;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .fm-bn .fm-ring{order:3;width:34px;height:34px;margin-top:auto;
-      border:0;border-radius:8px 8px 0 0;background:none;overflow:hidden;}
-    /* the photo is anchored to its own bottom so the crop keeps the face */
-    .fm-bn .fm-ring .phs{width:100%!important;height:100%!important;border-radius:0!important;}
-    .fm-bn .fm-ring .phs img{object-position:top center!important;}
-    .fm-bn.on .fm-ring{border:0;}
-    /* the last slot is not a bench slot and should not read as one */
-    .fm-ir{background:rgba(232,104,126,0.09);}
-    .fm-ir .fm-lbl{color:var(--red);}
+    .fm-bn{min-height:70px;}
+    .fm-bn .fm-nm{font-size:10px;}
+    .fm-bn .fm-ring{width:34px;height:34px;}
+    .fm-ir{--pc:#E8687E;}
+
     .rs-demo{display:flex;align-items:flex-start;gap:9px;margin:0 0 12px;padding:10px 12px;
       border-radius:9px;background:rgba(var(--accent-rgb),0.08);
       font-family:'Inter',sans-serif;font-size:11.5px;line-height:1.5;color:var(--text2);}
     .rs-demo i{margin-top:2px;color:var(--accent);flex:0 0 auto;}
     @media(max-width:420px){
+      .fm-spot{width:52px;}
+      .fm-spot .fm-nm{font-size:10px;}
+      .fm-spot .fm-ring{width:36px;height:36px;}
       .fm-benchrow{gap:4px;}
-      .fm-bn{padding:6px 2px 0;min-height:66px;}
+      .fm-bn{min-height:64px;}
+      .fm-bn .fm-nm{font-size:9px;}
       .fm-bn .fm-ring{width:30px;height:30px;}
-      .fm-bn .fm-nm{font-size:7px;}
     }
     .fm-empty{margin-top:9px;text-align:center;font-family:'Inter',sans-serif;
       font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
-    @media(max-width:520px){
-      .fm-spot{width:28px;height:28px;} .fm-ring{width:28px;height:28px;font-size:10px;}
-      .fm-nm{font-size:8px;max-width:52px;} .fm-lbl{font-size:7.5px;}
-    }
 
     /* A homepage card with nothing to show a signed-out reader still has to
        look like a card. The poll used to drop to two lines of bare text, which
@@ -3854,7 +3853,9 @@
     .sb-bar-r{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
     .sb-tabs{gap:6px;flex-wrap:wrap;}
     .sb-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;}
-    .sb-board{display:flex;flex-direction:column;gap:16px;min-width:0;}
+    /* Closed bars sit close; the gap was set when every market was a tall open
+       card and reads as a wide margin now that most of them are one line. */
+    .sb-board{display:flex;flex-direction:column;gap:8px;min-width:0;}
     /* three surface levels: page card → market card → header strip, plus zebra rows */
     /* same surface as the homepage cards: black 20% + 15px blur */
     /* A market is one card with one background. It used to layer four tones —
@@ -3866,9 +3867,13 @@
     .sb-market{background:rgba(0,0,0,0.2);border:1px solid transparent;
       border-radius:12px;overflow:hidden;}
     html[data-theme="light"] .sb-market{background:rgba(0,0,0,0.03);}
-    .sb-mhead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
-      width:100%;padding:13px 14px;border:0;border-radius:0;
+    /* The bar is one line: title left, chevron right, centred between equal
+       padding. It used to reserve room underneath for the description, which
+       is what pushed the title up off centre. */
+    .sb-mhead{display:flex;align-items:center;gap:9px;flex-wrap:nowrap;
+      width:100%;padding:14px;border:0;border-radius:0;min-height:52px;
       background:none;box-shadow:none;cursor:pointer;text-align:left;}
+    .sb-mhead .sb-mt{flex:1 1 auto;min-width:0;line-height:1.2;}
     /* the market icons were dropped on purpose — the chevron is not one of
        them, it is the control that says the market folds */
     .sb-mhead i{display:none;}

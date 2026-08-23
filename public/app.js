@@ -4062,22 +4062,31 @@ function rosterPickerHTML(){
 /* The line of scrimmage: receivers, tight end and the five linemen all sit on
    it, which is what makes it read as a formation rather than scattered spots.
    The quarterback lines up directly behind the centre. */
-const FORMATION_Y=32;
+/* ESPN's own position colours, which is what everyone already reads a fantasy
+   roster by. Used as a wash behind each card rather than as a fill, so twelve
+   of them on one board still look like a team sheet. */
+const POS_COLORS={0:'#FF2A6D',2:'#00CEB8',4:'#58A7FF',6:'#FFAE58',
+  16:'#B57C5C',17:'#BD66FF',23:'#FF8A3D'};
+const POS_OF_SLOT={0:0,2:2,3:2,4:4,5:4,6:6,16:16,17:17,23:23};
+/* a bench card tints by what the player actually is, not by the slot they sit in */
+const posColor=(slot,ppos)=>POS_COLORS[POS_OF_SLOT[slot]!=null?POS_OF_SLOT[slot]:ppos]
+  ||POS_COLORS[ppos]||'#8A98A8';
+const FORMATION_Y=8;
 /* The tight end sits at the end of the line, immediately outside the tackle,
    the way an inline tight end lines up — the receivers split wide of him. */
 const FORMATION=[
-  {k:'WR',  slot:4,  x:6,  y:FORMATION_Y},
-  {k:'TE',  slot:6,  x:77, y:FORMATION_Y},
-  {k:'WR',  slot:4,  x:94, y:FORMATION_Y},
-  {k:'QB',  slot:0,  x:50, y:58},
-  {k:'RB',  slot:2,  x:39, y:79},
-  {k:'RB',  slot:2,  x:61, y:79},
+  {k:'WR',  slot:4,  x:2,  y:FORMATION_Y},
+  {k:'TE',  slot:6,  x:60, y:FORMATION_Y},
+  {k:'WR',  slot:4,  x:98, y:FORMATION_Y},
+  {k:'QB',  slot:0,  x:50, y:40},
+  {k:'RB',  slot:2,  x:34, y:70},
+  {k:'RB',  slot:2,  x:66, y:70},
 ];
 /* Five linemen, drawn but never filled — the league does not roster them.
    Centred on the field, and spaced 9% apart: a box is 28-34px wide against a
    field of 350-630, so anything tighter than about 8% has them overlapping.
    The middle one is the centre, and the quarterback and backs sit behind it. */
-const FORMATION_OL=[32,41,50,59,68];
+const FORMATION_OL=[24,30,36,42,48];
 const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
 /* Five on the bench and one on IR, in a row of their own under the starters.
    Drawn from the same board rather than listed separately, because who is
@@ -4098,40 +4107,36 @@ function formationHTML(rows){
   const pool={};
   (rows||[]).filter(p=>!p.bench).forEach(p=>{ (pool[p.slot]||(pool[p.slot]=[])).push(p); });
   const take=slot=>(pool[slot]&&pool[slot].shift())||null;
+  /* Every position is the same card the bench uses — label, name, then the
+     head rising out of the floor. On the field they are placed rather than
+     stacked, so a card is anchored by its centre and clamped at the touchlines
+     so an outside receiver cannot hang off the edge. */
+  const card=(f,p,cls)=>{
+    const col=posColor(f.slot,p&&p.ppos);
+    return `<div class="fm-card ${cls}${p?' on':''}" style="--pc:${col}"
+      title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
+      <span class="fm-lbl">${f.sub||f.k}</span>
+      <span class="fm-nm">${p?lastNameOf(p.n):''}</span>
+      <span class="fm-ring">${p?playerImg(p.pid,40,p.n):''}</span>
+    </div>`;
+  };
   const spot=(f)=>{
     const p=take(f.slot);
-    /* A name is centred on its spot, so one sitting at 6% or 94% would hang
-       half of itself off the field. The two outside positions anchor to their
-       own edge instead of their centre. */
     const edge=f.x<=15?' fm-edgeL':f.x>=85?' fm-edgeR':'';
-    return `<div class="fm-spot${p?' on':''}${edge}" style="left:${f.x}%;top:${f.y}%"
-      title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
-      <span class="fm-ring">${p?playerImg(p.pid,34,p.n):''}</span>
-      <span class="fm-lbl">${f.sub||f.k}</span>
-      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
-    </div>`;
+    return `<div class="fm-spot${edge}" style="left:${f.x}%;top:${f.y}%">${card(f,p,'fm-onfield')}</div>`;
   };
   const spots=FORMATION.map(spot).join('');
   const line=FORMATION_OL.map(x=>`<span class="fm-ol" style="left:${x}%;top:${FORMATION_Y}%"></span>`).join('');
   const bottom=FORMATION_BOTTOM.map(f=>{
     const p=take(f.slot);
-    return `<div class="fm-btm${p?' on':''}" title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
-      <span class="fm-ring">${p?playerImg(p.pid,28,p.n):''}</span>
-      <span class="fm-lbl">${f.k}</span>
-      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
-    </div>`;}).join('');
+    return card(f,p,'fm-btm');}).join('');
   /* the bench draws from the players the starters did not take */
   const benchPool={};
   (rows||[]).filter(p=>p.bench).forEach(p=>{ (benchPool[p.slot]||(benchPool[p.slot]=[])).push(p); });
   const takeBench=slot=>(benchPool[slot]&&benchPool[slot].shift())||null;
   const bench=FORMATION_BENCH.map(f=>{
     const p=takeBench(f.slot);
-    return `<div class="fm-bn${p?' on':''}${f.ir?' fm-ir':''}"
-      title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
-      <span class="fm-ring">${p?playerImg(p.pid,26,p.n):''}</span>
-      <span class="fm-lbl">${f.k}</span>
-      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
-    </div>`;}).join('');
+    return card(f,p,'fm-bn'+(f.ir?' fm-ir':''));}).join('');
   const filled=(rows||[]).filter(p=>!p.bench).length;
   return `<div class="fm-wrap">
     <div class="fm-field">
@@ -4167,15 +4172,15 @@ function rosterDemoRows(){
   ];
   const out=[];
   plan.forEach(([pos,label,slot,n])=>{
-    best(pos,n).forEach(p=>out.push({pid:p.id,n:p.name,slot,pos:SLOT_NAMES[slot]||label,
-      pts:null,proj:+(p.total/17).toFixed(1),inj:'',bench:false}));
+    best(pos,n).forEach(p=>out.push({pid:p.id,n:p.name,slot,ppos:p.pos,
+      pos:SLOT_NAMES[slot]||label,pts:null,proj:+(p.total/17).toFixed(1),inj:'',bench:false}));
   });
   /* the bench: the next best at the skill positions, then one on IR */
   const bn=[...best(2,2),...best(3,2),...best(1,1)];
-  bn.forEach(p=>out.push({pid:p.id,n:p.name,slot:20,pos:'BE',
+  bn.forEach(p=>out.push({pid:p.id,n:p.name,slot:20,ppos:p.pos,pos:'BE',
     pts:null,proj:+(p.total/17).toFixed(1),inj:'',bench:true}));
   const ir=best(4,1)[0];
-  if(ir) out.push({pid:ir.id,n:ir.name,slot:21,pos:'IR',
+  if(ir) out.push({pid:ir.id,n:ir.name,slot:21,ppos:ir.pos,pos:'IR',
     pts:null,proj:+(ir.total/17).toFixed(1),inj:'OUT',bench:true});
   return out;
 }
@@ -4198,6 +4203,7 @@ async function renderRoster(){
         const wk=(p.stats||[]).find(s=>s.statSourceId===0&&s.scoringPeriodId===info.week);
         const proj=(p.stats||[]).find(s=>s.statSourceId===1&&s.scoringPeriodId===info.week);
         return {pid:e.playerId,n:p.fullName||('#'+e.playerId),slot:e.lineupSlotId,
+          ppos:p.defaultPositionId??0,
           pos:SLOT_NAMES[e.lineupSlotId]||'',pts:wk?.appliedTotal??null,
           proj:proj?.appliedTotal??null,
           inj:String(e.injuryStatus||p.injuryStatus||'').toUpperCase(),
@@ -10459,17 +10465,29 @@ function sbMarketHTML(m){
      build their own .sb-market blocks by hand and never fold — without this
      they inherited display:none on their rows with no header to open them,
      which is why By Team came up blank. */
-  return `<div class="sb-market sb-fold${open?' open':''}">
+  return `<div class="sb-market sb-fold${open?' open':''}" data-mk="${m.key}">
     <button class="sb-mhead" onclick="sbToggleMk('${m.key}')" aria-expanded="${!!open}">
       <i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span>
       <i class="fa fa-chevron-down sb-mchev"></i>
     </button>
-    <div class="sb-rows"><div class="sb-msub-in">${m.sub}</div>${head}${rows}</div>
+    <div class="sb-rows"><div class="sb-rows-in">
+      <div class="sb-msub-in">${m.sub}</div>${head}${rows}
+    </div></div>
   </div>`;
 }
 /* which market is open, and which one opens itself */
 let _sbOpenMk={};
-function sbToggleMk(k){ _sbOpenMk[k]=!_sbOpenMk[k]; renderBook(); }
+/* Toggles the class in place rather than repainting the board. Re-rendering
+   destroyed the panel and built a new one, so there was nothing left to
+   transition — the fold snapped open however it was styled. */
+function sbToggleMk(k){
+  _sbOpenMk[k]=!_sbOpenMk[k];
+  const el=document.querySelector('.sb-fold[data-mk="'+CSS.escape(k)+'"]');
+  if(!el){ renderBook(); return; }
+  el.classList.toggle('open',_sbOpenMk[k]);
+  const b=el.querySelector('.sb-mhead');
+  if(b) b.setAttribute('aria-expanded',String(!!_sbOpenMk[k]));
+}
 function renderMyBets(){ if(_activeTab==='book') renderBook(); }
 let _betsInit=false;
 /* ── GOING IN ON A PARLAY TOGETHER ──────────────────────────────────────────
