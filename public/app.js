@@ -1038,7 +1038,10 @@ function playerImg(pid,size,name){
   size=size||24;
   const isDef=/d\/st|dst|defense/i.test(String(name||''));
   const url=(pid!=null&&!isDef)?proxyLogo(`https://a.espncdn.com/i/headshots/nfl/players/full/${pid}.png`):null;
-  const box=`position:relative;width:${size}px;height:${size}px;border-radius:50%;flex:0 0 ${size}px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.08);overflow:hidden;vertical-align:middle;`;
+  /* No disc behind the photo. The headshot is already round and cropped to
+     this box, so the fill only ever showed as a ring around the player. It
+     stays for the fallback, where the icon does need a ground to sit on. */
+  const box=`position:relative;width:${size}px;height:${size}px;border-radius:50%;flex:0 0 ${size}px;display:inline-flex;align-items:center;justify-content:center;background:${url?'transparent':'rgba(255,255,255,0.08)'};overflow:hidden;vertical-align:middle;`;
   const icon=`<i class="fa ${isDef?'fa-shield-halved':'fa-user'}" style="font-size:${Math.round(size*0.42)}px;color:var(--text3);opacity:.55"></i>`;
   const img=url?`<img src="${url}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top" onerror="this.remove()"/>`:'';
   return `<span class="phs" style="${box}">${icon}${img}</span>`;
@@ -10190,11 +10193,25 @@ function sbMarketHTML(m){
     : m.type==='yesno'
       ? `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Yes</span><span class="sb-oh">No</span></div>`
       : `<div class="sb-row sb-row2 sb-head"><span>Team</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>`;
-  return `<div class="sb-market">
-    <div class="sb-mhead"><i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span></div>
-    <div class="sb-msub">${m.sub}</div>
+  /* Ten markets of twelve rows each is a very long page to scroll past to
+     reach the one you wanted. Each folds behind its own title; the first opens
+     by default so the board is never a wall of closed bars. Open state is kept
+     per market so a bet does not close what you were reading. */
+  const open=_sbOpenMk[m.key]!==false&&(_sbOpenMk[m.key]||m.key===_sbFirstMk);
+  return `<div class="sb-market${open?' open':''}">
+    <button class="sb-mhead" onclick="sbToggleMk('${m.key}')" aria-expanded="${!!open}">
+      <i class="fa ${m.icon}"></i><span class="sb-mt">${m.title}</span>
+      <span class="sb-msub-in">${m.sub}</span>
+      <i class="fa fa-chevron-down sb-mchev"></i>
+    </button>
     <div class="sb-rows">${head}${rows}</div>
   </div>`;
+}
+/* which market is open, and which one opens itself */
+let _sbOpenMk={}, _sbFirstMk=null;
+function sbToggleMk(k){
+  _sbOpenMk[k]=!(_sbOpenMk[k]!==false&&(_sbOpenMk[k]||k===_sbFirstMk));
+  renderBook();
 }
 function renderMyBets(){ if(_activeTab==='book') renderBook(); }
 let _betsInit=false;
@@ -10799,12 +10816,7 @@ function invBoardHTML(){
       </div>
     </div>`;
   }).join('');
-  return `<div class="sb-boardnote"><i class="fa fa-chart-line"></i>
-      <span>A share is priced on how the team is doing <b>this season</b> — record,
-      scoring and the last three weeks, each measured against the league. The
-      average share is always ${invFmt(INV_BASE)}, so one team climbing means
-      another slips.</span></div>
-    ${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
+  return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
     <div class="iv-cash">Cash available <b>${invFmt(cash)}</b></div>
     <div class="iv-list">${rows}</div>`;
 }
@@ -10865,13 +10877,9 @@ function renderBook(){
     :_sbView==='invest'?invBoardHTML()
     :_sbView==='folio'?invPortfolioHTML()
     :_sbView==='mine'?myBetsHTML()
-    :(book.groups[_sbView]||[]).length
-      ? `<div class="sb-boardnote"><i class="fa fa-calendar-check"></i>
-          <span>Every market here is settled on the <b>regular season</b> — nothing
-          waits on the playoffs. Prices move with the money: the more that goes on
-          a side, the less it pays.</span></div>`
-        +(book.groups[_sbView]||[]).map(sbMarketHTML).join('')
-      : '';
+    :(()=>{ const g=book.groups[_sbView]||[];
+        _sbFirstMk=g.length?g[0].key:null;
+        return g.map(sbMarketHTML).join(''); })();
   /* "Lines set" rides beside the page title; My Bets takes the strip the
      futures bar used to hold, so the ledger is one tap from anywhere. */
   const aside=document.getElementById('page-h1-aside');

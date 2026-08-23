@@ -1184,6 +1184,15 @@
     .iv-go:not(:disabled):hover{background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
     .iv-go:disabled{opacity:.4;}
     .iv-go.iv-sell:not(:disabled){border-color:rgba(232,104,126,0.45);color:var(--red);}
+    /* ── A market folds behind its title ─────────────────────────────────── */
+    .sb-mhead .sb-mt{flex:0 0 auto;}
+    .sb-msub-in{flex:1 1 100%;order:3;font-family:'Inter',sans-serif;font-size:11.5px;
+      color:var(--text3);line-height:1.4;}
+    .sb-mchev{margin-left:auto;flex:0 0 auto;font-size:12px;color:var(--text3);
+      transition:transform .18s ease;}
+    .sb-market.open .sb-mchev{transform:rotate(180deg);}
+    .sb-market>.sb-rows{display:none;}
+    .sb-market.open>.sb-rows{display:block;}
     .picker-ph{pointer-events:none;}
 
     /* ── The wallet bar ───────────────────────────────────────────────────────
@@ -3816,8 +3825,13 @@
     .sb-market{background:rgba(0,0,0,0.2);border:1px solid transparent;
       border-radius:12px;overflow:hidden;}
     html[data-theme="light"] .sb-market{background:rgba(0,0,0,0.03);}
-    .sb-mhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;padding:13px 14px 0;}
+    .sb-mhead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+      width:100%;padding:13px 14px;border:0;border-radius:0;
+      background:none;box-shadow:none;cursor:pointer;text-align:left;}
+    /* the market icons were dropped on purpose — the chevron is not one of
+       them, it is the control that says the market folds */
     .sb-mhead i{display:none;}
+    .sb-mhead i.sb-mchev{display:inline-flex;}
     .sb-mt{font-family:'Google Sans Flex',Georgia,serif;font-size:15px;font-weight:600;}
     .sb-mhead .badge-info{margin-left:auto;background:none;border:none;padding:0;
       font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.5px;
@@ -4285,7 +4299,7 @@
       .liq-miss{font-size:13px;}
       .liq-head>span{font-size:10px;}
     }
-    .trade-count{display:flex;align-items:baseline;gap:7px;margin:0 0 12px;padding:0 0 11px;border-bottom:1px solid var(--border);}
+    .trade-count{display:flex;align-items:baseline;justify-content:center;gap:7px;margin:0 0 12px;padding:0 0 11px;border-bottom:1px solid var(--border);}
     .tc-num{font-family:'Inter','DM Sans',sans-serif;font-size:22px;font-weight:700;line-height:1;letter-spacing:0.4px;color:var(--accent);}
     .tc-lbl{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);font-weight:600;line-height:1.3;}
     .trade-wl{border:none;border-radius:0;padding:11px 13px 12px;margin-top:0;height:100%;box-sizing:border-box;}
