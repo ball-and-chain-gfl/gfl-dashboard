@@ -495,7 +495,12 @@
     .trade-team-name{font-size:15px;font-weight:700;line-height:1.25;}
     .trade-recv{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-top:1px;}
     .trade-player{display:flex;align-items:baseline;gap:8px;font-size:13px;padding:4px 0;}
-    .tp-dots{flex:1;min-width:14px;border-bottom:1px dotted rgba(255,255,255,0.22);transform:translateY(-3px);}
+    /* No leader line between the name and the score. It was a flex:1 element
+       sitting between them, so every name competed with it for width and the
+       longer ones wrapped or clipped for the sake of a dotted rule. The name
+       takes the space instead and the score is pushed to the end. */
+    .trade-player .tp-name{flex:1 1 auto;min-width:0;}
+    .trade-player .tp-pts{margin-left:auto;padding-left:10px;}
     .trade-side.right .trade-player{flex-direction:row-reverse;}
     .tp-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;}
     .tp-pts{font-weight:700;flex-shrink:0;font-size:14px;font-family:'Inter',sans-serif;letter-spacing:0.5px;}
@@ -1630,7 +1635,14 @@
     #page-trades .trades-filters .standings-filters{gap:5px!important;margin:0 0 7px!important;
       padding:0!important;}
     #page-trades .trades-filters .standings-filters:last-child{margin-bottom:0!important;}
-    #page-trades .trades-filters .standings-filters>span{margin:0 0 1px!important;font-size:11px;}
+    #page-trades .trades-filters .standings-filters>span{margin:0 0 3px!important;font-size:11px;
+      text-align:center;}
+    /* 7px above and 22px below is not a picker sitting between two things — it
+       is a picker attached to the sort buttons. Both sides are 16 now: the top
+       from its own margin, the bottom from the layout gap it shares with the
+       first card. */
+    #page-trades .trades-filters #trade-team{margin:16px 0 0!important;}
+    #page-trades .trades-layout{gap:16px;}
     #page-trades .trades-filters .filter-btn{padding:6px 7px!important;font-size:11px!important;
       line-height:1.2!important;border-radius:6px;}
     #page-trades .trades-filters select{padding:6px 22px 6px 9px!important;font-size:12px;}
@@ -2833,7 +2845,6 @@
     html[data-theme="light"] tbody tr:hover,html[data-theme="light"] .coaching-row:hover{background:rgba(0,0,0,0.03);}
     html[data-theme="light"] tbody tr,html[data-theme="light"] .activity-item,html[data-theme="light"] .draft-row{border-color:rgba(0,0,0,0.07);}
     html[data-theme="light"] .trade-bar,html[data-theme="light"] .coaching-bar,html[data-theme="light"] .winpct-bar{background:rgba(0,0,0,0.09);}
-    html[data-theme="light"] .tp-dots{border-color:rgba(0,0,0,0.28);}
     html[data-theme="light"] .h2h-total{background:rgba(178,106,0,0.06);border-color:rgba(178,106,0,0.25);}
     html[data-theme="light"] .trade-verdict.fair{background:rgba(37,99,235,0.08);}
     html[data-theme="light"] .marathon-big{text-shadow:0 0 50px rgba(178,106,0,0.2);}
@@ -4359,7 +4370,6 @@
       .big4-name,.video-thumb-title{-webkit-line-clamp:unset!important;display:block!important;overflow:visible!important;}
       /* keep the trade player row readable when the name wraps */
       .trade-player{align-items:flex-start;}
-      .tp-dots{margin-top:8px;}
     }
 
     /* ── PER-PAGE BACKGROUND MEDIA (videos / images, color-matched) ──────── */
