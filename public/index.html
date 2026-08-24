@@ -5470,29 +5470,39 @@
        column and the effect reads as a banner rather than a badge. */
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){
-      width:fit-content;max-width:100%;margin-inline:auto;font-size:18px!important;
+      width:fit-content;max-width:100%;margin-inline:auto;font-size:17px!important;
       /* The pane is drawn off this box's padding, so the padding IS the pane's
          breathing room. Top and bottom are not equal because the bottom also
          has to carry the animated rule at 32px: 46 leaves the pane room to sit
          8px under the text and still finish clear of the rule, which is what
          puts the title in the middle of the glass rather than up against it. */
       padding-top:16px!important;padding-bottom:46px!important;
-      padding-left:15px!important;padding-right:15px!important;}
+      padding-left:13px!important;padding-right:13px!important;}
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))>i,
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))>i{
-      position:absolute;left:50%;top:calc(50% - 22px);
+      position:absolute;left:50%;top:calc(50% - 21px);
       transform:translate(-50%,-50%);
       /* Bigger than the pane on purpose. The whole read is the mark showing
          above and below the glass — an icon the pane covers completely is just
          a texture nobody can identify. */
-      font-size:76px;line-height:1;opacity:0.2;z-index:-2;pointer-events:none;}
+      font-size:70px;line-height:1;opacity:0.2;z-index:-2;pointer-events:none;}
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::before,
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))::before{
       content:"";position:absolute;z-index:-1;
-      /* 8px of glass on every side of the words. The bottom number is larger
-         only because it is measured from a taller padding — it lands the same
-         8px under the text, and still finishes clear of the rule at 32px. */
-      inset:8px -4px 38px -4px;border-radius:13px;
+      /* Centred on the INK, not on the line box — and those are different
+         things. The gap between them is what made an earlier pass measure
+         right and still look wrong: the line box sat 8 and 8, but Roca rides
+         high in its own leading, so the glyphs were 12 over and 16 under.
+         These numbers put the cap band in the middle, 12.3 either side,
+         measured on the rendered page rather than reasoned about.
+
+         Titles with a descender come out 12.3 over and 9.3 under. That is
+         correct rather than a miss: the caps and the tail of a "g" cannot both
+         be centred, and it is the caps the eye lines a row of headings up on.
+
+         41 from a 46px bottom padding, so the pane still finishes clear of the
+         animated rule at 32. */
+      inset:8px -4px 41px -4px;border-radius:12px;
       background:rgba(255,255,255,0.055);
       -webkit-backdrop-filter:blur(7px) saturate(1.25);
       backdrop-filter:blur(7px) saturate(1.25);
