@@ -3970,10 +3970,53 @@ const NEW_VID_COLORS=['#E86043','#E89845','#E8C656','#66E89D','#5CE8B3','#63E0E8
    is ever wanted back. */
 function newVideoColor(){ return '#f09a4a'; }
 
-/* Drives the drawn scroll indicator under the video carousel, and the depth
-   that makes it read as a carousel rather than a row: every slide is scaled
-   and dimmed by how far it is from the left edge, so the one you are on sits
-   forward and the rest wait behind it. */
+/* The carousel's markup. Built here rather than inline in the homepage
+   template because the track is no longer just the slides: each one is wrapped
+   in a cell, and the two ends are copies of the opposite end so the thing loops.
+
+   The cell exists because the slide is the snap target and the slide is also
+   what gets scaled — and a transformed box moves its own snap position, so the
+   target kept sliding out from under the browser as you scrolled. That is why
+   it could come to rest between two videos. The cell holds the snap and stays
+   still; everything inside it moves. */
+function vidCarouselHTML(){
+  const nv=newVideoColor();
+  const esc=t=>String(t).replace(/"/g,'&quot;');
+  const rest=_videos.slice(1,3);
+  const slides=[
+    {t:_videos[0].title,
+     h:`<div class="vid-wrap"><span class="vid-new">New video</span>
+          <div class="video-featured" id="vfeat">${videoFacadeHTML(_videos[0].videoId)}</div></div>`},
+    /* the thumbs open the video on YouTube rather than swapping the embed —
+       the featured player stays playable in place */
+    ...rest.map(v=>({t:v.title,
+     h:`<a class="video-thumb" href="https://www.youtube.com/watch?v=${v.videoId}" target="_blank" rel="noopener" data-vid="${v.videoId}" title="${esc(v.title)}"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><span class="vid-out"><i class="fa-brands fa-youtube"></i></span><div class="video-thumb-title">${v.title}</div></a>`})),
+    {t:'Every episode on the Ball &amp; Chain channel',
+     h:`<a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
+          <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>`}
+  ];
+  const n=slides.length;
+  /* A clone can be rested on for the moment before the loop swings it back, and
+     the featured one carries #vfeat — a second copy of that id would send the
+     play button's iframe to whichever came first in the document. The id comes
+     out and the copies are inert: they are scenery on the edge of the frame,
+     and the real slide is a swipe or a tap on a mark away. */
+  const cell=(sl,i,clone)=>`<div class="vid-cell${clone?' vid-clone':''}" data-t="${esc(sl.t)}"${clone?' aria-hidden="true"':''}>
+      <div class="vid-inner">${clone?sl.h.replace(' id="vfeat"',''):sl.h}</div></div>`;
+  return `<div class="vid-scroll" style="--nv:${nv}" data-n="${n}">
+      ${cell(slides[n-1],n-1,true)}
+      ${slides.map((sl,i)=>cell(sl,i,false)).join('')}
+      ${cell(slides[0],0,true)}
+    </div>
+    <div class="vid-dots" id="vid-dots" style="--nv:${nv}">${
+      slides.map((_,i)=>`<button class="vid-dot${i?'':' on'}" onclick="vidGo(${i})"
+        aria-label="Video ${i+1}"></button>`).join('')}</div>
+    <div class="vid-title on" id="vid-title">${slides[0].t}</div>`;
+}
+
+/* Everything the carousel does once it is on the page: the depth that makes it
+   read as a carousel, the mark that says where you are, the caption under it,
+   and the wrap-around at each end. */
 const VID_FOCUS_SCALE=0.12;   // how far a waiting slide shrinks
 const VID_FOCUS_FADE=0.45;    // and how far it dims
 /* Pulled toward the middle as a share of its own width. Layout leaves a
@@ -3982,83 +4025,119 @@ const VID_FOCUS_FADE=0.45;    // and how far it dims
 const VID_TUCK=0.17;
 function wireVidRail(){
   const sc=document.querySelector('.vid-scroll'), dots=document.getElementById('vid-dots');
+  const cap=document.getElementById('vid-title');
   if(!sc||!dots||sc.dataset.railed) return;
   sc.dataset.railed='1';
-  /* ::after is a spacer, not a slide — children[] would count it if it were a
-     real element, but it is a pseudo, so this is just the four real slides. */
-  const slides=()=>[...sc.children];
-  const focus=()=>{
-    const list=slides(); if(!list.length) return;
-    /* Slot width rather than slide width: the gap has to be in the unit, or
-       every slide past the first reads as further out than it is. */
-    const w=list.length>1
-      ? list[1].offsetLeft-list[0].offsetLeft
-      : list[0].offsetWidth;
-    if(!w) return;
-    /* Centre to centre. A slide snaps to the middle of the track now, and the
-       distance from the left edge is not the same thing: the leading spacer,
-       the gap after it and the panel's own padding all sit in between, and
-       every one of them would show up as the first slide never quite reaching
-       focus. Comparing centres has none of that in it.
+  const n=+sc.dataset.n||1;                 // real slides, clones excluded
+  const cells=()=>[...sc.children];
+  const pitch=()=>{const l=cells();
+    return l.length>1?l[1].offsetLeft-l[0].offsetLeft:l[0].offsetWidth;};
+  /* Centre to centre. A slide snaps to the middle of the track, and the
+     distance from the left edge is not the same thing: the leading spacer, the
+     gap after it and the panel's own padding all sit in between, and every one
+     of them would show up as the first slide never quite reaching focus.
 
-       offsetLeft on the slides and on the track share an offsetParent, so the
-       two are already in the same coordinates. */
-    const mid=sc.offsetLeft+sc.scrollLeft+sc.clientWidth/2;
+     offsetLeft on the cells and on the track share an offsetParent, so the two
+     are already in the same coordinates. */
+  const mid=()=>sc.offsetLeft+sc.scrollLeft+sc.clientWidth/2;
+  const focus=()=>{
+    const list=cells(), w=pitch(); if(!list.length||!w) return;
+    const m=mid();
     list.forEach(el=>{
-      const d=(el.offsetLeft+el.offsetWidth/2-mid)/w;   // 0 = in focus, ±1 = its neighbours
+      const d=(el.offsetLeft+el.offsetWidth/2-m)/w;   // 0 = in focus, ±1 = its neighbours
       const k=Math.min(Math.abs(d),1);
+      /* On the cell's contents, never on the cell. The cell is the snap target,
+         and a transform on a snap target moves the position the browser is
+         trying to snap to — which is what let the track come to rest halfway
+         between two videos however mandatory the snapping was. */
+      const inner=el.firstElementChild; if(!inner) return;
       /* Toward the middle, whichever side it is on: -d is negative for the
          slide on the right and positive for the one on the left. Capped with k
          so slides further out do not keep piling inward. */
       const tuck=(-Math.sign(d)*k*VID_TUCK*w).toFixed(1);
-      el.style.transform=`translateX(${tuck}px) scale(${(1-k*VID_FOCUS_SCALE).toFixed(4)})`;
-      el.style.opacity=(1-k*VID_FOCUS_FADE).toFixed(3);
+      inner.style.transform=`translateX(${tuck}px) scale(${(1-k*VID_FOCUS_SCALE).toFixed(4)})`;
+      inner.style.opacity=(1-k*VID_FOCUS_FADE).toFixed(3);
       el.style.zIndex=String(10-Math.round(k*9));
     });
   };
-  /* Which slide the carousel is over. focus() already works out how far each
-     one is from the middle, so the lit dot is simply the nearest — no separate
-     arithmetic to fall out of step with the scaling. */
-  const mark=()=>{
-    const list=slides(); if(!list.length) return;
-    const w=list.length>1?list[1].offsetLeft-list[0].offsetLeft:list[0].offsetWidth;
-    if(!w) return;
-    const mid=sc.offsetLeft+sc.scrollLeft+sc.clientWidth/2;
+  /* Which cell the carousel is over. Same centre-to-centre distance the scaling
+     uses, so the mark, the caption and the slide in focus cannot disagree. */
+  const nearest=()=>{
+    const list=cells(); const m=mid();
     let best=0,bd=Infinity;
     list.forEach((el,i)=>{
-      const dist=Math.abs(el.offsetLeft+el.offsetWidth/2-mid);
+      const dist=Math.abs(el.offsetLeft+el.offsetWidth/2-m);
       if(dist<bd){ bd=dist; best=i; }
     });
-    [...dots.children].forEach((d,i)=>d.classList.toggle('on',i===best));
+    return best;
+  };
+  /* Cell to video. Cell 0 is a copy of the last video and the final cell is a
+     copy of the first, so the real ones are the n in between. */
+  const realOf=i=>((i-1)%n+n)%n;
+  let shown=-1;
+  const mark=()=>{
+    const r=realOf(nearest());
+    [...dots.children].forEach((d,i)=>d.classList.toggle('on',i===r));
+    if(cap&&r!==shown){
+      shown=r;
+      /* Out, then in on the new one. The text is swapped while it is invisible
+         so the two titles never cross-fade into each other. */
+      cap.classList.remove('on');
+      clearTimeout(cap._t);
+      cap._t=setTimeout(()=>{
+        const src=cells()[nearest()];
+        if(src) cap.innerHTML=src.dataset.t||'';
+        cap.classList.add('on');
+      },170);
+    }
   };
   const draw=()=>{ focus(); mark(); };
   /* The transition on the slides is for settling after a snap. During a drag
      it would lag the finger, so the frame-by-frame updates turn it off and the
-     scrollend puts it back for the snap that follows. */
+     scroll settling puts it back for the snap that follows. */
   let moving=null;
   sc.addEventListener('scroll',()=>{
     if(moving===null) sc.classList.add('vid-dragging');
     clearTimeout(moving);
-    moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; },90);
+    moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; loop(); },110);
     draw();
   },{passive:true});
+  sc.addEventListener('scrollend',loop);
   window.addEventListener('resize',draw);
+  /* Open on the newest video rather than at scrollLeft 0, which is the copy of
+     the channel card sitting in front of it. That copy is then the thing on its
+     left — which is the point of it: the track already looks continuous in both
+     directions before anyone has touched it. */
+  if(cells().length>1) hop(1);
   draw();
+
+  /* The wrap-around. Coming to rest on an end copy puts you on the real slide
+     it was copied from — same picture, same place in the frame, so the track
+     carries straight on in either direction and never runs out. */
+  function loop(){
+    const list=cells(); if(list.length!==n+2) return;
+    const i=nearest();
+    if(i===0) hop(n);            // copy of the last → the last
+    else if(i===n+1) hop(1);     // copy of the first → the first
+  }
+  function hop(i){
+    const el=cells()[i]; if(!el) return;
+    if(Math.abs(el.offsetLeft+el.offsetWidth/2-mid())<1) return;
+    el.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});
+  }
 }
-/* Tapping a dot goes to that video. scrollIntoView rather than a scrollLeft of
-   our own: the slides snap to the middle and the browser already knows where
-   that is, spacers, gaps and panel padding included.
+/* Tapping a mark goes to that video — offset by one, since the first cell is
+   the copy of the last.
 
    Instant, not smooth, and deliberately. scroll-snap-stop:always is what keeps
    a flick from flying past two videos to land on a third, and it applies just
    as strictly to a scroll we ask for ourselves — a smooth jump from the first
-   dot to the fourth does not move at all. Suspending it for the length of the
-   animation does free the jump, but it then settles ~40px short of the snap
-   point, so the slide sits visibly off centre. A jump that lands exactly is
-   worth more here than a jump that slides. */
+   mark to the fourth does not move at all. Suspending it for the animation does
+   free the jump, but it then settles ~40px short of the snap point, so the
+   slide sits visibly off centre. Landing exactly is worth more than sliding. */
 function vidGo(i){
   const sc=document.querySelector('.vid-scroll'); if(!sc) return;
-  const el=sc.children[i]; if(!el) return;
+  const el=sc.children[i+1]; if(!el) return;
   el.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});
 }
 
@@ -13019,21 +13098,7 @@ async function loadDashboard(){
           <div class="home-vid-col">
             <div class="sec">
               <div class="home-box">${firstVid
-                ?`<div class="vid-scroll" style="--nv:${newVideoColor()}">
-                    <div class="vid-wrap"><span class="vid-new">New video</span>
-                      <div class="video-featured" id="vfeat">${videoFacadeHTML(firstVid.videoId)}</div></div>
-                    ${/* the thumbs open the video on YouTube rather than swapping
-                          the embed — the featured player stays playable in place */''}
-                    ${_videos.slice(1,3).map(v=>`<a class="video-thumb" href="https://www.youtube.com/watch?v=${v.videoId}" target="_blank" rel="noopener" data-vid="${v.videoId}" title="${String(v.title).replace(/"/g,'&quot;')}"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><span class="vid-out"><i class="fa-brands fa-youtube"></i></span><div class="video-thumb-title">${v.title}</div></a>`).join('')}
-                    <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
-                      <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>
-                  </div>
-                  <div class="vid-dots" id="vid-dots" style="--nv:${newVideoColor()}">${
-                    /* one per slide: the featured player, however many recent
-                       thumbs there were to show, and the link to the channel */
-                    Array.from({length:2+_videos.slice(1,3).length},(_,i)=>
-                      `<button class="vid-dot${i?'':' on'}" onclick="vidGo(${i})"
-                        aria-label="Video ${i+1}"></button>`).join('')}</div>`
+                ?vidCarouselHTML()
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
             </div>

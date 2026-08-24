@@ -1598,15 +1598,24 @@
        The transform is the only thing that moves — the overlap included. Width,
        gap and snapping are untouched by it, so scroll position, the snap points
        and the rail's arithmetic all still measure the real boxes. */
-    .vid-scroll>*{scroll-snap-align:center;scroll-snap-stop:always;flex:0 0 72%;
-      min-width:0;position:relative;
-      transition:transform .18s ease-out,opacity .18s ease-out;will-change:transform;}
+    /* The cell snaps and does not move. Everything that scales, dims and tucks
+       is one level in — a transform on the snap target moves the position the
+       browser is snapping to, which is what let the track come to rest between
+       two videos however mandatory the snapping was. */
+    .vid-cell{scroll-snap-align:center;scroll-snap-stop:always;flex:0 0 72%;
+      min-width:0;position:relative;}
+    .vid-inner{will-change:transform;
+      transition:transform .18s ease-out,opacity .18s ease-out;}
+    /* The copies at each end are scenery. One of them carries the featured
+       player, whose play button targets an id that now exists twice, so no
+       copy takes a tap — the real slide is a swipe or a mark away. */
+    .vid-clone{pointer-events:none;}
     /* A slide snaps to the middle, and the first and last have to be able to
        reach it too — with nothing to scroll into, both would sit stranded
        against an edge instead of coming into focus. 14% each is exactly the
        half of the track a centred slide does not cover. */
     .vid-scroll::before,.vid-scroll::after{content:"";flex:0 0 14%;}
-    .vid-scroll.vid-dragging>*{transition:none;}
+    .vid-scroll.vid-dragging .vid-inner{transition:none;}
     /* The ribbon anchors to the slide's right edge, so the slide and the poster
        have to be the same box — a reserved strip on one side is exactly what
        made the spacing uneven. The peek now comes from the slide being narrow
@@ -1631,15 +1640,26 @@
        lit in the ribbon colour. */
     .vid-scroll{scrollbar-width:none;}
     .vid-scroll::-webkit-scrollbar{display:none;}
-    .vid-dots{display:flex;justify-content:center;gap:7px;margin-top:2px;}
+    .vid-dots{display:flex;justify-content:center;gap:4px;margin:0;}
     /* The mark is 3px tall, which is nothing to hit with a thumb, so the button
-       is padded out to a real target and the line is drawn inside it. */
+       is padded out to a real target and the line is drawn inside it. The
+       padding is even, so the marks sit the same distance from the video above
+       them as from the title below. */
     .vid-dot{appearance:none;-webkit-appearance:none;border:none;background:none;
-      padding:10px 4px;margin:0;line-height:0;display:block;cursor:pointer;}
+      padding:9px 2px;margin:0;line-height:0;display:block;cursor:pointer;}
     .vid-dot::after{content:"";display:block;width:16px;height:3px;border-radius:999px;
       background:rgba(255,255,255,0.20);
       transition:background .2s ease,width .2s ease;}
     .vid-dot.on::after{background:var(--nv,var(--accent));width:26px;}
+    /* Full width of the panel, and held at two lines so a long title arriving
+       after a short one cannot jog everything under it down the page. */
+    .vid-title{background:rgba(255,255,255,0.045);border-radius:8px;
+      padding:8px 12px;text-align:center;font-family:'Inter',sans-serif;
+      font-size:12px;line-height:1.45;color:var(--text2);
+      min-height:calc(2 * 1.45em + 16px);display:flex;align-items:center;
+      justify-content:center;overflow:hidden;
+      opacity:0;transition:opacity .17s ease;}
+    .vid-title.on{opacity:1;}
     @media(hover:hover){.vid-dot:hover::after{background:rgba(255,255,255,0.38);}
       .vid-dot.on:hover::after{background:var(--nv,var(--accent));}}
     /* 16:9 like every other slide — a min-height here used to make the track
