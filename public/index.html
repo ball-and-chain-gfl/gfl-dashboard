@@ -1644,10 +1644,7 @@
        making every card read as highlighted. Both are gone now — they take the
        flat fill like every other panel — so neither rule is needed. */
 
-    /* Champions gets the raised treatment the Legacy Report has */
-    html[data-theme] #lh-champs{border-radius:10px;
-      padding:14px 16px;background:rgba(0,0,0,0.2);
-      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5);}
+    /* Champions takes the raised panel — see the shared rule further down. */
     /* Trade cards lift off the page background instead of blending into it */
     html[data-theme] .trade-card{background:rgba(0,0,0,0.2)!important;}
     /* and the filter rail above them is tightened up */
@@ -5348,6 +5345,30 @@
     .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){border-bottom:none;}
     @media(prefers-reduced-motion:reduce){
       .sec-head::after,.section-header::after,.lh-sec-head::after{animation:none;}
+    }
+
+    /* ── The raised panel ──────────────────────────────────────────────────
+       Champions has had this since the Legacy Report got it, and the videos
+       want the same thing: content lifted onto its own surface instead of
+       sitting loose on the page. One rule for both so they cannot drift.
+
+       It sits after the open-layout reset and carries !important because that
+       reset strips background, radius, padding and shadow from every .home-box
+       with !important of its own. Champions escapes the reset by not being a
+       .sec at all, so the flag is redundant there and harmless.
+
+       On the video module the panel goes on .home-box rather than the .sec
+       above it: .home-box already is the module's surface everywhere else on
+       the homepage, and putting it there keeps the scroll rail inside the
+       container with the slider it belongs to. */
+    html[data-theme] #lh-champs,
+    html[data-theme] #page-home .home-vid-col .home-box{
+      border-radius:10px!important;padding:14px 16px!important;
+      background:rgba(0,0,0,0.2)!important;
+      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),
+                 0 2px 6px -3px rgba(0,0,0,0.5)!important;}
+    @media(max-width:768px){
+      html[data-theme] #page-home .home-vid-col .home-box{padding:12px 13px!important;}
     }
 
     /* ── HOMEPAGE HEADINGS: icon over title, both on one pane of glass ──────
