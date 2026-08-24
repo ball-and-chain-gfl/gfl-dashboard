@@ -2335,6 +2335,13 @@
        a scroll container and force the other axis to scroll with it, and the
        card's drop shadow has to stay visible above and below. */
     #nt-body{overflow-x:clip;overflow-y:visible;}
+    /* Same guard one level up. The home page plays several cards back from
+       where they used to be as transforms — the notification swipe, the Ball
+       Knowledge card's trip to the foot of the page, the to-do reorder — and
+       any of them can put a box outside the page while it travels. Clipped on
+       the one axis, so the vertical drop shadows and anything that hangs below
+       a card still show, and the video rail keeps its own scroller. */
+    #page-home{overflow-x:clip;}
     .nt-card{position:relative;padding:11px 12px 12px;border-radius:12px;
       background:rgba(0,0,0,0.2);
       box-shadow:0 6px 16px -8px rgba(0,0,0,0.8),0 2px 5px -3px rgba(0,0,0,0.55);

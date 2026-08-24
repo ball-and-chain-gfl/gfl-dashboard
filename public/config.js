@@ -114,6 +114,10 @@ window.GFL_CONFIG = {
   ballKnowledge: {
     resetToken: 0,
     reveal: false,
+    /* What one graded call is worth on the Ball Knowledge scale — a right
+       answer this much up, a wrong one the same amount down. Every call counts
+       the same: a trivia question, a weekly pick, a settled bet. */
+    iq: { step: 2 },
     /* TESTING — serve one of every kind of question instead of the weekly five,
        and let the graph question through before week 5. Set false for the real
        five-a-week set. */

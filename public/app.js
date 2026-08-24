@@ -6192,37 +6192,75 @@ function plantSVG(stage,P){
   const GD=['#2f9e5c','#2c8f50','#668f34','#867a26','#664e22','#4e3a24'][stage];
   /* the stem always reaches the soil */
   const stem=(y,lean)=>P(cx-4+(lean||0),y,8,404-y,G)+P(cx+1+(lean||0),y,3,404-y,GD,'0.5');
-  const leaf=(x,y,w,h)=>P(x,y,w,h,G)+P(x,y+h-2,w,2,GD,'0.5');
-  const fallen=(x,y,w,o)=>P(x,y,w,5,G,o)+P(x,y+3,w,2,GD,o);
+
+  /* A leaf, not a dash. It is drawn as a run of columns that climb as they go
+     out, each column as tall as the leaf is thick at that point: thin where it
+     joins the stem, fattest a third of the way along, closing to a point.
+
+     Two things do the work. The taper is one — with ten pixels of height to say
+     "leaf" in, a flat bar says "green dash", which is what these were. The
+     climb is the other, and it matters as much: leaves coming straight out of a
+     stalk at ninety degrees are branches, and five of them stacked up read as a
+     fir tree however nicely each one is shaped.
+
+     rise is a fraction of the leaf's own height and is the whole wilt. Positive
+     and the leaf lifts away from the stem; zero and it sits flat; negative and
+     it hangs. So the decline down the stages is one number moving, not six
+     drawings of different things, and the shape stays a leaf the whole way
+     down instead of turning back into rectangles at the bottom.
+
+     dir is which way the tip points. x is the left edge either way. */
+  const LEAFCOL=[0.34,0.72,1,0.98,0.86,0.68,0.46,0.24];
+  const leafAt=(x,y,w,h,dir,rise,o)=>{
+    const n=LEAFCOL.length, cw=Math.max(2,Math.round(w/n));
+    const climb=Math.round(h*(rise==null?0.85:rise));
+    let s='';
+    for(let i=0;i<n;i++){
+      const bh=Math.max(2,Math.round(h*LEAFCOL[i]));
+      const bx=dir<0?x+w-cw*(i+1):x+cw*i;
+      const by=Math.round(y+(h-bh)/2-climb*(i/(n-1)));
+      s+=P(bx,by,cw,bh,G,o)+P(bx,by+bh-2,cw,2,GD,o||'0.55');
+      if(bh>=5) s+=P(bx,Math.round(by+bh/2-1),cw,1,GD,o||'0.40');   // midrib
+    }
+    return s;
+  };
+  const leafR=(x,y,w,h,rise)=>leafAt(x,y,w,h,1,rise);
+  const leafL=(x,y,w,h,rise)=>leafAt(x,y,w,h,-1,rise);
+  /* shed leaves lie flat, and fade as they go */
+  const fallen=(x,y,w,o)=>leafAt(x,y,w,7,x<cx?-1:1,0,o);
   let p='';
   if(stage===0){
     p=stem(300,1)
-      +leaf(196,318,34,10)+leaf(154,332,34,10)
-      +leaf(196,344,28,9) +leaf(160,300,30,9)
-      +leaf(196,292,26,9)
+      +leafR(196,326,30,13,0.9)+leafL(158,340,30,13,0.9)
+      +leafR(196,352,25,11,0.85)+leafL(164,310,26,11,0.85)
+      +leafR(196,300,23,10,0.8)
       +P(180,282,22,12,'#f0a0c0')+P(186,276,12,7,'#f8c0d8');   // one small bloom
   }else if(stage===1){
     p=stem(322,1)
-      +leaf(196,338,32,10)+leaf(158,352,32,10)
-      +leaf(196,362,26,9) +leaf(164,322,28,9);
+      +leafR(196,346,28,12,0.75)+leafL(162,360,28,12,0.75)
+      +leafR(196,370,23,10,0.7) +leafL(168,330,25,10,0.7);
   }else if(stage===2){
+    /* still up, but no longer reaching */
     p=stem(350)
-      +leaf(196,360,28,9)+leaf(164,372,28,9)
-      +leaf(196,380,22,8);
+      +leafR(196,366,26,11,0.25)+leafL(166,378,26,11,0.2)
+      +leafR(196,386,21,9,0.15);
   }else if(stage===3){
     /* they have started to hang */
     p=stem(372)
-      +leaf(196,378,24,8)+P(218,385,10,11,G)
-      +leaf(166,386,24,8)+P(162,393,10,11,G)
-      +fallen(126,434,18,'0.7');
+      +leafR(196,378,24,10,-0.85)
+      +leafL(168,386,24,10,-0.85)
+      +fallen(126,433,17,'0.7');            // the first one to let go
   }else if(stage===4){
     p=stem(386)
-      +P(196,390,20,8,G)+P(214,394,9,10,G)
-      +P(170,394,20,8,G)
-      +fallen(120,434,18,'0.7')+fallen(248,434,18,'0.6');
+      +leafR(196,388,21,9,-1.5)
+      +leafL(171,392,21,9,-1.5)
+      +fallen(120,433,18,'0.7')+fallen(248,433,18,'0.6');
   }else{
-    p=stem(390)+P(186,384,11,7,G)
-      +fallen(114,434,20,'0.5')+fallen(246,434,20,'0.45')+fallen(180,436,18,'0.4');
+    /* A bare stalk and one leaf that has not fallen yet. It has to hang clear
+       of the pot lip at y 391 or it reads as an empty pot with a stick in it —
+       the last leaf is the whole difference between dead and never planted. */
+    p=stem(374)+leafL(176,372,15,7,-1.4)
+      +fallen(114,433,20,'0.5')+fallen(246,433,20,'0.45')+fallen(180,435,18,'0.4');
   }
   return pot+p;
 }
@@ -7258,11 +7296,32 @@ function sbSoftmax(vals,k){
   const mx=Math.max(...vals), e=vals.map(v=>Math.exp((v-mx)*k)), s=e.reduce((a,b)=>a+b,0);
   return e.map(v=>v/s);
 }
+/* ── HOW SURE THE BOARD IS ALLOWED TO BE ─────────────────────────────────────
+   Before a ball is thrown, every number behind these prices is a read on
+   history and roster shape. That is a real opinion and worth pricing — but it
+   is not the same thing as knowing, and a board that prices a guess the way it
+   prices a fact posts a −140 favourite and a +2000 shot over a season nobody
+   has played a minute of yet.
+
+   So the spread is held in while the evidence is thin and let back out as the
+   season fills it in, on the same signal the ratings themselves already use:
+   nothing in week one, everything it is going to be by week eight. The shape of
+   every market is unchanged — the same team is still the favourite, and the
+   same team is still the longest shot. They just are not as far apart until
+   there is something behind saying they should be. */
+const SB_COLD_K=0.44;        // how much of the spread survives with nothing played
+const SB_COLD_B=0.40;        // how far toward even the board sits with nothing played
+const sbEvidence=()=>Math.min(1,Math.max(0,(_sbLiveWeight||0)/SB_LIVE_MAX));
+/* pulls any spread term — a softmax temperature, a logistic slope — in toward
+   flat while the season is young */
+const sbDamp=v=>v*(SB_COLD_K+(1-SB_COLD_K)*sbEvidence());
 // Standardise first (raw ratings are sums of z-scores, so their spread would
 // blow the exponential up), then soften toward uniform so the board prices like
 // a real book: a ~20% favourite and longshots in the +2000s rather than +9000s.
 function sbProbs(vals,k,blend){
-  const z=sbZ(vals), p=sbSoftmax(z,k==null?0.75:k), n=vals.length||1, b=blend==null?0.16:blend;
+  const b0=blend==null?0.16:blend;
+  const b=b0+(SB_COLD_B-b0)*(1-sbEvidence());
+  const z=sbZ(vals), p=sbSoftmax(z,sbDamp(k==null?0.75:k)), n=vals.length||1;
   return p.map(v=>v*(1-b)+b/n);
 }
 const SB_HOLD=0.075;              // outright market hold
@@ -7606,7 +7665,15 @@ function sbBuild(){
      and the blend grows with the number of games behind it — nothing at all in
      week one, everything it is going to be by week eight. */
   (function(){
-    const live=sbLiveSignals(rows,ntSeason&&ntSeason());
+    /* The season being priced, not the last one with games in it. Those are
+       the same season for most of the year and very much not the same in
+       August: ntSeason() hands back the completed year, so the board was
+       folding last season's form in as though it were this season's and, worse,
+       reporting a full season of evidence for a season nobody has played a
+       minute of. That is what put a −470 favourite on week one. With nothing
+       played this comes back empty, the rating falls back to the career number,
+       and the spread stays in until real games open it up. */
+    const live=sbLiveSignals(rows,sbBoardSeason());
     const has=k=>rows.some(r=>live[k][r.owner]!=null);
     const zf=k=>{ const v=rows.map(r=>live[k][r.owner]!=null?live[k][r.owner]:0); return sbZ(v); };
     const zForm=has('form')?zf('form'):rows.map(()=>0);
@@ -7698,16 +7765,17 @@ function sbBuild(){
   const spots=Math.min(6,Math.round(rows.length/2));
   const zr=sbZ(ratings);
   let lo=-6,hiC=6,c=0;
+  const poSlope=sbDamp(1.05);
   for(let it=0;it<60;it++){ c=(lo+hiC)/2;
-    const s=zr.reduce((a,v)=>a+1/(1+Math.exp(-(1.05*v+c))),0);
+    const s=zr.reduce((a,v)=>a+1/(1+Math.exp(-(poSlope*v+c))),0);
     if(s>spots) hiC=c; else lo=c; }
-  const pPlayoffs=zr.map(v=>1/(1+Math.exp(-(1.05*v+c))));
+  const pPlayoffs=zr.map(v=>1/(1+Math.exp(-(poSlope*v+c))));
   const playoffs=yesno('playoffs',`${sbSeason()} Playoff Berth`,`Top ${spots} of ${rows.length} make the bracket`,
     pPlayoffs,'Yes / No','fa-calendar-check');
 
   // ── TEAM PROPS ──
   const wins=overunder('wins',`Regular Season Wins`,`${GAMES}-game regular season`,
-    zr.map(v=>Math.min(GAMES-2,Math.max(2,GAMES*Math.min(0.70,Math.max(0.30,1/(1+Math.exp(-0.62*v))))))),
+    zr.map(v=>Math.min(GAMES-2,Math.max(2,GAMES*Math.min(0.70,Math.max(0.30,1/(1+Math.exp(-sbDamp(0.62)*v))))))),
     0.30,0.5,'Over / Under','fa-arrows-up-down');
   const mostPf=outright('mostpf','Most Points Scored','League leader in points for',
     sbProbs(rows.map(r=>r.z.ppg+0.55*(r.z.form||0)+0.60*(r.z.roster||0)),0.80,0.40),'Outright','fa-fire');
@@ -7739,11 +7807,11 @@ function sbBuild(){
      teams a 40% chance of the same two seeds. The slope is steeper than the
      playoff market's because the very top and the very bottom separate harder
      than the middle does. */
-  const pTop2=sbSolveK(zr,2,1.35);
+  const pTop2=sbSolveK(zr,2,sbDamp(1.35));
   const topSeed=sbYesNoAny('topseed',`${sbSeason()} Top Two Seed`,
     'Finishes the regular season as the 1 or 2 seed — a first-round bye',
     rows.map(r=>({k:r.owner,name:r.name})),pTop2,'fa-crown',{lo:0.02,hi:0.62});
-  const pBot2=sbSolveK(zr.map(v=>-v),2,1.35);
+  const pBot2=sbSolveK(zr.map(v=>-v),2,sbDamp(1.35));
   const botSeed=sbYesNoAny('botseed',`${sbSeason()} Bottom Two Seed`,
     'Finishes 11th or 12th — the losers bracket',
     rows.map(r=>({k:r.owner,name:r.name})),pBot2,'fa-trash-can',{lo:0.02,hi:0.62});
@@ -8853,7 +8921,19 @@ function bkPlace(done){
      than a jump that happens off screen. */
   sec.style.transition='transform 1.1s cubic-bezier(.3,.75,.25,1)';
   sec.style.transform='';
-  try{ sec.scrollIntoView({block:'center',behavior:'smooth'}); }catch(e){}
+  /* Scroll to where the card is going to be, not to where it is.
+     scrollIntoView reads the element's *transformed* box, and at this instant
+     that box is still a thousand pixels up the page — so the browser set off
+     toward a target that was moving away from it the whole time, overshot the
+     end of the document and rubber-banded back. On a phone that reads as the
+     screen zooming out and snapping in again. `to` was measured after the card
+     was reparented and before the transform went on, so it is the resting
+     position: scroll to that and let the card come to meet it. */
+  try{
+    const top=to.top+window.scrollY-Math.max(0,(window.innerHeight-to.height)/2);
+    const max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+    window.scrollTo({top:Math.max(0,Math.min(max,top)),behavior:'smooth'});
+  }catch(e){}
   setTimeout(()=>{ sec.style.transition=''; sec.classList.add('bk-landed'); },1150);
   setTimeout(()=>{ sec.classList.remove('bk-landed'); },2400);
 }
@@ -10232,8 +10312,12 @@ function bkIQFor(teamId){
   let score=0;
   rows.forEach(p=>{
     // trivia
+    /* The questions are generated now rather than written into config, and this
+       was still reading the config list — which has been empty since, so the
+       trivia has quietly been worth nothing at all. It grades the week's real
+       set: right answer up, wrong answer down, each worth one step. */
     if(cfg.reveal){
-      const qs=cfg.questions||[];
+      const qs=bkQuestions();
       let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch{ ans={}; }
       qs.forEach((q,i)=>{ if(ans[i]==null) return; score+=(ans[i]===q.correct?1:-1); });
     }
@@ -10283,7 +10367,9 @@ function bkIQColor(v){
   return p>=0.5 ? mixHex('#f4c04d','#3fd07a',(p-0.5)/0.5) : mixHex('#ff5f5f','#f4c04d',p/0.5);
 }
 function bkIQHTML(teamId){
-  const cfg=_CFG.ballKnowledge||{}; if(!(cfg.questions||[]).length) return '';
+  /* same stale guard: config holds no questions any more, so this hid the bar
+     outright. It shows whenever there is a set to be graded against. */
+  if(!bkQuestions().length) return '';
   const iq=bkIQCfg(), v=bkIQFor(teamId), pct=bkIQPct(v), col=bkIQColor(v);
   /* No card of its own any more: this sits at the foot of the profile hero,
      inside the black panel, so the wrapper carries position only. */
@@ -11110,6 +11196,15 @@ function sbSeatCap(mk){
    entrant key is the same string in both markets of a pair — a team owner for
    the scores, a fixture for the games — so the picks compare directly. */
 const SB_ENDS=[['high','low'],['close','blow']];
+/* Does this owner play in the game a weekly market key names? The key carries
+   team ids and a pick carries an owner, so the two only meet through the book's
+   own rows. */
+function sbSameGame(mk,owner){
+  const m=/^wk\d+-(\d+)-(\d+)-(?:ml|sp|tot)$/.exec(mk); if(!m) return false;
+  const b=sbBuild(); if(!b) return false;
+  const r=b.rows.find(x=>x.owner===owner); if(!r) return false;
+  return String(r.tid)===m[1]||String(r.tid)===m[2];
+}
 function sbWeekOpposite(mk){
   const m=/^(wk\d+)-(high|low|close|blow)$/.exec(mk); if(!m) return null;
   const pair=SB_ENDS.find(p=>p.indexOf(m[2])>=0);
@@ -11118,15 +11213,55 @@ function sbWeekOpposite(mk){
 function sbConflict(mk,pick){
   const p=String(pick), team=p.split(':')[0];
   // one selection per weekly market, whichever side or line it is
+  /* One side per market. The moneyline and the spread used to be treated as
+     one market between them, which also stopped the favourite being backed on
+     both — and that is a bet a person is allowed to want. They are separate
+     markets again; what is still impossible is caught below. */
   if(SB_EXCLUSIVE.test(mk)){
-    const clash=_slip.find(x=>x.mk===mk||x.mk===mk.replace(/-(ml|sp)$/,'-ml')&&/-(ml|sp)$/.test(mk)&&x.mk.replace(/-(ml|sp)$/,'-ml')===mk.replace(/-(ml|sp)$/,'-ml'));
-    if(clash&&clash.pick!==p) return {leg:clash,why:'You already have a side of that game.'};
+    const clash=_slip.find(x=>x.mk===mk&&x.pick!==p);
+    if(clash) return {leg:clash,why:'You already have a side of that market.'};
+  }
+  /* Except one way round: the spread is only ever sold on the favourite, so
+     taking the underdog to win outright and the favourite to cover the same
+     game is a ticket that cannot come in. */
+  const game=mk.replace(/-(ml|sp)$/,'');
+  if(/-(ml|sp)$/.test(mk)){
+    const other=/-ml$/.test(mk)?game+'-sp':game+'-ml';
+    const clash=_slip.find(x=>x.mk===other&&x.pick.split(':')[0]!==team);
+    if(clash) return {leg:clash,why:'The underdog winning and the favourite covering cannot both land.'};
   }
   // an outright can only be won by one entrant — season or week
   const m=sbAllMarkets().find(x=>x.key===mk);
   if(m&&m.type==='outright'){
     const clash=_slip.find(x=>x.mk===mk&&x.pick!==p);
     if(clash) return {leg:clash,why:`Only one ${(m.entLabel||'team').toLowerCase()} can win that.`};
+  }
+  /* A team that puts up the week's highest score has beaten whoever it played
+     — nobody outscored it. The lowest lost the same way. So the score markets
+     and that team's own moneyline are tied together: top score rules out the
+     opponent winning, low score rules out the team winning. */
+  const sc=/^wk(\d+)-(high|low)$/.exec(mk);
+  if(sc){
+    const clash=_slip.find(x=>{
+      const g=/^wk(\d+)-\d+-\d+-ml$/.exec(x.mk);
+      if(!g||g[1]!==sc[1]||!sbSameGame(x.mk,team)) return false;
+      const mlTeam=x.pick.split(':')[0];
+      return sc[2]==='high' ? mlTeam!==team : mlTeam===team;
+    });
+    if(clash) return {leg:clash,why:sc[2]==='high'
+      ?'Nobody outscored the top score, so that team won its game.'
+      :'The low score of the week did not win its game.'};
+  }
+  // and the other way round: an existing score leg against a new moneyline
+  const ml=/^wk(\d+)-\d+-\d+-ml$/.exec(mk);
+  if(ml){
+    const clash=_slip.find(x=>{
+      const m2=/^wk(\d+)-(high|low)$/.exec(x.mk);
+      if(!m2||m2[1]!==ml[1]) return false;
+      if(!sbSameGame(mk,x.pick)) return false;
+      return m2[2]==='high' ? x.pick!==team : x.pick===team;
+    });
+    if(clash) return {leg:clash,why:'That cannot happen with the score leg already on the slip.'};
   }
   // the same entrant at both ends of the same week
   const opp=sbWeekOpposite(mk);
@@ -11245,10 +11380,16 @@ function sbWeekData(){
     const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
     const done=hp>0||ap>0;
     if(!a||!b) return null;
-    const pA=Math.min(0.80,Math.max(0.20,1/(1+Math.exp(-(a.rating-b.rating)*0.55))));
+    /* Head-to-head fantasy is closer to a coin flip than a power rating makes
+       it look, and in week one there is nothing behind that rating but last
+       year. A −470 favourite in a game where either side can hang forty on the
+       other is not a price, it is a boast. The lean is capped tight while the
+       evidence is thin and opens up as the season earns it. */
+    const lim=0.62+0.18*sbEvidence();
+    const pA=Math.min(lim,Math.max(1-lim,1/(1+Math.exp(-(a.rating-b.rating)*sbDamp(0.55)))));
     return {week,a,b,done,hp,ap,
       mlA:amFromProb(Math.min(0.95,pA+0.025)), mlB:amFromProb(Math.min(0.95,(1-pA)+0.025)),
-      spread:Math.max(0.5,Math.round(Math.abs(a.rating-b.rating)*3.0*2)/2),
+      spread:Math.max(0.5,Math.round(Math.abs(a.rating-b.rating)*sbDamp(3.0)*2)/2),
       favA:a.rating>=b.rating,
       line:Math.round(a.ppg+b.ppg)+0.5,
       overP:amFromProb(0.5+0.024), underP:amFromProb(0.5+0.024),
