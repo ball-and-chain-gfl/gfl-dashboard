@@ -1598,7 +1598,8 @@
        The transform is the only thing that moves — the overlap included. Width,
        gap and snapping are untouched by it, so scroll position, the snap points
        and the rail's arithmetic all still measure the real boxes. */
-    .vid-scroll>*{scroll-snap-align:center;flex:0 0 72%;min-width:0;position:relative;
+    .vid-scroll>*{scroll-snap-align:center;scroll-snap-stop:always;flex:0 0 72%;
+      min-width:0;position:relative;
       transition:transform .18s ease-out,opacity .18s ease-out;will-change:transform;}
     /* A slide snaps to the middle, and the first and last have to be able to
        reach it too — with nothing to scroll into, both would sit stranded
@@ -1623,18 +1624,24 @@
     .vid-out{position:absolute;right:18px;bottom:8px;width:26px;height:26px;border-radius:6px;
       display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.62);
       color:#fff;font-size:13px;pointer-events:none;}
-    /* Always-on scroll indicator. Overlay scrollbars hide themselves on macOS
-       and iOS, so the affordance is drawn rather than relying on the native
-       bar — the thumb tracks scroll position and takes the ribbon colour. */
+    /* Always-on position indicator. Overlay scrollbars hide themselves on macOS
+       and iOS, so the affordance is drawn rather than relying on the native bar
+       — and a bar that tracked a continuous scroll position was never the right
+       reading anyway. Four marks, one per video, and the one you are over is
+       lit in the ribbon colour. */
     .vid-scroll{scrollbar-width:none;}
     .vid-scroll::-webkit-scrollbar{display:none;}
-    .vid-rail{height:3px;border-radius:999px;background:rgba(255,255,255,0.12);
-      margin-top:4px;overflow:hidden;}
-    /* No transition. The thumb is redrawn on every scroll frame, and an .08s
-       ease on top of that has the animation restarting from a stale position
-       sixty times a second — which is what made it shiver rather than track. */
-    .vid-rail-thumb{height:100%;border-radius:999px;background:var(--nv,var(--accent));
-      transform-origin:left center;}
+    .vid-dots{display:flex;justify-content:center;gap:7px;margin-top:2px;}
+    /* The mark is 3px tall, which is nothing to hit with a thumb, so the button
+       is padded out to a real target and the line is drawn inside it. */
+    .vid-dot{appearance:none;-webkit-appearance:none;border:none;background:none;
+      padding:10px 4px;margin:0;line-height:0;display:block;cursor:pointer;}
+    .vid-dot::after{content:"";display:block;width:16px;height:3px;border-radius:999px;
+      background:rgba(255,255,255,0.20);
+      transition:background .2s ease,width .2s ease;}
+    .vid-dot.on::after{background:var(--nv,var(--accent));width:26px;}
+    @media(hover:hover){.vid-dot:hover::after{background:rgba(255,255,255,0.38);}
+      .vid-dot.on:hover::after{background:var(--nv,var(--accent));}}
     /* 16:9 like every other slide — a min-height here used to make the track
        ~60px taller than the poster and pushed the rail away from the video */
     .vid-ch{aspect-ratio:16/9;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;

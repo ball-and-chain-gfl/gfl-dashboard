@@ -3981,8 +3981,8 @@ const VID_FOCUS_FADE=0.45;    // and how far it dims
    it a little further, so it passes under rather than stopping alongside. */
 const VID_TUCK=0.17;
 function wireVidRail(){
-  const sc=document.querySelector('.vid-scroll'), th=document.getElementById('vid-rail-thumb');
-  if(!sc||!th||sc.dataset.railed) return;
+  const sc=document.querySelector('.vid-scroll'), dots=document.getElementById('vid-dots');
+  if(!sc||!dots||sc.dataset.railed) return;
   sc.dataset.railed='1';
   /* ::after is a spacer, not a slide — children[] would count it if it were a
      real element, but it is a pseudo, so this is just the four real slides. */
@@ -4016,21 +4016,22 @@ function wireVidRail(){
       el.style.zIndex=String(10-Math.round(k*9));
     });
   };
-  /* The thumb's width only changes when the track does, so it is set on layout
-     rather than on every frame — recomputing it from a scrollWidth that moves a
-     fraction of a pixel was the other half of the shiver. */
-  let travel=0;
-  const size=()=>{
-    const frac=sc.clientWidth/Math.max(1,sc.scrollWidth);
-    th.style.width=(frac*100).toFixed(2)+'%';
-    travel=100/Math.max(frac,0.0001)-100;
+  /* Which slide the carousel is over. focus() already works out how far each
+     one is from the middle, so the lit dot is simply the nearest — no separate
+     arithmetic to fall out of step with the scaling. */
+  const mark=()=>{
+    const list=slides(); if(!list.length) return;
+    const w=list.length>1?list[1].offsetLeft-list[0].offsetLeft:list[0].offsetWidth;
+    if(!w) return;
+    const mid=sc.offsetLeft+sc.scrollLeft+sc.clientWidth/2;
+    let best=0,bd=Infinity;
+    list.forEach((el,i)=>{
+      const dist=Math.abs(el.offsetLeft+el.offsetWidth/2-mid);
+      if(dist<bd){ bd=dist; best=i; }
+    });
+    [...dots.children].forEach((d,i)=>d.classList.toggle('on',i===best));
   };
-  const draw=()=>{
-    const max=sc.scrollWidth-sc.clientWidth;
-    const p=max>0?sc.scrollLeft/max:0;
-    th.style.transform=`translateX(${(p*travel).toFixed(2)}%)`;
-    focus();
-  };
+  const draw=()=>{ focus(); mark(); };
   /* The transition on the slides is for settling after a snap. During a drag
      it would lag the finger, so the frame-by-frame updates turn it off and the
      scrollend puts it back for the snap that follows. */
@@ -4041,8 +4042,24 @@ function wireVidRail(){
     moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; },90);
     draw();
   },{passive:true});
-  window.addEventListener('resize',()=>{ size(); draw(); });
-  size(); draw();
+  window.addEventListener('resize',draw);
+  draw();
+}
+/* Tapping a dot goes to that video. scrollIntoView rather than a scrollLeft of
+   our own: the slides snap to the middle and the browser already knows where
+   that is, spacers, gaps and panel padding included.
+
+   Instant, not smooth, and deliberately. scroll-snap-stop:always is what keeps
+   a flick from flying past two videos to land on a third, and it applies just
+   as strictly to a scroll we ask for ourselves — a smooth jump from the first
+   dot to the fourth does not move at all. Suspending it for the length of the
+   animation does free the jump, but it then settles ~40px short of the snap
+   point, so the slide sits visibly off centre. A jump that lands exactly is
+   worth more here than a jump that slides. */
+function vidGo(i){
+  const sc=document.querySelector('.vid-scroll'); if(!sc) return;
+  const el=sc.children[i]; if(!el) return;
+  el.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});
 }
 
 /* Most recent board post, surfaced on the homepage. Reads the same weekly
@@ -13011,7 +13028,12 @@ async function loadDashboard(){
                     <a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
                       <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>
                   </div>
-                  <div class="vid-rail" style="--nv:${newVideoColor()}"><div class="vid-rail-thumb" id="vid-rail-thumb"></div></div>`
+                  <div class="vid-dots" id="vid-dots" style="--nv:${newVideoColor()}">${
+                    /* one per slide: the featured player, however many recent
+                       thumbs there were to show, and the link to the channel */
+                    Array.from({length:2+_videos.slice(1,3).length},(_,i)=>
+                      `<button class="vid-dot${i?'':' on'}" onclick="vidGo(${i})"
+                        aria-label="Video ${i+1}"></button>`).join('')}</div>`
                 :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
               }</div>
             </div>
