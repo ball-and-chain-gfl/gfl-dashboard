@@ -3007,20 +3007,19 @@
     html[data-theme="dark"][data-tabaccent=home]{--accent:#CBE4FF;--accent2:#8CB9E8;--accent-rgb:203,228,255;
       --pageaccent:#CBE4FF;}
     /* Home keeps its rainbow in two places, and only two: the title's orbiting
-       border and the rule under each heading. The border runs a pastel of it —
-       every stop lifted in lightness — so it sits with the pale blue the rest
-       of the page is now painted in rather than shouting over it. The rules
-       under the headings keep the full-strength sweep, which is what stops the
-       page going uniformly soft. */
+       border and the rule under each heading. One list feeds both, so the
+       border and the rules are the same seven colours at the same strength and
+       cannot drift apart. It closes on its first colour so the loop has no seam.
+       The conic spaces the eight stops evenly on its own; the rule slides a
+       double-width copy of the same list from left to right. */
+    html[data-theme="dark"][data-tabaccent=home]{
+      --home-rainbow:#fe8a88,#f0a24a,#daa932,#3fce8f,#0fcacc,#6cb7ff,#b979fe,#fe8a88;}
     html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
-      background:conic-gradient(from var(--h1ang),
-        #ffb8b6 0deg,#f8c489 51deg,#eccd7f 103deg,#8ee5bd 154deg,
-        #7ee3e4 206deg,#a8d3ff 257deg,#d5aeff 309deg,#ffb8b6 360deg);}
+      background:conic-gradient(from var(--h1ang),var(--home-rainbow));}
     html[data-theme="dark"][data-tabaccent=home] .sec-head::after,
     html[data-theme="dark"][data-tabaccent=home] .section-header::after,
     html[data-theme="dark"][data-tabaccent=home] .lh-sec-head::after{
-      background:linear-gradient(90deg,
-        #fe8a88,#f0a24a,#daa932,#3fce8f,#0fcacc,#6cb7ff,#b979fe,#fe8a88);
+      background:linear-gradient(90deg,var(--home-rainbow));
       background-size:200% 100%;}
     /* ── The page title's own palette ───────────────────────────────────
        Same values as the dark tab accents, but declared without a theme and
