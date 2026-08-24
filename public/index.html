@@ -1582,7 +1582,11 @@
     /* Every slide is the same width as the featured player, so the track reads
        as one carousel. The scrollbar is held 4px clear of the video and takes
        the week's ribbon colour, which is what signals it can be scrolled. */
-    .vid-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;
+    /* overflow-anchor:none matters here. Turning the ring moves a cell from one
+       end of the track to the other and corrects the scroll by exactly one
+       slide to cancel it out; scroll anchoring would try to correct for the
+       same move on its own and the two would fight. */
+    .vid-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;overflow-anchor:none;
       scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-color:var(--nv,var(--accent)) transparent;}
     .vid-scroll::-webkit-scrollbar{height:5px;}
     .vid-scroll::-webkit-scrollbar-track{background:transparent;margin-top:4px;}
@@ -1608,15 +1612,6 @@
       min-width:0;position:relative;}
     .vid-inner{will-change:transform;
       transition:transform .18s ease-out,opacity .18s ease-out;}
-    /* The copies at each end are scenery. One of them carries the featured
-       player, whose play button targets an id that now exists twice, so no
-       copy takes a tap — the real slide is a swipe or a mark away. */
-    .vid-clone{pointer-events:none;}
-    /* A slide snaps to the middle, and the first and last have to be able to
-       reach it too — with nothing to scroll into, both would sit stranded
-       against an edge instead of coming into focus. 14% each is exactly the
-       half of the track a centred slide does not cover. */
-    .vid-scroll::before,.vid-scroll::after{content:"";flex:0 0 14%;}
     .vid-scroll.vid-dragging .vid-inner{transition:none;}
     /* The ribbon anchors to the slide's right edge, so the slide and the poster
        have to be the same box — a reserved strip on one side is exactly what

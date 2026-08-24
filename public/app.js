@@ -3986,7 +3986,7 @@ function vidCarouselHTML(){
   const slides=[
     {t:_videos[0].title,
      h:`<div class="vid-wrap"><span class="vid-new">New video</span>
-          <div class="video-featured" id="vfeat">${videoLinkHTML(_videos[0].videoId)}</div></div>`},
+          <div class="video-featured">${videoLinkHTML(_videos[0].videoId)}</div></div>`},
     /* the thumbs open the video on YouTube rather than swapping the embed —
        the featured player stays playable in place */
     ...rest.map(v=>({t:v.title,
@@ -3996,17 +3996,20 @@ function vidCarouselHTML(){
           <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>`}
   ];
   const n=slides.length;
-  /* A clone can be rested on for the moment before the loop swings it back, and
-     the featured one carries #vfeat — a second copy of that id would send the
-     play button's iframe to whichever came first in the document. The id comes
-     out and the copies are inert: they are scenery on the edge of the frame,
-     and the real slide is a swipe or a tap on a mark away. */
-  const cell=(sl,i,clone)=>`<div class="vid-cell${clone?' vid-clone':''}" data-t="${esc(sl.t)}"${clone?' aria-hidden="true"':''}>
-      <div class="vid-inner">${clone?sl.h.replace(' id="vfeat"',''):sl.h}</div></div>`;
+  /* Two full passes of the ring, not one pass with a copy bolted on each end.
+     Every cell is a real slide and the DOM order repeats — which is what lets
+     the track rotate a cell at a time without any of them being re-pointed at
+     different content. data-i is the slide it holds; it moves with the cell, so
+     the mark stays right however far the ring has turned.
+
+     Nothing is inert any more. The copies had to be, because the featured slide
+     carried #vfeat and a second one would have sent the player to whichever
+     came first — and the in-page player is gone, so the id went with it. Every
+     slide takes a tap now, wherever in the ring it happens to be. */
+  const cell=sl=>`<div class="vid-cell" data-i="${slides.indexOf(sl)}" data-t="${esc(sl.t)}">
+      <div class="vid-inner">${sl.h}</div></div>`;
   return `<div class="vid-scroll" style="--nv:${nv}" data-n="${n}">
-      ${cell(slides[n-1],n-1,true)}
-      ${slides.map((sl,i)=>cell(sl,i,false)).join('')}
-      ${cell(slides[0],0,true)}
+      ${[...slides,...slides].map(cell).join('')}
     </div>
     <div class="vid-title on" id="vid-title">${slides[0].t}</div>
     <div class="vid-dots" id="vid-dots" style="--nv:${nv}">${
@@ -4016,32 +4019,35 @@ function vidCarouselHTML(){
 
 /* Everything the carousel does once it is on the page: the depth that makes it
    read as a carousel, the mark that says where you are, the caption under it,
-   and the wrap-around at each end. */
-/* A waiting slide only has to read as behind, not as a thumbnail. Most of the
+   and the ring that keeps it turning.
+
+   A waiting slide only has to read as behind, not as a thumbnail. Most of the
    separation comes from the dimming; the shrink is a nudge on top of it. */
 const VID_FOCUS_SCALE=0.06;   // how far a waiting slide shrinks
 const VID_FOCUS_FADE=0.45;    // and how far it dims
 /* Pulled toward the middle as a share of its own width. Layout leaves a
    neighbour clear of the slide in focus; this is what closes that and carries
-   it a little further, so it passes under rather than stopping alongside.
-   Less shrink leaves a smaller gap to close, so this comes down with it. */
+   it a little further, so it passes under rather than stopping alongside. */
 const VID_TUCK=0.14;
 function wireVidRail(){
   const sc=document.querySelector('.vid-scroll'), dots=document.getElementById('vid-dots');
   const cap=document.getElementById('vid-title');
   if(!sc||!dots||sc.dataset.railed) return;
   sc.dataset.railed='1';
-  const n=+sc.dataset.n||1;                 // real slides, clones excluded
+  const n=+sc.dataset.n||1;                 // distinct videos
+  /* The ring is kept turned so the slide in focus sits here. Index n of 2n
+     leaves the whole first pass behind it and most of the second ahead, and it
+     is the position where slide 0 has slide n-1 — the channel card — on its
+     left, which is where the carousel opens. */
+  const CENTER=n;
   const cells=()=>[...sc.children];
   const pitch=()=>{const l=cells();
     return l.length>1?l[1].offsetLeft-l[0].offsetLeft:l[0].offsetWidth;};
   /* Centre to centre. A slide snaps to the middle of the track, and the
-     distance from the left edge is not the same thing: the leading spacer, the
-     gap after it and the panel's own padding all sit in between, and every one
-     of them would show up as the first slide never quite reaching focus.
-
-     offsetLeft on the cells and on the track share an offsetParent, so the two
-     are already in the same coordinates. */
+     distance from the left edge is not the same thing: the panel's own padding
+     sits in between, and it would show up as the slide never quite reaching
+     focus. offsetLeft on the cells and on the track share an offsetParent, so
+     the two are already in the same coordinates. */
   const mid=()=>sc.offsetLeft+sc.scrollLeft+sc.clientWidth/2;
   const focus=()=>{
     const list=cells(), w=pitch(); if(!list.length||!w) return;
@@ -4074,12 +4080,10 @@ function wireVidRail(){
     });
     return best;
   };
-  /* Cell to video. Cell 0 is a copy of the last video and the final cell is a
-     copy of the first, so the real ones are the n in between. */
-  const realOf=i=>((i-1)%n+n)%n;
   let shown=-1;
   const mark=()=>{
-    const r=realOf(nearest());
+    const cur=cells()[nearest()]; if(!cur) return;
+    const r=+cur.dataset.i;
     [...dots.children].forEach((d,i)=>d.classList.toggle('on',i===r));
     if(cap&&r!==shown){
       shown=r;
@@ -4105,55 +4109,70 @@ function wireVidRail(){
     moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; settled(); },260);
     draw();
   },{passive:true});
-  /* The wrap-around must only ever happen between gestures. A finger resting
-     mid-drag stops the scroll events, and on the old 110ms timer that counted
-     as settled — so the track could be yanked to the far end while it was still
-     being held, which is exactly what a jump feels like. scrollend is the real
-     signal; the timer is only a floor under browsers that do not fire it, and
-     both are ignored while a finger is down. */
+  /* The ring may only be turned between gestures. A finger resting mid-drag
+     stops the scroll events, and on a short timer that counts as settled — so
+     the track would be re-seated while it was still being held. scrollend is
+     the real signal; the timer is only a floor under browsers that do not fire
+     it, and both are ignored while a finger is down. */
   let held=false;
   sc.addEventListener('touchstart',()=>{ held=true; },{passive:true});
   sc.addEventListener('touchend',()=>{ held=false; settled(); },{passive:true});
   sc.addEventListener('touchcancel',()=>{ held=false; },{passive:true});
   sc.addEventListener('scrollend',settled);
-  function settled(){ if(!held) loop(); }
+  function settled(){ if(!held) recentre(); }
   window.addEventListener('resize',draw);
-  /* Open on the newest video rather than at scrollLeft 0, which is the copy of
-     the channel card sitting in front of it. That copy is then the thing on its
-     left — which is the point of it: the track already looks continuous in both
-     directions before anyone has touched it. */
-  if(cells().length>1) hop(1);
+  seat(CENTER);
   draw();
 
-  /* The wrap-around. Coming to rest on an end copy puts you on the real slide
-     it was copied from — same picture, same place in the frame, so the track
-     carries straight on in either direction and never runs out. */
-  function loop(){
-    const list=cells(); if(list.length!==n+2) return;
-    const i=nearest();
-    if(i===0) hop(n);            // copy of the last → the last
-    else if(i===n+1) hop(1);     // copy of the first → the first
+  /* Turning the ring, one cell at a time.
+
+     The old wrap waited until you reached a copy on the end and then threw the
+     track a thousand pixels to the matching real slide. The images were loaded
+     by then, but the browser had never rasterised that stretch of the track, so
+     whatever landed next to you arrived blank and painted a beat later — which
+     is the delay on the slide to the left, and again on the slide to the right
+     coming back.
+
+     Nothing is thrown now. One cell is taken off the far end and put on the
+     other, and the scroll is moved by exactly one slide to cancel it out. On
+     screen nothing happens at all: the same three slides stay exactly where
+     they were, and the cell that moved was off the edge before and after. What
+     comes into view next is always the cell that was already sitting just
+     outside it — near enough that the browser has it painted. */
+  function recentre(){
+    const w=pitch(); if(!w) return;
+    /* Bounded by the ring's own length: if a measurement is ever off, this
+       stops rather than shuffling cells forever. */
+    for(let guard=cells().length;guard--;){
+      const i=nearest();
+      if(i===CENTER) break;
+      if(i>CENTER){ sc.appendChild(sc.firstElementChild); sc.scrollLeft-=w; }
+      else { sc.insertBefore(sc.lastElementChild,sc.firstElementChild); sc.scrollLeft+=w; }
+    }
+    draw();
   }
-  function hop(i){
+  function seat(i){
     const el=cells()[i]; if(!el) return;
-    if(Math.abs(el.offsetLeft+el.offsetWidth/2-mid())<1) return;
     el.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});
   }
+  /* Tapping a mark. Turned rather than measured: the ring is rotated until the
+     slide asked for is the one at the centre, and then the centre is seated.
+     Working out which cell to scroll to instead meant reading the current
+     position, and a tap can land while the previous re-seat is still settling —
+     which had it jumping to the wrong video about half the time. Nothing here
+     reads the scroll at all, so there is nothing to be stale. */
+  sc._go=i=>{
+    for(let guard=cells().length;guard--;){
+      if(+cells()[CENTER].dataset.i===i) break;
+      sc.appendChild(sc.firstElementChild);
+    }
+    seat(CENTER);
+    draw();
+  };
 }
-/* Tapping a mark goes to that video — offset by one, since the first cell is
-   the copy of the last.
-
-   Instant, not smooth, and deliberately. scroll-snap-stop:always is what keeps
-   a flick from flying past two videos to land on a third, and it applies just
-   as strictly to a scroll we ask for ourselves — a smooth jump from the first
-   mark to the fourth does not move at all. Suspending it for the animation does
-   free the jump, but it then settles ~40px short of the snap point, so the
-   slide sits visibly off centre. Landing exactly is worth more than sliding. */
-function vidGo(i){
-  const sc=document.querySelector('.vid-scroll'); if(!sc) return;
-  const el=sc.children[i+1]; if(!el) return;
-  el.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});
-}
+/* The marks call this from their onclick, so it has to be global; the work
+   itself belongs to the carousel and lives on it. */
+function vidGo(i){ document.querySelector('.vid-scroll')?._go?.(i); }
 
 /* Most recent board post, surfaced on the homepage. Reads the same weekly
    window the Messages tab shows, so a stale post from last week never sits
