@@ -4598,9 +4598,9 @@ function renderForecast(info){
     </div>
     ${bar}
     ${posRows}
-    ${imp?fcFold('fc-imp','fa-chart-pie','What this game is worth',imp):''}
-    ${fcFold('fc-lu','fa-people-arrows','Both starting lineups',
+    ${fcFold('fc-lu','fa-people-arrows','Starting lineups',
       fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT)))}
+    ${imp?fcFold('fc-imp','fa-chart-pie','Playoff odds',imp):''}
     ${fcLastMeetingHTML(meO,oppO,meT,oppT)}
     ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;
 }
@@ -4613,19 +4613,15 @@ function fcLastMeetingHTML(meO,oppO,meT,oppT){
   try{ g=(h2hGames(meO,oppO)||[])[0]; }catch(e){}
   if(!g) return '';
   const won=g.myScore>g.oppScore, tied=g.myScore===g.oppScore;
-  const side=(t,pts,win)=>`<div class="fcl-side${win?' w':''}">
-      <span class="fcl-c">${logoImg(t.id,'fcl-logo')}</span>
-      <span class="fcl-n">${t.name}</span>
-      <span class="fcl-v">${pts.toFixed(1)}</span>
-    </div>`;
-  return `<div class="fcl">
-    <div class="fcl-h"><i class="fa fa-clock-rotate-left"></i>Last meeting
-      <span class="fcl-when">${g.season} · Week ${g.week}</span></div>
-    <div class="fcl-row">
-      ${side(meT,g.myScore,won)}
-      <span class="fcl-mid ${tied?'t':won?'w':'l'}">${tied?'TIE':won?'WON':'LOST'}</span>
-      ${side(oppT,g.oppScore,!won&&!tied)}
-    </div>
+  /* One line. It was three rows and two crests to say a thing that fits in a
+     sentence — the last time these two played, who won, and by what. The teams
+     are named at the top of the forecast already; this only has to say which
+     way it went. */
+  return `<div class="fcl fcl-one">
+    <i class="fa fa-clock-rotate-left"></i>
+    <span class="fcl-mid ${tied?'t':won?'w':'l'}">${tied?'TIED':won?'WON':'LOST'}</span>
+    <span class="fcl-sc">${g.myScore.toFixed(1)}<span class="fcl-d">\u2013</span>${g.oppScore.toFixed(1)}</span>
+    <span class="fcl-when">${g.season} \u00b7 wk ${g.week}</span>
   </div>`;
 }
 /* the sign-in key a team's manager uses, which is what a profile is filed under */
@@ -4678,7 +4674,10 @@ async function fcLoadSlots(info){
 /* The same fold the sportsbook and the homepage use, in the forecast's own
    clothes: state is kept per key so opening one and repainting the week does
    not shut it again. */
-let _fcOpen={};
+/* The lineups open by default — that is the thing you came to look at, and a
+   fold you have to open every single time is a lid on the main course. Playoff
+   odds stay shut until asked for. */
+let _fcOpen={'fc-lu':true};
 function fcToggle(k){
   _fcOpen[k]=!_fcOpen[k];
   const el=document.querySelector('.fc-fold[data-k="'+CSS.escape(k)+'"]');
@@ -5189,7 +5188,27 @@ const LIVE_FAST=15000;      // something scored in the last few minutes
 const LIVE_BASE=45000;      // games live but quiet
 const LIVE_IDLE=300000;     // week complete or not started
 const LIVE_HOT_MS=240000;   // how long a change keeps the fast cadence
+/* ── HOW OFTEN THE SERIES IS PERSISTED ───────────────────────────────────────
+   The scoreboard is CHECKED every ten seconds while football is being played,
+   because that is what makes the live board feel live and it costs nothing —
+   it is a 1.7KB read of a public NFL digest.
+
+   Writing the series to Firestore is a different matter entirely. Every save is
+   a read (to merge with whatever other watchers have) plus a write, it happens
+   in every open tab, and at a ten second cadence across a nine hour Sunday with
+   the league watching that is tens of thousands of operations against a free
+   tier that allows twenty thousand writes a day. That is how the quota ran out
+   before.
+
+   It buys nothing, either: the series is stamped at minute resolution, so
+   saving more than once a minute cannot record anything a later save would not.
+   Changes accumulate in memory and are flushed on this interval instead, plus
+   once when the tab goes away so the last minute of a game is never lost.
+   Twelve tabs at this cadence is a couple of thousand writes across a Sunday,
+   which the free tier does not notice. */
+const LIVE_SAVE_MS=180000;  // at most one persist every three minutes, per tab
 let _liveTimer=null,_liveSeries={},_liveInfo=null,_liveBusy=false,_liveSaved=0,_liveNext=0;
+let _liveDirty=false,_liveChanged=0,_liveFlushing=false;
 const liveDocUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
 const liveCollUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live?documentId=${encodeURIComponent(k)}&key=${GFL_DB.key}`;
 const liveMKey=(a,b)=>[a,b].sort().join('~');
@@ -5271,25 +5290,40 @@ async function livePoll(){
       const prev=arr[arr.length-1];
       if(!prev||prev[1]!==a||prev[2]!==b){ arr.push([t,a,b]); changed=true; }
     });
-    if(changed){
-      _liveSaved=Date.now();
-      const remote=await liveLoadSeries(key);      // merge, so parallel watchers do not clobber
-      if(remote){
-        Object.entries(remote).forEach(([k,arr])=>{
-          const mine=_liveSeries[k]||[];
-          const seen=new Set(mine.map(p=>p.join(',')));
-          arr.forEach(p=>{ if(!seen.has(p.join(','))) mine.push(p); });
-          mine.sort((x,y)=>x[0]-y[0]);
-          _liveSeries[k]=mine;
-        });
-      }
-      await liveSaveSeries(key,_liveSeries);
-    }
+    if(changed){ _liveDirty=true; _liveChanged=Date.now(); }
+    if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);
     renderLiveMatchups();
     renderMyMatchupBar();   // the pinned bar is independent of the live board
   }catch(e){}
   _liveBusy=false;
 }
+/* Merge with whatever other watchers have written, then persist. One read and
+   one write, and only on the throttle above. */
+async function liveFlush(key){
+  if(_liveFlushing||!_liveDirty) return;
+  _liveFlushing=true; _liveSaved=Date.now();
+  try{
+    const remote=await liveLoadSeries(key);      // merge, so parallel watchers do not clobber
+    if(remote){
+      Object.entries(remote).forEach(([k,arr])=>{
+        const mine=_liveSeries[k]||[];
+        const seen=new Set(mine.map(p=>p.join(',')));
+        arr.forEach(p=>{ if(!seen.has(p.join(','))) mine.push(p); });
+        mine.sort((x,y)=>x[0]-y[0]);
+        _liveSeries[k]=mine;
+      });
+    }
+    if(await liveSaveSeries(key,_liveSeries)) _liveDirty=false;
+  }catch(e){}
+  _liveFlushing=false;
+}
+/* A tab going away takes its unflushed minutes with it unless they go now.
+   visibilitychange rather than unload: it is the one the phone browsers
+   actually fire when an app is swiped away. */
+if(typeof document!=='undefined') document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&_liveDirty&&_liveInfo)
+    try{ liveFlush(_liveInfo.key); }catch(e){}
+});
 const liveKeyFor=info=>`${info.season}-w${info.week}`;
 
 /* ── THE WIN PROBABILITY CURVE ───────────────────────────────────────────────
@@ -5714,8 +5748,10 @@ function renderLiveMatchups(){
       ${row(bId,bn,b,started&&b>a,pctB)}
     </div>`;}).join('');
   const secs=Math.round(liveInterval()/1000);
-  const hot=_liveSaved&&Date.now()-_liveSaved<LIVE_HOT_MS;
-  const stamp=_liveSaved?`last change ${msgAgo(_liveSaved)}`:'no changes yet';
+  /* when the board last MOVED, which is no longer the same thing as when it
+     was last written — saves are throttled and changes are not */
+  const hot=_liveChanged&&Date.now()-_liveChanged<LIVE_HOT_MS;
+  const stamp=_liveChanged?`last change ${msgAgo(_liveChanged)}`:'no changes yet';
   const nfl=_nflLive?'NFL games in progress':(_nflSeen?'no NFL games live':'checking the NFL board');
   el.innerHTML=`
     <div class="lv-head">
@@ -6767,11 +6803,13 @@ function renderMyProfile(){
         ? `<button class="mv-btn mp-out-btn" onclick="lrHome()">Back to mine</button>`
         : `<button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>`}
     </div>
-    ${picker}
     ${''/* half these teams are plural — Wigglers's is not a word */}
     ${visiting?`<div class="lr-now"><i class="fa fa-eye"></i>
       <span>Now viewing <b>${nm}</b>${/s$/i.test(nm)?'&rsquo;':'&rsquo;s'} locker room</span></div>`:''}
     ${lockerRoomHTML(t,{plant,canWater:!visiting})}
+    ${''/* the way out sits under the room rather than over it: the room is what
+           the page is for, and a door belongs at the far wall */}
+    ${picker}
     ${/* the locker takes its colour from the logo, which is sampled
           asynchronously — warm it and repaint if this is the first look */''}
     ${visiting?'':`<div class="mp-actions">
@@ -8440,6 +8478,35 @@ function invStats(season,throughWeek){
 }
 /* the price of one share in every team, and what it was a week ago */
 let _invCache=null;
+/* Every share price in the league as it stood at the end of a given week.
+   Pulled out of invBoard so the same arithmetic can price any week, not only
+   the latest one — which is what lets a portfolio be replayed rather than
+   sampled and stored. Pure and cheap: it reads the season's own schedule and
+   nothing else. */
+function invPricesAt(season,through){
+  const fr=(_franchises||[]);
+  if(!fr.length) return {};
+  const rows=season?invStats(season,through):null;
+  const byOwner={};
+  if(rows){
+    const lgPpg=rows.reduce((a,x)=>a+x.pf,0)/Math.max(1,rows.reduce((a,x)=>a+x.g,0));
+    rows.forEach(x=>{
+      const gp=Math.max(1,x.g);
+      const winR=(x.w/gp)/0.5;                       // 1.00 at .500
+      const ppgR=lgPpg?(x.pf/gp)/lgPpg:1;            // 1.00 at league average
+      const form=x.recent.slice(-INV_FORM_WEEKS);
+      const formR=(form.length&&lgPpg)
+        ? (form.reduce((a,f)=>a+f.pts,0)/form.length)/lgPpg : 1;
+      byOwner[x.o]=0.45*winR+0.35*ppgR+0.20*formR;
+    });
+  }
+  /* anyone with no games yet sits at the league's own middle */
+  const vals=fr.map(f=>byOwner[f.owner]!=null?byOwner[f.owner]:1);
+  const mean=vals.reduce((a,b)=>a+b,0)/vals.length || 1;
+  const out={};
+  fr.forEach((f,i)=>{ out[f.owner]=Math.max(1,+(INV_BASE*vals[i]/mean).toFixed(2)); });
+  return out;
+}
 function invBoard(){
   const season=ntSeason&&ntSeason();
   const stamp=String(season)+'|'+(_franchises||[]).length;
@@ -8448,29 +8515,7 @@ function invBoard(){
   const fr=(_franchises||[]);
   if(!fr.length) return null;
   const lw=season?(ntLastWeek(season)||{}).week:null;
-
-  const priceAt=(through)=>{
-    const rows=season?invStats(season,through):null;
-    const byOwner={};
-    if(rows){
-      const lgPpg=rows.reduce((a,x)=>a+x.pf,0)/Math.max(1,rows.reduce((a,x)=>a+x.g,0));
-      rows.forEach(x=>{
-        const gp=Math.max(1,x.g);
-        const winR=(x.w/gp)/0.5;                       // 1.00 at .500
-        const ppgR=lgPpg?(x.pf/gp)/lgPpg:1;            // 1.00 at league average
-        const form=x.recent.slice(-INV_FORM_WEEKS);
-        const formR=(form.length&&lgPpg)
-          ? (form.reduce((a,f)=>a+f.pts,0)/form.length)/lgPpg : 1;
-        byOwner[x.o]=0.45*winR+0.35*ppgR+0.20*formR;
-      });
-    }
-    /* anyone with no games yet sits at the league's own middle */
-    const vals=fr.map(f=>byOwner[f.owner]!=null?byOwner[f.owner]:1);
-    const mean=vals.reduce((a,b)=>a+b,0)/vals.length || 1;
-    const out={};
-    fr.forEach((f,i)=>{ out[f.owner]=Math.max(1,+(INV_BASE*vals[i]/mean).toFixed(2)); });
-    return out;
-  };
+  const priceAt=through=>invPricesAt(season,through);
 
   const now=priceAt(lw), prev=priceAt(lw!=null?lw-1:null);
   const list=fr.map(f=>{
@@ -8555,6 +8600,101 @@ function invNetSpent(){
   });
   return net;
 }
+/* ── PROFIT, WEEK BY WEEK ────────────────────────────────────────────────────
+   Nothing about this is stored or sampled. Share prices are a function of what
+   each team had done by the end of a given week, so any past week can simply be
+   priced again — and the ledger says what was held at the time. Replaying the
+   two together gives the true line, exactly, for free, and it is right about
+   trades made before this was ever written.
+
+   Profit rather than value on purpose. Value goes up when you buy more, which
+   says how invested you are and nothing about whether you are any good at it;
+   profit only moves when a holding gains or loses, which is the question. */
+const invWeekNow=()=>Number((_liveInfo||liveWeekInfo()||{}).week)||1;
+function invProfitSeries(){
+  const lots=invLots();
+  if(!lots.length) return null;
+  const season=ntSeason&&ntSeason();
+  const last=season?((ntLastWeek(season)||{}).week||0):0;
+  /* lots written before the week was stamped are treated as held from the
+     opening week — the only honest reading of a trade with no week on it */
+  const wk=l=>Number(l.w)||1;
+  const first=Math.min(...lots.map(wk));
+  const weeks=[];
+  for(let w=first;w<=Math.max(first,last);w++) weeks.push(w);
+  const at=w=>{
+    const px=invPricesAt(season,w);
+    const sh={}, cost={};
+    lots.filter(l=>wk(l)<=w).forEach(l=>{
+      const o=l.o, n=Number(l.s)||0, p=Number(l.p)||0;
+      if(!o||!n) return;
+      if(l.k==='s'){ const avg=sh[o]?cost[o]/sh[o]:0; sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n; }
+      else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
+    });
+    let profit=0;
+    Object.keys(sh).forEach(o=>{ if(sh[o]>0.0001) profit+=sh[o]*((px[o]||INV_BASE)-(cost[o]/sh[o])); });
+    return profit;
+  };
+  const pts=[{wk:first-1,val:0,start:true}];
+  weeks.forEach(w=>pts.push({wk:w,val:at(w)}));
+  /* and where it stands right now, which is not the same as the last week that
+     finished if anything was bought this morning */
+  const nowProfit=invProfit();
+  const lw=pts[pts.length-1];
+  if(!lw||Math.abs(lw.val-nowProfit)>0.005||lw.start) pts.push({wk:'now',val:nowProfit,now:true});
+  return pts.length>1?{pts,net:nowProfit}:null;
+}
+/* Same chart the bankroll line uses, on the portfolio's numbers. */
+function invChartHTML(){
+  const d=invProfitSeries();
+  if(!d) return '';
+  const W=600,H=114,padL=8,padR=8,padT=12,padB=10;
+  const vals=d.pts.map(p=>p.val);
+  let lo=Math.min(...vals,0), hi=Math.max(...vals,0);
+  if(hi-lo<4){ const m=(hi+lo)/2; lo=m-2; hi=m+2; }
+  const pad=(hi-lo)*0.15; lo-=pad; hi+=pad;
+  const x=i=>padL+(d.pts.length<2?0:i*(W-padL-padR)/(d.pts.length-1));
+  const y=v=>padT+(hi-v)/(hi-lo)*(H-padT-padB);
+  const base=y(0);
+  const line=d.pts.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.val).toFixed(1)}`).join(' ');
+  const area=`${line} L${x(d.pts.length-1).toFixed(1)},${base.toFixed(1)} L${x(0).toFixed(1)},${base.toFixed(1)} Z`;
+  const up=d.net>=0, col=up?'#3fd07a':'#e8687e';
+  const dots=d.pts.map((p,i)=>{
+    const lastOne=i===d.pts.length-1;
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.val).toFixed(1)}" r="${lastOne?4:2.6}"
+      fill="${p.start?'var(--text3)':col}" ${lastOne?'stroke="var(--bg2)" stroke-width="2"':''}/>`;
+  }).join('');
+  const axis=d.pts.map((p,i)=>{
+    /* the last point is always labelled, so the one before it never is —
+       "wk 17" and "Now" sit a few pixels apart and printed over each other */
+    if(i===d.pts.length-2) return '';
+    if(d.pts.length>7 && i%2 && i!==d.pts.length-1) return '';
+    const px=(x(i)/W*100).toFixed(2);
+    const shift=i===0?'0':i===d.pts.length-1?'-100%':'-50%';
+    const lbl=p.start?'Start':p.now?'Now':'wk '+p.wk;
+    return `<span class="bank-x" style="left:${px}%;transform:translateX(${shift})">${lbl}</span>`;
+  }).join('');
+  return `<div class="inv-chart">
+    <div class="inv-ch-h"><span>Profit since you started</span>
+      <b style="color:${up?'var(--green)':'var(--red)'}">${up?'+':'−'}${invFmt(Math.abs(d.net))}</b></div>
+    <div class="bank-chart">
+      <svg class="bank-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+        aria-label="Portfolio profit by week">
+        <defs><linearGradient id="invfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${col}" stop-opacity="0.30"/>
+          <stop offset="100%" stop-color="${col}" stop-opacity="0"/>
+        </linearGradient></defs>
+        <line x1="${padL}" y1="${base.toFixed(1)}" x2="${W-padR}" y2="${base.toFixed(1)}"
+          stroke="var(--text3)" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="3 3"/>
+        <path d="${area}" fill="url(#invfill)"/>
+        <path d="${line}" fill="none" stroke="${col}" stroke-width="2.2"
+          vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}
+      </svg>
+      <div class="bank-axis">${axis}</div>
+    </div>
+  </div>`;
+}
 function invValue(){
   const h=invHoldings();
   return Object.keys(h).reduce((a,o)=>a+h[o]*invPrice(o),0);
@@ -8579,7 +8719,10 @@ async function invTrade(owner,shares,sell){
     _invErr='Not enough GFL Bucks for that.'; renderBook(); return;
   }
   _invBusy=true; _invErr=''; renderBook();
-  invLots().push({o:owner,s:n,p:px,t:Date.now(),k:sell?'s':'b'});
+  /* The week is stamped at the trade, because a timestamp cannot be turned
+     back into a fantasy week afterwards with any confidence, and the profit
+     line needs to know what you were holding in each of them. */
+  invLots().push({o:owner,s:n,p:px,t:Date.now(),w:invWeekNow(),k:sell?'s':'b'});
   invSave();
   /* the card goes back to empty: the amount was spent, and leaving it filled in
      invites a second helping of a trade already made */
@@ -9315,11 +9458,14 @@ function bkQuestions(){
    who remembers a bye. */
 function bkGraphSVG(pts){
   if(!pts||pts.length<2) return '';
-  const W=280,H=84,pad=8;
+  /* The top pad has to clear the value labels, which are drawn eight above
+     each point: with an even pad the highest week put its number at y=0, on top
+     of whatever heading sits above the chart. */
+  const W=280,H=84,padX=8,padT=20,padB=10;
   const vs=pts.map(p=>p.v);
   const lo=Math.min(0,...vs), hi=Math.max(...vs,1);
-  const x=i=>pad+i*(W-pad*2)/(pts.length-1);
-  const y=v=>H-pad-((v-lo)/((hi-lo)||1))*(H-pad*2);
+  const x=i=>padX+i*(W-padX*2)/(pts.length-1);
+  const y=v=>H-padB-((v-lo)/((hi-lo)||1))*(H-padT-padB);
   const line=pts.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const dots=pts.map((p,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3" fill="var(--accent)"/>`).join('');
   const labels=pts.map((p,i)=>`<text x="${x(i).toFixed(1)}" y="${(y(p.v)-8).toFixed(1)}" text-anchor="middle"
@@ -12321,6 +12467,7 @@ function invPortfolioHTML(){
   </div>`;
   if(!owners.length) return head+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
     <div>No shares yet. The market is on the Investments tab.</div></div>`;
+  const chart=invChartHTML();
   const rows=owners.map(o=>{
     const fr=(_franchises||[]).find(f=>f.owner===o);
     const px=invPrice(o), cb=invCostBasis(o), sh=h[o];
@@ -12350,7 +12497,7 @@ function invPortfolioHTML(){
       </div>
     </div>`;
   }).join('');
-  return head+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}<div class="iv-list">${rows}</div>`;
+  return head+chart+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}<div class="iv-list">${rows}</div>`;
 }
 
 function renderBook(){
