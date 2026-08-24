@@ -616,7 +616,9 @@
     .bk-card{border-radius:10px;background:rgba(0,0,0,0.2);
       text-align:left;font-family:inherit;color:var(--text);width:100%;
       transition:border-color .18s,background .18s;}
-    .bk-open{padding:11px 12px;}
+    /* Centred: the answers below are two even columns reading from the middle,
+       and a left-aligned question over them had nothing lining up with it. */
+    .bk-open{padding:11px 12px;text-align:center;}
     .bk-collapsed{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;}
     .bk-collapsed:hover{border-color:rgba(var(--accent-rgb),0.45);}
     .bk-q{font-size:13.5px;font-weight:600;line-height:1.35;min-width:0;flex:1 1 auto;}
@@ -1621,7 +1623,12 @@
        made the spacing uneven. The peek now comes from the slide being narrow
        rather than from padding inside it. */
     .vid-scroll .vid-wrap{box-sizing:border-box;}
+    /* width:100%, and it has to be said. The thumbs carry a fixed 112px width
+       from the phone rules, which used to be overridden by their flex-basis on
+       the track — inside a cell they are no longer flex items, so the fixed
+       width came back and left them at half the height of the slide. */
     .vid-scroll .video-thumb{background:none!important;border:none;border-radius:6px;padding:0;
+      width:100%;
       overflow:hidden;cursor:pointer;text-align:left;color:var(--text);line-height:0;}
     /* same 16:9 box as the featured player */
     .vid-scroll .video-thumb img{width:100%;aspect-ratio:16/9;height:auto;object-fit:cover;
@@ -1651,12 +1658,16 @@
       background:rgba(255,255,255,0.20);
       transition:background .2s ease,width .2s ease;}
     .vid-dot.on::after{background:var(--nv,var(--accent));width:26px;}
-    /* Full width of the panel, and held at two lines so a long title arriving
-       after a short one cannot jog everything under it down the page. */
+    /* Full width of the panel, in the heading face like every other title on
+       the site. One line of height reserved rather than two: the episode names
+       run short — "Ball and Chain 17 2025" — so holding room for a second line
+       was padding that was almost never used. It still wraps to two when a
+       title needs it. */
     .vid-title{background:rgba(255,255,255,0.045);border-radius:8px;
-      padding:8px 12px;text-align:center;font-family:'Inter',sans-serif;
-      font-size:12px;line-height:1.45;color:var(--text2);
-      min-height:calc(2 * 1.45em + 16px);display:flex;align-items:center;
+      padding:6px 10px;text-align:center;
+      font-family:'Google Sans Flex',Georgia,serif;font-weight:600;
+      font-size:13px;line-height:1.4;color:#fff;
+      min-height:calc(1.4em + 12px);display:flex;align-items:center;
       justify-content:center;overflow:hidden;
       opacity:0;transition:opacity .17s ease;}
     .vid-title.on{opacity:1;}

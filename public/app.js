@@ -3986,7 +3986,7 @@ function vidCarouselHTML(){
   const slides=[
     {t:_videos[0].title,
      h:`<div class="vid-wrap"><span class="vid-new">New video</span>
-          <div class="video-featured" id="vfeat">${videoFacadeHTML(_videos[0].videoId)}</div></div>`},
+          <div class="video-featured" id="vfeat">${videoLinkHTML(_videos[0].videoId)}</div></div>`},
     /* the thumbs open the video on YouTube rather than swapping the embed —
        the featured player stays playable in place */
     ...rest.map(v=>({t:v.title,
@@ -4017,12 +4017,15 @@ function vidCarouselHTML(){
 /* Everything the carousel does once it is on the page: the depth that makes it
    read as a carousel, the mark that says where you are, the caption under it,
    and the wrap-around at each end. */
-const VID_FOCUS_SCALE=0.12;   // how far a waiting slide shrinks
+/* A waiting slide only has to read as behind, not as a thumbnail. Most of the
+   separation comes from the dimming; the shrink is a nudge on top of it. */
+const VID_FOCUS_SCALE=0.06;   // how far a waiting slide shrinks
 const VID_FOCUS_FADE=0.45;    // and how far it dims
 /* Pulled toward the middle as a share of its own width. Layout leaves a
    neighbour clear of the slide in focus; this is what closes that and carries
-   it a little further, so it passes under rather than stopping alongside. */
-const VID_TUCK=0.17;
+   it a little further, so it passes under rather than stopping alongside.
+   Less shrink leaves a smaller gap to close, so this comes down with it. */
+const VID_TUCK=0.14;
 function wireVidRail(){
   const sc=document.querySelector('.vid-scroll'), dots=document.getElementById('vid-dots');
   const cap=document.getElementById('vid-title');
@@ -12898,6 +12901,24 @@ function renderBook(){
    one play glyph, styled to fit whatever width it gets. The real iframe is
    only built on tap, which also means the homepage no longer loads a YouTube
    player nobody has asked to watch. */
+/* The featured video goes to YouTube rather than playing in the page, which is
+   what the two thumbs beside it already did — the odd one out was the big one.
+   Same poster, and the mark in the middle is the YouTube one now, so it says
+   where the tap goes before you take it. */
+function videoLinkHTML(videoId){
+  const v=_videos.find(x=>x.videoId===videoId)||{};
+  const thumb=v.thumb||`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  return `<a class="vid-facade" href="https://www.youtube.com/watch?v=${videoId}"
+      target="_blank" rel="noopener" data-vid="${videoId}"
+      aria-label="Watch ${(v.title||'video').replace(/"/g,'&quot;')} on YouTube">
+    <img src="${thumb}" alt="" loading="lazy"/>
+    <span class="vid-play"><i class="fa-brands fa-youtube"></i></span>
+  </a>`;
+}
+/* Nothing reaches this any more — it, playVideo() and selectVideo() are the
+   in-page player, and every slide now goes out to YouTube. Kept together and
+   intact because they are the way back: swapping videoLinkHTML for
+   videoFacadeHTML in vidCarouselHTML restores playback in place. */
 function videoFacadeHTML(videoId){
   const v=_videos.find(x=>x.videoId===videoId)||{};
   const thumb=v.thumb||`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
