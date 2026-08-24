@@ -1585,19 +1585,26 @@
     .vid-scroll::-webkit-scrollbar{height:5px;}
     .vid-scroll::-webkit-scrollbar-track{background:transparent;margin-top:4px;}
     .vid-scroll::-webkit-scrollbar-thumb{background:var(--nv,var(--accent));border-radius:999px;}
-    /* Slides are narrower than the track, so the next one is always showing at
-       the right. wireVidRail() scales and dims every slide by its distance from
-       the left edge, which is what puts the waiting ones behind the featured
-       one and brings the next into focus as you scroll to it.
+    /* A slide sits in the middle of the track with the one before it and the
+       one after it showing on either side. wireVidRail() scales and dims each
+       slide by its distance from the middle, and pulls it inward so it passes
+       under the one in focus rather than stopping beside it.
 
-       The transform is the only thing that moves. Width, gap and snapping are
-       untouched by it, so scroll position, the snap points and the rail's
-       arithmetic all still measure the real boxes. */
-    .vid-scroll>*{scroll-snap-align:start;flex:0 0 84%;min-width:0;position:relative;
+       72% leaves 14% of the track showing on each side. Sized for a phone
+       first: at 375px that is a 234px poster with 45px of the neighbours
+       either side, which is enough of them to read as a video and not enough
+       to compete with the one you are on.
+
+       The transform is the only thing that moves — the overlap included. Width,
+       gap and snapping are untouched by it, so scroll position, the snap points
+       and the rail's arithmetic all still measure the real boxes. */
+    .vid-scroll>*{scroll-snap-align:center;flex:0 0 72%;min-width:0;position:relative;
       transition:transform .18s ease-out,opacity .18s ease-out;will-change:transform;}
-    /* Lets the last slide reach the left edge, so it can come into focus like
-       every other one instead of stalling short of its snap point. */
-    .vid-scroll::after{content:"";flex:0 0 16%;}
+    /* A slide snaps to the middle, and the first and last have to be able to
+       reach it too — with nothing to scroll into, both would sit stranded
+       against an edge instead of coming into focus. 14% each is exactly the
+       half of the track a centred slide does not cover. */
+    .vid-scroll::before,.vid-scroll::after{content:"";flex:0 0 14%;}
     .vid-scroll.vid-dragging>*{transition:none;}
     /* The ribbon anchors to the slide's right edge, so the slide and the poster
        have to be the same box — a reserved strip on one side is exactly what
@@ -1623,8 +1630,11 @@
     .vid-scroll::-webkit-scrollbar{display:none;}
     .vid-rail{height:3px;border-radius:999px;background:rgba(255,255,255,0.12);
       margin-top:4px;overflow:hidden;}
+    /* No transition. The thumb is redrawn on every scroll frame, and an .08s
+       ease on top of that has the animation restarting from a stale position
+       sixty times a second — which is what made it shiver rather than track. */
     .vid-rail-thumb{height:100%;border-radius:999px;background:var(--nv,var(--accent));
-      transform-origin:left center;transition:transform .08s linear;}
+      transform-origin:left center;}
     /* 16:9 like every other slide — a min-height here used to make the track
        ~60px taller than the poster and pushed the rail away from the video */
     .vid-ch{aspect-ratio:16/9;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;

@@ -3976,6 +3976,10 @@ function newVideoColor(){ return '#f09a4a'; }
    forward and the rest wait behind it. */
 const VID_FOCUS_SCALE=0.12;   // how far a waiting slide shrinks
 const VID_FOCUS_FADE=0.45;    // and how far it dims
+/* Pulled toward the middle as a share of its own width. Layout leaves a
+   neighbour clear of the slide in focus; this is what closes that and carries
+   it a little further, so it passes under rather than stopping alongside. */
+const VID_TUCK=0.17;
 function wireVidRail(){
   const sc=document.querySelector('.vid-scroll'), th=document.getElementById('vid-rail-thumb');
   if(!sc||!th||sc.dataset.railed) return;
@@ -3991,27 +3995,40 @@ function wireVidRail(){
       ? list[1].offsetLeft-list[0].offsetLeft
       : list[0].offsetWidth;
     if(!w) return;
-    /* offsetLeft is measured from the offsetParent, which is the padded panel
-       and not the track — so the first slide starts at the padding, not at 0.
-       Everything is taken relative to it instead. */
-    const base=list[0].offsetLeft;
+    /* Centre to centre. A slide snaps to the middle of the track now, and the
+       distance from the left edge is not the same thing: the leading spacer,
+       the gap after it and the panel's own padding all sit in between, and
+       every one of them would show up as the first slide never quite reaching
+       focus. Comparing centres has none of that in it.
+
+       offsetLeft on the slides and on the track share an offsetParent, so the
+       two are already in the same coordinates. */
+    const mid=sc.offsetLeft+sc.scrollLeft+sc.clientWidth/2;
     list.forEach(el=>{
-      const d=(el.offsetLeft-base-sc.scrollLeft)/w;   // 0 = in focus, 1 = next along
+      const d=(el.offsetLeft+el.offsetWidth/2-mid)/w;   // 0 = in focus, ±1 = its neighbours
       const k=Math.min(Math.abs(d),1);
-      /* Anchored on the edge nearest the slide in focus, so a waiting slide
-         shrinks away from it — tucking in behind rather than drifting off. */
-      el.style.transformOrigin=d<0?'right center':'left center';
-      el.style.transform=`scale(${(1-k*VID_FOCUS_SCALE).toFixed(4)})`;
+      /* Toward the middle, whichever side it is on: -d is negative for the
+         slide on the right and positive for the one on the left. Capped with k
+         so slides further out do not keep piling inward. */
+      const tuck=(-Math.sign(d)*k*VID_TUCK*w).toFixed(1);
+      el.style.transform=`translateX(${tuck}px) scale(${(1-k*VID_FOCUS_SCALE).toFixed(4)})`;
       el.style.opacity=(1-k*VID_FOCUS_FADE).toFixed(3);
       el.style.zIndex=String(10-Math.round(k*9));
     });
   };
-  const draw=()=>{
-    const max=sc.scrollWidth-sc.clientWidth;
+  /* The thumb's width only changes when the track does, so it is set on layout
+     rather than on every frame — recomputing it from a scrollWidth that moves a
+     fraction of a pixel was the other half of the shiver. */
+  let travel=0;
+  const size=()=>{
     const frac=sc.clientWidth/Math.max(1,sc.scrollWidth);
     th.style.width=(frac*100).toFixed(2)+'%';
+    travel=100/Math.max(frac,0.0001)-100;
+  };
+  const draw=()=>{
+    const max=sc.scrollWidth-sc.clientWidth;
     const p=max>0?sc.scrollLeft/max:0;
-    th.style.transform=`translateX(${(p*(100/Math.max(frac,0.0001)-100)).toFixed(2)}%)`;
+    th.style.transform=`translateX(${(p*travel).toFixed(2)}%)`;
     focus();
   };
   /* The transition on the slides is for settling after a snap. During a drag
@@ -4024,8 +4041,8 @@ function wireVidRail(){
     moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; },90);
     draw();
   },{passive:true});
-  window.addEventListener('resize',draw);
-  draw();
+  window.addEventListener('resize',()=>{ size(); draw(); });
+  size(); draw();
 }
 
 /* Most recent board post, surfaced on the homepage. Reads the same weekly
