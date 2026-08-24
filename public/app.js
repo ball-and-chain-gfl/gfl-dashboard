@@ -11225,28 +11225,198 @@ function weekHasStarted(){
   return info.games.some(g=>((g.home&&g.home.totalPoints)||0)>0
                           ||((g.away&&g.away.totalPoints)||0)>0);
 }
-/* The same test for a bet you built and one you came in on: your own slip,
-   this week's, and the football not yet under way. Backing out of an invited
-   bet writes only to your own document — whoever raised it keeps theirs, and
-   so does everyone else who came in. */
-function betCancellable(b){
-  return !!_me && b.owner===_me.k1 && b.status==='open'
-    && b.wk===bucksWeekKey() && !weekHasStarted();
+/* ── CASHING OUT ─────────────────────────────────────────────────────────────
+   A bet you have not seen a minute of football on is not really a bet yet, so
+   it comes back at face value — that is a withdrawal, and it is what the old
+   Remove button did. Everything after that is a cash out: the book buys the
+   ticket back at what it is currently worth, and what it is worth changes as
+   the season moves under it.
+
+   The two kinds of market behave differently on purpose, because they settle
+   differently.
+
+   A WEEKLY leg is decided in one afternoon. Once its games are running there is
+   no honest price for it — the result is half known and moving fast, and any
+   number the book put up would be either a gift or a robbery depending on which
+   way the last hour went. So a weekly leg under way locks the whole ticket,
+   parlay included: you ride it out. If it comes in and nothing else weekly is
+   still running, the ticket is only season markets again and cashing out comes
+   back. If it goes down the bet is dead and there is nothing to buy back.
+
+   A SEASON leg is settled months out and a single Sunday barely moves it, which
+   is exactly why a real book will trade it all year. Those stay cashable the
+   whole way, at a price that walks from almost nothing up towards the full
+   payout as the legs come good. */
+const CASHOUT_HOLD=0.08;          // the book's cut for buying a ticket back
+const CASHOUT_MIN=0.05;           // below this there is nothing to hand over
+
+/* ── SETTLING A WEEK ─────────────────────────────────────────────────────────
+   betLegResult grades the season book and returns null for every weekly market
+   — which meant a ticket carrying one never settled at all, cash out or no.
+   These settle off the week's own scoreboard, which is already in the season
+   meta, so no fetch is involved.
+
+   Nothing grades until every game in the week has a score on it. A week half
+   played has no answer to "who scored the most", and answering it early would
+   settle a bet on a Sunday afternoon that Monday night was going to overturn. */
+function betWeekResult(leg,season,wk){
+  const meta=_seasonMeta[String(season)]; if(!meta) return null;
+  const owners=meta.owners||{};
+  const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===Number(wk)&&m.home&&m.away);
+  if(!games.length) return null;
+  const played=m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0;
+  if(!games.every(played)) return null;
+  const mk=String(leg.mk), bits=String(leg.pick).split(':'), ent=bits[0], side=bits[1];
+  const pts={};
+  games.forEach(m=>{ pts[owners[m.home.teamId]]=m.home.totalPoints||0;
+                     pts[owners[m.away.teamId]]=m.away.totalPoints||0; });
+
+  /* the three markets written on one fixture carry both team ids in the key */
+  const g3=/^wk\d+-(\d+)-(\d+)-(ml|sp|tot)$/.exec(mk);
+  if(g3){
+    const a=Number(g3[1]), b=Number(g3[2]);
+    const gm=games.find(m=>(m.home.teamId===a&&m.away.teamId===b)||(m.home.teamId===b&&m.away.teamId===a));
+    if(!gm) return null;
+    const hp=gm.home.totalPoints||0, ap=gm.away.totalPoints||0;
+    if(g3[3]==='tot'){
+      const m2=/([\d.]+)/.exec(leg.pickLabel||''); const line=m2?Number(m2[1]):null;
+      if(line==null) return null;
+      const tot=hp+ap;
+      return tot===line?'push':(side==='under'||ent==='under')?tot<line:tot>line;
+    }
+    const mine=owners[gm.home.teamId]===ent?hp:ap;
+    const theirs=owners[gm.home.teamId]===ent?ap:hp;
+    if(g3[3]==='ml') return mine===theirs?'push':mine>theirs;
+    /* the spread is only ever sold on the favourite, and the number it was
+       struck at is in the label rather than the key */
+    const m3=/[\u2212-]\s*([\d.]+)/.exec(leg.pickLabel||'');
+    const sp=m3?Number(m3[1]):null;
+    if(sp==null) return null;
+    const d=mine-theirs-sp;
+    return d===0?'push':d>0;
+  }
+  /* highest and lowest team score of the week */
+  const ends=/^wk\d+-(high|low)$/.exec(mk);
+  if(ends){
+    const vals=Object.values(pts);
+    if(pts[ent]==null) return null;
+    const target=ends[1]==='high'?Math.max.apply(null,vals):Math.min.apply(null,vals);
+    /* a tie at the top pushes rather than paying both */
+    const share=vals.filter(v=>v===target).length;
+    if(pts[ent]!==target) return false;
+    return share>1?'push':true;
+  }
+  /* the closest game and the biggest blowout, keyed by fixture */
+  const shape=/^wk\d+-(close|blow)$/.exec(mk);
+  if(shape){
+    const gm=/^g(\d+)-(\d+)$/.exec(ent);
+    if(!gm) return null;
+    const marg=games.map(m=>({k:'g'+m.home.teamId+'-'+m.away.teamId,
+      d:Math.abs((m.home.totalPoints||0)-(m.away.totalPoints||0))}));
+    const mine=marg.find(x=>x.k===ent);
+    if(!mine) return null;
+    const ds=marg.map(x=>x.d);
+    const target=shape[1]==='close'?Math.min.apply(null,ds):Math.max.apply(null,ds);
+    if(mine.d!==target) return false;
+    return ds.filter(d=>d===target).length>1?'push':true;
+  }
+  /* scored exactly nothing */
+  if(/^wk\d+-donut$/.test(mk)){
+    if(pts[ent]==null) return null;
+    return (pts[ent]===0)===(side!=='no');
+  }
+  /* Top Player and the FAAB lines need the week's player box scores, which are
+     a separate fetch and are not always on hand. Left ungraded on purpose: a
+     ticket the book cannot price is a ticket it should not be buying back. */
+  return null;
 }
-async function sbVoidBet(id){
+/* Which week a leg belongs to, or null if it is a season-long market. Weekly
+   keys are wk{N}-… for the board markets and fa{pid}-{N} for a FAAB line. */
+function betLegWeek(mk){
+  let m=/^wk(\d+)-/.exec(String(mk||''));       if(m) return Number(m[1]);
+  m=/^fa\d+-(\d+)$/.exec(String(mk||''));       if(m) return Number(m[1]);
+  return null;
+}
+const betAnyPlayed=(meta,wk)=>((meta&&meta.schedule)||[]).some(m=>m.home&&m.away
+  &&(wk==null||Number(m.matchupPeriodId)===Number(wk))
+  &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+const betWeekStarted=(season,wk)=>betAnyPlayed(_seasonMeta[String(season)],wk);
+const betSeasonStarted=season=>betAnyPlayed(_seasonMeta[String(season)],null);
+
+/* What a leg is worth NOW rather than when it was taken. The board reprices
+   every render, so a team that has since run away with it reads as close to
+   certain and a team that has fallen apart is close to nothing — which is the
+   whole reason a cash-out number moves. Anything no longer on the board (a
+   market since retired, a week gone by) falls back to the price it was struck
+   at, which is the last honest number anyone quoted for it. */
+function betLegProb(leg){
+  const fallback=probFromAm(leg.odds);
+  try{
+    const m=sbAllMarkets().find(x=>x.key===leg.mk);
+    if(m){
+      const bits=String(leg.pick).split(':'), ent=bits[0], side=bits[1];
+      const pk=(m.picks||[]).find(x=>String(x.owner)===ent);
+      if(pk){
+        if(m.type==='yesno'&&pk.yes!=null) return probFromAm(side==='no'?pk.no:pk.yes);
+        if(pk.over!=null&&pk.under!=null)  return probFromAm(side==='u'?pk.under:pk.over);
+        if(pk.odds!=null)                  return probFromAm(pk.odds);
+      }
+    }
+  }catch(e){}
+  return fallback;
+}
+/* null when there is nothing to offer, otherwise {ok, amount, full} or a
+   {ok:false, why} the card can print instead of a button. */
+function betCashOut(b){
+  if(!_me||!b||b.owner!==_me.k1||b.status!=='open'||!betIsLive(b)) return null;
+  const season=b.season||getSeason();
+  const legs=b.legs||[];
+  if(!legs.length) return null;
+  let anyStarted=false, weeklyLive=false, p=1;
+  for(const l of legs){
+    const res=betLegResult(l,season);
+    if(res===false) return {ok:false,why:'A leg has already gone down.'};
+    const wk=betLegWeek(l.mk);
+    const started=wk!=null?betWeekStarted(season,wk):betSeasonStarted(season);
+    if(started) anyStarted=true;
+    /* "in play" is about the football, not the grading: a week that has begun
+       and not finished locks the ticket even if the leg is ungradeable. */
+    if(wk!=null&&started&&res===null) weeklyLive=true;
+    if(res===null) p*=Math.min(0.99,Math.max(0.005,betLegProb(l)));
+  }
+  if(weeklyLive) return {ok:false,why:'A weekly leg is under way — ride it out.'};
+  /* nothing has kicked off: this is a withdrawal, not a trade */
+  if(!anyStarted) return {ok:true,amount:b.stake,full:true};
+  const val=Math.max(0,(b.payout||0)*p*(1-CASHOUT_HOLD));
+  if(val<CASHOUT_MIN) return {ok:false,why:'Not worth buying back.'};
+  return {ok:true,amount:Math.min(b.payout||0,Math.round(val*100)/100),full:false};
+}
+/* Kept as its own name because the invite card still asks the question. */
+function betCancellable(b){ const c=betCashOut(b); return !!(c&&c.ok); }
+async function sbCashOut(id){
   const b=(_bets||[]).find(x=>x.id===id);
-  if(!b||!betCancellable(b)||_betBusy) return;
+  if(!b||_betBusy) return;
+  const co=betCashOut(b);
+  if(!co||!co.ok) return;
   _betBusy=true; _betErr=null; renderMyBets();
+  /* A withdrawal before kickoff is void — it never really happened, and the
+     week's balance should read as though it had not. A cash out is a settled
+     bet with a return, which may be more or less than the stake. */
+  const status=co.full?'void':'cashed';
   const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
   try{
     const r=await fetch(`${betBase()}/${encodeURIComponent(id)}?${msgKey()}&${mask}`,
       {method:'PATCH',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify(fsOut({status:'void',ret:String(b.stake),settledTs:String(Date.now())}))});
-    if(r.ok){ b.status='void'; b.ret=b.stake; b.settledTs=Date.now(); }
+       body:JSON.stringify(fsOut({status,ret:String(co.amount),settledTs:String(Date.now())}))});
+    if(r.ok){ b.status=status; b.ret=co.amount; b.settledTs=Date.now(); }
     else _betErr=r.status===403?'rules':'send';
   }catch(e){ _betErr='offline'; }
   _betBusy=false; renderMyBets();
 }
+/* Deliberately a function declaration and not a const alias: these are called
+   from inline onclick attributes, which resolve against the global object, and
+   a top-level const in a classic script never lands there. */
+async function sbVoidBet(id){ return sbCashOut(id); }
 
 /* Clearing a finished bet off the stack hides the row; it never deletes it and
    never touches the ledger. The week's balance is derived by replaying every
@@ -11276,6 +11446,9 @@ async function sbClearSettled(){
    slip written before they came off must still be able to settle.
    Returns null for "cannot grade yet", true/false once it can. */
 function betLegResult(leg,season){
+  /* weekly markets settle off their own scoreboard, not off the season finals */
+  const wk=betLegWeek(leg.mk);
+  if(wk!=null) return betWeekResult(leg,season,wk);
   const [ownerRaw,side]=String(leg.pick).split(':');
   const owner=ownerRaw;
   const fin=sbFinals(season); if(!fin) return null;
@@ -11712,10 +11885,11 @@ function myBetsHTML(){
   const cards=Object.keys(weeks).sort().reverse().map(wk=>{
     const list=weeks[wk].map(b=>{
       const cls=b.status==='won'?'won':b.status==='lost'?'lost'
-        :b.status==='push'?'push':b.status==='void'?'void':'open';
+        :b.status==='push'?'push':b.status==='void'?'void'
+        :b.status==='cashed'?'cashed':'open';
       const legs=b.legs.map(l=>`<div class="sb-bl"><span class="sb-bl-p">${l.pickLabel}</span>
         <span class="sb-bl-m">${l.mkLabel}</span><span class="sb-bl-o">${amFmt(l.odds)}</span></div>`).join('');
-      const canPull=betCancellable(b);
+      const co=betCashOut(b);
       return `<div class="sb-bet sb-bet-${cls}">
         <div class="sb-bet-top">
           <span class="sb-bet-tag">${b.legs.length>1?`${b.legs.length}-leg parlay`:'Single'}</span>
@@ -11724,6 +11898,7 @@ function myBetsHTML(){
             :b.status==='lost'?`Lost ${bucksFmt(b.stake)}`
             :b.status==='push'?'Push'
             :b.status==='void'?'Pulled'
+            :b.status==='cashed'?`Cashed ${b.ret>=b.stake?'+':'−'}${bucksFmt(Math.abs(b.ret-b.stake))}`
             :'Open'}</span>
         </div>
         <div class="sb-bet-legs">${legs}</div>
@@ -11734,9 +11909,11 @@ function myBetsHTML(){
         </div>
         ${b.invitedBy?`<div class="sb-inv-from"><i class="fa fa-user-group"></i>In with ${betAccountName(b.invitedBy)}</div>`:''}
         ${sbInviteBoxHTML(b)}
-        ${canPull?`<button class="sb-pull" onclick="sbVoidBet('${b.id.replace(/'/g,"\\'")}')" ${_betBusy?'disabled':''}>
-            <i class="fa fa-rotate-left"></i>${b.invitedBy?'Back out':'Remove bet'} · ${bucksFmt(b.stake)} back</button>`
-          :b.status==="open"&&b.wk===cur&&weekHasStarted()?`<div class="sb-lockmsg"><i class="fa fa-lock"></i>Locked — the week is under way</div>`:''}
+        ${''/* The offer carries its number. A button that says only "cash out"
+               is asking you to accept a price you cannot see. */}
+        ${co&&co.ok?`<button class="sb-pull" onclick="sbCashOut('${b.id.replace(/'/g,"\\'")}')" ${_betBusy?'disabled':''}>
+            <i class="fa fa-hand-holding-dollar"></i>Cash out · ${bucksFmt(co.amount)}${co.full?' back':''}</button>`
+          :co&&co.why?`<div class="sb-lockmsg"><i class="fa fa-lock"></i>${co.why}</div>`:''}
       </div>`;
     }).join('');
     return `<div class="sb-week">
