@@ -5434,63 +5434,16 @@
       html[data-theme] #page-home .home-vid-col .home-box{padding:12px 13px!important;}
     }
 
-    /* ── HOMEPAGE HEADINGS: icon over title, both on one pane of glass ──────
-       Everywhere else the icon sits beside the words, which is fine for a page
-       you are reading through. The homepage is a stack of modules you are
-       scanning, and there the pair reads better stacked: a small mark, the
-       title under it, and one pane of glass holding both.
+    /* The homepage headings used to sit on a pane of glass — a badge-shaped
+       ::before hugging the icon and title, with fit-content on the heading so
+       the pane could wrap them. It is gone: they take the same shape as every
+       other heading on the site, which the sitewide rule above already gives
+       them — icon stacked over the title, centred, 16 above and 40 below.
 
-       The heading is a flex row by default and the title is a bare text node,
-       so turning the row into a column is the entire layout change — the icon
-       becomes the first line and the words the second, with no new markup. That
-       matters, because the text could not have been wrapped in an element
-       without editing a dozen headings by hand.
+       The colour is untouched. The rule under each heading still runs the
+       homepage rainbow, and each module still sets its own --accent, which is
+       what the icon reads. Only the glass came off. */
 
-       The pane is a ::before at z-index -1. Everything in normal flow paints
-       above a negative-z pseudo-element, so both the icon and the title land on
-       top of the glass without either being given a layer of its own.
-
-       fit-content is what makes the pane hug its contents. A pseudo-element can
-       only be sized against its own box, so the heading has to be no wider than
-       what it holds before `inset` can wrap it — otherwise the pane spans the
-       column and reads as a banner rather than a badge. */
-    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
-    #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){
-      /* the stacking and the centring are the sitewide rule's now; this only
-         adds the glass and the tighter type */
-      width:fit-content;max-width:100%;margin-inline:auto;font-size:17px!important;
-      /* The pane is drawn off this box's padding, so the padding IS its
-         breathing room. Top and bottom are not equal because the bottom also
-         has to clear the animated rule at 32px. */
-      padding-top:14px!important;padding-bottom:46px!important;
-      padding-left:15px!important;padding-right:15px!important;}
-    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))>i,
-    #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))>i{
-      /* back in normal flow, and small: it is a label for the module now, not a
-         watermark to read the title through */
-      font-size:13px;}
-    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::before,
-    #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))::before{
-      content:"";position:absolute;z-index:-1;
-      /* Measured on the rendered page rather than reasoned about: the top wraps
-         the icon's own box and the bottom the title's ink, which sits high in
-         Roca's leading. 46 of bottom padding leaves the pane room to close under
-         the words and still finish clear of the rule at 32. */
-      inset:6px -4px 45px -4px;border-radius:13px;
-      background:rgba(255,255,255,0.055);
-      -webkit-backdrop-filter:blur(7px) saturate(1.25);
-      backdrop-filter:blur(7px) saturate(1.25);
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10),
-        inset 0 1px 0 0 rgba(255,255,255,0.16),
-        0 10px 26px -18px rgba(0,0,0,0.85);
-      pointer-events:none;}
-    /* Safari and Firefox without backdrop-filter get a solid-enough pane
-       instead of a transparent one, so the icon never shows through the words. */
-    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-      #page-home .sec-head::before,#page-home .section-header::before{
-        background:rgba(20,20,24,0.72);}
-    }
-  
     /* ── HOMEPAGE: each module carries its own tab colour ──────────────────
        Overriding --accent/--accent-rgb on the module wrapper is enough: every
        icon, border, bar and CTA inside already reads those two properties.
