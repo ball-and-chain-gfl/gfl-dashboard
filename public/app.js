@@ -9948,14 +9948,14 @@ async function ntSync(){
   }catch(e){}
 }
 /* Signing in or out: drop this manager's list and pull the new one. */
-function ntReset(){ _ntSeen=null; _ntIdx=0; try{ ntSync(); }catch(e){}
+function ntReset(){ _ntSeen=null; _ntIdx=0; _ntUndoId=null; try{ ntSync(); }catch(e){}
   if(_activeTab==='home'){ try{ renderNotifications(); }catch(e){} } }
 /* Putting every swiped card back. This cannot go through ntReset — that drops
    the cache and then calls ntSync, which reads the profile and puts every
    dismissed id straight back, so "start over" restored exactly what it had just
    cleared. The record has to be emptied on both sides and left alone. */
 async function ntRestart(){
-  _ntSeen=new Set(); _ntIdx=0;
+  _ntSeen=new Set(); _ntIdx=0; _ntUndoId=null;
   try{ localStorage.removeItem(ntKey()); }catch(e){}
   if(_me) try{ await gflPatchProfile(_me.k1,{ntSeen:'[]'}); }catch(e){}
   try{ renderNotifications(); }catch(e){}
@@ -10510,13 +10510,33 @@ async function ntVote(vid,side){
 function ntGo(where){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
 }
+/* The last card swiped away, so it can be put back. One deep on purpose: this
+   is for the swipe you did not mean, not a history of the stack. */
+let _ntUndoId=null;
+function ntUndo(){
+  const id=_ntUndoId; if(!id) return;
+  _ntUndoId=null;
+  ntSeen().delete(id);
+  ntSaveSeen();
+  /* land on the card that just came back rather than wherever the stack had
+     moved on to while it was gone */
+  const i=ntLive().findIndex(n=>n.id===id);
+  if(i>=0) _ntIdx=i;
+  renderNotifications();
+  try{ orderHomeTodo(); }catch(e){}
+}
 function ntDismiss(id){
   /* a trash-talk card is the sender's one slot: clearing it is what gives it
      back to them, so the swipe has to reach the field and not just the log */
-  if(String(id).startsWith('tt:')){
+  const isTT=String(id).startsWith('tt:');
+  if(isTT){
     const from=String(id).split(':')[1];
     try{ ttClear(from); }catch(e){}
   }
+  /* No undo on a trash-talk card. Clearing it handed the sender their slot
+     back, and they may already have used it — putting the card back on this
+     screen would not take that away again, so the button would be lying. */
+  _ntUndoId=isTT?null:id;
   ntMarkSeen(id);
   const n=ntLive().length;
   if(_ntIdx>=n) _ntIdx=Math.max(0,n-1);
@@ -10537,8 +10557,12 @@ function renderNotifications(){
   const cnt=document.getElementById('nt-count');
   if(cnt) cnt.textContent=list.length?String(list.length):'';
   if(!list.length){
+    /* Undo belongs here most of all: clearing the last card is the swipe
+       people most often did not mean, and this is the screen it leaves you on. */
     el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
       <span>Nothing new. You are all caught up.</span></div>
+      ${_ntUndoId?`<div class="nt-foot"><button class="nt-undo" onclick="ntUndo()">
+        <i class="fa fa-rotate-left"></i>Undo that</button></div>`:''}
       ${ntSeen().size?`<div class="home-redo-row">${homeRestartBtn('nt')}</div>`:''}`;
     return;
   }
@@ -10573,6 +10597,8 @@ function renderNotifications(){
            hint are all this row has to say. */}
     <div class="nt-foot">
       <span class="nt-pos">${_ntIdx+1} of ${list.length}<span class="nt-hint">swipe to clear</span></span>
+      ${_ntUndoId?`<button class="nt-undo" onclick="ntUndo()">
+        <i class="fa fa-rotate-left"></i>Undo</button>`:''}
     </div>`;
   ntWireSwipe();
 }

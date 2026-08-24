@@ -2530,6 +2530,16 @@
     .nt-pos{display:flex;align-items:baseline;gap:8px;font-family:'Inter',sans-serif;
       font-size:11px;color:var(--text3);}
     .nt-hint{font-size:10px;opacity:.72;}
+    /* Quiet on purpose: it only appears after a swipe, and it should read as a
+       way back rather than as something to press. */
+    .nt-undo{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;
+      border-radius:999px;border:1px solid rgba(255,255,255,0.14);
+      background:rgba(255,255,255,0.05);box-shadow:none;
+      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;color:var(--text2);}
+    .nt-undo i{font-size:10px;color:var(--accent);}
+    .nt-undo:hover{border-color:rgba(var(--accent-rgb),0.5);color:var(--text);}
+    html[data-theme="light"] .nt-undo{background:rgba(0,0,0,0.04);border-color:rgba(0,0,0,0.12);}
     .nt-clear{display:flex;align-items:center;justify-content:center;text-align:center;gap:9px;padding:15px 4px;
       font-family:'Inter',sans-serif;font-size:13px;color:var(--text3);}
     .nt-clear i{color:var(--green);font-size:13px;}
@@ -3145,10 +3155,16 @@
        of the page is now painted in rather than shouting over it. The rules
        under the headings keep the full-strength sweep, which is what stops the
        page going uniformly soft. */
-    html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
-      background:conic-gradient(from var(--h1ang),
-        #ffb8b6 0deg,#f8c489 51deg,#eccd7f 103deg,#8ee5bd 154deg,
-        #7ee3e4 206deg,#a8d3ff 257deg,#d5aeff 309deg,#ffb8b6 360deg);}
+    /* Home walks all seven rather than the two every other page has, so it
+       runs its own keyframes and takes longer over them. Same pastels the
+       border used, for the same reason: they sit with the pale blue the page is
+       painted in instead of shouting over it. */
+    html[data-theme="dark"][data-tabaccent=home] .page-h1{
+      animation-name:h1HueHome;animation-duration:16s;}
+    @keyframes h1HueHome{
+      0%,100%{--h1c:#ffb8b6;} 14%{--h1c:#f8c489;} 28%{--h1c:#eccd7f;}
+      42%{--h1c:#8ee5bd;} 57%{--h1c:#7ee3e4;} 71%{--h1c:#a8d3ff;}
+      85%{--h1c:#d5aeff;}}
     html[data-theme="dark"][data-tabaccent=home] .sec-head::after,
     html[data-theme="dark"][data-tabaccent=home] .section-header::after,
     html[data-theme="dark"][data-tabaccent=home] .lh-sec-head::after{
@@ -5306,26 +5322,29 @@
       letter-spacing:-0.5px;color:var(--accent);margin:0 0 22px;
       position:relative;padding:20px 20px 14px;border-radius:12px;
       display:flex;align-items:center;justify-content:center;text-align:center;
-      background:rgba(0,0,0,0.22);
-      box-shadow:none;}
-    html[data-theme="light"] .page-h1{background:rgba(0,0,0,0.05);
-      box-shadow:none;}
-    .page-h1::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;
-      background:conic-gradient(from var(--h1ang),
-        rgba(var(--accent-rgb),0.10) 0deg,
-        var(--accent) 70deg,
-        var(--accent2,var(--accent)) 140deg,
-        rgba(var(--accent-rgb),0.10) 210deg,
-        var(--accent) 290deg,
-        rgba(var(--accent-rgb),0.10) 360deg);
-      /* keep only the 2px edge: fill minus content box */
-      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-      -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-      mask-composite:exclude;pointer-events:none;
-      animation:h1Orbit 7s linear infinite;}
-    @keyframes h1Orbit{to{--h1ang:360deg;}}
+      background:rgba(0,0,0,0.2);
+      /* The colour is animated rather than the shadow: --h1c is a registered
+         <color>, so it interpolates, and the two shadows below simply read it.
+         Animating box-shadow itself would mean restating both layers at every
+         keyframe — and restating them again for the homepage, which cycles
+         seven colours rather than two. */
+      --h1c:var(--accent);
+      box-shadow:0 14px 44px -16px color-mix(in srgb,var(--h1c) 78%,transparent),
+                 0 3px 18px -9px color-mix(in srgb,var(--h1c) 58%,transparent);
+      animation:h1Hue 6s ease-in-out infinite;}
+    @property --h1c{syntax:'<color>';initial-value:transparent;inherits:false;}
+    @keyframes h1Hue{
+      0%,100%{--h1c:var(--accent);}
+      50%{--h1c:var(--accent2,var(--accent));}}
+    html[data-theme="light"] .page-h1{background:rgba(0,0,0,0.03);
+      /* a lit panel on a light page needs less of everything */
+      box-shadow:0 12px 34px -18px color-mix(in srgb,var(--h1c) 60%,transparent),
+                 0 2px 12px -8px color-mix(in srgb,var(--h1c) 34%,transparent);}
+    /* The orbiting border is gone. It traced a conic gradient round a masked
+       2px edge, which read as a line drawn on the box; the colour now comes off
+       the box as light instead. */
     @media(prefers-reduced-motion:reduce){
-      .page-h1::after{animation:none;background:rgba(var(--accent-rgb),0.45);}
+      .page-h1{animation:none;}
     }
     /* The gradient goes on an inline span, not the h1: the h1 stays full width
        so its panel still spans the column, while the gradient box hugs the text
