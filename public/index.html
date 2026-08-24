@@ -5403,6 +5403,12 @@
     .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
     .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))),
     .lh-sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))){
+      /* The icon stacks over the title rather than sitting beside it. These
+         headings are flex rows with the title as a bare text node, so turning
+         the row into a column is the whole change — the icon becomes the first
+         line and the words the second, with no markup touched anywhere on the
+         site. Everything in the block centres on the same axis. */
+      display:flex;flex-direction:column;align-items:center;gap:3px;flex-wrap:nowrap;
       justify-content:center;text-align:center;position:relative;
       /* Breathing room, since these headings shipped with 0-2px above and 5px
          under the rule. The block reads: 16px, text, 11px, rule, 16px — so the
@@ -5411,6 +5417,30 @@
          !important because per-page rules like #page-home .sec-head set padding
          with an id and would otherwise win outright. */
       padding-top:16px!important;padding-bottom:40px!important;}
+    /* The one heading that carries something beside its title — the Legacy
+       Report's week tag — used to stay a left-aligned row so the pair read
+       together. It stacks and centres like everything else now: the tag simply
+       becomes a third line under the title instead of sitting off to one side.
+       Its auto margin has to go with it, or in a column it pushes the tag to
+       the bottom of whatever height the box happens to have. */
+    .sec-head:has(> .lr-wk-tag),
+    .section-header:has(> .lr-wk-tag),
+    .lh-sec-head:has(> .lr-wk-tag){
+      display:flex;flex-direction:column;align-items:center;gap:3px;flex-wrap:nowrap;
+      justify-content:center;text-align:center;}
+    .sec-head:has(> .lr-wk-tag)>i,
+    .section-header:has(> .lr-wk-tag)>i,
+    .lh-sec-head:has(> .lr-wk-tag)>i{font-size:14px;line-height:1;}
+    .sec-head:has(> .lr-wk-tag)>.lr-wk-tag,
+    .section-header:has(> .lr-wk-tag)>.lr-wk-tag,
+    .lh-sec-head:has(> .lr-wk-tag)>.lr-wk-tag{margin-left:0;}
+    /* A mark above a title, not a second word of it: sized to sit under the
+       heading rather than compete with it, and no longer inheriting the 20px
+       the heading itself is set at. */
+    .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))>i,
+    .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))>i,
+    .lh-sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))>i{
+      font-size:14px;line-height:1;}
     /* The trades filter panel sets its heading's padding with an id and
        !important, which outranks the rule above — and at 7px of box the divider
        would have floated over the text rather than under it. */
@@ -5419,8 +5449,12 @@
        All-Time Drafts and Steals & Busts. They are view headings, not sections
        of the page, so they take neither the centring nor the animated rule. */
     #page-draft [data-nochip] .section-header,
-    #page-draft .dr-tabbox .section-header{justify-content:flex-start;text-align:left;
+    #page-draft .dr-tabbox .section-header{flex-direction:row;align-items:center;gap:10px;
+      justify-content:flex-start;text-align:left;
       padding-top:0!important;padding-bottom:12px!important;}
+    /* these stay a row, so their icon stays the size the row was built around */
+    #page-draft [data-nochip] .section-header>i,
+    #page-draft .dr-tabbox .section-header>i{font-size:inherit;}
     #page-draft [data-nochip] .section-header::after,
     #page-draft .dr-tabbox .section-header::after{content:none;}
 
@@ -5474,8 +5508,9 @@
        column and reads as a banner rather than a badge. */
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){
-      display:flex;flex-direction:column;align-items:center;gap:2px;flex-wrap:nowrap;
-      width:fit-content;max-width:100%;margin-inline:auto;font-size:17px!important;
+      /* the stacking and the centring are the sitewide rule's now; this only
+         adds the glass and the tighter type */
+      gap:2px;width:fit-content;max-width:100%;margin-inline:auto;font-size:17px!important;
       /* The pane is drawn off this box's padding, so the padding IS its
          breathing room. Top and bottom are not equal because the bottom also
          has to clear the animated rule at 32px. */
@@ -5485,8 +5520,7 @@
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))>i{
       /* back in normal flow, and small: it is a label for the module now, not a
          watermark to read the title through */
-      position:static;transform:none;z-index:auto;pointer-events:auto;
-      font-size:13px;line-height:1;opacity:1;color:var(--accent);}
+      font-size:13px;}
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::before,
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))::before{
       content:"";position:absolute;z-index:-1;
