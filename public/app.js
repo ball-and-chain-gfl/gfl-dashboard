@@ -4088,23 +4088,9 @@ const posPill=ppos=>POS_PILL[ppos]||['#8A98A8','rgba(255,255,255,0.06)'];
    quarterback on the bench came out grey. One map, one direction, one space. */
 const posColor=(slot,ppos)=>
   (POS_PILL[SLOT_TO_POS[slot]!=null?SLOT_TO_POS[slot]:ppos]||['#8A98A8'])[0];
-const FORMATION_Y=32;
-/* The tight end sits at the end of the line, immediately outside the tackle,
-   the way an inline tight end lines up — the receivers split wide of him. */
-const FORMATION=[
-  {k:'WR',  slot:4,  x:12, y:FORMATION_Y},
-  {k:'TE',  slot:6,  x:64, y:FORMATION_Y},
-  {k:'WR',  slot:4,  x:88, y:FORMATION_Y},
-  {k:'QB',  slot:0,  x:50, y:58},
-  {k:'RB',  slot:2,  x:39, y:79},
-  {k:'RB',  slot:2,  x:61, y:79},
-];
-/* Five linemen, drawn but never filled — the league does not roster them.
-   Centred on the field, and spaced 9% apart: a box is 28-34px wide against a
-   field of 350-630, so anything tighter than about 8% has them overlapping.
-   The middle one is the centre, and the quarterback and backs sit behind it. */
-const FORMATION_OL=[30,38,46,54,62];
-const FORMATION_BOTTOM=[{k:'FLEX',slot:23},{k:'D/ST',slot:16},{k:'K',slot:17}];
+/* The field, its five drawn-but-never-filled linemen and the row of cards that
+   sat under it are gone — LINEUP_ORDER replaced all of it. What survives is the
+   bench, which was never part of the diagram. */
 /* Five on the bench and one on IR, in a row of their own under the starters.
    Drawn from the same board rather than listed separately, because who is
    sitting is part of reading a lineup. */
@@ -4120,14 +4106,73 @@ function lastNameOf(n){
   while(parts.length>1&&FM_SUFFIX.test(parts[parts.length-1])) parts.pop();
   return parts[parts.length-1]||'';
 }
+/* ── THE LINEUP, TOP TO BOTTOM ───────────────────────────────────────────────
+   The field is gone. A formation diagram is a fine thing to look at once and a
+   poor thing to read: it puts the quarterback below the receivers because that
+   is where he stands, which is not the order anyone thinks about a lineup in,
+   and it leaves no room beside a player for anything about him.
+
+   So: one spot per line, in the order the lineup is actually set — the passer,
+   the backs, the receivers, the tight end, the flex, then the two units that
+   score on their own. Bench and IR keep the card row they had; that is a
+   holding pen rather than a lineup, and reading it as a grid is right.
+
+   Tapping a starter opens him. On a wide screen the panel takes the right half
+   and the lineup keeps the left; on a phone there is no right half, so it
+   opens directly under the player tapped and the lineup stays where it was.
+   Same markup either way — the panel sits inline in source order and the
+   desktop grid lifts it into the second column, so nothing has to be moved
+   about or re-rendered when the window changes size. */
+const LINEUP_ORDER=[
+  {slot:0,  k:'QB'},
+  {slot:2,  k:'RB'},  {slot:2,  k:'RB'},
+  {slot:4,  k:'WR'},  {slot:4,  k:'WR'},
+  {slot:6,  k:'TE'},
+  {slot:23, k:'FLEX'},
+  {slot:16, k:'D/ST'},
+  {slot:17, k:'K'},
+];
+let _rsPick=null;                    // pid of the starter whose panel is open
+function rsSelect(pid){
+  _rsPick=(String(_rsPick)===String(pid))?null:String(pid);
+  renderRoster();
+  /* on a phone the panel opens below the row, which may be off screen */
+  setTimeout(()=>{ const el=document.querySelector('.rs2-panel');
+    if(el&&_rsPick&&!matchMedia('(min-width:760px)').matches)
+      el.scrollIntoView({block:'nearest',behavior:'smooth'}); },60);
+}
 function formationHTML(rows){
   const pool={};
   (rows||[]).filter(p=>!p.bench).forEach(p=>{ (pool[p.slot]||(pool[p.slot]=[])).push(p); });
   const take=slot=>(pool[slot]&&pool[slot].shift())||null;
-  /* Every position is the same card the bench uses — label, name, then the
-     head rising out of the floor. On the field they are placed rather than
-     stacked, so a card is anchored by its centre and clamped at the touchlines
-     so an outside receiver cannot hang off the edge. */
+  const num=v=>v==null?'—':Number(v).toFixed(1);
+  const line=(f,i)=>{
+    const p=take(f.slot);
+    const col=posColor(f.slot,p&&p.ppos);
+    const on=p&&String(_rsPick)===String(p.pid);
+    const row=`<div class="rs2-row${p?'':' empty'}${on?' on':''}" style="--pc:${col};--r:${i+1}"
+      ${p?`role="button" tabindex="0" onclick="rsSelect('${p.pid}')"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();rsSelect('${p.pid}');}"`:''}>
+      <span class="rs2-slot">${f.k}</span>
+      <span class="rs2-face">${p?playerImg(p.pid,34,p.n):'<i class="fa fa-user-slash"></i>'}</span>
+      <span class="rs2-who">
+        <span class="rs2-n">${p?p.n:'Empty'}</span>
+        <span class="rs2-sub">${p?(POS_NAMES[p.ppos]||''):'nobody here yet'}</span>
+      </span>
+      <span class="rs2-pts">${p?num(p.proj):''}<span class="rs2-pl">proj</span></span>
+      ${p?`<i class="fa fa-chevron-${on?'up':'down'} rs2-c"></i>`:''}
+    </div>`;
+    return row+(on?`<div class="rs2-panel">${rsPanelHTML(p)}</div>`:'');
+  };
+  /* Each row carries its own grid row, used only by the desktop layout: the
+     panel is pinned to row 1 of the second column, and without explicit rows
+     the auto-placer will not put anything beside it — the quarterback ended up
+     alone in a row as tall as the panel, with a hole under him. */
+  const lineup=LINEUP_ORDER.map((f,i)=>line(f,i)).join('');
+  /* the bench draws from the players the starters did not take */
+  const benchPool={};
+  (rows||[]).filter(p=>p.bench).forEach(p=>{ (benchPool[p.slot]||(benchPool[p.slot]=[])).push(p); });
+  const takeBench=slot=>(benchPool[slot]&&benchPool[slot].shift())||null;
   const card=(f,p,cls)=>{
     const col=posColor(f.slot,p&&p.ppos);
     return `<div class="fm-card ${cls}${p?' on':''}" style="--pc:${col}"
@@ -4137,42 +4182,75 @@ function formationHTML(rows){
       <span class="fm-ring">${p?playerImg(p.pid,40,p.n):''}</span>
     </div>`;
   };
-  /* The field keeps the ring: a formation reads as marks on a pitch, and cards
-     on it turned the diagram into a list. Everything below it — FLEX, D/ST, K,
-     the bench and IR — stays a card, where there is room for one. */
-  const spot=(f)=>{
-    const p=take(f.slot);
-    const edge='';
-    return `<div class="fm-spot${p?' on':''}${edge}" style="left:${f.x}%;top:${f.y}%"
-      title="${p?String(p.n).replace(/"/g,'&quot;'):f.k+' — empty'}">
-      <span class="fm-ring">${p?playerImg(p.pid,34,p.n):''}</span>
-      <span class="fm-lbl">${f.sub||f.k}</span>
-      ${p?`<span class="fm-nm">${lastNameOf(p.n)}</span>`:''}
-    </div>`;
-  };
-  const spots=FORMATION.map(spot).join('');
-  const line=FORMATION_OL.map(x=>`<span class="fm-ol" style="left:${x}%;top:${FORMATION_Y}%"></span>`).join('');
-  const bottom=FORMATION_BOTTOM.map(f=>{
-    const p=take(f.slot);
-    return card(f,p,'fm-btm');}).join('');
-  /* the bench draws from the players the starters did not take */
-  const benchPool={};
-  (rows||[]).filter(p=>p.bench).forEach(p=>{ (benchPool[p.slot]||(benchPool[p.slot]=[])).push(p); });
-  const takeBench=slot=>(benchPool[slot]&&benchPool[slot].shift())||null;
   const bench=FORMATION_BENCH.map(f=>{
     const p=takeBench(f.slot);
     return card(f,p,'fm-bn'+(f.ir?' fm-ir':''));}).join('');
   const filled=(rows||[]).filter(p=>!p.bench).length;
   return `<div class="fm-wrap">
-    <div class="fm-field">
-      <span class="fm-los"></span>
-      ${Array.from({length:5},(_,i)=>`<span class="fm-yd" style="top:${14+i*18}%"></span>`).join('')}
-      ${line}
-      ${spots}
-    </div>
-    <div class="fm-bottom">${bottom}</div>
+    <div class="rs2">${lineup}</div>
+    <div class="rs2-bh">Bench</div>
     <div class="fm-benchrow">${bench}</div>
     ${filled?'':'<div class="fm-empty">Every spot opens up once the draft is done.</div>'}
+  </div>`;
+}
+/* ── WHAT THERE IS TO SAY ABOUT ONE PLAYER ───────────────────────────────────
+   Everything here is already on hand for other reasons — the NFL pool Ball
+   Knowledge is built on, the projection table the player markets price off,
+   the committed bios file, and the weekly line fetched one player at a time.
+   Nothing new is asked of ESPN to open a panel.
+
+   The insights are the things a season total will not tell you: where he ranks
+   at his own position rather than in the abstract, what his floor and ceiling
+   have actually been, and how far his weeks scatter. A fifteen point average
+   made of fifteens is a different asset from one made of fives and twenty
+   fives, and only one of them is safe in a lineup you cannot change. */
+function rsPanelHTML(p){
+  if(!p) return '';
+  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+  const rec=pool?pool.find(x=>String(x.id)===String(p.pid)):null;
+  const bio=(_bkBios||{})[String(p.pid)]||null;
+  const proj=(sbPlayerProj()||{})[String(p.pid)]||null;
+  const rank=rec?bkRankOf(rec):null;
+  const posN=POS_NAMES[p.ppos]||'';
+  const nflTeam=rec?(NFL_FULL[bkTeamOf(rec)]||bkTeamOf(rec)||''):'';
+  const wk=bkWeekly(p.pid);                       // fetched once, then cached
+  const weeks=wk?Object.keys(wk).map(Number).sort((a,b)=>a-b):[];
+  const vals=weeks.map(w=>Number(wk[w])||0);
+  const n=vals.length;
+  const avg=n?vals.reduce((a,b)=>a+b,0)/n:null;
+  const hi=n?Math.max(...vals):null, lo=n?Math.min(...vals):null;
+  const sd=n>1?Math.sqrt(vals.reduce((a,v)=>a+(v-avg)*(v-avg),0)/n):null;
+  /* Boom and bust are the two ends anyone actually cares about: how often he
+     carried a week on his own, and how often he cost you one. */
+  const boom=n?vals.filter(v=>v>=20).length:null;
+  const bust=n?vals.filter(v=>v<8).length:null;
+  const stat=(l,v,c)=>`<div class="rs2-s"><span class="rs2-sl">${l}</span>
+    <span class="rs2-sv"${c?` style="color:${c}"`:''}>${v}</span></div>`;
+  const spark=n>1?bkGraphSVG(weeks.slice(-6).map(w=>({v:Number(wk[w])||0}))):'';
+  return `<div class="rs2-p">
+    <div class="rs2-ph">
+      ${playerImg(p.pid,44,p.n)}
+      <div class="rs2-phi">
+        <div class="rs2-pn">${p.n}</div>
+        <div class="rs2-ps">${[posN&&rank?`${posN}${rank}`:posN,nflTeam].filter(Boolean).join(' · ')||'—'}</div>
+      </div>
+    </div>
+    <div class="rs2-grid">
+      ${stat('This week',proj&&proj.wk!=null?Number(proj.wk).toFixed(1):'—')}
+      ${stat('Season',rec&&rec.total!=null?Number(rec.total).toFixed(1):'—')}
+      ${stat('Per game',avg!=null?avg.toFixed(1):'—')}
+      ${stat('Best',hi!=null?hi.toFixed(1):'—','var(--green)')}
+      ${stat('Worst',lo!=null?lo.toFixed(1):'—','var(--red)')}
+      ${stat('Swing',sd!=null?'±'+sd.toFixed(1):'—')}
+    </div>
+    ${n?`<div class="rs2-ins">
+      <div class="rs2-i"><i class="fa fa-fire"></i>${boom} week${boom===1?'':'s'} over 20</div>
+      <div class="rs2-i"><i class="fa fa-battery-empty"></i>${bust} under 8</div>
+      <div class="rs2-i"><i class="fa fa-wave-square"></i>${
+        sd==null?'—':sd<5?'Steady week to week':sd<9?'Some week-to-week swing':'Boom or bust'}</div>
+    </div>`:'<div class="rs2-ins"><div class="rs2-i">No weekly line on file yet.</div></div>'}
+    ${spark?`<div class="rs2-spark"><div class="rs2-sh">Last ${Math.min(6,n)} weeks</div>${spark}</div>`:''}
+    ${bio?`<div class="rs2-bio">${[bio.college,bio.draftYear?`drafted ${bio.draftYear}`:''].filter(Boolean).join(' · ')}</div>`:''}
   </div>`;
 }
 /* ── A ROSTER TO LOOK AT ─────────────────────────────────────────────────────
@@ -8941,6 +9019,9 @@ function bkWeekly(pid){
       _bkLine[pid]=Object.keys(g).length?g:{};
       _bkQCache={key:'',qs:[]};            // rebuild now the line is in
       renderBallKnowledge();
+      /* the roster panel reads the same line, and it is the one place that
+         asks for a player's weeks on purpose rather than as a side effect */
+      try{ if(_activeTab==='roster'&&_rsPick) renderRoster(); }catch(e){}
     }).catch(()=>{ _bkLine[pid]={}; });
   return null;
 }
