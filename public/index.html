@@ -5452,62 +5452,49 @@
       .sec-head::after,.section-header::after,.lh-sec-head::after{animation:none;}
     }
 
-    /* ── HOMEPAGE HEADINGS: the title floats on glass over its own icon ─────
+    /* ── HOMEPAGE HEADINGS: icon over title, both on one pane of glass ──────
        Everywhere else the icon sits beside the words, which is fine for a page
        you are reading through. The homepage is a stack of modules you are
-       scanning, and there the icon can do more work as a mark behind the title
-       than as a small thing to the left of it.
+       scanning, and there the pair reads better stacked: a small mark, the
+       title under it, and one pane of glass holding both.
 
-       Three layers, and the whole effect is the order they paint in. The icon
-       is blown up and pushed to z-index -2, so it lands behind everything. A
-       pane of glass sits at -1 — translucent, hairline-lit, and blurring what
-       is behind it, which is the icon. The title itself is ordinary inline
-       text, and inline content paints above negative-z descendants, so it
-       comes out on top of the glass without being given a layer at all.
+       The heading is a flex row by default and the title is a bare text node,
+       so turning the row into a column is the entire layout change — the icon
+       becomes the first line and the words the second, with no new markup. That
+       matters, because the text could not have been wrapped in an element
+       without editing a dozen headings by hand.
 
-       That last part is why nothing here needed new markup: the text is a bare
-       node between the icon and the end of the heading, and it could not have
-       been wrapped without touching a dozen headings by hand.
+       The pane is a ::before at z-index -1. Everything in normal flow paints
+       above a negative-z pseudo-element, so both the icon and the title land on
+       top of the glass without either being given a layer of its own.
 
-       fit-content is what makes the glass hug the words. A pseudo-element can
-       only be sized against its own box, so the heading has to be no wider
-       than its title before `inset` can wrap it — otherwise the pane spans the
-       column and the effect reads as a banner rather than a badge. */
+       fit-content is what makes the pane hug its contents. A pseudo-element can
+       only be sized against its own box, so the heading has to be no wider than
+       what it holds before `inset` can wrap it — otherwise the pane spans the
+       column and reads as a banner rather than a badge. */
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){
+      display:flex;flex-direction:column;align-items:center;gap:2px;flex-wrap:nowrap;
       width:fit-content;max-width:100%;margin-inline:auto;font-size:17px!important;
-      /* The pane is drawn off this box's padding, so the padding IS the pane's
+      /* The pane is drawn off this box's padding, so the padding IS its
          breathing room. Top and bottom are not equal because the bottom also
-         has to carry the animated rule at 32px: 46 leaves the pane room to sit
-         8px under the text and still finish clear of the rule, which is what
-         puts the title in the middle of the glass rather than up against it. */
-      padding-top:16px!important;padding-bottom:46px!important;
-      padding-left:13px!important;padding-right:13px!important;}
+         has to clear the animated rule at 32px. */
+      padding-top:14px!important;padding-bottom:46px!important;
+      padding-left:15px!important;padding-right:15px!important;}
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))>i,
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))>i{
-      position:absolute;left:50%;top:calc(50% - 21px);
-      transform:translate(-50%,-50%);
-      /* Bigger than the pane on purpose. The whole read is the mark showing
-         above and below the glass — an icon the pane covers completely is just
-         a texture nobody can identify. */
-      font-size:70px;line-height:1;opacity:0.2;z-index:-2;pointer-events:none;}
+      /* back in normal flow, and small: it is a label for the module now, not a
+         watermark to read the title through */
+      position:static;transform:none;z-index:auto;pointer-events:auto;
+      font-size:13px;line-height:1;opacity:1;color:var(--accent);}
     #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::before,
     #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))::before{
       content:"";position:absolute;z-index:-1;
-      /* Centred on the INK, not on the line box — and those are different
-         things. The gap between them is what made an earlier pass measure
-         right and still look wrong: the line box sat 8 and 8, but Roca rides
-         high in its own leading, so the glyphs were 12 over and 16 under.
-         These numbers put the cap band in the middle, 12.3 either side,
-         measured on the rendered page rather than reasoned about.
-
-         Titles with a descender come out 12.3 over and 9.3 under. That is
-         correct rather than a miss: the caps and the tail of a "g" cannot both
-         be centred, and it is the caps the eye lines a row of headings up on.
-
-         41 from a 46px bottom padding, so the pane still finishes clear of the
-         animated rule at 32. */
-      inset:8px -4px 41px -4px;border-radius:12px;
+      /* Measured on the rendered page rather than reasoned about: the top wraps
+         the icon's own box and the bottom the title's ink, which sits high in
+         Roca's leading. 46 of bottom padding leaves the pane room to close under
+         the words and still finish clear of the rule at 32. */
+      inset:6px -4px 45px -4px;border-radius:13px;
       background:rgba(255,255,255,0.055);
       -webkit-backdrop-filter:blur(7px) saturate(1.25);
       backdrop-filter:blur(7px) saturate(1.25);
