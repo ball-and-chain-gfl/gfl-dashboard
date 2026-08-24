@@ -3970,19 +3970,60 @@ const NEW_VID_COLORS=['#E86043','#E89845','#E8C656','#66E89D','#5CE8B3','#63E0E8
    is ever wanted back. */
 function newVideoColor(){ return '#f09a4a'; }
 
-/* drives the drawn scroll indicator under the video carousel */
+/* Drives the drawn scroll indicator under the video carousel, and the depth
+   that makes it read as a carousel rather than a row: every slide is scaled
+   and dimmed by how far it is from the left edge, so the one you are on sits
+   forward and the rest wait behind it. */
+const VID_FOCUS_SCALE=0.12;   // how far a waiting slide shrinks
+const VID_FOCUS_FADE=0.45;    // and how far it dims
 function wireVidRail(){
   const sc=document.querySelector('.vid-scroll'), th=document.getElementById('vid-rail-thumb');
   if(!sc||!th||sc.dataset.railed) return;
   sc.dataset.railed='1';
+  /* ::after is a spacer, not a slide — children[] would count it if it were a
+     real element, but it is a pseudo, so this is just the four real slides. */
+  const slides=()=>[...sc.children];
+  const focus=()=>{
+    const list=slides(); if(!list.length) return;
+    /* Slot width rather than slide width: the gap has to be in the unit, or
+       every slide past the first reads as further out than it is. */
+    const w=list.length>1
+      ? list[1].offsetLeft-list[0].offsetLeft
+      : list[0].offsetWidth;
+    if(!w) return;
+    /* offsetLeft is measured from the offsetParent, which is the padded panel
+       and not the track — so the first slide starts at the padding, not at 0.
+       Everything is taken relative to it instead. */
+    const base=list[0].offsetLeft;
+    list.forEach(el=>{
+      const d=(el.offsetLeft-base-sc.scrollLeft)/w;   // 0 = in focus, 1 = next along
+      const k=Math.min(Math.abs(d),1);
+      /* Anchored on the edge nearest the slide in focus, so a waiting slide
+         shrinks away from it — tucking in behind rather than drifting off. */
+      el.style.transformOrigin=d<0?'right center':'left center';
+      el.style.transform=`scale(${(1-k*VID_FOCUS_SCALE).toFixed(4)})`;
+      el.style.opacity=(1-k*VID_FOCUS_FADE).toFixed(3);
+      el.style.zIndex=String(10-Math.round(k*9));
+    });
+  };
   const draw=()=>{
     const max=sc.scrollWidth-sc.clientWidth;
     const frac=sc.clientWidth/Math.max(1,sc.scrollWidth);
     th.style.width=(frac*100).toFixed(2)+'%';
     const p=max>0?sc.scrollLeft/max:0;
     th.style.transform=`translateX(${(p*(100/Math.max(frac,0.0001)-100)).toFixed(2)}%)`;
+    focus();
   };
-  sc.addEventListener('scroll',draw,{passive:true});
+  /* The transition on the slides is for settling after a snap. During a drag
+     it would lag the finger, so the frame-by-frame updates turn it off and the
+     scrollend puts it back for the snap that follows. */
+  let moving=null;
+  sc.addEventListener('scroll',()=>{
+    if(moving===null) sc.classList.add('vid-dragging');
+    clearTimeout(moving);
+    moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; },90);
+    draw();
+  },{passive:true});
   window.addEventListener('resize',draw);
   draw();
 }

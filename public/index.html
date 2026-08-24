@@ -1585,16 +1585,25 @@
     .vid-scroll::-webkit-scrollbar{height:5px;}
     .vid-scroll::-webkit-scrollbar-track{background:transparent;margin-top:4px;}
     .vid-scroll::-webkit-scrollbar-thumb{background:var(--nv,var(--accent));border-radius:999px;}
-    .vid-scroll>*{scroll-snap-align:start;flex:0 0 100%;min-width:0;}
-    /* The carousel scrolls, so anything hanging past a slide's edge gets
-       clipped — which ate the ribbon's overhang and with it the wrap. The slide
-       reserves a strip on its right for the ribbon to hang into instead. */
-    .vid-scroll .vid-wrap{padding-right:12px;box-sizing:border-box;}
-    /* The other slides reach the same content width by narrowing rather than
-       padding — padding would leave their 16:9 box measured on the full slide
-       width and so taller than the poster, which is what used to push the rail
-       away from the video. Every slide is now the same box. */
-    .vid-scroll .video-thumb,.vid-scroll .vid-ch{flex:0 0 calc(100% - 12px);}
+    /* Slides are narrower than the track, so the next one is always showing at
+       the right. wireVidRail() scales and dims every slide by its distance from
+       the left edge, which is what puts the waiting ones behind the featured
+       one and brings the next into focus as you scroll to it.
+
+       The transform is the only thing that moves. Width, gap and snapping are
+       untouched by it, so scroll position, the snap points and the rail's
+       arithmetic all still measure the real boxes. */
+    .vid-scroll>*{scroll-snap-align:start;flex:0 0 84%;min-width:0;position:relative;
+      transition:transform .18s ease-out,opacity .18s ease-out;will-change:transform;}
+    /* Lets the last slide reach the left edge, so it can come into focus like
+       every other one instead of stalling short of its snap point. */
+    .vid-scroll::after{content:"";flex:0 0 16%;}
+    .vid-scroll.vid-dragging>*{transition:none;}
+    /* The ribbon anchors to the slide's right edge, so the slide and the poster
+       have to be the same box — a reserved strip on one side is exactly what
+       made the spacing uneven. The peek now comes from the slide being narrow
+       rather than from padding inside it. */
+    .vid-scroll .vid-wrap{box-sizing:border-box;}
     .vid-scroll .video-thumb{background:none!important;border:none;border-radius:6px;padding:0;
       overflow:hidden;cursor:pointer;text-align:left;color:var(--text);line-height:0;}
     /* same 16:9 box as the featured player */
@@ -5349,8 +5358,11 @@
 
     /* ── The raised panel ──────────────────────────────────────────────────
        Champions has had this since the Legacy Report got it, and the videos
-       want the same thing: content lifted onto its own surface instead of
-       sitting loose on the page. One rule for both so they cannot drift.
+       want the same surface: content on its own ground instead of sitting
+       loose on the page. The surface is shared; the drop shadow is not, and
+       is listed separately below rather than being switched back off on the
+       videos — a rule that gives and a rule that takes away is how the two
+       drift out of step.
 
        It sits after the open-layout reset and carries !important because that
        reset strips background, radius, padding and shadow from every .home-box
@@ -5364,7 +5376,11 @@
     html[data-theme] #lh-champs,
     html[data-theme] #page-home .home-vid-col .home-box{
       border-radius:10px!important;padding:14px 16px!important;
-      background:rgba(0,0,0,0.2)!important;
+      background:rgba(0,0,0,0.2)!important;}
+    /* Champions only. The videos sit flat: the carousel already has depth of
+       its own from the slides behind the featured one, and a drop shadow under
+       the panel on top of that was one lift too many. */
+    html[data-theme] #lh-champs{
       box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),
                  0 2px 6px -3px rgba(0,0,0,0.5)!important;}
     @media(max-width:768px){
