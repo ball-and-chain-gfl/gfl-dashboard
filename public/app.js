@@ -10523,6 +10523,9 @@ function ntDismiss(id){
   renderNotifications();
   try{ orderHomeTodo(); }catch(e){}
 }
+/* Nothing calls this since the chevrons came off the card — kept because the
+   stack still has an index and stepping it is the obvious thing any future
+   control would want to do. */
 function ntStep(d){
   const n=ntLive().length; if(!n) return;
   _ntIdx=(_ntIdx+d+n)%n;
@@ -10565,10 +10568,11 @@ function renderNotifications(){
         ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`:''}
       ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
     </div>
+    ${''/* No arrows. The card is swiped, and a pair of chevrons under it was a
+           second way to do a thing the card already teaches — the count and the
+           hint are all this row has to say. */}
     <div class="nt-foot">
-      <button class="nt-nav" onclick="ntStep(-1)" ${list.length<2?'disabled':''} aria-label="Previous"><i class="fa fa-chevron-left"></i></button>
       <span class="nt-pos">${_ntIdx+1} of ${list.length}<span class="nt-hint">swipe to clear</span></span>
-      <button class="nt-nav" onclick="ntStep(1)" ${list.length<2?'disabled':''} aria-label="Next"><i class="fa fa-chevron-right"></i></button>
     </div>`;
   ntWireSwipe();
 }
