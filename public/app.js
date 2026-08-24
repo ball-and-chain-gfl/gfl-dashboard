@@ -3990,8 +3990,8 @@ function vidCarouselHTML(){
     /* the thumbs open the video on YouTube rather than swapping the embed —
        the featured player stays playable in place */
     ...rest.map(v=>({t:v.title,
-     h:`<a class="video-thumb" href="https://www.youtube.com/watch?v=${v.videoId}" target="_blank" rel="noopener" data-vid="${v.videoId}" title="${esc(v.title)}"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="lazy"/><span class="vid-out"><i class="fa-brands fa-youtube"></i></span><div class="video-thumb-title">${v.title}</div></a>`})),
-    {t:'Every episode on the Ball &amp; Chain channel',
+     h:`<a class="video-thumb" href="https://www.youtube.com/watch?v=${v.videoId}" target="_blank" rel="noopener" data-vid="${v.videoId}" title="${esc(v.title)}"><img src="${v.thumb||`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}" alt="" loading="eager" decoding="async"/><span class="vid-out"><i class="fa-brands fa-youtube"></i></span><div class="video-thumb-title">${v.title}</div></a>`})),
+    {t:'Ball &amp; Chain Youtube Channel',
      h:`<a class="vid-ch" href="https://www.youtube.com/channel/${YT_CHANNEL_ID}" target="_blank" rel="noopener">
           <i class="fa-brands fa-youtube"></i><span>Visit the channel</span><i class="fa fa-arrow-right vid-ch-a"></i></a>`}
   ];
@@ -4102,10 +4102,21 @@ function wireVidRail(){
   sc.addEventListener('scroll',()=>{
     if(moving===null) sc.classList.add('vid-dragging');
     clearTimeout(moving);
-    moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; loop(); },110);
+    moving=setTimeout(()=>{ sc.classList.remove('vid-dragging'); moving=null; settled(); },260);
     draw();
   },{passive:true});
-  sc.addEventListener('scrollend',loop);
+  /* The wrap-around must only ever happen between gestures. A finger resting
+     mid-drag stops the scroll events, and on the old 110ms timer that counted
+     as settled — so the track could be yanked to the far end while it was still
+     being held, which is exactly what a jump feels like. scrollend is the real
+     signal; the timer is only a floor under browsers that do not fire it, and
+     both are ignored while a finger is down. */
+  let held=false;
+  sc.addEventListener('touchstart',()=>{ held=true; },{passive:true});
+  sc.addEventListener('touchend',()=>{ held=false; settled(); },{passive:true});
+  sc.addEventListener('touchcancel',()=>{ held=false; },{passive:true});
+  sc.addEventListener('scrollend',settled);
+  function settled(){ if(!held) loop(); }
   window.addEventListener('resize',draw);
   /* Open on the newest video rather than at scrollLeft 0, which is the copy of
      the channel card sitting in front of it. That copy is then the thing on its
@@ -12911,7 +12922,7 @@ function videoLinkHTML(videoId){
   return `<a class="vid-facade" href="https://www.youtube.com/watch?v=${videoId}"
       target="_blank" rel="noopener" data-vid="${videoId}"
       aria-label="Watch ${(v.title||'video').replace(/"/g,'&quot;')} on YouTube">
-    <img src="${thumb}" alt="" loading="lazy"/>
+    <img src="${thumb}" alt="" loading="eager" decoding="async"/>
     <span class="vid-play"><i class="fa-brands fa-youtube"></i></span>
   </a>`;
 }
