@@ -965,9 +965,14 @@
     html[data-theme="light"] .rs-row{border-bottom-color:rgba(0,0,0,0.07);}
     .rs-row:last-child{border-bottom:none;}
     .rs-row .phs,.rs-row .tm-avatar{width:26px!important;height:26px!important;flex:0 0 26px!important;}
-    .rs-slot{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.5px;
-      color:var(--accent);text-transform:uppercase;}
-    .rs-bench .rs-slot{color:var(--text3);}
+    /* A pill now, tinted per position from POS_PILL — the colour is set inline
+       because it belongs to the player in the row, not to the class. Fixed
+       width so a D/ST and a K line up with a QB down the column. */
+    .rs-slot{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.3px;
+      text-transform:uppercase;text-align:center;padding:2px 0;border-radius:4px;
+      justify-self:start;min-width:38px;}
+    .rs-cols .rs-slot{background:none!important;color:var(--text3)!important;
+      padding:0;min-width:0;letter-spacing:.5px;}
     .rs-name{font-family:'Google Sans Flex',Georgia,serif;font-size:13px;font-weight:600;
       min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
       display:flex;align-items:center;gap:6px;}
@@ -3165,6 +3170,34 @@
     .mp-out-btn{border-color:rgba(232,67,63,0.45);color:#e8685f;}
     .mp-out-btn:hover{border-color:#e8433f;color:#e8685f;}
     .mp-out{padding:22px 2px;color:var(--text3);}
+    /* ── Visiting another locker room ────────────────────────────────────── */
+    /* The way in is a full-width bar rather than a button among buttons: it
+       opens the twelve tiles underneath it, so it is a lid, and a lid should
+       be as wide as what it lifts off. */
+    .lr-pick{margin:0 0 14px;}
+    .lr-pick-b{display:flex;align-items:center;gap:9px;width:100%;padding:11px 13px;
+      border-radius:10px;background:rgba(0,0,0,0.2);border:1px solid transparent;
+      color:var(--text2);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;cursor:pointer;text-align:left;}
+    html[data-theme="light"] .lr-pick-b{background:rgba(0,0,0,0.04);}
+    .lr-pick-b:hover{border-color:rgba(var(--accent-rgb),0.45);color:var(--text);}
+    .lr-pick-b.on{border-color:var(--accent);color:var(--accent);}
+    .lr-pick-chev{margin-left:auto;font-size:10px;color:var(--text3);transition:transform .18s ease;}
+    .lr-pick-b.on .lr-pick-chev{transform:rotate(180deg);color:var(--accent);}
+    .lr-grid{margin-top:8px;margin-bottom:0;}
+    /* Whose room this is, said plainly. It sits directly on top of the room so
+       there is never a doubt about which team the wall belongs to. */
+    /* row explicitly: something further up puts direct children of the section
+       into a column, and the eye ended up stacked over its own sentence */
+    .lr-now{display:flex;flex-direction:row;justify-content:flex-start;
+      align-items:center;gap:9px;margin:0 0 12px;padding:10px 13px;
+      border-radius:10px;background:color-mix(in srgb,var(--accent) 13%,transparent);
+      border:1px solid rgba(var(--accent-rgb),0.45);
+      font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text2);line-height:1.35;}
+    .lr-now i{flex:0 0 auto;color:var(--accent);}
+    .lr-now b{color:var(--text);}
+    /* a visited plant is somebody's pet, not a button */
+    .lk-plant-ro{cursor:default;}
     .mp-out p{margin:0 0 12px;font-size:13.5px;}
     .mp-out .mv-btn{width:auto;padding:9px 18px;}
 

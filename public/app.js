@@ -90,7 +90,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#E84146',marathon:'#22d3ee',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Profile',cm:'Coaching Metric'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -4066,12 +4066,28 @@ function rosterPickerHTML(){
 /* ESPN's own position colours, which is what everyone already reads a fantasy
    roster by. Used as a wash behind each card rather than as a fill, so twelve
    of them on one board still look like a team sheet. */
-const POS_COLORS={0:'#FF2A6D',2:'#00CEB8',4:'#58A7FF',6:'#FFAE58',
-  16:'#B57C5C',17:'#BD66FF',23:'#FF8A3D'};
-const POS_OF_SLOT={0:0,2:2,3:2,4:4,5:4,6:6,16:16,17:17,23:23};
-/* a bench card tints by what the player actually is, not by the slot they sit in */
-const posColor=(slot,ppos)=>POS_COLORS[POS_OF_SLOT[slot]!=null?POS_OF_SLOT[slot]:ppos]
-  ||POS_COLORS[ppos]||'#8A98A8';
+/* Slots that ARE a position, so an empty one still knows its colour. Every
+   other slot — flex, RB/WR, WR/TE, OP, bench, IR — says nothing about the
+   player in it, so those take the player's own position instead. */
+const SLOT_TO_POS={0:1,2:2,4:3,6:4,16:16,17:5};
+/* The same position palette the draft board uses, keyed by ESPN's own
+   defaultPositionId rather than by lineup slot. Two ids for the same idea is a
+   trap worth naming: POS_COLORS above is keyed by SLOT (0 QB, 2 RB, 4 WR,
+   6 TE, 17 K), this one by POSITION (1 QB, 2 RB, 3 WR, 4 TE, 5 K). They
+   overlap on 2 and 4 and mean different things there.
+
+   Text and a wash behind it, which is what makes a slot label read as a
+   position at a glance instead of as twelve identical green words. */
+const POS_PILL={1:['#ff9ecb','#4a1f36'],2:['#ffb066','#4a2c12'],3:['#79c0ff','#12324d'],
+  4:['#5fe0c0','#123f39'],5:['#c2a8ff','#362a52'],16:['#f2d75e','#453f0f']};
+const posPill=ppos=>POS_PILL[ppos]||['#8A98A8','rgba(255,255,255,0.06)'];
+/* A card takes the colour of the player in it. The two id spaces are the trap
+   this used to fall into: a lineup slot and a default position are both small
+   integers and they collide — 2 is RB in both, but 4 is the WR *slot* and the
+   TE *position*, which is why a tight end on IR came out receiver blue and a
+   quarterback on the bench came out grey. One map, one direction, one space. */
+const posColor=(slot,ppos)=>
+  (POS_PILL[SLOT_TO_POS[slot]!=null?SLOT_TO_POS[slot]:ppos]||['#8A98A8'])[0];
 const FORMATION_Y=32;
 /* The tight end sits at the end of the line, immediately outside the tackle,
    the way an inline tight end lines up — the receivers split wide of him. */
@@ -4237,8 +4253,11 @@ async function renderRoster(){
   const num=v=>v==null?'—':Number(v).toFixed(1);
   const injTag=s=>!s||s==='ACTIVE'||s==='NORMAL'?'':
     `<span class="rs-inj ${/OUT|INJURY_RESERVE|IR|SUSPENSION/.test(s)?'bad':''}">${s.slice(0,3)}</span>`;
+  /* The slot says where they are playing; the colour says what they are. That
+     pairing is the whole point on a flex, a bench spot or an IR slot, where
+     the label alone tells you nothing about the player. */
   const line=p=>`<div class="rs-row${p.bench?' rs-bench':''}">
-      <span class="rs-slot">${p.pos}</span>
+      <span class="rs-slot" style="color:${posPill(p.ppos)[0]};background:${posPill(p.ppos)[1]}">${p.pos}</span>
       ${playerImg(p.pid,26,p.n)}
       <span class="rs-name">${p.n}${injTag(p.inj)}</span>
       <span class="rs-proj">${num(p.proj)}</span>
@@ -5678,6 +5697,7 @@ function applyMe(){
   try{ eggReset(); }catch(e){}            // this manager's finds, not the last one's
   try{ ttReset(); }catch(e){}             // and whatever has been said to them
   try{ invResetAll(); }catch(e){}         // and whatever they hold
+  _lrView=null; _lrPick=false;            // and back to their own locker room
   try{ ntReset(); }catch(e){}             // and their dismissals, from their profile
   try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
@@ -5861,8 +5881,12 @@ function lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp){
   }
   return out.join('');
 }
-function lockerRoomHTML(t){
+/* opts: {plant, canWater}. A visited locker room draws the plant belonging to
+   whoever lives there, and does not let you water it — a plant is a pet, and
+   feeding someone else's would go down on their record as their watering. */
+function lockerRoomHTML(t,opts){
   if(!t) return '';
+  const O=opts||{};
   const owner=_ownerMap[t.id];
   const at=owner?franchiseAllTime(owner):null;
   const rings=Number(at&&at.rings)||0;
@@ -5941,9 +5965,11 @@ function lockerRoomHTML(t){
     }).join('');
   })();
 
-  const st=plantStage();
+  const st=O.plant||plantStage();
+  const canWater=O.canWater!==false;
+  /* No heading of its own: the page is called My Locker Room, and a second
+     "Locker Room" directly under it was the same word twice. */
   return '<div class="lk-block">'
-    +'<div class="sec-head lk-head">Locker Room</div>'
     +'<div class="lk-wrap">'
     +'<svg class="lk-svg" viewBox="0 0 '+W+' '+H+'" shape-rendering="crispEdges" role="img"'
     +' aria-label="Pixel art locker room for '+t.name+'">'
@@ -6048,8 +6074,10 @@ function lockerRoomHTML(t){
       +lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp)
 
       /* ── THE PLANT ─────────────────────────────────────────────────────── */
-      +'<g class="lk-plantg" role="button" tabindex="0" onclick="waterPlant()"'
-      +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
+      +(canWater
+        ? '<g class="lk-plantg" role="button" tabindex="0" onclick="waterPlant()"'
+          +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
+        : '<g class="lk-plantg lk-plant-ro" role="img" aria-label="Their plant is '+st.label.toLowerCase()+'">')
         +P(70,250,190,190,'#000','0')
         +plantSVG(st.stage,P)
         /* A proper can: arched handle, a rim wider than the body, a tapered
@@ -6116,13 +6144,16 @@ const plantMs=()=>{
   const m=Number(_CFG.plantTestMinutes??0);
   return m>0?m*60*1000:3*24*3600*1000;        // three days unless testing
 };
-function plantStage(){
-  const raw=Number(localStorage.getItem(plantKey())||0);
+/* A stage from any watering timestamp. Visiting another locker room needs
+   their plant, not yours, and theirs arrives as a number off their profile. */
+function plantStageOf(raw){
+  raw=Number(raw||0);
   if(!raw) return {stage:0,label:PLANT_STAGES[0],fresh:true};
   const n=Math.floor((Date.now()-raw)/plantMs());
   const stage=Math.max(0,Math.min(5,n));
   return {stage,label:PLANT_STAGES[stage],fresh:false};
 }
+function plantStage(){ return plantStageOf(localStorage.getItem(plantKey())); }
 async function waterPlant(){
   const now=String(Date.now());
   localStorage.setItem(plantKey(),now);
@@ -6264,36 +6295,90 @@ function plantSVG(stage,P){
   }
   return pot+p;
 }
+/* ── VISITING SOMEBODY ELSE'S ROOM ───────────────────────────────────────────
+   The page is a room, and a room is a thing you can be shown round. _lrView
+   holds whose room is on screen — null for your own — and everything personal
+   in the furniture comes off while you are somebody else's guest: the plant is
+   theirs and cannot be watered, and your own egg count and sign-out have no
+   business on their wall. */
+let _lrView=null, _lrPick=false, _lrPlants=null, _lrPlantsBusy=false;
+function lrVisit(id){ _lrView=String(id)===String(_me&&_me.teamId)?null:String(id); _lrPick=false; renderMyProfile(); }
+function lrHome(){ _lrView=null; _lrPick=false; renderMyProfile(); }
+function lrTogglePick(){ _lrPick=!_lrPick; renderMyProfile(); }
+/* Every manager's last watering in one read, so a visited room shows the plant
+   its owner has actually been keeping rather than a copy of yours. */
+function lrPlantSync(){
+  if(_lrPlants||_lrPlantsBusy) return;
+  /* the homepage poll already reads the same collection — use what it has
+     rather than asking Firestore for all twelve again */
+  if((_cpRows||[]).length){
+    const m={};
+    _cpRows.forEach(p=>{ if(p&&p.teamId!=null) m[String(p.teamId)]=Number(p.plantWatered||0); });
+    _lrPlants=m; return;
+  }
+  _lrPlantsBusy=true;
+  gflListProfiles().then(rows=>{
+    const m={};
+    (rows||[]).forEach(p=>{ if(p&&p.teamId!=null) m[String(p.teamId)]=Number(p.plantWatered||0); });
+    _lrPlants=m; _lrPlantsBusy=false;
+    if(_activeTab==='profile'&&_lrView) renderMyProfile();
+  }).catch(()=>{ _lrPlants={}; _lrPlantsBusy=false; });
+}
 function renderMyProfile(){
   const el=document.getElementById('profile-page-body'); if(!el) return;
   if(!_me){ el.innerHTML=`<div class="mp-out">
       <p>You are signed out.</p>
       <button class="mv-btn" onclick="openSignIn()">Sign in</button></div>`; return; }
-  const tid=Number(_me.teamId);
+  const myId=Number(_me.teamId);
+  const visiting=_lrView!=null&&String(_lrView)!==String(myId);
+  const tid=visiting?Number(_lrView):myId;
   const t=_teams.find(x=>x.id===tid);
   const owner=_ownerMap[tid];
   const at=owner?franchiseAllTime(owner):null;
+  const nm=t?t.name:'that team';
+  /* Their plant if we have it, and a fresh one rather than a dead one while it
+     is still coming — a room should not accuse its owner of neglect on the
+     strength of a read that has not landed. */
+  const plant=visiting?plantStageOf((_lrPlants||{})[String(tid)]||0):plantStage();
+  const picker=`<div class="lr-pick">
+      <button class="lr-pick-b${_lrPick?' on':''}" onclick="lrTogglePick()" aria-expanded="${_lrPick}">
+        <i class="fa fa-door-open"></i>Visit another locker room
+        <i class="fa fa-chevron-down lr-pick-chev"></i>
+      </button>
+      ${''/* the same twelve tiles the rosters tab uses to pick a team — one
+             way of choosing a franchise on this site, not two */}
+      ${_lrPick?`<div class="rp-grid lr-grid">${_teams.map(x=>`
+        <button class="rp-cell${x.id===tid?' on':''}" onclick="lrVisit(${x.id})" title="${x.name}">
+          ${logoImg(x.id,'rp-logo')}
+          <span class="rp-ab">${(x.abbrev||teamInitials(x.name))}</span>
+        </button>`).join('')}</div>`:''}
+    </div>`;
   el.innerHTML=`
     <div class="mp-head">
       ${t?logoImg(t.id,'big4-logo'):'<i class="fa fa-user"></i>'}
       <div class="mp-id">
         <div class="mp-name">${t?t.name:'No team linked'}</div>
-        <div class="mp-sub">signed in as <b>${_me.k1}</b></div>
+        <div class="mp-sub">${visiting?'their locker room':`signed in as <b>${_me.k1}</b>`}</div>
       </div>
-      ${/* sign out sits with the identity it ends, not in a row of actions */''}
-      <button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>
+      ${/* sign out sits with the identity it ends, not in a row of actions —
+           and it has no place at all in somebody else's room */''}
+      ${visiting
+        ? `<button class="mv-btn mp-out-btn" onclick="lrHome()">Back to mine</button>`
+        : `<button class="mv-btn mp-out-btn" onclick="gflSignOut();switchTab('home')">Sign out</button>`}
     </div>
-    ${lockerRoomHTML(t)}
+    ${picker}
+    ${''/* half these teams are plural — Wigglers's is not a word */}
+    ${visiting?`<div class="lr-now"><i class="fa fa-eye"></i>
+      <span>Now viewing <b>${nm}</b>${/s$/i.test(nm)?'&rsquo;':'&rsquo;s'} locker room</span></div>`:''}
+    ${lockerRoomHTML(t,{plant,canWater:!visiting})}
     ${/* the locker takes its colour from the logo, which is sampled
           asynchronously — warm it and repaint if this is the first look */''}
-    <!-- No team picker: the linked team comes from the sign-in key and is fixed.
-         The header above already names it. -->
-    <div class="mp-actions">
+    ${visiting?'':`<div class="mp-actions">
       ${''/* how the plant is doing, without having to read the picture */}
-      <span class="mp-plant s${plantStage().stage}">
+      <span class="mp-plant s${plant.stage}">
         <i class="fa fa-seedling"></i>
         <span class="mp-plant-l">Plant</span>
-        <span class="mp-plant-v">${plantStage().label}</span>
+        <span class="mp-plant-v">${plant.label}</span>
       </span>
       ${/* how the hunt is going — the count and whether one is still out
             there, with no mention of what it paid */''}
@@ -6306,11 +6391,11 @@ function renderMyProfile(){
         <span class="mp-egg-e">🥚</span>
         <span class="mp-eggnow-t">${eggClaimedNow()?'You got this one':'One out there'}</span>
       </span>
-    </div>`;
+    </div>`}`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
      straight here without opening a team profile first — the cache is empty and
      the room falls back to grey. Warm it once and repaint. */
-  plantSync();                              // pull this manager's last watering
+  if(visiting) lrPlantSync(); else plantSync();   // whose last watering to pull
   if(t && !_logoColorCache[t.id]){
     logoMainColor(t.id).then(()=>{ if(_activeTab==='profile') renderMyProfile(); }).catch(()=>{});
   }
