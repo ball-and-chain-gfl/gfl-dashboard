@@ -61,13 +61,13 @@
        16-17px: card & modal titles (Google Sans Flex)
        18-36px: numbers by importance (Inter) */
 
-    .logo h1,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.trade-verdict,.marathon-big,.marathon-days,.modal-comp-value,.trade-rank,.draft-rankn,.coaching-rank,.rank{font-family:'Inter','DM Sans',sans-serif;letter-spacing:0.4px;}
+    .logo h1,.modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.trade-verdict,.modal-comp-value,.trade-rank,.draft-rankn,.coaching-rank,.rank{font-family:'Inter','DM Sans',sans-serif;letter-spacing:0.4px;}
     .coaching-score{font-size:20px;}
     .h2h-total-rec{letter-spacing:0.8px;}
     .coaching-rank,.draft-rankn{font-size:13px;}
     .trade-rank{font-size:16px;}
     .rank{font-size:13px;}
-    .section-header,.sec-head,.modal-header h2,.big4-name,.pin-box h3,.marathon-team,.trade-team-name,.team-info .team-name,.coaching-name,.headline-team-name,.draft-name,.tp-name,.fr-name,.modal-total-left .label,.modal-comp-label{font-family:'Google Sans Flex',Georgia,serif;}
+    .section-header,.sec-head,.modal-header h2,.big4-name,.pin-box h3,.trade-team-name,.team-info .team-name,.coaching-name,.headline-team-name,.draft-name,.tp-name,.fr-name,.modal-total-left .label,.modal-comp-label{font-family:'Google Sans Flex',Georgia,serif;}
     .tab-btn{font-family:'Inter','DM Sans',sans-serif;letter-spacing:0.8px;text-transform:uppercase;}
     .fr-name{font-size:15px;font-weight:600;}
     .badge-info,.week-btn,.filter-btn,.big4-label{font-family:'DM Sans',sans-serif;letter-spacing:0;}
@@ -529,14 +529,6 @@
     .draft-mgr2{font-size:12px;color:var(--accent);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px;}
     .draft-line{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.5;}
     .draft-delta{font-size:20px;font-weight:800;flex-shrink:0;min-width:48px;text-align:right;}
-
-    /* MARATHON TAB */
-    .marathon-hero{text-align:center;padding:56px 20px 64px;}
-    .marathon-team{font-size:24px;font-weight:700;margin:16px 0 30px;}
-    .marathon-big{font-size:128px;font-weight:800;line-height:0.9;color:var(--accent);text-shadow:0 0 60px rgba(var(--accent-rgb),0.25);}
-    .marathon-days{font-size:72px;font-weight:800;line-height:1;color:var(--blue);text-shadow:0 0 50px rgba(96,165,250,0.2);}
-    .marathon-label{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);margin-top:10px;}
-    .marathon-sep{border:none;border-top:1px solid var(--border);margin:44px auto;max-width:320px;}
 
     /* LEAGUE HISTORY TAB */
     /* C2/C3 BREAKDOWN */
@@ -2943,9 +2935,6 @@
       .draft-row{padding:11px 14px;gap:10px;}
       .draft-delta{min-width:40px;font-size:18px;}
       .draft-line{font-size:12px;}
-      .marathon-big{font-size:88px;}
-      .marathon-days{font-size:52px;}
-      .marathon-team{font-size:20px;}
     .wm::after{font-size:96px;top:-18px;opacity:0.04;}
     }
     @media(max-width:440px){
@@ -2994,10 +2983,8 @@
     .tab-btn[data-tab=trades]{--tc:#E8437E;}
     .tab-btn[data-tab=tenure]{--tc:#1ecdaa;}
     .tab-btn[data-tab=messages]{--tc:#E8D24E;}
-    .tab-btn[data-tab=gabe]{--tc:#CBE853;}
     /* hidden tabs keep their own colours */
     .tab-btn[data-tab=punishment]{--tc:#E84146;}
-    .tab-btn[data-tab=marathon]{--tc:#22d3ee;}
     .tab-btn i{color:var(--tc,var(--accent));opacity:.8;transition:opacity .15s;}
     .tab-btn:hover{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,transparent)!important;color:var(--text)!important;}
     .tab-btn:hover i{opacity:1;}
@@ -3065,11 +3052,9 @@
     html[data-tabaccent=draft]{--h1a:#0fcacc;--h1b:#04c4f0;}
     html[data-tabaccent=trades]{--h1a:#E8437E;--h1b:#E86043;}
     html[data-tabaccent=tenure]{--h1a:#1ecdaa;--h1b:#0cc9d1;}
-    html[data-tabaccent=gabe]{--h1a:#CBE853;--h1b:#89E84E;}
     html[data-tabaccent=messages]{--h1a:#E8D24E;--h1b:#E8BE4E;}
     html[data-tabaccent=profile]{--h1a:#E0B67B;--h1b:#E0D27B;}
     html[data-tabaccent=punishment]{--h1a:#E84146;--h1b:#E85D41;}
-    html[data-tabaccent=marathon]{--h1a:#22d3ee;--h1b:#22eec9;}
     html[data-theme="dark"][data-tabaccent=week]{--accent:#fb9167;--accent2:#eb9e41;--accent-rgb:251,145,103;}
     html[data-theme="dark"][data-tabaccent=roster]{--accent:#43C9E8;--accent2:#43E8C0;--accent-rgb:67,201,232;}
     html[data-theme="dark"][data-tabaccent=teams]{--accent:#ff5f5f;--accent2:#ff8f5f;--accent-rgb:255,95,95;}
@@ -3086,7 +3071,6 @@
     html[data-theme="dark"][data-tabaccent=draft]{--accent:#0fcacc;--accent2:#04c4f0;--accent-rgb:15,202,204;}
     html[data-theme="dark"][data-tabaccent=trades]{--accent:#E8437E;--accent2:#E86043;--accent-rgb:232,67,126;}
     html[data-theme="dark"][data-tabaccent=tenure]{--accent:#1ecdaa;--accent2:#0cc9d1;--accent-rgb:30,205,170;}
-    html[data-theme="dark"][data-tabaccent=gabe]{--accent:#CBE853;--accent2:#89E84E;--accent-rgb:203,232,83;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
     /* the name takes the space it needs and sign out sits at the far edge */
@@ -3433,7 +3417,6 @@
       padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
       color:var(--text);white-space:pre;overflow-x:auto;margin:0 0 10px;}
     html[data-theme="dark"][data-tabaccent=punishment]{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;}
-    html[data-theme="dark"][data-tabaccent=marathon]{--accent:#22d3ee;--accent2:#22eec9;--accent-rgb:34,211,238;}
     :root{--grad:linear-gradient(135deg,var(--accent),var(--accent2));}
 
     /* ── TEXTURED "TECH PREMIUM" BACKGROUND (dark) ──────────────────────────
@@ -3630,7 +3613,7 @@
     #tab-dd-btn,.tab-dd-item{font-family:'Google Sans Flex',sans-serif!important;text-transform:none;letter-spacing:0;}
     /* Accent labels + short meta/record lines → Inter, all-caps, spaced */
 
-    .badge-info,.big4-label,.big4-record,.big4-cm,.team-sub,.coaching-sub,.prof-stat-l,.prof-stat-s,.prof-chip-l,.dsb-lbl,.trade-recv,.trade-winlabel,.trade-verdict,.marathon-label,.motw-fact-l,.motw-fact-s,.motw-odds-h,.brk-col-h,.bracket-round,.gabe-pts-l,.honor-lb,.honor-sub,.sup-detail,.lineup-psub,.conf-win-yr,.punish-tag,.punish-week,.gabe-badge,.hist-item-year,.lg-label,.tab-btn,thead th{font-family:'Inter',sans-serif!important;font-weight:500!important;text-transform:uppercase!important;letter-spacing:0.5px!important;}
+    .badge-info,.big4-label,.big4-record,.big4-cm,.team-sub,.coaching-sub,.prof-stat-l,.prof-stat-s,.prof-chip-l,.dsb-lbl,.trade-recv,.trade-winlabel,.trade-verdict,.motw-fact-l,.motw-fact-s,.motw-odds-h,.brk-col-h,.bracket-round,.gabe-pts-l,.honor-lb,.honor-sub,.sup-detail,.lineup-psub,.conf-win-yr,.punish-tag,.punish-week,.gabe-badge,.hist-item-year,.lg-label,.tab-btn,thead th{font-family:'Inter',sans-serif!important;font-weight:500!important;text-transform:uppercase!important;letter-spacing:0.5px!important;}
 
     /* ── Nav: one floating capsule (logo · season · page · menu) ───────────── */
     .tabbar{display:none!important;}
@@ -3752,7 +3735,7 @@
 
 
 
-    .logo h1,.section-header,.sec-head,.modal-header h2,.pin-box h3,.prof-name,.hl-headline,.punish-name,.conf-col-head,.motw-take-h,.marathon-team,.lg-grade{
+    .logo h1,.section-header,.sec-head,.modal-header h2,.pin-box h3,.prof-name,.hl-headline,.punish-name,.conf-col-head,.motw-take-h,.lg-grade{
       font-family:'Google Sans Flex',sans-serif!important;font-weight:600!important;
     }
     .big4-name,.trade-team-name,.team-info .team-name,.coaching-name,.headline-team-name,.draft-name,
@@ -3765,7 +3748,7 @@
 
 
 
-    .modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.marathon-big,.marathon-days,.modal-comp-value,.trade-rank,.draft-rankn,.coaching-rank,.rank,.tp-pts,.brk-val,.motw-vs,.motw-fact-v,.lineup-ppts .v,.prof-chip-v,.prof-stat-v,.gabe-rank,.gabe-pts,.gabe-res,.badbeat-rank,.bracket-pts,.lg-score{
+    .modal-total-score,.coaching-score,.headline-pts,.h2h-total-rec,.trade-total,.draft-delta,.modal-comp-value,.trade-rank,.draft-rankn,.coaching-rank,.rank,.tp-pts,.brk-val,.motw-vs,.motw-fact-v,.lineup-ppts .v,.prof-chip-v,.prof-stat-v,.gabe-rank,.gabe-pts,.gabe-res,.badbeat-rank,.bracket-pts,.lg-score{
       font-family:'DM Sans',sans-serif!important;font-weight:600!important;letter-spacing:normal!important;
     }
 
@@ -4656,7 +4639,7 @@
 
     /* ── MOBILE: never cut off / truncate names & titles ─────────────────── */
     @media(max-width:768px){
-      .coaching-name,.lineup-pname,.tp-name,.tp-name>span,.pname>span,.bracket-name,.team-info .team-name,.trade-team-name,.headline-team-name,.marathon-team,.video-featured-title,.tp-name.pname{
+      .coaching-name,.lineup-pname,.tp-name,.tp-name>span,.pname>span,.bracket-name,.team-info .team-name,.trade-team-name,.headline-team-name,.video-featured-title,.tp-name.pname{
         white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
         text-align:left;
       }
@@ -5189,8 +5172,10 @@
          keyframe — and restating them again for the homepage, which cycles
          seven colours rather than two. */
       --h1c:var(--h1a,var(--accent));
-      box-shadow:0 14px 44px -16px color-mix(in srgb,var(--h1c) 78%,transparent),
-                 0 3px 18px -9px color-mix(in srgb,var(--h1c) 58%,transparent);
+      /* Close to the panel rather than a wide bloom: a big blur with a big
+         negative spread reads as haze, not as the box being lit. */
+      box-shadow:0 5px 18px -5px color-mix(in srgb,var(--h1c) 90%,transparent),
+                 0 1px 5px -2px color-mix(in srgb,var(--h1c) 62%,transparent);
       animation:h1Hue 6s ease-in-out infinite;}
     @property --h1c{syntax:'<color>';initial-value:transparent;inherits:false;}
     @keyframes h1Hue{
@@ -5590,7 +5575,6 @@
   <button class="tab-btn" data-tab="badbeat" data-pair="1" onclick="switchTab('badbeat')"><i class="fa fa-heart-crack"></i>Bad Beat O'Meter</button>
   <button class="tab-btn" data-tab="cm" data-pair="1" onclick="switchTab('cm')"><i class="fa fa-brain"></i>Coaching Metric</button>
   <!-- hidden: Punishment opens from the homepage CTA, Gabe's sits in League History -->
-  <!-- Marathons Ran: hidden for now -->
 </nav>
 
 <main><h1 id="page-h1" class="page-h1"><span>Home</span><span class="page-h1-aside" id="page-h1-aside"></span></h1>

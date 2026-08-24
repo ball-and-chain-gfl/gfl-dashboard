@@ -27,14 +27,6 @@ window.GFL_CONFIG = {
      Case-insensitive partial matches against the team name. */
   excludeTeams: ["who gibbs", "wafflestomp", "bozeman", "simptown"],
 
-  /* "Marathons Ran" tab. `sinceDate` is the day the 2024 last-place game went
-     final — the day counter is computed from it automatically. */
-  marathon: {
-    team: "Marathon",
-    count: 0,
-    sinceDate: "2024-12-30",
-    sinceLabel: "days since the 2024 last place game went final",
-  },
 
   /* MATCHUP OF THE WEEK (homepage). Set the two teams and the Ball & Chain
      takeaways each week. If `auto` is true the dashboard will try to detect the

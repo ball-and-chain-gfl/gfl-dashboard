@@ -89,8 +89,8 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#1ecdaa',gabe:'#CBE853',punishment:'#E84146',marathon:'#22d3ee',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",gabe:"Gabe's Greatness",marathon:'Marathons Ran',messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#1ecdaa',punishment:'#E84146',cm:'#E0B67B'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -2653,32 +2653,9 @@ function renderDraftTeamTable(){
   body.innerHTML=rows.length?draftTeamTableHTML(rows,false):`<div class="tab-loading">No picks found for this team.</div>`;
 }
 
-// ── MARATHON TAB ───────────────────────────────────────────────────────────────
-let _marathonTimer=null;
-function marathonDays(){
-  const cfg=_CFG.marathon||{};
-  const since=new Date((cfg.sinceDate||'2024-12-30')+'T23:59:59');
-  return Math.max(0,Math.floor((Date.now()-since.getTime())/86400000));
-}
-function renderMarathon(){
-  const el=document.getElementById('marathon-hero'); if(!el) return;
-  const cfg=_CFG.marathon||{};
-  const fr=_franchises.find(f=>normName(f.name).includes(normName(cfg.team||'marathon')))||null;
-  el.innerHTML=`
-    ${fr?franchiseAvatar(fr,72,18):''}
-    <div class="marathon-team">${fr?.name||'Marathon Men'}</div>
-    <div class="marathon-big">${cfg.count??0}</div>
-    <div class="marathon-label">Marathons Ran</div>
-    <hr class="marathon-sep"/>
-    <div class="marathon-days" id="marathon-days">${marathonDays().toLocaleString()}</div>
-    <div class="marathon-label">${cfg.sinceLabel||'days since the 2024 last place game went final'}</div>`;
-  if(!_marathonTimer){
-    _marathonTimer=setInterval(()=>{
-      const d=document.getElementById('marathon-days');
-      if(d) d.textContent=marathonDays().toLocaleString();
-    },60*60*1000); // re-check hourly so the counter rolls over at midnight
-  }
-}
+/* The Marathons Ran page is gone. Nothing here read anything but its own
+   config block, so the whole tab came out in one piece — the franchise
+   called Marathon Men is untouched and still appears everywhere it did. */
 
 // ── LEAGUE HISTORY TAB ─────────────────────────────────────────────────────────
 const REGULAR_SEASON_END=14; // fallback only — real value comes from each season's settings
@@ -13213,7 +13190,6 @@ async function loadDashboard(){
     renderHomeHeadlines();
     renderHistoryTable();
     renderLeagueHistory();
-    renderMarathon();
     renderTradesTab();
     renderSchedule();
     applyMe();
