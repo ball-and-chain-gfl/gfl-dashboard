@@ -1,0 +1,48 @@
+name: Archive the week's win probability
+
+# While a week is being played the live poller writes a minute-by-minute score
+# series into Firestore. That is the only record of how a game unfolded rather
+# than how it ended, and it is what the win-probability curve is drawn from.
+#
+# Once the week is over the record is final, so it comes out of the database and
+# into the repo, where it is permanent, cached, and costs one edge GET. The
+# dashboard reads the committed file first and only asks Firestore for weeks
+# that have not been frozen yet.
+#
+# Monday night football finishes late US time, so this runs Tuesday morning UTC
+# and again Wednesday as a safety net. The script writes nothing if the week is
+# already archived or has no series recorded, so extra runs cost nothing and a
+# missed run is picked up by the next one.
+on:
+  schedule:
+    - cron: '30 09 * * 2'   # Tue 09:30 UTC — after Monday night is final
+    - cron: '30 09 * * 3'   # Wed 09:30 UTC — safety net
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season (blank = current year)'
+        required: false
+      week:
+        description: 'Week (blank = newest finished)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Archive
+        run: node scripts/archive-week.mjs ${{ github.event.inputs.season }} ${{ github.event.inputs.week }}
+      - name: Commit if it changed
+        run: |
+          git config user.name  'gfl-bot'
+          git config user.email 'gfl-bot@users.noreply.github.com'
+          git add public/data/live-*.json
+          git diff --staged --quiet || git commit -m 'Archive week win probability [skip ci]'
+          git push

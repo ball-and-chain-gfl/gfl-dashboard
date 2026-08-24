@@ -3170,6 +3170,86 @@
     .mp-out-btn{border-color:rgba(232,67,63,0.45);color:#e8685f;}
     .mp-out-btn:hover{border-color:#e8433f;color:#e8685f;}
     .mp-out{padding:22px 2px;color:var(--text3);}
+    /* ── The win probability curve ───────────────────────────────────────── */
+    /* preserveAspectRatio is none on purpose: the shape wants the full width it
+       is given, and a curve stretched horizontally still reads correctly —
+       what matters is where it crosses the middle and how steeply. */
+    .wp-wrap{position:relative;margin:0 0 4px;}
+    .wp-svg{display:block;width:100%;height:96px;overflow:visible;}
+    .wp-mid{stroke:rgba(255,255,255,0.18);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke;}
+    html[data-theme="light"] .wp-mid{stroke:rgba(0,0,0,0.2);}
+    .wp-line{fill:none;stroke-width:2.2;vector-effect:non-scaling-stroke;
+      stroke-linejoin:round;stroke-linecap:round;}
+    .wp-line.up{stroke:var(--green);} .wp-line.dn{stroke:var(--red);}
+    .wp-fill.up{fill:color-mix(in srgb,var(--green) 20%,transparent);stroke:none;}
+    .wp-fill.dn{fill:color-mix(in srgb,var(--red) 20%,transparent);stroke:none;}
+    .wp-dot.up{fill:var(--green);} .wp-dot.dn{fill:var(--red);}
+    /* The percentage lives in the row above, between the two team names, and
+       the curve carries no text at all — a second set of labels over the top
+       of it collided with the row that was already naming both sides. */
+    .fc-pct.up{color:var(--green);} .fc-pct.dn{color:var(--red);}
+    /* ── Forecast folds ──────────────────────────────────────────────────── */
+    .fc-fold{background:rgba(0,0,0,0.2);border-radius:10px;overflow:hidden;margin:0 0 10px;}
+    html[data-theme="light"] .fc-fold{background:rgba(0,0,0,0.03);}
+    .fc-fold-h{display:flex;flex-direction:row;align-items:center;gap:9px;width:100%;
+      padding:11px 13px;border:0;border-radius:0;background:rgba(0,0,0,0.2);box-shadow:none;
+      cursor:pointer;text-align:left;font-family:'Inter',sans-serif;font-size:11px;
+      font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
+    html[data-theme="light"] .fc-fold-h{background:rgba(0,0,0,0.05);}
+    .fc-fold-h:hover,.fc-fold-h:active,.fc-fold-h:focus{box-shadow:none;}
+    .fc-fold-h>i:first-child{color:var(--accent);}
+    .fc-fold-c{margin-left:auto;font-size:10px;color:var(--text3);transition:transform .18s ease;}
+    .fc-fold.open .fc-fold-c{transform:rotate(180deg);}
+    .fc-fold-b{display:grid;grid-template-rows:0fr;
+      transition:grid-template-rows .26s cubic-bezier(.3,.75,.25,1);}
+    .fc-fold-b>.fc-fold-in{min-height:0;overflow:hidden;}
+    .fc-fold:not(.open)>.fc-fold-b{visibility:hidden;}
+    .fc-fold.open>.fc-fold-b{grid-template-rows:1fr;visibility:visible;}
+    @media(prefers-reduced-motion:reduce){.fc-fold-b{transition:none;}}
+    .fc-fold .fc-imp{margin:0;padding:11px 13px;}
+    /* ── Two lineups, side by side ───────────────────────────────────────── */
+    .fcr{padding:10px 11px 12px;}
+    .fcr-row{display:grid;grid-template-columns:minmax(0,1fr) 50px minmax(0,1fr);
+      align-items:center;gap:6px;padding:4px 0;}
+    .fcr-head,.fcr-tot{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    .fcr-head{border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:6px;margin-bottom:2px;}
+    html[data-theme="light"] .fcr-head{border-bottom-color:rgba(0,0,0,0.12);}
+    .fcr-tot{border-top:1px solid rgba(255,255,255,0.12);padding-top:7px;margin-top:4px;}
+    html[data-theme="light"] .fcr-tot{border-top-color:rgba(0,0,0,0.12);}
+    /* the winning side of a spot is tinted, the losing side is tinted the other
+       way, and an even spot is left alone — that is the whole read */
+    .fcr-side{display:flex;align-items:center;gap:6px;min-width:0;padding:3px 6px;
+      border-radius:6px;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text2);}
+    .fcr-row>.fcr-side:last-child{flex-direction:row-reverse;}
+    .fcr-side.good{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--text);}
+    .fcr-side.bad{background:color-mix(in srgb,var(--red) 13%,transparent);}
+    .fcr-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+    .fcr-p{flex:0 0 auto;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3);}
+    .fcr-side.good .fcr-p{color:var(--green);}
+    .fcr-pos{text-align:center;font-family:'Inter',sans-serif;font-size:9px;font-weight:800;
+      letter-spacing:.3px;text-transform:uppercase;border-radius:4px;padding:2px 0;}
+    .fcr-head .fcr-pos,.fcr-tot .fcr-pos{background:none!important;color:var(--text3)!important;}
+    .fcr-note{margin-top:9px;font-family:'Inter',sans-serif;font-size:10.5px;
+      color:var(--text3);line-height:1.45;}
+    .fcr-note b{color:var(--text2);}
+    /* ── A played game's drawer: the best start on each side, then the curve ── */
+    .sd-tops{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px 0 10px;}
+    .sd-top{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+      padding:9px 8px;border-radius:9px;background:rgba(0,0,0,0.2);min-width:0;}
+    html[data-theme="light"] .sd-top{background:rgba(0,0,0,0.04);}
+    .sd-top .phs,.sd-top .tm-avatar{width:32px!important;height:32px!important;flex:0 0 32px!important;}
+    .sd-top-l{font-family:'Inter',sans-serif;font-size:9px;font-weight:800;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);}
+    .sd-top-n{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text);
+      max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .sd-top-n.sd-none{color:var(--text3);font-weight:600;}
+    .sd-top-v{font-family:'Inter',sans-serif;font-size:17px;font-weight:800;
+      letter-spacing:-.3px;color:var(--accent);}
+    .sd-foot{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);
+      letter-spacing:.3px;padding-top:4px;}
+    /* the played rows carry a result where the upcoming ones carry a projection */
+    .sch-row.sch-res .sch-c1,.sch-row.sch-res .sch-c2{color:var(--text2);font-weight:700;}
     /* ── Visiting another locker room ────────────────────────────────────── */
     /* The way in is a full-width bar rather than a button among buttons: it
        opens the twelve tiles underneath it, so it is a lid, and a lid should

@@ -4310,6 +4310,151 @@ function fcSideStats(owner){
   const b=sbBuild(); const r=b&&b.rows.find(x=>x.owner===owner);
   return r||null;
 }
+
+/* ── A LINEUP TO COMPARE ─────────────────────────────────────────────────────
+   ESPN hands back no roster entries until a league has drafted, so before the
+   draft there is nothing to lay two lineups beside each other with. These are
+   built from the real NFL player pool — the same one Ball Knowledge reads —
+   so the names, positions and scoring are real even though the ownership is
+   invented. Every team gets a different set: the seed is the team id, so a
+   team's stand-in lineup is stable between renders and two teams never turn up
+   with the same quarterback.
+
+   It disappears the moment ESPN returns actual entries. Everything drawn from
+   it is labelled as a stand-in wherever it appears. */
+const FC_LINEUP=[[1,'QB',0],[2,'RB',2],[2,'RB',2],[3,'WR',4],[3,'WR',4],
+  [4,'TE',6],[2,'FLEX',23],[16,'D/ST',16],[5,'K',17]];
+function fcDummyLineup(teamId){
+  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+  if(!pool||!pool.length){ try{ bkLoadPool(); }catch(e){} return null; }
+  /* a deterministic shuffle per team, so team 1 and team 7 draw from the same
+     ranked pool without ever landing on the same player */
+  let seed=(Number(teamId)||1)*7919+13;
+  const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
+  const byPos={};
+  [1,2,3,4,5,16].forEach(pos=>{
+    byPos[pos]=pool.filter(x=>x.pos===pos&&x.total>0).sort((a,b)=>b.total-a.total).slice(0,36);
+  });
+  const taken=new Set();
+  const pick=pos=>{
+    const list=byPos[pos]||[];
+    for(let i=0;i<40;i++){
+      const c=list[Math.floor(rnd()*Math.min(list.length,24))];
+      if(c&&!taken.has(c.id)){ taken.add(c.id); return c; }
+    }
+    return list.find(c=>!taken.has(c.id))||null;
+  };
+  const out=[];
+  FC_LINEUP.forEach(([pos,label,slot])=>{
+    const c=pick(pos);
+    if(c) out.push({pid:c.id,n:c.name,pos:label,slot,ppos:pos,
+      proj:+(c.total/17).toFixed(1),dummy:true});
+  });
+  return out.length===FC_LINEUP.length?out:null;
+}
+/* Real entries if there are any, a stand-in if there are not. sbRosters files
+   an entry's position under `pos` and carries no projection, so the week's
+   number comes from the same ESPN projection table the player markets price
+   off. Starters only — the bench is not part of a matchup. */
+function fcLineupFor(season,week,teamId){
+  const r=sbRosters(season,week);
+  const list=r&&r[teamId];
+  if(list&&list.length){
+    const starters=list.filter(e=>!BENCH_SLOTS.includes(e.slot));
+    if(starters.length){
+      const proj=sbPlayerProj()||{};
+      return starters.map(e=>({pid:e.pid,n:pName(e.pid),pos:SLOT_NAMES[e.slot]||'',
+        slot:e.slot,ppos:e.pos,proj:(proj[String(e.pid)]||{}).wk??null,dummy:false}));
+    }
+  }
+  return fcDummyLineup(teamId);
+}
+/* ── WHO WENT OFF ────────────────────────────────────────────────────────────
+   The best started performance on each side of a finished game. ESPN gives it
+   in the same roster call the board already makes for that week, so this is a
+   read of a cache rather than a new request most of the time. */
+let _wkScores={},_wkScoresBusy={};
+function weekScores(season,week){
+  const key=season+':'+week;
+  if(_wkScores[key]) return _wkScores[key];
+  if(_wkScoresBusy[key]) return null;
+  _wkScoresBusy[key]=true;
+  const done=()=>{ _wkScoresBusy[key]=false; };
+  fetch(`${BASE}?view=mRoster&seasonId=${season}&scoringPeriodId=${week}&live=1`,{cache:'no-store'})
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{
+      const out={};
+      ((j&&j.teams)||[]).forEach(t=>{
+        out[t.id]=((t.roster&&t.roster.entries)||[])
+          .filter(e=>!BENCH_SLOTS.includes(e.lineupSlotId))
+          .map(e=>{
+            const pl=(e.playerPoolEntry&&e.playerPoolEntry.player)||{};
+            const st=(pl.stats||[]).find(x=>x.statSourceId===0&&x.scoringPeriodId===Number(week));
+            return {pid:e.playerId,n:pl.fullName||pName(e.playerId),
+              pos:pl.defaultPositionId||0,slot:e.lineupSlotId,pts:st?st.appliedTotal:null};
+          });
+      });
+      _wkScores[key]=out; done();
+      try{ if(_activeTab==='week') renderSchedule(); }catch(e){}
+    })
+    .catch(()=>{ done(); });
+  return null;
+}
+const weekTopStarter=(season,week,teamId)=>{
+  const w=weekScores(season,week); if(!w) return null;
+  const list=(w[teamId]||[]).filter(x=>x.pts!=null);
+  if(!list.length) return null;
+  return list.slice().sort((a,b)=>b.pts-a.pts)[0];
+};
+/* ── WHO WINS EACH SPOT ──────────────────────────────────────────────────────
+   Two lineups side by side, row by row, with the spot coloured for whoever is
+   ahead at it. The threshold is the point of the thing: two projections a
+   point apart is not an advantage, it is the same number twice, and colouring
+   it green would say something the data does not. Only a gap worth noticing
+   gets a colour, and the rest stays neutral. */
+const FC_EDGE=2.5;                 // points of projection before a spot is won
+function fcRosterCompareHTML(season,week,aId,bId,abA,abB){
+  const A=fcLineupFor(season,week,aId), B=fcLineupFor(season,week,bId);
+  if(!A||!B) return `<div class="lr-none">No lineups to compare yet.</div>`;
+  const dummy=A.some(x=>x.dummy)||B.some(x=>x.dummy);
+  const n=Math.min(A.length,B.length);
+  let edgeA=0,edgeB=0;
+  const rows=[];
+  for(let i=0;i<n;i++){
+    const a=A[i], b=B[i];
+    const pa=Number(a.proj)||0, pb=Number(b.proj)||0;
+    const d=pa-pb;
+    const win=Math.abs(d)<FC_EDGE?'':(d>0?'a':'b');
+    if(win==='a') edgeA++; if(win==='b') edgeB++;
+    rows.push(`<div class="fcr-row">
+      <span class="fcr-side ${win==='a'?'good':win==='b'?'bad':''}">
+        <span class="fcr-n">${lastNameOf(a.n)}</span><span class="fcr-p">${pa.toFixed(1)}</span>
+      </span>
+      <span class="fcr-pos" style="color:${posPill(a.ppos)[0]};background:${posPill(a.ppos)[1]}">${a.pos}</span>
+      <span class="fcr-side ${win==='b'?'good':win==='a'?'bad':''}">
+        <span class="fcr-p">${pb.toFixed(1)}</span><span class="fcr-n">${lastNameOf(b.n)}</span>
+      </span>
+    </div>`);
+  }
+  const tot=(l)=>l.slice(0,n).reduce((x,y)=>x+(Number(y.proj)||0),0);
+  return `<div class="fcr">
+    <div class="fcr-row fcr-head">
+      <span class="fcr-side"><span class="fcr-n">${abA}</span></span>
+      <span class="fcr-pos">Spot</span>
+      <span class="fcr-side"><span class="fcr-n">${abB}</span></span>
+    </div>
+    ${rows.join('')}
+    <div class="fcr-row fcr-tot">
+      <span class="fcr-side ${tot(A)>tot(B)?'good':''}"><span class="fcr-n">${tot(A).toFixed(1)}</span></span>
+      <span class="fcr-pos">Total</span>
+      <span class="fcr-side ${tot(B)>tot(A)?'good':''}"><span class="fcr-n">${tot(B).toFixed(1)}</span></span>
+    </div>
+    <div class="fcr-note">${edgeA===edgeB
+      ? `Spots split ${edgeA}–${edgeB}. Nothing between them.`
+      : `${edgeA>edgeB?abA:abB} wins ${Math.max(edgeA,edgeB)} spots to ${Math.min(edgeA,edgeB)}.`}
+      ${dummy?' <b>Stand-in lineups</b> — nobody has drafted yet.':''}</div>
+  </div>`;
+}
 function renderForecast(info){
   const el=document.getElementById('fc-body'); if(!el) return;
   if(!_me||!_me.teamId){
@@ -4330,11 +4475,20 @@ function renderForecast(info){
   const nm=t=>t.name;
   const ab=t=>t.abbrev||teamInitials(t.name);
 
+  /* The bar is gone. A bar says what the chance is now and nothing about how it
+     got there; the curve says both, and on Tuesday it is the only record of
+     what the game actually felt like. */
+  const projByOwner={};
+  Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
+  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO);
+  const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
-    <div class="fc-odds-t"><span>${ab(meT)}</span><span class="fc-pct">${Math.round(p*100)}%</span>
+    <div class="fc-odds-t"><span>${ab(meT)}</span>
+      <span class="fc-pct ${now.p>=0.5?'up':'dn'}">${Math.round(now.p*100)}%</span>
       <span>${ab(oppT)}</span></div>
-    <div class="fc-track"><span class="fc-fill" style="width:${(p*100).toFixed(1)}%"></span></div>
-    <div class="fc-odds-s"><span>to win</span><span>${amFmt(amFromProb(Math.min(0.95,p+0.025)))}</span></div>
+    ${wpGraphSVG(pts,ab(meT),ab(oppT))}
+    <div class="fc-odds-s"><span>${pts.length>1?'chance to win, through the week':'chance to win, before kickoff'}</span>
+      <span>${amFmt(amFromProb(Math.min(0.95,now.p+0.025)))}</span></div>
   </div>`;
 
   /* season points per game by slot, both sides, so the mismatch is visible */
@@ -4353,6 +4507,10 @@ function renderForecast(info){
     </div>`;
   })();
 
+  /* Both of these fold. What the game does to the season and who is starting
+     for whom are things you go and look at, not things you need in front of
+     you every time the page opens — and left open they push the matchup
+     itself off a phone screen. */
   const imp=fcImplications(info,meO,p);
   el.innerHTML=`
     <div class="fc-head">
@@ -4362,7 +4520,9 @@ function renderForecast(info){
     </div>
     ${bar}
     ${posRows}
-    ${imp}
+    ${imp?fcFold('fc-imp','fa-chart-pie','What this game is worth',imp):''}
+    ${fcFold('fc-lu','fa-people-arrows','Both starting lineups',
+      fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT)))}
     ${fcLastMeetingHTML(meO,oppO,meT,oppT)}
     ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;
 }
@@ -4437,6 +4597,27 @@ async function fcLoadSlots(info){
   _slotBusy=false;
 }
 /* what winning or losing would do to the season */
+/* The same fold the sportsbook and the homepage use, in the forecast's own
+   clothes: state is kept per key so opening one and repainting the week does
+   not shut it again. */
+let _fcOpen={};
+function fcToggle(k){
+  _fcOpen[k]=!_fcOpen[k];
+  const el=document.querySelector('.fc-fold[data-k="'+CSS.escape(k)+'"]');
+  if(!el) return;
+  el.classList.toggle('open',_fcOpen[k]);
+  const b=el.querySelector('.fc-fold-h'); if(b) b.setAttribute('aria-expanded',String(!!_fcOpen[k]));
+}
+function fcFold(k,icon,title,body){
+  const open=!!_fcOpen[k];
+  return `<div class="fc-fold${open?' open':''}" data-k="${k}">
+    <button class="fc-fold-h" onclick="fcToggle('${k}')" aria-expanded="${open}">
+      <i class="fa ${icon}"></i><span>${title}</span>
+      <i class="fa fa-chevron-down fc-fold-c"></i>
+    </button>
+    <div class="fc-fold-b"><div class="fc-fold-in">${body}</div></div>
+  </div>`;
+}
 function fcImplications(info,owner,p){
   const d=playoffOutlook();
   if(!d) return '';
@@ -5032,6 +5213,148 @@ async function livePoll(){
   _liveBusy=false;
 }
 const liveKeyFor=info=>`${info.season}-w${info.week}`;
+
+/* ── THE WIN PROBABILITY CURVE ───────────────────────────────────────────────
+   A fantasy game is not watched, it is checked on. The score line by itself
+   does not say what it meant — a forty point lead in the early window is a
+   different thing from a forty point lead on Monday night — so the useful
+   record of a matchup is not the score over time but the chance of winning
+   over time. Read back on Tuesday it is the narrative: where it was won, what
+   the swing was, and whether the ending was ever in doubt.
+
+   THE MODEL. At any moment a team's final score is what it has already banked
+   plus what its unplayed players will add. We do not know player by player who
+   is left, but we do know how far through the week the league as a whole is:
+   every score in the week added up, against every projection added up. Call
+   that f, the fraction of the slate played.
+
+     expected final  =  scored so far  +  (1 − f) × projection
+     margin          =  expected final A  −  expected final B
+     spread of that  =  σ × sqrt(1 − f)
+
+   The square root is the whole point. Uncertainty does not fall away evenly:
+   it collapses as the last players finish, which is why a lead that is safe at
+   f = 0.9 was nothing like safe at f = 0.5. At f = 1 the spread goes to zero
+   and the curve snaps to the result it already knows.
+
+   σ is the spread of a fantasy margin over a full week, which is what
+   SCHED_SD already measures for the projections these numbers come from. */
+/* Read at call time, not at load: SCHED_SD is declared further down the file
+   and touching it up here is a dead page rather than a wrong number. */
+const wpSd=()=>SCHED_SD*1.15;
+function wpAt(a,b,projA,projB,f){
+  const left=Math.max(0,1-Math.min(1,f||0));
+  const mu=(a+left*projA)-(b+left*projB);
+  const sd=Math.max(0.6,wpSd()*Math.sqrt(left));
+  return Math.min(0.999,Math.max(0.001,schedNormCdf(mu/sd)));
+}
+/* How far through the week the league is, sample by sample. Everyone's points
+   at that minute over everyone's projection — one number for the whole slate,
+   because the players still to come are shared across every game on it. */
+function wpSlateProgress(series,projByOwner){
+  const total=Object.values(projByOwner||{}).reduce((x,y)=>x+y,0)||1;
+  const at={};
+  Object.entries(series||{}).forEach(([k,arr])=>{
+    const [oa,ob]=k.split('~');
+    (arr||[]).forEach(([t,a,b])=>{
+      const m=at[t]||(at[t]={});
+      m[oa]=a; m[ob]=b;
+    });
+  });
+  const stamps=Object.keys(at).map(Number).sort((x,y)=>x-y);
+  const run={}, out=[];
+  stamps.forEach(t=>{
+    Object.assign(run,at[t]);
+    const sum=Object.values(run).reduce((x,y)=>x+y,0);
+    out.push([t,Math.min(1,sum/total)]);
+  });
+  return out;
+}
+/* The curve for one matchup: every minute the week's scoreboard moved, turned
+   into this team's chance of winning at that minute. Opens on the pre-game
+   number so the line starts where the projection had it rather than at a coin
+   flip. */
+function wpCurve(series,projByOwner,ownerA,ownerB){
+  const projA=projByOwner[ownerA]||0, projB=projByOwner[ownerB]||0;
+  const open=wpAt(0,0,projA,projB,0);
+  const arr=(series||{})[liveMKey(ownerA,ownerB)]||[];
+  if(!arr.length) return [{t:0,p:open,a:0,b:0,f:0}];
+  const aFirst=[ownerA,ownerB].sort()[0]===ownerA;
+  const prog=wpSlateProgress(series,projByOwner);
+  const fAt=t=>{
+    let f=0;
+    for(let i=0;i<prog.length;i++){ if(prog[i][0]<=t) f=prog[i][1]; else break; }
+    return f;
+  };
+  const pts=[{t:arr[0][0]-1,p:open,a:0,b:0,f:0}];
+  arr.forEach(([t,x,y])=>{
+    const a=aFirst?x:y, b=aFirst?y:x;
+    const f=fAt(t);
+    pts.push({t,p:wpAt(a,b,projA,projB,f),a,b,f});
+  });
+  return pts;
+}
+/* ── WHERE A WEEK'S CURVE COMES FROM ─────────────────────────────────────────
+   Two places, in this order. A finished week is committed into the repo as a
+   flat file, and that is the whole point of archiving it: permanent, one
+   cached GET, and not dependent on Firestore still holding a document nobody
+   is paying attention to any more. Anything not archived yet — this week,
+   mostly — is read live from Firestore, which is where the poller has been
+   writing it all along. */
+let _wpArchive={},_wpBusy={};
+function wpSeriesFor(season,week){
+  const k=`${season}-w${week}`;
+  if(_liveInfo&&_liveInfo.key===k&&Object.keys(_liveSeries||{}).length) return _liveSeries;
+  return _wpArchive[k]||null;
+}
+async function wpEnsureSeries(season,week){
+  const k=`${season}-w${week}`;
+  if(wpSeriesFor(season,week)||_wpBusy[k]) return;
+  _wpBusy[k]=true;
+  try{
+    const r=await fetch(`/data/live-${k}.json`);
+    if(r.ok){ _wpArchive[k]=await r.json(); _wpBusy[k]=false; return; }
+  }catch(e){}
+  /* not archived yet, so ask the collection the poller writes to */
+  try{ const live=await liveLoadSeries(k); if(live&&Object.keys(live).length) _wpArchive[k]=live; }catch(e){}
+  _wpBusy[k]=false;
+}
+/* Drawn rather than described. The line is the chance; the ground it sits on
+   is even. Above the midline is winning, below is losing, and the two are
+   coloured differently because "60% down from 90%" and "60% up from 20%" are
+   the same number and not the same story — the shape has to carry that. */
+function wpGraphSVG(pts,abA,abB,opt){
+  const o=opt||{}, W=300, H=o.h||96, PADT=8, PADB=8;
+  if(!pts||!pts.length) return '';
+  /* One point is a whole game's worth of information before kickoff — the line
+     the projection opens on — so it is drawn flat across the panel rather than
+     as a dot floating in an empty box. */
+  const pts2=pts.length>1?pts:[pts[0],pts[0]];
+  const n=pts2.length;
+  const x=i=>(i/(n-1))*W;
+  const y=p=>PADT+(1-p)*(H-PADT-PADB);
+  const line=pts2.map((q,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(q.p).toFixed(1)}`).join('');
+  const area=`${line}L${x(n-1).toFixed(1)},${y(0.5).toFixed(1)}L${x(0).toFixed(1)},${y(0.5).toFixed(1)}Z`;
+  const last=pts2[n-1], pct=Math.round(last.p*100);
+  const up=last.p>=0.5;
+  const uid='wp'+Math.random().toString(36).slice(2,8);
+  return `<div class="wp-wrap">
+    <svg class="wp-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+      aria-label="${abA} win probability, ${pct} percent">
+      <defs>
+        <clipPath id="${uid}u"><rect x="0" y="0" width="${W}" height="${y(0.5)}"/></clipPath>
+        <clipPath id="${uid}d"><rect x="0" y="${y(0.5)}" width="${W}" height="${H}"/></clipPath>
+      </defs>
+      <path d="${area}" class="wp-fill up" clip-path="url(#${uid}u)"/>
+      <path d="${area}" class="wp-fill dn" clip-path="url(#${uid}d)"/>
+      <line x1="0" y1="${y(0.5)}" x2="${W}" y2="${y(0.5)}" class="wp-mid"/>
+      <path d="${line}" class="wp-line up" clip-path="url(#${uid}u)"/>
+      <path d="${line}" class="wp-line dn" clip-path="url(#${uid}d)"/>
+      <circle cx="${x(n-1).toFixed(1)}" cy="${y(last.p).toFixed(1)}" r="3.5"
+        class="wp-dot ${up?'up':'dn'}"/>
+    </svg>
+  </div>`;
+}
 /* ── NFL-driven trigger ─────────────────────────────────────────────────────
    Fantasy points still come from ESPN's fantasy API — it owns this league's
    scoring rules, and recomputing them from raw stats would risk our totals
@@ -6602,6 +6925,68 @@ function schedTopPlayers(owner,season,n=3){
   const rest=all.filter(p=>p.starts<SCHED_MIN_STARTS).sort(by);
   return solid.concat(rest).slice(0,n);
 }
+/* ── WEEKS ALREADY PLAYED ────────────────────────────────────────────────────
+   A season in progress used to show only what was still to come, which meant
+   the one tab called Schedule could not tell you what happened last week. The
+   played weeks sit above the upcoming ones in the same list, with the result
+   rather than a projection, and their drawer opens on the record of the game
+   instead of a scouting report: the best performance on each side, and the
+   curve of who was winning it. */
+function schedPlayedStripHTML(owner,season){
+  let d=null; try{ d=schedPlayedRows(owner); }catch(e){}
+  if(!d||!d.rows.length) return '';
+  return d.rows.map(r=>{
+    const cls=!r.counts?' sch-dead':(r.res==='W'?' sch-won':r.res==='L'?' sch-lost':'');
+    return `<div class="sch-row sch-res${cls}">
+      <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
+      <span class="sch-team sch-open" role="button" tabindex="0"
+        data-opp="${r.oppOwner}" data-name="${String(r.oppName).replace(/"/g,'&quot;')}"
+        data-week="${r.week}" data-played="1" data-me="${owner}"
+        onclick="toggleSchedOpp(this)"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSchedOpp(this);}">
+        ${sbAvatar(r.oppOwner,22)}<span class="sch-nm">${r.oppName}</span>
+        <span class="sch-ab">${sbTeamAb(r.oppOwner,r.oppName)}</span>
+        <i class="fa fa-chevron-down sch-caret"></i></span>
+      <span class="r sch-c1">${r.my.toFixed(1)}</span>
+      <span class="r sch-c2">${r.their.toFixed(1)}</span>
+      <span class="r sch-c3"></span>
+      <span class="r sch-p sch-res-b">${r.counts?r.res:'—'}</span>
+      <span class="r sch-c4"></span><span class="r"></span>
+    </div>
+    <div class="sch-detail" data-season="${season}"></div>`;
+  }).join('')+`<div class="sch-deadline"><span class="sch-dl-l"></span>
+    <span class="sch-dl-t"><i class="fa fa-forward"></i>Still to come</span>
+    <span class="sch-dl-l"></span></div>`;
+}
+/* the record of a game that has been played: the best start on each side, and
+   the shape of the week as it happened */
+function schedPlayedDetailHTML(meOwner,oppOwner,season,week,oppName){
+  const meT=_franchises.find(f=>f.owner===meOwner), oppT=_franchises.find(f=>f.owner===oppOwner);
+  const meId=meT&&meT.teamId, oppId=oppT&&oppT.teamId;
+  const a=meId?weekTopStarter(season,week,meId):null;
+  const b=oppId?weekTopStarter(season,week,oppId):null;
+  const abA=meT?sbTeamAb(meOwner,meT.name):'', abB=sbTeamAb(oppOwner,oppName);
+  const side=(t,p,ab2)=>`<div class="sd-top">
+    <span class="sd-top-l">${ab2}</span>
+    ${p?`${playerImg(p.pid,32,p.n)}<span class="sd-top-n">${p.n}</span>
+       <span class="sd-top-v">${Number(p.pts).toFixed(1)}</span>`
+      :`<span class="sd-top-n sd-none">no box score</span>`}
+  </div>`;
+  const projByOwner={};
+  try{
+    const book=sbBuild();
+    (book?book.rows:[]).forEach(r=>{ projByOwner[r.owner]=r.ppg; });
+  }catch(e){}
+  const series=wpSeriesFor(season,week);
+  const graph=series
+    ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner),abA,abB,{h:84})
+    : `<div class="sd-msg">No minute-by-minute record for that week.</div>`;
+  return `<div class="sd-h">Top performer · week ${week}</div>
+    <div class="sd-tops">${side(meT,a,abA)}${side(oppT,b,abB)}</div>
+    <div class="sd-h">How it was won</div>
+    ${graph}
+    <div class="sd-foot">${abA} chance to win, minute by minute.</div>`;
+}
 async function toggleSchedOpp(el){
   const row=el.closest('.sch-row'); if(!row) return;
   const box=row.nextElementSibling;
@@ -6613,6 +6998,18 @@ async function toggleSchedOpp(el){
   box.classList.add('open'); row.classList.add('sch-row-open');
   const season=box.dataset.season, owner=el.dataset.opp, name=el.dataset.name||'This team';
   box.innerHTML='<div class="sd-msg">Loading…</div>';
+  /* A game already played has a record; a game still to come has only a
+     scouting report. They are different questions and get different drawers. */
+  if(el.dataset.played==='1'){
+    const week=Number(el.dataset.week)||0, me=el.dataset.me||'';
+    try{ await wpEnsureSeries(season,week); }catch(e){}
+    try{ weekScores(season,week); }catch(e){}
+    box.innerHTML=schedPlayedDetailHTML(me,owner,season,week,name);
+    /* both sources land asynchronously — repaint this one drawer when they do */
+    setTimeout(()=>{ if(box.classList.contains('open'))
+      box.innerHTML=schedPlayedDetailHTML(me,owner,season,week,name); },1200);
+    return;
+  }
   try{ await loadTenureData(); }catch(e){}
   const top=schedTopPlayers(owner,season,3);
   if(!top||!top.length){
@@ -6851,7 +7248,7 @@ function renderSchedule(){
       <span class="r sch-c2">Opp PPG</span><span class="r sch-c3">All-time</span>
       <span class="r">Win%</span><span class="r sch-c4">Line</span><span class="r">Odds</span>
     </div>
-    <div class="sch-list">${d.rows.map((r,i)=>`
+    <div class="sch-list">${schedPlayedStripHTML(owner,d.info.season)}${d.rows.map((r,i)=>`
       ${(() => {
         /* The deadline falls between two weeks, so it is drawn before the first
            game past it rather than attached to a row. Skipped when the schedule
