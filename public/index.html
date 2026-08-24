@@ -2325,6 +2325,16 @@
        fill rather than layering over it — that is by design here: the colour is
        the card's surface. What lifts it off the page is the shadow, not a
        brighter ground. */
+    /* The card is thrown four hundred pixels sideways to leave, and a transform
+       still counts toward the page's scrollable width. So the swipe was widening
+       the document — which on a phone means the visual viewport zooms out to fit
+       and the whole page shrinks mid-gesture. Clipping the track it slides along
+       fixes it at the source.
+
+       clip rather than hidden, and only on the one axis: hidden would make this
+       a scroll container and force the other axis to scroll with it, and the
+       card's drop shadow has to stay visible above and below. */
+    #nt-body{overflow-x:clip;overflow-y:visible;}
     .nt-card{position:relative;padding:11px 12px 12px;border-radius:12px;
       background:rgba(0,0,0,0.2);
       box-shadow:0 6px 16px -8px rgba(0,0,0,0.8),0 2px 5px -3px rgba(0,0,0,0.55);
@@ -3878,21 +3888,26 @@
     .wk-list{display:flex;flex-direction:column;}
     .wk-game{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.06);}
     .wk-game:last-child{border-bottom:none;}
-    .wk-r{display:grid;grid-template-columns:minmax(0,1fr) 78px 78px 78px;gap:8px;}
-    .wk-r+.wk-r{margin-top:6px;}
+    /* One grid for the whole game rather than a grid per row. The spread is a
+       single price for the pair, so its cell spans both team rows — which it
+       can only do if both rows live in the same grid. Every cell is placed by
+       hand: a spanning item plus auto-placement is a layout that depends on
+       reading the placement algorithm correctly, and this one does not. */
+    .wk-grid{display:grid;grid-template-columns:minmax(0,1fr) 78px 78px 78px;
+      gap:6px 8px;align-items:stretch;}
+    .wk-c1{grid-column:1;} .wk-c2{grid-column:2;}
+    .wk-c3{grid-column:3;} .wk-c4{grid-column:4;}
+    .wk-h{grid-row:1;font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
+      letter-spacing:.7px;text-transform:uppercase;color:var(--text3);text-align:center;padding-bottom:2px;}
+    .wk-h.wk-c1{text-align:left;}
+    .wk-ra{grid-row:2;} .wk-rb{grid-row:3;}
     .wk-team{display:flex;align-items:center;min-width:0;}
     .wk-team .sb-tm{min-width:0;}
-    .wk-rhead>span{font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
-      letter-spacing:.7px;text-transform:uppercase;color:var(--text3);text-align:center;padding-bottom:2px;}
-    .wk-rhead>span:first-child{text-align:left;}
-    .wk-r{align-items:stretch;}          /* every cell matches the tallest */
-    .wk-r .sb-odds{width:100%;min-width:0;}
-    /* the underdog's spread is not priced, so it keeps the button's shape but
-       reads as inert — no fill, no hover, no pointer */
-    .wk-dog{background:none;border-color:rgba(255,255,255,0.10);box-shadow:none;cursor:default;}
-    .wk-dog .sb-o-lbl{color:var(--text2);}
-    .wk-dog .sb-o-val{color:var(--text3);}
-    .wk-dog:hover{background:none;border-color:rgba(255,255,255,0.10);box-shadow:none;transform:none;}
+    .wk-cell{display:flex;min-width:0;}
+    .wk-sp{grid-column:3;grid-row:2 / span 2;display:flex;min-width:0;}
+    .wk-grid .sb-odds{width:100%;min-width:0;}
+    /* the merged spread names its team, so the label may take two lines */
+    .wk-sp .sb-o-lbl{white-space:normal;line-height:1.25;text-align:center;}
     .wk-final{font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;
       letter-spacing:.5px;color:var(--text3);display:block;margin-top:8px;}
     .wk-hit{color:var(--green);font-size:11px;margin-left:6px;}
@@ -3901,7 +3916,7 @@
     .wk-pt{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-left:6px;white-space:nowrap;}
     @media(max-width:768px){
       .wk-game{padding:10px 12px;}
-      .wk-r{grid-template-columns:minmax(0,1fr) 62px 62px 62px;gap:5px;}
+      .wk-grid{grid-template-columns:minmax(0,1fr) 62px 62px 62px;gap:5px;}
       .wk-pt{display:none;}
     }
     /* ── SPORTSBOOK ─────────────────────────────────────────────────────────── */

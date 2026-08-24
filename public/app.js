@@ -7732,10 +7732,6 @@ function sbBuild(){
      never posts the league's best score even when it is the best team */
   const highWeek=outright('highweek','Highest Single Week','Top regular-season score by any team in any week',
     sbProbs(rows.map(r=>0.60*r.z.ppg+0.40*r.z.hi+0.45*(r.z.vol||0)+0.35*(r.z.form||0)+0.35*(r.z.roster||0)),0.70,0.42),'Outright','fa-bolt');
-  const most150=outright('most150','Most 150+ Point Games','Blow-up weeks in the regular season',
-    sbProbs(rows.map(r=>0.9*r.z.o150+0.45*r.z.ppg+0.35*(r.z.vol||0)+0.30*(r.z.form||0)),0.72,0.42),'Outright','fa-rocket');
-  const most80=outright('most80','Most Sub-80 Duds','Regular-season weeks the offense never showed',
-    sbProbs(rows.map(r=>0.9*r.z.u80-0.3*r.z.ppg+0.35*(r.z.vol||0)-0.30*(r.z.form||0)),0.72,0.42),'Outright','fa-face-dizzy');
   /* ── WHERE THE SEASON LEAVES YOU ──
      Two markets on the ends of the final table. Both are all-or-nothing on a
      fixed number of places, so they are solved to sum to two rather than left
@@ -7752,7 +7748,7 @@ function sbBuild(){
     'Finishes 11th or 12th — the losers bracket',
     rows.map(r=>({k:r.owner,name:r.name})),pBot2,'fa-trash-can',{lo:0.02,hi:0.62});
   const groups={
-    season:[...confMarkets,playoffs,wins,mostPf,fewestPf,mostPa,highWeek,most150,most80,
+    season:[...confMarkets,playoffs,wins,mostPf,fewestPf,mostPa,highWeek,
       topSeed,botSeed],
   };
   _sbCache={rows,groups,season:sbSeason(),games:GAMES,spots,stamp};
@@ -8458,7 +8454,7 @@ function bkqTeamRanks(r){
     .map(p=>`${bkPosOf(p)}${bkRankOf(p)}`);
   const o=bkOptions(r,{t},usable.map(x=>({t:x})),x=>NFL_FULL[x.t]||x.t);
   if(!o) return null;
-  return {kind:'teamranks', q:'Whose three best fantasy seasons are these?',
+  return {kind:'teamranks', q:'Which NFL team has these fantasy players?',
     note:top.map(x=>`<b>${x}</b>`).join(' · '), a:o.a, correct:o.correct};
 }
 
@@ -10490,6 +10486,8 @@ function betLegResult(leg,season){
     case 'fewpf':     return fin.fewPf==null?null:fin.fewPf===owner;
     case 'mostpa':    return fin.mostPa==null?null:fin.mostPa===owner;
     case 'highweek':  return fin.highWeek==null?null:fin.highWeek===owner;
+    /* Off the board, still graded. Both markets were taken down, but a bet
+       taken on one before that is still a bet and has to settle. */
     case 'most150':   return fin.most150==null?null:fin.most150===owner;
     case 'most80':    return fin.most80==null?null:fin.most80===owner;
     case 'wins':      return ou(fin.wins[owner],side==='o');
@@ -11080,21 +11078,81 @@ function sbSlipHTML(){
    Yes/No props on different teams are left alone: two teams can both make the
    playoffs, so those legs are independent and a parlay of them is honest. */
 const SB_EXCLUSIVE=/-(ml|sp|tot)$/;          // weekly markets: one side per game
+
+/* ── WHAT CANNOT RIDE WITH WHAT ──────────────────────────────────────────────
+   A parlay pays what it pays because every leg has to come in. Two legs that
+   cannot both come in are not a longer shot — they are a ticket that is dead
+   the moment it is written, sold at the price of a live one. So the board has
+   to know which of its own outcomes rule each other out.
+
+   Everything below is that question and only that question: can these two land
+   together? Legs that merely lean the same way are left alone. Backing two
+   teams to make the playoffs is a fine bet even though the field is finite,
+   right up until the twelfth leg would need a seventh seat. */
+
+/* Every market on the board. The season groups alone were the whole search
+   before, which quietly missed every market built for the week — and that is
+   exactly why two teams could be parlayed to win the same Closest Game. */
+function sbAllMarkets(){
+  const out=Object.values((sbBuild()||{groups:{}}).groups||{}).flat();
+  try{ const d=sbWeekData(); if(d&&d.marks) out.push(...d.marks); }catch(e){}
+  return out;
+}
+/* Markets that fill a fixed number of seats. However long the price looks, a
+   parlay cannot hold more yes legs than there are seats to go round. */
+function sbSeatCap(mk){
+  if(mk==='topseed'||mk==='botseed') return 2;
+  if(mk==='playoffs') return (sbBuild()||{}).spots||6;
+  return null;
+}
+/* Two readings of one thing, taken from opposite ends. The week's top score is
+   not also its low score; its closest game is not also its blowout. The
+   entrant key is the same string in both markets of a pair — a team owner for
+   the scores, a fixture for the games — so the picks compare directly. */
+const SB_ENDS=[['high','low'],['close','blow']];
+function sbWeekOpposite(mk){
+  const m=/^(wk\d+)-(high|low|close|blow)$/.exec(mk); if(!m) return null;
+  const pair=SB_ENDS.find(p=>p.indexOf(m[2])>=0);
+  return m[1]+'-'+pair[pair[0]===m[2]?1:0];
+}
 function sbConflict(mk,pick){
-  const team=String(pick).split(':')[0];
+  const p=String(pick), team=p.split(':')[0];
   // one selection per weekly market, whichever side or line it is
   if(SB_EXCLUSIVE.test(mk)){
     const clash=_slip.find(x=>x.mk===mk||x.mk===mk.replace(/-(ml|sp)$/,'-ml')&&/-(ml|sp)$/.test(mk)&&x.mk.replace(/-(ml|sp)$/,'-ml')===mk.replace(/-(ml|sp)$/,'-ml'));
-    if(clash&&clash.pick!==String(pick)) return {leg:clash,why:'You already have a side of that game.'};
+    if(clash&&clash.pick!==p) return {leg:clash,why:'You already have a side of that game.'};
   }
-  // an outright can only be won by one team
-  const m=Object.values((sbBuild()||{groups:{}}).groups).flat().find(x=>x.key===mk);
+  // an outright can only be won by one entrant — season or week
+  const m=sbAllMarkets().find(x=>x.key===mk);
   if(m&&m.type==='outright'){
-    const clash=_slip.find(x=>x.mk===mk&&x.pick!==String(pick));
-    if(clash) return {leg:clash,why:'Only one team can win that.'};
+    const clash=_slip.find(x=>x.mk===mk&&x.pick!==p);
+    if(clash) return {leg:clash,why:`Only one ${(m.entLabel||'team').toLowerCase()} can win that.`};
+  }
+  // the same entrant at both ends of the same week
+  const opp=sbWeekOpposite(mk);
+  if(opp){
+    const clash=_slip.find(x=>x.mk===opp&&x.pick===p);
+    if(clash) return {leg:clash,why:'It cannot be both.'};
+  }
+  // the top of the table and the bottom of it are the same table
+  if(mk==='topseed'||mk==='botseed'){
+    const other=mk==='topseed'?'botseed':'topseed';
+    if(/:yes$/.test(p)){
+      const clash=_slip.find(x=>x.mk===other&&x.pick===team+':yes');
+      if(clash) return {leg:clash,why:'A team cannot finish top two and bottom two.'};
+    }
+  }
+  /* Seats. This one refuses rather than swaps: the legs already on the slip
+     are all still possible and there is no way to guess which of them the tap
+     meant to replace. */
+  const cap=sbSeatCap(mk);
+  if(cap&&/:yes$/.test(p)){
+    const held=_slip.filter(x=>x.mk===mk&&/:yes$/.test(x.pick));
+    if(held.length>=cap)
+      return {block:true,why:`Only ${cap} of them can, so that leg cannot come in with the ${cap} already on the slip.`};
   }
   // and one side per team on a yes/no
-  const same=_slip.find(x=>x.mk===mk&&x.pick.split(':')[0]===team&&x.pick!==String(pick));
+  const same=_slip.find(x=>x.mk===mk&&x.pick.split(':')[0]===team&&x.pick!==p);
   if(same) return {leg:same,why:null};        // silent swap: same team, other side
   return null;
 }
@@ -11103,6 +11161,12 @@ function sbPick(mk,mkLabel,pick,pickLabel,odds){
   const i=_slip.findIndex(x=>x.k===k);
   if(i>=0){ _slip.splice(i,1); sbSyncButtons(); sbRenderSlip(); return; }
   const c=sbConflict(mk,pick);
+  if(c&&c.block){
+    /* Nothing to swap: every leg on the slip is still live and the tap does not
+       say which of them to give up. The note says why, and the slip is left
+       exactly as it was. */
+    _sbNote=c.why; sbSyncButtons(); sbRenderSlip(); return;
+  }
   if(c){
     /* Swapping is what someone means by tapping the other side, so the old leg
        is replaced rather than the tap being refused outright. The note explains
@@ -11318,26 +11382,28 @@ function sbWeekHTML(){
        book prints a board. The spread is only priced on the favourite, so the
        underdog shows its number greyed rather than leaving a hole. */
     const sp=g.spread.toFixed(1);
-    const spreadCell=side=>{
-      const isFav=(side==='a')===!!g.favA;
-      // same two-line shape as a live price so the column stays aligned
-      return isFav
-        ? sbBtn(key+'-sp',`Week ${g.week} spread`,(g.favA?g.a.owner:g.b.owner)+':sp',`${(g.favA?g.a.name:g.b.name)} −${sp}`,-115,'sb-two','−'+sp)
-        : `<span class="sb-odds wk-dog"><span class="sb-o-lbl">+${sp}</span><span class="sb-o-val">—</span></span>`;
-    };
+    /* One spread, one box, down the middle of both rows. There is only ever one
+       price here — the number is the favourite's and the underdog's side was
+       never sold — so splitting it across two cells drew a second box whose
+       whole job was to say "not this one". Merged, it carries the team it
+       belongs to, which the row it used to sit in was saying for it. */
+    const fav=g.favA?g.a:g.b;
+    const spreadCell=`<span class="wk-sp">${
+      sbBtn(key+'-sp',`Week ${g.week} spread`,fav.owner+':sp',`${fav.name} −${sp}`,-115,'sb-two',
+        `${sbTeamAb(fav.owner,fav.name)} −${sp}`)}</span>`;
     return `<div class="wk-game" data-a="${g.a.owner}" data-b="${g.b.owner}">
-      <div class="wk-r wk-rhead"><span></span><span>Win</span><span>Spread</span><span>Total</span></div>
-      <div class="wk-r">
-        <span class="wk-team">${nm(g.a)}${mark(g.winA===true)}</span>
-        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two')}
-        ${spreadCell('a')}
-        ${sbBtn(key+'-tot',`Week ${g.week} total`,'over',`Over ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.overP,'sb-two','O '+g.line.toFixed(1))}
-      </div>
-      <div class="wk-r">
-        <span class="wk-team">${nm(g.b)}${mark(g.winA===false)}</span>
-        ${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.b.owner+':ml',`${g.b.name} moneyline`,g.mlB,'sb-two')}
-        ${spreadCell('b')}
-        ${sbBtn(key+'-tot',`Week ${g.week} total`,'under',`Under ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.underP,'sb-two','U '+g.line.toFixed(1))}
+      <div class="wk-grid">
+        <span class="wk-h wk-c1"></span>
+        <span class="wk-h wk-c2">Win</span>
+        <span class="wk-h wk-c3">Spread</span>
+        <span class="wk-h wk-c4">Total</span>
+        ${spreadCell}
+        <span class="wk-team wk-c1 wk-ra">${nm(g.a)}${mark(g.winA===true)}</span>
+        <span class="wk-cell wk-c2 wk-ra">${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two')}</span>
+        <span class="wk-cell wk-c4 wk-ra">${sbBtn(key+'-tot',`Week ${g.week} total`,'over',`Over ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.overP,'sb-two','O '+g.line.toFixed(1))}</span>
+        <span class="wk-team wk-c1 wk-rb">${nm(g.b)}${mark(g.winA===false)}</span>
+        <span class="wk-cell wk-c2 wk-rb">${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.b.owner+':ml',`${g.b.name} moneyline`,g.mlB,'sb-two')}</span>
+        <span class="wk-cell wk-c4 wk-rb">${sbBtn(key+'-tot',`Week ${g.week} total`,'under',`Under ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.underP,'sb-two','U '+g.line.toFixed(1))}</span>
       </div>
       ${res}
     </div>`;}).join('');
