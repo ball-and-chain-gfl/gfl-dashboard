@@ -8942,7 +8942,12 @@ function bucksWeekDate(wk){ const p=bucksWeekParts(wk); return p?p.d:null; }
 function bucksWeekLabel(wk){
   const p=bucksWeekParts(wk);
   if(!p) return String(wk||'');
-  return p.timed
+  /* A clock time only identifies a cycle while it is still today's. Test
+     cycles are half an hour long, so a few days of betting turns the ledger
+     into a column of times with no way to tell Tuesday's 2:15 from Thursday's.
+     Past a day old the date is the thing that says which one it was. */
+  const old=Date.now()-p.d.getTime()>=86400000;
+  return p.timed&&!old
     ? p.d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})
     : p.d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
 }

@@ -5446,6 +5446,68 @@
     @media(prefers-reduced-motion:reduce){
       .sec-head::after,.section-header::after,.lh-sec-head::after{animation:none;}
     }
+
+    /* ── HOMEPAGE HEADINGS: the title floats on glass over its own icon ─────
+       Everywhere else the icon sits beside the words, which is fine for a page
+       you are reading through. The homepage is a stack of modules you are
+       scanning, and there the icon can do more work as a mark behind the title
+       than as a small thing to the left of it.
+
+       Three layers, and the whole effect is the order they paint in. The icon
+       is blown up and pushed to z-index -2, so it lands behind everything. A
+       pane of glass sits at -1 — translucent, hairline-lit, and blurring what
+       is behind it, which is the icon. The title itself is ordinary inline
+       text, and inline content paints above negative-z descendants, so it
+       comes out on top of the glass without being given a layer at all.
+
+       That last part is why nothing here needed new markup: the text is a bare
+       node between the icon and the end of the heading, and it could not have
+       been wrapped without touching a dozen headings by hand.
+
+       fit-content is what makes the glass hug the words. A pseudo-element can
+       only be sized against its own box, so the heading has to be no wider
+       than its title before `inset` can wrap it — otherwise the pane spans the
+       column and the effect reads as a banner rather than a badge. */
+    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))),
+    #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){
+      width:fit-content;max-width:100%;margin-inline:auto;
+      padding-left:26px!important;padding-right:26px!important;}
+    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))>i,
+    #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))>i{
+      position:absolute;left:50%;top:calc(50% - 19px);
+      transform:translate(-50%,-50%);
+      /* Bigger than the pane on purpose. The whole read is the mark showing
+         above and below the glass — an icon the pane covers completely is just
+         a texture nobody can identify. */
+      font-size:84px;line-height:1;opacity:0.2;z-index:-2;pointer-events:none;}
+    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::before,
+    #page-home .section-header:not(:has(> *:not(i):not(svg):not(.badge-info)))::before{
+      content:"";position:absolute;z-index:-1;
+      /* the bottom stops well clear of the animated rule at 32px, or the pane's
+         edge and the rule land on the same line and read as one smudge */
+      inset:6px -10px 39px -10px;border-radius:15px;
+      background:rgba(255,255,255,0.055);
+      -webkit-backdrop-filter:blur(7px) saturate(1.25);
+      backdrop-filter:blur(7px) saturate(1.25);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10),
+        inset 0 1px 0 0 rgba(255,255,255,0.16),
+        0 10px 26px -18px rgba(0,0,0,0.85);
+      pointer-events:none;}
+    html[data-theme="light"] #page-home .sec-head::before,
+    html[data-theme="light"] #page-home .section-header::before{
+      background:rgba(255,255,255,0.45);
+      box-shadow:inset 0 0 0 1px rgba(0,0,0,0.07),
+        inset 0 1px 0 0 rgba(255,255,255,0.8),
+        0 10px 26px -20px rgba(0,0,0,0.35);}
+    /* Safari and Firefox without backdrop-filter get a solid-enough pane
+       instead of a transparent one, so the icon never shows through the words. */
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+      #page-home .sec-head::before,#page-home .section-header::before{
+        background:rgba(20,20,24,0.72);}
+      html[data-theme="light"] #page-home .sec-head::before,
+      html[data-theme="light"] #page-home .section-header::before{
+        background:rgba(250,250,248,0.86);}
+    }
   
     /* ── HOMEPAGE: each module carries its own tab colour ──────────────────
        Overriding --accent/--accent-rgb on the module wrapper is enough: every
