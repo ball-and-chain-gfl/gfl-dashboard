@@ -42,6 +42,7 @@ let _hardware={};                        // owner -> {rings,confs} (filled by re
 let _hardwareHonors={};                  // owner -> {rings,confs,awards} (filled by renderLeagueHistory)
 let _profileHonorYears={};               // owner -> {champ:[],conf:[]} year captions
 let _cmBreakdown={};                     // teamId -> computed {c1,c2,c3,detail} for breakdown tables
+let _cmBreakdownSeason=null;             // the season _cmBreakdown was computed for
 let _tradeScope='season';               // 'season' | 'alltime'
 let _tradeTeamFilter='';                 // owner id to filter trades by (optional)
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
@@ -7220,6 +7221,25 @@ function sbSeason(){
   }
   return Number(ALL_SEASONS[ALL_SEASONS.length-1])+1;
 }
+/* The week board follows the season the book is pricing, not the season picker.
+   Futures move to next year the moment its schedule lands, and weekly lines
+   have to be on the same season as the futures printed above them — otherwise
+   the page offers a 2026 playoff berth and, underneath it, a settled week from
+   2025. The picker is for reading history; the book is for betting the season
+   about to be played.
+
+   sbSeason() can name a year that has no schedule yet — the day after a season
+   ends it is already calling the next one — so fall back to the newest season
+   that does have one, which is the only season there is anything to price. */
+function sbBoardSeason(){
+  const y=String(sbSeason());
+  if(_seasonMeta[y]&&(_seasonMeta[y].schedule||[]).length) return y;
+  for(let i=ALL_SEASONS.length-1;i>=0;i--){
+    const s=String(ALL_SEASONS[i]);
+    if(_seasonMeta[s]&&(_seasonMeta[s].schedule||[]).length) return s;
+  }
+  return String(getSeason());
+}
 function amFmt(o){ return o==null?'—':(o>0?'+'+o:''+o); }
 function amFromProb(p){
   if(!(p>0&&p<1)) return null;
@@ -7922,18 +7942,24 @@ let _invBusy=false,_invErr='';
 async function invTrade(owner,shares,sell){
   if(!_me){ openSignIn(); return; }
   if(_invBusy) return;
-  const n=Math.max(0,Math.floor(Number(shares)||0));
-  if(!n){ _invErr='Pick a number of shares first.'; renderBook(); return; }
+  let n=invRound(shares);
+  if(!(n>0)){ _invErr=_invMode==='amt'&&!sell?'Pick an amount first.':'Pick a number of shares first.'; renderBook(); return; }
   const px=invPrice(owner);
   if(sell){
     const have=invHoldings()[owner]||0;
-    if(n>have){ _invErr='You only hold '+have+'.'; renderBook(); return; }
-  } else if(n*px>bucksBalance()){
+    if(n>have+1e-6){ _invErr='You only hold '+invShFmt(have)+'.'; renderBook(); return; }
+    /* a sale for all of it must leave nothing behind — rounding a fractional
+       holding down would strand dust nobody can ever sell */
+    n=Math.min(n,have);
+  } else if(n*px>bucksBalance()+1e-6){
     _invErr='Not enough GFL Bucks for that.'; renderBook(); return;
   }
   _invBusy=true; _invErr=''; renderBook();
   invLots().push({o:owner,s:n,p:px,t:Date.now(),k:sell?'s':'b'});
   invSave();
+  /* the card goes back to empty: the amount was spent, and leaving it filled in
+     invites a second helping of a trade already made */
+  if(sell) _invQty['s_'+owner]=0; else { _invQty[owner]=0; _invCash[owner]=0; }
   _invBusy=false;
   renderBook();
   try{ renderBetsBar(); }catch(e){}
@@ -10925,7 +10951,7 @@ function myBetsHTML(){
    every one of them look like better value than it is. */
 function sbTeamTopMarket(book,owner,week){
   const r=book.rows.find(x=>x.owner===owner); if(!r) return '';
-  const proj=sbPlayerProj(), rost=sbRosters(getSeason(),week);
+  const proj=sbPlayerProj(), rost=sbRosters(sbBoardSeason(),week);
   if(!proj||!rost) return '';
   const mine=rost[r.tid]; if(!mine||!mine.length) return '';
   const list=mine.map(e=>({pid:e.pid,p:proj[String(e.pid)]}))
@@ -10947,7 +10973,7 @@ function sbTeamTopMarket(book,owner,week){
   return sbMarketHTML(m);
 }
 function sbWeekOf(){
-  const meta=_seasonMeta[getSeason()]; if(!meta) return 1;
+  const meta=_seasonMeta[sbBoardSeason()]; if(!meta) return 1;
   const played=new Set(), all=new Set();
   (meta.schedule||[]).forEach(m=>{
     if(!m.home||!m.away) return;
@@ -11136,7 +11162,7 @@ function sbToggleSlip(open){
 // scoring; the waiver market prices what managers actually paid that week.
 function sbWeekData(){
   const book=sbBuild(); if(!book) return null;
-  const season=getSeason(), meta=_seasonMeta[season];
+  const season=sbBoardSeason(), meta=_seasonMeta[season];
   if(!meta) return null;
   const played=new Set(), all=new Set();
   (meta.schedule||[]).forEach(m=>{
@@ -11164,8 +11190,12 @@ function sbWeekData(){
       overP:amFromProb(0.5+0.024), underP:amFromProb(0.5+0.024),
       winA:done?hp>ap:null};
   }).filter(Boolean);
-  // waiver market: the biggest FAAB spends of that week
+  // waiver market: the biggest FAAB spends of that week. Only when the
+  // pickups on hand are from this board's season — week 1 of one year tells
+  // you nothing about week 1 of another, and pricing it as though it did put
+  // last year's bids on this year's board.
   const buys=[];
+  if(String(_cmBreakdownSeason)===String(season))
   Object.entries(_cmBreakdown||{}).forEach(([tid,bd])=>{
     ((bd.detail&&bd.detail.waiverPickups)||[]).forEach(w=>{
       if(w.week!==week) return;
@@ -11235,7 +11265,7 @@ function sbWeekMarkets(book,games,week){
      forward-looking number in the data. Free agents are left out: a player
      nobody rosters cannot score for anybody. */
   const proj=sbPlayerProj();
-  const rost=sbRosters(getSeason(),week);
+  const rost=sbRosters(sbBoardSeason(),week);
   if(proj&&rost){
     const own={};
     Object.keys(rost).forEach(tid=>{
@@ -11388,39 +11418,120 @@ function renderBetsBar(){
   try{ syncNavDock(); }catch(e){}
 }
 
-let _invQty={};
-function invSetQty(o,v){ _invQty[o]=Math.max(0,Math.floor(Number(v)||0)); renderBook(); }
-function invStep(o,d){ invSetQty(o,(_invQty[o]||0)+d); }
+/* ── BUYING BY THE SHARE OR BY THE DOLLAR ────────────────────────────────────
+   A share costs whatever it costs — around ten bucks, and never a round number
+   once a season is under way. Buying only in whole shares means you can never
+   put a particular amount of money into a team, which is the way most people
+   actually think about it: not "four shares of Bismuth" but "ten bucks on
+   Bismuth". Dollar mode takes the amount and buys what it buys, fractions and
+   all, the same way a real brokerage fills a fractional order.
+
+   The mode is one switch for the whole board rather than one per card. It is a
+   way of thinking about the money, not a property of any one team, and twelve
+   copies of the same toggle is eleven too many.
+
+   Shares are held to four decimals. That is finer than any amount anyone can
+   type is sensitive to — at a ten dollar price it puts the rounding error five
+   hundredths of a cent away — so the cost printed on the button is what the
+   trade actually costs, which is the only property that has to hold. */
+let _invQty={};              // shares typed on a card ('s_'+owner for a sell)
+let _invCash={};             // dollars typed on a card, when buying by amount
+let _invMode='sh';           // 'sh' buys a share count, 'amt' buys an amount
+const invRound=v=>Math.max(0,Math.round((Number(v)||0)*1e4)/1e4);
+/* whole numbers stay whole; fractions show what they are and no more */
+const invShFmt=v=>{
+  const n=Number(v)||0;
+  if(Math.abs(n-Math.round(n))<1e-6) return String(Math.round(n));
+  return n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+};
+function invSetMode(m){ _invMode=m==='amt'?'amt':'sh'; _invErr=''; renderBook(); }
+function invSetQty(o,v,cap){
+  let n=Math.max(0,Number(v)||0);
+  if(cap!=null) n=Math.min(n,cap);
+  _invQty[o]=invRound(n); renderBook();
+}
+function invStep(o,d,cap){ invSetQty(o,(_invQty[o]||0)+d,cap); }
+function invSetCash(o,v){ _invCash[o]=Math.max(0,Math.round((Number(v)||0)*100)/100); renderBook(); }
+function invStepCash(o,d){ invSetCash(o,(_invCash[o]||0)+d); }
+/* what a card would trade right now: a share count typed straight in, or the
+   shares a dollar amount buys at today's price. Selling is always in shares —
+   the holding is a share count and that is what you are giving up. */
+function invTradeShares(o,px,sell){
+  if(sell||_invMode!=='amt') return invRound(_invQty[sell?'s_'+o:o]||0);
+  return invRound((_invCash[o]||0)/(px||1));
+}
+function invBuyCard(o){ invTrade(o,invTradeShares(o,invPrice(o),false),false); }
+function invSellCard(o){ invTrade(o,invTradeShares(o,invPrice(o),true),true); }
+/* Typing repaints the one button rather than the board. Rebuilding the card on
+   every keystroke would take the focused field down with it, and you would be
+   typing one digit at a time into a field that keeps vanishing. */
+function invType(el,o,kind){
+  if(kind==='amt') _invCash[o]=Math.max(0,Number(el.value)||0);
+  else _invQty[o]=invRound(Math.max(0,Number(el.value)||0));
+  try{ invPatchCard(el.closest('.iv-card')); }catch(e){}
+}
+function invPatchCard(card){
+  if(!card) return;
+  const o=card.dataset.o, px=Number(card.dataset.px)||0, sell=card.dataset.sell==='1';
+  const go=card.querySelector('.iv-go'); if(!go) return;
+  const n=invTradeShares(o,px,sell), cost=n*px;
+  if(sell){
+    const have=invHoldings()[o]||0;
+    go.disabled=!(n>0)||n>have+1e-6||_invBusy;
+    go.textContent='Sell'+(n>0?' · '+invFmt(cost):'');
+  }else{
+    go.disabled=!(n>0)||cost>bucksBalance()+1e-6||_invBusy;
+    go.textContent='Buy'+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cost)):'');
+  }
+}
 
 function invBoardHTML(){
   const b=invBoard();
   if(!b) return '<div class="tab-loading" style="padding:30px">Loading the market…</div>';
   const cash=bucksBalance();
+  const amt=_invMode==='amt';
   const rows=b.list.map(x=>{
-    const q=_invQty[x.owner]||0, cost=q*x.price;
+    const cashIn=_invCash[x.owner]||0;
+    const n=invTradeShares(x.owner,x.price,false), cost=n*x.price;
     const dir=x.chg>0?'up':x.chg<0?'dn':'flat';
     const held=invHoldings()[x.owner]||0;
-    return `<div class="iv-card">
+    /* In dollar mode the steppers move by five bucks. One cent at a time is
+       useless and one dollar is still twenty presses to a sensible stake. */
+    const step=amt
+      ? `<button class="iv-step" onclick="invStepCash('${x.owner}',-5)" ${cashIn?'':'disabled'}>−</button>
+         <span class="iv-amt"><span class="iv-amt-s">$</span><input class="iv-q iv-in" inputmode="decimal"
+           value="${cashIn?String(cashIn):''}" placeholder="0" aria-label="Amount to spend on ${x.name}"
+           oninput="invType(this,'${x.owner}','amt')" onchange="renderBook()" onblur="renderBook()"></span>
+         <button class="iv-step" onclick="invStepCash('${x.owner}',5)">+</button>`
+      : `<button class="iv-step" onclick="invStep('${x.owner}',-1)" ${_invQty[x.owner]?'':'disabled'}>−</button>
+         <input class="iv-q iv-in" inputmode="decimal" value="${_invQty[x.owner]?invShFmt(_invQty[x.owner]):''}"
+           placeholder="0" aria-label="Shares of ${x.name}"
+           oninput="invType(this,'${x.owner}','sh')" onchange="renderBook()" onblur="renderBook()">
+         <button class="iv-step" onclick="invStep('${x.owner}',1)">+</button>`;
+    return `<div class="iv-card" data-o="${x.owner}" data-px="${x.price}">
       <div class="iv-top">
         <span class="iv-c">${franchiseAvatar(x.fr,26,7)}</span>
-        <span class="iv-n">${x.name}${held?`<span class="iv-held">${held} held</span>`:''}</span>
+        <span class="iv-n">${x.name}${held?`<span class="iv-held">${invShFmt(held)} held</span>`:''}</span>
         <span class="iv-px">
           <span class="iv-px-v">${invFmt(x.price)}</span>
           <span class="iv-chg ${dir}">${x.chg>0?'▲':x.chg<0?'▼':'–'}${x.chg?Math.abs(x.pct)+'%':''}</span>
         </span>
       </div>
       <div class="iv-buy">
-        <button class="iv-step" onclick="invStep('${x.owner}',-1)" ${q?'':'disabled'}>−</button>
-        <span class="iv-q">${q}</span>
-        <button class="iv-step" onclick="invStep('${x.owner}',1)">+</button>
-        <button class="iv-go" ${(!q||cost>cash||_invBusy)?'disabled':''}
-          onclick="invTrade('${x.owner}',${q},false)">
-          Buy${q?' · '+invFmt(cost):''}</button>
+        ${step}
+        <button class="iv-go" ${(!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
+          onclick="invBuyCard('${x.owner}')">
+          Buy${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}</button>
       </div>
     </div>`;
   }).join('');
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
     <div class="iv-cash">Cash available <b>${invFmt(cash)}</b></div>
+    <div class="iv-mode" role="group" aria-label="How to buy">
+      <span class="iv-mode-l">Buy in</span>
+      <button class="iv-mb${amt?'':' on'}" onclick="invSetMode('sh')" aria-pressed="${!amt}">Shares</button>
+      <button class="iv-mb${amt?' on':''}" onclick="invSetMode('amt')" aria-pressed="${amt}">Dollars</button>
+    </div>
     <div class="iv-list">${rows}</div>`;
 }
 
@@ -11445,22 +11556,27 @@ function invPortfolioHTML(){
     const px=invPrice(o), cb=invCostBasis(o), sh=h[o];
     const gain=(px-cb)*sh, pct=cb?((px-cb)/cb*100):0;
     const q=Math.min(sh,_invQty['s_'+o]||0);
-    return `<div class="iv-card">
+    /* The step up stops at the whole holding rather than at the last whole
+       share below it, so one more press on a fractional lot sells all of it
+       instead of leaving a remainder no button can reach. */
+    return `<div class="iv-card" data-o="${o}" data-px="${px}" data-sell="1">
       <div class="iv-top">
         <span class="iv-c">${fr?franchiseAvatar(fr,26,7):''}</span>
-        <span class="iv-n">${fr?fr.name:o}<span class="iv-held">${sh} share${sh===1?'':'s'} · avg ${invFmt(cb)}</span></span>
+        <span class="iv-n">${fr?fr.name:o}<span class="iv-held">${invShFmt(sh)} share${Math.abs(sh-1)<1e-6?'':'s'} · avg ${invFmt(cb)}</span></span>
         <span class="iv-px">
           <span class="iv-px-v">${invFmt(sh*px)}</span>
           <span class="iv-chg ${gain>0?'up':gain<0?'dn':'flat'}">${gain>0?'▲':gain<0?'▼':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
         </span>
       </div>
       <div class="iv-buy">
-        <button class="iv-step" onclick="invStep('s_${o}',-1)" ${q?'':'disabled'}>−</button>
-        <span class="iv-q">${q}</span>
-        <button class="iv-step" onclick="invStep('s_${o}',1)" ${q>=sh?'disabled':''}>+</button>
-        <button class="iv-go iv-sell" ${(!q||_invBusy)?'disabled':''}
-          onclick="invTrade('${o}',${q},true)">
-          Sell${q?' · '+invFmt(q*px):''}</button>
+        <button class="iv-step" onclick="invStep('s_${o}',-1,${sh})" ${q?'':'disabled'}>−</button>
+        <input class="iv-q iv-in" inputmode="decimal" value="${q?invShFmt(q):''}"
+          placeholder="0" aria-label="Shares to sell"
+          oninput="invType(this,'s_${o}','sh')" onchange="renderBook()" onblur="renderBook()">
+        <button class="iv-step" onclick="invStep('s_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>
+        <button class="iv-go iv-sell" ${(!(q>0)||_invBusy)?'disabled':''}
+          onclick="invSellCard('${o}')">
+          Sell${q>0?' · '+invFmt(q*px):''}</button>
       </div>
     </div>`;
   }).join('');
@@ -11667,6 +11783,11 @@ async function loadDashboard(){
     // Always compute the full C2/C3 breakdown (with per-player detail) for the
     // Trade ROI / Waiver ROI tables — even when the headline CM score is official.
     try{ _cmBreakdown=(await computeCoaching(_teams,transactions,weeklyData)).breakdown; }catch{ _cmBreakdown={}; }
+    /* Which season those pickups belong to. The sportsbook's week board is on
+       the season being played next, which is not always the season showing
+       here, and a week-1 FAAB bid from a different year is not a week-1 FAAB
+       bid on this board. */
+    _cmBreakdownSeason=String(season);
 
     const cmRanked=[..._teams].sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));
     const firstVid=_videos[0];
