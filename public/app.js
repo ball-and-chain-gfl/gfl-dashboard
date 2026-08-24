@@ -286,8 +286,9 @@ function franchiseAvatar(f,size,radius){
 // Lift dark extracted colors so they read against the dark background while
 // keeping the hue that identifies the team.
 function readableColor(col){
-  const lightMode=document.documentElement.dataset.theme==='light';
-  const clampL=l=>lightMode?Math.min(l,42):Math.max(l,62); // % — dark ink on light bg, bright on dark
+  /* There is no light mode — the theme is pinned to dark in two places and
+     nothing sets anything else — so this only ever took the dark branch. */
+  const clampL=l=>Math.max(l,62);      // % — bright enough to read on the dark ground
   let r,g,b,m;
   if((m=String(col).match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/))){r=+m[1]/255;g=+m[2]/255;b=+m[3]/255;}
   else if((m=String(col).match(/hsl\((\d+)[ ,]+(\d+)%[ ,]+(\d+)%\)/))) return `hsl(${m[1]} ${Math.max(+m[2],50)}% ${clampL(+m[3])}%)`;
@@ -9948,14 +9949,14 @@ async function ntSync(){
   }catch(e){}
 }
 /* Signing in or out: drop this manager's list and pull the new one. */
-function ntReset(){ _ntSeen=null; _ntIdx=0; _ntUndoId=null; try{ ntSync(); }catch(e){}
+function ntReset(){ _ntSeen=null; _ntIdx=0; _ntUndo=[]; try{ ntSync(); }catch(e){}
   if(_activeTab==='home'){ try{ renderNotifications(); }catch(e){} } }
 /* Putting every swiped card back. This cannot go through ntReset — that drops
    the cache and then calls ntSync, which reads the profile and puts every
    dismissed id straight back, so "start over" restored exactly what it had just
    cleared. The record has to be emptied on both sides and left alone. */
 async function ntRestart(){
-  _ntSeen=new Set(); _ntIdx=0; _ntUndoId=null;
+  _ntSeen=new Set(); _ntIdx=0; _ntUndo=[];
   try{ localStorage.removeItem(ntKey()); }catch(e){}
   if(_me) try{ await gflPatchProfile(_me.k1,{ntSeen:'[]'}); }catch(e){}
   try{ renderNotifications(); }catch(e){}
@@ -10510,12 +10511,13 @@ async function ntVote(vid,side){
 function ntGo(where){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
 }
-/* The last card swiped away, so it can be put back. One deep on purpose: this
-   is for the swipe you did not mean, not a history of the stack. */
-let _ntUndoId=null;
+/* Every card swiped away this session, newest last, so undo walks back through
+   them one at a time until there is nothing left to put back. Not persisted:
+   it is a record of what you did on this screen, not of what has been cleared —
+   that is what the seen set is for, and Start Over is how you empty it. */
+let _ntUndo=[];
 function ntUndo(){
-  const id=_ntUndoId; if(!id) return;
-  _ntUndoId=null;
+  const id=_ntUndo.pop(); if(!id) return;
   ntSeen().delete(id);
   ntSaveSeen();
   /* land on the card that just came back rather than wherever the stack had
@@ -10535,8 +10537,10 @@ function ntDismiss(id){
   }
   /* No undo on a trash-talk card. Clearing it handed the sender their slot
      back, and they may already have used it — putting the card back on this
-     screen would not take that away again, so the button would be lying. */
-  _ntUndoId=isTT?null:id;
+     screen would not take that away again, so the button would be lying. It
+     does not break the chain either: the swipes either side of it are still on
+     the stack and still come back in order. */
+  if(!isTT&&_ntUndo[_ntUndo.length-1]!==id) _ntUndo.push(id);
   ntMarkSeen(id);
   const n=ntLive().length;
   if(_ntIdx>=n) _ntIdx=Math.max(0,n-1);
@@ -10561,8 +10565,8 @@ function renderNotifications(){
        people most often did not mean, and this is the screen it leaves you on. */
     el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
       <span>Nothing new. You are all caught up.</span></div>
-      ${_ntUndoId?`<div class="nt-foot"><button class="nt-undo" onclick="ntUndo()">
-        <i class="fa fa-rotate-left"></i>Undo that</button></div>`:''}
+      ${_ntUndo.length?`<div class="nt-foot"><button class="nt-undo" onclick="ntUndo()">
+        <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:' that'}</button></div>`:''}
       ${ntSeen().size?`<div class="home-redo-row">${homeRestartBtn('nt')}</div>`:''}`;
     return;
   }
@@ -10597,8 +10601,8 @@ function renderNotifications(){
            hint are all this row has to say. */}
     <div class="nt-foot">
       <span class="nt-pos">${_ntIdx+1} of ${list.length}<span class="nt-hint">swipe to clear</span></span>
-      ${_ntUndoId?`<button class="nt-undo" onclick="ntUndo()">
-        <i class="fa fa-rotate-left"></i>Undo</button>`:''}
+      ${_ntUndo.length?`<button class="nt-undo" onclick="ntUndo()">
+        <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:''}</button>`:''}
     </div>`;
   ntWireSwipe();
 }
