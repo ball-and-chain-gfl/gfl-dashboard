@@ -3006,16 +3006,33 @@
        icon on the page picks it up as its flat colour. */
     html[data-theme="dark"][data-tabaccent=home]{--accent:#CBE4FF;--accent2:#8CB9E8;--accent-rgb:203,228,255;
       --pageaccent:#CBE4FF;}
-    /* Home keeps its rainbow in two places, and only two: the title's orbiting
-       border and the rule under each heading. One list feeds both, so the
-       border and the rules are the same seven colours at the same strength and
-       cannot drift apart. It closes on its first colour so the loop has no seam.
-       The conic spaces the eight stops evenly on its own; the rule slides a
-       double-width copy of the same list from left to right. */
+    /* The homepage title runs the league itself: the primary colour of every
+       tab, in hue order, each one sitting at its own angle on the wheel. So the
+       arc between two stops is the distance between those two colours — the
+       four warm tabs are packed into the first 35°, the empty yellow-green
+       stretch gets a long blend rather than a jump, and punishment at 358°
+       lands 2° from teams at 0°, which is what closes the loop without a seam.
+
+       Spacing them evenly instead would give the 2° neighbours the same arc as
+       the 109° gap, and the two gaps would read as abrupt shifts. Slower than
+       other pages because there are fourteen colours to get through rather
+       than two. Any tab added to the nav wants its primary added here. */
+    html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
+      background:conic-gradient(from var(--h1ang),
+        #ff5f5f 0deg,    /* teams      */  #fb9167 17deg,   /* schedule   */
+        #f09a4a 29deg,   /* history    */  #E0B67B 35deg,   /* coaching   */
+        #3fd07a 144deg,  /* sportsbook */  #1ecdaa 168deg,  /* player data*/
+        #0fcacc 181deg,  /* draft      */  #43C9E8 191deg,  /* rosters    */
+        #6cb7ff 209deg,  /* head2head  */  #CBE4FF 211deg,  /* home       */
+        #6C6AE8 241deg,  /* standings  */  #e78dd4 313deg,  /* bad beat   */
+        #E8437E 338deg,  /* trades     */  #E84146 358deg,  /* punishments*/
+        #ff5f5f 360deg);
+      animation-duration:14s;}
+    /* The rule under each heading keeps the seven-colour sweep. It is a 3px bar
+       at most 78px wide — fourteen stops in that space is a smear, not a
+       gradient — so this is the one place the two deliberately differ. */
     html[data-theme="dark"][data-tabaccent=home]{
       --home-rainbow:#fe8a88,#f0a24a,#daa932,#3fce8f,#0fcacc,#6cb7ff,#b979fe,#fe8a88;}
-    html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
-      background:conic-gradient(from var(--h1ang),var(--home-rainbow));}
     html[data-theme="dark"][data-tabaccent=home] .sec-head::after,
     html[data-theme="dark"][data-tabaccent=home] .section-header::after,
     html[data-theme="dark"][data-tabaccent=home] .lh-sec-head::after{
