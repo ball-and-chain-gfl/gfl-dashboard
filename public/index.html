@@ -3012,16 +3012,10 @@
        of the page is now painted in rather than shouting over it. The rules
        under the headings keep the full-strength sweep, which is what stops the
        page going uniformly soft. */
-    /* Home walks all seven rather than the two every other page has, so it
-       runs its own keyframes and takes longer over them. Same pastels the
-       border used, for the same reason: they sit with the pale blue the page is
-       painted in instead of shouting over it. */
-    html[data-theme="dark"][data-tabaccent=home] .page-h1{
-      animation-name:h1HueHome;animation-duration:16s;}
-    @keyframes h1HueHome{
-      0%,100%{--h1c:#ffb8b6;} 14%{--h1c:#f8c489;} 28%{--h1c:#eccd7f;}
-      42%{--h1c:#8ee5bd;} 57%{--h1c:#7ee3e4;} 71%{--h1c:#a8d3ff;}
-      85%{--h1c:#d5aeff;}}
+    html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
+      background:conic-gradient(from var(--h1ang),
+        #ffb8b6 0deg,#f8c489 51deg,#eccd7f 103deg,#8ee5bd 154deg,
+        #7ee3e4 206deg,#a8d3ff 257deg,#d5aeff 309deg,#ffb8b6 360deg);}
     html[data-theme="dark"][data-tabaccent=home] .sec-head::after,
     html[data-theme="dark"][data-tabaccent=home] .section-header::after,
     html[data-theme="dark"][data-tabaccent=home] .lh-sec-head::after{
@@ -3029,16 +3023,11 @@
         #fe8a88,#f0a24a,#daa932,#3fce8f,#0fcacc,#6cb7ff,#b979fe,#fe8a88);
       background-size:200% 100%;}
     /* ── The page title's own palette ───────────────────────────────────
-       The tab accents are declared under html[data-theme="dark"], because the
-       light theme deliberately paints the whole site in one gold. That is
-       right for buttons and rules and icons — and wrong for the title glow,
-       which exists to say which page you are on and was therefore the same
-       colour on all eighteen of them in light mode.
-
-       So the glow reads its own pair. Same values as the dark accents, but
-       declared without a theme so they hold in both, and consumed by nothing
-       except .page-h1 — the light theme keeps its single gold everywhere
-       else. Falls back to --accent for any tab not listed. */
+       Same values as the dark tab accents, but declared without a theme and
+       consumed by nothing except .page-h1's border. Keeping them separate means
+       the title's two colours can be tuned per page without touching what the
+       accent does for buttons, rules and icons. Falls back to --accent for any
+       tab not listed. */
     html[data-tabaccent=home]{--h1a:#CBE4FF;--h1b:#8CB9E8;}
     html[data-tabaccent=week]{--h1a:#fb9167;--h1b:#eb9e41;}
     html[data-tabaccent=roster]{--h1a:#43C9E8;--h1b:#43E8C0;}
@@ -5155,8 +5144,8 @@
        on a loop. It is a background-position slide on a 3x-wide gradient, so it
        runs on the compositor rather than repainting, and it collapses to a flat
        line for anyone who asks for reduced motion. */
-    /* The title sits in a full-width recessed panel: an inset shadow sinks it
-       into the page, and a gradient runs continuously around its border.
+    /* The title sits in a full-width panel on the usual 0.2 surface, with a
+       gradient running continuously around its border.
        The border is a conic gradient on a pseudo-element, masked to the edge
        only, with the angle animated — that is what makes it travel around all
        four sides rather than sliding along one. */
@@ -5166,26 +5155,26 @@
       position:relative;padding:20px 20px 14px;border-radius:12px;
       display:flex;align-items:center;justify-content:center;text-align:center;
       background:rgba(0,0,0,0.2);
-      /* The colour is animated rather than the shadow: --h1c is a registered
-         <color>, so it interpolates, and the two shadows below simply read it.
-         Animating box-shadow itself would mean restating both layers at every
-         keyframe — and restating them again for the homepage, which cycles
-         seven colours rather than two. */
-      --h1c:var(--h1a,var(--accent));
-      /* Close to the panel rather than a wide bloom: a big blur with a big
-         negative spread reads as haze, not as the box being lit. */
-      box-shadow:0 5px 18px -5px color-mix(in srgb,var(--h1c) 90%,transparent),
-                 0 1px 5px -2px color-mix(in srgb,var(--h1c) 62%,transparent);
-      animation:h1Hue 6s ease-in-out infinite;}
-    @property --h1c{syntax:'<color>';initial-value:transparent;inherits:false;}
-    @keyframes h1Hue{
-      0%,100%{--h1c:var(--h1a,var(--accent));}
-      50%{--h1c:var(--h1b,var(--accent2,var(--accent)));}}
-    /* The orbiting border is gone. It traced a conic gradient round a masked
-       2px edge, which read as a line drawn on the box; the colour now comes off
-       the box as light instead. */
+      box-shadow:none;}
+    /* The stops read --h1a/--h1b rather than the accents directly. Same values,
+       but declared per tab without a theme, so the border says which page you
+       are on no matter what else the accent is being asked to do. */
+    .page-h1::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;
+      background:conic-gradient(from var(--h1ang),
+        color-mix(in srgb,var(--h1a,var(--accent)) 10%,transparent) 0deg,
+        var(--h1a,var(--accent)) 70deg,
+        var(--h1b,var(--accent2,var(--accent))) 140deg,
+        color-mix(in srgb,var(--h1a,var(--accent)) 10%,transparent) 210deg,
+        var(--h1a,var(--accent)) 290deg,
+        color-mix(in srgb,var(--h1a,var(--accent)) 10%,transparent) 360deg);
+      /* keep only the 2px edge: fill minus content box */
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      mask-composite:exclude;pointer-events:none;
+      animation:h1Orbit 7s linear infinite;}
+    @keyframes h1Orbit{to{--h1ang:360deg;}}
     @media(prefers-reduced-motion:reduce){
-      .page-h1{animation:none;}
+      .page-h1::after{animation:none;}
     }
     /* The gradient goes on an inline span, not the h1: the h1 stays full width
        so its panel still spans the column, while the gradient box hugs the text
