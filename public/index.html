@@ -1647,7 +1647,11 @@
        lit in the ribbon colour. */
     .vid-scroll{scrollbar-width:none;}
     .vid-scroll::-webkit-scrollbar{display:none;}
-    .vid-dots{display:flex;justify-content:center;gap:4px;margin:0;}
+    /* The marks come last, and their padding is a touch target rather than
+       space anyone asked for — so the bottom half of it is pulled back out.
+       That puts the visible line the same distance from the foot of the panel
+       as the video sits from the head of it. */
+    .vid-dots{display:flex;justify-content:center;gap:4px;margin:0 0 -9px;}
     /* The mark is 3px tall, which is nothing to hit with a thumb, so the button
        is padded out to a real target and the line is drawn inside it. The
        padding is even, so the marks sit the same distance from the video above
@@ -1664,7 +1668,7 @@
        was padding that was almost never used. It still wraps to two when a
        title needs it. */
     .vid-title{background:rgba(255,255,255,0.045);border-radius:8px;
-      padding:6px 10px;text-align:center;
+      margin-top:8px;padding:6px 10px;text-align:center;
       font-family:'Google Sans Flex',Georgia,serif;font-weight:600;
       font-size:13px;line-height:1.4;color:#fff;
       min-height:calc(1.4em + 12px);display:flex;align-items:center;

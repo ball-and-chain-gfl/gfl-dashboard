@@ -4008,10 +4008,10 @@ function vidCarouselHTML(){
       ${slides.map((sl,i)=>cell(sl,i,false)).join('')}
       ${cell(slides[0],0,true)}
     </div>
+    <div class="vid-title on" id="vid-title">${slides[0].t}</div>
     <div class="vid-dots" id="vid-dots" style="--nv:${nv}">${
       slides.map((_,i)=>`<button class="vid-dot${i?'':' on'}" onclick="vidGo(${i})"
-        aria-label="Video ${i+1}"></button>`).join('')}</div>
-    <div class="vid-title on" id="vid-title">${slides[0].t}</div>`;
+        aria-label="Video ${i+1}"></button>`).join('')}</div>`;
 }
 
 /* Everything the carousel does once it is on the page: the depth that makes it
