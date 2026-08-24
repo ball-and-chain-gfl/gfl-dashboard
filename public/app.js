@@ -4598,9 +4598,9 @@ function renderForecast(info){
     </div>
     ${bar}
     ${posRows}
-    ${fcFold('fc-lu','fa-people-arrows','Starting lineups',
+    ${fcFold('fc-lu','Starting lineups',
       fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT)))}
-    ${imp?fcFold('fc-imp','fa-chart-pie','Playoff odds',imp):''}
+    ${imp?fcFold('fc-imp','Playoff odds',imp):''}
     ${fcLastMeetingHTML(meO,oppO,meT,oppT)}
     ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;
 }
@@ -4686,11 +4686,15 @@ function fcToggle(k){
   el.classList.toggle('open',_fcOpen[k]);
   const b=el.querySelector('.fc-fold-h'); if(b) b.setAttribute('aria-expanded',String(!!_fcOpen[k]));
 }
-function fcFold(k,icon,title,body){
+/* No icon on the bar. The chevron is not one of them — it is the control that
+   says the thing folds — but a pie chart beside the words "playoff odds" only
+   repeats them, and two bars each wearing a different symbol read as two
+   unrelated things rather than two of the same. */
+function fcFold(k,title,body){
   const open=!!_fcOpen[k];
   return `<div class="fc-fold${open?' open':''}" data-k="${k}">
     <button class="fc-fold-h" onclick="fcToggle('${k}')" aria-expanded="${open}">
-      <i class="fa ${icon}"></i><span>${title}</span>
+      <span>${title}</span>
       <i class="fa fa-chevron-down fc-fold-c"></i>
     </button>
     <div class="fc-fold-b"><div class="fc-fold-in">${body}</div></div>
