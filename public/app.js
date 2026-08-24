@@ -4619,6 +4619,7 @@ function fcLastMeetingHTML(meO,oppO,meT,oppT){
      way it went. */
   return `<div class="fcl fcl-one">
     <i class="fa fa-clock-rotate-left"></i>
+    <span class="fcl-lbl">Last meeting</span>
     <span class="fcl-mid ${tied?'t':won?'w':'l'}">${tied?'TIED':won?'WON':'LOST'}</span>
     <span class="fcl-sc">${g.myScore.toFixed(1)}<span class="fcl-d">\u2013</span>${g.oppScore.toFixed(1)}</span>
     <span class="fcl-when">${g.season} \u00b7 wk ${g.week}</span>
