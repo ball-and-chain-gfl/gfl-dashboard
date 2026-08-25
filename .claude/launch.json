@@ -2,10 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "gfl-attach",
+      "url": "http://localhost:3000",
+      "port": 3000
+    },
+    {
       "name": "gfl-dev",
       "runtimeExecutable": "vercel",
-      "runtimeArgs": ["dev", "--listen", "3000"],
-      "port": 3000
+      "runtimeArgs": ["dev"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
