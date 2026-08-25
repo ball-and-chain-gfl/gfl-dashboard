@@ -2256,19 +2256,20 @@ function tradeVoteHTML(tr,winner,loser){
   let tally={}; try{ tally=ntVoteTally(f)||{}; }catch(e){ return ''; }
   const total=Object.values(tally).reduce((a,b)=>a+b,0);
   if(!total) return '';
-  const pct=sd=>Math.round((tally[String(sd.teamId)]||0)/total*100);
-  const w=pct(winner), l=pct(loser);
-  const nm=sd=>tradeTeamAb(tr.season,sd.teamId);
+  /* Who voted, drawn as who voted. A bar and two percentages says three of
+     twelve without saying which three, and in a league of twelve the names are
+     the interesting part — you know these people. The crests sit under the side
+     they picked, so the card is read the same way the trade above it is. */
+  const crests=sd=>(_cpRows||[])
+    .filter(x=>x&&String(x['tv_'+f]||'')===String(sd.teamId))
+    .map(x=>ntCrest(_ownerMap[Number(x.teamId||0)],22))
+    .join('')||'<span class="tv-none">nobody</span>';
   return `<div class="trade-vote">
     <div class="trade-vote-h"><span>Who the league thought won</span>
       <span class="trade-vote-n">${total} vote${total===1?'':'s'}</span></div>
-    <div class="trade-vote-bar">
-      <span style="width:${w}%;background:var(--green)"></span>
-      <span style="width:${l}%;background:var(--red)"></span>
-    </div>
-    <div class="trade-vote-l">
-      <span style="color:var(--green)">${nm(winner)} ${w}%</span>
-      <span style="color:var(--red)">${nm(loser)} ${l}%</span>
+    <div class="trade-vote-sides">
+      <div class="tv-side tv-w">${crests(winner)}</div>
+      <div class="tv-side tv-l">${crests(loser)}</div>
     </div>
   </div>`;
 }
@@ -11015,12 +11016,20 @@ function renderNotifications(){
      about the stack, not about the card — and under a card whose height changes
      with every swipe they moved every time, which is the worst place to put the
      one control you reach for after a swipe you did not mean. */
+  /* One card behind the one you are on, offset and dimmed — enough to say
+     there is another underneath without drawing thirteen of them. It carries
+     the next card's tone and nothing else: its job is depth, and a legible
+     second card behind the first would be two cards to read rather than one. */
+  const nxt=list[(_ntIdx+1)%list.length];
+  const nMeta=(nxt&&nxt!==n)?(NT_KINDS[nxt.kind]||{tone:'cool'}):null;
   el.innerHTML=`
     <div class="nt-foot nt-foot-top">
       <span class="nt-pos">${_ntIdx+1} of ${list.length}<span class="nt-hint">swipe to clear</span></span>
       ${_ntUndo.length?`<button class="nt-undo" onclick="ntUndo()">
         <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:''}</button>`:''}
     </div>
+    <div class="nt-deck">
+    ${nMeta?`<div class="nt-card nt-${nMeta.tone} nt-under" aria-hidden="true"></div>`:''}
     <div class="nt-card nt-${meta.tone}" id="nt-card" data-id="${String(n.id).replace(/"/g,'&quot;')}"
       ${needVote?'data-lock="1"':''}>
       <div class="nt-top">
@@ -11042,6 +11051,7 @@ function renderNotifications(){
         ${needVote?`<div class="nt-voted"><i class="fa fa-hand-pointer"></i>Pick a side — this one does not clear until you do.</div>`:''}
         ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`:''}
       ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
+    </div>
     </div>
     ${''/* No arrows. The card is swiped, and a pair of chevrons under it was a
            second way to do a thing the card already teaches. */}`;

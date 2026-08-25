@@ -504,11 +504,13 @@
       letter-spacing:.5px;text-transform:uppercase;color:var(--text2);
       display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
     .trade-vote-n{font-weight:700;letter-spacing:0;text-transform:none;color:var(--text3);}
-    .trade-vote-bar{display:flex;height:7px;border-radius:999px;overflow:hidden;
-      background:rgba(255,255,255,0.06);}
-    .trade-vote-bar span{display:block;}
-    .trade-vote-l{display:flex;justify-content:space-between;gap:8px;margin-top:5px;
-      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;}
+    /* Two columns under the two sides of the trade above, so a crest sits on
+       the same side as the team its owner backed. */
+    .trade-vote-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .tv-side{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-width:0;
+      padding:7px 8px;border-radius:8px;background:rgba(255,255,255,0.04);}
+    .tv-side.tv-l{justify-content:flex-end;}
+    .tv-none{font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text3);}
     .trade-card:last-child{margin-bottom:18px;}
     .trade-head{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;}
     .trade-rank{color:var(--accent2,var(--accent));font-weight:800;}
@@ -2409,6 +2411,24 @@
        the one axis, so the vertical drop shadows and anything that hangs below
        a card still show, and the video rail keeps its own scroller. */
     #page-home{overflow-x:clip;}
+    /* ── A deck, not a list ───────────────────────────────────────────────
+       One card sits behind the one you are on: same box, dropped and shrunk a
+       little, dimmed, and empty. It only has to say there is another one under
+       here — a readable second card would be two cards to read at once, and
+       thirteen of them would be a pile. Swiping the top one off uncovers it,
+       which is what makes the stack behave like a deck rather than a carousel. */
+    .nt-deck{position:relative;margin-bottom:12px;}
+    /* selected through the deck on purpose: .nt-card sets position:relative
+       further down this file, and a bare .nt-under would lose to it and drop
+       the second card back into the flow under the first */
+    /* Inset by left/right rather than scaled: a scale shortens the box as well
+       as narrowing it, and at 0.955 the second card ended up seven pixels
+       shorter than the drop — so it sat entirely behind the first and nothing
+       showed. Same height, pulled in nine pixels each side, dropped twelve, so
+       exactly twelve pixels of it are visible under the card you are on. */
+    .nt-deck>.nt-under{position:absolute;left:9px;right:9px;top:0;height:100%;z-index:1;
+      transform:translateY(12px);opacity:.5;pointer-events:none;}
+    .nt-deck>#nt-card{position:relative;z-index:2;}
     .nt-card{position:relative;padding:11px 12px 12px;border-radius:12px;
       background:rgba(0,0,0,0.3);
       box-shadow:0 6px 16px -8px rgba(0,0,0,0.8),0 2px 5px -3px rgba(0,0,0,0.55);
@@ -5538,6 +5558,15 @@
         rgba(var(--accent-rgb),0.14));
       background-size:200% 100%;
       animation:headRule 9s linear infinite;}
+    /* The homepage runs tighter than the rest of the site: 32px under the
+       heading rather than 40, with the rule moved up to match so the gap
+       between rule and content stays the 8px it is everywhere else. Scoped to
+       #page-home, and !important because the sitewide rule above sets its own
+       padding that way. */
+    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info))){
+      padding-bottom:32px!important;}
+    #page-home .sec-head:not(:has(> *:not(i):not(svg):not(.badge-info)))::after{
+      bottom:24px;}
     /* .section-header already draws a full-width rule; the divider replaces it
        rather than stacking a second line under the same heading. */
     .section-header:not(:has(> *:not(i):not(svg):not(.badge-info))){border-bottom:none;}
