@@ -353,6 +353,11 @@
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
     .sb-led b{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text);}
     .sb-led-note{grid-column:1/-1;padding:7px 10px;font-size:10.5px;color:var(--text3);text-align:center;}
+    /* when the next hundred lands, over the chart of what the last ones did */
+    .sb-next{margin:0 0 10px;padding:8px 10px;border-radius:9px;background:rgba(0,0,0,0.3);
+      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.4px;
+      text-transform:uppercase;color:var(--text3);text-align:center;}
+    .sb-next b{color:var(--text);letter-spacing:0;}
     .sb-clearsettled-row{display:flex;justify-content:flex-end;margin:-6px 0 12px;}
     .sb-clearsettled-row .sb-clear{position:static;}
     .sb-mine-empty{padding:34px 20px;text-align:center;color:var(--text3);font-size:13px;
@@ -1150,10 +1155,11 @@
     .iv-list{display:flex;flex-direction:column;gap:8px;}
     .iv-card{padding:11px 12px;border-radius:11px;background:rgba(0,0,0,0.3);}
     /* ── The two funds ────────────────────────────────────────────────────
-       Same card as a team, in the accent, so it reads as a different kind of
-       thing on the same board rather than as a thirteenth team. */
-    .iv-fundcard{border:1px solid rgba(var(--accent-rgb),0.34);
-      background:linear-gradient(rgba(var(--accent-rgb),0.09),rgba(0,0,0,0.3));}
+       No card of their own. They were drawn in the accent to say they are a
+       different kind of instrument, but they are bought the same way, priced in
+       the same money and listed under their own heading — which says it without
+       making two of the fourteen cards look like a different site. What marks
+       them now is the stack of crests where a team wears one. */
     .iv-gh{margin:0 0 8px;font-family:'Inter',sans-serif;font-size:10.5px;
       font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
     .iv-gh2{margin-top:16px;margin-bottom:8px;}
@@ -1985,8 +1991,10 @@
     /* ── Coaches' Poll ─────────────────────────────────────────────────────
        Tap teams best-to-worst; the number is the order tapped. Results stay
        sealed until every ballot is in. */
+    /* centred, refresh button and all — the module's heading, its tiles and
+       its results are all centred, and this was the one line running left */
     .cp-meta{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.4px;
-      text-transform:uppercase;color:var(--text3);margin-bottom:9px;}
+      text-transform:uppercase;color:var(--text3);margin-bottom:9px;text-align:center;}
     .cp-note{font-size:12.5px;color:var(--text3);margin-bottom:6px;}
     .cp-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
     .cp-t{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;
@@ -2517,7 +2525,11 @@
       .nt-side-n{font-size:12px;}
     }
 
-    .nt-body{margin-top:9px;font-size:13px;line-height:1.5;color:var(--text3);}
+    /* Every card is centred — icon row, stat block, scoreline, the count
+       underneath — except the sentence, which ran left under all of it. The
+       full-width blocks are left alone: a two-column vote grid or a standings
+       table has no ragged edge to centre. */
+    .nt-body{margin-top:9px;font-size:13px;line-height:1.5;color:var(--text3);text-align:center;}
     .nt-body b{color:var(--text);}
     .nt-vote{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
     .nt-vb{display:flex;align-items:center;justify-content:space-between;gap:6px;
@@ -2530,10 +2542,18 @@
     .nt-vb.on{border-color:rgba(var(--accent-rgb),0.7);background:rgba(var(--accent-rgb),0.14);color:var(--text);}
     .nt-vb.on .nt-vb-n{color:var(--accent);}
     .nt-vn{margin-top:7px;font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text3);}
-    .nt-go{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:9px 14px;
-      border-radius:9px;background:rgba(var(--accent-rgb),0.16);
-      border:1px solid rgba(var(--accent-rgb),0.5);box-shadow:none;
-      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text);}
+    /* Centred under the card, and neutral. It wore the page accent, which on
+       the homepage is a pale blue — so the one button in the stack was also the
+       bluest thing in it, on a card whose whole job is a single sentence and a
+       way out. Panel ground and a hairline, the same rest state the wallet
+       buttons take. */
+    .nt-go{display:flex;align-items:center;justify-content:center;gap:8px;
+      width:fit-content;margin:12px auto 0;padding:9px 16px;cursor:pointer;
+      border-radius:9px;background:rgba(0,0,0,0.3);
+      border:1px solid rgba(255,255,255,0.13);box-shadow:none;
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text);
+      transition:border-color .18s ease,background-color .18s ease;}
+    .nt-go:hover{border-color:rgba(255,255,255,0.26);background:rgba(0,0,0,0.5);}
     /* The chevrons are gone, so the row has one thing in it and centres rather
        than spreading to the edges of a card that no longer has ends to hold. */
     .nt-foot{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:11px;}
@@ -4154,7 +4174,11 @@
     .sb-live i{font-size:6px;}
     .sb-bar-t{font-family:'Google Sans Flex',Georgia,serif;font-size:15px;font-weight:600;}
     .sb-bar-r{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
-    .sb-tabs{gap:6px;flex-wrap:wrap;}
+    /* My Bets and My Portfolio are a different kind of control from the four
+       below them — they open your own ledger rather than switching the board —
+       and stacked six-in-a-column they read as one set of six. A hairline is
+       enough to say they are two sets of two and four. */
+    .sb-tabs{gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:14px;}
     .sb-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;}
     /* Closed bars sit close; the gap was set when every market was a tall open
        card and reads as a wide margin now that most of them are one line. */

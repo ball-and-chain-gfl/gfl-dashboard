@@ -7966,7 +7966,7 @@ async function renderProfile(){
 // rings, coaching metric, scoring blow-ups and duds. Probabilities are turned
 // into American prices with a book-style hold, so the field always adds to more
 // than 100% exactly like a real sportsbook.
-let _sbView='season';        // week | season | team | mine
+let _sbView='week';          // week | season | team | invest | folio | mine
 /* ── WHERE THE MONEY IS ──────────────────────────────────────────────────────
    The board used to be a pure model: it priced every market off ratings and
    never looked up again, so a price was the same on Sunday night as it was
@@ -10342,24 +10342,24 @@ function ntFromWeek(out){
     const score=`${wp.toFixed(1)}–${lp.toFixed(1)}`;
     const W={owner:win,name:ntName(season,win),pts:wp};
     const L={owner:lose,name:ntName(season,lose),pts:lp};
+    /* No body on these three. The scoreline underneath already carries both
+       teams, both totals and the margin; "Week 3" under it was a caption on a
+       picture that had nothing left to caption. */
     if(margin>=40) out.push({kind:'blowout', day,
       id:`bl:${season}:${lw.week}:${win}`,
       title:'Blown out',
-      art:ntScore(W,L,'margin'),
-      body:`Week ${lw.week}`});
+      art:ntScore(W,L,'margin')});
     else if(margin<6) out.push({kind:'wire', day,
       id:`nw:${season}:${lw.week}:${win}`,
       title:'Down to the wire',
-      art:ntScore(W,L,'apart'),
-      body:`Week ${lw.week}`});
+      art:ntScore(W,L,'apart')});
     /* a rivalry game is one of the three that made them rivals in the first
        place, so it is read off the rival list rather than guessed at */
     try{
       if(rivalsFor(win).some(r=>r.owner===lose)) out.push({kind:'rival', day,
         id:`rv:${season}:${lw.week}:${win}`,
         title:'Rivalry settled',
-        art:ntScore(W,L,'margin'),
-        body:`A rivalry game, week ${lw.week}`});
+        art:ntScore(W,L,'margin')});
     }catch(e){}
   });
 }
@@ -10455,9 +10455,11 @@ function ntPerfectPicks(out){
     const hit=vals.filter(v=>want.includes(v)).length;
     if(hit!==nGames) return;
     const nm=(_teams.find(x=>x.id===Number(p.teamId||0))||{}).name||p.id;
+    /* the stat block says who and how many, which is the whole card — the
+       sentence under it was the same two facts in prose */
     out.push({kind:'perfect', day:ntResultsDay(Date.now()), id:`pp:${season}:${lw.week}:${p.id}`,
       title:'A perfect slate',
-      body:`<b>${nm}</b> called every game in week ${lw.week} — ${nGames} for ${nGames}.`});
+      art:ntStat(_ownerMap[Number(p.teamId||0)],nm,`${nGames} / ${nGames}`,'every game called')});
   });
 }
 /* a waiver claim that cost real money */
@@ -10512,11 +10514,19 @@ function ntParlays(out){
    history to compare against, so the current leader is remembered on the device
    and a card is raised only when the name changes — the first build records the
    holders quietly rather than announcing eight leaders nobody just took. */
+/* `fmt` is what the card prints. The crown card used to say it in a sentence —
+   "X now leads the league in all-time points" — and carried no art at all; it
+   takes the same stat block every other card of its shape uses instead, where
+   the number is the headline and the table it belongs to is the label. */
 const NT_CROWNS=[
-  {k:'w',    label:'all-time wins',        val:at=>at.w},
-  {k:'pf',   label:'all-time points',      val:at=>at.pf},
-  {k:'rings',label:'championships',        val:at=>at.rings},
-  {k:'pct',  label:'all-time win rate',    val:at=>{const g=at.w+at.l+at.t; return g?at.w/g:0;}},
+  {k:'w',    label:'all-time wins',        val:at=>at.w,
+   fmt:v=>String(Math.round(v))},
+  {k:'pf',   label:'all-time points',      val:at=>at.pf,
+   fmt:v=>Math.round(v).toLocaleString()},
+  {k:'rings',label:'championships',        val:at=>at.rings,
+   fmt:v=>String(Math.round(v))},
+  {k:'pct',  label:'all-time win rate',    val:at=>{const g=at.w+at.l+at.t; return g?at.w/g:0;},
+   fmt:v=>(v*100).toFixed(1)+'%'},
 ];
 function ntCrowns(out){
   if(!_franchises||!_franchises.length) return;
@@ -10537,8 +10547,10 @@ function ntCrowns(out){
   if(!prev) return;                       // first run: learn, do not announce
   NT_CROWNS.forEach(c=>{
     if(!now[c.k]||!prev[c.k]||now[c.k]===prev[c.k]) return;
+    let at=null; try{ at=franchiseAllTime(now[c.k]); }catch(e){}
+    const val=at?c.fmt(c.val(at)):'—';
     out.push({kind:'crown', day:ntToday(), id:`cr:${c.k}:${now[c.k]}`, title:'New at the top',
-      body:`<b>${ntName(ntSeason(),now[c.k])}</b> now leads the league in <b>${c.label}</b>.`});
+      art:ntStat(now[c.k],ntName(ntSeason(),now[c.k]),val,c.label)});
   });
 }
 
@@ -10572,16 +10584,16 @@ function ntDemo(out){
     body:'<b>'+nm(3)+'</b> says: “Enjoy the bye week, you will need the rest.”'},
 
    {kind:'blowout',day:T2,id:'demo:blowout',title:'Blown out',
-    art:ntScore(S(3,168.2),S(6,115.8),'margin'), body:'Week 3'},
+    art:ntScore(S(3,168.2),S(6,115.8),'margin')},
 
    {kind:'wire',day:T2,id:'demo:wire',title:'Down to the wire',
-    art:ntScore(S(0,121.4),S(4,120.6),'apart'), body:'Week 3'},
+    art:ntScore(S(0,121.4),S(4,120.6),'apart')},
 
    {kind:'rival',day:T2,id:'demo:rival',title:'Rivalry settled',
-    art:ntScore(S(1,143.0),S(2,98.7),'margin'), body:'A rivalry game, week 3'},
+    art:ntScore(S(1,143.0),S(2,98.7),'margin')},
 
    {kind:'perfect',day:T2,id:'demo:perfect',title:'A perfect slate',
-    art:ntStat(o(5),nm(5),'6 / 6','every game called'), body:'Week 3 matchup picks'},
+    art:ntStat(o(5),nm(5),'6 / 6','every game called')},
 
    {kind:'streakW',day:T2,id:'demo:streakw',title:'6 in a row',
     art:ntStreak(o(3),nm(3),6,true), body:'<b>'+nm(3)+'</b> have won six straight.'},
@@ -10594,7 +10606,7 @@ function ntDemo(out){
     body:'<b>'+nm(8)+'</b> let their plant die. How could they.'},
 
    {kind:'crown',day:day(2),id:'demo:crown',title:'New at the top',
-    art:ntStat(o(0),nm(0),'8,412.6','all-time points'), body:'First in the league.'},
+    art:ntStat(o(0),nm(0),'8,412.6','all-time points')},
 
    {kind:'faab',day:day(3),id:'demo:faab',title:'Big money on the wire',
     art:ntStat(o(6),nm(6),'$147','on Jaylen Wright'), body:'Next-highest bid was $38.'},
@@ -11889,10 +11901,14 @@ function betGrade(bet){
    exist — they are one board now. */
 /* Regular Season and By Team share the top row; This Week takes the full width
    underneath, since it is the one that changes every week and wants the room. */
+/* Order is the layout: on a phone these fill a two-column grid row by row, so
+   the list reads This Week / Regular Season across the top and By Team /
+   Investments underneath. This Week leads because it is the only one of the
+   four that goes stale — the others are the same board in May as in December. */
 const SB_GROUPS=[
+  {k:'week',label:'This Week',icon:'fa-bolt'},
   {k:'season',label:'Regular Season',icon:'fa-trophy'},
   {k:'team',label:'By Team',icon:'fa-id-badge'},
-  {k:'week',label:'This Week',icon:'fa-bolt'},
   {k:'invest',label:'Investments',icon:'fa-chart-line'},
 ];
 function sbAvatar(owner,size){
@@ -11986,7 +12002,11 @@ function sbMarketHTML(m){
   </div>`;
 }
 /* which market is open, and which one opens itself */
-let _sbOpenMk={};
+/* The week's matchup board opens with the page. It is the first thing on the
+   view the sportsbook now lands on, and a closed bar as the answer to "what is
+   on this week" is a tap in front of the only thing anybody came for. Every
+   other market still starts shut. */
+let _sbOpenMk={'wk-board':true};
 /* Toggles the class in place rather than repainting the board. Re-rendering
    destroyed the panel and built a new one, so there was nothing left to
    transition — the fold snapped open however it was styled. */
@@ -12208,9 +12228,12 @@ function myBetsHTML(){
   const all=betsMine();                 // ledger reflects every bet, cleared or not
   const mine=all.filter(b=>!b.hidden);  // the list shows what has not been cleared
   /* The balance is in the nav now, on every page rather than only this one, so
-     the strip that opened this view has gone with it. The bankroll chart below
-     is the same money drawn over time, which is the version worth the space. */
-  const head=`${bankHTML()}
+     the strip that opened this view has gone with it. What did not survive the
+     move was when the next hundred lands, which is a question about the money
+     rather than about any one bet — one line, above the chart of the same
+     money over time. */
+  const head=`<div class="sb-next">Next ${bucksFmt(BUCKS_WEEKLY)} lands in <b>${bucksResetsIn()}</b></div>
+  ${bankHTML()}
   ${sbInvitesHTML()}
   ${betsClearable().length?`<div class="sb-clearsettled-row">
     <button class="sb-clear" onclick="sbClearSettled()" ${_betBusy?'disabled':''}>
@@ -13004,8 +13027,7 @@ function invBoardHTML(){
   };
   const heldSub=o=>own[o]?invShFmt(own[o])+' held':'';
   const funds=(b.funds||[]).map(f=>card(f,invFundCrest(f.members),
-    `${f.members.length} teams${own[f.owner]?' · '+invShFmt(own[f.owner])+' held':''}`,
-    ' iv-fundcard')).join('');
+    `${f.members.length} teams${own[f.owner]?' · '+invShFmt(own[f.owner])+' held':''}`)).join('');
   const rows=b.list.map(x=>card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner))).join('');
   /* No cash line at the top. The balance is in the nav on this page, a few
      inches above where this strip used to sit, and two copies of one number on
@@ -13052,7 +13074,7 @@ function invPortfolioHTML(){
     /* The step up stops at the whole holding rather than at the last whole
        share below it, so one more press on a fractional lot sells all of it
        instead of leaving a remainder no button can reach. */
-    return `<div class="iv-card${fu?' iv-fundcard':''}" data-o="${o}" data-px="${px}" data-sell="1">
+    return `<div class="iv-card" data-o="${o}" data-px="${px}" data-sell="1">
       <div class="iv-top">
         <span class="iv-c">${crest}</span>
         <span class="iv-n">${nm}<span class="iv-held">${invShFmt(sh)} share${Math.abs(sh-1)<1e-6?'':'s'} · avg ${invFmt(cb)}</span></span>
@@ -13100,7 +13122,7 @@ function renderBook(){
      as the wallet button above it so the two read as a pair. */
   el.innerHTML=`
     ${(_sbView==='mine'||_sbView==='folio')
-      ? `<button class="sb-back" onclick="sbSetView('season')">
+      ? `<button class="sb-back" onclick="sbSetView('week')">
           Return to the sportsbook<i class="fa fa-arrow-right"></i></button>`
       : `<div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>`}
     <div class="sb-layout">
