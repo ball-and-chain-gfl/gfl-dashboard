@@ -102,11 +102,9 @@ window.GFL_CONFIG = {
      from thriving to dead in about a minute and a half.
      0 (or delete) uses the real three days per stage.
 
-     A stage is worked out from the moment a plant was last watered rather than
-     stored, so this is the clock of whoever is LOOKING. While it is on, the
-     testing profile sees every locker room's plant on the fast clock, its own
-     and everyone else's. The league sees all of them on the real three days,
-     including the testing profile's. */
+     It applies to the testing profile's OWN plant and to nothing else. Each of
+     the twelve runs on its own timer: whoever is looking, that one plant is on
+     the fast cycle and the other eleven are on the real three days. */
   plantTestMinutes: 0.25,
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before

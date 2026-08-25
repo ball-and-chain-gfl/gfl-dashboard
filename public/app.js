@@ -6771,23 +6771,27 @@ function lockerRoomHTML(t,opts){
    localStorage covering signed-out and acting as the instant write. */
 const PLANT_STAGES=['Thriving','Healthy','Getting dry','Drooping','Wilting','Dead'];
 const plantKey=()=>'plant_'+(_me?_me.k1:'guest');
-const plantMs=()=>{
-  /* the short stage is the testing profile's, so the league's plants keep the
-     real three days — and note it is the *viewer's* clock, since a stage is
-     worked out from a watering time rather than stored */
-  const m=Number(isTestProfile()?(_CFG.plantTestMinutes??0):0);
-  return m>0?m*60*1000:3*24*3600*1000;        // three days unless testing
+/* The interval belongs to the PLANT, not to whoever is looking at it. A stage
+   is worked out from a watering time rather than stored, so reading the clock
+   off the viewer meant one manager's setting rewrote every plant on the site:
+   the testing profile watched the whole league wither at fifteen seconds a
+   stage, and the league saw the testing profile's plant frozen at thriving.
+   Twelve plants, twelve timers, each answering to its own owner. */
+const plantMsFor=id=>{
+  const m=Number(String(id||'')===TEST_PROFILE?(_CFG.plantTestMinutes??0):0);
+  return m>0?m*60*1000:3*24*3600*1000;        // three days unless that one is testing
 };
 /* A stage from any watering timestamp. Visiting another locker room needs
-   their plant, not yours, and theirs arrives as a number off their profile. */
-function plantStageOf(raw){
+   their plant, not yours, so it takes whose plant it is as well as when it was
+   last watered — theirs both arrive off their profile. */
+function plantStageOf(raw,ownerId){
   raw=Number(raw||0);
   if(!raw) return {stage:0,label:PLANT_STAGES[0],fresh:true};
-  const n=Math.floor((Date.now()-raw)/plantMs());
+  const n=Math.floor((Date.now()-raw)/plantMsFor(ownerId));
   const stage=Math.max(0,Math.min(5,n));
   return {stage,label:PLANT_STAGES[stage],fresh:false};
 }
-function plantStage(){ return plantStageOf(localStorage.getItem(plantKey())); }
+function plantStage(){ return plantStageOf(localStorage.getItem(plantKey()),_me&&_me.k1); }
 async function waterPlant(){
   const now=String(Date.now());
   localStorage.setItem(plantKey(),now);
@@ -6945,15 +6949,18 @@ function lrPlantSync(){
   if(_lrPlants||_lrPlantsBusy) return;
   /* the homepage poll already reads the same collection — use what it has
      rather than asking Firestore for all twelve again */
+  /* the account id rides along with the timestamp, because the stage needs to
+     know whose plant it is to know how fast it dries out */
+  const row=p=>({t:Number(p.plantWatered||0), id:p.id});
   if((_cpRows||[]).length){
     const m={};
-    _cpRows.forEach(p=>{ if(p&&p.teamId!=null) m[String(p.teamId)]=Number(p.plantWatered||0); });
+    _cpRows.forEach(p=>{ if(p&&p.teamId!=null) m[String(p.teamId)]=row(p); });
     _lrPlants=m; return;
   }
   _lrPlantsBusy=true;
   gflListProfiles().then(rows=>{
     const m={};
-    (rows||[]).forEach(p=>{ if(p&&p.teamId!=null) m[String(p.teamId)]=Number(p.plantWatered||0); });
+    (rows||[]).forEach(p=>{ if(p&&p.teamId!=null) m[String(p.teamId)]=row(p); });
     _lrPlants=m; _lrPlantsBusy=false;
     if(_activeTab==='profile'&&_lrView) renderMyProfile();
   }).catch(()=>{ _lrPlants={}; _lrPlantsBusy=false; });
@@ -6973,7 +6980,8 @@ function renderMyProfile(){
   /* Their plant if we have it, and a fresh one rather than a dead one while it
      is still coming — a room should not accuse its owner of neglect on the
      strength of a read that has not landed. */
-  const plant=visiting?plantStageOf((_lrPlants||{})[String(tid)]||0):plantStage();
+  const lp=visiting?((_lrPlants||{})[String(tid)]||null):null;
+  const plant=visiting?plantStageOf(lp&&lp.t,lp&&lp.id):plantStage();
   const picker=`<div class="lr-pick">
       <button class="lr-pick-b${_lrPick?' on':''}" onclick="lrTogglePick()" aria-expanded="${_lrPick}">
         <i class="fa fa-door-open"></i>Visit another locker room
@@ -10395,19 +10403,33 @@ function ntStreaks(out){
 /* everyone's plant, from the profiles the homepage already reads */
 function ntPlants(out){
   const rows=_cpRows||[]; if(!rows.length) return;
-  const ms=plantMs();
   rows.forEach(p=>{
     const t=Number(p.plantWatered||0); if(!t) return;
+    /* each plant on its owner's own clock, so one manager on a short cycle
+       cannot post a death card for eleven plants that are perfectly fine */
+    const ms=plantMsFor(p.id);
     const stage=Math.floor((Date.now()-t)/ms);
     if(stage<5) return;
     const tid=Number(p.teamId||0);
     const nm=(_teams.find(x=>x.id===tid)||{}).name||p.id;
+    /* how long it actually took, rather than a number written down once: five
+       intervals of whatever this plant's interval is */
+    const dry=plantDryLabel(5*ms);
     /* keyed by the watering that led to it, so one death is reported once and
        the next one after a re-water is a new card */
     out.push({kind:'plant', day:ntDayOf(t+5*ms), id:`pl:${p.id}:${t}`, title:'A plant has died',
-      art:ntStat(_ownerMap[tid],nm,'6 days','without water'),
+      art:ntStat(_ownerMap[tid],nm,dry,'without water'),
       body:`<b>${nm}</b> let their plant die. How could they.`});
   });
+}
+/* "15 days" for a real plant, "1.3 min" for one on the short test cycle */
+function plantDryLabel(ms){
+  const d=ms/86400000;
+  if(d>=1) return `${Math.round(d)} day${Math.round(d)===1?'':'s'}`;
+  const h=ms/3600000;
+  if(h>=1) return `${Math.round(h)} hr`;
+  const mn=ms/60000;
+  return `${mn>=10?Math.round(mn):+mn.toFixed(1)} min`;
 }
 /* a clean slate on the week's picks, for anyone in the league */
 function ntPerfectPicks(out){
