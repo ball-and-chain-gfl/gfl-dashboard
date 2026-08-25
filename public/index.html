@@ -854,11 +854,23 @@
     /* ── Pinned punishment bar ─────────────────────────────────────────────
        Sits where the live tracker used to. Its own red accent rather than the
        tab's, so it reads the same on every page. */
+    /* The same glass the header is made of — same fill, same blur, same
+       hairline — so the bar pinned to the foot of the screen and the bar across
+       the top of it read as one piece of furniture rather than two. A wash of
+       the punishment red sits over it: enough to say what the bar is, not
+       enough to make it a different surface. The contents are untouched; the
+       red they already carried is now the only strong red on it. */
     .pb-bar{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;
       display:flex;align-items:center;gap:10px;padding:8px 12px;
-      background:rgba(12,12,14,0.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
-      border:1px solid rgba(var(--accent-rgb),0.42);border-radius:10px;
-      box-shadow:0 -6px 26px -12px rgba(0,0,0,0.95),0 2px 8px -4px rgba(0,0,0,0.8);}
+      /* #floatnav's numbers, not the base header rule's — the bar at the top of
+         the screen is the floating one, and that is what this has to match:
+         same ground, same blur and saturation, same radius, the same hairline,
+         and its drop shadow turned to point up instead of down. */
+      background:linear-gradient(rgba(var(--accent-rgb),0.11),rgba(var(--accent-rgb),0.11)),
+        rgba(0,0,0,0.3);
+      -webkit-backdrop-filter:blur(22px) saturate(1.25);backdrop-filter:blur(22px) saturate(1.25);
+      border:1px solid var(--border);border-radius:8px;
+      box-shadow:0 -18px 44px -22px rgba(0,0,0,0.95);}
     .pb-ic{width:30px;height:30px;flex:0 0 30px;display:flex;align-items:center;justify-content:center;
       border-radius:8px;border:1px solid rgba(var(--accent-rgb),0.45);color:var(--accent);font-size:14px;}
     .pb-txt{display:flex;flex-direction:column;min-width:0;flex:1 1 auto;}
@@ -1146,11 +1158,9 @@
        thing on the same board rather than as a thirteenth team. */
     .iv-fundcard{border:1px solid rgba(var(--accent-rgb),0.34);
       background:linear-gradient(rgba(var(--accent-rgb),0.09),rgba(0,0,0,0.3));}
-    .iv-gh{margin:0 0 4px;font-family:'Inter',sans-serif;font-size:10.5px;
+    .iv-gh{margin:0 0 8px;font-family:'Inter',sans-serif;font-size:10.5px;
       font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
     .iv-gh2{margin-top:16px;margin-bottom:8px;}
-    .iv-gsub{margin:0 0 9px;font-family:'Inter',sans-serif;font-size:11.5px;
-      line-height:1.45;color:var(--text3);}
     /* what the fund holds, overlapped like a hand of cards. The ring is the
        card's own ground, which is what makes the overlap read as depth. */
     .iv-stack{display:flex;align-items:center;}
@@ -1270,26 +1280,35 @@
       .bets-pair .bets-btn{font-size:10.5px;gap:6px;padding-left:9px;padding-right:9px;}
       .bets-pair .bets-btn i{font-size:12px;}
     }
+    /* Two of these sit side by side under the nav on every page of the
+       sportsbook, and they used to be two solid slabs of the tab's green. At
+       that size, in that position, a filled accent is the loudest thing on the
+       screen — and it was loudest when neither of them was the page you were
+       on, which is exactly backwards.
+
+       So resting is quiet: the same panel ground and the same hairline as the
+       season pill in the nav above, with the accent kept for the icon. The
+       selected state is untouched — accent-tinted fill, accent edge, white
+       label — and now that it is the only one of the two carrying any fill, it
+       says "you are here" more plainly than it did against a green twin. */
     .bets-btn{display:flex;align-items:center;gap:10px;width:100%;
-      /* a filled accent button gets a dark edge, not a light one — a white
-         hairline on the accent reads as a halo */
-      padding:11px 14px;border:1px solid rgba(0,0,0,0.18);border-radius:10px;cursor:pointer;
-      background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
-      color:#0b0f0c;font-family:'Inter',sans-serif;
+      padding:11px 14px;border:1px solid rgba(255,255,255,0.13);border-radius:10px;cursor:pointer;
+      background:rgba(0,0,0,0.3);
+      color:var(--text2);font-family:'Inter',sans-serif;
       font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-      box-shadow:0 2px 6px -3px rgba(0,0,0,0.55);
-      transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;}
-    .bets-btn i{color:#0b0f0c;font-size:14px;}
-    .bets-btn:hover{filter:brightness(1.05);}
+      box-shadow:none;
+      transition:transform .12s ease,border-color .18s ease,background-color .18s ease,color .18s ease;}
+    .bets-btn i{color:var(--accent);font-size:14px;}
+    .bets-btn:hover{border-color:rgba(var(--accent-rgb),0.55);
+      background-color:rgba(0,0,0,0.5);color:var(--text);}
     .bets-btn:active{transform:translateY(1px);}
-    /* Held down. A filled accent button cannot show a press by getting slightly
-       dimmer — it reads as pressed by going dark and carrying the accent as an
-       edge instead of a fill, which is also what tells you My Bets is where you
-       currently are. */
+    /* Where you are. Unchanged: the accent as a tint and as an edge rather than
+       as a fill, which is what marks the view you are currently in. */
     .bets-btn.on{box-shadow:none;filter:none;
       background:color-mix(in srgb,var(--accent) 26%,rgba(0,0,0,0.55));
       border-color:var(--accent);color:#fff;}
     .bets-btn.on i{color:var(--accent);opacity:1;}
+    .bets-btn.on:hover{background-color:color-mix(in srgb,var(--accent) 32%,rgba(0,0,0,0.55));}
     @media(max-width:768px){
       .bets-bar{top:var(--navbot,calc(env(safe-area-inset-top,0px) + 72px));}
       .bets-btn{padding:10px 12px;font-size:11.5px;}
@@ -3794,6 +3813,29 @@
       -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23f7f8ec'/%3E%3C/svg%3E");
       background-repeat:no-repeat;background-position:right 12px center;transition:border-color .15s,background-color .15s;}
+    /* ── GFL Bucks in the nav ──────────────────────────────────────────────
+       The balance used to be printed at the top of My Bets and again at the top
+       of My Portfolio, which meant it was only ever visible on the two pages
+       you had already gone looking for it on. It sits in the bar instead, in
+       the slot the year pill uses, matched to that pill exactly — same height,
+       same ground, same hairline — because the two are the same kind of object:
+       a small fact about the session, parked beside the logo. */
+    #bucks-chip{order:1;flex:0 0 auto;display:flex;align-items:center;gap:7px;
+      height:44px;padding:0 13px;box-sizing:border-box;border-radius:8px;
+      background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.13);
+      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:800;
+      letter-spacing:.2px;color:var(--text);white-space:nowrap;
+      font-variant-numeric:tabular-nums;}
+    #bucks-chip[hidden]{display:none;}
+    #bucks-chip i{color:var(--accent);font-size:13px;}
+    @media(max-width:768px){
+      #floatnav #bucks-chip{height:40px;font-size:12.5px;padding:0 11px;gap:6px;}
+    }
+    @media(max-width:400px){
+      #floatnav #bucks-chip{height:36px;font-size:12px;padding:0 9px;}
+      #floatnav #bucks-chip i{font-size:12px;}
+    }
     #season-select:hover{border-color:rgba(var(--accent-rgb),0.55);background-color:rgba(0,0,0,0.5);}
     #season-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),0.18);}
 
@@ -5598,6 +5640,7 @@
   <div class="logo" onclick="goHome()" title="Back to Home" role="button" tabindex="0">
     <img src="/logo-mark.webp" alt="Ball &amp; Chain GFL" onerror="this.style.display='none'"/>
   </div>
+  <div id="bucks-chip" hidden></div>
   <select id="season-select" onchange="loadDashboard()">
     <option value="2025" selected>2025</option>
     <option value="2024">2024</option>

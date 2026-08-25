@@ -6302,6 +6302,7 @@ function renderMeChip(){
 /* preselect the remembered team everywhere it matters */
 function applyMe(){
   renderMeChip();
+  try{ renderBucksChip(); }catch(e){}
   /* Every team picker on the site opens on the signed-in team. They still hold
      whatever you switch them to while you move around — this only sets the
      starting point, and only on load or on signing in. */
@@ -11997,7 +11998,10 @@ function sbToggleMk(k){
   const b=el.querySelector('.sb-mhead');
   if(b) b.setAttribute('aria-expanded',String(!!_sbOpenMk[k]));
 }
-function renderMyBets(){ if(_activeTab==='book') renderBook(); }
+/* the one funnel for "the bets changed", so the nav balance is repainted from
+   here rather than from the sportsbook — the number is in the bar on every
+   page, including the pages that never draw a bet */
+function renderMyBets(){ try{ renderBucksChip(); }catch(e){} if(_activeTab==='book') renderBook(); }
 let _betsInit=false;
 /* ── GOING IN ON A PARLAY TOGETHER ──────────────────────────────────────────
    An invitation is just another bet document, owned by the person invited and
@@ -12188,7 +12192,7 @@ function sbInviteBoxHTML(b){
   </div>`;
 }
 
-/* Every bet this profile has placed, newest first, with the week's ledger on
+/* Every bet this profile has placed, newest first, with the bankroll line on
    top. Grouped by bucks week so a settled week reads as its own scoreboard. */
 function myBetsHTML(){
   if(!_me) return `<div class="sb-mine-empty"><i class="fa fa-wallet"></i>
@@ -12203,21 +12207,15 @@ function myBetsHTML(){
   if(_bets===null) return `<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Loading your bets…</div>`;
   const all=betsMine();                 // ledger reflects every bet, cleared or not
   const mine=all.filter(b=>!b.hidden);  // the list shows what has not been cleared
-  const bal=bucksBalance(), staked=bucksStaked(), back=bucksReturned();
-  const open=all.filter(b=>b.status==='open').length;
-  const won=all.filter(b=>b.status==='won').length;
-  const lost=all.filter(b=>b.status==='lost').length;   // voids count to neither
-  const ledger=`<div class="sb-ledger">
-    <div class="sb-led"><span>GFL Bucks</span><b>${bucksFmt(bal)}</b></div>
-    <div class="sb-led"><span>Record</span><b>${won}-${lost}${open?` · ${open} open`:''}</b></div>
-    <div class="sb-led sb-led-note">Next ${bucksFmt(BUCKS_WEEKLY)} lands in ${bucksResetsIn()}</div>
-  </div>
-  ${bankHTML()}
+  /* The balance is in the nav now, on every page rather than only this one, so
+     the strip that opened this view has gone with it. The bankroll chart below
+     is the same money drawn over time, which is the version worth the space. */
+  const head=`${bankHTML()}
   ${sbInvitesHTML()}
   ${betsClearable().length?`<div class="sb-clearsettled-row">
     <button class="sb-clear" onclick="sbClearSettled()" ${_betBusy?'disabled':''}>
       <i class="fa fa-broom"></i> Clear settled (${betsClearable().length})</button></div>`:''}`;
-  if(!mine.length) return ledger+`<div class="sb-mine-empty"><i class="fa fa-receipt"></i>
+  if(!mine.length) return head+`<div class="sb-mine-empty"><i class="fa fa-receipt"></i>
     <div>No bets yet. Tap any price to build a slip.</div></div>`;
   const weeks={};
   mine.filter(b=>b.status!=='invite').forEach(b=>{(weeks[b.wk]||(weeks[b.wk]=[])).push(b);});
@@ -12261,7 +12259,7 @@ function myBetsHTML(){
         <span>${weeks[wk].length} bet${weeks[wk].length>1?'s':''}</span></div>
       ${list}</div>`;
   }).join('');
-  return ledger+cards;
+  return head+cards;
 }
 /* ── WHO LEADS THIS ROSTER THIS WEEK ─────────────────────────────────────────
    Four named players and a fifth pick that covers everybody else on the roster
@@ -12839,7 +12837,36 @@ function sbWeekHTML(){
 
    There is no contention for the slot under the nav: the sportsbook is one of
    the tabs that raises no jump chips at all, so the chip bar is hidden there. */
+/* ── GFL Bucks in the nav ────────────────────────────────────────────────────
+   One balance, in the bar, on every page. It used to be printed at the top of
+   My Bets and again at the top of My Portfolio — which is to say it was only
+   ever visible on the two pages you had already gone looking for it on, and it
+   was the same number twice.
+
+   Hidden when signed out on purpose. The balance is derived from a profile's
+   own bets and holdings, so a signed-out visitor would be shown the opening
+   hundred every manager starts with, which is somebody else's money.
+
+   The reset countdown came off the My Bets strip with the rest of it and rides
+   the chip's tooltip, since it is a question you ask about the balance rather
+   than about your bets. */
+function renderBucksChip(){
+  const el=document.getElementById('bucks-chip'); if(!el) return;
+  if(!_me){ if(!el.hidden){ el.hidden=true; el.innerHTML=''; } return; }
+  let bal=0; try{ bal=bucksBalance(); }catch(e){}
+  const txt=bucksFmt(bal);
+  el.hidden=false;
+  let tip='GFL Bucks';
+  try{ tip=`GFL Bucks — next ${bucksFmt(BUCKS_WEEKLY)} lands in ${bucksResetsIn()}`; }catch(e){}
+  if(el.title!==tip) el.title=tip;
+  /* patched rather than rebuilt: this runs on every tab switch and every
+     settled bet, and replacing the node would restart the icon each time */
+  const v=el.querySelector('.bucks-v');
+  if(v){ if(v.textContent!==txt) v.textContent=txt; return; }
+  el.innerHTML=`<i class="fa fa-coins"></i><span class="bucks-v">${txt}</span>`;
+}
 function renderBetsBar(){
+  try{ renderBucksChip(); }catch(e){}
   const bar=document.getElementById('bets-bar'); if(!bar) return;
   if(_activeTab!=='book'){
     if(!bar.hidden){ bar.hidden=true; bar.innerHTML=''; bar.classList.remove('stuck'); }
@@ -12984,8 +13011,6 @@ function invBoardHTML(){
       <button class="iv-mb${amt?' on':''}" onclick="invSetMode('amt')" aria-pressed="${amt}">Dollars</button>
     </div>
     ${funds?`<div class="iv-gh">The funds</div>
-    <div class="iv-gsub">One share holds every team in the conference, priced at their average.
-      A bet on a half of the league rather than on any one team.</div>
     <div class="iv-list">${funds}</div>
     <div class="iv-gh iv-gh2">The teams</div>`:''}
     <div class="iv-list">${rows}</div>`;
@@ -12998,14 +13023,12 @@ function invPortfolioHTML(){
   if(!b) return '<div class="tab-loading" style="padding:30px">Loading…</div>';
   const h=invHoldings();
   const owners=Object.keys(h);
-  const val=invValue(), basis=owners.reduce((a,o)=>a+h[o]*invCostBasis(o),0);
-  const pl=val-basis;
-  const head=`<div class="sb-ledger">
-    <div class="sb-led"><span>Portfolio</span><b>${invFmt(val)}</b></div>
-    <div class="sb-led"><span>Profit</span><b style="color:${pl>0?'var(--green)':pl<0?'var(--red)':'var(--text2)'}">${pl>0?'+':pl<0?'−':''}${invFmt(Math.abs(pl))}</b></div>
-    <div class="sb-led sb-led-note">Cash available ${invFmt(bucksBalance())}</div>
-  </div>`;
-  if(!owners.length) return head+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
+  /* No ledger strip at the top of this view any more. What it was worth and
+     what it had made were two of the three tiles, and the third was the cash
+     balance — which now lives in the nav, where it is on show whatever page you
+     are on. The chart underneath was already telling the profit story with a
+     line rather than a number, so nothing here is lost by dropping the row. */
+  if(!owners.length) return `<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
     <div>No shares yet. The market is on the Investments tab.</div></div>`;
   const chart=invChartHTML();
   const rows=owners.map(o=>{
@@ -13043,7 +13066,7 @@ function invPortfolioHTML(){
       </div>
     </div>`;
   }).join('');
-  return head+chart+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}<div class="iv-list">${rows}</div>`;
+  return chart+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}<div class="iv-list">${rows}</div>`;
 }
 
 function renderBook(){
