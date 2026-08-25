@@ -10140,7 +10140,7 @@ const NT_KINDS={
   rival:  {icon:'fa-hand-fist',   tone:'royal'},
   trade:  {icon:'fa-right-left',  tone:'cool'},
   parlay: {icon:'fa-dollar-sign', tone:'good'},
-  streakW:{icon:'fa-arrow-trend-up',  tone:'ember'},
+  streakW:{icon:'fa-arrow-trend-up',  tone:'good'},
   streakL:{icon:'fa-arrow-trend-down',tone:'ember'},
   trash:  {icon:'fa-comment-dots', tone:'hot'},
   standings:{icon:'fa-ranking-star', tone:'cool'},
@@ -10189,9 +10189,11 @@ function ntSwap(a,b){
 function ntStreak(owner,name,n,won){
   const pips=Array.from({length:Math.min(n,10)},()=>
     `<span class="nt-pip ${won?'w':'l'}">${won?'W':'L'}</span>`).join('');
+  /* No count off to the right. The run of pips IS the count — five Ls beside a
+     big red 5 is the same number twice, and the number was the loudest thing on
+     a card whose news is the run. Crest, name and pips centre together. */
   return `<div class="nt-run">
-    <div class="nt-run-h">${ntCrest(owner,24)}<span class="nt-run-n">${name}</span>
-      <span class="nt-run-c ${won?'w':'l'}">${n}</span></div>
+    <div class="nt-run-h">${ntCrest(owner,24)}<span class="nt-run-n">${name}</span></div>
     <div class="nt-pips">${pips}</div>
   </div>`;
 }
@@ -10395,10 +10397,10 @@ function ntStreaks(out){
     out.push(last
       ?{kind:'streakW', day, id:`sw:${owner}:${n}`, title:`${n} in a row`,
         art:ntStreak(owner,who,n,true),
-        body:`<b>${who}</b> have won <b>${n}</b> straight.`}
+        body:`<b>${who}</b> have won <b>${n} games</b> straight.`}
       :{kind:'streakL', day, id:`sl:${owner}:${n}`, title:`${n} straight losses`,
         art:ntStreak(owner,who,n,false),
-        body:`<b>${who}</b> have not won in <b>${n}</b>.`});
+        body:`<b>${who}</b> have not won in <b>${n} games</b>.`});
   });
 }
 /* everyone's plant, from the profiles the homepage already reads */
@@ -10506,7 +10508,8 @@ function ntParlays(out){
   if(!_me) return;
   betsMine().filter(b=>b.status==='invite'&&!inviteLapsed(b)).forEach(b=>{
     out.push({kind:'parlay', day:ntDayOf(Number(b.ts)||Date.now()), id:`pi:${b.id}`, title:'You have been asked in',
-      body:`<b>${betAccountName(b.invitedBy)}</b> wants you in on ${b.legs.length>1?`a ${b.legs.length}-leg parlay`:'a bet'} — ${bucksFmt(b.stake)}.`,
+      art:ntStat(_ownerMap[Number(b.team||0)]||b.invitedBy,betAccountName(b.invitedBy),
+        bucksFmt(b.stake),b.legs.length>1?`a ${b.legs.length}-leg parlay`:'a single'),
       go:'bets'});
   });
 }
@@ -10596,10 +10599,10 @@ function ntDemo(out){
     art:ntStat(o(5),nm(5),'6 / 6','every game called')},
 
    {kind:'streakW',day:T2,id:'demo:streakw',title:'6 in a row',
-    art:ntStreak(o(3),nm(3),6,true), body:'<b>'+nm(3)+'</b> have won six straight.'},
+    art:ntStreak(o(3),nm(3),6,true), body:'<b>'+nm(3)+'</b> have won <b>6 games</b> straight.'},
 
    {kind:'streakL',day:T2,id:'demo:streakl',title:'5 straight losses',
-    art:ntStreak(o(7),nm(7),5,false), body:'<b>'+nm(7)+'</b> have not won in five.'},
+    art:ntStreak(o(7),nm(7),5,false), body:'<b>'+nm(7)+'</b> have not won in <b>5 games</b>.'},
 
    {kind:'plant',day:day(1),id:'demo:plant',title:'A plant has died',
     art:ntStat(o(8),nm(8),'6 days','without water'),
@@ -10613,7 +10616,7 @@ function ntDemo(out){
 
    {kind:'parlay',day:d,id:'demo:parlay',title:'You have been asked in',
     art:ntStat(o(3),nm(3),'$75','a 3-leg parlay'),
-    body:'Take it and you are in for the same.', go:'bets'},
+    go:'bets'},
 
    {kind:'trade',day:d,id:'demo:trade',title:'A trade went through',
     art:ntSwap({owner:o(7),name:nm(7),got:['Bijan Robinson','Jake Ferguson']},
@@ -10810,6 +10813,34 @@ function ntLive(){
 function ntDone(){ return ntLive().length===0; }
 
 /* ── the card ───────────────────────────────────────────────────────────── */
+/* ── THE VOTES OUTLIVE THE CARDS ─────────────────────────────────────────────
+   A trade card asks a question, and swiping it away used to take the answer
+   with it — the league voted and then had nowhere to see what the league said.
+   Once the stack is empty every trade that carried a vote is listed with its
+   tally, whether its card was cleared or not, and anyone who never answered can
+   still answer from here. Same buttons, same field, so a vote cast here and a
+   vote cast on the card are the same vote. */
+function ntVotesHTML(){
+  let all=[]; try{ all=ntAll(); }catch(e){ return ''; }
+  const votes=all.filter(n=>n&&n.vote&&n.vote.sides&&n.vote.sides.length);
+  if(!votes.length) return '';
+  const blocks=votes.map(n=>{
+    const f=String(n.vote.id).replace(/[^a-zA-Z0-9_]/g,'_');
+    const tally=ntVoteTally(f)||{}, mine=ntMyVote(f);
+    const total=Object.values(tally).reduce((a,b)=>a+b,0);
+    return `<div class="nt-vd-row">
+      <div class="nt-vd-t">${n.vote.sides.map(x=>x.label).join(' · ')}</div>
+      <div class="nt-vote">${n.vote.sides.map(s=>`
+        <button class="nt-vb${mine===s.k?' on':''}" onclick="ntVote('${f}','${s.k}')">
+          <span class="nt-vb-l">${s.label}</span>
+          ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
+        </button>`).join('')}</div>
+      <div class="nt-vn">${total?`${total} vote${total===1?'':'s'} in`:'No votes yet'}${
+        mine?'':' · you have not voted'}</div>
+    </div>`;
+  }).join('');
+  return `<div class="nt-vd"><div class="nt-vd-h">How the trades were voted</div>${blocks}</div>`;
+}
 function ntVoteTally(vid){
   const rows=_cpRows||[]; const t={};
   rows.forEach(p=>{ const v=String(p['tv_'+vid]||'').trim(); if(v) t[v]=(t[v]||0)+1; });
@@ -10885,6 +10916,7 @@ function renderNotifications(){
        people most often did not mean, and this is the screen it leaves you on. */
     el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
       <span>Nothing new. You are all caught up.</span></div>
+      ${ntVotesHTML()}
       ${_ntUndo.length?`<div class="nt-foot"><button class="nt-undo" onclick="ntUndo()">
         <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:' that'}</button></div>`:''}
       ${ntSeen().size?`<div class="home-redo-row">${homeRestartBtn('nt')}</div>`:''}`;
@@ -10897,7 +10929,16 @@ function renderNotifications(){
   const tally=n.vote?ntVoteTally(fieldSafe):null;
   const mine=n.vote?ntMyVote(fieldSafe):'';
   const total=tally?Object.values(tally).reduce((a,b)=>a+b,0):0;
+  /* The count and the undo sit above the stack rather than under it. They are
+     about the stack, not about the card — and under a card whose height changes
+     with every swipe they moved every time, which is the worst place to put the
+     one control you reach for after a swipe you did not mean. */
   el.innerHTML=`
+    <div class="nt-foot nt-foot-top">
+      <span class="nt-pos">${_ntIdx+1} of ${list.length}<span class="nt-hint">swipe to clear</span></span>
+      ${_ntUndo.length?`<button class="nt-undo" onclick="ntUndo()">
+        <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:''}</button>`:''}
+    </div>
     <div class="nt-card nt-${meta.tone}" id="nt-card" data-id="${String(n.id).replace(/"/g,'&quot;')}">
       <div class="nt-top">
         <span class="nt-ico"><i class="fa ${meta.icon}"></i></span>
@@ -10917,13 +10958,7 @@ function renderNotifications(){
       ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
     </div>
     ${''/* No arrows. The card is swiped, and a pair of chevrons under it was a
-           second way to do a thing the card already teaches — the count and the
-           hint are all this row has to say. */}
-    <div class="nt-foot">
-      <span class="nt-pos">${_ntIdx+1} of ${list.length}<span class="nt-hint">swipe to clear</span></span>
-      ${_ntUndo.length?`<button class="nt-undo" onclick="ntUndo()">
-        <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:''}</button>`:''}
-    </div>`;
+           second way to do a thing the card already teaches. */}`;
   ntWireSwipe();
 }
 /* Swipe to clear. Pointer events rather than touch, so a trackpad drag works
