@@ -8646,6 +8646,59 @@ function invStats(season,throughWeek){
   const rows=Object.values(rec);
   return rows.length?rows:null;
 }
+/* ── THE TWO FUNDS ───────────────────────────────────────────────────────────
+   Twelve stocks is twelve decisions, and the first one anybody has to make is
+   which six teams they think are going to be good — which is a lot of homework
+   to ask of somebody who just wants to be long the East. So there are two funds
+   as well, one for each conference, and a share in one is an equal slice of all
+   six teams inside it.
+
+   Priced as a fund is priced: the mean of what its holdings are worth. A share
+   of the East fund is one-sixth of a share in each East team, so its price has
+   to be their average, and it moves when they move — no separate model, no
+   second set of numbers to keep honest.
+
+   That falls out of the share prices having a fixed mean of their own. The
+   twelve always average to the base price, so the two funds always average to
+   it too: one conference can only climb by the other slipping. Buying a fund is
+   therefore a bet on a conference rather than on the league, which is the only
+   thing a fund of half the market can honestly be.
+
+   Both open at the base price for the same reason every team does — before a
+   ball is kicked everyone is average, so both baskets are. */
+const INV_FUNDS=[
+  {k:'ETF_EAST',name:'East ETF',div:'east'},
+  {k:'ETF_WEST',name:'West ETF',div:'west'}
+];
+const invFund=k=>INV_FUNDS.find(f=>f.k===k)||null;
+/* who is inside each fund, for the season being priced. Conferences are a
+   property of a season rather than of a franchise — teams move between them —
+   so this is read fresh from that season's own meta rather than cached on the
+   franchise. */
+function invFundMembers(season){
+  const out={}; INV_FUNDS.forEach(f=>{ out[f.k]=[]; });
+  const meta=_seasonMeta[season];
+  if(!meta||!meta.teams) return out;
+  const names=meta.divisions||{};
+  const rows=Object.values(meta.teams).filter(t=>t&&t.owner);
+  let matched=0;
+  rows.forEach(t=>{
+    const dn=String(names[t.div]||'').toLowerCase();
+    const f=INV_FUNDS.find(x=>dn.indexOf(x.div)>=0);
+    if(f){ out[f.k].push(t.owner); matched++; }
+  });
+  if(rows.length&&matched===rows.length) return out;
+  /* The conferences have not always carried their names upstream. Two of them
+     and no names is still an East and a West — take them in id order, which is
+     the order ESPN lists them in. Anything other than two divisions is not a
+     league these two funds describe, and they simply do not price. */
+  INV_FUNDS.forEach(f=>{ out[f.k]=[]; });
+  const ids=[...new Set(rows.map(t=>Number(t.div)||0))].sort((a,b)=>a-b);
+  if(ids.length!==2) return out;
+  rows.forEach(t=>{ out[INV_FUNDS[ids.indexOf(Number(t.div)||0)].k].push(t.owner); });
+  return out;
+}
+
 /* the price of one share in every team, and what it was a week ago */
 let _invCache=null;
 /* Every share price in the league as it stood at the end of a given week.
@@ -8675,11 +8728,24 @@ function invPricesAt(season,through){
   const mean=vals.reduce((a,b)=>a+b,0)/vals.length || 1;
   const out={};
   fr.forEach((f,i)=>{ out[f.owner]=Math.max(1,+(INV_BASE*vals[i]/mean).toFixed(2)); });
+  /* the funds price off the board that was just built, in the same pass, so a
+     replayed week prices its funds from that week's teams and never from
+     today's */
+  const mem=invFundMembers(season);
+  INV_FUNDS.forEach(f=>{
+    const own=(mem[f.k]||[]).filter(o=>out[o]!=null);
+    if(own.length) out[f.k]=+(own.reduce((a,o)=>a+out[o],0)/own.length).toFixed(2);
+  });
   return out;
 }
 function invBoard(){
   const season=ntSeason&&ntSeason();
-  const stamp=String(season)+'|'+(_franchises||[]).length;
+  /* The season's own team list is in the stamp, not just the franchise count.
+     A season that arrives after the board was first drawn adds no franchises —
+     the same twelve owners — so without it the market would keep serving the
+     flat opening prices it computed before that season had any games in it. */
+  const stamp=String(season)+'|'+(_franchises||[]).length
+    +'|'+Object.keys((_seasonMeta[season]||{}).teams||{}).length;
   if(_invCache&&_invCache.stamp===stamp) return _invCache;
 
   const fr=(_franchises||[]);
@@ -8693,7 +8759,29 @@ function invBoard(){
     return {owner:f.owner, name:f.name, fr:f, price:p, prev:was,
       chg:+(p-was).toFixed(2), pct:was?+(((p-was)/was)*100).toFixed(1):0};
   }).sort((a,b)=>b.price-a.price);
-  return (_invCache={stamp,season,week:lw,list,priceOf:now});
+  /* the funds sit beside the stocks rather than among them — same shape of row
+     so the market reads as one board, its own group so nobody buys one by
+     mistake thinking it is a team */
+  const mem=invFundMembers(season);
+  const funds=INV_FUNDS.map(f=>{
+    const p=now[f.k]; if(p==null) return null;
+    const was=prev[f.k]!=null?prev[f.k]:p;
+    const inside=(mem[f.k]||[]).slice()
+      .sort((a,b)=>(now[b]||0)-(now[a]||0));
+    return {owner:f.k, name:f.name, fund:f, members:inside, price:p, prev:was,
+      chg:+(p-was).toFixed(2), pct:was?+(((p-was)/was)*100).toFixed(1):0};
+  }).filter(Boolean);
+  return (_invCache={stamp,season,week:lw,list,funds,priceOf:now});
+}
+/* a fund wears the crests of what it holds, overlapped the way a stack of
+   cards is. Four is as many as reads at this size, and the leaders are the
+   ones on top. */
+function invFundCrest(members){
+  const fr=(_franchises||[]);
+  const pics=(members||[]).map(o=>fr.find(f=>f.owner===o)).filter(Boolean).slice(0,4);
+  if(!pics.length) return '';
+  return `<span class="iv-stack">${pics.map(f=>
+    `<span class="iv-stack-i">${franchiseAvatar(f,18,5)}</span>`).join('')}</span>`;
 }
 const invPrice=owner=>{ const b=invBoard(); return b?(b.priceOf[owner]||INV_BASE):INV_BASE; };
 
@@ -11078,7 +11166,7 @@ function renderCoachesPoll(){
     return;
   }
   el.innerHTML=`
-    <div class="cp-meta">${ballots} of ${total} ballots in · ${complete?'results are in — cast your ballot to see them':`results show at ${REVEAL_AT}`}${cpRefreshBtn()}</div>
+    <div class="cp-meta">${ballots} of ${total} ballots in · ${complete?'vote to see results':`results show at ${REVEAL_AT}`}${cpRefreshBtn()}</div>
     <div class="cp-pick">${_teams.map(t=>{
       const pos=b.indexOf(String(t.id));
       return `<button class="cp-t${pos>=0?' on':''}" onclick="cpToggle(${t.id})">
@@ -12791,11 +12879,14 @@ function invBoardHTML(){
   if(!b) return '<div class="tab-loading" style="padding:30px">Loading the market…</div>';
   const cash=bucksBalance();
   const amt=_invMode==='amt';
-  const rows=b.list.map(x=>{
+  const own=invHoldings();
+  /* One card, whether the thing being bought is a team or a fund. They trade
+     identically — a price, a number of shares, the same money — so they are
+     the same control, and only the crest and the line under the name differ. */
+  const card=(x,crest,sub,cls)=>{
     const cashIn=_invCash[x.owner]||0;
     const n=invTradeShares(x.owner,x.price,false), cost=n*x.price;
     const dir=x.chg>0?'up':x.chg<0?'dn':'flat';
-    const held=invHoldings()[x.owner]||0;
     /* In dollar mode the steppers move by five bucks. One cent at a time is
        useless and one dollar is still twenty presses to a sensible stake. */
     const step=amt
@@ -12809,10 +12900,10 @@ function invBoardHTML(){
            placeholder="0" aria-label="Shares of ${x.name}"
            oninput="invType(this,'${x.owner}','sh')" onchange="renderBook()" onblur="renderBook()">
          <button class="iv-step" onclick="invStep('${x.owner}',1)">+</button>`;
-    return `<div class="iv-card" data-o="${x.owner}" data-px="${x.price}">
+    return `<div class="iv-card${cls||''}" data-o="${x.owner}" data-px="${x.price}">
       <div class="iv-top">
-        <span class="iv-c">${franchiseAvatar(x.fr,26,7)}</span>
-        <span class="iv-n">${x.name}${held?`<span class="iv-held">${invShFmt(held)} held</span>`:''}</span>
+        <span class="iv-c">${crest}</span>
+        <span class="iv-n">${x.name}${sub?`<span class="iv-held">${sub}</span>`:''}</span>
         <span class="iv-px">
           <span class="iv-px-v">${invFmt(x.price)}</span>
           <span class="iv-chg ${dir}">${x.chg>0?'▲':x.chg<0?'▼':'–'}${x.chg?Math.abs(x.pct)+'%':''}</span>
@@ -12825,7 +12916,12 @@ function invBoardHTML(){
           Buy${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}</button>
       </div>
     </div>`;
-  }).join('');
+  };
+  const heldSub=o=>own[o]?invShFmt(own[o])+' held':'';
+  const funds=(b.funds||[]).map(f=>card(f,invFundCrest(f.members),
+    `${f.members.length} teams${own[f.owner]?' · '+invShFmt(own[f.owner])+' held':''}`,
+    ' iv-fundcard')).join('');
+  const rows=b.list.map(x=>card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner))).join('');
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
     <div class="iv-cash">Cash available <b>${invFmt(cash)}</b></div>
     <div class="iv-mode" role="group" aria-label="How to buy">
@@ -12833,6 +12929,11 @@ function invBoardHTML(){
       <button class="iv-mb${amt?'':' on'}" onclick="invSetMode('sh')" aria-pressed="${!amt}">Shares</button>
       <button class="iv-mb${amt?' on':''}" onclick="invSetMode('amt')" aria-pressed="${amt}">Dollars</button>
     </div>
+    ${funds?`<div class="iv-gh">The funds</div>
+    <div class="iv-gsub">One share holds every team in the conference, priced at their average.
+      A bet on a half of the league rather than on any one team.</div>
+    <div class="iv-list">${funds}</div>
+    <div class="iv-gh iv-gh2">The teams</div>`:''}
     <div class="iv-list">${rows}</div>`;
 }
 
@@ -12854,17 +12955,23 @@ function invPortfolioHTML(){
     <div>No shares yet. The market is on the Investments tab.</div></div>`;
   const chart=invChartHTML();
   const rows=owners.map(o=>{
-    const fr=(_franchises||[]).find(f=>f.owner===o);
+    /* a fund holding is the same row as a team holding, wearing the crests of
+       what it holds instead of one crest of its own */
+    const fu=invFund(o);
+    const fnd=fu?((b.funds||[]).find(x=>x.owner===o)||{members:[]}):null;
+    const fr=fu?null:(_franchises||[]).find(f=>f.owner===o);
+    const crest=fu?invFundCrest(fnd.members):(fr?franchiseAvatar(fr,26,7):'');
+    const nm=fu?fu.name:(fr?fr.name:o);
     const px=invPrice(o), cb=invCostBasis(o), sh=h[o];
     const gain=(px-cb)*sh, pct=cb?((px-cb)/cb*100):0;
     const q=Math.min(sh,_invQty['s_'+o]||0);
     /* The step up stops at the whole holding rather than at the last whole
        share below it, so one more press on a fractional lot sells all of it
        instead of leaving a remainder no button can reach. */
-    return `<div class="iv-card" data-o="${o}" data-px="${px}" data-sell="1">
+    return `<div class="iv-card${fu?' iv-fundcard':''}" data-o="${o}" data-px="${px}" data-sell="1">
       <div class="iv-top">
-        <span class="iv-c">${fr?franchiseAvatar(fr,26,7):''}</span>
-        <span class="iv-n">${fr?fr.name:o}<span class="iv-held">${invShFmt(sh)} share${Math.abs(sh-1)<1e-6?'':'s'} · avg ${invFmt(cb)}</span></span>
+        <span class="iv-c">${crest}</span>
+        <span class="iv-n">${nm}<span class="iv-held">${invShFmt(sh)} share${Math.abs(sh-1)<1e-6?'':'s'} · avg ${invFmt(cb)}</span></span>
         <span class="iv-px">
           <span class="iv-px-v">${invFmt(sh*px)}</span>
           <span class="iv-chg ${gain>0?'up':gain<0?'dn':'flat'}">${gain>0?'▲':gain<0?'▼':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
