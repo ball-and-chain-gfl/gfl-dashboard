@@ -2274,10 +2274,15 @@ function tradeVoteHTML(tr,winner,loser){
      two rows of six. The minority takes whatever is left, which is narrower
      than half but still a column rather than a slot.
 
-     "Lopsided" is a ratio and a size, not a count: at least twice as many on
-     one side, and no more than three on the other. That is what keeps 6-6 and
-     1-1 down the middle, where an even split is the honest picture, and hands
-     11-1, 12-0 and 6-3 to the side that needs the room.
+     Any majority gets it, not only a landslide. The rule used to ask for a
+     ratio — twice as many, and no more than three on the other side — which
+     left every near-even split on the even columns, and half of 351 holds five
+     crests. So six came out five and a stranded one, and seven came out five
+     and two. Asking only whether one side has more than the other is simpler
+     and is never worse: the majority is no wider than it needs, and the
+     minority's own crests still fit in the remainder at every split the league
+     can produce. A dead heat still takes the even columns, which is the honest
+     picture of a dead heat.
 
      Sized in crests rather than fractions, so it holds at any card width. A
      shut-out keeps its empty cell for the same reason the minority keeps its
@@ -2286,7 +2291,7 @@ function tradeVoteHTML(tr,winner,loser){
   const SPAN=6;
   const nW=W.length, nL=L.length;
   const small=Math.min(nW,nL), big=Math.max(nW,nL);
-  const lop=small<=3 && small*2<=big;
+  const lop=big>small;
   const slots=Math.min(SPAN,Math.max(1,big));
   const cell=(cls,list)=>`<div class="tv-side ${cls}">${crests(list)}</div>`;
   return `<div class="trade-vote">
