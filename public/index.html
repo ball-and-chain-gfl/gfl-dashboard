@@ -1144,10 +1144,6 @@
     /* ── The market ───────────────────────────────────────────────────────────
        One card per team: crest, name, price and the week's move on top, the
        trade controls underneath. Same surfaces as everything else on the board. */
-    .iv-cash{margin:0 0 12px;padding:9px 12px;border-radius:9px;
-      background:rgba(0,0,0,0.3);font-family:'Inter',sans-serif;font-size:11.5px;
-      letter-spacing:.3px;text-transform:uppercase;color:var(--text3);}
-    .iv-cash b{color:var(--text);font-size:13px;letter-spacing:0;text-transform:none;}
     .iv-err{margin:0 0 10px;padding:9px 12px;border-radius:9px;
       background:rgba(232,104,126,0.1);border:1px solid rgba(232,104,126,0.4);
       font-family:'Inter',sans-serif;font-size:12px;color:var(--red);}
@@ -1793,9 +1789,11 @@
     /* `html` prefix is deliberate: the sitewide matte reset uses
        html[data-theme="dark"] #page-home .home-box, which out-specifies a bare
        #page-home selector even with !important. */
+    /* trade cards are deliberately not in this list: a page that is nothing but
+       a column of them had every one of them lifted, which is the same as none
+       of them being lifted, with a shadow under each to read through */
     html[data-theme] #page-home .home-box.punish-box,
     html[data-theme] #page-home .motw-book,
-    html[data-theme] .trade-card,
     html[data-theme] #lh-sups .lh-col{
       box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5);}
     #lh-sups .lh-col{background:rgba(0,0,0,0.3);border-radius:10px;padding:12px 14px;}
@@ -3094,28 +3092,30 @@
        icon on the page picks it up as its flat colour. */
     html[data-theme="dark"][data-tabaccent=home]{--accent:#CBE4FF;--accent2:#8CB9E8;--accent-rgb:203,228,255;
       --pageaccent:#CBE4FF;}
-    /* The homepage title runs the league itself: the primary colour of every
-       tab, in hue order, each one sitting at its own angle on the wheel. So the
-       arc between two stops is the distance between those two colours — the
-       four warm tabs are packed into the first 35°, the empty yellow-green
-       stretch gets a long blend rather than a jump, and punishment at 358°
-       lands 2° from teams at 0°, which is what closes the loop without a seam.
+    /* The homepage title used to run every tab's colour in hue order — fourteen
+       stops, a full spectrum, the loudest thing on the page you land on. It is
+       greyscale now: one soft highlight travelling around an otherwise
+       near-black edge.
 
-       Spacing them evenly instead would give the 2° neighbours the same arc as
-       the 109° gap, and the two gaps would read as abrupt shifts. Slower than
-       other pages because there are fourteen colours to get through rather
-       than two. Any tab added to the nav wants its primary added here. */
+       Every stop is a shade of black, but the band still has to be found
+       against the panel it rings — that panel is rgba(0,0,0,0.3) over a #080808
+       page, so roughly #050505. The crest at #727272 is what does the standing
+       out; the trough at #101010 is barely above the ground, which is what
+       makes the crest read as a moving light rather than as a grey border that
+       happens to shimmer. One crest, not two, so it reads as one thing going
+       round. Faster than the fourteen-colour version — there is only one shape
+       to follow now, and 14s made it look stalled. */
     html[data-theme="dark"][data-tabaccent=home] .page-h1::after{
       background:conic-gradient(from var(--h1ang),
-        #ff5f5f 0deg,    /* teams      */  #fb9167 17deg,   /* schedule   */
-        #f09a4a 29deg,   /* history    */  #E0B67B 35deg,   /* coaching   */
-        #3fd07a 144deg,  /* sportsbook */  #1ecdaa 168deg,  /* player data*/
-        #0fcacc 181deg,  /* draft      */  #43C9E8 191deg,  /* rosters    */
-        #6cb7ff 209deg,  /* head2head  */  #CBE4FF 211deg,  /* home       */
-        #6C6AE8 241deg,  /* standings  */  #e78dd4 313deg,  /* bad beat   */
-        #E8437E 338deg,  /* trades     */  #E84146 358deg,  /* punishments*/
-        #ff5f5f 360deg);
-      animation-duration:14s;}
+        #101010 0deg,
+        #1f1f1f 55deg,
+        #4a4a4a 105deg,
+        #727272 132deg,
+        #4a4a4a 160deg,
+        #232323 215deg,
+        #131313 280deg,
+        #101010 360deg);
+      animation-duration:9s;}
     /* The rule under each heading keeps the seven-colour sweep. It is a 3px bar
        at most 78px wide — fourteen stops in that space is a smear, not a
        gradient — so this is the one place the two deliberately differ. */
@@ -3817,24 +3817,35 @@
        The balance used to be printed at the top of My Bets and again at the top
        of My Portfolio, which meant it was only ever visible on the two pages
        you had already gone looking for it on. It sits in the bar instead, in
-       the slot the year pill uses, matched to that pill exactly — same height,
-       same ground, same hairline — because the two are the same kind of object:
-       a small fact about the session, parked beside the logo. */
-    #bucks-chip{order:1;flex:0 0 auto;display:flex;align-items:center;gap:7px;
-      height:44px;padding:0 13px;box-sizing:border-box;border-radius:8px;
-      background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.13);
+       the slot the year pill uses.
+
+       Dressed as the ETF cards on the market below it are dressed: the accent
+       as a hairline and as a wash over the panel ground, rather than the plain
+       white hairline the year pill wears. It only ever appears on the
+       sportsbook, where the accent is the green those cards use, so the two are
+       the same green without either naming it.
+
+       Heights are the profile button's exactly — 44 / 40 / 36 across the same
+       breakpoints — because it sits in a row with that button and the page
+       selector, and a chip a few pixels off reads as a mistake rather than as a
+       different control. */
+    #bucks-chip{order:1;flex:0 0 auto;display:flex;align-items:center;
+      height:44px;padding:0 14px;box-sizing:border-box;border-radius:8px;
+      background:linear-gradient(rgba(var(--accent-rgb),0.09),rgba(0,0,0,0.3));
+      border:1px solid rgba(var(--accent-rgb),0.34);
       -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
       font-family:'Inter',sans-serif;font-size:13px;font-weight:800;
       letter-spacing:.2px;color:var(--text);white-space:nowrap;
       font-variant-numeric:tabular-nums;}
     #bucks-chip[hidden]{display:none;}
-    #bucks-chip i{color:var(--accent);font-size:13px;}
     @media(max-width:768px){
-      #floatnav #bucks-chip{height:40px;font-size:12.5px;padding:0 11px;gap:6px;}
+      #floatnav #bucks-chip{height:40px;font-size:12.5px;padding:0 12px;}
     }
-    @media(max-width:400px){
-      #floatnav #bucks-chip{height:36px;font-size:12px;padding:0 9px;}
-      #floatnav #bucks-chip i{font-size:12px;}
+    /* 360, not 400 — the profile button and the page selector step down at 360,
+       and the chip has to step with them or it is the odd one out for 40px of
+       viewport width */
+    @media(max-width:360px){
+      #floatnav #bucks-chip{height:36px;font-size:12px;padding:0 10px;}
     }
     #season-select:hover{border-color:rgba(var(--accent-rgb),0.55);background-color:rgba(0,0,0,0.5);}
     #season-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),0.18);}
@@ -5255,16 +5266,21 @@
     html[data-theme="dark"] .tab-page>.sec:not(:has(.card)):not(:has(.dr-card)),
     html[data-theme="dark"] .tab-page>.two-col>.sec,
     html[data-theme="dark"] .gabe-layout>.sec,
-    html[data-theme="dark"] .dr-right>.draft-row-graded,
     #page-home .home-box,
     /* trade cards deliberately excluded: they only need separation, so they keep
        the neutral hairline rather than an accent-tinted outline */
     .dr-tabbox,.lh-rcard,.sb-slip,.sb-tcard,
     .mo-grid,.motw-book,.si-box{
       border-color:rgba(var(--accent-rgb),0.55)!important;}
-    /* the graded draft rows keep their grade stripe on the left edge */
+    /* The graded draft rows are out of the list above on purpose. The grade is
+       the stripe down the left edge; ringing the whole row in the tab's accent
+       as well gave every row an outline that said nothing the stripe was not
+       already saying, and buried the stripe inside it. Three sides transparent,
+       the fourth the grade — including on the last row, which was the only one
+       carrying a bottom hairline once the accent ring stopped painting over it. */
     html[data-theme="dark"] .dr-right>.draft-row-graded{
       border-left-color:var(--dtint,rgb(var(--accent-rgb)))!important;}
+    .draft-row-graded:last-child{border-bottom-color:transparent;}
 
     /* ── PAGE TITLE ───────────────────────────────────────────────────────── */
     /* The rule under the title is its own gradient band, animated left to right

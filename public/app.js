@@ -12849,10 +12849,14 @@ function sbWeekHTML(){
 
    The reset countdown came off the My Bets strip with the rest of it and rides
    the chip's tooltip, since it is a question you ask about the balance rather
-   than about your bets. */
+   than about your bets.
+
+   Sportsbook only. GFL Bucks are that page's currency and mean nothing on the
+   other thirteen, where the chip would just be a number in the bar competing
+   with the page you actually came for. */
 function renderBucksChip(){
   const el=document.getElementById('bucks-chip'); if(!el) return;
-  if(!_me){ if(!el.hidden){ el.hidden=true; el.innerHTML=''; } return; }
+  if(!_me||_activeTab!=='book'){ if(!el.hidden){ el.hidden=true; el.innerHTML=''; } return; }
   let bal=0; try{ bal=bucksBalance(); }catch(e){}
   const txt=bucksFmt(bal);
   el.hidden=false;
@@ -12863,7 +12867,7 @@ function renderBucksChip(){
      settled bet, and replacing the node would restart the icon each time */
   const v=el.querySelector('.bucks-v');
   if(v){ if(v.textContent!==txt) v.textContent=txt; return; }
-  el.innerHTML=`<i class="fa fa-coins"></i><span class="bucks-v">${txt}</span>`;
+  el.innerHTML=`<span class="bucks-v">${txt}</span>`;
 }
 function renderBetsBar(){
   try{ renderBucksChip(); }catch(e){}
@@ -13003,8 +13007,11 @@ function invBoardHTML(){
     `${f.members.length} teams${own[f.owner]?' · '+invShFmt(own[f.owner])+' held':''}`,
     ' iv-fundcard')).join('');
   const rows=b.list.map(x=>card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner))).join('');
+  /* No cash line at the top. The balance is in the nav on this page, a few
+     inches above where this strip used to sit, and two copies of one number on
+     one screen is one too many. The Buy button still disables itself against
+     the balance, so the limit is enforced where it is felt. */
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
-    <div class="iv-cash">Cash available <b>${invFmt(cash)}</b></div>
     <div class="iv-mode" role="group" aria-label="How to buy">
       <span class="iv-mode-l">Buy in</span>
       <button class="iv-mb${amt?'':' on'}" onclick="invSetMode('sh')" aria-pressed="${!amt}">Shares</button>
