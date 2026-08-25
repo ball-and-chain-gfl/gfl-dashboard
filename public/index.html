@@ -2411,6 +2411,15 @@
       background:rgba(255,255,255,0.045);
       font-family:'Inter',sans-serif;font-size:12.5px;line-height:1.6;color:var(--text2);}
     .bk-note b{color:var(--text);font-weight:800;}
+    /* The manager question's three stats, one per row. Label left, value right,
+       and the label is allowed to shrink and ellipse rather than wrap — a stat
+       running onto a second line reads as two stats. */
+    .bk-facts{display:flex;flex-direction:column;gap:6px;}
+    .bk-fact{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+      font-size:12px;line-height:1.3;}
+    .bk-fact span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      color:var(--text2);text-align:left;}
+    .bk-fact b{flex:0 0 auto;font-variant-numeric:tabular-nums;}
     /* the shape of a season, which is the whole question */
     .bk-graphwrap{margin:10px 0 2px;padding:10px 6px 4px;border-radius:9px;
       background:rgba(255,255,255,0.04);}

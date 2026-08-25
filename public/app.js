@@ -9502,34 +9502,38 @@ function bkqManager(r){
      from it, so two managers with the same record are still told apart by what
      else is picked. Anything a franchise has no answer for drops out rather
      than printing a dash. */
+  /* Each stat named in full and given its own line. Run together on one line
+     they had to be terse enough to fit — "5th at best" — and terse enough to
+     fit turned out to be too terse to read: it is not obvious whether that is a
+     finish, a rank or a week. Three rows of label-and-value have the room to
+     say which. */
   const facts=[
-    {k:'all-time record', v:`${at.w}–${at.l}${at.t?'–'+at.t:''}`},
-    {k:'all-time points', v:at.pf.toFixed(1)},
-    {k:'all-time points against', v:at.pa?at.pa.toFixed(1):null},
-    {k:'seasons played', v:String(at.seasons)},
-    {k:'championships', v:String(at.rings)},
-    {k:'win rate', v:g?(at.w/g*100).toFixed(1)+'%':null},
-    {k:'playoff appearances', v:String(at.playoffApps||0)},
-    {k:'playoff wins', v:String(at.playoffWins||0)},
-    /* the label has to read after the number, since the note prints the value
-       first — "5th at best", not "5th best finish" */
-    {k:'at best', v:at.best?ordinal(at.best):null},
-    {k:'at worst', v:at.worst?ordinal(at.worst):null},
-    {k:'average finish', v:at.avgFinish?at.avgFinish.toFixed(1):null},
-    {k:'top-three finishes', v:String(at.top3||0)},
-    {k:'game win streak', v:at.winStreak?String(at.winStreak):null},
-    {k:'game losing streak', v:at.loseStreak?String(at.loseStreak):null},
-    {k:'highest score', v:at.hi?at.hi.pts.toFixed(1):null},
-    {k:'lowest score', v:at.lo?at.lo.pts.toFixed(1):null},
-    {k:'weeks over 150', v:String(at.over150||0)},
-    {k:'weeks under 80', v:String(at.under80||0)},
+    {k:'All-time record', v:`${at.w}–${at.l}${at.t?'–'+at.t:''}`},
+    {k:'All-time points scored', v:at.pf.toFixed(1)},
+    {k:'All-time points against', v:at.pa?at.pa.toFixed(1):null},
+    {k:'Seasons played', v:String(at.seasons)},
+    {k:'Championships won', v:String(at.rings)},
+    {k:'Career win rate', v:g?(at.w/g*100).toFixed(1)+'%':null},
+    {k:'Playoff appearances', v:String(at.playoffApps||0)},
+    {k:'Playoff games won', v:String(at.playoffWins||0)},
+    {k:'Best season finish', v:at.best?ordinal(at.best):null},
+    {k:'Worst season finish', v:at.worst?ordinal(at.worst):null},
+    {k:'Average season finish', v:at.avgFinish?at.avgFinish.toFixed(1):null},
+    {k:'Top-three finishes', v:String(at.top3||0)},
+    {k:'Longest winning streak', v:at.winStreak?`${at.winStreak} games`:null},
+    {k:'Longest losing streak', v:at.loseStreak?`${at.loseStreak} games`:null},
+    {k:'Highest score in a week', v:at.hi?at.hi.pts.toFixed(1):null},
+    {k:'Lowest score in a week', v:at.lo?at.lo.pts.toFixed(1):null},
+    {k:'Weeks scoring 150 or more', v:String(at.over150||0)},
+    {k:'Weeks scoring under 80', v:String(at.under80||0)},
   ].filter(f=>f.v!=null);
   if(facts.length<3) return null;
   const three=bkShuffle(r,facts).slice(0,3);
   const o=bkOptions(r,pick,rows,x=>x.f.name);
   if(!o) return null;
   return {kind:'manager', q:'Which manager is this?',
-    note:three.map(f=>`<b>${f.v}</b> ${f.k}`).join(' · '),
+    note:`<div class="bk-facts">${three.map(f=>
+      `<div class="bk-fact"><span>${f.k}</span><b>${f.v}</b></div>`).join('')}</div>`,
     a:o.a, correct:o.correct};
 }
 
@@ -9767,9 +9771,9 @@ const NFL_TEAMS={1:'ATL',2:'BUF',3:'CHI',4:'CIN',5:'CLE',6:'DAL',7:'DEN',8:'DET'
   33:'BAL',34:'HOU'};
 const NFL_FULL={ATL:'Atlanta',BUF:'Buffalo',CHI:'Chicago',CIN:'Cincinnati',CLE:'Cleveland',
   DAL:'Dallas',DEN:'Denver',DET:'Detroit',GB:'Green Bay',TEN:'Tennessee',IND:'Indianapolis',
-  KC:'Kansas City',LV:'Las Vegas',LAR:'the Rams',MIA:'Miami',MIN:'Minnesota',NE:'New England',
+  KC:'Kansas City',LV:'Las Vegas',LAR:'Rams',MIA:'Miami',MIN:'Minnesota',NE:'New England',
   NO:'New Orleans',NYG:'the Giants',NYJ:'the Jets',PHI:'Philadelphia',ARI:'Arizona',
-  PIT:'Pittsburgh',LAC:'the Chargers',SF:'San Francisco',SEA:'Seattle',TB:'Tampa Bay',
+  PIT:'Pittsburgh',LAC:'Chargers',SF:'San Francisco',SEA:'Seattle',TB:'Tampa Bay',
   WSH:'Washington',CAR:'Carolina',JAX:'Jacksonville',BAL:'Baltimore',HOU:'Houston'};
 /* one generator, seeded from the season and week, so the league sees one set */
 function bkRand(seed){
