@@ -9275,15 +9275,28 @@ const bucksTestMs=()=>{
   const m=Number(isTestProfile()?(_CFG.bucksTestMinutes??0):0);
   return m>0 ? m*60*1000 : 0;
 };
-function tueWeekStart(now=new Date()){
-  const t=bucksTestMs();
-  if(t) return Math.floor(now.getTime()/t)*t;        // fixed-length buckets while testing
+/* The real Tuesday 6am, whatever the bucks cycle is set to. Kept separate from
+   tueWeekStart because the bankroll chart is a week-by-week reading and has to
+   stay one even while a half-hour test cycle runs behind it — otherwise that
+   chart is a column of clock times while the portfolio chart beside it, which
+   plots fantasy weeks, is the only one of the two saying anything about a week. */
+function realWeekStart(now=new Date()){
   const x=new Date(now);
   x.setHours(6,0,0,0);
   let back=(x.getDay()-2+7)%7;                       // days since Tuesday
   if(x.getDay()===2 && now.getHours()<6) back=7;     // pre-dawn Tuesday is still last week
   x.setDate(x.getDate()-back);
   return x.getTime();
+}
+function realWeekKey(ts){
+  const d=new Date(realWeekStart(new Date(ts)));
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function tueWeekStart(now=new Date()){
+  const t=bucksTestMs();
+  if(t) return Math.floor(now.getTime()/t)*t;        // fixed-length buckets while testing
+  return realWeekStart(now);
 }
 function bucksWeekKey(now=new Date()){
   const d=new Date(tueWeekStart(now));
@@ -10999,8 +11012,10 @@ function renderNotifications(){
        people most often did not mean, and this is the screen it leaves you on. */
     el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
       <span>Nothing new. You are all caught up.</span></div>
-      ${_ntUndo.length?`<div class="nt-foot"><button class="nt-undo" onclick="ntUndo()">
-        <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:' that'}</button></div>`:''}
+      ${''/* No undo here. It belongs above a stack, and there is no stack — this
+             screen is the end of the run, and Start Over is the control that
+             fits it: one button that puts everything back, rather than one that
+             walks back through what was just cleared. */}
       ${ntSeen().size?`<div class="home-redo-row">${homeRestartBtn('nt')}</div>`:''}`;
     return;
   }
@@ -11607,14 +11622,29 @@ function bkIQHTML(teamId){
 function bankSeries(){
   const mine=betsMine().filter(b=>b.status!=='open'&&betIsLive(b));
   const byWeek={};
-  mine.forEach(b=>{ byWeek[b.wk]=(byWeek[b.wk]||0)+((b.ret||0)-(b.stake||0)); });
+  /* Bucketed by the calendar week the bet was placed in rather than by the
+     bucks cycle it belongs to. For the league those are the same Tuesday and
+     nothing moves; on a short test cycle they are not, and this is what keeps
+     the chart to one point a week instead of one every half hour. */
+  /* A week key parses back to midnight, and midnight on a Tuesday is before
+     the 6am boundary — so stepping straight off it lands in the week before the
+     one meant. Everything derived from a key is nudged to midday first, which
+     is clear of that edge and of daylight saving at both ends. */
+  const NOON=12*3600*1000;
+  const wkOf=b=>{
+    const t=Number(b.ts)||0;
+    if(t) return realWeekKey(t);
+    const p=bucksWeekParts(b.wk);
+    return p?realWeekKey(p.d.getTime()+NOON):String(b.wk||'');
+  };
+  mine.forEach(b=>{ const k=wkOf(b); byWeek[k]=(byWeek[k]||0)+((b.ret||0)-(b.stake||0)); });
   const weeks=Object.keys(byWeek).sort();
   if(!weeks.length) return null;
-  /* one cycle before the first bet, so the line opens on the same footing as
-     any other cycle — and one cycle means one cycle, whatever length it is */
+  /* one week before the first bet, so the line opens on the same footing as
+     any other week */
   const back=d=>{
-    const t=bucksWeekDate(d);
-    return t?bucksWeekKey(new Date(t.getTime()-(bucksTestMs()||7*24*3600*1000))):d;
+    const p=bucksWeekParts(d);
+    return p?realWeekKey(p.d.getTime()+NOON-7*24*3600*1000):d;
   };
   const pts=[{wk:back(weeks[0]),val:BUCKS_WEEKLY,delta:0,start:true}];
   let run=BUCKS_WEEKLY;

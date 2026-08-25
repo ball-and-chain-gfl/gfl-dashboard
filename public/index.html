@@ -3249,7 +3249,10 @@
     /* ── My Profile (header button destination) ───────────────────────────── */
     html[data-theme="dark"][data-tabaccent=profile]{--accent:#E0B67B;--accent2:#E0D27B;--accent-rgb:224,182,123;}
     .mp-head{display:flex;align-items:center;gap:13px;margin-bottom:16px;}
-    .mp-name{font-family:'Google Sans Flex',Georgia,serif;font-size:20px;font-weight:700;line-height:1.15;}
+    /* 20px put the team name at the same weight as a page heading, which it is
+       not — it is the label on a room, with the room itself underneath doing
+       the talking. 16.5 sits it with the rest of the site's second-level type. */
+    .mp-name{font-family:'Google Sans Flex',Georgia,serif;font-size:16.5px;font-weight:700;line-height:1.2;}
     .mp-sub{font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);margin-top:2px;}
     .mp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0 16px;margin-bottom:16px;}
     .mp-c{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 2px;
@@ -3259,7 +3262,13 @@
     .mp-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
     .mp-row select{flex:1 1 180px;font-size:13px;padding:8px 10px;border-radius:7px;
       background:rgba(0,0,0,0.3);color:var(--text);font-family:inherit;}
-    .mp-actions{display:flex;gap:9px;flex-wrap:wrap;}
+    /* Two columns. The plant takes the full width — it is the one that carries
+       a state rather than a count — and the two egg chips pair off underneath,
+       which is what they are: two readings of the same hunt. Wrapping left it
+       to chance, and at most widths it came out one, two, and one alone. */
+    .mp-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:stretch;}
+    .mp-actions>.mp-plant{grid-column:1/-1;}
+    .mp-actions>.mp-egg,.mp-actions>.mp-eggnow{min-width:0;justify-content:center;}
     .mp-actions .mv-btn{width:auto;padding:9px 16px;}
     .mp-out-btn{border-color:rgba(232,67,63,0.45);color:#e8685f;}
     .mp-out-btn:hover{border-color:#e8433f;color:#e8685f;}
