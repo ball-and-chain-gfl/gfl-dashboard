@@ -507,9 +507,19 @@
     /* Two columns under the two sides of the trade above, so a crest sits on
        the same side as the team its owner backed. */
     .trade-vote-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-    .tv-side{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-width:0;
+    /* Crests stack from the top of their cell and hug the side they belong to:
+       the left team's to the top-left, the right team's to the top-right. The
+       two cells are the same height whatever the split, so without
+       align-content the shorter side's row floats in the middle of a box the
+       taller side set the height of. */
+    .tv-side{display:flex;flex-wrap:wrap;align-items:flex-start;align-content:flex-start;
+      justify-content:flex-start;gap:5px;min-width:0;
       padding:7px 8px;border-radius:8px;background:rgba(255,255,255,0.04);}
     .tv-side.tv-l{justify-content:flex-end;}
+    /* A shut-out takes the whole width. Twelve crests in half of it is three
+       rows of four; across the full width it is one row, and which side it is
+       is still said by which edge they are pushed against. */
+    .tv-side.tv-solo{grid-column:1/-1;gap:4px;}
     .tv-none{font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text3);}
     .trade-card:last-child{margin-bottom:18px;}
     .trade-head{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;}
@@ -2692,9 +2702,15 @@
        — close enough to look like a mistake rather than a choice. They sit on a
        shared baseline now, with the seedling centred against them, and the whole
        chip centres in the row the way the two egg chips under it do. */
-    .mp-plant{display:flex;align-items:baseline;justify-content:center;gap:7px;
+    /* Centred in the chip and level with each other. Baseline alignment put the
+       two words on one line but hung the whole group off that baseline, which
+       left the row sitting high in its own padding. Centring the boxes puts the
+       group in the middle of the chip, and line-height:1 on both words is what
+       keeps them level while it does — without it each box carries its font's
+       leading, and two different sizes carry two different amounts. */
+    .mp-plant{display:flex;align-items:center;justify-content:center;gap:7px;
       padding:9px 13px;border-radius:9px;background:rgba(0,0,0,0.3);}
-    .mp-plant>i{align-self:center;}
+    .mp-plant>i{line-height:1;}
     .mp-plant-l{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);line-height:1;}
     .mp-plant-v{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;line-height:1;}

@@ -2260,16 +2260,24 @@ function tradeVoteHTML(tr,winner,loser){
      twelve without saying which three, and in a league of twelve the names are
      the interesting part — you know these people. The crests sit under the side
      they picked, so the card is read the same way the trade above it is. */
-  const crests=sd=>(_cpRows||[])
-    .filter(x=>x&&String(x['tv_'+f]||'')===String(sd.teamId))
-    .map(x=>ntCrest(_ownerMap[Number(x.teamId||0)],22))
-    .join('')||'<span class="tv-none">nobody</span>';
+  const backers=sd=>(_cpRows||[])
+    .filter(x=>x&&String(x['tv_'+f]||'')===String(sd.teamId));
+  const crests=list=>list.map(x=>ntCrest(_ownerMap[Number(x.teamId||0)],22)).join('');
+  const W=backers(winner), L=backers(loser);
+  /* A shut-out gives the whole row to the side that got the votes. Twelve
+     crests in half the width is three rows of four; across the full width it is
+     one. Which side won is still said by the edge they are pushed against —
+     the winner's crests sit left, the loser's right, and that does not change
+     when one of the two cells is not drawn. */
+  const solo=(!W.length||!L.length)&&(W.length||L.length);
+  const cell=(cls,list)=>`<div class="tv-side ${cls}${solo?' tv-solo':''}">${
+    list.length?crests(list):'<span class="tv-none">nobody</span>'}</div>`;
   return `<div class="trade-vote">
     <div class="trade-vote-h"><span>Who the league thought won</span>
       <span class="trade-vote-n">${total} vote${total===1?'':'s'}</span></div>
     <div class="trade-vote-sides">
-      <div class="tv-side tv-w">${crests(winner)}</div>
-      <div class="tv-side tv-l">${crests(loser)}</div>
+      ${(!solo||W.length)?cell('tv-w',W):''}
+      ${(!solo||L.length)?cell('tv-l',L):''}
     </div>
   </div>`;
 }
