@@ -63,22 +63,31 @@ window.GFL_CONFIG = {
      EACH WEEK: bump `week` and replace the five questions. `correct` is the
      zero-based index of the right answer in `a`. Leave `reveal` false while the
      week is live; flip it to true afterwards to show everyone how they did. */
-  /* One dummy notification of every kind, so the whole set can be seen while
-     the league is quiet. Set to false once the season starts and the real ones
-     begin arriving — the demo cards are keyed on fixed ids, so any that have
-     already been swiped away will stay away. */
+  /* ── TESTING SWITCHES ──────────────────────────────────────────────────────
+     Everything marked TESTING below is shown to ONE account and nobody else:
+     the BFT profile. The league sees the live site, and so does anyone signed
+     out. So these can be left on — turning one on no longer changes what the
+     other eleven managers get, and turning one off only takes it away from the
+     testing profile.
+     The account is set in app.js as TEST_PROFILE; it is 'bft', the same key
+     BFT signs in with. Change it there to test on a different account. */
+
+  /* TESTING — one dummy notification of every kind, so the whole set can be
+     seen while the league is quiet. The demo cards are keyed on fixed ids, so
+     any that have already been swiped away will stay away. */
   notifications: { demo: true },
 
-  /* TESTING ONLY — how many minutes a GFL Bucks cycle lasts, standing in for
-     the real Tuesday-to-Tuesday week. Set to 0 (or delete this line) to go back
-     to the real thing. Bets already placed stay attached to the cycle they were
-     made in either way.
+  /* TESTING — how many minutes a GFL Bucks cycle lasts, standing in for the
+     real Tuesday-to-Tuesday week. The league is on the real week; this is what
+     the testing profile gets. Set to 0 (or delete this line) to put the testing
+     profile on the real week too. Bets already placed stay attached to the
+     cycle they were made in either way.
 
      Now that bucks compound rather than reset, this does more than hurry a
      countdown along: a fresh allowance lands every cycle and is kept, so a
-     short cycle inflates every bank in the league. At 30 minutes that is 48
-     allowances a day — about $4,800 banked for doing nothing. Fine for
-     watching the mechanic work, worth turning off before the season counts. */
+     short cycle inflates the bank it applies to. At 30 minutes that is 48
+     allowances a day — about $4,800 for doing nothing. That is now the testing
+     profile's bank alone, which is the point of it being the testing one. */
   bucksTestMinutes: 30,
 
   /* Bets placed before this moment are ignored everywhere — My Bets, the
@@ -88,10 +97,16 @@ window.GFL_CONFIG = {
      start over again; set to 0 to count everything ever placed. */
   betsResetBefore: 1787348483576,
 
-  /* TESTING ONLY — how long one locker-room plant stage lasts, in minutes.
+  /* TESTING — how long one locker-room plant stage lasts, in minutes.
      Fractions are fine: 0.25 is fifteen seconds a stage, so the plant runs
      from thriving to dead in about a minute and a half.
-     0 (or delete) uses the real three days per stage. */
+     0 (or delete) uses the real three days per stage.
+
+     A stage is worked out from the moment a plant was last watered rather than
+     stored, so this is the clock of whoever is LOOKING. While it is on, the
+     testing profile sees every locker room's plant on the fast clock, its own
+     and everyone else's. The league sees all of them on the real three days,
+     including the testing profile's. */
   plantTestMinutes: 0.25,
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before
@@ -111,8 +126,9 @@ window.GFL_CONFIG = {
        the same: a trivia question, a weekly pick, a settled bet. */
     iq: { step: 2 },
     /* TESTING — serve one of every kind of question instead of the weekly five,
-       and let the graph question through before week 5. Set false for the real
-       five-a-week set. */
+       and let the graph question through before week 5. The league gets the
+       real five-a-week set regardless; this is the testing profile's view.
+       Set false to put the testing profile on the weekly five as well. */
     previewAll: true,
   },
 

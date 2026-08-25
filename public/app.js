@@ -3431,8 +3431,11 @@ function punishScheduleHTML(){
       ${on?'<span class="punish-tag">THIS WEEK</span>':''}
     </div>`);
   }
+  /* The instruction is for whoever edits the file, and the league is not
+     that person — an unfilled week already reads TBD, which says the same
+     thing to them without handing them a filename. */
   return `<div class="ps-list">${rows.join('')}</div>
-    <div class="ps-note">Set each week under <b>punishment.schedule</b> in config.js.</div>`;
+    ${isTestProfile()?`<div class="ps-note">Set each week under <b>punishment.schedule</b> in config.js.</div>`:''}`;
 }
 
 /* Which punishment the tab is showing. Reset to this week's on every render,
@@ -3454,7 +3457,9 @@ function punishRulesHTML(){
         <div class="pr-name">${sel||'TBD'}</div>
       </div>
     </div>
-    <p class="pr-note${detail?'':' pr-empty'}">${detail||'No description written for this one yet — add it under <b>punishment.details</b> in config.js.'}</p>
+    <p class="pr-note${detail?'':' pr-empty'}">${detail
+      ||(isTestProfile()?'No description written for this one yet — add it under <b>punishment.details</b> in config.js.'
+                        :'No description written for this one yet.')}</p>
     <!-- "How it works" is deliberately not rendered: it was the bulk of the
          sheet's height and pushed it past the screen on an installed home-screen
          icon. cfg.rules is left in config so it can come back if wanted. -->
@@ -6171,6 +6176,25 @@ const gflDocUrl=id=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.proje
 const keySlug=s=>String(s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
 let _me=null;                                  // {k1,k2,teamId} once signed in
 
+/* ── THE TESTING PROFILE ─────────────────────────────────────────────────────
+   The site was built with a handful of switches thrown: demo notification
+   cards so the whole set could be seen out of season, a bucks cycle measured
+   in minutes, a plant that dies in ninety seconds, one Ball Knowledge question
+   of every kind instead of the weekly five, and a poll that reveals at two
+   ballots. Every one of them is now off for the league and on for one account.
+
+   Off rather than deleted. The knobs stay in config.js where they have always
+   been, and they still do exactly what their comments say — they just answer
+   to whoever is looking. So the next thing can be tried on this profile
+   without turning the season back off for eleven other people, which is what
+   flipping a global flag amounted to.
+
+   The id is the team's abbreviation slug, the same string sign-in checks, so
+   this is the account and not merely the team. Signed out is a real visitor
+   and gets the live site. */
+const TEST_PROFILE='bft';                      // The Bryan Football Team
+const isTestProfile=()=>!!_me&&_me.k1===TEST_PROFILE;
+
 function meLoad(){ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } }
 function meSave(){ try{ _me?localStorage.setItem('gfl-me',JSON.stringify(_me)):localStorage.removeItem('gfl-me'); }catch(e){} }
 
@@ -6748,7 +6772,10 @@ function lockerRoomHTML(t,opts){
 const PLANT_STAGES=['Thriving','Healthy','Getting dry','Drooping','Wilting','Dead'];
 const plantKey=()=>'plant_'+(_me?_me.k1:'guest');
 const plantMs=()=>{
-  const m=Number(_CFG.plantTestMinutes??0);
+  /* the short stage is the testing profile's, so the league's plants keep the
+     real three days — and note it is the *viewer's* clock, since a stage is
+     worked out from a watering time rather than stored */
+  const m=Number(isTestProfile()?(_CFG.plantTestMinutes??0):0);
   return m>0?m*60*1000:3*24*3600*1000;        // three days unless testing
 };
 /* A stage from any watering timestamp. Visiting another locker room needs
@@ -9150,11 +9177,13 @@ let _bets=null,_betErr=null,_betBusy=false;
    own this rule; both callers share it now so the board and the bucks week can
    never disagree about when a week turned over. */
 /* TESTING: config.bucksTestMinutes shortens the bucks cycle so the whole reset
-   can be watched in a few minutes instead of waiting a week. Set it to 0 or
-   remove it to go back to Tuesday 6am. Nothing else in the app knows the
-   difference — every bucks helper reads the week through here. */
+   can be watched in a few minutes instead of waiting a week. It applies to the
+   testing profile alone — the league is on Tuesday 6am whatever it says. Set it
+   to 0 or remove it to put that profile back on the real week too. Nothing else
+   in the app knows the difference: every bucks helper reads the week through
+   here, so who is signed in is asked once, in one place. */
 const bucksTestMs=()=>{
-  const m=Number((_CFG.bucksTestMinutes??0));
+  const m=Number(isTestProfile()?(_CFG.bucksTestMinutes??0):0);
   return m>0 ? m*60*1000 : 0;
 };
 function tueWeekStart(now=new Date()){
@@ -9696,7 +9725,12 @@ async function bkBack(){
 function bkWeek(){ return Number((_liveInfo||liveWeekInfo()||{}).week)||1; }
 let _bkQCache={key:'',qs:[]};
 function bkQuestions(){
-  const season=bkSeason(), week=bkWeek(), key=season+':'+week;
+  const season=bkSeason(), week=bkWeek();
+  /* previewAll is in the key, not only in the build. It answers to who is
+     signed in now, so signing into the testing profile — or out of it — has to
+     rebuild rather than hand back the set the other view had already cached. */
+  const all=isTestProfile()&&!!(_CFG.ballKnowledge||{}).previewAll;
+  const key=season+':'+week+(all?':all':'');
   if(_bkQCache.key===key&&_bkQCache.qs.length) return _bkQCache.qs;
   /* both are fire-and-forget: they repaint the card when they land, and until
      then the generators that need them simply decline to build */
@@ -9705,7 +9739,6 @@ function bkQuestions(){
      can be looked over before a season is running. The graph question is
      normally held back until after week 5; in preview it is let through, or
      there would be nothing to look at. */
-  const all=!!(_CFG.ballKnowledge||{}).previewAll;
   const want=all?BK_KINDS.length:5;
   const qs=bkBuildWeek(season,all?99:week,want);
   /* Only a full set is worth keeping. The pool and the bios arrive after the
@@ -9792,7 +9825,7 @@ function renderBallKnowledge(){
        nothing to swipe. Answering retires the card and the next takes its slot.
        Which of the set this is stays on show while previewAll is on, since that
        is the only way to tell one kind from another while looking them over. */
-    const showKind=!!(_CFG.ballKnowledge||{}).previewAll;
+    const showKind=isTestProfile()&&!!(_CFG.ballKnowledge||{}).previewAll;
     const card=(i)=>{
       const q=qs[i];
       return `<div class="bk-card bk-open bk-enter">
@@ -10493,7 +10526,7 @@ function ntCrowns(out){
    is running. Owners are read off the real franchise list where there is one,
    so the crests and names are the league's own. */
 function ntDemo(out){
-  if(!(_CFG.notifications||{}).demo) return;
+  if(!isTestProfile()||!(_CFG.notifications||{}).demo) return;
   const d=ntToday(), day=n=>d-n*86400000;
   const T2=ntResultsDay(Date.now());
   const fr=_franchises||[];
@@ -10732,7 +10765,7 @@ function ntLive(){
      card into its place, so a kind could be swiped away over and over and the
      feed looked full of duplicates. Choosing the representative first means
      each kind has exactly one card, and clearing it clears that kind. */
-  if((_CFG.notifications||{}).demo){
+  if(isTestProfile()&&(_CFG.notifications||{}).demo){
     const kinds=new Set();
     list=list.filter(n=>{ if(kinds.has(n.kind)) return false; kinds.add(n.kind); return true; });
   }
@@ -11100,10 +11133,9 @@ function renderCoachesPoll(){
   const {ballots,rank}=cpTally();
   const total=_franchises.length||_teams.length;
   /* Seven is enough to be a poll rather than a couple of opinions; the rest
-     can still come in and shift it after that. */
-  /* TESTING: two ballots is enough to show the poll. Put this back to 7 when
-     the real thing runs. */
-  const REVEAL_AT=2;
+     can still come in and shift it after that. Two for the testing profile,
+     which is the only way to see a result before seven people have voted. */
+  const REVEAL_AT=isTestProfile()?2:7;
   const complete=ballots>=REVEAL_AT;
 
   if(!_me){
