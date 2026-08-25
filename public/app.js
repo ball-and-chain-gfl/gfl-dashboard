@@ -2140,6 +2140,10 @@ function tradeTeamAvatar(season,teamId){
 }
 async function renderTradesTab(){
   const body=document.getElementById('trades-body'); if(!body) return;
+  /* the vote tallies ride on the league's profile documents, which the poll
+     pulls on the homepage — this tab may be the first thing opened, so ask for
+     them here too. It repaints when they land and is a no-op once they have. */
+  try{ cpSync(); }catch(e){}
   const scopeSeasons = _tradeScope==='alltime' ? ALL_SEASONS.filter(s=>_seasonMeta[s]) : [getSeason()];
 
   body.dataset.loading='1';
@@ -2156,7 +2160,10 @@ async function renderTradesTab(){
       const a=tr.teams[0],b=tr.teams[1];
       const _tA=Math.max(a.total,0),_tB=Math.max(b.total,0);
       const share=(_tA+_tB)>0?Math.max(a.total,b.total)/(_tA+_tB):0.5;
-      list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total),share});
+      /* the vote is named off the raw trade, before the card decides which of
+         the two sides won and reorders them */
+      list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total),share,
+        voteId:ntTradeVoteId(season,tr)});
     });
   });
   // optional team filter (by franchise owner, works across seasons)
@@ -2226,9 +2233,44 @@ async function renderTradesTab(){
       <div class="trade-totals"><span style="color:${cW}">${winner.total.toFixed(1)} pts</span><span style="color:${cL}">${loser.total.toFixed(1)} pts</span></div>
       <div class="trade-bar"><span style="width:${(wPct*100).toFixed(1)}%;background:${cW}"></span><span style="flex:1;background:${cL}"></span></div>
       <div class="trade-bar-labels"><span style="color:${cW};font-weight:700">${(wShare*100).toFixed(0)}% of post-trade points</span><span style="color:${cL};font-weight:700">${(100-wShare*100).toFixed(0)}%</span></div>
+      ${tradeVoteHTML(tr,winner,loser)}
     </div>`;
   }).join('')+`<div style="padding:0 2px 16px;font-size:12px;color:var(--text3);line-height:1.6">Each side shows the players a manager received and the points those players scored from the trade week onward — the bar splits by share of post-trade points (45–55% = fair).${reconstructedAny?' Completed seasons are <b>reconstructed from weekly rosters</b> since ESPN deletes the trade log; a few trades whose returned player was immediately dropped or was a draft pick can\'t be recovered. Seasons from 2026 on are archived live and show every trade.':''}</div>`;
   body.dataset.loading='';
+}
+
+/* ── WHAT THE LEAGUE SAID AT THE TIME ────────────────────────────────────────
+   The trade notification asks who won and is gone by Tuesday. The answer is
+   worth more later than it is that week — the whole point of asking before the
+   season has settled it is being able to look back at what everyone thought —
+   so the tally is drawn on the trade itself, in the same split bar the card
+   already uses for post-trade points. The two readings sit one above the other,
+   which is the comparison worth having: what the league guessed, and what
+   actually happened.
+
+   Nothing is drawn until somebody has voted. An empty bar under every trade
+   ESPN ever recorded would be a row of noise. */
+function tradeVoteHTML(tr,winner,loser){
+  if(!tr.voteId) return '';
+  const f=String(tr.voteId).replace(/[^a-zA-Z0-9_]/g,'_');
+  let tally={}; try{ tally=ntVoteTally(f)||{}; }catch(e){ return ''; }
+  const total=Object.values(tally).reduce((a,b)=>a+b,0);
+  if(!total) return '';
+  const pct=sd=>Math.round((tally[String(sd.teamId)]||0)/total*100);
+  const w=pct(winner), l=pct(loser);
+  const nm=sd=>tradeTeamAb(tr.season,sd.teamId);
+  return `<div class="trade-vote">
+    <div class="trade-vote-h"><span>Who the league thought won</span>
+      <span class="trade-vote-n">${total} vote${total===1?'':'s'}</span></div>
+    <div class="trade-vote-bar">
+      <span style="width:${w}%;background:var(--green)"></span>
+      <span style="width:${l}%;background:var(--red)"></span>
+    </div>
+    <div class="trade-vote-l">
+      <span style="color:var(--green)">${nm(winner)} ${w}%</span>
+      <span style="color:var(--red)">${nm(loser)} ${l}%</span>
+    </div>
+  </div>`;
 }
 
 // ── DRAFT TAB ──────────────────────────────────────────────────────────────────
@@ -8938,10 +8980,18 @@ function invProfitSeries(){
   if(!lw||Math.abs(lw.val-nowProfit)>0.005||lw.start) pts.push({wk:'now',val:nowProfit,now:true});
   return pts.length>1?{pts,net:nowProfit}:null;
 }
-/* Same chart the bankroll line uses, on the portfolio's numbers. */
+/* Same chart the bankroll line uses, on the portfolio's numbers — including
+   when there is nothing to draw. Selling the last share used to take the whole
+   panel off the page, so the one view that is a record of what you have done
+   went blank the moment you closed a position. The bankroll chart next door
+   keeps its frame and says why it is empty; this does the same. */
 function invChartHTML(){
   const d=invProfitSeries();
-  if(!d) return '';
+  if(!d) return `<div class="inv-chart">
+    <div class="inv-ch-h"><span>Profit since you started</span>
+      <b style="color:var(--text2)">${invFmt(0)}</b></div>
+    <div class="bank-empty">Nothing to plot yet — the line starts with your first trade.</div>
+  </div>`;
   const W=600,H=114,padL=8,padR=8,padT=12,padB=10;
   const vals=d.pts.map(p=>p.val);
   let lo=Math.min(...vals,0), hi=Math.max(...vals,0);
@@ -10477,6 +10527,13 @@ function ntBigFaab(out){
       body:`<b>${nm}</b> spent <b>$${bid}</b> of FAAB on <b>${pl}</b>.`});
   });
 }
+/* The name of a trade's vote. Shared, because the notification writes under it
+   and the trades tab reads it back — two spellings of this would silently show
+   an empty tally next to a trade the league had voted on. */
+function ntTradeVoteId(season,tr){
+  const teams=tr.teams||[];
+  return `td:${season}:${tr.id||teams.map(t=>t.teamId).join('-')+':'+(tr.date||'')}`;
+}
 /* the trade board, with a vote on who came out ahead */
 function ntTrades(out){
   const season=ntSeason(); if(!season) return;
@@ -10489,9 +10546,18 @@ function ntTrades(out){
     }
     return;
   }
+  /* This week's trades and no others. The card asks a question about a trade
+     that has just happened, and a season's worth of them arriving at once is a
+     back catalogue rather than news. Anything agreed since Tuesday shows, later
+     ones stack on top of earlier ones as they land, and the whole set drops off
+     when the next Tuesday turns over. Where the answers live after that is the
+     trades tab, which draws the same tally on the trade itself. */
+  const thisWeek=ntResultsDay(Date.now());
   (cached.trades||[]).forEach(tr=>{
     const teams=tr.teams||[]; if(teams.length<2) return;
-    const id=`td:${season}:${tr.id||teams.map(t=>t.teamId).join('-')+':'+(tr.date||'')}`;
+    const when=Number(tr.date||tr.proposedDate)||0;
+    if(!when||ntResultsDay(when)!==thisWeek) return;
+    const id=ntTradeVoteId(season,tr);
     const nm=t=>(_teams.find(x=>x.id===Number(t.teamId))||{}).name||('Team '+t.teamId);
     const own=t=>_ownerMap[Number(t.teamId)];
     const got=t=>(t.players||[]).map(p=>p.n).filter(Boolean);
@@ -10831,12 +10897,13 @@ function ntVotesHTML(){
     return `<div class="nt-vd-row">
       <div class="nt-vd-t">${n.vote.sides.map(x=>x.label).join(' · ')}</div>
       <div class="nt-vote">${n.vote.sides.map(s=>`
-        <button class="nt-vb${mine===s.k?' on':''}" onclick="ntVote('${f}','${s.k}')">
+        <button class="nt-vb${mine===s.k?' on':''}"${mine?' disabled':''}
+          onclick="ntVote('${f}','${s.k}')">
           <span class="nt-vb-l">${s.label}</span>
           ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
         </button>`).join('')}</div>
       <div class="nt-vn">${total?`${total} vote${total===1?'':'s'} in`:'No votes yet'}${
-        mine?'':' · you have not voted'}</div>
+        mine?' · your call is in':' · you have not voted'}</div>
     </div>`;
   }).join('');
   return `<div class="nt-vd"><div class="nt-vd-h">How the trades were voted</div>${blocks}</div>`;
@@ -10851,9 +10918,15 @@ function ntMyVote(vid){
   const me=(_cpRows||[]).find(p=>p.id===_me.k1);
   return me?String(me['tv_'+vid]||''):'';
 }
+/* One vote per trade, and it stands. The question is what you thought at the
+   time, and an answer you can go back and change after the season has told you
+   who was right is not that — it is a record of who read the box score. The
+   buttons render disabled once a vote is in; this is the half that matters,
+   since the field is writable either way. */
 async function ntVote(vid,side){
   if(!_me){ openSignIn(); return; }
   const fieldSafe=String(vid).replace(/[^a-zA-Z0-9_]/g,'_');
+  if(ntMyVote(fieldSafe)) return;
   try{ await gflPatchProfile(_me.k1,{['tv_'+fieldSafe]:String(side)}); }catch(e){}
   const me=(_cpRows||[]).find(p=>p.id===_me.k1);
   if(me) me['tv_'+fieldSafe]=String(side);
@@ -10950,10 +11023,12 @@ function renderNotifications(){
       ${n.art?`<div class="nt-art">${n.art}</div>`:''}
       ${n.body?`<div class="nt-body">${n.body}</div>`:''}
       ${n.vote?`<div class="nt-vote">${n.vote.sides.map(s=>`
-          <button class="nt-vb${mine===s.k?' on':''}" onclick="ntVote('${fieldSafe}','${s.k}')">
+          <button class="nt-vb${mine===s.k?' on':''}"${mine?' disabled':''}
+            onclick="ntVote('${fieldSafe}','${s.k}')">
             <span class="nt-vb-l">${s.label}</span>
             ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
           </button>`).join('')}</div>
+        ${mine?`<div class="nt-voted"><i class="fa fa-lock"></i>Your call is in — votes are final.</div>`:''}
         ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`:''}
       ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
     </div>
@@ -11139,7 +11214,9 @@ async function cpSync(){
   if(_cpFetched) return; _cpFetched=true;
   try{
     const rows=await gflListProfiles();
-    if(rows){ _cpRows=rows; renderCoachesPoll(); }
+    if(rows){ _cpRows=rows; renderCoachesPoll();
+      /* the trade cards read their tallies out of the same rows */
+      if(_activeTab==='trades') try{ renderTradesTab(); }catch(e){} }
   }catch(e){}
 }
 function cpToggle(teamId){
@@ -13092,7 +13169,7 @@ function invPortfolioHTML(){
      balance — which now lives in the nav, where it is on show whatever page you
      are on. The chart underneath was already telling the profit story with a
      line rather than a number, so nothing here is lost by dropping the row. */
-  if(!owners.length) return `<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
+  if(!owners.length) return invChartHTML()+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
     <div>No shares yet. The market is on the Investments tab.</div></div>`;
   const chart=invChartHTML();
   const rows=owners.map(o=>{
