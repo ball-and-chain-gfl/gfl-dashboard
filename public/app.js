@@ -8943,9 +8943,29 @@ function invNetSpent(){
    two together gives the true line, exactly, for free, and it is right about
    trades made before this was ever written.
 
-   Profit rather than value on purpose. Value goes up when you buy more, which
-   says how invested you are and nothing about whether you are any good at it;
-   profit only moves when a holding gains or loses, which is the question. */
+   Profit rather than value. Value goes up when you buy more, which says how
+   invested you are and nothing about whether you are any good at it.
+
+   And profit means the whole of it — what a sale actually banked plus what the
+   open positions are up or down — the same reading the bankroll line takes of a
+   settled bet. It used to count only what was still held, so selling a winner
+   dropped the line back to zero and the chart said you had made nothing the
+   moment you took the money. Selling at a profit moves this line up and leaves
+   it there. */
+/* what every sale actually banked, against the average cost of what it sold */
+function invRealised(){
+  const sh={},cost={}; let real=0;
+  invLots().forEach(l=>{
+    const o=l.o, n=Number(l.s)||0, p=Number(l.p)||0;
+    if(!o||!n) return;
+    if(l.k==='s'){
+      const avg=sh[o]?cost[o]/sh[o]:0;
+      real+=n*(p-avg);
+      sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n;
+    } else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
+  });
+  return real;
+}
 const invWeekNow=()=>Number((_liveInfo||liveWeekInfo()||{}).week)||1;
 function invProfitSeries(){
   const lots=invLots();
@@ -8961,13 +8981,19 @@ function invProfitSeries(){
   const at=w=>{
     const px=invPricesAt(season,w);
     const sh={}, cost={};
+    let real=0;
     lots.filter(l=>wk(l)<=w).forEach(l=>{
       const o=l.o, n=Number(l.s)||0, p=Number(l.p)||0;
       if(!o||!n) return;
-      if(l.k==='s'){ const avg=sh[o]?cost[o]/sh[o]:0; sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n; }
-      else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
+      if(l.k==='s'){
+        const avg=sh[o]?cost[o]/sh[o]:0;
+        real+=n*(p-avg);
+        sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n;
+      } else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
     });
-    let profit=0;
+    /* banked by that week, plus whatever the open positions were worth against
+       what they cost — a running total rather than a snapshot of the holdings */
+    let profit=real;
     Object.keys(sh).forEach(o=>{ if(sh[o]>0.0001) profit+=sh[o]*((px[o]||INV_BASE)-(cost[o]/sh[o])); });
     return profit;
   };
@@ -9043,8 +9069,11 @@ function invValue(){
   const h=invHoldings();
   return Object.keys(h).reduce((a,o)=>a+h[o]*invPrice(o),0);
 }
-function invProfit(){ return invValue()-Object.keys(invHoldings())
-  .reduce((a,o)=>a+invHoldings()[o]*invCostBasis(o),0); }
+function invProfit(){
+  const h=invHoldings();
+  const open=Object.keys(h).reduce((a,o)=>a+h[o]*(invPrice(o)-invCostBasis(o)),0);
+  return invRealised()+open;
+}
 
 let _invBusy=false,_invErr='';
 async function invTrade(owner,shares,sell){
@@ -10879,35 +10908,6 @@ function ntLive(){
 function ntDone(){ return ntLive().length===0; }
 
 /* ── the card ───────────────────────────────────────────────────────────── */
-/* ── THE VOTES OUTLIVE THE CARDS ─────────────────────────────────────────────
-   A trade card asks a question, and swiping it away used to take the answer
-   with it — the league voted and then had nowhere to see what the league said.
-   Once the stack is empty every trade that carried a vote is listed with its
-   tally, whether its card was cleared or not, and anyone who never answered can
-   still answer from here. Same buttons, same field, so a vote cast here and a
-   vote cast on the card are the same vote. */
-function ntVotesHTML(){
-  let all=[]; try{ all=ntAll(); }catch(e){ return ''; }
-  const votes=all.filter(n=>n&&n.vote&&n.vote.sides&&n.vote.sides.length);
-  if(!votes.length) return '';
-  const blocks=votes.map(n=>{
-    const f=String(n.vote.id).replace(/[^a-zA-Z0-9_]/g,'_');
-    const tally=ntVoteTally(f)||{}, mine=ntMyVote(f);
-    const total=Object.values(tally).reduce((a,b)=>a+b,0);
-    return `<div class="nt-vd-row">
-      <div class="nt-vd-t">${n.vote.sides.map(x=>x.label).join(' · ')}</div>
-      <div class="nt-vote">${n.vote.sides.map(s=>`
-        <button class="nt-vb${mine===s.k?' on':''}"${mine?' disabled':''}
-          onclick="ntVote('${f}','${s.k}')">
-          <span class="nt-vb-l">${s.label}</span>
-          ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
-        </button>`).join('')}</div>
-      <div class="nt-vn">${total?`${total} vote${total===1?'':'s'} in`:'No votes yet'}${
-        mine?' · your call is in':' · you have not voted'}</div>
-    </div>`;
-  }).join('');
-  return `<div class="nt-vd"><div class="nt-vd-h">How the trades were voted</div>${blocks}</div>`;
-}
 function ntVoteTally(vid){
   const rows=_cpRows||[]; const t={};
   rows.forEach(p=>{ const v=String(p['tv_'+vid]||'').trim(); if(v) t[v]=(t[v]||0)+1; });
@@ -10918,15 +10918,13 @@ function ntMyVote(vid){
   const me=(_cpRows||[]).find(p=>p.id===_me.k1);
   return me?String(me['tv_'+vid]||''):'';
 }
-/* One vote per trade, and it stands. The question is what you thought at the
-   time, and an answer you can go back and change after the season has told you
-   who was right is not that — it is a record of who read the box score. The
-   buttons render disabled once a vote is in; this is the half that matters,
-   since the field is writable either way. */
+/* Change it as often as you like while the card is in front of you — it is the
+   swipe that commits, not the tap. Once the card is cleared there is no way back
+   to it and no other screen renders these buttons, so the answer stands as
+   whatever it was when you let the card go. */
 async function ntVote(vid,side){
   if(!_me){ openSignIn(); return; }
   const fieldSafe=String(vid).replace(/[^a-zA-Z0-9_]/g,'_');
-  if(ntMyVote(fieldSafe)) return;
   try{ await gflPatchProfile(_me.k1,{['tv_'+fieldSafe]:String(side)}); }catch(e){}
   const me=(_cpRows||[]).find(p=>p.id===_me.k1);
   if(me) me['tv_'+fieldSafe]=String(side);
@@ -10951,7 +10949,18 @@ function ntUndo(){
   renderNotifications();
   try{ orderHomeTodo(); }catch(e){}
 }
+/* A card carrying a vote is not clearable until it has one. It is the only kind
+   that asks the manager for something rather than telling them something, and a
+   question that can be flicked away unanswered is not a question. */
+function ntNeedsVote(n){
+  if(!n||!n.vote) return false;
+  return !ntMyVote(String(n.vote.id).replace(/[^a-zA-Z0-9_]/g,'_'));
+}
+function ntLockedId(id){
+  try{ return ntNeedsVote(ntLive().find(x=>x.id===id)); }catch(e){ return false; }
+}
 function ntDismiss(id){
+  if(ntLockedId(id)) return;
   /* a trash-talk card is the sender's one slot: clearing it is what gives it
      back to them, so the swipe has to reach the field and not just the log */
   const isTT=String(id).startsWith('tt:');
@@ -10989,7 +10998,6 @@ function renderNotifications(){
        people most often did not mean, and this is the screen it leaves you on. */
     el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
       <span>Nothing new. You are all caught up.</span></div>
-      ${ntVotesHTML()}
       ${_ntUndo.length?`<div class="nt-foot"><button class="nt-undo" onclick="ntUndo()">
         <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:' that'}</button></div>`:''}
       ${ntSeen().size?`<div class="home-redo-row">${homeRestartBtn('nt')}</div>`:''}`;
@@ -11002,6 +11010,7 @@ function renderNotifications(){
   const tally=n.vote?ntVoteTally(fieldSafe):null;
   const mine=n.vote?ntMyVote(fieldSafe):'';
   const total=tally?Object.values(tally).reduce((a,b)=>a+b,0):0;
+  const needVote=ntNeedsVote(n);
   /* The count and the undo sit above the stack rather than under it. They are
      about the stack, not about the card — and under a card whose height changes
      with every swipe they moved every time, which is the worst place to put the
@@ -11012,23 +11021,25 @@ function renderNotifications(){
       ${_ntUndo.length?`<button class="nt-undo" onclick="ntUndo()">
         <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:''}</button>`:''}
     </div>
-    <div class="nt-card nt-${meta.tone}" id="nt-card" data-id="${String(n.id).replace(/"/g,'&quot;')}">
+    <div class="nt-card nt-${meta.tone}" id="nt-card" data-id="${String(n.id).replace(/"/g,'&quot;')}"
+      ${needVote?'data-lock="1"':''}>
       <div class="nt-top">
         <span class="nt-ico"><i class="fa ${meta.icon}"></i></span>
         <span class="nt-t">${n.title}</span>
         <span class="nt-day">${ntWhen(n.day)}</span>
         <button class="nt-x" onclick="ntDismiss('${String(n.id).replace(/'/g,"\\'")}')"
+          ${needVote?'disabled title="Pick a side first"':''}
           aria-label="Dismiss"><i class="fa fa-xmark"></i></button>
       </div>
       ${n.art?`<div class="nt-art">${n.art}</div>`:''}
       ${n.body?`<div class="nt-body">${n.body}</div>`:''}
       ${n.vote?`<div class="nt-vote">${n.vote.sides.map(s=>`
-          <button class="nt-vb${mine===s.k?' on':''}"${mine?' disabled':''}
+          <button class="nt-vb${mine===s.k?' on':''}"
             onclick="ntVote('${fieldSafe}','${s.k}')">
             <span class="nt-vb-l">${s.label}</span>
             ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
           </button>`).join('')}</div>
-        ${mine?`<div class="nt-voted"><i class="fa fa-lock"></i>Your call is in — votes are final.</div>`:''}
+        ${needVote?`<div class="nt-voted"><i class="fa fa-hand-pointer"></i>Pick a side — this one does not clear until you do.</div>`:''}
         ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`:''}
       ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
     </div>
@@ -11047,7 +11058,9 @@ function ntWireSwipe(){
     card.style.transition='transform .22s ease, opacity .22s ease';
     const dt=Math.max(1,Date.now()-t0);
     const fling=Math.abs(dx)/dt>0.5;
-    if(Math.abs(dx)>90||fling){
+    /* a card waiting on an answer moves under the finger and springs back —
+       the drag still reads as a drag, it just has nowhere to go */
+    if((Math.abs(dx)>90||fling)&&card.dataset.lock!=='1'){
       card.style.transform=`translateX(${dx>0?400:-400}px) rotate(${dx>0?6:-6}deg)`;
       card.style.opacity='0';
       setTimeout(()=>ntDismiss(card.dataset.id||''),190);

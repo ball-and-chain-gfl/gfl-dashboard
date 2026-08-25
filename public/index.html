@@ -2564,14 +2564,15 @@
     .nt-vb-n{flex:0 0 auto;font-size:11px;font-weight:800;color:var(--text2);}
     .nt-vb.on{border-color:rgba(var(--accent-rgb),0.7);background:rgba(var(--accent-rgb),0.14);color:var(--text);}
     .nt-vb.on .nt-vb-n{color:var(--accent);}
-    /* Locked. A vote is final, so once one is cast neither button is a control
-       any more — the one you picked stays lit and the other reads as a result
-       rather than as something still on offer. */
-    .nt-vb[disabled]{cursor:default;}
-    .nt-vb[disabled]:not(.on){opacity:.62;}
+    /* The prompt on a card that will not clear until it is answered, and the
+       dead X that goes with it. Both buttons stay live: the answer can be
+       changed as often as you like while the card is up, and it is letting the
+       card go that commits it. */
     .nt-voted{margin-top:7px;display:flex;align-items:center;justify-content:center;gap:6px;
       font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text2);}
-    .nt-voted i{font-size:10px;color:var(--green);}
+    .nt-voted i{font-size:10px;color:var(--accent);}
+    .nt-x[disabled]{opacity:.35;cursor:default;}
+    .nt-x[disabled]:hover{color:var(--text3);background:none;}
     .nt-vn{margin-top:7px;font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text2);
       text-align:center;}
     /* Centred under the card, and neutral. It wore the page accent, which on
@@ -2597,18 +2598,6 @@
     .nt-hint{font-size:10px;color:var(--text3);}
     /* Quiet on purpose: it only appears after a swipe, and it should read as a
        way back rather than as something to press. */
-    /* ── The votes, once the stack is empty ───────────────────────────────
-       A trade card asks a question and swiping it away used to take the answer
-       with it. The tallies stay here, and anyone who never answered can still
-       answer — same buttons, same field, so it is the same vote either way. */
-    .nt-vd{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
-    .nt-vd-h{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
-      letter-spacing:.5px;text-transform:uppercase;color:var(--text2);text-align:center;}
-    .nt-vd-row{padding:11px 12px;border-radius:11px;background:rgba(0,0,0,0.3);}
-    .nt-vd-t{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;
-      color:var(--text);text-align:center;margin-bottom:2px;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .nt-vd-row .nt-vote{margin-top:9px;}
     .nt-undo{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;
       border-radius:999px;border:1px solid rgba(255,255,255,0.14);
       background:rgba(255,255,255,0.05);box-shadow:none;
