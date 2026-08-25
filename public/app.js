@@ -9552,8 +9552,12 @@ function bkqGroup(r){
   const right=four[0];
   const opts=bkShuffle(r,four);
   return {kind:'group',
-    q:c.prior?`Which team's ${posN}s put up the most fantasy points in ${c.season}?`
-             :`Which team's ${posN}s have scored the most fantasy points this year?`,
+    /* "out of these four" is not padding. The four are drawn at random from
+       the top sixteen, not taken off the top, so without it the question reads
+       as "who led the league" — which has one answer everybody knows, and is
+       not the question being asked. */
+    q:c.prior?`Which team's ${posN}s put up the most fantasy points in ${c.season}, out of these four?`
+             :`Which team's ${posN}s have scored the most fantasy points this year, out of these four?`,
     note:`Every ${posN} on the roster, added together`,
     a:opts.map(g=>`${NFL_FULL[g.t]||g.t} ${posN}s`),
     correct:opts.findIndex(g=>g.t===right.t)};
@@ -9827,13 +9831,29 @@ function bkLoadPool(season){
    The switch is in the wording as well as the data: a question about last year
    says the year, and a question about this one says "this year". Nothing else
    would tell you which you were being asked. */
+/* THE SEASON THE QUESTIONS BELONG TO is the one being played, which is not the
+   same as the newest season with a score in it. In August the league year has
+   turned over and nothing has kicked off: bkSeason still answers "last year",
+   because that is the last year anybody scored, and it is right to for the
+   roster stand-ins that read it. The quiz is not asking about the last year
+   anybody scored — it is asking this year's questions, and the year it looks
+   back at is the one just finished. So it anchors on the league year and the
+   two only agree once a ball is kicked. */
+function bkLeagueSeason(){
+  const y=String(nflSeasonYear());
+  return ALL_SEASONS.includes(y)?y:ALL_SEASONS[ALL_SEASONS.length-1];
+}
+/* the newest season before this one that was actually played — a year with a
+   schedule and no scores in it is not something to ask questions about */
 function bkPrevSeason(){
-  const cur=Number(bkSeason())||0;
-  const have=ALL_SEASONS.filter(y=>Number(y)<cur&&_seasonMeta[y]).sort();
+  const cur=Number(bkLeagueSeason())||0;
+  const played=y=>{const m=_seasonMeta[y];
+    return m&&(m.schedule||[]).some(x=>x.home&&x.away&&((x.home.totalPoints||0)>0||(x.away.totalPoints||0)>0));};
+  const have=ALL_SEASONS.filter(y=>Number(y)<cur&&played(y)).sort();
   return have.length?have[have.length-1]:null;
 }
 function bkStatSeason(cutoff){
-  const cur=bkSeason();
+  const cur=bkLeagueSeason();
   if(bkWeek()>cutoff) return {season:cur,prior:false};
   const prev=bkPrevSeason();
   return prev?{season:String(prev),prior:true}:{season:cur,prior:false};
@@ -9892,7 +9912,7 @@ const lsKey=k=>(_me?_me.k1:'guest')+':'+k;
 const bkKey=()=>{
   const c=_CFG.ballKnowledge||{};
   const r=c.resetToken?`_r${c.resetToken}`:'';
-  return `bk_${bkSeason()}_w${bkWeek()}${r}`;
+  return `bk_${bkLeagueSeason()}_w${bkWeek()}${r}`;
 };
 let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
 
@@ -9931,7 +9951,7 @@ async function bkBack(){
 function bkWeek(){ return Number((_liveInfo||liveWeekInfo()||{}).week)||1; }
 let _bkQCache={key:'',qs:[]};
 function bkQuestions(){
-  const season=bkSeason(), week=bkWeek();
+  const season=bkLeagueSeason(), week=bkWeek();
   /* previewAll is in the key, not only in the build. It answers to who is
      signed in now, so signing into the testing profile — or out of it — has to
      rebuild rather than hand back the set the other view had already cached. */
@@ -10068,10 +10088,15 @@ function renderBallKnowledge(){
       </div>`;
     };
     const i=pending[0];
+    /* Said out loud, because a silent penalty is a trap. Skipping costs the
+       same as being wrong, and the one thing that makes that fair is knowing it
+       before the week is out. */
     el.innerHTML=`
       <div class="bk-meta"><span>Week ${bkWeek()}</span>
         <span class="bk-count">${answered.length} of ${qs.length}</span></div>
       ${card(i)}
+      <div class="bk-warn"><i class="fa fa-triangle-exclamation"></i>Anything left
+        unanswered when the week is graded counts as wrong.</div>
       ${''/* going back re-opens the last one answered, so a misfire can be
              corrected — but only while the set is still open. Once it is graded
              the answers are settled and there is no way back in. */}
@@ -11665,10 +11690,16 @@ function bkIQFor(teamId){
        was still reading the config list — which has been empty since, so the
        trivia has quietly been worth nothing at all. It grades the week's real
        set: right answer up, wrong answer down, each worth one step. */
+    /* A question left blank counts against you, the same as getting it wrong.
+       Skipping used to be free, which made not playing the safest way to hold a
+       score — and a week's Ball Knowledge is meant to be a read on the league,
+       not a thing you opt into when you happen to know the answer. Nothing is
+       graded until the week's reveal is turned on, so there is a whole week to
+       answer in before any of it counts. */
     if(cfg.reveal){
       const qs=bkQuestions();
       let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch{ ans={}; }
-      qs.forEach((q,i)=>{ if(ans[i]==null) return; score+=(ans[i]===q.correct?1:-1); });
+      qs.forEach((q,i)=>{ score+=(ans[i]!=null&&ans[i]===q.correct)?1:-1; });
     }
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);
