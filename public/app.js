@@ -2266,28 +2266,33 @@ function tradeVoteHTML(tr,winner,loser){
   const W=backers(winner), L=backers(loser);
   /* THE COLUMNS FOLLOW THE VOTE. An even split down the middle is right when
      the vote was even and wasteful when it was not: eleven crests in half the
-     width is three rows while one crest sits alone in the other half. So a
-     lopsided vote gives the minority exactly the width its own crests need —
-     one row of them — and the majority takes everything else.
+     width is three rows while one crest sits alone in the other half.
+
+     So a lopsided vote sizes the MAJORITY, and sizes it to six crests — six is
+     as many as read as a row rather than as a strip, and it is where the column
+     stops growing however many voted that way. Eleven or twelve both come out
+     two rows of six. The minority takes whatever is left, which is narrower
+     than half but still a column rather than a slot.
 
      "Lopsided" is a ratio and a size, not a count: at least twice as many on
      one side, and no more than three on the other. That is what keeps 6-6 and
      1-1 down the middle, where an even split is the honest picture, and hands
      11-1, 12-0 and 6-3 to the side that needs the room.
 
-     The minority's column is sized in crests rather than fractions, so it is
-     correct at any card width — which is also why a shut-out still draws its
-     empty cell. It is one crest wide, holding the place of the manager who
-     would have been standing in it. */
+     Sized in crests rather than fractions, so it holds at any card width. A
+     shut-out keeps its empty cell for the same reason the minority keeps its
+     column — the side that got no votes is a fact about the vote, and an
+     absence needs somewhere to be absent from. */
+  const SPAN=6;
   const nW=W.length, nL=L.length;
   const small=Math.min(nW,nL), big=Math.max(nW,nL);
   const lop=small<=3 && small*2<=big;
-  const slots=Math.max(1,small);
+  const slots=Math.min(SPAN,Math.max(1,big));
   const cell=(cls,list)=>`<div class="tv-side ${cls}">${crests(list)}</div>`;
   return `<div class="trade-vote">
     <div class="trade-vote-h"><span>Who the league thought won</span>
       <span class="trade-vote-n">${total} vote${total===1?'':'s'}</span></div>
-    <div class="trade-vote-sides${lop?(nW<nL?' tv-lop-left':' tv-lop-right'):''}"
+    <div class="trade-vote-sides${lop?(nW<nL?' tv-big-right':' tv-big-left'):''}"
       style="--tvn:${slots}">
       ${cell('tv-w',W)}
       ${cell('tv-l',L)}

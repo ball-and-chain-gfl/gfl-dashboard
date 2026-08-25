@@ -506,15 +506,19 @@
     .trade-vote-n{font-weight:700;letter-spacing:0;text-transform:none;color:var(--text3);}
     /* Two columns under the two sides of the trade above, so a crest sits on
        the same side as the team its owner backed. */
-    /* Down the middle when the vote was even. When it was not, the minority
-       column is sized in crests — one row of however many it has, a single
-       crest wide at the least — and the majority takes the rest. Sized that way
-       rather than in fractions so it holds at any card width, and so a shut-out
-       still draws the empty slot the missing manager would have stood in. */
+    /* Down the middle when the vote was even. When it was not, the majority
+       column is sized in crests and stops at six of them — six is as many as
+       reads as a row rather than as a strip, so eleven and twelve both come out
+       two rows of six rather than one long line. The minority takes what is
+       left: narrower than half, still a column.
+
+       Sized in crests rather than fractions so it holds at any card width, and
+       so a shut-out keeps its empty cell — the side that got no votes is a fact
+       about the vote, and an absence needs somewhere to be absent from. */
     .trade-vote-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;
       --tvn:1;--tvw:calc(var(--tvn)*22px + (var(--tvn) - 1)*5px + 16px);}
-    .trade-vote-sides.tv-lop-right{grid-template-columns:minmax(0,1fr) var(--tvw);}
-    .trade-vote-sides.tv-lop-left{grid-template-columns:var(--tvw) minmax(0,1fr);}
+    .trade-vote-sides.tv-big-left{grid-template-columns:var(--tvw) minmax(0,1fr);}
+    .trade-vote-sides.tv-big-right{grid-template-columns:minmax(0,1fr) var(--tvw);}
     /* Crests stack from the top of their cell and hug the side they belong to:
        the left team's to the top-left, the right team's to the top-right. The
        two cells are the same height whatever the split, so without
