@@ -1724,6 +1724,12 @@
       justify-content:center;overflow:hidden;
       opacity:0;transition:opacity .17s ease;}
     .vid-title.on{opacity:1;}
+    /* The newest video's caption takes the ribbon's own fill and the same black
+       it prints in, so the bar under the featured slide and the tag over it read
+       as one label on one video. Every other caption keeps the neutral panel and
+       white text — the colour is what marks the new one, so it can only be worn
+       by one of them. */
+    .vid-title.newest{background:var(--nv,#E0B67B);color:#0d0d0f;}
     @media(hover:hover){.vid-dot:hover::after{background:rgba(255,255,255,0.38);}
       .vid-dot.on:hover::after{background:var(--nv,var(--accent));}}
     /* 16:9 like every other slide — a min-height here used to make the track
@@ -2681,11 +2687,17 @@
     .lk-cap{padding:8px 13px 10px;font-family:'Inter',sans-serif;font-size:10px;
       letter-spacing:.4px;text-transform:uppercase;color:var(--text3);text-align:center;}
     /* plant status, sitting with the profile actions */
-    .mp-plant{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;
-      border-radius:9px;background:rgba(0,0,0,0.3);}
+    /* Centred, and on one baseline. The label and the state are set at
+       different sizes, so centring them by box put "Dead" a shade below "PLANT"
+       — close enough to look like a mistake rather than a choice. They sit on a
+       shared baseline now, with the seedling centred against them, and the whole
+       chip centres in the row the way the two egg chips under it do. */
+    .mp-plant{display:flex;align-items:baseline;justify-content:center;gap:7px;
+      padding:9px 13px;border-radius:9px;background:rgba(0,0,0,0.3);}
+    .mp-plant>i{align-self:center;}
     .mp-plant-l{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
-      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
-    .mp-plant-v{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;}
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);line-height:1;}
+    .mp-plant-v{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;line-height:1;}
     .mp-plant.s0 i,.mp-plant.s0 .mp-plant-v{color:#4ade80;}
     .mp-plant.s1 i,.mp-plant.s1 .mp-plant-v{color:#3fc46e;}
     .mp-plant.s2 i,.mp-plant.s2 .mp-plant-v{color:#b0a03a;}
