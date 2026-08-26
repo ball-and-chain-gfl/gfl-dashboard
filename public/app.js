@@ -1067,10 +1067,23 @@ async function computeCoaching(teams, transactions, weeklyData){
 function pName(pid){return _playerNames[pid]||`Player #${pid}`;}
 // ESPN player headshot (routed through the logo proxy). Falls back to a person
 // icon (or shield for D/ST) if ESPN has no image for that id.
+/* ── HEADSHOTS COME BACK SIZED ───────────────────────────────────────────────
+   The full-resolution PNG is about 285KB and was being fetched to be drawn in a
+   sixteen-pixel circle. One page carried 28 of them: 7MB of images for a
+   dashboard, on phones, every time the browser cache turned over.
+
+   ESPN's combiner resizes on their CDN. The same headshot at 64px is 5.4KB —
+   fifty-four times smaller — and at the sizes these are drawn there is nothing
+   to see in the difference. Asked for at twice the drawn size so it stays sharp
+   on a retina screen, and capped, because a handful are drawn large. */
+const headshotURL=(pid,size)=>{
+  const w=Math.min(350,Math.max(48,Math.round((size||24)*2)));
+  return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${pid}.png&w=${w}&h=${w}`;
+};
 function playerImg(pid,size,name){
   size=size||24;
   const isDef=/d\/st|dst|defense/i.test(String(name||''));
-  const url=(pid!=null&&!isDef)?proxyLogo(`https://a.espncdn.com/i/headshots/nfl/players/full/${pid}.png`):null;
+  const url=(pid!=null&&!isDef)?proxyLogo(headshotURL(pid,size)):null;
   /* No disc behind the photo. The headshot is already round and cropped to
      this box, so the fill only ever showed as a ring around the player. It
      stays for the fallback, where the icon does need a ground to sit on. */
@@ -3612,7 +3625,7 @@ function modalLock(on){
 // ── GABE'S GREATNESS ─────────────────────────────────────────────────────────
 let _gabeGames=null,_gabePromise=null,_gabeView='started';
 function gabeHeart(pid){
-  const url=proxyLogo(`https://a.espncdn.com/i/headshots/nfl/players/full/${pid}.png`);
+  const url=proxyLogo(headshotURL(pid,200));    // the shrine draws it big
   const heart="M100 172 C100 172 18 116 18 62 C18 33 44 20 68 34 C84 43 100 64 100 64 C100 64 116 43 132 34 C156 20 182 33 182 62 C182 116 100 172 100 172 Z";
   return `<div class="gabe-heart">
     <svg viewBox="0 0 200 185" width="100%" xmlns="http://www.w3.org/2000/svg" aria-label="Gabe Davis">
@@ -6089,15 +6102,28 @@ let _msgs=null,_msgErr=null,_msgBusy=false;
 const msgBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/messages`;
 const msgKey=()=>`key=${GFL_DB.key}`;
 
+/* The board is one document per message and nothing deletes them, so it grows
+   for as long as the league does. Listing the collection read every message
+   ever posted on every visit to the locker room, and at pageSize 200 it would
+   have started dropping messages — silently, and not the oldest ones, because
+   an unordered list has no opinion about which 200 it returns.
+
+   Queried newest-first with a limit instead. A hundred messages is far more
+   board than anyone scrolls, the read cost stops growing with the archive, and
+   what falls off the end is the oldest rather than the arbitrary. */
+const MSG_PAGE=100;
 async function msgList(){
   try{
-    const r=await fetch(`${msgBase()}?${msgKey()}&pageSize=200`,{cache:'no-store'});
+    const r=fsNoteResponse(await fetch(fsRunQueryUrl(),{method:'POST',cache:'no-store',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({structuredQuery:{from:[{collectionId:'messages'}],
+        orderBy:[{field:{fieldPath:'ts'},direction:'DESCENDING'}],limit:MSG_PAGE}})}));
     if(r.status===403){ _msgErr='rules'; return null; }
     if(!r.ok){ _msgErr='fetch'; return null; }
     const j=await r.json();
     _msgErr=null;
-    return (j.documents||[]).map(d=>{
-      const f=fsIn(d);
+    return (Array.isArray(j)?j:[]).filter(x=>x&&x.document).map(x=>{
+      const d=x.document, f=fsIn(d);
       let re={}; try{ re=JSON.parse(f.reactions||'{}')||{}; }catch(e){}
       return {id:(d.name||'').split('/').pop(),ts:Number(f.ts)||0,user:f.user||'',
         team:f.team||'',text:f.text||'',reactions:re};
@@ -9493,6 +9519,15 @@ const fsRunQueryUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.p
 async function betQuery(where){
   const r=fsNoteResponse(await fetch(fsRunQueryUrl(),{method:'POST',cache:'no-store',
     headers:{'Content-Type':'application/json'},
+    /* No orderBy. A filter on owner plus an order on ts is a composite index,
+       and Firestore answers FAILED_PRECONDITION until one is deployed — so
+       asking for it here would have taken the whole sportsbook down the moment
+       this shipped. The rows are sorted in the browser instead, as before.
+
+       The cost is that the limit of 300, if a manager ever reaches it, drops an
+       arbitrary 300 rather than the oldest. At about forty bets a season that
+       is roughly seven years away. firestore.indexes.json carries the index; if
+       it is ever deployed, the orderBy can come back and that goes away. */
     body:JSON.stringify({structuredQuery:{from:[{collectionId:'bets'}],where,limit:300}})}));
   if(r.status===403){ _betErr='rules'; return null; }
   if(r.status===429){ _betErr='quota'; return null; }
