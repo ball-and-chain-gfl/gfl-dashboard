@@ -683,10 +683,9 @@ function switchTab(name){
   if(name==='standings') renderStandings();
   if(name==='cm') renderCoachingMetric();
   if(name==='badbeat') renderBadBeat();
-  if(name==='messages') initMessages();
   if(name==='profile') renderMyProfile();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
-  if(name==='home'){ liveStart(); renderHomeMessage(); wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){} } else liveStop();   // the live board lives on the homepage
+  if(name==='home'){ liveStart(); wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){} } else liveStop();   // the live board lives on the homepage
   if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -4302,31 +4301,6 @@ function wireVidRail(){
    itself belongs to the carousel and lives on it. */
 function vidGo(i){ document.querySelector('.vid-scroll')?._go?.(i); }
 
-/* Most recent board post, surfaced on the homepage. Reads the same weekly
-   window the Messages tab shows, so a stale post from last week never sits
-   here pretending to be current. */
-async function renderHomeMessage(){
-  const el=document.getElementById('home-msg'); if(!el) return;
-  if(!_msgs){ el.innerHTML='<div class="lr-none">Loading…</div>'; const l=await msgList(); if(l) _msgs=l; }
-  const wk=msgWeekStart();
-  const list=(_msgs||[]).filter(m=>Number(m.ts)>=wk);
-  const m=list[0];
-  if(!m){ el.innerHTML=`<div class="hm-empty">Nothing said yet this week.
-    <button class="mv-btn hm-go" onclick="switchTab('messages')">Open the board</button></div>`; return; }
-  const t=_teams.find(x=>String(x.id)===String(m.team));
-  const reacts=Object.entries(m.reactions||{});
-  el.innerHTML=`<div class="hm-h">Latest message</div>
-  <div class="hm-msg" onclick="switchTab('messages')" role="button" tabindex="0">
-    <div class="hm-av">${m.team?logoImg(Number(m.team)):'<i class="fa fa-user"></i>'}</div>
-    <div class="hm-body">
-      <div class="hm-meta"><span class="hm-who">${t?t.name:(m.user||'Someone')}</span><span class="hm-when">${msgAgo(m.ts)}</span></div>
-      <div class="hm-text">${String(m.text).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
-      ${reacts.length?`<div class="hm-reacts">${reacts.slice(0,5).map(([k,u])=>`<span class="hm-chip">${k}<b>${u.length}</b></span>`).join('')}</div>`:''}
-    </div>
-    <i class="fa fa-chevron-right hm-arw"></i>
-  </div>`;
-}
-
 /* ── ROSTER ─────────────────────────────────────────────────────────────────
    The signed-in team's current lineup, taken from the live roster for the week
    on the clock. Starters first in slot order, then the bench. */
@@ -6087,79 +6061,7 @@ async function renderLiveRecords(){
     </div>`;
 }
 
-/* ── MESSAGES ───────────────────────────────────────────────────────────────
-   A league board. Messages live in their own Firestore collection rather than
-   inside profiles, because a shared page of documents would eventually crowd
-   out the profile reads the pick'em tally depends on.
-
-   Reactions are stored on the message as one JSON string: keys are either an
-   emoji or `pid:<playerId>` for a player sticker, values are the profile ids
-   that reacted. One field means one write per reaction, and re-reacting
-   toggles rather than stacking. Everything fails soft — if the collection is
-   not readable the tab explains what is missing instead of erroring. */
-const MSG_EMOJI=['🔥','😂','💀','🫡','😭','🏆'];
-let _msgs=null,_msgErr=null,_msgBusy=false;
-const msgBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/messages`;
-const msgKey=()=>`key=${GFL_DB.key}`;
-
-/* The board is one document per message and nothing deletes them, so it grows
-   for as long as the league does. Listing the collection read every message
-   ever posted on every visit to the locker room, and at pageSize 200 it would
-   have started dropping messages — silently, and not the oldest ones, because
-   an unordered list has no opinion about which 200 it returns.
-
-   Queried newest-first with a limit instead. A hundred messages is far more
-   board than anyone scrolls, the read cost stops growing with the archive, and
-   what falls off the end is the oldest rather than the arbitrary. */
-const MSG_PAGE=100;
-async function msgList(){
-  try{
-    const r=fsNoteResponse(await fetch(fsRunQueryUrl(),{method:'POST',cache:'no-store',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({structuredQuery:{from:[{collectionId:'messages'}],
-        orderBy:[{field:{fieldPath:'ts'},direction:'DESCENDING'}],limit:MSG_PAGE}})}));
-    if(r.status===403){ _msgErr='rules'; return null; }
-    if(!r.ok){ _msgErr='fetch'; return null; }
-    const j=await r.json();
-    _msgErr=null;
-    return (Array.isArray(j)?j:[]).filter(x=>x&&x.document).map(x=>{
-      const d=x.document, f=fsIn(d);
-      let re={}; try{ re=JSON.parse(f.reactions||'{}')||{}; }catch(e){}
-      return {id:(d.name||'').split('/').pop(),ts:Number(f.ts)||0,user:f.user||'',
-        team:f.team||'',text:f.text||'',reactions:re};
-    }).sort((a,b)=>b.ts-a.ts);
-  }catch(e){ _msgErr='offline'; return null; }
-}
-async function msgSend(){
-  if(!_me){ openSignIn(); return; }
-  const box=document.getElementById('msg-input'); if(!box) return;
-  const text=(box.value||'').trim(); if(!text) return;
-  if(_msgBusy) return; _msgBusy=true;
-  const id=`${Date.now()}-${_me.k1}`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
-  const body=fsOut({ts:String(Date.now()),user:_me.k1,team:String(_me.teamId||''),text:text.slice(0,600),reactions:'{}'});
-  try{
-    const r=await fetch(`${msgBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(r.ok){ box.value=''; await msgRefresh(); }
-    else { _msgErr=r.status===403?'rules':'send'; renderMessages(); }
-  }catch(e){ _msgErr='offline'; renderMessages(); }
-  _msgBusy=false;
-}
-async function msgReact(id,key){
-  if(!_me){ openSignIn(); return; }
-  const m=(_msgs||[]).find(x=>x.id===id); if(!m) return;
-  const re={...m.reactions};
-  const who=re[key]?re[key].slice():[];
-  const i=who.indexOf(_me.k1);
-  if(i>=0) who.splice(i,1); else who.push(_me.k1);
-  if(who.length) re[key]=who; else delete re[key];
-  m.reactions=re; renderMessages();                       // optimistic
-  try{
-    await fetch(`${msgBase()}/${encodeURIComponent(id)}?${msgKey()}&updateMask.fieldPaths=reactions`,
-      {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut({reactions:JSON.stringify(re)}))});
-  }catch(e){}
-}
-async function msgRefresh(){ const l=await msgList(); if(l){_msgs=l;} renderMessages(); }
+/* how long ago, in words — used by the live board's "last change" stamp */
 function msgAgo(ts){
   const s=Math.max(0,(Date.now()-ts)/1000);
   if(s<60) return 'just now';
@@ -6167,140 +6069,13 @@ function msgAgo(ts){
   if(s<86400) return Math.floor(s/3600)+'h ago';
   return Math.floor(s/86400)+'d ago';
 }
-/* The chat is a weekly room. It rolls over Tuesday at 6am local — late enough
-   that Monday night is finished and the week is genuinely over. Nothing is
-   deleted; the board simply shows the current week. */
-/* The league week turns over Tuesday 6am; tueWeekStart owns that rule so the
-   board and the GFL bucks week can never disagree about when it happened. */
+/* ── THE LEAGUE WEEK ─────────────────────────────────────────────────────────
+   Tuesday 6am local: late enough that Monday night is finished and the week is
+   genuinely over. tueWeekStart owns the rule, so everything that cares about
+   when a week turned over agrees about it. Kept from the message board, which
+   is gone — the bets and the forecast still read this. */
 function msgWeekStart(now=new Date()){ return tueWeekStart(now); }
-function msgWeekLabel(){
-  const s=new Date(msgWeekStart());
-  return s.toLocaleDateString(undefined,{month:'short',day:'numeric'});
-}
-/* textarea that grows with what you type, like a real message box */
-function msgGrow(el){ el.style.height='auto'; el.style.height=Math.min(140,el.scrollHeight)+'px'; }
-function msgKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); msgSend(); } }
-function msgTogglePlays(){
-  const b=document.getElementById('msg-plays'); if(!b) return;
-  b.hidden=!b.hidden;
-  if(!b.hidden&&!(_msgPlays||[]).length) msgLoadPlays();
-}
-/* the signed-in manager's own scorers this week — the taunt material */
-let _msgPlays=null,_msgPlaysLoading=false;
-async function msgLoadPlays(){
-  if(_msgPlaysLoading||!_me) return;
-  _msgPlaysLoading=true; renderMessages();
-  try{
-    const info=liveWeekInfo();
-    const tid=_me.teamId;
-    if(info&&tid){
-      const r=await fetch(`${BASE}?view=mRoster&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
-      if(r.ok){
-        const j=await r.json();
-        const t=(j.teams||[]).find(x=>String(x.id)===String(tid));
-        const BENCH=[20,21,24];
-        _msgPlays=((t&&t.roster&&t.roster.entries)||[])
-          .filter(e=>!BENCH.includes(e.lineupSlotId))
-          .map(e=>{ const p=e.playerPoolEntry?.player||{};
-            const wk=(p.stats||[]).find(s=>s.statSourceId===0&&s.scoringPeriodId===info.week);
-            return {pid:e.playerId,n:p.fullName||('#'+e.playerId),pts:wk?.appliedTotal??0}; })
-          .filter(p=>p.pts>0).sort((a,b)=>b.pts-a.pts).slice(0,8);
-      }
-    }
-    if(!_msgPlays) _msgPlays=[];
-  }catch(e){ _msgPlays=[]; }
-  _msgPlaysLoading=false; renderMessages();
-}
-const MSG_TAUNTS=['just put up','just dropped','just hung','just went for'];
-function msgTaunt(pid,name,pts){
-  const box=document.getElementById('msg-input'); if(!box) return;
-  const verb=MSG_TAUNTS[Math.floor(Math.random()*MSG_TAUNTS.length)];
-  box.value=`🔥 ${name} ${verb} ${Number(pts).toFixed(1)} for me this week.`;
-  const b=document.getElementById('msg-plays'); if(b) b.hidden=true;
-  box.focus(); msgGrow(box);
-}
-function renderMessages(){
-  const el=document.getElementById('messages-body'); if(!el) return;
-  const teamOf=o=>{
-    const m=(_msgs||[]).find(x=>x.user===o);
-    return m?Number(m.team):null;
-  };
-  const nameOf=(user,team)=>{
-    const t=_teams.find(x=>String(x.id)===String(team));
-    return t?t.name:(user||'Someone');
-  };
-  if(_msgErr==='rules'){
-    return void(el.innerHTML=`<div class="msg-setup">
-      <div class="msg-setup-h"><i class="fa fa-lock"></i>One Firestore rule away</div>
-      <p>The board is built and ready, but the database only allows the <b>profiles</b> collection right now, so messages can't be read or written yet.</p>
-      <p>In the Firebase console → Firestore → Rules, add a <b>messages</b> block alongside the existing profiles one, then publish:</p>
-      <pre class="msg-code">match /messages/{id} {
-  allow read, create, update: if true;
-}</pre>
-      <p class="msg-setup-n">That mirrors however profiles is already permitted. Reload this page afterwards and the board comes to life — nothing else needs changing.</p>
-      <button class="mv-btn" onclick="msgRefresh()">Try again</button>
-    </div>`);
-  }
-  /* the board is a weekly room — it clears every Tuesday morning, once Monday
-     night is done. Older posts stay in the database, they just stop showing. */
-  const wkStart=msgWeekStart();
-  const list=(_msgs||[]).filter(m=>Number(m.ts)>=wkStart);
-  const plays=_msgPlays||[];
-  const composer=`<div class="msg-compose${_me?'':' msg-out'}">
-    <div class="msg-inrow">
-      <textarea id="msg-input" rows="1" maxlength="600"
-        placeholder="${_me?'Message the league…':'Sign in to post'}" ${_me?'':'disabled'}
-        oninput="msgGrow(this)" onkeydown="msgKeydown(event)"></textarea>
-      <button class="msg-go" ${_me?'onclick="msgSend()"':'onclick="openSignIn()"'} aria-label="${_me?'Send':'Sign in'}">
-        <i class="fa fa-${_me?'paper-plane':'right-to-bracket'}"></i>
-      </button>
-    </div>
-    ${_me?`<div class="msg-tools">
-      <button class="msg-tool" onclick="msgTogglePlays()"><i class="fa fa-fire"></i>Big play</button>
-      <span class="msg-hint">as ${myTeamName()||'you'}</span>
-    </div>
-    <div class="msg-plays" id="msg-plays" hidden>
-      ${plays.length
-        ? `<div class="msg-plays-l">Your week — pick one to taunt with</div>
-           <div class="msg-plays-r">${plays.map(p=>`
-             <button class="msg-play" onclick="msgTaunt(${p.pid},'${String(p.n).replace(/'/g,"\\'")}',${p.pts})">
-               ${playerImg(p.pid,28,p.n)}
-               <span class="msg-play-n">${p.n}</span>
-               <span class="msg-play-p">${p.pts.toFixed(1)}</span>
-             </button>`).join('')}</div>`
-        : `<div class="msg-hint" style="padding:6px 2px">${_msgPlaysLoading?'Loading your week…':'No scoring players found for this week yet.'}</div>`}
-    </div>`:''}
-  </div>`;
-  /* plain emoji reactions only — the player faces moved into the composer as
-     big-play taunts, which is what they were actually wanted for */
-  const reactBar=m=>{
-    const mine=k=>_me&&(m.reactions[k]||[]).includes(_me.k1);
-    const chips=Object.entries(m.reactions).map(([k,users])=>
-      `<button class="msg-chip${mine(k)?' on':''}" onclick="msgReact('${m.id}','${k}')"><span class="mr-e">${k}</span><span class="mr-n">${users.length}</span></button>`).join('');
-    return `<div class="msg-reacts">${chips}
-      <details class="msg-add"><summary title="React">+</summary>
-        <div class="msg-pal">
-          <div class="msg-pal-r">${MSG_EMOJI.map(e=>`<button class="msg-pb" onclick="msgReact('${m.id}','${e}')">${e}</button>`).join('')}</div>
-        </div>
-      </details></div>`;
-  };
-  const rows=list.length?list.map(m=>`<div class="msg-item">
-      <div class="msg-av">${m.team?logoImg(Number(m.team),'team-logo-sm'):'<i class="fa fa-user"></i>'}</div>
-      <div class="msg-main">
-        <div class="msg-meta"><span class="msg-who">${nameOf(m.user,m.team)}</span><span class="msg-when">${msgAgo(m.ts)}</span></div>
-        <div class="msg-text">${String(m.text).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
-        ${reactBar(m)}
-      </div>
-    </div>`).join('')
-    :`<div class="lr-none">No messages yet${_me?' — say the first thing.':'.'}</div>`;
-  el.innerHTML=composer+`<div class="msg-list">${rows}</div>`;
-  void teamOf;
-}
-async function initMessages(){
-  renderMessages();
-  if(_me) msgLoadPlays();
-  await msgRefresh();
-}
+const msgKey=()=>`key=${GFL_DB.key}`;
 
 // ── TWO-KEY SIGN IN ──────────────────────────────────────────────────────────
 /* Deliberately informal: two keys address a document in Firestore and unlock
