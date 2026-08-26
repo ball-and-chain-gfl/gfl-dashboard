@@ -5548,7 +5548,7 @@ async function livePoll(){
       }
     }catch(e){}
     const key=liveKeyFor(info);
-    if(!_liveInfo||_liveInfo.key!==key){
+    if(key&&(!_liveInfo||_liveInfo.key!==key)){
       const stored=await liveLoadSeries(key);
       _liveSeries=stored||{};
     }
@@ -5590,7 +5590,7 @@ async function liveFlush(key){
         _liveSeries[k]=mine;
       });
     }
-    if(await liveSaveSeries(key,_liveSeries)) _liveDirty=false;
+    if(key&&await liveSaveSeries(key,_liveSeries)) _liveDirty=false;
   }catch(e){}
   _liveFlushing=false;
 }
@@ -5601,7 +5601,15 @@ if(typeof document!=='undefined') document.addEventListener('visibilitychange',(
   if(document.visibilityState==='hidden'&&_liveDirty&&_liveInfo)
     try{ liveFlush(_liveInfo.key); }catch(e){}
 });
-const liveKeyFor=info=>`${info.season}-w${info.week}`;
+/* null when there is no week to key on. Between seasons liveWeekInfo has no
+   schedule to read, so week comes back undefined and this built
+   "2026-wundefined" — a Firestore read, every session, for a document that
+   cannot exist. Nothing was ever written there (the flush needs a scored game
+   first), so it was only ever a wasted read against the daily quota. */
+const liveKeyFor=info=>{
+  const w=Number(info&&info.week);
+  return (info&&info.season&&Number.isFinite(w)&&w>0)?`${info.season}-w${w}`:null;
+};
 
 /* ── THE WIN PROBABILITY CURVE ───────────────────────────────────────────────
    A fantasy game is not watched, it is checked on. The score line by itself
