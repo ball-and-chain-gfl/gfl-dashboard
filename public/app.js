@@ -13666,7 +13666,7 @@ async function loadDashboard(){
         <div class="home-top">
           <div class="home-left-col">
             <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
-              <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches&#39; Poll</div>
+              <div class="sec-head"><i class="fa fa-ranking-star"></i>B&amp;C Coaches Poll</div>
               <div id="cp-body"></div>
             </div>
             <div class="sec wm mod-nt" data-wm="&#xf0f3;" id="nt-sec">

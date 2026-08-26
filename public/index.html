@@ -5769,6 +5769,56 @@
       .hw-when{display:none;}
       .hw-p{font-size:13.5px;}
     }
+
+    /* ── THE HOMEPAGE MODULES GET THEIR OWN PANE ──────────────────────────────
+       The sitewide matte reset above strips every homepage section back to bare
+       text on the page background, which is right for most of them and wrong
+       for these four: stacked one under another they ran together, and a
+       heading alone is not enough of a fence to say where one ends and the next
+       begins.
+
+       So each takes a pane of its own, tinted with the accent it already
+       carries — amber for the poll, periwinkle for notifications, blue for the
+       picks, lilac for Ball Knowledge. Very light on purpose: a wash at five
+       per cent over a barely-there dark base, a hairline, and the blur doing
+       most of the work. Enough to read as a container, not enough to become a
+       card competing with the real cards inside it.
+
+       The heading sits inside the pane rather than above it, which is the half
+       that actually fixes the running-together — a title floating between two
+       panes belongs to neither.
+
+       !important throughout, and last in the file, because the reset it is
+       undoing uses !important on every one of these properties. The module
+       class is written twice on purpose: !important against !important is
+       settled by specificity, and the reset's selector carries three classes to
+       a plain .mod-cp's two, so it would win on a tie-break nobody can see. The
+       repeat buys the weight without pinning the rule to a parent the layout is
+       free to change.
+
+       overflow stays visible: the notification cards fling sideways out of
+       their section when swiped, and a clipped swipe reads as a card hitting a
+       wall. */
+    html[data-theme="dark"] #page-home .sec.wm.mod-cp.mod-cp,
+    html[data-theme="dark"] #page-home .sec.wm.mod-nt.mod-nt,
+    html[data-theme="dark"] #page-home .sec.wm.mod-pk.mod-pk,
+    html[data-theme="dark"] #page-home .sec.wm.mod-bk.mod-bk{
+      padding:16px 15px 18px!important;
+      border-radius:16px!important;
+      border:1px solid rgba(var(--accent-rgb),0.16)!important;
+      background:linear-gradient(rgba(var(--accent-rgb),0.06),rgba(var(--accent-rgb),0.02)),
+        rgba(0,0,0,0.18)!important;
+      -webkit-backdrop-filter:blur(12px) saturate(1.15)!important;
+      backdrop-filter:blur(12px) saturate(1.15)!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)!important;
+      overflow:visible!important;}
+    /* the heading loses the side padding it needed when it sat on the page */
+    #page-home .mod-cp>.sec-head,#page-home .mod-nt>.sec-head,
+    #page-home .mod-pk>.sec-head,#page-home .mod-bk>.sec-head{padding:0 0 10px!important;}
+    @media(max-width:400px){
+      #page-home .mod-cp,#page-home .mod-nt,#page-home .mod-pk,#page-home .mod-bk{
+        padding:14px 12px 16px!important;}
+    }
   </style>
 </head>
 <body>
