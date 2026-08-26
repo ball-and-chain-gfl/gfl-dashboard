@@ -1076,8 +1076,13 @@ function pName(pid){return _playerNames[pid]||`Player #${pid}`;}
    to see in the difference. Asked for at twice the drawn size so it stays sharp
    on a retina screen, and capped, because a handful are drawn large. */
 const headshotURL=(pid,size)=>{
+  /* Width only. Passing h as well makes the combiner return a square, and the
+     source is 600x436 — so every face came back squashed into a 1:1 box. With
+     just w it keeps the ratio (64x47 for w=64), which is the shape the CSS has
+     always cropped from: object-fit:cover in a round box trims the sides and
+     anchors to the top. Smaller too — 4.0KB against 5.4KB for the square. */
   const w=Math.min(350,Math.max(48,Math.round((size||24)*2)));
-  return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${pid}.png&w=${w}&h=${w}`;
+  return `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${pid}.png&w=${w}`;
 };
 function playerImg(pid,size,name){
   size=size||24;
