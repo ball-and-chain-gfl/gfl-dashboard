@@ -9291,19 +9291,18 @@ const fsRunQueryUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.p
   +`/databases/(default)/documents:runQuery?${msgKey()}`;
 /* One structured query against the bets collection. Single-field filters only,
    which Firestore indexes automatically — no composite index to deploy. */
-async function betQuery(where){
+async function betQuery(where,ordered){
   const r=fsNoteResponse(await fetch(fsRunQueryUrl(),{method:'POST',cache:'no-store',
     headers:{'Content-Type':'application/json'},
-    /* No orderBy. A filter on owner plus an order on ts is a composite index,
-       and Firestore answers FAILED_PRECONDITION until one is deployed — so
-       asking for it here would have taken the whole sportsbook down the moment
-       this shipped. The rows are sorted in the browser instead, as before.
-
-       The cost is that the limit of 300, if a manager ever reaches it, drops an
-       arbitrary 300 rather than the oldest. At about forty bets a season that
-       is roughly seven years away. firestore.indexes.json carries the index; if
-       it is ever deployed, the orderBy can come back and that goes away. */
-    body:JSON.stringify({structuredQuery:{from:[{collectionId:'bets'}],where,limit:300}})}));
+    /* Ordered only where there is an index for it. Every filter+order pair is
+       its own composite index in Firestore, so owner+ts being deployed does
+       nothing for the srcBet query — asking for the order there fails the whole
+       request. The owner query is the one that can reach the limit, and it is
+       the one that gets the ordering; the invite query returns a handful of
+       rows and is sorted with everything else in the browser. */
+    body:JSON.stringify({structuredQuery:Object.assign(
+      {from:[{collectionId:'bets'}],where,limit:300},
+      ordered?{orderBy:[{field:{fieldPath:'ts'},direction:'DESCENDING'}]}:{})})}));
   if(r.status===403){ _betErr='rules'; return null; }
   if(r.status===429){ _betErr='quota'; return null; }
   if(!r.ok){ _betErr='fetch'; return null; }
@@ -9316,7 +9315,7 @@ const fsEq=(field,value)=>({fieldFilter:{field:{fieldPath:field},op:'EQUAL',valu
 async function betList(){
   if(!_me) return [];
   try{
-    const mine=await betQuery(fsEq('owner',_me.k1));
+    const mine=await betQuery(fsEq('owner',_me.k1),true);   // owner+ts is indexed
     if(!mine) return null;
     /* invitations sitting on my own bets, so the seat count is right. Capped at
        thirty because that is Firestore's ceiling on an IN filter, and nothing
