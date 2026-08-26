@@ -11707,10 +11707,7 @@ function bkIQHTML(teamId){
   return `<div class="bkiq-inhero">
     <div class="bkiq-head">
       <span class="bkiq-t"><i class="fa fa-brain"></i>Ball Knowledge IQ</span>
-      <span class="bkiq-r">
-        <span class="bkiq-lab" style="color:${col};border-color:${col}">${bkIQLabel(v)}</span>
-        <span class="bkiq-v" style="color:${col}">${Math.round(v)}</span>
-      </span>
+      <span class="bkiq-v" style="color:${col}">${Math.round(v)}</span>
     </div>
     <div class="bkiq-track">
       <span class="bkiq-mid"></span>
@@ -11718,6 +11715,10 @@ function bkIQHTML(teamId){
       <span class="bkiq-dot" style="left:${pct.toFixed(1)}%;background:${col}"></span>
     </div>
     <div class="bkiq-scale"><span>${iq.min}</span><span>${iq.avg} · average</span><span>${iq.max}</span></div>
+    ${''/* the name for the number, centred under the bar it describes */}
+    <div class="bkiq-labrow">
+      <span class="bkiq-lab" style="color:${col};border-color:${col}">${bkIQLabel(v)}</span>
+    </div>
   </div>`;
 }
 

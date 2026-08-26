@@ -799,28 +799,25 @@
     .bkiq-inhero{position:relative;z-index:1;margin-top:18px;}
     .bkiq-sec{margin-bottom:14px;padding:13px 15px;
       border-radius:11px;background:rgba(0,0,0,0.3);}
-    /* Wraps rather than squeezes. "This Guy Knows Some Ball" is 150px and the
-       row is 260 on a 320px phone once the heading has had its share — so on
-       the narrowest screens the label and the number drop to their own line,
-       still right-aligned, instead of the label being clipped to
-       "This Guy Knows Som…". */
     .bkiq-head{display:flex;align-items:center;justify-content:space-between;
-      flex-wrap:wrap;row-gap:7px;column-gap:10px;margin-bottom:9px;}
+      gap:10px;margin-bottom:9px;}
     .bkiq-t{display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;
       font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);}
     .bkiq-t i{color:#c98cf1;font-size:12px;}
     .bkiq-v{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;line-height:1;}
-    /* The label and the number read as one figure, so they sit together on the
-       right of the row. The label takes the same colour the bar does — it is
-       the same fact said in words, and colouring it twice would be the point. */
-    .bkiq-r{display:flex;align-items:center;gap:9px;min-width:0;margin-left:auto;}
+    /* Centred under the bar, which is where it belongs: it is the same fact
+       the bar is showing, said in words, so it reads as a caption on the bar
+       rather than as a second figure competing with the number. It takes the
+       bar's colour for the same reason. Centred also means it never has to
+       fight the heading for room — "This Guy Knows Some Ball" is 150px and the
+       header row is only 260 on a 320px phone. */
+    .bkiq-labrow{display:flex;justify-content:center;margin-top:10px;}
     .bkiq-lab{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
       letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;
-      padding:3px 8px;border-radius:999px;border:1px solid currentColor;
+      padding:4px 11px;border-radius:999px;border:1px solid currentColor;
       opacity:.92;}
-    @media(max-width:420px){
-      .bkiq-lab{font-size:8.5px;letter-spacing:.3px;padding:3px 7px;}
-      .bkiq-v{font-size:17px;}
+    @media(max-width:360px){
+      .bkiq-lab{font-size:8.5px;letter-spacing:.3px;padding:3px 9px;}
     }
     .bkiq-track{position:relative;height:8px;border-radius:999px;
       background:rgba(255,255,255,0.09);overflow:visible;}
