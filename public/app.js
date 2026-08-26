@@ -10123,15 +10123,10 @@ function renderBallKnowledge(){
       </div>`;
     };
     const i=pending[0];
-    /* Said out loud, because a silent penalty is a trap. Skipping costs the
-       same as being wrong, and the one thing that makes that fair is knowing it
-       before the week is out. */
     el.innerHTML=`
       <div class="bk-meta"><span>Week ${bkWeek()}</span>
         <span class="bk-count">${answered.length} of ${qs.length}</span></div>
       ${card(i)}
-      <div class="bk-warn"><i class="fa fa-triangle-exclamation"></i>Anything left
-        unanswered when the week is graded counts as wrong.</div>
       ${''/* going back re-opens the last one answered, so a misfire can be
              corrected — but only while the set is still open. Once it is graded
              the answers are settled and there is no way back in. */}
