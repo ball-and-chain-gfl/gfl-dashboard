@@ -9462,24 +9462,65 @@ function bucksBalance(){
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
 
+/* ── READING ONLY THE BETS THAT ARE WANTED ───────────────────────────────────
+   This used to list the whole collection on every visit to the sportsbook and
+   filter to one manager in the browser, so everybody paid a document read for
+   everybody else's bets. At 38 documents that is nothing. At three bets a week
+   across twelve managers it is 500 by the end of a season, and twelve people
+   checking the book three times a day is 18,000 reads against a free tier of
+   50,000 — a third of the day's allowance, from one screen. It also capped at
+   pageSize 300, so past that the list would have quietly truncated.
+
+   Queried by owner now. Two queries rather than one, because an invitation is
+   a document owned by the person invited: the seat count on a parlay and the
+   guard against asking the same person twice both need those, and neither can
+   be got from a query on my own name. The second asks only about invitations
+   attached to bets that are still open to invite on, which is a handful. */
+const betDocRow=d=>{
+  const f=fsIn(d);
+  let legs=[]; try{ legs=JSON.parse(f.legs||'[]')||[]; }catch(e){}
+  return {id:(d.name||'').split('/').pop(),owner:f.owner||'',team:f.team||'',
+    season:f.season||'',wk:f.wk||'',ts:Number(f.ts)||0,
+    stake:Number(f.stake)||0,odds:Number(f.odds)||0,payout:Number(f.payout)||0,
+    legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0,
+    invitedBy:f.invitedBy||'', srcBet:f.srcBet||'',
+    hidden:String(f.hidden||'')==='1'};
+};
+const fsRunQueryUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
+  +`/databases/(default)/documents:runQuery?${msgKey()}`;
+/* One structured query against the bets collection. Single-field filters only,
+   which Firestore indexes automatically — no composite index to deploy. */
+async function betQuery(where){
+  const r=fsNoteResponse(await fetch(fsRunQueryUrl(),{method:'POST',cache:'no-store',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({structuredQuery:{from:[{collectionId:'bets'}],where,limit:300}})}));
+  if(r.status===403){ _betErr='rules'; return null; }
+  if(r.status===429){ _betErr='quota'; return null; }
+  if(!r.ok){ _betErr='fetch'; return null; }
+  const j=await r.json();
+  /* runQuery answers with an array, and a run that matched nothing still sends
+     one entry carrying only a readTime */
+  return (Array.isArray(j)?j:[]).filter(x=>x&&x.document).map(x=>betDocRow(x.document));
+}
+const fsEq=(field,value)=>({fieldFilter:{field:{fieldPath:field},op:'EQUAL',value:{stringValue:String(value)}}});
 async function betList(){
+  if(!_me) return [];
   try{
-    const r=fsNoteResponse(await fetch(`${betBase()}?${msgKey()}&pageSize=300`,{cache:'no-store'}));
-    if(r.status===403){ _betErr='rules'; return null; }
-    if(r.status===429){ _betErr='quota'; return null; }
-    if(!r.ok){ _betErr='fetch'; return null; }
-    const j=await r.json();
+    const mine=await betQuery(fsEq('owner',_me.k1));
+    if(!mine) return null;
+    /* invitations sitting on my own bets, so the seat count is right. Capped at
+       thirty because that is Firestore's ceiling on an IN filter, and nothing
+       close to it is ever open at once. */
+    const open=mine.filter(b=>b.status==='open'&&!b.srcBet).map(b=>b.id).slice(0,30);
+    let seats=[];
+    if(open.length){
+      const inv=await betQuery({fieldFilter:{field:{fieldPath:'srcBet'},op:'IN',
+        value:{arrayValue:{values:open.map(v=>({stringValue:v}))}}}});
+      if(inv) seats=inv;
+    }
     _betErr=null;
-    return (j.documents||[]).map(d=>{
-      const f=fsIn(d);
-      let legs=[]; try{ legs=JSON.parse(f.legs||'[]')||[]; }catch(e){}
-      return {id:(d.name||'').split('/').pop(),owner:f.owner||'',team:f.team||'',
-        season:f.season||'',wk:f.wk||'',ts:Number(f.ts)||0,
-        stake:Number(f.stake)||0,odds:Number(f.odds)||0,payout:Number(f.payout)||0,
-        legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0,
-        invitedBy:f.invitedBy||'', srcBet:f.srcBet||'',
-        hidden:String(f.hidden||'')==='1'};
-    }).sort((a,b)=>b.ts-a.ts);
+    const seen=new Set(mine.map(b=>b.id));
+    return mine.concat(seats.filter(b=>!seen.has(b.id))).sort((a,b)=>b.ts-a.ts);
   }catch(e){ _betErr='offline'; return null; }
 }
 async function betRefresh(){ const l=await betList(); if(l) _bets=l; }
@@ -11700,6 +11741,29 @@ function cursedHTML(){
    than a placeholder. */
 const bkIQCfg=()=>Object.assign({min:40,max:228,avg:100,step:8},(_CFG.ballKnowledge||{}).iq||{});
 let _bkProfiles=null;
+/* One manager's settled bets, for the IQ bar on their profile. The sportsbook
+   only reads your own now, so somebody else's have to be asked for — once per
+   owner per session, and the profile repaints when the answer arrives. */
+const _betsByOwner={};
+function betsForOwners(owners){
+  const out=[];
+  let missing=false;
+  owners.forEach(o=>{
+    if(_betsByOwner[o]) { out.push(..._betsByOwner[o]); return; }
+    if(_me&&o===_me.k1){ out.push(...(_bets||[]).filter(b=>b.owner===o)); return; }
+    missing=true;
+    if(_betsByOwner[o]===undefined){
+      _betsByOwner[o]=null;                       // in flight; do not ask twice
+      betQuery(fsEq('owner',o)).then(rows=>{
+        _betsByOwner[o]=rows||[];
+        if(_activeTab==='teams') try{ renderProfile(); }catch(e){}
+      }).catch(()=>{ _betsByOwner[o]=[]; });
+    }
+  });
+  /* Nothing yet for a manager whose bets are still coming: their bar shows
+     without the bet component for a beat rather than showing a wrong total. */
+  return missing&&!out.length?[]:out;
+}
 
 /* Ball Knowledge is not just the quiz. Three things move it, all of them a
    read on the league rather than luck:
@@ -11734,9 +11798,14 @@ function bkIQFor(teamId){
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);
   });
-  // settled bets belonging to this team
+  /* Settled bets belonging to this team. _bets is this manager's own ledger
+     now rather than the whole league's, so another team's bets are fetched on
+     demand — one query for that owner, kept, and the bar repaints when it
+     lands. Falls back to _bets, which is the right answer when the team being
+     looked at is your own. */
   const owners=rows.map(p=>p.id);
-  (_bets||[]).forEach(b=>{
+  const src=betsForOwners(owners);
+  src.forEach(b=>{
     if(!owners.includes(b.owner)) return;
     if(b.status==='won') score+=1;
     else if(b.status==='lost') score-=1;
@@ -12026,10 +12095,24 @@ function betWeekResult(leg,season,wk){
     if(mine.d!==target) return false;
     return ds.filter(d=>d===target).length>1?'push':true;
   }
-  /* scored exactly nothing */
+  /* Anybody in the lineup on a zero. Settles off the week's starting lineups
+     rather than the team total, so it needs the lineups dataset — kicked off
+     here and left ungraded until it lands, the same way the player markets are.
+     D/ST carries a negative player id in that feed, which is how it is dropped:
+     the question is about a person having a bad Sunday. */
   if(/^wk\d+-donut$/.test(mk)){
     if(pts[ent]==null) return null;
-    return (pts[ent]===0)===(side!=='no');
+    try{ loadLineups(); }catch(e){}
+    const L=_lineups&&_lineups[String(season)];
+    if(!L||!L.weeks) return null;
+    const tid=Object.keys(owners).find(id=>owners[id]===ent);
+    if(tid==null) return null;
+    const arr=(L.weeks[String(wk)]||L.weeks[Number(wk)]||{})[tid];
+    if(!arr||!arr.length) return null;
+    const starters=arr.filter(([pid])=>Number(pid)>0);
+    if(starters.length<5) return null;             // a partial lineup grades nothing
+    const donut=starters.some(([,v])=>Number(v)<=0);
+    return donut===(side!=='no');
   }
   /* Top Player and the FAAB lines need the week's player box scores, which are
      a separate fetch and are not always on hand. Left ungraded on purpose: a
@@ -13109,16 +13192,26 @@ function sbWeekMarkets(book,games,week){
     }
   }
 
-  /* 6 — the donut.
-     A fantasy team scoring nothing at all takes an empty lineup, which is a
-     manager problem rather than a football one, so nothing in the data really
-     predicts it. It opens as a near-flat long shot with a small lean toward the
-     weakest offences, and the clamps hold the whole board between +6500 and
-     +19900 so a joke bet cannot pay out the league's entire economy. */
+  /* 6 — the donut. Does anybody in this team's lineup put up a zero?
+     Not the team total — that takes an empty lineup and has never happened,
+     which is what this market used to ask and why it sat at +6500 as a joke.
+     One starter laying an egg is an ordinary week: a receiver who is inactive,
+     a kicker who never gets sent out, a back who fumbles his only carry.
+
+     Measured across four seasons of archived lineups — 816 team-weeks — it
+     happens 15.7% of the time, and steadily: 19.1, 14.2, 15.7, 13.7 by season.
+     So it prices as a real two-way market rather than a longshot with a
+     formality on the other side.
+
+     The lean is earned rather than assumed. Team scoring and donut rate
+     correlate at -0.373 across 48 team-seasons: below-average offences donut
+     20.1% of the time against 12.0% for above-average ones. exp(-0.33z) puts a
+     z of -1 at 21.8% and +1 at 11.3%, which is that split. D/ST is excluded —
+     a defence going scoreless is a different thing and happens far more often. */
   out.push(sbYesNoAny('wk'+week+'-donut',`Week ${week} Donut`,
-    'Does this team score exactly zero? It has never happened. Someone will still bet it.',
-    te,rows.map(r=>0.007*Math.exp(-0.40*(r.z.ppg||0))),
-    'fa-ring',{lo:0.004,hi:0.015,mul:true,yesOnly:true}));
+    'Does anyone in this lineup score zero or less? Defence does not count.',
+    te,rows.map(r=>0.157*Math.exp(-0.33*(r.z.ppg||0))),
+    'fa-ring',{lo:0.06,hi:0.34,mul:true}));
   return out;
 }
 function sbWeekHTML(){
