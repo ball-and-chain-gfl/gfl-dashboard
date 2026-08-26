@@ -121,7 +121,20 @@ window.GFL_CONFIG = {
     reveal: false,
     /* What one graded call is worth on the Ball Knowledge scale — a right
        answer this much up, a wrong one the same amount down. Every call counts
-       the same: a trivia question, a weekly pick, a settled bet. */
+       the same: a trivia question, a weekly pick, a settled bet, except the
+       Matchup of the Week pick, which counts double.
+
+       The scale runs 0 to 300 with everyone starting at 150, and the nine
+       labels on a team profile divide it evenly — Average Ball Knower is the
+       middle band, 133 to 167. min, max and avg can be set here too if the
+       scale ever wants moving; the labels follow whatever it is set to.
+
+       A note on the step. There are about 15 graded calls in a week — five
+       trivia, six picks with one counting double, three bets — so at a step of
+       2 a perfect week is +30 and a terrible one -30. That means the ceiling is
+       five clean weeks away and the floor five bad ones, and a manager who hits
+       either stops moving for the rest of the season. Lower it to about 0.7 if
+       the number should still be climbing in December. */
     iq: { step: 2 },
     /* TESTING — serve one of every kind of question instead of the weekly five,
        and let the graph question through before week 5. The league gets the

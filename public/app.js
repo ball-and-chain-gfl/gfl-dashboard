@@ -11561,7 +11561,37 @@ function cursedHTML(){
    Nothing is graded until the week's `reveal` is turned on, so before that the
    whole league sits dead centre — which is the intended starting state rather
    than a placeholder. */
-const bkIQCfg=()=>Object.assign({min:40,max:228,avg:100,step:8},(_CFG.ballKnowledge||{}).iq||{});
+/* 0 to 300, average at 150. The old 40–228 was lopsided — 128 points of room
+   above the average and only 60 below — so a bad run hit the floor twice as
+   fast as a good one hit the ceiling. Symmetrical now, and it divides cleanly
+   into the nine bands below. */
+const bkIQCfg=()=>Object.assign({min:0,max:300,avg:150,step:8},(_CFG.ballKnowledge||{}).iq||{});
+/* ── WHAT THE NUMBER IS CALLED ───────────────────────────────────────────────
+   Nine bands, worst to best, each covering an equal share of the scale — a
+   third of a hundred points apiece across 0–300. Average Ball Knower is the
+   fifth of nine, so it straddles the midpoint exactly: 133.3 to 166.7, centred
+   on 150, which is where everybody starts.
+
+   Derived from min and max rather than written as fixed boundaries, so moving
+   the scale in config moves the bands with it instead of silently leaving them
+   pointing at the wrong numbers. */
+const BK_IQ_LABELS=[
+  'Profound Impairment',
+  'Moderate Impairment',
+  'Casual Fan',
+  'Borderline Ball Knower',
+  'Average Ball Knower',
+  'This Guy Knows Some Ball',
+  'Superior Ball Knowledge',
+  'Gifted Ball Knower',
+  'Ball Lover',
+];
+function bkIQLabel(v){
+  const {min,max}=bkIQCfg();
+  const band=(max-min)/BK_IQ_LABELS.length;
+  const i=Math.floor((Number(v)-min)/band);
+  return BK_IQ_LABELS[Math.max(0,Math.min(BK_IQ_LABELS.length-1,i))];
+}
 let _bkProfiles=null;
 /* One manager's settled bets, for the IQ bar on their profile. The sportsbook
    only reads your own now, so somebody else's have to be asked for — once per
@@ -11677,7 +11707,10 @@ function bkIQHTML(teamId){
   return `<div class="bkiq-inhero">
     <div class="bkiq-head">
       <span class="bkiq-t"><i class="fa fa-brain"></i>Ball Knowledge IQ</span>
-      <span class="bkiq-v" style="color:${col}">${Math.round(v)}</span>
+      <span class="bkiq-r">
+        <span class="bkiq-lab" style="color:${col};border-color:${col}">${bkIQLabel(v)}</span>
+        <span class="bkiq-v" style="color:${col}">${Math.round(v)}</span>
+      </span>
     </div>
     <div class="bkiq-track">
       <span class="bkiq-mid"></span>
