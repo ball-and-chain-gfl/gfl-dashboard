@@ -10188,6 +10188,11 @@ function renderWeekPicks(){
   const done=games.map((_,i)=>i).filter(i=>picks[i]!=null);
   const locked=pkLocked()||pkSubmitted();
   const sent=pkSubmitted();
+  /* Nothing is pickable until the Matchup of the Week has been named. One game
+     is worth double and the rest are worth one, so picking before you know
+     which is which is a different game — the grid is shown, faded and inert, so
+     the league can see the slate and see that it is waiting on something. */
+  const waiting=!motwIsSet();
   /* The Matchup of the Week leads the stack. That section is hidden, so this is
      where the pick on it now lives — outlined in the home gold and worth double,
      which is the whole reason to call it out. */
@@ -10199,7 +10204,7 @@ function renderWeekPicks(){
   const cell=(i)=>{
     const g=games[i], mine=picks[i], big=i===motw;
     const side=t=>`<button type="button" class="pk-s${String(mine)===String(t)?' on':''}"
-      ${locked?'disabled':`onclick="pkPick(${i},${t},this)"`} title="${nm(t).replace(/"/g,'&quot;')}">
+      ${locked||waiting?'disabled':`onclick="pkPick(${i},${t},this)"`} title="${nm(t).replace(/"/g,'&quot;')}">
       ${logoImg(t,'pk-logo')}<span>${ab(t)}</span></button>`;
     return `<div class="pk-g${mine!=null?' picked':''}${big?' pk-motw':''}${locked?' pk-lock':''}">
       ${big?`<div class="pk-badge"><i class="fa fa-fire"></i>Matchup of the Week · double</div>`:''}
@@ -10230,9 +10235,12 @@ function renderWeekPicks(){
   }
   el.innerHTML=`
     <div class="bk-meta"><span>Week ${wk}</span>
-      <span class="bk-count">${done.length} of ${games.length}</span></div>
-    <div class="pk-grid">${order.map(cell).join('')}</div>
-    ${pkLocked()?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
+      <span class="bk-count">${waiting?'waiting':`${done.length} of ${games.length}`}</span></div>
+    <div class="pk-grid${waiting?' pk-waiting':''}">${order.map(cell).join('')}</div>
+    ${waiting
+      ?`<div class="pk-wait"><i class="fa fa-hourglass-half"></i>Waiting on the Matchup
+          of the Week. Picks open as soon as it is named.</div>`
+      :pkLocked()?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
       :`<button class="pk-go" ${done.length===games.length&&!_pkBusy?'':'disabled'} onclick="pkSubmit()">
           ${_pkBusy?'Saving…':done.length===games.length?'Submit picks':`Pick all ${games.length}`}</button>`}`;
   orderHomeTodo();
@@ -10242,14 +10250,55 @@ function renderWeekPicks(){
    about whether a week is under way. */
 function pkLocked(){ return weekHasStarted(); }
 /* which game on the slate is the Matchup of the Week, if it is on this slate */
+/* ── THE MATCHUP OF THE WEEK IS CHOSEN, NOT CONFIGURED ───────────────────────
+   One manager picks it each week and the league reads their pick. It is stored
+   as the two team ids on that manager's own profile document, which means it
+   arrives with the profile list the homepage already fetches — no new
+   collection, no new read, and everyone sees the same answer.
+
+   Nothing else on the picks grid can be answered until it is set, because the
+   grid's whole shape depends on it: one game is worth double and the rest are
+   worth one, and picking before you know which is which is not the game. */
+const MOTW_PICKER=TEST_PROFILE;                 // whose call it is
+/* Both halves of the key come from the same place the fixtures do, so the
+   season and the week can never drift apart from the slate they describe. */
+const motwInfo=()=>(_liveInfo||liveWeekInfo()||{});
+const motwWeek=()=>Number(motwInfo().week)||0;
+const motwPickKey=()=>`motw_${motwInfo().season||bkLeagueSeason()}_w${motwWeek()}`;
+/* [idA,idB] once it has been set, null until then */
+function motwChosen(){
+  const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
+  const m=/^(\d+)-(\d+)$/.exec(r?String(r[motwPickKey()]||'').trim():'');
+  return m?[Number(m[1]),Number(m[2])]:null;
+}
+const motwIsSet=()=>!!motwChosen();
 function pkMotwIndex(games){
-  const pair=(typeof motwPair==='function')?motwPair():null;
+  const pair=motwChosen();
   if(!pair) return -1;
-  const [A,B]=pair;
+  const [a,b]=pair.map(String);
   return games.findIndex(g=>{
     const ids=[g.home.teamId,g.away.teamId].map(String);
-    return ids.includes(String(A.id))&&ids.includes(String(B.id));
+    return ids.includes(a)&&ids.includes(b);
   });
+}
+/* The picker's own write. Keyed on season and week, so last week's choice is
+   still on the profile and this week starts empty. */
+let _motwSetBusy=false;
+async function motwSet(a,b){
+  if(!_me||_me.k1!==MOTW_PICKER||_motwSetBusy) return;
+  _motwSetBusy=true; try{ renderNotifications(); }catch(e){}
+  const val=`${a}-${b}`;
+  const r=await gflPatchProfile(_me.k1,{[motwPickKey()]:val});
+  if(r&&r.ok){
+    /* write it into the cached profile row too, so the picks grid unfades on
+       this device without waiting for the next poll */
+    const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
+    if(row) row[motwPickKey()]=val;
+  }
+  _motwSetBusy=false;
+  try{ renderNotifications(); }catch(e){}
+  try{ renderWeekPicks(); }catch(e){}
+  try{ orderHomeTodo(); }catch(e){}
 }
 
 
@@ -10269,6 +10318,7 @@ function pkMotwIndex(games){
    One at a time, deliberately. A stack of eleven kinds of alert is a feed
    nobody reads; a single card with a count is a thing you deal with. */
 const NT_KINDS={
+  motw:   {icon:'fa-fire',        tone:'warm'},
   blowout:{icon:'fa-explosion',   tone:'warm'},
   wire:   {icon:'fa-stopwatch',   tone:'cool'},
   perfect:{icon:'fa-bullseye',    tone:'good'},
@@ -10540,6 +10590,36 @@ function ntStreaks(out){
         art:ntStreak(owner,who,n,false),
         body:`<b>${who}</b> have not won in <b>${n} games</b>.`});
   });
+}
+/* ── TUESDAY: NAME THE MATCHUP OF THE WEEK ───────────────────────────────────
+   One card, for one manager, every Tuesday. Nobody else sees it, and until it
+   is answered the league's picks grid sits faded — so it leads the stack rather
+   than taking its turn in date order.
+
+   It stays until the week's games kick off, not until it is swiped: this is a
+   job rather than a notice, and clearing it without doing the job would leave
+   eleven people waiting on a card that no longer exists. Once the pick is in,
+   the card goes on its own. */
+function ntMotwPick(out){
+  if(!_me||_me.k1!==MOTW_PICKER) return;      // one manager's card
+  if(motwIsSet()) return;                     // done for the week
+  const games=(typeof pkGames==='function'?pkGames():[]).filter(g=>g.home&&g.away);
+  if(!games.length) return;
+  const wk=motwWeek();
+  const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
+  const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
+  out.push({kind:'motw', day:ntResultsDay(Date.now()), pin:2,
+    id:`motw:${motwInfo().season||bkLeagueSeason()}:${wk}`,
+    title:`Name the Matchup of the Week`,
+    art:`<div class="nt-motw">${games.map(g=>`
+      <button class="nt-mw" ${_motwSetBusy?'disabled':''}
+        onclick="motwSet(${g.away.teamId},${g.home.teamId})">
+        <span class="nt-mw-s">${logoImg(g.away.teamId,'nt-mw-l')}<span>${ab(g.away.teamId)}</span></span>
+        <span class="nt-mw-at">@</span>
+        <span class="nt-mw-s">${logoImg(g.home.teamId,'nt-mw-l')}<span>${ab(g.home.teamId)}</span></span>
+      </button>`).join('')}</div>`,
+    body:`Week ${wk}. Whichever you pick is worth double on everyone's card, and
+      the picks grid stays shut until you choose.`});
 }
 /* everyone's plant, from the profiles the homepage already reads */
 function ntPlants(out){
@@ -10934,7 +11014,7 @@ function ntStandings(out){
 
 function ntAll(){
   const out=[];
-  [ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntTrash,ntDemo]
+  [ntMotwPick,ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntTrash,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -10946,8 +11026,11 @@ function ntLive(){
   const today=ntToday();
   /* pinned first, then newest: the Tuesday standings card is the week's
      summary and belongs at the top of the stack rather than in date order */
+  /* pin is a rank now, not a flag: the standings card sits at 1 and the
+     Matchup of the Week card at 2, so on a Tuesday the one that blocks the rest
+     of the league comes first. */
   let list=ntAll().filter(n=>n.day<=today)
-    .sort((a,b)=>(b.pin?1:0)-(a.pin?1:0) || b.day-a.day);
+    .sort((a,b)=>(b.pin||0)-(a.pin||0) || b.day-a.day);
   /* Preview: one of each kind and no more. The real generators produce as many
      as the league earns — fourteen trades in a season is fourteen cards — which
      is right in play and useless when the point is to look the set over.
@@ -11012,7 +11095,11 @@ function ntUndo(){
    that asks the manager for something rather than telling them something, and a
    question that can be flicked away unanswered is not a question. */
 function ntNeedsVote(n){
-  if(!n||!n.vote) return false;
+  if(!n) return false;
+  /* the Matchup of the Week card is the same shape of obligation as a trade
+     vote: it holds the league up, so it does not clear until it is answered */
+  if(n.kind==='motw') return !motwIsSet();
+  if(!n.vote) return false;
   return !ntMyVote(String(n.vote.id).replace(/[^a-zA-Z0-9_]/g,'_'));
 }
 function ntLockedId(id){

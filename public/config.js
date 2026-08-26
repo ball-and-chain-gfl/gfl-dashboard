@@ -129,13 +129,11 @@ window.GFL_CONFIG = {
        middle band, 133 to 167. min, max and avg can be set here too if the
        scale ever wants moving; the labels follow whatever it is set to.
 
-       A note on the step. There are about 15 graded calls in a week — five
-       trivia, six picks with one counting double, three bets — so at a step of
-       2 a perfect week is +30 and a terrible one -30. That means the ceiling is
-       five clean weeks away and the floor five bad ones, and a manager who hits
-       either stops moving for the rest of the season. Lower it to about 0.7 if
-       the number should still be climbing in December. */
-    iq: { step: 2 },
+       One point a call. The Matchup of the Week pick is the only thing worth
+       two, and that doubling lives in the code beside the pick rather than
+       here. So a perfect week is about +16 and a terrible one -16, which puts
+       the ceiling and the floor a season apart rather than five weeks. */
+    iq: { step: 1 },
     /* TESTING — serve one of every kind of question instead of the weekly five,
        and let the graph question through before week 5. The league gets the
        real five-a-week set regardless; this is the testing profile's view.
