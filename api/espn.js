@@ -336,8 +336,12 @@ export default async function handler(req, res) {
       // the snapshot back over itself
       const fresh = req.query.fresh === '1';
       const videos = await ytVideos({ allowSnapshot: !fresh });
+      // A new video is the one thing on this site people notice immediately, so
+      // the edge holds it for five minutes rather than thirty, and revalidates
+      // within the hour rather than serving a day-old list while it gets round
+      // to it. The feed read is cheap; the staleness was not.
       res.setHeader('Cache-Control', videos.length
-        ? 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'
+        ? 'public, max-age=120, s-maxage=300, stale-while-revalidate=3600'
         : 'public, max-age=15, s-maxage=30');
       return res.status(200).json({ videos, source: ytSource });
     } catch (err) { return res.status(500).json({ error: err.message }); }

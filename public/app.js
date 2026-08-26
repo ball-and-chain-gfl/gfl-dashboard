@@ -133,13 +133,44 @@ async function espnFetch(view){
   if(!r.ok) throw new Error(`ESPN API ${r.status}`);
   return r.json();
 }
+/* THE LIST PAINTS FROM CACHE AND THEN CORRECTS ITSELF.
+
+   It used to paint from cache and stop there: the cached list won whatever its
+   age, and the background refresh only wrote localStorage for next time. So a
+   video that went up an hour ago was already in the API and still not on the
+   screen — you had to open the app, close it, and open it again. The carousel
+   is rebuilt in place when the refresh comes back with a different top video,
+   which is the whole of the fix; the instant paint is worth keeping.
+
+   A cache older than the window is not trusted at all — at that age waiting for
+   the network beats painting something a day out of date. */
+const YT_CACHE_MS=30*60*1000;
 async function ytFetch(){
   const c=cacheGet('youtube');
-  // kick off a background refresh so the list stays current for next open
+  const fresh=c&&c.t&&(Date.now()-c.t)<YT_CACHE_MS;
   const refresh=fetch(`${BASE}?type=youtube`).then(r=>r.ok?r.json():null)
-    .then(j=>{if(j&&j.videos&&j.videos.length)cacheSet('youtube',j);return j;}).catch(()=>null);
-  if(c&&c.d&&c.d.videos&&c.d.videos.length) return c.d;   // instant from cache
-  return (await refresh)||{videos:[]};
+    .then(j=>{ if(j&&j.videos&&j.videos.length){ cacheSet('youtube',j); ytApply(j.videos); } return j; })
+    .catch(()=>null);
+  if(fresh&&c.d&&c.d.videos&&c.d.videos.length) return c.d;   // instant from cache
+  return (await refresh)||(c&&c.d)||{videos:[]};
+}
+/* Swap the list under a carousel that is already on screen. Only when the top
+   video actually changed — rebuilding it on every refresh would restart the
+   ring and drop whatever slide someone was looking at. */
+function ytApply(list){
+  if(!list||!list.length) return;
+  const top=(_videos[0]||{}).videoId;
+  if(top===list[0].videoId) return;
+  _videos=list;
+  /* There is no standalone renderer for the rail — it is built inside the
+     homepage template — so the carousel's own box is rewritten and re-wired.
+     wireVidRail guards on a data flag the fresh markup does not carry, so it
+     wires the new ring rather than refusing. */
+  const sc=document.querySelector('.vid-scroll');
+  const box=sc&&sc.closest('.home-box');
+  if(!box) return;                 // not on the homepage; the next render takes it
+  box.innerHTML=vidCarouselHTML();
+  try{ wireVidRail(); }catch(e){}
 }
 async function txFetch(){
   let d={transactions:[],_source:'error'};

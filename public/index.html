@@ -2469,23 +2469,37 @@
     .nt-deck>.nt-under{position:absolute;left:9px;right:9px;top:0;height:100%;z-index:1;
       transform:translateY(12px);opacity:.5;pointer-events:none;}
     .nt-deck>#nt-card{position:relative;z-index:2;}
-    .nt-card{position:relative;padding:11px 12px 12px;border-radius:12px;
-      background:rgba(0,0,0,0.3);
+    /* Solid, not a wash. These were 30% black, which was invisible on the flat
+       page and turned see-through the moment the module got a pane of its own —
+       a card you can read the standings through is not a card. The tone
+       variants layer their tint over the same solid base rather than replacing
+       it, so they stay tinted and stay opaque. */
+    .nt-card{--ntbg:#15161a;
+      position:relative;padding:11px 12px 12px;border-radius:12px;
+      background:var(--ntbg);
       box-shadow:0 6px 16px -8px rgba(0,0,0,0.8),0 2px 5px -3px rgba(0,0,0,0.55);
       touch-action:pan-y;cursor:grab;user-select:none;}
     .nt-card:active{cursor:grabbing;}
-    .nt-hot{border-color:rgba(232,104,126,0.45);background:rgba(232,104,126,0.07);}
-    .nt-cool{border-color:rgba(126,156,255,0.45);background:rgba(126,156,255,0.07);}
-    .nt-good{border-color:rgba(63,208,122,0.45);background:rgba(63,208,122,0.07);}
-    .nt-bad{border-color:rgba(232,104,126,0.40);background:rgba(232,104,126,0.05);}
+    .nt-hot{border-color:rgba(232,104,126,0.45);
+      background:linear-gradient(rgba(232,104,126,0.09),rgba(232,104,126,0.09)),var(--ntbg);}
+    .nt-cool{border-color:rgba(126,156,255,0.45);
+      background:linear-gradient(rgba(126,156,255,0.09),rgba(126,156,255,0.09)),var(--ntbg);}
+    .nt-good{border-color:rgba(63,208,122,0.45);
+      background:linear-gradient(rgba(63,208,122,0.09),rgba(63,208,122,0.09)),var(--ntbg);}
+    .nt-bad{border-color:rgba(232,104,126,0.40);
+      background:linear-gradient(rgba(232,104,126,0.07),rgba(232,104,126,0.07)),var(--ntbg);}
     .nt-gold{border-color:rgba(232,188,86,0.45);background:rgba(232,188,86,0.07);}
     /* A blowout is not a warning and a dead plant is not an error — the palette
        had everything unhappy sharing one red. Each kind gets a colour that
        means what the card means. */
-    .nt-warm{border-color:rgba(240,154,62,0.48);background:rgba(240,154,62,0.08);}
-    .nt-royal{border-color:rgba(167,123,240,0.48);background:rgba(167,123,240,0.08);}
-    .nt-ember{border-color:rgba(242,112,74,0.48);background:rgba(242,112,74,0.08);}
-    .nt-earth{border-color:rgba(181,131,74,0.48);background:rgba(181,131,74,0.08);}
+    .nt-warm{border-color:rgba(240,154,62,0.48);
+      background:linear-gradient(rgba(240,154,62,0.10),rgba(240,154,62,0.10)),var(--ntbg);}
+    .nt-royal{border-color:rgba(167,123,240,0.48);
+      background:linear-gradient(rgba(167,123,240,0.10),rgba(167,123,240,0.10)),var(--ntbg);}
+    .nt-ember{border-color:rgba(242,112,74,0.48);
+      background:linear-gradient(rgba(242,112,74,0.10),rgba(242,112,74,0.10)),var(--ntbg);}
+    .nt-earth{border-color:rgba(181,131,74,0.48);
+      background:linear-gradient(rgba(181,131,74,0.10),rgba(181,131,74,0.10)),var(--ntbg);}
     .nt-top{display:flex;align-items:center;gap:9px;}
     .nt-ico{display:inline-flex;align-items:center;justify-content:center;
       width:26px;height:26px;border-radius:8px;flex:0 0 auto;

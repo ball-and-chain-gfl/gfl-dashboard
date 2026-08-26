@@ -4,7 +4,10 @@ name: Refresh video snapshot
 # in the repo for /api to fall back on. GitHub's runners read the feed reliably.
 on:
   schedule:
-    - cron: '17 */6 * * *'
+    # Hourly. At every six hours a video posted just after a run sat unseen for
+    # most of a working day whenever the RSS read failed from Vercel and the
+    # snapshot was the only source left.
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
