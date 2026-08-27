@@ -629,7 +629,12 @@ function labelTables(root){
       let idIdx=[...first.cells].findIndex(c=>c.querySelector('.team-cell,.fr-name,.pname,.tp-name'));
       if(idIdx<0) idIdx=0;
       tbl.classList.remove('stick1','stick2');
-      tbl.classList.add(idIdx<=0?'stick1':'stick2');
+      /* .nostick opts out of pinning entirely; .noseam keeps the pinned column
+         and drops only the shadow down its right edge. Thirteen columns want
+         the team name pinned, so standings takes the second — the shadow was
+         decorating a seam the opaque background already hides, and read as a
+         line hanging in the middle of the row. */
+      if(!tbl.classList.contains('nostick')) tbl.classList.add(idIdx<=0?'stick1':'stick2');
       if(idIdx===1){
         // round up and include the header cell: a fractional width here is what
         // opens a sliver between the two sticky columns while scrolling
@@ -11998,6 +12003,21 @@ function ldPickRecord(prof){
   return {w,l,pending,n:w+l,pct:(w+l)?w/(w+l)*100:null};
 }
 
+/* Money on a twelve-row board, kept short. $1,284,500 is ten characters and
+   pushes the table past a phone; $1.28M is five and never does. Under ten
+   thousand it prints in full, which is where every real figure sits. */
+function ldMoney(v){
+  const n=Math.abs(Number(v)||0);
+  const sign=v<0?'−':'';
+  if(n>=1e6) return sign+'$'+(n/1e6).toFixed(n>=1e7?0:2)+'M';
+  if(n>=1e4) return sign+'$'+(n/1e3).toFixed(n>=1e5?0:1)+'k';
+  return sign+'$'+Math.round(n).toLocaleString();
+}
+/* the same, signed, for a profit column */
+function ldMoneySigned(v){
+  const n=Number(v)||0;
+  return (n>0?'+':'')+ldMoney(n);
+}
 const ldFmt=v=>(v>0?'+':v<0?'−':'')+'$'+Math.abs(v).toFixed(2);
 const ldCol=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text2)';
 
@@ -12074,13 +12094,13 @@ function renderLeaders(){
      already says what the money did, and the pair of them were the two widest
      columns on the board. */
   const cols=betsView
-    ? [['Bucks', m=>bucksFmt(m.bucks),null],
-       ['Profit',m=>ldFmt(m.b.net),m=>ldCol(m.b.net)],
+    ? [['Bucks', m=>ldMoney(m.bucks),null],
+       ['Profit',m=>ldMoneySigned(m.b.net),m=>ldCol(m.b.net)],
        ['W–L',   m=>`${m.b.won}–${m.b.lost}${m.b.open?`·${m.b.open}`:''}`,null],
        ['ROI',   m=>m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%',null]]
-    : [['Bucks', m=>bucksFmt(m.bucks),null],
-       ['Profit',m=>ldFmt(m.f.profit),m=>ldCol(m.f.profit)],
-       ['Value', m=>m.f.held?invFmt(m.f.value):'—',null],
+    : [['Bucks', m=>ldMoney(m.bucks),null],
+       ['Profit',m=>ldMoneySigned(m.f.profit),m=>ldCol(m.f.profit)],
+       ['Value', m=>m.f.held?ldMoney(m.f.value):'—',null],
        ['Buys',  m=>String(m.f.trades||0),null]];
   mo.innerHTML=tabs
     +(anyAction?'':`<div class="ld-empty">${betsView
@@ -12099,6 +12119,11 @@ function renderLeaders(){
   /* the observer picks this up on its own, but calling it here means the
      phone layout is right on the first paint rather than a frame later */
   try{ labelTables(mo); }catch(e){}
+  /* Matchup picks as bars rather than a table. A win percentage is a
+     proportion, and a proportion wants a length — three columns of numbers make
+     you compare 58% against 42% by reading, where two bars do it by looking.
+     The record and the percentage ride the same line, so the row is one line
+     with a bar under it, the way the Ball Knowledge board is built. */
   const pk=document.getElementById('ld-pk-body');
   if(pk){
     const recs=rows.map(r=>({...r, r:ldPickRecord(r.prof)}))
@@ -12106,21 +12131,47 @@ function renderLeaders(){
         || y.r.w-x.r.w || x.name.localeCompare(y.name));
     const any=recs.some(x=>x.r.n||x.r.pending);
     pk.innerHTML=any
-      ?`<div class="tscroll"><table class="ld-tbl">
-        <thead><tr><th>#</th><th>Team</th><th class="right">W–L</th>
-          <th class="right">Win %</th><th class="right">Made</th></tr></thead>
-        <tbody>${recs.map((m,i)=>`<tr${_me&&String(_me.teamId)===String(m.teamId)?' class="ld-me-row"':''}>
-          <td><span class="rank">${i+1}</span></td>
-          <td><div class="team-cell">${logoImg(m.teamId)}<div class="team-info">
-            <div class="team-name tlink" data-tid="${m.teamId}">${m.name}</div>
-            <div class="team-sub">${ab(m.teamId)}</div></div></div></td>
-          <td class="right"><b>${m.r.n?`${m.r.w}–${m.r.l}`:'—'}</b></td>
-          <td class="right">${m.r.pct==null?'—':m.r.pct.toFixed(0)+'%'}</td>
-          <td class="right">${m.r.n+m.r.pending}</td>
-        </tr>`).join('')}</tbody></table></div>`
+      ?`<div class="ld-list">${recs.map((m,i)=>{
+        const p=m.r.pct;
+        /* the same green-to-red the rest of the site uses, on the proportion
+           itself — 50% is the amber middle because a coin flip is the middle */
+        const col=p==null?'var(--text3)':bkIQColor(bkIQCfg().min+(p/100)*(bkIQCfg().max-bkIQCfg().min));
+        return `<div class="ld-row${_me&&String(_me.teamId)===String(m.teamId)?' ld-me':''}">
+          <div class="ld-rtop">
+            <span class="ld-rk">${i+1}</span>
+            <span class="ld-team">${ntCrest(m.owner,22)}
+              <span class="ld-ab">${ab(m.teamId)}</span></span>
+            <span class="ld-lab" style="color:var(--text2)">${
+              m.r.n?`${m.r.w}–${m.r.l}`:'no picks graded'}${
+              m.r.pending?` · ${m.r.pending} pending`:''}</span>
+            <span class="ld-v" style="color:${col}">${p==null?'—':p.toFixed(0)+'%'}</span>
+          </div>
+          <span class="ld-bar"><span class="ld-bar-f"
+            style="width:${p==null?0:p.toFixed(1)}%;background:${col}"></span>
+            <span class="ld-bar-mid"></span></span>
+        </div>`;}).join('')}</div>`
       :`<div class="ld-empty">No picks have been graded yet. Records fill in as
           each week's games finish.</div>`;
-    try{ labelTables(pk); }catch(e){}
+  }
+  /* ── EGGS ─────────────────────────────────────────────────────────────────
+     Twelve tiles, four across. It is one number a manager, so a row each would
+     be eleven lines of whitespace to say what a grid says in three. */
+  const eg=document.getElementById('ld-egg-body');
+  if(eg){
+    const eggs=rows.map(r=>{
+      let n=0;
+      r.prof.forEach(p=>{ try{ const a=JSON.parse(p.eggs||'[]');
+        if(Array.isArray(a)) n+=a.length; }catch(e){} });
+      return {...r, n};
+    }).sort((x,y)=>y.n-x.n||x.name.localeCompare(y.name));
+    const top=Math.max(0,...eggs.map(e=>e.n));
+    eg.innerHTML=`<div class="eg-grid">${eggs.map(e=>`
+      <div class="eg-cell${e.n&&e.n===top?' eg-top':''}${
+        _me&&String(_me.teamId)===String(e.teamId)?' eg-me':''}">
+        ${ntCrest(e.owner,20)}
+        <span class="eg-ab">${ab(e.teamId)}</span>
+        <span class="eg-n">${e.n}</span>
+      </div>`).join('')}</div>`;
   }
   const bc=document.getElementById('ld-bc-body');
   if(bc) bc.innerHTML=bcBoardHTML();
@@ -14219,7 +14270,7 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xe561;">
           <div id="stats-standings">
             <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
-            <div class="tscroll"><table class="min640" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
+            <div class="tscroll"><table class="min640 noseam" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -14330,6 +14381,10 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xf0c1;" id="ld-bc-sec">
           <div class="sec-head"><i class="fa fa-link"></i>B&amp;C Picks</div>
           <div id="ld-bc-body"></div>
+        </div>
+        <div class="sec wm" data-wm="&#xf7fb;" id="ld-egg-sec">
+          <div class="sec-head"><i class="fa fa-egg"></i>Eggs Found</div>
+          <div id="ld-egg-body"></div>
         </div>
       </div>
 

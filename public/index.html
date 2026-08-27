@@ -2750,6 +2750,22 @@
     .bc-cell.bc-loss{background:rgba(232,104,126,0.16);color:#e8687e;}
     .bc-cell.bc-none{background:none;color:var(--text3);font-weight:400;}
 
+    /* ── Eggs ─────────────────────────────────────────────────────────────
+       Four across, twelve tiles. It is one number a manager — a row each would
+       be eleven lines of whitespace to say what a grid says in three. */
+    .eg-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
+    .eg-cell{display:flex;flex-direction:column;align-items:center;gap:3px;
+      padding:8px 4px 7px;border-radius:9px;background:rgba(0,0,0,0.3);
+      border:1px solid transparent;min-width:0;}
+    .eg-ab{font-family:'Inter',sans-serif;font-size:9px;font-weight:800;
+      letter-spacing:.3px;text-transform:uppercase;color:var(--text3);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+    .eg-n{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;
+      line-height:1;font-variant-numeric:tabular-nums;}
+    .eg-top{border-color:rgba(240,154,62,0.45);background:rgba(240,154,62,0.09);}
+    .eg-top .eg-n{color:#F09A3E;}
+    .eg-me{outline:1px solid rgba(var(--accent-rgb),0.55);}
+    @media(min-width:600px){ .eg-grid{grid-template-columns:repeat(6,minmax(0,1fr));} }
     .ld-money{display:flex;flex-direction:column;gap:8px;}
     .ld-mrow{padding:10px 12px 11px;border-radius:10px;background:rgba(0,0,0,0.3);}
     .ld-mhead{display:grid;grid-template-columns:20px minmax(0,1fr) auto;
@@ -5261,6 +5277,12 @@
         box-shadow:3px 0 0 var(--page-bg);}
       table.mtbl.stick2 td:nth-child(2),table.mtbl.stick2 th:nth-child(2){z-index:3;}
       table.mtbl thead th{background:var(--page-bg);}
+      /* .noseam: pinned, but without the shadow. The sticky cell is already
+         opaque, so nothing scrolls through it — the shadow was decoration, and
+         on a wide table it read as a stray rule beside the numbers. */
+      table.mtbl.noseam td,table.mtbl.noseam th{box-shadow:none!important;}
+      table.mtbl.noseam.stick2 td:first-child,
+      table.mtbl.noseam.stick2 th:first-child{box-shadow:3px 0 0 var(--page-bg)!important;}
       /* team photo + abbreviation instead of the full name in table cells */
       table.mtbl td.has-abbr .team-name{display:none;}
       table.mtbl td.has-abbr .team-sub{font-size:12.5px!important;color:var(--text)!important;font-weight:600!important;letter-spacing:0.3px!important;}
@@ -6104,10 +6126,10 @@
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishments</button>
   <button class="tab-btn" data-tab="teams" data-group="Team Data" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="leaders" onclick="switchTab('leaders')"><i class="fa fa-ranking-star"></i>Leaderboards</button>
-  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Head to Head</button>
+  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-list-ol"></i>Standings</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <button class="tab-btn" data-tab="legacy" data-group="Analytics" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
-  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-list-ol"></i>Standings</button>
+  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Head to Head</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Report</button>
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
   <!-- data-pair puts these two side by side at the foot of the menu: both are
