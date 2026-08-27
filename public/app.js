@@ -9077,11 +9077,34 @@ function eggSpot(w=eggWindow()){
 
 let _eggs=null, _eggTimer=null, _eggBusy=false;
 const eggKey=()=>lsKey('eggs');
+/* A find is a window number, and a window number only means anything under the
+   window length it was recorded with. Changing eggWindowHours renumbers every
+   window, so yesterday's finds become numbers from a scheme that no longer
+   exists — the five-minute era counted to about 5,957,000 where twelve-hour
+   windows are around 41,000.
+
+   Left alone that was worse than a wrong total on screen: eggClaim writes the
+   whole set back to the profile, so the next egg anybody claimed would have
+   pushed a few hundred dead numbers back up and paid them ten bucks each.
+
+   So a stored find has to be plausible under the current scheme. Nothing from
+   the future, nothing older than two years of windows. That heals every device
+   on the next load without anyone clearing anything, and it holds the same way
+   if the window is ever changed again — in either direction. */
+const EGG_MAX_AGE=Math.ceil(2*365*24*3600*1000/EGG_MS);
+const eggValid=n=>{ const w=eggWindow(); return n<=w && n>w-EGG_MAX_AGE; };
 function eggsFound(){
   if(_eggs) return _eggs;
   let list=[];
   try{ list=JSON.parse(localStorage.getItem(eggKey())||'[]')||[]; }catch(e){}
-  return (_eggs=new Set(list.map(Number).filter(n=>!isNaN(n))));
+  const clean=list.map(Number).filter(n=>!isNaN(n)&&eggValid(n));
+  _eggs=new Set(clean);
+  /* write the cleaned list straight back, so a stale cache is repaired once
+     rather than re-filtered on every read */
+  if(clean.length!==list.length){
+    try{ localStorage.setItem(eggKey(),JSON.stringify(clean)); }catch(e){}
+  }
+  return _eggs;
 }
 function eggBucks(){ return eggsFound().size*EGG_PRIZE; }
 /* Whether this window's egg is still going begging. Says nothing about where
@@ -9101,7 +9124,7 @@ async function eggSync(){
     const res=await gflFetchProfile(_me.k1);
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.eggs)||'[]')||[]; }catch(e){}
     const before=eggsFound().size;
-    srv.map(Number).filter(n=>!isNaN(n)).forEach(n=>eggsFound().add(n));
+    srv.map(Number).filter(n=>!isNaN(n)&&eggValid(n)).forEach(n=>eggsFound().add(n));
     if(eggsFound().size!==before){
       try{ localStorage.setItem(eggKey(),JSON.stringify([...eggsFound()])); }catch(e){}
       eggPaint();
