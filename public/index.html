@@ -1858,9 +1858,30 @@
     .lv-t .tm-avatar{width:20px!important;height:20px!important;flex:0 0 20px!important;border-radius:5px!important;}
 
     /* on the team profile it sits between the hero and the season panels */
-    .lr-sec{border:1px solid rgba(var(--accent-rgb),0.35);border-radius:10px;
-      padding:14px 16px;margin:0 0 20px;background:rgba(255,255,255,0.018);
-      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5);}
+    /* The same glass the homepage modules are made of — a wash of the section's
+       own colour over a dark pane, a hairline of it at the edge, and the blur
+       behind. Keyed on --accent2 rather than --accent: on the team profile the
+       primary is the page's red and is already carrying the hero, the picker
+       and every section heading. The report is a different kind of thing on the
+       page, so it takes the secondary and reads as its own container.
+
+       --lr-rgb is declared here so the tint can be written once; the profile
+       page sets it to its own secondary just below. */
+    .lr-sec{--lr-rgb:var(--accent-rgb);
+      border:1px solid rgba(var(--lr-rgb),0.16);border-radius:16px;
+      padding:16px 15px 18px;margin:0 0 20px;
+      background:linear-gradient(rgba(var(--lr-rgb),0.06),rgba(var(--lr-rgb),0.02)),
+        rgba(0,0,0,0.18);
+      -webkit-backdrop-filter:blur(12px) saturate(1.15);
+      backdrop-filter:blur(12px) saturate(1.15);
+      box-shadow:none;}
+    /* the team profile's secondary, #ff8f5f */
+    #page-teams .lr-sec{--lr-rgb:255,143,95;}
+    /* The heading follows the container rather than the page. The icon carries
+       an inline colour from the markup, which no selector here can outrank
+       without !important — so it reads rgb(var(--lr-rgb)) at the source and
+       resolves against whatever this container declares. */
+    #page-teams .lr-sec .lr-wk-tag{color:rgb(var(--lr-rgb));}
     .lr-sec .sec-head{padding:0 0 11px;}
     /* the week the report covers, beside the heading */
     .lr-wk-tag{margin-left:auto;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;

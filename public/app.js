@@ -3490,7 +3490,7 @@ function legacyReportHTML(owner){
      remainder of one. */
   return `<div class="sec lr-sec" data-nochip>
     <!-- plain span, not .badge-info: those are hidden inside section heads -->
-    <div class="sec-head" style="font-size:15px"><i class="fa fa-landmark" style="color:var(--accent)"></i>Legacy Report
+    <div class="sec-head" style="font-size:15px"><i class="fa fa-landmark" style="color:rgb(var(--lr-rgb))"></i>Legacy Report
       <span class="lr-wk-tag">Week ${d.week} · ${d.season}</span></div>
     ${recs.length?`<div class="lr-recs">${recs.map(r=>
       `<div class="lr-rec"><i class="fa fa-certificate"></i><span>${r.txt}</span><b>${r.val}</b></div>`).join('')}</div>`:''}
