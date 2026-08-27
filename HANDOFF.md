@@ -131,8 +131,13 @@ Both charts plot **money made, against zero**. Neither plots a balance.
 | | My Bets | My Portfolio |
 |---|---|---|
 | Plots | winnings and losses from bets | profit on shares, banked plus open |
+
+Portfolio profit is **realised plus unrealised**: a share bought at $1 and sold
+at $20 leaves +$19 baked into the total permanently, and a share bought at $15
+now worth $20 counts as +$5 while it is still held. Both verified against
+worked cases.
 | Baseline | 0 | 0 |
-| Buckets | calendar weeks (real Tuesday) | fantasy weeks |
+| Buckets | calendar weeks (real Tuesday) | one point per Tuesday |
 | Source | settled bets only | the share ledger, replayed |
 
 **Updates are lazy — there is no cron.**
@@ -155,9 +160,13 @@ Both charts plot **money made, against zero**. Neither plots a balance.
   until a reload. Low impact, easy fix, not yet done.
 - Between seasons the ledger's season and the price season disagree — a lot
   bought in August 2026 is stamped week 1 and would be priced against 2025's
-  weeks 1–17. The chart falls back to two points (start, now) in that case
-  rather than inventing a season of history. It returns to a full line once
-  2026 has a week of results behind it.
+  weeks 1–17. Out of season the line is walked by the **calendar** instead: one
+  point per real Tuesday from the first trade to this one, realised profit taken
+  off the trade timestamps and unrealised measured against today's price. That
+  is exact rather than approximate — nothing has been played, so no price has
+  moved since any of those trades. In season the fantasy-week series takes over,
+  which is the same Tuesday cadence by another route: a week's prices settle
+  when its results land.
 
 ---
 

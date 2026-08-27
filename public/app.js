@@ -8878,20 +8878,51 @@ function invProfitSeries(){
   if(!lots.length) return null;
   const season=ntSeason&&ntSeason();
   const last=season?((ntLastWeek(season)||{}).week||0):0;
-  /* THE LEDGER AND THE PRICES HAVE TO BE THE SAME SEASON. A lot is stamped with
-     the league's current week, and prices come from the last season that was
-     actually played. Between seasons those are two different years: in August
-     2026 a share bought this morning is stamped week 1 and then valued against
-     2025's weeks 1 through 17, so one purchase drew a full seventeen-week line
-     replaying last season as though it had been held throughout. That is the
-     graph moving when an investment is added.
+  /* ── ONE POINT A WEEK, AND THE WEEK IS A TUESDAY ──────────────────────────
+     In season that is what the fantasy-week series below already is: a week's
+     prices are settled when its results land, which is the Tuesday, so a new
+     point appears every Tuesday on its own.
 
-     When the two disagree the honest chart is the short one: you bought today,
-     you are up or down this much, and there is no history to draw yet. */
+     Out of season there are no completed weeks to walk, and the lots are
+     stamped with a week of a season that has not started — which is what had a
+     single purchase drawing seventeen weeks of last year. So the line is walked
+     by the calendar instead: a point every real Tuesday from the first trade to
+     this one.
+
+     That is exact rather than approximate. Realised profit comes off the trade
+     timestamps, which are real times; unrealised is measured against today's
+     price, which is the only price that exists yet — nothing has been played,
+     so no price has moved since any of these trades. The line steps when
+     something was sold and is flat in between, which is the truth. */
   const ledgerSeason=String(bkLeagueSeason());
   if(String(season)!==ledgerSeason||!last){
-    const now=invProfit();
-    return {pts:[{wk:0,val:0,start:true},{wk:0,val:now,now:true}],net:now,flat:true};
+    const tue=t=>realWeekStart(new Date(t));
+    const stamps=lots.map(l=>Number(l.t)||Date.now());
+    const firstTue=tue(Math.min(...stamps)), nowTue=tue(Date.now());
+    const WEEK=7*24*3600*1000;
+    /* profit as it stood at a moment: everything banked by then, plus what was
+       still held valued at what it is worth */
+    const atTime=T=>{
+      const sh={},cost={}; let realised=0;
+      lots.slice().sort((a,b)=>(Number(a.t)||0)-(Number(b.t)||0))
+        .filter(l=>(Number(l.t)||0)<=T).forEach(l=>{
+        const o=l.o,n=Number(l.s)||0,pr=Number(l.p)||0;
+        if(!o||!n) return;
+        if(l.k==='s'){ const avg=sh[o]?cost[o]/sh[o]:0; realised+=n*(pr-avg);
+          sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n; }
+        else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*pr; }
+      });
+      let profit=realised;
+      Object.keys(sh).forEach(o=>{ if(sh[o]>0.0001)
+        profit+=sh[o]*(invPrice(o)-(cost[o]/sh[o])); });
+      return profit;
+    };
+    const pts=[{wk:firstTue-WEEK,val:0,start:true,date:true}];
+    for(let t=firstTue;t<=nowTue;t+=WEEK) pts.push({wk:t,val:atTime(t+WEEK-1),date:true});
+    const nowP=invProfit();
+    const lastPt=pts[pts.length-1];
+    if(Math.abs(lastPt.val-nowP)>0.005||lastPt.start) pts.push({wk:'now',val:nowP,now:true});
+    return {pts,net:nowP,byDate:true};
   }
   /* lots written before the week was stamped are treated as held from the
      opening week — the only honest reading of a trade with no week on it */
@@ -8962,7 +8993,11 @@ function invChartHTML(){
     if(d.pts.length>7 && i%2 && i!==d.pts.length-1) return '';
     const px=(x(i)/W*100).toFixed(2);
     const shift=i===0?'0':i===d.pts.length-1?'-100%':'-50%';
-    const lbl=p.start?'Start':p.now?'Now':'wk '+p.wk;
+    /* a date-walked point is a Tuesday, so it is labelled like one — the
+       fantasy-week series keeps "wk N" */
+    const lbl=p.start?'Start':p.now?'Now'
+      :p.date?new Date(p.wk).toLocaleDateString(undefined,{month:'short',day:'numeric'})
+      :'wk '+p.wk;
     return `<span class="bank-x" style="left:${px}%;transform:translateX(${shift})">${lbl}</span>`;
   }).join('');
   return `<div class="inv-chart">
