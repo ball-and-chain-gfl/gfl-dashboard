@@ -1,6 +1,6 @@
 # Handoff — Ball & Chain GFL Dashboard
 
-Written 2026-08-27, at `sw gfl-v516`. Read `CLAUDE.md` first for the repo's
+Written 2026-08-27, at `sw gfl-v517`. Read `CLAUDE.md` first for the repo's
 shape and rules; this is the state of play on top of it.
 
 The site went live for the league on 2026-08-27. Everything below either just
@@ -131,14 +131,14 @@ Both charts plot **money made, against zero**. Neither plots a balance.
 | | My Bets | My Portfolio |
 |---|---|---|
 | Plots | winnings and losses from bets | profit on shares, banked plus open |
-
-Portfolio profit is **realised plus unrealised**: a share bought at $1 and sold
-at $20 leaves +$19 baked into the total permanently, and a share bought at $15
-now worth $20 counts as +$5 while it is still held. Both verified against
-worked cases.
 | Baseline | 0 | 0 |
 | Buckets | calendar weeks (real Tuesday) | one point per Tuesday |
 | Source | settled bets only | the share ledger, replayed |
+
+Portfolio profit is **realised plus unrealised**: a share bought at $1 and sold
+at $20 leaves +$19 baked into the total permanently, and a share bought at $15
+now worth $20 counts as +$5 while it is still held. Both verified against worked
+cases.
 
 **Updates are lazy — there is no cron.**
 
