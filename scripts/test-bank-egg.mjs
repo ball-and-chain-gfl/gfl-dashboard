@@ -4,6 +4,19 @@ import fs from 'fs';
 const SRC=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8')
   .split(String.fromCharCode(13)).join('');
 
+/* EGG_MS and EGG_PRIZE are derived from config.js at load, so the harness has
+   to hand app.js the shipped values rather than a guess — and the cases below
+   assert against config instead of against a number baked in here. */
+const CFGSRC=fs.readFileSync(new URL('../public/config.js',import.meta.url),'utf8');
+const cfgNum=k=>{
+  const i=CFGSRC.indexOf(k+':');
+  if(i<0) throw new Error('config.js: '+k+' not found');
+  const v=parseFloat(CFGSRC.slice(i+k.length+1));
+  if(!isFinite(v)) throw new Error('config.js: '+k+' is not a number');
+  return v;
+};
+const EGG_HOURS=cfgNum('eggWindowHours'), EGG_MONEY=cfgNum('eggPrize');
+
 function grab(startsWith){
   const i=SRC.indexOf(startsWith);
   if(i<0) throw new Error('not found: '+startsWith);
@@ -18,6 +31,7 @@ function grab(startsWith){
 }
 const parts=[
   grab('const bucksTestMs=()=>'),
+  grab('function realWeekStart(now=new Date()){'),
   grab('function tueWeekStart(now=new Date()){'),
   grab('function bucksCycles(now=Date.now()){'),
   grab('function bucksAllowance(){'),
@@ -25,22 +39,29 @@ const parts=[
   grab('function bucksStaked(){'),
   grab('function bucksReturned(){'),
   grab('function bucksBalance(){'),
-  grab('const EGG_MS=5*60*1000, EGG_PRIZE=10;'),
+  grab('const EGG_MS='),
+  grab('const EGG_PRIZE='),
   grab('const eggWindow=(t=Date.now())=>'),
   grab('function eggRand(seed){'),
-  grab("const EGG_TABS=['week','book','punishment','teams','roster','history',"),
+  grab('const EGG_TABS=['),
   grab('function eggSpot(w=eggWindow()){'),
 ];
 const harness=`
-let _bets=[], _me={k1:'bfl'}, _CFG={betsResetBefore:0}, _EGGS=0;
+let _bets=[], _me={k1:'bfl'}, _EGGS=0;
+let _CFG={betsResetBefore:0,eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}};
 const BUCKS_WEEKLY=100;
+/* bucksTestMs only speeds the clock up for the test account, and section 10 is
+   about what that flag does — so the harness says yes. */
+const isTestProfile=()=>true;
 const betsAfterReset=b=>Number(b.ts||0)>=Number(_CFG.betsResetBefore||0);
 const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1&&betsAfterReset(b));
 const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
 const eggsFound=()=>({size:_EGGS});
 function eggBucks(){ return _EGGS*EGG_PRIZE; }
 ${parts.join('\n')}
-return { set(b,testMin,eggs){ _bets=b; _CFG={betsResetBefore:0,bucksTestMinutes:testMin||0}; _EGGS=eggs||0; },
+return { set(b,testMin,eggs){ _bets=b; _EGGS=eggs||0;
+    _CFG={betsResetBefore:0,bucksTestMinutes:testMin||0,
+          eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}}; },
   bucksCycles, bucksAllowance, bucksStaked, bucksReturned, bucksBalance,
   eggSpot, eggWindow, eggRand, EGG_TABS, EGG_MS, EGG_PRIZE, tueWeekStart };`;
 const api=new Function(harness)();
@@ -97,7 +118,7 @@ console.log('\n5. invitations and declines are not money either way');
 console.log('\n6. eggs pay into the same bank');
 {
   api.set([],0,3);
-  eq('three finds = $30 on top', api.bucksBalance(), 130);
+  eq('three finds pay the prize three times', api.bucksBalance(), 100+3*EGG_MONEY);
 }
 
 console.log('\n7. the egg is in the same place for everyone in a window');
@@ -129,25 +150,39 @@ console.log('\n8. it moves every window, and spreads over the tabs');
   eq('no tab is starved', Math.min(...counts)>10, true);
 }
 
-console.log('\n9. five-minute windows');
+console.log('\n9. the window is whatever config says (now '+EGG_HOURS+'h)');
 {
-  eq('window length', api.EGG_MS, 300000);
-  eq('prize', api.EGG_PRIZE, 10);
-  // aligned to a window boundary, or the +299s probe crosses into the next one
+  eq('window length matches config', api.EGG_MS, EGG_HOURS*3600*1000);
+  eq('prize matches config', api.EGG_PRIZE, EGG_MONEY);
+  /* The whole economy hangs off this number, because every roll of the window
+     is another egg somebody can be paid for. 12 hours is 14 a week and a $140
+     ceiling against a $100 allowance. The five minutes this once shipped with
+     was 2,016 a week and $20,160 — not a bonus on the economy, the economy.
+     Anything under an hour is a testing speed-up that got out. */
+  eq('not a testing speed-up', api.EGG_MS>=3600*1000, true);
+  // aligned to a boundary, or the probe just short of the roll crosses it
   const t=Math.floor(1787000000000/api.EGG_MS)*api.EGG_MS;
-  eq('same window inside 5 min', api.eggWindow(t)===api.eggWindow(t+299000), true);
-  eq('next window after 5 min', api.eggWindow(t+300001)===api.eggWindow(t)+1, true);
+  eq('same window right up to the roll', api.eggWindow(t)===api.eggWindow(t+api.EGG_MS-1000), true);
+  eq('next window just after it', api.eggWindow(t+api.EGG_MS+1)===api.eggWindow(t)+1, true);
 }
 
-console.log('\n10. what the 5-minute test cycle does to the allowance');
+console.log('\n10. what the short test cycle does to the allowance');
 {
   const now=Date.now();
   api.set([B({ts:now-3*DAY,stake:0,ret:0,status:'won'})],5,0);
   const cycles=api.bucksCycles(now);
   console.log('       a bet 3 days old, bucksTestMinutes:5  ->  '
     +cycles+' cycles = $'+(cycles*100).toLocaleString());
-  api.set([B({ts:now-3*DAY,stake:0,ret:0,status:'won'})],0,0);
-  console.log('       the same bet with the flag off        ->  '
+  eq('the short cycle mints allowances by the hundred', cycles>100, true);
+  /* With the flag off the count is real Tuesdays crossed, so a bet pinned to
+     "three days ago" falls in this week or the last one depending on which day
+     of the week the suite happens to run — it read 1 from Friday to Monday and
+     2 from Tuesday to Thursday. Anchor it inside the current week instead and
+     the answer is one, every day. */
+  api.set([],0,0);
+  const inWeek=api.tueWeekStart(new Date(now))+3600000;
+  api.set([B({ts:inWeek,stake:0,ret:0,status:'won'})],0,0);
+  console.log('       a bet placed this week, flag off      ->  '
     +api.bucksCycles(now)+' cycles = $'+(api.bucksCycles(now)*100));
   eq('flag off gives one cycle per real week', api.bucksCycles(now), 1);
 }

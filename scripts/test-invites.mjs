@@ -22,6 +22,9 @@ const parts=[
   grab('function inviteLapsed(inv){'),
   grab('const canInviteOn=b=>'),
   grab('const betInviteSeats=id=>'),
+  grab('const CASHOUT_HOLD='),
+  grab('const CASHOUT_MIN='),
+  grab('function betCashOut(b){'),
   grab('function betCancellable(b){'),
   grab('const betInvitesFor=id=>'),
   grab('const betIsLive=b=>'),
@@ -45,6 +48,16 @@ const weekHasStarted=()=>_STARTED;
    cases stay about invitations: one allowance, no eggs. */
 const bucksAllowance=()=>BUCKS_WEEKLY;
 const eggBucks=()=>0;
+/* betCancellable is a thin wrapper over betCashOut, which walks a ticket's legs
+   to price a buy-back. These stubs put the football exactly where each case
+   below needs it: nothing graded yet, one weekly leg, and _STARTED deciding
+   whether that leg's week has kicked off. */
+const getSeason=()=>'2026';
+const betLegWeek=()=>2;
+const betLegResult=()=>null;
+const betWeekStarted=()=>_STARTED;
+const betSeasonStarted=()=>_STARTED;
+const betLegProb=()=>0.5;
 ${parts.join('\n')}
 return {
   set(b,me,wk,started){ _bets=b; _me=me; _WEEK=wk; _STARTED=started; },
@@ -60,7 +73,7 @@ const eq=(name,got,want)=>{
   if(g===w){pass++; console.log('  ok   '+name);}
   else{fail++; console.log('  FAIL '+name+'\n         got  '+g+'\n         want '+w);}
 };
-const B=o=>Object.assign({team:'',season:'2026',ts:5,odds:100,payout:0,ret:0,legs:[],
+const B=o=>Object.assign({team:'',season:'2026',ts:5,odds:100,payout:0,ret:0,legs:[{mk:'ml-1'}],
   status:'open',settledTs:0,invitedBy:'',srcBet:'',hidden:false},o);
 const ME={k1:'bfl',teamId:1}, OTHER={k1:'kunk',teamId:2};
 
