@@ -2533,11 +2533,14 @@
     .ld-empty{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text3);
       padding:12px 2px 4px;}
     .ld-list{display:flex;flex-direction:column;gap:6px;}
-    .ld-row{padding:9px 11px 11px;border-radius:9px;background:rgba(0,0,0,0.3);}
+    .ld-row{padding:9px 10px 11px;border-radius:9px;background:rgba(0,0,0,0.3);}
     .ld-rtop{display:grid;grid-template-columns:20px auto minmax(0,1fr) auto;
       align-items:center;gap:9px;margin-bottom:8px;}
+    /* Left, not right. In a 20px column a right-aligned "1" sits eleven pixels
+       further in than a "12" does, so the top nine rows read as indented
+       against the bottom three — which is the whole of what looked wrong. */
     .ld-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
-      color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}
+      color:var(--text3);text-align:left;font-variant-numeric:tabular-nums;}
     .ld-team{display:flex;align-items:center;gap:7px;min-width:0;}
     .ld-ab{font-family:'Inter',sans-serif;font-size:12px;font-weight:800;
       letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;}
@@ -2558,7 +2561,24 @@
     /* your own row, on both boards */
     .ld-me{outline:1px solid rgba(var(--accent-rgb),0.55);
       background:rgba(var(--accent-rgb),0.07);}
-    .ld-filters{margin:0 0 14px!important;}
+    /* Two halves of the width, like the sportsbook's board filters — a pair of
+       content-width pills floating at the left of an empty row does not read as
+       a switch between two views of the same thing. */
+    .ld-filters{display:grid!important;grid-template-columns:1fr 1fr;gap:6px;
+      margin:0 0 14px!important;padding:0!important;}
+    .ld-filters .filter-btn{width:100%;justify-content:center;text-align:center;}
+    /* The chart above the table. Fixed height so the two views swap without the
+       page jumping, and the bars are drawn to a viewBox that stretches to
+       whatever width the card is. */
+    .ld-chart{margin:0 0 14px;padding:10px 12px 6px;border-radius:10px;
+      background:rgba(0,0,0,0.3);}
+    .ld-chart-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+    .ld-chart-mx{font-weight:700;letter-spacing:0;text-transform:none;color:var(--text3);}
+    .ld-chart-svg{display:block;width:100%;height:132px;}
+    /* your own row in the table, the same mark the cards carried */
+    .ld-me-row td{background:rgba(var(--accent-rgb),0.07);}
     .ld-money{display:flex;flex-direction:column;gap:8px;}
     .ld-mrow{padding:10px 12px 11px;border-radius:10px;background:rgba(0,0,0,0.3);}
     .ld-mhead{display:grid;grid-template-columns:20px minmax(0,1fr) auto;
@@ -5916,7 +5936,7 @@
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Head to Head</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <button class="tab-btn" data-tab="legacy" data-group="Analytics" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
-  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-ranking-star"></i>Standings</button>
+  <button class="tab-btn" data-tab="standings" onclick="switchTab('standings')"><i class="fa fa-list-ol"></i>Standings</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Report</button>
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
   <!-- data-pair puts these two side by side at the foot of the menu: both are

@@ -11972,7 +11972,12 @@ function renderLeaders(){
           <span class="ld-bar-mid"></span></span>
       </div>`;}).join('')}</div>`;
 
-  /* ── BETS AND PORTFOLIOS ────────────────────────────────────────────────── */
+  /* ── BETS AND PORTFOLIOS ──────────────────────────────────────────────────
+     A chart and then a table, rather than twelve cards. Twelve cards is twelve
+     things to read one at a time; a column chart is the shape of the league in
+     one look, and the table under it is where the detail goes — the same table
+     the Standings tab uses, so it hides its narrow columns on a phone the way
+     that one already does. */
   const tabs=`<div class="standings-filters ld-filters">
     <button class="filter-btn${_ldView==='bets'?' active':''}" onclick="ldSetView('bets')">Bets</button>
     <button class="filter-btn${_ldView==='folio'?' active':''}" onclick="ldSetView('folio')">Portfolios</button>
@@ -11983,41 +11988,79 @@ function renderLeaders(){
   }
   const money=rows.map(r=>({...r, b:ldBets(r.ids), f:ldFolio(r.prof)}));
   const betsView=_ldView==='bets';
+  const headV=m=>betsView?m.b.net:m.f.profit;
   /* Ranked on the column the view is about, then on having done something at
      all — everybody sits on zero in September, and sorting that alphabetically
      puts a manager who has never placed a bet above one with ten running. */
-  money.sort((x,y)=>betsView
-    ? (y.b.net-x.b.net || y.b.n-x.b.n || x.name.localeCompare(y.name))
-    : (y.f.profit-x.f.profit || y.f.trades-x.f.trades || x.name.localeCompare(y.name)));
+  money.sort((x,y)=>headV(y)-headV(x)
+    || (betsView?y.b.n-x.b.n:y.f.trades-x.f.trades)
+    || x.name.localeCompare(y.name));
   const anyAction=money.some(m=>betsView?m.b.n:m.f.trades);
-  const cells=m=>betsView
-    ? [['bets',ldFmt(m.b.net),ldCol(m.b.net)],
-       ['record',`${m.b.won}–${m.b.lost}${m.b.open?` · ${m.b.open} open`:''}`,''],
-       ['hit rate',m.b.hit==null?'—':m.b.hit.toFixed(0)+'%',''],
-       ['roi',m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%',''],
-       ['staked',m.b.staked?bucksFmt(m.b.staked):'—',''],
-       ['returned',m.b.staked?bucksFmt(m.b.back):'—','']]
-    : [['profit',ldFmt(m.f.profit),ldCol(m.f.profit)],
-       ['banked',ldFmt(m.f.real),ldCol(m.f.real)],
-       ['value',m.f.held?invFmt(m.f.value):'—',''],
-       ['cost',m.f.held?invFmt(m.f.cost):'—',''],
-       ['shares',m.f.held?invShFmt(m.f.held):'—',''],
-       ['trades',String(m.f.trades||0),'']];
+  const cols=betsView
+    ? [['Profit',m=>ldFmt(m.b.net),m=>ldCol(m.b.net)],
+       ['W–L',   m=>`${m.b.won}–${m.b.lost}`,null],
+       ['Open',  m=>String(m.b.open||0),null],
+       ['Hit',   m=>m.b.hit==null?'—':m.b.hit.toFixed(0)+'%',null],
+       ['ROI',   m=>m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%',null],
+       ['Staked',m=>m.b.staked?bucksFmt(m.b.staked):'—',null],
+       ['Back',  m=>m.b.staked?bucksFmt(m.b.back):'—',null]]
+    : [['Profit',m=>ldFmt(m.f.profit),m=>ldCol(m.f.profit)],
+       ['Banked',m=>ldFmt(m.f.real),m=>ldCol(m.f.real)],
+       ['Value', m=>m.f.held?invFmt(m.f.value):'—',null],
+       ['Cost',  m=>m.f.held?invFmt(m.f.cost):'—',null],
+       ['Shares',m=>m.f.held?invShFmt(m.f.held):'—',null],
+       ['Trades',m=>String(m.f.trades||0),null]];
+  const hide=betsView?'Open,Hit,Staked,Back':'Banked,Cost,Shares';
   mo.innerHTML=tabs
     +(anyAction?'':`<div class="ld-empty">${betsView
         ?'Nobody has placed a bet yet.':'Nobody has bought a share yet.'}</div>`)
-    +`<div class="ld-money">${money.map((m,i)=>{
-      const head=betsView?m.b.net:m.f.profit;
-      return `<div class="ld-mrow${_me&&String(_me.teamId)===String(m.teamId)?' ld-me':''}">
-        <div class="ld-mhead">
-          <span class="ld-rk">${i+1}</span>
-          <span class="ld-team">${ntCrest(m.owner,22)}
-            <span class="ld-nm">${m.name}</span></span>
-          <span class="ld-total" style="color:${ldCol(head)}">${ldFmt(head)}</span>
-        </div>
-        <div class="ld-cells">${cells(m).map(([k,v,c])=>
-          `<span class="ld-c"><b${c?` style="color:${c}"`:''}>${v}</b><span>${k}</span></span>`).join('')}</div>
-      </div>`;}).join('')}</div>`;
+    +ldChartHTML(money,headV,betsView?'Profit on settled bets':'Portfolio profit')
+    +`<div class="tscroll"><table class="min640" data-mhide="${hide}">
+      <thead><tr><th>#</th><th>Team</th>${cols.map(c=>`<th class="right">${c[0]}</th>`).join('')}</tr></thead>
+      <tbody>${money.map((m,i)=>`<tr${_me&&String(_me.teamId)===String(m.teamId)?' class="ld-me-row"':''}>
+        <td><span class="rank">${i+1}</span></td>
+        <td><div class="team-cell">${logoImg(m.teamId)}<div class="team-info">
+          <div class="team-name tlink" data-tid="${m.teamId}">${m.name}</div>
+          <div class="team-sub">${ab(m.teamId)}</div></div></div></td>
+        ${cols.map(c=>{const col=c[2]&&c[2](m);
+          return `<td class="right"${col?` style="color:${col};font-weight:700"`:''}>${c[1](m)}</td>`;}).join('')}
+      </tr>`).join('')}</tbody></table></div>`;
+  /* the observer picks this up on its own, but calling it here means the
+     phone layout is right on the first paint rather than a frame later */
+  try{ labelTables(mo); }catch(e){}
+}
+
+/* One column a manager, zero down the middle so a loss reads as a loss. Drawn
+   rather than listed: the table underneath already lists it, and the point of a
+   chart is the shape of the league in one look. */
+function ldChartHTML(rows,val,title){
+  const vals=rows.map(val);
+  const mx=Math.max(1,...vals.map(v=>Math.abs(v)));
+  const n=Math.max(1,rows.length);
+  const W=340,H=132,padT=12,padB=20;
+  const half=(H-padT-padB)/2, mid=padT+half;
+  const slot=W/n, bw=Math.min(18,slot-5);
+  const ab2=tid=>{const t=_teams.find(x=>x.id===Number(tid));
+    return (t&&t.abbrev)||teamInitials((t&&t.name)||'');};
+  const bars=rows.map((r,i)=>{
+    const v=val(r), cx=slot*i+slot/2;
+    const h=Math.max(1.5,Math.abs(v)/mx*half);
+    const y=v>=0?mid-h:mid;
+    const col=v>0?'#3fd07a':v<0?'#e8687e':'rgba(255,255,255,0.20)';
+    return `<rect x="${(cx-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}"
+        height="${h.toFixed(1)}" rx="2" fill="${col}"/>
+      <text x="${cx.toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle"
+        font-size="7.5" font-weight="700" fill="#7b7b7b"
+        font-family="Inter,sans-serif">${ab2(r.teamId)}</text>`;
+  }).join('');
+  return `<div class="ld-chart">
+    <div class="ld-chart-h"><span>${title}</span><span class="ld-chart-mx">peak ${bucksFmt(mx)}</span></div>
+    <svg class="ld-chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">
+      <line x1="0" y1="${mid}" x2="${W}" y2="${mid}"
+        stroke="#7b7b7b" stroke-opacity="0.35" stroke-width="1"/>
+      ${bars}
+    </svg>
+  </div>`;
 }
 
 /* ── Bankroll: where you stand since week one ───────────────────────────────
