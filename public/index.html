@@ -796,7 +796,26 @@
        of its own. It needs the same stacking as .prof-banner-row, or the hero's
        watermark logo would sit over the track. .bkiq-sec is what it used to
        wear; kept in case the standalone card is ever wanted back. */
-    .bkiq-inhero{position:relative;z-index:1;margin-top:18px;}
+    /* Inside the hero the scale row goes. 0 / 150 / 300 is the same three
+       numbers under every team's bar, and the band is already named in words
+       beside the number — the row was 20px of legend for a chart with one
+       value on it. The Leaderboards board is where the scale is worth printing. */
+    .bkiq-inhero{position:relative;z-index:1;margin-top:12px;
+      padding-top:11px;border-top:1px solid rgba(255,255,255,0.07);}
+    .bkiq-inhero .bkiq-scale{display:none;}
+    /* One line: title, band, number. It was wrapping the band onto a second row
+       and centring it there, which read as a stray pill floating under the bar.
+       The band shrinks and ellipses instead — it is the one part that can lose a
+       few pixels without losing its meaning. */
+    /* Title, band, number on one line. The band takes the middle and is the one
+       part allowed to shrink — it can lose a few pixels without losing its
+       meaning, where the number cannot. */
+    .bkiq-inhero .bkiq-head{margin-bottom:7px;flex-wrap:nowrap;gap:8px;}
+    .bkiq-inhero .bkiq-t{font-size:9.5px;flex:0 0 auto;}
+    .bkiq-inhero .bkiq-lab{margin-left:auto;font-size:8.5px;letter-spacing:.3px;
+      padding:2px 7px;min-width:0;flex:0 1 auto;
+      overflow:hidden;text-overflow:ellipsis;}
+    .bkiq-inhero .bkiq-v{font-size:17px;flex:0 0 auto;}
     .bkiq-sec{margin-bottom:14px;padding:13px 15px;
       border-radius:11px;background:rgba(0,0,0,0.3);}
     .bkiq-head{display:flex;align-items:center;justify-content:space-between;
@@ -811,7 +830,6 @@
        bar's colour for the same reason. Centred also means it never has to
        fight the heading for room — "This Guy Knows Some Ball" is 150px and the
        header row is only 260 on a 320px phone. */
-    .bkiq-labrow{display:flex;justify-content:center;margin-top:10px;}
     .bkiq-lab{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
       letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;
       padding:4px 11px;border-radius:999px;border:1px solid currentColor;
@@ -3004,27 +3022,31 @@
     .prof-honors .honor-tile{box-shadow:0 10px 22px -18px rgba(0,0,0,0.7);}
 
     /* TEAM PROFILE — premium */
-    .prof-banner{position:relative;overflow:hidden;border-radius:8px;padding:26px 24px;margin-bottom:22px;
+    .prof-banner{position:relative;overflow:hidden;border-radius:10px;padding:14px 16px;margin-bottom:18px;
       background:rgba(0,0,0,0.3);box-shadow:none;}
-    .prof-banner-wm{position:absolute;right:-28px;top:50%;transform:translateY(-50%);width:210px;height:210px;opacity:0.14;pointer-events:none;filter:saturate(1.1);}
+    /* The crest at 210px behind everything was the one flourish on a site of
+       flat panels. Small enough now to read as a mark rather than as artwork. */
+    .prof-banner-wm{position:absolute;right:-30px;top:-18px;transform:none;
+      width:104px;height:104px;opacity:0.06;pointer-events:none;filter:saturate(1.1);}
     .prof-banner-wm img{width:100%;height:100%;object-fit:contain;}
-    .prof-banner-row{position:relative;display:flex;align-items:center;gap:18px;z-index:1;}
-    .prof-badge .tm-avatar{width:64px!important;height:64px!important;flex:0 0 64px!important;border-radius:8px!important;box-shadow:0 10px 24px -12px rgba(0,0,0,0.7);}
+    .prof-banner-row{position:relative;display:flex;align-items:center;gap:12px;z-index:1;}
+    .prof-badge .tm-avatar{width:44px!important;height:44px!important;flex:0 0 44px!important;border-radius:9px!important;box-shadow:none;}
     .prof-headline{min-width:0;}
-    .prof-name{font-family:'Google Sans Flex',serif;font-size:30px;font-weight:700;line-height:1.02;}
-    .prof-sub{font-size:13px;color:var(--text2);margin-top:5px;}
-    /* Honours stack full width, one per line: award on the left, the years it
-       was won on the right. */
-    .prof-chips{display:flex;flex-direction:column;gap:4px;margin-top:14px;}
-    /* flex-direction:row is explicit — the base .honor-tile is a column, which
-       is what kept pushing the years onto their own line */
-    .prof-chips .honor-tile{display:flex;flex-direction:row;flex-wrap:nowrap;
-      align-items:baseline;justify-content:space-between;
-      gap:12px;width:100%;padding:5px 10px;border-radius:5px;}
-    .prof-chips .honor-lb{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;
-      letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;}
-    .prof-chips .honor-sub{font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text2);
-      margin:0;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .prof-name{font-family:'Google Sans Flex',serif;font-size:22px;font-weight:700;line-height:1.1;}
+    .prof-sub{font-size:12px;color:var(--text3);margin-top:2px;}
+    /* Honours as a wrapping row of pills rather than three full-width bars.
+       Stacked they took 95px to carry three short facts, and a full-width bar
+       whose right-hand two thirds is empty is a row pretending to be a table.
+       Side by side they read as what they are — badges — and cost one line. */
+    .prof-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:11px;}
+    .prof-chips .honor-tile{display:inline-flex;flex-direction:row;flex-wrap:nowrap;
+      align-items:baseline;justify-content:flex-start;
+      gap:6px;width:auto;min-width:0;padding:4px 9px;border-radius:999px;
+      box-shadow:none;}
+    .prof-chips .honor-lb{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;}
+    .prof-chips .honor-sub{font-family:'Inter',sans-serif;font-size:9.5px;color:var(--text2);
+      margin:0;white-space:nowrap;opacity:.85;}
     .prof-chip{background:rgba(0,0,0,0.3);border-radius:5px;padding:8px 14px;text-align:center;min-width:66px;backdrop-filter:blur(4px);}
     .prof-chip-v{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1;}
     .prof-chip-l{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-top:3px;}
@@ -3041,15 +3063,15 @@
     .prof-stat-s{display:none;}    
     @media(max-width:768px){
       /* hero on phones: logo + name on one line, honours wrap underneath */
-      .prof-banner{padding:16px 18px;margin-bottom:16px;border-radius:6px;}
+      .prof-banner{padding:13px 14px;margin-bottom:14px;border-radius:10px;}
       /* logo lines up with the team name, not the middle of the whole block */
       .prof-banner-row{gap:12px;align-items:flex-start;}
       .prof-badge .tm-avatar{width:46px!important;height:46px!important;flex:0 0 46px!important;border-radius:7px!important;}
-      .prof-name{font-size:21px;line-height:1.1;}
-      .prof-sub{font-size:12px;margin-top:3px;}
-      .prof-banner-wm{width:120px;height:120px;right:-22px;opacity:0.1;}
-      .prof-chips{gap:7px;margin-top:12px;}
-      .prof-chips .honor-tile{min-width:0;padding:6px 9px 7px;border-radius:8px 8px 3px 3px;}
+      .prof-name{font-size:19px;line-height:1.12;}
+      .prof-sub{font-size:11.5px;margin-top:2px;}
+      .prof-banner-wm{width:86px;height:86px;right:-26px;top:-16px;opacity:0.06;}
+      .prof-chips{gap:5px;margin-top:10px;}
+      .prof-chips .honor-tile{min-width:0;padding:4px 8px;border-radius:999px;}
       .prof-chips .honor-lb{font-size:9.5px!important;}
       .prof-chips .honor-sub{font-size:9px!important;}
       /* phones: All-Time Starting Lineup sits right under the All-Time panel,

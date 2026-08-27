@@ -11877,7 +11877,11 @@ function bkIQHTML(teamId){
      inside the black panel, so the wrapper carries position only. */
   return `<div class="bkiq-inhero">
     <div class="bkiq-head">
-      <span class="bkiq-t"><i class="fa fa-brain"></i>Ball Knowledge IQ</span>
+      <span class="bkiq-t"><i class="fa fa-brain"></i>Ball Knowledge</span>
+      ${''/* the band rides the head row, in the gap the title and the number
+             leave between them — it used to sit centred under the bar on a line
+             of its own, which is a lot of card for three words */}
+      <span class="bkiq-lab" style="color:${col};border-color:${col}">${bkIQLabel(v)}</span>
       <span class="bkiq-v" style="color:${col}">${Math.round(v)}</span>
     </div>
     <div class="bkiq-track">
@@ -11886,10 +11890,6 @@ function bkIQHTML(teamId){
       <span class="bkiq-dot" style="left:${pct.toFixed(1)}%;background:${col}"></span>
     </div>
     <div class="bkiq-scale"><span>${iq.min}</span><span>${iq.avg} · average</span><span>${iq.max}</span></div>
-    ${''/* the name for the number, centred under the bar it describes */}
-    <div class="bkiq-labrow">
-      <span class="bkiq-lab" style="color:${col};border-color:${col}">${bkIQLabel(v)}</span>
-    </div>
   </div>`;
 }
 
