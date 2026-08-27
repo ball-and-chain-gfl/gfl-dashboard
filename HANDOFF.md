@@ -1,11 +1,14 @@
 # Handoff — Ball & Chain GFL Dashboard
 
-Written 2026-08-27, at `sw gfl-v517`. Read `CLAUDE.md` first for the repo's
-shape and rules; this is the state of play on top of it.
+Written 2026-08-27, at `sw gfl-v517`. Two companion documents:
 
-The site went live for the league on 2026-08-27. Everything below either just
-changed, is about to matter, or is a trap somebody should know about before
-they touch it.
+- **`CLAUDE.md`** — repo rules and conventions. Read first.
+- **`HOW-IT-WORKS.md`** — what the app is for and how every page functions.
+
+This one is the state of play: what just changed, what is about to matter, and
+the traps that have already cost somebody time.
+
+The site went live for the league on 2026-08-27.
 
 ---
 
