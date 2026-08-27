@@ -104,14 +104,28 @@ function getSeason(){return document.getElementById('season-select').value;}
    year back to the newest season and reloads, but only when it had actually
    been moved — the common case costs nothing. */
 const SEASON_TABS=new Set(['week','teams','standings','draft','trades']);
-/* The season to fall back to is the newest one that has actually been played,
-   not simply the newest on file: a season is listed as soon as ESPN publishes
-   its schedule, so the very newest can be a full year with no games in it. */
+/* THE DEFAULT SEASON IS THE ONE THE LEAGUE IS IN.
+
+   This used to fall back to the newest season with football in it, on the
+   reasoning that ESPN lists a year as soon as it publishes a schedule, so the
+   newest on file can be a year with no games. The effect in August was that the
+   whole site opened on last season: newestSeason() answered 2025, the homepage
+   snapped the year control back to it on every visit, and Standings, Team
+   Profiles, the Draft Report and Trades all read 2025 until week 1 of 2026 was
+   scored.
+
+   The current season is the default now, played or not. By the time a season is
+   under way in any sense that matters it already carries a completed draft and
+   twelve rosters — 2026 had 168 picks in before a snap was played — and 0-0
+   records are the truth about a season that has not started rather than a bug.
+
+   The trade-off runs the other way instead: between March, when ESPN opens the
+   next season, and that season's draft, the newest year on file really is empty.
+   The year control is right there to read last season with. */
 function newestSeason(){
   const have=ALL_SEASONS.filter(y=>_seasonMeta[y]).sort((a,b)=>Number(b)-Number(a));
-  const played=have.find(y=>((_seasonMeta[y].schedule)||[]).some(m=>m.home&&m.away
-    &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)));
-  return played||have[0]||ALL_SEASONS[ALL_SEASONS.length-1];
+  const real=have.find(y=>((_seasonMeta[y].schedule)||[]).length);
+  return real||have[0]||ALL_SEASONS[ALL_SEASONS.length-1];
 }
 function syncSeasonPicker(tab){
   const sel=document.getElementById('season-select'); if(!sel) return;
