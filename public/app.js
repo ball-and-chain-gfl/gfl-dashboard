@@ -9039,7 +9039,17 @@ async function invTrade(owner,shares,sell){
    their own profile document. That list is also the receipt: the bank pays ten
    GFL Bucks per entry, so a find is worth the same whenever it is counted, and
    replaying the ledger on another device produces the same balance. */
-const EGG_MS=5*60*1000, EGG_PRIZE=10;
+/* THE WINDOW AND THE PRIZE ARE TUNABLE, and they were not. Five minutes was a
+   build-time value that no switch ever turned off: 288 eggs a day, 2,016 a
+   week, a theoretical $20,160 against a weekly allowance of $100. Eggs were not
+   a bonus on the economy, they were the economy.
+
+   Twelve hours puts two a day on the board and caps the hunt at $140 a week
+   before anybody has to actually find one — which is a bonus worth chasing and
+   not worth farming. Both numbers live in config.js now, so the balance can be
+   moved without going through here. */
+const EGG_MS=Math.max(1,Number(_CFG.eggWindowHours??12))*3600*1000;
+const EGG_PRIZE=Math.max(0,Number(_CFG.eggPrize??10));
 const eggWindow=(t=Date.now())=>Math.floor(t/EGG_MS);
 /* mulberry32: tiny, and identical in every browser — which matters more here
    than quality, since two managers disagreeing about the spot would be a bug */
@@ -11823,16 +11833,26 @@ function bkIQFor(teamId){
        was still reading the config list — which has been empty since, so the
        trivia has quietly been worth nothing at all. It grades the week's real
        set: right answer up, wrong answer down, each worth one step. */
-    /* A question left blank counts against you, the same as getting it wrong.
-       Skipping used to be free, which made not playing the safest way to hold a
-       score — and a week's Ball Knowledge is meant to be a read on the league,
-       not a thing you opt into when you happen to know the answer. Nothing is
-       graded until the week's reveal is turned on, so there is a whole week to
-       answer in before any of it counts. */
+    /* A question left blank counts against you, the same as getting it wrong —
+       but only once the week's football has started. Grading a blank the moment
+       the questions go up would sit every manager at minus five on Tuesday
+       morning for the crime of not having answered yet, which is not the rule
+       anybody agreed to. Until the slate locks a blank is worth nothing and a
+       right answer is worth its point; after it locks, the set is settled and
+       what is missing is missing.
+
+       Only the current week is graded here. The generators read live data — a
+       player's rank now is not their rank in week three — so a past week cannot
+       be rebuilt and marked after the fact, and pretending otherwise would
+       score people against questions they were never asked. */
     if(cfg.reveal){
       const qs=bkQuestions();
+      const settled=(()=>{ try{ return pkLocked(); }catch(e){ return false; } })();
       let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch{ ans={}; }
-      qs.forEach((q,i)=>{ score+=(ans[i]!=null&&ans[i]===q.correct)?1:-1; });
+      qs.forEach((q,i)=>{
+        if(ans[i]==null){ if(settled) score-=1; return; }
+        score+=(ans[i]===q.correct?1:-1);
+      });
     }
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);

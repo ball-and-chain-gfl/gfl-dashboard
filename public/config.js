@@ -117,6 +117,28 @@ window.GFL_CONFIG = {
      the fast cycle and the other eleven are on the real three days. */
   plantTestMinutes: 0.25,
 
+  /* ── THE EGG HUNT ──────────────────────────────────────────────────────────
+     One egg is hidden on one tab at a time. When the window rolls the old one
+     is gone and a new one is somewhere else — there is no queue and no catching
+     up, which is what makes finding one worth something.
+
+     `eggWindowHours` is how long each one stays put, and `eggPrize` is what it
+     pays. The pair of them set a ceiling on what the hunt can be worth:
+
+        window     eggs/week     most it can pay
+        6 hours       28              $280
+        12 hours      14              $140   <- current
+        1 day          7               $70
+        2 days         3.5             $35
+
+     against a weekly allowance of $100. Nobody finds every one — you only catch
+     the ones that are up while you happen to be looking — so the real figure is
+     a fraction of that. It was five minutes through the build, which is 2,016 a
+     week and $20,160, and that was not a bonus on the economy, it was the
+     economy. Raising the window lowers the ceiling. */
+  eggWindowHours: 12,
+  eggPrize: 10,
+
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it. 11 is a placeholder — change
      it to whatever the league actually runs. */
@@ -128,7 +150,16 @@ window.GFL_CONFIG = {
      resetToken still works: bump it to orphan every stored answer at once. */
   ballKnowledge: {
     resetToken: 0,
-    reveal: false,
+    /* ON. The week's trivia counts toward Ball Knowledge: a right answer up, a
+       wrong one down, and a blank down too — but a blank only once the week's
+       football has kicked off. There is the whole week to answer in before
+       anything is held against you.
+
+       Only the current week is graded. The questions are generated from live
+       data, so a past week cannot be rebuilt and marked afterwards — it would
+       score people against questions they were never asked. Picks and settled
+       bets are the cumulative half of the number; the trivia is the live half. */
+    reveal: true,
     /* What one graded call is worth on the Ball Knowledge scale — a right
        answer this much up, a wrong one the same amount down. Every call counts
        the same: a trivia question, a weekly pick, a settled bet, except the
