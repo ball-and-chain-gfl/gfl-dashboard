@@ -1,4 +1,11 @@
-/* WHICH SEASON DOES THE SITE THINK IT IS?
+/* HOW A TICKET IS ROUTED: WHICH SEASON, AND WEEKLY OR SEASON-LONG.
+
+   Two questions decide whether a bet can ever be graded, and both used to have
+   wrong answers. The season on the ticket has to be a season the site can look
+   up, and a leg has to be recognised as weekly if it is going to close when the
+   football starts and settle off that week's scoreboard.
+
+   ── PART ONE ───────────────────────────────────────────────────────────────
 
    Every bet is stamped with sbSeason() when it is struck, and betGrade looks a
    ticket's results up by the season written on it. If those two ever disagree
@@ -46,7 +53,7 @@ const sbFinals=s=>(_seasonMeta[s]?{}:null);
 const regEndOf=()=>14;
 ${parts.join('\n')}
 return { set(m,all){_seasonMeta=m; ALL_SEASONS=all; _finalsCache={};},
-         sbSeason, betGrade, betWeekResult };`;
+         sbSeason, betGrade, betWeekResult, betLegWeek };`;
 const api = new Function(harness)();
 
 let pass = 0, fail = 0;
@@ -116,6 +123,41 @@ console.log('\n3. a ticket struck mid-season settles');
   /* the regression itself: a season nothing can be looked up under */
   eq('a ticket stamped with an unknown season cannot grade',
     api.betGrade({ season: '2099', stake: 50, payout: 83, legs: [leg] }), null);
+}
+
+/* ── PART TWO ────────────────────────────────────────────────────────────────
+   betLegWeek is what tells a weekly leg from a season one. The kickoff lock
+   reads it, and so does grading: a leg it does not recognise is treated as a
+   season future, which stays open through Sunday and settles off the standings.
+
+   The lock used to test /-(ml|sp|tot)$/ instead, which is only the three
+   markets written on a single fixture — so Top Score, the Donut, the FAAB
+   ladder and By Team's Top Scorer stayed bettable all afternoon with the
+   scoreboard in plain sight. Every key shape the board can emit is listed here
+   so a new market cannot quietly join that set. */
+console.log('\n4. every weekly market is recognised as weekly');
+{
+  const weekly=[
+    ['wk5-1-2-ml',   'a fixture moneyline'],
+    ['wk5-1-2-sp',   'a fixture spread'],
+    ['wk5-1-2-tot',  'a fixture total'],
+    ['wk5-high',     'top score'],
+    ['wk5-low',      'low score'],
+    ['wk5-close',    'closest game'],
+    ['wk5-blow',     'biggest blowout'],
+    ['wk5-player',   'top player'],
+    ['wk5-donut',    'the donut'],
+    ['fa4262921-5',  'a FAAB over/under'],
+    ['ttbft-5',      "By Team's top scorer"],
+  ];
+  weekly.forEach(([mk,label])=>eq(label+' ('+mk+')', api.betLegWeek(mk), 5));
+}
+
+console.log('\n5. and no season future is mistaken for one');
+{
+  const seasonMarkets=['champ','last','firstring','playoffs','mostpf','fewpf',
+    'mostpa','highweek','most150','most80','wins','pf','pa','topseed','botseed'];
+  seasonMarkets.forEach(mk=>eq(mk+' is season-long', api.betLegWeek(mk), null));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
