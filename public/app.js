@@ -8878,6 +8878,21 @@ function invProfitSeries(){
   if(!lots.length) return null;
   const season=ntSeason&&ntSeason();
   const last=season?((ntLastWeek(season)||{}).week||0):0;
+  /* THE LEDGER AND THE PRICES HAVE TO BE THE SAME SEASON. A lot is stamped with
+     the league's current week, and prices come from the last season that was
+     actually played. Between seasons those are two different years: in August
+     2026 a share bought this morning is stamped week 1 and then valued against
+     2025's weeks 1 through 17, so one purchase drew a full seventeen-week line
+     replaying last season as though it had been held throughout. That is the
+     graph moving when an investment is added.
+
+     When the two disagree the honest chart is the short one: you bought today,
+     you are up or down this much, and there is no history to draw yet. */
+  const ledgerSeason=String(bkLeagueSeason());
+  if(String(season)!==ledgerSeason||!last){
+    const now=invProfit();
+    return {pts:[{wk:0,val:0,start:true},{wk:0,val:now,now:true}],net:now,flat:true};
+  }
   /* lots written before the week was stamped are treated as held from the
      opening week — the only honest reading of a trade with no week on it */
   const wk=l=>Number(l.w)||1;
@@ -12305,10 +12320,15 @@ function bankSeries(){
     const p=bucksWeekParts(d);
     return p?realWeekKey(p.d.getTime()+NOON-7*24*3600*1000):d;
   };
-  const pts=[{wk:back(weeks[0]),val:BUCKS_WEEKLY,delta:0,start:true}];
-  let run=BUCKS_WEEKLY;
+  /* What the betting has won or lost, opening at nothing. It used to plot the
+     balance and sit the baseline on the opening $100, which made the same line
+     say two things at once — how the bets had gone, and how much money was in
+     the account. The account is in the nav; this is the betting. Zero is level,
+     above is up, below is down. */
+  const pts=[{wk:back(weeks[0]),val:0,delta:0,start:true}];
+  let run=0;
   weeks.forEach(w=>{ run+=byWeek[w]; pts.push({wk:w,val:run,delta:byWeek[w]}); });
-  return {pts,net:run-BUCKS_WEEKLY};
+  return {pts,net:run};
 }
 /* The chart stretches to whatever width it is given, which means the viewBox is
    scaled unevenly — x by about half, y not at all. Strokes survive that via
@@ -12328,15 +12348,15 @@ function bankAxisHTML(pts,W=600,padL=8,padR=8){
 function bankChartSVG(pts,W=600,H=114){
   const padL=8,padR=8,padT=12,padB=10;
   const vals=pts.map(p=>p.val);
-  let lo=Math.min(...vals,BUCKS_WEEKLY), hi=Math.max(...vals,BUCKS_WEEKLY);
+  let lo=Math.min(...vals,0), hi=Math.max(...vals,0);
   if(hi-lo<20){ const m=(hi+lo)/2; lo=m-10; hi=m+10; }
   const pad=(hi-lo)*0.15; lo-=pad; hi+=pad;
   const x=i=>padL+(pts.length<2?0:i*(W-padL-padR)/(pts.length-1));
   const y=v=>padT+(hi-v)/(hi-lo)*(H-padT-padB);
-  const base=y(BUCKS_WEEKLY);
+  const base=y(0);                       // break even, the same as the portfolio
   const line=pts.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.val).toFixed(1)}`).join(' ');
   const area=`${line} L${x(pts.length-1).toFixed(1)},${base.toFixed(1)} L${x(0).toFixed(1)},${base.toFixed(1)} Z`;
-  const up=pts[pts.length-1].val>=BUCKS_WEEKLY;
+  const up=pts[pts.length-1].val>=0;
   const col=up?'#3fd07a':'#e8687e';
   const dots=pts.map((p,i)=>{
     const last=i===pts.length-1;
