@@ -45,12 +45,16 @@ Node 24.
 ```
 api/espn.js          ESPN proxy — one handler, branches on ?type=
 api/archive.js       Snapshots the transaction log into git (weekly cron)
-public/index.html    Markup + every line of CSS (~6k lines)
-public/app.js        Every line of frontend logic (~14.6k lines)
+public/index.html    The shell + every line of CSS (~6k lines, nearly all CSS)
+public/app.js        Every line of frontend logic, page markup included (~14.6k)
 public/config.js     Hand-edited weekly content and tunables
 public/sw.js         Service worker / PWA cache
 public/data/*.json   Archived per-season data, committed to git
+scripts/*.mjs        Archivers, one-off fetchers, and four test suites
 ```
+
+Every page body is built by a render function in `app.js`; `index.html` holds
+the head, the nav and the mount points, and one 5.9k-line `<style>` block.
 
 Deployed on Vercel from `main`. **Every push deploys.** Bump `sw.js`'s cache
 version on any user-facing change or installed PWA copies keep stale assets.

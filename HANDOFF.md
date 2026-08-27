@@ -72,6 +72,10 @@ Deployed at <https://gfl-dashboard.vercel.app> from `main`. **Every push to
   `cc4c6b3`.
 - Confirm a deploy by polling `https://gfl-dashboard.vercel.app/sw.js` for the
   cache version you just shipped.
+- **A green deploy says nothing about the tests.** Vercel builds whether or not
+  GitHub Actions is green. The `tests` workflow had failed **59 runs in a row**
+  — every push from 2026-08-24 13:55 through launch — with nothing visible going
+  wrong anywhere on the site. Fixed on 2026-08-27; see §11.
 
 ---
 
@@ -265,3 +269,41 @@ the reliable path.
   module still reads it.
 - The Rosters tab is off the nav but `renderRoster()` and `#page-roster` are
   still in the source, unreferenced, deliberately kept.
+
+---
+
+## 11. The test suite, and why it went red
+
+Four suites plus `node --check`, in `.github/workflows/tests.yml`, triggered by
+any push touching `public/app.js` or `scripts/**`. All four are green as of
+2026-08-27: 72 assertions. Before that they had been red for 59 consecutive
+runs, since the last green one on 2026-08-24.
+
+They work by lifting the real functions out of `public/app.js` by string match
+and eval'ing them in a stub harness. That is the point — the thing under test is
+the shipped source, not a restatement of it — but it makes them brittle in one
+specific direction: **the app moving on breaks the harness, not the feature.**
+Both failures found on 2026-08-27 were that.
+
+- `test-bank-egg.mjs` grabbed the literal line `const EGG_MS=5*60*1000,
+  EGG_PRIZE=10;`. Moving the egg window into `config.js` — the fix for the
+  runaway economy in §3 — deleted the line the test was pinned to, so the suite
+  died before running a single case. It now reads `eggWindowHours` and `eggPrize`
+  out of `config.js` and asserts against those, plus a floor that fails if the
+  window is ever under an hour again. Two more grabs had drifted the same way
+  (`EGG_TABS` had `roster` swapped for `leaders`, and `tueWeekStart` had been
+  split over `realWeekStart`), and `bucksTestMs` had started asking
+  `isTestProfile()`, which the harness did not answer.
+- `test-invites.mjs` grabbed `betCancellable`, which had become a one-line
+  wrapper over the new `betCashOut`. The harness had no `betCashOut`, and no
+  stubs for the leg helpers it walks, so every cancellation case threw.
+
+One case was also **flaky by weekday** rather than wrong. Section 10 asserted
+that a bet "three days old" yields one bucks cycle with the test flag off, but
+the count is real Tuesday boundaries crossed — so it read 1 from Friday to
+Monday and 2 from Tuesday to Thursday. It is now anchored inside the current
+week and reads 1 every day.
+
+The lesson for the next refactor: **run the suites before pushing.** Nothing
+about a failing suite is visible on the live site, and Vercel will deploy over
+the top of it.
