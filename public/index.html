@@ -2496,6 +2496,20 @@
       transition:border-color .15s,background .15s;}
     .nt-mw:hover{border-color:rgba(var(--accent-rgb),0.55);background:rgba(var(--accent-rgb),0.10);}
     .nt-mw:disabled{opacity:.55;cursor:default;}
+    /* Armed, not sent. The accent edge and tint say which one is loaded into
+       the button below; nothing has left the device yet. */
+    .nt-mw.on{border-color:var(--accent);
+      background:color-mix(in srgb,var(--accent) 20%,rgba(0,0,0,0.5));}
+    .nt-mw-go{width:100%;margin-top:3px;padding:11px 14px;border-radius:9px;cursor:pointer;
+      border:1px solid transparent;
+      background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));
+      color:#0b0f0c;font-family:'Inter',sans-serif;font-size:12px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;
+      transition:filter .15s,opacity .15s;}
+    .nt-mw-go:hover:not(:disabled){filter:brightness(1.06);}
+    .nt-mw-go:disabled{cursor:default;opacity:.40;
+      background:rgba(255,255,255,0.06);color:var(--text3);
+      border-color:rgba(255,255,255,0.10);}
     .nt-mw-s{display:flex;align-items:center;gap:7px;min-width:0;}
     .nt-mw-s:last-child{justify-content:flex-end;}
     .nt-mw-at{font-size:10px;color:var(--text3);font-weight:400;}
@@ -2510,6 +2524,55 @@
       font-family:'Inter',sans-serif;font-size:11.5px;line-height:1.45;
       color:var(--text2);text-align:center;}
     .pk-wait i{flex:0 0 auto;color:#F09A3E;font-size:11px;}
+    /* ── Leaderboards ─────────────────────────────────────────────────────
+       Two boards, one shape: rank, crest, name, then the number that ranks it.
+       The Ball Knowledge board carries a bar because the number means nothing
+       on its own — 142 is only legible against the 150 everybody starts at, so
+       the midpoint is marked and the fill reads either side of it. */
+    #page-leaders{--accent:#43C9E8;--accent2:#6cb7ff;--accent-rgb:67,201,232;}
+    .ld-note{font-family:'Inter',sans-serif;font-size:12px;line-height:1.6;
+      color:var(--text3);margin:0 2px 14px;}
+    .ld-empty{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text3);
+      padding:14px 2px;}
+    .ld-list{display:flex;flex-direction:column;gap:6px;}
+    .ld-row{display:grid;grid-template-columns:22px auto minmax(0,1fr) 46px;
+      align-items:center;gap:10px;padding:9px 11px;border-radius:9px;
+      background:rgba(0,0,0,0.3);}
+    .ld-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
+      color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}
+    .ld-team{display:flex;align-items:center;gap:8px;min-width:0;}
+    .ld-nm{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ld-logo{width:22px!important;height:22px!important;flex:0 0 22px!important;
+      border-radius:6px!important;}
+    .ld-bar{position:relative;height:7px;border-radius:999px;
+      background:rgba(255,255,255,0.07);overflow:hidden;}
+    .ld-bar-f{position:absolute;left:0;top:0;height:100%;border-radius:999px;}
+    .ld-bar-mid{position:absolute;left:50%;top:0;width:1px;height:100%;
+      background:rgba(255,255,255,0.30);}
+    .ld-v{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
+      text-align:right;font-variant-numeric:tabular-nums;}
+    /* your own row, on both boards */
+    .ld-me{outline:1px solid rgba(var(--accent-rgb),0.55);
+      background:rgba(var(--accent-rgb),0.07);}
+    .ld-money{display:flex;flex-direction:column;gap:8px;}
+    .ld-mrow{padding:10px 12px 11px;border-radius:10px;background:rgba(0,0,0,0.3);}
+    .ld-mhead{display:grid;grid-template-columns:22px minmax(0,1fr) auto;
+      align-items:center;gap:10px;margin-bottom:9px;}
+    .ld-total{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
+      font-variant-numeric:tabular-nums;}
+    /* Six figures per manager, three to a row on a phone and six across on a
+       desktop — a table of six columns is unreadable at 375. */
+    .ld-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 6px;}
+    .ld-c{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .ld-c b{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;
+      font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;}
+    .ld-c span{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
+    @media(min-width:760px){
+      .ld-cells{grid-template-columns:repeat(6,minmax(0,1fr));}
+    }
     .nt-top{display:flex;align-items:center;gap:9px;}
     .nt-ico{display:inline-flex;align-items:center;justify-content:center;
       width:26px;height:26px;border-radius:8px;flex:0 0 auto;
@@ -5839,7 +5902,7 @@
   <button class="tab-btn" data-tab="book" onclick="switchTab('book')"><i class="fa fa-coins"></i>B&amp;C Sportsbook</button>
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishments</button>
   <button class="tab-btn" data-tab="teams" data-group="Team Data" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
-  <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')"><i class="fa fa-people-group"></i>Rosters</button>
+  <button class="tab-btn" data-tab="leaders" onclick="switchTab('leaders')"><i class="fa fa-ranking-star"></i>Leaderboards</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Head to Head</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <button class="tab-btn" data-tab="legacy" data-group="Analytics" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>

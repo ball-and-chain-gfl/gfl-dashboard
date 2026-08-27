@@ -89,8 +89,8 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#1ecdaa',punishment:'#E84146',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#1ecdaa',punishment:'#E84146',cm:'#E0B67B'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -674,7 +674,10 @@ function switchTab(name){
      the aside would otherwise have its work wiped on the way out. */
   {const a=document.getElementById('page-h1-aside'); if(a) a.innerHTML='';}
   if(name==='tenure') ensureTenure();
-  if(name==='roster') renderRoster();
+  /* The Rosters tab is off the nav. renderRoster and #page-roster are still in
+     the source — the page works if it is ever wanted back — but nothing routes
+     to it and nothing fetches for it. */
+  if(name==='leaders') renderLeaders();
   if(name==='week') renderWeek();
   if(name==='draft') ensureDraft();
   if(name==='trades') renderTradesTab();
@@ -3476,7 +3479,11 @@ function legacyReportHTML(owner){
   const nm=(_franchises.find(f=>f.owner===owner)||{}).name||'This team';
   const mine=d.moves.filter(m=>m.owner===owner);
   const recs=d.records.filter(r=>r.txt.indexOf(nm)===0);
-  return `<div class="sec lr-sec">
+  /* data-nochip: this is a report the profile carries, not a section of it, and
+     as a fifth chip it left the bar one short of a clean grid. Four chips fall
+     into 2x2 on a phone on their own — fitSectionNav already refuses to leave a
+     remainder of one. */
+  return `<div class="sec lr-sec" data-nochip>
     <!-- plain span, not .badge-info: those are hidden inside section heads -->
     <div class="sec-head" style="font-size:15px"><i class="fa fa-landmark" style="color:var(--accent)"></i>Legacy Report
       <span class="lr-wk-tag">Week ${d.week} · ${d.season}</span></div>
@@ -6260,7 +6267,7 @@ function applyMe(){
   try{ pkReset(); }catch(e){}
   try{ _cpBallot=null; _cpFetched=false; _cpJustSent=false; renderCoachesPoll(); }catch(e){}   // a new manager starts fresh
   _rosterCache=null; _rosterTeam=null;
-  if(_activeTab==='roster') renderRoster();
+  if(_activeTab==='leaders') renderLeaders();
   if(_activeTab==='week') renderWeek();
 }
 /* the header button is a sign-in prompt when signed out, and your profile
@@ -9031,7 +9038,7 @@ function eggRand(seed){
 /* The homepage is left out — it is the first thing everyone sees and finding it
    there would take no looking. So is the profile page, which is where the
    finds are reported. */
-const EGG_TABS=['week','book','punishment','teams','roster','history',
+const EGG_TABS=['week','book','punishment','teams','leaders','history',
                 'tenure','legacy','standings','draft','trades','badbeat'];
 function eggSpot(w=eggWindow()){
   const r=eggRand(Math.imul(w,2654435761));
@@ -9347,6 +9354,29 @@ async function betList(){
 }
 async function betRefresh(){ const l=await betList(); if(l) _bets=l; }
 
+/* ── EVERY MANAGER'S BETS, FOR THE BOARDS ────────────────────────────────────
+   The sportsbook reads one owner's bets, which is right: it is your ledger and
+   nobody else's, and asking for the whole collection to draw one page of it was
+   the thing that would have run the read quota down.
+
+   A leaderboard genuinely needs all of them, so this is the one call that asks
+   — filtered to the current season, so it stays bounded as seasons pile up, and
+   fetched once per session rather than per render. A single equality filter
+   needs no composite index, which is what keeps it from breaking the way an
+   ordered query would. */
+let _betsAll=null,_betsAllBusy=false;
+async function betLeague(){
+  if(_betsAll) return _betsAll;
+  if(_betsAllBusy) return null;
+  _betsAllBusy=true;
+  try{
+    const rows=await betQuery(fsEq('season',String(sbSeason())));
+    _betsAll=rows||[];
+  }catch(e){ _betsAll=[]; }
+  _betsAllBusy=false;
+  return _betsAll;
+}
+
 async function sbPlaceBet(){
   if(!_me){ openSignIn(); return; }
   if(!_slip.length||_betBusy) return;
@@ -9508,7 +9538,7 @@ function bkWeekly(pid,season){
       renderBallKnowledge();
       /* the roster panel reads the same line, and it is the one place that
          asks for a player's weeks on purpose rather than as a side effect */
-      try{ if(_activeTab==='roster'&&_rsPick) renderRoster(); }catch(e){}
+
     }).catch(()=>{ _bkLine[key]={}; });
   return null;
 }
@@ -10297,7 +10327,14 @@ function pkMotwIndex(games){
 }
 /* The picker's own write. Keyed on season and week, so last week's choice is
    still on the profile and this week starts empty. */
-let _motwSetBusy=false;
+let _motwSetBusy=false,_motwArmed=null;
+function motwArm(k){ _motwArmed=(_motwArmed===k?null:k); try{ renderNotifications(); }catch(e){} }
+function motwConfirm(){
+  if(!_motwArmed) return;
+  const [a,b]=String(_motwArmed).split('-').map(Number);
+  if(!a||!b) return;
+  motwSet(a,b);
+}
 async function motwSet(a,b){
   if(!_me||_me.k1!==MOTW_PICKER||_motwSetBusy) return;
   _motwSetBusy=true; try{ renderNotifications(); }catch(e){}
@@ -10309,7 +10346,7 @@ async function motwSet(a,b){
     const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
     if(row) row[motwPickKey()]=val;
   }
-  _motwSetBusy=false;
+  _motwSetBusy=false; _motwArmed=null;
   try{ renderNotifications(); }catch(e){}
   try{ renderWeekPicks(); }catch(e){}
   try{ orderHomeTodo(); }catch(e){}
@@ -10627,18 +10664,28 @@ function ntMotwPick(out){
   const wk=motwWeek();
   const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
   const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
+  /* Two steps, not one. A tap used to send it, which is a lot of finality for
+     a thing sitting between two crests on a phone — and it is the one call that
+     rewrites everyone else's card. Tapping arms a fixture, Confirm commits it,
+     and nothing reaches the profile in between. The sentence underneath is gone
+     with it: a button that says what it will do says it better. */
+  const sel=_motwArmed&&games.some(g=>_motwArmed===`${g.away.teamId}-${g.home.teamId}`)?_motwArmed:null;
+  const armedName=(()=>{ if(!sel) return '';
+    const [a,b]=sel.split('-').map(Number); return `${ab(a)} @ ${ab(b)}`; })();
   out.push({kind:'motw', day:ntResultsDay(Date.now()), pin:2,
     id:`motw:${motwInfo().season||bkLeagueSeason()}:${wk}`,
     title:`Name the Matchup of the Week`,
-    art:`<div class="nt-motw">${games.map(g=>`
-      <button class="nt-mw" ${_motwSetBusy?'disabled':''}
-        onclick="motwSet(${g.away.teamId},${g.home.teamId})">
+    art:`<div class="nt-motw">${games.map(g=>{
+      const k=`${g.away.teamId}-${g.home.teamId}`;
+      return `<button class="nt-mw${sel===k?' on':''}" ${_motwSetBusy?'disabled':''}
+        onclick="motwArm('${k}')">
         <span class="nt-mw-s">${logoImg(g.away.teamId,'nt-mw-l')}<span>${ab(g.away.teamId)}</span></span>
         <span class="nt-mw-at">@</span>
         <span class="nt-mw-s">${logoImg(g.home.teamId,'nt-mw-l')}<span>${ab(g.home.teamId)}</span></span>
-      </button>`).join('')}</div>`,
-    body:`Week ${wk}. Whichever you pick is worth double on everyone's card, and
-      the picks grid stays shut until you choose.`});
+      </button>`;}).join('')}
+      <button class="nt-mw-go" ${sel&&!_motwSetBusy?'':'disabled'} onclick="motwConfirm()">
+        ${_motwSetBusy?'Setting…':sel?`Confirm ${armedName}`:'Pick a matchup'}</button>
+    </div>`});
 }
 /* everyone's plant, from the profiles the homepage already reads */
 function ntPlants(out){
@@ -11826,6 +11873,133 @@ function bkIQHTML(teamId){
       <span class="bkiq-lab" style="color:${col};border-color:${col}">${bkIQLabel(v)}</span>
     </div>
   </div>`;
+}
+
+
+/* ── LEADERBOARDS ────────────────────────────────────────────────────────────
+   The league measured against itself on the two things the site keeps score of
+   that ESPN does not: what everybody knows, and what everybody has done with
+   their money.
+
+   Both boards are built from data already on hand — the profile list the
+   homepage fetches, and one season-scoped read of the bets collection — so
+   opening this tab costs one query and nothing on the pages it summarises.
+
+   Every manager appears, including the ones who have not played. A board that
+   quietly drops the people with nothing on it is a board that flatters. */
+function ldRows(){
+  const rows=(_franchises||[]).map(f=>{
+    const prof=(_bkProfiles||_cpRows||[]).filter(p=>String(p.teamId||'')===String(f.teamId));
+    return {owner:f.owner, name:f.name, teamId:f.teamId, ids:prof.map(p=>p.id), prof};
+  });
+  return rows.filter(r=>r.teamId!=null);
+}
+/* One manager's betting record for the season, from the league-wide pull */
+function ldBets(ids){
+  const all=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&!b.hidden);
+  const settled=all.filter(b=>b.status==='won'||b.status==='lost'||b.status==='cashed');
+  const won=all.filter(b=>b.status==='won').length;
+  const lost=all.filter(b=>b.status==='lost').length;
+  const staked=settled.reduce((a,b)=>a+(b.stake||0),0);
+  const back=settled.reduce((a,b)=>a+(b.ret||0),0);
+  const open=all.filter(b=>b.status==='open').length;
+  return {n:all.length, won, lost, open, staked, back, net:back-staked,
+    roi:staked>0?((back-staked)/staked*100):null,
+    hit:(won+lost)>0?(won/(won+lost)*100):null};
+}
+/* One manager's portfolio, replayed from the ledger on their profile — the same
+   arithmetic invRealised does, run against somebody else's lots. */
+function ldFolio(prof){
+  let lots=[];
+  prof.forEach(p=>{ try{ const a=JSON.parse(p.inv||'[]'); if(Array.isArray(a)) lots=lots.concat(a); }catch(e){} });
+  if(!lots.length) return {held:0, cost:0, value:0, real:0, profit:0, trades:0};
+  lots.sort((a,b)=>(Number(a.t)||0)-(Number(b.t)||0));
+  const sh={},cost={}; let real=0;
+  lots.forEach(l=>{
+    const o=l.o, n=Number(l.s)||0, p=Number(l.p)||0;
+    if(!o||!n) return;
+    if(l.k==='s'){ const avg=sh[o]?cost[o]/sh[o]:0; real+=n*(p-avg);
+      sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n; }
+    else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
+  });
+  let value=0, basis=0, held=0;
+  Object.keys(sh).forEach(o=>{ if(sh[o]<=0.0001) return;
+    held+=sh[o]; value+=sh[o]*invPrice(o); basis+=cost[o]; });
+  return {held, cost:basis, value, real, profit:real+(value-basis), trades:lots.length};
+}
+const ldFmt=v=>(v>0?'+':v<0?'−':'')+'$'+Math.abs(v).toFixed(2);
+const ldCol=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text2)';
+
+function renderLeaders(){
+  const bk=document.getElementById('ld-bk-body');
+  const mo=document.getElementById('ld-money-body');
+  if(!bk||!mo) return;
+  /* both boards read the profile list; the homepage poll owns it, so ask for it
+     here in case this tab is the first thing opened */
+  if(!_bkProfiles&&!(_cpRows||[]).length){ try{ leaguePoll(); }catch(e){} }
+  if(!_betsAll) betLeague().then(r=>{ if(r&&_activeTab==='leaders') renderLeaders(); });
+
+  const rows=ldRows();
+  if(!rows.length){ bk.innerHTML=mo.innerHTML='<div class="tab-loading">Loading the league…</div>'; return; }
+
+  /* ── BALL KNOWLEDGE ─────────────────────────────────────────────────────── */
+  const iq=bkIQCfg();
+  const bkRows=rows.map(r=>({...r, v:bkIQFor(r.teamId)}))
+    .sort((a,b)=>b.v-a.v||a.name.localeCompare(b.name));
+  const top=Math.max(...bkRows.map(r=>r.v),iq.avg);
+  bk.innerHTML=`
+    <div class="ld-note">Every graded call this season — the weekly questions, the
+      matchup picks, and settled bets. One point each; the Matchup of the Week
+      counts double. Everybody opens at ${iq.avg}.</div>
+    <div class="ld-list">${bkRows.map((r,i)=>{
+      const pct=bkIQPct(r.v), col=bkIQColor(r.v);
+      return `<div class="ld-row${_me&&String(_me.teamId)===String(r.teamId)?' ld-me':''}">
+        <span class="ld-rk">${i+1}</span>
+        <span class="ld-team">${logoImg(r.teamId,'ld-logo')}
+          <span class="ld-nm">${r.name}</span></span>
+        <span class="ld-bar"><span class="ld-bar-f" style="width:${pct.toFixed(1)}%;background:${col}"></span>
+          <span class="ld-bar-mid"></span></span>
+        <span class="ld-v" style="color:${col}">${Math.round(r.v)}</span>
+      </div>`;}).join('')}</div>`;
+
+  /* ── BETS AND PORTFOLIOS ────────────────────────────────────────────────── */
+  if(!_betsAll){
+    mo.innerHTML='<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading the book…</div>';
+    return;
+  }
+  const money=rows.map(r=>{
+    const b=ldBets(r.ids), f=ldFolio(r.prof);
+    return {...r, b, f, total:b.net+f.profit};
+  /* Ties break on having done something. Early in a season everybody is on
+     zero, and sorting those alphabetically puts a manager who has never placed
+     a bet above one with ten running — which reads as a ranking when it is
+     only an alphabet. */
+  }).sort((a,b)=>b.total-a.total
+    || (b.b.n+b.f.trades)-(a.b.n+a.f.trades)
+    || a.name.localeCompare(b.name));
+  const anyAction=money.some(m=>m.b.n||m.f.trades);
+  mo.innerHTML=`
+    <div class="ld-note">Betting profit is returns minus stakes on everything
+      settled. Portfolio profit is what sales banked plus what the open holdings
+      are up or down. Nothing here counts a bet still running.</div>
+    ${anyAction?'':'<div class="ld-empty">Nobody has placed a bet or bought a share yet.</div>'}
+    <div class="ld-money">${money.map((m,i)=>`
+      <div class="ld-mrow${_me&&String(_me.teamId)===String(m.teamId)?' ld-me':''}">
+        <div class="ld-mhead">
+          <span class="ld-rk">${i+1}</span>
+          <span class="ld-team">${logoImg(m.teamId,'ld-logo')}
+            <span class="ld-nm">${m.name}</span></span>
+          <span class="ld-total" style="color:${ldCol(m.total)}">${ldFmt(m.total)}</span>
+        </div>
+        <div class="ld-cells">
+          <span class="ld-c"><b style="color:${ldCol(m.b.net)}">${ldFmt(m.b.net)}</b><span>bets</span></span>
+          <span class="ld-c"><b>${m.b.won}–${m.b.lost}${m.b.open?` · ${m.b.open} open`:''}</b><span>record</span></span>
+          <span class="ld-c"><b>${m.b.hit==null?'—':m.b.hit.toFixed(0)+'%'}</b><span>hit rate</span></span>
+          <span class="ld-c"><b>${m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%'}</b><span>ROI</span></span>
+          <span class="ld-c"><b style="color:${ldCol(m.f.profit)}">${ldFmt(m.f.profit)}</b><span>portfolio</span></span>
+          <span class="ld-c"><b>${m.f.held?invFmt(m.f.value):'—'}</b><span>held</span></span>
+        </div>
+      </div>`).join('')}</div>`;
 }
 
 /* ── Bankroll: where you stand since week one ───────────────────────────────
@@ -13891,6 +14065,18 @@ async function loadDashboard(){
       <div class="tab-page" id="page-book">
         <div class="sec wm" data-wm="&#xf51e;">
           <div id="book-body"></div>
+        </div>
+      </div>
+
+      <!-- LEADERBOARDS — the league against itself -->
+      <div class="tab-page" id="page-leaders">
+        <div class="sec wm" data-wm="&#xf091;" id="ld-bk-sec">
+          <div class="sec-head"><i class="fa fa-brain"></i>Ball Knowledge</div>
+          <div id="ld-bk-body"></div>
+        </div>
+        <div class="sec wm" data-wm="&#xf51e;" id="ld-money-sec">
+          <div class="sec-head"><i class="fa fa-sack-dollar"></i>Bets &amp; Portfolios</div>
+          <div id="ld-money-body"></div>
         </div>
       </div>
 
