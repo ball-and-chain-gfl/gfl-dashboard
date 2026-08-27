@@ -2525,44 +2525,48 @@
       color:var(--text2);text-align:center;}
     .pk-wait i{flex:0 0 auto;color:#F09A3E;font-size:11px;}
     /* ── Leaderboards ─────────────────────────────────────────────────────
-       Two boards, one shape: rank, crest, name, then the number that ranks it.
-       The Ball Knowledge board carries a bar because the number means nothing
-       on its own — 142 is only legible against the 150 everybody starts at, so
-       the midpoint is marked and the fill reads either side of it. */
-    #page-leaders{--accent:#43C9E8;--accent2:#6cb7ff;--accent-rgb:67,201,232;}
-    .ld-note{font-family:'Inter',sans-serif;font-size:12px;line-height:1.6;
-      color:var(--text3);margin:0 2px 14px;}
+       Ball Knowledge is two lines a manager: the row of facts, then the bar on
+       its own beneath it. That is what makes every bar the same length — hung
+       on the end of the row they were as long as the name column was short, and
+       twelve bars of twelve different lengths cannot be read against each
+       other. */
     .ld-empty{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text3);
-      padding:14px 2px;}
+      padding:12px 2px 4px;}
     .ld-list{display:flex;flex-direction:column;gap:6px;}
-    .ld-row{display:grid;grid-template-columns:22px auto minmax(0,1fr) 46px;
-      align-items:center;gap:10px;padding:9px 11px;border-radius:9px;
-      background:rgba(0,0,0,0.3);}
+    .ld-row{padding:9px 11px 11px;border-radius:9px;background:rgba(0,0,0,0.3);}
+    .ld-rtop{display:grid;grid-template-columns:20px auto minmax(0,1fr) auto;
+      align-items:center;gap:9px;margin-bottom:8px;}
     .ld-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
       color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}
-    .ld-team{display:flex;align-items:center;gap:8px;min-width:0;}
+    .ld-team{display:flex;align-items:center;gap:7px;min-width:0;}
+    .ld-ab{font-family:'Inter',sans-serif;font-size:12px;font-weight:800;
+      letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;}
     .ld-nm{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .ld-logo{width:22px!important;height:22px!important;flex:0 0 22px!important;
-      border-radius:6px!important;}
-    .ld-bar{position:relative;height:7px;border-radius:999px;
+    /* the band the number falls in, said in words — the same nine the team
+       profile uses. Ellipses rather than wraps: the row is one line. */
+    .ld-lab{font-family:'Inter',sans-serif;font-size:9px;font-weight:800;
+      letter-spacing:.4px;text-transform:uppercase;text-align:right;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.92;}
+    .ld-v{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
+      text-align:right;font-variant-numeric:tabular-nums;min-width:32px;}
+    .ld-bar{position:relative;display:block;width:100%;height:7px;border-radius:999px;
       background:rgba(255,255,255,0.07);overflow:hidden;}
     .ld-bar-f{position:absolute;left:0;top:0;height:100%;border-radius:999px;}
     .ld-bar-mid{position:absolute;left:50%;top:0;width:1px;height:100%;
       background:rgba(255,255,255,0.30);}
-    .ld-v{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
-      text-align:right;font-variant-numeric:tabular-nums;}
     /* your own row, on both boards */
     .ld-me{outline:1px solid rgba(var(--accent-rgb),0.55);
       background:rgba(var(--accent-rgb),0.07);}
+    .ld-filters{margin:0 0 14px!important;}
     .ld-money{display:flex;flex-direction:column;gap:8px;}
     .ld-mrow{padding:10px 12px 11px;border-radius:10px;background:rgba(0,0,0,0.3);}
-    .ld-mhead{display:grid;grid-template-columns:22px minmax(0,1fr) auto;
-      align-items:center;gap:10px;margin-bottom:9px;}
+    .ld-mhead{display:grid;grid-template-columns:20px minmax(0,1fr) auto;
+      align-items:center;gap:9px;margin-bottom:9px;}
     .ld-total{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
       font-variant-numeric:tabular-nums;}
     /* Six figures per manager, three to a row on a phone and six across on a
-       desktop — a table of six columns is unreadable at 375. */
+       desktop — a six-column table is unreadable at 375. */
     .ld-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 6px;}
     .ld-c{display:flex;flex-direction:column;gap:2px;min-width:0;}
     .ld-c b{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;
@@ -3359,7 +3363,8 @@
     html[data-tabaccent=cm]{--h1a:#E0B67B;--h1b:#E0B67B;}
     html[data-tabaccent=draft]{--h1a:#0fcacc;--h1b:#04c4f0;}
     html[data-tabaccent=trades]{--h1a:#E8437E;--h1b:#E86043;}
-    html[data-tabaccent=tenure]{--h1a:#1ecdaa;--h1b:#0cc9d1;}
+    html[data-tabaccent=tenure]{--h1a:#A3E635;--h1b:#F2CE3A;}
+    html[data-tabaccent=leaders]{--h1a:#43C9E8;--h1b:#6cb7ff;}
     html[data-tabaccent=messages]{--h1a:#E8D24E;--h1b:#E8BE4E;}
     html[data-tabaccent=profile]{--h1a:#E0B67B;--h1b:#E0D27B;}
     html[data-tabaccent=punishment]{--h1a:#E84146;--h1b:#E85D41;}
@@ -3378,7 +3383,12 @@
     html[data-theme="dark"][data-tabaccent=cm]{--accent:#E0B67B;--accent2:#E0B67B;--accent-rgb:224,182,123;}
     html[data-theme="dark"][data-tabaccent=draft]{--accent:#0fcacc;--accent2:#04c4f0;--accent-rgb:15,202,204;}
     html[data-theme="dark"][data-tabaccent=trades]{--accent:#E8437E;--accent2:#E86043;--accent-rgb:232,67,126;}
-    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#1ecdaa;--accent2:#0cc9d1;--accent-rgb:30,205,170;}
+    html[data-theme="dark"][data-tabaccent=tenure]{--accent:#A3E635;--accent2:#F2CE3A;--accent-rgb:163,230,53;}
+    /* Leaderboards had no rule here at all, so the page fell back to the default
+       accent while the menu icon read TAB_COLORS — the tab and the page it opens
+       disagreeing, which is the exact failure the Coaching Metric note above
+       describes. Same hex in both places now. */
+    html[data-theme="dark"][data-tabaccent=leaders]{--accent:#43C9E8;--accent2:#6cb7ff;--accent-rgb:67,201,232;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
     /* the name takes the space it needs and sign out sits at the far edge */

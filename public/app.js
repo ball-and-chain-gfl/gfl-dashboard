@@ -89,7 +89,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#1ecdaa',punishment:'#E84146',cm:'#E0B67B'};
+const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#A3E635',punishment:'#E84146',cm:'#E0B67B'};
 const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -11930,6 +11930,9 @@ function ldFolio(prof){
 const ldFmt=v=>(v>0?'+':v<0?'−':'')+'$'+Math.abs(v).toFixed(2);
 const ldCol=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text2)';
 
+let _ldView='bets';                      // 'bets' | 'folio'
+function ldSetView(v){ _ldView=(v==='folio')?'folio':'bets'; renderLeaders(); }
+
 function renderLeaders(){
   const bk=document.getElementById('ld-bk-body');
   const mo=document.getElementById('ld-money-body');
@@ -11941,65 +11944,80 @@ function renderLeaders(){
 
   const rows=ldRows();
   if(!rows.length){ bk.innerHTML=mo.innerHTML='<div class="tab-loading">Loading the league…</div>'; return; }
+  const ab=tid=>{const t=_teams.find(x=>x.id===Number(tid));
+    return (t&&t.abbrev)||teamInitials((t&&t.name)||'');};
 
-  /* ── BALL KNOWLEDGE ─────────────────────────────────────────────────────── */
-  const iq=bkIQCfg();
+  /* ── BALL KNOWLEDGE ───────────────────────────────────────────────────────
+     Two lines a manager. The bar sits on its own, full width, so every bar is
+     the same length and the fills can be read against each other — hung on the
+     end of a row of names they were as long as the name was short.
+
+     Colour is the site's green-to-red on the absolute 0-300 scale, not relative
+     to whoever happens to be leading: 150 is amber for everybody, and a league
+     where nobody has done anything is a column of amber rather than a false
+     spread from green to red. */
   const bkRows=rows.map(r=>({...r, v:bkIQFor(r.teamId)}))
     .sort((a,b)=>b.v-a.v||a.name.localeCompare(b.name));
-  const top=Math.max(...bkRows.map(r=>r.v),iq.avg);
-  bk.innerHTML=`
-    <div class="ld-note">Every graded call this season — the weekly questions, the
-      matchup picks, and settled bets. One point each; the Matchup of the Week
-      counts double. Everybody opens at ${iq.avg}.</div>
-    <div class="ld-list">${bkRows.map((r,i)=>{
+  bk.innerHTML=`<div class="ld-list">${bkRows.map((r,i)=>{
       const pct=bkIQPct(r.v), col=bkIQColor(r.v);
       return `<div class="ld-row${_me&&String(_me.teamId)===String(r.teamId)?' ld-me':''}">
-        <span class="ld-rk">${i+1}</span>
-        <span class="ld-team">${logoImg(r.teamId,'ld-logo')}
-          <span class="ld-nm">${r.name}</span></span>
+        <div class="ld-rtop">
+          <span class="ld-rk">${i+1}</span>
+          <span class="ld-team">${ntCrest(r.owner,22)}
+            <span class="ld-ab">${ab(r.teamId)}</span></span>
+          <span class="ld-lab" style="color:${col}">${bkIQLabel(r.v)}</span>
+          <span class="ld-v" style="color:${col}">${Math.round(r.v)}</span>
+        </div>
         <span class="ld-bar"><span class="ld-bar-f" style="width:${pct.toFixed(1)}%;background:${col}"></span>
           <span class="ld-bar-mid"></span></span>
-        <span class="ld-v" style="color:${col}">${Math.round(r.v)}</span>
       </div>`;}).join('')}</div>`;
 
   /* ── BETS AND PORTFOLIOS ────────────────────────────────────────────────── */
-  if(!_betsAll){
-    mo.innerHTML='<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading the book…</div>';
+  const tabs=`<div class="standings-filters ld-filters">
+    <button class="filter-btn${_ldView==='bets'?' active':''}" onclick="ldSetView('bets')">Bets</button>
+    <button class="filter-btn${_ldView==='folio'?' active':''}" onclick="ldSetView('folio')">Portfolios</button>
+  </div>`;
+  if(!_betsAll&&_ldView==='bets'){
+    mo.innerHTML=tabs+'<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading the book…</div>';
     return;
   }
-  const money=rows.map(r=>{
-    const b=ldBets(r.ids), f=ldFolio(r.prof);
-    return {...r, b, f, total:b.net+f.profit};
-  /* Ties break on having done something. Early in a season everybody is on
-     zero, and sorting those alphabetically puts a manager who has never placed
-     a bet above one with ten running — which reads as a ranking when it is
-     only an alphabet. */
-  }).sort((a,b)=>b.total-a.total
-    || (b.b.n+b.f.trades)-(a.b.n+a.f.trades)
-    || a.name.localeCompare(b.name));
-  const anyAction=money.some(m=>m.b.n||m.f.trades);
-  mo.innerHTML=`
-    <div class="ld-note">Betting profit is returns minus stakes on everything
-      settled. Portfolio profit is what sales banked plus what the open holdings
-      are up or down. Nothing here counts a bet still running.</div>
-    ${anyAction?'':'<div class="ld-empty">Nobody has placed a bet or bought a share yet.</div>'}
-    <div class="ld-money">${money.map((m,i)=>`
-      <div class="ld-mrow${_me&&String(_me.teamId)===String(m.teamId)?' ld-me':''}">
+  const money=rows.map(r=>({...r, b:ldBets(r.ids), f:ldFolio(r.prof)}));
+  const betsView=_ldView==='bets';
+  /* Ranked on the column the view is about, then on having done something at
+     all — everybody sits on zero in September, and sorting that alphabetically
+     puts a manager who has never placed a bet above one with ten running. */
+  money.sort((x,y)=>betsView
+    ? (y.b.net-x.b.net || y.b.n-x.b.n || x.name.localeCompare(y.name))
+    : (y.f.profit-x.f.profit || y.f.trades-x.f.trades || x.name.localeCompare(y.name)));
+  const anyAction=money.some(m=>betsView?m.b.n:m.f.trades);
+  const cells=m=>betsView
+    ? [['bets',ldFmt(m.b.net),ldCol(m.b.net)],
+       ['record',`${m.b.won}–${m.b.lost}${m.b.open?` · ${m.b.open} open`:''}`,''],
+       ['hit rate',m.b.hit==null?'—':m.b.hit.toFixed(0)+'%',''],
+       ['roi',m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%',''],
+       ['staked',m.b.staked?bucksFmt(m.b.staked):'—',''],
+       ['returned',m.b.staked?bucksFmt(m.b.back):'—','']]
+    : [['profit',ldFmt(m.f.profit),ldCol(m.f.profit)],
+       ['banked',ldFmt(m.f.real),ldCol(m.f.real)],
+       ['value',m.f.held?invFmt(m.f.value):'—',''],
+       ['cost',m.f.held?invFmt(m.f.cost):'—',''],
+       ['shares',m.f.held?invShFmt(m.f.held):'—',''],
+       ['trades',String(m.f.trades||0),'']];
+  mo.innerHTML=tabs
+    +(anyAction?'':`<div class="ld-empty">${betsView
+        ?'Nobody has placed a bet yet.':'Nobody has bought a share yet.'}</div>`)
+    +`<div class="ld-money">${money.map((m,i)=>{
+      const head=betsView?m.b.net:m.f.profit;
+      return `<div class="ld-mrow${_me&&String(_me.teamId)===String(m.teamId)?' ld-me':''}">
         <div class="ld-mhead">
           <span class="ld-rk">${i+1}</span>
-          <span class="ld-team">${logoImg(m.teamId,'ld-logo')}
+          <span class="ld-team">${ntCrest(m.owner,22)}
             <span class="ld-nm">${m.name}</span></span>
-          <span class="ld-total" style="color:${ldCol(m.total)}">${ldFmt(m.total)}</span>
+          <span class="ld-total" style="color:${ldCol(head)}">${ldFmt(head)}</span>
         </div>
-        <div class="ld-cells">
-          <span class="ld-c"><b style="color:${ldCol(m.b.net)}">${ldFmt(m.b.net)}</b><span>bets</span></span>
-          <span class="ld-c"><b>${m.b.won}–${m.b.lost}${m.b.open?` · ${m.b.open} open`:''}</b><span>record</span></span>
-          <span class="ld-c"><b>${m.b.hit==null?'—':m.b.hit.toFixed(0)+'%'}</b><span>hit rate</span></span>
-          <span class="ld-c"><b>${m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%'}</b><span>ROI</span></span>
-          <span class="ld-c"><b style="color:${ldCol(m.f.profit)}">${ldFmt(m.f.profit)}</b><span>portfolio</span></span>
-          <span class="ld-c"><b>${m.f.held?invFmt(m.f.value):'—'}</b><span>held</span></span>
-        </div>
-      </div>`).join('')}</div>`;
+        <div class="ld-cells">${cells(m).map(([k,v,c])=>
+          `<span class="ld-c"><b${c?` style="color:${c}"`:''}>${v}</b><span>${k}</span></span>`).join('')}</div>
+      </div>`;}).join('')}</div>`;
 }
 
 /* ── Bankroll: where you stand since week one ───────────────────────────────
