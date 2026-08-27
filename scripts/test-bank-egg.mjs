@@ -53,13 +53,17 @@ const BUCKS_WEEKLY=100;
 /* bucksTestMs only speeds the clock up for the test account, and section 10 is
    about what that flag does — so the harness says yes. */
 const isTestProfile=()=>true;
+/* Completed fantasy weeks. The allowance is capped at one per week played, so
+   every case below has to say where in the season it is standing. */
+let _WEEKS=0;
+const bucksWeeksPlayed=()=>_WEEKS;
 const betsAfterReset=b=>Number(b.ts||0)>=Number(_CFG.betsResetBefore||0);
 const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1&&betsAfterReset(b));
 const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
 const eggsFound=()=>({size:_EGGS});
 function eggBucks(){ return _EGGS*EGG_PRIZE; }
 ${parts.join('\n')}
-return { set(b,testMin,eggs){ _bets=b; _EGGS=eggs||0;
+return { set(b,testMin,eggs,weeks){ _bets=b; _EGGS=eggs||0; _WEEKS=weeks||0;
     _CFG={betsResetBefore:0,bucksTestMinutes:testMin||0,
           eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}}; },
   bucksCycles, bucksAllowance, bucksStaked, bucksReturned, bucksBalance,
@@ -85,7 +89,7 @@ console.log('\n2. winnings carry across cycles instead of being wiped');
 {
   const now=Date.now();
   // a settled winner three weeks ago: staked 50, returned 130
-  api.set([B({ts:now-3*WEEK,stake:50,ret:130,status:'won'})],0,0);
+  api.set([B({ts:now-3*WEEK,stake:50,ret:130,status:'won'})],0,0,3);
   const cycles=api.bucksCycles(now);
   eq('four cycles of allowance', cycles, 4);
   eq('allowance $400', api.bucksAllowance(), 400);
@@ -96,7 +100,7 @@ console.log('\n2. winnings carry across cycles instead of being wiped');
 console.log('\n3. a loss follows you past the cycle it happened in');
 {
   const now=Date.now();
-  api.set([B({ts:now-1*WEEK,stake:90,ret:0,status:'lost'})],0,0);
+  api.set([B({ts:now-1*WEEK,stake:90,ret:0,status:'lost'})],0,0,1);
   eq('two cycles', api.bucksCycles(now), 2);
   eq('200 - 90 = 110', api.bucksBalance(), 110);
 }
@@ -185,6 +189,28 @@ console.log('\n10. what the short test cycle does to the allowance');
   console.log('       a bet placed this week, flag off      ->  '
     +api.bucksCycles(now)+' cycles = $'+(api.bucksCycles(now)*100));
   eq('flag off gives one cycle per real week', api.bucksCycles(now), 1);
+}
+
+console.log('\n11. an allowance is paid for a week that was played');
+{
+  const now=Date.now();
+  const early=[B({ts:now-3*WEEK,stake:0,ret:0,status:'won'})];
+  /* Pre-season: three calendar Tuesdays have gone by since the bet and no
+     football at all. The bank used to pay for every one of them. */
+  api.set(early,0,0,0);
+  eq('three Tuesdays, no football, one allowance', api.bucksCycles(now), 1);
+  eq('still $100', api.bucksBalance(), 100);
+  /* Week 1 in the books: the second allowance lands. */
+  api.set(early,0,0,1);
+  eq('week 1 played — two allowances', api.bucksCycles(now), 2);
+  /* It never pays for more weeks than the calendar has turned over either. */
+  api.set(early,0,0,9);
+  eq('nine weeks played, but only four Tuesdays since the bet',
+    api.bucksCycles(now), 4);
+  /* And it still does not back-pay somebody who arrived late: first bet this
+     week, deep into the season, is one allowance and not nine. */
+  api.set([B({ts:now,stake:0,ret:0,status:'won'})],0,0,9);
+  eq('a first bet in week 9 is not nine allowances', api.bucksCycles(now), 1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

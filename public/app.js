@@ -9402,9 +9402,48 @@ function bucksCycles(now=Date.now()){
   });
   /* rounded, not floored: a real week is 7 days by wall clock, so the two
      Tuesdays either side of a daylight-saving change are an hour apart */
-  return Math.max(1,Math.round((to-from)/len)+1);
+  const n=Math.round((to-from)/len)+1;
+  /* The short test cycle is not a season and has no football behind it, so it
+     keeps counting buckets — that is the whole point of the switch. */
+  if(bucksTestMs()) return Math.max(1,n);
+  /* AN ALLOWANCE IS PAID FOR A WEEK THAT WAS PLAYED.
+
+     Tuesdays were the only thing being counted, so the bank paid out on the
+     calendar whether or not any football had happened. Through a pre-season
+     that is money for nothing: bet once in August and the balance climbed $100
+     every Tuesday until kickoff. Week 1 opens on one allowance and the second
+     lands on the Tuesday that begins week 2, once week 1 is in the books.
+
+     Capped rather than replaced, so the "no back pay" rule survives: a manager
+     whose first bet is in week 6 still starts from week 6 and is not handed the
+     five allowances they were not here for. */
+  return Math.max(1,Math.min(1+bucksWeeksPlayed(),n));
 }
 function bucksAllowance(){ return BUCKS_WEEKLY*bucksCycles(); }
+/* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
+
+   Counted from week 1 and only while every fixture in a week is final, so a
+   week ESPN has not finished scoring does not advance the count, and a hole in
+   the middle stalls it rather than skipping past it. Erring low is deliberate:
+   this gates money, and paying an allowance late is a complaint while paying it
+   twice is a hole in the economy. */
+function bucksWeeksPlayed(){
+  const meta=_seasonMeta[bkLeagueSeason()];
+  if(!meta) return 0;
+  const byWeek={};
+  (meta.schedule||[]).forEach(m=>{
+    if(!m.home||!m.away) return;
+    const w=Number(m.matchupPeriodId)||0; if(!w) return;
+    (byWeek[w]||(byWeek[w]=[])).push(m);
+  });
+  const done=m=>((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
+  let n=0;
+  for(let w=1;byWeek[w];w++){
+    if(!byWeek[w].every(done)) break;
+    n=w;
+  }
+  return n;
+}
 /* every live bet ever, not just this cycle's — that is the whole change */
 const betsLiveAll=()=>betsMine().filter(betIsLive);
 function bucksStaked(){ return betsLiveAll().reduce((a,b)=>a+b.stake,0); }
@@ -9518,6 +9557,12 @@ async function sbPlaceBet(){
   const stake=Math.round(Math.max(0,Number(_sbStake)||0));
   if(stake<=0){ _betErr='stake'; sbRenderSlip(); return; }
   if(stake>bucksBalance()){ _betErr='funds'; sbRenderSlip(); return; }
+  /* A slip built before kickoff can still be sitting on screen once the games
+     are running — the buttons go dead, the slip does not. Without this a ticket
+     could be struck on a week whose football had already started. */
+  if(_slip.some(x=>betLegWeek(x.mk)!=null)&&sbWeekLocked()){
+    _betErr='locked'; _betBusy=false; sbRenderSlip(); return;
+  }
   _betBusy=true; _betErr=null; sbRenderSlip();
   const dec=_slip.reduce((a,s)=>a*amToDec(s.odds),1);
   const odds=_slip.length>1?amFromProb(1/dec):_slip[0].odds;
@@ -10124,6 +10169,19 @@ function renderBallKnowledge(){
   const qs=bkQuestions();
   if(!qs.length){ if(sec) sec.style.display='none'; return; }
   if(sec) sec.style.display='';
+  /* The five questions are the same for the whole league, but the answers, the
+     score and what has been retired are one manager's — and a blank counts
+     against you once the week's football starts. Showing the set to nobody in
+     particular invites it to be read through signed out and then answered from
+     memory, which is not the game. */
+  if(!_me){
+    el.innerHTML=`<div class="home-signin">
+      <div class="home-signin-t">Sign in to answer this week's five and move your Ball Knowledge.</div>
+      <button class="home-signin-b" onclick="openSignIn()">Sign in</button>
+      <div class="home-signin-m">${qs.length} questions waiting</div>
+    </div>`;
+    return;
+  }
   const cfg=_CFG.ballKnowledge||{};
   const ans=bkLoadAnswers();
   const answered=qs.map((_,i)=>i).filter(i=>ans[i]!=null);
@@ -11360,8 +11418,21 @@ function ntStep(d){
 }
 function renderNotifications(){
   const el=document.getElementById('nt-body'); if(!el) return;
-  const list=ntLive();
   const cnt=document.getElementById('nt-count');
+  /* The stack is this manager's: their parlay invitations, trash talk sent to
+     them, the Matchup of the Week if it is their call, and — the part that
+     needs a profile most — what they have already swiped away. Signed out
+     there is nowhere to record a dismissal and nothing personal to show, so
+     the deck was a league-wide feed that could not be cleared. */
+  if(!_me){
+    if(cnt) cnt.textContent='';
+    el.innerHTML=`<div class="home-signin">
+      <div class="home-signin-t">Sign in for your notifications — trades to judge, invitations, and trash talk aimed at you.</div>
+      <button class="home-signin-b" onclick="openSignIn()">Sign in</button>
+    </div>`;
+    return;
+  }
+  const list=ntLive();
   if(cnt) cnt.textContent=list.length?String(list.length):'';
   if(!list.length){
     /* Undo belongs here most of all: clearing the last card is the swipe
@@ -12622,6 +12693,11 @@ function betWeekResult(leg,season,wk){
 function betLegWeek(mk){
   let m=/^wk(\d+)-/.exec(String(mk||''));       if(m) return Number(m[1]);
   m=/^fa\d+-(\d+)$/.exec(String(mk||''));       if(m) return Number(m[1]);
+  /* The By Team board's top-scorer market is keyed by owner rather than by
+     week number — tt<owner>-<week> — so it read as a season leg and stayed open
+     through Sunday with the scoreboard in plain sight. It is a one-week
+     question like every other wk* market and closes with them. */
+  m=/^tt[a-z0-9_-]+-(\d+)$/i.exec(String(mk||''));  if(m) return Number(m[1]);
   return null;
 }
 const betAnyPlayed=(meta,wk)=>((meta&&meta.schedule)||[]).some(m=>m.home&&m.away
@@ -12859,8 +12935,20 @@ function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
 function sbWeekLocked(){ return weekHasStarted(); }
 function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
-  /* a weekly market with the football already running is shown but dead */
-  if(SB_EXCLUSIVE.test(mk)&&sbWeekLocked())
+  /* A WEEKLY MARKET WITH THE FOOTBALL ALREADY RUNNING IS SHOWN BUT DEAD.
+
+     This tested SB_EXCLUSIVE, which is /-(ml|sp|tot)$/ — the three markets
+     written on a single fixture. Every other weekly market missed the test and
+     stayed open all Sunday: Top Score, Low Score, Closest Game, Biggest
+     Blowout, Top Player, the Donut, the FAAB ladder and By Team's Top Scorer.
+     Those are the ones worth having open, too — by Sunday evening you can read
+     the top score off the scoreboard and see whose starter has a zero.
+
+     A fantasy week has no half-time. Every manager's roster plays across
+     Thursday, Sunday and Monday, so from the first kickoff to the last whistle
+     there is no moment when nothing is in play — which is why the whole weekly
+     board closes together and only the season futures stay up. */
+  if(betLegWeek(mk)!=null&&sbWeekLocked())
     return `<span class="sb-odds sb-odds-lock" title="Closed — the week is under way">
       ${btnLabel?`<span class="sb-o-lbl">${btnLabel}</span>`:''}
       <span class="sb-o-val"><i class="fa fa-lock"></i></span></span>`;
@@ -13333,7 +13421,8 @@ function sbSlipHTML(){
             ${_betBusy?'<i class="fa fa-circle-notch fa-spin"></i>Placing…'
               :`<i class="fa fa-check"></i>Place bet · ${bucksFmt(stake)}`}</button>`}
       ${_betErr?`<div class="sb-slip-err">${
-        _betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
+        _betErr==='locked'?'The week is under way — weekly markets are closed. Season futures are still open.'
+        :_betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
         :_betErr==='stake'?'Enter a stake first.'
         :_betErr==='quota'?'The league database has hit its daily free-tier limit — try again after it resets at midnight Pacific.'
         :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
@@ -13486,6 +13575,12 @@ function sbPick(mk,mkLabel,pick,pickLabel,odds){
   const k=mk+'|'+pick;
   const i=_slip.findIndex(x=>x.k===k);
   if(i>=0){ _slip.splice(i,1); sbSyncButtons(); sbRenderSlip(); return; }
+  /* The board is repainted dead at kickoff, but a price tapped a second before
+     it would otherwise still land on the slip. */
+  if(betLegWeek(mk)!=null&&sbWeekLocked()){
+    _sbNote='That week is under way — the weekly board is closed.';
+    sbSyncButtons(); sbRenderSlip(); return;
+  }
   const c=sbConflict(mk,pick);
   if(c&&c.block){
     /* Nothing to swap: every leg on the slip is still live and the tap does not
