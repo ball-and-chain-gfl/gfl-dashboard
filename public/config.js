@@ -65,16 +65,23 @@ window.GFL_CONFIG = {
      week is live; flip it to true afterwards to show everyone how they did. */
   /* ── TESTING SWITCHES ──────────────────────────────────────────────────────
      Everything marked TESTING below is shown to ONE account and nobody else:
-     the BFT profile. The league sees the live site, and so does anyone signed
-     out. So these can be left on — turning one on no longer changes what the
-     other eleven managers get, and turning one off only takes it away from the
-     testing profile.
-     The account is set in app.js as TEST_PROFILE; it is 'bft', the same key
-     BFT signs in with. Change it there to test on a different account. */
+     `test`, password 123. It belongs to no manager, holds no team and appears
+     on no leaderboard. The twelve managers see the live site, and so does
+     anyone signed out.
+
+     So these can be left on. Turning one on does not change what the league
+     gets; turning one off only takes it away from the test account. Sign in as
+     `test` to see the demo notifications, the short bucks cycle, the fast plant
+     and one Ball Knowledge question of every kind.
+
+     The account is set in app.js as TEST_PROFILE. */
 
   /* TESTING — one dummy notification of every kind, so the whole set can be
      seen while the league is quiet. The demo cards are keyed on fixed ids, so
-     any that have already been swiped away will stay away. */
+     any that have already been swiped away will stay away.
+
+     The league never sees these: every switch marked TESTING answers to the
+     `test` account alone. Leaving them on is what keeps that account useful. */
   notifications: { demo: true },
 
   /* TESTING — how many minutes a GFL Bucks cycle lasts, standing in for the
@@ -94,8 +101,11 @@ window.GFL_CONFIG = {
      balance and the bankroll chart. The Firestore rules withhold delete on
      purpose (a losing bet must not be able to vanish), so a clean slate is
      drawn with a line rather than by deleting anything. Raise it to now to
-     start over again; set to 0 to count everything ever placed. */
-  betsResetBefore: 1787348483576,
+     start over again; set to 0 to count everything ever placed.
+
+     Moved to the start of the 2026 season: every bet placed while the site was
+     being built sits behind this line and counts for nobody. */
+  betsResetBefore: 1787846825391,
 
   /* TESTING — how long one locker-room plant stage lasts, in minutes.
      Fractions are fine: 0.25 is fifteen seconds a stage, so the plant runs

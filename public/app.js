@@ -6128,7 +6128,12 @@ let _me=null;                                  // {k1,k2,teamId} once signed in
    The id is the team's abbreviation slug, the same string sign-in checks, so
    this is the account and not merely the team. Signed out is a real visitor
    and gets the live site. */
-const TEST_PROFILE='bft';                      // The Bryan Football Team
+/* An account of its own rather than a manager's. Through the build this was
+   BFT, which meant the person running the league could not see the site the way
+   the league sees it without signing out — and every switch below followed his
+   real profile around. 'test' belongs to nobody, holds no team, and appears on
+   no board; BFT is now an ordinary manager. */
+const TEST_PROFILE='test';
 const isTestProfile=()=>!!_me&&_me.k1===TEST_PROFILE;
 
 function meLoad(){ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } }
@@ -6187,11 +6192,19 @@ function signInMsg(t,bad){ const el=document.getElementById('si-msg'); if(!el) r
    anyone could invent an account and point it at somebody else's team. The
    accounts are now a closed set: the twelve team abbreviations, nothing else,
    and no path that writes a new one. */
-const teamAccountIds=()=>new Set(_teams.map(t=>keySlug(t.abbrev||teamInitials(t.name))).filter(Boolean));
+/* The twelve team abbreviations, plus the one account that is not a team. The
+   closed set is the whole point of this function — sign-in used to mint a
+   profile for any name typed at it — so the exception is written here, once,
+   rather than by loosening the check. */
+const teamAccountIds=()=>{
+  const s=new Set(_teams.map(t=>keySlug(t.abbrev||teamInitials(t.name))).filter(Boolean));
+  if(s.size) s.add(TEST_PROFILE);
+  return s;
+};
 async function gflSignIn(){
   const k1=(document.getElementById('si-k1')||{}).value||'';
   const k2=(document.getElementById('si-k2')||{}).value||'';
-  if(!keySlug(k1)||!String(k2).trim()) return signInMsg('Both keys are needed.',true);
+  if(!keySlug(k1)||!String(k2).trim()) return signInMsg('Username and password are both needed.',true);
   const id=keySlug(k1);
   /* Checked against the loaded teams rather than a hard-coded list, so a
      renamed franchise does not lock its manager out. If teams have not loaded
@@ -6203,7 +6216,7 @@ async function gflSignIn(){
   const res=await gflFetchProfile(id);
   if(res.error) return signInMsg(res.error==='offline'?'No connection — try again.':res.error,true);
   if(res.missing) return signInMsg('That is not a league account.',true);
-  if(String(res.data.k2||'')!==String(k2).trim()) return signInMsg('That second key does not match.',true);
+  if(String(res.data.k2||'')!==String(k2).trim()) return signInMsg('That password does not match.',true);
   /* the team comes off the stored profile, never from whatever the page had
      selected — that was how a made-up account could attach itself to any team */
   _me={k1:id,k2:String(k2).trim(),teamId:res.data.teamId||''}; meSave(); applyMe(); closeSignIn();
@@ -6987,10 +7000,9 @@ function openSignIn(){
   document.getElementById('si-body').innerHTML=_me
     ? `<div class="si-in">Signed in as <b>${_me.k1}</b>${nm?`<div class="si-sub">Remembering ${nm}</div>`:''}</div>
        <button class="si-go" onclick="gflSignOut()">Sign out</button>`
-    : `<label class="si-l">Key 1</label><input id="si-k1" class="si-i" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="anything you'll remember"/>
-       <label class="si-l">Key 2</label><input id="si-k2" class="si-i" type="password" autocomplete="off" placeholder="second key"/>
-       <button class="si-go" onclick="gflSignIn()">Unlock</button>
-       <div class="si-note">Key 1 is your team's abbreviation. Accounts are fixed to the twelve teams — there is no sign-up. Signed out, the site works exactly the same.</div>`;
+    : `<label class="si-l">Username</label><input id="si-k1" class="si-i" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="your team's abbreviation"/>
+       <label class="si-l">Password</label><input id="si-k2" class="si-i" type="password" autocomplete="current-password" placeholder="three digits"/>
+       <button class="si-go" onclick="gflSignIn()">Sign in</button>`;
   signInMsg('');
   m.classList.add('show');
   document.documentElement.classList.add('si-open');
@@ -10294,7 +10306,11 @@ function pkLocked(){ return weekHasStarted(); }
    Nothing else on the picks grid can be answered until it is set, because the
    grid's whole shape depends on it: one game is worth double and the rest are
    worth one, and picking before you know which is which is not the game. */
-const MOTW_PICKER=TEST_PROFILE;                 // whose call it is
+/* BFT's call, and it stays BFT's whoever the testing account happens to be.
+   This used to read TEST_PROFILE, which was the same string by coincidence —
+   moving testing onto its own account would have handed the league's Matchup of
+   the Week to a profile nobody signs into. */
+const MOTW_PICKER='bft';
 /* THE PICK RESETS ON THE CLOCK, NOT ON ESPN.
 
    Keyed on the Tuesday it belongs to rather than on the scoring week. Those are
