@@ -10260,11 +10260,25 @@ function pkLocked(){ return weekHasStarted(); }
    grid's whole shape depends on it: one game is worth double and the rest are
    worth one, and picking before you know which is which is not the game. */
 const MOTW_PICKER=TEST_PROFILE;                 // whose call it is
-/* Both halves of the key come from the same place the fixtures do, so the
-   season and the week can never drift apart from the slate they describe. */
+/* THE PICK RESETS ON THE CLOCK, NOT ON ESPN.
+
+   Keyed on the Tuesday it belongs to rather than on the scoring week. Those are
+   not the same thing: liveWeekInfo advances when ESPN has finished scoring
+   every game of a week, which is some time on Monday night or Tuesday and is
+   theirs to decide, not ours. A pick that expires "whenever the data updates"
+   is not a weekly job anybody can plan around.
+
+   ntResultsDay is the same Tuesday-at-midnight stamp the cards already date
+   themselves by, so the card's day and the key it writes now turn over in the
+   same instant — the moment it becomes Tuesday. */
 const motwInfo=()=>(_liveInfo||liveWeekInfo()||{});
 const motwWeek=()=>Number(motwInfo().week)||0;
-const motwPickKey=()=>`motw_${motwInfo().season||bkLeagueSeason()}_w${motwWeek()}`;
+function motwStamp(t){
+  const d=new Date(ntResultsDay(t==null?Date.now():t));
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`;
+}
+const motwPickKey=()=>`motw_${motwInfo().season||bkLeagueSeason()}_t${motwStamp()}`;
 /* [idA,idB] once it has been set, null until then */
 function motwChosen(){
   const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
@@ -10605,6 +10619,11 @@ function ntMotwPick(out){
   if(motwIsSet()) return;                     // done for the week
   const games=(typeof pkGames==='function'?pkGames():[]).filter(g=>g.home&&g.away);
   if(!games.length) return;
+  /* Nothing to name if the slate on screen has already been played. Between
+     Tuesday midnight and ESPN finishing with Monday night, the live week can
+     still be last week's finished games — this waits for the new fixtures
+     rather than asking for a pick on a settled slate. */
+  if(games.every(g=>(g.home.totalPoints||0)>0||(g.away.totalPoints||0)>0)) return;
   const wk=motwWeek();
   const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
   const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
