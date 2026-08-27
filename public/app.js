@@ -89,7 +89,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#0fcacc',trades:'#E8437E',tenure:'#A3E635',punishment:'#E84146',cm:'#E0B67B'};
+const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
 const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
@@ -10314,18 +10314,13 @@ function motwStamp(t){
   return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`;
 }
 const motwPickKey=()=>`motw_${motwInfo().season||bkLeagueSeason()}_t${motwStamp()}`;
-/* The same pick, filed by week as well as by Tuesday. The Tuesday stamp is what
-   makes it expire on the clock; this is what makes it findable afterwards —
-   B&C Picks has to ask "which game was the Matchup in week 4" long after that
-   Tuesday has gone, and a date stamp cannot answer that. */
+/* Filed by week as well as by Tuesday. Nothing reads this now — the board that
+   did has been taken off — but it costs one field on one profile and it is the
+   only record of which fixture was the Matchup in a given week. Dropping the
+   write would mean that history simply stops accruing, and it cannot be
+   reconstructed after the fact. */
 const motwWeekKey=(season,wk)=>`motwwk_${season||motwInfo().season||bkLeagueSeason()}_w${wk||motwWeek()}`;
-/* [idA,idB] for any past week, from the picker's profile */
-function motwOfWeek(season,wk){
-  const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
-  const m=/^(\d+)-(\d+)$/.exec(r?String(r[motwWeekKey(season,wk)]||'').trim():'');
-  return m?[Number(m[1]),Number(m[2])]:null;
-}
-/* [idA,idB] once it has been set, null until then */
+/* [idA,idB] once this Tuesday's pick is in, null until then */
 function motwChosen(){
   const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
   const m=/^(\d+)-(\d+)$/.exec(r?String(r[motwPickKey()]||'').trim():'');
@@ -10355,13 +10350,19 @@ async function motwSet(a,b){
   if(!_me||_me.k1!==MOTW_PICKER||_motwSetBusy) return;
   _motwSetBusy=true; try{ renderNotifications(); }catch(e){}
   const val=`${a}-${b}`;
-  const wkKey=motwWeekKey();
-  const r=await gflPatchProfile(_me.k1,{[motwPickKey()]:val,[wkKey]:val});
+  /* Only file it by week when there is a week to file it under. Between seasons
+     liveWeekInfo has no schedule to read and motwWeek comes back 0, which would
+     write motwwk_2026_w0 — a key naming a week that does not exist. The Tuesday
+     key is always written; the week key waits for a real week. */
+  const wk=motwWeek();
+  const patch={[motwPickKey()]:val};
+  if(wk>0) patch[motwWeekKey()]=val;
+  const r=await gflPatchProfile(_me.k1,patch);
   if(r&&r.ok){
     /* write it into the cached profile row too, so the picks grid unfades on
        this device without waiting for the next poll */
     const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
-    if(row){ row[motwPickKey()]=val; row[wkKey]=val; }
+    if(row) Object.assign(row,patch);
   }
   _motwSetBusy=false; _motwArmed=null;
   try{ renderNotifications(); }catch(e){}
@@ -12173,8 +12174,6 @@ function renderLeaders(){
         <span class="eg-n">${e.n}</span>
       </div>`).join('')}</div>`;
   }
-  const bc=document.getElementById('ld-bc-body');
-  if(bc) bc.innerHTML=bcBoardHTML();
 }
 
 /* One column a manager, zero down the middle so a loss reads as a loss. Drawn
@@ -12207,94 +12206,6 @@ function ldChartHTML(rows,val,title){
         stroke="#7b7b7b" stroke-opacity="0.35" stroke-width="1"/>
       ${bars}
     </svg>
-  </div>`;
-}
-
-/* ── THE BALL AND THE CHAIN ──────────────────────────────────────────────────
-   Two managers whose Matchup of the Week call is the show's call. On the board
-   and on the sportsbook they are never named — they are the Ball and the Chain,
-   and the crest beside the pick is the only place the franchise shows up.
-
-   Their record is replayed rather than stored: for every week the Matchup was
-   named, look up which side each of them took on the picks grid and check it
-   against the result. Nothing to keep in sync, and a corrected result corrects
-   the record. */
-const BC_BALL='bft', BC_CHAIN='ting';
-const BC_NAME={[BC_BALL]:'the Ball',[BC_CHAIN]:'the Chain'};
-/* which side one manager took in the week's Matchup, or null */
-function bcPickOf(who,season,wk,games,motw){
-  const prof=(_cpRows||[]).find(p=>p&&p.id===who); if(!prof) return null;
-  const idx=games.findIndex(g=>{const ids=[g.home.teamId,g.away.teamId].map(String);
-    return ids.includes(String(motw[0]))&&ids.includes(String(motw[1]));});
-  if(idx<0) return null;
-  let picks={}; try{ picks=JSON.parse(prof[`pk_${season}_w${wk}`]||'{}'); }catch(e){ return null; }
-  const v=picks[idx];
-  return v==null?null:Number(v);
-}
-/* every week the Matchup was named, with both calls and how it finished */
-function bcHistory(season){
-  const s=String(season||bkLeagueSeason());
-  const meta=_seasonMeta[s]; if(!meta) return [];
-  const out=[];
-  for(let wk=1;wk<=TOTAL_WEEKS;wk++){
-    const motw=motwOfWeek(s,wk); if(!motw) continue;
-    const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===wk&&m.home&&m.away);
-    if(!games.length) continue;
-    const gm=games.find(g=>{const ids=[g.home.teamId,g.away.teamId].map(String);
-      return ids.includes(String(motw[0]))&&ids.includes(String(motw[1]));});
-    if(!gm) continue;
-    const hp=gm.home.totalPoints||0, ap=gm.away.totalPoints||0;
-    const played=hp>0||ap>0;
-    const winner=!played?null:hp>ap?gm.home.teamId:ap>hp?gm.away.teamId:null;
-    out.push({wk, game:gm, winner, played,
-      ball:bcPickOf(BC_BALL,s,wk,games,motw),
-      chain:bcPickOf(BC_CHAIN,s,wk,games,motw)});
-  }
-  return out;
-}
-function bcRecord(rows,key){
-  let w=0,l=0,pending=0;
-  rows.forEach(r=>{
-    if(r[key]==null) return;
-    if(!r.played||r.winner==null){ pending++; return; }
-    if(String(r[key])===String(r.winner)) w++; else l++;
-  });
-  return {w,l,pending,n:w+l,
-    pct:(w+l)?w/(w+l)*100:null};
-}
-function bcBoardHTML(){
-  const season=String(bkLeagueSeason());
-  const rows=bcHistory(season);
-  const ball=bcRecord(rows,'ball'), chain=bcRecord(rows,'chain');
-  const line=(who,rec)=>{
-    const tid=(_cpRows||[]).find(p=>p&&p.id===who);
-    const teamId=tid?Number(tid.teamId):0;
-    return `<div class="bc-side">
-      <span class="bc-crest">${ntCrest(_ownerMap[teamId],26)}</span>
-      <span class="bc-who">${BC_NAME[who]}</span>
-      <span class="bc-rec">${rec.n?`${rec.w}–${rec.l}`:'—'}</span>
-      <span class="bc-pct">${rec.pct==null?'no calls graded':`${rec.pct.toFixed(0)}%${
-        rec.pending?` · ${rec.pending} pending`:''}`}</span>
-    </div>`;
-  };
-  const graded=rows.filter(r=>r.played&&r.winner!=null);
-  return `<div class="bc-wrap">
-    <div class="bc-pair">${line(BC_BALL,ball)}${line(BC_CHAIN,chain)}</div>
-    ${rows.length?`<div class="bc-weeks">${rows.slice().reverse().map(r=>{
-      const ab=id=>{const t=_teams.find(x=>x.id===Number(id));
-        return (t&&t.abbrev)||teamInitials((t&&t.name)||'');};
-      const mark=(pick)=>{
-        if(pick==null) return '<span class="bc-cell bc-none">—</span>';
-        const right=r.played&&r.winner!=null&&String(pick)===String(r.winner);
-        const wrong=r.played&&r.winner!=null&&!right;
-        return `<span class="bc-cell${right?' bc-win':wrong?' bc-loss':''}">${ab(pick)}</span>`;
-      };
-      return `<div class="bc-wk">
-        <span class="bc-wkn">Wk ${r.wk}</span>
-        <span class="bc-fix">${ab(r.game.away.teamId)} @ ${ab(r.game.home.teamId)}</span>
-        ${mark(r.ball)}${mark(r.chain)}
-      </div>`;}).join('')}</div>`
-      :`<div class="ld-empty">No Matchup of the Week has been named yet.</div>`}
   </div>`;
 }
 
@@ -14377,10 +14288,6 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xf0e7;" id="ld-pk-sec">
           <div class="sec-head"><i class="fa fa-burst"></i>Matchup Picks</div>
           <div id="ld-pk-body"></div>
-        </div>
-        <div class="sec wm" data-wm="&#xf0c1;" id="ld-bc-sec">
-          <div class="sec-head"><i class="fa fa-link"></i>B&amp;C Picks</div>
-          <div id="ld-bc-body"></div>
         </div>
         <div class="sec wm" data-wm="&#xf7fb;" id="ld-egg-sec">
           <div class="sec-head"><i class="fa fa-egg"></i>Eggs Found</div>
