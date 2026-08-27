@@ -2579,6 +2579,78 @@
     .ld-chart-svg{display:block;width:100%;height:132px;}
     /* your own row in the table, the same mark the cards carried */
     .ld-me-row td{background:rgba(var(--accent-rgb),0.07);}
+    /* ── The board's table ────────────────────────────────────────────────
+       No min-width, so it fits a phone instead of scrolling: six columns of
+       short numbers do fit where nine did not. That is also what takes the
+       stray line off it — labelTables sticks the identity column on any table
+       that scrolls, and a sticky column paints a seam shadow down its right
+       edge. Nothing scrolls here, so there is no seam to mark, and the shadow
+       is turned off rather than left hanging in the middle of the row.
+
+       Tighter than the site's default 12/16 cell, which was built for the
+       Standings table's long names and full-width numbers. */
+    #ld-money-body table.ld-tbl{width:100%;}
+    #ld-money-body .ld-tbl td,#ld-money-body .ld-tbl th{padding:5px 6px!important;
+      font-size:12px;white-space:nowrap;}
+    #ld-money-body .ld-tbl thead th{font-size:9.5px;padding:4px 6px!important;
+      letter-spacing:.4px!important;}
+    #ld-money-body .ld-tbl td:first-child,#ld-money-body .ld-tbl th:first-child{
+      padding-left:2px!important;padding-right:2px!important;}
+    #ld-money-body .ld-tbl td,#ld-money-body .ld-tbl th{
+      position:static!important;box-shadow:none!important;background:none!important;}
+    #ld-money-body .ld-tbl .ld-me-row td{background:rgba(var(--accent-rgb),0.07)!important;}
+    /* the crest and abbreviation, no full name — the name column was half the
+       table and the abbreviation is what the chart above is labelled with */
+    #ld-money-body .ld-tbl .team-name{display:none;}
+    #ld-money-body .ld-tbl .team-sub{font-size:12px!important;font-weight:700!important;
+      color:var(--text)!important;letter-spacing:.3px!important;}
+    #ld-money-body .ld-tbl .team-cell{gap:6px;}
+    #ld-money-body .ld-tbl .tm-avatar{width:20px!important;height:20px!important;
+      flex:0 0 20px!important;border-radius:5px!important;}
+    #ld-money-body .ld-tbl .rank{min-width:14px;font-size:11px;}
+
+    /* ── B&C Picks ────────────────────────────────────────────────────────
+       Two names and two records. The franchises are never written out — the
+       crest carries that, and the words are always the Ball and the Chain. */
+    .bc-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px;}
+    .bc-side{display:grid;grid-template-columns:auto minmax(0,1fr);
+      grid-template-areas:"crest who" "crest rec" "crest pct";
+      align-items:center;column-gap:10px;row-gap:1px;
+      padding:10px 12px;border-radius:10px;background:rgba(0,0,0,0.3);}
+    .bc-crest{grid-area:crest;display:inline-flex;}
+    .bc-who{grid-area:who;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    .bc-rec{grid-area:rec;font-family:'Inter',sans-serif;font-size:17px;font-weight:800;
+      line-height:1.1;font-variant-numeric:tabular-nums;}
+    .bc-pct{grid-area:pct;font-family:'Inter',sans-serif;font-size:9.5px;
+      color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .bc-weeks{display:flex;flex-direction:column;gap:4px;}
+    .bc-wk{display:grid;grid-template-columns:38px minmax(0,1fr) 44px 44px;
+      align-items:center;gap:8px;padding:6px 10px;border-radius:8px;
+      background:rgba(0,0,0,0.3);font-family:'Inter',sans-serif;font-size:11.5px;}
+    .bc-wkn{font-weight:800;color:var(--text3);font-size:10px;letter-spacing:.4px;
+      text-transform:uppercase;}
+    .bc-fix{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .bc-cell{text-align:center;font-weight:800;padding:2px 0;border-radius:5px;
+      background:rgba(255,255,255,0.05);}
+    .bc-cell.bc-win{background:rgba(63,208,122,0.18);color:#3fd07a;}
+    .bc-cell.bc-loss{background:rgba(232,104,126,0.16);color:#e8687e;}
+    .bc-cell.bc-none{background:none;color:var(--text3);font-weight:400;}
+
+    /* the badge on the sportsbook fixture */
+    .bc-tag{display:inline-flex;align-items:center;gap:4px;margin-left:7px;
+      padding:1px 6px;border-radius:999px;vertical-align:middle;
+      font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
+      letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;
+      border:1px solid currentColor;}
+    .bc-tag i{font-size:7.5px;}
+    .bc-tag.bc-ball{color:#F2CE3A;}
+    .bc-tag.bc-chain{color:#9BA6B4;}
+    .bc-tag.bc-both{color:var(--accent);}
+    @media(max-width:400px){
+      .bc-tag{margin-left:5px;padding:1px 5px;font-size:8px;}
+      .bc-tag i{display:none;}
+    }
     .ld-money{display:flex;flex-direction:column;gap:8px;}
     .ld-mrow{padding:10px 12px 11px;border-radius:10px;background:rgba(0,0,0,0.3);}
     .ld-mhead{display:grid;grid-template-columns:20px minmax(0,1fr) auto;

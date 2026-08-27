@@ -10309,6 +10309,17 @@ function motwStamp(t){
   return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`;
 }
 const motwPickKey=()=>`motw_${motwInfo().season||bkLeagueSeason()}_t${motwStamp()}`;
+/* The same pick, filed by week as well as by Tuesday. The Tuesday stamp is what
+   makes it expire on the clock; this is what makes it findable afterwards —
+   B&C Picks has to ask "which game was the Matchup in week 4" long after that
+   Tuesday has gone, and a date stamp cannot answer that. */
+const motwWeekKey=(season,wk)=>`motwwk_${season||motwInfo().season||bkLeagueSeason()}_w${wk||motwWeek()}`;
+/* [idA,idB] for any past week, from the picker's profile */
+function motwOfWeek(season,wk){
+  const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
+  const m=/^(\d+)-(\d+)$/.exec(r?String(r[motwWeekKey(season,wk)]||'').trim():'');
+  return m?[Number(m[1]),Number(m[2])]:null;
+}
 /* [idA,idB] once it has been set, null until then */
 function motwChosen(){
   const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
@@ -10339,12 +10350,13 @@ async function motwSet(a,b){
   if(!_me||_me.k1!==MOTW_PICKER||_motwSetBusy) return;
   _motwSetBusy=true; try{ renderNotifications(); }catch(e){}
   const val=`${a}-${b}`;
-  const r=await gflPatchProfile(_me.k1,{[motwPickKey()]:val});
+  const wkKey=motwWeekKey();
+  const r=await gflPatchProfile(_me.k1,{[motwPickKey()]:val,[wkKey]:val});
   if(r&&r.ok){
     /* write it into the cached profile row too, so the picks grid unfades on
        this device without waiting for the next poll */
     const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
-    if(row) row[motwPickKey()]=val;
+    if(row){ row[motwPickKey()]=val; row[wkKey]=val; }
   }
   _motwSetBusy=false; _motwArmed=null;
   try{ renderNotifications(); }catch(e){}
@@ -11996,26 +12008,26 @@ function renderLeaders(){
     || (betsView?y.b.n-x.b.n:y.f.trades-x.f.trades)
     || x.name.localeCompare(y.name));
   const anyAction=money.some(m=>betsView?m.b.n:m.f.trades);
+  /* Six columns, not nine. This site keeps every column on a phone and scrolls
+     the table sideways rather than folding it into cards, so a ninth column is
+     not hidden on a phone — it is 265px of table nobody can see without
+     dragging. Open folds into the record, and staked/returned come out: ROI
+     already says what the money did, and the pair of them were the two widest
+     columns on the board. */
   const cols=betsView
     ? [['Profit',m=>ldFmt(m.b.net),m=>ldCol(m.b.net)],
-       ['W–L',   m=>`${m.b.won}–${m.b.lost}`,null],
-       ['Open',  m=>String(m.b.open||0),null],
+       ['W–L',   m=>`${m.b.won}–${m.b.lost}${m.b.open?`·${m.b.open}`:''}`,null],
        ['Hit',   m=>m.b.hit==null?'—':m.b.hit.toFixed(0)+'%',null],
-       ['ROI',   m=>m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%',null],
-       ['Staked',m=>m.b.staked?bucksFmt(m.b.staked):'—',null],
-       ['Back',  m=>m.b.staked?bucksFmt(m.b.back):'—',null]]
+       ['ROI',   m=>m.b.roi==null?'—':(m.b.roi>0?'+':'')+m.b.roi.toFixed(0)+'%',null]]
     : [['Profit',m=>ldFmt(m.f.profit),m=>ldCol(m.f.profit)],
        ['Banked',m=>ldFmt(m.f.real),m=>ldCol(m.f.real)],
        ['Value', m=>m.f.held?invFmt(m.f.value):'—',null],
-       ['Cost',  m=>m.f.held?invFmt(m.f.cost):'—',null],
-       ['Shares',m=>m.f.held?invShFmt(m.f.held):'—',null],
-       ['Trades',m=>String(m.f.trades||0),null]];
-  const hide=betsView?'Open,Hit,Staked,Back':'Banked,Cost,Shares';
+       ['Buys',  m=>String(m.f.trades||0),null]];
   mo.innerHTML=tabs
     +(anyAction?'':`<div class="ld-empty">${betsView
         ?'Nobody has placed a bet yet.':'Nobody has bought a share yet.'}</div>`)
     +ldChartHTML(money,headV,betsView?'Profit on settled bets':'Portfolio profit')
-    +`<div class="tscroll"><table class="min640" data-mhide="${hide}">
+    +`<div class="tscroll"><table class="ld-tbl">
       <thead><tr><th>#</th><th>Team</th>${cols.map(c=>`<th class="right">${c[0]}</th>`).join('')}</tr></thead>
       <tbody>${money.map((m,i)=>`<tr${_me&&String(_me.teamId)===String(m.teamId)?' class="ld-me-row"':''}>
         <td><span class="rank">${i+1}</span></td>
@@ -12028,6 +12040,8 @@ function renderLeaders(){
   /* the observer picks this up on its own, but calling it here means the
      phone layout is right on the first paint rather than a frame later */
   try{ labelTables(mo); }catch(e){}
+  const bc=document.getElementById('ld-bc-body');
+  if(bc) bc.innerHTML=bcBoardHTML();
 }
 
 /* One column a manager, zero down the middle so a loss reads as a loss. Drawn
@@ -12060,6 +12074,111 @@ function ldChartHTML(rows,val,title){
         stroke="#7b7b7b" stroke-opacity="0.35" stroke-width="1"/>
       ${bars}
     </svg>
+  </div>`;
+}
+
+/* ── THE BALL AND THE CHAIN ──────────────────────────────────────────────────
+   Two managers whose Matchup of the Week call is the show's call. On the board
+   and on the sportsbook they are never named — they are the Ball and the Chain,
+   and the crest beside the pick is the only place the franchise shows up.
+
+   Their record is replayed rather than stored: for every week the Matchup was
+   named, look up which side each of them took on the picks grid and check it
+   against the result. Nothing to keep in sync, and a corrected result corrects
+   the record. */
+const BC_BALL='bft', BC_CHAIN='ting';
+const BC_NAME={[BC_BALL]:'the Ball',[BC_CHAIN]:'the Chain'};
+/* which side one manager took in the week's Matchup, or null */
+function bcPickOf(who,season,wk,games,motw){
+  const prof=(_cpRows||[]).find(p=>p&&p.id===who); if(!prof) return null;
+  const idx=games.findIndex(g=>{const ids=[g.home.teamId,g.away.teamId].map(String);
+    return ids.includes(String(motw[0]))&&ids.includes(String(motw[1]));});
+  if(idx<0) return null;
+  let picks={}; try{ picks=JSON.parse(prof[`pk_${season}_w${wk}`]||'{}'); }catch(e){ return null; }
+  const v=picks[idx];
+  return v==null?null:Number(v);
+}
+/* every week the Matchup was named, with both calls and how it finished */
+function bcHistory(season){
+  const s=String(season||bkLeagueSeason());
+  const meta=_seasonMeta[s]; if(!meta) return [];
+  const out=[];
+  for(let wk=1;wk<=TOTAL_WEEKS;wk++){
+    const motw=motwOfWeek(s,wk); if(!motw) continue;
+    const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===wk&&m.home&&m.away);
+    if(!games.length) continue;
+    const gm=games.find(g=>{const ids=[g.home.teamId,g.away.teamId].map(String);
+      return ids.includes(String(motw[0]))&&ids.includes(String(motw[1]));});
+    if(!gm) continue;
+    const hp=gm.home.totalPoints||0, ap=gm.away.totalPoints||0;
+    const played=hp>0||ap>0;
+    const winner=!played?null:hp>ap?gm.home.teamId:ap>hp?gm.away.teamId:null;
+    out.push({wk, game:gm, winner, played,
+      ball:bcPickOf(BC_BALL,s,wk,games,motw),
+      chain:bcPickOf(BC_CHAIN,s,wk,games,motw)});
+  }
+  return out;
+}
+function bcRecord(rows,key){
+  let w=0,l=0,pending=0;
+  rows.forEach(r=>{
+    if(r[key]==null) return;
+    if(!r.played||r.winner==null){ pending++; return; }
+    if(String(r[key])===String(r.winner)) w++; else l++;
+  });
+  return {w,l,pending,n:w+l,
+    pct:(w+l)?w/(w+l)*100:null};
+}
+/* the marker the sportsbook puts on a side of the Matchup fixture */
+function bcTagFor(season,wk,games,teamId){
+  const motw=motwOfWeek(season,wk); if(!motw) return '';
+  const ball=bcPickOf(BC_BALL,season,wk,games,motw);
+  const chain=bcPickOf(BC_CHAIN,season,wk,games,motw);
+  const who=[];
+  if(ball!=null&&String(ball)===String(teamId)) who.push('ball');
+  if(chain!=null&&String(chain)===String(teamId)) who.push('chain');
+  if(!who.length) return '';
+  /* both on the same side is the interesting case, not an error — it gets one
+     badge that says so rather than two badges stacked */
+  const label=who.length===2?'Ball &amp; Chain':who[0]==='ball'?'Ball':'Chain';
+  return `<span class="bc-tag bc-${who.length===2?'both':who[0]}" title="${
+    who.length===2?'Both took this side':`The ${label}'s pick`}">
+    <i class="fa fa-link"></i>${label}</span>`;
+}
+
+function bcBoardHTML(){
+  const season=String(bkLeagueSeason());
+  const rows=bcHistory(season);
+  const ball=bcRecord(rows,'ball'), chain=bcRecord(rows,'chain');
+  const line=(who,rec)=>{
+    const tid=(_cpRows||[]).find(p=>p&&p.id===who);
+    const teamId=tid?Number(tid.teamId):0;
+    return `<div class="bc-side">
+      <span class="bc-crest">${ntCrest(_ownerMap[teamId],26)}</span>
+      <span class="bc-who">${BC_NAME[who]}</span>
+      <span class="bc-rec">${rec.n?`${rec.w}–${rec.l}`:'—'}</span>
+      <span class="bc-pct">${rec.pct==null?'no calls graded':`${rec.pct.toFixed(0)}%${
+        rec.pending?` · ${rec.pending} pending`:''}`}</span>
+    </div>`;
+  };
+  const graded=rows.filter(r=>r.played&&r.winner!=null);
+  return `<div class="bc-wrap">
+    <div class="bc-pair">${line(BC_BALL,ball)}${line(BC_CHAIN,chain)}</div>
+    ${rows.length?`<div class="bc-weeks">${rows.slice().reverse().map(r=>{
+      const ab=id=>{const t=_teams.find(x=>x.id===Number(id));
+        return (t&&t.abbrev)||teamInitials((t&&t.name)||'');};
+      const mark=(pick)=>{
+        if(pick==null) return '<span class="bc-cell bc-none">—</span>';
+        const right=r.played&&r.winner!=null&&String(pick)===String(r.winner);
+        const wrong=r.played&&r.winner!=null&&!right;
+        return `<span class="bc-cell${right?' bc-win':wrong?' bc-loss':''}">${ab(pick)}</span>`;
+      };
+      return `<div class="bc-wk">
+        <span class="bc-wkn">Wk ${r.wk}</span>
+        <span class="bc-fix">${ab(r.game.away.teamId)} @ ${ab(r.game.home.teamId)}</span>
+        ${mark(r.ball)}${mark(r.chain)}
+      </div>`;}).join('')}</div>`
+      :`<div class="ld-empty">No Matchup of the Week has been named yet.</div>`}
   </div>`;
 }
 
@@ -13415,6 +13534,12 @@ function sbWeekHTML(){
   const d=sbWeekData();
   if(!d) return `<div class="tab-loading">No schedule data for this season.</div>`;
   const nm=r=>`<span class="sb-tm">${sbAvatar(r.owner,22)}<span class="sb-nm">${r.name}</span><span class="sb-ab">${sbTeamAb(r.owner,r.name)}</span></span>`;
+  /* The Ball and the Chain's calls, badged onto the fixture they were made on.
+     Only ever those two names — the crest is where the franchise shows up. */
+  const bcSeason=String(d.season||bkLeagueSeason());
+  const bcGames=((_seasonMeta[bcSeason]||{}).schedule||[])
+    .filter(m=>Number(m.matchupPeriodId)===Number(d.week)&&m.home&&m.away);
+  const bcTag=tid=>{ try{ return bcTagFor(bcSeason,d.week,bcGames,tid); }catch(e){ return ''; } };
   const games=d.games.map(g=>{
     const key='wk'+g.week+'-'+g.a.tid+'-'+g.b.tid;
     const res=g.done?`<span class="wk-final">Final ${g.hp.toFixed(1)}–${g.ap.toFixed(1)}</span>`:'';
@@ -13439,10 +13564,10 @@ function sbWeekHTML(){
         <span class="wk-h wk-c3">Spread</span>
         <span class="wk-h wk-c4">Total</span>
         ${spreadCell}
-        <span class="wk-team wk-c1 wk-ra">${nm(g.a)}${mark(g.winA===true)}</span>
+        <span class="wk-team wk-c1 wk-ra">${nm(g.a)}${bcTag(g.a.tid)}${mark(g.winA===true)}</span>
         <span class="wk-cell wk-c2 wk-ra">${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two')}</span>
         <span class="wk-cell wk-c4 wk-ra">${sbBtn(key+'-tot',`Week ${g.week} total`,'over',`Over ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.overP,'sb-two','O '+g.line.toFixed(1))}</span>
-        <span class="wk-team wk-c1 wk-rb">${nm(g.b)}${mark(g.winA===false)}</span>
+        <span class="wk-team wk-c1 wk-rb">${nm(g.b)}${bcTag(g.b.tid)}${mark(g.winA===false)}</span>
         <span class="wk-cell wk-c2 wk-rb">${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.b.owner+':ml',`${g.b.name} moneyline`,g.mlB,'sb-two')}</span>
         <span class="wk-cell wk-c4 wk-rb">${sbBtn(key+'-tot',`Week ${g.week} total`,'under',`Under ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.underP,'sb-two','U '+g.line.toFixed(1))}</span>
       </div>
@@ -14138,6 +14263,10 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xf51e;" id="ld-money-sec">
           <div class="sec-head"><i class="fa fa-sack-dollar"></i>Bets &amp; Portfolios</div>
           <div id="ld-money-body"></div>
+        </div>
+        <div class="sec wm" data-wm="&#xf0c1;" id="ld-bc-sec">
+          <div class="sec-head"><i class="fa fa-link"></i>B&amp;C Picks</div>
+          <div id="ld-bc-body"></div>
         </div>
       </div>
 
