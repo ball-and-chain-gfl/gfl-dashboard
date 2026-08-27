@@ -8006,8 +8006,29 @@ function sbSeason(){
   for(let i=ALL_SEASONS.length-1;i>=0;i--){
     const y=ALL_SEASONS[i], meta=_seasonMeta[y];
     if(!meta||!(meta.schedule||[]).length) continue;
-    const played=(meta.schedule||[]).some(m=>m.home&&m.away&&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
-    return played?Number(y)+1:Number(y);
+    const games=(meta.schedule||[]).filter(m=>m.home&&m.away);
+    const scored=m=>((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
+    if(!games.some(scored)) return Number(y);      // published, not kicked off yet
+    /* A season with football in it that is NOT OVER is the season the book is
+       pricing. This used to read "any game has been played" as "the season is
+       finished" and answer with the following year, from the first Thursday
+       night of the season onward. Everything downstream took that year at its
+       word: sbPlaceBet stamped every ticket season 2027 while 2026 was being
+       played, and betGrade looks its results up by the season on the ticket —
+       so _seasonMeta['2027'] was missing, every leg graded null, and not one
+       bet placed after kickoff would ever have settled. The stake leaves the
+       balance when the bet is struck and only comes back on settlement, so the
+       league's bucks would have drained into open tickets all season.
+
+       Over means: every fixture that exists has been played, AND the playoff
+       rounds exist to have been played. ESPN publishes the bracket during the
+       season — 2026 currently carries weeks 1-14 and nothing else — so
+       "everything scored" on its own is true the moment week 14 finishes, with
+       three weeks still to come. */
+    const regEnd=Number(meta.regEnd)||14;
+    const post=games.filter(m=>(Number(m.matchupPeriodId)||0)>regEnd);
+    const over=games.every(scored)&&post.length>0;
+    return over?Number(y)+1:Number(y);
   }
   return Number(ALL_SEASONS[ALL_SEASONS.length-1])+1;
 }
@@ -10915,9 +10936,15 @@ function ntTrades(out){
     out.push({kind:'trade', day:ntDayOf(Number(tr.date||tr.proposedDate)||Date.now()), id, title:'A trade went through',
       art:ntSwap({owner:own(teams[0]),name:nm(teams[0]),got:got(teams[0])},
                  {owner:own(teams[1]),name:nm(teams[1]),got:got(teams[1])}),
-      body:`There has been a trade between <b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b>. Who won?`,
-      vote:{id, sides:[{k:String(teams[0].teamId),label:nm(teams[0])},
-                       {k:String(teams[1].teamId),label:nm(teams[1])}]}});
+      body:_me
+        ?`There has been a trade between <b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b>. Who won?`
+        :`There has been a trade between <b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b>.`,
+      /* A vote card refuses to clear until it is answered, and signed out there
+         is no profile to answer onto — ntMyVote returns empty for everybody, so
+         the card was locked shut for a visitor and the stack shows one card at a
+         time. It stops being a question when there is nobody to ask. */
+      ...(_me?{vote:{id, sides:[{k:String(teams[0].teamId),label:nm(teams[0])},
+                       {k:String(teams[1].teamId),label:nm(teams[1])}]}}:{})});
   });
 }
 /* a parlay waiting on an answer, which is the one card with somewhere to go */

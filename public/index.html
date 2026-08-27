@@ -6005,8 +6005,13 @@
     <img src="/logo-mark.webp" alt="Ball &amp; Chain GFL" onerror="this.style.display='none'"/>
   </div>
   <div id="bucks-chip" hidden></div>
+  <!-- The season being played leads, so getSeason() answers 2026 before the
+       first fetch lands. refreshSeasonOptions() rebuilds this from the seasons
+       ESPN actually returns and drops back to the newest it has, so listing a
+       year early costs nothing. -->
   <select id="season-select" onchange="loadDashboard()">
-    <option value="2025" selected>2025</option>
+    <option value="2026" selected>2026</option>
+    <option value="2025">2025</option>
     <option value="2024">2024</option>
     <option value="2023">2023</option>
     <option value="2022">2022</option>
