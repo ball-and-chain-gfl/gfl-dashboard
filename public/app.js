@@ -10456,21 +10456,33 @@ function bkReset(){ _bkAnswers=null; _bkFetched=false; _bkOpen=null; _bkSubmitte
    the line. */
 const bkSubKey=()=>bkKey()+'_sub';
 let _bkSubmitted=null;
+/* SUBMIT HAS ITS OWN IN-FLIGHT FLAG, and it is not _bkBusy.
+
+   _bkBusy is raised while an ANSWER is being written to the profile. The Submit
+   button read it too, which made it dead for reasons that had nothing to do with
+   submitting: the player pool and the bios file both re-render Ball Knowledge
+   when they land, and if one landed while the fifth answer was still being
+   written the button was drawn disabled and nothing re-rendered afterwards. It
+   stayed grey until the section was tapped, which is what forced a fresh render.
+
+   Nothing is at stake in letting them overlap. An answer is in localStorage
+   before its write starts, and Submit sends the whole set itself. */
+let _bkSending=false;
 function bkSubmitted(){
   if(_bkSubmitted!=null) return _bkSubmitted;
   _bkSubmitted=localStorage.getItem(lsKey(bkSubKey()))==='1';
   return _bkSubmitted;
 }
 async function bkSubmit(){
-  if(_bkBusy) return;
+  if(_bkSending) return;
   const qs=bkQuestions(), ans=bkLoadAnswers();
   if(!qs.length||!qs.every((_,i)=>ans[i]!=null)) return;   // not all five in
-  _bkBusy=true; renderBallKnowledge();
+  _bkSending=true; renderBallKnowledge();
   localStorage.setItem(lsKey(bkSubKey()),'1');
   _bkSubmitted=true;
   if(_me){ try{ await gflPatchProfile(_me.k1,
     {[bkKey()]:JSON.stringify(ans),[bkSubKey()]:'1'}); }catch(e){} }
-  _bkBusy=false; renderBallKnowledge();
+  _bkSending=false; renderBallKnowledge();
   try{ orderHomeTodo(); }catch(e){}
 }
 /* Step back to the most recently answered question and clear it, so it is
@@ -10591,6 +10603,10 @@ async function bkAnswer(qi,ai,el){
     _bkBusy=true;
     try{ await gflPatchProfile(_me.k1,{[bkKey()]:JSON.stringify(ans)}); }catch(e){}
     _bkBusy=false;
+    /* Anything that repainted while the write was in flight drew the busy state.
+       One more render on the way out settles it rather than leaving whatever the
+       last repaint happened to catch. */
+    renderBallKnowledge();
   }
 }
 function bkReopen(qi){ _bkOpen=(_bkOpen===qi?null:qi); renderBallKnowledge(); }
@@ -10669,8 +10685,8 @@ function renderBallKnowledge(){
       <div class="bk-meta"><span>Week ${bkWeek()}</span>
         <span class="bk-count">${qs.length} of ${qs.length} answered</span></div>
       <div class="bk-score">${rows}</div>
-      <button class="bk-go" ${_bkBusy?'disabled':''} onclick="bkSubmit()">
-        ${_bkBusy?'Sending…':'Submit answers'}</button>
+      <button class="bk-go" ${_bkSending?'disabled':''} onclick="bkSubmit()">
+        ${_bkSending?'Sending…':'Submit answers'}</button>
       <div class="bk-subnote">Nothing is marked until you send it. After that the
         set is closed.</div>
       <button class="bk-back" onclick="bkBack()">
