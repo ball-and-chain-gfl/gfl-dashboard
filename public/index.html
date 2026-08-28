@@ -5868,13 +5868,13 @@
        the name and the rules off a phone screen entirely. */
     .pr-feat{display:flex;flex-direction:column;align-items:center;text-align:center;
       gap:8px;padding:2px 2px 4px;}
-    /* A FIXED BOX, not a max. An img with no reserved size is two pixels tall
-       until it decodes, so the week, the name and the write up all jumped down
-       the moment the drawing arrived. object-fit keeps both shapes honest: four
-       of the cards are square and three are 16:9, and contain letterboxes
-       rather than stretching either. */
-    .pr-feat .pr-art-img{width:min(58%,178px);height:132px;object-fit:contain;
-      border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,0.22);}
+    /* CAPPED, NOT BOXED. Each drawing keeps its own shape: the four square
+       cards land at 132x132 and the three 16:9 ones at 178x100, which is the
+       same size they were inside the old fixed frame, without the letterbox
+       bars around them. The width and height attributes on the img are what
+       reserve the space, so nothing under it moves when the file arrives. */
+    .pr-feat .pr-art-img{width:auto;height:auto;max-width:min(58%,178px);max-height:132px;
+      border-radius:8px;border:1px solid var(--border);}
     .pr-feat .pr-week{margin-top:2px;}
     .pr-feat .pr-name{margin-top:0;}
     .pr-feat .pr-note{max-width:54ch;margin:2px auto 0;text-align:center;}

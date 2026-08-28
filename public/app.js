@@ -3562,7 +3562,29 @@ const PUNISH_PIC={
   'spicy-food':'hot-chip.png',
   'willem-defoe':'willem-dafoe.png',
   'reenactment':'re-enactment.png',
-  'hot-chip':'hot-chip.png',
+};
+/* THE REAL SIZE OF EACH DRAWING.
+
+   An img with no width and height is two pixels tall until it decodes, so
+   everything under it jumps down when the file lands. Handing the browser the
+   intrinsic size lets it work out the aspect ratio and reserve the right box up
+   front — which is also what lets the picture be its own shape rather than
+   sitting letterboxed inside a fixed frame.
+
+   Read off the PNG headers, not typed by hand. */
+const PUNISH_PIC_SIZE={
+  'fast-banana.png':[683,384],
+  'hot-chip.png':[683,384],
+  'willem-dafoe.png':[683,384],
+  'beer-pour.png':[812,816],
+  'franchise-rebrand.png':[812,816],
+  'fruit-pledge.png':[812,816],
+  're-enactment.png':[812,816],
+};
+/* [width,height] of the drawing for a punishment, or null if it has none */
+const punishPicSize=n=>{
+  const f=PUNISH_PIC[punishSlug(n)];
+  return (f&&PUNISH_PIC_SIZE[f])||null;
 };
 const punishPic=n=>{
   const f=PUNISH_PIC[punishSlug(n)];
@@ -3671,8 +3693,9 @@ function punishRulesHTML(){
   return `
     <div class="pr-feat">
       ${pic
-        ? `<img class="pr-art-img" src="${pic}"
-             alt="${String(sel).replace(/"/g,'&quot;')}">`
+        ? (()=>{ const d=punishPicSize(sel);
+            return `<img class="pr-art-img" src="${pic}"${d?` width="${d[0]}" height="${d[1]}"`:''}
+             alt="${String(sel).replace(/"/g,'&quot;')}">`; })()
         : `<div class="pr-ic">${punishIconHTML(sel)}</div>`}
       <div class="pr-week">${selL===curL?`Week ${cfg.week??'?'} Punishment`:'From the menu'}</div>
       <div class="pr-name">${sel||'TBD'}</div>
