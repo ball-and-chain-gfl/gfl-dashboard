@@ -103,7 +103,11 @@ function getSeason(){return document.getElementById('season-select').value;}
    control to explain why. So stepping onto one of those tabs also snaps the
    year back to the newest season and reloads, but only when it had actually
    been moved — the common case costs nothing. */
-const SEASON_TABS=new Set(['week','teams','standings','draft','trades']);
+/* badbeat and cm were left out, so the year control was hidden on both — but
+   every panel on them already reads getSeason(): badBeatData(season), the three
+   Coaching Metric components and Lineup IQ. The pages were season-scoped with no
+   way to say which season. */
+const SEASON_TABS=new Set(['week','teams','standings','draft','trades','badbeat','cm']);
 /* THE DEFAULT SEASON IS THE ONE THE LEAGUE IS IN.
 
    This used to fall back to the newest season with football in it, on the
@@ -3384,6 +3388,11 @@ function allTimeThrough(season,week){
       if(!m.home||!m.away) return;
       const wk=m.matchupPeriodId||0;
       if(Number(s)===Number(season)&&wk>week) return;
+      /* Dead consolation games do not count towards an all-time record, and
+         every other all-time table on the site already drops them — the Legacy
+         Report was the one that did not, so its ranks disagreed with the very
+         records on League History that it reports movement in. */
+      if(!postGameCounts(s,m)) return;
       const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
       if(hp===0&&ap===0) return;
       const ho=meta.owners?.[m.home.teamId], ao=meta.owners?.[m.away.teamId];
@@ -3530,6 +3539,40 @@ const PUNISH_ART={
   'fruit pledge':{icon:'&#xf5d1;',svg:''},
   'spicy food':{icon:'&#xf06d;',svg:''},
 };
+/* ── THE PUNISHMENT ARTWORK ──────────────────────────────────────────────────
+   One card per punishment, in public/punish. Keyed on a slug of the name rather
+   than the name itself, so config can capitalise and punctuate however it reads
+   best — "Willem Dafoe", "willem dafoe" and "Willem  Dafoe!" all land on the
+   same file. The aliases are the names config has used for the same punishment.
+
+   Filenames are lowercase and hyphenated on purpose: they arrived as "Hot
+   Chip.png" and "beer pour card.png", and Vercel serves from a case-sensitive
+   filesystem where a space also has to be encoded. */
+const punishSlug=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-')
+  .replace(/^-|-$/g,'');
+const PUNISH_PIC={
+  'beer-pour':'beer-pour.png',
+  'fast-banana':'fast-banana.png',
+  'franchise-rebrand':'franchise-rebrand.png',
+  'fruit-pledge':'fruit-pledge.png',
+  'hot-chip':'hot-chip.png',
+  're-enactment':'re-enactment.png',
+  'willem-dafoe':'willem-dafoe.png',
+  /* older names in config for the same three */
+  'spicy-food':'hot-chip.png',
+  'willem-defoe':'willem-dafoe.png',
+  'reenactment':'re-enactment.png',
+};
+const punishPic=n=>{
+  const f=PUNISH_PIC[punishSlug(n)];
+  return f?'/punish/'+f:null;
+};
+/* the card if there is one, the icon if there is not */
+const punishMark=(n,cls)=>{
+  const p=punishPic(n);
+  return p?`<img src="${p}" alt="" class="${cls||'pn-img'}">`
+          :`<i class="fa ${PUNISH_ICON[String(n||'').toLowerCase()]||'fa-gavel'}"></i>`;
+};
 const PUNISH_ICON={'weatherman':'fa-cloud-sun-rain','fast banana':'fa-person-running','willem defoe':'fa-masks-theater','fruit pledge':'fa-apple-whole','spicy food':'fa-pepper-hot','beer pour':'fa-beer-mug-empty'};
 function homePunishHTML(){
   const cfg=_CFG.punishment||{};
@@ -3537,7 +3580,7 @@ function homePunishHTML(){
   const cur=(cfg.name||'').toLowerCase();
   const icon=PUNISH_ICON[cur]||'fa-gavel';
   return `<div class="home-punish">
-    <div class="home-punish-ic"><i class="fa ${icon}"></i></div>
+    <div class="home-punish-ic">${mark}</div>
     <div class="home-punish-info">
       <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
       <div class="home-punish-name">${cfg.name||'TBD'}</div>
@@ -3602,12 +3645,13 @@ function punishRulesHTML(){
   const detail=(cfg.details||{})[sel] || (selL===curL?cfg.note:'') || '';
   return `
     <div class="pr-hero">
-      <div class="pr-ic"><i class="fa ${PUNISH_ICON[selL]||'fa-gavel'}"></i></div>
+      <div class="pr-ic">${punishMark(sel,'pr-ic-img')}</div>
       <div>
         <div class="pr-week">${selL===curL?`Week ${cfg.week??'—'} Punishment`:'From the menu'}</div>
         <div class="pr-name">${sel||'TBD'}</div>
       </div>
     </div>
+    ${punishPic(sel)?`<div class="pr-art"><img src="${punishPic(sel)}" alt="${sel}"></div>`:''}
     <p class="pr-note${detail?'':' pr-empty'}">${detail
       ||(isTestProfile()?'No description written for this one yet — add it under <b>punishment.details</b> in config.js.'
                         :'No description written for this one yet.')}</p>
@@ -3623,7 +3667,7 @@ function punishRulesHTML(){
         const tile=(o,big)=>{const l=o.toLowerCase();
           return `<button class="punish-opt pr-pick${big?' pr-big':''}${l===selL?' active':''}"
             onclick="selectPunish(${JSON.stringify(o).replace(/"/g,'&quot;')})">
-            <i class="fa ${PUNISH_ICON[l]||'fa-circle'}"></i><span>${o}</span>
+            ${punishMark(o,'pn-tile-img')}<span>${o}</span>
             ${l===curL?'<span class="punish-tag">THIS WEEK</span>':''}</button>`;};
         const lead=opts.find(o=>o.toLowerCase()===curL);
         const rest=opts.filter(o=>o.toLowerCase()!==curL);
@@ -6000,6 +6044,7 @@ function punishBarHTML(){
   const cfg=_CFG.punishment||{};
   if(!cfg.name && cfg.week==null) return '';
   const icon=PUNISH_ICON[(cfg.name||'').toLowerCase()]||'fa-gavel';
+  const mark=punishMark(cfg.name,'hp-img');
   return `<div class="pb-bar">
     <span class="pb-ic"><i class="fa ${icon}"></i></span>
     <span class="pb-txt">
@@ -9053,7 +9098,7 @@ function invCostBasis(owner){
 /* cash currently tied up in shares — this is what leaves the bucks balance */
 function invNetSpent(){
   let net=0;
-  invLots().forEach(l=>{
+  bkLots().forEach(l=>{
     const v=(Number(l.s)||0)*(Number(l.p)||0);
     net+=(l.k==='s'?-v:v);
   });
@@ -9373,7 +9418,7 @@ function eggsFound(){
   }
   return _eggs;
 }
-function eggBucks(){ return eggsFound().size*EGG_PRIZE; }
+function eggBucks(){ return bkEggCount()*EGG_PRIZE; }
 /* Whether this window's egg is still going begging. Says nothing about where
    it is — only that there is one, which is the part worth knowing. */
 const eggClaimedNow=()=>eggsFound().has(eggWindow());
@@ -9495,6 +9540,10 @@ let _bets=null,_betErr=null,_betBusy=false;
    in the app knows the difference: every bucks helper reads the week through
    here, so who is signed in is asked once, in one place. */
 const bucksTestMs=()=>{
+  /* A scoped read is somebody else's ledger, and the short cycle is a switch on
+     one account. Reading it through would put the whole league on test time the
+     moment the test profile looked at the Leaderboards. */
+  if(_bkScope) return 0;
   const m=Number(isTestProfile()?(_CFG.bucksTestMinutes??0):0);
   return m>0 ? m*60*1000 : 0;
 };
@@ -9596,7 +9645,7 @@ function bucksCycles(now=Date.now()){
   const len=bucksTestMs()||7*24*3600*1000;
   const to=tueWeekStart(new Date(now));
   let from=to;
-  betsMine().forEach(b=>{
+  bkBets().forEach(b=>{
     const t=tueWeekStart(new Date(Number(b.ts)||now));
     if(t<from) from=t;
   });
@@ -9655,7 +9704,7 @@ function bucksIdleWeeks(now=Date.now()){
     const t=Number(b.ts)||0; if(t) acted.add(realWeekStart(new Date(t)));
   }); }catch(e){}
   /* a lot stamps its trade time as .t */
-  try{ invLots().forEach(l=>{
+  try{ bkLots().forEach(l=>{
     const t=Number(l.t)||0; if(t) acted.add(realWeekStart(new Date(t)));
   }); }catch(e){}
   let n=0;
@@ -9693,7 +9742,27 @@ function bucksWeeksPlayed(season){
   return n;
 }
 /* every live bet ever, not just this cycle's — that is the whole change */
-const betsLiveAll=()=>betsMine().filter(betIsLive);
+/* ── ONE BALANCE, FOR ANYBODY ────────────────────────────────────────────────
+   Every function below reads this manager's own ledger through _me. The
+   Leaderboards need the same arithmetic run against somebody else's, and used to
+   get it by keeping a second copy of it — which promptly fell behind: the copy
+   never learned about the league pay day, the football gate on the allowance, or
+   the $20 an idle week costs, so the board and the manager's own chip showed
+   different money for the same person.
+
+   Setting a scope points the family at another ledger instead. One
+   implementation, and the board cannot disagree with the chip. */
+let _bkScope=null;
+const bkBets=()=>_bkScope?_bkScope.bets:betsMine();
+const bkEggCount=()=>_bkScope?_bkScope.eggs:eggsFound().size;
+const bkLots=()=>_bkScope?_bkScope.lots:invLots();
+function bucksFor(scope,fn){
+  const prev=_bkScope;
+  _bkScope={bets:(scope&&scope.bets)||[],eggs:Number(scope&&scope.eggs)||0,
+            lots:(scope&&scope.lots)||[]};
+  try{ return fn(); } finally{ _bkScope=prev; }
+}
+const betsLiveAll=()=>bkBets().filter(betIsLive);
 function bucksStaked(){ return betsLiveAll().reduce((a,b)=>a+b.stake,0); }
 function bucksReturned(){ return betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
 function bucksBalance(){
@@ -12424,23 +12493,21 @@ function ldFolio(prof){
    has come back, plus eggs, less whatever is tied up in shares. Replayed from
    the same three sources rather than stored anywhere, so it cannot drift from
    the number that manager sees on their own sportsbook. */
+/* One manager's bucks, from the same function that draws their own chip. This
+   used to be a second copy of the balance arithmetic and drifted away from it —
+   no pay day, no football gate, no charge for an idle week. */
 function ldBucks(ids,prof){
-  const mine=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&betIsLive(b)&&betsAfterReset(b));
-  const now=Date.now();
-  const to=tueWeekStart(new Date(now));
-  let from=to;
-  mine.forEach(b=>{ const t=tueWeekStart(new Date(Number(b.ts)||now)); if(t<from) from=t; });
-  const len=7*24*3600*1000;      // the league's week; the short test cycle is one profile's own
-  const cycles=Math.max(1,Math.round((to-from)/len)+1);
-  const staked=mine.reduce((a,b)=>a+(b.stake||0),0);
-  const back=mine.reduce((a,b)=>a+(b.status==='open'?0:(b.ret||0)),0);
-  let eggs=0, inv=0;
+  const bets=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&betsAfterReset(b));
+  let eggs=0, lots=[];
   prof.forEach(p=>{
-    try{ const e=JSON.parse(p.eggs||'[]'); if(Array.isArray(e)) eggs+=e.length*EGG_PRIZE; }catch(e){}
-    try{ (JSON.parse(p.inv||'[]')||[]).forEach(l=>{
-      const v=(Number(l.s)||0)*(Number(l.p)||0); inv+=(l.k==='s'?-v:v); }); }catch(e){}
+    /* validated the same way eggsFound does, so a find recorded under a retired
+       window scheme is not paid for here either */
+    try{ const e=JSON.parse(p.eggs||'[]');
+      if(Array.isArray(e)) eggs+=e.map(Number).filter(n=>!isNaN(n)&&eggValid(n)).length;
+    }catch(e){}
+    try{ const a=JSON.parse(p.inv||'[]'); if(Array.isArray(a)) lots=lots.concat(a); }catch(e){}
   });
-  return Math.max(0,BUCKS_WEEKLY*cycles-staked+back+eggs-inv);
+  return bucksFor({bets,eggs,lots},()=>bucksBalance());
 }
 /* One manager's matchup-picks record for the season. Every pick on a game that
    has finished, right against wrong — a record counts games, so the Matchup of

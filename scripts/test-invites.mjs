@@ -32,6 +32,10 @@ const parts=[
   grab('const betsMine=()=>'),
   grab('const betsThisWeek=()=>'),
   grab('const betsLiveThisWeek=()=>'),
+  /* betsLiveAll reads through the bucks scope, so the leaderboard can run the
+     same balance against another manager's ledger. Unset, it is betsMine. */
+  grab('let _bkScope=null;'),
+  grab('const bkBets='),
   grab('const betsLiveAll=()=>'),
   grab('function bucksStaked(){'),
   grab('function bucksReturned(){'),

@@ -21,6 +21,8 @@ jobs:
         run: node scripts/test-bank-egg.mjs
       - name: odds react to money
         run: node scripts/test-odds.mjs
+      - name: all-time records agree
+        run: node scripts/test-records.mjs
       - name: which season the site thinks it is
         run: node scripts/test-season.mjs
       - name: what a team is priced on

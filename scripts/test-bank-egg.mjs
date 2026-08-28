@@ -30,6 +30,11 @@ function grab(startsWith){
   return SRC.slice(i,j);
 }
 const parts=[
+  grab('let _bkScope=null;'),
+  grab('const bkBets='),
+  grab('const bkEggCount='),
+  grab('const bkLots='),
+  grab('function bucksFor(scope,fn){'),
   grab('const bucksTestMs=()=>'),
   grab('function realWeekStart(now=new Date()){'),
   grab('function tueWeekStart(now=new Date()){'),
@@ -73,7 +78,8 @@ const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
 const eggsFound=()=>({size:_EGGS});
 function eggBucks(){ return _EGGS*EGG_PRIZE; }
 ${parts.join('\n')}
-return { set(b,testMin,eggs,weeks,extra){ _bets=b; _EGGS=eggs||0; _WEEKS=weeks||0;
+return { bucksFor,
+  set(b,testMin,eggs,weeks,extra){ _bets=b; _EGGS=eggs||0; _WEEKS=weeks||0;
     _LOTS=(extra&&extra.lots)||[];
     _CFG=Object.assign({betsResetBefore:0,bucksTestMinutes:testMin||0,
           eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}},(extra&&extra.cfg)||{}); },
@@ -297,6 +303,39 @@ console.log('\n13. a week with nothing risked costs $20');
   /* switching the penalty off */
   api.set([],0,0,0,{cfg:{bucksStart:'2026-09-01',bucksIdleCost:0}});
   eq('bucksIdleCost 0 turns it off', api.bucksIdleWeeks(now), 0);
+}
+
+console.log('\n14. the leaderboard reads the same balance as the chip');
+{
+  /* The board used to keep its own copy of this arithmetic and drifted: no pay
+     day, no football gate, no charge for an idle week. bucksFor runs the real
+     bucksBalance against somebody else's ledger, so there is one answer. */
+  const cfg={cfg:{bucksStart:'2026-09-01',bucksIdleCost:20}};
+  const on=(y,m,d,h)=>new Date(y,m-1,d,h==null?12:h,0,0,0).getTime();
+  const WEEK=7*86400000;
+  const now=on(2026,10,6);                       // five Tuesdays past pay day
+
+  /* somebody else's ledger, as the board would assemble it */
+  /* owned by the signed-in account, so the two sides are the same ledger and
+     not two different ones — betsMine filters on owner. */
+  const theirBets=[{owner:'bfl',status:'won',stake:40,ret:90,ts:on(2026,9,15),wk:''}];
+  const theirs={bets:theirBets,eggs:2,lots:[{o:'bft',k:'b',s:3,p:10,t:on(2026,9,22)}]};
+
+  /* the same ledger, signed in as that manager */
+  api.set(theirBets,0,2,4,cfg);
+  const mineNow=api.bucksBalance(now);
+  const boardNow=api.bucksFor(theirs,()=>api.bucksBalance(now));
+  /* the lots are the one thing the signed-in path reads from its own globals,
+     so compare the part both sides derive identically: with no lots either way */
+  const boardNoLots=api.bucksFor({bets:theirBets,eggs:2,lots:[]},()=>api.bucksBalance(now));
+  eq('the board agrees with the chip', boardNoLots, mineNow);
+  eq('and it is a real number, not zero', mineNow>0, true);
+  /* the scope is put back afterwards, or the next read is somebody else's */
+  eq('the scope does not leak', api.bucksBalance(now), mineNow);
+  /* a scoped read still charges for idle weeks — the old copy never did */
+  const idle=api.bucksFor({bets:[],eggs:0,lots:[]},()=>api.bucksBalance(now));
+  const cycles=api.bucksFor({bets:[],eggs:0,lots:[]},()=>api.bucksCycles(now));
+  eq('an idle manager is charged on the board too', idle<100*cycles, true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
