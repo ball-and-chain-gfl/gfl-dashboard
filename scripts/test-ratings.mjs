@@ -27,10 +27,34 @@ function grab(startsWith) {
 }
 
 const api = new Function(`
+/* handed in, so the cases decide what the rosters and the scoreboard say */
+let _ROST=null, _NFL=null, _SEASON='2026', _STARTED=false, _seasonMeta={};
+const sbRosters=()=>_ROST;
+const nflWeekGames=()=>_NFL;
+const sbBoardSeason=()=>_SEASON;
+const weekHasStarted=()=>_STARTED;
+const BASE='', _activeTab='book';
+${grab('const NFL_TEAMS={')}
+${grab('const SB_WK_SD=')}
+${grab('const SB_WK_MIN_LEFT=')}
+${grab('const SB_BENCH_SLOTS=')}
 ${grab('const LINEUP_SHAPE_FALLBACK=')}
 ${grab('function sbSlotShape(meta){')}
 ${grab('function sbBestLineup(entries,projOf,posOf,shape){')}
-return { LINEUP_SHAPE_FALLBACK, sbSlotShape, sbBestLineup };`)();
+${grab('function nflTeamState(proTeamId,week,season){')}
+${grab('const nflWeekLive=')}
+${grab('function sbTeamWeek(tid,week,season,meta,banked,started){')}
+${grab('function sbErf(x){')}
+${grab('const sbNormCdf=')}
+${grab('const sbWkSd=')}
+${grab('const betAnyPlayed=')}
+${grab('const betWeekStarted=')}
+${grab('function sbWeekLocked(wk,mk){')}
+return { LINEUP_SHAPE_FALLBACK, sbSlotShape, sbBestLineup,
+  nflTeamState, nflWeekLive, sbTeamWeek, sbNormCdf, sbWkSd, sbWeekLocked,
+  SB_WK_SD,
+  set(o){ if('rosters' in o) _ROST=o.rosters; if('nfl' in o) _NFL=o.nfl;
+           if('meta' in o) _seasonMeta=o.meta; } };`)();
 
 let pass = 0, fail = 0;
 const eq = (n, g, w) => {
@@ -137,6 +161,120 @@ console.log('\n5. missing and broken data');
      best(roster([P.QB, -50], [P.RB, 100])), 100);
   eq('a short roster takes what it has',
      best(roster([P.QB, 300], [P.K, 100])), 400);
+}
+
+/* ── PART TWO: A WEEK IN PROGRESS ────────────────────────────────────────────
+   The board reprices the week being played rather than rolling past it, so it
+   needs to know what is banked and what is still to come. */
+const near = (n, g, w, tol) => {
+  if (Math.abs(g - w) <= (tol == null ? 0.01 : tol)) { pass++; console.log('  ok   ' + n); }
+  else { fail++; console.log('  FAIL ' + n + '\n         got  ' + g + '\n         want ~' + w); }
+};
+
+console.log('\n6. the normal curve behind the price');
+{
+  near('an even game is a coin flip', api.sbNormCdf(0), 0.5);
+  near('two standard deviations up',  api.sbNormCdf(1.96), 0.975, 0.002);
+  near('two down',                    api.sbNormCdf(-1.96), 0.025, 0.002);
+  eq('and it only ever goes one way',
+     api.sbNormCdf(0.4) > api.sbNormCdf(0.2) && api.sbNormCdf(0.2) > api.sbNormCdf(0), true);
+}
+
+console.log('\n7. uncertainty drains out of a week as it is played');
+{
+  near('a full lineup still to come is a full week',
+       api.sbWkSd({ left: 120, full: 120 }), api.SB_WK_SD);
+  near('half of it left is narrower',
+       api.sbWkSd({ left: 60, full: 120 }), api.SB_WK_SD * Math.SQRT1_2, 0.2);
+  near('nothing left is settled', api.sbWkSd({ left: 0, full: 120 }), 0);
+}
+
+/* one roster: a legal starting nine plus a bench. proTeam ids are ESPN's —
+   6 DAL, 9 GB, 17 NE. pos: 1 QB, 2 RB, 3 WR, 4 TE, 5 K, 16 D/ST. */
+const SLOT = { QB:0, RB:2, WR:4, TE:6, DST:16, K:17, FLEX:23, BENCH:20 };
+const ent = (pos, slot, wkProj, proTeam) => ({ pid: 1000 + wkProj, pos, slot, wkProj, proTeam });
+const TEAM = [
+  ent(1, SLOT.QB, 22, 6), ent(2, SLOT.RB, 16, 6), ent(2, SLOT.RB, 14, 9),
+  ent(3, SLOT.WR, 13, 9), ent(3, SLOT.WR, 12, 17), ent(4, SLOT.TE, 9, 17),
+  ent(16, SLOT.DST, 7, 6), ent(5, SLOT.K, 8, 9), ent(3, SLOT.FLEX, 11, 17),
+  ent(2, SLOT.BENCH, 30, 6),          // a monster on the bench
+];
+const STARTERS = 22 + 16 + 14 + 13 + 12 + 9 + 7 + 8 + 11;   // 112
+
+console.log('\n8. before the week starts, the best lineup it COULD field');
+{
+  api.set({ rosters: { 7: TEAM }, nfl: { anyLive:false, games:[] }, meta: {} });
+  const t = api.sbTeamWeek(7, 1, '2026', {}, 0, false);
+  /* The 30-point bench player is legal at running back, so the best available
+     lineup takes him. He does not simply replace the 14 — he takes a running
+     back slot, the 14 drops into the flex, and the 11-point receiver who was
+     flexed comes out. That chain is the point of pricing what a roster could
+     put out rather than what it happened to have set. */
+  eq('the bench is considered', t.full, 22+30+16 + 13+12 + 9 + 7 + 8 + 14);
+  eq('which is more than the lineup as set', t.full > STARTERS, true);
+  eq('nothing is banked yet', t.exp, t.full);
+  eq('and all of it is still to come', t.left, t.full);
+}
+
+console.log('\n9. once it starts, the locked lineup and what is left of it');
+{
+  /* DAL and GB have finished, NE has not kicked off */
+  api.set({ rosters: { 7: TEAM }, nfl: { anyLive: false, games: [
+    { ht:'DAL', at:'NYG', s:'post' }, { ht:'GB', at:'CHI', s:'post' },
+    { ht:'NE', at:'SEA', s:'pre' },
+  ] } });
+  const t = api.sbTeamWeek(7, 1, '2026', {}, 71.4, true);
+  /* only the three New England starters are left: 12 + 9 + 11 */
+  eq('what is still to come', t.left, 12 + 9 + 11);
+  eq('the locked lineup ignores the bench', t.full, STARTERS);
+  near('expected final is banked plus what is left', t.exp, 71.4 + 32);
+
+  /* a scoreboard we do not have is not an answer */
+  api.set({ nfl: null });
+  eq('no digest, no number', api.sbTeamWeek(7, 1, '2026', {}, 71.4, true), null);
+
+  /* a bye is nothing still to come, not an unknown */
+  api.set({ nfl: { anyLive:false, games:[
+    { ht:'DAL', at:'NYG', s:'post' }, { ht:'GB', at:'CHI', s:'post' },
+  ] } });
+  const bye = api.sbTeamWeek(7, 1, '2026', {}, 71.4, true);
+  eq('a player with no game has nothing left', bye.left, 0);
+
+  /* no projections at all means ESPN has not published the week */
+  api.set({ rosters: { 7: TEAM.map(e => ({ ...e, wkProj: 0 })) },
+            nfl: { anyLive:false, games:[] } });
+  eq('an unpublished week falls back', api.sbTeamWeek(7, 1, '2026', {}, 0, false), null);
+}
+
+console.log('\n10. what the board closes, and when');
+{
+  const meta = wk => ({ 2026: { schedule: [
+    { matchupPeriodId: wk, home: { teamId:1, totalPoints: 60 }, away: { teamId:2, totalPoints: 55 } },
+    { matchupPeriodId: 9,  home: { teamId:3, totalPoints: 0 },  away: { teamId:4, totalPoints: 0 } },
+  ] } });
+
+  /* NOT STARTED — open, unless a game has actually kicked off */
+  api.set({ meta: meta(5), nfl: { anyLive:false, games:[{ht:'DAL',at:'NYG',s:'pre'}] } });
+  eq('an unplayed week is open',            api.sbWeekLocked(9, 'wk9-1-2-ml'), false);
+  eq('its top-score market is open too',    api.sbWeekLocked(9, 'wk9-high'), false);
+  api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
+  eq('a kickoff closes it before any score', api.sbWeekLocked(9, 'wk9-1-2-ml'), true);
+
+  /* UNDER WAY — the fixture markets reprice, the derived ones do not */
+  api.set({ nfl: { anyLive:false, games:[{ht:'DAL',at:'NYG',s:'post'}] } });
+  eq('a fixture moneyline reopens between slates', api.sbWeekLocked(5, 'wk5-1-2-ml'), false);
+  eq('so does the spread',                         api.sbWeekLocked(5, 'wk5-1-2-sp'), false);
+  eq('and the total',                              api.sbWeekLocked(5, 'wk5-1-2-tot'), false);
+  eq('top score stays shut',                       api.sbWeekLocked(5, 'wk5-high'), true);
+  eq('the donut stays shut',                       api.sbWeekLocked(5, 'wk5-donut'), true);
+  eq('top player stays shut',                      api.sbWeekLocked(5, 'wk5-player'), true);
+  eq("By Team's top scorer stays shut",            api.sbWeekLocked(5, 'ttbft-5'), true);
+
+  api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
+  eq('everything shuts while a game is live', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
+
+  api.set({ nfl: null });
+  eq('and shuts when the scoreboard is unavailable', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

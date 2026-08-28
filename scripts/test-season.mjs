@@ -43,9 +43,6 @@ const parts = [
   grab('function betWeekResult(leg,season,wk){'),
   grab('function betLegResult(leg,season){'),
   grab('function betGrade(bet){'),
-  grab('const betAnyPlayed='),
-  grab('const betWeekStarted='),
-  grab('function sbWeekLocked(wk){'),
 ];
 
 const harness = `
@@ -58,15 +55,10 @@ const regEndOf=()=>14;
    scored, per team per week. Handed in rather than fetched. */
 let _lineups=null;
 const loadLineups=()=>{};
-/* sbWeekLocked asks which season the board is pricing, and falls back to the
-   blunt any-football-started test when no week is named. */
-let _board='2026';
-const sbBoardSeason=()=>_board;
-const weekHasStarted=()=>false;
 ${parts.join('\n')}
 return { set(m,all){_seasonMeta=m; ALL_SEASONS=all; _finalsCache={};},
          setLineups(L){_lineups=L;},
-         sbSeason, betGrade, betWeekResult, betLegWeek, sbWeekLocked };`;
+         sbSeason, betGrade, betWeekResult, betLegWeek };`;
 const api = new Function(harness)();
 
 let pass = 0, fail = 0;
@@ -225,36 +217,8 @@ console.log('\n6. the top-scorer markets settle off who was started');
      api.betWeekResult(leg('wk5-player','field'),'2026',5), null);
 }
 
-/* ── PART FOUR ───────────────────────────────────────────────────────────────
-   Which markets the kickoff lock actually closes. sbWeekData rolls the board to
-   the next unplayed week the moment the current one holds a single point, so
-   from Thursday night the board prints next week's fixtures. Testing "has any
-   football started" closed those too, and the whole weekly board went dead from
-   the first kickoff until Tuesday — the opposite of the problem worth fixing. */
-console.log('\n7. the lock closes the week being played, not the week ahead');
-{
-  /* weeks 1-4 in the books, week 5 under way, week 6 untouched */
-  const meta=season(4,false);
-  meta.schedule.filter(m=>m.matchupPeriodId===5).slice(0,1)
-    .forEach(m=>{ m.home.totalPoints=41.2; });   // one Thursday game has scored
-  api.set({...past, 2026:meta}, ALL);
-
-  eq('a finished week stays closed',        api.sbWeekLocked(3), true);
-  eq('the week under way is closed',        api.sbWeekLocked(5), true);
-  eq('the week ahead is open',              api.sbWeekLocked(6), false);
-  eq('so is the one after that',            api.sbWeekLocked(7), false);
-
-  /* the same question the board asks, market key in hand */
-  const closed=mk=>{const w=api.betLegWeek(mk); return w!=null&&api.sbWeekLocked(w);};
-  eq('week 5 moneyline closed',            closed('wk5-1-2-ml'), true);
-  eq('week 5 top score closed',            closed('wk5-high'), true);
-  eq('week 5 donut closed',                closed('wk5-donut'), true);
-  eq("week 5 By Team top scorer closed",   closed('ttbft-5'), true);
-  eq('week 6 moneyline OPEN',              closed('wk6-1-2-ml'), false);
-  eq('week 6 top score OPEN',              closed('wk6-high'), false);
-  eq("week 6 By Team top scorer OPEN",     closed('ttbft-6'), false);
-  eq('a season future is never weekly',    closed('champ'), false);
-}
-
+/* The kickoff lock, and the whole live-week model it belongs to, are covered
+   in scripts/test-ratings.mjs: what a team is priced on, and when the board is
+   open to price it. */
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

@@ -8324,10 +8324,23 @@ function sbRosters(season,week){
       if(!teams.length){ done(); return; }
       const out={};
       teams.forEach(t=>{
-        out[t.id]=((t.roster&&t.roster.entries)||[]).map(e=>({
-          pid:e.playerId, slot:e.lineupSlotId,
-          pos:(e.playerPoolEntry&&e.playerPoolEntry.player&&e.playerPoolEntry.player.defaultPositionId)||0,
-        }));
+        out[t.id]=((t.roster&&t.roster.entries)||[]).map(e=>{
+          const pl=(e.playerPoolEntry&&e.playerPoolEntry.player)||{};
+          /* ESPN's own numbers for this week, straight off the roster call:
+             source 1 is the projection a manager sees beside the player in the
+             app, source 0 is what he has actually scored so far. Both were
+             being dropped on the floor, which is why a week used to be priced
+             off a season total divided by seventeen. */
+          const st=pl.stats||[];
+          const val=src=>{
+            const r=st.find(x=>x.statSourceId===src&&x.statSplitTypeId===1
+                              &&Number(x.scoringPeriodId)===Number(week));
+            return r&&typeof r.appliedTotal==='number'?Math.round(r.appliedTotal*100)/100:null;
+          };
+          return {pid:e.playerId, slot:e.lineupSlotId,
+            pos:pl.defaultPositionId||0, proTeam:pl.proTeamId||0,
+            wkProj:val(1), wkAct:val(0)};
+        });
       });
       _sbRosters[key]=out; done();
       _sbCache=null;                                   // reprice with it
@@ -8381,6 +8394,105 @@ function sbBestLineup(entries,projOf,posOf,shape){
   }
   return total;
 }
+/* ── WHAT IS STILL TO COME ───────────────────────────────────────────────────
+   A fantasy week has no half-time. Every roster plays across Thursday, Sunday
+   and Monday, so the honest question is never "is the game over" but "how many
+   of these players have yet to kick off". Answer that and a week in progress can
+   be priced properly: what is already banked, plus what the players still to
+   play are projected to add, with the uncertainty shrinking as the week empties.
+
+   The scoreboard digest is pinned to the fantasy week and to the REGULAR season.
+   Unpinned it answers with whatever is current, and in late August that is the
+   preseason — which would have read as football in progress and closed the book
+   in the middle of the summer. */
+const SB_WK_SD=26;            // how far a full lineup's week strays, in points
+const SB_WK_MIN_LEFT=4;       // less than this still to come is not a market
+const SB_BENCH_SLOTS=[20,21,24];
+const NFL_WK_TTL=45000;
+let _nflWk={},_nflWkAt={},_nflWkBusy={};
+function nflWeekGames(week,season){
+  const wk=Number(week)||0, yr=String(season||sbBoardSeason()||'');
+  if(!wk||!yr) return null;
+  const k=yr+':'+wk;
+  if(_nflWk[k]&&Date.now()-(_nflWkAt[k]||0)<NFL_WK_TTL) return _nflWk[k];
+  if(!_nflWkBusy[k]){
+    _nflWkBusy[k]=true;
+    fetch(`${BASE}?type=nflstate&week=${wk}&year=${yr}`,{cache:'no-store'})
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{ if(j&&Array.isArray(j.games)){ _nflWk[k]=j; _nflWkAt[k]=Date.now();
+        _sbCache=null;
+        if(_activeTab==='book') try{ renderBook(); }catch(e){} } })
+      .catch(()=>{})
+      .finally(()=>{ _nflWkBusy[k]=false; });
+  }
+  return _nflWk[k]||null;
+}
+/* 'pre' | 'in' | 'post' for a player's NFL team that week, 'bye' when they have
+   no game, or null when the digest is not in hand — which is not an answer and
+   the callers treat it as such. The abbreviations match exactly: all
+   thirty-two of NFL_TEAMS appear in the scoreboard, checked against week 1. */
+function nflTeamState(proTeamId,week,season){
+  const d=nflWeekGames(week,season);
+  if(!d||!Array.isArray(d.games)||!d.games.length) return null;
+  const ab=NFL_TEAMS[Number(proTeamId)];
+  if(!ab) return null;
+  const g=d.games.find(x=>x.ht===ab||x.at===ab);
+  return g?(g.s||null):'bye';
+}
+const nflWeekLive=(week,season)=>{
+  const d=nflWeekGames(week,season);
+  return d?!!d.anyLive:null;
+};
+/* ONE TEAM'S WEEK: what it is worth, what is banked, what is left.
+
+   Before a week starts the lineup can still be changed, so it is priced on the
+   best legal lineup the roster could put out — reading the lineup as currently
+   set would let somebody park their starters on the bench, collect a long
+   price, and put them back before kickoff.
+
+   Once the week is under way the lineup is locked, so the players actually in
+   it are the ones who will score, and those are what it prices. */
+function sbTeamWeek(tid,week,season,meta,banked,started){
+  const roster=sbRosters(season,week);
+  const es=roster&&roster[tid];
+  if(!es||!es.length) return null;
+  const projOf=e=>Math.max(0,Number(e.wkProj)||0);
+  const posOf=e=>Number(e.pos)||0;
+  /* No projections at all means ESPN has not published the week — fall back
+     rather than pricing everything at zero. */
+  if(!es.some(e=>Number(e.wkProj)>0)) return null;
+  if(!started){
+    const full=sbBestLineup(es,projOf,posOf,sbSlotShape(meta));
+    return {exp:full,left:full,full};
+  }
+  const starters=es.filter(e=>!SB_BENCH_SLOTS.includes(Number(e.slot)));
+  if(!starters.length) return null;
+  let left=0,full=0,unknown=false;
+  starters.forEach(e=>{
+    const p=projOf(e); full+=p;
+    const st=nflTeamState(e.proTeam,week,season);
+    if(st==='pre') left+=p;                  // not kicked off: all of it to come
+    else if(st==null) unknown=true;          // no digest: no honest answer
+    /* 'post' and 'bye' have nothing left to give, and 'in' cannot happen while
+       the board is open — a live game closes it. */
+  });
+  if(unknown) return null;
+  return {exp:(Number(banked)||0)+left,left,full};
+}
+/* Abramowitz and Stegun 7.1.26 — plenty for a price. */
+function sbErf(x){
+  const s=x<0?-1:1; x=Math.abs(x);
+  const t=1/(1+0.3275911*x);
+  const y=1-(((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t)
+    *Math.exp(-x*x);
+  return s*y;
+}
+const sbNormCdf=z=>0.5*(1+sbErf(z/Math.SQRT2));
+/* Uncertainty scales with how much of the week is still to be played: a full
+   lineup to come is a full week's spread, and a week with nothing left is
+   settled. */
+const sbWkSd=t=>SB_WK_SD*Math.sqrt(Math.max(0,Math.min(1,t&&t.full>0?t.left/t.full:1)));
+
 function sbLiveSignals(rows,season){
   const out={form:{},vol:{},roster:{},lineup:{},played:0};
   if(!season) return out;
@@ -9697,7 +9809,7 @@ async function sbPlaceBet(){
   /* A slip built before kickoff can still be sitting on screen once the games
      are running — the buttons go dead, the slip does not. Without this a ticket
      could be struck on a week whose football had already started. */
-  if(_slip.some(x=>{const w=betLegWeek(x.mk); return w!=null&&sbWeekLocked(w);})){
+  if(_slip.some(x=>{const w=betLegWeek(x.mk); return w!=null&&sbWeekLocked(w,x.mk);})){
     _betErr='locked'; _betBusy=false; sbRenderSlip(); return;
   }
   _betBusy=true; _betErr=null; sbRenderSlip();
@@ -13116,9 +13228,30 @@ function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
    without ever pricing a game that is already running: the week being played is
    closed, the week ahead is open, and its numbers move as each day's results
    land and the power ratings behind them are rebuilt. */
-function sbWeekLocked(wk){
+function sbWeekLocked(wk,mk){
   if(wk==null) return weekHasStarted();          // no week named: the old blunt test
-  return betWeekStarted(sbBoardSeason(),wk);
+  const season=sbBoardSeason();
+  const started=betWeekStarted(season,wk);
+  const liveNow=nflWeekLive(wk,season);          // true | false | null when unknown
+  if(!started){
+    /* Not a point on the board yet. Open — unless a game of that week has
+       actually kicked off, which is the moment before the first score lands and
+       is exactly what a scoreboard can see and a fantasy total cannot. */
+    return liveNow===true;
+  }
+  /* UNDER WAY. Only the three markets written on a single fixture can be priced
+     from here, because only they have banked-plus-still-to-come behind them.
+     Everything else weekly — top score, low score, closest game, the blowout,
+     top player, the donut, By Team's top scorer — is partly decided the moment
+     there are scores on the board, and there is no honest number for a question
+     you can half-read off the scoreboard. Those stay shut until the week is done.
+
+     Season futures never come through here at all: they settle months out and a
+     single Sunday does not decide one. */
+  if(!/-(ml|sp|tot)$/.test(String(mk||''))) return true;
+  /* Live, or no digest to be sure with. Shut either way — the whole point is
+     that nothing is priced while the football is running. */
+  return liveNow!==false;
 }
 function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
@@ -13136,7 +13269,7 @@ function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
      there is no moment when nothing is in play — which is why the whole weekly
      board closes together and only the season futures stay up. */
   const mkWk=betLegWeek(mk);
-  if(mkWk!=null&&sbWeekLocked(mkWk))
+  if(mkWk!=null&&sbWeekLocked(mkWk,mk))
     return `<span class="sb-odds sb-odds-lock" title="Closed — the week is under way">
       ${btnLabel?`<span class="sb-o-lbl">${btnLabel}</span>`:''}
       <span class="sb-o-val"><i class="fa fa-lock"></i></span></span>`;
@@ -13770,7 +13903,7 @@ function sbPick(mk,mkLabel,pick,pickLabel,odds){
   /* The board is repainted dead at kickoff, but a price tapped a second before
      it would otherwise still land on the slip. */
   const mkWeek=betLegWeek(mk);
-  if(mkWeek!=null&&sbWeekLocked(mkWeek)){
+  if(mkWeek!=null&&sbWeekLocked(mkWeek,mk)){
     _sbNote='Week '+mkWeek+' is under way — those markets are closed. The week ahead is open.';
     sbSyncButtons(); sbRenderSlip(); return;
   }
@@ -13842,23 +13975,67 @@ function sbWeekData(){
   const book=sbBuild(); if(!book) return null;
   const season=sbBoardSeason(), meta=_seasonMeta[season];
   if(!meta) return null;
-  const played=new Set(), all=new Set();
+  /* THE BOARD SHOWS THE WEEK BEING PLAYED, NOT THE ONE AFTER IT.
+
+     It used to roll forward the moment a week held a single point, so from
+     Thursday night it printed next week's fixtures and the week actually being
+     played could not be bet at all. The first week that is not finished is the
+     one on the board: the upcoming week from Tuesday to Thursday, then that same
+     week as it happens, priced on whatever is left of it. */
+  const byWeek={};
   (meta.schedule||[]).forEach(m=>{
     if(!m.home||!m.away) return;
     const wk=m.matchupPeriodId||0; if(!wk) return;
-    all.add(wk);
-    if((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0) played.add(wk);
+    (byWeek[wk]||(byWeek[wk]=[])).push(m);
   });
-  const lastPlayed=played.size?Math.max(...played):0;
-  const next=[...all].sort((a,b)=>a-b).find(w=>w>lastPlayed);
-  const week=next||lastPlayed;                     // upcoming week if the season is live
-  const live=!!next;
-  const games=(meta.schedule||[]).filter(m=>(m.matchupPeriodId||0)===week&&m.home&&m.away).map(m=>{
+  const scored=m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0;
+  const weeks=Object.keys(byWeek).map(Number).sort((a,b)=>a-b);
+  const unfinished=weeks.find(w=>!byWeek[w].every(scored));
+  const week=unfinished||weeks[weeks.length-1]||1;
+  const live=unfinished!=null;
+  /* Has this week's football begun? It decides whether the price comes off the
+     best lineup a roster could field or off the one that is locked in. */
+  const wkStarted=(byWeek[week]||[]).some(scored);
+  const games=(byWeek[week]||[]).map(m=>{
     const rowOf=tid=>book.rows.find(r=>r.tid===tid);
     const a=rowOf(m.home.teamId), b=rowOf(m.away.teamId);
     const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
     const done=hp>0||ap>0;
     if(!a||!b) return null;
+    /* ESPN'S OWN PROJECTIONS, WHERE THEY EXIST.
+
+       A power rating says who has been better this year. A projection says what
+       these two rosters are expected to score this week, which is the question
+       the market actually asks — and it is the number the managers can see for
+       themselves in the ESPN app, which is most of why it should be the one
+       behind the price.
+
+       Once the week is under way it prices what is left: the points already
+       banked, plus the projections of the starters whose games have not kicked
+       off, with the spread of outcomes shrinking as the week empties. A fixture
+       with nothing left to play has no market and its prices go to null, which
+       sbBtn already renders as a dash. */
+    const tA=sbTeamWeek(m.home.teamId,week,season,meta,hp,wkStarted);
+    const tB=sbTeamWeek(m.away.teamId,week,season,meta,ap,wkStarted);
+    if(tA&&tB){
+      const sA=sbWkSd(tA), sB=sbWkSd(tB);
+      const sd=Math.sqrt(sA*sA+sB*sB);
+      const spent=wkStarted&&(tA.left+tB.left)<=SB_WK_MIN_LEFT;
+      const pA=sd>1?Math.min(0.97,Math.max(0.03,sbNormCdf((tA.exp-tB.exp)/sd))):null;
+      const dead=spent||pA==null;
+      return {week,a,b,done,hp,ap,proj:{A:tA,B:tB,sd},
+        mlA:dead?null:amFromProb(Math.min(0.95,pA+0.025)),
+        mlB:dead?null:amFromProb(Math.min(0.95,(1-pA)+0.025)),
+        spread:Math.max(0.5,Math.round(Math.abs(tA.exp-tB.exp)*2)/2),
+        favA:tA.exp>=tB.exp,
+        line:Math.round(tA.exp+tB.exp)+0.5,
+        overP:dead?null:amFromProb(0.5+0.024),
+        underP:dead?null:amFromProb(0.5+0.024),
+        winA:done?hp>ap:null};
+    }
+    /* No projections in hand — ESPN has not published the week, or the rosters
+       have not come back yet. The power-rating model below is the fallback, and
+       is what the board did before there was anything better. */
     /* Head-to-head fantasy is closer to a coin flip than a power rating makes
        it look, and in week one there is nothing behind that rating but last
        year. A −470 favourite in a game where either side can hang forty on the
