@@ -10433,13 +10433,50 @@ async function bkSync(){
     const srv=JSON.parse(raw);
     _bkAnswers={...srv,...bkLoadAnswers()};
     localStorage.setItem(lsKey(bkKey()),JSON.stringify(_bkAnswers));
+    /* Submitted lives on the profile as well as the device, or clearing the
+       storage — or signing in on a second phone — reopens a closed set and
+       offers the marks up for a second look. */
+    if(String((res.data||{})[bkSubKey()]||'')==='1'){
+      _bkSubmitted=true;
+      localStorage.setItem(lsKey(bkSubKey()),'1');
+    }
     renderBallKnowledge();
   }catch(e){}
 }
-function bkReset(){ _bkAnswers=null; _bkFetched=false; _bkOpen=null; renderBallKnowledge(); }
+function bkReset(){ _bkAnswers=null; _bkFetched=false; _bkOpen=null; _bkSubmitted=null; renderBallKnowledge(); }
+/* ── SUBMITTING THE SET ──────────────────────────────────────────────────────
+   Every tap still saves, to the device and to the profile, so nothing can be
+   lost by walking away half way through and nothing about scoring changes.
+   What Submit decides is when the set is CLOSED and the marks are shown.
+
+   Before it: the five answers can be read back and changed, and no question
+   says whether it landed. After it: the scorecard, and no way back in. Showing
+   right and wrong the instant the fifth answer went in meant the last question
+   was the only one nobody could reconsider, which is a strange place to draw
+   the line. */
+const bkSubKey=()=>bkKey()+'_sub';
+let _bkSubmitted=null;
+function bkSubmitted(){
+  if(_bkSubmitted!=null) return _bkSubmitted;
+  _bkSubmitted=localStorage.getItem(lsKey(bkSubKey()))==='1';
+  return _bkSubmitted;
+}
+async function bkSubmit(){
+  if(_bkBusy) return;
+  const qs=bkQuestions(), ans=bkLoadAnswers();
+  if(!qs.length||!qs.every((_,i)=>ans[i]!=null)) return;   // not all five in
+  _bkBusy=true; renderBallKnowledge();
+  localStorage.setItem(lsKey(bkSubKey()),'1');
+  _bkSubmitted=true;
+  if(_me){ try{ await gflPatchProfile(_me.k1,
+    {[bkKey()]:JSON.stringify(ans),[bkSubKey()]:'1'}); }catch(e){} }
+  _bkBusy=false; renderBallKnowledge();
+  try{ orderHomeTodo(); }catch(e){}
+}
 /* Step back to the most recently answered question and clear it, so it is
    asked again. Only reachable while the set is still open. */
 async function bkBack(){
+  if(bkSubmitted()) return;              // closed: the marks are already out
   const ans=bkLoadAnswers();
   const done=Object.keys(ans).map(Number).sort((a,b)=>a-b);
   if(!done.length) return;
@@ -10619,7 +10656,31 @@ function renderBallKnowledge(){
     return;
   }
 
-  /* All in: the condensed scorecard. One line per question, coloured by whether
+  /* ALL FIVE IN, NOT YET SENT. The set reads back with the answer given beside
+     each question and nothing about whether it landed — the marks are what
+     Submit buys. Back still steps into the last one. */
+  if(!bkSubmitted()){
+    const rows=qs.map((q,i)=>`<div class="bkr pend">
+      <i class="fa fa-circle-dot"></i>
+      <span class="bkr-q">${q.q}</span>
+      <span class="bkr-a">${q.a[ans[i]]}</span>
+    </div>`).join('');
+    el.innerHTML=`
+      <div class="bk-meta"><span>Week ${bkWeek()}</span>
+        <span class="bk-count">${qs.length} of ${qs.length} answered</span></div>
+      <div class="bk-score">${rows}</div>
+      <button class="bk-go" ${_bkBusy?'disabled':''} onclick="bkSubmit()">
+        ${_bkBusy?'Sending…':'Submit answers'}</button>
+      <div class="bk-subnote">Nothing is marked until you send it. After that the
+        set is closed.</div>
+      <button class="bk-back" onclick="bkBack()">
+        <i class="fa fa-arrow-left"></i>Back to the last question</button>`;
+    bkPlace(false);
+    orderHomeTodo();
+    return;
+  }
+
+  /* Sent: the condensed scorecard. One line per question, coloured by whether
      it landed, with what the set moved your Ball Knowledge by underneath. */
   const iq=bkIQCfg();
   let right=0;
@@ -10771,6 +10832,18 @@ function pkReset(){ _pkPicks=null; _pkFetched=false; _pkSubmitted=null; renderWe
    ballot. Saving each tap straight to the profile made every half-formed slate
    look final, and left no moment where a manager says "these are mine". */
 const pkSubKey=()=>pkKey()+'_sub';
+/* HAS A SLATE EVER BEEN SENT THIS WEEK?
+
+   Reopening clears the submitted flag but never the picks, and nothing that
+   grades a slate looks at the flag — so the last sent slate goes on counting
+   while a reopened one is being reconsidered, and a manager who changes their
+   mind and then forgets to press Submit keeps the picks they had rather than
+   losing the week. This is only so the screen can say so. */
+function pkHadSubmitted(){
+  const me=(_cpRows||[]).find(p=>_me&&p.id===_me.k1);
+  if(me&&me[pkKey()]) return true;
+  return !!localStorage.getItem(lsKey(pkKey()));
+}
 function pkSubmitted(){
   if(_pkSubmitted!=null) return _pkSubmitted;
   _pkSubmitted=localStorage.getItem(lsKey(pkSubKey()))==='1';
@@ -10873,7 +10946,10 @@ function renderWeekPicks(){
           of the Week. Picks open as soon as it is named.</div>`
       :pkLocked()?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
       :`<button class="pk-go" ${done.length===games.length&&!_pkBusy?'':'disabled'} onclick="pkSubmit()">
-          ${_pkBusy?'Saving…':done.length===games.length?'Submit picks':`Pick all ${games.length}`}</button>`}`;
+          ${_pkBusy?'Saving…':done.length===games.length?'Submit picks':`Pick all ${games.length}`}</button>`}
+    ${!waiting&&!pkLocked()&&!sent&&pkHadSubmitted()?`<div class="pk-standing">
+      <i class="fa fa-circle-check"></i>Your last submitted slate still counts until you
+      send this one.</div>`:''}`;
   orderHomeTodo();
 }
 /* Picks close when the week's football does. weekHasStarted is the same signal
@@ -11417,7 +11493,8 @@ function ntTrades(out){
       art:ntSwap({owner:own(teams[0]),name:nm(teams[0]),got:got(teams[0])},
                  {owner:own(teams[1]),name:nm(teams[1]),got:got(teams[1])}),
       body:_me
-        ?`There has been a trade between <b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b>. Who won?`
+        ?`There has been a trade between <b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b>. Who won?
+           <span class="nt-final">Your decision cannot be changed later.</span>`
         :`There has been a trade between <b>${nm(teams[0])}</b> and <b>${nm(teams[1])}</b>.`,
       /* A vote card refuses to clear until it is answered, and signed out there
          is no profile to answer onto — ntMyVote returns empty for everybody, so
@@ -11734,6 +11811,13 @@ function ntLive(){
     const kinds=new Set();
     list=list.filter(n=>{ if(kinds.has(n.kind)) return false; kinds.add(n.kind); return true; });
   }
+  /* A VOTE THAT HAS BEEN CAST TAKES ITS CARD WITH IT.
+
+     Answered vote cards are dropped here rather than being marked as seen,
+     which is what makes them final: ntSeen is what Undo and Start over put
+     back, and neither can reach a card that is no longer being generated. The
+     verdict lives in tv_<id> on the profile, so it survives both. */
+  list=list.filter(n=>!(n.vote&&ntMyVote(String(n.vote.id).replace(/[^a-zA-Z0-9_]/g,'_'))));
   return list.filter(n=>!ntSeen().has(n.id));
 }
 /* the card counts as done once the stack is empty, which is what sinks it */
@@ -11760,7 +11844,18 @@ async function ntVote(vid,side){
   try{ await gflPatchProfile(_me.k1,{['tv_'+fieldSafe]:String(side)}); }catch(e){}
   const me=(_cpRows||[]).find(p=>p.id===_me.k1);
   if(me) me['tv_'+fieldSafe]=String(side);
+  /* The card goes as the answer lands — no swipe, and nothing to swipe back.
+     Its id comes off the undo stack too, or Undo would offer to restore a card
+     that ntLive no longer produces and the count would be a lie. */
+  _ntUndo=_ntUndo.filter(id=>id!==('tv:'+fieldSafe));
+  try{ ntTrimUndo(); }catch(e){}
   renderNotifications();
+  try{ orderHomeTodo(); }catch(e){}
+}
+/* Drop anything from the undo stack that is no longer on the board at all. */
+function ntTrimUndo(){
+  const live=new Set(ntAll().map(n=>n.id));
+  _ntUndo=_ntUndo.filter(id=>live.has(id));
 }
 function ntGo(where){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
@@ -11971,18 +12066,16 @@ async function homeRestart(which){
        is the one thing here that is scored, and a redo with the answers already
        shown is not a redo. */
     if(!isTestProfile()) return;
-    _bkAnswers={}; _bkOpen=null; _bkDone=false;
+    _bkAnswers={}; _bkOpen=null; _bkDone=false; _bkSubmitted=false;
     localStorage.removeItem(lsKey(bkKey()));
-    if(_me) try{ await gflPatchProfile(_me.k1,{[bkKey()]:''}); }catch(e){}
+    localStorage.removeItem(lsKey(bkSubKey()));
+    if(_me) try{ await gflPatchProfile(_me.k1,{[bkKey()]:'',[bkSubKey()]:''}); }catch(e){}
     renderBallKnowledge();
   }
-  if(which==='cp'){
-    _cpJustSent=false; _cpFetched=false;
-    localStorage.removeItem(lsKey(cpKey()));
-    if(_me) try{ await gflPatchProfile(_me.k1,{[cpKey()]:''}); }catch(e){}
-    if(_cpRows&&_me) _cpRows.forEach(p=>{ if(p.id===_me.k1) delete p[cpKey()]; });
-    renderCoachesPoll();
-  }
+  /* THE POLL HAS NO START OVER. It was a testing convenience and it read as a
+     feature: a ballot could be pulled back and recast with the league's own
+     result already on screen, which is the one thing a poll cannot allow. A
+     ballot is twelve teams in an order, sent once. */
   if(which==='pk') pkReopen();
   if(which==='nt') await ntRestart();
   orderHomeTodo();
@@ -11994,7 +12087,7 @@ const HOME_TODO=[
   {id:'nt-sec', done:()=>ntDone()},
   {id:'pk-sec', done:()=>pkSubmitted()||pkLocked()},
   {id:'bk-sec', done:()=>{ const qs=bkQuestions(); if(!qs.length) return true;
-    const a=bkLoadAnswers(); return qs.every((_,i)=>a[i]!=null); }},
+    return bkSubmitted(); }},
 ];
 /* Outstanding cards rise to the top of the stack, finished ones sink. All
    three travel rather than jump: the slot change is applied, then each card is
@@ -12201,8 +12294,7 @@ function renderCoachesPoll(){
         <summary class="cp-fold-s"><i class="fa fa-check"></i>Your ballot
           <i class="fa fa-chevron-down ms-chev"></i></summary>
         <div class="cp-fold-b">${myBallotList()}</div>
-      </details>
-      ${homeRestartBtn('cp')}`;
+      </details>`;
     return;
   }
   /* Voted, but the poll has not reached the reveal yet: the ballot folds away
@@ -12218,8 +12310,7 @@ function renderCoachesPoll(){
           ${myBallotList()}
           <div class="cp-meta" style="margin-top:10px">Results show once ${REVEAL_AT} ballots are in.</div>
         </div>
-      </details>
-      ${homeRestartBtn('cp')}`;
+      </details>`;
     return;
   }
   el.innerHTML=`

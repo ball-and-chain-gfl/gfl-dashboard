@@ -5866,6 +5866,29 @@
        write-up. The drawing is capped at roughly half what it was — it is a
        joke on a card, not the subject of the page, and at full height it pushed
        the name and the rules off a phone screen entirely. */
+    /* BALL KNOWLEDGE, ALL FIVE IN AND NOT YET SENT. The rows read back neutral:
+       no green, no red, nothing that says whether one landed, because that is
+       exactly what has not been bought yet. */
+    .bkr.pend{color:var(--text2);}
+    .bkr.pend i{color:var(--text3);}
+    .bk-go{width:100%;margin-top:11px;padding:11px 14px;border-radius:8px;border:none;
+      font-family:'Inter',sans-serif;font-size:14px;font-weight:800;letter-spacing:.2px;
+      color:#12120f;background:var(--grad);box-shadow:var(--btn-edge-gold);cursor:pointer;}
+    .bk-go:disabled{opacity:.6;cursor:default;}
+    .bk-subnote{font-size:11.5px;color:var(--text3);text-align:center;line-height:1.45;
+      margin:8px 2px 0;}
+    /* the trade card's warning, and the picks reassurance */
+    .nt-final{display:block;margin-top:7px;font-size:11.5px;font-weight:700;
+      letter-spacing:.2px;color:var(--text3);}
+    /* Reopened, not yet resent. Sits under the Submit button rather than in
+       place of it: the point is that nothing has been lost, not that there is
+       nothing left to do. Green rather than the amber of a warning. */
+    .pk-standing{display:flex;align-items:center;justify-content:center;gap:8px;
+      margin-top:9px;padding:8px 12px;border-radius:9px;
+      background:rgba(74,222,128,0.09);border:1px solid rgba(74,222,128,0.24);
+      font-family:'Inter',sans-serif;font-size:11.5px;line-height:1.45;
+      color:var(--text2);text-align:center;}
+    .pk-standing i{color:var(--green);flex:0 0 auto;}
     .pr-feat{display:flex;flex-direction:column;align-items:center;text-align:center;
       gap:8px;padding:2px 2px 4px;}
     /* Each drawing keeps its own shape, so there is no box here to fit it
