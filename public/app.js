@@ -3531,9 +3531,8 @@ function legacyReportHTML(owner){
 }
 
 // ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
-/* PUNISH_ART, a map of hand-drawn SVGs keyed on 'weatherman', 'willem defoe'
-   and 'spicy food', was removed here: nothing referenced it, and the names it
-   was keyed on are not the league's punishments any more. The featured cards in
+/* A map of hand-drawn SVGs used to sit here, keyed on punishment names that
+   are no longer the league's. Nothing referenced it. The featured cards in
    public/punish are the artwork now. */
 /* ── THE PUNISHMENT ARTWORK ──────────────────────────────────────────────────
    One card per punishment, in public/punish. Keyed on a slug of the name rather
@@ -3593,7 +3592,6 @@ const PUNISH_ICON={
   'hot-chip':'fa-pepper-hot',
   'willem-defoe':'fa-masks-theater',
   'reenactment':'fa-clapperboard',
-  'weatherman':'fa-cloud-sun-rain',
 };
 const punishIcon=(n,fallback)=>PUNISH_ICON[punishSlug(n)]||fallback||'fa-gavel';
 const punishIconHTML=(n,fallback)=>`<i class="fa ${punishIcon(n,fallback)}"></i>`;
@@ -3664,24 +3662,29 @@ function punishRulesHTML(){
   const selL=sel.toLowerCase(), curL=week.toLowerCase();
   const opts=cfg.options||[];
   const detail=(cfg.details||{})[sel] || (selL===curL?cfg.note:'') || '';
+  /* One column, centred: the drawing, then which week it is, then the name,
+     then the write-up. It read as a header bar with a picture bolted under it
+     and a left-aligned paragraph under that, which is three different
+     alignments in one card. The icon stands in when a punishment has no
+     drawing, so the block never opens on a gap. */
+  const pic=punishPic(sel);
   return `
-    <div class="pr-hero">
-      <div class="pr-ic">${punishIconHTML(sel)}</div>
-      <div>
-        <div class="pr-week">${selL===curL?`Week ${cfg.week??'—'} Punishment`:'From the menu'}</div>
-        <div class="pr-name">${sel||'TBD'}</div>
-      </div>
+    <div class="pr-feat">
+      ${pic
+        ? `<img class="pr-art-img" src="${pic}"
+             alt="${String(sel).replace(/"/g,'&quot;')}" loading="lazy">`
+        : `<div class="pr-ic">${punishIconHTML(sel)}</div>`}
+      <div class="pr-week">${selL===curL?`Week ${cfg.week??'?'} Punishment`:'From the menu'}</div>
+      <div class="pr-name">${sel||'TBD'}</div>
+      <p class="pr-note${detail?'':' pr-empty'}">${detail
+        ||(isTestProfile()?'No description written for this one yet. Add it under <b>punishment.details</b> in config.js.'
+                          :'No description written for this one yet.')}</p>
     </div>
-    ${punishPic(sel)?`<div class="pr-art"><img src="${punishPic(sel)}"
-      alt="${String(sel).replace(/"/g,'&quot;')}" loading="lazy"></div>`:''}
-    <p class="pr-note${detail?'':' pr-empty'}">${detail
-      ||(isTestProfile()?'No description written for this one yet — add it under <b>punishment.details</b> in config.js.'
-                        :'No description written for this one yet.')}</p>
     <!-- "How it works" is deliberately not rendered: it was the bulk of the
          sheet's height and pushed it past the screen on an installed home-screen
          icon. cfg.rules is left in config so it can come back if wanted. -->
     <div class="pr-rules">
-      <div class="pr-h">The menu — tap any to read it</div>
+      <div class="pr-h">The menu, tap any to read it</div>
       ${(() => {
         /* This week's punishment leads at full width; the rest sit under it in
            a 2x3 grid. Built by pulling the current one out of the list rather

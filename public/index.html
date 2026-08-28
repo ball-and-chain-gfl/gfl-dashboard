@@ -5862,16 +5862,23 @@
     /* ── Punishment rules popup (the retired tab, as a modal) ─────────────── */
     #page-punishment{--accent:#E84146;--accent2:#E85D41;--accent-rgb:232,65,70;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
-    .pr-hero{display:flex;align-items:center;gap:14px;}
+    /* THE FEATURED PUNISHMENT. One centred column: drawing, week, name,
+       write-up. The drawing is capped at roughly half what it was — it is a
+       joke on a card, not the subject of the page, and at full height it pushed
+       the name and the rules off a phone screen entirely. */
+    .pr-feat{display:flex;flex-direction:column;align-items:center;text-align:center;
+      gap:8px;padding:2px 2px 4px;}
+    .pr-feat .pr-art-img{max-width:min(58%,178px);max-height:168px;width:auto;height:auto;
+      border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,0.22);}
+    .pr-feat .pr-week{margin-top:2px;}
+    .pr-feat .pr-name{margin-top:0;}
+    .pr-feat .pr-note{max-width:54ch;margin:2px auto 0;text-align:center;}
     .pr-ic{width:52px;height:52px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;
       border-radius:10px;border:1px solid rgba(var(--accent-rgb),0.45);color:var(--accent);font-size:24px;}
     /* THE PUNISHMENT ARTWORK — one featured card, on the Punishments tab only.
        It was briefly also a thumbnail in the icon slot, on every menu tile and
        on the pinned bar, which is three more places than a joke needs to be.
        8px is the radius the rest of the site uses. */
-    .pr-art{margin:13px 0 2px;display:flex;justify-content:center;}
-    .pr-art img{max-width:100%;max-height:min(46vh,340px);width:auto;height:auto;
-      border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,0.22);}
     .pr-week{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
     .pr-name{font-family:'Google Sans Flex',serif;font-weight:700;font-size:22px;margin-top:2px;}
     .pr-note{font-size:13.5px;color:var(--text2);line-height:1.5;margin:0;}
