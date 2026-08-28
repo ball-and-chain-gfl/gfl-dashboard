@@ -187,9 +187,19 @@ export default async function handler(req, res) {
   // league has actually happened. This returns a small digest of that board, so
   // the client can poll cheaply and only reach for fantasy scores when the NFL
   // itself moved. Deliberately a summary — ~280KB in, a few hundred bytes out.
+  // ?week=N&year=YYYY pins the digest to one REGULAR-SEASON week. Without them
+  // the scoreboard answers with whatever is current, and in late August that is
+  // the PRESEASON — week 4 of it, with games genuinely in progress. Anything
+  // deciding "is football being played right now" off the bare call would have
+  // closed the sportsbook in August for games no fantasy team was scoring in.
   if (type === 'nflstate') {
     try {
-      const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard', {
+      const wk = parseInt(req.query.week || '', 10);
+      const yr = parseInt(req.query.year || season || '', 10);
+      const pinned = wk >= 1 && wk <= 18 && yr >= 2000;
+      const url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
+        + (pinned ? `?seasontype=2&week=${wk}&dates=${yr}` : '');
+      const r = await fetch(url, {
         headers: { 'User-Agent': 'gfl-dashboard', Accept: 'application/json' },
       });
       if (!r.ok) return res.status(502).json({ error: `scoreboard ${r.status}` });
@@ -208,6 +218,10 @@ export default async function handler(req, res) {
           c: st.displayClock || '',
           h: Number(home.score || 0),
           a: Number(away.score || 0),
+          // The two team abbreviations, so a caller can join a player's
+          // proTeamId to a game without parsing shortName apart.
+          ht: home.team?.abbreviation || '',
+          at: away.team?.abbreviation || '',
         };
       });
       // one string that changes whenever anything on the field does
@@ -215,6 +229,9 @@ export default async function handler(req, res) {
       const anyLive = games.some(g => g.s === 'in');
       res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5');
       return res.status(200).json({ week: d.week?.number || null, season: d.season?.year || null,
+        // 1 preseason, 2 regular season, 3 postseason. Worth reporting, because
+        // an unpinned call in August answers with the preseason.
+        seasonType: d.season?.type ?? null, pinned,
         anyLive, count: games.length, sig, games });
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }
