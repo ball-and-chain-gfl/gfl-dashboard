@@ -1129,12 +1129,19 @@ export default async function handler(req, res) {
         // ESPN's own season projection for the same player
         const projRow = stats.find(x => x.statSourceId === 1 && x.statSplitTypeId === 0);
         const wk = {};
+        // ESPN's own PER-WEEK projection, which is the number a manager sees
+        // beside a player in the app. It was already being asked for — the
+        // filter requests source 1 and split 1 — and then thrown away, so the
+        // board priced a week off a season total divided by seventeen. A flat
+        // average cannot know about a bye, an injury or the matchup.
+        const pw = {};
         stats.forEach(x => {
-          if (x.statSourceId !== 0 || x.statSplitTypeId !== 1) return;
           const w = x.scoringPeriodId;
           if (!w || w < 1 || w > 18) return;
           const v = x.appliedTotal;
-          if (typeof v === 'number') wk[w] = +v.toFixed(1);
+          if (typeof v !== 'number') return;
+          if (x.statSourceId === 0 && x.statSplitTypeId === 1) wk[w] = +v.toFixed(1);
+          else if (x.statSourceId === 1 && x.statSplitTypeId === 1) pw[w] = +v.toFixed(1);
         });
         return {
           id: p.id, name: p.fullName, proTeamId: p.proTeamId ?? 0,
@@ -1143,12 +1150,14 @@ export default async function handler(req, res) {
           total: seasonRow && typeof seasonRow.appliedTotal === 'number' ? +seasonRow.appliedTotal.toFixed(1) : 0,
           proj: projRow && typeof projRow.appliedTotal === 'number' ? +projRow.appliedTotal.toFixed(1) : 0,
           weeks: wk,
+          projWeeks: pw,
         };
       }).filter(p => p.id && p.name);
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=600, s-maxage=2592000, stale-while-revalidate=86400'
         : 'public, max-age=600, s-maxage=7200, stale-while-revalidate=7200');
-      return res.status(200).json({ season, count: players.length, players });
+      const withProjWeeks = players.filter(p => Object.keys(p.projWeeks || {}).length).length;
+      return res.status(200).json({ season, count: players.length, withProjWeeks, players });
     } catch (err) { return res.status(500).json({ error: err.message, players: [] }); }
   }
 
