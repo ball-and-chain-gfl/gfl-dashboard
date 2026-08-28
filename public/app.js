@@ -3577,10 +3577,8 @@ const PUNISH_ICON={'weatherman':'fa-cloud-sun-rain','fast banana':'fa-person-run
 function homePunishHTML(){
   const cfg=_CFG.punishment||{};
   if(!cfg.name && cfg.week==null) return '<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
-  const cur=(cfg.name||'').toLowerCase();
-  const icon=PUNISH_ICON[cur]||'fa-gavel';
   return `<div class="home-punish">
-    <div class="home-punish-ic">${mark}</div>
+    <div class="home-punish-ic">${punishMark(cfg.name,'hp-img')}</div>
     <div class="home-punish-info">
       <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
       <div class="home-punish-name">${cfg.name||'TBD'}</div>
@@ -6043,10 +6041,8 @@ function myMatchupHTML(compact){
 function punishBarHTML(){
   const cfg=_CFG.punishment||{};
   if(!cfg.name && cfg.week==null) return '';
-  const icon=PUNISH_ICON[(cfg.name||'').toLowerCase()]||'fa-gavel';
-  const mark=punishMark(cfg.name,'hp-img');
   return `<div class="pb-bar">
-    <span class="pb-ic"><i class="fa ${icon}"></i></span>
+    <span class="pb-ic">${punishMark(cfg.name,'hp-img')}</span>
     <span class="pb-txt">
       <span class="pb-wk">Week ${cfg.week??'—'} Punishment</span>
       <span class="pb-name">${cfg.name||'TBD'}</span>
