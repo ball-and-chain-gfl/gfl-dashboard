@@ -9010,8 +9010,19 @@ function invBoard(){
      A season that arrives after the board was first drawn adds no franchises —
      the same twelve owners — so without it the market would keep serving the
      flat opening prices it computed before that season had any games in it. */
+  /* AND THE WEEK, WHICH IS THE WHOLE POINT OF THE BOARD.
+
+     The stamp was season, franchise count and team count — not one of which
+     changes when a week's results land. Prices are a function of record,
+     scoring and recent form through the last completed week, so the board froze
+     at whatever it computed the first time and would not move again until the
+     page was reloaded. A market that does not reprice when the football does is
+     the one thing this board must not be. */
   const stamp=String(season)+'|'+(_franchises||[]).length
-    +'|'+Object.keys((_seasonMeta[season]||{}).teams||{}).length;
+    +'|'+Object.keys((_seasonMeta[season]||{}).teams||{}).length
+    +'|w'+((season?(ntLastWeek(season)||{}).week:null)??'-')
+    +'|s'+((_seasonMeta[season]||{}).schedule||[]).filter(m=>m.home&&m.away
+      &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)).length;
   if(_invCache&&_invCache.stamp===stamp) return _invCache;
 
   const fr=(_franchises||[]);
@@ -13217,14 +13228,29 @@ function betLegResult(leg,season){
    against the regular season. A season counts as decided once a team carries
    rankCalculatedFinal 1. */
 const _finalsCache={};
+/* How far along a season is, in one string. The cache is stamped with it so
+   that "this season is not decided yet" is remembered only for as long as it
+   stays true. It used to cache a bare null, which meant a session open at the
+   moment a season finalised went on answering "still running" until it was
+   reloaded — and every season future in it stayed unsettled. */
+function sbFinalsStamp(meta){
+  const T=meta.teams||{};
+  const scored=(meta.schedule||[]).filter(m=>m.home&&m.away
+    &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)).length;
+  const ranked=Object.keys(T).filter(id=>(T[id].rank||0)>0).length;
+  return scored+'|'+ranked+'|'+Object.keys(T).length;
+}
 function sbFinals(season){
-  if(season in _finalsCache) return _finalsCache[season];
   const meta=_seasonMeta[season];
   if(!meta) return null;                              // not loaded — ask again later
+  const stamp=sbFinalsStamp(meta);
+  const hit=_finalsCache[season];
+  if(hit&&hit.stamp===stamp) return hit.val;
+  const keep=val=>((_finalsCache[season]={stamp,val}),val);
   const owners=meta.owners||{}, T=meta.teams||{}, regEnd=regEndOf(season);
   const ids=Object.keys(T);
   const champId=ids.find(id=>T[id].rank===1);
-  if(!ids.length||champId==null) return (_finalsCache[season]=null);
+  if(!ids.length||champId==null) return keep(null);
   const lastId=ids.reduce((a,b)=>(T[b].rank||0)>(T[a].rank||0)?b:a,ids[0]);
 
   const rec={}; ids.forEach(id=>rec[id]={w:0,g:0,pf:0,pa:0,hi:0,o150:0,u80:0});
@@ -13242,7 +13268,7 @@ function sbFinals(season){
     });
   });
   const played=ids.filter(id=>rec[id].g);
-  if(!played.length) return (_finalsCache[season]=null);
+  if(!played.length) return keep(null);
 
   const own=id=>owners[id];
   const best=(val,better)=>{let bi=null;played.forEach(id=>{
@@ -13258,7 +13284,7 @@ function sbFinals(season){
   });
   Object.keys(conf).forEach(c=>{conf[c]=own(conf[c]);});
 
-  return (_finalsCache[season]={
+  return keep({
     champ:own(champId), last:own(lastId), playoff, confWinners:conf,
     wins:map(r=>r.w), pf:map(r=>r.pf), pa:map(r=>r.pa),
     mostPf:best(r=>r.pf,(a,b)=>a>b), fewPf:best(r=>r.pf,(a,b)=>a<b),

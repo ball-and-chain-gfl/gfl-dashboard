@@ -1,30 +1,37 @@
 /* ============================================================================
    BALL & CHAIN GFL — DASHBOARD CONFIG
    ----------------------------------------------------------------------------
-   This is the ONLY file you need to edit to change the featured "Balls Big 4".
-   It lives right next to index.html (in the public/ folder). Edit, save,
-   redeploy — no need to touch the big index.html file.
+   The hand-edited file. It lives next to index.html in public/ — edit, save,
+   redeploy. Nothing here needs the big files touched.
 
-   HOW TO SET THE BIG 4:
-   Put four teams in `big4`, in display order. Each entry can be EITHER:
-     • the team's name, or any part of it (case-insensitive)   e.g. "Bismuth"
-     • the numeric ESPN team id                                e.g. 7
-   Partial names work, so "Bryan" will match "The Bryan Football Team".
-   Leave an entry as "" (empty) to show an empty slot.
+   WHAT IS IN HERE, AND HOW OFTEN IT WANTS TOUCHING:
 
-   `labels` are the little captions over each pick (optional to change).
+     punishment    weekly — which punishment is on, and the season schedule
+     excludeTeams  rarely — franchises to leave out of all-time tables
+     notifications never — a testing switch
+     bucksStart    once a season — the league's pay day
+     bucksIdleCost rarely — what a week with nothing risked costs
+     betsResetBefore  once — the line the ledger is drawn behind
+     eggWindowHours / eggPrize   rarely — read the arithmetic before moving them
+     tradeDeadlineWeek  once a season
+     ballKnowledge      never — it writes its own questions now
+     matchup       nothing on the picks grid reads this any more; the hidden
+                   Matchup of the Week module still does
+     gabe          once — the player the League History shrine is built on
+
+   WHAT IS NOT IN HERE ANY MORE: everything the site can work out for itself.
+   Standings, records, share prices, Ball Knowledge, the Bad Beat O'Meter and
+   the Coaching Metric are all derived from ESPN and from what managers have
+   actually done, so there is nothing to keep in step by hand and nothing that
+   can go stale.
+
+   If a value here is not listed above, check that something still reads it
+   before spending time on it. This file used to open with thirteen lines
+   explaining how to set the "Balls Big 4" — a module that had been taken off
+   the homepage, with the config keys left behind. Anybody following those
+   instructions would have edited, redeployed and seen nothing change.
 ============================================================================ */
 window.GFL_CONFIG = {
-  big4: [
-    "The Bryan Football Team",   // slot 1 
-    "Bismuth",                   // slot 2
-    "Lebron",                    // slot 3
-    "Florida",               // slot 4
-  ],
-  labels: ["#1 Pick", "Dark Horse", "Sleeper", "Wild Card"],
-
-  /* Former league members hidden from Matchup History & Player Tenure.
-     Case-insensitive partial matches against the team name. */
   excludeTeams: ["who gibbs", "wafflestomp", "bozeman", "simptown"],
 
 
@@ -253,12 +260,10 @@ window.GFL_CONFIG = {
     },
   },
 
-  /* BAD BEAT O'METER — worst luck / most painful losses. Fill `entries` with
-     items like { rank, team, week, note, score } once you send the details. */
-  badBeat: {
-    intro: "The most painful, unlucky, and soul-crushing losses in league history.",
-    entries: [],
-  },
+  /* BAD BEAT O'METER — nothing to configure. The tab computes its own
+     misery from the schedule: unlucky losses, high scores that lost, closest
+     defeats. It used to take a hand-written `entries` list and an `intro`
+     string, and read neither — so anything typed there was invisible. */
 
   /* GABE'S GREATNESS — a shrine to Gabe Davis's finest fantasy outings in the GFL. */
   gabe: { name: "Gabe Davis", playerId: 4243537 },
