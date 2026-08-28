@@ -5868,7 +5868,12 @@
        the name and the rules off a phone screen entirely. */
     .pr-feat{display:flex;flex-direction:column;align-items:center;text-align:center;
       gap:8px;padding:2px 2px 4px;}
-    .pr-feat .pr-art-img{max-width:min(58%,178px);max-height:168px;width:auto;height:auto;
+    /* A FIXED BOX, not a max. An img with no reserved size is two pixels tall
+       until it decodes, so the week, the name and the write up all jumped down
+       the moment the drawing arrived. object-fit keeps both shapes honest: four
+       of the cards are square and three are 16:9, and contain letterboxes
+       rather than stretching either. */
+    .pr-feat .pr-art-img{width:min(58%,178px);height:132px;object-fit:contain;
       border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,0.22);}
     .pr-feat .pr-week{margin-top:2px;}
     .pr-feat .pr-name{margin-top:0;}

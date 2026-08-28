@@ -3672,7 +3672,7 @@ function punishRulesHTML(){
     <div class="pr-feat">
       ${pic
         ? `<img class="pr-art-img" src="${pic}"
-             alt="${String(sel).replace(/"/g,'&quot;')}" loading="lazy">`
+             alt="${String(sel).replace(/"/g,'&quot;')}">`
         : `<div class="pr-ic">${punishIconHTML(sel)}</div>`}
       <div class="pr-week">${selL===curL?`Week ${cfg.week??'?'} Punishment`:'From the menu'}</div>
       <div class="pr-name">${sel||'TBD'}</div>
