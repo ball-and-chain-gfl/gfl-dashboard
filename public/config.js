@@ -107,6 +107,23 @@ window.GFL_CONFIG = {
      being built sits behind this line and counts for nobody. */
   betsResetBefore: 1787846825391,
 
+  /* ── PAY DAY ───────────────────────────────────────────────────────────────
+     The Tuesday the league's money starts. The first $100 lands on this date at
+     6am and one lands every Tuesday after it; before it, everybody holds $0.
+
+     Written as a date rather than a timestamp so it can be read and changed.
+     Blank it out and the bank falls back to counting from each manager's first
+     bet, which is what it did before there was a league-wide start.
+
+     bucksIdleCost is what a week with nothing risked costs. A Tuesday-to-Tuesday
+     week in which a manager placed no bet and made no investment trade takes
+     this off the balance, once, for that week — the point of the dashboard is
+     that people turn up mid-week, and an allowance that arrives whether or not
+     they do is an argument for ignoring it. Set it to 0 to switch the penalty
+     off entirely. */
+  bucksStart: "2026-09-01",
+  bucksIdleCost: 20,
+
   /* TESTING — how long one locker-room plant stage lasts, in minutes.
      Fractions are fine: 0.25 is fifteen seconds a stage, so the plant runs
      from thriving to dead in about a minute and a half.

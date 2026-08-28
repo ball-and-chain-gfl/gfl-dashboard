@@ -35,6 +35,10 @@ const parts=[
   grab('function tueWeekStart(now=new Date()){'),
   grab('function bucksCycles(now=Date.now()){'),
   grab('function bucksAllowance(){'),
+  grab('function bucksEpoch(){'),
+  grab('const BUCKS_IDLE_COST='),
+  grab('function bucksIdleWeeks(now=Date.now()){'),
+  grab('function bucksIdleCost(){'),
   grab('const betsLiveAll=()=>'),
   grab('function bucksStaked(){'),
   grab('function bucksReturned(){'),
@@ -57,15 +61,20 @@ const isTestProfile=()=>true;
    every case below has to say where in the season it is standing. */
 let _WEEKS=0;
 const bucksWeeksPlayed=()=>_WEEKS;
+/* The share ledger, for the idle-week rule: a lot stamps its trade time as .t */
+let _LOTS=[];
+const invLots=()=>_LOTS;
 const betsAfterReset=b=>Number(b.ts||0)>=Number(_CFG.betsResetBefore||0);
 const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1&&betsAfterReset(b));
 const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
 const eggsFound=()=>({size:_EGGS});
 function eggBucks(){ return _EGGS*EGG_PRIZE; }
 ${parts.join('\n')}
-return { set(b,testMin,eggs,weeks){ _bets=b; _EGGS=eggs||0; _WEEKS=weeks||0;
-    _CFG={betsResetBefore:0,bucksTestMinutes:testMin||0,
-          eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}}; },
+return { set(b,testMin,eggs,weeks,extra){ _bets=b; _EGGS=eggs||0; _WEEKS=weeks||0;
+    _LOTS=(extra&&extra.lots)||[];
+    _CFG=Object.assign({betsResetBefore:0,bucksTestMinutes:testMin||0,
+          eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}},(extra&&extra.cfg)||{}); },
+  bucksIdleWeeks, bucksEpoch,
   bucksCycles, bucksAllowance, bucksStaked, bucksReturned, bucksBalance,
   eggSpot, eggWindow, eggRand, EGG_TABS, EGG_MS, EGG_PRIZE, tueWeekStart };`;
 const api=new Function(harness)();
@@ -211,6 +220,58 @@ console.log('\n11. an allowance is paid for a week that was played');
      week, deep into the season, is one allowance and not nine. */
   api.set([B({ts:now,stake:0,ret:0,status:'won'})],0,0,9);
   eq('a first bet in week 9 is not nine allowances', api.bucksCycles(now), 1);
+}
+
+/* ── PAY DAY ─────────────────────────────────────────────────────────────────
+   One start date for the whole league instead of twelve, counted from
+   config.bucksStart. September 1st 2026 is a Tuesday; these walk past it. */
+console.log('\n12. the money starts on one Tuesday for everybody');
+{
+  const cfg={cfg:{bucksStart:'2026-09-01',bucksIdleCost:20}};
+  const on=(y,m,d,h)=>new Date(y,m-1,d,h==null?12:h,0,0,0).getTime();
+  api.set([],0,0,0,cfg);
+  eq('the epoch is Tue 1 Sep 2026 at 6am', api.bucksEpoch(), on(2026,9,1,6));
+  eq('the Thursday before pay day: nothing',   api.bucksCycles(on(2026,8,27)), 0);
+  eq('the Monday before pay day: nothing',     api.bucksCycles(on(2026,8,31)), 0);
+  eq('5am on pay day is still the week before',api.bucksCycles(on(2026,9,1,5)), 0);
+  eq('pay day: one allowance',                 api.bucksCycles(on(2026,9,1,7)), 1);
+  eq('the Sunday after: still one',            api.bucksCycles(on(2026,9,6)), 1);
+  eq('the next Tuesday: two',                  api.bucksCycles(on(2026,9,8)), 2);
+  eq('three weeks on: four',                   api.bucksCycles(on(2026,9,22)), 4);
+  /* it does not matter when this manager first bet — everybody shares a pay day */
+  api.set([B({ts:on(2026,9,15),stake:0,ret:0,status:'won'})],0,0,0,cfg);
+  eq('a late first bet does not move pay day',  api.bucksCycles(on(2026,9,22)), 4);
+}
+
+console.log('\n13. a week with nothing risked costs $20');
+{
+  const cfg={cfg:{bucksStart:'2026-09-01',bucksIdleCost:20}};
+  const on=(y,m,d,h)=>new Date(y,m-1,d,h==null?12:h,0,0,0).getTime();
+  const now=on(2026,9,22);          // the week of the 22nd is in progress
+
+  api.set([],0,0,0,cfg);
+  eq('three finished weeks, nothing risked in any', api.bucksIdleWeeks(now), 3);
+
+  /* a bet in the week of the 8th clears that week only */
+  api.set([B({ts:on(2026,9,9),stake:10,ret:0,status:'open'})],0,0,0,cfg);
+  eq('one week answered for', api.bucksIdleWeeks(now), 2);
+
+  /* a share trade counts as turning up, the same as a bet */
+  api.set([],0,0,0,{cfg:cfg.cfg,lots:[{o:'bft',s:1,p:10,t:on(2026,9,3),w:1,k:'b'}]});
+  eq('an investment counts too', api.bucksIdleWeeks(now), 2);
+
+  /* the week in progress is never charged for — there is still time */
+  api.set([],0,0,0,cfg);
+  eq('pay day week only, nothing yet', api.bucksIdleWeeks(on(2026,9,3)), 0);
+  eq('and nothing at all before pay day', api.bucksIdleWeeks(on(2026,8,27)), 0);
+
+  /* an invitation nobody took up is not an action */
+  api.set([B({ts:on(2026,9,9),stake:70,status:'invite'})],0,0,0,cfg);
+  eq('an unanswered invitation does not count', api.bucksIdleWeeks(now), 3);
+
+  /* switching the penalty off */
+  api.set([],0,0,0,{cfg:{bucksStart:'2026-09-01',bucksIdleCost:0}});
+  eq('bucksIdleCost 0 turns it off', api.bucksIdleWeeks(now), 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

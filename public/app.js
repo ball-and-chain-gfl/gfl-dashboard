@@ -9282,6 +9282,17 @@ function eggStart(){
 }
 
 const BUCKS_WEEKLY=100;
+/* ── PAY DAY, AND THE COST OF SITTING OUT ────────────────────────────────────
+   The league's money starts on one Tuesday, the same for everybody, rather than
+   accruing from whenever each manager happened to place a first bet. Before it
+   nobody has anything; on it the first $100 lands; one lands every Tuesday
+   after. config.bucksStart is that date. */
+function bucksEpoch(){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(_CFG.bucksStart||'').trim());
+  if(!m) return 0;                       // unset: fall back to the first-bet rule
+  return new Date(+m[1],+m[2]-1,+m[3],6,0,0,0).getTime();
+}
+const BUCKS_IDLE_COST=()=>Math.max(0,Number(_CFG.bucksIdleCost??0));
 const betBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/bets`;
 let _bets=null,_betErr=null,_betBusy=false;
 
@@ -9406,19 +9417,56 @@ function bucksCycles(now=Date.now()){
   /* The short test cycle is not a season and has no football behind it, so it
      keeps counting buckets — that is the whole point of the switch. */
   if(bucksTestMs()) return Math.max(1,n);
-  /* AN ALLOWANCE IS PAID FOR A WEEK THAT WAS PLAYED.
+  /* ONE PAY DAY FOR THE WHOLE LEAGUE.
 
-     Tuesdays were the only thing being counted, so the bank paid out on the
-     calendar whether or not any football had happened. Through a pre-season
-     that is money for nothing: bet once in August and the balance climbed $100
-     every Tuesday until kickoff. Week 1 opens on one allowance and the second
-     lands on the Tuesday that begins week 2, once week 1 is in the books.
+     Allowances used to accrue from each manager's first bet, which meant twelve
+     different pay days and a balance that depended on when somebody happened to
+     start. They now count from config.bucksStart: nothing before it, the first
+     $100 on it, one more every Tuesday after.
 
-     Capped rather than replaced, so the "no back pay" rule survives: a manager
-     whose first bet is in week 6 still starts from week 6 and is not handed the
-     five allowances they were not here for. */
+     Counting Tuesdays rather than weeks of football is deliberate now that a
+     week with nothing risked costs money — the cadence has to be the calendar,
+     or an idle pre-season week would take $20 off a balance no allowance had
+     arrived in. */
+  const ep=bucksEpoch();
+  if(ep){
+    if(to<ep) return 0;                  // before pay day nobody has anything
+    return Math.round((to-ep)/len)+1;
+  }
+  /* No start date configured: the old rule, capped so a Tuesday with no
+     football behind it cannot pay out. */
   return Math.max(1,Math.min(1+bucksWeeksPlayed(),n));
 }
+/* ── A WEEK WITH NOTHING RISKED ──────────────────────────────────────────────
+   Every completed Tuesday-to-Tuesday week since pay day in which this manager
+   neither placed a bet nor traded a share costs bucksIdleCost, once. The week
+   in progress is never counted — there is still time to do something about it.
+
+   Walked with setDate rather than by adding seven days of milliseconds, so the
+   two Tuesdays either side of a daylight-saving change are still one week
+   apart. An invitation nobody accepted is not an action: betsLiveAll already
+   drops the ones still sitting at 'invite' and the ones declined. */
+function bucksIdleWeeks(now=Date.now()){
+  const ep=bucksEpoch();
+  if(!ep||!BUCKS_IDLE_COST()||bucksTestMs()) return 0;
+  const cur=tueWeekStart(new Date(now));
+  const acted=new Set();
+  try{ betsLiveAll().forEach(b=>{
+    const t=Number(b.ts)||0; if(t) acted.add(realWeekStart(new Date(t)));
+  }); }catch(e){}
+  /* a lot stamps its trade time as .t */
+  try{ invLots().forEach(l=>{
+    const t=Number(l.t)||0; if(t) acted.add(realWeekStart(new Date(t)));
+  }); }catch(e){}
+  let n=0;
+  const d=new Date(ep);
+  for(let i=0;i<400&&d.getTime()<cur;i++){
+    if(!acted.has(realWeekStart(new Date(d)))) n++;
+    d.setDate(d.getDate()+7);
+  }
+  return n;
+}
+function bucksIdleCost(){ return bucksIdleWeeks()*BUCKS_IDLE_COST(); }
 function bucksAllowance(){ return BUCKS_WEEKLY*bucksCycles(); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
 
@@ -9452,7 +9500,8 @@ function bucksBalance(){
   /* shares are bought with the same money as bets, so what is tied up in them
      has to leave the balance — and come back when they are sold */
   let inv=0; try{ inv=invNetSpent(); }catch(e){}
-  return Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv);
+  let idle=0; try{ idle=bucksIdleCost(); }catch(e){}
+  return Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv-idle);
 }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
@@ -13862,7 +13911,10 @@ function sbWeekMarkets(book,games,week){
   out.push(sbYesNoAny('wk'+week+'-donut',`Week ${week} Donut`,
     'Does anyone in this lineup score zero or less? Defence does not count.',
     te,rows.map(r=>0.157*Math.exp(-0.33*(r.z.ppg||0))),
-    'fa-ring',{lo:0.06,hi:0.34,mul:true}));
+    /* One column. The yes side runs 6-34%, so the no side lays most of a
+       bankroll to win pocket change — it was on the board only because the
+       shape of a two-way market said it had to be. */
+    'fa-ring',{lo:0.06,hi:0.34,mul:true,yesOnly:true}));
   return out;
 }
 function sbWeekHTML(){
