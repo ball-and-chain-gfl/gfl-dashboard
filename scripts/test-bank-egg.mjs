@@ -36,6 +36,7 @@ const parts=[
   grab('function bucksCycles(now=Date.now()){'),
   grab('function bucksAllowance(){'),
   grab('function bucksEpoch(){'),
+  grab('function bucksEpochSeason(){'),
   grab('const BUCKS_IDLE_COST='),
   grab('function bucksIdleWeeks(now=Date.now()){'),
   grab('function bucksIdleCost(){'),
@@ -57,6 +58,8 @@ const BUCKS_WEEKLY=100;
 /* bucksTestMs only speeds the clock up for the test account, and section 10 is
    about what that flag does — so the harness says yes. */
 const isTestProfile=()=>true;
+/* bucksEpochSeason only reaches for this when no pay day is configured */
+const bkLeagueSeason=()=>'2026';
 /* Completed fantasy weeks. The allowance is capped at one per week played, so
    every case below has to say where in the season it is standing. */
 let _WEEKS=0;
@@ -236,11 +239,33 @@ console.log('\n12. the money starts on one Tuesday for everybody');
   eq('5am on pay day is still the week before',api.bucksCycles(on(2026,9,1,5)), 0);
   eq('pay day: one allowance',                 api.bucksCycles(on(2026,9,1,7)), 1);
   eq('the Sunday after: still one',            api.bucksCycles(on(2026,9,6)), 1);
-  eq('the next Tuesday: two',                  api.bucksCycles(on(2026,9,8)), 2);
-  eq('three weeks on: four',                   api.bucksCycles(on(2026,9,22)), 4);
+  /* PAY DAY HANDS OVER THE FIRST ONE; FOOTBALL EARNS THE REST.
+
+     Counting Tuesdays alone paid out twice before a snap was played — 1
+     September and then the 8th, with the season not starting until the 10th. */
+  eq('the next Tuesday, nothing played: still one',  api.bucksCycles(on(2026,9,8)), 1);
+  eq('three Tuesdays on, nothing played: still one', api.bucksCycles(on(2026,9,22)), 1);
   /* it does not matter when this manager first bet — everybody shares a pay day */
   api.set([B({ts:on(2026,9,15),stake:0,ret:0,status:'won'})],0,0,0,cfg);
-  eq('a late first bet does not move pay day',  api.bucksCycles(on(2026,9,22)), 4);
+  eq('a late first bet does not move pay day',  api.bucksCycles(on(2026,9,22)), 1);
+}
+
+console.log('\n12b. and one more for every week actually played');
+{
+  const cfg={cfg:{bucksStart:'2026-09-01',bucksIdleCost:20}};
+  const on=(y,m,d,h)=>new Date(y,m-1,d,h==null?12:h,0,0,0).getTime();
+  const at=(weeks)=>{ api.set([],0,0,weeks,cfg); return api.bucksCycles(on(2026,11,1)); };
+  eq('week 1 in the books: two',   at(1), 2);
+  eq('week 3 in the books: four',  at(3), 4);
+  eq('week 8 in the books: nine',  at(8), 9);
+  eq('a full season: eighteen',    at(17), 18);
+  /* and it never runs backwards just because a Tuesday has not come round */
+  api.set([],0,0,5,cfg);
+  eq('the same answer on any day of that week',
+     api.bucksCycles(on(2026,10,15)), api.bucksCycles(on(2026,10,18)));
+  /* before pay day, football or not, nobody has anything */
+  api.set([],0,0,3,cfg);
+  eq('still nothing before pay day', api.bucksCycles(on(2026,8,27)), 0);
 }
 
 console.log('\n13. a week with nothing risked costs $20');

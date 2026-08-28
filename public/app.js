@@ -8276,8 +8276,16 @@ function sbSplits(owner){
    upset. So the live blend is weighted by how much football has been played,
    reaching full strength around week eight. In week one this is a no-op and the
    board is the career model exactly as it was. */
-const SB_LIVE_MAX=0.55;      // most of the rating this season may ever own
-const SB_LIVE_FULL=8;        // games after which it counts for all of that
+/* THIS SEASON IS MOST OF THE ANSWER, AND IT GETS THERE BY WEEK FOUR.
+
+   These were 0.55 and eight games: a board still leaning on last year's teams
+   most of the way to November. Four weeks is enough football to know who is
+   good, and the roster term underneath it is pure ESPN projection, which is
+   about the season being played rather than any season behind it. The career
+   model keeps the remaining quarter — it is what stops three flukey weeks
+   deciding everything, and it is all there is in week one. */
+const SB_LIVE_MAX=0.75;      // most of the rating this season may ever own
+const SB_LIVE_FULL=4;        // games after which it counts for all of that
 
 /* ── WHO IS ON EACH ROSTER ───────────────────────────────────────────────────
    One mRoster call returns all twelve rosters at once, which is what makes
@@ -8401,25 +8409,14 @@ function sbLiveSignals(rows,season){
   rows.forEach(r=>{
     const x=rec[r.owner]; if(!x||!x.g) return;
     const wr=(x.w/x.g-0.5)*2;                                   // −1 … +1
-    /* THE WORST WEEK DOES NOT COUNT TOWARDS SCORING.
-
-       Both scoring terms drop a manager's lowest week once there are enough of
-       them to spare one. A deliberately sat lineup is an extreme outlier and
-       this is what stops it moving the price: tank a week to lengthen your own
-       odds and the number it was meant to move ignores it. It costs very little
-       real signal — everybody's worst week comes off, and the term is z-scored
-       across the league afterwards, so a shift every team shares cancels out.
-
-       The record term above is left alone on purpose. Somebody who sits their
-       lineup really did lose that game, and pretending otherwise would rewrite
-       the standings to protect a price. That loss is also most of why tanking
-       is a bad idea. */
-    const all=x.weeks.map(w=>w.pts).sort((a,b)=>a-b);
-    const kept=all.length>=4?all.slice(1):all;
-    const sc=(kept.length&&lgPpg)?((kept.reduce((a,b)=>a+b,0)/kept.length)/lgPpg-1):0;
-    const l3=x.weeks.slice(-3).map(w=>w.pts).sort((a,b)=>b-a);
-    const recent=l3.length===3?l3.slice(0,2):l3;
-    const fm=(recent.length&&lgPpg)?((recent.reduce((a,b)=>a+b,0)/recent.length)/lgPpg-1):0;
+    /* Every week counts. This briefly dropped each manager's lowest week, to
+       stop somebody sitting a lineup on purpose to lengthen their own price —
+       but nobody is going to throw a real fantasy game for a play-money bet,
+       and discarding a bad week discards a real bad week far more often than a
+       staged one. A team that scored 60 is a team that scored 60. */
+    const sc=lgPpg?((x.pf/x.g)/lgPpg-1):0;
+    const last=x.weeks.slice(-3);
+    const fm=(last.length&&lgPpg)?((last.reduce((a,b)=>a+b.pts,0)/last.length)/lgPpg-1):0;
     out.form[r.owner]=0.50*wr+0.30*sc+0.20*fm;
     /* the spread of their weekly scores, as a fraction of their own average */
     if(x.weeks.length>2){
@@ -8536,17 +8533,17 @@ function sbBuild(){
     const zLine=has('lineup')?zf('lineup'):rows.map(()=>0);
     const w=Math.min(1,(live.played||0)/SB_LIVE_FULL)*SB_LIVE_MAX;
     rows.forEach((r,i)=>{
-      /* Form is already a blend of record, scoring and the last three weeks, so
-         it goes in whole. Roster carries the rest, because it is the only term
-         about the weeks ahead rather than the ones behind.
+      /* ROSTER LEADS, BECAUSE ROSTER IS THE PROJECTION.
 
-         LINEUP IS NOT IN THE PRICE ANY MORE. It measured how often the right
-         players were actually started, which means a manager who benched their
-         whole team scored badly on it — and a bad score here lengthened their
-         own odds. That is a reward for tanking sitting in the model. It is
-         still computed, still on the row, and still what the Coaching Metric is
-         about; it just does not decide what anybody is paid. */
-      r.live=1.00*zForm[i]+1.05*zRost[i];
+         It is the best legal lineup the players they hold could put out,
+         valued at ESPN's own numbers — the most forward-looking thing in the
+         data and the only term here about the weeks ahead rather than the ones
+         behind. Form is the record, the scoring and the last three weeks, and
+         goes in whole. Lineup is back, small: it is how often the right players
+         were actually started, which says whether a roster gets converted, and
+         the reason it came out — somebody benching a team to lengthen their own
+         odds — is not a thing anybody is going to do. */
+      r.live=0.85*zForm[i]+1.15*zRost[i]+0.25*zLine[i];
       r.z.form=zForm[i]; r.z.vol=zVol[i]; r.z.roster=zRost[i]; r.z.lineup=zLine[i];
       r.rating=(1-w)*r.career+w*r.live;
     });
@@ -9366,6 +9363,13 @@ function bucksEpoch(){
   return new Date(+m[1],+m[2]-1,+m[3],6,0,0,0).getTime();
 }
 const BUCKS_IDLE_COST=()=>Math.max(0,Number(_CFG.bucksIdleCost??0));
+/* Which season's football the allowance is gated on: the one pay day falls in.
+   The NFL year turns over in March, so a September date belongs to that year. */
+function bucksEpochSeason(){
+  const ep=bucksEpoch(); if(!ep) return bkLeagueSeason();
+  const d=new Date(ep);
+  return String(d.getMonth()>=2?d.getFullYear():d.getFullYear()-1);
+}
 const betBase=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/bets`;
 let _bets=null,_betErr=null,_betBusy=false;
 
@@ -9504,7 +9508,18 @@ function bucksCycles(now=Date.now()){
   const ep=bucksEpoch();
   if(ep){
     if(to<ep) return 0;                  // before pay day nobody has anything
-    return Math.round((to-ep)/len)+1;
+    /* PAY DAY, THEN ONE FOR EVERY WEEK ACTUALLY PLAYED.
+
+       Counting Tuesdays alone paid out through a pre-season: the first $100 on
+       1 September and another on the 8th, before a snap. It is the football that
+       earns an allowance now — pay day hands over the first one, and every
+       completed fantasy week adds another.
+
+       Gated on the epoch's OWN season rather than on whatever season it is
+       today. bkLeagueSeason rolls over in March, and reading it here would drop
+       every manager back to a single allowance the moment it did. 2026's
+       schedule stays in _seasonMeta, so this keeps answering 17 all winter. */
+    return 1+bucksWeeksPlayed(bucksEpochSeason());
   }
   /* No start date configured: the old rule, capped so a Tuesday with no
      football behind it cannot pay out. */
@@ -9548,8 +9563,8 @@ function bucksAllowance(){ return BUCKS_WEEKLY*bucksCycles(); }
    the middle stalls it rather than skipping past it. Erring low is deliberate:
    this gates money, and paying an allowance late is a complaint while paying it
    twice is a hole in the economy. */
-function bucksWeeksPlayed(){
-  const meta=_seasonMeta[bkLeagueSeason()];
+function bucksWeeksPlayed(season){
+  const meta=_seasonMeta[String(season||bkLeagueSeason())];
   if(!meta) return 0;
   const byWeek={};
   (meta.schedule||[]).forEach(m=>{
