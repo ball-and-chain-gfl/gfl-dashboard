@@ -1,0 +1,56 @@
+name: Settle bets
+
+# Settlement in the browser is lazy AND personal: betSettleAll runs when a
+# manager opens the sportsbook, over a query by owner — so it grades that
+# manager's bets and nobody else's. Someone who does not look for three weeks
+# has stakes sitting out of their balance, Ball Knowledge missing the won and
+# lost points, and no way for anyone else to settle on their behalf.
+#
+# This is the guarantee: every open bet in the season graded once a week,
+# whether the league visited or not. A weekly market can only settle once its
+# whole week is final, which is Monday night — so Tuesday morning, after
+# archive-week has taken the win-probability series out of Firestore, and again
+# on Wednesday in case ESPN was still finishing up.
+#
+# No secrets. The season comes through the deployed proxy, which holds the ESPN
+# credentials, and Firestore is the same public web key the browser uses with
+# the same rules. Nothing here can delete a bet: the rules refuse it.
+
+on:
+  schedule:
+    - cron: '0 10 * * 2'    # Tue 10:00 UTC — after archive-week at 09:30
+    - cron: '0 10 * * 3'    # Wed 10:00 UTC — safety net
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to settle (blank = current)'
+        required: false
+      dry_run:
+        description: 'Grade and report without writing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One at a time. Two runs grading the same bets would both PATCH the same
+# result, which is harmless, but there is no reason to pay for it twice.
+concurrency:
+  group: settle-bets
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      # The grader is lifted out of app.js at run time, so a rename upstream
+      # breaks it. Check that before letting it write money.
+      - name: The grader still holds
+        run: node scripts/test-season.mjs
+      - name: Settle
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && '1' || '' }}
+        run: node scripts/settle-bets.mjs ${{ github.event.inputs.season }}
