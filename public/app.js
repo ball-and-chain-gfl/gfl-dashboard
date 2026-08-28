@@ -9560,7 +9560,7 @@ async function sbPlaceBet(){
   /* A slip built before kickoff can still be sitting on screen once the games
      are running — the buttons go dead, the slip does not. Without this a ticket
      could be struck on a week whose football had already started. */
-  if(_slip.some(x=>betLegWeek(x.mk)!=null)&&sbWeekLocked()){
+  if(_slip.some(x=>{const w=betLegWeek(x.mk); return w!=null&&sbWeekLocked(w);})){
     _betErr='locked'; _betBusy=false; sbRenderSlip(); return;
   }
   _betBusy=true; _betErr=null; sbRenderSlip();
@@ -12962,12 +12962,27 @@ function sbAvatar(owner,size){
 }
 function sbTeamAb(owner,name){ return drAbbr(owner,name); }
 function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
-/* Once the week's football is under way its prices are stale — the result is
-   partly known and the number no longer reflects it. Books take the board down
-   at kickoff for exactly that reason, so weekly markets close the moment any
-   game in the week starts. Season futures stay open, the way they do at a real
-   book: they are settled months out and a single Sunday does not decide them. */
-function sbWeekLocked(){ return weekHasStarted(); }
+/* A MARKET CLOSES WHEN ITS OWN WEEK KICKS OFF — NOT WHEN ANY WEEK DOES.
+
+   Once a week's football is under way its prices are stale: the result is
+   partly known and the number no longer reflects it. Books take a board down at
+   kickoff for exactly that reason. Season futures stay open, the way they do at
+   a real book — they settle months out and a single Sunday does not decide one.
+
+   Whose week it is matters, because sbWeekData already rolls the board forward:
+   a week counts as played the moment it holds a single point, so from Thursday
+   night the board is printing NEXT week's fixtures. Testing "has any football
+   started" therefore locked markets for a week nobody had played yet, and the
+   entire weekly board sat dead from the first kickoff until Tuesday morning.
+
+   Asking about the market's own week instead gives the league a board every day
+   without ever pricing a game that is already running: the week being played is
+   closed, the week ahead is open, and its numbers move as each day's results
+   land and the power ratings behind them are rebuilt. */
+function sbWeekLocked(wk){
+  if(wk==null) return weekHasStarted();          // no week named: the old blunt test
+  return betWeekStarted(sbBoardSeason(),wk);
+}
 function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
   /* A WEEKLY MARKET WITH THE FOOTBALL ALREADY RUNNING IS SHOWN BUT DEAD.
@@ -12983,7 +12998,8 @@ function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
      Thursday, Sunday and Monday, so from the first kickoff to the last whistle
      there is no moment when nothing is in play — which is why the whole weekly
      board closes together and only the season futures stay up. */
-  if(betLegWeek(mk)!=null&&sbWeekLocked())
+  const mkWk=betLegWeek(mk);
+  if(mkWk!=null&&sbWeekLocked(mkWk))
     return `<span class="sb-odds sb-odds-lock" title="Closed — the week is under way">
       ${btnLabel?`<span class="sb-o-lbl">${btnLabel}</span>`:''}
       <span class="sb-o-val"><i class="fa fa-lock"></i></span></span>`;
@@ -13460,7 +13476,7 @@ function sbSlipHTML(){
             ${_betBusy?'<i class="fa fa-circle-notch fa-spin"></i>Placing…'
               :`<i class="fa fa-check"></i>Place bet · ${bucksFmt(stake)}`}</button>`}
       ${_betErr?`<div class="sb-slip-err">${
-        _betErr==='locked'?'The week is under way — weekly markets are closed. Season futures are still open.'
+        _betErr==='locked'?'That week is under way — those markets are closed. The week ahead and the season futures are still open.'
         :_betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
         :_betErr==='stake'?'Enter a stake first.'
         :_betErr==='quota'?'The league database has hit its daily free-tier limit — try again after it resets at midnight Pacific.'
@@ -13616,8 +13632,9 @@ function sbPick(mk,mkLabel,pick,pickLabel,odds){
   if(i>=0){ _slip.splice(i,1); sbSyncButtons(); sbRenderSlip(); return; }
   /* The board is repainted dead at kickoff, but a price tapped a second before
      it would otherwise still land on the slip. */
-  if(betLegWeek(mk)!=null&&sbWeekLocked()){
-    _sbNote='That week is under way — the weekly board is closed.';
+  const mkWeek=betLegWeek(mk);
+  if(mkWeek!=null&&sbWeekLocked(mkWeek)){
+    _sbNote='Week '+mkWeek+' is under way — those markets are closed. The week ahead is open.';
     sbSyncButtons(); sbRenderSlip(); return;
   }
   const c=sbConflict(mk,pick);
