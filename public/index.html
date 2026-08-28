@@ -5868,13 +5868,12 @@
        the name and the rules off a phone screen entirely. */
     .pr-feat{display:flex;flex-direction:column;align-items:center;text-align:center;
       gap:8px;padding:2px 2px 4px;}
-    /* CAPPED, NOT BOXED. Each drawing keeps its own shape: the four square
-       cards land at 132x132 and the three 16:9 ones at 178x100, which is the
-       same size they were inside the old fixed frame, without the letterbox
-       bars around them. The width and height attributes on the img are what
-       reserve the space, so nothing under it moves when the file arrives. */
-    .pr-feat .pr-art-img{width:auto;height:auto;max-width:min(58%,178px);max-height:132px;
-      border-radius:8px;border:1px solid var(--border);}
+    /* Each drawing keeps its own shape, so there is no box here to fit it
+       into: the size is written into the markup in pixels, worked out from the
+       file's real dimensions, which is also what reserves the space before it
+       decodes. A width or height rule here would override that and put the
+       jump back, so this is only the frame. */
+    .pr-feat .pr-art-img{max-width:100%;border-radius:8px;border:1px solid var(--border);}
     .pr-feat .pr-week{margin-top:2px;}
     .pr-feat .pr-name{margin-top:0;}
     .pr-feat .pr-note{max-width:54ch;margin:2px auto 0;text-align:center;}

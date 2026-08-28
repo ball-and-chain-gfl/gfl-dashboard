@@ -3572,6 +3572,9 @@ const PUNISH_PIC={
    sitting letterboxed inside a fixed frame.
 
    Read off the PNG headers, not typed by hand. */
+/* What the featured drawing is allowed to grow to. Whichever of the two binds
+   first wins, so shapes stay comparable without any being cropped or padded. */
+const PUNISH_PIC_MAX_W=178, PUNISH_PIC_MAX_H=132;
 const PUNISH_PIC_SIZE={
   'fast-banana.png':[683,384],
   'hot-chip.png':[683,384],
@@ -3693,9 +3696,27 @@ function punishRulesHTML(){
   return `
     <div class="pr-feat">
       ${pic
-        ? (()=>{ const d=punishPicSize(sel);
-            return `<img class="pr-art-img" src="${pic}"${d?` width="${d[0]}" height="${d[1]}"`:''}
-             alt="${String(sel).replace(/"/g,'&quot;')}">`; })()
+        ? (()=>{
+            /* SIZED IN PIXELS, FROM THE FILE'S OWN DIMENSIONS.
+
+               Each drawing keeps its own shape, so no two are the same box and
+               nothing is letterboxed. The numbers are worked out here rather
+               than left to CSS because a width and a height in the markup are
+               what reserve the space: with only a max in the stylesheet the
+               browser has nothing to go on until the file decodes, gives the
+               img a two pixel box, and everything under it jumps when the
+               picture lands. Capped at 178 wide and 132 tall, whichever binds
+               first, which is where the four square cards and the three 16:9
+               ones both end up looking the same weight. */
+            const d=punishPicSize(sel);
+            if(!d) return `<img class="pr-art-img" src="${pic}"
+              alt="${String(sel).replace(/"/g,'&quot;')}">`;
+            const k=Math.min(PUNISH_PIC_MAX_W/d[0],PUNISH_PIC_MAX_H/d[1],1);
+            const w=Math.round(d[0]*k), h=Math.round(d[1]*k);
+            return `<img class="pr-art-img" src="${pic}" width="${w}" height="${h}"
+              style="width:${w}px;height:${h}px"
+              alt="${String(sel).replace(/"/g,'&quot;')}">`;
+          })()
         : `<div class="pr-ic">${punishIconHTML(sel)}</div>`}
       <div class="pr-week">${selL===curL?`Week ${cfg.week??'?'} Punishment`:'From the menu'}</div>
       <div class="pr-name">${sel||'TBD'}</div>
