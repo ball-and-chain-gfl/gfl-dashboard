@@ -10621,7 +10621,19 @@ function renderBallKnowledge(){
       <span class="bk-delta-v">${delta>0?'+':delta<0?'−':''}${Math.abs(delta)}</span>
       <span class="bk-delta-l">Ball Knowledge ${word}</span>
     </div>
-    ${homeRestartBtn('bk')}`;
+    ${''/* NO START OVER ON A GRADED SET, except for the testing account.
+
+           The scorecard prints the right answer beside every question that was
+           missed. A restart wiped the stored answers and reopened the same five
+           questions — they are seeded on season and week, so they come back
+           identical — which was a two-tap route to five out of five, every week,
+           on the one number the site exists to keep honest. Answering one at a
+           time and grading the set together is what was supposed to stop
+           somebody walking their way to a perfect score, and this undid it.
+
+           Correcting a misfire is what the Back button is for, and it only
+           exists while the set is still open. */}
+    ${isTestProfile()?homeRestartBtn('bk'):''}`;
   bkPlace(true);
   orderHomeTodo();
 }
@@ -11933,6 +11945,11 @@ function ntWireSwipe(){
    single time. */
 async function homeRestart(which){
   if(which==='bk'){
+    /* Belt as well as braces: the scorecard no longer draws this button for the
+       league, and the handler will not wipe a graded set either. Ball Knowledge
+       is the one thing here that is scored, and a redo with the answers already
+       shown is not a redo. */
+    if(!isTestProfile()) return;
     _bkAnswers={}; _bkOpen=null; _bkDone=false;
     localStorage.removeItem(lsKey(bkKey()));
     if(_me) try{ await gflPatchProfile(_me.k1,{[bkKey()]:''}); }catch(e){}
