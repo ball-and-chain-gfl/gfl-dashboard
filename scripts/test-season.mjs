@@ -51,8 +51,13 @@ let _seasonMeta={}, ALL_SEASONS=[], _finalsCache={};
    cases are about the weekly path, so it answers "loaded" or "not loaded". */
 const sbFinals=s=>(_seasonMeta[s]?{}:null);
 const regEndOf=()=>14;
+/* The top-scorer markets read the lineups feed — what each started player
+   scored, per team per week. Handed in rather than fetched. */
+let _lineups=null;
+const loadLineups=()=>{};
 ${parts.join('\n')}
 return { set(m,all){_seasonMeta=m; ALL_SEASONS=all; _finalsCache={};},
+         setLineups(L){_lineups=L;},
          sbSeason, betGrade, betWeekResult, betLegWeek };`;
 const api = new Function(harness)();
 
@@ -158,6 +163,58 @@ console.log('\n5. and no season future is mistaken for one');
   const seasonMarkets=['champ','last','firstring','playoffs','mostpf','fewpf',
     'mostpa','highweek','most150','most80','wins','pf','pa','topseed','botseed'];
   seasonMarkets.forEach(mk=>eq(mk+' is season-long', api.betLegWeek(mk), null));
+}
+
+/* ── PART THREE ──────────────────────────────────────────────────────────────
+   Top Player and By Team's Top Scorer had no grading case at all: they returned
+   null every time, which reads as "not finished yet", so the ticket stayed open
+   for good and the stake never came back. Both settle off the lineups feed now.
+
+   The field entry is the interesting one. "Anyone else" only means something
+   against the names it was offered beside, and those come from projections that
+   cannot be reproduced after the week — so the named pids ride along on the
+   pick and settlement reads them back off the ticket. */
+console.log('\n6. the top-scorer markets settle off who was started');
+{
+  const owners={1:'bft',2:'bi',3:'dorm',4:'fman',5:'goob',6:'kunk',
+                7:'kw',8:'mcm',9:'mm',10:'mwm',11:'ting',12:'wglr'};
+  /* week 5 fully played, so betWeekResult gets past its "is the week final" gate */
+  const meta=Object.assign(season(5,false),{owners});
+  api.set({...past, 2026:meta}, ALL);
+  /* bft started 3001 for 31.5 — the best in the league that week. bi's best is
+     3010 on 22.0, so bi's own market has a different winner from the league's. */
+  api.setLineups({2026:{weeks:{5:{
+    1:[['3001',31.5],['3002',12.0]],
+    2:[['3010',22.0],['3011', 8.5]],
+    3:[['3020',19.0]],
+  }}}});
+  const leg=(mk,pick)=>({mk,pickLabel:'',pick,odds:200});
+
+  eq('league: the top scorer wins',      api.betWeekResult(leg('wk5-player','p3001'),'2026',5), true);
+  eq('league: anyone else loses',        api.betWeekResult(leg('wk5-player','p3010'),'2026',5), false);
+  eq('league: field wins when the top scorer was not named',
+     api.betWeekResult(leg('wk5-player','field:3010-3020'),'2026',5), true);
+  eq('league: field loses when he was',
+     api.betWeekResult(leg('wk5-player','field:3001-3010'),'2026',5), false);
+
+  eq("by team: bft's own best wins",     api.betWeekResult(leg('ttbft-5','p3001'),'2026',5), true);
+  eq("by team: bi's best is bi's own",   api.betWeekResult(leg('ttbi-5','p3010'),'2026',5), true);
+  eq('by team: another roster does not count',
+     api.betWeekResult(leg('ttbi-5','p3001'),'2026',5), false);
+  eq("by team: bi's field excludes only bi's names",
+     api.betWeekResult(leg('ttbi-5','field:3011'),'2026',5), true);
+
+  /* a tie at the top pays nobody and takes nothing */
+  api.setLineups({2026:{weeks:{5:{1:[['3001',30.0],['3002',30.0]]}}}});
+  eq('a tie at the top is a push',       api.betWeekResult(leg('ttbft-5','p3001'),'2026',5), 'push');
+  eq('and the loser still loses',        api.betWeekResult(leg('ttbft-5','p3003'),'2026',5), false);
+
+  /* the feed not being in yet is not a result */
+  api.setLineups(null);
+  eq('no lineups feed leaves it open',   api.betWeekResult(leg('wk5-player','p3001'),'2026',5), null);
+  api.setLineups({2026:{weeks:{5:{1:[['3001',31.5]]}}}});
+  eq('a field pick with no names recorded stays open',
+     api.betWeekResult(leg('wk5-player','field'),'2026',5), null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

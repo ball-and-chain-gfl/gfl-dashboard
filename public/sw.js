@@ -4,7 +4,7 @@
 // app from getting stuck on an old cached version.
 // STATIC DATA (/data/*.json): stale-while-revalidate (fast; historical, rarely changes).
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v520';
+const CACHE = 'gfl-v521';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered

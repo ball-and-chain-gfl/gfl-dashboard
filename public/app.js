@@ -12683,9 +12683,44 @@ function betWeekResult(leg,season,wk){
     const donut=starters.some(([,v])=>Number(v)<=0);
     return donut===(side!=='no');
   }
-  /* Top Player and the FAAB lines need the week's player box scores, which are
-     a separate fetch and are not always on hand. Left ungraded on purpose: a
-     ticket the book cannot price is a ticket it should not be buying back. */
+  /* ── THE TWO TOP-SCORER MARKETS ─────────────────────────────────────────
+     wk<N>-player is the league's highest scorer of the week; tt<owner>-<week>
+     is the same question asked of one roster. Both settle off the lineups feed
+     the donut already reads, which carries what each started player scored —
+     so "top scorer" means the best player anybody actually started, which is
+     what the market says and what the board is built from.
+
+     Neither had a case here at all. They graded null every time, which reads
+     as "not finished yet" and left the ticket open for good. */
+  const teamTop=(/^tt(.+)-\d+$/.exec(mk)||[])[1];
+  if(/^wk\d+-player$/.test(mk)||teamTop){
+    try{ loadLineups(); }catch(e){}
+    const L=_lineups&&_lineups[String(season)];
+    const rows=L&&L.weeks&&L.weeks[wk];
+    if(!rows) return null;                       // feed not in yet — ask again later
+    let best=-Infinity, who=[];
+    Object.keys(rows).forEach(tid=>{
+      if(teamTop&&owners[tid]!==teamTop) return; // one roster for the By Team market
+      (rows[tid]||[]).forEach(row=>{
+        const pid=String(row&&row[0]), p=Number(row&&row[1]);
+        if(!pid||!isFinite(p)) return;
+        if(p>best){ best=p; who=[pid]; }
+        else if(p===best) who.push(pid);
+      });
+    });
+    if(!who.length) return null;
+    if(ent==='field'){
+      /* The named pids ride along on the pick. Without them there is no honest
+         way to say what "anyone else" excluded, so it stays ungraded. */
+      const named=String(side||'').split('-').filter(Boolean);
+      if(!named.length) return null;
+      return who.every(p=>!named.includes(p));
+    }
+    const one=/^p(\d+)$/.exec(ent);
+    if(!one) return null;
+    if(!who.includes(one[1])) return false;
+    return who.length>1?'push':true;             // a tie at the top is a push
+  }
   return null;
 }
 /* Which week a leg belongs to, or null if it is a season-long market. Weekly
@@ -13327,11 +13362,15 @@ function sbTeamTopMarket(book,owner,week){
   const p=[...all.slice(0,4),all.slice(4).reduce((a,v)=>a+v,0)];
   const ents=[...four.map(x=>({k:'p'+x.pid,name:x.p.name,
       av:playerImg(x.pid,22,x.p.name),ab:POS_NAMES[x.p.pos]||''})),
-    {k:'field',name:'Anyone else',tail:true,
+    /* The field entry carries the pids that were named beside it. Settlement
+       has to know which players "anyone else" meant, and the four are chosen
+       from projections that cannot be reproduced after the week — so the answer
+       travels on the ticket rather than being guessed at later. */
+    {k:'field:'+four.map(x=>x.pid).join('-'),name:'Anyone else',tail:true,
       av:'<span class="sb-field-av"><i class="fa fa-users"></i></span>',
       ab:rest.length+' players'}];
   const m=sbOutrightAny('tt'+owner+'-'+week,`Week ${week} Top Scorer`,
-    `Which player on ${r.name} scores the most this week, on ESPN projections`,
+    `Which started player on ${r.name} scores the most this week, on ESPN projections`,
     ents,p,'fa-user-astronaut',1,'Player');
   return sbMarketHTML(m);
 }
@@ -13775,11 +13814,13 @@ function sbWeekMarkets(book,games,week){
       const pw=sbTopProbs(cand.map(c=>c.p.wk),week*7919+11);
       const ents=[...cand.slice(0,NAMED).map(c=>({k:'p'+c.pid,name:c.p.name,
           av:playerImg(Number(c.pid),22,c.p.name),ab:own[c.pid]})),
-        {k:'field',name:'Anyone else',tail:true,
+        /* as above: the twenty names go with the ticket, or the field cannot
+           be settled once the projections that chose them have moved on */
+        {k:'field:'+cand.slice(0,NAMED).map(c=>c.pid).join('-'),name:'Anyone else',tail:true,
           av:'<span class="sb-field-av"><i class="fa fa-users"></i></span>',
           ab:(cand.length-NAMED)+'+ players'}];
       out.push(sbOutrightAny('wk'+week+'-player',`Week ${week} Top Player`,
-        'Highest-scoring rostered player of the week, on ESPN projections',
+        'Highest-scoring started player of the week, on ESPN projections',
         ents,[...pw.slice(0,NAMED),pw.slice(NAMED).reduce((a,v)=>a+v,0)],
         'fa-medal',1,'Player'));
     }
@@ -13844,21 +13885,22 @@ function sbWeekHTML(){
       </div>
       ${res}
     </div>`;}).join('');
-  const waiver=d.buys.length?d.buys.map((b,i)=>{
-    const line=Math.max(1,Math.round(b.bid))+0.5;
-    const key='fa'+b.pid+'-'+d.week;
-    return `<div class="sb-row sb-row2">
-      <span class="sb-tm">${playerImg(b.pid,22,pName(b.pid))}<span class="wk-pl">${pName(b.pid)}</span><span class="wk-pt">${b.team}</span></span>
-      ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'o',`${pName(b.pid)} — Over $${line.toFixed(1)} FAAB`,-110,'sb-two','O '+line.toFixed(1))}
-      ${sbBtn(key,`Week ${d.week} FAAB · ${pName(b.pid)}`,'u',`${pName(b.pid)} — Under $${line.toFixed(1)} FAAB`,-110,'sb-two','U '+line.toFixed(1))}
-    </div>`;}).join(''):`<div class="sb-msub" style="padding:12px 14px">No waiver activity recorded for week ${d.week}.</div>`;
+  /* THE FAAB OVER/UNDER IS OFF THE BOARD.
+
+     It priced what a manager paid for a waiver pickup, and nothing could ever
+     settle it: betWeekResult has no case for an fa<pid>-<week> key, so every
+     ticket graded null and sat open for good — the stake gone, since a stake
+     only comes back on settlement. Grading it would mean reading the winning
+     bid out of the archived transaction log, which is a different job from
+     reading a scoreboard, and the market was never worth that much machinery.
+     betLegWeek still recognises the key so anything historic classifies. */
   /* The matchup board and the waiver market are hand-built rather than passed
      through sbMarketHTML — their bodies are a game board and a FAAB ladder, not
      a column of priced rows — but they fold like everything else on the week.
      Six matchups and eight pickups left open were most of the page's scroll,
      and the markets between them were unreachable without going past both. */
   const marks=(d.marks||[]).map(sbMarketHTML).join('');
-  const wkOpen=!!_sbOpenMk['wk-board'], faabOpen=!!_sbOpenMk['wk-faab'];
+  const wkOpen=!!_sbOpenMk['wk-board'];
   return `<div class="sb-market sb-fold${wkOpen?' open':''}" data-mk="wk-board">
       <button class="sb-mhead" onclick="sbToggleMk('wk-board')" aria-expanded="${wkOpen}">
         <span class="sb-mt">Week ${d.week} Matchups</span>
@@ -13872,19 +13914,7 @@ function sbWeekHTML(){
         <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
       </div></div>
     </div>
-    ${marks}
-    <div class="sb-market sb-fold${faabOpen?' open':''}" data-mk="wk-faab">
-      <button class="sb-mhead" onclick="sbToggleMk('wk-faab')" aria-expanded="${faabOpen}">
-        <span class="sb-mt">Waiver Wire</span>
-        <span class="badge-info">FAAB over / under</span>
-        <i class="fa fa-chevron-down sb-mchev"></i>
-      </button>
-      <div class="sb-rows"><div class="sb-rows-in">
-        <div class="sb-msub-in">What managers paid for week ${d.week} pickups. Bids are estimated for seasons ESPN has purged.</div>
-        <div class="sb-row sb-row2 sb-head"><span>Player</span><span class="sb-oh">Over</span><span class="sb-oh">Under</span></div>
-        ${waiver}
-      </div></div>
-    </div>`;
+    ${marks}`;
 }
 
 /* ── THE WALLET BAR ──────────────────────────────────────────────────────────
