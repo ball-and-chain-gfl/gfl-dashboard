@@ -405,7 +405,10 @@ async function fetchSeasonData(season){
     const mpc=d.settings?.scheduleSettings?.matchupPeriodCount;
     const regEndY=(mpc>=8&&mpc<=18)?mpc:14;
     const faabBudget=d.settings?.acquisitionSettings?.acquisitionBudget||0;
-    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget};
+    /* How many of each slot a lineup starts. Needed to work out the best team a
+       roster could actually field, which is what the odds are taken from. */
+    const slots=d.settings?.rosterSettings?.lineupSlotCounts||null;
+    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget,slots};
   }catch{return null;}
 }
 /* ── WHICH POSTSEASON GAMES COUNT ────────────────────────────────────────────
@@ -499,7 +502,7 @@ async function buildAllTimeH2H(){
   results.forEach(res=>{
     if(res.status!=='fulfilled'||!res.value) return;
     const {season,schedule,owners,names,teams}=res.value;
-    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{},playoffTeamCount:res.value.playoffTeamCount||6,regEnd:res.value.regEnd||14,faabBudget:res.value.faabBudget||0};
+    _seasonMeta[season]={owners,names,teams,schedule,divisions:res.value.divisions||{},playoffTeamCount:res.value.playoffTeamCount||6,regEnd:res.value.regEnd||14,faabBudget:res.value.faabBudget||0,slots:res.value.slots||null};
     schedule.forEach(mu=>{
       if(!mu.home||!mu.away) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
@@ -8326,6 +8329,50 @@ function sbRosters(season,week){
   return null;
 }
 
+/* ── THE BEST TEAM A ROSTER COULD PUT OUT ────────────────────────────────────
+   A team is priced on what it could start, not on what it did start. Anything
+   read off the lineup that was actually set is gameable: sit the whole starting
+   eleven, lose by ninety, and next week's price has you as a long underdog —
+   then put everybody back and collect. What a manager holds cannot be faked
+   without genuinely giving the players away.
+
+   Slot-aware, because the top nine projections regardless of position is not a
+   team. Quarterbacks project around three hundred and kickers around a hundred
+   and twenty, so nine-best handed a full credit to every quarterback on a
+   roster when only one of them can start. The shape comes from the league's own
+   rosterSettings; the fallback is the shape this league runs. */
+const LINEUP_SHAPE_FALLBACK={qb:1,rb:2,wr:2,te:1,flex:1,dst:1,k:1};
+function sbSlotShape(meta){
+  const c=meta&&meta.slots;
+  if(!c) return LINEUP_SHAPE_FALLBACK;
+  const n=k=>Math.max(0,Number(c[k])||0);
+  const shape={qb:n(0),rb:n(2),wr:n(4),te:n(6),flex:n(23),dst:n(16),k:n(17)};
+  /* A settings blob that names no starters at all is not a lineup — some past
+     seasons come back with the counts missing entirely. */
+  return Object.values(shape).some(v=>v>0)?shape:LINEUP_SHAPE_FALLBACK;
+}
+/* posOf answers ESPN's defaultPositionId: 1 QB, 2 RB, 3 WR, 4 TE, 5 K, 16 D/ST */
+function sbBestLineup(entries,projOf,posOf,shape){
+  const by={1:[],2:[],3:[],4:[],5:[],16:[]};
+  (entries||[]).forEach(e=>{
+    const p=posOf(e);
+    if(by[p]) by[p].push(Math.max(0,projOf(e)||0));
+  });
+  Object.keys(by).forEach(k=>by[k].sort((a,b)=>b-a));
+  let total=0;
+  const take=(pos,n)=>{ const a=by[pos]; for(let i=0;i<n&&a.length;i++) total+=a.shift(); };
+  take(1,shape.qb); take(2,shape.rb); take(3,shape.wr); take(4,shape.te);
+  take(16,shape.dst); take(5,shape.k);
+  /* FLEX takes the best of whatever running back, receiver or tight end is left
+     once the named slots are filled. */
+  for(let i=0;i<shape.flex;i++){
+    let bestPos=null,bestVal=-1;
+    [2,3,4].forEach(p=>{ if(by[p].length&&by[p][0]>bestVal){ bestVal=by[p][0]; bestPos=p; } });
+    if(bestPos==null) break;
+    total+=by[bestPos].shift();
+  }
+  return total;
+}
 function sbLiveSignals(rows,season){
   const out={form:{},vol:{},roster:{},lineup:{},played:0};
   if(!season) return out;
@@ -8354,9 +8401,25 @@ function sbLiveSignals(rows,season){
   rows.forEach(r=>{
     const x=rec[r.owner]; if(!x||!x.g) return;
     const wr=(x.w/x.g-0.5)*2;                                   // −1 … +1
-    const sc=lgPpg?((x.pf/x.g)/lgPpg-1):0;
-    const last=x.weeks.slice(-3);
-    const fm=(last.length&&lgPpg)?((last.reduce((a,b)=>a+b.pts,0)/last.length)/lgPpg-1):0;
+    /* THE WORST WEEK DOES NOT COUNT TOWARDS SCORING.
+
+       Both scoring terms drop a manager's lowest week once there are enough of
+       them to spare one. A deliberately sat lineup is an extreme outlier and
+       this is what stops it moving the price: tank a week to lengthen your own
+       odds and the number it was meant to move ignores it. It costs very little
+       real signal — everybody's worst week comes off, and the term is z-scored
+       across the league afterwards, so a shift every team shares cancels out.
+
+       The record term above is left alone on purpose. Somebody who sits their
+       lineup really did lose that game, and pretending otherwise would rewrite
+       the standings to protect a price. That loss is also most of why tanking
+       is a bad idea. */
+    const all=x.weeks.map(w=>w.pts).sort((a,b)=>a-b);
+    const kept=all.length>=4?all.slice(1):all;
+    const sc=(kept.length&&lgPpg)?((kept.reduce((a,b)=>a+b,0)/kept.length)/lgPpg-1):0;
+    const l3=x.weeks.slice(-3).map(w=>w.pts).sort((a,b)=>b-a);
+    const recent=l3.length===3?l3.slice(0,2):l3;
+    const fm=(recent.length&&lgPpg)?((recent.reduce((a,b)=>a+b,0)/recent.length)/lgPpg-1):0;
     out.form[r.owner]=0.50*wr+0.30*sc+0.20*fm;
     /* the spread of their weekly scores, as a fraction of their own average */
     if(x.weeks.length>2){
@@ -8366,22 +8429,26 @@ function sbLiveSignals(rows,season){
     }
   });
   /* ── roster: what ESPN projects the players they hold will score ──
-     Measured on the nine that would actually start — a deep bench does not win
-     games, and counting sixteen players would reward hoarding. ESPN's own
-     season projection is the number used, which is the most forward-looking
-     thing available anywhere in the data. */
+     Measured on the best legal lineup the roster could field — a deep bench
+     does not win games, and counting sixteen players would reward hoarding.
+     ESPN's own season projection is the number used, which is the most
+     forward-looking thing available anywhere in the data, and the only term
+     here that cannot be moved by sitting people. */
   try{
     const lw=ntLastWeek(season);
     const rosters=sbRosters(season,(lw&&lw.week)||1);
     const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
     if(!pool||!pool.length) try{ bkLoadPool(); }catch(e){}
     if(rosters&&pool&&pool.length){
-      const proj={}; pool.forEach(p=>{ proj[String(p.id)]=p.proj||p.total||0; });
+      const proj={},posn={};
+      pool.forEach(p=>{ proj[String(p.id)]=p.proj||p.total||0; posn[String(p.id)]=Number(p.pos)||0; });
       const owners=meta.owners||{};
+      const shape=sbSlotShape(meta);
       Object.keys(rosters).forEach(tid=>{
         const o=owners[tid]; if(!o) return;
-        const vals=rosters[tid].map(e=>proj[String(e.pid)]||0).sort((a,b)=>b-a);
-        if(vals.length) out.roster[o]=vals.slice(0,9).reduce((a,b)=>a+b,0);
+        const es=rosters[tid]||[];
+        if(es.length) out.roster[o]=sbBestLineup(es,
+          e=>proj[String(e.pid)]||0, e=>posn[String(e.pid)]||0, shape);
       });
     }
   }catch(e){}
@@ -8470,10 +8537,16 @@ function sbBuild(){
     const w=Math.min(1,(live.played||0)/SB_LIVE_FULL)*SB_LIVE_MAX;
     rows.forEach((r,i)=>{
       /* Form is already a blend of record, scoring and the last three weeks, so
-         it goes in whole. Roster carries real weight because it is the only
-         term about the weeks ahead rather than the ones behind; lineup is a
-         smaller correction on top of it. */
-      r.live=1.00*zForm[i]+0.75*zRost[i]+0.30*zLine[i];
+         it goes in whole. Roster carries the rest, because it is the only term
+         about the weeks ahead rather than the ones behind.
+
+         LINEUP IS NOT IN THE PRICE ANY MORE. It measured how often the right
+         players were actually started, which means a manager who benched their
+         whole team scored badly on it — and a bad score here lengthened their
+         own odds. That is a reward for tanking sitting in the model. It is
+         still computed, still on the row, and still what the Coaching Metric is
+         about; it just does not decide what anybody is paid. */
+      r.live=1.00*zForm[i]+1.05*zRost[i];
       r.z.form=zForm[i]; r.z.vol=zVol[i]; r.z.roster=zRost[i]; r.z.lineup=zLine[i];
       r.rating=(1-w)*r.career+w*r.live;
     });

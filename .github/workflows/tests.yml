@@ -23,6 +23,8 @@ jobs:
         run: node scripts/test-odds.mjs
       - name: which season the site thinks it is
         run: node scripts/test-season.mjs
+      - name: what a team is priced on
+        run: node scripts/test-ratings.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: next-highest waiver bid
