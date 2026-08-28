@@ -199,43 +199,57 @@ window.GFL_CONFIG = {
     previewAll: true,
   },
 
+  /* ── THE PUNISHMENTS ────────────────────────────────────────────────────────
+     Written from the GFL Punishment Doctrine for 2026. Seven punishments, each
+     appearing exactly twice across weeks 1-14, in an order drawn at the draft.
+
+     The names here are the source of truth for the whole tab: the menu, the
+     schedule table, the icons and the featured artwork are all looked up from
+     them. Rename one and everything follows, because the lookups slug the name
+     rather than matching it character for character — "Hot & Spicy", "hot and
+     spicy" and "HOT & SPICY" all land on the same icon and the same picture. */
   punishment: {
     week: 1,
     name: "Beer Pour",
-    note: "Loser of the week pours (and chugs) the group's mystery beer blend.",
-    /* Seven: the week's pick leads the popup at full width, the other six
-       fill a 2x3 grid under it. Rename the placeholder to whatever the
-       seventh actually is. */
-    options: ["Beer Pour", "Weatherman", "Fast Banana", "Willem Defoe", "Fruit Pledge", "Spicy Food", "TBD Seventh"],
+    note: "Pour a beer over your head on camera and send it to the league by Sunday 1pm LLT.",
+    options: ["Beer Pour", "Fruit Pledge", "Willem Dafoe", "Hot & Spicy",
+              "Fast Banana", "Franchise Rebrand", "The Re-enactment"],
+    /* How the whole thing works, as opposed to what any one punishment is. */
     rules: [
-      "Whoever loses the week takes the punishment — lowest score if there is a tie.",
-      "The league picks that week's punishment from the menu below.",
-      "It gets carried out on camera before the next week's games kick off.",
-      "Duck it and you inherit the following week's punishment on top of your own.",
+      "The week's LOWEST POINTS SCORER takes the punishment — not the loser of a matchup.",
+      "The schedule is set in advance: all seven appear twice across weeks 1-14, in an order drawn at the draft, so no single week can be manipulated.",
+      "Most punishments open the moment you are mathematically confirmed as low scorer — if nobody can drop below you, there is no need to wait for Monday night — and close the following Sunday at 1pm LLT (Loser Local Time). The Fruit Pledge is the exception and starts the Tuesday after at 9am.",
+      "Ignore one and that week's matchup takes -5. Still outstanding a week later and it is -10. After two weeks the deduction is wiped: it is meant to incentivise, not to snowball.",
     ],
-    /* THE SEASON SCHEDULE — which punishment is on the line each week, weeks
-       1 to 14. Keys are week numbers, values must match the `options`
-       spelling above. Only week 1 is filled in, because it is the only one
-       that has actually been set; every other week reads TBD on the
-       Punishments tab until you put a name here. Nothing is invented for you.
-       The row for `week` above is outlined on that tab as the current one. */
+    /* THE SEASON SCHEDULE — which punishment is on the line each week.
+       Values must match the `options` spelling above.
+
+       The order was drawn at the draft and only week 1 is recorded here, so
+       weeks 2-14 read TBD on the tab until the drawn order is filled in.
+       Nothing is invented: each of the seven should appear exactly twice
+       across the fourteen weeks. */
     schedule: {
       1: "Beer Pour",
       2: "", 3: "", 4: "", 5: "", 6: "", 7: "",
       8: "", 9: "", 10: "", 11: "", 12: "", 13: "", 14: "",
     },
-    /* What each punishment actually involves. Click any entry in the menu to
-       read it; it opens on whichever one is set above for this week.
-       Keys must match the `options` spelling. Blank ones just prompt you to
-       write them — nothing here is invented for you. */
+    /* The rules for each one, condensed from the doctrine. Tap any entry in the
+       menu to read it; it opens on whichever is set for this week. */
     details: {
-      "Beer Pour": "Loser of the week pours (and chugs) the group's mystery beer blend.",
-      "Weatherman": "",
-      "Fast Banana": "",
-      "Willem Defoe": "",
-      "Fruit Pledge": "",
-      "Spicy Food": "",
-      "TBD Seventh": "",
+      "Beer Pour":
+        "Record yourself pouring a beer — or the alcoholic beverage of your choice — over your head, and send it to the league. Your window opens the moment you are mathematically confirmed as the week's lowest scorer, so if nobody can drop below you there is no need to wait on Monday night. Deadline is the following Sunday at 1pm LLT. Miss it and that week's matchup takes -5; still nothing a week later and it is -10. Both wipe after two weeks.",
+      "Fruit Pledge":
+        "Carry your fruit on you at all times, from 9am LLT the Tuesday after your dud week until 1pm the following Sunday. The order is grape, kiwi, apple, grapefruit, coconut, cantaloupe, pineapple, watermelon, pumpkin, jackfruit — and beyond that it is -1 point for every failed check. Anyone in the league can call a fruit check and you have 15 minutes to produce photographic evidence or you move up a fruit. Two hours' immunity after each check, and checks only run 7am to 10pm LLT. If you will be away from your phone, send a pre-emptive check or share your work calendar for the week. Refuse the whole thing and it is -15 off next week's score.",
+      "Willem Dafoe":
+        "Pick a pose from the league's Willem Dafoe folder and recreate it — outfit, pose and all — then post it to your Instagram story, ideally with a nice song behind it. Your window opens once you are mathematically the lowest scorer; deadline the following Sunday at 1pm LLT. Repercussions as the Beer Pour: -5 after one week, -10 after two, wiped thereafter.",
+      "Hot & Spicy":
+        "It lands twice a season and the two are not the same. One week is a single jalapeno. The other is the Hot Chip — the league expenses it and it arrives at your door, so the hype has time to build. You must wait a full minute from your first bite before any milk or ice cream, and it goes on camera for the league's enjoyment. Repercussions as the Beer Pour.",
+      "Fast Banana":
+        "No stopwatch this year. The first manager to draw it has to eat a banana with no hands — no time limit, any means necessary, filmed. The second has to do the same thing in that time or better, to settle who the true eater is. Repercussions as the Beer Pour.",
+      "Franchise Rebrand":
+        "The league renames your team, and you cannot change it back until you win a matchup. That might be one week as the Toe Suckers, or it might be a month, depending on how locked in your team is. The league may hand you a new logo to go with it. There is nothing here to ignore — it is simply done to you.",
+      "The Re-enactment":
+        "Re-enact a scene from a film or piece of media, playing every part yourself. The scene is chosen by the league going into the week, so everybody knows what is on the line. It does not have to be complex — it has to entertain the GFL. See the Season 5 Punishments video on Ball & Chain for the standard. Repercussions as the Beer Pour.",
     },
   },
 

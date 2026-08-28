@@ -3531,14 +3531,10 @@ function legacyReportHTML(owner){
 }
 
 // ── WEEKLY PUNISHMENT ────────────────────────────────────────────────────────
-const PUNISH_ART={
-  'beer pour':{icon:'&#xf0fc;',svg:`<svg viewBox="0 0 90 100" width="120" height="133" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="beer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffcf5c"/><stop offset="1" stop-color="#c9860d"/></linearGradient></defs><rect x="20" y="26" width="42" height="64" rx="6" fill="none" stroke="var(--accent)" stroke-width="3"/><rect x="24" y="40" width="34" height="46" rx="3" fill="url(#beer)"/><rect x="24" y="34" width="34" height="9" rx="3" fill="#fff8ec"/><ellipse cx="30" cy="33" rx="5" ry="4" fill="#fff8ec"/><ellipse cx="42" cy="31" rx="6" ry="5" fill="#fff8ec"/><ellipse cx="53" cy="33" rx="5" ry="4" fill="#fff8ec"/><path d="M62 38h10a8 8 0 0 1 0 24h-10" fill="none" stroke="var(--accent)" stroke-width="3"/><circle cx="34" cy="55" r="2" fill="#fff8ec" opacity="0.6"/><circle cx="46" cy="66" r="2.4" fill="#fff8ec" opacity="0.5"/><circle cx="40" cy="74" r="1.8" fill="#fff8ec" opacity="0.5"/></svg>`},
-  'weatherman':{icon:'&#xf743;',svg:''},
-  'fast banana':{icon:'&#xf5d1;',svg:''},
-  'willem defoe':{icon:'&#xf508;',svg:''},
-  'fruit pledge':{icon:'&#xf5d1;',svg:''},
-  'spicy food':{icon:'&#xf06d;',svg:''},
-};
+/* PUNISH_ART, a map of hand-drawn SVGs keyed on 'weatherman', 'willem defoe'
+   and 'spicy food', was removed here: nothing referenced it, and the names it
+   was keyed on are not the league's punishments any more. The featured cards in
+   public/punish are the artwork now. */
 /* ── THE PUNISHMENT ARTWORK ──────────────────────────────────────────────────
    One card per punishment, in public/punish. Keyed on a slug of the name rather
    than the name itself, so config can capitalise and punctuate however it reads
@@ -3558,27 +3554,54 @@ const PUNISH_PIC={
   'hot-chip':'hot-chip.png',
   're-enactment':'re-enactment.png',
   'willem-dafoe':'willem-dafoe.png',
-  /* older names in config for the same three */
+  /* the doctrine's own spellings: "Hot & Spicy" slugs to hot-spicy, and
+     "The Re-enactment" keeps its article */
+  'hot-spicy':'hot-chip.png',
+  'hot-and-spicy':'hot-chip.png',
+  'the-re-enactment':'re-enactment.png',
+  /* names config used before the doctrine was written in */
   'spicy-food':'hot-chip.png',
   'willem-defoe':'willem-dafoe.png',
   'reenactment':'re-enactment.png',
+  'hot-chip':'hot-chip.png',
 };
 const punishPic=n=>{
   const f=PUNISH_PIC[punishSlug(n)];
   return f?'/punish/'+f:null;
 };
-/* the card if there is one, the icon if there is not */
-const punishMark=(n,cls)=>{
-  const p=punishPic(n);
-  return p?`<img src="${p}" alt="" class="${cls||'pn-img'}">`
-          :`<i class="fa ${PUNISH_ICON[String(n||'').toLowerCase()]||'fa-gavel'}"></i>`;
+/* THE ICON FOR A PUNISHMENT, WHEREVER IT IS NAMED.
+
+   Slugged like the pictures, so config decides the spelling and everything
+   follows. Keyed on the exact lowercased name before, which meant renaming
+   "Spicy Food" to "Hot & Spicy" in config silently dropped the icon for a
+   gavel — the map is one of the things that has to move when the names do.
+
+   The artwork is deliberately NOT here. It shows once, as the featured image on
+   the Punishments tab; every other place a punishment is named — the menu tiles,
+   the schedule table, the pinned bar, the homepage — uses the icon. */
+const PUNISH_ICON={
+  'beer-pour':'fa-beer-mug-empty',
+  'fruit-pledge':'fa-apple-whole',
+  'willem-dafoe':'fa-masks-theater',
+  'hot-spicy':'fa-pepper-hot',
+  'fast-banana':'fa-person-running',
+  'franchise-rebrand':'fa-tag',
+  'the-re-enactment':'fa-clapperboard',
+  /* earlier config spellings, kept so a revert does not lose the icon */
+  'hot-and-spicy':'fa-pepper-hot',
+  'spicy-food':'fa-pepper-hot',
+  'hot-chip':'fa-pepper-hot',
+  'willem-defoe':'fa-masks-theater',
+  'reenactment':'fa-clapperboard',
+  'weatherman':'fa-cloud-sun-rain',
 };
-const PUNISH_ICON={'weatherman':'fa-cloud-sun-rain','fast banana':'fa-person-running','willem defoe':'fa-masks-theater','fruit pledge':'fa-apple-whole','spicy food':'fa-pepper-hot','beer pour':'fa-beer-mug-empty'};
+const punishIcon=(n,fallback)=>PUNISH_ICON[punishSlug(n)]||fallback||'fa-gavel';
+const punishIconHTML=(n,fallback)=>`<i class="fa ${punishIcon(n,fallback)}"></i>`;
 function homePunishHTML(){
   const cfg=_CFG.punishment||{};
   if(!cfg.name && cfg.week==null) return '<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
   return `<div class="home-punish">
-    <div class="home-punish-ic">${punishMark(cfg.name,'hp-img')}</div>
+    <div class="home-punish-ic">${punishIconHTML(cfg.name)}</div>
     <div class="home-punish-info">
       <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
       <div class="home-punish-name">${cfg.name||'TBD'}</div>
@@ -3619,7 +3642,7 @@ function punishScheduleHTML(){
     rows.push(`<div class="ps-row${on?' ps-now':''}">
       <span class="ps-wk">Week ${w}</span>
       <span class="ps-name${name?'':' ps-tbd'}">
-        <i class="fa ${name?(PUNISH_ICON[l]||'fa-circle'):'fa-minus'}"></i>${name||'TBD'}</span>
+        <i class="fa ${name?punishIcon(name,'fa-circle'):'fa-minus'}"></i>${name||'TBD'}</span>
       ${on?'<span class="punish-tag">THIS WEEK</span>':''}
     </div>`);
   }
@@ -3643,13 +3666,14 @@ function punishRulesHTML(){
   const detail=(cfg.details||{})[sel] || (selL===curL?cfg.note:'') || '';
   return `
     <div class="pr-hero">
-      <div class="pr-ic">${punishMark(sel,'pr-ic-img')}</div>
+      <div class="pr-ic">${punishIconHTML(sel)}</div>
       <div>
         <div class="pr-week">${selL===curL?`Week ${cfg.week??'—'} Punishment`:'From the menu'}</div>
         <div class="pr-name">${sel||'TBD'}</div>
       </div>
     </div>
-    ${punishPic(sel)?`<div class="pr-art"><img src="${punishPic(sel)}" alt="${sel}"></div>`:''}
+    ${punishPic(sel)?`<div class="pr-art"><img src="${punishPic(sel)}"
+      alt="${String(sel).replace(/"/g,'&quot;')}" loading="lazy"></div>`:''}
     <p class="pr-note${detail?'':' pr-empty'}">${detail
       ||(isTestProfile()?'No description written for this one yet — add it under <b>punishment.details</b> in config.js.'
                         :'No description written for this one yet.')}</p>
@@ -3665,7 +3689,7 @@ function punishRulesHTML(){
         const tile=(o,big)=>{const l=o.toLowerCase();
           return `<button class="punish-opt pr-pick${big?' pr-big':''}${l===selL?' active':''}"
             onclick="selectPunish(${JSON.stringify(o).replace(/"/g,'&quot;')})">
-            ${punishMark(o,'pn-tile-img')}<span>${o}</span>
+            ${punishIconHTML(o,'fa-circle')}<span>${o}</span>
             ${l===curL?'<span class="punish-tag">THIS WEEK</span>':''}</button>`;};
         const lead=opts.find(o=>o.toLowerCase()===curL);
         const rest=opts.filter(o=>o.toLowerCase()!==curL);
@@ -6042,7 +6066,7 @@ function punishBarHTML(){
   const cfg=_CFG.punishment||{};
   if(!cfg.name && cfg.week==null) return '';
   return `<div class="pb-bar">
-    <span class="pb-ic">${punishMark(cfg.name,'hp-img')}</span>
+    <span class="pb-ic">${punishIconHTML(cfg.name)}</span>
     <span class="pb-txt">
       <span class="pb-wk">Week ${cfg.week??'—'} Punishment</span>
       <span class="pb-name">${cfg.name||'TBD'}</span>
