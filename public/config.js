@@ -128,7 +128,17 @@ window.GFL_CONFIG = {
      that people turn up mid-week, and an allowance that arrives whether or not
      they do is an argument for ignoring it. Set it to 0 to switch the penalty
      off entirely. */
-  bucksStart: "2026-09-01",
+  /* Moved back a week, from 1 September to 25 August, so the league holds its
+     first $100 now rather than on the Tuesday. bucksCycles pays one allowance on
+     pay day and one for every fantasy week actually played, and no week has been
+     played yet, so this is exactly $100 each and not a penny more.
+
+     WATCH THE IDLE CHARGE AFTER THIS. bucksIdleWeeks never counts the week in
+     progress, so nobody is docked today. When the week 25 August to 1 September
+     closes, anyone who has neither bet nor traded in it loses bucksIdleCost —
+     $20, before a snap of football has been played. Set bucksIdleCost to 0 if
+     the penalty should not start biting until the season does. */
+  bucksStart: "2026-08-25",
   bucksIdleCost: 20,
 
   /* TESTING — how long one locker-room plant stage lasts, in minutes.
@@ -226,8 +236,8 @@ window.GFL_CONFIG = {
      spicy" and "HOT & SPICY" all land on the same icon and the same picture. */
   punishment: {
     week: 1,
-    name: "Beer Pour",
-    note: "Pour a beer over your head on camera and send it to the league by Sunday 1pm LLT.",
+    name: "Fruit Pledge",
+    note: "Carry your fruit from 9am Tuesday until 1pm the following Sunday, and answer every fruit check within 15 minutes.",
     options: ["Beer Pour", "Fruit Pledge", "Willem Dafoe", "Hot & Spicy",
               "Fast Banana", "Franchise Rebrand", "The Re-enactment"],
     /* How the whole thing works, as opposed to what any one punishment is.
@@ -242,14 +252,30 @@ window.GFL_CONFIG = {
     /* THE SEASON SCHEDULE. Which punishment is on the line each week.
        Values must match the `options` spelling above.
 
-       The order was drawn at the draft and only week 1 is recorded here, so
-       weeks 2 to 14 read TBD on the tab until the drawn order is filled in.
-       Nothing is invented: each of the seven should appear exactly twice
-       across the fourteen weeks. */
+       The order as drawn at the 2026 draft. Each of the seven appears exactly
+       twice across the fourteen weeks, which is the check to run on any edit:
+       Fruit Pledge 1 and 4, Franchise Rebrand 2 and 6, The Re-enactment 3 and
+       10, Beer Pour 5 and 9, Hot & Spicy 7 and 14, Fast Banana 8 and 12,
+       Willem Dafoe 11 and 13. Seven twos, fourteen weeks.
+
+       The two Hot & Spicy weeks are not the same dish, and the doctrine has
+       them in this order: week 7 is the Hot Chip the league expenses and ships
+       to the door, week 14 is the full jalapeno. */
     schedule: {
-      1: "Beer Pour",
-      2: "", 3: "", 4: "", 5: "", 6: "", 7: "",
-      8: "", 9: "", 10: "", 11: "", 12: "", 13: "", 14: "",
+      1: "Fruit Pledge",
+      2: "Franchise Rebrand",
+      3: "The Re-enactment",
+      4: "Fruit Pledge",
+      5: "Beer Pour",
+      6: "Franchise Rebrand",
+      7: "Hot & Spicy",
+      8: "Fast Banana",
+      9: "Beer Pour",
+      10: "The Re-enactment",
+      11: "Willem Dafoe",
+      12: "Fast Banana",
+      13: "Willem Dafoe",
+      14: "Hot & Spicy",
     },
     /* The rules for each one, condensed from the doctrine. Tap any entry in the
        menu to read it; it opens on whichever is set for this week. */

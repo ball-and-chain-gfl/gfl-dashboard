@@ -803,7 +803,15 @@ let _ddPD=0;
 function positionTabDD(){
   const nv=document.getElementById('floatnav'), menu=document.getElementById('tab-dd-menu');
   if(!nv||!menu) return;
-  document.documentElement.style.setProperty('--ddtop',Math.round(nv.getBoundingClientRect().bottom+14)+'px');
+  const top=Math.round(nv.getBoundingClientRect().bottom+14);
+  document.documentElement.style.setProperty('--ddtop',top+'px');
+  /* THE MENU ENDS WHERE THE SCREEN DOES. visualViewport is the only height that
+     knows about Android's URL bar and the on-screen keyboard; innerHeight is the
+     fallback, and both beat the `vh` the stylesheet has to guess with. Without
+     this the box ran past the bottom of the phone and the last three pages were
+     unreachable — the menu looked like it stopped at Trades. */
+  const vh=Math.round((window.visualViewport&&window.visualViewport.height)||window.innerHeight||0);
+  if(vh) menu.style.maxHeight=Math.max(220,vh-top-12)+'px';
   menu.style.overflowY=(menu.scrollHeight>menu.clientHeight+1)?'auto':'hidden';
 }
 function tabDDPointer(e){

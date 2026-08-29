@@ -4044,7 +4044,15 @@
        gives each section room to sit two across. */
     .tab-dd-menu{position:fixed;top:var(--ddtop,72px);left:14px;right:14px;transform:none;
       width:auto;margin:0;
-      max-height:min(86vh,700px);overflow-y:hidden;overscroll-behavior:contain;
+      /* SIZED TO THE VIEWPORT THAT IS ACTUALLY VISIBLE. `vh` on Chrome for
+         Android is the LARGE viewport — the height the page would have if the
+         URL bar were hidden — so 86vh drew a menu taller than the screen and
+         the last rows sat below the fold with no way to reach them. `dvh` is
+         the live one, and positionTabDD() also sets an exact pixel height off
+         visualViewport for engines that have neither. */
+      max-height:min(86vh,700px);
+      max-height:min(86dvh,700px);
+      overflow-y:auto;overscroll-behavior:contain;
       background:var(--page-bg);
       border-radius:8px;padding:10px;
       box-shadow:0 28px 70px -26px rgba(0,0,0,0.95);z-index:399;
@@ -4056,6 +4064,15 @@
        as a different kind of control. Padding is tighter than it was because two
        across leaves ~104px for text and "B&C Sportsbook" wants 117. */
     .tab-dd-item{border-radius:10px;padding:9px 10px;}
+    /* On a short phone the fourteen pages plus their two group labels do not fit
+       under the bar, and a menu you have to scroll to find Trades in is a menu
+       that looks like it ends at Trades. Three pixels a row off the top and
+       bottom is invisible per row and buys back ~84px, which is the difference
+       between the whole list and eleven of it. */
+    @media(max-width:768px) and (max-height:740px){
+      .tab-dd-item{padding:6px 10px;}
+      .tab-dd-menu{padding:8px;}
+    }
     .tab-dd-menu{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.22) transparent;}
     .tab-dd-menu::-webkit-scrollbar{width:6px;}
     .tab-dd-menu::-webkit-scrollbar-track{background:transparent;}
@@ -4066,7 +4083,13 @@
       #floatnav{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;gap:7px;padding:7px 9px;}
       #floatnav .logo{margin:-7px 0 -7px -9px;width:54px;height:54px;}
       #floatnav #tab-dd-btn{font-size:13px;height:40px;width:82px;padding:0 7px 0 10px;}
-      #floatnav #season-select{height:40px;width:82px;font-size:13px;padding:0 26px 0 12px;}
+      /* The year is forced back to its own size, and the pill sizes to the year
+         rather than to a number typed here. Every `select` on the site is pushed
+         to 16px!important under 820px to stop iOS zooming a focused field — but
+         a select does not zoom on iOS, it opens a native picker, so on this one
+         the rule bought nothing and cost the last digit: 16px "2026" needs 44px
+         and the fixed pill left 38px, so Android drew "202" and the caret. */
+      #floatnav #season-select{height:40px;width:auto;min-width:82px;font-size:13px!important;padding:0 26px 0 12px;}
       #floatnav #me-btn{width:40px;height:40px;}
       .nav-burger{width:28px;height:28px;}
       .tab-dd-menu{left:10px;right:10px;width:auto;
@@ -4078,7 +4101,7 @@
       #floatnav{gap:6px;padding:7px 8px;}
       #floatnav .logo{margin:-7px 0 -7px -8px;width:50px;height:50px;}
       #floatnav #tab-dd-btn{width:74px;height:36px;padding:0 6px 0 8px;}
-      #floatnav #season-select{width:74px;height:36px;font-size:12.5px;padding:0 24px 0 10px;}
+      #floatnav #season-select{width:auto;min-width:74px;height:36px;font-size:12.5px!important;padding:0 24px 0 10px;}
       #floatnav #me-btn{width:36px;height:36px;}
       .nav-burger{width:26px;height:26px;}
     }
