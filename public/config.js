@@ -164,9 +164,18 @@ window.GFL_CONFIG = {
   eggPrize: 10,
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before
-     the first week past it. Set to 0 to hide it. 11 is a placeholder — change
-     it to whatever the league actually runs. */
-  tradeDeadlineWeek: 11,
+     the first week past it. Set to 0 to hide it.
+
+     No longer a guess: ESPN carries the league's own deadline, and for 2026 it
+     is Wednesday 2 December at 1pm Central. That Wednesday falls inside NFL week
+     13 — week 12's games finish on Monday 30 November, and week 13 opens on
+     Thursday 3 December — so a trade agreed on deadline day is still in the
+     lineup for week 13, and week 13 is the last week trades can touch. From week
+     14 on, the roster you have is the roster you finish with.
+
+     If the league moves the date in ESPN, the check is which NFL week contains
+     it: weeks run Wednesday 08:00 UTC to the following Wednesday. */
+  tradeDeadlineWeek: 13,
 
   /* Ball Knowledge writes itself now. The five weekly questions are generated
      from this season — the league's own records, the full NFL player pool and

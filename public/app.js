@@ -2402,13 +2402,28 @@ async function ensureDraft(){
 }
 function computeDraftRows(picks, stats, season){
   if(!picks||!picks.length||!stats||!stats.length) return [];
-  /* an upcoming season returns a placeholder board (playerId -1) and a stat sheet
-     with no points — that isn't a draft, so keep it out of every draft list */
-  picks=picks.filter(p=>p&&p.playerId>0);
-  if(!picks.length) return [];
-  if(!stats.some(p=>(p.pts||0)>0)) return [];
   const rankOverall={},rankPos={},posCount={},statById={};
   stats.forEach((p,i)=>{rankOverall[p.id]=i+1;posCount[p.pos]=(posCount[p.pos]||0)+1;rankPos[p.id]=posCount[p.pos];statById[p.id]=p;});
+  /* A PLACEHOLDER PICK IS ONE THAT NAMES NOBODY, which is not the same thing as
+     a negative id. ESPN answers with playerId -1 for a board it has not run yet
+     — and it also numbers every D/ST in the negatives, so the Seahawks are
+     -16026. Filtering on `playerId > 0` threw away both, which quietly dropped
+     all twelve D/ST picks out of every draft board the site has ever drawn:
+     2024 and 2025 were showing 156 of their 168 picks. A pick is real when the
+     stat sheet can name it. */
+  picks=picks.filter(p=>p&&(p.playerId>0||statById[p.playerId]));
+  if(!picks.length) return [];
+  /* CAN THIS DRAFT BE GRADED YET? Only once somebody has scored. Finish ranks
+     are read off the stat sheet's own order, and that sheet is sorted by points
+     — so before week 1 the order is arbitrary, and every "finished RB37" would
+     be noise wearing the clothes of a fact.
+
+     That is a reason to withhold the grades, not the board. A drafted season has
+     a real result in it from the moment the draft ends: who took whom, in which
+     round, and where each one went at his own position. So the rows are returned
+     either way and carry `graded`, which is what the renderers below read to
+     decide whether the finish and Δ columns have earned their place. */
+  const graded=stats.some(p=>(p.pts||0)>0);
   const posDraftCount={};
   const owners=_seasonMeta[season]?.owners||{};
   return picks.slice().sort((x,y)=>x.overall-y.overall).map(pk=>{
@@ -2417,12 +2432,15 @@ function computeDraftRows(picks, stats, season){
     posDraftCount[posKey]=(posDraftCount[posKey]||0)+1;
     const posDrafted=posDraftCount[posKey];
     const name=s?.n||_playerNames[pk.playerId]||`Player #${pk.playerId}`;
-    const fin=rankOverall[pk.playerId]??null;
-    const finPos=rankPos[pk.playerId]??null;
-    const delta=finPos!=null?(posDrafted-finPos):(posDrafted-((posCount[pos]||0)+1));
-    return {season,pid:pk.playerId,name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,owner:owners[pk.teamId]||null,overall:pk.overall,round:pk.round,posDrafted,fin,finPos,pts:s?.pts??0,delta};
+    const fin=graded?(rankOverall[pk.playerId]??null):null;
+    const finPos=graded?(rankPos[pk.playerId]??null):null;
+    const delta=!graded?0:(finPos!=null?(posDrafted-finPos):(posDrafted-((posCount[pos]||0)+1)));
+    return {season,graded,pid:pk.playerId,name,pos,posName:POS_NAMES[pos]||'—',teamId:pk.teamId,owner:owners[pk.teamId]||null,overall:pk.overall,round:pk.round,posDrafted,fin,finPos,pts:graded?(s?.pts??0):0,delta};
   });
 }
+/* Whether the season on screen has football in it yet — asked of the rows
+   themselves, so there is one answer and it is computed where it is known. */
+const draftGraded=season=>!!((_draftCache[season]?.rows)||[])[0]?.graded;
 async function loadAllDrafts(){
   if(_draftAllCache) return _draftAllCache;
   const results=await Promise.all(ALL_SEASONS.map(async s=>{
@@ -2435,7 +2453,10 @@ async function loadAllDrafts(){
   const rows=[], teamDrafts=[], ownerTotals={}, ownerCounts={};
   results.forEach(({s,picks,stats})=>{
     const r=computeDraftRows(picks,stats,s);
-    if(!r.length) return;
+    /* A season with no football in it has no finish ranks, so it has no draft
+       score either. It must not reach an all-time aggregate, where it would land
+       as twelve classes tied on zero and drag every average toward nothing. */
+    if(!r.length||!r[0].graded) return;
     rows.push(...r);
     const totals={};
     r.forEach(x=>{ if(x.owner==null) return; totals[x.owner]=(totals[x.owner]||0)+x.delta; });
@@ -2538,8 +2559,11 @@ function sortDM(col){
 }
 // Mobile-only draft list, built on the same pattern as the matchup-history list:
 // Round | Pick | Player | Drafted (pos rank) | Finish (pos rank) | Delta
-function draftMobileHTML(rows){
-  const cols=['Rd','Pick','Player','Draft','Finish','\u0394'];
+function draftMobileHTML(rows,graded){
+  /* Before a ball is kicked there is no finish and no \u0394, so those two columns
+     come off entirely rather than standing there full of dashes and zeroes.
+     What is left is the whole of what a fresh draft knows. */
+  const cols=graded?['Rd','Pick','Player','Draft','Finish','\u0394']:['Rd','Pick','Player','Draft'];
   const head=`<div class="dm-row dm-head">${cols.map((c,i)=>`<span class="${i===2?'dm-player ':''}dm-sort" data-col="${i}" onclick="sortDM(${i})">${c}<i class="dm-arw"></i></span>`).join('')}</div>`;
   const body=rows.map(r=>{
     const better=r.finPos!=null&&r.finPos<=r.posDrafted;
@@ -2548,25 +2572,29 @@ function draftMobileHTML(rows){
       <span class="dm-pick" data-v="${r.overall}">${r.overall}</span>
       <span class="dm-player" data-v="${r.name}">${playerImg(r.pid,20,r.name)}<span class="pl-name">${r.name}</span></span>
       <span class="dm-drafted" data-v="${r.posDrafted}">${r.posName}${r.posDrafted}</span>
-      <span class="dm-finish" data-v="${r.finPos!=null?r.finPos:999}" style="color:${r.finPos==null?'var(--text3)':(better?'var(--green)':'var(--red)')}">${r.finPos!=null?r.posName+r.finPos:'\u2014'}</span>
-      <span class="dm-delta" data-v="${r.delta}" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</span>
+      ${graded?`<span class="dm-finish" data-v="${r.finPos!=null?r.finPos:999}" style="color:${r.finPos==null?'var(--text3)':(better?'var(--green)':'var(--red)')}">${r.finPos!=null?r.posName+r.finPos:'\u2014'}</span>
+      <span class="dm-delta" data-v="${r.delta}" style="color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</span>`:''}
     </div>`;}).join('');
-  return `<div class="dm-list">${head}${body}</div>`;
+  return `<div class="dm-list${graded?'':' dm-nograde'}">${head}${body}</div>`;
 }
-function draftTeamTableHTML(rows,showSeason){
+function draftTeamTableHTML(rows,showSeason,graded){
   const totalDelta=rows.reduce((s,r)=>s+r.delta,0);
-  return draftMobileHTML(rows)+`<div class="tscroll draft-tbl"><table class="min560 srt">
-    <thead><tr>${showSeason?'<th>Yr</th>':''}<th>Pick</th><th>Player</th><th class="right">Pos: drafted → finished</th><th class="right">Pts</th><th class="right">Δ</th></tr></thead>
+  return draftMobileHTML(rows,graded)+`<div class="tscroll draft-tbl"><table class="min560 srt">
+    <thead><tr>${showSeason?'<th>Yr</th>':''}<th>Pick</th><th>Player</th><th class="right">${graded?'Pos: drafted → finished':'Off the board'}</th>${graded?'<th class="right">Pts</th><th class="right">Δ</th>':''}</tr></thead>
     <tbody>${rows.map(r=>`<tr>
       ${showSeason?`<td style="color:var(--text3)">${r.season}</td>`:''}
       <td style="color:var(--text3);white-space:nowrap">Rd ${r.round} · #${r.overall}</td>
       <td><div class="team-cell">${playerImg(r.pid,26,r.name)}<span class="fr-name">${r.name}</span><span class="draft-pos">${r.posName}</span></div></td>
-      <td class="right" style="white-space:nowrap">${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}</td>
-      <td class="right pf">${r.pts.toFixed(1)}</td>
-      <td class="right" style="font-weight:600;font-family:'DM Sans',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>
+      <td class="right" style="white-space:nowrap">${graded
+        ? `${r.posName}${r.posDrafted} → ${r.finPos!=null?`<b style="color:${r.finPos<=r.posDrafted?'var(--green)':'var(--red)'}">${r.posName}${r.finPos}</b>`:'<span style="color:var(--text3)">—</span>'}`
+        : `<b>${r.posName}${r.posDrafted}</b>`}</td>
+      ${graded?`<td class="right pf">${r.pts.toFixed(1)}</td>
+      <td class="right" style="font-weight:600;font-family:'DM Sans',sans-serif;color:${r.delta>0?'var(--green)':r.delta<0?'var(--red)':'var(--text2)'}">${r.delta>0?'+':''}${r.delta}</td>`:''}
     </tr>`).join('')}</tbody>
   </table></div>
-  <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">Net positional Δ: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks</div>`;
+  <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">${graded
+    ? `Net positional Δ: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks`
+    : `${rows.length} picks. The number beside each player is where he came off the board at his own position — RB3 is the third running back taken. Grades arrive once the season is played.`}</div>`;
 }
 function renderDraftTab(){
   const body=document.getElementById('draft-body'); if(!body) return;
@@ -2574,6 +2602,11 @@ function renderDraftTab(){
   const d=_draftCache[season]; if(!d) return;
   const rows=computeDraftRows(d.picks,d.stats,season); d.rows=rows;
   if(!rows.length){ body.innerHTML=`<div class="tab-loading">No draft data available for the ${season} season.</div>`; return; }
+  /* Now that the board is in, the section can say what it is actually showing */
+  const badge=document.getElementById('draft-badge');
+  if(badge) badge.textContent=draftGraded(season)
+    ? 'draft slot vs season finish'
+    : `every pick · ${rows.length} in ${Math.max(...rows.map(r=>r.round||0))} rounds`;
   if(_draftTeamSel==null||!_teams.some(t=>t.id===Number(_draftTeamSel))) _draftTeamSel=_teams[0]?.id;
   body.innerHTML=`
   <div class="card" style="margin:0 0 24px">
@@ -2712,6 +2745,14 @@ function renderDraftLists(){
   const el=document.getElementById('draft-lists'); if(!el) return;
   const season=getSeason();
   if(!DRAFT_VIEWS[_draftView]) _draftView='year';
+  /* The three year-scoped views rank this season's picks by how far they beat
+     their draft slot, which before week 1 is a list of twelve teams tied on
+     nothing. They come off the tab strip until the season has been played, and
+     anyone standing on one is moved to the all-time list beside it. */
+  if(!draftGraded(season)&&!DRAFT_VIEWS[_draftView].all){
+    _draftView=_draftView==='ybusts'?'busts':_draftView==='ysteals'?'steals':'best';
+    if(_draftView!=='best'){ _draftPickLast=_draftView; _draftPickScope='alltime'; }
+  }
   _drWasMobile=drIsMobile();
   el.innerHTML=_drWasMobile?draftListsMobileHTML(season):draftListsDesktopHTML(season);
 }
@@ -2719,8 +2760,8 @@ function draftListsDesktopHTML(season){
   const v=DRAFT_VIEWS[_draftView];
   const btn=k=>{const x=DRAFT_VIEWS[k];
     return `<button class="dr-vtab${_draftView===k?' active':''}" onclick="setDraftView('${k}')"><i class="fa ${x.icon}" style="color:${x.col}"></i>${x.tab}</button>`;};
-  const tabs=`<div class="dr-tabgrp">This Year · ${season}</div>
-    <div class="dr-vtabs">${['year','ysteals','ybusts'].map(btn).join('')}</div>
+  const tabs=`${draftGraded(season)?`<div class="dr-tabgrp">This Year · ${season}</div>
+    <div class="dr-vtabs">${['year','ysteals','ybusts'].map(btn).join('')}</div>`:''}
     <div class="dr-tabgrp">All-Time</div>
     <div class="dr-vtabs">${['best','worst','steals','busts'].map(btn).join('')}</div>`;
   let right='';
@@ -2744,7 +2785,7 @@ function draftListsMobileHTML(season){
   const grp=DRAFT_VIEWS[_draftView].grp;
   const mb=(g,label,target,icon,col)=>`<button class="dr-vtab dr-mtab${grp===g?' active':''}" onclick="setDraftView('${target}')"><i class="fa ${icon}" style="color:${col}"></i>${label}</button>`;
   const tabs=`<div class="dr-mtabs">
-    ${mb('year',season+' Rankings','year','fa-ranking-star','var(--accent)')}
+    ${draftGraded(season)?mb('year',season+' Rankings','year','fa-ranking-star','var(--accent)'):''}
     ${mb('drafts','All-Time Drafts','best','fa-trophy','var(--green)')}
     ${mb('picks','Steals &amp; Busts',_draftPickLast,'fa-gem','var(--green)')}
   </div>`;
@@ -2793,15 +2834,23 @@ function renderDraftTeamTable(){
   const d=_draftCache[season]; if(!d?.rows) return;
   const tid=Number(document.getElementById('draft-team-select')?.value??_draftTeamSel);
   const rows=d.rows.filter(r=>r.teamId===tid);
-  const totals={}; d.rows.forEach(r=>{totals[r.teamId]=(totals[r.teamId]||0)+r.delta;});
-  const ids=Object.keys(totals);
-  const avg=ids.length?ids.reduce((s,k)=>s+totals[k],0)/ids.length:0;
-  const ranked=ids.map(id=>({id:Number(id),t:totals[id]})).sort((a,b)=>b.t-a.t);
-  const rel=(totals[tid]||0)-avg, rank=ranked.findIndex(x=>x.id===tid)+1;
-  const rels=ranked.map(x=>x.t-avg); const mn=Math.min(...rels), mx=Math.max(...rels);
-  const gt=mx>mn?(rel-mn)/(mx-mn):1; const grade=PPG_GRADES[Math.round(gt*(PPG_GRADES.length-1))]; const gcol=gradeColor(grade);
-  const scoreEl=document.getElementById('draft-score'); if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,season,grade,gcol,ranked.length);
-  body.innerHTML=rows.length?draftTeamTableHTML(rows,false):`<div class="tab-loading">No picks found for this team.</div>`;
+  const graded=draftGraded(season);
+  const scoreEl=document.getElementById('draft-score');
+  /* A rank, a score and a grade off a season nobody has played would be three
+     numbers dressed as a verdict. Say what is actually known instead. */
+  if(!graded){
+    if(scoreEl) scoreEl.innerHTML=`<span class="dr-pending"><i class="fa fa-hourglass-half"></i>Drafted. Grades arrive once week 1 is in the books.</span>`;
+  }else{
+    const totals={}; d.rows.forEach(r=>{totals[r.teamId]=(totals[r.teamId]||0)+r.delta;});
+    const ids=Object.keys(totals);
+    const avg=ids.length?ids.reduce((s,k)=>s+totals[k],0)/ids.length:0;
+    const ranked=ids.map(id=>({id:Number(id),t:totals[id]})).sort((a,b)=>b.t-a.t);
+    const rel=(totals[tid]||0)-avg, rank=ranked.findIndex(x=>x.id===tid)+1;
+    const rels=ranked.map(x=>x.t-avg); const mn=Math.min(...rels), mx=Math.max(...rels);
+    const gt=mx>mn?(rel-mn)/(mx-mn):1; const grade=PPG_GRADES[Math.round(gt*(PPG_GRADES.length-1))]; const gcol=gradeColor(grade);
+    if(scoreEl) scoreEl.innerHTML=scoreBadge(rel,rank,season,grade,gcol,ranked.length);
+  }
+  body.innerHTML=rows.length?draftTeamTableHTML(rows,false,graded):`<div class="tab-loading">No picks found for this team.</div>`;
 }
 
 /* The Marathons Ran page is gone. Nothing here read anything but its own
@@ -15142,7 +15191,10 @@ async function loadDashboard(){
       <!-- DRAFT -->
       <div class="tab-page" id="page-draft">
         <div class="sec wm" data-wm="&#xf46d;">
-          <div class="sec-head"><i class="fa fa-clipboard-list"></i>Draft Report — ${season}<span class="badge-info">draft slot vs season finish</span></div>
+          ${''/* the badge is set from renderDraftTab once the board has landed:
+                 what this report is depends on whether the season has been
+                 played, and the shell is built before anybody knows */}
+          <div class="sec-head"><i class="fa fa-clipboard-list"></i>Draft Report — ${season}<span class="badge-info" id="draft-badge">draft slot vs season finish</span></div>
           <div id="draft-body"></div>
         </div>
       </div>

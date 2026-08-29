@@ -1,6 +1,6 @@
 {
  "note": "College and draft year. Neither changes, so this is committed rather than fetched.",
- "captured": "2026-08-21",
+ "captured": "2026-08-29",
  "players": {
   "8439": {
    "name": "Aaron Rodgers",
@@ -67,6 +67,12 @@
    "college": "Temple",
    "draftYear": null,
    "pos": "PK"
+  },
+  "16737": {
+   "name": "Mike Evans",
+   "college": "Texas A&M",
+   "draftYear": 2014,
+   "pos": "WR"
   },
   "16800": {
    "name": "Davante Adams",
@@ -230,11 +236,23 @@
    "draftYear": 2017,
    "pos": "RB"
   },
+  "3116165": {
+   "name": "Chris Godwin Jr.",
+   "college": "Penn State",
+   "draftYear": 2017,
+   "pos": "WR"
+  },
   "3116365": {
    "name": "Mark Andrews",
    "college": "Oklahoma",
    "draftYear": 2018,
    "pos": "TE"
+  },
+  "3116389": {
+   "name": "Samaje Perine",
+   "college": "Oklahoma",
+   "draftYear": 2017,
+   "pos": "RB"
   },
   "3117251": {
    "name": "Christian McCaffrey",
@@ -260,10 +278,22 @@
    "draftYear": 2019,
    "pos": "WR"
   },
+  "3123076": {
+   "name": "David Njoku",
+   "college": "Miami",
+   "draftYear": 2017,
+   "pos": "TE"
+  },
   "3124084": {
    "name": "Joey Slye",
    "college": "Virginia Tech",
    "draftYear": null,
+   "pos": "PK"
+  },
+  "3124679": {
+   "name": "Jason Sanders",
+   "college": "New Mexico",
+   "draftYear": 2018,
    "pos": "PK"
   },
   "3126486": {
@@ -344,6 +374,18 @@
    "draftYear": 2019,
    "pos": "WR"
   },
+  "3917232": {
+   "name": "Tyler Bass",
+   "college": "Georgia Southern",
+   "draftYear": 2020,
+   "pos": "PK"
+  },
+  "3917315": {
+   "name": "Kyler Murray",
+   "college": "Oklahoma",
+   "draftYear": 2019,
+   "pos": "QB"
+  },
   "3917792": {
    "name": "Daniel Jones",
    "college": "Duke",
@@ -355,6 +397,12 @@
    "college": "Wyoming",
    "draftYear": 2018,
    "pos": "QB"
+  },
+  "3925357": {
+   "name": "Calvin Ridley",
+   "college": "Alabama",
+   "draftYear": 2018,
+   "pos": "WR"
   },
   "3929630": {
    "name": "Saquon Barkley",
@@ -415,6 +463,12 @@
    "college": "Utah State",
    "draftYear": 2020,
    "pos": "QB"
+  },
+  "4038441": {
+   "name": "Justice Hill",
+   "college": "Oklahoma State",
+   "draftYear": 2019,
+   "pos": "RB"
   },
   "4038815": {
    "name": "Rico Dowdle",
@@ -536,6 +590,12 @@
    "draftYear": 2022,
    "pos": "TE"
   },
+  "4242512": {
+   "name": "Malik Willis",
+   "college": "Liberty",
+   "draftYear": 2022,
+   "pos": "QB"
+  },
   "4242557": {
    "name": "Colby Parkinson",
    "college": "Stanford",
@@ -559,6 +619,12 @@
    "college": "North Dakota State",
    "draftYear": 2022,
    "pos": "WR"
+  },
+  "4249087": {
+   "name": "Matt Gay",
+   "college": "Utah",
+   "draftYear": 2019,
+   "pos": "PK"
   },
   "4258173": {
    "name": "Nico Collins",
@@ -656,6 +722,18 @@
    "draftYear": 2023,
    "pos": "WR"
   },
+  "4360939": {
+   "name": "Rashod Bateman",
+   "college": "Minnesota",
+   "draftYear": 2021,
+   "pos": "WR"
+  },
+  "4361050": {
+   "name": "Isaiah Likely",
+   "college": "Coastal Carolina",
+   "draftYear": 2022,
+   "pos": "TE"
+  },
   "4361307": {
    "name": "Trey McBride",
    "college": "Colorado State",
@@ -679,6 +757,12 @@
    "college": "Nevada",
    "draftYear": 2022,
    "pos": "WR"
+  },
+  "4361529": {
+   "name": "Isiah Pacheco",
+   "college": "Rutgers",
+   "draftYear": 2022,
+   "pos": "RB"
   },
   "4361579": {
    "name": "Javonte Williams",
@@ -704,6 +788,12 @@
    "draftYear": 2023,
    "pos": "RB"
   },
+  "4362249": {
+   "name": "Jayden Reed",
+   "college": "Michigan State",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
   "4362619": {
    "name": "Chris Rodriguez Jr.",
    "college": "Kentucky",
@@ -727,6 +817,12 @@
    "college": "Maryland",
    "draftYear": 2023,
    "pos": "PK"
+  },
+  "4367209": {
+   "name": "Greg Dulcich",
+   "college": "UCLA",
+   "draftYear": 2022,
+   "pos": "TE"
   },
   "4368003": {
    "name": "Andrei Iosivas",
@@ -866,6 +962,12 @@
    "draftYear": 2023,
    "pos": "WR"
   },
+  "4428850": {
+   "name": "Dontayvion Wicks",
+   "college": "Virginia",
+   "draftYear": 2023,
+   "pos": "WR"
+  },
   "4429022": {
    "name": "Kayshon Boutte",
    "college": "LSU",
@@ -949,6 +1051,12 @@
    "college": "Texas",
    "draftYear": 2023,
    "pos": "RB"
+  },
+  "4430834": {
+   "name": "Jalen McMillan",
+   "college": "Washington",
+   "draftYear": 2024,
+   "pos": "WR"
   },
   "4430871": {
    "name": "Sean Tucker",
@@ -1034,6 +1142,12 @@
    "draftYear": 2025,
    "pos": "RB"
   },
+  "4432762": {
+   "name": "Shedeur Sanders",
+   "college": "Colorado",
+   "draftYear": 2025,
+   "pos": "QB"
+  },
   "4432773": {
    "name": "Brian Thomas Jr.",
    "college": "LSU",
@@ -1082,6 +1196,12 @@
    "draftYear": 2021,
    "pos": "RB"
   },
+  "4569559": {
+   "name": "Devaughn Vele",
+   "college": "Utah",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
   "4569587": {
    "name": "Wan'Dale Robinson",
    "college": "Kentucky",
@@ -1112,11 +1232,23 @@
    "draftYear": null,
    "pos": "RB"
   },
+  "4570037": {
+   "name": "Terrance Ferguson",
+   "college": "Oregon",
+   "draftYear": 2025,
+   "pos": "TE"
+  },
   "4572680": {
    "name": "Tucker Kraft",
    "college": "South Dakota State",
    "draftYear": 2023,
    "pos": "TE"
+  },
+  "4574716": {
+   "name": "Harrison Mevis",
+   "college": "Missouri",
+   "draftYear": null,
+   "pos": "PK"
   },
   "4575131": {
    "name": "Jacory Croskey-Merritt",
@@ -1130,17 +1262,35 @@
    "draftYear": 2024,
    "pos": "TE"
   },
+  "4586312": {
+   "name": "Jaylin Noel",
+   "college": "Iowa State",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
   "4595342": {
    "name": "Oronde Gadsden",
    "college": "Syracuse",
    "draftYear": 2025,
    "pos": "TE"
   },
+  "4595348": {
+   "name": "Malik Nabers",
+   "college": "LSU",
+   "draftYear": 2024,
+   "pos": "WR"
+  },
   "4596448": {
    "name": "Bucky Irving",
    "college": "Oregon",
    "draftYear": 2024,
    "pos": "RB"
+  },
+  "4597500": {
+   "name": "Adonai Mitchell",
+   "college": "Texas",
+   "draftYear": 2024,
+   "pos": "WR"
   },
   "4608686": {
    "name": "Kyle Monangai",
@@ -1166,10 +1316,22 @@
    "draftYear": 2024,
    "pos": "WR"
   },
+  "4678008": {
+   "name": "Jonathon Brooks",
+   "college": "Texas",
+   "draftYear": 2024,
+   "pos": "RB"
+  },
   "4683062": {
    "name": "Xavier Worthy",
    "college": "Texas",
    "draftYear": 2024,
+   "pos": "WR"
+  },
+  "4685261": {
+   "name": "Germie Bernard",
+   "college": "Alabama",
+   "draftYear": 2026,
    "pos": "WR"
   },
   "4685278": {
@@ -1184,11 +1346,23 @@
    "draftYear": 2025,
    "pos": "RB"
   },
+  "4685415": {
+   "name": "Travis Hunter",
+   "college": "Colorado",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
   "4685472": {
    "name": "Tetairoa McMillan",
    "college": "Arizona",
    "draftYear": 2025,
    "pos": "WR"
+  },
+  "4685512": {
+   "name": "Jadarian Price",
+   "college": "Notre Dame",
+   "draftYear": 2026,
+   "pos": "RB"
   },
   "4685702": {
    "name": "Quinshon Judkins",
@@ -1274,6 +1448,18 @@
    "draftYear": 2022,
    "pos": "RB"
   },
+  "4701936": {
+   "name": "Matthew Golden",
+   "college": "Texas",
+   "draftYear": 2025,
+   "pos": "WR"
+  },
+  "4710714": {
+   "name": "De'Zhaun Stribling",
+   "college": "Ole Miss",
+   "draftYear": 2026,
+   "pos": "WR"
+  },
   "4723086": {
    "name": "Colston Loveland",
    "college": "Michigan",
@@ -1286,11 +1472,71 @@
    "draftYear": 2025,
    "pos": "TE"
   },
+  "4832800": {
+   "name": "Denzel Boston",
+   "college": "Washington",
+   "draftYear": 2026,
+   "pos": "WR"
+  },
+  "4837248": {
+   "name": "Fernando Mendoza",
+   "college": "Indiana",
+   "draftYear": 2026,
+   "pos": "QB"
+  },
+  "4869461": {
+   "name": "Trey Smack",
+   "college": "Florida",
+   "draftYear": 2026,
+   "pos": "PK"
+  },
+  "4869645": {
+   "name": "Caleb Douglas",
+   "college": "Texas Tech",
+   "draftYear": 2026,
+   "pos": "WR"
+  },
+  "4870653": {
+   "name": "KC Concepcion",
+   "college": "Texas A&M",
+   "draftYear": 2026,
+   "pos": "WR"
+  },
+  "4870795": {
+   "name": "Makai Lemon",
+   "college": "USC",
+   "draftYear": 2026,
+   "pos": "WR"
+  },
+  "4870808": {
+   "name": "Jeremiyah Love",
+   "college": "Notre Dame",
+   "draftYear": 2026,
+   "pos": "RB"
+  },
+  "4870847": {
+   "name": "Ja'Kobi Lane",
+   "college": "USC",
+   "draftYear": 2026,
+   "pos": "WR"
+  },
+  "4871023": {
+   "name": "Carnell Tate",
+   "college": "Ohio State",
+   "draftYear": 2026,
+   "pos": "WR"
+  },
   "4877706": {
    "name": "Jayden Higgins",
    "college": "Iowa State",
    "draftYear": 2025,
    "pos": "WR"
+  },
+  "4882093": {
+   "name": "Bhayshul Tuten",
+   "college": "Virginia Tech",
+   "draftYear": 2025,
+   "pos": "RB"
   },
   "4883647": {
    "name": "Elic Ayomanor",
@@ -1310,10 +1556,28 @@
    "draftYear": 2025,
    "pos": "RB"
   },
+  "5081335": {
+   "name": "Drew Stevens",
+   "college": "Iowa",
+   "draftYear": null,
+   "pos": "PK"
+  },
+  "5082424": {
+   "name": "Dominic Zvada",
+   "college": "Michigan",
+   "draftYear": null,
+   "pos": "PK"
+  },
   "5083076": {
    "name": "Harold Fannin Jr.",
    "college": "Bowling Green",
    "draftYear": 2025,
+   "pos": "TE"
+  },
+  "5083315": {
+   "name": "Kenyon Sadiq",
+   "college": "Oregon",
+   "draftYear": 2026,
    "pos": "TE"
   },
   "5083754": {

@@ -4183,6 +4183,12 @@
     .dgrade{display:flex;flex-direction:column;align-items:center;gap:6px;}
     .dgrade-num{font-family:'DM Sans',sans-serif;font-weight:600;font-size:32px;line-height:1;border:2px solid;border-radius:10px;padding:6px 16px;min-width:64px;text-align:center;}
     .dgrade-lbl{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:0.5px;font-size:12px;color:var(--text3);text-align:center;white-space:nowrap;}
+    /* What stands in for the three grade chips between the draft and week 1.
+       It wraps on a phone, so it is a flex line rather than one nowrap run. */
+    .dr-pending{display:flex;align-items:center;justify-content:center;gap:9px;
+      flex-wrap:wrap;width:100%;text-align:center;font-family:'Inter',sans-serif;
+      font-size:13px;line-height:1.45;color:var(--text2);padding:2px 10px;}
+    .dr-pending i{color:var(--accent);font-size:14px;}
     @media(max-width:640px){.draft-score-wrap{margin:10px 0 0;width:100%;}}
     /* Rank, Score and Grade read as one set under the team picker, so they
        centre rather than hanging off one edge. Later rules in this file push
@@ -5491,6 +5497,11 @@
       .dm-drafted{color:var(--text2);}
       .dm-finish{font-weight:600;}
       .dm-delta{font-weight:700;}
+      /* A drafted-but-unplayed season has no finish and no Δ, so the board runs
+         four columns instead of six and the player name takes the 86px back
+         rather than leaving a gap where two empty columns used to be. */
+      .dm-nograde .dm-row{grid-template-columns:18px 26px minmax(0,1fr) 52px;}
+      .dm-nograde .dm-drafted{font-weight:600;color:var(--text);}
     }
 
     @media(max-width:768px){
