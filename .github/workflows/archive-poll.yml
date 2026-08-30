@@ -1,0 +1,59 @@
+name: Archive the Coaches' Poll
+
+# The ballots live on the profile documents as a season-long list each manager
+# can revise at any time. That is right for voting and wrong for history: revise
+# in week 9 and the week 1 standings are gone, and no page could read them back
+# without a full profiles read every time somebody opened it.
+#
+# So the standings are snapshotted here once a week and committed, served from
+# the edge and cached with the rest of /data/. League History reads the file and
+# never asks the database for poll history at all.
+#
+# Tuesday morning UTC, after Monday night is final and after archive-week has
+# run, then again Wednesday in case a ballot landed late — the second pass
+# rewrites the same week rather than refusing, because the last snapshot before
+# a week closes is the one worth keeping. Weeks older than the newest finished
+# one are never touched. Nothing is written when nothing changed, so the extra
+# run costs nothing and a missed one is picked up next time.
+on:
+  schedule:
+    - cron: '45 09 * * 2'   # Tue 09:45 UTC — after archive-week at 09:30
+    - cron: '45 09 * * 3'   # Wed 09:45 UTC — safety net for a late ballot
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season (blank = current year)'
+        required: false
+      week:
+        description: 'Week (blank = newest finished). Naming one needs force.'
+        required: false
+      force:
+        description: 'Replace a week already on file'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# One at a time: two runs writing the same file would race on the push.
+concurrency:
+  group: archive-poll
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Archive
+        run: node scripts/archive-poll.mjs ${{ github.event.inputs.season }} ${{ github.event.inputs.week }} ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+      - name: Commit if it changed
+        run: |
+          git config user.name  'gfl-bot'
+          git config user.email 'gfl-bot@users.noreply.github.com'
+          git add public/data/polls-*.json
+          git diff --staged --quiet || git commit -m "Archive coaches' poll [skip ci]"
+          git push

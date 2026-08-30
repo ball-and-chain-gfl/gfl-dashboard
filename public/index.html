@@ -4371,6 +4371,34 @@
     .lh-sup-wins{display:flex;flex-wrap:wrap;gap:5px 12px;justify-content:flex-end;min-width:0;}
     .lh-sup-win{display:flex;align-items:center;gap:6px;font-size:13px;}    @media(max-width:900px){.lh-cols{grid-template-columns:1fr;gap:18px;}.lh-sup-rows{grid-template-columns:1fr;}}
     .lh-sec-head{display:none;}
+    /* ── COACHES' POLL, on League History ───────────────────────────────────
+       The chart scrolls sideways on its own rather than making the page do it:
+       fourteen weeks will not fit a phone, and a page that slides under the
+       thumb is worse than a chart that does. */
+    .poll-chart{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+      margin:2px 0 14px;padding-bottom:2px;}
+    .poll-chart svg{min-width:320px;display:block;}
+    .poll-fold{border:1px solid var(--border);border-radius:10px;margin:0 0 8px;
+      background:rgba(255,255,255,0.02);}
+    .poll-fold summary{display:flex;align-items:center;gap:9px;cursor:pointer;
+      padding:11px 13px;font-family:'Google Sans Flex',Georgia,serif;font-weight:600;
+      font-size:14px;color:var(--text);list-style:none;}
+    .poll-fold summary::-webkit-details-marker{display:none;}
+    .poll-fold summary>i:first-child{color:var(--accent);font-size:13px;}
+    .poll-ct{margin-left:auto;font-family:'Inter',sans-serif;font-size:11px;
+      text-transform:uppercase;letter-spacing:.4px;color:var(--text3);white-space:nowrap;}
+    .poll-caret{transition:transform .18s ease;color:var(--text3);font-size:12px;}
+    .poll-fold[open] .poll-caret{transform:rotate(180deg);}
+    .poll-list{padding:2px 8px 10px;}
+    .poll-row{display:grid;grid-template-columns:26px 22px minmax(0,1fr) auto;
+      align-items:center;gap:9px;padding:7px 5px;
+      border-bottom:1px solid rgba(255,255,255,0.05);}
+    .poll-row:last-child{border-bottom:none;}
+    .poll-rk{font-family:'DM Sans',sans-serif;font-weight:700;font-size:15px;text-align:center;}
+    .poll-nm{font-family:'Google Sans Flex',Georgia,serif;font-weight:600;font-size:13.5px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .poll-avg{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text2);
+      font-variant-numeric:tabular-nums;}
     @media(max-width:768px){
       /* phones: no sub-tabs — every section stacks in order with its own heading */
       #lh-subtabs{display:none!important;}

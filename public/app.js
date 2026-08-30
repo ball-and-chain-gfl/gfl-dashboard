@@ -2941,6 +2941,139 @@ function renderDraftTeamTable(){
 const REGULAR_SEASON_END=14; // fallback only — real value comes from each season's settings
 function regEndOf(season){ const n=_seasonMeta[season]?.regEnd; return (n>=8&&n<=18)?n:REGULAR_SEASON_END; }
 let _lhView='records';       // records | champs | conf | sups
+/* ── THE COACHES' POLL, WEEK BY WEEK ─────────────────────────────────────────
+   Read from public/data/polls-<season>.json, which scripts/archive-poll.mjs
+   commits once a week. Nothing here touches Firestore: the ballots are a
+   season-long list each manager can revise, so the only way to have history is
+   to have frozen it, and the only way to show it cheaply is to serve it from
+   the repo. One edge GET, cached by the service worker with the rest of /data/.
+
+   No file yet, or no week archived yet, and the section simply does not appear —
+   which is the right answer in a week nobody has finished. */
+let _polls=null,_pollsFetched=false,_pollsPromise=null;
+function pollsLoad(){
+  if(_pollsFetched) return _polls;
+  if(!_pollsPromise){
+    const s=(typeof sbBoardSeason==='function')?sbBoardSeason():getSeason();
+    _pollsPromise=fetch(`/data/polls-${s}.json`,{cache:'no-store'})
+      .then(r=>r.ok?r.json():null)
+      /* League History is built once at load, long before this lands and while
+         the homepage is still the open tab — so repainting only when legacy
+         happens to be on screen meant the section never appeared at all. It is
+         one repaint, once a session, of a page that is already in the DOM. */
+      .then(j=>{ _polls=j; _pollsFetched=true;
+        try{ if(document.getElementById('legacy-body')) renderLeagueHistory(); }catch(e){}
+        return j; })
+      .catch(()=>{ _polls=null; _pollsFetched=true; return null; });
+  }
+  return null;
+}
+const pollWeeks=()=>Object.keys((_polls&&_polls.weeks)||{})
+  .map(Number).filter(n=>n>0).sort((a,b)=>a-b);
+/* Twelve hues far enough apart to tell one line from another on a dark chart,
+   and fixed per team id so a colour means the same franchise every week. */
+const POLL_COLORS=['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4',
+  '#42d4f4','#f032e6','#bfef45','#fabed4','#469990','#dcbeff'];
+function pollColor(teamId){
+  const ids=_teams.map(t=>t.id).sort((a,b)=>a-b);
+  const i=ids.indexOf(Number(teamId));
+  return POLL_COLORS[(i<0?0:i)%POLL_COLORS.length];
+}
+const pollTeam=id=>_teams.find(t=>t.id===Number(id))||null;
+/* The crest hangs off the FRANCHISE, not the season's team row — _teams carries
+   the record and the roster counts and no logo at all, which is why the chart
+   first drew twelve initials. */
+function pollLogoOf(teamId){
+  const o=_ownerMap[Number(teamId)];
+  const f=o?_franchises.find(x=>x.owner===o):null;
+  return f&&f.logo?proxyLogo(f.logo):null;
+}
+/* ── THE SHAPE OF A SEASON'S OPINION ─────────────────────────────────────────
+   Rank down the y axis with first at the top, week across the x. One line a
+   team, its logo sitting at the point the line starts from, so the chart reads
+   without a legend underneath it. With a single week archived there is no line
+   to draw and it becomes a column of logos in poll order, which is exactly what
+   one week of voting is. */
+function pollChartHTML(){
+  const wks=pollWeeks(); if(!wks.length||!_teams.length) return '';
+  const rows=_teams.length;
+  const rowH=26, top=18, bottom=26;
+  const axisW=18, logoW=30, plotL=axisW+logoW+8, plotR=16;
+  const colW=wks.length>1?Math.max(46,Math.min(96,520/(wks.length-1))):0;
+  const plotW=wks.length>1?colW*(wks.length-1):0;
+  const W=plotL+plotW+plotR, H=top+rows*rowH+bottom;
+  const x=w=>plotL+(wks.length>1?wks.indexOf(w)*colW:0);
+  const y=r=>top+(r-0.5)*rowH;
+  const at={};                      // teamId -> {week: rank}
+  wks.forEach(w=>((_polls.weeks[w]||{}).rank||[]).forEach(e=>{
+    (at[e.teamId]||(at[e.teamId]={}))[w]=e.rank; }));
+  const grid=Array.from({length:rows},(_,i)=>`
+    <line x1="${plotL-6}" y1="${y(i+1)}" x2="${W-plotR}" y2="${y(i+1)}"
+      stroke="var(--border)" stroke-width="1" opacity="0.5"/>
+    <text x="${axisW-4}" y="${y(i+1)+4}" text-anchor="end" font-size="11"
+      fill="var(--text3)" font-family="Inter,sans-serif">${i+1}</text>`).join('');
+  const weekLabels=wks.map(w=>`<text x="${x(w)}" y="${H-8}" text-anchor="middle"
+    font-size="11" fill="var(--text3)" font-family="Inter,sans-serif">Wk ${w}</text>`).join('');
+  const lines=Object.keys(at).map(tid=>{
+    const t=pollTeam(tid); const col=pollColor(tid);
+    const pts=wks.filter(w=>at[tid][w]!=null).map(w=>[x(w),y(at[tid][w])]);
+    if(!pts.length) return '';
+    const path=pts.length>1
+      ? `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none"
+           stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`
+      : '';
+    const dots=pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${col}"/>`).join('');
+    const first=pts[0];
+    const logo=pollLogoOf(tid);
+    const badge=logo
+      ? `<image href="${logo}" x="${axisW+2}" y="${first[1]-11}" width="22" height="22"
+           clip-path="inset(0 round 6px)" preserveAspectRatio="xMidYMid slice"/>`
+      : `<rect x="${axisW+2}" y="${first[1]-11}" width="22" height="22" rx="6" fill="${col}"/>
+         <text x="${axisW+13}" y="${first[1]+4}" text-anchor="middle" font-size="9"
+           fill="#0b0b0b" font-weight="700" font-family="Inter,sans-serif">${teamInitials(t?t.name:'')}</text>`;
+    return `<g><title>${t?t.name:('Team '+tid)}</title>
+      <rect x="${axisW}" y="${first[1]-13}" width="26" height="26" rx="8" fill="${col}" opacity="0.28"/>
+      ${badge}${path}${dots}</g>`;
+  }).join('');
+  return `<div class="poll-chart">
+    ${''/* left-aligned, not centred: with one week archived the chart is a
+           narrow column, and xMid would float it into the middle of the page
+           away from the axis it belongs to */}
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMinYMid meet"
+      role="img" aria-label="Coaches' Poll ranking by week">
+      ${grid}${weekLabels}${lines}
+    </svg></div>`;
+}
+/* One fold per archived week, newest first. With a single week on file there is
+   a single fold, which is what the league sees after week one. */
+function pollSectionHTML(){
+  if(!_pollsFetched){ pollsLoad(); return ''; }
+  const wks=pollWeeks(); if(!wks.length) return '';
+  const folds=wks.slice().reverse().map((w,i)=>{
+    const d=_polls.weeks[w]||{};
+    const rows=(d.rank||[]).map(e=>{
+      const t=pollTeam(e.teamId);
+      return `<div class="poll-row">
+        <span class="poll-rk" style="color:${pollColor(e.teamId)}">${e.rank}</span>
+        ${t?logoImg(t.id,'team-logo-sm'):''}
+        <span class="poll-nm">${t?t.name:('Team '+e.teamId)}</span>
+        <span class="poll-avg">${e.avg.toFixed(2)}</span>
+      </div>`;}).join('');
+    return `<details class="poll-fold"${i===0?' open':''}>
+      <summary><i class="fa fa-ranking-star"></i><span>Week ${w} Poll</span>
+        <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}</span>
+        <i class="fa fa-chevron-down poll-caret"></i></summary>
+      <div class="poll-list">${rows}</div>
+    </details>`;}).join('');
+  return `<div class="sec wm" data-wm="&#xf5a2;">
+    <div class="lh-sec-head"><i class="fa fa-ranking-star"></i>Coaches' Poll</div>
+    <div class="lh-note">How the league ranked itself, frozen at the end of each
+      week. The number beside a team is its average placing across every ballot,
+      so lower is better.</div>
+    ${pollChartHTML()}
+    ${folds}
+  </div>`;
+}
 function renderLeagueHistory(){
   const body=document.getElementById('legacy-body'); if(!body) return;
   const seasons=ALL_SEASONS.filter(s=>_seasonMeta[s]?.teams).sort((x,y)=>y-x);
@@ -3103,6 +3236,7 @@ function renderLeagueHistory(){
   const tab=(v,icon,label)=>`<button class="tab-btn ${_lhView===v?'active':''}" data-view="${v}" onclick="setLHView('${v}')"><i class="fa ${icon}"></i>${label}</button>`;
   const head=(icon,label)=>`<div class="lh-sec-head"><i class="fa ${icon}"></i>${label}</div>`;
   body.innerHTML=`
+    ${pollSectionHTML()}
     <div class="sec wm" data-wm="&#xf091;">
       <div class="standings-filters lh-tabs" id="lh-subtabs" style="padding-bottom:15px">
         ${tab('records','fa-clipboard-list','All-Time Records')}
