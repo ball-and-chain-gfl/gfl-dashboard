@@ -44,7 +44,11 @@ let _profileHonorYears={};               // owner -> {champ:[],conf:[]} year cap
 let _cmBreakdown={};                     // teamId -> computed {c1,c2,c3,detail} for breakdown tables
 let _cmBreakdownSeason=null;             // the season _cmBreakdown was computed for
 let _tradeScope='season';               // 'season' | 'alltime'
-let _tradeTeamFilter='';                 // owner id to filter trades by (optional)
+/* TWO SIDES OF A TRADE, EITHER OF THEM OPTIONAL. Both empty is every trade;
+   one set is every trade that team was in; both set is the trades those two
+   made with each other, which is the question a trade tab is usually asked. */
+let _tradeTeamFilter='';                 // owner id, one side (optional)
+let _tradeTeamFilter2='';                // owner id, the other side (optional)
 let _tradeCache={};                     // season -> {trades,source} from /api/espn?type=seasontrades
 let _draftTeamSel=null;                 // team filter on draft tab
 let _draftAllCache=null;
@@ -2172,6 +2176,16 @@ function setTradeSort(mode,btn){
   renderTradesTab();
 }
 function setTradeTeam(owner){_tradeTeamFilter=owner;renderTradesTab();}
+function setTradeTeam2(owner){_tradeTeamFilter2=owner;renderTradesTab();}
+/* The pair as the filter actually means it. Picking the same franchise on both
+   sides is a request for that team's trades, not for the trades it made with
+   itself — which is nothing, and would read as a broken filter. */
+function tradeFilterPair(){
+  const a=_tradeTeamFilter,b=_tradeTeamFilter2;
+  if(a&&b&&a!==b) return {a,b,both:true};
+  return {a:a||b||'',b:'',both:false};
+}
+const tradeFilterName=o=>o?((_franchises.find(f=>f.owner===o)?.name)||''):'';
 function setTradeScope(scope,btn){
   _tradeScope=scope;
   document.querySelectorAll('#trade-scope .filter-btn').forEach(b=>b.classList.remove('active'));
@@ -2252,19 +2266,25 @@ async function renderTradesTab(){
     });
   });
   // optional team filter (by franchise owner, works across seasons)
-  if(_tradeTeamFilter){
+  const _f=tradeFilterPair();
+  if(_f.a){
     list=list.filter(tr=>{
       const oa=_seasonMeta[tr.season]?.owners?.[tr.a.teamId], ob=_seasonMeta[tr.season]?.owners?.[tr.b.teamId];
-      return oa===_tradeTeamFilter||ob===_tradeTeamFilter;
+      /* both sides named: the trade has to be between exactly those two, in
+         either direction — a and b are whichever way ESPN listed them */
+      if(_f.both) return (oa===_f.a&&ob===_f.b)||(oa===_f.b&&ob===_f.a);
+      return oa===_f.a||ob===_f.a;
     });
   }
+  const _who=_f.both
+    ? `${tradeFilterName(_f.a)} v ${tradeFilterName(_f.b)}`
+    : tradeFilterName(_f.a);
   const _cnt=document.getElementById('trade-count');
   if(_cnt){
     const _sc=_tradeScope==='alltime'?'all-time':String(getSeason());
-    const _tm=_tradeTeamFilter?((_franchises.find(f=>f.owner===_tradeTeamFilter)?.name)||''):'';
-    _cnt.innerHTML=`<span class="tc-num">${list.length}</span><span class="tc-lbl">${list.length===1?'trade':'trades'} · ${_sc}${_tm?' · '+_tm:''}</span>`;
+    _cnt.innerHTML=`<span class="tc-num">${list.length}</span><span class="tc-lbl">${list.length===1?'trade':'trades'} · ${_sc}${_who?' · '+_who:''}</span>`;
   }
-  if(!list.length){body.innerHTML=`<div class="tab-loading">No trades found${_tradeTeamFilter?' for this team':''}${_tradeScope==='alltime'?'':` in the ${getSeason()} season`}.</div>`;return;}
+  if(!list.length){body.innerHTML=`<div class="tab-loading">No trades found${_f.both?' between these two teams':_f.a?' for this team':''}${_tradeScope==='alltime'?'':` in the ${getSeason()} season`}.</div>`;return;}
 
   if(_tradeSort==='balanced') list.sort((x,y)=>Math.abs(x.share-0.5)-Math.abs(y.share-0.5));
   else if(_tradeSort==='week') list.sort((x,y)=>(y.season-x.season)||(x.week-y.week));
@@ -4912,7 +4932,7 @@ function fcLineupFor(season,week,teamId){
     const starters=list.filter(e=>!BENCH_SLOTS.includes(e.slot));
     if(starters.length){
       const proj=sbPlayerProj()||{};
-      return starters.map(e=>({pid:e.pid,n:pName(e.pid),pos:SLOT_NAMES[e.slot]||'',
+      return starters.map(e=>({pid:e.pid,n:e.n||pName(e.pid),pos:SLOT_NAMES[e.slot]||'',
         slot:e.slot,ppos:e.pos,proj:(proj[String(e.pid)]||{}).wk??null,dummy:false}));
     }
   }
@@ -8506,7 +8526,15 @@ function sbRosters(season,week){
                               &&Number(x.scoringPeriodId)===Number(week));
             return r&&typeof r.appliedTotal==='number'?Math.round(r.appliedTotal*100)/100:null;
           };
-          return {pid:e.playerId, slot:e.lineupSlotId,
+          /* THE NAME IS RIGHT HERE, so take it. _playerNames is filled from
+             weekly SCORING, which in a season nobody has played yet is empty —
+             so pName fell through to "Player #4426515" and the Forecast lined
+             two rosters of id numbers up against each other. The roster call
+             has carried fullName all along and it was being dropped on the
+             floor. Seeded into the shared map as well as kept on the entry, so
+             every other pName on the site resolves too. */
+          if(pl.fullName&&!_playerNames[e.playerId]) _playerNames[e.playerId]=pl.fullName;
+          return {pid:e.playerId, n:pl.fullName||null, slot:e.lineupSlotId,
             pos:pl.defaultPositionId||0, proTeam:pl.proTeamId||0,
             wkProj:val(1), wkAct:val(0)};
         });
@@ -13195,7 +13223,14 @@ function betWeekResult(leg,season,wk){
   if(g3){
     const a=Number(g3[1]), b=Number(g3[2]);
     const gm=games.find(m=>(m.home.teamId===a&&m.away.teamId===b)||(m.home.teamId===b&&m.away.teamId===a));
-    if(!gm) return null;
+    /* THE FIXTURE WAS MOVED, SO THE BET IS OFF. Every game in this week has
+       already been played by the time we get here, so a pairing that is not
+       among them is one that will never be played — the schedule changed after
+       the ticket was written. Returning null left it open for good, with the
+       stake deducted and no way back except cashing out by hand. A push returns
+       it: nobody should lose money because a fixture moved, and nobody should
+       be paid for a game that was never played either. */
+    if(!gm) return 'push';
     const hp=gm.home.totalPoints||0, ap=gm.away.totalPoints||0;
     if(g3[3]==='tot'){
       const m2=/([\d.]+)/.exec(leg.pickLabel||''); const line=m2?Number(m2[1]):null;
@@ -13230,10 +13265,16 @@ function betWeekResult(leg,season,wk){
   if(shape){
     const gm=/^g(\d+)-(\d+)$/.exec(ent);
     if(!gm) return null;
-    const marg=games.map(m=>({k:'g'+m.home.teamId+'-'+m.away.teamId,
+    /* Matched on the PAIR rather than on home-then-away. The key is written
+       home first, so a fixture that survived the reschedule with the two sides
+       swapped used to look like a fixture that had vanished. */
+    const pair=m=>[m.home.teamId,m.away.teamId].sort((x,y)=>x-y).join('-');
+    const want=[Number(gm[1]),Number(gm[2])].sort((x,y)=>x-y).join('-');
+    const marg=games.map(m=>({k:pair(m),
       d:Math.abs((m.home.totalPoints||0)-(m.away.totalPoints||0))}));
-    const mine=marg.find(x=>x.k===ent);
-    if(!mine) return null;
+    const mine=marg.find(x=>x.k===want);
+    /* the fixture is not in this week any more — see the push above */
+    if(!mine) return 'push';
     const ds=marg.map(x=>x.d);
     const target=shape[1]==='close'?Math.min.apply(null,ds):Math.max.apply(null,ds);
     if(mine.d!==target) return false;
@@ -15187,9 +15228,12 @@ async function loadDashboard(){
               <button class="filter-btn ${_tradeSort==='unbalanced'?'active':''}" onclick="setTradeSort('unbalanced',this)">Most<br>Unbalanced</button>
               <button class="filter-btn ${_tradeSort==='balanced'?'active':''}" onclick="setTradeSort('balanced',this)">Most<br>Balanced</button>
             </div>
-            <div class="picker-bar" id="trade-team">
-              <label for="trade-team-select">Team:</label>
-              <select id="trade-team-select" onchange="setTradeTeam(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
+            ${''/* two sides, side by side, each defaulting to All teams. No
+                    label: "All teams" says what the control is, and a label
+                    would only take width the second dropdown needs. */}
+            <div class="picker-bar picker-2" id="trade-team">
+              <select id="trade-team-select" aria-label="First team" onchange="setTradeTeam(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
+              <select id="trade-team-select-2" aria-label="Second team" onchange="setTradeTeam2(this.value)"><option value="">All teams</option>${_franchises.map(f=>`<option value="${f.owner}" ${_tradeTeamFilter2===f.owner?'selected':''}>${f.name}</option>`).join('')}</select>
             </div>
           </div>
           <div id="trades-body" class="trades-list"></div>

@@ -3241,6 +3241,16 @@
     .picker-bar{display:flex;align-items:center;gap:10px;padding:0 2px 14px;flex-wrap:wrap;}
     .card .picker-bar{border-bottom:1px solid var(--border);}
     .picker-bar label{font-size:13px;color:var(--text3);}
+    /* TWO PICKERS ON ONE ROW. They split the width evenly and never wrap: the
+       pair is the control, and one dropping under the other would read as two
+       unrelated filters. The 16px select rule that keeps iOS from zooming a
+       focused field is lifted here — a select opens a native picker rather than
+       zooming, and at 16px a name like "The Bryan Football Team" loses its end
+       in a half-width box. */
+    .picker-bar.picker-2{flex-wrap:nowrap;gap:8px;}
+    .picker-bar.picker-2 select{flex:1 1 0;min-width:0;width:100%;
+      font-size:13px!important;padding-left:11px;padding-right:24px;
+      text-overflow:ellipsis;}
     .picker-bar input[type=text]{background:#222;color:var(--text);border:none;box-shadow:none;border-radius:8px;padding:8px 14px;font-size:13px;min-width:180px;}
     .picker-bar input[type=text]:focus{outline:none;box-shadow:none;}
     .h2h-total{display:flex;align-items:center;gap:14px;padding:16px 20px;background:rgba(var(--accent-rgb),0.05);border:1px solid rgba(var(--accent-rgb),0.18);border-radius:6px;margin-bottom:16px;flex-wrap:wrap;}
