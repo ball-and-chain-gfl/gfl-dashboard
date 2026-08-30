@@ -11711,10 +11711,25 @@ function ntReset(){ _ntSeen=null; _ntIdx=0; _ntUndo=[]; try{ ntSync(); }catch(e)
    the cache and then calls ntSync, which reads the profile and puts every
    dismissed id straight back, so "start over" restored exactly what it had just
    cleared. The record has to be emptied on both sides and left alone. */
+/* ── START OVER MEANS THIS WEEK, NOT EVERY WEEK ──────────────────────────────
+   It used to empty the seen set outright, which brought back every card still
+   being generated — a streak from three weeks ago, a trade from before that.
+   Nobody asking to see this week again is asking for October.
+
+   The league week runs Tuesday to Tuesday, and ntResultsDay already answers
+   with the Tuesday a moment belongs to, so "this week" is every card dated on
+   or after this one. Those come back; anything older stays cleared, and stays
+   cleared on the profile too so a second device does not undo the distinction. */
 async function ntRestart(){
-  _ntSeen=new Set(); _ntIdx=0; _ntUndo=[];
-  try{ localStorage.removeItem(ntKey()); }catch(e){}
-  if(_me) try{ await gflPatchProfile(_me.k1,{ntSeen:'[]'}); }catch(e){}
+  const weekStart=ntResultsDay(Date.now());
+  let keep=[];
+  try{
+    const thisWeek=new Set(ntAll().filter(n=>(n.day||0)>=weekStart).map(n=>n.id));
+    keep=[...ntSeen()].filter(id=>!thisWeek.has(id));
+  }catch(e){ keep=[]; }
+  _ntSeen=new Set(keep); _ntIdx=0; _ntUndo=[];
+  try{ localStorage.setItem(ntKey(),JSON.stringify(keep)); }catch(e){}
+  if(_me) try{ await gflPatchProfile(_me.k1,{ntSeen:JSON.stringify(keep)}); }catch(e){}
   try{ renderNotifications(); }catch(e){}
   try{ orderHomeTodo(); }catch(e){}
 }
@@ -11991,7 +12006,14 @@ function ntTradeVoteId(season,tr){
 }
 /* the trade board, with a vote on who came out ahead */
 function ntTrades(out){
-  const season=ntSeason(); if(!season) return;
+  /* THE SEASON BEING PLAYED, NOT THE LAST ONE WITH A SCORE IN IT. ntSeason()
+     answers with the newest year that has points on the board, which from
+     February until the first Sunday in September is LAST year — so a trade
+     agreed in August looked for its card against 2025's ledger and never found
+     one. Every other generator here is about results, where ntSeason is right;
+     a trade is about right now. */
+  const season=(typeof sbBoardSeason==='function')?sbBoardSeason():ntSeason();
+  if(!season) return;
   const cached=_tradeCache&&_tradeCache[season];
   if(!cached){
     /* pulled once, then the card repaints itself when it lands */
@@ -12784,6 +12806,28 @@ function cpTally(){
   const rank=_teams.map(t=>({t,avg:sum[t.id]/n})).sort((a,b)=>a.avg-b.avg);
   return {ballots:n,rank};
 }
+/* ── WHO IS STILL HOLDING THE POLL UP ────────────────────────────────────────
+   Crests only, under the combined standings. A count of ballots says how many
+   are missing; this says which, which is the version somebody can do something
+   about. Read off the profile rows the poll already pulls, so it costs nothing.
+
+   A team with no profile row at all has not voted either — the check is for a
+   ballot against that team, not for the absence of one. */
+function cpYetToVoteHTML(){
+  const rows=_cpRows||[];
+  if(!rows.length||!_teams.length) return '';
+  const voted=new Set(rows.filter(p=>p[cpKey()])
+    .map(p=>String(p.teamId||'').trim()).filter(Boolean));
+  const out=_teams.filter(t=>!voted.has(String(t.id)));
+  if(!out.length) return `<div class="cp-yet cp-yet-all">
+    <i class="fa fa-circle-check"></i><span>Every ballot is in.</span></div>`;
+  return `<div class="cp-yet">
+    <span class="cp-yet-l">Yet to vote</span>
+    <span class="cp-yet-logos">${out.map(t=>
+      `<span class="cp-yet-t" title="${String(t.name).replace(/"/g,'&quot;')}">${logoImg(t.id,'cp-logo')}</span>`
+    ).join('')}</span>
+  </div>`;
+}
 function renderCoachesPoll(){
   const el=document.getElementById('cp-body'); if(!el) return;
   cpSync();
@@ -12817,7 +12861,8 @@ function renderCoachesPoll(){
       ${logoImg(r.t.id,'cp-logo')}
       <span class="cp-nm">${r.t.name}</span>
       <span class="cp-avg">${r.avg.toFixed(2)}</span>
-    </div>`).join('')}</div>`;
+    </div>`).join('')}</div>
+    ${cpYetToVoteHTML()}`;
   const b=cpMyBallot();
   const done=b.length===_teams.length;
   /* the ballot this manager sent, drawn as a ranked list */
@@ -13721,6 +13766,34 @@ function betWeekResult(leg,season,wk){
     if(mine.d!==target) return false;
     return ds.filter(d=>d===target).length>1?'push':true;
   }
+  /* ── PICK 'EM: which of the three actually scored most ──────────────────
+     The three player ids are in the market key, so the ticket carries its own
+     field and can be graded long after the projections that chose them moved.
+     Settles off the same lineups feed the donut and top-scorer markets read,
+     which records what a STARTED player scored — a player left on the bench
+     did nothing for anybody that week and cannot win it. A dead heat pushes. */
+  const pe=/^wk\d+-pe([\d_]+)$/.exec(mk);
+  if(pe){
+    const pids=pe[1].split('_').map(Number).filter(n=>n>0);
+    if(pids.length<2) return null;
+    try{ loadLineups(); }catch(e){}
+    const L=_lineups&&_lineups[String(season)];
+    const rowsW=L&&L.weeks&&(L.weeks[String(wk)]||L.weeks[Number(wk)]);
+    if(!rowsW) return null;                       // feed not in yet
+    const got={};
+    Object.keys(rowsW).forEach(tid=>(rowsW[tid]||[]).forEach(row=>{
+      const pid=Number(row&&row[0]), p=Number(row&&row[1]);
+      if(pids.includes(pid)&&isFinite(p)) got[pid]=p;
+    }));
+    /* nobody in the group started — there is no result to settle against */
+    if(!Object.keys(got).length) return null;
+    const mine=Number(String(ent).replace(/^p/,''));
+    const scored=pids.map(p=>({p,v:got[p]!=null?got[p]:-Infinity}));
+    const best=Math.max(...scored.map(s=>s.v));
+    const winners=scored.filter(s=>s.v===best).map(s=>s.p);
+    if(!winners.includes(mine)) return false;
+    return winners.length>1?'push':true;
+  }
   /* Anybody in the lineup on a zero. Settles off the week's starting lineups
      rather than the team total, so it needs the lineups dataset — kicked off
      here and left ungraded until it lands, the same way the player markets are.
@@ -14609,7 +14682,11 @@ const SB_EXCLUSIVE=/-(ml|sp|tot)$/;          // weekly markets: one side per gam
    exactly why two teams could be parlayed to win the same Closest Game. */
 function sbAllMarkets(){
   const out=Object.values((sbBuild()||{groups:{}}).groups||{}).flat();
-  try{ const d=sbWeekData(); if(d&&d.marks) out.push(...d.marks); }catch(e){}
+  /* Pick 'Em goes in too, or two players from the same trio could ride the same
+     parlay — and only one of three can outscore the other two. sbConflict finds
+     the clash through this list, so a market missing from it is a market whose
+     own rules do not apply. */
+  try{ const d=sbWeekData(); if(d){ if(d.marks) out.push(...d.marks); if(d.pick) out.push(...d.pick); } }catch(e){}
   return out;
 }
 /* Markets that fill a fixed number of seats. However long the price looks, a
@@ -14947,7 +15024,8 @@ function sbWeekData(){
     });
   });
   buys.sort((x,y)=>y.bid-x.bid);
-  return {book,season,week,live,games,buys:buys.slice(0,8),marks:sbWeekMarkets(book,games,week)};
+  return {book,season,week,live,games,buys:buys.slice(0,8),
+    marks:sbWeekMarkets(book,games,week),pick:sbPickEmMarkets(book,week)};
 }
 
 /* ── SIX MARKETS ON THE WEEK ─────────────────────────────────────────────────
@@ -15064,6 +15142,66 @@ function sbWeekMarkets(book,games,week){
     'fa-ring',{lo:0.06,hi:0.34,mul:true,yesOnly:true}));
   return out;
 }
+/* ── PICK 'EM ────────────────────────────────────────────────────────────────
+   Three players projected within a whisker of each other; pick the one who
+   actually outscores the other two. It is the one market on the board that is
+   not about a team at all, and it is the closest thing here to a genuine
+   fifty-fifty: the projections are deliberately level, so the price is doing
+   almost no work and the read is yours.
+
+   THE THREE ARE CONSECUTIVE IN THE PROJECTION ORDER, which is what makes them
+   comparable — the gap between neighbours in a sorted list is as small as the
+   field allows. The groups are then spread across the whole range rather than
+   taken off the top, so one is three studs, one is three flex plays and one is
+   three kickers, instead of six ways to bet on the same tier.
+
+   STARTERS ONLY, and the key carries the three player ids. Both of those are
+   about settling it later: the lineups feed records what a STARTED player
+   scored, and a market that had to be re-derived from today's projections could
+   not be graded once those projections had moved on. The ids in the key mean
+   the ticket knows who it was about. */
+const PICKEM_GROUPS=6;
+function sbPickEmMarkets(book,week){
+  const proj=sbPlayerProj(week);
+  const rost=sbRosters(sbBoardSeason(),week);
+  if(!proj||!rost) return [];
+  const pool=[];
+  Object.keys(rost).forEach(tid=>{
+    const team=(book.rows.find(r=>r.tid===Number(tid))||{});
+    (rost[tid]||[]).forEach(e=>{
+      if(BENCH_SLOTS.includes(e.slot)) return;
+      const p=proj[String(e.pid)]||null;
+      const wk=(typeof e.wkProj==='number'&&e.wkProj>0)?e.wkProj:(p?p.wk:0);
+      if(!(wk>0)) return;
+      pool.push({pid:Number(e.pid),wk,
+        name:(p&&p.name)||e.n||pName(e.pid),
+        pos:SLOT_NAMES[e.slot]||'',
+        team:team.name||''});
+    });
+  });
+  if(pool.length<6) return [];
+  pool.sort((a,b)=>b.wk-a.wk);
+  /* one triple from each band, so the groups climb down the range together */
+  const bands=Math.min(PICKEM_GROUPS,Math.floor(pool.length/3));
+  const out=[];
+  for(let g=0;g<bands;g++){
+    const start=Math.min(pool.length-3,Math.round(g*(pool.length-3)/Math.max(1,bands-1)));
+    const trio=pool.slice(start,start+3);
+    if(trio.length<3) continue;
+    const pids=trio.map(t=>t.pid).slice().sort((a,b)=>a-b);
+    const key='wk'+week+'-pe'+pids.join('_');
+    if(out.some(m=>m.key===key)) continue;
+    const probs=sbTopProbs(trio.map(t=>t.wk),week*104729+g*7919+3);
+    const lo=Math.min(...trio.map(t=>t.wk)), hi=Math.max(...trio.map(t=>t.wk));
+    out.push(sbOutrightAny(key,`Pick 'Em · ${trio[0].pos||'Group'} ${g+1}`,
+      `Who scores most of the three? Projected ${lo.toFixed(1)}–${hi.toFixed(1)} this week. Settles on started scores.`,
+      trio.map(t=>({k:'p'+t.pid,name:t.name,
+        av:playerImg(t.pid,22,t.name),
+        ab:`${t.pos} · ${t.team}`})),
+      probs,'fa-user-check',1,'Player'));
+  }
+  return out;
+}
 function sbWeekHTML(){
   const d=sbWeekData();
   if(!d) return `<div class="tab-loading">No schedule data for this season.</div>`;
@@ -15116,6 +15254,22 @@ function sbWeekHTML(){
      Six matchups and eight pickups left open were most of the page's scroll,
      and the markets between them were unreachable without going past both. */
   const marks=(d.marks||[]).map(sbMarketHTML).join('');
+  /* One Pick 'Em dropdown holding the groups, rather than six loose markets
+     scattered down the board — they are one idea asked six times. */
+  const pick=(d.pick||[]);
+  const peOpen=!!_sbOpenMk['wk-pickem'];
+  const pickHTML=pick.length?`<div class="sb-market sb-fold sb-pickem${peOpen?' open':''}" data-mk="wk-pickem">
+      <button class="sb-mhead" onclick="sbToggleMk('wk-pickem')" aria-expanded="${peOpen}">
+        <span class="sb-mt"><i class="fa fa-user-check"></i>Week ${d.week} Pick 'Em</span>
+        <span class="badge-info">${pick.length} group${pick.length===1?'':'s'}</span>
+        <i class="fa fa-chevron-down sb-mchev"></i>
+      </button>
+      <div class="sb-rows"><div class="sb-rows-in">
+        <div class="sb-msub-in">Three players ESPN projects within a whisker of
+          each other. Pick the one who actually outscores the other two.</div>
+        ${pick.map(sbMarketHTML).join('')}
+      </div></div>
+    </div>`:'';
   const wkOpen=!!_sbOpenMk['wk-board'];
   return `<div class="sb-market sb-fold${wkOpen?' open':''}" data-mk="wk-board">
       <button class="sb-mhead" onclick="sbToggleMk('wk-board')" aria-expanded="${wkOpen}">
@@ -15130,6 +15284,7 @@ function sbWeekHTML(){
         <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
       </div></div>
     </div>
+    ${pickHTML}
     ${marks}`;
 }
 

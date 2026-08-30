@@ -1109,6 +1109,62 @@ export default async function handler(req, res) {
         });
         trades.push({ week: tradeWeek, teams });
       }
+
+      // ── TRADES THE WEEKLY DIFF CANNOT SEE ───────────────────────────────────
+      // Everything above is reconstructed by watching a player change hands
+      // between two weeks of rosters. That needs weeks. Between a draft and the
+      // first kickoff there are none, so a trade made in the pre-season is
+      // invisible to it — the tab said there were no trades while two managers
+      // had just swapped four players.
+      //
+      // The current roster knows anyway: every entry carries how it was acquired
+      // and when. A trade stamps the same acquisitionDate on every player in it,
+      // which is what groups them back into one deal, and each player sits on
+      // the roster that RECEIVED him, which is what gives each side.
+      //
+      // Only deals the diff missed are added. A trade already reconstructed from
+      // the weekly rosters is the better record of the two — it knows what the
+      // players went on to score — so the player set is the key and the
+      // reconstruction wins.
+      try {
+        const lr = await fetch(leagueURL('mRoster', { forceLive: true }), { headers });
+        if (lr.ok) {
+          const ld = unwrap(await lr.json());
+          const groups = {};
+          (ld.teams || []).forEach(team => {
+            (team.roster?.entries || []).forEach(e => {
+              if (!/TRADE/i.test(String(e.acquisitionType || ''))) return;
+              const when = Number(e.acquisitionDate) || 0;
+              if (!when) return;
+              const g = groups[when] || (groups[when] = []);
+              g.push({ pid: e.playerId, to: team.id,
+                n: e.playerPoolEntry?.player?.fullName || `#${e.playerId}` });
+            });
+          });
+          const seen = new Set(trades.map(t =>
+            t.teams.flatMap(x => x.players.map(p => p.pid)).sort((a, b) => a - b).join(',')));
+          const curWeek = Number(ld.scoringPeriodId) || 1;
+          Object.keys(groups).sort((a, b) => a - b).forEach(when => {
+            const legs = groups[when];
+            const teamIds = [...new Set(legs.map(l => l.to))];
+            if (teamIds.length !== 2) return;          // not a two-way deal
+            const key = legs.map(l => l.pid).sort((a, b) => a - b).join(',');
+            if (seen.has(key)) return;                 // the diff already has it
+            seen.add(key);
+            const teamsOut = teamIds.map(tid => {
+              const players = legs.filter(l => l.to === tid)
+                .map(l => ({ pid: l.pid, n: l.n, pts: +ptsFrom(l.pid, curWeek).toFixed(1) }))
+                .sort((a, b) => b.pts - a.pts);
+              return { teamId: tid, players, total: +players.reduce((s, p) => s + p.pts, 0).toFixed(1) };
+            });
+            // `date` is what the notification card reads to decide whether a
+            // trade happened this week; `at` is kept for ordering.
+            trades.push({ week: curWeek, teams: teamsOut, at: Number(when), date: Number(when) });
+          });
+        }
+      } catch {}
+      trades.sort((a, b) => (a.week - b.week) || ((a.at || 0) - (b.at || 0)));
+
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
         : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');

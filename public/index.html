@@ -2077,6 +2077,18 @@
     .cp-meta{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.4px;
       text-transform:uppercase;color:var(--text3);margin-bottom:9px;text-align:center;}
     .cp-note{font-size:12.5px;color:var(--text3);margin-bottom:6px;}
+    /* Who is still holding the poll up — crests only, under the standings. The
+       row wraps rather than scrolling: with eleven outstanding it is two lines,
+       and two lines of crests is easier to read than one that slides. */
+    .cp-yet{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+      margin-top:11px;padding-top:10px;border-top:1px solid var(--border);}
+    .cp-yet-l{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;color:var(--text3);flex:0 0 auto;}
+    .cp-yet-logos{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;}
+    .cp-yet-t{display:inline-flex;opacity:0.72;}
+    .cp-yet-t:hover{opacity:1;}
+    .cp-yet-all{color:var(--text3);font-family:'Inter',sans-serif;font-size:11.5px;}
+    .cp-yet-all i{color:var(--green);}
     .cp-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
     .cp-t{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;
       border:1px solid transparent;background:rgba(0,0,0,0.3);color:var(--text);
