@@ -546,7 +546,17 @@ export default async function handler(req, res) {
           if (pid == null) return;
           const stats = e.playerPoolEntry?.player?.stats || [];
           const wk = stats.find(s => s.statSourceId === 0 && s.scoringPeriodId === week);
-          const pts = wk?.appliedTotal ?? e.playerPoolEntry?.appliedStatTotal ?? 0;
+          // NO STAT LINE FOR THIS WEEK MEANS NO POINTS THIS WEEK — a bye, or a
+          // player who was not active. It used to fall back to the roster
+          // entry's appliedStatTotal, which is not this week's number at all:
+          // it is the total carried on the entry, so a player on bye was
+          // recorded with the score he had put up the week before. Jonathan
+          // Taylor's 49.6 from week 10 of 2025 appears again in week 11, on the
+          // bench, on his bye. About 150 rows a season came from that fallback,
+          // some 1,900 points of them, and almost all of them landed on benched
+          // players — which is where they do the most damage, because the bench
+          // is what "points left on the bench" is measured from.
+          const pts = wk?.appliedTotal ?? 0;
           players[pid] = {
             pts,
             slot: e.lineupSlotId,

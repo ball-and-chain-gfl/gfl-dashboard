@@ -4574,6 +4574,9 @@ function vidGo(i){ document.querySelector('.vid-scroll')?._go?.(i); }
 const SLOT_NAMES={0:'QB',2:'RB',3:'RB/WR',4:'WR',5:'WR/TE',6:'TE',7:'OP',16:'D/ST',17:'K',
   20:'BE',21:'IR',23:'FLEX',24:'ER'};
 const BENCH_SLOTS=[20,21,24];
+/* The order a lineup is read in: passer, runners, receivers, tight end, the
+   flex spots, then the two that are not people you drafted for their name. */
+const SLOT_ORDER=[0,2,3,4,5,6,7,23,16,17];
 let _rosterCache=null,_rosterTeam=null;
 function setRosterTeam(id){ _rosterTeam=String(id); renderRoster(); }
 /* every team as a tile, so any roster is one tap away */
@@ -4975,8 +4978,22 @@ function fcLineupFor(season,week,teamId){
     const starters=list.filter(e=>!BENCH_SLOTS.includes(e.slot));
     if(starters.length){
       const proj=sbPlayerProj()||{};
-      return starters.map(e=>({pid:e.pid,n:e.n||pName(e.pid),pos:SLOT_NAMES[e.slot]||'',
+      const out=starters.map(e=>({pid:e.pid,n:e.n||pName(e.pid),pos:SLOT_NAMES[e.slot]||'',
         slot:e.slot,ppos:e.pos,proj:(proj[String(e.pid)]||{}).wk??null,dummy:false}));
+      /* IN LINEUP ORDER, NOT THE ORDER ESPN HAPPENS TO LIST THEM IN.
+
+         The roster feed comes back in its own order, which is neither the
+         lineup's nor anything a manager would recognise — the Forecast was
+         reading WR, RB, TE, RB, WR, FLEX, QB, K, D/ST down the page, with the
+         quarterback seventh. Both sides are sorted the same way, which is what
+         keeps the two columns aligned spot for spot; within one slot the higher
+         projection goes on top, so RB1 sits above RB2. */
+      out.sort((a,b)=>{
+        const ai=SLOT_ORDER.indexOf(a.slot), bi=SLOT_ORDER.indexOf(b.slot);
+        if(ai!==bi) return (ai<0?99:ai)-(bi<0?99:bi);
+        return (b.proj??-1)-(a.proj??-1);
+      });
+      return out;
     }
   }
   return fcDummyLineup(teamId);
