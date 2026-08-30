@@ -4746,7 +4746,7 @@ function rsPanelHTML(p){
   const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
   const rec=pool?pool.find(x=>String(x.id)===String(p.pid)):null;
   const bio=(_bkBios||{})[String(p.pid)]||null;
-  const proj=(sbPlayerProj()||{})[String(p.pid)]||null;
+  const proj=(sbPlayerProj(invWeekNow())||{})[String(p.pid)]||null;
   const rank=rec?bkRankOf(rec):null;
   const posN=POS_NAMES[p.ppos]||'';
   const nflTeam=rec?(NFL_FULL[bkTeamOf(rec)]||bkTeamOf(rec)||''):'';
@@ -4977,9 +4977,13 @@ function fcLineupFor(season,week,teamId){
   if(list&&list.length){
     const starters=list.filter(e=>!BENCH_SLOTS.includes(e.slot));
     if(starters.length){
-      const proj=sbPlayerProj()||{};
+      const proj=sbPlayerProj(week)||{};
+      /* the entry's own weekly projection first — it is the number ESPN shows
+         beside that player in the app, for this week, on this roster */
+      const wkOf=e=>(typeof e.wkProj==='number'&&e.wkProj>0)
+        ? e.wkProj : ((proj[String(e.pid)]||{}).wk??null);
       const out=starters.map(e=>({pid:e.pid,n:e.n||pName(e.pid),pos:SLOT_NAMES[e.slot]||'',
-        slot:e.slot,ppos:e.pos,proj:(proj[String(e.pid)]||{}).wk??null,dummy:false}));
+        slot:e.slot,ppos:e.pos,proj:wkOf(e),dummy:false}));
       /* IN LINEUP ORDER, NOT THE ORDER ESPN HAPPENS TO LIST THEM IN.
 
          The roster feed comes back in its own order, which is neither the
@@ -8464,14 +8468,42 @@ function sbTopProbs(means,seed){
 }
 
 /* the pool, keyed by player id, with a per-week projection */
-function sbPlayerProj(){
+/* ── WHAT A PLAYER IS PROJECTED FOR THIS WEEK ────────────────────────────────
+   ESPN publishes two different numbers and only one of them is the one a
+   manager sees beside a player in the app: the per-week projection. This used
+   to serve the SEASON projection divided by seventeen instead, which is a flat
+   average and cannot know about a bye, a matchup, or a player whose season
+   number is dragged down by games he was never going to play.
+
+   The gap is not small. In week 1 of 2026 that put Luther Burden at 5.4 when
+   ESPN had him at 12.1, and the Jaguars defence at 5.1 against ESPN's 8.2 —
+   rookies and returning players are worst hit, because their season totals are
+   depressed by weeks the weekly number already knows about.
+
+   Three sources, best first: ESPN's own per-week projection off the roster feed
+   for anyone actually rostered, the pool's per-week line where it carries one,
+   and only then the flat average, which is still the right answer for a free
+   agent nobody has projections for. */
+function sbPlayerProj(week){
   const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
   if(!pool||!pool.length){ try{ bkLoadPool(); }catch(e){} return null; }
   const out={};
-  pool.forEach(p=>{ out[String(p.id)]={name:p.name,pos:p.pos,
-    /* ESPN publishes a season projection; a week of it is that over the
-       seventeen, which is all a ranking needs and all this prices on */
-    wk:(p.proj||p.total||0)/17}; });
+  pool.forEach(p=>{
+    const pw=week!=null?(p.projWeeks||{})[String(week)]:null;
+    out[String(p.id)]={name:p.name,pos:p.pos,
+      wk:(typeof pw==='number'&&pw>0)?pw:(p.proj||p.total||0)/17};
+  });
+  /* The roster feed is read straight from the cache rather than through
+     sbRosters(), so asking for a projection can never kick off a fetch. */
+  if(week!=null){
+    try{
+      const r=_sbRosters[String(sbBoardSeason())+':'+week];
+      if(r) Object.keys(r).forEach(tid=>(r[tid]||[]).forEach(e=>{
+        const v=e&&e.wkProj;
+        if(typeof v==='number'&&v>0&&out[String(e.pid)]) out[String(e.pid)].wk=v;
+      }));
+    }catch(e){}
+  }
   return out;
 }
 
@@ -14204,7 +14236,7 @@ function myBetsHTML(){
    every one of them look like better value than it is. */
 function sbTeamTopMarket(book,owner,week){
   const r=book.rows.find(x=>x.owner===owner); if(!r) return '';
-  const proj=sbPlayerProj(), rost=sbRosters(sbBoardSeason(),week);
+  const proj=sbPlayerProj(week), rost=sbRosters(sbBoardSeason(),week);
   if(!proj||!rost) return '';
   const mine=rost[r.tid]; if(!mine||!mine.length) return '';
   const list=mine.map(e=>({pid:e.pid,p:proj[String(e.pid)]}))
@@ -14694,7 +14726,7 @@ function sbWeekMarkets(book,games,week){
      Priced straight off ESPN's own projections, which is the only genuinely
      forward-looking number in the data. Free agents are left out: a player
      nobody rosters cannot score for anybody. */
-  const proj=sbPlayerProj();
+  const proj=sbPlayerProj(week);
   const rost=sbRosters(sbBoardSeason(),week);
   if(proj&&rost){
     const own={};
