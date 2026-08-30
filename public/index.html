@@ -5918,6 +5918,38 @@
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
     #page-home .motw-book{--accent:#3fd07a;--accent2:#3fd0b0;--accent-rgb:63,208,122;
       --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    /* ── STILL SOMETHING TO DO ──────────────────────────────────────────────
+       A homepage module with something outstanding — a ballot unsent, picks
+       reopened, a question unanswered, notifications started over — wears a
+       light wash of its OWN accent and an outline in it. Each module already
+       carries its colour as --accent-rgb, so the poll glows amber, the picks
+       blue, Ball Knowledge violet, and nothing needs a second palette.
+
+       A finished module gets neither, which leaves it exactly as it was. The
+       padding is on the tinted state alone for the same reason: adding it to
+       every card would move the whole page the moment anything was completed. */
+    /* Written against the module reset's own selector with .home-todo added.
+       That reset repeats .mod-cp to buy weight and sets every one of these with
+       !important, so anything short of matching its shape and adding a class
+       loses — which is what a column-based selector did, silently.
+
+       Only the fill and the edge move. The radius, the padding and the blur stay
+       exactly where the card already had them, so completing a module does not
+       resize it or shift the page; it just goes quiet. */
+    html[data-theme] #page-home .sec.wm.mod-cp.mod-cp.home-todo,
+    html[data-theme] #page-home .sec.wm.mod-nt.mod-nt.home-todo,
+    html[data-theme] #page-home .sec.wm.mod-pk.mod-pk.home-todo,
+    html[data-theme] #page-home .sec.wm.mod-bk.mod-bk.home-todo{
+      border:1px solid rgba(var(--accent-rgb),0.46)!important;
+      background:linear-gradient(rgba(var(--accent-rgb),0.15),rgba(var(--accent-rgb),0.05)),
+        rgba(0,0,0,0.18)!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),
+        0 0 0 3px rgba(var(--accent-rgb),0.07)!important;}
+    html[data-theme] #page-home .sec.wm.mod-cp.mod-cp,
+    html[data-theme] #page-home .sec.wm.mod-nt.mod-nt,
+    html[data-theme] #page-home .sec.wm.mod-pk.mod-pk,
+    html[data-theme] #page-home .sec.wm.mod-bk.mod-bk{
+      transition:background .25s ease,border-color .25s ease,box-shadow .25s ease;}
     #page-home .home-punish-more{color:var(--accent);border-color:rgba(var(--accent-rgb),0.4);}
     #page-home .home-punish-more:hover{color:var(--accent);border-color:var(--accent);}
 

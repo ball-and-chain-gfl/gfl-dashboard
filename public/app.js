@@ -10351,7 +10351,18 @@ function bucksBalance(){
   return Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv-idle);
 }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
-const bucksFmt=v=>'$'+Math.round(v).toLocaleString();
+/* GFL Bucks read like money, to the cent. They were rounded to the whole buck,
+   which is fine for an allowance that arrives in hundreds and wrong everywhere
+   it is actually spent: a −115 leg on a $25 stake returns $46.74, and a book
+   that calls that $47 is a book that cannot add up. The share market already
+   prices to the cent (invFmt), so this brings the balance, the stakes and the
+   payouts into line with it.
+
+   The twelve-row Leaderboard keeps its own compact format (ldMoney) on purpose
+   — two more digits a row there and the table outgrows a phone. */
+const bucksCents=v=>(Math.round((Number(v)||0)*100)/100)
+  .toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const bucksFmt=v=>'$'+bucksCents(v);
 
 /* ── READING ONLY THE BETS THAT ARE WANTED ───────────────────────────────────
    This used to list the whole collection on every visit to the sportsbook and
@@ -12624,6 +12635,21 @@ function orderHomeTodo(){
   /* Any inversion still sitting on a card from a previous call has to come off
      before measuring, or the "before" box is a displaced one and the next
      inversion compounds it. */
+  /* OUTSTANDING CARDS LOOK OUTSTANDING. Sinking to the bottom of the stack says
+     a section is finished only if you remember what the order was; a card that
+     still wants something from you should say so where it stands. Finished ones
+     keep exactly the look they have now, and the ones with something left take a
+     light wash of their own accent and an outline in it.
+
+     Every path that changes what is outstanding already ends up here — sending a
+     ballot, reopening the picks, answering a question, clearing a notification
+     and starting them over again — so the state follows the card without any of
+     those needing to know about it. */
+  rows.forEach(r=>{
+    r.el.classList.toggle('home-todo',!r.done);
+    r.el.classList.toggle('home-done',!!r.done);
+  });
+
   rows.forEach(r=>{ if(r.el.style.transform){
     r.el.style.transition=''; r.el.style.transform=''; r.el.style.zIndex=''; } });
 
@@ -14535,8 +14561,8 @@ function sbSlipHTML(){
       </div>
       <div class="sb-totals">
         <div class="sb-tot"><span>${n>1?'Parlay odds':'Odds'}</span><b>${amFmt(n>1?parlay:_slip[0].odds)}</b></div>
-        <div class="sb-tot"><span>To win</span><b class="sb-win">${(payout-stake).toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
-        <div class="sb-tot sb-tot-big"><span>Payout</span><b>${payout.toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
+        <div class="sb-tot"><span>To win</span><b class="sb-win">${bucksCents(payout-stake)}</b></div>
+        <div class="sb-tot sb-tot-big"><span>Payout</span><b>${bucksCents(payout)}</b></div>
       </div>
       ${!_me?`<button class="sb-place" onclick="openSignIn()"><i class="fa fa-right-to-bracket"></i>Sign in to bet</button>`
         :`<button class="sb-place" onclick="sbPlaceBet()" ${_betBusy||stake<=0||stake>bal?'disabled':''}>
@@ -14743,7 +14769,7 @@ function sbStakeTyped(v){
   const bal=bucksBalance();
   const stake=Math.min(bal,Math.max(0,Number(v)||0));
   const payout=stake*dec;
-  const fmt=x=>x.toLocaleString(undefined,{maximumFractionDigits:0});
+  const fmt=x=>bucksCents(x);
   /* The slip is painted into every .sb-slip-target there is — the sheet on a
      phone and the panel on a desktop — so all of them are patched, not the
      first one found. */
