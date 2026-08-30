@@ -2059,10 +2059,18 @@ function renderTenureTable(){
   const players=Object.entries(_tenure[owner]||{}).map(([pid,p])=>({
     pid, n:p.n||`Player #${pid}`,
     wAll:p.wAll, sAll:p.sAll, pAll:p.pAll, pwAll:p.pwAll||0,
+    /* POINTS MEANS POINTS HE STARTED FOR YOU. spAll only adds a week's score
+       when the player was in the active lineup; pAll adds it whether he was
+       started or sat on the bench. The column was showing pAll, so a player who
+       spent a season being handcuffed on somebody's bench read as though he had
+       been scoring for them all year. Both are collected — pAll is still what
+       the roster-weeks column is about — but the number beside a name here is
+       what he actually put on the board. */
+    spAll:p.spAll||0,
     nDraft:drafted?(drafted[pid]||0):null,
   }))
   .filter(p=>!q||p.n.toLowerCase().includes(q))
-  .sort((a,b)=>b.wAll-a.wAll||b.pAll-a.pAll);
+  .sort((a,b)=>b.wAll-a.wAll||b.spAll-a.spAll);
 
   const dash='<span style="color:var(--text3)">—</span>';
   const shown=players.slice(0,50);
@@ -2079,8 +2087,9 @@ function renderTenureTable(){
   body.innerHTML=shown.length?tenureListHTML(shown)
     +(players.length>50?`<div class="tn-more">Showing top 50 of ${players.length} — use search to find others.</div>`:'')
     +`<div class="tn-note"><b>Starts</b> = weeks in the active lineup ·
-      <b>Roster</b> = weeks on the roster, starting or benched. Bye weeks, and weeks
-      a player was on IR or ruled out, are not counted.</div>`
+      <b>Roster</b> = weeks on the roster, starting or benched ·
+      <b>Pts</b> = points scored while started, so a week on the bench adds nothing.
+      Bye weeks, and weeks a player was on IR or ruled out, are not counted.</div>`
   :`<div class="tab-loading">No players found${q?` matching “${q}”`:''}.</div>`;
   try{ renderTenureHardware(); }catch(e){}
 }
@@ -2097,7 +2106,7 @@ function tenureListHTML(rows){
     {k:'Start',cls:'tn-st', t:'Weeks in the starting lineup, every season'},
     {k:'Rost',cls:'tn-ro', t:'Weeks on the roster (starter or bench), every season'},
     {k:'Draft',cls:'tn-dr', t:'Times this team has spent a draft pick on this player'},
-    {k:'Pts',cls:'tn-pts',t:'Points scored for GFL teams, every season'},
+    {k:'Pts',cls:'tn-pts',t:'Points scored while in the starting lineup, every season. Weeks on the bench are not counted.'},
     {k:'PO W',  cls:'tn-pw', t:'Playoff games won while started for this team'},
   ];
   const head=`<div class="tn-row tn-head">${cols.map((c,i)=>
@@ -2110,7 +2119,7 @@ function tenureListHTML(rows){
     <span class="tn-st" data-v="${p.sAll}">${p.sAll}</span>
     <span class="tn-ro" data-v="${p.wAll}">${p.wAll}</span>
     <span class="tn-dr" data-v="${p.nDraft==null?-1:p.nDraft}">${p.nDraft==null?'<span class="tn-dash">·</span>':(p.nDraft||dash)}</span>
-    <span class="tn-pts" data-v="${p.pAll}">${p.pAll.toFixed(1)}</span>
+    <span class="tn-pts" data-v="${p.spAll}">${p.spAll.toFixed(1)}</span>
     <span class="tn-pw" data-v="${p.pwAll}">${p.pwAll||dash}</span>
   </div>`).join('');
   return `<div class="tn-list">${head}${body}</div>`;
