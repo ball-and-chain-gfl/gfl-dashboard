@@ -161,16 +161,16 @@ window.GFL_CONFIG = {
 
         window     eggs/week     most it can pay
         6 hours       28              $280
-        12 hours      14              $140   <- current
+        12 hours      14              $140
         1 day          7               $70
-        2 days         3.5             $35
+        2 days         3.5             $35   <- current
 
      against a weekly allowance of $100. Nobody finds every one — you only catch
      the ones that are up while you happen to be looking — so the real figure is
      a fraction of that. It was five minutes through the build, which is 2,016 a
      week and $20,160, and that was not a bonus on the economy, it was the
      economy. Raising the window lowers the ceiling. */
-  eggWindowHours: 12,
+  eggWindowHours: 48,
   eggPrize: 10,
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before

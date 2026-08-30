@@ -14590,10 +14590,37 @@ function sbPortal(){
   }
   return el;
 }
+/* ── A REPAINT MUST NOT STEAL THE STAKE FIELD ────────────────────────────────
+   Not typing is only half of it. The slip is also rebuilt by things that have
+   nothing to do with the stake — adding a leg, the bets ledger refreshing, and
+   now the roster feed landing on its two-minute cycle, which repaints the whole
+   board underneath the desktop slip panel. Any of those, arriving while
+   somebody is mid-number, takes the field away exactly as typing used to.
+
+   So every repaint that can swallow the field goes through here: remember what
+   was in it and where the caret was, let the repaint happen, then put it back.
+   A number input refuses setSelectionRange in some browsers, hence the try. */
+function sbKeepStakeFocus(fn){
+  const a=document.activeElement;
+  const typing=!!(a&&a.id==='sb-stake-in');
+  const val=typing?a.value:null;
+  let sel=null;
+  if(typing){ try{ sel={s:a.selectionStart,e:a.selectionEnd}; }catch(e){} }
+  fn();
+  if(!typing) return;
+  const next=[...document.querySelectorAll('#sb-stake-in')]
+    .find(e=>e.getBoundingClientRect().height>0)||document.getElementById('sb-stake-in');
+  if(!next) return;
+  if(val!=null&&next.value!==val) next.value=val;
+  try{ next.focus({preventScroll:true}); }catch(e){ try{ next.focus(); }catch(e2){} }
+  if(sel&&sel.s!=null){ try{ next.setSelectionRange(sel.s,sel.e); }catch(e){} }
+}
 function sbRenderSlip(){
-  sbPortal();
-  document.querySelectorAll('.sb-slip-target').forEach(el=>{ el.innerHTML=sbSlipHTML(); });
-  sbSyncButtons();
+  sbKeepStakeFocus(()=>{
+    sbPortal();
+    document.querySelectorAll('.sb-slip-target').forEach(el=>{ el.innerHTML=sbSlipHTML(); });
+    sbSyncButtons();
+  });
 }
 function sbShowPortal(on){
   const el=sbPortal();
@@ -15144,6 +15171,11 @@ function invPortfolioHTML(){
 }
 
 function renderBook(){
+  /* the desktop slip panel lives inside book-body, so a board repaint takes the
+     stake field with it — see sbKeepStakeFocus */
+  return sbKeepStakeFocus(()=>renderBookInner());
+}
+function renderBookInner(){
   const el=document.getElementById('book-body'); if(!el) return;
   const book=sbBuild();
   if(!book){ el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Setting the lines…</div>`; return; }
