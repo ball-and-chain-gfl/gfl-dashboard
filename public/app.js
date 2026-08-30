@@ -7474,6 +7474,30 @@ function schedTopPlayers(owner,season,n=3){
   const rest=all.filter(p=>p.starts<SCHED_MIN_STARTS).sort(by);
   return solid.concat(rest).slice(0,n);
 }
+/* ── SCOUTING A TEAM NOBODY HAS PLAYED YET ───────────────────────────────────
+   schedTopPlayers ranks an opponent on points per start, which needs starts.
+   Between the draft and week one there are none, so the drawer had nothing to
+   say and said "No 2026 player data yet" — which is true and useless, because
+   what everybody actually wants to know in August is who is on that roster.
+
+   So when there is no season to rank on, the scouting report is the opponent's
+   best projected starters instead: the same per-week projections the Forecast
+   and the book price off. It is labelled as a projection, because it is one. */
+function schedTopProjected(owner,season,n=3){
+  const meta=_seasonMeta[String(season)]; if(!meta) return null;
+  const owners=meta.owners||{};
+  const tid=Object.keys(owners).find(id=>owners[id]===owner);
+  if(tid==null) return null;
+  const week=invWeekNow();
+  const r=sbRosters(season,week); if(!r) return null;
+  const list=r[tid]||r[Number(tid)]; if(!list||!list.length) return null;
+  const proj=sbPlayerProj(week)||{};
+  const wkOf=e=>(typeof e.wkProj==='number'&&e.wkProj>0)
+    ? e.wkProj : ((proj[String(e.pid)]||{}).wk||0);
+  return list.filter(e=>!BENCH_SLOTS.includes(e.slot))
+    .map(e=>({pid:e.pid,n:e.n||pName(e.pid),pos:SLOT_NAMES[e.slot]||'',proj:wkOf(e)}))
+    .filter(p=>p.proj>0).sort((a,b)=>b.proj-a.proj).slice(0,n);
+}
 /* ── WEEKS ALREADY PLAYED ────────────────────────────────────────────────────
    A season in progress used to show only what was still to come, which meant
    the one tab called Schedule could not tell you what happened last week. The
@@ -7562,7 +7586,34 @@ async function toggleSchedOpp(el){
   try{ await loadTenureData(); }catch(e){}
   const top=schedTopPlayers(owner,season,3);
   if(!top||!top.length){
-    box.innerHTML=`<div class="sd-msg">No ${season} player data yet.</div>`;
+    /* no starts to rank on yet — scout the roster they actually hold */
+    const pj=schedTopProjected(owner,season,3);
+    if(pj&&pj.length){
+      box.innerHTML=`<div class="sd-h">Toughest to face · ${name} — top ${pj.length} by projection, no games played yet</div>
+        <div class="sd-list">${pj.map((p,i)=>`<div class="sd-row">
+          <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
+          <span class="sd-name">${p.n}</span>
+          <span class="sd-ppg">${p.proj.toFixed(1)}</span>
+          <span class="sd-st">${p.pos} proj</span>
+        </div>`).join('')}</div>`;
+      /* the roster feed may not have landed on the first open */
+      setTimeout(()=>{ if(!box.classList.contains('open')) return;
+        const again=schedTopProjected(owner,season,3);
+        if(again&&again.length&&again.length!==pj.length) toggleSchedOpp(el); },1400);
+      return;
+    }
+    box.innerHTML=`<div class="sd-msg">Loading ${name}'s roster…</div>`;
+    setTimeout(()=>{ if(!box.classList.contains('open')) return;
+      const again=schedTopProjected(owner,season,3);
+      box.innerHTML=(again&&again.length)
+        ? `<div class="sd-h">Toughest to face · ${name} — top ${again.length} by projection, no games played yet</div>
+           <div class="sd-list">${again.map((p,i)=>`<div class="sd-row">
+             <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
+             <span class="sd-name">${p.n}</span>
+             <span class="sd-ppg">${p.proj.toFixed(1)}</span>
+             <span class="sd-st">${p.pos} proj</span>
+           </div>`).join('')}</div>`
+        : `<div class="sd-msg">No ${season} player data yet.</div>`; },1600);
     return;
   }
   box.innerHTML=`<div class="sd-h">Toughest to face · ${name} — top ${top.length} by ${season} points per start</div>
@@ -7795,7 +7846,9 @@ function renderSchedule(){
       <span>Wk</span><span>Opponent</span>
       <span class="r sch-c1">${recSeason} rec</span>
       <span class="r sch-c2">Opp PPG</span><span class="r sch-c3">All-time</span>
-      <span class="r">Win%</span><span class="r sch-c4">Line</span><span class="r">Odds</span>
+      ${''/* whose chance it is was never stated, so a column of numbers under
+             fifty next to an opponent read as the OPPONENT's chance */}
+      <span class="r" title="${(_franchises.find(f=>f.owner===owner)||{}).name||'This team'}'s chance to win that week">Win%</span><span class="r sch-c4">Line</span><span class="r">Odds</span>
     </div>
     <div class="sch-list">${schedPlayedStripHTML(owner,d.info.season)}${d.rows.map((r,i)=>`
       ${(() => {
