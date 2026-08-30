@@ -394,6 +394,48 @@ function ownerOf(team){
   return team?.primaryOwner || (team?.owners&&team.owners[0]) || `team:${team?.id}`;
 }
 function tName(t){return t.name||`${t.location||''} ${t.nickname||''}`.trim()||t.abbrev||'Team';}
+/* ── THE SCHEDULE THE LEAGUE ACTUALLY DREW ───────────────────────────────────
+   ESPN generated its own order and the league drew a different one. Where
+   config.leagueSchedule has an opinion, it wins — the pairings for that week are
+   rewritten onto ESPN's own matchup objects, so everything downstream (records,
+   odds, the forecast, the bad beat meter) reads the drawn schedule without any
+   of it needing to know this happened.
+
+   THREE THINGS IT REFUSES TO DO.
+
+   It will not touch a week with a point in it. Once a week has been played the
+   result is the truth and a config file does not get to rewrite who played whom
+   — which also means a mid-season edit can only ever affect the weeks ahead.
+
+   It will not apply a week it cannot verify: six games, twelve distinct teams,
+   every team that ESPN has. A typo in the config leaves that week as ESPN had
+   it rather than half-rewriting the league into an impossible fixture list.
+
+   And it will not invent games. If ESPN has fewer fixtures in a week than the
+   drawn order names, only the ones that exist are rewritten. */
+function applyDrawnSchedule(season,schedule){
+  try{
+    const cfg=(_CFG.leagueSchedule)||{};
+    if(!cfg.drawn||String(cfg.season||'')!==String(season)) return schedule;
+    const byWeek={};
+    schedule.forEach(m=>{ if(m&&m.home&&m.away)
+      (byWeek[Number(m.matchupPeriodId)||0]||(byWeek[Number(m.matchupPeriodId)||0]=[])).push(m); });
+    const known=new Set();
+    schedule.forEach(m=>{ if(m&&m.home&&m.away){ known.add(m.home.teamId); known.add(m.away.teamId); } });
+    Object.keys(cfg.drawn).forEach(wk=>{
+      const w=Number(wk), pairs=cfg.drawn[wk], games=byWeek[w];
+      if(!w||!Array.isArray(pairs)||!games||!games.length) return;
+      /* played already — ESPN's result stands */
+      if(games.some(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)) return;
+      const flat=pairs.flat();
+      if(pairs.length!==games.length||flat.length!==games.length*2) return;
+      if(new Set(flat).size!==flat.length) return;
+      if(!flat.every(id=>known.has(id))) return;
+      pairs.forEach((p,i)=>{ games[i].home.teamId=p[0]; games[i].away.teamId=p[1]; });
+    });
+  }catch(e){}
+  return schedule;
+}
 async function fetchSeasonData(season){
   try{
     const d=await histJSON('season',season,`${BASE}?view=mMatchup&view=mTeam&view=mSettings&seasonId=${season}`);
@@ -416,7 +458,8 @@ async function fetchSeasonData(season){
     /* How many of each slot a lineup starts. Needed to work out the best team a
        roster could actually field, which is what the odds are taken from. */
     const slots=d.settings?.rosterSettings?.lineupSlotCounts||null;
-    return {season,schedule:d.schedule||[],owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget,slots};
+    return {season,schedule:applyDrawnSchedule(season,d.schedule||[]),
+      owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget,slots};
   }catch{return null;}
 }
 /* ── WHICH POSTSEASON GAMES COUNT ────────────────────────────────────────────
@@ -8475,6 +8518,10 @@ function sbSplits(owner){
    deciding everything, and it is all there is in week one. */
 const SB_LIVE_MAX=0.75;      // most of the rating this season may ever own
 const SB_LIVE_FULL=4;        // games after which it counts for all of that
+/* The least of the rating the CURRENT squad owns once there is a roster to
+   read, football or not. History still counts — it is simply no longer the
+   majority of the answer the moment twelve real rosters exist. */
+const SB_LIVE_MIN=0.65;
 
 /* ── WHO IS ON EACH ROSTER ───────────────────────────────────────────────────
    One mRoster call returns all twelve rosters at once, which is what makes
@@ -8488,11 +8535,22 @@ const SB_LIVE_FULL=4;        // games after which it counts for all of that
    board wants the one about to be played — and a single slot had them evicting
    each other's answer and refetching forever, each landing repriced the board
    and sent the other one back to the network. */
-const _sbRosters={}; const _sbRostersBusy={};
+const _sbRosters={}; const _sbRostersBusy={}; const _sbRostersAt={};
+/* HOW LONG A ROSTER IS TRUSTED. It was cached for the life of the page, so a
+   lineup was whatever it had been the first time anybody opened the tab — set
+   your lineup on ESPN, come back, and the Forecast still showed the old one
+   until a reload. Two minutes is short enough that a lineup change turns up
+   while somebody is still looking at it, and long enough that moving between
+   tabs is not a request each time. */
+const SB_ROSTER_TTL=120000;
 function sbRosters(season,week){
   const key=season+':'+week;
-  if(_sbRosters[key]) return _sbRosters[key];
-  if(_sbRostersBusy[key]) return null;
+  /* Stale-while-revalidate: the copy on hand is returned straight away and a
+     fresh one is fetched behind it, so a lineup change appears on the next
+     render rather than blanking the page while it is asked for. */
+  const have=_sbRosters[key];
+  if(have&&Date.now()-(_sbRostersAt[key]||0)<SB_ROSTER_TTL) return have;
+  if(_sbRostersBusy[key]) return have||null;
   _sbRostersBusy[key]=true;
   /* The latch has to come off however this ends. A request that simply hangs
      used to leave it on for the life of the page, and six markets that depend
@@ -8539,12 +8597,16 @@ function sbRosters(season,week){
             wkProj:val(1), wkAct:val(0)};
         });
       });
-      _sbRosters[key]=out; done();
-      _sbCache=null;                                   // reprice with it
+      _sbRosters[key]=out; _sbRostersAt[key]=Date.now(); done();
+      _sbCache=null; _invCache=null;                   // reprice both with it
+      /* Whichever tab is looking at these has to be told they landed. The book
+         was, and the Schedule tab was not — so the Forecast painted whatever it
+         had when the page opened and never corrected itself. */
       if(_activeTab==='book') try{ renderBook(); }catch(e){}
+      if(_activeTab==='week') try{ renderWeek(); }catch(e){}
     })
     .catch(()=>{ clearTimeout(timer); done(); });
-  return null;
+  return have||null;
 }
 
 /* ── THE BEST TEAM A ROSTER COULD PUT OUT ────────────────────────────────────
@@ -8590,6 +8652,33 @@ function sbBestLineup(entries,projOf,posOf,shape){
     total+=by[bestPos].shift();
   }
   return total;
+}
+/* ── WHAT THE PLAYERS THEY HOLD ARE PROJECTED TO SCORE ───────────────────────
+   The best legal lineup a roster could field, valued at ESPN's own season
+   projection for each player. Shared by the sportsbook rating and the share
+   market, so the two cannot answer differently about the same roster.
+
+   This is the one signal that does not need a game to have been played, which
+   makes it the only real information there is between a draft and week one.
+   Returns {} rather than a guess when the roster feed or the player pool has
+   not landed — both callers treat an empty answer as "no signal" and fall back
+   to what they had. */
+function rosterProjByOwner(season,week){
+  const meta=_seasonMeta[String(season)]; if(!meta) return {};
+  const rosters=sbRosters(season,week||1);
+  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+  if(!pool||!pool.length){ try{ bkLoadPool(); }catch(e){} }
+  if(!rosters||!pool||!pool.length) return {};
+  const proj={},posn={};
+  pool.forEach(p=>{ proj[String(p.id)]=p.proj||p.total||0; posn[String(p.id)]=Number(p.pos)||0; });
+  const owners=meta.owners||{}, shape=sbSlotShape(meta), out={};
+  Object.keys(rosters).forEach(tid=>{
+    const o=owners[tid]; if(!o) return;
+    const es=rosters[tid]||[];
+    if(es.length) out[o]=sbBestLineup(es,
+      e=>proj[String(e.pid)]||0, e=>posn[String(e.pid)]||0, shape);
+  });
+  return out;
 }
 /* ── WHAT IS STILL TO COME ───────────────────────────────────────────────────
    A fantasy week has no half-time. Every roster plays across Thursday, Sunday
@@ -8713,6 +8802,19 @@ function sbLiveSignals(rows,season){
   });
   const played=Math.max(0,...rows.map(r=>(rec[r.owner]||{}).g||0));
   out.played=played;
+  /* ROSTER IS COMPUTED FIRST, BEFORE THE EARLY RETURN BELOW.
+
+     It used to sit at the foot of this function, under `if(!played) return` —
+     so the one forward-looking signal in the whole model was skipped in exactly
+     the weeks it was the only signal there was. Between the draft and week one
+     the board fell back on career history alone: twelve franchises with four
+     similar years behind them priced within a whisker of each other, and a team
+     that had just drafted brilliantly was the same price as one that had not.
+     That is not a market, it is a free bet on the draft. */
+  try{
+    const lw=ntLastWeek(season);
+    Object.assign(out.roster,rosterProjByOwner(season,(lw&&lw.week)||1));
+  }catch(e){}
   if(!played) return out;
   const lgPpg=(()=>{ let p=0,g=0; Object.values(rec).forEach(x=>{p+=x.pf;g+=x.g;}); return g?p/g:100; })();
   rows.forEach(r=>{
@@ -8734,30 +8836,7 @@ function sbLiveSignals(rows,season){
       out.vol[r.owner]=m2?v/m2:0;
     }
   });
-  /* ── roster: what ESPN projects the players they hold will score ──
-     Measured on the best legal lineup the roster could field — a deep bench
-     does not win games, and counting sixteen players would reward hoarding.
-     ESPN's own season projection is the number used, which is the most
-     forward-looking thing available anywhere in the data, and the only term
-     here that cannot be moved by sitting people. */
-  try{
-    const lw=ntLastWeek(season);
-    const rosters=sbRosters(season,(lw&&lw.week)||1);
-    const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
-    if(!pool||!pool.length) try{ bkLoadPool(); }catch(e){}
-    if(rosters&&pool&&pool.length){
-      const proj={},posn={};
-      pool.forEach(p=>{ proj[String(p.id)]=p.proj||p.total||0; posn[String(p.id)]=Number(p.pos)||0; });
-      const owners=meta.owners||{};
-      const shape=sbSlotShape(meta);
-      Object.keys(rosters).forEach(tid=>{
-        const o=owners[tid]; if(!o) return;
-        const es=rosters[tid]||[];
-        if(es.length) out.roster[o]=sbBestLineup(es,
-          e=>proj[String(e.pid)]||0, e=>posn[String(e.pid)]||0, shape);
-      });
-    }
-  }catch(e){}
+  /* roster is computed above, before the early return — see the note there */
 
   /* ── lineup: how often the right players were actually started ──
      A strong roster only converts if it is in the lineup. One cached call. */
@@ -8840,7 +8919,22 @@ function sbBuild(){
     const zVol =has('vol')?zf('vol'):rows.map(()=>0);
     const zRost=has('roster')?zf('roster'):rows.map(()=>0);
     const zLine=has('lineup')?zf('lineup'):rows.map(()=>0);
-    const w=Math.min(1,(live.played||0)/SB_LIVE_FULL)*SB_LIVE_MAX;
+    /* TWO DIFFERENT WEIGHTS, AND THEY ARE NOT THE SAME QUESTION.
+
+       `gw` is how much football has been played, and it is what the board's
+       confidence is still read from — a line may only get sure about a team
+       once games have settled it. Flooring that was what once put a −470
+       favourite on week one, so it stays exactly as it was.
+
+       `w` is how much of the RATING the current squad owns, and that does not
+       have to wait for football. A drafted roster valued at ESPN's own
+       projections is real information about the weeks ahead; four years of
+       franchise history is real information about a team that no longer exists
+       in the same shape. So with a roster to read, the current squad takes the
+       majority of the rating from the moment the draft ends, and history keeps
+       the rest rather than being thrown away. */
+    const gw=Math.min(1,(live.played||0)/SB_LIVE_FULL)*SB_LIVE_MAX;
+    const w=has('roster')?Math.max(SB_LIVE_MIN,gw):gw;
     rows.forEach((r,i)=>{
       /* ROSTER LEADS, BECAUSE ROSTER IS THE PROJECTION.
 
@@ -8854,9 +8948,21 @@ function sbBuild(){
          odds — is not a thing anybody is going to do. */
       r.live=0.85*zForm[i]+1.15*zRost[i]+0.25*zLine[i];
       r.z.form=zForm[i]; r.z.vol=zVol[i]; r.z.roster=zRost[i]; r.z.lineup=zLine[i];
-      r.rating=(1-w)*r.career+w*r.live;
     });
-    _sbLiveWeight=w; _sbLivePlayed=live.played||0;
+    /* BOTH HALVES GO ON THE SAME SCALE BEFORE THEY ARE MIXED.
+
+       career sums six z-scores and carries about 3.2 of weight; live sums three
+       and carries about 2.25, and in a week with no football it is one term
+       alone. Mixing those two raw meant the stated split was not the real one —
+       at w=0.65 the career half still moved the rating more than the current
+       one did, which is precisely the complaint: every team priced the same
+       because the only thing separating them was four similar seasons.
+       Re-scoring each side across the league makes the weights mean what they
+       say. */
+    const zCar=sbZ(rows.map(r=>r.career)), zLiv=sbZ(rows.map(r=>r.live));
+    rows.forEach((r,i)=>{ r.rating=(1-w)*zCar[i]+w*zLiv[i]; });
+    /* the games-based weight is what confidence reads, not the blend weight */
+    _sbLiveWeight=gw; _sbLivePlayed=live.played||0;
   })();
   const ratings=rows.map(r=>r.rating);
   const lgPpg=rows.reduce((a,r)=>a+r.ppg,0)/rows.length;
@@ -9022,6 +9128,14 @@ const INV_BASE=10;              // what an average share is worth
    which is right for a balance and hides everything a market does. */
 const invFmt=v=>'$'+(Math.round((Number(v)||0)*100)/100).toFixed(2);
 const INV_FORM_WEEKS=3;
+/* How much of a share price the roster projection owns: most of it before a
+   ball is kicked, a residual once the season can speak for itself. */
+const INV_PROJ_MAX=0.70;     // with no football played
+const INV_PROJ_MIN=0.15;     // once INV_PROJ_FULL weeks are in
+const INV_PROJ_FULL=6;
+/* How hard the roster gap is stretched into a price gap. 1 is the raw ratio,
+   which puts the whole league inside a dollar of itself. */
+const INV_PROJ_POW=3;
 
 /* every team's current-season record, scoring and recent form */
 function invStats(season,throughWeek){
@@ -9109,6 +9223,21 @@ function invPricesAt(season,through){
   if(!fr.length) return {};
   const rows=season?invStats(season,through):null;
   const byOwner={};
+  /* ── WHAT THE ROSTER IS PROJECTED TO SCORE ─────────────────────────────────
+     Record, scoring and form are all things that have already happened, and
+     before week one none of them has. Every ratio came back 1.00, every team
+     divided out to the league mean, and all twelve shares opened at exactly
+     $10 — so a manager who had just drafted the best squad in the league was
+     the same price as one who had drafted the worst, and buying the good draft
+     was free money rather than a market position.
+
+     The roster projection is what the league looks like NOW. It leads the price
+     while there is no football to read, and it steps back as results arrive,
+     because by then what a team has actually done says more than what it was
+     projected to do. It never leaves entirely: a squad is still a squad. */
+  const projs=season?rosterProjByOwner(season,through||1):{};
+  const pv=Object.values(projs).filter(v=>v>0);
+  const projMean=pv.length?pv.reduce((a,b)=>a+b,0)/pv.length:0;
   if(rows){
     const lgPpg=rows.reduce((a,x)=>a+x.pf,0)/Math.max(1,rows.reduce((a,x)=>a+x.g,0));
     rows.forEach(x=>{
@@ -9119,6 +9248,28 @@ function invPricesAt(season,through){
       const formR=(form.length&&lgPpg)
         ? (form.reduce((a,f)=>a+f.pts,0)/form.length)/lgPpg : 1;
       byOwner[x.o]=0.45*winR+0.35*ppgR+0.20*formR;
+    });
+  }
+  if(projMean>0){
+    /* fades from most of the price to a residual as the football arrives */
+    const gp=Math.max(0,...(rows||[]).map(x=>x.g||0));
+    const t=Math.min(1,gp/INV_PROJ_FULL);
+    const rw=INV_PROJ_MAX+(INV_PROJ_MIN-INV_PROJ_MAX)*t;
+    (_franchises||[]).forEach(f=>{
+      const p=projs[f.owner]; if(!(p>0)) return;
+      /* STRETCHED, BECAUSE THE RAW RATIO IS NOT A MARKET.
+
+         Twelve fantasy rosters projected over a season sit within about eleven
+         per cent of each other end to end — the best squad in the league is not
+         twice the worst, it is a tenth better. Fed in raw that is a board where
+         first costs $10.79 and last costs $8.94, which is the same complaint as
+         before wearing a smaller number: nobody is going to read the league to
+         win forty cents. The exponent stretches the same ORDER into prices
+         worth taking a position on without inventing any of it — the ranking is
+         untouched, only the distance between the rungs. */
+      const projR=Math.pow(p/projMean,INV_PROJ_POW);  // 1.00 at league average
+      const base=byOwner[f.owner]!=null?byOwner[f.owner]:1;
+      byOwner[f.owner]=(1-rw)*base+rw*projR;
     });
   }
   /* anyone with no games yet sits at the league's own middle */
@@ -9137,7 +9288,15 @@ function invPricesAt(season,through){
   return out;
 }
 function invBoard(){
-  const season=ntSeason&&ntSeason();
+  /* THE MARKET PRICES THE SEASON BEING PLAYED, NOT THE LAST ONE WITH SCORES.
+
+     ntSeason() answers with the newest season that has a point in it, which
+     from February until the first Sunday in September is LAST year. So the
+     share market spent the whole off-season pricing twelve teams on a roster
+     none of them still had: the best 2025 franchise was the most expensive
+     share of 2026 regardless of how its draft had gone. sbBoardSeason() is the
+     answer the sportsbook already moved to for exactly this reason. */
+  const season=(typeof sbBoardSeason==='function')?sbBoardSeason():(ntSeason&&ntSeason());
   /* The season's own team list is in the stamp, not just the franchise count.
      A season that arrives after the board was first drawn adds no franchises —
      the same twelve owners — so without it the market would keep serving the
@@ -9150,11 +9309,20 @@ function invBoard(){
      at whatever it computed the first time and would not move again until the
      page was reloaded. A market that does not reprice when the football does is
      the one thing this board must not be. */
+  /* AND THE ROSTERS, now that they price the board. The feed is fetched once
+     and cached, so the first paint of a session has no projections in it and
+     the one after does — without the rosters in the stamp the market would keep
+     serving that first flat set of prices, and a waiver or a trade would never
+     move a price either. */
+  const _lwk=season?(ntLastWeek(season)||{}).week:null;
+  const _pj=season?rosterProjByOwner(season,_lwk||1):{};
+  const _pjSig=Object.keys(_pj).sort().map(o=>o+':'+Math.round(_pj[o])).join(',');
   const stamp=String(season)+'|'+(_franchises||[]).length
     +'|'+Object.keys((_seasonMeta[season]||{}).teams||{}).length
-    +'|w'+((season?(ntLastWeek(season)||{}).week:null)??'-')
+    +'|w'+(_lwk??'-')
     +'|s'+((_seasonMeta[season]||{}).schedule||[]).filter(m=>m.home&&m.away
-      &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)).length;
+      &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)).length
+    +'|r'+_pjSig;
   if(_invCache&&_invCache.stamp===stamp) return _invCache;
 
   const fr=(_franchises||[]);
@@ -9301,7 +9469,9 @@ const invWeekNow=()=>Number((_liveInfo||liveWeekInfo()||{}).week)||1;
 function invProfitSeries(){
   const lots=invLots();
   if(!lots.length) return null;
-  const season=ntSeason&&ntSeason();
+  /* the same season the board prices, or the chart and the market would be
+     valuing the identical share at two different numbers */
+  const season=(typeof sbBoardSeason==='function')?sbBoardSeason():(ntSeason&&ntSeason());
   const last=season?((ntLastWeek(season)||{}).week||0):0;
   /* ── ONE POINT A WEEK, AND THE WEEK IS A TUESDAY ──────────────────────────
      In season that is what the fantasy-week series below already is: a week's

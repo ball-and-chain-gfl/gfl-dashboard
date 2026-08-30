@@ -225,6 +225,60 @@ window.GFL_CONFIG = {
     previewAll: true,
   },
 
+  /* ── THE SEASON SCHEDULE AS DRAWN ──────────────────────────────────────────
+     The league's own order, which is NOT the order ESPN generated. Weeks 1 to 3
+     happen to agree; weeks 4 to 11 do not, and this is what overrides them.
+
+     TEAM IDS, because names get edited and ids do not. The pairing is written
+     out in the comment above each week so it can be read without a lookup:
+
+       1  Marathon Men (Jimmie)        7  Lebron's 3rd Leg (Brett)
+       2  Motor City Mulligans (Matt)  8  Tuckasegee Tinglers (Cooper)
+       3  Bikini Bottom Goobers (Chris) 9 Midwest Miners (Caden)
+       4  Bismuth (Ross)              10  The Bryan Football Team (Bryan)
+       5  Florida Man (Jon)           11  Whittingham Sports (Kyle)
+       6  Team silly willy (Will)     12  West Coast Wigglers (Logan)
+
+     TWO THINGS THIS CANNOT DO, both worth knowing before relying on it.
+
+     It never touches a week that has been played. The moment a week carries a
+     single point it is ESPN's result and this file stops having an opinion, so
+     a schedule edited mid-season can never rewrite a game that already happened.
+
+     And it does not change ESPN. ESPN still scores its own pairings, so if the
+     two disagree once football starts, the dashboard will show one opponent and
+     ESPN will score another. The real fix is to correct the schedule in ESPN's
+     league settings, at which point this block simply agrees with it and does
+     nothing. Weeks 12 to 14 are not in the drawn order at all and are left
+     exactly as ESPN has them. */
+  leagueSchedule: {
+    season: 2026,
+    drawn: {
+      /* Marathon Men v Midwest Miners; The Bryan Football Team v Lebron's 3rd Leg; Motor City Mulligans v Team silly willy; Tuckasegee Tinglers v West Coast Wigglers; Whittingham Sports v Florida Man; Bikini Bottom Goobers v Bismuth */
+      1: [[1,9], [10,7], [2,6], [8,12], [11,5], [3,4]],
+      /* Marathon Men v Whittingham Sports; The Bryan Football Team v Bismuth; Motor City Mulligans v Lebron's 3rd Leg; Tuckasegee Tinglers v Midwest Miners; West Coast Wigglers v Bikini Bottom Goobers; Team silly willy v Florida Man */
+      2: [[1,11], [10,4], [2,7], [8,9], [12,3], [6,5]],
+      /* Marathon Men v Bismuth; The Bryan Football Team v West Coast Wigglers; Motor City Mulligans v Tuckasegee Tinglers; Team silly willy v Whittingham Sports; Midwest Miners v Bikini Bottom Goobers; Lebron's 3rd Leg v Florida Man */
+      3: [[1,4], [10,12], [2,8], [6,11], [9,3], [7,5]],
+      /* Marathon Men v Team silly willy; The Bryan Football Team v Florida Man; Motor City Mulligans v Midwest Miners; Tuckasegee Tinglers v Whittingham Sports; West Coast Wigglers v Bismuth; Lebron's 3rd Leg v Bikini Bottom Goobers */
+      4: [[1,6], [10,5], [2,9], [8,11], [12,4], [7,3]],
+      /* Marathon Men v Bikini Bottom Goobers; The Bryan Football Team v Motor City Mulligans; Tuckasegee Tinglers v Team silly willy; West Coast Wigglers v Midwest Miners; Whittingham Sports v Lebron's 3rd Leg; Florida Man v Bismuth */
+      5: [[1,3], [10,2], [8,6], [12,9], [11,7], [5,4]],
+      /* Marathon Men v Florida Man; The Bryan Football Team v Team silly willy; Motor City Mulligans v West Coast Wigglers; Tuckasegee Tinglers v Bikini Bottom Goobers; Whittingham Sports v Midwest Miners; Lebron's 3rd Leg v Bismuth */
+      6: [[1,5], [10,6], [2,12], [8,3], [11,9], [7,4]],
+      /* Marathon Men v The Bryan Football Team; Motor City Mulligans v Bismuth; Tuckasegee Tinglers v Lebron's 3rd Leg; West Coast Wigglers v Whittingham Sports; Team silly willy v Bikini Bottom Goobers; Midwest Miners v Florida Man */
+      7: [[1,10], [2,4], [8,7], [12,11], [6,3], [9,5]],
+      /* Marathon Men v Lebron's 3rd Leg; The Bryan Football Team v Tuckasegee Tinglers; Motor City Mulligans v Whittingham Sports; West Coast Wigglers v Team silly willy; Midwest Miners v Bismuth; Bikini Bottom Goobers v Florida Man */
+      8: [[1,7], [10,8], [2,11], [12,6], [9,4], [3,5]],
+      /* Marathon Men v West Coast Wigglers; The Bryan Football Team v Whittingham Sports; Motor City Mulligans v Bikini Bottom Goobers; Tuckasegee Tinglers v Florida Man; Team silly willy v Bismuth; Midwest Miners v Lebron's 3rd Leg */
+      9: [[1,12], [10,11], [2,3], [8,5], [6,4], [9,7]],
+      /* Marathon Men v Motor City Mulligans; The Bryan Football Team v Midwest Miners; Tuckasegee Tinglers v Bismuth; West Coast Wigglers v Florida Man; Team silly willy v Lebron's 3rd Leg; Whittingham Sports v Bikini Bottom Goobers */
+      10: [[1,2], [10,9], [8,4], [12,5], [6,7], [11,3]],
+      /* Marathon Men v Tuckasegee Tinglers; The Bryan Football Team v Bikini Bottom Goobers; Motor City Mulligans v Florida Man; West Coast Wigglers v Lebron's 3rd Leg; Team silly willy v Midwest Miners; Whittingham Sports v Bismuth */
+      11: [[1,8], [10,3], [2,5], [12,7], [6,9], [11,4]],
+    },
+  },
+
   /* ── THE PUNISHMENTS ────────────────────────────────────────────────────────
      Written from the GFL Punishment Doctrine for 2026. Seven punishments, each
      appearing exactly twice across weeks 1-14, in an order drawn at the draft.
