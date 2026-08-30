@@ -14339,7 +14339,7 @@ function sbSlipHTML(){
       <div class="sb-slip-actions"><button class="sb-clear" onclick="sbClear()">Clear all</button></div>
       <div class="sb-stake">
         <label for="sb-stake-in">Stake</label>
-        <input id="sb-stake-in" type="number" min="0" step="10" max="${bal}" value="${stake}" oninput="sbStake(this.value)"/>
+        <input id="sb-stake-in" type="number" min="0" step="10" max="${bal}" value="${stake}" oninput="sbStakeTyped(this.value)"/>
         <span class="sb-cur">GFL Bucks</span>
       </div>
       <div class="sb-quick">
@@ -14538,6 +14538,38 @@ let _sbNote=null;
 function sbDrop(k){ _slip=_slip.filter(x=>x.k!==k); sbSyncButtons(); sbRenderSlip(); }
 function sbClear(){ _slip=[]; sbSyncButtons(); sbRenderSlip(); }
 function sbStake(v){ _sbStake=v; sbRenderSlip(); }
+/* ── TYPING A STAKE MUST NOT REBUILD THE BOX YOU ARE TYPING IN ───────────────
+   The field ran oninput="sbStake(...)", and sbStake repaints the whole slip —
+   which throws away the <input> the caret is sitting in and builds a new one.
+   The browser has nowhere to put focus, so it lands back on the body: one
+   character, and you are out of the field. Backspace was worse, because you
+   had to re-tap the box between every deletion.
+
+   So typing takes a different path from tapping a quick-stake button. A button
+   HAS to repaint, because the number in the field is the thing it changes. A
+   keystroke only needs the three things downstream of the stake to follow it:
+   what the bet returns, what it pays, and whether Place bet is allowed. The
+   input is left exactly as the person typing it left it. */
+function sbStakeTyped(v){
+  _sbStake=v;
+  const dec=_slip.reduce((a,s)=>a*amToDec(s.odds),1);
+  const bal=bucksBalance();
+  const stake=Math.min(bal,Math.max(0,Number(v)||0));
+  const payout=stake*dec;
+  const fmt=x=>x.toLocaleString(undefined,{maximumFractionDigits:0});
+  /* The slip is painted into every .sb-slip-target there is — the sheet on a
+     phone and the panel on a desktop — so all of them are patched, not the
+     first one found. */
+  document.querySelectorAll('.sb-win').forEach(e=>{ e.textContent=fmt(payout-stake); });
+  document.querySelectorAll('.sb-tot-big b').forEach(e=>{ e.textContent=fmt(payout); });
+  document.querySelectorAll('.sb-place').forEach(b=>{
+    if(!_me||b.getAttribute('onclick')!=='sbPlaceBet()') return;
+    b.disabled=!!(_betBusy||stake<=0||stake>bal);
+    if(!_betBusy) b.innerHTML=`<i class="fa fa-check"></i>Place bet · ${bucksFmt(stake)}`;
+  });
+  /* keep any other copy of the field in step, but never the one being typed in */
+  document.querySelectorAll('#sb-stake-in').forEach(e=>{ if(e!==document.activeElement) e.value=v; });
+}
 function sbSyncButtons(){
   document.querySelectorAll('#page-book .sb-odds[data-k]').forEach(b=>{
     b.classList.toggle('on',_slip.some(x=>x.k===b.dataset.k));
