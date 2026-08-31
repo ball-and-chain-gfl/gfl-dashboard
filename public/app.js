@@ -7666,6 +7666,87 @@ function schedEspnProj(week){
   _schedProjCache[season+':'+wk]={rosters,map:out};
   return out;
 }
+/* ── ESPN'S OWN ANSWER, WHERE ESPN HAS ONE ──────────────────────────────────
+   The matchup feed carries two fields the rest of the site was ignoring:
+   totalProjectedPoints and winProbability. Our projection already agrees with
+   the first to the decimal — 124.5 and 118.6 for week one, exactly what the app
+   shows — so the only thing left to disagree about was the SECOND, and there we
+   were reading 56% where the app read 53%.
+
+   The gap is not the margin, it is the spread. ESPN's published probabilities
+   imply a margin standard deviation around 88 points; this league's own 336
+   completed games scatter with a standard deviation of 34.9. ESPN is treating a
+   fantasy week as very close to a coin flip, far flatter than the football
+   actually is. Neither of us is computing the other's number, and no amount of
+   tuning ours would land on theirs by accident.
+
+   So where ESPN publishes a probability, the Schedule tab quotes it and stops
+   modelling. That is the whole point of this tab now: it is the app's view. It
+   is only ever the CURRENT week — every other week comes back null — and every
+   week beyond it keeps our own model, which the league's own scoring says is
+   the better calibrated of the two. The playoff simulation therefore runs on
+   our numbers for thirteen of fourteen weeks, which is what a simulation wants:
+   ESPN's flatness would turn a season projection into mush. */
+/* Two statements, not one comma-separated declaration: the test harnesses lift
+   these by string match and that walk stops at the first closing brace, so a
+   pair would arrive half-declared. */
+let _espnWpCache={};
+let _espnWpBusy={};
+function espnWinProbs(season,week){
+  const wk=Number(week)||0; if(!season||!wk) return null;
+  const k=String(season)+':'+wk;
+  if(k in _espnWpCache) return _espnWpCache[k];
+  if(!_espnWpBusy[k]){
+    _espnWpBusy[k]=true;
+    fetch(`${BASE}?view=mMatchupScore&seasonId=${season}&scoringPeriodId=${wk}`)
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{
+        const meta=_seasonMeta[String(season)]||{}, owners=meta.owners||{};
+        const probs={};
+        ((j&&j.schedule)||[]).forEach(m=>{
+          if(!m.home||!m.away||Number(m.matchupPeriodId)!==wk) return;
+          const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+          const hw=m.home.winProbability, aw=m.away.winProbability;
+          /* An exact 0 or 1 is a finished game, not an opinion about one. */
+          if(ho&&hw!=null&&hw>0&&hw<1) probs[ho]={p:hw,opp:ao};
+          if(ao&&aw!=null&&aw>0&&aw<1) probs[ao]={p:aw,opp:ho};
+        });
+        _espnWpCache[k]=Object.keys(probs).length?probs:null;
+        /* whichever tab is looking at these has to be told they landed */
+        if(_activeTab==='week') try{ renderWeek(); }catch(e){}
+      })
+      .catch(()=>{ _espnWpCache[k]=null; })
+      .finally(()=>{ _espnWpBusy[k]=false; });
+  }
+  return null;                       // not back yet: the model answers meanwhile
+}
+/* ESPN hands over a probability; the curve and the clamp both want it as a
+   z-score. Bisection rather than a rational approximation because it is called
+   six times a render, not six thousand, and this cannot be subtly wrong. */
+function schedInvNorm(p){
+  const q=Math.min(0.999999,Math.max(0.000001,p));
+  let lo=-6,hi=6;
+  for(let i=0;i<80;i++){ const m=(lo+hi)/2; if(schedNormCdf(m)<q) lo=m; else hi=m; }
+  return (lo+hi)/2;
+}
+function espnProbFor(a,b,week){
+  if(!a||!b||!week) return null;
+  let season=null; try{ season=sbBoardSeason(); }catch(e){ return null; }
+  const tbl=espnWinProbs(season,week); if(!tbl) return null;
+  const ea=tbl[a.owner], eb=tbl[b.owner];
+  /* only if ESPN is talking about THIS fixture — a team's probability belongs
+     to the opponent it was published against */
+  if(!ea||ea.opp!==b.owner||!(ea.p>0&&ea.p<1)) return null;
+  /* ESPN rounds each side to two places independently, so the pair does not
+     have to add to one. Everything downstream assumes it does — the two halves
+     of a game, expected wins totalling the games played, the playoff draw — so
+     the published pair is renormalised into one. */
+  if(eb&&eb.opp===a.owner&&eb.p>0&&eb.p<1){
+    const t=ea.p+eb.p;
+    if(t>0) return ea.p/t;
+  }
+  return ea.p;
+}
 /* The projected margin in POINTS, which is what the spread column prints. */
 function schedMargin(a,b,week){
   if(!a||!b) return 0;
@@ -7680,6 +7761,8 @@ function schedMargin(a,b,week){
    place where the model lives. */
 function schedZ(a,b,week){
   if(!a||!b) return 0;
+  const ep=espnProbFor(a,b,week);
+  if(ep!=null) return schedInvNorm(ep);          // ESPN's own number, quoted
   const pj=schedEspnProj(week);
   if(pj&&pj[a.owner]>0&&pj[b.owner]>0) return (pj[a.owner]-pj[b.owner])/schedWkSd();
   return schedPowerMargin(a,b)/SCHED_SD;

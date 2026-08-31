@@ -52,7 +52,9 @@ console.log('\n1. every declaration the model needs is still there');
 const NEEDED = ['const SCHED_SD=', 'function schedNormCdf(', 'const SCHED_RATING_W=',
   'const SCHED_PPG_W=', 'let _schedPowerCache=', 'function schedPower(',
   'function schedPowerMargin(', 'const schedWkSd=', 'function schedCurWeek(',
-  'let _schedProjCache=', 'function schedEspnProj(', 'function schedMargin(',
+  'let _schedProjCache=', 'function schedEspnProj(', 'let _espnWpCache=', 'let _espnWpBusy=',
+  'function espnWinProbs(', 'function schedInvNorm(', 'function espnProbFor(',
+  'function schedMargin(',
   'function schedZ(', 'function schedWinProb(', 'function schedOpenMu(',
   'const LINEUP_SHAPE_FALLBACK=', 'function sbSlotShape(', 'function sbBestLineup(',
   'const wpSd=', 'function wpAt(', 'function sbZ('];
@@ -123,11 +125,16 @@ function dropRosters(wk){ delete _rosters[wk]; }
 function sbRosters(season,wk){ return _rosters[wk]||null; }
 const SB_BENCH_SLOTS=[20,21,24];
 const SB_WK_SD=26;
+const BASE='/api/espn';
+let _activeTab='week';
+function renderWeek(){}
+function fetch(){ return Promise.resolve({ok:false}); }   // never actually reached here
+function setEspnWp(wk,tbl){ _espnWpCache['2099:'+wk]=tbl; }
 ${NEEDED.map(n => parts[n]).join('\n')}
 module.exports={schedPower,schedPowerMargin,schedMargin,schedZ,schedWinProb,
   schedOpenMu,schedEspnProj,schedCurWeek,wpAt,wpSd,SCHED_SD,schedWkSd,
   SCHED_RATING_W,SCHED_PPG_W,schedNormCdf,rebuild,setBoard,setRosters,dropRosters,
-  setLastWeek,rows:_rows};
+  setLastWeek,setEspnWp,espnProbFor,schedInvNorm,rows:_rows};
 `;
 const mod = { exports: {} };
 let built = true;
@@ -210,7 +217,44 @@ if (built) {
   ok('and that fixture falls back rather than pricing a shutout',
     Math.abs(M.schedMargin(rows[0], rows[5], 10) - M.schedPowerMargin(rows[0], rows[5])) < 1e-9);
 
-  console.log('\n5. the probabilities are coherent, on either path');
+  console.log('\n5. the number ESPN publishes is quoted, not modelled');
+  /* the real shape of the feed: a probability per side, rounded to two places,
+     only ever for the current week */
+  M.setEspnWp(3, {
+    own11:{p:0.53,opp:'own0'}, own0:{p:0.47,opp:'own11'},
+    own9:{p:0.54,opp:'own1'},  own1:{p:0.46,opp:'own9'},
+  });
+  const quoted=M.schedWinProb(rows[11], rows[0], 3);
+  const modelled=M.schedNormCdf(M.schedMargin(rows[11],rows[0],3)/M.schedWkSd());
+  ok('ESPN 0.53 comes back as 53%', Math.abs(quoted-0.53)<1e-6, (quoted*100).toFixed(4)+'%');
+  ok('and it overrides the projection model', Math.abs(quoted-modelled)>0.01,
+    'the model would have said '+(modelled*100).toFixed(1)+'%');
+  ok('the other side of that game is the complement',
+    Math.abs(M.schedWinProb(rows[0], rows[11], 3)-0.47)<1e-6);
+  /* a probability published against a DIFFERENT opponent must not be borrowed:
+     own11 plays own0 that week, so it says nothing about own11 against own5 */
+  const other=M.schedWinProb(rows[11], rows[5], 3);
+  ok('a probability is not borrowed for the wrong fixture',
+    Math.abs(other-M.schedNormCdf(M.schedMargin(rows[11],rows[5],3)/M.schedWkSd()))<1e-6,
+    (other*100).toFixed(1)+'%');
+  /* ESPN rounds each side on its own, so 0.53/0.46 happens; the pair is
+     renormalised because everything downstream assumes it sums to one */
+  M.setEspnWp(4, { own11:{p:0.53,opp:'own0'}, own0:{p:0.46,opp:'own11'} });
+  const a4=M.schedWinProb(rows[11],rows[0],4), b4=M.schedWinProb(rows[0],rows[11],4);
+  ok('a pair that does not add to one is renormalised', Math.abs(a4+b4-1)<1e-12,
+    `${a4} + ${b4} = ${a4+b4}`);
+  ok('...and stays on the side ESPN favoured', a4>b4);
+  /* 0 and 1 are a finished game, not an opinion about one */
+  M.setEspnWp(5, { own11:{p:1,opp:'own0'}, own0:{p:0,opp:'own11'} });
+  ok('a settled game is ignored rather than quoted as certainty',
+    M.schedWinProb(rows[11],rows[0],5)<0.95, M.schedWinProb(rows[11],rows[0],5));
+  ok('no ESPN table for a week falls straight through',
+    M.espnProbFor(rows[11],rows[0],9)===null);
+  /* the inverse has to round-trip or the quoted number is not the shown one */
+  ok('the inverse normal round-trips',
+    [0.05,0.3,0.47,0.53,0.8,0.95].every(q=>Math.abs(M.schedNormCdf(M.schedInvNorm(q))-q)<1e-6));
+
+  console.log('\n5b. the probabilities are coherent, on either path');
   [3, 9].forEach(wk => {
     const via = wk === 3 ? 'espn' : 'power';
     let worstSym = 0, worstAnti = 0;
