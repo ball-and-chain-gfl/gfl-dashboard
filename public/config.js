@@ -169,7 +169,7 @@ window.GFL_CONFIG = {
 
      It applies to the testing profile's OWN plant and to nothing else. Each of
      the twelve runs on its own timer: whoever is looking, that one plant is on
-     the fast cycle and the other eleven are on the real three days. */
+     the fast cycle and the other eleven are on the real one day. */
   plantTestMinutes: 0.25,
 
   /* ── THE EGG HUNT ──────────────────────────────────────────────────────────
