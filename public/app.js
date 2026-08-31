@@ -229,7 +229,13 @@ async function txFetch(){
   /* live first so an archived row of the same id overwrites it */
   const byKey=new Map();
   live.forEach(t=>byKey.set(txKeyOf(t),t));
-  archived.forEach(t=>byKey.set(txKeyOf(t),t));
+  /* An archived TRADE_ACCEPT with no items is not movement, it is the shell
+     ESPN files while the players hang off a proposal record it will not return.
+     Keeping it would be harmless today — the composite key differs from the
+     live rows — but it is one id away from masking a real trade, and C2 is not
+     a number to leave that near an edge. */
+  archived.filter(t=>String(t.type||'').toUpperCase()!=='TRADE_ACCEPT'||(t.items||[]).length)
+    .forEach(t=>byKey.set(txKeyOf(t),t));
   const merged=[...byKey.values()];
   const src=archived.length&&live.length ? `git archive (${savedAt}) + live`
     : archived.length ? `git archive (${savedAt})` : 'live';
