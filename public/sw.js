@@ -2,9 +2,10 @@
 // SHELL (HTML/JS/CSS/icons): NETWORK-FIRST — always load the latest build when
 // online, fall back to cache only when offline. This prevents the installed
 // app from getting stuck on an old cached version.
-// STATIC DATA (/data/*.json): stale-while-revalidate (fast; historical, rarely changes).
+// STATIC DATA (/data/*.json): the season being played is network-first (it is
+// still being written); finished seasons are stale-while-revalidate.
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v563';
+const CACHE = 'gfl-v564';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered
@@ -44,13 +45,36 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/bg/')) return;       // background media: native (range requests)
   if (url.origin !== self.location.origin) return;    // cross-origin: browser handles
 
-  // Static archived data: stale-while-revalidate, in the cache that survives a
-  // version bump. A finished season's file never changes; the current season's
-  // is refreshed in the background on every request, so it is at most one load
-  // behind and never blocks paint.
+  // Static archived data, in the cache that survives a version bump.
+  //
+  // A FINISHED season's file never changes again, so it is served straight from
+  // cache and refreshed behind the scenes — that is the whole point of keeping
+  // this cache off the version, and it saves re-downloading megabytes of
+  // settled history on every deploy.
+  //
+  // THE SEASON BEING PLAYED IS NOT THAT. transactions-<current>.json is
+  // rewritten by the archiver twice a week and weekly-<current>.json after
+  // every week; stale-while-revalidate hands back the PREVIOUS copy and only
+  // repairs itself on the load after. That is how the waiver bids captured on
+  // Sunday were still reading as an empty file on Monday — the archive was
+  // right, the page was a run behind, and nothing looked broken. Two loads to
+  // see a number that already exists is not a cache, it is a bug with a
+  // fallback. The current season goes network-first, cache only when the
+  // network cannot answer.
   if (url.pathname.startsWith('/data/')) {
     e.respondWith((async () => {
       const cache = await caches.open(DATA_CACHE);
+      // NFL seasons are named for the year they start, and roll over in March.
+      const now = new Date();
+      const live = String(now.getUTCMonth() >= 2 ? now.getUTCFullYear() : now.getUTCFullYear() - 1);
+      const isLive = url.pathname.includes(live);
+      if (isLive) {
+        try {
+          const res = await fetch(request);
+          if (res && res.status === 200) { cache.put(request, res.clone()); return res; }
+        } catch (err) { /* offline: fall through to whatever was kept */ }
+        return (await cache.match(request)) || Response.error();
+      }
       const cached = await cache.match(request);
       const net = fetch(request).then((res) => {
         if (res && res.status === 200) cache.put(request, res.clone());
