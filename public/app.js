@@ -5443,8 +5443,14 @@ function weekMoves(info){
 let _weekTopCache=null;
 async function weekTopPerformers(info){
   const el=document.getElementById('week-top'); if(!el) return;
+  /* KEYED ON THE WEEK, WHICH DOES NOT CHANGE WHILE THE WEEK IS BEING PLAYED.
+     These are live scores: on a Sunday afternoon the key is the same all day
+     while every number under it moves, so the board froze at whatever it read
+     first. Same two minutes the roster feed uses. */
   const key=`${info.season}-${info.week}`;
-  if(!_weekTopCache||_weekTopCache.key!==key){
+  const stale=!_weekTopCache||_weekTopCache.key!==key
+    ||(Date.now()-(_weekTopCache.at||0))>SB_ROSTER_TTL;
+  if(stale){
     el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading this week's lineups…</div>`;
     try{
       const r=await fetch(`${BASE}?view=mRoster&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
@@ -5463,7 +5469,7 @@ async function weekTopPerformers(info){
         });
       });
       out.sort((a,b)=>b.pts-a.pts);
-      _weekTopCache={key,rows:out.slice(0,10)};
+      _weekTopCache={key,rows:out.slice(0,10),at:Date.now()};
     }catch(err){ el.innerHTML=`<div class="lr-none">Could not read lineups: ${err.message}</div>`; return; }
   }
   const rows=_weekTopCache.rows;
@@ -7779,7 +7785,11 @@ async function toggleSchedOpp(el){
 const PO_RUNS=4000;
 let _poCache=null,_poCacheSeason=null;
 function playoffOutlook(){
-  const cs=String(getSeason());
+  /* Keyed on the football as well as the year. This simulates the games that
+     are LEFT, so the moment a week is played it is simulating a different set —
+     and keyed on the season alone it would go on reporting the odds it worked
+     out before that week, for the rest of the session. */
+  const cs=String(getSeason())+'|'+footballStamp(getSeason());
   if(_poCache&&_poCacheSeason===cs) return _poCache;
   if(_poCacheSeason!==cs) _poCache=null;
   _poCacheSeason=cs;
@@ -9111,10 +9121,30 @@ function sbLiveSignals(rows,season){
   return out;
 }
 
+/* ── WHAT A CACHE OF A LIVE NUMBER HAS TO WATCH ──────────────────────────────
+   Anything derived from results has to be recomputed when results land, and the
+   only reliable way to know that happened is to put it in the cache key. This
+   has been got wrong three separate times in three separate places — the share
+   board froze at its opening prices, the sportsbook kept its pre-season ratings,
+   and the playoff outlook went on simulating a week that had already been
+   played — each time because the key described the SEASON and not the football.
+
+   So there is one answer to that question now, and every cache of a live number
+   asks it: the last completed week, and how many fixtures carry a score. Either
+   moving means the football moved. */
+function footballStamp(season){
+  const meta=_seasonMeta[String(season)]||{};
+  const scored=(meta.schedule||[]).filter(m=>m&&m.home&&m.away
+    &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)).length;
+  let lw=null; try{ lw=(ntLastWeek(season)||{}).week; }catch(e){}
+  return 'w'+(lw??'-')+'s'+scored;
+}
 function sbBuild(){
-  /* the board is a function of the season and of the money on it, so both go
-     in the cache key — otherwise a bet would not move a price until reload */
-  const stamp=String(sbSeason())+'|'+sbMoneyKey();
+  /* The board is a function of the season, of the money on it, AND of the
+     football behind it — a rating is mostly form and roster, both of which move
+     when a week lands. Without the last of those three the book kept serving the
+     ratings it computed the first time anybody opened it. */
+  const stamp=String(sbSeason())+'|'+sbMoneyKey()+'|'+footballStamp(sbBoardSeason());
   if(_sbCache&&_sbCache.stamp===stamp) return _sbCache;
   if(!_franchises.length||!Object.keys(_seasonMeta).length) return null;
   const latest=ALL_SEASONS[ALL_SEASONS.length-1];
@@ -9606,9 +9636,7 @@ function invBoard(){
   const _pjSig=Object.keys(_pj).sort().map(o=>o+':'+Math.round(_pj[o])).join(',');
   const stamp=String(season)+'|'+(_franchises||[]).length
     +'|'+Object.keys((_seasonMeta[season]||{}).teams||{}).length
-    +'|w'+(_lwk??'-')
-    +'|s'+((_seasonMeta[season]||{}).schedule||[]).filter(m=>m.home&&m.away
-      &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)).length
+    +'|'+footballStamp(season)
     +'|r'+_pjSig;
   if(_invCache&&_invCache.stamp===stamp) return _invCache;
 
