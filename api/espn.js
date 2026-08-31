@@ -501,7 +501,12 @@ export default async function handler(req, res) {
        status. */
     const TX_SORT = { sortProcessDate: { sortPriority: 1, sortAsc: false } };
     const txFilter = { transactions: { limit:1000, offset:0, ...TX_SORT } };
-    const TX_KEEP = new Set(['WAIVER','FREEAGENT','TRADE_ACCEPT']);
+    /* Every trade-flavoured type is kept, not just the accept, because ESPN
+       files the ACCEPT with an empty items array and hangs the actual player
+       movement off the PROPOSAL it points at through relatedTransactionId.
+       Filtering to TRADE_ACCEPT alone therefore returns a trade with nobody in
+       it — which is how the Trade ROI table briefly showed no players at all. */
+    const txKeep = t => t === 'WAIVER' || t === 'FREEAGENT' || t.startsWith('TRADE');
     const topicsFilter = { topics: {
       filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000, limitPerMessageSet:{ value:1000 }, offset:0,
       sortMessageDate:{ sortPriority:1, sortAsc:false },
@@ -551,13 +556,39 @@ export default async function handler(req, res) {
         if(!r.ok){ diag.push({ name, status:r.status }); return []; }
         const data = unwrap(await r.json());
         const txns = parse(data);
-        diag.push({ name, status:200, count:txns.length });
+        const moves = txns.reduce((n,t)=>n+(String(t.type||'').toUpperCase()==='TRADE_ACCEPT'
+          ? (t.items||[]).filter(i=>i.playerId!=null).length : 0),0);
+        diag.push({ name, status:200, count:txns.length, tradeMoves:moves });
         return txns;
       }catch(e){ diag.push({ name, error:String(e).slice(0,80) }); return []; }
     }
 
-    const nativeParse = d => (Array.isArray(d.transactions) ? d.transactions : [])
-      .filter(t => TX_KEEP.has(String(t && t.type || '').toUpperCase()));
+    /* Resolve each accepted trade back to the items on its proposal, then hand
+       back one record per trade. Proposals that were never accepted, and the
+       declines, are dropped: they are not player movement. */
+    function nativeParse(d){
+      const all=(Array.isArray(d.transactions)?d.transactions:[])
+        .filter(t=>t&&txKeep(String(t.type||'').toUpperCase()));
+      const byId={}; all.forEach(t=>{ if(t.id) byId[t.id]=t; });
+      const out=[];
+      all.forEach(t=>{
+        const type=String(t.type||'').toUpperCase();
+        if(type==='WAIVER'||type==='FREEAGENT'){ out.push(t); return; }
+        if(type!=='TRADE_ACCEPT') return;                 // proposals are not movement
+        let items=(t.items||[]);
+        if(!items.length && t.relatedTransactionId){
+          const rel=byId[t.relatedTransactionId];
+          if(rel&&(rel.items||[]).length) items=rel.items;
+        }
+        if(!items.length){
+          /* the link can point the other way round */
+          const back=all.find(x=>x!==t&&x.relatedTransactionId===t.id&&(x.items||[]).length);
+          if(back) items=back.items;
+        }
+        out.push({...t, items});
+      });
+      return out;
+    }
     const commParse   = d => normFromComm(d.topics);
     // The communication feed is worth trying even for completed seasons — ESPN's
     // retention there varies, and when it works it's the only per-player record.
