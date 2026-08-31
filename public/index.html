@@ -216,11 +216,6 @@
        sheet, was scrolling the whole app underneath the modal. contain stops
        the chain; the root lock below stops the rest. */
     .modal-overlay{overscroll-behavior:contain;}
-    /* overflow-Y only. The root runs `overflow: hidden auto`, so locking both
-       axes would drop the horizontal clipping that keeps wide tables from
-       bleeding off a phone. This also leaves the scroll offset alone, so
-       nothing jumps on open or close. */
-    html.modal-locked{overflow-y:hidden;}
     .modal-seealso{margin:14px 2px 2px;font-size:12.5px;line-height:1.6;
       color:var(--text3);text-align:center;}
     .modal-seealso b{color:var(--text2);font-weight:600;}

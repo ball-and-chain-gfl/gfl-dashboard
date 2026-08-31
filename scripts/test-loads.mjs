@@ -116,5 +116,37 @@ for (const rel of FILES) {
   }
 }
 
+/* ── NO TWO TOP-LEVEL FUNCTIONS MAY SHARE A NAME ────────────────────────────
+   app.js is one sixteen-thousand-line script, so every top-level `function f()`
+   lands in the same scope. Declare a second one and JavaScript does not
+   complain: the later declaration silently wins the name, and every call meant
+   for the earlier one lands in the later one instead.
+
+   That is not hypothetical. A modalLock() was written for the coaching-metric
+   modal without noticing an existing modalLock(on) further down the file. The
+   calls resolved to the old one, arrived with `on` undefined, took its `else`
+   branch and ran window.scrollTo — so opening the modal scrolled the page,
+   which was the exact bug the new function had been written to fix.
+
+   Nothing catches this: it parses, it loads, and it runs. Only a scan does. */
+console.log('\n2. no top-level function name is declared twice');
+for (const rel of FILES) {
+  let src = null;
+  try { src = fs.readFileSync(new URL('../' + rel, import.meta.url), 'utf8'); } catch { continue; }
+  const seen = new Map();
+  const dupes = [];
+  // column zero only: anything indented is nested inside another function
+  const re = /^function\s+([A-Za-z_$][\w$]*)\s*\(/gm;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const name = m[1];
+    const line = src.slice(0, m.index).split('\n').length;
+    if (seen.has(name)) dupes.push(`${name} (lines ${seen.get(name)} and ${line})`);
+    else seen.set(name, line);
+  }
+  ok(`${rel} declares ${seen.size} top-level functions, none twice`, dupes.length === 0,
+    dupes.join('; '));
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

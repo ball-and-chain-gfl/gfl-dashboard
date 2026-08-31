@@ -1299,41 +1299,26 @@ function openCMModal(teamId){
 
 /* ── THE PAGE BEHIND A MODAL MUST NOT MOVE ───────────────────────────────────
    The overlay is fixed and the page behind it stayed scrollable, so a drag
-   that began on the backdrop — or one that carried on after the sheet hit its
-   end — took the whole app with it. Tap something, look away, come back
-   somewhere else.
+   starting on the backdrop, or carrying on past the end of the sheet, took the
+   whole app with it.
 
-   overflow-Y is what gets locked, not overflow: the root already runs
-   `overflow: hidden auto`, and collapsing both axes would drop the horizontal
-   clipping that keeps wide tables from bleeding off a phone. overflow-y:hidden
-   also leaves the scroll offset where it was, so there is no jump on open and
-   nothing to restore on close — the scrollTo below is a no-op unless some
-   browser loses it.
+   modalLock is NOT written here. It already existed a few thousand lines down,
+   complete and unused, and the first cut of this declared a second one by the
+   same name — which JavaScript resolves to whichever came last in the file, so
+   every open called the OTHER one with no argument, took its `else` branch and
+   ran window.scrollTo. A lock that scrolled the page: the exact symptom being
+   fixed, newly caused by the fix.
 
-   The padding compensates for the scrollbar that disappears along with the
-   scroll on desktop. Without it the page shifts sideways by its width the
-   instant the modal opens, which is the same complaint from the other side. */
-let _modalLockY=0;
-function modalLock(){
-  const h=document.documentElement;
-  if(h.classList.contains('modal-locked')) return;
-  _modalLockY=window.scrollY||0;
-  const sbw=window.innerWidth-h.clientWidth;
-  if(sbw>0) h.style.paddingRight=sbw+'px';
-  h.classList.add('modal-locked');
-}
-function modalUnlock(){
-  const h=document.documentElement;
-  if(!h.classList.contains('modal-locked')) return;
-  h.classList.remove('modal-locked');
-  h.style.paddingRight='';
-  if(Math.abs((window.scrollY||0)-_modalLockY)>1) window.scrollTo(0,_modalLockY);
-}
-/* A touch that starts on the backdrop is not a scroll of anything — the sheet
-   is a sibling of that gesture, not its target. Cancelling it there stops the
-   drag reaching the page behind on the browsers where an overflow lock alone
-   does not. Bound once, and only for touches landing on the overlay itself, so
-   scrolling inside the sheet is untouched. */
+   Its comment is also the reason not to reach for overflow here. The phone
+   rules set body{overflow-y:visible!important}, so an overflow lock on the root
+   is scrolled straight through on a phone — which is the screen this matters
+   on. Pinning body with position:fixed at minus the current scroll is what
+   actually holds, and it puts the position back on close.
+
+   What this adds is the part that lock does not cover: a touch that lands on
+   the backdrop itself is not a scroll of anything, so it is cancelled outright
+   rather than allowed to chain. Bound once, and only for the overlay as target,
+   so scrolling inside the sheet is untouched. */
 function cmModalShow(){
   const ov=document.getElementById('cm-overlay');
   if(!ov) return;
@@ -1343,12 +1328,12 @@ function cmModalShow(){
   }
   const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;   // a new manager opens at the top
   ov.classList.add('open');
-  modalLock();
+  modalLock(true);
 }
 function closeCMModal(e){if(e.target===document.getElementById('cm-overlay'))closeCMModalDirect();}
 function closeCMModalDirect(){
   document.getElementById('cm-overlay').classList.remove('open');
-  modalUnlock();
+  modalLock(false);
 }
 
 // ── BIG 4 ──────────────────────────────────────────────────────────────────────
@@ -4099,7 +4084,12 @@ function punishRulesHTML(){
 /* overflow:hidden alone does not hold here — the phone rules set
    body{overflow-y:visible!important} and the page scrolls straight through it.
    Pinning body and offsetting it by the current scroll is what actually stops
-   the page, and it restores the position on close. */
+   the page, and it restores the position on close.
+
+   Used by the coaching-metric modal (cmModalShow / closeCMModalDirect). Do not
+   declare a second function by this name: two top-level declarations resolve to
+   whichever is later in the file, silently, and the loser's callers end up in
+   the winner's other branch. */
 let _lockY=0;
 function modalLock(on){
   const b=document.body, d=document.documentElement;
