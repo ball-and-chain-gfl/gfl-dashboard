@@ -393,6 +393,9 @@ export default async function handler(req, res) {
         p.topLevelKeys = Object.keys(data || {});
         if (Array.isArray(data.transactions)) {
           p.transactionCount = data.transactions.length;
+          p.typeCounts = data.transactions.reduce((a,t)=>{
+            const k=String(t&&t.type||'?'); a[k]=(a[k]||0)+1; return a; },{});
+          p.withItems = data.transactions.filter(t=>(t.items||[]).length).length;
           p.sampleTransactions = data.transactions.slice(0, 4); // full raw objects
         }
       } catch (e) { p.error = String(e).slice(0, 200); }
@@ -605,8 +608,35 @@ export default async function handler(req, res) {
         txns = await attempt(name, url, f, p);
         if(txns.length){ source=name; break; }
       }
+      /* ── EACH SOURCE FOR WHAT IT ACTUALLY CARRIES ──────────────────────────
+         mTransactions2 is the only place bid amounts live, and it is the right
+         answer for waivers. It is the WRONG answer for trades: it files the
+         accept with an empty items array and hangs the movement off a record
+         that this view does not return at all, so trades arrive with nobody in
+         them. The communication feed is the mirror image — no bids anywhere,
+         but it names every player who moved.
+
+         So neither source is "the" source. Take the waivers from whichever one
+         answered, and if that left the trades empty, fill them from the feed
+         that has them. Belt and braces on a number the league can see: the
+         Trade ROI table went blank once already and the only reason it was
+         noticed is that somebody was looking. */
+      const moves = t => String(t.type||'').toUpperCase()==='TRADE_ACCEPT'
+        ? (t.items||[]).filter(i=>i.playerId!=null).length : 0;
+      if(txns.length && !txns.some(moves)){
+        const commTx = await attempt('comm_trades',
+          `${liveBase}/communication/?view=kona_league_communication`, topicsFilter, commParse);
+        const trades = commTx.filter(t=>String(t.type||'').toUpperCase()==='TRADE_ACCEPT' && moves(t));
+        if(trades.length){
+          txns = txns.filter(t=>String(t.type||'').toUpperCase()!=='TRADE_ACCEPT').concat(trades);
+          source += '+comm_trades';
+        }
+      }
+      const tradeMoves = txns.reduce((n,t)=>n+moves(t),0);
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
-      return res.status(200).json({ transactions:txns, _source:source, _count:txns.length, _diag:diag });
+      return res.status(200).json({ transactions:txns, _source:source, _count:txns.length,
+        _tradeMoves:tradeMoves,
+        _bids:txns.filter(t=>t.bidAmount!=null&&t.bidAmount>0).length, _diag:diag });
     }catch(err){ return res.status(500).json({ error:err.message, transactions:[], _diag:diag }); }
   }
 
