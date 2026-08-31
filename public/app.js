@@ -7140,9 +7140,17 @@ const plantKey=()=>'plant_'+(_me?_me.k1:'guest');
    the testing profile watched the whole league wither at fifteen seconds a
    stage, and the league saw the testing profile's plant frozen at thriving.
    Twelve plants, twelve timers, each answering to its own owner. */
+/* THRIVING TO DEAD IS EXACTLY ONE WEEK. There are six labels and therefore five
+   steps between the first and the last, so a stage lasts a fifth of the week —
+   33 hours and 36 minutes. It used to be three days a stage, which put death
+   fifteen days out: long enough that a plant nobody watered simply sat there
+   looking fine for a fortnight. A week means a manager who ignores it for one
+   is shown a dead plant, and one who looks in once a week never sees one. */
+const PLANT_CYCLE_MS=7*24*3600*1000;
+const PLANT_STEP_MS=PLANT_CYCLE_MS/(PLANT_STAGES.length-1);
 const plantMsFor=id=>{
   const m=Number(String(id||'')===TEST_PROFILE?(_CFG.plantTestMinutes??0):0);
-  return m>0?m*60*1000:3*24*3600*1000;        // three days unless that one is testing
+  return m>0?m*60*1000:PLANT_STEP_MS;
 };
 /* A stage from any watering timestamp. Visiting another locker room needs
    their plant, not yours, so it takes whose plant it is as well as when it was
@@ -7391,10 +7399,10 @@ function renderMyProfile(){
             happening now: a plant that wants water and whether this window's egg
             is still out there. A career count of eggs is a statistic, and it sat
             next to two things you can act on as though it were a third. */''}
-      <span class="mp-eggnow ${eggClaimedNow()?'got':'live'}">
+      ${(()=>{const e=eggChip(); return `<span class="mp-eggnow ${e.cls}">
         <span class="mp-egg-e">🥚</span>
-        <span class="mp-eggnow-t">${eggClaimedNow()?'You got this one':'One out there'}</span>
-      </span>
+        <span class="mp-eggnow-t">${e.text}</span>
+      </span>`;})()}
     </div>`}`;
   /* The logo colour is sampled from the image, so on a cold load — arriving
      straight here without opening a team profile first — the cache is empty and
@@ -9972,7 +9980,44 @@ async function invTrade(owner,shares,sell){
    moved without going through here. */
 const EGG_MS=Math.max(1,Number(_CFG.eggWindowHours??12))*3600*1000;
 const EGG_PRIZE=Math.max(0,Number(_CFG.eggPrize??10));
-const eggWindow=(t=Date.now())=>Math.floor(t/EGG_MS);
+/* ── WHEN THE HUNT STARTS ────────────────────────────────────────────────────
+   Windows used to be counted from the epoch of the clock itself, which meant
+   the hunt had always been running and the first egg landed wherever the
+   arithmetic happened to put it. config.eggStart is the moment it begins, and
+   windows are counted from THERE — so the first egg appears on that date and
+   every one after it lands a clean interval later.
+
+   Before that moment there is no egg at all. Nothing is hidden, nothing can be
+   claimed, and every locker room says when the first one is due. */
+const eggEpoch=()=>{
+  const m=/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/.exec(String(_CFG.eggStart||'').trim());
+  if(!m) return 0;
+  return new Date(+m[1],+m[2]-1,+m[3],m[4]?+m[4]:0,m[5]?+m[5]:0,0,0).getTime();
+};
+const eggWindow=(t=Date.now())=>Math.floor((t-eggEpoch())/EGG_MS);
+/* the moment a given window opens, which is what the timer sleeps until */
+const eggWindowAt=w=>eggEpoch()+w*EGG_MS;
+/* is there an egg out there at all? before the hunt opens, no */
+const eggLive=(t=Date.now())=>t>=eggEpoch();
+/* how long until the next one is hidden — the wait to the epoch before the hunt
+   opens, and the wait to the next window once it has */
+const eggNextAt=(t=Date.now())=>eggLive(t)?eggWindowAt(eggWindow(t)+1):eggEpoch();
+/* How long until the next egg is hidden, in the same shape as the bucks
+   countdown so the two read as the same kind of number. */
+function eggInText(t=Date.now()){
+  const ms=Math.max(0,eggNextAt(t)-t);
+  const d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000);
+  const m=Math.floor(ms%3600000/60000);
+  return d>0?`${d}d ${h}h`:h>0?`${h}h ${m}m`:`${m}m`;
+}
+/* WHAT THE LOCKER ROOM SAYS ABOUT THE HUNT. Three states and not two: before the
+   hunt opens there is no egg to have missed, so it counts down to the first one
+   rather than claiming there is one out there. */
+function eggChip(){
+  if(!eggLive()) return {cls:'soon', text:`First egg in ${eggInText()}`};
+  if(eggClaimedNow()) return {cls:'got', text:`You got this one · next in ${eggInText()}`};
+  return {cls:'live', text:'One out there'};
+}
 /* mulberry32: tiny, and identical in every browser — which matters more here
    than quality, since two managers disagreeing about the spot would be a bug */
 function eggRand(seed){
@@ -10125,7 +10170,7 @@ function eggPaint(){
   const cur=eggEl();
   const spot=eggSpot();
   const app=document.getElementById('app');
-  const wrong=!app||_activeTab!==spot.tab||eggFoundIn(spot.w);
+  const wrong=!app||!eggLive()||_activeTab!==spot.tab||eggFoundIn(spot.w);
   if(wrong){ if(cur&&!cur.classList.contains('egg-pop')) cur.remove(); return; }
   if(cur&&Number(cur.dataset.w)===spot.w) return;   // already out, same window
   if(cur) cur.remove();
@@ -10171,7 +10216,7 @@ function eggStart(){
   if(_eggTimer) clearTimeout(_eggTimer);
   eggPaint();
   if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
-  const next=(eggWindow()+1)*EGG_MS-Date.now();
+  const next=eggNextAt()-Date.now();
   _eggTimer=setTimeout(eggStart,Math.max(1000,next+50));
 }
 

@@ -173,6 +173,21 @@ window.GFL_CONFIG = {
   eggWindowHours: 48,
   eggPrize: 10,
 
+  /* WHEN THE HUNT OPENS. The first egg is hidden at this moment and every one
+     after it lands a window later, so the schedule counts from here rather than
+     from the epoch of the clock — which is what used to decide it, and which put
+     the first egg wherever the arithmetic happened to fall.
+
+     Before this moment there is no egg anywhere: nothing is hidden, nothing can
+     be claimed, and every locker room shows the wait instead. Nobody is credited
+     with anything for the gap, because a window that never opened is not an egg
+     anyone missed.
+
+     Local time, and a clean hour reads best — it is the moment twelve people are
+     all told the hunt has started. Blank it out to run from the clock's own
+     epoch, which is what it did before. */
+  eggStart: "2026-09-01T22:00",
+
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it.
 

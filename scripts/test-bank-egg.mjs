@@ -16,6 +16,9 @@ const cfgNum=k=>{
   return v;
 };
 const EGG_HOURS=cfgNum('eggWindowHours'), EGG_MONEY=cfgNum('eggPrize');
+/* the shipped start of the hunt, so the suite counts windows from where the
+   league actually counts them rather than from the clock's own epoch */
+const EGG_START=(CFGSRC.match(/eggStart:\s*"([^"]*)"/)||[])[1]||'';
 
 function grab(startsWith){
   const i=SRC.indexOf(startsWith);
@@ -51,6 +54,7 @@ const parts=[
   grab('function bucksBalance(){'),
   grab('const EGG_MS='),
   grab('const EGG_PRIZE='),
+  grab('const eggEpoch='),
   grab('const eggWindow=(t=Date.now())=>'),
   grab('function eggRand(seed){'),
   grab('const EGG_TABS=['),
@@ -58,7 +62,7 @@ const parts=[
 ];
 const harness=`
 let _bets=[], _me={k1:'bfl'}, _EGGS=0;
-let _CFG={betsResetBefore:0,eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}};
+let _CFG={betsResetBefore:0,eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY},eggStart:'${EGG_START}'};
 const BUCKS_WEEKLY=100;
 /* bucksTestMs only speeds the clock up for the test account, and section 10 is
    about what that flag does — so the harness says yes. */
@@ -82,10 +86,10 @@ return { bucksFor,
   set(b,testMin,eggs,weeks,extra){ _bets=b; _EGGS=eggs||0; _WEEKS=weeks||0;
     _LOTS=(extra&&extra.lots)||[];
     _CFG=Object.assign({betsResetBefore:0,bucksTestMinutes:testMin||0,
-          eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY}},(extra&&extra.cfg)||{}); },
+          eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY},eggStart:'${EGG_START}'},(extra&&extra.cfg)||{}); },
   bucksIdleWeeks, bucksEpoch,
   bucksCycles, bucksAllowance, bucksStaked, bucksReturned, bucksBalance,
-  eggSpot, eggWindow, eggRand, EGG_TABS, EGG_MS, EGG_PRIZE, tueWeekStart };`;
+  eggSpot, eggWindow, eggEpoch, eggRand, EGG_TABS, EGG_MS, EGG_PRIZE, tueWeekStart };`;
 const api=new Function(harness)();
 
 let pass=0, fail=0;
@@ -182,10 +186,17 @@ console.log('\n9. the window is whatever config says (now '+EGG_HOURS+'h)');
      was 2,016 a week and $20,160 — not a bonus on the economy, the economy.
      Anything under an hour is a testing speed-up that got out. */
   eq('not a testing speed-up', api.EGG_MS>=3600*1000, true);
-  // aligned to a boundary, or the probe just short of the roll crosses it
-  const t=Math.floor(1787000000000/api.EGG_MS)*api.EGG_MS;
+  /* Aligned to a REAL boundary. Windows are counted from the moment the hunt
+     opens, not from the epoch of the clock, so a multiple of EGG_MS is not a
+     boundary any more and a probe just short of the roll used to cross it. */
+  const ep=api.eggEpoch();
+  const t=ep+Math.floor((1787000000000-ep)/api.EGG_MS)*api.EGG_MS;
   eq('same window right up to the roll', api.eggWindow(t)===api.eggWindow(t+api.EGG_MS-1000), true);
   eq('next window just after it', api.eggWindow(t+api.EGG_MS+1)===api.eggWindow(t)+1, true);
+  /* the hunt opens on window 0, and the moment before it is not a window anyone
+     could have claimed — which is what stops the reset handing out an egg */
+  eq('the first egg is window 0', api.eggWindow(ep), 0);
+  eq('nothing before the hunt opens', api.eggWindow(ep-1)<0, true);
 }
 
 console.log('\n10. what the short test cycle does to the allowance');
@@ -363,7 +374,7 @@ console.log('\n15. a find survives the window being changed');
     return src.slice(i, j);
   };
   const m = { exports: {} };
-  new Function('module', '\n    const _CFG={eggWindowHours:48};\n    '
+  new Function('module', '\n    const _CFG={eggWindowHours:48,eggStart:""};\n    '
     + g('const EGG_MS=') + '\n' + g('const eggWindow=') + '\n'
     + g('const EGG_T_MIN=') + '\n' + g('const EGG_MAX_AGE_MS=') + '\n'
     + g('function eggTimeOf(') + '\n    module.exports={eggTimeOf,eggWindow};')(m);
