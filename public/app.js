@@ -7216,8 +7216,15 @@ function lockerRoomHTML(t,opts){
    alternative is a profile with a permanently dead plant on it, which is a
    worse thing to own than a forgiving one.
 
+   Left alone it forgives itself, eventually. Two days after it dies the league
+   revives it and bills the owner a Plant Revival Fee, and the seven days start
+   again — so an abandoned plant is a standing charge rather than a headstone.
+   Watering it is what stops that; it is not a way of getting the money back.
+
    State is a single timestamp, kept per profile so it follows a manager, with
-   localStorage covering signed-out and acting as the instant write. */
+   localStorage covering signed-out and acting as the instant write. Both the
+   stage and the number of revivals are read out of that one number — see
+   plantStageOf for why nothing is written when a plant comes back. */
 const PLANT_STAGES=['Thriving','Healthy','Getting dry','Drooping','Wilting','Dead'];
 const plantKey=()=>'plant_'+(_me?_me.k1:'guest');
 /* The interval belongs to the PLANT, not to whoever is looking at it. A stage
@@ -7226,27 +7233,54 @@ const plantKey=()=>'plant_'+(_me?_me.k1:'guest');
    the testing profile watched the whole league wither at fifteen seconds a
    stage, and the league saw the testing profile's plant frozen at thriving.
    Twelve plants, twelve timers, each answering to its own owner. */
-/* THRIVING TO DEAD IS EXACTLY ONE WEEK. There are six labels and therefore five
-   steps between the first and the last, so a stage lasts a fifth of the week —
-   33 hours and 36 minutes. It used to be three days a stage, which put death
-   fifteen days out: long enough that a plant nobody watered simply sat there
-   looking fine for a fortnight. A week means a manager who ignores it for one
-   is shown a dead plant, and one who looks in once a week never sees one. */
-const PLANT_CYCLE_MS=7*24*3600*1000;
-const PLANT_STEP_MS=PLANT_CYCLE_MS/(PLANT_STAGES.length-1);
+/* ── ONE STAGE A DAY, AND THE WEEK IT ADDS UP TO ─────────────────────────────
+   A day per stage. Six labels means five steps between the first and the last,
+   so a plant nobody waters is dead on the fifth day — and the day is the unit
+   people actually think in, which the old fifth-of-a-week (33 hours and 36
+   minutes) was not: it drifted round the clock, so the stage you found it at
+   depended on what time you happened to look.
+
+   Then it stays dead for two days and comes back on its own. That is what
+   makes the whole thing a CYCLE rather than a dead end — five drying, two
+   dead, seven in total, and the eighth day is the first day of the next one.
+   Coming back is not free: see plantFee. */
+const PLANT_STEP_MS=24*3600*1000;                     // a day, a stage
+const PLANT_DRY_STEPS=PLANT_STAGES.length-1;          // 5 — thriving to dead
+const PLANT_DEAD_STEPS=2;                             // 2 — how long it lies dead
+const PLANT_CYCLE_STEPS=PLANT_DRY_STEPS+PLANT_DEAD_STEPS;   // 7 — and round again
 const plantMsFor=id=>{
   const m=Number(String(id||'')===TEST_PROFILE?(_CFG.plantTestMinutes??0):0);
   return m>0?m*60*1000:PLANT_STEP_MS;
 };
 /* A stage from any watering timestamp. Visiting another locker room needs
    their plant, not yours, so it takes whose plant it is as well as when it was
-   last watered — theirs both arrive off their profile. */
+   last watered — theirs both arrive off their profile.
+
+   NOTHING IS WRITTEN WHEN A PLANT REVIVES. The obvious way to build a revival
+   is a job that notices a dead plant, resets its timestamp and records the
+   charge — which needs somebody to be looking at the right moment, and there
+   is no server here to be that somebody. So the revival is DERIVED instead,
+   exactly the way the stage already is: the elapsed time is divided by the
+   seven-day cycle, and the whole part of that division is how many times this
+   plant has died and come back. The remainder is where it stands today.
+
+   Everyone therefore computes the same answer from the one timestamp, whether
+   or not the owner has opened the site since — a plant left alone for a month
+   has revived four times to every viewer, and the bank agrees, because the
+   bank is reading this same number. There is nothing to keep in sync and
+   nothing to race.
+
+   Stages 5 and 6 of a cycle are both Dead: the label list stops at five, so
+   the clamp holds it there for the two dead days rather than running off the
+   end of the array. */
 function plantStageOf(raw,ownerId){
   raw=Number(raw||0);
-  if(!raw) return {stage:0,label:PLANT_STAGES[0],fresh:true};
-  const n=Math.floor((Date.now()-raw)/plantMsFor(ownerId));
-  const stage=Math.max(0,Math.min(5,n));
-  return {stage,label:PLANT_STAGES[stage],fresh:false};
+  if(!raw) return {stage:0,label:PLANT_STAGES[0],fresh:true,revivals:0};
+  const step=plantMsFor(ownerId), cycle=PLANT_CYCLE_STEPS*step;
+  const gone=Math.max(0,Date.now()-raw);
+  const revivals=Math.floor(gone/cycle);
+  const stage=Math.min(PLANT_DRY_STEPS,Math.floor((gone-revivals*cycle)/step));
+  return {stage,label:PLANT_STAGES[stage],fresh:false,revivals};
 }
 function plantStage(){ return plantStageOf(localStorage.getItem(plantKey()),_me&&_me.k1); }
 async function waterPlant(){
@@ -10665,6 +10699,7 @@ function bucksEpoch(){
   return new Date(+m[1],+m[2]-1,+m[3],6,0,0,0).getTime();
 }
 const BUCKS_IDLE_COST=()=>Math.max(0,Number(_CFG.bucksIdleCost??0));
+const PLANT_REVIVAL_FEE=()=>Math.max(0,Number(_CFG.plantRevivalFee??0));
 /* Which season's football the allowance is gated on: the one pay day falls in.
    The NFL year turns over in March, so a September date belongs to that year. */
 function bucksEpochSeason(){
@@ -10861,6 +10896,31 @@ function bucksIdleWeeks(now=Date.now()){
   return n;
 }
 function bucksIdleCost(){ return bucks2(bucksIdleWeeks()*BUCKS_IDLE_COST()); }
+/* ── THE PLANT REVIVAL FEE ───────────────────────────────────────────────────
+   A plant that is left to die comes back on its own two days later, and the
+   league bills the owner plantRevivalFee for it. Every revival is charged, so
+   a manager who ignores the locker room for a month pays four times — the
+   whole point is that it keeps costing until somebody waters the thing.
+
+   Derived, not stored, like every other number the bank uses: the count comes
+   straight out of plantStageOf, so there is no ledger to write, nothing to
+   replay and no way for the charge to be applied twice. Water the plant and
+   the timestamp moves forward, which is what stops the meter — it does not
+   refund what has already been taken, because it already happened.
+
+   THE FAST CYCLE IS NOT CHARGED. plantTestMinutes exists to watch the picture
+   change, and at fifteen seconds a stage a plant revives every 105 seconds:
+   that is $685 an hour against a $100 weekly allowance, so a testing profile
+   would sit pinned at zero and the sportsbook would be unusable. Only a plant
+   running on the real clock costs anything. To test the fee itself, set
+   plantTestMinutes to 0. */
+function plantRevivals(){
+  const pl=bkPlant();
+  if(!pl||!pl.t) return 0;                       // never watered, never billed
+  if(plantMsFor(pl.id)!==PLANT_STEP_MS) return 0;
+  return plantStageOf(pl.t,pl.id).revivals;
+}
+function plantFee(){ return bucks2(plantRevivals()*PLANT_REVIVAL_FEE()); }
 function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles()); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
 
@@ -10901,10 +10961,20 @@ let _bkScope=null;
 const bkBets=()=>_bkScope?_bkScope.bets:betsMine();
 const bkEggCount=()=>_bkScope?_bkScope.eggs:eggsFound().size;
 const bkLots=()=>_bkScope?_bkScope.lots:invLots();
+/* The plant rides in the scope for the same reason the bets and the lots do:
+   the Leaderboards work out eleven other balances with this family of
+   functions, and a charge they cannot see is a board that disagrees with the
+   chip. {t, id} — when it was last watered, and whose it is, because the
+   second is what sets the speed of the first. */
+function bkPlant(){
+  if(_bkScope) return _bkScope.plant||{t:0,id:null};
+  let t=0; try{ t=Number(localStorage.getItem(plantKey())||0); }catch(e){}
+  return {t,id:_me&&_me.k1};
+}
 function bucksFor(scope,fn){
   const prev=_bkScope;
   _bkScope={bets:(scope&&scope.bets)||[],eggs:Number(scope&&scope.eggs)||0,
-            lots:(scope&&scope.lots)||[]};
+            lots:(scope&&scope.lots)||[],plant:(scope&&scope.plant)||{t:0,id:null}};
   try{ return fn(); } finally{ _bkScope=prev; }
 }
 const betsLiveAll=()=>bkBets().filter(betIsLive);
@@ -10915,7 +10985,8 @@ function bucksBalance(){
      has to leave the balance — and come back when they are sold */
   let inv=0; try{ inv=invNetSpent(); }catch(e){}
   let idle=0; try{ idle=bucksIdleCost(); }catch(e){}
-  return bucks2(Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv-idle));
+  let plant=0; try{ plant=plantFee(); }catch(e){}
+  return bucks2(Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv-idle-plant));
 }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 /* GFL Bucks read like money, to the cent. They were rounded to the whole buck,
@@ -12187,6 +12258,7 @@ const NT_KINDS={
   wire:   {icon:'fa-stopwatch',   tone:'cool'},
   perfect:{icon:'fa-bullseye',    tone:'good'},
   plant:  {icon:'fa-seedling',    tone:'earth'},
+  revive: {icon:'fa-receipt',     tone:'ember'},
   crown:  {icon:'fa-crown',       tone:'gold'},
   faab:   {icon:'fa-sack-dollar', tone:'gold'},
   rival:  {icon:'fa-hand-fist',   tone:'royal'},
@@ -12523,21 +12595,57 @@ function ntPlants(out){
     /* each plant on its owner's own clock, so one manager on a short cycle
        cannot post a death card for eleven plants that are perfectly fine */
     const ms=plantMsFor(p.id);
-    const stage=Math.floor((Date.now()-t)/ms);
-    if(stage<5) return;
+    const cycle=PLANT_CYCLE_STEPS*ms;
+    const gone=Date.now()-t;
+    if(gone<PLANT_DRY_STEPS*ms) return;              // still alive, first time round
     const tid=Number(p.teamId||0);
     const nm=(_teams.find(x=>x.id===tid)||{}).name||p.id;
     /* how long it actually took, rather than a number written down once: five
        intervals of whatever this plant's interval is */
-    const dry=plantDryLabel(5*ms);
-    /* keyed by the watering that led to it, so one death is reported once and
-       the next one after a re-water is a new card */
-    out.push({kind:'plant', day:ntDayOf(t+5*ms), id:`pl:${p.id}:${t}`, title:'A plant has died',
+    const dry=plantDryLabel(PLANT_DRY_STEPS*ms);
+    /* ── THE LATEST DEATH, NOT EVERY DEATH THERE HAS EVER BEEN ──────────────
+       A plant revives every seven days now, so an abandoned one does not die
+       once — it dies again every week, for as long as it is ignored. Building
+       a card per death would hand somebody back from a month away a stack of
+       four, and a year of it is fifty-two. The feed shows one card at a time
+       and a dismissal is one id, so a stack like that is not news, it is a
+       chore.
+
+       Only the run it is in NOW is reported. The id still carries which one it
+       was, so the next death after this is a new card rather than a repeat of
+       a dismissed one. */
+    const revivals=Math.floor(gone/cycle);
+    const deathN=(gone-revivals*cycle)>=PLANT_DRY_STEPS*ms?revivals:revivals-1;
+    out.push({kind:'plant', day:ntDayOf(t+deathN*cycle+PLANT_DRY_STEPS*ms),
+      id:`pl:${p.id}:${t}:${deathN}`, title:'A plant has died',
       art:ntStat(_ownerMap[tid],nm,dry,'without water'),
       body:`<b>${nm}</b> let their plant die. How could they.`});
+
+    /* ── AND THE BILL FOR BRINGING IT BACK ──────────────────────────────────
+       The league gets to watch a plant die; the $20 is between the bank and
+       its owner, so this card is only built for the manager being charged.
+
+       It is built from the same three things plantFee charges on — a real
+       clock, a completed cycle, a configured fee — and it is not built when
+       any of them is missing. That is deliberate: a card that announces a
+       charge the balance did not take is worse than no card at all, so the two
+       are made to agree by construction rather than by being written twice. */
+    if(!_me||String(p.id)!==String(_me.k1)) return;
+    if(!revivals||ms!==PLANT_STEP_MS) return;
+    const fee=PLANT_REVIVAL_FEE(); if(!fee) return;
+    out.push({kind:'revive', day:ntDayOf(t+revivals*cycle),
+      id:`plr:${p.id}:${t}:${revivals}`, title:'Plant Revival Fee',
+      art:ntStat(_ownerMap[tid],nm,bucksFmt(fee*revivals),'charged'),
+      body:revivals>1
+        ?`Your plant has died and been revived <b>${revivals}</b> times. That is
+          <b>${bucksFmt(fee*revivals)}</b> in Plant Revival Fees off your GFL Bucks.
+          Water it.`
+        :`Your plant was dead for ${plantDryLabel(PLANT_DEAD_STEPS*ms)} and has been
+          revived. <b>${bucksFmt(fee)}</b> has come off your GFL Bucks as a Plant
+          Revival Fee.`});
   });
 }
-/* "15 days" for a real plant, "1.3 min" for one on the short test cycle */
+/* "5 days" for a real plant, "1.3 min" for one on the short test cycle */
 function plantDryLabel(ms){
   const d=ms/86400000;
   if(d>=1) return `${Math.round(d)} day${Math.round(d)===1?'':'s'}`;
@@ -13863,8 +13971,12 @@ function ldFolio(prof){
    no pay day, no football gate, no charge for an idle week. */
 function ldBucks(ids,prof){
   const bets=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&betsAfterReset(b));
-  let eggs=0, lots=[];
+  let eggs=0, lots=[], plant={t:0,id:null};
   prof.forEach(p=>{
+    /* the latest watering across their profiles, which is also the kindest
+       reading of it: a later timestamp is fewer completed cycles and therefore
+       a smaller bill */
+    const pt=Number(p.plantWatered||0); if(pt>plant.t) plant={t:pt,id:p.id};
     /* validated the same way eggsFound does, so a find recorded under a retired
        window scheme is not paid for here either */
     try{ const e=JSON.parse(p.eggs||'[]');
@@ -13886,8 +13998,10 @@ function ldBucks(ids,prof){
   if(_me&&ids.includes(_me.k1)){
     try{ eggs=eggsFound().size; }catch(e){}
     try{ lots=invLots(); }catch(e){}
+    try{ const pt=Number(localStorage.getItem(plantKey())||0);
+      if(pt>plant.t) plant={t:pt,id:_me.k1}; }catch(e){}
   }
-  return bucksFor({bets,eggs,lots},()=>bucksBalance());
+  return bucksFor({bets,eggs,lots,plant},()=>bucksBalance());
 }
 /* One manager's matchup-picks record for the season. Every pick on a game that
    has finished, right against wrong — a record counts games, so the Matchup of

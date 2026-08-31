@@ -141,10 +141,31 @@ window.GFL_CONFIG = {
   bucksStart: "2026-08-25",
   bucksIdleCost: 20,
 
+  /* ── WHAT A DEAD PLANT COSTS ───────────────────────────────────────────────
+     The locker-room plant dries out a stage a day and is dead on the fifth. It
+     then lies dead for two days and revives on its own on the seventh — and
+     the league charges the owner this for it, as a Plant Revival Fee. The
+     manager gets a notification saying so; nobody else does.
+
+     It is charged EVERY time, not once: a plant nobody waters revives weekly,
+     so a month away is four of these. Watering stops the meter, it does not
+     refund it.
+
+     Set to 0 to switch the fee off; the plant still dies and still comes back,
+     it just costs nothing. Note that a plant on the fast test cycle below is
+     never charged, whatever this says — see plantFee in app.js. */
+  plantRevivalFee: 20,
+
   /* TESTING — how long one locker-room plant stage lasts, in minutes.
      Fractions are fine: 0.25 is fifteen seconds a stage, so the plant runs
-     from thriving to dead in about a minute and a half.
-     0 (or delete) uses the real three days per stage.
+     from thriving to dead in about a minute and a half, and all the way round
+     to revived in under two.
+     0 (or delete) uses the real one day per stage.
+
+     THE REVIVAL FEE IS NOT CHARGED ON THIS CYCLE. At fifteen seconds a stage
+     a plant revives every 105 seconds, which would take $685 an hour off a
+     $100 weekly allowance and pin the testing balance at zero. Set this to 0
+     to test the fee.
 
      It applies to the testing profile's OWN plant and to nothing else. Each of
      the twelve runs on its own timer: whoever is looking, that one plant is on
