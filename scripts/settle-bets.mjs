@@ -48,6 +48,7 @@ function grab(startsWith) {
 }
 
 const parts = [
+  grab('const bucks2='),          /* money rounds to the cent before it is stored */
   grab('const GFL_DB='),
   grab('const fsOut='),
   grab('const fsIn='),

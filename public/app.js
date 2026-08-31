@@ -194,17 +194,47 @@ function ytApply(list){
   box.innerHTML=vidCarouselHTML();
   try{ wireVidRail(); }catch(e){}
 }
+/* ── THE ARCHIVE LEADS; ESPN ONLY ADDS WHAT IS NEWER ─────────────────────────
+   This used to ask ESPN first and fall back to the repo only when ESPN gave
+   back nothing, which is backwards twice over.
+
+   It is wrong on cost: the archived file is a static asset off the CDN, and the
+   ESPN call goes through the proxy to a slow upstream on every single load.
+
+   It is wrong on correctness, which matters more. The archive is the only place
+   losing waiver bids will ever exist. ESPN serves the detailed log while a
+   season is ACTIVE and drops it afterwards — that is why 2022-2025 waiver
+   history is gone for good — and even during the season it prunes failed claims
+   well before the season ends. A losing bid is exactly what the next-highest
+   figure is made of, so once the archiver has captured one it must outrank
+   anything ESPN says later, including ESPN saying nothing.
+
+   So: read the file, then merge ESPN over the top keyed by transaction id, and
+   let the archived row win wherever both have one. ESPN's job here is only to
+   carry the days since the last Wednesday and Sunday run. */
+const txKeyOf=t=>String((t&&t.id)||`${t&&t.type}|${t&&t.teamId}|${t&&t.scoringPeriodId}|`
+  +((t&&t.items)||[]).map(i=>`${i.playerId}:${i.type}`).join(','));
 async function txFetch(){
-  let d={transactions:[],_source:'error'};
-  try{const r=await fetch(`${BASE}?type=transactions&seasonId=${getSeason()}`);if(r.ok)d=await r.json();}catch{}
-  if(!(d.transactions||[]).length){
-    // ESPN purged it — check the git-archived snapshot (see /data/README.md)
-    try{
-      const ar=await fetch(`/data/transactions-${getSeason()}.json`);
-      if(ar.ok){const ad=await ar.json();if((ad.transactions||[]).length)d={transactions:ad.transactions,_source:'git archive ('+(ad.savedAt||'').slice(0,10)+')',_count:ad.transactions.length,_diag:d._diag||[]};}
-    }catch{}
-  }
-  return d;
+  let archived=[], savedAt='';
+  try{
+    const ar=await fetch(`/data/transactions-${getSeason()}.json`);
+    if(ar.ok){ const ad=await ar.json(); archived=ad.transactions||[]; savedAt=(ad.savedAt||'').slice(0,10); }
+  }catch{}
+  let live=[], diag=[];
+  try{
+    const r=await fetch(`${BASE}?type=transactions&seasonId=${getSeason()}`);
+    if(r.ok){ const d=await r.json(); live=d.transactions||[]; diag=d._diag||[]; }
+  }catch{}
+  if(!archived.length&&!live.length) return {transactions:[],_source:'error',_diag:diag};
+  /* live first so an archived row of the same id overwrites it */
+  const byKey=new Map();
+  live.forEach(t=>byKey.set(txKeyOf(t),t));
+  archived.forEach(t=>byKey.set(txKeyOf(t),t));
+  const merged=[...byKey.values()];
+  const src=archived.length&&live.length ? `git archive (${savedAt}) + live`
+    : archived.length ? `git archive (${savedAt})` : 'live';
+  return {transactions:merged,_source:src,_count:merged.length,_diag:diag,
+    _archived:archived.length,_live:live.length};
 }
 /* A finished season's weekly scores can never change again, so they are
    archived in the repo as one file per season instead of being pulled a week
@@ -1589,13 +1619,18 @@ function renderC3Breakdown(){
     </div>
     ${t?`<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
-      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Next,Margin">
-        <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Lineup pts</th><th class="right">Ratio</th></tr></thead>
+      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Margin">
+        <!-- Next stays on a phone. It was in data-mhide, so the runner-up bid —
+             the whole reason the ratio is what it is — was desktop-only, and on
+             the screen this league actually reads the table on it looked like
+             the column did not exist. Margin is bid minus next, so it is the one
+             that can be worked out from what is left. -->
+        <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">PTS</th><th class="right">Ratio</th></tr></thead>
         <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
           <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span class="est-tag" style="color:var(--text3);font-size:12px"> est.</span>':''}</span></td>
           <td class="right">${w.week}</td>
           <td class="right">$${w.bid}</td>
-          <td class="right" style="color:var(--text3)">${w.next?('$'+w.next):'—'}</td>
+          <td class="right" style="color:var(--text3)">${w.next>0?('$'+w.next):'$0'}</td>
           <td class="right">$${mar}</td>
           <td class="right pf">${w.pts.toFixed(1)}</td>
           <td class="right" style="font-weight:600">${(w.pts/mar).toFixed(2)}x</td>
@@ -10071,10 +10106,13 @@ function invCostBasis(owner){
 function invNetSpent(){
   let net=0;
   bkLots().forEach(l=>{
-    const v=(Number(l.s)||0)*(Number(l.p)||0);
+    /* each lot settles to the cent on its own, the way a real fill would —
+       rounding only the total would let sub-cent dust accumulate across a
+       season of trades */
+    const v=bucks2((Number(l.s)||0)*(Number(l.p)||0));
     net+=(l.k==='s'?-v:v);
   });
-  return net;
+  return bucks2(net);
 }
 /* ── PROFIT, WEEK BY WEEK ────────────────────────────────────────────────────
    Nothing about this is stored or sampled. Share prices are a function of what
@@ -10802,8 +10840,8 @@ function bucksIdleWeeks(now=Date.now()){
   }
   return n;
 }
-function bucksIdleCost(){ return bucksIdleWeeks()*BUCKS_IDLE_COST(); }
-function bucksAllowance(){ return BUCKS_WEEKLY*bucksCycles(); }
+function bucksIdleCost(){ return bucks2(bucksIdleWeeks()*BUCKS_IDLE_COST()); }
+function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles()); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
 
    Counted from week 1 and only while every fixture in a week is final, so a
@@ -10850,14 +10888,14 @@ function bucksFor(scope,fn){
   try{ return fn(); } finally{ _bkScope=prev; }
 }
 const betsLiveAll=()=>bkBets().filter(betIsLive);
-function bucksStaked(){ return betsLiveAll().reduce((a,b)=>a+b.stake,0); }
-function bucksReturned(){ return betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0); }
+function bucksStaked(){ return bucks2(betsLiveAll().reduce((a,b)=>a+b.stake,0)); }
+function bucksReturned(){ return bucks2(betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0)); }
 function bucksBalance(){
   /* shares are bought with the same money as bets, so what is tied up in them
      has to leave the balance — and come back when they are sold */
   let inv=0; try{ inv=invNetSpent(); }catch(e){}
   let idle=0; try{ idle=bucksIdleCost(); }catch(e){}
-  return Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv-idle);
+  return bucks2(Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv-idle));
 }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 /* GFL Bucks read like money, to the cent. They were rounded to the whole buck,
@@ -10869,7 +10907,24 @@ function bucksBalance(){
 
    The twelve-row Leaderboard keeps its own compact format (ldMoney) on purpose
    — two more digits a row there and the table outgrows a phone. */
-const bucksCents=v=>(Math.round((Number(v)||0)*100)/100)
+/* ── MONEY IS A NUMBER OF CENTS, NOT A FLOAT THAT GETS FORMATTED LATE ────────
+   bucksCents and bucksFmt round for DISPLAY, which is not the same thing as the
+   value being round. A balance is a sum of an allowance, stakes out, returns
+   in, eggs, share lots and idle costs; float arithmetic across all of that
+   leaves dust, and share lots carry real sub-cent prices. So the underlying
+   number was routinely something like 84.83999999999997 while every label on
+   the site said $84.84.
+
+   That is invisible until something uses the raw number. The stake box carries
+   max="<balance>", and when the browser clamps a typed number to that max it
+   clamps to the RAW one — so overtyping your balance filled the field with
+   84.83999999999997.
+
+   bucks2 is the one place money becomes money: every figure that is stored,
+   compared or clamped goes through it, so the stored value and the printed
+   value are the same value. */
+const bucks2=v=>Math.round(((Number(v)||0)+Number.EPSILON)*100)/100;
+const bucksCents=v=>bucks2(v)
   .toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const bucksFmt=v=>'$'+bucksCents(v);
 
@@ -10986,7 +11041,10 @@ async function sbPlaceBet(){
   const body=fsOut({
     owner:_me.k1, team:String(_me.teamId||''), season:String(sbSeason()),
     wk:bucksWeekKey(), ts:String(Date.now()),
-    stake:String(stake), odds:String(odds), payout:String(Math.round(stake*dec)),
+    /* payout was Math.round(stake*dec) — whole bucks, on a book that quotes and
+       pays to the cent. A -115 leg on $25 returns $46.74, and storing that as
+       $47 hands out 26 cents that were never won. */
+    stake:String(bucks2(stake)), odds:String(odds), payout:String(bucks2(stake*dec)),
     legs:JSON.stringify(_slip.map(s=>({mk:s.mk,mkLabel:s.mkLabel,pick:s.pick,pickLabel:s.pickLabel,odds:s.odds}))),
     status:'open', settledTs:'0', ret:'0',
   });
@@ -14443,10 +14501,10 @@ function betCashOut(b){
   }
   if(weeklyLive) return {ok:false,why:'A weekly leg is under way — ride it out.'};
   /* nothing has kicked off: this is a withdrawal, not a trade */
-  if(!anyStarted) return {ok:true,amount:b.stake,full:true};
+  if(!anyStarted) return {ok:true,amount:bucks2(b.stake),full:true};
   const val=Math.max(0,(b.payout||0)*p*(1-CASHOUT_HOLD));
   if(val<CASHOUT_MIN) return {ok:false,why:'Not worth buying back.'};
-  return {ok:true,amount:Math.min(b.payout||0,Math.round(val*100)/100),full:false};
+  return {ok:true,amount:Math.min(bucks2(b.payout||0),bucks2(val)),full:false};
 }
 /* Kept as its own name because the invite card still asks the question. */
 function betCancellable(b){ const c=betCashOut(b); return !!(c&&c.ok); }
@@ -14609,8 +14667,8 @@ function betGrade(bet){
   if(res.some(r=>r===false)) return {status:'lost',ret:0};
   if(res.some(r=>r===null))  return null;                 // still open
   const pushes=res.filter(r=>r==='push').length;
-  if(pushes===res.length)    return {status:'push',ret:bet.stake};
-  return {status:'won',ret:bet.payout};
+  if(pushes===res.length)    return {status:'push',ret:bucks2(bet.stake)};
+  return {status:'won',ret:bucks2(bet.payout)};
 }
 
 // ── SPORTSBOOK UI ────────────────────────────────────────────────────────────
@@ -15154,7 +15212,7 @@ function sbSlipHTML(){
       <div class="sb-slip-actions"><button class="sb-clear" onclick="sbClear()">Clear all</button></div>
       <div class="sb-stake">
         <label for="sb-stake-in">Stake</label>
-        <input id="sb-stake-in" type="number" min="0" step="10" max="${bal}" value="${stake}" oninput="sbStakeTyped(this.value)"/>
+        <input id="sb-stake-in" type="number" min="0" step="10" max="${bucks2(bal)}" value="${bucks2(stake)}" oninput="sbStakeTyped(this.value)"/>
         <span class="sb-cur">GFL Bucks</span>
       </div>
       <div class="sb-quick">
@@ -15373,7 +15431,7 @@ function sbStakeTyped(v){
   _sbStake=v;
   const dec=_slip.reduce((a,s)=>a*amToDec(s.odds),1);
   const bal=bucksBalance();
-  const stake=Math.min(bal,Math.max(0,Number(v)||0));
+  const stake=bucks2(Math.min(bal,Math.max(0,Number(v)||0)));
   const payout=stake*dec;
   const fmt=x=>bucksCents(x);
   /* The slip is painted into every .sb-slip-target there is — the sheet on a

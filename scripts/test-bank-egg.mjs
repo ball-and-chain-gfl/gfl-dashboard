@@ -38,6 +38,7 @@ const parts=[
   grab('const bkEggCount='),
   grab('const bkLots='),
   grab('function bucksFor(scope,fn){'),
+  grab('const bucks2='),
   grab('const bucksTestMs=()=>'),
   grab('function realWeekStart(now=new Date()){'),
   grab('function tueWeekStart(now=new Date()){'),

@@ -50,6 +50,7 @@ const weekHasStarted=()=>_STARTED;
 /* The bank's own arithmetic — how many allowances have accrued, what the egg
    hunt has paid — is covered by test-bank-egg.mjs. Held flat here so these
    cases stay about invitations: one allowance, no eggs. */
+const bucks2=v=>Math.round(((Number(v)||0)+Number.EPSILON)*100)/100;
 const bucksAllowance=()=>BUCKS_WEEKLY;
 const eggBucks=()=>0;
 /* betCancellable is a thin wrapper over betCashOut, which walks a ticket's legs

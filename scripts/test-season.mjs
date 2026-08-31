@@ -42,6 +42,7 @@ const parts = [
   grab('function betLegWeek('),
   grab('function betWeekResult(leg,season,wk){'),
   grab('function betLegResult(leg,season){'),
+  grab('const bucks2='),          /* betGrade rounds its payouts to the cent */
   grab('function betGrade(bet){'),
 ];
 

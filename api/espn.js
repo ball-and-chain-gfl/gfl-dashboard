@@ -452,8 +452,14 @@ export default async function handler(req, res) {
   if (type === 'txdump') {
     const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
     const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
-    // no filterType: a type filter drops FAILED claims, which are the losing bids
-    const allTx = { transactions: { limit: 5000, offset: 0 } };
+    /* No filterType: a type filter drops FAILED claims, which ARE the losing
+       bids. And sortProcessDate, because ESPN rejects any limit that arrives
+       without a sort — "Filter: Limit request must be accompanied by a sort" —
+       which is why this dump was returning nothing at all and the 2026 archive
+       sat at zero rows with every bid unrecorded. sortDate and five other
+       plausible names are all still refused; only this one is accepted. */
+    const allTx = { transactions: { limit: 5000, offset: 0,
+      sortProcessDate: { sortPriority: 1, sortAsc: false } } };
     const topicsFilter = { topics: {
       filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000, limitPerMessageSet:{ value:1000 }, offset:0,
       sortMessageDate:{ sortPriority:1, sortAsc:false },
