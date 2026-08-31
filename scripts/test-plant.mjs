@@ -83,6 +83,13 @@ const NEEDED = [
   'function bucksBalance(',
   'const bucks2=', 'const bucksCents=', 'const bucksFmt=',
   'function ntPlants(', 'function plantDryLabel(',
+  /* the replay, and the scope machinery it leans on */
+  'let _bkAsOf=', 'const bkNow=', 'const bkEggTimes=', 'const bkBets=',
+  'const bkEggCount=', 'const bkLots=', 'function bucksFor(', 'const betIsLive=',
+  'const betsLiveAll=', 'function bucksStaked(', 'function bucksReturned(',
+  'function invNetSpent(', 'function eggBucks(', 'function bucksIdleCost(',
+  'function bucksBaseAt(', 'const PLANT_REPLAY_MAX=', 'function plantRevivalCharges(',
+  'let _plantFeeCache=', 'function plantFeeKey(',
 ];
 const parts = {};
 for (const n of NEEDED) {
@@ -111,16 +118,35 @@ function setMe(m){ _me=m; }
 function setWatered(t){ if(t==null) delete _store[plantKey()]; else _store[plantKey()]=String(t); }
 function setScope(p){ _bkScope=p?{bets:[],eggs:0,lots:[],plant:p}:null; }
 
-/* the balance's other terms, all silent. The allowance is settable because a
-   fee bigger than the balance is the whole of section 18. */
-let _allow=100;
-function setAllow(v){ _allow=v; }
-function bucksAllowance(){ return _allow; }
-function bucksStaked(){ return 0; }
-function bucksReturned(){ return 0; }
-function eggBucks(){ return 0; }
-function invNetSpent(){ return 0; }
-function bucksIdleCost(){ return 0; }
+/* ── A BANK WITH A HISTORY ──────────────────────────────────────────────────
+   The replay is only worth testing against an allowance that CHANGES over
+   time — a constant one makes every past instant look like the present and the
+   whole thing passes without proving anything.
+
+   So the allowance here is a schedule: a list of {from, amount}, read through
+   bkNow. Point the bank at last Tuesday and it answers with last Tuesday's
+   money. Everything else on the balance — stakes, returns, eggs, shares — is
+   the real function lifted out of app.js, because filtering those to a moment
+   is exactly what bucksBaseAt has to get right. */
+let _sched=[{from:0,amount:100}];
+function setAllowSchedule(rows){ _sched=rows; }
+function setAllow(v){ _sched=[{from:0,amount:v}]; }
+function bucksAllowance(){
+  const now=bkNow();
+  let v=0;
+  _sched.forEach(r=>{ if(now>=r.from) v=r.amount; });
+  return v;
+}
+const EGG_PRIZE=10;
+let _eggs=new Set(), _lots=[], _bets=[];
+function eggsFound(){ return _eggs; }
+function invLots(){ return _lots; }
+function betsMine(){ return _bets; }
+function setEggs(ts){ _eggs=new Set(ts); }
+function setLots(l){ _lots=l; }
+function setBets(b){ _bets=b; }
+function bucksIdleWeeks(){ return 0; }
+function BUCKS_IDLE_COST(){ return 0; }
 
 /* what a notification card needs to exist */
 let _cpRows=[], _teams=[{id:7,name:'Dry Bones'}], _ownerMap={7:'own7'};
@@ -133,7 +159,8 @@ ${NEEDED.map(n => parts[n]).join(';\n')}
 module.exports={PLANT_STAGES,PLANT_STEP_MS,PLANT_DRY_STEPS,PLANT_DEAD_STEPS,
   PLANT_CYCLE_STEPS,plantMsFor,plantStageOf,PLANT_REVIVAL_FEE,bkPlant,
   plantRevivals,plantFee,plantFeeTaken,bucksBalance,bucksFmt,plantDryLabel,
-  ntPlants,setCfg,setMe,setWatered,setScope,setRows,setAllow};
+  ntPlants,setCfg,setMe,setWatered,setScope,setRows,setAllow,bucksBaseAt,
+  plantRevivalCharges,setAllowSchedule,setEggs,setLots,setBets,bucksAllowance};
 `;
 const mod = { exports: {} };
 let built = true;
@@ -142,7 +169,8 @@ catch (e) { built = false; console.log('  FAIL harness does not build -> ' + e.m
 
 if (built) {
   const M = mod.exports;
-  const fresh = () => { M.setCfg({ plantTestMinutes: 0, plantRevivalFee: 20 }); M.setMe({ k1: 'me' }); M.setScope(null); M.setRows([]); M.setAllow(100); };
+  const fresh = () => { M.setCfg({ plantTestMinutes: 0, plantRevivalFee: 20 }); M.setMe({ k1: 'me' }); M.setScope(null); M.setRows([]); M.setAllow(100);
+    M.setEggs([]); M.setLots([]); M.setBets([]); };
   /* a plant watered `d` days ago */
   const ago = d => Date.now() - d * DAY;
   const at = d => M.plantStageOf(ago(d), 'me');
@@ -362,13 +390,13 @@ if (built) {
   ok('exactly $20 pays exactly $20 and lands on nought', r.took === 20 && r.left === 0,
     JSON.stringify(r));
   r = pay(5, 7.5);
-  ok('$5 against a $20 fee gives up the $5, not $20', r.billed === 20 && r.took === 5 && r.left === 0,
+  ok('$5 against a $20 fee gives up the $5, not $20', r.billed === 5 && r.took === 5 && r.left === 0,
     JSON.stringify(r));
   r = pay(0, 7.5);
   ok('nothing in the account means nothing is taken', r.took === 0 && r.left === 0,
     JSON.stringify(r));
   r = pay(0, 28.5);
-  ok('and four revivals against nothing is still nothing', r.billed === 80 && r.took === 0 && r.left === 0,
+  ok('and four revivals against nothing is still nothing', r.billed === 0 && r.took === 0 && r.left === 0,
     JSON.stringify(r));
   r = pay(5, 28.5);
   ok('$5 against an $80 bill is still only $5', r.took === 5 && r.left === 0, JSON.stringify(r));
@@ -410,6 +438,129 @@ if (built) {
   ok('a manager who could pay is not told about a shortfall',
     fullCard && !/only had/.test(fullCard.body), fullCard && fullCard.body);
   ok('and their card still reads charged', fullCard && /\|charged$/.test(fullCard.art));
+
+  /* ── A REVIVAL NOBODY COULD PAY FOR IS SETTLED, NOT DEFERRED ──────────────
+     This is the difference between the fee being count x $20 and the fee being
+     a walk through the revivals. Under the multiply, a manager sitting at zero
+     still ran up $20 a week that nobody could see, and the debt came out of
+     whatever landed next — two months away and the next two allowances were
+     gone the moment they came back.
+
+     Here each revival is charged against the money that was actually in the
+     account on the day it happened, and whatever could not be paid then is
+     never asked for again. The test that matters is the third one: money
+     arrives AFTER a revival went unpaid, and the shortfall does not follow it
+     in. */
+  console.log('\n20. what could not be paid at the time is written off');
+  const DAY_MS = DAY;
+  fresh();
+
+  /* poor the whole way through: $5, and it never grows */
+  M.setAllow(5);
+  const poor = d => { M.setWatered(ago(d)); return M.plantRevivalCharges(); };
+  ok('one revival on $5 collects $5', poor(7.5) === 5, poor(7.5));
+  ok('four revivals on $5 still collects only $5', poor(28.5) === 5, poor(28.5));
+  ok('fifty weeks on $5 still collects only $5', poor(351) === 5, poor(351));
+  ok('the old arithmetic would have wanted $1,000 for that',
+    Math.floor(351 / 7) * 20 === 1000);
+
+  /* rich the whole way through: every revival paid in full */
+  M.setAllow(1000);
+  ok('four revivals with money pays all four', poor(28.5) === 80, poor(28.5));
+
+  /* THE ONE THAT MATTERS: broke for the first revival, paid from then on */
+  fresh();
+  const t0 = ago(21.5);
+  M.setAllowSchedule([{ from: 0, amount: 5 }, { from: t0 + 10 * DAY_MS, amount: 105 }]);
+  M.setWatered(t0);
+  const walked = M.plantRevivalCharges();
+  /* revival 1 (day 7) had $5     -> takes 5
+     revival 2 (day 14) had $105-5 -> takes 20
+     revival 3 (day 21) had $105-25 -> takes 20                    total 45 */
+  ok('the shortfall is written off, not collected later', walked === 45, walked);
+  ok('deferring it would have taken $60 instead', 3 * 20 === 60);
+  ok('so the manager keeps the $15 they could not pay',
+    3 * 20 - walked === 15, 3 * 20 - walked);
+
+  /* and a revival AFTER money arrives is still charged in full */
+  fresh();
+  M.setAllowSchedule([{ from: 0, amount: 0 }, { from: t0 + 10 * DAY_MS, amount: 500 }]);
+  M.setWatered(t0);
+  ok('broke at first, then paying in full once the money lands',
+    M.plantRevivalCharges() === 40, M.plantRevivalCharges());
+
+  console.log('\n21. the past is read as the past, not as today');
+  fresh();
+  /* watered nine days ago, so its ONE revival landed two days ago - a full day
+     before the money did. The first draft of this used a plant with a second
+     revival sitting after the money arrived, which is charged and should be:
+     the assertion was wrong, not the walk. */
+  const t1 = ago(9);
+  M.setAllowSchedule([{ from: 0, amount: 0 }, { from: Date.now() - DAY_MS, amount: 900 }]);
+  M.setWatered(t1);
+  ok('money that arrived yesterday cannot pay for a revival two days ago',
+    M.plantRevivalCharges() === 0, M.plantRevivalCharges());
+  ok('but the same plant one revival later does pay',
+    (() => { M.setWatered(ago(15)); return M.plantRevivalCharges() === 20; })(),
+    M.plantRevivalCharges());
+  M.setWatered(t1);
+  ok('bucksBaseAt reports the old balance, not the new one',
+    M.bucksBaseAt(t1 + 7 * DAY_MS) === 0 && M.bucksBaseAt(Date.now()) === 900,
+    M.bucksBaseAt(t1 + 7 * DAY_MS) + ' / ' + M.bucksBaseAt(Date.now()));
+  ok('and the as-of lever is put back afterwards',
+    M.bucksAllowance() === 900, M.bucksAllowance());
+
+  console.log('\n22. an egg or a bet counts only from the moment it happened');
+  fresh();
+  const t2 = ago(21.5);
+  M.setAllow(0);
+  M.setEggs([t2 + 17 * DAY_MS]);                 // one $10 egg, found after revival 2
+  M.setWatered(t2);
+  ok('an egg found in week 3 pays for week 3, not week 1',
+    M.plantRevivalCharges() === 10, M.plantRevivalCharges());
+  fresh();
+  M.setAllow(0);
+  M.setEggs([t2 - DAY_MS]);                       // found before the plant was watered
+  M.setWatered(t2);
+  ok('an egg found before any of it pays for the first revival',
+    M.plantRevivalCharges() === 10, M.plantRevivalCharges());
+
+  fresh();
+  M.setAllow(200);
+  M.setWatered(t2);
+  /* a $100 stake placed on day 3 and lost, settled on day 17 */
+  M.setBets([{ owner: 'me', status: 'lost', ts: t2 + 3 * DAY_MS,
+    settledTs: t2 + 17 * DAY_MS, stake: 100, ret: 0 }]);
+  ok('a stake is out of the balance from the day it was placed',
+    M.bucksBaseAt(t2 + 7 * DAY_MS) === 100, M.bucksBaseAt(t2 + 7 * DAY_MS));
+  M.setBets([{ owner: 'me', status: 'won', ts: t2 + 3 * DAY_MS,
+    settledTs: t2 + 17 * DAY_MS, stake: 100, ret: 250 }]);
+  ok('but its winnings are not, until it is graded',
+    M.bucksBaseAt(t2 + 7 * DAY_MS) === 100, M.bucksBaseAt(t2 + 7 * DAY_MS));
+  ok('and they are there afterwards',
+    M.bucksBaseAt(t2 + 18 * DAY_MS) === 350, M.bucksBaseAt(t2 + 18 * DAY_MS));
+  ok('a bet with no settle time on it is treated as not yet graded',
+    (() => { M.setBets([{ owner: 'me', status: 'won', ts: t2 + 3 * DAY_MS,
+      settledTs: 0, stake: 100, ret: 250 }]);
+      return M.bucksBaseAt(t2 + 7 * DAY_MS) === 100; })());
+
+  console.log('\n23. the replay is bounded and cached');
+  fresh(); M.setAllow(100000);
+  ok('a corrupt timestamp cannot spin the loop forever', (() => {
+    M.setWatered(1);                              // 1970, i.e. ~2,900 revivals
+    const t = Date.now();
+    const v = M.plantRevivalCharges();
+    return Date.now() - t < 4000 && v === 520 * 20;
+  })());
+  fresh(); M.setAllow(1000); M.setWatered(ago(28.5));
+  ok('the same question twice gives the same answer',
+    M.plantFee() === 80 && M.plantFee() === 80, M.plantFee());
+  ok('and a changed balance is not served from the cache', (() => {
+    const before = M.plantFee();
+    M.setAllow(5);
+    const after = M.plantFee();
+    return before === 80 && after === 5;
+  })());
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

@@ -43,6 +43,12 @@ const parts=[
   grab('function realWeekStart(now=new Date()){'),
   grab('function tueWeekStart(now=new Date()){'),
   grab('function bucksCycles(now=Date.now()){'),
+  /* the allowance and the idle charge read the clock through bkNow now, so the
+     plant's replay can point them at a past instant. Both are Date.now() here:
+     nothing in this suite moves the lever, and that is the point of lifting it
+     rather than stubbing it. */
+  grab('let _bkAsOf='),
+  grab('const bkNow='),
   grab('function bucksAllowance(){'),
   grab('function bucksEpoch(){'),
   grab('function bucksEpochSeason(){'),

@@ -10895,7 +10895,7 @@ function bucksIdleWeeks(now=Date.now()){
   }
   return n;
 }
-function bucksIdleCost(){ return bucks2(bucksIdleWeeks()*BUCKS_IDLE_COST()); }
+function bucksIdleCost(){ return bucks2(bucksIdleWeeks(bkNow())*BUCKS_IDLE_COST()); }
 /* ── THE PLANT REVIVAL FEE ───────────────────────────────────────────────────
    A plant that is left to die comes back on its own two days later, and the
    league bills the owner plantRevivalFee for it. Every revival is charged, so
@@ -10920,7 +10920,124 @@ function plantRevivals(){
   if(plantMsFor(pl.id)!==PLANT_STEP_MS) return 0;
   return plantStageOf(pl.t,pl.id).revivals;
 }
-function plantFee(){ return _bkNoPlant?0:bucks2(plantRevivals()*PLANT_REVIVAL_FEE()); }
+/* ── WHAT THE BANK HELD WHEN A REVIVAL HAPPENED ──────────────────────────────
+   The balance as of an instant, with the plant charge left out — the money
+   there was to pay that revival with.
+
+   It is the SAME bucksBalance, pointed backwards, not a second copy of it. The
+   two levers are _bkAsOf, which moves the calendar terms, and a scope holding
+   only what had actually happened by then: bets placed, eggs found, shares
+   bought. _bkNoPlant suppresses the plant term, which is also what stops this
+   from recursing — plantFee is what called it.
+
+   A BET SETTLES LATER THAN IT IS PLACED, and the two are different moments. A
+   bet placed in week 2 and graded in week 3 had its stake out of the balance in
+   week 2 and its winnings in the balance only from week 3, so replaying it as
+   already-won would hand a manager money they did not yet hold and let the
+   plant take it. Anything settled after the instant — or carrying no settledTs
+   at all, which is the same doubt — is put back to open for the replay. */
+function bucksBaseAt(t){
+  const bets=bkBets().filter(b=>(Number(b.ts)||0)<=t).map(b=>{
+    if(b.status==='open'||!betIsLive(b)) return b;
+    const st=Number(b.settledTs)||0;
+    return (!st||st>t)?{...b,status:'open',ret:0}:b;
+  });
+  const et=bkEggTimes();
+  const times=et?et.filter(x=>Number(x)<=t):[];
+  const lots=bkLots().filter(l=>(Number(l.t)||0)<=t);
+  const prevAsOf=_bkAsOf, prevNoPlant=_bkNoPlant;
+  try{
+    _bkAsOf=t; _bkNoPlant=true;
+    return bucksFor({bets,eggs:times.length,eggTimes:times,lots,plant:{t:0,id:null}},
+      ()=>bucksBalance());
+  } catch(e){ return 0; }
+  finally{ _bkAsOf=prevAsOf; _bkNoPlant=prevNoPlant; }
+}
+/* ── A REVIVAL IS SETTLED WHEN IT HAPPENS, AND NEVER RE-BILLED ───────────────
+   Walk the revivals in order and charge each one against what the bank held at
+   that moment, less whatever the earlier ones already took. A revival that
+   landed on an empty account costs nothing and is DONE — it does not sit as a
+   debt waiting for the next allowance.
+
+   That is the whole difference from multiplying the count by the fee. Under
+   that arithmetic a manager at zero still accrued $20 a week invisibly, and a
+   two-month absence ate the next two allowances the moment they came back.
+   Here the meter only runs on money that was actually there.
+
+   A revival is not skipped just because an earlier one went unpaid: somebody
+   broke in week 1 who wins a bet in week 3 pays for week 3's revival in full.
+   min() of nothing is nothing, so the empty weeks fall out on their own and the
+   loop carries on.
+
+   THE LOOP IS CAPPED. n comes from a timestamp in localStorage, which is to say
+   from anything at all — a stray `1` in there is fifty-eight thousand years of
+   revivals and a page that never paints again.
+
+   The cap keeps the OLDEST revivals and drops the newest, which is the useful
+   way round for exactly the case it exists for: a nonsense timestamp puts every
+   one of those 520 somewhere before the league had a pay day, they all charge
+   nothing, and a corrupt clock therefore costs a manager nothing rather than
+   everything. 520 is ten years of weeks against a dashboard built in 2026, so
+   no real plant can reach it. */
+const PLANT_REPLAY_MAX=520;                       // ten years of weeks, and then some
+function plantRevivalCharges(){
+  const pl=bkPlant();
+  if(!pl||!pl.t) return 0;
+  const step=plantMsFor(pl.id);
+  if(step!==PLANT_STEP_MS) return 0;              // the fast cycle is never billed
+  const fee=PLANT_REVIVAL_FEE(); if(!fee) return 0;
+  const n=Math.min(PLANT_REPLAY_MAX,plantStageOf(pl.t,pl.id).revivals);
+  if(n<1) return 0;
+  const cycle=PLANT_CYCLE_STEPS*step;
+  let paid=0;
+  for(let i=1;i<=n;i++){
+    const had=bucksBaseAt(pl.t+i*cycle)-paid;     // what was left when it came back
+    if(had>0) paid=bucks2(paid+Math.min(fee,had));
+  }
+  return paid;
+}
+/* One replay per render, not one per read. bucksBalance is called from the nav
+   chip, the bet slip, the quick-stake buttons and twelve leaderboard rows, and
+   each call would otherwise walk every revival this manager has ever had.
+
+   Keyed on the values the answer is made of rather than on a stamp that is
+   meant to stand for them. A cache keyed on a proxy for the data is how the
+   Sportsbook once priced a team against a roster it had not read yet — the key
+   changed when the fetch finished, not when the answer did. These are the
+   actual inputs: whose plant, when it was watered, and a digest of every bet,
+   egg and share trade that could move the balance underneath it.
+
+   AND THE BALANCE ITSELF, which the digest does not cover. The first cut keyed
+   on the raw inputs alone and served a stale $0 to a manager whose allowance
+   had changed underneath it — the bets, eggs and shares were all identical, so
+   the key was too, and the money was not. The allowance and the idle charge are
+   worked out from the calendar and from how much football has been scored, and
+   neither of those is a bet. One reading of the balance summarises the lot. */
+let _plantFeeCache=null;
+function plantFeeKey(){
+  const pl=bkPlant();
+  let d=0, bets=bkBets();
+  for(let i=0;i<bets.length;i++){
+    const b=bets[i];
+    d=(d+(Number(b.ts)||0)+(Number(b.settledTs)||0)+(Number(b.ret)||0)*7
+        +(Number(b.stake)||0)*13+String(b.status||'').length)%9007199254740991;
+  }
+  const et=bkEggTimes()||[], lots=bkLots();
+  let e=0; for(let i=0;i<et.length;i++) e+=Number(et[i])||0;
+  let l=0; for(let i=0;i<lots.length;i++) l+=(Number(lots[i].t)||0);
+  let base=0; try{ base=bucksBaseAt(Date.now()); }catch(err){}
+  return [pl&&pl.id,pl&&pl.t,PLANT_REVIVAL_FEE(),bets.length,d,et.length,e,lots.length,l,
+    base,Math.floor(Date.now()/60000)].join('|');
+}
+function plantFee(){
+  if(_bkNoPlant) return 0;
+  let key=null;
+  try{ key=plantFeeKey(); }catch(e){ return 0; }
+  if(_plantFeeCache&&_plantFeeCache.key===key) return _plantFeeCache.v;
+  const v=bucks2(plantRevivalCharges());
+  _plantFeeCache={key,v};
+  return v;
+}
 /* ── BILLED IS NOT THE SAME AS TAKEN ─────────────────────────────────────────
    bucksBalance floors its whole sum at zero, so a manager with $5 and a $20
    bill pays $5 and lands on nought rather than owing five back. That is the
@@ -10946,7 +11063,7 @@ function plantFeeTaken(){
   } catch(e){ return 0; } finally{ _bkNoPlant=prev; }
   return bucks2(Math.max(0,before-after));
 }
-function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles()); }
+function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles(bkNow())); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
 
    Counted from week 1 and only while every fixture in a week is final, so a
@@ -10986,6 +11103,27 @@ let _bkScope=null;
 const bkBets=()=>_bkScope?_bkScope.bets:betsMine();
 const bkEggCount=()=>_bkScope?_bkScope.eggs:eggsFound().size;
 const bkLots=()=>_bkScope?_bkScope.lots:invLots();
+/* ── ASKING THE BANK ABOUT A MOMENT THAT HAS PASSED ──────────────────────────
+   Everything below reads "now" through bkNow rather than Date.now, so the whole
+   family can be pointed at a past instant and answer as of then. It is set by
+   bucksBaseAt and by nothing else.
+
+   Only the two terms that are functions of the calendar need it — the allowance
+   counts Tuesdays and the idle charge counts weeks. The rest are functions of
+   what a manager has DONE, and those arrive already filtered to the moment,
+   because a bet, an egg and a share trade all carry the time they happened. */
+let _bkAsOf=0;                         // 0 means now, which is the normal case
+const bkNow=()=>_bkAsOf||Date.now();
+/* When each egg was found, as opposed to how many there are. Needed only for
+   the replay: an egg found in November was not in the bank in September.
+
+   Null means a caller did not supply them, and the replay then counts NO egg
+   money at that instant rather than all of it. That is the safe direction —
+   under-stating an old balance under-states what could be taken out of it, and
+   this file already holds the line that paying an allowance late is a complaint
+   while paying it twice is a hole in the economy. Both real callers supply the
+   times, so the fallback is a guard rather than a behaviour. */
+const bkEggTimes=()=>_bkScope?(_bkScope.eggTimes||null):[...eggsFound()];
 /* The plant rides in the scope for the same reason the bets and the lots do:
    the Leaderboards work out eleven other balances with this family of
    functions, and a charge they cannot see is a board that disagrees with the
@@ -10999,6 +11137,7 @@ function bkPlant(){
 function bucksFor(scope,fn){
   const prev=_bkScope;
   _bkScope={bets:(scope&&scope.bets)||[],eggs:Number(scope&&scope.eggs)||0,
+            eggTimes:(scope&&scope.eggTimes)||null,
             lots:(scope&&scope.lots)||[],plant:(scope&&scope.plant)||{t:0,id:null}};
   try{ return fn(); } finally{ _bkScope=prev; }
 }
@@ -12656,11 +12795,14 @@ function ntPlants(out){
        charge the balance did not take is worse than no card at all, so the two
        are made to agree by construction rather than by being written twice.
 
-       WHICH IS WHY IT QUOTES plantFeeTaken AND NOT THE BILL. A balance never
-       goes below zero, so a manager holding $5 pays $5 of a $20 fee — and the
-       first version of this card told them $20 had come off, which is a number
-       they can check against their own bank in one tap. When the two differ the
-       card says both: what went, and what it was for. */
+       WHICH IS WHY IT QUOTES plantFeeTaken AND NOT THE BILL. Each revival is
+       charged against the money that was in the account on the day it happened,
+       so a manager who was broke that week pays what they had and the rest is
+       written off — the fee for four revivals is not automatically $80. The
+       first version of this card announced the sticker price, which is a number
+       anybody can check against their own bank in one tap and find wrong. When
+       the two differ the card says both: what the fees came to, what actually
+       went, and that the difference is not owed. */
     if(!_me||String(p.id)!==String(_me.k1)) return;
     if(!revivals||ms!==PLANT_STEP_MS) return;
     const fee=PLANT_REVIVAL_FEE(); if(!fee) return;
@@ -12677,8 +12819,8 @@ function ntPlants(out){
         :`Your plant was dead for ${plantDryLabel(PLANT_DEAD_STEPS*ms)} and has been
           revived. The fee is <b>${bucksFmt(due)}</b>. `)
         +(short
-          ?`You only had <b>${bucksFmt(took)}</b>, so that is all that came off —
-            a balance never goes below zero. Water it.`
+          ?`Only <b>${bucksFmt(took)}</b> came off — that is what the account held
+            at the time, and the rest is written off rather than owed. Water it.`
           :`That has come off your GFL Bucks.${many?' Water it.':''}`)});
   });
 }
@@ -14008,7 +14150,7 @@ function ldFolio(prof){
    no pay day, no football gate, no charge for an idle week. */
 function ldBucks(ids,prof){
   const bets=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&betsAfterReset(b));
-  let eggs=0, lots=[], plant={t:0,id:null};
+  let eggs=0, lots=[], plant={t:0,id:null}, eggTimes=[];
   prof.forEach(p=>{
     /* the latest watering across their profiles, which is also the kindest
        reading of it: a later timestamp is fewer completed cycles and therefore
@@ -14017,7 +14159,13 @@ function ldBucks(ids,prof){
     /* validated the same way eggsFound does, so a find recorded under a retired
        window scheme is not paid for here either */
     try{ const e=JSON.parse(p.eggs||'[]');
-      if(Array.isArray(e)) eggs+=new Set(e.map(Number).map(eggTimeOf).filter(t=>t>0)).size;
+      if(Array.isArray(e)){
+        const ts=new Set(e.map(Number).map(eggTimeOf).filter(t=>t>0));
+        eggs+=ts.size;
+        /* the count stays a sum of per-profile sets, exactly as it was — these
+           ride alongside it for the replay's benefit and change no total */
+        ts.forEach(t=>eggTimes.push(t));
+      }
     }catch(e){}
     try{ const a=JSON.parse(p.inv||'[]'); if(Array.isArray(a)) lots=lots.concat(a); }catch(e){}
   });
@@ -14033,12 +14181,12 @@ function ldBucks(ids,prof){
      Nothing about anybody else's row changes; there is no second source for
      them and inventing one would be worse than the drift. */
   if(_me&&ids.includes(_me.k1)){
-    try{ eggs=eggsFound().size; }catch(e){}
+    try{ eggs=eggsFound().size; eggTimes=[...eggsFound()]; }catch(e){}
     try{ lots=invLots(); }catch(e){}
     try{ const pt=Number(localStorage.getItem(plantKey())||0);
       if(pt>plant.t) plant={t:pt,id:_me.k1}; }catch(e){}
   }
-  return bucksFor({bets,eggs,lots,plant},()=>bucksBalance());
+  return bucksFor({bets,eggs,eggTimes,lots,plant},()=>bucksBalance());
 }
 /* One manager's matchup-picks record for the season. Every pick on a game that
    has finished, right against wrong — a record counts games, so the Matchup of

@@ -151,6 +151,12 @@ window.GFL_CONFIG = {
      so a month away is four of these. Watering stops the meter, it does not
      refund it.
 
+     NOBODY IS BILLED FOR MONEY THEY DID NOT HAVE. Each revival is settled
+     against the balance on the day it happened, and whatever could not be paid
+     then is written off rather than carried. A manager sitting at zero for two
+     months owes nothing when they come back; one who had $5 that week paid $5.
+     So this is a ceiling on what one revival costs, not a debt that compounds.
+
      Set to 0 to switch the fee off; the plant still dies and still comes back,
      it just costs nothing. Note that a plant on the fast test cycle below is
      never charged, whatever this says — see plantFee in app.js. */
