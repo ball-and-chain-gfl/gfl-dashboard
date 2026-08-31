@@ -5,7 +5,7 @@
 // STATIC DATA (/data/*.json): the season being played is network-first (it is
 // still being written); finished seasons are stale-while-revalidate.
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v564';
+const CACHE = 'gfl-v565';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered
@@ -70,7 +70,13 @@ self.addEventListener('fetch', (e) => {
       const isLive = url.pathname.includes(live);
       if (isLive) {
         try {
-          const res = await fetch(request);
+          /* no-store, or this is not actually network-first. Vercel serves
+             these with max-age=300, so a plain fetch here is answered by the
+             browser HTTP cache for five minutes and the worker faithfully
+             stores that stale copy — which looked exactly like the bug it was
+             meant to fix. The shell branch below has always done this, for the
+             same reason. */
+          const res = await fetch(request, { cache: 'no-store' });
           if (res && res.status === 200) { cache.put(request, res.clone()); return res; }
         } catch (err) { /* offline: fall through to whatever was kept */ }
         return (await cache.match(request)) || Response.error();
