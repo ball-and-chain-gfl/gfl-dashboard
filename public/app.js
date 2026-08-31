@@ -7605,7 +7605,13 @@ function schedPowerMargin(a,b){
    entirely ESPN's projections — only the lineup assumption changes, and only
    where there is no lineup to read. A genuinely brutal bye week still shows,
    because a bench of five cannot always cover three. */
-const SCHED_WK_SD=SB_WK_SD*Math.SQRT2;   // two lineups, so a margin scatters wider than one
+/* A FUNCTION, NOT A CONSTANT, AND THAT IS NOT STYLE.
+   SB_WK_SD is declared some fifteen hundred lines below this one. A top-level
+   const that reads it is evaluated at load, hits the temporal dead zone and
+   throws before app.js has finished executing — which takes the whole site
+   down, not just this tab. Deferred behind a call it is read at render time,
+   long after everything is initialised. */
+const schedWkSd=()=>SB_WK_SD*Math.SQRT2;   // two lineups, so a margin scatters wider than one
 function schedCurWeek(season){
   let lw=0; try{ lw=(ntLastWeek(String(season))||{}).week||0; }catch(e){}
   return Math.max(1,lw+1);
@@ -7658,7 +7664,7 @@ function schedMargin(a,b,week){
 function schedZ(a,b,week){
   if(!a||!b) return 0;
   const pj=schedEspnProj(week);
-  if(pj&&pj[a.owner]>0&&pj[b.owner]>0) return (pj[a.owner]-pj[b.owner])/SCHED_WK_SD;
+  if(pj&&pj[a.owner]>0&&pj[b.owner]>0) return (pj[a.owner]-pj[b.owner])/schedWkSd();
   return schedPowerMargin(a,b)/SCHED_SD;
 }
 function schedWinProb(a,b,week){

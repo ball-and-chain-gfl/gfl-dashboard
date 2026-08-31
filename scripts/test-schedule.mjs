@@ -51,7 +51,7 @@ function grab(startsWith) {
 console.log('\n1. every declaration the model needs is still there');
 const NEEDED = ['const SCHED_SD=', 'function schedNormCdf(', 'const SCHED_RATING_W=',
   'const SCHED_PPG_W=', 'let _schedPowerCache=', 'function schedPower(',
-  'function schedPowerMargin(', 'const SCHED_WK_SD=', 'function schedCurWeek(',
+  'function schedPowerMargin(', 'const schedWkSd=', 'function schedCurWeek(',
   'let _schedProjCache=', 'function schedEspnProj(', 'function schedMargin(',
   'function schedZ(', 'function schedWinProb(', 'function schedOpenMu(',
   'const LINEUP_SHAPE_FALLBACK=', 'function sbSlotShape(', 'function sbBestLineup(',
@@ -125,7 +125,7 @@ const SB_BENCH_SLOTS=[20,21,24];
 const SB_WK_SD=26;
 ${NEEDED.map(n => parts[n]).join('\n')}
 module.exports={schedPower,schedPowerMargin,schedMargin,schedZ,schedWinProb,
-  schedOpenMu,schedEspnProj,schedCurWeek,wpAt,wpSd,SCHED_SD,SCHED_WK_SD,
+  schedOpenMu,schedEspnProj,schedCurWeek,wpAt,wpSd,SCHED_SD,schedWkSd,
   SCHED_RATING_W,SCHED_PPG_W,schedNormCdf,rebuild,setBoard,setRosters,dropRosters,
   setLastWeek,rows:_rows};
 `;
@@ -161,9 +161,9 @@ if (built) {
     Math.abs(M.schedMargin(rows[11], rows[0], 3) - M.schedPowerMargin(rows[11], rows[0])) > 1,
     `espn ${M.schedMargin(rows[11], rows[0], 3).toFixed(2)} vs power ${M.schedPowerMargin(rows[11], rows[0]).toFixed(2)}`);
   ok('the ESPN path divides by the two-lineup spread',
-    Math.abs(M.schedZ(rows[11], rows[0], 3) - (pj['own11'] - pj['own0']) / M.SCHED_WK_SD) < 1e-9);
+    Math.abs(M.schedZ(rows[11], rows[0], 3) - (pj['own11'] - pj['own0']) / M.schedWkSd()) < 1e-9);
   ok('the two-lineup spread is wider than one team-strength spread',
-    M.SCHED_WK_SD > M.SCHED_SD, `${M.SCHED_WK_SD.toFixed(1)} vs ${M.SCHED_SD}`);
+    M.schedWkSd() > M.SCHED_SD, `${M.schedWkSd().toFixed(1)} vs ${M.SCHED_SD}`);
 
   console.log('\n3. whose lineup, and when');
   /* THIS is the week-six case. A future week nobody has set: three starters on
