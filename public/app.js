@@ -5249,7 +5249,8 @@ function renderForecast(info){
   const owners=info.meta.owners||{};
   const meO=owners[mine], oppO=owners[oppId];
   const A=fcSideStats(meO), B=fcSideStats(oppO);
-  const p=(A&&B)?schedWinProb(A,B):0.5;
+  const fcWk=Number(info.week)||schedCurWeek(info.season);
+  const p=(A&&B)?schedWinProb(A,B,fcWk):0.5;
   const nm=t=>t.name;
   const ab=t=>t.abbrev||teamInitials(t.name);
 
@@ -5258,7 +5259,7 @@ function renderForecast(info){
      what the game actually felt like. */
   const projByOwner={};
   Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
-  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,(A&&B)?schedOpenMu(A,B):null);
+  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,(A&&B)?schedOpenMu(A,B,fcWk):null);
   const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
     <div class="fc-odds-t"><span>${ab(meT)}</span>
@@ -6444,7 +6445,7 @@ function renderLiveMatchups(){
     const margins=arr.map(p=>p[1]-p[2]);
     const biggest=margins.length?margins.reduce((x,y)=>Math.abs(y)>Math.abs(x)?y:x,0):(a-b);
     // live odds: remaining scoring is unknown, so price the current margin
-    const p=schedWinProb(rowOf(aOwner),rowOf(bOwner));
+    const p=schedWinProb(rowOf(aOwner),rowOf(bOwner),Number(m.matchupPeriodId)||0);
     const live=Math.min(0.99,Math.max(0.01,schedNormCdf(((a-b)*0.55+(p-0.5)*22)/18)));
     const started=a>0||b>0;
     /* Scoreboard rows the way a sports app lays them out: one line per team,
@@ -7570,16 +7571,99 @@ function schedPower(){
   _schedPowerCache={book,map};
   return map;
 }
-function schedMargin(a,b){
+function schedPowerMargin(a,b){
   if(!a||!b) return 0;
   const pw=schedPower();
   if(pw&&pw[a.owner]!=null&&pw[b.owner]!=null) return pw[a.owner]-pw[b.owner];
   /* no board to scale against — fall back to the raw terms */
   return (a.ppg-b.ppg)*0.75+(a.rating-b.rating)*1.2;
 }
-function schedWinProb(a,b){
+
+/* ── THE SCHEDULE TAB RUNS ON ESPN'S OWN WEEKLY PROJECTIONS ──────────────────
+   Everything above this is a SEASON-STRENGTH model: how good is this franchise,
+   blended out of a draft-aware rating and four years of scoring. That is the
+   right question for a price on the board, and it is the wrong question for
+   "what happens in week six", which is what the Schedule tab is actually
+   asking. ESPN publishes a projection for every player for every week of the
+   season — byes, opponents and all — and that is a straight answer to the
+   straight question. It is also the number in the app, which is the point: the
+   Schedule tab and the phone should agree.
+
+   Deliberately NOT the sportsbook's model. The book prices a market — it holds
+   a margin, it moves on money laid, and it has to be ungameable because there
+   is play money riding on it. This is a projection, and it owes nobody a
+   margin. Two different things, and they are allowed to disagree.
+
+   WHOSE LINEUP. For a week that can actually be set — this week and every week
+   behind it — the starters are the starters, exactly as ESPN sums them, so the
+   two agree to the decimal. For weeks further out nobody has set anything, and
+   taking those slots literally is not ESPN's opinion, it is an accident of
+   whatever the draft left in place: in week six that read Motor City at 68
+   points with three starters on a bye, a 5% chance at a game five weeks away.
+   Those weeks use the best legal lineup the roster could field on the same ESPN
+   numbers, which is what the manager will do once the week arrives. Still
+   entirely ESPN's projections — only the lineup assumption changes, and only
+   where there is no lineup to read. A genuinely brutal bye week still shows,
+   because a bench of five cannot always cover three. */
+const SCHED_WK_SD=SB_WK_SD*Math.SQRT2;   // two lineups, so a margin scatters wider than one
+function schedCurWeek(season){
+  let lw=0; try{ lw=(ntLastWeek(String(season))||{}).week||0; }catch(e){}
+  return Math.max(1,lw+1);
+}
+/* Keyed on the roster object the way schedPower keys on the board: sbRosters
+   hands back one object per season-week and replaces it on refetch, so identity
+   is exactly "these projections, until they change". */
+let _schedProjCache={};
+function schedEspnProj(week){
+  const wk=Number(week)||0; if(!wk) return null;
+  let season=null; try{ season=sbBoardSeason(); }catch(e){ return null; }
+  if(!season) return null;
+  const rosters=sbRosters(season,wk); if(!rosters) return null;
+  const hit=_schedProjCache[season+':'+wk];
+  if(hit&&hit.rosters===rosters) return hit.map;
+  const meta=_seasonMeta[String(season)];
+  if(!meta) return null;
+  const owners=meta.owners||{}, shape=sbSlotShape(meta);
+  const setWeek=wk<=schedCurWeek(season);
+  const projOf=e=>Math.max(0,Number(e.wkProj)||0);
+  const map={}; let any=false;
+  Object.keys(rosters).forEach(tid=>{
+    const o=owners[tid]; if(!o) return;
+    const es=rosters[tid]||[];
+    /* No projections at all means ESPN has not published that week for this
+       team — leave it out entirely rather than call it zero, so schedMargin
+       falls back to the season model instead of pricing a shutout. */
+    if(!es.length||!es.some(e=>Number(e.wkProj)>0)) return;
+    const v=setWeek
+      ? es.filter(e=>!SB_BENCH_SLOTS.includes(Number(e.slot))).reduce((a,e)=>a+projOf(e),0)
+      : sbBestLineup(es,projOf,e=>Number(e.pos)||0,shape);
+    if(v>0){ map[o]=v; any=true; }
+  });
+  const out=any?map:null;
+  _schedProjCache[season+':'+wk]={rosters,map:out};
+  return out;
+}
+/* The projected margin in POINTS, which is what the spread column prints. */
+function schedMargin(a,b,week){
+  if(!a||!b) return 0;
+  const pj=schedEspnProj(week);
+  if(pj&&pj[a.owner]>0&&pj[b.owner]>0) return pj[a.owner]-pj[b.owner];
+  return schedPowerMargin(a,b);
+}
+/* ...and the same margin in standard deviations, which is what the probability
+   reads. The two paths do not share a spread: a week of two ESPN lineups
+   scatters wider than a difference of season strengths, so each is divided by
+   its own. Everything that quotes a chance goes through here, so there is one
+   place where the model lives. */
+function schedZ(a,b,week){
+  if(!a||!b) return 0;
+  const pj=schedEspnProj(week);
+  if(pj&&pj[a.owner]>0&&pj[b.owner]>0) return (pj[a.owner]-pj[b.owner])/SCHED_WK_SD;
+  return schedPowerMargin(a,b)/SCHED_SD;
+}
+function schedWinProb(a,b,week){
   if(!a||!b) return 0.5;
-  return Math.min(0.95,Math.max(0.05,schedNormCdf(schedMargin(a,b)/SCHED_SD)));
+  return Math.min(0.95,Math.max(0.05,schedNormCdf(schedZ(a,b,week))));
 }
 /* ── ONE GAME, ONE NUMBER ────────────────────────────────────────────────────
    The Forecast's headline percentage is the opening point of the win-
@@ -7594,10 +7678,10 @@ function schedWinProb(a,b){
    the two agree at kickoff and lets the curve take over from there. The clamp
    is schedWinProb's own 5–95%, applied to the margin rather than the
    probability, so they match at the extremes too. */
-function schedOpenMu(a,b){
+function schedOpenMu(a,b,week){
   if(!a||!b) return null;
   const Z=1.6448536269514722;                       // the 5% / 95% clamp, in z
-  const z=Math.max(-Z,Math.min(Z,schedMargin(a,b)/SCHED_SD));
+  const z=Math.max(-Z,Math.min(Z,schedZ(a,b,week)));
   return z*wpSd();
 }
 /* Nothing on the calendar yet? Lay out a deterministic round robin so the tab
@@ -7616,6 +7700,53 @@ function schedDummy(){
     weeks.push({week:w,games});
   }
   return weeks;
+}
+/* ── THE LINE AND THE ODDS ARE THE BOOK'S. THE WIN% IS NOT. ──────────────────
+   Two columns sit next to each other on this tab and they answer two different
+   questions, on purpose.
+
+   Win% is ESPN's projection for that week — the number in the app, and no more
+   than that. It takes the starters as they stand for a week that can be set.
+
+   Line and Odds are prices, and a price is the sportsbook's job. They are built
+   the book's way: sbTeamWeek's best legal lineup, the book's own two-lineup
+   spread, and the two-way hold on top. Best legal rather than as-set is not an
+   oversight here, it is the whole point of a price — anything read off the
+   lineup somebody actually set is gameable, and there is play money on it. So a
+   manager who leaves a bye-week starter in will see their Win% fall and their
+   price stay put, which is correct: the projection knows about the mistake and
+   the market refuses to be moved by it.
+
+   Prices are also why these two never agree to the decimal. The hold is real:
+   both sides get 2.5 points added, which is where the book's edge comes from. */
+function schedBookPrice(me,opp,week,season,meta){
+  let tA=null,tB=null;
+  try{
+    tA=sbTeamWeek(me.tid,week,season,meta,0,false);
+    tB=sbTeamWeek(opp.tid,week,season,meta,0,false);
+  }catch(e){}
+  let p=null,spread=null,favA=null,total=null;
+  if(tA&&tB){
+    const sd=Math.sqrt(sbWkSd(tA)*sbWkSd(tA)+sbWkSd(tB)*sbWkSd(tB));
+    if(sd>1){
+      p=Math.min(0.97,Math.max(0.03,sbNormCdf((tA.exp-tB.exp)/sd)));
+      spread=Math.abs(tA.exp-tB.exp); favA=tA.exp>=tB.exp;
+      total=Math.round(tA.exp+tB.exp)+0.5;
+    }
+  }
+  if(p==null){
+    /* ESPN has not published the week — the power-rating model is what the
+       board did before there was anything better, capped tight while the
+       evidence is thin. Head-to-head fantasy is closer to a coin flip than a
+       power rating makes it look. */
+    const lim=0.62+0.18*sbEvidence();
+    p=Math.min(lim,Math.max(1-lim,1/(1+Math.exp(-(me.rating-opp.rating)*sbDamp(0.55)))));
+    spread=Math.abs(me.rating-opp.rating)*sbDamp(3.0);
+    favA=me.rating>=opp.rating;
+    total=Math.round(me.ppg+opp.ppg)+0.5;
+  }
+  return {p, ml:amFromProb(Math.min(0.95,p+0.025)),
+    spread:Math.max(0.5,Math.round(spread*2)/2), fav:favA, total};
 }
 function schedRows(owner){
   const book=sbBuild(); if(!book) return null;
@@ -7641,7 +7772,8 @@ function schedRows(owner){
     const oppOwner=(ho===owner)?ao:ho;
     const opp=rowOf(oppOwner); if(!opp) return;
     const wk=m.week;
-    const p=schedWinProb(me,opp);
+    const p=schedWinProb(me,opp,wk);              // ESPN's projection for the week
+    const bk=schedBookPrice(me,opp,wk,info.season,meta);   // the book's price
     // last completed season for the opponent, plus the all-time head to head
     const lastSp=(opp.sp||[]).filter(s=>s.g>0).slice(-1)[0]||null;
     const lastRec=lastSp?`${lastSp.w}–${Math.max(0,lastSp.g-lastSp.w)}`:'—';
@@ -7649,10 +7781,7 @@ function schedRows(owner){
     const k=_h2hAll[key]||{}; const mine=k[owner];
     const g=mine?mine.games:0, w=mine?mine.w:0, t=mine?mine.t:0;
     out.push({week:wk, playoff:wk>(info.regEnd||14), opp, oppOwner,
-      p, ml:amFromProb(Math.min(0.95,p+0.025)),
-      spread:Math.max(0.5,Math.round(Math.abs(schedMargin(me,opp))*2)/2),
-      fav:schedMargin(me,opp)>=0,
-      total:Math.round(me.ppg+opp.ppg)+0.5,
+      p, ml:bk.ml, spread:bk.spread, fav:bk.fav, total:bk.total, bookP:bk.p,
       oppRec:lastRec, oppSeason:lastSp?lastSp.season:null, oppPpg:opp.ppg,
       rival:rivalWeeks[oppOwner]!=null, rivalWeek:rivalWeeks[oppOwner]??null,
       h2h:g?`${w}–${Math.max(0,g-w-t)}${t?`–${t}`:''}`:'—', h2hPct:g?w/g:null});
@@ -7783,7 +7912,7 @@ function schedPlayedDetailHTML(meOwner,oppOwner,season,week,oppName){
     const book=sbBuild();
     (book?book.rows:[]).forEach(r=>{ projByOwner[r.owner]=r.ppg; });
     const rowOf=o=>(book?book.rows:[]).find(r=>r.owner===o)||null;
-    openMu=schedOpenMu(rowOf(meOwner),rowOf(oppOwner));
+    openMu=schedOpenMu(rowOf(meOwner),rowOf(oppOwner),week);
   }catch(e){}
   const series=wpSeriesFor(season,week);
   const graph=series
@@ -7941,11 +8070,14 @@ function playoffOutlook(){
   const left=(meta.schedule||[]).filter(m=>m.home&&m.away
     && (m.matchupPeriodId||0)>0 && (m.matchupPeriodId||0)<=regEnd
     && !((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0))
-    .map(m=>({a:owners[m.home.teamId],b:owners[m.away.teamId]}))
+    .map(m=>({a:owners[m.home.teamId],b:owners[m.away.teamId],w:m.matchupPeriodId||0}))
     .filter(g=>g.a&&g.b&&g.a!==g.b&&base[g.a]&&base[g.b]);
 
-  const pre={}; left.forEach(g=>{ const k=g.a+'|'+g.b;
-    if(pre[k]==null) pre[k]=schedWinProb(rowOf(g.a),rowOf(g.b)); });
+  /* Keyed by week as well as by pair: the same two teams can meet twice, and on
+     ESPN's weekly numbers those are two different games — different byes,
+     different opponents. */
+  const pre={}; left.forEach(g=>{ const k=g.w+'|'+g.a+'|'+g.b;
+    if(pre[k]==null) pre[k]=schedWinProb(rowOf(g.a),rowOf(g.b),g.w); });
   const ppg={}; list.forEach(o=>{ ppg[o]=(rowOf(o)||{}).ppg||105; });
 
   const made={},seedSum={},winTotals={},finishes={};
@@ -7958,7 +8090,7 @@ function playoffOutlook(){
     const w={},pf={};
     list.forEach(o=>{w[o]=base[o].w+base[o].t*0.5;pf[o]=base[o].pf;});
     left.forEach(g=>{
-      const p=pre[g.a+'|'+g.b];
+      const p=pre[g.w+'|'+g.a+'|'+g.b];
       if(Math.random()<p) w[g.a]++; else w[g.b]++;
       pf[g.a]+=Math.max(0,ppg[g.a]+gauss()*SCHED_SD*0.7);
       pf[g.b]+=Math.max(0,ppg[g.b]+gauss()*SCHED_SD*0.7);
