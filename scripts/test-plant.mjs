@@ -79,7 +79,8 @@ const NEEDED = [
   'const PLANT_STEP_MS=', 'const PLANT_DRY_STEPS=', 'const PLANT_DEAD_STEPS=',
   'const PLANT_CYCLE_STEPS=', 'const plantMsFor=', 'function plantStageOf(',
   'const PLANT_REVIVAL_FEE=', 'function bkPlant(', 'function plantRevivals(',
-  'function plantFee(', 'function bucksBalance(',
+  'function plantFee(', 'let _bkNoPlant=', 'function plantFeeTaken(',
+  'function bucksBalance(',
   'const bucks2=', 'const bucksCents=', 'const bucksFmt=',
   'function ntPlants(', 'function plantDryLabel(',
 ];
@@ -110,8 +111,11 @@ function setMe(m){ _me=m; }
 function setWatered(t){ if(t==null) delete _store[plantKey()]; else _store[plantKey()]=String(t); }
 function setScope(p){ _bkScope=p?{bets:[],eggs:0,lots:[],plant:p}:null; }
 
-/* the balance's other terms, all silent */
-function bucksAllowance(){ return 100; }
+/* the balance's other terms, all silent. The allowance is settable because a
+   fee bigger than the balance is the whole of section 18. */
+let _allow=100;
+function setAllow(v){ _allow=v; }
+function bucksAllowance(){ return _allow; }
 function bucksStaked(){ return 0; }
 function bucksReturned(){ return 0; }
 function eggBucks(){ return 0; }
@@ -128,8 +132,8 @@ const ntDayOf=t=>{const d=new Date(t); d.setHours(0,0,0,0); return d.getTime();}
 ${NEEDED.map(n => parts[n]).join(';\n')}
 module.exports={PLANT_STAGES,PLANT_STEP_MS,PLANT_DRY_STEPS,PLANT_DEAD_STEPS,
   PLANT_CYCLE_STEPS,plantMsFor,plantStageOf,PLANT_REVIVAL_FEE,bkPlant,
-  plantRevivals,plantFee,bucksBalance,bucksFmt,plantDryLabel,ntPlants,
-  setCfg,setMe,setWatered,setScope,setRows};
+  plantRevivals,plantFee,plantFeeTaken,bucksBalance,bucksFmt,plantDryLabel,
+  ntPlants,setCfg,setMe,setWatered,setScope,setRows,setAllow};
 `;
 const mod = { exports: {} };
 let built = true;
@@ -138,7 +142,7 @@ catch (e) { built = false; console.log('  FAIL harness does not build -> ' + e.m
 
 if (built) {
   const M = mod.exports;
-  const fresh = () => { M.setCfg({ plantTestMinutes: 0, plantRevivalFee: 20 }); M.setMe({ k1: 'me' }); M.setScope(null); M.setRows([]); };
+  const fresh = () => { M.setCfg({ plantTestMinutes: 0, plantRevivalFee: 20 }); M.setMe({ k1: 'me' }); M.setScope(null); M.setRows([]); M.setAllow(100); };
   /* a plant watered `d` days ago */
   const ago = d => Date.now() - d * DAY;
   const at = d => M.plantStageOf(ago(d), 'me');
@@ -292,13 +296,14 @@ if (built) {
   ok('a year away is STILL two cards', cards(365).length === 2, cards(365).length);
 
   console.log('\n16. the card and the balance never disagree');
-  ok('every bill quoted is the exact amount charged', (() => {
+  ok('every card quotes the money that actually left the balance', (() => {
     for (let d = 7.1; d < 120; d += 0.83) {
       M.setWatered(ago(d));
-      const owed = M.plantFee();
+      const took = M.plantFeeTaken();
       const c = cards(d).find(x => x.kind === 'revive');
       if (!c) return false;
-      if (c.body.indexOf(M.bucksFmt(owed)) < 0) return false;
+      if (c.body.indexOf(M.bucksFmt(took)) < 0) return false;
+      if (c.art.indexOf(M.bucksFmt(took)) < 0) return false;
     }
     return true;
   })());
@@ -335,6 +340,76 @@ if (built) {
     }
     return true;
   })());
+
+  /* ── A FEE BIGGER THAN THE BALANCE ────────────────────────────────────────
+     bucksBalance floors its whole sum at zero, which is the same subtraction
+     seen from the other side: a manager holding $5 against a $20 bill pays the
+     $5 and stops. Nobody is ever taken below nought and nobody is ever billed
+     for money they do not have.
+
+     The clamp is one Math.max deep inside one function, and it protects every
+     balance on the site. It is worth a section of its own precisely because it
+     is that easy to lose in a refactor and that quiet when it goes. */
+  console.log('\n18. a fee bigger than the balance takes what is there and stops');
+  fresh();
+  const pay = (had, days) => { M.setAllow(had); M.setWatered(ago(days));
+    return { billed: M.plantFee(), took: M.plantFeeTaken(), left: M.bucksBalance() }; };
+
+  let r = pay(100, 7.5);
+  ok('$100 against a $20 fee pays it in full', r.took === 20 && r.left === 80,
+    JSON.stringify(r));
+  r = pay(20, 7.5);
+  ok('exactly $20 pays exactly $20 and lands on nought', r.took === 20 && r.left === 0,
+    JSON.stringify(r));
+  r = pay(5, 7.5);
+  ok('$5 against a $20 fee gives up the $5, not $20', r.billed === 20 && r.took === 5 && r.left === 0,
+    JSON.stringify(r));
+  r = pay(0, 7.5);
+  ok('nothing in the account means nothing is taken', r.took === 0 && r.left === 0,
+    JSON.stringify(r));
+  r = pay(0, 28.5);
+  ok('and four revivals against nothing is still nothing', r.billed === 80 && r.took === 0 && r.left === 0,
+    JSON.stringify(r));
+  r = pay(5, 28.5);
+  ok('$5 against an $80 bill is still only $5', r.took === 5 && r.left === 0, JSON.stringify(r));
+
+  ok('NO balance anywhere in the space is negative', (() => {
+    for (let had = 0; had <= 300; had += 5)
+      for (let d = 0; d < 400; d += 3.5) {
+        M.setAllow(had); M.setWatered(ago(d));
+        if (M.bucksBalance() < 0) return false;
+      }
+    return true;
+  })());
+  ok('and nothing is ever taken that was not there', (() => {
+    for (let had = 0; had <= 300; had += 5)
+      for (let d = 0; d < 400; d += 3.5) {
+        M.setAllow(had); M.setWatered(ago(d));
+        const took = M.plantFeeTaken();
+        if (took < 0 || took > had + 1e-9 || took > M.plantFee() + 1e-9) return false;
+      }
+    return true;
+  })());
+
+  console.log('\n19. and the card owns up to a part payment');
+  fresh(); M.setAllow(5);
+  const shortCard = (() => { M.setWatered(ago(7.5));
+    M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
+    const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
+  ok('it still says the fee is $20', shortCard && /\$20\.00/.test(shortCard.body),
+    shortCard && shortCard.body);
+  ok('but it says $5.00 is what came off', shortCard && /\$5\.00/.test(shortCard.body));
+  ok('and the headline number is the $5, not the $20',
+    shortCard && shortCard.art.indexOf('|$5.00|') >= 0, shortCard && shortCard.art);
+  ok('labelled taken rather than charged',
+    shortCard && /\|taken$/.test(shortCard.art), shortCard && shortCard.art);
+  fresh();
+  const fullCard = (() => { M.setWatered(ago(7.5));
+    M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
+    const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
+  ok('a manager who could pay is not told about a shortfall',
+    fullCard && !/only had/.test(fullCard.body), fullCard && fullCard.body);
+  ok('and their card still reads charged', fullCard && /\|charged$/.test(fullCard.art));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

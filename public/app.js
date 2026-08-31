@@ -10920,7 +10920,32 @@ function plantRevivals(){
   if(plantMsFor(pl.id)!==PLANT_STEP_MS) return 0;
   return plantStageOf(pl.t,pl.id).revivals;
 }
-function plantFee(){ return bucks2(plantRevivals()*PLANT_REVIVAL_FEE()); }
+function plantFee(){ return _bkNoPlant?0:bucks2(plantRevivals()*PLANT_REVIVAL_FEE()); }
+/* ── BILLED IS NOT THE SAME AS TAKEN ─────────────────────────────────────────
+   bucksBalance floors its whole sum at zero, so a manager with $5 and a $20
+   bill pays $5 and lands on nought rather than owing five back. That is the
+   rule everywhere in here and it is the right one — nobody goes negative.
+
+   It does mean the bill and the payment are two different numbers, and the
+   notification has to quote the payment. Telling somebody holding $5 that $20
+   came off is the one figure they can check for themselves and find wrong.
+
+   Worked out by running the balance twice, once with the charge suppressed,
+   rather than by writing the subtraction out again. ldBucks already taught this
+   codebase what a second copy of the balance arithmetic costs: it fell behind
+   on the pay day, the football gate and the idle charge, and the board and the
+   chip showed different money for the same person. There is one balance. */
+let _bkNoPlant=false;
+function plantFeeTaken(){
+  const prev=_bkNoPlant;
+  let before=0, after=0;
+  try{
+    after=bucksBalance();
+    _bkNoPlant=true;
+    before=bucksBalance();
+  } catch(e){ return 0; } finally{ _bkNoPlant=prev; }
+  return bucks2(Math.max(0,before-after));
+}
 function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles()); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
 
@@ -12629,20 +12654,32 @@ function ntPlants(out){
        clock, a completed cycle, a configured fee — and it is not built when
        any of them is missing. That is deliberate: a card that announces a
        charge the balance did not take is worse than no card at all, so the two
-       are made to agree by construction rather than by being written twice. */
+       are made to agree by construction rather than by being written twice.
+
+       WHICH IS WHY IT QUOTES plantFeeTaken AND NOT THE BILL. A balance never
+       goes below zero, so a manager holding $5 pays $5 of a $20 fee — and the
+       first version of this card told them $20 had come off, which is a number
+       they can check against their own bank in one tap. When the two differ the
+       card says both: what went, and what it was for. */
     if(!_me||String(p.id)!==String(_me.k1)) return;
     if(!revivals||ms!==PLANT_STEP_MS) return;
     const fee=PLANT_REVIVAL_FEE(); if(!fee) return;
+    const due=bucks2(fee*revivals);
+    let took=due; try{ took=plantFeeTaken(); }catch(e){}
+    const short=took<due-0.005;
+    const many=revivals>1;
     out.push({kind:'revive', day:ntDayOf(t+revivals*cycle),
       id:`plr:${p.id}:${t}:${revivals}`, title:'Plant Revival Fee',
-      art:ntStat(_ownerMap[tid],nm,bucksFmt(fee*revivals),'charged'),
-      body:revivals>1
-        ?`Your plant has died and been revived <b>${revivals}</b> times. That is
-          <b>${bucksFmt(fee*revivals)}</b> in Plant Revival Fees off your GFL Bucks.
-          Water it.`
+      art:ntStat(_ownerMap[tid],nm,bucksFmt(took),short?'taken':'charged'),
+      body:(many
+        ?`Your plant has died and been revived <b>${revivals}</b> times, which is
+          <b>${bucksFmt(due)}</b> in Plant Revival Fees. `
         :`Your plant was dead for ${plantDryLabel(PLANT_DEAD_STEPS*ms)} and has been
-          revived. <b>${bucksFmt(fee)}</b> has come off your GFL Bucks as a Plant
-          Revival Fee.`});
+          revived. The fee is <b>${bucksFmt(due)}</b>. `)
+        +(short
+          ?`You only had <b>${bucksFmt(took)}</b>, so that is all that came off —
+            a balance never goes below zero. Water it.`
+          :`That has come off your GFL Bucks.${many?' Water it.':''}`)});
   });
 }
 /* "5 days" for a real plant, "1.3 min" for one on the short test cycle */
