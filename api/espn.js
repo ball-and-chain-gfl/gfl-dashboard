@@ -371,7 +371,7 @@ export default async function handler(req, res) {
     const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
     const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
     // Valid TransactionType enum values (ESPN rejected "TRADE").
-    const SORT = { sortDate: { sortPriority: 1, sortAsc: false } };
+    const SORT = { sortProcessDate: { sortPriority: 1, sortAsc: false } };
     const txFilterTyped = { transactions: {
       filterType: { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT'] },
       limit: 1000, offset: 0, ...SORT,
@@ -485,14 +485,23 @@ export default async function handler(req, res) {
   if (type === 'transactions') {
     const MSG = { 178:'ADD', 180:'ADD', 179:'DROP', 239:'DROP', 181:'DROP',
                   224:'TRADE', 225:'TRADE', 226:'TRADE', 244:'TRADE', 245:'TRADE', 246:'TRADE' };
-    /* THE SORT IS NOT OPTIONAL. Without it ESPN answers a flat 400 —
-       "Filter: Limit request must be accompanied by a sort" — and mTransactions2
-       is the ONLY source that carries bid amounts and losing claims. Every
-       request here fell through to the communication feed instead, which
-       normalises every bid to $0, so the waiver half of the coaching metric was
-       dividing by a floor of $1 for the whole league. */
-    const TX_SORT = { sortDate: { sortPriority: 1, sortAsc: false } };
-    const txFilter = { transactions: { filterType:{ value:['WAIVER','FREEAGENT','TRADE_ACCEPT'] }, limit:1000, offset:0, ...TX_SORT } };
+    /* THE SORT IS NOT OPTIONAL, AND IT IS CALLED sortProcessDate.
+       Without one ESPN answers a flat 400 — "Filter: Limit request must be
+       accompanied by a sort" — and sortDate, sortExecutionDate, sortProposedDate
+       and four other plausible names all still 400. Only sortProcessDate is
+       accepted. This matters because mTransactions2 is the ONLY source carrying
+       bid amounts: every request was falling through to the communication feed,
+       which has no bids at all, so the waiver half of the coaching metric was
+       dividing by its $1 floor for the entire league.
+
+       NO filterType. Filtering by type server-side also drops the failed and
+       pending claims, and a losing bid is exactly what the next-highest-bid
+       margin is made of. The whole log is small — a couple of hundred rows for
+       a season — so it comes back whole and is filtered here, keeping every
+       status. */
+    const TX_SORT = { sortProcessDate: { sortPriority: 1, sortAsc: false } };
+    const txFilter = { transactions: { limit:1000, offset:0, ...TX_SORT } };
+    const TX_KEEP = new Set(['WAIVER','FREEAGENT','TRADE_ACCEPT']);
     const topicsFilter = { topics: {
       filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000, limitPerMessageSet:{ value:1000 }, offset:0,
       sortMessageDate:{ sortPriority:1, sortAsc:false },
@@ -547,7 +556,8 @@ export default async function handler(req, res) {
       }catch(e){ diag.push({ name, error:String(e).slice(0,80) }); return []; }
     }
 
-    const nativeParse = d => Array.isArray(d.transactions) ? d.transactions : [];
+    const nativeParse = d => (Array.isArray(d.transactions) ? d.transactions : [])
+      .filter(t => TX_KEEP.has(String(t && t.type || '').toUpperCase()));
     const commParse   = d => normFromComm(d.topics);
     // The communication feed is worth trying even for completed seasons — ESPN's
     // retention there varies, and when it works it's the only per-player record.
@@ -1090,7 +1100,7 @@ export default async function handler(req, res) {
       try {
         const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
         const txFilter = { transactions: { filterType:{ value:['TRADE_ACCEPT'] }, limit:1000, offset:0,
-          sortDate:{ sortPriority:1, sortAsc:false } } };
+          sortProcessDate:{ sortPriority:1, sortAsc:false } } };
         const tr = await fetch(`${liveBase}?view=mTransactions2`, { headers:{ ...headers, 'x-fantasy-filter': JSON.stringify(txFilter) } });
         if (tr.ok) {
           const td = unwrap(await tr.json());
