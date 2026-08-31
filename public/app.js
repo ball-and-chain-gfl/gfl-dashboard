@@ -7387,13 +7387,10 @@ function renderMyProfile(){
         <span class="mp-plant-l">Plant</span>
         <span class="mp-plant-v">${plant.label}</span>
       </span>
-      ${/* how the hunt is going — the count and whether one is still out
-            there, with no mention of what it paid */''}
-      <span class="mp-egg${eggsFound().size?' on':''}">
-        <span class="mp-egg-e">🥚</span>
-        <span class="mp-egg-l">Eggs found</span>
-        <span class="mp-egg-v">${eggsFound().size}</span>
-      </span>
+      ${/* THE RUNNING TOTAL IS GONE FROM HERE. What the room is for is what is
+            happening now: a plant that wants water and whether this window's egg
+            is still out there. A career count of eggs is a statistic, and it sat
+            next to two things you can act on as though it were a third. */''}
       <span class="mp-eggnow ${eggClaimedNow()?'got':'live'}">
         <span class="mp-egg-e">🥚</span>
         <span class="mp-eggnow-t">${eggClaimedNow()?'You got this one':'One out there'}</span>
@@ -15303,7 +15300,7 @@ function sbPickEmMarkets(book,week){
     if(out.some(m=>m.key===key)) continue;
     const probs=sbTopProbs(trio.map(t=>t.wk),week*104729+g*7919+3);
     const lo=Math.min(...trio.map(t=>t.wk)), hi=Math.max(...trio.map(t=>t.wk));
-    out.push(sbOutrightAny(key,`Pick 'Em · ${trio[0].pos||'Group'} ${g+1}`,
+    out.push(sbOutrightAny(key,`Pick 'Em · Group ${g+1}`,
       `Who scores most of the three? Projected ${lo.toFixed(1)}–${hi.toFixed(1)} this week. Settles on started scores.`,
       trio.map(t=>({k:'p'+t.pid,name:t.name,
         av:playerImg(t.pid,22,t.name),
