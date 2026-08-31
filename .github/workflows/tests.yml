@@ -27,6 +27,8 @@ jobs:
         run: node scripts/test-season.mjs
       - name: what a team is priced on
         run: node scripts/test-ratings.mjs
+      - name: the price freezer still lifts
+        run: node scripts/test-charts.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: next-highest waiver bid

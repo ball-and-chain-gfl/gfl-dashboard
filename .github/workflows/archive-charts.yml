@@ -1,0 +1,66 @@
+name: Freeze the week's prices
+
+# The portfolio chart replays the share ledger against prices that are
+# RECOMPUTED every time somebody opens it. Fine while the formula never changes,
+# and wrong the moment it does: alter how a team is priced and every point in
+# the chart's history moves with it, including weeks settled months ago. A
+# finished week cannot change, so its prices should not either.
+#
+# This freezes the week's price board into public/data/charts-<season>.json, and
+# the dashboard prices that week off the file from then on. The week's betting
+# result goes in beside it — already stable, since a settled bet does not
+# re-grade and the rules refuse to delete one, so that half is a record rather
+# than a repair.
+#
+# Tuesday morning UTC, after archive-week and archive-poll, then again Wednesday
+# in case ESPN was still finalising. The newest finished week is rewritten on
+# each pass and older weeks are never touched; nothing is written when nothing
+# changed, so two runs a week do not mean two commits.
+#
+# No secrets. The season, rosters and player pool come through the deployed
+# proxy, which holds the ESPN credentials, and the bets are read with the same
+# public web key the browser uses.
+on:
+  schedule:
+    - cron: '0 10 * * 2'    # Tue 10:00 UTC — after archive-poll at 09:45
+    - cron: '0 10 * * 3'    # Wed 10:00 UTC — safety net
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season (blank = current year)'
+        required: false
+      week:
+        description: 'Week (blank = newest finished). Naming one needs force.'
+        required: false
+      force:
+        description: 'Replace a week already frozen'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: archive-charts
+  cancel-in-progress: false
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      # The pricer is lifted out of app.js at run time, so a rename upstream
+      # breaks it. Check that before letting it freeze anything.
+      - name: The pricer still holds
+        run: node scripts/test-charts.mjs
+      - name: Freeze
+        run: node scripts/archive-charts.mjs ${{ github.event.inputs.season }} ${{ github.event.inputs.week }} ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+      - name: Commit if it changed
+        run: |
+          git config user.name  'gfl-bot'
+          git config user.email 'gfl-bot@users.noreply.github.com'
+          git add public/data/charts-*.json
+          git diff --staged --quiet || git commit -m 'Freeze week prices [skip ci]'
+          git push

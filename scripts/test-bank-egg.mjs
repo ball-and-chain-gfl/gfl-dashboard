@@ -338,5 +338,53 @@ console.log('\n14. the leaderboard reads the same balance as the chip');
   eq('an idle manager is charged on the board too', idle<100*cycles, true);
 }
 
+
+/* ── A FIND SURVIVES A CHANGE OF WINDOW ──────────────────────────────────────
+   The egg window moved from twelve hours to two days and seven managers lost
+   eleven finds between them, a hundred and ten bucks, because a find was stored
+   as a window INDEX and the new arithmetic could not read the old one. Finds are
+   stored as the moment they happened now, and an old index is solved back to a
+   date. This is the case that says so. */
+console.log('\n15. a find survives the window being changed');
+{
+  const HOUR = 3600 * 1000;
+  const src = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8')
+    .split(String.fromCharCode(13)).join('');
+  const g = (start) => {
+    const i = src.indexOf(start);
+    if (i < 0) throw new Error('test-bank-egg: cannot find "' + start + '"');
+    let j = i, d = 0, st = false;
+    for (; j < src.length; j++) {
+      const c = src[j];
+      if (c === '{' || c === '[') { d++; st = true; }
+      else if (c === '}' || c === ']') { d--; if (st && d === 0) { j++; break; } }
+      else if (c === ';' && !st && d === 0) { j++; break; }
+    }
+    return src.slice(i, j);
+  };
+  const m = { exports: {} };
+  new Function('module', '\n    const _CFG={eggWindowHours:48};\n    '
+    + g('const EGG_MS=') + '\n' + g('const eggWindow=') + '\n'
+    + g('const EGG_T_MIN=') + '\n' + g('const EGG_MAX_AGE_MS=') + '\n'
+    + g('function eggTimeOf(') + '\n    module.exports={eggTimeOf,eggWindow};')(m);
+  const hz = m.exports;
+
+  const now = Date.now();
+  const i12 = Math.floor((now - 24 * HOUR) / (12 * HOUR));
+  const i48 = Math.floor((now - 24 * HOUR) / (48 * HOUR));
+  eq('a twelve-hour index resolves to a real recent moment',
+    hz.eggTimeOf(i12) > now - 4 * 24 * HOUR && hz.eggTimeOf(i12) <= now + HOUR, true);
+  eq('a two-day index does too',
+    hz.eggTimeOf(i48) > now - 4 * 24 * HOUR && hz.eggTimeOf(i48) <= now + HOUR, true);
+  eq('a moment is left alone', hz.eggTimeOf(now - HOUR), now - HOUR);
+  eq('nothing from the future is accepted', hz.eggTimeOf(now + 40 * 24 * HOUR), 0);
+  eq('rubbish is rejected', hz.eggTimeOf(0) + hz.eggTimeOf(-5), 0);
+
+  const stored = [i12, i12 - 1, i12 - 2];
+  const times = [...new Set(stored.map(hz.eggTimeOf).filter(t => t > 0))];
+  eq('three finds under the old window are still three finds', times.length, 3);
+  eq('and still worth the same money', times.length * EGG_MONEY, 3 * EGG_MONEY);
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail?1:0);

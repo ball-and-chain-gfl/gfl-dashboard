@@ -8911,8 +8911,15 @@ function sbBestLineup(entries,projOf,posOf,shape){
 function rosterProjByOwner(season,week){
   const meta=_seasonMeta[String(season)]; if(!meta) return {};
   const rosters=sbRosters(season,week||1);
-  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
-  if(!pool||!pool.length){ try{ bkLoadPool(); }catch(e){} }
+  /* THE POOL FOR THE SEASON BEING PRICED, NOT WHICHEVER ONE IS LOADED.
+     _bkPool points at bkSeason(), which is the newest season with a SCORE in it
+     — last year, from February until September. So a 2026 roster was being
+     valued at ESPN's 2025 projections: the numbers were real, they were just
+     about a season that had already been played. Lebron's squad came out
+     eleventh of twelve on last year's numbers and first on this year's, and the
+     whole board is built on that one figure. */
+  const pool=(typeof _bkPools!=='undefined'&&_bkPools[String(season)])||null;
+  if(!pool||!pool.length){ try{ bkLoadPool(season); }catch(e){} }
   if(!rosters||!pool||!pool.length) return {};
   const proj={},posn={};
   pool.forEach(p=>{ proj[String(p.id)]=p.proj||p.total||0; posn[String(p.id)]=Number(p.pos)||0; });
@@ -9463,9 +9470,37 @@ let _invCache=null;
    the latest one — which is what lets a portfolio be replayed rather than
    sampled and stored. Pure and cheap: it reads the season's own schedule and
    nothing else. */
+/* ── A FINISHED WEEK'S PRICES ARE READ, NOT RECOMPUTED ───────────────────────
+   Everything below derives a price from the schedule and the rosters as they
+   are RIGHT NOW, which is correct for the week being played and wrong for every
+   week behind it: change how a team is priced and the whole history of the
+   portfolio chart moves with it. Weeks that have been frozen by
+   scripts/archive-charts.mjs are served from the file instead, so a settled
+   week reads the same in December as it did in September. */
+let _frozen=null,_frozenFetched=false,_frozenReq=null;
+function frozenPrices(season,week){
+  if(!_frozenFetched){
+    if(!_frozenReq){
+      _frozenReq=fetch(`/data/charts-${season}.json`,{cache:'no-store'})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>{ _frozen=j; _frozenFetched=true;
+          try{ _invCache=null; if(_activeTab==='book') renderBook(); }catch(e){}
+          return j; })
+        .catch(()=>{ _frozen=null; _frozenFetched=true; return null; });
+    }
+    return null;
+  }
+  if(!_frozen||String(_frozen.season)!==String(season)) return null;
+  const w=(_frozen.weeks||{})[String(week)];
+  return (w&&w.prices&&Object.keys(w.prices).length)?w.prices:null;
+}
 function invPricesAt(season,through){
   const fr=(_franchises||[]);
   if(!fr.length) return {};
+  if(through!=null){
+    const froz=frozenPrices(season,through);
+    if(froz) return {...froz};
+  }
   const rows=season?invStats(season,through):null;
   const byOwner={};
   /* ── WHAT THE ROSTER IS PROJECTED TO SCORE ─────────────────────────────────
@@ -9981,29 +10016,83 @@ const eggKey=()=>lsKey('eggs');
    the future, nothing older than two years of windows. That heals every device
    on the next load without anyone clearing anything, and it holds the same way
    if the window is ever changed again — in either direction. */
-const EGG_MAX_AGE=Math.ceil(2*365*24*3600*1000/EGG_MS);
-const eggValid=n=>{ const w=eggWindow(); return n<=w && n>w-EGG_MAX_AGE; };
+/* ── A FIND IS A MOMENT, NOT A WINDOW NUMBER ─────────────────────────────────
+   The comment above describes what used to be stored and why it could not
+   survive a change of window length. It was right about the danger and wrong
+   about the cure: dropping anything implausible under the CURRENT scheme means
+   the scheme change itself destroys the record. Moving the window from twelve
+   hours to two days did exactly that — seven managers between them lost eleven
+   finds, a hundred and ten bucks, because their numbers were counted in
+   twelve-hour units and the new arithmetic could not read them.
+
+   So what is stored is the millisecond a find was made. That is the same number
+   under every scheme: change the window and the finds regroup, none of them
+   disappears, and the count that pays is untouched.
+
+   OLD NUMBERS ARE RECOVERED RATHER THAN BINNED. A stored index is small where a
+   timestamp is enormous, which is how the two are told apart, and the window
+   length that produced it can be solved for: an index times its own unit lands
+   on a real recent date, so `now / index` gives that unit back to the nearest
+   hour. 41390 resolves to twelve hours and 10347 to forty-eight, which are the
+   two schemes this league has actually run. */
+const EGG_T_MIN=1e12;                       // below this it is an index, not a time
+const EGG_MAX_AGE_MS=2*365*24*3600*1000;
+function eggTimeOf(n){
+  if(!(n>0)) return 0;
+  /* already a moment, but still not one from the future — that guard is the
+     only part of the old window check worth keeping */
+  if(n>=EGG_T_MIN) return n<=Date.now()+3600000?n:0;
+  const hours=Math.round(Date.now()/n/3600000);
+  if(!(hours>0)&&hours!==0) return 0;
+  const t=n*Math.max(1,hours)*3600000;
+  return (t>0&&t<=Date.now()+3600000)?t:0;  // nothing from the future
+}
 function eggsFound(){
   if(_eggs) return _eggs;
   let list=[];
   try{ list=JSON.parse(localStorage.getItem(eggKey())||'[]')||[]; }catch(e){}
-  const clean=list.map(Number).filter(n=>!isNaN(n)&&eggValid(n));
+  const cut=Date.now()-EGG_MAX_AGE_MS;
+  const clean=[...new Set(list.map(Number).map(eggTimeOf).filter(t=>t>cut))];
   _eggs=new Set(clean);
-  /* write the cleaned list straight back, so a stale cache is repaired once
-     rather than re-filtered on every read */
-  if(clean.length!==list.length){
+  /* the migrated list is written straight back, so an old device is repaired
+     once rather than re-solved on every read */
+  if(clean.length!==list.length||clean.some((t,i)=>t!==Number(list[i]))){
     try{ localStorage.setItem(eggKey(),JSON.stringify(clean)); }catch(e){}
   }
   return _eggs;
 }
+/* whether any find falls in the window on the board right now */
+const eggFoundIn=w=>[...eggsFound()].some(t=>eggWindow(t)===w);
 function eggBucks(){ return bkEggCount()*EGG_PRIZE; }
 /* Whether this window's egg is still going begging. Says nothing about where
    it is — only that there is one, which is the part worth knowing. */
-const eggClaimedNow=()=>eggsFound().has(eggWindow());
-function eggSave(){
-  const list=[...eggsFound()];
-  try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
-  if(_me) try{ gflPatchProfile(_me.k1,{eggs:JSON.stringify(list)}); }catch(e){}
+const eggClaimedNow=()=>eggFoundIn(eggWindow());
+/* ── SAVING MERGES, IT DOES NOT REPLACE ──────────────────────────────────────
+   This used to write the local set straight over the profile. Two sessions
+   signed into the same account each hold their own copy, so the last one to
+   save won and whatever the other had found went with it — which is how a find
+   made in one tab disappeared because another was open on the same account.
+
+   The server's list is read and folded in before the write, so a claim can only
+   ever be added. Exact duplicates collapse; two finds inside one window do not,
+   because eggClaim already refuses a window that has been claimed, and a record
+   that survived a change of window length should not be thinned out by one. */
+async function eggSave(){
+  const local=[...eggsFound()];
+  try{ localStorage.setItem(eggKey(),JSON.stringify(local)); }catch(e){}
+  if(!_me) return;
+  const merged=new Set(local);
+  try{
+    const res=await gflFetchProfile(_me.k1);
+    let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.eggs)||'[]')||[]; }catch(e){}
+    srv.map(Number).map(eggTimeOf).filter(t=>t>0).forEach(t=>merged.add(t));
+  }catch(e){}
+  const list=[...merged];
+  if(list.length!==local.length){
+    _eggs=new Set(list);
+    try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
+  }
+  try{ await gflPatchProfile(_me.k1,{eggs:JSON.stringify(list)}); }catch(e){}
 }
 /* The list on the profile is the record; the device copy is only so the
    balance is right before the network answers. Merged rather than replaced,
@@ -10014,7 +10103,7 @@ async function eggSync(){
     const res=await gflFetchProfile(_me.k1);
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.eggs)||'[]')||[]; }catch(e){}
     const before=eggsFound().size;
-    srv.map(Number).filter(n=>!isNaN(n)&&eggValid(n)).forEach(n=>eggsFound().add(n));
+    srv.map(Number).map(eggTimeOf).filter(t=>t>0).forEach(t=>eggsFound().add(t));
     if(eggsFound().size!==before){
       try{ localStorage.setItem(eggKey(),JSON.stringify([...eggsFound()])); }catch(e){}
       eggPaint();
@@ -10039,7 +10128,7 @@ function eggPaint(){
   const cur=eggEl();
   const spot=eggSpot();
   const app=document.getElementById('app');
-  const wrong=!app||_activeTab!==spot.tab||eggsFound().has(spot.w);
+  const wrong=!app||_activeTab!==spot.tab||eggFoundIn(spot.w);
   if(wrong){ if(cur&&!cur.classList.contains('egg-pop')) cur.remove(); return; }
   if(cur&&Number(cur.dataset.w)===spot.w) return;   // already out, same window
   if(cur) cur.remove();
@@ -10056,10 +10145,11 @@ function eggPaint(){
 async function eggClaim(){
   const el=eggEl(); if(!el||_eggBusy) return;
   const w=Number(el.dataset.w);
-  if(eggsFound().has(w)) return;
+  if(eggFoundIn(w)) return;
   if(!_me){ openSignIn(); return; }
   _eggBusy=true;
-  eggsFound().add(w);
+  /* the moment it was claimed, which is what survives a change of window */
+  eggsFound().add(Date.now());
   /* burst first, bookkeeping after: the tap should feel instant even when the
      write is slow, and the claim is already recorded locally by this point */
   el.classList.add('egg-pop');
@@ -10069,7 +10159,9 @@ async function eggClaim(){
   prize.textContent='+'+bucksFmt(EGG_PRIZE);
   el.appendChild(prize);
   setTimeout(()=>{ el.remove(); },900);
-  eggSave();
+  /* awaited so the balance repaints against what was actually written, and so
+     a merge that pulled in another session's find is on screen too */
+  await eggSave();
   _eggBusy=false;
   if(_activeTab==='book') renderBook();
   if(_activeTab==='profile') try{ renderMyProfile(); }catch(e){}
@@ -10831,7 +10923,12 @@ function bkLoadPool(season){
       .then(r=>r.ok?r.json():null)
       .then(j=>{ _bkPools[s]=(j&&j.players)||[];
         if(s===String(bkSeason())) _bkPool=_bkPools[s];
-        _bkQCache={key:'',qs:[]}; renderBallKnowledge(); return _bkPools[s]; })
+        _bkQCache={key:'',qs:[]}; renderBallKnowledge();
+        /* the board and the market price off this — repaint whichever is open
+           when it lands, or they keep serving whatever they computed without it */
+        try{ _sbCache=null; _invCache=null;
+          if(_activeTab==='book') renderBook(); }catch(e){}
+        return _bkPools[s]; })
       .catch(()=>{ _bkPools[s]=[]; return _bkPools[s]; });
   }
   return null;
@@ -13276,7 +13373,7 @@ function ldBucks(ids,prof){
     /* validated the same way eggsFound does, so a find recorded under a retired
        window scheme is not paid for here either */
     try{ const e=JSON.parse(p.eggs||'[]');
-      if(Array.isArray(e)) eggs+=e.map(Number).filter(n=>!isNaN(n)&&eggValid(n)).length;
+      if(Array.isArray(e)) eggs+=new Set(e.map(Number).map(eggTimeOf).filter(t=>t>0)).size;
     }catch(e){}
     try{ const a=JSON.parse(p.inv||'[]'); if(Array.isArray(a)) lots=lots.concat(a); }catch(e){}
   });
@@ -15151,16 +15248,22 @@ function sbWeekMarkets(book,games,week){
 
    THE THREE ARE CONSECUTIVE IN THE PROJECTION ORDER, which is what makes them
    comparable — the gap between neighbours in a sorted list is as small as the
-   field allows. The groups are then spread across the whole range rather than
-   taken off the top, so one is three studs, one is three flex plays and one is
-   three kickers, instead of six ways to bet on the same tier.
+   field allows. Group 1 is always the three highest projected players in the
+   league; the other four are spread evenly down what is left, so the board runs
+   from three studs to three flex plays rather than five ways to bet on the same
+   tier.
+
+   NOTHING UNDER TEN PROJECTED POINTS. Below that a week is mostly noise — a
+   kicker's third field goal decides it — and three players projected for six
+   apiece is a coin toss dressed as a read.
 
    STARTERS ONLY, and the key carries the three player ids. Both of those are
    about settling it later: the lineups feed records what a STARTED player
    scored, and a market that had to be re-derived from today's projections could
    not be graded once those projections had moved on. The ids in the key mean
    the ticket knows who it was about. */
-const PICKEM_GROUPS=6;
+const PICKEM_GROUPS=5;
+const PICKEM_MIN_PROJ=10;      // below this a week is noise, not a read
 function sbPickEmMarkets(book,week){
   const proj=sbPlayerProj(week);
   const rost=sbRosters(sbBoardSeason(),week);
@@ -15172,7 +15275,7 @@ function sbPickEmMarkets(book,week){
       if(BENCH_SLOTS.includes(e.slot)) return;
       const p=proj[String(e.pid)]||null;
       const wk=(typeof e.wkProj==='number'&&e.wkProj>0)?e.wkProj:(p?p.wk:0);
-      if(!(wk>0)) return;
+      if(!(wk>=PICKEM_MIN_PROJ)) return;
       pool.push({pid:Number(e.pid),wk,
         name:(p&&p.name)||e.n||pName(e.pid),
         pos:SLOT_NAMES[e.slot]||'',
@@ -15181,12 +15284,19 @@ function sbPickEmMarkets(book,week){
   });
   if(pool.length<6) return [];
   pool.sort((a,b)=>b.wk-a.wk);
-  /* one triple from each band, so the groups climb down the range together */
-  const bands=Math.min(PICKEM_GROUPS,Math.floor(pool.length/3));
+  /* Group 1 is the top three outright. The rest are spaced evenly through what
+     is left, so the last group sits at the ten-point floor and the ones between
+     step down in even bites. */
+  const want=Math.min(PICKEM_GROUPS,Math.floor(pool.length/3));
+  const rest=pool.slice(3);
+  const starts=[0];
+  for(let g=1;g<want;g++){
+    const span=Math.max(0,rest.length-3);
+    starts.push(3+Math.round((g-1)*span/Math.max(1,want-2)));
+  }
   const out=[];
-  for(let g=0;g<bands;g++){
-    const start=Math.min(pool.length-3,Math.round(g*(pool.length-3)/Math.max(1,bands-1)));
-    const trio=pool.slice(start,start+3);
+  for(let g=0;g<starts.length;g++){
+    const trio=pool.slice(starts[g],starts[g]+3);
     if(trio.length<3) continue;
     const pids=trio.map(t=>t.pid).slice().sort((a,b)=>a-b);
     const key='wk'+week+'-pe'+pids.join('_');
