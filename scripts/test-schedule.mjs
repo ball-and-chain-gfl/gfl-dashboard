@@ -65,16 +65,18 @@ for (let i = 0; i < N; i++) {
 }
 const harness = `
 function sbBoardSeason(){ return '2099'; }
-let _stamp='w-s0';
-function footballStamp(){ return _stamp; }
-function setStamp(v){ _stamp=v; }
 const _rows=${JSON.stringify(rows)};
 let _boardOn=true;
-function sbBuild(){ return _boardOn?{rows:_rows}:null; }
-function setBoard(on){ _boardOn=on; _schedPowerCache=null; }
+/* sbBuild hands back ONE cached object and nulls it when anything underneath
+   moves. schedPower keys on that object, so the stub has to behave the same
+   way: same object until rebuild() is called, a new one after. */
+let _book={rows:_rows};
+function sbBuild(){ return _boardOn?_book:null; }
+function rebuild(){ _book={rows:_rows}; }
+function setBoard(on){ _boardOn=on; }
 ${NEEDED.map(n => parts[n]).join('\n')}
 module.exports={schedPower,schedMargin,schedWinProb,schedOpenMu,wpAt,wpSd,
-  SCHED_SD,SCHED_RATING_W,SCHED_PPG_W,schedNormCdf,setStamp,setBoard,rows:_rows};
+  SCHED_SD,SCHED_RATING_W,SCHED_PPG_W,schedNormCdf,rebuild,setBoard,rows:_rows};
 `;
 const mod = { exports: {} };
 let built = true;
@@ -176,6 +178,7 @@ if (built) {
   console.log('\n7. it survives a board that is not there yet');
   const boardP = M.schedWinProb(rows[0], rows[11]);
   M.setBoard(false);
+  M.rebuild();
   const fb = M.schedMargin(rows[11], rows[0]);
   ok('no board still returns a usable margin', Number.isFinite(fb) && fb !== 0, fb);
   const rawP = M.schedWinProb(rows[0], rows[11]);
@@ -191,16 +194,36 @@ if (built) {
     boardP > 0.5 && rawP < 0.5,
     `board ${(boardP * 100).toFixed(1)}% vs raw ${(rawP * 100).toFixed(1)}%`);
   M.setBoard(true);
+  M.rebuild();
   ok('the board comes back', M.schedPower() && Object.keys(M.schedPower()).length === N);
+  ok('a board too small to score returns nothing rather than a wrong number',
+    (() => {
+      const keep = M.rows.splice(1);       // one team left
+      M.rebuild();
+      const got = M.schedPower();
+      M.rows.push(...keep); M.rebuild();
+      return got === null;
+    })());
 
-  console.log('\n8. the cache turns over when the football does');
+  console.log('\n8. the cache turns over when the board does');
+  /* THIS IS THE ONE THAT CAUGHT A SHIPPED BUG.
+
+     The first cut of schedPower keyed on footballStamp, which says what has
+     been PLAYED. Ratings also move when the rosters land — a second after the
+     page opens, no football involved — and sbBuild rebuilds for that. Keyed on
+     the stamp, the site served the pre-roster, career-only ratings for the
+     whole session. Keyed on the board, it cannot: a rebuild is the only thing
+     that can change the answer, and it always does. */
   const before = M.schedPower()['own0'];
-  M.rows[0].rating = -99;                  // board changed underneath, same stamp
-  ok('same football, same answer (cached)', M.schedPower()['own0'] === before);
-  M.setStamp('w1s6');                      // a week landed
+  M.rows[0].rating = -99;                  // underlying row mutated, same board object
+  ok('same board, same answer (cached)', M.schedPower()['own0'] === before);
+  M.rebuild();                             // rosters landed: sbBuild hands back a new board
   const after = M.schedPower()['own0'];
-  ok('a played week busts the cache', after !== before, `${before} -> ${after}`);
+  ok('a rebuilt board busts the cache', after !== before, `${before} -> ${after}`);
   M.rows[0].rating = 1.4;
+  M.rebuild();
+  ok('and settles back when the rating does',
+    Math.abs(M.schedPower()['own0'] - before) < 1e-12);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

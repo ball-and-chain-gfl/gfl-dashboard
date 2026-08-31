@@ -7535,28 +7535,39 @@ function schedNormCdf(z){                      // Abramowitz & Stegun 26.2.17
    how high this league scores or how far apart its teams are. */
 const SCHED_RATING_W=0.65;   // the draft-aware half
 const SCHED_PPG_W=0.35;      // career scoring, the residual
+/* KEYED ON THE BOARD ITSELF, NOT ON A STAMP.
+
+   The first version of this cached on footballStamp, and that is wrong in a way
+   worth recording because it is the same mistake three times now. The stamp
+   says which football has been played. Ratings do not only move when football
+   is played — they move when the ROSTERS land, which happens a second or two
+   after the page opens and does not touch the stamp. So the first render cached
+   a board whose ratings were still pure career history (sbBuild has no roster
+   signal to floor the live weight with until the fetch returns), the stamp never
+   changed, and every win probability on the site spent the rest of the session
+   built on exactly the history this reweighting existed to demote. The powers
+   came out in almost perfect points-per-game order, which is what gave it away.
+
+   sbBuild already solves this properly: it hands back one cached object and
+   nulls it whenever anything underneath moves, rosters included. So the board's
+   own identity is the key. It cannot go stale without the board going stale
+   first, and there is no third thing to keep in sync. */
 let _schedPowerCache=null;
 function schedPower(){
-  let season=null; try{ season=sbBoardSeason(); }catch(e){}
-  const stamp=String(season)+'|'+(season?footballStamp(season):'-');
-  if(_schedPowerCache&&_schedPowerCache.stamp===stamp) return _schedPowerCache.map;
+  let book=null; try{ book=sbBuild(); }catch(e){ return null; }
+  const rows=(book&&book.rows)||[];
+  if(rows.length<2) return null;              // never cache a board that is not there yet
+  if(_schedPowerCache&&_schedPowerCache.book===book) return _schedPowerCache.map;
   let map=null;
-  try{
-    const rows=((sbBuild()||{}).rows)||[];
-    if(rows.length>1){
-      const ppg=rows.map(r=>r.ppg||0);
-      const mean=ppg.reduce((a,b)=>a+b,0)/ppg.length;
-      const sd=Math.sqrt(ppg.reduce((a,b)=>a+(b-mean)*(b-mean),0)/ppg.length);
-      if(sd>0){
-        const zP=sbZ(ppg), zR=sbZ(rows.map(r=>r.rating||0));
-        map={};
-        rows.forEach((r,i)=>{
-          map[r.owner]=(SCHED_PPG_W*zP[i]+SCHED_RATING_W*zR[i])*sd;
-        });
-      }
-    }
-  }catch(e){ map=null; }
-  _schedPowerCache={stamp,map};
+  const ppg=rows.map(r=>r.ppg||0);
+  const mean=ppg.reduce((a,b)=>a+b,0)/ppg.length;
+  const sd=Math.sqrt(ppg.reduce((a,b)=>a+(b-mean)*(b-mean),0)/ppg.length);
+  if(sd>0){
+    const zP=sbZ(ppg), zR=sbZ(rows.map(r=>r.rating||0));
+    map={};
+    rows.forEach((r,i)=>{ map[r.owner]=(SCHED_PPG_W*zP[i]+SCHED_RATING_W*zR[i])*sd; });
+  }
+  _schedPowerCache={book,map};
   return map;
 }
 function schedMargin(a,b){
