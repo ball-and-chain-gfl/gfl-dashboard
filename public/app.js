@@ -1073,6 +1073,20 @@ async function computeCoaching(teams, transactions, weeklyData){
   }
 
   // C2 — trades
+  /* ONE MOVEMENT COUNTS ONCE, WHATEVER THE FEED SAYS.
+
+     ESPN files a trade under two message-type families and the communication
+     feed hands back both, so a four-player trade arrived as eight records and
+     every player was credited to the buyer twice and debited from the seller
+     twice — doubling the whole of C2 for anyone who traded, and showing up as
+     duplicate names on both sides of the Trade ROI table.
+
+     The proxy now drops the second telling at the source. This is the belt to
+     that pair of braces: the same guard, applied to whatever any feed hands
+     over, because the log has three possible sources and only one of them was
+     ever checked. Keyed on the movement — player, from, to, week — so a genuine
+     trade cannot collide with anything. */
+  const seenMove=new Set();
   (transactions||[]).forEach(tx=>{
     if(!executed(tx)) return;
     const tid=tx.teamId;
@@ -1082,6 +1096,9 @@ async function computeCoaching(teams, transactions, weeklyData){
       const fromWeek=tradeWeek+1;
       (tx.items||[]).forEach(item=>{
         const pid=item.playerId; if(pid==null) return;
+        const key=`${pid}|${item.fromTeamId}|${item.toTeamId}|${tradeWeek}`;
+        if(seenMove.has(key)) return;
+        seenMove.add(key);
         const pts=allPts(pid, fromWeek);
         if(item.toTeamId!=null && item.toTeamId in c2){
           c2[item.toTeamId]+=pts/10;

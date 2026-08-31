@@ -371,11 +371,15 @@ export default async function handler(req, res) {
     const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
     const histBase = `${BASE}/leagueHistory/${leagueId}?seasonId=${season}`;
     // Valid TransactionType enum values (ESPN rejected "TRADE").
+    const SORT = { sortDate: { sortPriority: 1, sortAsc: false } };
     const txFilterTyped = { transactions: {
       filterType: { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT'] },
-      limit: 2000, offset: 0,
+      limit: 1000, offset: 0, ...SORT,
     }};
-    const txFilterAll = { transactions: { limit: 2000, offset: 0 } };
+    const txFilterAll = { transactions: { limit: 1000, offset: 0, ...SORT } };
+    /* kept unsorted on purpose: it is the control that shows the 400 is the
+       missing sort and not the endpoint being gone */
+    const txFilterNoSort = { transactions: { limit: 1000, offset: 0 } };
 
     const out = { season, probes: [] };
     async function probe(name, url, filterObj) {
@@ -403,6 +407,7 @@ export default async function handler(req, res) {
     await probe('live_mTx2_typed', `${liveBase}?view=mTransactions2`, txFilterTyped);
     await probe('hist_mTx2_all',   `${histBase}&view=mTransactions2`, txFilterAll);
     await probe('live_mTx2_all',   `${liveBase}?view=mTransactions2`, txFilterAll);
+    await probe('live_mTx2_nosort',`${liveBase}?view=mTransactions2`, txFilterNoSort);
     await probe('live_comm',       `${liveBase}/communication/?view=kona_league_communication`, topicsProbe);
     // Peek at topics shape too (probe only reports `transactions`)
     try {
@@ -466,7 +471,14 @@ export default async function handler(req, res) {
   if (type === 'transactions') {
     const MSG = { 178:'ADD', 180:'ADD', 179:'DROP', 239:'DROP', 181:'DROP',
                   224:'TRADE', 225:'TRADE', 226:'TRADE', 244:'TRADE', 245:'TRADE', 246:'TRADE' };
-    const txFilter = { transactions: { filterType:{ value:['WAIVER','FREEAGENT','TRADE_ACCEPT'] }, limit:2000, offset:0 } };
+    /* THE SORT IS NOT OPTIONAL. Without it ESPN answers a flat 400 —
+       "Filter: Limit request must be accompanied by a sort" — and mTransactions2
+       is the ONLY source that carries bid amounts and losing claims. Every
+       request here fell through to the communication feed instead, which
+       normalises every bid to $0, so the waiver half of the coaching metric was
+       dividing by a floor of $1 for the whole league. */
+    const TX_SORT = { sortDate: { sortPriority: 1, sortAsc: false } };
+    const txFilter = { transactions: { filterType:{ value:['WAIVER','FREEAGENT','TRADE_ACCEPT'] }, limit:1000, offset:0, ...TX_SORT } };
     const topicsFilter = { topics: {
       filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000, limitPerMessageSet:{ value:1000 }, offset:0,
       sortMessageDate:{ sortPriority:1, sortAsc:false },
@@ -477,6 +489,19 @@ export default async function handler(req, res) {
 
     function normFromComm(topics){
       const txns=[];
+      /* ONE MOVEMENT, ONE RECORD.
+
+         ESPN files a trade under two message-type families — 224/225/226 and
+         again 244/245/246 — and both describe the same player going the same
+         way. Mapping both to TRADE and pushing each meant a four-player trade
+         arrived as eight records, so the coaching metric credited every
+         incoming player twice and debited every outgoing one twice. It showed
+         up as duplicate names on both sides of the Trade ROI table.
+
+         Keyed on the movement itself rather than on the message, so the second
+         telling of it is dropped. A player cannot go from the same team to the
+         same team twice in one week, so nothing real collides. */
+      const seenTrade = new Set();
       (topics||[]).forEach(tp=>{
         const week = tp.scoringPeriodId ?? tp.matchupPeriodId ?? 0;
         (tp.messages||[]).forEach(m=>{
@@ -484,8 +509,13 @@ export default async function handler(req, res) {
           if(!bucket || bucket==='DROP') return;
           const pid = m.targetId!=null ? Number(m.targetId) : null;
           const wk  = m.scoringPeriodId ?? week ?? 0;
-          if(bucket==='ADD') txns.push({ type:'WAIVER', teamId:m.to, bidAmount:m.bidAmount??0, scoringPeriodId:wk, status:'EXECUTED', items:[{ type:'ADD', playerId:pid, toTeamId:m.to }] });
-          else if(bucket==='TRADE') txns.push({ type:'TRADE_ACCEPT', teamId:m.from??m.to, scoringPeriodId:wk, status:'EXECUTED', items:[{ type:'TRADE', playerId:pid, fromTeamId:m.from, toTeamId:m.to }] });
+          if(bucket==='ADD') txns.push({ type:'WAIVER', teamId:m.to, bidAmount:m.bidAmount??null, scoringPeriodId:wk, status:'EXECUTED', items:[{ type:'ADD', playerId:pid, toTeamId:m.to }] });
+          else if(bucket==='TRADE'){
+            const k = `${pid}|${m.from}|${m.to}|${wk}`;
+            if(seenTrade.has(k)) return;
+            seenTrade.add(k);
+            txns.push({ type:'TRADE_ACCEPT', teamId:m.from??m.to, scoringPeriodId:wk, status:'EXECUTED', items:[{ type:'TRADE', playerId:pid, fromTeamId:m.from, toTeamId:m.to }] });
+          }
         });
       });
       return txns;
@@ -1045,7 +1075,8 @@ export default async function handler(req, res) {
       let realTrades = null;
       try {
         const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
-        const txFilter = { transactions: { filterType:{ value:['TRADE_ACCEPT'] }, limit:2000, offset:0 } };
+        const txFilter = { transactions: { filterType:{ value:['TRADE_ACCEPT'] }, limit:1000, offset:0,
+          sortDate:{ sortPriority:1, sortAsc:false } } };
         const tr = await fetch(`${liveBase}?view=mTransactions2`, { headers:{ ...headers, 'x-fantasy-filter': JSON.stringify(txFilter) } });
         if (tr.ok) {
           const td = unwrap(await tr.json());
