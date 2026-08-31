@@ -5258,7 +5258,7 @@ function renderForecast(info){
      what the game actually felt like. */
   const projByOwner={};
   Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
-  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO);
+  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,(A&&B)?schedOpenMu(A,B):null);
   const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
     <div class="fc-odds-t"><span>${ab(meT)}</span>
@@ -6073,9 +6073,14 @@ const liveKeyFor=info=>{
 /* Read at call time, not at load: SCHED_SD is declared further down the file
    and touching it up here is a dead page rather than a wrong number. */
 const wpSd=()=>SCHED_SD*1.15;
-function wpAt(a,b,projA,projB,f){
+/* `mu0` is the projected margin for the game, and when it is supplied the
+   curve opens on exactly the number the Schedule table shows for the same
+   fixture — see schedOpenMu. Without it the curve falls back to differencing
+   the two season averages, which is what it always did and is still right for
+   any caller that has no board to price against. */
+function wpAt(a,b,projA,projB,f,mu0){
   const left=Math.max(0,1-Math.min(1,f||0));
-  const mu=(a+left*projA)-(b+left*projB);
+  const mu=(mu0!=null)?(a-b)+left*mu0:(a+left*projA)-(b+left*projB);
   const sd=Math.max(0.6,wpSd()*Math.sqrt(left));
   return Math.min(0.999,Math.max(0.001,schedNormCdf(mu/sd)));
 }
@@ -6105,9 +6110,9 @@ function wpSlateProgress(series,projByOwner){
    into this team's chance of winning at that minute. Opens on the pre-game
    number so the line starts where the projection had it rather than at a coin
    flip. */
-function wpCurve(series,projByOwner,ownerA,ownerB){
+function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
   const projA=projByOwner[ownerA]||0, projB=projByOwner[ownerB]||0;
-  const open=wpAt(0,0,projA,projB,0);
+  const open=wpAt(0,0,projA,projB,0,mu0);
   const arr=(series||{})[liveMKey(ownerA,ownerB)]||[];
   if(!arr.length) return [{t:0,p:open,a:0,b:0,f:0}];
   const aFirst=[ownerA,ownerB].sort()[0]===ownerA;
@@ -6121,7 +6126,7 @@ function wpCurve(series,projByOwner,ownerA,ownerB){
   arr.forEach(([t,x,y])=>{
     const a=aFirst?x:y, b=aFirst?y:x;
     const f=fAt(t);
-    pts.push({t,p:wpAt(a,b,projA,projB,f),a,b,f});
+    pts.push({t,p:wpAt(a,b,projA,projB,f,mu0),a,b,f});
   });
   return pts;
 }
@@ -7496,9 +7501,9 @@ function schedPlayedRows(owner){
   return {rows:out,info,w,l,t,dead:out.length-live.length,
     pf:live.reduce((a,r)=>a+r.my,0), pa:live.reduce((a,r)=>a+r.their,0)};
 }
-/* Projected margin drives everything: mostly the scoring gap, nudged by the
-   power rating, then run through the normal curve. Weekly fantasy margins
-   scatter with a standard deviation around 30 points. */
+/* Projected margin drives everything: the two teams' strength, differenced,
+   then run through the normal curve. Weekly fantasy margins scatter with a
+   standard deviation around 30 points. */
 const SCHED_SD=30;
 function schedNormCdf(z){                      // Abramowitz & Stegun 26.2.17
   const t=1/(1+0.2316419*Math.abs(z));
@@ -7506,13 +7511,83 @@ function schedNormCdf(z){                      // Abramowitz & Stegun 26.2.17
   const v=1-Math.exp(-z*z/2)/Math.sqrt(2*Math.PI)*poly;
   return z>=0?v:1-v;
 }
+/* ── TWO TERMS THAT WERE NEVER ON THE SAME SCALE ──────────────────────────
+   This used to read (ppg−ppg)*0.75 + (rating−rating)*1.2, and those two look
+   like a 40/60 split until you notice they are in different units. ppg is
+   points — four seasons of career average, spread about twenty-five points end
+   to end. rating is a z-score, spread about two and a half. So the career term
+   was worth up to nineteen points of margin and the rating term barely three,
+   and the split was really closer to 6:1 the other way.
+
+   That matters because rating is the only draft-aware number in the pair. It
+   is already 65% this year's roster — sbBuild floors the live weight at
+   SB_LIVE_MIN the moment there is a roster to read, exactly so the squad a
+   manager actually drafted leads their price. None of that reached the
+   schedule: a week-one win probability was 87% career history, which is how
+   the highest career scorer in the league came out favourite while holding the
+   sixth-best roster on the board. It is the same complaint that was already
+   fixed on the share prices, and the same fix sbBuild applies one level down
+   — put both halves on the same scale BEFORE mixing them, so the stated
+   weights are the real ones.
+
+   Scored across the league, blended, then multiplied back into points by the
+   league's own spread of scoring. Self-calibrating: no constant here assumes
+   how high this league scores or how far apart its teams are. */
+const SCHED_RATING_W=0.65;   // the draft-aware half
+const SCHED_PPG_W=0.35;      // career scoring, the residual
+let _schedPowerCache=null;
+function schedPower(){
+  let season=null; try{ season=sbBoardSeason(); }catch(e){}
+  const stamp=String(season)+'|'+(season?footballStamp(season):'-');
+  if(_schedPowerCache&&_schedPowerCache.stamp===stamp) return _schedPowerCache.map;
+  let map=null;
+  try{
+    const rows=((sbBuild()||{}).rows)||[];
+    if(rows.length>1){
+      const ppg=rows.map(r=>r.ppg||0);
+      const mean=ppg.reduce((a,b)=>a+b,0)/ppg.length;
+      const sd=Math.sqrt(ppg.reduce((a,b)=>a+(b-mean)*(b-mean),0)/ppg.length);
+      if(sd>0){
+        const zP=sbZ(ppg), zR=sbZ(rows.map(r=>r.rating||0));
+        map={};
+        rows.forEach((r,i)=>{
+          map[r.owner]=(SCHED_PPG_W*zP[i]+SCHED_RATING_W*zR[i])*sd;
+        });
+      }
+    }
+  }catch(e){ map=null; }
+  _schedPowerCache={stamp,map};
+  return map;
+}
 function schedMargin(a,b){
   if(!a||!b) return 0;
+  const pw=schedPower();
+  if(pw&&pw[a.owner]!=null&&pw[b.owner]!=null) return pw[a.owner]-pw[b.owner];
+  /* no board to scale against — fall back to the raw terms */
   return (a.ppg-b.ppg)*0.75+(a.rating-b.rating)*1.2;
 }
 function schedWinProb(a,b){
   if(!a||!b) return 0.5;
   return Math.min(0.95,Math.max(0.05,schedNormCdf(schedMargin(a,b)/SCHED_SD)));
+}
+/* ── ONE GAME, ONE NUMBER ────────────────────────────────────────────────────
+   The Forecast's headline percentage is the opening point of the win-
+   probability curve, and the curve had its own model: the difference of two
+   season averages over a slightly wider spread. The Schedule table right below
+   it used schedWinProb. Same fixture, same page, two answers — a point or four
+   apart, which is exactly enough to look like a bug and be one.
+
+   The curve has to keep its own shape, because it must converge on the real
+   result as points land; it cannot just print schedWinProb all week. So the
+   schedule's margin is converted into the curve's units instead, which makes
+   the two agree at kickoff and lets the curve take over from there. The clamp
+   is schedWinProb's own 5–95%, applied to the margin rather than the
+   probability, so they match at the extremes too. */
+function schedOpenMu(a,b){
+  if(!a||!b) return null;
+  const Z=1.6448536269514722;                       // the 5% / 95% clamp, in z
+  const z=Math.max(-Z,Math.min(Z,schedMargin(a,b)/SCHED_SD));
+  return z*wpSd();
 }
 /* Nothing on the calendar yet? Lay out a deterministic round robin so the tab
    still shows something useful. Marked as a sample everywhere it appears, and
@@ -7692,14 +7767,16 @@ function schedPlayedDetailHTML(meOwner,oppOwner,season,week,oppName){
        <span class="sd-top-v">${Number(p.pts).toFixed(1)}</span>`
       :`<span class="sd-top-n sd-none">no box score</span>`}
   </div>`;
-  const projByOwner={};
+  const projByOwner={}; let openMu=null;
   try{
     const book=sbBuild();
     (book?book.rows:[]).forEach(r=>{ projByOwner[r.owner]=r.ppg; });
+    const rowOf=o=>(book?book.rows:[]).find(r=>r.owner===o)||null;
+    openMu=schedOpenMu(rowOf(meOwner),rowOf(oppOwner));
   }catch(e){}
   const series=wpSeriesFor(season,week);
   const graph=series
-    ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner),abA,abB,{h:84})
+    ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner,openMu),abA,abB,{h:84})
     : `<div class="sd-msg">No minute-by-minute record for that week.</div>`;
   return `<div class="sd-h">Top performer · week ${week}</div>
     <div class="sd-tops">${side(meT,a,abA)}${side(oppT,b,abB)}</div>
