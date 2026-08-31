@@ -3059,7 +3059,9 @@ function pollSectionHTML(){
         <span class="poll-nm">${t?t.name:('Team '+e.teamId)}</span>
         <span class="poll-avg">${e.avg.toFixed(2)}</span>
       </div>`;}).join('');
-    return `<details class="poll-fold"${i===0?' open':''}>
+    /* Closed by default, the newest included. The chart above already says how
+       the week went, and a fold that opens itself is a fold nobody chose. */
+    return `<details class="poll-fold">
       <summary><i class="fa fa-ranking-star"></i><span>Week ${w} Poll</span>
         <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}</span>
         <i class="fa fa-chevron-down poll-caret"></i></summary>
@@ -10129,7 +10131,22 @@ async function eggSave(){
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.eggs)||'[]')||[]; }catch(e){}
     srv.map(Number).map(eggTimeOf).filter(t=>t>0).forEach(t=>merged.add(t));
   }catch(e){}
-  const list=[...merged];
+  /* ONE EGG PER WINDOW, however many devices claim it. The union above can hold
+     two stamps for the same window if a phone and a laptop both tapped before
+     either had saved, and two stamps is twenty dollars for one egg. The earliest
+     wins and the rest are dropped.
+
+     Finds from before the hunt opened sit in negative windows and are left
+     alone: they were recorded under other schemes, several can share a window
+     under this one, and thinning them would be the old bug again. */
+  const seenW=new Set(), keep=[];
+  [...merged].sort((a,b)=>a-b).forEach(t=>{
+    const w=eggWindow(t);
+    if(w<0){ keep.push(t); return; }
+    if(seenW.has(w)) return;
+    seenW.add(w); keep.push(t);
+  });
+  const list=keep;
   if(list.length!==local.length){
     _eggs=new Set(list);
     try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
@@ -10190,8 +10207,12 @@ async function eggClaim(){
   if(eggFoundIn(w)) return;
   if(!_me){ openSignIn(); return; }
   _eggBusy=true;
-  /* the moment it was claimed, which is what survives a change of window */
-  eggsFound().add(Date.now());
+  /* STAMPED INSIDE THE WINDOW BEING CLAIMED, not simply "now". Tap at 21:59:59
+     and the write can land a heartbeat after the roll, which would record the
+     find against the window that just opened — and the next egg would never be
+     drawn, because that window would already read as claimed. Clamped, so the
+     stamp always belongs to the egg that was actually on screen. */
+  eggsFound().add(Math.min(Math.max(Date.now(),eggWindowAt(w)),eggWindowAt(w+1)-1));
   /* burst first, bookkeeping after: the tap should feel instant even when the
      write is slow, and the claim is already recorded locally by this point */
   el.classList.add('egg-pop');
@@ -13419,6 +13440,21 @@ function ldBucks(ids,prof){
     }catch(e){}
     try{ const a=JSON.parse(p.inv||'[]'); if(Array.isArray(a)) lots=lots.concat(a); }catch(e){}
   });
+  /* ── YOUR OWN ROW READS WHAT YOUR OWN BALANCE READS ────────────────────────
+     Everything above comes off the profile documents, which is the only source
+     there is for eleven other people. For YOU there is a better one: the eggs
+     and the lots this device is holding, which is what the chip in the nav is
+     counting. The two are normally the same and drift the moment a write does
+     not land or is overwritten from somewhere else — and when they drift, the
+     board calls you poorer than the bank does, on the same page, which reads as
+     one of them being broken.
+
+     Nothing about anybody else's row changes; there is no second source for
+     them and inventing one would be worse than the drift. */
+  if(_me&&ids.includes(_me.k1)){
+    try{ eggs=eggsFound().size; }catch(e){}
+    try{ lots=invLots(); }catch(e){}
+  }
   return bucksFor({bets,eggs,lots},()=>bucksBalance());
 }
 /* One manager's matchup-picks record for the season. Every pick on a game that
