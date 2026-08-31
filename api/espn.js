@@ -408,6 +408,20 @@ export default async function handler(req, res) {
     await probe('hist_mTx2_all',   `${histBase}&view=mTransactions2`, txFilterAll);
     await probe('live_mTx2_all',   `${liveBase}?view=mTransactions2`, txFilterAll);
     await probe('live_mTx2_nosort',`${liveBase}?view=mTransactions2`, txFilterNoSort);
+    /* ESPN rejects a limit that has no sort, and "sortDate" is evidently not
+       the key it wants here. Rather than guess one name per deploy, try the
+       plausible ones — and the no-limit case, since a request that never asks
+       for a limit cannot be missing the sort that accompanies one. */
+    const TYPED = { value: ['WAIVER','FREEAGENT','TRADE_ACCEPT'] };
+    await probe('live_mTx2_nolimit', `${liveBase}?view=mTransactions2`,
+      { transactions: { filterType: TYPED } });
+    await probe('live_mTx2_bare', `${liveBase}?view=mTransactions2`, null);
+    for (const key of ['sortExecutionDate','sortProcessDate','sortProposedDate',
+                       'sortTransactionDate','sortItemDate','sortScoringPeriodId','sortStatus']) {
+      await probe('live_mTx2_' + key, `${liveBase}?view=mTransactions2`,
+        { transactions: { filterType: TYPED, limit: 1000, offset: 0,
+          [key]: { sortPriority: 1, sortAsc: false } } });
+    }
     await probe('live_comm',       `${liveBase}/communication/?view=kona_league_communication`, topicsProbe);
     // Peek at topics shape too (probe only reports `transactions`)
     try {
