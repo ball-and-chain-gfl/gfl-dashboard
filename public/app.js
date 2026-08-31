@@ -1256,24 +1256,24 @@ function openCMModal(teamId){
         <hr/>
         <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Final</span><span style="font-weight:800;font-size:14px;color:${s>0?'var(--green)':'var(--red)'}">${s.toFixed(3)}</span></div>
       </div>`}`;
-    document.getElementById('cm-overlay').classList.add('open');
+    cmModalShow();
     return;
   }
-  const d=bd.detail||{};
   const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,rawf=bd.raw||0;
 
-  const tradeRows=[
-    ...(d.tradesReceived||[]).map(r=>`<div class="modal-comp-row"><span class="key pname">${playerImg(r.pid,18,pName(r.pid))}<span>Got ${pName(r.pid)} (joined wk ${r.week+1})</span></span><span class="val" style="color:var(--green)">+${r.pts.toFixed(1)} pts</span></div>`),
-    ...(d.tradesSent||[]).map(r=>`<div class="modal-comp-row"><span class="key pname">${playerImg(r.pid,18,pName(r.pid))}<span>Sent ${pName(r.pid)} (left wk ${r.week+1})</span></span><span class="val" style="color:var(--red)">−${r.pts.toFixed(1)} pts</span></div>`)
-  ].join('')||`<div class="modal-comp-row"><span class="key">No trades found</span><span class="val" style="color:var(--text3)">—</span></div>`;
+  /* ── THE POPUP IS THE SCORE BREAKDOWN ─────────────────────────────────────
+     It used to carry the breakdown AND every input behind it: the points sum,
+     a line per traded player, a line per waiver pickup with its bid, and a
+     debug block. That is the same detail the Trade ROI and Waiver ROI tabs
+     exist to show, laid out better than a modal can, and it made a sheet three
+     screens tall on a phone — long enough to scroll, which is what let a drag
+     escape into the page behind it.
 
-  const waiverRows=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1)).map(w=>{
-    const mar=Math.max(w.margin??w.bid,1);
-    return `<div class="modal-comp-row"><span class="key pname">${playerImg(w.pid,18,pName(w.pid))}<span>${pName(w.pid)} · wk ${w.week} · $${w.bid}${w.next?` (next bid $${w.next})`:''}${w.est?'<span style="opacity:0.6"> est.</span>':''}</span></span><span class="val">${w.pts.toFixed(1)} pts ÷ $${mar} = ${(w.pts/mar).toFixed(2)}x</span></div>`;
-  }).join('')||`<div class="modal-comp-row"><span class="key">No waiver adds found</span><span class="val" style="color:var(--text3)">—</span></div>`;
-
+     Tapping a name on the ranked list asks one question: where did that score
+     come from. C1, C2, C3, the sum, the standardised final. Anyone who wants
+     the players goes to the tab named after them. */
   const modeNote=_cmMode==='inferred'
-    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>: players swapping between two rosters in the same week count as a trade (uneven legs included); strictly one-way roster-to-roster moves are drops claimed off waivers and count toward C3 instead. ESPN also deleted all FAAB bid amounts, so every pickup uses the team's estimated average bid (budget spent ÷ adds) and the C3 margin equals that full bid. Real per-bid margins apply automatically to live seasons.</div>`
+    ?`<div class="modal-note"><i class="fa fa-circle-info" style="margin-right:6px;color:var(--blue)"></i>ESPN deletes the detailed transaction log when a season ends, so trades and pickups for this season are <b>reconstructed from weekly roster changes</b>. Bid amounts are gone too, so every pickup uses the team's estimated average bid.</div>`
     :'';
 
   document.getElementById('cm-title').textContent=team.name;
@@ -1292,40 +1292,64 @@ function openCMModal(teamId){
       <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Raw sum</span><span style="font-weight:700">${rawf.toFixed(3)}</span></div>
       <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Standardized final</span><span style="font-weight:800;font-size:14px;color:${sc(s)}">${s.toFixed(3)}</span></div>
     </div>
-    <div class="modal-comp">
-      <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-chart-line" style="color:var(--accent)"></i>C1 — Points Efficiency</div><div class="modal-comp-value" style="color:${cc(c1f)}">${c1f.toFixed(3)}</div></div>
-      <div class="modal-comp-breakdown">
-        <div class="modal-comp-row"><span class="key">Team PF</span><span class="val">${team.pf.toFixed(1)}</span></div>
-        <div class="modal-comp-row"><span class="key">League Avg PF</span><span class="val">${(d.leagueAvgPF||0).toFixed(1)}</span></div>
-        <div class="modal-comp-row"><span class="key">Difference</span><span class="val" style="color:${cc(team.pf-(d.leagueAvgPF||0))}">${(team.pf-(d.leagueAvgPF||0))>=0?'+':''}${(team.pf-(d.leagueAvgPF||0)).toFixed(1)}</span></div>
-        <div class="modal-comp-row"><span class="key">÷ 10</span><span class="val" style="color:${cc(c1f)}">${c1f.toFixed(3)}</span></div>
-      </div>
-      <div class="modal-comp-formula">(Team PF − League Avg PF) ÷ 10</div>
-    </div>
-    <div class="modal-comp">
-      <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-right-left" style="color:var(--blue)"></i>C2 — Trade ROI</div><div class="modal-comp-value" style="color:${cc(c2f)}">${c2f>=0?'+':''}${c2f.toFixed(3)}</div></div>
-      <div class="modal-comp-breakdown">${tradeRows}</div>
-      <div class="modal-comp-formula">Σ (pts scored by received players after trade − pts scored by sent players after trade) ÷ 10</div>
-    </div>
-    <div class="modal-comp">
-      <div class="modal-comp-top"><div class="modal-comp-label"><i class="fa fa-magnifying-glass-dollar" style="color:var(--green)"></i>C3 — Waiver ROI</div><div class="modal-comp-value" style="color:${cc(c3f)}">${c3f>=0?'+':''}${c3f.toFixed(3)}</div></div>
-      <div class="modal-comp-breakdown">${waiverRows}</div>
-      <div class="modal-comp-formula">Σ (lineup pts scored by pickup ÷ (winning FAAB bid − next-highest bid)) ÷ 10 — the margin rewards efficient bids; if nobody else bid, the margin is the full bid</div>
-    </div>
-    <details class="modal-debug">
-      <summary>🔍 Debug info</summary>
-      <pre>Transaction source: ${_txMeta.source} (${_txMeta.count} records)
-Attempts: ${(_txMeta.diag||[]).map(a=>`${a.name}=${a.count??0}${a.status&&a.status!==200?`(${a.status})`:''}`).join('  ')||'—'}
-Weeks loaded for scoring: ${d.weeksLoaded||0}
-TX types seen this team: ${Array.from(d.txTypes||[]).join(', ')||'none'}
-Trades received: ${(d.tradesReceived||[]).length} · sent: ${(d.tradesSent||[]).length}
-Waiver pickups: ${(d.waiverPickups||[]).length}
-Logo URL: ${_logoMap[team.id]||'(none)'}</pre>
-    </details>`;
-  document.getElementById('cm-overlay').classList.add('open');
+    <div class="modal-seealso">Player-by-player detail is on the
+      <b>Trade ROI</b> and <b>Waiver ROI</b> tabs.</div>`;
+  cmModalShow();
+}
+
+/* ── THE PAGE BEHIND A MODAL MUST NOT MOVE ───────────────────────────────────
+   The overlay is fixed and the page behind it stayed scrollable, so a drag
+   that began on the backdrop — or one that carried on after the sheet hit its
+   end — took the whole app with it. Tap something, look away, come back
+   somewhere else.
+
+   overflow-Y is what gets locked, not overflow: the root already runs
+   `overflow: hidden auto`, and collapsing both axes would drop the horizontal
+   clipping that keeps wide tables from bleeding off a phone. overflow-y:hidden
+   also leaves the scroll offset where it was, so there is no jump on open and
+   nothing to restore on close — the scrollTo below is a no-op unless some
+   browser loses it.
+
+   The padding compensates for the scrollbar that disappears along with the
+   scroll on desktop. Without it the page shifts sideways by its width the
+   instant the modal opens, which is the same complaint from the other side. */
+let _modalLockY=0;
+function modalLock(){
+  const h=document.documentElement;
+  if(h.classList.contains('modal-locked')) return;
+  _modalLockY=window.scrollY||0;
+  const sbw=window.innerWidth-h.clientWidth;
+  if(sbw>0) h.style.paddingRight=sbw+'px';
+  h.classList.add('modal-locked');
+}
+function modalUnlock(){
+  const h=document.documentElement;
+  if(!h.classList.contains('modal-locked')) return;
+  h.classList.remove('modal-locked');
+  h.style.paddingRight='';
+  if(Math.abs((window.scrollY||0)-_modalLockY)>1) window.scrollTo(0,_modalLockY);
+}
+/* A touch that starts on the backdrop is not a scroll of anything — the sheet
+   is a sibling of that gesture, not its target. Cancelling it there stops the
+   drag reaching the page behind on the browsers where an overflow lock alone
+   does not. Bound once, and only for touches landing on the overlay itself, so
+   scrolling inside the sheet is untouched. */
+function cmModalShow(){
+  const ov=document.getElementById('cm-overlay');
+  if(!ov) return;
+  if(!ov._dragGuarded){
+    ov._dragGuarded=true;
+    ov.addEventListener('touchmove',e=>{ if(e.target===ov) e.preventDefault(); },{passive:false});
+  }
+  const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;   // a new manager opens at the top
+  ov.classList.add('open');
+  modalLock();
 }
 function closeCMModal(e){if(e.target===document.getElementById('cm-overlay'))closeCMModalDirect();}
-function closeCMModalDirect(){document.getElementById('cm-overlay').classList.remove('open');}
+function closeCMModalDirect(){
+  document.getElementById('cm-overlay').classList.remove('open');
+  modalUnlock();
+}
 
 // ── BIG 4 ──────────────────────────────────────────────────────────────────────
 function h2h(idA,idB){
