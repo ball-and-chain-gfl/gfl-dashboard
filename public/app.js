@@ -2096,9 +2096,10 @@ let _draftCounts=null,_draftCountsPromise=null,_draftCountsPainted=false;
 function draftCounts(){
   if(_draftCounts) return _draftCounts;
   if(!_draftCountsPromise){
-    _draftCountsPromise=loadAllDrafts().then(({rows})=>{
+    /* pickRows, not rows: every draft that has happened, graded or not */
+    _draftCountsPromise=loadAllDrafts().then(({pickRows})=>{
       const m={};
-      rows.forEach(r=>{ if(r.owner==null) return;
+      (pickRows||[]).forEach(r=>{ if(r.owner==null) return;
         const o=m[r.owner]||(m[r.owner]={});
         o[r.pid]=(o[r.pid]||0)+1; });
       return (_draftCounts=m);
@@ -2617,12 +2618,19 @@ async function loadAllDrafts(){
     ]);
     return {s, picks:dr?.picks||[], stats:st?.players||[]};
   }));
-  const rows=[], teamDrafts=[], ownerTotals={}, ownerCounts={};
+  const rows=[], pickRows=[], teamDrafts=[], ownerTotals={}, ownerCounts={};
   results.forEach(({s,picks,stats})=>{
     const r=computeDraftRows(picks,stats,s);
+    if(r.length) pickRows.push(...r);
     /* A season with no football in it has no finish ranks, so it has no draft
        score either. It must not reach an all-time aggregate, where it would land
-       as twelve classes tied on zero and drag every average toward nothing. */
+       as twelve classes tied on zero and drag every average toward nothing.
+
+       IT IS STILL A DRAFT, THOUGH. This gate is about SCORING a class, and it
+       was also deciding who had ever been drafted — so a player taken in this
+       year's draft was not counted as drafted, and Player Data told a manager he
+       had taken somebody twice on the third time of asking. The picks go into
+       pickRows before the gate; only the grades are held back by it. */
     if(!r.length||!r[0].graded) return;
     rows.push(...r);
     const totals={};
@@ -2634,7 +2642,7 @@ async function loadAllDrafts(){
       ownerTotals[owner]=(ownerTotals[owner]||0)+total; ownerCounts[owner]=(ownerCounts[owner]||0)+1;
     });
   });
-  _draftAllCache={rows,teamDrafts,ownerTotals,ownerCounts};
+  _draftAllCache={rows,pickRows,teamDrafts,ownerTotals,ownerCounts};
   return _draftAllCache;
 }
 /* FAAB left, shown beside the team name on a profile. ESPN reports the budget
@@ -11000,22 +11008,31 @@ function bucksBaseAt(t){
    everything. 520 is ten years of weeks against a dashboard built in 2026, so
    no real plant can reach it. */
 const PLANT_REPLAY_MAX=520;                       // ten years of weeks, and then some
-function plantRevivalCharges(){
+/* The walk keeps the LAST charge as well as the running total. They answer two
+   different questions and both get asked: the balance wants everything this
+   plant has ever cost, the notification wants what the revival that just
+   happened cost. Working the second one out by dividing the first by the fee
+   only holds while every revival charged the same, which is exactly what a
+   part-paid one does not do. */
+function plantWalk(){
+  const none={paid:0,last:0,n:0};
   const pl=bkPlant();
-  if(!pl||!pl.t) return 0;
+  if(!pl||!pl.t) return none;
   const step=plantMsFor(pl.id);
-  if(step!==PLANT_STEP_MS) return 0;              // the fast cycle is never billed
-  const fee=PLANT_REVIVAL_FEE(); if(!fee) return 0;
+  if(step!==PLANT_STEP_MS) return none;           // the fast cycle is never billed
+  const fee=PLANT_REVIVAL_FEE(); if(!fee) return none;
   const n=Math.min(PLANT_REPLAY_MAX,plantStageOf(pl.t,pl.id).revivals);
-  if(n<1) return 0;
+  if(n<1) return none;
   const cycle=PLANT_CYCLE_STEPS*step;
-  let paid=0;
+  let paid=0, last=0;
   for(let i=1;i<=n;i++){
     const had=bucksBaseAt(pl.t+i*cycle)-paid;     // what was left when it came back
-    if(had>0) paid=bucks2(paid+Math.min(fee,had));
+    last=had>0?bucks2(Math.min(fee,had)):0;
+    paid=bucks2(paid+last);
   }
-  return paid;
+  return {paid,last,n};
 }
+function plantRevivalCharges(){ return plantWalk().paid; }
 /* One replay per render, not one per read. bucksBalance is called from the nav
    chip, the bet slip, the quick-stake buttons and twelve leaderboard rows, and
    each call would otherwise walk every revival this manager has ever had.
@@ -11071,13 +11088,17 @@ let _bkNoPlant=false;
    is actually talking about, and leaves every other source — the bets, the
    eggs, the shares — exactly as it was, because those are the money it is
    being charged against. */
-function plantFeeFor(pt,pid){
+function plantForScope(pt,pid,fn){
   const prev=_bkScope;
   /* the reads happen before the assignment, so these are the real ledger */
   _bkScope={bets:bkBets(),eggs:bkEggCount(),eggTimes:bkEggTimes(),lots:bkLots(),
             plant:{t:Number(pt)||0,id:pid}};
-  try{ return plantFee(); } catch(e){ return 0; } finally{ _bkScope=prev; }
+  try{ return fn(); } catch(e){ return 0; } finally{ _bkScope=prev; }
 }
+/* everything a named plant has ever cost */
+function plantFeeFor(pt,pid){ return plantForScope(pt,pid,()=>plantFee()); }
+/* and what its most recent revival cost on its own — what the card reports */
+function plantLastCharge(pt,pid){ return plantForScope(pt,pid,()=>plantWalk().last); }
 function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles(bkNow())); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
 
@@ -12810,39 +12831,27 @@ function ntPlants(out){
        charge the balance did not take is worse than no card at all, so the two
        are made to agree by construction rather than by being written twice.
 
-       IT QUOTES WHAT WENT, AND NEVER A STICKER PRICE. A revival costs $20 and
-       is settled the day it happens, so "fees x revivals" is not a bill anybody
-       is holding — a revival that landed on an empty account was settled at
-       nothing and is closed. An earlier version of this card led with that
-       multiplication and said a manager owed $280, which is a number that has
-       never existed: fourteen separate $20 charges, most of them long since
-       settled at zero, are not one $280 fee.
+       ONE REVIVAL, ONE SENTENCE. A plant dies, comes back, and costs $20 —
+       that is the whole event, and it is the same event every time. Counting
+       how many have happened since the last watering turns a $20 charge into a
+       paragraph of arithmetic about totals and shortfalls and what is not owed,
+       which is a worse way of saying $20 came off.
 
-       So it reports the two things that are true. How many times the plant has
-       died since it was last watered, and what actually came off the balance
-       for them. When some of them cost nothing it says so, in those terms —
-       not as a shortfall against a total nobody was ever charged. */
+       So the card reports the revival that just happened and what THAT one
+       cost. Earlier ones were settled when they happened and have nothing left
+       to say. */
     if(!_me||String(p.id)!==String(_me.k1)) return;
     if(!revivals||ms!==PLANT_STEP_MS) return;
-    const fee=PLANT_REVIVAL_FEE(); if(!fee) return;
-    const took=plantFeeFor(t,p.id);
-    const paidFor=Math.round(took/fee);            // how many were actually paid for
-    const free=Math.max(0,revivals-paidFor);
+    if(!PLANT_REVIVAL_FEE()) return;
+    const took=plantLastCharge(t,p.id);
     out.push({kind:'revive', day:ntDayOf(t+revivals*cycle),
       id:`plr:${p.id}:${t}:${revivals}`, title:'Plant Revival Fee',
       art:ntStat(_ownerMap[tid],nm,bucksFmt(took),'taken'),
-      body:(revivals>1
-        ?`Your plant has died and been revived <b>${revivals}</b> times since you
-           last watered it. <b>${bucksFmt(took)}</b> has come off your GFL Bucks. `
-        :`Your plant was dead for ${plantDryLabel(PLANT_DEAD_STEPS*ms)} and has been
-           revived. <b>${bucksFmt(took)}</b> has come off your GFL Bucks as a Plant
-           Revival Fee. `)
-        +(free>0
-          ?`${free===revivals?'Every one of them':`${free} of them`} landed on an
-            empty account and cost nothing — a revival nobody can pay for is
-            settled there and then, not carried. `
-          :'')
-        +(revivals>1?'Water it.':'')});
+      body:took>0
+        ?`Your plant died and has been revived. <b>${bucksFmt(took)}</b> has come
+          off your GFL Bucks.`
+        :`Your plant died and has been revived. Your account was empty, so this
+          one was free.`});
   });
 }
 /* "5 days" for a real plant, "1.3 min" for one on the short test cycle */
