@@ -6452,7 +6452,15 @@ function fsNoteResponse(r){
    on the homepage doing nothing will not appear until you leave and come back.
    Seeing that live needs a real-time listener, which the REST API cannot do —
    see the note on leagueStart. */
-const LEAGUE_GAP=5*60*1000;
+/* Fifteen minutes, not five. This is the read that fires most often — thirteen
+   profile documents every time it runs, on every open homepage — and tripling
+   the gap takes two thirds of it off a long visit.
+
+   What it costs is above: another manager's ballot landing while you sit on the
+   homepage doing nothing now takes up to a quarter of an hour to appear rather
+   than five minutes. Nothing you do yourself waits on it — casting a vote or a
+   pick forces a poll — and coming back to the tab still checks. */
+const LEAGUE_GAP=15*60*1000;
 let _leagueLast=0;
 let _leagueTimer=null;
 async function leaguePoll(force){
@@ -11358,7 +11366,10 @@ async function betList(){
     return mine.concat(seats.filter(b=>!seen.has(b.id))).sort((a,b)=>b.ts-a.ts);
   }catch(e){ _betErr='offline'; return null; }
 }
-async function betRefresh(){ const l=await betList(); if(l) _bets=l; }
+async function betRefresh(){
+  betsAllDrop();                    // my own bet must not be missing from the board
+  const l=await betList(); if(l) _bets=l;
+}
 
 /* ── EVERY MANAGER'S BETS, FOR THE BOARDS ────────────────────────────────────
    The sportsbook reads one owner's bets, which is right: it is your ledger and
@@ -11370,14 +11381,61 @@ async function betRefresh(){ const l=await betList(); if(l) _bets=l; }
    fetched once per session rather than per render. A single equality filter
    needs no composite index, which is what keeps it from breaking the way an
    ordered query would. */
+/* ── THE SEASON'S BETS SURVIVE A NAVIGATION ──────────────────────────────────
+   This is the largest single read the app makes: every ticket in the season, in
+   one query. It was held in a variable, which a page load throws away, so every
+   reload and every return to the site paid for the whole collection again — 54
+   documents today and capped at 300, against a daily allowance of 50,000.
+
+   sessionStorage rather than localStorage: it is a snapshot of twelve people's
+   money and it has no business outliving the tab. Keyed by season so January
+   cannot serve December's board.
+
+   TWO MINUTES, because the staleness this buys is somebody ELSE's bet not
+   showing up yet. Anything written from this tab drops the cache outright —
+   betRefresh is the single funnel every placement, acceptance and cash-out goes
+   through — so your own money is never the thing that looks wrong. */
+const BETS_ALL_TTL=120000;
+const betsAllKey=()=>`gfl:betsAll:${sbSeason()}`;
+function betsAllCached(){
+  try{
+    const raw=sessionStorage.getItem(betsAllKey()); if(!raw) return null;
+    const j=JSON.parse(raw);
+    if(!j||!Array.isArray(j.rows)) return null;
+    if(Date.now()-(Number(j.t)||0)>BETS_ALL_TTL) return null;
+    return j.rows;
+  }catch(e){ return null; }
+}
+function betsAllStore(rows){
+  try{ sessionStorage.setItem(betsAllKey(),JSON.stringify({t:Date.now(),rows})); }
+  catch(e){}                                  // quota or private mode: just do not cache
+}
+/* Anything that writes a bet calls this. Clearing the variable alone would leave
+   the stored copy to be served on the next navigation, which is the same bug
+   from one step further away. */
+function betsAllDrop(){
+  _betsAll=null;
+  try{ sessionStorage.removeItem(betsAllKey()); }catch(e){}
+}
+/* when the stored copy was taken, so a board can say how old it is rather than
+   leaving somebody to guess whether they are looking at live money */
+function betsAllAt(){
+  try{
+    const j=JSON.parse(sessionStorage.getItem(betsAllKey())||'null');
+    return (j&&Number(j.t))||0;
+  }catch(e){ return 0; }
+}
 let _betsAll=null,_betsAllBusy=false;
 async function betLeague(){
   if(_betsAll) return _betsAll;
+  const cached=betsAllCached();
+  if(cached){ _betsAll=cached; return _betsAll; }
   if(_betsAllBusy) return null;
   _betsAllBusy=true;
   try{
     const rows=await betQuery(fsEq('season',String(sbSeason())));
     _betsAll=rows||[];
+    if(rows) betsAllStore(rows);
   }catch(e){ _betsAll=[]; }
   _betsAllBusy=false;
   return _betsAll;
@@ -14362,6 +14420,46 @@ const ldCol=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text2)';
 let _ldView='bets';                      // 'bets' | 'folio'
 function ldSetView(v){ _ldView=(v==='folio')?'folio':'bets'; renderLeaders(); }
 
+/* ── A BOARD THAT CAN BE ASKED AGAIN ─────────────────────────────────────────
+   The two boards here are the expensive page: every ticket in the season, plus
+   every profile. Both are now cached — the bets for two minutes, the profiles
+   for fifteen — which is what keeps the daily read count down, and it means
+   what is on screen can be a few minutes behind somebody else's bet.
+
+   The honest answer to that is not a shorter cache, it is a button. A cache
+   nobody can override is a guess about how fresh people need the data to be;
+   a cache with a refresh beside it lets them decide, and costs one read only
+   when somebody actually wants one. Your own money never needs it — placing a
+   bet drops the cache — so this is here for watching everybody else's.
+
+   It says how old the figures are, because "Refresh" on its own does not tell
+   anybody whether they need to press it. */
+let _ldBusy=false;
+function ldAgeText(){
+  const t=betsAllAt(); if(!t) return 'Live';
+  const s=Math.max(0,Math.round((Date.now()-t)/1000));
+  if(s<15) return 'Just now';
+  if(s<60) return `${s}s ago`;
+  const m=Math.round(s/60);
+  return `${m} min ago`;
+}
+async function ldRefresh(){
+  if(_ldBusy) return;
+  _ldBusy=true; try{ renderLeaders(); }catch(e){}
+  try{
+    betsAllDrop();
+    _cpFetched=false; _leagueLast=0;
+    /* gflListProfiles directly, not leaguePoll — that one returns early unless
+       the homepage is open, so calling it from here would do nothing at all */
+    await Promise.all([
+      betLeague(),
+      gflListProfiles().then(r=>{ if(r){ _cpRows=r; _cpFetched=true; } }).catch(()=>{}),
+    ]);
+  }catch(e){}
+  _ldBusy=false;
+  try{ renderLeaders(); }catch(e){}
+}
+
 function renderLeaders(){
   const bk=document.getElementById('ld-bk-body');
   const mo=document.getElementById('ld-money-body');
@@ -14410,6 +14508,11 @@ function renderLeaders(){
   const tabs=`<div class="standings-filters ld-filters">
     <button class="filter-btn${_ldView==='bets'?' active':''}" onclick="ldSetView('bets')">Bets</button>
     <button class="filter-btn${_ldView==='folio'?' active':''}" onclick="ldSetView('folio')">Portfolios</button>
+  </div>
+  <div class="ld-fresh">
+    <span class="ld-fresh-t">${_ldBusy?'Reading the book…':ldAgeText()}</span>
+    <button class="ld-fresh-b" onclick="ldRefresh()" ${_ldBusy?'disabled':''}>
+      <i class="fa fa-rotate${_ldBusy?' fa-spin':''}"></i>Refresh</button>
   </div>`;
   if(!_betsAll&&_ldView==='bets'){
     mo.innerHTML=tabs+'<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading the book…</div>';

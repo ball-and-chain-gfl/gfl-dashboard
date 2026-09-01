@@ -2631,6 +2631,21 @@
     /* Two halves of the width, like the sportsbook's board filters — a pair of
        content-width pills floating at the left of an empty row does not read as
        a switch between two views of the same thing. */
+    /* The refresh sits under the view switcher rather than in it: the switcher
+       is a two-up grid on a phone and a third cell would either squash the two
+       that matter or wrap them onto their own row. */
+    .ld-fresh{display:flex;align-items:center;justify-content:flex-end;gap:10px;
+      margin:8px 2px 0;font-family:'Inter',sans-serif;}
+    .ld-fresh-t{font-size:11.5px;letter-spacing:.02em;color:var(--text3);}
+    .ld-fresh-b{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;
+      letter-spacing:.02em;color:var(--text2);background:transparent;
+      border:1px solid var(--line);border-radius:999px;padding:5px 12px;
+      transition:border-color .15s,color .15s;}
+    .ld-fresh-b:hover:not(:disabled){color:var(--text);border-color:var(--text3);}
+    .ld-fresh-b:disabled{opacity:.55;cursor:default;}
+    .ld-fresh-b:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+    .ld-fresh-b i{font-size:10.5px;}
     .ld-filters{display:grid!important;grid-template-columns:1fr 1fr;gap:6px;
       margin:0 0 14px!important;padding:0!important;}
     .ld-filters .filter-btn{width:100%;justify-content:center;text-align:center;}
