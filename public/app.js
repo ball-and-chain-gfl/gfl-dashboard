@@ -12541,11 +12541,45 @@ const motwPickKey=()=>`motw_${motwInfo().season||bkLeagueSeason()}_t${motwStamp(
    write would mean that history simply stops accruing, and it cannot be
    reconstructed after the fact. */
 const motwWeekKey=(season,wk)=>`motwwk_${season||motwInfo().season||bkLeagueSeason()}_w${wk||motwWeek()}`;
+/* ── A NEW TUESDAY IS NOT A NEW SLATE UNTIL FOOTBALL SAYS SO ─────────────────
+   The stamp above turns over at midnight on Tuesday on purpose, so the weekly
+   job lands on a schedule people can plan around rather than whenever ESPN
+   happens to finish scoring. That is right once the season is running and wrong
+   before it starts: through a pre-season the Tuesday rolls, the key changes, and
+   the pick made against week 1 vanishes — while the week 1 fixtures are still
+   sitting there unplayed, waiting to be asked about again. The picker gets a
+   card every Tuesday to choose the same matchup out of the same six games, and
+   everybody's picks grid loses its double.
+
+   So while no week has been played, an unset key falls back to the most recent
+   Tuesday of this season that DOES carry a pick. The stamps sort as strings
+   because they are yyyymmdd, so "most recent" is just the largest.
+
+   Nothing is rewritten and no key changes: the original field stays exactly
+   where it is, which is what keeps the pick that is already on the profile. The
+   moment a week goes final the fallback stops and the rhythm is the calendar's
+   again. */
+function motwSeasonStarted(){
+  /* Erring towards "started" is the safe default: it is the behaviour that
+     shipped, and the fallback resurrecting an old pick mid-season would be a
+     worse failure than losing one in a pre-season. */
+  try{ return bucksWeeksPlayed(motwInfo().season||bkLeagueSeason())>0; }
+  catch(e){ return true; }
+}
 /* [idA,idB] once this Tuesday's pick is in, null until then */
 function motwChosen(){
   const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
-  const m=/^(\d+)-(\d+)$/.exec(r?String(r[motwPickKey()]||'').trim():'');
-  return m?[Number(m[1]),Number(m[2])]:null;
+  if(!r) return null;
+  const parse=v=>{ const m=/^(\d+)-(\d+)$/.exec(String(v||'').trim());
+    return m?[Number(m[1]),Number(m[2])]:null; };
+  const now=parse(r[motwPickKey()]);
+  if(now||motwSeasonStarted()) return now;
+  const pre=`motw_${motwInfo().season||bkLeagueSeason()}_t`;
+  let best=null;
+  Object.keys(r).forEach(k=>{
+    if(k.length>pre.length&&k.startsWith(pre)&&parse(r[k])&&(!best||k>best)) best=k;
+  });
+  return best?parse(r[best]):null;
 }
 const motwIsSet=()=>!!motwChosen();
 function pkMotwIndex(games){
