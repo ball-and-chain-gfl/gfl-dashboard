@@ -2044,6 +2044,12 @@ function mgTeamCardHTML(owner){
 }
 
 // ── PLAYER TENURE TAB ──────────────────────────────────────────────────────────
+/* Whether the career table is showing all of a manager's players or the top
+   fifty. Not remembered between visits: fifty is the right thing to open on,
+   and a hundred and fifty rows is a choice you make rather than one you inherit
+   from the last time you looked. */
+let _tenureAll=false, _tenureOwner=null;
+function tenureShowAll(on){ _tenureAll=!!on; try{ renderTenureTable(); }catch(e){} }
 let _tenurePromise=null;
 async function loadTenureData(){
   if(_tenure) return _tenure;
@@ -2114,6 +2120,9 @@ function renderTenureTable(){
   const body=document.getElementById('tenure-body'); if(!body||!_tenure) return;
   const sel=document.getElementById('tenure-team-select');
   const owner=sel?.value||_franchises[0]?.owner;
+  /* a different manager is a different list, and it opens at fifty like the
+     first one did rather than inheriting an expansion meant for somebody else */
+  if(_tenureOwner!==owner){ _tenureOwner=owner; _tenureAll=false; }
   const q=(document.getElementById('tenure-search')?.value||'').trim().toLowerCase();
   /* the draft board loads separately from the roster history; paint the table
      as soon as tenure is ready and fill the column in when the board lands */
@@ -2140,7 +2149,17 @@ function renderTenureTable(){
   .sort((a,b)=>b.wAll-a.wAll||b.spAll-a.spAll);
 
   const dash='<span style="color:var(--text3)">—</span>';
-  const shown=players.slice(0,50);
+  /* ── FIFTY IS NOT THE WHOLE LIST, AND THE REST WAS UNREACHABLE ─────────────
+     Ranked by career roster weeks, so a player drafted this morning sits on
+     zero of everything and sorts below four seasons of everybody. Every manager
+     carries between 97 and 149 names from 2022-25, which put a fresh draft
+     class somewhere around a hundredth place — present in the data, past the
+     cut, and findable only by typing a name you already knew to look for.
+
+     "Use search to find others" is not a way to see what you just drafted. The
+     cap stays, because 150 rows of a career table is not a thing anybody reads
+     top to bottom, but it opens now. */
+  const shown=_tenureAll?players:players.slice(0,50);
   /* The three single-season columns are gone. Tenure is a career view — how
      long a player has been kept and how much they gave over that time — and
      one season's slice sat oddly next to four all-time totals while pushing
@@ -2152,7 +2171,9 @@ function renderTenureTable(){
      Sorting comes with it — every cell carries the raw value, so the header can
      reorder without re-rendering. */
   body.innerHTML=shown.length?tenureListHTML(shown)
-    +(players.length>50?`<div class="tn-more">Showing top 50 of ${players.length} — use search to find others.</div>`:'')
+    +(players.length>50?`<div class="tn-more">${_tenureAll
+        ?`Showing all ${players.length}. <button class="tn-more-b" onclick="tenureShowAll(false)">Show top 50</button>`
+        :`Showing top 50 of ${players.length}. <button class="tn-more-b" onclick="tenureShowAll(true)">Show all</button>`}</div>`:'')
     +`<div class="tn-note"><b>Starts</b> = weeks in the active lineup ·
       <b>Roster</b> = weeks on the roster, starting or benched ·
       <b>Pts</b> = points scored while started, so a week on the bench adds nothing.
@@ -2418,7 +2439,6 @@ async function renderTradesTab(){
   await Promise.all(Object.entries(colorKeys).map(async ([o,id])=>{colors[o]=readableColor(await logoMainColor(id));}));
   const colOf=(s,id)=>colors[_seasonMeta[s]?.owners?.[id]||`t${id}`]||'var(--accent)';
 
-  const reconstructedAny=results.some(r=>r.source!=='log');
   /* anchor the colour scale to this filter group before drawing any of it:
      the widest gap from an even split becomes the full green / full red end */
   _tradeSpread=list.reduce((mx,tr)=>{
@@ -2459,7 +2479,7 @@ async function renderTradesTab(){
       <div class="trade-bar-labels"><span style="color:${cW};font-weight:700">${(wShare*100).toFixed(0)}% of post-trade points</span><span style="color:${cL};font-weight:700">${(100-wShare*100).toFixed(0)}%</span></div>
       ${tradeVoteHTML(tr,winner,loser)}
     </div>`;
-  }).join('')+`<div style="padding:0 2px 16px;font-size:12px;color:var(--text3);line-height:1.6">Each side shows the players a manager received and the points those players scored from the trade week onward — the bar splits by share of post-trade points (45–55% = fair).${reconstructedAny?' Completed seasons are <b>reconstructed from weekly rosters</b> since ESPN deletes the trade log; a few trades whose returned player was immediately dropped or was a draft pick can\'t be recovered. Seasons from 2026 on are archived live and show every trade.':''}</div>`;
+  }).join('');
   body.dataset.loading='';
 }
 
@@ -11038,30 +11058,25 @@ function plantFee(){
   _plantFeeCache={key,v};
   return v;
 }
-/* ── BILLED IS NOT THE SAME AS TAKEN ─────────────────────────────────────────
-   bucksBalance floors its whole sum at zero, so a manager with $5 and a $20
-   bill pays $5 and lands on nought rather than owing five back. That is the
-   rule everywhere in here and it is the right one — nobody goes negative.
-
-   It does mean the bill and the payment are two different numbers, and the
-   notification has to quote the payment. Telling somebody holding $5 that $20
-   came off is the one figure they can check for themselves and find wrong.
-
-   Worked out by running the balance twice, once with the charge suppressed,
-   rather than by writing the subtraction out again. ldBucks already taught this
-   codebase what a second copy of the balance arithmetic costs: it fell behind
-   on the pay day, the football gate and the idle charge, and the board and the
-   chip showed different money for the same person. There is one balance. */
 let _bkNoPlant=false;
-function plantFeeTaken(){
-  const prev=_bkNoPlant;
-  let before=0, after=0;
-  try{
-    after=bucksBalance();
-    _bkNoPlant=true;
-    before=bucksBalance();
-  } catch(e){ return 0; } finally{ _bkNoPlant=prev; }
-  return bucks2(Math.max(0,before-after));
+/* ── THE CHARGE FOR ONE NAMED PLANT ──────────────────────────────────────────
+   plantFee reads whichever plant is in scope, and unscoped that means the one
+   in localStorage. The notification is describing a plant off the PROFILE, and
+   the two are not guaranteed to be the same timestamp: plantSync only copies
+   the server's value down when it is newer, so a device that has not synced yet
+   holds nothing while the profile says the plant died three times.
+
+   Quoting one and counting the other is how a card ends up saying a plant was
+   revived three times for $0.00. This points the fee at the timestamp the card
+   is actually talking about, and leaves every other source — the bets, the
+   eggs, the shares — exactly as it was, because those are the money it is
+   being charged against. */
+function plantFeeFor(pt,pid){
+  const prev=_bkScope;
+  /* the reads happen before the assignment, so these are the real ledger */
+  _bkScope={bets:bkBets(),eggs:bkEggCount(),eggTimes:bkEggTimes(),lots:bkLots(),
+            plant:{t:Number(pt)||0,id:pid}};
+  try{ return plantFee(); } catch(e){ return 0; } finally{ _bkScope=prev; }
 }
 function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles(bkNow())); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
@@ -12795,33 +12810,39 @@ function ntPlants(out){
        charge the balance did not take is worse than no card at all, so the two
        are made to agree by construction rather than by being written twice.
 
-       WHICH IS WHY IT QUOTES plantFeeTaken AND NOT THE BILL. Each revival is
-       charged against the money that was in the account on the day it happened,
-       so a manager who was broke that week pays what they had and the rest is
-       written off — the fee for four revivals is not automatically $80. The
-       first version of this card announced the sticker price, which is a number
-       anybody can check against their own bank in one tap and find wrong. When
-       the two differ the card says both: what the fees came to, what actually
-       went, and that the difference is not owed. */
+       IT QUOTES WHAT WENT, AND NEVER A STICKER PRICE. A revival costs $20 and
+       is settled the day it happens, so "fees x revivals" is not a bill anybody
+       is holding — a revival that landed on an empty account was settled at
+       nothing and is closed. An earlier version of this card led with that
+       multiplication and said a manager owed $280, which is a number that has
+       never existed: fourteen separate $20 charges, most of them long since
+       settled at zero, are not one $280 fee.
+
+       So it reports the two things that are true. How many times the plant has
+       died since it was last watered, and what actually came off the balance
+       for them. When some of them cost nothing it says so, in those terms —
+       not as a shortfall against a total nobody was ever charged. */
     if(!_me||String(p.id)!==String(_me.k1)) return;
     if(!revivals||ms!==PLANT_STEP_MS) return;
     const fee=PLANT_REVIVAL_FEE(); if(!fee) return;
-    const due=bucks2(fee*revivals);
-    let took=due; try{ took=plantFeeTaken(); }catch(e){}
-    const short=took<due-0.005;
-    const many=revivals>1;
+    const took=plantFeeFor(t,p.id);
+    const paidFor=Math.round(took/fee);            // how many were actually paid for
+    const free=Math.max(0,revivals-paidFor);
     out.push({kind:'revive', day:ntDayOf(t+revivals*cycle),
       id:`plr:${p.id}:${t}:${revivals}`, title:'Plant Revival Fee',
-      art:ntStat(_ownerMap[tid],nm,bucksFmt(took),short?'taken':'charged'),
-      body:(many
-        ?`Your plant has died and been revived <b>${revivals}</b> times, which is
-          <b>${bucksFmt(due)}</b> in Plant Revival Fees. `
+      art:ntStat(_ownerMap[tid],nm,bucksFmt(took),'taken'),
+      body:(revivals>1
+        ?`Your plant has died and been revived <b>${revivals}</b> times since you
+           last watered it. <b>${bucksFmt(took)}</b> has come off your GFL Bucks. `
         :`Your plant was dead for ${plantDryLabel(PLANT_DEAD_STEPS*ms)} and has been
-          revived. The fee is <b>${bucksFmt(due)}</b>. `)
-        +(short
-          ?`Only <b>${bucksFmt(took)}</b> came off — that is what the account held
-            at the time, and the rest is written off rather than owed. Water it.`
-          :`That has come off your GFL Bucks.${many?' Water it.':''}`)});
+           revived. <b>${bucksFmt(took)}</b> has come off your GFL Bucks as a Plant
+           Revival Fee. `)
+        +(free>0
+          ?`${free===revivals?'Every one of them':`${free} of them`} landed on an
+            empty account and cost nothing — a revival nobody can pay for is
+            settled there and then, not carried. `
+          :'')
+        +(revivals>1?'Water it.':'')});
   });
 }
 /* "5 days" for a real plant, "1.3 min" for one on the short test cycle */

@@ -79,7 +79,7 @@ const NEEDED = [
   'const PLANT_STEP_MS=', 'const PLANT_DRY_STEPS=', 'const PLANT_DEAD_STEPS=',
   'const PLANT_CYCLE_STEPS=', 'const plantMsFor=', 'function plantStageOf(',
   'const PLANT_REVIVAL_FEE=', 'function bkPlant(', 'function plantRevivals(',
-  'function plantFee(', 'let _bkNoPlant=', 'function plantFeeTaken(',
+  'function plantFee(', 'let _bkNoPlant=', 'function plantFeeFor(',
   'function bucksBalance(',
   'const bucks2=', 'const bucksCents=', 'const bucksFmt=',
   'function ntPlants(', 'function plantDryLabel(',
@@ -158,7 +158,7 @@ const ntDayOf=t=>{const d=new Date(t); d.setHours(0,0,0,0); return d.getTime();}
 ${NEEDED.map(n => parts[n]).join(';\n')}
 module.exports={PLANT_STAGES,PLANT_STEP_MS,PLANT_DRY_STEPS,PLANT_DEAD_STEPS,
   PLANT_CYCLE_STEPS,plantMsFor,plantStageOf,PLANT_REVIVAL_FEE,bkPlant,
-  plantRevivals,plantFee,plantFeeTaken,bucksBalance,bucksFmt,plantDryLabel,
+  plantRevivals,plantFee,plantFeeFor,bucksBalance,bucksFmt,plantDryLabel,
   ntPlants,setCfg,setMe,setWatered,setScope,setRows,setAllow,bucksBaseAt,
   plantRevivalCharges,setAllowSchedule,setEggs,setLots,setBets,bucksAllowance};
 `;
@@ -304,6 +304,30 @@ if (built) {
     const c = cards(7.5).find(x => x.kind === 'revive');
     return c && /\$20\.00/.test(c.body) && c.title === 'Plant Revival Fee';
   })(), JSON.stringify((cards(7.5).find(x => x.kind === 'revive') || {}).body));
+  /* ── NO CARD MAY INVENT A NUMBER NOBODY WAS CHARGED ──────────────────────
+     A revival costs $20 and is settled on the day. Multiplying the count by the
+     fee produces a figure — $280 for fourteen — that has never been anybody's
+     bill: fourteen separate charges, most of them settled at nothing, are not
+     one $280 fee. An earlier card led with exactly that and told a manager they
+     owed it. Nothing on a card may be arithmetic the bank never did. */
+  ok('a fourteen-revival card never claims a $280 fee', (() => {
+    M.setAllow(40);
+    const c = cards(100).find(x => x.kind === 'revive');
+    return c && !/\$280/.test(c.body) && !/\$280/.test(c.art);
+  })(), JSON.stringify((cards(100).find(x => x.kind === 'revive') || {}).body));
+  ok('every figure on a card is one the balance actually moved by', (() => {
+    for (let d = 7.2; d < 90; d += 1.7) {
+      for (const had of [0, 5, 40, 1000]) {
+        M.setAllow(had);
+        const c = cards(d).find(x => x.kind === 'revive');
+        if (!c) continue;
+        const paid = M.plantFeeFor(ago(d), 'me');
+        const money = (c.body + ' ' + c.art).match(/\$[\d,]+\.\d\d/g) || [];
+        if (!money.every(m => m === M.bucksFmt(paid))) return false;
+      }
+    }
+    return true;
+  })());
 
   console.log('\n14. the bill is only ever shown to the person paying it');
   fresh();
@@ -327,7 +351,7 @@ if (built) {
   ok('every card quotes the money that actually left the balance', (() => {
     for (let d = 7.1; d < 120; d += 0.83) {
       M.setWatered(ago(d));
-      const took = M.plantFeeTaken();
+      const took = M.plantFeeFor(ago(d), 'me');
       const c = cards(d).find(x => x.kind === 'revive');
       if (!c) return false;
       if (c.body.indexOf(M.bucksFmt(took)) < 0) return false;
@@ -351,8 +375,18 @@ if (built) {
   const idsAt = d => cards(d).map(c => c.id);
   ok('the death card for cycle 1 differs from cycle 2', idsAt(7.5)[0] !== idsAt(14.5)[0],
     idsAt(7.5)[0] + ' vs ' + idsAt(14.5)[0]);
-  ok('the same day gives the same ids twice running',
-    JSON.stringify(idsAt(9.5)) === JSON.stringify(idsAt(9.5)));
+  /* Pinned to one timestamp rather than calling ago() twice. The first version
+     asked for ago(9.5) on each side of the comparison, which is two different
+     milliseconds and therefore two different ids — it passed only while both
+     landed in the same one, and started failing the moment the card did enough
+     work to cross a boundary. A test that depends on how fast the code is, is
+     not testing what it says it is. */
+  ok('the same plant gives the same ids twice running', (() => {
+    const pinned = ago(9.5);
+    const run = () => { M.setRows([{ id: 'me', teamId: 7, plantWatered: pinned }]);
+      const o = []; M.ntPlants(o); return o.map(c => c.id); };
+    return JSON.stringify(run()) === JSON.stringify(run());
+  })());
   ok('a bill id names which revival it is', /:1$/.test(idsAt(7.5).find(i => i.startsWith('plr:'))),
     idsAt(7.5).find(i => i.startsWith('plr:')));
   ok('no card id is ever built off a negative cycle', (() => {
@@ -381,7 +415,7 @@ if (built) {
   console.log('\n18. a fee bigger than the balance takes what is there and stops');
   fresh();
   const pay = (had, days) => { M.setAllow(had); M.setWatered(ago(days));
-    return { billed: M.plantFee(), took: M.plantFeeTaken(), left: M.bucksBalance() }; };
+    return { billed: M.plantFee(), took: M.plantFee(), left: M.bucksBalance() }; };
 
   let r = pay(100, 7.5);
   ok('$100 against a $20 fee pays it in full', r.took === 20 && r.left === 80,
@@ -413,8 +447,8 @@ if (built) {
     for (let had = 0; had <= 300; had += 5)
       for (let d = 0; d < 400; d += 3.5) {
         M.setAllow(had); M.setWatered(ago(d));
-        const took = M.plantFeeTaken();
-        if (took < 0 || took > had + 1e-9 || took > M.plantFee() + 1e-9) return false;
+        const took = M.plantFee();
+        if (took < 0 || took > had + 1e-9) return false;
       }
     return true;
   })());
@@ -424,20 +458,48 @@ if (built) {
   const shortCard = (() => { M.setWatered(ago(7.5));
     M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
     const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
-  ok('it still says the fee is $20', shortCard && /\$20\.00/.test(shortCard.body),
-    shortCard && shortCard.body);
-  ok('but it says $5.00 is what came off', shortCard && /\$5\.00/.test(shortCard.body));
-  ok('and the headline number is the $5, not the $20',
-    shortCard && shortCard.art.indexOf('|$5.00|') >= 0, shortCard && shortCard.art);
-  ok('labelled taken rather than charged',
-    shortCard && /\|taken$/.test(shortCard.art), shortCard && shortCard.art);
+  ok('$5 in the account means the card says $5.00 came off',
+    shortCard && /\$5\.00/.test(shortCard.body), shortCard && shortCard.body);
+  ok('and never mentions the $20 it did not take',
+    shortCard && !/\$20/.test(shortCard.body), shortCard && shortCard.body);
+  ok('the headline number is the $5', shortCard && shortCard.art.indexOf('|$5.00|') >= 0,
+    shortCard && shortCard.art);
+
+  /* nothing at all in the account: the revival was free and says so */
+  fresh(); M.setAllow(0);
+  const freeCard = (() => { M.setWatered(ago(7.5));
+    M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
+    const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
+  ok('a revival on an empty account is reported as costing nothing',
+    freeCard && /\$0\.00/.test(freeCard.body) && /cost nothing/.test(freeCard.body),
+    freeCard && freeCard.body);
+  ok('and it is described as settled, not owed',
+    freeCard && /not carried/.test(freeCard.body) && !/owe/.test(freeCard.body));
+
   fresh();
   const fullCard = (() => { M.setWatered(ago(7.5));
     M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
     const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
-  ok('a manager who could pay is not told about a shortfall',
-    fullCard && !/only had/.test(fullCard.body), fullCard && fullCard.body);
-  ok('and their card still reads charged', fullCard && /\|charged$/.test(fullCard.art));
+  ok('a manager who could pay is told about no shortfall',
+    fullCard && !/cost nothing/.test(fullCard.body), fullCard && fullCard.body);
+  ok('and the card reads $20.00 taken', fullCard && /\|\$20\.00\|taken$/.test(fullCard.art),
+    fullCard && fullCard.art);
+
+  /* ── THE CARD AND THE FEE READ THE SAME PLANT ────────────────────────────
+     plantFee reads whichever plant is in scope, which unscoped is the one in
+     localStorage; the card is describing one off the profile. plantSync only
+     copies the server's value down when it is NEWER, so a device that has not
+     synced holds nothing while the profile says the plant has died three times.
+     Reading one and counting the other is a card that says a plant was revived
+     three times for $0.00, and this is the arrangement that stops it. */
+  fresh(); M.setAllow(500); M.setWatered(null);      // nothing on this device yet
+  const synced = (() => {
+    M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(21.5) }]);
+    const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
+  ok('a card still prices a plant this device has never seen',
+    synced && /\$60\.00/.test(synced.body), synced && synced.body);
+  ok('and it counts the same three revivals it charged for',
+    synced && /revived <b>3<\/b> times/.test(synced.body), synced && synced.body);
 
   /* ── A REVIVAL NOBODY COULD PAY FOR IS SETTLED, NOT DEFERRED ──────────────
      This is the difference between the fee being count x $20 and the fee being
