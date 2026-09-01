@@ -1936,7 +1936,10 @@
     .po-track{position:relative;flex:1 1 auto;height:7px;border-radius:999px;
       background:rgba(255,255,255,0.08);min-width:0;}
     .po-band{position:absolute;top:0;bottom:0;border-radius:999px;background:var(--grad);opacity:.85;}
-    .po-med{position:absolute;top:-2px;width:2px;height:11px;background:var(--text);border-radius:1px;}
+    /* WHERE THEY STAND TODAY. White, and ringed, so it reads against the band
+       whatever colour is under it and wherever in the band it sits. */
+    .po-med{position:absolute;top:-3px;width:3px;height:13px;background:#fff;border-radius:2px;
+      margin-left:-1.5px;box-shadow:0 0 0 1px rgba(0,0,0,0.55);}
     .po-rtxt{font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);white-space:nowrap;flex:0 0 auto;}
     .po-odds{font-family:'Inter',sans-serif;font-size:13px;font-weight:800;white-space:nowrap;}
     .po-note{font-size:11.5px;color:var(--text3);line-height:1.5;padding:12px 6px 0;}

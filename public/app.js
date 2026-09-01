@@ -5550,12 +5550,12 @@ function fcImplications(info,owner,p){
   const d=playoffOutlook();
   if(!d) return '';
   const me=d.teams.find(t=>t.owner===owner);
-  if(!me) return '';
+  if(!me||me.odds==null) return '';
   const now=Math.round(me.odds*100);
-  /* A win is worth roughly the slice of the odds riding on this game. Rather
-     than re-running four thousand seasons twice on a tap, the swing is scaled
-     from how much of the season is still open — early games move less than
-     late ones, which is the shape the real simulation has. */
+  /* A win is worth roughly the slice of the odds riding on this game. ESPN
+     prices the season, not this one fixture, so the swing is scaled from how
+     much of the season is still open — early games move less than late ones,
+     which is the shape a real forecast has. */
   const left=Math.max(1,d.left);
   const swing=Math.min(28,Math.round(46/Math.sqrt(left)));
   const win=Math.min(99,now+Math.round(swing*(1-p)));
@@ -6501,7 +6501,7 @@ async function leaguePoll(force){
   if(_fsQuota) return;
   if(_activeTab!=='home') return;        // nothing on any other page reads this
   if(!force && Date.now()-_leagueLast<LEAGUE_GAP) return;
-  const rows=await gflListProfiles();
+  const rows=await gflListProfiles(force);
   if(!rows) return;
   _cpRows=rows; _cpFetched=true;          // so cpSync does not fetch it again
   try{ renderCoachesPoll(); }catch(e){}
@@ -6816,7 +6816,23 @@ async function gflPatchProfile(id,obj){
    creates and patches these docs. One field per matchup: vote_<season>_w<week>
    holds the team id that profile picked. Field name is a plain identifier so
    it needs no quoting in an updateMask path. */
-async function gflListProfiles(){
+/* ── ONE READ, HOWEVER MANY THINGS ASK ───────────────────────────────────────
+   Three separate things want the profile list the moment the app opens: the
+   Coaches' Poll tally, the Ball Knowledge IQ meter and the leaderboards path.
+   All three called this within a few milliseconds of each other, so every load
+   fetched the whole collection THREE TIMES — three round trips before the poll
+   or the notifications could paint, and three times the documents against a
+   daily quota that has run out before.
+
+   A request already in the air is handed to whoever asks next, and the answer
+   is kept for a few seconds after it lands so a caller arriving just behind the
+   others does not start a fourth. `force` skips the memo — the Refresh button
+   on the leaderboards, and anything called straight after this manager has
+   written something — but it still joins a request already running, because
+   that request is already newer than anything it could ask for. */
+const PROFILES_MEMO_MS=4000;
+let _profRows=null,_profAt=0,_profFlight=null;
+async function gflFetchProfiles(){
   try{
     const url=`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles?key=${GFL_DB.key}&pageSize=300`;
     _leagueLast=Date.now();                 // any full read resets the throttle
@@ -6832,6 +6848,37 @@ async function gflListProfiles(){
     const allowed=teamAccountIds();
     return allowed.size ? rows.filter(p=>allowed.has(p.id)) : rows;
   }catch(e){ return null; }
+}
+async function gflListProfiles(force){
+  if(_profFlight) return _profFlight;
+  if(!force&&_profRows&&Date.now()-_profAt<PROFILES_MEMO_MS) return _profRows;
+  _profFlight=gflFetchProfiles()
+    .then(rows=>{ if(rows){ _profRows=rows; _profAt=Date.now(); cpRowsStore(rows); } return rows; })
+    .finally(()=>{ _profFlight=null; });
+  return _profFlight;
+}
+
+/* ── AND A COPY TO PAINT FROM WHILE THAT READ IS IN THE AIR ──────────────────
+   The Coaches' Poll and the notification stack are both built out of the
+   profile list, and both are rendered before it arrives — so they opened blank
+   or a week behind and corrected themselves a moment later. On a slow
+   connection that moment is long enough to look broken.
+
+   The last list of the session is kept in sessionStorage, the same as the
+   sportsbook's ledger, and seeded into _cpRows before the first render. It is
+   only ever a first paint: _cpFetched is deliberately left false, so the real
+   read still happens and still repaints. Per tab, gone when the tab is. */
+const CP_ROWS_KEY='gfl:profiles';
+const CP_ROWS_TTL=12*60*60*1000;
+function cpRowsStore(rows){
+  try{ sessionStorage.setItem(CP_ROWS_KEY,JSON.stringify({t:Date.now(),rows})); }catch(e){}
+}
+function cpRowsWarm(){
+  if((_cpRows||[]).length) return;
+  try{
+    const j=JSON.parse(sessionStorage.getItem(CP_ROWS_KEY)||'null');
+    if(j&&Array.isArray(j.rows)&&j.rows.length&&Date.now()-Number(j.t||0)<CP_ROWS_TTL) _cpRows=j.rows;
+  }catch(e){}
 }
 
 function signInMsg(t,bad){ const el=document.getElementById('si-msg'); if(!el) return;
@@ -8349,18 +8396,69 @@ async function toggleSchedOpp(el){
     </div>`).join('')}</div>`;
 }
 /* ── PLAYOFF OUTLOOK ────────────────────────────────────────────────────────
-   Monte Carlo over whatever is left on the calendar. Every remaining game is
-   decided by schedWinProb, which already blends the power ratings — weighted
-   record, scoring for and against, playoff history and the rest — so the
-   forecast moves on its own as results land and those ratings shift.
+   Two numbers, from two different places, because they are two different
+   questions.
 
-   Each run also carries simulated points, because points for is the tiebreak
-   in this league; without it, equal records would resolve arbitrarily. The
-   range of outcomes is the 10th to 90th percentile of a team's final win
-   total across every run, so it widens early in the year and tightens as the
-   schedule empties. With no games left it reports the settled table. */
-const PO_RUNS=4000;
+   THE ODDS ARE ESPN'S. This used to run four thousand Monte Carlo seasons in
+   the browser on every schedule render. It was a reasonable answer to a
+   question ESPN turns out to answer itself: view=mStandings carries
+   currentSimulationResults.playoffPct per team, and the twelve of them sum to
+   exactly the six playoff places, which is the arithmetic holding. Theirs is
+   the number the league sees on ESPN's own site, so ours agreeing with it is
+   worth more than ours being independently derived — and it costs one small
+   request rather than four thousand simulated seasons on a phone.
+
+   THE RANGE IS ARITHMETIC, not a simulation of one. See below.
+
+   A finished season is neither: who made it is known, so it reports the table
+   as it actually fell. */
 let _poCache=null,_poCacheSeason=null;
+
+/* The two bounds, on their own so they can be checked in isolation. `floorW`
+   is what each team ends on losing out, `ceilW` what it ends on winning out;
+   both counting a tie as half a win, which is how this league orders a table. */
+function poBounds(list,floorW,ceilW,o){
+  return {
+    best: 1+list.filter(y=>y!==o&&floorW[y]>ceilW[o]).length,
+    worst: list.length-list.filter(y=>y!==o&&ceilW[y]<floorW[o]).length,
+  };
+}
+
+/* ESPN's own playoff percentages, per team id, for one season. Fetched once
+   and repainted when it lands, the same shape as every other late arrival
+   here. The outlook cache is dropped on arrival so the odds column fills in
+   rather than waiting for the next render. */
+const ESPN_PO_TTL=10*60*1000;
+let _espnPO={},_espnPOAt={},_espnPOBusy={};
+function espnPlayoff(season){
+  const y=String(season||''); if(!y) return null;
+  const have=_espnPO[y];
+  if(have&&Date.now()-(_espnPOAt[y]||0)<ESPN_PO_TTL) return have;
+  if(!_espnPOBusy[y]){
+    _espnPOBusy[y]=true;
+    fetch(`${BASE}?view=mStandings&seasonId=${y}`,{cache:'no-store'})
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{
+        if(!j||!Array.isArray(j.teams)) return;
+        const by={};
+        j.teams.forEach(t=>{
+          const sim=t&&t.currentSimulationResults;
+          if(!sim||typeof sim.playoffPct!=='number') return;
+          const mr=sim.modeRecord||{};
+          by[String(t.id)]={pct:sim.playoffPct,rank:Number(sim.rank)||0,
+            w:Number(mr.wins)||0,l:Number(mr.losses)||0,
+            clinch:String(t.playoffClinchType||sim.playoffClinchType||'')};
+        });
+        if(!Object.keys(by).length) return;
+        _espnPO[y]=by; _espnPOAt[y]=Date.now();
+        _poCache=null;                       // rebuild with the odds in hand
+        if(_activeTab==='week') try{ renderSchedule(); }catch(e){}
+      })
+      .catch(()=>{})
+      .finally(()=>{ _espnPOBusy[y]=false; });
+  }
+  return have||null;
+}
 function playoffOutlook(){
   /* Keyed on the football as well as the year. This simulates the games that
      are LEFT, so the moment a week is played it is simulating a different set —
@@ -8370,7 +8468,6 @@ function playoffOutlook(){
   if(_poCache&&_poCacheSeason===cs) return _poCache;
   if(_poCacheSeason!==cs) _poCache=null;
   _poCacheSeason=cs;
-  const book=sbBuild(); if(!book) return null;
   const info=schedSeason(), meta=info.meta; if(!meta||!meta.owners) return null;
 
   /* A finished season is not a forecast. Who made it is already known, so the
@@ -8407,7 +8504,6 @@ function playoffOutlook(){
     return _poCache;
   }
   const owners=meta.owners, regEnd=info.regEnd||14;
-  const rowOf=o=>book.rows.find(r=>r.owner===o);
   const list=Object.values(owners).filter((o,i,a)=>o&&a.indexOf(o)===i);
   if(list.length<2) return null;
   const spots=meta.playoffTeamCount||6;
@@ -8433,54 +8529,55 @@ function playoffOutlook(){
     .map(m=>({a:owners[m.home.teamId],b:owners[m.away.teamId],w:m.matchupPeriodId||0}))
     .filter(g=>g.a&&g.b&&g.a!==g.b&&base[g.a]&&base[g.b]);
 
-  /* Keyed by week as well as by pair: the same two teams can meet twice, and on
-     ESPN's weekly numbers those are two different games — different byes,
-     different opponents. */
-  const pre={}; left.forEach(g=>{ const k=g.w+'|'+g.a+'|'+g.b;
-    if(pre[k]==null) pre[k]=schedWinProb(rowOf(g.a),rowOf(g.b),g.w); });
-  const ppg={}; list.forEach(o=>{ ppg[o]=(rowOf(o)||{}).ppg||105; });
+  /* ── WHERE A SEASON CAN STILL END UP ────────────────────────────────────────
+     The arithmetic, not a simulation of it. A team's CEILING is winning every
+     game it has left; its FLOOR is losing every one. From those two numbers the
+     bounds fall out:
 
-  const made={},seedSum={},winTotals={},finishes={};
-  list.forEach(o=>{made[o]=0;seedSum[o]=0;winTotals[o]=[];finishes[o]=[];});
-  // Box-Muller, so simulated weekly scores scatter like real ones
-  const gauss=()=>{const u=1-Math.random(),v=Math.random();
-    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+       another team is CERTAINLY ABOVE  when its floor is above your ceiling
+       another team is CERTAINLY BELOW  when its ceiling is below your floor
+       best  = 1 + how many are certainly above
+       worst = N - how many are certainly below
 
-  for(let n=0;n<PO_RUNS;n++){
-    const w={},pf={};
-    list.forEach(o=>{w[o]=base[o].w+base[o].t*0.5;pf[o]=base[o].pf;});
-    left.forEach(g=>{
-      const p=pre[g.w+'|'+g.a+'|'+g.b];
-      if(Math.random()<p) w[g.a]++; else w[g.b]++;
-      pf[g.a]+=Math.max(0,ppg[g.a]+gauss()*SCHED_SD*0.7);
-      pf[g.b]+=Math.max(0,ppg[g.b]+gauss()*SCHED_SD*0.7);
-    });
-    const order=list.slice().sort((x,y)=>w[y]-w[x]||pf[y]-pf[x]);
-    order.forEach((o,i)=>{ if(i<spots) made[o]++; seedSum[o]+=i+1; finishes[o].push(i+1); });
-    list.forEach(o=>winTotals[o].push(w[o]));
-  }
+     Ties on wins go to points for, which this ignores on purpose: a strict
+     comparison is the safe one for a bound, and a team level with you on wins
+     really could finish either side of you.
 
-  const pct=(arr,q)=>{const s=arr.slice().sort((a,b)=>a-b);
-    return s[Math.min(s.length-1,Math.max(0,Math.round((s.length-1)*q)))];};
+     It behaves the way a season does. With nothing played every ceiling is the
+     full fourteen and every floor is zero, so every band runs first to last and
+     the twelve look identical — which is the truth, and is what the old
+     simulation had to be TOLD to say: four thousand runs never once sampled a
+     good team going winless, so its "range" was narrower than the real one. As
+     the games run out the ceilings come down, the floors come up, and the bands
+     close on the finishing order on their own. Played out to the end, floor and
+     ceiling meet and the band is a single position.
+
+     Note the bound is an outer one: it does not account for the remaining games
+     the other teams have to play against each other, which make some corners of
+     it unreachable. It is never narrower than the truth, which is the direction
+     to be wrong in. */
+  const halfW=o=>base[o].w+base[o].t*0.5;
+  const gamesLeft={}; list.forEach(o=>{ gamesLeft[o]=0; });
+  left.forEach(g=>{ gamesLeft[g.a]++; gamesLeft[g.b]++; });
+  const floorW={},ceilW={};
+  list.forEach(o=>{ floorW[o]=halfW(o); ceilW[o]=halfW(o)+gamesLeft[o]; });
+
   const playedAny=list.some(o=>base[o].w||base[o].l||base[o].t);
+  /* ESPN's odds, joined on team id. One id per owner within a season. */
+  const espn=espnPlayoff(info.season);
+  const tidOf={}; Object.entries(owners).forEach(([tid,o])=>{ if(o&&tidOf[o]==null) tidOf[o]=String(tid); });
+  const espnFor=o=>(espn&&espn[tidOf[o]])||null;
+
   const teams=list.map(o=>{
-    const t=winTotals[o], f=finishes[o];
-    /* Finishes are the full observed span, not a 10th-90th band: the question
-       is where a season could still end up, and with nothing played that is
-       genuinely anywhere from first to last. Trimming the tails would report a
-       narrower range than the simulation actually produced. */
+    const e=espnFor(o);
     return {owner:o, name:(_franchises.find(f2=>f2.owner===o)||{}).name||meta.names?.[o]?.name||o,
-      played:base[o], odds:made[o]/PO_RUNS, seed:seedSum[o]/PO_RUNS,
-      lo:pct(t,0.10), med:pct(t,0.50), hi:pct(t,0.90),
-      fBest:Math.min(...f), fWorst:Math.max(...f), fMed:pct(f,0.50)};
-  }).map(t=>{
-    /* Before a game is played every team can finish anywhere, full stop. The
-       sampler does not always agree — a strong team can go a few thousand runs
-       without ever landing last — but that is the simulation failing to reach a
-       tail, not a real bound, so the unplayed case is stated outright. */
-    if(!playedAny){ t.fBest=1; t.fWorst=list.length; t.odds=spots/list.length; }
-    return t;
-  }).sort((a,b)=>b.odds-a.odds||a.seed-b.seed);
+      played:base[o],
+      odds:e?e.pct:null,
+      projRec:e?`${e.w}–${e.l}`:null,
+      clinch:e?e.clinch:'',
+      fBest:poBounds(list,floorW,ceilW,o).best,
+      fWorst:poBounds(list,floorW,ceilW,o).worst};
+  });
   /* Where each team sits in the table right now, which is what the notch marks.
      Before anything is played every record is identical, so rather than let the
      points-for tiebreak invent an order out of nothing, the whole league is put
@@ -8493,35 +8590,47 @@ function playoffOutlook(){
       .forEach((o,i)=>{ nowRank[o]=i+1; });
   } else list.forEach(o=>{ nowRank[o]=mid; });
   teams.forEach(t=>{ t.now=nowRank[t.owner]; });
+  /* Odds first, then where they actually stand — so two teams ESPN gives the
+     same number to are separated by the table rather than by whichever order
+     the owners happened to come out of the schedule. Name last, so the list is
+     stable from render to render. */
+  teams.sort((a,b)=>(b.odds??-1)-(a.odds??-1)||a.now-b.now||a.name.localeCompare(b.name));
 
-  const maxW=Math.max(1,...teams.map(t=>t.hi));
-  _poCache={teams,spots,left:left.length,runs:PO_RUNS,season:info.season,maxW,regEnd,
-    size:list.length,played:playedAny};
+  _poCache={teams,spots,left:left.length,season:info.season,regEnd,
+    size:list.length,played:playedAny,hasOdds:!!espn};
   return _poCache;
 }
 const ordinal=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
 function playoffOutlookHTML(){
   const d=playoffOutlook();
   if(!d) return '';
-  const pctTxt=v=>v>=0.995?'>99%':v<=0.005?'<1%':Math.round(v*100)+'%';
-  const col=v=>v>=0.85?'var(--green)':v>=0.5?'var(--accent)':v>=0.15?'var(--text2)':'var(--red)';
-  /* Where a team can still finish, not how many games it can still win. The
-     bar runs first place at the left to last at the right, so a wide band is a
-     season still wide open and a short one near the left is a lock. */
+  const pctTxt=v=>v==null?'—':v>=0.995?'>99%':v<=0.005?'<1%':Math.round(v*100)+'%';
+  const col=v=>v==null?'var(--text3)'
+    :v>=0.85?'var(--green)':v>=0.5?'var(--accent)':v>=0.15?'var(--text2)':'var(--red)';
+  /* ── THE BAR READS LIKE THE TABLE ────────────────────────────────────────────
+     LAST at the left, FIRST at the right, so moving right is doing better —
+     which is the direction everybody already reads a bar in, and the opposite
+     of how this used to be drawn.
+
+     The white mark is where the team stands in the table right now. The
+     coloured band is every position it can still finish in. So a band filling
+     the whole track is a season still completely open, and a short band with
+     the mark inside it is one that has more or less decided. */
   const N=d.size||d.teams.length;
-  const posPct=p=>N<2?0:(p-1)/(N-1)*100;
+  const posPct=p=>N<2?100:(N-p)/(N-1)*100;      // 1st -> 100%, last -> 0%
   const rows=d.teams.map((t,i)=>{
     const inCut=i<d.spots;
-    const l=posPct(t.fBest), r=posPct(t.fWorst), m=posPct(t.now);
+    const l=posPct(t.fWorst), r=posPct(t.fBest), m=posPct(t.now);
     const nowTxt=d.played?`currently ${ordinal(Math.round(t.now))}`:'level with the league';
+    const proj=t.projRec?` ESPN has them finishing ${t.projRec}.`:'';
     return `<div class="po-row${inCut?' po-in':''}">
       <span class="po-rk">${i+1}</span>
       <span class="po-nm">${t.name}</span>
       <span class="po-rec">${t.played.w}–${t.played.l}${t.played.t?`–${t.played.t}`:''}</span>
-      <span class="po-range" title="Can finish anywhere from ${ordinal(t.fBest)} to ${ordinal(t.fWorst)}; ${nowTxt}. Projected ${t.lo}–${t.hi} wins.">
+      <span class="po-range" title="Can still finish anywhere from ${ordinal(t.fBest)} to ${ordinal(t.fWorst)}; ${nowTxt}.${proj}">
         <span class="po-track"><span class="po-band" style="left:${l}%;width:${Math.max(2,r-l)}%"></span>
         <span class="po-med" style="left:${m}%"></span></span>
-        <span class="po-rtxt">${ordinal(t.fBest)}–${ordinal(t.fWorst)}</span>
+        <span class="po-rtxt">${t.fBest===t.fWorst?ordinal(t.fBest):`${ordinal(t.fBest)}–${ordinal(t.fWorst)}`}</span>
       </span>
       <span class="po-odds" style="color:${col(t.odds)}">${pctTxt(t.odds)}</span>
     </div>`;}).join('');
@@ -8540,10 +8649,13 @@ function playoffOutlookHTML(){
   </div>`;
   return `<div class="sec po-sec">
     <div class="sec-head"><i class="fa fa-chart-simple"></i>Playoff Outlook
-      <span class="badge-info">${d.left?`${d.left} games left · ${d.runs.toLocaleString()} simulations`:'regular season complete'}</span></div>
+      <span class="badge-info">${d.left?`${d.left} games left${d.hasOdds?' · odds from ESPN':''}`:'regular season complete'}</span></div>
     <div class="po-head"><span></span><span>Team</span><span>Rec</span><span>Range of outcomes</span><span class="r">Playoffs</span></div>
     <div class="po-list">${rows}</div>
-    <div class="po-note">Every remaining game is simulated ${d.runs.toLocaleString()} times using the same power ratings the sportsbook prices with. The bar spans every finishing position a team reached across those runs — first at the left, ${ordinal(N)} at the right — with the notch marking where that team sits in the table right now. Before a game is played the whole league can still land anywhere, so every range opens at 1st–${ordinal(N)} with the notch dead centre, and both tighten as results come in. The top ${d.spots} shaded rows are the current projected field.</div>
+    <div class="po-note">${d.hasOdds
+      ?`The playoff percentages are ESPN's own, so they match what the league sees on the ESPN app — the twelve of them add up to the ${d.spots} places.`
+      :`ESPN has not published playoff percentages for ${d.season} yet, so that column is empty.`}
+      The bar beside each team is not a projection: it is every position that team can still finish in by the arithmetic, with last at the left and first at the right. Its edges are set by winning out and losing out — a team is only ruled above you once its worst possible finish is still better than your best, and only ruled below once its best cannot reach your worst. The white mark is where they stand today. With nothing played every team can still finish anywhere, so the bands fill the track; they close on their own as the games run out, and on the last day each one is a single position. The top ${d.spots} shaded rows are the current projected field.</div>
   </div>`;
 }
 function renderSchedule(){
@@ -14684,7 +14796,7 @@ async function ldRefresh(){
        the homepage is open, so calling it from here would do nothing at all */
     await Promise.all([
       betLeague(),
-      gflListProfiles().then(r=>{ if(r){ _cpRows=r; _cpFetched=true; } }).catch(()=>{}),
+      gflListProfiles(true).then(r=>{ if(r){ _cpRows=r; _cpFetched=true; } }).catch(()=>{}),
     ]);
   }catch(e){}
   _ldBusy=false;
@@ -17429,6 +17541,9 @@ async function loadDashboard(){
     `;
 
     refreshSeasonOptions();
+    /* last session's profile list, so the poll and the notifications open with
+       something true on them rather than empty — see cpRowsWarm */
+    try{ cpRowsWarm(); }catch(e){}
     renderStandingsTable();
     /* Matchup of the Week is hidden — see the homepage markup. Skipping the
        render is the point: it built a comparison table and ran a vote fetch on

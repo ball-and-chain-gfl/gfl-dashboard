@@ -5,7 +5,7 @@
 // STATIC DATA (/data/*.json): the season being played is network-first (it is
 // still being written); finished seasons are stale-while-revalidate.
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v583';
+const CACHE = 'gfl-v584';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered
@@ -91,14 +91,32 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // App shell + everything else same-origin: network-first, cache fallback.
+  // App shell + everything else same-origin: network-first WITH A TIMEOUT.
+  //
   // HTML/JS/CSS/manifest are fetched with cache:'no-store' so a stale HTTP-cache
-  // copy can never be handed back to an installed home-screen app.
+  // copy can never be handed back to an installed home-screen app. That part
+  // stays. What did not work was waiting on it forever: index.html and app.js
+  // are about 430KB gzipped between them, and they were downloaded in full on
+  // EVERY open — not just after a deploy — with the cached copy used only if the
+  // network actually threw. On a phone on a bad signal that is the whole of the
+  // "it takes forever to load" complaint, and it happens before a line of the
+  // app has run.
+  //
+  // So the network gets SHELL_TIMEOUT_MS to answer. Past that, whatever is in
+  // the cache is served and the request is left running, so the new build lands
+  // in the cache and is what opens next time. The app is never STUCK on an old
+  // version — which is what network-first was protecting — it is at most one
+  // load behind, and only on a connection too slow to have delivered the new one
+  // in a second and a half anyway.
+  //
+  // Nothing is served from cache before the network has had its chance, and a
+  // cold cache still waits: there is nothing else to show.
+  const SHELL_TIMEOUT_MS = 1500;
   const bustable = /\.(?:html|js|css|webmanifest|json)$/.test(url.pathname)
     || url.pathname === '/' || request.mode === 'navigate';
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    try {
+    const net = (async () => {
       let res;
       if (bustable) {
         try { res = await fetch(request, { cache: 'no-store' }); }
@@ -108,9 +126,20 @@ self.addEventListener('fetch', (e) => {
       }
       if (res && res.status === 200 && res.type === 'basic') cache.put(request, res.clone());
       return res;
-    } catch (err) {
-      const cached = await cache.match(request);
-      return cached || cache.match('/');
+    })();
+    const cached = await cache.match(request);
+    if (!cached) {
+      try { return await net; } catch (err) { return cache.match('/'); }
     }
+    const settled = await Promise.race([
+      net.catch(() => null),
+      new Promise((r) => setTimeout(() => r(null), SHELL_TIMEOUT_MS)),
+    ]);
+    if (settled) return settled;
+    // Still in the air, or it failed. Serve what we have and let it finish
+    // writing to the cache for next time; an unhandled rejection here would be
+    // reported against the worker.
+    net.catch(() => {});
+    return cached;
   })());
 });

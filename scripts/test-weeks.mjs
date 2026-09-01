@@ -123,6 +123,7 @@ const parts = [
   grab('function punishWeek(){'),
   grab('function punishName(){'),
   grab('function schedSeason(){'),
+  grab('function poBounds(list,floorW,ceilW,o){'),
 ];
 
 const api = new Function(`
@@ -148,7 +149,7 @@ return {
   weekOver, weeksOf, weeksOverCount, weekDecided, weekScored,
   liveWeekInfo, bucksWeeksPlayed, ntLastWeek, ntResultsDay,
   bkKey, pkKey, motwWeekKey, motwChosen, motwSeasonStarted,
-  tradeVoteOpen, tradeVoteHeldOpen, punishWeek, punishName, schedSeason,
+  tradeVoteOpen, tradeVoteHeldOpen, punishWeek, punishName, schedSeason, poBounds,
 };`)();
 
 let pass = 0, fail = 0;
@@ -417,8 +418,68 @@ console.log("\n8. the Schedule tab knows which row is \"you are here\"");
      })(), 14);
 }
 
+console.log('\n9. where a season can still end up');
+{
+  /* Not a simulation of the rest of the year — the arithmetic. A team's ceiling
+     is winning out, its floor is losing out. Somebody is certainly above you
+     when their floor clears your ceiling, certainly below when their ceiling
+     cannot reach your floor, and everything else is still open. */
+  const TEAMS = ['a', 'b', 'c', 'd'];
+  /* [wins so far, games left] per team, counting a tie as half a win */
+  const range = (state, who) => {
+    const floorW = {}, ceilW = {};
+    TEAMS.forEach(t => { floorW[t] = state[t][0]; ceilW[t] = state[t][0] + state[t][1]; });
+    const r = api.poBounds(TEAMS, floorW, ceilW, who);
+    return [r.best, r.worst];
+  };
+
+  /* NOTHING PLAYED. Everyone is 0-0 with the whole year in front of them, so
+     every team can still finish anywhere. This is the case the old simulation
+     could not produce on its own -- four thousand runs never sampled the best
+     team going winless -- and had to be told to say. */
+  const fresh = { a: [0, 14], b: [0, 14], c: [0, 14], d: [0, 14] };
+  eq('nothing played, top team',    range(fresh, 'a'), [1, 4]);
+  eq('nothing played, everyone',    TEAMS.map(t => range(fresh, t).join('-')),
+     ['1-4', '1-4', '1-4', '1-4']);
+
+  /* HALFWAY. a is 7-0, d is 0-7, seven games left each. Mathematically a can
+     still lose out to 7 and d can still win out to 7, so they can still finish
+     level -- the bands are wide and that is the truth, not a bug. */
+  const half = { a: [7, 7], b: [4, 7], c: [3, 7], d: [0, 7] };
+  eq('halfway, the leader',         range(half, 'a'), [1, 4]);
+  eq('halfway, the tail',           range(half, 'd'), [1, 4]);
+
+  /* IT TIGHTENS. One game left and the table has separated: with a on 12, b on
+     8, c on 6 and d on 2, nobody's last win can reach anybody else's floor, so
+     every band has closed to a single place before the game is even played. */
+  const last = { a: [12, 1], b: [8, 1], c: [6, 1], d: [2, 1] };
+  eq('one to play, the leader',     range(last, 'a'), [1, 1]);
+  eq('one to play, second',         range(last, 'b'), [2, 2]);
+  eq('one to play, third',          range(last, 'c'), [3, 3]);
+  eq('one to play, the tail',       range(last, 'd'), [4, 4]);
+  /* and where it has NOT separated, the band stays open: c on 7 can still pass
+     b on 8 with a win, so both are live for second */
+  const tight = { a: [12, 1], b: [8, 1], c: [7, 1], d: [2, 1] };
+  eq('one to play, still live',     range(tight, 'c'), [2, 3]);
+  eq('and the team above them',     range(tight, 'b'), [2, 3]);
+
+  /* PLAYED OUT. Floor and ceiling meet, so every band is one position. */
+  const done = { a: [11, 0], b: [8, 0], c: [6, 0], d: [3, 0] };
+  eq('finished, first',             range(done, 'a'), [1, 1]);
+  eq('finished, last',              range(done, 'd'), [4, 4]);
+  /* except where two are level on wins: points for decides that, and a bound
+     that guessed which way would be a bound that lies */
+  const tied = { a: [11, 0], b: [7, 0], c: [7, 0], d: [3, 0] };
+  eq('finished level on wins',      range(tied, 'b'), [2, 3]);
+  eq('and the other one',           range(tied, 'c'), [2, 3]);
+
+  /* A TIE COUNTS AS HALF, the way the table orders itself. */
+  const halves = { a: [5.5, 2], b: [5, 2], c: [4, 2], d: [1, 2] };
+  eq('half wins compare properly',  range(halves, 'd'), [4, 4]);
+}
+
 /* ────────────────────────────────────────────────────────────────────────── */
-console.log('\n9. the archive scripts say the same thing as the app');
+console.log('\n10. the archive scripts say the same thing as the app');
 {
   /* Five cron jobs freeze things into the repo on the strength of "that week is
      over", and each carries its own copy of the rule because they run alone.
