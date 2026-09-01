@@ -9,19 +9,24 @@ name: Archive trades
 # degrades from the real log to a reconstruction from weekly rosters, and a few
 # trades cannot be recovered from rosters at all.
 #
-# Weekly, all year. The script decides for itself whether a season has finished
-# (every scheduled game carrying points) and refuses to write while one is still
-# being played, so running this in October costs one API call and writes nothing.
-# Weekly rather than once in January because "once a year, on the right day" is
-# the schedule most likely to be missed, and the run is idempotent — a season
-# already on file is skipped without a fetch.
+# WEEKLY, AND IT TAKES THE VOTES WITH IT. A trade and the league's verdict on
+# it are the same record, but the verdict lives in twelve Firestore profile
+# fields named after the trade — nothing else records it, and nothing would
+# survive a profile reset. Frozen beside the trade it is permanent.
+#
+# Tuesday, after Monday night is final and after archive-week has run, so a
+# trade's points are settled for the week just gone before the snapshot is
+# taken. A season that has finished is written once and skipped afterwards; the
+# season being played is re-snapshotted every week, because it gains trades and
+# votes all season. The app merges that snapshot with the live feed rather than
+# treating it as final — see fetchSeasonTrades.
 on:
   schedule:
-    - cron: '20 15 * * 4'   # Thu 15:20 UTC — nothing else is running then
+    - cron: '00 11 * * 2'   # Tue 11:00 UTC — after archive-week (09:30) and archive-charts (10:00)
   workflow_dispatch:
     inputs:
       season:
-        description: 'Season to archive (blank = every finished one)'
+        description: 'Season to archive (blank = the live one plus any unarchived finished one)'
         required: false
       force:
         description: 'Overwrite a season already on file (type: force)'

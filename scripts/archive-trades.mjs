@@ -1,9 +1,23 @@
 /* Freeze a finished season's trades into /data so the app never asks ESPN for
  * them again.
  *
- *   node scripts/archive-trades.mjs            # every season that has finished
+ *   node scripts/archive-trades.mjs            # the live season, plus any finished one
  *   node scripts/archive-trades.mjs 2026       # one season
  *   node scripts/archive-trades.mjs 2026 force # overwrite one already on file
+ *
+ * It runs WEEKLY, not once at the end, and it takes the votes with it. A trade
+ * and the league's verdict on it are the same record; leaving the verdict in
+ * twelve profile fields keyed by a name nobody can reconstruct is how it gets
+ * lost. Frozen beside the trade it survives a profile reset, a rename, and any
+ * future change to how vote ids are built.
+ *
+ * ARCHIVING A SEASON THAT IS STILL BEING PLAYED CHANGES HOW THE APP READS IT.
+ * histJSON returns the file and stops asking, so a file alone would hide every
+ * trade agreed since the last run, and freeze the points totals — which keep
+ * growing all season, because a trade is scored on what the players did AFTER
+ * it. fetchSeasonTrades therefore reads both for the live season and merges:
+ * ESPN for the trade and its running totals, the archive for the votes. See the
+ * comment there; the two have to stay in step.
  *
  * WHY THIS HAS TO EXIST. /data/trades-2022..2025.json were made by hand. The
  * app reads the archive first and only falls back to the API, so a season with
@@ -56,6 +70,53 @@ const voteId = (season, tr) => {
   const teams = tr.teams || [];
   return `td:${season}:${tr.id || teams.map(t => t.teamId).join('-') + ':' + (tr.date || '')}`;
 };
+/* what Firestore calls the field, once the punctuation is gone */
+const voteField = v => 'tv_' + String(v).replace(/[^a-zA-Z0-9_]/g, '_');
+
+/* ── THE VOTES, OFF THE PROFILES ─────────────────────────────────────────────
+   Lifted from app.js rather than written out again: a second copy of the
+   project id or the key is a second thing to keep in step, and this one is
+   already public — it ships in app.js and the profiles collection is
+   world-readable. Nothing here writes. */
+function dbConfig() {
+  const src = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const m = /const GFL_DB\s*=\s*\{[^}]*project\s*:\s*'([^']+)'[^}]*key\s*:\s*'([^']+)'/.exec(src);
+  return m ? { project: m[1], key: m[2] } : null;
+}
+async function readProfiles() {
+  const db = dbConfig();
+  if (!db) { console.log('  ! could not read GFL_DB out of app.js — votes will not be archived'); return null; }
+  const url = `https://firestore.googleapis.com/v1/projects/${db.project}/databases/(default)`
+    + `/documents/profiles?key=${db.key}&pageSize=300`;
+  for (let a = 0; a < 3; a++) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) {
+        const j = await r.json();
+        return (j.documents || []).map(d => ({
+          id: decodeURIComponent((d.name || '').split('/').pop() || ''),
+          fields: d.fields || {},
+        }));
+      }
+      if (r.status >= 500) { await new Promise(s => setTimeout(s, 1500)); continue; }
+      return null;
+    } catch { await new Promise(s => setTimeout(s, 1500)); }
+  }
+  return null;
+}
+/* {voterId: side} for one trade. Stored by voter rather than as a tally so the
+   app can UNION it with whatever the live profiles say without counting anybody
+   twice — a vote cannot be changed once cast, so the two can only agree. */
+function votesFor(profiles, season, tr) {
+  const field = voteField(voteId(season, tr));
+  const out = {};
+  (profiles || []).forEach(p => {
+    const v = p.fields[field];
+    const side = v && (v.stringValue ?? v.integerValue ?? v.doubleValue);
+    if (side != null && String(side).trim()) out[p.id] = String(side).trim();
+  });
+  return out;
+}
 
 /* ── HAS THE SEASON FINISHED? ────────────────────────────────────────────────
    Every scheduled game carries points. The same test archive-season.mjs makes,
@@ -107,14 +168,26 @@ const seasons = only ? [only] : (() => {
 })();
 
 let wrote = 0;
+const profiles = await readProfiles();
+console.log(profiles ? `profiles read: ${profiles.length}` : 'profiles unavailable — votes not archived');
+
 for (const season of seasons) {
   const file = path.join(OUT, `trades-${season}.json`);
   const have = fs.existsSync(file);
-
-  if (have && !force) { console.log(`${season} – already archived`); continue; }
-
   const fin = await seasonFinished(season);
-  if (!fin.done && !force) { console.log(`${season} – still live (${fin.why}), skipped`); continue; }
+
+  /* ── A FINISHED SEASON IS WRITTEN ONCE. THE LIVE ONE IS WRITTEN WEEKLY ────
+     A season that has ended cannot gain a trade or a vote, so re-fetching it
+     every week is noise — and re-writing it is a chance to break something
+     that was already right. It is skipped once it is on file.
+
+     The season being played is the opposite: it gains a trade whenever one is
+     agreed and a vote whenever somebody taps, and the whole point of running
+     weekly is to catch those while ESPN still serves the log. So it is written
+     every time, and the app merges it with the live feed rather than treating
+     it as the final word. */
+  if (have && fin.done && !force) { console.log(`${season} – finished and already archived`); continue; }
+  if (!fin.done && !have) console.log(`${season} – live season, first snapshot`);
 
   const d = await get(`type=seasontrades&seasonId=${season}&v=3`);
   if (!d || !Array.isArray(d.trades)) { console.log(`${season} – no trades payload, skipped`); continue; }
@@ -146,10 +219,53 @@ for (const season of seasons) {
     }
   }
 
-  /* Verbatim. Whatever the API sent is what the app read while the season was
-     live, and the vote ids are built out of it. */
+  /* ── THE TRADE VERBATIM, THE VOTES UNIONED ───────────────────────────────
+     The trade is written exactly as the API sent it, because the vote id is
+     built out of its fields and any tidying renames it.
+
+     The votes are merged rather than replaced. Firestore is the live record and
+     normally has everything, but a read that half-failed, a profile deleted, or
+     a manager whose account was renamed would otherwise quietly delete verdicts
+     that were already safely on file. A vote cannot be changed once cast, so a
+     union can only ever be right: what is on disk stays, and anything new is
+     added on top. */
+  let prior = {};
+  if (have) {
+    try {
+      const old = JSON.parse(fs.readFileSync(file, 'utf8'));
+      ((old && old.trades) || []).forEach(t => { prior[voteId(season, t)] = t.votes || {}; });
+    } catch {}
+  }
+  let added = 0, kept = 0;
+  d.trades.forEach(t => {
+    const id = voteId(season, t);
+    const was = prior[id] || {};
+    const now = profiles ? votesFor(profiles, season, t) : {};
+    const merged = { ...was, ...now };
+    Object.keys(was).forEach(k => { if (!(k in now)) kept++; });
+    Object.keys(now).forEach(k => { if (!(k in was)) added++; });
+    if (Object.keys(merged).length) t.votes = merged;
+  });
+
+  /* whose crest goes under which side. A manager's team does not change within
+     a season, so one map for the file rather than a teamId on every vote — and
+     it is what lets the trades tab draw the crests without the profiles
+     collection being loaded at all. */
+  if (profiles) {
+    const voters = {};
+    profiles.forEach(p => {
+      const t = p.fields.teamId;
+      const v = t && (t.integerValue ?? t.stringValue ?? t.doubleValue);
+      if (v != null && String(v).trim()) voters[p.id] = Number(v) || 0;
+    });
+    if (Object.keys(voters).length) d.voters = { ...(d.voters || {}), ...voters };
+  }
+
   fs.writeFileSync(file, JSON.stringify(d));
   wrote++;
+  const totalVotes = d.trades.reduce((n, t) => n + Object.keys(t.votes || {}).length, 0);
+  console.log(`    votes: ${totalVotes} on file (${added} new`
+    + (kept ? `, ${kept} kept that Firestore no longer had` : '') + ')');
   const ids = d.trades.map(t => voteId(season, t));
   const dupes = ids.filter((v, i) => ids.indexOf(v) !== i);
   console.log(`${season} – trades-${season}.json written (${d.trades.length} trades, source: ${d.source})`);

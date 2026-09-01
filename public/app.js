@@ -2302,13 +2302,79 @@ function ptsFromWeek(pid,startWeek){
   for(const w in _weeklyData){const wn=Number(w);if(wn>=startWeek)t+=_weeklyData[wn]?.[pid]?.pts??0;}
   return t;
 }
+/* ── ARCHIVED VOTES, BY THE NAME THE FIELD WOULD HAVE HAD ────────────────────
+   The weekly archiver freezes each trade's verdict beside the trade, so the
+   league's answer survives a profile reset and any future change to how a vote
+   id is built. These hold what came off disk; the live profiles are still read
+   and the two are unioned, never added — see ntVoteSides. */
+let _tradeVotes={};        // sanitised vote id -> { voterId: side }
+let _tradeVoterTeam={};    // voterId -> teamId, for drawing a crest
+function tradeVotesLoad(season,d){
+  const voters=(d&&d.voters)||null;
+  if(voters) Object.keys(voters).forEach(v=>{ _tradeVoterTeam[v]=voters[v]; });
+  ((d&&d.trades)||[]).forEach(tr=>{
+    if(!tr||!tr.votes) return;
+    const raw=ntTradeVoteId(season,tr);
+    _tradeVotes[String(raw).replace(/[^a-zA-Z0-9_]/g,'_')]=tr.votes;
+  });
+}
+/* ── A FINISHED SEASON IS THE FILE. THE ONE BEING PLAYED IS BOTH ─────────────
+   histJSON returns the archive and stops asking, which is right for a season
+   that cannot change and wrong for the one being played. The archiver now runs
+   weekly, so the live season HAS a file — and that file is a week old the
+   moment it lands.
+
+   Two things would go stale behind it. A trade agreed on Thursday would not be
+   in it at all. And a trade's points are what its players scored FROM THE TRADE
+   WEEK ONWARD, which grows every Sunday — so a frozen total would quietly stop
+   moving while the bar above it kept claiming to show who won.
+
+   So the live season reads both: ESPN for the trades and their running totals,
+   the archive for the votes. The archive never supplies a number that changes;
+   it supplies the one thing ESPN does not have. */
 async function fetchSeasonTrades(season){
   if(_tradeCache[season]) return _tradeCache[season];
+  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=3`;
   try{
-    const d=(await histJSON('trades',season,`${BASE}?type=seasontrades&seasonId=${season}&v=3`))||{trades:[],source:'error'};
+    let d;
+    if(String(season)===String(nflSeasonYear())){
+      const [arc,live]=await Promise.all([
+        fetch(`/data/trades-${season}.json`).then(r=>r.ok?r.json():null).catch(()=>null),
+        fetch(liveURL).then(r=>r.ok?r.json():null).catch(()=>null),
+      ]);
+      d=mergeSeasonTrades(season,arc,live);
+    }else{
+      d=await histJSON('trades',season,liveURL);
+    }
+    d=d||{trades:[],source:'error'};
+    tradeVotesLoad(season,d);
     _tradeCache[season]={trades:d.trades||[],source:d.source||'reconstructed'};
   }catch{_tradeCache[season]={trades:[],source:'error'};}
   return _tradeCache[season];
+}
+/* ESPN's trade, the archive's votes. Keyed on the vote id, which is the only
+   identity a trade has — there is no trade id in the payload. A trade ESPN no
+   longer reports but the archive still holds is kept: that is what archiving is
+   for, and losing it would undo the whole exercise the first time ESPN purged
+   the log mid-season. */
+function mergeSeasonTrades(season,arc,live){
+  const arcT=(arc&&arc.trades)||[], liveT=(live&&live.trades)||[];
+  if(!arcT.length) return live||arc||null;
+  if(!liveT.length&&!live) return arc;
+  const byId={};
+  arcT.forEach(t=>{ byId[ntTradeVoteId(season,t)]=t; });
+  const out=[];
+  liveT.forEach(t=>{
+    const id=ntTradeVoteId(season,t);
+    const was=byId[id];
+    /* the live row wins on everything except the verdict */
+    out.push(was&&was.votes?{...t,votes:was.votes}:t);
+    delete byId[id];
+  });
+  Object.keys(byId).forEach(id=>out.push(byId[id]));   // archived only
+  return {season,count:out.length,trades:out,
+    source:(live&&live.source)||(arc&&arc.source)||'reconstructed',
+    voters:(arc&&arc.voters)||undefined};
 }
 function setTradeSort(mode,btn){
   _tradeSort=mode;
@@ -2505,8 +2571,12 @@ function tradeVoteHTML(tr,winner,loser){
      twelve without saying which three, and in a league of twelve the names are
      the interesting part — you know these people. The crests sit under the side
      they picked, so the card is read the same way the trade above it is. */
-  const backers=sd=>(_cpRows||[])
-    .filter(x=>x&&String(x['tv_'+f]||'')===String(sd.teamId));
+  /* the same union the tally counts, so the crests can never come to a
+     different number than the bar above them */
+  const sides=ntVoteSides(f);
+  const backers=sd=>Object.keys(sides)
+    .filter(v=>String(sides[v])===String(sd.teamId))
+    .map(v=>({teamId:voterTeamId(v)}));
   const crests=list=>list.map(x=>ntCrest(_ownerMap[Number(x.teamId||0)],22)).join('');
   const W=backers(winner), L=backers(loser);
   /* THE COLUMNS FOLLOW THE VOTE. An even split down the middle is right when
@@ -13282,15 +13352,36 @@ function ntLive(){
 function ntDone(){ return ntLive().length===0; }
 
 /* ── the card ───────────────────────────────────────────────────────────── */
+/* ── WHO VOTED WHICH WAY, FROM BOTH RECORDS AT ONCE ──────────────────────────
+   Keyed by voter and not counted, which is what makes the union safe: a vote
+   cannot be changed once cast, so the archive and the live profile can only
+   ever agree about somebody they both know. Adding two tallies together would
+   count every one of them twice.
+
+   The archive is the floor and the profiles are laid on top, so a vote cast
+   since the last weekly run still shows immediately. */
+function ntVoteSides(vid){
+  const by={};
+  const arc=_tradeVotes[vid];
+  if(arc) Object.keys(arc).forEach(v=>{ const sd=String(arc[v]??'').trim(); if(sd) by[v]=sd; });
+  (_cpRows||[]).forEach(p=>{ const sd=String(p['tv_'+vid]||'').trim(); if(sd) by[p.id]=sd; });
+  return by;
+}
+/* the voter's own team, for the crest under the side they picked. Their profile
+   if it is loaded, the archive's map if it is not. */
+function voterTeamId(v){
+  const p=(_cpRows||[]).find(x=>x&&x.id===v);
+  const t=p?Number(p.teamId||0):Number(_tradeVoterTeam[v]||0);
+  return t||0;
+}
 function ntVoteTally(vid){
-  const rows=_cpRows||[]; const t={};
-  rows.forEach(p=>{ const v=String(p['tv_'+vid]||'').trim(); if(v) t[v]=(t[v]||0)+1; });
+  const t={};
+  Object.values(ntVoteSides(vid)).forEach(sd=>{ t[sd]=(t[sd]||0)+1; });
   return t;
 }
 function ntMyVote(vid){
   if(!_me) return '';
-  const me=(_cpRows||[]).find(p=>p.id===_me.k1);
-  return me?String(me['tv_'+vid]||''):'';
+  return String(ntVoteSides(vid)[_me.k1]||'');
 }
 /* Change it as often as you like while the card is in front of you — it is the
    swipe that commits, not the tap. Once the card is cleared there is no way back

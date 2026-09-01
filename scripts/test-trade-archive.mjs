@@ -147,5 +147,117 @@ if (built) {
   }
 }
 
+/* ── THE MERGE, AND THE TALLY IT FEEDS ──────────────────────────────────────
+   Archiving the live season weekly means the app now reads TWO sources for it,
+   and both ways of getting that wrong are silent:
+
+     lose a trade   the archive holds one ESPN has stopped reporting, and a
+                    merge that trusts only the live feed drops it
+     freeze a total a trade is scored on what its players did after it, which
+                    grows every Sunday — take the number from the archive and
+                    the bar quietly stops moving
+     count twice    the same vote is in the archive AND on the profile, and a
+                    tally that adds the two says fourteen people voted in a
+                    league of twelve
+
+   All three render perfectly. */
+console.log('\n7. the live season merges its archive without losing or freezing anything');
+const APP2 = APP;
+function liftFn(name) {
+  const i = APP2.indexOf('function ' + name + '(');
+  if (i < 0) return null;
+  let j = i, d = 0, started = false;
+  for (; j < APP2.length; j++) {
+    const c = APP2[j];
+    if (c === '{') { d++; started = true; }
+    else if (c === '}') { d--; if (started && d === 0) { j++; break; } }
+  }
+  return APP2.slice(i, j);
+}
+const mod2 = { exports: {} };
+let built2 = true;
+try {
+  new Function('module', `
+    let _cpRows = null, _me = null;
+    let _tradeVotes = {}, _tradeVoterTeam = {};
+    function setRows(r){ _cpRows = r; }
+    function setMe(m){ _me = m; }
+    function setArchived(v, t){ _tradeVotes = v || {}; _tradeVoterTeam = t || {}; }
+    ${liftFn('ntTradeVoteId')}
+    ${liftFn('mergeSeasonTrades')}
+    ${liftFn('ntVoteSides')}
+    ${liftFn('ntVoteTally')}
+    ${liftFn('ntMyVote')}
+    ${liftFn('voterTeamId')}
+    module.exports = { mergeSeasonTrades, ntVoteSides, ntVoteTally, ntMyVote,
+      voterTeamId, ntTradeVoteId, setRows, setMe, setArchived };
+  `)(mod2);
+} catch (e) { built2 = false; console.log('  FAIL merge harness does not build -> ' + e.message); fail++; }
+
+if (built2) {
+  const M = mod2.exports;
+  const T = (teamIds, date, extra) => ({ week: 1, date, teams: teamIds.map(id => ({ teamId: id, players: [], total: 0 })), ...extra });
+
+  const archived = { season: '2026', trades: [T([2, 3], 111, { votes: { mm: '3' }, teams: [{ teamId: 2, total: 10 }, { teamId: 3, total: 20 }] })], voters: { mm: 1 } };
+  const live = { season: '2026', source: 'log', trades: [T([2, 3], 111, { teams: [{ teamId: 2, total: 88 }, { teamId: 3, total: 99 }] })] };
+
+  const m = M.mergeSeasonTrades('2026', archived, live);
+  ok('one trade in, one trade out', m.trades.length === 1, m.trades.length);
+  ok('the votes come from the archive', JSON.stringify(m.trades[0].votes) === '{"mm":"3"}',
+    JSON.stringify(m.trades[0].votes));
+  ok('the POINTS come from the live feed, not the frozen copy',
+    m.trades[0].teams[1].total === 99, m.trades[0].teams[1].total);
+  ok('and the voter map rides along', m.voters && m.voters.mm === 1);
+
+  const live2 = { season: '2026', trades: [live.trades[0], T([5, 6], 222)] };
+  ok('a trade ESPN has that the archive does not is added',
+    M.mergeSeasonTrades('2026', archived, live2).trades.length === 2);
+  ok('a trade the archive has that ESPN has dropped is KEPT',
+    M.mergeSeasonTrades('2026', archived, { season: '2026', trades: [T([5, 6], 222)] }).trades.length === 2);
+  ok('no archive at all is just the live feed',
+    M.mergeSeasonTrades('2026', null, live).trades.length === 1);
+  ok('no live feed at all is just the archive',
+    M.mergeSeasonTrades('2026', archived, null).trades.length === 1);
+
+  console.log('\n8. a vote in both records is one vote');
+  const vid = 'td_2026_2_3_111';
+  M.setArchived({ [vid]: { mm: '3', bft: '3', kunk: '2' } }, { mm: 1, bft: 10, kunk: 7 });
+  M.setRows([
+    { id: 'mm', teamId: 1, ['tv_' + vid]: '3' },     // in both, agreeing
+    { id: 'bft', teamId: 10, ['tv_' + vid]: '3' },   // in both, agreeing
+    { id: 'goob', teamId: 3, ['tv_' + vid]: '2' },   // profile only, cast since
+  ]);
+  const sides = M.ntVoteSides(vid);
+  ok('four distinct voters, not seven', Object.keys(sides).length === 4, Object.keys(sides).length);
+  const tally = M.ntVoteTally(vid);
+  ok('the tally adds to four', Object.values(tally).reduce((a, b) => a + b, 0) === 4, JSON.stringify(tally));
+  ok('and splits 2-2', tally['3'] === 2 && tally['2'] === 2, JSON.stringify(tally));
+  ok('a vote cast since the archive shows immediately', sides.goob === '2');
+  ok('a vote only in the archive still shows', sides.kunk === '2');
+
+  console.log('\n9. the tally is right with either record missing');
+  M.setArchived({}, {});
+  ok('profiles alone', Object.values(M.ntVoteTally(vid)).reduce((a, b) => a + b, 0) === 3);
+  M.setArchived({ [vid]: { mm: '3', bft: '3', kunk: '2' } }, { mm: 1, bft: 10, kunk: 7 });
+  M.setRows(null);
+  ok('archive alone', Object.values(M.ntVoteTally(vid)).reduce((a, b) => a + b, 0) === 3);
+  ok('an unknown trade has no votes', Object.keys(M.ntVoteSides('td_2026_9_9_9')).length === 0);
+
+  console.log('\n10. a crest can be drawn without the profiles collection');
+  ok('the archive knows whose team a voter is', M.voterTeamId('kunk') === 7, M.voterTeamId('kunk'));
+  M.setRows([{ id: 'kunk', teamId: 99 }]);
+  ok('a loaded profile wins over the archived map', M.voterTeamId('kunk') === 99, M.voterTeamId('kunk'));
+  ok('an unknown voter is zero, not NaN', M.voterTeamId('nobody') === 0, M.voterTeamId('nobody'));
+
+  console.log('\n11. my own vote reads the union');
+  M.setRows([{ id: 'goob', teamId: 3, ['tv_' + vid]: '2' }]);
+  M.setMe({ k1: 'kunk' });
+  ok('mine from the archive when my profile is not loaded', M.ntMyVote(vid) === '2', M.ntMyVote(vid));
+  M.setMe({ k1: 'goob' });
+  ok('mine from my profile when it is', M.ntMyVote(vid) === '2', M.ntMyVote(vid));
+  M.setMe(null);
+  ok('signed out, no vote', M.ntMyVote(vid) === '');
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

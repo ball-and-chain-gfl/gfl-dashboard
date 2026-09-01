@@ -5,7 +5,7 @@
 // STATIC DATA (/data/*.json): the season being played is network-first (it is
 // still being written); finished seasons are stale-while-revalidate.
 // LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v573';
+const CACHE = 'gfl-v574';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered
