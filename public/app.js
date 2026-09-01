@@ -8508,11 +8508,26 @@ function playoffOutlook(){
   if(list.length<2) return null;
   const spots=meta.playoffTeamCount||6;
 
-  // standings so far, from games that have actually been played
+  /* ── FINISHED WEEKS ONLY, THE SAME AS EVERYTHING ELSE ───────────────────────
+     What counts as "played" here used to be a game with any points on it, which
+     is Sunday lunchtime. That put whoever happened to be ahead at ten past one
+     into the standings as a win, took the whole week out of the games-remaining
+     count, and narrowed a band off a game that could still be lost — the exact
+     failure this bar exists to avoid, and the wrong direction to be wrong in.
+
+     weekOver, so the outlook moves when the week is over and not before: the
+     same turnover as the trivia, the picks, the Matchup of the Week, the
+     allowance, the punishment and the schedule marker. Through a Sunday it goes
+     on showing last week's table with this week's six games still to come,
+     which is what is actually true until they are. */
+  const byWeek=weeksOf(meta.schedule);
+  const weekDone=w=>w>0&&w<=regEnd&&weekOver(byWeek,w);
+
+  // standings so far, out of the weeks that are actually finished
   const base={}; list.forEach(o=>base[o]={w:0,l:0,t:0,pf:0});
   (meta.schedule||[]).forEach(m=>{
     if(!m.home||!m.away) return;
-    if((m.matchupPeriodId||0)>regEnd) return;                 // regular season only
+    if(!weekDone(m.matchupPeriodId||0)) return;   // regular season, and settled
     const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
     if(hp===0&&ap===0) return;
     const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
@@ -8523,9 +8538,11 @@ function playoffOutlook(){
     else {base[ho].t++;base[ao].t++;}
   });
 
+  /* Everything not yet settled is still to play, the week in progress included.
+     A team leading at half time has not banked anything. */
   const left=(meta.schedule||[]).filter(m=>m.home&&m.away
     && (m.matchupPeriodId||0)>0 && (m.matchupPeriodId||0)<=regEnd
-    && !((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0))
+    && !weekDone(m.matchupPeriodId||0))
     .map(m=>({a:owners[m.home.teamId],b:owners[m.away.teamId],w:m.matchupPeriodId||0}))
     .filter(g=>g.a&&g.b&&g.a!==g.b&&base[g.a]&&base[g.b]);
 
@@ -8655,7 +8672,7 @@ function playoffOutlookHTML(){
     <div class="po-note">${d.hasOdds
       ?`The playoff percentages are ESPN's own, so they match what the league sees on the ESPN app — the twelve of them add up to the ${d.spots} places.`
       :`ESPN has not published playoff percentages for ${d.season} yet, so that column is empty.`}
-      The bar beside each team is not a projection: it is every position that team can still finish in by the arithmetic, with last at the left and first at the right. Its edges are set by winning out and losing out — a team is only ruled above you once its worst possible finish is still better than your best, and only ruled below once its best cannot reach your worst. The white mark is where they stand today. With nothing played every team can still finish anywhere, so the bands fill the track; they close on their own as the games run out, and on the last day each one is a single position. The top ${d.spots} shaded rows are the current projected field.</div>
+      The bar beside each team is not a projection: it is every position that team can still finish in by the arithmetic, with last at the left and first at the right. Its edges are set by winning out and losing out — a team is only ruled above you once its worst possible finish is still better than your best, and only ruled below once its best cannot reach your worst. The white mark is where they stand today. With nothing played every team can still finish anywhere, so the bands fill the track; they close on their own as the games run out, and on the last day each one is a single position. Records and bands count finished weeks only, so they turn over on the Tuesday with the rest of the site rather than moving under you on a Sunday afternoon. The top ${d.spots} shaded rows are the current projected field.</div>
   </div>`;
 }
 function renderSchedule(){
