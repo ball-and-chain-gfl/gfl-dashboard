@@ -62,8 +62,27 @@ async function espn(q) {
   return r.json();
 }
 
-/* Which week just finished. A week is done when every game on it has points on
-   it — the calendar does not decide that, the scoreboard does. */
+/* -- WHEN A WEEK IS OVER -----------------------------------------------------
+ * ESPN's own word for it. `winner` reads "UNDECIDED" on every fixture until the
+ * scoring period closes, and HOME/AWAY/TIE from then on. NOT "every fixture
+ * holds a point": that is true from about ten past one on the Sunday, with the
+ * late window, Sunday night and Monday night all still to come, and a third of
+ * a week frozen into the repo is not something a later run undoes.
+ * The release valve -- all scored AND a later week scoring -- is football
+ * having moved on, which is proof enough if the flag never lands.
+ * Mirrors weekOver in app.js. scripts/test-weeks.mjs holds the copies level. */
+const wkDecided = m => ['HOME', 'AWAY', 'TIE'].includes(String((m && m.winner) || '').toUpperCase());
+const wkScored = m => ((m.home && m.home.totalPoints) || 0) > 0 || ((m.away && m.away.totalPoints) || 0) > 0;
+function weekOver(byWeek, w) {
+  const g = byWeek[w];
+  if (!g || !g.length) return false;
+  if (g.every(wkDecided)) return true;
+  if (!g.every(wkScored)) return false;
+  return Object.keys(byWeek).some(k => Number(k) > Number(w) && byWeek[k].some(wkScored));
+}
+
+/* Which week just finished. The calendar does not decide that and neither does
+   a Sunday afternoon scoreboard — ESPN closing the period does. */
 async function latestFinishedWeek(season) {
   const d = await espn(`view=mMatchup&view=mSettings&seasonId=${season}`);
   const mpc = d?.settings?.scheduleSettings?.matchupPeriodCount;
@@ -77,10 +96,7 @@ async function latestFinishedWeek(season) {
   }
   let last = 0;
   for (let w = 1; w <= regEnd; w++) {
-    const g = byWeek[w];
-    if (!g || !g.length) break;
-    const allPlayed = g.every(m => (m.home.totalPoints || 0) > 0 || (m.away.totalPoints || 0) > 0);
-    if (!allPlayed) break;
+    if (!weekOver(byWeek, w)) break;
     last = w;
   }
   return last;

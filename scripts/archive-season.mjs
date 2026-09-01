@@ -2,6 +2,25 @@
    again. Only seasons whose every scheduled game has been played are written —
    an in-progress season must keep going to the API. */
 import fs from 'fs';
+/* -- WHEN A WEEK IS OVER -----------------------------------------------------
+ * ESPN's own word for it. `winner` reads "UNDECIDED" on every fixture until the
+ * scoring period closes, and HOME/AWAY/TIE from then on. NOT "every fixture
+ * holds a point": that is true from about ten past one on the Sunday, with the
+ * late window, Sunday night and Monday night all still to come, and a third of
+ * a week frozen into the repo is not something a later run undoes.
+ * The release valve -- all scored AND a later week scoring -- is football
+ * having moved on, which is proof enough if the flag never lands.
+ * Mirrors weekOver in app.js. scripts/test-weeks.mjs holds the copies level. */
+const wkDecided = m => ['HOME', 'AWAY', 'TIE'].includes(String((m && m.winner) || '').toUpperCase());
+const wkScored = m => ((m.home && m.home.totalPoints) || 0) > 0 || ((m.away && m.away.totalPoints) || 0) > 0;
+function weekOver(byWeek, w) {
+  const g = byWeek[w];
+  if (!g || !g.length) return false;
+  if (g.every(wkDecided)) return true;
+  if (!g.every(wkScored)) return false;
+  return Object.keys(byWeek).some(k => Number(k) > Number(w) && byWeek[k].some(wkScored));
+}
+
 const BASE='https://gfl-dashboard.vercel.app/api/espn';
 const OUT='C:/dev/gfl-dashboard/public/data';
 const SEASONS=['2022','2023','2024','2025'];
@@ -24,9 +43,12 @@ for(const season of SEASONS){
   if(!fs.existsSync(sf)){ console.log(season,'– no season file, skipped'); continue; }
   const meta=JSON.parse(fs.readFileSync(sf,'utf8'));
   const sched=(meta.schedule||[]).filter(m=>m&&m.home&&m.away&&(m.matchupPeriodId||0)>0);
-  const unplayed=sched.filter(m=>!((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
-  if(!sched.length||unplayed.length){
-    console.log(season,`– ${unplayed.length} unplayed of ${sched.length}, still live, skipped`);
+  /* Decided, not merely scored. This writes a season into the repo for good, and
+     "every fixture holds a point" is true from the Sunday lunchtime of the last
+     week — which would freeze a final week Monday night had yet to finish. */
+  const undecided=sched.filter(m=>!wkDecided(m));
+  if(!sched.length||undecided.length){
+    console.log(season,`– ${undecided.length} of ${sched.length} not settled yet, skipped`);
     continue;
   }
   const maxWk=Math.max(...sched.map(m=>m.matchupPeriodId||0));

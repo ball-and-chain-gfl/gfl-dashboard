@@ -90,6 +90,25 @@ const franchises = (seasonData.teams || []).map(t => ({ owner: ownerOf(t), name:
 const mpc = seasonData.settings?.scheduleSettings?.matchupPeriodCount;
 const REG_END = (mpc >= 8 && mpc <= 18) ? mpc : 14;
 
+/* -- WHEN A WEEK IS OVER -----------------------------------------------------
+ * ESPN's own word for it. `winner` reads "UNDECIDED" on every fixture until the
+ * scoring period closes, and HOME/AWAY/TIE from then on. NOT "every fixture
+ * holds a point": that is true from about ten past one on the Sunday, with the
+ * late window, Sunday night and Monday night all still to come, and a third of
+ * a week frozen into the repo is not something a later run undoes.
+ * The release valve -- all scored AND a later week scoring -- is football
+ * having moved on, which is proof enough if the flag never lands.
+ * Mirrors weekOver in app.js. scripts/test-weeks.mjs holds the copies level. */
+const wkDecided = m => ['HOME', 'AWAY', 'TIE'].includes(String((m && m.winner) || '').toUpperCase());
+const wkScored = m => ((m.home && m.home.totalPoints) || 0) > 0 || ((m.away && m.away.totalPoints) || 0) > 0;
+function weekOver(byWeek, w) {
+  const g = byWeek[w];
+  if (!g || !g.length) return false;
+  if (g.every(wkDecided)) return true;
+  if (!g.every(wkScored)) return false;
+  return Object.keys(byWeek).some(k => Number(k) > Number(w) && byWeek[k].some(wkScored));
+}
+
 function latestFinishedWeek() {
   const byWeek = {};
   (seasonData.schedule || []).forEach(m => {
@@ -100,9 +119,7 @@ function latestFinishedWeek() {
   });
   let last = 0;
   for (let w = 1; w <= REG_END; w++) {
-    const g = byWeek[w];
-    if (!g || !g.length) break;
-    if (!g.every(m => (m.home.totalPoints || 0) > 0 || (m.away.totalPoints || 0) > 0)) break;
+    if (!weekOver(byWeek, w)) break;
     last = w;
   }
   return last;

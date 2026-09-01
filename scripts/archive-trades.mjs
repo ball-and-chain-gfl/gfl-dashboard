@@ -128,6 +128,25 @@ function votesFor(profiles, season, tr) {
    nothing writes one, so 2022-2025 were made by hand and 2026 has none. Gating
    on a file nobody creates would mean this script skipped the only season it
    was written to catch, quietly, for ever. */
+/* -- WHEN A WEEK IS OVER -----------------------------------------------------
+ * ESPN's own word for it. `winner` reads "UNDECIDED" on every fixture until the
+ * scoring period closes, and HOME/AWAY/TIE from then on. NOT "every fixture
+ * holds a point": that is true from about ten past one on the Sunday, with the
+ * late window, Sunday night and Monday night all still to come, and a third of
+ * a week frozen into the repo is not something a later run undoes.
+ * The release valve -- all scored AND a later week scoring -- is football
+ * having moved on, which is proof enough if the flag never lands.
+ * Mirrors weekOver in app.js. scripts/test-weeks.mjs holds the copies level. */
+const wkDecided = m => ['HOME', 'AWAY', 'TIE'].includes(String((m && m.winner) || '').toUpperCase());
+const wkScored = m => ((m.home && m.home.totalPoints) || 0) > 0 || ((m.away && m.away.totalPoints) || 0) > 0;
+function weekOver(byWeek, w) {
+  const g = byWeek[w];
+  if (!g || !g.length) return false;
+  if (g.every(wkDecided)) return true;
+  if (!g.every(wkScored)) return false;
+  return Object.keys(byWeek).some(k => Number(k) > Number(w) && byWeek[k].some(wkScored));
+}
+
 async function seasonFinished(season) {
   const sf = path.join(OUT, `season-${season}.json`);
   let sched = null;
@@ -141,17 +160,16 @@ async function seasonFinished(season) {
   }
   sched = sched.filter(m => m && m.home && m.away && (m.matchupPeriodId || 0) > 0);
   if (!sched.length) return { done: false, why: 'no schedule to check', played: 0 };
-  const scored = m => (m.home.totalPoints || 0) > 0 || (m.away.totalPoints || 0) > 0;
-  const unplayed = sched.filter(m => !scored(m));
+  const unplayed = sched.filter(m => !wkScored(m));
 
-  /* How many fantasy weeks are FINISHED — every fixture in them scored. Counted
-     from week 1 and stopped by the first hole, the same way bucksWeeksPlayed
-     does it in the app, so a half-scored week never counts as played. */
+  /* How many fantasy weeks are FINISHED. Counted from week 1 and stopped by the
+     first hole, the same way bucksWeeksPlayed does it in the app, so a week ESPN
+     has not closed never counts as played. */
   const byWeek = {};
   sched.forEach(m => { const w = m.matchupPeriodId; (byWeek[w] || (byWeek[w] = [])).push(m); });
   let played = 0;
   for (let w = 1; byWeek[w]; w++) {
-    if (!byWeek[w].every(scored)) break;
+    if (!weekOver(byWeek, w)) break;
     played = w;
   }
 

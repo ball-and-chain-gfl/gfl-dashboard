@@ -90,6 +90,13 @@ const eggsFound=()=>({size:_EGGS});
 function eggBucks(){ return _EGGS*EGG_PRIZE; }
 ${parts.join('\n')}
 return { bucksFor,
+  /* PIN THE CLOCK. bucksBalance takes no argument — it reads bkNow() — so a
+     case that hands it a date is only pinning the half of the sum that does
+     take one, and the idle-week half is computed against whatever day the
+     suite happens to run on. _bkAsOf is what the app itself uses to look
+     backwards; this is the same lever. */
+  asOf(t,fn){ const prev=_bkAsOf; _bkAsOf=t; try{ return fn(); } finally{ _bkAsOf=prev; } },
+  bucksIdleCost,
   set(b,testMin,eggs,weeks,extra){ _bets=b; _EGGS=eggs||0; _WEEKS=weeks||0;
     _LOTS=(extra&&extra.lots)||[];
     _CFG=Object.assign({betsResetBefore:0,bucksTestMinutes:testMin||0,
@@ -341,19 +348,36 @@ console.log('\n14. the leaderboard reads the same balance as the chip');
 
   /* the same ledger, signed in as that manager */
   api.set(theirBets,0,2,4,cfg);
-  const mineNow=api.bucksBalance(now);
-  const boardNow=api.bucksFor(theirs,()=>api.bucksBalance(now));
+  /* Every read below is pinned to `now`. It used to hand the date to
+     bucksBalance, which does not take one — so the idle-week part of every
+     figure here was worked out against the real calendar, and the case passed
+     or failed depending on the day the suite was run. It wants to be standing
+     five Tuesdays past pay day; run it during pay-day week itself and there
+     are no idle weeks to charge for and nothing left to assert. */
+  const at=fn=>api.asOf(now,fn);
+  const mineNow=at(()=>api.bucksBalance());
   /* the lots are the one thing the signed-in path reads from its own globals,
      so compare the part both sides derive identically: with no lots either way */
-  const boardNoLots=api.bucksFor({bets:theirBets,eggs:2,lots:[]},()=>api.bucksBalance(now));
+  const boardNoLots=at(()=>api.bucksFor({bets:theirBets,eggs:2,lots:[]},()=>api.bucksBalance()));
   eq('the board agrees with the chip', boardNoLots, mineNow);
   eq('and it is a real number, not zero', mineNow>0, true);
   /* the scope is put back afterwards, or the next read is somebody else's */
-  eq('the scope does not leak', api.bucksBalance(now), mineNow);
+  eq('the scope does not leak', at(()=>api.bucksBalance()), mineNow);
   /* a scoped read still charges for idle weeks — the old copy never did */
-  const idle=api.bucksFor({bets:[],eggs:0,lots:[]},()=>api.bucksBalance(now));
-  const cycles=api.bucksFor({bets:[],eggs:0,lots:[]},()=>api.bucksCycles(now));
+  const empty={bets:[],eggs:0,lots:[]};
+  const idle=at(()=>api.bucksFor(empty,()=>api.bucksBalance()));
+  const cycles=at(()=>api.bucksFor(empty,()=>api.bucksCycles(now)));
+  eq('there are idle weeks to charge for at all',
+     at(()=>api.bucksFor(empty,()=>api.bucksIdleWeeks(now)))>0, true);
   eq('an idle manager is charged on the board too', idle<100*cycles, true);
+  /* And charged the same as the chip would. This is the whole point of the
+     section — one function, two ledgers — so the comparison is against the same
+     empty ledger read while signed in as that manager, not against an allowance
+     figure the harness would have to reconstruct by hand. Last in the section:
+     it leaves the globals set to the empty ledger, and section 15 keeps its own
+     company. */
+  api.set([],0,2,4,cfg);
+  eq('by exactly what the chip would charge', at(()=>api.bucksBalance()), idle);
 }
 
 

@@ -6095,7 +6095,68 @@ const liveDocUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.proje
 const liveCollUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live?documentId=${encodeURIComponent(k)}&key=${GFL_DB.key}`;
 const liveMKey=(a,b)=>[a,b].sort().join('~');
 
-/* which week is on the clock: the earliest one that still has an unplayed game */
+/* ── WHEN A FANTASY WEEK IS ACTUALLY OVER ────────────────────────────────────
+   Nearly everything here that turns over weekly hangs on one question: is week
+   N finished? The questions and the picks slate, the Matchup of the Week, the
+   allowance, the week's result cards, the fixtures the sportsbook prices, and
+   every bet graded off a week's scores.
+
+   It used to be answered by the points: every fixture in the week with somebody
+   on the board. That is a sound test for a week in the PAST — true the moment
+   the week ends and true forever after. It is the wrong test for the week being
+   played. All six fixtures have somebody scoring within minutes of the Sunday
+   one o'clock kickoffs, with the late window, Sunday night and Monday night
+   still to come. So the whole app rolled its week over on Sunday lunchtime: a
+   new set of trivia while the old one was still being answered, next week's
+   markets while this week's bets were open, the allowance paid two days early,
+   and — the worst of it — betWeekResult grading tickets off half a Sunday,
+   directly underneath a comment explaining that it must never do that.
+
+   ESPN answers the question itself. `winner` reads "UNDECIDED" on every fixture
+   from the day the schedule is published until the scoring period closes, and
+   then it is HOME, AWAY or TIE and never moves again. Four completed seasons
+   sit in the archive and not one of their four hundred-odd fixtures is
+   undecided, so it is a signal that arrives and then stays put.
+
+   THE RELEASE VALVE. Waiting on somebody else's flag means a flag that never
+   comes stalls the lot, so a week is also over once every fixture in it has
+   scored AND some later week has started scoring. Football having moved on is
+   proof enough. It cannot fire early: there are no points in week two while
+   week one is being played. */
+const weekDecided=m=>{
+  const w=String((m&&m.winner)||'').toUpperCase();
+  return w==='HOME'||w==='AWAY'||w==='TIE';
+};
+const weekScored=m=>(((m&&m.home&&m.home.totalPoints)||0)>0
+                   ||((m&&m.away&&m.away.totalPoints)||0)>0);
+/* a schedule split by matchup period — the shape every caller below wants */
+function weeksOf(schedule){
+  const byWeek={};
+  (schedule||[]).forEach(m=>{
+    if(!m||!m.home||!m.away) return;
+    const w=Number(m.matchupPeriodId)||0; if(!w) return;
+    (byWeek[w]||(byWeek[w]=[])).push(m);
+  });
+  return byWeek;
+}
+function weekOver(byWeek,w){
+  const g=byWeek&&byWeek[w];
+  if(!g||!g.length) return false;
+  if(g.every(weekDecided)) return true;
+  if(!g.every(weekScored)) return false;
+  return Object.keys(byWeek).some(k=>Number(k)>Number(w)&&byWeek[k].some(weekScored));
+}
+/* How many weeks are finished, counted from week 1 and stopped by the first one
+   that is not — so a hole in the middle stalls the count rather than being
+   stepped over. */
+function weeksOverCount(schedule){
+  const byWeek=weeksOf(schedule);
+  let n=0;
+  for(let w=1;byWeek[w];w++){ if(!weekOver(byWeek,w)) break; n=w; }
+  return n;
+}
+
+/* which week is on the clock: the earliest one that is not finished */
 function liveWeekInfo(){
   const season=ALL_SEASONS[ALL_SEASONS.length-1], meta=_seasonMeta[season];
   if(!meta) return null;
@@ -6108,10 +6169,8 @@ function liveWeekInfo(){
   const weeks=Object.keys(byWeek).map(Number).sort((a,b)=>a-b);
   let live=null,last=null;
   weeks.forEach(w=>{
-    const any=byWeek[w].some(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
-    const all=byWeek[w].every(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
-    if(any) last=w;
-    if(live==null&&!all) live=w;
+    if(byWeek[w].some(weekScored)) last=w;
+    if(live==null&&!weekOver(byWeek,w)) live=w;
   });
   const week=live||last||weeks[0];
   return {season,week,meta,games:byWeek[week]||[],inProgress:live!=null};
@@ -11207,27 +11266,15 @@ function plantLastCharge(pt,pid){ return plantForScope(pt,pid,()=>plantWalk().la
 function bucksAllowance(){ return bucks2(BUCKS_WEEKLY*bucksCycles(bkNow())); }
 /* HOW MANY FANTASY WEEKS HAVE ACTUALLY BEEN PLAYED.
 
-   Counted from week 1 and only while every fixture in a week is final, so a
-   week ESPN has not finished scoring does not advance the count, and a hole in
-   the middle stalls it rather than skipping past it. Erring low is deliberate:
-   this gates money, and paying an allowance late is a complaint while paying it
-   twice is a hole in the economy. */
+   weekOver, so a week is only counted once ESPN has closed it — not from the
+   moment every fixture in it happened to hold a point, which is Sunday
+   lunchtime. Erring low is deliberate: this gates money, and paying an
+   allowance late is a complaint while paying it twice is a hole in the
+   economy. */
 function bucksWeeksPlayed(season){
   const meta=_seasonMeta[String(season||bkLeagueSeason())];
   if(!meta) return 0;
-  const byWeek={};
-  (meta.schedule||[]).forEach(m=>{
-    if(!m.home||!m.away) return;
-    const w=Number(m.matchupPeriodId)||0; if(!w) return;
-    (byWeek[w]||(byWeek[w]=[])).push(m);
-  });
-  const done=m=>((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
-  let n=0;
-  for(let w=1;byWeek[w];w++){
-    if(!byWeek[w].every(done)) break;
-    n=w;
-  }
-  return n;
+  return weeksOverCount(meta.schedule);
 }
 /* every live bet ever, not just this cycle's — that is the whole change */
 /* ── ONE BALANCE, FOR ANYBODY ────────────────────────────────────────────────
@@ -12516,17 +12563,28 @@ function pkLocked(){ return weekHasStarted(); }
    moving testing onto its own account would have handed the league's Matchup of
    the Week to a profile nobody signs into. */
 const MOTW_PICKER='bft';
-/* THE PICK RESETS ON THE CLOCK, NOT ON ESPN.
+/* THE PICK BELONGS TO A WEEK, NOT TO A TUESDAY.
 
-   Keyed on the Tuesday it belongs to rather than on the scoring week. Those are
-   not the same thing: liveWeekInfo advances when ESPN has finished scoring
-   every game of a week, which is some time on Monday night or Tuesday and is
-   theirs to decide, not ours. A pick that expires "whenever the data updates"
-   is not a weekly job anybody can plan around.
+   It used to be keyed on the Tuesday it was made on, to keep the weekly job on
+   a schedule people could plan around rather than on whenever ESPN got round to
+   closing a week. The trouble is that a Tuesday and a week of football are not
+   the same thing, and every hour they disagree by is an hour where the league
+   is asked to name the Matchup for a week that has not turned over. Through a
+   pre-season the stamp rolls every single Tuesday while week 1 sits there
+   unplayed; in season it turns at midnight while ESPN closes the week some
+   hours later that morning. Either way the picker gets a card asking them to
+   choose the same fixture out of the same six games, and until they do,
+   everybody's picks grid has lost its double.
 
-   ntResultsDay is the same Tuesday-at-midnight stamp the cards already date
-   themselves by, so the card's day and the key it writes now turn over in the
-   same instant — the moment it becomes Tuesday. */
+   So the week is the key. motwwk_<season>_w<week> has been written alongside
+   the stamp since the day this shipped, and it is what gets read first now.
+   liveWeekInfo advances when a week is over and not one minute before, which
+   makes this exactly the rule: one Matchup per week of football, turning over
+   when the football does.
+
+   The Tuesday stamp is still written. It costs one field, it is the only record
+   of which day a pick was actually made, and it is what the pre-season fallback
+   below reads. */
 const motwInfo=()=>(_liveInfo||liveWeekInfo()||{});
 const motwWeek=()=>Number(motwInfo().week)||0;
 function motwStamp(t){
@@ -12555,6 +12613,10 @@ const motwWeekKey=(season,wk)=>`motwwk_${season||motwInfo().season||bkLeagueSeas
    Tuesday of this season that DOES carry a pick. The stamps sort as strings
    because they are yyyymmdd, so "most recent" is just the largest.
 
+   The week key above covers this now and covers it in season too, so in
+   practice nothing reaches here any more. It stays for a pick written before
+   that key existed — a profile carrying only a stamp still reads correctly.
+
    Nothing is rewritten and no key changes: the original field stays exactly
    where it is, which is what keeps the pick that is already on the profile. The
    moment a week goes final the fallback stops and the rhythm is the calendar's
@@ -12566,12 +12628,16 @@ function motwSeasonStarted(){
   try{ return bucksWeeksPlayed(motwInfo().season||bkLeagueSeason())>0; }
   catch(e){ return true; }
 }
-/* [idA,idB] once this Tuesday's pick is in, null until then */
+/* [idA,idB] once the pick for the week on the clock is in, null until then */
 function motwChosen(){
   const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
   if(!r) return null;
   const parse=v=>{ const m=/^(\d+)-(\d+)$/.exec(String(v||'').trim());
     return m?[Number(m[1]),Number(m[2])]:null; };
+  /* the week's own field first — it holds for exactly as long as the week does,
+     which is the whole point */
+  const byWeek=parse(r[motwWeekKey()]);
+  if(byWeek) return byWeek;
   const now=parse(r[motwPickKey()]);
   if(now||motwSeasonStarted()) return now;
   const pre=`motw_${motwInfo().season||bkLeagueSeason()}_t`;
@@ -12836,18 +12902,15 @@ function ntSeason(){
   }
   return null;
 }
-/* the last week of that season where every game has a score on it */
+/* the last FINISHED week of that season — the one there is something to read
+   out about. Anything less and the blowouts and rivalry cards would go up on a
+   Sunday afternoon off scores the late window was still moving. */
 function ntLastWeek(season){
   const meta=_seasonMeta[season]; if(!meta) return null;
-  const byWeek={};
-  (meta.schedule||[]).forEach(m=>{
-    if(!m.home||!m.away) return;
-    const w=Number(m.matchupPeriodId)||0; if(!w) return;
-    (byWeek[w]||(byWeek[w]=[])).push(m);
-  });
+  const byWeek=weeksOf(meta.schedule);
   let last=null;
   Object.keys(byWeek).map(Number).sort((a,b)=>a-b).forEach(w=>{
-    if(byWeek[w].every(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0)) last=w;
+    if(weekOver(byWeek,w)) last=w;
   });
   return last==null?null:{week:last,games:byWeek[last],meta};
 }
@@ -14913,10 +14976,12 @@ const CASHOUT_MIN=0.05;           // below this there is nothing to hand over
 function betWeekResult(leg,season,wk){
   const meta=_seasonMeta[String(season)]; if(!meta) return null;
   const owners=meta.owners||{};
-  const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===Number(wk)&&m.home&&m.away);
+  const byWeek=weeksOf(meta.schedule);
+  const games=byWeek[Number(wk)]||[];
   if(!games.length) return null;
-  const played=m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0;
-  if(!games.every(played)) return null;
+  /* weekOver, not "every fixture holds a point" — which was true from about ten
+     past one on the Sunday and settled tickets off a third of a week. */
+  if(!weekOver(byWeek,Number(wk))) return null;
   const mk=String(leg.mk), bits=String(leg.pick).split(':'), ent=bits[0], side=bits[1];
   const pts={};
   games.forEach(m=>{ pts[owners[m.home.teamId]]=m.home.totalPoints||0;
@@ -16159,15 +16224,10 @@ function sbWeekData(){
      played could not be bet at all. The first week that is not finished is the
      one on the board: the upcoming week from Tuesday to Thursday, then that same
      week as it happens, priced on whatever is left of it. */
-  const byWeek={};
-  (meta.schedule||[]).forEach(m=>{
-    if(!m.home||!m.away) return;
-    const wk=m.matchupPeriodId||0; if(!wk) return;
-    (byWeek[wk]||(byWeek[wk]=[])).push(m);
-  });
-  const scored=m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0;
+  const byWeek=weeksOf(meta.schedule);
+  const scored=weekScored;
   const weeks=Object.keys(byWeek).map(Number).sort((a,b)=>a-b);
-  const unfinished=weeks.find(w=>!byWeek[w].every(scored));
+  const unfinished=weeks.find(w=>!weekOver(byWeek,w));
   const week=unfinished||weeks[weeks.length-1]||1;
   const live=unfinished!=null;
   /* Has this week's football begun? It decides whether the price comes off the

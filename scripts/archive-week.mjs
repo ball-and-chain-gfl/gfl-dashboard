@@ -57,6 +57,25 @@ async function loadSeries(key) {
 
 /* Which week just finished. ESPN decides that, not the calendar: a week is
    done when every game on it has points on it. */
+/* -- WHEN A WEEK IS OVER -----------------------------------------------------
+ * ESPN's own word for it. `winner` reads "UNDECIDED" on every fixture until the
+ * scoring period closes, and HOME/AWAY/TIE from then on. NOT "every fixture
+ * holds a point": that is true from about ten past one on the Sunday, with the
+ * late window, Sunday night and Monday night all still to come, and a third of
+ * a week frozen into the repo is not something a later run undoes.
+ * The release valve -- all scored AND a later week scoring -- is football
+ * having moved on, which is proof enough if the flag never lands.
+ * Mirrors weekOver in app.js. scripts/test-weeks.mjs holds the copies level. */
+const wkDecided = m => ['HOME', 'AWAY', 'TIE'].includes(String((m && m.winner) || '').toUpperCase());
+const wkScored = m => ((m.home && m.home.totalPoints) || 0) > 0 || ((m.away && m.away.totalPoints) || 0) > 0;
+function weekOver(byWeek, w) {
+  const g = byWeek[w];
+  if (!g || !g.length) return false;
+  if (g.every(wkDecided)) return true;
+  if (!g.every(wkScored)) return false;
+  return Object.keys(byWeek).some(k => Number(k) > Number(w) && byWeek[k].some(wkScored));
+}
+
 async function latestFinishedWeek(season) {
   const r = await fetch(`${API}?view=mMatchup&seasonId=${season}`);
   if (!r.ok) throw new Error(`ESPN ${r.status}`);
@@ -68,8 +87,7 @@ async function latestFinishedWeek(season) {
     if (!w) continue;
     (byWeek[w] || (byWeek[w] = [])).push(m);
   }
-  const done = Object.keys(byWeek).map(Number).filter((w) =>
-    byWeek[w].every((m) => (m.home.totalPoints || 0) > 0 || (m.away.totalPoints || 0) > 0));
+  const done = Object.keys(byWeek).map(Number).filter((w) => weekOver(byWeek, w));
   return done.length ? Math.max(...done) : null;
 }
 

@@ -39,6 +39,10 @@ function grab(startsWith) {
 const parts = [
   grab('function nflSeasonYear(){'),
   grab('function sbSeason(){'),
+  grab('const weekDecided='),
+  grab('const weekScored='),
+  grab('function weeksOf(schedule){'),
+  grab('function weekOver(byWeek,w){'),
   grab('function betLegWeek('),
   grab('function betWeekResult(leg,season,wk){'),
   grab('function betLegResult(leg,season){'),
@@ -71,18 +75,28 @@ const eq = (n, g, w) => {
 
 /* A season as ESPN serves it: 14 one-week matchup periods for twelve teams,
    then a bracket of 4, 4 and 2 — byes for the top two seeds and the bottom two.
-   `scoredThrough` is how much football has been played; `withBracket` is
-   whether ESPN has published the playoff rounds yet, which it does during the
-   season rather than up front. */
-function season(scoredThrough, withBracket = true) {
+   `scoredThrough` is how many weeks are FINISHED; `withBracket` is whether ESPN
+   has published the playoff rounds yet, which it does during the season rather
+   than up front.
+
+   A finished week carries a winner. That is what ESPN does and it is what the
+   app now reads: `winner` is UNDECIDED from the day the schedule goes up until
+   the scoring period closes, so a week with points on it and no winner is a
+   week still being played. `liveThrough` says how far the scores have got
+   WITHOUT the period being closed — Sunday afternoon of the week after
+   scoredThrough, in other words, which is the case the old test could not
+   express and the old code got wrong. */
+function season(scoredThrough, withBracket = true, liveThrough = 0) {
   const schedule = [];
   const weeks = withBracket ? 17 : 14;
   for (let w = 1; w <= weeks; w++) {
     const games = w <= 14 ? 6 : (w === 17 ? 2 : 4);
     for (let g = 0; g < games; g++) {
-      const played = w <= scoredThrough;
+      const done = w <= scoredThrough;
+      const played = done || w <= liveThrough;
       schedule.push({
         matchupPeriodId: w,
+        winner: done ? 'HOME' : 'UNDECIDED',
         home: { teamId: g * 2 + 1, totalPoints: played ? 120 - g : 0 },
         away: { teamId: g * 2 + 2, totalPoints: played ?  95 + g : 0 },
       });
@@ -129,6 +143,19 @@ console.log('\n3. a ticket struck mid-season settles');
   /* the regression itself: a season nothing can be looked up under */
   eq('a ticket stamped with an unknown season cannot grade',
     api.betGrade({ season: '2099', stake: 50, payout: 83, legs: [leg] }), null);
+
+  /* AND NOT A MINUTE EARLY. Every fixture in week one has somebody on the
+     board, ESPN has not closed the period, and the late window, Sunday night
+     and Monday night are all still to be played. This used to read as a
+     finished week and grade the ticket off a third of a Sunday. */
+  const owners = { 1: 'bft', 2: 'bi', 3: 'dorm', 4: 'fman', 5: 'goob', 6: 'kunk',
+                   7: 'kw', 8: 'mcm', 9: 'mm', 10: 'mwm', 11: 'ting', 12: 'wglr' };
+  api.set({ ...past, 2026: Object.assign(season(0, false, 1), { owners }) }, ALL);
+  eq('a week still being played does not settle', api.betWeekResult(leg, '2026', 1), null);
+  eq('and its ticket stays open',
+    api.betGrade({ season: '2026', stake: 50, payout: 83, legs: [leg] }), null);
+  api.set({ ...past, 2026: Object.assign(season(1, false), { owners }) }, ALL);
+  eq('once ESPN closes the week it settles', api.betWeekResult(leg, '2026', 1), true);
 }
 
 /* ── PART TWO ────────────────────────────────────────────────────────────────

@@ -43,6 +43,11 @@ jobs:
         run: node scripts/test-schedule.mjs
       - name: the plant, and what a revival costs
         run: node scripts/test-plant.mjs
+      # Nearly everything that turns over weekly reads one answer to "is the
+      # week over", and the archive crons each keep their own copy of it. This
+      # checks the answer and holds the copies level.
+      - name: when a week is actually over
+        run: node scripts/test-weeks.mjs
       - name: a trade keeps its votes when archived
         run: node scripts/test-trade-archive.mjs
       - name: the archivers parse

@@ -55,6 +55,13 @@ const parts = [
   grab('const betDocRow='),
   grab('const REGULAR_SEASON_END='),
   grab('function regEndOf(season){'),
+  /* betWeekResult asks weekOver whether the week is closed, so these come too.
+     Left out, the grader throws "weekOver is not defined" and settles nothing —
+     the right failure, but only if the reason is legible. */
+  grab('const weekDecided='),
+  grab('const weekScored='),
+  grab('function weeksOf(schedule){'),
+  grab('function weekOver(byWeek,w){'),
   grab('function betLegWeek('),
   grab('function betWeekResult(leg,season,wk){'),
   grab('function betLegResult(leg,season){'),

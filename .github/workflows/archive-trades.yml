@@ -23,6 +23,12 @@ name: Archive trades
 on:
   schedule:
     - cron: '00 11 * * 2'   # Tue 11:00 UTC — after archive-week (09:30) and archive-charts (10:00)
+    # A week is only counted once ESPN closes the scoring period, and that is
+    # ESPN's clock, not ours — Tuesday 11:00 UTC is 07:00 in New York and the
+    # flag may not have flipped yet. The other four archivers have carried a
+    # Wednesday net since they shipped; this one had none, so a week ESPN was
+    # slow with would have waited seven days for its trades to be frozen.
+    - cron: '00 11 * * 3'   # Wed 11:00 UTC — safety net
   workflow_dispatch:
     inputs:
       season:
