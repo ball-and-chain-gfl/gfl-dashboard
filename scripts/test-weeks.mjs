@@ -122,6 +122,7 @@ const parts = [
   grab('function tradeVoteOpen(season,when,id){'),
   grab('function punishWeek(){'),
   grab('function punishName(){'),
+  grab('function schedSeason(){'),
 ];
 
 const api = new Function(`
@@ -147,7 +148,7 @@ return {
   weekOver, weeksOf, weeksOverCount, weekDecided, weekScored,
   liveWeekInfo, bucksWeeksPlayed, ntLastWeek, ntResultsDay,
   bkKey, pkKey, motwWeekKey, motwChosen, motwSeasonStarted,
-  tradeVoteOpen, tradeVoteHeldOpen, punishWeek, punishName,
+  tradeVoteOpen, tradeVoteHeldOpen, punishWeek, punishName, schedSeason,
 };`)();
 
 let pass = 0, fail = 0;
@@ -334,7 +335,14 @@ console.log("\n6. a trade's vote waits for football, not for a Tuesday");
   };
   eq('agreed Thursday, open that day',   at2(D(2026, 9, 17, 15)), true);
   eq('open on the Monday',               at2(D(2026, 9, 21, 23)), true);
-  eq('closed on the Tuesday',            at2(D(2026, 9, 22, 0)), false);
+  /* THE WEEK TURNS AT SIX, NOT AT MIDNIGHT. realWeekStart has always run a
+     league week from Tuesday 6am to Tuesday 6am — somebody still awake at two
+     in the morning has not had their Tuesday yet — and ntResultsDay turned over
+     at midnight, so for six hours every Tuesday the two disagreed about which
+     week it was. Both start at six now, and a vote gets those six hours. */
+  eq('still open at five in the morning', at2(D(2026, 9, 22, 5)), true);
+  eq('closed at six',                     at2(D(2026, 9, 22, 6)), false);
+  eq('and closed later that day',         at2(D(2026, 9, 22, 12)), false);
 
   /* the manual hatch still overrides both */
   api.setCfg({ tradeVoteExtend: { 'td:2026:5-6:999': '2026-09-29' } });
@@ -379,8 +387,38 @@ console.log('\n7. the punishment advances with the football');
   eq('past the schedule',         at(Array.from({ length: 14 }, (_, i) => WEEK.closed(i + 1))), [14, '']);
 }
 
+console.log("\n8. the Schedule tab knows which row is \"you are here\"");
+{
+  /* It read the week off info.week, which schedSeason has never returned. So
+     Number(undefined)||1 quietly became 1, and the outline sat on week 1 from
+     the day it was written, whatever week it actually was. Nothing threw. */
+  const at = weeks => {
+    const all = [...weeks];
+    for (let w = all.length + 1; w <= 14; w++) all.push(WEEK.unplayed(w));
+    api.set({ 2025: { schedule: sched(...Array.from({ length: 14 }, (_, i) => WEEK.closed(i + 1))), regEnd: 14 },
+              2026: { schedule: sched(...all), regEnd: 14, owners: {} } }, ['2025', '2026']);
+    return api.schedSeason().week;
+  };
+  eq('the pre-season',              at([WEEK.unplayed(1)]), 1);
+  eq('Sunday of week one',          at([WEEK.sunday(1)]), 1);
+  eq('once week one closes',        at([WEEK.closed(1)]), 2);
+  eq('and on to week three',        at([WEEK.closed(1), WEEK.closed(2)]), 3);
+  /* Played out to the end, liveWeekInfo has no unfinished week left and falls
+     back to the last one with football in it, so the marker rests on week 14
+     rather than running off the end. A season that is not the newest gets 0 and
+     no marker at all — the tab is season-scoped, and an old year has no week on
+     the clock. That path needs the nav's year control, which has no DOM here. */
+  eq('played out to the end, it rests on the last week',
+     api.schedSeason.call(null) && (() => {
+       api.set({ 2025: { schedule: sched(...Array.from({ length: 14 }, (_, i) => WEEK.closed(i + 1))), regEnd: 14 },
+                 2026: { schedule: sched(...Array.from({ length: 14 }, (_, i) => WEEK.closed(i + 1))), regEnd: 14 } },
+               ['2025', '2026']);
+       return api.schedSeason().week;
+     })(), 14);
+}
+
 /* ────────────────────────────────────────────────────────────────────────── */
-console.log('\n8. the archive scripts say the same thing as the app');
+console.log('\n9. the archive scripts say the same thing as the app');
 {
   /* Five cron jobs freeze things into the repo on the strength of "that week is
      over", and each carries its own copy of the rule because they run alone.

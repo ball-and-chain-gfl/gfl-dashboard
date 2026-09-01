@@ -3645,75 +3645,26 @@ function motwToBook(oA,oB){
    own team badge sits under the side they backed. Voting while signed out
    opens the sign-in dialog instead. Fails soft: if Firestore is unreachable the
    bar simply shows no votes and the buttons still explain themselves. */
-let _motwVotes=null,_motwVoteBusy=false;
-const motwVoteKey=()=>`vote_${getSeason()}_w${(_CFG.matchup||{}).week??0}`;
-function motwPair(){
-  const cfg=_CFG.matchup||{};
-  let pair=null;
-  if(cfg.auto) pair=detectMatchupFromVideo();
-  if(!pair){const h=resolveTeamByName(cfg.home),a=resolveTeamByName(cfg.away);if(h&&a)pair=[h,a];}
-  return pair;
-}
-async function loadMotwVotes(){
-  const rows=await gflListProfiles();
-  if(!rows) return null;
-  const key=motwVoteKey(), tally={};
-  rows.forEach(p=>{
-    const pick=String(p[key]||'').trim();
-    if(!pick) return;
-    (tally[pick]||(tally[pick]=[])).push({voter:p.id,team:String(p.teamId||'').trim()});
-  });
-  return tally;
-}
-async function refreshMotwVotes(){
-  const t=await loadMotwVotes();
-  if(t){ _motwVotes=t; renderMotwVoteBar(); }
-}
-function renderMotwVoteBar(){
-  const box=document.getElementById('motw-vote'); if(!box) return;
-  const pair=motwPair(); if(!pair) return;
-  const [A,B]=pair, key=motwVoteKey();
-  const t=_motwVotes||{};
-  const va=(t[String(A.id)]||[]), vb=(t[String(B.id)]||[]);
-  const na=va.length, nb=vb.length, tot=na+nb;
-  const pa=tot?Math.round(na/tot*100):50, pb=tot?100-pa:50;
-  const mine=_me?String((t[String(A.id)]||[]).some(v=>v.voter===_me.k1)?A.id
-    :(t[String(B.id)]||[]).some(v=>v.voter===_me.k1)?B.id:''):'';
-  const badges=list=>list.map(v=>{
-    const tid=Number(v.team);
-    return _teams.some(x=>x.id===tid)?`<span class="mv-badge" title="${v.voter}">${logoImg(tid,'team-logo-sm')}</span>`:'';
-  }).join('');
-  box.innerHTML=`
-    <div class="mv-h">Who wins?${tot?`<span class="mv-count">${tot} vote${tot===1?'':'s'}</span>`:''}</div>
-    <div class="mv-bar" role="img" aria-label="${na} for ${A.name}, ${nb} for ${B.name}">
-      <div class="mv-fill a" style="width:${tot?pa:0}%"></div>
-      <div class="mv-fill b" style="width:${tot?pb:0}%"></div>
-    </div>
-    <div class="mv-pcts"><span>${tot?`${pa}% · ${na}`:'—'}</span><span>${tot?`${pb}% · ${nb}`:'—'}</span></div>
-    <div class="mv-btns">
-      <button class="mv-btn${mine==String(A.id)?' picked':''}" ${_motwVoteBusy?'disabled':''} onclick="castMotwVote(${A.id})">
-        ${mine==String(A.id)?'<i class="fa fa-check"></i>':''}${A.abbrev||A.name}
-      </button>
-      <button class="mv-btn${mine==String(B.id)?' picked':''}" ${_motwVoteBusy?'disabled':''} onclick="castMotwVote(${B.id})">
-        ${mine==String(B.id)?'<i class="fa fa-check"></i>':''}${B.abbrev||B.name}
-      </button>
-    </div>
-    <div class="mv-voters"><div class="mv-side">${badges(va)}</div><div class="mv-side right">${badges(vb)}</div></div>
-    ${_me?'':'<div class="mv-note">Sign in to cast a pick.</div>'}`;
-}
-async function castMotwVote(teamId){
-  if(!_me){ openSignIn(); return; }
-  if(_motwVoteBusy) return;
-  _motwVoteBusy=true; renderMotwVoteBar();
-  const res=await gflPatchProfile(_me.k1,{[motwVoteKey()]:String(teamId)});
-  _motwVoteBusy=false;
-  if(res&&res.error){
-    const box=document.getElementById('motw-vote');
-    if(box&&!box.querySelector('.mv-err')) box.insertAdjacentHTML('beforeend','<div class="mv-note mv-err">Could not save that pick — try again.</div>');
-    return;
-  }
-  await refreshMotwVotes();
-}
+/* ── THE "WHO WINS?" VOTE IS GONE ────────────────────────────────────────────
+   A bar with two crests and a split, under the homepage matchup panel: the
+   league picked a side and the bar showed how the room leaned. The panel it
+   lived in has been off the homepage for a while and the vote went unused, so
+   it is out rather than left as a switch nobody means to flip.
+
+   Worth recording why it could not simply be left dormant. Each answer was
+   stored as a FIELD NAME on the voter's own profile — vote_<season>_w<week> —
+   and the week in that name came from config.matchup.week, a number typed by
+   hand. Nothing advanced it. Turn the panel back on in week five and every
+   answer would still be written to vote_2026_w1, on top of week one's: anybody
+   who had voted once and not again would go on being counted, so a fresh week
+   would open showing twelve votes on a game played a month earlier and would
+   never start empty. A tally that cannot tell one week from another is not a
+   tally, and it took a config edit every Tuesday to stay honest.
+
+   Nothing to clean up on the way out: no profile in the league holds a vote_
+   field, so the feature never wrote a byte. What stays is the Matchup of the
+   Week PICK — which fixture is worth double on the picks grid — and that is a
+   different thing entirely, keyed on the week and settled long ago. */
 
 /* Head-to-head comparison table, laid out like the All-Time panel on a team
    profile: one metric per row, both teams' values on either side of the label.
@@ -3790,15 +3741,12 @@ function renderMatchupOfWeek(){
         <div class="motw-vs">VS</div>
         <div class="motw-team right">${logoImg(B.id,'big4-logo')}<div class="motw-tinfo"><div class="fr-name motw-tname">${B.name}</div></div></div>
       </div>
-      <div class="motw-vote" id="motw-vote"></div>
     </div>
     <details class="motw-stats">
       <summary class="motw-stats-s"><i class="fa fa-table-list"></i>Matchup Stats<i class="fa fa-chevron-down ms-chev"></i></summary>
       <div class="motw-stats-b">${motwCompareHTML(A,B,at,last,odds)}</div>
     </details>
     ${motwOddsHTML(A,B)}`;
-  renderMotwVoteBar();                       // paint immediately from cache
-  if(!_motwVotes) refreshMotwVotes();        // then fill in from Firestore
 }
 
 /* ── LEGACY REPORT ──────────────────────────────────────────────────────────
@@ -6556,14 +6504,6 @@ async function leaguePoll(force){
   const rows=await gflListProfiles();
   if(!rows) return;
   _cpRows=rows; _cpFetched=true;          // so cpSync does not fetch it again
-  const key=motwVoteKey(), tally={};
-  rows.forEach(p=>{
-    const pick=String(p[key]||'').trim();
-    if(!pick) return;
-    (tally[pick]||(tally[pick]=[])).push({voter:p.id,team:String(p.teamId||'').trim()});
-  });
-  _motwVotes=tally;
-  try{ renderMotwVoteBar(); }catch(e){}
   try{ renderCoachesPoll(); }catch(e){}
   try{ renderNotifications(); orderHomeTodo(); }catch(e){}
   /* ── THE ONE GRID THAT DOES NEED REPAINTING ────────────────────────────────
@@ -6990,7 +6930,6 @@ function applyMe(){
   try{ invResetAll(); }catch(e){}         // and whatever they hold
   _lrView=null; _lrPick=false;            // and back to their own locker room
   try{ ntReset(); }catch(e){}             // and their dismissals, from their profile
-  try{ renderMotwVoteBar(); }catch(e){}   // pick'em buttons follow sign-in state
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
   try{ pkReset(); }catch(e){}
   try{ _cpBallot=null; _cpFetched=false; _cpJustSent=false; renderCoachesPoll(); }catch(e){}   // a new manager starts fresh
@@ -7780,13 +7719,28 @@ function invResetAll(){ try{ invReset(); }catch(e){} }
 /* The schedule reads the year in the nav. A season still in progress gives
    the projection table; one that is finished gives the results instead, which is
    why `complete` is carried alongside `unplayed`. */
+/* ── WHICH ROW IS "YOU ARE HERE" ─────────────────────────────────────────────
+   The schedule outlines the week being played. It read that off `info.week`,
+   which this function has never returned — so `Number(undefined)||1` quietly
+   became 1 and the marker has sat on week 1 since the day it was written,
+   whatever week it actually was. Nothing threw and nothing looked broken; the
+   outline was simply always in the same place.
+
+   It comes off liveWeekInfo now, the same turnover as everything else here, so
+   it moves when ESPN closes a week. Only for the season being played: this tab
+   is season-scoped, and an older year has no week on the clock, so it gets no
+   marker rather than one on an arbitrary row. */
 function schedSeason(){
   const y=String(getSeason());
   const meta=_seasonMeta[y];
   const games=((meta&&meta.schedule)||[]).filter(m=>m.home&&m.away&&(m.matchupPeriodId||0)>0);
   const played=games.filter(m=>((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
   const unplayed=games.filter(m=>!((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
-  return {season:y,meta:meta||{schedule:[]},games,played,unplayed,
+  let week=0;
+  if(y===String(ALL_SEASONS[ALL_SEASONS.length-1])){
+    try{ week=Number((_liveInfo||liveWeekInfo()||{}).week)||0; }catch(e){ week=0; }
+  }
+  return {season:y,meta:meta||{schedule:[]},games,played,unplayed,week,
     live:played.length>0&&unplayed.length>0,
     complete:games.length>0&&unplayed.length===0,
     regEnd:(meta&&meta.regEnd)||14};
@@ -8640,8 +8594,8 @@ function renderSchedule(){
           <span class="sch-dl-t"><i class="fa fa-gavel"></i>Trade deadline · after week ${dl}</span>
           <span class="sch-dl-l"></span></div>`;
       })()}
-      ${''/* the week on the clock is outlined; before kickoff that is week 1 */}
-      <div class="sch-row${r.rival?' sch-rrow':''}${!r.playoff&&r.week===Math.max(1,Number(d.info.week)||1)?' sch-now':''}">
+      ${''/* the week on the clock is outlined; a past season has none */}
+      <div class="sch-row${r.rival?' sch-rrow':''}${!r.playoff&&Number(d.info.week)>0&&r.week===Number(d.info.week)?' sch-now':''}">
         <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
         ${nm(r)}
         <span class="r sch-c1">${r.oppRec}</span>
@@ -12958,10 +12912,24 @@ const ntDayOf=t=>{const d=new Date(t); d.setHours(0,0,0,0); return d.getTime();}
 /* The Tuesday a week's football was read out on — the one on or before the
    moment given, not the one coming. Looking forward dated results that had
    already been played to a day still in the future, which held every one of
-   them back for up to a week. */
+   them back for up to a week.
+
+   SIX IN THE MORNING, NOT MIDNIGHT. realWeekStart, which the bank counts weeks
+   with, has always run a week from Tuesday 6am to Tuesday 6am — somebody still
+   awake at two in the morning has not had their Tuesday yet. This turned over at
+   midnight instead, so for six hours every Tuesday the two halves of the app
+   disagreed about which week it was: a bet placed at 3am counted towards the
+   week that was ending by the bank and the week that was starting by the feed.
+   Nothing acted on the difference while the idle charge was priced at zero, and
+   rather than leave that waiting to be switched on, both now start at six.
+
+   The stamp itself is still midnight on that Tuesday — it is a DAY, and the
+   cards date themselves against it — only the choice of which Tuesday moves. */
 function ntResultsDay(t){
-  const d=new Date(t); d.setHours(0,0,0,0);
-  const back=(d.getDay()-2+7)%7;             // 2 = Tuesday
+  const at=new Date(t==null?Date.now():t);
+  const d=new Date(at); d.setHours(0,0,0,0);
+  let back=(d.getDay()-2+7)%7;               // 2 = Tuesday
+  if(d.getDay()===2&&at.getHours()<6) back=7;
   d.setDate(d.getDate()-back);
   return d.getTime();
 }
@@ -17220,7 +17188,9 @@ async function loadDashboard(){
             <!-- Matchup of the Week is hidden for now. The markup and
                  renderMatchupOfWeek() are both still here; putting the block
                  back and restoring the call in the boot sequence brings it
-                 back exactly as it was. Its pick now leads the weekly stack. -->
+                 back. The "Who wins?" vote that used to sit inside it has been
+                 taken out for good — see the note where it used to live. Its
+                 pick now leads the weekly stack. -->
           </div>
           <div class="home-vid-col">
             <div class="sec">

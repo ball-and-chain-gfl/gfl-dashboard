@@ -1965,26 +1965,13 @@
     /* ── Matchup pick'em ──────────────────────────────────────────────────── */
     /* The teams sit inside the vote panel, so the vote drops its own box and
        the panel carries the border for both. */
-    .motw-vote{margin:0;padding:0;border:none;border-radius:0;}
     .motw-panel .motw-head{padding:2px 0 12px;}
     .motw-panel .motw-vote{border-top:1px solid var(--border);padding-top:12px;}
-    .mv-h{display:flex;align-items:center;justify-content:space-between;gap:8px;
       font-family:'Inter',sans-serif;font-size:10px;font-weight:600;letter-spacing:.9px;
       text-transform:uppercase;color:var(--text3);margin-bottom:9px;}
-    .mv-count{color:var(--text3);opacity:.8;}
-    .mv-bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.07);}
     /* the two sides are read against each other, so they take fixed opposing
        colours rather than the tab accent */
-    .mv-fill{height:100%;transition:width .35s cubic-bezier(.2,.7,.2,1);}
-    .mv-fill.a{background:linear-gradient(90deg,#e8433f,#e8685f);}
-    .mv-fill.b{background:linear-gradient(90deg,#5a89e8,#3f6fe8);}
-    .mv-pcts span:first-child{color:#e8685f;}
-    .mv-pcts span:last-child{color:#6b90e8;}
-    .mv-btns .mv-btn:first-child.picked{border-color:#e8433f;color:#e8685f;background:rgba(232,67,63,0.14);}
-    .mv-btns .mv-btn:last-child.picked{border-color:#5a89e8;color:#6b90e8;background:rgba(90,137,232,0.14);}
-    .mv-pcts{display:flex;justify-content:space-between;font-family:'Inter',sans-serif;
       font-size:11px;font-weight:700;color:var(--text2);margin-top:6px;}
-    .mv-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
     /* same face as the sportsbook tab buttons, without their accent colour */
     .mv-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 10px;
       background:rgba(0,0,0,0.3);border:1px solid transparent;
@@ -2000,12 +1987,6 @@
     .mv-btn.picked{border-color:var(--accent);color:var(--accent);
       background:color-mix(in srgb,var(--accent) 12%,transparent);}
     .mv-btn:disabled{opacity:.55;cursor:default;}
-    .mv-voters{display:flex;justify-content:space-between;gap:10px;margin-top:9px;min-height:22px;}
-    .mv-side{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-width:0;}
-    .mv-side.right{justify-content:flex-end;}
-    .mv-badge{display:inline-flex;}
-    .mv-note{font-size:11px;color:var(--text3);margin-top:8px;text-align:center;}
-    .mv-note.mv-err{color:var(--red);}
 
     /* Head-to-head comparison, laid out like the profile All-Time panel:
        one metric per row, a team's value on each side of the centred label.

@@ -41,7 +41,10 @@ window.GFL_CONFIG = {
      it falls back to the names below if it can't find two team names.
      `odds` are playoff-odds percentages you set manually for now. */
   matchup: {
-    week: 1,
+    /* `week` used to live here. It named the field each vote was written to —
+       vote_<season>_w<week> — and nothing advanced it, so a week five vote
+       landed on top of week one's. The "Who wins?" bar is gone and the field
+       with it; nothing reads a week from this block now. */
     auto: false,   // set by hand below; auto-detect would override it from the video title
     home: "Florida",
     away: "Wigglers",
