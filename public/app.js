@@ -10721,12 +10721,45 @@ function eggTimeOf(n){
   const t=n*Math.max(1,hours)*3600000;
   return (t>0&&t<=Date.now()+3600000)?t:0;  // nothing from the future
 }
+/* ── ONE EGG PER WINDOW, AND THAT INCLUDES THE OLD ONES ──────────────────────
+   Two records of the same find are twenty dollars for one egg, so a set is
+   collapsed to one find per window before anybody counts it.
+
+   THE WINDOW A FIND WAS MADE UNDER IS NOT ALWAYS THE ONE RUNNING NOW. Finds
+   from before the hunt's current start sit in negative windows, and those used
+   to be exempt from the collapse entirely — the reasoning being that several
+   genuinely separate finds from a twelve-hour era can share one forty-eight
+   hour window today, and thinning them would destroy a real record.
+
+   That reasoning was sound and the exemption was too broad. Moving eggStart to
+   the 1st of September put EVERY find the league had ever made into a negative
+   window, so nothing was collapsed at all — and eggSave writes the union of the
+   device's list and the profile's. One find recorded two ways, a raw claim
+   stamp on the phone and a migrated index on the server, came back as two eggs.
+   One manager's total went from three to six on a single tap.
+
+   So the old finds are collapsed too, on the tightest window the hunt has
+   actually run: twelve hours. Two records inside twelve hours of each other are
+   one egg under every scheme this league has used, and finds genuinely made in
+   different twelve-hour windows all survive. Run across the league it changes
+   exactly the one total that was wrong and no other. */
+const EGG_OLD_WINDOW_MS=12*3600*1000;
+function eggCollapse(times){
+  const seen=new Set(), keep=[];
+  [...(times||[])].map(Number).filter(t=>t>0).sort((a,b)=>a-b).forEach(t=>{
+    const w=eggWindow(t);
+    const k=w<0?('h'+Math.floor(t/EGG_OLD_WINDOW_MS)):('w'+w);
+    if(seen.has(k)) return;
+    seen.add(k); keep.push(t);
+  });
+  return keep;
+}
 function eggsFound(){
   if(_eggs) return _eggs;
   let list=[];
   try{ list=JSON.parse(localStorage.getItem(eggKey())||'[]')||[]; }catch(e){}
   const cut=Date.now()-EGG_MAX_AGE_MS;
-  const clean=[...new Set(list.map(Number).map(eggTimeOf).filter(t=>t>cut))];
+  const clean=eggCollapse([...new Set(list.map(Number).map(eggTimeOf).filter(t=>t>cut))]);
   _eggs=new Set(clean);
   /* the migrated list is written straight back, so an old device is repaired
      once rather than re-solved on every read */
@@ -10761,22 +10794,13 @@ async function eggSave(){
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.eggs)||'[]')||[]; }catch(e){}
     srv.map(Number).map(eggTimeOf).filter(t=>t>0).forEach(t=>merged.add(t));
   }catch(e){}
-  /* ONE EGG PER WINDOW, however many devices claim it. The union above can hold
-     two stamps for the same window if a phone and a laptop both tapped before
-     either had saved, and two stamps is twenty dollars for one egg. The earliest
-     wins and the rest are dropped.
-
-     Finds from before the hunt opened sit in negative windows and are left
-     alone: they were recorded under other schemes, several can share a window
-     under this one, and thinning them would be the old bug again. */
-  const seenW=new Set(), keep=[];
-  [...merged].sort((a,b)=>a-b).forEach(t=>{
-    const w=eggWindow(t);
-    if(w<0){ keep.push(t); return; }
-    if(seenW.has(w)) return;
-    seenW.add(w); keep.push(t);
-  });
-  const list=keep;
+  /* ONE EGG PER WINDOW, however many devices claim it and however the record
+     was written. The union above can hold two stamps for one find — a phone and
+     a laptop that both tapped before either had saved, or the same find carried
+     as a raw stamp on one side and a migrated index on the other — and two
+     stamps is twenty dollars for one egg. eggCollapse keeps the earliest of
+     each and drops the rest. */
+  const list=eggCollapse(merged);
   if(list.length!==local.length){
     _eggs=new Set(list);
     try{ localStorage.setItem(eggKey(),JSON.stringify(list)); }catch(e){}
@@ -11351,6 +11375,21 @@ function bucksFor(scope,fn){
 const betsLiveAll=()=>bkBets().filter(betIsLive);
 function bucksStaked(){ return bucks2(betsLiveAll().reduce((a,b)=>a+b.stake,0)); }
 function bucksReturned(){ return bucks2(betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0)); }
+/* ── A BALANCE IS NOT A BALANCE UNTIL THE LEDGER IS IN ───────────────────────
+   bucksBalance takes off what is tied up in open bets, and _bets is null until
+   that list comes back from Firestore. So the Sportsbook's first paint counted
+   every open stake as money still in the account and then dropped to the real
+   figure a moment later — ten dollars out for one manager today, ninety-seven
+   for another, twenty for a third.
+
+   A number that is wrong for a second is worse here than no number at all,
+   because it is the number people size a stake against, and the gates that stop
+   an over-stake read the same function. So the balance shows a dash until the
+   ledger is in, and nothing can be spent against it before then.
+
+   A scoped read is always ready: bucksFor is handed the bets it is to use, so
+   there is nothing outstanding to wait for. */
+const bucksReady=()=>_bkScope?true:_bets!==null;
 function bucksBalance(){
   /* shares are bought with the same money as bets, so what is tied up in them
      has to leave the balance — and come back when they are sold */
@@ -11539,6 +11578,9 @@ async function sbPlaceBet(){
   if(!_slip.length||_betBusy) return;
   const stake=Math.round(Math.max(0,Number(_sbStake)||0));
   if(stake<=0){ _betErr='stake'; sbRenderSlip(); return; }
+  /* before the ledger lands the balance reads high by whatever is riding on
+     open bets, and this is the check that would wave the over-stake through */
+  if(!bucksReady()){ _betErr='loading'; sbRenderSlip(); return; }
   if(stake>bucksBalance()){ _betErr='funds'; sbRenderSlip(); return; }
   /* A slip built before kickoff can still be sitting on screen once the games
      are running — the buttons go dead, the slip does not. Without this a ticket
@@ -14531,8 +14573,10 @@ function ldBucks(ids,prof){
        window scheme is not paid for here either */
     try{ const e=JSON.parse(p.eggs||'[]');
       if(Array.isArray(e)){
-        const ts=new Set(e.map(Number).map(eggTimeOf).filter(t=>t>0));
-        eggs+=ts.size;
+        /* collapsed the same way the owner's own device collapses them, or the
+           board would pay for a find the manager's own chip does not count */
+        const ts=eggCollapse([...new Set(e.map(Number).map(eggTimeOf).filter(t=>t>0))]);
+        eggs+=ts.length;
         /* the count stays a sum of per-profile sets, exactly as it was — these
            ride alongside it for the replay's benefit and change no total */
         ts.forEach(t=>eggTimes.push(t));
@@ -15951,7 +15995,7 @@ function sbSlipHTML(){
   return `<div class="sb-slip-head"><i class="fa fa-receipt"></i>Bet Slip<span class="sb-slip-n">${n}</span></div>
     ${_me?`<div class="sb-bank">
         <span class="sb-bank-l"><i class="fa fa-wallet"></i>GFL Bucks</span>
-        <span class="sb-bank-v">${bucksFmt(bal)}</span>
+        <span class="sb-bank-v">${bucksReady()?bucksFmt(bal):'—'}</span>
         <span class="sb-bank-r">+${bucksFmt(BUCKS_WEEKLY)} ${bucksNextText()}</span>
       </div>`:''}
     ${n?`<div class="sb-slip-list">${_slip.map(s=>`<div class="sb-slip-item">
@@ -15982,6 +16026,7 @@ function sbSlipHTML(){
         _betErr==='locked'?'That week is under way — those markets are closed. The week ahead and the season futures are still open.'
         :_betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
         :_betErr==='stake'?'Enter a stake first.'
+        :_betErr==='loading'?'Still counting your money. One moment.'
         :_betErr==='quota'?'The league database has hit its daily free-tier limit — try again after it resets at midnight Pacific.'
         :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
         :'Could not place that bet. Try again.'}</div>`:''}`
@@ -16665,8 +16710,9 @@ function sbWeekHTML(){
 function renderBucksChip(){
   const el=document.getElementById('bucks-chip'); if(!el) return;
   if(!_me||_activeTab!=='book'){ if(!el.hidden){ el.hidden=true; el.innerHTML=''; } return; }
-  let bal=0; try{ bal=bucksBalance(); }catch(e){}
-  const txt=bucksFmt(bal);
+  let bal=0, ready=false;
+  try{ bal=bucksBalance(); ready=bucksReady(); }catch(e){}
+  const txt=ready?bucksFmt(bal):'—';
   el.hidden=false;
   let tip='GFL Bucks';
   try{ tip=`GFL Bucks — next ${bucksFmt(BUCKS_WEEKLY)} ${bucksNextText()}`; }catch(e){}
@@ -16762,7 +16808,7 @@ function invPatchCard(card){
     go.disabled=!(n>0)||n>have+1e-6||_invBusy;
     go.textContent='Sell'+(n>0?' · '+invFmt(cost):'');
   }else{
-    go.disabled=!(n>0)||cost>bucksBalance()+1e-6||_invBusy;
+    go.disabled=!(n>0)||!bucksReady()||cost>bucksBalance()+1e-6||_invBusy;
     go.textContent='Buy'+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cost)):'');
   }
 }

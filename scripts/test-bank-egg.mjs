@@ -66,6 +66,9 @@ const parts=[
   grab('function eggRand(seed){'),
   grab('const EGG_TABS=['),
   grab('function eggSpot(w=eggWindow()){'),
+  grab('const EGG_OLD_WINDOW_MS='),
+  grab('function eggCollapse(times){'),
+  grab('const bucksReady='),
 ];
 const harness=`
 let _bets=[], _me={k1:'bfl'}, _EGGS=0;
@@ -103,10 +106,12 @@ return { bucksFor,
           eggWindowHours:${EGG_HOURS},eggPrize:${EGG_MONEY},eggStart:'${EGG_START}'},(extra&&extra.cfg)||{}); },
   bucksIdleWeeks, bucksEpoch,
   bucksCycles, bucksAllowance, bucksStaked, bucksReturned, bucksBalance,
-  eggSpot, eggWindow, eggEpoch, eggRand, EGG_TABS, EGG_MS, EGG_PRIZE, tueWeekStart };`;
+  eggSpot, eggWindow, eggEpoch, eggRand, EGG_TABS, EGG_MS, EGG_PRIZE, tueWeekStart,
+  eggCollapse, bucksReady, setBets(b){ _bets=b; } };`;
 const api=new Function(harness)();
 
 let pass=0, fail=0;
+const eggEq=(n,g,w)=>eq(n,g,w);
 const eq=(n,g,w)=>{const a=JSON.stringify(g),b=JSON.stringify(w);
   if(a===b){pass++;console.log('  ok   '+n);}
   else{fail++;console.log('  FAIL '+n+'\n         got  '+a+'\n         want '+b);}};
@@ -426,6 +431,85 @@ console.log('\n15. a find survives the window being changed');
   const times = [...new Set(stored.map(hz.eggTimeOf).filter(t => t > 0))];
   eq('three finds under the old window are still three finds', times.length, 3);
   eq('and still worth the same money', times.length * EGG_MONEY, 3 * EGG_MONEY);
+}
+
+/* ── ONE EGG PER WINDOW, INCLUDING THE OLD ONES ──────────────────────────────
+   A find is stored as the millisecond it was made. The same find can end up
+   recorded twice in two different shapes — a raw stamp on the phone that
+   claimed it, a migrated window index on the profile — and eggSave writes the
+   UNION of the two lists, so without a collapse that is one egg paid for twice.
+
+   The collapse used to skip anything in a negative window, meaning anything
+   from before the hunt's current start. That was deliberate, to protect finds
+   made under a twelve-hour scheme from being merged by a forty-eight hour one.
+   Then eggStart moved to 1 September and every find the league had ever made
+   became negative, so nothing was collapsed at all and one manager's total went
+   from three to six on a single tap. Twelve hours is the tightest window the
+   hunt has actually run, so that is what the old finds collapse on. */
+console.log('\n16. two records of one egg are still one egg');
+{
+  const H = 3600 * 1000;
+  const start = new Date(EGG_START).getTime();       // the hunt's current start
+  const before = n => start - n * H;                 // n hours before it opened
+  const after = n => start + n * H;
+
+  const c = ts => api.eggCollapse(ts).length;
+
+  eggEq('nothing is nothing',              c([]), 0);
+  eggEq('one find is one find',            c([before(60)]), 1);
+  /* the shape the bug took: a raw claim stamp and a migrated index, the same
+     egg, twenty two minutes apart and both from before the hunt opened */
+  eggEq('a stamp and its migrated twin',   c([before(60), before(60) + 22 * 60 * 1000]), 1);
+  eggEq('three minutes apart, still one',  c([before(60), before(60) + 3 * 60 * 1000]), 1);
+  /* and genuinely separate finds from the twelve-hour era all survive */
+  eggEq('twelve hours apart is two',       c([before(60), before(48)]), 2);
+  eggEq('a day apart is two',              c([before(60), before(36)]), 2);
+  eggEq('four across four days',           c([before(96), before(72), before(48), before(24)]), 4);
+  /* THE BUCKET IS AN ABSOLUTE GRID, not twelve hours measured from each find.
+     Two records inside one cell collapse; two an hour apart either side of a
+     boundary both survive. That is the safe direction and the reason for
+     choosing it: the collapse can fail to merge a duplicate, which leaves a
+     total exactly where it already was, but it can never merge two finds that
+     really were two eggs and take money off somebody. Against the league's
+     actual records it changes one total and leaves the other eight alone. */
+  const cell = Math.floor(before(60) / (12 * H)) * 12 * H;
+  eggEq('two inside one cell',             c([cell + H, cell + 11 * H]), 1);
+  eggEq('either side of a boundary',       c([cell + 11 * H, cell + 13 * H]), 2);
+
+  /* AFTER THE HUNT OPENED the current window is the rule, exactly as before */
+  eggEq('one claim in this window',        c([after(1)]), 1);
+  eggEq('two claims in this window',       c([after(1), after(20)]), 1);
+  eggEq('and the next window is its own',  c([after(1), after(50)]), 2);
+  eggEq('across the boundary',             c([before(2), after(2)]), 2);
+
+  /* the earliest of a pair is the one kept — a find is when it was made */
+  eggEq('the earlier stamp survives',
+    api.eggCollapse([before(60) + 22 * 60 * 1000, before(60)])[0], before(60));
+
+  /* order in, order out: the caller writes this straight back to the profile */
+  eggEq('and the list comes back sorted',
+    api.eggCollapse([after(50), before(60), after(1)]),
+    [before(60), after(1), after(50)]);
+}
+
+/* ── A BALANCE IS NOT A BALANCE UNTIL THE LEDGER IS IN ───────────────────────
+   bucksBalance subtracts what is riding on open bets, and _bets is null until
+   Firestore answers. The Sportsbook painted before that, so the figure read
+   high by exactly the open stake and then corrected — and the check that stops
+   an over-stake reads the same function. */
+console.log('\n17. and the ledger has to be in before it is one');
+{
+  api.setBets(null);
+  eggEq('nothing loaded yet', api.bucksReady(), false);
+  api.setBets([]);
+  eggEq('an empty ledger is a ledger', api.bucksReady(), true);
+  api.setBets([{owner:'bfl',status:'open',stake:10,ret:0,ts:Date.now()}]);
+  eggEq('and so is a full one', api.bucksReady(), true);
+  /* a scoped read is handed its bets, so there is nothing to wait for */
+  api.setBets(null);
+  eggEq('a scoped read never waits',
+    api.bucksFor({bets:[],eggs:0,lots:[]},()=>api.bucksReady()), true);
+  api.setBets([]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
