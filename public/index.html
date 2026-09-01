@@ -3578,7 +3578,10 @@
        which is what they are: two readings of the same hunt. Wrapping left it
        to chance, and at most widths it came out one, two, and one alone. */
     .mp-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:stretch;}
-    .mp-actions>.mp-plant{grid-column:1/-1;}
+    /* Both chips span the row. The egg sat in the first of two columns with
+       nothing in the second, so it read as half a card under a full-width one
+       — two things of equal standing drawn at different weights. */
+    .mp-actions>.mp-plant,.mp-actions>.mp-egg,.mp-actions>.mp-eggnow{grid-column:1/-1;}
     .mp-actions>.mp-egg,.mp-actions>.mp-eggnow{min-width:0;justify-content:center;}
     .mp-actions .mv-btn{width:auto;padding:9px 16px;}
     .mp-out-btn{border-color:rgba(232,67,63,0.45);color:#e8685f;}

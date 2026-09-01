@@ -362,9 +362,23 @@ window.GFL_CONFIG = {
      rather than matching it character for character — "Hot & Spicy", "hot and
      spicy" and "HOT & SPICY" all land on the same icon and the same picture. */
   punishment: {
-    week: 1,
-    name: "Fruit Pledge",
-    note: "Carry your fruit from 9am Tuesday until 1pm the following Sunday, and answer every fruit check within 15 minutes.",
+    /* WEEK AND NAME ARE OVERRIDES, AND THEY ARE OFF. The week being played
+       comes from the football and the punishment comes from `schedule` below,
+       so neither of these has to be edited on a Tuesday and the bar cannot sit
+       on "Week 1 · Fruit Pledge" into October, which is what it used to do.
+
+       The week turns over when the week is OVER — once ESPN closes the scoring
+       period, the same moment the trivia, the picks slate and the allowance
+       turn over — so the punishment named is the one being played for right
+       through the week it belongs to.
+
+       Put a number in `week` to pin the week by hand, or a name in `name` to
+       swap a punishment for one week. Either overrides the schedule until it is
+       set back to null. `note` is only read when `name` is pinned and the
+       details list below has no entry for it. */
+    week: null,
+    name: null,
+    note: null,
     options: ["Beer Pour", "Fruit Pledge", "Willem Dafoe", "Hot & Spicy",
               "Fast Banana", "Franchise Rebrand", "The Re-enactment"],
     /* How the whole thing works, as opposed to what any one punishment is.

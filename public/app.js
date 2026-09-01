@@ -4050,14 +4050,42 @@ const PUNISH_ICON={
 };
 const punishIcon=(n,fallback)=>PUNISH_ICON[punishSlug(n)]||fallback||'fa-gavel';
 const punishIconHTML=(n,fallback)=>`<i class="fa ${punishIcon(n,fallback)}"></i>`;
-function homePunishHTML(){
+/* ── WHICH PUNISHMENT IS ON THE LINE ─────────────────────────────────────────
+   The week comes off the football now, not off a number somebody has to
+   remember to edit. It was a hand-set field, with the whole fourteen-week
+   schedule sitting three lines below it in the same object — so the bar, the
+   homepage card and the Punishments tab all said "Week 1 · Fruit Pledge" and
+   would have gone on saying it into October.
+
+   liveWeekInfo is the source, which is the same turnover the questions, the
+   picks slate, the Matchup of the Week and the allowance all run on: the week
+   advances when the week is OVER, once ESPN closes the scoring period, and not
+   when a Sunday afternoon happens to have points on the board. So the
+   punishment named is the one being played for, all the way through the week it
+   belongs to, and it changes when the football does.
+
+   BOTH OVERRIDES STILL WORK. punishment.week pins the week by hand and
+   punishment.name pins the punishment, for a week the league swaps or a
+   schedule that needs jumping. Left null — which is how they should normally
+   sit — the schedule drives it. */
+function punishWeek(){
   const cfg=_CFG.punishment||{};
-  if(!cfg.name && cfg.week==null) return '<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
+  if(cfg.week!=null&&cfg.week!=='') return Number(cfg.week)||0;
+  try{ return Number((_liveInfo||liveWeekInfo()||{}).week)||0; }catch(e){ return 0; }
+}
+function punishName(){
+  const cfg=_CFG.punishment||{};
+  if(cfg.name) return String(cfg.name);
+  return String((cfg.schedule||{})[punishWeek()]||'').trim();
+}
+function homePunishHTML(){
+  const wk=punishWeek(), nm=punishName();
+  if(!nm && !wk) return '<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
   return `<div class="home-punish">
-    <div class="home-punish-ic">${punishIconHTML(cfg.name)}</div>
+    <div class="home-punish-ic">${punishIconHTML(nm)}</div>
     <div class="home-punish-info">
-      <div class="home-punish-week">Week ${cfg.week??'—'} Punishment</div>
-      <div class="home-punish-name">${cfg.name||'TBD'}</div>
+      <div class="home-punish-week">Week ${wk||'—'} Punishment</div>
+      <div class="home-punish-name">${nm||'TBD'}</div>
     </div>
     <button class="home-punish-more" onclick="switchTab('punishment')">Details <i class="fa fa-arrow-right"></i></button>
   </div>`;
@@ -4069,8 +4097,7 @@ function homePunishHTML(){
    tap through the menu. */
 function renderPunishment(){
   const el=document.getElementById('punishment-body'); if(!el) return;
-  const cfg=_CFG.punishment||{};
-  if(!cfg.name && cfg.week==null){
+  if(!punishName() && !punishWeek()){
     el.innerHTML='<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
     return;
   }
@@ -4080,13 +4107,13 @@ function renderPunishment(){
     <div class="sec"><div class="sec-head"><i class="fa fa-calendar-days"></i>Season Schedule</div>
       ${punishScheduleHTML()}</div>`;
 }
-/* Weeks 1 to 14 and what is on the line each one. The current week — the one
-   punishment.week names — is outlined rather than filled, so it reads as
-   "you are here" without competing with the row content. */
+/* Weeks 1 to 14 and what is on the line each one. The week being played is
+   outlined rather than filled, so it reads as "you are here" without competing
+   with the row content. */
 function punishScheduleHTML(){
   const cfg=_CFG.punishment||{};
   const sch=cfg.schedule||{};
-  const cur=Number(cfg.week);
+  const cur=punishWeek();
   const rows=[];
   for(let w=1;w<=14;w++){
     const name=String(sch[w]||'').trim();
@@ -4112,7 +4139,7 @@ let _prSel=null;
 function selectPunish(name){ _prSel=name; const b=document.getElementById('punish-rules-body'); if(b) b.innerHTML=punishRulesHTML(); }
 function punishRulesHTML(){
   const cfg=_CFG.punishment||{};
-  const week=cfg.name||'';
+  const week=punishName();
   const sel=_prSel||week;                       // defaults to this week's
   const selL=sel.toLowerCase(), curL=week.toLowerCase();
   const opts=cfg.options||[];
@@ -4148,7 +4175,7 @@ function punishRulesHTML(){
               alt="${String(sel).replace(/"/g,'&quot;')}">`;
           })()
         : `<div class="pr-ic">${punishIconHTML(sel)}</div>`}
-      <div class="pr-week">${selL===curL?`Week ${cfg.week??'?'} Punishment`:'From the menu'}</div>
+      <div class="pr-week">${selL===curL?`Week ${punishWeek()||'?'} Punishment`:'From the menu'}</div>
       <div class="pr-name">${sel||'TBD'}</div>
       <p class="pr-note${detail?'':' pr-empty'}">${detail
         ||(isTestProfile()?'No description written for this one yet. Add it under <b>punishment.details</b> in config.js.'
@@ -6664,13 +6691,13 @@ function myMatchupHTML(compact){
    the video is gone — so it renders from config alone and does not wait on a
    sign-in or a game being in progress. */
 function punishBarHTML(){
-  const cfg=_CFG.punishment||{};
-  if(!cfg.name && cfg.week==null) return '';
+  const wk=punishWeek(), nm=punishName();
+  if(!nm && !wk) return '';
   return `<div class="pb-bar">
-    <span class="pb-ic">${punishIconHTML(cfg.name)}</span>
+    <span class="pb-ic">${punishIconHTML(nm)}</span>
     <span class="pb-txt">
-      <span class="pb-wk">Week ${cfg.week??'—'} Punishment</span>
-      <span class="pb-name">${cfg.name||'TBD'}</span>
+      <span class="pb-wk">Week ${wk||'—'} Punishment</span>
+      <span class="pb-name">${nm||'TBD'}</span>
     </span>
     <button class="pb-more" onclick="switchTab('punishment')">Details <i class="fa fa-arrow-right"></i></button>
   </div>`;

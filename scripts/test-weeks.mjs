@@ -120,6 +120,8 @@ const parts = [
   grab('function motwChosen(){'),
   grab('function tradeVoteHeldOpen(id){'),
   grab('function tradeVoteOpen(season,when,id){'),
+  grab('function punishWeek(){'),
+  grab('function punishName(){'),
 ];
 
 const api = new Function(`
@@ -145,7 +147,7 @@ return {
   weekOver, weeksOf, weeksOverCount, weekDecided, weekScored,
   liveWeekInfo, bucksWeeksPlayed, ntLastWeek, ntResultsDay,
   bkKey, pkKey, motwWeekKey, motwChosen, motwSeasonStarted,
-  tradeVoteOpen, tradeVoteHeldOpen,
+  tradeVoteOpen, tradeVoteHeldOpen, punishWeek, punishName,
 };`)();
 
 let pass = 0, fail = 0;
@@ -342,8 +344,43 @@ console.log("\n6. a trade's vote waits for football, not for a Tuesday");
   api.setNow(0);
 }
 
+console.log('\n7. the punishment advances with the football');
+{
+  /* It used to be a hand-set field, with the fourteen-week schedule sitting
+     three lines below it in the same config object — so the bar, the homepage
+     card and the Punishments tab all read "Week 1 · Fruit Pledge" and would
+     have gone on reading it into October. */
+  const SCHEDULE = { 1: 'Fruit Pledge', 2: 'Franchise Rebrand', 3: 'The Re-enactment',
+                     4: 'Fruit Pledge', 5: 'Beer Pour' };
+  const at = (weeks, cfg) => {
+    const all = [...weeks];
+    for (let w = all.length + 1; w <= 14; w++) all.push(WEEK.unplayed(w));
+    api.set({ 2026: { schedule: sched(...all), regEnd: 14, owners: {} } }, ['2026']);
+    api.setCfg({ punishment: Object.assign({ schedule: SCHEDULE }, cfg || {}) });
+    return [api.punishWeek(), api.punishName()];
+  };
+
+  eq('the pre-season',            at([WEEK.unplayed(1)]), [1, 'Fruit Pledge']);
+  eq('Wednesday night kickoff',   at([WEEK.kickoff(1)]), [1, 'Fruit Pledge']);
+  /* the whole point: it does not turn over on the Sunday, halfway through the
+     week whose low scorer is still being decided */
+  eq('Sunday lunchtime, week one running', at([WEEK.sunday(1)]), [1, 'Fruit Pledge']);
+  eq('once ESPN closes week one', at([WEEK.closed(1)]), [2, 'Franchise Rebrand']);
+  eq('and on through week two',   at([WEEK.closed(1), WEEK.sunday(2)]), [2, 'Franchise Rebrand']);
+  eq('week three',                at([WEEK.closed(1), WEEK.closed(2)]), [3, 'The Re-enactment']);
+
+  /* the overrides, for a week the league pins or swaps */
+  eq('a pinned week wins',        at([WEEK.closed(1)], { week: 1 }), [1, 'Fruit Pledge']);
+  eq('a pinned name wins',        at([WEEK.closed(1)], { name: 'Hot & Spicy' }), [2, 'Hot & Spicy']);
+  eq('and both together',         at([WEEK.closed(1)], { week: 9, name: 'Beer Pour' }), [9, 'Beer Pour']);
+  eq('null is not a pin',         at([WEEK.closed(1)], { week: null, name: null }), [2, 'Franchise Rebrand']);
+  /* a week past the end of the schedule names no punishment rather than the
+     wrong one — the fourteen are the fourteen */
+  eq('past the schedule',         at(Array.from({ length: 14 }, (_, i) => WEEK.closed(i + 1))), [14, '']);
+}
+
 /* ────────────────────────────────────────────────────────────────────────── */
-console.log('\n7. the archive scripts say the same thing as the app');
+console.log('\n8. the archive scripts say the same thing as the app');
 {
   /* Five cron jobs freeze things into the repo on the strength of "that week is
      over", and each carries its own copy of the rule because they run alone.
