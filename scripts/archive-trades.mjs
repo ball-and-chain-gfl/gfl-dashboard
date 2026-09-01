@@ -140,11 +140,24 @@ async function seasonFinished(season) {
     sched = live.schedule || [];
   }
   sched = sched.filter(m => m && m.home && m.away && (m.matchupPeriodId || 0) > 0);
-  if (!sched.length) return { done: false, why: 'no schedule to check' };
-  const unplayed = sched.filter(m => !((m.home.totalPoints || 0) > 0 || (m.away.totalPoints || 0) > 0));
+  if (!sched.length) return { done: false, why: 'no schedule to check', played: 0 };
+  const scored = m => (m.home.totalPoints || 0) > 0 || (m.away.totalPoints || 0) > 0;
+  const unplayed = sched.filter(m => !scored(m));
+
+  /* How many fantasy weeks are FINISHED — every fixture in them scored. Counted
+     from week 1 and stopped by the first hole, the same way bucksWeeksPlayed
+     does it in the app, so a half-scored week never counts as played. */
+  const byWeek = {};
+  sched.forEach(m => { const w = m.matchupPeriodId; (byWeek[w] || (byWeek[w] = [])).push(m); });
+  let played = 0;
+  for (let w = 1; byWeek[w]; w++) {
+    if (!byWeek[w].every(scored)) break;
+    played = w;
+  }
+
   return unplayed.length
-    ? { done: false, why: `${unplayed.length} of ${sched.length} games unplayed` }
-    : { done: true };
+    ? { done: false, why: `${unplayed.length} of ${sched.length} games unplayed`, played }
+    : { done: true, played };
 }
 
 /* The NFL season a date belongs to — a year runs March to March, so January
@@ -187,7 +200,22 @@ for (const season of seasons) {
      every time, and the app merges it with the live feed rather than treating
      it as the final word. */
   if (have && fin.done && !force) { console.log(`${season} – finished and already archived`); continue; }
-  if (!fin.done && !have) console.log(`${season} – live season, first snapshot`);
+
+  /* ── NOTHING IS FROZEN BEFORE THERE IS ANYTHING TO FREEZE ─────────────────
+     A season with no completed week has no settled trade in it: the points on
+     every trade are zero, because they are what the players scored AFTER it and
+     nothing has been scored. Snapshotting that writes a file full of noughts,
+     and puts a second source in front of a season the app could simply have
+     read live.
+
+     So the live season waits for week 1 to be final. From then on it is
+     snapshotted weekly, which is the point — the votes and the trades want
+     keeping while ESPN still serves them. */
+  if (!fin.done && !force && !(fin.played > 0)) {
+    console.log(`${season} – no completed week yet, nothing worth freezing`);
+    continue;
+  }
+  if (!fin.done && !have) console.log(`${season} – live season, first snapshot (week ${fin.played} final)`);
 
   const d = await get(`type=seasontrades&seasonId=${season}&v=3`);
   if (!d || !Array.isArray(d.trades)) { console.log(`${season} – no trades payload, skipped`); continue; }

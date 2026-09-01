@@ -10903,6 +10903,31 @@ function bucksResetsIn(now=new Date()){
   const d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000);
   return d>0?`${d}d ${h}h`:`${h}h`;
 }
+/* ── WHEN THE NEXT ALLOWANCE ACTUALLY ARRIVES ────────────────────────────────
+   bucksResetsIn counts down to the next Tuesday, which is what an allowance used
+   to follow. It does not follow Tuesdays any more: bucksCycles pays one on pay
+   day and then one for every fantasy week ACTUALLY PLAYED, so the money is
+   earned by football and not by the calendar.
+
+   The countdown carried on regardless, and the sportsbook spent the whole
+   pre-season promising "$100 lands in 9h" on the eve of a Tuesday that would
+   pay nothing — six days of a clock ticking down to no money. A countdown that
+   is wrong is worse than no countdown, because people plan stakes around it.
+
+   So it names the gate instead. The next allowance lands when the next week
+   goes final, and that is what it says. The short test cycle keeps the clock:
+   there the buckets really are what pays out. */
+function bucksNextText(){
+  if(bucksTestMs()) return `in ${bucksResetsIn()}`;
+  const ep=bucksEpoch();
+  if(!ep) return `in ${bucksResetsIn()}`;          // no pay day set: the old rule
+  if(Date.now()<ep){
+    return `on ${new Date(ep).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;
+  }
+  let wk=1;
+  try{ wk=bucksWeeksPlayed(bucksEpochSeason())+1; }catch(e){}
+  return `when week ${wk} is final`;
+}
 /* Bets from before the reset line are ignored rather than deleted — the rules
    withhold delete so a losing bet cannot be made to vanish. */
 const betsAfterReset=b=>Number(b.ts||0)>=Number(_CFG.betsResetBefore||0);
@@ -10948,10 +10973,12 @@ function bucksCycles(now=Date.now()){
      start. They now count from config.bucksStart: nothing before it, the first
      $100 on it, one more every Tuesday after.
 
-     Counting Tuesdays rather than weeks of football is deliberate now that a
-     week with nothing risked costs money — the cadence has to be the calendar,
-     or an idle pre-season week would take $20 off a balance no allowance had
-     arrived in. */
+     This paragraph used to explain why the cadence was the calendar: an idle
+     week cost $20, so an allowance had to arrive on the same beat or a manager
+     could be charged in a week nothing had been paid into. The idle charge is
+     off (config.bucksIdleCost is 0), and the reason went with it — what pays an
+     allowance now is a week of football, full stop. See bucksNextText, which
+     had to stop counting down to Tuesdays for the same reason. */
   const ep=bucksEpoch();
   if(ep){
     if(to<ep) return 0;                  // before pay day nobody has anything
@@ -15601,7 +15628,7 @@ function myBetsHTML(){
      move was when the next hundred lands, which is a question about the money
      rather than about any one bet — one line, above the chart of the same
      money over time. */
-  const head=`<div class="sb-next">Next ${bucksFmt(BUCKS_WEEKLY)} lands in <b>${bucksResetsIn()}</b></div>
+  const head=`<div class="sb-next">Next ${bucksFmt(BUCKS_WEEKLY)} <b>${bucksNextText()}</b></div>
   ${bankHTML()}
   ${sbInvitesHTML()}
   ${betsClearable().length?`<div class="sb-clearsettled-row">
@@ -15745,7 +15772,7 @@ function sbSlipHTML(){
     ${_me?`<div class="sb-bank">
         <span class="sb-bank-l"><i class="fa fa-wallet"></i>GFL Bucks</span>
         <span class="sb-bank-v">${bucksFmt(bal)}</span>
-        <span class="sb-bank-r">+${bucksFmt(BUCKS_WEEKLY)} in ${bucksResetsIn()}</span>
+        <span class="sb-bank-r">+${bucksFmt(BUCKS_WEEKLY)} ${bucksNextText()}</span>
       </div>`:''}
     ${n?`<div class="sb-slip-list">${_slip.map(s=>`<div class="sb-slip-item">
         <div class="sb-si-txt"><div class="sb-si-pick">${s.pickLabel}</div><div class="sb-si-mkt">${s.mkLabel}</div></div>
@@ -16467,7 +16494,7 @@ function renderBucksChip(){
   const txt=bucksFmt(bal);
   el.hidden=false;
   let tip='GFL Bucks';
-  try{ tip=`GFL Bucks — next ${bucksFmt(BUCKS_WEEKLY)} lands in ${bucksResetsIn()}`; }catch(e){}
+  try{ tip=`GFL Bucks — next ${bucksFmt(BUCKS_WEEKLY)} ${bucksNextText()}`; }catch(e){}
   if(el.title!==tip) el.title=tip;
   /* patched rather than rebuilt: this runs on every tab switch and every
      settled bet, and replacing the node would restart the icon each time */

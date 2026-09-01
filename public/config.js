@@ -133,13 +133,18 @@ window.GFL_CONFIG = {
      pay day and one for every fantasy week actually played, and no week has been
      played yet, so this is exactly $100 each and not a penny more.
 
-     WATCH THE IDLE CHARGE AFTER THIS. bucksIdleWeeks never counts the week in
-     progress, so nobody is docked today. When the week 25 August to 1 September
-     closes, anyone who has neither bet nor traded in it loses bucksIdleCost —
-     $20, before a snap of football has been played. Set bucksIdleCost to 0 if
-     the penalty should not start biting until the season does. */
+     THE IDLE CHARGE IS OFF, and this is what switches it off. It would have
+     taken $20 off five managers on 1 September for not betting in a week with no
+     football in it — Bismuth, Lebron's 3rd Leg, Team silly willy, West Coast
+     Wigglers and Whittingham Sports. Nobody is docked for sitting a week out any
+     more, and nothing is owed retrospectively: the charge is derived from the
+     weeks, not stored, so a zero here means it never happened.
+
+     bucksIdleWeeks still exists and reads this value, so putting a number back
+     turns it straight on again — and it would apply from pay day, not from the
+     day it was changed. */
   bucksStart: "2026-08-25",
-  bucksIdleCost: 20,
+  bucksIdleCost: 0,
 
   /* ── WHAT A DEAD PLANT COSTS ───────────────────────────────────────────────
      The locker-room plant dries out a stage a day and is dead on the fifth. It
