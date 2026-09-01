@@ -213,7 +213,7 @@ window.GFL_CONFIG = {
      Local time, and a clean hour reads best — it is the moment twelve people are
      all told the hunt has started. Blank it out to run from the clock's own
      epoch, which is what it did before. */
-  eggStart: "2026-09-01T22:00",
+  eggStart: "2026-09-01T09:00",
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it.

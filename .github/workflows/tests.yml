@@ -33,3 +33,20 @@ jobs:
         run: node --check scripts/settle-bets.mjs
       - name: next-highest waiver bid
         run: node scripts/test-next-bid.mjs
+      # These four existed and were never wired in. test-loads is the one that
+      # matters most: it EXECUTES app.js against a browser-shaped stub, which is
+      # the only check that catches a top-level throw taking the whole site
+      # blank - the exact failure that shipped in v558 past every other suite.
+      - name: app.js actually runs
+        run: node scripts/test-loads.mjs
+      - name: win probability holds together
+        run: node scripts/test-schedule.mjs
+      - name: the plant, and what a revival costs
+        run: node scripts/test-plant.mjs
+      - name: a trade keeps its votes when archived
+        run: node scripts/test-trade-archive.mjs
+      - name: the archivers parse
+        run: |
+          node --check scripts/archive-trades.mjs
+          node --check scripts/archive-transactions.mjs
+          node --check scripts/archive-season.mjs

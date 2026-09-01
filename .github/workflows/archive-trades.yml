@@ -1,0 +1,53 @@
+name: Archive trades
+
+# Freeze a finished season's trades into /data and commit them, so the app stops
+# asking ESPN for something that cannot change again.
+#
+# The app reads /data/trades-<season>.json first and only falls back to the API,
+# so a season with no file goes to ESPN on every page load for ever. Worse, ESPN
+# deletes the detailed trade log when a season ends — the answer silently
+# degrades from the real log to a reconstruction from weekly rosters, and a few
+# trades cannot be recovered from rosters at all.
+#
+# Weekly, all year. The script decides for itself whether a season has finished
+# (every scheduled game carrying points) and refuses to write while one is still
+# being played, so running this in October costs one API call and writes nothing.
+# Weekly rather than once in January because "once a year, on the right day" is
+# the schedule most likely to be missed, and the run is idempotent — a season
+# already on file is skipped without a fetch.
+on:
+  schedule:
+    - cron: '20 15 * * 4'   # Thu 15:20 UTC — nothing else is running then
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to archive (blank = every finished one)'
+        required: false
+      force:
+        description: 'Overwrite a season already on file (type: force)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # The vote id is built from the trade payload, so app.js and the archiver
+      # have to agree on its shape. This suite is what says they still do.
+      - name: Check the vote id still matches the app
+        run: node scripts/test-trade-archive.mjs
+      - name: Archive
+        run: node scripts/archive-trades.mjs ${{ github.event.inputs.season }} ${{ github.event.inputs.force }}
+      - name: Commit if it changed
+        run: |
+          git config user.name  'gfl-bot'
+          git config user.email 'gfl-bot@users.noreply.github.com'
+          git add public/data/trades-*.json
+          git diff --staged --quiet || git commit -m 'Archive trades [skip ci]'
+          git push
