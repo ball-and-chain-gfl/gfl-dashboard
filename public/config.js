@@ -220,6 +220,32 @@ window.GFL_CONFIG = {
      epoch, which is what it did before. */
   eggStart: "2026-09-01T09:00",
 
+  /* ── A TRADE VOTE HELD OPEN ────────────────────────────────────────────────
+     A trade's vote card runs Tuesday to Tuesday and then closes for good — the
+     tally on the Trades tab is whatever was in by then, because no other screen
+     renders the buttons. That is the rule and it stays the rule.
+
+     This is the exception, one trade at a time: the vote id, and the day it
+     should close instead. It closes at midnight ON that day, so "2026-09-08"
+     means it runs through Monday night the 7th, exactly the way the weekly rule
+     reads.
+
+     The id is the one ntTradeVoteId builds — season, the team ids joined by a
+     dash, and the trade's timestamp. The matching Firestore field is the same
+     string with the punctuation turned into underscores and `tv_` in front, so
+     you can read it straight off a profile document.
+
+     Delete an entry once its day has passed; nothing breaks if you leave it,
+     but a list of expired dates is a list nobody can skim. */
+  tradeVoteExtend: {
+    /* Motor City Mulligans <-> Bikini Bottom Goobers, agreed Sun 30 Aug. The
+       first trade of 2026, and it landed in a week with no football in it: five
+       managers had not answered when the card was due to vanish at 6am on the
+       1st. Held to the following Tuesday so the league can actually settle it.
+       One-off — every trade after this runs on the normal week. */
+    "td:2026:2-3:1788102664091": "2026-09-08",
+  },
+
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it.
 

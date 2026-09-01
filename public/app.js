@@ -13095,6 +13095,31 @@ function ntBigFaab(out){
       body:`<b>${nm}</b> spent <b>$${bid}</b> of FAAB on <b>${pl}</b>.`});
   });
 }
+/* ── A VOTE HELD OPEN PAST ITS WEEK ──────────────────────────────────────────
+   The rule above is the rule: Tuesday to Tuesday, then the card is gone and the
+   verdict is whatever was in by then. It stays the rule, because a vote that
+   drifts is not a vote anybody has to answer.
+
+   This is the exception hatch, one trade at a time, from config.tradeVoteExtend
+   — the vote id and the day it should close instead. It exists because the very
+   first trade of 2026 landed in a week with no football in it, five managers had
+   not answered, and closing a vote at 6am because the calendar said so is a poor
+   way to settle an argument nobody had had yet.
+
+   The card is locked shut until it is answered, so the people it is waiting on
+   still have it in their stack — this keeps it there rather than putting it
+   back. Anyone who has already voted never sees it again either way: an answered
+   vote card is dropped from generation, not marked as seen.
+
+   Closes at midnight ON the named day, so a date here reads the same way the
+   weekly rule does — "open until Tuesday" means it runs through Monday night. */
+function tradeVoteHeldOpen(id){
+  const until=(_CFG.tradeVoteExtend||{})[id];
+  if(!until) return false;
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(until).trim());
+  if(!m) return false;
+  return Date.now()<new Date(+m[1],+m[2]-1,+m[3],0,0,0,0).getTime();
+}
 /* The name of a trade's vote. Shared, because the notification writes under it
    and the trades tab reads it back — two spellings of this would silently show
    an empty tally next to a trade the league had voted on. */
@@ -13131,8 +13156,10 @@ function ntTrades(out){
   (cached.trades||[]).forEach(tr=>{
     const teams=tr.teams||[]; if(teams.length<2) return;
     const when=Number(tr.date||tr.proposedDate)||0;
-    if(!when||ntResultsDay(when)!==thisWeek) return;
+    if(!when) return;
     const id=ntTradeVoteId(season,tr);
+    /* the week, unless this particular vote has been held open on purpose */
+    if(ntResultsDay(when)!==thisWeek&&!tradeVoteHeldOpen(id)) return;
     const nm=t=>(_teams.find(x=>x.id===Number(t.teamId))||{}).name||('Team '+t.teamId);
     const own=t=>_ownerMap[Number(t.teamId)];
     const got=t=>(t.players||[]).map(p=>p.n).filter(Boolean);
