@@ -6539,6 +6539,25 @@ async function leaguePoll(force){
   try{ renderMotwVoteBar(); }catch(e){}
   try{ renderCoachesPoll(); }catch(e){}
   try{ renderNotifications(); orderHomeTodo(); }catch(e){}
+  /* ── THE ONE GRID THAT DOES NEED REPAINTING ────────────────────────────────
+     The rule above holds: the picks grid is not redrawn from here, because
+     redrawing it under somebody mid-tap is a worse bug than a stale tally.
+
+     The exception is the grid that is not a grid yet. Until the Matchup of the
+     Week is named the module is a placeholder — "Picks open as soon as it is
+     named" — with nothing on it to tap, and the profile list that has just
+     landed is the thing that names it. The homepage paints before that request
+     comes back, so every visit sat on that sentence about a Matchup that had
+     been named days earlier, and only a sign-in or a tab change put the fixtures
+     up. Signed out, nothing ever did.
+
+     Once, on the transition. Not on every poll, or this would be the redraw the
+     rule is there to prevent. */
+  try{
+    const named=motwIsSet();
+    if(named&&!_pkMotwPainted){ _pkMotwPainted=true; renderWeekPicks(); }
+    else if(!named) _pkMotwPainted=false;
+  }catch(e){}
 }
 /* Firestore's REST API has no subscribe — real-time listeners live in the
    Firebase JS SDK, which this app deliberately does not carry. If live updates
@@ -12386,6 +12405,9 @@ const pkKey=()=>{
   return `pk_${getSeason()}_w${(_liveInfo||liveWeekInfo()||{}).week??0}${r}`;
 };
 let _pkPicks=null,_pkBusy=false,_pkFetched=false;
+/* Whether the grid on screen has ever been painted with a Matchup of the Week
+   in hand. See leaguePoll, which is the only thing allowed to act on it. */
+let _pkMotwPainted=false;
 
 function pkGames(){
   const info=_liveInfo||liveWeekInfo();
@@ -13158,16 +13180,36 @@ function ntBigFaab(out){
       body:`<b>${nm}</b> spent <b>$${bid}</b> of FAAB on <b>${pl}</b>.`});
   });
 }
-/* ── A VOTE HELD OPEN PAST ITS WEEK ──────────────────────────────────────────
-   The rule above is the rule: Tuesday to Tuesday, then the card is gone and the
-   verdict is whatever was in by then. It stays the rule, because a vote that
-   drifts is not a vote anybody has to answer.
+/* ── A VOTE, AND THE WEEK IT RUNS FOR ────────────────────────────────────────
+   Tuesday to Tuesday, then the card is gone and the verdict is whatever was in
+   by then. That stays the rule: a vote that drifts is not a vote anybody has to
+   answer.
 
-   This is the exception hatch, one trade at a time, from config.tradeVoteExtend
-   — the vote id and the day it should close instead. It exists because the very
-   first trade of 2026 landed in a week with no football in it, five managers had
-   not answered, and closing a vote at 6am because the calendar said so is a poor
-   way to settle an argument nobody had had yet.
+   But a Tuesday is not a week of football, and in a pre-season it is not
+   anything at all — the calendar turns over on a week where nothing was played,
+   nothing was read out and nobody had a reason to open the site. The first trade
+   of 2026 was agreed on a Sunday in August with the season nine days away, and
+   the calendar came round on the 1st of September and closed it with five
+   managers still to answer.
+
+   So the clock only runs once there is football on it. While no week of this
+   season has finished, no vote closes; from the first completed week the weekly
+   rule takes over exactly as it did before. Same shape as everything else that
+   turns over weekly here — see weekOver. */
+function tradeVoteOpen(season,when,id){
+  if(tradeVoteHeldOpen(id)) return true;
+  /* Erring towards the calendar if the schedule cannot be read: that is the
+     behaviour that shipped, and votes that never close is the worse failure. */
+  let played=1; try{ played=bucksWeeksPlayed(season); }catch(e){}
+  if(!played) return true;
+  return ntResultsDay(when)===ntResultsDay(Date.now());
+}
+/* ── A VOTE HELD OPEN PAST BOTH RULES ────────────────────────────────────────
+   The exception hatch, one trade at a time, from config.tradeVoteExtend — the
+   vote id and the day it should close instead. Nothing needs it today: the
+   football rule above covers the case it was built for, and covers it without
+   anybody having to remember to add a line. It is kept for the trade that wants
+   longer than any rule gives it.
 
    The card is locked shut until it is answered, so the people it is waiting on
    still have it in their stack — this keeps it there rather than putting it
@@ -13213,16 +13255,15 @@ function ntTrades(out){
      that has just happened, and a season's worth of them arriving at once is a
      back catalogue rather than news. Anything agreed since Tuesday shows, later
      ones stack on top of earlier ones as they land, and the whole set drops off
-     when the next Tuesday turns over. Where the answers live after that is the
-     trades tab, which draws the same tally on the trade itself. */
-  const thisWeek=ntResultsDay(Date.now());
+     when the next Tuesday turns over — once there is football for a Tuesday to
+     be the end of. Where the answers live after that is the trades tab, which
+     draws the same tally on the trade itself. */
   (cached.trades||[]).forEach(tr=>{
     const teams=tr.teams||[]; if(teams.length<2) return;
     const when=Number(tr.date||tr.proposedDate)||0;
     if(!when) return;
     const id=ntTradeVoteId(season,tr);
-    /* the week, unless this particular vote has been held open on purpose */
-    if(ntResultsDay(when)!==thisWeek&&!tradeVoteHeldOpen(id)) return;
+    if(!tradeVoteOpen(season,when,id)) return;
     const nm=t=>(_teams.find(x=>x.id===Number(t.teamId))||{}).name||('Team '+t.teamId);
     const own=t=>_ownerMap[Number(t.teamId)];
     const got=t=>(t.players||[]).map(p=>p.n).filter(Boolean);
@@ -14719,8 +14760,12 @@ function renderLeaders(){
   const pk=document.getElementById('ld-pk-body');
   if(pk){
     const recs=rows.map(r=>({...r, r:ldPickRecord(r.prof)}))
+      /* Nobody is graded until a week finishes, so for the whole of the first
+         week every percentage here is null and the sort was down to the name.
+         Slates that are in come above slates that are not, which is the only
+         thing this board has to say before there are results in it. */
       .sort((x,y)=>(y.r.pct==null?-1:y.r.pct)-(x.r.pct==null?-1:x.r.pct)
-        || y.r.w-x.r.w || x.name.localeCompare(y.name));
+        || y.r.w-x.r.w || y.r.pending-x.r.pending || x.name.localeCompare(y.name));
     const any=recs.some(x=>x.r.n||x.r.pending);
     pk.innerHTML=any
       ?`<div class="ld-list">${recs.map((m,i)=>{
@@ -14733,9 +14778,18 @@ function renderLeaders(){
             <span class="ld-rk">${i+1}</span>
             <span class="ld-team">${ntCrest(m.owner,22)}
               <span class="ld-ab">${ab(m.teamId)}</span></span>
+            ${''/* WHO IS IN, NOT ONLY WHO IS GRADED. Every row read "no picks
+                    graded" until a week finished, and the only thing separating
+                    a manager who had sent a full slate from one who had sent
+                    nothing was a trailing "· 6 pending" — a clause you notice
+                    by its absence, which is not noticing. Before there are
+                    results, the board says who has picked. */}
             <span class="ld-lab" style="color:var(--text2)">${
-              m.r.n?`${m.r.w}–${m.r.l}`:'no picks graded'}${
-              m.r.pending?` · ${m.r.pending} pending`:''}</span>
+              m.r.n
+                ?`${m.r.w}–${m.r.l}${m.r.pending?` · ${m.r.pending} pending`:''}`
+                :m.r.pending
+                  ?`${m.r.pending} picks in · nothing graded yet`
+                  :'no picks in'}</span>
             <span class="ld-v" style="color:${col}">${p==null?'—':p.toFixed(0)+'%'}</span>
           </div>
           <span class="ld-bar"><span class="ld-bar-f"

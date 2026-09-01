@@ -225,10 +225,17 @@ window.GFL_CONFIG = {
      tally on the Trades tab is whatever was in by then, because no other screen
      renders the buttons. That is the rule and it stays the rule.
 
-     This is the exception, one trade at a time: the vote id, and the day it
-     should close instead. It closes at midnight ON that day, so "2026-09-08"
-     means it runs through Monday night the 7th, exactly the way the weekly rule
-     reads.
+     EMPTY, AND MEANT TO BE. There was one entry here: the first trade of 2026,
+     agreed on a Sunday in August, whose vote the calendar was about to close on
+     the 1st of September with five managers still to answer and the season nine
+     days away. That is now handled by the rule itself — the weekly clock does
+     not start until a week of football has finished, so nothing closes in a
+     pre-season and no line has to be added by hand. See tradeVoteOpen.
+
+     This stays for the trade that wants longer than any rule gives it: the vote
+     id, and the day it should close instead. It closes at midnight ON that day,
+     so "2026-09-08" would run through Monday night the 7th, exactly the way the
+     weekly rule reads.
 
      The id is the one ntTradeVoteId builds — season, the team ids joined by a
      dash, and the trade's timestamp. The matching Firestore field is the same
@@ -237,14 +244,7 @@ window.GFL_CONFIG = {
 
      Delete an entry once its day has passed; nothing breaks if you leave it,
      but a list of expired dates is a list nobody can skim. */
-  tradeVoteExtend: {
-    /* Motor City Mulligans <-> Bikini Bottom Goobers, agreed Sun 30 Aug. The
-       first trade of 2026, and it landed in a week with no football in it: five
-       managers had not answered when the card was due to vanish at 6am on the
-       1st. Held to the following Tuesday so the league can actually settle it.
-       One-off — every trade after this runs on the normal week. */
-    "td:2026:2-3:1788102664091": "2026-09-08",
-  },
+  tradeVoteExtend: {},
 
   /* Last week trades can be made. Drawn as a line in the Schedules table before
      the first week past it. Set to 0 to hide it.

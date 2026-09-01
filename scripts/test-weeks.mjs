@@ -118,11 +118,20 @@ const parts = [
   grab("const MOTW_PICKER='bft';"),
   grab('function motwSeasonStarted(){'),
   grab('function motwChosen(){'),
+  grab('function tradeVoteHeldOpen(id){'),
+  grab('function tradeVoteOpen(season,when,id){'),
 ];
 
 const api = new Function(`
 let _seasonMeta={}, ALL_SEASONS=[], _liveInfo=null, _cpRows=[];
-const _CFG={ ballKnowledge:{} };
+let _CFG={ ballKnowledge:{} };
+/* THE CLOCK, MOVEABLE. The vote rule asks what day it is, so the suite has to
+   be able to say. A stand-in for Date that behaves the same in every way the
+   lifted code uses it, with now() answering whatever the case has set. */
+const RealDate=globalThis.Date;
+let _NOW=0;
+function Date(...a){ return a.length?new RealDate(...a):new RealDate(_NOW||RealDate.now()); }
+Date.now=()=>_NOW||RealDate.now();
 /* the nav's year control, which has no DOM here — every case below is about the
    live season anyway, which is the one these keys are built from */
 const getSeason=()=>ALL_SEASONS[ALL_SEASONS.length-1];
@@ -131,9 +140,12 @@ ${parts.join('\n')}
 return {
   set(meta, all){ _seasonMeta=meta; ALL_SEASONS=all; _liveInfo=null; },
   setPicker(rows){ _cpRows=rows; },
+  setCfg(c){ _CFG=Object.assign({ballKnowledge:{}},c||{}); },
+  setNow(t){ _NOW=t||0; },
   weekOver, weeksOf, weeksOverCount, weekDecided, weekScored,
-  liveWeekInfo, bucksWeeksPlayed, ntLastWeek,
+  liveWeekInfo, bucksWeeksPlayed, ntLastWeek, ntResultsDay,
   bkKey, pkKey, motwWeekKey, motwChosen, motwSeasonStarted,
+  tradeVoteOpen, tradeVoteHeldOpen,
 };`)();
 
 let pass = 0, fail = 0;
@@ -282,8 +294,56 @@ console.log("\n5. the Matchup of the Week holds for as long as the week does");
   eq('a stamp-only profile still reads',         api.motwChosen(), [4, 9]);
 }
 
+console.log("\n6. a trade's vote waits for football, not for a Tuesday");
+{
+  /* The first trade of 2026 was agreed on Sunday 30 August. The calendar week
+     it belongs to ended at midnight on Tuesday 1 September, with five managers
+     still to answer and the season nine days away — so under the old rule the
+     card vanished off their stacks on a morning when nothing had been played,
+     nothing read out and nobody had a reason to open the site. */
+  const D = (y, m, d, h = 12) => new Date(y, m - 1, d, h, 0, 0).getTime();
+  const AGREED = D(2026, 8, 30, 16);
+  const ID = 'td:2026:2-3:1788102664091';
+  const at = (weeks, when) => {
+    const all = [...weeks];
+    for (let w = all.length + 1; w <= 14; w++) all.push(WEEK.unplayed(w));
+    api.set({ 2026: { schedule: sched(...all), regEnd: 14, owners: {} } }, ['2026']);
+    api.setNow(when);
+    return api.tradeVoteOpen('2026', AGREED, ID);
+  };
+  api.setCfg({});
+
+  eq('the day it was agreed',            at([WEEK.unplayed(1)], D(2026, 8, 30, 18)), true);
+  eq('Tuesday 1 Sep, nothing played',    at([WEEK.unplayed(1)], D(2026, 9, 1, 6)), true);
+  eq('Sunday 13 Sep, week one running',  at([WEEK.sunday(1)], D(2026, 9, 13, 13)), true);
+  eq('Monday 14 Sep, still running',     at([WEEK.sunday(1)], D(2026, 9, 14, 23)), true);
+  /* and it closes when a week of football has actually been played */
+  eq('Tuesday 15 Sep, week one closed',  at([WEEK.closed(1)], D(2026, 9, 15, 9)), false);
+
+  /* AND THE NORMAL WEEK STILL WORKS. A trade agreed mid-season runs to the
+     following Tuesday and no further — the football rule only ever holds the
+     clock before it starts, it does not slow it down once it is going. */
+  const inSeason = D(2026, 9, 17, 14);           // Thursday of week 2
+  const at2 = when => {
+    api.set({ 2026: { schedule: sched(WEEK.closed(1), WEEK.unplayed(2),
+      ...Array.from({ length: 12 }, (_, i) => WEEK.unplayed(i + 3))), regEnd: 14, owners: {} } }, ['2026']);
+    api.setNow(when);
+    return api.tradeVoteOpen('2026', inSeason, 'td:2026:5-6:999');
+  };
+  eq('agreed Thursday, open that day',   at2(D(2026, 9, 17, 15)), true);
+  eq('open on the Monday',               at2(D(2026, 9, 21, 23)), true);
+  eq('closed on the Tuesday',            at2(D(2026, 9, 22, 0)), false);
+
+  /* the manual hatch still overrides both */
+  api.setCfg({ tradeVoteExtend: { 'td:2026:5-6:999': '2026-09-29' } });
+  eq('config can hold one open past that', at2(D(2026, 9, 22, 9)), true);
+  eq('and it closes on the named day',     at2(D(2026, 9, 29, 0)), false);
+  api.setCfg({});
+  api.setNow(0);
+}
+
 /* ────────────────────────────────────────────────────────────────────────── */
-console.log('\n6. the archive scripts say the same thing as the app');
+console.log('\n7. the archive scripts say the same thing as the app');
 {
   /* Five cron jobs freeze things into the repo on the strength of "that week is
      over", and each carries its own copy of the rule because they run alone.
