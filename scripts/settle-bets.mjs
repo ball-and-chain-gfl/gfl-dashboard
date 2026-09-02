@@ -65,6 +65,11 @@ const parts = [
   grab('function betLegWeek('),
   grab('function betWeekResult(leg,season,wk){'),
   grab('function betLegResult(leg,season){'),
+  /* And sbFinalsStamp, which sbFinals calls on its first line. Left out, every
+     season future threw "sbFinalsStamp is not defined" and the run exited 1
+     having settled nothing — the same shape as the weekOver omission above, and
+     the reason this list is commented rather than just listed. */
+  grab('function sbFinalsStamp(meta){'),
   grab('function sbFinals(season){'),
   grab('function betGrade(bet){'),
 ];
