@@ -319,10 +319,10 @@ roster half is zero on its own — the code stopped using it there regardless.
 **A game is worth the same in week 1 as in week 17**, and that falls out of the
 shape rather than being corrected for. A single result moves a record by 1/g, so
 its noise falls as the season fills up; the slide raises the results weight as
-g/17, exactly the reciprocal rate. The two cancel: about 48c a game, all year.
-Under the old 0.80-to-0.05 slide one Sunday in week 1 was worth $2.01 — four
-times what the same game was worth in December, when it meant four times as
-much.
+g/17, exactly the reciprocal rate. The two cancel — about **$1.44 a game, every
+week of the year**. Under the old 0.80-to-0.05 slide one Sunday in week 1 was
+worth $2.01 and the same Sunday in December was worth 46c: four times the price
+for a quarter of the meaning.
 
 The blend is then stretched about the league's own middle (`INV_GAIN`) and
 divided by the league mean, so **the average share is always worth $10 and one

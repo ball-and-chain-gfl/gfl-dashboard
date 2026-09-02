@@ -10294,11 +10294,13 @@ const INV_FORM_WEEKS=3;
    AND IT MAKES ONE GAME WORTH THE SAME ALL SEASON, which is the real prize.
    winR's own noise falls as 1/g: one result is half as loud once two are in,
    a third as loud once three are. This ramp raises the results weight as
-   g/17 — exactly the reciprocal rate — so the two cancel, and a single game
-   moves a share about 48c in week 1 and about 48c in week 17. Under the old
-   0.80 start, week one handed a quarter of the price to the noisiest number
-   the model ever computes, and one Sunday was worth $2.01: four times what
-   the same game was worth in December, when it meant four times as much.
+   g/17 — exactly the reciprocal rate — so the two cancel and a single game is
+   worth the same in every week of the season. That is 0.9/17 OF THE BLEND; on
+   the board it arrives multiplied by INV_GAIN, about $1.44 a game at a gain of
+   3. The FLATNESS is what this slide buys — the gain sets the size. Under the
+   old 0.80 start, week one handed a quarter of the price to the noisiest number
+   the model ever computes: one Sunday was worth $2.01 there against 46c in
+   December, four times the price for a quarter of the meaning.
    That asymmetry is gone, and gone by removing an arbitrary constant rather
    than by bolting a correction on top of one. */
 const INV_PROJ_MAX=1.00;     // with no football played

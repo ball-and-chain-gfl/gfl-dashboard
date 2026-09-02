@@ -271,6 +271,36 @@ console.log('\n9. the gain - wider rungs, same ladder');
   /* and the gain is doing something, or the constant is decoration */
   eq('the gain actually widens the board',
      (wide[0] - wide[11]) > (flat2[0] - flat2[11]) * 1.5, true);
+
+  /* THE SWING THAT REACHES THE BOARD, not the one inside the blend.
+     Section 7 proves the results half moves by a constant. The gain then
+     multiplies whatever the blend produced, so the delivered figure is larger
+     - but a monotone transform applied to all twelve alike cannot make one
+     week's game matter more than another's, and this says so in dollars
+     rather than in algebra. */
+  const swingAt = g => {
+    const rwv = rw(g);
+    /* twelve identical squads, so the ONLY thing moving is one team's record */
+    const mk = w => {
+      const v = [];
+      for (let i = 0; i < 12; i++) {
+        const wins = (i === 5) ? w : g / 2;
+        v.push((1 - rwv) * (0.45 * ((wins / g) / 0.5) + 0.55) + rwv * 1);
+      }
+      return v;
+    };
+    return norm(gain(mk(g / 2 + 0.5)))[5] - norm(gain(mk(g / 2 - 0.5)))[5];
+  };
+  const s1 = swingAt(1);
+  eq('one game is worth the same in week 1 and week 17', near(s1, swingAt(17), 0.03), true);
+  let level = true;
+  for (let g = 1; g <= 17; g++) if (!near(swingAt(g), s1, 0.03)) level = false;
+  eq('and the same in every week between', level, true);
+  /* near the mean the stretch is locally linear with slope INV_GAIN, so the
+     delivered swing is about that multiple of the blend's own */
+  eq('the gain scales the swing by about INV_GAIN',
+     near(s1 / (0.9 / api.INV_SEASON_WEEKS * api.INV_BASE), api.INV_GAIN, 0.4), true);
+  eq('which on the shipped gain is about $1.44', near(s1, 1.44, 0.06), true);
 }
 
 console.log('\n10. the two exponents COMPOUND, and the floor is where that ends');
