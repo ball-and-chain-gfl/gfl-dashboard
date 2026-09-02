@@ -43,7 +43,7 @@
  */
 import fs from 'fs';
 
-const STAMP = 'ros-2026-split';          // bump only for a genuinely new split
+const STAMP = 'gain3-2026-split';          // bump only for a genuinely new split
 const DRY = !!process.env.DRY_RUN;
 
 const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
