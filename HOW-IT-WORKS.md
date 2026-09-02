@@ -295,11 +295,24 @@ and West) that hold every team in a conference at their average price.
 
 ### How share prices work
 
-A share opens at $10. Price is a function of three ratios, each 1.00 for a
-perfectly average team — record against .500, points per game against the league
-average, and form over the last three weeks — then divided by the league's own
-mean, so **the average share is always worth $10 and one team climbing means
-another slips**.
+A share opens at $10. Two halves, blended:
+
+- **results** — three ratios, each 1.00 for a perfectly average team: record
+  against .500, points per game against the league average, and form over the
+  last three weeks.
+- **the roster** — what the squad is projected to score **over the weeks still
+  to be played**, using ESPN's own per-week numbers, with each week's best legal
+  lineup chosen for that week. A bye routes around itself; a player who cannot
+  play is projected at zero for those weeks and at his real number afterwards,
+  which is why there is no IR special case anywhere.
+
+The roster's share of the price slides from **0.80** before a ball is kicked to
+**0.05** with the season played out, one week at a time. It starts high because
+before week one the results half is the number 1.00 for all twelve teams — it
+separates nobody — and ends low because by then the season has said everything.
+
+The blend is then divided by the league's own mean, so **the average share is
+always worth $10 and one team climbing means another slips**.
 
 **Buying does not move a price.** Demand is deliberately not modelled: with
 twelve people who can see each other's moves, buy-watch-it-rise-sell would be
