@@ -50,6 +50,10 @@ jobs:
         run: node scripts/test-weeks.mjs
       - name: a trade keeps its votes when archived
         run: node scripts/test-trade-archive.mjs
+      # A player bought twice is two claims that cost money twice. Both belong
+      # on the board, and neither may bank the other's points.
+      - name: waiver claims, and buying the same player twice
+        run: node scripts/test-waivers.mjs
       - name: the archivers parse
         run: |
           node --check scripts/archive-trades.mjs

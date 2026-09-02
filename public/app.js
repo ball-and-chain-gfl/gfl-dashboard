@@ -212,7 +212,17 @@ function ytApply(list){
    So: read the file, then merge ESPN over the top keyed by transaction id, and
    let the archived row win wherever both have one. ESPN's job here is only to
    carry the days since the last Wednesday and Sunday run. */
+/* A key that two DIFFERENT moves can share is a key that loses one of them.
+   Rows ESPN serves carry an id and are safe. Rows without one — the ones
+   rebuilt from weekly roster diffs — were keyed on type, team, week and the
+   players, and nothing else: so a manager who picked a player up, dropped him
+   and picked him up again inside the same week had the two claims collapse into
+   one, and the first was the one that vanished. The archiver's own key has
+   always carried the date (scripts/archive-transactions.mjs, keyOf); this is
+   the same key, so the two sides of the merge finally agree about what counts
+   as the same transaction. */
 const txKeyOf=t=>String((t&&t.id)||`${t&&t.type}|${t&&t.teamId}|${t&&t.scoringPeriodId}|`
+  +`${(t&&(t.proposedDate||t.processDate))||''}|`
   +((t&&t.items)||[]).map(i=>`${i.playerId}:${i.type}`).join(','));
 async function txFetch(){
   let archived=[], savedAt='';
@@ -1080,6 +1090,26 @@ async function computeCoaching(teams, transactions, weeklyData){
     for(let w=startWeek;w<=maxWeek;w++) total+=weeklyData[w]?.[pid]?.pts??0;
     return total;
   }
+  /* ── ONE SPELL ON ONE ROSTER ───────────────────────────────────────────────
+     Points a player scored in this team's lineup from `from`, ending the moment
+     he is no longer on it — or at `until`, whichever comes first.
+
+     "No longer on it" is read off the weekly rosters. A week that was loaded and
+     does not hold him is a week he had gone; a week that was never loaded is not
+     evidence of anything and is stepped over rather than read as a departure.
+     A bye keeps him on the roster with nothing beside his name, which is a week
+     of the spell and not the end of it. */
+  function stintPts(pid, from, until, teamId){
+    let total=0;
+    for(let w=from;w<=maxWeek&&w<until;w++){
+      const wk=weeklyData[w];
+      if(!wk) continue;                        // not loaded: says nothing either way
+      const e=wk[pid];
+      if(!e||e.team!==teamId) break;           // loaded, and he is not here: gone
+      if(e.started) total+=e.pts||0;
+    }
+    return total;
+  }
   function lineupPts(pid, startWeek, teamId){
     let total=0;
     for(let w=startWeek;w<=maxWeek;w++){
@@ -1153,6 +1183,12 @@ async function computeCoaching(teams, transactions, weeklyData){
   // player in the same waiver run). Competing bids come from losing/failed claims
   // in the transaction log; if nobody else bid (or no bid data survives, as in
   // reconstructed seasons), the margin is the full bid. Floor of $1.
+  /* A TEAM DOES NOT BID AGAINST ITSELF. The bucket is keyed on player and week,
+     so a manager who claimed the same player twice in one run had his own two
+     bids read as a contest — the second "outbid" the first and the margin fell
+     to the $1 floor, which is the most expensive denominator there is. Bids
+     carry the team that made them, and a team's own come out before the
+     runner-up is read. */
   const bidsByKey={};
   (transactions||[]).forEach(tx=>{
     if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
@@ -1161,9 +1197,29 @@ async function computeCoaching(teams, transactions, weeklyData){
     (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
       if(item.playerId==null) return;
       const key=`${item.playerId}|${wk}`;
-      (bidsByKey[key]||(bidsByKey[key]=[])).push(Number(tx.bidAmount)||0);
+      (bidsByKey[key]||(bidsByKey[key]=[])).push(
+        {amt:Number(tx.bidAmount)||0, tid:tx.teamId!=null?tx.teamId:item.toTeamId});
     });
   });
+  /* ── EVERY CLAIM COUNTS, AND EACH ONE COUNTS ITS OWN SPELL ─────────────────
+     Collected before any of them is scored, because scoring one needs to know
+     about the others. A player picked up, dropped and picked up again is two
+     claims that cost money twice and both belong on the board — that part was
+     already right, since each ADD pushes its own row.
+
+     What was wrong is that both rows banked the same points. lineupPts ran from
+     an add week to the END OF THE SEASON and took every week the player was on
+     that roster, so a second spell was counted twice — once under the claim
+     that bought it and once again under the claim from months earlier — and a
+     manager who re-signed somebody he had already owned had his C3 inflated for
+     doing it. Each claim is bounded now: it scores from its own add week until
+     the player leaves, or until the next claim on him picks up, whichever comes
+     first.
+
+     That also settles an add and a re-add inside one week, which the weekly
+     rosters cannot see between. The later claim owns the week; the earlier one
+     shows its bid against nothing, which is exactly what it bought. */
+  const addsByTeam={};
   (transactions||[]).forEach(tx=>{
     if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
     if(!executed(tx)) return;
@@ -1174,14 +1230,27 @@ async function computeCoaching(teams, transactions, weeklyData){
       const tid=(tx.teamId!=null&&tx.teamId in c3)?tx.teamId:item.toTeamId;
       if(tid==null||!(tid in c3)) return;
       detail[tid].txTypes.add(tx.type);
-      const key=`${pid}|${tx.scoringPeriodId||0}`;
-      const others=(bidsByKey[key]||[]).slice().sort((x,y)=>y-x);
-      const i0=others.indexOf(bid); if(i0>=0) others.splice(i0,1);
-      const next=others.length?Math.min(others[0],bid):0;
-      const margin=Math.max(bid-next,1);
-      const lpts=lineupPts(pid, addWeek, tid);
+      (addsByTeam[tid]||(addsByTeam[tid]=[])).push({pid,week:addWeek,bid,
+        est:!!tx._estBid, ts:Number(tx.processDate||tx.proposedDate)||0});
+    });
+  });
+  Object.keys(addsByTeam).forEach(tidStr=>{
+    const tid=Number(tidStr), adds=addsByTeam[tidStr];
+    /* by week, then by the clock, so "the next claim on this player" means the
+       next one in real time rather than whichever the feed handed over first */
+    adds.sort((a,b)=>a.week-b.week||a.ts-b.ts);
+    adds.forEach((a,i)=>{
+      let until=Infinity;
+      for(let j=i+1;j<adds.length;j++){ if(adds[j].pid===a.pid){ until=adds[j].week; break; } }
+      const others=(bidsByKey[`${a.pid}|${a.week}`]||[])
+        .filter(b=>b.tid!==tid)                       // your own bids are not a contest
+        .map(b=>b.amt).sort((x,y)=>y-x);
+      const next=others.length?Math.min(others[0],a.bid):0;
+      const margin=Math.max(a.bid-next,1);
+      const lpts=stintPts(a.pid,a.week,until,tid);
       c3[tid]+=(lpts/margin)/10;
-      detail[tid].waiverPickups.push({pid,week:addWeek,bid,next,margin,pts:lpts,est:!!tx._estBid});
+      detail[tid].waiverPickups.push({pid:a.pid,week:a.week,bid:a.bid,next,margin,
+        pts:lpts,est:a.est});
     });
   });
 
@@ -10684,13 +10753,22 @@ async function invTrade(owner,shares,sell){
 }
 
 /* ── GFL BUCKS ──────────────────────────────────────────────────────────────
-   Every team gets 100 bucks a week, Tuesday 6am to Tuesday 6am, and it does
-   not carry: each new week starts at 100 again regardless of what was left.
+   Every team gets 100 bucks for pay day and another 100 for each fantasy week
+   that finishes, and IT CARRIES. An allowance, not a weekly reset: what is not
+   spent is still there next week, a good week is worth something past Tuesday
+   and a bad one still costs.
 
-   Because of that reset the balance is *derived* rather than stored — it is
-   100 minus what this week's bets staked, plus what this week's settled bets
-   returned. There is no balance document to drift out of sync with the bets,
-   and a bet is the only thing that can move the number.
+   (This paragraph described the opposite for a while after the rule changed.
+   The behaviour has been cumulative since bucksCycles started returning
+   1 + weeksPlayed — see it there, and see betsLiveAll, which counts every live
+   bet ever rather than only this cycle's. The comment was the last thing left
+   saying otherwise, and it was load-bearing in the worst way: it is what gets
+   read when somebody asks how the money works.)
+
+   The balance is *derived* rather than stored — the allowance earned to date,
+   minus everything ever staked, plus everything ever returned, plus eggs, minus
+   what is tied up in shares. There is no balance document to drift out of sync
+   with the bets, and nothing but the ledger can move the number.
 
    Bets live in their own Firestore collection keyed to the profile that placed
    them, so "my bets" is a filter rather than a per-user document. */
@@ -12062,6 +12140,23 @@ function bkLoadPool(season){
       .then(r=>r.ok?r.json():null)
       .then(j=>{ _bkPools[s]=(j&&j.players)||[];
         if(s===String(bkSeason())) _bkPool=_bkPools[s];
+        /* ── AND A NAME FOR ANYBODY, NOT JUST WHOEVER IS ON A ROSTER ─────────
+           _playerNames had two feeds and both of them have a hole in exactly
+           the same place. Weekly box scores only exist for weeks that have been
+           PLAYED, so in a pre-season they supply nothing at all; the sportsbook
+           roster call only ever sees players somebody currently HOLDS. A man
+           who was picked up and then dropped before a ball was kicked is in
+           neither, and the Waiver ROI table printed him as "Player #4366031".
+
+           This pool is already fetched for Ball Knowledge and already carries
+           every name — seven hundred of them, ordered by ownership, which is
+           comfortably deep enough to cover anyone a league of twelve has ever
+           bid on. It was being read for stats and its names thrown away. */
+        _bkPools[s].forEach(pl=>{
+          if(pl&&pl.id!=null&&pl.name&&!_playerNames[pl.id]) _playerNames[pl.id]=pl.name;
+        });
+        /* the tables built out of those names have already painted */
+        try{ if(_activeTab==='cm'){ renderC2Breakdown(); renderC3Breakdown(); } }catch(e){}
         _bkQCache={key:'',qs:[]}; renderBallKnowledge();
         /* the board and the market price off this — repaint whichever is open
            when it lands, or they keep serving whatever they computed without it */
@@ -17238,6 +17333,11 @@ async function loadDashboard(){
     await Promise.all([...weekFetches, h2hFetch]);
     _weeklyData=weeklyData;
     Object.values(weeklyData).forEach(wk=>{for(const pid in wk){if(wk[pid].n)_playerNames[pid]=wk[pid].n;}});
+    /* No played weeks means no names from them, and the Waiver ROI table for a
+       season in progress is exactly where that shows. The pool covers it —
+       cached and de-duplicated, so asking here costs nothing when something
+       else has already asked. */
+    if(!maxPlayedWeek) try{ bkLoadPool(season); }catch(e){}
 
     // If ESPN purged the transaction log (completed seasons), reconstruct it
     // from weekly roster diffs so the activity feed still works.
