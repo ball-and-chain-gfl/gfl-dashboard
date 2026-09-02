@@ -236,6 +236,7 @@ ${grab('const INV_PROJ_MAX=')}
 ${grab('const INV_PROJ_MIN=')}
 ${grab('const INV_SEASON_WEEKS=')}
 ${grab('const INV_PROJ_POW=')}
+${grab('const INV_GAIN=')}
 ${grab('const RP_WEEKS=')}
 ${grab('const INV_FUNDS=')}
 ${grab('function invFundMembers(')}

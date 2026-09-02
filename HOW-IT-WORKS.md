@@ -306,13 +306,30 @@ A share opens at $10. Two halves, blended:
   play is projected at zero for those weeks and at his real number afterwards,
   which is why there is no IR special case anywhere.
 
-The roster's share of the price slides from **0.80** before a ball is kicked to
-**0.05** with the season played out, one week at a time. It starts high because
-before week one the results half is the number 1.00 for all twelve teams — it
-separates nobody — and ends low because by then the season has said everything.
+One seventeenth of the price moves from the roster to the results every week —
+**all roster before a ball is kicked, all results once the season has been
+played out**, an equal step for each week in between.
 
-The blend is then divided by the league's own mean, so **the average share is
-always worth $10 and one team climbing means another slips**.
+Both endpoints are the only honest ones. Preseason the results half is the
+number 1.00 for all twelve teams: nobody has a record, so it separates nobody,
+and any weight given to it only squashes the spread the rosters earned. At the
+other end, once week 17 is over there are no weeks left to project, so the
+roster half is zero on its own — the code stopped using it there regardless.
+
+**A game is worth the same in week 1 as in week 17**, and that falls out of the
+shape rather than being corrected for. A single result moves a record by 1/g, so
+its noise falls as the season fills up; the slide raises the results weight as
+g/17, exactly the reciprocal rate. The two cancel: about 48c a game, all year.
+Under the old 0.80-to-0.05 slide one Sunday in week 1 was worth $2.01 — four
+times what the same game was worth in December, when it meant four times as
+much.
+
+The blend is then stretched about the league's own middle (`INV_GAIN`) and
+divided by the league mean, so **the average share is always worth $10 and one
+team climbing means another slips**. The stretch changes no team's rank; it only
+moves the rungs further apart, so that reading the league correctly is worth
+more than pocket change. A champion's share roughly doubles across a season and
+a wooden spoon loses about two thirds.
 
 **Buying does not move a price.** Demand is deliberately not modelled: with
 twelve people who can see each other's moves, buy-watch-it-rise-sell would be

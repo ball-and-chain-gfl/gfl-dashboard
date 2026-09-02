@@ -80,9 +80,12 @@ const api = new Function(`
 ${grab('function sbBestLineup(entries,projOf,posOf,shape){')}
 ${grab('const INV_PROJ_MAX=')}
 ${grab('const INV_PROJ_MIN=')}
+${grab('const INV_PROJ_POW=')}
 ${grab('const INV_SEASON_WEEKS=')}
 ${grab('const RP_WEEKS=')}
-return { sbBestLineup, INV_PROJ_MAX, INV_PROJ_MIN, INV_SEASON_WEEKS, RP_WEEKS };
+${grab('const INV_GAIN=')}
+${grab('const INV_BASE=')}
+return { sbBestLineup, INV_PROJ_MAX, INV_PROJ_MIN, INV_SEASON_WEEKS, RP_WEEKS, INV_GAIN, INV_BASE, INV_PROJ_POW };
 `)();
 
 let pass = 0, fail = 0;
@@ -182,31 +185,131 @@ console.log('\n5. AN INJURY COSTS EXACTLY THE WEEKS IT COSTS');
      restOfSeason(r, 7) > restOfSeason(r, 1) - restOfSeason(r, 7), true);
 }
 
-console.log('\n6. the slide, across the whole season');
+const rw = gp => api.INV_PROJ_MIN
+  + (api.INV_PROJ_MAX - api.INV_PROJ_MIN) * (Math.max(0, api.INV_SEASON_WEEKS - gp) / api.INV_SEASON_WEEKS);
+
+console.log('\n6. the slide - one equal step a week, all projection to all results');
 {
-  const rw = gp => api.INV_PROJ_MIN
-    + (api.INV_PROJ_MAX - api.INV_PROJ_MIN) * (Math.max(0, api.INV_SEASON_WEEKS - gp) / api.INV_SEASON_WEEKS);
-  eq('nothing played, the roster leads', near(rw(0), 0.80), true);
-  eq('played out, a token remains',      near(rw(17), 0.05), true);
-  eq('halfway is halfway',               near(rw(8.5), 0.425), true);
-  eq('it never floors early',            rw(6) > rw(7), true);
-  eq('and never goes below the floor',   near(rw(20), 0.05), true);
-  /* the old curve hit its floor at six games and sat there for eleven weeks */
-  eq('week 6 is no longer the end of it', rw(6) > 0.15, true);
-  /* monotone, one week at a time */
-  let mono = true;
-  for (let g = 0; g < 17; g++) if (!(rw(g) > rw(g + 1))) mono = false;
-  eq('strictly falling every week', mono, true);
+  eq('nothing played, it is ALL the roster', near(rw(0), 1), true);
+  eq('played out, it is ALL the results',    near(rw(17), 0), true);
+  eq('halfway is halfway',                   near(rw(8.5), 0.5), true);
+  eq('and it never goes negative',           near(rw(25), 0), true);
+  /* the shape the whole thing exists for: no week is a bigger event than any
+     other week purely because of where it sits in the calendar */
+  const steps = [];
+  for (let g = 0; g < 17; g++) steps.push(rw(g) - rw(g + 1));
+  eq('every week is the same size step', steps.every(s => near(s, steps[0])), true);
+  eq('and that step is one seventeenth', near(steps[0], 1 / 17), true);
+  /* what changed: preseason used to hand a fifth of the price to a number that
+     read exactly 1.00 for all twelve teams and separated nobody */
+  eq('preseason weighs no record nobody has', near(rw(0), 1), true);
 }
 
-console.log('\n7. the two halves are on the same scale');
+console.log('\n7. ONE GAME IS WORTH THE SAME IN WEEK 1 AS IN WEEK 17');
 {
-  /* whatever rw is, the two weights are a partition — no week may count 1.3x */
-  const rw = gp => api.INV_PROJ_MIN
-    + (api.INV_PROJ_MAX - api.INV_PROJ_MIN) * (Math.max(0, api.INV_SEASON_WEEKS - gp) / api.INV_SEASON_WEEKS);
+  /* The property that makes a win-rate prior unnecessary rather than merely
+     optional - and it is exact, not approximate.
+
+       winR    = (w/g)/0.5 = 2w/g,   so one more win moves it by 2/g
+       base    weights winR at 0.45, so the results half moves by 0.9/g
+       the mix weights that half at (1 - rw) = g/17
+
+       (0.9/g) * (g/17) = 0.9/17,   with no g left in it at all
+
+     The noise of a small sample and the weight handed to it fall and rise at
+     reciprocal rates, so they cancel exactly. */
+  const marginal = g => (1 - rw(g)) * 0.45 * (2 / g);
+  const want = 0.9 / api.INV_SEASON_WEEKS;
+  let flat = true;
+  for (let g = 1; g <= 17; g++) if (!near(marginal(g), want)) flat = false;
+  eq('a single result is worth the same in every week', flat, true);
+  eq('week 1 and week 17 agree exactly', near(marginal(1), marginal(17)), true);
+
+  /* and the shape it replaced, so a regression to it is loud */
+  const oldRw = g => 0.05 + 0.75 * (Math.max(0, 17 - g) / 17);
+  const oldMarginal = g => (1 - oldRw(g)) * 0.45 * (2 / g);
+  eq('the old slide made week 1 over 4x week 17',
+     oldMarginal(1) / oldMarginal(17) > 4, true);
+}
+
+console.log('\n8. the two halves are on the same scale');
+{
+  /* whatever rw is, the two weights are a partition - no week may count 1.3x */
   let ok = true;
   for (let g = 0; g <= 17; g++) if (!near(rw(g) + (1 - rw(g)), 1)) ok = false;
   eq('roster share + results share = 1', ok, true);
+}
+
+console.log('\n9. the gain - wider rungs, same ladder');
+{
+  /* mirrors invPricesAt exactly */
+  const gain = vals => {
+    if (api.INV_GAIN === 1) return vals;
+    const mv = vals.reduce((a, b) => a + b, 0) / vals.length || 1;
+    return vals.map(v => mv * Math.pow(Math.max(0, v) / mv, api.INV_GAIN));
+  };
+  const norm = vals => {
+    const m = vals.reduce((a, b) => a + b, 0) / vals.length || 1;
+    return vals.map(v => Math.max(1, +(api.INV_BASE * v / m).toFixed(2)));
+  };
+  /* twelve teams inside 8% of each other end to end, which is what twelve real
+     fantasy rosters actually look like */
+  const raw  = [1.08, 1.05, 1.03, 1.02, 1.01, 1.00, 0.995, 0.99, 0.98, 0.97, 0.95, 0.93];
+  const wide = norm(gain(raw));
+  const flat2 = norm(raw);
+
+  eq('the order is untouched', wide.every((v, i) => i === 0 || v <= wide[i - 1]), true);
+  eq('the league average is still ten',
+     near(wide.reduce((a, b) => a + b, 0) / 12, api.INV_BASE, 0.02), true);
+  eq('and the board is wider than it was', (wide[0] - wide[11]) > (flat2[0] - flat2[11]), true);
+  eq('a team AT the average barely moves', near(wide[5], flat2[5], 0.15), true);
+  /* it must not be able to invent a rank */
+  const three = norm(gain([0.93, 1.08, 1.00]));
+  eq('monotone in its input', three[1] > three[2] && three[2] > three[0], true);
+  /* the $1 floor is a clamp, not a price - a real board may not reach it */
+  eq('nobody is anywhere near the $1 floor', wide[11] > 3, true);
+  /* and the gain is doing something, or the constant is decoration */
+  eq('the gain actually widens the board',
+     (wide[0] - wide[11]) > (flat2[0] - flat2[11]) * 1.5, true);
+}
+
+console.log('\n10. the two exponents COMPOUND, and the floor is where that ends');
+{
+  /* INV_PROJ_POW cubes the roster ratio and INV_GAIN cubes the blend, so
+     preseason - where the blend IS the roster - a squad ratio r reaches the
+     board as r^9. On the real 8% spread that is 1.08^9 = 2.0x, which is the
+     board we want. It is worth knowing where it stops being sane. */
+  const eff = api.INV_PROJ_POW * api.INV_GAIN;
+  eq('preseason, the roster ratio is raised to the ninth', eff === 9, true);
+  eq('and 8% of squad becomes about 2x of price',
+     near(Math.pow(1.08, eff), 2.0, 0.05), true);
+
+  const norm = vals => {
+    const m = vals.reduce((a, b) => a + b, 0) / vals.length || 1;
+    return vals.map(v => Math.max(1, +(api.INV_BASE * v / m).toFixed(2)));
+  };
+  const gain = vals => {
+    const mv = vals.reduce((a, b) => a + b, 0) / vals.length || 1;
+    return vals.map(v => mv * Math.pow(Math.max(0, v) / mv, api.INV_GAIN));
+  };
+  /* an absurd league - a 2x spread of squads, which fantasy football does not
+     produce. The floor engages, and when it does the league mean is no longer
+     the base price, because Math.max(1, ...) is a clamp and not a price. */
+  const absurd = [2, 1.8, 1.6, 1.45, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6]
+    .map(r => Math.pow(r, api.INV_PROJ_POW));
+  const board = norm(gain(absurd));
+  eq('the floor engages on a spread that wide', board.some(v => v === 1), true);
+  eq('and the ordering still survives it',
+     board.every((v, i) => i === 0 || v <= board[i - 1]), true);
+  eq('but the league mean is no longer the base price',
+     board.reduce((a, b) => a + b, 0) / 12 > api.INV_BASE, true);
+  /* the real board must never be in that regime - 8% end to end, cubed */
+  const real = [1.052, 1.022, 1.014, 1.009, 1.001, 1.000, 0.994, 0.993, 0.988,
+                0.981, 0.977, 0.970].map(r => Math.pow(r, api.INV_PROJ_POW));
+  const realBoard = norm(gain(real));
+  eq('and the real one is not', realBoard.every(v => v > 3), true);
+  eq('its mean IS the base price',
+     near(realBoard.reduce((a, b) => a + b, 0) / 12, api.INV_BASE, 0.02), true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

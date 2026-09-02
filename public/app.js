@@ -10274,27 +10274,56 @@ const INV_BASE=10;              // what an average share is worth
 const invFmt=v=>'$'+(Math.round((Number(v)||0)*100)/100).toFixed(2);
 const INV_FORM_WEEKS=3;
 /* ── HOW MUCH OF A PRICE THE ROSTER OWNS, AND FOR HOW LONG ───────────────────
-   It slides across the WHOLE season now, from 0.80 before a ball is kicked to
-   0.05 with the year played out — rather than falling to a floor after six
-   games and sitting there, static, for the remaining eleven.
+   One seventeenth of the price moves from the projection to the results every
+   week: all projection before a ball is kicked, all results once the year has
+   been played out, an equal step for each week in between.
 
-   0.80 rather than 0.70 at the start because before week one the results half
-   is not a weak signal, it is the number 1.00 for all twelve teams: nobody has
-   a record, so every ratio computes to exactly one. It separates nobody. All
-   the 30% it used to hold did was damp the spread the rosters had earned.
+   BOTH ENDPOINTS ARE NOW THE ONLY HONEST ONES. The 0.80/0.05 pair they replace
+   was picked by hand at both ends.
 
-   0.05 rather than 0.15 at the end because by then the season has said
-   everything it has to say. What is left is a token — a squad is still a squad
-   — and not a fifth of the price.
+   1.00 preseason, because the results half is not a weak signal then — it is
+   the number 1.00 for all twelve teams. Nobody has a record, so every ratio
+   computes to exactly one. It separates nobody, and every point of weight it
+   held only damped the spread the rosters had actually earned.
 
-   Linear in weeks remaining, which is the honest shape: each week that passes
-   is one week less of projection left to be right about. */
-const INV_PROJ_MAX=0.80;     // with no football played
-const INV_PROJ_MIN=0.05;     // with the season played out
+   0.00 once week 17 is over, because by then rosterProjByOwner is summing the
+   weeks from 18 to 17 and handing back zero for everyone — projMean is 0 and
+   the block below never runs at all. The old floor was already dead code by
+   that point; this says out loud what the code was doing anyway.
+
+   AND IT MAKES ONE GAME WORTH THE SAME ALL SEASON, which is the real prize.
+   winR's own noise falls as 1/g: one result is half as loud once two are in,
+   a third as loud once three are. This ramp raises the results weight as
+   g/17 — exactly the reciprocal rate — so the two cancel, and a single game
+   moves a share about 48c in week 1 and about 48c in week 17. Under the old
+   0.80 start, week one handed a quarter of the price to the noisiest number
+   the model ever computes, and one Sunday was worth $2.01: four times what
+   the same game was worth in December, when it meant four times as much.
+   That asymmetry is gone, and gone by removing an arbitrary constant rather
+   than by bolting a correction on top of one. */
+const INV_PROJ_MAX=1.00;     // with no football played
+const INV_PROJ_MIN=0.00;     // with the season played out
 const INV_SEASON_WEEKS=17;
 /* How hard the roster gap is stretched into a price gap. 1 is the raw ratio,
    which puts the whole league inside a dollar of itself. */
 const INV_PROJ_POW=3;
+/* ── AND HOW HARD THE FINISHED BOARD IS STRETCHED ─────────────────────────
+   INV_PROJ_POW above widens the ROSTER half only, so it does progressively
+   less as rw slides toward zero and nothing whatsoever by December. This one
+   is applied to the finished blend — both halves, every week of the year:
+
+       v' = mean(v) * (v / mean(v)) ^ INV_GAIN
+
+   The ranking is untouched and the league average stays at exactly INV_BASE.
+   Only the distance between the rungs grows. At 1 the twelve teams lived
+   inside about $2 of each other from September to January, which is not a
+   market worth reading the league to win. At 3 a champion's share roughly
+   doubles across a season and a wooden spoon loses about two thirds.
+
+   CHANGING THIS RESTATES EVERY OPEN POSITION. Prices move, so share counts
+   have to move the other way or the change hands people profit and losses
+   they did not earn — scripts/split-shares.mjs, with a fresh STAMP. */
+const INV_GAIN=3;
 
 /* ── THE THREE PLAYOFF GAMES A SEASON THAT DECIDE NOTHING ────────────────────
    Weeks 15-17 count toward a share price. Winning the title is the best
@@ -10559,7 +10588,15 @@ function invPricesAt(season,through){
     });
   }
   /* anyone with no games yet sits at the league's own middle */
-  const vals=fr.map(f=>byOwner[f.owner]!=null?byOwner[f.owner]:1);
+  let vals=fr.map(f=>byOwner[f.owner]!=null?byOwner[f.owner]:1);
+  if(INV_GAIN!==1){
+    /* stretched about the league's own middle, so the mean survives and only
+       the distance from it grows. Math.max guards the one case that can reach
+       zero: a week-17 board, where rw is 0 and a team that scored nothing at
+       all would carry a base of 0. A negative here would come back NaN. */
+    const mv=vals.reduce((a,b)=>a+b,0)/vals.length || 1;
+    vals=vals.map(v=>mv*Math.pow(Math.max(0,v)/mv,INV_GAIN));
+  }
   const mean=vals.reduce((a,b)=>a+b,0)/vals.length || 1;
   const out={};
   fr.forEach((f,i)=>{ out[f.owner]=Math.max(1,+(INV_BASE*vals[i]/mean).toFixed(2)); });

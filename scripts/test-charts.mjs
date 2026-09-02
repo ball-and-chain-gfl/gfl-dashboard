@@ -88,7 +88,8 @@ function grab(startsWith) {
 console.log('\n1. every declaration the freezer lifts is still there');
 const NEEDED = ['const LINEUP_SHAPE_FALLBACK=', 'function sbSlotShape(', 'function sbBestLineup(',
   'function rosterProjByOwner(', 'const INV_BASE=', 'const INV_FORM_WEEKS=', 'const INV_PROJ_MAX=',
-  'const INV_PROJ_MIN=', 'const INV_SEASON_WEEKS=', 'const INV_PROJ_POW=', 'const RP_WEEKS=',
+  'const INV_PROJ_MIN=', 'const INV_SEASON_WEEKS=', 'const INV_PROJ_POW=', 'const INV_GAIN=',
+  'const RP_WEEKS=',
   'const INV_FUNDS=', 'function invFundMembers(',
   'const weekDecided=', 'const weekScored=', 'function weeksOf(schedule){',
   'function weekOver(byWeek,w){', 'function weeksOverCount(schedule){',
@@ -114,7 +115,16 @@ for (let t = 1; t <= N; t++) {
   teamsMeta[t] = { name: 'Team ' + t, owner: o, div: t <= 6 ? 0 : 1 };
   franchises.push({ owner: o, name: 'Team ' + t, teamId: t });
   /* Every team gets the same shape of roster and a projection that climbs with
-     the team number, so the ONLY thing separating them is squad strength. */
+     the team number, so the ONLY thing separating them is squad strength.
+
+     The step is small on purpose. It used to be t*10 - a 2x spread between the
+     best and worst squad - which made the ordering obvious but put the fixture
+     in a regime the real league is nowhere near: twelve genuine fantasy rosters
+     sit inside about 8% of each other end to end. That mattered once INV_GAIN
+     arrived, because INV_PROJ_POW and INV_GAIN COMPOUND - a cube of a cube is a
+     NINTH power on the roster ratio - and 2^9 drove the bottom half of the
+     fixture onto the $1 clamp, which broke the league-mean invariant below.
+     Real spread, real regime; the clamp itself is pinned in test-projection. */
   rosters[t] = [];
   const shape = [[1, 1], [2, 2], [3, 2], [4, 1], [5, 1], [16, 1]];
   let pid = t * 1000;
@@ -122,7 +132,7 @@ for (let t = 1; t <= N; t++) {
     for (let i = 0; i < n; i++) {
       pid++;
       rosters[t].push({ pid, n: 'P' + pid, slot: pos === 1 ? 0 : pos === 16 ? 16 : pos === 5 ? 17 : pos, pos });
-      poolPlayers.push({ id: pid, name: 'P' + pid, pos, proj: 100 + t * 10, total: 0 });
+      poolPlayers.push({ id: pid, name: 'P' + pid, pos, proj: 100 + t * 2, total: 0 });
     }
   });
 }
