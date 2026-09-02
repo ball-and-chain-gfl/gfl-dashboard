@@ -61,6 +61,15 @@ jobs:
         run: |
           git config user.name  'gfl-bot'
           git config user.email 'gfl-bot@users.noreply.github.com'
-          git add public/data/charts-*.json
-          git diff --staged --quiet || git commit -m 'Freeze week prices [skip ci]'
-          git push
+          # Before the first week finishes the script correctly writes NOTHING,
+          # and `git add` on a glob that matches no file exits 128 — so every run
+          # of this workflow has failed since it was written, and the freezer has
+          # never once produced a file. Guarded so "nothing to freeze yet" is a
+          # clean pass and a real failure is still a real failure.
+          if ls public/data/charts-*.json >/dev/null 2>&1; then
+            git add public/data/charts-*.json
+            git diff --staged --quiet || git commit -m 'Freeze week prices [skip ci]'
+            git push
+          else
+            echo 'no frozen prices yet - nothing to commit'
+          fi

@@ -307,6 +307,28 @@ trivially gamed. Results move prices, nothing else.
 
 **Prices change once a week**, when a week's results land.
 
+#### Which weeks grade a team
+
+The regular season ends at week 14; weeks 15–17 are the playoffs. Those weeks
+still count — winning the title is the best evidence there is — **except for the
+three games a season that decide nothing.** Twelve teams split into a
+championship bracket (top six seeds) and a losers bracket (bottom six):
+
+| | championship bracket | losers bracket |
+|---|---|---|
+| **wk 15** | 1 and 2 seeds bye — no game | the **two lowest seeds** — meaningless |
+| **wk 16** | the two teams that **lost** in wk 15 | the two teams that **won** in wk 15 (punishment already dodged) |
+| **wk 17** | every game meaningful — placement | every game meaningful — placement |
+
+ESPN carries no bracket metadata at all: a playoff matchup has `home`, `away`,
+`id`, `matchupPeriodId` and `winner`, exactly like a regular-season one. The
+bracket is reconstructed instead — the week-15 byes are seeds 1 and 2, and
+whoever they face in week 16 won the championship-bracket week-15 games.
+
+A bad score in a game that *is* meaningful still counts, however checked-out the
+manager was. Week 17 is a placement game for everybody, so a 50-point Sunday
+there is a real 50-point Sunday.
+
 ### The two charts
 
 Both plot **money made, against zero**. Neither plots a balance.

@@ -10481,10 +10481,22 @@ async function invSync(){
     const res=await gflFetchProfile(_me.k1);
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.inv)||'[]')||[]; }catch(e){}
     if(!Array.isArray(srv)) return;
+    /* ── WHAT MAKES TWO ENTRIES THE SAME TRADE ────────────────────────────────
+       Owner, the moment it happened, and which way round it was. NOT the share
+       count and NOT the price, which is what this used to key on.
+
+       Those two can be restated after the fact. A change to how a share is
+       priced is settled by a SPLIT — every lot's shares and price scaled by
+       inverse factors so the cash paid, the holding's value and the profit all
+       come out identical — and both numbers move when that happens. Keyed on
+       them, a device still holding pre-split lots would have seen them as new
+       trades and added them alongside the restated ones, silently doubling
+       somebody's position. A timestamp is unique to a trade; two entries that
+       share one are the same trade told twice. */
     const seen=new Set(), merged=[];
     [...srv,...invLots()].forEach(l=>{
       if(!l||!l.o) return;
-      const k=[l.o,l.s,l.p,l.t,l.k].join('|');
+      const k=[l.o,l.t,l.k].join('|');
       if(seen.has(k)) return; seen.add(k); merged.push(l);
     });
     merged.sort((x,y)=>(Number(x.t)||0)-(Number(y.t)||0));
