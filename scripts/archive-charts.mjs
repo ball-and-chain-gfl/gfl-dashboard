@@ -47,19 +47,62 @@ const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'
   .split(String.fromCharCode(13)).join('');
 const CFG = fs.readFileSync(new URL('../public/config.js', import.meta.url), 'utf8');
 
-/* Like the grab() in settle-bets, but it counts SQUARE brackets too. That one
-   tracks braces alone, which is right for a function and wrong for an array of
-   objects: INV_FUNDS opens with `[`, and a brace-only walk stops at the close of
-   its first entry and hands back half a declaration. */
+/* ── LIFTING A DECLARATION OUT OF app.js ─────────────────────────────────────
+   Counts all three kinds of bracket AND steps over strings, template literals
+   and comments, because a walker that does not has now been wrong three
+   separate times in this repo. The failure is always the same shape: a `${` in
+   a template literal reads as an opening brace, its `}` reads as the end of the
+   declaration, and half a function comes back — which then fails to parse with
+   "Unexpected end of input" a long way from the cause. */
+function skipQuote(src, i) {
+  const q = src[i];
+  let j = i + 1;
+  while (j < src.length) {
+    if (src[j] === '\\') { j += 2; continue; }
+    if (src[j] === q) return j + 1;
+    j++;
+  }
+  return j;
+}
+function skipTemplate(src, i) {
+  let j = i + 1;
+  while (j < src.length) {
+    if (src[j] === '\\') { j += 2; continue; }
+    if (src[j] === '`') return j + 1;
+    if (src[j] === '$' && src[j + 1] === '{') {
+      let d = 1; j += 2;
+      while (j < src.length && d > 0) {
+        const c = src[j];
+        if (c === '\\') { j += 2; continue; }
+        if (c === "'" || c === '"') { j = skipQuote(src, j); continue; }
+        if (c === '`') { j = skipTemplate(src, j); continue; }
+        if (c === '{') d++; else if (c === '}') d--;
+        j++;
+      }
+      continue;
+    }
+    j++;
+  }
+  return j;
+}
 function grab(startsWith) {
   const i = SRC.indexOf(startsWith);
-  if (i < 0) throw new Error('archive-charts: cannot find "' + startsWith + '" in app.js');
-  let j = i, depth = 0, started = false;
-  for (; j < SRC.length; j++) {
+  if (i < 0) throw new Error('cannot find "' + startsWith + '" in app.js');
+  let j = i, depth = 0;
+  while (j < SRC.length) {
     const c = SRC[j];
-    if (c === '{' || c === '[') { depth++; started = true; }
-    else if (c === '}' || c === ']') { depth--; if (started && depth === 0) { j++; break; } }
-    else if (c === ';' && !started && depth === 0) { j++; break; }
+    if (c === "'" || c === '"') { j = skipQuote(SRC, j); continue; }
+    if (c === '`') { j = skipTemplate(SRC, j); continue; }
+    if (c === '/' && SRC[j + 1] === '/') { const e = SRC.indexOf('\n', j); j = e < 0 ? SRC.length : e; continue; }
+    if (c === '/' && SRC[j + 1] === '*') { const e = SRC.indexOf('*/', j); j = e < 0 ? SRC.length : e + 2; continue; }
+    if (c === '(' || c === '[' || c === '{') { depth++; j++; continue; }
+    if (c === ')' || c === ']' || c === '}') {
+      depth--; j++;
+      if (depth === 0 && (c === '}' || c === ']')) return SRC.slice(i, j);
+      continue;
+    }
+    if (c === ';' && depth === 0) return SRC.slice(i, j + 1);
+    j++;
   }
   return SRC.slice(i, j);
 }
@@ -140,6 +183,16 @@ if (file.weeks[week] && !auto && !FORCE) {
 // ── the roster feed and player pool the pricer reads ────────────────────────
 const rosterRaw = await get(`view=mRoster&seasonId=${SEASON}&scoringPeriodId=${week}&live=1`);
 const pool = await get(`type=pool&seasonId=${SEASON}&limit=700`);
+/* The per-week projection feed the pricer now reads. Fetched here and handed
+   to the harness, because rosterProjWeekly in the browser is a fire-and-forget
+   cache that returns null on its first call — fine for a page that repaints,
+   useless for a script that runs once. Without it the pricer falls back to the
+   season total, and a frozen week would disagree with the live board forever. */
+const rpFeed = await get(`type=rosterproj&seasonId=${SEASON}`);
+if (!rpFeed || !rpFeed.teams || !Object.keys(rpFeed.teams).length) {
+  console.error(`${SEASON} – rosterproj unavailable, refusing to freeze a price computed without it`);
+  process.exit(1);
+}
 const BENCH = [20, 21, 24];
 const rosters = {};
 ((rosterRaw && rosterRaw.teams) || []).forEach(t => {
@@ -166,6 +219,9 @@ const BENCH_SLOTS = ${JSON.stringify(BENCH)};
 function sbBoardSeason(){ return ${JSON.stringify(String(SEASON))}; }
 function sbRosters(season,wk){ return _sbRosters[String(season)+':'+wk] || _sbRosters[${JSON.stringify(String(SEASON) + ':' + week)}] || null; }
 function bkLoadPool(){}
+const _rpFeed = ${JSON.stringify(rpFeed)};
+function rosterProjWeekly(){ return _rpFeed; }
+let _rpMemo = {};
 /* invPricesAt short-circuits to a frozen board when one exists. THE FREEZER MUST
    NEVER TAKE THAT PATH: reading its own output would re-freeze a frozen number
    and the first mistake would be permanent. It always computes. */
@@ -178,10 +234,24 @@ ${grab('const INV_BASE=')}
 ${grab('const INV_FORM_WEEKS=')}
 ${grab('const INV_PROJ_MAX=')}
 ${grab('const INV_PROJ_MIN=')}
-${grab('const INV_PROJ_FULL=')}
+${grab('const INV_SEASON_WEEKS=')}
 ${grab('const INV_PROJ_POW=')}
+${grab('const RP_WEEKS=')}
 ${grab('const INV_FUNDS=')}
 ${grab('function invFundMembers(')}
+/* the week rule, because rest-of-season starts at the first week not finished */
+${grab('const weekDecided=')}
+${grab('const weekScored=')}
+${grab('function weeksOf(schedule){')}
+${grab('function weekOver(byWeek,w){')}
+${grab('function weeksOverCount(schedule){')}
+/* and the playoff filter, so a frozen week discards the same three dead games
+   the live board does — otherwise history and the market disagree */
+${grab('const REGULAR_SEASON_END=')}
+${grab('function regEndOf(season){')}
+${grab('function buildBracket(season){')}
+${grab('function poDeadGames(season){')}
+${grab('const poDeadId=')}
 ${grab('function invStats(')}
 ${grab('function invPricesAt(')}
 module.exports = { invPricesAt, rosterProjByOwner, invStats };

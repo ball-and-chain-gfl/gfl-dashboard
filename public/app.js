@@ -9703,8 +9703,86 @@ function sbBestLineup(entries,projOf,posOf,shape){
    Returns {} rather than a guess when the roster feed or the player pool has
    not landed — both callers treat an empty answer as "no signal" and fall back
    to what they had. */
+/* ── ESPN'S PER-WEEK PROJECTIONS, ALL SEVENTEEN ──────────────────────────────
+   One aggregated call (api/espn.js, type=rosterproj) rather than seventeen from
+   here: the raw mRoster responses are 22 MB between them and this is 25 KB of
+   it. Cached for the session and refetched on the same stale-while-revalidate
+   footing as the rosters, so a trade shows up without a reload. */
+const RP_TTL=10*60*1000;
+let _rpData={},_rpAt={},_rpBusy={};
+function rosterProjWeekly(season){
+  const y=String(season||''); if(!y) return null;
+  const have=_rpData[y];
+  if(have&&Date.now()-(_rpAt[y]||0)<RP_TTL) return have;
+  if(!_rpBusy[y]){
+    _rpBusy[y]=true;
+    fetch(`${BASE}?type=rosterproj&seasonId=${y}`,{cache:'no-store'})
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{
+        if(!j||!j.teams||!Object.keys(j.teams).length) return;
+        _rpData[y]=j; _rpAt[y]=Date.now(); _rpMemo={};
+        /* everything priced off a roster has to be told these landed */
+        _sbCache=null; _invCache=null;
+        try{ if(_activeTab==='book') renderBook();
+             else if(_activeTab==='week') renderWeek(); }catch(e){}
+      })
+      .catch(()=>{})
+      .finally(()=>{ _rpBusy[y]=false; });
+  }
+  return have||null;
+}
+/* The same season and the same starting week give the same answer, and the
+   portfolio chart asks for it once per week of the season. */
+let _rpMemo={};
+/* ── WHAT A ROSTER IS WORTH FROM HERE ────────────────────────────────────────
+   The sum, over every week still to be played, of the best legal lineup that
+   roster could field THAT WEEK — not one lineup picked on season totals and
+   multiplied out.
+
+   Per week, because that is the only way a bye behaves properly: a starter with
+   no game that week scores zero and the next man up takes the slot, which is
+   what the manager would actually do. It is also what makes injuries free —
+   ESPN projects a player who cannot play at zero for those weeks and at his
+   real number afterwards, so a man out until week 7 costs his team nothing for
+   six weeks and counts fully from the seventh. No IR special case anywhere.
+
+   And it is REST of season. The old number was ESPN's season total, which
+   describes weeks 1-17 however late you ask: from week 2 onward part of it is
+   football already played, football that the results half of a share price and
+   the form half of a power rating are ALREADY counting. Two terms that are
+   meant to be independent, sharing their evidence. */
+const RP_WEEKS=17;
 function rosterProjByOwner(season,week){
   const meta=_seasonMeta[String(season)]; if(!meta) return {};
+  const owners=meta.owners||{}, shape=sbSlotShape(meta);
+  const feed=rosterProjWeekly(season);
+  if(feed&&feed.teams){
+    /* The first week not yet finished — weekOver, the same rule the rest of the
+       site turns over on, so this never counts a Sunday afternoon as spent. */
+    let done=0; try{ done=weeksOverCount(meta.schedule)||0; }catch(e){ done=0; }
+    const from=Math.max(1,done+1);
+    const key=String(season)+':'+from;
+    if(_rpMemo[key]) return _rpMemo[key];
+    const out={};
+    Object.keys(feed.teams).forEach(tid=>{
+      const o=owners[tid]; if(!o) return;
+      const roster=feed.teams[tid]||{};
+      const pids=Object.keys(roster);
+      if(!pids.length) return;
+      let total=0;
+      for(let w=from;w<=RP_WEEKS;w++){
+        total+=sbBestLineup(
+          pids.map(pid=>({pid,pos:roster[pid].pos||0,v:(roster[pid].w||{})[w]||0})),
+          e=>e.v, e=>e.pos, shape);
+      }
+      out[o]=total;
+    });
+    if(Object.keys(out).length) return (_rpMemo[key]=out);
+  }
+  /* ── FALLBACK: the season total, as it was ────────────────────────────────
+     Only while the weekly feed is in the air or has failed. Wrong in the ways
+     described above, and still far better than pricing twelve rosters at
+     nothing, which is what returning {} does to the board. */
   const rosters=sbRosters(season,week||1);
   /* THE POOL FOR THE SEASON BEING PRICED, NOT WHICHEVER ONE IS LOADED.
      _bkPool points at bkSeason(), which is the newest season with a SCORE in it
@@ -9718,7 +9796,7 @@ function rosterProjByOwner(season,week){
   if(!rosters||!pool||!pool.length) return {};
   const proj={},posn={};
   pool.forEach(p=>{ proj[String(p.id)]=p.proj||p.total||0; posn[String(p.id)]=Number(p.pos)||0; });
-  const owners=meta.owners||{}, shape=sbSlotShape(meta), out={};
+  const out={};
   Object.keys(rosters).forEach(tid=>{
     const o=owners[tid]; if(!o) return;
     const es=rosters[tid]||[];
@@ -10195,14 +10273,125 @@ const INV_BASE=10;              // what an average share is worth
    which is right for a balance and hides everything a market does. */
 const invFmt=v=>'$'+(Math.round((Number(v)||0)*100)/100).toFixed(2);
 const INV_FORM_WEEKS=3;
-/* How much of a share price the roster projection owns: most of it before a
-   ball is kicked, a residual once the season can speak for itself. */
-const INV_PROJ_MAX=0.70;     // with no football played
-const INV_PROJ_MIN=0.15;     // once INV_PROJ_FULL weeks are in
-const INV_PROJ_FULL=6;
+/* ── HOW MUCH OF A PRICE THE ROSTER OWNS, AND FOR HOW LONG ───────────────────
+   It slides across the WHOLE season now, from 0.80 before a ball is kicked to
+   0.05 with the year played out — rather than falling to a floor after six
+   games and sitting there, static, for the remaining eleven.
+
+   0.80 rather than 0.70 at the start because before week one the results half
+   is not a weak signal, it is the number 1.00 for all twelve teams: nobody has
+   a record, so every ratio computes to exactly one. It separates nobody. All
+   the 30% it used to hold did was damp the spread the rosters had earned.
+
+   0.05 rather than 0.15 at the end because by then the season has said
+   everything it has to say. What is left is a token — a squad is still a squad
+   — and not a fifth of the price.
+
+   Linear in weeks remaining, which is the honest shape: each week that passes
+   is one week less of projection left to be right about. */
+const INV_PROJ_MAX=0.80;     // with no football played
+const INV_PROJ_MIN=0.05;     // with the season played out
+const INV_SEASON_WEEKS=17;
 /* How hard the roster gap is stretched into a price gap. 1 is the raw ratio,
    which puts the whole league inside a dollar of itself. */
 const INV_PROJ_POW=3;
+
+/* ── THE THREE PLAYOFF GAMES A SEASON THAT DECIDE NOTHING ────────────────────
+   Weeks 15-17 count toward a share price. Winning the title is the best
+   evidence a franchise can offer and the race to last place decides who takes
+   the punishment, so neither belongs on the cutting-room floor. But three games
+   a year settle nothing at all, and grading a team on them is grading it on a
+   lineup nobody had a reason to set.
+
+   Twelve teams, a championship bracket of six and a losers bracket of six:
+
+     wk 15  championship  the 1 and 2 seeds bye — no game to discard
+            losers        the two lowest seeds play each other: dead
+     wk 16  championship  the two teams that LOST in week 15: dead
+            losers        the two teams that WON in week 15: dead — winning has
+                          already put the punishment out of reach
+     wk 17  both          every game is a placement game. All of them count,
+                          and a checked-out 50-point Sunday in one of them is a
+                          real 50-point Sunday.
+
+   MEMBERSHIP COMES FROM THE BRACKET, NOT FROM THE SEEDS. ESPN publishes no
+   playoff metadata whatsoever — a postseason matchup carries home, away, id,
+   matchupPeriodId and winner, exactly like a week-three game — and this league
+   edits matchups by hand, so the seeding and the bracket genuinely disagree:
+   Lebron's 3rd Leg won 2025 from the 7 seed while the 6 seed went to the
+   consolation ladder. buildBracket walks back from the final and is the only
+   thing that gets that right.
+
+   A season still being played has no final to walk back from, so nothing is
+   discarded and every game counts. Erring toward keeping data is the safe
+   direction: a game wrongly kept is noise, a game wrongly dropped is a hole. */
+let _poDeadCache={};
+function poDeadGames(season){
+  const y=String(season);
+  if(_poDeadCache[y]) return _poDeadCache[y];
+  const dead=new Set();
+  const meta=_seasonMeta[y];
+  if(!meta) return dead;                       // not loaded — discard nothing
+  const regEnd=regEndOf(y)||14;
+  let br=null; try{ br=buildBracket(y); }catch(e){ br=null; }
+  if(!br||!br.rounds||!br.rounds.length) return (_poDeadCache[y]=dead);
+
+  const gid=m=>String(m.id!=null?m.id:`${m.matchupPeriodId}|${m.home&&m.home.teamId}|${m.away&&m.away.teamId}`);
+  const played=(meta.schedule||[]).filter(m=>m.home&&m.away
+    &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
+  const at=w=>played.filter(m=>(m.matchupPeriodId||0)===w);
+  const winnerOf=m=>((m.home.totalPoints||0)>=(m.away.totalPoints||0))?m.home.teamId:m.away.teamId;
+  const loserOf =m=>((m.home.totalPoints||0)>=(m.away.totalPoints||0))?m.away.teamId:m.home.teamId;
+
+  /* who is in the championship bracket at all */
+  const champBracket=new Set(br.byes||[]);
+  br.rounds.forEach(r=>(r.games||[]).forEach(g=>{champBracket.add(g.a.tid);champBracket.add(g.b.tid);}));
+
+  const w1=regEnd+1, w2=regEnd+2;
+  const bracketIds=new Set();
+  br.rounds.forEach(r=>(r.games||[]).forEach(g=>{
+    const m=at(r.week).find(x=>{const ids=[x.home.teamId,x.away.teamId];
+      return ids.includes(g.a.tid)&&ids.includes(g.b.tid);});
+    if(m) bracketIds.add(gid(m));
+  }));
+
+  /* WEEK 15, LOSERS BRACKET — the two lowest seeds. Seeding is the regular
+     season's own table, worked out here rather than taken from ESPN, which is
+     the number the hand-edited bracket disagrees with. */
+  const rec={};
+  (meta.schedule||[]).forEach(m=>{
+    const w=m.matchupPeriodId||0;
+    if(!m.home||!m.away||w<1||w>regEnd) return;
+    const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
+    if(hp===0&&ap===0) return;
+    [[m.home.teamId,hp,ap],[m.away.teamId,ap,hp]].forEach(([t,f,a])=>{
+      const r=rec[t]||(rec[t]={w:0,pf:0}); r.pf+=f; if(f>a) r.w++;
+    });
+  });
+  const order=Object.keys(rec).sort((a,b)=>rec[b].w-rec[a].w||rec[b].pf-rec[a].pf).map(Number);
+  const bottomTwo=new Set(order.slice(-2));
+  at(w1).forEach(m=>{
+    const ids=[m.home.teamId,m.away.teamId];
+    if(ids.every(t=>bottomTwo.has(t))) dead.add(gid(m));
+  });
+
+  /* WEEK 16 — one dead game per bracket, and they are mirror images:
+     the championship pair that both lost, the losers pair that both won. */
+  const w1Lost=new Set(), w1Won=new Set();
+  at(w1).forEach(m=>{
+    const inCB=champBracket.has(m.home.teamId)&&champBracket.has(m.away.teamId);
+    if(inCB&&bracketIds.has(gid(m))) w1Lost.add(loserOf(m));
+    if(!inCB) w1Won.add(winnerOf(m));
+  });
+  at(w2).forEach(m=>{
+    const ids=[m.home.teamId,m.away.teamId];
+    if(ids.every(t=>w1Lost.has(t))) dead.add(gid(m));
+    if(ids.every(t=>w1Won.has(t)))  dead.add(gid(m));
+  });
+
+  return (_poDeadCache[y]=dead);
+}
+const poDeadId=m=>String(m&&m.id!=null?m.id:`${m&&m.matchupPeriodId}|${m&&m.home&&m.home.teamId}|${m&&m.away&&m.away.teamId}`);
 
 /* every team's current-season record, scoring and recent form */
 function invStats(season,throughWeek){
@@ -10210,9 +10399,11 @@ function invStats(season,throughWeek){
   const owners=meta.owners||{};
   const rec={};
   const r=o=>rec[o]||(rec[o]={o,w:0,g:0,pf:0,recent:[]});
+  const dead=poDeadGames(season);
   (meta.schedule||[]).forEach(m=>{
     const wk=Number(m.matchupPeriodId)||0;
     if(!wk||(throughWeek!=null&&wk>throughWeek)||!m.home||!m.away) return;
+    if(dead.size&&dead.has(poDeadId(m))) return;   // a game that settled nothing
     const hp=m.home.totalPoints||0, ap=m.away.totalPoints||0;
     if(hp===0&&ap===0) return;
     const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
@@ -10346,10 +10537,10 @@ function invPricesAt(season,through){
     });
   }
   if(projMean>0){
-    /* fades from most of the price to a residual as the football arrives */
+    /* fades from most of the price to a token, one week at a time, all season */
     const gp=Math.max(0,...(rows||[]).map(x=>x.g||0));
-    const t=Math.min(1,gp/INV_PROJ_FULL);
-    const rw=INV_PROJ_MAX+(INV_PROJ_MIN-INV_PROJ_MAX)*t;
+    const left=Math.max(0,INV_SEASON_WEEKS-gp);
+    const rw=INV_PROJ_MIN+(INV_PROJ_MAX-INV_PROJ_MIN)*(left/INV_SEASON_WEEKS);
     (_franchises||[]).forEach(f=>{
       const p=projs[f.owner]; if(!(p>0)) return;
       /* STRETCHED, BECAUSE THE RAW RATIO IS NOT A MARKET.

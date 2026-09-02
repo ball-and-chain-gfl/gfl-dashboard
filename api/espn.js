@@ -692,6 +692,79 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }
 
+  // ── Rest-of-season roster projection source ──────────────────────────────────
+  //   /api/espn?type=rosterproj&seasonId=2026
+  //
+  // Response: { season, weeks, teams: { [teamId]: { [playerId]: { n, pos, w: {…} } } } }
+  //   w = { [scoringPeriodId]: ESPN's projected points for that player that week }
+  //
+  // WHY THIS EXISTS. Roster strength was priced off ESPN's SEASON projection —
+  // one number describing weeks 1 to 17. From week 2 onward part of that number
+  // is football that has already been played, which is also counted in the
+  // results half of a share price and the form half of a power rating: the same
+  // weeks, twice, through two terms that are supposed to be independent. And a
+  // season total cannot answer the only question that matters mid-year, which is
+  // what a roster is worth from HERE.
+  //
+  // ESPN publishes a per-week projection for every player, every week, in
+  // advance, and revises it. Josh Jacobs on 2 Sep 2026 reads 0.0 for weeks 1-6,
+  // 14.0 in week 7 when he is due back, 0.0 again in week 11 for the bye. That
+  // is the injury, the return and the bye, all in the one series — which is why
+  // no separate IR handling is needed anywhere downstream. A player who cannot
+  // play is worth zero on the weeks he cannot play and his real number after.
+  //
+  // WHY IT IS SERVER-SIDE. Seventeen mRoster calls is the only way to get it —
+  // kona_player_info is asked for weekly splits and returns none. From a browser
+  // that is 22 MB, because each response carries every stat line for all 170
+  // rostered players and we want six numbers from each. Aggregated here it is
+  // about 25 KB, and datacenter-to-ESPN it costs a second.
+  if (type === 'rosterproj') {
+    const weekIds = Array.from({ length: 17 }, (_, i) => i + 1);
+    try {
+      const results = await Promise.all(weekIds.map(async w => {
+        try {
+          const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
+          if (!r.ok) return null;
+          return { week: w, data: unwrap(await r.json()) };
+        } catch { return null; }
+      }));
+      const teams = {};
+      let covered = 0;
+      results.forEach(res => {
+        if (!res || !res.data) return;
+        covered++;
+        (res.data.teams || []).forEach(t => {
+          const bucket = teams[t.id] || (teams[t.id] = {});
+          (t.roster?.entries || []).forEach(e => {
+            const pl = e.playerPoolEntry?.player || {};
+            const pid = e.playerId;
+            if (pid == null) return;
+            const row = bucket[pid] || (bucket[pid] = {
+              n: pl.fullName || null,
+              pos: pl.defaultPositionId ?? 0,
+              w: {},
+            });
+            if (!row.n && pl.fullName) row.n = pl.fullName;
+            // statSourceId 1 is the projection; splitTypeId 1 is a single week.
+            // Pinned to the week we asked for, because the entry also carries
+            // rows for other periods and the season total.
+            const st = (pl.stats || []).find(x => x.statSourceId === 1
+              && x.statSplitTypeId === 1
+              && Number(x.scoringPeriodId) === Number(res.week));
+            if (st && typeof st.appliedTotal === 'number') {
+              row.w[res.week] = Math.round(st.appliedTotal * 100) / 100;
+            }
+          });
+        });
+      });
+      if (!covered) return res.status(502).json({ error: 'no weeks returned', season, teams: {} });
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=600, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=300, s-maxage=1800, stale-while-revalidate=1800');
+      return res.status(200).json({ season, weeks: covered, teams });
+    } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
+  }
+
   // ── Season tenure — every week's roster for a season, aggregated ─────────────
   // Response: { season, teams: { [teamId]: { [playerId]: { n, w, s, p } } } }
   //   n = player name, w = weeks rostered, s = weeks started, p = points scored

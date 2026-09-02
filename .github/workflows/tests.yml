@@ -54,6 +54,15 @@ jobs:
       # on the board, and neither may bank the other's points.
       - name: waiver claims, and buying the same player twice
         run: node scripts/test-waivers.mjs
+      # What a roster is worth from HERE — rest of season, per week, so a bye
+      # routes around itself and an injury costs exactly the weeks it costs.
+      - name: roster projection and the blend
+        run: node scripts/test-projection.mjs
+      # A change to how a share is priced must not hand anybody a profit.
+      - name: a share split moves nobody's money
+        run: node scripts/test-split.mjs
+      - name: the split migration parses
+        run: node --check scripts/split-shares.mjs
       - name: the archivers parse
         run: |
           node --check scripts/archive-trades.mjs

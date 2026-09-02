@@ -25,15 +25,62 @@ const ok = (name, cond, extra) => {
   else { fail++; console.log('  FAIL ' + name + (extra ? '  → ' + extra : '')); }
 };
 
+/* ── LIFTING A DECLARATION OUT OF app.js ─────────────────────────────────────
+   Counts all three kinds of bracket AND steps over strings, template literals
+   and comments, because a walker that does not has now been wrong three
+   separate times in this repo. The failure is always the same shape: a `${` in
+   a template literal reads as an opening brace, its `}` reads as the end of the
+   declaration, and half a function comes back — which then fails to parse with
+   "Unexpected end of input" a long way from the cause. */
+function skipQuote(src, i) {
+  const q = src[i];
+  let j = i + 1;
+  while (j < src.length) {
+    if (src[j] === '\\') { j += 2; continue; }
+    if (src[j] === q) return j + 1;
+    j++;
+  }
+  return j;
+}
+function skipTemplate(src, i) {
+  let j = i + 1;
+  while (j < src.length) {
+    if (src[j] === '\\') { j += 2; continue; }
+    if (src[j] === '`') return j + 1;
+    if (src[j] === '$' && src[j + 1] === '{') {
+      let d = 1; j += 2;
+      while (j < src.length && d > 0) {
+        const c = src[j];
+        if (c === '\\') { j += 2; continue; }
+        if (c === "'" || c === '"') { j = skipQuote(src, j); continue; }
+        if (c === '`') { j = skipTemplate(src, j); continue; }
+        if (c === '{') d++; else if (c === '}') d--;
+        j++;
+      }
+      continue;
+    }
+    j++;
+  }
+  return j;
+}
 function grab(startsWith) {
   const i = SRC.indexOf(startsWith);
   if (i < 0) throw new Error('cannot find "' + startsWith + '" in app.js');
-  let j = i, depth = 0, started = false;
-  for (; j < SRC.length; j++) {
+  let j = i, depth = 0;
+  while (j < SRC.length) {
     const c = SRC[j];
-    if (c === '{' || c === '[') { depth++; started = true; }
-    else if (c === '}' || c === ']') { depth--; if (started && depth === 0) { j++; break; } }
-    else if (c === ';' && !started && depth === 0) { j++; break; }
+    if (c === "'" || c === '"') { j = skipQuote(SRC, j); continue; }
+    if (c === '`') { j = skipTemplate(SRC, j); continue; }
+    if (c === '/' && SRC[j + 1] === '/') { const e = SRC.indexOf('\n', j); j = e < 0 ? SRC.length : e; continue; }
+    if (c === '/' && SRC[j + 1] === '*') { const e = SRC.indexOf('*/', j); j = e < 0 ? SRC.length : e + 2; continue; }
+    if (c === '(' || c === '[' || c === '{') { depth++; j++; continue; }
+    if (c === ')' || c === ']' || c === '}') {
+      depth--; j++;
+      if (depth === 0 && (c === '}' || c === ']')) return SRC.slice(i, j);
+      continue;
+    }
+    if (c === ';' && depth === 0) return SRC.slice(i, j + 1);
+    j++;
   }
   return SRC.slice(i, j);
 }
@@ -41,8 +88,13 @@ function grab(startsWith) {
 console.log('\n1. every declaration the freezer lifts is still there');
 const NEEDED = ['const LINEUP_SHAPE_FALLBACK=', 'function sbSlotShape(', 'function sbBestLineup(',
   'function rosterProjByOwner(', 'const INV_BASE=', 'const INV_FORM_WEEKS=', 'const INV_PROJ_MAX=',
-  'const INV_PROJ_MIN=', 'const INV_PROJ_FULL=', 'const INV_PROJ_POW=', 'const INV_FUNDS=',
-  'function invFundMembers(', 'function invStats(', 'function invPricesAt('];
+  'const INV_PROJ_MIN=', 'const INV_SEASON_WEEKS=', 'const INV_PROJ_POW=', 'const RP_WEEKS=',
+  'const INV_FUNDS=', 'function invFundMembers(',
+  'const weekDecided=', 'const weekScored=', 'function weeksOf(schedule){',
+  'function weekOver(byWeek,w){', 'function weeksOverCount(schedule){',
+  'const REGULAR_SEASON_END=', 'function regEndOf(season){', 'function buildBracket(season){',
+  'function poDeadGames(season){', 'const poDeadId=',
+  'function invStats(', 'function invPricesAt('];
 const parts = {};
 for (const n of NEEDED) {
   let got = null;
@@ -92,6 +144,11 @@ function bkLoadPool(){}
    is none, and the freezer itself must never read its own output — so both
    harnesses stub this to null and always compute. */
 function frozenPrices(){ return null; }
+/* the freezer supplies these; the fixture has no weekly feed, which is exactly
+   the case that must still price rather than return nothing */
+function rosterProjWeekly(){ return null; }
+let _rpMemo = {};
+let _poDeadCache = {};
 ${NEEDED.map(n => parts[n]).join('\n')}
 module.exports = { invPricesAt, rosterProjByOwner, INV_BASE };
 `;
