@@ -2991,7 +2991,7 @@ function draftTeamTableHTML(rows,showSeason,graded){
     </tr>`).join('')}</tbody>
   </table></div>
   <div style="padding:10px 18px;font-size:12px;color:var(--text2);border-top:1px solid var(--border)">${graded
-    ? `Draft score: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks — points above replacement, against what each slot normally returns. Defenses are shown but not graded.`
+    ? `Raw total: <b style="color:${totalDelta>=0?'var(--green)':'var(--red)'}">${totalDelta>0?'+':''}${totalDelta}</b> across ${rows.length} picks — points above replacement, against what each slot normally returns. The Draft Score above is this set against the league average. Defenses are shown but not graded.`
     : `${rows.length} picks. The number beside each player is where he came off the board at his own position — RB3 is the third running back taken. Grades arrive once the season is played.`}</div>`;
 }
 function renderDraftTab(){
