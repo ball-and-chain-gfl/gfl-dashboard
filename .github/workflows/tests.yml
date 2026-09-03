@@ -29,6 +29,8 @@ jobs:
         run: node scripts/test-ratings.mjs
       - name: the price freezer still lifts
         run: node scripts/test-charts.mjs
+      - name: how a draft pick is graded
+        run: node scripts/test-draft.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: next-highest waiver bid
