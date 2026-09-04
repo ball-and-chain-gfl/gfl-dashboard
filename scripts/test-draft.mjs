@@ -260,12 +260,12 @@ console.log(nl + '10. SUMMING AND FORMATTING IGNORE THE UNGRADED');
   ok('drNum writes a dash for no score', api.drNum(null) === '—');
   ok('drNum signs a positive', api.drNum(12.4) === '+12');
   ok('drNum rounds rather than truncating', api.drNum(-12.6) === '-13');
-  /* +0.3 used to print "+0" and -0.3 printed "0" -- a marginal beat and a
-     marginal miss looked like different things and neither looked like a
-     number. Anything that rounds away says so in words. */
-  ok('a hair above its slot reads "even"', api.drNum(0.3) === 'even');
-  ok('a hair below reads the same', api.drNum(-0.3) === 'even');
-  ok('and exactly on it too', api.drNum(0) === 'even');
+  /* +0.3 used to print "+0" while -0.3 printed "0" -- a marginal beat and a
+     marginal miss looked like two different things. Zero is written one way. */
+  ok('a hair above its slot reads 0', api.drNum(0.3) === '0');
+  ok('a hair below reads the same', api.drNum(-0.3) === '0');
+  ok('and exactly on it too', api.drNum(0) === '0');
+  ok('no signed zero anywhere', ['+0','-0'].indexOf(api.drNum(0.4)) === -1);
   ok('drCol greys out an ungraded pick', api.drCol(null) === 'var(--text3)');
   ok('drCol is one colour up and another down', api.drCol(5) !== api.drCol(-5));
 }

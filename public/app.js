@@ -2835,14 +2835,14 @@ const draftBaseline=(overall,pos,prorate)=>{
 /* one place decides how a score is coloured and written, including the case
    that has no score at all */
 const drCol=v=>v==null?'var(--text3)':v>0?'var(--green)':v<0?'var(--red)':'var(--text2)';
-/* A score inside half a point of its slot rounded to 0, and the sign made it
-   worse: +0.3 printed "+0" while -0.3 printed "0", so a marginal beat and a
-   marginal miss looked like different things and neither looked like a number.
-   Anything that rounds away says so in words instead. */
+/* A score inside half a point of its slot rounds to zero, and the sign used to
+   make that worse: +0.3 printed "+0" while -0.3 printed "0", so a marginal beat
+   and a marginal miss looked like two different things. Zero is written the one
+   way, unsigned. */
 const drNum=v=>{
   if(v==null) return '—';
   const r=Math.round(v);
-  if(r===0) return 'even';
+  if(r===0) return '0';
   return (r>0?'+':'')+r;
 };
 const drSum=rows=>(rows||[]).reduce((s,r)=>s+(r.score||0),0);
