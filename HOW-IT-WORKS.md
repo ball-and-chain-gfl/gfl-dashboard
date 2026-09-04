@@ -230,7 +230,28 @@ pick ever scored was +4 while a round-13 flier scored +47, and rounds 7+
 carried 60% of everything the score reacted to. Against actual team points-for
 the change lifts the correlation from **0.202 to 0.614**.
 
-**Defenses are shown but not graded** — they are absent from `DRAFT_STARTERS`,
+**Where the replacement bar sits is decided by the points, not by assumption.**
+The mandatory slots are fixed (12 QB, 24 RB, 24 WR, 12 TE, 12 K); the twelve
+flex spots are then handed out one at a time to whoever is actually the best
+player left at any flex-eligible position. In this league that means **all
+twelve go to a receiver, eleven or twelve times out of twelve** — the 30th best
+WR outscores the 30th best RB by 22–39 points every season on file, so nobody
+ever flexes the 30th best back. The counts that fall out are about RB 24–25 and
+WR 35–36.
+
+That matters: the earlier hand-split of six RB and six WR put the RB bar ~20
+points too low and the WR bar ~11 too high, which inflated every running back
+and docked every receiver by about 16 points a pick.
+
+**Mid-season it prorates.** `par` is cumulative-to-date, so the baseline is
+scaled by how much football has actually been played — `curve[slot] × weeksDone
+/ 17`, on the same `weekOver` rule the share prices turn over on. Without it,
+one week of production graded against a seventeen-week bar put every pick in
+the league near −56 and kept the whole board negative until about week 12.
+Grades also wait for a week to be *finished* rather than appearing after the
+first Thursday-night game.
+
+**Defenses are shown but not graded** — they are absent from `DRAFT_BASE_SLOTS`,
 which is what makes a pick ungradable, and their score is `null` rather than 0
 so it can never average into a total. Kickers are graded, on their own curve,
 which is flat zero: the median drafted kicker never finishes startable. They
