@@ -5656,7 +5656,7 @@ function renderForecast(info){
       <span class="k-up"><i></i>${ab(meT)} ahead</span>
       <span class="k-dn"><i></i>${ab(oppT)} ahead</span>
     </div>
-    <div class="fc-odds-s"><span>${ab(meT)} ${pts.length>1?'chance to win, through the week':'chance to win, before kickoff'}</span>
+    <div class="fc-odds-s"><span>${pts.length>1?'through the week':'before kickoff'}</span>
       <span>${amFmt(amFromProb(Math.min(0.95,now.p+0.025)))}</span></div>
   </div>`;
 
