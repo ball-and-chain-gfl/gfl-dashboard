@@ -90,7 +90,10 @@ const NEEDED = [
   'function invNetSpent(', 'function eggBucks(', 'function bucksIdleCost(',
   'function bucksBaseAt(', 'const PLANT_REPLAY_MAX=', 'function plantWalk(',
   'function plantRevivalCharges(', 'function plantForScope(', 'function plantFeeFor(',
-  'function plantLastCharge(',
+  'function plantLastCharge(', 'function plantOutstanding(',
+  /* the death record, so a watering can no longer un-happen one */
+  'function plantDeathsIn(', 'const PLANT_NEWS_MS=', 'const PLANT_DEATHS_MAX=',
+  'function plantDeathsOf(',
   'let _plantFeeCache=', 'function plantFeeKey(',
 ];
 const parts = {};
@@ -162,7 +165,8 @@ module.exports={PLANT_STAGES,PLANT_STEP_MS,PLANT_DRY_STEPS,PLANT_DEAD_STEPS,
   PLANT_CYCLE_STEPS,plantMsFor,plantStageOf,PLANT_REVIVAL_FEE,bkPlant,
   plantRevivals,plantFee,plantFeeFor,plantLastCharge,plantWalk,bucksBalance,bucksFmt,plantDryLabel,
   ntPlants,setCfg,setMe,setWatered,setScope,setRows,setAllow,bucksBaseAt,plantForScope,
-  plantRevivalCharges,setAllowSchedule,setEggs,setLots,setBets,bucksAllowance};
+  plantRevivalCharges,setAllowSchedule,setEggs,setLots,setBets,bucksAllowance,
+  plantDeathsIn,plantDeathsOf,plantOutstanding,PLANT_NEWS_MS};
 `;
 const mod = { exports: {} };
 let built = true;
@@ -317,15 +321,16 @@ if (built) {
     const c = cards(100).find(x => x.kind === 'revive');
     return c && !/\$280/.test(c.body) && !/\$280/.test(c.art);
   })(), JSON.stringify((cards(100).find(x => x.kind === 'revive') || {}).body));
-  ok('every figure on a card is one the balance actually moved by', (() => {
+  ok('every figure on a card is either money taken or money owed', (() => {
     for (let d = 7.2; d < 90; d += 1.7) {
       for (const had of [0, 5, 40, 1000]) {
         M.setAllow(had);
         const c = cards(d).find(x => x.kind === 'revive');
         if (!c) continue;
-        const paid = M.plantLastCharge(ago(d), 'me');
+        const w = M.plantForScope(ago(d), 'me', () => M.plantWalk());
+        const allowed = [M.bucksFmt(w.last), M.bucksFmt(w.outstanding)];
         const money = (c.body + ' ' + c.art).match(/\$[\d,]+\.\d\d/g) || [];
-        if (!money.every(m => m === M.bucksFmt(paid))) return false;
+        if (!money.every(m => allowed.indexOf(m) >= 0)) return false;
       }
     }
     return true;
@@ -365,14 +370,18 @@ if (built) {
   ok('a year away is STILL two cards', cards(365).length === 2, cards(365).length);
 
   console.log('\n16. the card and the balance never disagree');
-  ok('every card quotes the money that actually left the balance', (() => {
+  ok('every card quotes what left the balance, and what is still owed', (() => {
     for (let d = 7.1; d < 120; d += 0.83) {
       M.setWatered(ago(d));
-      const took = M.plantLastCharge(ago(d), 'me');
+      const w = M.plantForScope(ago(d), 'me', () => M.plantWalk());
       const c = cards(d).find(x => x.kind === 'revive');
       if (!c) return false;
-      if (took > 0 && c.body.indexOf(M.bucksFmt(took)) < 0) return false;
-      if (c.art.indexOf(M.bucksFmt(took)) < 0) return false;
+      /* whichever of the two it leads with has to be on the card, and the
+         headline is the one that actually moved when anything did */
+      if (w.last > 0 && c.body.indexOf(M.bucksFmt(w.last)) < 0) return false;
+      if (w.outstanding > 0 && c.body.indexOf(M.bucksFmt(w.outstanding)) < 0) return false;
+      const head = w.last > 0 ? w.last : w.outstanding;
+      if (c.art.indexOf(M.bucksFmt(head)) < 0) return false;
     }
     return true;
   })());
@@ -390,8 +399,27 @@ if (built) {
   console.log('\n17. an id describes its own event, so a swipe stays swiped');
   fresh();
   const idsAt = d => cards(d).map(c => c.id);
-  ok('the death card for cycle 1 differs from cycle 2', idsAt(7.5)[0] !== idsAt(14.5)[0],
-    idsAt(7.5)[0] + ' vs ' + idsAt(14.5)[0]);
+  /* The id is the DEATH now, not the watering that led to it, which is what
+     makes a swipe survive the owner watering. Two deaths in one history must
+     still be two ids: watered fifteen days ago is a death on day 5 and another
+     on day 12, and they are a week apart. (The old form of this compared
+     cards(7.5) with cards(14.5), which is not two events in one history but two
+     different histories whose latest death happens to land on the same
+     instant - 7.5 minus 5 and 14.5 minus 12 are both 2.5 days ago.) */
+  ok('successive deaths in one history are different ids', (() => {
+    const t = ago(15);
+    const ds = M.plantDeathsIn(t, 'me');
+    return ds.length === 2 && ds[0] !== ds[1];
+  })());
+  ok('and the death id survives the owner watering', (() => {
+    const t = ago(7.5);
+    const died = M.plantDeathsIn(t, 'me')[0];
+    /* before: derived off a live timestamp. after: read back off the record */
+    const before = M.plantDeathsOf({ id: 'me', teamId: 7, plantWatered: t });
+    const after = M.plantDeathsOf({ id: 'me', teamId: 7, plantWatered: Date.now(),
+      plantDeaths: JSON.stringify([died]) });
+    return before[before.length - 1] === died && after[after.length - 1] === died;
+  })());
   /* Pinned to one timestamp rather than calling ago() twice. The first version
      asked for ago(9.5) on each side of the comparison, which is two different
      milliseconds and therefore two different ids — it passed only while both
@@ -482,17 +510,20 @@ if (built) {
   ok('the headline number is the $5', shortCard && shortCard.art.indexOf('|$5.00|') >= 0,
     shortCard && shortCard.art);
 
-  /* nothing at all in the account: the revival was free and says so */
+  /* NOTHING IN THE ACCOUNT IS A DELAY, NOT A PARDON. This card used to say
+     the revival was free; it is owed instead, and the card has to say so or
+     it becomes the one thing on the page disagreeing with the balance. */
   fresh(); M.setAllow(0);
   const freeCard = (() => { M.setWatered(ago(7.5));
     M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
     const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
-  ok('a revival on an empty account is reported as free',
-    freeCard && /free/.test(freeCard.body) && /empty/.test(freeCard.body),
+  ok('a revival on an empty account is reported as owed, not free',
+    freeCard && /owed/.test(freeCard.body) && !/free/.test(freeCard.body),
     freeCard && freeCard.body);
-  ok('and it never names a fee it did not take',
-    freeCard && !/\$20/.test(freeCard.body), freeCard && freeCard.body);
-  ok('its headline is $0.00', freeCard && freeCard.art.indexOf('|$0.00|') >= 0,
+  ok('and it names the full fee it is owed',
+    freeCard && /\$20\.00/.test(freeCard.body), freeCard && freeCard.body);
+  ok('its headline is the $20 owed',
+    freeCard && freeCard.art.indexOf('|$20.00|') >= 0 && /owed/.test(freeCard.art),
     freeCard && freeCard.art);
 
   fresh();
@@ -558,20 +589,26 @@ if (built) {
   M.setAllowSchedule([{ from: 0, amount: 5 }, { from: t0 + 10 * DAY_MS, amount: 105 }]);
   M.setWatered(t0);
   const walked = M.plantRevivalCharges();
-  /* revival 1 (day 7) had $5     -> takes 5
-     revival 2 (day 14) had $105-5 -> takes 20
-     revival 3 (day 21) had $105-25 -> takes 20                    total 45 */
-  ok('the shortfall is written off, not collected later', walked === 45, walked);
-  ok('deferring it would have taken $60 instead', 3 * 20 === 60);
-  ok('so the manager keeps the $15 they could not pay',
-    3 * 20 - walked === 15, 3 * 20 - walked);
+  /* THREE REVIVALS AT $20 IS $60 OWED, and $105 turned up along the way, so all
+     three are collected. Being broke on the day is a delay now, not a pardon:
+     the old walk charged each revival against the balance at that instant and
+     forgave the rest, which came to $45 and let $15 go for good. */
+  ok('the shortfall is collected later, not written off', walked === 60, walked);
+  ok('which is every revival at the full fee', 3 * 20 === walked);
 
-  /* and a revival AFTER money arrives is still charged in full */
+  /* the same, from nothing at all: the money arrives after every revival and
+     still settles all of them */
   fresh();
   M.setAllowSchedule([{ from: 0, amount: 0 }, { from: t0 + 10 * DAY_MS, amount: 500 }]);
   M.setWatered(t0);
-  ok('broke at first, then paying in full once the money lands',
-    M.plantRevivalCharges() === 40, M.plantRevivalCharges());
+  ok('broke throughout, then paying for all of it when the money lands',
+    M.plantRevivalCharges() === 60, M.plantRevivalCharges());
+  /* and it can never take more than there is */
+  fresh(); M.setAllow(25); M.setWatered(t0);
+  ok('but never more than the account holds', M.plantRevivalCharges() === 25,
+    M.plantRevivalCharges());
+  ok('with the rest left standing as a debt',
+    M.plantWalk().outstanding === 35, M.plantWalk().outstanding);
 
   console.log('\n21. the past is read as the past, not as today');
   fresh();
@@ -582,10 +619,14 @@ if (built) {
   const t1 = ago(9);
   M.setAllowSchedule([{ from: 0, amount: 0 }, { from: Date.now() - DAY_MS, amount: 900 }]);
   M.setWatered(t1);
-  ok('money that arrived yesterday cannot pay for a revival two days ago',
-    M.plantRevivalCharges() === 0, M.plantRevivalCharges());
-  ok('but the same plant one revival later does pay',
-    (() => { M.setWatered(ago(15)); return M.plantRevivalCharges() === 20; })(),
+  /* THE DEBT DOES NOT CARE WHICH ORDER THEY HAPPENED IN. A revival that landed
+     on an empty account is owed, and yesterday's money settles it today. This
+     used to assert the opposite - that money arriving after the fact could
+     never reach back - which was the pardon rule and is gone. */
+  ok('money that arrives after the revival still pays for it',
+    M.plantRevivalCharges() === 20, M.plantRevivalCharges());
+  ok('and two revivals owe twice as much',
+    (() => { M.setWatered(ago(15)); return M.plantRevivalCharges() === 40; })(),
     M.plantRevivalCharges());
   M.setWatered(t1);
   ok('bucksBaseAt reports the old balance, not the new one',

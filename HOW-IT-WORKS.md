@@ -104,6 +104,7 @@ per decision, keyed so it expires naturally:
 | `inv` | the share ledger — every buy and sell |
 | `eggs` | window numbers found |
 | `plantWatered` | one timestamp |
+| `plantDeaths` | the deaths that happened before each watering |
 | `ntSeen` | dismissed notification ids |
 | `tt_<from>` | a trash-talk message waiting |
 
@@ -458,11 +459,39 @@ one season-scoped read of `bets`.
 
 ## 9. The side games
 
-**The plant.** One per locker room. Six stages from Thriving to Dead, **three
-days a stage**, so fifteen days of neglect kills it. State is one watering
-timestamp; the stage is computed from it. The interval belongs to *the plant*,
-not the viewer — otherwise one manager's test settings would rewrite the whole
-league's greenery.
+**The plant.** One per locker room. Six stages from Thriving to Dead, **one day
+a stage**, so five days of neglect kills it. It then lies dead for **two more
+days** — free, and waterable back to Thriving with no penalty — and on **day 7**
+it revives itself and the owner is billed the **$20 Plant Revival Fee**. Then it
+starts again, so an abandoned plant is a standing weekly charge rather than a
+headstone.
+
+State is one watering timestamp and everything is computed from it: the stage,
+the number of revivals (`elapsed / 7 days`), and every death it implies. The
+interval belongs to *the plant*, not the viewer — otherwise one manager's test
+settings would rewrite the whole league's greenery. The short test cycle is
+never billed.
+
+**The fee is a debt, not a raid on the balance.** It accrues in full whether or
+not there is money for it, and comes off as soon as there is — in practice the
+next allowance, since a plant revives every seven days and an allowance arrives
+every week of football. It is never taken out of shares or open stakes: it is
+charged against the free balance only, so paying it can never push anyone below
+zero, it only slows what arrives next. Anything unpaid stays owed; sell a share,
+win a bet or draw an allowance and it comes off then.
+
+That replaced a rule where the fee was capped by the balance *at the instant of
+the revival* and the shortfall was written off. Money parked in stock read as
+broke, so letting the locker room rot was free as long as your money was
+somewhere else — and a revival on an empty account was pardoned outright, which
+stopped the meter that is supposed to keep running until somebody waters.
+
+**A death is public, the bill is private.** Everyone sees "a plant has died" for
+any manager five days dry; only the owner sees what it cost. Deaths are written
+to `plantDeaths` when the plant is watered and the card is keyed on the death
+itself, so watering no longer makes the card vanish from everyone's feed as
+though the plant had never died — and a card you swiped stays swiped. Only the
+most recent death per manager is shown, and only for a fortnight.
 
 **The egg hunt.** One egg hidden on one tab at a time. When the window rolls the
 old one is gone — no queue, no catching up. `eggWindowHours` and `eggPrize` in
@@ -488,7 +517,7 @@ clearing it is what gives the sender their slot back.
 | GFL Bucks week and bet cycle | **Tuesday 06:00** |
 | Share prices | when a week's results land |
 | Egg window | every 12 hours |
-| Plant stage | 3 days; dead after 15 |
+| Plant stage | 1 day; dead after 5, revived and billed on 7 |
 | Transaction archive cron | Tuesdays 09:00 UTC |
 
 The two Tuesday boundaries differ on purpose: the 6am bucks line means a late

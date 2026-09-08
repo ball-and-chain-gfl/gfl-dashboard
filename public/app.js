@@ -7707,8 +7707,46 @@ function plantStageOf(raw,ownerId){
   return {stage,label:PLANT_STAGES[stage],fresh:false,revivals};
 }
 function plantStage(){ return plantStageOf(localStorage.getItem(plantKey()),_me&&_me.k1); }
+/* ── EVERY DEATH A WATERING TIMESTAMP IMPLIES ────────────────────────
+   A plant dies five days into each cycle, so one timestamp implies a death at
+   t+5d, t+12d, t+19d and so on for as long as it goes unwatered. Derived like
+   the stage and the revival count, and capped by the same PLANT_REPLAY_MAX so a
+   nonsense timestamp cannot spin here either. */
+function plantDeathsIn(t,id,now){
+  t=Number(t||0); if(!t) return [];
+  now=now||Date.now();
+  const step=plantMsFor(id), cycle=PLANT_CYCLE_STEPS*step, dry=PLANT_DRY_STEPS*step;
+  const out=[];
+  for(let i=0;i<PLANT_REPLAY_MAX;i++){
+    const d=t+i*cycle+dry;
+    if(d>now) break;
+    out.push(d);
+  }
+  return out;
+}
+/* A death is news for a fortnight. An abandoned plant dies again every seven
+   days so there is always a fresher one; this only stops a card from a season
+   ago sitting in the feed forever waiting to be swiped. */
+const PLANT_NEWS_MS=14*24*3600*1000;
+const PLANT_DEATHS_MAX=24;
+/* Recorded deaths merged with the ones the current timestamp still implies.
+   WATERING USED TO ERASE THE EVIDENCE: the card was derived from plantWatered
+   alone, so the moment an owner watered, every viewer plant-death card vanished
+   as though it never had. The deaths are written down when the plant is watered
+   (see waterPlant) and read back here. */
+function plantDeathsOf(p){
+  const out=[];
+  try{ const a=JSON.parse((p&&p.plantDeaths)||'[]');
+    if(Array.isArray(a)) a.forEach(x=>{ const v=Number(x); if(v>0) out.push(v); }); }catch(e){}
+  plantDeathsIn(p&&p.plantWatered,p&&p.id).forEach(d=>out.push(d));
+  return [...new Set(out)].sort((a,b)=>a-b);
+}
 async function waterPlant(){
   const now=String(Date.now());
+  /* Read the run being ended BEFORE the timestamp moves, or the deaths it
+     implies go with it. */
+  let deaths=[];
+  try{ deaths=plantDeathsIn(localStorage.getItem(plantKey()),_me&&_me.k1); }catch(e){}
   localStorage.setItem(plantKey(),now);
   /* Play the pour before repainting. Re-rendering immediately would replace the
      node mid-animation and nothing would be seen; the room is redrawn once the
@@ -7718,7 +7756,20 @@ async function waterPlant(){
     g.classList.add('watering');
     setTimeout(()=>{ renderMyProfile(); },1150);
   }else renderMyProfile();
-  if(_me){ try{ await gflPatchProfile(_me.k1,{plantWatered:now}); }catch(e){} }
+  if(_me){
+    const patch={plantWatered:now};
+    if(deaths.length){
+      /* appended, de-duplicated and capped at the newest: the feed only ever
+         shows the latest, and an unbounded list on a profile is a slow leak */
+      let had=[];
+      try{ const r=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
+        const a=JSON.parse((r&&r.plantDeaths)||'[]');
+        if(Array.isArray(a)) had=a.map(Number).filter(x=>x>0); }catch(e){}
+      const all=[...new Set(had.concat(deaths))].sort((a,b)=>a-b).slice(-PLANT_DEATHS_MAX);
+      patch.plantDeaths=JSON.stringify(all);
+    }
+    try{ await gflPatchProfile(_me.k1,patch); }catch(e){}
+  }
 }
 async function plantSync(){
   if(!_me) return;
@@ -11776,32 +11827,37 @@ function bucksBaseAt(t){
   } catch(e){ return 0; }
   finally{ _bkAsOf=prevAsOf; _bkNoPlant=prevNoPlant; }
 }
-/* ── A REVIVAL IS SETTLED WHEN IT HAPPENS, AND NEVER RE-BILLED ───────────────
-   Walk the revivals in order and charge each one against what the bank held at
-   that moment, less whatever the earlier ones already took. A revival that
-   landed on an empty account costs nothing and is DONE — it does not sit as a
-   debt waiting for the next allowance.
+/* ── A REVIVAL IS OWED, AND WAITS FOR THE MONEY ──────────────────
+   Every revival costs the full fee. It used to be capped by what the balance
+   held AT THAT INSTANT, with the shortfall written off for good, and that had
+   two faults pointing the same way.
 
-   That is the whole difference from multiplying the count by the fee. Under
-   that arithmetic a manager at zero still accrued $20 a week invisibly, and a
-   two-month absence ate the next two allowances the moment they came back.
-   Here the meter only runs on money that was actually there.
+   MONEY IN SHARES WAS A HIDING PLACE. The balance is already net of what is
+   tied up in stock and staked on live bets, so a manager fully invested read as
+   broke and the plant took nothing off them. Letting the locker room rot was
+   free as long as your money was somewhere else.
 
-   A revival is not skipped just because an earlier one went unpaid: somebody
-   broke in week 1 who wins a bet in week 3 pays for week 3's revival in full.
-   min() of nothing is nothing, so the empty weeks fall out on their own and the
-   loop carries on.
+   AND AN EMPTY WEEK WAS A PARDON. A revival that landed on nothing cost nothing
+   and never came back, so the meter that is meant to keep running until
+   somebody waters the thing simply stopped.
 
-   THE LOOP IS CAPPED. n comes from a timestamp in localStorage, which is to say
-   from anything at all — a stray `1` in there is fifty-eight thousand years of
-   revivals and a page that never paints again.
+   The fee is a DEBT now. It accrues in full and is taken as soon as there is
+   money to take it from — in practice the next allowance, because a plant
+   revives every seven days and an allowance arrives every week of football, so
+   in season the two never get more than one revival apart. It is NOT taken out
+   of shares or open stakes: the sum below is the free balance with the plant
+   term suppressed, so paying it can never push anybody below zero. It only
+   slows down what arrives next.
 
-   The cap keeps the OLDEST revivals and drops the newest, which is the useful
-   way round for exactly the case it exists for: a nonsense timestamp puts every
-   one of those 520 somewhere before the league had a pay day, they all charge
-   nothing, and a corrupt clock therefore costs a manager nothing rather than
-   everything. 520 is ten years of weeks against a dashboard built in 2026, so
-   no real plant can reach it. */
+   Anything still outstanding stays outstanding. Sell a share, win a bet or draw
+   an allowance and it comes off then. The one place it piles up is an
+   off-season, where plants keep dying weekly and no football pays an allowance
+   — so the debt waits there, and September settles it.
+
+   THE COUNT IS CAPPED. n comes from a timestamp in localStorage, which is to
+   say from anything at all: a stray 1 in there is fifty-eight thousand years of
+   revivals. 520 is ten years of weeks against a dashboard built in 2026, so no
+   real plant reaches it and a corrupt clock cannot bill past the cap. */
 const PLANT_REPLAY_MAX=520;                       // ten years of weeks, and then some
 /* The walk keeps the LAST charge as well as the running total. They answer two
    different questions and both get asked: the balance wants everything this
@@ -11810,7 +11866,7 @@ const PLANT_REPLAY_MAX=520;                       // ten years of weeks, and the
    only holds while every revival charged the same, which is exactly what a
    part-paid one does not do. */
 function plantWalk(){
-  const none={paid:0,last:0,n:0};
+  const none={owed:0,paid:0,outstanding:0,last:0,n:0};
   const pl=bkPlant();
   if(!pl||!pl.t) return none;
   const step=plantMsFor(pl.id);
@@ -11818,16 +11874,24 @@ function plantWalk(){
   const fee=PLANT_REVIVAL_FEE(); if(!fee) return none;
   const n=Math.min(PLANT_REPLAY_MAX,plantStageOf(pl.t,pl.id).revivals);
   if(n<1) return none;
-  const cycle=PLANT_CYCLE_STEPS*step;
-  let paid=0, last=0;
-  for(let i=1;i<=n;i++){
-    const had=bucksBaseAt(pl.t+i*cycle)-paid;     // what was left when it came back
-    last=had>0?bucks2(Math.min(fee,had)):0;
-    paid=bucks2(paid+last);
-  }
-  return {paid,last,n};
+  const owed=bucks2(fee*n);
+  /* What there is to take from: the free balance with the plant suppressed.
+     That suppression is also what stops this recursing, since bucksBaseAt sets
+     _bkNoPlant and plantFee answers 0 under it. */
+  const have=Math.max(0,bucksBaseAt(Date.now()));
+  const paid=bucks2(Math.min(owed,have));
+  /* What the LATEST revival got out of that. Earlier ones settle first, so the
+     newest is the one left short when the money runs out, and the newest is the
+     one the notification is describing. */
+  const last=bucks2(Math.max(0,Math.min(fee,paid-fee*(n-1))));
+  return {owed,paid,outstanding:bucks2(owed-paid),last,n};
 }
 function plantRevivalCharges(){ return plantWalk().paid; }
+/* Still owed, and coming off the next money to arrive. */
+function plantOutstanding(){
+  if(_bkNoPlant) return 0;
+  try{ return plantWalk().outstanding; }catch(e){ return 0; }
+}
 /* One replay per render, not one per read. bucksBalance is called from the nav
    chip, the bet slip, the quick-stake buttons and twelve leaderboard rows, and
    each call would otherwise walk every revival this manager has ever had.
@@ -13725,68 +13789,80 @@ function ntMotwPick(out){
 /* everyone's plant, from the profiles the homepage already reads */
 function ntPlants(out){
   const rows=_cpRows||[]; if(!rows.length) return;
+  const now=Date.now();
   rows.forEach(p=>{
-    const t=Number(p.plantWatered||0); if(!t) return;
     /* each plant on its owner's own clock, so one manager on a short cycle
        cannot post a death card for eleven plants that are perfectly fine */
     const ms=plantMsFor(p.id);
     const cycle=PLANT_CYCLE_STEPS*ms;
-    const gone=Date.now()-t;
-    if(gone<PLANT_DRY_STEPS*ms) return;              // still alive, first time round
     const tid=Number(p.teamId||0);
     const nm=(_teams.find(x=>x.id===tid)||{}).name||p.id;
-    /* how long it actually took, rather than a number written down once: five
-       intervals of whatever this plant's interval is */
+
+    /* ── THE LATEST DEATH, AND IT STAYS ON THE RECORD ─────────────────
+       A plant revives every seven days, so an abandoned one does not die once,
+       it dies again every week for as long as it is ignored. A card per death
+       would hand somebody back from a month away a stack of four and a year of
+       it fifty-two, so only the most recent is reported.
+
+       WATERING NO LONGER UN-HAPPENS IT. This used to read plantWatered alone,
+       which meant the card was a live derivation rather than a record: the
+       instant an owner watered, every viewer card vanished as though the plant
+       had never died. plantDeathsOf merges what was written down at watering
+       time with what the current timestamp still implies, so a death that
+       happened stays reported whether or not the owner has since made good.
+
+       The id is the death itself rather than the watering that led to it. On
+       the old id a dismissal was undone by the owner watering, because the
+       watering timestamp was part of the key and the key therefore changed for
+       a card describing the very same event. */
+    const deaths=plantDeathsOf(p);
+    const last=deaths.length?deaths[deaths.length-1]:0;
+    if(!last) return;
+    /* news for a fortnight; an ignored plant supplies a fresher one every week */
+    if(now-last>PLANT_NEWS_MS) return;
     const dry=plantDryLabel(PLANT_DRY_STEPS*ms);
-    /* ── THE LATEST DEATH, NOT EVERY DEATH THERE HAS EVER BEEN ──────────────
-       A plant revives every seven days now, so an abandoned one does not die
-       once — it dies again every week, for as long as it is ignored. Building
-       a card per death would hand somebody back from a month away a stack of
-       four, and a year of it is fifty-two. The feed shows one card at a time
-       and a dismissal is one id, so a stack like that is not news, it is a
-       chore.
-
-       Only the run it is in NOW is reported. The id still carries which one it
-       was, so the next death after this is a new card rather than a repeat of
-       a dismissed one. */
-    const revivals=Math.floor(gone/cycle);
-    const deathN=(gone-revivals*cycle)>=PLANT_DRY_STEPS*ms?revivals:revivals-1;
-    out.push({kind:'plant', day:ntDayOf(t+deathN*cycle+PLANT_DRY_STEPS*ms),
-      id:`pl:${p.id}:${t}:${deathN}`, title:'A plant has died',
+    out.push({kind:'plant', day:ntDayOf(last),
+      id:'pl:'+p.id+':'+last,
+      title:'A plant has died',
       art:ntStat(_ownerMap[tid],nm,dry,'without water'),
-      body:`<b>${nm}</b> let their plant die. How could they.`});
+      body:'<b>'+nm+'</b> let their plant die. How could they.'});
 
-    /* ── AND THE BILL FOR BRINGING IT BACK ──────────────────────────────────
-       The league gets to watch a plant die; the $20 is between the bank and
+    /* ── AND THE BILL FOR BRINGING IT BACK ────────────────────────────
+       The league gets to watch a plant die; the money is between the bank and
        its owner, so this card is only built for the manager being charged.
 
-       It is built from the same three things plantFee charges on — a real
-       clock, a completed cycle, a configured fee — and it is not built when
-       any of them is missing. That is deliberate: a card that announces a
-       charge the balance did not take is worse than no card at all, so the two
-       are made to agree by construction rather than by being written twice.
+       It is built from the same things plantWalk charges on - a real clock, a
+       completed cycle, a configured fee - and it is not built when any of them
+       is missing, so a card can never announce a charge the balance did not
+       take.
 
-       ONE REVIVAL, ONE SENTENCE. A plant dies, comes back, and costs $20 —
-       that is the whole event, and it is the same event every time. Counting
-       how many have happened since the last watering turns a $20 charge into a
-       paragraph of arithmetic about totals and shortfalls and what is not owed,
-       which is a worse way of saying $20 came off.
-
-       So the card reports the revival that just happened and what THAT one
-       cost. Earlier ones were settled when they happened and have nothing left
-       to say. */
+       ONE REVIVAL, ONE SENTENCE. What changed is that the fee is a debt now, so
+       there are two endings rather than one: it came off, or it is waiting for
+       money. Both are the same event and both fit in a line. */
     if(!_me||String(p.id)!==String(_me.k1)) return;
-    if(!revivals||ms!==PLANT_STEP_MS) return;
+    if(ms!==PLANT_STEP_MS) return;
     if(!PLANT_REVIVAL_FEE()) return;
-    const took=plantLastCharge(t,p.id);
+    const t=Number(p.plantWatered||0); if(!t) return;
+    const revivals=Math.floor(Math.max(0,now-t)/cycle);
+    if(!revivals) return;
+    const w=plantForScope(t,p.id,()=>plantWalk());
+    const took=(w&&w.last)||0, owedNow=(w&&w.outstanding)||0;
+    /* THREE ENDINGS, BECAUSE THE FEE IS A DEBT NOW. It came off; it partly came
+       off and the rest is owed; or there was nothing spare and all of it is
+       owed. The old card had only the first two and said a revival was FREE
+       when the account was empty, which is no longer true and would now be the
+       one thing on the page contradicting the balance. */
+    const body=owedNow<=0
+      ?'Your plant died and has been revived. <b>'+bucksFmt(took)+'</b> has come off your GFL Bucks.'
+      :took>0
+        ?'Your plant died and has been revived. <b>'+bucksFmt(took)+'</b> came off your GFL Bucks and <b>'
+          +bucksFmt(owedNow)+'</b> is owed, off the next money to reach your account.'
+        :'Your plant died and has been revived. You had nothing spare, so <b>'
+          +bucksFmt(owedNow)+'</b> is owed, off the next money to reach your account.';
     out.push({kind:'revive', day:ntDayOf(t+revivals*cycle),
-      id:`plr:${p.id}:${t}:${revivals}`, title:'Plant Revival Fee',
-      art:ntStat(_ownerMap[tid],nm,bucksFmt(took),'taken'),
-      body:took>0
-        ?`Your plant died and has been revived. <b>${bucksFmt(took)}</b> has come
-          off your GFL Bucks.`
-        :`Your plant died and has been revived. Your account was empty, so this
-          one was free.`});
+      id:'plr:'+p.id+':'+t+':'+revivals, title:'Plant Revival Fee',
+      art:ntStat(_ownerMap[tid],nm,bucksFmt(took>0?took:owedNow),took>0?'taken':'owed'),
+      body});
   });
 }
 /* "5 days" for a real plant, "1.3 min" for one on the short test cycle */
