@@ -321,16 +321,15 @@ if (built) {
     const c = cards(100).find(x => x.kind === 'revive');
     return c && !/\$280/.test(c.body) && !/\$280/.test(c.art);
   })(), JSON.stringify((cards(100).find(x => x.kind === 'revive') || {}).body));
-  ok('every figure on a card is either money taken or money owed', (() => {
+  ok('the only figure on a card is the fee, whatever the account holds', (() => {
     for (let d = 7.2; d < 90; d += 1.7) {
       for (const had of [0, 5, 40, 1000]) {
         M.setAllow(had);
         const c = cards(d).find(x => x.kind === 'revive');
         if (!c) continue;
-        const w = M.plantForScope(ago(d), 'me', () => M.plantWalk());
-        const allowed = [M.bucksFmt(w.last), M.bucksFmt(w.outstanding)];
+        const only = M.bucksFmt(M.PLANT_REVIVAL_FEE());
         const money = (c.body + ' ' + c.art).match(/\$[\d,]+\.\d\d/g) || [];
-        if (!money.every(m => allowed.indexOf(m) >= 0)) return false;
+        if (!money.every(m => m === only)) return false;
       }
     }
     return true;
@@ -370,20 +369,22 @@ if (built) {
   ok('a year away is STILL two cards', cards(365).length === 2, cards(365).length);
 
   console.log('\n16. the card and the balance never disagree');
-  ok('every card quotes what left the balance, and what is still owed', (() => {
+  /* ONE SENTENCE, EVERY TIME. The card used to report whatever had actually
+     been scraped together, which meant three different sentences for one event.
+     A revival is a revival: same fee, same words, however rich the manager is
+     and however many have piled up. */
+  ok('every card, at every age and every balance, says the same thing', (() => {
+    let seen = null;
     for (let d = 7.1; d < 120; d += 0.83) {
-      M.setWatered(ago(d));
-      const w = M.plantForScope(ago(d), 'me', () => M.plantWalk());
-      const c = cards(d).find(x => x.kind === 'revive');
-      if (!c) return false;
-      /* whichever of the two it leads with has to be on the card, and the
-         headline is the one that actually moved when anything did */
-      if (w.last > 0 && c.body.indexOf(M.bucksFmt(w.last)) < 0) return false;
-      if (w.outstanding > 0 && c.body.indexOf(M.bucksFmt(w.outstanding)) < 0) return false;
-      const head = w.last > 0 ? w.last : w.outstanding;
-      if (c.art.indexOf(M.bucksFmt(head)) < 0) return false;
+      for (const had of [0, 5, 40, 1000]) {
+        M.setAllow(had); M.setWatered(ago(d));
+        const c = cards(d).find(x => x.kind === 'revive');
+        if (!c) return false;
+        if (seen === null) seen = c.body;
+        else if (c.body !== seen) return false;
+      }
     }
-    return true;
+    return !!seen && seen.indexOf(M.bucksFmt(M.PLANT_REVIVAL_FEE())) >= 0;
   })());
   ok('no fee configured means no card claiming one', (() => {
     M.setCfg({ plantTestMinutes: 0, plantRevivalFee: 0 });
@@ -457,7 +458,7 @@ if (built) {
      The clamp is one Math.max deep inside one function, and it protects every
      balance on the site. It is worth a section of its own precisely because it
      is that easy to lose in a refactor and that quiet when it goes. */
-  console.log('\n18. a fee bigger than the balance takes what is there and stops');
+  console.log('\n18. a fee bigger than the balance waits, it does not part-pay');
   fresh();
   const pay = (had, days) => { M.setAllow(had); M.setWatered(ago(days));
     return { billed: M.plantFee(), took: M.plantFee(), left: M.bucksBalance() }; };
@@ -469,7 +470,9 @@ if (built) {
   ok('exactly $20 pays exactly $20 and lands on nought', r.took === 20 && r.left === 0,
     JSON.stringify(r));
   r = pay(5, 7.5);
-  ok('$5 against a $20 fee gives up the $5, not $20', r.billed === 5 && r.took === 5 && r.left === 0,
+  /* WHOLE FEES ONLY. There is no such thing as a $5 revival, so $5 buys nothing
+     and the manager keeps it until a whole fee is affordable. */
+  ok('$5 against a $20 fee pays nothing and keeps the $5', r.billed === 0 && r.took === 0 && r.left === 5,
     JSON.stringify(r));
   r = pay(0, 7.5);
   ok('nothing in the account means nothing is taken', r.took === 0 && r.left === 0,
@@ -478,7 +481,9 @@ if (built) {
   ok('and four revivals against nothing is still nothing', r.billed === 0 && r.took === 0 && r.left === 0,
     JSON.stringify(r));
   r = pay(5, 28.5);
-  ok('$5 against an $80 bill is still only $5', r.took === 5 && r.left === 0, JSON.stringify(r));
+  ok('and four revivals do not make it any more affordable', r.took === 0 && r.left === 5, JSON.stringify(r));
+  r = pay(25, 28.5);
+  ok('$25 against four revivals settles exactly one', r.took === 20 && r.left === 5, JSON.stringify(r));
 
   ok('NO balance anywhere in the space is negative', (() => {
     for (let had = 0; had <= 300; had += 5)
@@ -503,11 +508,12 @@ if (built) {
   const shortCard = (() => { M.setWatered(ago(7.5));
     M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
     const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
-  ok('$5 in the account means the card says $5.00 came off',
-    shortCard && /\$5\.00/.test(shortCard.body), shortCard && shortCard.body);
-  ok('and never mentions the $20 it did not take',
-    shortCard && !/\$20/.test(shortCard.body), shortCard && shortCard.body);
-  ok('the headline number is the $5', shortCard && shortCard.art.indexOf('|$5.00|') >= 0,
+  ok('the card names the fee, not whatever happened to be free',
+    shortCard && /\$20\.00/.test(shortCard.body) && !/\$5\.00/.test(shortCard.body),
+    shortCard && shortCard.body);
+  ok('and it says where the fee comes from',
+    shortCard && /allowance/.test(shortCard.body), shortCard && shortCard.body);
+  ok('the headline number is the fee', shortCard && shortCard.art.indexOf('|$20.00|') >= 0,
     shortCard && shortCard.art);
 
   /* NOTHING IN THE ACCOUNT IS A DELAY, NOT A PARDON. This card used to say
@@ -517,13 +523,17 @@ if (built) {
   const freeCard = (() => { M.setWatered(ago(7.5));
     M.setRows([{ id: 'me', teamId: 7, plantWatered: ago(7.5) }]);
     const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
-  ok('a revival on an empty account is reported as owed, not free',
-    freeCard && /owed/.test(freeCard.body) && !/free/.test(freeCard.body),
+  /* ONE SENTENCE, EVERY TIME. An empty account gets the same card a full one
+     does, because it is the same event and the same fee - it just comes off
+     the allowance a week later. This card used to have three endings and one
+     of them called the revival FREE. */
+  ok('an empty account gets the same sentence and the same fee',
+    freeCard && /\$20\.00/.test(freeCard.body) && /allowance/.test(freeCard.body),
     freeCard && freeCard.body);
-  ok('and it names the full fee it is owed',
-    freeCard && /\$20\.00/.test(freeCard.body), freeCard && freeCard.body);
-  ok('its headline is the $20 owed',
-    freeCard && freeCard.art.indexOf('|$20.00|') >= 0 && /owed/.test(freeCard.art),
+  ok('and it never calls a revival free', freeCard && !/free/.test(freeCard.body),
+    freeCard && freeCard.body);
+  ok('its headline is the fee, off the allowance',
+    freeCard && freeCard.art.indexOf('|$20.00|') >= 0 && /allowance/.test(freeCard.art),
     freeCard && freeCard.art);
 
   fresh();
@@ -532,7 +542,8 @@ if (built) {
     const o = []; M.ntPlants(o); return o.find(x => x.kind === 'revive'); })();
   ok('a manager who could pay is not told anything about being empty',
     fullCard && !/empty/.test(fullCard.body), fullCard && fullCard.body);
-  ok('and the card reads $20.00 taken', fullCard && /\|\$20\.00\|taken$/.test(fullCard.art),
+  ok('and the card reads $20.00 off the allowance',
+    fullCard && /\|\$20\.00\|off your allowance$/.test(fullCard.art),
     fullCard && fullCard.art);
 
   /* ── THE CARD AND THE FEE READ THE SAME PLANT ────────────────────────────
@@ -566,16 +577,19 @@ if (built) {
      never asked for again. The test that matters is the third one: money
      arrives AFTER a revival went unpaid, and the shortfall does not follow it
      in. */
-  console.log('\n20. what could not be paid at the time is written off');
+  console.log('\n20. what cannot be paid yet waits for the money');
   const DAY_MS = DAY;
   fresh();
 
   /* poor the whole way through: $5, and it never grows */
   M.setAllow(5);
   const poor = d => { M.setWatered(ago(d)); return M.plantRevivalCharges(); };
-  ok('one revival on $5 collects $5', poor(7.5) === 5, poor(7.5));
-  ok('four revivals on $5 still collects only $5', poor(28.5) === 5, poor(28.5));
-  ok('fifty weeks on $5 still collects only $5', poor(351) === 5, poor(351));
+  ok('one revival on $5 collects nothing yet', poor(7.5) === 0, poor(7.5));
+  ok('four revivals on $5 still collects nothing', poor(28.5) === 0, poor(28.5));
+  ok('fifty weeks on $5 still collects nothing', poor(351) === 0, poor(351));
+  ok('and every penny of it is still owed',
+    (() => { M.setWatered(ago(351)); const w = M.plantWalk();
+      return w.paid === 0 && w.outstanding === w.owed && w.owed > 0; })());
   ok('the old arithmetic would have wanted $1,000 for that',
     Math.floor(351 / 7) * 20 === 1000);
 
@@ -605,10 +619,11 @@ if (built) {
     M.plantRevivalCharges() === 60, M.plantRevivalCharges());
   /* and it can never take more than there is */
   fresh(); M.setAllow(25); M.setWatered(t0);
-  ok('but never more than the account holds', M.plantRevivalCharges() === 25,
+  ok('$25 against three revivals settles exactly one', M.plantRevivalCharges() === 20,
     M.plantRevivalCharges());
-  ok('with the rest left standing as a debt',
-    M.plantWalk().outstanding === 35, M.plantWalk().outstanding);
+  ok('with the other two left standing as a debt',
+    M.plantWalk().outstanding === 40, M.plantWalk().outstanding);
+  ok('and the balance never goes under', M.bucksBalance() >= 0, M.bucksBalance());
 
   console.log('\n21. the past is read as the past, not as today');
   fresh();
@@ -641,14 +656,19 @@ if (built) {
   M.setAllow(0);
   M.setEggs([t2 + 17 * DAY_MS]);                 // one $10 egg, found after revival 2
   M.setWatered(t2);
-  ok('an egg found in week 3 pays for week 3, not week 1',
-    M.plantRevivalCharges() === 10, M.plantRevivalCharges());
+  /* The plant reads one balance now rather than replaying one per revival,
+     so these point at bucksBaseAt itself - the as-of filtering still has to
+     be right, it is just no longer the plant doing the asking. */
+  ok('an egg found in week 3 is not in the balance in week 1',
+    M.bucksBaseAt(t2 + 7 * DAY_MS) === 0, M.bucksBaseAt(t2 + 7 * DAY_MS));
+  ok('and it is there once it has been found',
+    M.bucksBaseAt(Date.now()) === 10, M.bucksBaseAt(Date.now()));
   fresh();
   M.setAllow(0);
   M.setEggs([t2 - DAY_MS]);                       // found before the plant was watered
   M.setWatered(t2);
-  ok('an egg found before any of it pays for the first revival',
-    M.plantRevivalCharges() === 10, M.plantRevivalCharges());
+  ok('an egg found before any of it is in the balance throughout',
+    M.bucksBaseAt(t2 + 7 * DAY_MS) === 10, M.bucksBaseAt(t2 + 7 * DAY_MS));
 
   fresh();
   M.setAllow(200);
@@ -684,7 +704,7 @@ if (built) {
     const before = M.plantFee();
     M.setAllow(5);
     const after = M.plantFee();
-    return before === 80 && after === 5;
+    return before === 80 && after === 0;
   })());
 }
 

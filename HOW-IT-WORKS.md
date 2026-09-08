@@ -472,19 +472,28 @@ interval belongs to *the plant*, not the viewer — otherwise one manager's test
 settings would rewrite the whole league's greenery. The short test cycle is
 never billed.
 
-**The fee is a debt, not a raid on the balance.** It accrues in full whether or
-not there is money for it, and comes off as soon as there is — in practice the
-next allowance, since a plant revives every seven days and an allowance arrives
-every week of football. It is never taken out of shares or open stakes: it is
-charged against the free balance only, so paying it can never push anyone below
-zero, it only slows what arrives next. Anything unpaid stays owed; sell a share,
-win a bet or draw an allowance and it comes off then.
+**The fee is a debt, and it is always exactly $20.** It accrues in full whether
+or not there is money for it, and comes off as soon as a *whole* fee is
+affordable — in practice the next allowance, since a plant revives every seven
+days and an allowance arrives every week of football, five times the fee. There
+is no such thing as a $9 revival: it is twenty dollars or it is not paid yet.
+
+It is never taken out of shares or open stakes. It is charged against the free
+balance only, so paying it can never push anyone below zero — it only slows what
+arrives next, which is why the notification says the fee comes off the
+allowance. Anything unpaid stays owed.
 
 That replaced a rule where the fee was capped by the balance *at the instant of
 the revival* and the shortfall was written off. Money parked in stock read as
 broke, so letting the locker room rot was free as long as your money was
 somewhere else — and a revival on an empty account was pardoned outright, which
 stopped the meter that is supposed to keep running until somebody waters.
+
+**One sentence, every time.** The revival card says the same thing whoever it is
+and however many have piled up: the plant died, it is back, the $20 comes off
+the allowance. It briefly reported whatever had actually been scraped together —
+$20, or $5 with $15 owed, or nothing at all — which is three sentences for one
+event and reads as three different rules.
 
 **A death is public, the bill is private.** Everyone sees "a plant has died" for
 any manager five days dry; only the owner sees what it cost. Deaths are written

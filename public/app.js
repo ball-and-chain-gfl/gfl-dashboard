@@ -11879,12 +11879,21 @@ function plantWalk(){
      That suppression is also what stops this recursing, since bucksBaseAt sets
      _bkNoPlant and plantFee answers 0 under it. */
   const have=Math.max(0,bucksBaseAt(Date.now()));
-  const paid=bucks2(Math.min(owed,have));
-  /* What the LATEST revival got out of that. Earlier ones settle first, so the
-     newest is the one left short when the money runs out, and the newest is the
-     one the notification is describing. */
-  const last=bucks2(Math.max(0,Math.min(fee,paid-fee*(n-1))));
-  return {owed,paid,outstanding:bucks2(owed-paid),last,n};
+  /* WHOLE FEES ONLY. A revival costs twenty dollars or it costs nothing yet -
+     there is no such thing as a $9.24 revival. Scraping whatever happened to be
+     free made the charge a different number every time and forced the card to
+     explain itself in three different ways; a manager should be told the same
+     sentence every week because it is the same event every week.
+
+     So the fee waits for a whole one. In practice that is the next allowance,
+     which arrives every week of football and is five times the fee. */
+  const affordable=Math.max(0,Math.floor(have/fee));
+  const settled=Math.min(n,affordable);
+  const paid=bucks2(fee*settled);
+  /* the newest revival is the one left waiting when the money runs out, and it
+     is the one the notification describes */
+  const last=settled>=n?fee:0;
+  return {owed,paid,outstanding:bucks2(owed-paid),last,n,settled};
 }
 function plantRevivalCharges(){ return plantWalk().paid; }
 /* Still owed, and coming off the next money to arrive. */
@@ -13845,24 +13854,21 @@ function ntPlants(out){
     const t=Number(p.plantWatered||0); if(!t) return;
     const revivals=Math.floor(Math.max(0,now-t)/cycle);
     if(!revivals) return;
-    const w=plantForScope(t,p.id,()=>plantWalk());
-    const took=(w&&w.last)||0, owedNow=(w&&w.outstanding)||0;
-    /* THREE ENDINGS, BECAUSE THE FEE IS A DEBT NOW. It came off; it partly came
-       off and the rest is owed; or there was nothing spare and all of it is
-       owed. The old card had only the first two and said a revival was FREE
-       when the account was empty, which is no longer true and would now be the
-       one thing on the page contradicting the balance. */
-    const body=owedNow<=0
-      ?'Your plant died and has been revived. <b>'+bucksFmt(took)+'</b> has come off your GFL Bucks.'
-      :took>0
-        ?'Your plant died and has been revived. <b>'+bucksFmt(took)+'</b> came off your GFL Bucks and <b>'
-          +bucksFmt(owedNow)+'</b> is owed, off the next money to reach your account.'
-        :'Your plant died and has been revived. You had nothing spare, so <b>'
-          +bucksFmt(owedNow)+'</b> is owed, off the next money to reach your account.';
+    /* ONE SENTENCE, EVERY TIME. A plant dies, comes back, and costs twenty
+       dollars off the allowance. That is the whole event and it is the same
+       event every week, so the card says the same thing every week.
+
+       It went through a phase of reporting whatever had actually been scraped
+       together - $20, or $5 and $15 owed, or nothing at all and a whole fee
+       outstanding - which is three sentences for one event and reads as three
+       different rules. The fee is whole now (see plantWalk), so there is one
+       number and it is always the same number. */
+    const fee=PLANT_REVIVAL_FEE();
     out.push({kind:'revive', day:ntDayOf(t+revivals*cycle),
       id:'plr:'+p.id+':'+t+':'+revivals, title:'Plant Revival Fee',
-      art:ntStat(_ownerMap[tid],nm,bucksFmt(took>0?took:owedNow),took>0?'taken':'owed'),
-      body});
+      art:ntStat(_ownerMap[tid],nm,bucksFmt(fee),'off your allowance'),
+      body:'Your plant died and has been revived. The <b>'+bucksFmt(fee)
+        +'</b> revival fee comes off your allowance.'});
   });
 }
 /* "5 days" for a real plant, "1.3 min" for one on the short test cycle */
