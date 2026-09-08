@@ -57,28 +57,46 @@ function skipTemplate(src, i) {
   return j;
 }
 
-/* Reads the file once and returns a grab(startsWith) bound to it. The returned
-   slice runs from the match to the close of its first bracket group, or to the
-   first top-level semicolon for a plain `const x = ...;`. */
+/* Reads the file once and returns a grab(startsWith) bound to it.
+ *
+ * WHERE A DECLARATION ENDS DEPENDS ON WHAT KIND IT IS, and conflating the two
+ * is the fourth distinct way this walker has been wrong.
+ *
+ * A `function f(){...}` ends at the brace that closes its body.
+ *
+ * A `const x = ...;` ends at its SEMICOLON, and only at its semicolon. Stopping
+ * at the first bracket group that closes at depth zero looks right for
+ * `const FOO=[...]` and is silently wrong for anything whose value merely
+ * CONTAINS a balanced group before the statement is over:
+ *
+ *     const liveMKey=(a,b)=>[a,b].sort().join('~');
+ *
+ * The `]` after `[a,b]` closes at depth zero, so the old rule handed back
+ * `const liveMKey=(a,b)=>[a,b]` — a function that returns an array instead of a
+ * key. It parses, it runs, and every matchup key it produces is wrong.
+ */
 export function lifter(fileUrlOrPath) {
   const src = fs.readFileSync(fileUrlOrPath, 'utf8').split(String.fromCharCode(13)).join('');
   return function grab(startsWith) {
     const i = src.indexOf(startsWith);
     if (i < 0) throw new Error('lift: not found in source: ' + startsWith);
-    let j = i, depth = 0;
+    const isBlock = /^\s*(export\s+)?(async\s+)?(function|class)\b/.test(startsWith);
+    let j = i, depth = 0, opened = false;
     while (j < src.length) {
       const c = src[j];
       if (c === "'" || c === '"') { j = skipQuote(src, j); continue; }
       if (c === TICK) { j = skipTemplate(src, j); continue; }
       if (c === '/' && src[j + 1] === '/') { const e = src.indexOf(NL, j); j = e < 0 ? src.length : e; continue; }
       if (c === '/' && src[j + 1] === '*') { const e = src.indexOf('*/', j); j = e < 0 ? src.length : e + 2; continue; }
-      if (c === '(' || c === '[' || c === '{') { depth++; j++; continue; }
+      if (c === '(' || c === '[' || c === '{') { depth++; if (c === '{') opened = true; j++; continue; }
       if (c === ')' || c === ']' || c === '}') {
         depth--; j++;
-        if (depth === 0 && (c === '}' || c === ']')) return src.slice(i, j);
+        /* a function body is done the moment its own brace closes */
+        if (isBlock && opened && depth === 0 && c === '}') return src.slice(i, j);
         continue;
       }
-      if (c === ';' && depth === 0) return src.slice(i, j + 1);
+      /* everything else runs to its statement terminator */
+      if (!isBlock && c === ';' && depth === 0) return src.slice(i, j + 1);
       j++;
     }
     return src.slice(i, j);

@@ -807,7 +807,20 @@ function switchTab(name){
   if(name==='badbeat') renderBadBeat();
   if(name==='profile') renderMyProfile();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
-  if(name==='home'){ liveStart(); wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){} } else liveStop();   // the live board lives on the homepage
+  /* ── WHEREVER SOMETHING LIVE IS ON SCREEN ─────────────────────────────────
+     The poller used to run on the homepage alone, because that is where the
+     live board is. Your Forecast is live too, and it is on the Schedule tab:
+     renderForecast draws its curve straight out of _liveSeries, which only
+     livePoll ever fills. So the graph painted whatever had been collected
+     before you navigated and then sat there, frozen, for as long as you watched
+     it - on the one tab a manager actually watches a game from.
+
+     Both tabs poll now. Everywhere else still stops it, because everywhere else
+     is reading a season that has already happened. */
+  if(name==='home'||(name==='week'&&fcOnLiveSeason())){
+    liveStart();
+  } else liveStop();
+  if(name==='home'){ wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){} }
   if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -6437,6 +6450,12 @@ async function livePoll(){
     if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);
     renderLiveMatchups();
     renderMyMatchupBar();   // the pinned bar is independent of the live board
+    /* A poll that collects a new minute and does not redraw the thing looking at
+       it is a poll nobody can see. The homepage board repaints above; the
+       forecast is a different tab and has to be told. */
+    if(_activeTab==='week'&&fcOnLiveSeason()){
+      try{ renderForecast(_liveInfo); }catch(e){}
+    }
   }catch(e){}
   _liveBusy=false;
 }

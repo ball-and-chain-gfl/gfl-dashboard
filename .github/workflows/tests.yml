@@ -43,6 +43,8 @@ jobs:
         run: node scripts/test-loads.mjs
       - name: win probability holds together
         run: node scripts/test-schedule.mjs
+      - name: the live forecast graph
+        run: node scripts/test-livegraph.mjs
       - name: the plant, and what a revival costs
         run: node scripts/test-plant.mjs
       # Nearly everything that turns over weekly reads one answer to "is the
