@@ -3584,6 +3584,20 @@
     .wp-fill.up{fill:color-mix(in srgb,var(--green) 20%,transparent);stroke:none;}
     .wp-fill.dn{fill:color-mix(in srgb,var(--red) 20%,transparent);stroke:none;}
     .wp-dot.up{fill:var(--green);} .wp-dot.dn{fill:var(--red);}
+    /* drawn inside the svg, which is scaled with preserveAspectRatio="none" -
+       so the text is counter-scaled by keeping it tiny and unstretched via
+       vector-effect on the paths only. These sit in the viewBox's own units. */
+    .wp-wrap>span{position:absolute;font-family:'Inter',sans-serif;pointer-events:none;
+      color:var(--text3);font-size:10px;letter-spacing:.02em;line-height:1;}
+    .wp-who{top:4px;left:6px;color:var(--text2)!important;font-size:11px;font-weight:600;}
+    .wp-50{top:50%;left:6px;transform:translateY(-50%);
+      background:var(--bg2);padding:0 3px;border-radius:2px;}
+    .wp-t0{bottom:3px;left:6px;} .wp-t1{bottom:3px;right:6px;}
+    .wp-key{display:flex;gap:14px;align-items:center;justify-content:center;
+      font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);margin:2px 0 0;}
+    .wp-key i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;
+      vertical-align:middle;}
+    .wp-key .k-up i{background:var(--green);} .wp-key .k-dn i{background:var(--red);}
     /* The percentage lives in the row above, between the two team names, and
        the curve carries no text at all — a second set of labels over the top
        of it collided with the row that was already naming both sides. */

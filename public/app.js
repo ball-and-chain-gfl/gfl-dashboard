@@ -5648,10 +5648,15 @@ function renderForecast(info){
   const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
     <div class="fc-odds-t"><span>${ab(meT)}</span>
-      <span class="fc-pct ${now.p>=0.5?'up':'dn'}">${Math.round(now.p*100)}%</span>
+      <span class="fc-pct ${now.p>=0.5?'up':'dn'}"
+        title="${ab(meT)} win probability">${Math.round(now.p*100)}%</span>
       <span>${ab(oppT)}</span></div>
     ${wpGraphSVG(pts,ab(meT),ab(oppT))}
-    <div class="fc-odds-s"><span>${pts.length>1?'chance to win, through the week':'chance to win, before kickoff'}</span>
+    <div class="wp-key">
+      <span class="k-up"><i></i>${ab(meT)} ahead</span>
+      <span class="k-dn"><i></i>${ab(oppT)} ahead</span>
+    </div>
+    <div class="fc-odds-s"><span>${ab(meT)} ${pts.length>1?'chance to win, through the week':'chance to win, before kickoff'}</span>
       <span>${amFmt(amFromProb(Math.min(0.95,now.p+0.025)))}</span></div>
   </div>`;
 
@@ -6610,6 +6615,23 @@ async function wpEnsureSeries(season,week){
    is even. Above the midline is winning, below is losing, and the two are
    coloured differently because "60% down from 90%" and "60% up from 20%" are
    the same number and not the same story — the shape has to carry that. */
+/* ── LABELLING ───────────────────────────────────────────────────────────────
+   A line on a panel between two team abbreviations is not a label. It does not
+   say whose chance it is, what the middle of the panel means, or which end is
+   kickoff, and the colour says only "above or below the line" to somebody who
+   already knows which line. So the graph names itself: the side it is drawn
+   for sits on the line at top left, the halfway mark is written on the halfway
+   mark, and the two ends are called what they are.
+
+   The labels are HTML positioned OVER the svg, not text inside it. The svg is
+   drawn with preserveAspectRatio="none" so the curve fills whatever width the
+   panel has, and that stretch applies to everything in the viewBox - text put
+   in there comes out smeared horizontally by however wide the container
+   happens to be. Positioned in percentages, so the same labels are right at
+   96px on the Forecast and at 84px in the Schedule drawer.
+
+   The midline really is at 50% of the box: y(0.5) is PADT + 0.5*(H-PADT-PADB),
+   and with the two pads equal that is exactly half. */
 function wpGraphSVG(pts,abA,abB,opt){
   const o=opt||{}, W=300, H=o.h||96, PADT=8, PADB=8;
   if(!pts||!pts.length) return '';
@@ -6640,6 +6662,10 @@ function wpGraphSVG(pts,abA,abB,opt){
       <circle cx="${x(n-1).toFixed(1)}" cy="${y(last.p).toFixed(1)}" r="3.5"
         class="wp-dot ${up?'up':'dn'}"/>
     </svg>
+    <span class="wp-who">${abA} win chance</span>
+    <span class="wp-50">50%</span>
+    <span class="wp-t0">${pts.length>1?'kickoff':''}</span>
+    <span class="wp-t1">${pts.length>1?'now':'before kickoff'}</span>
   </div>`;
 }
 /* ── NFL-driven trigger ─────────────────────────────────────────────────────
@@ -8657,7 +8683,7 @@ async function toggleSchedOpp(el){
     /* no starts to rank on yet — scout the roster they actually hold */
     const pj=schedTopProjected(owner,season,3);
     if(pj&&pj.length){
-      box.innerHTML=`<div class="sd-h">Toughest to face · ${name} — top ${pj.length} by projection, no games played yet</div>
+      box.innerHTML=`<div class="sd-h">Top ${pj.length} player${pj.length===1?'':'s'}</div>
         <div class="sd-list">${pj.map((p,i)=>`<div class="sd-row">
           <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
           <span class="sd-name">${p.n}</span>
@@ -8674,7 +8700,7 @@ async function toggleSchedOpp(el){
     setTimeout(()=>{ if(!box.classList.contains('open')) return;
       const again=schedTopProjected(owner,season,3);
       box.innerHTML=(again&&again.length)
-        ? `<div class="sd-h">Toughest to face · ${name} — top ${again.length} by projection, no games played yet</div>
+        ? `<div class="sd-h">Top ${again.length} player${again.length===1?'':'s'}</div>
            <div class="sd-list">${again.map((p,i)=>`<div class="sd-row">
              <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
              <span class="sd-name">${p.n}</span>
@@ -8684,7 +8710,7 @@ async function toggleSchedOpp(el){
         : `<div class="sd-msg">No ${season} player data yet.</div>`; },1600);
     return;
   }
-  box.innerHTML=`<div class="sd-h">Toughest to face · ${name} — top ${top.length} by ${season} points per start</div>
+  box.innerHTML=`<div class="sd-h">Top ${top.length} player${top.length===1?'':'s'}</div>
     <div class="sd-list">${top.map((p,i)=>`<div class="sd-row">
       <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
       <span class="sd-name">${p.n}</span>

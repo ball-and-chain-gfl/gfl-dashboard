@@ -187,7 +187,46 @@ console.log(nl + '6. THE DRAWN LINE');
      M.wpGraphSVG([], 'A', 'B') === '');
 }
 
-console.log(nl + '7. THE MINUTE STAMPS COME BACK IN ORDER');
+console.log(nl + '7. IT SAYS WHOSE LINE IT IS');
+{
+  /* A curve between two abbreviations is not a label: it does not say whose
+     chance it is, what the middle means, or which end is kickoff. Green and
+     red only say "above or below the line" to somebody who already knows which
+     line it is. */
+  const t0 = 28000000;
+  const s2 = {}; s2[M.liveMKey(ME, OPP)] = [[t0, 20, 30], [t0 + 60, 55, 70]];
+  const live = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
+  ok('it names the side it is drawn for', live.indexOf('MINE win chance') >= 0);
+  ok('and not the other side', live.indexOf('THEIRS win chance') < 0);
+  ok('the halfway line is called 50%', live.indexOf('>50%<') >= 0);
+  ok('the ends are called what they are',
+     live.indexOf('kickoff') >= 0 && live.indexOf('>now<') >= 0);
+
+  /* THE LABELS ARE NOT INSIDE THE SVG. It is drawn preserveAspectRatio="none"
+     so the curve fills the panel, and that stretch smears any text in the
+     viewBox horizontally by however wide the container is. */
+  const svgOnly = live.slice(live.indexOf('<svg'), live.indexOf('</svg>'));
+  ok('no text element inside the stretched viewBox', svgOnly.indexOf('<text') < 0,
+     svgOnly.slice(0, 160));
+  ok('the labels sit outside it instead',
+     live.indexOf('</svg>') < live.indexOf('MINE win chance'));
+
+  /* before kickoff there is no "now" and no elapsed time to point at */
+  const pre = M.wpGraphSVG(M.wpCurve({}, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
+  ok('a pre-kickoff panel says so', pre.indexOf('before kickoff') >= 0);
+  ok('and does not claim a kickoff has happened', pre.indexOf('>kickoff<') < 0);
+  ok('it still names the side', pre.indexOf('MINE win chance') >= 0);
+
+  /* the same labels have to be right in the Schedule drawer, which draws the
+     same function shorter */
+  const short = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS', { h: 84 });
+  ok('a shorter panel is labelled identically',
+     short.indexOf('MINE win chance') >= 0 && short.indexOf('>50%<') >= 0);
+  ok('and the aria-label still carries the percentage',
+     /aria-label="MINE win probability, \d+ percent"/.test(short), short.slice(0, 200));
+}
+
+console.log(nl + '8. THE MINUTE STAMPS COME BACK IN ORDER');
 {
   /* liveFlush merges another watcher's minutes in and re-sorts. A curve built
      from an unsorted series would zigzag across the panel. */
