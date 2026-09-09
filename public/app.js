@@ -3377,14 +3377,63 @@ function pollsLoad(){
 }
 const pollWeeks=()=>Object.keys((_polls&&_polls.weeks)||{})
   .map(Number).filter(n=>n>0).sort((a,b)=>a-b);
-/* Twelve hues far enough apart to tell one line from another on a dark chart,
-   and fixed per team id so a colour means the same franchise every week. */
-const POLL_COLORS=['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4',
-  '#42d4f4','#f032e6','#bfef45','#fabed4','#469990','#dcbeff'];
+/* ── THE PALETTE IS THE STANDINGS ────────────────────────────────────────────
+   Twelve arbitrary hues told you which line was which and nothing else. Half of
+   them -- a pale pink, a lavender, a mustard yellow -- belonged to no other
+   part of the site, and a chart of a league table where the colours mean
+   nothing is a chart doing half its job.
+
+   The ramp runs in POLL ORDER now. The site's own blue sits at the top of the
+   table, its own red at the bottom, and its green and its accent amber are two
+   of the stops on the way through. So the chart reads as a gradient down the
+   page: whoever is blue is winning the room, whoever is red is not.
+
+   Adjacent stops are necessarily similar -- that is what an ordered ramp is --
+   but two teams with similar colours are always NEIGHBOURS in the table, which
+   is exactly when their lines are next to each other and the crest riding the
+   front of each one tells them apart. */
+const POLL_RAMP=[
+  '#60a5fa',   //  1  the site's blue
+  '#38bdf8',   //  2
+  '#22d3ee',   //  3
+  '#2dd4bf',   //  4
+  '#10b981',   //  5  deliberately DARKER than the greens either side of it: the
+  '#4ade80',   //  6  site's green -- hue alone separates these three badly
+  '#a3e635',   //  7
+  '#eab308',   //  8  and deeper than the amber under it, for the same reason
+  '#ffb347',   //  9  the site's accent
+  '#fb923c',   // 10
+  '#f43f5e',   // 11
+  '#e11d48',   // 12
+];
+/* the ramp spans the whole table however many teams are in it, so a ten team
+   league still runs blue to red rather than stopping in the oranges */
+function pollRampColor(rank,n){
+  const m=POLL_RAMP.length;
+  const size=Number(n)||m;
+  if(size<2) return POLL_RAMP[0];
+  const p=Math.min(1,Math.max(0,(Number(rank)-1)/(size-1)))*(m-1);
+  const i=Math.floor(p), f=p-i;
+  if(i>=m-1) return POLL_RAMP[m-1];
+  const a=POLL_RAMP[i], b=POLL_RAMP[i+1];
+  const ch=k=>{
+    const u=parseInt(a.slice(k,k+2),16), v=parseInt(b.slice(k,k+2),16);
+    return Math.round(u+(v-u)*f).toString(16).padStart(2,'0');
+  };
+  return '#'+ch(1)+ch(3)+ch(5);
+}
+/* Where a team sits NOW, so a line is coloured by where it ends up rather than
+   where it started -- the chart then reads in order at its leading edge, which
+   is the end everybody looks at. */
+function pollRankNow(){
+  const out={};
+  pollWeeks().forEach(w=>((_polls.weeks[w]||{}).rank||[]).forEach(e=>{
+    out[e.teamId]=e.rank; }));
+  return out;
+}
 function pollColor(teamId){
-  const ids=_teams.map(t=>t.id).sort((a,b)=>a-b);
-  const i=ids.indexOf(Number(teamId));
-  return POLL_COLORS[(i<0?0:i)%POLL_COLORS.length];
+  const n=_teams.length||POLL_RAMP.length;
+  return pollRampColor(pollRankNow()[Number(teamId)]||n,n);
 }
 const pollTeam=id=>_teams.find(t=>t.id===Number(id))||null;
 /* The crest hangs off the FRANCHISE, not the season's team row — _teams carries
@@ -3397,58 +3446,103 @@ function pollLogoOf(teamId){
 }
 /* ── THE SHAPE OF A SEASON'S OPINION ─────────────────────────────────────────
    Rank down the y axis with first at the top, week across the x. One line a
-   team, its logo sitting at the point the line starts from, so the chart reads
-   without a legend underneath it. With a single week archived there is no line
-   to draw and it becomes a column of logos in poll order, which is exactly what
-   one week of voting is. */
+   team, its crest riding the front of that line, so the chart reads without a
+   legend underneath it.
+
+   EVERY WEEK OF THE SEASON IS DRAWN, voted on or not. It used to lay out only
+   the weeks already archived, so after week one the whole thing was a single
+   column of crests stacked on each other at the left margin -- twelve teams in
+   a strip forty pixels wide, with no sense of a season around it. An axis that
+   grows a column every Tuesday is also a different chart every Tuesday: you
+   cannot see how far through the year a run of form sits, because the year
+   keeps changing length. Weeks still to come are drawn dim; the data fills in
+   left to right underneath them.
+
+   Seventeen columns do not fit a phone and are not meant to. The chart keeps
+   its own width and the panel scrolls sideways under it, which is better than
+   seventeen weeks crushed into 340 pixels or, worse, the page itself sliding
+   under the thumb. */
+const POLL_WEEKS_MAX=17;
+function pollSeasonWeeks(){
+  const meta=_seasonMeta[ALL_SEASONS[ALL_SEASONS.length-1]];
+  let n=0;
+  ((meta&&meta.schedule)||[]).forEach(m=>{
+    const w=Number(m.matchupPeriodId)||0; if(w>n) n=w; });
+  /* a poll week past the end of the schedule still gets a column rather than
+     being drawn off the side of the chart */
+  const played=pollWeeks();
+  return Math.max(played.length?played[played.length-1]:0,
+    (n>=8&&n<=20)?n:POLL_WEEKS_MAX);
+}
 function pollChartHTML(){
-  const wks=pollWeeks(); if(!wks.length||!_teams.length) return '';
+  const played=pollWeeks(); if(!played.length||!_teams.length) return '';
+  const N=pollSeasonWeeks(), done=new Set(played);
   const rows=_teams.length;
-  const rowH=26, top=18, bottom=26;
-  const axisW=18, logoW=30, plotL=axisW+logoW+8, plotR=16;
-  const colW=wks.length>1?Math.max(46,Math.min(96,520/(wks.length-1))):0;
-  const plotW=wks.length>1?colW*(wks.length-1):0;
-  const W=plotL+plotW+plotR, H=top+rows*rowH+bottom;
-  const x=w=>plotL+(wks.length>1?wks.indexOf(w)*colW:0);
+  const rowH=26, top=20, bottom=30;
+  /* plotL leaves room for a crest sitting on week one without it hanging over
+     the rank numbers; plotR does the same at week seventeen */
+  /* 22, not 18: the WK caption under the rank column is anchored at its right
+     edge and ran off the left of the viewBox at 18. */
+  const axisW=22, plotL=axisW+18, plotR=26, colW=44;
+  const W=plotL+(N-1)*colW+plotR, H=top+rows*rowH+bottom;
+  const x=w=>plotL+(w-1)*colW;
   const y=r=>top+(r-0.5)*rowH;
   const at={};                      // teamId -> {week: rank}
-  wks.forEach(w=>((_polls.weeks[w]||{}).rank||[]).forEach(e=>{
+  played.forEach(w=>((_polls.weeks[w]||{}).rank||[]).forEach(e=>{
     (at[e.teamId]||(at[e.teamId]={}))[w]=e.rank; }));
+  /* one row a placing, numbered down the left */
   const grid=Array.from({length:rows},(_,i)=>`
-    <line x1="${plotL-6}" y1="${y(i+1)}" x2="${W-plotR}" y2="${y(i+1)}"
+    <line x1="${plotL-10}" y1="${y(i+1)}" x2="${W-plotR+10}" y2="${y(i+1)}"
       stroke="var(--border)" stroke-width="1" opacity="0.5"/>
     <text x="${axisW-4}" y="${y(i+1)+4}" text-anchor="end" font-size="11"
       fill="var(--text3)" font-family="Inter,sans-serif">${i+1}</text>`).join('');
-  const weekLabels=wks.map(w=>`<text x="${x(w)}" y="${H-8}" text-anchor="middle"
-    font-size="11" fill="var(--text3)" font-family="Inter,sans-serif">Wk ${w}</text>`).join('');
+  /* the whole season across the bottom, the weeks still to come dimmed */
+  const cols=Array.from({length:N},(_,i)=>{
+    const w=i+1, on=done.has(w);
+    return `<line x1="${x(w)}" y1="${top-6}" x2="${x(w)}" y2="${top+rows*rowH+2}"
+        stroke="var(--border)" stroke-width="1" opacity="${on?0.6:0.22}"/>
+      <text x="${x(w)}" y="${H-10}" text-anchor="middle" font-size="10"
+        fill="${on?'var(--text2)':'var(--text3)'}" opacity="${on?1:0.5}"
+        font-family="Inter,sans-serif">${w}</text>`;
+  }).join('');
+  const wkCap=`<text x="${axisW-4}" y="${H-10}" text-anchor="end" font-size="9"
+    fill="var(--text3)" opacity="0.75" letter-spacing="0.5"
+    font-family="Inter,sans-serif">WK</text>`;
   const lines=Object.keys(at).map(tid=>{
     const t=pollTeam(tid); const col=pollColor(tid);
-    const pts=wks.filter(w=>at[tid][w]!=null).map(w=>[x(w),y(at[tid][w])]);
+    const pts=played.filter(w=>at[tid][w]!=null).map(w=>[x(w),y(at[tid][w])]);
     if(!pts.length) return '';
     const path=pts.length>1
       ? `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none"
            stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`
       : '';
     const dots=pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${col}"/>`).join('');
-    const first=pts[0];
+    /* THE CREST RIDES THE FRONT OF THE LINE, not a fixed column at the left
+       margin. On a chart you scroll, a legend pinned to the far left is a
+       legend you cannot see while you are looking at this week -- and the
+       front of the line is the end anybody reads first. Ranks are unique
+       within a week, so twelve crests at one x never collide. */
+    const head=pts[pts.length-1];
     const logo=pollLogoOf(tid);
     const badge=logo
-      ? `<image href="${logo}" x="${axisW+2}" y="${first[1]-11}" width="22" height="22"
+      ? `<image href="${logo}" x="${head[0]-11}" y="${head[1]-11}" width="22" height="22"
            clip-path="inset(0 round 6px)" preserveAspectRatio="xMidYMid slice"/>`
-      : `<rect x="${axisW+2}" y="${first[1]-11}" width="22" height="22" rx="6" fill="${col}"/>
-         <text x="${axisW+13}" y="${first[1]+4}" text-anchor="middle" font-size="9"
+      : `<rect x="${head[0]-11}" y="${head[1]-11}" width="22" height="22" rx="6" fill="${col}"/>
+         <text x="${head[0]}" y="${head[1]+4}" text-anchor="middle" font-size="9"
            fill="#0b0b0b" font-weight="700" font-family="Inter,sans-serif">${teamInitials(t?t.name:'')}</text>`;
     return `<g><title>${t?t.name:('Team '+tid)}</title>
-      <rect x="${axisW}" y="${first[1]-13}" width="26" height="26" rx="8" fill="${col}" opacity="0.28"/>
-      ${badge}${path}${dots}</g>`;
+      ${path}${dots}
+      <rect x="${head[0]-13}" y="${head[1]-13}" width="26" height="26" rx="8"
+        fill="${col}" opacity="0.28"/>
+      ${badge}</g>`;
   }).join('');
+  /* Its own width in pixels, NOT 100%. At 100% the svg shrank to whatever the
+     panel was and seventeen weeks became unreadable on a phone; at its natural
+     width the panel around it scrolls instead. */
   return `<div class="poll-chart">
-    ${''/* left-aligned, not centred: with one week archived the chart is a
-           narrow column, and xMid would float it into the middle of the page
-           away from the axis it belongs to */}
-    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMinYMid meet"
+    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"
       role="img" aria-label="Coaches' Poll ranking by week">
-      ${grid}${weekLabels}${lines}
+      ${cols}${grid}${wkCap}${lines}
     </svg></div>`;
 }
 /* One fold per archived week, newest first. With a single week on file there is
@@ -3461,7 +3555,8 @@ function pollSectionHTML(){
     const rows=(d.rank||[]).map(e=>{
       const t=pollTeam(e.teamId);
       return `<div class="poll-row">
-        <span class="poll-rk" style="color:${pollColor(e.teamId)}">${e.rank}</span>
+        <span class="poll-rk"
+          style="color:${pollRampColor(e.rank,(d.rank||[]).length||_teams.length)}">${e.rank}</span>
         ${t?logoImg(t.id,'team-logo-sm'):''}
         <span class="poll-nm">${t?t.name:('Team '+e.teamId)}</span>
         <span class="poll-avg">${e.avg.toFixed(2)}</span>

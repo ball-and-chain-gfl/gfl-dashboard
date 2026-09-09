@@ -4425,6 +4425,9 @@
        thumb is worse than a chart that does. */
     .poll-chart{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
       margin:2px 0 14px;padding-bottom:2px;}
+    /* The svg carries its own pixel width now (see pollChartHTML), so this
+       panel is what scrolls. min-width is only a floor for a league small
+       enough to draw narrower than a phone. */
     .poll-chart svg{min-width:320px;display:block;}
     .poll-fold{border:1px solid var(--border);border-radius:10px;margin:0 0 8px;
       background:rgba(255,255,255,0.02);}

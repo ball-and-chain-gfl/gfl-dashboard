@@ -31,6 +31,8 @@ jobs:
         run: node scripts/test-charts.mjs
       - name: how a draft pick is graded
         run: node scripts/test-draft.mjs
+      - name: the coaches poll chart and its ramp
+        run: node scripts/test-pollchart.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: the live poller parses
