@@ -820,7 +820,9 @@ function switchTab(name){
   if(name==='home'||(name==='week'&&fcOnLiveSeason())){
     liveStart();
   } else liveStop();
-  if(name==='home'){ wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){} }
+  if(name==='home'){ wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){}
+    /* idempotent — _betsInit makes this free once they are in */
+    try{ betsEnsure(); }catch(e){} }
   if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -7244,6 +7246,12 @@ function applyMe(){
     if(_activeTab==='history') try{ renderHistoryTable(); }catch(e){}
     if(_activeTab==='tenure') try{ renderTenureTable(); renderTenureEnemies(); }catch(e){}
   }
+  /* AND THEIR TICKETS. Every other per-manager cache is dropped here; _bets was
+     not, and _betsInit stayed true — so signing in as somebody else left
+     initBets() short-circuiting on the previous manager's load and the new
+     manager's own bets never arrived at all. */
+  _bets=null; _betsInit=false;
+  try{ betsEnsure(); }catch(e){}
   try{ eggReset(); }catch(e){}            // this manager's finds, not the last one's
   try{ ttReset(); }catch(e){}             // and whatever has been said to them
   try{ invResetAll(); }catch(e){}         // and whatever they hold
@@ -16501,6 +16509,25 @@ async function initBets(){
   await betRefresh();
   renderMyBets();
   betSettleAll();
+}
+/* ── THE FEED HAS TO BE ABLE TO SEE THE TICKETS ──────────────────────────────
+   ntParlays builds the "you have been asked in" card out of betsMine(), which
+   reads _bets. Nothing loaded _bets except initBets(), and initBets() was only
+   called from switchTab when somebody opened the Sportsbook.
+
+   The feed is on the HOMEPAGE. So on a fresh load _bets was null, betsMine()
+   answered an empty array, and the card could not be built at all — you only
+   ever saw an invitation if you had already visited the tab that the card
+   exists to send you to. Which is circular, and is why invitations went
+   unanswered even when they were stamped correctly and sitting there live.
+
+   Called from applyMe, so it runs on boot and again on every sign-in, and
+   repaints the feed when the tickets land rather than leaving whatever was
+   drawn before they did. */
+async function betsEnsure(){
+  if(!_me||_betsInit) return;
+  try{ await initBets(); }catch(e){ return; }
+  if(_activeTab==='home') try{ renderNotifications(); }catch(e){}
 }
 /* Grade every open bet whose markets now have an answer and write the result
    back. Safe to run repeatedly: betGrade returns null while a season is still
