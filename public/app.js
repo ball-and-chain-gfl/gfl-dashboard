@@ -13728,11 +13728,11 @@ const ntName=(season,owner)=>mgSeasonName(season,owner);
 /* ── the generators. Each one is wrapped by the caller, so a source that is
       not loaded yet costs a missing card rather than an empty homepage. ── */
 function ntFromWeek(out){
-  if(!ntResultsAreCurrent()) return;
   const season=ntSeason(); if(!season) return;
   const lw=ntLastWeek(season); if(!lw) return;
+  if(!ntResultsFresh(season,lw.week)) return;
   const owners=lw.meta.owners||{};
-  const day=ntResultsDay(Date.now());      // this week's football, read on Tuesday
+  const day=ntWeekResultsDay(season,lw.week);   // the Tuesday that week was read on
   lw.games.forEach(mu=>{
     const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
     if(hp===ap) return;
@@ -13768,8 +13768,12 @@ function ntFromWeek(out){
 }
 /* current run of wins or losses, read backwards through every season in order */
 function ntStreaks(out){
-  if(!ntResultsAreCurrent()) return;
   const season=ntSeason(); if(!season) return;
+  /* A streak is only running while the season it ran in is. Read backwards
+     through every season, so the last game in the list is the newest week that
+     has been played -- and that week is what dates the card. */
+  const lw=ntLastWeek(season); if(!lw) return;
+  if(!ntResultsFresh(season,lw.week)) return;
   const byOwner={};
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
@@ -13794,7 +13798,7 @@ function ntStreaks(out){
     let n=0;
     for(let i=res.length-1;i>=0&&res[i]===last;i--) n++;
     if(n<5) return;
-    const day=ntResultsDay(Date.now());
+    const day=ntWeekResultsDay(season,lw.week);
     const who=ntName(season,owner);
     out.push(last
       ?{kind:'streakW', day, id:`sw:${owner}:${n}`, title:`${n} in a row`,
@@ -14343,38 +14347,54 @@ function ntStandingsArt(rows){
       </div>`;}).join('')}
   </div>`;
 }
-/* ── RESULTS ARE ONLY NEWS WHILE THE SEASON IS RUNNING ───────────────────────
+/* ── WHEN A WEEK'S RESULTS ACTUALLY BECAME NEWS ───────────────────────
    The three generators that report football — the standings, the blowouts and
-   rivalries out of the week, and the streaks — all key off ntSeason(), which
-   answers with the newest season that has points on the board. From January
-   until the first Sunday in September that is LAST season, and all three of
-   them date their cards with ntResultsDay(Date.now()): the most recent Tuesday
-   relative to NOW, not the Tuesday of the week being described.
+   rivalries out of the week, and the streaks — key off ntSeason(), which
+   answers with the newest season that has POINTS on the board. From January
+   until the first Sunday in September that is LAST season.
 
-   So for eight months of the year the homepage carried last season's week 17 —
-   the final standings, its blowouts, its rivalries, a five-game losing streak
-   that ended in January — dated to this week, and re-dated to every Tuesday as
-   each one came round. It read as news. It was a scoreboard from months ago.
+   All three then dated their cards with ntResultsDay(Date.now()): the most
+   recent Tuesday relative to NOW rather than the Tuesday of the week being
+   described. So for eight months of the year the homepage carried last
+   season's week 17 — the final standings, its blowouts, a losing streak that
+   ended in January — dated to this week, and re-dated to every Tuesday as each
+   came round.
 
-   The fix is not a better date. There is no honest date for these: a card that
-   says "where everyone stands · week 17" in September is wrong at any date,
-   because the answer it gives is about a season that is over. They are news
-   while the season they describe is the one being played, and history
-   afterwards — and history has a tab. */
-function ntResultsAreCurrent(){
-  try{
-    const played=ntSeason();
-    const playing=(typeof sbBoardSeason==='function')?sbBoardSeason():played;
-    return !!played&&String(played)===String(playing);
-  }catch(e){ return true; }        // cannot tell: behave as it always did
+   The first attempt at this compared the season played against the season being
+   played and suppressed the lot when they differed. That fixed what is on the
+   board today and reopened every January: sbBoardSeason falls back to the newest
+   season with a SCHEDULE, and next year's schedule does not publish until the
+   spring — so from January to May the two agree again and the stale cards come
+   back. A guard with a hole in it four months wide is worse than the honest fix,
+   because it looks solved.
+
+   So the card is dated by the week it is ABOUT, and results stop being news
+   three weeks later. In season that is the same Tuesday it always was; out of
+   season the card is months old, and old news is not printed at all.
+
+   THE ANCHOR IS THE FIRST TUESDAY OF SEPTEMBER, plus a week for the football
+   and a week for it to finish. That is within a few days of every NFL week 1
+   there has been, and a few days is far below the resolution this needs, which
+   is telling last Tuesday from last January. */
+function ntWeekResultsDay(season,week){
+  const y=Number(season)||new Date().getFullYear();
+  const d=new Date(y,8,1);                          // 1 September
+  while(d.getDay()!==2) d.setDate(d.getDate()+1);   // the first Tuesday
+  d.setDate(d.getDate()+7*((Number(week)||1)+1));   // the Tuesday after that week
+  d.setHours(0,0,0,0);
+  return d.getTime();
 }
+const NT_RESULTS_MAX=21*24*3600*1000;
+const ntResultsFresh=(season,week)=>
+  Date.now()-ntWeekResultsDay(season,week)<NT_RESULTS_MAX;
+
 function ntStandings(out){
-  if(!ntResultsAreCurrent()) return;
   const season=ntSeason(); if(!season) return;
   const lw=ntLastWeek(season); if(!lw||lw.week<2) return;
+  if(!ntResultsFresh(season,lw.week)) return;
   const rows=ntStandingsRows(season,lw.week); if(!rows) return;
   const movers=rows.filter(r=>r.move!==0).length;
-  out.push({kind:'standings', day:ntResultsDay(Date.now()), pin:1,
+  out.push({kind:'standings', day:ntWeekResultsDay(season,lw.week), pin:1,
     id:`st:${season}:${lw.week}`,
     title:`Where everyone stands · week ${lw.week}`,
     art:ntStandingsArt(rows),
