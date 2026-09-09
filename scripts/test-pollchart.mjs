@@ -6,14 +6,12 @@
  * quietly lying about who is winning the room. And the AXIS is the whole
  * season from week one, not just the weeks archived so far, so the chart has
  * to draw seventeen columns on a day when exactly one of them has any data.
- *
- * proxyLogo is stubbed rather than lifted: it carries a regex with a // in it
- * and the bracket walker in lift.mjs reads that as a line comment and runs off
- * the end of the file.
  */
 import { lifter, assemble } from './lib/lift.mjs';
 
 const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
+  'const BASE=',
+  'function proxyLogo(url){',
   'function teamInitials(name){',
   'const REGULAR_SEASON_END=',
   'function regEndOf(season){',
@@ -29,8 +27,7 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'function pollSeasonWeeks(){',
   'function pollChartHTML(){',
 ], ['pollChartHTML', 'pollRampColor', 'pollSeasonWeeks', 'pollColor', 'pollRankNow',
-    'POLL_RAMP', 'POLL_WEEKS_MAX', 'setUp'], `
-const proxyLogo=u=>null;
+    'POLL_RAMP', 'POLL_WEEKS_MAX', 'setUp', 'setLogo', 'pollLogoOf'], `
 let _polls={weeks:{}}, _teams=[], _franchises=[], _ownerMap={};
 let _seasonMeta={}; const ALL_SEASONS=['2026'];
 /* orders: {week: [teamId,...] best first}. regEnd is the regular season
@@ -49,6 +46,12 @@ function setUp(orders,regEnd,nTeams,schedMax){
   Object.entries(orders).forEach(([w,order])=>{
     _polls.weeks[w]={ballots:9,rank:order.map((id,i)=>({teamId:id,rank:i+1,avg:i+1.1}))};
   });
+}
+/* every fixture franchise starts with no logo, so this is how a test reaches
+   the one path that actually calls proxyLogo */
+function setLogo(teamId,url){
+  const f=_franchises.find(x=>x.owner===_ownerMap[teamId]);
+  if(f) f.logo=url;
 }
 `);
 
@@ -236,6 +239,26 @@ console.log(nl + '6. NOTHING DRAWS AS NaN OR undefined');
   ok('no polls at all draws nothing rather than a broken tag', M.pollChartHTML() === '');
   M.setUp({ 1: [] }, 17, 0);
   ok('and no teams does the same', M.pollChartHTML() === '');
+}
+
+console.log(nl + '7. THE CREST GOES THROUGH THE REAL proxyLogo');
+{
+  /* proxyLogo used to be stubbed here, because its scheme test carries an
+     escaped // that the bracket walker read as a line comment and ran off the
+     end of app.js on. It is lifted now, so this is the actual function. */
+  M.setUp({ 1: seq(12) });
+  ok('a franchise with no crest still has no logo', M.pollLogoOf(1) === null);
+
+  M.setLogo(1, 'http://cdn.test/crest.png');
+  const url = String(M.pollLogoOf(1));
+  ok('a crest is routed through our own proxy rather than hotlinked',
+     url.indexOf('/api/espn?type=logo') === 0, url);
+  ok('and it is upgraded to https on the way',
+     decodeURIComponent(url).indexOf('https://cdn.test/crest.png') > 0, url);
+
+  M.setLogo(1, 'not-a-url');
+  ok('something that is not a url is refused rather than proxied',
+     M.pollLogoOf(1) === null);
 }
 
 console.log(nl + pass + ' passed, ' + fail + ' failed');
