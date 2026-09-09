@@ -6637,7 +6637,15 @@ async function wpEnsureSeries(season,week){
    The midline really is at 50% of the box: y(0.5) is PADT + 0.5*(H-PADT-PADB),
    and with the two pads equal that is exactly half. */
 function wpGraphSVG(pts,abA,abB,opt){
-  const o=opt||{}, W=300, H=o.h||96, PADT=8, PADB=8;
+  /* 132, up from 96. The line spends most of a real afternoon between about
+     35% and 75%, which in a 96px box with 8px of padding is barely 40px of
+     travel -- enough to read the sign of the lead and not much else.
+
+     The height is emitted inline as well, because .wp-svg used to pin it at
+     96px in CSS while the viewBox said whatever opt.h said: the Schedule
+     drawer asked for 84 and got 96, stretching its curve vertically by 14%.
+     The viewBox is the single source of the panel's height now. */
+  const o=opt||{}, W=300, H=o.h||132, PADT=8, PADB=8;
   if(!pts||!pts.length) return '';
   /* One point is a whole game's worth of information before kickoff — the line
      the projection opens on — so it is drawn flat across the panel rather than
@@ -6652,7 +6660,8 @@ function wpGraphSVG(pts,abA,abB,opt){
   const up=last.p>=0.5;
   const uid='wp'+Math.random().toString(36).slice(2,8);
   return `<div class="wp-wrap">
-    <svg class="wp-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+    <svg class="wp-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px"
+      preserveAspectRatio="none" role="img"
       aria-label="${abA} win probability, ${pct} percent">
       <defs>
         <clipPath id="${uid}u"><rect x="0" y="0" width="${W}" height="${y(0.5)}"/></clipPath>
@@ -8654,7 +8663,7 @@ function schedPlayedDetailHTML(meOwner,oppOwner,season,week,oppName){
   }catch(e){}
   const series=wpSeriesFor(season,week);
   const graph=series
-    ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner,openMu),abA,abB,{h:84})
+    ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner,openMu),abA,abB,{h:112})
     : `<div class="sd-msg">No minute-by-minute record for that week.</div>`;
   return `<div class="sd-h">Top performer · week ${week}</div>
     <div class="sd-tops">${side(meT,a,abA)}${side(oppT,b,abB)}</div>
