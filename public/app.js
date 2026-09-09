@@ -13728,6 +13728,7 @@ const ntName=(season,owner)=>mgSeasonName(season,owner);
 /* ── the generators. Each one is wrapped by the caller, so a source that is
       not loaded yet costs a missing card rather than an empty homepage. ── */
 function ntFromWeek(out){
+  if(!ntResultsAreCurrent()) return;
   const season=ntSeason(); if(!season) return;
   const lw=ntLastWeek(season); if(!lw) return;
   const owners=lw.meta.owners||{};
@@ -13767,6 +13768,7 @@ function ntFromWeek(out){
 }
 /* current run of wins or losses, read backwards through every season in order */
 function ntStreaks(out){
+  if(!ntResultsAreCurrent()) return;
   const season=ntSeason(); if(!season) return;
   const byOwner={};
   ALL_SEASONS.forEach(s=>{
@@ -14341,7 +14343,33 @@ function ntStandingsArt(rows){
       </div>`;}).join('')}
   </div>`;
 }
+/* ── RESULTS ARE ONLY NEWS WHILE THE SEASON IS RUNNING ───────────────────────
+   The three generators that report football — the standings, the blowouts and
+   rivalries out of the week, and the streaks — all key off ntSeason(), which
+   answers with the newest season that has points on the board. From January
+   until the first Sunday in September that is LAST season, and all three of
+   them date their cards with ntResultsDay(Date.now()): the most recent Tuesday
+   relative to NOW, not the Tuesday of the week being described.
+
+   So for eight months of the year the homepage carried last season's week 17 —
+   the final standings, its blowouts, its rivalries, a five-game losing streak
+   that ended in January — dated to this week, and re-dated to every Tuesday as
+   each one came round. It read as news. It was a scoreboard from months ago.
+
+   The fix is not a better date. There is no honest date for these: a card that
+   says "where everyone stands · week 17" in September is wrong at any date,
+   because the answer it gives is about a season that is over. They are news
+   while the season they describe is the one being played, and history
+   afterwards — and history has a tab. */
+function ntResultsAreCurrent(){
+  try{
+    const played=ntSeason();
+    const playing=(typeof sbBoardSeason==='function')?sbBoardSeason():played;
+    return !!played&&String(played)===String(playing);
+  }catch(e){ return true; }        // cannot tell: behave as it always did
+}
 function ntStandings(out){
+  if(!ntResultsAreCurrent()) return;
   const season=ntSeason(); if(!season) return;
   const lw=ntLastWeek(season); if(!lw||lw.week<2) return;
   const rows=ntStandingsRows(season,lw.week); if(!rows) return;
