@@ -237,6 +237,53 @@ console.log('\n6. the top-scorer markets settle off who was started');
   eq('a tie at the top is a push',       api.betWeekResult(leg('ttbft-5','p3001'),'2026',5), 'push');
   eq('and the loser still loses',        api.betWeekResult(leg('ttbft-5','p3003'),'2026',5), false);
 
+  /* ── A NAMED HEAD TO HEAD ──────────────────────────────────────────────
+     The one-off duel rides the Pick 'Em key shape, wk<week>-pe<pid>_<pid>, so
+     that it settles on machinery that already exists rather than on a bespoke
+     branch nobody would remember to write into settle-bets too. Two pids, not
+     three, which the -pe branch has always allowed. */
+  api.setLineups({2026:{weeks:{5:{
+    1:[['3001',18.4]],
+    2:[['3002',11.2]],
+  }}}});
+  eq('duel: the higher started score wins',
+     api.betWeekResult(leg('wk5-pe3001_3002','p3001'),'2026',5), true);
+  eq('duel: and the other one loses',
+     api.betWeekResult(leg('wk5-pe3001_3002','p3002'),'2026',5), false);
+
+  /* a benched player has no started score, so he scores nothing here */
+  api.setLineups({2026:{weeks:{5:{1:[['3001',4.0]]}}}});
+  eq('duel: a benched opponent cannot win it',
+     api.betWeekResult(leg('wk5-pe3001_3002','p3002'),'2026',5), false);
+  eq('duel: so the one who played takes it, however small the score',
+     api.betWeekResult(leg('wk5-pe3001_3002','p3001'),'2026',5), true);
+
+  /* THE ONE THAT COULD STRAND A STAKE. Neither started, so there is no result
+     to grade -- and this used to answer null, which means "not yet" and leaves
+     the ticket open for good with the stake already gone. A generated group is
+     drawn FROM the starters so it cannot reach this; a hand-named pair can. */
+  api.setLineups({2026:{weeks:{5:{1:[['9999',12.0]]}}}});
+  eq('duel: neither one started, so the stake comes back',
+     api.betWeekResult(leg('wk5-pe3001_3002','p3001'),'2026',5), 'push');
+  eq('duel: and it is a push for the other side too',
+     api.betWeekResult(leg('wk5-pe3001_3002','p3002'),'2026',5), 'push');
+
+  /* both played and tied: nobody outscored anybody */
+  api.setLineups({2026:{weeks:{5:{1:[['3001',15.0],['3002',15.0]]}}}});
+  eq('duel: a dead heat is a push', api.betWeekResult(leg('wk5-pe3001_3002','p3001'),'2026',5), 'push');
+
+  /* the trio form still behaves exactly as it did */
+  api.setLineups({2026:{weeks:{5:{1:[['3001',20.0],['3002',9.0],['3003',14.0]]}}}});
+  eq('the three-player group is unchanged',
+     api.betWeekResult(leg('wk5-pe3001_3002_3003','p3001'),'2026',5), true);
+  eq('and its losers still lose',
+     api.betWeekResult(leg('wk5-pe3001_3002_3003','p3003'),'2026',5), false);
+
+  /* a missing feed is still "not yet", not a push -- the two must not blur */
+  api.setLineups(null);
+  eq('duel: no feed at all still leaves it open',
+     api.betWeekResult(leg('wk5-pe3001_3002','p3001'),'2026',5), null);
+
   /* the feed not being in yet is not a result */
   api.setLineups(null);
   eq('no lineups feed leaves it open',   api.betWeekResult(leg('wk5-player','p3001'),'2026',5), null);
