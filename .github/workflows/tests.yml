@@ -33,6 +33,8 @@ jobs:
         run: node scripts/test-draft.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
+      - name: the live poller parses
+        run: node --check scripts/poll-live.mjs
       - name: next-highest waiver bid
         run: node scripts/test-next-bid.mjs
       # These four existed and were never wired in. test-loads is the one that

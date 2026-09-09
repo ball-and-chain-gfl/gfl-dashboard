@@ -1,0 +1,61 @@
+name: Poll the live scoreboard
+
+# ── WHY THIS EXISTS ──────────────────────────────────────────────────────────
+# The win-probability curve on Your Forecast is drawn from readings written to
+# Firestore. Until this, the only thing that ever wrote them was a BROWSER, so
+# the curve had a hole in it for every stretch of an afternoon when nobody
+# happened to have the site open, and the shape of a game depended on who was
+# watching it.
+#
+# ── WHY THESE HOURS ──────────────────────────────────────────────────────────
+# Every window is a US kickoff slot in UTC. NFL games run Thursday, Sunday and
+# Monday nights, Sunday afternoon, and Saturday late in the season -- plus the
+# odd Wednesday opener. Nothing is scheduled for Tuesday, and the daytime hours
+# of a weekday are never football.
+#
+# The script gates itself on top of this: the first thing it asks ESPN is
+# whether any game is actually live, and if not it stops before touching the
+# matchup feed or the database. So a window that turns out to be empty costs one
+# small request, and -- more to the point -- writes no reading. A point recorded
+# while nothing is moving is a point on the graph at a moment nothing happened,
+# and enough of them flatten the shape of an afternoon into a staircase.
+on:
+  schedule:
+    - cron: '*/5 0-4 * * 4'      # Wed night ET  (openers)
+    - cron: '*/5 0-4 * * 5'      # Thu night ET
+    - cron: '*/5 17-23 * * 6'    # Sat afternoon ET (late season)
+    - cron: '*/5 0-4 * * 0'      # Sat night ET
+    - cron: '*/5 17-23 * * 0'    # Sun afternoon ET — the main slate
+    - cron: '*/5 0-4 * * 1'      # Sun night ET
+    - cron: '*/5 0-4 * * 2'      # Mon night ET
+  workflow_dispatch:
+    inputs:
+      loop:
+        description: 'Seconds to keep polling in one run (0 = poll once)'
+        required: false
+        default: '0'
+      force:
+        description: 'Poll even if no game is live (testing only)'
+        required: false
+        default: 'false'
+
+# One poller at a time. Two runs reading the same document and writing it back
+# would each miss what the other had just added.
+concurrency:
+  group: poll-live
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350          # under the 6h job cap, for the looping mode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Poll
+        env:
+          LOOP: ${{ github.event.inputs.loop || '0' }}
+          FORCE: ${{ github.event.inputs.force == 'true' && '1' || '' }}
+        run: node scripts/poll-live.mjs
