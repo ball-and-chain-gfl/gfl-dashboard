@@ -5649,10 +5649,9 @@ function renderForecast(info){
   const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,(A&&B)?schedOpenMu(A,B,fcWk):null);
   const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
-    <div class="fc-odds-t"><span>${ab(meT)}</span>
+    <div class="fc-odds-t">
       <span class="fc-pct ${now.p>=0.5?'up':'dn'}"
-        title="${ab(meT)} win probability">${Math.round(now.p*100)}%</span>
-      <span>${ab(oppT)}</span></div>
+        title="${ab(meT)} win probability">${Math.round(now.p*100)}%</span></div>
     ${wpGraphSVG(pts,ab(meT),ab(oppT))}
     <div class="wp-key">
       <span class="k-up"><i></i>${ab(meT)} ahead</span>
@@ -6618,12 +6617,12 @@ async function wpEnsureSeries(season,week){
    coloured differently because "60% down from 90%" and "60% up from 20%" are
    the same number and not the same story — the shape has to carry that. */
 /* ── LABELLING ───────────────────────────────────────────────────────────────
-   A line on a panel between two team abbreviations is not a label. It does not
-   say whose chance it is, what the middle of the panel means, or which end is
-   kickoff, and the colour says only "above or below the line" to somebody who
-   already knows which line. So the graph names itself: the side it is drawn
-   for sits on the line at top left, the halfway mark is written on the halfway
-   mark, and the two ends are called what they are.
+   The panel carries only what it cannot do without: the halfway mark written on
+   the halfway mark, and the two ends of the afternoon named. Whose line it is
+   comes from the key underneath, which has to say it anyway to explain the two
+   colours -- saying it a second time inside the panel put a caption over the
+   graph that read as part of the data. There is nothing to label before
+   kickoff, so nothing is labelled.
 
    The labels are HTML positioned OVER the svg, not text inside it. The svg is
    drawn with preserveAspectRatio="none" so the curve fills whatever width the
@@ -6664,10 +6663,9 @@ function wpGraphSVG(pts,abA,abB,opt){
       <circle cx="${x(n-1).toFixed(1)}" cy="${y(last.p).toFixed(1)}" r="3.5"
         class="wp-dot ${up?'up':'dn'}"/>
     </svg>
-    <span class="wp-who">${abA} win chance</span>
     <span class="wp-50">50%</span>
     <span class="wp-t0">${pts.length>1?'kickoff':''}</span>
-    <span class="wp-t1">${pts.length>1?'now':'before kickoff'}</span>
+    <span class="wp-t1">${pts.length>1?'now':''}</span>
   </div>`;
 }
 /* ── NFL-driven trigger ─────────────────────────────────────────────────────

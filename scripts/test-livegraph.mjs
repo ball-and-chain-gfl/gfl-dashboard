@@ -187,20 +187,28 @@ console.log(nl + '6. THE DRAWN LINE');
      M.wpGraphSVG([], 'A', 'B') === '');
 }
 
-console.log(nl + '7. IT SAYS WHOSE LINE IT IS');
+console.log(nl + '7. THE PANEL LABELS THE AXES AND NOTHING ELSE');
 {
-  /* A curve between two abbreviations is not a label: it does not say whose
-     chance it is, what the middle means, or which end is kickoff. Green and
-     red only say "above or below the line" to somebody who already knows which
-     line it is. */
+  /* It used to caption itself -- "<TEAM> win chance" across the top left -- and
+     the headline sat between the two abbreviations. Both said what the key
+     underneath already has to say to explain the two colours, so the panel was
+     narrating over its own data. What is left is the axes: the halfway mark,
+     and the two ends of the afternoon. */
   const t0 = 28000000;
   const s2 = {}; s2[M.liveMKey(ME, OPP)] = [[t0, 20, 30], [t0 + 60, 55, 70]];
   const live = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
-  ok('it names the side it is drawn for', live.indexOf('MINE win chance') >= 0);
-  ok('and not the other side', live.indexOf('THEIRS win chance') < 0);
+
   ok('the halfway line is called 50%', live.indexOf('>50%<') >= 0);
   ok('the ends are called what they are',
-     live.indexOf('kickoff') >= 0 && live.indexOf('>now<') >= 0);
+     live.indexOf('>kickoff<') >= 0 && live.indexOf('>now<') >= 0);
+  ok('it does not caption itself over the graph', live.indexOf('win chance') < 0);
+  ok('and neither abbreviation is printed on the panel',
+     live.indexOf('>MINE<') < 0 && live.indexOf('>THEIRS<') < 0);
+
+  /* the accessible name is NOT a visible caption and still has to identify the
+     line -- a screen reader has no key to read */
+  ok('the screen reader is still told whose line it is',
+     /aria-label="MINE win probability, \d+ percent"/.test(live), live.slice(0, 200));
 
   /* THE LABELS ARE NOT INSIDE THE SVG. It is drawn preserveAspectRatio="none"
      so the curve fills the panel, and that stretch smears any text in the
@@ -208,22 +216,19 @@ console.log(nl + '7. IT SAYS WHOSE LINE IT IS');
   const svgOnly = live.slice(live.indexOf('<svg'), live.indexOf('</svg>'));
   ok('no text element inside the stretched viewBox', svgOnly.indexOf('<text') < 0,
      svgOnly.slice(0, 160));
-  ok('the labels sit outside it instead',
-     live.indexOf('</svg>') < live.indexOf('MINE win chance'));
 
-  /* before kickoff there is no "now" and no elapsed time to point at */
+  /* nothing has happened yet, so there is nothing to point at */
   const pre = M.wpGraphSVG(M.wpCurve({}, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
-  ok('a pre-kickoff panel says so', pre.indexOf('before kickoff') >= 0);
-  ok('and does not claim a kickoff has happened', pre.indexOf('>kickoff<') < 0);
-  ok('it still names the side', pre.indexOf('MINE win chance') >= 0);
+  ok('a pre-kickoff panel labels no ends at all',
+     pre.indexOf('kickoff') < 0 && pre.indexOf('>now<') < 0, pre.slice(0, 240));
+  ok('but it still shows the halfway mark', pre.indexOf('>50%<') >= 0);
+  ok('and still names the line for a screen reader',
+     /aria-label="MINE win probability/.test(pre));
 
-  /* the same labels have to be right in the Schedule drawer, which draws the
-     same function shorter */
+  /* the Schedule drawer draws the same function shorter */
   const short = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS', { h: 84 });
-  ok('a shorter panel is labelled identically',
-     short.indexOf('MINE win chance') >= 0 && short.indexOf('>50%<') >= 0);
-  ok('and the aria-label still carries the percentage',
-     /aria-label="MINE win probability, \d+ percent"/.test(short), short.slice(0, 200));
+  ok('a shorter panel is labelled the same way',
+     short.indexOf('>50%<') >= 0 && short.indexOf('win chance') < 0);
 }
 
 console.log(nl + '8. THE MINUTE STAMPS COME BACK IN ORDER');
