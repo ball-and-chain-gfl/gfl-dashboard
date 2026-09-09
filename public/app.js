@@ -6617,8 +6617,11 @@ async function wpEnsureSeries(season,week){
    coloured differently because "60% down from 90%" and "60% up from 20%" are
    the same number and not the same story — the shape has to carry that. */
 /* ── LABELLING ───────────────────────────────────────────────────────────────
-   The panel carries only what it cannot do without: the halfway mark written on
-   the halfway mark, and the two ends of the afternoon named. Whose line it is
+   The panel carries only what it cannot do without: the two ends of the
+   afternoon, named. The halfway mark used to be written on itself -- a "50%"
+   chip on the dashed centre line -- and it sat inches from a headline reading
+   76%, so it read as the graph disagreeing with its own number rather than as
+   an axis. The dashed line says even on its own. Whose line it is
    comes from the key underneath, which has to say it anyway to explain the two
    colours -- saying it a second time inside the panel put a caption over the
    graph that read as part of the data. There is nothing to label before
@@ -6663,7 +6666,6 @@ function wpGraphSVG(pts,abA,abB,opt){
       <circle cx="${x(n-1).toFixed(1)}" cy="${y(last.p).toFixed(1)}" r="3.5"
         class="wp-dot ${up?'up':'dn'}"/>
     </svg>
-    <span class="wp-50">50%</span>
     <span class="wp-t0">${pts.length>1?'kickoff':''}</span>
     <span class="wp-t1">${pts.length>1?'now':''}</span>
   </div>`;

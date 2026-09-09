@@ -198,7 +198,7 @@ console.log(nl + '7. THE PANEL LABELS THE AXES AND NOTHING ELSE');
   const s2 = {}; s2[M.liveMKey(ME, OPP)] = [[t0, 20, 30], [t0 + 60, 55, 70]];
   const live = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
 
-  ok('the halfway line is called 50%', live.indexOf('>50%<') >= 0);
+  ok('the halfway line is not written on itself', live.indexOf('>50%<') < 0);
   ok('the ends are called what they are',
      live.indexOf('>kickoff<') >= 0 && live.indexOf('>now<') >= 0);
   ok('it does not caption itself over the graph', live.indexOf('win chance') < 0);
@@ -221,14 +221,14 @@ console.log(nl + '7. THE PANEL LABELS THE AXES AND NOTHING ELSE');
   const pre = M.wpGraphSVG(M.wpCurve({}, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
   ok('a pre-kickoff panel labels no ends at all',
      pre.indexOf('kickoff') < 0 && pre.indexOf('>now<') < 0, pre.slice(0, 240));
-  ok('but it still shows the halfway mark', pre.indexOf('>50%<') >= 0);
+  ok('and prints no percentage anywhere on the panel', /(>|\s)\d+%/.test(pre) === false);
   ok('and still names the line for a screen reader',
      /aria-label="MINE win probability/.test(pre));
 
   /* the Schedule drawer draws the same function shorter */
   const short = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS', { h: 84 });
   ok('a shorter panel is labelled the same way',
-     short.indexOf('>50%<') >= 0 && short.indexOf('win chance') < 0);
+     short.indexOf('>50%<') < 0 && short.indexOf('win chance') < 0);
 }
 
 console.log(nl + '8. THE MINUTE STAMPS COME BACK IN ORDER');
