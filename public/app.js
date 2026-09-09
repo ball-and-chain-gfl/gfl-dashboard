@@ -17482,20 +17482,12 @@ function sbWeekHTML(){
         ${pick.map(sbMarketHTML).join('')}
       </div></div>
     </div>`:'';
-  /* Its own fold, under the matchups and above the Pick 'Em, because it is one
-     question rather than a set of them. */
-  const duel=d.duel;
-  const duOpen=!!_sbOpenMk['wk-duel'];
-  const duelHTML=duel?`<div class="sb-market sb-fold sb-pickem${duOpen?' open':''}" data-mk="wk-duel">
-      <button class="sb-mhead" onclick="sbToggleMk('wk-duel')" aria-expanded="${duOpen}">
-        <span class="sb-mt"><i class="fa fa-user-check"></i>${duel.title}</span>
-        <span class="badge-info">head to head</span>
-        <i class="fa fa-chevron-down sb-mchev"></i>
-      </button>
-      <div class="sb-rows"><div class="sb-rows-in">
-        ${sbMarketHTML(duel)}
-      </div></div>
-    </div>`:'';
+  /* ONE FOLD, NOT TWO. This was wrapped in its own dropdown the way the Pick
+     'Em groups are, but that wrapper exists to gather five markets under one
+     heading -- and a wrapper around a single market whose title is the same
+     string just makes a manager open the same words twice to reach a price.
+     sbMarketHTML is already a fold with that title on it. */
+  const duelHTML=d.duel?sbMarketHTML(d.duel):'';
   const wkOpen=!!_sbOpenMk['wk-board'];
   return `<div class="sb-market sb-fold${wkOpen?' open':''}" data-mk="wk-board">
       <button class="sb-mhead" onclick="sbToggleMk('wk-board')" aria-expanded="${wkOpen}">
