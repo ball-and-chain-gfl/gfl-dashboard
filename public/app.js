@@ -3463,16 +3463,31 @@ function pollLogoOf(teamId){
    seventeen weeks crushed into 340 pixels or, worse, the page itself sliding
    under the thumb. */
 const POLL_WEEKS_MAX=17;
+const POLL_PLAYOFF_WEEKS=3;
+/* HOW LONG THE SEASON IS -- and the schedule is NOT the answer.
+
+   ESPN publishes the regular season the day a league is set up and does not
+   add the playoff brackets until seeding is known, so the largest
+   matchupPeriodId on the schedule reads 14 all autumn and only becomes 17 in
+   December. Laying the axis out from it drew a fourteen week chart for a
+   seventeen week season, which is the same shape of mistake as drawing only
+   the weeks already voted on -- an axis that grows on its own.
+
+   Regular season plus its playoff rounds is the rule liveWeekInfo already caps
+   on, and it is the same answer in September as in January. */
 function pollSeasonWeeks(){
-  const meta=_seasonMeta[ALL_SEASONS[ALL_SEASONS.length-1]];
-  let n=0;
+  const season=ALL_SEASONS[ALL_SEASONS.length-1];
+  const meta=_seasonMeta[season];
+  let n=regEndOf(season)+POLL_PLAYOFF_WEEKS;
+  /* once a season IS over its schedule really does carry those weeks, so a
+     league that ran longer than the rule says is not truncated by it */
   ((meta&&meta.schedule)||[]).forEach(m=>{
     const w=Number(m.matchupPeriodId)||0; if(w>n) n=w; });
-  /* a poll week past the end of the schedule still gets a column rather than
-     being drawn off the side of the chart */
+  /* and a poll week past all of that still gets a column rather than being
+     drawn off the side of the chart */
   const played=pollWeeks();
   return Math.max(played.length?played[played.length-1]:0,
-    (n>=8&&n<=20)?n:POLL_WEEKS_MAX);
+    (n>=8&&n<=22)?n:POLL_WEEKS_MAX);
 }
 function pollChartHTML(){
   const played=pollWeeks(); if(!played.length||!_teams.length) return '';

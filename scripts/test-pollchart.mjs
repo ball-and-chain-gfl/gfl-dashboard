@@ -15,6 +15,8 @@ import { lifter, assemble } from './lib/lift.mjs';
 
 const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'function teamInitials(name){',
+  'const REGULAR_SEASON_END=',
+  'function regEndOf(season){',
   'const pollWeeks=',
   'const POLL_RAMP=',
   'function pollRampColor(rank,n){',
@@ -23,6 +25,7 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'const pollTeam=',
   'function pollLogoOf(teamId){',
   'const POLL_WEEKS_MAX=',
+  'const POLL_PLAYOFF_WEEKS=',
   'function pollSeasonWeeks(){',
   'function pollChartHTML(){',
 ], ['pollChartHTML', 'pollRampColor', 'pollSeasonWeeks', 'pollColor', 'pollRankNow',
@@ -30,15 +33,18 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
 const proxyLogo=u=>null;
 let _polls={weeks:{}}, _teams=[], _franchises=[], _ownerMap={};
 let _seasonMeta={}; const ALL_SEASONS=['2026'];
-/* order is a list of team ids, best first, one per week */
-function setUp(orders,schedWeeks,nTeams){
+/* orders: {week: [teamId,...] best first}. regEnd is the regular season
+   length; schedMax is how far the SCHEDULE reaches, which in September is the
+   regular season and nothing more. */
+function setUp(orders,regEnd,nTeams,schedMax){
   const n=nTeams==null?12:nTeams;
   _teams=Array.from({length:n},(_,i)=>({id:i+1,name:'Team '+(i+1)}));
   _franchises=_teams.map(t=>({owner:'o'+t.id,name:t.name,logo:null}));
   _ownerMap={}; _teams.forEach(t=>{_ownerMap[t.id]='o'+t.id;});
+  const re=regEnd==null?14:regEnd;
   const sched=[];
-  for(let w=1;w<=(schedWeeks==null?17:schedWeeks);w++) sched.push({matchupPeriodId:w});
-  _seasonMeta={'2026':{schedule:sched}};
+  for(let w=1;w<=(schedMax==null?re:schedMax);w++) sched.push({matchupPeriodId:w});
+  _seasonMeta={'2026':{schedule:sched,regEnd:re}};
   _polls={weeks:{}};
   Object.entries(orders).forEach(([w,order])=>{
     _polls.weeks[w]={ballots:9,rank:order.map((id,i)=>({teamId:id,rank:i+1,avg:i+1.1}))};
@@ -124,7 +130,20 @@ console.log(nl + '2. A TEAM IS COLOURED BY WHERE IT SITS NOW');
 console.log(nl + '3. THE WHOLE SEASON IS DRAWN FROM WEEK ONE');
 {
   M.setUp({ 1: seq(12) });
-  ok('the season is as long as the schedule says', M.pollSeasonWeeks() === 17);
+  ok('a fourteen week regular season is a seventeen week chart',
+     M.pollSeasonWeeks() === 17, M.pollSeasonWeeks());
+
+  /* THE BUG THIS FIXES. ESPN publishes the regular season the day the league
+     is set up and does not add the playoff brackets until seeding is known --
+     so all autumn the schedule stops at 14, and reading the axis off it drew
+     a fourteen week chart for a seventeen week season. */
+  M.setUp({ 1: seq(12) }, 14, 12, 14);
+  ok('a schedule carrying no playoff rows yet still lays them out',
+     M.pollSeasonWeeks() === 17, M.pollSeasonWeeks());
+  M.setUp({ 1: seq(12) }, 14, 12, 17);
+  ok('and a finished season that has them reads the same',
+     M.pollSeasonWeeks() === 17);
+  M.setUp({ 1: seq(12) });
 
   const html = M.pollChartHTML();
   const weekLabels = (html.match(/text-anchor="middle" font-size="10"/g) || []).length;
@@ -158,21 +177,25 @@ console.log(nl + '4. IT KEEPS ITS OWN WIDTH AND THE PANEL SCROLLS');
   ok('and it is not width="100%" any more', html.indexOf('width="100%"') < 0);
   ok('it sits in the panel that scrolls', html.indexOf('class="poll-chart"') >= 0);
 
-  /* a shorter season is a narrower chart, which is how a 14 week league or an
-     old archived season stays honest */
+  /* a shorter season is a narrower chart, which is how an old archived season
+     with a ten week regular season stays honest */
   M.setUp({ 1: seq(12) }, 10);
+  ok('a ten week regular season is a thirteen week chart', M.pollSeasonWeeks() === 13);
   const short = M.pollChartHTML().match(/width="(\d+)"/);
-  ok('a ten week season draws narrower', Number(short[1]) < Number(w[1]),
-     short[1] + ' vs ' + w[1]);
+  ok('and it draws narrower', Number(short[1]) < Number(w[1]), short[1] + ' vs ' + w[1]);
 
-  /* a poll week past the end of the schedule still gets a column rather than
-     being drawn off the side */
+  /* a poll week past all of that still gets a column rather than being drawn
+     off the side */
   M.setUp({ 1: seq(12), 18: seq(12) }, 10);
-  ok('a week past the schedule still gets one', M.pollSeasonWeeks() === 18);
+  ok('a week past the end of the season still gets one', M.pollSeasonWeeks() === 18);
 
+  /* a nonsense regular season length falls back rather than drawing a chart
+     four pixels wide or four thousand */
   M.setUp({ 1: seq(12) }, 0);
-  ok('and with no schedule at all it falls back to seventeen',
-     M.pollSeasonWeeks() === M.POLL_WEEKS_MAX);
+  ok('a zero week season falls back to seventeen', M.pollSeasonWeeks() === 17);
+  M.setUp({ 1: seq(12) }, 99);
+  ok('and so does an absurd one', M.pollSeasonWeeks() === 17,
+     M.pollSeasonWeeks());
 }
 
 console.log(nl + '5. THE CREST RIDES THE FRONT OF THE LINE');
