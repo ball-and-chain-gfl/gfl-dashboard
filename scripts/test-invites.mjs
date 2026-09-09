@@ -69,6 +69,9 @@ return {
   inviteLapsed, canInviteOn, betInviteSeats, betCancellable,
   bucksBalance, bucksStaked, betsMine, INVITE_MAX,
   feed:()=>_bets.filter(b=>_me&&b.owner===_me.k1&&b.status==='invite'&&!inviteLapsed(b)).map(b=>b.id),
+  /* what renderMyBets files into a week card: betsMine, minus the cleared,
+     through the same betIsLive the money is counted with */
+  ledger:()=>betsMine().filter(b=>!b.hidden).filter(betIsLive).map(b=>b.id),
 };`;
 const api=new Function(harness)();
 
@@ -145,6 +148,36 @@ console.log('\n5b. AN INVITATION RAISED THIS WEEK IS LIVE THIS WEEK');
   eq('stamped with the week it was raised in, it is live',
      api.inviteLapsed(newWay), false);
   eq('and only the live one reaches the feed', api.feed(), ['i2']);
+}
+
+console.log('\n5c. A DECLINED OFFER IS NOT ONE OF YOUR BETS');
+{
+  /* The ledger dropped status 'invite' and kept everything else, so a DECLINED
+     invitation was filed into its week and drawn as a ticket -- carrying the
+     original's legs and stake, and printing "In with <them>" underneath from
+     invitedBy. The league was told you were in on a parlay you had turned
+     down. */
+  const own   = B({id:'own',  owner:'bfl', wk:'W2', stake:100});
+  const took  = B({id:'took', owner:'bfl', wk:'W2', stake:50, status:'open',
+                   invitedBy:'kunk', srcBet:'s1'});
+  const said  = B({id:'said', owner:'bfl', wk:'W2', stake:25, status:'declined',
+                   invitedBy:'mm',   srcBet:'s2'});
+  const asked = B({id:'asked',owner:'bfl', wk:'W2', stake:10, status:'invite',
+                   invitedBy:'mm',   srcBet:'s3'});
+  api.set([own,took,said,asked],ME,'W2',false);
+
+  eq('the declined one is not in the ledger', api.ledger().indexOf('said'), -1);
+  eq('your own bet still is',                 api.ledger().indexOf('own')>=0, true);
+  eq('and one you accepted still is',         api.ledger().indexOf('took')>=0, true);
+  eq('a pending invitation is not a bet yet', api.ledger().indexOf('asked'), -1);
+  eq('so the week holds two, not four',       api.ledger().length, 2);
+  /* it belongs in the invitations section instead, which is where it can be
+     answered -- and the declined one is not there either */
+  eq('the pending one is what the feed offers', api.feed(), ['asked']);
+
+  /* and none of it was ever money */
+  eq('nothing declined was staked',   api.bucksStaked(), 150);
+  eq('so the balance is untouched by it', api.bucksBalance(), 1000-150);
 }
 
 console.log('\n6. an invitation dies with the bet it came from');

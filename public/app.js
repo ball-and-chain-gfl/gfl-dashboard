@@ -16700,8 +16700,19 @@ function myBetsHTML(){
       <i class="fa fa-broom"></i> Clear settled (${betsClearable().length})</button></div>`:''}`;
   if(!mine.length) return head+`<div class="sb-mine-empty"><i class="fa fa-receipt"></i>
     <div>No bets yet. Tap any price to build a slip.</div></div>`;
+  /* ── A DECLINED OFFER IS NOT ONE OF YOUR BETS ─────────────────────────────
+     This dropped status 'invite' — the pending ones, which have their own
+     section above — and kept everything else, so a DECLINED invitation was
+     filed into its week and drawn as a ticket. It carried the original's legs
+     and stake, and because it still holds invitedBy it printed "In with
+     <them>" underneath: the league was told you were in on a parlay you had
+     just turned down.
+
+     betIsLive is the predicate for exactly this and already says so where the
+     money is counted — an invitation is an offer, not a wager, and a declined
+     one never was. The ledger says the same thing now. */
   const weeks={};
-  mine.filter(b=>b.status!=='invite').forEach(b=>{(weeks[b.wk]||(weeks[b.wk]=[])).push(b);});
+  mine.filter(betIsLive).forEach(b=>{(weeks[b.wk]||(weeks[b.wk]=[])).push(b);});
   const cur=bucksWeekKey();
   const cards=Object.keys(weeks).sort().reverse().map(wk=>{
     const list=weeks[wk].map(b=>{
