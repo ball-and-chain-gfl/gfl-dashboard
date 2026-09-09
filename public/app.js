@@ -16447,7 +16447,20 @@ async function sbSendInvite(betId,to){
   const id=`inv-${betId}-${to}`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
   const body=fsOut({
     owner:to, team:'', season:String(src.season||sbSeason()),
-    wk:src.wk, ts:String(Date.now()),
+    /* THE WEEK IT IS RAISED IN, NOT THE WEEK THE BET WAS PLACED IN.
+       This copied src.wk, and inviteLapsed compares wk against the CURRENT
+       bucks week — so any invitation sent in a later week than the bet it came
+       from was lapsed the instant it was written and never appeared for the
+       person invited. Nobody was told: the sender saw it sent, the recipient
+       had nothing, and the document sat in the collection looking fine.
+
+       It is not a rare corner. A parlay placed on the Monday and opened up to
+       somebody on the Wednesday crosses the Tuesday reset, which is exactly how
+       four live invitations went missing in 2026. What lapsing is FOR is
+       stopping a stale invitation being accepted against a decided market, and
+       the guard that actually does that is the one below it — the invitation
+       dies with its source bet. */
+    wk:bucksWeekKey(), ts:String(Date.now()),
     stake:String(src.stake), odds:String(src.odds), payout:String(src.payout),
     legs:JSON.stringify(src.legs||[]),
     status:'invite', settledTs:'0', ret:'0',

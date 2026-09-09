@@ -125,6 +125,28 @@ console.log('\n5. a pending invitation lapses at the reset and leaves the feed')
   eq('gone from the feed', api.feed(), []);
 }
 
+console.log('\n5b. AN INVITATION RAISED THIS WEEK IS LIVE THIS WEEK');
+{
+  /* The bug this pins: sbSendInvite stamped the invitation with the SOURCE
+     bet's week rather than the week it was being raised in. A parlay placed on
+     the Monday and opened up to somebody on the Wednesday crosses the Tuesday
+     reset, so the invitation arrived already lapsed and the person invited
+     never saw it. Four of them went missing that way.
+
+     Both invitations below come off the same week-1 bet. The first is stamped
+     the old way and is dead on arrival; the second is stamped the way it ships
+     now and is answerable. */
+  const src=B({id:'src',owner:'kunk',wk:'W1',stake:300});
+  const oldWay=B({id:'i1',owner:'bfl',wk:'W1',stake:300,status:'invite',invitedBy:'kunk',srcBet:'src'});
+  const newWay=B({id:'i2',owner:'bfl',wk:'W2',stake:300,status:'invite',invitedBy:'kunk',srcBet:'src'});
+  api.set([src,oldWay,newWay],ME,'W2',false);
+  eq('stamped with the source bet week, it is lapsed on arrival',
+     api.inviteLapsed(oldWay), true);
+  eq('stamped with the week it was raised in, it is live',
+     api.inviteLapsed(newWay), false);
+  eq('and only the live one reaches the feed', api.feed(), ['i2']);
+}
+
 console.log('\n6. an invitation dies with the bet it came from');
 {
   const inv=B({id:'inv',owner:'bfl',wk:'W2',stake:300,status:'invite',invitedBy:'kunk',srcBet:'src'});
