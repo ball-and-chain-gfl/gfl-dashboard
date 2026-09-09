@@ -15,10 +15,19 @@ name: Poll the live scoreboard
 #
 # The script gates itself on top of this: the first thing it asks ESPN is
 # whether any game is actually live, and if not it stops before touching the
-# matchup feed or the database. So a window that turns out to be empty costs one
-# small request, and -- more to the point -- writes no reading. A point recorded
-# while nothing is moving is a point on the graph at a moment nothing happened,
-# and enough of them flatten the shape of an afternoon into a staircase.
+# matchup feed or the database. Then it gates again per matchup, on whether that
+# matchup has anybody in a starting lineup on the field. So a window that turns
+# out to be empty costs one small request and writes nothing, and a manager
+# whose last starter finished on Thursday stops accruing points on Sunday.
+#
+# ── WHY EACH RUN LOOPS ───────────────────────────────────────────────────────
+# Readings go down on a five minute grid, and a cron cannot go finer than five
+# minutes -- so a run that GitHub delivers late (which is most of them, under
+# load) lands in the wrong bucket and the one it was meant to fill is simply
+# missing. Each scheduled run therefore stays awake for three and a half
+# minutes, polling every minute, which covers its own slice whenever inside the
+# window it actually starts. It always finishes inside the five, so runs cannot
+# stack up behind the concurrency group.
 on:
   schedule:
     - cron: '*/5 0-4 * * 4'      # Wed night ET  (openers)
@@ -56,6 +65,8 @@ jobs:
           node-version: '20'
       - name: Poll
         env:
-          LOOP: ${{ github.event.inputs.loop || '0' }}
+          # scheduled runs cover their own five minutes; a manual run can ask
+          # for a long window (a whole Sunday) by passing seconds
+          LOOP: ${{ github.event.inputs.loop || '210' }}
           FORCE: ${{ github.event.inputs.force == 'true' && '1' || '' }}
         run: node scripts/poll-live.mjs

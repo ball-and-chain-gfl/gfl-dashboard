@@ -21,8 +21,14 @@
  * nothing happened, and enough of those turn the shape of an afternoon into a
  * staircase of flat steps.
  *
- * Even when it does run, a reading is only appended if a score actually CHANGED
- * since the last one, which is the same rule livePoll uses.
+ * WHAT IT RECORDS, it records on a clock rather than on events: one reading per
+ * five minute bucket for as long as a matchup has somebody in its starting
+ * lineup on the field, whether or not the score moved. A stretch of two evenly
+ * matched teams trading nothing is a real part of the story of a matchup and
+ * has to take up its real share of the panel. The rule, the bucket size and
+ * the on-the-field test are all lifted out of app.js below rather than
+ * restated, so the browser and this cannot disagree about them -- see WHEN A
+ * READING IS WORTH TAKING over there.
  */
 import fs from 'fs';
 import { lifter, assemble } from './lib/lift.mjs';
@@ -49,7 +55,17 @@ const app = assemble(grab, [
   'function weeksOf(schedule){',
   'function weekOver(byWeek,w){',
   'const liveMKey=',
-], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey']);
+  /* the recording rule, so it is the same rule in both places */
+  'const BENCH_SLOTS=',
+  'const NFL_TEAMS=',
+  'const LIVE_BUCKET_MIN=',
+  'const liveBucket=',
+  'const liveProTeams=',
+  'const liveSideOn=',
+  'const liveMatchupOn=',
+  'function liveNote(arr,t,a,b){',
+], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
+    'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote']);
 
 const DOC = k => `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   + `/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
@@ -139,8 +155,11 @@ async function once() {
   const series = await loadSeries(key);
   if (series == null) { console.log(`${stamp}  could not read ${key} — skipping`); return 'skip'; }
 
-  const t = Math.round(Date.now() / 60000);        // minute resolution, as livePoll writes it
-  let changed = 0;
+  /* the pro teams with a game in progress this minute, straight off the digest
+     that got us past the gate above -- no second request for it */
+  const onField = app.liveProTeams(state);
+  const t = app.liveBucket(Date.now());
+  let changed = 0, on = 0;
   games.forEach(m => {
     const ao = owners[m.home.teamId], bo = owners[m.away.teamId];
     if (!ao || !bo) return;
@@ -148,19 +167,28 @@ async function once() {
     const aFirst = [ao, bo].sort()[0] === ao;
     const a = aFirst ? (m.home.totalPoints || 0) : (m.away.totalPoints || 0);
     const b = aFirst ? (m.away.totalPoints || 0) : (m.home.totalPoints || 0);
-    if (a === 0 && b === 0) return;                // nothing has happened in that game yet
-    const arr = series[k] || (series[k] = []);
-    const prev = arr[arr.length - 1];
-    if (!prev || prev[1] !== a || prev[2] !== b) { arr.push([t, a, b]); changed++; }
+    const arr = series[k];
+    const live = app.liveMatchupOn(m, onField);
+    if (live) on++;
+    /* a moved score is the second way in: the stat correction that lands after
+       the last whistle, and the minutes when nobody looks live but is */
+    const moved = !!arr && arr.length
+      && (arr[arr.length - 1][1] !== a || arr[arr.length - 1][2] !== b);
+    if (!live && !moved) return;
+    if (app.liveNote(arr || (series[k] = []), t, a, b)) changed++;
   });
 
-  if (!changed) { console.log(`${stamp}  week ${week} live, no score moved`); return 'nochange'; }
+  if (!changed) {
+    console.log(`${stamp}  week ${week}: ${on} matchup${on === 1 ? '' : 's'} on the field`
+      + `, nothing new to record`);
+    return 'nochange';
+  }
   /* a merge writer has to leave the order it found: a browser's minutes and
      these can interleave, and the curve is drawn in array order */
   Object.keys(series).forEach(k => series[k].sort((x, y) => x[0] - y[0]));
   if (DRY) { console.log(`${stamp}  week ${week}: ${changed} moved (DRY RUN)`); return 'dry'; }
   const ok = await saveSeries(key, series);
-  console.log(`${stamp}  week ${week}: ${changed} matchup${changed === 1 ? '' : 's'} moved`
+  console.log(`${stamp}  week ${week}: ${on} on the field, ${changed} recorded`
     + `, ${Object.keys(series).length} tracked — ${ok ? 'written' : 'WRITE FAILED'}`);
   return ok ? 'wrote' : 'failed';
 }

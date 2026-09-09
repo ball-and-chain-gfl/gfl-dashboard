@@ -3576,10 +3576,23 @@
        is given, and a curve stretched horizontally still reads correctly —
        what matters is where it crosses the middle and how steeply. */
     .wp-wrap{position:relative;margin:0 0 4px;}
+    /* The y axis sits in a gutter LEFT of the plot, never over it -- a scale
+       drawn on top of the curve is a scale competing with the thing it
+       measures. The gutter is padding on the wrap, which shifts the svg but
+       not the absolutely positioned labels, so those are placed against
+       --wpax by hand. The rule down its right edge is the axis itself. */
+    .wp-ax{position:absolute;left:0;top:0;bottom:0;
+      border-right:1px solid rgba(255,255,255,0.10);}
+    .wp-ax span{position:absolute;right:6px;transform:translateY(-50%);
+      font-family:'Inter',sans-serif;font-size:9px;line-height:1;letter-spacing:.02em;
+      color:var(--text3);font-variant-numeric:tabular-nums;pointer-events:none;}
     /* height comes from the viewBox, inline — see wpGraphSVG. This carried a
        fixed 96px and silently stretched every panel that asked for another. */
     .wp-svg{display:block;width:100%;overflow:visible;}
-    .wp-mid{stroke:rgba(255,255,255,0.18);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke;}
+    /* The even mark. Longer dashes and a little more contrast than it used to
+       carry, because the curve spends a lot of a close matchup sitting exactly
+       on top of it -- at 3 3 the two were one line whenever that happened. */
+    .wp-mid{stroke:rgba(255,255,255,0.24);stroke-width:1;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;}
     .wp-line{fill:none;stroke-width:2.2;vector-effect:non-scaling-stroke;
       stroke-linejoin:round;stroke-linecap:round;}
     .wp-line.up{stroke:var(--green);} .wp-line.dn{stroke:var(--red);}
@@ -3592,7 +3605,7 @@
     .wp-wrap>span{position:absolute;font-family:'Inter',sans-serif;pointer-events:none;
       color:var(--text3);font-size:10px;letter-spacing:.02em;line-height:1;}
     .wp-who{top:4px;left:6px;color:var(--text2)!important;font-size:11px;font-weight:600;}
-    .wp-t0{bottom:3px;left:6px;} .wp-t1{bottom:3px;right:6px;}
+    .wp-t0{bottom:3px;left:calc(var(--wpax,0px) + 6px);} .wp-t1{bottom:3px;right:6px;}
     .wp-key{display:flex;gap:14px;align-items:center;justify-content:center;
       font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);margin:6px 0 4px;}
     .wp-key i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;

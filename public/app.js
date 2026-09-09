@@ -6416,6 +6416,73 @@ async function liveSaveSeries(key,series){
     return c.ok;
   }catch(e){ return false; }
 }
+/* ── WHEN A READING IS WORTH TAKING ──────────────────────────────
+   The curve is meant to read as the matchup retold. If the two of you were
+   level for three hours then the line should be level for three hours' worth
+   of panel, and that only holds if the readings are TIME. For a long while
+   they were not: a minute went in when a score MOVED and at no other moment,
+   so an hour of two evenly matched teams trading nothing collapsed into a
+   single straight segment, while a frantic ninety seconds of touchdowns spread
+   itself over a third of the width. The panel plots its points at equal
+   spacing; it is the points that have to be equally spaced in time.
+
+   So a reading is taken on a fixed FIVE MINUTE GRID whether or not the score
+   moved, for as long as the matchup has somebody on the field. Both writers --
+   the browser on its ten second timer, the cron poller on its five minute one
+   -- floor the clock to the same grid and hold at most one reading per bucket,
+   so they converge on one series instead of each laying down its own cadence.
+
+   AND ONLY WHILE SOMEBODY IS PLAYING. A reading taken at four in the morning
+   on a Friday is a point on the graph at a moment nothing could possibly have
+   happened, and enough of them bury Sunday afternoon under flat line. The gate
+   is per matchup and it is literal: does either side have a player in its
+   STARTING lineup whose NFL team is in a game that is in progress right now. A
+   manager whose last starter finished on Thursday night stops accruing width
+   on Sunday, which is right -- that matchup was over on Thursday.
+
+   What falls out of it is an x-axis of football PLAYED rather than of calendar.
+   The sixty-odd dead hours between the Thursday night game and the Sunday
+   window are one step wide, because nothing was recorded across them. */
+const LIVE_BUCKET_MIN=5;
+const liveBucket=ms=>Math.floor(ms/(LIVE_BUCKET_MIN*60000))*LIVE_BUCKET_MIN;
+/* the pro teams with a game actually in progress, out of the nflstate digest */
+const liveProTeams=state=>{
+  const on=new Set();
+  ((state&&state.games)||[]).forEach(g=>{
+    if(g&&g.s==='in'){ if(g.ht) on.add(g.ht); if(g.at) on.add(g.at); }
+  });
+  return on;
+};
+/* Is anybody in this side's STARTING lineup on the field. NFL_TEAMS is
+   declared much further down the file and is read at call time for the same
+   reason wpSd reads SCHED_SD that way -- naming it up here at load is a dead
+   page rather than a wrong answer. */
+const liveSideOn=(side,on)=>{
+  if(!on||!on.size) return false;
+  const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
+  return es.some(e=>{
+    if(!e||BENCH_SLOTS.includes(e.lineupSlotId)) return false;
+    const ab=NFL_TEAMS[Number((((e.playerPoolEntry||{}).player)||{}).proTeamId)||0];
+    return !!ab&&on.has(ab);
+  });
+};
+const liveMatchupOn=(m,on)=>liveSideOn(m&&m.home,on)||liveSideOn(m&&m.away,on);
+/* Put one reading in the bucket it belongs to; answers whether anything moved.
+
+   Two watchers can land in the same five minutes holding different scores. The
+   fuller look is taken as the later one: inside a window that short points go
+   up far more often than a correction takes them back, and either choice is
+   within the noise of a single bucket. A correction that does come down is
+   picked up by the NEXT bucket, which is where it reads correctly anyway. */
+function liveNote(arr,t,a,b){
+  const prev=arr[arr.length-1];
+  if(prev&&prev[0]>=t){
+    if(prev[0]===t&&(a+b)>(prev[1]+prev[2])){ prev[1]=a; prev[2]=b; return true; }
+    return false;
+  }
+  arr.push([t,a,b]);
+  return true;
+}
 /* one poll: read the live scoreboard, append anything that moved, redraw */
 async function livePoll(){
   if(_liveBusy) return; _liveBusy=true;
@@ -6438,7 +6505,16 @@ async function livePoll(){
       _liveSeries=stored||{};
     }
     _liveInfo={...info,key,games};
-    const t=Math.round(Date.now()/60000);          // minute resolution is plenty
+    /* who is actually on the field. liveTick has almost always just asked for
+       this on its way here; it is fetched directly only when something called
+       livePoll without one -- the first poll of a session, or a forced one. */
+    let st=(_nflGames&&Date.now()-_nflSeen<NFL_QUIET_MS)?_nflGames:null;
+    if(!st){
+      st=await nflState();
+      if(st){ _nflGames=st; _nflSeen=Date.now(); _nflLive=!!st.anyLive; }
+    }
+    const onField=liveProTeams(st);
+    const t=liveBucket(Date.now());               // see WHEN A READING IS WORTH TAKING
     let changed=false;
     games.forEach(m=>{
       const ao=owners[m.home.teamId], bo=owners[m.away.teamId];
@@ -6447,10 +6523,17 @@ async function livePoll(){
       const aFirst=[ao,bo].sort()[0]===ao;
       const a=aFirst?(m.home.totalPoints||0):(m.away.totalPoints||0);
       const b=aFirst?(m.away.totalPoints||0):(m.home.totalPoints||0);
-      if(a===0&&b===0) return;                     // nothing has happened yet
-      const arr=_liveSeries[k]||(_liveSeries[k]=[]);
-      const prev=arr[arr.length-1];
-      if(!prev||prev[1]!==a||prev[2]!==b){ arr.push([t,a,b]); changed=true; }
+      const arr=_liveSeries[k];
+      const on=liveMatchupOn(m,onField);
+      /* The score moving is kept as a second way in. It covers the stat
+         correction that lands well after the last whistle, and the minutes
+         when the digest cannot be reached at all and nobody looks live. */
+      const moved=!!arr&&arr.length&&(arr[arr.length-1][1]!==a||arr[arr.length-1][2]!==b);
+      /* Nothing on the field and nothing moved is not a moment worth a point.
+         It is also what a matchup looks like before it has kicked off, which
+         is why no empty series is left behind for one. */
+      if(!on&&!moved) return;
+      if(liveNote(arr||(_liveSeries[k]=[]),t,a,b)) changed=true;
     });
     if(changed){ _liveDirty=true; _liveChanged=Date.now(); }
     if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);
@@ -6475,8 +6558,16 @@ async function liveFlush(key){
     if(remote){
       Object.entries(remote).forEach(([k,arr])=>{
         const mine=_liveSeries[k]||[];
-        const seen=new Set(mine.map(p=>p.join(',')));
-        arr.forEach(p=>{ if(!seen.has(p.join(','))) mine.push(p); });
+        /* One reading per bucket, whoever wrote it. Merging on the whole triple
+           let two watchers each keep their own copy of the same five minutes,
+           and the curve then stepped twice at one moment. Same tie-break as
+           liveNote: the fuller look inside a bucket is the later one. */
+        const at={}; mine.forEach(p=>{ at[p[0]]=p; });
+        arr.forEach(p=>{
+          const cur=at[p[0]];
+          if(!cur){ at[p[0]]=p; mine.push(p); }
+          else if((p[1]+p[2])>(cur[1]+cur[2])){ cur[1]=p[1]; cur[2]=p[2]; }
+        });
         mine.sort((x,y)=>x[0]-y[0]);
         _liveSeries[k]=mine;
       });
@@ -6617,22 +6708,29 @@ async function wpEnsureSeries(season,week){
    coloured differently because "60% down from 90%" and "60% up from 20%" are
    the same number and not the same story — the shape has to carry that. */
 /* ── LABELLING ───────────────────────────────────────────────────────────────
-   The panel carries only what it cannot do without: the two ends of the
-   afternoon, named. The halfway mark used to be written on itself -- a "50%"
-   chip on the dashed centre line -- and it sat inches from a headline reading
-   76%, so it read as the graph disagreeing with its own number rather than as
-   an axis. The dashed line says even on its own. Whose line it is
-   comes from the key underneath, which has to say it anyway to explain the two
-   colours -- saying it a second time inside the panel put a caption over the
-   graph that read as part of the data. There is nothing to label before
-   kickoff, so nothing is labelled.
+   THE Y AXIS IS AN AXIS NOW. There was a "50%" chip floating on the dashed
+   centre line and nothing else, and with no 100% and no 0% to sit between it
+   did not read as a scale -- it read as a second number, sitting inches under
+   a headline that said 76% and appearing to contradict it. So it was pulled,
+   and then the dashed line had nothing saying what it was.
 
-   The labels are HTML positioned OVER the svg, not text inside it. The svg is
-   drawn with preserveAspectRatio="none" so the curve fills whatever width the
-   panel has, and that stretch applies to everything in the viewBox - text put
-   in there comes out smeared horizontally by however wide the container
-   happens to be. Positioned in percentages, so the same labels are right at
-   96px on the Forecast and at 84px in the Schedule drawer.
+   Both problems are the same problem: half a scale. The panel now carries the
+   whole one -- 100% at the top of the plot, 50% on the midline, 0% at the
+   bottom -- in a gutter to the LEFT of the curve rather than on top of it.
+   Three numbers in a column beside a chart are unmistakably an axis, the
+   dashed line through the middle of them is unmistakably the even mark, and
+   neither can be mistaken for the value of the line.
+
+   THE GUTTER IS PADDING ON THE WRAP. That moves the svg across and leaves the
+   absolutely positioned labels where they were, which is why the two ends of
+   the afternoon are placed against --wpax rather than against the panel edge.
+
+   None of these labels are inside the svg. It is drawn preserveAspectRatio
+   ="none" so the curve fills whatever width the panel has, and that stretch
+   applies to everything in the viewBox -- text put in there comes out smeared
+   horizontally by however wide the container happens to be. The axis labels
+   are placed in the svg's own pixels instead, which the inline height makes
+   exact: y() is the same number in the viewBox and on the screen.
 
    The midline really is at 50% of the box: y(0.5) is PADT + 0.5*(H-PADT-PADB),
    and with the two pads equal that is exactly half. */
@@ -6646,6 +6744,9 @@ function wpGraphSVG(pts,abA,abB,opt){
      drawer asked for 84 and got 96, stretching its curve vertically by 14%.
      The viewBox is the single source of the panel's height now. */
   const o=opt||{}, W=300, H=o.h||132, PADT=8, PADB=8;
+  /* room for "100%" at 9px, right-aligned against the axis rule with 6px of
+     air on each side. Narrow enough that a 375px phone keeps 300px of plot. */
+  const AXW=30;
   if(!pts||!pts.length) return '';
   /* One point is a whole game's worth of information before kickoff — the line
      the projection opens on — so it is drawn flat across the panel rather than
@@ -6659,7 +6760,10 @@ function wpGraphSVG(pts,abA,abB,opt){
   const last=pts2[n-1], pct=Math.round(last.p*100);
   const up=last.p>=0.5;
   const uid='wp'+Math.random().toString(36).slice(2,8);
-  return `<div class="wp-wrap">
+  const axis=[[1,'100%'],[0.5,'50%'],[0,'0%']]
+    .map(([v,s])=>`<span style="top:${y(v).toFixed(1)}px">${s}</span>`).join('');
+  return `<div class="wp-wrap" style="padding-left:${AXW}px;--wpax:${AXW}px">
+    <div class="wp-ax" style="width:${AXW}px">${axis}</div>
     <svg class="wp-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px"
       preserveAspectRatio="none" role="img"
       aria-label="${abA} win probability, ${pct} percent">
@@ -6688,7 +6792,7 @@ function wpGraphSVG(pts,abA,abB,opt){
    /api/espn?type=nflstate returns a digest of the whole board in ~1.7KB. */
 const NFL_LIVE_MS=10000;    // something is being played: watch closely
 const NFL_QUIET_MS=120000;  // nothing kicked off: just keep an eye out
-let _nflSig=null,_nflLive=false,_nflSeen=0;
+let _nflSig=null,_nflLive=false,_nflSeen=0,_nflGames=null;
 async function nflState(){
   try{
     const r=await fetch(`${BASE}?type=nflstate`,{cache:'no-store'});
@@ -6701,7 +6805,9 @@ async function liveTick(force){
   const st=await nflState();
   let moved=!!force;
   if(st){
-    _nflLive=!!st.anyLive; _nflSeen=Date.now();
+    /* the whole digest is kept, not just the flag: livePoll needs the per-game
+       states to work out which matchups have anybody on the field */
+    _nflLive=!!st.anyLive; _nflSeen=Date.now(); _nflGames=st;
     if(st.sig!==_nflSig){ if(_nflSig!==null) moved=true; _nflSig=st.sig; }
   }else if(force===undefined){
     moved=true;                       // digest unavailable — fall back to polling directly

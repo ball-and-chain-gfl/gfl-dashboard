@@ -23,7 +23,16 @@ const M = assemble(grab, [
   'function wpCurve(',
   'function wpGraphSVG(',
   'const liveMKey=',
-], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf'], `
+  'const BENCH_SLOTS=',
+  'const NFL_TEAMS=',
+  'const LIVE_BUCKET_MIN=',
+  'const liveBucket=',
+  'const liveProTeams=',
+  'const liveSideOn=',
+  'const liveMatchupOn=',
+  'function liveNote(arr,t,a,b){',
+], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf',
+    'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn', 'liveNote'], `
 const sbZ=x=>x;
 `);
 
@@ -187,28 +196,36 @@ console.log(nl + '6. THE DRAWN LINE');
      M.wpGraphSVG([], 'A', 'B') === '');
 }
 
-console.log(nl + '7. THE PANEL LABELS THE AXES AND NOTHING ELSE');
+console.log(nl + '7. THE PANEL CARRIES A WHOLE Y AXIS AND NOTHING ELSE');
 {
-  /* It used to caption itself -- "<TEAM> win chance" across the top left -- and
-     the headline sat between the two abbreviations. Both said what the key
-     underneath already has to say to explain the two colours, so the panel was
-     narrating over its own data. What is left is the axes: the halfway mark,
-     and the two ends of the afternoon. */
+  /* Three numbers in a column beside the plot are an axis. ONE number floating
+     on the midline was not -- it read as a second value disagreeing with the
+     headline above it, which is exactly the complaint that got it removed. So
+     50% only ever appears with 100% and 0% around it. */
   const t0 = 28000000;
   const s2 = {}; s2[M.liveMKey(ME, OPP)] = [[t0, 20, 30], [t0 + 60, 55, 70]];
   const live = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
 
-  ok('the halfway line is not written on itself', live.indexOf('>50%<') < 0);
-  ok('the ends are called what they are',
+  ok('the scale runs top to bottom',
+     live.indexOf('>100%<') >= 0 && live.indexOf('>50%<') >= 0 && live.indexOf('>0%<') >= 0);
+  ok('50% never appears without the ends of the scale around it',
+     live.indexOf('>50%<') < 0 || (live.indexOf('>100%<') >= 0 && live.indexOf('>0%<') >= 0));
+  ok('the ends of the afternoon are called what they are',
      live.indexOf('>kickoff<') >= 0 && live.indexOf('>now<') >= 0);
   ok('it does not caption itself over the graph', live.indexOf('win chance') < 0);
   ok('and neither abbreviation is printed on the panel',
      live.indexOf('>MINE<') < 0 && live.indexOf('>THEIRS<') < 0);
 
+  /* the axis is a GUTTER, not an overlay: a scale drawn on top of the curve is
+     a scale competing with the thing it measures */
+  ok('the plot is inset by the gutter', /padding-left:\d+px/.test(live), live.slice(0, 220));
+  ok('and the gutter width is published for the labels that need it',
+     live.indexOf('--wpax:') >= 0);
+
   /* the accessible name is NOT a visible caption and still has to identify the
      line -- a screen reader has no key to read */
   ok('the screen reader is still told whose line it is',
-     /aria-label="MINE win probability, \d+ percent"/.test(live), live.slice(0, 200));
+     /aria-label="MINE win probability, \d+ percent"/.test(live), live.slice(0, 300));
 
   /* THE LABELS ARE NOT INSIDE THE SVG. It is drawn preserveAspectRatio="none"
      so the curve fills the panel, and that stretch smears any text in the
@@ -217,18 +234,112 @@ console.log(nl + '7. THE PANEL LABELS THE AXES AND NOTHING ELSE');
   ok('no text element inside the stretched viewBox', svgOnly.indexOf('<text') < 0,
      svgOnly.slice(0, 160));
 
-  /* nothing has happened yet, so there is nothing to point at */
+  /* THE AXIS LINES UP WITH WHAT IT MEASURES. The svg carries its height inline,
+     so a label placed at y(p) px sits exactly on the p the curve would. */
+  const H = Number(live.match(/style="height:(\d+)px"/)[1]);
+  const at = t => Number(live.match(new RegExp('top:([0-9.]+)px">' + t)) [1]);
+  ok('100% sits at the top of the plot, not the top of the box',
+     at('100%') > 0 && at('100%') < H * 0.12, at('100%') + ' of ' + H);
+  ok('0% sits at the bottom of the plot', at('0%') > H * 0.88 && at('0%') < H, at('0%'));
+  ok('and 50% is exactly halfway between them',
+     Math.abs(at('50%') - (at('100%') + at('0%')) / 2) < 0.1,
+     at('100%') + ' / ' + at('50%') + ' / ' + at('0%'));
+
+  /* nothing has kicked off, so there are no ends to name -- but a chart with no
+     scale is not a chart, so the axis stays */
   const pre = M.wpGraphSVG(M.wpCurve({}, PROJ, ME, OPP, 0), 'MINE', 'THEIRS');
-  ok('a pre-kickoff panel labels no ends at all',
-     pre.indexOf('kickoff') < 0 && pre.indexOf('>now<') < 0, pre.slice(0, 240));
-  ok('and prints no percentage anywhere on the panel', /(>|\s)\d+%/.test(pre) === false);
+  ok('a pre-kickoff panel names no ends at all',
+     pre.indexOf('kickoff') < 0 && pre.indexOf('>now<') < 0, pre.slice(0, 300));
+  ok('but it still carries the whole scale',
+     pre.indexOf('>100%<') >= 0 && pre.indexOf('>50%<') >= 0 && pre.indexOf('>0%<') >= 0);
   ok('and still names the line for a screen reader',
      /aria-label="MINE win probability/.test(pre));
 
-  /* the Schedule drawer draws the same function shorter */
+  /* the Schedule drawer draws the same function shorter, and the axis has to
+     follow the viewBox rather than a number pinned in the stylesheet */
   const short = M.wpGraphSVG(M.wpCurve(s2, PROJ, ME, OPP, 0), 'MINE', 'THEIRS', { h: 84 });
+  const sh = Number(short.match(/style="height:(\d+)px"/)[1]);
+  const sAt = t => Number(short.match(new RegExp('top:([0-9.]+)px">' + t))[1]);
   ok('a shorter panel is labelled the same way',
-     short.indexOf('>50%<') < 0 && short.indexOf('win chance') < 0);
+     short.indexOf('>100%<') >= 0 && short.indexOf('win chance') < 0);
+  ok('and its axis is scaled to it, not to the tall one',
+     sh === 84 && sAt('0%') < at('0%') && Math.abs(sAt('50%') - 42) < 0.1,
+     sh + ' / ' + sAt('50%'));
+}
+
+console.log(nl + '7b. WHEN A READING IS WORTH TAKING');
+{
+  /* THE COMPLAINT THIS ANSWERS. Readings used to go down only when a score
+     MOVED, so an hour of two evenly matched teams trading nothing came out as
+     one straight segment and a frantic ninety seconds of touchdowns spread
+     over a third of the panel. The panel plots at equal spacing, so the points
+     have to be equally spaced in time for the shape to be a retelling. */
+  ok('the grid is five minutes', M.LIVE_BUCKET_MIN === 5);
+  const at = s => M.liveBucket(Date.parse('2026-09-13T' + s + 'Z'));
+  ok('a bucket holds five minutes', at('17:01:00') === at('17:04:59'));
+  ok('and the next five are the next bucket', at('17:05:00') - at('17:01:00') === 5);
+  ok('the stamps are still minutes since the epoch, as the archive holds them',
+     at('17:05:00') === Math.floor(Date.parse('2026-09-13T17:05:00Z') / 60000));
+
+  /* one reading per bucket, whoever writes it */
+  const arr = [];
+  ok('a fresh bucket is recorded', M.liveNote(arr, at('17:01:00'), 0, 0) === true);
+  ok('and 0-0 counts: the kickoff of a game nobody has scored in yet is a real moment',
+     arr.length === 1 && arr[0][1] === 0);
+  ok('the same bucket again with the same score is not a second point',
+     M.liveNote(arr, at('17:04:00'), 0, 0) === false && arr.length === 1);
+  ok('the same bucket with a fuller look replaces it in place',
+     M.liveNote(arr, at('17:04:00'), 6.4, 0) === true && arr.length === 1 && arr[0][1] === 6.4);
+  ok('a stale look at the same bucket does not undo it',
+     M.liveNote(arr, at('17:04:00'), 2, 0) === false && arr[0][1] === 6.4);
+  ok('a bucket older than the last one is dropped, not spliced in',
+     M.liveNote(arr, at('16:40:00'), 99, 99) === false && arr.length === 1);
+
+  /* THE POINT OF THE WHOLE CHANGE: a flat score in a new bucket is still a
+     point. Two evenly matched teams get width for the time they spent level. */
+  ok('a NEW bucket with an unchanged score is recorded anyway',
+     M.liveNote(arr, at('17:06:00'), 6.4, 0) === true && arr.length === 2);
+  ok('so a level hour is twelve points wide, not one',
+     (() => {
+       const a2 = []; let t = at('17:00:00');
+       for (let i = 0; i < 12; i++) { M.liveNote(a2, t + i * 5, 50, 50); }
+       return a2.length === 12;
+     })());
+
+  /* ONLY WHILE SOMEBODY IS PLAYING. A reading at 4am on a Friday is a point on
+     the graph at a moment nothing could have happened. */
+  const on = M.liveProTeams({ games: [
+    { s: 'in', ht: 'SEA', at: 'NE' }, { s: 'pre', ht: 'KC', at: 'DEN' },
+    { s: 'post', ht: 'GB', at: 'CHI' }] });
+  ok('only the game in progress puts teams on the field',
+     [...on].sort().join(',') === 'NE,SEA', [...on].join(','));
+  ok('nothing in progress is nobody on the field',
+     M.liveProTeams({ games: [{ s: 'pre', ht: 'SEA', at: 'NE' }] }).size === 0);
+  ok('and a digest that never arrived is nobody, not everybody',
+     M.liveProTeams(null).size === 0);
+
+  /* 26 is SEA, 17 is NE, 12 is KC. Bench slots are 20, 21 and 24. */
+  const side = (...es) => ({ rosterForCurrentScoringPeriod: { entries:
+    es.map(([slot, pro]) => ({ lineupSlotId: slot, playerPoolEntry: { player: { proTeamId: pro } } })) } });
+  ok('a starter on the field lights the side up', M.liveSideOn(side([0, 26]), on) === true);
+  ok('a starter whose team is not playing does not', M.liveSideOn(side([0, 12]), on) === false);
+  ok('a FLEX is a starter', M.liveSideOn(side([23, 26]), on) === true);
+  ok('a BENCH player on the field is not', M.liveSideOn(side([20, 26]), on) === false);
+  ok('nor is one stashed on IR', M.liveSideOn(side([21, 26]), on) === false);
+  ok('one starter out of a full lineup is enough',
+     M.liveSideOn(side([0, 12], [2, 12], [4, 17]), on) === true);
+  ok('an empty roster is not on the field', M.liveSideOn(side(), on) === false);
+
+  /* the matchup is on if EITHER side is */
+  const m = (h, a) => ({ home: h, away: a });
+  ok('either side playing makes the matchup live',
+     M.liveMatchupOn(m(side([0, 12]), side([0, 26])), on) === true);
+  ok('neither side playing does not',
+     M.liveMatchupOn(m(side([0, 12]), side([0, 7])), on) === false);
+  /* which is the manager whose last starter finished on Thursday: their
+     matchup stops taking up width on Sunday, and that is correct */
+  ok('and with nothing live at all, no matchup is',
+     M.liveMatchupOn(m(side([0, 26]), side([0, 17])), new Set()) === false);
 }
 
 console.log(nl + '8. THE MINUTE STAMPS COME BACK IN ORDER');
