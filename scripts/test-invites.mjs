@@ -72,6 +72,14 @@ return {
   /* what renderMyBets files into a week card: betsMine, minus the cleared,
      through the same betIsLive the money is counted with */
   ledger:()=>betsMine().filter(b=>!b.hidden).filter(betIsLive).map(b=>b.id),
+  /* exactly what sbPlaceBet does with a typed stake before it writes:
+     round it to cents, then refuse anything past the balance */
+  place:(typed)=>{
+    const stake=bucks2(Math.max(0,Number(typed)||0));
+    if(stake<=0) return {err:'stake'};
+    if(stake>bucks2(bucksBalance())+0.005) return {err:'funds'};
+    return {stake};
+  },
 };`;
 const api=new Function(harness)();
 
@@ -178,6 +186,39 @@ console.log('\n5c. A DECLINED OFFER IS NOT ONE OF YOUR BETS');
   /* and none of it was ever money */
   eq('nothing declined was staked',   api.bucksStaked(), 150);
   eq('so the balance is untouched by it', api.bucksBalance(), 1000-150);
+}
+
+console.log('\n5d. A STAKE IS MONEY, AND MONEY HERE HAS CENTS');
+{
+  /* sbPlaceBet rounded the stake with Math.round -- whole dollars, and it
+     rounds UP. All in on $10.56 became a stake of 11, which is more than
+     $10.56, so the one button whose whole job is to stake exactly what you
+     have was refused for having too little. */
+  const bal=b=>{ api.set([B({id:'x',owner:'bfl',wk:'W2',stake:1000-b,status:'open'})],ME,'W2',false); };
+
+  bal(10.56);                                   // balance is 1000-989.44 = 10.56
+  eq('the balance is what we think it is', api.bucksBalance(), 10.56);
+
+  eq('ALL IN ON 10.56 IS ACCEPTED',  api.place(10.56).stake, 10.56);
+  eq('and 10.55 too',                api.place(10.55).stake, 10.55);
+  eq('and 10.50, the old rounding boundary', api.place(10.50).stake, 10.5);
+
+  /* the half that said nothing: under .50 it rounded down and staked less than
+     the slip had already quoted a payout on */
+  eq('10.49 is staked as 10.49, not 10', api.place(10.49).stake, 10.49);
+  eq('and a penny is a penny',           api.place(0.01).stake, 0.01);
+
+  /* the guard still guards */
+  eq('a stake over the balance is still refused', api.place(10.57).err, 'funds');
+  eq('and one far over',                          api.place(500).err, 'funds');
+  eq('nothing is not a stake',                    api.place(0).err, 'stake');
+  eq('nor is a negative one',                     api.place(-5).err, 'stake');
+  eq('nor is a word',                             api.place('abc').err, 'stake');
+
+  /* a whole-dollar balance must behave exactly as it always did */
+  bal(50);
+  eq('a round balance still goes all in', api.place(50).stake, 50);
+  eq('and one buck over is still refused', api.place(51).err, 'funds');
 }
 
 console.log('\n6. an invitation dies with the bet it came from');

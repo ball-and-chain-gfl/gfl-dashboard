@@ -12290,12 +12290,31 @@ async function betLeague(){
 async function sbPlaceBet(){
   if(!_me){ openSignIn(); return; }
   if(!_slip.length||_betBusy) return;
-  const stake=Math.round(Math.max(0,Number(_sbStake)||0));
+  /* ── A STAKE IS MONEY, AND MONEY HERE HAS CENTS ───────────────────────────
+     This was Math.round, which rounds a stake to a whole dollar AND ROUNDS UP.
+     Two ways that went wrong, and the second is the one people saw:
+
+     All in on a balance of $10.56 set the stake to 10.56, which became 11, which
+     is more than $10.56 — so the one button whose entire job is to stake exactly
+     what you have was refused for having too little. Anything from .50 to .99
+     did it; $10.55 the same as $10.56.
+
+     And below .50 it rounded DOWN and said nothing: a typed $10.49 was placed
+     as $10, and the slip had already quoted the payout on 10.49.
+
+     bucks2 is what the rest of the bank uses, and the doc write below already
+     stored bucks2(stake) — so the ticket was being written in cents while the
+     guard in front of it thought in whole dollars. */
+  const stake=bucks2(Math.max(0,Number(_sbStake)||0));
   if(stake<=0){ _betErr='stake'; sbRenderSlip(); return; }
   /* before the ledger lands the balance reads high by whatever is riding on
      open bets, and this is the check that would wave the over-stake through */
   if(!bucksReady()){ _betErr='loading'; sbRenderSlip(); return; }
-  if(stake>bucksBalance()){ _betErr='funds'; sbRenderSlip(); return; }
+  /* half a cent of slack. Both sides go through bucks2 so an exact all-in
+     matches to the cent, but the balance is a running sum of allowance, stakes,
+     returns, eggs and share lots — and a share price ticking between the render
+     and the tap must not be what turns All in into an error. */
+  if(stake>bucks2(bucksBalance())+0.005){ _betErr='funds'; sbRenderSlip(); return; }
   /* A slip built before kickoff can still be sitting on screen once the games
      are running — the buttons go dead, the slip does not. Without this a ticket
      could be struck on a week whose football had already started. */
