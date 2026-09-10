@@ -16381,6 +16381,23 @@ const betSeasonStarted=season=>betAnyPlayed(_seasonMeta[String(season)],null);
    it repaints the book on arrival, so the strict reading costs a second and
    the loose one costs a bet. */
 const betWeekInPlay=(season,wk)=>betWeekStarted(season,wk)||nflWeekLive(wk,season)!==false;
+/* IS ANY OF THIS TICKET'S FOOTBALL BEING PLAYED. The question the buy-back
+   asks before it will price one, on its own, so the invitation side can ask it
+   too — the two are the same hole seen from either end. Cashing out mid-game
+   is taking money off a ticket you can already half-read; being invited onto
+   one mid-game is putting money on a ticket somebody else can.
+
+   WEEKLY LEGS ONLY. A season future is not decided by any one Sunday, and the
+   board leaves those open all year for exactly that reason — sbWeekLocked
+   never even sees them. Testing the season here would kill futures invitations
+   from the first kickoff of September through to February. */
+function betInPlay(b){
+  const season=(b&&b.season)||getSeason();
+  return ((b&&b.legs)||[]).some(l=>{
+    const wk=betLegWeek(l&&l.mk);
+    return wk!=null&&betWeekInPlay(season,wk);
+  });
+}
 /* The only week of a season that can be live is the one on the clock, so a
    season-long leg asks about that one. */
 function betSeasonInPlay(season){
@@ -16797,20 +16814,34 @@ let _inviteFor=null,_inviteErr=null;
    the cap is on how many are in or still being asked, not on how many were
    ever approached. */
 const INVITE_MAX=4;
-/* An invitation belongs to the bucks week it was raised in. Accepting it after
-   that would stake this week's allowance on markets that have already been
-   decided — a free look at a known result — so it lapses at the reset. Within
-   its own week it stays live right through kickoff: getting in on a parlay
-   while the games are running is the point of it. */
+/* An invitation belongs to the bucks week it was raised in, and it dies at the
+   KICKOFF of the football it is written on rather than at the week's reset.
+
+   The reasoning was already here and stopped one step short: accepting after
+   the reset "would stake this week's allowance on markets that have already
+   been decided — a free look at a known result". A market half-decided is the
+   same free look at a discount. This used to say the opposite in as many
+   words — "within its own week it stays live right through kickoff: getting in
+   on a parlay while the games are running is the point of it" — and it is not
+   the point of it, it is the hole in it. Watch the first quarter, take the
+   seat on the ticket that is going well, leave the other one unanswered.
+
+   Declining is not affected: sbInviteRespond only asks this on the accept
+   branch, so a seat can always be given back. */
 function inviteLapsed(inv){
   if(!inv) return true;
   if(inv.wk!==bucksWeekKey()) return true;
+  if(betInPlay(inv)) return true;
   const src=(_bets||[]).find(b=>b.id===inv.srcBet);
   return !!src&&src.status!=='open';
 }
 /* Only the manager who built the bet can open it up. Someone who came in on an
    invitation holds a copy, not the original, and a copy cannot be passed on. */
-const canInviteOn=b=>!!_me&&!!b&&b.owner===_me.k1&&b.status==='open'&&!b.invitedBy;
+const canInviteBet=b=>!!_me&&!!b&&b.owner===_me.k1&&b.status==='open'&&!b.invitedBy;
+/* ...and not once the football on it is being played. Sending is shut for the
+   same reason accepting is: a seat offered at half time is priced off a line
+   nobody could still get. */
+const canInviteOn=b=>canInviteBet(b)&&!betInPlay(b);
 /* asked or in — a declined seat is free again */
 const betInviteSeats=id=>betInvitesFor(id)
   .filter(x=>x.status!=='declined'&&x.status!=='void').length;
@@ -16977,6 +17008,11 @@ function sbInvitesHTML(){
 }
 /* The control that sends one, hung under a bet you own and still have open. */
 function sbInviteBoxHTML(b){
+  /* A reason, not an absence. The Invite button simply vanishing once the
+     games start reads as a bug, and the answer is the same one the cash-out
+     line two rows down is already giving. */
+  if(canInviteBet(b)&&betInPlay(b))
+    return `<div class="sb-lockmsg"><i class="fa fa-lock"></i>The week is under way — nobody else can come in on this.</div>`;
   if(!canInviteOn(b)) return '';
   const asked=betInvitesFor(b.id);
   const taken=new Set(asked.map(x=>x.owner));

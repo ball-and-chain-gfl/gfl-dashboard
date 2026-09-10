@@ -20,11 +20,13 @@ function grab(startsWith){
 const parts=[
   'const INVITE_MAX=4;',
   grab('function inviteLapsed(inv){'),
+  grab('const canInviteBet=b=>'),
   grab('const canInviteOn=b=>'),
   grab('const betInviteSeats=id=>'),
   grab('const CASHOUT_HOLD='),
   grab('const CASHOUT_MIN='),
   grab('const betWeekInPlay='),
+  grab('function betInPlay(b){'),
   grab('function betSeasonInPlay(season){'),
   grab('function betCashOut(b){'),
   grab('function betCancellable(b){'),
@@ -66,7 +68,8 @@ const eggBucks=()=>0;
    with a single flag has nothing to say. */
 const getSeason=()=>'2026';
 let _KICKED=false;
-const betLegWeek=()=>2;
+let _LEGWK=2;
+const betLegWeek=()=>_LEGWK;   // null is what a season-long market answers
 const betLegResult=()=>null;
 const betWeekStarted=()=>_STARTED;
 const betSeasonStarted=()=>_STARTED;
@@ -81,7 +84,9 @@ return {
        flag existed described a week that had either not begun or was already
        scoring, and both of those read the same on both flags */
     _KICKED=(kicked===undefined?started:kicked); },
-  inviteLapsed, canInviteOn, betInviteSeats, betCancellable, betCashOut,
+  setLegWeek(w){ _LEGWK=w; },
+  inviteLapsed, canInviteOn, canInviteBet, betInPlay, betInviteSeats,
+  betCancellable, betCashOut,
   bucksBalance, bucksStaked, betsMine, INVITE_MAX,
   feed:()=>_bets.filter(b=>_me&&b.owner===_me.k1&&b.status==='invite'&&!inviteLapsed(b)).map(b=>b.id),
   /* what renderMyBets files into a week card: betsMine, minus the cleared,
@@ -177,12 +182,70 @@ console.log('\n3b. and "under way" means the KICKOFF, not the first point');
   eq('a week that has not come round is withdrawable', api.betCancellable(own), true);
 }
 
-console.log('\n4. an invitation can still be accepted mid-game');
+console.log('\n4. an invitation dies at the kickoff, not at the week reset');
 {
+  /* THIS USED TO SAY THE OPPOSITE, and said so on purpose: "getting in on a
+     parlay while the games are running is the point of it". It is not the
+     point of it, it is the hole in it. Watch the first quarter, take the seat
+     on the ticket that is going well, leave the other one unanswered — the
+     same free look the buy-back was handing out from the other end.
+
+     The reasoning was already written one line above inviteLapsed and stopped
+     a step short: an invitation lapses at the reset because accepting it then
+     "would stake this week's allowance on markets that have already been
+     decided". A market half-decided is that same look at a discount. */
   const inv=B({id:'inv',owner:'bfl',wk:'W2',stake:300,status:'invite',invitedBy:'kunk',srcBet:'src'});
-  api.set([inv,B({id:'src',owner:'kunk',wk:'W2',stake:300})],ME,'W2',true);
-  eq('not lapsed with games running', api.inviteLapsed(inv), false);
-  eq('still on the feed', api.feed(), ['inv']);
+  const src=B({id:'src',owner:'kunk',wk:'W2',stake:300});
+
+  /* nothing kicked off: live, and on the feed */
+  api.set([inv,src],ME,'W2',false,false);
+  eq('open before the football starts', api.inviteLapsed(inv), false);
+  eq('and it is on the feed',           api.feed(), ['inv']);
+
+  /* KICKED OFF, NOTHING SCORED — the gap the buy-back was leaking through */
+  api.set([inv,src],ME,'W2',false,true);
+  eq('the kickoff kills it before a point lands', api.inviteLapsed(inv), true);
+  eq('and it leaves the feed',                    api.feed(), []);
+
+  /* and once there are scores on the board, obviously */
+  api.set([inv,src],ME,'W2',true,true);
+  eq('still dead once the scoring starts', api.inviteLapsed(inv), true);
+
+  /* an unreadable scoreboard fails shut, the same way the buy-back does */
+  api.set([inv,src],ME,'W2',false,null);
+  eq('an unknown scoreboard is treated as in play', api.inviteLapsed(inv), true);
+}
+
+console.log('\n4b. and nobody new can be asked in either');
+{
+  /* Sending shuts for the same reason accepting does: a seat offered at half
+     time is priced off a line nobody could still get. */
+  const own=B({id:'own',owner:'bfl',wk:'W2',stake:200});
+  const theirs=B({id:'oth',owner:'kunk',wk:'W2',stake:200});
+  const copy=B({id:'cp',owner:'bfl',wk:'W2',stake:200,invitedBy:'kunk',srcBet:'own'});
+
+  api.set([own,theirs,copy],ME,'W2',false,false);
+  eq('my own open bet can be opened up', api.canInviteOn(own), true);
+  eq('somebody else\'s cannot',          api.canInviteOn(theirs), false);
+  eq('nor can a copy I was invited onto', api.canInviteOn(copy), false);
+
+  api.set([own,theirs,copy],ME,'W2',false,true);
+  eq('the kickoff shuts sending too',     api.canInviteOn(own), false);
+  /* the card needs to tell them apart: this one is mine and open, it is just
+     too late — which is what puts a reason on the card instead of a gap */
+  eq('but it is still my bet to open',    api.canInviteBet(own), true);
+  eq('and the ticket knows it is in play', api.betInPlay(own), true);
+
+  /* A SEASON FUTURE IS NOT A WEEK. The board leaves those open all year, so
+     testing the season here would kill futures invitations from the first
+     kickoff of September through to February. betLegWeek is stubbed to 2 for
+     every leg above; null is what a season market answers. */
+  const futures=B({id:'fut',owner:'bfl',wk:'W2',stake:200,legs:[{mk:'champ'}]});
+  api.setLegWeek(null);
+  api.set([futures],ME,'W2',true,true);
+  eq('a season future is not in play just because a week is', api.betInPlay(futures), false);
+  eq('so it can still be opened up',                          api.canInviteOn(futures), true);
+  api.setLegWeek(2);
 }
 
 console.log('\n5. a pending invitation lapses at the reset and leaves the feed');
