@@ -36,14 +36,18 @@ const M = assemble(grab, [
   'const liveProProgress=',
   'const LIVE_VOLUME=',
   'const LIVE_USAGE_R=',
+  'const LIVE_EFF_R=',
+  'const LIVE_EFF_SKIP=',
+  'const liveEffW=',
   'const liveUsageW=',
   'function liveScoreLine(line,rules){',
   'function livePlayerLeft(entry,f,rules){',
+  'function liveSideProj(side){',
   'function liveSideLeft(side,prog,rules){',
-  'function liveNote(arr,t,a,b,p,la,lb){',
+  'function liveNote(arr,t,a,b,p,la,lb,fa,fb){',
 ], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf',
     'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn',
-    'liveNote', 'liveWpOf', 'liveSideScore', 'liveWithScores',
+    'liveNote', 'liveWpOf', 'liveSideScore', 'liveWithScores', 'liveEffW', 'liveSideProj',
     'liveProProgress', 'liveSideLeft', 'livePlayerLeft', 'liveScoreLine',
     'liveUsageW', 'LIVE_USAGE_R'], `
 const sbZ=x=>x;
@@ -687,6 +691,82 @@ console.log(nl + '7c6. PROJECTING THE REST OF A PLAYER FROM HIS USAGE');
   ok('and is past half by half time', M.liveUsageW(0.5) > 0.6, String(M.liveUsageW(0.5)));
   ok('and never reaches certainty', M.liveUsageW(1) < 1);
   ok('it rises the whole way through', M.liveUsageW(0.25) < M.liveUsageW(0.75));
+}
+
+console.log(nl + '7c7. SIGMA RIDES THE LINEUPS, NOT THE SCOREBOARD');
+{
+  /* L measured what was left against (banked + remaining) — the two expected
+     FINALS — and those grow every time somebody has a big game. So a monster
+     performance shrank sigma and made the model MORE confident because a player
+     had done well. Backwards: what the eight men still to come might do has
+     nothing to do with what the first one already did. */
+  const P = 119.5, Q = 119.0, rA = 112.3, rB = 108.3;
+  const at = b => M.wpAt(14, b, P, Q, 0.1, null, rA, rB);
+  const sd = () => M.wpSd() * Math.sqrt((rA + rB) / (P + Q));
+
+  /* the probability MUST move with the banked points — that is mu doing its job */
+  ok('a bigger game still moves the number', at(60) < at(28.8) && at(28.8) < at(10.7),
+     [at(10.7), at(28.8), at(60)].map(x => (x * 100).toFixed(1)).join(' > '));
+
+  /* ...but the spread must not. Recover sigma from two points on the curve. */
+  const back = b => {
+    const p = at(b), mu = (14 - b) + (rA - rB);
+    return mu / M.schedNormCdf.inv ? 0 : mu;   // mu is what we can check directly
+  };
+  const s1 = sd();
+  ok('the spread is the lineups, so it does not move at all',
+     Math.abs(s1 - 33.2) < 0.2, s1.toFixed(2));
+
+  /* the same reading with a bigger banked total must give the SAME sigma, which
+     shows up as the probability moving exactly as much as mu says it should */
+  const z = b => M.schedNormCdf(((14 - b) + (rA - rB)) / s1);
+  [10.7, 28.8, 60].forEach(b => ok('banked ' + b + ' prices off an unchanged spread',
+    Math.abs(at(b) - z(b)) < 1e-9, at(b).toFixed(6) + ' vs ' + z(b).toFixed(6)));
+
+  /* with no per-side figures it still falls back to the league-wide number */
+  const f = 0.3;
+  ok('no lineups recorded falls back exactly as before',
+     Math.abs(M.wpAt(30, 10, P, Q, f, 4) -
+       M.schedNormCdf(((30 - 10) + (1 - f) * 4) / (M.wpSd() * Math.sqrt(1 - f)))) < 1e-9);
+}
+
+console.log(nl + '7c8. EFFICIENCY IS BELIEVED, BUT SLOWLY AND NEVER ON A SCORE');
+{
+  const R = { 53:1, 42:0.1, 43:6 };
+  const P = { 58:9.75, 53:6.78, 42:90.98, 43:0.49 };
+  const proj = M.liveScoreLine(P, R);
+  const man = A => ({ playerPoolEntry: { player: { stats: [
+    { statSourceId:1, appliedTotal:proj, stats:P },
+    { statSourceId:0, appliedTotal:0, stats:A } ] } } });
+  const at = A => M.livePlayerLeft(man(A), 0.5, R);
+
+  ok('one target buys almost no belief', M.liveEffW(1) < 0.06, String(M.liveEffW(1)));
+  ok('eight targets buys about a quarter',
+     M.liveEffW(8) > 0.2 && M.liveEffW(8) < 0.3, String(M.liveEffW(8)));
+  ok('twenty five buys about half',
+     Math.abs(M.liveEffW(25) - 0.5) < 0.02, String(M.liveEffW(25)));
+  ok('and it never reaches certainty', M.liveEffW(200) < 1);
+
+  /* same volume, different efficiency — the number should move, but not much */
+  const cold = at({ 58:8, 53:5, 42:40 });
+  const onRate = at({ 58:8, 53:5, 42:74 });
+  const hot = at({ 58:8, 53:6, 42:110 });
+  ok('a hot night is worth more than a cold one on the same volume', hot > cold,
+     hot.toFixed(1) + ' vs ' + cold.toFixed(1));
+  ok('but efficiency moves it far less than volume does',
+     (hot - cold) < Math.abs(onRate - at({ 58:1, 53:1, 42:9 })),
+     (hot - cold).toFixed(1) + ' vs ' + Math.abs(onRate - at({ 58:1, 53:1, 42:9 })).toFixed(1));
+
+  /* A SCORE IS NOT EVIDENCE OF MORE SCORES. Two identical volume and yardage
+     lines, one with a touchdown — the touchdown must not raise what is left. */
+  const noTd = at({ 58:8, 53:5, 42:74 });
+  const withTd = at({ 58:8, 53:5, 42:74, 43:1 });
+  ok('a touchdown does not raise his remaining at all',
+     Math.abs(noTd - withTd) < 1e-9, noTd.toFixed(3) + ' vs ' + withTd.toFixed(3));
+
+  ok('and the bomb is still heavily written down',
+     at({ 58:1, 53:1, 42:80, 43:1 }) < proj * 0.5 * 0.65,
+     at({ 58:1, 53:1, 42:80, 43:1 }).toFixed(1) + ' vs flat ' + (proj * 0.5).toFixed(1));
 }
 
 console.log(nl + '7d. WHERE THAT NUMBER COMES FROM');

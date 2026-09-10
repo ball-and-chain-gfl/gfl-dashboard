@@ -81,12 +81,13 @@ const app = assemble(grab, [
   'const liveUsageW=',
   'function liveScoreLine(line,rules){',
   'function livePlayerLeft(entry,f,rules){',
+  'function liveSideProj(side){',
   'function liveSideLeft(side,prog,rules){',
   'function liveWpOf(m,aFirst){',
-  'function liveNote(arr,t,a,b,p,la,lb){',
+  'function liveNote(arr,t,a,b,p,la,lb,fa,fb){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
     'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf',
-    'liveSideScore', 'liveWithScores', 'liveProProgress', 'liveSideLeft']);
+    'liveSideScore', 'liveWithScores', 'liveProProgress', 'liveSideLeft', 'liveSideProj']);
 
 const DOC = k => `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   + `/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
@@ -102,12 +103,14 @@ const get = async q => {
 
 const ownerOf = t => t?.primaryOwner || (t?.owners && t.owners[0]) || `team:${t?.id}`;
 
+let _proj = {};
 async function loadSeries(key) {
   try {
     const r = await fetch(DOC(key), { cache: 'no-store' });
-    if (r.status === 404) return {};
+    if (r.status === 404) { _proj = {}; return {}; }
     if (!r.ok) return null;
     const f = (await r.json()).fields || {};
+    try { _proj = JSON.parse((f.proj || {}).stringValue || '{}') || {}; } catch { _proj = {}; }
     try { return JSON.parse((f.series || {}).stringValue || '{}') || {}; } catch { return {}; }
   } catch { return null; }
 }
@@ -115,10 +118,12 @@ async function loadSeries(key) {
 async function saveSeries(key, series) {
   const body = JSON.stringify({ fields: {
     series: { stringValue: JSON.stringify(series) },
+    proj: { stringValue: JSON.stringify(_proj || {}) },
     updated: { stringValue: String(Date.now()) },
   } });
   const hdr = { 'Content-Type': 'application/json' };
-  const mask = '&updateMask.fieldPaths=series&updateMask.fieldPaths=updated';
+  const mask = '&updateMask.fieldPaths=series&updateMask.fieldPaths=proj'
+    + '&updateMask.fieldPaths=updated';
   const r = await fetch(DOC(key) + mask, { method: 'PATCH', headers: hdr, body });
   if (r.ok) return true;
   const c = await fetch(COLL(key), { method: 'POST', headers: hdr, body });
@@ -210,8 +215,15 @@ async function once() {
       && (arr[arr.length - 1][1] !== a || arr[arr.length - 1][2] !== b);
     if (!live && !moved) return;
     const sA = aFirst ? m.home : m.away, sB = aFirst ? m.away : m.home;
+    /* the two lineups' whole projected weeks, which do not move once locked */
+    const pA = app.liveSideProj(sA), pB = app.liveSideProj(sB);
+    if (pA != null && _proj[aFirst ? ao : bo] !== pA) { _proj[aFirst ? ao : bo] = pA; changed++; }
+    if (pB != null && _proj[aFirst ? bo : ao] !== pB) { _proj[aFirst ? bo : ao] = pB; changed++; }
     if (app.liveNote(arr || (series[k] = []), t, a, b, app.liveWpOf(m, aFirst),
-      app.liveSideLeft(sA, proProg, rules), app.liveSideLeft(sB, proProg, rules))) changed++;
+      app.liveSideLeft(sA, proProg, rules), app.liveSideLeft(sB, proProg, rules),
+      /* the old model, recorded beside the new one so the two can be scored
+         against each other once the week is done */
+      app.liveSideLeft(sA, proProg, null), app.liveSideLeft(sB, proProg, null))) changed++;
   });
 
   if (!changed) {

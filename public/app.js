@@ -5766,7 +5766,8 @@ function renderForecast(info){
      what the game actually felt like. */
   const projByOwner={};
   Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
-  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,(A&&B)?schedOpenMu(A,B,fcWk):null);
+  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,
+    (A&&B)?schedOpenMu(A,B,fcWk):null,_liveProj);
   const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
     <div class="fc-odds-t">
@@ -6431,6 +6432,10 @@ const LIVE_HOT_MS=240000;   // how long a change keeps the fast cadence
    which the free tier does not notice. */
 const LIVE_SAVE_MS=180000;  // at most one persist every three minutes, per tab
 let _liveTimer=null,_liveSeries={},_liveInfo=null,_liveBusy=false,_liveSaved=0,_liveNext=0;
+/* Each side's whole projected week, by owner. Fixed once lineups lock, so it
+   lives on the document rather than on every reading — see wpAt, which measures
+   what is left against it. */
+let _liveProj={};
 let _liveDirty=false,_liveChanged=0,_liveFlushing=false;
 const liveDocUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
 const liveCollUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live?documentId=${encodeURIComponent(k)}&key=${GFL_DB.key}`;
@@ -6522,14 +6527,17 @@ async function liveLoadSeries(key){
     if(r.status===404) return {};
     if(!r.ok) return null;
     const f=fsIn(await r.json());
+    try{ _liveProj=JSON.parse(f.proj||'{}')||{}; }catch(e){ _liveProj={}; }
     try{ return JSON.parse(f.series||'{}')||{}; }catch(e){ return {}; }
   }catch(e){ return null; }
 }
 async function liveSaveSeries(key,series){
-  const body=JSON.stringify(fsOut({series:JSON.stringify(series),updated:String(Date.now())}));
+  const body=JSON.stringify(fsOut({series:JSON.stringify(series),
+    proj:JSON.stringify(_liveProj||{}),updated:String(Date.now())}));
   const hdr={'Content-Type':'application/json'};
   try{
-    const r=await fetch(liveDocUrl(key)+'&updateMask.fieldPaths=series&updateMask.fieldPaths=updated',
+    const r=await fetch(liveDocUrl(key)
+      +'&updateMask.fieldPaths=series&updateMask.fieldPaths=proj&updateMask.fieldPaths=updated',
       {method:'PATCH',headers:hdr,body});
     if(r.ok) return true;
     const c=await fetch(liveCollUrl(key),{method:'POST',headers:hdr,body});
@@ -6704,6 +6712,29 @@ const LIVE_VOLUME={
    far better behaved estimator than a total of fantasy points -- and it is the
    one number here still waiting on a season of readings to be measured. */
 const LIVE_USAGE_R=4;
+/* ── AND HOW MUCH HIS EFFICIENCY IS BELIEVED ────────────────────────────────
+   Volume settles fast. Efficiency does not: yards per target is the noisiest
+   thing on a football field, and one long catch says almost nothing about the
+   next one. Held at the projected rate it never moves at all, which is the
+   other half of the complaint that a frozen pre-game number cannot carry a
+   whole game -- a man genuinely in a good game script gets no credit for it.
+
+   So it moves, but slowly, and on VOLUME rather than on the clock: eight
+   targets is eight targets whether they came in a quarter or in three. At 0.04
+   a receiver is believed a quarter of the way at ten targets and halfway at
+   twenty five, which is about the number of looks it takes before a yards per
+   target figure means anything.
+
+   TOUCHDOWNS AND INTERCEPTIONS ARE EXCLUDED. A score is the lumpiest event in
+   the game -- one of them on eight targets would drag a whole projection
+   upward off a single play, which is the exact thing this model exists to
+   refuse. Those stay at the projected rate however the night is going. */
+const LIVE_EFF_R=0.04;
+const LIVE_EFF_SKIP=[4,20,25,43];        // passing, rushing and receiving scores
+const liveEffW=v=>{
+  const x=LIVE_EFF_R*Math.max(0,Number(v)||0);
+  return x/(1+x);
+};
 const liveUsageW=f=>{
   const x=LIVE_USAGE_R*Math.max(0,Math.min(1,f));
   return x/(1+x);
@@ -6748,11 +6779,18 @@ function livePlayerLeft(entry,f,rules){
     const rate=(1-w)*vp+w*((Number(A[v])||0)/f);
     const vRem=left*Math.max(0,rate);
     /* efficiency: held at the rate ESPN projected */
+    const va=Number(A[v])||0;
     LIVE_VOLUME[v].forEach(s=>{
       done[s]=1;
       const sp=Number(P[s])||0;
       if(!sp) return;
-      pts+=vRem*(sp/vp)*((rules[s])||0);
+      let eff=sp/vp;                       // the rate ESPN projected
+      /* believed a little, on the volume actually seen -- never for a score */
+      if(va>0&&LIVE_EFF_SKIP.indexOf(Number(s))<0){
+        const we=liveEffW(va);
+        eff=(1-we)*eff+we*((Number(A[s])||0)/va);
+      }
+      pts+=vRem*eff*((rules[s])||0);
     });
   });
   /* A PLAYER WITH NO VOLUME AT ALL -- a kicker, a defence -- has nothing here
@@ -6792,6 +6830,19 @@ function livePlayerLeft(entry,f,rules){
    every remaining-points term in the model, and out by different amounts for
    different teams once a season is running. The roster is right here and it
    knows the real number. */
+/* A SIDE'S WHOLE PROJECTED WEEK. Fixed from the moment lineups lock, so it is
+   the honest scale to measure what is left against -- see wpAt. */
+function liveSideProj(side){
+  const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
+  let t=0;
+  es.forEach(e=>{
+    if(!e||BENCH_SLOTS.includes(e.lineupSlotId)) return;
+    const p=((e.playerPoolEntry||{}).player)||{};
+    const st=(p.stats||[]).find(x=>x&&x.statSourceId===1);
+    t+=((st&&st.appliedTotal)||0);
+  });
+  return t>0?Math.round(t*100)/100:null;
+}
 function liveSideLeft(side,prog,rules){
   const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
   if(!es.length) return null;
@@ -6836,7 +6887,12 @@ function liveWpOf(m,aFirst){
    up far more often than a correction takes them back, and either choice is
    within the noise of a single bucket. A correction that does come down is
    picked up by the NEXT bucket, which is where it reads correctly anyway. */
-function liveNote(arr,t,a,b,p,la,lb){
+/* fa and fb are the OLD model's answer — projection x time left — recorded
+   beside the new one. They cost two numbers a reading and they are what turns
+   "we think the usage model is better" into a measurement: at the end of a week
+   each reading knows what both models predicted was still to come, and the
+   final score says which was right. See scripts/calibrate-usage.mjs. */
+function liveNote(arr,t,a,b,p,la,lb,fa,fb){
   const prev=arr[arr.length-1];
   if(prev&&prev[0]>=t){
     if(prev[0]!==t) return false;
@@ -6848,11 +6904,14 @@ function liveNote(arr,t,a,b,p,la,lb){
     if(p!=null&&prev[3]!==p){ prev[3]=p; moved=true; }
     if(la!=null&&prev[4]!==la){ prev[4]=la; moved=true; }
     if(lb!=null&&prev[5]!==lb){ prev[5]=lb; moved=true; }
+    if(fa!=null&&prev[6]!==fa){ prev[6]=fa; moved=true; }
+    if(fb!=null&&prev[7]!==fb){ prev[7]=fb; moved=true; }
     return moved;
   }
   const row=[t,a,b];
   if(p!=null||la!=null||lb!=null) row.push(p!=null?p:null);
   if(la!=null||lb!=null){ row.push(la!=null?la:null,lb!=null?lb:null); }
+  if(fa!=null||fb!=null){ row.push(fa!=null?fa:null,fb!=null?fb:null); }
   arr.push(row);
   return true;
 }
@@ -6916,8 +6975,13 @@ async function livePoll(){
          is why no empty series is left behind for one. */
       if(!on&&!moved) return;
       const sA=aFirst?m.home:m.away, sB=aFirst?m.away:m.home;
+      /* the two lineups' whole projected weeks, which do not move once locked */
+      const pA=liveSideProj(sA), pB=liveSideProj(sB);
+      if(pA!=null&&_liveProj[aFirst?ao:bo]!==pA){ _liveProj[aFirst?ao:bo]=pA; changed=true; }
+      if(pB!=null&&_liveProj[aFirst?bo:ao]!==pB){ _liveProj[aFirst?bo:ao]=pB; changed=true; }
       if(liveNote(arr||(_liveSeries[k]=[]),t,a,b,liveWpOf(m,aFirst),
-        liveSideLeft(sA,proProg,rules),liveSideLeft(sB,proProg,rules))) changed=true;
+        liveSideLeft(sA,proProg,rules),liveSideLeft(sB,proProg,rules),
+        liveSideLeft(sA,proProg,null),liveSideLeft(sB,proProg,null))) changed=true;
     });
     if(changed){ _liveDirty=true; _liveChanged=Date.now(); }
     if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);
@@ -6957,6 +7021,8 @@ async function liveFlush(key){
             if(p[3]!=null) cur[3]=p[3];
             if(p[4]!=null) cur[4]=p[4];
             if(p[5]!=null) cur[5]=p[5];
+            if(p[6]!=null) cur[6]=p[6];
+            if(p[7]!=null) cur[7]=p[7];
           }
         });
         mine.sort((x,y)=>x[0]-y[0]);
@@ -7041,11 +7107,28 @@ function wpAt(a,b,projA,projB,f,mu0,lA,lB){
      on -- not how much is left in the league. Measured against the two
      expected finals rather than against a projection, so it needs nothing the
      reading did not record. */
-  const fin=(a+remA)+(b+remB);
-  /* Only when the reading actually recorded the two sides. With nothing to go
-     on there is nothing better than the league-wide figure, and falling back
-     to it is what keeps every archived week drawing exactly as it did. */
-  const L=(rA!=null&&rB!=null&&fin>0)?Math.max(0,Math.min(1,(remA+remB)/fin)):left;
+  /* ── THE SCALE IS THE LINEUPS, NOT THE EXPECTED FINALS ─────────────────────
+     This measured what was left against (banked + remaining), which is the two
+     expected FINALS -- and those grow every time somebody has a big game. So a
+     monster performance shrank L, shrank sigma with it, and made the model MORE
+     confident because a player had done well:
+
+       same remaining both sides, only the banked differs
+         banked 10.7  ->  sigma 32.7
+         banked 28.8  ->  sigma 31.6
+         banked 60.0  ->  sigma 29.9
+
+     Backwards. What the eight players still to come might do has nothing to do
+     with what the first one already did. A big game belongs in mu, where it
+     already is, and nowhere near sigma.
+
+     The scale is the two lineups' full projected totals, which are fixed for
+     the week the moment lineups lock. pa and pb carry them when the reading
+     recorded them; without that there is nothing better than the league-wide
+     figure, and falling back to it keeps every archived week drawing exactly
+     as it did. */
+  const scale=pa+pb;
+  const L=(rA!=null&&rB!=null&&scale>0)?Math.max(0,Math.min(1,(remA+remB)/scale)):left;
   /* mu0 is the board's projected margin for the whole week. What it adds over
      the raw difference of two season averages is its read on the fixture, and
      that read decays with the football still to come. */
@@ -7098,9 +7181,10 @@ function wpSlateProgress(series,projByOwner){
    into this team's chance of winning at that minute. Opens on the pre-game
    number so the line starts where the projection had it rather than at a coin
    flip. */
-function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
+function wpCurve(series,projByOwner,ownerA,ownerB,mu0,projFull){
   const projA=projByOwner[ownerA]||0, projB=projByOwner[ownerB]||0;
-  const open=wpAt(0,0,projA,projB,0,mu0);
+  const open=wpAt(0,0,(projFull&&projFull[ownerA])||projA,
+    (projFull&&projFull[ownerB])||projB,0,mu0);
   const arr=(series||{})[liveMKey(ownerA,ownerB)]||[];
   if(!arr.length) return [{t:0,p:open,a:0,b:0,f:0}];
   const aFirst=[ownerA,ownerB].sort()[0]===ownerA;
@@ -7111,6 +7195,13 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
     return f;
   };
   const pts=[{t:arr[0][0]-1,p:open,a:0,b:0,f:0}];
+  /* The two lineups' full projected totals for this week, recorded on the
+     document rather than on every reading -- they are fixed once lineups lock,
+     so repeating them a couple of hundred times would be a couple of hundred
+     copies of one number. Absent (an archived week, or a series written before
+     this) projByOwner stands in, which is what it always did. */
+  const fullA=(projFull&&projFull[ownerA]>0)?projFull[ownerA]:projA;
+  const fullB=(projFull&&projFull[ownerB]>0)?projFull[ownerB]:projB;
   arr.forEach(([t,x,y,q,ra,rb])=>{
     const a=aFirst?x:y, b=aFirst?y:x;
     /* the remaining fractions travel with the scores and flip with them */
@@ -7139,7 +7230,7 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
        q is still recorded on every reading. It costs nothing, it is the only
        record of what ESPN was saying at the time, and if that number ever
        starts moving mid-game this is the line that would use it. */
-    pts.push({t,p:wpAt(a,b,projA,projB,f,mu0,lA,lB),a,b,f,q:q!=null?q:null});
+    pts.push({t,p:wpAt(a,b,fullA,fullB,f,mu0,lA,lB),a,b,f,q:q!=null?q:null});
   });
   return pts;
 }
@@ -9309,7 +9400,8 @@ function schedPlayedDetailHTML(meOwner,oppOwner,season,week,oppName){
   }catch(e){}
   const series=wpSeriesFor(season,week);
   const graph=series
-    ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner,openMu),abA,abB,{h:112})
+    ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner,openMu,
+        (series===_liveSeries)?_liveProj:null),abA,abB,{h:112})
     : `<div class="sd-msg">No minute-by-minute record for that week.</div>`;
   return `<div class="sd-h">Top performer · week ${week}</div>
     <div class="sd-tops">${side(meT,a,abA)}${side(oppT,b,abB)}</div>
