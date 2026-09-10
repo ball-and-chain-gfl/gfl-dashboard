@@ -30,11 +30,13 @@ const M = assemble(grab, [
   'const liveProTeams=',
   'const liveSideOn=',
   'const liveMatchupOn=',
+  'function liveSideScore(side){',
+  'function liveWithScores(m){',
   'function liveWpOf(m,aFirst){',
   'function liveNote(arr,t,a,b,p){',
 ], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf',
     'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn',
-    'liveNote', 'liveWpOf'], `
+    'liveNote', 'liveWpOf', 'liveSideScore', 'liveWithScores'], `
 const sbZ=x=>x;
 `);
 
@@ -344,63 +346,90 @@ console.log(nl + '7b. WHEN A READING IS WORTH TAKING');
      M.liveMatchupOn(m(side([0, 26]), side([0, 17])), new Set()) === false);
 }
 
-console.log(nl + '7c. A READING CARRIES THE NUMBER PUBLISHED AT IT');
+console.log(nl + '7c. THE LINE MOVES ON THE SCORES');
 {
-  /* THE BUG THIS FIXES. The series held scores and nothing else, so every
-     point on the curve was recomputed from mu0 -- TODAY'S anchor -- every time
-     the panel drew. The line was never a record of the afternoon; it was what
-     the current estimate makes of the afternoon's scores, redrawn end to end
-     whenever that estimate moved.
+  /* WHAT WENT WRONG, IN ORDER. The series held scores and nothing else, so
+     every point was recomputed from mu0 -- today's anchor -- each time the
+     panel drew, and on the night of the week 1 opener the whole flat line slid
+     up and down as one. The first read was that a reading should carry the
+     probability published AT it, so a point written at 00:20 never moves.
 
-     On the night of the week 1 opener it showed in the worst possible way.
-     Eight readings, every one of them 0-0, so every point computed to the same
-     number and the whole flat line slid up and down as one as ESPN
-     republished: a graph moving with nothing behind it. */
+     Then the reason the line was flat turned out to be the real story: ESPN's
+     matchup TOTAL does not update during a game, its winProbability is
+     computed off that total, and so the published probability is frozen for
+     the whole afternoon too. A frozen number recorded faithfully is still a
+     frozen number. So the published one is the opening anchor -- which is what
+     mu0 has always been -- and the line moves on the scores, which are live
+     now they are read off the players rather than the fixture. */
   const t0 = 28000000;
-  const flat = {};
-  flat[M.liveMKey(ME, OPP)] = [0,1,2,3,4,5,6,7].map(i => [t0 + i*5, 0, 0, 0.53]);
+  const moving = {};
+  moving[M.liveMKey(ME, OPP)] = [[t0,0,0,0.5],[t0+5,7.8,0,0.5],[t0+10,7.8,12.4,0.5],
+    [t0+15,24.1,12.4,0.5],[t0+20,24.1,31.0,0.5]];
+  const drawn = M.wpCurve(moving, PROJ, ME, OPP, 0).map(q => Math.round(q.p * 100));
 
-  const at50 = M.wpCurve(flat, PROJ, ME, OPP, 0).map(q => q.p);
-  const at62 = M.wpCurve(flat, PROJ, ME, OPP, 40).map(q => q.p);
-  /* the opening point is before the record starts and still comes from mu0 */
-  ok('a recorded curve does not move when the anchor does',
-     at50.slice(1).every((p, i) => Math.abs(p - at62[i + 1]) < 1e-12),
-     at50.slice(1, 4).join(',') + '  vs  ' + at62.slice(1, 4).join(','));
-  ok('and it draws the number that was published',
-     at50.slice(1).every(p => Math.abs(p - 0.53) < 1e-9), at50[1]);
-
-  /* the other side of the same fixture reads the complement */
-  const other = M.wpCurve(flat, PROJ, OPP, ME, 0).map(q => q.p);
-  ok('the opponent gets one minus it',
-     other.slice(1).every(p => Math.abs(p - 0.47) < 1e-9), other[1]);
-
-  /* A READING WITH NO NUMBER FALLS BACK, which is every reading taken before
-     this shipped -- the archive is full of three-element ones. */
-  const oldShape = {};
-  oldShape[M.liveMKey(ME, OPP)] = [[t0, 0, 0], [t0 + 5, 0, 0]];
-  const o50 = M.wpCurve(oldShape, PROJ, ME, OPP, 0).map(q => q.p);
-  const o62 = M.wpCurve(oldShape, PROJ, ME, OPP, 40).map(q => q.p);
-  ok('an unrecorded reading still comes from the model',
-     Math.abs(o50[1] - 0.5) < 1e-9 && o62[1] > o50[1], o50[1] + ' / ' + o62[1]);
-
-  /* mixed: the old ones follow the anchor, the recorded ones do not */
-  const mixed = {};
-  mixed[M.liveMKey(ME, OPP)] = [[t0, 0, 0], [t0 + 5, 0, 0, 0.53], [t0 + 10, 0, 0]];
-  const m50 = M.wpCurve(mixed, PROJ, ME, OPP, 0).map(q => q.p);
-  const m62 = M.wpCurve(mixed, PROJ, ME, OPP, 40).map(q => q.p);
-  ok('a recorded point holds while its neighbours drift',
-     Math.abs(m50[2] - m62[2]) < 1e-12 && Math.abs(m50[1] - m62[1]) > 0.01,
-     m50.join(',') + '  vs  ' + m62.join(','));
-
-  /* AND THE CURVE STILL CURVES. Recorded numbers that differ draw a shape. */
-  const shape = {};
-  shape[M.liveMKey(ME, OPP)] = [[t0,0,0,0.50],[t0+5,7,0,0.61],[t0+10,7,9,0.44],
-    [t0+15,21,9,0.78],[t0+20,21,24,0.36]];
-  const drawn = M.wpCurve(shape, PROJ, ME, OPP, 0).map(q => Math.round(q.p * 100));
-  ok('a series of different readings draws a shape, not a level',
+  ok('a series of moving scores draws a shape, not a level',
      new Set(drawn.slice(1)).size === 5, drawn.join(','));
-  ok('and it is the shape that was recorded',
-     drawn.slice(1).join(',') === '50,61,44,78,36', drawn.slice(1).join(','));
+  ok('and it follows the lead: ahead, behind, ahead, behind',
+     drawn[2] > drawn[1] && drawn[3] < drawn[2] && drawn[4] > drawn[3] && drawn[5] < drawn[4],
+     drawn.join(','));
+  ok('a frozen ESPN number does not flatten it', new Set(drawn.slice(1)).size > 1);
+
+  /* the recorded number still travels with the point -- it is the only record
+     of what ESPN was saying at the time, and the line that would use it if
+     that number ever starts moving mid-game is one line */
+  const pts = M.wpCurve(moving, PROJ, ME, OPP, 0);
+  ok('the published number is kept on the point', pts[1].q === 0.5, String(pts[1].q));
+  ok('and a reading without one carries null',
+     (() => { const s2 = {}; s2[M.liveMKey(ME,OPP)] = [[t0,1,2]];
+              return M.wpCurve(s2, PROJ, ME, OPP, 0)[1].q === null; })());
+
+  /* level scores still read level, which is the whole point of recording a
+     reading every five minutes whether or not anything moved */
+  const level = {};
+  level[M.liveMKey(ME, OPP)] = [0,1,2,3,4,5].map(i => [t0 + i*5, 40, 40, 0.5]);
+  const flat = M.wpCurve(level, PROJ, ME, OPP, 0).map(q => Math.round(q.p * 100));
+  ok('a level matchup draws level', new Set(flat.slice(1)).size === 1, flat.join(','));
+}
+
+console.log(nl + "7c2. BECAUSE ESPN'S MATCHUP TOTAL IS NOT LIVE");
+{
+  /* Checked during the week 1 opener with the NFL game at 7-0 in the second
+     quarter: every fixture in the league read 0-0 at the matchup level while
+     the players underneath carried Drake Maye 7.76, the Seattle defence 8,
+     Jaxon Smith-Njigba 4.1. totalPointsLive read 0 too. Everything live on the
+     site was reading that field. */
+  const BENCH = [20, 21, 24];
+  const side = (tot, ...pts) => ({ totalPoints: tot, rosterForCurrentScoringPeriod: { entries:
+    pts.map(([slot, v]) => ({ lineupSlotId: slot, playerPoolEntry: { appliedStatTotal: v } })) } });
+
+  ok('a side scores what its starters have banked',
+     M.liveSideScore(side(0, [0, 7.76], [2, 1.2], [16, 8])) === 16.96);
+  ok('the bench does not count',
+     M.liveSideScore(side(0, [0, 7.76], [20, 99], [21, 99], [24, 99])) === 7.76);
+  ok('and it is rounded to the cent',
+     M.liveSideScore(side(0, [0, 1.2000000000000002], [2, 0.1])) === 1.3);
+  ok('a side with no roster in hand answers nothing, not zero',
+     M.liveSideScore({ totalPoints: 0 }) === null);
+
+  /* ZERO IS ESPN NOT TALKING. There is no other way to read a matchup total of
+     nothing, so the roster sum fills a silence and never overrides a number. */
+  const live = M.liveWithScores({ home: side(0, [0, 8]), away: side(0, [0, 3.2]) });
+  ok('a fixture reading 0-0 takes its starters',
+     live.home.totalPoints === 8 && live.away.totalPoints === 3.2,
+     live.home.totalPoints + '-' + live.away.totalPoints);
+
+  const settled = M.liveWithScores({ home: side(118.4, [0, 9]), away: side(102.1, [0, 4]) });
+  ok('a fixture ESPN has scored keeps ITS number, not ours',
+     settled.home.totalPoints === 118.4 && settled.away.totalPoints === 102.1,
+     settled.home.totalPoints + '-' + settled.away.totalPoints);
+
+  const half = M.liveWithScores({ home: side(88.2, [0, 9]), away: side(0, [0, 4]) });
+  ok('and one side reported, one not, is handled a side at a time',
+     half.home.totalPoints === 88.2 && half.away.totalPoints === 4);
+
+  ok('a fixture with no rosters at all is left exactly as it came',
+     M.liveWithScores({ home: { totalPoints: 5 }, away: { totalPoints: 6 } }).home.totalPoints === 5);
+  ok('and a malformed one does not throw', M.liveWithScores(null) === null);
 }
 
 console.log(nl + '7d. WHERE THAT NUMBER COMES FROM');

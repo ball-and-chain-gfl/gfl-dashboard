@@ -73,10 +73,13 @@ const app = assemble(grab, [
   'const liveProTeams=',
   'const liveSideOn=',
   'const liveMatchupOn=',
+  'function liveSideScore(side){',
+  'function liveWithScores(m){',
   'function liveWpOf(m,aFirst){',
   'function liveNote(arr,t,a,b,p){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
-    'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf']);
+    'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf',
+    'liveSideScore', 'liveWithScores']);
 
 const DOC = k => `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   + `/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
@@ -162,7 +165,9 @@ async function once() {
   const fresh = await get(`view=mMatchup&view=mMatchupScore`
     + `&seasonId=${season}&scoringPeriodId=${week}&live=1`);
   const games = ((fresh && fresh.schedule) || meta.schedule || [])
-    .filter(m => (m.matchupPeriodId || 0) === week && m.home && m.away);
+    .filter(m => (m.matchupPeriodId || 0) === week && m.home && m.away)
+    /* ESPN's matchup total does not move during a game; the starters do. */
+    .map(app.liveWithScores);
   if (!games.length) { console.log(`${stamp}  week ${week} has no fixtures — skipping`); return 'skip'; }
 
   const key = `${season}-w${week}`;

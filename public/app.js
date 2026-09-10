@@ -6577,6 +6577,52 @@ const liveSideOn=(side,on)=>{
   });
 };
 const liveMatchupOn=(m,on)=>liveSideOn(m&&m.home,on)||liveSideOn(m&&m.away,on);
+/* ── ESPN'S MATCHUP TOTAL IS NOT LIVE ────────────────────────────────────────
+   It settles after the fact. Checked during the week 1 opener with the NFL
+   game at 7-0 in the second quarter: every fixture in the league read 0-0 at
+   the matchup level, while the players underneath carried Drake Maye 7.76, the
+   Seattle defence 8, Jaxon Smith-Njigba 4.1, A.J. Brown 3.2. totalPointsLive
+   read 0 as well, and so did pointsByScoringPeriod. It is not a lag to wait
+   out; it is a field that does not move until the week is scored.
+
+   Everything live on this site was reading it. The board, the pinned matchup
+   bar, and every reading written into the win-probability series -- which is
+   why the graph had eight identical 0-0 points on a night when six of twelve
+   teams had already scored.
+
+   THE PER-PLAYER NUMBER IS LIVE, and it arrives in the same response: we
+   already walk these entries to work out who is on the field. So a side's
+   score is the sum of its STARTERS, scored by ESPN's own rules, needing no
+   second request and with nothing of ours to drift out of step with the
+   official total when it does land. */
+function liveSideScore(side){
+  const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
+  if(!es.length) return null;
+  let t=0;
+  es.forEach(e=>{
+    if(!e||BENCH_SLOTS.includes(e.lineupSlotId)) return;
+    t+=(((e.playerPoolEntry||{}).appliedStatTotal)||0);
+  });
+  return Math.round(t*100)/100;
+}
+/* The fixture with a live total written onto each side, so everything
+   downstream reads one number and no other caller has to know any of this.
+
+   A REPORTED TOTAL WINS WHENEVER THERE IS ONE. Zero is ESPN not talking --
+   there is no other way to read a matchup total of nothing once a week has
+   been scored -- so the roster sum only ever fills a silence. It never
+   overrides a number ESPN has actually published, which is what keeps the
+   final result its answer rather than ours. */
+function liveWithScores(m){
+  if(!m||!m.home||!m.away) return m;
+  const hs=liveSideScore(m.home), as=liveSideScore(m.away);
+  if(hs==null&&as==null) return m;
+  const pick=(tot,sum)=>((tot||0)>0)?tot:(sum!=null?sum:(tot||0));
+  return Object.assign({},m,{
+    home:Object.assign({},m.home,{totalPoints:pick(m.home.totalPoints,hs)}),
+    away:Object.assign({},m.away,{totalPoints:pick(m.away.totalPoints,as)}),
+  });
+}
 /* ESPN'S OWN NUMBER FOR ONE FIXTURE, as a probability for the side that sorts
    FIRST in the matchup key -- which is the side `a` is, so it travels with the
    scores and needs no second lookup to interpret.
@@ -6633,7 +6679,11 @@ async function livePoll(){
       const r=await fetch(`${BASE}?view=mMatchup&view=mMatchupScore&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
       if(r.ok){
         const j=await r.json();
-        const fresh=(j.schedule||[]).filter(m=>(m.matchupPeriodId||0)===info.week&&m.home&&m.away);
+        /* normalised HERE and nowhere else: the board, the pinned bar and the
+           series all read info.games, so one pass at the source fixes every
+           one of them and no other caller learns about any of this */
+        const fresh=(j.schedule||[]).filter(m=>(m.matchupPeriodId||0)===info.week&&m.home&&m.away)
+          .map(liveWithScores);
         if(fresh.length) games=fresh;
       }
     }catch(e){}
@@ -6817,22 +6867,30 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
   arr.forEach(([t,x,y,q])=>{
     const a=aFirst?x:y, b=aFirst?y:x;
     const f=fAt(t);
-    /* ── A RECORDED NUMBER IS A FACT ABOUT THAT MINUTE ──────────────────────
-       Every point used to be recomputed from mu0 -- today's anchor -- because
-       the series held scores and nothing else. So the line was never a record
-       of the afternoon; it was what the CURRENT estimate makes of the
-       afternoon's scores, redrawn end to end every time that estimate moved.
+    /* ── AND IT IS DRAWN FROM THE MODEL, NOT FROM ESPN'S NUMBER ─────────────
+       A reading carries the probability ESPN published at it, and for a few
+       hours that looked like the right thing to draw: a recorded number is a
+       fact about its own minute, and the line stops being redrawn end to end
+       every time the anchor moves.
 
-       On the night of the week 1 opener that was visible in the worst way:
-       eight readings, all of them 0-0, so every point computed to the same
-       number and the whole flat line slid up and down as one as ESPN
-       republished. A graph that moves without anything having happened.
+       Then the reason the anchor was moving turned out to be the real story.
+       ESPN's matchup-level winProbability is computed off its matchup-level
+       total, and that total does not update during a game -- see
+       liveSideScore. So the published probability is frozen for the whole
+       afternoon too: at 7-0 in the second quarter of the week 1 opener, a
+       fixture whose starters had banked 8-0 was still reading 0.50.
 
-       A reading now carries the probability that was published AT it, and a
-       point written at 00:20 never moves again. mu0 is the fallback, for the
-       readings taken before this and for a minute ESPN published nothing. */
-    const rec=(q!=null&&q>0&&q<1)?(aFirst?q:1-q):null;
-    pts.push({t,p:rec!=null?rec:wpAt(a,b,projA,projB,f,mu0),a,b,f});
+       A frozen number recorded faithfully is still a frozen number. So the
+       published one is the OPENING ANCHOR -- which is what mu0 has always
+       been, and it is the right job for it, because before kickoff ESPN's
+       number is the better one and it is not frozen yet. From there the curve
+       moves on the scores, which are live now that they are read off the
+       players rather than the fixture.
+
+       q is still recorded on every reading. It costs nothing, it is the only
+       record of what ESPN was saying at the time, and if that number ever
+       starts moving mid-game this is the line that would use it. */
+    pts.push({t,p:wpAt(a,b,projA,projB,f,mu0),a,b,f,q:q!=null?q:null});
   });
   return pts;
 }
