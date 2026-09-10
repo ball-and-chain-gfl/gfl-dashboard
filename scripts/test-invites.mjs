@@ -24,6 +24,8 @@ const parts=[
   grab('const betInviteSeats=id=>'),
   grab('const CASHOUT_HOLD='),
   grab('const CASHOUT_MIN='),
+  grab('const betWeekInPlay='),
+  grab('function betSeasonInPlay(season){'),
   grab('function betCashOut(b){'),
   grab('function betCancellable(b){'),
   grab('const betInvitesFor=id=>'),
@@ -55,18 +57,31 @@ const bucksAllowance=()=>BUCKS_WEEKLY;
 const eggBucks=()=>0;
 /* betCancellable is a thin wrapper over betCashOut, which walks a ticket's legs
    to price a buy-back. These stubs put the football exactly where each case
-   below needs it: nothing graded yet, one weekly leg, and _STARTED deciding
-   whether that leg's week has kicked off. */
+   below needs it: nothing graded yet, one weekly leg, and two SEPARATE flags
+   for the state of the football.
+
+   Two, because one was the bug. _STARTED is "a fantasy point has landed" and
+   _KICKED is "the ball is in the air", and the whole of the week 1 opener sat
+   in the gap between them -- kicked off, nothing scored yet -- where a stub
+   with a single flag has nothing to say. */
 const getSeason=()=>'2026';
+let _KICKED=false;
 const betLegWeek=()=>2;
 const betLegResult=()=>null;
 const betWeekStarted=()=>_STARTED;
 const betSeasonStarted=()=>_STARTED;
+const nflWeekLive=()=>_KICKED;
+const liveWeekInfo=()=>({week:2});
+let _liveInfo=null;
 const betLegProb=()=>0.5;
 ${parts.join('\n')}
 return {
-  set(b,me,wk,started){ _bets=b; _me=me; _WEEK=wk; _STARTED=started; },
-  inviteLapsed, canInviteOn, betInviteSeats, betCancellable,
+  set(b,me,wk,started,kicked){ _bets=b; _me=me; _WEEK=wk; _STARTED=started;
+    /* undefined means "as started" — every case written before the kickoff
+       flag existed described a week that had either not begun or was already
+       scoring, and both of those read the same on both flags */
+    _KICKED=(kicked===undefined?started:kicked); },
+  inviteLapsed, canInviteOn, betInviteSeats, betCancellable, betCashOut,
   bucksBalance, bucksStaked, betsMine, INVITE_MAX,
   feed:()=>_bets.filter(b=>_me&&b.owner===_me.k1&&b.status==='invite'&&!inviteLapsed(b)).map(b=>b.id),
   /* what renderMyBets files into a week card: betsMine, minus the cleared,
@@ -118,6 +133,48 @@ console.log('\n3. nothing can be pulled once the week is under way');
   api.set(bets,ME,'W2',true);
   eq('own bet locked', api.betCancellable(bets[0]), false);
   eq('invited bet locked', api.betCancellable(bets[1]), false);
+}
+
+console.log('\n3b. and "under way" means the KICKOFF, not the first point');
+{
+  /* THE GAP THIS CLOSES. betCashOut asked betWeekStarted, which is "has any
+     fixture of this week SCORED". Between the opening whistle of a week and
+     its first fantasy point that is false -- on the night of the week 1 opener
+     it was false for the better part of an hour, with the game live on screen.
+     Every open ticket offered a full withdrawal for all of it: watch the first
+     quarter, see your guy go down, pull your stake, nothing lost.
+
+     The stub used to carry one flag for the state of the football, which is
+     why this shipped: there was no way to write the case down. */
+  const own=B({id:'own',owner:'bfl',wk:'W2',stake:200});
+
+  /* nothing at all: a withdrawal, in full, which is right */
+  api.set([own],ME,'W2',false,false);
+  const before=api.betCashOut(own);
+  eq('before kickoff it is a full withdrawal', !!(before&&before.ok&&before.full), true);
+  eq('and it is the whole stake', before.amount, 200);
+
+  /* KICKED OFF, NOTHING SCORED — the hole */
+  api.set([own],ME,'W2',false,true);
+  const gap=api.betCashOut(own);
+  eq('the kickoff shuts it before a single point', !!(gap&&gap.ok), false);
+  eq('and it says why', /under way/.test(gap&&gap.why||''), true);
+  eq('betCancellable agrees', api.betCancellable(own), false);
+
+  /* points on the board: shut, as it always was */
+  api.set([own],ME,'W2',true,true);
+  eq('still shut once the scoring starts', api.betCancellable(own), false);
+
+  /* AN UNREADABLE SCOREBOARD FAILS SHUT. Unknown is null from nflWeekLive,
+     and the choice is between briefly refusing a withdrawal and briefly
+     handing a stake back on a locked ticket. Only one of those is free money. */
+  api.set([own],ME,'W2',false,null);
+  eq('an unknown scoreboard is treated as in play', api.betCancellable(own), false);
+
+  /* explicitly not live and nothing scored is open again — a bet on a week
+     that has not come round yet stays withdrawable */
+  api.set([own],ME,'W2',false,false);
+  eq('a week that has not come round is withdrawable', api.betCancellable(own), true);
 }
 
 console.log('\n4. an invitation can still be accepted mid-game');

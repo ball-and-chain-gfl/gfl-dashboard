@@ -16362,6 +16362,34 @@ const betAnyPlayed=(meta,wk)=>((meta&&meta.schedule)||[]).some(m=>m.home&&m.away
   &&((m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0));
 const betWeekStarted=(season,wk)=>betAnyPlayed(_seasonMeta[String(season)],wk);
 const betSeasonStarted=season=>betAnyPlayed(_seasonMeta[String(season)],null);
+/* ── IN PLAY IS THE KICKOFF, NOT THE FIRST POINT ─────────────────────────────
+   betWeekStarted asks whether any fixture of a week has SCORED, and between
+   the opening whistle and the first fantasy point of a week the answer is no.
+   On the night of the week 1 opener that gap ran the better part of an hour,
+   and for all of it every open ticket was offering a FULL WITHDRAWAL with the
+   football live on screen. A free look at the first quarter: watch your guy go
+   down, pull your stake, nothing lost.
+
+   A scoreboard can see a kickoff; a fantasy total cannot. This is the same
+   test sbWeekLocked makes for the board and it is the same reason.
+
+   UNKNOWN COUNTS AS IN PLAY, which is the opposite of what sbWeekLocked does
+   with an unloaded digest, and deliberately. Failing open there means somebody
+   places a bet at a stale price, which is the house's problem. Failing open
+   HERE means handing back a stake on a ticket that should be locked, which is
+   free money. nflWeekLive answers null only while its fetch is in flight and
+   it repaints the book on arrival, so the strict reading costs a second and
+   the loose one costs a bet. */
+const betWeekInPlay=(season,wk)=>betWeekStarted(season,wk)||nflWeekLive(wk,season)!==false;
+/* The only week of a season that can be live is the one on the clock, so a
+   season-long leg asks about that one. */
+function betSeasonInPlay(season){
+  if(betSeasonStarted(season)) return true;
+  try{
+    const wk=Number((_liveInfo||liveWeekInfo()||{}).week)||0;
+    return wk>0&&betWeekInPlay(season,wk);
+  }catch(e){ return false; }
+}
 
 /* What a leg is worth NOW rather than when it was taken. The board reprices
    every render, so a team that has since run away with it reads as close to
@@ -16397,7 +16425,10 @@ function betCashOut(b){
     const res=betLegResult(l,season);
     if(res===false) return {ok:false,why:'A leg has already gone down.'};
     const wk=betLegWeek(l.mk);
-    const started=wk!=null?betWeekStarted(season,wk):betSeasonStarted(season);
+    /* IN PLAY, not merely scored — see betWeekInPlay. This asked
+       betWeekStarted, so a ticket stayed fully withdrawable from the opening
+       whistle until the first fantasy point of the week landed. */
+    const started=wk!=null?betWeekInPlay(season,wk):betSeasonInPlay(season);
     if(started) anyStarted=true;
     /* "in play" is about the football, not the grading: a week that has begun
        and not finished locks the ticket even if the leg is ungradeable. */
