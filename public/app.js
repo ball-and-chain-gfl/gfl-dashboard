@@ -6577,6 +6577,26 @@ const liveSideOn=(side,on)=>{
   });
 };
 const liveMatchupOn=(m,on)=>liveSideOn(m&&m.home,on)||liveSideOn(m&&m.away,on);
+/* ESPN'S OWN NUMBER FOR ONE FIXTURE, as a probability for the side that sorts
+   FIRST in the matchup key -- which is the side `a` is, so it travels with the
+   scores and needs no second lookup to interpret.
+
+   Null when there is nothing published, and null at exactly 0 or 1, which is a
+   finished game rather than an opinion about one. Each side is rounded to two
+   places independently so the pair does not have to add up; the published pair
+   is renormalised, the same way espnProbFor does it for the board. Four
+   decimal places, because the whole week of these lives in one document. */
+function liveWpOf(m,aFirst){
+  const ok=v=>typeof v==='number'&&v>0&&v<1;
+  let hp=(m&&m.home&&m.home.winProbability), ap=(m&&m.away&&m.away.winProbability);
+  hp=ok(hp)?hp:null; ap=ok(ap)?ap:null;
+  if(hp==null&&ap==null) return null;
+  if(hp!=null&&ap!=null){ const s=hp+ap; if(s>0){ hp=hp/s; ap=ap/s; } }
+  else if(hp!=null) ap=1-hp;
+  else hp=1-ap;
+  const p=aFirst?hp:ap;
+  return (p>0&&p<1)?Math.round(p*10000)/10000:null;
+}
 /* Put one reading in the bucket it belongs to; answers whether anything moved.
 
    Two watchers can land in the same five minutes holding different scores. The
@@ -6584,13 +6604,18 @@ const liveMatchupOn=(m,on)=>liveSideOn(m&&m.home,on)||liveSideOn(m&&m.away,on);
    up far more often than a correction takes them back, and either choice is
    within the noise of a single bucket. A correction that does come down is
    picked up by the NEXT bucket, which is where it reads correctly anyway. */
-function liveNote(arr,t,a,b){
+function liveNote(arr,t,a,b,p){
   const prev=arr[arr.length-1];
   if(prev&&prev[0]>=t){
-    if(prev[0]===t&&(a+b)>(prev[1]+prev[2])){ prev[1]=a; prev[2]=b; return true; }
-    return false;
+    if(prev[0]!==t) return false;
+    let moved=false;
+    if((a+b)>(prev[1]+prev[2])){ prev[1]=a; prev[2]=b; moved=true; }
+    /* A probability is a live reading rather than a running total, so inside a
+       bucket the latest one is simply the best one, whatever the score did. */
+    if(p!=null&&prev[3]!==p){ prev[3]=p; moved=true; }
+    return moved;
   }
-  arr.push([t,a,b]);
+  arr.push(p!=null?[t,a,b,p]:[t,a,b]);
   return true;
 }
 /* one poll: read the live scoreboard, append anything that moved, redraw */
@@ -6602,7 +6627,10 @@ async function livePoll(){
     let games=info.games;
     // ask ESPN directly so an in-progress week reflects the current minute
     try{
-      const r=await fetch(`${BASE}?view=mMatchup&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
+      /* mMatchupScore rides along on the same request: it is what carries
+         winProbability, and a reading without one is a point the graph has to
+         guess at later. One call, both answers. */
+      const r=await fetch(`${BASE}?view=mMatchup&view=mMatchupScore&seasonId=${info.season}&scoringPeriodId=${info.week}&live=1`,{cache:'no-store'});
       if(r.ok){
         const j=await r.json();
         const fresh=(j.schedule||[]).filter(m=>(m.matchupPeriodId||0)===info.week&&m.home&&m.away);
@@ -6643,7 +6671,7 @@ async function livePoll(){
          It is also what a matchup looks like before it has kicked off, which
          is why no empty series is left behind for one. */
       if(!on&&!moved) return;
-      if(liveNote(arr||(_liveSeries[k]=[]),t,a,b)) changed=true;
+      if(liveNote(arr||(_liveSeries[k]=[]),t,a,b,liveWpOf(m,aFirst))) changed=true;
     });
     if(changed){ _liveDirty=true; _liveChanged=Date.now(); }
     if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);
@@ -6676,7 +6704,12 @@ async function liveFlush(key){
         arr.forEach(p=>{
           const cur=at[p[0]];
           if(!cur){ at[p[0]]=p; mine.push(p); }
-          else if((p[1]+p[2])>(cur[1]+cur[2])){ cur[1]=p[1]; cur[2]=p[2]; }
+          else{
+            if((p[1]+p[2])>(cur[1]+cur[2])){ cur[1]=p[1]; cur[2]=p[2]; }
+            /* a bucket we hold without a probability takes one from whoever
+               did record it -- see liveNote for why the newest wins */
+            if(p[3]!=null) cur[3]=p[3];
+          }
         });
         mine.sort((x,y)=>x[0]-y[0]);
         _liveSeries[k]=mine;
@@ -6781,10 +6814,25 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
     return f;
   };
   const pts=[{t:arr[0][0]-1,p:open,a:0,b:0,f:0}];
-  arr.forEach(([t,x,y])=>{
+  arr.forEach(([t,x,y,q])=>{
     const a=aFirst?x:y, b=aFirst?y:x;
     const f=fAt(t);
-    pts.push({t,p:wpAt(a,b,projA,projB,f,mu0),a,b,f});
+    /* ── A RECORDED NUMBER IS A FACT ABOUT THAT MINUTE ──────────────────────
+       Every point used to be recomputed from mu0 -- today's anchor -- because
+       the series held scores and nothing else. So the line was never a record
+       of the afternoon; it was what the CURRENT estimate makes of the
+       afternoon's scores, redrawn end to end every time that estimate moved.
+
+       On the night of the week 1 opener that was visible in the worst way:
+       eight readings, all of them 0-0, so every point computed to the same
+       number and the whole flat line slid up and down as one as ESPN
+       republished. A graph that moves without anything having happened.
+
+       A reading now carries the probability that was published AT it, and a
+       point written at 00:20 never moves again. mu0 is the fallback, for the
+       readings taken before this and for a minute ESPN published nothing. */
+    const rec=(q!=null&&q>0&&q<1)?(aFirst?q:1-q):null;
+    pts.push({t,p:rec!=null?rec:wpAt(a,b,projA,projB,f,mu0),a,b,f});
   });
   return pts;
 }

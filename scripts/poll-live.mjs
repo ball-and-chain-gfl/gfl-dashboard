@@ -73,9 +73,10 @@ const app = assemble(grab, [
   'const liveProTeams=',
   'const liveSideOn=',
   'const liveMatchupOn=',
-  'function liveNote(arr,t,a,b){',
+  'function liveWpOf(m,aFirst){',
+  'function liveNote(arr,t,a,b,p){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
-    'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote']);
+    'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf']);
 
 const DOC = k => `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   + `/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
@@ -156,7 +157,10 @@ async function once() {
   if (!week) { console.log(`${stamp}  no live week — skipping`); return 'skip'; }
 
   /* the current minute's scores, from the same feed livePoll reads */
-  const fresh = await get(`view=mMatchup&seasonId=${season}&scoringPeriodId=${week}&live=1`);
+  /* mMatchupScore rides along: it carries winProbability, and a reading
+     without one is a point the graph has to guess at later. */
+  const fresh = await get(`view=mMatchup&view=mMatchupScore`
+    + `&seasonId=${season}&scoringPeriodId=${week}&live=1`);
   const games = ((fresh && fresh.schedule) || meta.schedule || [])
     .filter(m => (m.matchupPeriodId || 0) === week && m.home && m.away);
   if (!games.length) { console.log(`${stamp}  week ${week} has no fixtures — skipping`); return 'skip'; }
@@ -185,7 +189,7 @@ async function once() {
     const moved = !!arr && arr.length
       && (arr[arr.length - 1][1] !== a || arr[arr.length - 1][2] !== b);
     if (!live && !moved) return;
-    if (app.liveNote(arr || (series[k] = []), t, a, b)) changed++;
+    if (app.liveNote(arr || (series[k] = []), t, a, b, app.liveWpOf(m, aFirst))) changed++;
   });
 
   if (!changed) {

@@ -30,9 +30,11 @@ const M = assemble(grab, [
   'const liveProTeams=',
   'const liveSideOn=',
   'const liveMatchupOn=',
-  'function liveNote(arr,t,a,b){',
+  'function liveWpOf(m,aFirst){',
+  'function liveNote(arr,t,a,b,p){',
 ], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf',
-    'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn', 'liveNote'], `
+    'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn',
+    'liveNote', 'liveWpOf'], `
 const sbZ=x=>x;
 `);
 
@@ -340,6 +342,116 @@ console.log(nl + '7b. WHEN A READING IS WORTH TAKING');
      matchup stops taking up width on Sunday, and that is correct */
   ok('and with nothing live at all, no matchup is',
      M.liveMatchupOn(m(side([0, 26]), side([0, 17])), new Set()) === false);
+}
+
+console.log(nl + '7c. A READING CARRIES THE NUMBER PUBLISHED AT IT');
+{
+  /* THE BUG THIS FIXES. The series held scores and nothing else, so every
+     point on the curve was recomputed from mu0 -- TODAY'S anchor -- every time
+     the panel drew. The line was never a record of the afternoon; it was what
+     the current estimate makes of the afternoon's scores, redrawn end to end
+     whenever that estimate moved.
+
+     On the night of the week 1 opener it showed in the worst possible way.
+     Eight readings, every one of them 0-0, so every point computed to the same
+     number and the whole flat line slid up and down as one as ESPN
+     republished: a graph moving with nothing behind it. */
+  const t0 = 28000000;
+  const flat = {};
+  flat[M.liveMKey(ME, OPP)] = [0,1,2,3,4,5,6,7].map(i => [t0 + i*5, 0, 0, 0.53]);
+
+  const at50 = M.wpCurve(flat, PROJ, ME, OPP, 0).map(q => q.p);
+  const at62 = M.wpCurve(flat, PROJ, ME, OPP, 40).map(q => q.p);
+  /* the opening point is before the record starts and still comes from mu0 */
+  ok('a recorded curve does not move when the anchor does',
+     at50.slice(1).every((p, i) => Math.abs(p - at62[i + 1]) < 1e-12),
+     at50.slice(1, 4).join(',') + '  vs  ' + at62.slice(1, 4).join(','));
+  ok('and it draws the number that was published',
+     at50.slice(1).every(p => Math.abs(p - 0.53) < 1e-9), at50[1]);
+
+  /* the other side of the same fixture reads the complement */
+  const other = M.wpCurve(flat, PROJ, OPP, ME, 0).map(q => q.p);
+  ok('the opponent gets one minus it',
+     other.slice(1).every(p => Math.abs(p - 0.47) < 1e-9), other[1]);
+
+  /* A READING WITH NO NUMBER FALLS BACK, which is every reading taken before
+     this shipped -- the archive is full of three-element ones. */
+  const oldShape = {};
+  oldShape[M.liveMKey(ME, OPP)] = [[t0, 0, 0], [t0 + 5, 0, 0]];
+  const o50 = M.wpCurve(oldShape, PROJ, ME, OPP, 0).map(q => q.p);
+  const o62 = M.wpCurve(oldShape, PROJ, ME, OPP, 40).map(q => q.p);
+  ok('an unrecorded reading still comes from the model',
+     Math.abs(o50[1] - 0.5) < 1e-9 && o62[1] > o50[1], o50[1] + ' / ' + o62[1]);
+
+  /* mixed: the old ones follow the anchor, the recorded ones do not */
+  const mixed = {};
+  mixed[M.liveMKey(ME, OPP)] = [[t0, 0, 0], [t0 + 5, 0, 0, 0.53], [t0 + 10, 0, 0]];
+  const m50 = M.wpCurve(mixed, PROJ, ME, OPP, 0).map(q => q.p);
+  const m62 = M.wpCurve(mixed, PROJ, ME, OPP, 40).map(q => q.p);
+  ok('a recorded point holds while its neighbours drift',
+     Math.abs(m50[2] - m62[2]) < 1e-12 && Math.abs(m50[1] - m62[1]) > 0.01,
+     m50.join(',') + '  vs  ' + m62.join(','));
+
+  /* AND THE CURVE STILL CURVES. Recorded numbers that differ draw a shape. */
+  const shape = {};
+  shape[M.liveMKey(ME, OPP)] = [[t0,0,0,0.50],[t0+5,7,0,0.61],[t0+10,7,9,0.44],
+    [t0+15,21,9,0.78],[t0+20,21,24,0.36]];
+  const drawn = M.wpCurve(shape, PROJ, ME, OPP, 0).map(q => Math.round(q.p * 100));
+  ok('a series of different readings draws a shape, not a level',
+     new Set(drawn.slice(1)).size === 5, drawn.join(','));
+  ok('and it is the shape that was recorded',
+     drawn.slice(1).join(',') === '50,61,44,78,36', drawn.slice(1).join(','));
+}
+
+console.log(nl + '7d. WHERE THAT NUMBER COMES FROM');
+{
+  const m = (h, a) => ({ home: { winProbability: h }, away: { winProbability: a } });
+  ok('it is read for the side that sorts first', M.liveWpOf(m(0.62, 0.38), true) === 0.62);
+  ok('and flipped for the other one',            M.liveWpOf(m(0.62, 0.38), false) === 0.38);
+
+  /* ESPN rounds each side on its own, so 0.53/0.46 happens and the pair does
+     not add up. Everything downstream assumes it does. */
+  const r = M.liveWpOf(m(0.53, 0.46), true);
+  ok('a pair that does not add to one is renormalised', Math.abs(r - 0.53/0.99) < 1e-4, r);
+  ok('and the two halves still sum to one',
+     Math.abs(M.liveWpOf(m(0.53,0.46),true) + M.liveWpOf(m(0.53,0.46),false) - 1) < 1e-4);
+
+  /* an exact 0 or 1 is a finished game, not an opinion about one */
+  ok('a settled game records nothing', M.liveWpOf(m(1, 0), true) === null);
+  ok('nor the other way round',        M.liveWpOf(m(0, 1), true) === null);
+  ok('nothing published records nothing', M.liveWpOf({home:{},away:{}}, true) === null);
+  ok('and a malformed fixture does not throw', M.liveWpOf(null, true) === null);
+
+  /* one side missing is still an answer: the other is its complement */
+  ok('one side alone is enough', Math.abs(M.liveWpOf({home:{winProbability:0.7},away:{}},false) - 0.3) < 1e-9);
+
+  /* it is stored, so it is trimmed */
+  ok('it is kept to four places', String(M.liveWpOf(m(0.53, 0.46), true)).length <= 6,
+     String(M.liveWpOf(m(0.53, 0.46), true)));
+}
+
+console.log(nl + '7e. AND THE READING KEEPS IT UP TO DATE');
+{
+  const t = 29816660;
+  const arr = [];
+  ok('a new bucket stores the number', M.liveNote(arr, t, 0, 0, 0.5) === true
+     && arr[0].length === 4 && arr[0][3] === 0.5);
+  ok('the same bucket, nothing changed, is not a write',
+     M.liveNote(arr, t, 0, 0, 0.5) === false && arr.length === 1);
+  /* THE SCORE CAN SIT STILL WHILE THE NUMBER MOVES -- which is most of a first
+     quarter, and was the whole of what the panel had to show that night */
+  ok('a moved probability on a flat score is still news',
+     M.liveNote(arr, t, 0, 0, 0.56) === true && arr[0][3] === 0.56 && arr.length === 1);
+  ok('a fuller score still replaces in place',
+     M.liveNote(arr, t, 6.4, 0, 0.61) === true && arr[0][1] === 6.4 && arr[0][3] === 0.61);
+  ok('a stale score does not undo it, but its number still lands',
+     M.liveNote(arr, t, 2, 0, 0.63) === true && arr[0][1] === 6.4 && arr[0][3] === 0.63);
+  /* a minute ESPN published nothing leaves the last one standing rather than
+     blanking it */
+  ok('no number leaves the one already there',
+     M.liveNote(arr, t, 6.4, 0, null) === false && arr[0][3] === 0.63);
+  ok('a reading with no number at all is still three long',
+     (() => { const a2 = []; M.liveNote(a2, t, 1, 2); return a2[0].length === 3; })());
 }
 
 console.log(nl + '8. THE MINUTE STAMPS COME BACK IN ORDER');
