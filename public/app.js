@@ -9510,17 +9510,18 @@ async function toggleSchedOpp(el){
   if(!open) return;
   box.classList.add('open'); row.classList.add('sch-row-open');
   const season=box.dataset.season, owner=el.dataset.opp, name=el.dataset.name||'This team';
-  box.innerHTML='<div class="sd-msg">Loading…</div>';
+  box.innerHTML='<div class="sd-card"><div class="sd-msg">Loading…</div></div>';
   /* A game already played has a record; a game still to come has only a
      scouting report. They are different questions and get different drawers. */
   if(el.dataset.played==='1'){
     const week=Number(el.dataset.week)||0, me=el.dataset.me||'';
     try{ await wpEnsureSeries(season,week); }catch(e){}
     try{ weekScores(season,week); }catch(e){}
-    box.innerHTML=schedPlayedDetailHTML(me,owner,season,week,name);
+    const card=h=>'<div class="sd-card">'+h+'</div>';
+    box.innerHTML=card(schedPlayedDetailHTML(me,owner,season,week,name));
     /* both sources land asynchronously — repaint this one drawer when they do */
     setTimeout(()=>{ if(box.classList.contains('open'))
-      box.innerHTML=schedPlayedDetailHTML(me,owner,season,week,name); },1200);
+      box.innerHTML=card(schedPlayedDetailHTML(me,owner,season,week,name)); },1200);
     return;
   }
   try{ await loadTenureData(); }catch(e){}
@@ -9529,40 +9530,43 @@ async function toggleSchedOpp(el){
     /* no starts to rank on yet — scout the roster they actually hold */
     const pj=schedTopProjected(owner,season,3);
     if(pj&&pj.length){
-      box.innerHTML=`<div class="sd-h">Top ${pj.length} player${pj.length===1?'':'s'}</div>
+      box.innerHTML=`<div class="sd-card">
+        <div class="sd-h">Top ${pj.length} player${pj.length===1?'':'s'}</div>
         <div class="sd-list">${pj.map((p,i)=>`<div class="sd-row">
           <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
           <span class="sd-name">${p.n}</span>
           <span class="sd-ppg">${p.proj.toFixed(1)}</span>
           <span class="sd-st">${p.pos} proj</span>
-        </div>`).join('')}</div>${schedLastMeeting(owner)}`;
+        </div>`).join('')}</div></div>${schedLastMeeting(owner)}`;
       /* the roster feed may not have landed on the first open */
       setTimeout(()=>{ if(!box.classList.contains('open')) return;
         const again=schedTopProjected(owner,season,3);
         if(again&&again.length&&again.length!==pj.length) toggleSchedOpp(el); },1400);
       return;
     }
-    box.innerHTML=`<div class="sd-msg">Loading ${name}'s roster…</div>`;
+    box.innerHTML=`<div class="sd-card"><div class="sd-msg">Loading ${name}'s roster…</div></div>`;
     setTimeout(()=>{ if(!box.classList.contains('open')) return;
       const again=schedTopProjected(owner,season,3);
       box.innerHTML=(again&&again.length)
-        ? `<div class="sd-h">Top ${again.length} player${again.length===1?'':'s'}</div>
+        ? `<div class="sd-card">
+           <div class="sd-h">Top ${again.length} player${again.length===1?'':'s'}</div>
            <div class="sd-list">${again.map((p,i)=>`<div class="sd-row">
              <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
              <span class="sd-name">${p.n}</span>
              <span class="sd-ppg">${p.proj.toFixed(1)}</span>
              <span class="sd-st">${p.pos} proj</span>
-           </div>`).join('')}</div>${schedLastMeeting(owner)}`
-        : `<div class="sd-msg">No ${season} player data yet.</div>`; },1600);
+           </div>`).join('')}</div></div>${schedLastMeeting(owner)}`
+        : `<div class="sd-card"><div class="sd-msg">No ${season} player data yet.</div></div>`; },1600);
     return;
   }
-  box.innerHTML=`<div class="sd-h">Top ${top.length} player${top.length===1?'':'s'}</div>
+  box.innerHTML=`<div class="sd-card">
+    <div class="sd-h">Top ${top.length} player${top.length===1?'':'s'}</div>
     <div class="sd-list">${top.map((p,i)=>`<div class="sd-row">
       <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
       <span class="sd-name">${p.n}</span>
       <span class="sd-ppg">${p.ppg.toFixed(1)}</span>
       <span class="sd-st">${p.starts} start${p.starts===1?'':'s'}</span>
-    </div>`).join('')}</div>${schedLastMeeting(owner)}`;
+    </div>`).join('')}</div></div>${schedLastMeeting(owner)}`;
 }
 /* The last meeting between the team the SCHEDULE is showing and this opponent
    -- not between you and them. The tab has a team picker and answering for a

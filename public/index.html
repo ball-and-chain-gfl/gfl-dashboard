@@ -3649,7 +3649,12 @@
     /* Its own block rather than a drawer: the lineups are the thing the card is
        about once a week is running, and a heading you have to open first is a
        heading that says "probably not worth it". */
-    .fc-lu{margin-top:12px;border-radius:11px;overflow:hidden;
+    /* The rest of the card is spaced on 16 -- fc-odds and fc-pos both carry
+       margin-bottom:16px. This had a top margin and no bottom one, so it sat
+       flush against the Playoff odds fold underneath with nothing between them.
+       The block above it already provides the gap; this one owes the gap to
+       whatever comes next. */
+    .fc-lu{margin:0 0 16px;border-radius:11px;overflow:hidden;
       background:rgba(0,0,0,0.3);}
     .fc-lu-h{padding:11px 13px 0;font-family:'Inter',sans-serif;font-size:11px;
       font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
@@ -5032,8 +5037,18 @@
     .sch-caret{font-size:9px;margin-left:6px;color:var(--text3);transition:transform .18s ease;flex:0 0 auto;}
     .sch-row-open .sch-caret{transform:rotate(180deg);color:var(--accent);}
     .sch-detail{display:none;}
-    .sch-detail.open{display:block;padding:12px;margin:8px 0 10px;
-      border:1px solid rgba(var(--accent-rgb),0.32);border-radius:8px;
+    /* ── THE DRAWER HOLDS CARDS, IT IS NOT ONE ────────────────────────────────
+       Opening an opponent shows two things: who you have to face, and the last
+       time you played them. Those are separate answers and they get separate
+       boxes -- the chrome that used to sit on the drawer itself now sits on
+       .sd-card, and the drawer is a plain wrapper stacking them. */
+    .sch-detail.open{display:block;padding:0;margin:8px 0 10px;
+      border:0;background:none;}
+    .sd-card{padding:12px;border:1px solid rgba(var(--accent-rgb),0.32);
+      border-radius:8px;background:rgba(255,255,255,0.02);}
+    /* the record reads as the same kind of object as the card above it */
+    .sch-detail .fcl-one{margin-top:10px;border-radius:8px;
+      border:1px solid rgba(var(--accent-rgb),0.32);
       background:rgba(255,255,255,0.02);}
     .sd-h{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.7px;
       text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
