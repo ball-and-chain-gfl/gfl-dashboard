@@ -52,7 +52,9 @@ console.log('\n1. every declaration the model needs is still there');
 const NEEDED = ['const SCHED_SD=', 'function schedNormCdf(', 'const SCHED_RATING_W=',
   'const SCHED_PPG_W=', 'let _schedPowerCache=', 'function schedPower(',
   'function schedPowerMargin(', 'const schedWkSd=', 'function schedCurWeek(',
-  'let _schedProjCache=', 'function schedEspnProj(', 'let _espnWpCache=', 'let _espnWpBusy=',
+  'let _schedProjCache=', 'function schedEspnProj(',
+  'const ESPN_WP_TTL_LIVE=', 'const ESPN_WP_TTL_IDLE=',
+  'let _espnWpCache=', 'let _espnWpBusy=', 'let _espnWpAt=',
   'function espnWinProbs(', 'function schedInvNorm(', 'function espnProbFor(',
   'function schedMargin(',
   'function schedZ(', 'function schedWinProb(', 'function schedOpenMu(',
@@ -127,14 +129,22 @@ const SB_BENCH_SLOTS=[20,21,24];
 const SB_WK_SD=26;
 const BASE='/api/espn';
 let _activeTab='week';
+let _nflLive=false;                  // the TTL is shorter while football is on
 function renderWeek(){}
 function fetch(){ return Promise.resolve({ok:false}); }   // never actually reached here
-function setEspnWp(wk,tbl){ _espnWpCache['2099:'+wk]=tbl; }
+/* Stamped as JUST READ. Without the stamp the reading is stale on arrival, and
+   a stale reading now triggers a refetch -- which in here resolves to {ok:false}
+   and would quietly null the fixture out from under the test. */
+function setEspnWp(wk,tbl){ _espnWpCache['2099:'+wk]=tbl; _espnWpAt['2099:'+wk]=Date.now(); }
+function ageEspnWp(wk,ms){ _espnWpAt['2099:'+wk]=Date.now()-ms; }
+function setNflLive(v){ _nflLive=!!v; }
+function espnWpTtls(){ return {live:ESPN_WP_TTL_LIVE, idle:ESPN_WP_TTL_IDLE}; }
 ${NEEDED.map(n => parts[n]).join('\n')}
 module.exports={schedPower,schedPowerMargin,schedMargin,schedZ,schedWinProb,
   schedOpenMu,schedEspnProj,schedCurWeek,wpAt,wpSd,SCHED_SD,schedWkSd,
   SCHED_RATING_W,SCHED_PPG_W,schedNormCdf,rebuild,setBoard,setRosters,dropRosters,
-  setLastWeek,setEspnWp,espnProbFor,schedInvNorm,rows:_rows};
+  setLastWeek,setEspnWp,ageEspnWp,setNflLive,espnWpTtls,espnWinProbs,
+  espnProbFor,schedInvNorm,rows:_rows};
 `;
 const mod = { exports: {} };
 let built = true;
@@ -250,11 +260,48 @@ if (built) {
     M.schedWinProb(rows[11],rows[0],5)<0.95, M.schedWinProb(rows[11],rows[0],5));
   ok('no ESPN table for a week falls straight through',
     M.espnProbFor(rows[11],rows[0],9)===null);
+
+  console.log('\n5b. and it is read again, because ESPN keeps moving it');
+  /* THE BUG THIS GUARDS. The table cached per season and week for the life of
+     the session. ESPN republishes these play by play, so a tab left open
+     through a Sunday quoted whatever number happened to be up when it loaded
+     -- a headline frozen at kickoff while ESPN's own page moved underneath. */
+  const ttl = M.espnWpTtls();
+  ok('football on the field is read once a minute', ttl.live === 60000, ttl.live);
+  ok('and a quiet week a great deal less often', ttl.idle >= 15 * ttl.live, ttl.idle);
+
+  M.setNflLive(true);
+  M.setEspnWp(6, { own11:{p:0.62,opp:'own0'}, own0:{p:0.38,opp:'own11'} });
+  ok('a reading just taken is the one quoted',
+     Math.abs(M.schedWinProb(rows[11],rows[0],6)-0.62)<1e-6);
+  /* half a minute old, live: still fresh, and NOT refetched */
+  M.ageEspnWp(6, 30000);
+  ok('half a minute old is still fresh while live',
+     Math.abs(M.schedWinProb(rows[11],rows[0],6)-0.62)<1e-6);
+
+  /* AN OLD READING IS STILL SERVED while the new one is in flight. Dropping to
+     null here would flick the headline onto our own model for one render and
+     then back, which reads as the number glitching rather than updating. */
+  M.ageEspnWp(6, 5*60000);
+  const stale = M.espnProbFor(rows[11],rows[0],6);
+  ok('a stale reading is served, not thrown away',
+     stale!==null && Math.abs(stale-0.62)<1e-6, String(stale));
+
+  /* the same age, off the clock, is not stale at all */
+  M.setNflLive(false);
+  M.setEspnWp(7, { own9:{p:0.58,opp:'own1'}, own1:{p:0.42,opp:'own9'} });
+  M.ageEspnWp(7, 5*60000);
+  ok('five minutes is fresh when there is no football on',
+     Math.abs(M.schedWinProb(rows[9],rows[1],7)-0.58)<1e-6);
+
+  /* a week never read at all is null, not a stale anything */
+  ok('a week never read is still null', M.espnWinProbs(2099,12)===null);
+  M.setNflLive(false);
   /* the inverse has to round-trip or the quoted number is not the shown one */
   ok('the inverse normal round-trips',
     [0.05,0.3,0.47,0.53,0.8,0.95].every(q=>Math.abs(M.schedNormCdf(M.schedInvNorm(q))-q)<1e-6));
 
-  console.log('\n5b. the probabilities are coherent, on either path');
+  console.log('\n5c. the probabilities are coherent, on either path');
   [3, 9].forEach(wk => {
     const via = wk === 3 ? 'espn' : 'power';
     let worstSym = 0, worstAnti = 0;

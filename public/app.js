@@ -8544,15 +8544,35 @@ function schedEspnProj(week){
    the better calibrated of the two. The playoff simulation therefore runs on
    our numbers for thirteen of fourteen weeks, which is what a simulation wants:
    ESPN's flatness would turn a season projection into mush. */
-/* Two statements, not one comma-separated declaration: the test harnesses lift
-   these by string match and that walk stops at the first closing brace, so a
-   pair would arrive half-declared. */
+/* ── AND IT HAS TO BE READ AGAIN ─────────────────────────────────────────────
+   This cached per season and week for the whole life of the session, which is
+   right for a week that is over and wrong for the only week it is ever asked
+   about. ESPN republishes these numbers play by play; we read them once, at
+   whatever minute the tab happened to open, and then quoted that reading for
+   the rest of the night. Leave the Schedule tab up through a Sunday and the
+   headline is frozen at kickoff while ESPN's own page moves underneath it.
+
+   Sixty seconds while there is football on the field, fifteen minutes when
+   there is not. Nothing moves these between games, and a refetch a minute
+   through a dead Thursday is sixty requests an hour to learn nothing.
+
+   THE STALE VALUE IS SERVED WHILE THE NEW ONE IS IN FLIGHT. Returning null
+   there would drop the headline back onto our own model for a beat and then
+   flick it back, which reads as the number glitching rather than updating. */
+const ESPN_WP_TTL_LIVE=60000;
+const ESPN_WP_TTL_IDLE=900000;
+/* Separate statements, not one comma-separated declaration: the test harnesses
+   lift these by string match and that walk stops at the first closing brace,
+   so a pair would arrive half-declared. */
 let _espnWpCache={};
 let _espnWpBusy={};
+let _espnWpAt={};
 function espnWinProbs(season,week){
   const wk=Number(week)||0; if(!season||!wk) return null;
   const k=String(season)+':'+wk;
-  if(k in _espnWpCache) return _espnWpCache[k];
+  const have=(k in _espnWpCache);
+  const ttl=_nflLive?ESPN_WP_TTL_LIVE:ESPN_WP_TTL_IDLE;
+  if(have&&Date.now()-(_espnWpAt[k]||0)<ttl) return _espnWpCache[k];
   if(!_espnWpBusy[k]){
     _espnWpBusy[k]=true;
     fetch(`${BASE}?view=mMatchupScore&seasonId=${season}&scoringPeriodId=${wk}`)
@@ -8569,13 +8589,18 @@ function espnWinProbs(season,week){
           if(ao&&aw!=null&&aw>0&&aw<1) probs[ao]={p:aw,opp:ho};
         });
         _espnWpCache[k]=Object.keys(probs).length?probs:null;
+        _espnWpAt[k]=Date.now();
         /* whichever tab is looking at these has to be told they landed */
         if(_activeTab==='week') try{ renderWeek(); }catch(e){}
       })
-      .catch(()=>{ _espnWpCache[k]=null; })
+      /* Stamped on failure too, so an endpoint that is down is asked again on
+         the interval rather than on every single render. */
+      .catch(()=>{ _espnWpCache[k]=null; _espnWpAt[k]=Date.now(); })
       .finally(()=>{ _espnWpBusy[k]=false; });
   }
-  return null;                       // not back yet: the model answers meanwhile
+  /* The reading we have, however old, beats falling back to the model for the
+     one render it takes to fetch a newer one. Null only before the first. */
+  return have?_espnWpCache[k]:null;
 }
 /* ESPN hands over a probability; the curve and the clamp both want it as a
    z-score. Bisection rather than a rational approximation because it is called
