@@ -504,8 +504,18 @@ async function fetchSeasonData(season){
     /* How many of each slot a lineup starts. Needed to work out the best team a
        roster could actually field, which is what the odds are taken from. */
     const slots=d.settings?.rosterSettings?.lineupSlotCounts||null;
+    /* statId -> points. The league's own rules, so a stat line can be scored
+       exactly the way ESPN scores it -- see liveScoreLine. Verified against a
+       real week: 8 receptions, 122 yards and a touchdown come back as 26.20,
+       which is the applied total ESPN published to the cent. */
+    const scoring={};
+    ((d.settings?.scoringSettings?.scoringItems)||[]).forEach(it=>{
+      const p=(it&&it.points!=null)?Number(it.points)
+        :Number((((it||{}).pointsOverrides)||{})['16'])||0;
+      if(it&&it.statId!=null&&isFinite(p)&&p!==0) scoring[it.statId]=p;
+    });
     return {season,schedule:applyDrawnSchedule(season,d.schedule||[]),
-      owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget,slots};
+      owners,names,teams,divisions,playoffTeamCount,regEnd:regEndY,faabBudget,slots,scoring};
   }catch{return null;}
 }
 /* ── WHICH POSTSEASON GAMES COUNT ────────────────────────────────────────────
@@ -6645,6 +6655,120 @@ const liveProProgress=state=>{
   });
   return out;
 };
+/* ── PROJECTING THE REST OF A PLAYER'S GAME ──────────────────────────────────
+   ESPN publishes ONE projection per player per week and never moves it. Jaxon
+   Smith-Njigba finished on 26.2 with his projection still reading 18.92, the
+   game over. So "what has this man got left" was projection x time remaining,
+   which says a receiver with one target and an eighty yard touchdown will do
+   the same again after half time, and a receiver with eight targets and no
+   luck will not.
+
+   THE SPLIT THAT MATTERS IS VOLUME AGAINST EFFICIENCY.
+
+   Volume -- targets, carries, pass attempts -- is the offence's intent, and it
+   persists. A receiver on eight targets at half time really is on pace for
+   sixteen. Efficiency -- yards per target, touchdowns per target -- is where
+   the luck lives. The eighty yard bomb is entirely an efficiency event.
+
+   So volume is re-read from what has actually happened, and efficiency is held
+   at the rate ESPN projected. The remaining stat line is then scored with the
+   league's own rules, which is the same arithmetic ESPN uses.
+
+   The two cases fall out in opposite directions, which is the whole point:
+
+     one target, eighty yards, a score, at half time
+        usage is BELOW projection, so the rest of his game shrinks and the
+        eighty yards buys him nothing forward
+
+     eight targets, forty yards, no score, at half time
+        usage is ABOVE projection and the yards were unlucky, so the rest of
+        his game grows
+
+   A points-based blend gets both of those backwards.
+
+   ESPN projects usage as well as production, which is what makes this
+   possible: 9.75 targets and 90.98 yards for Smith-Njigba, 16.28 carries for a
+   back, 31.85 pass attempts for a quarterback. */
+/* Which scoring stats hang off which volume stat. Anything not listed -- a
+   fumble, a two point conversion, a kicker, a defence -- has no usage to read
+   and keeps projection x time left. */
+const LIVE_VOLUME={
+  0:[3,4,20],        // pass attempts  -> yards, touchdowns, interceptions
+  23:[24,25],        // rush attempts  -> yards, touchdowns
+  58:[53,42,43],     // targets        -> receptions, yards, touchdowns
+};
+/* How fast usage settles. w = r*f/(1+r*f) is the weight on what has actually
+   happened rather than on the projection: at 4, that is half by the first
+   quarter, two thirds by half time, four fifths by the whistle. Higher than
+   anything a points-based blend could justify, because a count of targets is a
+   far better behaved estimator than a total of fantasy points -- and it is the
+   one number here still waiting on a season of readings to be measured. */
+const LIVE_USAGE_R=4;
+const liveUsageW=f=>{
+  const x=LIVE_USAGE_R*Math.max(0,Math.min(1,f));
+  return x/(1+x);
+};
+/* Score a stat line the way the league does. */
+function liveScoreLine(line,rules){
+  let t=0;
+  Object.keys(line||{}).forEach(id=>{
+    const p=rules?rules[id]:null;
+    if(p) t+=(Number(line[id])||0)*p;
+  });
+  return t;
+}
+/* What one starter has still to come, in points.
+
+   Falls back to projection x time left whenever there is nothing better: no
+   scoring rules in hand, no projected stat line, a kicker, a defence, or a
+   projected line that does not reproduce its own published total (which would
+   mean this league scores something the split above does not model). */
+function livePlayerLeft(entry,f,rules){
+  const pp=(entry&&entry.playerPoolEntry)||{}, pl=pp.player||{};
+  const pr=(pl.stats||[]).find(s=>s&&s.statSourceId===1)||null;
+  const proj=(pr&&pr.appliedTotal)||0;
+  const left=Math.max(0,Math.min(1,1-(f||0)));
+  const flat=proj*left;
+  if(!(proj>0)||left<=0) return Math.max(0,flat);
+  if(!rules||!pr||!pr.stats||f<=0) return flat;
+  const P=pr.stats;
+  /* the projected line has to add up to the projected total, or this league
+     scores something not modelled here and the whole approach is unsafe */
+  if(Math.abs(liveScoreLine(P,rules)-proj)>Math.max(1.5,proj*0.06)) return flat;
+  const ac=(pl.stats||[]).find(s=>s&&s.statSourceId===0);
+  const A=(ac&&ac.stats)||{};
+  const w=liveUsageW(f);
+  const done={};
+  let pts=0, used=false;
+  Object.keys(LIVE_VOLUME).forEach(v=>{
+    const vp=Number(P[v])||0;
+    if(!(vp>0)) return;
+    done[v]=1; used=true;
+    /* volume: mostly what has happened, partly what was expected */
+    const rate=(1-w)*vp+w*((Number(A[v])||0)/f);
+    const vRem=left*Math.max(0,rate);
+    /* efficiency: held at the rate ESPN projected */
+    LIVE_VOLUME[v].forEach(s=>{
+      done[s]=1;
+      const sp=Number(P[s])||0;
+      if(!sp) return;
+      pts+=vRem*(sp/vp)*((rules[s])||0);
+    });
+  });
+  /* A PLAYER WITH NO VOLUME AT ALL -- a kicker, a defence -- has nothing here
+     to model, so he keeps his published projection scaled by the clock rather
+     than a re-scoring of his line. The two differ slightly whenever a line does
+     not reconcile to the last decimal, and on a player this cannot improve
+     there is no reason to prefer ours. */
+  if(!used) return Math.max(0,flat);
+  /* everything with no usage behind it -- fumbles, two pointers -- keeps the
+     flat treatment */
+  Object.keys(P).forEach(id=>{
+    if(done[id]||!rules[id]) return;
+    pts+=(Number(P[id])||0)*left*rules[id];
+  });
+  return Math.max(0,Math.round(pts*100)/100);
+}
 /* ── AND HOW MUCH OF ITS WEEK IS STILL TO COME ───────────────────────────────
    A fraction of the side's own projected total, weighted by each starter's
    projection and by how far through that starter's NFL game is.
@@ -6668,21 +6792,22 @@ const liveProProgress=state=>{
    every remaining-points term in the model, and out by different amounts for
    different teams once a season is running. The roster is right here and it
    knows the real number. */
-function liveSideLeft(side,prog){
+function liveSideLeft(side,prog,rules){
   const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
   if(!es.length) return null;
-  let tot=0, left=0;
+  let any=false, left=0;
   es.forEach(e=>{
     if(!e||BENCH_SLOTS.includes(e.lineupSlotId)) return;
     const p=((e.playerPoolEntry||{}).player)||{};
     const st=(p.stats||[]).find(x=>x&&x.statSourceId===1);
     const proj=(st&&st.appliedTotal)||0;
     if(!(proj>0)) return;                       // a bye, or nothing projected
+    any=true;
     const ab=NFL_TEAMS[Number(p.proTeamId)||0];
     const f=(ab&&prog&&prog[ab]!=null)?prog[ab]:0;
-    tot+=proj; left+=proj*(1-f);
+    left+=livePlayerLeft(e,f,rules);
   });
-  return tot>0?Math.round(left*100)/100:null;
+  return any?Math.round(left*100)/100:null;
 }
 /* ESPN'S OWN NUMBER FOR ONE FIXTURE, as a probability for the side that sorts
    FIRST in the matchup key -- which is the side `a` is, so it travels with the
@@ -6770,6 +6895,7 @@ async function livePoll(){
     }
     const onField=liveProTeams(st);
     const proProg=liveProProgress(st);
+    const rules=(info.meta&&info.meta.scoring)||null;
     const t=liveBucket(Date.now());               // see WHEN A READING IS WORTH TAKING
     let changed=false;
     games.forEach(m=>{
@@ -6791,7 +6917,7 @@ async function livePoll(){
       if(!on&&!moved) return;
       const sA=aFirst?m.home:m.away, sB=aFirst?m.away:m.home;
       if(liveNote(arr||(_liveSeries[k]=[]),t,a,b,liveWpOf(m,aFirst),
-        liveSideLeft(sA,proProg),liveSideLeft(sB,proProg))) changed=true;
+        liveSideLeft(sA,proProg,rules),liveSideLeft(sB,proProg,rules))) changed=true;
     });
     if(changed){ _liveDirty=true; _liveChanged=Date.now(); }
     if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);

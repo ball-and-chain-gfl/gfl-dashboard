@@ -34,12 +34,18 @@ const M = assemble(grab, [
   'function liveWithScores(m){',
   'function liveWpOf(m,aFirst){',
   'const liveProProgress=',
-  'function liveSideLeft(side,prog){',
+  'const LIVE_VOLUME=',
+  'const LIVE_USAGE_R=',
+  'const liveUsageW=',
+  'function liveScoreLine(line,rules){',
+  'function livePlayerLeft(entry,f,rules){',
+  'function liveSideLeft(side,prog,rules){',
   'function liveNote(arr,t,a,b,p,la,lb){',
 ], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf',
     'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn',
     'liveNote', 'liveWpOf', 'liveSideScore', 'liveWithScores',
-    'liveProProgress', 'liveSideLeft'], `
+    'liveProProgress', 'liveSideLeft', 'livePlayerLeft', 'liveScoreLine',
+    'liveUsageW', 'LIVE_USAGE_R'], `
 const sbZ=x=>x;
 `);
 
@@ -585,6 +591,9 @@ console.log(nl + '7c5. AND THEY ARE READ OFF THE SCOREBOARD AND THE ROSTER');
   const side = (...es) => ({ rosterForCurrentScoringPeriod: { entries: es.map(([slot, pro, proj]) => ({
     lineupSlotId: slot,
     playerPoolEntry: { player: { proTeamId: pro, stats: [{ statSourceId: 1, appliedTotal: proj }] } } })) } });
+  /* no stat line on these, so every one takes the flat fallback — which is
+     what these cases are about */
+  const sideOf = (...a) => side(...a);
 
   ok('a roster nobody has played is all still to come',
      M.liveSideLeft(side([0, 9, 20], [2, 9, 10]), prog) === 30);
@@ -604,6 +613,80 @@ console.log(nl + '7c5. AND THEY ARE READ OFF THE SCOREBOARD AND THE ROSTER');
      M.liveSideLeft({ rosterForCurrentScoringPeriod: { entries: [] } }, prog) === null);
   ok('and so does a fixture with no roster at all',
      M.liveSideLeft(null, prog) === null);
+}
+
+console.log(nl + '7c6. PROJECTING THE REST OF A PLAYER FROM HIS USAGE');
+{
+  /* ESPN publishes one projection per player per week and never moves it, so
+     "what has he got left" was projection x time remaining -- which says a
+     receiver with one target and an eighty yard touchdown will do it again
+     after half time, and one with eight targets and no luck will not.
+
+     Volume persists, efficiency does not. So volume is re-read from what has
+     happened and efficiency is held at the projected rate. */
+  const R = { 53:1, 42:0.1, 43:6, 24:0.1, 25:6, 3:0.04, 4:4, 20:-2, 72:-2 };
+  const P = { 58:9.75, 53:6.78, 42:90.98, 43:0.49 };        // 18.9 projected
+  const man = act => ({ playerPoolEntry: { player: { stats: [
+    { statSourceId:1, appliedTotal:18.9, stats:P },
+    { statSourceId:0, appliedTotal:0, stats:act } ] } } });
+  const at = (act, f) => M.livePlayerLeft(man(act), f, R);
+  const flat = f => 18.9 * (1 - f);
+
+  ok('the league rules score a line the way ESPN does',
+     Math.abs(M.liveScoreLine({ 53:8, 42:122, 43:1 }, R) - 26.2) < 0.001,
+     String(M.liveScoreLine({ 53:8, 42:122, 43:1 }, R)));
+
+  /* THE TWO CASES THIS EXISTS FOR, and they move in opposite directions */
+  const bomb = at({ 58:1, 53:1, 42:80, 43:1 }, 0.5);
+  const busy = at({ 58:8, 53:5, 42:40, 43:0 }, 0.5);
+  ok('one target and an eighty yard score leaves him with LESS', bomb < flat(0.5) - 3,
+     bomb.toFixed(1) + ' vs ' + flat(0.5).toFixed(1));
+  ok('eight targets and no luck leaves him with MORE', busy > flat(0.5) + 3,
+     busy.toFixed(1) + ' vs ' + flat(0.5).toFixed(1));
+  ok('and the busy one is worth well over double the lucky one', busy > bomb * 2,
+     busy.toFixed(1) + ' vs ' + bomb.toFixed(1));
+
+  /* a man doing exactly what was expected of him should barely move */
+  const script = at({ 58:5, 53:3, 42:45, 43:0 }, 0.5);
+  ok('a player on script is left almost exactly where he was',
+     Math.abs(script - flat(0.5)) < 1, script.toFixed(1) + ' vs ' + flat(0.5).toFixed(1));
+
+  /* usage is what carries it, NOT the points he has scored */
+  const noPts = at({ 58:8, 53:5, 42:0, 43:0 }, 0.5);
+  ok('eight targets and zero yards still leaves him busy', noPts > flat(0.5),
+     noPts.toFixed(1));
+  ok('no targets at all leaves him with almost nothing',
+     at({ 58:0, 53:0, 42:0, 43:0 }, 0.5) < flat(0.5) * 0.5);
+
+  /* THE ENDPOINTS ARE SAFE AT ANY SETTING, which is what makes this shippable */
+  ok('kickoff is untouched — the full projection', Math.abs(at({}, 0) - 18.9) < 0.001);
+  ok('the whistle is exact — nothing left',
+     Math.abs(at({ 58:11, 53:8, 42:122, 43:1 }, 1)) < 1e-9);
+  ok('it never goes negative', at({ 58:0, 53:0, 42:0, 43:0 }, 0.99) >= 0);
+
+  /* WITHOUT THE PIECES IT FALLS BACK, rather than guessing */
+  ok('no scoring rules falls back to projection x time left',
+     Math.abs(M.livePlayerLeft(man({ 58:8 }), 0.5, null) - flat(0.5)) < 0.01);
+  ok('no stat line at all falls back too',
+     Math.abs(M.livePlayerLeft({ playerPoolEntry: { player: { stats: [
+       { statSourceId:1, appliedTotal:9 } ] } } }, 0.5, R) - 4.5) < 0.01);
+  /* a projected line that does not add up to its own published total means
+     this league scores something the volume split does not model */
+  ok('a line that does not reconcile falls back',
+     Math.abs(M.livePlayerLeft({ playerPoolEntry: { player: { stats: [
+       { statSourceId:1, appliedTotal:40, stats:P } ] } } }, 0.5, R) - 20) < 0.01);
+
+  /* a kicker: no volume stat, so every part of his line is flat */
+  const K = { 83:2, 86:1 };
+  ok('a kicker keeps the flat treatment',
+     Math.abs(M.livePlayerLeft({ playerPoolEntry: { player: { stats: [
+       { statSourceId:1, appliedTotal:8, stats:K } ] } } }, 0.5, { 83:3, 86:1 }) - 4) < 0.01);
+
+  /* the weight on observed usage, which is the one number still to be measured */
+  ok('usage weight starts at nothing', M.liveUsageW(0) === 0);
+  ok('and is past half by half time', M.liveUsageW(0.5) > 0.6, String(M.liveUsageW(0.5)));
+  ok('and never reaches certainty', M.liveUsageW(1) < 1);
+  ok('it rises the whole way through', M.liveUsageW(0.25) < M.liveUsageW(0.75));
 }
 
 console.log(nl + '7d. WHERE THAT NUMBER COMES FROM');

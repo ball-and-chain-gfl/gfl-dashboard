@@ -76,7 +76,12 @@ const app = assemble(grab, [
   'function liveSideScore(side){',
   'function liveWithScores(m){',
   'const liveProProgress=',
-  'function liveSideLeft(side,prog){',
+  'const LIVE_VOLUME=',
+  'const LIVE_USAGE_R=',
+  'const liveUsageW=',
+  'function liveScoreLine(line,rules){',
+  'function livePlayerLeft(entry,f,rules){',
+  'function liveSideLeft(side,prog,rules){',
   'function liveWpOf(m,aFirst){',
   'function liveNote(arr,t,a,b,p,la,lb){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
@@ -180,6 +185,13 @@ async function once() {
      that got us past the gate above -- no second request for it */
   const onField = app.liveProTeams(state);
   const proProg = app.liveProProgress(state);
+  /* the league's own statId -> points, so a re-projected stat line is scored
+     exactly the way ESPN scores it */
+  const rules = {};
+  ((meta.settings?.scoringSettings?.scoringItems) || []).forEach(it => {
+    const p = (it && it.points != null) ? Number(it.points) : 0;
+    if (it && it.statId != null && isFinite(p) && p !== 0) rules[it.statId] = p;
+  });
   const t = app.liveBucket(Date.now());
   let changed = 0, on = 0;
   games.forEach(m => {
@@ -199,7 +211,7 @@ async function once() {
     if (!live && !moved) return;
     const sA = aFirst ? m.home : m.away, sB = aFirst ? m.away : m.home;
     if (app.liveNote(arr || (series[k] = []), t, a, b, app.liveWpOf(m, aFirst),
-      app.liveSideLeft(sA, proProg), app.liveSideLeft(sB, proProg))) changed++;
+      app.liveSideLeft(sA, proProg, rules), app.liveSideLeft(sB, proProg, rules))) changed++;
   });
 
   if (!changed) {
