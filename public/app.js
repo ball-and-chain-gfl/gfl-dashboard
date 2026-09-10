@@ -11316,6 +11316,28 @@ function invRealised(){
   return real;
 }
 const invWeekNow=()=>Number((_liveInfo||liveWeekInfo()||{}).week)||1;
+/* ── AND THE MARKET SHUTS WHILE IT IS BEING PLAYED ───────────────────────────
+   Shares were tradable all week, which means they were tradable with the
+   scoreboard open. A price is built out of rest-of-season projections and
+   those move as a week is played, so from the first kickoff to the last
+   whistle you could read Sunday off the board and buy the team having it at a
+   price that had not caught up — or sell the one whose starter had just gone
+   off injured. Every other market on the sportsbook closes for exactly that
+   reason. This was the one that did not.
+
+   The same rule the weekly board uses, asked about the week being PLAYED
+   rather than the week ahead: sbWeekLocked with no market key shuts everything
+   that is not a single-fixture line, which is all of this. It opens again when
+   the week is over and the prices have settled — the Tuesday.
+
+   invWeekNow is the earliest week NOT finished, which is the week on the
+   field. Asking about the week ahead instead would have the market open all
+   Sunday, because the week ahead has not started. */
+function invLocked(){
+  try{ return sbWeekLocked(invWeekNow()); }catch(e){ return false; }
+}
+const invLockNote=()=>'Week '+invWeekNow()+' is under way — the market is closed'
+  +' until it settles on Tuesday.';
 function invProfitSeries(){
   const lots=invLots();
   if(!lots.length) return null;
@@ -11480,6 +11502,11 @@ let _invBusy=false,_invErr='';
 async function invTrade(owner,shares,sell){
   if(!_me){ openSignIn(); return; }
   if(_invBusy) return;
+  /* Checked HERE and not only on the button. A disabled button is a display
+     rule; this is the money, and the same mistake has already been made once
+     on this site with a bet stake that was validated in the browser and
+     written from it. */
+  if(invLocked()){ _invErr=invLockNote(); renderBook(); return; }
   let n=invRound(shares);
   if(!(n>0)){ _invErr=_invMode==='amt'&&!sell?'Pick an amount first.':'Pick a number of shares first.'; renderBook(); return; }
   const px=invPrice(owner);
@@ -16319,8 +16346,15 @@ function betLegWeek(mk){
   /* The By Team board's top-scorer market is keyed by owner rather than by
      week number — tt<owner>-<week> — so it read as a season leg and stayed open
      through Sunday with the scoreboard in plain sight. It is a one-week
-     question like every other wk* market and closes with them. */
-  m=/^tt[a-z0-9_-]+-(\d+)$/i.exec(String(mk||''));  if(m) return Number(m[1]);
+     question like every other wk* market and closes with them.
+
+     THE CHARACTER CLASS WAS THE BUG. It was [a-z0-9_-], and an owner is an
+     ESPN GUID: {2158CFCE-FA71-4064-916C-722D91F98966}. The braces never
+     matched, so the key still came back as a season leg and the market still
+     stayed open all Sunday — the fix was written and did nothing. Anything up
+     to the last -<digits> is the owner now, whatever it is made of; the week
+     is the last segment and there is nothing after it to confuse. */
+  m=/^tt.+-(\d+)$/.exec(String(mk||''));  if(m) return Number(m[1]);
   return null;
 }
 const betAnyPlayed=(meta,wk)=>((meta&&meta.schedule)||[]).some(m=>m.home&&m.away
@@ -18000,13 +18034,18 @@ function invPatchCard(card){
   const o=card.dataset.o, px=Number(card.dataset.px)||0, sell=card.dataset.sell==='1';
   const go=card.querySelector('.iv-go'); if(!go) return;
   const n=invTradeShares(o,px,sell), cost=n*px;
+  /* This patches the button in place on every keystroke, so it has to know
+     about the lock too — otherwise typing a number re-enabled a control the
+     week had already shut. */
+  const shut=invLocked();
   if(sell){
     const have=invHoldings()[o]||0;
-    go.disabled=!(n>0)||n>have+1e-6||_invBusy;
-    go.textContent='Sell'+(n>0?' · '+invFmt(cost):'');
+    go.disabled=shut||!(n>0)||n>have+1e-6||_invBusy;
+    go.textContent=shut?'Closed':'Sell'+(n>0?' · '+invFmt(cost):'');
   }else{
-    go.disabled=!(n>0)||!bucksReady()||cost>bucksBalance()+1e-6||_invBusy;
-    go.textContent='Buy'+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cost)):'');
+    go.disabled=shut||!(n>0)||!bucksReady()||cost>bucksBalance()+1e-6||_invBusy;
+    go.textContent=shut?'Closed'
+      :'Buy'+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cost)):'');
   }
 }
 
@@ -18016,6 +18055,7 @@ function invBoardHTML(){
   const cash=bucksBalance();
   const amt=_invMode==='amt';
   const own=invHoldings();
+  const shut=invLocked();
   /* One card, whether the thing being bought is a team or a fund. They trade
      identically — a price, a number of shares, the same money — so they are
      the same control, and only the crest and the line under the name differ. */
@@ -18047,9 +18087,10 @@ function invBoardHTML(){
       </div>
       <div class="iv-buy">
         ${step}
-        <button class="iv-go" ${(!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
+        <button class="iv-go" ${(shut||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
           onclick="invBuyCard('${x.owner}')">
-          Buy${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}</button>
+          ${shut?'<i class="fa fa-lock"></i>Closed'
+            :`Buy${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}`}</button>
       </div>
     </div>`;
   };
@@ -18062,6 +18103,7 @@ function invBoardHTML(){
      one screen is one too many. The Buy button still disables itself against
      the balance, so the limit is enforced where it is felt. */
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
+    ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}
     <div class="iv-mode" role="group" aria-label="How to buy">
       <span class="iv-mode-l">Buy in</span>
       <button class="iv-mb${amt?'':' on'}" onclick="invSetMode('sh')" aria-pressed="${!amt}">Shares</button>
@@ -18080,6 +18122,7 @@ function invPortfolioHTML(){
   if(!b) return '<div class="tab-loading" style="padding:30px">Loading…</div>';
   const h=invHoldings();
   const owners=Object.keys(h);
+  const shut=invLocked();
   /* No ledger strip at the top of this view any more. What it was worth and
      what it had made were two of the three tiles, and the third was the cash
      balance — which now lives in the nav, where it is on show whatever page you
@@ -18117,13 +18160,16 @@ function invPortfolioHTML(){
           placeholder="0" aria-label="Shares to sell"
           oninput="invType(this,'s_${o}','sh')" onchange="renderBook()" onblur="renderBook()">
         <button class="iv-step" onclick="invStep('s_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>
-        <button class="iv-go iv-sell" ${(!(q>0)||_invBusy)?'disabled':''}
+        <button class="iv-go iv-sell" ${(shut||!(q>0)||_invBusy)?'disabled':''}
           onclick="invSellCard('${o}')">
-          Sell${q>0?' · '+invFmt(q*px):''}</button>
+          ${shut?'<i class="fa fa-lock"></i>Closed'
+            :`Sell${q>0?' · '+invFmt(q*px):''}`}</button>
       </div>
     </div>`;
   }).join('');
-  return chart+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}<div class="iv-list">${rows}</div>`;
+  return chart+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}`
+    +`${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}`
+    +`<div class="iv-list">${rows}</div>`;
 }
 
 function renderBook(){

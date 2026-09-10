@@ -34,6 +34,10 @@ const nflWeekGames=()=>_NFL;
 const sbBoardSeason=()=>_SEASON;
 const weekHasStarted=()=>_STARTED;
 const BASE='', _activeTab='book';
+/* the week the share market is asked about — invWeekNow reads liveWeekInfo in
+   the app, which is a whole other chain of season metadata */
+let _INVWK=1;
+const invWeekNow=()=>_INVWK;
 ${grab('const NFL_TEAMS={')}
 ${grab('const SB_WK_SD=')}
 ${grab('const SB_WK_MIN_LEFT=')}
@@ -50,11 +54,13 @@ ${grab('const sbWkSd=')}
 ${grab('const betAnyPlayed=')}
 ${grab('const betWeekStarted=')}
 ${grab('function sbWeekLocked(wk,mk){')}
+${grab('function betLegWeek(mk){')}
+${grab('function invLocked(){')}
 return { LINEUP_SHAPE_FALLBACK, sbSlotShape, sbBestLineup,
   nflTeamState, nflWeekLive, sbTeamWeek, sbNormCdf, sbWkSd, sbWeekLocked,
-  SB_WK_SD,
+  betLegWeek, invLocked, SB_WK_SD,
   set(o){ if('rosters' in o) _ROST=o.rosters; if('nfl' in o) _NFL=o.nfl;
-           if('meta' in o) _seasonMeta=o.meta; } };`)();
+           if('meta' in o) _seasonMeta=o.meta; if('invWeek' in o) _INVWK=o.invWeek; } };`)();
 
 let pass = 0, fail = 0;
 const eq = (n, g, w) => {
@@ -270,11 +276,62 @@ console.log('\n10. what the board closes, and when');
   eq('top player stays shut',                      api.sbWeekLocked(5, 'wk5-player'), true);
   eq("By Team's top scorer stays shut",            api.sbWeekLocked(5, 'ttbft-5'), true);
 
+  /* AND IT HAS TO SURVIVE A REAL OWNER ID. This passed for weeks on 'ttbft-5'
+     while the market sat open all Sunday in production, because the fixture
+     used a made-up slug and a real owner is an ESPN GUID with braces in it —
+     which the character class in betLegWeek did not match. The key came back
+     as a season leg, and a season leg never locks. */
+  const GUID = 'tt{2158CFCE-FA71-4064-916C-722D91F98966}-5';
+  eq('a GUID-keyed By Team market knows its week', api.betLegWeek(GUID), 5);
+  eq('...and therefore shuts with the rest',       api.sbWeekLocked(api.betLegWeek(GUID), GUID), true);
+  eq('a slug owner still works',                   api.betLegWeek('ttbft-5'), 5);
+  eq('an owner with digits in it takes the LAST segment as the week',
+     api.betLegWeek('ttteam-12-7'), 7);
+  eq('the weekly board keys are untouched',        api.betLegWeek('wk5-high'), 5);
+  eq('so is a FAAB line',                          api.betLegWeek('fa4242-5'), 5);
+  eq('and a season future is still season-long',   api.betLegWeek('champ'), null);
+
   api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
   eq('everything shuts while a game is live', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
+}
 
-  api.set({ nfl: null });
-  eq('and shuts when the scoreboard is unavailable', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
+console.log('');
+console.log('THE SHARE MARKET SHUTS WHILE THE WEEK IS PLAYED');
+{
+  /* A price is built out of rest-of-season projections, and those move as a
+     week is played. Trading through a Sunday means buying the team having a
+     big one at a price that has not caught up, and selling the one whose
+     starter has just gone off. Every other market closes for that reason. */
+  const meta = wk => ({ 2026: { schedule: [
+    { matchupPeriodId: wk, home: { teamId:1, totalPoints: 60 }, away: { teamId:2, totalPoints: 55 } },
+    { matchupPeriodId: 9,  home: { teamId:3, totalPoints: 0 },  away: { teamId:4, totalPoints: 0 } },
+  ] } });
+
+  /* week 9 has no points and nothing has kicked off: the market is open */
+  api.set({ meta: meta(5), invWeek: 9, nfl: { anyLive:false, games:[{ht:'DAL',at:'NYG',s:'pre'}] } });
+  eq('open before a ball is kicked', api.invLocked(), false);
+
+  /* the first kickoff shuts it, before any fantasy point has landed */
+  api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
+  eq('the first kickoff shuts it', api.invLocked(), true);
+
+  /* a week with points on the board stays shut, INCLUDING in the gap between
+     the Sunday afternoon and evening slates -- unlike a fixture moneyline,
+     which reprices in that gap because it has one game behind it */
+  api.set({ invWeek: 5, nfl: { anyLive:false, games:[{ht:'DAL',at:'NYG',s:'post'}] } });
+  eq('a week under way stays shut between slates', api.invLocked(), true);
+  eq('even though a fixture line has reopened', api.sbWeekLocked(5, 'wk5-1-2-ml'), false);
+
+  /* and it opens again once the week is behind us: week 9 is untouched */
+  api.set({ invWeek: 9 });
+  eq('the next week is open again', api.invLocked(), false);
+
+  /* No scoreboard digest is not an all-clear. Both sides fail SHUT: the whole
+     point is that nothing is priced when we cannot see whether football is
+     being played. */
+  api.set({ invWeek: 5, nfl: null });
+  eq('a bet shuts when the scoreboard is unavailable', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
+  eq('and so does the market',                        api.invLocked(), true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
