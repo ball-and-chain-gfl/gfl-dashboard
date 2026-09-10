@@ -5498,17 +5498,18 @@
          full width — four answer buttons will not fit in half a phone — so
          nothing shares a row here. */
       .home-top{display:grid;grid-template-columns:1fr;
-        grid-template-areas:"video" "s1" "s2" "s3" "s4" "motw";
+        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "motw";
         gap:20px;align-items:start;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
       /* the three to-do cards take numbered slots; orderHomeTodo assigns which,
          so whatever is outstanding sits directly under the video */
-      .home-top .mod-bk{grid-area:s4;}
-      .home-top .mod-pk{grid-area:s3;}
-      .home-top .mod-nt{grid-area:s2;}
-      .home-top .mod-cp{grid-area:s1;}
+      .home-top .mod-bk{grid-area:s5;}
+      .home-top .mod-pk{grid-area:s4;}
+      .home-top .mod-nt{grid-area:s3;}
+      .home-top .mod-cp{grid-area:s2;}
+      .home-top .mod-fc{grid-area:s1;}
       .home-top .home-vid-col>.sec:not(.mod-cp){grid-area:video;}
-      .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk):not(.mod-cp):not(.mod-nt){grid-area:motw;}
+      .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk):not(.mod-cp):not(.mod-nt):not(.mod-fc){grid-area:motw;}
       /* A named row nothing occupies is still a row, and still pays for the gap
          on either side of it. Two of these can be empty: motw is empty whenever
          Matchup of the Week is out of the markup, and s3 empties when Ball
@@ -5516,11 +5517,11 @@
          the grid trails 40px past its last card and the moved section lands
          twice as far from what is above it as the cards sit from each other.
          Each combination gets the template that only names the rows in use. */
-      .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt))){
+      .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc))){
+        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5";}
+      .home-top:not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "s3" "s4" "motw";}
+      .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc))){
         grid-template-areas:"video" "s1" "s2" "s3" "s4";}
-      .home-top:not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "s3" "motw";}
-      .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt))){
-        grid-template-areas:"video" "s1" "s2" "s3";}
       /* and the card carries on the grid's own rhythm rather than the wider
          margin the grid keeps for the rest of the page */
       #page-home:has(.bk-moved) .home-top{margin-bottom:20px;}

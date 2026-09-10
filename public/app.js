@@ -818,19 +818,14 @@ function switchTab(name){
   if(name==='profile') renderMyProfile();
   if(name==='history'){ renderHistoryTable(); loadHistoryScorers().then(()=>{ if(_activeTab==='history') renderHistoryTable(); }); }
   /* ── WHEREVER SOMETHING LIVE IS ON SCREEN ─────────────────────────────────
-     The poller used to run on the homepage alone, because that is where the
-     live board is. Your Forecast is live too, and it is on the Schedule tab:
-     renderForecast draws its curve straight out of _liveSeries, which only
-     livePoll ever fills. So the graph painted whatever had been collected
-     before you navigated and then sat there, frozen, for as long as you watched
-     it - on the one tab a manager actually watches a game from.
-
-     Both tabs poll now. Everywhere else still stops it, because everywhere else
-     is reading a season that has already happened. */
-  if(name==='home'||(name==='week'&&fcOnLiveSeason())){
-    liveStart();
-  } else liveStop();
-  if(name==='home'){ wireVidRail(); try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){}
+     Both live things are on the homepage: the board, and Your Forecast, whose
+     curve is drawn straight out of _liveSeries and which only livePoll ever
+     fills. The Schedule tab polled too while the forecast lived there; it has
+     nothing live on it now, so it stops like everywhere else -- and everywhere
+     else is reading a season that has already happened. */
+  if(name==='home') liveStart(); else liveStop();
+  if(name==='home'){ wireVidRail(); try{ renderForecastCard(); }catch(e){}
+    try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){}
     /* idempotent — _betsInit makes this free once they are in */
     try{ betsEnsure(); }catch(e){} }
   if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
@@ -5552,16 +5547,25 @@ async function renderRoster(){
 function fcOnLiveSeason(){
   return String(getSeason())===String(ALL_SEASONS[ALL_SEASONS.length-1]);
 }
-function renderWeek(){
+function renderWeek(){ renderSchedule(); }
+/* THE ONE WAY IN. Your Forecast is on the homepage now, and three things paint
+   it -- opening the tab, a live poll collecting a new minute, and the by-slot
+   season figures arriving. All three come through here so none of them has to
+   know where the card lives or what has to be true for it to draw.
+
+   The season gate stays even though the homepage is never off the live season:
+   'home' is not in SEASON_TABS, so syncSeasonPicker pins it to the newest year
+   every time. That is what makes this safe to call from anywhere. */
+function renderForecastCard(info){
+  const sec=document.getElementById('fc-sec');
   const live=fcOnLiveSeason();
-  {const sec=document.getElementById('fc-sec'); if(sec) sec.hidden=!live;}
-  if(live){
-    const info=_liveInfo||liveWeekInfo();
-    if(info) renderForecast(info);
-    else { const el=document.getElementById('fc-body');
-      if(el) el.innerHTML='<div class="tab-loading" style="padding:24px">No season data yet.</div>'; }
-  }
-  renderSchedule();
+  if(sec) sec.hidden=!live;
+  if(!live) return;
+  const i=info||_liveInfo||liveWeekInfo();
+  if(i) renderForecast(i);
+  else { const el=document.getElementById('fc-body');
+    if(el) el.innerHTML='<div class="tab-loading" style="padding:24px">No season data yet.</div>'; }
+  try{ orderHomeTodo(); }catch(e){}
 }
 /* ── Forecast ───────────────────────────────────────────────────────────────
    Your game, read ahead rather than reported. Three parts: the line and what
@@ -5772,7 +5776,7 @@ function renderForecast(info){
   const bar=`<div class="fc-odds">
     <div class="fc-odds-t">
       <span class="fc-pct ${now.p>=0.5?'up':'dn'}"
-        title="${ab(meT)} win probability">${Math.round(now.p*100)}%</span></div>
+        title="${ab(meT)} win probability">${(now.p*100).toFixed(1)}%</span></div>
     ${wpGraphSVG(pts,ab(meT),ab(oppT))}
     <div class="wp-key">
       <span class="k-up"><i></i>${ab(meT)} ahead</span>
@@ -5880,7 +5884,7 @@ async function fcLoadSlots(info){
       });
     }
     _weeklyBySlot={season:info.season,data};
-    if(_activeTab==='week'&&fcOnLiveSeason()) renderForecast(info);
+    if(_activeTab==='home') try{ renderForecastCard(info); }catch(e){}
   }catch(e){}
   _slotBusy=false;
 }
@@ -6988,10 +6992,10 @@ async function livePoll(){
     renderLiveMatchups();
     renderMyMatchupBar();   // the pinned bar is independent of the live board
     /* A poll that collects a new minute and does not redraw the thing looking at
-       it is a poll nobody can see. The homepage board repaints above; the
-       forecast is a different tab and has to be told. */
-    if(_activeTab==='week'&&fcOnLiveSeason()){
-      try{ renderForecast(_liveInfo); }catch(e){}
+       it is a poll nobody can see. The board repaints above; the forecast card
+       is its own render and has to be told. */
+    if(_activeTab==='home'){
+      try{ renderForecastCard(_liveInfo); }catch(e){}
     }
   }catch(e){}
   _liveBusy=false;
@@ -15594,6 +15598,13 @@ async function homeRestart(which){
 const homeRestartBtn=which=>`<button class="home-redo" onclick="homeRestart('${which}')">
   <i class="fa fa-rotate-left"></i>Start over</button>`;
 const HOME_TODO=[
+  /* YOUR FORECAST IS NEVER OUTSTANDING. It asks nothing of anybody -- it is a
+     read on your own game -- so it is always 'done' and sorts with the finished
+     cards. Being first in this list makes it the first of those, which is where
+     it belongs once the league has nothing left to ask you: at the top, right
+     under the video. Anything with business still open -- a ballot to send, a
+     slate to pick, a notification to clear -- outranks it and sits above. */
+  {id:'fc-sec', done:()=>true},
   {id:'cp-sec', done:()=>_cpJustSent || !!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()])},
   {id:'nt-sec', done:()=>ntDone()},
   {id:'pk-sec', done:()=>pkSubmitted()||pkLocked()},
@@ -19111,6 +19122,10 @@ async function loadDashboard(){
              The punishment moved to the pinned bar at the foot of the screen. -->
         <div class="home-top">
           <div class="home-left-col">
+            <div class="sec wm mod-fc" data-wm="&#xf201;" id="fc-sec">
+              <div class="sec-head"><i class="fa fa-chart-line"></i>Your Forecast</div>
+              <div id="fc-body"></div>
+            </div>
             <div class="sec wm mod-cp" data-wm="&#xf0ca;" id="cp-sec">
               <div class="sec-head"><i class="fa fa-ranking-star"></i>B&amp;C Coaches Poll</div>
               <div id="cp-body"></div>
@@ -19290,10 +19305,8 @@ async function loadDashboard(){
       <!-- PLAYER TENURE -->
       <!-- THIS WEEK — everything on the clock, gathered in one place -->
       <div class="tab-page" id="page-week">
-        <div class="sec wm" data-wm="&#xf201;" id="fc-sec">
-          <div class="sec-head"><i class="fa fa-chart-line"></i>Your Forecast</div>
-          <div id="fc-body"></div>
-        </div>
+        <!-- Your Forecast moved to the homepage. It is the one thing on this
+             tab that was live, which is why the poller used to run here. -->
         <!-- The Schedules tab folded in here: the week ahead belongs beside
              the read on your own game, not a tab away. The Scoreboard and
              League Action are gone; the live board is on the homepage. -->
