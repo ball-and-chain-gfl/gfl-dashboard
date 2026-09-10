@@ -68,6 +68,10 @@ jobs:
       # routes around itself and an injury costs exactly the weeks it costs.
       - name: roster projection and the blend
         run: node scripts/test-projection.mjs
+      # One definition of "has the week started", and a slate that survives the
+      # two differently ordered copies of a week's fixtures.
+      - name: the week's lock and the picks slate
+        run: node scripts/test-weekstart.mjs
       # A change to how a share is priced must not hand anybody a profit.
       - name: a share split moves nobody's money
         run: node scripts/test-split.mjs

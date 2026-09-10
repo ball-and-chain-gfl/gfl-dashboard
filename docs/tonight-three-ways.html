@@ -1,0 +1,587 @@
+<title>Three Ways Tonight Goes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+:root{
+  --ground:#100f0d; --panel:#171613; --panel2:#1e1c18; --rule:rgba(255,255,255,0.09);
+  --ink:#efece1; --ink2:#a9a49a; --ink3:#6f6a61;
+  --amber:#ffb347; --amber2:#ff923d;
+  --up:#4ade80; --dn:#fb7185; --ghost:#7c7768;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Oswald','Arial Narrow',system-ui,sans-serif;
+  --body:'Newsreader',Georgia,'Times New Roman',serif;
+}
+*{box-sizing:border-box}
+/* Wide content scrolls inside its own box so the page body never does. */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tw::-webkit-scrollbar{height:6px;}
+.tw::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.13);border-radius:3px;}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);overflow-wrap:break-word;
+  font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:780px;margin:0 auto;padding:0 20px 90px;}
+p{margin:0 0 1em;}
+a{color:var(--amber);}
+b,strong{font-weight:600;color:var(--ink);}
+em{font-style:italic;}
+.mut{color:var(--ink3);}
+.hi{color:var(--amber);}
+
+/* ── masthead ─────────────────────────────────────────────────────────── */
+header{padding:52px 0 30px;border-bottom:1px solid var(--rule);margin-bottom:38px;}
+.eyebrow{font-family:var(--disp);font-weight:400;font-size:12px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--amber);margin:0 0 14px;}
+h1{font-family:var(--disp);font-weight:600;font-size:clamp(40px,9vw,66px);line-height:.98;
+  letter-spacing:-.005em;margin:0 0 16px;text-wrap:balance;text-transform:uppercase;}
+.dek{font-size:19px;line-height:1.55;color:var(--ink2);max-width:60ch;margin:0;}
+.fixture{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:26px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--ink3);
+  text-transform:uppercase;}
+.fixture b{color:var(--ink2);font-weight:400;}
+
+h2{font-family:var(--disp);font-weight:600;font-size:clamp(28px,6vw,40px);line-height:1.03;
+  letter-spacing:-.005em;margin:0 0 6px;text-transform:uppercase;text-wrap:balance;}
+h3{font-family:var(--disp);font-weight:400;font-size:15px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--amber);margin:44px 0 16px;}
+h4{font-family:var(--disp);font-weight:600;font-size:21px;letter-spacing:.01em;margin:0;}
+h5{font-family:var(--disp);font-weight:400;font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink3);margin:0 0 7px;}
+
+/* ── the board ────────────────────────────────────────────────────────── */
+.board{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 0 26px;}
+@media(max-width:640px){.board{grid-template-columns:1fr;}}
+.lu{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:16px 15px 13px;}
+.lu h4{font-size:17px;margin:0 0 11px;color:var(--ink);}
+.lt{width:100%;min-width:286px;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;}
+.lt td{padding:3.5px 0;border-bottom:1px solid rgba(255,255,255,0.045);vertical-align:middle;}
+.lt .slot{color:var(--ink3);width:32px;font-size:9.5px;letter-spacing:.04em;}
+.lt .pn{color:var(--ink2);padding-right:6px;}
+.lt .tm{color:var(--ink3);width:30px;font-size:9.5px;}
+.lt .n{text-align:right;width:36px;font-variant-numeric:tabular-nums;color:var(--ink2);}
+.lt .tag{text-align:right;width:52px;font-size:8.5px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink3);}
+.lt .w-now td{color:var(--amber);} .lt .w-now .pn{color:var(--amber);}
+.lt .w-now .tag,.lt .w-now .n,.lt .w-now .tm,.lt .w-now .slot{color:var(--amber2);}
+.lt .w-done td{opacity:.5;}
+.lufoot{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin:10px 0 0;
+  letter-spacing:.02em;}
+.lufoot b{color:var(--ink2);font-weight:700;}
+
+/* ── charts ───────────────────────────────────────────────────────────── */
+.chartw{margin:26px 0 4px;}
+/* The viewBox is 720 wide. Below about 560px of rendered width the labels
+   inside it stop being readable however large the type is set, so it scrolls
+   rather than shrinks -- the rule every other wide block here follows. */
+.g-svg{display:block;width:100%;min-width:560px;height:auto;overflow:visible;}
+.g-grid{stroke:rgba(255,255,255,0.055);stroke-width:1;}
+.g-mid{stroke:rgba(255,255,255,0.26);stroke-width:1;stroke-dasharray:5 4;}
+.g-q{stroke:rgba(255,255,255,0.05);stroke-width:1;}
+.g-qt{fill:var(--ink3);font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-anchor:middle;}
+.g-ax{fill:var(--ink3);font-family:var(--mono);font-size:13px;text-anchor:end;}
+.g-line{fill:none;stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round;}
+.g-line.up{stroke:var(--up);} .g-line.dn{stroke:var(--dn);}
+.g-fill.up{fill:rgba(74,222,128,0.13);} .g-fill.dn{fill:rgba(251,113,133,0.13);}
+.g-dot.up{fill:var(--up);} .g-dot.dn{fill:var(--dn);}
+.g-ghost{fill:none;stroke:var(--ghost);stroke-width:1.6;stroke-dasharray:4 4;opacity:.75;}
+.g-t0{fill:var(--ink3);font-family:var(--mono);font-size:12.5px;}
+.g-t1{fill:var(--ink3);font-family:var(--mono);font-size:12.5px;text-anchor:end;}
+.g-tag{fill:var(--ink2);font-family:var(--disp);font-size:20px;font-weight:600;}
+.g-tag.end.up{fill:var(--up);} .g-tag.end.dn{fill:var(--dn);}
+.g-key{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--ink3);
+  margin:4px 0 22px;text-transform:uppercase;}
+.g-key i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;
+  vertical-align:middle;}
+.g-key .k-up{background:var(--up);} .g-key .k-dn{background:var(--dn);}
+.g-key .k-gh{background:repeating-linear-gradient(90deg,var(--ghost) 0 4px,transparent 4px 8px);}
+
+/* ── scenario ─────────────────────────────────────────────────────────── */
+.sc{margin:0 0 20px;padding:38px 0 0;border-top:1px solid var(--rule);}
+.sc-head{margin-bottom:14px;}
+.sc-n{display:block;font-family:var(--disp);font-weight:400;font-size:11.5px;
+  letter-spacing:.24em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;}
+.sc-sub{font-family:var(--disp);font-weight:300;font-size:19px;letter-spacing:.01em;
+  color:var(--ink2);margin:0;}
+.sc-blurb{font-size:18px;color:var(--ink2);max-width:62ch;}
+.verdict{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding:14px 16px;background:var(--panel);border:1px solid var(--rule);
+  border-radius:11px;margin:0 0 26px;}
+.verdict span{font-family:var(--disp);font-weight:600;font-size:32px;line-height:1;color:var(--ink2);}
+.verdict span.up{color:var(--up);} .verdict span.dn{color:var(--dn);}
+.verdict em{font-family:var(--mono);font-style:normal;font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink3);}
+.verdict b{color:var(--ink3);font-weight:400;margin:0 4px;}
+
+/* ── tables ───────────────────────────────────────────────────────────── */
+.tblwrap{overflow-x:auto;}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums;}
+.dt{width:100%;min-width:430px;font-family:var(--mono);font-size:12px;margin:8px 0 6px;}
+.dt th,.dt td{padding:6px 6px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.dt thead th{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);
+  text-align:right;font-weight:400;border-bottom:1px solid var(--rule);}
+.dt tbody th{text-align:left;font-weight:400;color:var(--ink2);padding-left:0;font-size:11.5px;}
+.dt td{text-align:right;color:var(--ink2);}
+.dt tr.em td{color:var(--ink);}
+.dt tr.big td{font-size:15px;}
+.dt tr.big b{color:var(--amber);font-weight:700;}
+
+.pl{background:var(--panel);border:1px solid var(--rule);border-radius:13px;
+  padding:20px 19px 16px;margin:0 0 16px;}
+.pl-top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:12px;flex-wrap:wrap;}
+.pl-side{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 9px;border-radius:20px;border:1px solid;}
+.pl-side.g{color:var(--up);border-color:rgba(74,222,128,0.4);background:rgba(74,222,128,0.07);}
+.pl-side.b{color:var(--dn);border-color:rgba(251,113,133,0.4);background:rgba(251,113,133,0.07);}
+.pl p{font-size:16.5px;color:var(--ink2);}
+.pl p b{color:var(--ink);}
+
+.pt{width:100%;min-width:450px;font-family:var(--mono);font-size:11px;margin:14px 0 4px;}
+.pt th,.pt td{padding:5px 7px;border-bottom:1px solid rgba(255,255,255,0.05);vertical-align:top;}
+.pt thead th{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);
+  font-weight:400;text-align:left;border-bottom:1px solid var(--rule);line-height:1.35;}
+.pt thead th.n{text-align:right;}
+.pt tbody th{text-align:left;font-weight:400;color:var(--ink3);white-space:nowrap;padding-left:0;}
+.pt td{color:var(--ink2);}
+.pt td.n{text-align:right;white-space:nowrap;}
+.pt td.box{color:var(--ink2);line-height:1.45;}
+
+.vol{margin:16px 0 0;padding:13px 14px 10px;background:var(--panel2);
+  border-radius:9px;border:1px solid rgba(255,255,255,0.05);}
+.vt{width:100%;min-width:370px;font-family:var(--mono);font-size:10.5px;}
+.vt th{text-align:left;font-weight:400;color:var(--ink3);padding:3px 8px 3px 0;
+  white-space:nowrap;font-size:10px;}
+.vt td{text-align:right;padding:3px 5px;color:var(--ink2);}
+.vt tr.em td{color:var(--amber);font-weight:700;}
+.vt tr.em th{color:var(--ink2);}
+
+/* ── callouts ─────────────────────────────────────────────────────────── */
+.pull{border-left:2px solid var(--amber);padding:2px 0 2px 20px;margin:26px 0;
+  font-size:20px;line-height:1.45;color:var(--ink);font-style:italic;}
+.pull b{font-style:normal;}
+.note{background:var(--panel);border:1px solid var(--rule);border-radius:12px;
+  padding:18px 19px 6px;margin:26px 0;}
+.note h4{font-size:14px;font-family:var(--disp);font-weight:400;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--amber);margin:0 0 10px;}
+.note p{font-size:16px;color:var(--ink2);}
+.cmp{width:100%;min-width:400px;font-family:var(--mono);font-size:12px;margin:18px 0;}
+.cmp th,.cmp td{padding:8px 8px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.cmp thead th{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);
+  font-weight:400;border-bottom:1px solid var(--rule);}
+.cmp thead th.b{color:var(--amber);} .cmp thead th.c{color:var(--dn);}
+.cmp tbody th{text-align:left;font-weight:400;color:var(--ink2);padding-left:0;font-size:11.5px;}
+.cmp td{text-align:center;color:var(--ink2);}
+.cmp tr.em td{color:var(--ink);font-size:14px;}
+.cmp tr.em td b{color:var(--amber);}
+footer{margin-top:56px;padding-top:26px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:11px;color:var(--ink3);line-height:1.7;}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">GFL &middot; Week 1 &middot; Live model</p>
+  <h1>Three ways tonight goes</h1>
+  <p class="dek">San Francisco at Los Angeles is the first football the rebuilt win-probability model
+    has ever run through live. Three plausible versions of it, every number produced by the code that
+    is deployed right now &mdash; and, drawn behind each curve, what the old model would have said instead.</p>
+  <div class="fixture">
+    <span><b>Bikini Bottom Goobers</b> 119.51 proj &middot; 14.0 banked</span>
+    <span><b>Bismuth</b> 119.01 proj &middot; 0.0 banked</span>
+    <span><b>&sigma;</b> 34.5 base</span>
+  </div>
+</header>
+
+<h3 style="margin-top:0">The board before kickoff</h3>
+<p>Half a point separates these two lineups &mdash; 119.51 against 119.01, which is as
+  close to identical as two nine-man lineups get. The Goobers are ahead of it only because the Seahawks defence
+  went for <b>14.0</b> on Wednesday night against a
+  7.22 projection.</p>
+<div class="board">
+  <div class="lu"><h4>Bikini Bottom Goobers</h4>
+<div class="tw"><table class="lt"><tbody><tr class="w-done"><td class="slot">D/ST</td><td class="pn">Seahawks D/ST</td><td class="tm">SEA</td><td class="n">7.2</td><td class="tag">played</td></tr><tr class="w-now"><td class="slot">RB</td><td class="pn">Christian McCaffrey</td><td class="tm">SF</td><td class="n">18.4</td><td class="tag">tonight</td></tr><tr class="w-now"><td class="slot">QB</td><td class="pn">Matthew Stafford</td><td class="tm">LAR</td><td class="n">17.5</td><td class="tag">tonight</td></tr><tr class="w-later"><td class="slot">RB</td><td class="pn">Travis Etienne Jr.</td><td class="tm">NO</td><td class="n">15.0</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">WR</td><td class="pn">Chris Olave</td><td class="tm">NO</td><td class="n">14.8</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">WR</td><td class="pn">Zay Flowers</td><td class="tm">BAL</td><td class="n">14.2</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">FLEX</td><td class="pn">Bucky Irving</td><td class="tm">TB</td><td class="n">12.4</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">TE</td><td class="pn">Sam LaPorta</td><td class="tm">DET</td><td class="n">10.9</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">K</td><td class="pn">Chris Boswell</td><td class="tm">PIT</td><td class="n">9.0</td><td class="tag">to come</td></tr></tbody></table></div>
+<p class="lufoot"><b>119.51</b> projected for the week &middot; <b>14.0</b> already banked</p></div>
+  <div class="lu"><h4>Bismuth</h4>
+<div class="tw"><table class="lt"><tbody><tr class="w-now"><td class="slot">FLEX</td><td class="pn">Mike Evans</td><td class="tm">SF</td><td class="n">10.7</td><td class="tag">tonight</td></tr><tr class="w-later"><td class="slot">RB</td><td class="pn">Omarion Hampton</td><td class="tm">LAC</td><td class="n">17.6</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">WR</td><td class="pn">CeeDee Lamb</td><td class="tm">DAL</td><td class="n">17.3</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">QB</td><td class="pn">Dak Prescott</td><td class="tm">DAL</td><td class="n">16.7</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">RB</td><td class="pn">Breece Hall</td><td class="tm">NYJ</td><td class="n">16.5</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">WR</td><td class="pn">Terry McLaurin</td><td class="tm">WSH</td><td class="n">12.3</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">TE</td><td class="pn">Colston Loveland</td><td class="tm">CHI</td><td class="n">12.1</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">K</td><td class="pn">Evan McPherson</td><td class="tm">CIN</td><td class="n">8.5</td><td class="tag">to come</td></tr><tr class="w-later"><td class="slot">D/ST</td><td class="pn">Steelers D/ST</td><td class="tm">PIT</td><td class="n">7.5</td><td class="tag">to come</td></tr></tbody></table></div>
+<p class="lufoot"><b>119.01</b> projected for the week &middot; <b>0.0</b> already banked</p></div>
+</div>
+<p>Three men play tonight. <b>McCaffrey</b> and <b>Evans</b> are teammates in San Francisco;
+  <b>Stafford</b> is throwing against them for the Rams. So the Goobers own 35.88 points of
+  projection in this game and Bismuth owns 10.65 &mdash; but the two rosters are pointed at
+  opposite sidelines, and a Rams blowout is worth more to the Goobers than a 49ers one.</p>
+<p>What tonight <em>cannot</em> do is settle anything. The three men on the field are worth
+  46.5 points of the 238.5 in the matchup &mdash; under a fifth of it.
+  76.4 points of Goober projection and 108.4 points of Bismuth projection
+  do not take the field until Sunday, and the spread only narrows as fast as that pool empties.</p>
+
+<div class="note">
+  <h4>How to read the curve</h4>
+  <p>Up the left is the Goobers&rsquo; chance of winning, 100% at the top and 0% at the bottom, with the dashed
+    line across the middle marking dead even &mdash; green above it, red below, exactly as the app draws it.
+    Left to right is the game clock, kickoff to the final whistle.</p>
+  <p>The dotted grey line behind each curve is <b>the model that shipped before Tuesday</b>: the one that took
+    ESPN&rsquo;s pre-game projection and multiplied it by the time remaining, and knew nothing about what anybody
+    was actually doing on the field. Where the two lines sit on top of each other, the rebuild changed nothing.
+    Where they part is the whole argument.</p>
+  <p class="mut" style="font-size:14px">Nine readings are plotted per scenario. The live graph takes one every
+    five minutes while a starter is on the field, so tonight will draw roughly forty &mdash; and it draws them
+    into a graph that spans the whole week, where tonight is a narrow band near the left edge.</p>
+</div>
+
+<section class="sc" id="sc1">
+  <div class="sc-head">
+    <span class="sc-n">Outcome One</span>
+    <h2>Stafford runs the show</h2>
+    <p class="sc-sub">The Rams throw it around the yard</p>
+  </div>
+  <p class="sc-blurb">Los Angeles gets ahead and stays there. Stafford is efficient all night, McCaffrey stays busy in a losing effort, and Mike Evans is a decoy.</p>
+  <div class="tw chartw"><svg viewBox="0 0 720 268" class="g-svg" role="img" aria-label="Stafford runs the show">
+  <line x1="52" y1="18" x2="706" y2="18" class="g-grid"/><text x="43" y="21.5" class="g-ax">100%</text><line x1="52" y1="67" x2="706" y2="67" class="g-grid"/><text x="43" y="70.5" class="g-ax">75%</text><line x1="52" y1="116" x2="706" y2="116" class="g-mid"/><text x="43" y="119.5" class="g-ax">50%</text><line x1="52" y1="165" x2="706" y2="165" class="g-grid"/><text x="43" y="168.5" class="g-ax">25%</text><line x1="52" y1="214" x2="706" y2="214" class="g-grid"/><text x="43" y="217.5" class="g-ax">0%</text><line x1="215.5" y1="18" x2="215.5" y2="214" class="g-q"/><text x="215.5" y="229" class="g-qt">Q1</text><line x1="379" y1="18" x2="379" y2="214" class="g-q"/><text x="379" y="229" class="g-qt">HALF</text><line x1="542.5" y1="18" x2="542.5" y2="214" class="g-q"/><text x="542.5" y="229" class="g-qt">Q3</text><path d="M52.0 99.3 L133.8 82.5 L215.5 77.2 L297.3 76.8 L379.0 66.6 L460.8 71.3 L542.5 60.9 L624.3 53.1 L706.0 56.8 L706.0 116 L52.0 116 Z" class="g-fill up"/><path d="M52.0 99.3 L133.8 94.4 L215.5 86.8 L297.3 87.8 L379.0 75.0 L460.8 77.0 L542.5 65.0 L624.3 54.8 L706.0 56.8" class="g-ghost"/><path d="M52.0 99.3 L133.8 82.5 L215.5 77.2 L297.3 76.8 L379.0 66.6 L460.8 71.3 L542.5 60.9 L624.3 53.1 L706.0 56.8" class="g-line up"/><circle cx="52.0" cy="99.3" r="3.2" class="g-dot up"/><circle cx="133.8" cy="82.5" r="3.2" class="g-dot up"/><circle cx="215.5" cy="77.2" r="3.2" class="g-dot up"/><circle cx="297.3" cy="76.8" r="3.2" class="g-dot up"/><circle cx="379.0" cy="66.6" r="3.2" class="g-dot up"/><circle cx="460.8" cy="71.3" r="3.2" class="g-dot up"/><circle cx="542.5" cy="60.9" r="3.2" class="g-dot up"/><circle cx="624.3" cy="53.1" r="3.2" class="g-dot up"/><circle cx="706.0" cy="56.8" r="3.2" class="g-dot up"/>
+  <text x="52" y="247" class="g-t0">kickoff</text>
+  <text x="706" y="247" class="g-t1">final whistle</text>
+  <text x="60" y="89.34" class="g-tag">59%</text>
+  <text x="698" y="45.80799999999999" class="g-tag end up">80%</text>
+</svg></div>
+  <div class="g-key"><span><i class="k-up"></i>Goobers favoured</span><span><i class="k-dn"></i>Bismuth favoured</span><span><i class="k-gh"></i>what the old model would have drawn</span></div>
+  <div class="verdict"><span>58.5%</span><em>at kickoff</em><b>&rarr;</b><span class="up">80.2%</span><em>at the whistle</em></div>
+  <p>This is the night where the model and the old one broadly agree, and it is worth starting here so the difference in the other two is not mistaken for noise. Both Goober starters are busier than ESPN thought they would be, Bismuth&rsquo;s one man is not, and the curve climbs almost without interruption.</p><p>The green line runs <em>above</em> the grey one for most of the night. That is the usage model being <em>more</em> bullish than the old one, not less &mdash; a distinction that gets lost when the only example anybody remembers is the one where it refuses to believe a touchdown.</p>
+  <div class="tw"><table class="dt"><thead><tr><th></th><th>kickoff</th><th>end Q1</th><th>half</th><th>final</th></tr></thead><tbody>
+<tr class=""><th>Goobers on the board</th><td>14.0</td><td>27.5</td><td>38.8</td><td>63.4</td></tr>
+<tr class=""><th>&hellip;still to come</th><td>112.3</td><td>108.8</td><td>98.2</td><td>76.4</td></tr>
+<tr class="em"><th>projected final</th><td>126.3</td><td>136.2</td><td>137.0</td><td>139.8</td></tr>
+<tr class=""><th>Bismuth on the board</th><td>0.0</td><td>1.8</td><td>1.8</td><td>5.6</td></tr>
+<tr class=""><th>&hellip;still to come</th><td>119.0</td><td>117.1</td><td>113.1</td><td>108.4</td></tr>
+<tr class="em"><th>projected final</th><td>119.0</td><td>118.9</td><td>114.9</td><td>114.0</td></tr>
+<tr class=""><th>&mu; &nbsp;<span class="mut">expected margin</span></th><td>+7.3</td><td>+17.4</td><td>+22.1</td><td>+25.8</td></tr>
+<tr class=""><th>&sigma; &nbsp;<span class="mut">how wrong it can be</span></th><td>34.0</td><td>33.6</td><td>32.5</td><td>30.4</td></tr>
+<tr class="em big"><th>P(Goobers)</th><td><b>58.5%</b></td><td><b>69.8%</b></td><td><b>75.2%</b></td><td><b>80.2%</b></td></tr>
+<tr class=""><th>the old model said</th><td><span class="mut">58.5%</span></td><td><span class="mut">64.9%</span></td><td><span class="mut">70.9%</span></td><td><span class="mut">80.2%</span></td></tr>
+</tbody></table></div>
+  <h3 class="pl-head">The three men on the field</h3>
+  <article class="pl">
+    <div class="pl-top"><h4>Matthew Stafford</h4>
+      <span class="pl-side g">Goobers &middot; LAR &middot; proj 17.49</span></div>
+    <p>The Rams come out throwing and never stop. Six attempts before the first television timeout is a <b>48-attempt pace</b> against a projection of 33.2, and the model splits the difference &mdash; it settles on 38.1 attempts for the game, and holds somewhere around 38&ndash;39 for the rest of the night as the pace comes back to earth.</p><p>Look at the mid-Q1 row below. He has <b>1.92</b> points on the board and the model says <b>17.53</b> are still to come &mdash; which is more than the 17.49 he was projected for the whole game. That is not a bug. Seven and a half minutes in he is on pace for five extra drop-backs and 8.0 yards an attempt against a projected 7.66, and the model has repriced his night upward accordingly. The old model, which knows only that 12.5% of the clock is gone, hands back 15.31 and cannot do anything else.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">17.5</td><td class="n mut">17.5</td></tr><tr><th>end Q1</th><td class="box">11 att, 7 cmp, 92 pass yd, 1 pass TD</td><td class="n">7.7</td><td class="n hi">15.3</td><td class="n mut">13.1</td></tr><tr><th>half</th><td class="box">21 att, 15 cmp, 186 pass yd, 2 pass TD</td><td class="n">15.4</td><td class="n hi">10.6</td><td class="n mut">8.8</td></tr><tr><th>end Q3</th><td class="box">30 att, 21 cmp, 258 pass yd, 2 pass TD, 1 car, 3 rush yd</td><td class="n">18.6</td><td class="n hi">5.2</td><td class="n mut">4.4</td></tr><tr><th>final</th><td class="box">38 att, 27 cmp, 324 pass yd, 3 pass TD, 2 car, 8 rush yd</td><td class="n">25.8</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>pass att <span class="mut">&middot; ESPN projected 33.2</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>11</td><td>21</td><td>30</td><td>38</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">44</td><td class="mut">42</td><td class="mut">40</td><td class="mut">38</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>33.2</td><td>38.6</td><td>39.1</td><td>38.3</td><td>37</td></tr>
+</tbody></table></div></div><div class="vol"><h5>carries <span class="mut">&middot; ESPN projected 1.6</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>0</td><td>0</td><td>1</td><td>2</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">0</td><td class="mut">0</td><td class="mut">1.3</td><td class="mut">2</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>1.6</td><td>0.8</td><td>0.5</td><td>1.4</td><td>1.9</td></tr>
+</tbody></table></div></div>
+    <p class="mut" style="font-size:14.5px">He finishes on 25.76 against a 17.49 projection. The model saw it coming from the first quarter, and gave the Goobers the credit for it in real time.</p>
+  </article><article class="pl">
+    <div class="pl-top"><h4>Christian McCaffrey</h4>
+      <span class="pl-side g">Goobers &middot; SF &middot; proj 18.39</span></div>
+    <p>Four carries in the opening seven minutes is a 32-carry pace, which nobody sustains &mdash; and the model does not pretend otherwise. At mid Q1 it has him down for 20.5 carries; by half time, with the pace settling at 20, it has walked that to 18.2, and it finishes reading 16.5 against 17 actual. It converges from above rather than lurching.</p><p>He is the one player here with <b>two</b> volume stats live at once, and both are read independently: carries and targets each get their own pace, their own weight, and their own yards-per and touchdowns-per rate. His receiving line never budges much &mdash; eight targets on the night against a 6.2 projection, which the model reads as 7.6 &mdash; while his rushing workload does most of the work.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">18.4</td><td class="n mut">18.4</td></tr><tr><th>end Q1</th><td class="box">6 car, 24 rush yd, 14 rec yd, 2 rec, 2 tgt</td><td class="n">5.8</td><td class="n hi">17.0</td><td class="n mut">13.8</td></tr><tr><th>half</th><td class="box">10 car, 42 rush yd, 22 rec yd, 3 rec, 4 tgt</td><td class="n">9.4</td><td class="n hi">11.2</td><td class="n mut">9.2</td></tr><tr><th>end Q3</th><td class="box">14 car, 58 rush yd, 1 rush TD, 31 rec yd, 4 rec, 6 tgt</td><td class="n">18.9</td><td class="n hi">5.5</td><td class="n mut">4.6</td></tr><tr><th>final</th><td class="box">17 car, 71 rush yd, 1 rush TD, 45 rec yd, 6 rec, 8 tgt</td><td class="n">23.6</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>carries <span class="mut">&middot; ESPN projected 14.7</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>6</td><td>10</td><td>14</td><td>17</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">24</td><td class="mut">20</td><td class="mut">18.7</td><td class="mut">17</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>14.7</td><td>19.4</td><td>18.2</td><td>17.7</td><td>16.5</td></tr>
+</tbody></table></div></div><div class="vol"><h5>targets <span class="mut">&middot; ESPN projected 6.2</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>2</td><td>4</td><td>6</td><td>8</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">8</td><td class="mut">8</td><td class="mut">8</td><td class="mut">8</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>6.2</td><td>7.1</td><td>7.4</td><td>7.5</td><td>7.6</td></tr>
+</tbody></table></div></div>
+    
+  </article><article class="pl">
+    <div class="pl-top"><h4>Mike Evans</h4>
+      <span class="pl-side b">Bismuth &middot; SF &middot; proj 10.65</span></div>
+    <p>Bismuth&rsquo;s entire night. He gets one look in the first quarter, is targeted twice in the first half, and finishes with six for three catches and 26 yards &mdash; <b>5.6</b> points against a 10.65 projection.</p><p>Watch the volume row: the model never moves him far. Six and a half projected targets, and across nine readings its estimate for his night runs 7.0, 7.3, 5.8, 6.2, 6.4, 5.6, 5.9, 6.1. A quiet receiver on normal usage produces almost nothing for the model to disagree with, and it does not manufacture a disagreement. The new number and the old one stay within a point of each other all night.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">10.7</td><td class="n mut">10.7</td></tr><tr><th>end Q1</th><td class="box">8 rec yd, 1 rec, 2 tgt</td><td class="n">1.8</td><td class="n hi">8.7</td><td class="n mut">8.0</td></tr><tr><th>half</th><td class="box">8 rec yd, 1 rec, 3 tgt</td><td class="n">1.8</td><td class="n hi">4.8</td><td class="n mut">5.3</td></tr><tr><th>end Q3</th><td class="box">17 rec yd, 2 rec, 4 tgt</td><td class="n">3.7</td><td class="n hi">2.2</td><td class="n mut">2.7</td></tr><tr><th>final</th><td class="box">26 rec yd, 3 rec, 6 tgt</td><td class="n">5.6</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>targets <span class="mut">&middot; ESPN projected 6.5</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>2</td><td>3</td><td>4</td><td>6</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">8</td><td class="mut">6</td><td class="mut">5.3</td><td class="mut">6</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>6.5</td><td>7.3</td><td>6.2</td><td>5.6</td><td>6.1</td></tr>
+</tbody></table></div></div>
+    
+  </article>
+  <p>Final: the Goobers project to 139.8 and Bismuth to 114.0, and the curve closes at 80.2% &mdash; identical to what the old model would have said, because at the final whistle there is no usage left to read and the two models are the same equation by construction. They agree at kickoff and they agree at the whistle. Everything between is where the rebuild lives.</p>
+</section><section class="sc" id="sc2">
+  <div class="sc-head">
+    <span class="sc-n">Outcome Two</span>
+    <h2>One target, one bomb</h2>
+    <p class="sc-sub">Evans scores on his only real look</p>
+  </div>
+  <p class="sc-blurb">Six minutes in, Evans runs past everybody for a 68-yard touchdown and is not heard from again. The whole night is one play, and this is the exact case the usage model was built to refuse.</p>
+  <div class="tw chartw"><svg viewBox="0 0 720 268" class="g-svg" role="img" aria-label="One target, one bomb">
+  <line x1="52" y1="18" x2="706" y2="18" class="g-grid"/><text x="43" y="21.5" class="g-ax">100%</text><line x1="52" y1="67" x2="706" y2="67" class="g-grid"/><text x="43" y="70.5" class="g-ax">75%</text><line x1="52" y1="116" x2="706" y2="116" class="g-mid"/><text x="43" y="119.5" class="g-ax">50%</text><line x1="52" y1="165" x2="706" y2="165" class="g-grid"/><text x="43" y="168.5" class="g-ax">25%</text><line x1="52" y1="214" x2="706" y2="214" class="g-grid"/><text x="43" y="217.5" class="g-ax">0%</text><line x1="215.5" y1="18" x2="215.5" y2="214" class="g-q"/><text x="215.5" y="229" class="g-qt">Q1</text><line x1="379" y1="18" x2="379" y2="214" class="g-q"/><text x="379" y="229" class="g-qt">HALF</text><line x1="542.5" y1="18" x2="542.5" y2="214" class="g-q"/><text x="542.5" y="229" class="g-qt">Q3</text><path d="M52.0 99.3 L110.4 116.0 L110.4 116 L52.0 116 Z" class="g-fill up"/><path d="M110.4 116.0 L133.8 122.7 L215.5 131.7 L297.3 131.1 L379.0 121.1 L460.8 125.8 L542.5 133.8 L624.3 138.0 L706.0 143.2 L706.0 116 L110.4 116 Z" class="g-fill dn"/><path d="M52.0 99.3 L133.8 129.3 L215.5 131.7 L297.3 135.2 L379.0 124.4 L460.8 128.0 L542.5 135.2 L624.3 138.1 L706.0 143.2" class="g-ghost"/><path d="M52.0 99.3 L110.4 116.0" class="g-line up"/><path d="M110.4 116.0 L133.8 122.7 L215.5 131.7 L297.3 131.1 L379.0 121.1 L460.8 125.8 L542.5 133.8 L624.3 138.0 L706.0 143.2" class="g-line dn"/><circle cx="52.0" cy="99.3" r="3.2" class="g-dot up"/><circle cx="133.8" cy="122.7" r="3.2" class="g-dot dn"/><circle cx="215.5" cy="131.7" r="3.2" class="g-dot dn"/><circle cx="297.3" cy="131.1" r="3.2" class="g-dot dn"/><circle cx="379.0" cy="121.1" r="3.2" class="g-dot dn"/><circle cx="460.8" cy="125.8" r="3.2" class="g-dot dn"/><circle cx="542.5" cy="133.8" r="3.2" class="g-dot dn"/><circle cx="624.3" cy="138.0" r="3.2" class="g-dot dn"/><circle cx="706.0" cy="143.2" r="3.2" class="g-dot dn"/>
+  <text x="52" y="247" class="g-t0">kickoff</text>
+  <text x="706" y="247" class="g-t1">final whistle</text>
+  <text x="60" y="89.34" class="g-tag">59%</text>
+  <text x="698" y="160.244" class="g-tag end dn">36%</text>
+</svg></div>
+  <div class="g-key"><span><i class="k-up"></i>Goobers favoured</span><span><i class="k-dn"></i>Bismuth favoured</span><span><i class="k-gh"></i>what the old model would have drawn</span></div>
+  <div class="verdict"><span>58.5%</span><em>at kickoff</em><b>&rarr;</b><span class="dn">36.1%</span><em>at the whistle</em></div>
+  <p>This is the case the whole rebuild exists to handle. Seven minutes into the first quarter Mike Evans gets behind the secondary, catches a 68-yard touchdown, and is barely heard from again. On the scoreboard he has <b>13.8</b> points &mdash; 130% of his entire projection for the game &mdash; before most people have sat down.</p><p>A points-driven model has no defence against this. Extrapolate 13.8 points in a quarter and you get a fifty-point receiver. The question is what the model does instead.</p>
+  <div class="tw"><table class="dt"><thead><tr><th></th><th>kickoff</th><th>end Q1</th><th>half</th><th>final</th></tr></thead><tbody>
+<tr class=""><th>Goobers on the board</th><td>14.0</td><td>20.1</td><td>29.6</td><td>36.5</td></tr>
+<tr class=""><th>&hellip;still to come</th><td>112.3</td><td>105.2</td><td>95.8</td><td>76.4</td></tr>
+<tr class="em"><th>projected final</th><td>126.3</td><td>125.4</td><td>125.5</td><td>112.9</td></tr>
+<tr class=""><th>Bismuth on the board</th><td>0.0</td><td>13.8</td><td>13.8</td><td>15.4</td></tr>
+<tr class=""><th>&hellip;still to come</th><td>119.0</td><td>118.3</td><td>113.8</td><td>108.4</td></tr>
+<tr class="em"><th>projected final</th><td>119.0</td><td>132.1</td><td>127.6</td><td>123.8</td></tr>
+<tr class=""><th>&mu; &nbsp;<span class="mut">expected margin</span></th><td>+7.3</td><td>-6.7</td><td>-2.1</td><td>-10.8</td></tr>
+<tr class=""><th>&sigma; &nbsp;<span class="mut">how wrong it can be</span></th><td>34.0</td><td>33.4</td><td>32.4</td><td>30.4</td></tr>
+<tr class="em big"><th>P(Goobers)</th><td><b>58.5%</b></td><td><b>42.0%</b></td><td><b>47.4%</b></td><td><b>36.1%</b></td></tr>
+<tr class=""><th>the old model said</th><td><span class="mut">58.5%</span></td><td><span class="mut">42.0%</span></td><td><span class="mut">45.7%</span></td><td><span class="mut">36.1%</span></td></tr>
+</tbody></table></div>
+  <h3 class="pl-head">The three men on the field</h3>
+  <article class="pl">
+    <div class="pl-top"><h4>Mike Evans</h4>
+      <span class="pl-side b">Bismuth &middot; SF &middot; proj 10.65</span></div>
+    <p>The model does not look at his 13.8 points at all. It looks at <b>one target</b>.</p><p>One target seven and a half minutes in is an eight-target pace against a projection of 6.5, so his expected volume goes up &mdash; to 7.0 for the game. That is the entire extrapolation. His 68 yards on that target work out to 68.0 yards per target against a projected 8.34, and the model believes that figure at <b>4%</b>, because 4% is what one target is worth: 8.34 blended toward 68.0 at four parts in a hundred lands at about 10.7 yards a target.</p><p>The touchdown is not blended at all. Receiving scores are on the exclusion list along with rushing scores, passing scores and interceptions, so his touchdown rate stays exactly where ESPN put it &mdash; 0.3 scores across 6.5 targets &mdash; no matter that he has already found the end zone. One touchdown is the lumpiest event in football and the model is built to refuse it as evidence.</p><p>The result is <b>11.54</b> points still to come, against 9.32 from the old model. It moved <em>up</em>, by about two points, on a night where the scoreboard says he has already beaten his projection by 30%. That is the correct size of response to one target.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">10.7</td><td class="n mut">10.7</td></tr><tr><th>end Q1</th><td class="box">68 rec yd, 1 rec TD, 1 rec, 2 tgt</td><td class="n">13.8</td><td class="n hi">9.9</td><td class="n mut">8.0</td></tr><tr><th>half</th><td class="box">68 rec yd, 1 rec TD, 1 rec, 3 tgt</td><td class="n">13.8</td><td class="n hi">5.5</td><td class="n mut">5.3</td></tr><tr><th>end Q3</th><td class="box">74 rec yd, 1 rec TD, 2 rec, 4 tgt</td><td class="n">15.4</td><td class="n hi">2.5</td><td class="n mut">2.7</td></tr><tr><th>final</th><td class="box">74 rec yd, 1 rec TD, 2 rec, 5 tgt</td><td class="n">15.4</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>targets <span class="mut">&middot; ESPN projected 6.5</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">8</td><td class="mut">6</td><td class="mut">5.3</td><td class="mut">5</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>6.5</td><td>7.3</td><td>6.2</td><td>5.6</td><td>5.3</td></tr>
+</tbody></table></div></div>
+    <p class="mut" style="font-size:14.5px">He adds 1.6 points across the remaining three quarters and finishes on 15.4. The model&rsquo;s 19.25-point projection at half time was, in the event, four points high &mdash; and the old model&rsquo;s 19.13 was almost identical. Neither was wrong here. What matters is <em>why</em> each got there, which the next outcome makes plain.</p>
+  </article><article class="pl">
+    <div class="pl-top"><h4>Matthew Stafford</h4>
+      <span class="pl-side g">Goobers &middot; LAR &middot; proj 17.49</span></div>
+    <p>Nothing dramatic and nothing good. Seven attempts in the first seven minutes reads as a 56-attempt pace, and the model settles it to 40.8 for the game &mdash; so on volume alone it likes his night, and gives back <b>18.1</b> points still to come at mid Q1 against 15.31 from the old model.</p><p>But the yards are thin: 41 on seven attempts, 5.9 an attempt against a projected 7.66. That efficiency is believed at only 22% after seven attempts, so it drags him down slowly rather than all at once. By the end of the third quarter, 31 attempts is enough volume for the model to believe his efficiency at 55%, and the two models have converged &mdash; 4.84 against 4.37.</p><p>He throws a fourth-quarter interception. The model does not react to it, at all: interceptions are excluded, so his pick rate stays at ESPN's projected 0.5 across 33.2 attempts for the rest of the night.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">17.5</td><td class="n mut">17.5</td></tr><tr><th>end Q1</th><td class="box">12 att, 7 cmp, 78 pass yd</td><td class="n">3.1</td><td class="n hi">15.4</td><td class="n mut">13.1</td></tr><tr><th>half</th><td class="box">22 att, 13 cmp, 141 pass yd, 1 pass TD</td><td class="n">9.6</td><td class="n hi">10.0</td><td class="n mut">8.8</td></tr><tr><th>end Q3</th><td class="box">31 att, 19 cmp, 202 pass yd, 1 pass TD, 1 INT</td><td class="n">10.1</td><td class="n hi">4.8</td><td class="n mut">4.4</td></tr><tr><th>final</th><td class="box">39 att, 24 cmp, 251 pass yd, 1 pass TD, 1 INT</td><td class="n">12.0</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>pass att <span class="mut">&middot; ESPN projected 33.2</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>12</td><td>22</td><td>31</td><td>39</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">48</td><td class="mut">44</td><td class="mut">41.3</td><td class="mut">39</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>33.2</td><td>40.6</td><td>40.4</td><td>39.3</td><td>37.8</td></tr>
+</tbody></table></div></div>
+    
+  </article><article class="pl">
+    <div class="pl-top"><h4>Christian McCaffrey</h4>
+      <span class="pl-side g">Goobers &middot; SF &middot; proj 18.39</span></div>
+    <p>A normal, unremarkable game &mdash; 16 carries for 57, three catches for 18, <b>10.5</b> points against 18.39. He is the reason the Goobers do not recover.</p><p>The model has almost nothing to say about him and says almost nothing. His carries track close to projection all night, so his usage-based number and the old clock-based number stay within half a point of each other from the second quarter onward. When usage matches projection, the two models are the same model.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">18.4</td><td class="n mut">18.4</td></tr><tr><th>end Q1</th><td class="box">5 car, 16 rush yd, 4 rec yd, 1 rec, 1 tgt</td><td class="n">3.0</td><td class="n hi">13.4</td><td class="n mut">13.8</td></tr><tr><th>half</th><td class="box">9 car, 29 rush yd, 11 rec yd, 2 rec, 3 tgt</td><td class="n">6.0</td><td class="n hi">9.4</td><td class="n mut">9.2</td></tr><tr><th>end Q3</th><td class="box">13 car, 44 rush yd, 18 rec yd, 3 rec, 4 tgt</td><td class="n">9.2</td><td class="n hi">4.5</td><td class="n mut">4.6</td></tr><tr><th>final</th><td class="box">16 car, 57 rush yd, 18 rec yd, 3 rec, 5 tgt</td><td class="n">10.5</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>carries <span class="mut">&middot; ESPN projected 14.7</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>5</td><td>9</td><td>13</td><td>16</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">20</td><td class="mut">18</td><td class="mut">17.3</td><td class="mut">16</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>14.7</td><td>17.4</td><td>16.9</td><td>16.7</td><td>15.7</td></tr>
+</tbody></table></div></div><div class="vol"><h5>targets <span class="mut">&middot; ESPN projected 6.2</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>1</td><td>3</td><td>4</td><td>5</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">4</td><td class="mut">6</td><td class="mut">5.3</td><td class="mut">5</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>6.2</td><td>5.1</td><td>6.1</td><td>5.5</td><td>5.2</td></tr>
+</tbody></table></div></div>
+    
+  </article>
+  <p>The curve drops to 46.6% within the first quarter, bottoms out around 38.8% in the fourth, and closes at 36.1%. Note where the grey line sits at that first drop: the <b>old</b> model went lower, to 43.2%. The model that could not see the target count panicked harder at the touchdown than the model that could.</p><p>And note what the drop actually is. the whole night moved the matchup <b>22.4 points of win probability</b> and no further, on a touchdown that beat one man&rsquo;s entire projection by 45%. Eight of Bismuth&rsquo;s nine starters have not played and 108.4 points of their projection is still sitting there. One big play cannot decide a matchup, and the curve does not pretend it did.</p>
+</section><section class="sc" id="sc3">
+  <div class="sc-head">
+    <span class="sc-n">Outcome Three</span>
+    <h2>Evans is the offense</h2>
+    <p class="sc-sub">Sixteen targets and no way to argue with them</p>
+  </div>
+  <p class="sc-blurb">San Francisco is behind early and throws it at Evans all night. No touchdown until the fourth quarter, but the volume is there from the first drive, and Stafford has his worst night in years.</p>
+  <div class="tw chartw"><svg viewBox="0 0 720 268" class="g-svg" role="img" aria-label="Evans is the offense">
+  <line x1="52" y1="18" x2="706" y2="18" class="g-grid"/><text x="43" y="21.5" class="g-ax">100%</text><line x1="52" y1="67" x2="706" y2="67" class="g-grid"/><text x="43" y="70.5" class="g-ax">75%</text><line x1="52" y1="116" x2="706" y2="116" class="g-mid"/><text x="43" y="119.5" class="g-ax">50%</text><line x1="52" y1="165" x2="706" y2="165" class="g-grid"/><text x="43" y="168.5" class="g-ax">25%</text><line x1="52" y1="214" x2="706" y2="214" class="g-grid"/><text x="43" y="217.5" class="g-ax">0%</text><line x1="215.5" y1="18" x2="215.5" y2="214" class="g-q"/><text x="215.5" y="229" class="g-qt">Q1</text><line x1="379" y1="18" x2="379" y2="214" class="g-q"/><text x="379" y="229" class="g-qt">HALF</text><line x1="542.5" y1="18" x2="542.5" y2="214" class="g-q"/><text x="542.5" y="229" class="g-qt">Q3</text><path d="M52.0 99.3 L116.3 116.0 L116.3 116 L52.0 116 Z" class="g-fill up"/><path d="M116.3 116.0 L133.8 120.5 L215.5 134.0 L297.3 146.8 L379.0 144.0 L460.8 150.9 L542.5 161.3 L624.3 177.5 L706.0 178.1 L706.0 116 L116.3 116 Z" class="g-fill dn"/><path d="M52.0 99.3 L133.8 109.1 L215.5 121.7 L297.3 130.9 L379.0 130.7 L460.8 140.1 L542.5 153.6 L624.3 174.4 L706.0 178.1" class="g-ghost"/><path d="M52.0 99.3 L116.3 116.0" class="g-line up"/><path d="M116.3 116.0 L133.8 120.5 L215.5 134.0 L297.3 146.8 L379.0 144.0 L460.8 150.9 L542.5 161.3 L624.3 177.5 L706.0 178.1" class="g-line dn"/><circle cx="52.0" cy="99.3" r="3.2" class="g-dot up"/><circle cx="133.8" cy="120.5" r="3.2" class="g-dot dn"/><circle cx="215.5" cy="134.0" r="3.2" class="g-dot dn"/><circle cx="297.3" cy="146.8" r="3.2" class="g-dot dn"/><circle cx="379.0" cy="144.0" r="3.2" class="g-dot dn"/><circle cx="460.8" cy="150.9" r="3.2" class="g-dot dn"/><circle cx="542.5" cy="161.3" r="3.2" class="g-dot dn"/><circle cx="624.3" cy="177.5" r="3.2" class="g-dot dn"/><circle cx="706.0" cy="178.1" r="3.2" class="g-dot dn"/>
+  <text x="52" y="247" class="g-t0">kickoff</text>
+  <text x="706" y="247" class="g-t1">final whistle</text>
+  <text x="60" y="89.34" class="g-tag">59%</text>
+  <text x="698" y="195.13199999999998" class="g-tag end dn">18%</text>
+</svg></div>
+  <div class="g-key"><span><i class="k-up"></i>Goobers favoured</span><span><i class="k-dn"></i>Bismuth favoured</span><span><i class="k-gh"></i>what the old model would have drawn</span></div>
+  <div class="verdict"><span>58.5%</span><em>at kickoff</em><b>&rarr;</b><span class="dn">18.3%</span><em>at the whistle</em></div>
+  <p>Same receiver, roughly the same points by half time, completely different night. San Francisco falls behind early and throws at Evans on every possession: three targets in the first quarter, nine by half time, sixteen by the end. No touchdown until the fourth.</p><p>This is the mirror image of Outcome Two, and it is where the two models stop agreeing.</p>
+  <div class="tw"><table class="dt"><thead><tr><th></th><th>kickoff</th><th>end Q1</th><th>half</th><th>final</th></tr></thead><tbody>
+<tr class=""><th>Goobers on the board</th><td>14.0</td><td>19.0</td><td>26.3</td><td>34.3</td></tr>
+<tr class=""><th>&hellip;still to come</th><td>112.3</td><td>106.6</td><td>94.9</td><td>76.4</td></tr>
+<tr class="em"><th>projected final</th><td>126.3</td><td>125.6</td><td>121.2</td><td>110.7</td></tr>
+<tr class=""><th>Bismuth on the board</th><td>0.0</td><td>8.4</td><td>13.1</td><td>29.8</td></tr>
+<tr class=""><th>&hellip;still to come</th><td>119.0</td><td>125.1</td><td>120.1</td><td>108.4</td></tr>
+<tr class="em"><th>projected final</th><td>119.0</td><td>133.5</td><td>133.2</td><td>138.2</td></tr>
+<tr class=""><th>&mu; &nbsp;<span class="mut">expected margin</span></th><td>+7.3</td><td>-7.9</td><td>-12.0</td><td>-27.4</td></tr>
+<tr class=""><th>&sigma; &nbsp;<span class="mut">how wrong it can be</span></th><td>34.0</td><td>34.0</td><td>32.8</td><td>30.4</td></tr>
+<tr class="em big"><th>P(Goobers)</th><td><b>58.5%</b></td><td><b>40.8%</b></td><td><b>35.7%</b></td><td><b>18.3%</b></td></tr>
+<tr class=""><th>the old model said</th><td><span class="mut">58.5%</span></td><td><span class="mut">47.1%</span></td><td><span class="mut">42.5%</span></td><td><span class="mut">18.3%</span></td></tr>
+</tbody></table></div>
+  <h3 class="pl-head">The three men on the field</h3>
+  <article class="pl">
+    <div class="pl-top"><h4>Mike Evans</h4>
+      <span class="pl-side b">Bismuth &middot; SF &middot; proj 10.65</span></div>
+    <p>Three targets seven and a half minutes in is a <b>24-target pace</b>. The model does not believe 24 &mdash; the weight on the observed pace is only 33% that early &mdash; but it does not ignore it either: it raises his expected volume from 6.5 targets to <b>12.3</b>, essentially doubling his night, off one quarter of usage.</p><p>The consequence is the single most striking number in this document. At mid Q1 he has 4.6 points on the board and the model says <b>17.84</b> are still to come &mdash; more than his entire pre-game projection, after only a quarter of the game has gone. The old model says 9.32. That is an eight-and-a-half point swing on one player, produced by three targets and nothing else.</p><p>By half time the pace has settled and the model has him for 14.2 targets, <b>11.74</b> points still to come, and a projected final of 24.8. His efficiency &mdash; 7.9 yards a target against a projected 8.3 &mdash; is by now believed at 26%, and it is very slightly dragging him down, which is exactly right: he is getting volume, not big plays.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">10.7</td><td class="n mut">10.7</td></tr><tr><th>end Q1</th><td class="box">44 rec yd, 4 rec, 5 tgt</td><td class="n">8.4</td><td class="n hi">16.8</td><td class="n mut">8.0</td></tr><tr><th>half</th><td class="box">71 rec yd, 6 rec, 9 tgt</td><td class="n">13.1</td><td class="n hi">11.7</td><td class="n mut">5.3</td></tr><tr><th>end Q3</th><td class="box">101 rec yd, 9 rec, 13 tgt</td><td class="n">19.1</td><td class="n hi">6.1</td><td class="n mut">2.7</td></tr><tr><th>final</th><td class="box">128 rec yd, 1 rec TD, 11 rec, 16 tgt</td><td class="n">29.8</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>targets <span class="mut">&middot; ESPN projected 6.5</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>5</td><td>9</td><td>13</td><td>16</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">20</td><td class="mut">18</td><td class="mut">17.3</td><td class="mut">16</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>6.5</td><td>13.3</td><td>14.2</td><td>14.6</td><td>14.1</td></tr>
+</tbody></table></div></div>
+    <p class="mut" style="font-size:14.5px">The touchdown finally arrives in the fourth quarter and he finishes on 29.8 &mdash; nearly three times his projection. The model had him above 20 from half time onward. The old model never had him above 19.</p>
+  </article><article class="pl">
+    <div class="pl-top"><h4>Matthew Stafford</h4>
+      <span class="pl-side g">Goobers &middot; LAR &middot; proj 17.49</span></div>
+    <p>His worst night in years: 23 of 40, 241 yards, one touchdown and <b>two interceptions</b> for 9.64 points.</p><p>Here is the part that will look wrong and is not. At the end of the third quarter he has 7.04 points and two picks, and the model still says <b>4.58</b> points are to come &mdash; barely below the old model&rsquo;s 4.37. It is not punishing him for the interceptions, because interceptions are excluded from the efficiency blend by design. His projected pick rate stays at 0.5 per 33.2 attempts however many he has actually thrown.</p><p>That is a deliberate choice with a cost, and this is the scenario that shows the cost. But the alternative is worse: believe two interceptions and the model starts projecting four, off a sample of two, on the noisiest scoring event a quarterback produces. His volume is fine &mdash; 40 attempts against 33.2 projected &mdash; so the model keeps expecting points from him, and it is right to.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">17.5</td><td class="n mut">17.5</td></tr><tr><th>end Q1</th><td class="box">11 att, 6 cmp, 61 pass yd, 1 INT</td><td class="n">0.4</td><td class="n hi">14.3</td><td class="n mut">13.1</td></tr><tr><th>half</th><td class="box">21 att, 12 cmp, 118 pass yd, 1 pass TD, 1 INT</td><td class="n">6.7</td><td class="n hi">9.4</td><td class="n mut">8.8</td></tr><tr><th>end Q3</th><td class="box">30 att, 17 cmp, 176 pass yd, 1 pass TD, 2 INT</td><td class="n">7.0</td><td class="n hi">4.6</td><td class="n mut">4.4</td></tr><tr><th>final</th><td class="box">40 att, 23 cmp, 241 pass yd, 1 pass TD, 2 INT</td><td class="n">9.6</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>pass att <span class="mut">&middot; ESPN projected 33.2</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>11</td><td>21</td><td>30</td><td>40</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">44</td><td class="mut">42</td><td class="mut">40</td><td class="mut">40</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>33.2</td><td>38.6</td><td>39.1</td><td>38.3</td><td>38.6</td></tr>
+</tbody></table></div></div>
+    
+  </article><article class="pl">
+    <div class="pl-top"><h4>Christian McCaffrey</h4>
+      <span class="pl-side g">Goobers &middot; SF &middot; proj 18.39</span></div>
+    <p>Usage cuts both ways, and this is the direction nobody asks about. San Francisco is behind, they abandon the run, and McCaffrey gets 12 carries against a 14.7 projection.</p><p>The model tracks it down in real time: 17.8 expected carries after a fast start, then 15.5 at mid Q2 as the pace fades, 14.5 by mid Q3, 13.0 by mid Q4. From the second quarter onward its number for him is <em>below</em> the old model&rsquo;s &mdash; 4.08 against 4.60 at the end of the third &mdash; because it can see the carries drying up and the clock-based model cannot.</p><p>He finishes on 10.7 against 18.39. The Goobers lose this matchup as much on his missing carries as on Evans catching everything.</p>
+    <div class="tw"><table class="pt"><thead><tr><th>clock</th><th>box score</th><th class="n">pts</th>
+<th class="n">model says<br><span class="mut">still to come</span></th>
+<th class="n">old model<br><span class="mut">still to come</span></th></tr></thead><tbody><tr><th>kickoff</th><td class="box">&mdash;</td><td class="n">0.0</td><td class="n hi">18.4</td><td class="n mut">18.4</td></tr><tr><th>end Q1</th><td class="box">5 car, 14 rush yd, 12 rec yd, 2 rec, 2 tgt</td><td class="n">4.6</td><td class="n hi">15.9</td><td class="n mut">13.8</td></tr><tr><th>half</th><td class="box">8 car, 24 rush yd, 12 rec yd, 2 rec, 3 tgt</td><td class="n">5.6</td><td class="n hi">9.1</td><td class="n mut">9.2</td></tr><tr><th>end Q3</th><td class="box">10 car, 31 rush yd, 19 rec yd, 3 rec, 4 tgt</td><td class="n">8.0</td><td class="n hi">4.1</td><td class="n mut">4.6</td></tr><tr><th>final</th><td class="box">12 car, 41 rush yd, 26 rec yd, 4 rec, 5 tgt</td><td class="n">10.7</td><td class="n hi">0.0</td><td class="n mut">0.0</td></tr></tbody></table></div>
+    <div class="vol"><h5>carries <span class="mut">&middot; ESPN projected 14.7</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>5</td><td>8</td><td>10</td><td>12</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">20</td><td class="mut">16</td><td class="mut">13.3</td><td class="mut">12</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>14.7</td><td>17.4</td><td>15.6</td><td>13.7</td><td>12.5</td></tr>
+</tbody></table></div></div><div class="vol"><h5>targets <span class="mut">&middot; ESPN projected 6.2</span></h5>
+<div class="tw"><table class="vt"><tbody>
+<tr><th>through</th><td>kickoff</td><td>end Q1</td><td>half</td><td>end Q3</td><td>final</td></tr>
+<tr><th>actual</th><td>0</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+<tr><th>pace for the game</th><td class="mut">&mdash;</td><td class="mut">8</td><td class="mut">6</td><td class="mut">5.3</td><td class="mut">5</td></tr>
+<tr><th>weight on the pace</th><td class="mut">0%</td><td class="mut">50%</td><td class="mut">67%</td><td class="mut">75%</td><td class="mut">80%</td></tr>
+<tr class="em"><th>what the model now expects</th><td>6.2</td><td>7.1</td><td>6.1</td><td>5.5</td><td>5.2</td></tr>
+</tbody></table></div></div>
+    
+  </article>
+  <p>The curve falls from 58.5% to 47.7% inside the first quarter and never recovers, closing at 18.3%. And look at Bismuth&rsquo;s <em>remaining</em> column in the table above: at mid Q1 it reads <b>126.2</b>, higher than the 119.0 they started the night with. Their projection went <em>up</em> while the clock ran down, because one receiver on 24-target pace is worth more than the twelve minutes of game time it cost to find that out. The old model cannot produce that number in any circumstance whatsoever &mdash; its remaining figure only ever falls.</p>
+</section>
+
+<section class="sc" id="compare">
+  <div class="sc-head">
+    <span class="sc-n">The comparison that matters</span>
+    <h2>Same points. Different answer.</h2>
+    <p class="sc-sub">Outcome Two and Outcome Three, at half time</p>
+  </div>
+  <p>At half time in Outcome Two, Mike Evans has <b>13.8</b> points.
+    At half time in Outcome Three he has <b>13.1</b>. Seven tenths of a
+    point apart. A model that watches the scoreboard cannot tell these two nights apart, and the old one
+    genuinely could not &mdash; it hands back the same
+    5.33 either way, because 10.65 &times; half a
+    game is 5.33 no matter what happened in the first half.</p>
+  <div class="tw"><table class="cmp"><thead><tr><th></th>
+    <th class="b">Outcome Two<br><span class="mut">one target, one bomb</span></th>
+    <th class="c">Outcome Three<br><span class="mut">nine targets, no score</span></th></tr></thead>
+  <tbody>
+    <tr><th>Evans&rsquo; box score at half</th>
+      <td>68 rec yd, 1 rec TD, 1 rec, 3 tgt</td><td>71 rec yd, 6 rec, 9 tgt</td></tr>
+    <tr><th>points on the board</th>
+      <td>13.8</td><td>13.1</td></tr>
+    <tr><th>old model &middot; rest of his game</th>
+      <td class="mut">5.33</td>
+      <td class="mut">5.33</td></tr>
+    <tr class="em"><th>new model &middot; rest of his game</th>
+      <td><b>5.45</b></td>
+      <td><b>11.74</b></td></tr>
+    <tr><th>his projected final</th>
+      <td>19.3</td>
+      <td>24.8</td></tr>
+    <tr class="em"><th>P(Goobers) at half</th>
+      <td><b>47.4%</b></td><td><b>35.7%</b></td></tr>
+    <tr><th>&hellip;what the old model said</th>
+      <td class="mut">45.7%</td><td class="mut">42.5%</td></tr>
+  </tbody></table></div>
+
+  <p>The new model separates those two half times by
+    <b>11.7 points of win probability</b>. The old one separated them
+    by 3.2, and that gap came entirely from the seven tenths of a
+    point of scoring difference &mdash; it was not reading the game, it was reading the scoreboard.</p>
+
+  <p class="pull">Worse than that: the old model ranks the two nights <b>backwards</b>. It has the bomb night
+    finishing on 19.1 and the nine-target
+    night on 18.4. Every football person
+    alive would take the nine targets.</p>
+
+  <h3>All three, one plot</h3>
+  <div class="tw chartw"><svg viewBox="0 0 720 268" class="g-svg" role="img" aria-label="All three scenarios on one plot">
+  <line x1="52" y1="18" x2="706" y2="18" class="g-grid"/><text x="43" y="21.5" class="g-ax">100%</text><line x1="52" y1="67" x2="706" y2="67" class="g-grid"/><text x="43" y="70.5" class="g-ax">75%</text><line x1="52" y1="116" x2="706" y2="116" class="g-mid"/><text x="43" y="119.5" class="g-ax">50%</text><line x1="52" y1="165" x2="706" y2="165" class="g-grid"/><text x="43" y="168.5" class="g-ax">25%</text><line x1="52" y1="214" x2="706" y2="214" class="g-grid"/><text x="43" y="217.5" class="g-ax">0%</text><line x1="215.5" y1="18" x2="215.5" y2="214" class="g-q"/><text x="215.5" y="229" class="g-qt">Q1</text><line x1="379" y1="18" x2="379" y2="214" class="g-q"/><text x="379" y="229" class="g-qt">HALF</text><line x1="542.5" y1="18" x2="542.5" y2="214" class="g-q"/><text x="542.5" y="229" class="g-qt">Q3</text><path d="M52.0 99.3 L133.8 82.5 L215.5 77.2 L297.3 76.8 L379.0 66.6 L460.8 71.3 L542.5 60.9 L624.3 53.1 L706.0 56.8" class="g-line" style="stroke:#4ade80"/><circle cx="706" cy="56.80799999999999" r="3.6" style="fill:#4ade80"/><text x="696" y="60.80799999999999" class="g-tag" style="fill:#4ade80;text-anchor:end">80%</text><path d="M52.0 99.3 L133.8 122.7 L215.5 131.7 L297.3 131.1 L379.0 121.1 L460.8 125.8 L542.5 133.8 L624.3 138.0 L706.0 143.2" class="g-line" style="stroke:#ffb347"/><circle cx="706" cy="143.244" r="3.6" style="fill:#ffb347"/><text x="696" y="147.244" class="g-tag" style="fill:#ffb347;text-anchor:end">36%</text><path d="M52.0 99.3 L133.8 120.5 L215.5 134.0 L297.3 146.8 L379.0 144.0 L460.8 150.9 L542.5 161.3 L624.3 177.5 L706.0 178.1" class="g-line" style="stroke:#fb7185"/><circle cx="706" cy="178.13199999999998" r="3.6" style="fill:#fb7185"/><text x="696" y="182.13199999999998" class="g-tag" style="fill:#fb7185;text-anchor:end">18%</text>
+  <circle cx="52" cy="99.34" r="3.6" style="fill:#e8e6dd"/>
+  <text x="52" y="247" class="g-t0">kickoff &middot; 58.5% for both</text>
+  <text x="706" y="247" class="g-t1">final whistle</text>
+</svg></div>
+  <div class="g-key">
+    <span><i style="background:#4ade80"></i>Stafford runs the show</span>
+    <span><i style="background:#ffb347"></i>One target, one bomb</span>
+    <span><i style="background:#fb7185"></i>Evans is the offense</span>
+  </div>
+  <p>Every one of them starts at <b>58.5%</b> &mdash; two near-identical lineups, and the
+    Seahawks&rsquo; 14.0 points of head start. Three and a half hours later they are
+    80%, 36% and 18%.</p>
+  <p>Note what the fan of curves does <em>not</em> do: it does not reach the edges. The worst of these three
+    nights leaves the Goobers at 18%, not at 3%. That is &sigma; doing its job.
+    It opens at 34.0 and closes at 30.4 &mdash; it falls by
+    3.6 points across the entire night, because tonight only drains
+    23% of the projection in
+    this matchup. Fourteen players have not kicked off.</p>
+
+  <div class="note">
+    <h4>The bug this fixed on Tuesday</h4>
+    <p>Until this week &sigma; was measured against <em>expected finals</em> &mdash; banked plus remaining. So a
+      big performance grew the denominator, shrank the spread, and made the model more confident because a
+      player had done well. Same remaining on both sides: 10.7 banked gave &sigma; 32.7, 60 banked gave 29.9.
+      Backwards. It now scales on the two lineups&rsquo; full projected weeks, which are fixed the moment lineups
+      lock, and it reads 33.97 at kickoff in all three of these regardless of what
+      anybody does.</p>
+  </div>
+</section>
+
+<footer>
+  <p>Generated 2026-09-10 against the live ESPN feed for GFL week 1.
+    Every figure on this page was produced by lifting <code>livePlayerLeft</code>, <code>liveSideLeft</code>,
+    <code>liveSideProj</code>, <code>liveSideScore</code> and <code>wpAt</code> out of
+    <code>public/app.js</code> at <code>gfl-v626</code> and running these stat lines through them.
+    Nothing is a re-implementation and nothing is estimated by hand.</p>
+  <p>The stat lines themselves are invented &mdash; they are three plausible football games, not predictions.
+    What is real is what the model does with them.</p>
+</footer>
+</div>

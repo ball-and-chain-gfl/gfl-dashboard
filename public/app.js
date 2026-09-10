@@ -10841,7 +10841,11 @@ function nflWeekGames(week,season){
       .then(r=>r.ok?r.json():null)
       .then(j=>{ if(j&&Array.isArray(j.games)){ _nflWk[k]=j; _nflWkAt[k]=Date.now();
         _sbCache=null;
-        if(_activeTab==='book') try{ renderBook(); }catch(e){} } })
+        if(_activeTab==='book') try{ renderBook(); }catch(e){}
+        /* weekHasStarted answers off this digest, so the things it gates have to
+           be repainted when it lands -- otherwise the picks grid keeps whatever
+           the pre-digest fallback said for the rest of the session. */
+        try{ if(document.getElementById('pk-body')) renderWeekPicks(); }catch(e){} } })
       .catch(()=>{})
       .finally(()=>{ _nflWkBusy[k]=false; });
   }
@@ -13998,6 +14002,46 @@ function pkGames(){
   const info=_liveInfo||liveWeekInfo();
   return info&&info.games?info.games.filter(g=>g.home&&g.away):[];
 }
+/* ── A SLATE IS A SET OF TEAMS, NOT A LIST OF POSITIONS ──────────────────────
+   Picks were stored against the INDEX of a game in pkGames(), and there are two
+   differently ordered copies of the week's fixtures in this app:
+
+     liveWeekInfo()  the season schedule, with the league's drawn order applied
+     _liveInfo.games ESPN's own order, refetched by livePoll, drawn NOT applied
+
+   pkGames returns whichever is in hand, so the grid is painted from the drawn
+   order on a fresh load and from ESPN's order a few seconds later once the
+   first poll has landed. Same six fixtures, different positions -- and a pick
+   filed under position 3 came back pointing at whatever fixture was sitting at
+   position 3 when it was read. That is the homepage showing a full slate in the
+   header and almost none of it highlighted in the grid.
+
+   A pick has always really meant "I take this team". A team plays exactly one
+   fixture in a week, so the team alone says which fixture it belongs to, and
+   nothing about the order of the list matters any more. Keys are the two team
+   ids, sorted, so a home/away flip does not move one either.
+
+   pkNormalise re-derives the key from the team on every read, which means it
+   repairs an old position-keyed slate on the way past without needing to know
+   it was one -- and drops a pick whose team is not on this week's slate at all,
+   which is the only honest thing to do with it. */
+const pkFixKey=g=>[Number(g.home.teamId),Number(g.away.teamId)].sort((a,b)=>a-b).join('-');
+function pkNormalise(p,games){
+  if(!p||typeof p!=='object') return {};
+  /* No slate in hand yet: hand the stored object back untouched rather than
+     normalising every pick out of existence against an empty fixture list. */
+  if(!games||!games.length) return p;
+  const out={};
+  Object.keys(p).forEach(k=>{
+    const tid=p[k];
+    if(tid==null||tid==='') return;
+    const g=games.find(x=>String(x.home.teamId)===String(tid)
+                        ||String(x.away.teamId)===String(tid));
+    if(g) out[pkFixKey(g)]=String(tid);
+  });
+  return out;
+}
+const pkSlate=games=>pkNormalise(pkLoad(),games||pkGames());
 function pkLoad(){
   if(_pkPicks) return _pkPicks;
   let raw=localStorage.getItem(lsKey(pkKey()))||'';
@@ -14019,7 +14063,13 @@ async function pkSync(){
     if(sub){ _pkSubmitted=true; localStorage.setItem(lsKey(pkSubKey()),'1'); }
     const raw=d[pkKey()];
     if(raw){
-      _pkPicks=sub?JSON.parse(raw):{...JSON.parse(raw),...pkLoad()};
+      /* Both sides are normalised before they meet: the profile copy may be an
+         old position-keyed slate, and merging that into a fixture-keyed one
+         would leave the same pick in twice under two different keys. */
+      const games=pkGames();
+      const onDevice=pkNormalise(pkLoad(),games);
+      const onProfile=pkNormalise(JSON.parse(raw),games);
+      _pkPicks=sub?onProfile:{...onProfile,...onDevice};
       localStorage.setItem(lsKey(pkKey()),JSON.stringify(_pkPicks));
     }
     renderWeekPicks();
@@ -14052,17 +14102,23 @@ let _pkSubmitted=null;
 async function pkPick(gi,teamId,el){
   if(_pkBusy||pkLocked()||pkSubmitted()) return;
   if(el&&el.blur) el.blur();
-  const p=pkLoad();
+  const games=pkGames(), g=games[gi];
+  if(!g) return;
+  const p=pkSlate(games), k=pkFixKey(g);
   /* tapping the side you already have clears it, rather than doing nothing */
-  if(String(p[gi])===String(teamId)) delete p[gi];
-  else p[gi]=String(teamId);
+  if(String(p[k])===String(teamId)) delete p[k];
+  else p[k]=String(teamId);
+  _pkPicks=p;
   localStorage.setItem(lsKey(pkKey()),JSON.stringify(p));
   renderWeekPicks();
 }
 async function pkSubmit(){
   if(_pkBusy||pkLocked()) return;
-  const p=pkLoad();
-  if(Object.keys(p).length!==pkGames().length) return;
+  const games=pkGames();
+  const p=pkSlate(games);
+  if(Object.keys(p).length!==games.length) return;
+  /* send the normalised slate, and keep the device on the same shape */
+  _pkPicks=p; localStorage.setItem(lsKey(pkKey()),JSON.stringify(p));
   _pkBusy=true; renderWeekPicks();
   if(_me){ try{ await gflPatchProfile(_me.k1,
     {[pkKey()]:JSON.stringify(p),[pkSubKey()]:'1'}); }catch(e){} }
@@ -14085,10 +14141,10 @@ function renderWeekPicks(){
   const games=pkGames();
   if(!games.length){ if(sec) sec.style.display='none'; return; }
   if(sec) sec.style.display='';
-  const picks=pkLoad();
+  const picks=pkSlate(games);
   const nm=id=>(_teams.find(t=>t.id===id)||{}).name||'Team';
   const ab=id=>{const t=_teams.find(x=>x.id===id);return (t&&t.abbrev)||teamInitials(nm(id));};
-  const done=games.map((_,i)=>i).filter(i=>picks[i]!=null);
+  const done=games.map((_,i)=>i).filter(i=>picks[pkFixKey(games[i])]!=null);
   const locked=pkLocked()||pkSubmitted();
   const sent=pkSubmitted();
   /* Nothing is pickable until the Matchup of the Week has been named. One game
@@ -14105,7 +14161,7 @@ function renderWeekPicks(){
      and a pick is one tap on the side you want, with no opening or closing.
      Both sides of a game sit in one cell so the pair always reads together. */
   const cell=(i)=>{
-    const g=games[i], mine=picks[i], big=i===motw;
+    const g=games[i], mine=picks[pkFixKey(g)], big=i===motw;
     const side=t=>`<button type="button" class="pk-s${String(mine)===String(t)?' on':''}"
       ${locked||waiting?'disabled':`onclick="pkPick(${i},${t},this)"`} title="${nm(t).replace(/"/g,'&quot;')}">
       ${logoImg(t,'pk-logo')}<span>${ab(t)}</span></button>`;
@@ -16064,13 +16120,23 @@ function bkPickScore(p){
     const meta=_seasonMeta[getSeason()]; if(!meta) return;
     const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===wk&&m.home&&m.away);
     const motw=pkMotwIndex(games);
-    Object.entries(picks).forEach(([gi,teamId])=>{
-      const g=games[Number(gi)]; if(!g) return;
+      /* WHICH GAME A PICK BELONGS TO IS THE PICK ITSELF. This read the key as
+         a position in the list, which meant it graded against whatever fixture
+         happened to sit at that index in _seasonMeta -- an order that is not
+         the one the slate was necessarily picked against, and is not the one
+         the live board uses either. A team plays exactly one fixture in a week,
+         so the team says which game it is, and the key does not have to be
+         anything at all. See pkNormalise, which stores them keyed by fixture
+         for the same reason; this grades both shapes without knowing which. */
+      Object.values(picks).forEach(teamId=>{
+      const gi=games.findIndex(x=>String(x.home.teamId)===String(teamId)
+                                ||String(x.away.teamId)===String(teamId));
+      const g=games[gi]; if(!g) return;
       const hp=g.home.totalPoints||0, ap=g.away.totalPoints||0;
       if(hp===0&&ap===0) return;                       // not played
       const winner=hp>ap?g.home.teamId:ap>hp?g.away.teamId:null;
       if(winner==null) return;                          // a tie pays neither way
-      const w=(Number(gi)===motw)?2:1;                  // the featured game counts double
+      const w=(gi===motw)?2:1;                          // the featured game counts double
       s+=(String(winner)===String(teamId)?w:-w);
     });
   });
@@ -16236,8 +16302,11 @@ function ldPickRecord(prof){
       const games=(meta.schedule||[]).filter(x=>Number(x.matchupPeriodId)===wk&&x.home&&x.away);
       if(!games.length) return;
       let picks={}; try{ picks=JSON.parse(p[k]||'{}'); }catch(e){ return; }
-      Object.entries(picks).forEach(([gi,teamId])=>{
-        const g=games[Number(gi)]; if(!g) return;
+      /* by the team, not by the key -- see bkPickScore */
+      Object.values(picks).forEach(teamId=>{
+        const g=games.find(x=>String(x.home.teamId)===String(teamId)
+                            ||String(x.away.teamId)===String(teamId));
+        if(!g) return;
         const hp=g.home.totalPoints||0, ap=g.away.totalPoints||0;
         if(hp===0&&ap===0){ pending++; return; }        // not played
         const winner=hp>ap?g.home.teamId:ap>hp?g.away.teamId:null;
@@ -16639,15 +16708,40 @@ function bankHTML(){
    stays on the ledger. That is why the Firestore rules withhold delete — a
    losing bet must never be able to disappear, and a void is an event worth
    being able to see. */
-/* "Started" means this league's week has started, not the NFL's. The public
-   scoreboard is the wrong clock: in August it reports preseason games already
-   final, which would lock every bet before a fantasy season even exists. The
-   fantasy week is the honest signal — once any matchup in it has put a point
-   on the board, the week is under way and the slips are set. */
+/* ── HAS THIS WEEK'S FOOTBALL STARTED ────────────────────────────────────────
+   ONE definition, and this is it: HAS ANY NFL GAME IN THIS FANTASY WEEK KICKED
+   OFF. nflWeekBegun answers that off the public scoreboard, where a game reads
+   'in' while it is on and 'post' once it is done and neither ever goes back to
+   'pre' -- so the answer latches at the first kickoff and stays latched through
+   the Tuesday. Everything in the app that needs to know whether a week is under
+   way comes through here or through nflWeekBegun directly.
+
+   IT USED TO ASK WHETHER ANY FANTASY FIXTURE CARRIED A totalPoints, and that is
+   not a start signal at all -- it is a SETTLEMENT signal. ESPN does not publish
+   totalPoints during a week. On the Thursday of week 1, with Wednesday night's
+   game long finished and 26.2 points on the board for one team, all six
+   fixtures still read 0.00: the live figures were sitting in totalPointsLive, a
+   different field, and totalPoints did not move until the week was graded.
+
+   So this returned FALSE with a game already in the books, and everything
+   hanging off it stayed open -- the weekly picks offered a Reopen button after
+   kickoff, and sbWeekLocked's no-week-named path unlocked along with it.
+
+   The old test is kept as a fallback for the moment before the scoreboard
+   digest is in hand (nflWeekBegun answers null until it lands). Fantasy totals
+   are late but they are never early, so a true out of them is still a true.
+
+   And the reason the scoreboard is safe to ask now when it was not before: it
+   is asked for THIS FANTASY WEEK of THIS SEASON, not for whatever the NFL
+   happens to be playing. Unpinned it reports August preseason as football and
+   would have locked the league in the middle of the summer. */
 function weekHasStarted(){
   let info=_liveInfo;
   if(!info && typeof liveWeekInfo==='function'){ try{ info=liveWeekInfo(); }catch(e){} }
-  if(!info||!info.games||!info.games.length) return false;
+  if(!info) return false;
+  const begun=nflWeekBegun(info.week,info.season);
+  if(begun!=null) return begun;
+  if(!info.games||!info.games.length) return false;
   return info.games.some(g=>((g.home&&g.home.totalPoints)||0)>0
                           ||((g.away&&g.away.totalPoints)||0)>0);
 }
