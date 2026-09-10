@@ -76,12 +76,12 @@ const app = assemble(grab, [
   'function liveSideScore(side){',
   'function liveWithScores(m){',
   'const liveProProgress=',
-  'function liveSideLeftFrac(side,prog){',
+  'function liveSideLeft(side,prog){',
   'function liveWpOf(m,aFirst){',
   'function liveNote(arr,t,a,b,p,la,lb){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
     'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf',
-    'liveSideScore', 'liveWithScores', 'liveProProgress', 'liveSideLeftFrac']);
+    'liveSideScore', 'liveWithScores', 'liveProProgress', 'liveSideLeft']);
 
 const DOC = k => `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   + `/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
@@ -199,7 +199,7 @@ async function once() {
     if (!live && !moved) return;
     const sA = aFirst ? m.home : m.away, sB = aFirst ? m.away : m.home;
     if (app.liveNote(arr || (series[k] = []), t, a, b, app.liveWpOf(m, aFirst),
-      app.liveSideLeftFrac(sA, proProg), app.liveSideLeftFrac(sB, proProg))) changed++;
+      app.liveSideLeft(sA, proProg), app.liveSideLeft(sB, proProg))) changed++;
   });
 
   if (!changed) {

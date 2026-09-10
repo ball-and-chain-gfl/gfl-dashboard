@@ -34,12 +34,12 @@ const M = assemble(grab, [
   'function liveWithScores(m){',
   'function liveWpOf(m,aFirst){',
   'const liveProProgress=',
-  'function liveSideLeftFrac(side,prog){',
+  'function liveSideLeft(side,prog){',
   'function liveNote(arr,t,a,b,p,la,lb){',
 ], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf',
     'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn',
     'liveNote', 'liveWpOf', 'liveSideScore', 'liveWithScores',
-    'liveProProgress', 'liveSideLeftFrac'], `
+    'liveProProgress', 'liveSideLeft'], `
 const sbZ=x=>x;
 `);
 
@@ -506,9 +506,9 @@ console.log(nl + '7c4. EACH SIDE GETS ITS OWN REMAINING WEEK');
   const P = 105;
   const pct = (a, b, f, mu0, lA, lB) => Math.round(M.wpAt(a, b, P, P, f, mu0, lA, lB) * 100);
 
-  const blind = pct(30, 0, 0.22, 0);                    // no per-side figures
-  const oppDone = pct(30, 0, 0.22, 0, 0.60, 0.05);      // I am 40% done, they are 95%
-  const oppFresh = pct(30, 0, 0.22, 0, 0.60, 0.95);     // I am 40% done, they have not started
+  const blind = pct(30, 0, 0.22, 0);                     // no per-side figures
+  const oppDone = pct(30, 0, 0.22, 0, 0.60*P, 0.05*P);  // I am 40% done, they are 95%
+  const oppFresh = pct(30, 0, 0.22, 0, 0.60*P, 0.95*P); // I am 40% done, they have not started
   ok('a thirty point lead is not one number', oppDone !== oppFresh,
      blind + ' / ' + oppDone + ' / ' + oppFresh);
   ok('leading against a roster that is finished is nearly won', oppDone > 90, String(oppDone));
@@ -519,8 +519,8 @@ console.log(nl + '7c4. EACH SIDE GETS ITS OWN REMAINING WEEK');
   /* SYMMETRIC WEEKS ARE UNCHANGED, which is most of them and was all of the
      week 1 opener: one starter each, both sides equally far through. */
   ok('two sides equally far through barely moves',
-     Math.abs(pct(24.1, 7.4, 0.057, 0.9, 0.83, 0.83) - pct(24.1, 7.4, 0.057, 0.9)) <= 2,
-     pct(24.1, 7.4, 0.057, 0.9, 0.83, 0.83) + ' vs ' + pct(24.1, 7.4, 0.057, 0.9));
+     Math.abs(pct(24.1, 7.4, 0.057, 0.9, 0.83*P, 0.83*P) - pct(24.1, 7.4, 0.057, 0.9)) <= 3,
+     pct(24.1, 7.4, 0.057, 0.9, 0.83*P, 0.83*P) + ' vs ' + pct(24.1, 7.4, 0.057, 0.9));
 
   /* BACKWARD COMPATIBILITY IS THE WHOLE SAFETY STORY. Every reading taken
      before this is three or four long and carries no fractions, and every
@@ -536,11 +536,15 @@ console.log(nl + '7c4. EACH SIDE GETS ITS OWN REMAINING WEEK');
 
   /* the fixture's own spread rides on ITS football, not the league's */
   ok('a fixture that is nearly done is nearly certain',
-     pct(60, 40, 0.1, 0, 0.02, 0.02) > 95, String(pct(60, 40, 0.1, 0, 0.02, 0.02)));
+     pct(60, 40, 0.1, 0, 0.02*P, 0.02*P) > 95, String(pct(60, 40, 0.1, 0, 0.02*P, 0.02*P)));
   ok('even though the league has barely started', pct(60, 40, 0.1, 0) < 80);
 
-  ok('a fraction out of range is clamped, not trusted',
-     M.wpAt(30, 0, P, P, 0.2, 0, -5, 9) === M.wpAt(30, 0, P, P, 0.2, 0, 0, 1));
+  /* a value at or under 1.5 is read as the FRACTION it was for twenty minutes
+     of week one, so the readings written then still mean what they meant */
+  ok('a legacy fraction is read as a fraction',
+     Math.abs(M.wpAt(30,0,P,P,0.2,0,0.6,0.05) - M.wpAt(30,0,P,P,0.2,0,0.6*P,0.05*P)) < 1e-9);
+  ok('and points are read as points',
+     M.wpAt(30,0,P,P,0.2,0,63,5.25) === M.wpAt(30,0,P,P,0.2,0,0.6,0.05));
 }
 
 console.log(nl + '7c5. AND THEY ARE READ OFF THE SCOREBOARD AND THE ROSTER');
@@ -565,23 +569,23 @@ console.log(nl + '7c5. AND THEY ARE READ OFF THE SCOREBOARD AND THE ROSTER');
     playerPoolEntry: { player: { proTeamId: pro, stats: [{ statSourceId: 1, appliedTotal: proj }] } } })) } });
 
   ok('a roster nobody has played is all still to come',
-     M.liveSideLeftFrac(side([0, 9, 20], [2, 9, 10]), prog) === 1);
+     M.liveSideLeft(side([0, 9, 20], [2, 9, 10]), prog) === 30);
   ok('a roster that has finished has nothing left',
-     M.liveSideLeftFrac(side([0, 26, 20], [2, 26, 10]), prog) === 0);
+     M.liveSideLeft(side([0, 26, 20], [2, 26, 10]), prog) === 0);
   ok('and it is weighted by projection, not by headcount',
-     M.liveSideLeftFrac(side([0, 26, 30], [2, 9, 10]), prog) === 0.25,
-     String(M.liveSideLeftFrac(side([0, 26, 30], [2, 9, 10]), prog)));
+     M.liveSideLeft(side([0, 26, 30], [2, 9, 10]), prog) === 10,
+     String(M.liveSideLeft(side([0, 26, 30], [2, 9, 10]), prog)));
   ok('a bench player is not part of anybody\'s week',
-     M.liveSideLeftFrac(side([0, 9, 20], [20, 26, 999]), prog) === 1);
+     M.liveSideLeft(side([0, 9, 20], [20, 26, 999]), prog) === 20);
   ok('a mid-game starter counts what is left of his game',
-     Math.abs(M.liveSideLeftFrac(side([0, 12, 20]), prog) - (1 - 35/60)) < 0.002,
-     String(M.liveSideLeftFrac(side([0, 12, 20]), prog)));
+     Math.abs(M.liveSideLeft(side([0, 12, 20]), prog) - 20*(1 - 35/60)) < 0.02,
+     String(M.liveSideLeft(side([0, 12, 20]), prog)));
   ok('a starter projected nothing does not drag it',
-     M.liveSideLeftFrac(side([0, 9, 20], [16, 9, 0]), prog) === 1);
+     M.liveSideLeft(side([0, 9, 20], [16, 9, 0]), prog) === 20);
   ok('an empty roster answers nothing rather than zero',
-     M.liveSideLeftFrac({ rosterForCurrentScoringPeriod: { entries: [] } }, prog) === null);
+     M.liveSideLeft({ rosterForCurrentScoringPeriod: { entries: [] } }, prog) === null);
   ok('and so does a fixture with no roster at all',
-     M.liveSideLeftFrac(null, prog) === null);
+     M.liveSideLeft(null, prog) === null);
 }
 
 console.log(nl + '7d. WHERE THAT NUMBER COMES FROM');

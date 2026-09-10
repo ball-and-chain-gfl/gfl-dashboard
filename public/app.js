@@ -6659,8 +6659,16 @@ const liveProProgress=state=>{
    it. Per side, those are 99% and 41%.
 
    It is recorded on the reading rather than recomputed, for the same reason
-   the scores are: a curve read back on Tuesday has no roster to ask. */
-function liveSideLeftFrac(side,prog){
+   the scores are: a curve read back on Tuesday has no roster to ask.
+
+   AND IT IS IN POINTS, not a fraction. A fraction has to be multiplied back up
+   by something, and the something the model had was each team's season points
+   per game -- which in week one falls back to a flat 105 for everybody while
+   the actual lineups on the board project 117 and 124. Twelve percent out on
+   every remaining-points term in the model, and out by different amounts for
+   different teams once a season is running. The roster is right here and it
+   knows the real number. */
+function liveSideLeft(side,prog){
   const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
   if(!es.length) return null;
   let tot=0, left=0;
@@ -6674,7 +6682,7 @@ function liveSideLeftFrac(side,prog){
     const f=(ab&&prog&&prog[ab]!=null)?prog[ab]:0;
     tot+=proj; left+=proj*(1-f);
   });
-  return tot>0?Math.round((left/tot)*1000)/1000:null;
+  return tot>0?Math.round(left*100)/100:null;
 }
 /* ESPN'S OWN NUMBER FOR ONE FIXTURE, as a probability for the side that sorts
    FIRST in the matchup key -- which is the side `a` is, so it travels with the
@@ -6783,7 +6791,7 @@ async function livePoll(){
       if(!on&&!moved) return;
       const sA=aFirst?m.home:m.away, sB=aFirst?m.away:m.home;
       if(liveNote(arr||(_liveSeries[k]=[]),t,a,b,liveWpOf(m,aFirst),
-        liveSideLeftFrac(sA,proProg),liveSideLeftFrac(sB,proProg))) changed=true;
+        liveSideLeft(sA,proProg),liveSideLeft(sB,proProg))) changed=true;
     });
     if(changed){ _liveDirty=true; _liveChanged=Date.now(); }
     if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);
@@ -6895,16 +6903,27 @@ function wpAt(a,b,projA,projB,f,mu0,lA,lB){
      Present, they are the difference between "a thirty point lead" and "a
      thirty point lead against a roster that has not started yet". */
   const pa=projA||0, pb=projB||0;
-  const la=(lA!=null)?Math.max(0,Math.min(1,lA)):left;
-  const lb=(lB!=null)?Math.max(0,Math.min(1,lB)):left;
-  const remA=la*pa, remB=lb*pb;
-  /* how much football is left in THIS fixture, which is what its spread rides
-     on -- not how much is left in the league */
-  const L=(pa+pb)>0?(remA+remB)/(pa+pb):left;
+  /* Recorded in POINTS. For about twenty minutes of week one they were written
+     as a FRACTION of a team's season scoring, so anything at or under 1.5 is
+     read back that way -- a real remaining projection is either far larger or
+     so near zero that the two readings agree anyway. */
+  const asPts=(v,p)=>(v==null)?null:(v<=1.5?Math.max(0,Math.min(1,v))*p:v);
+  const rA=asPts(lA,pa), rB=asPts(lB,pb);
+  const remA=(rA!=null)?rA:left*pa;
+  const remB=(rB!=null)?rB:left*pb;
+  /* How much football is left in THIS fixture, which is what its spread rides
+     on -- not how much is left in the league. Measured against the two
+     expected finals rather than against a projection, so it needs nothing the
+     reading did not record. */
+  const fin=(a+remA)+(b+remB);
+  /* Only when the reading actually recorded the two sides. With nothing to go
+     on there is nothing better than the league-wide figure, and falling back
+     to it is what keeps every archived week drawing exactly as it did. */
+  const L=(rA!=null&&rB!=null&&fin>0)?Math.max(0,Math.min(1,(remA+remB)/fin)):left;
   /* mu0 is the board's projected margin for the whole week. What it adds over
      the raw difference of two season averages is its read on the fixture, and
      that read decays with the football still to come. */
-  const lean=(mu0!=null)?(mu0-(pa-pb))*L:0;
+  const lean=(mu0!=null)?(mu0-(pa-pb))*L:0;   // decays with the football left
   const mu=(a-b)+(remA-remB)+lean;
   const sd=Math.max(0.6,wpSd()*Math.sqrt(L));
   return Math.min(0.999,Math.max(0.001,schedNormCdf(mu/sd)));
