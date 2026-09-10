@@ -75,11 +75,13 @@ const app = assemble(grab, [
   'const liveMatchupOn=',
   'function liveSideScore(side){',
   'function liveWithScores(m){',
+  'const liveProProgress=',
+  'function liveSideLeftFrac(side,prog){',
   'function liveWpOf(m,aFirst){',
-  'function liveNote(arr,t,a,b,p){',
+  'function liveNote(arr,t,a,b,p,la,lb){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
     'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf',
-    'liveSideScore', 'liveWithScores']);
+    'liveSideScore', 'liveWithScores', 'liveProProgress', 'liveSideLeftFrac']);
 
 const DOC = k => `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   + `/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
@@ -177,6 +179,7 @@ async function once() {
   /* the pro teams with a game in progress this minute, straight off the digest
      that got us past the gate above -- no second request for it */
   const onField = app.liveProTeams(state);
+  const proProg = app.liveProProgress(state);
   const t = app.liveBucket(Date.now());
   let changed = 0, on = 0;
   games.forEach(m => {
@@ -194,7 +197,9 @@ async function once() {
     const moved = !!arr && arr.length
       && (arr[arr.length - 1][1] !== a || arr[arr.length - 1][2] !== b);
     if (!live && !moved) return;
-    if (app.liveNote(arr || (series[k] = []), t, a, b, app.liveWpOf(m, aFirst))) changed++;
+    const sA = aFirst ? m.home : m.away, sB = aFirst ? m.away : m.home;
+    if (app.liveNote(arr || (series[k] = []), t, a, b, app.liveWpOf(m, aFirst),
+      app.liveSideLeftFrac(sA, proProg), app.liveSideLeftFrac(sB, proProg))) changed++;
   });
 
   if (!changed) {

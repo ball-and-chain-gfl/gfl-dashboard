@@ -6623,6 +6623,59 @@ function liveWithScores(m){
     away:Object.assign({},m.away,{totalPoints:pick(m.away.totalPoints,as)}),
   });
 }
+/* ── HOW FAR THROUGH EACH NFL GAME IS, 0 to 1 ────────────────────────────────
+   Off the scoreboard digest we already hold. A game not started is 0, a final
+   is 1, and one in progress is read off the period and the clock -- crude at
+   the edges (overtime is capped just short of 1) and far better than calling
+   an in-progress game half done. */
+const liveProProgress=state=>{
+  const out={};
+  ((state&&state.games)||[]).forEach(g=>{
+    if(!g) return;
+    let f=0;
+    if(g.s==='post') f=1;
+    else if(g.s==='in'){
+      const mm=/^(\d+):(\d+)/.exec(String(g.c||''));
+      const rem=mm?(Number(mm[1])+Number(mm[2])/60):15;
+      const per=Math.min(4,Math.max(1,Number(g.p)||1));
+      f=Math.min(0.99,Math.max(0,((per-1)*15+(15-rem))/60));
+    }
+    if(g.ht) out[g.ht]=f;
+    if(g.at) out[g.at]=f;
+  });
+  return out;
+};
+/* ── AND HOW MUCH OF ITS WEEK IS STILL TO COME ───────────────────────────────
+   A fraction of the side's own projected total, weighted by each starter's
+   projection and by how far through that starter's NFL game is.
+
+   THIS IS THE NUMBER THE MODEL WAS MISSING. wpAt scaled the remaining
+   projection by ONE league-wide figure -- the whole slate's points over the
+   whole slate's projections -- which assumes every roster plays at the same
+   pace. In a week where it does, that is right and this changes nothing. In a
+   week where one manager is Thursday-heavy and the other is Monday-heavy it is
+   badly wrong, and it was wrong in the worst way: a thirty point lead read the
+   same 84% whether the opponent had finished their roster or had not started
+   it. Per side, those are 99% and 41%.
+
+   It is recorded on the reading rather than recomputed, for the same reason
+   the scores are: a curve read back on Tuesday has no roster to ask. */
+function liveSideLeftFrac(side,prog){
+  const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
+  if(!es.length) return null;
+  let tot=0, left=0;
+  es.forEach(e=>{
+    if(!e||BENCH_SLOTS.includes(e.lineupSlotId)) return;
+    const p=((e.playerPoolEntry||{}).player)||{};
+    const st=(p.stats||[]).find(x=>x&&x.statSourceId===1);
+    const proj=(st&&st.appliedTotal)||0;
+    if(!(proj>0)) return;                       // a bye, or nothing projected
+    const ab=NFL_TEAMS[Number(p.proTeamId)||0];
+    const f=(ab&&prog&&prog[ab]!=null)?prog[ab]:0;
+    tot+=proj; left+=proj*(1-f);
+  });
+  return tot>0?Math.round((left/tot)*1000)/1000:null;
+}
 /* ESPN'S OWN NUMBER FOR ONE FIXTURE, as a probability for the side that sorts
    FIRST in the matchup key -- which is the side `a` is, so it travels with the
    scores and needs no second lookup to interpret.
@@ -6650,18 +6703,24 @@ function liveWpOf(m,aFirst){
    up far more often than a correction takes them back, and either choice is
    within the noise of a single bucket. A correction that does come down is
    picked up by the NEXT bucket, which is where it reads correctly anyway. */
-function liveNote(arr,t,a,b,p){
+function liveNote(arr,t,a,b,p,la,lb){
   const prev=arr[arr.length-1];
   if(prev&&prev[0]>=t){
     if(prev[0]!==t) return false;
     let moved=false;
     if((a+b)>(prev[1]+prev[2])){ prev[1]=a; prev[2]=b; moved=true; }
-    /* A probability is a live reading rather than a running total, so inside a
-       bucket the latest one is simply the best one, whatever the score did. */
+    /* These are live readings rather than running totals, so inside a bucket
+       the latest one is simply the best one, whatever the score did. */
+    if((la!=null||lb!=null)&&prev.length<4) prev[3]=null;
     if(p!=null&&prev[3]!==p){ prev[3]=p; moved=true; }
+    if(la!=null&&prev[4]!==la){ prev[4]=la; moved=true; }
+    if(lb!=null&&prev[5]!==lb){ prev[5]=lb; moved=true; }
     return moved;
   }
-  arr.push(p!=null?[t,a,b,p]:[t,a,b]);
+  const row=[t,a,b];
+  if(p!=null||la!=null||lb!=null) row.push(p!=null?p:null);
+  if(la!=null||lb!=null){ row.push(la!=null?la:null,lb!=null?lb:null); }
+  arr.push(row);
   return true;
 }
 /* one poll: read the live scoreboard, append anything that moved, redraw */
@@ -6702,6 +6761,7 @@ async function livePoll(){
       if(st){ _nflGames=st; _nflSeen=Date.now(); _nflLive=!!st.anyLive; }
     }
     const onField=liveProTeams(st);
+    const proProg=liveProProgress(st);
     const t=liveBucket(Date.now());               // see WHEN A READING IS WORTH TAKING
     let changed=false;
     games.forEach(m=>{
@@ -6721,7 +6781,9 @@ async function livePoll(){
          It is also what a matchup looks like before it has kicked off, which
          is why no empty series is left behind for one. */
       if(!on&&!moved) return;
-      if(liveNote(arr||(_liveSeries[k]=[]),t,a,b,liveWpOf(m,aFirst))) changed=true;
+      const sA=aFirst?m.home:m.away, sB=aFirst?m.away:m.home;
+      if(liveNote(arr||(_liveSeries[k]=[]),t,a,b,liveWpOf(m,aFirst),
+        liveSideLeftFrac(sA,proProg),liveSideLeftFrac(sB,proProg))) changed=true;
     });
     if(changed){ _liveDirty=true; _liveChanged=Date.now(); }
     if(_liveDirty&&Date.now()-_liveSaved>=LIVE_SAVE_MS) await liveFlush(key);
@@ -6759,6 +6821,8 @@ async function liveFlush(key){
             /* a bucket we hold without a probability takes one from whoever
                did record it -- see liveNote for why the newest wins */
             if(p[3]!=null) cur[3]=p[3];
+            if(p[4]!=null) cur[4]=p[4];
+            if(p[5]!=null) cur[5]=p[5];
           }
         });
         mine.sort((x,y)=>x[0]-y[0]);
@@ -6819,10 +6883,30 @@ const wpSd=()=>SCHED_SD*1.15;
    fixture — see schedOpenMu. Without it the curve falls back to differencing
    the two season averages, which is what it always did and is still right for
    any caller that has no board to price against. */
-function wpAt(a,b,projA,projB,f,mu0){
+function wpAt(a,b,projA,projB,f,mu0,lA,lB){
   const left=Math.max(0,1-Math.min(1,f||0));
-  const mu=(mu0!=null)?(a-b)+left*mu0:(a+left*projA)-(b+left*projB);
-  const sd=Math.max(0.6,wpSd()*Math.sqrt(left));
+  /* ── EACH SIDE'S OWN REMAINING WEEK, WHEN THE READING RECORDED IT ──────────
+     lA and lB are the fraction of each team's projection still to come. Absent
+     -- every reading taken before this, and any minute the rosters could not
+     be read -- both fall back to the league-wide figure, and every line below
+     collapses exactly to what this function did before: mu is (a-b)+left*mu0
+     and sd is wpSd()*sqrt(left). Nothing about an archived week moves.
+
+     Present, they are the difference between "a thirty point lead" and "a
+     thirty point lead against a roster that has not started yet". */
+  const pa=projA||0, pb=projB||0;
+  const la=(lA!=null)?Math.max(0,Math.min(1,lA)):left;
+  const lb=(lB!=null)?Math.max(0,Math.min(1,lB)):left;
+  const remA=la*pa, remB=lb*pb;
+  /* how much football is left in THIS fixture, which is what its spread rides
+     on -- not how much is left in the league */
+  const L=(pa+pb)>0?(remA+remB)/(pa+pb):left;
+  /* mu0 is the board's projected margin for the whole week. What it adds over
+     the raw difference of two season averages is its read on the fixture, and
+     that read decays with the football still to come. */
+  const lean=(mu0!=null)?(mu0-(pa-pb))*L:0;
+  const mu=(a-b)+(remA-remB)+lean;
+  const sd=Math.max(0.6,wpSd()*Math.sqrt(L));
   return Math.min(0.999,Math.max(0.001,schedNormCdf(mu/sd)));
 }
 /* How far through the week the league is, sample by sample. Everyone's points
@@ -6864,8 +6948,10 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
     return f;
   };
   const pts=[{t:arr[0][0]-1,p:open,a:0,b:0,f:0}];
-  arr.forEach(([t,x,y,q])=>{
+  arr.forEach(([t,x,y,q,ra,rb])=>{
     const a=aFirst?x:y, b=aFirst?y:x;
+    /* the remaining fractions travel with the scores and flip with them */
+    const lA=aFirst?ra:rb, lB=aFirst?rb:ra;
     const f=fAt(t);
     /* ── AND IT IS DRAWN FROM THE MODEL, NOT FROM ESPN'S NUMBER ─────────────
        A reading carries the probability ESPN published at it, and for a few
@@ -6890,7 +6976,7 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0){
        q is still recorded on every reading. It costs nothing, it is the only
        record of what ESPN was saying at the time, and if that number ever
        starts moving mid-game this is the line that would use it. */
-    pts.push({t,p:wpAt(a,b,projA,projB,f,mu0),a,b,f,q:q!=null?q:null});
+    pts.push({t,p:wpAt(a,b,projA,projB,f,mu0,lA,lB),a,b,f,q:q!=null?q:null});
   });
   return pts;
 }
@@ -6989,7 +7075,10 @@ function wpGraphSVG(pts,abA,abB,opt){
      ahead, which is the rule the headline and the end dot already use. */
   const segs=[];
   {
-    const sideOf=p=>p>=0.5;
+    /* An epsilon, because a dead-even matchup does not land on 0.5 exactly:
+       the model sums projections and leans that cancel to about 1e-14 either
+       way, and without this a level line reads as behind on float noise. */
+    const sideOf=p=>p>=0.5-1e-9;
     let cur=null;
     for(let i=0;i<n;i++){
       const q=pts2[i], s=sideOf(q.p);
