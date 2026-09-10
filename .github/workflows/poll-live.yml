@@ -20,23 +20,41 @@ name: Poll the live scoreboard
 # out to be empty costs one small request and writes nothing, and a manager
 # whose last starter finished on Thursday stops accruing points on Sunday.
 #
-# ── WHY EACH RUN LOOPS ───────────────────────────────────────────────────────
-# Readings go down on a five minute grid, and a cron cannot go finer than five
-# minutes -- so a run that GitHub delivers late (which is most of them, under
-# load) lands in the wrong bucket and the one it was meant to fill is simply
-# missing. Each scheduled run therefore stays awake for three and a half
-# minutes, polling every minute, which covers its own slice whenever inside the
-# window it actually starts. It always finishes inside the five, so runs cannot
-# stack up behind the concurrency group.
+# ── WHY A RUN IS A WATCH AND NOT A TICK ──────────────────────────────────────
+# GitHub's scheduler is best effort and in this repo it is late by HOURS. On an
+# ordinary Wednesday: archive-transactions fired 3h25m after its cron,
+# settle-bets 4h21m, the price freezer 4h14m, and the trade archive ran on the
+# wrong day entirely. The night this was written, this workflow's own window
+# opened at 00:00 UTC and had still not fired at 00:24 -- five slots missed --
+# and the readings only landed because a run was started by hand.
+#
+# Nothing that needs a punctual five minute tick can be built on that, and more
+# cron entries do not help because they are all late together. So a run stays
+# awake for the whole night instead. Whichever cron lands FIRST -- on time or
+# three hours late -- keeps its own clock for the rest of the window, and that
+# is a clock GitHub cannot be late for. The rest queue behind the concurrency
+# group and leave in minutes when they find the football already over.
+#
+# ── WHY THE WINDOWS OPEN EARLY ───────────────────────────────────────────────
+# Two hours before the first kickoff of each slot, for the same reason: a watch
+# that starts two hours early and is delivered two hours late is still on time.
+# Waiting costs one small request every five minutes, and a night with no
+# football at all stands the watch down after two and a half hours.
 on:
   schedule:
-    - cron: '*/5 0-4 * * 4'      # Wed night ET  (openers)
-    - cron: '*/5 0-4 * * 5'      # Thu night ET
-    - cron: '*/5 17-23 * * 6'    # Sat afternoon ET (late season)
-    - cron: '*/5 0-4 * * 0'      # Sat night ET
-    - cron: '*/5 17-23 * * 0'    # Sun afternoon ET — the main slate
-    - cron: '*/5 0-4 * * 1'      # Sun night ET
-    - cron: '*/5 0-4 * * 2'      # Mon night ET
+    # Each slot opens two hours before its first kickoff and runs past the last
+    # whistle. Times are UTC; a September kickoff at 8:20pm ET is 00:20 UTC the
+    # NEXT day, which is why every night slot appears twice.
+    - cron: '*/5 22-23 * * 3'    # Wed evening  — openers
+    - cron: '*/5 0-4 * * 4'      #   and into Thu UTC
+    - cron: '*/5 22-23 * * 4'    # Thu evening
+    - cron: '*/5 0-4 * * 5'      #   and into Fri UTC
+    - cron: '*/5 15-23 * * 6'    # Sat — late season afternoon and night
+    - cron: '*/5 0-4 * * 0'      #   and into Sun UTC
+    - cron: '*/5 15-23 * * 0'    # Sun — the main slate, from two hours out
+    - cron: '*/5 0-4 * * 1'      #   through Sunday night into Mon UTC
+    - cron: '*/5 22-23 * * 1'    # Mon evening
+    - cron: '*/5 0-4 * * 2'      #   and into Tue UTC
   workflow_dispatch:
     inputs:
       loop:
@@ -57,7 +75,7 @@ concurrency:
 jobs:
   poll:
     runs-on: ubuntu-latest
-    timeout-minutes: 350          # under the 6h job cap, for the looping mode
+    timeout-minutes: 330          # under GitHub's 6h job cap, with room to spare
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -65,8 +83,9 @@ jobs:
           node-version: '20'
       - name: Poll
         env:
-          # scheduled runs cover their own five minutes; a manual run can ask
-          # for a long window (a whole Sunday) by passing seconds
-          LOOP: ${{ github.event.inputs.loop || '210' }}
+          # a scheduled run watches for five hours, which covers a night slot
+          # outright and half of a Sunday; the queued one behind it takes the
+          # rest. A manual run polls once unless it is given a length.
+          LOOP: ${{ github.event.inputs.loop || '18000' }}
           FORCE: ${{ github.event.inputs.force == 'true' && '1' || '' }}
         run: node scripts/poll-live.mjs

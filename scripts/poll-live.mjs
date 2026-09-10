@@ -35,7 +35,17 @@ import { lifter, assemble } from './lib/lift.mjs';
 
 const BASE = process.env.GFL_BASE || 'https://gfl-dashboard.vercel.app/api/espn';
 const LOOP = Number(process.env.LOOP || 0);          // seconds to keep going; 0 = once
-const EVERY = Number(process.env.EVERY || 60) * 1000;
+const EVERY = Number(process.env.EVERY || 60) * 1000;        // while football is on
+/* Five minutes while nothing is being played. A run starts before kickoff on
+   purpose (see the workflow), and sixty second polling through two hours of
+   pregame is a hundred and twenty requests to learn nothing. */
+const IDLE_EVERY = Number(process.env.IDLE_EVERY || 300) * 1000;
+/* How long a watch waits before giving up. Two and a half hours if it has
+   never seen a game -- enough to start well before kickoff and absorb a
+   scheduler that runs late -- and forty five minutes after the last live
+   check, which is the football being over rather than a lull. */
+const NO_GAME_MS = Number(process.env.NO_GAME_MIN || 150) * 60000;
+const AFTER_GAME_MS = Number(process.env.AFTER_GAME_MIN || 45) * 60000;
 const DRY = !!process.env.DRY_RUN;
 /* Only for checking the thing works before a real kickoff -- it skips the
    is-anything-live gate. Never set in the workflow. */
@@ -197,20 +207,49 @@ if (!LOOP) {
   const r = await once();
   process.exit(r === 'failed' ? 1 : 0);
 } else {
-  /* one job that stays awake, rather than a fresh one every five minutes. The
-     cron cannot go finer than five, and GitHub delivers it late under load;
-     this gives a steady cadence for as long as the job is allowed to live. */
+  /* ── A WATCH, NOT A TICK ──────────────────────────────────────────────────
+     This was built as a five minute tick and that was the wrong shape for the
+     thing running it. GitHub's scheduler is best effort, and in this repo it
+     is late by HOURS, not minutes -- on one ordinary Wednesday
+     archive-transactions fired 3h25m after its cron, settle-bets 4h21m, the
+     price freezer 4h14m, and the trade archive ran on the wrong DAY. The night
+     this was written the poller's own window opened at 00:00 UTC and had not
+     fired once by 00:24. Nothing built on a punctual cron survives that, and
+     adding more cron entries does not help: they are all late together.
+
+     So a run is not a tick, it is a WATCH. Whichever of a window's crons lands
+     first -- on time, or three hours late -- stays awake for the rest of the
+     night and keeps its own clock, which is a clock GitHub cannot be late for.
+     The concurrency group in the workflow keeps the later ones queued behind
+     it rather than piling up, and they find the football over and leave in
+     minutes.
+
+     Two ways it gives up, and they are different questions. Having never seen
+     a game it waits NO_GAME_MS -- long enough to have started before kickoff
+     and still be there when it comes. Having seen one it waits AFTER_GAME_MS
+     from the last live check, which is long enough that a gap between the
+     afternoon and evening windows does not read as the day being over. */
   const until = Date.now() + LOOP * 1000;
-  console.log(`looping every ${EVERY / 1000}s until ${new Date(until).toISOString().slice(11, 16)}Z`);
-  let idle = 0;
+  console.log(`watching until ${new Date(until).toISOString().slice(11, 16)}Z`
+    + ` — ${EVERY / 1000}s while live, ${IDLE_EVERY / 1000}s while not`);
+  const started = Date.now();
+  let sawLive = false, lastLive = 0, r = null;
   while (Date.now() < until) {
-    const r = await once();
-    /* if the football has finished, stop early rather than burning the window */
-    idle = (r === 'idle') ? idle + 1 : 0;
-    if (idle >= 20) { console.log('nothing live for 20 checks — ending the window'); break; }
+    r = await once();
+    /* 'skip' is ESPN being unreachable, which is not an answer either way: it
+       neither proves a game is on nor that one is over, so it moves nothing. */
+    if (r !== 'idle' && r !== 'skip') { sawLive = true; lastLive = Date.now(); }
+    const quiet = Date.now() - (sawLive ? lastLive : started);
+    const grace = sawLive ? AFTER_GAME_MS : NO_GAME_MS;
+    if (quiet >= grace) {
+      console.log(sawLive
+        ? `no football for ${Math.round(quiet / 60000)} minutes — the night is over`
+        : `nothing has kicked off in ${Math.round(quiet / 60000)} minutes — standing down`);
+      break;
+    }
     const left = until - Date.now();
     if (left <= 0) break;
-    await new Promise(res => setTimeout(res, Math.min(EVERY, left)));
+    await new Promise(res => setTimeout(res, Math.min(r === 'idle' ? IDLE_EVERY : EVERY, left)));
   }
-  console.log('window closed');
+  console.log('watch closed');
 }
