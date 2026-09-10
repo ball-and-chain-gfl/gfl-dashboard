@@ -6972,6 +6972,52 @@ function wpGraphSVG(pts,abA,abB,opt){
   const x=i=>(i/(n-1))*W;
   const y=p=>PADT+(1-p)*(H-PADT-PADB);
   const line=pts2.map((q,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(q.p).toFixed(1)}`).join('');
+  /* ── ONE COLOUR PER SEGMENT, NOT ONE CLIP PER COLOUR ────────────────────────
+     The line used to be drawn twice over itself, once clipped to the panel
+     above the midline and once below. That is right for a FILL, whose edge IS
+     the midline, and wrong for a STROKE, which has width: a line sitting on or
+     near 50% has the top half of its 2.2px clipped into the green copy and the
+     bottom half into the red one, so it comes out two-toned along its whole
+     length instead of changing colour where it crosses. On an even matchup --
+     which is most of a Wednesday night, and was the Miners against the
+     Marathon Men all evening -- that is the entire line.
+
+     So the path is CUT at its crossings instead. Where two points straddle the
+     midline the crossing is interpolated and given to both runs, so the
+     segments meet exactly on the line with no gap and no overlap, and each run
+     is stroked once in its own colour. A run sitting exactly on 50% draws as
+     ahead, which is the rule the headline and the end dot already use. */
+  const segs=[];
+  {
+    const sideOf=p=>p>=0.5;
+    let cur=null;
+    for(let i=0;i<n;i++){
+      const q=pts2[i], s=sideOf(q.p);
+      if(cur&&cur.up!==s){
+        const prev=pts2[i-1], d=q.p-prev.p;
+        const f=d?(0.5-prev.p)/d:0;
+        const cx=x(i-1)+(x(i)-x(i-1))*Math.min(1,Math.max(0,f));
+        cur.pts.push([cx,y(0.5)]);
+        segs.push(cur);
+        cur={up:s,pts:[[cx,y(0.5)]]};
+      }
+      if(!cur) cur={up:s,pts:[]};
+      cur.pts.push([x(i),y(q.p)]);
+    }
+    if(cur) segs.push(cur);
+  }
+  const strokes=segs.filter(g=>{
+    if(g.pts.length<2) return false;
+    /* A run can be zero length: when the curve opens exactly on the midline --
+       which it does whenever the two sides are level going in -- the crossing
+       is interpolated onto the opening point itself, and the run before it has
+       nowhere to go. A zero length stroke with a round cap is a dot, and a
+       stray dot at the left edge in the wrong colour is worse than nothing. */
+    const x0=g.pts[0][0], y0=g.pts[0][1];
+    return g.pts.some(p=>Math.abs(p[0]-x0)>0.05||Math.abs(p[1]-y0)>0.05);
+  }).map(g=>
+    `<polyline points="${g.pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"
+       class="wp-line ${g.up?'up':'dn'}"/>`).join('');
   const area=`${line}L${x(n-1).toFixed(1)},${y(0.5).toFixed(1)}L${x(0).toFixed(1)},${y(0.5).toFixed(1)}Z`;
   const last=pts2[n-1], pct=Math.round(last.p*100);
   const up=last.p>=0.5;
@@ -6990,8 +7036,9 @@ function wpGraphSVG(pts,abA,abB,opt){
       <path d="${area}" class="wp-fill up" clip-path="url(#${uid}u)"/>
       <path d="${area}" class="wp-fill dn" clip-path="url(#${uid}d)"/>
       <line x1="0" y1="${y(0.5)}" x2="${W}" y2="${y(0.5)}" class="wp-mid"/>
-      <path d="${line}" class="wp-line up" clip-path="url(#${uid}u)"/>
-      <path d="${line}" class="wp-line dn" clip-path="url(#${uid}d)"/>
+      ${''/* the fills above stay clipped -- their edge really is the midline.
+             The stroke is cut instead; see the note by segs. */}
+      ${strokes}
       <circle cx="${x(n-1).toFixed(1)}" cy="${y(last.p).toFixed(1)}" r="3.5"
         class="wp-dot ${up?'up':'dn'}"/>
     </svg>

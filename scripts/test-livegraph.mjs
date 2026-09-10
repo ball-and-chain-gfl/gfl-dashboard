@@ -432,6 +432,65 @@ console.log(nl + "7c2. BECAUSE ESPN'S MATCHUP TOTAL IS NOT LIVE");
   ok('and a malformed one does not throw', M.liveWithScores(null) === null);
 }
 
+console.log(nl + '7c3. THE LINE CHANGES COLOUR WHERE IT CROSSES, NOT ALONG ITS LENGTH');
+{
+  /* THE BUG. The line was drawn twice over itself and clipped to the two
+     halves of the panel. That is right for a FILL, whose edge is the midline,
+     and wrong for a STROKE, which has width: a line sitting on or near 50% has
+     the top half of its 2.2px clipped into the green copy and the bottom half
+     into the red one, so it comes out two-toned along its WHOLE LENGTH rather
+     than changing colour where it crosses. On an even matchup that is the
+     entire line, which is exactly what the Miners against the Marathon Men
+     looked like all Wednesday evening. */
+  const t0 = 28000000;
+  const mk = rows => { const o = {}; o[M.liveMKey(ME, OPP)] = rows; return o; };
+  const runs = h => ({ up: (h.match(/wp-line up/g) || []).length,
+                       dn: (h.match(/wp-line dn/g) || []).length });
+  const draw = rows => runs(M.wpGraphSVG(M.wpCurve(mk(rows), PROJ, ME, OPP, 0), 'A', 'B'));
+
+  const ahead = draw([[t0, 60, 10], [t0 + 5, 70, 10]]);
+  ok('a line that never dips is one colour', ahead.up === 1 && ahead.dn === 0,
+     JSON.stringify(ahead));
+  const behind = draw([[t0, 10, 60], [t0 + 5, 10, 70]]);
+  ok('and one that never rises is the other', behind.up === 0 && behind.dn === 1,
+     JSON.stringify(behind));
+
+  /* A LEVEL MATCHUP IS ONE COLOUR, NOT TWO. This is the case that was broken:
+     the stroke straddled the clip boundary and every pixel of it was both. */
+  const level = draw([[t0, 40, 40], [t0 + 5, 40, 40]]);
+  ok('a line sitting exactly on 50% is not two-toned', level.up === 1 && level.dn === 0,
+     JSON.stringify(level));
+
+  const once = draw([[t0, 60, 10], [t0 + 5, 10, 60]]);
+  ok('a line that crosses is cut in two', once.up === 1 && once.dn === 1, JSON.stringify(once));
+  const twice = draw([[t0, 60, 10], [t0 + 5, 10, 60], [t0 + 10, 80, 10]]);
+  ok('and crossing back cuts it again', twice.up === 2 && twice.dn === 1, JSON.stringify(twice));
+
+  /* the two runs must MEET on the midline: a gap reads as a broken line and an
+     overlap puts one colour over the other */
+  const svg = M.wpGraphSVG(M.wpCurve(mk([[t0, 60, 10], [t0 + 5, 10, 60]]), PROJ, ME, OPP, 0), 'A', 'B');
+  const pl = [...svg.matchAll(/<polyline points="([^"]+)"/g)].map(m => m[1].trim().split(/\s+/));
+  ok('there are exactly two runs', pl.length === 2, String(pl.length));
+  ok('and the first ends where the second begins',
+     pl[0][pl[0].length - 1] === pl[1][0], pl[0][pl[0].length - 1] + ' vs ' + pl[1][0]);
+  const midY = Number(pl[1][0].split(',')[1]);
+  const H = Number(svg.match(/style="height:(\d+)px"/)[1]);
+  ok('and they meet on the midline itself', Math.abs(midY - H / 2) < 0.1, midY + ' of ' + H);
+
+  /* the clipped double-draw is gone; the fills still use their clips */
+  ok('the stroke is no longer drawn twice and clipped',
+     /class="wp-line up" clip-path/.test(svg) === false);
+  ok('but the fills still are', /class="wp-fill up" clip-path/.test(svg));
+
+  /* a zero-length run draws a dot under a round linecap, and a stray dot in
+     the wrong colour at the left edge is worse than nothing */
+  const opensLevel = M.wpGraphSVG(M.wpCurve(mk([[t0, 10, 60]]), PROJ, ME, OPP, 0), 'A', 'B');
+  ok('a run with nowhere to go is dropped rather than drawn as a dot',
+     (opensLevel.match(/wp-line up/g) || []).length === 0, opensLevel.slice(0, 200));
+
+  ok('nothing NaN gets into a segment', svg.indexOf('NaN') < 0);
+}
+
 console.log(nl + '7d. WHERE THAT NUMBER COMES FROM');
 {
   const m = (h, a) => ({ home: { winProbability: h }, away: { winProbability: a } });
