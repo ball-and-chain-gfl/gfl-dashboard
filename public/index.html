@@ -2349,8 +2349,15 @@
     /* Condensed: one line. It was three rows and two crests to say something
        that fits in a sentence — and the two teams are named at the top of the
        forecast already, so this only has to say which way it went. */
+    /* It used to have a whole forecast card's width to itself. In the Schedule
+       tab's scouting drawer it has that width minus two sets of padding, and at
+       375px the score broke across the dash ("128.4 -" / "117.9") and the date
+       split from its week. Nothing inside a value may break, and the line wraps
+       as a whole when it has to -- the date carries margin-left:auto, so it
+       drops to its own right-aligned row rather than crowding the score. */
     .fcl-one{display:flex;flex-direction:row;align-items:center;gap:9px;
-      margin-top:12px;padding:9px 12px;}
+      flex-wrap:wrap;margin-top:12px;padding:9px 12px;}
+    .fcl-one .fcl-sc,.fcl-one .fcl-when{white-space:nowrap;}
     .fcl-one>i{color:var(--accent);font-size:11px;flex:0 0 auto;}
     /* The line still has to say what it is. It is the only thing on the page
        that already happened — everything above it is a projection — and without
@@ -3639,6 +3646,13 @@
     @media(prefers-reduced-motion:reduce){.fc-fold-b{transition:none;}}
     .fc-fold .fc-imp{margin:0;padding:11px 13px;}
     /* ── Two lineups, side by side ───────────────────────────────────────── */
+    /* Its own block rather than a drawer: the lineups are the thing the card is
+       about once a week is running, and a heading you have to open first is a
+       heading that says "probably not worth it". */
+    .fc-lu{margin-top:12px;border-radius:11px;overflow:hidden;
+      background:rgba(0,0,0,0.3);}
+    .fc-lu-h{padding:11px 13px 0;font-family:'Inter',sans-serif;font-size:11px;
+      font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
     .fcr{padding:10px 11px 12px;}
     .fcr-row{display:grid;grid-template-columns:minmax(0,1fr) 50px minmax(0,1fr);
       align-items:center;gap:6px;padding:4px 0;}
@@ -3651,11 +3665,16 @@
     .fcr-side{display:flex;align-items:center;gap:6px;min-width:0;padding:3px 6px;
       border-radius:6px;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text2);}
     .fcr-row>.fcr-side:last-child{flex-direction:row-reverse;}
-    .fcr-side.good{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--text);}
-    .fcr-side.bad{background:color-mix(in srgb,var(--red) 13%,transparent);}
+    /* WHO WINS THE SPOT IS THE NUMBER'S JOB, not the whole row's. A filled
+       block behind every winning player made the list read as a wall of colour
+       with the actual figures buried in it. The two numbers are what is being
+       compared, so they are what carries it. */
+    .fcr-side.good,.fcr-side.bad{background:none;}
+    .fcr-side.good{color:var(--text);}
     .fcr-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
     .fcr-p{flex:0 0 auto;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3);}
     .fcr-side.good .fcr-p{color:var(--green);}
+    .fcr-side.bad .fcr-p{color:var(--red);}
     /* ── WHAT KIND OF NUMBER THIS IS ──────────────────────────────────────────
        The row's BACKGROUND says who wins the spot; the number's own colour says
        what the number is. Those are two different questions and they were
@@ -3673,13 +3692,16 @@
     .fcr-row .fcr-side .fcr-p.st-live{color:var(--accent);
       background:rgba(var(--accent-rgb),0.14);
       border-radius:4px;padding:0 4px;}
-    /* FILLED means moving, OUTLINED means finished. A settled number should not
-       shout louder than a live one, and two light fills a shade apart is not a
-       difference anybody reads at a glance -- so the two states differ in SHAPE
-       as well as colour, which also survives being colour-blind. */
-    .fcr-row .fcr-side .fcr-p.st-final{color:var(--text2);
-      background:rgba(255,255,255,0.04);
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);
+    /* LOCKED IN wears the video rail's gold, softened. #E0B67B at full strength
+       is the "newest video" pill and the Matchup of the Week outline -- both
+       things asking to be clicked -- so a whole column of finished players in it
+       would out-shout everything around them. A tint of it says the same thing
+       quietly, and leaves the number's own green or red intact underneath:
+       the CHIP says whether this figure can still move, the NUMBER says who is
+       winning the spot. Two questions, two channels. */
+    .fcr-row .fcr-side .fcr-p.st-final{
+      background:rgba(224,182,123,0.15);
+      box-shadow:inset 0 0 0 1px rgba(224,182,123,0.34);
       border-radius:4px;padding:0 4px;}
     /* the key, only drawn once a ball is in the air */
     .fcr-key{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;
@@ -3689,9 +3711,9 @@
     .fcr-key span::before{content:'';width:8px;height:8px;border-radius:2px;flex:0 0 auto;}
     .fcr-key .fk-live{color:var(--accent);}
     .fcr-key .fk-live::before{background:rgba(var(--accent-rgb),0.55);}
-    .fcr-key .fk-final{color:var(--text2);}
-    .fcr-key .fk-final::before{background:rgba(255,255,255,0.04);
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.35);}
+    .fcr-key .fk-final{color:#E0B67B;}
+    .fcr-key .fk-final::before{background:rgba(224,182,123,0.15);
+      box-shadow:inset 0 0 0 1px rgba(224,182,123,0.55);}
     .fcr-key .fk-pre{color:var(--text3);}
     .fcr-key .fk-pre::before{background:rgba(255,255,255,0.10);}
     .fcr-pos{text-align:center;font-family:'Inter',sans-serif;font-size:9px;font-weight:800;

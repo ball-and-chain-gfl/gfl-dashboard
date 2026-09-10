@@ -5873,6 +5873,15 @@ function renderForecast(info){
      you every time the page opens — and left open they push the matchup
      itself off a phone screen. */
   const imp=fcImplications(info,meO,p);
+  /* ── A LIVE POLL REPAINTS THIS WHOLE CARD ────────────────────────────────
+     Every few minutes, on the tab the app opens on. The trash talk box lives
+     inside it, so a manager halfway through a message lost it -- and on a
+     phone losing focus mid-sentence also drops the keyboard, which reads as
+     the app fighting you. Take what is in the box, put it back, and put the
+     caret and the focus back with it. */
+  const _ttEl=document.getElementById('tt-text');
+  const _ttKeep=_ttEl?{v:_ttEl.value,s:_ttEl.selectionStart,e:_ttEl.selectionEnd,
+    f:document.activeElement===_ttEl}:null;
   el.innerHTML=`
     <div class="fc-head">
       ${logoImg(meT.id,'big4-logo')}
@@ -5881,17 +5890,28 @@ function renderForecast(info){
     </div>
     ${bar}
     ${posRows}
-    ${fcFold('fc-lu','Starting lineups',
-      fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT),
-        fcLivePlayers(info)))}
+    <div class="fc-lu">
+      <div class="fc-lu-h">Starting lineups</div>
+      ${fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT),
+        fcLivePlayers(info))}
+    </div>
     ${imp?fcFold('fc-imp','Playoff odds',imp):''}
-    ${fcLastMeetingHTML(meO,oppO,meT,oppT)}
     ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;
+  if(_ttKeep){
+    const n2=document.getElementById('tt-text');
+    if(n2){ n2.value=_ttKeep.v;
+      if(_ttKeep.f){ try{ n2.focus({preventScroll:true}); n2.setSelectionRange(_ttKeep.s,_ttKeep.e); }catch(e){} } }
+  }
 }
 /* The last time these two played. Sits under the projections because it is the
    one number on the page that already happened — everything above it is a
    guess, and this is the record. Nothing is shown if they have never met. */
-function fcLastMeetingHTML(meO,oppO,meT,oppT){
+/* Lives under the scouting drawer on the Schedule tab -- open an opponent you
+   have not played yet and it sits below their top players, which is where a
+   record belongs: everything above it is a projection and this is the one thing
+   that actually happened. A game already PLAYED gets its own drawer with the
+   real score in it, so this would only be saying the same thing twice. */
+function fcLastMeetingHTML(meO,oppO){
   if(!meO||!oppO) return '';
   let g=null;
   try{ g=(h2hGames(meO,oppO)||[])[0]; }catch(e){}
@@ -9515,7 +9535,7 @@ async function toggleSchedOpp(el){
           <span class="sd-name">${p.n}</span>
           <span class="sd-ppg">${p.proj.toFixed(1)}</span>
           <span class="sd-st">${p.pos} proj</span>
-        </div>`).join('')}</div>`;
+        </div>`).join('')}</div>${schedLastMeeting(owner)}`;
       /* the roster feed may not have landed on the first open */
       setTimeout(()=>{ if(!box.classList.contains('open')) return;
         const again=schedTopProjected(owner,season,3);
@@ -9532,7 +9552,7 @@ async function toggleSchedOpp(el){
              <span class="sd-name">${p.n}</span>
              <span class="sd-ppg">${p.proj.toFixed(1)}</span>
              <span class="sd-st">${p.pos} proj</span>
-           </div>`).join('')}</div>`
+           </div>`).join('')}</div>${schedLastMeeting(owner)}`
         : `<div class="sd-msg">No ${season} player data yet.</div>`; },1600);
     return;
   }
@@ -9542,7 +9562,15 @@ async function toggleSchedOpp(el){
       <span class="sd-name">${p.n}</span>
       <span class="sd-ppg">${p.ppg.toFixed(1)}</span>
       <span class="sd-st">${p.starts} start${p.starts===1?'':'s'}</span>
-    </div>`).join('')}</div>`;
+    </div>`).join('')}</div>${schedLastMeeting(owner)}`;
+}
+/* The last meeting between the team the SCHEDULE is showing and this opponent
+   -- not between you and them. The tab has a team picker and answering for a
+   roster nobody is looking at would be a different question. */
+function schedLastMeeting(oppOwner){
+  const meO=_ownerMap[Number(_schedTeam)];
+  if(!meO||!oppOwner||meO===oppOwner) return '';
+  try{ return fcLastMeetingHTML(meO,oppOwner)||''; }catch(e){ return ''; }
 }
 /* ── PLAYOFF OUTLOOK ────────────────────────────────────────────────────────
    Two numbers, from two different places, because they are two different
