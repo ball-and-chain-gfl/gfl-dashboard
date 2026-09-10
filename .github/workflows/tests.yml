@@ -76,6 +76,10 @@ jobs:
       # and anything that is must outrank it.
       - name: the homepage stack order
         run: node scripts/test-homeorder.mjs
+      # The lineup list under Your Forecast re-reads each starter live; before
+      # kickoff and after the whistle it must not.
+      - name: live player projections in the lineup list
+        run: node scripts/test-fclive.mjs
       # A change to how a share is priced must not hand anybody a profit.
       - name: a share split moves nobody's money
         run: node scripts/test-split.mjs

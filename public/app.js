@@ -5702,30 +5702,91 @@ const weekTopStarter=(season,week,teamId)=>{
    it green would say something the data does not. Only a gap worth noticing
    gets a colour, and the rest stays neutral. */
 const FC_EDGE=2.5;                 // points of projection before a spot is won
-function fcRosterCompareHTML(season,week,aId,bId,abA,abB){
+/* ── WHAT EACH STARTER IS WORTH RIGHT NOW ────────────────────────────────────
+   The lineup list under the forecast read ESPN's published weekly projection,
+   which is one number per player for the whole week and never moves -- the same
+   number the curve above it stopped trusting on Tuesday. So the graph could be
+   telling you a receiver had run away with the night while the list underneath
+   still had him down for his pre-game figure.
+
+   THREE STATES, ONE PER PLAYER, because a fantasy week is played across four
+   days and the man in the next row can be in any of them:
+
+     PRE    his game has not kicked off. ESPN's projection, untouched -- there
+            is nothing better to say and nothing to update.
+     LIVE   his game is on. What he has banked plus livePlayerLeft's read on
+            the rest of it, which is the same arithmetic that draws the curve.
+     FINAL  his game is over. What he actually scored, and it cannot move again.
+
+   Returns null when there is nothing live to say -- no matchup, no digest, a
+   week nobody has kicked off -- and the list falls back to exactly what it drew
+   before. That is deliberate: before kickoff the published projections ARE the
+   answer, so this only earns its keep once a ball is in the air. */
+function fcLivePlayers(info){
+  const mine=Number(_me&&_me.teamId)||0;
+  if(!mine||!info||!info.games) return null;
+  const g=info.games.find(m=>m&&m.home&&m.away&&(m.home.teamId===mine||m.away.teamId===mine));
+  if(!g) return null;
+  const prog=liveProProgress(_nflGames);
+  if(!prog||!Object.keys(prog).length) return null;
+  const rules=(info.meta&&info.meta.scoring)||null;
+  const out={};
+  [g.home,g.away].forEach(side=>{
+    const es=((side&&side.rosterForCurrentScoringPeriod)||{}).entries||[];
+    es.forEach(e=>{
+      if(!e||BENCH_SLOTS.includes(e.lineupSlotId)) return;
+      const pp=e.playerPoolEntry||{}, pl=pp.player||{};
+      const pid=e.playerId!=null?String(e.playerId):(pl.id!=null?String(pl.id):null);
+      if(!pid) return;
+      const st=(pl.stats||[]).find(x=>x&&x.statSourceId===1);
+      const proj=(st&&st.appliedTotal)||0;
+      const pts=Number(pp.appliedStatTotal)||0;
+      const ab=NFL_TEAMS[Number(pl.proTeamId)||0];
+      const f=(ab&&prog[ab]!=null)?prog[ab]:null;
+      /* no game on the board for his team is a bye or a digest that has not
+         landed; either way there is nothing to add to the projection */
+      if(f==null||f<=0){ out[pid]={now:proj,state:'pre',pts,proj}; return; }
+      if(f>=1){ out[pid]={now:pts,state:'final',pts,proj}; return; }
+      let left=0;
+      try{ left=livePlayerLeft(e,f,rules)||0; }catch(err){ left=proj*(1-f); }
+      out[pid]={now:Math.round((pts+left)*10)/10,state:'live',pts,proj};
+    });
+  });
+  return Object.keys(out).length?out:null;
+}
+function fcRosterCompareHTML(season,week,aId,bId,abA,abB,live){
   const A=fcLineupFor(season,week,aId), B=fcLineupFor(season,week,bId);
   if(!A||!B) return `<div class="lr-none">No lineups to compare yet.</div>`;
   const dummy=A.some(x=>x.dummy)||B.some(x=>x.dummy);
   const n=Math.min(A.length,B.length);
-  let edgeA=0,edgeB=0;
+  /* The live read where there is one, the published projection where there is
+     not. Both sides go through the same lookup, so a week nobody has started
+     draws exactly as it always did. */
+  const lv=live||{};
+  const valOf=e=>{ const L=lv[String(e.pid)]; return L?Number(L.now)||0:(Number(e.proj)||0); };
+  const stOf=e=>{ const L=lv[String(e.pid)]; return L?L.state:'pre'; };
+  let edgeA=0,edgeB=0,anyLive=false,anyFinal=false;
   const rows=[];
   for(let i=0;i<n;i++){
     const a=A[i], b=B[i];
-    const pa=Number(a.proj)||0, pb=Number(b.proj)||0;
+    const pa=valOf(a), pb=valOf(b);
+    const sa=stOf(a), sb=stOf(b);
+    if(sa==='live'||sb==='live') anyLive=true;
+    if(sa==='final'||sb==='final') anyFinal=true;
     const d=pa-pb;
     const win=Math.abs(d)<FC_EDGE?'':(d>0?'a':'b');
     if(win==='a') edgeA++; if(win==='b') edgeB++;
     rows.push(`<div class="fcr-row">
       <span class="fcr-side ${win==='a'?'good':win==='b'?'bad':''}">
-        <span class="fcr-n">${lastNameOf(a.n)}</span><span class="fcr-p">${pa.toFixed(1)}</span>
+        <span class="fcr-n">${lastNameOf(a.n)}</span><span class="fcr-p st-${sa}">${pa.toFixed(1)}</span>
       </span>
       <span class="fcr-pos" style="color:${posPill(a.ppos)[0]};background:${posPill(a.ppos)[1]}">${a.pos}</span>
       <span class="fcr-side ${win==='b'?'good':win==='a'?'bad':''}">
-        <span class="fcr-p">${pb.toFixed(1)}</span><span class="fcr-n">${lastNameOf(b.n)}</span>
+        <span class="fcr-p st-${sb}">${pb.toFixed(1)}</span><span class="fcr-n">${lastNameOf(b.n)}</span>
       </span>
     </div>`);
   }
-  const tot=(l)=>l.slice(0,n).reduce((x,y)=>x+(Number(y.proj)||0),0);
+  const tot=(l)=>l.slice(0,n).reduce((x,y)=>x+valOf(y),0);
   return `<div class="fcr">
     <div class="fcr-row fcr-head">
       <span class="fcr-side"><span class="fcr-n">${abA}</span></span>
@@ -5738,6 +5799,11 @@ function fcRosterCompareHTML(season,week,aId,bId,abA,abB){
       <span class="fcr-pos">Total</span>
       <span class="fcr-side ${tot(B)>tot(A)?'good':''}"><span class="fcr-n">${tot(B).toFixed(1)}</span></span>
     </div>
+    ${(anyLive||anyFinal)?`<div class="fcr-key">
+      ${anyLive?'<span class="fk-live">moving</span>':''}
+      ${anyFinal?'<span class="fk-final">locked in</span>':''}
+      <span class="fk-pre">still to play</span>
+    </div>`:''}
     <div class="fcr-note">${edgeA===edgeB
       ? `Spots split ${edgeA}–${edgeB}. Nothing between them.`
       : `${edgeA>edgeB?abA:abB} wins ${Math.max(edgeA,edgeB)} spots to ${Math.min(edgeA,edgeB)}.`}
@@ -5816,7 +5882,8 @@ function renderForecast(info){
     ${bar}
     ${posRows}
     ${fcFold('fc-lu','Starting lineups',
-      fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT)))}
+      fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT),
+        fcLivePlayers(info)))}
     ${imp?fcFold('fc-imp','Playoff odds',imp):''}
     ${fcLastMeetingHTML(meO,oppO,meT,oppT)}
     ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;

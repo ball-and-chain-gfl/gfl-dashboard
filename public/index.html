@@ -3656,6 +3656,44 @@
     .fcr-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
     .fcr-p{flex:0 0 auto;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3);}
     .fcr-side.good .fcr-p{color:var(--green);}
+    /* ── WHAT KIND OF NUMBER THIS IS ──────────────────────────────────────────
+       The row's BACKGROUND says who wins the spot; the number's own colour says
+       what the number is. Those are two different questions and they were
+       sharing one signal.
+
+         still to play  the muted default -- a projection, and nothing has
+                        happened yet to argue with it
+         moving         his game is on and this figure is being re-read every
+                        few minutes, so it wears the page's live accent
+         locked in      his game is over. It is not a projection any more, it
+                        is a score, and it sits in a chip to say so.
+
+       Specificity has to clear `.fcr-side.good .fcr-p`, which is (0,3,0) --
+       hence the extra qualifier rather than a bare class. */
+    .fcr-row .fcr-side .fcr-p.st-live{color:var(--accent);
+      background:rgba(var(--accent-rgb),0.14);
+      border-radius:4px;padding:0 4px;}
+    /* FILLED means moving, OUTLINED means finished. A settled number should not
+       shout louder than a live one, and two light fills a shade apart is not a
+       difference anybody reads at a glance -- so the two states differ in SHAPE
+       as well as colour, which also survives being colour-blind. */
+    .fcr-row .fcr-side .fcr-p.st-final{color:var(--text2);
+      background:rgba(255,255,255,0.04);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);
+      border-radius:4px;padding:0 4px;}
+    /* the key, only drawn once a ball is in the air */
+    .fcr-key{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;
+      margin-top:9px;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
+      letter-spacing:.5px;text-transform:uppercase;}
+    .fcr-key span{display:inline-flex;align-items:center;gap:5px;}
+    .fcr-key span::before{content:'';width:8px;height:8px;border-radius:2px;flex:0 0 auto;}
+    .fcr-key .fk-live{color:var(--accent);}
+    .fcr-key .fk-live::before{background:rgba(var(--accent-rgb),0.55);}
+    .fcr-key .fk-final{color:var(--text2);}
+    .fcr-key .fk-final::before{background:rgba(255,255,255,0.04);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.35);}
+    .fcr-key .fk-pre{color:var(--text3);}
+    .fcr-key .fk-pre::before{background:rgba(255,255,255,0.10);}
     .fcr-pos{text-align:center;font-family:'Inter',sans-serif;font-size:9px;font-weight:800;
       letter-spacing:.3px;text-transform:uppercase;border-radius:4px;padding:2px 0;}
     .fcr-head .fcr-pos,.fcr-tot .fcr-pos{background:none!important;color:var(--text3)!important;}
