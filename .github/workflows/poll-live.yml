@@ -35,6 +35,28 @@ name: Poll the live scoreboard
 # is a clock GitHub cannot be late for. The rest queue behind the concurrency
 # group and leave in minutes when they find the football already over.
 #
+# ── THE WINDOWS WERE AUDITED AGAINST THE ACTUAL 2026 SCHEDULE ────────────────
+# Every kickoff of the season was checked against these crons on 2026-09-10 and
+# twelve real games fell in hours no window covered at all:
+#
+#   six Sunday internationals at 13:30 and 14:30 UTC (weeks 4,5,6,7,9,10) --
+#     the Sunday window opened at 15:00, so a London game was already at half
+#     time before the watch that was meant to start two hours early even began
+#   Thanksgiving, both afternoon games (Thu 18:00 and 21:30)
+#   Black Friday (Fri 20:00) and both Christmas games (Fri 18:00, 21:30) --
+#     Friday had no daytime window at all
+#   a Saturday 01:15 UTC in week 16
+#
+# Those hours are now covered. The 05:00 UTC kickoffs that also show up in the
+# feed for weeks 16-18 are NOT gaps: sixteen week-18 games all sharing one
+# timestamp to the minute is ESPN's placeholder for a slate that has not been
+# scheduled yet, and real times land there as the flex picks are made. Re-run
+# the audit late in the season rather than trusting this paragraph.
+#
+# An empty window is cheap: the script asks ESPN one question, finds nothing
+# live, and stands the watch down after two and a half hours. The repo is
+# public, so the runner minutes are free.
+#
 # ── WHY THE WINDOWS OPEN EARLY ───────────────────────────────────────────────
 # Two hours before the first kickoff of each slot, for the same reason: a watch
 # that starts two hours early and is delivered two hours late is still on time.
@@ -47,10 +69,14 @@ on:
     # NEXT day, which is why every night slot appears twice.
     - cron: '*/5 22-23 * * 3'    # Wed evening  — openers
     - cron: '*/5 0-4 * * 4'      #   and into Thu UTC
+    - cron: '*/5 16-21 * * 4'    # Thu afternoon — Thanksgiving (18:00, 21:30)
     - cron: '*/5 22-23 * * 4'    # Thu evening
     - cron: '*/5 0-4 * * 5'      #   and into Fri UTC
+    - cron: '*/5 16-23 * * 5'    # Fri afternoon — Black Friday and Christmas
+    - cron: '*/5 0-4 * * 6'      #   and into Sat UTC
     - cron: '*/5 15-23 * * 6'    # Sat — late season afternoon and night
     - cron: '*/5 0-4 * * 0'      #   and into Sun UTC
+    - cron: '*/5 11-14 * * 0'    # Sun morning — the international games
     - cron: '*/5 15-23 * * 0'    # Sun — the main slate, from two hours out
     - cron: '*/5 0-4 * * 1'      #   through Sunday night into Mon UTC
     - cron: '*/5 22-23 * * 1'    # Mon evening
