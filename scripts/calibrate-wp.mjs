@@ -1,3 +1,21 @@
+/* ############################################################################
+ * INCOMPLETE. DO NOT TRUST THIS OUTPUT YET.
+ *
+ * It reads per-week lineups from the ESPN API, and ESPN does not serve them
+ * for a finished season: view=mRoster with a scoringPeriodId returns the
+ * END-OF-SEASON roster, and the archived matchup view returns no roster at
+ * all. Run as it stands it produced an implied sigma of 58 against a measured
+ * margin sd of 34.9, which is the signature of summing the wrong players.
+ *
+ * THE RIGHT SOURCE IS ALREADY IN THE REPO: public/data/lineups-YYYY.json,
+ * shaped weeks[week][teamId] = [[playerId, points], ...] for the nine
+ * starters. Validated -- week 3 2025, team 1 sums to 122.4, which is exactly
+ * the matchup total ESPN recorded. Four seasons, no network needed.
+ *
+ * Everything below the harvest -- the replay, the spread table, the
+ * calibration buckets -- is sound and worth keeping. Only the source is wrong.
+ * ############################################################################
+ */
 /* IS THE WIN PROBABILITY CURVE CALIBRATED?
  *
  * The model says a lead of L with a fraction of the week still to play is
