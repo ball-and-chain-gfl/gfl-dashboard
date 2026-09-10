@@ -47,6 +47,7 @@ ${grab('function sbSlotShape(meta){')}
 ${grab('function sbBestLineup(entries,projOf,posOf,shape){')}
 ${grab('function nflTeamState(proTeamId,week,season){')}
 ${grab('const nflWeekLive=')}
+${grab('const nflWeekBegun=')}
 ${grab('function sbTeamWeek(tid,week,season,meta,banked,started){')}
 ${grab('function sbErf(x){')}
 ${grab('const sbNormCdf=')}
@@ -266,11 +267,15 @@ console.log('\n10. what the board closes, and when');
   api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
   eq('a kickoff closes it before any score', api.sbWeekLocked(9, 'wk9-1-2-ml'), true);
 
-  /* UNDER WAY — the fixture markets reprice, the derived ones do not */
+  /* UNDER WAY — AND IT STAYS SHUT, INCLUDING BETWEEN SLATES. This used to carve
+     out the three markets written on a single fixture and let them reprice in
+     the gaps, which is the worst moment to be open rather than the safest: on a
+     Monday afternoon the whole of Sunday is known and only one game is left to
+     happen. Nothing about that is a market. */
   api.set({ nfl: { anyLive:false, games:[{ht:'DAL',at:'NYG',s:'post'}] } });
-  eq('a fixture moneyline reopens between slates', api.sbWeekLocked(5, 'wk5-1-2-ml'), false);
-  eq('so does the spread',                         api.sbWeekLocked(5, 'wk5-1-2-sp'), false);
-  eq('and the total',                              api.sbWeekLocked(5, 'wk5-1-2-tot'), false);
+  eq('a fixture moneyline does NOT reopen between slates', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
+  eq('nor does the spread',                                api.sbWeekLocked(5, 'wk5-1-2-sp'), true);
+  eq('nor the total',                                      api.sbWeekLocked(5, 'wk5-1-2-tot'), true);
   eq('top score stays shut',                       api.sbWeekLocked(5, 'wk5-high'), true);
   eq('the donut stays shut',                       api.sbWeekLocked(5, 'wk5-donut'), true);
   eq('top player stays shut',                      api.sbWeekLocked(5, 'wk5-player'), true);
@@ -293,6 +298,21 @@ console.log('\n10. what the board closes, and when');
 
   api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
   eq('everything shuts while a game is live', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
+
+  /* THE WEEK AHEAD IS STILL OPEN, which is the whole reason this takes a week
+     rather than asking "has any football started at all". */
+  api.set({ meta: meta(5), nfl: { anyLive:false, games:[{ht:'GB',at:'CHI',s:'pre'}] } });
+  eq('a week nobody has kicked off yet is open', api.sbWeekLocked(9, 'wk9-1-2-ml'), false);
+  eq('and its derived markets too',              api.sbWeekLocked(9, 'wk9-high'), false);
+
+  /* A FINISHED GAME LATCHES IT. ESPN's matchup totals do not move during a
+     game, so "has this week scored" can read false with a game already over --
+     which is exactly what happened on the week 1 opener. The scoreboard knows. */
+  api.set({ meta: { 2026: { schedule: [
+    { matchupPeriodId: 9, home: { teamId:3, totalPoints: 0 }, away: { teamId:4, totalPoints: 0 } }] } },
+    nfl: { anyLive:false, games:[{ht:'GB',at:'CHI',s:'post'}] } });
+  eq('a week with a finished game is shut even with nothing scored',
+     api.sbWeekLocked(9, 'wk9-1-2-ml'), true);
 }
 
 console.log('');
@@ -315,15 +335,16 @@ console.log('THE SHARE MARKET SHUTS WHILE THE WEEK IS PLAYED');
   api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
   eq('the first kickoff shuts it', api.invLocked(), true);
 
-  /* a week with points on the board stays shut, INCLUDING in the gap between
-     the Sunday afternoon and evening slates -- unlike a fixture moneyline,
-     which reprices in that gap because it has one game behind it */
+  /* a week under way stays shut in the gap between the Sunday afternoon and
+     evening slates, and so does everything else on the board -- the fixture
+     moneyline used to reprice in that gap and no longer does */
   api.set({ invWeek: 5, nfl: { anyLive:false, games:[{ht:'DAL',at:'NYG',s:'post'}] } });
   eq('a week under way stays shut between slates', api.invLocked(), true);
-  eq('even though a fixture line has reopened', api.sbWeekLocked(5, 'wk5-1-2-ml'), false);
+  eq('and the board agrees, gaps included', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
 
-  /* and it opens again once the week is behind us: week 9 is untouched */
-  api.set({ invWeek: 9 });
+  /* and it opens again once the week is behind us and the board has rolled on
+     -- week 9, whose football has not started */
+  api.set({ invWeek: 9, nfl: { anyLive:false, games:[{ht:'GB',at:'CHI',s:'pre'}] } });
   eq('the next week is open again', api.invLocked(), false);
 
   /* No scoreboard digest is not an all-clear. Both sides fail SHUT: the whole

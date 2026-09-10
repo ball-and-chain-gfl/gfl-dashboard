@@ -74,6 +74,7 @@ const betLegResult=()=>null;
 const betWeekStarted=()=>_STARTED;
 const betSeasonStarted=()=>_STARTED;
 const nflWeekLive=()=>_KICKED;
+const nflWeekBegun=()=>_KICKED;
 const liveWeekInfo=()=>({week:2});
 let _liveInfo=null;
 const betLegProb=()=>0.5;

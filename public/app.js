@@ -10627,6 +10627,25 @@ const nflWeekLive=(week,season)=>{
   const d=nflWeekGames(week,season);
   return d?!!d.anyLive:null;
 };
+/* ── HAS THIS WEEK'S FOOTBALL BEGUN ──────────────────────────────────────────
+   Not "is a ball in the air this second" — has one been. A game reads 'in'
+   while it is on and 'post' once it is done, and neither ever goes back to
+   'pre', so this latches for the week the moment the first kickoff happens and
+   stays latched through Tuesday.
+
+   It exists because "is a game live" was doing that job and cannot: it goes
+   false between slates, and everything asking it quietly reopened in the gaps
+   -- Monday afternoon, or all day Friday and Saturday.
+
+   It is also proof against the thing that broke the scoreboard on the week 1
+   opener: ESPN's matchup totals do not update during a game, so "has this week
+   scored" can be false with a game already finished. This asks the scoreboard,
+   which is the thing that knows. */
+const nflWeekBegun=(week,season)=>{
+  const d=nflWeekGames(week,season);
+  if(!d||!Array.isArray(d.games)||!d.games.length) return null;
+  return d.games.some(g=>g&&(g.s==='in'||g.s==='post'));
+};
 /* ONE TEAM'S WEEK: what it is worth, what is banked, what is left.
 
    Before a week starts the lineup can still be changed, so it is priced on the
@@ -16634,14 +16653,20 @@ const betSeasonStarted=season=>betAnyPlayed(_seasonMeta[String(season)],null);
    A scoreboard can see a kickoff; a fantasy total cannot. This is the same
    test sbWeekLocked makes for the board and it is the same reason.
 
+   AND IT LATCHES. This asked whether a game was live THIS SECOND, so between
+   slates -- Monday afternoon, or the whole of Friday -- a ticket became
+   withdrawable again with most of the week's results already in. It asks
+   whether the week's football has BEGUN now, which never goes back to false
+   once it is true.
+
    UNKNOWN COUNTS AS IN PLAY, which is the opposite of what sbWeekLocked does
    with an unloaded digest, and deliberately. Failing open there means somebody
    places a bet at a stale price, which is the house's problem. Failing open
    HERE means handing back a stake on a ticket that should be locked, which is
-   free money. nflWeekLive answers null only while its fetch is in flight and
-   it repaints the book on arrival, so the strict reading costs a second and
-   the loose one costs a bet. */
-const betWeekInPlay=(season,wk)=>betWeekStarted(season,wk)||nflWeekLive(wk,season)!==false;
+   free money. The digest answers null only while its fetch is in flight and it
+   repaints the book on arrival, so the strict reading costs a second and the
+   loose one costs a bet. */
+const betWeekInPlay=(season,wk)=>betWeekStarted(season,wk)||nflWeekBegun(wk,season)!==false;
 /* IS ANY OF THIS TICKET'S FOOTBALL BEING PLAYED. The question the buy-back
    asks before it will price one, on its own, so the invitation side can ask it
    too — the two are the same hole seen from either end. Cashing out mid-game
@@ -16925,30 +16950,36 @@ function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
    without ever pricing a game that is already running: the week being played is
    closed, the week ahead is open, and its numbers move as each day's results
    land and the power ratings behind them are rebuilt. */
+/* ── A WEEK SHUTS AT ITS FIRST KICKOFF AND OPENS AGAIN ON THE TUESDAY ────────
+   It used to shut only while a ball was actually in the air, and it carved out
+   the three markets written on a single fixture -- moneyline, spread, total --
+   so those REOPENED between slates. Which meant a manager could price a
+   Sunday-night fixture on Sunday evening with the whole afternoon's results in
+   front of him, or a Monday-night one all day Monday, and nothing about that is
+   a market. The gaps are the worst moment to be open, not the safest: between
+   slates is exactly when the most is known and the least is left to happen.
+
+   So there is no carve-out and no reopening. A week is shut from the moment its
+   football starts until the week is over and the board has rolled on to the
+   next one, which is the Tuesday.
+
+   THE WEEK AHEAD IS STILL OPEN, which is the whole reason this takes a week
+   rather than asking "has any football started". Week two prices all through
+   week one. Season futures never come through here at all -- they settle months
+   out and a single Sunday does not decide one.
+
+   Unknown reads as OPEN here, deliberately, and the other way round from the
+   buy-back. A missing digest that leaves the board open for a second costs a
+   bet struck at a stale price, which is the house's problem; one that leaves it
+   shut costs every manager the board. betCashOut makes the opposite call for
+   the opposite reason -- see betWeekInPlay. */
 function sbWeekLocked(wk,mk){
   if(wk==null) return weekHasStarted();          // no week named: the old blunt test
   const season=sbBoardSeason();
-  const started=betWeekStarted(season,wk);
-  const liveNow=nflWeekLive(wk,season);          // true | false | null when unknown
-  if(!started){
-    /* Not a point on the board yet. Open — unless a game of that week has
-       actually kicked off, which is the moment before the first score lands and
-       is exactly what a scoreboard can see and a fantasy total cannot. */
-    return liveNow===true;
-  }
-  /* UNDER WAY. Only the three markets written on a single fixture can be priced
-     from here, because only they have banked-plus-still-to-come behind them.
-     Everything else weekly — top score, low score, closest game, the blowout,
-     top player, the donut, By Team's top scorer — is partly decided the moment
-     there are scores on the board, and there is no honest number for a question
-     you can half-read off the scoreboard. Those stay shut until the week is done.
-
-     Season futures never come through here at all: they settle months out and a
-     single Sunday does not decide one. */
-  if(!/-(ml|sp|tot)$/.test(String(mk||''))) return true;
-  /* Live, or no digest to be sure with. Shut either way — the whole point is
-     that nothing is priced while the football is running. */
-  return liveNow!==false;
+  /* points on the board is proof enough on its own, and it is the only proof
+     available for an archived week the scoreboard no longer carries */
+  if(betWeekStarted(season,wk)) return true;
+  return nflWeekBegun(wk,season)===true;
 }
 function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
   if(odds==null) return `<span class="sb-odds sb-odds-off">—</span>`;
