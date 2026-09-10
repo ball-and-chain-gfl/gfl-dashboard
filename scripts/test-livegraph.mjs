@@ -539,6 +539,24 @@ console.log(nl + '7c4. EACH SIDE GETS ITS OWN REMAINING WEEK');
      pct(60, 40, 0.1, 0, 0.02*P, 0.02*P) > 95, String(pct(60, 40, 0.1, 0, 0.02*P, 0.02*P)));
   ok('even though the league has barely started', pct(60, 40, 0.1, 0) < 80);
 
+  /* THE PRE-GAME LINE IS NOT ADDED ON TOP OF THE PROJECTIONS. mu0 comes from
+     ESPN'''s pre-game win probability, which is built out of the same lineup
+     projections remA and remB are made of -- adding both counts the fixture
+     twice. With lineups in hand the projections speak for themselves. */
+  {
+    const P2=117;
+    const kick=M.wpAt(0,0,105,105,0,8,117.6,117.4);   // mu0 says +8, lineups say +0.2
+    const noMu=M.wpAt(0,0,105,105,0,null,117.6,117.4);
+    ok('a recorded lineup ignores the pre-game lean', Math.abs(kick-noMu)<1e-12,
+       kick+' vs '+noMu);
+    ok('and opens on what the lineups actually project',
+       Math.abs(kick-M.schedNormCdf(0.2/M.wpSd()))<1e-9, String(kick));
+    /* the fallback still leans, because there it is the only fixture read */
+    const fb=M.wpAt(0,0,105,105,0,8);
+    ok('with no lineups the pre-game line still carries the fixture',
+       Math.abs(fb-M.schedNormCdf(8/M.wpSd()))<1e-9, String(fb));
+  }
+
   /* a value at or under 1.5 is read as the FRACTION it was for twenty minutes
      of week one, so the readings written then still mean what they meant */
   ok('a legacy fraction is read as a fraction',

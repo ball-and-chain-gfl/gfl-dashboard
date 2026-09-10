@@ -6923,7 +6923,25 @@ function wpAt(a,b,projA,projB,f,mu0,lA,lB){
   /* mu0 is the board's projected margin for the whole week. What it adds over
      the raw difference of two season averages is its read on the fixture, and
      that read decays with the football still to come. */
-  const lean=(mu0!=null)?(mu0-(pa-pb))*L:0;   // decays with the football left
+  /* ── NO LEAN ONCE THE LINEUPS ARE IN HAND ─────────────────────────────────
+     mu0 comes from ESPN's pre-game win probability, and that number is itself
+     built out of the two lineups' projections -- the same projections remA and
+     remB are made of. Adding both counts the fixture twice.
+
+     It used to cancel: the remaining term was left*(pa-pb), so subtracting
+     (pa-pb) here removed exactly what it added and mu opened on mu0. That
+     stopped being true the moment remaining started coming from the real
+     lineups instead of from season scoring, because (pa-pb) is a difference of
+     season averages and (remA-remB) is a difference of ESPN projections -- two
+     different quantities, so the subtraction cancelled the wrong one. At the
+     week 1 opener it opened the fixture on 1.07 points where the board said
+     0.87: small, and wrong in a way that would grow with any real difference
+     between two teams.
+
+     So the lean is only for the fallback path, where there are no lineups and
+     mu0 is the only thing that knows anything about the fixture. There it
+     still collapses to exactly (a-b) + left*mu0. */
+  const lean=(mu0!=null&&rA==null&&rB==null)?(mu0-(pa-pb))*L:0;
   const mu=(a-b)+(remA-remB)+lean;
   const sd=Math.max(0.6,wpSd()*Math.sqrt(L));
   return Math.min(0.999,Math.max(0.001,schedNormCdf(mu/sd)));
