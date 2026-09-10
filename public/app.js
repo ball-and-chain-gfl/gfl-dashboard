@@ -5805,12 +5805,12 @@ function fcRosterCompareHTML(season,week,aId,bId,abA,abB,live){
     const win=Math.abs(d)<FC_EDGE?'':(d>0?'a':'b');
     if(win==='a') edgeA++; if(win==='b') edgeB++;
     rows.push(`<div class="fcr-row">
-      <span class="fcr-side ${win==='a'?'good':win==='b'?'bad':''}">
-        <span class="fcr-n">${lastNameOf(a.n)}</span><span class="fcr-p st-${sa}">${pa.toFixed(1)}</span>
+      <span class="fcr-side st-${sa} ${win==='a'?'good':win==='b'?'bad':''}">
+        <span class="fcr-n">${lastNameOf(a.n)}</span><span class="fcr-p">${pa.toFixed(1)}</span>
       </span>
       <span class="fcr-pos" style="color:${posPill(a.ppos)[0]};background:${posPill(a.ppos)[1]}">${a.pos}</span>
-      <span class="fcr-side ${win==='b'?'good':win==='a'?'bad':''}">
-        <span class="fcr-p st-${sb}">${pb.toFixed(1)}</span><span class="fcr-n">${lastNameOf(b.n)}</span>
+      <span class="fcr-side st-${sb} ${win==='b'?'good':win==='a'?'bad':''}">
+        <span class="fcr-p">${pb.toFixed(1)}</span><span class="fcr-n">${lastNameOf(b.n)}</span>
       </span>
     </div>`);
   }
