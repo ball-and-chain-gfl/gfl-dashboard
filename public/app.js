@@ -5548,6 +5548,34 @@ function fcOnLiveSeason(){
   return String(getSeason())===String(ALL_SEASONS[ALL_SEASONS.length-1]);
 }
 function renderWeek(){ renderSchedule(); }
+/* ── REPAINT WHATEVER IS SHOWING THE FORECAST ────────────────────────────────
+   Anything inside the card that changes what the card says asks for this. It
+   used to ask renderWeek, because the card was on the Schedule tab and
+   renderWeek drew it -- and when the card moved to the homepage renderWeek
+   became renderSchedule and those callers went on calling it, repainting a tab
+   nobody was looking at while the thing they had just changed sat there
+   unchanged. Sending a message was the visible casualty: it sent, and the box
+   never said so.
+
+   Naming the card rather than a tab is the point. The next time it moves, this
+   is the only line that has to know. */
+function fcRepaint(){
+  try{ if(document.getElementById('fc-body')) renderForecastCard(); }catch(e){}
+}
+/* ── SOMETHING LANDED; REPAINT WHOEVER IS LOOKING AT IT ──────────────────────
+   There are two screens reading this data now: the Schedule tab draws the
+   schedule, the homepage draws the forecast card. Four separate "it arrived"
+   callbacks knew only about the first, because when they were written that was
+   the only one -- so ESPN's win probabilities, the season projections and the
+   roster prices all landed and repainted a tab nobody was on, leaving the card
+   showing whatever it had when the page opened.
+
+   Every one of them comes through here now, so the next screen that needs
+   telling is one edit rather than four. */
+function repaintLive(){
+  if(_activeTab==='week'){ try{ renderWeek(); }catch(e){} }
+  else if(_activeTab==='home') fcRepaint();
+}
 /* THE ONE WAY IN. Your Forecast is on the homepage now, and three things paint
    it -- opening the tab, a live poll collecting a new minute, and the by-slot
    season figures arriving. All three come through here so none of them has to
@@ -8074,7 +8102,8 @@ function applyMe(){
   try{ _cpBallot=null; _cpFetched=false; _cpJustSent=false; renderCoachesPoll(); }catch(e){}   // a new manager starts fresh
   _rosterCache=null; _rosterTeam=null;
   if(_activeTab==='leaders') renderLeaders();
-  if(_activeTab==='week') renderWeek();
+  /* a different manager signs in and the forecast is a different matchup */
+  repaintLive();
 }
 /* the header button is a sign-in prompt when signed out, and your profile
    page once you are in — the sign-out control moved onto that page */
@@ -9177,8 +9206,8 @@ function espnWinProbs(season,week){
         });
         _espnWpCache[k]=Object.keys(probs).length?probs:null;
         _espnWpAt[k]=Date.now();
-        /* whichever tab is looking at these has to be told they landed */
-        if(_activeTab==='week') try{ renderWeek(); }catch(e){}
+        /* whichever screen is looking at these has to be told they landed */
+        repaintLive();
       })
       /* Stamped on failure too, so an endpoint that is down is asked again on
          the interval rather than on every single render. */
@@ -10751,11 +10780,11 @@ function sbRosters(season,week){
       });
       _sbRosters[key]=out; _sbRostersAt[key]=Date.now(); done();
       _sbCache=null; _invCache=null;                   // reprice both with it
-      /* Whichever tab is looking at these has to be told they landed. The book
-         was, and the Schedule tab was not — so the Forecast painted whatever it
-         had when the page opened and never corrected itself. */
+      /* Whichever screen is looking at these has to be told they landed. The
+         book was, and the Forecast was not — so it painted whatever it had when
+         the page opened and never corrected itself. */
       if(_activeTab==='book') try{ renderBook(); }catch(e){}
-      if(_activeTab==='week') try{ renderWeek(); }catch(e){}
+      else repaintLive();
     })
     .catch(()=>{ clearTimeout(timer); done(); });
   return have||null;
@@ -10836,7 +10865,7 @@ function rosterProjWeekly(season){
         /* everything priced off a roster has to be told these landed */
         _sbCache=null; _invCache=null;
         try{ if(_activeTab==='book') renderBook();
-             else if(_activeTab==='week') renderWeek(); }catch(e){}
+             else repaintLive(); }catch(e){}
       })
       .catch(()=>{})
       .finally(()=>{ _rpBusy[y]=false; });
@@ -15227,20 +15256,20 @@ async function ttCheck(oppK1){
     const res=await gflFetchProfile(oppK1);
     const v=(res&&res.data)?res.data[ttField(_me.k1)]:'';
     const now=!!ttParse(v);
-    if(now!==_ttPending){ _ttPending=now; if(_activeTab==='week') renderWeek(); }
+    if(now!==_ttPending){ _ttPending=now; if(_activeTab==='home') fcRepaint(); }
   }catch(e){}
 }
 async function ttSend(oppK1){
   const box=document.getElementById('tt-text');
   if(!box||!_me||_ttOutBusy) return;
   const text=String(box.value||'').trim().slice(0,240);
-  if(!text){ _ttErr='Write something first.'; renderWeek(); return; }
-  _ttOutBusy=true; _ttErr=''; renderWeek();
+  if(!text){ _ttErr='Write something first.'; fcRepaint(); return; }
+  _ttOutBusy=true; _ttErr=''; fcRepaint();
   const res=await gflPatchProfile(oppK1,{[ttField(_me.k1)]:JSON.stringify({t:text,ts:Date.now()})});
   _ttOutBusy=false;
   if(res&&res.ok){ _ttPending=true; }
   else _ttErr=(res&&res.error==='quota')?'Firestore is over quota — try later.':'Could not send that.';
-  renderWeek();
+  fcRepaint();
 }
 function ttBoxHTML(oppK1,oppName){
   if(!_me||!oppK1) return '';

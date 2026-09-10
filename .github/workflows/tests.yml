@@ -80,6 +80,10 @@ jobs:
       # kickoff and after the whistle it must not.
       - name: live player projections in the lineup list
         run: node scripts/test-fclive.mjs
+      # An action in the forecast card must repaint the forecast card, and every
+      # "data landed" callback must reach both screens that read it.
+      - name: sending a message from the forecast card
+        run: node scripts/test-ttsend.mjs
       # A change to how a share is priced must not hand anybody a profit.
       - name: a share split moves nobody's money
         run: node scripts/test-split.mjs
