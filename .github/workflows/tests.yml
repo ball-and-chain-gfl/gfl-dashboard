@@ -84,6 +84,11 @@ jobs:
       # "data landed" callback must reach both screens that read it.
       - name: sending a message from the forecast card
         run: node scripts/test-ttsend.mjs
+      # YouTube changed the channel grid and the scrape went SILENT rather than
+      # failing, so a three-week-old snapshot served while every run reported
+      # success. Both copies of the parser are held against a real capture.
+      - name: the video feed parses and the newest list wins
+        run: node scripts/test-ytparse.mjs
       # A change to how a share is priced must not hand anybody a profit.
       - name: a share split moves nobody's money
         run: node scripts/test-split.mjs

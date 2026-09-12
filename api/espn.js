@@ -80,6 +80,62 @@ export default async function handler(req, res) {
     .replace(/&#39;/g, "'").replace(/&quot;/g, '"');
   const ytThumb = id => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
+  // YOUTUBE REBUILT THE CHANNEL GRID AND THIS PARSE WENT SILENT.
+  //
+  // The videos tab used to ship each entry as a gridVideoRenderer carrying
+  // "title":{"runs":[...]} and a publishedTimeText. Both are gone -- zero
+  // occurrences on the page today -- replaced by lockupViewModel, whose title is
+  // a flat {"content":"..."} and whose age is one unlabelled row of
+  // metadataParts. So the old regex found no titles and returned null, which to
+  // the caller is indistinguishable from YouTube refusing the request. The
+  // fallback looked healthy while doing nothing, and every load fell through to
+  // the committed snapshot -- which is why a video posted an hour ago was not
+  // on the homepage.
+  //
+  // Both shapes are read now, current first, so this survives the next change
+  // in either direction.
+  const ytParsePage = (html) => {
+    const out = [], seen = new Set();
+    // Splitting on the marker bounds each entry by the START OF THE NEXT ONE,
+    // so the first title inside a chunk is unambiguously that entry's own.
+    const parts = html.split('"lockupViewModel":{');
+    for (let i = 1; i < parts.length && out.length < 15; i++) {
+      const chunk = parts[i].slice(0, 60000);
+      const id = (chunk.match(/\/vi\/([\w-]{11})\//)
+               || chunk.match(/"videoId":"([\w-]{11})"/) || [])[1];
+      if (!id || seen.has(id)) continue;
+      const title = (chunk.match(/"lockupMetadataViewModel":\{"title":\{"content":"((?:[^"\\]|\\.)*)"/) || [])[1];
+      if (!title) continue;                  // shelves and rails carry no title
+      seen.add(id);
+      out.push({
+        videoId: id, title: ytDecode(title), published: null,
+        // the age row has no key of its own -- it is the metadataPart that
+        // reads like a duration ago, sitting beside the view count
+        ageText: (chunk.match(/\{"text":\{"content":"((?:\d+|a|an)\s[a-z]+s?\sago)"\}/) || [])[1] || null,
+        thumb: ytThumb(id), description: '',
+      });
+    }
+    if (out.length) return out;
+
+    const re = /"videoId":"([\w-]{11})"/g;   // legacy gridVideoRenderer
+    let m;
+    while ((m = re.exec(html)) && out.length < 15) {
+      const id = m[1];
+      if (seen.has(id)) continue;
+      const win = html.slice(m.index, m.index + 1600);
+      const title = (win.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/) ||
+                     win.match(/"title":\{"simpleText":"((?:[^"\\]|\\.)*)"/) || [])[1];
+      if (!title) continue;                  // shelves and related rails, again
+      seen.add(id);
+      out.push({
+        videoId: id, title: ytDecode(title), published: null,
+        ageText: (win.match(/"publishedTimeText":\{"simpleText":"([^"]+)"/) || [])[1] || null,
+        thumb: ytThumb(id), description: '',
+      });
+    }
+    return out.length ? out : null;
+  };
+
   async function ytFromRSS() {
     for (const u of [
       `https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CHANNEL}&hl=en`,
@@ -118,25 +174,8 @@ export default async function handler(req, res) {
       ];
       const r = await fetch(urls[attempt % urls.length], { headers: ytHeaders });
       if (!r.ok) return attempt < 3 ? ytFromChannelPage(attempt + 1) : null;
-      const html = await r.text();
-      const out = [], seen = new Set();
-      const re = /"videoId":"([\w-]{11})"/g;
-      let m;
-      while ((m = re.exec(html)) && out.length < 15) {
-        const id = m[1];
-        if (seen.has(id)) continue;
-        const win = html.slice(m.index, m.index + 1600);
-        const title = (win.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/) ||
-                       win.match(/"title":\{"simpleText":"((?:[^"\\]|\\.)*)"/) || [])[1];
-        if (!title) continue;                    // shelves and related rails have no title here
-        seen.add(id);
-        out.push({
-          videoId: id, title: ytDecode(title), published: null,
-          ageText: (win.match(/"publishedTimeText":\{"simpleText":"([^"]+)"/) || [])[1] || null,
-          thumb: ytThumb(id), description: '',
-        });
-      }
-      if (out.length) return out;
+      const out = ytParsePage(await r.text());
+      if (out) return out;
       return attempt < 3 ? ytFromChannelPage(attempt + 1) : null;
     } catch (e) { return attempt < 3 ? ytFromChannelPage(attempt + 1) : null; }
   }

@@ -7,6 +7,7 @@
    newest few descriptions. Exits non-zero only if every route fails, so a bad
    run never overwrites a good snapshot. */
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 const CHANNEL = 'UCUoUwKYMkspanOjX5_6d5-Q';
 const HEADERS = {
@@ -57,6 +58,61 @@ async function fromRSS() {
   return null;
 }
 
+/* YOUTUBE REBUILT THE CHANNEL GRID AND THIS PARSE WENT SILENT.
+
+   The videos tab used to ship each entry as a gridVideoRenderer carrying
+   "title":{"runs":[...]} and a publishedTimeText. Both are gone — zero
+   occurrences on the page today — replaced by lockupViewModel, whose title is a
+   flat {"content":"..."} and whose age is one unlabelled row of metadataParts.
+   The old regex found no titles and returned null, which to the caller is
+   indistinguishable from YouTube refusing the request: the fallback looked
+   healthy while doing nothing, so a run where RSS 404'd quietly kept the old
+   snapshot and still reported success.
+
+   Both shapes are read now, current first. Deliberately identical to
+   ytParsePage in api/espn.js — scripts/test-ytparse.mjs fails if they drift. */
+export function parsePage(html, dec, thumb) {
+  const out = [], seen = new Set();
+  // Splitting on the marker bounds each entry by the START OF THE NEXT ONE, so
+  // the first title inside a chunk is unambiguously that entry's own.
+  const parts = html.split('"lockupViewModel":{');
+  for (let i = 1; i < parts.length && out.length < 15; i++) {
+    const chunk = parts[i].slice(0, 60000);
+    const id = (chunk.match(/\/vi\/([\w-]{11})\//)
+             || chunk.match(/"videoId":"([\w-]{11})"/) || [])[1];
+    if (!id || seen.has(id)) continue;
+    const title = (chunk.match(/"lockupMetadataViewModel":\{"title":\{"content":"((?:[^"\\]|\\.)*)"/) || [])[1];
+    if (!title) continue;                  // shelves and rails carry no title
+    seen.add(id);
+    out.push({
+      videoId: id, title: dec(title), published: null,
+      // the age row has no key of its own — it is the metadataPart that reads
+      // like a duration ago, sitting beside the view count
+      ageText: (chunk.match(/\{"text":\{"content":"((?:\d+|a|an)\s[a-z]+s?\sago)"\}/) || [])[1] || null,
+      thumb: thumb(id), description: '',
+    });
+  }
+  if (out.length) return out;
+
+  const re = /"videoId":"([\w-]{11})"/g;   // legacy gridVideoRenderer
+  let m;
+  while ((m = re.exec(html)) && out.length < 15) {
+    const id = m[1];
+    if (seen.has(id)) continue;
+    const win = html.slice(m.index, m.index + 1600);
+    const title = (win.match(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/) ||
+                   win.match(/"title":\{"simpleText":"((?:[^"\\]|\\.)*)"/) || [])[1];
+    if (!title) continue;                  // shelves and related rails, again
+    seen.add(id);
+    out.push({
+      videoId: id, title: dec(title), published: null,
+      ageText: (win.match(/"publishedTimeText":\{"simpleText":"([^"]+)"/) || [])[1] || null,
+      thumb: thumb(id), description: '',
+    });
+  }
+  return out.length ? out : null;
+}
+
 async function fromChannelPage() {
   const urls = [
     `https://www.youtube.com/channel/${CHANNEL}/videos?hl=en`,
@@ -65,22 +121,8 @@ async function fromChannelPage() {
   for (let i = 0; i < 4; i++) {
     const html = await get(urls[i % urls.length]);
     if (html) {
-      const out = [], seen = new Set();
-      const re = /"videoId":"([\w-]{11})"/g;
-      let m;
-      while ((m = re.exec(html)) && out.length < 15) {
-        const id = m[1];
-        if (seen.has(id)) continue;
-        const win = html.slice(m.index, m.index + 1600);
-        const title = pick(/"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/, win) ||
-                      pick(/"title":\{"simpleText":"((?:[^"\\]|\\.)*)"/, win);
-        if (!title) continue;
-        seen.add(id);
-        out.push({ videoId: id, title: dec(title), published: null,
-                   ageText: pick(/"publishedTimeText":\{"simpleText":"([^"]+)"/, win),
-                   thumb: thumb(id), description: '' });
-      }
-      if (out.length) {
+      const out = parsePage(html, dec, thumb);
+      if (out) {
         console.log('source: channel page');
         // descriptions matter for matchup detection — fill the newest few
         for (const v of out.slice(0, 3)) {
@@ -116,6 +158,12 @@ async function fromOwnApi() {
   return null;
 }
 
+/* Importing this file for parsePage must not go and fetch YouTube, so the run
+   only happens when the file IS the entry point — which is how the Action and
+   `node scripts/refresh-videos.mjs` both invoke it. */
+const RUNNING = !process.argv[1] || import.meta.url === pathToFileURL(process.argv[1]).href;
+if (!RUNNING) { /* imported for parsePage — nothing else to do */ } else {
+
 const videos = (await fromRSS()) || (await fromChannelPage()) || (await fromOwnApi());
 if (!videos || !videos.length) {
   console.error('every source failed — leaving the existing snapshot alone');
@@ -131,3 +179,5 @@ const strip = s => { try { const j = JSON.parse(s); return JSON.stringify(j.vide
 if (strip(prev) === strip(next)) { console.log('snapshot already current — no change'); process.exit(0); }
 writeFileSync(OUT, next);
 console.log(`wrote ${videos.length} videos — newest: ${videos[0].title}`);
+
+}

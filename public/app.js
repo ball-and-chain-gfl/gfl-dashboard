@@ -165,16 +165,42 @@ async function espnFetch(view){
    which is the whole of the fix; the instant paint is worth keeping.
 
    A cache older than the window is not trusted at all — at that age waiting for
-   the network beats painting something a day out of date. */
+   the network beats painting something a day out of date.
+
+   no-store on the refresh, or an app load is not actually a refresh. The API
+   answers with max-age=120, so without it the browser's own HTTP cache serves
+   the previous body and the "refresh" never leaves the machine — on the two
+   minutes after a deploy or a reload, which is exactly when someone who just
+   posted a video is looking. The edge still shields YouTube (s-maxage=300 plus
+   stale-while-revalidate), so this costs one conditional request, not an
+   upstream read. */
 const YT_CACHE_MS=30*60*1000;
+let _ytFresh=null;                 // the newest list the network has handed back
 async function ytFetch(){
   const c=cacheGet('youtube');
   const fresh=c&&c.t&&(Date.now()-c.t)<YT_CACHE_MS;
-  const refresh=fetch(`${BASE}?type=youtube`).then(r=>r.ok?r.json():null)
-    .then(j=>{ if(j&&j.videos&&j.videos.length){ cacheSet('youtube',j); ytApply(j.videos); } return j; })
+  const refresh=fetch(`${BASE}?type=youtube`,{cache:'no-store'}).then(r=>r.ok?r.json():null)
+    .then(j=>{ if(j&&j.videos&&j.videos.length){ _ytFresh=j; cacheSet('youtube',j); ytApply(j.videos); } return j; })
     .catch(()=>null);
   if(fresh&&c.d&&c.d.videos&&c.d.videos.length) return c.d;   // instant from cache
   return (await refresh)||(c&&c.d)||{videos:[]};
+}
+/* WHAT THE NETWORK SAID BEATS WHAT THE CACHE SAID, whenever boot gets round to
+   reading it.
+
+   ytFetch hands back the cached list instantly and lets the network correct it
+   behind everyone's back. But boot awaits ytFetch inside a Promise.all next to
+   three slow ESPN calls, so the youtube refresh — one small edge-cached request
+   — had almost always landed and repainted by the time that Promise.all
+   settled. Boot then assigned the value it was RETURNED, which is the stale
+   cached list, straight over the top of it: _videos went backwards, and the
+   next homepage render put the old video back on screen.
+
+   So the correction outranks the return value. The carousel updating and then
+   silently reverting was the whole of "I uploaded a video and it isn't there". */
+function ytBest(ytData){
+  const fromNet=_ytFresh&&_ytFresh.videos&&_ytFresh.videos.length?_ytFresh.videos:null;
+  return fromNet||(ytData&&ytData.videos)||[];
 }
 /* Swap the list under a carousel that is already on screen. Only when the top
    video actually changed — rebuilding it on every refresh would restart the
@@ -19166,7 +19192,7 @@ async function loadDashboard(){
     _txMeta={source:transData._source||'?',count:transData._count??(transactions.length),diag:transData._diag||[]};
     _allMatchups=schedData.schedule||[];
     const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t.name]));
-    _videos=ytData.videos||[];
+    _videos=ytBest(ytData);
 
     const playedWeeks=[...new Set(
       _allMatchups.filter(mu=>(mu.home?.totalPoints||0)>0||(mu.away?.totalPoints||0)>0)
