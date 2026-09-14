@@ -306,6 +306,33 @@ try {
   }
 } catch {}
 
+/* THE FREEZER AND THE SETTLER RACE, AND THE FREEZER CAN WIN.
+
+   Both are cron'd at 10:00 on the Tuesday, in separate workflows, so they start
+   together. `bets` above counts only bets that are no longer open -- and until
+   settle-bets has finished, every bet for the week just gone is still open. Lose
+   that race and the week freezes with an empty book, which the "already frozen"
+   guard then makes permanent: the Wednesday net exits before it gets here, and
+   the bankroll line reads a week of betting as nothing forever.
+
+   Prices are never touched again -- that is the whole point of freezing them,
+   and recomputing on a later day could legitimately give a different number. The
+   book is different: it is a RECORD of settled bets, not a computation, so an
+   empty one is missing rather than decided. Fill it in, once, and leave
+   everything else exactly as frozen. */
+const prior = file.weeks[week];
+if (prior && !FORCE) {
+  const had = Object.keys(prior.bets || {}).length;
+  const now = Object.keys(bets).length;
+  if (had === 0 && now > 0) {
+    prior.bets = bets;
+    file.savedAt = new Date().toISOString();
+    fs.writeFileSync(OUT, JSON.stringify(file, null, 1));
+    console.log(`${SEASON} week ${week} – prices left as frozen, filled in ${now} betting results`);
+    process.exit(0);
+  }
+}
+
 const entry = { prices, bets };
 if (JSON.stringify(file.weeks[week]) === JSON.stringify(entry)) {
   console.log(`${SEASON} week ${week} – unchanged, not rewriting`);

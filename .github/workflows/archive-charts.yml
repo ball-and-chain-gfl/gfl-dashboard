@@ -22,8 +22,15 @@ name: Freeze the week's prices
 # public web key the browser uses.
 on:
   schedule:
-    - cron: '0 10 * * 2'    # Tue 10:00 UTC — after archive-poll at 09:45
-    - cron: '0 10 * * 3'    # Wed 10:00 UTC — safety net
+    # 10:30, NOT 10:00, because settle-bets holds the 10:00 slot and this reads
+    # what that writes. The week's book below counts only bets that are no
+    # longer open, so starting alongside the settler was a coin flip on whether
+    # the week froze carrying its betting results or none at all — and the empty
+    # one would have stood, because the Wednesday net finds the week already
+    # frozen. The script fills an empty book in on a later pass now; this makes
+    # it unlikely to have to.
+    - cron: '30 10 * * 2'   # Tue 10:30 UTC — after settle-bets at 10:00
+    - cron: '30 10 * * 3'   # Wed 10:30 UTC — safety net
   workflow_dispatch:
     inputs:
       season:
