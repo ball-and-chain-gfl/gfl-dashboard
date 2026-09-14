@@ -79,6 +79,16 @@ const app = assemble(grab, [
   'const LIVE_VOLUME=',
   'const LIVE_USAGE_R=',
   'const liveUsageW=',
+  /* The efficiency trio arrived with "Sigma rides the lineups" and this list
+     was never told. livePlayerLeft only reaches for LIVE_EFF_SKIP once a game
+     is genuinely in progress, so the poller started clean, ran all week, and
+     then threw ReferenceError on the first live snap — every run of week 1's
+     Sunday slate died inside a minute while the quiet runs either side of it
+     passed. scripts/test-poller-lift.mjs now fails when a lifted function
+     reaches for anything this list does not carry. */
+  'const LIVE_EFF_R=',
+  'const LIVE_EFF_SKIP=',
+  'const liveEffW=',
   'function liveScoreLine(line,rules){',
   'function livePlayerLeft(entry,f,rules){',
   'function liveSideProj(side){',

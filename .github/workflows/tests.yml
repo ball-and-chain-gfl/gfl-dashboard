@@ -84,6 +84,12 @@ jobs:
       # "data landed" callback must reach both screens that read it.
       - name: sending a message from the forecast card
         run: node scripts/test-ttsend.mjs
+      # The poller cuts its maths out of app.js and app.js does not know it. A
+      # constant added there that a lifted function reaches for assembles fine
+      # and throws on the first live snap -- which is how week 1's Sunday slate
+      # was lost. The bundle is run against a side mid-game, not just scanned.
+      - name: the poller can still lift what it runs
+        run: node scripts/test-poller-lift.mjs
       # YouTube changed the channel grid and the scrape went SILENT rather than
       # failing, so a three-week-old snapshot served while every run reported
       # success. Both copies of the parser are held against a real capture.
