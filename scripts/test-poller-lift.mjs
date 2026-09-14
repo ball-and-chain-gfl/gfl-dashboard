@@ -9,9 +9,14 @@
  * "Sigma rides the lineups" and the lift list was not told. livePlayerLeft only
  * touches them once a game is genuinely in progress -- so the poller ran all
  * week without complaint, and then died inside a minute on every run of week
- * 1's Sunday slate, taking the whole week's win-probability graph with it. The
- * runs before and after the games passed, so the workflow history looked
- * healthy at a glance.
+ * 1's Sunday slate. The runs before and after the games passed, so the workflow
+ * history looked healthy at a glance.
+ *
+ * The week survived only because THE BROWSER RECORDS TOO: every open tab writes
+ * the same readings, and enough people were watching to leave 471 of them. That
+ * is what the Action exists to make unnecessary -- week 1 came out with 35 to 90
+ * minute holes through the Sunday slate where it should carry a point every
+ * five. A week nobody happened to watch would have come out empty.
  *
  * Two rules, because the first alone would not have caught it:
  *   1. nothing the bundle reaches for may be missing from the lift list;

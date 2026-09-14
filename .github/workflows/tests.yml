@@ -90,6 +90,11 @@ jobs:
       # was lost. The bundle is run against a side mid-game, not just scanned.
       - name: the poller can still lift what it runs
         run: node scripts/test-poller-lift.mjs
+      # The same class across all four lifting scripts, plus the rule that a
+      # pre-flight test may not supply state the script it guards is missing --
+      # which is how archive-charts got a green light over a ReferenceError.
+      - name: no script lifts a function and leaves behind what it reads
+        run: node scripts/test-lifts.mjs
       # YouTube changed the channel grid and the scrape went SILENT rather than
       # failing, so a three-week-old snapshot served while every run reported
       # success. Both copies of the parser are held against a real capture.

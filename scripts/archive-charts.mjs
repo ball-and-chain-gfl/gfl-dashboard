@@ -222,6 +222,13 @@ function bkLoadPool(){}
 const _rpFeed = ${JSON.stringify(rpFeed)};
 function rosterProjWeekly(){ return _rpFeed; }
 let _rpMemo = {};
+/* poDeadGames memoises into this. It is a bare top-level in app.js, so lifting
+   the function does not bring it with -- and the pricer only reaches
+   poDeadGames once there is a finished week to price, which is why nothing
+   noticed until the first real freeze. test-charts.mjs declared it in ITS
+   prelude and not here, so the pre-flight passed green over a run that threw
+   ReferenceError. scripts/test-lifts.mjs now holds the two preludes level. */
+let _poDeadCache = {};
 /* invPricesAt short-circuits to a frozen board when one exists. THE FREEZER MUST
    NEVER TAKE THAT PATH: reading its own output would re-freeze a frozen number
    and the first mistake would be permanent. It always computes. */
