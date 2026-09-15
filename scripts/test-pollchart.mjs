@@ -402,5 +402,45 @@ console.log(nl + '6. A WEEK EVERYONE HAS VOTED IN PUBLISHES WITHOUT WAITING FOR 
      Object.keys(E.pollWeeksData()).join(',') === '1');
 }
 
+console.log(nl + '7. NO LINE IS EVER DRAWN OVER A CREST');
+{
+  /* SVG has no z-index; it paints in document order. Each team used to emit its
+     line and its crest in one group, so team 8's polyline went over team 3's
+     crest purely because team 3 was drawn first — and on a chart whose whole
+     point is lines crossing, that was most of them. Which crests got cut through
+     changed with the order of Object.keys. */
+  M.setUp({ 1: [1,2,3,4,5,6,7,8,9,10,11,12],
+            2: [12,11,10,9,8,7,6,5,4,3,2,1],     // every line crosses every other
+            3: [6,1,12,3,8,2,11,4,9,5,10,7] });
+  [1,3,5,7,9,11].forEach(id => M.setLogo(id, 'https://example.com/' + id + '.png'));
+  const html = M.pollChartHTML();
+
+  const lastLine = html.lastIndexOf('<polyline');
+  ok('there are lines to get in the way', lastLine > -1);
+
+  /* the real assertion: nothing that draws a crest appears before the last line */
+  const crestStart = html.indexOf('<g><title', lastLine);
+  ok('every crest group comes after the last polyline', crestStart > lastLine,
+     'lastLine=' + lastLine + ' crestStart=' + crestStart);
+  const tail = html.slice(lastLine);
+  ok('and the crests really are in that tail', /<image|rx="8"/.test(tail));
+  ok('with no polyline hiding among them',
+     !/<polyline/.test(html.slice(crestStart)),
+     'a line is emitted after a crest');
+
+  /* the tinted disc is the crest's container and must travel with it, or a line
+     could still land between the disc and the logo */
+  const discIdx = html.indexOf('rx="8"');
+  const imgIdx = html.indexOf('<image');
+  ok('the disc sits after the lines too', discIdx > lastLine);
+  if (imgIdx > -1) ok('and immediately before its own logo, not across the chart',
+     imgIdx > discIdx && (imgIdx - discIdx) < 400, 'disc=' + discIdx + ' img=' + imgIdx);
+
+  console.log(nl + '   and the drop-out case still drops out');
+  M.setUp({ 1: [1,2,3,4,5,6,7,8,9,10,11,12] });
+  ok('a single week still draws its crests',
+     /rx="8"/.test(M.pollChartHTML()));
+}
+
 console.log(nl + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

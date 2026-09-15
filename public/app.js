@@ -3483,10 +3483,21 @@ function pollChartHTML(){
   const wkCap=`<text x="${axisW-4}" y="${H-10}" text-anchor="end" font-size="9"
     fill="var(--text3)" opacity="0.75" letter-spacing="0.5"
     font-family="Inter,sans-serif">WK</text>`;
-  const lines=Object.keys(at).map(tid=>{
+  /* TWO PASSES, NOT ONE GROUP PER TEAM.
+
+     Every team used to emit its line and its crest together, and SVG has no
+     z-index -- it paints in document order. So team 8's polyline went over
+     team 3's crest simply because team 3 was drawn first, and on a chart whose
+     whole point is lines crossing, that is most of them. Which crests got cut
+     through changed week to week, with the order of Object.keys.
+
+     All twelve lines go down first, then all twelve crests on top. A crest can
+     no longer be under anything but another crest, and those never overlap:
+     ranks are unique within a week, so the heads sit one to a row. */
+  const series=Object.keys(at).map(tid=>{
     const t=pollTeam(tid); const col=pollColor(tid);
     const pts=played.filter(w=>at[tid][w]!=null).map(w=>[x(w),y(at[tid][w])]);
-    if(!pts.length) return '';
+    if(!pts.length) return null;
     const path=pts.length>1
       ? `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none"
            stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`
@@ -3505,19 +3516,22 @@ function pollChartHTML(){
       : `<rect x="${head[0]-11}" y="${head[1]-11}" width="22" height="22" rx="6" fill="${col}"/>
          <text x="${head[0]}" y="${head[1]+4}" text-anchor="middle" font-size="9"
            fill="#0b0b0b" font-weight="700" font-family="Inter,sans-serif">${teamInitials(t?t.name:'')}</text>`;
-    return `<g><title>${t?t.name:('Team '+tid)}</title>
-      ${path}${dots}
-      <rect x="${head[0]-13}" y="${head[1]-13}" width="26" height="26" rx="8"
-        fill="${col}" opacity="0.28"/>
-      ${badge}</g>`;
-  }).join('');
+    return {name:t?t.name:('Team '+tid), col, head, path, dots, badge};
+  }).filter(Boolean);
+  const lines=series.map(s=>`<g><title>${s.name}</title>${s.path}${s.dots}</g>`).join('');
+  /* the tinted disc and the crest are one object -- the disc IS the container,
+     and a line allowed between the two would be the same bug one layer in */
+  const crests=series.map(s=>`<g><title>${s.name}</title>
+      <rect x="${s.head[0]-13}" y="${s.head[1]-13}" width="26" height="26" rx="8"
+        fill="${s.col}" opacity="0.28"/>
+      ${s.badge}</g>`).join('');
   /* Its own width in pixels, NOT 100%. At 100% the svg shrank to whatever the
      panel was and seventeen weeks became unreadable on a phone; at its natural
      width the panel around it scrolls instead. */
   return `<div class="poll-chart">
     <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"
       role="img" aria-label="Coaches' Poll ranking by week">
-      ${cols}${grid}${wkCap}${lines}
+      ${cols}${grid}${wkCap}${lines}${crests}
     </svg></div>`;
 }
 /* One fold per archived week, newest first. With a single week on file there is
@@ -3553,8 +3567,7 @@ function pollSectionHTML(){
        the week went, and a fold that opens itself is a fold nobody chose. */
     return `<details class="poll-fold">
       <summary><i class="fa fa-ranking-star"></i><span>Week ${w} Poll</span>
-        <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}${
-          d.live?' · all in':''}</span>
+        <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}</span>
         <i class="fa fa-chevron-down poll-caret"></i></summary>
       <div class="poll-list">${rows}</div>
     </details>`;}).join('');
@@ -3564,9 +3577,6 @@ function pollSectionHTML(){
      width. */
   return `<div class="sec wm" data-wm="&#xf5a2;">
     <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches' Poll</div>
-    <div class="lh-note">How the league ranked itself, frozen at the end of each
-      week. The number beside a team is its average placing across every ballot,
-      so lower is better.</div>
     ${pollChartHTML()}
     ${folds}
   </div>`;
