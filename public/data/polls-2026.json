@@ -1,5 +1,71 @@
 {
  "season": 2026,
- "weeks": {},
- "savedAt": "2026-09-14T13:56:30.724Z"
+ "weeks": {
+  "1": {
+   "ballots": 11,
+   "rank": [
+    {
+     "rank": 1,
+     "teamId": 6,
+     "avg": 2.091
+    },
+    {
+     "rank": 2,
+     "teamId": 9,
+     "avg": 4.273
+    },
+    {
+     "rank": 3,
+     "teamId": 7,
+     "avg": 4.909
+    },
+    {
+     "rank": 4,
+     "teamId": 3,
+     "avg": 5.636
+    },
+    {
+     "rank": 5,
+     "teamId": 10,
+     "avg": 5.636
+    },
+    {
+     "rank": 6,
+     "teamId": 1,
+     "avg": 6.727
+    },
+    {
+     "rank": 7,
+     "teamId": 4,
+     "avg": 6.727
+    },
+    {
+     "rank": 8,
+     "teamId": 5,
+     "avg": 7
+    },
+    {
+     "rank": 9,
+     "teamId": 8,
+     "avg": 7.091
+    },
+    {
+     "rank": 10,
+     "teamId": 11,
+     "avg": 7.091
+    },
+    {
+     "rank": 11,
+     "teamId": 12,
+     "avg": 9.364
+    },
+    {
+     "rank": 12,
+     "teamId": 2,
+     "avg": 11.455
+    }
+   ]
+  }
+ },
+ "savedAt": "2026-09-15T03:40:25.638Z"
 }
