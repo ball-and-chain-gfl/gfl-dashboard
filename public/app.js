@@ -19635,9 +19635,15 @@ async function loadDashboard(){
 
       <!-- STANDINGS & STATS -->
       <div class="tab-page" id="page-standings">
-        <!-- Two sections here now, so the page carries its own chip row and
-             the table has a heading of its own to be jumped to. -->
+        <!-- Two sections here, so the page carries its own chip row and the
+             table has a heading of its own to be jumped to. -->
         <nav class="sec-nav sec-nav-local" aria-label="Sections on this page" hidden></nav>
+        <!-- The Coaches' Poll moved here from League History: it is the league
+             ranking itself, and it leads, because how the room SEES the season
+             is the read. The table underneath is the record, which does not
+             need arguing about. Filled by renderStandingsPoll; the chip row
+             above orders itself off the page, so the chips follow this. -->
+        <div id="standings-poll"></div>
         <div class="sec wm" data-wm="&#xe561;">
           <div id="stats-standings">
             <div class="sec-head"><i class="fa fa-list-ol"></i>Standings</div>
@@ -19645,10 +19651,6 @@ async function loadDashboard(){
             <div class="tscroll"><table class="min640 noseam" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
         </div>
-        <!-- The Coaches' Poll moved here from League History: it is the league
-             ranking itself, which belongs beside the table that ranks it by
-             record. Filled by renderStandingsPoll. -->
-        <div id="standings-poll"></div>
       </div>
 
       <!-- COACHING METRIC — its own tab now. It was a second view bolted onto
