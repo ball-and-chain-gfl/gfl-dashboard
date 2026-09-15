@@ -305,5 +305,29 @@ console.log(nl + '4. THE SECTION LIVES ON STANDINGS, AND EVERYTHING FOLLOWED IT'
      SRC.includes(".sec-head, .section-header, .lh-sec-head"));
 }
 
+console.log(nl + '5. IT ONLY SHOWS FOR THE SEASON IT IS ABOUT');
+{
+  const fs = await import('fs');
+  const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  /* pollsLoad fetches once for the season being PLAYED, so _polls is always the
+     live year whatever the picker says — and Standings is a season-scoped tab.
+     Without a gate, dropping the picker to 2025 left 2026's ballots sitting
+     under a 2025 table, beneath a heading that names no year at all. */
+  ok('the section checks the picker against the file it loaded',
+     SRC.includes("if(String((_polls&&_polls.season)||'')!==String(getSeason())) return '';"),
+     'pollSectionHTML renders whatever season it happens to hold');
+
+  /* a hardcoded 2026 would be right for one year and quietly wrong after */
+  ok('and does it without naming a year',
+     !/getSeason\(\)\)!==.?.?2026/.test(SRC) && !SRC.includes("getSeason()!=='2026'"));
+
+  /* the gate only helps if a season change actually redraws this half — the
+     table was being redrawn on its own, which is why the poll went stale */
+  ok('a season change redraws the poll, not just the table',
+     SRC.includes(nl + '    renderStandings();'),
+     'loadDashboard still calls renderStandingsTable alone');
+}
+
 console.log(nl + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

@@ -3485,6 +3485,18 @@ function pollChartHTML(){
    a single fold, which is what the league sees after week one. */
 function pollSectionHTML(){
   if(!_pollsFetched){ pollsLoad(); return ''; }
+  /* THE POLL BELONGS TO ONE SEASON, AND THIS PAGE HAS A SEASON PICKER.
+
+     pollsLoad fetches once, for the season being PLAYED (sbBoardSeason), so
+     _polls is always the live year whatever the picker says. Standings is a
+     season-scoped tab: drop it to 2025 and the table below correctly became
+     2025 while this section carried on showing 2026's ballots, under a
+     heading that does not name a year.
+
+     Matched against the file's OWN season rather than a hardcoded 2026, so it
+     keeps being right when the league rolls over and nobody remembers this
+     line exists. A past season has no poll and shows none. */
+  if(String((_polls&&_polls.season)||'')!==String(getSeason())) return '';
   const wks=pollWeeks(); if(!wks.length) return '';
   const folds=wks.slice().reverse().map((w,i)=>{
     const d=_polls.weeks[w]||{};
@@ -19853,7 +19865,10 @@ async function loadDashboard(){
     /* last session's profile list, so the poll and the notifications open with
        something true on them rather than empty — see cpRowsWarm */
     try{ cpRowsWarm(); }catch(e){}
-    renderStandingsTable();
+    /* Both halves of the page, not just the table. A season change comes
+       through here, and the poll has to be told too or it keeps showing the
+       live year under a picker pointed somewhere else. */
+    renderStandings();
     /* Matchup of the Week is hidden — see the homepage markup. Skipping the
        render is the point: it built a comparison table and ran a vote fetch on
        every load. */
