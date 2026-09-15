@@ -14734,7 +14734,6 @@ const NT_KINDS={
   plant:  {icon:'fa-seedling',    tone:'earth'},
   revive: {icon:'fa-receipt',     tone:'ember'},
   crown:  {icon:'fa-crown',       tone:'gold'},
-  faab:   {icon:'fa-sack-dollar', tone:'gold'},
   rival:  {icon:'fa-hand-fist',   tone:'royal'},
   trade:  {icon:'fa-right-left',  tone:'cool'},
   parlay: {icon:'fa-dollar-sign', tone:'good'},
@@ -15193,19 +15192,6 @@ function ntPerfectPicks(out){
       art:ntStat(_ownerMap[Number(p.teamId||0)],nm,`${nGames} / ${nGames}`,'every game called')});
   });
 }
-/* a waiver claim that cost real money */
-function ntBigFaab(out){
-  (_transactions||[]).forEach(t=>{
-    const bid=Number(t.bid||t.bidAmount||0);
-    if(!(bid>100)) return;
-    const nm=t.teamName||(_teams.find(x=>x.id===Number(t.teamId))||{}).name||'Someone';
-    const pl=t.playerName||t.player||'a player';
-    out.push({kind:'faab', day:ntDayOf(Number(t.date||t.proposedDate)||Date.now()),
-      id:`fb:${t.id||(nm+':'+pl+':'+bid)}`,
-      title:'Big money on the wire',
-      body:`<b>${nm}</b> spent <b>$${bid}</b> of FAAB on <b>${pl}</b>.`});
-  });
-}
 /* ── A VOTE, AND THE WEEK IT RUNS FOR ────────────────────────────────────────
    Tuesday to Tuesday, then the card is gone and the verdict is whatever was in
    by then. That stays the rule: a vote that drifts is not a vote anybody has to
@@ -15416,8 +15402,6 @@ function ntDemo(out){
    {kind:'crown',day:day(2),id:'demo:crown',title:'New at the top',
     art:ntStat(o(0),nm(0),'8,412.6','all-time points')},
 
-   {kind:'faab',day:day(3),id:'demo:faab',title:'Big money on the wire',
-    art:ntStat(o(6),nm(6),'$147','on Jaylen Wright'), body:'Next-highest bid was $38.'},
 
    {kind:'parlay',day:d,id:'demo:parlay',title:'You have been asked in',
     art:ntStat(o(3),nm(3),'$75','a 3-leg parlay'),
@@ -15640,7 +15624,7 @@ function ntStandings(out){
 
 function ntAll(){
   const out=[];
-  [ntMotwPick,ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntBigFaab,ntTrades,ntStreaks,ntTrash,ntDemo]
+  [ntMotwPick,ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
