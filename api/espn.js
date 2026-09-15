@@ -621,6 +621,28 @@ export default async function handler(req, res) {
       const out=[];
       all.forEach(t=>{
         const type=String(t.type||'').toUpperCase();
+        /* A CLAIM THAT HAS NOT PROCESSED YET IS NOBODY ELSE'S BUSINESS.
+
+           This proxy holds ONE ESPN session for the whole league, so every
+           manager's browser receives whatever ESPN would show that one
+           account -- and ESPN shows an account its own pending waiver claims,
+           bid amounts and all. They were reaching all twelve, where a
+           notification card read them straight off the wire and announced a
+           $123 claim to the eleven people bidding against it.
+
+           A blind bid is the one thing here meant to stay blind until it
+           settles. It is dropped at the edge rather than in the card that
+           showed it, because the card was not the only reader: the array
+           reached every browser, and the archiver writes from this same route
+           into a PUBLIC repository.
+
+           Nothing downstream loses anything. Both waiver rules -- app-side
+           TX_DEAD and the archiver's DEAD -- already list PENDING as dead, so
+           a pending claim has never counted toward a pickup, a spend, or a
+           next-highest-bid margin. Those margins are built from EXECUTED rows,
+           which ESPN publishes league-wide once a claim has run. FAILED and
+           CANCELED stay too: a losing bid is only interesting after it lost. */
+        if(type==='WAIVER'&&/^PENDING/.test(String(t.status||'').toUpperCase())) return;
         if(type==='WAIVER'||type==='FREEAGENT'){ out.push(t); return; }
         if(type!=='TRADE_ACCEPT') return;                 // proposals are not movement
         let items=(t.items||[]);

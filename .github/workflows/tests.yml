@@ -71,6 +71,8 @@ jobs:
         run: node scripts/test-bkbets.mjs
       - name: the one-off make-good pays once and never returns
         run: node scripts/test-bkmakegood.mjs
+      - name: an unprocessed waiver bid never leaves the proxy
+        run: node scripts/test-pending-bids.mjs
       # A player bought twice is two claims that cost money twice. Both belong
       # on the board, and neither may bank the other's points.
       - name: waiver claims, and buying the same player twice
