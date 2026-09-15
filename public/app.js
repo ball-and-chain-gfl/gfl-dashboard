@@ -14723,6 +14723,7 @@ const NT_KINDS={
   streakL:{icon:'fa-arrow-trend-down',tone:'ember'},
   trash:  {icon:'fa-comment-dots', tone:'hot'},
   standings:{icon:'fa-ranking-star', tone:'cool'},
+  bkfix:  {icon:'fa-gift',         tone:'good'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -14817,14 +14818,18 @@ async function ntSync(){
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.ntSeen)||'[]')||[]; }catch(e){}
     const before=ntSeen().size;
     srv.filter(x=>typeof x==='string').forEach(x=>ntSeen().add(x));
-    if(ntSeen().size!==before){
+    /* The make-good comes off the same document on the same trip, so the card
+       is decided before the feed is ever drawn. */
+    const wasFix=_bkFixClaimed;
+    _bkFixClaimed=!!(res&&res.data&&res.data[BK_MAKEGOOD.field]!=null);
+    if(ntSeen().size!==before||wasFix!==_bkFixClaimed){
       try{ localStorage.setItem(ntKey(),JSON.stringify([...ntSeen()])); }catch(e){}
       if(_activeTab==='home'){ renderNotifications(); try{ orderHomeTodo(); }catch(e){} }
     }
   }catch(e){}
 }
 /* Signing in or out: drop this manager's list and pull the new one. */
-function ntReset(){ _ntSeen=null; _ntIdx=0; _ntUndo=[]; try{ ntSync(); }catch(e){}
+function ntReset(){ _ntSeen=null; _ntIdx=0; _ntUndo=[]; _bkFixClaimed=null; try{ ntSync(); }catch(e){}
   if(_activeTab==='home'){ try{ renderNotifications(); }catch(e){} } }
 /* Putting every swiped card back. This cannot go through ntReset — that drops
    the cache and then calls ntSync, which reads the profile and puts every
@@ -15173,6 +15178,75 @@ function ntPerfectPicks(out){
       title:'A perfect slate',
       art:ntStat(_ownerMap[Number(p.teamId||0)],nm,`${nGames} / ${nGames}`,'every game called')});
   });
+}
+/* ── A ONE-OFF MAKE-GOOD ─────────────────────────────────────────────────────
+   One card, once, for every manager: a button that puts a point on their Ball
+   Knowledge and takes the card with it.
+
+   IT IS A bkt_ FIELD, WHICH IS WHY THERE IS NO SCORING CODE HERE. bkIQFor sums
+   every field on a profile matching /^bkt_/ into the total, so writing
+   bkt_fix1 is the whole of "give them a point" -- the same line that counts a
+   sealed week's trivia counts this, and every screen that reads the total picks
+   it up with no special case anywhere. It is deliberately not shaped like a
+   week key (bkt_<season>_w<n>), so bkUnsealed walks straight past it.
+
+   IT SETS A VALUE RATHER THAN ADDING ONE. Claiming twice writes the same 1 a
+   second time and the total does not move, so no amount of retrying, double
+   tapping or racing two devices can pay it twice.
+
+   AND IT CANNOT COME BACK. The card is not GENERATED once the field exists,
+   which is the same thing that makes an answered vote card final: Undo and
+   Start Over both restore out of ntSeen, and neither can put back a card ntLive
+   never produced. The field is on the profile document rather than in local
+   storage, so it holds across devices and across signing out. */
+const BK_MAKEGOOD={
+  field:'bkt_fix1',
+  points:1,
+  id:'bkfix:1',
+  title:'Ball Knowledge reimbursement',
+  body:'We are sorry for the inconvenience.',
+  label:'Claim your point',
+};
+/* null until the profile has actually answered. Not false -- false would offer
+   the card to a manager who has already taken it, for as long as the read is in
+   the air, on every cold load. */
+let _bkFixClaimed=null;
+let _bkFixErr='';
+function ntBkMakeGood(out){
+  if(!_me) return;                     // nothing to hand a signed-out visitor
+  if(_bkFixClaimed!==false) return;    // null: not read yet. true: already taken.
+  out.push({kind:'bkfix', day:ntDayOf(Date.now()), pin:3, id:BK_MAKEGOOD.id,
+    title:BK_MAKEGOOD.title, body:BK_MAKEGOOD.body, claim:BK_MAKEGOOD});
+}
+async function ntClaimBk(){
+  if(!_me){ openSignIn(); return; }
+  if(_bkFixClaimed) return;
+  _bkFixErr='';
+  const r=await gflPatchProfile(_me.k1,{[BK_MAKEGOOD.field]:String(BK_MAKEGOOD.points)});
+  /* A write that did not land is not a claim. Leaving the flag alone leaves the
+     card up, which is the honest outcome -- the alternative is a manager who
+     watched their point disappear. */
+  if(!r||r.error){
+    _bkFixErr=(r&&r.error==='quota')?'Firestore is over quota — try again shortly.'
+             :(r&&r.error==='offline')?'You look offline. Try again in a moment.'
+             :'Could not save that. Try again.';
+    renderNotifications(); return;
+  }
+  _bkFixErr='';
+  _bkFixClaimed=true;
+  /* Both caches the meter reads from, so the number moves now rather than on
+     the next refetch. */
+  [_cpRows,_bkProfiles].forEach(rows=>{
+    const me=(rows||[]).find(p=>p&&p.id===_me.k1);
+    if(me) me[BK_MAKEGOOD.field]=String(BK_MAKEGOOD.points);
+  });
+  _ntUndo=_ntUndo.filter(id=>id!==BK_MAKEGOOD.id);
+  try{ ntTrimUndo(); }catch(e){}
+  renderNotifications();
+  try{ orderHomeTodo(); }catch(e){}
+  try{ renderBallKnowledge(); }catch(e){}
+  try{ if(_activeTab==='teams') renderProfile(); }catch(e){}
+  try{ if(_activeTab==='leaders') renderLeaders(); }catch(e){}
 }
 /* ── A VOTE, AND THE WEEK IT RUNS FOR ────────────────────────────────────────
    Tuesday to Tuesday, then the card is gone and the verdict is whatever was in
@@ -15606,7 +15680,7 @@ function ntStandings(out){
 
 function ntAll(){
   const out=[];
-  [ntMotwPick,ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -15842,6 +15916,9 @@ function renderNotifications(){
         ${needVote?`<div class="nt-voted"><i class="fa fa-hand-pointer"></i>Pick a side — this one does not clear until you do.</div>`:''}
         ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`:''}
       ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
+      ${n.claim?`<button class="nt-go" onclick="ntClaimBk()">
+        <i class="fa fa-gift"></i>${n.claim.label}</button>
+        ${_bkFixErr?`<div class="nt-voted"><i class="fa fa-triangle-exclamation"></i>${_bkFixErr}</div>`:''}`:''}
     </div>
     </div>
     ${''/* No arrows. The card is swiped, and a pair of chevrons under it was a
@@ -16412,25 +16489,29 @@ let _bkProfiles=null;
 /* One manager's settled bets, for the IQ bar on their profile. The sportsbook
    only reads your own now, so somebody else's have to be asked for — once per
    owner per session, and the profile repaints when the answer arrives. */
-const _betsByOwner={};
-function betsForOwners(owners){
-  const out=[];
-  let missing=false;
-  owners.forEach(o=>{
-    if(_betsByOwner[o]) { out.push(..._betsByOwner[o]); return; }
-    if(_me&&o===_me.k1){ out.push(...(_bets||[]).filter(b=>b.owner===o)); return; }
-    missing=true;
-    if(_betsByOwner[o]===undefined){
-      _betsByOwner[o]=null;                       // in flight; do not ask twice
-      betQuery(fsEq('owner',o)).then(rows=>{
-        _betsByOwner[o]=rows||[];
-        if(_activeTab==='teams') try{ renderProfile(); }catch(e){}
-      }).catch(()=>{ _betsByOwner[o]=[]; });
-    }
-  });
-  /* Nothing yet for a manager whose bets are still coming: their bar shows
-     without the bet component for a beat rather than showing a wrong total. */
-  return missing&&!out.length?[]:out;
+/* ── THE BETS A BALL KNOWLEDGE TOTAL MAY COUNT ───────────────────────────────
+   ONE LEDGER, NOT A QUERY PER MANAGER. This used to fire a query per owner and
+   grade against whatever had come back, which made the number depend on how
+   far the network had got when the screen happened to draw. Florida Man read
+   154 on one load and 153 on the next: same data, same manager, different
+   moment. And the leaderboard SORTS by this, so a half-read ledger did not
+   just misprint a total, it put the league in the wrong order.
+
+   betLeague already pulls the whole season in one query and caches it, and
+   both money boards read it. Reading the same list here means every screen
+   that shows a Ball Knowledge number is working from one set of facts.
+
+   AND IT HONOURS THE RESET. Every money screen drops bets placed before
+   betsResetBefore -- they are the pre-season test tickets -- and this did not,
+   so Ball Knowledge was scoring two settled bets nothing else in the app will
+   admit exists. One of them is the whole of Florida Man's -1.
+
+   Null means not in yet, which is different from none: callers hold the number
+   back rather than print a total with a piece missing. */
+function bkBetsFor(owners){
+  const all=_betsAll||betsAllCached();
+  if(!all) return null;
+  return all.filter(b=>owners.includes(b.owner)&&betsAfterReset(b));
 }
 
 /* Ball Knowledge is not just the quiz. Three things move it, all of them a
@@ -16501,9 +16582,7 @@ function bkIQFor(teamId){
      lands. Falls back to _bets, which is the right answer when the team being
      looked at is your own. */
   const owners=rows.map(p=>p.id);
-  const src=betsForOwners(owners);
-  src.forEach(b=>{
-    if(!owners.includes(b.owner)) return;
+  (bkBetsFor(owners)||[]).forEach(b=>{
     if(b.status==='won') score+=1;
     else if(b.status==='lost') score-=1;
   });
@@ -16556,6 +16635,11 @@ function bkIQHTML(teamId){
   /* same stale guard: config holds no questions any more, so this hid the bar
      outright. It shows whenever there is a set to be graded against. */
   if(!bkQuestions().length) return '';
+  /* The bet component comes out of the season ledger; without it this meter
+     draws a total with a piece missing and then corrects itself. Ask once and
+     repaint when it lands. The leaderboard does the same at the top of
+     renderLeaders. */
+  if(!_betsAll) betLeague().then(r=>{ if(r&&_activeTab==='teams') try{ renderProfile(); }catch(e){} });
   const iq=bkIQCfg(), v=bkIQFor(teamId), pct=bkIQPct(v), col=bkIQColor(v);
   /* No card of its own any more: this sits at the foot of the profile hero,
      inside the black panel, so the wrapper carries position only. */
@@ -16804,7 +16888,13 @@ function renderLeaders(){
      spread from green to red. */
   const bkRows=rows.map(r=>({...r, v:bkIQFor(r.teamId)}))
     .sort((a,b)=>b.v-a.v||a.name.localeCompare(b.name));
-  bk.innerHTML=`<div class="ld-list">${bkRows.map((r,i)=>{
+  /* HELD BACK UNTIL THE LEDGER IS IN. This board SORTS by the number, so
+     drawing it a piece short shows the league in one order and reshuffles it a
+     moment later -- which is what "it said 154, now it says 153" was. betLeague
+     is already in flight from the top of this function and re-renders when it
+     answers, so the wait is a beat, once. */
+  if(!_betsAll){ bk.innerHTML=`<div class="tab-loading">Working out Ball Knowledge…</div>`; }
+  else bk.innerHTML=`<div class="ld-list">${bkRows.map((r,i)=>{
       const pct=bkIQPct(r.v), col=bkIQColor(r.v);
       return `<div class="ld-row${_me&&String(_me.teamId)===String(r.teamId)?' ld-me':''}">
         <div class="ld-rtop">
