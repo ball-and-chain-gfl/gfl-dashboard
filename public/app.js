@@ -18308,8 +18308,7 @@ function sbAllMarkets(){
      parlay — and only one of three can outscore the other two. sbConflict finds
      the clash through this list, so a market missing from it is a market whose
      own rules do not apply. */
-  try{ const d=sbWeekData(); if(d){ if(d.marks) out.push(...d.marks); if(d.pick) out.push(...d.pick);
-    if(d.duel) out.push(d.duel); } }catch(e){}
+  try{ const d=sbWeekData(); if(d){ if(d.marks) out.push(...d.marks); if(d.pick) out.push(...d.pick); } }catch(e){}
   return out;
 }
 /* Markets that fill a fixed number of seats. However long the price looks, a
@@ -18643,8 +18642,7 @@ function sbWeekData(){
   });
   buys.sort((x,y)=>y.bid-x.bid);
   return {book,season,week,live,games,buys:buys.slice(0,8),
-    marks:sbWeekMarkets(book,games,week),pick:sbPickEmMarkets(book,week),
-    duel:sbDuelMarket(book,week)};
+    marks:sbWeekMarkets(book,games,week),pick:sbPickEmMarkets(book,week)};
 }
 
 /* ── SIX MARKETS ON THE WEEK ─────────────────────────────────────────────────
@@ -18784,74 +18782,6 @@ function sbWeekMarkets(book,games,week){
    scored, and a market that had to be re-derived from today's projections could
    not be graded once those projections had moved on. The ids in the key mean
    the ticket knows who it was about. */
-/* ── A ONE-OFF HEAD TO HEAD ──────────────────────────────────────────────────
-   Asked for by name, for one week, between two named players. Everything about
-   it that could have been new machinery is deliberately not.
-
-   THE KEY IS A PICK 'EM KEY. wk<week>-pe<pid>_<pid>, the same shape the five
-   generated groups use, because betWeekResult's -pe branch already settles any
-   group of two or more off the week's started scores. A bespoke key would have
-   needed a bespoke settlement in app.js AND in settle-bets.mjs, and a weekly
-   market with no settlement is the FAAB market all over again: it graded null,
-   sat open for good, and took the stake with it. Two pids cannot collide with a
-   generated trio's key, so it costs nothing to share the shape.
-
-   IT LOCKS AND IT LEAVES ON ITS OWN. Locking is sbWeekLocked reading the week
-   out of the key, so this closes when the week-1 board closes -- at the first
-   week-1 kickoff, which in 2026 is the Wednesday opener. Note that is the
-   SEASON opener rather than either player's own game: Stevenson plays that
-   Wednesday, Pollard the following Sunday, and the whole weekly board shuts at
-   the first whistle regardless. And it is only built on the season and week it
-   names, so when the board rolls forward it is simply not there any more.
-
-   WHAT SETTLES IT. Started scores, like every Pick 'Em -- the lineups feed
-   records what a STARTED player scored and nothing else. Both are in a starting
-   RB slot as this ships. If one is benched he scores nothing here and loses; if
-   BOTH are benched there is no result at all, which is the case the -pe branch
-   used to answer null to and now pushes, so a stake can never be stranded. */
-const SB_DUEL={
-  season:'2026', week:1,
-  title:"Tony MF Pollard v. Rha",
-  sub:"Two running backs, one week, no help from anybody else. Settles on started scores.",
-  pids:[3916148,4569173],
-};
-function sbDuelSide(book,rost,proj,pid){
-  let found=null;
-  Object.keys(rost||{}).forEach(tid=>{
-    (rost[tid]||[]).forEach(e=>{
-      if(Number(e.pid)!==Number(pid)) return;
-      const team=book.rows.find(r=>r.tid===Number(tid))||{};
-      const p=(proj||{})[String(pid)]||null;
-      const wk=(typeof e.wkProj==='number'&&e.wkProj>0)?e.wkProj:(p?p.wk:0);
-      found={pid:Number(pid),wk,
-        name:(p&&p.name)||e.n||pName(pid),
-        pos:SLOT_NAMES[e.slot]||'',
-        team:team.name||'',
-        benched:BENCH_SLOTS.includes(e.slot)};
-    });
-  });
-  return found;
-}
-function sbDuelMarket(book,week){
-  if(String(sbBoardSeason())!==String(SB_DUEL.season)) return null;
-  if(Number(week)!==Number(SB_DUEL.week)) return null;
-  const proj=sbPlayerProj(week);
-  const rost=sbRosters(sbBoardSeason(),week);
-  if(!proj||!rost) return null;
-  const sides=SB_DUEL.pids.map(p=>sbDuelSide(book,rost,proj,p));
-  /* a player who has been dropped since this was written takes the market with
-     him rather than pricing a name nobody holds */
-  if(sides.some(s=>!s)) return null;
-  const pids=SB_DUEL.pids.slice().sort((a,b)=>a-b);
-  const key='wk'+week+'-pe'+pids.join('_');
-  const probs=sbTopProbs(sides.map(s=>s.wk),week*104729+61);
-  return sbOutrightAny(key,SB_DUEL.title,
-    SB_DUEL.sub+' Projected '+sides.map(s=>s.wk.toFixed(1)).join(' and ')+' this week.',
-    sides.map(s=>({k:'p'+s.pid,name:s.name,
-      av:playerImg(s.pid,22,s.name),
-      ab:s.pos+' \u00b7 '+s.team+(s.benched?' \u00b7 benched':'')})),
-    probs,'fa-user-check',1,'Player');
-}
 const PICKEM_GROUPS=5;
 const PICKEM_MIN_PROJ=10;      // below this a week is noise, not a read
 function sbPickEmMarkets(book,week){
@@ -18970,12 +18900,6 @@ function sbWeekHTML(){
         ${pick.map(sbMarketHTML).join('')}
       </div></div>
     </div>`:'';
-  /* ONE FOLD, NOT TWO. This was wrapped in its own dropdown the way the Pick
-     'Em groups are, but that wrapper exists to gather five markets under one
-     heading -- and a wrapper around a single market whose title is the same
-     string just makes a manager open the same words twice to reach a price.
-     sbMarketHTML is already a fold with that title on it. */
-  const duelHTML=d.duel?sbMarketHTML(d.duel):'';
   const wkOpen=!!_sbOpenMk['wk-board'];
   return `<div class="sb-market sb-fold${wkOpen?' open':''}" data-mk="wk-board">
       <button class="sb-mhead" onclick="sbToggleMk('wk-board')" aria-expanded="${wkOpen}">
@@ -18990,7 +18914,6 @@ function sbWeekHTML(){
         <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
       </div></div>
     </div>
-    ${duelHTML}
     ${pickHTML}
     ${marks}`;
 }
