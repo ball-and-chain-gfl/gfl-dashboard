@@ -5891,7 +5891,8 @@ function renderForecast(info){
   const projByOwner={};
   Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
   const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,
-    (A&&B)?schedOpenMu(A,B,fcWk):null,_liveProj);
+    (A&&B)?schedOpenMu(A,B,fcWk):null,_liveProj,
+    nflWeekDone(fcWk,info.season)===true);
   const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
     <div class="fc-odds-t">
@@ -5906,21 +5907,12 @@ function renderForecast(info){
       <span>${amFmt(amFromProb(Math.min(0.95,now.p+0.025)))}</span></div>
   </div>`;
 
-  /* season points per game by slot, both sides, so the mismatch is visible */
-  const posRows=(()=>{
-    const rows=fcPositional(info,mine,oppId);
-    if(!rows.length) return '';
-    return `<div class="fc-pos">
-      <div class="fc-pr fc-ph"><span>${ab(meT)}</span><span>Position</span><span>${ab(oppT)}</span></div>
-      ${rows.map(r=>{
-        const meBetter=r.a>r.b, tie=r.a===r.b;
-        return `<div class="fc-pr">
-          <span class="fc-v ${tie?'':meBetter?'good':'bad'}">${r.a.toFixed(1)}</span>
-          <span class="fc-l">${r.pos}</span>
-          <span class="fc-v ${tie?'':meBetter?'bad':'good'}">${r.b.toFixed(1)}</span>
-        </div>`;}).join('')}
-    </div>`;
-  })();
+  /* The points-per-position table that used to sit here is gone. It compared
+     two season averages by slot, between the graph and the lineups -- and the
+     lineups directly underneath it already name the actual players with their
+     actual numbers, which is the same comparison made of the real thing rather
+     than of an average. On a phone it was a screen of rows to scroll past to
+     reach them. fcPositional is kept; nothing else calls it yet. */
 
   /* Both of these fold. What the game does to the season and who is starting
      for whom are things you go and look at, not things you need in front of
@@ -5943,7 +5935,6 @@ function renderForecast(info){
       ${logoImg(oppT.id,'big4-logo')}
     </div>
     ${bar}
-    ${posRows}
     <div class="fc-lu">
       <div class="fc-lu-h">Starting lineups</div>
       ${fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT),
@@ -7270,12 +7261,27 @@ function wpAt(a,b,projA,projB,f,mu0,lA,lB){
      Present, they are the difference between "a thirty point lead" and "a
      thirty point lead against a roster that has not started yet". */
   const pa=projA||0, pb=projB||0;
-  /* Recorded in POINTS. For about twenty minutes of week one they were written
-     as a FRACTION of a team's season scoring, so anything at or under 1.5 is
-     read back that way -- a real remaining projection is either far larger or
-     so near zero that the two readings agree anyway. */
-  const asPts=(v,p)=>(v==null)?null:(v<=1.5?Math.max(0,Math.min(1,v))*p:v);
-  const rA=asPts(lA,pa), rB=asPts(lB,pb);
+  /* ── RECORDED IN POINTS. FULL STOP. ────────────────────────────────────────
+     This used to read anything at or under 1.5 as a FRACTION of the side's
+     projection, a shim for the twenty minutes of week 1 written that way. The
+     reasoning was that a real remaining projection is either far larger or so
+     near zero that both readings agree.
+
+     The second half of that is false, and it is false at the worst possible
+     moment. A side with 0.24 points left -- a kicker's last kneel-down, the
+     back end of a finished game -- is not near enough to zero for it to matter
+     WHICH zero: read as a fraction it becomes 24% of a 124 point projection,
+     which is 29.9 points, and a team losing by 3.9 is suddenly winning by 26.
+
+     That is exactly what happened to The Bryan Football Team against Lebron's
+     3rd Leg in week 1. Final score 152.46 to 156.36 -- a loss -- and the graph
+     finished on 98.4% because of this line. Not imprecise. Inverted.
+
+     Every endgame reading passes through this window, so the shim was going to
+     do that to somebody every single week. The twenty minutes of fractions are
+     cleaned out of the stored series instead; there were three readings and
+     they were all in the same five-minute bucket on the Thursday. */
+  const rA=(lA==null)?null:Math.max(0,lA), rB=(lB==null)?null:Math.max(0,lB);
   const remA=(rA!=null)?rA:left*pa;
   const remB=(rB!=null)?rB:left*pb;
   /* How much football is left in THIS fixture, which is what its spread rides
@@ -7356,7 +7362,13 @@ function wpSlateProgress(series,projByOwner){
    into this team's chance of winning at that minute. Opens on the pre-game
    number so the line starts where the projection had it rather than at a coin
    flip. */
-function wpCurve(series,projByOwner,ownerA,ownerB,mu0,projFull){
+/* `decided` says the week's football is finished. A probability is an answer to
+   "what might still happen", and once nothing can, it stops being the right
+   kind of thing to draw: the curve should land on the result. It cannot get
+   there on its own -- wpAt clamps to [0.001,0.999] so the model never claims
+   certainty mid-game, which is right while a game is on and wrong the moment
+   the last one ends. So the final point is set to the scoreline. */
+function wpCurve(series,projByOwner,ownerA,ownerB,mu0,projFull,decided){
   const projA=projByOwner[ownerA]||0, projB=projByOwner[ownerB]||0;
   const open=wpAt(0,0,(projFull&&projFull[ownerA])||projA,
     (projFull&&projFull[ownerB])||projB,0,mu0);
@@ -7407,6 +7419,13 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0,projFull){
        starts moving mid-game this is the line that would use it. */
     pts.push({t,p:wpAt(a,b,fullA,fullB,f,mu0,lA,lB),a,b,f,q:q!=null?q:null});
   });
+  /* The result, not a forecast of it. A tie is left at even, which is what a
+     tie is. */
+  if(decided&&pts.length){
+    const last=pts[pts.length-1];
+    last.p=(last.a===last.b)?0.5:(last.a>last.b?1:0);
+    last.done=true;
+  }
   return pts;
 }
 /* ── WHERE A WEEK'S CURVE COMES FROM ─────────────────────────────────────────
@@ -9576,8 +9595,11 @@ function schedPlayedDetailHTML(meOwner,oppOwner,season,week,oppName){
   }catch(e){}
   const series=wpSeriesFor(season,week);
   const graph=series
+    /* This drawer only ever opens on a week that has been PLAYED -- it is
+       headed "How it was won" and sits beside the final score -- so its curve
+       always ends on the result. */
     ? wpGraphSVG(wpCurve(series,projByOwner,meOwner,oppOwner,openMu,
-        (series===_liveSeries)?_liveProj:null),abA,abB,{h:112})
+        (series===_liveSeries)?_liveProj:null,true),abA,abB,{h:112})
     : `<div class="sd-msg">No minute-by-minute record for that week.</div>`;
   return `<div class="sd-h">Top performer · week ${week}</div>
     <div class="sd-tops">${side(meT,a,abA)}${side(oppT,b,abB)}</div>
@@ -11073,6 +11095,14 @@ const nflWeekBegun=(week,season)=>{
   const d=nflWeekGames(week,season);
   if(!d||!Array.isArray(d.games)||!d.games.length) return null;
   return d.games.some(g=>g&&(g.s==='in'||g.s==='post'));
+};
+/* The other end of the same question: is there any football left in this week.
+   Null until the digest is in hand, the same as nflWeekBegun -- an unknown is
+   not a no, and the callers treat it as unknown. */
+const nflWeekDone=(week,season)=>{
+  const d=nflWeekGames(week,season);
+  if(!d||!Array.isArray(d.games)||!d.games.length) return null;
+  return d.games.every(g=>g&&g.s==='post');
 };
 /* ONE TEAM'S WEEK: what it is worth, what is banked, what is left.
 
