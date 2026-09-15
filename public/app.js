@@ -19222,10 +19222,35 @@ async function loadDashboard(){
     const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t.name]));
     _videos=ytBest(ytData);
 
-    const playedWeeks=[...new Set(
+    /* ── totalPoints IS A SETTLEMENT FIGURE, AND THIS GATE READS IT ──────────
+       It is 0.00 on every fixture until ESPN closes the scoring period, which
+       is the Tuesday morning after the football. So through an entire week of
+       play this found NO played weeks, maxPlayedWeek stayed 0, and the per-week
+       player data below was never fetched at all.
+
+       Everything built on weeklyData therefore read as empty while a week was
+       actually being played: Trade ROI scored every received player at 0 points
+       because allPts had nothing to sum, and Waiver ROI's points column with
+       it. The metric looked broken and was in fact starved.
+
+       A week counts as played once its FOOTBALL has started, which the NFL
+       scoreboard answers directly. The settlement figure stays as a second way
+       in, because it is the only thing that speaks for a season already over
+       and for any week the digest cannot be reached for. */
+    const scoredWeeks=[...new Set(
       _allMatchups.filter(mu=>(mu.home?.totalPoints||0)>0||(mu.away?.totalPoints||0)>0)
         .map(mu=>mu.matchupPeriodId)
-    )].sort((a,b)=>b-a);
+    )];
+    /* ESPN's own scoring-period pointer, which arrives in the same mMatchup
+       response and needs no second request and no waiting. It advances as the
+       season does, so it names the week being played while it is being played
+       -- which is precisely the week the settlement figure cannot speak for
+       yet. Asking the NFL digest instead would have been the more direct
+       question and the wrong one here: nflWeekGames answers null until its
+       fetch lands, and boot runs once and does not come back. */
+    const latest=Number(schedData?.status?.latestScoringPeriod)||0;
+    if(latest>0) for(let w=1;w<=latest;w++) scoredWeeks.push(w);
+    const playedWeeks=[...new Set(scoredWeeks)].sort((a,b)=>b-a);
     _currentWeek=playedWeeks[0]||1;
     const maxPlayedWeek=playedWeeks[0]||0;
 
