@@ -114,6 +114,11 @@ jobs:
       # rebuilt — so it is sealed when the slate locks and summed thereafter.
       - name: ball knowledge trivia is cumulative
         run: node scripts/test-bktrivia.mjs
+      # Answers are stored by INDEX, so the order of the week's set is part of
+      # the grading key. Building them in arrival order made the same five
+      # questions come back differently depending on which fetch landed first.
+      - name: the week's questions keep their seeded order
+        run: node scripts/test-bkorder.mjs
       # The same class across all four lifting scripts, plus the rule that a
       # pre-flight test may not supply state the script it guards is missing --
       # which is how archive-charts got a green light over a ReferenceError.

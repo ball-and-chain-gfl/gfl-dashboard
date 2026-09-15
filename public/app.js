@@ -13528,16 +13528,36 @@ function bkBuildWeek(season,week,n){
   /* each question gets its own stream, or one generator's draws would shift
      every question after it whenever its data changed */
   const order=bkShuffle(bkRand(seed),BK_KINDS.map((_,i)=>i));
-  for(let pass=0;pass<3&&out.length<(n||5);pass++){
+  /* ── THE ORDER IS THE SEED'S, NOT THE ORDER THEY HAPPENED TO BUILD IN ──────
+     This used to push each question as it succeeded, across three passes. A
+     generator declines while its pool or bios are still in the air, so a kind
+     that failed on pass one and built on pass two landed BEHIND kinds the seed
+     had put after it. Same five questions, different order, depending on which
+     fetch came back first.
+
+     Answers are stored by INDEX -- ans[0], ans[1] -- so a reordered set grades
+     every stored answer against a different question. That is the whole of the
+     Ball Knowledge score moving between page loads: BFT's five answers scored
+     +3, +2 and -1 within an hour without the answers or the underlying data
+     changing at all. The questions are about LAST season, which is frozen; only
+     the order was moving.
+
+     Collected by kind and emitted in the seeded order, the set is the same on
+     every load whatever order the data arrives in. */
+  const got={};
+  const count=()=>Object.keys(got).length;
+  for(let pass=0;pass<3&&count()<(n||5);pass++){
     for(const i of order){
-      if(out.length>=(n||5)) break;
+      if(count()>=(n||5)) break;
+      if(got[i]) continue;
       let q=null;
       try{ q=BK_KINDS[i](bkRand(seed+Math.imul(i+1,0x9E3779B1)+pass*7919),week); }catch(e){}
-      if(q&&!out.some(x=>x.kind===q.kind)) out.push(q);
+      if(q&&!Object.keys(got).some(k=>got[k].kind===q.kind)) got[i]=q;
     }
-    if(!out.length) break;
+    if(!count()) break;
   }
-  return out;
+  order.forEach(i=>{ if(got[i]) out.push(got[i]); });
+  return out.slice(0,n||5);
 }
 
 /* ── BALL KNOWLEDGE: the question engine ─────────────────────────────────────
