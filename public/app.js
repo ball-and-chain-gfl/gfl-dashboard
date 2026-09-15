@@ -7038,6 +7038,36 @@ function liveWpOf(m,aFirst){
    each reading knows what both models predicted was still to come, and the
    final score says which was right. See scripts/calibrate-usage.mjs. */
 function liveNote(arr,t,a,b,p,la,lb,fa,fb){
+  /* ── A SIDE THAT HAS SCORED DOES NOT UN-SCORE ───────────────────────────────
+     A fantasy score genuinely FALLS during play, all the time: a defence drops
+     a tier when it lets another touchdown in, an interception is minus two. So
+     a reading going backwards is not suspicious on its own and must be kept --
+     nearly a third of week 1's readings do it and almost all of them are real.
+
+     Falling to NOTHING is different. A team on 135 points does not become a
+     team on 0; that is the shape of a roster payload that carried no scoring at
+     all -- an empty response, or one answered for the wrong scoring period --
+     and liveSideScore has no way to tell the difference between "nobody scored"
+     and "nobody was in the response". It came back 0 either way, the score had
+     changed, so the recorder took it for news and wrote it down.
+
+     Seven of those went into week 1, one per matchup, every one of them at a
+     time when no game was on the field: 14:15 and 19:55 on the Thursday and
+     14:50 on the Monday. Each is a cliff to zero and back in the middle of a
+     finished week, and tomorrow's archiver would have frozen them in.
+
+     Both writers -- the browser and scripts/poll-live.mjs, which lifts this
+     function -- come through here, so the guard belongs here and nowhere
+     else. */
+  if(arr.length){
+    let hiA=0,hiB=0;
+    for(let i=0;i<arr.length;i++){
+      const ra=Number(arr[i][1])||0, rb=Number(arr[i][2])||0;
+      if(ra>hiA) hiA=ra;
+      if(rb>hiB) hiB=rb;
+    }
+    if((!(a>0)&&hiA>0)||(!(b>0)&&hiB>0)) return false;
+  }
   const prev=arr[arr.length-1];
   if(prev&&prev[0]>=t){
     if(prev[0]!==t) return false;

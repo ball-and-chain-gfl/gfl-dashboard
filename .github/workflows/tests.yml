@@ -90,6 +90,12 @@ jobs:
       # was lost. The bundle is run against a side mid-game, not just scanned.
       - name: the poller can still lift what it runs
         run: node scripts/test-poller-lift.mjs
+      # A side that has scored does not un-score. Week 1 took seven readings
+      # that crater a matchup to 0-0 -- an empty roster payload, believed.
+      # The trap is that the obvious fix is monotonicity, which is wrong:
+      # defences bleed tiers and interceptions cost two, so real scores fall.
+      - name: a reading never craters a matchup to nothing
+        run: node scripts/test-livenote.mjs
       # The same class across all four lifting scripts, plus the rule that a
       # pre-flight test may not supply state the script it guards is missing --
       # which is how archive-charts got a green light over a ReferenceError.
