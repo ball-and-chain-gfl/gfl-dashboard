@@ -90,7 +90,7 @@ const seal = grab('async function bkSealWeek(){');
 ok('it requires a signed-in manager', /if\(!_me/.test(seal), true);
 ok('it requires the slate to be locked', /pkLocked\(\)/.test(seal), true);
 ok('it refuses to write twice', /row\[key\]!=null/.test(seal), true);
-ok('it refuses to grade against an empty set', /if\(!qs\.length\) return;/.test(seal), true);
+ok('it refuses to grade against a SHORT set', /qs\.length<BK_WEEK_QS/.test(seal), true);
 ok('it patches only _me', /gflPatchProfile\(_me\.k1/.test(seal), true);
 ok('and rolls back the local seal if the write fails', /delete row\[key\]/.test(seal), true);
 
@@ -101,9 +101,17 @@ ok('one sealed, two unplayed', M.bkUnsealed({ 'bkt_2026_w1': '5' }), -10);
 ok('a sealed week is never charged twice',
   M.bkUnsealed({ 'bkt_2026_w1': '-5', 'bkt_2026_w2': '3', 'bkt_2026_w3': '0' }), 0);
 
-head('a week they DID answer is left alone rather than guessed at');
-ok('answers on file, no seal, no charge',
-  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), 0);
+head('every question left blank is minus one, counted one at a time');
+ok('answered one of five, four blanks',
+  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -4);
+ok('answered two of five, three blanks',
+  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a', 1: 'b' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -3);
+ok('answered all five, nothing to charge',
+  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e' }),
+    'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), 0);
+ok('answering one does not buy immunity for the other four',
+  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' })
+    !== M.bkUnsealed({ 'bkt_2026_w2': '0', 'bkt_2026_w3': '0', 'bk_2026_w1': '{}' }), true);
 ok('an empty answer object still counts as absent',
   M.bkUnsealed({ 'bk_2026_w1': '{}', 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -5);
 ok('unparseable answers count as absent',

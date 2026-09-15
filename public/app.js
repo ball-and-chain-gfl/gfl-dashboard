@@ -13751,7 +13751,15 @@ function bkUnsealed(p){
     const raw=p[bkAnsKeyFor(w)];
     let n=0;
     if(raw){ try{ n=Object.keys(JSON.parse(raw)||{}).length; }catch(e){ n=0; } }
-    if(!n) s-=BK_WEEK_QS;                           // never played it
+    /* EVERY QUESTION LEFT BLANK IS MINUS ONE, counted one at a time rather
+       than as a single charge for the week. Answering two of five and
+       answering none of them are not the same thing, and a flat penalty for
+       the set made them identical -- it only charged a manager who had touched
+       nothing at all, so answering one question bought immunity for the other
+       four. What the two answered were WORTH cannot be recovered once the
+       questions are gone; how many were skipped can, and it is the half that
+       was being thrown away. */
+    s-=Math.max(0,BK_WEEK_QS-n);
   }
   return s;
 }
@@ -13786,8 +13794,19 @@ async function bkSealWeek(){
   const key=bkScoreKey(bkWeek());
   const row=(_bkProfiles||[]).find(p=>p&&p.id===_me.k1);
   if(!row||row[key]!=null) return;
+  /* A FULL SET OR NOTHING. bkBuildWeek runs three passes and keeps whatever
+     BUILDS, and a generator declines while its pool or bios are still in the
+     air -- so an early paint can hand back four questions instead of five, and
+     bkQuestions deliberately does not cache a short set. Sealing against one
+     freezes a score that is missing a question, permanently.
+
+     That is not hypothetical: it happened within the hour this shipped. BFT had
+     five answers in, was reading 153, and sealed at 2 -- a number five answered
+     questions cannot produce, since right minus wrong over five is always odd.
+     Four questions had built, three right and one wrong, and the fifth never
+     got to count. Their seal was cleared and the guard is this line. */
   let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){}
-  if(!qs.length) return;                       // nothing to grade against yet
+  if(qs.length<BK_WEEK_QS) return;             // a short set is not the week
   const val=bkLiveTrivia(row);
   row[key]=String(val);                        // locally first, so it seals once
   try{ await gflPatchProfile(_me.k1,{[key]:String(val)}); }catch(e){ delete row[key]; }
