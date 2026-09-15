@@ -2877,23 +2877,6 @@ async function loadAllDrafts(){
   _draftAllCache={rows,pickRows,teamDrafts,ownerTotals,ownerCounts};
   return _draftAllCache;
 }
-/* FAAB left, shown beside the team name on a profile. ESPN reports the budget
-   on league settings and the spend on each team, so remaining is the
-   difference; the bar is what is left, not what is gone. */
-function faabChipHTML(t){
-  const budget=_seasonMeta[getSeason()]?.faabBudget||0;
-  if(!budget||!t) return '';
-  const spent=Math.max(0,Math.min(budget,t.budgetSpent||0));
-  const left=budget-spent, pct=budget?left/budget*100:0;
-  const col=pct>=50?'var(--green)':pct>=20?'var(--accent)':'var(--red)';
-  // vertical gauge on the right of the hero: it fills from the bottom, so the
-  // column height reads directly as budget remaining
-  return `<div class="prof-faab" title="$${spent} of $${budget} spent">
-    <span class="pf-v" style="color:${col}">$${left}</span>
-    <div class="pf-bar"><div class="pf-fill" style="height:${pct.toFixed(1)}%;background:${col}"></div></div>
-    <span class="pf-l">FAAB</span>
-  </div>`;
-}
 function draftRowTeam(r){
   if(r.owner) return (_franchises.find(f=>f.owner===r.owner)?.name)||(_seasonMeta[r.season]?.names?.[r.owner]?.name)||`Team ${r.teamId}`;
   return (_teams.find(t=>t.id===r.teamId)?.name)||`Team ${r.teamId}`;
@@ -10261,7 +10244,6 @@ async function renderProfile(){
       </div>
       ${bkIQHTML(id)}
     </div>
-    <!-- FAAB gauge removed from the hero on request -->
     </div>
     ${legacyReportHTML(owner)}
     <div class="prof-top2">
@@ -18648,21 +18630,7 @@ function sbWeekData(){
       overP:amFromProb(0.5+0.024), underP:amFromProb(0.5+0.024),
       winA:done?hp>ap:null};
   }).filter(Boolean);
-  // waiver market: the biggest FAAB spends of that week. Only when the
-  // pickups on hand are from this board's season — week 1 of one year tells
-  // you nothing about week 1 of another, and pricing it as though it did put
-  // last year's bids on this year's board.
-  const buys=[];
-  if(String(_cmBreakdownSeason)===String(season))
-  Object.entries(_cmBreakdown||{}).forEach(([tid,bd])=>{
-    ((bd.detail&&bd.detail.waiverPickups)||[]).forEach(w=>{
-      if(w.week!==week) return;
-      const r=book.rows.find(x=>x.tid===Number(tid));
-      buys.push({pid:w.pid,bid:w.bid,est:w.est,pts:w.pts,team:r?r.name:('Team '+tid),owner:r?r.owner:null});
-    });
-  });
-  buys.sort((x,y)=>y.bid-x.bid);
-  return {book,season,week,live,games,buys:buys.slice(0,8),
+  return {book,season,week,live,games,
     marks:sbWeekMarkets(book,games,week),pick:sbPickEmMarkets(book,week)};
 }
 
