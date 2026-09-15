@@ -82,16 +82,27 @@ M.setQs(QS);
 head('sealed weeks are summed, and the live week is not double counted');
 const src = grab('function bkIQFor(teamId){');
 ok('it sums every sealed week', /\/\^bkt_\/\.test\(k\)/.test(src), true);
-ok('and grades nothing itself', /bkLiveTrivia\(p\)/.test(src), false);
+/* live grading is back, and correct, now that bkBuildWeek emits in the seeded
+   order -- but only for a week that was SUBMITTED and not yet sealed */
+ok('it grades a submitted, unsealed week live',
+  /p\[bkScoreKey\(bkWeek\(\)\)\]==null&&p\[bkSubKey\(\)\]/.test(src), true);
 ok('the old current-week-only grading is gone',
   /qs\.forEach\(\(q,i\)=>\{[\s\S]{0,120}score\+=/.test(src), false);
 
-head('nothing grades trivia except the submit button');
+head('submit is what seals a week');
 const app = require_src();
-ok('the load-time sealer is gone', /bkSealWeek/.test(app), false);
 ok('bkSubmit writes the score itself', /\[bkScoreKey\(bkWeek\(\)\)\]:sealed/.test(app), true);
 ok('and it grades the set it has in hand',
   /qs\.reduce\(\(n,q,i\)=>n\+\(ans\[i\]===q\.correct\?1:-1\),0\)/.test(app), true);
+
+head('the league seal writes down what would otherwise be lost');
+const seal = grab('async function bkSealLeague(){');
+ok('it refuses a short set', /qs\.length<BK_WEEK_QS/.test(seal), true);
+ok('it only touches managers who submitted', /p\[bkSubKey\(\)\]/.test(seal), true);
+ok('and only where the score is missing', /p\[key\]==null/.test(seal), true);
+ok('it writes exactly one field', /gflPatchProfile\(p\.id,\{\[key\]:val\}\)/.test(seal), true);
+ok('and rolls back locally if the write fails', /delete p\[key\]/.test(seal), true);
+ok('it cannot run twice at once', /_bkSealBusy/.test(seal), true);
 
 head('a past week nobody submitted is a flat minus five');
 M.setWeek(4);

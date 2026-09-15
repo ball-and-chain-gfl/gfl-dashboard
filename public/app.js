@@ -13823,6 +13823,43 @@ function bkLiveTrivia(p){
    So a week submitted before sealing existed cannot be recovered by regrading,
    and is not going to be guessed at. It stays unsealed, worth nothing, until
    somebody writes the real number it earned. */
+/* ── SEAL THE WEEK FOR EVERYBODY WHO SUBMITTED IT ────────────────────────────
+   From here on bkSubmit seals at the press of the button, so this has nothing
+   to do. It exists for the league as it stands TODAY: eleven managers submitted
+   week 1 before sealing existed, so they carry answers and no score, and the
+   moment week 1 rolls over their questions are gone and those scores can never
+   be worked out again. They have to be written down before Tuesday.
+
+   It writes other managers' rows, which nothing else here does. That is the
+   point -- a score that depends on its owner happening to open the app before
+   the rollover is a score half the league loses -- and it is safe in the only
+   ways that matter: it writes ONE field, only where that field is missing,
+   only for a manager who actually submitted, and only when a full set of five
+   questions is in hand to grade against. Grading is deterministic now that
+   bkBuildWeek emits in the seeded order, so every browser that runs this
+   computes the same numbers.
+
+   Once it has run there is nothing left with a missing score and it is a no-op
+   for the rest of time. */
+let _bkSealBusy=false;
+async function bkSealLeague(){
+  if(_bkSealBusy||!_me||!(_CFG.ballKnowledge||{}).reveal) return;
+  const rows=_bkProfiles||[]; if(!rows.length) return;
+  let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){}
+  if(qs.length<BK_WEEK_QS) return;              // a short set grades nothing
+  const key=bkScoreKey(bkWeek());
+  const todo=rows.filter(p=>p&&p.id&&p[bkSubKey()]&&p[key]==null);
+  if(!todo.length) return;
+  _bkSealBusy=true;
+  for(const p of todo){
+    const val=String(bkLiveTrivia(p));
+    p[key]=val;                                  // locally first, so it seals once
+    try{ await gflPatchProfile(p.id,{[key]:val}); }catch(e){ delete p[key]; }
+  }
+  _bkSealBusy=false;
+  try{ if(_activeTab==='leaders') renderLeaders(); }catch(e){}
+  try{ if(_activeTab==='teams') renderProfile(); }catch(e){}
+}
 let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
 
 /* _me holds only the two keys and a team, so the saved answers have to be read
@@ -14028,6 +14065,9 @@ function bkReopen(qi){ _bkOpen=(_bkOpen===qi?null:qi); renderBallKnowledge(); }
 function renderBallKnowledge(){
   const el=document.getElementById('bk-body'); if(!el) return;
   bkSync();                                  // fire and forget; re-renders if it finds saved answers
+  /* Write down every submitted week that has no score yet, before the rollover
+     takes its questions away. A no-op once it has run. */
+  try{ bkSealLeague(); }catch(e){}
   const sec=document.getElementById('bk-sec');
   const qs=bkQuestions();
   if(!qs.length){ if(sec) sec.style.display='none'; return; }
@@ -16387,12 +16427,19 @@ function bkIQFor(teamId){
        which is what a blank after the whistle is worth. */
     Object.keys(p).forEach(k=>{ if(/^bkt_/.test(k)) score+=Number(p[k])||0; });
     score+=bkUnsealed(p);                           // past weeks nobody submitted
-    /* NOTHING IS GRADED HERE AT ALL. A week's trivia is worth what bkSubmit
-       sealed it at and nothing else; an unsealed week is worth zero until it is
-       past, and then bkUnsealed charges the flat five for never submitting.
-       Live grading used to sit on this line and it is what made the number
-       move between page loads -- the stored answers were steady, the questions
-       underneath them were not. */
+    /* LIVE GRADING IS BACK, because the thing that made it wrong is fixed.
+       It moved between page loads because bkBuildWeek emitted questions in the
+       order they happened to BUILD, and answers are stored by index -- so the
+       same five questions graded differently depending on which fetch landed
+       first. The order is the seed's now and the set is identical every time,
+       which makes grading the stored answers deterministic.
+
+       It only ever applies to a SUBMITTED week that has not been sealed yet:
+       everything before that is a draft and worth nothing, and everything after
+       reads the sealed number. In practice that is the migration window -- the
+       league submitted week 1 before sealing existed -- and from here bkSubmit
+       seals at the press, so this line stops mattering. */
+    if(p[bkScoreKey(bkWeek())]==null&&p[bkSubKey()]) score+=bkLiveTrivia(p);
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);
   });
