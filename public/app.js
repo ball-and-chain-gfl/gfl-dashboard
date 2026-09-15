@@ -1000,7 +1000,7 @@ function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0);
    Sub-tabs, filters and sort headers re-render whole panels, so the browser's
    scroll anchoring can leave you somewhere else on the page. Pin the control
    you clicked: measure where it sits in the viewport, then put it back. */
-const STILL_SEL='.tab-btn,.filter-btn,.week-btn,.hl-tab,.dr-vtab,.dr-sbtn,.bracket-btn,.sb-odds,'
+const STILL_SEL='.tab-btn,.filter-btn,.week-btn,.dr-vtab,.dr-sbtn,.bracket-btn,.sb-odds,'
   +'.dm-sort,thead th,.tc-scope,.trade-scope,.dr-scope,.lq-sort,.liq-sort,.st-sort,summary';
 function keepStill(el){
   if(!el) return;
@@ -1502,141 +1502,11 @@ function initSortable(root){
     });
   });
 }
-function topStarter(week,teamId){
-  const wd=_weeklyData[week]; if(!wd) return null;
-  let best=null;
-  for(const pid in wd){
-    const e=wd[pid];
-    if(e.team===teamId&&e.started&&(best==null||e.pts>best.pts)) best={pid,pts:e.pts,n:e.n||_playerNames[pid]||null};
-  }
-  return (best&&best.n)?best:null;
-}
-
-/* Headline puns keyed to team names. Each entry is a short pun/reference
-   headline (h) + a one-sentence description (d) built from the matchup context
-   (c.W winner, c.L loser, c.score, c.topW top performer, c.diff margin). The
-   headline is ALWAYS a play on a name/player in the matchup — never generic. */
-const TEAM_PUNS=[
-  {re:/bryan football/i,e:[
-    {h:"Bryan's Song",d:c=>`No logo, no nickname, no problem — the Bryan Football Team rolled ${c.L} ${c.score}.`},
-    {h:"The Bryan Identity",d:c=>`The Bryan Football Team knew exactly who they were, erasing ${c.L} ${c.score}.`},
-    {h:"Brand-Name Beatdown",d:c=>`The most generic name in the league delivered the least generic result over ${c.L}, ${c.score}.`}]},
-  {re:/bikini|goober|sponge/i,e:[
-    {h:"Sweet Victory",d:c=>`Straight out of the Bubble Bowl — the Goobers nose-fluted ${c.L} ${c.score}.`},
-    {h:"Krabby Patty Formula",d:c=>`Secret recipe intact, the Goobers fry-cooked ${c.L} ${c.score}.`},
-    {h:"I'm Ready!",d:c=>`The Goobers reported for duty and mopped the floor with ${c.L}, ${c.score}.`}]},
-  {re:/bismuth/i,e:[
-    {h:"Heavy Metal",d:c=>`Bismuth hardened under pressure and crystallized ${c.L} into an L, ${c.score}.`},
-    {h:"Element of Surprise",d:c=>`Atomic number 83, loss number that stings for ${c.L} — Bismuth wins ${c.score}.`},
-    {h:"Periodic Beatdown",d:c=>`Bismuth ran the table like a chem final, ${c.score} past ${c.L}.`}]},
-  {re:/florida/i,e:[
-    {h:"Florida Man Strikes Again",d:c=>`Local man does something inexplicable, wins anyway — over ${c.L}, ${c.score}.`},
-    {h:"Sunshine State of Mind",d:c=>`Florida Man dunked ${c.L} in a ${c.score} bath of chaos.`},
-    {h:"Man Bites Dog",d:c=>`The headline writes itself: Florida Man devoured ${c.L}, ${c.score}.`}]},
-  {re:/silly\s*willy|wonka/i,e:[
-    {h:"Golden Ticket",d:c=>`Pure imagination, zero mercy — silly willy toured past ${c.L}, ${c.score}.`},
-    {h:"Willy Nilly",d:c=>`No plan, all payoff — silly willy stumbled into a ${c.score} win over ${c.L}.`},
-    {h:"Everlasting Gobstopper",d:c=>`silly willy's lineup just kept scoring, ${c.score} over ${c.L}.`}]},
-  {re:/lebron/i,e:[
-    {h:"Not 1, Not 2…",d:c=>`Lebron's 3rd Leg kept counting rings and stepped over ${c.L}, ${c.score}.`},
-    {h:"The Third Leg Stands",d:c=>`When it mattered, the extra leg held — past ${c.L} ${c.score}.`},
-    {h:"Taking Talents South",d:c=>`Lebron's 3rd Leg took its talents straight to the win column, ${c.score} over ${c.L}.`}]},
-  {re:/tingl/i,e:[
-    {h:"Spidey Senses",d:c=>`The Tinglers felt it coming and swung past ${c.L}, ${c.score}.`},
-    {h:"The Tingle Is Real",d:c=>`A full-body chill for ${c.L} as the Tinglers won ${c.score}.`},
-    {h:"Sends Shivers",d:c=>`The Tinglers sent ${c.L} home shaking, ${c.score}.`}]},
-  {re:/miner/i,e:[
-    {h:"Struck Gold",d:c=>`The Miners dug up a ${c.score} win and buried ${c.L}.`},
-    {h:"Money in the Mine",d:c=>`Diamond hands, diamond win — Midwest Miners over ${c.L}, ${c.score}.`},
-    {h:"Pickaxe to the Chin",d:c=>`The Miners chipped ${c.L} down to a ${c.score} loss.`}]},
-  {re:/marathon/i,e:[
-    {h:"Went the Distance",d:c=>`26.2 miles of misery for ${c.L} — Marathon Men win ${c.score}.`},
-    {h:"Second Wind",d:c=>`Marathon Men found another gear and ran down ${c.L}, ${c.score}.`},
-    {h:"Broke the Tape",d:c=>`${c.L} hit the wall; Marathon Men breezed through the finish, ${c.score}.`}]},
-  {re:/wiggl/i,e:[
-    {h:"Wiggle Room",d:c=>`Just enough wiggle to slip past ${c.L}, ${c.score}.`},
-    {h:"The Worm Turns",d:c=>`West Coast Wigglers wriggled free and left ${c.L} in a ${c.score} knot.`},
-    {h:"West Coast, Best Coast",d:c=>`The Wigglers squirmed to a ${c.score} win over ${c.L}.`}]},
-  {re:/whittingham|beatjimmy|jimmy/i,e:[
-    {h:"Utah Man, Sir",d:c=>`Whittingham Sports coached up a grinding ${c.score} win over ${c.L}.`},
-    {h:"Sports. Sports. Sports.",d:c=>`Whittingham Sports simply did sports better than ${c.L}, ${c.score}.`},
-    {h:"Corporate Takeover",d:c=>`The blandest brand in the league acquired a ${c.score} W against ${c.L}.`}]},
-  {re:/motor\s*city|mulligan/i,e:[
-    {h:"Mom's Spaghetti",d:c=>`Palms sweaty, knees weak — the Mulligans seized their shot at ${c.L}, ${c.score}.`},
-    {h:"No Do-Overs Needed",d:c=>`No mulligan required as Motor City striped ${c.L} ${c.score}.`},
-    {h:"Motor City Madness",d:c=>`Detroit muscle overpowered ${c.L}, ${c.score}.`}]},
-  /* legacy names (older seasons) */
-  {re:/skol|gabe davis/i,e:[{h:"SKOL Clap",d:c=>`SKOL chant all the way to a ${c.score} win over ${c.L}.`}]},
-  {re:/kirkland/i,e:[{h:"Bulk Discount",d:c=>`Kirkland Signature bought a ${c.score} win in bulk over ${c.L}.`}]},
-  {re:/naber/i,e:[{h:"Beautiful Day",d:c=>`A beautiful day in the neighborhood — Nabers over ${c.L}, ${c.score}.`}]},
-  {re:/wan.?dalicious/i,e:[{h:"D-E-L-I-C-I-O-U-S",d:c=>`Wan'dalicious spelled out a tasty ${c.score} win over ${c.L}.`}]},
-  {re:/justins?\s*jets/i,e:[{h:"Wheels Up",d:c=>`Justins Jets cleared for takeoff, ${c.score} over ${c.L}.`}]},
-  {re:/who gibbs/i,e:[{h:"Gibbs a Damn",d:c=>`Turns out they did give one — a ${c.score} win over ${c.L}.`}]},
-];
-
-function generateHeadline(home,away,hPts,aPts,week){
-  const winner=hPts>=aPts?home:away, loser=hPts>=aPts?away:home;
-  const winPts=Math.max(hPts,aPts), losePts=Math.min(hPts,aPts);
-  const diff=Math.abs(hPts-aPts);
-  const topW=topStarter(week,winner.id);
-  const c={W:winner.name,L:loser.name,score:`${winPts.toFixed(1)}–${losePts.toFixed(1)}`,winPts,losePts,diff,topW};
-  const pool=[];
-  const pack=TEAM_PUNS.find(p=>p.re.test(winner.name));
-  if(pack) pack.e.forEach(e=>pool.push({h:e.h,d:e.d(c)}));
-  // a standout-player reference (still tied to who's in the matchup)
-  if(topW&&topW.pts>=30){
-    const last=String(topW.n).split(' ').slice(-1)[0];
-    pool.push({h:`The ${last} Show`,d:`${topW.n} erupted for ${topW.pts.toFixed(1)} to drag ${winner.name} past ${loser.name}, ${c.score}.`});
-  }
-  if(!pool.length){
-    const w1=winner.name.replace(/^the\s+/i,'').split(' ').slice(0,2).join(' ');
-    pool.push({h:`${w1} Handle It`,d:`${winner.name} took care of ${loser.name}, ${c.score}.`});
-  }
-  const seed=hashStr(`${home.id}|${away.id}|${week}|${winPts.toFixed(1)}`);
-  return pool[seed%pool.length];
-}
-let _hlGames=[],_hlIdx=0,_hlTimer=null;
-function hlPaint(){
-  const card=document.getElementById('hl-card'); if(!card||!_hlGames.length) return;
-  const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
-  const mu=_hlGames[_hlIdx%_hlGames.length];
-  const home={...teamMap[mu.home.teamId]||{name:'Home',wins:0,losses:0,pf:0},id:mu.home.teamId};
-  const away={...teamMap[mu.away.teamId]||{name:'Away',wins:0,losses:0,pf:0},id:mu.away.teamId};
-  const hPts=mu.home.totalPoints||0,aPts=mu.away.totalPoints||0;
-  const hWin=hPts>aPts,aWin=aPts>hPts;
-  const hl=generateHeadline(home,away,hPts,aPts,_currentWeek);
-  card.innerHTML=`
-    <div class="hl-headline">${hl.h}</div>
-    <div class="hl-desc">${hl.d}</div>
-    <div class="headline-matchup" style="margin-top:12px">
-      <div class="headline-team-block">${logoImg(home.id,'team-logo-sm')}<span class="headline-team-name">${home.name}</span></div>
-      <div class="headline-vs">vs</div>
-      <div class="headline-team-block away">${logoImg(away.id,'team-logo-sm')}<span class="headline-team-name">${away.name}</span></div>
-    </div>
-    <div class="headline-score">
-      <div class="headline-pts ${hWin?'winner':aPts>0?'loser':''}">${hPts.toFixed(1)}</div>
-      <div class="headline-pts ${aWin?'winner':hPts>0?'loser':''}">${aPts.toFixed(1)}</div>
-    </div>`;
-  const idx=_hlIdx%_hlGames.length;
-  document.querySelectorAll('#home-headlines .hl-tab').forEach((d,i)=>d.classList.toggle('active',i===idx));
-}
-function hlGoto(i){_hlIdx=i;hlPaint();if(_hlTimer){clearInterval(_hlTimer);_hlTimer=setInterval(hlNext,7000);}}
-function hlNext(){_hlIdx=(_hlIdx+1)%(_hlGames.length||1);hlPaint();}
-function renderHomeHeadlines(){
-  const wrap=document.getElementById('home-headlines'); if(!wrap) return;
-  _hlGames=_allMatchups.filter(mu=>mu.matchupPeriodId===_currentWeek&&mu.home&&mu.away&&((mu.home.totalPoints||0)>0||(mu.away.totalPoints||0)>0));
-  if(!_hlGames.length){wrap.innerHTML=`<div class="tab-loading" style="padding:30px">No games played yet in ${getSeason()}.</div>`;return;}
-  _hlIdx=0;
-  const teamMap=Object.fromEntries(_teams.map(t=>[t.id,t]));
-  wrap.innerHTML=`<div class="hl-tabs">${_hlGames.map((mu,i)=>{
-      const hn=(teamMap[mu.home.teamId]?.abbrev||'')||'?', an=(teamMap[mu.away.teamId]?.abbrev||'')||'?';
-      return `<button class="hl-tab" onclick="hlGoto(${i})" title="${teamMap[mu.home.teamId]?.name||''} vs ${teamMap[mu.away.teamId]?.name||''}">${logoImg(mu.home.teamId,'team-logo-sm')}<span class="hl-tab-x">/</span>${logoImg(mu.away.teamId,'team-logo-sm')}</button>`;
-    }).join('')}</div>
-    <div class="hl-card headline-card" id="hl-card"></div>`;
-  hlPaint();
-  if(_hlTimer)clearInterval(_hlTimer);
-  _hlTimer=setInterval(hlNext,7000);
-}
+/* The Matchup Headlines carousel is gone. It had been display:none on the
+   homepage for a while and is now removed outright, along with the pun
+   table and the headline generator that fed it -- nothing else called
+   them. The week's results are read on the Schedule tab and in the
+   notification cards, both of which say it without inventing a byline. */
 // ── STANDINGS ──────────────────────────────────────────────────────────────────
 function sortStandings(col){
   if(_sortCol===col)_sortAsc=!_sortAsc;
@@ -15476,15 +15346,28 @@ const ntResultsFresh=(season,week)=>
 
 function ntStandings(out){
   const season=ntSeason(); if(!season) return;
-  const lw=ntLastWeek(season); if(!lw||lw.week<2) return;
+  /* WEEK ONE GETS A CARD TOO. This used to require week 2, on the reasoning
+     that a standings card is about MOVEMENT and nothing can have moved after a
+     single week. But the first table of a season is the one everybody most
+     wants to see, and holding it back left the Tuesday after week 1 -- the
+     loudest Tuesday of the year -- with no standings card at all.
+     ntStandingsRows already copes: there is no previous table to compare
+     against, so every move comes back 0 and the arrows all read flat. Only the
+     line underneath has to change, because "nobody moved" is not what happened
+     in a week where the table did not exist yet. */
+  const lw=ntLastWeek(season); if(!lw||lw.week<1) return;
   if(!ntResultsFresh(season,lw.week)) return;
   const rows=ntStandingsRows(season,lw.week); if(!rows) return;
   const movers=rows.filter(r=>r.move!==0).length;
+  const first=lw.week<2;
   out.push({kind:'standings', day:ntWeekResultsDay(season,lw.week), pin:1,
     id:`st:${season}:${lw.week}`,
-    title:`Where everyone stands · week ${lw.week}`,
+    title:first?`Where everyone stands · after week ${lw.week}`
+               :`Where everyone stands · week ${lw.week}`,
     art:ntStandingsArt(rows),
-    body:movers?`<b>${movers}</b> team${movers===1?'':'s'} moved.`:'Nobody moved this week.'});
+    body:first?'The first table of the season.'
+              :(movers?`<b>${movers}</b> team${movers===1?'':'s'} moved.`
+                      :'Nobody moved this week.')});
 }
 
 function ntAll(){
@@ -15906,7 +15789,41 @@ function orderHomeTodo(){
    A ballot is one field on the profile: team ids in ranked order. The count of
    ballots comes from reading the profiles, the same way the Matchup of the Week
    vote already does, so no new collection was needed. */
-const cpKey=()=>`cp_${getSeason()}`;
+/* ── A NEW POLL EVERY TUESDAY ────────────────────────────────────────────────
+   The ballot used to be ONE field per manager per season, revised in place.
+   That made the poll the only thing on the homepage that never came back: vote
+   once in August and the card was done until January, while picks and Ball
+   Knowledge reopened every week. It also made the archive a lie by omission --
+   whatever the field happened to say on a Tuesday morning got filed as that
+   week's poll, even if half the league had last touched it a fortnight before.
+
+   Keyed to the week, it behaves like everything else: it reopens when the
+   football turns over, and what gets archived on a Tuesday is the ballot cast
+   FOR that week rather than the latest edit of a season-long list.
+
+   Week 1 keeps the bare `cp_<season>` key. Those ballots exist, they are what
+   the week 1 poll already archived from, and re-keying them would ask twelve
+   managers to vote again for a week that is over. */
+const cpWeek=()=>{
+  let i=_liveInfo;
+  if(!i&&typeof liveWeekInfo==='function'){ try{ i=liveWeekInfo(); }catch(e){} }
+  return Number(i&&i.week)||1;
+};
+const cpKeyFor=w=>Number(w)<=1?`cp_${getSeason()}`:`cp_${getSeason()}_w${Number(w)}`;
+const cpKey=()=>cpKeyFor(cpWeek());
+/* Last week's ballot, to start this week's from. Re-ranking twelve teams from
+   nothing every Tuesday is a chore nobody would do twice; adjusting the order
+   you already had is the job. It seeds the DRAFT only -- the card still counts
+   as outstanding until this week's ballot is actually sent, because `done`
+   reads the server row for this week's key and a seed writes nothing to it. */
+function cpSeedBallot(row){
+  if(!row) return null;
+  for(let w=cpWeek()-1;w>=1;w--){
+    const raw=row[cpKeyFor(w)]; if(!raw) continue;
+    try{ const b=JSON.parse(raw); if(Array.isArray(b)&&b.length) return b; }catch(e){}
+  }
+  return null;
+}
 let _cpBallot=null,_cpRows=null,_cpBusy=false,_cpFetched=false;
 /* set the moment a ballot is sent, so the card counts as done before the
    profile round-trip lands — otherwise the reorder briefly disagrees with what
@@ -15928,6 +15845,11 @@ function cpMyBallot(){
       try{ const srv=JSON.parse(row[cpKey()]);
         if(Array.isArray(srv)&&srv.length){ _cpBallot=srv;
           localStorage.setItem(lsKey(cpKey()),JSON.stringify(srv)); } }catch(e){}
+    }
+    /* nothing for THIS week anywhere -- open on last week's order */
+    if(!_cpBallot.length){
+      const seed=cpSeedBallot(row);
+      if(seed) _cpBallot=seed.slice();
     }
   }
   return _cpBallot;
@@ -19374,13 +19296,6 @@ async function loadDashboard(){
         </div>
         <!-- Coaching Metric moved to Advanced Stats, where it now heads its own
              view alongside the three ROI breakdowns. -->
-        <!-- Matchup Headlines: hidden for now. Kept out of a grid wrapper —
-             an empty .home-bottom still contributed its own 40px margin, which
-             is what pushed the message card away from the sportsbook. -->
-        <div class="sec wm" data-wm="&#xf1ea;" style="display:none">
-          <div class="sec-head"><i class="fa fa-newspaper"></i>Matchup Headlines</div>
-          <div id="home-headlines"></div>
-        </div>
         <!-- Live Around the League removed: This Week covers the same ground.
              The poll itself still runs — it feeds the pinned matchup bar and
              This Week — it just no longer renders a board here. -->
@@ -19627,7 +19542,6 @@ async function loadDashboard(){
        only fires when you navigate, so the first load has to start it too */
     if(_activeTab==='home') liveStart();
     if(_profileTeam==null) _profileTeam=String(_teams[0]?.id||'');
-    renderHomeHeadlines();
     renderHistoryTable();
     renderLeagueHistory();
     renderTradesTab();

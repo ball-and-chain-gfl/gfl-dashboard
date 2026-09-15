@@ -137,10 +137,18 @@ const profiles = await loadProfiles();
 /* A ballot counts when it ranks every team exactly once. That check alone drops
    the leftover profile documents from when sign-in minted one for any name,
    without this script needing to know which accounts are real. */
+/* THE BALLOT IS KEYED TO THE WEEK, and this must agree with cpKey in app.js
+   or a Tuesday files nothing. Week 1 keeps the bare `cp_<season>` key: those
+   ballots predate the change, they are what week 1 was archived from, and
+   re-keying them would have asked the league to vote again for a week that was
+   already over. Everything from week 2 carries its own field, which is what
+   makes the archive a record of the poll AS CAST for that week rather than of
+   whatever a season-long list happened to say on the morning it was read. */
+const cpKeyFor = w => Number(w) <= 1 ? `cp_${SEASON}` : `cp_${SEASON}_w${Number(w)}`;
 const ballots = [];
 for (const p of profiles) {
   let b = null;
-  try { b = JSON.parse(p[`cp_${SEASON}`] || 'null'); } catch { b = null; }
+  try { b = JSON.parse(p[cpKeyFor(week)] || 'null'); } catch { b = null; }
   if (!Array.isArray(b) || b.length !== ids.length) continue;
   const asNum = b.map(Number);
   if (asNum.some(x => !known.has(x))) continue;

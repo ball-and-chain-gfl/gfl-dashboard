@@ -101,6 +101,10 @@ jobs:
       # after the last whistle. A finished week ends on the result.
       - name: the win curve ends on the scoreline
         run: node scripts/test-wpfinal.mjs
+      # The coaches' poll is a weekly ballot now. app.js and archive-poll.mjs
+      # derive the key separately; if they drift, a Tuesday files nothing.
+      - name: a new coaches' poll every week
+        run: node scripts/test-pollweek.mjs
       # The same class across all four lifting scripts, plus the rule that a
       # pre-flight test may not supply state the script it guards is missing --
       # which is how archive-charts got a green light over a ReferenceError.
