@@ -13748,18 +13748,17 @@ function bkUnsealed(p){
   const now=bkWeek();
   for(let w=1;w<now;w++){
     if(p[bkScoreKey(w)]!=null) continue;            // sealed, counted elsewhere
-    const raw=p[bkAnsKeyFor(w)];
-    let n=0;
-    if(raw){ try{ n=Object.keys(JSON.parse(raw)||{}).length; }catch(e){ n=0; } }
-    /* EVERY QUESTION LEFT BLANK IS MINUS ONE, counted one at a time rather
-       than as a single charge for the week. Answering two of five and
-       answering none of them are not the same thing, and a flat penalty for
-       the set made them identical -- it only charged a manager who had touched
-       nothing at all, so answering one question bought immunity for the other
-       four. What the two answered were WORTH cannot be recovered once the
-       questions are gone; how many were skipped can, and it is the half that
-       was being thrown away. */
-    s-=Math.max(0,BK_WEEK_QS-n);
+    /* THE SET IS SUBMITTED AS A GROUP, so it is graded as one. A week nobody
+       submitted is the whole set unanswered, and that is minus five flat --
+       there is no partial credit to work out, because there was no partial
+       submission. (This briefly charged minus one per blank question, which
+       was the wrong model: the card has a submit button and half-finished
+       answers are a draft, not an attempt.)
+
+       A week that WAS submitted but carries no seal is left at nothing rather
+       than guessed at. It seals the next time that manager opens the card
+       against a full set of questions. */
+    if(!p[bkAnsKeyFor(w)+'_sub']) s-=BK_WEEK_QS;
   }
   return s;
 }
@@ -13789,11 +13788,19 @@ function bkLiveTrivia(p){
    only when there is a real set to grade against. */
 async function bkSealWeek(){
   if(!_me||!(_CFG.ballKnowledge||{}).reveal) return;
-  let settled=false; try{ settled=pkLocked(); }catch(e){}
-  if(!settled) return;
   const key=bkScoreKey(bkWeek());
   const row=(_bkProfiles||[]).find(p=>p&&p.id===_me.k1);
   if(!row||row[key]!=null) return;
+  /* SUBMIT IS WHAT SEALS A WEEK, and bkSubmit does it at the press. This is
+     only the catch-up: a manager who submitted before sealing existed, whose
+     week has no score on file. Grading it needs the questions, so it can only
+     happen while they are still the current week's -- which is why it runs here
+     rather than waiting for the Tuesday.
+
+     A manager who never submitted is not sealed at all. There is nothing to
+     freeze: bkUnsealed charges the flat minus five for the missing set, reads
+     the same every time, and needs neither this function nor their browser. */
+  if(!row[bkSubKey()]) return;
   /* A FULL SET OR NOTHING. bkBuildWeek runs three passes and keeps whatever
      BUILDS, and a generator declines while its pool or bios are still in the
      air -- so an early paint can hand back four questions instead of five, and
@@ -13873,8 +13880,17 @@ async function bkSubmit(){
   _bkSending=true; renderBallKnowledge();
   localStorage.setItem(lsKey(bkSubKey()),'1');
   _bkSubmitted=true;
+  /* SEALED HERE, AND THIS IS THE ONLY MOMENT IT IS KNOWN FOR CERTAIN. The five
+     questions are in hand, every one of them is answered -- submit refuses
+     otherwise -- so the score is exactly right minus wrong, with no blanks to
+     rule on and nothing left to regenerate. Every other moment is worse: the
+     generators read live data, so a "who leads the league in X" answer can turn
+     over during the week, and grading the same stored answers an hour later can
+     give a different number. Freezing it at the press of the button is what
+     makes the score the manager's own rather than the data's. */
+  const sealed=String(qs.reduce((n,q,i)=>n+(ans[i]===q.correct?1:-1),0));
   if(_me){ try{ await gflPatchProfile(_me.k1,
-    {[bkKey()]:JSON.stringify(ans),[bkSubKey()]:'1'}); }catch(e){} }
+    {[bkKey()]:JSON.stringify(ans),[bkSubKey()]:'1',[bkScoreKey(bkWeek())]:sealed}); }catch(e){} }
   _bkSending=false; renderBallKnowledge();
   try{ orderHomeTodo(); }catch(e){}
 }
@@ -16368,8 +16384,13 @@ function bkIQFor(teamId){
        being graded the moment it is sealed. Positive adds, negative subtracts,
        which is what a blank after the whistle is worth. */
     Object.keys(p).forEach(k=>{ if(/^bkt_/.test(k)) score+=Number(p[k])||0; });
-    score+=bkUnsealed(p);                           // past weeks nobody turned up for
-    if(p[bkScoreKey(bkWeek())]==null) score+=bkLiveTrivia(p);
+    score+=bkUnsealed(p);                           // past weeks nobody submitted
+    /* THE CURRENT WEEK COUNTS ONLY ONCE IT HAS BEEN SUBMITTED. A half-filled
+       card is a draft, and a draft is worth nothing either way -- which is also
+       what stops the number drifting while the questions are still being
+       regenerated underneath it. The only live grading left is the catch-up for
+       a manager who submitted before sealing existed. */
+    if(p[bkScoreKey(bkWeek())]==null&&p[bkSubKey()]) score+=bkLiveTrivia(p);
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);
   });

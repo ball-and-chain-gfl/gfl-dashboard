@@ -80,44 +80,38 @@ M.setQs(QS);
 head('sealed weeks are summed, and the live week is not double counted');
 const src = grab('function bkIQFor(teamId){');
 ok('it sums every sealed week', /\/\^bkt_\/\.test\(k\)/.test(src), true);
-ok('and grades the current week only while it is unsealed',
-  /p\[bkScoreKey\(bkWeek\(\)\)\]==null/.test(src), true);
+ok('and grades the current week only once it is submitted',
+  /p\[bkScoreKey\(bkWeek\(\)\)\]==null&&p\[bkSubKey\(\)\]/.test(src), true);
 ok('the old current-week-only grading is gone',
   /qs\.forEach\(\(q,i\)=>\{[\s\S]{0,120}score\+=/.test(src), false);
 
-head('the sealer only ever writes its own row, once, and only when locked');
+head('the sealer is a catch-up for an already-submitted week');
 const seal = grab('async function bkSealWeek(){');
 ok('it requires a signed-in manager', /if\(!_me/.test(seal), true);
-ok('it requires the slate to be locked', /pkLocked\(\)/.test(seal), true);
+ok('it only catches up a week that WAS submitted', /row\[bkSubKey\(\)\]/.test(seal), true);
 ok('it refuses to write twice', /row\[key\]!=null/.test(seal), true);
 ok('it refuses to grade against a SHORT set', /qs\.length<BK_WEEK_QS/.test(seal), true);
 ok('it patches only _me', /gflPatchProfile\(_me\.k1/.test(seal), true);
 ok('and rolls back the local seal if the write fails', /delete row\[key\]/.test(seal), true);
 
-head('a past week nobody answered costs the whole set');
+head('a past week nobody submitted is a flat minus five');
 M.setWeek(4);
-ok('three unplayed weeks', M.bkUnsealed({}), -15);
-ok('one sealed, two unplayed', M.bkUnsealed({ 'bkt_2026_w1': '5' }), -10);
+ok('three weeks never submitted', M.bkUnsealed({}), -15);
+ok('one sealed, two missed', M.bkUnsealed({ 'bkt_2026_w1': '5' }), -10);
 ok('a sealed week is never charged twice',
   M.bkUnsealed({ 'bkt_2026_w1': '-5', 'bkt_2026_w2': '3', 'bkt_2026_w3': '0' }), 0);
 
-head('every question left blank is minus one, counted one at a time');
-ok('answered one of five, four blanks',
-  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -4);
-ok('answered two of five, three blanks',
-  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a', 1: 'b' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -3);
-ok('answered all five, nothing to charge',
-  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e' }),
-    'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), 0);
-ok('answering one does not buy immunity for the other four',
-  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' })
-    !== M.bkUnsealed({ 'bkt_2026_w2': '0', 'bkt_2026_w3': '0', 'bk_2026_w1': '{}' }), true);
-ok('an empty answer object still counts as absent',
-  M.bkUnsealed({ 'bk_2026_w1': '{}', 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -5);
-ok('unparseable answers count as absent',
-  M.bkUnsealed({ 'bk_2026_w1': 'junk', 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -5);
+head('the set is graded as a GROUP — a draft is not a partial attempt');
+ok('four of five answered but never submitted is still minus five',
+  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a', 1: 'b', 2: 'c', 3: 'd' }),
+    'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -5);
+ok('submitted but not yet sealed is left at nothing, not charged',
+  M.bkUnsealed({ 'bk_2026_w1_sub': '1', 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), 0);
+ok('answering one without submitting buys no immunity',
+  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a' }),
+    'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -5);
 
-head('the current week is never charged as unplayed — it is graded live');
+head('the current week is never charged as missed — it is still open');
 M.setWeek(1);
 ok('week 1, nothing before it', M.bkUnsealed({}), 0);
 M.setWeek(2);
