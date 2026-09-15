@@ -261,5 +261,49 @@ console.log(nl + '7. THE CREST GOES THROUGH THE REAL proxyLogo');
      M.pollLogoOf(1) === null);
 }
 
+console.log(nl + '4. THE SECTION LIVES ON STANDINGS, AND EVERYTHING FOLLOWED IT');
+{
+  /* Moving a section is four separate things, and forgetting any one of them
+     leaves the page looking right and behaving wrong: the markup, the render,
+     the async repaint when the archive file lands, and the old page letting go.
+     Plain string checks — each of these is an exact line of source. */
+  const fs = await import('fs');
+  const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+
+  ok('League History no longer draws it',
+     !SRC.includes('${pollSectionHTML()}'), 'legacy still emits the poll');
+  ok('Standings has somewhere to put it', SRC.includes('id="standings-poll"'));
+  ok('and renders it when the tab opens', SRC.includes('try{ renderStandingsPoll(); }catch(e){}'));
+
+  /* the one that would fail silently: the archive lands after the page is
+     built, so whoever owns the section owns the repaint */
+  ok('the archive repaint points at the new page',
+     SRC.includes("document.getElementById('standings-poll')) renderStandingsPoll()"),
+     'pollsLoad still repaints whatever it used to');
+  ok('and not at the old one',
+     !SRC.includes("document.getElementById('legacy-body')) renderLeagueHistory()"));
+
+  /* League History hides section headings on desktop — sub-tab buttons name the
+     view instead — so the heading had to change class or it would have arrived
+     invisible on every screen wider than a phone */
+  ok('the poll heading is a real one, not the League History kind',
+     SRC.includes('<div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches&apos; Poll</div>')
+     || SRC.includes("<div class=\"sec-head\"><i class=\"fa fa-ranking-star\"></i>Coaches' Poll</div>"),
+     'poll heading is still .lh-sec-head and would be hidden above 768px');
+  ok('League History still hides its own headings on desktop',
+     IDX.includes('.lh-sec-head{display:none;}'));
+
+  console.log(nl + '   two sections means a heading each, and chips to move between them');
+  ok('the table has its own heading now',
+     SRC.includes('<div class="sec-head"><i class="fa fa-list-ol"></i>Standings</div>'));
+  ok('the page carries its own chip row',
+     SRC.includes('<nav class="sec-nav sec-nav-local" aria-label="Sections on this page" hidden></nav>'));
+  /* the chip builder reads .sec-head, so both of the above become chips and
+     nothing else on the page does */
+  ok('and the chip builder reads that class',
+     SRC.includes(".sec-head, .section-header, .lh-sec-head"));
+}
+
 console.log(nl + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

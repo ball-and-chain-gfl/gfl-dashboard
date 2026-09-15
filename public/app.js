@@ -1549,7 +1549,17 @@ function sortAndHighlight(col,btn){
    sub-tabs, stacked as sections so the jump chips can move between them. */
 /* Standings is a single table again. Kept as a thin wrapper rather than
    inlining it, because several callers repaint the page after data lands. */
-function renderStandings(){ try{ renderStandingsTable(); }catch(e){} }
+function renderStandings(){
+  try{ renderStandingsTable(); }catch(e){}
+  try{ renderStandingsPoll(); }catch(e){}
+}
+/* The poll section, on the page it now lives on. Split out from the render
+   above so the archive landing can repaint just this half — the table is
+   already drawn from data that arrived long before. */
+function renderStandingsPoll(){
+  const el=document.getElementById('standings-poll'); if(!el) return;
+  el.innerHTML=pollSectionHTML();
+}
 function renderCoachingMetric(){
   try{ renderStatsCM(); }catch(e){}
   try{ renderC2Breakdown(); }catch(e){}
@@ -3273,12 +3283,14 @@ function pollsLoad(){
     const s=(typeof sbBoardSeason==='function')?sbBoardSeason():getSeason();
     _pollsPromise=fetch(`/data/polls-${s}.json`,{cache:'no-store'})
       .then(r=>r.ok?r.json():null)
-      /* League History is built once at load, long before this lands and while
-         the homepage is still the open tab — so repainting only when legacy
+      /* The page is built once at load, long before this lands and while the
+         homepage is still the open tab — so repainting only when Standings
          happens to be on screen meant the section never appeared at all. It is
-         one repaint, once a session, of a page that is already in the DOM. */
+         one repaint, once a session, of a page that is already in the DOM.
+         Follows the section: this pointed at League History until the poll
+         moved off it. */
       .then(j=>{ _polls=j; _pollsFetched=true;
-        try{ if(document.getElementById('legacy-body')) renderLeagueHistory(); }catch(e){}
+        try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){}
         return j; })
       .catch(()=>{ _polls=null; _pollsFetched=true; return null; });
   }
@@ -3493,8 +3505,12 @@ function pollSectionHTML(){
         <i class="fa fa-chevron-down poll-caret"></i></summary>
       <div class="poll-list">${rows}</div>
     </details>`;}).join('');
+  /* .sec-head, not .lh-sec-head. League History hides its section headings on
+     desktop because sub-tab buttons name the view instead; on Standings there
+     are no sub-tabs and the heading has to show, and be jumpable, at every
+     width. */
   return `<div class="sec wm" data-wm="&#xf5a2;">
-    <div class="lh-sec-head"><i class="fa fa-ranking-star"></i>Coaches' Poll</div>
+    <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches' Poll</div>
     <div class="lh-note">How the league ranked itself, frozen at the end of each
       week. The number beside a team is its average placing across every ballot,
       so lower is better.</div>
@@ -3663,8 +3679,9 @@ function renderLeagueHistory(){
 
   const tab=(v,icon,label)=>`<button class="tab-btn ${_lhView===v?'active':''}" data-view="${v}" onclick="setLHView('${v}')"><i class="fa ${icon}"></i>${label}</button>`;
   const head=(icon,label)=>`<div class="lh-sec-head"><i class="fa ${icon}"></i>${label}</div>`;
+  /* Four sections here now. The Coaches' Poll used to sit above these and
+     has moved to Standings, beside the table it is the other half of. */
   body.innerHTML=`
-    ${pollSectionHTML()}
     <div class="sec wm" data-wm="&#xf091;">
       <div class="standings-filters lh-tabs" id="lh-subtabs" style="padding-bottom:15px">
         ${tab('records','fa-clipboard-list','All-Time Records')}
@@ -19618,12 +19635,20 @@ async function loadDashboard(){
 
       <!-- STANDINGS & STATS -->
       <div class="tab-page" id="page-standings">
+        <!-- Two sections here now, so the page carries its own chip row and
+             the table has a heading of its own to be jumped to. -->
+        <nav class="sec-nav sec-nav-local" aria-label="Sections on this page" hidden></nav>
         <div class="sec wm" data-wm="&#xe561;">
           <div id="stats-standings">
+            <div class="sec-head"><i class="fa fa-list-ol"></i>Standings</div>
             <div style="font-size:12px;color:var(--text3);margin:0 2px 10px">Click any column header to sort.</div>
             <div class="tscroll"><table class="min640 noseam" data-mhide="Moves,Trades,AT PF,AT PA,PF/Yr,PA/Yr"><thead id="standings-thead"></thead><tbody id="standings-tbody"></tbody></table></div>
           </div>
         </div>
+        <!-- The Coaches' Poll moved here from League History: it is the league
+             ranking itself, which belongs beside the table that ranks it by
+             record. Filled by renderStandingsPoll. -->
+        <div id="standings-poll"></div>
       </div>
 
       <!-- COACHING METRIC — its own tab now. It was a second view bolted onto
