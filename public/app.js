@@ -13786,38 +13786,23 @@ function bkLiveTrivia(p){
 /* Seal this week once its football has started, so the score outlives the
    questions. Only ever writes the signed-in manager's own row, only once, and
    only when there is a real set to grade against. */
-async function bkSealWeek(){
-  if(!_me||!(_CFG.ballKnowledge||{}).reveal) return;
-  const key=bkScoreKey(bkWeek());
-  const row=(_bkProfiles||[]).find(p=>p&&p.id===_me.k1);
-  if(!row||row[key]!=null) return;
-  /* SUBMIT IS WHAT SEALS A WEEK, and bkSubmit does it at the press. This is
-     only the catch-up: a manager who submitted before sealing existed, whose
-     week has no score on file. Grading it needs the questions, so it can only
-     happen while they are still the current week's -- which is why it runs here
-     rather than waiting for the Tuesday.
+/* THERE IS NO SEALER ANY MORE, AND THAT IS THE POINT.
+   bkSubmit writes the score at the press of the button, which is the only
+   moment it can be known: five questions in hand, all five answered, nothing
+   left to regenerate.
 
-     A manager who never submitted is not sealed at all. There is nothing to
-     freeze: bkUnsealed charges the flat minus five for the missing set, reads
-     the same every time, and needs neither this function nor their browser. */
-  if(!row[bkSubKey()]) return;
-  /* A FULL SET OR NOTHING. bkBuildWeek runs three passes and keeps whatever
-     BUILDS, and a generator declines while its pool or bios are still in the
-     air -- so an early paint can hand back four questions instead of five, and
-     bkQuestions deliberately does not cache a short set. Sealing against one
-     freezes a score that is missing a question, permanently.
+   A catch-up that graded an already-submitted week at LOAD time stood here for
+   about twenty minutes and had to go, because it did the very thing the submit
+   rule exists to prevent. BFT's five stored answers were graded three times in
+   one hour and scored +3, then +2, then -1 -- the answers never moved, the
+   QUESTIONS did. The generators read live data, week 1's stats are still
+   settling, and "who leads the league in X" is a different answer at 04:23 than
+   at 04:45. Any grading away from the button is a coin toss dressed as a
+   record.
 
-     That is not hypothetical: it happened within the hour this shipped. BFT had
-     five answers in, was reading 153, and sealed at 2 -- a number five answered
-     questions cannot produce, since right minus wrong over five is always odd.
-     Four questions had built, three right and one wrong, and the fifth never
-     got to count. Their seal was cleared and the guard is this line. */
-  let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){}
-  if(qs.length<BK_WEEK_QS) return;             // a short set is not the week
-  const val=bkLiveTrivia(row);
-  row[key]=String(val);                        // locally first, so it seals once
-  try{ await gflPatchProfile(_me.k1,{[key]:String(val)}); }catch(e){ delete row[key]; }
-}
+   So a week submitted before sealing existed cannot be recovered by regrading,
+   and is not going to be guessed at. It stays unsealed, worth nothing, until
+   somebody writes the real number it earned. */
 let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
 
 /* _me holds only the two keys and a team, so the saved answers have to be read
@@ -14023,9 +14008,6 @@ function bkReopen(qi){ _bkOpen=(_bkOpen===qi?null:qi); renderBallKnowledge(); }
 function renderBallKnowledge(){
   const el=document.getElementById('bk-body'); if(!el) return;
   bkSync();                                  // fire and forget; re-renders if it finds saved answers
-  /* Seal last week's trivia the first time anybody looks after the slate locks.
-     Fire and forget, once, and only ever this manager's own row. */
-  try{ bkSealWeek(); }catch(e){}
   const sec=document.getElementById('bk-sec');
   const qs=bkQuestions();
   if(!qs.length){ if(sec) sec.style.display='none'; return; }
@@ -16385,12 +16367,12 @@ function bkIQFor(teamId){
        which is what a blank after the whistle is worth. */
     Object.keys(p).forEach(k=>{ if(/^bkt_/.test(k)) score+=Number(p[k])||0; });
     score+=bkUnsealed(p);                           // past weeks nobody submitted
-    /* THE CURRENT WEEK COUNTS ONLY ONCE IT HAS BEEN SUBMITTED. A half-filled
-       card is a draft, and a draft is worth nothing either way -- which is also
-       what stops the number drifting while the questions are still being
-       regenerated underneath it. The only live grading left is the catch-up for
-       a manager who submitted before sealing existed. */
-    if(p[bkScoreKey(bkWeek())]==null&&p[bkSubKey()]) score+=bkLiveTrivia(p);
+    /* NOTHING IS GRADED HERE AT ALL. A week's trivia is worth what bkSubmit
+       sealed it at and nothing else; an unsealed week is worth zero until it is
+       past, and then bkUnsealed charges the flat five for never submitting.
+       Live grading used to sit on this line and it is what made the number
+       move between page loads -- the stored answers were steady, the questions
+       underneath them were not. */
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);
   });

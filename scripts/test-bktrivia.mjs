@@ -13,6 +13,7 @@
  *
  * Run: node scripts/test-bktrivia.mjs
  */
+import fs from 'fs';
 import { lifter, assemble } from './lib/lift.mjs';
 
 const NL = String.fromCharCode(10);
@@ -26,6 +27,7 @@ const ok = (name, got, want) => {
 const head = t => console.log(NL + t);
 
 const grab = lifter(new URL('../public/app.js', import.meta.url));
+const require_src = () => fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const M = assemble(grab, [
   'const bkScoreKey=', 'function bkLiveTrivia(p){',
   'const BK_WEEK_QS=', 'const bkAnsKeyFor=', 'function bkUnsealed(p){',
@@ -80,19 +82,16 @@ M.setQs(QS);
 head('sealed weeks are summed, and the live week is not double counted');
 const src = grab('function bkIQFor(teamId){');
 ok('it sums every sealed week', /\/\^bkt_\/\.test\(k\)/.test(src), true);
-ok('and grades the current week only once it is submitted',
-  /p\[bkScoreKey\(bkWeek\(\)\)\]==null&&p\[bkSubKey\(\)\]/.test(src), true);
+ok('and grades nothing itself', /bkLiveTrivia\(p\)/.test(src), false);
 ok('the old current-week-only grading is gone',
   /qs\.forEach\(\(q,i\)=>\{[\s\S]{0,120}score\+=/.test(src), false);
 
-head('the sealer is a catch-up for an already-submitted week');
-const seal = grab('async function bkSealWeek(){');
-ok('it requires a signed-in manager', /if\(!_me/.test(seal), true);
-ok('it only catches up a week that WAS submitted', /row\[bkSubKey\(\)\]/.test(seal), true);
-ok('it refuses to write twice', /row\[key\]!=null/.test(seal), true);
-ok('it refuses to grade against a SHORT set', /qs\.length<BK_WEEK_QS/.test(seal), true);
-ok('it patches only _me', /gflPatchProfile\(_me\.k1/.test(seal), true);
-ok('and rolls back the local seal if the write fails', /delete row\[key\]/.test(seal), true);
+head('nothing grades trivia except the submit button');
+const app = require_src();
+ok('the load-time sealer is gone', /bkSealWeek/.test(app), false);
+ok('bkSubmit writes the score itself', /\[bkScoreKey\(bkWeek\(\)\)\]:sealed/.test(app), true);
+ok('and it grades the set it has in hand',
+  /qs\.reduce\(\(n,q,i\)=>n\+\(ans\[i\]===q\.correct\?1:-1\),0\)/.test(app), true);
 
 head('a past week nobody submitted is a flat minus five');
 M.setWeek(4);
