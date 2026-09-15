@@ -16122,19 +16122,23 @@ const cpWeek=()=>{
 };
 const cpKeyFor=w=>Number(w)<=1?`cp_${getSeason()}`:`cp_${getSeason()}_w${Number(w)}`;
 const cpKey=()=>cpKeyFor(cpWeek());
-/* Last week's ballot, to start this week's from. Re-ranking twelve teams from
-   nothing every Tuesday is a chore nobody would do twice; adjusting the order
-   you already had is the job. It seeds the DRAFT only -- the card still counts
-   as outstanding until this week's ballot is actually sent, because `done`
-   reads the server row for this week's key and a seed writes nothing to it. */
-function cpSeedBallot(row){
-  if(!row) return null;
-  for(let w=cpWeek()-1;w>=1;w--){
-    const raw=row[cpKeyFor(w)]; if(!raw) continue;
-    try{ const b=JSON.parse(raw); if(Array.isArray(b)&&b.length) return b; }catch(e){}
-  }
-  return null;
-}
+/* NO SEED. A NEW WEEK OPENS EMPTY.
+
+   This used to start each week pre-filled with last week's order, on the
+   reasoning that re-ranking twelve teams every Tuesday is a chore and
+   adjusting the order you already had is the real job.
+
+   What that actually did was arm the submit button the moment the card
+   opened. A manager who tapped it out of habit sent last week's ranking
+   verbatim and the poll counted it -- and the Tinglers did exactly that in
+   week 2, submitting a ballot byte-identical to their week 1 one and quite
+   reasonably reporting they had never been given the chance to rank anybody.
+   A pre-filled ballot cannot be told apart from a considered one, by the
+   manager or by the tally.
+
+   So the twelve get picked from scratch. cpSubmit already refuses anything
+   short of a full slate, which means the button stays dead until all twelve
+   have actually been placed -- the chore IS the vote. */
 let _cpBallot=null,_cpRows=null,_cpBusy=false,_cpFetched=false;
 /* set the moment a ballot is sent, so the card counts as done before the
    profile round-trip lands — otherwise the reorder briefly disagrees with what
@@ -16157,11 +16161,8 @@ function cpMyBallot(){
         if(Array.isArray(srv)&&srv.length){ _cpBallot=srv;
           localStorage.setItem(lsKey(cpKey()),JSON.stringify(srv)); } }catch(e){}
     }
-    /* nothing for THIS week anywhere -- open on last week's order */
-    if(!_cpBallot.length){
-      const seed=cpSeedBallot(row);
-      if(seed) _cpBallot=seed.slice();
-    }
+    /* and nothing for THIS week is nothing. See the note above cpKeyFor: a
+       week that has not been voted in opens blank, every time. */
   }
   return _cpBallot;
 }

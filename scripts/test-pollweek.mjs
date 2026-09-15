@@ -30,8 +30,8 @@ const head = t => console.log(NL + t);
 
 const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
-  'const cpWeek=', 'const cpKeyFor=', 'const cpKey=', 'function cpSeedBallot(row){',
-], ['cpKey', 'cpKeyFor', 'cpWeek', 'cpSeedBallot', 'setWeek'],
+  'const cpWeek=', 'const cpKeyFor=', 'const cpKey=',
+], ['cpKey', 'cpKeyFor', 'cpWeek', 'setWeek'],
   ['let _liveInfo=null;', 'const getSeason=()=>2026;',
    'const setWeek=w=>{_liveInfo=w==null?null:{week:w};};'].join(NL));
 
@@ -51,25 +51,35 @@ head('an unknown week falls back to week 1 rather than inventing a field');
 M.setWeek(null);
 ok('no live info', M.cpKey(), 'cp_2026');
 
-/* ── the seed ─────────────────────────────────────────────────────────────── */
-head("this week opens on last week's order");
-M.setWeek(3);
-const row = { 'cp_2026': JSON.stringify([1, 2, 3]), 'cp_2026_w2': JSON.stringify([3, 2, 1]) };
-ok('it reaches back to the most recent week', M.cpSeedBallot(row), [3, 2, 1]);
+/* ── no seed ──────────────────────────────────────────────────────────────
+   Each week used to open pre-filled with last week's order. That armed the
+   submit button the moment the card appeared: one tap sent last week's
+   ranking verbatim and the poll counted it. The Tinglers did exactly that in
+   week 2 -- a ballot byte-identical to their week 1 one -- and reported, quite
+   reasonably, that they had never been given a chance to rank anybody.
 
-head('and keeps reaching back past a week nobody voted in');
-ok('skipping week 2, it finds week 1', M.cpSeedBallot({ 'cp_2026': JSON.stringify([9, 8]) }), [9, 8]);
+   A new week opens blank now and all twelve are placed by hand.
 
-head('a manager with no history gets nothing to start from');
-ok('no row', M.cpSeedBallot(null), null);
-ok('empty row', M.cpSeedBallot({}), null);
-ok('a malformed ballot is not a seed', M.cpSeedBallot({ 'cp_2026': 'not json' }), null);
-ok('nor is an empty array', M.cpSeedBallot({ 'cp_2026': '[]' }), null);
+   Plain string checks rather than patterns: every one of these is an exact
+   line of source, and a regex here only adds a way to be wrong. */
+head('nothing carries a previous week forward');
+const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+ok('the seeding function is gone', SRC.includes('function cpSeedBallot'), false);
+ok('and nothing calls it', SRC.includes('cpSeedBallot('), false);
+ok('the name appears nowhere at all', SRC.includes('cpSeedBallot'), false);
+ok('no draft is filled from an earlier key', SRC.includes('_cpBallot=seed'), false);
 
-head('the seed never reads THIS week, only earlier ones');
-M.setWeek(2);
-ok('week 2 does not seed from week 2',
-  M.cpSeedBallot({ 'cp_2026_w2': JSON.stringify([7, 7]) }), null);
+head('a ballot already sent for THIS week still follows the manager');
+/* the one carry-over that stays: what you submitted this week should reach
+   your other devices. It reads this week's key and no other. */
+ok('cpMyBallot still adopts the server row for this week',
+  SRC.includes('const srv=JSON.parse(row[cpKey()])'), true);
+
+head('and a partial ballot cannot be sent');
+/* this is what makes "fill in all twelve" a rule rather than a hope: with no
+   seed the draft starts empty, and submit refuses until every slot is placed */
+ok('submit refuses anything short of the full slate',
+  SRC.includes('if(b.length!==_teams.length) return;'), true);
 
 /* ── the two copies must agree ────────────────────────────────────────────── */
 head('the archiver derives the same key');
