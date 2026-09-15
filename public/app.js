@@ -1558,6 +1558,10 @@ function renderStandings(){
    already drawn from data that arrived long before. */
 function renderStandingsPoll(){
   const el=document.getElementById('standings-poll'); if(!el) return;
+  /* the completed-week check reads the ballots off the profile rows, which the
+     homepage poll owns — this tab can be the first thing opened, so ask. It is
+     a no-op once they are in, and cpSync repaints this when they land. */
+  try{ cpSync(); }catch(e){}
   el.innerHTML=pollSectionHTML();
 }
 function renderCoachingMetric(){
@@ -3296,7 +3300,41 @@ function pollsLoad(){
   }
   return null;
 }
-const pollWeeks=()=>Object.keys((_polls&&_polls.weeks)||{})
+/* ── A WEEK EVERY MANAGER HAS VOTED IN IS FINISHED, WHATEVER DAY IT IS ──────
+   The archive is written on a Tuesday because that is when a week can be
+   CLOSED -- a manager who has not voted by then is not going to. But once all
+   twelve ballots are in there is nothing left to wait for: no thirteenth is
+   coming, and holding the result back until Tuesday means the league stares at
+   last week's poll while this week's is sitting there decided.
+
+   NOTHING IS WRITTEN TO DO THIS. The archive is a cache of something the app
+   can already work out: archive-poll reads the same ballots off the same
+   profile documents and runs the same arithmetic as cpTally -- its own comment
+   says so, and test-pollchart holds the two together. So a completed week is
+   simply computed and shown, and on Tuesday the archiver writes the identical
+   numbers to the file and takes over. Nothing on screen moves when it does.
+
+   The file wins wherever it has an entry: it is the record, frozen as cast,
+   and a ballot revised in week 9 must not be able to rewrite week 2. */
+function pollLiveWeekEntry(){
+  if(!_cpRows||!(_teams||[]).length) return null;
+  const w=cpWeek();
+  if((_polls&&_polls.weeks||{})[w]) return null;      // already on file
+  const t=cpTally();
+  if(!t.ballots||t.ballots<_teams.length) return null; // not everybody yet
+  return {week:w, live:true, entry:{ballots:t.ballots, live:true,
+    rank:t.rank.map((r,i)=>({rank:i+1, teamId:Number(r.t.id),
+      avg:+Number(r.avg).toFixed(3)}))}};
+}
+/* Every week the poll has a result for: the archive, plus that one. One
+   accessor so the chart, the folds and the colours cannot disagree about
+   which weeks exist. */
+function pollWeeksData(){
+  const base=(_polls&&_polls.weeks)||{};
+  const live=pollLiveWeekEntry();
+  return live?Object.assign({},base,{[live.week]:live.entry}):base;
+}
+const pollWeeks=()=>Object.keys(pollWeeksData())
   .map(Number).filter(n=>n>0).sort((a,b)=>a-b);
 /* ── THE PALETTE IS THE STANDINGS ────────────────────────────────────────────
    Twelve arbitrary hues told you which line was which and nothing else. Half of
@@ -3347,8 +3385,8 @@ function pollRampColor(rank,n){
    where it started -- the chart then reads in order at its leading edge, which
    is the end everybody looks at. */
 function pollRankNow(){
-  const out={};
-  pollWeeks().forEach(w=>((_polls.weeks[w]||{}).rank||[]).forEach(e=>{
+  const out={}, WKS=pollWeeksData();
+  pollWeeks().forEach(w=>((WKS[w]||{}).rank||[]).forEach(e=>{
     out[e.teamId]=e.rank; }));
   return out;
 }
@@ -3424,7 +3462,8 @@ function pollChartHTML(){
   const x=w=>plotL+(w-1)*colW;
   const y=r=>top+(r-0.5)*rowH;
   const at={};                      // teamId -> {week: rank}
-  played.forEach(w=>((_polls.weeks[w]||{}).rank||[]).forEach(e=>{
+  const WKS=pollWeeksData();
+  played.forEach(w=>((WKS[w]||{}).rank||[]).forEach(e=>{
     (at[e.teamId]||(at[e.teamId]={}))[w]=e.rank; }));
   /* one row a placing, numbered down the left */
   const grid=Array.from({length:rows},(_,i)=>`
@@ -3497,9 +3536,10 @@ function pollSectionHTML(){
      keeps being right when the league rolls over and nobody remembers this
      line exists. A past season has no poll and shows none. */
   if(String((_polls&&_polls.season)||'')!==String(getSeason())) return '';
+  const WKS=pollWeeksData();
   const wks=pollWeeks(); if(!wks.length) return '';
   const folds=wks.slice().reverse().map((w,i)=>{
-    const d=_polls.weeks[w]||{};
+    const d=WKS[w]||{};
     const rows=(d.rank||[]).map(e=>{
       const t=pollTeam(e.teamId);
       return `<div class="poll-row">
@@ -3513,7 +3553,8 @@ function pollSectionHTML(){
        the week went, and a fold that opens itself is a fold nobody chose. */
     return `<details class="poll-fold">
       <summary><i class="fa fa-ranking-star"></i><span>Week ${w} Poll</span>
-        <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}</span>
+        <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}${
+          d.live?' · all in':''}</span>
         <i class="fa fa-chevron-down poll-caret"></i></summary>
       <div class="poll-list">${rows}</div>
     </details>`;}).join('');
@@ -16232,7 +16273,10 @@ async function cpSync(){
     const rows=await gflListProfiles();
     if(rows){ _cpRows=rows; renderCoachesPoll();
       /* the trade cards read their tallies out of the same rows */
-      if(_activeTab==='trades') try{ renderTradesTab(); }catch(e){} }
+      if(_activeTab==='trades') try{ renderTradesTab(); }catch(e){}
+      /* and so does the poll section on Standings, which cannot tell whether
+         a week is complete until they arrive */
+      if(_activeTab==='standings') try{ renderStandingsPoll(); }catch(e){} }
   }catch(e){}
 }
 function cpToggle(teamId){

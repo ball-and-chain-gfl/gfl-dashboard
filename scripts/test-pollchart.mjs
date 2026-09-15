@@ -15,6 +15,12 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'function teamInitials(name){',
   'const REGULAR_SEASON_END=',
   'function regEndOf(season){',
+  /* pollRankNow and pollChartHTML read the merged view — archive plus a week
+     every manager has already voted in — so the harness carries it too. With
+     _cpRows null below it short-circuits to the archive alone, which is what
+     every assertion in sections 1-3 is about. */
+  'function pollLiveWeekEntry(){',
+  'function pollWeeksData(){',
   'const pollWeeks=',
   'const POLL_RAMP=',
   'function pollRampColor(rank,n){',
@@ -29,6 +35,7 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
 ], ['pollChartHTML', 'pollRampColor', 'pollSeasonWeeks', 'pollColor', 'pollRankNow',
     'POLL_RAMP', 'POLL_WEEKS_MAX', 'setUp', 'setLogo', 'pollLogoOf'], `
 let _polls={weeks:{}}, _teams=[], _franchises=[], _ownerMap={};
+let _cpRows=null;                 /* no ballots here: archive-only behaviour */
 let _seasonMeta={}; const ALL_SEASONS=['2026'];
 /* orders: {week: [teamId,...] best first}. regEnd is the regular season
    length; schedMax is how far the SCHEDULE reaches, which in September is the
@@ -327,6 +334,72 @@ console.log(nl + '5. IT ONLY SHOWS FOR THE SEASON IT IS ABOUT');
   ok('a season change redraws the poll, not just the table',
      SRC.includes(nl + '    renderStandings();'),
      'loadDashboard still calls renderStandingsTable alone');
+}
+
+console.log(nl + '6. A WEEK EVERYONE HAS VOTED IN PUBLISHES WITHOUT WAITING FOR TUESDAY');
+{
+  const { lifter, assemble } = await import('./lib/lift.mjs');
+  const g2 = lifter(new URL('../public/app.js', import.meta.url));
+  const E = assemble(g2, [
+    'const cpWeek=', 'const cpKeyFor=', 'const cpKey=', 'function cpTally(){',
+    'function pollLiveWeekEntry(){', 'function pollWeeksData(){',
+  ], ['pollLiveWeekEntry', 'pollWeeksData', 'cpTally', 'setRows', 'setPolls', 'setTeams'],
+    ['let _liveInfo={week:2};', 'const getSeason=()=>2026;',
+     'let _cpRows=null, _polls=null;',
+     'let _teams=[];',
+     'const setRows=r=>{_cpRows=r;};',
+     'const setPolls=p=>{_polls=p;};',
+     'const setTeams=t=>{_teams=t;};'].join(nl));
+
+  const IDS = [1,2,3,4,5,6,7,8,9,10,11,12];
+  E.setTeams(IDS.map(id => ({ id })));
+  /* twelve ballots, deliberately not identical, so an average that is merely
+     the first ballot back would fail */
+  const ballots = IDS.map((_, i) => IDS.slice(i).concat(IDS.slice(0, i)));
+  const rowsFor = k => ballots.map((b, i) => ({ id: 'm' + i, teamId: String(i + 1), [k]: JSON.stringify(b) }));
+
+  E.setPolls({ season: 2026, weeks: { 1: { ballots: 11, rank: [] } } });
+  E.setRows(rowsFor('cp_2026_w2'));
+
+  const live = E.pollLiveWeekEntry();
+  ok('twelve of twelve publishes', !!live, 'nothing returned with a full slate');
+  ok('for the week being voted on', live && live.week === 2);
+  ok('and it is marked as not yet frozen', !!(live && live.entry.live));
+
+  /* THE CLAIM THIS FEATURE RESTS ON: the numbers shown early are the numbers
+     archive-poll will write on Tuesday. Recomputed here the archiver's way —
+     sum of placings over ballots, lowest average first — from its own source. */
+  const sum = {};
+  IDS.forEach(id => { sum[id] = 0; });
+  ballots.forEach(b => b.forEach((id, i) => { sum[id] += i + 1; }));
+  const archiverWay = IDS.map(id => ({ teamId: id, avg: +(sum[id] / ballots.length).toFixed(3) }))
+    .sort((a, b) => a.avg - b.avg).map((r, i) => ({ rank: i + 1, ...r }));
+  ok('the early numbers are the numbers the archiver would write',
+     JSON.stringify(live.entry.rank) === JSON.stringify(archiverWay),
+     nl + '        early    ' + JSON.stringify(live.entry.rank.slice(0, 3))
+     + nl + '        archiver ' + JSON.stringify(archiverWay.slice(0, 3)));
+  ok('and it counts the ballots the same way', live.entry.ballots === ballots.length);
+
+  console.log(nl + '   eleven of twelve is still an open week');
+  E.setRows(rowsFor('cp_2026_w2').slice(0, 11));
+  ok('nothing publishes early', E.pollLiveWeekEntry() === null,
+     'published a week somebody could still vote in');
+
+  console.log(nl + '   the file wins wherever it has an entry');
+  E.setRows(rowsFor('cp_2026_w2'));
+  E.setPolls({ season: 2026, weeks: { 2: { ballots: 12, rank: [{ rank: 1, teamId: 9, avg: 1.5 }] } } });
+  ok('an archived week is not recomputed', E.pollLiveWeekEntry() === null,
+     'a revised ballot could rewrite a frozen week');
+  ok('and the archived entry is what shows',
+     E.pollWeeksData()[2].rank[0].teamId === 9);
+
+  console.log(nl + '   the merge, and what it needs to work at all');
+  E.setPolls({ season: 2026, weeks: { 1: { ballots: 11, rank: [] } } });
+  ok('both weeks are present', Object.keys(E.pollWeeksData()).map(Number).sort().join(',') === '1,2');
+  E.setRows(null);
+  ok('no profile rows, no early week', E.pollLiveWeekEntry() === null);
+  ok('and the archive still shows on its own',
+     Object.keys(E.pollWeeksData()).join(',') === '1');
 }
 
 console.log(nl + pass + ' passed, ' + fail + ' failed');
