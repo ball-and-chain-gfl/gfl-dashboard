@@ -97,5 +97,69 @@ head('the homepage card is outstanding again each week');
 const todo = grab('const HOME_TODO=');
 ok('the poll card tests this week\'s key', /p\[cpKey\(\)\]/.test(todo), true);
 
+
+/* ── a reopened ballot is reopened on the device too ─────────────────────────
+   cpMyBallot mirrors a submitted ballot into localStorage. That mirror outlives
+   what it mirrors: delete the server row so a manager can rank again and their
+   own device still hands the card back the twelve they sent. Reopened on the
+   server, unchanged on the screen — which is not reopened at all. */
+const S = assemble(grab, [
+  'const cpWeek=', 'const cpKeyFor=', 'const cpKey=',
+  'function cpMyBallot(){', 'let _cpStaleChecked=false;', 'function cpDropStaleDraft(){',
+], ['cpKey', 'cpMyBallot', 'cpDropStaleDraft', 'setRows', 'setLocal', 'getLocal', 'reset'],
+  ['let _liveInfo={week:2};', 'const getSeason=()=>2026;',
+   'let _me={k1:"ting"};', 'let _cpRows=null; let _cpBallot=null;',
+   'const _teams=[1,2,3,4,5,6,7,8,9,10,11,12].map(i=>({id:i}));',
+   'const store={};',
+   'const lsKey=k=>"gfl:"+k;',
+   'const localStorage={getItem:k=>(k in store?store[k]:null),' +
+     'setItem:(k,v)=>{store[k]=String(v);}};',
+   'const setRows=r=>{_cpRows=r;};',
+   'const setLocal=b=>{_cpBallot=null;store[lsKey(cpKey())]=JSON.stringify(b);};',
+   'const getLocal=()=>{try{return JSON.parse(store[lsKey(cpKey())]||"[]");}catch(e){return [];}};',
+   'const reset=()=>{_cpStaleChecked=false;_cpBallot=null;};'].join(NL));
+
+const FULL = [6, 4, 3, 9, 7, 10, 5, 1, 8, 11, 12, 2];   // the Tinglers' actual ballot
+
+head('a full slate cached with nothing on the server is dropped');
+S.setLocal(FULL);
+S.setRows([{ id: 'ting' }]);                 // row present, no cp_2026_w2 on it
+S.reset(); S.cpDropStaleDraft();
+ok('the card opens blank', S.cpMyBallot(), []);
+ok('and the device copy goes with it', S.getLocal(), []);
+
+head('a ballot that IS still on the server is left alone');
+S.setLocal(FULL);
+S.setRows([{ id: 'ting', 'cp_2026_w2': JSON.stringify(FULL) }]);
+S.reset(); S.cpDropStaleDraft();
+ok('nothing is dropped', S.cpMyBallot(), FULL);
+
+head('a part-finished draft is never touched');
+S.setLocal([6, 4, 3]);
+S.setRows([{ id: 'ting' }]);
+S.reset(); S.cpDropStaleDraft();
+ok('three of twelve survives', S.cpMyBallot(), [6, 4, 3]);
+
+head('it runs once a page, not once a render');
+/* on every render it would wipe a ballot the instant its twelfth team was
+   placed, before submit could be pressed — voting would be impossible */
+S.setLocal(FULL);
+S.setRows([{ id: 'ting' }]);
+S.reset();
+S.cpDropStaleDraft();
+ok('the first pass clears', S.cpMyBallot(), []);
+S.setLocal(FULL);                            // they re-rank all twelve
+S.cpDropStaleDraft(); S.cpDropStaleDraft(); S.cpDropStaleDraft();
+ok('later passes leave the new one alone', S.cpMyBallot(), FULL);
+
+head('and it waits until it actually knows');
+S.setLocal(FULL);
+S.setRows(null);                             // profiles not in yet
+S.reset(); S.cpDropStaleDraft();
+ok('no rows, no decision', S.cpMyBallot(), FULL);
+S.setRows([{ id: 'ting' }]);
+S.cpDropStaleDraft();
+ok('and it still gets its one pass once they land', S.cpMyBallot(), []);
+
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

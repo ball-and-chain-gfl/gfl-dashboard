@@ -16166,6 +16166,37 @@ function cpMyBallot(){
   }
   return _cpBallot;
 }
+/* A FULL BALLOT ON THIS DEVICE WITH NONE ON THE SERVER IS A STALE COPY.
+
+   cpMyBallot mirrors a submitted ballot into localStorage so it is right
+   before the network answers. That mirror outlives the thing it mirrors: when
+   a ballot is reopened -- the row deleted so a manager can rank again -- their
+   own device still holds the twelve they sent, and the card fills straight
+   back in from cache. Reopened on the server, unchanged on the screen.
+
+   So the server wins, ONCE, on the first render after the rows land. Twice
+   over, this is deliberately narrow:
+
+     · only a COMPLETE slate is dropped. A part-finished draft is somebody
+       mid-way through and is never touched.
+     · only once a page. Running it on every render would wipe a ballot the
+       moment its twelfth team was placed, before submit could be pressed,
+       which would make voting impossible rather than merely annoying.
+
+   The cost is a complete draft that was never submitted, on a device, across
+   a reload. That is a narrow case and the remedy is the same thing they were
+   about to do anyway. */
+let _cpStaleChecked=false;
+function cpDropStaleDraft(){
+  if(_cpStaleChecked) return;
+  if(!_me||!_cpRows||!(_teams||[]).length) return;   // not enough known yet
+  _cpStaleChecked=true;
+  const b=cpMyBallot();
+  if(b.length!==_teams.length) return;               // a draft in progress
+  if((_cpRows.find(p=>p.id===_me.k1)||{})[cpKey()]) return;   // still on file
+  _cpBallot=[];
+  try{ localStorage.setItem(lsKey(cpKey()),'[]'); }catch(e){}
+}
 async function cpSync(){
   if(_cpFetched) return; _cpFetched=true;
   try{
@@ -16252,6 +16283,7 @@ function cpYetToVoteHTML(){
 function renderCoachesPoll(){
   const el=document.getElementById('cp-body'); if(!el) return;
   cpSync();
+  cpDropStaleDraft();
   const sec=document.getElementById('cp-sec');
   if(!_teams.length){ if(sec) sec.style.display='none'; return; }
   if(sec) sec.style.display='';
