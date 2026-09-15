@@ -110,5 +110,20 @@ const stillPending = (arc.transactions || []).filter(t =>
   && /^PENDING/.test(String(t.status || '').toUpperCase()));
 ok('no pending waiver claim in the committed file', stillPending.length, 0);
 
+
+head('and not through the other door either');
+/* mPendingTransactions is ESPN's raw view of the same thing. The app has never
+   asked for it, but the generic passthrough forwards whatever view it is given
+   — so it served the same four bids, amounts and all, to anybody with the URL.
+   Dropping them from type=transactions while leaving that open would have made
+   the fix decorative. */
+ok('the passthrough refuses that view',
+  /DENY_VIEWS = \/\^mPendingTransactions\$\/i/.test(SRC), true);
+ok('with a refusal rather than a quietly empty answer',
+  /that view is not served by this proxy/.test(SRC), true);
+ok('and it checks every view on a multi-view request',
+  /\(Array\.isArray\(view\) \? view : \[view\]\)/.test(SRC) && /asked\.some/.test(SRC), true);
+ok('the app never asked for it anyway', /mPendingTransactions/.test(APP), false);
+
 console.log('\n' + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

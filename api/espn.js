@@ -1549,6 +1549,22 @@ export default async function handler(req, res) {
   }
 
   // ── Generic view passthrough (supports multiple ?view= params) ───────────────
+  /* ONE VIEW DOES NOT PASS THROUGH.
+
+     mPendingTransactions is ESPN's list of claims that have not run yet, and
+     because this proxy carries a single league member's session it answers
+     with THAT member's live waiver bids, amounts included, to anybody who
+     knows the URL. Pending claims were already dropped from type=transactions
+     for the same reason; this is the same data through a second door, and
+     leaving it open would have made that fix decorative.
+
+     The app has never asked for this view. It is blocked here rather than
+     left to the fact that nothing calls it, because 'nothing calls it' is not
+     a property anyone maintains. */
+  const DENY_VIEWS = /^mPendingTransactions$/i;
+  const asked = (Array.isArray(view) ? view : [view]).filter(Boolean);
+  if (asked.some(v => DENY_VIEWS.test(String(v).trim())))
+    return res.status(403).json({ error: 'that view is not served by this proxy' });
   const views = view || 'mTeam';
   let url = leagueURL(views, { forceLive: req.query.live === '1' });
   if (scoringPeriodId) url += `&scoringPeriodId=${parseInt(scoringPeriodId, 10)}`;
