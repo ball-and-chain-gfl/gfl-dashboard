@@ -3662,8 +3662,13 @@
        block behind every winning player made the list read as a wall of colour
        with the actual figures buried in it. The two numbers are what is being
        compared, so they are what carries it. */
+    /* ONE COLOUR FOR EVERY NAME. The winning side used to be lifted to
+       var(--text) while the losing side stayed at var(--text2), so half the
+       column read brighter than the other half and the list looked like it had
+       two kinds of player in it. Who is winning the spot is already said by the
+       number, in green or red; saying it twice in the name's brightness made
+       the names themselves harder to scan. */
     .fcr-side.good,.fcr-side.bad{background:none;}
-    .fcr-side.good{color:var(--text);}
     .fcr-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
     .fcr-p{flex:0 0 auto;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3);}
     .fcr-side.good .fcr-p{color:var(--green);}
@@ -3674,36 +3679,45 @@
        than a state the player is in. It belongs where the green and red fills
        used to be: around the name and the number together.
 
-         still to play  nothing. A projection, with nothing yet to argue with it.
+         still to play  a faint grey. A projection, with nothing yet to argue
+                        with it, and nothing worth looking at yet.
          moving         his game is on and the figure is re-read every few
-                        minutes, so the block wears the page's live accent.
-         locked in      his game is over. It is a score now, not a projection.
+                        minutes. This is the one that wants the eye, so it gets
+                        the video rail's gold.
+         locked in      his game is over. It is a score now, not a projection,
+                        and it recedes to flat black.
 
-       LOCKED IN wears the video rail's gold, softened. #E0B67B at full strength
-       is the "newest video" pill and the Matchup of the Week outline -- both
-       things asking to be clicked -- so a column of finished players in it would
-       out-shout everything around it. A tint says the same thing quietly.
+       THE GOLD IS ON THE LIVE STATE, not the finished one. It used to be the
+       other way round, which had a column of settled numbers wearing the
+       loudest colour on the card while the players actually being re-read every
+       few minutes sat quieter. The thing still moving is the thing to look at.
+
+       No outlines on any of them. A fill already separates the block from the
+       row; a border around it as well made three nested boxes -- row, block,
+       number -- and on a phone the edges were most of what you saw.
 
        The NUMBER keeps its own green or red, so the two questions still answer
        separately: the block says whether this can change again, the number says
        who is winning the spot. */
-    .fcr-side.st-live{background:rgba(var(--accent-rgb),0.13);
-      box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),0.30);}
-    .fcr-side.st-final{background:rgba(224,182,123,0.13);
-      box-shadow:inset 0 0 0 1px rgba(224,182,123,0.34);}
+    .fcr-side.st-pre{background:rgba(255,255,255,0.055);}
+    .fcr-side.st-live{background:rgba(224,182,123,0.16);}
+    .fcr-side.st-final{background:#000;}
     /* the key, only drawn once a ball is in the air */
     .fcr-key{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;
       margin-top:9px;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
       letter-spacing:.5px;text-transform:uppercase;}
     .fcr-key span{display:inline-flex;align-items:center;gap:5px;}
     .fcr-key span::before{content:'';width:8px;height:8px;border-radius:2px;flex:0 0 auto;}
-    .fcr-key .fk-live{color:var(--accent);}
-    .fcr-key .fk-live::before{background:rgba(var(--accent-rgb),0.55);}
-    .fcr-key .fk-final{color:#E0B67B;}
-    .fcr-key .fk-final::before{background:rgba(224,182,123,0.15);
-      box-shadow:inset 0 0 0 1px rgba(224,182,123,0.55);}
+    .fcr-key .fk-live{color:#E0B67B;}
+    .fcr-key .fk-live::before{background:rgba(224,182,123,0.16);}
+    .fcr-key .fk-final{color:var(--text2);}
+    /* the only swatch that needs an edge: black on a near-black panel is
+       invisible without one, and the key is the one place it appears away
+       from a row to be read against */
+    .fcr-key .fk-final::before{background:#000;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.22);}
     .fcr-key .fk-pre{color:var(--text3);}
-    .fcr-key .fk-pre::before{background:rgba(255,255,255,0.10);}
+    .fcr-key .fk-pre::before{background:rgba(255,255,255,0.055);}
     .fcr-pos{text-align:center;font-family:'Inter',sans-serif;font-size:9px;font-weight:800;
       letter-spacing:.3px;text-transform:uppercase;border-radius:4px;padding:2px 0;}
     .fcr-head .fcr-pos,.fcr-tot .fcr-pos{background:none!important;color:var(--text3)!important;}
