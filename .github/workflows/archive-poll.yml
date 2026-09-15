@@ -16,9 +16,10 @@ name: Archive the Coaches' Poll
 # one are never touched. Nothing is written when nothing changed, so the extra
 # run costs nothing and a missed one is picked up next time.
 on:
-  schedule:
-    - cron: '45 09 * * 2'   # Tue 09:45 UTC — after archive-week at 09:30
-    - cron: '45 09 * * 3'   # Wed 09:45 UTC — safety net for a late ballot
+  # SCHEDULED BY rollover.yml, NOT HERE. This ran on its own cron until the
+  # spacing between the five archivers stopped holding them in order -- see the
+  # header of .github/workflows/rollover.yml. It is still dispatchable on its
+  # own, which is what the inputs below are for.
   workflow_dispatch:
     inputs:
       season:

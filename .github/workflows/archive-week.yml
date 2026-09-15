@@ -14,9 +14,10 @@ name: Archive the week's win probability
 # already archived or has no series recorded, so extra runs cost nothing and a
 # missed run is picked up by the next one.
 on:
-  schedule:
-    - cron: '30 09 * * 2'   # Tue 09:30 UTC — after Monday night is final
-    - cron: '30 09 * * 3'   # Wed 09:30 UTC — safety net
+  # SCHEDULED BY rollover.yml, NOT HERE. This ran on its own cron until the
+  # spacing between the five archivers stopped holding them in order -- see the
+  # header of .github/workflows/rollover.yml. It is still dispatchable on its
+  # own, which is what the inputs below are for.
   workflow_dispatch:
     inputs:
       season:

@@ -17,9 +17,10 @@ name: Settle bets
 # the same rules. Nothing here can delete a bet: the rules refuse it.
 
 on:
-  schedule:
-    - cron: '0 10 * * 2'    # Tue 10:00 UTC — after archive-week at 09:30
-    - cron: '0 10 * * 3'    # Wed 10:00 UTC — safety net
+  # SCHEDULED BY rollover.yml, NOT HERE. This ran on its own cron until the
+  # spacing between the five archivers stopped holding them in order -- see the
+  # header of .github/workflows/rollover.yml. It is still dispatchable on its
+  # own, which is what the inputs below are for.
   workflow_dispatch:
     inputs:
       season:

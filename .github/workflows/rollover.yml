@@ -1,0 +1,117 @@
+name: Week rollover
+
+# EVERYTHING THE ROLLOVER DOES, IN ORDER, ON A WINDOW RATHER THAN AT A TIME.
+#
+# The five archivers used to carry a cron each, thirty to ninety minutes apart,
+# and those gaps were what held them in order: the week, then the poll, then the
+# settler, then the prices that read what the settler wrote, then trades.
+#
+# GITHUB DOES NOT HONOUR THAT. A scheduled workflow here is best-effort and
+# heavily throttled. refresh-videos asks for '17 * * * *' -- twenty-four runs a
+# day -- and actually lands between three and eight times, at arbitrary minutes.
+# The Tuesday slots have run four hours and a quarter late every week since the
+# first of September. And on 8 September archive-charts ran at 13:58 while
+# settle-bets ran at 14:14: the freezer went first and froze a week whose bets
+# were still open, which is the exact race the thirty-minute gap existed to
+# prevent. Spacing crons apart does not order them.
+#
+# So the order is this job's own, not a bet on the scheduler. And it fires every
+# twenty minutes instead of once, because the question was never "what time is
+# it" -- it is "has ESPN closed the scoring period yet". Every script below
+# already answers "nothing to do" cleanly and in a few seconds, so an attempt
+# that lands early costs nothing and changes nothing. The first attempt to land
+# after the week closes does the whole rollover, and every attempt after that
+# finds the work already on file.
+#
+# The window opens at 04:10 UTC -- Monday night's last whistle is about 04:15
+# and ESPN needs a little after that -- and runs to 13:50, which is roughly when
+# these used to land. Early is the goal. Late is the floor.
+
+on:
+  schedule:
+    - cron: '10,30,50 4-13 * * 2'   # Tue, every 20 min, 04:10 -> 13:50 UTC
+    - cron: '10,30,50 4-13 * * 3'   # Wed, the same window as a safety net
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season (blank = current year)'
+        required: false
+
+permissions:
+  contents: write
+
+# Two attempts landing together would both commit and one would be rejected on
+# push. They queue instead. cancel-in-progress stays false: a run that is
+# already settling bets finishes settling them.
+concurrency:
+  group: rollover
+  cancel-in-progress: false
+
+jobs:
+  rollover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+
+      # Three of these scripts lift their grader, their pricer or their vote id
+      # straight out of app.js by string match, so a rename upstream breaks them
+      # silently. Check that before any of it writes money or freezes a price.
+      - name: The lifted code still holds
+        run: |
+          node scripts/test-season.mjs
+          node scripts/test-charts.mjs
+          node scripts/test-trade-archive.mjs
+
+      # The two that nothing downstream depends on. They are allowed to fail
+      # without taking the settler with them; the last step still reports it.
+      - name: Archive the week's win probability
+        id: week
+        continue-on-error: true
+        run: node scripts/archive-week.mjs ${{ github.event.inputs.season }}
+
+      - name: Archive the Coaches' Poll
+        id: poll
+        continue-on-error: true
+        run: node scripts/archive-poll.mjs ${{ github.event.inputs.season }}
+
+      # THIS ORDER IS LOAD-BEARING. The week's frozen book counts only bets that
+      # are no longer open, so the settler has to have run first or the week
+      # freezes carrying no betting results at all.
+      - name: Settle every open bet
+        run: node scripts/settle-bets.mjs ${{ github.event.inputs.season }}
+
+      - name: Freeze the week's prices
+        run: node scripts/archive-charts.mjs ${{ github.event.inputs.season }}
+
+      - name: Archive trades
+        run: node scripts/archive-trades.mjs ${{ github.event.inputs.season }}
+
+      - name: Commit whatever changed
+        run: |
+          git config user.name  'gfl-bot'
+          git config user.email 'gfl-bot@users.noreply.github.com'
+          # -A over the directory rather than a glob per file. `git add` on a
+          # glob that matches nothing exits 128, which is how archive-week
+          # failed every run it correctly had nothing to archive.
+          git add -A public/data/
+          if git diff --staged --quiet; then
+            echo 'nothing changed'
+            exit 0
+          fi
+          git commit -m 'Week rollover [skip ci]'
+          # refresh-videos commits from its own hourly run and can land between
+          # this commit and this push.
+          for i in 1 2 3; do
+            git pull --rebase --autostash && git push && exit 0
+            sleep 7
+          done
+          exit 1
+
+      - name: Report a step that failed
+        if: steps.week.outcome == 'failure' || steps.poll.outcome == 'failure'
+        run: |
+          echo "archive-week: ${{ steps.week.outcome }}"
+          echo "archive-poll: ${{ steps.poll.outcome }}"
+          exit 1

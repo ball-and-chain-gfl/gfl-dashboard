@@ -21,14 +21,10 @@ name: Archive trades
 # votes all season. The app merges that snapshot with the live feed rather than
 # treating it as final — see fetchSeasonTrades.
 on:
-  schedule:
-    - cron: '00 11 * * 2'   # Tue 11:00 UTC — after archive-week (09:30) and archive-charts (10:00)
-    # A week is only counted once ESPN closes the scoring period, and that is
-    # ESPN's clock, not ours — Tuesday 11:00 UTC is 07:00 in New York and the
-    # flag may not have flipped yet. The other four archivers have carried a
-    # Wednesday net since they shipped; this one had none, so a week ESPN was
-    # slow with would have waited seven days for its trades to be frozen.
-    - cron: '00 11 * * 3'   # Wed 11:00 UTC — safety net
+  # SCHEDULED BY rollover.yml, NOT HERE. This ran on its own cron until the
+  # spacing between the five archivers stopped holding them in order -- see the
+  # header of .github/workflows/rollover.yml. It is still dispatchable on its
+  # own, which is what the inputs below are for.
   workflow_dispatch:
     inputs:
       season:
