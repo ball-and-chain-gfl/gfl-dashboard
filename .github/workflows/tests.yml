@@ -39,6 +39,11 @@ jobs:
         run: node --check scripts/poll-live.mjs
       - name: next-highest waiver bid
         run: node scripts/test-next-bid.mjs
+      # app.js scores C3 in the browser and archive-transactions.mjs writes the
+      # same pickups into the repo. Neither reads the other and both had the
+      # same three bugs; fixing one is how they start disagreeing about $25.
+      - name: the waiver rules are the same in both files
+        run: node scripts/test-waiver-rules.mjs
       # These four existed and were never wired in. test-loads is the one that
       # matters most: it EXECUTES app.js against a browser-shaped stub, which is
       # the only check that catches a top-level throw taking the whole site

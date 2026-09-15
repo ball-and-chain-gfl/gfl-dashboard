@@ -1178,11 +1178,35 @@ async function computeCoaching(teams, transactions, weeklyData){
     };
   });
 
-  const FAILED_STATUS=new Set(['FAILED','CANCELED','CANCELLED','PENDING','DECLINED','REVERSED','VOID','INVALID']);
+  /* ESPN'S STATUS IS A COMPOUND STRING, AND A SET MISSES MOST OF THEM.
+     This was `FAILED_STATUS.has(s)`, an exact match, which catches "FAILED" and
+     lets "FAILED_PLAYERALREADYDROPPED" straight through -- so a claim that
+     never processed was scored as a pickup, with the bid charged and the
+     player's points credited. Florida Man showed as having bought Juwan Johnson
+     for $25 on a claim that failed because the player was already gone.
+
+     Held identical to isDead in scripts/archive-transactions.mjs, which had the
+     same bug in the same shape; scripts/test-waiver-rules.mjs fails if the two
+     ever stop agreeing. */
+  const TX_DEAD=/^(FAILED|CANCEL|DECLIN|REVERS|VOID|INVALID|PENDING)/;
   function executed(tx){
-    const s=(tx.status||tx.executionType||'').toString().toUpperCase();
-    return !FAILED_STATUS.has(s);
+    return !TX_DEAD.test((tx.status||tx.executionType||'').toString().toUpperCase());
   }
+  /* A WITHDRAWN claim never competed for anybody; a claim that was submitted
+     and LOST did, which is exactly what a next-highest bid is made of. */
+  const TX_WITHDRAWN=/^(CANCEL|VOID|INVALID)/;
+  const txWithdrawn=tx=>TX_WITHDRAWN.test((tx.status||tx.executionType||'').toString().toUpperCase());
+  /* THE WAIVER RUN, NOT THE WEEK. Waivers process in batches -- this league
+     runs Mon, Wed, Thu, Sat and Sun -- so keying the bid pool on the scoring
+     period pooled separate runs days apart. Juwan Johnson went to the Mulligans
+     on the 2nd for $6 with nobody against them, and Florida Man claimed him
+     again on the 10th; keyed by week, the Mulligans' winning bid came back as
+     the "contested" bid against a run eight days later, and theirs came back
+     against the Mulligans. Two wrong numbers out of one wrong key. */
+  const txDay=tx=>{
+    const ms=Number(tx.processDate||tx.proposedDate)||0;
+    return ms?new Date(ms).toISOString().slice(0,10):('wk'+(tx.scoringPeriodId||0));
+  };
 
   // C2 — trades
   /* ONE MOVEMENT COUNTS ONCE, WHATEVER THE FEED SAYS.
@@ -1239,10 +1263,11 @@ async function computeCoaching(teams, transactions, weeklyData){
   (transactions||[]).forEach(tx=>{
     if(tx.type!=='WAIVER'&&tx.type!=='FREEAGENT') return;
     if(tx.bidAmount==null) return;
-    const wk=tx.scoringPeriodId||0;
+    if(txWithdrawn(tx)) return;                      // pulled before it ran
+    const day=txDay(tx);
     (tx.items||[]).filter(i=>i.type==='ADD').forEach(item=>{
       if(item.playerId==null) return;
-      const key=`${item.playerId}|${wk}`;
+      const key=`${item.playerId}|${day}`;
       (bidsByKey[key]||(bidsByKey[key]=[])).push(
         {amt:Number(tx.bidAmount)||0, tid:tx.teamId!=null?tx.teamId:item.toTeamId});
     });
@@ -1276,7 +1301,7 @@ async function computeCoaching(teams, transactions, weeklyData){
       const tid=(tx.teamId!=null&&tx.teamId in c3)?tx.teamId:item.toTeamId;
       if(tid==null||!(tid in c3)) return;
       detail[tid].txTypes.add(tx.type);
-      (addsByTeam[tid]||(addsByTeam[tid]=[])).push({pid,week:addWeek,bid,
+      (addsByTeam[tid]||(addsByTeam[tid]=[])).push({pid,week:addWeek,bid,day:txDay(tx),
         est:!!tx._estBid, ts:Number(tx.processDate||tx.proposedDate)||0});
     });
   });
@@ -1288,9 +1313,9 @@ async function computeCoaching(teams, transactions, weeklyData){
     adds.forEach((a,i)=>{
       let until=Infinity;
       for(let j=i+1;j<adds.length;j++){ if(adds[j].pid===a.pid){ until=adds[j].week; break; } }
-      const others=(bidsByKey[`${a.pid}|${a.week}`]||[])
+      const others=(bidsByKey[`${a.pid}|${a.day}`]||[])
         .filter(b=>b.tid!==tid)                       // your own bids are not a contest
-        .map(b=>b.amt).sort((x,y)=>y-x);
+        .map(b=>b.amt).filter(v=>v>0).sort((x,y)=>y-x);
       const next=others.length?Math.min(others[0],a.bid):0;
       const margin=Math.max(a.bid-next,1);
       const lpts=stintPts(a.pid,a.week,until,tid);
@@ -4063,7 +4088,21 @@ function legacyReportData(){
   const at=lastCompletedWeek(); if(!at) return null;
   const now=allTimeThrough(at.season,at.week);
   const before=allTimeThrough(at.week>1?at.season:String(Number(at.season)-1), at.week>1?at.week-1:99);
-  const owners=Object.keys(now); if(owners.length<2) return null;
+  /* CURRENT FRANCHISES ONLY. This ranked every owner who has ever played,
+     departed ones included -- so the report listed the Simptown Chimps climbing
+     from eighth to seventh in points against per game, a franchise that has not
+     taken a snap in this league for years and has no profile to click through
+     to. It cannot move on its own; it only appeared to because live teams moved
+     around it, and nameOf had nothing to call it with, so it would have
+     rendered as a raw owner id.
+
+     League History's all-time table is built from _franchises and always has
+     been. Ranking against a different set here is how the report ended up
+     reporting movement in ranks that do not exist on the page it is reporting
+     about -- the same complaint its own comment above records being fixed once
+     before for dead consolation games. */
+  const owners=Object.keys(now).filter(o=>(_franchises||[]).some(f=>f.owner===o));
+  if(owners.length<2) return null;
   const nameOf=o=>(_franchises.find(f=>f.owner===o)||{}).name
     ||_seasonMeta[at.season]?.names?.[o]?.name||o;
   const rankIn=(tbl,val)=>{
@@ -13685,11 +13724,37 @@ function bkNotable(minRank,season){
    show them the last manager's answers. Everything cached locally is namespaced
    by whoever is signed in. */
 const lsKey=k=>(_me?_me.k1:'guest')+':'+k;
-const bkKey=()=>{
+const bkAnsKeyFor=w=>{
   const c=_CFG.ballKnowledge||{};
   const r=c.resetToken?`_r${c.resetToken}`:'';
-  return `bk_${bkLeagueSeason()}_w${bkWeek()}${r}`;
+  return `bk_${bkLeagueSeason()}_w${Number(w)}${r}`;
 };
+const bkKey=()=>bkAnsKeyFor(bkWeek());
+/* The weekly set is five questions, and a week nobody answered is five blanks.
+   That is worth minus five whether the manager was wrong or simply absent --
+   which is the point of the rule, and the reason it cannot wait on their
+   browser to come and admit it. */
+const BK_WEEK_QS=5;
+/* What a PAST week is worth to a manager who never sealed it.
+   A seal is written by the manager's own browser, so somebody who stops opening
+   the app stops sealing -- and scoring those weeks 0 rewarded not turning up
+   with the same number as answering every question correctly and cancelling out.
+   A week with NO answers on file needs no questions to grade: nobody played it,
+   so it is minus the whole set. A week with SOME answers cannot be graded after
+   the fact, because the questions are generated from live data and are gone --
+   those are left alone rather than guessed at. */
+function bkUnsealed(p){
+  let s=0;
+  const now=bkWeek();
+  for(let w=1;w<now;w++){
+    if(p[bkScoreKey(w)]!=null) continue;            // sealed, counted elsewhere
+    const raw=p[bkAnsKeyFor(w)];
+    let n=0;
+    if(raw){ try{ n=Object.keys(JSON.parse(raw)||{}).length; }catch(e){ n=0; } }
+    if(!n) s-=BK_WEEK_QS;                           // never played it
+  }
+  return s;
+}
 /* Where a finished week's trivia score lives. One integer a manager a week,
    written once and never revisited -- the questions behind it are gone by then
    and the number is the only record that survives them. */
@@ -16284,6 +16349,7 @@ function bkIQFor(teamId){
        being graded the moment it is sealed. Positive adds, negative subtracts,
        which is what a blank after the whistle is worth. */
     Object.keys(p).forEach(k=>{ if(/^bkt_/.test(k)) score+=Number(p[k])||0; });
+    score+=bkUnsealed(p);                           // past weeks nobody turned up for
     if(p[bkScoreKey(bkWeek())]==null) score+=bkLiveTrivia(p);
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);

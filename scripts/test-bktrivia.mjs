@@ -28,7 +28,9 @@ const head = t => console.log(NL + t);
 const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
   'const bkScoreKey=', 'function bkLiveTrivia(p){',
-], ['bkScoreKey', 'bkLiveTrivia', 'setQs', 'setLocked', 'setReveal'],
+  'const BK_WEEK_QS=', 'const bkAnsKeyFor=', 'function bkUnsealed(p){',
+], ['bkScoreKey', 'bkLiveTrivia', 'bkUnsealed', 'bkAnsKeyFor',
+    'setQs', 'setLocked', 'setReveal', 'setWeek'],
   ['let _QS=[], _LOCKED=false, _REVEAL=true;',
    'const _CFG={get ballKnowledge(){return {reveal:_REVEAL};}};',
    'const bkLeagueSeason=()=>2026;',
@@ -38,7 +40,8 @@ const M = assemble(grab, [
    'const pkLocked=()=>_LOCKED;',
    'const setQs=q=>{_QS=q;};',
    'const setLocked=v=>{_LOCKED=v;};',
-   'const setReveal=v=>{_REVEAL=v;};'].join(NL));
+   'const setReveal=v=>{_REVEAL=v;};',
+   'const setWeek=w=>{_WK=w;};'].join(NL));
 
 const QS = [{ correct: 'a' }, { correct: 'b' }, { correct: 'c' }, { correct: 'd' }, { correct: 'e' }];
 const row = ans => ({ 'bk_2026_w1': JSON.stringify(ans) });
@@ -90,6 +93,31 @@ ok('it refuses to write twice', /row\[key\]!=null/.test(seal), true);
 ok('it refuses to grade against an empty set', /if\(!qs\.length\) return;/.test(seal), true);
 ok('it patches only _me', /gflPatchProfile\(_me\.k1/.test(seal), true);
 ok('and rolls back the local seal if the write fails', /delete row\[key\]/.test(seal), true);
+
+head('a past week nobody answered costs the whole set');
+M.setWeek(4);
+ok('three unplayed weeks', M.bkUnsealed({}), -15);
+ok('one sealed, two unplayed', M.bkUnsealed({ 'bkt_2026_w1': '5' }), -10);
+ok('a sealed week is never charged twice',
+  M.bkUnsealed({ 'bkt_2026_w1': '-5', 'bkt_2026_w2': '3', 'bkt_2026_w3': '0' }), 0);
+
+head('a week they DID answer is left alone rather than guessed at');
+ok('answers on file, no seal, no charge',
+  M.bkUnsealed({ 'bk_2026_w1': JSON.stringify({ 0: 'a' }), 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), 0);
+ok('an empty answer object still counts as absent',
+  M.bkUnsealed({ 'bk_2026_w1': '{}', 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -5);
+ok('unparseable answers count as absent',
+  M.bkUnsealed({ 'bk_2026_w1': 'junk', 'bkt_2026_w2': '0', 'bkt_2026_w3': '0' }), -5);
+
+head('the current week is never charged as unplayed — it is graded live');
+M.setWeek(1);
+ok('week 1, nothing before it', M.bkUnsealed({}), 0);
+M.setWeek(2);
+ok('only week 1 is past', M.bkUnsealed({}), -5);
+
+head('and bkIQFor adds the unsealed weeks in');
+const iq = grab('function bkIQFor(teamId){');
+ok('it charges past weeks nobody played', /score\+=bkUnsealed\(p\)/.test(iq), true);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
