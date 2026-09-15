@@ -13690,6 +13690,43 @@ const bkKey=()=>{
   const r=c.resetToken?`_r${c.resetToken}`:'';
   return `bk_${bkLeagueSeason()}_w${bkWeek()}${r}`;
 };
+/* Where a finished week's trivia score lives. One integer a manager a week,
+   written once and never revisited -- the questions behind it are gone by then
+   and the number is the only record that survives them. */
+const bkScoreKey=w=>`bkt_${bkLeagueSeason()}_w${Number(w)}`;
+/* This week's trivia, graded off the set currently in hand. A blank is worth
+   nothing until the slate locks and minus one after it: grading blanks the
+   moment questions go up would sit the whole league at minus five on a Tuesday
+   morning for not having answered yet. */
+function bkLiveTrivia(p){
+  if(!(_CFG.ballKnowledge||{}).reveal) return 0;
+  let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){ return 0; }
+  if(!qs.length) return 0;
+  let settled=false; try{ settled=pkLocked(); }catch(e){}
+  let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch(e){ ans={}; }
+  let s=0;
+  qs.forEach((q,i)=>{
+    if(ans[i]==null){ if(settled) s-=1; return; }
+    s+=(ans[i]===q.correct?1:-1);
+  });
+  return s;
+}
+/* Seal this week once its football has started, so the score outlives the
+   questions. Only ever writes the signed-in manager's own row, only once, and
+   only when there is a real set to grade against. */
+async function bkSealWeek(){
+  if(!_me||!(_CFG.ballKnowledge||{}).reveal) return;
+  let settled=false; try{ settled=pkLocked(); }catch(e){}
+  if(!settled) return;
+  const key=bkScoreKey(bkWeek());
+  const row=(_bkProfiles||[]).find(p=>p&&p.id===_me.k1);
+  if(!row||row[key]!=null) return;
+  let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){}
+  if(!qs.length) return;                       // nothing to grade against yet
+  const val=bkLiveTrivia(row);
+  row[key]=String(val);                        // locally first, so it seals once
+  try{ await gflPatchProfile(_me.k1,{[key]:String(val)}); }catch(e){ delete row[key]; }
+}
 let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
 
 /* _me holds only the two keys and a team, so the saved answers have to be read
@@ -13886,6 +13923,9 @@ function bkReopen(qi){ _bkOpen=(_bkOpen===qi?null:qi); renderBallKnowledge(); }
 function renderBallKnowledge(){
   const el=document.getElementById('bk-body'); if(!el) return;
   bkSync();                                  // fire and forget; re-renders if it finds saved answers
+  /* Seal last week's trivia the first time anybody looks after the slate locks.
+     Fire and forget, once, and only ever this manager's own row. */
+  try{ bkSealWeek(); }catch(e){}
   const sec=document.getElementById('bk-sec');
   const qs=bkQuestions();
   if(!qs.length){ if(sec) sec.style.display='none'; return; }
@@ -16230,15 +16270,21 @@ function bkIQFor(teamId){
        player's rank now is not their rank in week three — so a past week cannot
        be rebuilt and marked after the fact, and pretending otherwise would
        score people against questions they were never asked. */
-    if(cfg.reveal){
-      const qs=bkQuestions();
-      const settled=(()=>{ try{ return pkLocked(); }catch(e){ return false; } })();
-      let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch{ ans={}; }
-      qs.forEach((q,i)=>{
-        if(ans[i]==null){ if(settled) score-=1; return; }
-        score+=(ans[i]===q.correct?1:-1);
-      });
-    }
+    /* EVERY WEEK'S TRIVIA COUNTS, FOR GOOD. This used to grade bkQuestions()
+       and nothing else -- the CURRENT week's set -- because the generators read
+       live data and a past week's questions cannot be rebuilt. Which meant a
+       manager who went five from five in week 1 lost all of it the moment the
+       week turned over, and Ball Knowledge was a rolling weekly number wearing
+       the clothes of a season total.
+
+       So a week's score is SEALED when its slate locks: one number written to
+       the manager's own profile as bkt_<season>_w<week>, never recomputed. Past
+       weeks are summed from those; the current week is still graded live off
+       the questions in hand, so the bar moves as answers go in, and it stops
+       being graded the moment it is sealed. Positive adds, negative subtracts,
+       which is what a blank after the whistle is worth. */
+    Object.keys(p).forEach(k=>{ if(/^bkt_/.test(k)) score+=Number(p[k])||0; });
+    if(p[bkScoreKey(bkWeek())]==null) score+=bkLiveTrivia(p);
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);
   });

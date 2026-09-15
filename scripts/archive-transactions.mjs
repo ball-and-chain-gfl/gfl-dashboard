@@ -9,8 +9,9 @@
  * ESPN returns today, keyed by transaction id, so a row captured in week 3
  * survives even after ESPN stops serving it.
  *
- * Every waiver pickup is recorded with the next highest bid on that same player
- * in that same week. If nobody else bid, that is 0.
+ * Every waiver pickup is recorded with the next highest bid ANOTHER TEAM made
+ * on that same player in the same waiver run — same player, same day, someone
+ * else's money. If nobody else was in for him, that is 0.
  *
  *   node scripts/archive-transactions.mjs            # current season
  *   node scripts/archive-transactions.mjs 2026       # a specific one
@@ -27,7 +28,30 @@ const nflSeasonYear = () => {
 };
 const season = String(process.argv[2] || nflSeasonYear());
 
-const FAILED = new Set(['FAILED','CANCELED','CANCELLED','DECLINED','REVERSED','VOID','INVALID']);
+/* ESPN'S STATUS IS A COMPOUND STRING, AND AN EXACT MATCH MISSES MOST OF THEM.
+   This was a Set and `FAILED.has(status)`, which catches "FAILED" and lets
+   "FAILED_PLAYERALREADYDROPPED" straight through -- so a claim that never
+   processed was archived as a pickup, with the money spent and the player
+   credited. Florida Man was shown having bought Juwan Johnson for $25 on a
+   claim that failed because the player was already gone. Two such rows in 2026
+   alone, $26 of spending that never happened, and Waiver ROI was priced off
+   both. PENDING is excluded for the same reason: it has not happened yet. */
+const DEAD = /^(FAILED|CANCEL|DECLIN|REVERS|VOID|INVALID|PENDING)/;
+const isDead = s => DEAD.test(String(s || '').toUpperCase());
+/* A WITHDRAWN claim never competed for anybody. A claim that was submitted and
+   LOST did -- that is exactly what a next-highest bid is -- so the two are
+   separated: cancelled bids leave the pool, failed ones stay in it. */
+const WITHDRAWN = /^(CANCEL|VOID|INVALID)/;
+const isWithdrawn = s => WITHDRAWN.test(String(s || '').toUpperCase());
+/* The day a claim processed. Waivers run in batches -- 4am ET, which is 08:00
+   UTC -- so a UTC date is one run. Keying the bid pool by WEEK instead pooled
+   eight days of separate runs together: Juwan Johnson went to one team on the
+   2nd and was claimed again by another on the 10th, and the archive reported
+   the 2nd's winning bid as the "next highest" against the 10th's. */
+const dayOf = t => {
+  const ms = t.processDate || t.proposedDate || 0;
+  return ms ? new Date(ms).toISOString().slice(0, 10) : 'na';
+};
 
 const get = async (q) => {
   for (let a = 0; a < 3; a++) {
@@ -66,25 +90,34 @@ const bids = {};
 all.forEach(t => {
   if (t.type !== 'WAIVER' && t.type !== 'FREEAGENT') return;
   if (t.bidAmount == null) return;
-  const wk = t.scoringPeriodId || 0;
+  if (isWithdrawn(t.status)) return;                    // pulled before it ran
+  const day = dayOf(t);
+  const team = t.teamId != null ? t.teamId : null;
   (t.items || []).filter(i => i.type === 'ADD').forEach(i => {
     if (i.playerId == null) return;
-    (bids[`${i.playerId}|${wk}`] ||= []).push(Number(t.bidAmount) || 0);
+    (bids[`${i.playerId}|${day}`] ||= []).push({ team, bid: Number(t.bidAmount) || 0 });
   });
 });
 
 const waivers = [];
 all.forEach(t => {
   if (t.type !== 'WAIVER' && t.type !== 'FREEAGENT') return;
-  const status = String(t.status || 'EXECUTED').toUpperCase();
-  if (FAILED.has(status)) return;                       // losing claims are context, not pickups
+  if (isDead(t.status)) return;                          // losing claims are context, not pickups
   const wk = t.scoringPeriodId || 0;
+  const day = dayOf(t);
+  const me = t.teamId != null ? t.teamId : null;
   const bid = Math.max(Number(t.bidAmount) || 0, 0);
   (t.items || []).filter(i => i.type === 'ADD').forEach(i => {
     if (i.playerId == null) return;
-    const others = (bids[`${i.playerId}|${wk}`] || []).slice().sort((a, b) => b - a);
-    const own = others.indexOf(bid);
-    if (own >= 0) others.splice(own, 1);                // do not out-bid yourself
+    /* OTHER TEAMS ONLY. Dropping a single bid equal to your own was the old
+       rule, and it left your OTHER claims on the same player in the pool as if
+       somebody else had made them -- a manager stacking two claims out-bid
+       himself in the record. Whose bid it is settles it, not what it was worth. */
+    const others = (bids[`${i.playerId}|${day}`] || [])
+      .filter(b => b.team == null || me == null || String(b.team) !== String(me))
+      .map(b => b.bid)
+      .filter(v => v > 0)
+      .sort((a, b) => b - a);
     waivers.push({
       week: wk,
       playerId: i.playerId,
