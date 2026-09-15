@@ -407,5 +407,31 @@ if (built) {
     `${beforeE} -> ${M.schedEspnProj(3)['own0']}`);
 }
 
+/* ── THE WEEK DRAWER OPENS ON THE FIRST CLICK ───────────────────────────────
+   toggleSchedOpp is a TOGGLE: it reads whether the drawer is open, shuts every
+   drawer, and re-opens this one only if it had been shut. Fine on a click.
+
+   The retry that fills in the scouting card called it AGAIN. schedTopProjected
+   needs the roster feed, which is usually still in the air when a drawer is
+   first opened, so 1.4 seconds later it looked again — and re-entered the
+   toggle. Second time through, the drawer was open, so the toggle closed it and
+   returned. Click a past week, watch it open, watch it shut itself a beat
+   later. It only stayed open on the SECOND click because by then the feed had
+   landed, the count matched, and the retry never fired at all.
+
+   Nothing in that retry wants a toggle. It wants the contents replaced. */
+{
+  const src = grab('async function toggleSchedOpp(el){');
+  ok('the drawer retry does not re-enter the toggle',
+    !/setTimeout\([\s\S]*?toggleSchedOpp\(el\)/.test(src),
+    'a retry that calls the toggle closes the drawer it meant to refresh');
+  ok('it repaints the box instead',
+    /again\.length!==pj\.length\) box\.innerHTML=projCard\(again\)/.test(src), 'redraws in place');
+  ok('and both paints go through one card builder',
+    (src.match(/projCard\(/g) || []).length >= 3, 'defined once, used for both paints');
+  ok('toggleSchedOpp is still the only thing a click calls',
+    /^async function toggleSchedOpp/.test(src), 'entry point unchanged');
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

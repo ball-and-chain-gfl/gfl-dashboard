@@ -2344,7 +2344,7 @@ function tradeVotesLoad(season,d){
    it supplies the one thing ESPN does not have. */
 async function fetchSeasonTrades(season){
   if(_tradeCache[season]) return _tradeCache[season];
-  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=3`;
+  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=4`;
   try{
     let d;
     if(String(season)===String(nflSeasonYear())){
@@ -5690,6 +5690,22 @@ function fcLivePlayers(info){
   if(!mine||!info||!info.games) return null;
   const g=info.games.find(m=>m&&m.home&&m.away&&(m.home.teamId===mine||m.away.teamId===mine));
   if(!g) return null;
+  /* THE DIGEST HAS TO BE THE WEEK ON SCREEN.
+
+     _nflGames is the pro scoreboard, and on Tuesday it is still LAST week --
+     sixteen games, every one of them post. Nothing here looked at which week
+     that was, so the guard below passed on a full slate, every team read as
+     finished, and every starter in the week about to be played took the f>=1
+     branch: what he has actually scored, which for a week nobody has kicked
+     off is nothing. The whole lineup sat reading 0.0 and styled as locked in,
+     from the Tuesday rollover until the scoreboard rolled over behind it.
+
+     A stale full slate cannot be told from a live one by counting it, which
+     is what the length test below was trying to do. It can be told by the
+     week it says it is. Wrong week, nothing to say -- and the list falls back
+     to the published projection, which is exactly right before kickoff. */
+  const digestWk=_nflGames&&_nflGames.week;
+  if(digestWk!=null&&info.week!=null&&Number(digestWk)!==Number(info.week)) return null;
   const prog=liveProProgress(_nflGames);
   if(!prog||!Object.keys(prog).length) return null;
   const rules=(info.meta&&info.meta.scoring)||null;
@@ -5701,9 +5717,24 @@ function fcLivePlayers(info){
       const pp=e.playerPoolEntry||{}, pl=pp.player||{};
       const pid=e.playerId!=null?String(e.playerId):(pl.id!=null?String(pl.id):null);
       if(!pid) return;
-      const st=(pl.stats||[]).find(x=>x&&x.statSourceId===1);
-      const proj=(st&&st.appliedTotal)||0;
+      /* THE WEEK'S projection, not the first source-1 row in the list. A
+         player carries several -- this week at split 1, last week at split 1,
+         the season at split 0 and at split 2 -- and taking whichever came back
+         first was a season total on some and a stale week on others. Same
+         filter sbRosters uses, so both places mean the same number. */
+      const wkNo=Number(info.week)||0;
+      const wkRows=(pl.stats||[]).filter(x=>x&&x.statSourceId===1&&x.statSplitTypeId===1);
+      /* With a week in hand it has to be THAT week's row and no other: falling
+         back to last week's projection is the same stale number this whole
+         function exists to stop printing. Without one — a caller that does not
+         name a week — the weekly row is still better than the season split. */
+      const st=wkNo?wkRows.find(x=>Number(x.scoringPeriodId)===wkNo):wkRows[0];
+      const proj=(st&&typeof st.appliedTotal==="number")?st.appliedTotal:0;
       const pts=Number(pp.appliedStatTotal)||0;
+      /* Nothing published and nothing banked is ESPN saying nothing about this
+         player this week, which is not a man projected to score nothing. Left
+         out, so the row falls back to the roster projection. */
+      if(!st&&!pts) return;
       const ab=NFL_TEAMS[Number(pl.proTeamId)||0];
       const f=(ab&&prog[ab]!=null)?prog[ab]:null;
       /* no game on the board for his team is a bye or a digest that has not
@@ -9545,33 +9576,39 @@ async function toggleSchedOpp(el){
   if(!top||!top.length){
     /* no starts to rank on yet — scout the roster they actually hold */
     const pj=schedTopProjected(owner,season,3);
-    if(pj&&pj.length){
-      box.innerHTML=`<div class="sd-card">
-        <div class="sd-h">Top ${pj.length} player${pj.length===1?'':'s'}</div>
-        <div class="sd-list">${pj.map((p,i)=>`<div class="sd-row">
+    /* One card, drawn the same way whether it is the first paint or the
+       repaint once the roster feed lands. */
+    const projCard=list=>`<div class="sd-card">
+        <div class="sd-h">Top ${list.length} player${list.length===1?'':'s'}</div>
+        <div class="sd-list">${list.map((p,i)=>`<div class="sd-row">
           <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
           <span class="sd-name">${p.n}</span>
           <span class="sd-ppg">${p.proj.toFixed(1)}</span>
           <span class="sd-st">${p.pos} proj</span>
         </div>`).join('')}</div></div>${schedLastMeeting(owner)}`;
-      /* the roster feed may not have landed on the first open */
+    if(pj&&pj.length){
+      box.innerHTML=projCard(pj);
+      /* THE RETRY REDRAWS THE DRAWER. IT USED TO RE-CALL THE TOGGLE.
+
+         schedTopProjected needs the roster feed, which is often still in the
+         air on the first open, so this fires 1.4s later to paint the real
+         three. It did that by calling toggleSchedOpp again -- and that
+         function is a TOGGLE. Second time through, the drawer was already
+         open, so it closed every drawer and returned. Click a week, watch it
+         open, watch it shut itself a beat later. It only stayed open on the
+         second click because by then the feed had landed and the count
+         matched, so this never fired at all.
+
+         Nothing here wants a toggle. It wants the contents replaced. */
       setTimeout(()=>{ if(!box.classList.contains('open')) return;
         const again=schedTopProjected(owner,season,3);
-        if(again&&again.length&&again.length!==pj.length) toggleSchedOpp(el); },1400);
+        if(again&&again.length&&again.length!==pj.length) box.innerHTML=projCard(again); },1400);
       return;
     }
     box.innerHTML=`<div class="sd-card"><div class="sd-msg">Loading ${name}'s roster…</div></div>`;
     setTimeout(()=>{ if(!box.classList.contains('open')) return;
       const again=schedTopProjected(owner,season,3);
-      box.innerHTML=(again&&again.length)
-        ? `<div class="sd-card">
-           <div class="sd-h">Top ${again.length} player${again.length===1?'':'s'}</div>
-           <div class="sd-list">${again.map((p,i)=>`<div class="sd-row">
-             <span class="sd-rank">${i+1}</span>${playerImg(p.pid,26,p.n)}
-             <span class="sd-name">${p.n}</span>
-             <span class="sd-ppg">${p.proj.toFixed(1)}</span>
-             <span class="sd-st">${p.pos} proj</span>
-           </div>`).join('')}</div></div>${schedLastMeeting(owner)}`
+      box.innerHTML=(again&&again.length) ? projCard(again)
         : `<div class="sd-card"><div class="sd-msg">No ${season} player data yet.</div></div>`; },1600);
     return;
   }

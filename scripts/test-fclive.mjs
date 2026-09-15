@@ -59,8 +59,10 @@ const player = (id, name, proTeamId, slot, projLine, projTotal, actLine, actTota
     appliedStatTotal: actTotal,
     player: { id, fullName: name, proTeamId,
       stats: [
-        { statSourceId: 1, statSplitTypeId: 1, appliedTotal: projTotal, stats: projLine },
-        { statSourceId: 0, statSplitTypeId: 1, appliedTotal: actTotal, stats: actLine },
+        /* the real feed stamps the week on every split-1 row and the lookup
+           filters on it, so the fixture carries it too */
+        { statSourceId: 1, statSplitTypeId: 1, scoringPeriodId: 1, appliedTotal: projTotal, stats: projLine },
+        { statSourceId: 0, statSplitTypeId: 1, scoringPeriodId: 1, appliedTotal: actTotal, stats: actLine },
       ] },
   },
 });
@@ -165,6 +167,75 @@ M.setGames(HALF);
 r = M.fcLivePlayers(info([evans({ 58: 4, 53: 3, 42: 30 }, 6.0)], [cmc({ 23: 9, 24: 50 }, 5.0)]));
 ok('mine and theirs', Object.keys(r).sort(), ['1001', '1002']);
 ok('both live', [r['1001'].state, r['1002'].state], ['live', 'live']);
+
+/* ── THE DIGEST IS LAST WEEK'S ───────────────────────────────────────────────
+   The bug this section exists for: on Tuesday the pro scoreboard still holds
+   the week just finished — sixteen games, every one of them post — while the
+   forecast has already rolled to the week ahead. Nothing checked WHICH week the
+   digest was for, so every team read as finished, every starter took the f>=1
+   branch, and `now` became what he had scored in a week nobody had kicked off,
+   which is nothing. The whole lineup printed 0.0 and styled itself locked in,
+   from the Tuesday rollover until the scoreboard caught up hours later.
+
+   A stale full slate cannot be told from a live one by counting it. It can be
+   told by the week it says it is. */
+head('a digest from another week is not this week');
+const wkOf = (n, b) => ({ ...b, week: n });
+const DONE1 = wkOf(1, DONE);
+
+M.setMe({ teamId: 7 });
+M.setGames(DONE1);
+ok('last week finished, this week on screen: nothing to say',
+  M.fcLivePlayers({ ...info([evans({}, 0), cmc({}, 0)]), week: 2 }), null);
+ok('the same digest IS this week when the weeks agree',
+  M.fcLivePlayers({ ...info([evans({}, 0)]), week: 1 }) != null, true);
+
+/* the guard must stay quiet when either side names no week, or every caller
+   that does not name one loses its live read */
+M.setGames(DONE);
+ok('no week on the digest: read it anyway',
+  M.fcLivePlayers({ ...info([evans({}, 0)]), week: 1 }) != null, true);
+M.setGames(DONE1);
+ok('no week on the forecast: read it anyway',
+  M.fcLivePlayers(info([evans({}, 0)])) != null, true);
+
+head('a week ESPN has not opened is left to the projection');
+/* what the feed actually returns for a week not yet published: the entry is
+   there, the stats array is empty, appliedStatTotal is 0. That is ESPN saying
+   nothing about the man, not a man projected to score nothing. */
+const silent = (id, name, proTeamId) => ({
+  playerId: id, lineupSlotId: 4,
+  playerPoolEntry: { appliedStatTotal: 0, player: { id, fullName: name, proTeamId, stats: [] } },
+});
+M.setGames(wkOf(2, DONE));
+ok('nothing published and nothing banked: left out entirely',
+  M.fcLivePlayers({ ...info([silent(2001, 'Quiet Man', 25)]), week: 2 }), null);
+
+head("the projection read is THIS week's row");
+const twoWeeks = (id, proTeamId, thisWk, lastWk) => ({
+  playerId: id, lineupSlotId: 4,
+  playerPoolEntry: { appliedStatTotal: 0, player: { id, fullName: 'Two Weeks', proTeamId,
+    stats: [
+      { statSourceId: 1, statSplitTypeId: 0, scoringPeriodId: 0, appliedTotal: 300 },
+      { statSourceId: 1, statSplitTypeId: 1, scoringPeriodId: 1, appliedTotal: lastWk },
+      { statSourceId: 1, statSplitTypeId: 1, scoringPeriodId: 2, appliedTotal: thisWk },
+    ] } },
+});
+M.setGames(wkOf(2, PRE));
+r = M.fcLivePlayers({ ...info([twoWeeks(2002, 25, 11.1, 22.2)]), week: 2 });
+ok('week 2 is read — not week 1, not the season split', r['2002'].now, 11.1);
+
+/* and the order ESPN happens to list them in must not decide it */
+const backwards = {
+  playerId: 2003, lineupSlotId: 4,
+  playerPoolEntry: { appliedStatTotal: 0, player: { id: 2003, fullName: 'Backwards', proTeamId: 25,
+    stats: [
+      { statSourceId: 1, statSplitTypeId: 1, scoringPeriodId: 1, appliedTotal: 99.9 },
+      { statSourceId: 1, statSplitTypeId: 1, scoringPeriodId: 2, appliedTotal: 8.8 },
+    ] } },
+};
+r = M.fcLivePlayers({ ...info([backwards]), week: 2 });
+ok('last week listed first changes nothing', r['2003'].now, 8.8);
 
 console.log('\n' + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

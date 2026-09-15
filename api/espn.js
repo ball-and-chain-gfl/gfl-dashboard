@@ -1377,7 +1377,26 @@ export default async function handler(req, res) {
           });
           const seen = new Set(trades.map(t =>
             t.teams.flatMap(x => x.players.map(p => p.pid)).sort((a, b) => a - b).join(',')));
-          const curWeek = Number(ld.scoringPeriodId) || 1;
+          // THE WEEK A TRADE HAPPENED IN DOES NOT MOVE. curWeek DOES.
+          //
+          // Every trade found here was stamped with the CURRENT scoring period
+          // and had its points counted from there, which read correctly for
+          // exactly one week. On the Tuesday the league rolled to week 2, an
+          // August trade started counting from week 2 — a week nobody had
+          // played — so both sides reported 0.0, and week 1, which those
+          // players had actually banked, was dropped on the floor. It would
+          // have gone back to zero again every Tuesday for the rest of the
+          // season, and the bar above it would have kept calling the deal even.
+          //
+          // The week comes off the rosters instead: the first week each player
+          // appears on the side that RECEIVED him. For a deal struck before the
+          // season that is week 1, and it is still week 1 in December. For one
+          // the weekly diff missed mid-season it is the week he actually
+          // arrived, which is the same window the diff would have used.
+          const firstWeekOn = (pid, tid) => {
+            for (const w of weeks) if (wk[w]?.[pid]?.team === tid) return w;
+            return weeks[0] || 1;
+          };
           Object.keys(groups).sort((a, b) => a - b).forEach(when => {
             const legs = groups[when];
             const teamIds = [...new Set(legs.map(l => l.to))];
@@ -1387,13 +1406,15 @@ export default async function handler(req, res) {
             seen.add(key);
             const teamsOut = teamIds.map(tid => {
               const players = legs.filter(l => l.to === tid)
-                .map(l => ({ pid: l.pid, n: l.n, pts: +ptsFrom(l.pid, curWeek).toFixed(1) }))
+                .map(l => ({ pid: l.pid, n: l.n,
+                             pts: +ptsFrom(l.pid, firstWeekOn(l.pid, tid)).toFixed(1) }))
                 .sort((a, b) => b.pts - a.pts);
               return { teamId: tid, players, total: +players.reduce((s, p) => s + p.pts, 0).toFixed(1) };
             });
             // `date` is what the notification card reads to decide whether a
             // trade happened this week; `at` is kept for ordering.
-            trades.push({ week: curWeek, teams: teamsOut, at: Number(when), date: Number(when) });
+            const tradeWk = Math.min(...legs.map(l => firstWeekOn(l.pid, l.to)));
+            trades.push({ week: tradeWk, teams: teamsOut, at: Number(when), date: Number(when) });
           });
         }
       } catch {}
