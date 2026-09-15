@@ -89,12 +89,28 @@ M.setSlow([]);
 ok('and the next build is whole again', kinds().length, 5);
 ok('with the seeded order intact', kinds(), base);
 
+head('a substituted set is marked as not canonical');
+M.setSlow([]); M.reset();
+const clean = M.bkBuildWeek(2026, 1, 5);
+ok('nothing declined, so the seed got its own five', clean.canonical, true);
+
+/* the dangerous case: a generator declines, another fills the slot, and the set
+   still comes back five long on the first pass with nothing to show for it */
+for (const slow of [['a'], ['b'], ['c'], ['d'], ['e']]) {
+  M.setSlow(slow); M.reset();
+  const got = M.bkBuildWeek(2026, 1, 5);
+  const wasChosen = clean.map(q => q.kind).includes(slow[0]);
+  ok('slow=' + slow[0] + ' still returns five', got.length, 5);
+  if (wasChosen) ok('slow=' + slow[0] + ' is flagged as substituted', got.canonical, false);
+}
+
 /* ── the rule, at the source ──────────────────────────────────────────────── */
 head('the source emits by seed rather than by arrival');
 const src = grab('function bkBuildWeek(season,week,n){');
 ok('questions are collected by kind', /const got=\{\}/.test(src), true);
 ok('and emitted in the seeded order', /order\.forEach\(i=>\{ if\(got\[i\]\) out\.push/.test(src), true);
 ok('nothing is pushed as it arrives', /if\(q&&!out\.some/.test(src), false);
+ok('and it reports whether the seed got its own five', /res\.canonical=order\.slice/.test(src), true);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

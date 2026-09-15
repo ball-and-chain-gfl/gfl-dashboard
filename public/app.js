@@ -13546,6 +13546,13 @@ function bkBuildWeek(season,week,n){
      every load whatever order the data arrives in. */
   const got={};
   const count=()=>Object.keys(got).length;
+  /* THE SEED'S FIRST FIVE, ALL PRESENT, is what makes a set canonical. There
+     are six generators and five slots, so one is always surplus -- which means
+     a generator can decline, another can fill its place, and the set still
+     completes on the FIRST pass with nothing to show it was substituted. That
+     is precisely how the answer key got published with manager and bio the
+     wrong way round. Counting passes cannot see it; asking whether the kinds
+     the seed actually chose are the kinds that built can. */
   for(let pass=0;pass<3&&count()<(n||5);pass++){
     for(const i of order){
       if(count()>=(n||5)) break;
@@ -13557,7 +13564,9 @@ function bkBuildWeek(season,week,n){
     if(!count()) break;
   }
   order.forEach(i=>{ if(got[i]) out.push(got[i]); });
-  return out.slice(0,n||5);
+  const res=out.slice(0,n||5);
+  res.canonical=order.slice(0,n||5).every(i=>!!got[i]);
+  return res;
 }
 
 /* ── BALL KNOWLEDGE: the question engine ─────────────────────────────────────
@@ -13830,6 +13839,13 @@ function bkCorrect(w){
    wins, and every later browser reads it rather than writing its own. */
 async function bkPublishCorrect(qs){
   if(!qs||qs.length<BK_WEEK_QS) return;
+  /* ONLY THE SEED'S OWN FIVE. A full set is not proof the data was all there:
+     six generators fill five slots, so one can decline and another take its
+     place without the set ever looking short. Publishing the first FULL set
+     wrote a key with manager and bio the wrong way round -- the very swap this
+     exists to stop. If the kinds the seed chose are not the kinds that built,
+     this is a substitute and nothing is written down. */
+  if(!qs.canonical) return;
   const w=bkWeek(), k=bkAnsDoc(w);
   if(_bkCorrect[k]) return;                        // already published
   const body=fsOut({correct:JSON.stringify(qs.map(q=>q.correct))});
