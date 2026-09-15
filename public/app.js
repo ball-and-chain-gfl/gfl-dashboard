@@ -13786,20 +13786,81 @@ function bkUnsealed(p){
    written once and never revisited -- the questions behind it are gone by then
    and the number is the only record that survives them. */
 const bkScoreKey=w=>`bkt_${bkLeagueSeason()}_w${Number(w)}`;
+/* ── THE WEEK'S ANSWER KEY, WRITTEN DOWN ONCE, FOR THE WHOLE LEAGUE ──────────
+   The five questions are picked from six generators, and a generator DECLINES
+   while its data is still in the air -- so which five you get depends on what
+   had loaded when your browser built them. Answers are stored by index, so a
+   browser that built a different five grades every stored answer against a
+   different question.
+
+   That is not theoretical. The real week 1 set is rank / teamranks / GRAPH /
+   manager / bio. A browser whose graph data had not arrived built rank /
+   teamranks / manager / bio / group instead -- same first two, everything after
+   shifted by one -- and grading the league against it moved five managers'
+   scores, Bismuth from +3 to -1 among them. Making the ORDER deterministic was
+   not enough, because the COMPOSITION moves too.
+
+   So the first browser to build a full set writes the correct answers down, and
+   from then on every browser grades against those five numbers rather than
+   against whatever it managed to build. Five integers in one document; it is
+   the smallest thing that makes the week's marking a fact rather than a race. */
+const bkAnsDoc=w=>`bkq-${bkLeagueSeason()}-w${Number(w)}`;
+let _bkCorrect={},_bkCorrectBusy={};
+function bkCorrect(w){
+  const k=bkAnsDoc(w);
+  if(_bkCorrect[k]!==undefined) return _bkCorrect[k];
+  if(!_bkCorrectBusy[k]){
+    _bkCorrectBusy[k]=true;
+    fetch(liveDocUrl(k),{cache:'no-store'})
+      .then(r=>r.status===404?null:(r.ok?r.json():undefined))
+      .then(j=>{
+        if(j===undefined) return;                 // a real error: ask again later
+        let v=null;
+        if(j){ try{ v=JSON.parse(fsIn(j).correct||'null'); }catch(e){ v=null; } }
+        _bkCorrect[k]=Array.isArray(v)&&v.length?v:null;
+        try{ renderBallKnowledge(); }catch(e){}
+        try{ if(_activeTab==='leaders') renderLeaders(); }catch(e){}
+      })
+      .catch(()=>{})
+      .finally(()=>{ _bkCorrectBusy[k]=false; });
+  }
+  return undefined;                                // not known yet
+}
+/* Publish this week's answer key, once. Never overwrites: the first full set
+   wins, and every later browser reads it rather than writing its own. */
+async function bkPublishCorrect(qs){
+  if(!qs||qs.length<BK_WEEK_QS) return;
+  const w=bkWeek(), k=bkAnsDoc(w);
+  if(_bkCorrect[k]) return;                        // already published
+  const body=fsOut({correct:JSON.stringify(qs.map(q=>q.correct))});
+  try{
+    const r=await fetch(liveCollUrl(k),{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok||r.status===409) _bkCorrect[k]=qs.map(q=>q.correct);
+  }catch(e){}
+}
 /* This week's trivia, graded off the set currently in hand. A blank is worth
    nothing until the slate locks and minus one after it: grading blanks the
    moment questions go up would sit the whole league at minus five on a Tuesday
    morning for not having answered yet. */
 function bkLiveTrivia(p){
   if(!(_CFG.ballKnowledge||{}).reveal) return 0;
-  let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){ return 0; }
-  if(!qs.length) return 0;
+  /* THE PUBLISHED KEY WINS. Whatever this browser managed to build, the week's
+     answers are the ones written down when the set was first complete -- see
+     bkCorrect. Falling back to the questions in hand is only for a week that
+     was never published, and it is the fallback that got the league graded
+     against a substituted set in the first place. */
+  const key=bkCorrect(bkWeek());
+  if(key===undefined) return 0;                 // not known yet: grade nothing
+  let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){ qs=[]; }
+  const correct=key||qs.map(q=>q.correct);
+  if(!correct.length) return 0;
   let settled=false; try{ settled=pkLocked(); }catch(e){}
   let ans={}; try{ ans=JSON.parse(p[bkKey()]||'{}'); }catch(e){ ans={}; }
   let s=0;
-  qs.forEach((q,i)=>{
+  correct.forEach((c,i)=>{
     if(ans[i]==null){ if(settled) s-=1; return; }
-    s+=(ans[i]===q.correct?1:-1);
+    s+=(ans[i]===c?1:-1);
   });
   return s;
 }
@@ -13823,43 +13884,16 @@ function bkLiveTrivia(p){
    So a week submitted before sealing existed cannot be recovered by regrading,
    and is not going to be guessed at. It stays unsealed, worth nothing, until
    somebody writes the real number it earned. */
-/* ── SEAL THE WEEK FOR EVERYBODY WHO SUBMITTED IT ────────────────────────────
-   From here on bkSubmit seals at the press of the button, so this has nothing
-   to do. It exists for the league as it stands TODAY: eleven managers submitted
-   week 1 before sealing existed, so they carry answers and no score, and the
-   moment week 1 rolls over their questions are gone and those scores can never
-   be worked out again. They have to be written down before Tuesday.
+/* bkSealLeague is gone. It graded OTHER managers' answers against whatever set
+   the running browser happened to have built, and that is exactly the race the
+   published answer key exists to end: a browser whose graph data had not landed
+   built a different five, and it wrote five managers' scores wrong -- Bismuth
+   at -1 when he had four of five right.
 
-   It writes other managers' rows, which nothing else here does. That is the
-   point -- a score that depends on its owner happening to open the app before
-   the rollover is a score half the league loses -- and it is safe in the only
-   ways that matter: it writes ONE field, only where that field is missing,
-   only for a manager who actually submitted, and only when a full set of five
-   questions is in hand to grade against. Grading is deterministic now that
-   bkBuildWeek emits in the seeded order, so every browser that runs this
-   computes the same numbers.
-
-   Once it has run there is nothing left with a missing score and it is a no-op
-   for the rest of time. */
-let _bkSealBusy=false;
-async function bkSealLeague(){
-  if(_bkSealBusy||!_me||!(_CFG.ballKnowledge||{}).reveal) return;
-  const rows=_bkProfiles||[]; if(!rows.length) return;
-  let qs=[]; try{ qs=bkQuestions()||[]; }catch(e){}
-  if(qs.length<BK_WEEK_QS) return;              // a short set grades nothing
-  const key=bkScoreKey(bkWeek());
-  const todo=rows.filter(p=>p&&p.id&&p[bkSubKey()]&&p[key]==null);
-  if(!todo.length) return;
-  _bkSealBusy=true;
-  for(const p of todo){
-    const val=String(bkLiveTrivia(p));
-    p[key]=val;                                  // locally first, so it seals once
-    try{ await gflPatchProfile(p.id,{[key]:val}); }catch(e){ delete p[key]; }
-  }
-  _bkSealBusy=false;
-  try{ if(_activeTab==='leaders') renderLeaders(); }catch(e){}
-  try{ if(_activeTab==='teams') renderProfile(); }catch(e){}
-}
+   Nothing needs it now. bkSubmit seals at the press, against the published key,
+   which is the set the manager was actually looking at. The one thing still
+   outstanding is the five seals it already wrote wrong, and those have to be
+   corrected deliberately rather than by another pass of guesswork. */
 let _bkAnswers=null,_bkBusy=false,_bkOpen=null,_bkDone=false,_bkFetched=false;
 
 /* _me holds only the two keys and a team, so the saved answers have to be read
@@ -13930,7 +13964,9 @@ async function bkSubmit(){
      over during the week, and grading the same stored answers an hour later can
      give a different number. Freezing it at the press of the button is what
      makes the score the manager's own rather than the data's. */
-  const sealed=String(qs.reduce((n,q,i)=>n+(ans[i]===q.correct?1:-1),0));
+  const pub=bkCorrect(bkWeek());
+  const key5=(Array.isArray(pub)&&pub.length)?pub:qs.map(q=>q.correct);
+  const sealed=String(key5.reduce((n,c,i)=>n+(ans[i]===c?1:-1),0));
   if(_me){ try{ await gflPatchProfile(_me.k1,
     {[bkKey()]:JSON.stringify(ans),[bkSubKey()]:'1',[bkScoreKey(bkWeek())]:sealed}); }catch(e){} }
   _bkSending=false; renderBallKnowledge();
@@ -13980,7 +14016,7 @@ function bkQuestions(){
      can come back with just the one question that needs neither. Caching that
      pinned the card to a single question for the rest of the session, because
      the key is only the season and the week and never changed again. */
-  if(qs.length>=want) _bkQCache={key,qs};
+  if(qs.length>=want){ _bkQCache={key,qs}; if(!all) try{ bkPublishCorrect(qs); }catch(e){} }
   return qs;
 }
 /* A sparkline of the weeks shown, drawn rather than described — the shape is
@@ -14065,9 +14101,6 @@ function bkReopen(qi){ _bkOpen=(_bkOpen===qi?null:qi); renderBallKnowledge(); }
 function renderBallKnowledge(){
   const el=document.getElementById('bk-body'); if(!el) return;
   bkSync();                                  // fire and forget; re-renders if it finds saved answers
-  /* Write down every submitted week that has no score yet, before the rollover
-     takes its questions away. A no-op once it has run. */
-  try{ bkSealLeague(); }catch(e){}
   const sec=document.getElementById('bk-sec');
   const qs=bkQuestions();
   if(!qs.length){ if(sec) sec.style.display='none'; return; }

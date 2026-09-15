@@ -32,7 +32,7 @@ const M = assemble(grab, [
   'const bkScoreKey=', 'function bkLiveTrivia(p){',
   'const BK_WEEK_QS=', 'const bkAnsKeyFor=', 'function bkUnsealed(p){',
 ], ['bkScoreKey', 'bkLiveTrivia', 'bkUnsealed', 'bkAnsKeyFor',
-    'setQs', 'setLocked', 'setReveal', 'setWeek'],
+    'setQs', 'setLocked', 'setReveal', 'setWeek', 'setKey'],
   ['let _QS=[], _LOCKED=false, _REVEAL=true;',
    'const _CFG={get ballKnowledge(){return {reveal:_REVEAL};}};',
    'const bkLeagueSeason=()=>2026;',
@@ -43,9 +43,14 @@ const M = assemble(grab, [
    'const setQs=q=>{_QS=q;};',
    'const setLocked=v=>{_LOCKED=v;};',
    'const setReveal=v=>{_REVEAL=v;};',
+   /* the published key, which grading now prefers over the set in hand */
+   'let _KEY=null;',
+   'const bkCorrect=()=>_KEY;',
+   'const setKey=k=>{_KEY=k;};',
    'const setWeek=w=>{_WK=w;};'].join(NL));
 
 const QS = [{ correct: 'a' }, { correct: 'b' }, { correct: 'c' }, { correct: 'd' }, { correct: 'e' }];
+const KEY = ['a', 'b', 'c', 'd', 'e'];
 const row = ans => ({ 'bk_2026_w1': JSON.stringify(ans) });
 
 head('the key names the week');
@@ -53,7 +58,7 @@ ok('week 1', M.bkScoreKey(1), 'bkt_2026_w1');
 ok('week 9', M.bkScoreKey(9), 'bkt_2026_w9');
 
 head('while the slate is open, blanks cost nothing');
-M.setQs(QS); M.setLocked(false);
+M.setQs(QS); M.setKey(KEY); M.setLocked(false);
 ok('three right, two unanswered', M.bkLiveTrivia(row({ 0: 'a', 1: 'b', 2: 'c' })), 3);
 ok('two right one wrong, two unanswered', M.bkLiveTrivia(row({ 0: 'a', 1: 'b', 2: 'x' })), 1);
 ok('nothing answered at all', M.bkLiveTrivia(row({})), 0);
@@ -73,10 +78,21 @@ M.setReveal(false);
 ok('a perfect five scores 0', M.bkLiveTrivia(row({ 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e' })), 0);
 M.setReveal(true);
 
-head('no questions in hand means no score rather than minus five');
+head('the published key grades without the questions being on screen');
+/* This used to need the questions in hand, which is why grading could happen
+   against a substituted set. The key is the authority now: the answers are on
+   file and the marking scheme is published, so the questions are only needed to
+   DRAW the card. */
 M.setQs([]);
-ok('the set has not generated yet', M.bkLiveTrivia(row({})), 0);
+ok('five blanks after the whistle still cost five', M.bkLiveTrivia(row({})), -5);
+ok('and a right answer still counts',
+  M.bkLiveTrivia(row({ 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e' })), 5);
 M.setQs(QS);
+
+head('with no key published yet, nothing is graded at all');
+M.setKey(undefined);
+ok('it declines rather than guessing', M.bkLiveTrivia(row({ 0: 'a', 1: 'b' })), 0);
+M.setKey(KEY);
 
 /* ── how bkIQFor puts it together ─────────────────────────────────────────── */
 head('sealed weeks are summed, and the live week is not double counted');
@@ -92,17 +108,16 @@ ok('the old current-week-only grading is gone',
 head('submit is what seals a week');
 const app = require_src();
 ok('bkSubmit writes the score itself', /\[bkScoreKey\(bkWeek\(\)\)\]:sealed/.test(app), true);
-ok('and it grades the set it has in hand',
-  /qs\.reduce\(\(n,q,i\)=>n\+\(ans\[i\]===q\.correct\?1:-1\),0\)/.test(app), true);
+ok('and it grades against the published key', /key5\.reduce/.test(app), true);
 
-head('the league seal writes down what would otherwise be lost');
-const seal = grab('async function bkSealLeague(){');
-ok('it refuses a short set', /qs\.length<BK_WEEK_QS/.test(seal), true);
-ok('it only touches managers who submitted', /p\[bkSubKey\(\)\]/.test(seal), true);
-ok('and only where the score is missing', /p\[key\]==null/.test(seal), true);
-ok('it writes exactly one field', /gflPatchProfile\(p\.id,\{\[key\]:val\}\)/.test(seal), true);
-ok('and rolls back locally if the write fails', /delete p\[key\]/.test(seal), true);
-ok('it cannot run twice at once', /_bkSealBusy/.test(seal), true);
+head('the answer key is published and graded against');
+ok('the cross-profile sealer is gone', /bkSealLeague\s*\(/.test(app), false);
+ok('a full set publishes the key', /bkPublishCorrect\(qs\)/.test(app), true);
+ok('it never overwrites one already published', /if\(_bkCorrect\[k\]\) return;/.test(app), true);
+ok('grading prefers the published key', /const correct=key\|\|qs\.map/.test(app), true);
+ok('and grades nothing while the key is still unknown',
+  /if\(key===undefined\) return 0;/.test(app), true);
+ok('submit seals against the published key too', /key5\.reduce/.test(app), true);
 
 head('a past week nobody submitted is a flat minus five');
 M.setWeek(4);
