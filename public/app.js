@@ -5978,10 +5978,7 @@ function fcLastMeetingHTML(meO,oppO){
   </div>`;
 }
 /* the sign-in key a team's manager uses, which is what a profile is filed under */
-function fcOppKey(t){
-  if(!t) return '';
-  return keySlug(t.abbrev||teamInitials(t.name));
-}
+function fcOppKey(t){ return teamAcctId(t); }
 /* points per game by lineup slot for both teams, this season */
 function fcPositional(info,aId,bId){
   const src=_weeklyBySlot;
@@ -8024,6 +8021,50 @@ async function gflPatchProfile(id,obj){
    that request is already newer than anything it could ask for. */
 const PROFILES_MEMO_MS=4000;
 let _profRows=null,_profAt=0,_profFlight=null;
+/* Which of the documents in profiles are actually the league's accounts.
+   Split out of the read below so it can be exercised directly: what it drops
+   is a franchise's entire history, and that is not a decision to leave inside
+   a fetch where nothing can reach it. */
+function profilesForLeague(rows){
+  /* Only the twelve league accounts count. Documents left over from when
+     sign-in would mint one for any name are still in the collection, and two
+     of them point at Florida Man — which is why that team was showing up
+     twice in the vote badges. Filtering here fixes every tally at once
+     rather than each caller remembering to.
+
+     A PROFILE BELONGS TO A FRANCHISE BY teamId, NOT BY WHAT IT IS CALLED.
+
+     This used to keep only documents whose id matched a slug of a CURRENT
+     team name, and the id is that slug at the moment the account was made.
+     So renaming a team silently deleted it. Motor City Mulligans became Dad
+     shouldve Used Contraception, MCM became DSUC, and the profiles/mcm
+     document — two poll ballots, both weeks of Ball Knowledge answers and
+     scores, weekly picks, eggs, investments, a trade vote, their sign-in key
+     — stopped being returned by this read. Every screen in the league
+     thereafter agreed they had never done anything, and they could not sign
+     in to say otherwise, because the same set gates that too.
+
+     Nothing had been lost. One filter, keyed on a name somebody is entitled
+     to change, hid all of it. So the link is teamId now, which is what
+     actually ties a document to a franchise, and the slug is only a fallback
+     for a profile that has no teamId yet. */
+  const allowed=teamAccountIds();
+  if(!allowed.size) return rows;
+  const live=new Set((_teams||[]).map(t=>String(t.id)));
+  const keep=rows.filter(p=>live.has(String(p.teamId||''))||allowed.has(p.id));
+  /* One document a franchise. The leftovers this guard was written for carry
+     no teamId at all, so they are kept on their own id and cannot collide;
+     between two that name the SAME team the one with more on it wins, which
+     after a rename is always the real one rather than an empty newcomer. */
+  const best={};
+  const score=x=>Object.keys(x).length*10+(allowed.has(x.id)?1:0);
+  keep.forEach(p=>{
+    const t=String(p.teamId||'');
+    const k=live.has(t)?('t:'+t):('id:'+p.id);
+    if(!best[k]||score(p)>score(best[k])) best[k]=p;
+  });
+  return Object.values(best);
+}
 async function gflFetchProfiles(){
   try{
     const url=`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/profiles?key=${GFL_DB.key}&pageSize=300`;
@@ -8032,14 +8073,33 @@ async function gflFetchProfiles(){
     if(!r.ok) return null;
     const j=await r.json();
     const rows=(j.documents||[]).map(d=>({id:decodeURIComponent((d.name||'').split('/').pop()||''),...fsIn(d)}));
-    /* Only the twelve league accounts count. Documents left over from when
-       sign-in would mint one for any name are still in the collection, and two
-       of them point at Florida Man — which is why that team was showing up
-       twice in the vote badges. Filtering here fixes every tally at once
-       rather than each caller remembering to. */
-    const allowed=teamAccountIds();
-    return allowed.size ? rows.filter(p=>allowed.has(p.id)) : rows;
+    return profilesForLeague(rows);
   }catch(e){ return null; }
+}
+/* ── THE ACCOUNT A FRANCHISE SIGNS IN UNDER ─────────────────────────────────
+   Its document id, which was a slug of its name on the day the account was
+   made and has been fixed ever since. The slug of its CURRENT name is only a
+   fallback, for a team that has no profile yet: rename the team and that slug
+   changes, while the document — and every bet, ballot, pick and score filed
+   against it — does not.
+
+   Everything downstream keys off this id: bets carry it as `owner`, trash talk
+   as tt_<id>, invitations by name. Resolving it from the profile rather than
+   from the name is what lets all of that keep working through a rebrand
+   without a single row being rewritten. */
+function teamAcctId(t){
+  if(!t) return '';
+  const row=(_profRows||[]).find(p=>String(p.teamId||'')===String(t.id));
+  return (row&&row.id)||keySlug(t.abbrev||teamInitials(t.name));
+}
+/* Every id that is really a league account: a slug the current names produce,
+   plus every document already filed against a live franchise. The second half
+   is the one that survives a rename, and it is what sign-in checks. */
+function accountIds(){
+  const s=teamAccountIds();
+  const live=new Set((_teams||[]).map(t=>String(t.id)));
+  (_profRows||[]).forEach(p=>{ if(live.has(String(p.teamId||''))) s.add(p.id); });
+  return s;
 }
 async function gflListProfiles(force){
   if(_profFlight) return _profFlight;
@@ -8099,7 +8159,7 @@ async function gflSignIn(){
      renamed franchise does not lock its manager out. If teams have not loaded
      yet the profile lookup below still gates it — there is no branch that
      creates one either way. */
-  const allowed=teamAccountIds();
+  const allowed=accountIds();
   if(allowed.size && !allowed.has(id)) return signInMsg('That is not a league account.',true);
   signInMsg('Checking…');
   const res=await gflFetchProfile(id);
@@ -18075,7 +18135,7 @@ const betInviteSeats=id=>betInvitesFor(id)
   .filter(x=>x.status!=='declined'&&x.status!=='void').length;
 /* the league's sign-in accounts, which is what a bet is owned by */
 function betAccounts(){
-  return _teams.map(t=>({k1:keySlug(t.abbrev||teamInitials(t.name)),name:t.name}))
+  return _teams.map(t=>({k1:teamAcctId(t),name:t.name}))
     .filter(x=>x.k1);
 }
 const betAccountName=k1=>(betAccounts().find(a=>a.k1===k1)||{}).name||k1;
