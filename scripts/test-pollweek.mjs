@@ -161,5 +161,36 @@ S.setRows([{ id: 'ting' }]);
 S.cpDropStaleDraft();
 ok('and it still gets its one pass once they land', S.cpMyBallot(), []);
 
+/* ── the current week has to REACH the Standings poll ────────────────────────
+   pollLiveWeekEntry publishes the week everybody has voted in without waiting
+   for Tuesday, and it reads the ballots out of _cpRows. Those land well after
+   the page is built, so the section is drawn once while _cpRows is still null
+   -- with the current week missing from the chart AND from the folds -- and
+   only a repaint afterwards puts it there.
+
+   That repaint was guarded on Standings being the open tab. It never is: the
+   rows land while the homepage is up. So the poll was a week short for anyone
+   whose session cache was cold, and correct on their second visit, which is
+   exactly the shape of bug that survives being looked at.
+
+   Four things assign _cpRows. cpRowsWarm is the session cache and runs before
+   the first render, so it needs nothing. The other three land over the network
+   afterwards and each has to repaint. Counted rather than named, so a fifth
+   path added later fails here instead of quietly shipping the same hole. */
+head('every path that lands the ballots repaints Standings');
+ok('four things assign the rows',
+  (SRC.match(/_cpRows\s*=\s*(rows|r|j\.rows)\b/g) || []).length, 4);
+ok('one of them is the pre-render session cache',
+  /function cpRowsWarm\(\)[\s\S]{0,400}?_cpRows\s*=\s*j\.rows/.test(SRC), true);
+/* three for the ballots, one for the archive landing that always had one */
+ok('and there are four guarded repaints',
+  (SRC.match(/document\.getElementById\('standings-poll'\)\) renderStandingsPoll\(\)/g) || []).length,
+  4);
+ok('none of them waits for the tab to be open',
+  SRC.includes("if(_activeTab==='standings') try{ renderStandingsPoll(); }"), false);
+/* those four, the one in renderStandings, and the declaration itself */
+ok('and nothing else calls it unguarded',
+  (SRC.match(/renderStandingsPoll\(\)/g) || []).length, 6);
+
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

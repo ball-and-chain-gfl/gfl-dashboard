@@ -7695,6 +7695,10 @@ async function leaguePoll(force){
   _cpRows=rows; _cpFetched=true;          // so cpSync does not fetch it again
   try{ renderCoachesPoll(); }catch(e){}
   try{ renderNotifications(); orderHomeTodo(); }catch(e){}
+  /* This runs on the homepage only, but the rows it just landed are what the
+     Standings poll needs to know the current week is complete -- and it sets
+     _cpFetched, so cpSync will never fetch and repaint on its behalf. */
+  try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){}
   /* ── THE ONE GRID THAT DOES NEED REPAINTING ────────────────────────────────
      The rule above holds: the picks grid is not redrawn from here, because
      redrawing it under somebody mid-tap is a worse bug than a stale tally.
@@ -16345,8 +16349,16 @@ async function cpSync(){
       /* the trade cards read their tallies out of the same rows */
       if(_activeTab==='trades') try{ renderTradesTab(); }catch(e){}
       /* and so does the poll section on Standings, which cannot tell whether
-         a week is complete until they arrive */
-      if(_activeTab==='standings') try{ renderStandingsPoll(); }catch(e){} }
+         a week is complete until they arrive.
+
+         NOT guarded on the active tab. That section is built once at load and
+         the ballots land while the homepage is still the open page, so a
+         repaint that waited for Standings to be on screen never happened at
+         all: a visitor with a cold session got a poll with the CURRENT week
+         missing from both the chart and the folds, and only saw it after a
+         second visit warmed the row cache. Same reasoning, and same one-line
+         guard, as the archive landing in pollsLoad. */
+      try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){} }
   }catch(e){}
 }
 function cpToggle(teamId){
@@ -17037,6 +17049,9 @@ async function ldRefresh(){
   }catch(e){}
   _ldBusy=false;
   try{ renderLeaders(); }catch(e){}
+  /* it set _cpFetched above, so this is now the only thing that will tell the
+     Standings poll the ballots are in */
+  try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){}
 }
 
 function renderLeaders(){
