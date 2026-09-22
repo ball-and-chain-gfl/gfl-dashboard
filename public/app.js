@@ -7016,6 +7016,35 @@ function liveWpOf(m,aFirst){
   const p=aFirst?hp:ap;
   return (p>0&&p<1)?Math.round(p*10000)/10000:null;
 }
+/* ── A RESULT THAT CANNOT CHANGE IS NOT WORTH RECORDING ──────────────────────
+   Once the side that is BEHIND has nobody left on the field the matchup is
+   over, whatever the clock says. Everything after that is a leader running up
+   a score that decides nothing, and the graph was recording all of it: week 2
+   put twenty-seven readings into one matchup across two hours and ten minutes
+   in which the only thing that moved was the loser's remaining projection
+   decaying from 3.13 to 0.04. ESPN agreed -- its win probability had gone to a
+   flat 1, which liveWpOf reports as null, so that tail was a run of readings
+   with no probability in them at all.
+
+   Read off the ROW rather than the feed, so the browser and the poller reach
+   the same verdict from the same numbers and neither needs a second lookup.
+
+   The generous estimate of what is left: the usage model and the old one
+   disagree about how much a lineup still has in it, and this stops only when
+   BOTH of them say there is nothing to come. A row recorded before either
+   model was kept says nothing about the matter and is not read.
+
+   Only the side that is behind is asked. A side that finishes AHEAD has not
+   decided anything -- the other one is still playing and can still catch
+   them, which is the half of Sunday night that is worth watching. */
+function liveRowDecided(r){
+  if(!r||r.length<6) return false;
+  const left=(x,y)=>{ const p=r[x],q=r[y];
+    return (p==null&&q==null)?null:Math.max(Number(p)||0,Number(q)||0); };
+  const a=Number(r[1])||0, b=Number(r[2])||0, la=left(4,6), lb=left(5,7);
+  if(la==null||lb==null) return false;
+  return (la===0&&a<b)||(lb===0&&b<a);
+}
 /* Put one reading in the bucket it belongs to; answers whether anything moved.
 
    Two watchers can land in the same five minutes holding different scores. The
@@ -7060,6 +7089,9 @@ function liveNote(arr,t,a,b,p,la,lb,fa,fb){
     if((!(a>0)&&hiA>0)||(!(b>0)&&hiB>0)) return false;
   }
   const prev=arr[arr.length-1];
+  /* see A RESULT THAT CANNOT CHANGE. The last reading already settled this
+     matchup, so there is nothing further to say about it this week. */
+  if(liveRowDecided(prev)) return false;
   if(prev&&prev[0]>=t){
     if(prev[0]!==t) return false;
     let moved=false;

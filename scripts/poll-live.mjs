@@ -94,6 +94,8 @@ const app = assemble(grab, [
   'function liveSideProj(side){',
   'function liveSideLeft(side,prog,rules){',
   'function liveWpOf(m,aFirst){',
+  /* the stop rule travels with the recorder that obeys it */
+  'function liveRowDecided(r){',
   'function liveNote(arr,t,a,b,p,la,lb,fa,fb){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
     'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf',

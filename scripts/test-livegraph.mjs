@@ -44,10 +44,11 @@ const M = assemble(grab, [
   'function livePlayerLeft(entry,f,rules){',
   'function liveSideProj(side){',
   'function liveSideLeft(side,prog,rules){',
+  'function liveRowDecided(r){',
   'function liveNote(arr,t,a,b,p,la,lb,fa,fb){',
 ], ['liveMKey', 'wpAt', 'wpSd', 'wpCurve', 'wpSlateProgress', 'wpGraphSVG', 'schedNormCdf',
     'LIVE_BUCKET_MIN', 'liveBucket', 'liveProTeams', 'liveSideOn', 'liveMatchupOn',
-    'liveNote', 'liveWpOf', 'liveSideScore', 'liveWithScores', 'liveEffW', 'liveSideProj',
+    'liveNote', 'liveRowDecided', 'liveWpOf', 'liveSideScore', 'liveWithScores', 'liveEffW', 'liveSideProj',
     'liveProProgress', 'liveSideLeft', 'livePlayerLeft', 'liveScoreLine',
     'liveUsageW', 'LIVE_USAGE_R'], `
 const sbZ=x=>x;

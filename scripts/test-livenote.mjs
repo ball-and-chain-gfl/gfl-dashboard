@@ -31,7 +31,8 @@ const ok = (name, got, want) => {
 const head = t => console.log(NL + t);
 
 const grab = lifter(new URL('../public/app.js', import.meta.url));
-const M = assemble(grab, ['function liveNote(arr,t,a,b,p,la,lb,fa,fb){'], ['liveNote']);
+const M = assemble(grab, ['function liveRowDecided(r){',
+  'function liveNote(arr,t,a,b,p,la,lb,fa,fb){'], ['liveNote', 'liveRowDecided']);
 
 const scores = arr => arr.map(r => [r[1], r[2]]);
 
@@ -98,6 +99,62 @@ ok('still one row', s.length, 1);
 
 head('and an older bucket is never appended behind a newer one');
 ok('a stale reading is refused', M.liveNote(s, 150, 12, 20, 0.7), false);
+
+/* ── the dead tail ──────────────────────────────────────────────────────────
+   A matchup whose LOSING side has nothing left to play is over, and week 2 was
+   still writing readings into one for another two hours and ten minutes while
+   nothing but the decay moved. Everything below is about where that line sits.
+
+   The row carries both models' estimate of what is still to come -- the usage
+   model at 4/5 and the old projection-by-clock one at 6/7 -- and the verdict
+   takes the GENEROUS of the two, so one model calling it early cannot end a
+   matchup the other thinks is still alive. */
+head('the row knows when it is over');
+const row = (a, b, la, lb, fa, fb) => [1, a, b, 0.5, la, lb, fa, fb];
+ok('the loser has nothing left', M.liveRowDecided(row(96.32, 127.08, 0, 3.13, 0, 5.7)), true);
+ok('the other way round too', M.liveRowDecided(row(127.08, 96.32, 3.13, 0, 5.7, 0)), true);
+
+head('but a side that finishes AHEAD has decided nothing');
+/* this is the half of Sunday night worth watching: they are done, the other
+   one is still playing, and the graph has to keep drawing the chase */
+ok('leader done, chaser still on the field',
+  M.liveRowDecided(row(127.08, 96.32, 0, 20.72, 0, 31.4)), false);
+ok('level with one side done', M.liveRowDecided(row(100, 100, 0, 5, 0, 8)), false);
+
+head('and one model alone cannot end it');
+ok('usage says nothing left, the old model disagrees',
+  M.liveRowDecided(row(96.32, 127.08, 0, 3.13, 4.2, 5.7)), false);
+ok('both at zero is the only zero that counts',
+  M.liveRowDecided(row(96.32, 127.08, 0, 3.13, 0, 5.7)), true);
+
+head('a row that never carried the models says nothing');
+ok('scores only', M.liveRowDecided([1, 96.32, 127.08]), false);
+ok('scores and a probability', M.liveRowDecided([1, 96.32, 127.08, 0.01]), false);
+ok('nulls where the numbers go', M.liveRowDecided([1, 96.32, 127.08, 0.01, null, null]), false);
+ok('no row at all', M.liveRowDecided(undefined), false);
+
+head('once it is settled the recorder stops');
+s = [];
+ok('the deciding reading is kept', M.liveNote(s, 300, 96.32, 127.08, 0.01, 0, 3.13, 0, 5.7), true);
+ok('it is on the graph', s.length, 1);
+ok('the next minute is refused', M.liveNote(s, 305, 96.32, 127.08, null, 0, 2.9, 0, 5.2), false);
+ok('and the one after that', M.liveNote(s, 310, 96.32, 127.08, null, 0, 0.04, 0, 0.11), false);
+ok('the leader running it up changes nothing',
+  M.liveNote(s, 315, 96.32, 147.92, null, 0, 0, 0, 0), false);
+ok('still the one row', s.length, 1);
+ok('showing the score that settled it', scores(s), [[96.32, 127.08]]);
+
+head('a matchup still alive is recorded as it always was');
+s = [];
+ok('the chase is on', M.liveNote(s, 400, 127.08, 96.32, 0.9, 0, 20.72, 0, 31.4), true);
+ok('and keeps being drawn', M.liveNote(s, 405, 127.08, 110.5, 0.7, 0, 12.1, 0, 18.2), true);
+/* the lead change IS the settling moment: A finished on 127.08 and the moment
+   the chaser goes past it there is nothing A can do about it */
+ok('right up to the lead change', M.liveNote(s, 410, 127.08, 131.2, 0.2, 0, 8, 0, 11), true);
+ok('which is where it settles', M.liveNote(s, 415, 127.08, 147.92, 0.01, 0, 0, 0, 0), false);
+ok('and it stays settled', M.liveNote(s, 420, 127.08, 147.92, null, 0, 0, 0, 0), false);
+ok('three readings and no more', s.length, 3);
+ok('the last one is the lead change', scores(s).pop(), [127.08, 131.2]);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
