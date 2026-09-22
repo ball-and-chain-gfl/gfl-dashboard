@@ -72,13 +72,31 @@ const keyOf = (t) => t.id != null ? `id:${t.id}`
 
 const file = path.join(OUT, `transactions-${season}.json`);
 const prior = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+/* ── A BID THAT HAS NOT RUN YET DOES NOT SHIP ────────────────────────────────
+   api/espn.js stopped serving pending claims live, but this writes a SECOND
+   copy of the same feed into public/data, and that file is fetched by anybody
+   who asks. The Sunday run put twelve of them back: team 10's week 2 claims,
+   each carrying bidAmount and the playerId it was for, sitting in a file on
+   the public site three days before waivers ran.
+
+   DEAD below is a different question -- it decides what COUNTS, so a claim
+   that never happened cannot be priced as spending. This decides what is
+   WRITTEN DOWN, and a sealed bid has no business being written down at all.
+
+   Applied to the prior file as well as the fresh dump, so a run does not just
+   stop adding them, it takes out the ones an earlier run left behind. They
+   come back on their own once they settle, with a status that is not PENDING
+   and a result everybody is entitled to see. */
+const isSealedBid = t => String(t.type || '').toUpperCase() === 'WAIVER'
+  && /^PENDING/.test(String(t.status || '').toUpperCase());
+
 const merged = new Map();
-(prior.transactions || []).forEach(t => merged.set(keyOf(t), t));
+(prior.transactions || []).forEach(t => { if (!isSealedBid(t)) merged.set(keyOf(t), t); });
 const priorCount = merged.size;
 
 const dump = await get(`type=txdump&seasonId=${season}`);
 if (!dump) { console.error(`${season} – txdump unreachable, nothing written`); process.exit(1); }
-(dump.transactions || []).forEach(t => merged.set(keyOf(t), t));
+(dump.transactions || []).forEach(t => { if (!isSealedBid(t)) merged.set(keyOf(t), t); });
 
 const all = [...merged.values()];
 
