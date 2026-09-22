@@ -3524,7 +3524,7 @@ function pollChartHTML(){
     if(!pts.length) return null;
     const path=pts.length>1
       ? `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none"
-           stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`
+           stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`
       : '';
     const dots=pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${col}"/>`).join('');
     /* THE CREST RIDES THE FRONT OF THE LINE, not a fixed column at the left
