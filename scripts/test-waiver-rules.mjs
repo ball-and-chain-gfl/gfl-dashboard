@@ -107,6 +107,7 @@ head('a claim thrown out before price is not a rival');
 const NEVER = [
   ['FAILED_PLAYERALREADYDROPPED', true],
   ['FAILED_ROSTERLIMIT', true],
+  ['PENDING', true],                       // has not run at all yet
   ['FAILED_INVALIDPLAYERSOURCE', false],   // lost on price: it counts
   ['FAILED', false],                       // unqualified: assume nothing
   ['EXECUTED', false],

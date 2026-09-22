@@ -1217,7 +1217,7 @@ async function computeCoaching(teams, transactions, weeklyData){
 
      Mirrored in scripts/archive-transactions.mjs, which writes nextBid and
      contested into the archive from the same feed. */
-  const TX_NEVER_RAN=/^FAILED_(PLAYERALREADYDROPPED|ROSTERLIMIT)/;
+  const TX_NEVER_RAN=/^(PENDING|FAILED_(PLAYERALREADYDROPPED|ROSTERLIMIT))/;
   const txNeverRan=tx=>TX_NEVER_RAN.test((tx.status||tx.executionType||'').toString().toUpperCase());
   /* THE WAIVER RUN, NOT THE WEEK. Waivers process in batches -- this league
      runs Mon, Wed, Thu, Sat and Sun -- so keying the bid pool on the scoring

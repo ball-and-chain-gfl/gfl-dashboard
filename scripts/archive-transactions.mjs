@@ -64,7 +64,7 @@ const isWithdrawn = s => WITHDRAWN.test(String(s || '').toUpperCase());
 
    Mirrored in the C3 block of public/app.js, which scores Waiver ROI off the
    same feed rather than off this file. */
-const NEVER_RAN = /^FAILED_(PLAYERALREADYDROPPED|ROSTERLIMIT)/;
+const NEVER_RAN = /^(PENDING|FAILED_(PLAYERALREADYDROPPED|ROSTERLIMIT))/;
 const neverRan = s => NEVER_RAN.test(String(s || '').toUpperCase());
 /* The day a claim processed. Waivers run in batches -- 4am ET, which is 08:00
    UTC -- so a UTC date is one run. Keying the bid pool by WEEK instead pooled
