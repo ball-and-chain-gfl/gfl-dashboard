@@ -43,6 +43,29 @@ const isDead = s => DEAD.test(String(s || '').toUpperCase());
    separated: cancelled bids leave the pool, failed ones stay in it. */
 const WITHDRAWN = /^(CANCEL|VOID|INVALID)/;
 const isWithdrawn = s => WITHDRAWN.test(String(s || '').toUpperCase());
+/* ── A BID THROWN OUT IS NOT A BID ANYBODY BEAT ──────────────────────────────
+   FAILED is not one thing. A claim marked FAILED_INVALIDPLAYERSOURCE lost on
+   PRICE: the run processes in bid order, somebody above it took the player,
+   and the source stopped being valid underneath it. Across 2026 not one of
+   the twenty-two of those ever sat above the claim that won, which is what
+   losing looks like, and it belongs in the pool.
+
+   FAILED_PLAYERALREADYDROPPED and FAILED_ROSTERLIMIT are the claimant's OWN
+   move being invalid -- the spot was already spoken for -- and the claim is
+   thrown out before price is ever reached. Bismuth won the Bears defence at
+   $25 in a run that also held the Mulligans' $29. That $29 was never pitted
+   against it. It was still read as the runner-up, the margin collapsed to
+   the $1 floor, and Waiver ROI paid Bismuth as though they had squeaked it
+   by a dollar rather than won by twelve.
+
+   A list of what NEVER RAN rather than a list of what did, so a status
+   nobody has seen yet still counts, the way every status does today, and
+   test-waiver-rules is what fails the moment one of them outbids a winner.
+
+   Mirrored in the C3 block of public/app.js, which scores Waiver ROI off the
+   same feed rather than off this file. */
+const NEVER_RAN = /^FAILED_(PLAYERALREADYDROPPED|ROSTERLIMIT)/;
+const neverRan = s => NEVER_RAN.test(String(s || '').toUpperCase());
 /* The day a claim processed. Waivers run in batches -- 4am ET, which is 08:00
    UTC -- so a UTC date is one run. Keying the bid pool by WEEK instead pooled
    eight days of separate runs together: Juwan Johnson went to one team on the
@@ -109,6 +132,7 @@ all.forEach(t => {
   if (t.type !== 'WAIVER' && t.type !== 'FREEAGENT') return;
   if (t.bidAmount == null) return;
   if (isWithdrawn(t.status)) return;                    // pulled before it ran
+  if (neverRan(t.status)) return;                       // thrown out before price
   const day = dayOf(t);
   const team = t.teamId != null ? t.teamId : null;
   (t.items || []).filter(i => i.type === 'ADD').forEach(i => {

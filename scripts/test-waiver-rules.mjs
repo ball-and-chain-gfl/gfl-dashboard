@@ -35,7 +35,7 @@ const cut = (a, b) => { const i = arch.indexOf(a); const j = arch.indexOf(b, i);
 const A = new Function(
   cut('const DEAD =', 'const WITHDRAWN') + cut('const WITHDRAWN =', 'const dayOf')
   + cut('const dayOf =', '\nconst get')
-  + 'return { isDead, isWithdrawn, dayOf };')();
+  + 'return { isDead, isWithdrawn, neverRan, dayOf };')();
 
 /* the app's copy, lifted out of computeCoaching */
 const grab = lifter(new URL('../public/app.js', import.meta.url));
@@ -49,7 +49,7 @@ const B = new Function(
   + pick('  function executed', '  /* A WITHDRAWN')
   + pick('  const TX_WITHDRAWN=', '  /* THE WAIVER RUN')
   + pick('  const txDay=', '\n  // C2')
-  + 'return { executed, txWithdrawn, txDay };')();
+  + 'return { executed, txWithdrawn, txNeverRan, txDay };')();
 
 const STATUSES = [
   ['EXECUTED', false], ['PENDING', true], ['FAILED', true],
@@ -92,6 +92,39 @@ ok('and the later one is not a pickup in either file',
   [A.isDead(sep10.status), !B.executed(sep10)], [true, true]);
 ok('while the earlier one is, in both',
   [A.isDead(sep2.status), !B.executed(sep2)], [false, false]);
+
+/* ── which failures ever actually competed ───────────────────────────────────
+   FAILED is not one thing, and the two kinds pull in opposite directions. A
+   claim that lost on PRICE is the runner-up and has to count; a claim voided
+   because the claimant's own roster move was invalid never reached the price
+   and must not. Bismuth won the Bears defence at $25 in a run holding a $29
+   that was thrown out -- counting it clamped the margin down to the $1 floor
+   and Waiver ROI paid as though the thing had been won by a dollar.
+
+   Two separate implementations, so they are asked the same question side by
+   side rather than trusted to have been edited together. */
+head('a claim thrown out before price is not a rival');
+const NEVER = [
+  ['FAILED_PLAYERALREADYDROPPED', true],
+  ['FAILED_ROSTERLIMIT', true],
+  ['FAILED_INVALIDPLAYERSOURCE', false],   // lost on price: it counts
+  ['FAILED', false],                       // unqualified: assume nothing
+  ['EXECUTED', false],
+  ['CANCELED', false],                     // withdrawn is a separate question
+  ['', false],
+];
+NEVER.forEach(([st, want]) => {
+  ok('archiver: ' + (st || '(blank)'), A.neverRan(st), want);
+  ok('app:      ' + (st || '(blank)'), B.txNeverRan({ status: st }), want);
+});
+
+head('and the two copies cannot drift apart on it');
+ok('every status gets the same answer from both',
+  NEVER.map(([st]) => A.neverRan(st) === B.txNeverRan({ status: st })),
+  NEVER.map(() => true));
+/* withdrawn and never-ran are different reasons; neither implies the other */
+ok('withdrawn is not the same question',
+  [A.isWithdrawn('FAILED_PLAYERALREADYDROPPED'), A.neverRan('CANCELED')], [false, false]);
 
 /* ── the archive on disk ──────────────────────────────────────────────────── */
 head('the archive matches the rule');

@@ -49,6 +49,7 @@ const compute = new Function('all', RULES + `
     if (t.type !== 'WAIVER' && t.type !== 'FREEAGENT') return;
     if (t.bidAmount == null) return;
     if (isWithdrawn(t.status)) return;
+    if (neverRan(t.status)) return;
     const day = dayOf(t);
     const team = t.teamId != null ? t.teamId : null;
     (t.items || []).filter(i => i.type === 'ADD').forEach(i => {
@@ -141,6 +142,41 @@ const cases = [
   ['losing claims never become pickups',
     [W(26, 1, 916, 10, 'FAILED'), W(27, 2, 916, 9, 'CANCELED')],
     r => r.length === 0],
+
+  /* ── 4. a bid thrown out is not a bid anybody beat ────────────────────────
+     Bismuth won the Bears defence at $25 in a run that also held the
+     Mulligans' $29. The $29 was FAILED_PLAYERALREADYDROPPED -- their own drop
+     was already gone, so the claim was voided before price was reached and it
+     never ran against the $25. It was read as the runner-up anyway, and since
+     a runner-up above your own bid gets clamped down to it, the margin fell to
+     the $1 floor and Waiver ROI paid out as though the thing had been won by a
+     dollar. Twelve of the twenty-two FAILED rows in 2026 are the other kind
+     and have to keep counting. */
+  ['the real Bismuth run: the voided claim above the winner drops out',
+    [W(28, 10, -16025, 29, 'FAILED_PLAYERALREADYDROPPED'),
+     W(29, 4, -16025, 25, 'EXECUTED'),
+     W(30, 2, -16025, 13, 'FAILED_INVALIDPLAYERSOURCE'),
+     W(31, 6, -16025, 3, 'FAILED_INVALIDPLAYERSOURCE')],
+    r => r.length === 1 && r[0].teamId === 4 && r[0].bid === 25
+      && r[0].nextBid === 13 && r[0].contested === 2],
+
+  ['a claim that lost on price still counts against you',
+    [W(32, 1, 917, 40, 'EXECUTED'), W(33, 2, 917, 39, 'FAILED_INVALIDPLAYERSOURCE')],
+    r => r.length === 1 && r[0].nextBid === 39 && r[0].contested === 1],
+
+  ['no roster room is the same kind of thrown out',
+    [W(34, 1, 918, 10, 'EXECUTED'), W(35, 2, 918, 99, 'FAILED_ROSTERLIMIT')],
+    r => r.length === 1 && r[0].nextBid === 0 && r[0].contested === 0],
+
+  ['and it drops out from under a genuine rival rather than replacing it',
+    [W(36, 1, 919, 50, 'EXECUTED'),
+     W(37, 2, 919, 80, 'FAILED_PLAYERALREADYDROPPED'),
+     W(38, 3, 919, 30, 'FAILED_INVALIDPLAYERSOURCE')],
+    r => r.length === 1 && r[0].nextBid === 30 && r[0].contested === 1],
+
+  ['a bare FAILED is not assumed to be either one',
+    [W(39, 1, 920, 20, 'EXECUTED'), W(40, 2, 920, 12, 'FAILED')],
+    r => r.length === 1 && r[0].nextBid === 12 && r[0].contested === 1],
 ];
 
 let pass = 0, fail = 0;
