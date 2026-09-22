@@ -120,6 +120,11 @@ jobs:
       # derive the key separately; if they drift, a Tuesday files nothing.
       - name: a new coaches' poll every week
         run: node scripts/test-pollweek.mjs
+      # Closest and median are margins of a DEFEAT, so a team with none fell
+      # back to 0 -- and a descending rank read that as the tightest loss in
+      # the league. Every unbeaten team was scored as the unluckiest.
+      - name: an unbeaten team is not the unluckiest
+        run: node scripts/test-badbeat.mjs
       # A week's trivia score has to outlive its questions, which cannot be
       # rebuilt — so it is sealed when the slate locks and summed thereafter.
       - name: ball knowledge trivia is cumulative

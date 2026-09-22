@@ -421,16 +421,55 @@ if (built) {
 
    Nothing in that retry wants a toggle. It wants the contents replaced. */
 {
-  const src = grab('async function toggleSchedOpp(el){');
+  const tog = grab('async function toggleSchedOpp(el){');
+  const fill = grab('async function schedFillDrawer(el,row,box){');
   ok('the drawer retry does not re-enter the toggle',
-    !/setTimeout\([\s\S]*?toggleSchedOpp\(el\)/.test(src),
+    !/setTimeout\([\s\S]*?toggleSchedOpp\(el\)/.test(fill),
     'a retry that calls the toggle closes the drawer it meant to refresh');
   ok('it repaints the box instead',
-    /again\.length!==pj\.length\) box\.innerHTML=projCard\(again\)/.test(src), 'redraws in place');
+    /again\.length!==pj\.length\) box\.innerHTML=projCard\(again\)/.test(fill), 'redraws in place');
   ok('and both paints go through one card builder',
-    (src.match(/projCard\(/g) || []).length >= 3, 'defined once, used for both paints');
+    (fill.match(/projCard\(/g) || []).length >= 3, 'defined once, used for both paints');
   ok('toggleSchedOpp is still the only thing a click calls',
-    /^async function toggleSchedOpp/.test(src), 'entry point unchanged');
+    /^async function toggleSchedOpp/.test(tog), 'entry point unchanged');
+}
+
+/* ── AND IT SURVIVES THE REPAINT UNDER IT ───────────────────────────────────
+   The retry above was only half of it, and fixing it did not fix the report:
+   the drawer still opened and shut itself on the first click of a fresh page.
+
+   Opening a played week asks for that week's box scores, and the playoff table
+   further down the page asks ESPN for its odds. Both land a moment later and
+   both finish with `if(_activeTab==='week') renderSchedule()`, which rewrites
+   the whole of #sched-body. Measured on the live site: two rewrites, 124ms and
+   255ms after the click, every one of the fourteen rows replaced. The drawer
+   was never closed -- the node it lived in stopped existing. The second click
+   worked because by then both answers were cached and nothing repainted, which
+   is exactly the "opens on the second try" everybody kept reporting.
+
+   A repaint that throws away what somebody just opened has to put it back. */
+{
+  const tog = grab('async function toggleSchedOpp(el){');
+  const rest = grab('function schedRestoreDrawer(){');
+  const rend = grab('function renderSchedule(){');
+  ok('the toggle records which drawer is open',
+    /_schedOpenKey=schedKeyOf\(el\)/.test(tog), 'by key, not by node');
+  ok('and clears it when the click was a close',
+    /_schedOpenKey=null;[\s\S]*?if\(!open\) return;/.test(tog), 'a closed drawer stays closed');
+  ok('the key is the week and the opponent',
+    /wk\+'\|'\+\(el\.dataset\.opp\|\|''\)/.test(grab('const schedKeyOf=')),
+    'not tied to a node it will outlive');
+  ok('renderSchedule puts the open drawer back',
+    /schedRestoreDrawer\(\);/.test(rend), 'every repaint restores');
+  ok('the restore fills through the same function a click does',
+    /schedFillDrawer\(el,row,box\)/.test(rest), 'click and restore cannot drift');
+  ok('the restore does not go through the toggle',
+    !/toggleSchedOpp\(/.test(rest), 'a toggle would close what it means to reopen');
+  ok('a key matching no row on the page is dropped',
+    /if\(!el\)\{ _schedOpenKey=null; return; \}/.test(rest), 'no ghost reopening');
+  ok('changing team closes the drawer rather than reopening a stranger',
+    /_schedTeam=this\.value;_schedOpenKey=null;renderSchedule\(\)/.test(SRC),
+    'the picker clears the key');
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

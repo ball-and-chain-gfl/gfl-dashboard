@@ -4679,10 +4679,29 @@ function badBeatData(season){
   // RANK.EQ replication: desc = rank 1 is largest; asc = rank 1 is smallest (ties share rank)
   const rd=(v,arr)=>1+arr.filter(x=>x>v).length;
   const ra=(v,arr)=>1+arr.filter(x=>x<v).length;
-  const cA=list.map(t=>t.closest), mA=list.map(t=>t.median), uA=list.map(t=>t.lossU7), pA=list.map(t=>t.pctOver);
+  /* ── A TEAM THAT HAS NOT LOST HAS NOT BEEN BEATEN ───────────────────────────
+     closest and median are both the margin of a DEFEAT, and a team with none
+     falls back to 0 for want of anything to average. The two margin ranks are
+     descending -- narrowest defeat scores highest, which is the whole idea --
+     so that 0 read as the tightest loss anybody had suffered and paid maximum
+     points for it.
+
+     Through week 3 that put all four unbeaten teams on 20.5 and second through
+     fifth, above every team that had actually lost one. Marathon Men were
+     collecting eighteen of those points for a heartbreaker that does not
+     exist, while a side that genuinely went down by 46.8 sat last on 4.5.
+
+     The two margin ranks are taken among the teams that have a margin now, and
+     an unbeaten side gets the floor. The other two components already handled
+     it honestly: no losses is no losses inside a touchdown and no losses over
+     the week's average, and zero is the truth in both. */
+  const beaten=list.filter(t=>t.margins.length);
+  const cA=beaten.map(t=>t.closest), mA=beaten.map(t=>t.median);
+  const uA=list.map(t=>t.lossU7), pA=list.map(t=>t.pctOver);
   list.forEach(t=>{
-    t.rClose=rd(t.closest,cA);   // M
-    t.rMed=rd(t.median,mA);      // N
+    const lost=!!t.margins.length;
+    t.rClose=lost?rd(t.closest,cA):1;   // M
+    t.rMed=lost?rd(t.median,mA):1;      // N
     t.rU7=ra(t.lossU7,uA);       // O
     t.rPov=ra(t.pctOver,pA)*1.5; // P (weighted 1.5x)
     t.score=t.rClose+t.rMed+t.rU7+t.rPov;
@@ -9730,6 +9749,46 @@ function schedPlayedDetailHTML(meOwner,oppOwner,season,week,oppName){
     ${graph}
     <div class="sd-foot">${abA} chance to win, minute by minute.</div>`;
 }
+/* ── THE DRAWER HAS TO SURVIVE THE REPAINT UNDER IT ──────────────────────────
+   Opening a played week asks for two things it does not have yet: the week's
+   box scores, and -- further down the page -- ESPN's playoff odds. Both land a
+   fraction of a second later and both finish with `if(_activeTab==='week')
+   renderSchedule()`, which rewrites the whole of #sched-body.
+
+   So the FIRST click on a fresh page opened the drawer and then had the ground
+   taken out from under it: the node it opened no longer existed. Measured at
+   124ms and 255ms after the click, every one of the fourteen rows replaced.
+   The second click worked because by then both answers were cached, nothing
+   repainted, and the drawer had nothing to be destroyed by -- which is exactly
+   the 'opens on the second try' everybody reported.
+
+   The drawer's own setTimeout re-render was written for the same landings and
+   could never have helped: it repaints a box that has already been thrown away.
+
+   Which one is open is remembered ACROSS the repaint instead, by week and
+   opponent rather than by node, and reopened once the new rows are in. The
+   filling is one function now so the click and the restore cannot drift, the
+   way the projection card is shared between a first paint and its retry. */
+let _schedOpenKey=null;
+const schedKeyOf=el=>{
+  if(!el) return null;
+  const row=el.closest('.sch-row');
+  const wk=row?((row.querySelector('.sch-wk')||{}).textContent||'').trim():'';
+  return wk+'|'+(el.dataset.opp||'');
+};
+/* Reopen whatever was open, if it is still on the page. Called at the end of
+   every renderSchedule. Nothing to restore after the manager closes it, and
+   nothing to restore when the team picker moves to a schedule that has no such
+   row -- the key simply stops matching and is dropped. */
+function schedRestoreDrawer(){
+  if(!_schedOpenKey) return;
+  const el=[...document.querySelectorAll('[onclick*="toggleSchedOpp"]')]
+    .find(x=>schedKeyOf(x)===_schedOpenKey);
+  if(!el){ _schedOpenKey=null; return; }
+  const row=el.closest('.sch-row'), box=row&&row.nextElementSibling;
+  if(!row||!box||!box.classList.contains('sch-detail')) return;
+  try{ schedFillDrawer(el,row,box); }catch(e){}
+}
 async function toggleSchedOpp(el){
   const row=el.closest('.sch-row'); if(!row) return;
   const box=row.nextElementSibling;
@@ -9737,7 +9796,12 @@ async function toggleSchedOpp(el){
   const open=!box.classList.contains('open');
   // one drawer at a time
   document.querySelectorAll('.sch-detail.open').forEach(d=>{d.classList.remove('open');d.previousElementSibling?.classList.remove('sch-row-open');});
-  if(!open) return;
+  _schedOpenKey=null;
+  if(!open) return;                       // that click was a close
+  _schedOpenKey=schedKeyOf(el);
+  return schedFillDrawer(el,row,box);
+}
+async function schedFillDrawer(el,row,box){
   box.classList.add('open'); row.classList.add('sch-row-open');
   const season=box.dataset.season, owner=el.dataset.opp, name=el.dataset.name||'This team';
   box.innerHTML='<div class="sd-card"><div class="sd-msg">Loading…</div></div>';
@@ -10154,6 +10218,8 @@ function renderSchedule(){
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
     ${playoffOutlookHTML()}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
+  /* the rows above are brand new nodes; put back the drawer that was open */
+  schedRestoreDrawer();
 }
 /* A finished season, week by week: who they played, the score, and whether it
    was a win. Won rows carry a green edge and lost rows a red one, the same
@@ -19977,7 +20043,7 @@ async function loadDashboard(){
           <div class="sec-head" id="sched-head"><i class="fa fa-calendar-days"></i>Schedule<span class="badge-info">win odds from the B&amp;C power ratings</span></div>
           <div class="picker-bar" style="padding-bottom:16px">
             <label for="sched-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
-            <select id="sched-team-select" onchange="_schedTeam=this.value;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
+            <select id="sched-team-select" onchange="_schedTeam=this.value;_schedOpenKey=null;renderSchedule()">${_teams.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select>
           </div>
           <div id="sched-body"></div>
         </div>
