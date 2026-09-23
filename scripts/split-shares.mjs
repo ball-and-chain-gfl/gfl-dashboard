@@ -105,6 +105,31 @@ for (const d of docs) {
   try { lots = JSON.parse(data.inv || '[]') || []; } catch { lots = []; }
   if (!Array.isArray(lots) || !lots.length) { unchanged++; continue; }
 
+  /* A SPLIT DOES NOT CARRY A SHORT, AND IT MUST NOT PRETEND TO.
+   *
+   * Every invariant above rests on shares x price being untouched: s.f x p/f
+   * is s x p, so the cash, the value and the profit all survive it. A short
+   * does not tie up shares x price. It ties up n x (CEIL - p), the gap to the
+   * cap, and that gap does NOT survive the same scaling:
+   *
+   *     n.f x (CEIL - p/f)  =  n.f.CEIL - n.p     against     n.CEIL - n.p
+   *
+   * which differ by n.CEIL.(f - 1) -- real money, in the direction of whichever
+   * way that team's price moved, taken from or handed to somebody who did
+   * nothing to earn it. The cap is a fixed dollar figure rather than a multiple
+   * of a price, so there is no share factor that makes it come out even.
+   *
+   * Fixing it properly means restating the cap alongside the prices, which is a
+   * decision about the instrument rather than something a migration script gets
+   * to make quietly on its own. So it stops, and says why.
+   */
+  if (lots.some(l => l && (l.k === 'so' || l.k === 'sc'))) {
+    console.error(`STOP: ${id} holds short lots, and a split cannot carry one.`);
+    console.error('  A short ties up (CEIL - price), which does not scale by the share');
+    console.error('  factor the way (shares x price) does. Restate the cap first.');
+    process.exit(2);
+  }
+
   /* what it was worth before, so the write can be checked rather than trusted */
   const before = (() => {
     const hold = {}; let cash = 0;

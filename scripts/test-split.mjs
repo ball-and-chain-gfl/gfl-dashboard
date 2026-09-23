@@ -78,6 +78,11 @@ const api = new Function(`
 let _inv=null, _me=null, _bkScope=null;
 const lsKey=()=>'x'; const gflPatchProfile=()=>{};
 ${grab('function invLots(){')}
+/* the one walk every reading comes off, plus the short cap it applies */
+${grab('const INV_CEIL=')}
+${grab('const invCap=')}
+${grab('const invCollat=')}
+${grab('function invWalk(lots){')}
 ${grab('function invHoldings(){')}
 ${grab('function invCostBasis(owner){')}
 ${grab('function invRealised(){')}

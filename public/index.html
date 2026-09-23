@@ -1280,6 +1280,35 @@
     .iv-go:not(:disabled):hover{background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
     .iv-go:disabled{opacity:.4;}
     .iv-go.iv-sell:not(:disabled){border-color:rgba(232,104,126,0.45);color:var(--red);}
+    /* ── SHORTING, MARKED SO IT CANNOT BE MISTAKEN FOR HOLDING ────────────
+       A short row and a share row carry the same crest, the same name and the
+       same controls, and they behave in opposite directions -- so the thing
+       that separates them cannot be the wording alone. Amber, which on this
+       site already means 'a state, not a fault' (see .iv-shut), down the left
+       edge of the card, on the tag, on the switch and on the button. Never
+       red: red here means a loss, and a short is not a loss. */
+    .iv-card-sh{border-left:3px solid rgba(var(--accent-rgb),0.7);
+      padding-left:9px;background:rgba(var(--accent-rgb),0.055);}
+    .iv-go.iv-short:not(:disabled){border-color:rgba(var(--accent-rgb),0.5);color:var(--accent);}
+    .iv-mb.iv-mb-sh.on{background:color-mix(in srgb,var(--accent) 24%,transparent);}
+    /* the tag sits ON the name line, so the name has to become a row */
+    .iv-nm-row{display:flex;align-items:center;gap:6px;min-width:0;}
+    .iv-nm-row>:first-child{overflow:hidden;text-overflow:ellipsis;}
+    .iv-tag-sh{flex:0 0 auto;padding:1px 6px;border-radius:5px;
+      background:rgba(var(--accent-rgb),0.18);border:1px solid rgba(var(--accent-rgb),0.45);
+      font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+      color:var(--accent);}
+    /* a short's number is its profit, not its value, so it takes the same
+       green/red the change beside it does rather than the plain text colour */
+    .iv-px-v.up{color:var(--green);} .iv-px-v.dn{color:var(--red);}
+    /* what you are about to do, said once above the board rather than on all
+       fourteen cards */
+    .iv-note{display:flex;align-items:flex-start;gap:9px;margin:0 0 12px;padding:10px 12px;
+      border-radius:9px;background:rgba(var(--accent-rgb),0.09);
+      border:1px solid rgba(var(--accent-rgb),0.3);
+      font-family:'Inter',sans-serif;font-size:11.5px;line-height:1.5;color:var(--text2);}
+    .iv-note i{flex:0 0 auto;margin-top:2px;color:var(--accent);}
+    .iv-note b{color:var(--accent);font-weight:800;}
     /* ── A market folds behind its title ─────────────────────────────────── */
     .sb-mhead .sb-mt{flex:0 0 auto;}
     /* The description needs air under the bar. It used to open flush against

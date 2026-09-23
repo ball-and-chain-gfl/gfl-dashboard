@@ -12384,35 +12384,142 @@ async function invSync(){
   }catch(e){}
 }
 function invReset(){ _inv=null; try{ invSync(); }catch(e){} }
-/* shares held in each team, replayed */
-function invHoldings(){
-  const h={};
-  invLots().forEach(l=>{
-    const n=Number(l.s)||0; if(!n||!l.o) return;
-    h[l.o]=(h[l.o]||0)+(l.k==='s'?-n:n);
+
+/* ── SHORTING, AND THE ONE THING THAT MAKES IT SAFE ───────────────────────
+   A short is a sale with no purchase in front of it: the shares are owed back,
+   and the position pays when the price falls. Most of the arithmetic for it was
+   already here -- invHoldings has always read a sell as a negative -- so what
+   this needed was not new maths. It needed a bound on the loss.
+
+   A LONG CANNOT COST MORE THAN IT COST. A short can, without limit, and the
+   balance on this site is DERIVED rather than stored -- allowance, less what is
+   staked and tied up -- with nowhere in it to put a position worth less than
+   nothing. The two real options were a maintenance margin with a forced
+   buy-in, which means a scheduled job closing somebody's position while they
+   are asleep, or a hard cap. This is the cap: a short settles against
+   min(price, INV_CEIL), so its very worst case is a number known at the moment
+   it is opened. Two seasons of real prices have run $3.91 to $18.06 against a
+   $10 mean, so $25 sits a long way outside anything that has happened -- and
+   if it ever does bind, that is the instrument working rather than a fault.
+
+   THE LONG MARKET DOES NOT MOVE. The cap is applied where a SHORT is valued,
+   never to the price itself. Clamping invPricesAt would have capped every long
+   position's upside too and rewritten the price history of any week that had
+   ever gone past it -- and the whole portfolio chart is replayed from those
+   prices, so that is not a cosmetic difference.
+
+   THE COLLATERAL IS THE WORST CASE, HELD ASIDE. Opening n shares at p ties up
+   n x (CEIL - p), which is exactly what covering at the cap would cost, so the
+   balance can reach zero and cannot pass it. Covering releases it. Nothing is
+   credited on the way in: the proceeds of the sale and the reserve against the
+   buy-back are the same money, and netting them at the door leaves one number
+   to understand instead of two that cancel. */
+const INV_CEIL=25;              // what a short settles against at the very worst
+const invCap=p=>Math.min(INV_CEIL,Math.max(0,Number(p)||0));
+/* what opening n shares of a short at p keeps out of the balance */
+const invCollat=(n,p)=>Math.max(0,Number(n)||0)*Math.max(0,INV_CEIL-invCap(p));
+
+/* ── ONE WALK OF THE LEDGER, AND EVERY READING COMES OFF IT ───────────────
+   This loop was written out five times -- in invHoldings, in invCostBasis, in
+   invRealised and twice more inside invProfitSeries -- each one its own copy of
+   "a buy adds, a sell realises against the running average". Five copies is
+   five places to teach about shorts and four places to get it subtly wrong, so
+   they all come through here now.
+
+   LONGS AND SHORTS ARE KEPT APART rather than netted into one position. Being
+   long three and short three of the same team is NOT the same as holding
+   nothing: the two carry different cost bases, different collateral and
+   different closing prices, and netting them would quietly cancel both.
+
+   Order matters and is the caller's to give. This does not sort -- invSync
+   already stores the ledger in time order, and the two replays that filter it
+   sort first, which is where the filtering happens. */
+function invWalk(lots){
+  const L={}, S={}; let real=0;
+  const slot=(m,o)=>m[o]||(m[o]={sh:0,cost:0});
+  (lots||[]).forEach(l=>{
+    const o=l&&l.o, n=Number(l&&l.s)||0, p=Number(l&&l.p)||0;
+    if(!o||!n) return;
+    if(l.k==='so'){ const s=slot(S,o); s.sh+=n; s.cost+=n*p; return; }
+    /* a cover banks the fall: what the shares were sold at, less what they
+       cost to buy back -- capped, which is the whole of the bound */
+    /* A CLOSE CANNOT CLOSE MORE THAN IS OPEN. Past the end of a position the
+       running average is zero, so an over-sell realised the whole sale price
+       as pure profit and an over-cover realised the whole buy-back as pure
+       loss -- money conjured from a ledger that should simply have run out.
+       invDo clamps every close to the position, so this is not reachable
+       through the app; a profile merged from two devices mid-write is how it
+       would arrive. Clamped here because this is the function that decides
+       what was earned. */
+    if(l.k==='sc'){ const s=slot(S,o), m=Math.min(n,s.sh);
+      if(m<=0) return;
+      const avg=s.sh?s.cost/s.sh:0;
+      real+=m*(avg-invCap(p));
+      s.sh-=m; s.cost-=avg*m; return; }
+    const t=slot(L,o);
+    if(l.k==='s'){ const m=Math.min(n,t.sh);
+      if(m<=0) return;
+      const avg=t.sh?t.cost/t.sh:0; real+=m*(p-avg); t.sh-=m; t.cost-=avg*m; }
+    else { t.sh+=n; t.cost+=n*p; }
   });
-  Object.keys(h).forEach(o=>{ if(h[o]<=0.0001) delete h[o]; });
+  return {real,L,S};
+}
+/* what a walked ledger is worth against a set of prices: everything banked,
+   plus every open position on both sides marked to them */
+function invWalkProfit(w,priceOf){
+  let p=w.real;
+  Object.keys(w.L).forEach(o=>{ const t=w.L[o];
+    if(t.sh>0.0001) p+=t.sh*(priceOf(o)-t.cost/t.sh); });
+  Object.keys(w.S).forEach(o=>{ const s=w.S[o];
+    if(s.sh>0.0001) p+=s.cost-s.sh*invCap(priceOf(o)); });
+  return p;
+}
+/* shares held in each team, replayed. LONGS ONLY -- a short is its own
+   position with its own basis, and invShorts is where it lives. */
+function invHoldings(){
+  const w=invWalk(invLots()), h={};
+  Object.keys(w.L).forEach(o=>{ if(w.L[o].sh>0.0001) h[o]=w.L[o].sh; });
+  return h;
+}
+/* and the other side of the book */
+function invShorts(){
+  const w=invWalk(invLots()), h={};
+  Object.keys(w.S).forEach(o=>{ if(w.S[o].sh>0.0001) h[o]=w.S[o].sh; });
   return h;
 }
 /* what each holding cost on average, for the profit line */
 function invCostBasis(owner){
-  let sh=0, cost=0;
-  invLots().forEach(l=>{
-    if(l.o!==owner) return;
-    const n=Number(l.s)||0, px=Number(l.p)||0;
-    if(l.k==='s'){ const avg=sh?cost/sh:0; sh-=n; cost-=avg*n; }
-    else { sh+=n; cost+=n*px; }
-  });
-  return sh>0?cost/sh:0;
+  const t=invWalk(invLots()).L[owner];
+  return t&&t.sh>0?t.cost/t.sh:0;
+}
+/* the average price a short was OPENED at -- the number it profits below */
+function invShortBasis(owner){
+  const s=invWalk(invLots()).S[owner];
+  return s&&s.sh>0?s.cost/s.sh:0;
 }
 /* cash currently tied up in shares — this is what leaves the bucks balance */
 function invNetSpent(){
   let net=0;
   bkLots().forEach(l=>{
+    /* GUARDED, BECAUSE THIS IS WHAT THE BANKROLL IS BUILT FROM. A lot that
+       came back null out of a half-written profile used to throw here, and a
+       throw in invNetSpent is bucksBalance gone -- every balance on the site,
+       not one card. invWalk has always skipped the same rubbish; this had not.
+       Found by test-short, which feeds it a null on purpose. */
+    if(!l||!l.o) return;
+    const n=Number(l.s)||0, p=Number(l.p)||0;
     /* each lot settles to the cent on its own, the way a real fill would —
        rounding only the total would let sub-cent dust accumulate across a
        season of trades */
-    const v=bucks2((Number(l.s)||0)*(Number(l.p)||0));
+    /* A SHORT TIES UP ITS WORST CASE AND NOTHING ELSE, and a cover hands back
+       what buying at THAT price would have left of it. The entry price does
+       not appear in the cover line: the reserve it was posted against is
+       already in the sum, so open at 12 and cover at 12 nets to zero, cover at
+       8 frees four, cover at 20 costs eight, and cover at anything from 25 up
+       costs the thirteen that was held and never a cent more. */
+    if(l.k==='so'){ net+=bucks2(invCollat(n,p)); return; }
+    if(l.k==='sc'){ net-=bucks2(invCollat(n,p)); return; }
+    const v=bucks2(n*p);
     net+=(l.k==='s'?-v:v);
   });
   return bucks2(net);
@@ -12433,20 +12540,9 @@ function invNetSpent(){
    dropped the line back to zero and the chart said you had made nothing the
    moment you took the money. Selling at a profit moves this line up and leaves
    it there. */
-/* what every sale actually banked, against the average cost of what it sold */
-function invRealised(){
-  const sh={},cost={}; let real=0;
-  invLots().forEach(l=>{
-    const o=l.o, n=Number(l.s)||0, p=Number(l.p)||0;
-    if(!o||!n) return;
-    if(l.k==='s'){
-      const avg=sh[o]?cost[o]/sh[o]:0;
-      real+=n*(p-avg);
-      sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n;
-    } else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
-  });
-  return real;
-}
+/* what every sale and every cover actually banked, against the average of what
+   it closed */
+function invRealised(){ return invWalk(invLots()).real; }
 const invWeekNow=()=>Number((_liveInfo||liveWeekInfo()||{}).week)||1;
 /* ── AND THE MARKET SHUTS WHILE IT IS BEING PLAYED ───────────────────────────
    Shares were tradable all week, which means they were tradable with the
@@ -12515,21 +12611,9 @@ function invProfitSeries(){
     const WEEK=7*24*3600*1000;
     /* profit as it stood at a moment: everything banked by then, plus what was
        still held valued at what it is worth */
-    const atTime=T=>{
-      const sh={},cost={}; let realised=0;
+    const atTime=T=>invWalkProfit(invWalk(
       lots.slice().sort((a,b)=>(Number(a.t)||0)-(Number(b.t)||0))
-        .filter(l=>(Number(l.t)||0)<=T).forEach(l=>{
-        const o=l.o,n=Number(l.s)||0,pr=Number(l.p)||0;
-        if(!o||!n) return;
-        if(l.k==='s'){ const avg=sh[o]?cost[o]/sh[o]:0; realised+=n*(pr-avg);
-          sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n; }
-        else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*pr; }
-      });
-      let profit=realised;
-      Object.keys(sh).forEach(o=>{ if(sh[o]>0.0001)
-        profit+=sh[o]*(invPrice(o)-(cost[o]/sh[o])); });
-      return profit;
-    };
+        .filter(l=>(Number(l.t)||0)<=T)),invPrice);
     const pts=[{wk:firstTue-WEEK,val:0,start:true,date:true}];
     for(let t=firstTue;t<=nowTue;t+=WEEK) pts.push({wk:t,val:atTime(t+WEEK-1),date:true});
     const nowP=invProfit();
@@ -12543,24 +12627,11 @@ function invProfitSeries(){
   const first=Math.min(...lots.map(wk));
   const weeks=[];
   for(let w=first;w<=Math.max(first,last);w++) weeks.push(w);
+  /* banked by that week, plus whatever the open positions were worth against
+     what they cost — a running total rather than a snapshot of the holdings */
   const at=w=>{
     const px=invPricesAt(season,w);
-    const sh={}, cost={};
-    let real=0;
-    lots.filter(l=>wk(l)<=w).forEach(l=>{
-      const o=l.o, n=Number(l.s)||0, p=Number(l.p)||0;
-      if(!o||!n) return;
-      if(l.k==='s'){
-        const avg=sh[o]?cost[o]/sh[o]:0;
-        real+=n*(p-avg);
-        sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n;
-      } else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
-    });
-    /* banked by that week, plus whatever the open positions were worth against
-       what they cost — a running total rather than a snapshot of the holdings */
-    let profit=real;
-    Object.keys(sh).forEach(o=>{ if(sh[o]>0.0001) profit+=sh[o]*((px[o]||INV_BASE)-(cost[o]/sh[o])); });
-    return profit;
+    return invWalkProfit(invWalk(lots.filter(l=>wk(l)<=w)),o=>(px[o]||INV_BASE));
   };
   const pts=[{wk:first-1,val:0,start:true}];
   weeks.forEach(w=>pts.push({wk:w,val:at(w)}));
@@ -12638,14 +12709,23 @@ function invValue(){
   const h=invHoldings();
   return Object.keys(h).reduce((a,o)=>a+h[o]*invPrice(o),0);
 }
-function invProfit(){
-  const h=invHoldings();
-  const open=Object.keys(h).reduce((a,o)=>a+h[o]*(invPrice(o)-invCostBasis(o)),0);
-  return invRealised()+open;
-}
+/* Both sides of the book. invValue above stays long-only on purpose -- a short
+   has no value, it has a profit, and adding the two together would print a
+   portfolio worth more than the shares in it. */
+function invProfit(){ return invWalkProfit(invWalk(invLots()),invPrice); }
 
 let _invBusy=false,_invErr='';
-async function invTrade(owner,shares,sell){
+/* ── FOUR KINDS OF TRADE, ONE PATH THROUGH THE MONEY ────────────────────
+     b   buy          long open      cash out, the price
+     s   sell         long close     cash in,  the price
+     so  short        short open     cash out, the collateral
+     sc  cover        short close    cash in,  what is left of it
+
+   This replaced invTrade(owner,shares,sell), which was kept for a moment as a
+   boolean-flavoured wrapper and then removed: nothing lifted it, nothing else
+   called it, and a two-way door left standing in front of a four-way one is
+   just somewhere for the next person to walk into the wrong room. */
+async function invDo(owner,shares,k){
   if(!_me){ openSignIn(); return; }
   if(_invBusy) return;
   /* Checked HERE and not only on the button. A disabled button is a display
@@ -12653,11 +12733,12 @@ async function invTrade(owner,shares,sell){
      on this site with a bet stake that was validated in the browser and
      written from it. */
   if(invLocked()){ _invErr=invLockNote(); renderBook(); return; }
+  const closing=(k==='s'||k==='sc');
   let n=invRound(shares);
-  if(!(n>0)){ _invErr=_invMode==='amt'&&!sell?'Pick an amount first.':'Pick a number of shares first.'; renderBook(); return; }
+  if(!(n>0)){ _invErr=_invMode==='amt'&&!closing?'Pick an amount first.':'Pick a number of shares first.'; renderBook(); return; }
   const px=invPrice(owner);
-  if(sell){
-    const have=invHoldings()[owner]||0;
+  if(closing){
+    const have=(k==='sc'?invShorts():invHoldings())[owner]||0;
     /* ── SELLING ALL OF IT HAS TO BE ALLOWED ──────────────────────────────
        The card prints the holding through invShFmt, which rounds to four
        places, and the request comes back through invRound, which rounds the
@@ -12673,7 +12754,8 @@ async function invTrade(owner,shares,sell){
        A request within one quantum of the holding is a request for all of it,
        and the clamp below is what makes that safe -- nothing can be sold that
        is not held, whatever was typed. */
-    if(n>have+INV_Q){ _invErr='You only hold '+invShFmt(have)+'.'; renderBook(); return; }
+    if(n>have+INV_Q){ _invErr=(k==='sc'?'You are only short ':'You only hold ')
+      +invShFmt(have)+'.'; renderBook(); return; }
     /* A SALE FOR ALL OF IT LEAVES NOTHING BEHIND.
 
        Holdings carry whatever precision the arithmetic gave them -- 5.41158 --
@@ -12683,6 +12765,19 @@ async function invTrade(owner,shares,sell){
        within one quantum of the whole holding IS the whole holding. */
     n=Math.min(n,have);
     if(have-n<INV_Q) n=have;
+  } else if(k==='so'){
+    /* A SHORT AT OR ABOVE THE CAP HAS NO WORST CASE TO POST. The collateral is
+       CEIL minus the price, so at the cap it is zero and above it is negative:
+       a free position with an unbounded loss, which is the one thing the cap
+       exists to prevent. No real price has ever been within seven dollars of
+       this, and it is refused rather than clamped so that if it ever happens
+       somebody is told rather than sold something broken. */
+    if(px>=INV_CEIL){ _invErr='A short settles against '+invFmt(INV_CEIL)
+      +' at the very worst, and this share is already there.'; renderBook(); return; }
+    if(invCollat(n,px)>bucksBalance()+1e-6){
+      _invErr='A short of '+invShFmt(n)+' holds '+invFmt(invCollat(n,px))
+        +' aside until you cover, and the balance will not carry it.';
+      renderBook(); return; }
   } else if(n*px>bucksBalance()+1e-6){
     _invErr='Not enough GFL Bucks for that.'; renderBook(); return;
   }
@@ -12690,11 +12785,12 @@ async function invTrade(owner,shares,sell){
   /* The week is stamped at the trade, because a timestamp cannot be turned
      back into a fantasy week afterwards with any confidence, and the profit
      line needs to know what you were holding in each of them. */
-  invLots().push({o:owner,s:n,p:px,t:Date.now(),w:invWeekNow(),k:sell?'s':'b'});
+  invLots().push({o:owner,s:n,p:px,t:Date.now(),w:invWeekNow(),k});
   invSave();
   /* the card goes back to empty: the amount was spent, and leaving it filled in
      invites a second helping of a trade already made */
-  if(sell) _invQty['s_'+owner]=0; else { _invQty[owner]=0; _invCash[owner]=0; }
+  const qk=invQtyKey(owner,k);
+  _invQty[qk]=0; _invCash[qk]=0;
   _invBusy=false;
   renderBook();
   try{ renderBetsBar(); }catch(e){}
@@ -19796,6 +19892,16 @@ const invShFmt=v=>{
   return n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
 };
 function invSetMode(m){ _invMode=m==='amt'?'amt':'sh'; _invErr=''; renderBook(); }
+/* WHICH SIDE OF THE BOOK THE MARKET IS SHOWING. One switch for the whole
+   board, like the Shares/Dollars one beside it: it is a way of taking a
+   position, not a property of any one team. */
+let _invSide='long';           // 'long' buys shares, 'short' sells them first
+function invSetSide(s){ _invSide=s==='short'?'short':'long'; _invErr=''; renderBook(); }
+/* Each kind of trade types into its own box. They shared one before, when
+   there were two of them and the sell lived on a different page; four sharing
+   a box would mean flipping the Stocks/Shorts switch carried the number you
+   had typed over to a trade that means something else. */
+const invQtyKey=(o,k)=>(k==='s'?'s_':k==='so'?'o_':k==='sc'?'c_':'')+o;
 function invSetQty(o,v,cap){
   let n=Math.max(0,Number(v)||0);
   if(cap!=null) n=Math.min(n,cap);
@@ -19807,17 +19913,26 @@ function invSetQty(o,v,cap){
   _invQty[o]=n; renderBook();
 }
 function invStep(o,d,cap){ invSetQty(o,(_invQty[o]||0)+d,cap); }
+/* Dollar mode on a short means dollars of COLLATERAL -- the money that
+   actually leaves the balance -- not dollars of notional. Typing 20 and
+   watching 33 disappear would be the card lying about its own button. */
+const invShortStep=px=>Math.max(0.01,INV_CEIL-invCap(px));
 function invSetCash(o,v){ _invCash[o]=Math.max(0,Math.round((Number(v)||0)*100)/100); renderBook(); }
 function invStepCash(o,d){ invSetCash(o,(_invCash[o]||0)+d); }
 /* what a card would trade right now: a share count typed straight in, or the
    shares a dollar amount buys at today's price. Selling is always in shares —
    the holding is a share count and that is what you are giving up. */
-function invTradeShares(o,px,sell){
-  if(sell||_invMode!=='amt') return invRound(_invQty[sell?'s_'+o:o]||0);
-  return invRound((_invCash[o]||0)/(px||1));
+function invTradeSharesK(o,px,k){
+  const key=invQtyKey(o,k);
+  if(_invMode!=='amt'||(k!=='b'&&k!=='so')) return invRound(_invQty[key]||0);
+  return invRound((_invCash[key]||0)/(k==='so'?invShortStep(px):(px||1)));
 }
-function invBuyCard(o){ invTrade(o,invTradeShares(o,invPrice(o),false),false); }
-function invSellCard(o){ invTrade(o,invTradeShares(o,invPrice(o),true),true); }
+/* what a trade of n at px takes out of the balance, or hands back */
+const invTradeCash=(n,px,k)=>(k==='so'||k==='sc')?invCollat(n,px):n*px;
+function invBuyCard(o){ invDo(o,invTradeSharesK(o,invPrice(o),'b'),'b'); }
+function invSellCard(o){ invDo(o,invTradeSharesK(o,invPrice(o),'s'),'s'); }
+function invShortCard(o){ invDo(o,invTradeSharesK(o,invPrice(o),'so'),'so'); }
+function invCoverCard(o){ invDo(o,invTradeSharesK(o,invPrice(o),'sc'),'sc'); }
 /* Typing repaints the one button rather than the board. Rebuilding the card on
    every keystroke would take the focused field down with it, and you would be
    typing one digit at a time into a field that keeps vanishing. */
@@ -19826,23 +19941,26 @@ function invType(el,o,kind){
   else _invQty[o]=invRound(Math.max(0,Number(el.value)||0));
   try{ invPatchCard(el.closest('.iv-card')); }catch(e){}
 }
+const INV_VERB={b:'Buy',s:'Sell',so:'Short',sc:'Cover'};
 function invPatchCard(card){
   if(!card) return;
-  const o=card.dataset.o, px=Number(card.dataset.px)||0, sell=card.dataset.sell==='1';
+  const o=card.dataset.o, px=Number(card.dataset.px)||0, k=card.dataset.k||'b';
   const go=card.querySelector('.iv-go'); if(!go) return;
-  const n=invTradeShares(o,px,sell), cost=n*px;
+  const n=invTradeSharesK(o,px,k), cash=invTradeCash(n,px,k);
   /* This patches the button in place on every keystroke, so it has to know
      about the lock too — otherwise typing a number re-enabled a control the
      week had already shut. */
   const shut=invLocked();
-  if(sell){
-    const have=invHoldings()[o]||0;
+  const verb=INV_VERB[k]||'Buy';
+  if(k==='s'||k==='sc'){
+    const have=(k==='sc'?invShorts():invHoldings())[o]||0;
     go.disabled=shut||!(n>0)||n>have+1e-6||_invBusy;
-    go.textContent=shut?'Closed':'Sell'+(n>0?' · '+invFmt(cost):'');
+    go.textContent=shut?'Closed':verb+(n>0?' · '+invFmt(cash):'');
   }else{
-    go.disabled=shut||!(n>0)||!bucksReady()||cost>bucksBalance()+1e-6||_invBusy;
+    go.disabled=shut||!(n>0)||!bucksReady()||cash>bucksBalance()+1e-6
+      ||(k==='so'&&px>=INV_CEIL)||_invBusy;
     go.textContent=shut?'Closed'
-      :'Buy'+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cost)):'');
+      :verb+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cash)):'');
   }
 }
 
@@ -19852,28 +19970,38 @@ function invBoardHTML(){
   const cash=bucksBalance();
   const amt=_invMode==='amt';
   const own=invHoldings();
+  const sold=invShorts();
   const shut=invLocked();
+  /* THE SIDE THE BOARD IS TRADING. Long buys a share; short sells one it does
+     not hold, and pays when the price falls. The same twelve cards either way
+     -- it is one switch above them rather than a second button on each, the
+     same argument the Shares/Dollars switch is made on. */
+  const short=_invSide==='short';
+  const k=short?'so':'b';
   /* One card, whether the thing being bought is a team or a fund. They trade
      identically — a price, a number of shares, the same money — so they are
      the same control, and only the crest and the line under the name differ. */
   const card=(x,crest,sub,cls)=>{
-    const cashIn=_invCash[x.owner]||0;
-    const n=invTradeShares(x.owner,x.price,false), cost=n*x.price;
+    const qk=invQtyKey(x.owner,k);
+    const cashIn=_invCash[qk]||0;
+    const n=invTradeSharesK(x.owner,x.price,k), cost=invTradeCash(n,x.price,k);
+    const capped=short&&x.price>=INV_CEIL;
     const dir=x.chg>0?'up':x.chg<0?'dn':'flat';
     /* In dollar mode the steppers move by five bucks. One cent at a time is
        useless and one dollar is still twenty presses to a sensible stake. */
     const step=amt
-      ? `<button class="iv-step" onclick="invStepCash('${x.owner}',-5)" ${cashIn?'':'disabled'}>−</button>
+      ? `<button class="iv-step" onclick="invStepCash('${qk}',-5)" ${cashIn?'':'disabled'}>−</button>
          <span class="iv-amt"><span class="iv-amt-s">$</span><input class="iv-q iv-in" inputmode="decimal"
-           value="${cashIn?String(cashIn):''}" placeholder="0" aria-label="Amount to spend on ${x.name}"
-           oninput="invType(this,'${x.owner}','amt')" onchange="renderBook()" onblur="renderBook()"></span>
-         <button class="iv-step" onclick="invStepCash('${x.owner}',5)">+</button>`
-      : `<button class="iv-step" onclick="invStep('${x.owner}',-1)" ${_invQty[x.owner]?'':'disabled'}>−</button>
-         <input class="iv-q iv-in" inputmode="decimal" value="${_invQty[x.owner]?invShFmt(_invQty[x.owner]):''}"
+           value="${cashIn?String(cashIn):''}" placeholder="0" aria-label="Amount to put on ${x.name}"
+           oninput="invType(this,'${qk}','amt')" onchange="renderBook()" onblur="renderBook()"></span>
+         <button class="iv-step" onclick="invStepCash('${qk}',5)">+</button>`
+      : `<button class="iv-step" onclick="invStep('${qk}',-1)" ${_invQty[qk]?'':'disabled'}>−</button>
+         <input class="iv-q iv-in" inputmode="decimal" value="${_invQty[qk]?invShFmt(_invQty[qk]):''}"
            placeholder="0" aria-label="Shares of ${x.name}"
-           oninput="invType(this,'${x.owner}','sh')" onchange="renderBook()" onblur="renderBook()">
-         <button class="iv-step" onclick="invStep('${x.owner}',1)">+</button>`;
-    return `<div class="iv-card${cls||''}" data-o="${x.owner}" data-px="${x.price}">
+           oninput="invType(this,'${qk}','sh')" onchange="renderBook()" onblur="renderBook()">
+         <button class="iv-step" onclick="invStep('${qk}',1)">+</button>`;
+    return `<div class="iv-card${short?' iv-card-sh':''}${cls||''}" data-o="${x.owner}"
+        data-px="${x.price}" data-k="${k}">
       <div class="iv-top">
         <span class="iv-c">${crest}</span>
         <span class="iv-n">${x.name}${sub?`<span class="iv-held">${sub}</span>`:''}</span>
@@ -19884,16 +20012,22 @@ function invBoardHTML(){
       </div>
       <div class="iv-buy">
         ${step}
-        <button class="iv-go" ${(shut||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
-          onclick="invBuyCard('${x.owner}')">
+        <button class="iv-go${short?' iv-short':''}"
+          ${(shut||capped||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
+          onclick="${short?'invShortCard':'invBuyCard'}('${x.owner}')">
           ${shut?'<i class="fa fa-lock"></i>Closed'
-            :`Buy${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}`}</button>
+            :`${short?'Short':'Buy'}${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}`}</button>
       </div>
     </div>`;
   };
-  const heldSub=o=>own[o]?invShFmt(own[o])+' held':'';
+  /* On the short side the line under a name says what you are already short,
+     not what you hold -- two different positions, and the one the card is
+     about is the one worth printing on it. */
+  const heldSub=o=>short
+    ? (sold[o]?invShFmt(sold[o])+' short':'')
+    : (own[o]?invShFmt(own[o])+' held':'');
   const funds=(b.funds||[]).map(f=>card(f,invFundCrest(f.members),
-    `${f.members.length} teams${own[f.owner]?' · '+invShFmt(own[f.owner])+' held':''}`)).join('');
+    `${f.members.length} teams${heldSub(f.owner)?' · '+heldSub(f.owner):''}`)).join('');
   const rows=b.list.map(x=>card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner))).join('');
   /* No cash line at the top. The balance is in the nav on this page, a few
      inches above where this strip used to sit, and two copies of one number on
@@ -19901,8 +20035,18 @@ function invBoardHTML(){
      the balance, so the limit is enforced where it is felt. */
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
     ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}
-    <div class="iv-mode" role="group" aria-label="How to buy">
-      <span class="iv-mode-l">Buy in</span>
+    <div class="iv-mode" role="group" aria-label="Which side of the market">
+      <span class="iv-mode-l">Trade</span>
+      <button class="iv-mb${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">Stocks</button>
+      <button class="iv-mb iv-mb-sh${short?' on':''}" onclick="invSetSide('short')" aria-pressed="${short}">Shorts</button>
+    </div>
+    ${short?`<div class="iv-note"><i class="fa fa-arrow-trend-down"></i><span>
+      <b>You are shorting.</b> A short pays when the price FALLS, and costs you
+      when it rises. Opening one holds aside its worst case — the gap between
+      today's price and the ${invFmt(INV_CEIL)} cap — and hands it back when you
+      cover. That cap is the most a short can ever lose you.</span></div>`:''}
+    <div class="iv-mode" role="group" aria-label="How to size the trade">
+      <span class="iv-mode-l">${short?'Size in':'Buy in'}</span>
       <button class="iv-mb${amt?'':' on'}" onclick="invSetMode('sh')" aria-pressed="${!amt}">Shares</button>
       <button class="iv-mb${amt?' on':''}" onclick="invSetMode('amt')" aria-pressed="${amt}">Dollars</button>
     </div>
@@ -19918,31 +20062,38 @@ function invPortfolioHTML(){
   const b=invBoard();
   if(!b) return '<div class="tab-loading" style="padding:30px">Loading…</div>';
   const h=invHoldings();
-  const owners=Object.keys(h);
+  const sold=invShorts();
+  const owners=Object.keys(h), shorts=Object.keys(sold);
   const shut=invLocked();
+  /* WHAT A NAME ON THIS PAGE IS. Both lists draw the same crest and the same
+     title for a team or a fund, so it is worked out once here rather than
+     twice in two row builders that would drift apart. */
+  const nameOf=o=>{
+    const fu=invFund(o);
+    const fnd=fu?((b.funds||[]).find(x=>x.owner===o)||{members:[]}):null;
+    const fr=fu?null:(_franchises||[]).find(f=>f.owner===o);
+    return {nm:fu?fu.name:(fr?fr.name:o),
+      crest:fu?invFundCrest(fnd.members):(fr?franchiseAvatar(fr,26,7):'')};
+  };
   /* No ledger strip at the top of this view any more. What it was worth and
      what it had made were two of the three tiles, and the third was the cash
      balance — which now lives in the nav, where it is on show whatever page you
      are on. The chart underneath was already telling the profit story with a
      line rather than a number, so nothing here is lost by dropping the row. */
-  if(!owners.length) return invChartHTML()+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
-    <div>No shares yet. The market is on the Investments tab.</div></div>`;
+  if(!owners.length&&!shorts.length) return invChartHTML()+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
+    <div>No positions yet. The market is on the Investments tab.</div></div>`;
   const chart=invChartHTML();
   const rows=owners.map(o=>{
     /* a fund holding is the same row as a team holding, wearing the crests of
        what it holds instead of one crest of its own */
-    const fu=invFund(o);
-    const fnd=fu?((b.funds||[]).find(x=>x.owner===o)||{members:[]}):null;
-    const fr=fu?null:(_franchises||[]).find(f=>f.owner===o);
-    const crest=fu?invFundCrest(fnd.members):(fr?franchiseAvatar(fr,26,7):'');
-    const nm=fu?fu.name:(fr?fr.name:o);
+    const {nm,crest}=nameOf(o);
     const px=invPrice(o), cb=invCostBasis(o), sh=h[o];
     const gain=(px-cb)*sh, pct=cb?((px-cb)/cb*100):0;
     const q=Math.min(sh,_invQty['s_'+o]||0);
     /* The step up stops at the whole holding rather than at the last whole
        share below it, so one more press on a fractional lot sells all of it
        instead of leaving a remainder no button can reach. */
-    return `<div class="iv-card" data-o="${o}" data-px="${px}" data-sell="1">
+    return `<div class="iv-card" data-o="${o}" data-px="${px}" data-k="s">
       <div class="iv-top">
         <span class="iv-c">${crest}</span>
         <span class="iv-n">${nm}<span class="iv-held">${invShFmt(sh)} share${Math.abs(sh-1)<1e-6?'':'s'} · avg ${invFmt(cb)}</span></span>
@@ -19964,9 +20115,53 @@ function invPortfolioHTML(){
       </div>
     </div>`;
   }).join('');
+  /* ── THE SHORTS, AND THEY ARE NOT ALLOWED TO LOOK LIKE SHARES ───────────
+     Everything a short does is the other way round from the row above it: the
+     number under the name is a price it was SOLD at, the arrow is green when
+     the price has fallen, and the button buys rather than sells. A row that
+     looked like a holding and behaved like its opposite is the worst thing
+     this page could print, so it is marked three ways at once -- its own
+     heading, a SHORT tag on every row, and its own colour down the edge. */
+  const sRows=shorts.map(o=>{
+    const {nm,crest}=nameOf(o);
+    const px=invPrice(o), cb=invShortBasis(o), sh=sold[o];
+    /* capped, because that is what it settles at and what the collateral was
+       posted against -- the row must not show a loss the cover cannot charge */
+    const mark=invCap(px);
+    const gain=(cb-mark)*sh, pct=cb?((cb-mark)/cb*100):0;
+    const q=Math.min(sh,_invQty['c_'+o]||0);
+    return `<div class="iv-card iv-card-sh" data-o="${o}" data-px="${px}" data-k="sc">
+      <div class="iv-top">
+        <span class="iv-c">${crest}</span>
+        <span class="iv-n"><span class="iv-nm-row">${nm}<span class="iv-tag-sh">Short</span></span>
+          <span class="iv-held">${invShFmt(sh)} short · from ${invFmt(cb)} · now ${invFmt(mark)}</span></span>
+        <span class="iv-px">
+          <span class="iv-px-v ${gain>0?'up':gain<0?'dn':''}">${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}</span>
+          <span class="iv-chg ${gain>0?'up':gain<0?'dn':'flat'}">${gain>0?'▲':gain<0?'▼':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
+        </span>
+      </div>
+      <div class="iv-buy">
+        <button class="iv-step" onclick="invStep('c_${o}',-1,${sh})" ${q?'':'disabled'}>−</button>
+        <input class="iv-q iv-in" inputmode="decimal" value="${q?invShFmt(q):''}"
+          placeholder="0" aria-label="Shares to cover"
+          oninput="invType(this,'c_${o}','sh')" onchange="renderBook()" onblur="renderBook()">
+        <button class="iv-step" onclick="invStep('c_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>
+        <button class="iv-go iv-short" ${(shut||!(q>0)||_invBusy)?'disabled':''}
+          onclick="invCoverCard('${o}')">
+          ${shut?'<i class="fa fa-lock"></i>Closed'
+            :`Cover${q>0?' · '+invFmt(invCollat(q,px)):''}`}</button>
+      </div>
+    </div>`;
+  }).join('');
+  /* the headings only appear when there is something on both sides -- one list
+     does not need to be told what it is */
+  const both=!!rows&&!!sRows;
   return chart+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}`
     +`${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}`
-    +`<div class="iv-list">${rows}</div>`;
+    +(rows?`${both?'<div class="iv-gh">Shares held</div>':''}
+      <div class="iv-list">${rows}</div>`:'')
+    +(sRows?`<div class="iv-gh${both?' iv-gh2':''}">Shorts — these pay when the price falls</div>
+      <div class="iv-list">${sRows}</div>`:'');
 }
 
 function renderBook(){

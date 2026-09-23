@@ -135,6 +135,11 @@ jobs:
       # card had just said you owned.
       - name: the shares a card prints can be sold
         run: node scripts/test-invsell.mjs
+      # A short can cost more than it is worth, and the balance is derived --
+      # there is nowhere in it for a position worth less than nothing. The cap
+      # is what bounds it, and these cases are that bound holding at the edges.
+      - name: a short cannot cost more than it put up
+        run: node scripts/test-short.mjs
       # A week's trivia score has to outlive its questions, which cannot be
       # rebuilt — so it is sealed when the slate locks and summed thereafter.
       - name: ball knowledge trivia is cumulative
