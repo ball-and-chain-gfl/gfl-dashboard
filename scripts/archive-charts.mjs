@@ -214,6 +214,9 @@ const _seasonMeta = ${JSON.stringify({ [SEASON]: {
 } })};
 const _franchises = ${JSON.stringify(franchises)};
 const _bkPools = ${JSON.stringify({ [String(SEASON)]: (pool && pool.players) || [] })};
+/* invCoinPrices reads the singular one, which in the browser is whichever
+   season's pool is live. There is only ever one here. */
+const _bkPool = ${JSON.stringify((pool && pool.players) || [])};
 const _sbRosters = ${JSON.stringify({ [SEASON + ':' + week]: rosters })};
 const BENCH_SLOTS = ${JSON.stringify(BENCH)};
 function sbBoardSeason(){ return ${JSON.stringify(String(SEASON))}; }
@@ -261,6 +264,16 @@ ${grab('function buildBracket(season){')}
 ${grab('function poDeadGames(season){')}
 ${grab('const poDeadId=')}
 ${grab('function invStats(')}
+/* THE COINS FREEZE TOO. invPricesAt merges them into the same map, so a week
+   archived without them would serve a board that has teams and funds on it
+   and no coins -- and the portfolio chart replays off exactly this file. */
+${grab('const INV_COINS=')}
+${grab('const INV_COIN_CUT=')}
+${grab('const INV_COIN_TOP=')}
+${grab('const INV_COIN_P=')}
+${grab('const INV_COIN_FLOOR=')}
+${grab('const invCoinKey=')}
+${grab('function invCoinPrices(){')}
 ${grab('function invPricesAt(')}
 module.exports = { invPricesAt, rosterProjByOwner, invStats };
 `;

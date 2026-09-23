@@ -1334,6 +1334,15 @@
        together. Never red -- red here means a loss, and a short is not a
        loss, it is the other side of the trade. */
     .iv-card-sh{--ivc:255,146,61;}
+    /* A COIN SAYS MORE UNDER ITS NAME THAN A TEAM DOES -- who he actually is,
+       where he ranks among his own, and in short mode what one share of him
+       ties up. That runs past fifty characters where a team's line runs to
+       twenty, so on a coin it wraps rather than being cut off mid-word. The
+       card grows by a line; the alternative was dropping the player's name,
+       which is the one thing on the card that a ticker like BILL Coin does
+       not tell you. */
+    .iv-card-coin .iv-n{white-space:normal;}
+    .iv-card-coin .iv-held{white-space:normal;line-height:1.35;}
     /* the action takes the card's own colour, so Buy reads blue and Short
        reads orange without either being named twice */
     .iv-go:not(:disabled){border-color:rgba(var(--ivc),0.42);color:rgb(var(--ivc));

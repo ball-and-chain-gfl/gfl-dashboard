@@ -8401,8 +8401,7 @@ function applyMe(){
     const tid=String(_me.teamId), owner=_ownerMap[Number(tid)];
     _profileTeam=tid; _schedTeam=tid; _draftTeamSel=tid;
     /* the history and tenure pickers are read straight off the DOM, so setting
-       their value is the whole job; the sportsbook keeps its own variable */
-    if(owner) _sbTeamSel=owner;
+       their value is the whole job */
     const setSel=(id,v)=>{ const e=document.getElementById(id);
       if(e&&v!=null&&[...e.options].some(o=>o.value===String(v))) e.value=String(v); };
     setSel('profile-team-select',tid);
@@ -10781,7 +10780,7 @@ function sbStakeOn(mk,pick){
   const b=sbMoneyBook()[mk];
   return b?(b.picks[pick]||0):0;
 }
-let _sbTeamSel=null;         // owner for the By Team view
+
 let _slip=[];                // [{k,mk,mkLabel,pick,pickLabel,odds}]
 let _sbStake=10;
 let _sbCache=null,_sbLiveWeight=0,_sbLivePlayed=0;
@@ -12115,6 +12114,113 @@ const INV_FUNDS=[
   {k:'ETF_EAST',name:'East ETF',div:'east'},
   {k:'ETF_WEST',name:'West ETF',div:'west'}
 ];
+
+/* ── COINS: A SHARE IN ONE FOOTBALL PLAYER ─────────────────────────────
+   Named by hand, because that is the point of them -- eleven players somebody
+   in this league has an opinion about, not a screen of the top hundred.
+
+   PRICED ABSOLUTELY, WHICH IS WHAT LETS THE LIST BE ANY LENGTH. A team share
+   is INV_BASE x its own index DIVIDED BY THE LEAGUE MEAN -- twelve franchises
+   that never come and go, so a relative price is safe. Players do come and go,
+   and dividing by the mean of a set that changes would move every coin's price
+   whenever another was added or dropped. That is not a tidiness argument: the
+   portfolio chart REPLAYS old weeks through this function, so a price that
+   depends on who else exists rewrites history every time the list is edited.
+   Nothing below reads any other coin.
+
+   WHAT THE NUMBER IS.
+
+       rel   = his projection / the best projection AT HIS POSITION   (<= 1)
+       w     = (1 - positional rank / the position's cutoff)          (<= 1)
+       price = INV_COIN_TOP x rel x w^p, floored at a cent
+
+   Positional rank rather than overall is doing real work and is not just the
+   projection sorted: a quarterback projected for 300 can be QB12 while a tight
+   end projected for 130 is TE2. It is value over replacement, which a raw
+   projection cannot express. And rel is normalised WITHIN the position for the
+   same reason -- on raw points every coin worth owning would be a quarterback,
+   which is the thing going positional was meant to fix.
+
+   Both terms fall with rank, so the curve is steep on purpose. rel is what
+   makes a price move smoothly week to week; rank alone only moves in steps,
+   when somebody is actually overtaken, and a market that sits still for a
+   fortnight is not a market.
+
+   THE CUTOFFS ARE WIDER THAN REPLACEMENT LEVEL, DELIBERATELY. QB24/TE24/RB36/
+   WR48 is 2/2/3/4 per team in a twelve-team league -- exactly the point a
+   player stops being worth a roster spot. Priced on those, five of these
+   eleven sat past their cutoff and opened at exactly a cent: identical, frozen
+   and unable to move, which is half a board that cannot be traded. These are
+   wider so every coin is live. Put the tighter numbers back here and nothing
+   else has to change. */
+const INV_COINS=[
+  {t:'MARV',    name:'MARV Coin',     pid:4432708},   // Marvin Harrison Jr.
+  {t:'TONY',    name:'TONY Coin',     pid:3916148},   // Tony Pollard
+  {t:'RHA',     name:'RHA Coin',      pid:4569173},   // Rhamondre Stevenson
+  {t:'CHUB',    name:'CHUB Coin',     pid:4241416},   // Chuba Hubbard
+  {t:'GOAT',    name:'GOAT Coin',     pid:4360761},   // Michael Wilson
+  {t:'WALL',    name:'WALL Coin',     pid:2576925},   // Darren Waller
+  {t:'DALE',    name:'DALE Coin',     pid:4569587},   // Wan'Dale Robinson
+  {t:'COKEHEAD',name:'COKEHEAD Coin', pid:4695883},   // Jalen Coker
+  {t:'CHAMP',   name:'CHAMP Coin',    pid:4429096},   // Blake Corum
+  {t:'BILL',    name:'BILL Coin',     pid:4575131},   // Jacory Croskey-Merritt
+  {t:'FAT',     name:'FAT Coin',      pid:3126486},   // Deebo Samuel Sr.
+];
+/* positional rank at which a coin is worth a cent. 1 QB, 2 RB, 3 WR, 4 TE. */
+const INV_COIN_CUT={1:32,2:60,3:80,4:40};
+/* the pool keys a position by defaultPositionId, which is NOT a lineup slot id
+   -- SLOT_NAMES is the other one and reading a pos through it gives nonsense */
+const INV_COIN_POS={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'D/ST'};
+/* what the best player at any position would open at, and therefore the most
+   a coin can EVER be worth -- rel and w are both at most 1. That makes it an
+   arithmetic bound rather than a chosen one, which is why a short on a coin
+   can settle against it. */
+const INV_COIN_TOP=22;
+const INV_COIN_P=1;             // how hard the curve falls with rank
+const INV_COIN_FLOOR=0.01;      // a coin bottoms out at a cent, not a dollar
+/* Keyed on the player id and never on the ticker. A ledger entry has to mean
+   the same thing in a year, and a ticker is a joke somebody may want to
+   rewrite; the id is what ESPN will still answer to. */
+const invCoinKey=pid=>'COIN_'+pid;
+const invCoin=k=>INV_COINS.find(c=>invCoinKey(c.pid)===k)||null;
+function invCoinPrices(){
+  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+  if(!pool||!pool.length) return {};
+  const byPos={};
+  pool.forEach(p=>{ const pos=Number(p&&p.pos)||0;
+    if(pos) (byPos[pos]||(byPos[pos]=[])).push(p); });
+  Object.keys(byPos).forEach(k=>byPos[k].sort(
+    (a,b)=>(Number(b.proj)||0)-(Number(a.proj)||0)));
+  const out={};
+  INV_COINS.forEach(c=>{
+    const me=pool.find(p=>Number(p&&p.id)===Number(c.pid));
+    if(!me) return;
+    const pos=Number(me.pos)||0, cut=Number(INV_COIN_CUT[pos])||0;
+    const list=byPos[pos];
+    if(!cut||!list||!list.length) return;
+    const top=Number(list[0].proj)||0;
+    if(!(top>0)) return;
+    const rank=list.findIndex(p=>Number(p.id)===Number(c.pid))+1;
+    if(rank<1) return;
+    const rel=Math.max(0,(Number(me.proj)||0)/top);
+    const w=Math.max(0,1-rank/cut);
+    out[invCoinKey(c.pid)]=Math.max(INV_COIN_FLOOR,
+      +(INV_COIN_TOP*rel*Math.pow(w,INV_COIN_P)).toFixed(2));
+  });
+  return out;
+}
+/* what a coin's card says under its name: where he sits among his own */
+function invCoinMeta(k){
+  const c=invCoin(k); if(!c) return null;
+  const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
+  const me=pool&&pool.find(p=>Number(p&&p.id)===Number(c.pid));
+  if(!me) return {coin:c,who:pName(c.pid),pos:'',rank:0};
+  const pos=Number(me.pos)||0;
+  const list=(pool.filter(p=>Number(p&&p.pos)===pos)
+    .sort((a,b)=>(Number(b.proj)||0)-(Number(a.proj)||0)));
+  return {coin:c,who:me.name||pName(c.pid),pos:(INV_COIN_POS[pos]||''),
+    rank:list.findIndex(p=>Number(p.id)===Number(c.pid))+1};
+}
 const invFund=k=>INV_FUNDS.find(f=>f.k===k)||null;
 /* who is inside each fund, for the season being priced. Conferences are a
    property of a season rather than of a franchise — teams move between them —
@@ -12254,6 +12360,11 @@ function invPricesAt(season,through){
     const own=(mem[f.k]||[]).filter(o=>out[o]!=null);
     if(own.length) out[f.k]=+(own.reduce((a,o)=>a+out[o],0)/own.length).toFixed(2);
   });
+  /* Coins ride on the same map, so everything downstream -- invPrice, the
+     portfolio, the profit replay, the week freezer -- reaches them without
+     knowing they are a different instrument. They do not read `out`, so
+     nothing above is disturbed by them being here. */
+  Object.assign(out,invCoinPrices());
   return out;
 }
 function invBoard(){
@@ -12286,10 +12397,16 @@ function invBoard(){
   const _lwk=season?(ntLastWeek(season)||{}).week:null;
   const _pj=season?rosterProjByOwner(season,_lwk||1):{};
   const _pjSig=Object.keys(_pj).sort().map(o=>o+':'+Math.round(_pj[o])).join(',');
+  /* AND THE PLAYER POOL, which is what the coins are priced from. It arrives
+     after the first paint like the rosters do, and without it in the stamp the
+     board would keep serving the coin-less prices it computed before it landed
+     -- the same bug the rosters had, in the same place. Length is enough: the
+     pool is fetched once whole and replaced whole. */
+  const _pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool.length:0;
   const stamp=String(season)+'|'+(_franchises||[]).length
     +'|'+Object.keys((_seasonMeta[season]||{}).teams||{}).length
     +'|'+footballStamp(season)
-    +'|r'+_pjSig;
+    +'|r'+_pjSig+'|c'+_pool;
   if(_invCache&&_invCache.stamp===stamp) return _invCache;
 
   const fr=(_franchises||[]);
@@ -12315,7 +12432,17 @@ function invBoard(){
     return {owner:f.k, name:f.name, fund:f, members:inside, price:p, prev:was,
       chg:+(p-was).toFixed(2), pct:was?+(((p-was)/was)*100).toFixed(1):0};
   }).filter(Boolean);
-  return (_invCache={stamp,season,week:lw,list,funds,priceOf:now});
+  /* Same shape of row as a team or a fund, off the same price map, so the
+     card builder cannot tell the difference. A coin whose player has fallen
+     out of the pool simply is not listed rather than pricing at nothing. */
+  const coins=INV_COINS.map(c=>{
+    const k=invCoinKey(c.pid), p=now[k];
+    if(p==null) return null;
+    const was=prev[k]!=null?prev[k]:p;
+    return {owner:k,name:c.name,coin:c,price:p,prev:was,
+      chg:+(p-was).toFixed(2),pct:was?+(((p-was)/was)*100).toFixed(1):0};
+  }).filter(Boolean);
+  return (_invCache={stamp,season,week:lw,list,funds,coins,priceOf:now});
 }
 /* a fund wears the crests of what it holds, overlapped the way a stack of
    cards is. Four is as many as reads at this size, and the leaders are the
@@ -12414,10 +12541,24 @@ function invReset(){ _inv=null; try{ invSync(); }catch(e){} }
    credited on the way in: the proceeds of the sale and the reserve against the
    buy-back are the same money, and netting them at the door leaves one number
    to understand instead of two that cancel. */
-const INV_CEIL=25;              // what a short settles against at the very worst
-const invCap=p=>Math.min(INV_CEIL,Math.max(0,Number(p)||0));
+const INV_CEIL=25;              // a TEAM share settles a short here, at worst
+/* ── AND A COIN HAS ITS OWN CEILING, WHICH IS NOT A GUESS ───────────────
+   $25 is calibrated to a team share, which sits at a $10 mean and has run
+   $3.91 to $18.06. A coin at five cents under that cap would need $24.95 of
+   collateral to short one share, which is not a market, it is a hostage.
+
+   A coin's own ceiling is INV_COIN_TOP, and it is exact rather than chosen:
+   the price is TOP x rel x w with rel and w both at most 1, so no coin can
+   ever print above it. That is what a short can honestly settle against.
+
+   BOTH CEILINGS ARE CONSTANTS, WHICH IS THE PROPERTY THAT MATTERS. A ceiling
+   derived from a live price would move under an open position and the
+   collateral posted would stop matching what settlement charges -- the bound
+   would be a decoration. Owner in, fixed number out, always. */
+const invCeilOf=o=>invCoin(o)?INV_COIN_TOP:INV_CEIL;
+const invCap=(o,p)=>Math.min(invCeilOf(o),Math.max(0,Number(p)||0));
 /* what opening n shares of a short at p keeps out of the balance */
-const invCollat=(n,p)=>Math.max(0,Number(n)||0)*Math.max(0,INV_CEIL-invCap(p));
+const invCollat=(o,n,p)=>Math.max(0,Number(n)||0)*Math.max(0,invCeilOf(o)-invCap(o,p));
 
 /* ── ONE WALK OF THE LEDGER, AND EVERY READING COMES OFF IT ───────────────
    This loop was written out five times -- in invHoldings, in invCostBasis, in
@@ -12454,7 +12595,7 @@ function invWalk(lots){
     if(l.k==='sc'){ const s=slot(S,o), m=Math.min(n,s.sh);
       if(m<=0) return;
       const avg=s.sh?s.cost/s.sh:0;
-      real+=m*(avg-invCap(p));
+      real+=m*(avg-invCap(o,p));
       s.sh-=m; s.cost-=avg*m; return; }
     const t=slot(L,o);
     if(l.k==='s'){ const m=Math.min(n,t.sh);
@@ -12471,7 +12612,7 @@ function invWalkProfit(w,priceOf){
   Object.keys(w.L).forEach(o=>{ const t=w.L[o];
     if(t.sh>0.0001) p+=t.sh*(priceOf(o)-t.cost/t.sh); });
   Object.keys(w.S).forEach(o=>{ const s=w.S[o];
-    if(s.sh>0.0001) p+=s.cost-s.sh*invCap(priceOf(o)); });
+    if(s.sh>0.0001) p+=s.cost-s.sh*invCap(o,priceOf(o)); });
   return p;
 }
 /* shares held in each team, replayed. LONGS ONLY -- a short is its own
@@ -12517,8 +12658,8 @@ function invNetSpent(){
        already in the sum, so open at 12 and cover at 12 nets to zero, cover at
        8 frees four, cover at 20 costs eight, and cover at anything from 25 up
        costs the thirteen that was held and never a cent more. */
-    if(l.k==='so'){ net+=bucks2(invCollat(n,p)); return; }
-    if(l.k==='sc'){ net-=bucks2(invCollat(n,p)); return; }
+    if(l.k==='so'){ net+=bucks2(invCollat(l.o,n,p)); return; }
+    if(l.k==='sc'){ net-=bucks2(invCollat(l.o,n,p)); return; }
     const v=bucks2(n*p);
     net+=(l.k==='s'?-v:v);
   });
@@ -12772,10 +12913,10 @@ async function invDo(owner,shares,k){
        exists to prevent. No real price has ever been within seven dollars of
        this, and it is refused rather than clamped so that if it ever happens
        somebody is told rather than sold something broken. */
-    if(px>=INV_CEIL){ _invErr='A short settles against '+invFmt(INV_CEIL)
-      +' at the very worst, and this share is already there.'; renderBook(); return; }
-    if(invCollat(n,px)>bucksBalance()+1e-6){
-      _invErr='A short of '+invShFmt(n)+' holds '+invFmt(invCollat(n,px))
+    if(px>=invCeilOf(owner)){ _invErr='A short settles against '+invFmt(invCeilOf(owner))
+      +' at the very worst, and this is already there.'; renderBook(); return; }
+    if(invCollat(owner,n,px)>bucksBalance()+1e-6){
+      _invErr='A short of '+invShFmt(n)+' holds '+invFmt(invCollat(owner,n,px))
         +' aside until you cover, and the balance will not carry it.';
       renderBook(); return; }
   } else if(n*px>bucksBalance()+1e-6){
@@ -18397,7 +18538,7 @@ function betGrade(bet){
 const SB_GROUPS=[
   {k:'week',label:'This Week',icon:'fa-bolt'},
   {k:'season',label:'Regular Season',icon:'fa-trophy'},
-  {k:'team',label:'By Team',icon:'fa-id-badge'},
+  {k:'coins',label:'Coins',icon:'fa-coins'},
   {k:'invest',label:'Investments',icon:'fa-chart-line'},
 ];
 function sbAvatar(owner,size){
@@ -18948,33 +19089,6 @@ function myBetsHTML(){
    between them win this more often than any single one of the four, so leaving
    it off would have priced the four as if they were the whole field and made
    every one of them look like better value than it is. */
-function sbTeamTopMarket(book,owner,week){
-  const r=book.rows.find(x=>x.owner===owner); if(!r) return '';
-  const proj=sbPlayerProj(week), rost=sbRosters(sbBoardSeason(),week);
-  if(!proj||!rost) return '';
-  const mine=rost[r.tid]; if(!mine||!mine.length) return '';
-  const list=mine.map(e=>({pid:e.pid,p:proj[String(e.pid)]}))
-    .filter(x=>x.p&&x.p.wk>0).sort((a,b)=>b.p.wk-a.p.wk);
-  if(list.length<5) return '';
-  const four=list.slice(0,4), rest=list.slice(4);
-  /* Simulated over the whole roster, so the four named prices and the field's
-     price are the same number cut two ways rather than two separate guesses. */
-  const all=sbTopProbs(list.map(x=>x.p.wk),(r.tid||1)*7919+week);
-  const p=[...all.slice(0,4),all.slice(4).reduce((a,v)=>a+v,0)];
-  const ents=[...four.map(x=>({k:'p'+x.pid,name:x.p.name,
-      av:playerImg(x.pid,22,x.p.name),ab:POS_NAMES[x.p.pos]||''})),
-    /* The field entry carries the pids that were named beside it. Settlement
-       has to know which players "anyone else" meant, and the four are chosen
-       from projections that cannot be reproduced after the week — so the answer
-       travels on the ticket rather than being guessed at later. */
-    {k:'field:'+four.map(x=>x.pid).join('-'),name:'Anyone else',tail:true,
-      av:'<span class="sb-field-av"><i class="fa fa-users"></i></span>',
-      ab:rest.length+' players'}];
-  const m=sbOutrightAny('tt'+owner+'-'+week,`Week ${week} Top Scorer`,
-    `Which started player on ${r.name} scores the most this week, on ESPN projections`,
-    ents,p,'fa-user-astronaut',1,'Player');
-  return sbMarketHTML(m);
-}
 function sbWeekOf(){
   const meta=_seasonMeta[sbBoardSeason()]; if(!meta) return 1;
   const played=new Set(), all=new Set();
@@ -18986,38 +19100,6 @@ function sbWeekOf(){
   });
   const last=played.size?Math.max(...played):0;
   return [...all].sort((a,b)=>a-b).find(w=>w>last)||last||1;
-}
-function sbTeamViewHTML(book){
-  if(_sbTeamSel==null||!book.rows.some(r=>r.owner===_sbTeamSel)) _sbTeamSel=book.rows.slice().sort((a,b)=>b.rating-a.rating)[0].owner;
-  const owner=_sbTeamSel;
-  const r=book.rows.find(x=>x.owner===owner);
-  const opts=book.rows.slice().sort((a,b)=>a.name.localeCompare(b.name))
-    .map(x=>`<option value="${x.owner}" ${x.owner===owner?'selected':''}>${x.name}</option>`).join('');
-  const lines=[];
-  Object.values(book.groups).flat().forEach(m=>{
-    /* A player or matchup market has rows keyed by player id or by matchup,
-       never by owner, so it has nothing to say on a team's card. */
-    if(m.entLabel&&m.entLabel!=='Team') return;
-    const p=m.picks.find(x=>x.owner===owner); if(!p) return;
-    if(m.type==='outright') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner,r.name,p.odds)],note:(p.prob*100).toFixed(1)+'% implied'});
-    else if(m.type==='yesno') lines.push({m,label:m.title,cells:[sbBtn(m.key,m.title,owner+':yes',r.name+' — Yes',p.yes,'sb-two','Yes'),sbBtn(m.key,m.title,owner+':no',r.name+' — No',p.no,'sb-two','No')],note:'Yes / No'});
-    else lines.push({m,label:m.title+' · '+p.line.toFixed(1),cells:[sbBtn(m.key,m.title,owner+':o',`${r.name} — Over ${p.line.toFixed(1)}`,p.over,'sb-two','O '+p.line.toFixed(1)),sbBtn(m.key,m.title,owner+':u',`${r.name} — Under ${p.line.toFixed(1)}`,p.under,'sb-two','U '+p.line.toFixed(1))],note:'projection '+(m.key==='wins'?p.exp.toFixed(1)+' wins':Math.round(p.exp)+' pts')});
-  });
-  const at=r.at;
-  return `<div class="sb-market">
-    <div class="sb-mhead"><i class="fa fa-id-badge"></i><span class="sb-mt">Team Card</span></div>
-    <div class="picker-bar" style="padding:18px 0 12px"><label for="sb-team">Team:</label>
-      <select id="sb-team" onchange="sbSetTeam(this.value)">${opts}</select></div>
-    <div class="sb-tcard">
-      <div class="sb-tc-top">${sbAvatar(owner,40)}<div><div class="sb-tc-nm">${r.name}</div>
-        <div class="sb-tc-sub">${at.w}–${at.l} all-time · ${r.ppg.toFixed(1)} PPG · ${at.rings} ring${at.rings===1?'':'s'} · ${at.playoffApps||0} playoff app${(at.playoffApps||0)===1?'':'s'}</div></div>
-        <div class="sb-tc-rate"><span class="v">${r.rating>=0?'+':''}${r.rating.toFixed(2)}</span><span class="l">power rating</span></div></div>
-    </div>
-    <div class="sb-rows">${lines.map(l=>`<div class="sb-trow">
-      <span class="sb-tl"><span class="sb-tl-m">${l.label}</span><span class="sb-tl-n">${l.note}</span></span>
-      <span class="sb-tc-odds">${l.cells.join('')}</span></div>`).join('')}</div>
-  </div>
-  ${sbTeamTopMarket(book,owner,sbWeekOf())}`;
 }
 function sbSlipHTML(){
   const n=_slip.length;
@@ -19342,7 +19424,6 @@ function sbSetView(v){ _sbView=v;
   document.querySelectorAll('#sb-tabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   renderBook();
 }
-function sbSetTeam(o){ _sbTeamSel=o; renderBook(); }
 function sbToggleSlip(open){
   _sbSlipOpen=(open===undefined)?!_sbSlipOpen:!!open;
   const p=document.getElementById('sb-portal'); if(p) p.classList.toggle('open',_sbSlipOpen);
@@ -19916,7 +19997,7 @@ function invStep(o,d,cap){ invSetQty(o,(_invQty[o]||0)+d,cap); }
 /* Dollar mode on a short means dollars of COLLATERAL -- the money that
    actually leaves the balance -- not dollars of notional. Typing 20 and
    watching 33 disappear would be the card lying about its own button. */
-const invShortStep=px=>Math.max(0.01,INV_CEIL-invCap(px));
+const invShortStep=(o,px)=>Math.max(0.01,invCeilOf(o)-invCap(o,px));
 function invSetCash(o,v){ _invCash[o]=Math.max(0,Math.round((Number(v)||0)*100)/100); renderBook(); }
 function invStepCash(o,d){ invSetCash(o,(_invCash[o]||0)+d); }
 /* what a card would trade right now: a share count typed straight in, or the
@@ -19925,10 +20006,10 @@ function invStepCash(o,d){ invSetCash(o,(_invCash[o]||0)+d); }
 function invTradeSharesK(o,px,k){
   const key=invQtyKey(o,k);
   if(_invMode!=='amt'||(k!=='b'&&k!=='so')) return invRound(_invQty[key]||0);
-  return invRound((_invCash[key]||0)/(k==='so'?invShortStep(px):(px||1)));
+  return invRound((_invCash[key]||0)/(k==='so'?invShortStep(o,px):(px||1)));
 }
 /* what a trade of n at px takes out of the balance, or hands back */
-const invTradeCash=(n,px,k)=>(k==='so'||k==='sc')?invCollat(n,px):n*px;
+const invTradeCash=(o,n,px,k)=>(k==='so'||k==='sc')?invCollat(o,n,px):n*px;
 function invBuyCard(o){ invDo(o,invTradeSharesK(o,invPrice(o),'b'),'b'); }
 function invSellCard(o){ invDo(o,invTradeSharesK(o,invPrice(o),'s'),'s'); }
 function invShortCard(o){ invDo(o,invTradeSharesK(o,invPrice(o),'so'),'so'); }
@@ -19946,7 +20027,7 @@ function invPatchCard(card){
   if(!card) return;
   const o=card.dataset.o, px=Number(card.dataset.px)||0, k=card.dataset.k||'b';
   const go=card.querySelector('.iv-go'); if(!go) return;
-  const n=invTradeSharesK(o,px,k), cash=invTradeCash(n,px,k);
+  const n=invTradeSharesK(o,px,k), cash=invTradeCash(o,n,px,k);
   /* This patches the button in place on every keystroke, so it has to know
      about the lock too — otherwise typing a number re-enabled a control the
      week had already shut. */
@@ -19958,15 +20039,29 @@ function invPatchCard(card){
     go.textContent=shut?'Closed':verb+(n>0?' · '+invFmt(cash):'');
   }else{
     go.disabled=shut||!(n>0)||!bucksReady()||cash>bucksBalance()+1e-6
-      ||(k==='so'&&px>=INV_CEIL)||_invBusy;
+      ||(k==='so'&&px>=invCeilOf(o))||_invBusy;
     go.textContent=shut?'Closed'
       :verb+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cash)):'');
   }
 }
 
-function invBoardHTML(){
+/* ── ONE BOARD, TWO MARKETS ───────────────────────────────────────
+   Teams and funds on one tab, coins on the other. They are the same control
+   in every respect that matters -- a price, a quantity, the same money, the
+   same Stocks/Shorts switch, the same ledger underneath -- so this is one
+   function with a parameter rather than two that would drift apart. Only the
+   crest and the line under the name differ. */
+function invBoardHTML(which){
+  const isCoins=which==='coins';
   const b=invBoard();
   if(!b) return '<div class="tab-loading" style="padding:30px">Loading the market…</div>';
+  /* The coins price off the player pool, which is fetched for Ball Knowledge
+     and may not be in yet. Kick it and say so, rather than drawing an empty
+     board that looks like a market with nothing on it. */
+  if(isCoins&&!(b.coins||[]).length){
+    try{ bkLoadPool(); }catch(e){}
+    return '<div class="tab-loading" style="padding:30px">Loading the coins…</div>';
+  }
   const cash=bucksBalance();
   const amt=_invMode==='amt';
   const own=invHoldings();
@@ -19984,8 +20079,8 @@ function invBoardHTML(){
   const card=(x,crest,sub,cls)=>{
     const qk=invQtyKey(x.owner,k);
     const cashIn=_invCash[qk]||0;
-    const n=invTradeSharesK(x.owner,x.price,k), cost=invTradeCash(n,x.price,k);
-    const capped=short&&x.price>=INV_CEIL;
+    const n=invTradeSharesK(x.owner,x.price,k), cost=invTradeCash(x.owner,n,x.price,k);
+    const capped=short&&x.price>=invCeilOf(x.owner);
     /* ── GREEN MEANS THE WEEK WENT YOUR WAY, NOT THAT THE PRICE WENT UP ────
        This was the other way round for a day, on the argument that one price
        should carry one colour on every view. It reads wrong the moment you are
@@ -20046,11 +20141,20 @@ function invBoardHTML(){
      are two different positions and the one the card is about is the one worth
      printing on it. */
   const heldSub=(o,px)=>short
-    ? (sold[o]?invShFmt(sold[o])+' short · ':'')+invFmt(invCollat(1,px))+' held per share'
+    ? (sold[o]?invShFmt(sold[o])+' short · ':'')+invFmt(invCollat(o,1,px))+' held per share'
     : (own[o]?invShFmt(own[o])+' held':'');
-  const funds=(b.funds||[]).map(f=>card(f,invFundCrest(f.members),
+  const funds=isCoins?'':(b.funds||[]).map(f=>card(f,invFundCrest(f.members),
     `${f.members.length} teams${heldSub(f.owner,f.price)?' · '+heldSub(f.owner,f.price):''}`)).join('');
-  const rows=b.list.map(x=>card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner,x.price))).join('');
+  /* A coin's line is who he actually is and where he sits among his own -- the
+     ticker is the joke and the name is the information. */
+  const coinSub=x=>{
+    const m=invCoinMeta(x.owner)||{};
+    const hs=heldSub(x.owner,x.price);
+    return [m.who||'',(m.pos&&m.rank)?m.pos+m.rank:'',hs].filter(Boolean).join(' · ');
+  };
+  const rows=(isCoins?(b.coins||[]):b.list).map(x=>isCoins
+    ? card(x,playerImg(x.coin.pid,26,x.name),coinSub(x),' iv-card-coin')
+    : card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner,x.price))).join('');
   /* No cash line at the top. The balance is in the nav on this page, a few
      inches above where this strip used to sit, and two copies of one number on
      one screen is one too many. The Buy button still disables itself against
@@ -20087,6 +20191,8 @@ function invPortfolioHTML(){
      title for a team or a fund, so it is worked out once here rather than
      twice in two row builders that would drift apart. */
   const nameOf=o=>{
+    const co=invCoin(o);
+    if(co) return {nm:co.name,crest:playerImg(co.pid,26,co.name)};
     const fu=invFund(o);
     const fnd=fu?((b.funds||[]).find(x=>x.owner===o)||{members:[]}):null;
     const fr=fu?null:(_franchises||[]).find(f=>f.owner===o);
@@ -20145,7 +20251,7 @@ function invPortfolioHTML(){
     const px=invPrice(o), cb=invShortBasis(o), sh=sold[o];
     /* capped, because that is what it settles at and what the collateral was
        posted against -- the row must not show a loss the cover cannot charge */
-    const mark=invCap(px);
+    const mark=invCap(o,px);
     const gain=(cb-mark)*sh, pct=cb?((cb-mark)/cb*100):0;
     /* ── GREEN IS GOOD FOR THIS POSITION, AND THE ARROW IS THE PRICE ──────
        gain > 0 means the price fell, which on a short is the good news: green,
@@ -20157,7 +20263,7 @@ function invPortfolioHTML(){
       <div class="iv-top">
         <span class="iv-c">${crest}</span>
         <span class="iv-n"><span class="iv-nm-row">${nm}<span class="iv-tag-sh">Short</span></span>
-          <span class="iv-held">${invShFmt(sh)} short · from ${invFmt(cb)} · ${invFmt(invCollat(sh,px))} held</span></span>
+          <span class="iv-held">${invShFmt(sh)} short · from ${invFmt(cb)} · ${invFmt(invCollat(o,sh,px))} held</span></span>
         <span class="iv-px">
           <span class="iv-px-v ${fell?'up':rose?'dn':''}">${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}</span>
           <span class="iv-chg ${fell?'up':rose?'dn':'flat'}">${fell?'▼':rose?'▲':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
@@ -20172,7 +20278,7 @@ function invPortfolioHTML(){
         <button class="iv-go" ${(shut||!(q>0)||_invBusy)?'disabled':''}
           onclick="invCoverCard('${o}')">
           ${shut?'<i class="fa fa-lock"></i>Closed'
-            :`Cover${q>0?' · '+invFmt(invCollat(q,px)):''}`}</button>
+            :`Cover${q>0?' · '+invFmt(invCollat(o,q,px)):''}`}</button>
       </div>
     </div>`;
   }).join('');
@@ -20200,7 +20306,7 @@ function renderBookInner(){
      than signal. The My Bets button keeps its wallet, being a different kind
      of control rather than one of a set. */
   const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
-  const board=_sbView==='team'?sbTeamViewHTML(book)
+  const board=_sbView==='coins'?invBoardHTML('coins')
     :_sbView==='week'?sbWeekHTML()
     :_sbView==='invest'?invBoardHTML()
     :_sbView==='folio'?invPortfolioHTML()

@@ -37,7 +37,12 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'const INV_BASE=',
   'const bucks2=',
   'function invLots(){',
+  'const INV_COINS=',
+  'const invCoinKey=',
+  'const invCoin=',
+  'const INV_COIN_TOP=',
   'const INV_CEIL=',
+  'const invCeilOf=',
   'const invCap=',
   'const invCollat=',
   'function invWalk(lots){',
@@ -48,7 +53,7 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'function invShortBasis(owner){',
   'function invRealised(){',
   'function invNetSpent(){',
-], ['INV_CEIL', 'invCap', 'invCollat', 'invWalk', 'invWalkProfit', 'invHoldings',
+], ['INV_CEIL', 'INV_COIN_TOP', 'invCeilOf', 'invCap', 'invCollat', 'invWalk', 'invWalkProfit', 'invHoldings',
     'invShorts', 'invCostBasis', 'invShortBasis', 'invRealised', 'invNetSpent',
     'setLedger', 'setPrices', 'profit'],
 `
@@ -126,7 +131,7 @@ head('3. averaging, partial covers, and closing the rest');
 /* ── 4 ─────────────────────────────────────────────────────────────────── */
 head('4. THE CAP. The loss stops, and it stops where the collateral is');
 {
-  const collat = M.invCollat(1, 12);
+  const collat = M.invCollat('mm', 1, 12);
   ok('a share shorted at 12 ties up the gap to the cap', collat, CEIL - 12);
 
   M.setLedger([short('mm', 1, 12)]);
@@ -243,14 +248,14 @@ head('9. the card can show its own arithmetic');
      price and the only available reading was that the board was quoting two
      different prices for one share. It was read exactly that way. */
   const px = 10.17;
-  const per = M.invCollat(1, px);
+  const per = M.invCollat('mm', 1, px);
   ok('one share at 10.17 holds the gap to the cap', per, CEIL - px);
   [1, 2, 3, 0.5, 12.75].forEach(n =>
-    ok('  x' + n + ' is exactly n times that', M.invCollat(n, px), per * n, 1e-9));
+    ok('  x' + n + ' is exactly n times that', M.invCollat('mm', n, px), per * n, 1e-9));
 
   /* and at the cap it is nothing, which is why opening one there is refused */
-  ok('at the cap there is no worst case left to post', M.invCollat(1, CEIL), 0);
-  ok('and above it, still none',                       M.invCollat(1, CEIL + 5), 0);
+  ok('at the cap there is no worst case left to post', M.invCollat('mm', 1, CEIL), 0);
+  ok('and above it, still none',                       M.invCollat('mm', 1, CEIL + 5), 0);
 }
 
 console.log(NL + pass + ' passed, ' + fail + ' failed');

@@ -140,6 +140,10 @@ jobs:
       # is what bounds it, and these cases are that bound holding at the edges.
       - name: a short cannot cost more than it put up
         run: node scripts/test-short.mjs
+      # A coin is priced against its own position and nothing else — price it
+      # against the coin list and editing that list rewrites every past week.
+      - name: a coin's price is about one player
+        run: node scripts/test-coins.mjs
       # A week's trivia score has to outlive its questions, which cannot be
       # rebuilt — so it is sealed when the slate locks and summed thereafter.
       - name: ball knowledge trivia is cumulative
