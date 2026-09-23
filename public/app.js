@@ -6040,20 +6040,17 @@ function renderForecast(info){
      The dots started underneath, which is where dots go -- except a pane here
      is a curve plus two full lineups, near seven hundred pixels of it, so on a
      phone they sat a screen and a half below the fold and nobody was ever
-     going to see them. They go on top now, with arrows either side and the
-     count spelled out, and the pane itself stops short of the right edge so
-     the next one is visibly there. */
+     going to see them. They go on top.
+
+     Dots and nothing else. A line of instructions and a pair of arrows were
+     both tried and both came out: the arrows duplicate a swipe the dots
+     already imply, and a card that has to tell you how to read it is a card
+     that has given up. Each matchup is its own container instead, so the
+     shape says it -- one box, one game, and clearly not the only one. */
   const dots=panes.length>1
-    ? `<div class="fc-nav">
-        <button class="fc-arw" onclick="fcGoTo(_fcPane-1)" aria-label="Previous matchup">
-          <i class="fa fa-chevron-left"></i></button>
-        <div class="fc-dots" id="fc-dots">${panes.map((_,i)=>
-          `<button class="fc-dot${i===_fcPane?' on':''}" onclick="fcGoTo(${i})"
-            aria-label="Matchup ${i+1} of ${panes.length}"></button>`).join('')}</div>
-        <button class="fc-arw" onclick="fcGoTo(_fcPane+1)" aria-label="Next matchup">
-          <i class="fa fa-chevron-right"></i></button>
-      </div>
-      <div class="fc-nav-s">All ${panes.length} matchups &mdash; swipe or tap through</div>`
+    ? `<div class="fc-dots" id="fc-dots">${panes.map((_,i)=>
+        `<button class="fc-dot${i===_fcPane?' on':''}" onclick="fcGoTo(${i})"
+          aria-label="Matchup ${i+1} of ${panes.length}"></button>`).join('')}</div>`
     : '';
 
   /* Both of these fold. What the game does to the season and who is starting
