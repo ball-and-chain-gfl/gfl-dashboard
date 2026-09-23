@@ -5947,9 +5947,12 @@ function fcPaneHTML(info,aTid,bTid,mine){
     <div class="fc-odds-s"><span>${pts.length>1?'through the week':'before kickoff'}</span>
       <span>${amFmt(amFromProb(Math.min(0.95,now.p+0.025)))}</span></div>
   </div>`;
+  /* Abbreviations, not names. The crests either side already say who these
+     two are, the full names ran to two lines on half the slate, and a heading
+     that wraps made every pane a different height. */
   const title=mine
-    ? `<div class="fc-mu">${mine==='home'?'vs':'@'} ${bT.name}</div>`
-    : `<div class="fc-mu fc-mu-two">${aT.name} <span>vs</span> ${bT.name}</div>`;
+    ? `<div class="fc-mu">${mine==='home'?'vs':'@'} ${ab(bT)}</div>`
+    : `<div class="fc-mu fc-mu-two">${ab(aT)} <span>vs</span> ${ab(bT)}</div>`;
   return `<div class="fc-pane">
     <div class="fc-head">
       ${logoImg(aT.id,'big4-logo')}

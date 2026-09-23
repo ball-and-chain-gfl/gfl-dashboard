@@ -2132,13 +2132,18 @@
        what a container holding one of six things should look like. Same recipe
        as --btn-edge-active, softened. */
     .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;
-      border-radius:10px;padding:14px 13px;
+      border-radius:10px;padding:40px 13px;
       box-shadow:inset 0 2px 5px rgba(0,0,0,0.5),inset 0 0 0 1px rgba(0,0,0,0.25),
         inset 0 -1px 0 rgba(255,255,255,0.05);}
     /* the lineup block carries margin:0 0 16px, which landed on top of the
        padding and made the bottom of the box half again the top */
     .fc-pane>*:last-child{margin-bottom:0;}
-    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:11px;}
+    /* EQUIDISTANT, AND THE MEASUREMENT IS NOT THE ONE IT LOOKS LIKE. The line
+       under a homepage heading is a ::after sitting 24px up from the bottom of
+       .sec-head, and the dots begin at that bottom edge -- so there was already
+       24px above them and only 11 below. The bottom margin matches the rule's
+       own offset; change one and the other has to follow. */
+    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:24px;}
     .fc-dot{width:7px;height:7px;border-radius:50%;padding:0;border:0;cursor:pointer;
       background:var(--text3);opacity:.35;transition:opacity .15s,background .15s,transform .15s;}
     .fc-dot.on{background:var(--accent);opacity:1;transform:scale(1.25);}
