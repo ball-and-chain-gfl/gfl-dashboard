@@ -2113,7 +2113,7 @@
        already. The scrollbar is hidden because the dots underneath say where you
        are and a native bar under a card reads as a mistake. */
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
-      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;}
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;margin-bottom:12px;}
     .fc-scroll::-webkit-scrollbar{display:none;}
     /* EACH MATCHUP IS ITS OWN BOX. A peek at the next pane was tried first and
        came out -- every pane is the same height and top-aligned, so the sliver
@@ -2121,8 +2121,17 @@
        as a rendering fault rather than as a card. A container does the same job
        honestly: one box, one game, and visibly not the only one. Same treatment
        as .fc-fold below it, so the card reads as one family. */
+    /* INSET RATHER THAN FILLED. A flat black panel sat ON the card; the same
+       shadow the buttons use when they are pressed sinks it INTO it, which is
+       what a container holding one of six things should look like. Same recipe
+       as --btn-edge-active, softened. */
     .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;
-      background:rgba(0,0,0,0.3);border-radius:10px;padding:14px 13px 4px;}
+      border-radius:10px;padding:14px 13px;
+      box-shadow:inset 0 2px 5px rgba(0,0,0,0.5),inset 0 0 0 1px rgba(0,0,0,0.25),
+        inset 0 -1px 0 rgba(255,255,255,0.05);}
+    /* the lineup block carries margin:0 0 16px, which landed on top of the
+       padding and made the bottom of the box half again the top */
+    .fc-pane>*:last-child{margin-bottom:0;}
     .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:11px;}
     .fc-dot{width:7px;height:7px;border-radius:50%;padding:0;border:0;cursor:pointer;
       background:var(--text3);opacity:.35;transition:opacity .15s,background .15s,transform .15s;}
