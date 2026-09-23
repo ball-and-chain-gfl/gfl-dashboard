@@ -125,6 +125,11 @@ jobs:
       # the league. Every unbeaten team was scored as the unluckiest.
       - name: an unbeaten team is not the unluckiest
         run: node scripts/test-badbeat.mjs
+      # The board used to reopen on the last whistle and let its own lines walk
+      # all Tuesday while ESPN settled the week game by game. And a fixture is
+      # worth asking about again in the gap between slates.
+      - name: the book opens when its lines are final
+        run: node scripts/test-sbwindow.mjs
       # A week's trivia score has to outlive its questions, which cannot be
       # rebuilt — so it is sealed when the slate locks and summed thereafter.
       - name: ball knowledge trivia is cumulative

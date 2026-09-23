@@ -11298,6 +11298,31 @@ const nflWeekDone=(week,season)=>{
   if(!d||!Array.isArray(d.games)||!d.games.length) return null;
   return d.games.every(g=>g&&g.s==='post');
 };
+/* And the one in the middle: football still to come this week with none of it
+   on the field right now -- the gap between slates. Thursday night to the
+   Sunday morning kickoff is one; so is the stretch after a Friday game in
+   December. Null until the digest is in hand, and the caller treats an unknown
+   as 'not a gap' rather than opening a board on a guess. */
+const nflWeekGap=(week,season)=>{
+  const d=nflWeekGames(week,season);
+  if(!d||!Array.isArray(d.games)||!d.games.length) return null;
+  if(d.games.some(g=>g&&g.s==='in')) return false;      // somebody is playing
+  /* AND MOST OF THE WEEK HAS TO BE STILL TO COME.
+
+     A gap is not a gap just because nothing is on the field. Sunday night to
+     Monday night is one too, and that is the worst moment the board could
+     possibly be open: the whole of Sunday is known, one game is left, and a
+     price struck then is not a market, it is a payout. This carve-out existed
+     once before and came out for exactly that reason.
+
+     What separates the two is how much football is left rather than what day
+     it is. After Thursday night fifteen of sixteen are still to come and the
+     fixture is a genuine question again. After Sunday one is, and it is not.
+     Counting rather than clock-watching also keeps the December Friday and
+     Saturday slates, Thanksgiving and Christmas on the same rule. */
+  const done=d.games.filter(g=>g&&g.s==='post').length;
+  return (d.games.length-done)>done;
+};
 /* ONE TEAM'S WEEK: what it is worth, what is banked, what is left.
 
    Before a week starts the lineup can still be changed, so it is priced on the
@@ -18106,9 +18131,61 @@ function sbSel(mk,pick){ return _slip.some(x=>x.k===mk+'|'+pick); }
    bet struck at a stale price, which is the house's problem; one that leaves it
    shut costs every manager the board. betCashOut makes the opposite call for
    the opposite reason -- see betWeekInPlay. */
+/* ── A BOARD DOES NOT OPEN BEFORE ITS OWN LINES ARE FINAL ────────────────────
+   A week's prices are a function of the ratings, and the ratings move every
+   time one more game settles: sbLiveSignals skips any fixture still reading
+   0-0, so form, played and the career/live blend all shift as ESPN closes the
+   scoring period game by game through a Tuesday morning.
+
+   The board used to reopen on the last whistle and then let the numbers walk
+   underneath it. Somebody up early on a Tuesday got a different price from
+   somebody up late, on the same market, for no reason either could see -- and
+   whoever got there first was betting into a line the house already knew was
+   about to move.
+
+   So a week stays shut until the week behind it is FINISHED and SETTLED: every
+   game post on the scoreboard, and every fixture carrying points. After that
+   the ratings have nothing left to learn and the line that opens is the line
+   that stays.
+
+   An unknown reads as settled, the same way the lock below reads an unknown as
+   open: a missing digest that leaves the board up for a second costs one bet
+   at a stale price, which is the house's problem. One that holds it shut costs
+   every manager the board. */
+function sbPriorSettled(wk,season){
+  const prev=Number(wk)-1;
+  if(prev<1) return true;                       // nothing behind week one
+  const d=nflWeekGames(prev,season);
+  if(d&&Array.isArray(d.games)&&d.games.length
+     &&!d.games.every(g=>g&&g.s==='post')) return false;
+  const meta=_seasonMeta[String(season)];
+  if(!meta) return true;
+  const ms=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===prev&&m.home&&m.away);
+  if(!ms.length) return true;
+  /* the same test sbLiveSignals uses for 'this fixture has settled' */
+  return ms.every(m=>(m.home.totalPoints||0)>0||(m.away.totalPoints||0)>0);
+}
 function sbWeekLocked(wk,mk){
   if(wk==null) return weekHasStarted();          // no week named: the old blunt test
   const season=sbBoardSeason();
+  /* the ratings this week is priced off are still moving -- see above */
+  if(!sbPriorSettled(wk,season)) return true;
+  /* ── THE GAP BETWEEN SLATES ────────────────────────────────────────────────
+     A fixture market is one game between two managers, and between slates
+     there is a real question to ask about it again: Thursday night has been
+     played, both rosters have points banked and starters still to come, and
+     sbTeamWeek already prices exactly that -- what is on the board plus the
+     projections of whoever has not kicked off. Nothing about the formula has
+     to change for a Friday price to be a fair one.
+
+     Only the three markets written on a single fixture. Top Score, Low Score,
+     Closest Game, Biggest Blowout, Top Player and the Donut are written across
+     the whole slate, and half of them can be read straight off the scoreboard
+     by Friday morning. They stay shut for the week, the way they always have.
+
+     No dates in any of it, so the Friday and Saturday games later in the year,
+     Thanksgiving and Christmas all fall out of the same rule. */
+  if(SB_EXCLUSIVE.test(String(mk||''))&&nflWeekGap(wk,season)===true) return false;
   /* points on the board is proof enough on its own, and it is the only proof
      available for an archived week the scoreboard no longer carries */
   if(betWeekStarted(season,wk)) return true;

@@ -30,7 +30,21 @@ const api = new Function(`
 /* handed in, so the cases decide what the rosters and the scoreboard say */
 let _ROST=null, _NFL=null, _SEASON='2026', _STARTED=false, _seasonMeta={};
 const sbRosters=()=>_ROST;
-const nflWeekGames=()=>_NFL;
+/* One digest used to stand in for the whole season, which was fine until
+   sbPriorSettled started asking about the week BEHIND the one being priced --
+   it came back reading exactly like the week in hand, so a board that should
+   have been open looked like it was waiting on a week still in progress.
+
+   A week the case never put on the schedule is a week already behind us, and
+   comes back finished. The week under test always has its fixtures set. */
+const nflWeekGames=(w)=>{
+  const wk=Number(w);
+  const sch=((_seasonMeta[_SEASON]||{}).schedule)||[];
+  /* only once the case has actually laid out a schedule -- the sbTeamWeek
+     cases hand over a digest with no fixtures behind it at all */
+  if(sch.length&&!sch.some(m=>Number(m.matchupPeriodId)===wk)) return {games:[{s:'post'}]};
+  return _NFL;
+};
 const sbBoardSeason=()=>_SEASON;
 const weekHasStarted=()=>_STARTED;
 const BASE='', _activeTab='book';
@@ -54,11 +68,15 @@ ${grab('const sbNormCdf=')}
 ${grab('const sbWkSd=')}
 ${grab('const betAnyPlayed=')}
 ${grab('const betWeekStarted=')}
+${grab('const SB_EXCLUSIVE=')}
+${grab('const nflWeekGap=')}
+${grab('function sbPriorSettled(wk,season){')}
 ${grab('function sbWeekLocked(wk,mk){')}
 ${grab('function betLegWeek(mk){')}
 ${grab('function invLocked(){')}
 return { LINEUP_SHAPE_FALLBACK, sbSlotShape, sbBestLineup,
   nflTeamState, nflWeekLive, sbTeamWeek, sbNormCdf, sbWkSd, sbWeekLocked,
+  nflWeekGap, sbPriorSettled,
   betLegWeek, invLocked, SB_WK_SD,
   set(o){ if('rosters' in o) _ROST=o.rosters; if('nfl' in o) _NFL=o.nfl;
            if('meta' in o) _seasonMeta=o.meta; if('invWeek' in o) _INVWK=o.invWeek; } };`)();
@@ -267,11 +285,15 @@ console.log('\n10. what the board closes, and when');
   api.set({ nfl: { anyLive:true, games:[{ht:'DAL',at:'NYG',s:'in'}] } });
   eq('a kickoff closes it before any score', api.sbWeekLocked(9, 'wk9-1-2-ml'), true);
 
-  /* UNDER WAY — AND IT STAYS SHUT, INCLUDING BETWEEN SLATES. This used to carve
-     out the three markets written on a single fixture and let them reprice in
-     the gaps, which is the worst moment to be open rather than the safest: on a
-     Monday afternoon the whole of Sunday is known and only one game is left to
-     happen. Nothing about that is a market. */
+  /* UNDER WAY. The three markets written on a single fixture DO reprice in a
+     gap again -- but only while most of the week is still to come, which is
+     what the objection here was always about. On a Monday afternoon the whole
+     of Sunday is known and one game is left, and a price struck then is a
+     payout rather than a market; after Thursday night fifteen of sixteen are
+     still to play and the fixture is a real question again. nflWeekGap counts
+     rather than clock-watching, and scripts/test-sbwindow.mjs has both cases.
+
+     The week below is FINISHED -- one game, post -- so nothing reopens here. */
   api.set({ nfl: { anyLive:false, games:[{ht:'DAL',at:'NYG',s:'post'}] } });
   eq('a fixture moneyline does NOT reopen between slates', api.sbWeekLocked(5, 'wk5-1-2-ml'), true);
   eq('nor does the spread',                                api.sbWeekLocked(5, 'wk5-1-2-sp'), true);
