@@ -1223,20 +1223,27 @@
        Condensed, because a market is a list you scan: the padding, the gaps
        and the type all came down a notch. The control row did NOT -- 34px is
        already the smallest a thumb should be asked to hit. */
+    /* A SOLID GROUND UNDER THE TINTS, rather than translucency over the page.
+       Both ends were washed out: the coloured end because the tint was doing
+       the darkening as well as the colouring, and the silver end because it
+       was a pale grey laid over whatever the page happened to be. The ground
+       is now opaque and darker than the page, and the two gradients only
+       colour it -- so the card sits IN the page instead of floating on it. */
     .iv-card{--ivc:96,165,250;
       position:relative;overflow:hidden;
       padding:9px 11px;border-radius:11px;
-      border:1px solid rgba(255,255,255,0.07);
+      border:1px solid rgba(255,255,255,0.06);
       background:
         linear-gradient(100deg,
-          rgba(var(--ivc),0.22) 0%,
-          rgba(var(--ivc),0.08) 24%,
-          rgba(158,166,180,0.085) 58%,
-          rgba(126,134,148,0.05) 100%),
-        linear-gradient(180deg,rgba(255,255,255,0.028),rgba(0,0,0,0.34));}
+          rgba(var(--ivc),0.17) 0%,
+          rgba(var(--ivc),0.05) 26%,
+          rgba(118,126,140,0.05) 58%,
+          rgba(84,91,104,0.03) 100%),
+        linear-gradient(180deg,rgba(255,255,255,0.016),rgba(0,0,0,0.3)),
+        #08080a;}
     .iv-card::after{content:'';position:absolute;inset:0;pointer-events:none;
       background:repeating-linear-gradient(112deg,
-        rgba(255,255,255,0.028) 0 1px,transparent 1px 4px);
+        rgba(255,255,255,0.02) 0 1px,transparent 1px 4px);
       -webkit-mask-image:linear-gradient(90deg,transparent 42%,#000 100%);
               mask-image:linear-gradient(90deg,transparent 42%,#000 100%);}
     .iv-card>.iv-top,.iv-card>.iv-buy{position:relative;z-index:1;}
