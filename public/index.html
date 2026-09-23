@@ -2115,11 +2115,12 @@
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
       -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;}
     .fc-scroll::-webkit-scrollbar{display:none;}
-    /* SHORT OF THE EDGE ON PURPOSE. The sliver of the next pane is the only
-       thing on a still screen that says there IS a next pane. */
-    .fc-pane{flex:0 0 calc(100% - 26px);min-width:0;
+    /* A PEEK WAS TRIED HERE AND TAKEN BACK OUT. Every pane is the same height
+       and top-aligned, so the sliver of the next one landed mid-content and
+       showed a column of stray axis labels -- which reads as a rendering fault,
+       not as a card. The strip above says all of it in words instead. */
+    .fc-pane{flex:0 0 100%;min-width:0;
       scroll-snap-align:start;scroll-snap-stop:always;}
-    .fc-pane:last-child{flex-basis:100%;}
     .fc-nav{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:2px;}
     .fc-arw{width:28px;height:28px;flex:0 0 28px;border-radius:50%;border:0;padding:0;cursor:pointer;
       background:rgba(255,255,255,0.06);color:var(--text2);font-size:11px;
