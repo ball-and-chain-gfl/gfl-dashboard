@@ -19010,7 +19010,8 @@ function sbAllMarkets(){
      parlay — and only one of three can outscore the other two. sbConflict finds
      the clash through this list, so a market missing from it is a market whose
      own rules do not apply. */
-  try{ const d=sbWeekData(); if(d){ if(d.marks) out.push(...d.marks); if(d.pick) out.push(...d.pick); } }catch(e){}
+  try{ const d=sbWeekData(); if(d){ if(d.marks) out.push(...d.marks); if(d.pick) out.push(...d.pick);
+    if(d.duel) out.push(d.duel); } }catch(e){}
   return out;
 }
 /* Markets that fill a fixed number of seats. However long the price looks, a
@@ -19330,7 +19331,8 @@ function sbWeekData(){
       winA:done?hp>ap:null};
   }).filter(Boolean);
   return {book,season,week,live,games,
-    marks:sbWeekMarkets(book,games,week),pick:sbPickEmMarkets(book,week)};
+    marks:sbWeekMarkets(book,games,week),pick:sbPickEmMarkets(book,week),
+    duel:sbDuelMarket(book,week)};
 }
 
 /* ── SIX MARKETS ON THE WEEK ─────────────────────────────────────────────────
@@ -19470,6 +19472,81 @@ function sbWeekMarkets(book,games,week){
    scored, and a market that had to be re-derived from today's projections could
    not be graded once those projections had moved on. The ids in the key mean
    the ticket knows who it was about. */
+/* ── A ONE-OFF HEAD TO HEAD ──────────────────────────────────────────
+   Asked for by name, for one week, between two named players. This is the
+   second one of these -- Pollard v. Stevenson ran in week 1 and was taken out
+   again when the week rolled -- and it is deliberately the same shape, because
+   everything about it that could have been new machinery is not.
+
+   THE KEY IS A PICK 'EM KEY. wk<week>-pe<pid>_<pid>, the same shape the five
+   generated groups use, because betWeekResult's -pe branch already settles any
+   group of two or more off the week's started scores. A bespoke key would have
+   needed a bespoke settlement in app.js AND in settle-bets.mjs, and a weekly
+   market with no settlement is the FAAB market all over again: it graded null,
+   sat open for good, and took the stake with it. Two pids cannot collide with a
+   generated trio's key, so it costs nothing to share the shape. The ids are
+   sorted into the key here and the grader splits them back out, which is the
+   one seam worth naming: get that order wrong and every ticket sold on this
+   market grades against a key nobody wrote.
+
+   IT LOCKS AND IT LEAVES ON ITS OWN. Locking is sbWeekLocked reading the week
+   out of the key, so this closes when the rest of the week-3 board closes, at
+   the first week-3 kickoff on Thursday night. It does NOT come back on Friday
+   the way the matchup moneyline and spread do -- SB_EXCLUSIVE is the three
+   markets written on a fixture, and a player prop that reopened after its
+   player had already played would be a market you could bet having seen the
+   answer. And it is only built on the season and week it names, so when the
+   board rolls to week 4 on Tuesday it is simply not there any more. Nothing
+   has to be removed by hand for that to happen.
+
+   WHAT SETTLES IT. Started scores, like every Pick 'Em -- the lineups feed
+   records what a STARTED player scored and nothing else. Kamara is in an RB
+   slot and Etienne in the flex as this ships. If one is benched he scores
+   nothing here and loses; if BOTH are benched there is no result at all, which
+   is the case the -pe branch pushes rather than stranding the stake. */
+const SB_DUEL={
+  season:'2026', week:3,
+  title:"Whos Got More Sauce",
+  sub:"Two running backs, one week, no help from anybody else. Settles on started scores.",
+  pids:[3054850,4239996],        // Alvin Kamara, Travis Etienne Jr.
+};
+function sbDuelSide(book,rost,proj,pid){
+  let found=null;
+  Object.keys(rost||{}).forEach(tid=>{
+    (rost[tid]||[]).forEach(e=>{
+      if(Number(e.pid)!==Number(pid)) return;
+      const team=book.rows.find(r=>r.tid===Number(tid))||{};
+      const p=(proj||{})[String(pid)]||null;
+      const wk=(typeof e.wkProj==='number'&&e.wkProj>0)?e.wkProj:(p?p.wk:0);
+      found={pid:Number(pid),wk,
+        name:(p&&p.name)||e.n||pName(pid),
+        pos:SLOT_NAMES[e.slot]||'',
+        team:team.name||'',
+        benched:BENCH_SLOTS.includes(e.slot)};
+    });
+  });
+  return found;
+}
+function sbDuelMarket(book,week){
+  if(String(sbBoardSeason())!==String(SB_DUEL.season)) return null;
+  if(Number(week)!==Number(SB_DUEL.week)) return null;
+  const proj=sbPlayerProj(week);
+  const rost=sbRosters(sbBoardSeason(),week);
+  if(!proj||!rost) return null;
+  const sides=SB_DUEL.pids.map(p=>sbDuelSide(book,rost,proj,p));
+  /* a player who has been dropped since this was written takes the market with
+     him rather than pricing a name nobody holds */
+  if(sides.some(s=>!s)) return null;
+  const pids=SB_DUEL.pids.slice().sort((a,b)=>a-b);
+  const key='wk'+week+'-pe'+pids.join('_');
+  const probs=sbTopProbs(sides.map(s=>s.wk),week*104729+61);
+  return sbOutrightAny(key,SB_DUEL.title,
+    SB_DUEL.sub+' Projected '+sides.map(s=>s.wk.toFixed(1)).join(' and ')+' this week.',
+    sides.map(s=>({k:'p'+s.pid,name:s.name,
+      av:playerImg(s.pid,22,s.name),
+      ab:s.pos+' \u00b7 '+s.team+(s.benched?' \u00b7 benched':'')})),
+    probs,'fa-user-check',1,'Player');
+}
 const PICKEM_GROUPS=5;
 const PICKEM_MIN_PROJ=10;      // below this a week is noise, not a read
 function sbPickEmMarkets(book,week){
@@ -19588,6 +19665,20 @@ function sbWeekHTML(){
         ${pick.map(sbMarketHTML).join('')}
       </div></div>
     </div>`:'';
+  /* Its own fold, under the matchups and above the Pick 'Em, because it is one
+     question rather than a set of them. */
+  const duel=d.duel;
+  const duOpen=!!_sbOpenMk['wk-duel'];
+  const duelHTML=duel?`<div class="sb-market sb-fold sb-pickem${duOpen?' open':''}" data-mk="wk-duel">
+      <button class="sb-mhead" onclick="sbToggleMk('wk-duel')" aria-expanded="${duOpen}">
+        <span class="sb-mt"><i class="fa fa-user-check"></i>${duel.title}</span>
+        <span class="badge-info">head to head</span>
+        <i class="fa fa-chevron-down sb-mchev"></i>
+      </button>
+      <div class="sb-rows"><div class="sb-rows-in">
+        ${sbMarketHTML(duel)}
+      </div></div>
+    </div>`:'';
   const wkOpen=!!_sbOpenMk['wk-board'];
   return `<div class="sb-market sb-fold${wkOpen?' open':''}" data-mk="wk-board">
       <button class="sb-mhead" onclick="sbToggleMk('wk-board')" aria-expanded="${wkOpen}">
@@ -19602,6 +19693,7 @@ function sbWeekHTML(){
         <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
       </div></div>
     </div>
+    ${duelHTML}
     ${pickHTML}
     ${marks}`;
 }

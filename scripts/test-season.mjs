@@ -48,6 +48,10 @@ const parts = [
   grab('function betLegResult(leg,season){'),
   grab('const bucks2='),          /* betGrade rounds its payouts to the cent */
   grab('function betGrade(bet){'),
+  /* The one-off head to head, lifted rather than retyped. Its pids and its
+     week are the ones on the board, so the key-shape cases below break the day
+     somebody edits it into a shape the grader cannot read. */
+  grab('const SB_DUEL='),
 ];
 
 const harness = `
@@ -63,7 +67,7 @@ const loadLineups=()=>{};
 ${parts.join('\n')}
 return { set(m,all){_seasonMeta=m; ALL_SEASONS=all; _finalsCache={};},
          setLineups(L){_lineups=L;},
-         sbSeason, betGrade, betWeekResult, betLegWeek };`;
+         sbSeason, betGrade, betWeekResult, betLegWeek, SB_DUEL };`;
 const api = new Function(harness)();
 
 let pass = 0, fail = 0;
@@ -283,6 +287,36 @@ console.log('\n6. the top-scorer markets settle off who was started');
   api.setLineups(null);
   eq('duel: no feed at all still leaves it open',
      api.betWeekResult(leg('wk5-pe3001_3002','p3001'),'2026',5), null);
+
+  /* ── THE KEY THE BOARD WRITES IS THE KEY THE GRADER READS ───────────────
+     Everything above proves the -pe branch settles a pair. None of it proves
+     that the pair the board actually SELLS arrives in that shape, and that is
+     the seam worth guarding: sbDuelMarket sorts the two ids into the key and
+     betWeekResult splits them back out. Sort them differently, pad them,
+     separate them with anything but an underscore, and the regex misses. A
+     miss is not a loud failure -- the leg grades null, which reads as "not
+     yet", so the ticket sits open for good with the stake already gone.
+
+     So the key is rebuilt here exactly as the generator builds it, out of the
+     shipped SB_DUEL, and graded against a feed carrying those same two ids. */
+  {
+    const D=api.SB_DUEL;
+    const pids=D.pids.slice().sort((a,b)=>a-b);
+    const key='wk'+D.week+'-pe'+pids.join('_');
+    const [lo,hi]=pids;
+    eq('the shipped duel names exactly two players', D.pids.length, 2);
+    api.setLineups({2026:{weeks:{[D.week]:{
+      1:[[String(lo),21.7]],
+      2:[[String(hi),13.1]],
+    }}}});
+    eq('the key the board writes grades the winner',
+       api.betWeekResult(leg(key,'p'+lo),'2026',D.week), true);
+    eq('and it grades the loser',
+       api.betWeekResult(leg(key,'p'+hi),'2026',D.week), false);
+    /* and it is this season's board it is written for, not a stale one */
+    eq('the duel is gated to a season the site can grade',
+       ['2022','2023','2024','2025','2026','2027'].includes(String(D.season)), true);
+  }
 
   /* the feed not being in yet is not a result */
   api.setLineups(null);
