@@ -2113,56 +2113,24 @@
        already. The scrollbar is hidden because the dots underneath say where you
        are and a native bar under a card reads as a mistake. */
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
-      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;
-      /* ROOM FOR A SHADOW THAT HANGS OUTSIDE THE BOX. overflow-x:auto makes
-         this a scroll container on BOTH axes -- overflow-y:hidden does not mean
-         'let it spill', it means 'clip it' -- so the tallest pane's bottom edge
-         sat exactly on the clip line and anything drawn past it was cut. That
-         is why there was no shadow along the bottom and only along the bottom.
-
-         The padding gives the shadow somewhere to land inside the clip box and
-         the negative margin takes the same amount back off the layout, so the
-         gap to the playoff odds below is the 12px it was. */
-      padding:8px 0 20px;margin-bottom:-8px;
-      /* EACH BOX ENDS WHERE ITS CONTENT ENDS. A flex row stretches every item
-         to the tallest of them, so the shortest pane carried forty pixels of
-         slack under its last row and read as bottom-heavy however even the
-         padding was. The scroller still takes its height from the tallest, so
-         nothing below it moves as you swipe -- only the box stops short. */
-      align-items:flex-start;}
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;}
     .fc-scroll::-webkit-scrollbar{display:none;}
-    /* EACH MATCHUP IS ITS OWN BOX. A peek at the next pane was tried first and
-       came out -- every pane is the same height and top-aligned, so the sliver
-       landed mid-content and showed a stray column of axis labels, which reads
-       as a rendering fault rather than as a card. A container does the same job
-       honestly: one box, one game, and visibly not the only one. Same treatment
-       as .fc-fold below it, so the card reads as one family. */
-    /* RAISED, NOT RECESSED. Cast outward the way .big4-team does, so the pane
-       sits on the card rather than in it.
-
-       It needs a surface to cast FROM: a drop shadow on a fully transparent box
-       renders a dark halo around nothing, which on a dark card is no box at
-       all. This is the faintest lift that reads -- a long way off the flat
-       black panel it started as, and enough for the edge to exist. */
-    .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;
-      border-radius:10px;padding:40px 13px;background:rgba(255,255,255,0.025);
-      box-shadow:0 14px 30px -16px rgba(0,0,0,0.85),0 0 0 1px rgba(255,255,255,0.05);}
-    /* the lineup block carries margin:0 0 16px, which landed on top of the
-       padding and made the bottom of the box half again the top */
-    .fc-pane>*:last-child{margin-bottom:0;}
+    /* NO BOX. A container round each matchup was tried -- filled, then inset,
+       then raised -- and every version of it fought the thing it was holding:
+       one more edge inside a card that already has edges, and a bottom that the
+       scroller clipped because overflow-x:auto clips the other axis too. The
+       pane carries layout and nothing else now. The dots say there are six. */
+    .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;}
     /* EQUIDISTANT, AND THE MEASUREMENT IS NOT THE ONE IT LOOKS LIKE. The line
        under a homepage heading is a ::after sitting 24px up from the bottom of
-       .sec-head, and the dots begin at that bottom edge -- so there was already
-       24px above them and only 11 below. The bottom margin matches the rule's
-       own offset; change one and the other has to follow. */
-    /* 24px above and below, and the 8px of scroller padding under this counts
-       toward the lower one -- see .fc-scroll. */
-    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:16px;}
+       .sec-head, and the dots begin at that bottom edge -- so there is already
+       24px above them before anything is written here. */
+    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:24px;}
     .fc-dot{width:7px;height:7px;border-radius:50%;padding:0;border:0;cursor:pointer;
       background:var(--text3);opacity:.35;transition:opacity .15s,background .15s,transform .15s;}
     .fc-dot.on{background:var(--accent);opacity:1;transform:scale(1.25);}
     .fc-dot:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-    /* somebody else s game names both sides, so it gets two lines to do it in */
+    /* somebody else s game names both sides, so the vs between them is quieter */
     .fc-mu-two{font-size:13px;line-height:1.25;text-wrap:balance;}
     .fc-mu-two span{color:var(--text3);font-weight:600;font-size:11px;}
     .fc-head{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px;}
