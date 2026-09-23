@@ -4548,10 +4548,10 @@
        can only do if both rows live in the same grid. Every cell is placed by
        hand: a spanning item plus auto-placement is a layout that depends on
        reading the placement algorithm correctly, and this one does not. */
-    .wk-grid{display:grid;grid-template-columns:minmax(0,1fr) 78px 78px 78px;
+    .wk-grid{display:grid;grid-template-columns:minmax(0,1fr) 84px 84px;
       gap:6px 8px;align-items:stretch;}
     .wk-c1{grid-column:1;} .wk-c2{grid-column:2;}
-    .wk-c3{grid-column:3;} .wk-c4{grid-column:4;}
+    .wk-c3{grid-column:3;}
     .wk-h{grid-row:1;font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
       letter-spacing:.7px;text-transform:uppercase;color:var(--text3);text-align:center;padding-bottom:2px;}
     .wk-h.wk-c1{text-align:left;}
@@ -4559,10 +4559,7 @@
     .wk-team{display:flex;align-items:center;min-width:0;}
     .wk-team .sb-tm{min-width:0;}
     .wk-cell{display:flex;min-width:0;}
-    .wk-sp{grid-column:3;grid-row:2 / span 2;display:flex;min-width:0;}
     .wk-grid .sb-odds{width:100%;min-width:0;}
-    /* the merged spread names its team, so the label may take two lines */
-    .wk-sp .sb-o-lbl{white-space:normal;line-height:1.25;text-align:center;}
     .wk-final{font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;
       letter-spacing:.5px;color:var(--text3);display:block;margin-top:8px;}
     .wk-hit{color:var(--green);font-size:11px;margin-left:6px;}
@@ -4571,7 +4568,7 @@
     .wk-pt{font-family:'Inter',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-left:6px;white-space:nowrap;}
     @media(max-width:768px){
       .wk-game{padding:10px 12px;}
-      .wk-grid{grid-template-columns:minmax(0,1fr) 62px 62px 62px;gap:5px;}
+      .wk-grid{grid-template-columns:minmax(0,1fr) 68px 68px;gap:5px;}
       .wk-pt{display:none;}
     }
     /* ── SPORTSBOOK ─────────────────────────────────────────────────────────── */

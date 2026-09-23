@@ -12293,8 +12293,22 @@ const invWeekNow=()=>Number((_liveInfo||liveWeekInfo()||{}).week)||1;
 function invLocked(){
   try{ return sbWeekLocked(invWeekNow()); }catch(e){ return false; }
 }
-const invLockNote=()=>'Week '+invWeekNow()+' is under way — the market is closed'
-  +' until it settles on Tuesday.';
+/* TWO REASONS TO BE SHUT, AND THEY ARE NOT THE SAME SENTENCE. A week being
+   played is the old one. The new one is the week BEHIND it still settling --
+   the prices are built from ratings that move every time another fixture stops
+   reading 0-0, so the market waits for the last of them rather than opening on
+   numbers that are still walking. Saying 'week 3 is under way' on a Tuesday
+   morning when week 3 has not kicked off is just wrong. */
+function invLockNote(){
+  const wk=invWeekNow();
+  try{
+    if(!sbPriorSettled(wk,sbBoardSeason()))
+      return 'Last week is still settling — the market opens as soon as the new'
+        +' prices are final.';
+  }catch(e){}
+  return 'Week '+wk+' is under way — the market is closed until it settles on'
+    +' Tuesday.';
+}
 function invProfitSeries(){
   const lots=invLots();
   if(!lots.length) return null;
@@ -17644,12 +17658,21 @@ function betWeekResult(leg,season,wk){
     const mine=owners[gm.home.teamId]===ent?hp:ap;
     const theirs=owners[gm.home.teamId]===ent?ap:hp;
     if(g3[3]==='ml') return mine===theirs?'push':mine>theirs;
-    /* the spread is only ever sold on the favourite, and the number it was
-       struck at is in the label rather than the key */
-    const m3=/[\u2212-]\s*([\d.]+)/.exec(leg.pickLabel||'');
-    const sp=m3?Number(m3[1]):null;
+    /* BOTH SIDES ARE SOLD NOW, so the SIGN has to be read rather than assumed.
+       The number a ticket was struck at lives in the label and not in the key,
+       and it used to be a minus every single time because only the favourite
+       was on the board. A dog ticket reads '+6.5', would have matched nothing,
+       come back null, and sat open for good.
+
+       A favourite gives the points and has to win by more than them; a dog is
+       given them and covers unless it loses by more. Anchored to the end of the
+       label, because a team name is allowed a dash of its own. Every ticket
+       written before the dog side existed grades exactly as it always did. */
+    const m3=/([+\u2212-])\s*([\d.]+)\s*$/.exec(leg.pickLabel||'');
+    const sp=m3?Number(m3[2]):null;
     if(sp==null) return null;
-    const d=mine-theirs-sp;
+    const give=m3[1]==='+'?-sp:sp;      // a dog is GIVEN the points
+    const d=mine-theirs-give;
     return d===0?'push':d>0;
   }
   /* highest and lowest team score of the week */
@@ -18208,7 +18231,7 @@ function sbBtn(mk,mkLabel,pick,pickLabel,odds,extra,btnLabel){
      board closes together and only the season futures stay up. */
   const mkWk=betLegWeek(mk);
   if(mkWk!=null&&sbWeekLocked(mkWk,mk))
-    return `<span class="sb-odds sb-odds-lock" title="Closed — the week is under way">
+    return `<span class="sb-odds sb-odds-lock" title="Closed — the week is under way, or last week is still settling">
       ${btnLabel?`<span class="sb-o-lbl">${btnLabel}</span>`:''}
       <span class="sb-o-val"><i class="fa fa-lock"></i></span></span>`;
   const on=sbSel(mk,pick)?' on':'';
@@ -18746,7 +18769,7 @@ function sbSlipHTML(){
             ${_betBusy?'<i class="fa fa-circle-notch fa-spin"></i>Placing…'
               :`<i class="fa fa-check"></i>Place bet · ${bucksFmt(stake)}`}</button>`}
       ${_betErr?`<div class="sb-slip-err">${
-        _betErr==='locked'?'That week is under way — those markets are closed. The week ahead and the season futures are still open.'
+        _betErr==='locked'?'Those markets are closed — the week is under way, or last week is still settling and the new lines are not final yet. Season futures stay open.'
         :_betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
         :_betErr==='stake'?'Enter a stake first.'
         :_betErr==='loading'?'Still counting your money. One moment.'
@@ -19309,32 +19332,32 @@ function sbWeekHTML(){
     const key='wk'+g.week+'-'+g.a.tid+'-'+g.b.tid;
     const res=g.done?`<span class="wk-final">Final ${g.hp.toFixed(1)}–${g.ap.toFixed(1)}</span>`:'';
     const mark=w=>g.done?(w?'<i class="fa fa-check wk-hit"></i>':'<i class="fa fa-xmark wk-miss"></i>'):'';
-    /* One row per team with the three markets in fixed columns, the way a real
-       book prints a board. The spread is only priced on the favourite, so the
-       underdog shows its number greyed rather than leaving a hole. */
+    /* One row per team, two markets in fixed columns, the way a real book
+       prints a board: who wins it, and by how much. */
     const sp=g.spread.toFixed(1);
-    /* One spread, one box, down the middle of both rows. There is only ever one
-       price here — the number is the favourite's and the underdog's side was
-       never sold — so splitting it across two cells drew a second box whose
-       whole job was to say "not this one". Merged, it carries the team it
-       belongs to, which the row it used to sit in was saying for it. */
-    const fav=g.favA?g.a:g.b;
-    const spreadCell=`<span class="wk-sp">${
-      sbBtn(key+'-sp',`Week ${g.week} spread`,fav.owner+':sp',`${fav.name} −${sp}`,-115,'sb-two',
-        `${sbTeamAb(fav.owner,fav.name)} −${sp}`)}</span>`;
+    /* BOTH SIDES OF THE SPREAD, each in its own team's row.
+
+       It was one merged box down the middle of the pair, because only the
+       favourite's side was ever sold and a second cell would have been a box
+       whose whole job was to say "not this one". Both are real prices now, so
+       neither has to borrow the other's row to say who it belongs to, and the
+       board reads the way a board reads: −6.5 against +6.5.
+
+       betWeekResult reads the number off pickLabel, so the sign goes in there
+       as well as on the face of the button. */
+    const spBtn=(t,giving)=>sbBtn(key+'-sp',`Week ${g.week} spread`,t.owner+':sp',
+      `${t.name} ${giving?'−':'+'}${sp}`,-115,'sb-two',`${giving?'−':'+'}${sp}`);
     return `<div class="wk-game" data-a="${g.a.owner}" data-b="${g.b.owner}">
       <div class="wk-grid">
         <span class="wk-h wk-c1"></span>
         <span class="wk-h wk-c2">Win</span>
         <span class="wk-h wk-c3">Spread</span>
-        <span class="wk-h wk-c4">Total</span>
-        ${spreadCell}
         <span class="wk-team wk-c1 wk-ra">${nm(g.a)}${mark(g.winA===true)}</span>
         <span class="wk-cell wk-c2 wk-ra">${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.a.owner+':ml',`${g.a.name} moneyline`,g.mlA,'sb-two')}</span>
-        <span class="wk-cell wk-c4 wk-ra">${sbBtn(key+'-tot',`Week ${g.week} total`,'over',`Over ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.overP,'sb-two','O '+g.line.toFixed(1))}</span>
+        <span class="wk-cell wk-c3 wk-ra">${spBtn(g.a,g.favA)}</span>
         <span class="wk-team wk-c1 wk-rb">${nm(g.b)}${mark(g.winA===false)}</span>
         <span class="wk-cell wk-c2 wk-rb">${sbBtn(key+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,g.b.owner+':ml',`${g.b.name} moneyline`,g.mlB,'sb-two')}</span>
-        <span class="wk-cell wk-c4 wk-rb">${sbBtn(key+'-tot',`Week ${g.week} total`,'under',`Under ${g.line.toFixed(1)} — ${g.a.name} vs ${g.b.name}`,g.underP,'sb-two','U '+g.line.toFixed(1))}</span>
+        <span class="wk-cell wk-c3 wk-rb">${spBtn(g.b,!g.favA)}</span>
       </div>
       ${res}
     </div>`;}).join('');

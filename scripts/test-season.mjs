@@ -291,6 +291,55 @@ console.log('\n6. the top-scorer markets settle off who was started');
   eq('a field pick with no names recorded stays open',
      api.betWeekResult(leg('wk5-player','field'),'2026',5), null);
 }
+/* ── PART SEVEN ──────────────────────────────────────────────────────────────
+   THE SPREAD IS SOLD ON BOTH SIDES NOW, and the number a ticket was struck at
+   lives in its label rather than in its key. That was safe while only the
+   favourite was on the board, because the sign was always a minus and could be
+   assumed. A dog ticket reads '+6.5': the old pattern matched nothing, grading
+   came back null, and null means "not finished", so the ticket would have sat
+   open for good with the stake gone.
+
+   Week 5 game one is bft 120, bi 95 — the favourite home by twenty-five. */
+console.log('\n7. both sides of a fixture spread settle');
+{
+  const owners={1:'bft',2:'bi',3:'dorm',4:'fman',5:'goob',6:'kunk',
+                7:'kw',8:'mcm',9:'mm',10:'mwm',11:'ting',12:'wglr'};
+  api.set({...past, 2026:Object.assign(season(5,false),{owners})}, ALL);
+  const MINUS='−';
+  const sp=(who,label)=>({mk:'wk5-1-2-sp',pick:who+':sp',pickLabel:label,odds:-115});
+
+  eq('the favourite covers a short number',
+     api.betWeekResult(sp('bft','The Bryan Football Team '+MINUS+'6.5'),'2026',5), true);
+  eq('and the dog does not',
+     api.betWeekResult(sp('bi','Bismuth +6.5'),'2026',5), false);
+
+  eq('the favourite fails a long number',
+     api.betWeekResult(sp('bft','The Bryan Football Team '+MINUS+'30.5'),'2026',5), false);
+  eq('and the dog covers it',
+     api.betWeekResult(sp('bi','Bismuth +30.5'),'2026',5), true);
+
+  /* exactly the margin is a push on either side */
+  eq('the number landing on the margin pushes the favourite',
+     api.betWeekResult(sp('bft','The Bryan Football Team '+MINUS+'25.0'),'2026',5), 'push');
+  eq('and pushes the dog too',
+     api.betWeekResult(sp('bi','Bismuth +25.0'),'2026',5), 'push');
+
+  /* every ticket written before the dog side existed used a real minus sign,
+     and a few of the oldest use a plain hyphen — both still read as giving */
+  eq('an old minus-sign ticket is unchanged',
+     api.betWeekResult(sp('bft','The Bryan Football Team '+MINUS+'6.5'),'2026',5), true);
+  eq('a plain hyphen still means giving the points',
+     api.betWeekResult(sp('bft','The Bryan Football Team -6.5'),'2026',5), true);
+
+  /* the sign is read off the END of the label, because a team name may carry a
+     dash of its own and used to swallow the match */
+  eq('a hyphenated team name does not eat the number',
+     api.betWeekResult(sp('bi','Bi-Coastal Bismuth +30.5'),'2026',5), true);
+
+  eq('a label with no number at all stays open',
+     api.betWeekResult(sp('bft','The Bryan Football Team'),'2026',5), null);
+}
+
 
 /* The kickoff lock, and the whole live-week model it belongs to, are covered
    in scripts/test-ratings.mjs: what a team is priced on, and when the board is
