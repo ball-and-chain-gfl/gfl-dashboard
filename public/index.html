@@ -2114,8 +2114,13 @@
        are and a native bar under a card reads as a mistake. */
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
       -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;
-      /* the same 10px .fc-fold puts between itself and the message box */
-      margin-bottom:10px;}
+      /* THE SAME GAP THE FOLD KEEPS FROM THE MESSAGE BOX, which is 18 and not
+         the 10 .fc-fold declares: .tt-box carries margin-top:18px and adjacent
+         siblings collapse to the larger of the two. */
+      margin-bottom:18px;
+      /* and each pane has to report its OWN height for fcFitHeight to clamp to
+         -- stretched, every offsetHeight is the tallest one */
+      align-items:flex-start;}
     .fc-scroll::-webkit-scrollbar{display:none;}
     /* NO BOX. A container round each matchup was tried -- filled, then inset,
        then raised -- and every version of it fought the thing it was holding:
