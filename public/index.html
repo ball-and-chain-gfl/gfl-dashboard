@@ -4560,6 +4560,18 @@
     .wk-team .sb-tm{min-width:0;}
     .wk-cell{display:flex;min-width:0;}
     .wk-grid .sb-odds{width:100%;min-width:0;}
+    /* THE SPREAD NUMBER IS THE MARKET, NOT THE PRICE BESIDE IT.
+       Every other button on this board is read for its price, so the price is
+       the big line and the caption under it says what it is for. A spread is
+       the other way round: the number IS the offer, and the -115 next to it is
+       the same -115 on every one of them. The two swap weight here, and here
+       only -- the rest of the book is unchanged. */
+    .wk-grid .wk-c3 .sb-o-lbl{font-size:14px;font-weight:700;letter-spacing:.2px;
+      text-transform:none;color:var(--accent);}
+    .wk-grid .wk-c3 .sb-o-val{font-size:10px;font-weight:600;letter-spacing:.3px;
+      color:var(--text3);}
+    .wk-grid .wk-c3 .sb-odds.on .sb-o-lbl{color:#07120b;}
+    .wk-grid .wk-c3 .sb-odds.on .sb-o-val{color:rgba(0,0,0,0.62);}
     .wk-final{font-family:'Inter',sans-serif;font-size:10.5px;text-transform:uppercase;
       letter-spacing:.5px;color:var(--text3);display:block;margin-top:8px;}
     .wk-hit{color:var(--green);font-size:11px;margin-left:6px;}

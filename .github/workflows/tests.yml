@@ -130,6 +130,11 @@ jobs:
       # worth asking about again in the gap between slates.
       - name: the book opens when its lines are final
         run: node scripts/test-sbwindow.mjs
+      # Both ends of the sell path round half UP, so a holding could print as a
+      # number larger than itself -- and the check refused the exact figure the
+      # card had just said you owned.
+      - name: the shares a card prints can be sold
+        run: node scripts/test-invsell.mjs
       # A week's trivia score has to outlive its questions, which cannot be
       # rebuilt — so it is sealed when the slate locks and summed thereafter.
       - name: ball knowledge trivia is cumulative

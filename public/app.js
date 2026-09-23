@@ -12483,7 +12483,22 @@ async function invTrade(owner,shares,sell){
   const px=invPrice(owner);
   if(sell){
     const have=invHoldings()[owner]||0;
-    if(n>have+1e-6){ _invErr='You only hold '+invShFmt(have)+'.'; renderBook(); return; }
+    /* ── SELLING ALL OF IT HAS TO BE ALLOWED ──────────────────────────────
+       The card prints the holding through invShFmt, which rounds to four
+       places, and the request comes back through invRound, which rounds the
+       same way. Both of them round UP on a holding whose fifth decimal is a
+       five or better -- 5.4115850000000005 is shown as 5.4116 and read back
+       as 5.4116, which is fifteen ten-millionths MORE than is actually held.
+
+       The old tolerance was 1e-6, a hundred times tighter than the rounding
+       that produced the number, so the card refused the exact figure it had
+       just told you that you owned: 'You only hold 5.4116.' Thirteen of the
+       thirty holdings in the league were in that state.
+
+       A request within one quantum of the holding is a request for all of it,
+       and the clamp below is what makes that safe -- nothing can be sold that
+       is not held, whatever was typed. */
+    if(n>have+INV_Q){ _invErr='You only hold '+invShFmt(have)+'.'; renderBook(); return; }
     /* a sale for all of it must leave nothing behind — rounding a fractional
        holding down would strand dust nobody can ever sell */
     n=Math.min(n,have);
@@ -19497,6 +19512,11 @@ function renderBetsBar(){
 let _invQty={};              // shares typed on a card ('s_'+owner for a sell)
 let _invCash={};             // dollars typed on a card, when buying by amount
 let _invMode='sh';           // 'sh' buys a share count, 'amt' buys an amount
+/* Share counts are quantised to four places. INV_Q is that step, and it is
+   the tolerance every comparison against a holding has to carry: a holding of
+   5.4115850000000005 ROUNDS UP to 5.4116, which is larger than the holding
+   itself. */
+const INV_Q=1e-4;
 const invRound=v=>Math.max(0,Math.round((Number(v)||0)*1e4)/1e4);
 /* whole numbers stay whole; fractions show what they are and no more */
 const invShFmt=v=>{
@@ -19508,7 +19528,12 @@ function invSetMode(m){ _invMode=m==='amt'?'amt':'sh'; _invErr=''; renderBook();
 function invSetQty(o,v,cap){
   let n=Math.max(0,Number(v)||0);
   if(cap!=null) n=Math.min(n,cap);
-  _invQty[o]=invRound(n); renderBook();
+  n=invRound(n);
+  /* clamped AFTER the rounding as well: rounding a holding to four places can
+     land above the holding, and a + button that steps past the cap it was
+     given is how the sell card ended up asking for more than was there. */
+  if(cap!=null) n=Math.min(n,cap);
+  _invQty[o]=n; renderBook();
 }
 function invStep(o,d,cap){ invSetQty(o,(_invQty[o]||0)+d,cap); }
 function invSetCash(o,v){ _invCash[o]=Math.max(0,Math.round((Number(v)||0)*100)/100); renderBook(); }
