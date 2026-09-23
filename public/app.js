@@ -19986,7 +19986,19 @@ function invBoardHTML(){
     const cashIn=_invCash[qk]||0;
     const n=invTradeSharesK(x.owner,x.price,k), cost=invTradeCash(n,x.price,k);
     const capped=short&&x.price>=INV_CEIL;
-    const dir=x.chg>0?'up':x.chg<0?'dn':'flat';
+    /* ── GREEN MEANS THE WEEK WENT YOUR WAY, NOT THAT THE PRICE WENT UP ────
+       This was the other way round for a day, on the argument that one price
+       should carry one colour on every view. It reads wrong the moment you are
+       actually short something: a team up 7.9% printed green on the Shorts
+       board, which is the board where a rise is the bad news.
+
+       So the arrow follows the PRICE -- it is a fact about the share and it
+       does not bend -- and the colour follows what that move does to the
+       position the card is offering. A team can therefore be green on Stocks
+       and red on Shorts in the same minute, which is correct: they are
+       opposite bets on the same number. */
+    const dir=short?(x.chg>0?'dn':x.chg<0?'up':'flat')
+                   :(x.chg>0?'up':x.chg<0?'dn':'flat');
     /* In dollar mode the steppers move by five bucks. One cent at a time is
        useless and one dollar is still twenty presses to a sensible stake. */
     const step=amt
@@ -20012,7 +20024,7 @@ function invBoardHTML(){
       </div>
       <div class="iv-buy">
         ${step}
-        <button class="iv-go${short?' iv-short':''}"
+        <button class="iv-go"
           ${(shut||capped||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
           onclick="${short?'invShortCard':'invBuyCard'}('${x.owner}')">
           ${shut?'<i class="fa fa-lock"></i>Closed'
@@ -20127,7 +20139,7 @@ function invPortfolioHTML(){
      the price has fallen, and the button buys rather than sells. A row that
      looked like a holding and behaved like its opposite is the worst thing
      this page could print, so it is marked three ways at once -- its own
-     heading, a SHORT tag on every row, and its own colour down the edge. */
+     heading, a SHORT tag on every row, and a card in a different colour. */
   const sRows=shorts.map(o=>{
     const {nm,crest}=nameOf(o);
     const px=invPrice(o), cb=invShortBasis(o), sh=sold[o];
@@ -20135,20 +20147,10 @@ function invPortfolioHTML(){
        posted against -- the row must not show a loss the cover cannot charge */
     const mark=invCap(px);
     const gain=(cb-mark)*sh, pct=cb?((cb-mark)/cb*100):0;
-    /* ── THE COLOUR BELONGS TO THE SHARE, NOT TO THE SIDE YOU TOOK ────────
-       There is one price, and the short and the long are sold off the same
-       board at the same number -- all that differs is which direction pays.
-       So green means this share went UP and red means it went DOWN, on both
-       views, always, and a team is never one colour on the market and the
-       other in the portfolio.
-
-       Which does mean a short that is winning prints red. That is the point of
-       it rather than a side effect: the share fell, the arrow points down, and
-       the SIGN on the money says whose favour it went in. Colouring by profit
-       instead would have the Investments board calling a team green while the
-       portfolio called the same team, at the same price, red.
-
-       gain > 0 means the price fell, so the row reads down. */
+    /* ── GREEN IS GOOD FOR THIS POSITION, AND THE ARROW IS THE PRICE ──────
+       gain > 0 means the price fell, which on a short is the good news: green,
+       under an arrow that still points down because that is what the share
+       actually did. See the same rule on the market board above. */
     const fell=gain>0, rose=gain<0;
     const q=Math.min(sh,_invQty['c_'+o]||0);
     return `<div class="iv-card iv-card-sh" data-o="${o}" data-px="${px}" data-k="sc">
@@ -20157,8 +20159,8 @@ function invPortfolioHTML(){
         <span class="iv-n"><span class="iv-nm-row">${nm}<span class="iv-tag-sh">Short</span></span>
           <span class="iv-held">${invShFmt(sh)} short · from ${invFmt(cb)} · ${invFmt(invCollat(sh,px))} held</span></span>
         <span class="iv-px">
-          <span class="iv-px-v ${fell?'dn':rose?'up':''}">${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}</span>
-          <span class="iv-chg ${fell?'dn':rose?'up':'flat'}">${fell?'▼':rose?'▲':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
+          <span class="iv-px-v ${fell?'up':rose?'dn':''}">${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}</span>
+          <span class="iv-chg ${fell?'up':rose?'dn':'flat'}">${fell?'▼':rose?'▲':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
         </span>
       </div>
       <div class="iv-buy">
@@ -20167,7 +20169,7 @@ function invPortfolioHTML(){
           placeholder="0" aria-label="Shares to cover"
           oninput="invType(this,'c_${o}','sh')" onchange="renderBook()" onblur="renderBook()">
         <button class="iv-step" onclick="invStep('c_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>
-        <button class="iv-go iv-short" ${(shut||!(q>0)||_invBusy)?'disabled':''}
+        <button class="iv-go" ${(shut||!(q>0)||_invBusy)?'disabled':''}
           onclick="invCoverCard('${o}')">
           ${shut?'<i class="fa fa-lock"></i>Closed'
             :`Cover${q>0?' · '+invFmt(invCollat(q,px)):''}`}</button>

@@ -1205,8 +1205,41 @@
       border-radius:9px;background:rgba(var(--accent-rgb),0.09);
       border:1px solid rgba(var(--accent-rgb),0.32);
       font-family:'Inter',sans-serif;font-size:12px;color:var(--accent);}
-    .iv-list{display:flex;flex-direction:column;gap:8px;}
-    .iv-card{padding:11px 12px;border-radius:11px;background:rgba(0,0,0,0.3);}
+    .iv-list{display:flex;flex-direction:column;gap:7px;}
+    /* ── ONE CARD, TWO INSTRUMENTS, AND THE COLOUR IS WHICH ──────────────
+       Blue buys, orange sells short. Both are carried on --ivc rather than
+       written into each rule, so the card, its button, its tag and the sliding
+       switch above it all take their colour from one place and a short can
+       never end up half orange.
+
+       THE LIGHT COMES FROM THE LEFT. The colour sits at the leading edge and
+       runs out across the card into brushed silver on the right, which is
+       where the price and the change live -- so the tint marks the instrument
+       at the edge you read first and never gets behind a number. The texture
+       is a hairline diagonal sheen masked to the right-hand side; it is drawn
+       on a ::after, so .iv-top and .iv-buy are lifted above it or it would
+       paint over the controls.
+
+       Condensed, because a market is a list you scan: the padding, the gaps
+       and the type all came down a notch. The control row did NOT -- 34px is
+       already the smallest a thumb should be asked to hit. */
+    .iv-card{--ivc:96,165,250;
+      position:relative;overflow:hidden;
+      padding:9px 11px;border-radius:11px;
+      border:1px solid rgba(255,255,255,0.07);
+      background:
+        linear-gradient(100deg,
+          rgba(var(--ivc),0.22) 0%,
+          rgba(var(--ivc),0.08) 24%,
+          rgba(158,166,180,0.085) 58%,
+          rgba(126,134,148,0.05) 100%),
+        linear-gradient(180deg,rgba(255,255,255,0.028),rgba(0,0,0,0.34));}
+    .iv-card::after{content:'';position:absolute;inset:0;pointer-events:none;
+      background:repeating-linear-gradient(112deg,
+        rgba(255,255,255,0.028) 0 1px,transparent 1px 4px);
+      -webkit-mask-image:linear-gradient(90deg,transparent 42%,#000 100%);
+              mask-image:linear-gradient(90deg,transparent 42%,#000 100%);}
+    .iv-card>.iv-top,.iv-card>.iv-buy{position:relative;z-index:1;}
     /* ── The two funds ────────────────────────────────────────────────────
        No card of their own. They were drawn in the accent to say they are a
        different kind of instrument, but they are bought the same way, priced in
@@ -1222,19 +1255,19 @@
     .iv-stack-i{display:flex;margin-right:-7px;border-radius:6px;
       box-shadow:0 0 0 1.5px var(--bg2);}
     .iv-stack-i:last-child{margin-right:0;}
-    .iv-top{display:flex;align-items:center;gap:10px;}
+    .iv-top{display:flex;align-items:center;gap:9px;}
     .iv-c{flex:0 0 auto;display:flex;}
     .iv-n{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;
       font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;color:var(--text);
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .iv-held{font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;
+    .iv-held{font-size:9.5px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;
       color:var(--text3);}
     .iv-px{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
-    .iv-px-v{font-family:'Inter',sans-serif;font-size:16px;font-weight:800;
+    .iv-px-v{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
       letter-spacing:-.3px;color:var(--text);}
     .iv-chg{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.2px;}
     .iv-chg.up{color:var(--green);} .iv-chg.dn{color:var(--red);} .iv-chg.flat{color:var(--text3);}
-    .iv-buy{display:flex;align-items:center;gap:7px;margin-top:10px;}
+    .iv-buy{display:flex;align-items:center;gap:7px;margin-top:8px;}
     .iv-step{flex:0 0 auto;width:34px;height:34px;padding:0;border-radius:8px;
       background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);
       color:var(--text);font-size:15px;font-weight:700;line-height:1;}
@@ -1279,17 +1312,27 @@
       letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;}
     .iv-go:not(:disabled):hover{background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
     .iv-go:disabled{opacity:.4;}
-    .iv-go.iv-sell:not(:disabled){border-color:rgba(232,104,126,0.45);color:var(--red);}
+    /* Selling keeps red, and now has to say so twice: .iv-go.iv-sell
+       out-specifies the --ivc rule's colour and border but NOT its background,
+       so without a fill of its own a Sell button came out red-on-blue. */
+    .iv-go.iv-sell:not(:disabled){border-color:rgba(232,104,126,0.45);color:var(--red);
+      background:linear-gradient(180deg,rgba(232,104,126,0.15),rgba(232,104,126,0.05));}
+    .iv-go.iv-sell:not(:disabled):hover{border-color:rgba(232,104,126,0.7);
+      background:linear-gradient(180deg,rgba(232,104,126,0.24),rgba(232,104,126,0.09));}
     /* ── SHORTING, MARKED SO IT CANNOT BE MISTAKEN FOR HOLDING ────────────
        A short row and a share row carry the same crest, the same name and the
        same controls, and they behave in opposite directions -- so the thing
-       that separates them cannot be the wording alone. Amber, which on this
-       site already means 'a state, not a fault' (see .iv-shut), down the left
-       edge of the card, on the tag, on the switch and on the button. Never
-       red: red here means a loss, and a short is not a loss. */
-    .iv-card-sh{border-left:3px solid rgba(var(--accent-rgb),0.7);
-      padding-left:9px;background:rgba(var(--accent-rgb),0.055);}
-    .iv-go.iv-short:not(:disabled){border-color:rgba(var(--accent-rgb),0.5);color:var(--accent);}
+       that separates them cannot be the wording alone. One token does it:
+       orange instead of blue, which reaches the card, the button and the tag
+       together. Never red -- red here means a loss, and a short is not a
+       loss, it is the other side of the trade. */
+    .iv-card-sh{--ivc:255,146,61;}
+    /* the action takes the card's own colour, so Buy reads blue and Short
+       reads orange without either being named twice */
+    .iv-go:not(:disabled){border-color:rgba(var(--ivc),0.42);color:rgb(var(--ivc));
+      background:linear-gradient(180deg,rgba(var(--ivc),0.17),rgba(var(--ivc),0.06));}
+    .iv-go:not(:disabled):hover{border-color:rgba(var(--ivc),0.7);
+      background:linear-gradient(180deg,rgba(var(--ivc),0.26),rgba(var(--ivc),0.1));}
     /* ── THE SIDE SWITCH IS ONE CONTROL, NOT TWO BUTTONS ──────────────────
        Full width, and the selection SLIDES between the halves rather than
        switching off in one place and on in another. Which half you are on is
@@ -1302,15 +1345,16 @@
        inner width and slides by exactly its own width, which lands it on the
        right half whatever the card is: calc(50% - 3px) is (W - 6)/2, the inner
        half, and translateX(100%) moves it by that same figure. */
-    .iv-seg{position:relative;display:flex;width:100%;margin:0 0 12px;padding:3px;
+    .iv-seg{--ivc:96,165,250;
+      position:relative;display:flex;width:100%;margin:0 0 10px;padding:3px;
       border-radius:10px;background:rgba(255,255,255,0.05);
       border:1px solid rgba(255,255,255,0.1);}
+    .iv-seg[data-on="short"]{--ivc:255,146,61;}
     .iv-seg-th{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);
-      border-radius:8px;background:color-mix(in srgb,var(--accent) 18%,transparent);
-      border:1px solid var(--accent);
+      border-radius:8px;border:1px solid rgba(var(--ivc),0.85);
+      background:linear-gradient(180deg,rgba(var(--ivc),0.3),rgba(var(--ivc),0.13));
       transition:transform .24s cubic-bezier(.4,0,.2,1),background .24s,border-color .24s;}
-    .iv-seg[data-on="short"] .iv-seg-th{transform:translateX(100%);
-      background:color-mix(in srgb,var(--accent) 26%,transparent);}
+    .iv-seg[data-on="short"] .iv-seg-th{transform:translateX(100%);}
     .iv-seg-b{position:relative;z-index:1;flex:1 1 0;min-width:0;height:32px;padding:0 8px;
       border:0;background:none;color:var(--text3);font-family:'Inter',sans-serif;
       font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
@@ -1321,9 +1365,9 @@
     .iv-nm-row{display:flex;align-items:center;gap:6px;min-width:0;}
     .iv-nm-row>:first-child{overflow:hidden;text-overflow:ellipsis;}
     .iv-tag-sh{flex:0 0 auto;padding:1px 6px;border-radius:5px;
-      background:rgba(var(--accent-rgb),0.18);border:1px solid rgba(var(--accent-rgb),0.45);
+      background:rgba(var(--ivc),0.2);border:1px solid rgba(var(--ivc),0.5);
       font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-      color:var(--accent);}
+      color:rgb(var(--ivc));}
     /* a short's number is its profit, not its value, so it takes the same
        green/red the change beside it does rather than the plain text colour */
     .iv-px-v.up{color:var(--green);} .iv-px-v.dn{color:var(--red);}
