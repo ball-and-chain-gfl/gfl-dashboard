@@ -5968,10 +5968,22 @@ function fcPaneHTML(info,aTid,bTid,mine){
 let _fcPane=0;
 function fcGoTo(i){
   const sc=document.getElementById('fc-scroll'); if(!sc) return;
+  i=Math.max(0,Math.min(sc.children.length-1,i));
   const p=sc.children[i]; if(!p) return;
   _fcPane=i;
   sc.scrollTo({left:p.offsetLeft-sc.offsetLeft,behavior:'smooth'});
   fcMarkDots(i);
+}
+/* Which pane is nearest, measured off the panes themselves. A pane is a little
+   narrower than the scroller now -- the next one peeks in at the edge, which is
+   the whole reason anybody knows to swipe -- so dividing by the viewport width
+   no longer names the right one. */
+function fcNearest(sc){
+  let best=0,d=Infinity;
+  [...sc.children].forEach((p,i)=>{
+    const gap=Math.abs((p.offsetLeft-sc.offsetLeft)-sc.scrollLeft);
+    if(gap<d){ d=gap; best=i; } });
+  return best;
 }
 function fcMarkDots(i){
   const d=document.getElementById('fc-dots'); if(!d) return;
@@ -5986,8 +5998,7 @@ function fcBindScroll(){
   sc.addEventListener('scroll',()=>{
     clearTimeout(t);
     t=setTimeout(()=>{
-      const w=sc.clientWidth||1;
-      const i=Math.max(0,Math.min(sc.children.length-1,Math.round(sc.scrollLeft/w)));
+      const i=fcNearest(sc);
       _fcPane=i; fcMarkDots(i);
     },80);
   },{passive:true});
@@ -6025,10 +6036,24 @@ function renderForecast(info){
   const panes=[fcPaneHTML(info,mine,oppId,home?'home':'away')]
     .concat(rest.map(m=>fcPaneHTML(info,m.home.teamId,m.away.teamId,null)))
     .filter(Boolean);
+  /* ── AND IT HAS TO LOOK LIKE IT SCROLLS ──────────────────────────────────
+     The dots started underneath, which is where dots go -- except a pane here
+     is a curve plus two full lineups, near seven hundred pixels of it, so on a
+     phone they sat a screen and a half below the fold and nobody was ever
+     going to see them. They go on top now, with arrows either side and the
+     count spelled out, and the pane itself stops short of the right edge so
+     the next one is visibly there. */
   const dots=panes.length>1
-    ? `<div class="fc-dots" id="fc-dots">${panes.map((_,i)=>
-        `<button class="fc-dot${i===_fcPane?' on':''}" onclick="fcGoTo(${i})"
-          aria-label="Matchup ${i+1} of ${panes.length}"></button>`).join('')}</div>`
+    ? `<div class="fc-nav">
+        <button class="fc-arw" onclick="fcGoTo(_fcPane-1)" aria-label="Previous matchup">
+          <i class="fa fa-chevron-left"></i></button>
+        <div class="fc-dots" id="fc-dots">${panes.map((_,i)=>
+          `<button class="fc-dot${i===_fcPane?' on':''}" onclick="fcGoTo(${i})"
+            aria-label="Matchup ${i+1} of ${panes.length}"></button>`).join('')}</div>
+        <button class="fc-arw" onclick="fcGoTo(_fcPane+1)" aria-label="Next matchup">
+          <i class="fa fa-chevron-right"></i></button>
+      </div>
+      <div class="fc-nav-s">All ${panes.length} matchups &mdash; swipe or tap through</div>`
     : '';
 
   /* Both of these fold. What the game does to the season and who is starting
@@ -6047,8 +6072,8 @@ function renderForecast(info){
   const _ttKeep=_ttEl?{v:_ttEl.value,s:_ttEl.selectionStart,e:_ttEl.selectionEnd,
     f:document.activeElement===_ttEl}:null;
   el.innerHTML=`
-    <div class="fc-scroll" id="fc-scroll">${panes.join('')}</div>
     ${dots}
+    <div class="fc-scroll" id="fc-scroll">${panes.join('')}</div>
     ${imp?fcFold('fc-imp','Playoff odds',imp):''}
     ${ttBoxHTML(fcOppKey(oppT),oppT.name)}`;
   fcBindScroll();
