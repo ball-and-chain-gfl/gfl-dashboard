@@ -114,6 +114,8 @@ ok('INV_FUNDS survives the bracket walk whole', /\]\s*;?$/.test(parts['const INV
 
 /* ── a made-up league, priced ─────────────────────────────────────────────── */
 const N = 12;
+/* the shipped coin ids, read from the source rather than retyped */
+const COIN_PIDS = [...SRC.matchAll(/pid:(\d+)/g)].map(m => Number(m[1]));
 const owners = {}, teamsMeta = {}, franchises = [], rosters = {}, poolPlayers = [];
 for (let t = 1; t <= N; t++) {
   const o = 'own' + t;
@@ -142,6 +144,19 @@ for (let t = 1; t <= N; t++) {
     }
   });
 }
+/* THE COIN PLAYERS HAVE TO BE IN THE FIXTURE POOL. It is twelve invented
+   rosters and holds none of them, and a pool without a coin prices no coin --
+   which would let the frozen-week case below pass for the wrong reason. Each
+   gets a projection and a crowd of rivals beneath him at his own position, so
+   he lands inside his cutoff and comes out with a real price. */
+COIN_PIDS.forEach((pid, i) => {
+  const pos = [1, 2, 3, 4][i % 4];
+  poolPlayers.push({ id: pid, name: 'Coin' + pid, pos, proj: 300 - i, total: 0 });
+});
+[1, 2, 3, 4].forEach(pos => {
+  for (let i = 0; i < 90; i++)
+    poolPlayers.push({ id: 5000000 + pos * 1000 + i, name: 'x', pos, proj: 120 - i, total: 0 });
+});
 const harness = `
 ${CFG}
 const _CFG = window.GFL_CONFIG || {};
@@ -160,14 +175,16 @@ function bkLoadPool(){}
 /* invPricesAt short-circuits to a frozen board when one exists. Out here there
    is none, and the freezer itself must never read its own output — so both
    harnesses stub this to null and always compute. */
-function frozenPrices(){ return null; }
+let _FROZEN = null;
+function frozenPrices(){ return _FROZEN; }
+function setFrozen(f){ _FROZEN = f; }
 /* the freezer supplies these; the fixture has no weekly feed, which is exactly
    the case that must still price rather than return nothing */
 function rosterProjWeekly(){ return null; }
 let _rpMemo = {};
 let _poDeadCache = {};
 ${NEEDED.map(n => parts[n]).join('\n')}
-module.exports = { invPricesAt, rosterProjByOwner, INV_BASE };
+module.exports = { invPricesAt, rosterProjByOwner, INV_BASE, setFrozen, INV_COINS, invCoinKey };
 `;
 const mod = { exports: {} };
 const window = { GFL_CONFIG: null };
@@ -183,7 +200,11 @@ if (built) {
     `${proj['own1']} vs ${proj['own12']}`);
 
   const prices = mod.exports.invPricesAt('2099', 1);
-  const teamPrices = Object.entries(prices).filter(([k]) => !/^ETF_/.test(k)).map(([, v]) => v);
+  /* The map holds three kinds of key now — teams, funds and coins — so
+     "every team" has to mean the teams. A coin counted as a team put the
+     average share at $15.20 and the count at 23. */
+  const notTeam = k => /^ETF_/.test(k) || /^COIN_/.test(k);
+  const teamPrices = Object.entries(prices).filter(([k]) => !notTeam(k)).map(([, v]) => v);
   ok('a price for every team', teamPrices.length === N, teamPrices.length);
   ok('every price is a positive number', teamPrices.every(v => typeof v === 'number' && v > 0));
   const mean = teamPrices.reduce((a, b) => a + b, 0) / teamPrices.length;
@@ -209,7 +230,42 @@ if (built) {
   console.log('\n3. a season nobody has played still prices');
   const flat = mod.exports.invPricesAt('2099', null);
   ok('no through-week is still a full board',
-    Object.keys(flat).filter(k => !/^ETF_/.test(k)).length === N);
+    Object.keys(flat).filter(k => !/^ETF_/.test(k) && !/^COIN_/.test(k)).length === N);
+}
+
+if (built) {
+  /* ── A FROZEN WEEK MUST NOT HIDE THE COINS ──────────────────────────
+     This shipped broken, in the worst shape of broken: no error, no empty
+     list, just a tab that said "Loading the coins…" for good. The board prices
+     at the last COMPLETED week, a completed week is served out of
+     charts-<season>.json, and every week sealed before the coins existed
+     carries twelve teams, two funds and nothing else -- so invPricesAt handed
+     back a map with no coin in it and no amount of waiting could add one.
+
+     The frozen board is laid OVER a live coin board now. A week sealed WITH
+     coins keeps its own, because a settled week has to read the same in
+     December as it did in September. */
+  console.log('\n4. a frozen week cannot hide the coins');
+  const coinKeys = mod.exports.INV_COINS.map(c => mod.exports.invCoinKey(c.pid));
+
+  /* sealed before coins existed: teams and funds only */
+  const sealedOld = { A: 11.1, B: 9.2, ETF_EAST: 10.4, ETF_WEST: 9.6 };
+  mod.exports.setFrozen(sealedOld);
+  const filled = mod.exports.invPricesAt('2099', 1);
+  ok('the frozen teams are served untouched',
+    filled.A === 11.1 && filled.ETF_EAST === 10.4);
+  ok('and the coins are filled in rather than missing',
+    coinKeys.length > 0 && coinKeys.every(k => typeof filled[k] === 'number'));
+
+  /* sealed WITH coins: those numbers win, or a settled week would move */
+  const sealedNew = Object.assign({}, sealedOld);
+  coinKeys.forEach((k, i) => { sealedNew[k] = 3 + i; });
+  mod.exports.setFrozen(sealedNew);
+  const kept = mod.exports.invPricesAt('2099', 1);
+  ok('a week sealed with coins keeps its own prices',
+    coinKeys.every((k, i) => kept[k] === 3 + i));
+
+  mod.exports.setFrozen(null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

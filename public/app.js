@@ -12286,7 +12286,24 @@ function invPricesAt(season,through){
   if(!fr.length) return {};
   if(through!=null){
     const froz=frozenPrices(season,through);
-    if(froz) return {...froz};
+    /* ── A WEEK FROZEN BEFORE COINS EXISTED HAS NO COIN IN IT ────────────
+       And that is every week so far, which is why the Coins tab sat on its
+       loading line for good: the board prices at the last COMPLETED week, a
+       completed week is served from the archive, and weeks 1 and 2 were sealed
+       with twelve teams and two funds in them and nothing else. No amount of
+       waiting for the player pool was ever going to add a coin to that file.
+
+       So the frozen board is laid OVER a live coin board rather than returned
+       instead of one. A week sealed WITH coins in it keeps its own -- froz is
+       the source in the assign, so it wins every key it has, and a settled
+       week still reads the same in December as it did in September. A week
+       sealed without them gets today's price, which is the only number that
+       exists for it. Nobody held a coin in those weeks, so no replay ever
+       consults them; this is so the BOARD has a price to show. */
+    if(froz){
+      const need=INV_COINS.some(c=>froz[invCoinKey(c.pid)]==null);
+      return need?Object.assign(invCoinPrices(),froz):{...froz};
+    }
   }
   const rows=season?invStats(season,through):null;
   const byOwner={};
@@ -20057,10 +20074,20 @@ function invBoardHTML(which){
   if(!b) return '<div class="tab-loading" style="padding:30px">Loading the market…</div>';
   /* The coins price off the player pool, which is fetched for Ball Knowledge
      and may not be in yet. Kick it and say so, rather than drawing an empty
-     board that looks like a market with nothing on it. */
+     board that looks like a market with nothing on it.
+
+     AND "LOADING" HAS TO MEAN LOADING. This said it whatever the reason the
+     board had no coins on it, so when the real cause was a frozen week with no
+     coin in it -- a thing no wait could fix -- the page sat there claiming to
+     be busy. If the pool is in and they still do not price, that is a fault
+     and it says so. */
   if(isCoins&&!(b.coins||[]).length){
-    try{ bkLoadPool(); }catch(e){}
-    return '<div class="tab-loading" style="padding:30px">Loading the coins…</div>';
+    const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool.length:0;
+    if(!pool){ try{ bkLoadPool(); }catch(e){}
+      return '<div class="tab-loading" style="padding:30px">Loading the coins…</div>'; }
+    return '<div class="sb-mine-empty"><i class="fa fa-coins"></i>'
+      +'<div>The coins are not pricing. The player pool is in, so this is a fault'
+      +' rather than a wait.</div></div>';
   }
   const cash=bucksBalance();
   const amt=_invMode==='amt';
