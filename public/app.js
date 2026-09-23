@@ -5910,13 +5910,96 @@ function fcRosterCompareHTML(season,week,aId,bId,abA,abB,live){
       ${dummy?' <b>Stand-in lineups</b> — nobody has drafted yet.':''}</div>
   </div>`;
 }
+/* ── ONE MATCHUP, DRAWN THE SAME WAY WHOEVER IS LOOKING AT IT ────────────────
+   Pulled out of renderForecast so the card can hold all six of the week's
+   games rather than only yours. Nothing in here knows who is signed in: it
+   takes two team ids and draws the curve and the lineups for that pair.
+
+   `mine` only changes the wording over the top. Your own game says "vs
+   Bismuth" the way it always has; somebody else's names both sides, because
+   neither of them is you. */
+function fcPaneHTML(info,aTid,bTid,mine){
+  const aT=_teams.find(t=>t.id===aTid), bT=_teams.find(t=>t.id===bTid);
+  if(!aT||!bT) return '';
+  const owners=info.meta.owners||{};
+  const aO=owners[aTid], bO=owners[bTid];
+  const A=fcSideStats(aO), B=fcSideStats(bO);
+  const fcWk=Number(info.week)||schedCurWeek(info.season);
+  const ab=t=>t.abbrev||teamInitials(t.name);
+  const projByOwner={};
+  Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
+  /* The bar is gone. A bar says what the chance is now and nothing about how it
+     got there; the curve says both, and on Tuesday it is the only record of
+     what the game actually felt like. */
+  const pts=wpCurve(_liveSeries,projByOwner,aO,bO,
+    (A&&B)?schedOpenMu(A,B,fcWk):null,_liveProj,
+    nflWeekDone(fcWk,info.season)===true);
+  const now=pts[pts.length-1];
+  const bar=`<div class="fc-odds">
+    <div class="fc-odds-t">
+      <span class="fc-pct ${now.p>=0.5?'up':'dn'}"
+        title="${ab(aT)} win probability">${(now.p*100).toFixed(1)}%</span></div>
+    ${wpGraphSVG(pts,ab(aT),ab(bT))}
+    <div class="wp-key">
+      <span class="k-up"><i></i>${ab(aT)} ahead</span>
+      <span class="k-dn"><i></i>${ab(bT)} ahead</span>
+    </div>
+    <div class="fc-odds-s"><span>${pts.length>1?'through the week':'before kickoff'}</span>
+      <span>${amFmt(amFromProb(Math.min(0.95,now.p+0.025)))}</span></div>
+  </div>`;
+  const title=mine
+    ? `<div class="fc-mu">${mine==='home'?'vs':'@'} ${bT.name}</div>`
+    : `<div class="fc-mu fc-mu-two">${aT.name} <span>vs</span> ${bT.name}</div>`;
+  return `<div class="fc-pane">
+    <div class="fc-head">
+      ${logoImg(aT.id,'big4-logo')}
+      <div class="fc-vs"><div class="fc-wk">Week ${info.week}</div>${title}</div>
+      ${logoImg(bT.id,'big4-logo')}
+    </div>
+    ${bar}
+    <div class="fc-lu">
+      <div class="fc-lu-h">Starting lineups</div>
+      ${fcRosterCompareHTML(info.season,info.week,aTid,bTid,ab(aT),ab(bT),
+        fcLivePlayers(info))}
+    </div>
+  </div>`;
+}
+/* Which pane is in view, so the dots can say so and a repaint can put it back */
+let _fcPane=0;
+function fcGoTo(i){
+  const sc=document.getElementById('fc-scroll'); if(!sc) return;
+  const p=sc.children[i]; if(!p) return;
+  _fcPane=i;
+  sc.scrollTo({left:p.offsetLeft-sc.offsetLeft,behavior:'smooth'});
+  fcMarkDots(i);
+}
+function fcMarkDots(i){
+  const d=document.getElementById('fc-dots'); if(!d) return;
+  [...d.children].forEach((b,n)=>b.classList.toggle('on',n===i));
+}
+/* The scroller is rebuilt on every live poll, so the listener goes on with it
+   and the pane you were reading is restored rather than snapping back to your
+   own game every few minutes. */
+function fcBindScroll(){
+  const sc=document.getElementById('fc-scroll'); if(!sc) return;
+  let t=null;
+  sc.addEventListener('scroll',()=>{
+    clearTimeout(t);
+    t=setTimeout(()=>{
+      const w=sc.clientWidth||1;
+      const i=Math.max(0,Math.min(sc.children.length-1,Math.round(sc.scrollLeft/w)));
+      _fcPane=i; fcMarkDots(i);
+    },80);
+  },{passive:true});
+}
 function renderForecast(info){
   const el=document.getElementById('fc-body'); if(!el) return;
   if(!_me||!_me.teamId){
     el.innerHTML=`<div class="lr-none">Sign in to see your matchup broken down.</div>`; return;
   }
   const mine=Number(_me.teamId);
-  const g=(info.games||[]).find(m=>m.home.teamId===mine||m.away.teamId===mine);
+  const games=(info.games||[]).filter(m=>m&&m.home&&m.away);
+  const g=games.find(m=>m.home.teamId===mine||m.away.teamId===mine);
   if(!g){ el.innerHTML=`<div class="lr-none">No game on the slate for you this week.</div>`; return; }
   const home=g.home.teamId===mine;
   const meT=_teams.find(t=>t.id===mine);
@@ -5924,41 +6007,29 @@ function renderForecast(info){
   const oppT=_teams.find(t=>t.id===oppId);
   if(!meT||!oppT){ el.innerHTML=`<div class="lr-none">Could not read that matchup.</div>`; return; }
   const owners=info.meta.owners||{};
-  const meO=owners[mine], oppO=owners[oppId];
-  const A=fcSideStats(meO), B=fcSideStats(oppO);
+  const meO=owners[mine];
+  const A=fcSideStats(meO), B=fcSideStats(owners[oppId]);
   const fcWk=Number(info.week)||schedCurWeek(info.season);
   const p=(A&&B)?schedWinProb(A,B,fcWk):0.5;
-  const nm=t=>t.name;
-  const ab=t=>t.abbrev||teamInitials(t.name);
 
-  /* The bar is gone. A bar says what the chance is now and nothing about how it
-     got there; the curve says both, and on Tuesday it is the only record of
-     what the game actually felt like. */
-  const projByOwner={};
-  Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
-  const pts=wpCurve(_liveSeries,projByOwner,meO,oppO,
-    (A&&B)?schedOpenMu(A,B,fcWk):null,_liveProj,
-    nflWeekDone(fcWk,info.season)===true);
-  const now=pts[pts.length-1];
-  const bar=`<div class="fc-odds">
-    <div class="fc-odds-t">
-      <span class="fc-pct ${now.p>=0.5?'up':'dn'}"
-        title="${ab(meT)} win probability">${(now.p*100).toFixed(1)}%</span></div>
-    ${wpGraphSVG(pts,ab(meT),ab(oppT))}
-    <div class="wp-key">
-      <span class="k-up"><i></i>${ab(meT)} ahead</span>
-      <span class="k-dn"><i></i>${ab(oppT)} ahead</span>
-    </div>
-    <div class="fc-odds-s"><span>${pts.length>1?'through the week':'before kickoff'}</span>
-      <span>${amFmt(amFromProb(Math.min(0.95,now.p+0.025)))}</span></div>
-  </div>`;
+  /* ── THE WHOLE SLATE, NOT JUST YOURS ──────────────────────────────────────
+     Yours first, so the card opens on exactly what it always opened on, and
+     the other five are there if you swipe. Scroll snapping does the work: no
+     carousel, no timers, and a horizontal drag is what a phone does anyway.
 
-  /* The points-per-position table that used to sit here is gone. It compared
-     two season averages by slot, between the graph and the lineups -- and the
-     lineups directly underneath it already name the actual players with their
-     actual numbers, which is the same comparison made of the real thing rather
-     than of an average. On a phone it was a screen of rows to scroll past to
-     reach them. fcPositional is kept; nothing else calls it yet. */
+     The playoff odds and the trash talk stay OUTSIDE the scroller. Both are
+     about you -- there is no message to send to a game you are not in, and
+     what somebody else's result does to YOUR seeding is the same number on
+     every pane. */
+  const rest=games.filter(m=>m!==g);
+  const panes=[fcPaneHTML(info,mine,oppId,home?'home':'away')]
+    .concat(rest.map(m=>fcPaneHTML(info,m.home.teamId,m.away.teamId,null)))
+    .filter(Boolean);
+  const dots=panes.length>1
+    ? `<div class="fc-dots" id="fc-dots">${panes.map((_,i)=>
+        `<button class="fc-dot${i===_fcPane?' on':''}" onclick="fcGoTo(${i})"
+          aria-label="Matchup ${i+1} of ${panes.length}"></button>`).join('')}</div>`
+    : '';
 
   /* Both of these fold. What the game does to the season and who is starting
      for whom are things you go and look at, not things you need in front of
@@ -5970,24 +6041,23 @@ function renderForecast(info){
      inside it, so a manager halfway through a message lost it -- and on a
      phone losing focus mid-sentence also drops the keyboard, which reads as
      the app fighting you. Take what is in the box, put it back, and put the
-     caret and the focus back with it. */
+     caret and the focus back with it. The scroller is the same problem in a
+     different shape: it goes back to the pane that was being read. */
   const _ttEl=document.getElementById('tt-text');
   const _ttKeep=_ttEl?{v:_ttEl.value,s:_ttEl.selectionStart,e:_ttEl.selectionEnd,
     f:document.activeElement===_ttEl}:null;
   el.innerHTML=`
-    <div class="fc-head">
-      ${logoImg(meT.id,'big4-logo')}
-      <div class="fc-vs"><div class="fc-wk">Week ${info.week}</div><div class="fc-mu">${home?'vs':'@'} ${nm(oppT)}</div></div>
-      ${logoImg(oppT.id,'big4-logo')}
-    </div>
-    ${bar}
-    <div class="fc-lu">
-      <div class="fc-lu-h">Starting lineups</div>
-      ${fcRosterCompareHTML(info.season,info.week,mine,oppId,ab(meT),ab(oppT),
-        fcLivePlayers(info))}
-    </div>
+    <div class="fc-scroll" id="fc-scroll">${panes.join('')}</div>
+    ${dots}
     ${imp?fcFold('fc-imp','Playoff odds',imp):''}
-    ${ttBoxHTML(fcOppKey(oppT),nm(oppT))}`;
+    ${ttBoxHTML(fcOppKey(oppT),oppT.name)}`;
+  fcBindScroll();
+  const sc=document.getElementById('fc-scroll');
+  if(sc&&_fcPane>0&&_fcPane<panes.length){
+    const pane=sc.children[_fcPane];
+    if(pane) sc.scrollLeft=pane.offsetLeft-sc.offsetLeft;
+  }
+  fcMarkDots(Math.min(_fcPane,panes.length-1));
   if(_ttKeep){
     const n2=document.getElementById('tt-text');
     if(n2){ n2.value=_ttKeep.v;

@@ -2107,6 +2107,23 @@
     /* ── Forecast ──────────────────────────────────────────────────────────
        The line, where the lineups differ by position, and what each result
        would do to the season. */
+    /* ── THE WEEK SCROLLS SIDEWAYS ──────────────────────────────────────────
+       Six matchups, one per pane, yours first. Snapping rather than a carousel:
+       no timers, no transform maths, and a horizontal drag is what a phone does
+       already. The scrollbar is hidden because the dots underneath say where you
+       are and a native bar under a card reads as a mistake. */
+    .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;margin:0 -2px;}
+    .fc-scroll::-webkit-scrollbar{display:none;}
+    .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;padding:0 2px;}
+    .fc-dots{display:flex;justify-content:center;gap:7px;margin:2px 0 14px;}
+    .fc-dot{width:7px;height:7px;border-radius:50%;padding:0;border:0;cursor:pointer;
+      background:var(--text3);opacity:.35;transition:opacity .15s,background .15s,transform .15s;}
+    .fc-dot.on{background:var(--accent);opacity:1;transform:scale(1.25);}
+    .fc-dot:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+    /* somebody else s game names both sides, so it gets two lines to do it in */
+    .fc-mu-two{font-size:13px;line-height:1.25;text-wrap:balance;}
+    .fc-mu-two span{color:var(--text3);font-weight:600;font-size:11px;}
     .fc-head{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px;}
     .fc-vs{text-align:center;min-width:0;}
     .fc-wk{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.6px;

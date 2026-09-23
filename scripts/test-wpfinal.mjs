@@ -115,7 +115,7 @@ ok('and the shim itself is gone', /asPts/.test(src), false);
    archived week draws on. */
 ok('the no-remaining fallback is untouched', /left\s*\*\s*pa/.test(src), true);
 ok('and the forecast card asks whether the week is done',
-  /nflWeekDone\s*\(/.test(grab('function renderForecast(')), true);
+  /nflWeekDone\s*\(/.test(grab('function fcPaneHTML(info,aTid,bTid,mine){')), true);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
