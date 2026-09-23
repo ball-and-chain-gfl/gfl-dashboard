@@ -2113,7 +2113,9 @@
        already. The scrollbar is hidden because the dots underneath say where you
        are and a native bar under a card reads as a mistake. */
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
-      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;}
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;
+      /* the same 10px .fc-fold puts between itself and the message box */
+      margin-bottom:10px;}
     .fc-scroll::-webkit-scrollbar{display:none;}
     /* NO BOX. A container round each matchup was tried -- filled, then inset,
        then raised -- and every version of it fought the thing it was holding:
@@ -2121,6 +2123,9 @@
        scroller clipped because overflow-x:auto clips the other axis too. The
        pane carries layout and nothing else now. The dots say there are six. */
     .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;}
+    /* the lineup block carries margin:0 0 16px, and the gap below the pane is
+       the scroller's job now, not its last child's */
+    .fc-pane>*:last-child{margin-bottom:0;}
     /* EQUIDISTANT, AND THE MEASUREMENT IS NOT THE ONE IT LOOKS LIKE. The line
        under a homepage heading is a ::after sitting 24px up from the bottom of
        .sec-head, and the dots begin at that bottom edge -- so there is already

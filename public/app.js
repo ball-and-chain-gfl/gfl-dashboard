@@ -5992,6 +5992,24 @@ function fcMarkDots(i){
   const d=document.getElementById('fc-dots'); if(!d) return;
   [...d.children].forEach((b,n)=>b.classList.toggle('on',n===i));
 }
+/* ── THE SCROLLER IS AS TALL AS THE PANE YOU ARE ON ──────────────────────────
+   A flex row is as tall as its tallest item, and these are not the same
+   height: fcRosterCompareHTML draws min(A,B) rows, so a matchup where one side
+   has fewer starters is a shorter pane. Left alone, the shortest pane finished
+   forty-four pixels above the playoff odds while the tallest finished ten
+   above it -- the same fold sitting at a different distance depending on which
+   game you had swiped to.
+
+   Measured off the pane rather than set in CSS because only the browser knows
+   how tall a lineup came out. */
+function fcFitHeight(){
+  const sc=document.getElementById('fc-scroll'); if(!sc) return;
+  const p=sc.children[Math.min(_fcPane,sc.children.length-1)];
+  if(p) sc.style.height=p.offsetHeight+'px';
+}
+let _fcRsz=null;
+window.addEventListener('resize',()=>{ clearTimeout(_fcRsz);
+  _fcRsz=setTimeout(()=>{ try{ fcFitHeight(); }catch(e){} },150); });
 /* The scroller is rebuilt on every live poll, so the listener goes on with it
    and the pane you were reading is restored rather than snapping back to your
    own game every few minutes. */
@@ -6002,7 +6020,7 @@ function fcBindScroll(){
     clearTimeout(t);
     t=setTimeout(()=>{
       const i=fcNearest(sc);
-      _fcPane=i; fcMarkDots(i);
+      _fcPane=i; fcMarkDots(i); fcFitHeight();
     },80);
   },{passive:true});
 }
@@ -6083,6 +6101,7 @@ function renderForecast(info){
     if(pane) sc.scrollLeft=pane.offsetLeft-sc.offsetLeft;
   }
   fcMarkDots(Math.min(_fcPane,panes.length-1));
+  fcFitHeight();
   if(_ttKeep){
     const n2=document.getElementById('tt-text');
     if(n2){ n2.value=_ttKeep.v;
