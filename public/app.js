@@ -19401,7 +19401,7 @@ function sbWeekHTML(){
       </button>
       <div class="sb-rows"><div class="sb-rows-in">
         <div class="sb-msub-in">${d.live
-          ? `Lines for the upcoming week — moneyline, spread and combined total.`
+          ? `Lines for the upcoming week — moneyline and spread, both sides of each.`
           : `The ${d.season} season is complete, so week ${d.week}'s board is shown settled against what actually happened.`}</div>
         <div class="wk-list">${games||'<div class="sb-msub" style="padding:12px 14px">No games found for this week.</div>'}</div>
       </div></div>
