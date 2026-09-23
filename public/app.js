@@ -18497,7 +18497,7 @@ function sbMarketHTML(m){
       <i class="fa fa-chevron-down sb-mchev"></i>
     </button>
     <div class="sb-rows"><div class="sb-rows-in">
-      <div class="sb-msub-in">${m.sub}</div>${head}${rows}
+      ${m.sub?`<div class="sb-msub-in">${m.sub}</div>`:''}${head}${rows}
     </div></div>
   </div>`;
 }
@@ -19507,7 +19507,9 @@ function sbWeekMarkets(book,games,week){
 const SB_DUEL={
   season:'2026', week:3,
   title:"Whos Got More Sauce",
-  sub:"Two running backs, one week, no help from anybody else. Settles on started scores.",
+  /* No blurb. The two headshots, their slots and the price say all of it, and
+     a sentence under the title of a market with two rows in it is furniture. */
+  sub:"",
   pids:[3054850,4239996],        // Alvin Kamara, Travis Etienne Jr.
 };
 function sbDuelSide(book,rost,proj,pid){
@@ -19541,7 +19543,7 @@ function sbDuelMarket(book,week){
   const key='wk'+week+'-pe'+pids.join('_');
   const probs=sbTopProbs(sides.map(s=>s.wk),week*104729+61);
   return sbOutrightAny(key,SB_DUEL.title,
-    SB_DUEL.sub+' Projected '+sides.map(s=>s.wk.toFixed(1)).join(' and ')+' this week.',
+    SB_DUEL.sub,
     sides.map(s=>({k:'p'+s.pid,name:s.name,
       av:playerImg(s.pid,22,s.name),
       ab:s.pos+' \u00b7 '+s.team+(s.benched?' \u00b7 benched':'')})),
@@ -19665,20 +19667,15 @@ function sbWeekHTML(){
         ${pick.map(sbMarketHTML).join('')}
       </div></div>
     </div>`:'';
-  /* Its own fold, under the matchups and above the Pick 'Em, because it is one
-     question rather than a set of them. */
+  /* ONE MARKET IS ONE FOLD, AND sbMarketHTML ALREADY BUILDS IT.
+
+     This was wrapped in a fold of its own, the way the Pick 'Em block wraps
+     its five groups -- and five markets behind one title is a real grouping,
+     whereas one market behind one title is the same dropdown twice: open the
+     outer one and the only thing inside it is another closed bar with the same
+     name on it. The market's own header is the header. */
   const duel=d.duel;
-  const duOpen=!!_sbOpenMk['wk-duel'];
-  const duelHTML=duel?`<div class="sb-market sb-fold sb-pickem${duOpen?' open':''}" data-mk="wk-duel">
-      <button class="sb-mhead" onclick="sbToggleMk('wk-duel')" aria-expanded="${duOpen}">
-        <span class="sb-mt"><i class="fa fa-user-check"></i>${duel.title}</span>
-        <span class="badge-info">head to head</span>
-        <i class="fa fa-chevron-down sb-mchev"></i>
-      </button>
-      <div class="sb-rows"><div class="sb-rows-in">
-        ${sbMarketHTML(duel)}
-      </div></div>
-    </div>`:'';
+  const duelHTML=duel?sbMarketHTML(duel):'';
   const wkOpen=!!_sbOpenMk['wk-board'];
   return `<div class="sb-market sb-fold${wkOpen?' open':''}" data-mk="wk-board">
       <button class="sb-mhead" onclick="sbToggleMk('wk-board')" aria-expanded="${wkOpen}">
