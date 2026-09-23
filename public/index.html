@@ -2113,7 +2113,17 @@
        already. The scrollbar is hidden because the dots underneath say where you
        are and a native bar under a card reads as a mistake. */
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
-      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;margin-bottom:12px;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;
+      /* ROOM FOR A SHADOW THAT HANGS OUTSIDE THE BOX. overflow-x:auto makes
+         this a scroll container on BOTH axes -- overflow-y:hidden does not mean
+         'let it spill', it means 'clip it' -- so the tallest pane's bottom edge
+         sat exactly on the clip line and anything drawn past it was cut. That
+         is why there was no shadow along the bottom and only along the bottom.
+
+         The padding gives the shadow somewhere to land inside the clip box and
+         the negative margin takes the same amount back off the layout, so the
+         gap to the playoff odds below is the 12px it was. */
+      padding:8px 0 20px;margin-bottom:-8px;
       /* EACH BOX ENDS WHERE ITS CONTENT ENDS. A flex row stretches every item
          to the tallest of them, so the shortest pane carried forty pixels of
          slack under its last row and read as bottom-heavy however even the
@@ -2127,14 +2137,16 @@
        as a rendering fault rather than as a card. A container does the same job
        honestly: one box, one game, and visibly not the only one. Same treatment
        as .fc-fold below it, so the card reads as one family. */
-    /* INSET RATHER THAN FILLED. A flat black panel sat ON the card; the same
-       shadow the buttons use when they are pressed sinks it INTO it, which is
-       what a container holding one of six things should look like. Same recipe
-       as --btn-edge-active, softened. */
+    /* RAISED, NOT RECESSED. Cast outward the way .big4-team does, so the pane
+       sits on the card rather than in it.
+
+       It needs a surface to cast FROM: a drop shadow on a fully transparent box
+       renders a dark halo around nothing, which on a dark card is no box at
+       all. This is the faintest lift that reads -- a long way off the flat
+       black panel it started as, and enough for the edge to exist. */
     .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;
-      border-radius:10px;padding:40px 13px;
-      box-shadow:inset 0 2px 5px rgba(0,0,0,0.5),inset 0 0 0 1px rgba(0,0,0,0.25),
-        inset 0 -1px 0 rgba(255,255,255,0.05);}
+      border-radius:10px;padding:40px 13px;background:rgba(255,255,255,0.025);
+      box-shadow:0 14px 30px -16px rgba(0,0,0,0.85),0 0 0 1px rgba(255,255,255,0.05);}
     /* the lineup block carries margin:0 0 16px, which landed on top of the
        padding and made the bottom of the box half again the top */
     .fc-pane>*:last-child{margin-bottom:0;}
@@ -2143,7 +2155,9 @@
        .sec-head, and the dots begin at that bottom edge -- so there was already
        24px above them and only 11 below. The bottom margin matches the rule's
        own offset; change one and the other has to follow. */
-    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:24px;}
+    /* 24px above and below, and the 8px of scroller padding under this counts
+       toward the lower one -- see .fc-scroll. */
+    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:16px;}
     .fc-dot{width:7px;height:7px;border-radius:50%;padding:0;border:0;cursor:pointer;
       background:var(--text3);opacity:.35;transition:opacity .15s,background .15s,transform .15s;}
     .fc-dot.on{background:var(--accent);opacity:1;transform:scale(1.25);}
