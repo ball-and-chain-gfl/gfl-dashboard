@@ -20035,16 +20035,12 @@ function invBoardHTML(){
      the balance, so the limit is enforced where it is felt. */
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
     ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}
-    <div class="iv-mode" role="group" aria-label="Which side of the market">
-      <span class="iv-mode-l">Trade</span>
-      <button class="iv-mb${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">Stocks</button>
-      <button class="iv-mb iv-mb-sh${short?' on':''}" onclick="invSetSide('short')" aria-pressed="${short}">Shorts</button>
+    <div class="iv-seg" data-on="${short?'short':'long'}" role="group"
+        aria-label="Which side of the market">
+      <span class="iv-seg-th" aria-hidden="true"></span>
+      <button class="iv-seg-b${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">Stocks</button>
+      <button class="iv-seg-b${short?' on':''}" onclick="invSetSide('short')" aria-pressed="${short}">Shorts</button>
     </div>
-    ${short?`<div class="iv-note"><i class="fa fa-arrow-trend-down"></i><span>
-      <b>You are shorting.</b> A short pays when the price FALLS, and costs you
-      when it rises. Opening one holds aside its worst case — the gap between
-      today's price and the ${invFmt(INV_CEIL)} cap — and hands it back when you
-      cover. That cap is the most a short can ever lose you.</span></div>`:''}
     <div class="iv-mode" role="group" aria-label="How to size the trade">
       <span class="iv-mode-l">${short?'Size in':'Buy in'}</span>
       <button class="iv-mb${amt?'':' on'}" onclick="invSetMode('sh')" aria-pressed="${!amt}">Shares</button>
@@ -20129,6 +20125,21 @@ function invPortfolioHTML(){
        posted against -- the row must not show a loss the cover cannot charge */
     const mark=invCap(px);
     const gain=(cb-mark)*sh, pct=cb?((cb-mark)/cb*100):0;
+    /* ── THE COLOUR BELONGS TO THE SHARE, NOT TO THE SIDE YOU TOOK ────────
+       There is one price, and the short and the long are sold off the same
+       board at the same number -- all that differs is which direction pays.
+       So green means this share went UP and red means it went DOWN, on both
+       views, always, and a team is never one colour on the market and the
+       other in the portfolio.
+
+       Which does mean a short that is winning prints red. That is the point of
+       it rather than a side effect: the share fell, the arrow points down, and
+       the SIGN on the money says whose favour it went in. Colouring by profit
+       instead would have the Investments board calling a team green while the
+       portfolio called the same team, at the same price, red.
+
+       gain > 0 means the price fell, so the row reads down. */
+    const fell=gain>0, rose=gain<0;
     const q=Math.min(sh,_invQty['c_'+o]||0);
     return `<div class="iv-card iv-card-sh" data-o="${o}" data-px="${px}" data-k="sc">
       <div class="iv-top">
@@ -20136,8 +20147,8 @@ function invPortfolioHTML(){
         <span class="iv-n"><span class="iv-nm-row">${nm}<span class="iv-tag-sh">Short</span></span>
           <span class="iv-held">${invShFmt(sh)} short · from ${invFmt(cb)} · now ${invFmt(mark)}</span></span>
         <span class="iv-px">
-          <span class="iv-px-v ${gain>0?'up':gain<0?'dn':''}">${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}</span>
-          <span class="iv-chg ${gain>0?'up':gain<0?'dn':'flat'}">${gain>0?'▲':gain<0?'▼':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
+          <span class="iv-px-v ${fell?'dn':rose?'up':''}">${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}</span>
+          <span class="iv-chg ${fell?'dn':rose?'up':'flat'}">${fell?'▼':rose?'▲':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
         </span>
       </div>
       <div class="iv-buy">
