@@ -2113,7 +2113,13 @@
        already. The scrollbar is hidden because the dots underneath say where you
        are and a native bar under a card reads as a mistake. */
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
-      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;margin-bottom:12px;}
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;margin-bottom:12px;
+      /* EACH BOX ENDS WHERE ITS CONTENT ENDS. A flex row stretches every item
+         to the tallest of them, so the shortest pane carried forty pixels of
+         slack under its last row and read as bottom-heavy however even the
+         padding was. The scroller still takes its height from the tallest, so
+         nothing below it moves as you swipe -- only the box stops short. */
+      align-items:flex-start;}
     .fc-scroll::-webkit-scrollbar{display:none;}
     /* EACH MATCHUP IS ITS OWN BOX. A peek at the next pane was tried first and
        came out -- every pane is the same height and top-aligned, so the sliver
