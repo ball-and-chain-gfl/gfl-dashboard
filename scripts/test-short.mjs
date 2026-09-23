@@ -232,5 +232,26 @@ head('8. rubbish in the ledger does not become money');
   ok('a cover against no position does nothing',             M.invRealised(), 0);
 }
 
+/* ── 9 ─────────────────────────────────────────────────────────────────── */
+head('9. the card can show its own arithmetic');
+{
+  /* THE NUMBER ON THE BUTTON HAS TO BE THE ONE UNDER THE NAME, TIMES THE
+     QUANTITY. A short card prints the price ($10.17), a per-share figure
+     (invCollat(1, px)) and a button total (invCollat(n, px)) -- and the whole
+     point of printing the middle one is that the reader can get from the first
+     to the last. Shipped without it, the button read $14.83 beside a $10.17
+     price and the only available reading was that the board was quoting two
+     different prices for one share. It was read exactly that way. */
+  const px = 10.17;
+  const per = M.invCollat(1, px);
+  ok('one share at 10.17 holds the gap to the cap', per, CEIL - px);
+  [1, 2, 3, 0.5, 12.75].forEach(n =>
+    ok('  x' + n + ' is exactly n times that', M.invCollat(n, px), per * n, 1e-9));
+
+  /* and at the cap it is nothing, which is why opening one there is refused */
+  ok('at the cap there is no worst case left to post', M.invCollat(1, CEIL), 0);
+  ok('and above it, still none',                       M.invCollat(1, CEIL + 5), 0);
+}
+
 console.log(NL + pass + ' passed, ' + fail + ' failed');
 process.exitCode = fail ? 1 : 0;

@@ -20020,15 +20020,25 @@ function invBoardHTML(){
       </div>
     </div>`;
   };
-  /* On the short side the line under a name says what you are already short,
-     not what you hold -- two different positions, and the one the card is
-     about is the one worth printing on it. */
-  const heldSub=o=>short
-    ? (sold[o]?invShFmt(sold[o])+' short':'')
+  /* ── AND IT SAYS WHAT THE NUMBER ON THE BUTTON IS ──────────────────────
+     A Buy button reads $10.17 beside a $10.17 price and needs no explaining.
+     A Short button reads $14.83 beside that same $10.17 price, because what
+     leaves the balance is the collateral and not the price -- and with nothing
+     on the card saying so, the only available reading is that the board is
+     quoting two different prices for one share. It was read exactly that way.
+
+     So the per-share figure goes under the name, where the holding goes on the
+     other side, and the button's total is then just that times the quantity.
+
+     On the short side this line is about the short and never the holding: they
+     are two different positions and the one the card is about is the one worth
+     printing on it. */
+  const heldSub=(o,px)=>short
+    ? (sold[o]?invShFmt(sold[o])+' short · ':'')+invFmt(invCollat(1,px))+' held per share'
     : (own[o]?invShFmt(own[o])+' held':'');
   const funds=(b.funds||[]).map(f=>card(f,invFundCrest(f.members),
-    `${f.members.length} teams${heldSub(f.owner)?' · '+heldSub(f.owner):''}`)).join('');
-  const rows=b.list.map(x=>card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner))).join('');
+    `${f.members.length} teams${heldSub(f.owner,f.price)?' · '+heldSub(f.owner,f.price):''}`)).join('');
+  const rows=b.list.map(x=>card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner,x.price))).join('');
   /* No cash line at the top. The balance is in the nav on this page, a few
      inches above where this strip used to sit, and two copies of one number on
      one screen is one too many. The Buy button still disables itself against
@@ -20145,7 +20155,7 @@ function invPortfolioHTML(){
       <div class="iv-top">
         <span class="iv-c">${crest}</span>
         <span class="iv-n"><span class="iv-nm-row">${nm}<span class="iv-tag-sh">Short</span></span>
-          <span class="iv-held">${invShFmt(sh)} short · from ${invFmt(cb)} · now ${invFmt(mark)}</span></span>
+          <span class="iv-held">${invShFmt(sh)} short · from ${invFmt(cb)} · ${invFmt(invCollat(sh,px))} held</span></span>
         <span class="iv-px">
           <span class="iv-px-v ${fell?'dn':rose?'up':''}">${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}</span>
           <span class="iv-chg ${fell?'dn':rose?'up':'flat'}">${fell?'▼':rose?'▲':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
