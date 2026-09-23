@@ -126,6 +126,9 @@ function setRosters(wk,r){ _rosters[wk]=r; }
 function dropRosters(wk){ delete _rosters[wk]; }
 function sbRosters(season,wk){ return _rosters[wk]||null; }
 const SB_BENCH_SLOTS=[20,21,24];
+/* the waiver-wire fill for an empty slot is its own question and has its own
+   cases in scripts/test-projection.mjs; here a lineup is worth what it holds */
+const sbReplLevel=()=>({});
 const SB_WK_SD=26;
 const BASE='/api/espn';
 let _activeTab='week';

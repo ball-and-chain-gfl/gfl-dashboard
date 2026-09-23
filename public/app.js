@@ -9349,7 +9349,7 @@ function schedEspnProj(week){
     if(!es.length||!es.some(e=>Number(e.wkProj)>0)) return;
     const v=setWeek
       ? es.filter(e=>!SB_BENCH_SLOTS.includes(Number(e.slot))).reduce((a,e)=>a+projOf(e),0)
-      : sbBestLineup(es,projOf,e=>Number(e.pos)||0,shape);
+      : sbBestLineup(es,projOf,e=>Number(e.pos)||0,shape,sbReplLevel(wk));
     if(v>0){ map[o]=v; any=true; }
   });
   const out=any?map:null;
@@ -11085,7 +11085,48 @@ function sbSlotShape(meta){
   return Object.values(shape).some(v=>v>0)?shape:LINEUP_SHAPE_FALLBACK;
 }
 /* posOf answers ESPN's defaultPositionId: 1 QB, 2 RB, 3 WR, 4 TE, 5 K, 16 D/ST */
-function sbBestLineup(entries,projOf,posOf,shape){
+/* ── WHAT A HOLE IN A LINEUP IS ACTUALLY WORTH ───────────────────────────────
+   The top five free agents at a position, averaged: what a manager would have
+   on the field by Sunday if they had to go and get one.
+
+   Rostered pids come out first, so this is genuinely what is available rather
+   than what is good. Five rather than one, because the single best free agent
+   is a name somebody would have claimed already and pricing off him assumes a
+   waiver you have not won.
+
+   Memoised on the season, the week AND how many players are rostered, so a
+   roster feed landing or a waiver processing rebuilds it rather than serving
+   a stale pool. */
+const SB_REPL_N=5;
+let _sbRepl={};
+function sbReplLevel(week){
+  const key=String(sbBoardSeason())+':'+week;
+  let rost=null;
+  try{ rost=_sbRosters[key]; }catch(e){}
+  if(!rost) return {};
+  const proj=sbPlayerProj(week);
+  if(!proj) return {};
+  let held=0;
+  const owned={};
+  Object.keys(rost).forEach(t=>(rost[t]||[]).forEach(e=>{
+    if(e&&e.pid!=null){ owned[String(e.pid)]=1; held++; } }));
+  const memo=key+':'+held;
+  if(_sbRepl[memo]) return _sbRepl[memo];
+  const by={};
+  Object.keys(proj).forEach(pid=>{
+    if(owned[pid]) return;
+    const p=proj[pid], pos=Number(p&&p.pos)||0;
+    if(!pos) return;
+    (by[pos]||(by[pos]=[])).push(Math.max(0,Number(p.wk)||0));
+  });
+  const out={};
+  Object.keys(by).forEach(pos=>{
+    const a=by[pos].sort((x,y)=>y-x).slice(0,SB_REPL_N);
+    if(a.length) out[pos]=a.reduce((t,v)=>t+v,0)/a.length;
+  });
+  return (_sbRepl[memo]=out);
+}
+function sbBestLineup(entries,projOf,posOf,shape,repl){
   const by={1:[],2:[],3:[],4:[],5:[],16:[]};
   (entries||[]).forEach(e=>{
     const p=posOf(e);
@@ -11093,16 +11134,36 @@ function sbBestLineup(entries,projOf,posOf,shape){
   });
   Object.keys(by).forEach(k=>by[k].sort((a,b)=>b-a));
   let total=0;
-  const take=(pos,n)=>{ const a=by[pos]; for(let i=0;i<n&&a.length;i++) total+=a.shift(); };
+  /* ── A STARTING SLOT IS NEVER WORTH NOTHING ─────────────────────────────────
+     A slot that cannot be filled scored zero, and so did one filled by a player
+     ESPN projects at zero -- an injury, a bye, a man who is not going to play.
+     The Tinglers hold one quarterback, Jayden Daniels at 0.0 in week 3 and no
+     backup, so the board priced them as a team fielding nobody there: 107.65
+     against Motor City's 115.82, an eight point spread.
+
+     Nobody fields nobody. They pick a quarterback up, and the board should
+     price the team they will actually put out. A zero slot is worth what the
+     waiver wire is worth at that position -- see sbReplLevel -- which for a
+     quarterback in week 3 is 15.4, and turns that eight point spread into
+     roughly a pick 'em.
+
+     Only zeros. A real starter who happens to be projected below replacement
+     is left exactly where he is: whether a manager WOULD upgrade him is a
+     different question from whether they have anybody to play at all. */
+  const R=p=>Math.max(0,Number(repl&&repl[p])||0);
+  const take=(pos,n)=>{ const a=by[pos];
+    for(let i=0;i<n;i++){ const v=a.length?a.shift():0; total+=v>0?v:R(pos); } };
   take(1,shape.qb); take(2,shape.rb); take(3,shape.wr); take(4,shape.te);
   take(16,shape.dst); take(5,shape.k);
   /* FLEX takes the best of whatever running back, receiver or tight end is left
-     once the named slots are filled. */
+     once the named slots are filled -- and where there is nothing left worth
+     starting, the best of what those three positions are worth off the wire. */
   for(let i=0;i<shape.flex;i++){
     let bestPos=null,bestVal=-1;
     [2,3,4].forEach(p=>{ if(by[p].length&&by[p][0]>bestVal){ bestVal=by[p][0]; bestPos=p; } });
-    if(bestPos==null) break;
-    total+=by[bestPos].shift();
+    if(bestPos!=null&&bestVal>0){ total+=by[bestPos].shift(); continue; }
+    if(bestPos!=null) by[bestPos].shift();      // a zero we declined to start
+    total+=Math.max(R(2),R(3),R(4));
   }
   return total;
 }
@@ -11342,7 +11403,7 @@ function sbTeamWeek(tid,week,season,meta,banked,started){
      rather than pricing everything at zero. */
   if(!es.some(e=>Number(e.wkProj)>0)) return null;
   if(!started){
-    const full=sbBestLineup(es,projOf,posOf,sbSlotShape(meta));
+    const full=sbBestLineup(es,projOf,posOf,sbSlotShape(meta),sbReplLevel(week));
     return {exp:full,left:full,full};
   }
   const starters=es.filter(e=>!SB_BENCH_SLOTS.includes(Number(e.slot)));
@@ -12499,9 +12560,15 @@ async function invTrade(owner,shares,sell){
        and the clamp below is what makes that safe -- nothing can be sold that
        is not held, whatever was typed. */
     if(n>have+INV_Q){ _invErr='You only hold '+invShFmt(have)+'.'; renderBook(); return; }
-    /* a sale for all of it must leave nothing behind — rounding a fractional
-       holding down would strand dust nobody can ever sell */
+    /* A SALE FOR ALL OF IT LEAVES NOTHING BEHIND.
+
+       Holdings carry whatever precision the arithmetic gave them -- 5.41158 --
+       while a request is quantised to two places. Selling 5.41 against that
+       would strand 0.00158 of a share that no later request can ever name,
+       because every request rounds to the hundredth. So a request that comes
+       within one quantum of the whole holding IS the whole holding. */
     n=Math.min(n,have);
+    if(have-n<INV_Q) n=have;
   } else if(n*px>bucksBalance()+1e-6){
     _invErr='Not enough GFL Bucks for that.'; renderBook(); return;
   }
@@ -19512,17 +19579,18 @@ function renderBetsBar(){
 let _invQty={};              // shares typed on a card ('s_'+owner for a sell)
 let _invCash={};             // dollars typed on a card, when buying by amount
 let _invMode='sh';           // 'sh' buys a share count, 'amt' buys an amount
-/* Share counts are quantised to four places. INV_Q is that step, and it is
-   the tolerance every comparison against a holding has to carry: a holding of
-   5.4115850000000005 ROUNDS UP to 5.4116, which is larger than the holding
-   itself. */
-const INV_Q=1e-4;
-const invRound=v=>Math.max(0,Math.round((Number(v)||0)*1e4)/1e4);
+/* Share counts are quantised to two places -- 5.4116 shares is a number
+   nobody reads, and the fourth decimal of a share is worth a hundredth of a
+   cent. INV_Q is that step, and it is the tolerance every comparison against a
+   holding has to carry, because the rounding that prints a holding can land
+   ABOVE the holding itself. */
+const INV_Q=1e-2;
+const invRound=v=>Math.max(0,Math.round((Number(v)||0)*100)/100);
 /* whole numbers stay whole; fractions show what they are and no more */
 const invShFmt=v=>{
   const n=Number(v)||0;
   if(Math.abs(n-Math.round(n))<1e-6) return String(Math.round(n));
-  return n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  return n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
 };
 function invSetMode(m){ _invMode=m==='amt'?'amt':'sh'; _invErr=''; renderBook(); }
 function invSetQty(o,v,cap){

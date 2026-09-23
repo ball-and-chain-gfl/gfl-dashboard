@@ -46,6 +46,9 @@ const nflWeekGames=(w)=>{
   return _NFL;
 };
 const sbBoardSeason=()=>_SEASON;
+/* the replacement-level fill is its own question and has its own cases in
+   scripts/test-projection.mjs; here a lineup is worth exactly what it holds */
+const sbReplLevel=()=>({});
 const weekHasStarted=()=>_STARTED;
 const BASE='', _activeTab='book';
 /* the week the share market is asked about — invWeekNow reads liveWeekInfo in
@@ -58,7 +61,7 @@ ${grab('const SB_WK_MIN_LEFT=')}
 ${grab('const SB_BENCH_SLOTS=')}
 ${grab('const LINEUP_SHAPE_FALLBACK=')}
 ${grab('function sbSlotShape(meta){')}
-${grab('function sbBestLineup(entries,projOf,posOf,shape){')}
+${grab('function sbBestLineup(entries,projOf,posOf,shape,repl){')}
 ${grab('function nflTeamState(proTeamId,week,season){')}
 ${grab('const nflWeekLive=')}
 ${grab('const nflWeekBegun=')}

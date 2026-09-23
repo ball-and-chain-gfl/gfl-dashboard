@@ -77,7 +77,7 @@ function grab(startsWith) {
 }
 
 const api = new Function(`
-${grab('function sbBestLineup(entries,projOf,posOf,shape){')}
+${grab('function sbBestLineup(entries,projOf,posOf,shape,repl){')}
 ${grab('const INV_PROJ_MAX=')}
 ${grab('const INV_PROJ_MIN=')}
 ${grab('const INV_PROJ_POW=')}
@@ -340,6 +340,70 @@ console.log('\n10. the two exponents COMPOUND, and the floor is where that ends'
   eq('and the real one is not', realBoard.every(v => v > 3), true);
   eq('its mean IS the base price',
      near(realBoard.reduce((a, b) => a + b, 0) / 12, api.INV_BASE, 0.02), true);
+}
+
+/* ── A STARTING SLOT IS NEVER WORTH NOTHING ──────────────────────────────────
+   A slot with nobody in it scored zero, and so did one filled by a player ESPN
+   projects at zero — an injury, a bye, a man who is not going to play. The
+   Tinglers hold one quarterback, Jayden Daniels at 0.0 in week 3 and no backup,
+   so the board priced them as a team fielding nobody there: 107.65 against
+   Motor City's 115.82, an eight point spread on a hole in the roster.
+
+   Nobody fields nobody. A zero slot is worth what the wire is worth at that
+   position, which sbReplLevel puts at the top five free agents averaged. */
+console.log('\n8. a hole in the lineup is priced off the waiver wire');
+{
+  const REPL = { 1: 15.4, 2: 7.1, 3: 8.2, 4: 8.15, 5: 7.7, 16: 5.6 };
+  const one = (spec, repl) => api.sbBestLineup(
+    roster(Object.fromEntries(Object.entries(spec).map(([n, [p, v]]) => [n, [p, { 1: v }]])))
+      .map(p => ({ ...p, v: p.weeks[1] })),
+    e => e.v, e => e.pos, SHAPE, repl);
+
+  const FULL = 20 + 18 + 14 + 17 + 13 + 10 + 8 + 9 + 12;
+
+  /* the control: a complete roster is untouched by any of this */
+  eq('a full lineup is worth exactly what it holds',
+    one(NINE, REPL), FULL);
+  eq('and the same with no replacement table at all',
+    one(NINE, undefined), FULL);
+
+  /* the Tinglers: a quarterback on the roster, projected nothing */
+  const hurt = { ...NINE, qb: ['QB', 0] };
+  eq('a zero at quarterback used to cost the whole slot',
+    one(hurt, undefined), FULL - 20);
+  eq('now it is worth the wire', one(hurt, REPL), FULL - 20 + 15.4);
+
+  /* and no quarterback at all is the same situation */
+  const none = { ...NINE }; delete none.qb;
+  eq('no quarterback on the roster reads the same',
+    one(none, REPL), FULL - 20 + 15.4);
+
+  /* it is not quarterback-specific */
+  eq('a zero kicker takes the kicker wire',
+    one({ ...NINE, k: ['K', 0] }, REPL), FULL - 9 + 7.7);
+  eq('a zero defence takes the defence wire',
+    one({ ...NINE, dst: ['DST', 0] }, REPL), FULL - 8 + 5.6);
+
+  /* the flex is allowed three positions, so it takes the best of the three */
+  const noFlex = { ...NINE }; delete noFlex.flex;
+  eq('an unfillable flex takes the best of RB, WR and TE',
+    one(noFlex, REPL), FULL - 12 + 8.2);
+
+  /* a real starter below replacement is LEFT ALONE. Whether a manager would
+     upgrade him is a different question from whether they have anybody at all,
+     and answering it here would lift every thin roster in the league. */
+  eq('a poor but real starter is not topped up',
+    one({ ...NINE, te: ['TE', 2] }, REPL), FULL - 10 + 2);
+
+  /* a bench player covers the hole before the wire does */
+  eq('a backup on the bench is used first',
+    one({ ...NINE, qb: ['QB', 0], qb2: ['QB', 11] }, REPL), FULL - 20 + 11);
+  eq('even a bad one, if he is better than nothing',
+    one({ ...NINE, qb: ['QB', 0], qb2: ['QB', 3] }, REPL), FULL - 20 + 3);
+
+  /* a position missing from the table is still worth nothing rather than NaN */
+  eq('no entry for the position falls back to zero',
+    one({ ...NINE, qb: ['QB', 0] }, { 2: 7.1 }), FULL - 20);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
