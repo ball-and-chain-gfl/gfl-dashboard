@@ -1341,6 +1341,69 @@
        card grows by a line; the alternative was dropping the player's name,
        which is the one thing on the card that a ticker like BILL Coin does
        not tell you. */
+    /* ── A COIN IS STRUCK METAL, AND THE CARD HAS TO SAY SO ────────────────
+       Fourteen team shares and fourteen coins traded on identical cards, which
+       left the Coins board looking like the Investments board with different
+       names on it. They are not the same instrument: one is a franchise and one
+       is a player, they price off completely different arithmetic, and they
+       settle against different ceilings. The container is where that gets said.
+
+       WHAT MAKES IT READ AS A COIN is three things, and none of them is the
+       colour: a struck face, where the light comes from a point above the card
+       rather than running across it; a raised rim inside the outer edge; and
+       milling down both sides -- the reeding round the edge of a minted coin,
+       which is the one detail nobody mistakes for anything else. The headshot
+       is already a circle, so it only wants the metal round it to become the
+       device on the face.
+
+       AND THE HUE IS STILL THE SIDE OF THE TRADE. --ivc is untouched: blue for
+       a holding, orange for a short. That distinction is load-bearing -- it is
+       the only thing separating two cards that carry the same face, the same
+       price and the same controls and bet in opposite directions -- and a gold
+       card that swallowed it would look lovely and sell the wrong position. So
+       the metal is a SECOND token, --ivm, and it only ever paints the rim, the
+       milling and the ring. A coin short is orange metal; a coin is blue. */
+    .iv-card-coin{--ivm:201,161,77;
+      border-radius:13px;
+      border-color:rgba(var(--ivm),0.28);
+      background:
+        radial-gradient(125% 150% at 18% -30%,rgba(255,242,212,0.13) 0%,transparent 55%),
+        linear-gradient(100deg,
+          rgba(var(--ivc),0.18) 0%,
+          rgba(var(--ivc),0.05) 24%,
+          rgba(var(--ivm),0.11) 58%,
+          rgba(var(--ivm),0.05) 100%),
+        linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.34)),
+        #0a0806;
+      box-shadow:inset 0 0 0 1px rgba(var(--ivm),0.15),
+                 inset 0 1px 0 rgba(255,243,214,0.09);}
+    /* THE REEDING. Two strips, one down each edge, on the free pseudo-element
+       -- ::after is already carrying the brushed texture every card has. Faded
+       out top and bottom so the milling reads as the curve of an edge rather
+       than as a pair of dashed borders. */
+    .iv-card-coin::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+      background-image:
+        repeating-linear-gradient(180deg,rgba(var(--ivm),0.30) 0 2px,transparent 2px 4px),
+        repeating-linear-gradient(180deg,rgba(var(--ivm),0.30) 0 2px,transparent 2px 4px);
+      background-size:4px 100%,4px 100%;
+      background-position:left top,right top;
+      background-repeat:no-repeat;
+      -webkit-mask-image:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent);
+              mask-image:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent);}
+    /* and the grain runs round the face rather than diagonally across it */
+    .iv-card-coin::after{
+      background:repeating-linear-gradient(90deg,
+        rgba(255,242,212,0.022) 0 1px,transparent 1px 3px);
+      -webkit-mask-image:radial-gradient(78% 130% at 50% -8%,#000 0%,transparent 76%);
+              mask-image:radial-gradient(78% 130% at 50% -8%,#000 0%,transparent 76%);}
+    /* the ring wants a little more room than a crest does */
+    .iv-card-coin .iv-top{gap:12px;}
+    .iv-card-coin .iv-c .phs{
+      box-shadow:0 0 0 1.5px rgba(var(--ivm),0.5),0 0 0 3px rgba(0,0,0,0.5);}
+    /* the denomination, struck in the same metal as the rim. The arrow under it
+       keeps its own green and red -- that is the day's move and not the face. */
+    .iv-card-coin .iv-px-v{color:#e9d3a2;text-shadow:0 1px 0 rgba(0,0,0,0.55);}
+    .iv-card-coin .iv-step{border-color:rgba(var(--ivm),0.2);}
     .iv-card-coin .iv-n{white-space:normal;}
     .iv-card-coin .iv-held{white-space:normal;line-height:1.35;}
     /* the action takes the card's own colour, so Buy reads blue and Short
@@ -2302,7 +2365,21 @@
        one more edge inside a card that already has edges, and a bottom that the
        scroller clipped because overflow-x:auto clips the other axis too. The
        pane carries layout and nothing else now. The dots say there are six. */
-    .fc-pane{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;}
+    /* ── AND IT HAS TO LEAVE ROOM FOR WHAT HANGS OFF THE CREST ──────────────
+       The poll badge sits on the outside corner of each crest, five pixels
+       above it. .fc-scroll is overflow-x:auto, which forces the OTHER axis to
+       non-visible whatever it is set to -- so those five pixels were sheared
+       clean off the top of both badges, measured and confirmed: the badge's top
+       sat at -5 against the scroller's own top edge.
+
+       The room goes on the PANE and not on the scroller, which matters:
+       fcFitHeight clamps the scroller to p.offsetHeight, so padding on the
+       scroller itself would have taken the same five pixels off the bottom
+       instead. On the pane it is inside the height that gets measured.
+
+       The dots above give back what this takes, so nothing below moves. */
+    .fc-pane{flex:0 0 100%;min-width:0;padding-top:7px;
+      scroll-snap-align:start;scroll-snap-stop:always;}
     /* the lineup block carries margin:0 0 16px, and the gap below the pane is
        the scroller's job now, not its last child's */
     .fc-pane>*:last-child{margin-bottom:0;}
@@ -2310,7 +2387,7 @@
        under a homepage heading is a ::after sitting 24px up from the bottom of
        .sec-head, and the dots begin at that bottom edge -- so there is already
        24px above them before anything is written here. */
-    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:24px;}
+    .fc-dots{display:flex;justify-content:center;gap:7px;margin-bottom:17px;}
     .fc-dot{width:7px;height:7px;border-radius:50%;padding:0;border:0;cursor:pointer;
       background:var(--text3);opacity:.35;transition:opacity .15s,background .15s,transform .15s;}
     .fc-dot.on{background:var(--accent);opacity:1;transform:scale(1.25);}

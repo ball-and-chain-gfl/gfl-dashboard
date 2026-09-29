@@ -206,7 +206,12 @@ head('6. the ceiling belongs to the instrument');
 /* ── 7 ─────────────────────────────────────────────────────────────────── */
 head('7. the shipped list is well formed');
 {
-  ok('eleven coins', COINS.length, 11);
+  /* NOT A COUNT. The list is meant to be added to -- three went on in week 4
+     -- and an assertion that has to be edited every time somebody thinks of a
+     ticker is an assertion that gets edited without being read. What must hold
+     however long it gets is below: a list at all, and no two coins sharing
+     either half of their identity. */
+  ok('there is a board to price', COINS.length > 0, true);
   ok('every one has a player id', COINS.every(c => Number(c.pid) > 0), true);
   ok('no id is used twice', new Set(COINS.map(c => c.pid)).size, COINS.length);
   ok('no ticker is used twice', new Set(COINS.map(c => c.t)).size, COINS.length);

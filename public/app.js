@@ -12374,6 +12374,9 @@ const INV_COINS=[
   {t:'CHAMP',   name:'CHAMP Coin',    pid:4429096},   // Blake Corum
   {t:'BILL',    name:'BILL Coin',     pid:4575131},   // Jacory Croskey-Merritt
   {t:'FAT',     name:'FAT Coin',      pid:3126486},   // Deebo Samuel Sr.
+  {t:'ASS',     name:'ASS Coin',      pid:4688813},   // Josh Downs
+  {t:'DAWG',    name:'DAWG Coin',     pid:4241478},   // DeVonta Smith
+  {t:'CLEM',    name:'CLEM Coin',     pid:4239996},   // Travis Etienne Jr.
 ];
 /* positional rank at which a coin is worth a cent. 1 QB, 2 RB, 3 WR, 4 TE. */
 const INV_COIN_CUT={1:32,2:60,3:80,4:40};
