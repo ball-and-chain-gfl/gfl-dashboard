@@ -11357,10 +11357,21 @@ function rosterProjByOwner(season,week){
       const pids=Object.keys(roster);
       if(!pids.length) return;
       let total=0;
+      /* THE FIFTH ARGUMENT WAS MISSING, so a slot nobody can fill was worth
+         nothing here while the weekly board valued the same hole at the waiver
+         wire. Two answers to one question. The league carries 32 of these over
+         the rest of a season -- byes mostly, one to four a team -- and they are
+         worth what a pickup is worth, because nobody fields nobody.
+
+         One level, held across the whole forward sum: sbReplLevel needs that
+         week's rosters and only the weeks actually fetched have them, so a
+         fourteen-week projection would get {} for thirteen of them. The wire
+         does not move much, and today's level beats zero every time. */
+      const repl=(()=>{ try{ return sbReplLevel(from); }catch(e){ return {}; } })();
       for(let w=from;w<=RP_WEEKS;w++){
         total+=sbBestLineup(
           pids.map(pid=>({pid,pos:roster[pid].pos||0,v:(roster[pid].w||{})[w]||0})),
-          e=>e.v, e=>e.pos, shape);
+          e=>e.v, e=>e.pos, shape, repl);
       }
       out[o]=total;
     });
@@ -11916,6 +11927,57 @@ const INV_BASE=10;              // what an average share is worth
    which is right for a balance and hides everything a market does. */
 const invFmt=v=>'$'+(Math.round((Number(v)||0)*100)/100).toFixed(2);
 const INV_FORM_WEEKS=3;
+/* ── WHAT THE RESULTS HALF IS MADE OF, AND HOW MUCH OF IT TO BELIEVE ──────
+   Measured on this league's own four seasons, 480 team-weeks, 2022-2025.
+
+   FORM IS A FIFTH OF THE SCORING ESTIMATE. Blending a x last-three-weeks with
+   (1-a) x season-to-date and scoring it against the week that actually
+   followed, a = 0.2 is the best value there is -- better than either number
+   alone. It ramps up over the first three games because before then there is
+   no three weeks to average, and at three games it is the same number as the
+   season average anyway.
+
+   AND THE WHOLE THING IS SHRUNK TOWARD THE LEAGUE, WHICH IS THE PART THAT
+   MATTERS. A team-week has a standard deviation of 21.7 about its own average
+   while the teams themselves are only 8.6 apart -- one week is two and a half
+   times noisier than the gap between the best team and the worst. Only 13.7%
+   of a week is the team; the rest is noise.
+
+   So a raw ratio believes far too much of what it sees. Against the following
+   week, the best multiplier on (team average - league average) is 0.4, and at
+   1.0 -- which is what an unshrunk ratio uses, and what this did -- the
+   estimate is WORSE THAN IGNORING FORM AND SCORING ENTIRELY: 23.84 RMSE
+   against 23.20 for guessing the league average every time.
+
+   0.6 rather than the measured 0.4 on purpose. The backtest predicts one week
+   and a share is about a season, where noise averages out and the real signal
+   is stronger than a single week can show -- and this is a market people are
+   meant to want to trade, not a forecast. It is a deliberate lean, and it is
+   the only number here that is not what the evidence alone would pick. */
+/* ── AND IT STARTS IN WEEK 4, BECAUSE BEFORE THAT IT IS THE SAME NUMBER ─────
+   Measured, not assumed. The correlation between the last three weeks and the
+   season to date, by how much season there is:
+
+       3 games     1.000     it IS points per game, to the decimal
+       4-5 games   0.826
+       6-8 games   0.633
+       9-13 games  0.658
+
+   So form carries nothing of its own until week 4 and has separated by week 6,
+   and the ramp follows that curve rather than a guess. Below the start it is
+   not merely down-weighted, it is OFF: giving weight to a column identical to
+   the one beside it is not a blend, it is the same number counted twice.
+
+   0.40 rather than the 0.20 the error curve minimises at, and that is close to
+   free: over 480 team-weeks the RMSE is 23.84 at 0.20 and 23.91 at 0.40, three
+   tenths of a per cent. A tenth of a point of accuracy buys a recency term
+   people can actually see move, which for a market is the better trade. Past
+   about 0.5 it stops being cheap. */
+const INV_FORM_MAX=0.40;     // form's share of the scoring estimate, once it is its own number
+const INV_FORM_FROM=3;       // games of history before form says anything new
+const INV_FORM_FULL=6;       // and where it reaches its full share
+const INV_WIN_W=0.40;        // win rate's share of the results index; scoring has the rest
+const INV_SHRINK=0.6;        // how far a results index may move off the league's own middle
 /* ── HOW MUCH OF A PRICE THE ROSTER OWNS, AND FOR HOW LONG ───────────────────
    One seventeenth of the price moves from the projection to the results every
    week: all projection before a ball is kicked, all results once the year has
@@ -11949,9 +12011,22 @@ const INV_FORM_WEEKS=3;
 const INV_PROJ_MAX=1.00;     // with no football played
 const INV_PROJ_MIN=0.00;     // with the season played out
 const INV_SEASON_WEEKS=17;
+/* ── AND THE SLIDE IS CURVED, NOT STRAIGHT ────────────────────────────
+   Both ends are exactly where they were -- all roster before a ball is kicked,
+   all results once week 17 is done -- and the shape between them is what moved.
+   Straight, the roster was 82% of a price three games in, which is a board that
+   cannot see a 3-0 start. An exponent bends the middle without touching either
+   end: results reach a quarter of the price by game 3 instead of a sixth, and
+   still reach all of it at the finish. Nothing is worth LESS later for this. */
+const INV_RAMP_POW=1.5;
 /* How hard the roster gap is stretched into a price gap. 1 is the raw ratio,
    which puts the whole league inside a dollar of itself. */
-const INV_PROJ_POW=3;
+/* 1, because the roster ratio is stretched ONCE, at the end, by INV_GAIN. It
+   was 3 here as well -- so a term that is most of an early price was cubed,
+   then the blend containing it was cubed again. A seventeen per cent spread in
+   projected roster strength came out as a four-and-a-half times spread in
+   price, which is one number amplified twice rather than a market. */
+const INV_PROJ_POW=1;
 /* ── AND HOW HARD THE FINISHED BOARD IS STRETCHED ─────────────────────────
    INV_PROJ_POW above widens the ROSTER half only, so it does progressively
    less as rw slides toward zero and nothing whatsoever by December. This one
@@ -11968,7 +12043,22 @@ const INV_PROJ_POW=3;
    CHANGING THIS RESTATES EVERY OPEN POSITION. Prices move, so share counts
    have to move the other way or the change hands people profit and losses
    they did not earn — scripts/split-shares.mjs, with a fresh STAMP. */
-const INV_GAIN=3;
+/* 4, and it is a PRESENTATION dial now rather than a corrective one. Shrinking
+   and stretching are both monotone, so this cannot change who is dearer than
+   whom -- INV_SHRINK decides how much of a result to believe, and this decides
+   only how far apart the believing puts the prices.
+
+   Chosen against a finished season rather than against three games. On 2025's
+   final table the raw results spread is 1.9x -- records regress, a 14-2 team
+   indexes 1.37 and a 4-12 team 0.72 -- so this board runs about 2.5x in week
+   three and 4.6x by the end, widening as the evidence arrives, which is the
+   right direction for it to move.
+
+   AND IT CANNOT GO MUCH HIGHER, FOR A REASON THAT IS NOT TASTE. At 5 the top
+   share reaches $24.69 on that same 2025 table -- thirty-one cents under
+   INV_CEIL, where invCollat goes to zero and a short on it is refused outright.
+   4 tops out around $21 and leaves the room. */
+const INV_GAIN=4;
 
 /* ── THE THREE PLAYOFF GAMES A SEASON THAT DECIDE NOTHING ────────────────────
    Weeks 15-17 count toward a share price. Winning the title is the best
@@ -12331,14 +12421,23 @@ function invPricesAt(season,through){
       const form=x.recent.slice(-INV_FORM_WEEKS);
       const formR=(form.length&&lgPpg)
         ? (form.reduce((a,f)=>a+f.pts,0)/form.length)/lgPpg : 1;
-      byOwner[x.o]=0.45*winR+0.35*ppgR+0.20*formR;
+      /* Form is not its own slice of the price -- it is the recency weighting
+         INSIDE the scoring estimate, which is what the backtest says it is.
+         Ramped from INV_FORM_FROM to INV_FORM_FULL: nothing while the two
+         windows are still the same three weeks, full once they have parted. */
+      const fShare=INV_FORM_MAX*Math.min(1,Math.max(0,
+        ((x.g||0)-INV_FORM_FROM)/Math.max(1,INV_FORM_FULL-INV_FORM_FROM)));
+      const scoring=(1-fShare)*ppgR+fShare*formR;
+      const raw=INV_WIN_W*winR+(1-INV_WIN_W)*scoring;
+      byOwner[x.o]=1+INV_SHRINK*(raw-1);
     });
   }
   if(projMean>0){
     /* fades from most of the price to a token, one week at a time, all season */
     const gp=Math.max(0,...(rows||[]).map(x=>x.g||0));
     const left=Math.max(0,INV_SEASON_WEEKS-gp);
-    const rw=INV_PROJ_MIN+(INV_PROJ_MAX-INV_PROJ_MIN)*(left/INV_SEASON_WEEKS);
+    const rw=INV_PROJ_MIN+(INV_PROJ_MAX-INV_PROJ_MIN)
+      *Math.pow(left/INV_SEASON_WEEKS,INV_RAMP_POW);
     (_franchises||[]).forEach(f=>{
       const p=projs[f.owner]; if(!(p>0)) return;
       /* STRETCHED, BECAUSE THE RAW RATIO IS NOT A MARKET.

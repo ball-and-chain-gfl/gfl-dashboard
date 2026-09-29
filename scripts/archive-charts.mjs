@@ -217,7 +217,12 @@ const _bkPools = ${JSON.stringify({ [String(SEASON)]: (pool && pool.players) || 
 /* invCoinPrices reads the singular one, which in the browser is whichever
    season's pool is live. There is only ever one here. */
 const _bkPool = ${JSON.stringify((pool && pool.players) || [])};
-const _sbRosters = ${JSON.stringify({ [SEASON + ':' + week]: rosters })};
+/* Keyed for the week being frozen AND the one after it: rosterProjByOwner
+   starts its forward sum at done+1 and sbReplLevel reads _sbRosters by that
+   key directly rather than through sbRosters(), so without the second entry
+   the replacement level comes back empty here and full in the browser. */
+const _sbRosters = ${JSON.stringify({ [SEASON + ':' + week]: rosters,
+  [SEASON + ':' + (week + 1)]: rosters })};
 const BENCH_SLOTS = ${JSON.stringify(BENCH)};
 function sbBoardSeason(){ return ${JSON.stringify(String(SEASON))}; }
 function sbRosters(season,wk){ return _sbRosters[String(season)+':'+wk] || _sbRosters[${JSON.stringify(String(SEASON) + ':' + week)}] || null; }
@@ -263,6 +268,21 @@ ${grab('function regEndOf(season){')}
 ${grab('function buildBracket(season){')}
 ${grab('function poDeadGames(season){')}
 ${grab('const poDeadId=')}
+/* the reweighted blend: the curved slide, form's share of scoring, the
+   win/scoring split and the shrink toward the league's own middle */
+${grab('const INV_RAMP_POW=')}
+${grab('const INV_FORM_MAX=')}
+${grab('const INV_FORM_FROM=')}
+${grab('const INV_FORM_FULL=')}
+${grab('const INV_WIN_W=')}
+${grab('const INV_SHRINK=')}
+/* and the waiver level, because rosterProjByOwner fills a hole with it now
+   -- without these the freezer wouldvalue a bye at nothing while the
+   browser valued it at the wire, which is the split this was meant to end */
+${grab('const SB_REPL_N=')}
+${grab('let _sbRepl=')}
+${grab('function sbPlayerProj(week){')}
+${grab('function sbReplLevel(week){')}
 ${grab('function invStats(')}
 /* THE COINS FREEZE TOO. invPricesAt merges them into the same map, so a week
    archived without them would serve a board that has teams and funds on it

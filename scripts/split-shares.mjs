@@ -43,7 +43,7 @@
  */
 import fs from 'fs';
 
-const STAMP = 'gain3-2026-split';          // bump only for a genuinely new split
+const STAMP = 'reweight-2026-w3-split';     // bump only for a genuinely new split
 const DRY = !!process.env.DRY_RUN;
 
 const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
@@ -105,28 +105,44 @@ for (const d of docs) {
   try { lots = JSON.parse(data.inv || '[]') || []; } catch { lots = []; }
   if (!Array.isArray(lots) || !lots.length) { unchanged++; continue; }
 
-  /* A SPLIT DOES NOT CARRY A SHORT, AND IT MUST NOT PRETEND TO.
+  /* A SPLIT CANNOT CARRY AN **OPEN** SHORT.
    *
    * Every invariant above rests on shares x price being untouched: s.f x p/f
-   * is s x p, so the cash, the value and the profit all survive it. A short
-   * does not tie up shares x price. It ties up n x (CEIL - p), the gap to the
-   * cap, and that gap does NOT survive the same scaling:
+   * is s x p, so the cash, the value and the profit all survive it.
+   *
+   * A CLOSED SHORT SURVIVES IT TOO, and the first version of this guard was
+   * wrong to stop on one. Open n at p and cover n at q, and after scaling the
+   * realised profit is n.f x (p/f - q/f) = n x (p - q), exactly what it was.
+   * The cash flow matches as well: the open ties up n.f.CEIL - n.p and the
+   * cover releases n.f.CEIL - n.q, so the pair nets to n.q - n.p either side
+   * of the split. The CEIL terms cancel because there are two of them.
+   *
+   * An OPEN short has only one of them, and that is the whole problem:
    *
    *     n.f x (CEIL - p/f)  =  n.f.CEIL - n.p     against     n.CEIL - n.p
    *
-   * which differ by n.CEIL.(f - 1) -- real money, in the direction of whichever
-   * way that team's price moved, taken from or handed to somebody who did
-   * nothing to earn it. The cap is a fixed dollar figure rather than a multiple
-   * of a price, so there is no share factor that makes it come out even.
+   * differing by n.CEIL.(f - 1) -- real money, in the direction of whichever
+   * way that team's price moved, handed to somebody who did nothing to earn it.
+   * The cap is a fixed dollar figure rather than a multiple of a price, so no
+   * share factor makes it come out even.
    *
-   * Fixing it properly means restating the cap alongside the prices, which is a
-   * decision about the instrument rather than something a migration script gets
-   * to make quietly on its own. So it stops, and says why.
-   */
-  if (lots.some(l => l && (l.k === 'so' || l.k === 'sc'))) {
-    console.error(`STOP: ${id} holds short lots, and a split cannot carry one.`);
-    console.error('  A short ties up (CEIL - price), which does not scale by the share');
-    console.error('  factor the way (shares x price) does. Restate the cap first.');
+   * The way through is to close the position at the old price, split, and
+   * reopen it at the new one -- profit-neutral, and it leaves the manager with
+   * the position they had. That is a decision about somebody's money, so it is
+   * made deliberately and outside this script; this only refuses to guess. */
+  const netShort = {};
+  lots.forEach(l => {
+    if (!l || !l.o) return;
+    const n = Number(l.s) || 0;
+    if (l.k === 'so') netShort[l.o] = (netShort[l.o] || 0) + n;
+    else if (l.k === 'sc') netShort[l.o] = (netShort[l.o] || 0) - n;
+  });
+  const stillOpen = Object.keys(netShort).filter(o => netShort[o] > 1e-6);
+  if (stillOpen.length) {
+    console.error(`STOP: ${id} holds an OPEN short (${stillOpen.join(', ')}).`);
+    console.error('  An open short ties up (CEIL - price), which does not scale by the');
+    console.error('  share factor the way (shares x price) does. Cover it at the old');
+    console.error('  price, split, then reopen at the new one.');
     process.exit(2);
   }
 

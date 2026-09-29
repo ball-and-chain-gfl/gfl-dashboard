@@ -95,6 +95,10 @@ const NEEDED = ['const LINEUP_SHAPE_FALLBACK=', 'function sbSlotShape(', 'functi
   'function weekOver(byWeek,w){', 'function weeksOverCount(schedule){',
   'const REGULAR_SEASON_END=', 'function regEndOf(season){', 'function buildBracket(season){',
   'function poDeadGames(season){', 'const poDeadId=',
+  'const INV_RAMP_POW=', 'const INV_FORM_MAX=', 'const INV_FORM_FROM=', 'const INV_FORM_FULL=',
+  'const INV_WIN_W=', 'const INV_SHRINK=',
+  'const SB_REPL_N=', 'let _sbRepl=', 'function sbPlayerProj(week){',
+  'function sbReplLevel(week){',
   'function invStats(',
   /* the coins ride on the same price map, so a freeze without them writes a
      week that has teams and funds on it and no coins */
@@ -167,7 +171,7 @@ const _seasonMeta = ${JSON.stringify({ 2099: {
 const _franchises = ${JSON.stringify(franchises)};
 const _bkPools = ${JSON.stringify({ 2099: poolPlayers })};
 const _bkPool = ${JSON.stringify(poolPlayers)};
-const _sbRosters = ${JSON.stringify({ '2099:1': rosters })};
+const _sbRosters = ${JSON.stringify({ '2099:1': rosters, '2099:2': rosters })};
 const BENCH_SLOTS = [20,21,24];
 function sbBoardSeason(){ return '2099'; }
 function sbRosters(s,w){ return _sbRosters[String(s)+':'+w] || null; }

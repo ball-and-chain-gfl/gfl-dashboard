@@ -84,8 +84,16 @@ ${grab('const INV_PROJ_POW=')}
 ${grab('const INV_SEASON_WEEKS=')}
 ${grab('const RP_WEEKS=')}
 ${grab('const INV_GAIN=')}
+${grab('const INV_RAMP_POW=')}
+${grab('const INV_WIN_W=')}
+${grab('const INV_SHRINK=')}
+${grab('const INV_FORM_MAX=')}
+${grab('const INV_FORM_FROM=')}
+${grab('const INV_FORM_FULL=')}
 ${grab('const INV_BASE=')}
-return { sbBestLineup, INV_PROJ_MAX, INV_PROJ_MIN, INV_SEASON_WEEKS, RP_WEEKS, INV_GAIN, INV_BASE, INV_PROJ_POW };
+return { sbBestLineup, INV_PROJ_MAX, INV_PROJ_MIN, INV_SEASON_WEEKS, RP_WEEKS, INV_GAIN, INV_BASE,
+  INV_PROJ_POW, INV_RAMP_POW, INV_WIN_W, INV_SHRINK, INV_FORM_MAX,
+  INV_FORM_FROM, INV_FORM_FULL };
 `)();
 
 let pass = 0, fail = 0;
@@ -185,45 +193,74 @@ console.log('\n5. AN INJURY COSTS EXACTLY THE WEEKS IT COSTS');
      restOfSeason(r, 7) > restOfSeason(r, 1) - restOfSeason(r, 7), true);
 }
 
+/* THE SHIPPED RAMP, CURVE AND ALL. This was a straight-line copy and the app
+   grew an exponent, so the suite went on proving a slide nothing used -- every
+   case below passed against a model that was no longer there. */
 const rw = gp => api.INV_PROJ_MIN
-  + (api.INV_PROJ_MAX - api.INV_PROJ_MIN) * (Math.max(0, api.INV_SEASON_WEEKS - gp) / api.INV_SEASON_WEEKS);
+  + (api.INV_PROJ_MAX - api.INV_PROJ_MIN)
+    * Math.pow(Math.max(0, api.INV_SEASON_WEEKS - gp) / api.INV_SEASON_WEEKS, api.INV_RAMP_POW);
 
-console.log('\n6. the slide - one equal step a week, all projection to all results');
+console.log('\n6. the slide - both ends fixed, the middle deliberately bent');
 {
+  /* THE ENDS ARE THE CONTRACT. Everything else about this curve is taste; that
+     it starts at all-roster and finishes at all-results is not. */
   eq('nothing played, it is ALL the roster', near(rw(0), 1), true);
   eq('played out, it is ALL the results',    near(rw(17), 0), true);
-  eq('halfway is halfway',                   near(rw(8.5), 0.5), true);
   eq('and it never goes negative',           near(rw(25), 0), true);
-  /* the shape the whole thing exists for: no week is a bigger event than any
-     other week purely because of where it sits in the calendar */
+  eq('it only ever falls', (() => {
+    for (let g = 0; g < 17; g++) if (rw(g + 1) > rw(g) + 1e-12) return false;
+    return true; })(), true);
+
+  /* AND THE MIDDLE IS NOT HALFWAY ANY MORE, ON PURPOSE. Straight, the roster
+     was 82% of a price three games in and the board could not see a 3-0 start.
+     The exponent bends the early half down without moving either end. */
+  eq('halfway through is past halfway', rw(8.5) < 0.5, true);
+  eq('results have a quarter of it by game 3', (1 - rw(3)) > 0.24, true);
+  eq('and it was under a fifth straight', (1 - (1 - 3 / 17)) < 0.18, true);
+
+  /* the weeks are no longer equal steps, which is the trade being made */
   const steps = [];
   for (let g = 0; g < 17; g++) steps.push(rw(g) - rw(g + 1));
-  eq('every week is the same size step', steps.every(s => near(s, steps[0])), true);
-  eq('and that step is one seventeenth', near(steps[0], 1 / 17), true);
-  /* what changed: preseason used to hand a fifth of the price to a number that
-     read exactly 1.00 for all twelve teams and separated nobody */
+  eq('the early weeks move it more than the late ones', steps[0] > steps[16], true);
   eq('preseason weighs no record nobody has', near(rw(0), 1), true);
 }
 
-console.log('\n7. ONE GAME IS WORTH THE SAME IN WEEK 1 AS IN WEEK 17');
+console.log('\n7. THE FLAT SWING WAS TRADED AWAY, AND HERE IS WHAT FOR');
 {
-  /* The property that makes a win-rate prior unnecessary rather than merely
-     optional - and it is exact, not approximate.
+  /* IT USED TO BE EXACT, AND IT WAS A GOOD PROPERTY.
 
        winR    = (w/g)/0.5 = 2w/g,   so one more win moves it by 2/g
-       base    weights winR at 0.45, so the results half moves by 0.9/g
-       the mix weights that half at (1 - rw) = g/17
+       base    weighted winR at 0.45, so the results half moved by 0.9/g
+       the mix weighted that half at (1 - rw) = g/17
 
        (0.9/g) * (g/17) = 0.9/17,   with no g left in it at all
 
-     The noise of a small sample and the weight handed to it fall and rise at
-     reciprocal rates, so they cancel exactly. */
-  const marginal = g => (1 - rw(g)) * 0.45 * (2 / g);
-  const want = 0.9 / api.INV_SEASON_WEEKS;
-  let flat = true;
-  for (let g = 1; g <= 17; g++) if (!near(marginal(g), want)) flat = false;
-  eq('a single result is worth the same in every week', flat, true);
-  eq('week 1 and week 17 agree exactly', near(marginal(1), marginal(17)), true);
+     Small-sample noise and the weight handed to it fell and rose at reciprocal
+     rates and cancelled, so one game was worth the same money in every week.
+
+     IT WAS TRADED FOR A BOARD THAT CAN SEE A 3-0 START. Straight, the roster
+     was 82% of a price three games in; the dearest share in the league belonged
+     to a 1-2 team while two 3-0 teams sat below it. Bending the ramp fixes that
+     and costs the cancellation -- an early game now moves a price more than a
+     late one.
+
+     WHAT PAYS FOR IT is INV_SHRINK. The old model believed a win rate whole;
+     this one believes 60% of it, which is nearer the 0.4 that four seasons of
+     this league's own scoring actually support. More weight on a number that
+     is trusted less. */
+  const marginal = g => (1 - rw(g)) * api.INV_WIN_W * api.INV_SHRINK * (2 / g);
+  eq('an early game moves a price more than a late one',
+     marginal(1) > marginal(17), true);
+  eq('but not by the four times the old pre-2026 slide did',
+     marginal(1) / marginal(17) < 4, true);
+  eq('and every week still moves it', (() => {
+    for (let g = 1; g <= 17; g++) if (!(marginal(g) > 0)) return false;
+    return true; })(), true);
+  /* the straight ramp is still exactly flat, which is what was given up */
+  const straight = g => (Math.max(0, 17 - g) / 17);
+  const flatMarg = g => (1 - straight(g)) * api.INV_WIN_W * api.INV_SHRINK * (2 / g);
+  eq('a straight ramp would still have cancelled exactly',
+     near(flatMarg(1), flatMarg(17)), true);
 
   /* and the shape it replaced, so a regression to it is loud */
   const oldRw = g => 0.05 + 0.75 * (Math.max(0, 17 - g) / 17);
@@ -280,39 +317,51 @@ console.log('\n9. the gain - wider rungs, same ladder');
      rather than in algebra. */
   const swingAt = g => {
     const rwv = rw(g);
-    /* twelve identical squads, so the ONLY thing moving is one team's record */
+    /* twelve identical squads, so the ONLY thing moving is one team's record.
+       Scoring is held at the league average, so this isolates the win term. */
     const mk = w => {
       const v = [];
       for (let i = 0; i < 12; i++) {
         const wins = (i === 5) ? w : g / 2;
-        v.push((1 - rwv) * (0.45 * ((wins / g) / 0.5) + 0.55) + rwv * 1);
+        const winR = (wins / g) / 0.5;
+        const raw = api.INV_WIN_W * winR + (1 - api.INV_WIN_W) * 1;
+        v.push((1 - rwv) * (1 + api.INV_SHRINK * (raw - 1)) + rwv * 1);
       }
       return v;
     };
     return norm(gain(mk(g / 2 + 0.5)))[5] - norm(gain(mk(g / 2 - 0.5)))[5];
   };
-  const s1 = swingAt(1);
-  eq('one game is worth the same in week 1 and week 17', near(s1, swingAt(17), 0.03), true);
-  let level = true;
-  for (let g = 1; g <= 17; g++) if (!near(swingAt(g), s1, 0.03)) level = false;
-  eq('and the same in every week between', level, true);
-  /* near the mean the stretch is locally linear with slope INV_GAIN, so the
-     delivered swing is about that multiple of the blend's own */
-  eq('the gain scales the swing by about INV_GAIN',
-     near(s1 / (0.9 / api.INV_SEASON_WEEKS * api.INV_BASE), api.INV_GAIN, 0.4), true);
-  eq('which on the shipped gain is about $1.44', near(s1, 1.44, 0.06), true);
+  /* THE FLAT SWING IS GONE, AND THAT IS THE TRADE. A straight ramp cancelled
+     win-rate noise exactly -- it falls as 1/g and the results weight rose as
+     g/17 -- so one game was worth the same money in every week of the season.
+     Bending the ramp buys an early board that can see a 3-0 start, and pays
+     for it by making an early game worth more than a late one. The shrink is
+     what keeps that from being reckless: a result is only believed 60% now.
+
+     What must still hold is that a game is always worth SOMETHING, always the
+     same direction, and never an absurd amount. */
+  const swings = [];
+  for (let g = 1; g <= 17; g++) swings.push(swingAt(g));
+  eq('a win always moves the price up', swings.every(s => s > 0), true);
+  eq('an early game is worth more than a late one', swings[0] > swings[16], true);
+  eq('and no single game is worth more than four dollars',
+     swings.every(s => s < 4), true);
+  eq('nor less than a dime', swings.every(s => s > 0.1), true);
 }
 
-console.log('\n10. the two exponents COMPOUND, and the floor is where that ends');
+console.log('\n10. THE TWO EXPONENTS MUST NOT COMPOUND');
 {
-  /* INV_PROJ_POW cubes the roster ratio and INV_GAIN cubes the blend, so
-     preseason - where the blend IS the roster - a squad ratio r reaches the
-     board as r^9. On the real 8% spread that is 1.08^9 = 2.0x, which is the
-     board we want. It is worth knowing where it stops being sane. */
+  /* They did. INV_PROJ_POW cubed the roster ratio and INV_GAIN cubed the blend
+     containing it, so preseason -- where the blend IS the roster -- a squad
+     ratio reached the board as r^9. Seventeen per cent of roster came out as
+     four and a half times of price, and the dearest share in the league
+     belonged to a 1-2 team. The roster is stretched ONCE now, at the end,
+     with everything else. */
   const eff = api.INV_PROJ_POW * api.INV_GAIN;
-  eq('preseason, the roster ratio is raised to the ninth', eff === 9, true);
-  eq('and 8% of squad becomes about 2x of price',
-     near(Math.pow(1.08, eff), 2.0, 0.05), true);
+  eq('the roster ratio is not pre-stretched', api.INV_PROJ_POW === 1, true);
+  eq('so it reaches the board at the gain and no more', eff === api.INV_GAIN, true);
+  eq('and 8% of squad is a sane multiple of price',
+     Math.pow(1.08, eff) < 1.5, true);
 
   const norm = vals => {
     const m = vals.reduce((a, b) => a + b, 0) / vals.length || 1;
