@@ -11968,12 +11968,45 @@ const INV_FORM_WEEKS=3;
    not merely down-weighted, it is OFF: giving weight to a column identical to
    the one beside it is not a blend, it is the same number counted twice.
 
-   0.40 rather than the 0.20 the error curve minimises at, and that is close to
-   free: over 480 team-weeks the RMSE is 23.84 at 0.20 and 23.91 at 0.40, three
-   tenths of a per cent. A tenth of a point of accuracy buys a recency term
-   people can actually see move, which for a market is the better trade. Past
-   about 0.5 it stops being cheap. */
-const INV_FORM_MAX=0.40;     // form's share of the scoring estimate, once it is its own number
+   */
+/* ── AND IT IS A FIXED SHARE OF THE PRICE, NOT OF THE SCORING ESTIMATE ──────
+   It used to be the recency weighting inside the scoring estimate, which meant
+   its share of the PRICE was whatever the roster ramp happened to leave over:
+   6.9% of a share at game six, 14.4% by January, growing all season without
+   anybody deciding it should. A market term that quietly doubles is hard to
+   explain and harder to trade against. Same idea, size pinned -- once form has
+   arrived it is 14% of the price in week 7 and 14% of it in week 17.
+
+   THAT REQUIRES IT TO SIT OUTSIDE THE ROSTER RAMP. Everything in the results
+   index is multiplied by (1 - rw), so nothing in there can hold a constant
+   share of a price while rw is still moving. Form is blended in last, against
+   the finished team index, which is what makes its size a decision rather than
+   a by-product of where the season has got to.
+
+   IT IS STILL SHRUNK, and that is not optional. Form is the noisiest ratio the
+   model computes -- three weeks of one team -- and the thing four seasons of
+   backtest are unambiguous about is that an unshrunk results ratio predicts
+   WORSE than ignoring results altogether (23.84 RMSE against 23.20). So the
+   weight the term carries is the share divided by INV_SHRINK, and what comes
+   out the far side of the shrink is the share.
+
+   AND THE RECORD DOES NOT PAY FOR IT. INV_WIN_W is divided by the same slice
+   before it is used, which leaves win rate's share of a finished price exactly
+   what it was in every week of the season. The 14% comes out of the roster
+   projection, out of points per game and out of the league-average band, in
+   the proportions those three already sat in -- which is the right pocket to
+   take it from, because form IS football that has been played, and the
+   projection is precisely the thing that steps back when football gets
+   played. */
+/* 0.14, and the ceiling over it is arithmetic rather than taste: the weight
+   the term actually carries is INV_FORM_PRICE / INV_SHRINK, and INV_WIN_W is
+   divided by one minus that, so it has to stay under 1 - INV_WIN_W = 0.6 or
+   the record is handed a negative weight. 0.14 gives 0.233 and leaves the
+   room. The accuracy this costs is small and measured: over 480 team-weeks a
+   scoring estimate weighted 0.20 to the last three games scores 23.84 RMSE
+   and one weighted 0.40 scores 23.91 -- three tenths of a per cent, for a
+   recency term people can actually watch move. */
+const INV_FORM_PRICE=0.14;   // form's share of the PRICE, flat once it arrives
 const INV_FORM_FROM=3;       // games of history before form says anything new
 const INV_FORM_FULL=6;       // and where it reaches its full share
 const INV_WIN_W=0.40;        // win rate's share of the results index; scoring has the rest
@@ -12397,6 +12430,7 @@ function invPricesAt(season,through){
   }
   const rows=season?invStats(season,through):null;
   const byOwner={};
+  const fm={};   // form, held back until after the roster ramp -- see below
   /* ── WHAT THE ROSTER IS PROJECTED TO SCORE ─────────────────────────────────
      Record, scoring and form are all things that have already happened, and
      before week one none of them has. Every ratio came back 1.00, every team
@@ -12421,15 +12455,20 @@ function invPricesAt(season,through){
       const form=x.recent.slice(-INV_FORM_WEEKS);
       const formR=(form.length&&lgPpg)
         ? (form.reduce((a,f)=>a+f.pts,0)/form.length)/lgPpg : 1;
-      /* Form is not its own slice of the price -- it is the recency weighting
-         INSIDE the scoring estimate, which is what the backtest says it is.
-         Ramped from INV_FORM_FROM to INV_FORM_FULL: nothing while the two
-         windows are still the same three weeks, full once they have parted. */
-      const fShare=INV_FORM_MAX*Math.min(1,Math.max(0,
+      /* Form is held out here and blended in below, after the roster ramp,
+         because that is the only place a term can hold a fixed share of the
+         price. Ramped from INV_FORM_FROM to INV_FORM_FULL: nothing at all
+         while the two windows are still the same three weeks, its full share
+         once they have parted. */
+      const ramp=Math.min(1,Math.max(0,
         ((x.g||0)-INV_FORM_FROM)/Math.max(1,INV_FORM_FULL-INV_FORM_FROM)));
-      const scoring=(1-fShare)*ppgR+fShare*formR;
-      const raw=INV_WIN_W*winR+(1-INV_WIN_W)*scoring;
+      const slice=INV_FORM_PRICE*ramp/INV_SHRINK;
+      /* and the record does not pay for it -- dividing here leaves winR's
+         share of the finished price identical to what it was without form */
+      const winW=INV_WIN_W/(1-slice);
+      const raw=winW*winR+(1-winW)*ppgR;
       byOwner[x.o]=1+INV_SHRINK*(raw-1);
+      fm[x.o]={slice,idx:1+INV_SHRINK*(formR-1)};
     });
   }
   if(projMean>0){
@@ -12455,6 +12494,18 @@ function invPricesAt(season,through){
       byOwner[f.owner]=(1-rw)*base+rw*projR;
     });
   }
+  /* ── AND FORM LAST, AGAINST THE FINISHED INDEX ─────────────────────────
+     Down here rather than up there because a term inside the results index is
+     multiplied by (1 - rw) and so cannot hold a fixed share of a price while
+     rw is still sliding. Applied to whatever the roster blend produced, its
+     share is INV_FORM_PRICE and stays there for the rest of the season. It
+     runs whether or not that blend did: a season with no projections in it
+     still has three weeks of scores. */
+  Object.keys(fm).forEach(o=>{
+    const f=fm[o]; if(!(f.slice>0)) return;
+    const b=byOwner[o]!=null?byOwner[o]:1;
+    byOwner[o]=(1-f.slice)*b+f.slice*f.idx;
+  });
   /* anyone with no games yet sits at the league's own middle */
   let vals=fr.map(f=>byOwner[f.owner]!=null?byOwner[f.owner]:1);
   if(INV_GAIN!==1){

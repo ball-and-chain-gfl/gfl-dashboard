@@ -87,12 +87,12 @@ ${grab('const INV_GAIN=')}
 ${grab('const INV_RAMP_POW=')}
 ${grab('const INV_WIN_W=')}
 ${grab('const INV_SHRINK=')}
-${grab('const INV_FORM_MAX=')}
+${grab('const INV_FORM_PRICE=')}
 ${grab('const INV_FORM_FROM=')}
 ${grab('const INV_FORM_FULL=')}
 ${grab('const INV_BASE=')}
 return { sbBestLineup, INV_PROJ_MAX, INV_PROJ_MIN, INV_SEASON_WEEKS, RP_WEEKS, INV_GAIN, INV_BASE,
-  INV_PROJ_POW, INV_RAMP_POW, INV_WIN_W, INV_SHRINK, INV_FORM_MAX,
+  INV_PROJ_POW, INV_RAMP_POW, INV_WIN_W, INV_SHRINK, INV_FORM_PRICE,
   INV_FORM_FROM, INV_FORM_FULL };
 `)();
 

@@ -271,7 +271,7 @@ ${grab('const poDeadId=')}
 /* the reweighted blend: the curved slide, form's share of scoring, the
    win/scoring split and the shrink toward the league's own middle */
 ${grab('const INV_RAMP_POW=')}
-${grab('const INV_FORM_MAX=')}
+${grab('const INV_FORM_PRICE=')}
 ${grab('const INV_FORM_FROM=')}
 ${grab('const INV_FORM_FULL=')}
 ${grab('const INV_WIN_W=')}

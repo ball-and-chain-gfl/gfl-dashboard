@@ -95,7 +95,7 @@ const NEEDED = ['const LINEUP_SHAPE_FALLBACK=', 'function sbSlotShape(', 'functi
   'function weekOver(byWeek,w){', 'function weeksOverCount(schedule){',
   'const REGULAR_SEASON_END=', 'function regEndOf(season){', 'function buildBracket(season){',
   'function poDeadGames(season){', 'const poDeadId=',
-  'const INV_RAMP_POW=', 'const INV_FORM_MAX=', 'const INV_FORM_FROM=', 'const INV_FORM_FULL=',
+  'const INV_RAMP_POW=', 'const INV_FORM_PRICE=', 'const INV_FORM_FROM=', 'const INV_FORM_FULL=',
   'const INV_WIN_W=', 'const INV_SHRINK=',
   'const SB_REPL_N=', 'let _sbRepl=', 'function sbPlayerProj(week){',
   'function sbReplLevel(week){',
