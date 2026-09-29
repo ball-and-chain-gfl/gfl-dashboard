@@ -12433,6 +12433,45 @@ function invCoinMeta(k){
   return {coin:c,who:me.name||pName(c.pid),pos:(INV_COIN_POS[pos]||''),
     rank:list.findIndex(p=>Number(p.id)===Number(c.pid))+1};
 }
+/* ── THE FACE OF A COIN ──────────────────────────────────────────────────────
+   Drawn on a 0-100 viewBox and sized entirely by CSS, so one --cs at a
+   breakpoint moves the milling, the band, the legend and the headshot together
+   rather than four numbers that would drift apart.
+
+   THE TWO ARCS ARE NOT THE SAME CIRCLE, and that is the whole trick. Glyphs on
+   a textPath stand on the path and rise to its left -- so over the top they
+   rise OUTWARD and under the bottom they rise INWARD. One radius for both would
+   put the ticker in the band and the rank on the headshot. The top runs on the
+   inner edge of the band and the bottom on the outer, and they meet in the
+   middle of it.
+
+   The ids are keyed on the player rather than counted, because fourteen coins
+   are drawn into one document and a duplicate id would silently hand every
+   coin after the first the FIRST one's arc. */
+function invCoinFaceHTML(c,meta){
+  const t=String((c&&c.t)||'').toUpperCase();
+  const rank=(meta&&meta.pos&&meta.rank)?(meta.pos+meta.rank):'';
+  const url=(()=>{ try{ return proxyLogo(headshotURL(c.pid,160)); }catch(e){ return null; } })();
+  const esc=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  /* a long ticker has the same arc to live on as a short one */
+  const fsT=(9.6*Math.min(1,6.5/Math.max(1,t.length))).toFixed(2);
+  const rTop=32.5, rBot=44;
+  const arc=(r,sweep)=>'M '+(50-r)+' 50 A '+r+' '+r+' 0 0 '+sweep+' '+(50+r)+' 50';
+  const id='cn'+c.pid;
+  return '<span class="ivc-coin">'
+    +'<span class="ivc-reed"></span><span class="ivc-field"></span>'
+    +'<span class="ivc-photo">'+(url
+      ? '<img src="'+esc(url)+'" loading="lazy" decoding="async" alt="" onerror="this.remove()">'
+      : '<i class="fa fa-user"></i>')+'</span>'
+    +'<svg class="ivc-leg" viewBox="0 0 100 100" aria-hidden="true">'
+      +'<defs><path id="'+id+'t" fill="none" d="'+arc(rTop,1)+'"/>'
+      +'<path id="'+id+'b" fill="none" d="'+arc(rBot,0)+'"/></defs>'
+      +'<text font-size="'+fsT+'"><textPath href="#'+id+'t" startOffset="50%"'
+      +' text-anchor="middle">'+esc(t)+'</textPath></text>'
+      +(rank?'<text font-size="8.4"><textPath href="#'+id+'b" startOffset="50%"'
+      +' text-anchor="middle">'+esc(rank)+'</textPath></text>':'')
+    +'</svg></span>';
+}
 const invFund=k=>INV_FUNDS.find(f=>f.k===k)||null;
 /* who is inside each fund, for the season being priced. Conferences are a
    property of a season rather than of a franchise — teams move between them —
@@ -20444,7 +20483,7 @@ function invBoardHTML(which){
   /* One card, whether the thing being bought is a team or a fund. They trade
      identically — a price, a number of shares, the same money — so they are
      the same control, and only the crest and the line under the name differ. */
-  const card=(x,crest,sub,cls)=>{
+  const card=(x,crest,sub,cls,coin)=>{
     const qk=invQtyKey(x.owner,k);
     const cashIn=_invCash[qk]||0;
     const n=invTradeSharesK(x.owner,x.price,k), cost=invTradeCash(x.owner,n,x.price,k);
@@ -20475,6 +20514,29 @@ function invBoardHTML(which){
            placeholder="0" aria-label="Shares of ${x.name}"
            oninput="invType(this,'${qk}','sh')" onchange="renderBook()" onblur="renderBook()">
          <button class="iv-step" onclick="invStep('${qk}',1)">+</button>`;
+    const go=`<button class="iv-go"
+      ${(shut||capped||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
+      onclick="${short?'invShortCard':'invBuyCard'}('${x.owner}')">
+      ${shut?'<i class="fa fa-lock"></i>Closed'
+        :`${short?'Short':'Buy'}${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}`}</button>`;
+    /* ── A COIN IS A DIFFERENT SHAPE OF THE SAME CONTROL ──────────────────
+       Same owner key, same price, same data attributes, same .iv-go -- which
+       is not decoration: invPatchCard walks up to .iv-card on every keystroke
+       and rewrites that button in place, so a coin tile that renamed either
+       would type fine and never update its own total.
+
+       What changes is the arrangement. The ticker and the rank are struck on
+       the coin, so the line under it is free to be the player, and the price
+       sits where a denomination sits. */
+    if(coin) return `<div class="iv-card iv-card-coin${short?' iv-card-sh':''}"
+        data-o="${x.owner}" data-px="${x.price}" data-k="${k}">
+      ${invCoinFaceHTML(coin,invCoinMeta(x.owner))}
+      <span class="ivc-px">${invFmt(x.price)}</span>
+      <span class="iv-chg ${dir}">${x.chg>0?'▲':x.chg<0?'▼':'–'}${x.chg?Math.abs(x.pct)+'%':''}</span>
+      <span class="ivc-who">${(invCoinMeta(x.owner)||{}).who||x.name}</span>
+      ${sub?`<span class="ivc-sub">${sub}</span>`:''}
+      <div class="iv-buy">${step}${go}</div>
+    </div>`;
     return `<div class="iv-card${short?' iv-card-sh':''}${cls||''}" data-o="${x.owner}"
         data-px="${x.price}" data-k="${k}">
       <div class="iv-top">
@@ -20485,14 +20547,7 @@ function invBoardHTML(which){
           <span class="iv-chg ${dir}">${x.chg>0?'▲':x.chg<0?'▼':'–'}${x.chg?Math.abs(x.pct)+'%':''}</span>
         </span>
       </div>
-      <div class="iv-buy">
-        ${step}
-        <button class="iv-go"
-          ${(shut||capped||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
-          onclick="${short?'invShortCard':'invBuyCard'}('${x.owner}')">
-          ${shut?'<i class="fa fa-lock"></i>Closed'
-            :`${short?'Short':'Buy'}${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}`}</button>
-      </div>
+      <div class="iv-buy">${step}${go}</div>
     </div>`;
   };
   /* ── AND IT SAYS WHAT THE NUMBER ON THE BUTTON IS ──────────────────────
@@ -20515,13 +20570,20 @@ function invBoardHTML(which){
     `${f.members.length} teams${heldSub(f.owner,f.price)?' · '+heldSub(f.owner,f.price):''}`)).join('');
   /* A coin's line is who he actually is and where he sits among his own -- the
      ticker is the joke and the name is the information. */
+  /* WHO HE IS is on the tile in its own right and the RANK is struck on the
+     coin, so this line is only ever the position: what is held, or on the
+     short side what one share of him ties up. Two short lines rather than one
+     long one, because the tile is a third of a phone wide. */
   const coinSub=x=>{
-    const m=invCoinMeta(x.owner)||{};
-    const hs=heldSub(x.owner,x.price);
-    return [m.who||'',(m.pos&&m.rank)?m.pos+m.rank:'',hs].filter(Boolean).join(' · ');
+    const o=x.owner, out=[];
+    if(short){
+      if(sold[o]) out.push(invShFmt(sold[o])+' short');
+      out.push(invFmt(invCollat(o,1,x.price))+' / share held');
+    }else if(own[o]) out.push(invShFmt(own[o])+' held');
+    return out.join('<br>');
   };
   const rows=(isCoins?(b.coins||[]):b.list).map(x=>isCoins
-    ? card(x,playerImg(x.coin.pid,26,x.name),coinSub(x),' iv-card-coin')
+    ? card(x,null,coinSub(x),null,x.coin)
     : card(x,franchiseAvatar(x.fr,26,7),heldSub(x.owner,x.price))).join('');
   /* No cash line at the top. The balance is in the nav on this page, a few
      inches above where this strip used to sit, and two copies of one number on
@@ -20543,7 +20605,7 @@ function invBoardHTML(which){
     ${funds?`<div class="iv-gh">The funds</div>
     <div class="iv-list">${funds}</div>
     <div class="iv-gh iv-gh2">The teams</div>`:''}
-    <div class="iv-list">${rows}</div>`;
+    <div class="${isCoins?'ivc-grid':'iv-list'}">${rows}</div>`;
 }
 
 function invPortfolioHTML(){

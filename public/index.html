@@ -1341,71 +1341,101 @@
        card grows by a line; the alternative was dropping the player's name,
        which is the one thing on the card that a ticker like BILL Coin does
        not tell you. */
-    /* ── A COIN IS STRUCK METAL, AND THE CARD HAS TO SAY SO ────────────────
-       Fourteen team shares and fourteen coins traded on identical cards, which
-       left the Coins board looking like the Investments board with different
-       names on it. They are not the same instrument: one is a franchise and one
-       is a player, they price off completely different arithmetic, and they
-       settle against different ceilings. The container is where that gets said.
+    /* ── A COIN IS A COIN, NOT A ROW WITH A PHOTO ON IT ────────────────────
+       The first attempt at this warmed the metal on a card that was still a
+       rectangle in a stack, and it read as an investment card wearing a
+       costume. A coin is round, it is held in the hand, and there are several
+       of them -- so the board is a tray of them, three across, and each one is
+       built OUT of a struck disc rather than decorated to look like one.
 
-       WHAT MAKES IT READ AS A COIN is three things, and none of them is the
-       colour: a struck face, where the light comes from a point above the card
-       rather than running across it; a raised rim inside the outer edge; and
-       milling down both sides -- the reeding round the edge of a minted coin,
-       which is the one detail nobody mistakes for anything else. The headshot
-       is already a circle, so it only wants the metal round it to become the
-       device on the face.
+       THE DISC IS FOUR LAYERS, OUTSIDE IN:
 
-       AND THE HUE IS STILL THE SIDE OF THE TRADE. --ivc is untouched: blue for
-       a holding, orange for a short. That distinction is load-bearing -- it is
-       the only thing separating two cards that carry the same face, the same
-       price and the same controls and bet in opposite directions -- and a gold
-       card that swallowed it would look lovely and sell the wrong position. So
-       the metal is a SECOND token, --ivm, and it only ever paints the rim, the
-       milling and the ring. A coin short is orange metal; a coin is blue. */
-    .iv-card-coin{--ivm:201,161,77;
-      border-radius:13px;
-      border-color:rgba(var(--ivm),0.28);
+         .ivc-reed    the milling round the edge. One element: a conic gradient
+                      is the only way to space ticks evenly round a circle
+                      without drawing sixty-four of them per coin, and masked
+                      to a ring it is an EDGE rather than a disc.
+         .ivc-field   the struck face. Brass, lit from a point above and to the
+                      left, with the light falling off round the curve.
+         .ivc-leg     the legend, set on the two arcs -- ticker over the top,
+                      positional rank under the bottom. Struck INTO the metal:
+                      dark fill with a light stroke behind it, which is what
+                      relief looks like from directly overhead.
+         .ivc-photo   the device. Recessed, ringed, and round.
+
+       EVERYTHING IS PROPORTIONAL TO --cs, including the SVG, which is drawn on
+       a 0-100 viewBox for exactly that reason. One number changes the coin's
+       size at a breakpoint and the milling, the band, the legend and the
+       headshot all follow it. */
+    .ivc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+    .iv-card-coin{--ivm:201,161,77;--cs:96px;
+      padding:12px 6px 10px;border-radius:14px;
+      display:flex;flex-direction:column;align-items:center;gap:3px;
+      border-color:rgba(var(--ivm),0.24);
       background:
-        radial-gradient(125% 150% at 18% -30%,rgba(255,242,212,0.13) 0%,transparent 55%),
-        linear-gradient(100deg,
-          rgba(var(--ivc),0.18) 0%,
-          rgba(var(--ivc),0.05) 24%,
-          rgba(var(--ivm),0.11) 58%,
-          rgba(var(--ivm),0.05) 100%),
-        linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.34)),
-        #0a0806;
-      box-shadow:inset 0 0 0 1px rgba(var(--ivm),0.15),
-                 inset 0 1px 0 rgba(255,243,214,0.09);}
-    /* THE REEDING. Two strips, one down each edge, on the free pseudo-element
-       -- ::after is already carrying the brushed texture every card has. Faded
-       out top and bottom so the milling reads as the curve of an edge rather
-       than as a pair of dashed borders. */
-    .iv-card-coin::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
-      background-image:
-        repeating-linear-gradient(180deg,rgba(var(--ivm),0.30) 0 2px,transparent 2px 4px),
-        repeating-linear-gradient(180deg,rgba(var(--ivm),0.30) 0 2px,transparent 2px 4px);
-      background-size:4px 100%,4px 100%;
-      background-position:left top,right top;
-      background-repeat:no-repeat;
-      -webkit-mask-image:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent);
-              mask-image:linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent);}
-    /* and the grain runs round the face rather than diagonally across it */
-    .iv-card-coin::after{
-      background:repeating-linear-gradient(90deg,
-        rgba(255,242,212,0.022) 0 1px,transparent 1px 3px);
-      -webkit-mask-image:radial-gradient(78% 130% at 50% -8%,#000 0%,transparent 76%);
-              mask-image:radial-gradient(78% 130% at 50% -8%,#000 0%,transparent 76%);}
-    /* the ring wants a little more room than a crest does */
-    .iv-card-coin .iv-top{gap:12px;}
-    .iv-card-coin .iv-c .phs{
-      box-shadow:0 0 0 1.5px rgba(var(--ivm),0.5),0 0 0 3px rgba(0,0,0,0.5);}
-    /* the denomination, struck in the same metal as the rim. The arrow under it
-       keeps its own green and red -- that is the day's move and not the face. */
-    .iv-card-coin .iv-px-v{color:#e9d3a2;text-shadow:0 1px 0 rgba(0,0,0,0.55);}
-    .iv-card-coin .iv-step{border-color:rgba(var(--ivm),0.2);}
-    .iv-card-coin .iv-n{white-space:normal;}
-    .iv-card-coin .iv-held{white-space:normal;line-height:1.35;}
+        radial-gradient(120% 110% at 50% -20%,rgba(255,243,214,0.10) 0%,transparent 60%),
+        linear-gradient(180deg,rgba(var(--ivc),0.13) 0%,rgba(var(--ivm),0.05) 52%,rgba(0,0,0,0.34) 100%),
+        #0a0806;}
+    /* the brushed texture every other card wears is off: the metal is on the
+       coin now, and a second grain behind it only muddied the field */
+    .iv-card-coin::after{content:none;}
+    .iv-card-coin>*{position:relative;z-index:1;}
+    .ivc-coin{--reed:calc(var(--cs) * 0.045);--band:calc(var(--cs) * 0.128);
+      position:relative;flex:0 0 auto;width:var(--cs);height:var(--cs);border-radius:50%;
+      box-shadow:0 3px 7px rgba(0,0,0,0.55),0 0 0 1px rgba(0,0,0,0.65);}
+    .ivc-reed{position:absolute;inset:0;border-radius:50%;
+      background:repeating-conic-gradient(from 0deg,
+        rgba(var(--ivm),0.9) 0deg 1.55deg,
+        rgba(48,32,8,0.92) 1.55deg 3.1deg);
+      -webkit-mask:radial-gradient(circle at 50% 50%,transparent 0 calc(50% - var(--reed)),#000 calc(50% - var(--reed)) 100%);
+              mask:radial-gradient(circle at 50% 50%,transparent 0 calc(50% - var(--reed)),#000 calc(50% - var(--reed)) 100%);}
+    .ivc-field{position:absolute;inset:var(--reed);border-radius:50%;
+      background:
+        radial-gradient(70% 70% at 30% 18%,rgba(255,246,222,0.34) 0%,transparent 64%),
+        linear-gradient(158deg,rgba(var(--ivm),0.66) 0%,rgba(var(--ivm),0.30) 46%,rgba(78,54,16,0.62) 100%);
+      box-shadow:inset 0 0 0 1px rgba(255,246,222,0.24),inset 0 -2px 6px rgba(0,0,0,0.42);}
+    .ivc-photo{position:absolute;inset:calc(var(--reed) + var(--band));border-radius:50%;
+      overflow:hidden;background:rgba(0,0,0,0.55);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:inset 0 1px 4px rgba(0,0,0,0.7),0 0 0 1px rgba(255,246,222,0.20);}
+    .ivc-photo img{width:100%;height:100%;object-fit:cover;object-position:top center;}
+    .ivc-photo i{font-size:calc(var(--cs) * 0.19);color:rgba(255,246,222,0.42);}
+    .ivc-leg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+    .ivc-leg text{fill:#2c1d05;font-family:'Inter',sans-serif;font-weight:800;
+      paint-order:stroke;stroke:rgba(255,248,228,0.42);stroke-width:1.7;
+      stroke-linejoin:round;letter-spacing:0.09em;}
+    /* ── AND WHAT THE COIN IS WORTH, UNDER IT ─────────────────────────────
+       The ticker and the rank are ON the coin, which is where a coin puts
+       them; the price is the one number that changes while you are looking at
+       it, so it stays type rather than becoming relief. */
+    .ivc-px{margin-top:9px;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
+      letter-spacing:-.3px;color:#f2e0b4;text-shadow:0 1px 0 rgba(0,0,0,0.6);}
+    .iv-card-coin .iv-chg{font-size:10px;}
+    .ivc-who{max-width:100%;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;
+      line-height:1.25;text-align:center;color:var(--text3);overflow:hidden;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+    .ivc-sub{max-width:100%;font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
+      letter-spacing:.3px;text-transform:uppercase;line-height:1.35;text-align:center;
+      color:rgba(var(--ivm),0.9);}
+    /* the controls fold under the coin: steppers and the field on one line,
+       the action across the full width of the tile beneath them */
+    .iv-card-coin .iv-buy{width:100%;margin-top:9px;gap:4px;flex-wrap:wrap;justify-content:center;}
+    .iv-card-coin .iv-step{width:26px;height:28px;font-size:14px;border-radius:7px;
+      border-color:rgba(var(--ivm),0.24);}
+    .iv-card-coin .iv-q{flex:1 1 0;min-width:0;height:28px;font-size:12px;}
+    .iv-card-coin .iv-in{height:28px;}
+    .iv-card-coin .iv-amt{flex:1 1 0;min-width:0;height:28px;}
+    .iv-card-coin .iv-go{flex:1 0 100%;height:30px;padding:0 6px;font-size:10px;letter-spacing:.3px;}
+    @media(max-width:520px){ .iv-card-coin{--cs:76px;padding:10px 5px 9px;}
+      .ivc-px{font-size:13.5px;margin-top:7px;}
+      .iv-card-coin .iv-step{width:23px;} }
+    @media(max-width:380px){ .iv-card-coin{--cs:68px;} .ivc-grid{gap:6px;} }
+    @media(min-width:760px){ .iv-card-coin{--cs:136px;padding:16px 10px 13px;}
+      .ivc-px{font-size:19px;} .ivc-who{font-size:11px;}
+      .iv-card-coin .iv-chg{font-size:11.5px;}
+      .iv-card-coin .iv-go{height:34px;font-size:11px;}
+      .iv-card-coin .iv-step,.iv-card-coin .iv-q,.iv-card-coin .iv-in,
+      .iv-card-coin .iv-amt{height:32px;}
+      .iv-card-coin .iv-step{width:32px;} }
     /* the action takes the card's own colour, so Buy reads blue and Short
        reads orange without either being named twice */
     .iv-go:not(:disabled){border-color:rgba(var(--ivc),0.42);color:rgb(var(--ivc));
