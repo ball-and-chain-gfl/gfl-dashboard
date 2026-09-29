@@ -1418,7 +1418,14 @@
       color:rgba(var(--ivm),0.9);}
     /* the controls fold under the coin: steppers and the field on one line,
        the action across the full width of the tile beneath them */
-    .iv-card-coin .iv-buy{width:100%;margin-top:9px;gap:4px;flex-wrap:wrap;justify-content:center;}
+    /* PUSHED TO THE FLOOR OF THE TILE, not spaced off the name. A grid row is
+       as tall as its tallest tile, and Rhamondre Stevenson's name wraps to two
+       lines where Tony Pollard's does not -- so measured from the name the
+       three Buy buttons in a row sat at three different heights. Measured from
+       the bottom they cannot. */
+    .iv-card-coin{height:100%;}
+    .iv-card-coin .iv-buy{width:100%;margin-top:auto;padding-top:9px;gap:4px;
+      flex-wrap:wrap;justify-content:center;}
     .iv-card-coin .iv-step{width:26px;height:28px;font-size:14px;border-radius:7px;
       border-color:rgba(var(--ivm),0.24);}
     .iv-card-coin .iv-q{flex:1 1 0;min-width:0;height:28px;font-size:12px;}
