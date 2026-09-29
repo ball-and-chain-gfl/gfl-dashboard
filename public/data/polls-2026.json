@@ -130,7 +130,72 @@
      "avg": 10.833
     }
    ]
+  },
+  "3": {
+   "ballots": 12,
+   "rank": [
+    {
+     "rank": 1,
+     "teamId": 3,
+     "avg": 1.75
+    },
+    {
+     "rank": 2,
+     "teamId": 1,
+     "avg": 2.75
+    },
+    {
+     "rank": 3,
+     "teamId": 6,
+     "avg": 3.833
+    },
+    {
+     "rank": 4,
+     "teamId": 8,
+     "avg": 4.417
+    },
+    {
+     "rank": 5,
+     "teamId": 7,
+     "avg": 5.25
+    },
+    {
+     "rank": 6,
+     "teamId": 10,
+     "avg": 5.75
+    },
+    {
+     "rank": 7,
+     "teamId": 4,
+     "avg": 7
+    },
+    {
+     "rank": 8,
+     "teamId": 2,
+     "avg": 7.917
+    },
+    {
+     "rank": 9,
+     "teamId": 5,
+     "avg": 8.5
+    },
+    {
+     "rank": 10,
+     "teamId": 11,
+     "avg": 9.917
+    },
+    {
+     "rank": 11,
+     "teamId": 12,
+     "avg": 10
+    },
+    {
+     "rank": 12,
+     "teamId": 9,
+     "avg": 10.917
+    }
+   ]
   }
  },
- "savedAt": "2026-09-22T09:15:46.665Z"
+ "savedAt": "2026-09-29T10:36:58.595Z"
 }
