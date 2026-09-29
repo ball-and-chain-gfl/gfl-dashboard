@@ -14103,7 +14103,9 @@ function bkqManager(r){
 /* 3 — four backfields or four receiving corps, one outscored the rest.
        Backs and receivers only: those are the two groups deep enough that the
        answer is about a team rather than about one player having a season. */
-function bkqGroup(r){
+/* The first week whose question nobody can have answered yet. See the draw. */
+const BK_GROUP_SLIDE_FROM=5;
+function bkqGroup(r,week){
   const c=bkStatSeason(4);
   const pool=bkPool(c.season); if(pool.length<50) return null;
   const pos=bkPick(r,[2,3]);                      // RB / WR
@@ -14112,15 +14114,42 @@ function bkqGroup(r){
   pool.forEach(p=>{ if(p.pos!==pos||!(p.total>0)) return;
     const t=bkTeamOf(p); if(!t) return;
     (byTeam[t]||(byTeam[t]={t,total:0})).total+=p.total; });
-  const groups=Object.values(byTeam).filter(g=>g.total>0)
-    .sort((a,b)=>b.total-a.total).slice(0,16);
-  if(groups.length<4) return null;
-  const four=bkShuffle(r,groups).slice(0,4).sort((a,b)=>b.total-a.total);
+  const ranked=Object.values(byTeam).filter(g=>g.total>0)
+    .sort((a,b)=>b.total-a.total).slice(0,24);
+  if(ranked.length<4) return null;
+  /* ── A WINDOW THAT MOVES WITH THE WEEK ────────────────────────────
+     Four drawn at random from one fixed top sixteen put weeks 3 and 4 three
+     options apart with the SAME answer both times -- Seattle was in both draws
+     and Seattle was top of both, so anyone who got it right in week 3 got week
+     4 for nothing. That is not bad luck to wait out: the top team is in a 4
+     of 16 draw a quarter of the time, and whenever it is drawn it is the
+     answer.
+
+     So the twelve the four come from slide down the ranking as the season goes
+     on. Seven is coprime with the number of positions the window can take, so
+     it visits all of them before repeating, and consecutive weeks share at
+     most five of twelve candidates rather than all sixteen. */
+  /* ── AND IT STARTS IN WEEK 5, BECAUSE WEEK 4 IS ALREADY ANSWERED ───────
+     An answer is stored as the INDEX a manager tapped -- ans[3] = 3 -- so
+     moving the options under a question that has been submitted grades
+     somebody's stored 3 against a different team. Six managers had already
+     filed week 4 when this was written and four of them had Seattle, the
+     right one; their sealed trivia score is on their profile too. Weeks 1 to
+     4 therefore keep the exact draw they shipped with -- the same top sixteen,
+     the same shuffle, the same rng -- and the window starts sliding from the
+     first week nobody has seen yet. Raise this the day it has to move again
+     mid-season; it is not meant to live here forever. */
+  const slide=(Number(week)||0)>=BK_GROUP_SLIDE_FROM;
+  const span=Math.min(12,ranked.length);
+  const slots=Math.max(1,ranked.length-span+1);
+  const off=slide?Math.abs(Math.imul(Number(week)||0,7))%slots:0;
+  const field=slide?ranked.slice(off,off+span):ranked.slice(0,16);
+  const four=bkShuffle(r,field).slice(0,4).sort((a,b)=>b.total-a.total);
   const right=four[0];
   const opts=bkShuffle(r,four);
   return {kind:'group',
     /* "out of these four" is not padding. The four are drawn at random from
-       the top sixteen, not taken off the top, so without it the question reads
+       a band of the ranking, not taken off the top, so without it the question reads
        as "who led the league" — which has one answer everybody knows, and is
        not the question being asked. */
     q:c.prior?`Which team's ${posN}s put up the most fantasy points in ${c.season}, out of these four?`
@@ -17485,7 +17514,20 @@ function ldBets(ids){
      Without it the board counted bets from before the slate was cleared and
      read a different number for the same manager than their own sportsbook
      did — 360 of staking that their own page had correctly forgotten. */
-  const all=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&!b.hidden&&betsAfterReset(b));
+  /* ── AND `hidden` IS NOT ONE OF THOSE LINES ──────────────────────────
+     It means CLEARED: a manager tidying a settled bet off their own My Bets
+     list. renderMyBets honours it because it is a list, and the money
+     deliberately does not -- bucksStaked and bucksReturned read betsMine,
+     which never looks at it, because clearing a bet from a view cannot
+     un-stake it.
+
+     This board was reading a display preference as a data filter. BFT had
+     cleared every settled bet they own, so all eight of them vanished: won 0,
+     lost 0, staked 0, ROI blank, profit 0 -- against the +187.98 their own
+     sportsbook correctly showed on the same eight. A public record of what
+     somebody has done is not theirs to tidy away, and a board that disagrees
+     with the page it summarises is worse than no board. */
+  const all=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&betsAfterReset(b));
   const settled=all.filter(b=>b.status==='won'||b.status==='lost'||b.status==='cashed');
   const won=all.filter(b=>b.status==='won').length;
   const lost=all.filter(b=>b.status==='lost').length;
@@ -17498,23 +17540,29 @@ function ldBets(ids){
 }
 /* One manager's portfolio, replayed from the ledger on their profile — the same
    arithmetic invRealised does, run against somebody else's lots. */
+/* ── AND IT WALKS THE LEDGER THE WAY EVERYTHING ELSE DOES ───────────────
+   This was the sixth hand-written copy of "a buy adds, a sell realises against
+   the running average", and the one that got missed when the other five were
+   folded into invWalk. It knew only 'b' and 's', so a short OPEN and a short
+   COVER both fell through to the buy branch and were counted as purchases --
+   which put BFT's board profit at -150.70 against a true -91.00, and Marathon
+   Men's at 86.19 against 83.79. Every long-only manager agreed to the cent,
+   which is exactly why nobody spotted it.
+
+   value and held stay LONG-ONLY on purpose, the same choice invValue makes: a
+   short has no value, it has a profit, and adding the two would print a
+   portfolio worth more than the shares in it. profit is both sides. */
 function ldFolio(prof){
   let lots=[];
   prof.forEach(p=>{ try{ const a=JSON.parse(p.inv||'[]'); if(Array.isArray(a)) lots=lots.concat(a); }catch(e){} });
   if(!lots.length) return {held:0, cost:0, value:0, real:0, profit:0, trades:0};
   lots.sort((a,b)=>(Number(a.t)||0)-(Number(b.t)||0));
-  const sh={},cost={}; let real=0;
-  lots.forEach(l=>{
-    const o=l.o, n=Number(l.s)||0, p=Number(l.p)||0;
-    if(!o||!n) return;
-    if(l.k==='s'){ const avg=sh[o]?cost[o]/sh[o]:0; real+=n*(p-avg);
-      sh[o]=(sh[o]||0)-n; cost[o]=(cost[o]||0)-avg*n; }
-    else { sh[o]=(sh[o]||0)+n; cost[o]=(cost[o]||0)+n*p; }
-  });
+  const w=invWalk(lots);
   let value=0, basis=0, held=0;
-  Object.keys(sh).forEach(o=>{ if(sh[o]<=0.0001) return;
-    held+=sh[o]; value+=sh[o]*invPrice(o); basis+=cost[o]; });
-  return {held, cost:basis, value, real, profit:real+(value-basis), trades:lots.length};
+  Object.keys(w.L).forEach(o=>{ const t=w.L[o]; if(t.sh<=0.0001) return;
+    held+=t.sh; value+=t.sh*invPrice(o); basis+=t.cost; });
+  return {held, cost:basis, value, real:w.real,
+    profit:invWalkProfit(w,invPrice), trades:lots.length};
 }
 /* One manager's GFL Bucks, worked out the way bucksBalance works out your own —
    allowance since their first bet, less what is staked on live bets, plus what
