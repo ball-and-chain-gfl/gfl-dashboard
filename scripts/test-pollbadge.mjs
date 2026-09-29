@@ -225,22 +225,25 @@ head('6. BALLS BIG 4');
 {
   const build = () => { const out = []; M.ntBig4(out); return out; };
   reset();
-  M.setRows(rows(N, 4));
+  M.setRows(rows(N, 5));
 
-  ok('it opens in week 4', M.NT_BIG4_FROM, 4);
+  ok('it opens in week 5, the NEXT poll', M.NT_BIG4_FROM, 5);
   ok('and it is BFT\'s ballot', M.NT_BIG4_OWNER, 'bft');
 
-  /* week 3's ballot is already cast — a card now would be last Tuesday's news */
-  M.setWeek(3);
-  M.setRows(rows(N, 3));
-  ok('nothing before it opens', build().length, 0);
-
+  /* week 4's ballot is already cast — a card for it would be Tuesday's news */
   M.setWeek(4);
   M.setRows(rows(N, 4));
+  ok('nothing for the poll that is already open', build().length, 0);
+  M.setWeek(3);
+  M.setRows(rows(N, 3));
+  ok('nor for one that has closed', build().length, 0);
+
+  M.setWeek(5);
+  M.setRows(rows(N, 5));
   const c = build();
   ok('one card once the ballot is in', c.length, 1);
   ok('titled the way it was asked for', c[0] && c[0].title, 'Balls Big 4');
-  ok('keyed to the season and the week', c[0] && c[0].id, 'b4:2026:4');
+  ok('keyed to the season and the week', c[0] && c[0].id, 'b4:2026:5');
   ok('and it is its own kind', c[0] && c[0].kind, 'big4');
 
   /* four cells, in ballot order, each with a crest and an abbreviation */
@@ -257,19 +260,19 @@ head('6. BALLS BIG 4');
      ['1', '2', '3', '4']);
 
   /* BFT ranks somebody else first */
-  M.setRows(rows(N, 4, i => (FR[i].owner === 'bft' ? rot(ORDER, 5) : ORDER)));
+  M.setRows(rows(N, 5, i => (FR[i].owner === 'bft' ? rot(ORDER, 5) : ORDER)));
   ok('it reads HIS ballot and not the league average',
      (build()[0].art.match(/data-t="(\d+)"/g) || []).map(s => s.replace(/\D/g, '')),
      ['6', '7', '8', '9']);
 
   /* the cases where there is nothing to say */
-  M.setRows(rows(N, 4).filter(r => r.id !== 'bft'));
+  M.setRows(rows(N, 5).filter(r => r.id !== 'bft'));
   ok('no ballot from him, no card', build().length, 0);
-  M.setRows([{ id: 'bft', teamId: '10', cp_2026_w4: JSON.stringify(ORDER.slice(0, 4)) }]);
+  M.setRows([{ id: 'bft', teamId: '10', cp_2026_w5: JSON.stringify(ORDER.slice(0, 4)) }]);
   ok('a half-finished draft is not a vote', build().length, 0);
-  M.setRows([{ id: 'bft', teamId: '10', cp_2026_w4: 'not json' }]);
+  M.setRows([{ id: 'bft', teamId: '10', cp_2026_w5: 'not json' }]);
   ok('and neither is a corrupt field', build().length, 0);
-  M.setRows(rows(N, 4));
+  M.setRows(rows(N, 5));
   M.setTeams([]);
   ok('no league loaded, no card', build().length, 0);
   M.setTeams(TEAMS);
@@ -278,7 +281,7 @@ head('6. BALLS BIG 4');
      deliberately, by the manager they belong to — this is the one poll thing on
      the site that does not wait for you to vote first. */
   M.setMe(null);
-  M.setRows(rows(N, 4));
+  M.setRows(rows(N, 5));
   ok('a manager who has not voted still gets the card', build().length, 1);
   ok('while their own badges stay withheld', withheld(M.pollBadge(1)), true);
 }

@@ -16714,11 +16714,13 @@ function ntStandings(out){
    Week, this is whose ballot gets a card -- and a constant shared by
    coincidence is a rename waiting to break something a long way from here.
 
-   FROM WEEK 4. Week 3's ballot is already in, so a card written now would
-   arrive as news about something that happened last Tuesday. It opens with the
-   next poll. */
+   FROM WEEK 5, WHICH IS THE NEXT POLL AND NOT THIS ONE. Week 4's ballot is
+   already cast -- it went in on the Tuesday the week turned over, along with
+   six others -- so a card written for week 4 would arrive as news about
+   something that had already happened. This opens with the next poll, which is
+   what was asked for and is also the only version of it that reads as news. */
 const NT_BIG4_OWNER='bft';
-const NT_BIG4_FROM=4;
+const NT_BIG4_FROM=5;
 function ntBig4(out){
   const w=cpWeek();
   if(!(w>=NT_BIG4_FROM)) return;
