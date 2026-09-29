@@ -276,24 +276,33 @@ window.GFL_CONFIG = {
 
        Only the current week is graded. The questions are generated from live
        data, so a past week cannot be rebuilt and marked afterwards — it would
-       score people against questions they were never asked. Picks and settled
-       bets are the cumulative half of the number; the trivia is the live half. */
+       score people against questions they were never asked. Sealed past weeks
+       and the weekly picks are the cumulative half of the number; the trivia
+       is the live half. */
     reveal: true,
     /* What one graded call is worth on the Ball Knowledge scale — a right
        answer this much up, a wrong one the same amount down. Every call counts
-       the same: a trivia question, a weekly pick, a settled bet, except the
-       Matchup of the Week pick, which counts double.
+       the same: a trivia question and a weekly pick, except the Matchup of the
+       Week pick, which counts double. SETTLED BETS NO LONGER COUNT — a wager
+       is already scored, in money, on the two boards built for it.
 
-       The scale runs 0 to 300 with everyone starting at 150, and the nine
-       labels on a team profile divide it evenly — Average Ball Knower is the
-       middle band, 133 to 167. min, max and avg can be set here too if the
-       scale ever wants moving; the labels follow whatever it is set to.
+       THE SCALE IS 70 TO 230, everyone starting at 150 — still the exact
+       midpoint, eighty either way. It was 0 to 300, which sounds generous and
+       was the opposite: at one point a call, the whole league sat between 142
+       and 163 and all twelve managers wore the same label. Nine bands across
+       160 points is 17.8 apiece, so the same spread now covers two of them.
 
-       One point a call. The Matchup of the Week pick is the only thing worth
-       two, and that doubling lives in the code beside the pick rather than
-       here. So a perfect week is about +16 and a terrible one -16, which puts
-       the ceiling and the floor a season apart rather than five weeks. */
-    iq: { step: 1 },
+       Nobody's total moves for this. The narrowest score in the league is 141
+       and the widest 167, so the new floor and ceiling clamp nothing; all that
+       changes is which band a number falls in. The labels are derived from min
+       and max, so they follow the scale wherever it is set.
+
+       IF THE LEAGUE STILL LOOKS TOO BUNCHED, step is the lever and not the
+       range. At 1 a season of calls moves somebody about twenty points on a
+       160-point scale; at 4 the same league would spread across six of the
+       nine bands. Raising it rescales every total at once, so it is a decision
+       to make deliberately rather than drift into. */
+    iq: { step: 1, min: 70, max: 230 },
     /* TESTING — serve one of every kind of question instead of the weekly five,
        and let the graph question through before week 5. The league gets the
        real five-a-week set regardless; this is the testing profile's view.

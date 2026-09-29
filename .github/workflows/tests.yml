@@ -67,8 +67,8 @@ jobs:
         run: node scripts/test-trade-archive.mjs
       - name: a trade's points count from the week it happened
         run: node scripts/test-trade-window.mjs
-      - name: Ball Knowledge counts the same bets the money boards do
-        run: node scripts/test-bkbets.mjs
+      - name: the league board counts the bets a manager cleared
+        run: node scripts/test-ldbets.mjs
       - name: the one-off make-good pays once and never returns
         run: node scripts/test-bkmakegood.mjs
       - name: an unprocessed waiver bid never leaves the proxy

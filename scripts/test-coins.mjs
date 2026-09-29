@@ -49,7 +49,9 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'const invCeilOf=',
   'const invCap=',
   'const invCollat=',
-], ['INV_COINS', 'INV_COIN_CUT', 'INV_COIN_TOP', 'INV_COIN_FLOOR', 'INV_CEIL',
+  'function invWalk(lots){',
+  'function invWalkProfit(w,priceOf){',
+], ['invWalk', 'invWalkProfit', 'INV_COINS', 'INV_COIN_CUT', 'INV_COIN_TOP', 'INV_COIN_FLOOR', 'INV_CEIL',
     'invCoinKey', 'invCoin', 'invCoinPrices', 'invCeilOf', 'invCap', 'invCollat',
     'setPool'],
 `
@@ -214,6 +216,57 @@ head('7. the shipped list is well formed');
   ok('no coin key collides with a fund', COINS.every(c => !/^ETF_/.test(K(c.pid))), true);
   ok('a team key is not a coin', M.invCoin('ETF_EAST'), null);
   ok('nor is an owner slug', M.invCoin('mm'), null);
+}
+
+/* ── 8 ──────────────────────────────────────────────────────── */
+head('8. PROFIT COUNTS ALL FOUR INSTRUMENTS, AND THE RIGHT CEILING FOR EACH');
+{
+  /* A portfolio can hold four different things at once: a team share, a short
+     of a team share, a coin, and a short of a coin. Profit has to be the sum of
+     all four -- a walk that quietly dropped one would look perfectly healthy
+     for every manager who did not hold that one. Which is exactly how the
+     leaderboard shipped wrong: it handled longs, so every long-only manager
+     agreed to the cent and the two with shorts were the only ones out.
+
+     And the two shorts must settle against DIFFERENT ceilings -- $25 for a
+     team, INV_COIN_TOP for a coin -- or a cheap coin's short is valued against
+     a bound it can never reach. */
+  const COIN = K(WR.pid);
+  const px = { mm: 14, ETF_EAST: 9 };
+  px[COIN] = 4;
+  const priceOf = o => (px[o] != null ? px[o] : 10);
+
+  const lots = [
+    { o: 'mm',        s: 2, p: 10, t: 1, k: 'b'  },   // team long  : +2 x 4 = +8
+    { o: 'ETF_EAST',  s: 3, p: 12, t: 2, k: 'so' },   // team short : +3 x 3 = +9
+    { o: COIN,        s: 5, p: 3,  t: 3, k: 'b'  },   // coin long  : +5 x 1 = +5
+    { o: COIN,        s: 4, p: 7,  t: 4, k: 'so' },   // coin short : +4 x 3 = +12
+  ];
+  const w = M.invWalk(lots);
+
+  ok('the team long is held',   (w.L.mm || {}).sh, 2);
+  ok('the coin long is held',   (w.L[COIN] || {}).sh, 5);
+  ok('the team short is open',  (w.S.ETF_EAST || {}).sh, 3);
+  ok('the coin short is open',  (w.S[COIN] || {}).sh, 4);
+
+  ok('all four are counted, and they add up', M.invWalkProfit(w, priceOf), 8 + 9 + 5 + 12);
+
+  /* drop any one of them and the total must fall by exactly that leg */
+  [['team long', 'b', 'mm', 8], ['team short', 'so', 'ETF_EAST', 9],
+   ['coin long', 'b', COIN, 5], ['coin short', 'so', COIN, 12]].forEach(([name, k, o, worth], i) => {
+    const without = lots.filter((_, j) => j !== i);
+    ok('  without the ' + name + ' it is exactly that much less',
+       M.invWalkProfit(M.invWalk(without), priceOf), 34 - worth);
+  });
+
+  /* the ceilings really are different, which is what makes the two shorts
+     different instruments rather than the same one twice */
+  ok('a team short is bounded at the team ceiling', M.invCeilOf('ETF_EAST'), M.INV_CEIL);
+  ok('a coin short is bounded at the coin ceiling', M.invCeilOf(COIN), TOP);
+  const runaway = o => (o === COIN ? 9999 : 9999);
+  ok('and a runaway price costs each only its own collateral',
+     M.invWalkProfit(M.invWalk([lots[1], lots[3]]), runaway),
+     -(3 * (M.INV_CEIL - 12)) - (4 * (TOP - 7)));
 }
 
 console.log(NL + pass + ' passed, ' + fail + ' failed');

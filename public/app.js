@@ -17282,20 +17282,28 @@ function cursedHTML(){
    Nothing is graded until the week's `reveal` is turned on, so before that the
    whole league sits dead centre — which is the intended starting state rather
    than a placeholder. */
-/* 0 to 300, average at 150. The old 40–228 was lopsided — 128 points of room
-   above the average and only 60 below — so a bad run hit the floor twice as
-   fast as a good one hit the ceiling. Symmetrical now, and it divides cleanly
-   into the nine bands below. */
-const bkIQCfg=()=>Object.assign({min:0,max:300,avg:150,step:8},(_CFG.ballKnowledge||{}).iq||{});
+/* 70 to 230, average at 150 — eighty either way, so a bad run reaches the
+   floor at the same rate a good one reaches the ceiling. (The 40–228 before
+   that was lopsided: 128 points above the average and 60 below.)
+
+   IT WAS 0 TO 300, WHICH SOUNDED GENEROUS AND WAS THE OPPOSITE. At one point
+   a call the whole league sat between 142 and 163, so all twelve managers wore
+   the same label and the scale said nothing about anybody. Nine bands across
+   160 points is 17.8 apiece and the same spread now covers two of them.
+
+   Config wins over all of it — see ballKnowledge.iq, which is where the league
+   actually sets these and where step lives. */
+const bkIQCfg=()=>Object.assign({min:70,max:230,avg:150,step:8},(_CFG.ballKnowledge||{}).iq||{});
 /* ── WHAT THE NUMBER IS CALLED ───────────────────────────────────────────────
-   Nine bands, worst to best, each covering an equal share of the scale — a
-   third of a hundred points apiece across 0–300. Average Ball Knower is the
-   fifth of nine, so it straddles the midpoint exactly: 133.3 to 166.7, centred
-   on 150, which is where everybody starts.
+   Nine bands, worst to best, each covering an equal share of the scale — 17.8
+   points apiece across 70–230. Average Ball Knower is the fifth of nine, so it
+   straddles the midpoint exactly: 141.1 to 158.9, centred on 150, which is
+   where everybody starts.
 
    Derived from min and max rather than written as fixed boundaries, so moving
    the scale in config moves the bands with it instead of silently leaving them
-   pointing at the wrong numbers. */
+   pointing at the wrong numbers. That is the whole reason the range could be
+   narrowed without touching a single label. */
 const BK_IQ_LABELS=[
   'Profound Impairment',
   'Moderate Impairment',
@@ -17336,11 +17344,6 @@ let _bkProfiles=null;
 
    Null means not in yet, which is different from none: callers hold the number
    back rather than print a total with a piece missing. */
-function bkBetsFor(owners){
-  const all=_betsAll||betsAllCached();
-  if(!all) return null;
-  return all.filter(b=>owners.includes(b.owner)&&betsAfterReset(b));
-}
 
 /* Ball Knowledge is not just the quiz. Three things move it, all of them a
    read on the league rather than luck:
@@ -17404,16 +17407,18 @@ function bkIQFor(teamId){
     // weekly picks, graded against results that exist
     score+=bkPickScore(p);
   });
-  /* Settled bets belonging to this team. _bets is this manager's own ledger
-     now rather than the whole league's, so another team's bets are fetched on
-     demand — one query for that owner, kept, and the bar repaints when it
-     lands. Falls back to _bets, which is the right answer when the team being
-     looked at is your own. */
-  const owners=rows.map(p=>p.id);
-  (bkBetsFor(owners)||[]).forEach(b=>{
-    if(b.status==='won') score+=1;
-    else if(b.status==='lost') score-=1;
-  });
+  /* ── BETS DO NOT COUNT TOWARD BALL KNOWLEDGE ────────────────────────
+     A settled bet used to be worth a point either way, alongside the trivia
+     and the weekly picks. It is out: a bet is a wager, and whether it came in
+     is mostly about the price you took and partly about luck -- it is already
+     scored, in money, on the two boards built for exactly that. Ball Knowledge
+     is now what somebody KNEW: the week's questions and the week's picks.
+
+     Nothing stored has to move for this. The sealed weekly number on a profile
+     (bkt_<season>_w<week>) is right-minus-wrong on the five questions and has
+     never had a bet in it -- bets were added here, at display time, on every
+     read. So the totals simply recompute, and they move by between -1 and +9
+     across the league, upward for everybody who was net down on their bets. */
   return Math.max(iq.min,Math.min(iq.max,Math.round(iq.avg+score*iq.step)));
 }
 /* how a manager's weekly picks turned out, over every week still in the
