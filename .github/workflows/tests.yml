@@ -69,6 +69,8 @@ jobs:
         run: node scripts/test-trade-window.mjs
       - name: the league board counts the bets a manager cleared
         run: node scripts/test-ldbets.mjs
+      - name: the poll badge is withheld until you have voted
+        run: node scripts/test-pollbadge.mjs
       - name: the one-off make-good pays once and never returns
         run: node scripts/test-bkmakegood.mjs
       - name: an unprocessed waiver bid never leaves the proxy

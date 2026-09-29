@@ -2212,6 +2212,73 @@
     .cp-avg{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);}
     @media(max-width:420px){ .cp-pick{grid-template-columns:repeat(2,minmax(0,1fr));} }
 
+    /* ── The poll ranking, as a badge ───────────────────────────────────────
+       One chip, six places: Your Forecast, the schedule, both sportsbook
+       boards, the profile hero and the standings table. Everything that varies
+       between them -- where it sits and how big it is -- is a modifier, so the
+       chip itself can only ever look like one thing.
+
+       The colour is the poll's own ramp, handed in as --cpb: blue at the top of
+       the table through to red at the bottom, the same gradient the poll chart
+       reads in. So the number and the colour say the same thing twice, which is
+       what makes it legible at eleven pixels.
+
+       Outlined rather than filled. Filled, twelve of these down a standings
+       table read as a column of buttons, and next to a crest a solid block of
+       the ramp's paler stops fought the crest for the eye. */
+    .cp-bdg{--cpb:var(--text3);flex:0 0 auto;display:inline-flex;align-items:center;
+      justify-content:center;min-width:18px;height:17px;padding:0 3px;box-sizing:border-box;
+      border-radius:5px;background:rgba(0,0,0,0.42);color:var(--cpb);
+      box-shadow:inset 0 0 0 1px var(--cpb);
+      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;line-height:1;
+      font-variant-numeric:tabular-nums;letter-spacing:0;cursor:default;}
+    /* a question mark is a withheld number, not a missing one, so it is quiet
+       rather than alarming -- no ramp colour to read, because there is nothing
+       yet to read */
+    .cp-bdg-q{color:var(--text3);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);
+      background:rgba(255,255,255,0.04);font-weight:700;}
+    /* ── ON A CREST, OUTSIDE CORNER EACH SIDE ───────────────────────────────
+       Left team top-left, right team top-right, so the two badges sit at the
+       outer edges of the matchup and the week between them is never crowded.
+       .fc-head is a flex row, so the wrapper has to be the positioning
+       context -- put position:relative on the crest image itself and the badge
+       anchors to whatever the logo helper happens to emit. */
+    .fc-crest{position:relative;display:inline-flex;flex:0 0 auto;}
+    .cp-bdg-tl,.cp-bdg-tr{position:absolute;top:-5px;z-index:2;min-width:19px;height:18px;
+      font-size:11px;background:var(--bg2,#111);}
+    .cp-bdg-tl{left:-6px;}
+    .cp-bdg-tr{right:-6px;}
+    /* the hero is a banner with a watermark crest bled across it, so the badge
+       needs to sit above that rather than inside the text row */
+    .cp-bdg-hero{position:absolute;top:11px;right:12px;z-index:3;min-width:24px;height:22px;
+      font-size:12.5px;border-radius:6px;background:rgba(0,0,0,0.55);}
+    /* the standings column: narrow, centred, and the header says which ranking
+       it is because the column beside it is a ranking too */
+    .cp-th{text-align:center;font-size:11px;}
+    .cp-td{text-align:center;}
+    @media(max-width:520px){
+      .cp-bdg{min-width:16px;height:15px;font-size:9.5px;border-radius:4px;}
+      .cp-bdg-tl,.cp-bdg-tr{min-width:18px;height:17px;font-size:10.5px;}
+      .cp-bdg-hero{min-width:21px;height:20px;font-size:11.5px;top:10px;right:10px;}
+      /* the badge costs a row 25px it did not have on a phone; the crest keeps
+         its gap to the badge and the badge takes a tighter one to the name */
+      .sch-team{gap:7px;}
+    }
+
+    /* ── Balls Big 4 ────────────────────────────────────────────────────────
+       Four cells, two by two, on the notification card. A 1-4 list down one
+       column was the first version and it made a tall card out of four
+       abbreviations; square, it is the shape of the thing it is naming. */
+    .nt-b4{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+    .nt-b4-c{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 9px;
+      border-radius:8px;background:rgba(0,0,0,0.3);}
+    .nt-b4-r{flex:0 0 auto;width:13px;font-family:'Inter',sans-serif;font-size:11px;
+      font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+    .nt-b4-l{flex:0 0 auto;width:22px;height:22px;border-radius:5px;object-fit:cover;}
+    .nt-b4-a{flex:1 1 auto;min-width:0;font-family:'Inter',sans-serif;font-size:12px;
+      font-weight:700;letter-spacing:.4px;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;}
+
     /* ── Forecast ──────────────────────────────────────────────────────────
        The line, where the lineups differ by position, and what each result
        would do to the season. */

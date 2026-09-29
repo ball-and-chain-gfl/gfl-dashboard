@@ -1788,6 +1788,10 @@ function renderStandingsTable(){
   if(!thead||!tbody)return;
   thead.innerHTML=`<tr>
     <th class="${_sortCol==='rank'?'sorted':''}" onclick="sortStandings('rank')"># <span style="font-size:12px;opacity:0.6">${arr('rank')}</span></th>
+    ${''/* not sortable. It is the same twelve teams in a different order, and a
+           table that can be sorted by two rankings at once is a table that
+           cannot say which one the numbers down the left belong to. */}
+    <th class="cp-th" title="Coaches' Poll">Poll</th>
     <th>Team</th>${th('wins','W')}
     <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}${th('atpf','AT PF')}${th('atpa','AT PA')}${th('pfy','PF/Yr')}${th('pay','PA/Yr')}
   </tr>`;
@@ -1795,6 +1799,7 @@ function renderStandingsTable(){
     const s=_scores[t.id]||0;
     return`<tr>
       <td><span class="rank">${i===0&&_sortCol==='rank'?'🥇':i+1}</span></td>
+      <td class="cp-td">${pollBadge(t.id)}</td>
       <td><div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${t.name}</div><div class="team-sub">${t.abbrev}</div></div></div></td>
       <td class="right"><strong>${t.wins}</strong></td>
       <td class="right" style="color:var(--text3)">${t.losses}</td>
@@ -3417,6 +3422,84 @@ function pollRankNow(){
 function pollColor(teamId){
   const n=_teams.length||POLL_RAMP.length;
   return pollRampColor(pollRankNow()[Number(teamId)]||n,n);
+}
+/* ── THE POLL RANKING, WHEREVER A TEAM IS NAMED ──────────────────────────────
+   The whole number and not the average. The average is the poll's arithmetic
+   and belongs on the poll itself; a badge beside a crest has room for a
+   position and nothing else, and a position is what somebody means when they
+   ask where a team is ranked.
+
+   ONE HELPER FOR ALL SIX PLACES. Your Forecast, the schedule, both sportsbook
+   boards, the profile hero and the standings table all draw this. A rank that
+   disagreed with itself between two tabs would be worse than showing none at
+   all, so there is one source for the number, one for the gate, and one for
+   the colour.
+
+   AND IT IS GATED THE WAY THE POLL IS. The card on the homepage withholds the
+   standings from anybody who has not voted, because seeing what the league
+   thinks before you say what you think turns a late ballot into a
+   ratification. A badge on every page quietly saying the same thing would walk
+   straight around that, so until this manager's own ballot for the week is in
+   every one of them is a question mark. */
+const CP_REVEAL_AT=()=>isTestProfile()?2:7;
+/* has THIS manager voted in the week that is open. Lifted out of
+   renderCoachesPoll, which is where it used to live inline -- the gate on the
+   badges has to be the same test as the gate on the card, not a copy of it. */
+function cpMineIn(){
+  if(!_me) return false;
+  return !!(_cpRows||[]).find(p=>p&&p.id===_me.k1&&p[cpKey()]);
+}
+/* Where the league has the teams RIGHT NOW: the live week from the moment the
+   homepage card would reveal it, and the newest week on file until then.
+
+   pollRankNow answers off pollWeeksData, which only admits a live week once
+   EVERY ballot is in. That is right for the chart, which is a record and must
+   not redraw itself as votes trickle in, and a week stale for a badge, which
+   is a scoreboard. */
+function pollNowRanks(){
+  if(_cpRows&&(_teams||[]).length){
+    let t=null; try{ t=cpTally(); }catch(e){}
+    if(t&&t.rank&&t.rank.length&&t.ballots>=CP_REVEAL_AT()){
+      const out={}; t.rank.forEach((r,i)=>{ out[Number(r.t.id)]=i+1; });
+      return out;
+    }
+  }
+  return pollRankNow();
+}
+const pollTeamIdOf=owner=>Number(((_franchises||[])
+  .find(f=>f&&f.owner===owner)||{}).teamId)||0;
+/* A question mark is not a failure state -- it is the same withholding the poll
+   card does, and it says so when you hold it. No rank at all reads as one too:
+   before the first poll of a season closes there is nothing to show, and a
+   blank gap where eleven other teams have a number looks like a bug. */
+function pollBadge(teamId,cls){
+  const c='cp-bdg'+(cls?' '+cls:'');
+  const q=`<span class="${c} cp-bdg-q" title="Fill in your Coaches' Poll ballot to see the rankings">?</span>`;
+  if(!cpMineIn()) return q;
+  const r=pollNowRanks()[Number(teamId)];
+  if(!r) return q;
+  return `<span class="${c}" style="--cpb:${pollRampColor(r,(_teams||[]).length||12)}"
+    title="Coaches' Poll #${r}">${r}</span>`;
+}
+/* the sportsbook and the schedule hold an owner rather than a team id */
+const pollBadgeFor=(owner,cls)=>pollBadge(pollTeamIdOf(owner),cls);
+/* ── AND THEY ALL CHANGE AT ONCE ─────────────────────────────────────────────
+   A badge is drawn from two things that arrive late: the profile rows, which
+   carry every ballot, and this manager's own vote, which flips every question
+   mark on the site to a number the moment it lands. Neither belongs to the page
+   the badge is on, so the repaint cannot be left to whoever renders next -- the
+   standings table above all, which is built once at load and would otherwise
+   sit on a row of question marks until the tab was reopened.
+
+   Keyed on what is in the document rather than on which tab is active, because
+   the answer wanted here is 'is this drawn', and a tab name is one indirection
+   away from that. */
+function cpBadgeRepaint(){
+  const has=id=>!!document.getElementById(id);
+  try{ if(has('standings-tbody')) renderStandingsTable(); }catch(e){}
+  try{ if(has('fc-body')) renderForecastCard(); }catch(e){}
+  try{ if(has('sched-body')) renderSchedule(); }catch(e){}
+  try{ if(_activeTab==='book') renderBook(); }catch(e){}
 }
 const pollTeam=id=>_teams.find(t=>t.id===Number(id))||null;
 /* The crest hangs off the FRANCHISE, not the season's team row — _teams carries
@@ -5955,9 +6038,11 @@ function fcPaneHTML(info,aTid,bTid,mine){
     : `<div class="fc-mu fc-mu-two">${ab(aT)} <span>vs</span> ${ab(bT)}</div>`;
   return `<div class="fc-pane">
     <div class="fc-head">
-      ${logoImg(aT.id,'big4-logo')}
+      ${''/* the badge rides the crest itself, outside corner each side, so the
+             pair reads as two ranked teams rather than a row of loose numbers */}
+      <span class="fc-crest">${logoImg(aT.id,'big4-logo')}${pollBadge(aT.id,'cp-bdg-tl')}</span>
       <div class="fc-vs"><div class="fc-wk">Week ${info.week}</div>${title}</div>
-      ${logoImg(bT.id,'big4-logo')}
+      <span class="fc-crest">${logoImg(bT.id,'big4-logo')}${pollBadge(bT.id,'cp-bdg-tr')}</span>
     </div>
     ${bar}
     <div class="fc-lu">
@@ -10292,7 +10377,7 @@ function renderSchedule(){
   const nm=r=>`<span class="sch-team sch-open" role="button" tabindex="0"
     data-opp="${r.opp.owner}" data-name="${String(r.opp.name).replace(/"/g,'&quot;')}"
     onclick="toggleSchedOpp(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSchedOpp(this);}"
-    >${sbAvatar(r.opp.owner,22)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span>${r.rival?`<span class="sch-rival" title="Rivalry game — 2025 week ${r.rivalWeek}">RIVAL</span>`:''}<i class="fa fa-chevron-down sch-caret"></i></span>`;
+    >${sbAvatar(r.opp.owner,22)}${pollBadgeFor(r.opp.owner)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span>${r.rival?`<span class="sch-rival" title="Rivalry game — 2025 week ${r.rivalWeek}">RIVAL</span>`:''}<i class="fa fa-chevron-down sch-caret"></i></span>`;
   const sosPct=d.sosCount?1-(d.sosRank-1)/Math.max(1,d.sosCount-1):0.5;
   const recSeason=(d.rows.find(r=>r.oppSeason)||{}).oppSeason||'Last';
   el.innerHTML=`
@@ -10610,6 +10695,7 @@ async function renderProfile(){
   el.innerHTML=`
     <div class="prof-hero">
     <div class="prof-banner" style="--tc:${tcRaw}">
+      ${pollBadge(id,'cp-bdg-hero')}
       <div class="prof-banner-wm">${(_logoMap[id]?`<img src="${_logoMap[id]}" alt="" decoding="async"/>`:'')}</div>
       <div class="prof-banner-row">
         <div class="prof-badge">${logoImg(id,'big4-logo')}</div>
@@ -15658,6 +15744,7 @@ const NT_KINDS={
   trash:  {icon:'fa-comment-dots', tone:'hot'},
   standings:{icon:'fa-ranking-star', tone:'cool'},
   bkfix:  {icon:'fa-gift',         tone:'good'},
+  big4:   {icon:'fa-list-ol',      tone:'royal'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -16612,9 +16699,52 @@ function ntStandings(out){
                       :'Nobody moved this week.')});
 }
 
+/* ── BALLS BIG 4 ─────────────────────────────────────────────────────────────
+   The top four off BFT's ballot, published the moment it lands.
+
+   IT PUBLISHES PART OF ONE BALLOT BEFORE THE POLL CLOSES, and that is the
+   point rather than an oversight: it is his own ballot, put out deliberately,
+   the way a coach with a vote says who his top four are. Everything the poll
+   withholds -- the standings, the averages, where anyone else has anybody --
+   is still withheld, and four names off one card cannot be reverse-engineered
+   into the league's order.
+
+   ITS OWN OWNER CONSTANT, not MOTW_PICKER. Those two are the same string by
+   coincidence and mean different things -- one is who sets the Matchup of the
+   Week, this is whose ballot gets a card -- and a constant shared by
+   coincidence is a rename waiting to break something a long way from here.
+
+   FROM WEEK 4. Week 3's ballot is already in, so a card written now would
+   arrive as news about something that happened last Tuesday. It opens with the
+   next poll. */
+const NT_BIG4_OWNER='bft';
+const NT_BIG4_FROM=4;
+function ntBig4(out){
+  const w=cpWeek();
+  if(!(w>=NT_BIG4_FROM)) return;
+  if(!(_cpRows||[]).length||!(_teams||[]).length) return;
+  const row=(_cpRows||[]).find(p=>p&&p.id===NT_BIG4_OWNER);
+  if(!row) return;
+  let b=null; try{ b=JSON.parse(row[cpKeyFor(w)]||'null'); }catch(e){ b=null; }
+  /* a full slate or nothing: cpSubmit will not send a short ballot, so a short
+     one here is a half-finished draft that got mirrored, not a vote */
+  if(!Array.isArray(b)||b.length!==_teams.length) return;
+  const four=b.slice(0,4)
+    .map(id=>_teams.find(t=>String(t.id)===String(id))).filter(Boolean);
+  if(four.length<4) return;
+  const fr=(_franchises||[]).find(f=>f&&f.owner===NT_BIG4_OWNER);
+  out.push({kind:'big4', day:ntToday(), id:`b4:${getSeason()}:${w}`,
+    title:'Balls Big 4',
+    art:`<div class="nt-b4">${four.map((t,i)=>`<div class="nt-b4-c">
+        <span class="nt-b4-r">${i+1}</span>
+        ${logoImg(t.id,'nt-b4-l')}
+        <span class="nt-b4-a">${t.abbrev||teamInitials(t.name)}</span>
+      </div>`).join('')}</div>`,
+    body:`${fr?fr.name:'BFT'} has the league's week ${w} ballot in.`});
+}
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntStandings,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -17148,7 +17278,10 @@ async function cpSync(){
          missing from both the chart and the folds, and only saw it after a
          second visit warmed the row cache. Same reasoning, and same one-line
          guard, as the archive landing in pollsLoad. */
-      try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){} }
+      try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){}
+      /* and the rank badges, which are on five other pages and cannot know
+         the ballots have arrived */
+      try{ cpBadgeRepaint(); }catch(e){} }
   }catch(e){}
 }
 function cpToggle(teamId){
@@ -17237,7 +17370,7 @@ function renderCoachesPoll(){
   /* Seven is enough to be a poll rather than a couple of opinions; the rest
      can still come in and shift it after that. Two for the testing profile,
      which is the only way to see a result before seven people have voted. */
-  const REVEAL_AT=isTestProfile()?2:7;
+  const REVEAL_AT=CP_REVEAL_AT();
   const complete=ballots>=REVEAL_AT;
 
   if(!_me){
@@ -17252,7 +17385,7 @@ function renderCoachesPoll(){
      are in. Seeing the standings first would tell you what the league thinks
      before you say what you think, which is the one thing a poll cannot allow —
      the late voters would just be ratifying it. */
-  const mineIn=!!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()]);
+  const mineIn=cpMineIn();
   const results=`<div class="cp-meta">${ballots} of ${total} ballots in${ballots<total?' · still open':''}${cpRefreshBtn()}</div>
     <div class="cp-list">${rank.map((r,i)=>`<div class="cp-res">
       <span class="cp-rk">${i+1}</span>
@@ -18911,7 +19044,7 @@ function sbMarketHTML(m){
     const nm=p.av!=null
       ? `<span class="sb-tm sb-tm-free">${p.av}<span class="sb-txt"><span class="sb-nm">${p.name}</span>${
           p.ab?`<span class="sb-ab">${p.ab}</span>`:''}</span></span>`
-      : `<span class="sb-tm">${sbAvatar(p.owner,22)}<span class="sb-nm">${p.name}</span><span class="sb-ab">${sbTeamAb(p.owner,p.name)}</span></span>`;
+      : `<span class="sb-tm">${sbAvatar(p.owner,22)}${pollBadgeFor(p.owner)}<span class="sb-nm">${p.name}</span><span class="sb-ab">${sbTeamAb(p.owner,p.name)}</span></span>`;
     if(m.type==='outright'){
       return `<div class="sb-row">${nm}
         <span class="sb-imp">${sbDrift(p.open,p.odds)}<span class="sb-imp-v">${(p.prob*100).toFixed(1)}%</span></span>
@@ -19999,7 +20132,7 @@ function sbPickEmMarkets(book,week){
 function sbWeekHTML(){
   const d=sbWeekData();
   if(!d) return `<div class="tab-loading">No schedule data for this season.</div>`;
-  const nm=r=>`<span class="sb-tm">${sbAvatar(r.owner,22)}<span class="sb-nm">${r.name}</span><span class="sb-ab">${sbTeamAb(r.owner,r.name)}</span></span>`;
+  const nm=r=>`<span class="sb-tm">${sbAvatar(r.owner,22)}${pollBadgeFor(r.owner)}<span class="sb-nm">${r.name}</span><span class="sb-ab">${sbTeamAb(r.owner,r.name)}</span></span>`;
   const games=d.games.map(g=>{
     const key='wk'+g.week+'-'+g.a.tid+'-'+g.b.tid;
     const res=g.done?`<span class="wk-final">Final ${g.hp.toFixed(1)}–${g.ap.toFixed(1)}</span>`:'';
