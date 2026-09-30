@@ -101,6 +101,21 @@ function skipTemplate(src, i) {
       while (j < src.length && depth > 0) {
         const c = src[j];
         if (c === BS) { j += 2; continue; }
+        /* A COMMENT INSIDE `${ }` IS STILL A COMMENT, and this is the sixth
+         * distinct way this walker has been wrong. The top-level loop stepped
+         * over both kinds and this one did not, so app.js's substitution-
+         * comment blocks — an empty string whose only job is to carry a block
+         * comment inside markup — were read as code. One apostrophe was enough:
+         * "Coaches' Poll" in such a comment opened a quote that ran to the next
+         * apostrophe hundreds of characters away, taking a `}` with it, and the
+         * lift came back half a function that failed to parse somewhere else
+         * entirely. Same two lines as the outer walker, same order. */
+        if (c === SLASH && src[j + 1] === SLASH) {
+          const e = src.indexOf(NL, j); j = e < 0 ? src.length : e; continue;
+        }
+        if (c === SLASH && src[j + 1] === '*') {
+          const e = src.indexOf('*/', j); j = e < 0 ? src.length : e + 2; continue;
+        }
         if (c === "'" || c === '"') { prev = j; j = skipQuote(src, j); continue; }
         if (c === TICK) { prev = j; j = skipTemplate(src, j); continue; }
         if (c === SLASH && regexAllowed(src, prev)) {

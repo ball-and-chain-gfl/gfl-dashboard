@@ -5422,15 +5422,18 @@
        by showing whose is harder. Five columns on the same grid as the rows
        above it, which is what keeps it reading as part of the same page rather
        than a widget that landed on it. */
-    .sos-head{display:flex;align-items:center;gap:9px;margin:26px 0 10px;
-      font-family:'Google Sans Flex',serif;font-size:15px;font-weight:700;}
-    .sos-head>i{color:var(--accent);}
+    .sos-sec{margin-top:30px;}
     .sos-gate{display:flex;align-items:center;gap:9px;padding:14px 15px;border-radius:10px;
       background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
       font-size:12.5px;color:var(--text3);}
     .sos-gate>i{opacity:.7;}
-    .sos-note{margin-bottom:11px;font-size:11.5px;line-height:1.55;color:var(--text3);}
-    .sos-note b{color:var(--text2);font-weight:700;}
+    /* under the heading's rule, in a container of its own: it is one short fact
+       about how to read the table rather than a paragraph of introduction */
+    .sos-note{display:block;width:fit-content;margin:0 auto 13px;padding:4px 13px;
+      border-radius:999px;background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.08);
+      font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.4px;
+      text-transform:uppercase;color:var(--text3);}
     /* ── TWO TABLES, NOT ONE WITH A LINE DOWN IT ────────────────────────────
        A rule between two column groups says they are different; a gap and a
        panel say it without anybody having to read the rule. The right-hand
@@ -5443,43 +5446,38 @@
        One grid per half rather than one grid for the row, so the halves can
        have their own widths and their own grounds, and stretch keeps the two
        the same height whichever one is taller. */
-    .sos-grid{display:flex;flex-direction:column;gap:0;}
-    .sos-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;
+    /* EVERY ROW IS ITS OWN ROUNDED THING, on both sides. Run together into two
+       continuous panels they read as a spreadsheet; separated, they read as the
+       league table this sits under. The gap does the separating, so there are no
+       hairlines and no first/last-child corner special cases either. */
+    .sos-grid{display:flex;flex-direction:column;gap:3px;}
+    .sos-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;
       align-items:stretch;}
     .sos-left{display:grid;grid-template-columns:24px minmax(0,1fr) 64px;gap:8px;
-      align-items:center;padding:8px 10px;background:rgba(255,255,255,0.02);}
+      align-items:center;padding:8px 10px;border-radius:8px;
+      background:rgba(255,255,255,0.02);}
     .sos-right{display:grid;grid-template-columns:52px 60px 52px;gap:8px;
-      align-items:center;padding:8px 10px;
+      align-items:center;padding:8px 10px;border-radius:8px;
       background:rgba(var(--accent-rgb),0.07);
-      border-left:1px solid rgba(var(--accent-rgb),0.2);
-      border-right:1px solid rgba(var(--accent-rgb),0.2);}
+      border:1px solid rgba(var(--accent-rgb),0.18);}
     .sos-row .r{text-align:right;}
-    /* the two blocks are closed off top and bottom rather than floated as
-       twelve separate cards -- the table is one object each side */
-    .sos-grid>.sos-row:first-child>.sos-right{border-top:1px solid rgba(var(--accent-rgb),0.2);
-      border-radius:10px 10px 0 0;}
-    .sos-grid>.sos-row:last-child>.sos-right{border-bottom:1px solid rgba(var(--accent-rgb),0.2);
-      border-radius:0 0 10px 10px;}
-    .sos-grid>.sos-row:nth-child(2)>.sos-left{border-radius:8px 8px 0 0;}
-    .sos-grid>.sos-row:last-child>.sos-left{border-radius:0 0 8px 8px;}
-    /* a hairline per row so a line can be followed across a block that no
-       longer has gaps in it */
-    .sos-grid>.sos-row:not(:last-child)>.sos-left{box-shadow:inset 0 -1px 0 rgba(255,255,255,0.05);}
-    .sos-grid>.sos-row:not(:last-child):not(.sos-cap)>.sos-right{
-      box-shadow:inset 0 -1px 0 rgba(var(--accent-rgb),0.15);}
-    /* THE PILL NAMES THE BLOCK IT SITS ON. It used to ride beside the section
-       heading, where it looked like a note about the whole table -- and only
-       three of its six columns are the poll. Centred over those three, in the
-       same treatment the schedule gives a RIVAL tag. */
-    .sos-cap>.sos-left{background:none;box-shadow:none;padding:0;}
+    /* THE CAP IS THE WHOLE WIDTH OF THE HALF IT NAMES, not a tab perched on it.
+       It is the same accent the schedule gives a RIVAL tag, at the strength a
+       tag uses rather than the panel's, so the bar reads as the label and the
+       twelve rows under it as the thing labelled. */
+    .sos-cap>.sos-left{background:none;padding:0;}
     .sos-cap>.sos-right{display:flex;align-items:center;justify-content:center;
-      padding:7px 10px 6px;}
+      padding:6px 10px;background:rgba(var(--accent-rgb),0.18);
+      border-color:rgba(var(--accent-rgb),0.3);}
     .sos-pill{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
-      letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;
-      background:rgba(var(--accent-rgb),0.18);color:var(--accent);
-      border-radius:999px;padding:3px 10px;}
-    .sos-h>.sos-left{background:none;box-shadow:none;padding-bottom:5px;}
-    .sos-h>.sos-right{padding-bottom:5px;}
+      letter-spacing:.7px;text-transform:uppercase;white-space:nowrap;
+      color:var(--accent);}
+    /* NO LINE OVER THE LEFT TABLE. Its heading is a row of labels and nothing
+       else -- no ground, no rule under it -- so the table starts at its first
+       team. The poll half has its cap to do that job; this half does not need
+       one inventing for it. */
+    .sos-h>.sos-left{background:none;padding-bottom:5px;}
+    .sos-h>.sos-right{padding-bottom:5px;background:none;border-color:transparent;}
     .sos-h span{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
       letter-spacing:.2px;text-transform:uppercase;color:var(--text3);
       white-space:nowrap;}
@@ -5502,9 +5500,10 @@
     .sos-tot{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;
       font-variant-numeric:tabular-nums;}
     @media(max-width:560px){
-      .sos-row{gap:8px;}
+      .sos-row{gap:7px;}
       .sos-left{grid-template-columns:16px minmax(0,1fr) 56px;gap:4px;padding:7px 7px;}
       .sos-right{grid-template-columns:42px 50px 40px;gap:4px;padding:7px 7px;}
+      .sos-note{font-size:9.5px;padding:3px 11px;letter-spacing:.3px;}
       .sos-nm{display:none;} .sos-ab{display:inline;}
       .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
       .sos-pill{font-size:8.5px;padding:2px 8px;letter-spacing:.4px;}

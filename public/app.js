@@ -10498,9 +10498,15 @@ function sosCol(v,lo,hi){
 }
 function pollSosHTML(owner){
   const rows=cpMineIn()?pollSosRows():null;
-  const head=`<div class="sos-head"><i class="fa fa-weight-hanging"></i>Strength of Schedule</div>`;
-  if(!cpMineIn()) return head+`<div class="sos-gate">
-    <i class="fa fa-lock"></i>Fill in your Coaches' Poll ballot to see this.</div>`;
+  /* ── THE SAME HEADING EVERY OTHER SECTION ON THE PAGE HAS ────────────────
+     .sec + .sec-head, and nothing else: a sec-head carrying only an icon and
+     its words is turned into the centred, stacked, ruled heading sitewide by
+     one rule near the bottom of the stylesheet. Playoff Outlook directly under
+     this one is the same two class names, which is the point -- this was a
+     hand-rolled heading sitting between two standard ones. */
+  const head=`<div class="sec-head"><i class="fa fa-weight-hanging"></i>Strength of Schedule</div>`;
+  if(!cpMineIn()) return `<div class="sec sos-sec">${head}<div class="sos-gate">
+    <i class="fa fa-lock"></i>Fill in your Coaches' Poll ballot to see this.</div></div>`;
   if(!rows) return '';
   /* each column against its own spread — see sosCol */
   const span=pick=>{ const v=rows.map(pick).filter(x=>x!=null);
@@ -10521,8 +10527,7 @@ function pollSosHTML(owner){
         <span class="r sos-tot" style="color:${sosCol(r.total,tLo,tHi)}">${r.total}</span>
       </div>
     </div>`).join('');
-  const g=rows[0]||{};
-  return head+`<div class="sos-wrap">
+  return `<div class="sec sos-sec">${head}
     ${''/* One line. The four sentences that were here explained the arithmetic,
            the freezing, the regular-season cut and the direction -- all true,
            all in the code comment above, and none of it what somebody looking
@@ -10530,12 +10535,8 @@ function pollSosHTML(owner){
     <div class="sos-note">Lower total = harder schedule.</div>
     <div class="sos-grid">
       ${''/* THE PILL NAMES THE HALF IT SITS ON. Only three of these six columns
-             come from the poll, so beside the section heading it was a label on
-             the wrong thing. It caps the block it belongs to instead.
-             (No apostrophe in here: a lone one inside a ${''} comment reads to
-             the lifter as an opening quote and it swallows the rest of the
-             function. scripts/lib/lift.mjs does not step over comments nested
-             inside a template substitution.) */}
+             come from the Coaches' Poll, so beside the heading it was a label on
+             the wrong thing. It caps the block it belongs to instead. */}
       <div class="sos-row sos-cap"><div class="sos-left"></div>
         <div class="sos-right"><span class="sos-pill">Coaches' Poll</span></div></div>
       <div class="sos-row sos-h">
