@@ -10468,18 +10468,22 @@ function pollSosRows(){
   rows.forEach((r,i)=>{ r.rank=i+1; });
   return rows;
 }
-/* ── RED AT THE TOP OF THE COLUMN, GREEN AT THE BOTTOM ───────────────────────
+/* ── RED AT THE BOTTOM OF THE COLUMN, GREEN AT THE TOP ───────────────────────
+   Red is bad news for the team reading it, and on both of these columns the bad
+   news is a LOW number: a low total is the hardest slate in the league, and a
+   low Opp Scored means the opponents have been putting up the best weeks in it.
+   So the ramp runs red at the bottom of the range to green at the top, which is
+   the same direction of meaning as everywhere else on the site even though it
+   is the opposite direction of magnitude.
+
    Not pollRampColor, and deliberately not: that one runs blue to red down a
    RANKING, which is the right language for a poll position and the wrong one
-   here. These two columns are difficulty, they are read as quantities rather
-   than placings, and a big number is the soft schedule -- so they take the
-   site's own green-to-red scale, pointed the other way round from a win
-   probability.
+   for a quantity.
 
-   Each column is normalised against itself. Scored is three weeks of finishing
-   places and Total is fourteen weeks of poll ranks; put them on one scale and
-   the shorter one comes out a single colour. */
-const SOS_RAMP=['#3fd07a','#a3e635','#f4c04d','#ff8f5a','#ff5f5f'];
+   Each column is normalised against itself. Opp Scored is three weeks of
+   finishing places and Total is fourteen weeks of poll ranks; put them on one
+   scale and the shorter one comes out a single colour. */
+const SOS_RAMP=['#ff5f5f','#ff8f5a','#f4c04d','#a3e635','#3fd07a'];
 function sosCol(v,lo,hi){
   if(!(hi>lo)||v==null) return 'var(--text2)';
   const p=Math.min(1,Math.max(0,(Number(v)-lo)/(hi-lo)))*(SOS_RAMP.length-1);
@@ -10523,7 +10527,7 @@ function pollSosHTML(owner){
     <div class="sos-note">Lower total = harder schedule.</div>
     <div class="sos-grid">
       <div class="sos-row sos-h"><span class="sos-rk">#</span><span class="sos-t">Team</span>
-        <span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Scored</span>
+        <span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Opp Scored</span>
         ${''/* the rule says where the total comes from: Played and To come are
                the two halves of it, and Scored is a different measure that
                happens to sit beside them */}

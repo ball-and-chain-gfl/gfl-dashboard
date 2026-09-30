@@ -5432,7 +5432,7 @@
     .sos-note{margin-bottom:11px;font-size:11.5px;line-height:1.55;color:var(--text3);}
     .sos-note b{color:var(--text2);font-weight:700;}
     .sos-grid{display:flex;flex-direction:column;gap:2px;}
-    .sos-row{display:grid;grid-template-columns:24px minmax(0,1fr) 52px 52px 60px 52px;
+    .sos-row{display:grid;grid-template-columns:24px minmax(0,1fr) 64px 52px 60px 52px;
       align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
       background:rgba(255,255,255,0.02);}
     .sos-row .r{text-align:right;}
@@ -5458,19 +5458,28 @@
     .sos-c{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);
       font-variant-numeric:tabular-nums;}
     /* THE RULE SAYS WHERE THE TOTAL COMES FROM. Played and To come are the two
-       halves of it and Scored is a different measure that happens to sit beside
-       them, so the line goes between the two ideas rather than between any two
-       columns. It runs the full height of the row -- align-self:stretch, and
-       the cell becomes a flex box of its own so the number stays on the right
-       of it rather than climbing to the top. */
-    .sos-sep{align-self:stretch;display:flex;align-items:center;justify-content:flex-end;
-      border-left:1px solid rgba(255,255,255,0.13);padding-left:7px;}
+       halves of it and Opp Scored is a different measure that happens to sit
+       beside them, so the line goes between the two ideas rather than between
+       any two columns.
+
+       IT IS NOT ON THE COLUMN EDGE, and that is the point. Every number here is
+       right-aligned, so a rule at the boundary of the two tracks sat 7px from
+       the number on its left and forty-odd from the number on its right, which
+       reads as a line belonging to the Scored column rather than dividing
+       anything. Drawn instead as a pseudo-element about a third of the way into
+       the Played track, which puts it halfway between the two NUMBERS -- which
+       is the gap a reader actually sees. A percentage rather than a pixel so it
+       keeps its place when the columns narrow. */
+    .sos-sep{position:relative;align-self:stretch;
+      display:flex;align-items:center;justify-content:flex-end;}
+    .sos-sep::before{content:'';position:absolute;left:30%;top:0;bottom:0;width:1px;
+      background:rgba(255,255,255,0.13);}
     /* stretch reaches the row's CONTENT box, which leaves a 16px tick inside a
        30px row — read as a stray mark rather than a divider. The negative
-       margins take it back out through the row's own padding so the rule runs
+       bleed takes it back out through the row's own padding so the rule runs
        the full height and the twelve of them read as one line down the table.
        Not on the header, whose padding is not symmetrical. */
-    .sos-row:not(.sos-h)>.sos-sep{margin-top:-8px;margin-bottom:-8px;}
+    .sos-row:not(.sos-h)>.sos-sep::before{top:-8px;bottom:-8px;}
     /* the two graded columns carry their colour, so they carry a little weight
        with it -- a tinted 400 on a dark ground reads as a mistake */
     .sos-grade{font-weight:700;}
@@ -5480,12 +5489,11 @@
       /* the columns are sized to the HEADINGS, not the numbers: two digits
          need thirty pixels and "To come" needs fifty, and a heading that
          overflows its own column bleeds left into the one beside it */
-      .sos-row{grid-template-columns:16px minmax(0,1fr) 46px 46px 54px 44px;
+      .sos-row{grid-template-columns:16px minmax(0,1fr) 56px 44px 52px 42px;
         gap:4px;padding:7px 7px;}
       .sos-nm{display:none;} .sos-ab{display:inline;}
       .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
-      .sos-sep{padding-left:5px;}
-      .sos-row:not(.sos-h)>.sos-sep{margin-top:-7px;margin-bottom:-7px;}
+      .sos-row:not(.sos-h)>.sos-sep::before{top:-7px;bottom:-7px;}
       /* NOT bigger than the base size here, which is what it used to be: these
          headings are the widest text in their own columns, so at 375px the one
          that has to survive is "To come" and 9px broke it in half. */

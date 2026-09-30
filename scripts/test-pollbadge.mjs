@@ -415,21 +415,30 @@ head('8. STRENGTH OF SCHEDULE');
   ok('the order is still the poll order', (r || []).map(x => x.owner),
      ['o2', 'o1', 'o4', 'o3']);
 
-  /* ── the two graded columns run green to RED as the number climbs ───────
-       which is the opposite way round from a win probability, because here a
-       big number is the soft schedule rather than the good news. */
-  ok('the bottom of the range is green', M.sosCol(10, 10, 30), M.SOS_RAMP[0]);
-  ok('the top of it is red', M.sosCol(30, 10, 30), M.SOS_RAMP[M.SOS_RAMP.length - 1]);
+  /* ── the two graded columns run RED to green as the number climbs ───────
+       Red is the bad news, and on both of these the bad news is the LOW
+       number: the hardest slate in the league, or opponents who have been
+       putting up the best weeks in it. */
+  ok('the bottom of the range is red', M.sosCol(10, 10, 30), M.SOS_RAMP[0]);
+  ok('and SOS_RAMP starts red', M.SOS_RAMP[0], '#ff5f5f');
+  ok('the top of it is green', M.sosCol(30, 10, 30), M.SOS_RAMP[M.SOS_RAMP.length - 1]);
+  ok('and SOS_RAMP ends green', M.SOS_RAMP[M.SOS_RAMP.length - 1], '#3fd07a');
   ok('and the middle is the middle stop', M.sosCol(20, 10, 30), M.SOS_RAMP[2]);
   ok('past the top it clamps rather than wrapping', M.sosCol(99, 10, 30),
      M.SOS_RAMP[M.SOS_RAMP.length - 1]);
   ok('and below the bottom too', M.sosCol(-5, 10, 30), M.SOS_RAMP[0]);
+  /* the hardest schedule in the table is the one that gets the red */
+  ok('the hardest slate is red', M.sosCol(by.o2.total,
+     Math.min(...r.map(x => x.total)), Math.max(...r.map(x => x.total))),
+     M.SOS_RAMP[0]);
   /* a column where every team is level has no gradient to draw */
   ok('a flat column is not graded', M.sosCol(7, 7, 7), 'var(--text2)');
   ok('and neither is a missing number', M.sosCol(null, 10, 30), 'var(--text2)');
   /* the divider marks off the three that make the total */
   ok('the rule sits on Played', (M.pollSosHTML('o1').match(/sos-sep/g) || []).length,
      (r || []).length + 1);
+  ok('and the column says whose scoring it is',
+     M.pollSosHTML('o1').indexOf('>Opp Scored<') >= 0, true);
 
   ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);
   ok('and the rank follows the sort', (r || []).map(x => x.rank), [1, 2, 3, 4]);
