@@ -275,13 +275,53 @@ for (const season of seasons) {
      that were already safely on file. A vote cannot be changed once cast, so a
      union can only ever be right: what is on disk stays, and anything new is
      added on top. */
+  /* ── AND A TRADE'S CAST MAY NOT SHRINK ───────────────────────────────────
+     The vote guard above catches a trade DISAPPEARING, because that renames a
+     field. It does not catch one quietly losing a player, because the id is
+     built from the team ids and the date and neither of those moves.
+
+     Which is the hole the week 1 trade fell through. ESPN deletes the detailed
+     log and what replaces it is a reconstruction from rosters -- and a roster
+     only holds the players still on it, so Davante Adams dropped out of the
+     deal that brought him the moment he was traded on again. The payload said
+     108.2 points had become 42.4. Nothing here would have stopped that being
+     written over the only remaining record of it.
+
+     So the cast is unioned, exactly as the app does when it reads the two:
+     a player either version knows about stays, his points come from the new
+     payload when it still carries him, and the totals are recomputed so the
+     file can never hold a total its own players do not add up to. This is a
+     one-way ratchet on purpose -- an archive that can only learn. */
+  let priorTrade = {};
   let prior = {};
   if (have) {
     try {
       const old = JSON.parse(fs.readFileSync(file, 'utf8'));
-      ((old && old.trades) || []).forEach(t => { prior[voteId(season, t)] = t.votes || {}; });
+      ((old && old.trades) || []).forEach(t => {
+        prior[voteId(season, t)] = t.votes || {};
+        priorTrade[voteId(season, t)] = t;
+      });
     } catch {}
   }
+  let restored = 0;
+  d.trades.forEach(t => {
+    const was = priorTrade[voteId(season, t)];
+    if (!was) return;
+    const byTeam = {};
+    (was.teams || []).forEach(x => { byTeam[String(x.teamId)] = x; });
+    (t.teams || []).forEach(side => {
+      const old = byTeam[String(side.teamId)];
+      if (!old) return;
+      const have2 = new Set((side.players || []).map(p => p.pid));
+      const extra = (old.players || []).filter(p => !have2.has(p.pid));
+      if (!extra.length) return;
+      restored += extra.length;
+      console.log(`    kept ${extra.map(p => p.n).join(', ')} in the week ${t.week} trade`
+        + ` — the payload no longer had ${extra.length > 1 ? 'them' : 'him'}`);
+      side.players = [...(side.players || []), ...extra].sort((a, b) => b.pts - a.pts);
+      side.total = +side.players.reduce((n, p) => n + (p.pts || 0), 0).toFixed(1);
+    });
+  });
   let added = 0, kept = 0;
   d.trades.forEach(t => {
     const id = voteId(season, t);
@@ -309,6 +349,7 @@ for (const season of seasons) {
 
   fs.writeFileSync(file, JSON.stringify(d));
   wrote++;
+  if (restored) console.log(`    ${restored} player(s) kept that the payload had dropped`);
   const totalVotes = d.trades.reduce((n, t) => n + Object.keys(t.votes || {}).length, 0);
   console.log(`    votes: ${totalVotes} on file (${added} new`
     + (kept ? `, ${kept} kept that Firestore no longer had` : '') + ')');
