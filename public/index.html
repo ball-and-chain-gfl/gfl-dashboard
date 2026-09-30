@@ -1379,7 +1379,7 @@
        coin now, and a second grain behind it only muddied the field */
     .iv-card-coin::after{content:none;}
     .iv-card-coin>*{position:relative;z-index:1;}
-    .ivc-coin{--reed:calc(var(--cs) * 0.045);--band:calc(var(--cs) * 0.128);
+    .ivc-coin{--reed:calc(var(--cs) * 0.045);--band:calc(var(--cs) * 0.085);
       position:relative;flex:0 0 auto;width:var(--cs);height:var(--cs);border-radius:50%;
       box-shadow:0 3px 7px rgba(0,0,0,0.55),0 0 0 1px rgba(0,0,0,0.65);}
     .ivc-reed{position:absolute;inset:0;border-radius:50%;
@@ -1399,10 +1399,6 @@
       box-shadow:inset 0 1px 4px rgba(0,0,0,0.7),0 0 0 1px rgba(255,246,222,0.20);}
     .ivc-photo img{width:100%;height:100%;object-fit:cover;object-position:top center;}
     .ivc-photo i{font-size:calc(var(--cs) * 0.19);color:rgba(255,246,222,0.42);}
-    .ivc-leg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-    .ivc-leg text{fill:#2c1d05;font-family:'Inter',sans-serif;font-weight:800;
-      paint-order:stroke;stroke:rgba(255,248,228,0.42);stroke-width:1.7;
-      stroke-linejoin:round;letter-spacing:0.09em;}
     /* ── AND WHAT THE COIN IS WORTH, UNDER IT ─────────────────────────────
        The ticker and the rank are ON the coin, which is where a coin puts
        them; the price is the one number that changes while you are looking at
@@ -5391,6 +5387,47 @@
     .sch-team{display:flex;align-items:center;gap:9px;min-width:0;}
     .sch-nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .sch-ab{display:none;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;letter-spacing:.4px;white-space:nowrap;}
+    /* ── Strength of Schedule ───────────────────────────────────────────────
+       A league table under a team's own schedule, so it answers 'is mine hard'
+       by showing whose is harder. Five columns on the same grid as the rows
+       above it, which is what keeps it reading as part of the same page rather
+       than a widget that landed on it. */
+    .sos-head{display:flex;align-items:center;gap:9px;margin:26px 0 10px;
+      font-family:'Google Sans Flex',serif;font-size:15px;font-weight:700;}
+    .sos-head>i{color:var(--accent);}
+    .sos-gate{display:flex;align-items:center;gap:9px;padding:14px 15px;border-radius:10px;
+      background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
+      font-size:12.5px;color:var(--text3);}
+    .sos-gate>i{opacity:.7;}
+    .sos-note{margin-bottom:11px;font-size:11.5px;line-height:1.55;color:var(--text3);}
+    .sos-note b{color:var(--text2);font-weight:700;}
+    .sos-grid{display:flex;flex-direction:column;gap:2px;}
+    .sos-row{display:grid;grid-template-columns:24px minmax(0,1fr) 54px 60px 52px;
+      align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
+      background:rgba(255,255,255,0.02);}
+    .sos-row .r{text-align:right;}
+    .sos-h{background:none;padding-top:0;padding-bottom:4px;
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--text3);}
+    /* the team reading it is picked out, because the answer it came for is its
+       own line and twelve rows is long enough to lose it */
+    .sos-me{background:rgba(255,179,71,0.09);box-shadow:inset 0 0 0 1px rgba(255,179,71,0.28);}
+    .sos-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;color:var(--text3);
+      font-variant-numeric:tabular-nums;}
+    .sos-t{display:flex;align-items:center;gap:8px;min-width:0;}
+    .sos-nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;
+      text-overflow:ellipsis;}
+    .sos-ab{display:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
+      letter-spacing:.4px;white-space:nowrap;}
+    .sos-c{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);
+      font-variant-numeric:tabular-nums;}
+    .sos-tot{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;
+      font-variant-numeric:tabular-nums;}
+    @media(max-width:560px){
+      .sos-row{grid-template-columns:20px minmax(0,1fr) 44px 48px 44px;gap:6px;padding:7px 8px;}
+      .sos-nm{display:none;} .sos-ab{display:inline;}
+      .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
+      .sos-h{font-size:9px;letter-spacing:.3px;} }
     .sch-p{font-weight:700;}
     .sch-ml{color:var(--text2);}
     .sch-c2,.sch-c4{color:var(--text2);}

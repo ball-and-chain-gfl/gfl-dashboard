@@ -3483,6 +3483,41 @@ function pollBadge(teamId,cls){
 }
 /* the sportsbook and the schedule hold an owner rather than a team id */
 const pollBadgeFor=(owner,cls)=>pollBadge(pollTeamIdOf(owner),cls);
+/* ── AND WHERE A TEAM STOOD IN A WEEK THAT IS OVER ───────────────────────────
+   A game that has been played was played against the team as it was ranked
+   THEN, and a schedule that showed today's number beside a week 1 result would
+   be rewriting what happened every Tuesday. The archive holds each week as it
+   was cast, which is exactly what this reads.
+
+   A week with no poll on file falls back to the newest poll BEFORE it rather
+   than to today's, so a gap never pulls a number forward out of the future.
+   Before the first poll of the season there is nothing to fall back to and the
+   answer is nothing, which the badge draws as the same question mark it draws
+   for anything it cannot say. */
+let _pollAtCache=null, _pollAtStamp='';
+function pollRanksAt(w){
+  const wk=Number(w)||0;
+  const WKS=pollWeeksData();
+  const stamp=Object.keys(WKS).sort().join(',')
+    +'|'+((_cpRows||[]).length)+'|'+cpKey();
+  if(_pollAtStamp!==stamp){ _pollAtCache={}; _pollAtStamp=stamp; }
+  if(_pollAtCache[wk]) return _pollAtCache[wk];
+  const weeks=Object.keys(WKS).map(Number).filter(n=>n>0&&n<=wk).sort((a,b)=>b-a);
+  const out={};
+  if(weeks.length) (((WKS[weeks[0]]||{}).rank)||[]).forEach(e=>{
+    out[Number(e.teamId)]=Number(e.rank); });
+  return (_pollAtCache[wk]=out);
+}
+function pollBadgeAt(teamId,w,cls){
+  const c='cp-bdg'+(cls?' '+cls:'');
+  const q=`<span class="${c} cp-bdg-q" title="Fill in your Coaches' Poll ballot to see the rankings">?</span>`;
+  if(!cpMineIn()) return q;
+  const r=pollRanksAt(w)[Number(teamId)];
+  if(!r) return q;
+  return `<span class="${c}" style="--cpb:${pollRampColor(r,(_teams||[]).length||12)}"
+    title="Coaches' Poll #${r} in week ${w}">${r}</span>`;
+}
+const pollBadgeAtFor=(owner,w,cls)=>pollBadgeAt(pollTeamIdOf(owner),w,cls);
 /* ── AND THEY ALL CHANGE AT ONCE ─────────────────────────────────────────────
    A badge is drawn from two things that arrive late: the profile rows, which
    carry every ballot, and this manager's own vote, which flips every question
@@ -9898,7 +9933,7 @@ function schedPlayedStripHTML(owner,season){
         data-week="${r.week}" data-played="1" data-me="${owner}"
         onclick="toggleSchedOpp(this)"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSchedOpp(this);}">
-        ${sbAvatar(r.oppOwner,22)}<span class="sch-nm">${r.oppName}</span>
+        ${sbAvatar(r.oppOwner,22)}${pollBadgeAtFor(r.oppOwner,r.week)}<span class="sch-nm">${r.oppName}</span>
         <span class="sch-ab">${sbTeamAb(r.oppOwner,r.oppName)}</span>
         <i class="fa fa-chevron-down sch-caret"></i></span>
       <span class="r sch-c1">${r.my.toFixed(1)}</span>
@@ -10297,6 +10332,90 @@ function playoffOutlook(){
   return _poCache;
 }
 const ordinal=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
+/* ── STRENGTH OF SCHEDULE, IN POLL NUMBERS ───────────────────────────────────
+   Add up where every opponent on a team's slate stood in the Coaches' Poll:
+   where they stood THAT WEEK for a game already played, where they stand now
+   for one still to come. Twelve teams all play the same number of games, so
+   the totals are comparable without dividing by anything.
+
+   A LOW NUMBER IS A HARD SCHEDULE, because 1 is the best team in the league.
+   That is the wrong way round from every other number on this page, so the
+   table says so out loud rather than trusting anyone to work it out.
+
+   REGULAR SEASON ONLY. Weeks 15-17 are a bracket: who a team plays there
+   depends on where they finish, so a projected playoff opponent is a guess
+   about seeding wearing the clothes of a fixture. Counting it would put the
+   guess inside the measurement.
+
+   It is gated like every other poll number on the site -- see pollBadge. The
+   twelve ranks are the poll, and adding them up does not stop them being it. */
+function pollSosRows(){
+  let info=null; try{ info=schedSeason(); }catch(e){ return null; }
+  const meta=info&&info.meta;
+  if(!info||!meta||!meta.owners||!(_franchises||[]).length) return null;
+  const owners=meta.owners, regEnd=Number(info.regEnd)||14;
+  const now=pollNowRanks();
+  const sides=m=>{ const h=owners[m.home.teamId], a=owners[m.away.teamId];
+    return (h&&a&&h!==a)?[h,a]:null; };
+  const tally={};
+  (_franchises||[]).forEach(f=>{ tally[f.owner]={played:0,pn:0,left:0,ln:0,miss:0}; });
+  const put=(o,opp,week,past)=>{
+    const t=tally[o]; if(!t) return;
+    const tid=pollTeamIdOf(opp); if(!tid){ t.miss++; return; }
+    const r=past?pollRanksAt(week)[tid]:now[tid];
+    if(!r){ t.miss++; return; }
+    if(past){ t.played+=r; t.pn++; } else { t.left+=r; t.ln++; }
+  };
+  (info.played||[]).forEach(m=>{
+    const w=Number(m.matchupPeriodId)||0; if(w<1||w>regEnd) return;
+    const p=sides(m); if(!p) return;
+    put(p[0],p[1],w,true); put(p[1],p[0],w,true);
+  });
+  (info.unplayed||[]).forEach(m=>{
+    const w=Number(m.matchupPeriodId)||0; if(w<1||w>regEnd) return;
+    const p=sides(m); if(!p) return;
+    put(p[0],p[1],w,false); put(p[1],p[0],w,false);
+  });
+  const rows=(_franchises||[]).map(f=>{
+    const t=tally[f.owner]||{};
+    return {owner:f.owner, name:f.name, total:(t.played||0)+(t.left||0),
+      played:t.played||0, pn:t.pn||0, left:t.left||0, ln:t.ln||0, miss:t.miss||0};
+  }).filter(r=>r.pn+r.ln>0);
+  if(!rows.length) return null;
+  rows.sort((a,b)=>a.total-b.total||a.name.localeCompare(b.name));   // hardest first
+  rows.forEach((r,i)=>{ r.rank=i+1; });
+  return rows;
+}
+function pollSosHTML(owner){
+  const rows=cpMineIn()?pollSosRows():null;
+  const head=`<div class="sos-head"><i class="fa fa-weight-hanging"></i>Strength of Schedule
+    <span class="badge-info">Coaches' Poll</span></div>`;
+  if(!cpMineIn()) return head+`<div class="sos-gate">
+    <i class="fa fa-lock"></i>Fill in your Coaches' Poll ballot to see this.</div>`;
+  if(!rows) return '';
+  const n=(_teams||[]).length||12;
+  const body=rows.map(r=>`<div class="sos-row${r.owner===owner?' sos-me':''}">
+      <span class="sos-rk">${r.rank}</span>
+      <span class="sos-t">${sbAvatar(r.owner,20)}
+        <span class="sos-nm">${r.name}</span>
+        <span class="sos-ab">${sbTeamAb(r.owner,r.name)}</span></span>
+      <span class="r sos-c">${r.pn?r.played:'—'}</span>
+      <span class="r sos-c">${r.ln?r.left:'—'}</span>
+      <span class="r sos-tot" style="color:${pollRampColor(r.rank,rows.length||n)}">${r.total}</span>
+    </div>`).join('');
+  const g=rows[0]||{};
+  return head+`<div class="sos-wrap">
+    <div class="sos-note">Every opponent's poll rank added up — where they stood
+      <b>that week</b> for a game already played, where they stand <b>now</b> for one
+      still to come. Regular season only. <b>A low number is a hard schedule</b>,
+      because first in the poll is the best team in the league.</div>
+    <div class="sos-grid">
+      <div class="sos-row sos-h"><span class="sos-rk">#</span><span class="sos-t">Team</span>
+        <span class="r sos-c">Played</span><span class="r sos-c">To come</span>
+        <span class="r sos-tot">Total</span></div>
+      ${body}
+    </div></div>`;
+}
 function playoffOutlookHTML(){
   const d=playoffOutlook();
   if(!d) return '';
@@ -10414,6 +10533,7 @@ function renderSchedule(){
         <span class="r sch-ml">${amFmt(r.ml)}</span>
       </div>
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
+    ${pollSosHTML(owner)}
     ${playoffOutlookHTML()}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
   /* the rows above are brand new nodes; put back the drawer that was open */
@@ -12448,34 +12568,23 @@ function invCoinMeta(k){
    The ids are keyed on the player rather than counted, because fourteen coins
    are drawn into one document and a duplicate id would silently hand every
    coin after the first the FIRST one's arc. */
-function invCoinFaceHTML(c,meta){
-  const t=String((c&&c.t)||'').toUpperCase();
-  /* THE BOTTOM ARC CARRIES THE POSITION AND NOT THE RANK. RB14 is four
-     characters on an arc that is 68 pixels across on a phone, which came out
-     at five pixels a glyph -- there, but not readable, which is the worst of
-     both. Two characters can be set half again as large and still fit, and the
-     full rank is on its own line under the coin where it can be read. */
-  const rank=(meta&&meta.pos)?String(meta.pos):'';
+/* ── THE FACE, AND NOTHING WRITTEN ON IT ─────────────────────────────────────
+   The struck legend is gone: the ticker rode the top arc and the position rode
+   the bottom, and on a 68px disc both were more texture than text. What they
+   were saying is now said in type under the coin, at a size that can be read,
+   which leaves the disc to be a disc -- milling, field, and the man's face.
+
+   The band narrowed with them. It was 12.8% of the diameter to make room for
+   two lines of relief; with nothing to hold it only has to read as a rim, so
+   the headshot takes the space back. */
+function invCoinFaceHTML(c){
   const url=(()=>{ try{ return proxyLogo(headshotURL(c.pid,160)); }catch(e){ return null; } })();
   const esc=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  /* a long ticker has the same arc to live on as a short one */
-  const fsT=(9.6*Math.min(1,6.5/Math.max(1,t.length))).toFixed(2);
-  const rTop=32.5, rBot=44;
-  const arc=(r,sweep)=>'M '+(50-r)+' 50 A '+r+' '+r+' 0 0 '+sweep+' '+(50+r)+' 50';
-  const id='cn'+c.pid;
   return '<span class="ivc-coin">'
     +'<span class="ivc-reed"></span><span class="ivc-field"></span>'
     +'<span class="ivc-photo">'+(url
       ? '<img src="'+esc(url)+'" decoding="async" fetchpriority="high" alt="" onerror="this.remove()">'
-      : '<i class="fa fa-user"></i>')+'</span>'
-    +'<svg class="ivc-leg" viewBox="0 0 100 100" aria-hidden="true">'
-      +'<defs><path id="'+id+'t" fill="none" d="'+arc(rTop,1)+'"/>'
-      +'<path id="'+id+'b" fill="none" d="'+arc(rBot,0)+'"/></defs>'
-      +'<text font-size="'+fsT+'"><textPath href="#'+id+'t" startOffset="50%"'
-      +' text-anchor="middle">'+esc(t)+'</textPath></text>'
-      +(rank?'<text font-size="12"><textPath href="#'+id+'b" startOffset="50%"'
-      +' text-anchor="middle">'+esc(rank)+'</textPath></text>':'')
-    +'</svg></span>';
+      : '<i class="fa fa-user"></i>')+'</span></span>';
 }
 /* ── ONE COIN TILE, TWO PAGES ────────────────────────────────────────────────
    The market draws it to buy and the portfolio draws it to sell, and it is the
@@ -12493,10 +12602,13 @@ function invCoinTileHTML(t){
   return `<div class="iv-card iv-card-coin${t.short?' iv-card-sh':''}"
       data-o="${t.owner}" data-px="${t.price}" data-k="${t.k}"${
       t.cap!=null?` data-cap="${t.cap}"`:''}>
-    ${invCoinFaceHTML(t.coin,meta)}
+    ${invCoinFaceHTML(t.coin)}
     <span class="ivc-px${t.headCls?' '+t.headCls:''}">${t.head}</span>
     <span class="iv-chg ${t.dir}">${t.arrow}${t.pct||''}</span>
-    <span class="ivc-who">${meta.who||t.name||''}</span>
+    ${''/* THE NAME ON A COIN IS THE ONE THE LEAGUE GAVE IT. Deebo Samuel is
+           who is on the face; FAT Coin is what the thing is called, and the
+           ticker had nowhere left to live once the legend came off the disc. */}
+    <span class="ivc-who">${(t.coin&&t.coin.name)||t.name||''}</span>
     ${rank?`<span class="ivc-rank">${rank}</span>`:''}
     ${t.sub?`<span class="ivc-sub">${t.sub}</span>`:''}
     <div class="iv-buy">${t.step}${t.go}</div>

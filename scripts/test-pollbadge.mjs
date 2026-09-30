@@ -45,10 +45,18 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)),
     'const NT_BIG4_OWNER=',
     'const NT_BIG4_FROM=',
     'function ntBig4(out){',
+    'let _pollAtCache=',
+    'function pollRanksAt(w){',
+    'function pollBadgeAt(teamId,w,cls){',
+    'const pollBadgeAtFor=',
+    'function pollSosRows(){',
+    'function pollSosHTML(owner){',
   ],
   ['cpMineIn', 'pollNowRanks', 'pollBadge', 'pollBadgeFor', 'pollTeamIdOf',
    'cpTally', 'cpKey', 'ntBig4', 'CP_REVEAL_AT', 'NT_BIG4_OWNER', 'NT_BIG4_FROM',
-   'setTeams', 'setRows', 'setMe', 'setPolls', 'setFranchises', 'setWeek', 'setTest'],
+   'pollRanksAt', 'pollBadgeAt', 'pollBadgeAtFor', 'pollSosRows', 'pollSosHTML',
+   'setTeams', 'setRows', 'setMe', 'setPolls', 'setFranchises', 'setWeek', 'setTest',
+   'setSeason'],
 `
 let _teams=[], _cpRows=[], _me=null, _polls=null, _franchises=[], _liveInfo=null, _test=false;
 const setTeams=v=>{_teams=v;};
@@ -65,6 +73,11 @@ const pollRampColor=(r,n)=>'#R'+r+'of'+n;
 const logoImg=(id,cls)=>'<img data-t="'+id+'" class="'+cls+'">';
 const teamInitials=n=>String(n).slice(0,3).toUpperCase();
 const ntToday=()=>1700000000000;
+let _season=null;
+const setSeason=v=>{_season=v;};
+const schedSeason=()=>_season;
+const sbAvatar=()=>'';
+const sbTeamAb=(o,n)=>String(n).replace(/[^0-9]/g,'');
 `);
 
 let pass = 0, fail = 0;
@@ -284,6 +297,115 @@ head('6. BALLS BIG 4');
   M.setRows(rows(N, 5));
   ok('a manager who has not voted still gets the card', build().length, 1);
   ok('while their own badges stay withheld', withheld(M.pollBadge(1)), true);
+}
+
+/* ── 7 ─────────────────────────────────────────────────────────────────── */
+head('7. WHERE A TEAM STOOD IN A WEEK THAT IS OVER');
+{
+  /* three weeks on file, each a different order */
+  const W1 = ORDER;                                   // 1,2,3,...,12
+  const W2 = ORDER.slice().reverse();                 // 12,...,2,1
+  const W3 = rot(ORDER, 1);                           // 2,3,...,12,1
+  const polls = { weeks: {} };
+  [[1, W1], [2, W2], [3, W3]].forEach(([w, o]) => {
+    polls.weeks[w] = { ballots: N, rank: o.map((id, i) => ({ rank: i + 1, teamId: Number(id), avg: i + 1 })) };
+  });
+  reset();
+  M.setMe({ k1: 'o1' });
+  M.setRows(rows(N, 4));                              // voted this week
+  M.setPolls(polls);
+
+  ok('week 1 is week 1', M.pollRanksAt(1)[1], 1);
+  ok('and team 12 was last in it', M.pollRanksAt(1)[12], 12);
+  ok('week 2 is its own order', M.pollRanksAt(2)[1], 12);
+  ok('week 3 is its own order', M.pollRanksAt(3)[1], 12);
+  /* the week in progress counts as on file the moment every ballot is in --
+     pollLiveWeekEntry puts it there, and a schedule asking for a week past
+     the archive should get the newest thing that exists, not the newest
+     thing that has been WRITTEN */
+  ok('the live week counts once every ballot is in',
+     JSON.stringify(M.pollRanksAt(9)), JSON.stringify(M.pollRanksAt(4)));
+  M.setRows(rows(5, 4));                              // not everybody: no live week
+  ok('a week with no poll falls BACK, never forward',
+     JSON.stringify(M.pollRanksAt(9)), JSON.stringify(M.pollRanksAt(3)));
+  M.setRows(rows(N, 4));
+  ok('and before the first poll there is nothing', JSON.stringify(M.pollRanksAt(0)), '{}');
+
+  ok('the badge prints the number from THAT week', txt(M.pollBadgeAt(1, 1)), '1');
+  ok('not the one from this one', txt(M.pollBadgeAt(1, 2)), '12');
+  ok('the owner form agrees with the id form',
+     txt(M.pollBadgeAtFor('o1', 2)), txt(M.pollBadgeAt(1, 2)));
+  ok('the tooltip says which week', M.pollBadgeAt(1, 2).indexOf('in week 2') >= 0, true);
+  /* gated exactly like the live one */
+  M.setRows(rows(N, 4).filter(r => r.id !== 'o1'));
+  ok('a manager who has not voted sees history withheld too',
+     withheld(M.pollBadgeAt(1, 1)), true);
+}
+
+/* ── 8 ─────────────────────────────────────────────────────────────────── */
+head('8. STRENGTH OF SCHEDULE');
+{
+  /* Four of the twelve, playing a round robin. Weeks 1 and 2 are in the books
+     and week 4 is not; week 6 is a playoff fixture and must be ignored.
+
+       poll wk1   1 2 3 4        poll wk2   4 3 2 1        poll wk3   2 1 4 3
+
+     so `now` is week 3: t2 first, t1 second, t4 third, t3 fourth. */
+  const rk = o => ({ weeks: {} , ...{} });
+  const polls = { weeks: {} };
+  [[1, ['1','2','3','4']], [2, ['4','3','2','1']], [3, ['2','1','4','3']]]
+    .forEach(([w, o]) => { polls.weeks[w] = { ballots: 4,
+      rank: o.map((id, i) => ({ rank: i + 1, teamId: Number(id), avg: i + 1 })) }; });
+  const g = (w, a, b) => ({ matchupPeriodId: w, home: { teamId: a }, away: { teamId: b } });
+  reset();
+  M.setTeams(TEAMS.slice(0, 4));
+  M.setFranchises(FR.slice(0, 4));
+  M.setMe({ k1: 'o1' });
+  M.setRows(rows(4, 4));
+  M.setPolls(polls);
+  M.setSeason({ regEnd: 4,
+    meta: { owners: { 1: 'o1', 2: 'o2', 3: 'o3', 4: 'o4' } },
+    played: [g(1, 1, 2), g(1, 3, 4), g(2, 1, 3), g(2, 2, 4)],
+    unplayed: [g(4, 1, 4), g(4, 2, 3), g(6, 1, 2)] });
+
+  const r = M.pollSosRows();
+  const by = {}; (r || []).forEach(x => { by[x.owner] = x; });
+  ok('every team gets a line', (r || []).length, 4);
+
+  /* o1: played t2 in wk1 (2) and t3 in wk2 (2); still to play t4, now 3rd */
+  ok('o1 played adds the ranks of that week', by.o1.played, 4);
+  ok('o1 still to come uses TODAY', by.o1.left, 3);
+  ok('o1 total', by.o1.total, 7);
+  ok('o2 total', by.o2.total, 6);
+  ok('o3 total', by.o3.total, 9);
+  ok('o4 total', by.o4.total, 8);
+  ok('nothing went missing', (r || []).every(x => x.miss === 0), true);
+  /* two behind and one ahead: the week 6 fixture is a playoff and does not
+     count, which is the whole point of the next assertion */
+  ok('two games behind, one ahead', [by.o1.pn, by.o1.ln], [2, 1]);
+
+  /* the playoff fixture in week 6 would have added t2's rank of 1 to o1 */
+  ok('the playoff week is not counted', by.o1.total !== 8, true);
+
+  ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);
+  ok('and the rank follows the sort', (r || []).map(x => x.rank), [1, 2, 3, 4]);
+
+  /* the section is the poll, and adding it up does not stop it being the poll */
+  ok('it draws for a manager who has voted',
+     M.pollSosHTML('o1').indexOf('sos-grid') >= 0, true);
+  ok('and their own line is picked out',
+     M.pollSosHTML('o1').indexOf('sos-me') >= 0, true);
+  M.setRows(rows(4, 4).filter(x => x.id !== 'o1'));
+  ok('and is withheld from one who has not',
+     M.pollSosHTML('o1').indexOf('sos-gate') >= 0, true);
+  ok('with no numbers left in it',
+     M.pollSosHTML('o1').indexOf('sos-grid') < 0, true);
+
+  /* a season the app has not loaded is not an error */
+  M.setRows(rows(4, 4));
+  M.setSeason(null);
+  ok('no season, no rows', M.pollSosRows(), null);
+  ok('and no section', M.pollSosHTML('o1'), '');
 }
 
 console.log(NL + pass + ' passed, ' + fail + ' failed');
