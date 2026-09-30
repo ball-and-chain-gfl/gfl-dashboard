@@ -1433,15 +1433,24 @@ export default async function handler(req, res) {
           // miss the key, and be pushed a second time -- one trade drawn as two
           // cards, each with half of it.
           //
-          // So the test is OVERLAP, not equality: one player in common is the
-          // same deal, because a player can only be traded once per deal. And
-          // the fuller telling wins -- the acquisition stamps are ESPN's own
-          // record of what moved, where the diff is an inference from two
-          // photographs of a roster.
+          // A SHARED PLAYER IS NOT ENOUGH TO CALL IT THE SAME DEAL. The first
+          // attempt at this tested overlap alone, which is wrong the moment
+          // anybody is traded twice in a season -- Davante Adams went to the
+          // Mulligans in the opening deal and on again in week 4, so the two
+          // trades share him and would have been fused into one, the later
+          // deal overwritten by the earlier.
+          //
+          // Same TEAMS, and everything the diff found sitting INSIDE this
+          // group. That is what 'the same deal, told more fully' means: the
+          // acquisition stamps are ESPN's own record of what moved, the diff is
+          // an inference from two photographs of a roster, and the inference
+          // can only ever be a subset of the record.
           const pidsOf = t => t.teams.flatMap(x => x.players.map(p => p.pid));
-          const overlaps = pids => {
-            const want = new Set(pids);
-            return trades.findIndex(t => pidsOf(t).some(p => want.has(p)));
+          const sameDeal = (t, pids, teamIds) => {
+            const tt = t.teams.map(x => x.teamId);
+            if (tt.length !== teamIds.length || !teamIds.every(id => tt.includes(id))) return false;
+            const has = new Set(pids);
+            return pidsOf(t).every(p => has.has(p));
           };
           // THE WEEK A TRADE HAPPENED IN DOES NOT MOVE. curWeek DOES.
           //
@@ -1467,8 +1476,9 @@ export default async function handler(req, res) {
             const legs = groups[when];
             const teamIds = [...new Set(legs.map(l => l.to))];
             if (teamIds.length !== 2) return;          // not a two-way deal
-            const at = overlaps(legs.map(l => l.pid));
+            const pids = legs.map(l => l.pid);
             // the diff's version of this deal, if it found one at all
+            const at = trades.findIndex(t => sameDeal(t, pids, teamIds));
             if (at >= 0 && pidsOf(trades[at]).length >= legs.length) return;
             const teamsOut = teamIds.map(tid => {
               const players = legs.filter(l => l.to === tid)
