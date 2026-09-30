@@ -16893,7 +16893,10 @@ function ntPvp(out){
     const ts=Number(b.ts)||Date.now();
     const who=b.invitedBy||b.vs;
     out.push({kind:'pvp', day:ntDayOf(ts), id:`pvp:${b.id}`,
-      title:'You have been challenged',
+      /* SHORT, because the header row is title + date + dismiss on a 319px
+         card and 'You have been challenged' overran it. The body says who and
+         on what, and this is the name the Sportsbook gives the thing anyway. */
+      title:'Head to head',
       art:ntStat(betAccountOwner(who),betAccountName(who),bucksFmt(b.stake),
         `to win ${bucksFmt(bucks2((b.payout||0)-(b.stake||0)))}`,ntWeekOf(ts)),
       body:`They have you on <b>${l.pickLabel||'the other side'}</b>.`,
@@ -17008,7 +17011,7 @@ function ntDemo(out){
     art:ntStat(o(3),nm(3),'$75','a 3-leg parlay',dw),
     go:'bets'},
 
-   {kind:'pvp',day:d,id:'demo:pvp',title:'You have been challenged',
+   {kind:'pvp',day:d,id:'demo:pvp',title:'Head to head',
     art:ntStat(o(5),nm(5),'$59.35','to win $50.00',dw),
     body:'They have you on <b>Bikini Bottom Goobers moneyline</b>.',
     go:'bets'},
