@@ -78,7 +78,7 @@ const parts = [
      answers, the football starts, and the money sits out of their balance until
      they next look. Same pure decision the browser uses, so the two cannot
      drift. */
-  grab('function pvpReconcileTo(offer,other,inPlay){'),
+  grab('function pvpReconcileTo(offer,other,shut){'),
 ];
 
 const api = new Function(`
@@ -214,6 +214,10 @@ async function writeResult(bet, g) {
   for (const b of offers) {
     const other = live.find(x => x.srcBet === b.id);
     const wk = api.betLegWeek((b.legs[0] || {}).mk);
+    /* A DEFINITE ANSWER, ALWAYS. pvpReconcileTo treats anything but true as
+       'wait' because the browser can be asked before its scoreboard digest
+       lands -- that unknown voided live offers on page load. Nothing here is
+       ever unsure: weekOn reads the season data this run already fetched. */
     const to = api.pvpReconcileTo(b, other, wk != null ? weekOn(wk) : false);
     if (!to) continue;
     console.log(`  ${to.status === 'open' ? 'MATCHED' : 'VOID   '} ${b.owner.padEnd(6)} `

@@ -42,8 +42,7 @@ const moneyParts = [
   grab('function probFromAm(o){'),
   grab('function amFromProb(p){'),
   grab('const bucks2='),
-  grab('function sbPvpShares(pot,myOdds,theirOdds){'),
-  grab('function sbPvpMaxPot(sh,bal){'),
+  grab('function sbPvpShares(stake,myOdds,theirOdds){'),
   grab('const PVP_MK='),
   grab('function sbPvpLeg(){'),
   grab('const betIsLive=b=>'),
@@ -59,7 +58,7 @@ const moneyParts = [
   grab('function bucksReturned(){'),
   grab('function bucksBalance(){'),
   grab('function betGrade(bet){'),
-  grab('function pvpReconcileTo(offer,other,inPlay){'),
+  grab('function pvpReconcileTo(offer,other,shut){'),
   grab('const CASHOUT_HOLD='),
   grab('const CASHOUT_MIN='),
   grab('function betCashOut(b){'),
@@ -82,7 +81,7 @@ const betSeasonInPlay=()=>false;
 const getSeason=()=>'2026';
 ${moneyParts.join(NL)}
 return { set(b,me){ _bets=b; _me=me; }, setSlip(s){ _slip=s; }, setLeg(v){ _LEG=v; },
-  sbPvpShares, sbPvpMaxPot, sbPvpLeg, PVP_MK, probFromAm, amFromProb, bucks2,
+  sbPvpShares, sbPvpLeg, PVP_MK, probFromAm, amFromProb, bucks2,
   betGrade, betIsLive, betIsPvp, betPending, betCashOut, betCancellable, pvpReconcileTo,
   bucksBalance, bucksStaked, bucksReturned,
   clearable:()=>betsClearable().map(b=>b.id) };`;
@@ -120,18 +119,19 @@ head('1. the board\'s two sides are not complements, and de-vigging makes them')
   eq('-115 implies 53.49%', Math.round(M.probFromAm(-115) * 10000) / 100, 53.49);
   eq('the pair sums past 100', Math.round((M.probFromAm(-115) * 2) * 10000) / 100, 106.98);
 
-  const sp = M.sbPvpShares(50, -115, -115);
+  /* the FIRST argument is my own stake now, and everything else follows it */
+  const sp = M.sbPvpShares(25, -115, -115);
   eq('a spread de-vigs to dead even', sp.fair, 0.5);
-  eq('so the shares are equal', [sp.mine, sp.theirs], [25, 25]);
+  eq('so they are asked for the same', [sp.mine, sp.theirs, sp.pot], [25, 25, 50]);
   eq('and the effective price is even money', sp.odds, -100);
   ok('which beats the -115 the board was charging', sp.odds > -115);
 
   /* and the case the whole thing exists to get right */
-  const ml = M.sbPvpShares(50, -260, 200);
+  const ml = M.sbPvpShares(34.21, -260, 200);
   eq('a -260 favourite is 68.42% once de-vigged', Math.round(ml.fair * 10000) / 100, 68.42);
-  eq('so it puts up more than the dog', [ml.mine, ml.theirs], [34.21, 15.79]);
-  eq('favourite\'s real price', ml.odds, -220);
-  eq('dog\'s real price', M.sbPvpShares(50, 200, -260).odds, 225);
+  eq('laying 34.21 asks the dog for 15.79', [ml.mine, ml.theirs, ml.pot], [34.21, 15.79, 50]);
+  eq('and both real prices come off the same pot', [ml.odds, ml.oddsThem], [-220, 225]);
+  eq('the dog laying 15.79 asks the same back', M.sbPvpShares(15.79, 200, -260).theirs, 34.21);
 }
 
 /* ══ 2 ══════════════════════════════════════════════════════════════════════ */
@@ -144,19 +144,19 @@ head('2. and equal stakes at the board\'s own prices would not have funded it');
   eq('but the pot only holds', 50, 50);
   ok('so equal stakes are short by $25', owed(25, 200) - 50 === 25);
   /* the de-vigged pair, on the same $50, is exact */
-  const sh = M.sbPvpShares(50, 200, -260);
+  const sh = M.sbPvpShares(15.79, 200, -260);
   eq('de-vigged, the dog is owed exactly the pot', sh.pot, M.bucks2(sh.mine + sh.theirs));
 }
 
 /* ══ 3 ══════════════════════════════════════════════════════════════════════ */
-head('3. the pot is the sum of the rounded shares, at every price and size');
+head('3. the pot is the sum of the rounded shares, at every price and stake');
 {
   let mismatched = 0, tested = 0, freeRide = 0, flagged = 0;
   const prices = [[-115, -115], [-260, 200], [200, -260], [-1000, 650], [650, -1000],
                   [-105, -125], [-500, 350], [120, -140]];
   for (const [a, b] of prices) {
     for (let cents = 2; cents <= 40000; cents += 7) {
-      const sh = M.sbPvpShares(cents / 100, a, b);
+      const sh = M.sbPvpShares(cents / 100, a, b);   // cents is MY stake
       tested++;
       /* the one property everything else rests on */
       if (M.bucks2(sh.mine + sh.theirs) !== sh.pot) mismatched++;
@@ -176,19 +176,19 @@ head('3. the pot is the sum of the rounded shares, at every price and size');
   const degen = M.sbPvpShares(0.02, -1000, 650);
   eq('the underdog share rounds away', [degen.mine, degen.theirs], [0.02, 0]);
   eq('so the pair is not offerable', degen.min, false);
-  ok('while an ordinary pot at the same price is', M.sbPvpShares(20, -1000, 650).min);
+  ok('while an ordinary stake at the same price is', M.sbPvpShares(20, -1000, 650).min);
 
   /* rounding goes UP on both halves at the smallest size there is, so the real
      pot is a cent more than the typed one -- solvent, and the panel shows the
      summed figure rather than what was typed */
   const tiny = M.sbPvpShares(0.01, -115, -115);
-  eq('a one-cent pot rounds out to two', [tiny.mine, tiny.theirs, tiny.pot], [0.01, 0.01, 0.02]);
+  eq('a one-cent stake makes a two-cent pot', [tiny.mine, tiny.theirs, tiny.pot], [0.01, 0.01, 0.02]);
 }
 
 /* ══ 4 ══════════════════════════════════════════════════════════════════════ */
 head('4. every outcome is zero sum: what one side gets, the other side put up');
 {
-  const sh = M.sbPvpShares(50, -260, 200);
+  const sh = M.sbPvpShares(34.21, -260, 200);
   const mine = B({ id: 'm', owner: 'bfl', pvp: true, stake: sh.mine, payout: sh.pot });
   const them = B({ id: 't', owner: 'kunk', pvp: true, stake: sh.theirs, payout: sh.pot });
 
@@ -339,19 +339,33 @@ head('7. there is nobody to sell it back to');
 }
 
 /* ══ 8 ══════════════════════════════════════════════════════════════════════ */
-head('8. the pot a balance can carry depends on which side you are taking');
+head('8. you type your own stake, and their side and the pot follow it');
 {
-  const even = M.sbPvpShares(50, -115, -115);
-  const fav = M.sbPvpShares(50, -260, 200);
-  const dog = M.sbPvpShares(50, 200, -260);
-  eq('at even money, a $100 balance backs a $200 pot', M.sbPvpMaxPot(even, 100), 200);
-  eq('a 68% favourite backs less', M.sbPvpMaxPot(fav, 100), 146.15);
-  eq('a 32% dog backs more', M.sbPvpMaxPot(dog, 100), 316.67);
-  /* which is the whole reason the slip's own max=balance could not be reused */
-  ok('every one of them is past the balance itself', [even, fav, dog]
-    .every(s => M.sbPvpMaxPot(s, 100) > 100));
-  eq('and my share of the biggest pot is exactly my balance',
-     M.sbPvpShares(M.sbPvpMaxPot(fav, 100), -260, 200).mine, 100);
+  /* THE SAME STAKE ON EITHER SIDE MAKES A DIFFERENT POT, which is exactly why
+     this is the end you want to hold: what leaves your account is the number
+     you chose, and the one you cannot work out in your head is the one the app
+     works out. Backing your whole balance used to mean dividing it by a
+     fraction nobody had shown you. */
+  const even = M.sbPvpShares(25, -115, -115);
+  const fav  = M.sbPvpShares(25, -260, 200);
+  const dog  = M.sbPvpShares(25, 200, -260);
+  eq('at even money, 25 each and a 50 pot', [even.theirs, even.pot], [25, 50]);
+  eq('a favourite laying 25 asks for less', [fav.theirs, fav.pot], [11.54, 36.54]);
+  eq('a dog laying 25 asks for more', [dog.theirs, dog.pot], [54.17, 79.17]);
+
+  /* whatever the side, the stake out is the stake in -- no rounding on my half */
+  [even, fav, dog].forEach((sh, i) => eq('stake ' + i + ' is exactly what was typed', sh.mine, 25));
+  eq('and every pot is still its two shares',
+     [even, fav, dog].map(sh => sh.pot === M.bucks2(sh.mine + sh.theirs)), [true, true, true]);
+
+  /* the prices are struck against the realised pot, so they hold either way round */
+  eq('favourite lays -220, dog is paid +225', [fav.odds, dog.odds], [-220, 225]);
+  eq('and each side sees the other price', [fav.oddsThem, dog.oddsThem], [225, -220]);
+
+  /* all in is now a number you can simply type */
+  const allIn = M.sbPvpShares(400, -260, 200);
+  eq('a whole 400 balance goes straight in', allIn.mine, 400);
+  ok('and the pot it makes is bigger than the balance', allIn.pot > 400);
 }
 
 /* == 9 ===================================================================== */
@@ -359,7 +373,7 @@ head('9. the challenger half only ever follows a decision already made');
 {
   const offer = B({ id: 'off', owner: 'bfl', pvp: true, status: 'offer', stake: 25, payout: 50 });
   const half = st => B({ id: 'ch', owner: 'kunk', pvp: true, status: st, srcBet: 'off', stake: 25, payout: 50 });
-  const R = (other, inPlay) => M.pvpReconcileTo(offer, other, inPlay);
+  const R = (other, shut) => M.pvpReconcileTo(offer, other, shut);
 
   eq('unanswered and nothing kicked off: wait', R(half('challenge'), false), null);
   eq('they are in: mine opens alongside', R(half('open'), false), { status: 'open', ret: 0 });
@@ -373,6 +387,19 @@ head('9. the challenger half only ever follows a decision already made');
      before the other half would void a matched bet the instant its week kicked
      off -- handing the stake back on a bet that is being played. */
   eq('a matched pair survives its own kickoff', R(half('open'), true), { status: 'open', ret: 0 });
+
+  /* == THE ONE THAT SHIPPED BROKEN ====================================
+     nflWeekBegun answers null until the scoreboard digest lands, about two
+     seconds after the page opens, and the old predicate read that unknown as
+     'the football is on'. The reconcile runs from initBets INSIDE that window,
+     so a live offer was voided on page load and the accept on the other end
+     was refused. An unknown must never be a reason to take money back. */
+  eq('unknown, unanswered: wait, do not void', R(half('challenge'), null), null);
+  eq('unknown and no counterpart yet: wait', R(null, null), null);
+  eq('a caller that passed nothing at all: wait', R(half('challenge'), undefined), null);
+  /* ...but an answer already given needs no scoreboard to be acted on */
+  eq('they are in, digest or not', R(half('open'), null), { status: 'open', ret: 0 });
+  eq('they said no, digest or not', R(half('declined'), null), { status: 'void', ret: 25 });
 
   /* and it will not touch anything that is not an unanswered offer of mine */
   eq('a matched half is not reconsidered',
@@ -390,7 +417,7 @@ head('9. the challenger half only ever follows a decision already made');
 head('10. a moneyline pair balances the same way a spread one does');
 {
   /* the board prices from the fixture above */
-  const sh = M.sbPvpShares(50, -260, 200);
+  const sh = M.sbPvpShares(34.21, -260, 200);
   const mine = B({ id: 'm', owner: 'bfl', pvp: true, stake: sh.mine, payout: sh.pot });
   const them = B({ id: 't', owner: 'kunk', pvp: true, stake: sh.theirs, payout: sh.pot });
   eq('the stakes really are different numbers', mine.stake !== them.stake, true);
@@ -413,7 +440,7 @@ head('10. a moneyline pair balances the same way a spread one does');
   eq('summing to the pot', M.bucks2(34.21 + 15.79), sh.pot);
 
   /* the de-vig is the point: both sides beat the board they were quoted */
-  const favPrice = sh.odds, dogPrice = M.sbPvpShares(50, 200, -260).odds;
+  const favPrice = sh.odds, dogPrice = M.sbPvpShares(15.79, 200, -260).odds;
   ok('the favourite lays less than -260', favPrice > -260);
   ok('and the dog is paid more than +200', dogPrice > 200);
   eq('which is the hold, handed back', [favPrice, dogPrice], [-220, 225]);

@@ -19846,12 +19846,26 @@ function sbPvpOpposite(leg){
    would not equal the two stakes -- which is the one property this whole thing
    rests on. A cent off the typed figure is the price of that, and what gets
    shown and stored is the real total rather than what was typed. */
-function sbPvpShares(pot,myOdds,theirOdds){
-  const p=Math.max(0,Number(pot)||0);
+/* ── AND THE NUMBER YOU TYPE IS YOUR OWN STAKE ───────────────────────────────
+   It was the pot, because the pot is the number the two of you are agreeing on
+   and it is what the challenge card leads with. But it is not the number you
+   think in. You know what you are willing to lose and you know what is in your
+   account; you do not know what pot makes your share come to $40, and on a
+   moneyline you cannot work it out in your head. Backing your whole balance
+   meant dividing it by a fraction nobody had shown you.
+
+   So the stake goes in and the rest comes out: their share at the de-vigged
+   ratio, and the pot as the two added together. Same arithmetic, read the
+   other way round -- and the field's max is the balance again, the way the
+   ordinary stake box next to it already works. */
+function sbPvpShares(stake,myOdds,theirOdds){
+  const m=Math.max(0,Number(stake)||0);
   const pM=probFromAm(myOdds), pT=probFromAm(theirOdds);
   const sum=pM+pT; if(!(sum>0)) return null;
   const f=pM/sum;
-  const mine=bucks2(p*f), theirs=bucks2(p*(1-f));
+  /* their share against mine is (1-f):f, which is the same split as before --
+     what changed is which end is given and which is derived */
+  const mine=bucks2(m), theirs=f>0?bucks2(mine*(1-f)/f):0;
   /* ── A POT TOO SMALL TO SPLIT IS NOT A BET ────────────────────────────────
      Money is a whole number of cents, and a long enough price against a small
      enough pot rounds one share to zero: at -1000/+650 the dog's share of two
@@ -19862,17 +19876,17 @@ function sbPvpShares(pot,myOdds,theirOdds){
      It only bites on a deliberately tiny pot at a long price, and it is still
      a hole. Flagged rather than thrown so the panel can show the figures it
      computed and say why the button is dead. */
-  return {mine,theirs,pot:bucks2(mine+theirs),fair:f,odds:amFromProb(f),
+  const pot=bucks2(mine+theirs);
+  /* THE PRICE AS ACTUALLY STRUCK, not the ideal ratio. Both shares round to the
+     cent, so what each side is really getting is its own stake against the pot
+     -- which at small stakes is a hair off the de-vigged number. Printing the
+     ideal one would be quoting a price nobody is being given. */
+  return {mine,theirs,pot,fair:f,
+    odds:pot>0?amFromProb(mine/pot):null,
+    oddsThem:pot>0?amFromProb(theirs/pot):null,
     min:mine>0&&theirs>0};
 }
-/* what the pot may be, given that only my share of it leaves my balance. The
-   slip's own max is the balance because a stake IS the balance's worth; here a
-   favourite at 68% can put a bigger pot on the table than a dog can. */
-function sbPvpMaxPot(sh,bal){
-  const f=sh&&sh.fair>0?sh.fair:0.5;
-  return bucks2(Math.max(0,bal)/f);
-}
-let _pvpOpen=false,_pvpTo='',_pvpPot=50,_pvpErr=null;
+let _pvpOpen=false,_pvpTo='',_pvpStake=25,_pvpErr=null;
 function sbPvpToggle(){
   _pvpOpen=!_pvpOpen; _pvpErr=null;
   if(_pvpOpen&&!_pvpTo){
@@ -19882,20 +19896,24 @@ function sbPvpToggle(){
   sbRenderSlip();
 }
 function sbPvpPick(v){ _pvpTo=v; _pvpErr=null; sbRenderSlip(); }
-function sbPvpSetPot(v){ _pvpPot=v; _pvpErr=null; sbRenderSlip(); }
+function sbPvpSetStake(v){ _pvpStake=v; _pvpErr=null; sbRenderSlip(); }
 /* Typing patches rather than repaints, for the same reason sbStakeTyped does:
    a repaint takes the field away from whoever is mid-number. */
-function sbPvpPotTyped(v){
-  _pvpPot=v;
+function sbPvpStakeTyped(v){
+  _pvpStake=v;
   const leg=sbPvpLeg(); if(!leg) return;
   const opp=sbPvpOpposite(leg); if(!opp) return;
   const sh=sbPvpShares(v,leg.odds,opp.odds); if(!sh) return;
   const bal=bucks2(bucksBalance());
   const over=sh.mine>bal+0.005;
   const tiny=!sh.min;
-  document.querySelectorAll('.sb-pvp-mine').forEach(e=>{ e.textContent=bucksCents(sh.mine); });
-  document.querySelectorAll('.sb-pvp-theirs').forEach(e=>{ e.textContent=bucksCents(sh.theirs); });
-  document.querySelectorAll('.sb-pvp-pot b').forEach(e=>{ e.textContent=bucksCents(sh.pot); });
+  const set=(sel,txt)=>document.querySelectorAll(sel).forEach(e=>{ e.textContent=txt; });
+  set('.sb-pvp-theirs',bucksCents(sh.theirs));
+  set('.sb-pvp-takes b',bucksCents(sh.pot));
+  /* the prices move with the stake too, because they are struck against the pot
+     rather than read off the ideal ratio -- see sbPvpShares */
+  document.querySelectorAll('.sb-pvp-mine-odds').forEach(e=>{ e.firstChild.nodeValue=amFmt(sh.odds); });
+  document.querySelectorAll('.sb-pvp-them-odds').forEach(e=>{ e.firstChild.nodeValue=amFmt(sh.oddsThem); });
   document.querySelectorAll('.sb-pvp-send').forEach(b=>{
     b.disabled=!!(_betBusy||sh.mine<=0||tiny||over||!_pvpTo);
     if(!_betBusy) b.innerHTML=`<i class="fa fa-paper-plane"></i>Send challenge \u00b7 ${bucksFmt(sh.mine)}`;
@@ -19915,6 +19933,7 @@ const PVP_ERRS={
   send:'Could not send that. Try again.',
   offline:'No connection. Try again.',
   taken:'That offer is no longer open.',
+  gonesrc:'They pulled that challenge \u2014 it has come off your list.',
 };
 /* ── SENDING ONE ─────────────────────────────────────────────────────────────
    Two documents, one per side, because that is what makes the money work: a
@@ -19940,7 +19959,7 @@ async function sbPvpSend(){
   if(!to){ _pvpErr='who'; sbRenderSlip(); return; }
   if(to===_me.k1){ _pvpErr='self'; sbRenderSlip(); return; }
   if(!bucksReady()){ _pvpErr='loading'; sbRenderSlip(); return; }
-  const sh=sbPvpShares(_pvpPot,leg.odds,opp.odds);
+  const sh=sbPvpShares(_pvpStake,leg.odds,opp.odds);
   if(!sh||sh.mine<=0){ _pvpErr='stake'; sbRenderSlip(); return; }
   if(!sh.min){ _pvpErr='tiny'; sbRenderSlip(); return; }
   if(sh.mine>bucks2(bucksBalance())+0.005){ _pvpErr='funds'; sbRenderSlip(); return; }
@@ -19967,7 +19986,7 @@ async function sbPvpSend(){
   const put=(id,body)=>fetch(`${betBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   try{
-    const mineOdds=sh.odds, themOdds=amFromProb(1-sh.fair);
+    const mineOdds=sh.odds, themOdds=sh.oddsThem;
     const a=fsNoteResponse(await put(mineId,doc(_me.k1,sh.mine,leg,mineOdds,{status:'offer'})));
     if(!a.ok){ _pvpErr=a.status===403?'rules':a.status===429?'quota':'send'; _betBusy=false; sbRenderSlip(); return; }
     const b=fsNoteResponse(await put(themId,doc(to,sh.theirs,opp,themOdds,
@@ -20015,7 +20034,28 @@ async function sbPvpRespond(id,accept){
     if(accept&&inv.srcBet){
       const r=await fetch(`${betBase()}/${encodeURIComponent(inv.srcBet)}?${msgKey()}`,{cache:'no-store'});
       const src=r.ok?betDocRow(await r.json()):null;
-      if(!src||src.status!=='offer'){ _pvpErr='taken'; _betBusy=false; renderMyBets(); return; }
+      if(!src||src.status!=='offer'){
+        /* ── A CHALLENGE WHOSE OFFER HAS GONE CLEARS ITSELF ────────────────
+           There is nothing behind it any more -- pulled back, or voided when
+           its week shut -- and refusing the tap and leaving the card sitting
+           there just means being refused again tomorrow. Whoever tapped it is
+           the one person who can retire it, because it is their document, and
+           this keeps the one-writer rule intact.
+
+           DECLINED, NOT VOID. Nothing was ever staked on a challenge, so it
+           must land on a status that is not live: betIsLive counts a 'void' as
+           a real wager, and a void carrying ret=0 would take the stake that was
+           never taken straight out of the balance. 'declined' is already the
+           word for an offer that never became a bet. */
+        try{
+          const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ts';
+          const d=await fetch(`${betBase()}/${encodeURIComponent(id)}?${msgKey()}&${mask}`,
+            {method:'PATCH',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify(fsOut({status:'declined',ts:String(Date.now())}))});
+          if(d.ok) inv.status='declined';
+        }catch(e){}
+        _pvpErr='gonesrc'; _betBusy=false; await betRefresh(); renderMyBets(); return;
+      }
     }
     const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=team&updateMask.fieldPaths=ts';
     const r=await fetch(`${betBase()}/${encodeURIComponent(id)}?${msgKey()}&${mask}`,
@@ -20048,14 +20088,48 @@ async function sbPvpCancel(id){
   }catch(e){ _pvpErr='offline'; }
   _betBusy=false; renderMyBets();
 }
-/* An unanswered challenge dies at kickoff, for the reason the parlay seat does:
-   a side taken at half time is priced off a line nobody could still get, and
-   here the money on the other end of it is another manager's. */
-function pvpLapsed(b){
-  if(!b) return true;
-  try{ if(betInPlay(b)) return true; }catch(e){ return true; }
-  return false;
+/* ── IS THIS MARKET SHUT? true, false, OR I DO NOT KNOW YET ──────────────────
+   Three answers, and the third one is the whole point of this function.
+
+   THE BUG IT REPLACES. pvpLapsed asked betInPlay, which is
+   betWeekStarted || nflWeekBegun !== false -- and nflWeekBegun answers NULL
+   until the scoreboard digest lands, about two seconds after the page opens.
+   null !== false, so for those two seconds every ticket on the site reads as
+   'the football is on'. That is a safe default for a cash-out, which is what it
+   was written for: refuse to price a buy-back you cannot be sure about.
+
+   It is not a safe default here, and it broke this twice over. Accepting inside
+   that window answered 'that offer is no longer open'. And worse, the
+   challenger's own reconcile runs from initBets on page load -- INSIDE the same
+   window -- read the same unknown as 'in play', and VOIDED a live offer. An
+   unknown became an irreversible write. The stake came back, so nobody was out
+   of pocket, but the bet was gone and neither manager did anything wrong.
+
+   AND THE TWO ENDS HAD DIFFERENT RULES. sbPvpSend gates on sbWeekLocked, which
+   reads an unknown as 'not locked' AND reopens a fixture market during the gap
+   between slates. So the board would happily sell a challenge that the other
+   end then refused. Both ends ask this now, so a challenge that could be sent
+   can be answered.
+
+   Points on the board is proof on its own and needs no digest -- that branch is
+   certain. Without the digest there is no opinion, and null is what the callers
+   have to handle rather than round off. */
+function pvpShut(b){
+  const season=(b&&b.season)||getSeason();
+  let shut=false;
+  for(const l of ((b&&b.legs)||[])){
+    const wk=betLegWeek(l&&l.mk); if(wk==null) continue;
+    try{
+      if(betWeekStarted(season,wk)) return true;
+      if(nflWeekBegun(wk,season)==null) return null;
+      if(sbWeekLocked(wk,l.mk)) shut=true;
+    }catch(e){ return null; }
+  }
+  return shut;
 }
+/* Only a definite yes hides the card. An unknown leaves it answerable, which is
+   the same call sbWeekLocked makes for every other bet on the board. */
+const pvpLapsed=b=>pvpShut(b)===true;
 /* ── AND THE CHALLENGER'S OWN LEDGER CATCHES UP ──────────────────────────────
    Every branch here writes only documents I own, and every one of them is a
    conclusion the OTHER half already reached -- so this never decides anything,
@@ -20075,13 +20149,19 @@ function pvpLapsed(b){
    The football is only consulted when the other half has said NOTHING. An
    answered pair is answered whatever the clock says, and asking the clock first
    would void an accepted bet the moment its week kicked off. */
-function pvpReconcileTo(offer,other,inPlay){
+function pvpReconcileTo(offer,other,shut){
   if(!offer||offer.status!=='offer') return null;
   if(other&&other.status==='open') return {status:'open',ret:0};
   if(other&&(other.status==='declined'||other.status==='void'))
     return {status:'void',ret:bucks2(offer.stake)};
+  /* ── AN UNKNOWN IS NOT A REASON TO TAKE MONEY BACK ──────────────────────
+     shut===true voids it, false waits, and ANYTHING ELSE waits -- null, or a
+     caller that did not think about it. This is the branch that voided live
+     offers two seconds into a page load, and it is the only branch here that
+     destroys something rather than confirming it, so it is the one that has to
+     insist on certainty. Waiting costs a cycle; voiding costs the bet. */
   if(!other||other.status==='challenge')
-    return inPlay?{status:'void',ret:bucks2(offer.stake)}:null;
+    return shut===true?{status:'void',ret:bucks2(offer.stake)}:null;
   return null;
 }
 async function sbPvpReconcile(){
@@ -20091,8 +20171,8 @@ async function sbPvpReconcile(){
   let changed=false;
   for(const b of mine){
     const other=(_bets||[]).find(x=>x.srcBet===b.id);
-    let live=false; try{ live=betInPlay(b); }catch(e){ live=false; }
-    const to=pvpReconcileTo(b,other,live);
+    let shut=null; try{ shut=pvpShut(b); }catch(e){ shut=null; }
+    const to=pvpReconcileTo(b,other,shut);
     if(!to) continue;
     const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
     /* an accepted pair has not settled yet, so it keeps settledTs at 0 -- a
@@ -20173,11 +20253,10 @@ function sbPvpPanelHTML(){
     <i class="fa fa-user-group"></i>Or go head to head with a manager
     <span class="sb-pvp-tag">no house</span></button>`;
   const others=betAccounts().filter(a=>a.k1!==_me.k1);
-  const sh=sbPvpShares(_pvpPot,leg.odds,opp.odds);
+  const sh=sbPvpShares(_pvpStake,leg.odds,opp.odds);
   const bal=bucks2(bucksBalance());
   const over=!!(sh&&sh.mine>bal+0.005);
   const dead=!!(_betBusy||!sh||sh.mine<=0||!sh.min||over||!_pvpTo);
-  const pot=sh?sh.pot:0;
   return `<div class="sb-pvp">
     <div class="sb-pvp-h"><i class="fa fa-user-group"></i>Head to head
       <button class="sb-pvp-x" onclick="sbPvpToggle()" aria-label="Close"><i class="fa fa-xmark"></i></button></div>
@@ -20189,11 +20268,11 @@ function sbPvpPanelHTML(){
     <div class="sb-pvp-sides">
       <span class="sb-pvp-side"><span class="sb-pvp-who">You take</span>
         <span class="sb-pvp-pick">${leg.pickLabel}</span>
-        <span class="sb-pvp-odds">${sh?amFmt(sh.odds):'—'}<s>${amFmt(leg.odds)}</s></span></span>
+        <span class="sb-pvp-odds sb-pvp-mine-odds">${sh?amFmt(sh.odds):'—'}<s>${amFmt(leg.odds)}</s></span></span>
       <span class="sb-pvp-v">v</span>
       <span class="sb-pvp-side"><span class="sb-pvp-who">They take</span>
         <span class="sb-pvp-pick">${opp.pickLabel}</span>
-        <span class="sb-pvp-odds">${sh?amFmt(amFromProb(1-sh.fair)):'—'}<s>${amFmt(opp.odds)}</s></span></span>
+        <span class="sb-pvp-odds sb-pvp-them-odds">${sh?amFmt(sh.oddsThem):'—'}<s>${amFmt(opp.odds)}</s></span></span>
     </div>
     ${''/* LABELLED, AND IN THE SAME ROW SHAPE AS THE POT BELOW IT.
           On its own this was a wide box with a team name sitting in it and
@@ -20209,18 +20288,18 @@ function sbPvpPanelHTML(){
       </select>
     </div>
     <div class="sb-stake">
-      <label for="pvp-pot">Pot</label>
-      <input id="pvp-pot" type="number" min="0" step="10" max="${sbPvpMaxPot(sh,bal)}"
-        value="${bucks2(Math.max(0,Number(_pvpPot)||0))}" oninput="sbPvpPotTyped(this.value)"/>
+      <label for="pvp-stake">You put up</label>
+      <input id="pvp-stake" type="number" min="0" step="5" max="${bal}"
+        value="${bucks2(Math.max(0,Number(_pvpStake)||0))}" oninput="sbPvpStakeTyped(this.value)"/>
       <span class="sb-cur">GFL Bucks</span>
     </div>
     <div class="sb-quick">
-      ${[20,50,100].map(v=>`<button onclick="sbPvpSetPot(${v})">${bucksFmt(v)}</button>`).join('')}
+      ${[25,50,100].filter(v=>v<=bal).map(v=>`<button onclick="sbPvpSetStake(${v})">${bucksFmt(v)}</button>`).join('')}
+      <button onclick="sbPvpSetStake(${bal})">All in</button>
     </div>
     <div class="sb-totals">
-      <div class="sb-tot"><span>You put up</span><b class="sb-pvp-mine">${bucksCents(sh?sh.mine:0)}</b></div>
       <div class="sb-tot"><span>They put up</span><b class="sb-pvp-theirs">${bucksCents(sh?sh.theirs:0)}</b></div>
-      <div class="sb-tot sb-tot-big sb-pvp-pot"><span>Winner takes</span><b>${bucksCents(pot)}</b></div>
+      <div class="sb-tot sb-tot-big sb-pvp-takes"><span>Winner takes</span><b>${bucksCents(sh?sh.pot:0)}</b></div>
     </div>
     <div class="sb-pvp-over" style="display:${over?'':'none'}">
       <i class="fa fa-circle-exclamation"></i>Your share is more than your ${bucksFmt(bal)}.</div>
@@ -20237,7 +20316,11 @@ function sbPvpPanelHTML(){
    reporting one. A lapsed one comes off rather than sitting there greyed out. */
 function sbPvpPendingHTML(){
   if(!_me) return '';
-  const pend=betsMine().filter(b=>b.status==='challenge'&&betIsPvp(b)&&!pvpLapsed(b));
+  /* A shut one stays on the page saying so. It used to vanish, which reads as a
+     bug from the other end -- somebody sent you a bet and the app quietly ate
+     it. And with the gap between slates a fixture market can shut and reopen, so
+     'shut' is not always 'over'. */
+  const pend=betsMine().filter(b=>b.status==='challenge'&&betIsPvp(b));
   if(!pend.length) return '';
   const err=_pvpErr?`<div class="sb-invite-err">${PVP_ERRS[_pvpErr]||PVP_ERRS.send}</div>`:'';
   return `<div class="sb-invites sb-pvp-in">
@@ -20255,7 +20338,8 @@ function sbPvpPendingHTML(){
          still checked on the way through -- a balance can move between a paint
          and a tap -- this only stops the tap being the way you find out. */
       const short=!bucksReady()||b.stake>bucks2(bucksBalance())+0.005;
-      return `<div class="sb-invite">
+      const shut=pvpLapsed(b);
+      return `<div class="sb-invite${shut?' sb-invite-stale':''}">
         <div class="sb-invite-top"><b>${betAccountName(b.invitedBy||b.vs)}</b> wants you on the other side</div>
         <div class="sb-bet-legs"><div class="sb-bl">
           <span class="sb-bl-p">${l.pickLabel||''}</span>
@@ -20266,11 +20350,12 @@ function sbPvpPendingHTML(){
           <span>They put <b>${bucksFmt(bucks2(b.payout-b.stake))}</b></span>
           <span>Winner takes <b>${bucksFmt(b.payout)}</b></span>
         </div>
-        ${short?`<div class="sb-pvp-over"><i class="fa fa-circle-exclamation"></i>
+        ${shut?`<div class="sb-lockmsg"><i class="fa fa-lock"></i>That week is under way \u2014 this one cannot be taken now.</div>`
+          :short?`<div class="sb-pvp-over"><i class="fa fa-circle-exclamation"></i>
           ${bucksReady()?`That is ${bucksFmt(bucks2(b.stake-bucksBalance()))} more than you have.`
             :'Still counting your money.'}</div>`:''}
         <div class="sb-invite-acts">
-          <button class="sb-place" ${_betBusy||short?'disabled':''} onclick="sbPvpRespond('${bid}',true)">
+          <button class="sb-place" ${_betBusy||short||shut?'disabled':''} onclick="sbPvpRespond('${bid}',true)">
             <i class="fa fa-check"></i>I\u0027m in \u00b7 ${bucksFmt(b.stake)}</button>
           <button class="sb-pull" ${_betBusy?'disabled':''} onclick="sbPvpRespond('${bid}',false)">
             <i class="fa fa-xmark"></i>No thanks</button>
@@ -20777,7 +20862,7 @@ function sbPortal(){
    pot goes with it. One id was hardcoded here; it is now whichever of the two is
    focused, so the pot is protected the same way and by the same code rather than
    by a second copy of it. */
-const SB_KEEP_IDS=['sb-stake-in','pvp-pot'];
+const SB_KEEP_IDS=['sb-stake-in','pvp-stake'];
 function sbKeepStakeFocus(fn){
   const a=document.activeElement;
   const id=a&&SB_KEEP_IDS.indexOf(a.id)>=0?a.id:null;
