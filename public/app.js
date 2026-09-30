@@ -16154,6 +16154,7 @@ const NT_KINDS={
   standings:{icon:'fa-ranking-star', tone:'cool'},
   bkfix:  {icon:'fa-gift',         tone:'good'},
   big4:   {icon:'fa-list-ol',      tone:'royal'},
+  upset:  {icon:'fa-bolt-lightning',tone:'hot'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -16373,6 +16374,9 @@ function ntFromWeek(out){
   if(!ntResultsFresh(season,lw.week)) return;
   const owners=lw.meta.owners||{};
   const day=ntWeekResultsDay(season,lw.week);   // the Tuesday that week was read on
+  /* one poll for the whole slate: every game in a week is measured against the
+     same table, and pollRanksAt walks the archive to find it */
+  const ranks=(()=>{ try{ return pollRanksAt(lw.week); }catch(e){ return {}; } })();
   lw.games.forEach(mu=>{
     const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
     if(hp===ap) return;
@@ -16404,6 +16408,21 @@ function ntFromWeek(out){
         title:'Rivalry settled',
         art:ntScore(W,L,'margin')});
     }catch(e){}
+    /* ── AND WHAT THE POLL MADE OF IT ─────────────────────────────────────
+       This one is not about the scoreline at all -- a two-point win over the
+       team the league ranked first is the story, and a forty-point win over the
+       team it ranked last is not. So it stacks with the three above rather than
+       replacing them: a blowout can also be an upset, and on the right Sunday
+       so can a rivalry game. */
+    const gap=ntUpsetBy(ranks,win,lose);
+    if(gap>=NT_UPSET_GAP){
+      const wr=ranks[pollTeamIdOf(win)], lr=ranks[pollTeamIdOf(lose)];
+      out.push({kind:'upset', day,
+        id:`up:${season}:${lw.week}:${win}`,
+        title:'Upset',
+        art:ntScore(W,L,'margin'),
+        body:`<b>#${wr}</b> beat <b>#${lr}</b> — ${gap} place${gap===1?'':'s'} up the poll.`});
+    }
   });
 }
 /* current run of wins or losses, read backwards through every season in order */
@@ -16869,6 +16888,10 @@ function ntDemo(out){
    {kind:'wire',day:T2,id:'demo:wire',title:'Down to the wire',
     art:ntScore(S(0,121.4),S(4,120.6),'apart')},
 
+   {kind:'upset',day:T2,id:'demo:upset',title:'Upset',
+    art:ntScore(S(9,118.7),S(1,112.3),'margin'),
+    body:'<b>#10</b> beat <b>#2</b> — 8 places up the poll.'},
+
    {kind:'rival',day:T2,id:'demo:rival',title:'Rivalry settled',
     art:ntScore(S(1,143.0),S(2,98.7),'margin')},
 
@@ -17077,6 +17100,27 @@ function ntWeekResultsDay(season,week){
   d.setDate(d.getDate()+7*((Number(week)||1)+1));   // the Tuesday after that week
   d.setHours(0,0,0,0);
   return d.getTime();
+}
+/* ── HOW FAR UP THE POLL A WIN HAS TO REACH TO BE AN UPSET ───────────────────
+   Five, which is what "six spots apart" comes to when both ends are counted —
+   1 against 6 spans six places and is five apart, and that pair was named as the
+   smallest one worth a card. 3v9 and 2v12 clear it comfortably.
+
+   THE POLL AS IT STOOD THAT WEEK, not as it stands now. A win over the team
+   ranked third is a win over the team ranked third at the time, and re-reading
+   it against a later poll would let a card change its mind about what happened
+   — pollRanksAt already answers this for the schedule.
+
+   NOT GATED ON THE READER'S OWN BALLOT, unlike every other poll number on the
+   site. The card fires on the Tuesday AFTER the week it describes, by which
+   point that week's poll is closed, archived and drawn on the Standings chart
+   for everybody. There is nothing left to withhold. */
+const NT_UPSET_GAP=5;
+/* positive only when the winner was ranked BELOW the loser, which is the only
+   direction that is an upset; zero when either side is unranked */
+function ntUpsetBy(ranks,win,lose){
+  const w=(ranks||{})[pollTeamIdOf(win)], l=(ranks||{})[pollTeamIdOf(lose)];
+  return (w>0&&l>0)?(w-l):0;
 }
 const NT_RESULTS_MAX=21*24*3600*1000;
 const ntResultsFresh=(season,week)=>

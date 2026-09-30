@@ -55,11 +55,13 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)),
     'function pollSosHTML(owner){',
     'let _wkScRank=',
     'function weekScoreRanks(week){',
+    'const NT_UPSET_GAP=',
+    'function ntUpsetBy(ranks,win,lose){',
   ],
   ['cpMineIn', 'pollNowRanks', 'pollBadge', 'pollBadgeFor', 'pollTeamIdOf',
    'cpTally', 'cpKey', 'ntBig4', 'CP_REVEAL_AT', 'NT_BIG4_OWNER', 'NT_BIG4_FROM',
    'pollRanksAt', 'pollBadgeAt', 'pollBadgeAtFor', 'pollSosRows', 'pollSosHTML',
-   'weekScoreRanks', 'sosCol', 'SOS_RAMP',
+   'weekScoreRanks', 'sosCol', 'SOS_RAMP', 'ntUpsetBy', 'NT_UPSET_GAP',
    'setTeams', 'setRows', 'setMe', 'setPolls', 'setFranchises', 'setWeek', 'setTest',
    'setSeason'],
 `
@@ -513,6 +515,45 @@ head('9. WHERE A SCORE RANKED IN ITS OWN WEEK');
 
   M.setSeason(null);
   ok('no season, no ranks', JSON.stringify(M.weekScoreRanks(1)), '{}');
+}
+
+/* ── 10 ──────────────────────────────────────────────────────────────── */
+head('10. AN UPSET IS A POLL RESULT, NOT A SCORE');
+{
+  reset();
+  M.setTeams(TEAMS);
+  M.setFranchises(FR);
+  /* the poll, straight: team 1 is first, team 12 is last */
+  const ranks = {}; TEAMS.forEach((t, i) => { ranks[t.id] = i + 1; });
+  const by = (w, l) => M.ntUpsetBy(ranks, 'o' + w, 'o' + l);
+
+  ok('the threshold is five places', M.NT_UPSET_GAP, 5);
+  /* the three pairs that were named, and 1v6 is the one that sets the floor */
+  ok('1 v 6 clears it, and it is the floor', by(6, 1), 5);
+  ok('3 v 9 clears it', by(9, 3) >= M.NT_UPSET_GAP, true);
+  ok('2 v 12 clears it', by(12, 2) >= M.NT_UPSET_GAP, true);
+  ok('and it is measured in places, not teams', by(12, 2), 10);
+
+  /* one short of the floor is not a card */
+  ok('1 v 5 does not', by(5, 1) >= M.NT_UPSET_GAP, false);
+  ok('neighbours do not', by(2, 1) >= M.NT_UPSET_GAP, false);
+
+  /* DIRECTION IS THE WHOLE THING. The same fixture the other way round is the
+     favourite holding serve, which is not news. */
+  ok('the favourite winning is not an upset', by(1, 6) >= M.NT_UPSET_GAP, false);
+  ok('and it comes back negative rather than large', by(1, 6) < 0, true);
+
+  /* a team the poll has no line on cannot be upset or do the upsetting */
+  ok('an unranked winner scores nothing', M.ntUpsetBy(ranks, 'nobody', 'o1'), 0);
+  ok('an unranked loser scores nothing', M.ntUpsetBy(ranks, 'o12', 'nobody'), 0);
+  ok('and an empty poll scores nothing', M.ntUpsetBy({}, 'o12', 'o1'), 0);
+  ok('as does no poll at all', M.ntUpsetBy(null, 'o12', 'o1'), 0);
+
+  /* it reads the week's own table: the same fixture is an upset or it is not,
+     depending on where the two stood THEN */
+  const later = {}; TEAMS.forEach((t, i) => { later[t.id] = TEAMS.length - i; });
+  ok('the same win against a later poll can read the other way',
+     M.ntUpsetBy(later, 'o12', 'o1') >= M.NT_UPSET_GAP, false);
 }
 
 console.log(NL + pass + ' passed, ' + fail + ' failed');
