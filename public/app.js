@@ -9879,24 +9879,28 @@ function schedDummy(){
   }
   return weeks;
 }
-/* ── THE LINE AND THE ODDS ARE THE BOOK'S. THE WIN% IS NOT. ──────────────────
-   Two columns sit next to each other on this tab and they answer two different
-   questions, on purpose.
+/* ── WIN% AND THE ODDS ARE THE SAME NUMBER, PRICED DIFFERENTLY ───────────────
+   Two columns sit next to each other on this tab and they used to answer two
+   different questions on purpose: Win% quoted ESPN's published probability,
+   which prices the lineup AS SET, while Line and Odds were built the book's way
+   off the best legal lineup.
 
-   Win% is ESPN's projection for that week — the number in the app, and no more
-   than that. It takes the starters as they stand for a week that can be set.
+   The argument for that was that the projection should know about a manager's
+   mistake even when the market refuses to be moved by it. It does not survive
+   contact with the numbers. A bye-week starter is not a read on the fixture, it
+   is a hole ESPN prices as a zero -- so week 4 had the Tinglers at 2% in a game
+   the model has them winning by six. Nobody is being told something true there.
+   And a lineup nobody has set yet, which is most lineups most of the week, gets
+   priced as though somebody meant it.
 
-   Line and Odds are prices, and a price is the sportsbook's job. They are built
-   the book's way: sbTeamWeek's best legal lineup, the book's own two-lineup
-   spread, and the two-way hold on top. Best legal rather than as-set is not an
-   oversight here, it is the whole point of a price — anything read off the
-   lineup somebody actually set is gameable, and there is play money on it. So a
-   manager who leaves a bye-week starter in will see their Win% fall and their
-   price stay put, which is correct: the projection knows about the mistake and
-   the market refuses to be moved by it.
+   So both columns read the same model now: sbTeamWeek's best legal lineup out
+   of the players a manager actually holds, replacement level only for a slot
+   nothing on the roster can cover. Win% is that probability; Odds is that
+   probability with the two-way hold on top, which is the only thing still
+   separating them and the whole of the book's edge.
 
-   Prices are also why these two never agree to the decimal. The hold is real:
-   both sides get 2.5 points added, which is where the book's edge comes from. */
+   ESPN's number has not gone -- it is the fallback inside schedZ, for a week
+   ESPN has published and we have no roster for. */
 function schedBookPrice(me,opp,week,season,meta){
   let tA=null,tB=null;
   try{
@@ -9950,8 +9954,8 @@ function schedRows(owner){
     const oppOwner=(ho===owner)?ao:ho;
     const opp=rowOf(oppOwner); if(!opp) return;
     const wk=m.week;
-    const p=schedWinProb(me,opp,wk);              // ESPN's projection for the week
-    const bk=schedBookPrice(me,opp,wk,info.season,meta);   // the book's price
+    const p=schedWinProb(me,opp,wk);              // best legal lineup, no hold
+    const bk=schedBookPrice(me,opp,wk,info.season,meta);   // the same, with the hold
     // last completed season for the opponent, plus the all-time head to head
     const lastSp=(opp.sp||[]).filter(s=>s.g>0).slice(-1)[0]||null;
     const lastRec=lastSp?`${lastSp.w}–${Math.max(0,lastSp.g-lastSp.w)}`:'—';
