@@ -5466,9 +5466,13 @@
        tag uses rather than the panel's, so the bar reads as the label and the
        twelve rows under it as the thing labelled. */
     .sos-cap>.sos-left{background:none;padding:0;}
-    .sos-cap>.sos-right{display:flex;align-items:center;justify-content:center;
-      padding:6px 10px;background:rgba(var(--accent-rgb),0.18);
+    /* it keeps the row's own three tracks rather than becoming a flex box, or
+       it sizes to the words instead of to the half it is naming: each row is
+       its own grid, so an auto column is measured per row and the cap came
+       out 44px narrower than everything under it. The pill spans them. */
+    .sos-cap>.sos-right{padding:6px 10px;background:rgba(var(--accent-rgb),0.18);
       border-color:rgba(var(--accent-rgb),0.3);}
+    .sos-cap .sos-pill{grid-column:1 / -1;text-align:center;}
     .sos-pill{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
       letter-spacing:.7px;text-transform:uppercase;white-space:nowrap;
       color:var(--accent);}
