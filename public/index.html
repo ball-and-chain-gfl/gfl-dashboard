@@ -5450,8 +5450,16 @@
        continuous panels they read as a spreadsheet; separated, they read as the
        league table this sits under. The gap does the separating, so there are no
        hairlines and no first/last-child corner special cases either. */
-    .sos-grid{display:flex;flex-direction:column;gap:3px;}
-    .sos-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;
+    /* --sos-rw IS THE POLL HALF, AND IT IS STATED RATHER THAN MEASURED.
+       Every row is its own grid, so an `auto` second column is sized per row
+       -- and the cap, whose one child spans the three tracks, measured six
+       pixels wider than the twelve rows it is supposed to be capping, because
+       a spanning item's max-content wins over the tracks it spans. Stating the
+       width makes every row agree by construction.
+       It is the three tracks plus their gaps plus the padding plus the two
+       borders: 52+60+52 + 2x8 + 2x10 + 2 = 202. Change a track, change this. */
+    .sos-grid{display:flex;flex-direction:column;gap:3px;--sos-rw:202px;}
+    .sos-row{display:grid;grid-template-columns:minmax(0,1fr) var(--sos-rw);gap:10px;
       align-items:stretch;}
     .sos-left{display:grid;grid-template-columns:24px minmax(0,1fr) 64px;gap:8px;
       align-items:center;padding:8px 10px;border-radius:8px;
@@ -5510,6 +5518,8 @@
       font-variant-numeric:tabular-nums;}
     @media(max-width:560px){
       .sos-row{gap:7px;}
+      /* 42+50+40 + 2x4 + 2x7 + 2 = 156 */
+      .sos-grid{--sos-rw:156px;}
       .sos-left{grid-template-columns:16px minmax(0,1fr) 56px;gap:4px;padding:7px 7px;}
       .sos-right{grid-template-columns:42px 50px 40px;gap:4px;padding:7px 7px;}
       .sos-note{font-size:9.5px;padding:3px 11px;letter-spacing:.3px;}
