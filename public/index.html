@@ -5472,7 +5472,12 @@
        out 44px narrower than everything under it. The pill spans them. */
     .sos-cap>.sos-right{padding:6px 10px;background:rgba(var(--accent-rgb),0.18);
       border-color:rgba(var(--accent-rgb),0.3);}
-    .sos-cap .sos-pill{grid-column:1 / -1;text-align:center;}
+    /* min-width:0 so the words cannot make this row wider than the rest: the
+       outer row sizes its second column to content, and a spanning item that
+       refuses to shrink measured six pixels past the three fixed tracks it
+       was supposed to be capping. */
+    .sos-cap .sos-pill{grid-column:1 / -1;text-align:center;min-width:0;
+      overflow:hidden;text-overflow:ellipsis;}
     .sos-pill{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
       letter-spacing:.7px;text-transform:uppercase;white-space:nowrap;
       color:var(--accent);}
