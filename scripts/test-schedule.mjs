@@ -57,7 +57,8 @@ const NEEDED = ['const SCHED_SD=', 'function schedNormCdf(', 'const SCHED_RATING
   'let _espnWpCache=', 'let _espnWpBusy=', 'let _espnWpAt=',
   'function espnWinProbs(', 'function schedInvNorm(', 'function espnProbFor(',
   'function schedMargin(',
-  'function schedZ(', 'function schedWinProb(', 'function schedOpenMu(',
+  'function schedZ(', 'function schedWinProb(',
+  'function schedZSet(', 'function schedWinProbSet(', 'function schedOpenMu(',
   'const LINEUP_SHAPE_FALLBACK=', 'function sbSlotShape(', 'function sbBestLineup(',
   'const wpSd=', 'function wpAt(', 'function sbZ('];
 const parts = {};
@@ -144,7 +145,7 @@ function setNflLive(v){ _nflLive=!!v; }
 function espnWpTtls(){ return {live:ESPN_WP_TTL_LIVE, idle:ESPN_WP_TTL_IDLE}; }
 ${NEEDED.map(n => parts[n]).join('\n')}
 module.exports={schedPower,schedPowerMargin,schedMargin,schedZ,schedWinProb,
-  schedOpenMu,schedEspnProj,schedCurWeek,wpAt,wpSd,SCHED_SD,schedWkSd,
+  schedOpenMu,schedZSet,schedWinProbSet,schedEspnProj,schedCurWeek,wpAt,wpSd,SCHED_SD,schedWkSd,
   SCHED_RATING_W,SCHED_PPG_W,schedNormCdf,rebuild,setBoard,setRosters,dropRosters,
   setLastWeek,setEspnWp,ageEspnWp,setNflLive,espnWpTtls,espnWinProbs,
   espnProbFor,schedInvNorm,rows:_rows};
@@ -370,27 +371,44 @@ if (built) {
     Math.abs(M.schedWinProb(rows[3], rows[3], 3) - 0.5) < 1e-6,
     M.schedWinProb(rows[3], rows[3], 3));
 
-  console.log('\n6. THE CURVE OPENS ON THE NUMBER THE TABLE SHOWS');
+  console.log('\n6. THE CURVE OPENS ON THE NUMBER THE CARD SHOWS');
   [3, 9].forEach(wk => {
     let worst = 0, where = '';
     pairs.forEach(([a, b]) => {
-      const table = M.schedWinProb(a, b, wk);
+      /* THE CARD, NOT THE TABLE. These are two different questions now and they
+         are meant to differ: the forecast card asks what happens if the lineups
+         are played as they stand, the schedule table asks what a roster is
+         capable of. The pair that must never disagree is the card's headline and
+         the curve drawn directly underneath it. */
+      const card = M.schedWinProbSet(a, b, wk);
       const curve = M.wpAt(0, 0, a.ppg, b.ppg, 0, M.schedOpenMu(a, b, wk));
-      const d = Math.abs(table - curve);
-      if (d > worst) { worst = d; where = `${a.owner} vs ${b.owner} ${table} / ${curve}`; }
+      const d = Math.abs(card - curve);
+      if (d > worst) { worst = d; where = `${a.owner} vs ${b.owner} ${card} / ${curve}`; }
     });
     /* 1e-6, not 1e-9: schedNormCdf is Abramowitz & Stegun 26.2.17 and carries
        about 7.5e-8 of its own error, which shows up wherever a pairing lands on
        the 5/95 clamp. Anything looser would hide a real disagreement. */
-    ok(`forecast headline equals schedule win% for all 132 orderings (week ${wk})`,
+    ok(`forecast headline equals its own curve for all 132 orderings (week ${wk})`,
       worst < 1e-6, `worst ${worst} on ${where}`);
   });
   /* the clamp has to match at the ends too, which is why schedOpenMu clamps the
      MARGIN rather than the probability */
   const wa = { owner: 'x', ppg: 400, rating: 40 }, wb = { owner: 'y', ppg: 10, rating: -40 };
   ok('they still agree at the clamp',
-    Math.abs(M.schedWinProb(wa, wb, 9) - M.wpAt(0, 0, wa.ppg, wb.ppg, 0, M.schedOpenMu(wa, wb, 9))) < 1e-6,
-    `${M.schedWinProb(wa, wb, 9)} / ${M.wpAt(0, 0, wa.ppg, wb.ppg, 0, M.schedOpenMu(wa, wb, 9))}`);
+    Math.abs(M.schedWinProbSet(wa, wb, 9) - M.wpAt(0, 0, wa.ppg, wb.ppg, 0, M.schedOpenMu(wa, wb, 9))) < 1e-6,
+    `${M.schedWinProbSet(wa, wb, 9)} / ${M.wpAt(0, 0, wa.ppg, wb.ppg, 0, M.schedOpenMu(wa, wb, 9))}`);
+
+  console.log('\n6b. and the two columns are allowed to disagree');
+  /* week 3 has an ESPN table AND rosters, so the card quotes the lineup as set
+     and the table prices the best legal one. That gap is the feature. */
+  const cardP = M.schedWinProbSet(rows[11], rows[0], 3);
+  const tableP = M.schedWinProb(rows[11], rows[0], 3);
+  ok('the card is the as-set number', Math.abs(cardP - 0.53) < 1e-6, cardP);
+  ok('the table is the capability number', Math.abs(tableP - 0.53) > 0.01, tableP);
+  /* ...and with no published number there is nothing to be as-set about, so the
+     card falls through to the same model the table uses */
+  ok('week 9 has no ESPN table, so the two agree again',
+    Math.abs(M.schedWinProbSet(rows[11], rows[0], 9) - M.schedWinProb(rows[11], rows[0], 9)) < 1e-12);
 
   console.log('\n7. the curve still behaves once football starts');
   const mu = M.schedOpenMu(rows[0], rows[11], 3);

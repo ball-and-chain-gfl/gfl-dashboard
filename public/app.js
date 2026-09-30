@@ -6235,7 +6235,9 @@ function renderForecast(info){
   const meO=owners[mine];
   const A=fcSideStats(meO), B=fcSideStats(owners[oppId]);
   const fcWk=Number(info.week)||schedCurWeek(info.season);
-  const p=(A&&B)?schedWinProb(A,B,fcWk):0.5;
+  /* AS SET, not best legal: this card is about Sunday's game as it will
+     actually be played, and the curve under it converges on that same result. */
+  const p=(A&&B)?schedWinProbSet(A,B,fcWk):0.5;
 
   /* ── THE WHOLE SLATE, NOT JUST YOURS ──────────────────────────────────────
      Yours first, so the card opens on exactly what it always opened on, and
@@ -8243,7 +8245,9 @@ function renderLiveMatchups(){
     const margins=arr.map(p=>p[1]-p[2]);
     const biggest=margins.length?margins.reduce((x,y)=>Math.abs(y)>Math.abs(x)?y:x,0):(a-b);
     // live odds: remaining scoring is unknown, so price the current margin
-    const p=schedWinProb(rowOf(aOwner),rowOf(bOwner),Number(m.matchupPeriodId)||0);
+    /* and the prior is the as-set one, because the football being played is
+       being played by the lineups that were set */
+    const p=schedWinProbSet(rowOf(aOwner),rowOf(bOwner),Number(m.matchupPeriodId)||0);
     const live=Math.min(0.99,Math.max(0.01,schedNormCdf(((a-b)*0.55+(p-0.5)*22)/18)));
     const started=a>0||b>0;
     /* Scoreboard rows the way a sports app lays them out: one line per team,
@@ -9843,6 +9847,41 @@ function schedWinProb(a,b,week){
   if(!a||!b) return 0.5;
   return Math.min(0.95,Math.max(0.05,schedNormCdf(schedZ(a,b,week))));
 }
+/* ── AND THE OTHER QUESTION: WHAT IF THEY PLAY IT LIKE THIS? ─────────────────
+   The one above asks what a team is CAPABLE of -- the best legal lineup out of
+   everyone they hold -- because that is what a price has to be written on. A
+   line read off the lineup somebody actually set is gameable, and it moves for
+   things that are not football: a manager who has not got round to it yet is
+   priced as though they meant it.
+
+   This one asks what happens IF THEY PLAY IT THE WAY IT IS SET, which is the
+   only question worth asking on the homepage. That card is about the game this
+   Sunday, next to a win-probability curve that has to converge on the real
+   result -- and the real result will be scored off the lineup that takes the
+   field, mistakes and all. ESPN's published probability IS that number, so it
+   leads here and the capability model sits underneath it for a week ESPN has
+   not published.
+
+   THE TWO ARE MEANT TO DISAGREE, and by a lot on the right week. Week 4: the
+   Tinglers had not set a lineup at all -- every player on the bench, a team
+   fielding nobody -- so this says 5% and the schedule says 56.7%. Both are
+   true. One is what happens if they leave it; the other is what happens when
+   they do not. Bismuth against the Islanders is the milder version: Puka Nacua
+   is on the Bryan bench, which is 7.9 points of the difference between them.
+
+   (The comment below this one used to be the argument for the schedule reading
+   as-set too. It is not, and it was never true of the forecast card, which is
+   what this pair now gets right.) */
+function schedZSet(a,b,week){
+  if(!a||!b) return 0;
+  const ep=espnProbFor(a,b,week);
+  if(ep!=null) return schedInvNorm(ep);          // the lineup as it stands
+  return schedZ(a,b,week);                       // no published number: capability
+}
+function schedWinProbSet(a,b,week){
+  if(!a||!b) return 0.5;
+  return Math.min(0.95,Math.max(0.05,schedNormCdf(schedZSet(a,b,week))));
+}
 /* ── ONE GAME, ONE NUMBER ────────────────────────────────────────────────────
    The Forecast's headline percentage is the opening point of the win-
    probability curve, and the curve had its own model: the difference of two
@@ -9859,7 +9898,11 @@ function schedWinProb(a,b,week){
 function schedOpenMu(a,b,week){
   if(!a||!b) return null;
   const Z=1.6448536269514722;                       // the 5% / 95% clamp, in z
-  const z=Math.max(-Z,Math.min(Z,schedZ(a,b,week)));
+  /* THE AS-SET READING, because this is the opening point of the curve on the
+     forecast card and the card's own headline is schedWinProbSet. Those two are
+     the pair that must not disagree -- see ONE GAME, ONE NUMBER below, which is
+     about them and not about the schedule table. */
+  const z=Math.max(-Z,Math.min(Z,schedZSet(a,b,week)));
   return z*wpSd();
 }
 /* Nothing on the calendar yet? Lay out a deterministic round robin so the tab
