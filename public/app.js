@@ -16922,7 +16922,7 @@ function ntDemo(out){
 
    {kind:'upset',day:T2,id:'demo:upset',title:'Upset',
     art:ntScore(S(9,118.7),S(1,112.3),'margin',dw),
-    body:'<b>#10</b> beat <b>#2</b> — 8 places up the poll.'},
+    body:'<b>#10</b> beat <b>#2</b>'},
 
    {kind:'rival',day:T2,id:'demo:rival',title:'Rivalry settled',
     art:ntScore(S(1,143.0),S(2,98.7),'margin',dw)},
