@@ -1896,7 +1896,20 @@
     .sb-pvp-pick{font-size:12px;font-weight:700;line-height:1.35;color:var(--text);}
     .sb-pvp-v{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
       text-transform:uppercase;color:var(--purple);opacity:.75;}
-    .sb-pvp .sb-invite-pick{padding:0 13px;margin-top:11px;}
+    /* the manager row and the pot row are the same row: one label, one control,
+       so the two questions the panel asks read as a pair */
+    .sb-pvp-who-row{padding:11px 13px 0!important;}
+    .sb-pvp-who-row select{flex:1;min-width:0;padding:8px 30px 8px 10px;border-radius:6px;
+      background:rgba(0,0,0,0.3);border:1px solid rgba(192,132,252,0.28);color:var(--text);
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+      -webkit-appearance:none;appearance:none;cursor:pointer;}
+    /* appearance:none takes the native caret with it, so one is drawn back on --
+       without it the control is a box with a name in it and no sign it opens. */
+    .sb-pvp-who-row{position:relative;}
+    .sb-pvp-who-row::after{content:'';position:absolute;right:24px;top:50%;
+      width:7px;height:7px;margin-top:-5px;pointer-events:none;
+      border-right:2px solid var(--purple);border-bottom:2px solid var(--purple);
+      transform:rotate(45deg);}
     .sb-pvp .sb-stake{padding:11px 13px 8px;}
     .sb-pvp .sb-quick{padding:0 13px;margin:0 0 12px;}
     .sb-pvp .sb-totals{padding:9px 13px 4px;background:rgba(0,0,0,0.18);

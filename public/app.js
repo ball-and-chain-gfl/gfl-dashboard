@@ -20171,8 +20171,16 @@ function sbPvpPanelHTML(){
       <span class="sb-pvp-side"><span class="sb-pvp-who">They take</span>
         <span class="sb-pvp-pick">${opp.pickLabel}</span></span>
     </div>
-    <div class="sb-invite-pick">
-      <select id="pvp-to" aria-label="Which manager" onchange="sbPvpPick(this.value)">
+    ${''/* LABELLED, AND IN THE SAME ROW SHAPE AS THE POT BELOW IT.
+          On its own this was a wide box with a team name sitting in it and
+          nothing saying it could be changed -- and the name it defaults to is a
+          MANAGER, which on this panel sits directly under two TEAM picks. Read
+          quickly it looked like a third thing about the fixture rather than the
+          person being asked. The parlay invite gets away with a bare select
+          because a Send button sits beside it; this one is alone in its row. */}
+    <div class="sb-stake sb-pvp-who-row">
+      <label for="pvp-to">Against</label>
+      <select id="pvp-to" aria-label="Which manager takes the other side" onchange="sbPvpPick(this.value)">
         ${others.map(a=>`<option value="${a.k1}"${a.k1===_pvpTo?' selected':''}>${a.name}</option>`).join('')}
       </select>
     </div>
