@@ -20062,6 +20062,21 @@ function pvpLapsed(b){
 
    ret=stake on a void is what makes the money come back: bucksReturned adds ret
    for anything not 'open', so a void with ret=0 would silently eat the stake. */
+/* THE DECISION, ON ITS OWN, so it can be read and tested without a network.
+   Null means leave it alone -- still waiting, and waiting is the normal state.
+
+   The football is only consulted when the other half has said NOTHING. An
+   answered pair is answered whatever the clock says, and asking the clock first
+   would void an accepted bet the moment its week kicked off. */
+function pvpReconcileTo(offer,other,inPlay){
+  if(!offer||offer.status!=='offer') return null;
+  if(other&&other.status==='open') return {status:'open',ret:0};
+  if(other&&(other.status==='declined'||other.status==='void'))
+    return {status:'void',ret:bucks2(offer.stake)};
+  if(!other||other.status==='challenge')
+    return inPlay?{status:'void',ret:bucks2(offer.stake)}:null;
+  return null;
+}
 async function sbPvpReconcile(){
   if(!_me||!_bets) return false;
   const mine=(_bets||[]).filter(b=>b.owner===_me.k1&&b.status==='offer'&&betIsPvp(b));
@@ -20069,11 +20084,8 @@ async function sbPvpReconcile(){
   let changed=false;
   for(const b of mine){
     const other=(_bets||[]).find(x=>x.srcBet===b.id);
-    let to=null;
-    if(other&&other.status==='open') to={status:'open',ret:0};
-    else if(other&&(other.status==='declined'||other.status==='void')) to={status:'void',ret:bucks2(b.stake)};
-    else { let live=false; try{ live=betInPlay(b); }catch(e){ live=false; }
-           if(live) to={status:'void',ret:bucks2(b.stake)}; }
+    let live=false; try{ live=betInPlay(b); }catch(e){ live=false; }
+    const to=pvpReconcileTo(b,other,live);
     if(!to) continue;
     const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
     /* an accepted pair has not settled yet, so it keeps settledTs at 0 -- a

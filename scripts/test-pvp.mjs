@@ -59,6 +59,7 @@ const moneyParts = [
   grab('function bucksReturned(){'),
   grab('function bucksBalance(){'),
   grab('function betGrade(bet){'),
+  grab('function pvpReconcileTo(offer,other,inPlay){'),
   grab('const CASHOUT_HOLD='),
   grab('const CASHOUT_MIN='),
   grab('function betCashOut(b){'),
@@ -82,7 +83,7 @@ const getSeason=()=>'2026';
 ${moneyParts.join(NL)}
 return { set(b,me){ _bets=b; _me=me; }, setSlip(s){ _slip=s; }, setLeg(v){ _LEG=v; },
   sbPvpShares, sbPvpMaxPot, sbPvpLeg, PVP_MK, probFromAm, amFromProb, bucks2,
-  betGrade, betIsLive, betIsPvp, betPending, betCashOut, betCancellable,
+  betGrade, betIsLive, betIsPvp, betPending, betCashOut, betCancellable, pvpReconcileTo,
   bucksBalance, bucksStaked, bucksReturned,
   clearable:()=>betsClearable().map(b=>b.id) };`;
 const M = new Function(moneyHarness)();
@@ -339,6 +340,38 @@ head('8. the pot a balance can carry depends on which side you are taking');
     .every(s => M.sbPvpMaxPot(s, 100) > 100));
   eq('and my share of the biggest pot is exactly my balance',
      M.sbPvpShares(M.sbPvpMaxPot(fav, 100), -260, 200).mine, 100);
+}
+
+/* == 9 ===================================================================== */
+head('9. the challenger half only ever follows a decision already made');
+{
+  const offer = B({ id: 'off', owner: 'bfl', pvp: true, status: 'offer', stake: 25, payout: 50 });
+  const half = st => B({ id: 'ch', owner: 'kunk', pvp: true, status: st, srcBet: 'off', stake: 25, payout: 50 });
+  const R = (other, inPlay) => M.pvpReconcileTo(offer, other, inPlay);
+
+  eq('unanswered and nothing kicked off: wait', R(half('challenge'), false), null);
+  eq('they are in: mine opens alongside', R(half('open'), false), { status: 'open', ret: 0 });
+  eq('they said no: my share comes back', R(half('declined'), false), { status: 'void', ret: 25 });
+  eq('their half was voided: same', R(half('void'), false), { status: 'void', ret: 25 });
+  eq('never answered and the football is on: void', R(half('challenge'), true), { status: 'void', ret: 25 });
+  eq('no counterpart at all, and kickoff: void', R(null, true), { status: 'void', ret: 25 });
+  eq('no counterpart, no kickoff: wait', R(null, false), null);
+
+  /* AN ACCEPTED PAIR IS ACCEPTED WHATEVER THE CLOCK SAYS. Consulting the football
+     before the other half would void a matched bet the instant its week kicked
+     off -- handing the stake back on a bet that is being played. */
+  eq('a matched pair survives its own kickoff', R(half('open'), true), { status: 'open', ret: 0 });
+
+  /* and it will not touch anything that is not an unanswered offer of mine */
+  eq('a matched half is not reconsidered',
+     M.pvpReconcileTo(B({ id: 'x', status: 'open', pvp: true, stake: 25 }), half('open'), true), null);
+  eq('nor a settled one',
+     M.pvpReconcileTo(B({ id: 'x', status: 'won', pvp: true, stake: 25, ret: 50 }), half('open'), true), null);
+
+  /* the void it writes is the round trip, not the stake-eating one from section 5 */
+  const back = R(half('declined'), false);
+  M.set([B({ id: 'off', owner: 'bfl', pvp: true, status: back.status, ret: back.ret, stake: 25, payout: 50 })], ME);
+  eq('so replaying the ledger leaves the balance whole', M.bucksBalance(), 1000);
 }
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed' + (fail ? ', ' + fail + ' failed' : ''));
