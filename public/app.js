@@ -9580,8 +9580,26 @@ function schedEspnProj(week){
   const meta=_seasonMeta[String(season)];
   if(!meta) return null;
   const owners=meta.owners||{}, shape=sbSlotShape(meta);
-  const setWeek=wk<=schedCurWeek(season);
   const projOf=e=>Math.max(0,Number(e.wkProj)||0);
+  /* ── THE BEST LINEUP THEY COULD FIELD, EVERY WEEK, INCLUDING THIS ONE ──────
+     This used to branch: a week still to come was priced off the best legal
+     lineup out of everyone they hold, and the week ON THE CLOCK was priced off
+     whatever happened to be sitting in the starting slots at that moment.
+
+     That second reading is wrong twice over. It priced Wednesday's lineup, which
+     in most weeks is Sunday's lineup nobody has touched yet — so the board opened
+     on a team that will not take the field and drifted all week as managers got
+     round to it. And it made the line move for something that is not football: a
+     manager who had not set a lineup was priced as though they meant it, and one
+     who wanted a longer price on themselves only had to leave it alone.
+
+     One path now, and it is the one that was always right: the best legal lineup
+     out of the players they actually hold, bench included. sbBestLineup sorts
+     every position group best-first, so a bench player is used ahead of the wire
+     whenever he is worth anything at all — the replacement level is reached only
+     for a slot with a zero or a bye in it and nothing on the roster to cover it.
+     A real starter projected below replacement is left exactly where he is. */
+  const repl=sbReplLevel(wk);
   const map={}; let any=false;
   Object.keys(rosters).forEach(tid=>{
     const o=owners[tid]; if(!o) return;
@@ -9590,9 +9608,7 @@ function schedEspnProj(week){
        team — leave it out entirely rather than call it zero, so schedMargin
        falls back to the season model instead of pricing a shutout. */
     if(!es.length||!es.some(e=>Number(e.wkProj)>0)) return;
-    const v=setWeek
-      ? es.filter(e=>!SB_BENCH_SLOTS.includes(Number(e.slot))).reduce((a,e)=>a+projOf(e),0)
-      : sbBestLineup(es,projOf,e=>Number(e.pos)||0,shape,sbReplLevel(wk));
+    const v=sbBestLineup(es,projOf,e=>Number(e.pos)||0,shape,repl);
     if(v>0){ map[o]=v; any=true; }
   });
   const out=any?map:null;

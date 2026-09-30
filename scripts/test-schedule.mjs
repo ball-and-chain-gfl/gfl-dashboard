@@ -199,14 +199,27 @@ if (built) {
     future['own0'] > setSum, `best ${future['own0'].toFixed(1)} vs set ${setSum.toFixed(1)}`);
   ok('the promoted bench player is the one ESPN projects highest',
     future['own0'] >= setSum + 30, `${(future['own0'] - setSum).toFixed(1)} points recovered`);
-  /* ...and once that week is reachable, the set lineup is the answer, because
-     that is what ESPN's app is showing the manager */
+  /* ── AND THE WEEK ON THE CLOCK IS PRICED THE SAME WAY ────────────────────
+     It used to take the slots exactly as they sat, on the reasoning that this
+     is what ESPN's app is showing the manager. That reading priced Wednesday's
+     lineup — which in most weeks is Sunday's lineup nobody has touched yet — so
+     the board opened on a team that would not take the field and drifted all
+     week as managers got round to it. It also let a line move for something
+     that is not football: leave a lineup alone and the board lengthens your own
+     price for you.
+
+     One path now, and the three assertions below are the old two inverted. */
   M.setLastWeek(5);                          // now week 6 is this week
   const now = M.schedEspnProj(6);
-  ok('the current week takes the lineup exactly as set',
-    Math.abs(now['own0'] - setSum) < 1e-9, `${now['own0']} vs ${setSum}`);
-  ok('a genuine bye still shows once the week is live', now['own0'] < now['own5'],
-    `${now['own0'].toFixed(1)} vs ${now['own5'].toFixed(1)}`);
+  ok('the week on the clock does NOT take the slots as they sit',
+    now['own0'] > setSum, `${now['own0'].toFixed(1)} vs set ${setSum.toFixed(1)}`);
+  ok('it reads exactly what the future week read',
+    Math.abs(now['own0'] - future['own0']) < 1e-9,
+    `${now['own0'].toFixed(1)} vs ${future['own0'].toFixed(1)}`);
+  /* the bench covered all three byes here, so this team is no longer priced
+     below a team with nothing wrong with it */
+  ok('three byes with a bench behind them cost nothing',
+    now['own0'] >= now['own5'], `${now['own0'].toFixed(1)} vs ${now['own5'].toFixed(1)}`);
   M.setLastWeek(2);
 
   console.log('\n4. it falls back to season strength where ESPN has nothing');
