@@ -31,6 +31,7 @@ const harness=`
 let _bets=[], _sbMoney=null, _sbMoneyKey='', _SEASON='2026';
 const sbSeason=()=>_SEASON;
 const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
+const betIsPvp=b=>!!(b&&b.pvp);
 const betsAfterReset=()=>true;
 ${parts.join('\n')}
 return { set(b){ _bets=b; _sbMoney=null; _sbMoneyKey='__'; },

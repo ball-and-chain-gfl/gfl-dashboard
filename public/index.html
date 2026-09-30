@@ -1857,6 +1857,72 @@
     .sb-inv-from{display:flex;align-items:center;gap:7px;margin-top:9px;
       font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--accent);}
 
+    /* ── Head to head: a bet with no house in it ───────────────────────────
+       PURPLE, AND NOT THE ACCENT. --accent is the amber that every price, every
+       payout and the Place bet button already wear, and this has to read as a
+       different kind of thing rather than a louder version of the same one.
+       Purple is otherwise unused on this page; blue is taken by 'cashed'.
+
+       The panel sits INSIDE the slip, which means .sb-stake, .sb-quick and
+       .sb-totals arrive with the slip's own full-bleed padding already on them
+       — 15px of side padding meant for a panel edge that is 14px further out.
+       Every one of them is re-zeroed below rather than restyled. */
+    .sb-pvp-link{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+      margin-top:9px;padding:9px 12px;border-radius:9px;cursor:pointer;
+      background:rgba(192,132,252,0.10);border:1px dashed rgba(192,132,252,0.42);
+      color:var(--purple);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;}
+    .sb-pvp-link:hover{background:rgba(192,132,252,0.17);border-style:solid;}
+    .sb-pvp-tag{padding:2px 7px;border-radius:999px;background:rgba(192,132,252,0.18);
+      font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
+    .sb-pvp{margin-top:10px;border-radius:11px;overflow:hidden;
+      background:rgba(192,132,252,0.07);border:1px solid rgba(192,132,252,0.30);}
+    .sb-pvp-h{display:flex;align-items:center;gap:8px;padding:10px 13px;
+      background:rgba(192,132,252,0.14);color:var(--purple);
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;
+      letter-spacing:.6px;text-transform:uppercase;}
+    .sb-pvp-x{margin-left:auto;background:none;border:none;cursor:pointer;
+      color:var(--purple);font-size:12px;padding:2px 0 2px 8px;}
+    .sb-pvp-sub{padding:9px 13px 0;font-size:11px;line-height:1.5;color:var(--text3);}
+    /* Three tracks so the v pins to the middle: two auto columns would let the
+       longer pick label push it off centre. */
+    .sb-pvp-sides{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+      gap:9px;padding:11px 13px 0;}
+    .sb-pvp-side{display:flex;flex-direction:column;gap:3px;min-width:0;}
+    .sb-pvp-sides .sb-pvp-side:last-of-type{text-align:right;}
+    .sb-pvp-who{font-family:'Inter',sans-serif;font-size:9px;font-weight:800;
+      letter-spacing:.6px;text-transform:uppercase;color:var(--text3);}
+    /* wraps rather than clips: a team name plus a signed spread does not fit a
+       phone half-width, and a truncated pick is a pick you cannot check */
+    .sb-pvp-pick{font-size:12px;font-weight:700;line-height:1.35;color:var(--text);}
+    .sb-pvp-v{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
+      text-transform:uppercase;color:var(--purple);opacity:.75;}
+    .sb-pvp .sb-invite-pick{padding:0 13px;margin-top:11px;}
+    .sb-pvp .sb-stake{padding:11px 13px 8px;}
+    .sb-pvp .sb-quick{padding:0 13px;margin:0 0 12px;}
+    .sb-pvp .sb-totals{padding:9px 13px 4px;background:rgba(0,0,0,0.18);
+      border-top-color:rgba(192,132,252,0.20);}
+    .sb-pvp .sb-tot-big b{color:var(--purple);}
+    .sb-pvp .sb-place{margin:11px 13px 0;width:calc(100% - 26px);
+      background:var(--purple);border-color:var(--purple);color:#1b1026;}
+    .sb-pvp .sb-place:disabled{opacity:.45;}
+    .sb-pvp .sb-invite-err{margin:10px 13px 0;}
+    .sb-pvp-over{display:flex;align-items:center;gap:7px;margin:10px 13px 0;
+      padding:7px 10px;border-radius:7px;background:rgba(251,113,133,0.13);
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--red);}
+    .sb-pvp-fine{padding:10px 13px 12px;font-size:10.5px;line-height:1.5;color:var(--text3);}
+    /* the answering section, and the ticket line, both borrow the invite shell */
+    .sb-invites.sb-pvp-in{border-color:rgba(192,132,252,0.30);
+      background:rgba(192,132,252,0.07);}
+    .sb-pvp-in .sb-invites-h{color:var(--purple);}
+    .sb-pvp-in .sb-place{background:var(--purple);border-color:var(--purple);color:#1b1026;}
+    .sb-pvp-from{color:var(--purple);}
+    /* An unanswered offer is live money but it is not a live BET, so it reads as
+       neither: the purple edge of its own kind, and none of the green an open
+       ticket carries. */
+    .sb-bet-offer{border-color:rgba(192,132,252,0.38);border-left-color:var(--purple);
+      background:linear-gradient(rgba(192,132,252,0.08),rgba(192,132,252,0.08)),var(--bg2);}
+    .sb-st-offer{color:var(--purple);}
+
     /* ── Schedules: a finished season's results ───────────────────────────
        Won rows carry a green left edge, lost rows a red one — the same device
        the live table uses to outline the week on the clock. */

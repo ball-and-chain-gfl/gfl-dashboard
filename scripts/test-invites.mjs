@@ -32,6 +32,7 @@ const parts=[
   grab('function betCancellable(b){'),
   grab('const betInvitesFor=id=>'),
   grab('const betIsLive=b=>'),
+  grab('const betIsPvp=b=>'),
   grab('const betsAfterReset=b=>'),
   grab('const betsMine=()=>'),
   grab('const betsThisWeek=()=>'),

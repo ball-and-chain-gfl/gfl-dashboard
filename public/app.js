@@ -11082,7 +11082,7 @@ function sbMoneyKey(){
   if(!_bets) return '';
   let k='';
   for(const b of _bets){
-    if(!betIsLive(b)||b.status==='void') continue;
+    if(!betIsLive(b)||b.status==='void'||betIsPvp(b)) continue;
     if(!betsAfterReset(b)) continue;
     k+=b.id+':'+b.status+';';
   }
@@ -11094,7 +11094,15 @@ function sbMoneyBook(){
   const season=String(sbSeason());
   const book={};
   (_bets||[]).forEach(b=>{
-    if(!betIsLive(b)||b.status==='void') return;
+    /* ── A HEAD TO HEAD IS NOT HANDLE ───────────────────────────────────
+       Money on the board moves the board: sbMoneyPull lets it pull a price by
+       up to SB_MONEY_MAX. That is right for a bet struck against the bank,
+       because somebody backing a side at the quoted number is an opinion about
+       the number. A head to head is not. Its two stakes are DERIVED from the
+       price rather than offered at it, the bank has no exposure to either side,
+       and both sides of the same market get staked at once -- so all it could
+       ever do is shake the line for reasons nobody meant. */
+    if(!betIsLive(b)||b.status==='void'||betIsPvp(b)) return;
     if(!betsAfterReset(b)) return;
     if(String(b.season||'')!==season) return;
     const stake=Number(b.stake)||0; if(stake<=0) return;
@@ -14071,8 +14079,19 @@ const betsAfterReset=b=>Number(b.ts||0)>=Number(_CFG.betsResetBefore||0);
 const betsMine=()=>(_bets||[]).filter(b=>_me&&b.owner===_me.k1&&betsAfterReset(b));
 const betsThisWeek=()=>betsMine().filter(b=>b.wk===bucksWeekKey());
 /* An invitation is an offer, not a wager: nothing is staked until it is taken
-   up, and a declined one never was. Both stay out of every money figure. */
-const betIsLive=b=>b.status!=='invite'&&b.status!=='declined';
+   up, and a declined one never was. Both stay out of every money figure.
+
+   'challenge' is the head-to-head version of the same thing -- the side sitting
+   in somebody else's ledger waiting to be answered -- and it is out for exactly
+   the same reason. Its opposite number, the 'offer' the challenger holds, IS in:
+   that money is escrowed from the moment it is sent, which is what stops an
+   acceptance landing on funds that have since been spent elsewhere. */
+const betIsLive=b=>b.status!=='invite'&&b.status!=='declined'&&b.status!=='challenge';
+/* the two halves of one head to head, whichever end you are holding */
+const betIsPvp=b=>!!(b&&b.pvp);
+/* sent and unanswered: live, so the stake is held, but not 'open', so nothing
+   grades it and nothing counts it as a result yet */
+const betPending=b=>b.status==='offer'||b.status==='challenge';
 const betsLiveThisWeek=()=>betsThisWeek().filter(betIsLive);
 /* ── THE BANK ────────────────────────────────────────────────────────────────
    GFL Bucks used to be wiped and reissued every cycle, so a good week bought
@@ -14508,6 +14527,7 @@ const betDocRow=d=>{
     stake:Number(f.stake)||0,odds:Number(f.odds)||0,payout:Number(f.payout)||0,
     legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0,
     invitedBy:f.invitedBy||'', srcBet:f.srcBet||'',
+    pvp:String(f.pvp||'')==='1', vs:f.vs||'',
     hidden:String(f.hidden||'')==='1'};
 };
 const fsRunQueryUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
@@ -14543,7 +14563,12 @@ async function betList(){
     /* invitations sitting on my own bets, so the seat count is right. Capped at
        thirty because that is Firestore's ceiling on an IN filter, and nothing
        close to it is ever open at once. */
-    const open=mine.filter(b=>b.status==='open'&&!b.srcBet).map(b=>b.id).slice(0,30);
+    /* 'offer' as well as 'open'. A head-to-head offer's counterpart carries
+       srcBet pointing back at it, and that document is how the challenger finds
+       out whether it was taken -- without it the offer would sit escrowed with
+       no way to learn its own fate. Seeded on my own un-sourced tickets either
+       way, so this is the same one query it always was. */
+    const open=mine.filter(b=>(b.status==='open'||b.status==='offer')&&!b.srcBet).map(b=>b.id).slice(0,30);
     let seats=[];
     if(open.length){
       const inv=await betQuery({fieldFilter:{field:{fieldPath:'srcBet'},op:'IN',
@@ -18705,9 +18730,11 @@ function ldChartHTML(rows,val,title){
    footing as any other week and every move after it is real profit or loss.
 
    Open bets are left out: their stake is committed but their return is not
-   known yet, so counting them would show a loss that may not happen. */
+   known yet, so counting them would show a loss that may not happen. An
+   unanswered head-to-head offer is the same case and then some -- it may never
+   become a bet at all. */
 function bankSeries(){
-  const mine=betsMine().filter(b=>b.status!=='open'&&betIsLive(b));
+  const mine=betsMine().filter(b=>b.status!=='open'&&!betPending(b)&&betIsLive(b));
   const byWeek={};
   /* Bucketed by the calendar week the bet was placed in rather than by the
      bucks cycle it belongs to. For the league those are the same Tuesday and
@@ -19174,6 +19201,13 @@ function betLegProb(leg){
    {ok:false, why} the card can print instead of a button. */
 function betCashOut(b){
   if(!_me||!b||b.owner!==_me.k1||b.status!=='open'||!betIsLive(b)) return null;
+  /* ── AND NOT ON A HEAD TO HEAD ─────────────────────────────────────────
+     Cashing out sells a ticket back to the bank at a price the bank sets. There
+     is no bank in this one: the money is another manager's, it is already on
+     the table, and buying yourself out of it would leave them holding a bet
+     against nobody. A reason rather than a missing button -- betCancellable
+     reads the same answer, so the invite card stays consistent with it. */
+  if(betIsPvp(b)) return {ok:false,why:'A head to head is between the two of you \u2014 there is nobody to sell it back to.'};
   const season=b.season||getSeason();
   const legs=b.legs||[];
   if(!legs.length) return null;
@@ -19230,7 +19264,10 @@ async function sbVoidBet(id){ return sbCashOut(id); }
    never touches the ledger. The week's balance is derived by replaying every
    bet in it, so a cleared loss must still have cost its stake and a cleared win
    must still have paid — hiding only decides what the list shows. */
-function betsClearable(){ return betsMine().filter(b=>b.status!=='open'&&!b.hidden&&betIsLive(b)); }
+/* !betPending as well as !=='open': an 'offer' is neither of those and would
+   otherwise have been sweepable off the page while it was still waiting for an
+   answer, taking the only control that can cancel it with it. */
+function betsClearable(){ return betsMine().filter(b=>b.status!=='open'&&!betPending(b)&&!b.hidden&&betIsLive(b)); }
 async function sbClearSettled(){
   const done=betsClearable();
   if(!done.length||_betBusy) return;
@@ -19635,7 +19672,9 @@ function inviteLapsed(inv){
 }
 /* Only the manager who built the bet can open it up. Someone who came in on an
    invitation holds a copy, not the original, and a copy cannot be passed on. */
-const canInviteBet=b=>!!_me&&!!b&&b.owner===_me.k1&&b.status==='open'&&!b.invitedBy;
+/* ...and never a head to head. That bet is between two people by construction:
+   a third seat on it would be a copy of one side with nothing funding it. */
+const canInviteBet=b=>!!_me&&!!b&&b.owner===_me.k1&&b.status==='open'&&!b.invitedBy&&!betIsPvp(b);
 /* ...and not once the football on it is being played. Sending is shut for the
    same reason accepting is: a seat offered at half time is priced off a line
    nobody could still get. */
@@ -19715,6 +19754,341 @@ async function sbInviteRespond(id,accept){
   _betBusy=false; renderMyBets();
 }
 
+/* ── A BET BETWEEN TWO MANAGERS, WITH NO BANK IN IT ──────────────────────────
+   Every other ticket on this board is struck against the house: the house takes
+   the stake, the house pays the winner, and the money to pay them is conjured at
+   settlement out of nothing. This one is not. Two managers put money on the
+   table, the football decides, and the winner takes what is there. retA + retB
+   is exactly stakeA + stakeB, so it is the first market here that does not change
+   the size of the league's money supply -- the allowance stays the only faucet.
+
+   WHY IT IS BUILT IN THE SLIP AND NOT HUNG OFF A PLACED TICKET, which is where
+   the parlay invitation lives. An invitation is a COPY: the same side at the same
+   price, and the original is untouched by it. This is the OTHER side, and it has
+   to replace the house's half of the bet rather than sit alongside it. A ticket
+   already placed has a stake that was chosen against the house's price, and
+   there is no honest way to reread that number as a share of a pot -- you would
+   be refunding part of a bet somebody had already committed to. In the slip
+   there is nothing to unwind, and the opposite side is already known, because
+   the board sells both sides off one market key.
+
+   NOTHING ABOUT PLACING AN ORDINARY BET CHANGES. The stake field, its quick
+   buttons, the payout arithmetic, sbPlaceBet and sbStakeTyped are all untouched;
+   this is a second control under the first one with a panel of its own behind
+   it. Ignore it and the sportsbook is the sportsbook it was.
+
+   THE SPREAD ONLY, TO START. Both sides of a spread are sold at -115, so the two
+   prices de-vig to exactly even money and the shares come out equal -- which
+   means the whole lifecycle can be proved without the pot arithmetic being the
+   thing under test. sbPvpShares is written for the general case anyway, so the
+   moneyline is a one-line change to PVP_MK once this is known good. */
+const PVP_MK=/-sp$/;
+/* ONE leg, and on a market with two sides written on one fixture. A parlay has
+   no coherent opposite: the negation of three legs is "at least one of them
+   loses", which prices nowhere near the inverse of the three. */
+function sbPvpLeg(){
+  if(_slip.length!==1) return null;
+  const s=_slip[0];
+  return PVP_MK.test(String(s.mk||''))?s:null;
+}
+/* ── THE OTHER SIDE, BUILT THE WAY THE BOARD BUILDS IT ───────────────────────
+   Not reconstructed from scratch: this returns the leg the other button on the
+   same row would have put on the slip, down to the text. pickLabel matters more
+   than it looks -- betWeekResult reads the spread's SIGN AND NUMBER off the end
+   of the label rather than out of the key, so a label built even slightly
+   differently here grades against a line nobody wrote. Hence the U+2212 minus
+   and the one-decimal spread, exactly as spBtn writes them. */
+function sbPvpOpposite(leg){
+  const m=/^wk(\d+)-(\d+)-(\d+)-(ml|sp)$/.exec(String((leg&&leg.mk)||''));
+  if(!m) return null;
+  let d=null; try{ d=sbWeekData(); }catch(e){ d=null; }
+  if(!d||!d.games) return null;
+  const g=d.games.find(x=>String(x.week)===m[1]&&String(x.a.tid)===m[2]&&String(x.b.tid)===m[3]);
+  if(!g) return null;
+  const me=String(leg.pick).split(':')[0];
+  const them=g.a.owner===me?g.b:(g.b.owner===me?g.a:null);
+  if(!them) return null;
+  if(m[4]==='sp'){
+    const sp=g.spread.toFixed(1);
+    /* the favourite gives the points; whoever is not the favourite is given them */
+    const giving=(them===g.a)?g.favA:!g.favA;
+    return {mk:leg.mk,mkLabel:leg.mkLabel,pick:them.owner+':sp',
+      pickLabel:`${them.name} ${giving?'\u2212':'+'}${sp}`,odds:-115};
+  }
+  return {mk:leg.mk,mkLabel:leg.mkLabel,pick:them.owner+':ml',
+    pickLabel:`${them.name} moneyline`,odds:(them===g.a)?g.mlA:g.mlB};
+}
+/* ── THE TWO STAKES ARE NOT CHOSEN, THEY FALL OUT OF THE PRICE ───────────────
+   A pot has no house to keep the overround, so the two sides have to be exact
+   complements before it can be split. The board's pair never is: both sides of a
+   spread go out at -115, which is 53.49% each and 106.98% between them, and that
+   6.98 points is the house's edge.
+
+   So de-vig to complements, and then each side puts in its own fair chance of
+   winning as its share of the pot. That is the whole rule, and it is solvent by
+   construction -- if a/(a+b) = pA then pA*(a+b) = a, so the pot pays the winner
+   exactly what the two of them put up, at every price. On a spread it comes out
+   50/50 and the arithmetic is invisible. On a moneyline it is the entire point:
+   equal stakes at -260/+200 leaves the dog owed $75 with $50 on the table.
+
+   BOTH SIDES COME OUT BETTER THAN THE BOARD, which is the part worth telling
+   people. The 6.98 points that were the house's go back to the two of them.
+
+   ROUND EACH SHARE FIRST, THEN LET THE POT BE THEIR SUM. Rounding the pot and
+   splitting it leaves the two shares not adding back to it, and the winner's ret
+   would not equal the two stakes -- which is the one property this whole thing
+   rests on. A cent off the typed figure is the price of that, and what gets
+   shown and stored is the real total rather than what was typed. */
+function sbPvpShares(pot,myOdds,theirOdds){
+  const p=Math.max(0,Number(pot)||0);
+  const pM=probFromAm(myOdds), pT=probFromAm(theirOdds);
+  const sum=pM+pT; if(!(sum>0)) return null;
+  const f=pM/sum;
+  const mine=bucks2(p*f), theirs=bucks2(p*(1-f));
+  /* ── A POT TOO SMALL TO SPLIT IS NOT A BET ────────────────────────────────
+     Money is a whole number of cents, and a long enough price against a small
+     enough pot rounds one share to zero: at -1000/+650 the dog's share of two
+     cents is 0.19 of a cent, which is 0.00. That side would then be staking
+     nothing for a chance at the whole pot -- a free option, which is the only
+     shape of bet here that cannot be zero sum in the loser's direction.
+
+     It only bites on a deliberately tiny pot at a long price, and it is still
+     a hole. Flagged rather than thrown so the panel can show the figures it
+     computed and say why the button is dead. */
+  return {mine,theirs,pot:bucks2(mine+theirs),fair:f,odds:amFromProb(f),
+    min:mine>0&&theirs>0};
+}
+/* what the pot may be, given that only my share of it leaves my balance. The
+   slip's own max is the balance because a stake IS the balance's worth; here a
+   favourite at 68% can put a bigger pot on the table than a dog can. */
+function sbPvpMaxPot(sh,bal){
+  const f=sh&&sh.fair>0?sh.fair:0.5;
+  return bucks2(Math.max(0,bal)/f);
+}
+let _pvpOpen=false,_pvpTo='',_pvpPot=50,_pvpErr=null;
+function sbPvpToggle(){
+  _pvpOpen=!_pvpOpen; _pvpErr=null;
+  if(_pvpOpen&&!_pvpTo){
+    const first=betAccounts().find(a=>a.k1!==(_me&&_me.k1));
+    _pvpTo=first?first.k1:'';
+  }
+  sbRenderSlip();
+}
+function sbPvpPick(v){ _pvpTo=v; _pvpErr=null; sbRenderSlip(); }
+function sbPvpSetPot(v){ _pvpPot=v; _pvpErr=null; sbRenderSlip(); }
+/* Typing patches rather than repaints, for the same reason sbStakeTyped does:
+   a repaint takes the field away from whoever is mid-number. */
+function sbPvpPotTyped(v){
+  _pvpPot=v;
+  const leg=sbPvpLeg(); if(!leg) return;
+  const opp=sbPvpOpposite(leg); if(!opp) return;
+  const sh=sbPvpShares(v,leg.odds,opp.odds); if(!sh) return;
+  const bal=bucks2(bucksBalance());
+  const over=sh.mine>bal+0.005;
+  const tiny=!sh.min;
+  document.querySelectorAll('.sb-pvp-mine').forEach(e=>{ e.textContent=bucksCents(sh.mine); });
+  document.querySelectorAll('.sb-pvp-theirs').forEach(e=>{ e.textContent=bucksCents(sh.theirs); });
+  document.querySelectorAll('.sb-pvp-pot b').forEach(e=>{ e.textContent=bucksCents(sh.pot); });
+  document.querySelectorAll('.sb-pvp-send').forEach(b=>{
+    b.disabled=!!(_betBusy||sh.mine<=0||tiny||over||!_pvpTo);
+    if(!_betBusy) b.innerHTML=`<i class="fa fa-paper-plane"></i>Send challenge \u00b7 ${bucksFmt(sh.mine)}`;
+  });
+  document.querySelectorAll('.sb-pvp-over').forEach(e=>{ e.style.display=over?'':'none'; });
+}
+const PVP_ERRS={
+  gone:'That market has moved on \u2014 rebuild the slip.',
+  who:'Pick a manager to put it to first.',
+  stake:'Set a pot first.',
+  tiny:'That pot is too small to split at this price \u2014 one side would put up nothing.',
+  funds:'Your share of that pot is more than your balance.',
+  loading:'Still counting your money. One moment.',
+  locked:'That week is under way \u2014 the market is shut.',
+  self:'You cannot take both sides of it.',
+  rules:'The bets collection is not writable yet.',
+  send:'Could not send that. Try again.',
+  offline:'No connection. Try again.',
+  taken:'That offer is no longer open.',
+};
+/* ── SENDING ONE ─────────────────────────────────────────────────────────────
+   Two documents, one per side, because that is what makes the money work: a
+   manager's balance is derived from the tickets they OWN, so each side's stake
+   leaves its own account and nothing ever has to reach into somebody else's
+   balance. The only cross-account write in the whole feature is this create, and
+   the parlay invitation has been doing exactly that since it shipped.
+
+   MINE FIRST, AND MINE IS ESCROWED IMMEDIATELY at status 'offer' -- live, so the
+   money is held, but not 'open', so nothing grades it while it is unanswered.
+   Held from the moment it is sent because the person being asked CANNOT check
+   that I am still funded: bets are queried by owner, so their ledger cannot see
+   mine. Escrow removes the question instead of answering it.
+
+   AND IF THE SECOND WRITE FAILS, THE FIRST IS UNDONE. An offer with nothing on
+   the other end of it is money held against a bet that cannot happen. */
+async function sbPvpSend(){
+  if(!_me){ openSignIn(); return; }
+  if(_betBusy) return;
+  const leg=sbPvpLeg(); const opp=leg?sbPvpOpposite(leg):null;
+  if(!leg||!opp){ _pvpErr='gone'; sbRenderSlip(); return; }
+  const to=_pvpTo;
+  if(!to){ _pvpErr='who'; sbRenderSlip(); return; }
+  if(to===_me.k1){ _pvpErr='self'; sbRenderSlip(); return; }
+  if(!bucksReady()){ _pvpErr='loading'; sbRenderSlip(); return; }
+  const sh=sbPvpShares(_pvpPot,leg.odds,opp.odds);
+  if(!sh||sh.mine<=0){ _pvpErr='stake'; sbRenderSlip(); return; }
+  if(!sh.min){ _pvpErr='tiny'; sbRenderSlip(); return; }
+  if(sh.mine>bucks2(bucksBalance())+0.005){ _pvpErr='funds'; sbRenderSlip(); return; }
+  const wk=betLegWeek(leg.mk);
+  if(wk!=null&&sbWeekLocked(wk,leg.mk)){ _pvpErr='locked'; sbRenderSlip(); return; }
+  _betBusy=true; _pvpErr=null; sbRenderSlip();
+  const ts=Date.now();
+  const mineId=`pvp-${ts}-${_me.k1}`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,74);
+  const themId=mineId+'-t';
+  const season=String(sbSeason()), wkKey=bucksWeekKey();
+  /* payout IS the pot on both halves, which is the whole reason betGrade needs
+     no branch for any of this: ret=payout on a win already means "the winner
+     takes the pot", and push already hands each side its own share back. */
+  /* THE ODDS ON THE TICKET ARE THE DE-VIGGED ONES, not the board's. -115 is what
+     the house was charging and nobody is charging it here -- the price this bet
+     was actually struck at is stake against pot, which on a spread is -100. The
+     board's own number is still on the leg inside it, where the grader reads it. */
+  const doc=(owner,stake,l,odds,extra)=>fsOut(Object.assign({
+    owner,team:'',season,wk:wkKey,ts:String(ts),
+    stake:String(bucks2(stake)),odds:String(odds),payout:String(sh.pot),
+    legs:JSON.stringify([{mk:l.mk,mkLabel:l.mkLabel,pick:l.pick,pickLabel:l.pickLabel,odds:l.odds}]),
+    settledTs:'0',ret:'0',pvp:'1',vs:owner===_me.k1?to:_me.k1,
+  },extra||{}));
+  const put=(id,body)=>fetch(`${betBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  try{
+    const mineOdds=sh.odds, themOdds=amFromProb(1-sh.fair);
+    const a=fsNoteResponse(await put(mineId,doc(_me.k1,sh.mine,leg,mineOdds,{status:'offer'})));
+    if(!a.ok){ _pvpErr=a.status===403?'rules':a.status===429?'quota':'send'; _betBusy=false; sbRenderSlip(); return; }
+    const b=fsNoteResponse(await put(themId,doc(to,sh.theirs,opp,themOdds,
+      {status:'challenge',invitedBy:_me.k1,srcBet:mineId})));
+    if(!b.ok){
+      /* roll the escrow back rather than leave it stranded */
+      try{ await fetch(`${betBase()}/${encodeURIComponent(mineId)}?${msgKey()}`
+        +'&updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs',
+        {method:'PATCH',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify(fsOut({status:'void',ret:String(bucks2(sh.mine)),settledTs:String(Date.now())}))});
+      }catch(e){}
+      _pvpErr=b.status===403?'rules':'send'; _betBusy=false; sbRenderSlip(); return;
+    }
+    _slip=[]; _pvpOpen=false; _pvpErr=null;
+    await betRefresh(); sbSyncButtons(); renderMyBets();
+  }catch(e){ _pvpErr='offline'; }
+  _betBusy=false; sbRenderSlip();
+}
+/* ── ANSWERING ONE ───────────────────────────────────────────────────────────
+   ONE WRITER PER DOCUMENT, after the create above. Accepting patches only my own
+   half to 'open' and leaves the challenger's alone; their own client flips theirs
+   when it sees mine, in sbPvpReconcile. Two clients patching each other's
+   tickets is how a pair ends up half-matched -- one side open and graded, the
+   other still escrowed -- and there is no version of that which is not somebody
+   being paid out of money nobody put up.
+
+   The cost is only latency: until the challenger next opens the app their half
+   sits escrowed rather than graded. Nothing is lost by that and nothing is
+   unfunded -- both shares are held the whole time.
+
+   BUT THE OFFER HAS TO STILL BE THERE. One document read, by id, before staking
+   anything: a challenge whose offer was rolled back would otherwise be a bet
+   with one share behind a two-share pot. */
+async function sbPvpRespond(id,accept){
+  if(!_me||_betBusy) return;
+  const inv=(_bets||[]).find(b=>b.id===id);
+  if(!inv||inv.owner!==_me.k1||inv.status!=='challenge') return;
+  if(accept){
+    if(!bucksReady()){ _pvpErr='loading'; renderMyBets(); return; }
+    if(inv.stake>bucks2(bucksBalance())+0.005){ _pvpErr='funds'; renderMyBets(); return; }
+    if(pvpLapsed(inv)){ _pvpErr='taken'; renderMyBets(); return; }
+  }
+  _betBusy=true; _pvpErr=null; renderMyBets();
+  try{
+    if(accept&&inv.srcBet){
+      const r=await fetch(`${betBase()}/${encodeURIComponent(inv.srcBet)}?${msgKey()}`,{cache:'no-store'});
+      const src=r.ok?betDocRow(await r.json()):null;
+      if(!src||src.status!=='offer'){ _pvpErr='taken'; _betBusy=false; renderMyBets(); return; }
+    }
+    const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=team&updateMask.fieldPaths=ts';
+    const r=await fetch(`${betBase()}/${encodeURIComponent(id)}?${msgKey()}&${mask}`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify(fsOut({status:accept?'open':'declined',
+         team:String(_me.teamId||''),ts:String(Date.now())}))});
+    if(r.ok){ inv.status=accept?'open':'declined'; await betRefresh(); }
+    else _pvpErr=r.status===403?'rules':'send';
+  }catch(e){ _pvpErr='offline'; }
+  _betBusy=false; renderMyBets();
+}
+/* Pulling one back before it is answered. My own document, my own money, and
+   the same void-with-ret-equal-to-stake the roll-back uses -- so the share comes
+   straight back rather than being eaten. Their half is left where it is: the
+   reconcile on their side is not watching for this, but pvpLapsed already hides
+   an offer whose source has gone, and nothing they can do to it can stake money
+   against an offer that is no longer at 'offer'. */
+async function sbPvpCancel(id){
+  if(!_me||_betBusy) return;
+  const b=(_bets||[]).find(x=>x.id===id);
+  if(!b||b.owner!==_me.k1||b.status!=='offer') return;
+  _betBusy=true; _pvpErr=null; renderMyBets();
+  const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
+  try{
+    const r=await fetch(`${betBase()}/${encodeURIComponent(id)}?${msgKey()}&${mask}`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify(fsOut({status:'void',ret:String(bucks2(b.stake)),settledTs:String(Date.now())}))});
+    if(r.ok){ b.status='void'; b.ret=bucks2(b.stake); b.settledTs=Date.now(); await betRefresh(); }
+    else _pvpErr=r.status===403?'rules':'send';
+  }catch(e){ _pvpErr='offline'; }
+  _betBusy=false; renderMyBets();
+}
+/* An unanswered challenge dies at kickoff, for the reason the parlay seat does:
+   a side taken at half time is priced off a line nobody could still get, and
+   here the money on the other end of it is another manager's. */
+function pvpLapsed(b){
+  if(!b) return true;
+  try{ if(betInPlay(b)) return true; }catch(e){ return true; }
+  return false;
+}
+/* ── AND THE CHALLENGER'S OWN LEDGER CATCHES UP ──────────────────────────────
+   Every branch here writes only documents I own, and every one of them is a
+   conclusion the OTHER half already reached -- so this never decides anything,
+   it only stops my money waiting on a decision that has been made.
+
+     their half open      -> matched: mine opens too, and grades from here
+     their half declined  -> mine voids, my share comes straight back
+     never answered, and  -> mine voids. betGrade would have graded an 'offer'
+     the football is on       as a real bet the moment its week finished, and
+                              paid a pot that only ever had half of it funded.
+
+   ret=stake on a void is what makes the money come back: bucksReturned adds ret
+   for anything not 'open', so a void with ret=0 would silently eat the stake. */
+async function sbPvpReconcile(){
+  if(!_me||!_bets) return false;
+  const mine=(_bets||[]).filter(b=>b.owner===_me.k1&&b.status==='offer'&&betIsPvp(b));
+  if(!mine.length) return false;
+  let changed=false;
+  for(const b of mine){
+    const other=(_bets||[]).find(x=>x.srcBet===b.id);
+    let to=null;
+    if(other&&other.status==='open') to={status:'open',ret:0};
+    else if(other&&(other.status==='declined'||other.status==='void')) to={status:'void',ret:bucks2(b.stake)};
+    else { let live=false; try{ live=betInPlay(b); }catch(e){ live=false; }
+           if(live) to={status:'void',ret:bucks2(b.stake)}; }
+    if(!to) continue;
+    const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
+    /* an accepted pair has not settled yet, so it keeps settledTs at 0 -- a
+       stamp here would make bucksBaseAt replay it as already decided */
+    const st=to.status==='open'?'0':String(Date.now());
+    try{
+      const r=await fetch(`${betBase()}/${encodeURIComponent(b.id)}?${msgKey()}&${mask}`,
+        {method:'PATCH',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify(fsOut({status:to.status,ret:String(to.ret),settledTs:st}))});
+      if(r.ok){ b.status=to.status; b.ret=to.ret; b.settledTs=Number(st)||0; changed=true; }
+    }catch(e){}
+  }
+  return changed;
+}
+
 async function initBets(){
   if(_betsInit) return; _betsInit=true;
   await betRefresh();
@@ -19745,7 +20119,11 @@ async function betsEnsure(){
    undecided, and a settled bet is never revisited. */
 async function betSettleAll(){
   if(!_bets||!_bets.length) return;
+  /* BEFORE the grader, not after. A matched head-to-head half sits at 'offer'
+     until this opens it, and betSettleAll only grades what is 'open' -- so the
+     other order would have left every matched pair a full cycle behind. */
   let changed=false;
+  try{ if(await sbPvpReconcile()) changed=true; }catch(e){}
   for(const b of _bets.filter(x=>x.status==='open')){
     const g=betGrade(b); if(!g) continue;
     const mask='updateMask.fieldPaths=status&updateMask.fieldPaths=ret&updateMask.fieldPaths=settledTs';
@@ -19759,6 +20137,115 @@ async function betSettleAll(){
   if(changed) renderMyBets();
 }
 
+/* ── THE CONTROL THAT OFFERS ONE, AND THE PANEL BEHIND IT ────────────────────
+   Hung UNDER Place bet and does nothing to it. The slip keeps its stake field,
+   its quick buttons, its payout arithmetic and its own place button exactly as
+   they were; this appears below them when the slip happens to hold one leg of a
+   spread, and it opens a panel with its own input and its own send. Never touch
+   it and nothing about the sportsbook has changed.
+
+   IT DOES NOT CONSUME THE SLIP EITHER. Opening the panel leaves the leg where it
+   is, so backing out and placing it against the house is always still there. */
+function sbPvpPanelHTML(){
+  if(!_me) return '';
+  const leg=sbPvpLeg(); if(!leg) return '';
+  const opp=sbPvpOpposite(leg); if(!opp) return '';
+  if(!_pvpOpen) return `<button class="sb-pvp-link" onclick="sbPvpToggle()">
+    <i class="fa fa-user-group"></i>Or put it to a manager
+    <span class="sb-pvp-tag">no house</span></button>`;
+  const others=betAccounts().filter(a=>a.k1!==_me.k1);
+  const sh=sbPvpShares(_pvpPot,leg.odds,opp.odds);
+  const bal=bucks2(bucksBalance());
+  const over=!!(sh&&sh.mine>bal+0.005);
+  const dead=!!(_betBusy||!sh||sh.mine<=0||!sh.min||over||!_pvpTo);
+  const pot=sh?sh.pot:0;
+  return `<div class="sb-pvp">
+    <div class="sb-pvp-h"><i class="fa fa-user-group"></i>Head to head
+      <button class="sb-pvp-x" onclick="sbPvpToggle()" aria-label="Close"><i class="fa fa-xmark"></i></button></div>
+    <div class="sb-pvp-sub">No house in this one. You both put money on the table and
+      the winner takes the pot \u2014 so the price is better for both of you than the board.</div>
+    <div class="sb-pvp-sides">
+      <span class="sb-pvp-side"><span class="sb-pvp-who">You take</span>
+        <span class="sb-pvp-pick">${leg.pickLabel}</span></span>
+      <span class="sb-pvp-v">v</span>
+      <span class="sb-pvp-side"><span class="sb-pvp-who">They take</span>
+        <span class="sb-pvp-pick">${opp.pickLabel}</span></span>
+    </div>
+    <div class="sb-invite-pick">
+      <select id="pvp-to" aria-label="Which manager" onchange="sbPvpPick(this.value)">
+        ${others.map(a=>`<option value="${a.k1}"${a.k1===_pvpTo?' selected':''}>${a.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="sb-stake">
+      <label for="pvp-pot">Pot</label>
+      <input id="pvp-pot" type="number" min="0" step="10" max="${sbPvpMaxPot(sh,bal)}"
+        value="${bucks2(Math.max(0,Number(_pvpPot)||0))}" oninput="sbPvpPotTyped(this.value)"/>
+      <span class="sb-cur">GFL Bucks</span>
+    </div>
+    <div class="sb-quick">
+      ${[20,50,100].map(v=>`<button onclick="sbPvpSetPot(${v})">${bucksFmt(v)}</button>`).join('')}
+    </div>
+    <div class="sb-totals">
+      <div class="sb-tot"><span>You put up</span><b class="sb-pvp-mine">${bucksCents(sh?sh.mine:0)}</b></div>
+      <div class="sb-tot"><span>They put up</span><b class="sb-pvp-theirs">${bucksCents(sh?sh.theirs:0)}</b></div>
+      <div class="sb-tot sb-tot-big sb-pvp-pot"><span>Winner takes</span><b>${bucksCents(pot)}</b></div>
+    </div>
+    <div class="sb-pvp-over" style="display:${over?'':'none'}">
+      <i class="fa fa-circle-exclamation"></i>Your share is more than your ${bucksFmt(bal)}.</div>
+    <button class="sb-place sb-pvp-send" onclick="sbPvpSend()" ${dead?'disabled':''}>
+      ${_betBusy?'<i class="fa fa-circle-notch fa-spin"></i>Sending\u2026'
+        :`<i class="fa fa-paper-plane"></i>Send challenge \u00b7 ${bucksFmt(sh?sh.mine:0)}`}</button>
+    ${_pvpErr?`<div class="sb-invite-err">${PVP_ERRS[_pvpErr]||PVP_ERRS.send}</div>`:''}
+    <div class="sb-pvp-fine">Your share leaves your balance now and comes back if they
+      say no, or if nobody answers before kickoff.</div>
+  </div>`;
+}
+/* Challenges waiting on ME. Its own section above the ledger, beside the parlay
+   invitations, because both are the page asking for an answer rather than
+   reporting one. A lapsed one comes off rather than sitting there greyed out. */
+function sbPvpPendingHTML(){
+  if(!_me) return '';
+  const pend=betsMine().filter(b=>b.status==='challenge'&&betIsPvp(b)&&!pvpLapsed(b));
+  if(!pend.length) return '';
+  const err=_pvpErr?`<div class="sb-invite-err">${PVP_ERRS[_pvpErr]||PVP_ERRS.send}</div>`:'';
+  return `<div class="sb-invites sb-pvp-in">
+    <div class="sb-invites-h"><i class="fa fa-hand-fist"></i>Head to head
+      <span>${pend.length}</span></div>
+    ${err}
+    ${pend.map(b=>{
+      const bid=b.id.replace(/'/g,"\\'");
+      const l=b.legs[0]||{};
+      return `<div class="sb-invite">
+        <div class="sb-invite-top"><b>${betAccountName(b.invitedBy||b.vs)}</b> wants you on the other side</div>
+        <div class="sb-bet-legs"><div class="sb-bl">
+          <span class="sb-bl-p">${l.pickLabel||''}</span>
+          <span class="sb-bl-m">${l.mkLabel||''}</span>
+          <span class="sb-bl-o">${amFmt(b.odds)}</span></div></div>
+        <div class="sb-bet-foot">
+          <span>You put up <b>${bucksFmt(b.stake)}</b></span>
+          <span>They put <b>${bucksFmt(bucks2(b.payout-b.stake))}</b></span>
+          <span>Winner takes <b>${bucksFmt(b.payout)}</b></span>
+        </div>
+        <div class="sb-invite-acts">
+          <button class="sb-place" ${_betBusy?'disabled':''} onclick="sbPvpRespond('${bid}',true)">
+            <i class="fa fa-check"></i>I\u0027m in \u00b7 ${bucksFmt(b.stake)}</button>
+          <button class="sb-pull" ${_betBusy?'disabled':''} onclick="sbPvpRespond('${bid}',false)">
+            <i class="fa fa-xmark"></i>No thanks</button>
+        </div>
+      </div>`;}).join('')}
+  </div>`;
+}
+/* The line a head-to-head ticket carries in the ledger, and the pull-it-back
+   button while it is still unanswered. */
+function sbPvpBoxHTML(b){
+  if(!betIsPvp(b)) return '';
+  const who=betAccountName(b.vs||b.invitedBy);
+  const tail=b.status==='offer'
+    ?`<button class="sb-pull" ${_betBusy?'disabled':''} onclick="sbPvpCancel('${b.id.replace(/'/g,"\\'")}')">
+        <i class="fa fa-rotate-left"></i>Pull it back \u00b7 ${bucksFmt(b.stake)} back</button>`:'';
+  return `<div class="sb-inv-from sb-pvp-from"><i class="fa fa-hand-fist"></i>
+    ${b.status==='offer'?`Waiting on ${who}`:`Head to head v ${who}`}</div>${tail}`;
+}
 /* Invitations waiting on an answer. Shown before the ledger because they are
    the only thing on the page asking the manager to do something. */
 function sbInvitesHTML(){
@@ -19863,6 +20350,7 @@ function myBetsHTML(){
   const head=`<div class="sb-next">Next ${bucksFmt(BUCKS_WEEKLY)} <b>${bucksNextText()}</b></div>
   ${bankHTML()}
   ${sbInvitesHTML()}
+  ${sbPvpPendingHTML()}
   ${betsClearable().length?`<div class="sb-clearsettled-row">
     <button class="sb-clear" onclick="sbClearSettled()" ${_betBusy?'disabled':''}>
       <i class="fa fa-broom"></i> Clear settled (${betsClearable().length})</button></div>`:''}`;
@@ -19886,28 +20374,32 @@ function myBetsHTML(){
     const list=weeks[wk].map(b=>{
       const cls=b.status==='won'?'won':b.status==='lost'?'lost'
         :b.status==='push'?'push':b.status==='void'?'void'
-        :b.status==='cashed'?'cashed':'open';
+        :b.status==='cashed'?'cashed':b.status==='offer'?'offer':'open';
       const legs=b.legs.map(l=>`<div class="sb-bl"><span class="sb-bl-p">${l.pickLabel}</span>
         <span class="sb-bl-m">${l.mkLabel}</span><span class="sb-bl-o">${amFmt(l.odds)}</span></div>`).join('');
       const co=betCashOut(b);
       return `<div class="sb-bet sb-bet-${cls}">
         <div class="sb-bet-top">
-          <span class="sb-bet-tag">${b.legs.length>1?`${b.legs.length}-leg parlay`:'Single'}</span>
+          <span class="sb-bet-tag">${betIsPvp(b)?'Head to head'
+            :b.legs.length>1?`${b.legs.length}-leg parlay`:'Single'}</span>
           <span class="sb-bet-st sb-st-${cls}">${
             b.status==='won'?`Won +${bucksFmt(b.ret-b.stake)}`
             :b.status==='lost'?`Lost ${bucksFmt(b.stake)}`
             :b.status==='push'?'Push'
             :b.status==='void'?'Pulled'
             :b.status==='cashed'?`Cashed ${b.ret>=b.stake?'+':'−'}${bucksFmt(Math.abs(b.ret-b.stake))}`
+            :b.status==='offer'?'Waiting'
             :'Open'}</span>
         </div>
         <div class="sb-bet-legs">${legs}</div>
         <div class="sb-bet-foot">
           <span>Stake <b>${bucksFmt(b.stake)}</b></span>
           <span>${amFmt(b.odds)}</span>
-          <span>${b.status==='open'?'To return':'Returned'} <b>${bucksFmt(b.status==='open'?b.payout:b.ret)}</b></span>
+          <span>${b.status==='open'||b.status==='offer'?(betIsPvp(b)?'Winner takes':'To return'):'Returned'}
+            <b>${bucksFmt(b.status==='open'||b.status==='offer'?b.payout:b.ret)}</b></span>
         </div>
-        ${b.invitedBy?`<div class="sb-inv-from"><i class="fa fa-user-group"></i>In with ${betAccountName(b.invitedBy)}</div>`:''}
+        ${sbPvpBoxHTML(b)}
+        ${b.invitedBy&&!betIsPvp(b)?`<div class="sb-inv-from"><i class="fa fa-user-group"></i>In with ${betAccountName(b.invitedBy)}</div>`:''}
         ${sbInviteBoxHTML(b)}
         ${''/* The offer carries its number. A button that says only "cash out"
                is asking you to accept a price you cannot see. */}
@@ -19982,6 +20474,7 @@ function sbSlipHTML(){
         :`<button class="sb-place" onclick="sbPlaceBet()" ${_betBusy||stake<=0||stake>bal?'disabled':''}>
             ${_betBusy?'<i class="fa fa-circle-notch fa-spin"></i>Placing…'
               :`<i class="fa fa-check"></i>Place bet · ${bucksFmt(stake)}`}</button>`}
+      ${sbPvpPanelHTML()}
       ${_betErr?`<div class="sb-slip-err">${
         _betErr==='locked'?'Those markets are closed — the week is under way, or last week is still settling and the new lines are not final yet. Season futures stay open.'
         :_betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
@@ -20233,16 +20726,26 @@ function sbPortal(){
    So every repaint that can swallow the field goes through here: remember what
    was in it and where the caret was, let the repaint happen, then put it back.
    A number input refuses setSelectionRange in some browsers, hence the try. */
+/* WHICHEVER NUMBER FIELD IS BEING TYPED IN, not only the stake.
+
+   The head-to-head panel has a pot field, it lives inside this same slip, and it
+   is swallowed by exactly the repaints described above -- the roster feed lands
+   on its two-minute cycle, the whole slip is rebuilt underneath, and a half-typed
+   pot goes with it. One id was hardcoded here; it is now whichever of the two is
+   focused, so the pot is protected the same way and by the same code rather than
+   by a second copy of it. */
+const SB_KEEP_IDS=['sb-stake-in','pvp-pot'];
 function sbKeepStakeFocus(fn){
   const a=document.activeElement;
-  const typing=!!(a&&a.id==='sb-stake-in');
+  const id=a&&SB_KEEP_IDS.indexOf(a.id)>=0?a.id:null;
+  const typing=!!id;
   const val=typing?a.value:null;
   let sel=null;
   if(typing){ try{ sel={s:a.selectionStart,e:a.selectionEnd}; }catch(e){} }
   fn();
   if(!typing) return;
-  const next=[...document.querySelectorAll('#sb-stake-in')]
-    .find(e=>e.getBoundingClientRect().height>0)||document.getElementById('sb-stake-in');
+  const next=[...document.querySelectorAll('#'+id)]
+    .find(e=>e.getBoundingClientRect().height>0)||document.getElementById(id);
   if(!next) return;
   if(val!=null&&next.value!==val) next.value=val;
   try{ next.focus({preventScroll:true}); }catch(e){ try{ next.focus(); }catch(e2){} }

@@ -165,6 +165,12 @@ jobs:
       # success. Both copies of the parser are held against a real capture.
       - name: the video feed parses and the newest list wins
         run: node scripts/test-ytparse.mjs
+      # A head to head is funded by the two managers in it and by nothing else,
+      # so ret_a + ret_b has to equal stake_a + stake_b on every outcome. A slip
+      # there is one of them paid out of money the other never put up, from a
+      # balance that is replayed from the ledger and will not add up again.
+      - name: a head to head balances
+        run: node scripts/test-pvp.mjs
       # A change to how a share is priced must not hand anybody a profit.
       - name: a share split moves nobody's money
         run: node scripts/test-split.mjs
