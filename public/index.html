@@ -32,6 +32,24 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&family=Google+Sans+Flex:wght@400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    /* ── A DOUBLE TAP PRESSES THINGS, IT DOES NOT ZOOM ────────────────────────
+       A phone holds a tap for about 300ms to see whether a second one is
+       coming, and on a board of small targets — the +/− steppers on a coin, a
+       poll badge, a fold header, two prices side by side — a quick second tap
+       near the first zooms the page instead of pressing what was under it.
+
+       touch-action, and deliberately NOT user-scalable=no in the viewport meta.
+       That kills pinch-zoom as well, which is the one gesture somebody who
+       cannot read 9px type actually needs, and iOS has ignored it since iOS 10
+       in any case. This drops double-tap-to-zoom only: panning and pinch are
+       left exactly as they were.
+
+       On the universal selector rather than on html because the effective value
+       is intersected down the tree and Safari has wanted it on the element that
+       was actually tapped. Anything needing something stricter still gets it —
+       .nt-card keeps its pan-y for swipe-to-dismiss, since a class beats
+       (0,0,0) wherever the two are declared. */
+    *{touch-action:manipulation;}
     :root{
       --bg:#080808;--bg2:#111;--bg3:#1a1a1a;
       --border:rgba(255,255,255,0.08);
