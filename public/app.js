@@ -11431,8 +11431,19 @@ const SB_LIVE_MAX=0.90;      // most of the rating this season may ever own
 const SB_LIVE_FULL=4;        // games after which it counts for all of that
 /* The least of the rating the CURRENT squad owns once there is a roster to
    read, football or not. History still counts — it is simply no longer the
-   majority of the answer the moment twelve real rosters exist. */
-const SB_LIVE_MIN=0.65;
+   majority of the answer the moment twelve real rosters exist.
+
+   0.35, DOWN FROM 0.65, AND IT IS A SHAPE FIX RATHER THAN A WEIGHTING ONE.
+   At 0.65 this floor sat ABOVE the ramp for the first three games, so the ramp
+   did nothing: career was pinned flat at 35% through week 3 and then fell off a
+   ledge to 10% the moment a fourth game landed. 35% lets the ramp do the whole
+   job — 65% career with nothing played, 65% after one game, 55% after two,
+   32.5% after three, 10% from four.
+
+   It touches games 0, 1 and 2 only. From three games on the ramp is already
+   above it and max() picks the ramp, so this moves no price on a board with
+   football behind it. It shows up next August. */
+const SB_LIVE_MIN=0.35;
 /* ── AND HOW THE SEASON'S SHARE IS SPLIT ─────────────────────────────────────
    Form leads now, and by a long way. Roster is the only forward-looking term
    here — the best legal lineup a squad could field at ESPN's own projections —
