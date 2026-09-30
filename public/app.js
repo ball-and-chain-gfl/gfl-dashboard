@@ -9936,7 +9936,16 @@ function schedPlayedStripHTML(owner,season){
   if(!d||!d.rows.length) return '';
   return d.rows.map(r=>{
     const cls=!r.counts?' sch-dead':(r.res==='W'?' sch-won':r.res==='L'?' sch-lost':'');
-    return `<div class="sch-row sch-res${cls}">
+    /* ── sch-inline: THESE ROWS ARE NOT THE RESULTS TABLE ────────────────────
+       sch-res was written for schedResultsHTML, a finished season drawn as
+       five columns — Wk, Opponent, Result, Score, Margin. This strip borrows
+       its colouring and its win/loss edge but sits INSIDE the live schedule,
+       under an eight-column header, and was laying eight cells into that
+       five-column template: All-time came out 23px left of the All-time above
+       it and Win% 35px left of Win%. Measured, on the live board.
+
+       The class opts out of the grid override and nothing else. */
+    return `<div class="sch-row sch-res sch-inline${cls}">
       <span class="sch-wk">${r.playoff?'PO':''}${r.week}</span>
       <span class="sch-team sch-open" role="button" tabindex="0"
         data-opp="${r.oppOwner}" data-name="${String(r.oppName).replace(/"/g,'&quot;')}"
@@ -10459,6 +10468,30 @@ function pollSosRows(){
   rows.forEach((r,i)=>{ r.rank=i+1; });
   return rows;
 }
+/* ── RED AT THE TOP OF THE COLUMN, GREEN AT THE BOTTOM ───────────────────────
+   Not pollRampColor, and deliberately not: that one runs blue to red down a
+   RANKING, which is the right language for a poll position and the wrong one
+   here. These two columns are difficulty, they are read as quantities rather
+   than placings, and a big number is the soft schedule -- so they take the
+   site's own green-to-red scale, pointed the other way round from a win
+   probability.
+
+   Each column is normalised against itself. Scored is three weeks of finishing
+   places and Total is fourteen weeks of poll ranks; put them on one scale and
+   the shorter one comes out a single colour. */
+const SOS_RAMP=['#3fd07a','#a3e635','#f4c04d','#ff8f5a','#ff5f5f'];
+function sosCol(v,lo,hi){
+  if(!(hi>lo)||v==null) return 'var(--text2)';
+  const p=Math.min(1,Math.max(0,(Number(v)-lo)/(hi-lo)))*(SOS_RAMP.length-1);
+  const i=Math.floor(p), f=p-i;
+  if(i>=SOS_RAMP.length-1) return SOS_RAMP[SOS_RAMP.length-1];
+  const a=SOS_RAMP[i], b=SOS_RAMP[i+1];
+  const ch=k=>{
+    const x=parseInt(a.slice(k,k+2),16), y=parseInt(b.slice(k,k+2),16);
+    return Math.round(x+(y-x)*f).toString(16).padStart(2,'0');
+  };
+  return '#'+ch(1)+ch(3)+ch(5);
+}
 function pollSosHTML(owner){
   const rows=cpMineIn()?pollSosRows():null;
   const head=`<div class="sos-head"><i class="fa fa-weight-hanging"></i>Strength of Schedule
@@ -10466,16 +10499,20 @@ function pollSosHTML(owner){
   if(!cpMineIn()) return head+`<div class="sos-gate">
     <i class="fa fa-lock"></i>Fill in your Coaches' Poll ballot to see this.</div>`;
   if(!rows) return '';
-  const n=(_teams||[]).length||12;
+  /* each column against its own spread — see sosCol */
+  const span=pick=>{ const v=rows.map(pick).filter(x=>x!=null);
+    return v.length?[Math.min(...v),Math.max(...v)]:[0,0]; };
+  const [sLo,sHi]=span(r=>r.sn?r.scored:null);
+  const [tLo,tHi]=span(r=>r.total);
   const body=rows.map(r=>`<div class="sos-row${r.owner===owner?' sos-me':''}">
       <span class="sos-rk">${r.rank}</span>
       <span class="sos-t">${sbAvatar(r.owner,20)}
         <span class="sos-nm">${r.name}</span>
         <span class="sos-ab">${sbTeamAb(r.owner,r.name)}</span></span>
-      <span class="r sos-c">${r.sn?r.scored:'—'}</span>
-      <span class="r sos-c">${r.pn?r.played:'—'}</span>
+      <span class="r sos-c sos-grade"${r.sn?` style="color:${sosCol(r.scored,sLo,sHi)}"`:''}>${r.sn?r.scored:'—'}</span>
+      <span class="r sos-c sos-sep">${r.pn?r.played:'—'}</span>
       <span class="r sos-c">${r.ln?r.left:'—'}</span>
-      <span class="r sos-tot" style="color:${pollRampColor(r.rank,rows.length||n)}">${r.total}</span>
+      <span class="r sos-tot" style="color:${sosCol(r.total,tLo,tHi)}">${r.total}</span>
     </div>`).join('');
   const g=rows[0]||{};
   return head+`<div class="sos-wrap">
@@ -10487,7 +10524,10 @@ function pollSosHTML(owner){
     <div class="sos-grid">
       <div class="sos-row sos-h"><span class="sos-rk">#</span><span class="sos-t">Team</span>
         <span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Scored</span>
-        <span class="r sos-c">Played</span><span class="r sos-c">To come</span>
+        ${''/* the rule says where the total comes from: Played and To come are
+               the two halves of it, and Scored is a different measure that
+               happens to sit beside them */}
+        <span class="r sos-c sos-sep">Played</span><span class="r sos-c">To come</span>
         <span class="r sos-tot">Total</span></div>
       ${body}
     </div></div>`;

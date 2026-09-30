@@ -1849,8 +1849,17 @@
     .sch-resr{font-family:'Inter',sans-serif;font-size:17px;font-weight:800;color:var(--text);}
     .sch-respf{display:block;font-size:10.5px;font-weight:600;color:var(--text3);
       letter-spacing:.3px;margin-top:2px;text-align:right;}
-    .sch-head.sch-head-res,.sch-row.sch-res{grid-template-columns:38px minmax(0,1fr) 54px 108px 68px;}
+    /* :not(.sch-inline) — the played strip inside the LIVE schedule wears
+       sch-res for its colouring and its win/loss edge, but it sits under the
+       eight-column schedule header rather than this five-column results one.
+       Without the exclusion its eight cells were laid into five tracks and
+       every column past the opponent landed in the wrong place: All-time came
+       out 23px left of the All-time above it, Win% 35px left of Win%. */
+    .sch-head.sch-head-res,.sch-row.sch-res:not(.sch-inline){grid-template-columns:38px minmax(0,1fr) 54px 108px 68px;}
     .sch-row.sch-res{border-left:3px solid transparent;}
+    /* and that edge is 3px of the row's own box, so the padding hands it back
+       or every played row sits three pixels right of every upcoming one */
+    .sch-row.sch-res.sch-inline{padding-left:9px;}
     .sch-row.sch-res.sch-won{border-left-color:var(--green);
       background:linear-gradient(90deg,rgba(63,208,122,0.10),transparent 62%);}
     .sch-row.sch-res.sch-lost{border-left-color:var(--red);
@@ -1869,7 +1878,8 @@
     .sch-res.sch-lost .sch-marg{color:var(--red);}
     .po-seed{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;color:var(--text3);}
     @media(max-width:768px){
-      .sch-head.sch-head-res,.sch-row.sch-res{grid-template-columns:30px minmax(0,1fr) 34px 86px 54px;}
+      .sch-head.sch-head-res,.sch-row.sch-res:not(.sch-inline){grid-template-columns:30px minmax(0,1fr) 34px 86px 54px;}
+      .sch-row.sch-res.sch-inline{padding-left:7px;}
       .sch-score{font-size:11px;}
       .sch-marg{font-size:11px;}
       .sch-resr{font-size:15px;}
@@ -5447,6 +5457,17 @@
       letter-spacing:.4px;white-space:nowrap;}
     .sos-c{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);
       font-variant-numeric:tabular-nums;}
+    /* THE RULE SAYS WHERE THE TOTAL COMES FROM. Played and To come are the two
+       halves of it and Scored is a different measure that happens to sit beside
+       them, so the line goes between the two ideas rather than between any two
+       columns. It runs the full height of the row -- align-self:stretch, and
+       the cell becomes a flex box of its own so the number stays on the right
+       of it rather than climbing to the top. */
+    .sos-sep{align-self:stretch;display:flex;align-items:center;justify-content:flex-end;
+      border-left:1px solid rgba(255,255,255,0.13);padding-left:7px;}
+    /* the two graded columns carry their colour, so they carry a little weight
+       with it -- a tinted 400 on a dark ground reads as a mistake */
+    .sos-grade{font-weight:700;}
     .sos-tot{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;
       font-variant-numeric:tabular-nums;}
     @media(max-width:560px){
@@ -5457,6 +5478,7 @@
         gap:4px;padding:7px 7px;}
       .sos-nm{display:none;} .sos-ab{display:inline;}
       .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
+      .sos-sep{padding-left:5px;}
       /* NOT bigger than the base size here, which is what it used to be: these
          headings are the widest text in their own columns, so at 375px the one
          that has to survive is "To come" and 9px broke it in half. */

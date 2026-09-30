@@ -50,6 +50,8 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)),
     'function pollBadgeAt(teamId,w,cls){',
     'const pollBadgeAtFor=',
     'function pollSosRows(){',
+    'const SOS_RAMP=',
+    'function sosCol(v,lo,hi){',
     'function pollSosHTML(owner){',
     'let _wkScRank=',
     'function weekScoreRanks(week){',
@@ -57,7 +59,7 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)),
   ['cpMineIn', 'pollNowRanks', 'pollBadge', 'pollBadgeFor', 'pollTeamIdOf',
    'cpTally', 'cpKey', 'ntBig4', 'CP_REVEAL_AT', 'NT_BIG4_OWNER', 'NT_BIG4_FROM',
    'pollRanksAt', 'pollBadgeAt', 'pollBadgeAtFor', 'pollSosRows', 'pollSosHTML',
-   'weekScoreRanks',
+   'weekScoreRanks', 'sosCol', 'SOS_RAMP',
    'setTeams', 'setRows', 'setMe', 'setPolls', 'setFranchises', 'setWeek', 'setTest',
    'setSeason'],
 `
@@ -412,6 +414,22 @@ head('8. STRENGTH OF SCHEDULE');
   ok('and it stays out of the total', by.o1.played + by.o1.left, by.o1.total);
   ok('the order is still the poll order', (r || []).map(x => x.owner),
      ['o2', 'o1', 'o4', 'o3']);
+
+  /* ── the two graded columns run green to RED as the number climbs ───────
+       which is the opposite way round from a win probability, because here a
+       big number is the soft schedule rather than the good news. */
+  ok('the bottom of the range is green', M.sosCol(10, 10, 30), M.SOS_RAMP[0]);
+  ok('the top of it is red', M.sosCol(30, 10, 30), M.SOS_RAMP[M.SOS_RAMP.length - 1]);
+  ok('and the middle is the middle stop', M.sosCol(20, 10, 30), M.SOS_RAMP[2]);
+  ok('past the top it clamps rather than wrapping', M.sosCol(99, 10, 30),
+     M.SOS_RAMP[M.SOS_RAMP.length - 1]);
+  ok('and below the bottom too', M.sosCol(-5, 10, 30), M.SOS_RAMP[0]);
+  /* a column where every team is level has no gradient to draw */
+  ok('a flat column is not graded', M.sosCol(7, 7, 7), 'var(--text2)');
+  ok('and neither is a missing number', M.sosCol(null, 10, 30), 'var(--text2)');
+  /* the divider marks off the three that make the total */
+  ok('the rule sits on Played', (M.pollSosHTML('o1').match(/sos-sep/g) || []).length,
+     (r || []).length + 1);
 
   ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);
   ok('and the rank follows the sort', (r || []).map(x => x.rank), [1, 2, 3, 4]);
