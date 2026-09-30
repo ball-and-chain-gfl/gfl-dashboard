@@ -1279,7 +1279,7 @@ async function computeCoaching(teams, transactions, weeklyData){
     if(tx.type!=='TRADE_ACCEPT'&&tx.type!=='TRADE') return;
     const stamped=Number(tx.scoringPeriodId)||0;
     (tx.items||[]).forEach(item=>{
-      const pid=item.playerId; if(pid==null) return;
+      const pid=item.playerId; if(pid==null||pid===0) return;
       const key=`${pid}|${item.fromTeamId}|${item.toTeamId}`;
       const wk=stamped>0?stamped:arrivedWeek(pid,item.toTeamId);
       const had=moveWeek.get(key);
@@ -1295,7 +1295,12 @@ async function computeCoaching(teams, transactions, weeklyData){
     if(detail[tid]) detail[tid].txTypes.add(tx.type);
     if(tx.type==='TRADE_ACCEPT'||tx.type==='TRADE'){
       (tx.items||[]).forEach(item=>{
-        const pid=item.playerId; if(pid==null) return;
+        const pid=item.playerId;
+        /* null is no player and ZERO is not a player either -- the week 3
+           record carries an item with playerId 0 alongside the four real
+           ones, which drew a nameless row in the Trade ROI table. A
+           defence is a NEGATIVE id, so this cannot be a range test. */
+        if(pid==null||pid===0) return;
         const key=`${pid}|${item.fromTeamId}|${item.toTeamId}`;
         if(seenMove.has(key)) return;
         seenMove.add(key);
