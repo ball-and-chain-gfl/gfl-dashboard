@@ -11421,12 +11421,48 @@ function sbSplits(owner){
    about the season being played rather than any season behind it. The career
    model keeps the remaining quarter — it is what stops three flukey weeks
    deciding everything, and it is all there is in week one. */
-const SB_LIVE_MAX=0.75;      // most of the rating this season may ever own
+/* ── WHAT THIS SEASON IS WORTH AGAINST WHAT THE FRANCHISE IS ────────────────
+   0.90, up from 0.75, so four years of history floors at a tenth of a price
+   rather than a quarter of it. A quarter was too much: by December it meant a
+   2022 season was still a quarter of a 2026 line, which is not how anybody
+   reads a league. It does not go to zero — this is a keeper league and a
+   franchise is a real thing — but it stops being an argument. */
+const SB_LIVE_MAX=0.90;      // most of the rating this season may ever own
 const SB_LIVE_FULL=4;        // games after which it counts for all of that
 /* The least of the rating the CURRENT squad owns once there is a roster to
    read, football or not. History still counts — it is simply no longer the
    majority of the answer the moment twelve real rosters exist. */
 const SB_LIVE_MIN=0.65;
+/* ── AND HOW THE SEASON'S SHARE IS SPLIT ─────────────────────────────────────
+   Form leads now, and by a long way. Roster is the only forward-looking term
+   here — the best legal lineup a squad could field at ESPN's own projections —
+   and leading the board with it made sense in September and much less sense in
+   November, when ten games of results say more than a projection that has
+   barely moved since the draft. At the 10% career floor these land on 60% form,
+   20% roster, 10% manager, 10% career.
+
+   They sum to 2.25, which is what they summed to before. That is not decorative
+   — live is z-scored across the league before it is blended with career, so the
+   sum sets nothing and only the RATIOS matter, and holding it still keeps this
+   change comparable to what it replaced. */
+const SB_W_FORM=1.50;        // this season's record and scoring
+const SB_W_ROST=0.50;        // the squad, at ESPN's projections
+const SB_W_MGR=0.25;         // trades and waivers: what the manager did
+/* ── THE RECENCY SLICE WAITS UNTIL IT IS ITS OWN NUMBER ──────────────────────
+   The last three weeks used to carry a fifth of form from week one. Through
+   week three the last three weeks ARE the season, so that fifth was the
+   scoring term counted twice — the same double-count that came out of the
+   share prices, measured there at a correlation of exactly 1.000 at three
+   games and 0.633 by six.
+
+   So it is off until the two windows can differ, full once they have parted,
+   and what it is not using goes back to win rate and scoring in the ratio they
+   already sat in. At full ramp the split is 50/30/20, which is exactly what it
+   has always been; the change is only that it gets there when it means
+   something. */
+const SB_FORM_MAX=0.20;      // the last three weeks' share of form, once parted
+const SB_FORM_FROM=3;        // games before the window says anything new
+const SB_FORM_FULL=6;        // and where it reaches its full share
 
 /* ── WHO IS ON EACH ROSTER ───────────────────────────────────────────────────
    One mRoster call returns all twelve rosters at once, which is what makes
@@ -11898,7 +11934,7 @@ const sbNormCdf=z=>0.5*(1+sbErf(z/Math.SQRT2));
 const sbWkSd=t=>SB_WK_SD*Math.sqrt(Math.max(0,Math.min(1,t&&t.full>0?t.left/t.full:1)));
 
 function sbLiveSignals(rows,season){
-  const out={form:{},vol:{},roster:{},lineup:{},played:0};
+  const out={form:{},vol:{},roster:{},mgr:{},played:0};
   if(!season) return out;
   const meta=_seasonMeta[season]; if(!meta) return out;
   const owners=meta.owners||{};
@@ -11946,7 +11982,12 @@ function sbLiveSignals(rows,season){
     const sc=lgPpg?((x.pf/x.g)/lgPpg-1):0;
     const last=x.weeks.slice(-3);
     const fm=(last.length&&lgPpg)?((last.reduce((a,b)=>a+b.pts,0)/last.length)/lgPpg-1):0;
-    out.form[r.owner]=0.50*wr+0.30*sc+0.20*fm;
+    /* ramped — see SB_FORM_FROM. What the last three weeks are not using goes
+       back to win rate and scoring in the 50:30 they already sat in, which is
+       62.5:37.5 of what is left. */
+    const fSh=SB_FORM_MAX*Math.min(1,Math.max(0,
+      (x.g-SB_FORM_FROM)/Math.max(1,SB_FORM_FULL-SB_FORM_FROM)));
+    out.form[r.owner]=(1-fSh)*(0.625*wr+0.375*sc)+fSh*fm;
     /* the spread of their weekly scores, as a fraction of their own average */
     if(x.weeks.length>2){
       const m2=x.pf/x.g;
@@ -11956,15 +11997,23 @@ function sbLiveSignals(rows,season){
   });
   /* roster is computed above, before the early return — see the note there */
 
-  /* ── lineup: how often the right players were actually started ──
-     A strong roster only converts if it is in the lineup. One cached call. */
+  /* ── manager: what the trades and the waivers actually returned ──
+     This was Lineup IQ, the share of start/sit calls got right. The Coaching
+     Metric is the league's own answer to the same question and a broader one,
+     so it replaces it — but only its c2 and c3, the trade and waiver return.
+
+     NOT the whole metric, and this is the point. Two thirds of the CM right now
+     is c1, which is literally (points for - league average) / 10: put it in
+     whole and scoring lands in one rating three separate times, once here, once
+     in form's scoring term and once in the career points-per-game term. c2 and
+     c3 are the half that is about managing rather than scoring, which is what
+     this slot was ever for. */
   try{
-    if(typeof loadLineupIQ==='function') loadLineupIQ(season);
-    const l=(typeof _liq!=='undefined'&&_liq)?_liq[season]:null;
-    if(l&&Object.keys(l).length) rows.forEach(r=>{
+    const bds=(typeof _cmBreakdown!=='undefined'&&_cmBreakdown)?_cmBreakdown:null;
+    if(bds) rows.forEach(r=>{
       const tid=r.curId!=null?r.curId:r.tid;
-      const d=tid!=null?l[tid]:null;
-      if(d&&d.decisions) out.lineup[r.owner]=d.correct/d.decisions;
+      const bd=tid!=null?bds[tid]:null;
+      if(bd) out.mgr[r.owner]=(Number(bd.c2)||0)+(Number(bd.c3)||0);
     });
   }catch(e){}
   return out;
@@ -12056,7 +12105,7 @@ function sbBuild(){
     const zForm=has('form')?zf('form'):rows.map(()=>0);
     const zVol =has('vol')?zf('vol'):rows.map(()=>0);
     const zRost=has('roster')?zf('roster'):rows.map(()=>0);
-    const zLine=has('lineup')?zf('lineup'):rows.map(()=>0);
+    const zMgr =has('mgr')?zf('mgr'):rows.map(()=>0);
     /* TWO DIFFERENT WEIGHTS, AND THEY ARE NOT THE SAME QUESTION.
 
        `gw` is how much football has been played, and it is what the board's
@@ -12074,18 +12123,21 @@ function sbBuild(){
     const gw=Math.min(1,(live.played||0)/SB_LIVE_FULL)*SB_LIVE_MAX;
     const w=has('roster')?Math.max(SB_LIVE_MIN,gw):gw;
     rows.forEach((r,i)=>{
-      /* ROSTER LEADS, BECAUSE ROSTER IS THE PROJECTION.
+      /* FORM LEADS, AND ROSTER USED TO.
 
-         It is the best legal lineup the players they hold could put out,
-         valued at ESPN's own numbers — the most forward-looking thing in the
-         data and the only term here about the weeks ahead rather than the ones
-         behind. Form is the record, the scoring and the last three weeks, and
-         goes in whole. Lineup is back, small: it is how often the right players
-         were actually started, which says whether a roster gets converted, and
-         the reason it came out — somebody benching a team to lengthen their own
-         odds — is not a thing anybody is going to do. */
-      r.live=0.85*zForm[i]+1.15*zRost[i]+0.25*zLine[i];
-      r.z.form=zForm[i]; r.z.vol=zVol[i]; r.z.roster=zRost[i]; r.z.lineup=zLine[i];
+         Roster is the best legal lineup the players they hold could put out at
+         ESPN's own numbers: the only forward-looking term in the model, and the
+         right thing to lead on in September when three games is nothing. It is
+         the wrong thing to lead on in November, and it never stepped back — a
+         projection that has barely moved since the draft was outvoting ten games
+         of football all the way to January. A 3-0 team leading the league in
+         points was third in its own division behind a 1-2 team, which is the
+         complaint that started this.
+
+         Manager is the trade and waiver return out of the Coaching Metric. See
+         sbLiveSignals for why it is not the whole of it. */
+      r.live=SB_W_FORM*zForm[i]+SB_W_ROST*zRost[i]+SB_W_MGR*zMgr[i];
+      r.z.form=zForm[i]; r.z.vol=zVol[i]; r.z.roster=zRost[i]; r.z.mgr=zMgr[i];
     });
     /* BOTH HALVES GO ON THE SAME SCALE BEFORE THEY ARE MIXED.
 
