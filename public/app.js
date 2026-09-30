@@ -16180,6 +16180,7 @@ const NT_KINDS={
   bkfix:  {icon:'fa-gift',         tone:'good'},
   big4:   {icon:'fa-list-ol',      tone:'royal'},
   upset:  {icon:'fa-bolt-lightning',tone:'hot'},
+  pvp:    {icon:'fa-user-group',   tone:'royal'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -16859,9 +16860,43 @@ function ntParlays(out){
   if(!_me) return;
   betsMine().filter(b=>b.status==='invite'&&!inviteLapsed(b)).forEach(b=>{
     out.push({kind:'parlay', day:ntDayOf(Number(b.ts)||Date.now()), id:`pi:${b.id}`, title:'You have been asked in',
-      art:ntStat(_ownerMap[Number(b.team||0)]||b.invitedBy,betAccountName(b.invitedBy),
+      /* the team id is only filled in on ACCEPTANCE, so while this card is up it
+         is always empty and the crest comes from the account -- see
+         betAccountOwner for why handing that id straight to ntCrest drew a
+         blank one */
+      art:ntStat(_ownerMap[Number(b.team||0)]||betAccountOwner(b.invitedBy),betAccountName(b.invitedBy),
         bucksFmt(b.stake),b.legs.length>1?`a ${b.legs.length}-leg parlay`:'a single',
         ntWeekOf(Number(b.ts)||Date.now())),
+      go:'bets'});
+  });
+}
+/* ── AND SOMEBODY HAS PUT A BET TO YOU ───────────────────────────────────────
+   The parlay invitation above has raised a card since it shipped; a head to
+   head had nothing, so the only way to learn you had been challenged was to
+   open the Sportsbook and look.
+
+   Which matters more here than it does for a parlay seat. A seat is an extra
+   helping of somebody else's bet and costs them nothing if you never answer.
+   A challenge has the other manager's stake ALREADY ESCROWED against it and it
+   dies at kickoff -- so not knowing costs them the bet as well as you.
+
+   What it prints is the two numbers that decide it: what you would put up, and
+   what you would take off them. The pick is the body, because on a head to head
+   the side you are being given is not the side they chose.
+
+   It leaves the feed the moment it is answered or the market shuts, and by the
+   same two tests the Sportsbook card uses rather than a second opinion. */
+function ntPvp(out){
+  if(!_me) return;
+  betsMine().filter(b=>b.status==='challenge'&&betIsPvp(b)&&!pvpLapsed(b)).forEach(b=>{
+    const l=(b.legs||[])[0]||{};
+    const ts=Number(b.ts)||Date.now();
+    const who=b.invitedBy||b.vs;
+    out.push({kind:'pvp', day:ntDayOf(ts), id:`pvp:${b.id}`,
+      title:'You have been challenged',
+      art:ntStat(betAccountOwner(who),betAccountName(who),bucksFmt(b.stake),
+        `to win ${bucksFmt(bucks2((b.payout||0)-(b.stake||0)))}`,ntWeekOf(ts)),
+      body:`They have you on <b>${l.pickLabel||'the other side'}</b>.`,
       go:'bets'});
   });
 }
@@ -16971,6 +17006,11 @@ function ntDemo(out){
 
    {kind:'parlay',day:d,id:'demo:parlay',title:'You have been asked in',
     art:ntStat(o(3),nm(3),'$75','a 3-leg parlay',dw),
+    go:'bets'},
+
+   {kind:'pvp',day:d,id:'demo:pvp',title:'You have been challenged',
+    art:ntStat(o(5),nm(5),'$59.35','to win $50.00',dw),
+    body:'They have you on <b>Bikini Bottom Goobers moneyline</b>.',
     go:'bets'},
 
    {kind:'trade',day:d,id:'demo:trade',title:'A trade went through',
@@ -17256,7 +17296,7 @@ function ntBig4(out){
 }
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -19688,6 +19728,20 @@ function betAccounts(){
     .filter(x=>x.k1);
 }
 const betAccountName=k1=>(betAccounts().find(a=>a.k1===k1)||{}).name||k1;
+/* ── AN ACCOUNT ID IS NOT A FRANCHISE OWNER ──────────────────────────────────
+   A bet is owned by an ACCOUNT -- the slug a profile document is filed under --
+   and a crest belongs to a FRANCHISE, keyed by the owner GUID. They are
+   different strings, and ntCrest looks for a franchise whose owner matches what
+   it is handed: given an account id it finds none and draws the empty
+   placeholder instead. ntParlays has been handing it one since it shipped, so
+   the invitation card has been showing a blank crest all along.
+
+   One hop each way: account -> team id -> owner. */
+function betAccountTeam(k1){
+  const t=(_teams||[]).find(x=>teamAcctId(x)===k1);
+  return t?Number(t.id)||0:0;
+}
+const betAccountOwner=k1=>_ownerMap[betAccountTeam(k1)]||'';
 /* everyone already holding an invitation to this bet */
 const betInvitesFor=id=>(_bets||[]).filter(b=>b.srcBet===id);
 function betInviteOpen(id){ _inviteFor=(_inviteFor===id?null:id); _inviteErr=null; renderMyBets(); }

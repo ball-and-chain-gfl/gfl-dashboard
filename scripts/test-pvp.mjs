@@ -59,6 +59,8 @@ const moneyParts = [
   grab('function bucksBalance(){'),
   grab('function betGrade(bet){'),
   grab('function pvpReconcileTo(offer,other,shut){'),
+  grab('const pvpLapsed=b=>'),
+  grab('function ntPvp(out){'),
   grab('const CASHOUT_HOLD='),
   grab('const CASHOUT_MIN='),
   grab('function betCashOut(b){'),
@@ -79,8 +81,19 @@ const betLegProb=()=>0.5;
 const betWeekInPlay=()=>false;
 const betSeasonInPlay=()=>false;
 const getSeason=()=>'2026';
+/* ntPvp draws a card; what is under test is WHICH bets get one, so everything
+   it decorates with answers plainly and the shut predicate is a switch. */
+let _SHUT=false;
+const pvpShut=()=>_SHUT;
+const ntDayOf=t=>t;
+const ntWeekOf=()=>4;
+const bucksFmt=v=>'$'+v;
+const betAccountName=k=>'NAME:'+k;
+const betAccountOwner=k=>'OWN:'+k;
+const ntStat=(o,n,v,l,w)=>[o,n,v,l,w].join('|');
 ${moneyParts.join(NL)}
 return { set(b,me){ _bets=b; _me=me; }, setSlip(s){ _slip=s; }, setLeg(v){ _LEG=v; },
+  setShut(v){ _SHUT=v; }, feed(){ const o=[]; ntPvp(o); return o; },
   sbPvpShares, sbPvpLeg, PVP_MK, probFromAm, amFromProb, bucks2,
   betGrade, betIsLive, betIsPvp, betPending, betCashOut, betCancellable, pvpReconcileTo,
   bucksBalance, bucksStaked, bucksReturned,
@@ -444,6 +457,55 @@ head('10. a moneyline pair balances the same way a spread one does');
   ok('the favourite lays less than -260', favPrice > -260);
   ok('and the dog is paid more than +200', dogPrice > 200);
   eq('which is the hold, handed back', [favPrice, dogPrice], [-220, 225]);
+}
+
+/* == 11 ==================================================================== */
+head('11. the manager being asked is told, and stops being told');
+{
+  const ch = o => B({ id: 'ch', owner: 'bfl', pvp: true, status: o.st || 'challenge',
+    stake: 60.24, payout: 111, invitedBy: 'mm', vs: 'mm', ts: 7,
+    legs: [{ mk: 'wk4-7-3-ml', pickLabel: 'Bikini Bottom Goobers moneyline' }] });
+
+  M.setShut(false);
+  M.set([ch({})], ME);
+  const cards = M.feed();
+  eq('a live challenge raises one card', cards.length, 1);
+  eq('of its own kind', cards[0].kind, 'pvp');
+  eq('keyed to the ticket, so it cannot double up', cards[0].id, 'pvp:ch');
+  eq('it names the challenger, not the account slug', cards[0].art, 'OWN:mm|NAME:mm|$60.24|to win $50.76|4');
+  ok('and says which side you are being given', /Bikini Bottom Goobers moneyline/.test(cards[0].body));
+  eq('tapping it goes to the bets page', cards[0].go, 'bets');
+
+  /* the two numbers on it are the two that decide it, read off the ledger
+     rather than recomputed for the card */
+  eq('what you put up, and what you take off them',
+     [60.24, M.bucks2(111 - 60.24)], [60.24, 50.76]);
+
+  /* == AND IT HAS TO LEAVE ============================================== */
+  M.set([ch({ st: 'open' })], ME);
+  eq('answered yes: gone', M.feed().length, 0);
+  M.set([ch({ st: 'declined' })], ME);
+  eq('answered no: gone', M.feed().length, 0);
+  M.set([ch({ st: 'void' })], ME);
+  eq('withdrawn: gone', M.feed().length, 0);
+
+  M.setShut(true);
+  M.set([ch({})], ME);
+  eq('market shut: gone', M.feed().length, 0);
+  M.setShut(false);
+
+  /* MY OWN HALF IS NOT NEWS TO ME. The challenger holds an 'offer', and a card
+     telling you about the bet you just sent is noise on your own feed. */
+  M.set([B({ id: 'off', owner: 'bfl', pvp: true, status: 'offer', stake: 50.76, payout: 111 })], ME);
+  eq('my own sent offer raises nothing', M.feed().length, 0);
+
+  /* and somebody else's challenge is not mine to answer */
+  M.set([Object.assign({}, ch({}), { owner: 'kunk' })], ME);
+  eq('a challenge to another manager raises nothing', M.feed().length, 0);
+
+  /* a parlay invitation still belongs to the other card */
+  M.set([B({ id: 'inv', owner: 'bfl', status: 'invite', invitedBy: 'mm', stake: 25 })], ME);
+  eq('an ordinary invitation is not one of these', M.feed().length, 0);
 }
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed' + (fail ? ', ' + fail + ' failed' : ''));
