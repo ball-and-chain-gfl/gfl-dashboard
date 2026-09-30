@@ -10498,8 +10498,7 @@ function sosCol(v,lo,hi){
 }
 function pollSosHTML(owner){
   const rows=cpMineIn()?pollSosRows():null;
-  const head=`<div class="sos-head"><i class="fa fa-weight-hanging"></i>Strength of Schedule
-    <span class="badge-info">Coaches' Poll</span></div>`;
+  const head=`<div class="sos-head"><i class="fa fa-weight-hanging"></i>Strength of Schedule</div>`;
   if(!cpMineIn()) return head+`<div class="sos-gate">
     <i class="fa fa-lock"></i>Fill in your Coaches' Poll ballot to see this.</div>`;
   if(!rows) return '';
@@ -10509,14 +10508,18 @@ function pollSosHTML(owner){
   const [sLo,sHi]=span(r=>r.sn?r.scored:null);
   const [tLo,tHi]=span(r=>r.total);
   const body=rows.map(r=>`<div class="sos-row${r.owner===owner?' sos-me':''}">
-      <span class="sos-rk">${r.rank}</span>
-      <span class="sos-t">${sbAvatar(r.owner,20)}
-        <span class="sos-nm">${r.name}</span>
-        <span class="sos-ab">${sbTeamAb(r.owner,r.name)}</span></span>
-      <span class="r sos-c sos-grade"${r.sn?` style="color:${sosCol(r.scored,sLo,sHi)}"`:''}>${r.sn?r.scored:'—'}</span>
-      <span class="r sos-c sos-sep">${r.pn?r.played:'—'}</span>
-      <span class="r sos-c">${r.ln?r.left:'—'}</span>
-      <span class="r sos-tot" style="color:${sosCol(r.total,tLo,tHi)}">${r.total}</span>
+      <div class="sos-left">
+        <span class="sos-rk">${r.rank}</span>
+        <span class="sos-t">${sbAvatar(r.owner,20)}
+          <span class="sos-nm">${r.name}</span>
+          <span class="sos-ab">${sbTeamAb(r.owner,r.name)}</span></span>
+        <span class="r sos-c sos-grade"${r.sn?` style="color:${sosCol(r.scored,sLo,sHi)}"`:''}>${r.sn?r.scored:'—'}</span>
+      </div>
+      <div class="sos-right">
+        <span class="r sos-c">${r.pn?r.played:'—'}</span>
+        <span class="r sos-c">${r.ln?r.left:'—'}</span>
+        <span class="r sos-tot" style="color:${sosCol(r.total,tLo,tHi)}">${r.total}</span>
+      </div>
     </div>`).join('');
   const g=rows[0]||{};
   return head+`<div class="sos-wrap">
@@ -10526,13 +10529,20 @@ function pollSosHTML(owner){
            at a table of twelve numbers wants to read first. */}
     <div class="sos-note">Lower total = harder schedule.</div>
     <div class="sos-grid">
-      <div class="sos-row sos-h"><span class="sos-rk">#</span><span class="sos-t">Team</span>
-        <span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Opp Scored</span>
-        ${''/* the rule says where the total comes from: Played and To come are
-               the two halves of it, and Scored is a different measure that
-               happens to sit beside them */}
-        <span class="r sos-c sos-sep">Played</span><span class="r sos-c">To come</span>
-        <span class="r sos-tot">Total</span></div>
+      ${''/* THE PILL NAMES THE HALF IT SITS ON. Only three of these six columns
+             come from the poll, so beside the section heading it was a label on
+             the wrong thing. It caps the block it belongs to instead.
+             (No apostrophe in here: a lone one inside a ${''} comment reads to
+             the lifter as an opening quote and it swallows the rest of the
+             function. scripts/lib/lift.mjs does not step over comments nested
+             inside a template substitution.) */}
+      <div class="sos-row sos-cap"><div class="sos-left"></div>
+        <div class="sos-right"><span class="sos-pill">Coaches' Poll</span></div></div>
+      <div class="sos-row sos-h">
+        <div class="sos-left"><span class="sos-rk">#</span><span class="sos-t">Team</span>
+          <span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Opp Scored</span></div>
+        <div class="sos-right"><span class="r sos-c">Played</span><span class="r sos-c">To come</span>
+          <span class="r sos-tot">Total</span></div></div>
       ${body}
     </div></div>`;
 }

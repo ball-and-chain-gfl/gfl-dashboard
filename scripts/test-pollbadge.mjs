@@ -435,9 +435,17 @@ head('8. STRENGTH OF SCHEDULE');
   ok('a flat column is not graded', M.sosCol(7, 7, 7), 'var(--text2)');
   ok('and neither is a missing number', M.sosCol(null, 10, 30), 'var(--text2)');
   /* the divider marks off the three that make the total */
-  ok('the rule sits on Played', (M.pollSosHTML('o1').match(/sos-sep/g) || []).length,
-     (r || []).length + 1);
-  ok('and the column says whose scoring it is',
+  /* the two halves are two blocks now, one per row plus the cap and the
+     header — a line down the middle said they were different, a gap and a
+     panel show it */
+  ok('every row is split in two', (M.pollSosHTML('o1').match(/sos-left/g) || []).length,
+     (r || []).length + 2);
+  ok('and each half has its partner', (M.pollSosHTML('o1').match(/sos-right/g) || []).length,
+     (M.pollSosHTML('o1').match(/sos-left/g) || []).length);
+  ok('the pill caps the poll half', M.pollSosHTML('o1').indexOf('sos-pill') >= 0, true);
+  ok('and it is off the section heading',
+     M.pollSosHTML('o1').indexOf('badge-info') < 0, true);
+  ok('the column says whose scoring it is',
      M.pollSosHTML('o1').indexOf('>Opp Scored<') >= 0, true);
 
   ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);

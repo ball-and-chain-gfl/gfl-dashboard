@@ -5431,23 +5431,62 @@
     .sos-gate>i{opacity:.7;}
     .sos-note{margin-bottom:11px;font-size:11.5px;line-height:1.55;color:var(--text3);}
     .sos-note b{color:var(--text2);font-weight:700;}
-    .sos-grid{display:flex;flex-direction:column;gap:2px;}
-    .sos-row{display:grid;grid-template-columns:24px minmax(0,1fr) 64px 52px 60px 52px;
-      align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
-      background:rgba(255,255,255,0.02);}
+    /* ── TWO TABLES, NOT ONE WITH A LINE DOWN IT ────────────────────────────
+       A rule between two column groups says they are different; a gap and a
+       panel say it without anybody having to read the rule. The right-hand
+       three -- Played, To come, Total -- are the Coaches' Poll half of this,
+       and they now sit in their own block, in the accent tint the schedule
+       already uses for a rivalry row, under a pill that names what they are.
+       The left-hand half is the team and what its opponents have actually
+       SCORED, which is a different source and reads as one.
+
+       One grid per half rather than one grid for the row, so the halves can
+       have their own widths and their own grounds, and stretch keeps the two
+       the same height whichever one is taller. */
+    .sos-grid{display:flex;flex-direction:column;gap:0;}
+    .sos-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;
+      align-items:stretch;}
+    .sos-left{display:grid;grid-template-columns:24px minmax(0,1fr) 64px;gap:8px;
+      align-items:center;padding:8px 10px;background:rgba(255,255,255,0.02);}
+    .sos-right{display:grid;grid-template-columns:52px 60px 52px;gap:8px;
+      align-items:center;padding:8px 10px;
+      background:rgba(var(--accent-rgb),0.07);
+      border-left:1px solid rgba(var(--accent-rgb),0.2);
+      border-right:1px solid rgba(var(--accent-rgb),0.2);}
     .sos-row .r{text-align:right;}
-    /* the two middle headings are the widest text in their columns, so they set
-       the size rather than the numbers under them: small enough that To come
-       stays on one line at 375px, where it was breaking in half */
-    .sos-h{background:none;padding-top:0;padding-bottom:4px;
-      font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.2px;
-      text-transform:uppercase;color:var(--text3);}
-    /* font-size:inherit or .sos-tot's own 14px wins in the header row and the
-       Total heading comes out five pixels taller than the four beside it */
-    .sos-h>span{white-space:nowrap;font-size:inherit;font-weight:800;}
+    /* the two blocks are closed off top and bottom rather than floated as
+       twelve separate cards -- the table is one object each side */
+    .sos-grid>.sos-row:first-child>.sos-right{border-top:1px solid rgba(var(--accent-rgb),0.2);
+      border-radius:10px 10px 0 0;}
+    .sos-grid>.sos-row:last-child>.sos-right{border-bottom:1px solid rgba(var(--accent-rgb),0.2);
+      border-radius:0 0 10px 10px;}
+    .sos-grid>.sos-row:nth-child(2)>.sos-left{border-radius:8px 8px 0 0;}
+    .sos-grid>.sos-row:last-child>.sos-left{border-radius:0 0 8px 8px;}
+    /* a hairline per row so a line can be followed across a block that no
+       longer has gaps in it */
+    .sos-grid>.sos-row:not(:last-child)>.sos-left{box-shadow:inset 0 -1px 0 rgba(255,255,255,0.05);}
+    .sos-grid>.sos-row:not(:last-child):not(.sos-cap)>.sos-right{
+      box-shadow:inset 0 -1px 0 rgba(var(--accent-rgb),0.15);}
+    /* THE PILL NAMES THE BLOCK IT SITS ON. It used to ride beside the section
+       heading, where it looked like a note about the whole table -- and only
+       three of its six columns are the poll. Centred over those three, in the
+       same treatment the schedule gives a RIVAL tag. */
+    .sos-cap>.sos-left{background:none;box-shadow:none;padding:0;}
+    .sos-cap>.sos-right{display:flex;align-items:center;justify-content:center;
+      padding:7px 10px 6px;}
+    .sos-pill{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+      letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;
+      background:rgba(var(--accent-rgb),0.18);color:var(--accent);
+      border-radius:999px;padding:3px 10px;}
+    .sos-h>.sos-left{background:none;box-shadow:none;padding-bottom:5px;}
+    .sos-h>.sos-right{padding-bottom:5px;}
+    .sos-h span{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
+      letter-spacing:.2px;text-transform:uppercase;color:var(--text3);
+      white-space:nowrap;}
     /* the team reading it is picked out, because the answer it came for is its
        own line and twelve rows is long enough to lose it */
-    .sos-me{background:rgba(255,179,71,0.09);box-shadow:inset 0 0 0 1px rgba(255,179,71,0.28);}
+    .sos-me>.sos-left{background:rgba(255,255,255,0.06);}
+    .sos-me>.sos-right{background:rgba(var(--accent-rgb),0.15);}
     .sos-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;color:var(--text3);
       font-variant-numeric:tabular-nums;}
     .sos-t{display:flex;align-items:center;gap:8px;min-width:0;}
@@ -5457,47 +5496,22 @@
       letter-spacing:.4px;white-space:nowrap;}
     .sos-c{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);
       font-variant-numeric:tabular-nums;}
-    /* THE RULE SAYS WHERE THE TOTAL COMES FROM. Played and To come are the two
-       halves of it and Opp Scored is a different measure that happens to sit
-       beside them, so the line goes between the two ideas rather than between
-       any two columns.
-
-       IT IS NOT ON THE COLUMN EDGE, and that is the point. Every number here is
-       right-aligned, so a rule at the boundary of the two tracks sat 7px from
-       the number on its left and forty-odd from the number on its right, which
-       reads as a line belonging to the Scored column rather than dividing
-       anything. Drawn instead as a pseudo-element about a third of the way into
-       the Played track, which puts it halfway between the two NUMBERS -- which
-       is the gap a reader actually sees. A percentage rather than a pixel so it
-       keeps its place when the columns narrow. */
-    .sos-sep{position:relative;align-self:stretch;
-      display:flex;align-items:center;justify-content:flex-end;}
-    .sos-sep::before{content:'';position:absolute;left:30%;top:0;bottom:0;width:1px;
-      background:rgba(255,255,255,0.13);}
-    /* stretch reaches the row's CONTENT box, which leaves a 16px tick inside a
-       30px row — read as a stray mark rather than a divider. The negative
-       bleed takes it back out through the row's own padding so the rule runs
-       the full height and the twelve of them read as one line down the table.
-       Not on the header, whose padding is not symmetrical. */
-    .sos-row:not(.sos-h)>.sos-sep::before{top:-8px;bottom:-8px;}
     /* the two graded columns carry their colour, so they carry a little weight
        with it -- a tinted 400 on a dark ground reads as a mistake */
     .sos-grade{font-weight:700;}
     .sos-tot{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;
       font-variant-numeric:tabular-nums;}
     @media(max-width:560px){
-      /* the columns are sized to the HEADINGS, not the numbers: two digits
-         need thirty pixels and "To come" needs fifty, and a heading that
-         overflows its own column bleeds left into the one beside it */
-      .sos-row{grid-template-columns:16px minmax(0,1fr) 56px 44px 52px 42px;
-        gap:4px;padding:7px 7px;}
+      .sos-row{gap:8px;}
+      .sos-left{grid-template-columns:16px minmax(0,1fr) 56px;gap:4px;padding:7px 7px;}
+      .sos-right{grid-template-columns:42px 50px 40px;gap:4px;padding:7px 7px;}
       .sos-nm{display:none;} .sos-ab{display:inline;}
       .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
-      .sos-row:not(.sos-h)>.sos-sep::before{top:-7px;bottom:-7px;}
+      .sos-pill{font-size:8.5px;padding:2px 8px;letter-spacing:.4px;}
       /* NOT bigger than the base size here, which is what it used to be: these
          headings are the widest text in their own columns, so at 375px the one
          that has to survive is "To come" and 9px broke it in half. */
-      .sos-h{font-size:8px;letter-spacing:0;} }
+      .sos-h span{font-size:8px;letter-spacing:0;} }
     .sch-p{font-weight:700;}
     .sch-ml{color:var(--text2);}
     .sch-c2,.sch-c4{color:var(--text2);}
