@@ -51,10 +51,13 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)),
     'const pollBadgeAtFor=',
     'function pollSosRows(){',
     'function pollSosHTML(owner){',
+    'let _wkScRank=',
+    'function weekScoreRanks(week){',
   ],
   ['cpMineIn', 'pollNowRanks', 'pollBadge', 'pollBadgeFor', 'pollTeamIdOf',
    'cpTally', 'cpKey', 'ntBig4', 'CP_REVEAL_AT', 'NT_BIG4_OWNER', 'NT_BIG4_FROM',
    'pollRanksAt', 'pollBadgeAt', 'pollBadgeAtFor', 'pollSosRows', 'pollSosHTML',
+   'weekScoreRanks',
    'setTeams', 'setRows', 'setMe', 'setPolls', 'setFranchises', 'setWeek', 'setTest',
    'setSeason'],
 `
@@ -351,22 +354,29 @@ head('8. STRENGTH OF SCHEDULE');
        poll wk1   1 2 3 4        poll wk2   4 3 2 1        poll wk3   2 1 4 3
 
      so `now` is week 3: t2 first, t1 second, t4 third, t3 fourth. */
-  const rk = o => ({ weeks: {} , ...{} });
   const polls = { weeks: {} };
   [[1, ['1','2','3','4']], [2, ['4','3','2','1']], [3, ['2','1','4','3']]]
     .forEach(([w, o]) => { polls.weeks[w] = { ballots: 4,
       rank: o.map((id, i) => ({ rank: i + 1, teamId: Number(id), avg: i + 1 })) }; });
-  const g = (w, a, b) => ({ matchupPeriodId: w, home: { teamId: a }, away: { teamId: b } });
+  /* the SCORES matter as well as the poll, for the Scored column:
+       wk1   t3 140, t1 120, t2 100, t4 90     so t3 is 1st and t4 is 4th
+       wk2   t4 130, t3 110, t2 95,  t1 80 */
+  const g = (w, a, ap, b, bp) => ({ matchupPeriodId: w,
+    home: { teamId: a, totalPoints: ap }, away: { teamId: b, totalPoints: bp } });
   reset();
   M.setTeams(TEAMS.slice(0, 4));
   M.setFranchises(FR.slice(0, 4));
   M.setMe({ k1: 'o1' });
   M.setRows(rows(4, 4));
   M.setPolls(polls);
-  M.setSeason({ regEnd: 4,
+  /* 2025 rather than 2026 so this fixture cannot collide with section 9's in
+     the weekScoreRanks memo, which is keyed on the season and the number of
+     games played and would otherwise see two different four-game seasons */
+  M.setSeason({ season: 2025, regEnd: 4,
     meta: { owners: { 1: 'o1', 2: 'o2', 3: 'o3', 4: 'o4' } },
-    played: [g(1, 1, 2), g(1, 3, 4), g(2, 1, 3), g(2, 2, 4)],
-    unplayed: [g(4, 1, 4), g(4, 2, 3), g(6, 1, 2)] });
+    played: [g(1, 1, 120, 2, 100), g(1, 3, 140, 4, 90),
+             g(2, 1, 80, 3, 110),  g(2, 2, 95, 4, 130)],
+    unplayed: [g(4, 1, 0, 4, 0), g(4, 2, 0, 3, 0), g(6, 1, 0, 2, 0)] });
 
   const r = M.pollSosRows();
   const by = {}; (r || []).forEach(x => { by[x.owner] = x; });
@@ -387,6 +397,22 @@ head('8. STRENGTH OF SCHEDULE');
   /* the playoff fixture in week 6 would have added t2's rank of 1 to o1 */
   ok('the playoff week is not counted', by.o1.total !== 8, true);
 
+  /* ── the Scored column: the opponents' finishing places, added up ────────
+       o1 met t2 (3rd in wk1) and t3 (2nd in wk2)   = 5
+       o2 met t1 (2nd)        and t4 (1st)          = 3   the hardest of it
+       o3 met t4 (4th)        and t1 (4th)          = 8   the easiest
+       o4 met t3 (1st)        and t2 (3rd)          = 4                      */
+  ok('o1 scored', by.o1.scored, 5);
+  ok('o2 scored', by.o2.scored, 3);
+  ok('o3 scored', by.o3.scored, 8);
+  ok('o4 scored', by.o4.scored, 4);
+  ok('it counts the games behind and not the ones ahead', by.o1.sn, 2);
+  /* it is a DIFFERENT measure of the same slate, so it must not move the one
+     the table is ranked on */
+  ok('and it stays out of the total', by.o1.played + by.o1.left, by.o1.total);
+  ok('the order is still the poll order', (r || []).map(x => x.owner),
+     ['o2', 'o1', 'o4', 'o3']);
+
   ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);
   ok('and the rank follows the sort', (r || []).map(x => x.rank), [1, 2, 3, 4]);
 
@@ -406,6 +432,52 @@ head('8. STRENGTH OF SCHEDULE');
   M.setSeason(null);
   ok('no season, no rows', M.pollSosRows(), null);
   ok('and no section', M.pollSosHTML('o1'), '');
+}
+
+/* ── 9 ──────────────────────────────────────────────────────────────────── */
+head('9. WHERE A SCORE RANKED IN ITS OWN WEEK');
+{
+  const gp = (w, a, ap, b, bp) => ({ matchupPeriodId: w,
+    home: { teamId: a, totalPoints: ap }, away: { teamId: b, totalPoints: bp } });
+  reset();
+  M.setTeams(TEAMS.slice(0, 4));
+  M.setFranchises(FR.slice(0, 4));
+  M.setSeason({ season: 2026, regEnd: 4,
+    meta: { owners: { 1: 'o1', 2: 'o2', 3: 'o3', 4: 'o4' } },
+    played: [gp(1, 1, 120, 2, 100), gp(1, 3, 140, 4, 90),
+             gp(2, 1, 80, 3, 80),   gp(2, 2, 95, 4, 110)],
+    unplayed: [] });
+
+  /* week 1:  o3 140, o1 120, o2 100, o4 90 */
+  ok('the biggest week is first', M.weekScoreRanks(1).o3, 1);
+  ok('and the smallest is last', M.weekScoreRanks(1).o4, 4);
+  ok('the whole week, in order',
+     ['o1', 'o2', 'o3', 'o4'].map(o => M.weekScoreRanks(1)[o]), [2, 3, 1, 4]);
+
+  /* week 2:  o4 110, o2 95, then o1 and o3 both on 80 */
+  ok('a tie shares the better number',
+     [M.weekScoreRanks(2).o1, M.weekScoreRanks(2).o3], [3, 3]);
+  ok('and nobody is given the one below it',
+     Object.values(M.weekScoreRanks(2)).indexOf(4), -1);
+  ok('above the tie is unaffected',
+     [M.weekScoreRanks(2).o4, M.weekScoreRanks(2).o2], [1, 2]);
+
+  ok('a week nobody has played is empty', JSON.stringify(M.weekScoreRanks(3)), '{}');
+  ok('and so is week zero', JSON.stringify(M.weekScoreRanks(0)), '{}');
+
+  /* the memo has to notice a week landing */
+  M.setSeason({ season: 2026, regEnd: 4,
+    meta: { owners: { 1: 'o1', 2: 'o2', 3: 'o3', 4: 'o4' } },
+    played: [gp(1, 1, 120, 2, 100), gp(1, 3, 140, 4, 90),
+             gp(2, 1, 80, 3, 80),   gp(2, 2, 95, 4, 110),
+             gp(3, 1, 200, 2, 10),  gp(3, 3, 50, 4, 60)],
+    unplayed: [] });
+  ok('a new week is picked up rather than served from the cache',
+     M.weekScoreRanks(3).o1, 1);
+  ok('and the weeks already cached are still right', M.weekScoreRanks(1).o3, 1);
+
+  M.setSeason(null);
+  ok('no season, no ranks', JSON.stringify(M.weekScoreRanks(1)), '{}');
 }
 
 console.log(NL + pass + ' passed, ' + fail + ' failed');

@@ -9431,8 +9431,18 @@ function schedPlayedRows(owner){
     const fr=_franchises.find(f=>f.owner===oppOwner);
     const oppName=(fr&&fr.name)||(meta.names&&meta.names[oppOwner]&&meta.names[oppOwner].name)
       ||(meta.teams&&meta.teams[theirs.teamId]&&meta.teams[theirs.teamId].name)||'Team';
+    /* THE ALL-TIME RECORD DOES NOT STOP EXISTING WHEN THE GAME IS OVER, and
+       the column was blank on every played row only because this builder had
+       never been asked for it -- schedRows works it out for the games still to
+       come and these rows were written without the same line. Same key, same
+       table, same shape. */
+    const hk=owner<oppOwner?`${owner}|${oppOwner}`:`${oppOwner}|${owner}`;
+    const hm=(_h2hAll[hk]||{})[owner];
+    const hg=hm?hm.games:0, hw=hm?hm.w:0, ht=hm?hm.t:0;
     out.push({week:m.matchupPeriodId, playoff:(m.matchupPeriodId||0)>info.regEnd,
       oppOwner, oppName, my, their, counts:postGameCounts(info.season,m),
+      h2h:hg?`${hw}–${Math.max(0,hg-hw-ht)}${ht?`–${ht}`:''}`:'—',
+      h2hPct:hg?hw/hg:null,
       res:my>their?'W':their>my?'L':'T', margin:my-their});
   });
   out.sort((a,b)=>a.week-b.week);
@@ -9938,9 +9948,9 @@ function schedPlayedStripHTML(owner,season){
         <i class="fa fa-chevron-down sch-caret"></i></span>
       <span class="r sch-c1">${r.my.toFixed(1)}</span>
       <span class="r sch-c2">${r.their.toFixed(1)}</span>
-      <span class="r sch-c3"></span>
+      <span class="r sch-c3" ${r.h2hPct!=null?`style="color:${schedPctCol(r.h2hPct)}"`:''}>${r.h2h||'—'}</span>
       <span class="r sch-p sch-res-b">${r.counts?r.res:'—'}</span>
-      <span class="r sch-c4"></span><span class="r"></span>
+      <span class="r sch-c4"></span><span class="r sch-sc">${wkScoreBadge(r.oppOwner,r.week)}</span>
     </div>
     <div class="sch-detail" data-season="${season}"></div>`;
   }).join('')+`<div class="sch-deadline"><span class="sch-dl-l"></span>
@@ -10332,6 +10342,56 @@ function playoffOutlook(){
   return _poCache;
 }
 const ordinal=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
+/* ── WHERE A SCORE RANKED IN ITS OWN WEEK ────────────────────────────────────
+   1 is the most points anybody put up that Sunday and 12 is the fewest, which
+   is the one thing a box score cannot tell you on its own: 118 is a good week
+   or a bad one depending entirely on what the other eleven did.
+
+   Ties share the better number, the way a leaderboard does -- two teams on 118
+   are both 4th and nobody is 5th.
+
+   Memoised per week and thrown away whenever the season's played list grows,
+   because a schedule draws this once per row and the list is walked in full
+   each time. */
+let _wkScRank={}, _wkScStamp='';
+function weekScoreRanks(week){
+  const wk=Number(week)||0;
+  let info=null; try{ info=schedSeason(); }catch(e){ return {}; }
+  const meta=info&&info.meta;
+  if(!info||!meta||!meta.owners) return {};
+  const stamp=String(info.season)+':'+((info.played||[]).length);
+  if(_wkScStamp!==stamp){ _wkScRank={}; _wkScStamp=stamp; }
+  if(_wkScRank[wk]) return _wkScRank[wk];
+  const owners=meta.owners, list=[];
+  (info.played||[]).forEach(m=>{
+    if((Number(m.matchupPeriodId)||0)!==wk) return;
+    [m.home,m.away].forEach(side=>{
+      const o=side&&owners[side.teamId];
+      if(o) list.push({o,pts:Number(side.totalPoints)||0});
+    });
+  });
+  list.sort((a,b)=>b.pts-a.pts);
+  const out={};
+  list.forEach((x,i)=>{
+    out[x.o]=(i>0&&Math.abs(list[i-1].pts-x.pts)<1e-9)?out[list[i-1].o]:i+1;
+  });
+  return (_wkScRank[wk]=out);
+}
+/* Drawn as the poll rank is drawn, in the poll's own ramp -- blue at the top of
+   the league, red at the bottom -- because it is the same kind of statement
+   about the same twelve teams and two visual languages for that would be one
+   too many. No gate on it: a score is a score, and the whole league can already
+   read every one of them on the Standings page. */
+/* wkScoreBadge, not scoreBadge: the Draft Report has owned that name since
+   long before this, and a second top-level declaration of it would have
+   silently replaced the one that draws draft grades. test-loads caught it. */
+function wkScoreBadge(owner,week){
+  const r=weekScoreRanks(week)[owner];
+  if(!r) return '';
+  const n=(_teams||[]).length||12;
+  return `<span class="cp-bdg cp-bdg-sc" style="--cpb:${pollRampColor(r,n)}"
+    title="${r}${r===1?'st':r===2?'nd':r===3?'rd':'th'} most points in the league that week">${r}</span>`;
+}
 /* ── STRENGTH OF SCHEDULE, IN POLL NUMBERS ───────────────────────────────────
    Add up where every opponent on a team's slate stood in the Coaches' Poll:
    where they stood THAT WEEK for a game already played, where they stand now
@@ -10358,9 +10418,21 @@ function pollSosRows(){
   const sides=m=>{ const h=owners[m.home.teamId], a=owners[m.away.teamId];
     return (h&&a&&h!==a)?[h,a]:null; };
   const tally={};
-  (_franchises||[]).forEach(f=>{ tally[f.owner]={played:0,pn:0,left:0,ln:0,miss:0}; });
+  (_franchises||[]).forEach(f=>{
+    tally[f.owner]={played:0,pn:0,left:0,ln:0,scored:0,sn:0,miss:0}; });
   const put=(o,opp,week,past)=>{
     const t=tally[o]; if(!t) return;
+    /* ── WHAT THE OPPONENTS ACTUALLY DID, alongside what they were thought of.
+       The Scored column on the schedule is the opponent's finishing place in
+       that week's scoring, one row at a time; this is that column added up.
+       Where the poll numbers are a reputation, this is a result -- a team can
+       be ranked eighth all year and keep putting up the second-best score of
+       the week, and only one of these two columns ever notices.
+       It sits OUTSIDE the total on purpose: Played and To come are the same
+       measure taken twice, and folding a different one in would change what
+       the total means without changing its name. */
+    if(past){ const sr=weekScoreRanks(week)[opp];
+      if(sr){ t.scored+=sr; t.sn++; } }
     const tid=pollTeamIdOf(opp); if(!tid){ t.miss++; return; }
     const r=past?pollRanksAt(week)[tid]:now[tid];
     if(!r){ t.miss++; return; }
@@ -10379,7 +10451,8 @@ function pollSosRows(){
   const rows=(_franchises||[]).map(f=>{
     const t=tally[f.owner]||{};
     return {owner:f.owner, name:f.name, total:(t.played||0)+(t.left||0),
-      played:t.played||0, pn:t.pn||0, left:t.left||0, ln:t.ln||0, miss:t.miss||0};
+      played:t.played||0, pn:t.pn||0, left:t.left||0, ln:t.ln||0,
+      scored:t.scored||0, sn:t.sn||0, miss:t.miss||0};
   }).filter(r=>r.pn+r.ln>0);
   if(!rows.length) return null;
   rows.sort((a,b)=>a.total-b.total||a.name.localeCompare(b.name));   // hardest first
@@ -10399,18 +10472,21 @@ function pollSosHTML(owner){
       <span class="sos-t">${sbAvatar(r.owner,20)}
         <span class="sos-nm">${r.name}</span>
         <span class="sos-ab">${sbTeamAb(r.owner,r.name)}</span></span>
+      <span class="r sos-c">${r.sn?r.scored:'—'}</span>
       <span class="r sos-c">${r.pn?r.played:'—'}</span>
       <span class="r sos-c">${r.ln?r.left:'—'}</span>
       <span class="r sos-tot" style="color:${pollRampColor(r.rank,rows.length||n)}">${r.total}</span>
     </div>`).join('');
   const g=rows[0]||{};
   return head+`<div class="sos-wrap">
-    <div class="sos-note">Every opponent's poll rank added up — where they stood
-      <b>that week</b> for a game already played, where they stand <b>now</b> for one
-      still to come. Regular season only. <b>A low number is a hard schedule</b>,
-      because first in the poll is the best team in the league.</div>
+    ${''/* One line. The four sentences that were here explained the arithmetic,
+           the freezing, the regular-season cut and the direction -- all true,
+           all in the code comment above, and none of it what somebody looking
+           at a table of twelve numbers wants to read first. */}
+    <div class="sos-note">Lower total = harder schedule.</div>
     <div class="sos-grid">
       <div class="sos-row sos-h"><span class="sos-rk">#</span><span class="sos-t">Team</span>
+        <span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Scored</span>
         <span class="r sos-c">Played</span><span class="r sos-c">To come</span>
         <span class="r sos-tot">Total</span></div>
       ${body}
@@ -10506,7 +10582,7 @@ function renderSchedule(){
       <span class="r sch-c2">Opp PPG</span><span class="r sch-c3">All-time</span>
       ${''/* whose chance it is was never stated, so a column of numbers under
              fifty next to an opponent read as the OPPONENT's chance */}
-      <span class="r" title="${(_franchises.find(f=>f.owner===owner)||{}).name||'This team'}'s chance to win that week">Win%</span><span class="r sch-c4">Line</span><span class="r">Odds</span>
+      <span class="r" title="${(_franchises.find(f=>f.owner===owner)||{}).name||'This team'}'s chance to win that week">Win%</span><span class="r sch-c4">Line</span><span class="r" title="Where that team's score ranked in the league that week">Scored</span>
     </div>
     <div class="sch-list">${schedPlayedStripHTML(owner,d.info.season)}${d.rows.map((r,i)=>`
       ${(() => {
@@ -10530,7 +10606,9 @@ function renderSchedule(){
         <span class="r sch-c3" ${r.h2hPct!=null?`style="color:${schedPctCol(r.h2hPct)}"`:''}>${r.h2h}</span>
         <span class="r sch-p" style="color:${schedPctCol(r.p)}">${Math.round(r.p*100)}%</span>
         <span class="r sch-c4">${r.fav?'−':'+'}${r.spread.toFixed(1)}</span>
-        <span class="r sch-ml">${amFmt(r.ml)}</span>
+        ${''/* a game that has not been played has no score to rank, and the
+               moneyline that used to sit here went with the column's name */}
+        <span class="r sch-sc"></span>
       </div>
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
     ${pollSosHTML(owner)}
@@ -12602,15 +12680,28 @@ function invCoinTileHTML(t){
   return `<div class="iv-card iv-card-coin${t.short?' iv-card-sh':''}"
       data-o="${t.owner}" data-px="${t.price}" data-k="${t.k}"${
       t.cap!=null?` data-cap="${t.cap}"`:''}>
-    ${invCoinFaceHTML(t.coin)}
-    <span class="ivc-px${t.headCls?' '+t.headCls:''}">${t.head}</span>
-    <span class="iv-chg ${t.dir}">${t.arrow}${t.pct||''}</span>
-    ${''/* THE NAME ON A COIN IS THE ONE THE LEAGUE GAVE IT. Deebo Samuel is
-           who is on the face; FAT Coin is what the thing is called, and the
-           ticker had nowhere left to live once the legend came off the disc. */}
-    <span class="ivc-who">${(t.coin&&t.coin.name)||t.name||''}</span>
-    ${rank?`<span class="ivc-rank">${rank}</span>`:''}
-    ${t.sub?`<span class="ivc-sub">${t.sub}</span>`:''}
+    ${''/* TWO ACROSS, AND THE TILE LIES DOWN. Stacked, a coin was a column of
+           seven things and near two hundred and forty pixels tall -- five of
+           those down a phone is a lot of scrolling for fourteen prices. Wider
+           tiles let the disc and everything it is worth sit side by side, and
+           the tile comes in at about two thirds the height.
+
+           THE NAME ON A COIN IS THE ONE THE LEAGUE GAVE IT. Deebo Samuel is
+           who is on the face; FAT Coin is what the thing is called. */}
+    <div class="ivc-head">
+      ${invCoinFaceHTML(t.coin)}
+      <div class="ivc-meta">
+        <div class="ivc-line">
+          <span class="ivc-px${t.headCls?' '+t.headCls:''}">${t.head}</span>
+          <span class="iv-chg ${t.dir}">${t.arrow}${t.pct||''}</span>
+        </div>
+        <span class="ivc-who">${(t.coin&&t.coin.name)||t.name||''}</span>
+        <div class="ivc-line ivc-line2">
+          ${rank?`<span class="ivc-rank">${rank}</span>`:''}
+          ${t.sub?`<span class="ivc-sub">${t.sub}</span>`:''}
+        </div>
+      </div>
+    </div>
     <div class="iv-buy">${t.step}${t.go}</div>
   </div>`;
 }

@@ -1366,10 +1366,15 @@
        a 0-100 viewBox for exactly that reason. One number changes the coin's
        size at a breakpoint and the milling, the band, the legend and the
        headshot all follow it. */
-    .ivc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
-    .iv-card-coin{--ivm:201,161,77;--cs:96px;
-      padding:12px 6px 10px;border-radius:14px;
-      display:flex;flex-direction:column;align-items:center;gap:3px;
+    /* TWO ACROSS, AND LYING DOWN. Stacked three-up, a coin was a column of
+       seven things running to about 240px, and five rows of that is a lot of
+       phone for fourteen prices. Wider tiles let the disc and everything it is
+       worth sit beside each other: the tile comes in around 160px, and seven
+       rows of THAT is shorter overall than five of the old one. */
+    .ivc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .iv-card-coin{--ivm:201,161,77;--cs:76px;
+      padding:10px;border-radius:14px;
+      display:flex;flex-direction:column;align-items:stretch;gap:0;
       border-color:rgba(var(--ivm),0.24);
       background:
         radial-gradient(120% 110% at 50% -20%,rgba(255,243,214,0.10) 0%,transparent 60%),
@@ -1403,7 +1408,14 @@
        The ticker and the rank are ON the coin, which is where a coin puts
        them; the price is the one number that changes while you are looking at
        it, so it stays type rather than becoming relief. */
-    .ivc-px{margin-top:9px;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
+    .ivc-head{display:flex;align-items:center;gap:10px;min-width:0;}
+    .ivc-meta{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;
+      align-items:flex-start;gap:2px;}
+    /* the price and the day's move want to be one line and will take two
+       rather than push the tile wider than its column */
+    .ivc-line{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;min-width:0;max-width:100%;}
+    .ivc-line2{align-items:center;gap:6px;}
+    .ivc-px{font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
       letter-spacing:-.3px;color:#f2e0b4;text-shadow:0 1px 0 rgba(0,0,0,0.6);
       font-variant-numeric:tabular-nums;}
     /* in the portfolio the headline is a profit rather than a price, and a
@@ -1427,15 +1439,15 @@
        it -- and a bordered chip survives being read at arm's length, which a
        four-character grey line does not. */
     .ivc-who{max-width:100%;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
-      line-height:1.2;text-align:center;color:var(--text);overflow:hidden;
+      line-height:1.2;text-align:left;color:var(--text);overflow:hidden;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-    .ivc-rank{margin-top:1px;padding:1.5px 7px;border-radius:5px;
+    .ivc-rank{flex:0 0 auto;padding:1.5px 7px;border-radius:5px;
       font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.6px;
       color:#f3e2b8;background:rgba(var(--ivm),0.16);
       box-shadow:inset 0 0 0 1px rgba(var(--ivm),0.42);
       font-variant-numeric:tabular-nums;}
-    .ivc-sub{max-width:100%;font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
-      letter-spacing:.3px;text-transform:uppercase;line-height:1.35;text-align:center;
+    .ivc-sub{min-width:0;font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
+      letter-spacing:.3px;text-transform:uppercase;line-height:1.35;text-align:left;
       color:rgba(var(--ivm),0.9);}
     /* the controls fold under the coin: steppers and the field on one line,
        the action across the full width of the tile beneath them */
@@ -1453,19 +1465,21 @@
     .iv-card-coin .iv-in{height:28px;}
     .iv-card-coin .iv-amt{flex:1 1 0;min-width:0;height:28px;}
     .iv-card-coin .iv-go{flex:1 0 100%;height:30px;padding:0 6px;font-size:10px;letter-spacing:.3px;}
-    @media(max-width:520px){ .iv-card-coin{--cs:76px;padding:10px 5px 9px;}
-      .ivc-px{font-size:13.5px;margin-top:7px;}
+    @media(max-width:520px){ .iv-card-coin{--cs:68px;padding:9px;}
+      .ivc-head{gap:8px;} .ivc-px{font-size:13.5px;}
       .ivc-who{font-size:10px;} .ivc-rank{font-size:9.5px;padding:1.5px 6px;}
-      .iv-card-coin .iv-step{width:23px;} }
-    @media(max-width:380px){ .iv-card-coin{--cs:68px;} .ivc-grid{gap:6px;} }
-    @media(min-width:760px){ .iv-card-coin{--cs:136px;padding:16px 10px 13px;}
-      .ivc-px{font-size:19px;} .ivc-who{font-size:13px;}
-      .ivc-rank{font-size:11px;padding:2px 9px;}
+      .iv-card-coin .iv-buy{padding-top:8px;} .iv-card-coin .iv-step{width:24px;} }
+    @media(max-width:380px){ .iv-card-coin{--cs:60px;} .ivc-grid{gap:6px;} }
+    /* wide tiles: a bigger coin, and the controls stop wrapping */
+    @media(min-width:760px){ .iv-card-coin{--cs:112px;padding:14px;}
+      .ivc-head{gap:14px;}
+      .ivc-px{font-size:20px;} .ivc-who{font-size:13.5px;}
+      .ivc-rank{font-size:11px;padding:2px 9px;} .ivc-sub{font-size:9.5px;}
       .iv-card-coin .iv-chg{font-size:11.5px;}
-      .iv-card-coin .iv-go{height:34px;font-size:11px;}
+      .iv-card-coin .iv-go{flex:1 1 auto;height:32px;font-size:11px;}
       .iv-card-coin .iv-step,.iv-card-coin .iv-q,.iv-card-coin .iv-in,
       .iv-card-coin .iv-amt{height:32px;}
-      .iv-card-coin .iv-step{width:32px;} }
+      .iv-card-coin .iv-step{width:30px;} }
     /* the action takes the card's own colour, so Buy reads blue and Short
        reads orange without either being named twice */
     .iv-go:not(:disabled){border-color:rgba(var(--ivc),0.42);color:rgb(var(--ivc));
@@ -2360,6 +2374,12 @@
        yet to read */
     .cp-bdg-q{color:var(--text3);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);
       background:rgba(255,255,255,0.04);font-weight:700;}
+    /* A SCORING RANK IS THE SAME KIND OF STATEMENT AND WEARS THE SAME RAMP, so
+       the only thing separating it from a poll rank is its shape: a pill rather
+       than a rounded square. Same twelve teams, same blue-to-red, different
+       question -- and on the schedule they sit in different columns anyway. */
+    .cp-bdg-sc{border-radius:9px;min-width:20px;}
+    .sch-sc{display:flex;align-items:center;justify-content:flex-end;}
     /* ── ON A CREST, OUTSIDE CORNER EACH SIDE ───────────────────────────────
        Left team top-left, right team top-right, so the two badges sit at the
        outer edges of the matchup and the week between them is never crowded.
@@ -5402,13 +5422,17 @@
     .sos-note{margin-bottom:11px;font-size:11.5px;line-height:1.55;color:var(--text3);}
     .sos-note b{color:var(--text2);font-weight:700;}
     .sos-grid{display:flex;flex-direction:column;gap:2px;}
-    .sos-row{display:grid;grid-template-columns:24px minmax(0,1fr) 54px 60px 52px;
+    .sos-row{display:grid;grid-template-columns:24px minmax(0,1fr) 52px 52px 60px 52px;
       align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
       background:rgba(255,255,255,0.02);}
     .sos-row .r{text-align:right;}
+    /* the two middle headings are the widest text in their columns, so they set
+       the size rather than the numbers under them: small enough that To come
+       stays on one line at 375px, where it was breaking in half */
     .sos-h{background:none;padding-top:0;padding-bottom:4px;
-      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.5px;
+      font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.2px;
       text-transform:uppercase;color:var(--text3);}
+    .sos-h>span{white-space:nowrap;overflow:visible;}
     /* the team reading it is picked out, because the answer it came for is its
        own line and twelve rows is long enough to lose it */
     .sos-me{background:rgba(255,179,71,0.09);box-shadow:inset 0 0 0 1px rgba(255,179,71,0.28);}
@@ -5424,10 +5448,14 @@
     .sos-tot{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;
       font-variant-numeric:tabular-nums;}
     @media(max-width:560px){
-      .sos-row{grid-template-columns:20px minmax(0,1fr) 44px 48px 44px;gap:6px;padding:7px 8px;}
+      .sos-row{grid-template-columns:16px minmax(0,1fr) 40px 42px 48px 40px;
+        gap:4px;padding:7px 7px;}
       .sos-nm{display:none;} .sos-ab{display:inline;}
       .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
-      .sos-h{font-size:9px;letter-spacing:.3px;} }
+      /* NOT bigger than the base size here, which is what it used to be: these
+         headings are the widest text in their own columns, so at 375px the one
+         that has to survive is "To come" and 9px broke it in half. */
+      .sos-h{font-size:8px;letter-spacing:.1px;} }
     .sch-p{font-weight:700;}
     .sch-ml{color:var(--text2);}
     .sch-c2,.sch-c4{color:var(--text2);}
