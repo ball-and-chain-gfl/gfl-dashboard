@@ -534,17 +534,30 @@
        Sized in crests rather than fractions so it holds at any card width, and
        so a shut-out keeps its empty cell — the side that got no votes is a fact
        about the vote, and an absence needs somewhere to be absent from. */
-    .trade-vote-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;
-      --tvn:1;--tvw:calc(var(--tvn)*22px + (var(--tvn) - 1)*5px + 16px);}
-    .trade-vote-sides.tv-big-left{grid-template-columns:var(--tvw) minmax(0,1fr);}
-    .trade-vote-sides.tv-big-right{grid-template-columns:minmax(0,1fr) var(--tvw);}
+    /* ── A VOTE COLUMN IS AS WIDE AS ITS OWN CRESTS, AND NO WIDER ──────────
+       The majority was sized to its crests and the minority given
+       minmax(0,1fr) -- all the space left. Backwards: one crest took the
+       larger half and sat alone in a box running the full width, while the
+       five it lost to were packed into a block beside it.
+
+       fit-content sizes each column to its own content and stops at the cap;
+       space-between pushes them to their own edges and leaves the slack in the
+       middle, where it reads as room rather than as a stretched box.
+
+       The cap is six crests OR half the row, whichever is smaller. Six is as
+       many as still reads as a row rather than a strip; half is what keeps two
+       full sides inside the card, since 50% - 4px twice plus the 8px gap is
+       exactly 100%. Twelve one way comes out two rows of six. */
+    .trade-vote-sides{display:grid;gap:8px;justify-content:space-between;
+      --tvcap:min(calc(6*22px + 5*5px + 16px), calc(50% - 4px));
+      grid-template-columns:fit-content(var(--tvcap)) fit-content(var(--tvcap));}
     /* Crests stack from the top of their cell and hug the side they belong to:
        the left team's to the top-left, the right team's to the top-right. The
        two cells are the same height whatever the split, so without
        align-content the shorter side's row floats in the middle of a box the
        taller side set the height of. */
     .tv-side{display:flex;flex-wrap:wrap;align-items:flex-start;align-content:flex-start;
-      justify-content:flex-start;gap:5px;min-width:0;
+      justify-content:flex-start;gap:5px;min-width:38px;
       padding:7px 8px;border-radius:8px;background:rgba(255,255,255,0.04);}
     .tv-side.tv-l{justify-content:flex-end;}
     .trade-card:last-child{margin-bottom:18px;}

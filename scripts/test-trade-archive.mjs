@@ -184,6 +184,7 @@ try {
     function setMe(m){ _me = m; }
     function setArchived(v, t){ _tradeVotes = v || {}; _tradeVoterTeam = t || {}; }
     ${liftFn('ntTradeVoteId')}
+    ${liftFn('tradeMergeRow')}
     ${liftFn('mergeSeasonTrades')}
     ${liftFn('ntVoteSides')}
     ${liftFn('ntVoteTally')}
@@ -208,6 +209,53 @@ if (built2) {
   ok('the POINTS come from the live feed, not the frozen copy',
     m.trades[0].teams[1].total === 99, m.trades[0].teams[1].total);
   ok('and the voter map rides along', m.voters && m.voters.mm === 1);
+
+  /* ── WHO WAS IN A TRADE IS SETTLED THE DAY IT HAPPENS ──────────────────
+     ESPN deletes the detailed trade log and what replaces it is a
+     reconstruction from rosters -- and a roster only holds the players still
+     on it. Trade a man on and he falls out of the deal that brought him. That
+     is not a stale number, it is a changed fact: the week 1 card lost Davante
+     Adams and went from 108.2 points to 42.4, which moved the bar underneath
+     it and changed its mind about who had won. */
+  {
+    const P = (pid, pts) => ({ pid, n: 'p' + pid, pts });
+    const arc = { season: '2026', trades: [T([2, 3], 111, { votes: { mm: '3' },
+      teams: [{ teamId: 2, players: [P(1, 65.8), P(2, 42.4)], total: 108.2 },
+              { teamId: 3, players: [P(3, 41.4)], total: 41.4 }] })] };
+    /* the live row has forgotten player 1 entirely */
+    const lv = { season: '2026', trades: [T([2, 3], 111, {
+      teams: [{ teamId: 2, players: [P(2, 50)], total: 50 },
+              { teamId: 3, players: [P(3, 60)], total: 60 }] })] };
+    const g = M.mergeSeasonTrades('2026', arc, lv).trades[0];
+    const side = id => g.teams.find(t => t.teamId === id);
+    ok('the player the live row dropped is put back',
+      side(2).players.map(p => p.pid).sort().join(',') === '1,2',
+      side(2).players.map(p => p.pid).join(','));
+    ok('a player BOTH know about keeps the live points',
+      side(2).players.find(p => p.pid === 2).pts === 50);
+    ok('one only the archive knows keeps the archived points',
+      side(2).players.find(p => p.pid === 1).pts === 65.8);
+    ok('and the total is recomputed, so the bar cannot disagree with the names',
+      side(2).total === 115.8, side(2).total);
+    ok('a side the live row still has in full is left alone',
+      side(3).players.length === 1 && side(3).total === 60);
+    ok('the verdict still comes from the archive',
+      JSON.stringify(g.votes) === '{"mm":"3"}');
+
+    /* A WHOLE SIDE IS A DIFFERENT CASE, because the vote id is built out of the
+       team ids: lose one and the live row stops being the same trade at all.
+       So it is not merged, it is kept alongside -- and the archived row, which
+       still has both sides and the verdict, survives whole. Which is the
+       outcome that matters; the merge never gets the chance to half-fix it. */
+    const lv2 = { season: '2026', trades: [T([2, 3], 111, {
+      teams: [{ teamId: 2, players: [P(2, 50)], total: 50 }] })] };
+    const both = M.mergeSeasonTrades('2026', arc, lv2).trades;
+    ok('a live row missing a side is a different trade', both.length === 2, both.length);
+    const kept = both.find(t => t.teams.length === 2);
+    ok('and the archived one survives with both sides', !!kept);
+    ok('carrying its players', kept && kept.teams[0].players.length === 2);
+    ok('and its verdict', kept && JSON.stringify(kept.votes) === '{"mm":"3"}');
+  }
 
   const live2 = { season: '2026', trades: [live.trades[0], T([5, 6], 222)] };
   ok('a trade ESPN has that the archive does not is added',

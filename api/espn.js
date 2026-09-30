@@ -1278,6 +1278,36 @@ export default async function handler(req, res) {
       // week -> pid -> { team, pts, n }
       const wk = {};
       const name = {};
+      // ── A TRADE IS A FACT ABOUT THE PAST, SO IT CANNOT BE READ OFF TODAY ──
+      // Every roster entry carries how it was acquired and when, and a trade
+      // stamps one acquisitionDate on every player in it -- which is what groups
+      // them back into a deal further down. That was read off the CURRENT roster
+      // only, and a current roster holds nobody who has since left it.
+      //
+      // So a player traded IN during week 1 and away again in week 4 silently
+      // dropped out of the week 1 trade: Davante Adams went to the Mulligans in
+      // the opening deal and was traded on in week 4, and the week 1 card lost
+      // him -- 108.2 points became 42.4 and the bar above it changed its mind
+      // about who won a trade that had already happened. A whole deal can go the
+      // same way if every player in it has since moved on, which is what
+      // happened to a week 3 swap of two defences.
+      //
+      // The weekly snapshots already being fetched know better. He is on the
+      // Mulligans week 1, 2 and 3 rosters carrying the same acquisitionDate,
+      // so the deal is recoverable from any week he is still there. Keyed on
+      // date+player and kept at the EARLIEST week seen, because that is the
+      // roster that received him and the one the week is counted from.
+      const acq = {};
+      const takeAcq = (e, teamId, week) => {
+        if (!/TRADE/i.test(String(e.acquisitionType || ''))) return;
+        const when = Number(e.acquisitionDate) || 0;
+        const pid = e.playerId;
+        if (!when || pid == null) return;
+        const k = `${when}|${pid}`;
+        if (acq[k] && acq[k].week <= week) return;
+        acq[k] = { pid, to: teamId, week, when,
+          n: e.playerPoolEntry?.player?.fullName || acq[k]?.n || `#${pid}` };
+      };
       weekResults.forEach(wr => {
         if (!wr || wr.week > finalWeek) return;
         const map = wk[wr.week] = {};
@@ -1288,6 +1318,7 @@ export default async function handler(req, res) {
             const st = stats.find(x => x.statSourceId === 0 && x.scoringPeriodId === wr.week);
             map[pid] = { team: team.id, pts: st?.appliedTotal ?? 0 };
             if (e.playerPoolEntry?.player?.fullName) name[pid] = e.playerPoolEntry.player.fullName;
+            takeAcq(e, team.id, wr.week);
           });
         });
       });
@@ -1386,19 +1417,32 @@ export default async function handler(req, res) {
         const lr = await fetch(leagueURL('mRoster', { forceLive: true }), { headers });
         if (lr.ok) {
           const ld = unwrap(await lr.json());
-          const groups = {};
+          // the live roster is still read, for anyone acquired since the last
+          // weekly snapshot -- it is the most recent week, not the only one
           (ld.teams || []).forEach(team => {
-            (team.roster?.entries || []).forEach(e => {
-              if (!/TRADE/i.test(String(e.acquisitionType || ''))) return;
-              const when = Number(e.acquisitionDate) || 0;
-              if (!when) return;
-              const g = groups[when] || (groups[when] = []);
-              g.push({ pid: e.playerId, to: team.id,
-                n: e.playerPoolEntry?.player?.fullName || `#${e.playerId}` });
-            });
+            (team.roster?.entries || []).forEach(e => takeAcq(e, team.id, (weeks[weeks.length - 1] || 0) + 1));
           });
-          const seen = new Set(trades.map(t =>
-            t.teams.flatMap(x => x.players.map(p => p.pid)).sort((a, b) => a - b).join(',')));
+          const groups = {};
+          Object.values(acq).forEach(a => { (groups[a.when] || (groups[a.when] = [])).push(a); });
+          // ── THE SAME DEAL, TOLD TWICE, NEVER TOLD IDENTICALLY ─────────────
+          // This matched on the EXACT player set, which held only while the two
+          // tellings agreed about who was in the trade. They no longer do: the
+          // weekly diff sees a player who changed hands between two snapshots,
+          // and the acquisition stamps see everyone the deal ever moved. A deal
+          // the diff caught partially would therefore differ by one player,
+          // miss the key, and be pushed a second time -- one trade drawn as two
+          // cards, each with half of it.
+          //
+          // So the test is OVERLAP, not equality: one player in common is the
+          // same deal, because a player can only be traded once per deal. And
+          // the fuller telling wins -- the acquisition stamps are ESPN's own
+          // record of what moved, where the diff is an inference from two
+          // photographs of a roster.
+          const pidsOf = t => t.teams.flatMap(x => x.players.map(p => p.pid));
+          const overlaps = pids => {
+            const want = new Set(pids);
+            return trades.findIndex(t => pidsOf(t).some(p => want.has(p)));
+          };
           // THE WEEK A TRADE HAPPENED IN DOES NOT MOVE. curWeek DOES.
           //
           // Every trade found here was stamped with the CURRENT scoring period
@@ -1423,9 +1467,9 @@ export default async function handler(req, res) {
             const legs = groups[when];
             const teamIds = [...new Set(legs.map(l => l.to))];
             if (teamIds.length !== 2) return;          // not a two-way deal
-            const key = legs.map(l => l.pid).sort((a, b) => a - b).join(',');
-            if (seen.has(key)) return;                 // the diff already has it
-            seen.add(key);
+            const at = overlaps(legs.map(l => l.pid));
+            // the diff's version of this deal, if it found one at all
+            if (at >= 0 && pidsOf(trades[at]).length >= legs.length) return;
             const teamsOut = teamIds.map(tid => {
               const players = legs.filter(l => l.to === tid)
                 .map(l => ({ pid: l.pid, n: l.n,
@@ -1436,7 +1480,8 @@ export default async function handler(req, res) {
             // `date` is what the notification card reads to decide whether a
             // trade happened this week; `at` is kept for ordering.
             const tradeWk = Math.min(...legs.map(l => firstWeekOn(l.pid, l.to)));
-            trades.push({ week: tradeWk, teams: teamsOut, at: Number(when), date: Number(when) });
+            const row = { week: tradeWk, teams: teamsOut, at: Number(when), date: Number(when) };
+            if (at >= 0) trades[at] = row; else trades.push(row);
           });
         }
       } catch {}

@@ -1245,19 +1245,62 @@ async function computeCoaching(teams, transactions, weeklyData){
      over, because the log has three possible sources and only one of them was
      ever checked. Keyed on the movement — player, from, to, week — so a genuine
      trade cannot collide with anything. */
+  /* ── AND THE WEEK IS NOT PART OF WHAT MAKES A MOVEMENT ITSELF ────────────
+     The key carried the week, on the assumption that two tellings of one trade
+     would at least agree about when it happened. They do not. The archive holds
+     the week 3 swap as ONE record stamped scoringPeriodId 3; ESPN now returns
+     the same movements as separate one-item records stamped 0, because it has
+     dropped the detail from the log. Different weeks, so different keys, so the
+     Saints defence was credited to the Miners twice -- once at week 3 and once
+     at week 0 -- and both halves of the week 1 trade were counted twice over.
+     Doubling C2 for everyone involved, and printing the player twice with two
+     different weeks beside him, which is what was reported.
+
+     A player, a team he left and a team he joined IS the movement. Two real
+     trades of the same player between the same two clubs would have to run in
+     opposite directions and key differently, so nothing legitimate collides.
+
+     THEN THE WEEK IS READ BACK OFF THE ROSTERS. A stamp of 0 is not week zero,
+     it is no answer -- and counting a week 4 trade from week 1 hands the buyer
+     three weeks he did not own the player for. The first week a player appears
+     on the roster that received him is the same number as the stamp wherever a
+     stamp survives to check it against: Adams at the Mulligans from week 1 to a
+     record stamped 1, the Eagles defence at Florida Man in week 3 to a record
+     stamped 3. So the two agree where they overlap, and the rosters answer
+     where the feed has stopped. */
+  const arrivedWeek=(pid,toTeamId)=>{
+    if(toTeamId==null) return 0;
+    for(const w of weeks) if(weeklyData[w]?.[pid]?.team===toTeamId) return w;
+    return 0;
+  };
+  const moveWeek=new Map();
+  (transactions||[]).forEach(tx=>{
+    if(!executed(tx)) return;
+    if(tx.type!=='TRADE_ACCEPT'&&tx.type!=='TRADE') return;
+    const stamped=Number(tx.scoringPeriodId)||0;
+    (tx.items||[]).forEach(item=>{
+      const pid=item.playerId; if(pid==null) return;
+      const key=`${pid}|${item.fromTeamId}|${item.toTeamId}`;
+      const wk=stamped>0?stamped:arrivedWeek(pid,item.toTeamId);
+      const had=moveWeek.get(key);
+      /* a real week beats no week; two real ones take the earlier, which is
+         when the players actually changed hands */
+      if(had==null||had===0||(wk>0&&wk<had)) moveWeek.set(key,wk);
+    });
+  });
   const seenMove=new Set();
   (transactions||[]).forEach(tx=>{
     if(!executed(tx)) return;
     const tid=tx.teamId;
     if(detail[tid]) detail[tid].txTypes.add(tx.type);
     if(tx.type==='TRADE_ACCEPT'||tx.type==='TRADE'){
-      const tradeWeek=tx.scoringPeriodId||0;
-      const fromWeek=tradeWeek+1;
       (tx.items||[]).forEach(item=>{
         const pid=item.playerId; if(pid==null) return;
-        const key=`${pid}|${item.fromTeamId}|${item.toTeamId}|${tradeWeek}`;
+        const key=`${pid}|${item.fromTeamId}|${item.toTeamId}`;
         if(seenMove.has(key)) return;
         seenMove.add(key);
+        const tradeWeek=moveWeek.get(key)||0;
+        const fromWeek=tradeWeek+1;
         const pts=allPts(pid, fromWeek);
         if(item.toTeamId!=null && item.toTeamId in c2){
           c2[item.toTeamId]+=pts/10;
@@ -2420,14 +2463,53 @@ function mergeSeasonTrades(season,arc,live){
   liveT.forEach(t=>{
     const id=ntTradeVoteId(season,t);
     const was=byId[id];
-    /* the live row wins on everything except the verdict */
-    out.push(was&&was.votes?{...t,votes:was.votes}:t);
+    out.push(tradeMergeRow(t,was));
     delete byId[id];
   });
   Object.keys(byId).forEach(id=>out.push(byId[id]));   // archived only
   return {season,count:out.length,trades:out,
     source:(live&&live.source)||(arc&&arc.source)||'reconstructed',
     voters:(arc&&arc.voters)||undefined};
+}
+/* ── WHO WAS IN A TRADE IS SETTLED THE DAY IT HAPPENS ────────────────────────
+   The live row used to win on everything except the verdict, which assumed the
+   live row could only ever be better informed. It cannot. ESPN deletes the
+   detailed trade log, and what replaces it is a reconstruction from rosters --
+   and a roster only holds the players still on it. Trade a man on and he falls
+   out of the deal that brought him, months after the fact.
+
+   That is not a stale number, it is a changed fact: the week 1 card lost
+   Davante Adams and went from 108.2 points to 42.4, which moved the bar and
+   changed its mind about who won. The archive was written while the log still
+   existed and knows he was in it.
+
+   So the CAST is unioned and the POINTS are live. A player either source knows
+   about is in; his points come from the live row when it still carries him,
+   because those keep growing all season, and from the archive when it does not.
+   Totals are recomputed from whatever survives that, so the bar underneath can
+   never disagree with the names above it.
+
+   The api side has been fixed not to lose him in the first place
+   (see the acquisition scan in api/espn.js); this is the belt to that brace,
+   and the thing that keeps a season readable if ESPN changes shape again. */
+function tradeMergeRow(live,arc){
+  if(!arc) return live;
+  const merged={...live};
+  if(arc.votes) merged.votes=arc.votes;
+  const byTeam={}; (arc.teams||[]).forEach(t=>{ byTeam[String(t.teamId)]=t; });
+  merged.teams=(live.teams||[]).map(t=>{
+    const a=byTeam[String(t.teamId)]; if(!a) return t;
+    const have=new Set((t.players||[]).map(p=>p.pid));
+    const extra=(a.players||[]).filter(p=>!have.has(p.pid));
+    if(!extra.length) return t;
+    const players=[...(t.players||[]),...extra].sort((x,y)=>y.pts-x.pts);
+    return {...t,players,total:+players.reduce((n,p)=>n+(p.pts||0),0).toFixed(1)};
+  });
+  /* a whole side the live row dropped is still a side of the trade */
+  (arc.teams||[]).forEach(a=>{
+    if(!merged.teams.some(t=>String(t.teamId)===String(a.teamId))) merged.teams.push(a);
+  });
+  return merged;
 }
 function setTradeSort(mode,btn){
   _tradeSort=mode;
@@ -2632,41 +2714,27 @@ function tradeVoteHTML(tr,winner,loser){
     .map(v=>({teamId:voterTeamId(v)}));
   const crests=list=>list.map(x=>ntCrest(_ownerMap[Number(x.teamId||0)],22)).join('');
   const W=backers(winner), L=backers(loser);
-  /* THE COLUMNS FOLLOW THE VOTE. An even split down the middle is right when
-     the vote was even and wasteful when it was not: eleven crests in half the
-     width is three rows while one crest sits alone in the other half.
+  /* ── EACH COLUMN IS AS WIDE AS ITS OWN CRESTS, AND NO WIDER ───────────────
+     The majority used to be sized to its crests and the minority handed
+     minmax(0,1fr) -- everything left over. Which is backwards: one crest was
+     given the larger half of the card and drawn alone in a box running the full
+     width, while the five it lost to sat in a neat block beside it. It only
+     looked right when both sides happened to fill their columns.
 
-     So a lopsided vote sizes the MAJORITY, and sizes it to six crests — six is
-     as many as read as a row rather than as a strip, and it is where the column
-     stops growing however many voted that way. Eleven or twelve both come out
-     two rows of six. The minority takes whatever is left, which is narrower
-     than half but still a column rather than a slot.
+     Both are content-sized now, pushed to their own edges with the gap between
+     them, and capped -- at six crests, which is as many as still reads as a row
+     rather than a strip, or at half the card, whichever is smaller. Twelve
+     voters one way is two rows of six; two against five is a small box and a
+     bigger one with air in the middle.
 
-     Any majority gets it, not only a landslide. The rule used to ask for a
-     ratio — twice as many, and no more than three on the other side — which
-     left every near-even split on the even columns, and half of 351 holds five
-     crests. So six came out five and a stranded one, and seven came out five
-     and two. Asking only whether one side has more than the other is simpler
-     and is never worse: the majority is no wider than it needs, and the
-     minority's own crests still fit in the remainder at every split the league
-     can produce. A dead heat still takes the even columns, which is the honest
-     picture of a dead heat.
-
-     Sized in crests rather than fractions, so it holds at any card width. A
-     shut-out keeps its empty cell for the same reason the minority keeps its
-     column — the side that got no votes is a fact about the vote, and an
-     absence needs somewhere to be absent from. */
-  const SPAN=6;
-  const nW=W.length, nL=L.length;
-  const small=Math.min(nW,nL), big=Math.max(nW,nL);
-  const lop=big>small;
-  const slots=Math.min(SPAN,Math.max(1,big));
+     A shut-out keeps its empty cell, which is why the cap has a floor of one
+     crest in the CSS: the side that got no votes is a fact about the vote, and
+     an absence needs somewhere to be absent from. */
   const cell=(cls,list)=>`<div class="tv-side ${cls}">${crests(list)}</div>`;
   return `<div class="trade-vote">
     <div class="trade-vote-h"><span>Who the league thought won</span>
       <span class="trade-vote-n">${total} vote${total===1?'':'s'}</span></div>
-    <div class="trade-vote-sides${lop?(nW<nL?' tv-big-right':' tv-big-left'):''}"
-      style="--tvn:${slots}">
+    <div class="trade-vote-sides">
       ${cell('tv-w',W)}
       ${cell('tv-l',L)}
     </div>
