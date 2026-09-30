@@ -36,10 +36,13 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'const INV_Q=',
   'const invRound=',
   'const invShFmt=',
-  'function invSetQty(o,v,cap){',
+  'function invSetQty(o,v,cap,card){',
 ], ['INV_Q', 'invRound', 'invShFmt', 'invSetQty', 'qty'],
   ['const _invQty={};',
    'const renderBook=()=>{};',
+   /* stepping patches one card now; with no card handed in it still falls
+      through to the board repaint, which is the path these cases take */
+   'const invStepPatch=()=>{};',
    'let _invErr="";',
    'const qty=o=>_invQty[o];'].join(NL));
 

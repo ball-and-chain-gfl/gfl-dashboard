@@ -12450,7 +12450,12 @@ function invCoinMeta(k){
    coin after the first the FIRST one's arc. */
 function invCoinFaceHTML(c,meta){
   const t=String((c&&c.t)||'').toUpperCase();
-  const rank=(meta&&meta.pos&&meta.rank)?(meta.pos+meta.rank):'';
+  /* THE BOTTOM ARC CARRIES THE POSITION AND NOT THE RANK. RB14 is four
+     characters on an arc that is 68 pixels across on a phone, which came out
+     at five pixels a glyph -- there, but not readable, which is the worst of
+     both. Two characters can be set half again as large and still fit, and the
+     full rank is on its own line under the coin where it can be read. */
+  const rank=(meta&&meta.pos)?String(meta.pos):'';
   const url=(()=>{ try{ return proxyLogo(headshotURL(c.pid,160)); }catch(e){ return null; } })();
   const esc=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   /* a long ticker has the same arc to live on as a short one */
@@ -12461,16 +12466,41 @@ function invCoinFaceHTML(c,meta){
   return '<span class="ivc-coin">'
     +'<span class="ivc-reed"></span><span class="ivc-field"></span>'
     +'<span class="ivc-photo">'+(url
-      ? '<img src="'+esc(url)+'" loading="lazy" decoding="async" alt="" onerror="this.remove()">'
+      ? '<img src="'+esc(url)+'" decoding="async" fetchpriority="high" alt="" onerror="this.remove()">'
       : '<i class="fa fa-user"></i>')+'</span>'
     +'<svg class="ivc-leg" viewBox="0 0 100 100" aria-hidden="true">'
       +'<defs><path id="'+id+'t" fill="none" d="'+arc(rTop,1)+'"/>'
       +'<path id="'+id+'b" fill="none" d="'+arc(rBot,0)+'"/></defs>'
       +'<text font-size="'+fsT+'"><textPath href="#'+id+'t" startOffset="50%"'
       +' text-anchor="middle">'+esc(t)+'</textPath></text>'
-      +(rank?'<text font-size="8.4"><textPath href="#'+id+'b" startOffset="50%"'
+      +(rank?'<text font-size="12"><textPath href="#'+id+'b" startOffset="50%"'
       +' text-anchor="middle">'+esc(rank)+'</textPath></text>':'')
     +'</svg></span>';
+}
+/* ── ONE COIN TILE, TWO PAGES ────────────────────────────────────────────────
+   The market draws it to buy and the portfolio draws it to sell, and it is the
+   same object both times: a struck disc, one headline number, who he actually
+   is, where he ranks, and a single control. Two builders would have drifted
+   the first time either page was touched.
+
+   WHO HE IS AND WHERE HE RANKS ARE THE POINT OF THIS THING and they were the
+   quietest text on it -- a grey 9.5px name under a gold price, and a rank
+   legible only on the coin at desktop size. A coin called FAT is a joke until
+   it says Deebo Samuel, WR34 underneath, and then it is a market. */
+function invCoinTileHTML(t){
+  const meta=invCoinMeta(t.owner)||{};
+  const rank=(meta.pos&&meta.rank)?(meta.pos+meta.rank):'';
+  return `<div class="iv-card iv-card-coin${t.short?' iv-card-sh':''}"
+      data-o="${t.owner}" data-px="${t.price}" data-k="${t.k}"${
+      t.cap!=null?` data-cap="${t.cap}"`:''}>
+    ${invCoinFaceHTML(t.coin,meta)}
+    <span class="ivc-px${t.headCls?' '+t.headCls:''}">${t.head}</span>
+    <span class="iv-chg ${t.dir}">${t.arrow}${t.pct||''}</span>
+    <span class="ivc-who">${meta.who||t.name||''}</span>
+    ${rank?`<span class="ivc-rank">${rank}</span>`:''}
+    ${t.sub?`<span class="ivc-sub">${t.sub}</span>`:''}
+    <div class="iv-buy">${t.step}${t.go}</div>
+  </div>`;
 }
 const invFund=k=>INV_FUNDS.find(f=>f.k===k)||null;
 /* who is inside each fund, for the season being priced. Conferences are a
@@ -20380,7 +20410,44 @@ function invSetSide(s){ _invSide=s==='short'?'short':'long'; _invErr=''; renderB
    a box would mean flipping the Stocks/Shorts switch carried the number you
    had typed over to a trade that means something else. */
 const invQtyKey=(o,k)=>(k==='s'?'s_':k==='so'?'o_':k==='sc'?'c_':'')+o;
-function invSetQty(o,v,cap){
+/* ── STEPPING REPAINTS ONE CARD, NOT THE WHOLE BOARD ────────────────────────
+   invSetQty used to end in renderBook(), which rebuilds the entire sportsbook:
+   every crest and all fourteen coin faces become NEW <img> elements, and a new
+   img paints empty for a frame before it paints its picture -- from cache as
+   well as from the network. So pressing + on one coin made every face on the
+   board flash.
+
+   Typing already knew better. invType patches the one button and says why in a
+   comment above itself; stepping is the same action reached by a different
+   control, and it had simply never been given the same treatment. It now does
+   what typing does: move the number, write it into the field it belongs to,
+   and repaint that card alone.
+
+   The card is threaded in as `this` from the button rather than looked up. The
+   two ways of finding it without being told -- document.activeElement, or the
+   global event -- are each wrong on a platform that matters, and eight call
+   sites is a small price for a lookup that cannot be wrong. */
+function invStepPatch(card,force){
+  if(!card||!card.dataset) return;
+  const k=card.dataset.k||'b';
+  const key=invQtyKey(card.dataset.o,k);
+  const amt=(_invMode==='amt'&&(k==='b'||k==='so'));
+  const v=amt?(_invCash[key]||0):(_invQty[key]||0);
+  const inp=card.querySelector('.iv-in');
+  /* never while it is being typed into: rewriting a field under the caret is
+     the bug the comment above invType was written about */
+  if(inp&&(force||document.activeElement!==inp)) inp.value=v?(amt?String(v):invShFmt(v)):'';
+  const cap=(card.dataset.cap!=null&&card.dataset.cap!=='')?Number(card.dataset.cap):null;
+  const st=card.querySelectorAll('.iv-step');
+  if(st[0]) st[0].disabled=!(v>0);
+  if(st[1]) st[1].disabled=(cap!=null&&v>=cap-1e-6);
+  try{ invPatchCard(card); }catch(e){}
+}
+const invCardOf=el=>(el&&el.closest)?el.closest('.iv-card'):null;
+/* the field itself, once it has been left: the typed value is rounded and
+   clamped on the way in, so what it shows has to be what was taken */
+function invNorm(el){ try{ invStepPatch(invCardOf(el),true); }catch(e){} }
+function invSetQty(o,v,cap,card){
   let n=Math.max(0,Number(v)||0);
   if(cap!=null) n=Math.min(n,cap);
   n=invRound(n);
@@ -20388,15 +20455,19 @@ function invSetQty(o,v,cap){
      land above the holding, and a + button that steps past the cap it was
      given is how the sell card ended up asking for more than was there. */
   if(cap!=null) n=Math.min(n,cap);
-  _invQty[o]=n; renderBook();
+  _invQty[o]=n;
+  if(card) invStepPatch(card); else renderBook();
 }
-function invStep(o,d,cap){ invSetQty(o,(_invQty[o]||0)+d,cap); }
+function invStep(el,o,d,cap){ invSetQty(o,(_invQty[o]||0)+d,cap,invCardOf(el)); }
 /* Dollar mode on a short means dollars of COLLATERAL -- the money that
    actually leaves the balance -- not dollars of notional. Typing 20 and
    watching 33 disappear would be the card lying about its own button. */
 const invShortStep=(o,px)=>Math.max(0.01,invCeilOf(o)-invCap(o,px));
-function invSetCash(o,v){ _invCash[o]=Math.max(0,Math.round((Number(v)||0)*100)/100); renderBook(); }
-function invStepCash(o,d){ invSetCash(o,(_invCash[o]||0)+d); }
+function invSetCash(o,v,card){
+  _invCash[o]=Math.max(0,Math.round((Number(v)||0)*100)/100);
+  if(card) invStepPatch(card); else renderBook();
+}
+function invStepCash(el,o,d){ invSetCash(o,(_invCash[o]||0)+d,invCardOf(el)); }
 /* what a card would trade right now: a share count typed straight in, or the
    shares a dollar amount buys at today's price. Selling is always in shares —
    the holding is a share count and that is what you are giving up. */
@@ -20504,16 +20575,16 @@ function invBoardHTML(which){
     /* In dollar mode the steppers move by five bucks. One cent at a time is
        useless and one dollar is still twenty presses to a sensible stake. */
     const step=amt
-      ? `<button class="iv-step" onclick="invStepCash('${qk}',-5)" ${cashIn?'':'disabled'}>−</button>
+      ? `<button class="iv-step" onclick="invStepCash(this,'${qk}',-5)" ${cashIn?'':'disabled'}>−</button>
          <span class="iv-amt"><span class="iv-amt-s">$</span><input class="iv-q iv-in" inputmode="decimal"
            value="${cashIn?String(cashIn):''}" placeholder="0" aria-label="Amount to put on ${x.name}"
-           oninput="invType(this,'${qk}','amt')" onchange="renderBook()" onblur="renderBook()"></span>
-         <button class="iv-step" onclick="invStepCash('${qk}',5)">+</button>`
-      : `<button class="iv-step" onclick="invStep('${qk}',-1)" ${_invQty[qk]?'':'disabled'}>−</button>
+           oninput="invType(this,'${qk}','amt')" onchange="invNorm(this)" onblur="invNorm(this)"></span>
+         <button class="iv-step" onclick="invStepCash(this,'${qk}',5)">+</button>`
+      : `<button class="iv-step" onclick="invStep(this,'${qk}',-1)" ${_invQty[qk]?'':'disabled'}>−</button>
          <input class="iv-q iv-in" inputmode="decimal" value="${_invQty[qk]?invShFmt(_invQty[qk]):''}"
            placeholder="0" aria-label="Shares of ${x.name}"
-           oninput="invType(this,'${qk}','sh')" onchange="renderBook()" onblur="renderBook()">
-         <button class="iv-step" onclick="invStep('${qk}',1)">+</button>`;
+           oninput="invType(this,'${qk}','sh')" onchange="invNorm(this)" onblur="invNorm(this)">
+         <button class="iv-step" onclick="invStep(this,'${qk}',1)">+</button>`;
     const go=`<button class="iv-go"
       ${(shut||capped||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
       onclick="${short?'invShortCard':'invBuyCard'}('${x.owner}')">
@@ -20528,15 +20599,10 @@ function invBoardHTML(which){
        What changes is the arrangement. The ticker and the rank are struck on
        the coin, so the line under it is free to be the player, and the price
        sits where a denomination sits. */
-    if(coin) return `<div class="iv-card iv-card-coin${short?' iv-card-sh':''}"
-        data-o="${x.owner}" data-px="${x.price}" data-k="${k}">
-      ${invCoinFaceHTML(coin,invCoinMeta(x.owner))}
-      <span class="ivc-px">${invFmt(x.price)}</span>
-      <span class="iv-chg ${dir}">${x.chg>0?'▲':x.chg<0?'▼':'–'}${x.chg?Math.abs(x.pct)+'%':''}</span>
-      <span class="ivc-who">${(invCoinMeta(x.owner)||{}).who||x.name}</span>
-      ${sub?`<span class="ivc-sub">${sub}</span>`:''}
-      <div class="iv-buy">${step}${go}</div>
-    </div>`;
+    if(coin) return invCoinTileHTML({owner:x.owner,price:x.price,k,coin,short,
+      name:x.name, head:invFmt(x.price), dir,
+      arrow:(x.chg>0?'▲':x.chg<0?'▼':'–'), pct:(x.chg?Math.abs(x.pct)+'%':''),
+      sub, step, go});
     return `<div class="iv-card${short?' iv-card-sh':''}${cls||''}" data-o="${x.owner}"
         data-px="${x.price}" data-k="${k}">
       <div class="iv-top">
@@ -20637,46 +20703,54 @@ function invPortfolioHTML(){
   if(!owners.length&&!shorts.length) return invChartHTML()+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
     <div>No positions yet. The market is on the Investments tab.</div></div>`;
   const chart=invChartHTML();
-  const rows=owners.map(o=>{
-    /* a fund holding is the same row as a team holding, wearing the crests of
-       what it holds instead of one crest of its own */
+  /* ── A HOLDING, WHATEVER IT IS A HOLDING OF ────────────────────────────
+     The numbers are identical for a team, a fund and a coin -- what it is
+     worth, what it cost, how much of it there is -- so they are worked out
+     once and only the SHAPE differs at the end. A coin gets the tile off the
+     market board; everything else gets the row it has always had. */
+  const holdHTML=o=>{
     const {nm,crest}=nameOf(o);
     const px=invPrice(o), cb=invCostBasis(o), sh=h[o];
     const gain=(px-cb)*sh, pct=cb?((px-cb)/cb*100):0;
     const q=Math.min(sh,_invQty['s_'+o]||0);
+    const dir=gain>0?'up':gain<0?'dn':'flat';
     /* The step up stops at the whole holding rather than at the last whole
        share below it, so one more press on a fractional lot sells all of it
        instead of leaving a remainder no button can reach. */
-    return `<div class="iv-card" data-o="${o}" data-px="${px}" data-k="s">
+    const step=`<button class="iv-step" onclick="invStep(this,'s_${o}',-1,${sh})" ${q?'':'disabled'}>−</button>
+        <input class="iv-q iv-in" inputmode="decimal" value="${q?invShFmt(q):''}"
+          placeholder="0" aria-label="Shares to sell"
+          oninput="invType(this,'s_${o}','sh')" onchange="invNorm(this)" onblur="invNorm(this)">
+        <button class="iv-step" onclick="invStep(this,'s_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>`;
+    const go=`<button class="iv-go iv-sell" ${(shut||!(q>0)||_invBusy)?'disabled':''}
+          onclick="invSellCard('${o}')">
+          ${shut?'<i class="fa fa-lock"></i>Closed'
+            :`Sell${q>0?' · '+invFmt(q*px):''}`}</button>`;
+    const co=invCoin(o);
+    if(co) return invCoinTileHTML({owner:o,price:px,k:'s',coin:co,cap:sh,name:nm,
+      head:invFmt(sh*px), dir, arrow:(gain>0?'▲':gain<0?'▼':'–'),
+      pct:(cb?Math.abs(pct).toFixed(1)+'%':''),
+      sub:`${invShFmt(sh)} sh · avg ${invFmt(cb)}`, step, go});
+    return `<div class="iv-card" data-o="${o}" data-px="${px}" data-k="s" data-cap="${sh}">
       <div class="iv-top">
         <span class="iv-c">${crest}</span>
         <span class="iv-n">${nm}<span class="iv-held">${invShFmt(sh)} share${Math.abs(sh-1)<1e-6?'':'s'} · avg ${invFmt(cb)}</span></span>
         <span class="iv-px">
           <span class="iv-px-v">${invFmt(sh*px)}</span>
-          <span class="iv-chg ${gain>0?'up':gain<0?'dn':'flat'}">${gain>0?'▲':gain<0?'▼':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
+          <span class="iv-chg ${dir}">${gain>0?'▲':gain<0?'▼':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
         </span>
       </div>
-      <div class="iv-buy">
-        <button class="iv-step" onclick="invStep('s_${o}',-1,${sh})" ${q?'':'disabled'}>−</button>
-        <input class="iv-q iv-in" inputmode="decimal" value="${q?invShFmt(q):''}"
-          placeholder="0" aria-label="Shares to sell"
-          oninput="invType(this,'s_${o}','sh')" onchange="renderBook()" onblur="renderBook()">
-        <button class="iv-step" onclick="invStep('s_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>
-        <button class="iv-go iv-sell" ${(shut||!(q>0)||_invBusy)?'disabled':''}
-          onclick="invSellCard('${o}')">
-          ${shut?'<i class="fa fa-lock"></i>Closed'
-            :`Sell${q>0?' · '+invFmt(q*px):''}`}</button>
-      </div>
+      <div class="iv-buy">${step}${go}</div>
     </div>`;
-  }).join('');
+  };
   /* ── THE SHORTS, AND THEY ARE NOT ALLOWED TO LOOK LIKE SHARES ───────────
-     Everything a short does is the other way round from the row above it: the
-     number under the name is a price it was SOLD at, the arrow is green when
-     the price has fallen, and the button buys rather than sells. A row that
-     looked like a holding and behaved like its opposite is the worst thing
-     this page could print, so it is marked three ways at once -- its own
-     heading, a SHORT tag on every row, and a card in a different colour. */
-  const sRows=shorts.map(o=>{
+     Everything a short does is the other way round from a holding: the number
+     under the name is a price it was SOLD at, the arrow is green when the
+     price has fallen, and the button buys rather than sells. A row that looked
+     like a holding and behaved like its opposite is the worst thing this page
+     could print, so it is marked three ways at once -- its own heading, a
+     SHORT tag on every row, and a card in a different colour. */
+  const shortHTML=o=>{
     const {nm,crest}=nameOf(o);
     const px=invPrice(o), cb=invShortBasis(o), sh=sold[o];
     /* capped, because that is what it settles at and what the collateral was
@@ -20689,7 +20763,23 @@ function invPortfolioHTML(){
        actually did. See the same rule on the market board above. */
     const fell=gain>0, rose=gain<0;
     const q=Math.min(sh,_invQty['c_'+o]||0);
-    return `<div class="iv-card iv-card-sh" data-o="${o}" data-px="${px}" data-k="sc">
+    const step=`<button class="iv-step" onclick="invStep(this,'c_${o}',-1,${sh})" ${q?'':'disabled'}>−</button>
+        <input class="iv-q iv-in" inputmode="decimal" value="${q?invShFmt(q):''}"
+          placeholder="0" aria-label="Shares to cover"
+          oninput="invType(this,'c_${o}','sh')" onchange="invNorm(this)" onblur="invNorm(this)">
+        <button class="iv-step" onclick="invStep(this,'c_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>`;
+    const go=`<button class="iv-go" ${(shut||!(q>0)||_invBusy)?'disabled':''}
+          onclick="invCoverCard('${o}')">
+          ${shut?'<i class="fa fa-lock"></i>Closed'
+            :`Cover${q>0?' · '+invFmt(invCollat(o,q,px)):''}`}</button>`;
+    const co=invCoin(o);
+    if(co) return invCoinTileHTML({owner:o,price:px,k:'sc',coin:co,cap:sh,short:true,name:nm,
+      head:`${gain>=0?'+':'−'}${invFmt(Math.abs(gain))}`,
+      headCls:(fell?'up':rose?'dn':''),
+      dir:(fell?'up':rose?'dn':'flat'), arrow:(fell?'▼':rose?'▲':'–'),
+      pct:(cb?Math.abs(pct).toFixed(1)+'%':''),
+      sub:`${invShFmt(sh)} short · from ${invFmt(cb)}`, step, go});
+    return `<div class="iv-card iv-card-sh" data-o="${o}" data-px="${px}" data-k="sc" data-cap="${sh}">
       <div class="iv-top">
         <span class="iv-c">${crest}</span>
         <span class="iv-n"><span class="iv-nm-row">${nm}<span class="iv-tag-sh">Short</span></span>
@@ -20699,28 +20789,30 @@ function invPortfolioHTML(){
           <span class="iv-chg ${fell?'up':rose?'dn':'flat'}">${fell?'▼':rose?'▲':'–'}${cb?Math.abs(pct).toFixed(1)+'%':''}</span>
         </span>
       </div>
-      <div class="iv-buy">
-        <button class="iv-step" onclick="invStep('c_${o}',-1,${sh})" ${q?'':'disabled'}>−</button>
-        <input class="iv-q iv-in" inputmode="decimal" value="${q?invShFmt(q):''}"
-          placeholder="0" aria-label="Shares to cover"
-          oninput="invType(this,'c_${o}','sh')" onchange="renderBook()" onblur="renderBook()">
-        <button class="iv-step" onclick="invStep('c_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>
-        <button class="iv-go" ${(shut||!(q>0)||_invBusy)?'disabled':''}
-          onclick="invCoverCard('${o}')">
-          ${shut?'<i class="fa fa-lock"></i>Closed'
-            :`Cover${q>0?' · '+invFmt(invCollat(o,q,px)):''}`}</button>
-      </div>
+      <div class="iv-buy">${step}${go}</div>
     </div>`;
-  }).join('');
-  /* the headings only appear when there is something on both sides -- one list
-     does not need to be told what it is */
-  const both=!!rows&&!!sRows;
+  };
+  /* ── AND THE COINS KEEP TO THEMSELVES ───────────────────────────────────
+     They are a different instrument in a different shape: a struck disc three
+     across against a full-width row, and mixing the two down one column left
+     the grid interrupted by rows and the rows interrupted by grids. Each kind
+     gets its own heading and its own tray, and the order is holdings then
+     shorts within each -- which is the order the money is in. */
+  const isCo=o=>!!invCoin(o);
+  const join=a=>a.join('');
+  const rows=join(owners.filter(o=>!isCo(o)).map(holdHTML));
+  const sRows=join(shorts.filter(o=>!isCo(o)).map(shortHTML));
+  const cRows=join(owners.filter(isCo).map(holdHTML));
+  const csRows=join(shorts.filter(isCo).map(shortHTML));
+  const sec=(html,label,grid)=>html
+    ? `<div class="iv-gh">${label}</div><div class="${grid?'ivc-grid':'iv-list'}">${html}</div>`
+    : '';
   return chart+`${_invErr?`<div class="iv-err">${_invErr}</div>`:''}`
     +`${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}`
-    +(rows?`${both?'<div class="iv-gh">Shares held</div>':''}
-      <div class="iv-list">${rows}</div>`:'')
-    +(sRows?`<div class="iv-gh${both?' iv-gh2':''}">Shorts — these pay when the price falls</div>
-      <div class="iv-list">${sRows}</div>`:'');
+    +sec(rows,'Shares held',false)
+    +sec(sRows,'Shorts — these pay when the price falls',false)
+    +sec(cRows,'Coins held',true)
+    +sec(csRows,'Coin shorts — these pay when he falls off',true);
 }
 
 function renderBook(){
