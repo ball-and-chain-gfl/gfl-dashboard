@@ -5432,7 +5432,9 @@
     .sos-h{background:none;padding-top:0;padding-bottom:4px;
       font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.2px;
       text-transform:uppercase;color:var(--text3);}
-    .sos-h>span{white-space:nowrap;overflow:visible;}
+    /* font-size:inherit or .sos-tot's own 14px wins in the header row and the
+       Total heading comes out five pixels taller than the four beside it */
+    .sos-h>span{white-space:nowrap;font-size:inherit;font-weight:800;}
     /* the team reading it is picked out, because the answer it came for is its
        own line and twelve rows is long enough to lose it */
     .sos-me{background:rgba(255,179,71,0.09);box-shadow:inset 0 0 0 1px rgba(255,179,71,0.28);}
@@ -5448,14 +5450,17 @@
     .sos-tot{font-family:'Inter',sans-serif;font-size:14px;font-weight:800;
       font-variant-numeric:tabular-nums;}
     @media(max-width:560px){
-      .sos-row{grid-template-columns:16px minmax(0,1fr) 40px 42px 48px 40px;
+      /* the columns are sized to the HEADINGS, not the numbers: two digits
+         need thirty pixels and "To come" needs fifty, and a heading that
+         overflows its own column bleeds left into the one beside it */
+      .sos-row{grid-template-columns:16px minmax(0,1fr) 46px 46px 54px 44px;
         gap:4px;padding:7px 7px;}
       .sos-nm{display:none;} .sos-ab{display:inline;}
       .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
       /* NOT bigger than the base size here, which is what it used to be: these
          headings are the widest text in their own columns, so at 375px the one
          that has to survive is "To come" and 9px broke it in half. */
-      .sos-h{font-size:8px;letter-spacing:.1px;} }
+      .sos-h{font-size:8px;letter-spacing:0;} }
     .sch-p{font-weight:700;}
     .sch-ml{color:var(--text2);}
     .sch-c2,.sch-c4{color:var(--text2);}
