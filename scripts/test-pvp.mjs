@@ -282,7 +282,9 @@ head('6. the derived opposite side is a real, gradeable ticket');
   M.setSlip([{ mk: 'wk2-1-2-sp' }]);
   ok('a lone spread leg qualifies', !!M.sbPvpLeg());
   M.setSlip([{ mk: 'wk2-1-2-ml' }]);
-  eq('a moneyline does not, yet', M.sbPvpLeg(), null);
+  ok('and so does a lone moneyline', !!M.sbPvpLeg());
+  M.setSlip([{ mk: 'wk2-1-2-tot' }]);
+  eq('a total does not: it has no opposing TEAM, only a number', M.sbPvpLeg(), null);
   M.setSlip([{ mk: 'wk2-1-2-sp' }, { mk: 'wk2-3-4-sp' }]);
   eq('and a parlay never will', M.sbPvpLeg(), null);
 
@@ -303,6 +305,16 @@ head('6. the derived opposite side is a real, gradeable ticket');
   eq('favourite wins by less than it', both([112, 110]), [false, true]);
   eq('the dog wins outright', both([100, 110]), [false, true]);
   eq('exactly on the line pushes BOTH sides', both([116.5, 110]), ['push', 'push']);
+
+  /* and the moneyline, which is the side of this that has real money riding on
+     the de-vig: the two halves are different prices and different stakes */
+  const mlOpp = G.sbPvpOpposite(mlMine);
+  const bothMl = sc => { G.setMeta({ 2026: meta(sc) });
+    return [G.betWeekResult(mlMine, '2026', 2), G.betWeekResult(mlOpp, '2026', 2)]; };
+  eq('the favourite wins it', bothMl([120, 110]), [true, false]);
+  eq('the dog wins it', bothMl([100, 110]), [false, true]);
+  eq('a one-point win is still a win', bothMl([111, 110]), [true, false]);
+  eq('a dead heat pushes both', bothMl([110, 110]), ['push', 'push']);
   /* never the same answer twice, which is the shape of a bet that cannot balance */
   const scorelines = [[120, 110], [112, 110], [100, 110], [116.5, 110], [130, 90], [90, 130]];
   const sameAnswer = scorelines.filter(sc => { const [x, y] = both(sc); return x === y && x !== 'push'; });
@@ -372,6 +384,39 @@ head('9. the challenger half only ever follows a decision already made');
   const back = R(half('declined'), false);
   M.set([B({ id: 'off', owner: 'bfl', pvp: true, status: back.status, ret: back.ret, stake: 25, payout: 50 })], ME);
   eq('so replaying the ledger leaves the balance whole', M.bucksBalance(), 1000);
+}
+
+/* == 10 ==================================================================== */
+head('10. a moneyline pair balances the same way a spread one does');
+{
+  /* the board prices from the fixture above */
+  const sh = M.sbPvpShares(50, -260, 200);
+  const mine = B({ id: 'm', owner: 'bfl', pvp: true, stake: sh.mine, payout: sh.pot });
+  const them = B({ id: 't', owner: 'kunk', pvp: true, stake: sh.theirs, payout: sh.pot });
+  eq('the stakes really are different numbers', mine.stake !== them.stake, true);
+  eq('and they still add to the pot', M.bucks2(mine.stake + them.stake), sh.pot);
+
+  /* the favourite laying more to win less, and the dog the other way -- both
+     paid the same pot, which is what makes the asymmetry honest */
+  M.setLeg(true);  const favWon = M.betGrade(mine);
+  M.setLeg(false); const dogLost = M.betGrade(them);
+  eq('favourite risks 34.21 to win 15.79', [mine.stake, M.bucks2(favWon.ret - mine.stake)], [34.21, 15.79]);
+  M.setLeg(true);  const dogWon = M.betGrade(them);
+  eq('dog risks 15.79 to win 34.21', [them.stake, M.bucks2(dogWon.ret - them.stake)], [15.79, 34.21]);
+  eq('either way the pot is all that moves', [favWon.ret, dogWon.ret], [50, 50]);
+  eq('zero sum on the favourite landing', M.bucks2(favWon.ret + dogLost.ret), sh.pot);
+
+  /* a tie on a moneyline pushes, and a push is the one outcome where the two
+     sides get back DIFFERENT amounts -- their own, which still sums to the pot */
+  M.setLeg('push');
+  eq('each side gets its own share back', [M.betGrade(mine).ret, M.betGrade(them).ret], [34.21, 15.79]);
+  eq('summing to the pot', M.bucks2(34.21 + 15.79), sh.pot);
+
+  /* the de-vig is the point: both sides beat the board they were quoted */
+  const favPrice = sh.odds, dogPrice = M.sbPvpShares(50, 200, -260).odds;
+  ok('the favourite lays less than -260', favPrice > -260);
+  ok('and the dog is paid more than +200', dogPrice > 200);
+  eq('which is the hold, handed back', [favPrice, dogPrice], [-220, 225]);
 }
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed' + (fail ? ', ' + fail + ' failed' : ''));

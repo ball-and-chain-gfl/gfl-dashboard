@@ -72,6 +72,13 @@ const parts = [
   grab('function sbFinalsStamp(meta){'),
   grab('function sbFinals(season){'),
   grab('function betGrade(bet){'),
+  /* The head-to-head reconcile. An 'offer' is a stake that has LEFT somebody's
+     balance and is waiting on an answer, and until this ran it was the one thing
+     on the site that could only be resolved by its owner opening the app: nobody
+     answers, the football starts, and the money sits out of their balance until
+     they next look. Same pure decision the browser uses, so the two cannot
+     drift. */
+  grab('function pvpReconcileTo(offer,other,inPlay){'),
 ];
 
 const api = new Function(`
@@ -81,6 +88,7 @@ ${parts.join('\n')}
 return {
   setData(meta,lineups){ _seasonMeta=meta; _lineups=lineups; _finalsCache={}; },
   betGrade, betDocRow, fsOut, GFL_DB,
+  pvpReconcileTo, betLegWeek, weeksOf, weekScored,
 };`)();
 
 const cfgNum = k => {
@@ -146,6 +154,33 @@ async function seasonBets() {
   return (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => api.betDocRow(x.document));
 }
 
+/* ── AN UNANSWERED HEAD TO HEAD, RESOLVED ON SCHEDULE ────────────────────────
+ * Runs BEFORE the grader, because a pair matched since the last run has to be
+ * opened before there is anything to grade -- the other order leaves every
+ * matched pair a full cycle behind.
+ *
+ * Both directions, and both are conclusions somebody else already reached:
+ *   their half open      -> the offer opens alongside it and grades below
+ *   their half declined  -> the offer voids, ret=stake, the share comes back
+ *   never answered, and  -> the offer voids the same way. Left at 'offer' it is
+ *   the football started     money out of a balance for a bet that cannot now
+ *                            happen.
+ *
+ * ret=stake is what makes a void a round trip: bucksBalance counts ret for
+ * anything that is not 'open', so a void written with ret=0 keeps the stake.
+ */
+async function writePvp(bet, to) {
+  const mask = ['status', 'ret', 'settledTs'].map(f => `updateMask.fieldPaths=${f}`).join('&');
+  /* an opened pair has not settled yet, and a settledTs on it would make the
+     browser's own replay treat it as already decided */
+  const st = to.status === 'open' ? '0' : String(Date.now());
+  const r = await fetch(`${DOCS()}/bets/${encodeURIComponent(bet.id)}?${KEY()}&${mask}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(api.fsOut({ status: to.status, ret: String(to.ret), settledTs: st })),
+  });
+  if (!r.ok) throw new Error(`pvp patch ${bet.id} failed: ${r.status} ${await r.text()}`);
+}
+
 async function writeResult(bet, g) {
   const mask = ['status', 'ret', 'settledTs'].map(f => `updateMask.fieldPaths=${f}`).join('&');
   const r = await fetch(`${DOCS()}/bets/${encodeURIComponent(bet.id)}?${KEY()}&${mask}`, {
@@ -169,6 +204,26 @@ async function writeResult(bet, g) {
   /* The pre-season test bets are excluded from every money figure in the app by
      betsResetBefore. Grading them would write history nobody is counting. */
   const live = bets.filter(b => b.ts >= RESET_BEFORE);
+
+  /* ── the head to heads first, so a pair matched since the last run grades
+     in this one rather than the next */
+  const byWeek = api.weeksOf(seasonMeta(raw).schedule);
+  const weekOn = w => !!(byWeek[w] || []).some(api.weekScored);
+  const offers = live.filter(b => b.status === 'offer' && b.pvp);
+  let matched = 0, voided = 0;
+  for (const b of offers) {
+    const other = live.find(x => x.srcBet === b.id);
+    const wk = api.betLegWeek((b.legs[0] || {}).mk);
+    const to = api.pvpReconcileTo(b, other, wk != null ? weekOn(wk) : false);
+    if (!to) continue;
+    console.log(`  ${to.status === 'open' ? 'MATCHED' : 'VOID   '} ${b.owner.padEnd(6)} `
+      + `${String(b.stake).padStart(4)} -> ${String(to.ret).padStart(4)}   v ${b.vs || '?'}`);
+    if (!DRY) { try { await writePvp(b, to); } catch (e) { console.log(`  !! ${e.message}`); continue; } }
+    b.status = to.status; b.ret = to.ret;
+    if (to.status === 'open') matched++; else voided++;
+  }
+  if (offers.length) console.log(`  ${offers.length} open offer(s): ${matched} matched, ${voided} voided\n`);
+
   const open = live.filter(b => b.status === 'open');
   console.log(`  ${bets.length} bets in ${season}, ${live.length} after the reset, ${open.length} open\n`);
 

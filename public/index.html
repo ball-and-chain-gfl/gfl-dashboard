@@ -1896,6 +1896,14 @@
     .sb-pvp-pick{font-size:12px;font-weight:700;line-height:1.35;color:var(--text);}
     .sb-pvp-v{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
       text-transform:uppercase;color:var(--purple);opacity:.75;}
+    /* THE REAL PRICE, AND THE ONE IT REPLACES. On a spread this reads -100
+       against -115 and is decoration; on a moneyline it is -220 against -260
+       and +225 against +200, which is the whole argument for doing it this way
+       rather than splitting a pot down the middle. */
+    .sb-pvp-odds{display:flex;align-items:baseline;gap:6px;margin-top:2px;
+      font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;color:var(--purple);}
+    .sb-pvp-sides .sb-pvp-side:last-of-type .sb-pvp-odds{justify-content:flex-end;}
+    .sb-pvp-odds s{font-size:10.5px;font-weight:600;color:var(--text3);}
     /* the manager row and the pot row are the same row: one label, one control,
        so the two questions the panel asks read as a pair */
     .sb-pvp-who-row{padding:11px 13px 0!important;}

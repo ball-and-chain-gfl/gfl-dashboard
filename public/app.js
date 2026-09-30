@@ -19777,12 +19777,19 @@ async function sbInviteRespond(id,accept){
    this is a second control under the first one with a panel of its own behind
    it. Ignore it and the sportsbook is the sportsbook it was.
 
-   THE SPREAD ONLY, TO START. Both sides of a spread are sold at -115, so the two
-   prices de-vig to exactly even money and the shares come out equal -- which
-   means the whole lifecycle can be proved without the pot arithmetic being the
-   thing under test. sbPvpShares is written for the general case anyway, so the
-   moneyline is a one-line change to PVP_MK once this is known good. */
-const PVP_MK=/-sp$/;
+   THE SPREAD CAME FIRST because both its sides are sold at -115: the two prices
+   de-vig to exactly even money, the shares come out equal, and the whole
+   lifecycle could be proved without the pot arithmetic being the thing under
+   test. THE MONEYLINE IS WHERE THAT ARITHMETIC EARNS ITS KEEP -- the two sides
+   are genuinely different prices, so the two stakes are genuinely different
+   numbers, and equal stakes there do not fund the bet at all: -260 against +200
+   on $25 each leaves the underdog owed $75 with $50 on the table.
+
+   Which is also why both sides now print their own de-vigged price. On a spread
+   it is -100 against -100 and says little; on a moneyline it is the difference
+   between a bet somebody will take and one that looks like a mugging, and it is
+   better than the board on BOTH sides, which is the part worth showing. */
+const PVP_MK=/-(ml|sp)$/;
 /* ONE leg, and on a market with two sides written on one fixture. A parlay has
    no coherent opposite: the negation of three legs is "at least one of them
    loses", which prices nowhere near the inverse of the three. */
@@ -20163,7 +20170,7 @@ function sbPvpPanelHTML(){
   const leg=sbPvpLeg(); if(!leg) return '';
   const opp=sbPvpOpposite(leg); if(!opp) return '';
   if(!_pvpOpen) return `<button class="sb-pvp-link" onclick="sbPvpToggle()">
-    <i class="fa fa-user-group"></i>Or put it to a manager
+    <i class="fa fa-user-group"></i>Or go head to head with a manager
     <span class="sb-pvp-tag">no house</span></button>`;
   const others=betAccounts().filter(a=>a.k1!==_me.k1);
   const sh=sbPvpShares(_pvpPot,leg.odds,opp.odds);
@@ -20176,12 +20183,17 @@ function sbPvpPanelHTML(){
       <button class="sb-pvp-x" onclick="sbPvpToggle()" aria-label="Close"><i class="fa fa-xmark"></i></button></div>
     <div class="sb-pvp-sub">No house in this one. You both put money on the table and
       the winner takes the pot \u2014 so the price is better for both of you than the board.</div>
+    ${''/* The board's number struck through beside the real one. "Better for
+          both of you than the board" is a claim, and one line of arithmetic
+          turns it into something the reader can check on the row above. */}
     <div class="sb-pvp-sides">
       <span class="sb-pvp-side"><span class="sb-pvp-who">You take</span>
-        <span class="sb-pvp-pick">${leg.pickLabel}</span></span>
+        <span class="sb-pvp-pick">${leg.pickLabel}</span>
+        <span class="sb-pvp-odds">${sh?amFmt(sh.odds):'—'}<s>${amFmt(leg.odds)}</s></span></span>
       <span class="sb-pvp-v">v</span>
       <span class="sb-pvp-side"><span class="sb-pvp-who">They take</span>
-        <span class="sb-pvp-pick">${opp.pickLabel}</span></span>
+        <span class="sb-pvp-pick">${opp.pickLabel}</span>
+        <span class="sb-pvp-odds">${sh?amFmt(amFromProb(1-sh.fair)):'—'}<s>${amFmt(opp.odds)}</s></span></span>
     </div>
     ${''/* LABELLED, AND IN THE SAME ROW SHAPE AS THE POT BELOW IT.
           On its own this was a wide box with a team name sitting in it and
@@ -20235,6 +20247,14 @@ function sbPvpPendingHTML(){
     ${pend.map(b=>{
       const bid=b.id.replace(/'/g,"\\'");
       const l=b.legs[0]||{};
+      /* ── SHORT IS A STATE OF THE CARD, NOT AN ERROR AFTER THE FACT ──────
+         sbPvpRespond refuses an acceptance it cannot fund, which is correct and
+         was the only thing saying so: the button read "I'm in" at full strength
+         and answered with a refusal. Your own balance is the one number this
+         page can always see, so the shortfall belongs on the card. The stake is
+         still checked on the way through -- a balance can move between a paint
+         and a tap -- this only stops the tap being the way you find out. */
+      const short=!bucksReady()||b.stake>bucks2(bucksBalance())+0.005;
       return `<div class="sb-invite">
         <div class="sb-invite-top"><b>${betAccountName(b.invitedBy||b.vs)}</b> wants you on the other side</div>
         <div class="sb-bet-legs"><div class="sb-bl">
@@ -20246,8 +20266,11 @@ function sbPvpPendingHTML(){
           <span>They put <b>${bucksFmt(bucks2(b.payout-b.stake))}</b></span>
           <span>Winner takes <b>${bucksFmt(b.payout)}</b></span>
         </div>
+        ${short?`<div class="sb-pvp-over"><i class="fa fa-circle-exclamation"></i>
+          ${bucksReady()?`That is ${bucksFmt(bucks2(b.stake-bucksBalance()))} more than you have.`
+            :'Still counting your money.'}</div>`:''}
         <div class="sb-invite-acts">
-          <button class="sb-place" ${_betBusy?'disabled':''} onclick="sbPvpRespond('${bid}',true)">
+          <button class="sb-place" ${_betBusy||short?'disabled':''} onclick="sbPvpRespond('${bid}',true)">
             <i class="fa fa-check"></i>I\u0027m in \u00b7 ${bucksFmt(b.stake)}</button>
           <button class="sb-pull" ${_betBusy?'disabled':''} onclick="sbPvpRespond('${bid}',false)">
             <i class="fa fa-xmark"></i>No thanks</button>
