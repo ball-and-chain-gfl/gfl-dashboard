@@ -5465,6 +5465,12 @@
        of it rather than climbing to the top. */
     .sos-sep{align-self:stretch;display:flex;align-items:center;justify-content:flex-end;
       border-left:1px solid rgba(255,255,255,0.13);padding-left:7px;}
+    /* stretch reaches the row's CONTENT box, which leaves a 16px tick inside a
+       30px row — read as a stray mark rather than a divider. The negative
+       margins take it back out through the row's own padding so the rule runs
+       the full height and the twelve of them read as one line down the table.
+       Not on the header, whose padding is not symmetrical. */
+    .sos-row:not(.sos-h)>.sos-sep{margin-top:-8px;margin-bottom:-8px;}
     /* the two graded columns carry their colour, so they carry a little weight
        with it -- a tinted 400 on a dark ground reads as a mistake */
     .sos-grade{font-weight:700;}
@@ -5479,6 +5485,7 @@
       .sos-nm{display:none;} .sos-ab{display:inline;}
       .sos-c{font-size:11px;} .sos-tot{font-size:13px;}
       .sos-sep{padding-left:5px;}
+      .sos-row:not(.sos-h)>.sos-sep{margin-top:-7px;margin-bottom:-7px;}
       /* NOT bigger than the base size here, which is what it used to be: these
          headings are the widest text in their own columns, so at 375px the one
          that has to survive is "To come" and 9px broke it in half. */
