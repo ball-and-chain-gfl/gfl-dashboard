@@ -9806,12 +9806,37 @@ function schedMargin(a,b,week){
    scatters wider than a difference of season strengths, so each is divided by
    its own. Everything that quotes a chance goes through here, so there is one
    place where the model lives. */
+/* ── THE BEST LINEUP LEADS. ESPN'S OWN NUMBER IS THE FALLBACK ────────────────
+   These two were the other way round, and quoting ESPN first quietly threw away
+   the better model underneath it.
+
+   ESPN prices the lineup AS SET. Ours is schedEspnProj: the best legal lineup
+   out of everyone a manager actually holds, bench included, with replacement
+   level reached only for a slot holding a zero or a bye that nothing on the
+   roster can cover. That is the model every other number on this site runs on
+   -- the sportsbook's lines, the forecast, the weekly prices -- and the one
+   place it was not reaching was the column that says how likely you are to win.
+
+   IT IS NOT A ROUNDING DIFFERENCE. In week 4 ESPN had the Tinglers at 2%
+   against the Whittinghams, so the column printed 5% -- its own floor -- on a
+   fixture where the projections read 130.6 to 124.5 and the book had them
+   FAVOURED at 56.7%. Somebody was being told they were dead in a game they were
+   winning, because a starter was on a bye and ESPN priced the hole instead of
+   the player who would fill it. Bismuth against the Islanders read 52% against
+   the book's 62.4% for the same reason.
+
+   ESPN stays underneath, because it is still better than the season-strength
+   fallback below it on a week ESPN has published and we have no roster for.
+   Everything that asks this question moves together -- the Win% column, the
+   forecast headline, the opening point of the win-probability curve and the
+   live scoreboard's prior -- which is the whole reason the model lives in one
+   function. See ONE GAME, ONE NUMBER below. */
 function schedZ(a,b,week){
   if(!a||!b) return 0;
-  const ep=espnProbFor(a,b,week);
-  if(ep!=null) return schedInvNorm(ep);          // ESPN's own number, quoted
   const pj=schedEspnProj(week);
   if(pj&&pj[a.owner]>0&&pj[b.owner]>0) return (pj[a.owner]-pj[b.owner])/schedWkSd();
+  const ep=espnProbFor(a,b,week);
+  if(ep!=null) return schedInvNorm(ep);          // ESPN's own number, quoted
   return schedPowerMargin(a,b)/SCHED_SD;
 }
 function schedWinProb(a,b,week){

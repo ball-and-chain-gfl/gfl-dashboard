@@ -243,37 +243,59 @@ if (built) {
   ok('and that fixture falls back rather than pricing a shutout',
     Math.abs(M.schedMargin(rows[0], rows[5], 10) - M.schedPowerMargin(rows[0], rows[5])) < 1e-9);
 
-  console.log('\n5. the number ESPN publishes is quoted, not modelled');
+  console.log('\n5. the best lineup leads; ESPN is what we fall back to');
   /* the real shape of the feed: a probability per side, rounded to two places,
      only ever for the current week */
   M.setEspnWp(3, {
     own11:{p:0.53,opp:'own0'}, own0:{p:0.47,opp:'own11'},
     own9:{p:0.54,opp:'own1'},  own1:{p:0.46,opp:'own9'},
   });
+  /* THESE TWO USED TO BE THE OTHER WAY ROUND, and quoting ESPN first quietly
+     threw away the better model underneath it. ESPN prices the lineup AS SET;
+     schedEspnProj prices the best legal lineup out of everyone a manager holds,
+     with replacement level only for a slot nothing on the roster can cover --
+     which is the model the sportsbook, the forecast and the weekly lines all
+     already run on.
+
+     It was not a rounding difference. In week 4 of 2026 ESPN had the Tinglers
+     at 2% and the column printed its own 5% floor, on a fixture the projections
+     had them WINNING 130.6 to 124.5 and the book priced them favoured at 56.7%.
+     A starter was on a bye and ESPN had priced the hole. */
   const quoted=M.schedWinProb(rows[11], rows[0], 3);
   const modelled=M.schedNormCdf(M.schedMargin(rows[11],rows[0],3)/M.schedWkSd());
-  ok('ESPN 0.53 comes back as 53%', Math.abs(quoted-0.53)<1e-6, (quoted*100).toFixed(4)+'%');
-  ok('and it overrides the projection model', Math.abs(quoted-modelled)>0.01,
-    'the model would have said '+(modelled*100).toFixed(1)+'%');
-  ok('the other side of that game is the complement',
-    Math.abs(M.schedWinProb(rows[0], rows[11], 3)-0.47)<1e-6);
+  ok('the model is what comes back', Math.abs(quoted-modelled)<1e-9,
+    (quoted*100).toFixed(1)+'% vs '+(modelled*100).toFixed(1)+'%');
+  ok('and it is NOT what ESPN published', Math.abs(quoted-0.53)>0.01,
+    'ESPN said 53%, we say '+(quoted*100).toFixed(1)+'%');
+  ok('the two sides still add to one',
+    Math.abs(M.schedWinProb(rows[11],rows[0],3)+M.schedWinProb(rows[0],rows[11],3)-1)<1e-9);
+  /* the feed is still read, and still correct -- it is the fallback now rather
+     than the answer, so everything below asks espnProbFor directly */
+  ok('ESPN 0.53 is still there to fall back on',
+    Math.abs(M.espnProbFor(rows[11],rows[0],3)-0.53)<1e-6);
+
+  /* ── AND ON A WEEK WE CANNOT MODEL, ESPN IS QUOTED ────────────────────── */
+  ok('week 13 has no rosters, so no projection', M.schedEspnProj(13)===null);
+  M.setEspnWp(13, { own11:{p:0.61,opp:'own0'}, own0:{p:0.39,opp:'own11'} });
+  ok('so ESPN is what the column says', Math.abs(M.schedWinProb(rows[11],rows[0],13)-0.61)<1e-6,
+    (M.schedWinProb(rows[11],rows[0],13)*100).toFixed(1)+'%');
+  ok('and the other side is its complement',
+    Math.abs(M.schedWinProb(rows[0],rows[11],13)-0.39)<1e-6);
   /* a probability published against a DIFFERENT opponent must not be borrowed:
      own11 plays own0 that week, so it says nothing about own11 against own5 */
-  const other=M.schedWinProb(rows[11], rows[5], 3);
   ok('a probability is not borrowed for the wrong fixture',
-    Math.abs(other-M.schedNormCdf(M.schedMargin(rows[11],rows[5],3)/M.schedWkSd()))<1e-6,
-    (other*100).toFixed(1)+'%');
+    M.espnProbFor(rows[11], rows[5], 3)===null);
   /* ESPN rounds each side on its own, so 0.53/0.46 happens; the pair is
      renormalised because everything downstream assumes it sums to one */
   M.setEspnWp(4, { own11:{p:0.53,opp:'own0'}, own0:{p:0.46,opp:'own11'} });
-  const a4=M.schedWinProb(rows[11],rows[0],4), b4=M.schedWinProb(rows[0],rows[11],4);
+  const a4=M.espnProbFor(rows[11],rows[0],4), b4=M.espnProbFor(rows[0],rows[11],4);
   ok('a pair that does not add to one is renormalised', Math.abs(a4+b4-1)<1e-12,
     `${a4} + ${b4} = ${a4+b4}`);
   ok('...and stays on the side ESPN favoured', a4>b4);
   /* 0 and 1 are a finished game, not an opinion about one */
   M.setEspnWp(5, { own11:{p:1,opp:'own0'}, own0:{p:0,opp:'own11'} });
   ok('a settled game is ignored rather than quoted as certainty',
-    M.schedWinProb(rows[11],rows[0],5)<0.95, M.schedWinProb(rows[11],rows[0],5));
+    M.espnProbFor(rows[11],rows[0],5)===null, M.espnProbFor(rows[11],rows[0],5));
   ok('no ESPN table for a week falls straight through',
     M.espnProbFor(rows[11],rows[0],9)===null);
 
@@ -288,12 +310,15 @@ if (built) {
 
   M.setNflLive(true);
   M.setEspnWp(6, { own11:{p:0.62,opp:'own0'}, own0:{p:0.38,opp:'own11'} });
+  /* through espnProbFor rather than schedWinProb: what is under test here is
+     the cache and its TTL, and week 6 HAS rosters, so the column itself would
+     now rightly answer with the model instead. */
   ok('a reading just taken is the one quoted',
-     Math.abs(M.schedWinProb(rows[11],rows[0],6)-0.62)<1e-6);
+     Math.abs(M.espnProbFor(rows[11],rows[0],6)-0.62)<1e-6);
   /* half a minute old, live: still fresh, and NOT refetched */
   M.ageEspnWp(6, 30000);
   ok('half a minute old is still fresh while live',
-     Math.abs(M.schedWinProb(rows[11],rows[0],6)-0.62)<1e-6);
+     Math.abs(M.espnProbFor(rows[11],rows[0],6)-0.62)<1e-6);
 
   /* AN OLD READING IS STILL SERVED while the new one is in flight. Dropping to
      null here would flick the headline onto our own model for one render and
