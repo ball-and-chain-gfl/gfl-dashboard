@@ -157,6 +157,9 @@ function BUCKS_IDLE_COST(){ return 0; }
 let _cpRows=[], _teams=[{id:7,name:'Dry Bones'}], _ownerMap={7:'own7'};
 function setRows(r){ _cpRows=r; }
 function ntStat(owner,name,value,label){ return 'STAT|'+value+'|'+label; }
+/* the cards carry the poll rank for the week they are from now; this suite is
+   about when a plant card fires, not what the rank was */
+const ntWeekOf=()=>0;
 const ntToday=()=>{const d=new Date(); d.setHours(0,0,0,0); return d.getTime();};
 const ntDayOf=t=>{const d=new Date(t); d.setHours(0,0,0,0); return d.getTime();};
 

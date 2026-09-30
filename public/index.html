@@ -3116,6 +3116,14 @@
       background:rgba(255,255,255,0.04);border:1px solid transparent;min-width:0;opacity:.62;}
     .nt-side.won{background:rgba(63,208,122,0.13);border-color:rgba(63,208,122,0.42);opacity:1;}
     .nt-side-c{flex:0 0 auto;display:inline-flex;}
+    /* ── THE POLL RANK, ON EVERY CARD THAT NAMES A TEAM ─────────────────────
+       Same chip as the schedule and the standings, same place — between the
+       crest and the name — so the number means the same thing wherever it is
+       read. A touch smaller here, because a notification card is a smaller
+       object than a table row and the crest beside it is only 20-26px. */
+    .nt-bdg{flex:0 0 auto;min-width:17px;height:16px;font-size:10px;}
+    /* .nt-stat is a named grid, so its badge rides inside the crest cell */
+    .nt-stat-c{gap:8px;align-items:center;}
     .nt-side-n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
       font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text2);}
     .nt-side.won .nt-side-n{color:var(--text);font-weight:800;}
