@@ -1346,7 +1346,12 @@ export default async function handler(req, res) {
                 const players = pids.map(pid => ({ pid, n: name[pid] || `#${pid}`, pts: +ptsFrom(pid, from).toFixed(1) })).sort((a,b)=>b.pts-a.pts);
                 return { teamId: +tid, players, total: +players.reduce((s,p)=>s+p.pts,0).toFixed(1) };
               });
-              return { week: from, teams };
+              // A TRADE WITH NO DATE RAISES NO VOTE. ntTrades reads tr.date to
+              // decide whether a trade is this week's news, and drops anything
+              // without one on the floor -- so a dateless trade is a trade
+              // nobody is ever asked about. The log knows when it processed.
+              const at = Number(tx.processDate || tx.proposedDate) || 0;
+              return at ? { week: from, teams, at, date: at } : { week: from, teams };
             }).filter(t => t.teams.length >= 2);
           }
         }
@@ -1479,7 +1484,15 @@ export default async function handler(req, res) {
             const pids = legs.map(l => l.pid);
             // the diff's version of this deal, if it found one at all
             const at = trades.findIndex(t => sameDeal(t, pids, teamIds));
-            if (at >= 0 && pidsOf(trades[at]).length >= legs.length) return;
+            // ── AND ON A TIE THE STAMPED VERSION WINS ─────────────────────
+            // This was >=, so a deal both tellings had in full kept the DIFF's
+            // copy. They are not equally good when the player lists match: the
+            // diff knows what moved and nothing else, while this one carries
+            // the acquisitionDate -- and a trade with no date raises no vote
+            // card at all, because ntTrades has nothing to decide whether it is
+            // this week's news. The week 4 trade came through here, kept the
+            // dateless copy, and nobody was ever asked who won it.
+            if (at >= 0 && pidsOf(trades[at]).length > legs.length) return;
             const teamsOut = teamIds.map(tid => {
               const players = legs.filter(l => l.to === tid)
                 .map(l => ({ pid: l.pid, n: l.n,
@@ -1495,6 +1508,22 @@ export default async function handler(req, res) {
           });
         }
       } catch {}
+      // ── LAST CHANCE AT A DATE ───────────────────────────────────────────
+      // Anything still undated gets one from the acquisition stamp of any
+      // player in it. A trade without a date is invisible to the vote card, so
+      // this is the difference between the league being asked and not; it is
+      // cheap, and it cannot invent one where no stamp exists.
+      const stampOf = pid => {
+        for (const k in acq) if (acq[k].pid === pid) return acq[k].when;
+        return 0;
+      };
+      trades.forEach(t => {
+        if (t.date) return;
+        for (const p of t.teams.flatMap(x => x.players.map(y => y.pid))) {
+          const w = stampOf(p);
+          if (w) { t.at = w; t.date = w; return; }
+        }
+      });
       trades.sort((a, b) => (a.week - b.week) || ((a.at || 0) - (b.at || 0)));
 
       res.setHeader('Cache-Control', isHistory
