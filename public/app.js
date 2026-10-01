@@ -17545,11 +17545,23 @@ function ntPick(vid,side){
    would be painted and binned in the same tick. It goes above the deck, where
    there is still something to look at once the card has gone. */
 function ntVoteMsgClear(){ _ntVoteMsg=null; try{ renderNotifications(); }catch(e){} }
-async function ntVote(vid,side,label){
+/* The side comes off _ntPick and the label off the card that is asking, so the
+   button has nothing to carry and nothing to escape. */
+function ntVoteLabel(fieldSafe,side){
+  try{
+    const n=ntAll().find(x=>x&&x.vote&&
+      String(x.vote.id).replace(/[^a-zA-Z0-9_]/g,'_')===fieldSafe);
+    const s=n&&(n.vote.sides||[]).find(y=>String(y.k)===String(side));
+    return (s&&s.label)||'';
+  }catch(e){ return ''; }
+}
+async function ntVote(vid,side){
   if(!_me){ openSignIn(); return; }
   if(_ntVoteBusy) return;
-  if(!side) return;
   const fieldSafe=String(vid).replace(/[^a-zA-Z0-9_]/g,'_');
+  if(side==null) side=_ntPick[fieldSafe];
+  if(!side) return;
+  const label=ntVoteLabel(fieldSafe,side);
   _ntVoteBusy=true; _ntVoteMsg=null; renderNotifications();
   /* ── AND IT ONLY COUNTS IF IT SAVED ───────────────────────────────────────
      This was try{ await gflPatchProfile(...) }catch(e){}, which swallowed the
@@ -17736,8 +17748,23 @@ function renderNotifications(){
             <span class="nt-vb-l">${s.label}</span>
             ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
           </button>`).join('')}</div>
+        ${''/* ── NOTHING BUT THE VOTE ID GOES IN THE ATTRIBUTE ──────────────
+              This passed the team's NAME through onclick as
+              ${JSON.stringify(chosen)}, which emits double quotes -- inside an
+              attribute that is itself double quoted. The browser ended the
+              attribute at the first one, so the handler was the fragment
+              ntVote('td_...','2', and the rest of the name became stray
+              attributes: motor="" city="" mulligans")"="". Clicking Submit
+              threw a syntax error and did NOTHING -- no write, no card
+              cleared, no confirmation, which is exactly what it looked like
+              from the outside.
+
+              Apostrophes would have been the next one along: Lebron's 3rd Leg
+              breaks the single-quoted form just as surely. So no league text
+              goes in here at all. The side is already on _ntPick and the label
+              is looked up from the card, where both of them live anyway. */}
         ${mine?'':`<button class="nt-vsub" ${picked&&!_ntVoteBusy?'':'disabled'}
-            onclick="ntVote('${fieldSafe}','${picked}',${JSON.stringify(chosen)})">
+            onclick="ntVote('${fieldSafe}')">
             ${_ntVoteBusy?'<i class="fa fa-circle-notch fa-spin"></i>Sending…'
               :picked?`<i class="fa fa-check"></i>Submit · ${chosen}`
               :'<i class="fa fa-check"></i>Submit'}</button>`}
