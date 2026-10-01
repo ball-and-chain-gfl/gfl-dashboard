@@ -17522,10 +17522,58 @@ function ntMyVote(vid){
    swipe that commits, not the tap. Once the card is cleared there is no way back
    to it and no other screen renders these buttons, so the answer stands as
    whatever it was when you let the card go. */
-async function ntVote(vid,side){
+/* ── A VOTE IS CHOSEN, THEN SENT ─────────────────────────────────────────────
+   Tapping a side used to BE the vote: one touch, written to the profile, card
+   gone. On a decision the card itself calls final -- "your decision cannot be
+   changed later" -- a mis-tap on a 48px button is not something to find out
+   about afterwards, and there was nothing afterwards to find out from.
+
+   So a tap picks, and Submit sends. Nothing is written until the second one.
+   _ntPick is per-vote and lives only as long as the page does: a selection is
+   not an answer and has no business being remembered anywhere. */
+let _ntPick={}, _ntVoteMsg=null, _ntVoteBusy=false;
+function ntPick(vid,side){
   if(!_me){ openSignIn(); return; }
+  const f=String(vid).replace(/[^a-zA-Z0-9_]/g,'_');
+  /* tapping the chosen one again takes it back, so a mis-tap needs no undo */
+  _ntPick[f]=(_ntPick[f]===String(side))?null:String(side);
+  _ntVoteMsg=null;
+  renderNotifications();
+}
+/* The message outlives the card on purpose. The moment a vote lands, ntLive
+   filters that card out of the feed entirely -- so a confirmation drawn ON it
+   would be painted and binned in the same tick. It goes above the deck, where
+   there is still something to look at once the card has gone. */
+function ntVoteMsgClear(){ _ntVoteMsg=null; try{ renderNotifications(); }catch(e){} }
+async function ntVote(vid,side,label){
+  if(!_me){ openSignIn(); return; }
+  if(_ntVoteBusy) return;
+  if(!side) return;
   const fieldSafe=String(vid).replace(/[^a-zA-Z0-9_]/g,'_');
-  try{ await gflPatchProfile(_me.k1,{['tv_'+fieldSafe]:String(side)}); }catch(e){}
+  _ntVoteBusy=true; _ntVoteMsg=null; renderNotifications();
+  /* ── AND IT ONLY COUNTS IF IT SAVED ───────────────────────────────────────
+     This was try{ await gflPatchProfile(...) }catch(e){}, which swallowed the
+     answer: a write refused for quota, or made offline, cleared the card and
+     moved on exactly as a successful one did. Nobody could tell, because the
+     card going away WAS the only feedback. With a confirmation on the end of
+     it that silence becomes a lie, so the result is read now and a failure
+     says so and keeps the card. */
+  let res=null;
+  try{ res=await gflPatchProfile(_me.k1,{['tv_'+fieldSafe]:String(side)}); }
+  catch(e){ res={error:'offline'}; }
+  _ntVoteBusy=false;
+  if(!res||res.error){
+    _ntVoteMsg={err:res&&res.error==='quota'
+      ?'The league database is at its daily limit — your vote did not save. Try again after midnight Pacific.'
+      :'That did not save. Check your connection and try again.'};
+    renderNotifications();
+    return;
+  }
+  _ntPick[fieldSafe]=null;
+  _ntVoteMsg={ok:label?`Vote in — you backed ${label}.`:'Vote in.'};
+  /* long enough to read, short enough that it is gone before the next visit */
+  try{ clearTimeout(_ntVoteMsgT); }catch(e){}
+  _ntVoteMsgT=setTimeout(ntVoteMsgClear,8000);
   const me=(_cpRows||[]).find(p=>p.id===_me.k1);
   if(me) me['tv_'+fieldSafe]=String(side);
   /* The card goes as the answer lands — no swipe, and nothing to swipe back.
@@ -17536,10 +17584,17 @@ async function ntVote(vid,side){
   renderNotifications();
   try{ orderHomeTodo(); }catch(e){}
 }
+let _ntVoteMsgT=null;
 /* Drop anything from the undo stack that is no longer on the board at all. */
 function ntTrimUndo(){
   const live=new Set(ntAll().map(n=>n.id));
   _ntUndo=_ntUndo.filter(id=>live.has(id));
+}
+function ntVoteMsgHTML(){
+  if(!_ntVoteMsg) return '';
+  return _ntVoteMsg.err
+    ?`<div class="nt-vmsg nt-vmsg-bad"><i class="fa fa-triangle-exclamation"></i>${_ntVoteMsg.err}</div>`
+    :`<div class="nt-vmsg"><i class="fa fa-circle-check"></i>${_ntVoteMsg.ok}</div>`;
 }
 function ntGo(where){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
@@ -17657,6 +17712,7 @@ function renderNotifications(){
       ${_ntUndo.length?`<button class="nt-undo" onclick="ntUndo()">
         <i class="fa fa-rotate-left"></i>Undo${_ntUndo.length>1?` <span class="nt-undo-n">${_ntUndo.length}</span>`:''}</button>`:''}
     </div>
+    ${ntVoteMsgHTML()}
     <div class="nt-deck">
     ${nMeta?`<div class="nt-card nt-${nMeta.tone} nt-under" aria-hidden="true"></div>`:''}
     <div class="nt-card nt-${meta.tone}" id="nt-card" data-id="${String(n.id).replace(/"/g,'&quot;')}"
@@ -17671,14 +17727,22 @@ function renderNotifications(){
       </div>
       ${n.art?`<div class="nt-art">${n.art}</div>`:''}
       ${n.body?`<div class="nt-body">${n.body}</div>`:''}
-      ${n.vote?`<div class="nt-vote">${n.vote.sides.map(s=>`
-          <button class="nt-vb${mine===s.k?' on':''}"
-            onclick="ntVote('${fieldSafe}','${s.k}')">
+      ${n.vote?(()=>{
+        const picked=_ntPick[fieldSafe]||'';
+        const chosen=(n.vote.sides.find(s=>s.k===picked)||{}).label||'';
+        return `<div class="nt-vote">${n.vote.sides.map(s=>`
+          <button class="nt-vb${(mine||picked)===s.k?' on':''}"
+            onclick="ntPick('${fieldSafe}','${s.k}')">
             <span class="nt-vb-l">${s.label}</span>
             ${total?`<span class="nt-vb-n">${Math.round((tally[s.k]||0)/total*100)}%</span>`:''}
           </button>`).join('')}</div>
-        ${needVote?`<div class="nt-voted"><i class="fa fa-hand-pointer"></i>Pick a side — this one does not clear until you do.</div>`:''}
-        ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`:''}
+        ${mine?'':`<button class="nt-vsub" ${picked&&!_ntVoteBusy?'':'disabled'}
+            onclick="ntVote('${fieldSafe}','${picked}',${JSON.stringify(chosen)})">
+            ${_ntVoteBusy?'<i class="fa fa-circle-notch fa-spin"></i>Sending…'
+              :picked?`<i class="fa fa-check"></i>Submit · ${chosen}`
+              :'<i class="fa fa-check"></i>Submit'}</button>`}
+        ${needVote&&!picked?`<div class="nt-voted"><i class="fa fa-hand-pointer"></i>Pick a side — this one does not clear until you do.</div>`:''}
+        ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`;})():''}
       ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
       ${n.claim?`<button class="nt-go" onclick="ntClaimBk()">
         <i class="fa fa-gift"></i>${n.claim.label}</button>

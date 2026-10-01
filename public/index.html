@@ -3326,10 +3326,28 @@
     .nt-vb-n{flex:0 0 auto;font-size:11px;font-weight:800;color:var(--text2);}
     .nt-vb.on{border-color:rgba(var(--accent-rgb),0.7);background:rgba(var(--accent-rgb),0.14);color:var(--text);}
     .nt-vb.on .nt-vb-n{color:var(--accent);}
+    /* ── PICKED IS NOT SENT ──────────────────────────────────────────────
+       .on is a SELECTION now, not an answer. A tap moves it, tapping the same
+       side again takes it back, and nothing reaches the profile until Submit
+       is pressed -- which is the one control on this card that writes.
+       Disabled until a side is chosen, so the card reads in the order it is
+       meant to be used. */
+    .nt-vsub{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+      margin-top:8px;padding:10px 12px;border-radius:9px;cursor:pointer;border:none;
+      background:var(--accent);color:#1b1206;
+      font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;}
+    .nt-vsub:disabled{background:rgba(255,255,255,0.07);color:var(--text3);cursor:default;}
+    /* ...and the receipt, which sits ABOVE the deck because the card itself is
+       filtered out of the feed the instant the vote lands. Drawn on the card it
+       would be painted and binned in the same tick. */
+    .nt-vmsg{display:flex;align-items:center;gap:9px;margin:0 0 11px;padding:10px 13px;
+      border-radius:10px;background:rgba(74,222,128,0.13);
+      border:1px solid rgba(74,222,128,0.30);
+      font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--green);}
+    .nt-vmsg-bad{background:rgba(251,113,133,0.13);border-color:rgba(251,113,133,0.32);
+      color:var(--red);}
     /* The prompt on a card that will not clear until it is answered, and the
-       dead X that goes with it. Both buttons stay live: the answer can be
-       changed as often as you like while the card is up, and it is letting the
-       card go that commits it. */
+       dead X that goes with it. */
     .nt-voted{margin-top:7px;display:flex;align-items:center;justify-content:center;gap:6px;
       font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text2);}
     .nt-voted i{font-size:10px;color:var(--accent);}
