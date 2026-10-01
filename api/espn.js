@@ -1414,8 +1414,16 @@ export default async function handler(req, res) {
       const sameDeal = (t, pids, teamIds) => {
         const tt = t.teams.map(x => x.teamId);
         if (tt.length !== teamIds.length || !teamIds.every(id => tt.includes(id))) return false;
-        const has = new Set(pids);
-        return pidsOf(t).every(p => has.has(p));
+        /* EITHER DIRECTION. This asked only whether the row already on the pile
+           fits inside the new group, which held while the new group was always
+           the fuller one. It is not: the activity feed remembers a player the
+           acquisition stamps have lost, so the feed's four-player week 1 trade
+           arrived first and the stamps' three-player version then failed to
+           match it -- one deal drawn as two cards, one of them missing Davante
+           Adams. Same teams and one telling inside the other, whichever way
+           round it happens to be. */
+        const mine = pidsOf(t), has = new Set(pids), ours = new Set(mine);
+        return mine.every(p => has.has(p)) || pids.every(p => ours.has(p));
       };
       /* THE WEEK A TRADE HAPPENED IN DOES NOT MOVE, and the rosters are what
          know it: the first week a player appears on the side that RECEIVED him.
@@ -1489,8 +1497,19 @@ export default async function handler(req, res) {
             });
             const row = { week: wk, teams: teamsOut, at: t.date, date: t.date };
             if (t.faab.length) row.faab = t.faab;
-            if (at >= 0) { row.at = trades[at].at || row.at; row.date = trades[at].date || row.date;
-                           trades[at] = row; }
+            if (at >= 0) {
+              row.at = trades[at].at || row.at; row.date = trades[at].date || row.date;
+              /* ── AND THE MONEY SURVIVES THE SECOND TELLING ──────────────────
+                 ESPN files every trade TWICE, under two topics and two message
+                 families -- a 224 set and a 244 set, same players both times.
+                 Only the 244 topic carries the 290 that holds the FAAB. So the
+                 224 telling arrived second, matched, replaced the row it
+                 matched, and took the $50 off the week 3 trade on its way past.
+                 A telling that knows nothing about money does not get to say
+                 there was none. */
+              if (!row.faab && trades[at].faab) row.faab = trades[at].faab;
+              trades[at] = row;
+            }
             else trades.push(row);
           });
         }
