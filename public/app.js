@@ -2643,8 +2643,10 @@ async function renderTradesTab(){
       const share=(_tA+_tB)>0?Math.max(a.total,b.total)/(_tA+_tB):0.5;
       /* the vote is named off the raw trade, before the card decides which of
          the two sides won and reorders them */
+      /* faab rides along explicitly: this row is built field by field rather
+         than spread, so anything not named here is simply not on the card. */
       list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total),share,
-        voteId:ntTradeVoteId(season,tr)});
+        faab:tr.faab||null, voteId:ntTradeVoteId(season,tr)});
     });
   });
   // optional team filter (by franchise owner, works across seasons)
