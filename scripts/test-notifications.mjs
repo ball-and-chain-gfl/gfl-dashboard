@@ -1,3 +1,4 @@
+import fs from 'fs';
 /* WHEN A RESULT IS STILL NEWS.
  *
  * The three generators that report football -- the standings, the blowouts and
@@ -93,6 +94,55 @@ console.log(nl + '3. THE BUG IT REPLACES, STATED AS A TEST');
      comparison would also have got right, but only by accident */
   ok('and it is news on the day it landed',
      api.NT_RESULTS_MAX > 0 && (w17 + DAY) - w17 < api.NT_RESULTS_MAX);
+}
+
+/* ── NO LEAGUE TEXT IN AN HTML ATTRIBUTE ─────────────────────────────────────
+ * The Submit button on a trade vote carried the team NAME through onclick as
+ * ${JSON.stringify(label)} -- double quotes, inside an attribute that is itself
+ * double quoted. The browser ended the attribute at the first one, the handler
+ * became a fragment, and clicking Submit threw: no vote written, no card
+ * cleared, no confirmation. It looked from the outside exactly like the feature
+ * not existing, and it shipped because the button was never actually pressed in
+ * testing -- only the states around it.
+ *
+ * Single quotes are no safer. Lebron's 3rd Leg is a real team in this league
+ * and it breaks the other form. So the rule is the simple one: an inline
+ * handler gets ids and numbers, never a name somebody chose.
+ */
+{
+  console.log(nl + 'inline handlers carry no free text');
+  const src = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  /* every on*= attribute written into a template, with what it interpolates */
+  /* LINE BASED, not attribute based. An attribute regex stops at the first
+     quote -- and the quote inside .replace(/"/g,...) is one, so it truncates
+     the very expression under test and reports a safe line as unsafe. The
+     handlers here are written one per source line, so the line is the honest
+     unit. */
+  const lines = src.split(String.fromCharCode(10)).map(l => l.replace(String.fromCharCode(13), ""));
+  const handlerLines = lines.filter(l => /on[a-z]+="/.test(l));
+  ok('app.js has inline handlers to check at all', handlerLines.length > 20, handlerLines.length);
+
+  /* JSON.stringify into an attribute is allowed, but ONLY with the quotes
+     entity-escaped on the way in -- selectPunish does exactly that and is fine.
+     Without it the first quote ends the attribute, which is what happened here.
+     So the rule is not "never stringify", it is "never emit a raw quote". */
+  const raw = handlerLines.filter(l => l.includes('JSON.stringify(') && !l.includes('&quot;'));
+  ok('any handler that stringifies into an attribute escapes its quotes',
+     raw.length === 0, raw.map(l => l.trim()).slice(0, 3).join(' | '));
+  /* and the safe one is still there, so this is a rule with teeth rather than
+     a condition nothing in the file meets */
+  ok('...and the one that does it correctly still counts',
+     handlerLines.some(l => l.includes('JSON.stringify(') && l.includes('&quot;')));
+
+  /* and the one that was broken takes an id and nothing else */
+  const vsub = /onclick="ntVote\(([^"]*)\)"/.exec(src);
+  ok('the vote submit handler is still in the source', !!vsub);
+  if (vsub) {
+    const args = vsub[1].split(',');
+    ok('it takes exactly one argument', args.length === 1, vsub[1]);
+    ok('and that argument is the sanitised vote id',
+       /^'\$\{fieldSafe\}'$/.test(args[0].trim()), args[0]);
+  }
 }
 
 console.log(nl + pass + ' passed, ' + fail + ' failed');

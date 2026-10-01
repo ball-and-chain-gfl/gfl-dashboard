@@ -17691,7 +17691,15 @@ function renderNotifications(){
   if(!list.length){
     /* Undo belongs here most of all: clearing the last card is the swipe
        people most often did not mean, and this is the screen it leaves you on. */
-    el.innerHTML=`<div class="nt-clear"><i class="fa fa-check"></i>
+    /* ── AND THE RECEIPT BELONGS HERE MOST OF ALL TOO ──────────────────────
+       Casting a vote removes that card from the feed, and a trade vote is
+       usually the only card holding the stack open -- so answering it lands
+       you HERE, on the empty state, which did not draw the confirmation at
+       all. The one path where somebody most needs telling their vote counted
+       was the one path that told them nothing: card gone, screen says you are
+       all caught up, no mention of the thing they just did. */
+    el.innerHTML=`${ntVoteMsgHTML()}
+      <div class="nt-clear"><i class="fa fa-check"></i>
       <span>Nothing new. You are all caught up.</span></div>
       ${''/* No undo here. It belongs above a stack, and there is no stack — this
              screen is the end of the run, and Start Over is the control that
