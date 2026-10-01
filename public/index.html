@@ -548,18 +548,30 @@
        many as still reads as a row rather than a strip; half is what keeps two
        full sides inside the card, since 50% - 4px twice plus the 8px gap is
        exactly 100%. Twelve one way comes out two rows of six. */
-    .trade-vote-sides{display:grid;gap:8px;justify-content:space-between;
-      --tvcap:min(calc(6*22px + 5*5px + 16px), calc(50% - 4px));
-      grid-template-columns:fit-content(var(--tvcap)) fit-content(var(--tvcap));}
+        /* ── SIX WIDE, BOTH SIDES, MEETING IN THE MIDDLE ──────────────────────
+       Two halves and a gap, always. Content sizing came before this and it
+       made the two boxes different widths on every trade, so the pair never
+       lined up with the split bar above them or with each other card.
+
+       SIX IS THE ROW, and it is a GRID rather than a wrapping flex to make
+       that true: six fixed tracks mean the seventh crest starts a second row
+       at exactly the seventh, whatever the card is doing for width. A flex
+       wrap would fit as many as happened to go, which is five at phone width
+       and eight on a desktop -- the same vote drawn two different shapes.*/
+    .trade-vote-sides{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
     /* Crests stack from the top of their cell and hug the side they belong to:
        the left team's to the top-left, the right team's to the top-right. The
        two cells are the same height whatever the split, so without
        align-content the shorter side's row floats in the middle of a box the
        taller side set the height of. */
-    .tv-side{display:flex;flex-wrap:wrap;align-items:flex-start;align-content:flex-start;
-      justify-content:flex-start;gap:5px;min-width:38px;
-      padding:7px 8px;border-radius:8px;background:rgba(255,255,255,0.04);}
-    .tv-side.tv-l{justify-content:flex-end;}
+    .tv-side{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:5px 2px;align-content:flex-start;justify-items:start;min-width:0;
+      padding:7px 6px;border-radius:8px;background:rgba(255,255,255,0.04);}
+    /* The losing side fills from ITS outer edge inwards, so a short row sits
+       against the right wall rather than stranded in the middle of the box.
+       direction:rtl is what reverses the grid's own fill order; the crests
+       themselves carry no text, so nothing else is affected by it. */
+    .tv-side.tv-l{direction:rtl;}
     .trade-card:last-child{margin-bottom:18px;}
     .trade-head{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;}
     .trade-rank{color:var(--accent2,var(--accent));font-weight:800;}
