@@ -1402,6 +1402,100 @@ export default async function handler(req, res) {
         trades.push({ week: tradeWeek, teams });
       }
 
+      /* ── SHARED BY EVERY TELLING OF A TRADE BELOW ──────────────────────────
+         Two reconstructions follow this line and both need the same three
+         answers: who was in a deal, whether two tellings are the same deal, and
+         which week a player turned up on his new roster. They lived inside the
+         second one and the first could not see them. */
+      const pidsOf = t => t.teams.flatMap(x => x.players.map(p => p.pid));
+      /* A SHARED PLAYER IS NOT ENOUGH TO CALL IT THE SAME DEAL -- anybody traded
+         twice in a season is in two of them. Same TEAMS, and everything the
+         other telling found sitting INSIDE this one. */
+      const sameDeal = (t, pids, teamIds) => {
+        const tt = t.teams.map(x => x.teamId);
+        if (tt.length !== teamIds.length || !teamIds.every(id => tt.includes(id))) return false;
+        const has = new Set(pids);
+        return pidsOf(t).every(p => has.has(p));
+      };
+      /* THE WEEK A TRADE HAPPENED IN DOES NOT MOVE, and the rosters are what
+         know it: the first week a player appears on the side that RECEIVED him.
+         For a deal struck before the season that is week 1, and it is still
+         week 1 in December. */
+      const firstWeekOn = (pid, tid) => {
+        for (const w of weeks) if (wk[w]?.[pid]?.team === tid) return w;
+        return weeks[0] || 1;
+      };
+      // ── AND THE ONE SOURCE THAT KNOWS ABOUT MONEY ───────────────────────────
+      // ESPN files a trade's FAAB as its own message in the league's activity
+      // feed, type 290, inside the same topic as the player moves:
+      //
+      //     mt 244   9 -> 10   Eagles D/ST
+      //     mt 244  10 ->  9   Dalton Schultz
+      //     mt 244  10 ->  9   Saints D/ST
+      //     mt 290   9 -> 10   targetId 50      <- fifty dollars
+      //
+      // targetId is the AMOUNT on a 290, not a player. Nothing else in the
+      // payload carries it: the transaction log's bidAmount sits at 0 on every
+      // trade ever made in this league, and trade ITEMS have no money field at
+      // all. So this feed is the only place the $50 in week 3 exists.
+      //
+      // It is also the only surviving record of that trade FULL STOP. The
+      // weekly diff needs two roster snapshots to compare and the acquisition
+      // stamps need the players to still be where the trade put them -- both
+      // defeated once a defence is dropped. The feed remembers anyway, so
+      // reading it here recovers the whole deal and not just the money.
+      try {
+        const topicsFilter = { topics: {
+          filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000,
+          limitPerMessageSet:{ value:1000 }, offset:0,
+          sortMessageDate:{ sortPriority:1, sortAsc:false } } };
+        const cr = await fetch(`${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`
+          + '/communication/?view=kona_league_communication',
+          { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(topicsFilter) } });
+        if (cr.ok) {
+          const cd = unwrap(await cr.json());
+          const TRADE_MT = new Set([224,225,226,244,245,246]);
+          const FAAB_MT = 290;
+          const topics = {};
+          (cd.topics || []).forEach(tp => (tp.messages || []).forEach(m => {
+            const t = topics[m.topicId] || (topics[m.topicId] = { moves: [], faab: [], date: 0 });
+            if (m.date > t.date) t.date = Number(m.date) || 0;
+            // a move to team 0 is a DROP that rode along with the trade, not a trade
+            if (TRADE_MT.has(m.messageTypeId) && m.targetId != null
+                && Number(m.from) > 0 && Number(m.to) > 0)
+              t.moves.push({ pid: Number(m.targetId), from: Number(m.from), to: Number(m.to) });
+            if (m.messageTypeId === FAAB_MT && Number(m.from) > 0 && Number(m.to) > 0)
+              t.faab.push({ from: Number(m.from), to: Number(m.to), amount: Number(m.targetId) || 0 });
+          }));
+          Object.values(topics).forEach(t => {
+            if (!t.moves.length) return;
+            const teamIds = [...new Set(t.moves.flatMap(m => [m.from, m.to]))];
+            if (teamIds.length !== 2) return;
+            const pids = t.moves.map(m => m.pid);
+            const at = trades.findIndex(x => sameDeal(x, pids, teamIds));
+            // the feed is the fullest telling there is; only a strictly larger
+            // one already on the pile beats it
+            if (at >= 0 && pidsOf(trades[at]).length > pids.length) {
+              if (t.faab.length) trades[at].faab = t.faab;   // ...but take its money
+              return;
+            }
+            const byTeam = {}; teamIds.forEach(id => byTeam[id] = []);
+            t.moves.forEach(m => byTeam[m.to].push(m.pid));
+            const wk = Math.min(...t.moves.map(m => firstWeekOn(m.pid, m.to)));
+            const teamsOut = teamIds.map(tid => {
+              const players = byTeam[tid].map(pid => ({ pid, n: name[pid] || `#${pid}`,
+                pts: +ptsFrom(pid, wk).toFixed(1) })).sort((a, b) => b.pts - a.pts);
+              return { teamId: tid, players, total: +players.reduce((n2, p) => n2 + p.pts, 0).toFixed(1) };
+            });
+            const row = { week: wk, teams: teamsOut, at: t.date, date: t.date };
+            if (t.faab.length) row.faab = t.faab;
+            if (at >= 0) { row.at = trades[at].at || row.at; row.date = trades[at].date || row.date;
+                           trades[at] = row; }
+            else trades.push(row);
+          });
+        }
+      } catch {}
+
       // ── TRADES THE WEEKLY DIFF CANNOT SEE ───────────────────────────────────
       // Everything above is reconstructed by watching a player change hands
       // between two weeks of rosters. That needs weeks. Between a draft and the
@@ -1450,13 +1544,6 @@ export default async function handler(req, res) {
           // acquisition stamps are ESPN's own record of what moved, the diff is
           // an inference from two photographs of a roster, and the inference
           // can only ever be a subset of the record.
-          const pidsOf = t => t.teams.flatMap(x => x.players.map(p => p.pid));
-          const sameDeal = (t, pids, teamIds) => {
-            const tt = t.teams.map(x => x.teamId);
-            if (tt.length !== teamIds.length || !teamIds.every(id => tt.includes(id))) return false;
-            const has = new Set(pids);
-            return pidsOf(t).every(p => has.has(p));
-          };
           // THE WEEK A TRADE HAPPENED IN DOES NOT MOVE. curWeek DOES.
           //
           // Every trade found here was stamped with the CURRENT scoring period
@@ -1473,10 +1560,6 @@ export default async function handler(req, res) {
           // season that is week 1, and it is still week 1 in December. For one
           // the weekly diff missed mid-season it is the week he actually
           // arrived, which is the same window the diff would have used.
-          const firstWeekOn = (pid, tid) => {
-            for (const w of weeks) if (wk[w]?.[pid]?.team === tid) return w;
-            return weeks[0] || 1;
-          };
           Object.keys(groups).sort((a, b) => a - b).forEach(when => {
             const legs = groups[when];
             const teamIds = [...new Set(legs.map(l => l.to))];

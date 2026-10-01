@@ -2664,15 +2664,31 @@ async function renderTradesTab(){
        rather than every trade being flat green vs flat red. */
     const cW=tradeShareColor(wShare), cL=tradeShareColor(1-wShare);
     const tintW=tradeShareTint(wShare), tintL=tradeShareTint(1-wShare);
+    /* ── AND THE MONEY, WHICH IS NOT POINTS ─────────────────────────────────
+       A trade can carry FAAB, and ESPN files it as its own line in the league
+       feed rather than as anything hanging off a player. It belongs to the side
+       that RECEIVED it, listed with everything else that side received, because
+       that is what the column already means.
+
+       It is NOT added to the points total underneath, and it is deliberately a
+       different colour from the per-player scores: dollars and fantasy points
+       are two currencies, and the trade is still graded on the football. */
+    const faabTo=tid=>((tr.faab||[]).filter(f=>Number(f.to)===Number(tid))
+      .reduce((n,f)=>n+(Number(f.amount)||0),0))||0;
     const side=(sd,state)=>{
       const tint=state==='won'?tintW:tintL;
       const pcol=state==='won'?cW:cL;
+      const cash=faabTo(sd.teamId);
       return `
       <div class="trade-side ${state}">
         <div class="trade-wl ${state}" style="background:${tint}">
           <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamAb(tr.season,sd.teamId)}</div></div>
           <div class="trade-recv">received</div>
-          ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-pts" style="color:${pcol}">${p.pts.toFixed(1)}</span></div>`).join(''):`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+          ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-pts" style="color:${pcol}">${p.pts.toFixed(1)}</span></div>`).join('')
+            :cash?'':`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+          ${cash?`<div class="trade-player trade-faab"><span class="tp-name">
+            <i class="fa fa-sack-dollar"></i><span>FAAB</span></span>
+            <span class="tp-faab">$${cash}</span></div>`:''}
         </div>
       </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';

@@ -584,6 +584,17 @@
     .trade-team-name{font-size:15px;font-weight:700;line-height:1.25;}
     .trade-recv{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-top:1px;}
     .trade-player{display:flex;align-items:baseline;gap:8px;font-size:13px;padding:4px 0;}
+    /* ── DOLLARS ARE NOT POINTS ────────────────────────────────────────────
+       FAAB sits with everything else the side received, because that is what
+       the column means -- but it is green and it carries a bag, so nobody reads
+       $50 as fifty fantasy points or goes looking for it in the total below. */
+    .trade-faab{border-top:1px dashed rgba(255,255,255,0.12);margin-top:3px;padding-top:6px;}
+    .trade-faab .tp-name{color:var(--green);font-weight:700;}
+    .trade-faab .tp-name i{font-size:11px;margin-right:5px;}
+    .tp-faab{margin-left:auto;font-family:'Inter',sans-serif;font-size:13px;
+      font-weight:800;color:var(--green);}
+    .trade-side.right .trade-faab{flex-direction:row-reverse;}
+    .trade-side.right .tp-faab{margin-left:0;margin-right:auto;}
     /* No leader line between the name and the score. It was a flex:1 element
        sitting between them, so every name competed with it for width and the
        longer ones wrapped or clipped for the sake of a dotted rule. The name
