@@ -1861,6 +1861,12 @@
     .sb-inv-chip.sb-inv-open{background:rgba(63,208,122,0.16);color:var(--green);}
     .sb-inv-chip.sb-inv-declined{background:rgba(232,104,126,0.14);color:var(--red);}
     .sb-inv-chip.sb-inv-void{background:rgba(255,255,255,0.07);color:var(--text3);}
+    /* a seat sold back mid-week is its own state, and it is not 'in' -- see the
+       seatWord ladder. Blue, matching the cashed badge on the ticket itself. */
+    .sb-inv-chip.sb-inv-cashed{background:rgba(96,165,250,0.15);color:var(--blue);}
+    .sb-inv-chip.sb-inv-won{background:rgba(74,222,128,0.14);color:var(--green);}
+    .sb-inv-chip.sb-inv-lost{background:rgba(251,113,133,0.13);color:var(--red);}
+    .sb-inv-chip.sb-inv-push{background:rgba(255,255,255,0.07);color:var(--text2);}
     /* seats used, sat on the invite button so the cap is visible before it is hit */
     .sb-inv-left{margin-left:2px;padding:2px 7px;border-radius:999px;
       background:rgba(255,255,255,0.09);font-size:10.5px;font-weight:800;color:var(--text2);}

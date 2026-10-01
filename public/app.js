@@ -20732,10 +20732,29 @@ function sbInviteBoxHTML(b){
   const taken=new Set(asked.map(x=>x.owner));
   const seats=betInviteSeats(b.id);
   const left=seats>=INVITE_MAX?[]:betAccounts().filter(a=>a.k1!==_me.k1&&!taken.has(a.k1));
+  /* ── A SEAT SAYS WHAT IT IS, NOT WHAT IT WAS ────────────────────────────────
+     Three states were named and everything else fell through to 'in'. Which was
+     true enough while the only ways out of a seat were declining it or pulling
+     out before kickoff -- but CASHING OUT is a third way, and it lands on
+     'cashed' rather than 'void' whenever the football has started (sbCashOut
+     picks between them on co.full). So a manager who took a seat and sold it
+     back mid-week was still being shown to the person who invited them as in on
+     the bet, with no way for either of them to tell.
+
+     The settled states were the same gap seen from the other end: a seat that
+     has already won or lost read 'in', present tense, on a bet that is over.
+     They say which it was now. */
+  const seatWord=st=>st==='invite'?'asked'
+    :st==='declined'?'declined'
+    :st==='void'?'backed out'
+    :st==='cashed'?'cashed out'
+    :st==='won'?'in · won'
+    :st==='lost'?'in · lost'
+    :st==='push'?'in · push'
+    :'in';
   const badge=asked.length?`<div class="sb-inv-sent">${asked.map(x=>
     `<span class="sb-inv-chip sb-inv-${x.status}">${betAccountName(x.owner)} · ${
-      x.status==='invite'?'asked':x.status==='declined'?'declined'
-      :x.status==='void'?'backed out':'in'}</span>`).join('')}</div>`:'';
+      seatWord(x.status)}</span>`).join('')}</div>`:'';
   const bid=b.id.replace(/'/g,"\\'");
   if(_inviteFor!==b.id){
     return badge+(left.length
