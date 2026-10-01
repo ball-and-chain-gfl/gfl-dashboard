@@ -257,6 +257,36 @@ if (built2) {
     ok('and its verdict', kept && JSON.stringify(kept.votes) === '{"mm":"3"}');
   }
 
+  /* ── A TIMESTAMP THAT MOVES TAKES EVERY VOTE WITH IT ────────────────────
+     The vote id is td:<season>:<teams>:<date> and every verdict already cast is
+     filed on a profile under that exact string. The archive was written from
+     the acquisition stamp; the activity feed that now reconstructs the same
+     trade dates it off its own message, twelve milliseconds later. Exact-id
+     matching alone would have drawn that trade twice and stranded eleven
+     votes. */
+  {
+    const arc3 = { season: '2026', trades: [T([2, 3], 1788102664091, { votes: { mm: '3' },
+      teams: [{ teamId: 2, players: [], total: 10 }, { teamId: 3, players: [], total: 20 }] })] };
+    const lv3 = { season: '2026', trades: [T([2, 3], 1788102664103, {
+      teams: [{ teamId: 2, players: [], total: 88 }, { teamId: 3, players: [], total: 99 }] })] };
+    const m3 = M.mergeSeasonTrades('2026', arc3, lv3);
+    ok('twelve milliseconds apart is still one trade', m3.trades.length === 1, m3.trades.length);
+    ok('and it keeps the ARCHIVED stamp, which the votes are filed under',
+       m3.trades[0].date === 1788102664091, m3.trades[0].date);
+    ok('so the vote id is the one already on the profiles',
+       M.ntTradeVoteId('2026', m3.trades[0]) === 'td:2026:2-3:1788102664091',
+       M.ntTradeVoteId('2026', m3.trades[0]));
+    ok('the verdict survives', JSON.stringify(m3.trades[0].votes) === '{"mm":"3"}');
+    ok('and the live points still win', m3.trades[0].teams[1].total === 99);
+
+    /* ...but a genuinely different trade between the same two teams is not
+       swallowed by the window */
+    const lv4 = { season: '2026', trades: [T([2, 3], 1788102664103 + 3 * 60 * 1000, {
+      teams: [{ teamId: 2, players: [], total: 5 }, { teamId: 3, players: [], total: 6 }] })] };
+    ok('three minutes apart is two trades',
+       M.mergeSeasonTrades('2026', arc3, lv4).trades.length === 2);
+  }
+
   const live2 = { season: '2026', trades: [live.trades[0], T([5, 6], 222)] };
   ok('a trade ESPN has that the archive does not is added',
     M.mergeSeasonTrades('2026', archived, live2).trades.length === 2);

@@ -2464,10 +2464,45 @@ function mergeSeasonTrades(season,arc,live){
   if(!liveT.length&&!live) return arc;
   const byId={};
   arcT.forEach(t=>{ byId[ntTradeVoteId(season,t)]=t; });
+  /* ── A VOTE ID IS BUILT OUT OF A TIMESTAMP, SO THE TIMESTAMP IS IDENTITY ────
+     td:<season>:<teamIds>:<date>, and every vote already cast is filed on a
+     profile under that exact string. Move the date and the id moves with it:
+     the trade renders twice -- once from each source -- and every verdict on it
+     is stranded on a name nothing asks for any more.
+
+     Which is a millisecond away from happening. The same trade is dated
+     1788102664091 by the acquisition stamp the archive was written from and
+     1788102664103 by the activity feed that now reconstructs it: twelve
+     milliseconds, eleven votes. Week 3 is sixteen milliseconds and two more.
+
+     So an exact id first, and failing that the same two teams within a minute
+     of each other -- no league trades the same pair twice inside a minute. And
+     when that looser match hits, the ARCHIVED date is what the merged row
+     carries, because it is the one the votes were filed under. The feed's
+     timestamp is a fact about a message, not about the trade. */
+  const NEAR=60*1000;
+  const teamKey=t=>(t.teams||[]).map(x=>Number(x.teamId)).sort((a,b)=>a-b).join('-');
+  const findNear=t=>{
+    const k=teamKey(t), d=Number(t.date||t.at)||0;
+    if(!d) return null;
+    return Object.keys(byId).find(id=>{
+      const a=byId[id];
+      return teamKey(a)===k && Math.abs((Number(a.date||a.at)||0)-d)<=NEAR;
+    })||null;
+  };
   const out=[];
   liveT.forEach(t=>{
-    const id=ntTradeVoteId(season,t);
-    const was=byId[id];
+    let id=ntTradeVoteId(season,t);
+    let was=byId[id];
+    if(!was){
+      const near=findNear(t);
+      if(near){
+        was=byId[near]; id=near;
+        /* adopt the archived stamp so ntTradeVoteId keeps answering what every
+           vote on this trade was filed under */
+        t={...t, date:was.date, at:was.at!=null?was.at:t.at};
+      }
+    }
     out.push(tradeMergeRow(t,was));
     delete byId[id];
   });
