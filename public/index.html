@@ -2508,23 +2508,29 @@
     /* Every team's ballot, once the poll has revealed: twelve crests, two rows
        of six, the pressed one lit in the accent and its ballot underneath. A
        team with nothing in is greyed and cannot be pressed. */
-    /* Equal columns across the full width of the card, the same as every other
-       row in it, crest to the LEFT of the abbreviation. Four across, three rows:
-       six across is 49px a box at phone width, and a crest beside a four-letter
-       name like FMAN or DORM clips at any size worth reading. At four the
-       widest name has room to spare. Equal widths are the point -- a box sized
-       to its own name would make Bi narrower than WGLR. */
+    /* Two rows of six, equal columns across the full width of the card, crest
+       to the LEFT of the abbreviation. At phone width that is about 51px a box,
+       so everything inside is cut to the bone: a 15px crest, 9px type, 1px of
+       padding, 2px between crest and name. The widest name (DORM) then has a
+       couple of pixels to spare at 375, and below 370 the crest and type step
+       down once more so a 360 Android screen does not clip it. Equal widths
+       are the point -- a box sized to its own name would make Bi narrower than
+       WGLR. */
     .cp-ballots{margin-top:14px;}
-    .cp-bgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}
-    .cp-bt{min-width:0;height:38px;padding:0 6px;display:flex;flex-direction:row;align-items:center;
-      justify-content:center;gap:6px;border-radius:9px;
+    .cp-bgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;}
+    .cp-bt{min-width:0;height:32px;padding:0 1px;display:flex;flex-direction:row;align-items:center;
+      justify-content:center;gap:2px;border-radius:8px;
       -webkit-tap-highlight-color:transparent;}
     .cp-bt .tm-avatar{pointer-events:none;}
     .cp-bt-ab{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.2px;
+      font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:0;
       line-height:1;color:var(--text2);pointer-events:none;}
     .cp-bt.on .cp-bt-ab{color:var(--accent);}
     .cp-bt:disabled .cp-bt-ab{opacity:.35;}
+    @media(max-width:370px){
+      .cp-bt .tm-avatar{width:13px!important;height:13px!important;flex:0 0 13px!important;}
+      .cp-bt-ab{font-size:8.5px;}
+    }
     .cp-bt.on,.cp-bt.on:hover{border-color:var(--accent);
       background:rgba(var(--accent-rgb),0.16);}
     .cp-bt:disabled,.cp-bt:disabled:hover{cursor:default;

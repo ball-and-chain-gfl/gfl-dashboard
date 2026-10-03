@@ -18549,7 +18549,7 @@ function cpBallotsHTML(){
     const nm=String(t.name||'').replace(/"/g,'&quot;');
     return `<button class="cp-bt${on?' on':''}" ${has?`onclick="cpViewPick(${t.id})"`:'disabled'}
       title="${nm}${has?'':' · no ballot yet'}" aria-label="${nm}${has?' ballot':', no ballot yet'}"
-      aria-pressed="${on}">${avatarHTML(t,20,6)}<span class="cp-bt-ab">${t.abbrev||teamInitials(t.name)}</span></button>`;
+      aria-pressed="${on}">${avatarHTML(t,15,4)}<span class="cp-bt-ab">${t.abbrev||teamInitials(t.name)}</span></button>`;
   }).join('');
   let view='';
   if(sel){

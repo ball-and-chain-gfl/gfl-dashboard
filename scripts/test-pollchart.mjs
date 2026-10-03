@@ -635,8 +635,8 @@ console.log(nl + '9. HOMEPAGE: EVERY TEAM\'S BALLOT, ONE CREST EACH');
   ok('and that place is behind the reveal AND this manager\'s own ballot',
      SRC.includes('  if(complete&&mineIn){' + nl + '    el.innerHTML=results+cpBallotsHTML();'));
   const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  ok('four equal columns, the full width of the card',
-     IDX.includes('.cp-bgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}'));
+  ok('two rows of six equal columns, the full width of the card',
+     IDX.includes('.cp-bgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;}'));
   ok('crest on the left of the abbreviation, not above it',
      /\.cp-bt\{[^}]*flex-direction:row;/.test(IDX));
   ok('each one a crest with its abbreviation beside it',
