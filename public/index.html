@@ -2508,15 +2508,23 @@
     /* Every team's ballot, once the poll has revealed: twelve crests, two rows
        of six, the pressed one lit in the accent and its ballot underneath. A
        team with nothing in is greyed and cannot be pressed. */
-    /* Fixed 40px boxes round a 30px crest, packed 4px apart and centred as a
-       block. The columns used to stretch to fill the card, which put more air
-       between the crests than there was crest. */
+    /* Equal columns across the full width of the card, the same as every other
+       row in it, crest to the LEFT of the abbreviation. Four across, three rows:
+       six across is 49px a box at phone width, and a crest beside a four-letter
+       name like FMAN or DORM clips at any size worth reading. At four the
+       widest name has room to spare. Equal widths are the point -- a box sized
+       to its own name would make Bi narrower than WGLR. */
     .cp-ballots{margin-top:14px;}
-    .cp-bgrid{display:grid;grid-template-columns:repeat(6,40px);gap:4px;justify-content:center;}
-    .cp-bt{width:40px;height:40px;min-width:0;padding:0;display:flex;align-items:center;
-      justify-content:center;border-radius:9px;
+    .cp-bgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}
+    .cp-bt{min-width:0;height:38px;padding:0 6px;display:flex;flex-direction:row;align-items:center;
+      justify-content:center;gap:6px;border-radius:9px;
       -webkit-tap-highlight-color:transparent;}
     .cp-bt .tm-avatar{pointer-events:none;}
+    .cp-bt-ab{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.2px;
+      line-height:1;color:var(--text2);pointer-events:none;}
+    .cp-bt.on .cp-bt-ab{color:var(--accent);}
+    .cp-bt:disabled .cp-bt-ab{opacity:.35;}
     .cp-bt.on,.cp-bt.on:hover{border-color:var(--accent);
       background:rgba(var(--accent-rgb),0.16);}
     .cp-bt:disabled,.cp-bt:disabled:hover{cursor:default;

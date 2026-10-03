@@ -573,6 +573,7 @@ console.log(nl + '9. HOMEPAGE: EVERY TEAM\'S BALLOT, ONE CREST EACH');
     ['let _cpView=null, _cpRows=[], _renders=0;',
      'let _teams=Array.from({length:12},(_,i)=>({id:i+1,name:"Team "+(i+1)}));',
      'const cpKey=()=>"cp_2026_w4";',
+     'const teamInitials=n=>String(n||"").slice(0,2);',
      'const avatarHTML=(t,sz)=>"<span class=\\"tm-avatar\\" data-t=\\""+t.id+"\\" data-sz=\\""+sz+"\\"></span>";',
      'const logoImg=id=>"<i data-logo=\\""+id+"\\"></i>";',
      'const renderCoachesPoll=()=>{_renders++;};',
@@ -634,8 +635,12 @@ console.log(nl + '9. HOMEPAGE: EVERY TEAM\'S BALLOT, ONE CREST EACH');
   ok('and that place is behind the reveal AND this manager\'s own ballot',
      SRC.includes('  if(complete&&mineIn){' + nl + '    el.innerHTML=results+cpBallotsHTML();'));
   const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  ok('two rows of six, fixed boxes packed tight and centred',
-     IDX.includes('.cp-bgrid{display:grid;grid-template-columns:repeat(6,40px);gap:4px;justify-content:center;}'));
+  ok('four equal columns, the full width of the card',
+     IDX.includes('.cp-bgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}'));
+  ok('crest on the left of the abbreviation, not above it',
+     /\.cp-bt\{[^}]*flex-direction:row;/.test(IDX));
+  ok('each one a crest with its abbreviation beside it',
+     SRC.includes('<span class="cp-bt-ab">${t.abbrev||teamInitials(t.name)}</span></button>'));
   ok('with no caption over them', !SRC.includes('tap a crest'));
   ok('and every-ballot-is-in sits centred', /\.cp-yet-all\{justify-content:center;/.test(IDX));
 }

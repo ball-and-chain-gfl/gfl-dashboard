@@ -33,6 +33,8 @@ jobs:
         run: node scripts/test-draft.mjs
       - name: the coaches poll chart and its ramp
         run: node scripts/test-pollchart.mjs
+      - name: playoff odds from our own win percentages
+        run: node scripts/test-playoff-sim.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: the live poller parses

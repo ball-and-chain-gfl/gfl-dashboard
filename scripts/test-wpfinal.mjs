@@ -114,8 +114,13 @@ ok('and the shim itself is gone', /asPts/.test(src), false);
    falls back to the projection scaled by the clock, which is what every
    archived week draws on. */
 ok('the no-remaining fallback is untouched', /left\s*\*\s*pa/.test(src), true);
-ok('and the forecast card asks whether the week is done',
-  /nflWeekDone\s*\(/.test(grab('function fcPaneHTML(info,aTid,bTid,mine){')), true);
+/* the curve moved into fcCurveFor so the playoff simulation can read the same
+   number the pane draws -- the question has to go with it, and the pane has to
+   draw from it rather than keep a second copy */
+ok('and the forecast curve asks whether the week is done',
+  /nflWeekDone\s*\(/.test(grab('function fcCurveFor(info,aTid,bTid){')), true);
+ok('which is the curve the card draws',
+  /fcCurveFor\(info,aTid,bTid\)/.test(grab('function fcPaneHTML(info,aTid,bTid,mine){')), true);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

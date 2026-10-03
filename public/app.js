@@ -1120,10 +1120,29 @@ function inferTransactionsFromRosters(weeklyData,teams){
   return txns;
 }
 
+/* ── WHEN A WEEK'S FOOTBALL STARTS, FROM THE CALENDAR ──────────────────────────
+   The NFL opens on the Thursday night after Labor Day -- the first Monday of
+   September -- and every week after it starts seven days on. Midnight UTC
+   going into the Friday is 8pm Eastern on the Thursday, a few minutes before
+   the Thursday game kicks off and ahead of every other game that week. Nothing
+   here needs the minute; it needs which side of a week's first game a
+   timestamp falls on, and the calendar answers that for any season, past ones
+   included, without a request. */
+function nflWeekKickoffMs(season,w){
+  const y=Number(season), wk=Number(w);
+  if(!y||!(wk>0)) return null;
+  const dow=new Date(Date.UTC(y,8,1)).getUTCDay();
+  const labor=1+((8-dow)%7);
+  return Date.UTC(y,8,labor+4)+(wk-1)*7*86400000;
+}
+/* the season a timestamp belongs to: January's playoffs are last year's */
+const nflSeasonOfMs=ms=>{ const d=new Date(ms); return d.getUTCFullYear()-(d.getUTCMonth()<2?1:0); };
+
 // ── COACHING METRIC ────────────────────────────────────────────────────────────
 // C1: (Team PF − League Avg PF) ÷ 10
 // C2: for every completed trade, Σ ALL points scored by each received player
-//     from the week after the trade onward, minus the same for sent players. ÷ 10
+//     from the first week he played for his new team onward, minus the same
+//     for sent players. ÷ 10
 // C3: for every waiver/FA add, Σ (LINEUP points that player scored for the adding
 //     team from the add week onward ÷ FAAB bid paid). ÷ 10
 async function computeCoaching(teams, transactions, weeklyData){
@@ -1273,14 +1292,17 @@ async function computeCoaching(teams, transactions, weeklyData){
     for(const w of weeks) if(weeklyData[w]?.[pid]?.team===toTeamId) return w;
     return 0;
   };
-  const moveWeek=new Map();
+  const moveWeek=new Map(), moveAt=new Map();
   (transactions||[]).forEach(tx=>{
     if(!executed(tx)) return;
     if(tx.type!=='TRADE_ACCEPT'&&tx.type!=='TRADE') return;
     const stamped=Number(tx.scoringPeriodId)||0;
+    const ms=Number(tx.processDate||tx.proposedDate)||0;
     (tx.items||[]).forEach(item=>{
       const pid=item.playerId; if(pid==null||pid===0) return;
       const key=`${pid}|${item.fromTeamId}|${item.toTeamId}`;
+      /* when it went through -- the earliest telling that says */
+      if(ms>0&&!(moveAt.get(key)>0&&moveAt.get(key)<=ms)) moveAt.set(key,ms);
       const wk=stamped>0?stamped:arrivedWeek(pid,item.toTeamId);
       const had=moveWeek.get(key);
       /* a real week beats no week; two real ones take the earlier, which is
@@ -1305,15 +1327,50 @@ async function computeCoaching(teams, transactions, weeklyData){
         if(seenMove.has(key)) return;
         seenMove.add(key);
         const tradeWeek=moveWeek.get(key)||0;
-        const fromWeek=tradeWeek+1;
+        /* ── THE WEEK OF THE TRADE COUNTS WHEN HE PLAYED IT FOR THEM ────────
+           This always started the week AFTER the trade, on the safe
+           assumption that a deal done mid-week could have landed after the
+           player's game. Often it did not. The week 3 swap between the
+           Miners and BFT went through on the Sunday at 11:28 Central, half an
+           hour before the early games: Schultz and the Saints defence started
+           for the Miners that afternoon and scored 6 and 2, the Eagles
+           defence started for BFT and scored -1 -- and Trade ROI threw all
+           three away while the Trades page, quite rightly, counted them.
+
+           So the trade week is in whenever it is certain he was theirs for
+           it, and there are two ways to be certain:
+
+             · the deal went through BEFORE that week's first kickoff. Every
+               game of the week was then played with him on the new roster,
+               started or benched, which is the same footing as every later
+               week -- C2 counts a received player's points either way.
+               Davante Adams moved to the Mulligans on August 30 and sat on
+               their bench in week 1 for 5.6; those are theirs.
+             · it went through mid-week, but he STARTED for them. A start is
+               the proof the deal landed before his game. One done after his
+               game can leave him on the new roster that week -- on the bench
+               and locked, with points that were scored for somebody else --
+               which is why a bench spot mid-week is not enough on its own.
+               That is the week 3 swap.
+
+           Anything short of that begins the week after, exactly as before --
+           including every trade the weekly diff reconstructs, which carries
+           no time and is stamped the week BEFORE the player first appears on
+           his new roster. */
+        const tw=weeklyData[tradeWeek]?.[pid];
+        const at=moveAt.get(key)||0;
+        const ko=at>0?nflWeekKickoffMs(nflSeasonOfMs(at),tradeWeek):null;
+        const beforeKick=ko!=null&&at<ko;
+        const fromWeek=(tradeWeek>0&&tw&&tw.team===item.toTeamId&&(beforeKick||tw.started))
+          ?tradeWeek:tradeWeek+1;
         const pts=allPts(pid, fromWeek);
         if(item.toTeamId!=null && item.toTeamId in c2){
           c2[item.toTeamId]+=pts/10;
-          detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,pts});
+          detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,from:fromWeek,pts});
         }
         if(item.fromTeamId!=null && item.fromTeamId in c2){
           c2[item.fromTeamId]-=pts/10;
-          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,pts});
+          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,from:fromWeek,pts});
         }
       });
     }
@@ -1691,13 +1748,13 @@ function renderC2Breakdown(){
   const rows=[..._teams].map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail)
     .sort((a,b)=>(b.bd.c2||0)-(a.bd.c2||0));
   if(!rows.length){el.innerHTML=`<div class="tab-loading">No trades found for this season.</div>`;return;}
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the week after each trade.</div>`+
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.</div>`+
   rows.map(({t,bd})=>{
     const d=bd.detail||{};
     const recv=(d.tradesReceived||[]);
     const sent=(d.tradesSent||[]);
     const gained=recv.reduce((s,r)=>s+r.pts,0), lost=sent.reduce((s,r)=>s+r.pts,0);
-    const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${pName(r.pid)} <span class="brk-wk">wk ${r.week+1}+</span></span><span style="color:${col};font-weight:600">${sign}${r.pts.toFixed(1)}</span></div>`;
+    const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${pName(r.pid)} <span class="brk-wk">wk ${r.from??(r.week+1)}+</span></span><span style="color:${col};font-weight:600">${sign}${r.pts.toFixed(1)}</span></div>`;
     return `<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c2)}">C2 ${bd.c2>=0?'+':''}${(bd.c2||0).toFixed(2)}</span></div>
       ${(recv.length||sent.length)?`<div class="brk-cols">
@@ -6257,22 +6314,29 @@ function fcRosterCompareHTML(season,week,aId,bId,abA,abB,live){
    `mine` only changes the wording over the top. Your own game says "vs
    Bismuth" the way it always has; somebody else's names both sides, because
    neither of them is you. */
-function fcPaneHTML(info,aTid,bTid,mine){
-  const aT=_teams.find(t=>t.id===aTid), bT=_teams.find(t=>t.id===bTid);
-  if(!aT||!bT) return '';
+/* One game's win-probability curve, for the team listed first. Lifted out of
+   the pane so the playoff simulation can ask the same question the pane
+   answers -- the week being played is priced at exactly the number printed at
+   the top of its matchup, not a second opinion of it. */
+function fcCurveFor(info,aTid,bTid){
   const owners=info.meta.owners||{};
   const aO=owners[aTid], bO=owners[bTid];
   const A=fcSideStats(aO), B=fcSideStats(bO);
   const fcWk=Number(info.week)||schedCurWeek(info.season);
-  const ab=t=>t.abbrev||teamInitials(t.name);
   const projByOwner={};
   Object.values(owners).forEach(o=>{ const r=fcSideStats(o); if(r) projByOwner[o]=r.ppg; });
+  return wpCurve(_liveSeries,projByOwner,aO,bO,
+    (A&&B)?schedOpenMu(A,B,fcWk):null,_liveProj,
+    nflWeekDone(fcWk,info.season)===true);
+}
+function fcPaneHTML(info,aTid,bTid,mine){
+  const aT=_teams.find(t=>t.id===aTid), bT=_teams.find(t=>t.id===bTid);
+  if(!aT||!bT) return '';
+  const ab=t=>t.abbrev||teamInitials(t.name);
   /* The bar is gone. A bar says what the chance is now and nothing about how it
      got there; the curve says both, and on Tuesday it is the only record of
      what the game actually felt like. */
-  const pts=wpCurve(_liveSeries,projByOwner,aO,bO,
-    (A&&B)?schedOpenMu(A,B,fcWk):null,_liveProj,
-    nflWeekDone(fcWk,info.season)===true);
+  const pts=fcCurveFor(info,aTid,bTid);
   const now=pts[pts.length-1];
   const bar=`<div class="fc-odds">
     <div class="fc-odds-t">
@@ -6554,15 +6618,16 @@ function fcImplications(info,owner,p){
   if(!d) return '';
   const me=d.teams.find(t=>t.owner===owner);
   if(!me||me.odds==null) return '';
-  const now=Math.round(me.odds*100);
-  /* A win is worth roughly the slice of the odds riding on this game. ESPN
-     prices the season, not this one fixture, so the swing is scaled from how
-     much of the season is still open — early games move less than late ones,
-     which is the shape a real forecast has. */
-  const left=Math.max(1,d.left);
-  const swing=Math.min(28,Math.round(46/Math.sqrt(left)));
-  const win=Math.min(99,now+Math.round(swing*(1-p)));
-  const lose=Math.max(1,now-Math.round(swing*p));
+  /* WIN AND LOSS ARE THE SEASON REPLAYED WITH THIS GAME DECIDED. They used to
+     be ESPN's number pushed up or down by a fixed swing scaled from games left
+     -- a shape that looked like a forecast and was not one. Now the same six
+     thousand seasons behind the Now figure are replayed with this one result
+     forced each way, on the same draws, so the gap between the three is
+     exactly what this game is worth and nothing else. */
+  const f=d.focus&&d.focus.owner===owner?d.focus:null;
+  if(!f) return '';
+  const pc=v=>v>=0.995?'>99':v<=0.005?'<1':String(Math.round(v*100));
+  const now=pc(me.odds), win=pc(f.win), lose=pc(f.loss);
   return `<div class="fc-imp">
     <div class="fc-imp-r">
       <div class="fc-imp-c good"><span class="fc-imp-l">Win</span><span class="fc-imp-v">${win}%</span>
@@ -10441,14 +10506,19 @@ function schedLastMeeting(oppOwner){
    Two numbers, from two different places, because they are two different
    questions.
 
-   THE ODDS ARE ESPN'S. This used to run four thousand Monte Carlo seasons in
-   the browser on every schedule render. It was a reasonable answer to a
-   question ESPN turns out to answer itself: view=mStandings carries
-   currentSimulationResults.playoffPct per team, and the twelve of them sum to
-   exactly the six playoff places, which is the arithmetic holding. Theirs is
-   the number the league sees on ESPN's own site, so ours agreeing with it is
-   worth more than ours being independently derived — and it costs one small
-   request rather than four thousand simulated seasons on a phone.
+   THE ODDS ARE OURS AGAIN. For a while they were ESPN's -- view=mStandings
+   carries currentSimulationResults.playoffPct -- on the reasoning that the
+   number the league sees on ESPN's own site was worth more than one derived
+   independently. What that actually did was put a season forecast on this
+   page that disagreed with every game forecast on it. The Win% column quotes
+   the best lineup each team can field, byes filled from the wire; ESPN
+   simulates off its own lineup-as-set projections and its own much flatter
+   spread. Two numbers on one screen built on two different views of the same
+   games, and the Forecast's Win/Loss swing was a guess layered on top of
+   ESPN's -- a fixed swing scaled by games left, not a calculation at all.
+
+   So the season is simulated from the games themselves, at the probabilities
+   this site already prints for them. See poSimulate.
 
    THE RANGE IS ARITHMETIC, not a simulation of one. See below.
 
@@ -10466,49 +10536,168 @@ function poBounds(list,floorW,ceilW,o){
   };
 }
 
-/* ESPN's own playoff percentages, per team id, for one season. Fetched once
-   and repainted when it lands, the same shape as every other late arrival
-   here. The outlook cache is dropped on arrival so the odds column fills in
-   rather than waiting for the next render. */
-const ESPN_PO_TTL=10*60*1000;
-let _espnPO={},_espnPOAt={},_espnPOBusy={};
-function espnPlayoff(season){
-  const y=String(season||''); if(!y) return null;
-  const have=_espnPO[y];
-  if(have&&Date.now()-(_espnPOAt[y]||0)<ESPN_PO_TTL) return have;
-  if(!_espnPOBusy[y]){
-    _espnPOBusy[y]=true;
-    fetch(`${BASE}?view=mStandings&seasonId=${y}`,{cache:'no-store'})
-      .then(r=>r.ok?r.json():null)
-      .then(j=>{
-        if(!j||!Array.isArray(j.teams)) return;
-        const by={};
-        j.teams.forEach(t=>{
-          const sim=t&&t.currentSimulationResults;
-          if(!sim||typeof sim.playoffPct!=='number') return;
-          const mr=sim.modeRecord||{};
-          by[String(t.id)]={pct:sim.playoffPct,rank:Number(sim.rank)||0,
-            w:Number(mr.wins)||0,l:Number(mr.losses)||0,
-            clinch:String(t.playoffClinchType||sim.playoffClinchType||'')};
-        });
-        if(!Object.keys(by).length) return;
-        _espnPO[y]=by; _espnPOAt[y]=Date.now();
-        _poCache=null;                       // rebuild with the odds in hand
-        if(_activeTab==='week') try{ renderSchedule(); }catch(e){}
-      })
-      .catch(()=>{})
-      .finally(()=>{ _espnPOBusy[y]=false; });
+/* ── THE REST OF THE SEASON, SIX THOUSAND TIMES ──────────────────────────────
+   Every game still to play is decided at the chance this site already prints
+   for it:
+
+     · weeks still to come -- the Win% column on the Schedule: the best legal
+       lineup each team can field out of everyone they hold, a bye or a zero
+       filled at waiver replacement level, against ESPN's weekly projections.
+     · the week being played -- the number at the top of that game's Forecast
+       pane: the lineup as set before kickoff, then the live curve once the
+       ball is in the air. A pre-game number would have Judkins on zero with
+       21.6 already on the board.
+
+   Each run plays a MARGIN, not a coin: drawn around the projected margin
+   with the spread every price on the site uses, so the side it lands on wins
+   with exactly the printed probability -- and the two scores it implies feed
+   points for, which is how ESPN seeds this league (record first, total points
+   to break a tie, no automatic places for the conferences).
+
+   SEEDED, so everyone looking at the same football sees the same number, and
+   a repaint does not jitter the last digit. Memoised on its inputs, so it
+   reruns when a probability actually moves and not on every render.
+
+   The weeks still to come are read through a thirty-minute memo: a future
+   week's projections drift by the day, not the minute, and asking for ten
+   weeks of rosters every time the homepage repaints would be ten requests a
+   poll to learn nothing. A week priced before its rosters landed is asked
+   again on the next pass, so it picks up the real number as soon as there is
+   one. */
+const PO_RUNS=6000;
+/* ── A TEAM IS WRONG ABOUT ITSELF ALL SEASON, NOT ONE WEEK AT A TIME ───────
+   Played as eleven independent coin flips, a team favoured in nine of its
+   last ten games compounds that edge every single week -- as though the
+   projection were known to be right and only the dice were in doubt. It is
+   not. A roster projected at 130 a week that is really a 120 team is a 120
+   team in every one of those games, and the season-long odds have to carry
+   that.
+
+   So each run draws every team ONE persistent offset, this many points a
+   week either way, and plays all of its games with it. The per-game noise
+   is shrunk by exactly the same amount, so the total spread of any single
+   margin is untouched and every game is still won at precisely the Win% the
+   Schedule prints for it. What changes is only how the games hang together:
+   a team that comes out short of its projection comes out short in all of
+   them, which is what widens a season and keeps a 1-2 team at 64% a game
+   from reading as a near-lock.
+
+   Ten points is about the gap between the fourth and ninth best projected
+   lineups in a typical week here -- a real miss, but not a different team. */
+const PO_TEAM_SD=10;
+const PO_P_TTL=30*60*1000;
+let _poP={}, _poSim=null, _poSimKey='';
+function poRng(seed){
+  let a=seed>>>0;
+  return ()=>{ a=(a+0x6D2B79F5)>>>0; let t=a;
+    t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61);
+    return ((t^(t>>>14))>>>0)/4294967296; };
+}
+/* the chance for the team listed first, and what each side projects to score */
+function poGameP(g,rowOf){
+  const A=rowOf(g.a), B=rowOf(g.b); if(!A||!B) return null;
+  const li=_liveInfo;
+  if(li&&Number(li.week)===g.w&&li.meta&&li.meta.owners){
+    const tidOf=o=>Number(Object.keys(li.meta.owners).find(k=>li.meta.owners[k]===o));
+    try{
+      const pts=fcCurveFor(li,tidOf(g.a),tidOf(g.b));
+      const p=pts&&pts.length?Number(pts[pts.length-1].p):NaN;
+      if(p>=0&&p<=1) return {p,muA:A.ppg||0,muB:B.ppg||0};
+    }catch(e){}
   }
-  return have||null;
+  const k=g.w+'|'+g.a+'|'+g.b, hit=_poP[k];
+  if(hit&&hit.full&&Date.now()-hit.at<PO_P_TTL) return hit;
+  const pj=schedEspnProj(g.w);
+  const full=!!(pj&&pj[g.a]>0&&pj[g.b]>0);
+  const out={p:schedWinProb(A,B,g.w),muA:full?pj[g.a]:(A.ppg||0),muB:full?pj[g.b]:(B.ppg||0),
+    full,at:Date.now()};
+  _poP[k]=out;
+  return out;
+}
+/* list: owners. base: {w,l,t,pf} out of finished weeks. games: {a,b,p,muA,muB}.
+   focus: {owner,game} -- one game to replay both ways for that owner, which is
+   what the Forecast's Win and Loss columns are. Replayed on the SAME draws, so
+   the only thing that differs between the three answers is that one result:
+   Win can never come out below Now, nor Loss above it. */
+function poSimulate(list,base,games,spots,focus){
+  const N=list.length, idx={}; list.forEach((o,i)=>{ idx[o]=i; });
+  const G=games.map(g=>({a:idx[g.a],b:idx[g.b],
+    z:schedInvNorm(Math.min(0.999,Math.max(0.001,g.p))),mu:((g.muA||0)+(g.muB||0))/2}));
+  const sd=schedWkSd();
+  /* the per-game part of a margin, once the two teams' persistent offsets
+     have taken their share: the two add back up to the full spread */
+  const tsd=Math.min(PO_TEAM_SD,sd/2);
+  const gsd=Math.sqrt(Math.max(0,sd*sd-2*tsd*tsd));
+  const off=new Float64Array(N);
+  const rnd=poRng(0x5eed1);
+  const gauss=()=>{ const u1=1-rnd(), u2=rnd();
+    return Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2); };
+  const made=new Array(N).fill(0), sumW=new Array(N).fill(0);
+  const hist=list.map(()=>({}));
+  /* a focus game the owner is not in is refused, not answered: replaying it
+     "both ways" would be flipping somebody else's result and calling it theirs */
+  const fo=focus&&idx[focus.owner]!=null?idx[focus.owner]:-1;
+  const fg=focus?G[focus.game]:null;
+  const fi=fg&&fo>=0&&(fg.a===fo||fg.b===fo)?focus.game:-1;
+  let fWin=0,fLoss=0;
+  const w=new Float64Array(N), pf=new Float64Array(N);
+  const w0=list.map(o=>base[o].w+base[o].t*0.5), pf0=list.map(o=>base[o].pf);
+  /* in the field = fewer than `spots` teams ahead on record, then points */
+  const inField=t=>{ let ahead=0;
+    for(let j=0;j<N;j++) if(j!==t&&(w[j]>w[t]||(w[j]===w[t]&&pf[j]>pf[t]))) ahead++;
+    return ahead<spots; };
+  /* replay the focus game with margin mF in place of mA, then put it back */
+  const replay=(g,mA,u,mF)=>{
+    const sw=(m,sign)=>{ if(m>0) w[g.a]+=sign; else w[g.b]+=sign;
+      pf[g.a]+=sign*(g.mu+m/2+u); pf[g.b]+=sign*(g.mu-m/2+u); };
+    sw(mA,-1); sw(mF,1); const r=inField(fo); sw(mF,-1); sw(mA,1); return r;
+  };
+  for(let n=0;n<PO_RUNS;n++){
+    for(let i=0;i<N;i++){ w[i]=w0[i]; pf[i]=pf0[i]; off[i]=gauss()*tsd; }
+    let fm=0,fu=0;
+    for(let k=0;k<G.length;k++){
+      const g=G[k];
+      /* Box-Muller: one normal for the margin, its twin for the scoring level
+         both sides share -- which is what makes the two scores independent
+         with the right spread each while their difference is the margin */
+      const u1=1-rnd(), u2=rnd(), r=Math.sqrt(-2*Math.log(u1));
+      const m=g.z*sd+off[g.a]-off[g.b]+r*Math.cos(2*Math.PI*u2)*gsd;
+      const u=r*Math.sin(2*Math.PI*u2)*sd/2;
+      if(k===fi){ fm=m; fu=u; }
+      if(m>0) w[g.a]++; else w[g.b]++;
+      pf[g.a]+=g.mu+m/2+u; pf[g.b]+=g.mu-m/2+u;
+    }
+    for(let i=0;i<N;i++){
+      if(inField(i)) made[i]++;
+      sumW[i]+=w[i];
+      const h=hist[i], key=Math.round(w[i]*2); h[key]=(h[key]||0)+1;
+    }
+    if(fi>=0&&fo>=0){
+      const g=G[fi], mine=fo===g.a?1:-1, mag=Math.abs(fm)||0.01;
+      if(replay(g,fm,fu,mine*mag)) fWin++;
+      if(replay(g,fm,fu,-mine*mag)) fLoss++;
+    }
+  }
+  /* the middle of each team's spread of final win totals */
+  const med=list.map((o,i)=>{ const h=hist[i], ks=Object.keys(h).map(Number).sort((a,b)=>a-b);
+    let c=0; for(const k of ks){ c+=h[k]; if(c>=PO_RUNS/2) return k/2; } return w0[i]; });
+  const out={runs:PO_RUNS,made:{},med:{},mean:{}};
+  list.forEach((o,i)=>{ out.made[o]=made[i]/PO_RUNS; out.med[o]=med[i]; out.mean[o]=sumW[i]/PO_RUNS; });
+  if(fi>=0&&fo>=0) out.focus={owner:focus.owner,week:games[fi].w,
+    win:fWin/PO_RUNS,loss:fLoss/PO_RUNS};
+  return out;
 }
 function playoffOutlook(){
   /* Keyed on the football as well as the year. This simulates the games that
      are LEFT, so the moment a week is played it is simulating a different set —
      and keyed on the season alone it would go on reporting the odds it worked
      out before that week, for the rest of the session. */
+  /* Only a FINISHED season is cached whole. A live one is rebuilt every call:
+     the table is a scan of one schedule, and the expensive part -- the
+     simulation -- carries its own memo keyed on the probabilities going into
+     it, so it reruns when one of them moves and at no other time. */
   const cs=String(getSeason())+'|'+footballStamp(getSeason());
-  if(_poCache&&_poCacheSeason===cs) return _poCache;
-  if(_poCacheSeason!==cs) _poCache=null;
+  if(_poCache&&_poCache.final&&_poCacheSeason===cs) return _poCache;
   _poCacheSeason=cs;
   const info=schedSeason(), meta=info.meta; if(!meta||!meta.owners) return null;
 
@@ -10622,20 +10811,37 @@ function playoffOutlook(){
   list.forEach(o=>{ floorW[o]=halfW(o); ceilW[o]=halfW(o)+gamesLeft[o]; });
 
   const playedAny=list.some(o=>base[o].w||base[o].l||base[o].t);
-  /* ESPN's odds, joined on team id. One id per owner within a season. */
-  const espn=espnPlayoff(info.season);
-  const tidOf={}; Object.entries(owners).forEach(([tid,o])=>{ if(o&&tidOf[o]==null) tidOf[o]=String(tid); });
-  const espnFor=o=>(espn&&espn[tidOf[o]])||null;
+
+  /* the probabilities going in -- null until the ratings exist to price them */
+  const book=sbBuild();
+  const rowOf=o=>book?book.rows.find(r=>r.owner===o):null;
+  const priced=book?left.map(g=>{ const q=poGameP(g,rowOf); return q?{...g,...q}:null; }):[];
+  const ready=!!book&&priced.every(Boolean);
+  /* the signed-in manager's next game is the one the Forecast swings on */
+  const myO=_me&&_me.teamId?owners[_me.teamId]:null;
+  const nextW=myO?Math.min(...left.filter(g=>g.a===myO||g.b===myO).map(g=>g.w)):Infinity;
+  const fGame=isFinite(nextW)?left.findIndex(g=>g.w===nextW&&(g.a===myO||g.b===myO)):-1;
+  let sim=null;
+  if(ready){
+    const key=cs+'|'+myO+'|'+fGame+'|'+priced.map(g=>g.w+g.a+g.b+':'+g.p.toFixed(3)).join(',');
+    if(_poSim&&_poSimKey===key) sim=_poSim;
+    else{ sim=poSimulate(list,base,priced,spots,fGame>=0?{owner:myO,game:fGame}:null);
+      _poSim=sim; _poSimKey=key; }
+  }
 
   const teams=list.map(o=>{
-    const e=espnFor(o);
+    const fb=poBounds(list,floorW,ceilW,o);
+    /* The arithmetic outranks the sampler at the edges. A team that cannot
+       finish below the cut has clinched, and one that cannot reach it is out,
+       whatever six thousand runs happened to land on. */
+    let odds=sim?sim.made[o]:null;
+    if(odds!=null){ if(fb.worst<=spots) odds=1; else if(fb.best>spots) odds=0; }
+    const total=base[o].w+base[o].l+base[o].t+gamesLeft[o];
+    const mw=sim?sim.med[o]:null;
     return {owner:o, name:(_franchises.find(f2=>f2.owner===o)||{}).name||meta.names?.[o]?.name||o,
-      played:base[o],
-      odds:e?e.pct:null,
-      projRec:e?`${e.w}–${e.l}`:null,
-      clinch:e?e.clinch:'',
-      fBest:poBounds(list,floorW,ceilW,o).best,
-      fWorst:poBounds(list,floorW,ceilW,o).worst};
+      played:base[o], odds,
+      projRec:mw!=null?`${+mw.toFixed(1)}–${+(total-mw).toFixed(1)}`:null,
+      fBest:fb.best, fWorst:fb.worst};
   });
   /* Where each team sits in the table right now, which is what the notch marks.
      Before anything is played every record is identical, so rather than let the
@@ -10649,14 +10855,15 @@ function playoffOutlook(){
       .forEach((o,i)=>{ nowRank[o]=i+1; });
   } else list.forEach(o=>{ nowRank[o]=mid; });
   teams.forEach(t=>{ t.now=nowRank[t.owner]; });
-  /* Odds first, then where they actually stand — so two teams ESPN gives the
-     same number to are separated by the table rather than by whichever order
-     the owners happened to come out of the schedule. Name last, so the list is
+  /* Odds first, then where they actually stand — so two teams on the same
+     number are separated by the table rather than by whichever order the
+     owners happened to come out of the schedule. Name last, so the list is
      stable from render to render. */
   teams.sort((a,b)=>(b.odds??-1)-(a.odds??-1)||a.now-b.now||a.name.localeCompare(b.name));
 
   _poCache={teams,spots,left:left.length,season:info.season,regEnd,
-    size:list.length,played:playedAny,hasOdds:!!espn};
+    size:list.length,played:playedAny,hasOdds:!!sim,runs:sim?sim.runs:0,
+    focus:sim&&sim.focus?sim.focus:null};
   return _poCache;
 }
 const ordinal=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
@@ -10877,7 +11084,7 @@ function playoffOutlookHTML(){
     const inCut=i<d.spots;
     const l=posPct(t.fWorst), r=posPct(t.fBest), m=posPct(t.now);
     const nowTxt=d.played?`currently ${ordinal(Math.round(t.now))}`:'level with the league';
-    const proj=t.projRec?` ESPN has them finishing ${t.projRec}.`:'';
+    const proj=t.projRec?` Most likely finish: ${t.projRec}.`:'';
     return `<div class="po-row${inCut?' po-in':''}">
       <span class="po-rk">${i+1}</span>
       <span class="po-nm">${t.name}</span>
@@ -10904,12 +11111,12 @@ function playoffOutlookHTML(){
   </div>`;
   return `<div class="sec po-sec">
     <div class="sec-head"><i class="fa fa-chart-simple"></i>Playoff Outlook
-      <span class="badge-info">${d.left?`${d.left} games left${d.hasOdds?' · odds from ESPN':''}`:'regular season complete'}</span></div>
+      <span class="badge-info">${d.left?`${d.left} games left`:'regular season complete'}</span></div>
     <div class="po-head"><span></span><span>Team</span><span>Rec</span><span>Range of outcomes</span><span class="r">Playoffs</span></div>
     <div class="po-list">${rows}</div>
     <div class="po-note">${d.hasOdds
-      ?`The playoff percentages are ESPN's own, so they match what the league sees on the ESPN app — the twelve of them add up to the ${d.spots} places.`
-      :`ESPN has not published playoff percentages for ${d.season} yet, so that column is empty.`}
+      ?`The playoff percentages play the rest of the regular season out ${(d.runs||0).toLocaleString()} times. Every game still to come is decided at the Win% the schedule above prints for it — the best lineup each team can field, with byes filled from the waiver wire — and this week's games at their live win probability, so the column moves on a Sunday. Record decides the field and total points break a tie, which is how ESPN seeds this league. These are this site's numbers, worked out from the same games as everything else on it, so they will not always match the ESPN app.`
+      :`The playoff percentages fill in once the power ratings have loaded.`}
       The bar beside each team is not a projection: it is every position that team can still finish in by the arithmetic, with last at the left and first at the right. Its edges are set by winning out and losing out — a team is only ruled above you once its worst possible finish is still better than your best, and only ruled below once its best cannot reach your worst. The white mark is where they stand today. With nothing played every team can still finish anywhere, so the bands fill the track; they close on their own as the games run out, and on the last day each one is a single position. Records and bands count finished weeks only, so they turn over on the Tuesday with the rest of the site rather than moving under you on a Sunday afternoon. The top ${d.spots} shaded rows are the current projected field.</div>
   </div>`;
 }
@@ -18342,7 +18549,7 @@ function cpBallotsHTML(){
     const nm=String(t.name||'').replace(/"/g,'&quot;');
     return `<button class="cp-bt${on?' on':''}" ${has?`onclick="cpViewPick(${t.id})"`:'disabled'}
       title="${nm}${has?'':' · no ballot yet'}" aria-label="${nm}${has?' ballot':', no ballot yet'}"
-      aria-pressed="${on}">${avatarHTML(t,30,8)}</button>`;
+      aria-pressed="${on}">${avatarHTML(t,20,6)}<span class="cp-bt-ab">${t.abbrev||teamInitials(t.name)}</span></button>`;
   }).join('');
   let view='';
   if(sel){

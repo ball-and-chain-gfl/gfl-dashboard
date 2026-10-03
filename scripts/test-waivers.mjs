@@ -82,9 +82,11 @@ function grab(startsWith) {
 
 const api = new Function(`
 const TOTAL_WEEKS = 17;
+${grab('function nflWeekKickoffMs(season,w){')}
+${grab('const nflSeasonOfMs=')}
 ${grab('async function computeCoaching(teams, transactions, weeklyData){')}
 ${grab('const txKeyOf=t=>')}
-return { computeCoaching, txKeyOf };
+return { computeCoaching, txKeyOf, nflWeekKickoffMs };
 `)();
 
 let pass = 0, fail = 0;
@@ -252,6 +254,80 @@ console.log('\n10. the app and the archiver agree on what a key is');
   eq('app.js keys on the date too',
      /txKeyOf=t=>[\s\S]{0,400}proposedDate\|\|t\.processDate/.test(SRC), true);
 }
+
+console.log('\nTRADE ROI: THE WEEK OF THE TRADE COUNTS WHEN HE PLAYED IT FOR THEM');
+{
+  /* The week 3 swap went through on the Sunday half an hour before kickoff:
+     player 700 started for team 2 that week and scored 6, player 800 started
+     for team 1 and scored -1. It always counted from the week after. */
+  const trade = (wk, items) => ({ id: 't' + wk, type: 'TRADE_ACCEPT', teamId: 1,
+    status: 'EXECUTED', scoringPeriodId: wk, items });
+  const swap = trade(3, [
+    { type: 'TRADE', playerId: 700, fromTeamId: 1, toTeamId: 2 },
+    { type: 'TRADE', playerId: 800, fromTeamId: 2, toTeamId: 1 }]);
+  const wk = weekly({
+    2: [[700, 1, 9], [800, 2, 4]],
+    3: [[700, 2, 6], [800, 1, -1]],          // both STARTED for their new teams
+    4: [[700, 2, 10], [800, 1, 7]],
+  });
+  const { breakdown } = await api.computeCoaching(TEAMS, [swap], wk);
+  const r1 = breakdown[1].detail.tradesReceived[0], s1 = breakdown[1].detail.tradesSent[0];
+  eq('the trade week is in for what team 1 received', [r1.from, r1.pts], [3, 6]);
+  eq('and for what it sent', [s1.from, s1.pts], [3, 16]);
+  eq('so C2 is (6 - 16) / 10', +breakdown[1].c2.toFixed(2), -1);
+  eq('and the other side is the mirror of it', +breakdown[2].c2.toFixed(2), 1);
+
+  /* a deal done AFTER his game leaves him on the new roster that week, but on
+     the bench and locked -- those points were scored for somebody else */
+  const late = weekly({
+    2: [[700, 1, 9], [800, 2, 4]],
+    3: [[700, 2, 6, false], [800, 1, -1, false]],
+    4: [[700, 2, 10], [800, 1, 7]],
+  });
+  const b2 = (await api.computeCoaching(TEAMS, [swap], late)).breakdown;
+  eq('benched for them in the trade week: from the week after, as before',
+     [b2[1].detail.tradesReceived[0].from, b2[1].detail.tradesReceived[0].pts], [4, 7]);
+
+  /* the weekly diff stamps a trade the week BEFORE the player first appears on
+     his new roster, so he is never starting for them in it */
+  const diffed = trade(2, swap.items);
+  const b3 = (await api.computeCoaching(TEAMS, [diffed], wk)).breakdown;
+  eq('a reconstructed trade still starts the week he arrived',
+     [b3[1].detail.tradesReceived[0].from, b3[1].detail.tradesReceived[0].pts], [3, 6]);
+
+  /* and a stamp of 0 is no answer at all, never week zero */
+  const unstamped = trade(0, swap.items);
+  const b4 = (await api.computeCoaching(TEAMS, [unstamped], wk)).breakdown;
+  eq('no stamp: the rosters say week 3, and he started it',
+     b4[1].detail.tradesReceived[0].from, 3);
+  console.log('\n   and when the deal went through');
+  /* 2026: week 3 kicks off 8pm Eastern on Thursday 24 September */
+  const at = (ms, wk = 3) => ({ ...trade(wk, swap.items), processDate: ms });
+  const kick3 = api.nflWeekKickoffMs(2026, 3);
+  eq('the calendar puts week 3 on Thursday 24 September, 8pm Eastern',
+     new Date(kick3).toISOString(), '2026-09-25T00:00:00.000Z');
+  eq('and week 1 on Thursday 10 September', new Date(api.nflWeekKickoffMs(2026, 1)).toISOString(),
+     '2026-09-11T00:00:00.000Z');
+  /* done on the Tuesday: every game that week was his new team's, benched or not */
+  const tue = (await api.computeCoaching(TEAMS, [at(Date.UTC(2026, 8, 22, 15))], late)).breakdown;
+  eq('done before kickoff, benched that week: the week still counts',
+     [tue[1].detail.tradesReceived[0].from, tue[1].detail.tradesReceived[0].pts], [3, 6]);
+  /* done on the Saturday: a bench spot could be a locked one */
+  const sat = (await api.computeCoaching(TEAMS, [at(Date.UTC(2026, 8, 26, 15))], late)).breakdown;
+  eq('done mid-week and benched: from the week after',
+     [sat[1].detail.tradesReceived[0].from, sat[1].detail.tradesReceived[0].pts], [4, 7]);
+  /* the real week 3 swap: Sunday 11:28 Central, and both started */
+  const sun = (await api.computeCoaching(TEAMS, [at(1790526513405)], wk)).breakdown;
+  eq('done Sunday morning but started that afternoon: the week counts',
+     sun[1].detail.tradesReceived[0].from, 3);
+  /* Adams: a preseason deal, then a week 1 bench */
+  const pre = { ...trade(1, swap.items), processDate: 1788102664091 };
+  const w1 = weekly({ 1: [[700, 2, 5.6, false], [800, 1, 3, false]], 2: [[700, 2, 39.5], [800, 1, 7]] });
+  const adams = (await api.computeCoaching(TEAMS, [pre], w1)).breakdown;
+  eq('a preseason trade keeps his week 1 bench points with the team that got him',
+     [adams[2].detail.tradesReceived[0].from, +adams[2].detail.tradesReceived[0].pts.toFixed(1)], [1, 45.1]);
+}
+
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
