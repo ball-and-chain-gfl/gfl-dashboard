@@ -442,5 +442,157 @@ console.log(nl + '7. NO LINE IS EVER DRAWN OVER A CREST');
      /rx="8"/.test(M.pollChartHTML()));
 }
 
+console.log(nl + '8. STANDINGS: ONE BUTTON A WEEK, TWO ROWS, ONE PANEL');
+{
+  /* The weeks used to be a stack of folds, one per week, newest first -- by
+     December seventeen full-width bars between the chart and the table. Now
+     they are a block of buttons and a single panel under it. */
+  const { lifter, assemble } = await import('./lib/lift.mjs');
+  const fs = await import('fs');
+  const g3 = lifter(new URL('../public/app.js', import.meta.url));
+  const W = assemble(g3, [
+    'function pollWeekPanelHTML(w){', 'function pollWeekButtonsHTML(){',
+  ], ['pollWeekButtonsHTML', 'pollWeekPanelHTML', 'setWk', 'getWk', 'setData', 'setN'],
+    ['let _pollWk=null, _data={}, _n=17;',
+     'let _teams=Array.from({length:12},(_,i)=>({id:i+1,name:"Team "+(i+1)}));',
+     'const pollWeeksData=()=>_data;',
+     'const pollWeeks=()=>Object.keys(_data).map(Number).sort((a,b)=>a-b);',
+     'const pollSeasonWeeks=()=>_n;',
+     'const pollTeam=id=>_teams.find(t=>t.id===Number(id))||null;',
+     'const pollRampColor=()=>"#60a5fa";',
+     'const logoImg=id=>"<i data-logo=\\""+id+"\\"></i>";',
+     'const setWk=w=>{_pollWk=w;}; const getWk=()=>_pollWk;',
+     'const setData=d=>{_data=d;}; const setN=n=>{_n=n;};'].join(nl));
+
+  const week = order => ({ ballots: 12, rank: order.map((id, i) => ({ teamId: id, rank: i + 1, avg: i + 1.25 })) });
+  const IDS = [1,2,3,4,5,6,7,8,9,10,11,12];
+  W.setData({ 1: week(IDS), 2: week(IDS.slice().reverse()), 3: week(IDS) });
+  W.setWk(null);
+  let html = W.pollWeekButtonsHTML();
+  const btns = html.match(/<button class="poll-wk[^"]*"/g) || [];
+
+  ok('a button for every week of the season, not just the ones polled',
+     btns.length === 17, btns.length + ' buttons');
+  ok('laid out as two rows: nine columns for seventeen weeks',
+     html.includes('--pwc:9'), (html.match(/--pwc:\d+/) || ['none'])[0]);
+  ok('the three weeks with a poll can be pressed',
+     (html.match(/onclick="pollWkPick\(\d+\)"/g) || []).length === 3);
+  ok('the fourteen without one cannot',
+     (html.match(/\bdisabled\b/g) || []).length === 14);
+  ok('nothing is open to start with, the newest week included',
+     /<div id="poll-wk-view"><\/div>/.test(html), 'a week opened itself');
+  ok('and nothing is drawn as the stack of folds it replaced',
+     !html.includes('<details'));
+
+  console.log(nl + '   pressing a week');
+  W.setWk(2);
+  html = W.pollWeekButtonsHTML();
+  ok('lights that button and no other',
+     (html.match(/class="poll-wk on"/g) || []).length === 1
+     && /class="poll-wk on" data-w="2"/.test(html));
+  ok('and lays its poll out underneath, all twelve places',
+     (html.match(/class="poll-row"/g) || []).length === 12);
+  ok('in that week\'s order, not some other week\'s',
+     html.indexOf('data-logo="12"') < html.indexOf('data-logo="1"'),
+     'week 2 is the reverse of week 1 and should lead with team 12');
+  ok('under a heading that names the week',
+     html.includes('Week 2 Poll') && html.includes('12 ballots'));
+
+  console.log(nl + '   a week that is not there');
+  W.setWk(9);
+  html = W.pollWeekButtonsHTML();
+  ok('a remembered week with no poll is let go rather than drawn empty',
+     W.getWk() === null && /<div id="poll-wk-view"><\/div>/.test(html));
+  ok('and the panel builder refuses it outright', W.pollWeekPanelHTML(9) === '');
+
+  console.log(nl + '   a season of a different length');
+  W.setN(18); W.setWk(null);
+  ok('eighteen weeks is still two rows: nine and nine',
+     W.pollWeekButtonsHTML().includes('--pwc:9'));
+  W.setN(14);
+  ok('fourteen is seven and seven', W.pollWeekButtonsHTML().includes('--pwc:7'));
+
+  /* the keypad caps its columns, so a desktop does not stretch nine buttons
+     across the page -- and on a phone they shrink rather than wrap a third row */
+  const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  ok('the column count comes from the page, capped at 48px a button',
+     IDX.includes('grid-template-columns:repeat(var(--pwc,9),minmax(0,48px))'));
+}
+
+console.log(nl + '9. HOMEPAGE: EVERY TEAM\'S BALLOT, ONE CREST EACH');
+{
+  const { lifter, assemble } = await import('./lib/lift.mjs');
+  const fs = await import('fs');
+  const g4 = lifter(new URL('../public/app.js', import.meta.url));
+  const B = assemble(g4, [
+    'function cpBallotOf(teamId){', 'function cpViewPick(teamId){', 'function cpBallotsHTML(){',
+  ], ['cpBallotsHTML', 'cpBallotOf', 'cpViewPick', 'setView', 'getView', 'setRows', 'renders'],
+    ['let _cpView=null, _cpRows=[], _renders=0;',
+     'let _teams=Array.from({length:12},(_,i)=>({id:i+1,name:"Team "+(i+1)}));',
+     'const cpKey=()=>"cp_2026_w4";',
+     'const avatarHTML=(t,sz)=>"<span class=\\"tm-avatar\\" data-t=\\""+t.id+"\\" data-sz=\\""+sz+"\\"></span>";',
+     'const logoImg=id=>"<i data-logo=\\""+id+"\\"></i>";',
+     'const renderCoachesPoll=()=>{_renders++;};',
+     'const setView=v=>{_cpView=v;}; const getView=()=>_cpView;',
+     'const setRows=r=>{_cpRows=r;}; const renders=()=>_renders;'].join(nl));
+
+  const IDS = [1,2,3,4,5,6,7,8,9,10,11,12];
+  const rot = k => IDS.slice(k).concat(IDS.slice(0, k));
+  /* nine of twelve in -- seven is the reveal, so this is a revealed poll with
+     three teams still out: 4, 8 and 11 */
+  const rows = IDS.filter(id => ![4, 8, 11].includes(id)).map(id => ({
+    id: 'k' + id, teamId: String(id), cp_2026_w4: JSON.stringify(rot(id - 1)) }));
+  /* last week's ballot does not count as this week's */
+  rows.push({ id: 'k4', teamId: '4', cp_2026_w3: JSON.stringify(IDS) });
+  /* and half a ballot is not a ballot */
+  rows.push({ id: 'k8', teamId: '8', cp_2026_w4: JSON.stringify([1, 2, 3]) });
+  B.setRows(rows); B.setView(null);
+
+  let html = B.cpBallotsHTML();
+  ok('all twelve crests are drawn',
+     (html.match(/<button class="cp-bt/g) || []).length === 12);
+  ok('nine can be pressed -- the teams with a ballot in',
+     (html.match(/onclick="cpViewPick\(\d+\)"/g) || []).length === 9);
+  ok('three cannot: no ballot, last week\'s ballot, half a ballot',
+     (html.match(/\bdisabled\b/g) || []).length === 3
+     && ['4', '8', '11'].every(id => new RegExp('disabled[^>]*>[^<]*<span class="tm-avatar" data-t="' + id + '"').test(html.replace(/\n\s*/g, ' '))));
+  ok('nothing is open to start with', !html.includes('cp-bview'));
+
+  console.log(nl + '   pressing a crest');
+  B.cpViewPick(5);
+  ok('remembers which team, and repaints the card', B.getView() === '5' && B.renders() === 1);
+  html = B.cpBallotsHTML();
+  ok('lights that crest and no other',
+     (html.match(/class="cp-bt on"/g) || []).length === 1);
+  ok('and lays that team\'s ballot out underneath, all twelve',
+     (html.match(/class="cp-res"/g) || []).length === 12);
+  const order = [...html.matchAll(/data-logo="(\d+)"/g)].map(m => Number(m[1]));
+  ok('in the order that team put them, not the poll\'s',
+     JSON.stringify(order) === JSON.stringify(rot(4)), JSON.stringify(order));
+  ok('under that team\'s name', html.includes('Team 5</span>'));
+
+  B.cpViewPick(5);
+  ok('pressing it again closes it', B.getView() === null && !B.cpBallotsHTML().includes('cp-bview'));
+
+  console.log(nl + '   a ballot that goes away while it is open');
+  B.setView('8');
+  ok('a remembered team with no full ballot opens nothing',
+     !B.cpBallotsHTML().includes('cp-bview'));
+
+  console.log(nl + '   and the gate');
+  /* THE POINT OF THE WHOLE CARD: a ballot is a result, and is withheld exactly
+     as long as the results are. The grid must be drawn in one place, and that
+     place is the branch that has passed both the reveal and this manager's own
+     vote. */
+  const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const calls = SRC.split('cpBallotsHTML()').length - 1;
+  ok('the grid is drawn from exactly one place', calls === 2,
+     (calls - 1) + ' call sites besides the definition');
+  ok('and that place is behind the reveal AND this manager\'s own ballot',
+     SRC.includes('  if(complete&&mineIn){' + nl + '    el.innerHTML=results+cpBallotsHTML();'));
+  const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  ok('two rows of six', IDX.includes('.cp-bgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));'));
+}
+
 console.log(nl + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

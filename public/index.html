@@ -2505,6 +2505,30 @@
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .cp-avg{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:11px;color:var(--text3);}
     @media(max-width:420px){ .cp-pick{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    /* Every team's ballot, once the poll has revealed: twelve crests, two rows
+       of six, the pressed one lit in the accent and its ballot underneath. A
+       team with nothing in is greyed and cannot be pressed. */
+    .cp-ballots{margin-top:18px;}
+    .cp-bgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;}
+    .cp-bt{height:46px;min-width:0;padding:0;display:flex;align-items:center;
+      justify-content:center;border-radius:10px;
+      -webkit-tap-highlight-color:transparent;}
+    .cp-bt .tm-avatar{pointer-events:none;}
+    .cp-bt.on,.cp-bt.on:hover{border-color:var(--accent);
+      background:rgba(var(--accent-rgb),0.16);}
+    .cp-bt:disabled,.cp-bt:disabled:hover{cursor:default;
+      background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.06);}
+    .cp-bt:disabled .tm-avatar{opacity:.28;filter:grayscale(1);}
+    .cp-bt:disabled:active{transform:none;}
+    .cp-bt:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+    .cp-bview{margin-top:10px;}
+    .cp-bview-h{display:flex;align-items:center;gap:8px;margin:0 2px 8px;min-width:0;}
+    .cp-bview-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-family:'Google Sans Flex',Georgia,serif;font-weight:600;font-size:13.5px;
+      color:var(--text);}
+    .cp-bview-k{margin-left:auto;flex:0 0 auto;font-family:'Inter',sans-serif;
+      font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+      color:var(--text3);}
 
     /* ── The poll ranking, as a badge ───────────────────────────────────────
        One chip, six places: Your Forecast, the schedule, both sportsbook
@@ -3431,9 +3455,6 @@
     /* ── Locker room (My Profile) ──────────────────────────────────────────
        Pixel art, so the SVG is allowed to go soft nowhere: crisp edges in the
        markup and nearest-neighbour scaling here. */
-    /* the ballot fold hangs under the poll standings and was butted straight
-       up against the last row of them */
-    .cp-fold.cp-mine{margin-top:18px;}
     .lk-block{margin:14px 0 16px;}
     /* No frame: the art breaks out of the page's padding and runs to both edges
        of the screen. 100vw counts the scrollbar, so the width is taken from the
@@ -5006,17 +5027,32 @@
        panel is what scrolls. min-width is only a floor for a league small
        enough to draw narrower than a phone. */
     .poll-chart svg{min-width:320px;display:block;}
-    .poll-fold{border:1px solid var(--border);border-radius:10px;margin:0 0 8px;
+    /* One button a week, two rows, and one panel under them for whichever was
+       pressed. The columns cap at 48px so on a desktop the block stays a
+       compact keypad under the chart instead of nine buttons stretched across
+       the page; on a phone they shrink to fit and the two rows still hold. */
+    .poll-wk-l{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;color:var(--text3);margin:0 0 7px;}
+    .poll-wks{display:grid;grid-template-columns:repeat(var(--pwc,9),minmax(0,48px));
+      gap:6px;margin:0 0 10px;}
+    .poll-wk{height:34px;min-width:0;padding:0;border-radius:8px;
+      font-family:'DM Sans',sans-serif;font-weight:700;font-size:13.5px;
+      font-variant-numeric:tabular-nums;color:var(--text);
+      -webkit-tap-highlight-color:transparent;}
+    .poll-wk.on,.poll-wk.on:hover{border-color:var(--accent);
+      background:rgba(var(--accent-rgb),0.16);color:var(--accent);}
+    .poll-wk:disabled,.poll-wk:disabled:hover{opacity:.3;cursor:default;
+      background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.08);}
+    .poll-wk:disabled:active{transform:none;}
+    .poll-wk:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+    .poll-wk-panel{border:1px solid var(--border);border-radius:10px;
       background:rgba(255,255,255,0.02);}
-    .poll-fold summary{display:flex;align-items:center;gap:9px;cursor:pointer;
-      padding:11px 13px;font-family:'Google Sans Flex',Georgia,serif;font-weight:600;
-      font-size:14px;color:var(--text);list-style:none;}
-    .poll-fold summary::-webkit-details-marker{display:none;}
-    .poll-fold summary>i:first-child{color:var(--accent);font-size:13px;}
+    .poll-wk-h{display:flex;align-items:center;gap:9px;padding:11px 13px 4px;
+      font-family:'Google Sans Flex',Georgia,serif;font-weight:600;font-size:14px;
+      color:var(--text);}
+    .poll-wk-h>i:first-child{color:var(--accent);font-size:13px;}
     .poll-ct{margin-left:auto;font-family:'Inter',sans-serif;font-size:11px;
       text-transform:uppercase;letter-spacing:.4px;color:var(--text3);white-space:nowrap;}
-    .poll-caret{transition:transform .18s ease;color:var(--text3);font-size:12px;}
-    .poll-fold[open] .poll-caret{transform:rotate(180deg);}
     .poll-list{padding:2px 8px 10px;}
     .poll-row{display:grid;grid-template-columns:26px 22px minmax(0,1fr) auto;
       align-items:center;gap:9px;padding:7px 5px;

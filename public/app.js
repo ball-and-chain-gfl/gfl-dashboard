@@ -3802,8 +3802,69 @@ function pollChartHTML(){
       ${cols}${grid}${wkCap}${lines}${crests}
     </svg></div>`;
 }
-/* One fold per archived week, newest first. With a single week on file there is
-   a single fold, which is what the league sees after week one. */
+/* ── ONE BUTTON A WEEK, NOT ONE FOLD A WEEK ──────────────────────────────────
+   Each week used to be its own fold, stacked newest first. Fine in week three;
+   by December that is seventeen full-width bars between the chart and the
+   standings table, most of which nobody opens.
+
+   So the whole season is a block of numbered buttons -- two rows, the same
+   seventeen weeks the chart draws across its axis -- and one panel under
+   them showing whichever week was pressed. Press it again and it closes.
+   A week with no poll yet is drawn but cannot be pressed, the same way the
+   chart draws weeks still to come dimmed rather than leaving them off.
+
+   Nothing is open to start with, the newest week included. The chart above
+   already says how the week went, and a panel that opens itself is a panel
+   nobody chose.
+
+   Pressing a week redraws the panel and the buttons and NOTHING ELSE. The
+   chart scrolls sideways on a phone, and repainting the whole section would
+   throw somebody's place in it back to week one every time they looked up a
+   number. */
+let _pollWk=null;
+function pollWeekPanelHTML(w){
+  const d=pollWeeksData()[w]; if(!d) return '';
+  const rows=(d.rank||[]).map(e=>{
+    const t=pollTeam(e.teamId);
+    return `<div class="poll-row">
+      <span class="poll-rk"
+        style="color:${pollRampColor(e.rank,(d.rank||[]).length||_teams.length)}">${e.rank}</span>
+      ${t?logoImg(t.id,'team-logo-sm'):''}
+      <span class="poll-nm">${t?t.name:('Team '+e.teamId)}</span>
+      <span class="poll-avg">${e.avg.toFixed(2)}</span>
+    </div>`;}).join('');
+  return `<div class="poll-wk-panel">
+    <div class="poll-wk-h"><i class="fa fa-ranking-star"></i><span>Week ${w} Poll</span>
+      <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}</span></div>
+    <div class="poll-list">${rows}</div>
+  </div>`;
+}
+function pollWkPick(w){
+  const n=Number(w)||0;
+  _pollWk=_pollWk===n?null:n;
+  const view=document.getElementById('poll-wk-view');
+  if(!view) return;     // drawn with the buttons, so never apart from them
+  view.innerHTML=_pollWk?pollWeekPanelHTML(_pollWk):'';
+  document.querySelectorAll('#standings-poll .poll-wk').forEach(b=>{
+    const on=Number(b.dataset.w)===_pollWk;
+    b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');
+  });
+}
+function pollWeekButtonsHTML(){
+  const have=new Set(pollWeeks());
+  if(_pollWk&&!have.has(_pollWk)) _pollWk=null;
+  const N=pollSeasonWeeks();
+  const btns=Array.from({length:N},(_,i)=>{
+    const w=i+1, has=have.has(w), on=_pollWk===w;
+    return `<button class="poll-wk${on?' on':''}" data-w="${w}"
+      ${has?`onclick="pollWkPick(${w})"`:'disabled'} aria-pressed="${on}"
+      aria-label="Week ${w} poll${has?'':', not polled yet'}">${w}</button>`;
+  }).join('');
+  /* two rows whatever the season length: seventeen comes out nine and eight */
+  return `<div class="poll-wk-l">Week by week</div>
+    <div class="poll-wks" style="--pwc:${Math.ceil(N/2)}">${btns}</div>
+    <div id="poll-wk-view">${_pollWk?pollWeekPanelHTML(_pollWk):''}</div>`;
+}
 function pollSectionHTML(){
   if(!_pollsFetched){ pollsLoad(); return ''; }
   /* THE POLL BELONGS TO ONE SEASON, AND THIS PAGE HAS A SEASON PICKER.
@@ -3818,27 +3879,7 @@ function pollSectionHTML(){
      keeps being right when the league rolls over and nobody remembers this
      line exists. A past season has no poll and shows none. */
   if(String((_polls&&_polls.season)||'')!==String(getSeason())) return '';
-  const WKS=pollWeeksData();
-  const wks=pollWeeks(); if(!wks.length) return '';
-  const folds=wks.slice().reverse().map((w,i)=>{
-    const d=WKS[w]||{};
-    const rows=(d.rank||[]).map(e=>{
-      const t=pollTeam(e.teamId);
-      return `<div class="poll-row">
-        <span class="poll-rk"
-          style="color:${pollRampColor(e.rank,(d.rank||[]).length||_teams.length)}">${e.rank}</span>
-        ${t?logoImg(t.id,'team-logo-sm'):''}
-        <span class="poll-nm">${t?t.name:('Team '+e.teamId)}</span>
-        <span class="poll-avg">${e.avg.toFixed(2)}</span>
-      </div>`;}).join('');
-    /* Closed by default, the newest included. The chart above already says how
-       the week went, and a fold that opens itself is a fold nobody chose. */
-    return `<details class="poll-fold">
-      <summary><i class="fa fa-ranking-star"></i><span>Week ${w} Poll</span>
-        <span class="poll-ct">${d.ballots||0} ballot${d.ballots===1?'':'s'}</span>
-        <i class="fa fa-chevron-down poll-caret"></i></summary>
-      <div class="poll-list">${rows}</div>
-    </details>`;}).join('');
+  if(!pollWeeks().length) return '';
   /* .sec-head, not .lh-sec-head. League History hides its section headings on
      desktop because sub-tab buttons name the view instead; on Standings there
      are no sub-tabs and the heading has to show, and be jumpable, at every
@@ -3846,7 +3887,7 @@ function pollSectionHTML(){
   return `<div class="sec wm" data-wm="&#xf5a2;">
     <div class="sec-head"><i class="fa fa-ranking-star"></i>Coaches' Poll</div>
     ${pollChartHTML()}
-    ${folds}
+    ${pollWeekButtonsHTML()}
   </div>`;
 }
 function renderLeagueHistory(){
@@ -18210,6 +18251,63 @@ function cpYetToVoteHTML(){
     ).join('')}</span>
   </div>`;
 }
+/* ── EVERYBODY'S BALLOT, ONE CREST EACH ──────────────────────────────────────
+   Once the poll has revealed, the fold that held only this manager's own
+   ballot becomes the whole league's: twelve crests in two rows of six, and a
+   tap on one lays that team's ballot out underneath. Tap it again to close.
+
+   It sits behind the same two gates as the results above it -- the reveal
+   threshold and this manager's own vote -- because a ballot is a result. Seen
+   any earlier, it would tell somebody what the league thinks before they had
+   said what they think, which is the whole reason the results are withheld.
+
+   A team with no ballot in for the week is drawn, greyed, and cannot be
+   pressed: there is nothing to show, and a crest that opened onto an empty
+   panel would read as a broken button. Matched on the profile's teamId, the
+   same way the yet-to-vote row decides who is missing, so the two can never
+   disagree about who has voted. */
+let _cpView=null;
+function cpBallotOf(teamId){
+  const key=cpKey(), id=String(teamId);
+  for(const p of (_cpRows||[])){
+    if(!p||String(p.teamId||'').trim()!==id||!p[key]) continue;
+    try{ const b=JSON.parse(p[key]);
+      if(Array.isArray(b)&&b.length===_teams.length) return b; }catch(e){}
+  }
+  return null;
+}
+function cpViewPick(teamId){
+  const id=String(teamId);
+  _cpView=_cpView===id?null:id;
+  renderCoachesPoll();
+}
+function cpBallotsHTML(){
+  const sel=_cpView&&cpBallotOf(_cpView)?_cpView:null;
+  const grid=_teams.map(t=>{
+    const has=!!cpBallotOf(t.id), on=sel===String(t.id);
+    const nm=String(t.name||'').replace(/"/g,'&quot;');
+    return `<button class="cp-bt${on?' on':''}" ${has?`onclick="cpViewPick(${t.id})"`:'disabled'}
+      title="${nm}${has?'':' · no ballot yet'}" aria-label="${nm}${has?' ballot':', no ballot yet'}"
+      aria-pressed="${on}">${avatarHTML(t,34,9)}</button>`;
+  }).join('');
+  let view='';
+  if(sel){
+    const t=_teams.find(x=>String(x.id)===sel);
+    view=`<div class="cp-bview">
+      <div class="cp-bview-h">${avatarHTML(t,20,6)}<span class="cp-bview-n">${t.name}</span>
+        <span class="cp-bview-k">ballot</span></div>
+      <div class="cp-list">${cpBallotOf(sel).map((id,i)=>{
+        const x=_teams.find(y=>String(y.id)===String(id));
+        return x?`<div class="cp-res"><span class="cp-rk">${i+1}</span>
+          ${logoImg(x.id,'cp-logo')}<span class="cp-nm">${x.name}</span></div>`:'';
+      }).join('')}</div>
+    </div>`;
+  }
+  return `<div class="cp-ballots">
+    <div class="cp-meta">Every ballot · tap a crest</div>
+    <div class="cp-bgrid">${grid}</div>${view}
+  </div>`;
+}
 function renderCoachesPoll(){
   const el=document.getElementById('cp-body'); if(!el) return;
   cpSync();
@@ -18259,12 +18357,7 @@ function renderCoachesPoll(){
     }).join('')}</div>`;
   };
   if(complete&&mineIn){
-    el.innerHTML=results+`
-      <details class="cp-fold cp-mine"${_cpFoldOpen?' open':''} ontoggle="foldKeep('cp',this)">
-        <summary class="cp-fold-s"><i class="fa fa-check"></i>Your ballot
-          <i class="fa fa-chevron-down ms-chev"></i></summary>
-        <div class="cp-fold-b">${myBallotList()}</div>
-      </details>`;
+    el.innerHTML=results+cpBallotsHTML();
     return;
   }
   /* Voted, but the poll has not reached the reveal yet: the ballot folds away
