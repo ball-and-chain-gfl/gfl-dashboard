@@ -3822,7 +3822,44 @@ function pollChartHTML(){
    throw somebody's place in it back to week one every time they looked up a
    number. */
 let _pollWk=null;
+/* ── AND AFTER WEEK 17, F ────────────────────────────────────────────────────
+   The last button is not a poll. It is where the season actually finished:
+   ESPN's final placing for every team, playoffs included, which is the
+   answer the seventeen weeks of opinion before it were guessing at.
+
+   rankCalculatedFinal is the field League History already crowns champions
+   off, and in every season on file it is a complete one-to-twelve. While a
+   season is running it is zero for everybody, so F is drawn and greyed
+   exactly like a week not polled yet -- and lights up on its own the day
+   ESPN finalises the year. A partial set is treated as no set: a final table
+   with holes in it is not final. */
+function pollFinalRanks(){
+  const season=String((_polls&&_polls.season)||getSeason());
+  const T=((_seasonMeta[season]||{}).teams)||{};
+  const rows=Object.keys(T).map(id=>({teamId:Number(id),rank:Number(T[id].rank)||0}));
+  if(!rows.length||rows.some(r=>r.rank<1)) return null;
+  return rows.sort((a,b)=>a.rank-b.rank);
+}
+function pollFinalPanelHTML(){
+  const fin=pollFinalRanks(); if(!fin) return '';
+  const season=String((_polls&&_polls.season)||getSeason());
+  const rows=fin.map(e=>{
+    const t=pollTeam(e.teamId);
+    const rec=t?`${t.wins||0}–${t.losses||0}${t.ties?'–'+t.ties:''}`:'';
+    return `<div class="poll-row">
+      <span class="poll-rk" style="color:${pollRampColor(e.rank,fin.length)}">${e.rank}</span>
+      ${t?logoImg(t.id,'team-logo-sm'):''}
+      <span class="poll-nm">${t?t.name:('Team '+e.teamId)}</span>
+      <span class="poll-avg">${rec}</span>
+    </div>`;}).join('');
+  return `<div class="poll-wk-panel">
+    <div class="poll-wk-h"><i class="fa fa-trophy"></i><span>Final Standings</span>
+      <span class="poll-ct">${season} season</span></div>
+    <div class="poll-list">${rows}</div>
+  </div>`;
+}
 function pollWeekPanelHTML(w){
+  if(w==='F') return pollFinalPanelHTML();
   const d=pollWeeksData()[w]; if(!d) return '';
   const rows=(d.rank||[]).map(e=>{
     const t=pollTeam(e.teamId);
@@ -3840,29 +3877,32 @@ function pollWeekPanelHTML(w){
   </div>`;
 }
 function pollWkPick(w){
-  const n=Number(w)||0;
+  const n=w==='F'?'F':(Number(w)||0);
   _pollWk=_pollWk===n?null:n;
   const view=document.getElementById('poll-wk-view');
   if(!view) return;     // drawn with the buttons, so never apart from them
   view.innerHTML=_pollWk?pollWeekPanelHTML(_pollWk):'';
   document.querySelectorAll('#standings-poll .poll-wk').forEach(b=>{
-    const on=Number(b.dataset.w)===_pollWk;
+    const on=b.dataset.w===String(_pollWk);
     b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');
   });
 }
 function pollWeekButtonsHTML(){
   const have=new Set(pollWeeks());
-  if(_pollWk&&!have.has(_pollWk)) _pollWk=null;
+  const fin=!!pollFinalRanks();
+  if(_pollWk==='F'?!fin:(_pollWk&&!have.has(_pollWk))) _pollWk=null;
   const N=pollSeasonWeeks();
   const btns=Array.from({length:N},(_,i)=>{
     const w=i+1, has=have.has(w), on=_pollWk===w;
     return `<button class="poll-wk${on?' on':''}" data-w="${w}"
       ${has?`onclick="pollWkPick(${w})"`:'disabled'} aria-pressed="${on}"
       aria-label="Week ${w} poll${has?'':', not polled yet'}">${w}</button>`;
-  }).join('');
-  /* two rows whatever the season length: seventeen comes out nine and eight */
+  }).join('')+`<button class="poll-wk poll-wk-f${_pollWk==='F'?' on':''}" data-w="F"
+      ${fin?`onclick="pollWkPick('F')"`:'disabled'} aria-pressed="${_pollWk==='F'}"
+      aria-label="Final standings${fin?'':', once the season is over'}">F</button>`;
+  /* two rows whatever the season length: seventeen weeks and F are nine and nine */
   return `<div class="poll-wk-l">Week by week</div>
-    <div class="poll-wks" style="--pwc:${Math.ceil(N/2)}">${btns}</div>
+    <div class="poll-wks" style="--pwc:${Math.ceil((N+1)/2)}">${btns}</div>
     <div id="poll-wk-view">${_pollWk?pollWeekPanelHTML(_pollWk):''}</div>`;
 }
 function pollSectionHTML(){
@@ -6076,10 +6116,24 @@ const FC_EDGE=2.5;                 // points of projection before a spot is won
    week nobody has kicked off -- and the list falls back to exactly what it drew
    before. That is deliberate: before kickoff the published projections ARE the
    answer, so this only earns its keep once a ball is in the air. */
-function fcLivePlayers(info){
+/* WHICH GAME. The card holds all six of the week's matchups now, and this
+   used to find the signed-in manager's and nobody else's -- so every other
+   pane got no live read at all and drew its whole lineup as still to play.
+   Quinshawn Judkins had 21.6 on the board for Marathon Men on a Saturday
+   while his row sat at his Tuesday projection in pre-game grey, two panes
+   over from your own game showing Jaylen Warren locked in off the same
+   Thursday night.
+
+   A pane names its own two teams. Called bare it is still yours, which is
+   what it always meant. The rosters were never the problem: the live call
+   carries every game's starters, so nothing new is fetched. */
+function fcLivePlayers(info,aTid,bTid){
+  const pair=(aTid&&bTid)?[Number(aTid),Number(bTid)]:null;
   const mine=Number(_me&&_me.teamId)||0;
-  if(!mine||!info||!info.games) return null;
-  const g=info.games.find(m=>m&&m.home&&m.away&&(m.home.teamId===mine||m.away.teamId===mine));
+  if((!pair&&!mine)||!info||!info.games) return null;
+  const g=info.games.find(m=>m&&m.home&&m.away&&(pair
+    ? pair.includes(Number(m.home.teamId))&&pair.includes(Number(m.away.teamId))
+    : (m.home.teamId===mine||m.away.teamId===mine)));
   if(!g) return null;
   /* THE DIGEST HAS TO BE THE WEEK ON SCREEN.
 
@@ -6250,7 +6304,7 @@ function fcPaneHTML(info,aTid,bTid,mine){
     <div class="fc-lu">
       <div class="fc-lu-h">Starting lineups</div>
       ${fcRosterCompareHTML(info.season,info.week,aTid,bTid,ab(aT),ab(bT),
-        fcLivePlayers(info))}
+        fcLivePlayers(info,aTid,bTid))}
     </div>
   </div>`;
 }
@@ -18288,7 +18342,7 @@ function cpBallotsHTML(){
     const nm=String(t.name||'').replace(/"/g,'&quot;');
     return `<button class="cp-bt${on?' on':''}" ${has?`onclick="cpViewPick(${t.id})"`:'disabled'}
       title="${nm}${has?'':' · no ballot yet'}" aria-label="${nm}${has?' ballot':', no ballot yet'}"
-      aria-pressed="${on}">${avatarHTML(t,34,9)}</button>`;
+      aria-pressed="${on}">${avatarHTML(t,30,8)}</button>`;
   }).join('');
   let view='';
   if(sel){
@@ -18304,7 +18358,6 @@ function cpBallotsHTML(){
     </div>`;
   }
   return `<div class="cp-ballots">
-    <div class="cp-meta">Every ballot · tap a crest</div>
     <div class="cp-bgrid">${grid}</div>${view}
   </div>`;
 }

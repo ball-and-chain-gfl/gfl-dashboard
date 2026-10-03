@@ -451,10 +451,14 @@ console.log(nl + '8. STANDINGS: ONE BUTTON A WEEK, TWO ROWS, ONE PANEL');
   const fs = await import('fs');
   const g3 = lifter(new URL('../public/app.js', import.meta.url));
   const W = assemble(g3, [
+    'function pollFinalRanks(){', 'function pollFinalPanelHTML(){',
     'function pollWeekPanelHTML(w){', 'function pollWeekButtonsHTML(){',
-  ], ['pollWeekButtonsHTML', 'pollWeekPanelHTML', 'setWk', 'getWk', 'setData', 'setN'],
+  ], ['pollWeekButtonsHTML', 'pollWeekPanelHTML', 'pollFinalRanks', 'setWk', 'getWk', 'setData', 'setN', 'setFinal'],
     ['let _pollWk=null, _data={}, _n=17;',
-     'let _teams=Array.from({length:12},(_,i)=>({id:i+1,name:"Team "+(i+1)}));',
+     'let _polls={season:2026}, _seasonMeta={};',
+     'const getSeason=()=>"2026";',
+     'const setFinal=r=>{_seasonMeta={"2026":{teams:r}};};',
+     'let _teams=Array.from({length:12},(_,i)=>({id:i+1,name:"Team "+(i+1),wins:12-i,losses:i+2}));',
      'const pollWeeksData=()=>_data;',
      'const pollWeeks=()=>Object.keys(_data).map(Number).sort((a,b)=>a-b);',
      'const pollSeasonWeeks=()=>_n;',
@@ -471,14 +475,14 @@ console.log(nl + '8. STANDINGS: ONE BUTTON A WEEK, TWO ROWS, ONE PANEL');
   let html = W.pollWeekButtonsHTML();
   const btns = html.match(/<button class="poll-wk[^"]*"/g) || [];
 
-  ok('a button for every week of the season, not just the ones polled',
-     btns.length === 17, btns.length + ' buttons');
-  ok('laid out as two rows: nine columns for seventeen weeks',
+  ok('a button for every week of the season, and F after them',
+     btns.length === 18, btns.length + ' buttons');
+  ok('laid out as two rows: seventeen weeks and F are nine and nine',
      html.includes('--pwc:9'), (html.match(/--pwc:\d+/) || ['none'])[0]);
   ok('the three weeks with a poll can be pressed',
      (html.match(/onclick="pollWkPick\(\d+\)"/g) || []).length === 3);
-  ok('the fourteen without one cannot',
-     (html.match(/\bdisabled\b/g) || []).length === 14);
+  ok('the fourteen without one cannot, and nor can F mid-season',
+     (html.match(/\bdisabled\b/g) || []).length === 15);
   ok('nothing is open to start with, the newest week included',
      /<div id="poll-wk-view"><\/div>/.test(html), 'a week opened itself');
   ok('and nothing is drawn as the stack of folds it replaced',
@@ -507,10 +511,49 @@ console.log(nl + '8. STANDINGS: ONE BUTTON A WEEK, TWO ROWS, ONE PANEL');
 
   console.log(nl + '   a season of a different length');
   W.setN(18); W.setWk(null);
-  ok('eighteen weeks is still two rows: nine and nine',
-     W.pollWeekButtonsHTML().includes('--pwc:9'));
+  ok('eighteen weeks and F is still two rows: ten and nine',
+     W.pollWeekButtonsHTML().includes('--pwc:10'));
   W.setN(14);
-  ok('fourteen is seven and seven', W.pollWeekButtonsHTML().includes('--pwc:7'));
+  ok('fourteen and F is eight and seven', W.pollWeekButtonsHTML().includes('--pwc:8'));
+  W.setN(17);
+
+  console.log(nl + '   F: where the season actually finished');
+  /* rankCalculatedFinal: zero for everybody until ESPN finalises the year */
+  const zero = {}; IDS.forEach(id => { zero[id] = { rank: 0 }; });
+  W.setFinal(zero); W.setWk(null);
+  html = W.pollWeekButtonsHTML();
+  ok('F is drawn while the season is running', /data-w="F"/.test(html));
+  ok('but greyed, like a week not polled yet',
+     /data-w="F"\s+disabled/.test(html) && !html.includes("pollWkPick('F')"));
+  ok('there is no final table to show', W.pollFinalRanks() === null);
+
+  /* a finished season, in an order that is NOT the team ids, so a table that
+     merely listed the teams would fail */
+  const FIN = [7, 5, 10, 4, 3, 6, 2, 12, 1, 11, 9, 8];
+  const done = {}; FIN.forEach((id, i) => { done[id] = { rank: i + 1 }; });
+  W.setFinal(done);
+  html = W.pollWeekButtonsHTML();
+  ok('once ESPN has every place, F can be pressed', html.includes("onclick=\"pollWkPick('F')\""));
+  W.setWk('F');
+  html = W.pollWeekButtonsHTML();
+  ok('pressing it lights F and nothing else',
+     (html.match(/class="poll-wk[^"]* on"/g) || []).length === 1 && /poll-wk-f on" data-w="F"/.test(html));
+  ok('and lays the final standings out underneath, all twelve',
+     (html.match(/class="poll-row"/g) || []).length === 12 && html.includes('Final Standings'));
+  const finOrder = [...html.matchAll(/data-logo="(\d+)"/g)].map(m => Number(m[1]));
+  ok('in the order the season finished', JSON.stringify(finOrder) === JSON.stringify(FIN),
+     JSON.stringify(finOrder));
+  ok('with a record beside each team rather than a poll average',
+     html.includes('6–8') && !/\d\.\d\d<\/span>/.test(html));
+
+  /* a table with holes in it is not final */
+  const partial = Object.assign({}, done, { 8: { rank: 0 } });
+  W.setFinal(partial);
+  ok('one place missing and F is greyed again', W.pollFinalRanks() === null);
+  ok('and a remembered F is let go rather than drawn empty',
+     !W.pollWeekButtonsHTML().includes('Final Standings') && W.getWk() === null);
+  W.setFinal({});
+  ok('no season loaded at all: nothing', W.pollFinalRanks() === null && W.pollWeekPanelHTML('F') === '');
 
   /* the keypad caps its columns, so a desktop does not stretch nine buttons
      across the page -- and on a phone they shrink rather than wrap a third row */
@@ -591,7 +634,10 @@ console.log(nl + '9. HOMEPAGE: EVERY TEAM\'S BALLOT, ONE CREST EACH');
   ok('and that place is behind the reveal AND this manager\'s own ballot',
      SRC.includes('  if(complete&&mineIn){' + nl + '    el.innerHTML=results+cpBallotsHTML();'));
   const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  ok('two rows of six', IDX.includes('.cp-bgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));'));
+  ok('two rows of six, fixed boxes packed tight and centred',
+     IDX.includes('.cp-bgrid{display:grid;grid-template-columns:repeat(6,40px);gap:4px;justify-content:center;}'));
+  ok('with no caption over them', !SRC.includes('tap a crest'));
+  ok('and every-ballot-is-in sits centred', /\.cp-yet-all\{justify-content:center;/.test(IDX));
 }
 
 console.log(nl + pass + ' passed, ' + fail + ' failed');

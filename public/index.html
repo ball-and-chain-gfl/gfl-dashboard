@@ -2460,7 +2460,7 @@
     .cp-yet-logos{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;}
     .cp-yet-t{display:inline-flex;opacity:0.72;}
     .cp-yet-t:hover{opacity:1;}
-    .cp-yet-all{color:var(--text3);font-family:'Inter',sans-serif;font-size:11.5px;}
+    .cp-yet-all{justify-content:center;color:var(--text3);font-family:'Inter',sans-serif;font-size:11.5px;}
     .cp-yet-all i{color:var(--green);}
     .cp-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
     .cp-t{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;
@@ -2508,10 +2508,13 @@
     /* Every team's ballot, once the poll has revealed: twelve crests, two rows
        of six, the pressed one lit in the accent and its ballot underneath. A
        team with nothing in is greyed and cannot be pressed. */
-    .cp-ballots{margin-top:18px;}
-    .cp-bgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;}
-    .cp-bt{height:46px;min-width:0;padding:0;display:flex;align-items:center;
-      justify-content:center;border-radius:10px;
+    /* Fixed 40px boxes round a 30px crest, packed 4px apart and centred as a
+       block. The columns used to stretch to fill the card, which put more air
+       between the crests than there was crest. */
+    .cp-ballots{margin-top:14px;}
+    .cp-bgrid{display:grid;grid-template-columns:repeat(6,40px);gap:4px;justify-content:center;}
+    .cp-bt{width:40px;height:40px;min-width:0;padding:0;display:flex;align-items:center;
+      justify-content:center;border-radius:9px;
       -webkit-tap-highlight-color:transparent;}
     .cp-bt .tm-avatar{pointer-events:none;}
     .cp-bt.on,.cp-bt.on:hover{border-color:var(--accent);

@@ -32,7 +32,7 @@ const M = assemble(grab, [
   'const BENCH_SLOTS=', 'const NFL_TEAMS=', 'const LIVE_VOLUME=', 'const LIVE_USAGE_R=',
   'const LIVE_EFF_R=', 'const LIVE_EFF_SKIP=', 'const liveEffW=', 'const liveUsageW=',
   'const liveProProgress=', 'function liveScoreLine(line,rules){',
-  'function livePlayerLeft(entry,f,rules){', 'function fcLivePlayers(info){',
+  'function livePlayerLeft(entry,f,rules){', 'function fcLivePlayers(info,aTid,bTid){',
 ], ['fcLivePlayers', 'livePlayerLeft', 'setMe', 'setGames'], PRELUDE);
 
 let pass = 0, fail = 0;
@@ -236,6 +236,45 @@ const backwards = {
 };
 r = M.fcLivePlayers({ ...info([backwards]), week: 2 });
 ok('last week listed first changes nothing', r['2003'].now, 8.8);
+
+/* ── EVERY PANE, NOT ONLY YOURS ──────────────────────────────────────────────
+   The card holds all six of the week's games, and this used to find the
+   signed-in manager's and nobody else's. Every other pane got null back and
+   drew its whole lineup as still to play -- Quinshawn Judkins sitting at his
+   Tuesday projection in pre-game grey with 21.6 already on the board, two panes
+   over from Jaylen Warren locked in off the same Thursday night. */
+head('a pane for somebody else\'s game reads that game');
+M.setGames(DONE);                         // SF is final, NO has not kicked off
+const twoGames = {
+  meta: { scoring: RULES },
+  games: [
+    { home: { teamId: 7, rosterForCurrentScoringPeriod: { entries: [olave()] } },
+      away: { teamId: 8, rosterForCurrentScoringPeriod: { entries: [] } } },
+    { home: { teamId: 1, rosterForCurrentScoringPeriod: { entries: [evans({ 58: 5, 53: 4, 42: 88, 43: 1 }, 18.8)] } },
+      away: { teamId: 6, rosterForCurrentScoringPeriod: { entries: [cmc({ 23: 12, 24: 60 }, 6.0)] } } },
+  ],
+};
+M.setMe({ teamId: 7 });
+r = M.fcLivePlayers(twoGames, 1, 6);
+ok('their game\'s players, not mine', Object.keys(r).sort(), ['1001', '1002']);
+ok('a man whose game is over is locked in on that pane too',
+  [r['1001'].state, r['1001'].now], ['final', 18.8]);
+ok('both sides of it', [r['1001'].state, r['1002'].state], ['final', 'final']);
+ok('called bare it is still my own game', Object.keys(M.fcLivePlayers(twoGames)).sort(), ['1003']);
+ok('the order the pair is named in does not matter',
+  Object.keys(M.fcLivePlayers(twoGames, 6, 1)).sort(), ['1001', '1002']);
+ok('two teams who are not playing each other: nothing', M.fcLivePlayers(twoGames, 1, 8), null);
+M.setMe(null);
+ok('nobody has to be signed in to see somebody else\'s game',
+  M.fcLivePlayers(twoGames, 1, 6) != null, true);
+ok('but signed out and bare is still nothing', M.fcLivePlayers(twoGames), null);
+M.setMe({ teamId: 7 });
+
+/* and the pane really does pass its own pair -- a lift test cannot see that */
+const SRC = (await import('fs')).readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+ok('every pane names its own game', SRC.includes('fcLivePlayers(info,aTid,bTid))}'), true);
+ok('and nothing calls it bare any more',
+  (SRC.match(/fcLivePlayers\(info\)/g) || []).length, 0);
 
 console.log('\n' + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
