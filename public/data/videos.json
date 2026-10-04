@@ -1,6 +1,14 @@
 {
- "updated": "2026-10-04T00:40:07.197Z",
+ "updated": "2026-10-04T06:58:02.912Z",
  "videos": [
+  {
+   "videoId": "wFqz67-PiC4",
+   "title": "Ball and Chain 4 2026",
+   "published": null,
+   "ageText": null,
+   "thumb": "https://i.ytimg.com/vi/wFqz67-PiC4/hqdefault.jpg",
+   "description": ""
+  },
   {
    "videoId": "dq65MsxwosQ",
    "title": "Ball and Chain 3 2026",
@@ -111,14 +119,6 @@
    "published": null,
    "ageText": null,
    "thumb": "https://i.ytimg.com/vi/-qJsr2iZf5w/hqdefault.jpg",
-   "description": ""
-  },
-  {
-   "videoId": "ZMzm9-1nXmU",
-   "title": "Ball and Chain 9 2025",
-   "published": null,
-   "ageText": null,
-   "thumb": "https://i.ytimg.com/vi/ZMzm9-1nXmU/hqdefault.jpg",
    "description": ""
   }
  ]
