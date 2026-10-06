@@ -116,6 +116,40 @@ ok('Monday night still to come', M.liveSlateOver({ games: [{ s: 'post' }, { s: '
 ok('no digest is not over', M.liveSlateOver(null), false);
 ok('an empty digest is not over', M.liveSlateOver({ games: [] }), false);
 
+head('a tab does not forget the seal it just took');
+{
+  /* liveFlush reads the document back just before it writes. Week 4 was
+     sealed at 10:55 by a tab that then read "no seal" off a document it had
+     not written to yet, forgot its own, and saved the result without the
+     marker -- so it would have sealed the week afresh on every poll after. */
+  const L = assemble(grab, ['async function liveLoadSeries(key){'], ['liveLoadSeries', 'finalOf', 'setDoc'], [
+    'let _liveFinalOf={}, _liveProj={}, _doc={};',
+    'const finalOf=k=>_liveFinalOf[k]; const setDoc=d=>{_doc=d;};',
+    'const liveDocUrl=k=>k; const fsIn=j=>j;',
+    'const fetch=async()=>({status:200, ok:true, json:async()=>_doc});',
+  ].join(NL));
+  const k = '2026-w4';
+  L.setDoc({ series: '{}' });                       // the document, not sealed yet
+  await L.liveLoadSeries(k);
+  ok('nothing sealed anywhere: nothing sealed', L.finalOf(k) || 0, 0);
+  /* this tab seals at 10:55 ... */
+  const before = 29854315;
+  /* (the poll sets it directly; the lifted copy shares nothing else) */
+  const L2 = assemble(grab, ['async function liveLoadSeries(key){'], ['liveLoadSeries', 'finalOf', 'seal', 'setDoc'], [
+    'let _liveFinalOf={}, _liveProj={}, _doc={};',
+    'const finalOf=k=>_liveFinalOf[k]; const seal=(k,t)=>{_liveFinalOf[k]=t;}; const setDoc=d=>{_doc=d;};',
+    'const liveDocUrl=k=>k; const fsIn=j=>j;',
+    'const fetch=async()=>({status:200, ok:true, json:async()=>_doc});',
+  ].join(NL));
+  L2.seal(k, before);
+  L2.setDoc({ series: '{}' });                      // ... and reads back a document with no marker
+  await L2.liveLoadSeries(k);
+  ok('its own seal survives reading back an unsealed document', L2.finalOf(k), before);
+  L2.setDoc({ series: '{}', final: '29854290' });   // somebody else sealed it first
+  await L2.liveLoadSeries(k);
+  ok('a seal already on the document wins', L2.finalOf(k), 29854290);
+}
+
 head('the writers');
 {
   const APP = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');

@@ -7230,7 +7230,14 @@ async function liveLoadSeries(key){
     if(r.status===404) return {};
     if(!r.ok) return null;
     const f=fsIn(await r.json());
-    _liveFinalOf[key]=Number(f.final)||0;
+    /* A seal on the document wins; no seal on the document is not an answer.
+       This was a plain assignment, and liveFlush reads the document back just
+       before it writes -- so a tab that had just sealed the week read 'no
+       seal' off a document it had not written to yet, forgot its own, and
+       saved the result without the marker. Week 4 went in that way at 10:55
+       and would have been sealed afresh on every poll after. */
+    const rf=Number(f.final)||0;
+    if(rf) _liveFinalOf[key]=rf;
     try{ _liveProj=JSON.parse(f.proj||'{}')||{}; }catch(e){ _liveProj={}; }
     try{ return JSON.parse(f.series||'{}')||{}; }catch(e){ return {}; }
   }catch(e){ return null; }
