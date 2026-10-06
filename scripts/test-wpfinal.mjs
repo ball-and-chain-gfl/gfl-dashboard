@@ -35,6 +35,7 @@ const M = assemble(grab, [
   'function schedNormCdf(z){', 'const wpSd=',
   'function wpAt(a,b,projA,projB,f,mu0,lA,lB){',
   'function wpSlateProgress(series,projByOwner){',
+  'const liveRowFinal=',
   'function wpCurve(series,projByOwner,ownerA,ownerB,mu0,projFull,decided){',
 ], ['wpCurve', 'wpAt', 'liveMKey']);
 

@@ -96,8 +96,14 @@ const app = assemble(grab, [
   'function liveWpOf(m,aFirst){',
   /* the stop rule travels with the recorder that obeys it */
   'function liveRowDecided(r){',
+  /* and the last reading of the week, with the same rule for what one is */
+  'function liveFinalRow(t,a,b){',
+  'const liveRowFinal=',
+  'function liveSeal(arr,row){',
+  'const liveSlateOver=',
   'function liveNote(arr,t,a,b,p,la,lb,fa,fb){',
 ], ['weekScored', 'weekOver', 'weeksOf', 'liveMKey',
+    'liveFinalRow', 'liveRowFinal', 'liveSeal', 'liveSlateOver',
     'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf',
     'liveSideScore', 'liveWithScores', 'liveProProgress', 'liveSideLeft', 'liveSideProj']);
 
@@ -116,26 +122,31 @@ const get = async q => {
 const ownerOf = t => t?.primaryOwner || (t?.owners && t.owners[0]) || `team:${t?.id}`;
 
 let _proj = {};
+/* the minute the document says the week was sealed, 0 if it has not been */
+let _final = 0;
 async function loadSeries(key) {
   try {
     const r = await fetch(DOC(key), { cache: 'no-store' });
-    if (r.status === 404) { _proj = {}; return {}; }
+    if (r.status === 404) { _proj = {}; _final = 0; return {}; }
     if (!r.ok) return null;
     const f = (await r.json()).fields || {};
+    _final = Number((f.final || {}).stringValue) || 0;
     try { _proj = JSON.parse((f.proj || {}).stringValue || '{}') || {}; } catch { _proj = {}; }
     try { return JSON.parse((f.series || {}).stringValue || '{}') || {}; } catch { return {}; }
   } catch { return null; }
 }
 
-async function saveSeries(key, series) {
-  const body = JSON.stringify({ fields: {
+async function saveSeries(key, series, final) {
+  const fields = {
     series: { stringValue: JSON.stringify(series) },
     proj: { stringValue: JSON.stringify(_proj || {}) },
     updated: { stringValue: String(Date.now()) },
-  } });
+  };
+  if (final) fields.final = { stringValue: String(final) };
+  const body = JSON.stringify({ fields });
   const hdr = { 'Content-Type': 'application/json' };
   const mask = '&updateMask.fieldPaths=series&updateMask.fieldPaths=proj'
-    + '&updateMask.fieldPaths=updated';
+    + '&updateMask.fieldPaths=updated' + (final ? '&updateMask.fieldPaths=final' : '');
   const r = await fetch(DOC(key) + mask, { method: 'PATCH', headers: hdr, body });
   if (r.ok) return true;
   const c = await fetch(COLL(key), { method: 'POST', headers: hdr, body });
@@ -166,11 +177,17 @@ async function once() {
   /* ── nothing is being played, so there is nothing to record ─────────────── */
   const state = await get('type=nflstate');
   if (!state) { console.log(`${stamp}  nfl state unavailable — skipping`); return 'skip'; }
-  if (!state.anyLive && !FORCE) {
+  /* ── THE LAST GAME OF THE WEEK HAS ENDED ──────────────────────────────────
+     Nothing live is normally nothing to do. The one exception is the first
+     look after the week's final whistle: every game on the digest is post,
+     and the week has not been sealed yet. That is when the last reading is
+     taken -- see THE WEEK'S LAST READING IS THE RESULT in app.js. */
+  const slateOver = app.liveSlateOver(state);
+  if (!state.anyLive && !FORCE && !slateOver) {
     console.log(`${stamp}  no NFL game live (week ${state.week}) — nothing to poll`);
     return 'idle';
   }
-  if (!state.anyLive) console.log(`${stamp}  FORCE: running with nothing live`);
+  if (!state.anyLive && FORCE) console.log(`${stamp}  FORCE: running with nothing live`);
 
   const season = String(state.season || new Date().getFullYear());
   const meta = await get(`view=mMatchup&view=mTeam&view=mSettings&seasonId=${season}`);
@@ -188,7 +205,15 @@ async function once() {
      without one is a point the graph has to guess at later. */
   const fresh = await get(`view=mMatchup&view=mMatchupScore`
     + `&seasonId=${season}&scoringPeriodId=${week}&live=1`);
-  const games = ((fresh && fresh.schedule) || meta.schedule || [])
+  /* NO FALLBACK. This used to drop back to meta.schedule when the live call
+     failed -- a different request, cached on its own clock -- and a reading
+     written from it is the scores of some earlier minute stamped with this
+     one. The 'moved' rule below would then take it for a stat correction.
+     No live answer this minute is no reading this minute. */
+  if (!fresh || !Array.isArray(fresh.schedule)) {
+    console.log(`${stamp}  live scores unavailable — skipping`); return 'skip';
+  }
+  const games = (fresh.schedule || [])
     .filter(m => (m.matchupPeriodId || 0) === week && m.home && m.away)
     /* ESPN's matchup total does not move during a game; the starters do. */
     .map(app.liveWithScores);
@@ -197,6 +222,36 @@ async function once() {
   const key = `${season}-w${week}`;
   const series = await loadSeries(key);
   if (series == null) { console.log(`${stamp}  could not read ${key} — skipping`); return 'skip'; }
+
+  /* a sealed week is finished: nothing more is written to it */
+  if (_final) {
+    console.log(`${stamp}  ${key} is sealed — nothing to record`); return 'sealed';
+  }
+  /* the week's football is over and the result has not been taken: take it.
+     Only when the digest and the league agree on which week this is -- a
+     scoreboard that has already rolled on is not a word on THIS week. */
+  if (!state.anyLive && slateOver) {
+    if (Number(state.week) !== Number(week)) {
+      console.log(`${stamp}  scoreboard is on week ${state.week}, league on ${week} — not sealing`);
+      return 'idle';
+    }
+    const t = app.liveBucket(Date.now());
+    let n = 0;
+    games.forEach(m => {
+      const ao = owners[m.home.teamId], bo = owners[m.away.teamId];
+      if (!ao || !bo) return;
+      const aFirst = [ao, bo].sort()[0] === ao;
+      const a = aFirst ? (m.home.totalPoints || 0) : (m.away.totalPoints || 0);
+      const b = aFirst ? (m.away.totalPoints || 0) : (m.home.totalPoints || 0);
+      const k = app.liveMKey(ao, bo);
+      app.liveSeal(series[k] || (series[k] = []), app.liveFinalRow(t, a, b));
+      n++;
+    });
+    if (DRY) { console.log(`${stamp}  ${key}: would seal ${n} results (DRY RUN)`); return 'dry'; }
+    const ok = await saveSeries(key, series, t);
+    console.log(`${stamp}  ${key}: last game final — ${n} results sealed — ${ok ? 'written' : 'WRITE FAILED'}`);
+    return ok ? 'sealed' : 'failed';
+  }
 
   /* the pro teams with a game in progress this minute, straight off the digest
      that got us past the gate above -- no second request for it */
@@ -288,7 +343,8 @@ if (!LOOP) {
     r = await once();
     /* 'skip' is ESPN being unreachable, which is not an answer either way: it
        neither proves a game is on nor that one is over, so it moves nothing. */
-    if (r !== 'idle' && r !== 'skip') { sawLive = true; lastLive = Date.now(); }
+    /* 'sealed' is the week over and written up, which is not football either */
+    if (r !== 'idle' && r !== 'skip' && r !== 'sealed') { sawLive = true; lastLive = Date.now(); }
     const quiet = Date.now() - (sawLive ? lastLive : started);
     const grace = sawLive ? AFTER_GAME_MS : NO_GAME_MS;
     if (quiet >= grace) {
@@ -299,7 +355,7 @@ if (!LOOP) {
     }
     const left = until - Date.now();
     if (left <= 0) break;
-    await new Promise(res => setTimeout(res, Math.min(r === 'idle' ? IDLE_EVERY : EVERY, left)));
+    await new Promise(res => setTimeout(res, Math.min(r === 'idle' || r === 'sealed' ? IDLE_EVERY : EVERY, left)));
   }
   console.log('watch closed');
 }

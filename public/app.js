@@ -7138,6 +7138,8 @@ let _liveTimer=null,_liveSeries={},_liveInfo=null,_liveBusy=false,_liveSaved=0,_
    what is left against it. */
 let _liveProj={};
 let _liveDirty=false,_liveChanged=0,_liveFlushing=false;
+/* the minute each week was sealed, by document key, as the document says */
+let _liveFinalOf={};
 const liveDocUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
 const liveCollUrl=k=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/live?documentId=${encodeURIComponent(k)}&key=${GFL_DB.key}`;
 const liveMKey=(a,b)=>[a,b].sort().join('~');
@@ -7228,17 +7230,22 @@ async function liveLoadSeries(key){
     if(r.status===404) return {};
     if(!r.ok) return null;
     const f=fsIn(await r.json());
+    _liveFinalOf[key]=Number(f.final)||0;
     try{ _liveProj=JSON.parse(f.proj||'{}')||{}; }catch(e){ _liveProj={}; }
     try{ return JSON.parse(f.series||'{}')||{}; }catch(e){ return {}; }
   }catch(e){ return null; }
 }
 async function liveSaveSeries(key,series){
-  const body=JSON.stringify(fsOut({series:JSON.stringify(series),
-    proj:JSON.stringify(_liveProj||{}),updated:String(Date.now())}));
+  const fields={series:JSON.stringify(series),
+    proj:JSON.stringify(_liveProj||{}),updated:String(Date.now())};
+  const fin=_liveFinalOf[key]||0;
+  if(fin) fields.final=String(fin);
+  const body=JSON.stringify(fsOut(fields));
   const hdr={'Content-Type':'application/json'};
   try{
     const r=await fetch(liveDocUrl(key)
-      +'&updateMask.fieldPaths=series&updateMask.fieldPaths=proj&updateMask.fieldPaths=updated',
+      +'&updateMask.fieldPaths=series&updateMask.fieldPaths=proj&updateMask.fieldPaths=updated'
+      +(fin?'&updateMask.fieldPaths=final':''),
       {method:'PATCH',headers:hdr,body});
     if(r.ok) return true;
     const c=await fetch(liveCollUrl(key),{method:'POST',headers:hdr,body});
@@ -7610,6 +7617,41 @@ function liveRowDecided(r){
   if(la==null||lb==null) return false;
   return (la===0&&a<b)||(lb===0&&b<a);
 }
+/* ── THE WEEK'S LAST READING IS THE RESULT ───────────────────────────────────
+   When the last game of the NFL week goes final, one more reading is taken of
+   every matchup -- from a fresh look at the scoreboard, never a held copy --
+   with nothing left on either side and the probability set to the result:
+   1 or 0 for the side listed first, an even half for a tie. Then the week is
+   SEALED, and nothing more is written to it.
+
+   Week 4 is why. At 10:25 on the Monday night BFT led Florida Man 129.24 to
+   128.58 with a fifth of a point left between them. At 10:30 a reading went in
+   that said 122.86 to 127.28 with nothing left -- the scores from 9:50, word
+   for word, ESPN's 96% included, laid over a scoreboard that was by then
+   final. Somebody's held copy of the fantasy scores met a fresh 'everything is
+   over' and was written down as the result, and the curve finished with BFT
+   on nought in a game BFT won.
+
+   The probability field never holds 0 or 1 on an ordinary reading --
+   liveWpOf reports a finished game as null -- so a row with nothing left
+   anywhere and a 1, 0 or a half in that place is the sealed result and
+   cannot be mistaken for anything else. The curve lands on it whether or not
+   this browser has the scoreboard digest to know the week is over. */
+function liveFinalRow(t,a,b){
+  return [t,a,b,a===b?0.5:(a>b?1:0),0,0,0,0];
+}
+const liveRowFinal=r=>!!r&&r.length>=8&&r[4]===0&&r[5]===0&&r[6]===0&&r[7]===0
+  &&(r[3]===1||r[3]===0||r[3]===0.5);
+/* the result goes last: anything already in its bucket, or after it, is gone */
+function liveSeal(arr,row){
+  while(arr.length&&arr[arr.length-1][0]>=row[0]) arr.pop();
+  arr.push(row);
+  return arr;
+}
+/* every game of the digest's week is over -- the poller's copy of nflWeekDone,
+   which it cannot call because it holds the digest itself */
+const liveSlateOver=st=>!!(st&&Array.isArray(st.games)&&st.games.length
+  &&st.games.every(g=>g&&g.s==='post'));
 /* Put one reading in the bucket it belongs to; answers whether anything moved.
 
    Two watchers can land in the same five minutes holding different scores. The
@@ -7684,7 +7726,7 @@ async function livePoll(){
   try{
     const info=liveWeekInfo(); if(!info){_liveBusy=false;return;}
     const owners=info.meta.owners||{};
-    let games=info.games;
+    let games=info.games, gotLive=false;
     // ask ESPN directly so an in-progress week reflects the current minute
     try{
       /* mMatchupScore rides along on the same request: it is what carries
@@ -7698,7 +7740,7 @@ async function livePoll(){
            one of them and no other caller learns about any of this */
         const fresh=(j.schedule||[]).filter(m=>(m.matchupPeriodId||0)===info.week&&m.home&&m.away)
           .map(liveWithScores);
-        if(fresh.length) games=fresh;
+        if(fresh.length){ games=fresh; gotLive=true; }
       }
     }catch(e){}
     const key=liveKeyFor(info);
@@ -7720,7 +7762,31 @@ async function livePoll(){
     const rules=(info.meta&&info.meta.scoring)||null;
     const t=liveBucket(Date.now());               // see WHEN A READING IS WORTH TAKING
     let changed=false;
-    games.forEach(m=>{
+    /* ── ONLY A READING TAKEN THIS MINUTE IS A READING ─────────────────────
+       `games` falls back to info.games when the live request fails, and
+       info.games is the league as it stood when this page LOADED -- an hour
+       ago, on a phone that has been in a pocket. Drawn on, that is fine:
+       it is what there is. Written down, it is a lie with a timestamp on it,
+       and the 'moved' rule below would have taken it as news. So nothing is
+       recorded from anything but a response that came back this poll. */
+    const sealed=!!_liveFinalOf[key];
+    const over=nflWeekDone(info.week,info.season)===true;
+    /* the week's football is over and nobody has taken the last reading yet:
+       take it, from the fresh scores, and seal the week */
+    if(gotLive&&over&&!sealed){
+      games.forEach(m=>{
+        const ao=owners[m.home.teamId], bo=owners[m.away.teamId];
+        if(!ao||!bo) return;
+        const k=liveMKey(ao,bo);
+        const aFirst=[ao,bo].sort()[0]===ao;
+        const a=aFirst?(m.home.totalPoints||0):(m.away.totalPoints||0);
+        const b=aFirst?(m.away.totalPoints||0):(m.home.totalPoints||0);
+        liveSeal(_liveSeries[k]||(_liveSeries[k]=[]),liveFinalRow(t,a,b));
+      });
+      _liveFinalOf[key]=t; changed=true;
+      _liveSaved=0;                               // the result goes out now, not in three minutes
+    }
+    if(gotLive&&!over&&!sealed) games.forEach(m=>{
       const ao=owners[m.home.teamId], bo=owners[m.away.teamId];
       if(!ao||!bo) return;
       const k=liveMKey(ao,bo);
@@ -7773,9 +7839,16 @@ async function liveFlush(key){
            let two watchers each keep their own copy of the same five minutes,
            and the curve then stepped twice at one moment. Same tie-break as
            liveNote: the fuller look inside a bucket is the later one. */
+        const fin=_liveFinalOf[key]||0;
         const at={}; mine.forEach(p=>{ at[p[0]]=p; });
         arr.forEach(p=>{
           const cur=at[p[0]];
+          /* the sealed result is not merged with whatever this tab holds for
+             that bucket -- it IS that bucket */
+          if(fin&&p[0]===fin&&liveRowFinal(p)){
+            if(cur) cur.splice(0,cur.length,...p); else { at[p[0]]=p; mine.push(p); }
+            return;
+          }
           if(!cur){ at[p[0]]=p; mine.push(p); }
           else{
             if((p[1]+p[2])>(cur[1]+cur[2])){ cur[1]=p[1]; cur[2]=p[2]; }
@@ -7792,6 +7865,11 @@ async function liveFlush(key){
         _liveSeries[k]=mine;
       });
     }
+    /* a tab that kept recording without knowing the week was sealed does not
+       get to write past the result */
+    const sealedAt=_liveFinalOf[key]||0;
+    if(sealedAt) Object.values(_liveSeries).forEach(a=>{
+      while(a.length&&a[a.length-1][0]>sealedAt) a.pop(); });
     if(key&&await liveSaveSeries(key,_liveSeries)) _liveDirty=false;
   }catch(e){}
   _liveFlushing=false;
@@ -8018,7 +8096,9 @@ function wpCurve(series,projByOwner,ownerA,ownerB,mu0,projFull,decided){
   });
   /* The result, not a forecast of it. A tie is left at even, which is what a
      tie is. */
-  if(decided&&pts.length){
+  /* ...and a SEALED last reading is the result whatever this browser knows
+     about the week -- see THE WEEK'S LAST READING IS THE RESULT */
+  if((decided||liveRowFinal(arr[arr.length-1]))&&pts.length){
     const last=pts[pts.length-1];
     last.p=(last.a===last.b)?0.5:(last.a>last.b?1:0);
     last.done=true;

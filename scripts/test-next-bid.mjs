@@ -190,10 +190,18 @@ for (const [name, input, check] of cases) {
 /* ── and the archive on disk obeys it ─────────────────────────────────────── */
 const arch = JSON.parse(fs.readFileSync(path.resolve('public/data/transactions-2026.json'), 'utf8'));
 const wv = arch.waivers || [], tx = arch.transactions || [];
+/* Joined on the claim's own DATE where the pickup carries one. Team, bid and
+   player alone are not unique: BFT put in two $1 claims for the same player
+   in week 4, one that failed on 30 September and one that went through on 3
+   October, and the first match by those three was the failed one -- so a
+   correct archive read as a failure. The date is the claim's identity. */
 const dead = wv.filter(w => {
-  const hit = tx.find(t => String(t.teamId) === String(w.teamId)
+  const same = t => String(t.teamId) === String(w.teamId)
     && Math.max(Number(t.bidAmount) || 0, 0) === w.bid
-    && (t.items || []).some(i => i.type === 'ADD' && String(i.playerId) === String(w.playerId)));
+    && (t.items || []).some(i => i.type === 'ADD' && String(i.playerId) === String(w.playerId));
+  const hit = (w.date && tx.find(t => same(t)
+      && Number(t.processDate || t.proposedDate) === Number(w.date)))
+    || tx.find(same);
   return hit && /^(FAILED|CANCEL|PENDING|DECLIN|REVERS|VOID|INVALID)/
     .test(String(hit.status || '').toUpperCase());
 });

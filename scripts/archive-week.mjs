@@ -25,6 +25,14 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { lifter, assemble } from './lib/lift.mjs';
+
+/* What a sealed result looks like, and how one goes last, from app.js -- the
+   recorders and this have to agree on it or the curve will not land. */
+const live = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
+  'const LIVE_BUCKET_MIN=', 'function liveFinalRow(t,a,b){', 'const liveRowFinal=',
+  'function liveSeal(arr,row){',
+], ['LIVE_BUCKET_MIN', 'liveFinalRow', 'liveRowFinal', 'liveSeal']);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
@@ -91,6 +99,28 @@ async function latestFinishedWeek(season) {
   return done.length ? Math.max(...done) : null;
 }
 
+/* ESPN's closed scores for one week, keyed the way the series is: the two
+   owners sorted and joined, the first owner's score first. Only fixtures ESPN
+   has actually decided -- an UNDECIDED one has no result to write. */
+async function officialResults(season, week) {
+  const r = await fetch(`${API}?view=mMatchup&view=mTeam&seasonId=${season}`);
+  if (!r.ok) throw new Error(`ESPN ${r.status}`);
+  const j = await r.json();
+  const ownerOf = t => t?.primaryOwner || (t?.owners && t.owners[0]) || `team:${t?.id}`;
+  const owner = {};
+  for (const t of j.teams || []) owner[t.id] = ownerOf(t);
+  const out = {};
+  for (const m of j.schedule || []) {
+    if (!m.home || !m.away || (m.matchupPeriodId || 0) !== Number(week) || !wkDecided(m)) continue;
+    const ho = owner[m.home.teamId], ao = owner[m.away.teamId];
+    if (!ho || !ao) continue;
+    const homeFirst = [ho, ao].sort()[0] === ho;
+    const hp = Number(m.home.totalPoints) || 0, ap = Number(m.away.totalPoints) || 0;
+    out[[ho, ao].sort().join('~')] = homeFirst ? [hp, ap] : [ap, hp];
+  }
+  return out;
+}
+
 /* Returns rather than exits: process.exit while a fetch is still unwinding
    trips an assertion in libuv on Windows, and none of these paths is worth
    exiting hard for — every "nothing to do" here is a success. */
@@ -109,6 +139,26 @@ async function main() {
   const series = await loadSeries(key);
   if (!series || !Object.keys(series).length)
     return console.log(`No series recorded for ${key} — nothing to archive.`);
+
+  /* ── THE RECORD ENDS ON THE OFFICIAL RESULT ──────────────────────────────
+     The recorders seal a week with the scores as they stood at the last
+     whistle. ESPN closes the scoring period a day or so later, with the stat
+     corrections in, and that is the result that stands -- in a week BFT won
+     by 0.66 a correction can change who won. This only runs once ESPN has
+     closed the week, so these are the final numbers, and they go in as the
+     last reading: in place of the sealed one where there is a seal, and one
+     bucket after the last reading where the recorders never got to seal it. */
+  const official = await officialResults(season, week);
+  let sealed = 0;
+  for (const [k, ab] of Object.entries(official)) {
+    const arr = series[k];
+    if (!arr || !arr.length) continue;           // never recorded: nothing to end
+    const last = arr[arr.length - 1];
+    const t = live.liveRowFinal(last) ? last[0] : last[0] + live.LIVE_BUCKET_MIN;
+    live.liveSeal(arr, live.liveFinalRow(t, ab[0], ab[1]));
+    sealed++;
+  }
+  if (sealed) console.log(`${key}: ${sealed} matchups end on ESPN's official result.`);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(file, JSON.stringify(series) + '\n');

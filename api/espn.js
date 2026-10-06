@@ -1761,7 +1761,19 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: `ESPN API ${response.status}`, details: text, url });
     }
     const data = unwrap(await response.json());
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
+    /* A LIVE READ IS NEVER SERVED OLD. Everything else here can sit at the
+       edge for a minute and then be handed out stale while it refreshes --
+       an unbounded stale-while-revalidate, which on a URL nobody has asked
+       for in forty minutes means the first person to ask gets the answer
+       from forty minutes ago. That is harmless for a roster page and wrong
+       for the request the win-probability recorders write down: it is how
+       the scores from 9:50 on a Monday night came to be recorded as the
+       final result at 10:30. Live answers keep ten seconds at the edge,
+       which still folds a dozen open tabs into one ESPN call, and are never
+       served more than twenty seconds past that. */
+    res.setHeader('Cache-Control', req.query.live === '1'
+      ? 's-maxage=10, stale-while-revalidate=20'
+      : 's-maxage=60, stale-while-revalidate');
     return res.status(200).json(data);
   } catch (err) { return res.status(500).json({ error: err.message }); }
 }

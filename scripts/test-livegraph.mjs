@@ -20,6 +20,7 @@ const M = assemble(grab, [
   'function schedNormCdf(',
   'function wpAt(',
   'function wpSlateProgress(',
+  'const liveRowFinal=',
   'function wpCurve(',
   'function wpGraphSVG(',
   'const liveMKey=',
