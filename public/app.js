@@ -8401,6 +8401,9 @@ async function leaguePoll(force){
     const named=motwIsSet();
     if(named&&!_pkMotwPainted){ _pkMotwPainted=true; renderWeekPicks(); }
     else if(!named) _pkMotwPainted=false;
+    /* ...and the league's view of the slate, which has nothing on it to tap
+       but Reopen, so redrawing it is only ever the new picks arriving */
+    else if(_pkRevealed) renderWeekPicks();
   }catch(e){}
 }
 /* Firestore's REST API has no subscribe — real-time listeners live in the
@@ -16513,6 +16516,136 @@ function pkReopen(){
   renderWeekPicks();
 }
 
+/* ── THE SLATE, AS THE LEAGUE HAS IT ─────────────────────────────────────────
+   Once your own picks are in, the card stops being a form and becomes the
+   week: every matchup with the crests of the managers on each side of it,
+   and what the sportsbook has riding on each side.
+
+   It opens on the same condition the Coaches' Poll does, and for the same
+   reason. Seeing which way the league has gone before you have said which
+   way you go turns a late slate into a copy of everybody else's, so until
+   yours is submitted the card stays the grid. Once the week has kicked off
+   nobody can pick anything any more and it opens for everyone.
+
+   PICKS are the slates on the profile rows the homepage already lists: a
+   slate is only written there when it is submitted, and a reopened one goes
+   on counting until it is sent again, exactly as the grading treats it.
+   Your own comes from this device, which is ahead of the row the moment you
+   press Submit.
+
+   MONEY is every live bet on the week's moneyline or spread for that side --
+   straight bets, head-to-heads once accepted, and every parlay with that
+   side in it. A parlay counts at its whole stake, because the whole stake
+   rides on every one of its legs: lose this one and all of it is gone.
+   Shown apart from the straight money, so a $5 four-leg parlay does not
+   read like five dollars of conviction on four different games. Void,
+   cashed out, unaccepted and declined money is not riding on anything and
+   is left out. */
+const pkCash=v=>{ const c=bucks2(v); return '$'+(Math.round(c)===c?String(c):bucksCents(c)); };
+/* who is on which side: {fixKey:{teamId:[picker teamIds]}}, and who has picked */
+function pkLeaguePicks(games,mine){
+  const key=pkKey(), by={}, pickers=new Set();
+  const myTeam=Number(_me&&_me.teamId)||0;
+  const add=(team,slate)=>{
+    if(!team||pickers.has(team)||!slate||!Object.keys(slate).length) return;
+    pickers.add(team);
+    Object.entries(slate).forEach(([fk,tid])=>{
+      const f=by[fk]||(by[fk]={}); (f[tid]||(f[tid]=[])).push(team); });
+  };
+  if(myTeam&&(pkSubmitted()||pkHadSubmitted())) add(myTeam,mine);
+  (_cpRows||[]).forEach(p=>{
+    if(!p||p.id===TEST_PROFILE||!p[key]) return;
+    let raw=null; try{ raw=JSON.parse(p[key]); }catch(e){ return; }
+    add(Number(p.teamId)||0,pkNormalise(raw,games));
+  });
+  return {by,pickers};
+}
+/* what is riding on each side: {fixKey:{teamId:{straight,nS,parlay,nP}}},
+   or null while the league's bets have not landed */
+let _pkBetsLast=null,_pkBetsTry=0;
+function pkMoney(games,week){
+  const all=_betsAll||_pkBetsLast; if(!all) return null;
+  if(_betsAll) _pkBetsLast=_betsAll;
+  const info=_liveInfo||liveWeekInfo();
+  const owners=(info&&info.meta&&info.meta.owners)||{};
+  const tidOf={}; Object.entries(owners).forEach(([tid,o])=>{ if(o) tidOf[o]=Number(tid); });
+  const season=String(sbSeason()), wk=Number(week)||0;
+  const out={}; games.forEach(g=>{ out[pkFixKey(g)]={}; });
+  all.forEach(b=>{
+    if(!b||String(b.season||'')!==season) return;
+    if(!['open','won','lost','push'].includes(String(b.status||''))) return;
+    if(!betsAfterReset(b)) return;
+    const stake=Number(b.stake)||0; if(!(stake>0)) return;
+    const legs=(b.legs||[]).filter(l=>l&&l.mk!=null);
+    const parlay=legs.length>1, seen=new Set();
+    legs.forEach(l=>{
+      const m=/^wk(\d+)-(\d+)-(\d+)-(ml|sp)$/.exec(String(l.mk));
+      if(!m||Number(m[1])!==wk) return;
+      const fk=[Number(m[2]),Number(m[3])].sort((a,b)=>a-b).join('-');
+      if(!out[fk]) return;
+      const tid=tidOf[String(l.pick||'').split(':')[0]]; if(!tid) return;
+      /* a parlay with both the moneyline and the spread on one side is one
+         parlay on that side, not two */
+      if(seen.has(fk+'|'+tid)) return; seen.add(fk+'|'+tid);
+      const c=out[fk][tid]||(out[fk][tid]={straight:0,nS:0,parlay:0,nP:0});
+      if(parlay){ c.parlay+=stake; c.nP++; } else { c.straight+=stake; c.nS++; }
+    });
+  });
+  return out;
+}
+/* the league's bets, asked for once and then at most every two minutes --
+   the same window the stored copy is kept for */
+function pkBetsWant(){
+  const fresh=_betsAll&&Date.now()-betsAllAt()<BETS_ALL_TTL;
+  if(fresh||_betsAllBusy||Date.now()-_pkBetsTry<60000) return;
+  _pkBetsTry=Date.now();
+  if(_betsAll){ _pkBetsLast=_betsAll; _betsAll=null; }
+  betLeague().then(()=>{ try{ if(_pkRevealed) renderWeekPicks(); }catch(e){} });
+}
+let _pkRevealed=false;
+function pkLeagueHTML(games,order,picks,motw,wk){
+  pkBetsWant();
+  const {by,pickers}=pkLeaguePicks(games,picks);
+  const money=pkMoney(games,wk);
+  const team=id=>_teams.find(t=>t.id===Number(id))||{id:Number(id),name:''};
+  const nm=id=>String(team(id).name||'Team').replace(/"/g,'&quot;');
+  const ab=id=>{const t=team(id);return t.abbrev||teamInitials(t.name||'');};
+  const locked=pkLocked();
+  const side=(g,t,right)=>{
+    const fk=pkFixKey(g), who=((by[fk]||{})[t])||[], mine=String(picks[fk])===String(t);
+    const c=money&&money[fk]?money[fk][t]:null;
+    const amt=c?c.straight+c.parlay:0;
+    /* in dollars, straight and parlay apart: one $1,177 four-leg parlay is
+       $1,177 on four different games, and a bare total would read like
+       twelve hundred dollars of conviction on each of them */
+    const parts=c?[c.nS?`<span>${pkCash(c.straight)} straight</span>`:'',
+      c.nP?`<span>${pkCash(c.parlay)} in ${c.nP} parlay${c.nP===1?'':'s'}</span>`:''].join(''):'';
+    return `<div class="pkl-side${right?' pkl-r':''}${mine?' on':''}">
+      <div class="pkl-team" title="${nm(t)}">${logoImg(Number(t),'pk-logo')}<span>${ab(t)}</span>
+        <span class="pkl-n" title="${who.length} pick${who.length===1?'':'s'}">${who.length}</span></div>
+      <div class="pkl-who">${who.length?who.map(id=>`<span title="${nm(id)}">${avatarHTML(team(id),18,5)}</span>`).join('')
+        :'<span class="pkl-none">nobody</span>'}</div>
+      <div class="pkl-cash${amt>0?'':' zero'}">${money==null?'…':pkCash(amt)}</div>
+      <div class="pkl-cash-s">${money==null?'<span>&nbsp;</span>':parts||'<span>no bets</span>'}</div>
+    </div>`;
+  };
+  const card=i=>{
+    const g=games[i], big=i===motw;
+    return `<div class="pkl-g${big?' pk-motw':''}">
+      ${big?`<div class="pk-badge"><i class="fa fa-fire"></i>Matchup of the Week · double</div>`:''}
+      <div class="pkl-sides">${side(g,g.away.teamId,false)}<span class="pk-at">@</span>${side(g,g.home.teamId,true)}</div>
+    </div>`;
+  };
+  const yet=(_teams||[]).filter(t=>!pickers.has(Number(t.id)));
+  return `<div class="bk-meta"><span>Week ${wk}</span>
+      <span class="bk-count">${pickers.size} of ${(_teams||[]).length} picked</span></div>
+    <div class="pkl-list">${order.map(card).join('')}</div>
+    ${yet.length?`<div class="cp-yet"><span class="cp-yet-l">${locked?'No picks':'Yet to pick'}</span>
+      <span class="cp-yet-logos">${yet.map(t=>`<span class="cp-yet-t" title="${nm(t.id)}">${logoImg(t.id,'cp-logo')}</span>`).join('')}</span></div>`:''}
+    ${locked?`<div class="bk-fin"><i class="fa fa-lock"></i>Locked — the week's games have started.</div>`
+      :`<div class="pk-sent"><span><i class="fa fa-check"></i>Your picks are in</span>
+          <button class="pk-reopen" onclick="pkReopen()">Reopen</button></div>`}`;
+}
 function renderWeekPicks(){
   const el=document.getElementById('pk-body'); if(!el) return;
   pkSync();
@@ -16551,9 +16684,16 @@ function renderWeekPicks(){
   };
   /* the week number still labels the body's meta line, just not the heading */
   const wk=(_liveInfo||liveWeekInfo()||{}).week??'—';
-  /* Submitted, and the week has not started: the grid folds to a line that
-     opens to show the slate. Twelve tiles of finished business is a lot of
-     screen for something already decided. */
+  /* Submitted, or the week is under way: the slate is the league's now, not a
+     form. See THE SLATE, AS THE LEAGUE HAS IT. */
+  _pkRevealed=!waiting&&(sent||pkLocked());
+  if(_pkRevealed){
+    el.innerHTML=pkLeagueHTML(games,order,picks,motw,wk);
+    orderHomeTodo();
+    return;
+  }
+  /* (the old folded slate, kept for a submitted week whose Matchup of the
+     Week has since been unset -- the one way to be submitted and waiting) */
   if(sent&&!pkLocked()){
     el.innerHTML=`
       <details class="cp-fold"${_pkFoldOpen?' open':''} ontoggle="foldKeep('pk',this)">

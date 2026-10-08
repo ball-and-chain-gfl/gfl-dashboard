@@ -37,6 +37,8 @@ jobs:
         run: node scripts/test-playoff-sim.mjs
       - name: the week ends on the result
         run: node scripts/test-livefinal.mjs
+      - name: the slate as the league has it
+        run: node scripts/test-pickslate.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: the live poller parses
