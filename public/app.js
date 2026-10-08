@@ -23037,12 +23037,11 @@ function sbSocialWant(){
   if((!_profRows||now-_profAt>BETS_ALL_TTL)&&!_profFlight)
     gflListProfiles(true).then(rows=>{ if(rows){ _sbSocialRows=rows; repaint(); } });
 }
-/* ── WHICH WEEK, FOR THE FEED ──────────────────────────────────────────────
-   The feed opens on the week being played -- the week the board is on, the
-   first one not finished -- and follows it. Until somebody picks a week of
-   their own _sbSocialW stays null, so the moment a week is decided the next
-   one takes over and its line joins the list. Picking a past week holds it;
-   picking the current one goes back to following.
+/* ── THE FEED IS THIS WEEK ─────────────────────────────────────────────────
+   Only the week being played -- the week the board is on, the first one not
+   finished. It is what is happening now, not an archive: the moment a week
+   is decided its bets and trades leave and the next week starts empty. There
+   was a week picker for going back; nobody wanted the going back.
 
    A bet is filed under the weeks its legs are about (betLegWeek), so a week
    4 parlay placed on the Tuesday before is still week 4. A season-long bet
@@ -23050,7 +23049,6 @@ function sbSocialWant(){
    after the last one's Monday game -- 4am Eastern, with even a late Monday
    game finished and nobody up yet -- to the next one. Nothing is filed past
    the week being played. */
-let _sbSocialW=null;
 function sbSocialWeekAt(season,t,cur){
   const k1=nflWeekKickoffMs(season,1);
   /* the Friday 00:00 UTC of week 1, less 64 hours: 08:00 UTC on the Tuesday
@@ -23108,11 +23106,6 @@ function sbSocialAgo(t){
   return new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});
 }
 function sbSocialSet(f){ _sbSocialF=f; _sbSocialN=SB_SOCIAL_PAGE; renderBook(); }
-function sbSocialWeek(v){
-  const w=v==='all'?'all':Number(v)||null;
-  _sbSocialW=w===sbSocialNow()?null:w;            // the current week: follow it
-  _sbSocialN=SB_SOCIAL_PAGE; renderBook();
-}
 function sbSocialMore(){ _sbSocialN+=SB_SOCIAL_PAGE; renderBook(); }
 function sbSocialHTML(){
   sbSocialWant();
@@ -23188,27 +23181,14 @@ function sbSocialHTML(){
   };
   const all=sbSocialItems();
   const f=_sbSocialF, cur=sbSocialNow();
-  /* a week held from a season that has since been reset is no week at all */
-  if(typeof _sbSocialW==='number'&&!(_sbSocialW>=1&&_sbSocialW<=cur)) _sbSocialW=null;
-  const wk=_sbSocialW==null?cur:_sbSocialW;
   const list=all.filter(it=>(f==='all'||(f==='bets'?it.kind==='bet':it.kind==='inv'))
-    &&(wk==='all'||(it.wks||[]).includes(wk)));
+    &&(it.wks||[]).includes(cur));
   const page=list.slice(0,_sbSocialN);
   const chip=(k,label)=>`<button class="soc-f${f===k?' on':''}" onclick="sbSocialSet('${k}')" aria-pressed="${f===k}">${label}</button>`;
-  /* Newest week first, like the feed; lit while it is narrowing the feed.
-     The chip is a label with the real select laid over it unseen: phones
-     get their own picker, and the select keeps the 16px every form field is
-     held to under 820px -- any smaller and iOS zooms the page on the tap. */
-  const opt=(v,label)=>`<option value="${v}"${wk===v?' selected':''}>${label}</option>`;
-  const weekPick=`<label class="soc-wk${wk==='all'?'':' on'}"><span>${wk==='all'?'All weeks':'Week '+wk}</span>
-    <i class="fa fa-chevron-down" aria-hidden="true"></i>
-    <select onchange="sbSocialWeek(this.value)" aria-label="Week">
-    ${opt('all','All weeks')}${Array.from({length:cur},(_,i)=>cur-i).map(w=>opt(w,'Week '+w)).join('')}</select></label>`;
   const noun=f==='bets'?'No bets':f==='inv'?'No trades':'Nothing';
-  const empty=wk==='all'?`${f==='all'?'Nothing here':noun} yet this season.`
-    :`${noun} in Week ${wk}${wk===cur?' yet':''}.`;
+  const empty=`${noun} in Week ${cur} yet.`;
   return `<div class="soc">
-    <div class="soc-fs"><div class="soc-fs-k" role="group" aria-label="Show">${chip('all','All')}${chip('bets','Bets')}${chip('inv','Investments')}</div>${weekPick}</div>
+    <div class="soc-fs" role="group" aria-label="Show">${chip('all','All')}${chip('bets','Bets')}${chip('inv','Investments')}</div>
     ${!loaded&&!list.length?'<div class="tab-loading" style="padding:30px"><i class="fa fa-circle-notch"></i>Reading the league’s action…</div>'
       :!list.length?`<div class="sb-mine-empty"><i class="fa fa-users"></i><div>${empty}</div></div>`
       :`<div class="soc-feed">${page.map(it=>it.kind==='bet'?betHTML(it):invHTML(it)).join('')}</div>

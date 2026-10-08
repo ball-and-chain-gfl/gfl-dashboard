@@ -8,9 +8,9 @@
  *   EVERY TRADE         buys, sales, shorts and covers of teams, funds and
  *                       coins, read off every manager's investment ledger
  *   THIS SEASON         and newest first, across both
- *   BY THE WEEK         opening on the week being played and following it as
- *                       the weeks move on; a bet goes under the week its legs
- *                       are about, a trade under the week it was made in
+ *   THIS WEEK ONLY      the week being played, and the next one the moment it
+ *                       is decided; a bet goes under the week its legs are
+ *                       about, a trade under the week it was made in
  *
  * Run: node scripts/test-social.mjs
  */
@@ -31,11 +31,11 @@ const ACCT = { bft: 10, kunk: 7, kw: 11, mcm: 2, fman: 5, mm: 1, dorm: 6 };
 const M = assemble(grab, [
   'const nflSeasonOfMs=', 'const pkCash=', 'function nflWeekKickoffMs(',
   'const weekDecided=', 'const weekScored=', 'function weeksOf(', 'function weekOver(', 'function betLegWeek(',
-  'const SB_SOCIAL_PAGE=', 'let _sbSocialN=', 'let _sbSocialW=', 'function sbSocialWeekAt(', 'function sbSocialNow(',
+  'const SB_SOCIAL_PAGE=', 'let _sbSocialN=', 'function sbSocialWeekAt(', 'function sbSocialNow(',
   'const SB_SOCIAL_LIVE=', 'const SB_SOCIAL_VERB=',
-  'function sbSocialItems(){', 'function sbSocialAgo(t){', 'function sbSocialWeek(', 'function sbSocialHTML(){',
-], ['sbSocialItems', 'sbSocialHTML', 'sbSocialWeek', 'sbSocialNow', 'sbSocialWeekAt', 'setBets', 'setRows', 'setFilter', 'setN',
-  'setPlayed', 'weekHeld'], [
+  'function sbSocialItems(){', 'function sbSocialAgo(t){', 'function sbSocialHTML(){',
+], ['sbSocialItems', 'sbSocialHTML', 'sbSocialNow', 'sbSocialWeekAt', 'setBets', 'setRows', 'setFilter', 'setN',
+  'setPlayed'], [
   'let _betsAll=null, _pkBetsLast=null, _cpRows=[];',
   'let _sbSocialRows=null;',
   'const setBets=b=>{_betsAll=b;}; const setRows=r=>{_cpRows=r;};',
@@ -64,7 +64,6 @@ const M = assemble(grab, [
   'const setPlayed=n=>{ const sch=[]; for(let w=1;w<=17;w++) sch.push({matchupPeriodId:w,'
     + 'home:{teamId:1,totalPoints:w<=n?100:0},away:{teamId:2,totalPoints:w<=n?90:0},winner:w<=n?"HOME":"UNDECIDED"});'
     + ' _seasonMeta={2026:{schedule:sch}}; };',
-  'const weekHeld=()=>_sbSocialW;',
 ].join(NL));
 
 const T = (d, h = 12) => Date.UTC(2026, 9, d, h);                 // October 2026
@@ -142,30 +141,19 @@ ok('before week 1 is week 1, and nothing is filed past the week being played',
 let html = M.sbSocialHTML();
 const shown = h => (h.match(/class="soc-item/g) || []).length;
 const inWeek = w => items.filter(i => i.wks.includes(w)).length;
-ok('it opens on the week being played', shown(html), inWeek(5));
-ok('and says so in the dropdown', /<option value="5" selected>Week 5<\/option>/.test(html), true);
-ok('every week so far is on the list, newest first, after All weeks',
-  [...html.matchAll(/<option value="(\w+)"/g)].map(m => m[1]), ['all', '5', '4', '3', '2', '1']);
-ok('narrowed to a week, the dropdown is lit', /class="soc-wk on"/.test(html), true);
-M.sbSocialWeek('4');
-html = M.sbSocialHTML();
-ok('a past week holds', [M.weekHeld(), shown(html)], [4, inWeek(4)]);
-M.sbSocialWeek('5');
-ok('picking the current week goes back to following it', M.weekHeld(), null);
+ok('the feed is the week being played and nothing else', [shown(html), inWeek(5) < items.length], [inWeek(5), true]);
+ok('with no way to pick another', /<select|<option/.test(html), false);
 M.setPlayed(5);
 html = M.sbSocialHTML();
-ok('when week 5 is decided, week 6 takes over and joins the list',
-  /<option value="6" selected>Week 6<\/option>/.test(html) && html.includes('<option value="5">'), true);
-ok('with nothing in it yet, it says so', html.includes('Nothing in Week 6 yet.'), true);
-M.sbSocialWeek('4'); M.setPlayed(6);
-html = M.sbSocialHTML();
-ok('a week somebody picked stays picked as the weeks move on',
-  /<option value="4" selected>/.test(html) && html.includes('<option value="7">'), true);
-M.setPlayed(4);
-M.sbSocialWeek('all');
-html = M.sbSocialHTML();
-ok('All weeks shows the lot, unlit', shown(html) === items.length && /class="soc-wk"/.test(html), true);
+ok('when week 5 is decided its items leave and week 6 starts empty',
+  [shown(html), html.includes('Nothing in Week 6 yet.')], [0, true]);
+M.setFilter('bets'); html = M.sbSocialHTML();
+ok('and says which kind it has none of', html.includes('No bets in Week 6 yet.'), true);
+M.setFilter('all');
 
+/* with week 4 the one being played, every item in the fixture is this week's:
+   nothing is filed past the week being played */
+M.setPlayed(3);
 head('the cards');
 html = M.sbSocialHTML();
 ok('every card is drawn', (html.match(/class="soc-item/g) || []).length, items.length);
