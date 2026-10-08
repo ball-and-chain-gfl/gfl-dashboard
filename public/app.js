@@ -16912,6 +16912,7 @@ const NT_KINDS={
   big4:   {icon:'fa-list-ol',      tone:'royal'},
   upset:  {icon:'fa-bolt-lightning',tone:'hot'},
   pvp:    {icon:'fa-user-group',   tone:'royal'},
+  graph:  {icon:'fa-chart-line',   tone:'cool'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -17211,6 +17212,39 @@ function ntFromWeek(out){
         body:`<b>#${wr}</b> beat <b>#${lr}</b>`});
     }
   });
+}
+/* ── TUESDAY: YOUR GAME, MINUTE BY MINUTE ────────────────────────────────────
+   Every finished week has a win-probability curve on the Schedule tab, in the
+   drawer under that week's row -- and nothing ever sent anybody there. This is
+   the signpost: one card for the manager signed in, about their own game, up
+   with the rest of Tuesday's results and gone when they are.
+
+   LAST IN THE STACK, whatever else is in it. Everything else in the deck is
+   news or a job; this is an invitation to go and look at something, and it
+   waits behind all of them -- pin -1 sorts it under even a card from later in
+   the week. A bye has no game to look at and gets no card. */
+function ntGraph(out){
+  if(!_me||!_me.teamId) return;
+  const season=ntSeason(); if(!season) return;
+  const lw=ntLastWeek(season); if(!lw) return;
+  if(!ntResultsFresh(season,lw.week)) return;
+  const tid=Number(_me.teamId);
+  const mu=(lw.games||[]).find(m=>Number(m.home.teamId)===tid||Number(m.away.teamId)===tid);
+  if(!mu) return;
+  const owners=lw.meta.owners||{};
+  const homeMe=Number(mu.home.teamId)===tid;
+  const mine=homeMe?mu.home:mu.away, theirs=homeMe?mu.away:mu.home;
+  const mo=owners[mine.teamId], oo=owners[theirs.teamId];
+  if(!mo||!oo||mo===oo) return;
+  const A={owner:mo,name:ntName(season,mo),pts:mine.totalPoints||0};
+  const B={owner:oo,name:ntName(season,oo),pts:theirs.totalPoints||0};
+  const won=A.pts>=B.pts;
+  out.push({kind:'graph', day:ntWeekResultsDay(season,lw.week), pin:-1,
+    id:`wg:${season}:${lw.week}`,
+    title:'Your matchup graph',
+    art:ntScore(won?A:B,won?B:A,'margin',lw.week),
+    body:`Check out how week ${lw.week} against <b>${B.name}</b> swung, minute by minute.`,
+    go:'graph', goWeek:lw.week, goOpp:oo});
 }
 /* current run of wins or losses, read backwards through every season in order */
 function ntStreaks(out){
@@ -17747,6 +17781,11 @@ function ntDemo(out){
     body:'They have you on <b>Bikini Bottom Goobers moneyline</b>.',
     go:'bets'},
 
+   {kind:'graph',day:T2,pin:-1,id:'demo:graph',title:'Your matchup graph',
+    art:ntScore(S(0,131.2),S(4,128.6),'margin',dw),
+    body:'Check out how week 6 against <b>'+nm(4)+'</b> swung, minute by minute.',
+    go:'graph'},
+
    {kind:'trade',day:d,id:'demo:trade',title:'A trade went through',
     art:ntSwap({owner:o(7),name:nm(7),got:['Bijan Robinson','Jake Ferguson']},
                {owner:o(9),name:nm(9),got:['Puka Nacua','a 2027 2nd']},dw),
@@ -18030,7 +18069,7 @@ function ntBig4(out){
 }
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -18194,8 +18233,43 @@ function ntVoteMsgHTML(){
     ?`<div class="nt-vmsg nt-vmsg-bad"><i class="fa fa-triangle-exclamation"></i>${_ntVoteMsg.err}</div>`
     :`<div class="nt-vmsg"><i class="fa fa-circle-check"></i>${_ntVoteMsg.ok}</div>`;
 }
+/* what the button on a card with somewhere to go says */
+const NT_GO={bets:'Open My Bets',graph:'See the graph'};
 function ntGo(where){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
+  if(where==='graph') ntGoGraph();
+}
+/* The Schedule tab, on the signed-in manager's own schedule, with last week's
+   drawer already open on its graph and scrolled to. The card has done its job
+   once it has been followed, so it clears -- Undo still has it. */
+function ntGoGraph(){
+  const n=ntLive().find(x=>x&&x.kind==='graph');
+  if(_me&&_me.teamId){ _schedTeam=String(_me.teamId); _schedOpenKey=null; }
+  switchTab('week');
+  if(n){ try{ ntDismiss(n.id); }catch(e){} }
+  if(!n||!n.goWeek) return;
+  const esc=v=>(window.CSS&&CSS.escape)?CSS.escape(String(v)):String(v).replace(/"/g,'\\"');
+  const el=document.querySelector(`#sched-body .sch-open[data-played="1"][data-week="${Number(n.goWeek)}"][data-opp="${esc(n.goOpp)}"]`);
+  if(!el) return;
+  const row=el.closest('.sch-row'), box=row&&row.nextElementSibling;
+  if(!(box&&box.classList.contains('open'))) toggleSchedOpp(el);
+  /* The rows under it are rebuilt twice in the first quarter second as the box
+     scores and the playoff odds land (see THE DRAWER HAS TO SURVIVE THE
+     REPAINT), so the row is looked up again each time rather than held -- a
+     held node is detached by then and scrolls nowhere. Once as it settles and
+     once after the graph has filled the drawer; the second is a no-op if
+     nothing moved.
+
+     The row and its drawer are centred in what the header leaves of the
+     screen. On this tab the section tabs and the team picker dock under the
+     top bar once the page scrolls -- about 170px on a phone -- so lining the
+     row up under the top bar alone tucked it behind them. */
+  const lift=()=>{ if(_activeTab!=='week') return;
+    const r=document.querySelector('#sched-body .sch-row-open'); if(!r) return;
+    const box=r.nextElementSibling, h=r.offsetHeight+(box?box.offsetHeight:0);
+    const want=Math.max(180,Math.round((window.innerHeight+170-h)/2));
+    window.scrollTo({top:Math.max(0,r.getBoundingClientRect().top+window.scrollY-want),behavior:'smooth'}); };
+  setTimeout(lift,350); setTimeout(lift,1500);
 }
 /* Every card swiped away this session, newest last, so undo walks back through
    them one at a time until there is nothing left to put back. Not persisted:
@@ -18364,7 +18438,7 @@ function renderNotifications(){
               :'<i class="fa fa-check"></i>Submit'}</button>`}
         ${needVote&&!picked?`<div class="nt-voted"><i class="fa fa-hand-pointer"></i>Pick a side — this one does not clear until you do.</div>`:''}
         ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`;})():''}
-      ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">Open My Bets <i class="fa fa-arrow-right"></i></button>`:''}
+      ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">${NT_GO[n.go]||'Open'} <i class="fa fa-arrow-right"></i></button>`:''}
       ${n.claim?`<button class="nt-go" onclick="ntClaimBk()">
         <i class="fa fa-gift"></i>${n.claim.label}</button>
         ${_bkFixErr?`<div class="nt-voted"><i class="fa fa-triangle-exclamation"></i>${_bkFixErr}</div>`:''}`:''}

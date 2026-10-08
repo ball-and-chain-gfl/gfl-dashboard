@@ -41,6 +41,8 @@ jobs:
         run: node scripts/test-pickslate.mjs
       - name: the social feed
         run: node scripts/test-social.mjs
+      - name: the matchup graph notification
+        run: node scripts/test-ntgraph.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: the live poller parses
