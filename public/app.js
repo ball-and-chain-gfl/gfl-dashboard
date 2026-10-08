@@ -22888,11 +22888,41 @@ function sbSocialWant(){
   if((!_profRows||now-_profAt>BETS_ALL_TTL)&&!_profFlight)
     gflListProfiles(true).then(rows=>{ if(rows){ _sbSocialRows=rows; repaint(); } });
 }
+/* ── WHICH WEEK, FOR THE FEED ──────────────────────────────────────────────
+   The feed opens on the week being played -- the week the board is on, the
+   first one not finished -- and follows it. Until somebody picks a week of
+   their own _sbSocialW stays null, so the moment a week is decided the next
+   one takes over and its line joins the list. Picking a past week holds it;
+   picking the current one goes back to following.
+
+   A bet is filed under the weeks its legs are about (betLegWeek), so a week
+   4 parlay placed on the Tuesday before is still week 4. A season-long bet
+   and every trade go by when they happened: a week runs from the Tuesday
+   after the last one's Monday game -- 4am Eastern, with even a late Monday
+   game finished and nobody up yet -- to the next one. Nothing is filed past
+   the week being played. */
+let _sbSocialW=null;
+function sbSocialWeekAt(season,t,cur){
+  const k1=nflWeekKickoffMs(season,1);
+  /* the Friday 00:00 UTC of week 1, less 64 hours: 08:00 UTC on the Tuesday
+     it starts on */
+  const w=k1?Math.floor((t-(k1-64*3600000))/(7*86400000))+1:1;
+  return Math.max(1,Math.min(cur,w));
+}
+function sbSocialNow(){
+  const season=String(sbSeason()), meta=_seasonMeta[season];
+  const byWeek=weeksOf(meta&&meta.schedule);
+  const weeks=Object.keys(byWeek).map(Number).sort((a,b)=>a-b);
+  if(weeks.length) return weeks.find(w=>!weekOver(byWeek,w))||weeks[weeks.length-1];
+  /* the schedule not in yet: the calendar knows well enough */
+  return sbSocialWeekAt(season,Date.now(),17);
+}
 const SB_SOCIAL_LIVE=new Set(['open','won','lost','push','cashed']);
 /* buy, sell, short, cover -- the four lines an investment ledger holds */
 const SB_SOCIAL_VERB={b:'Bought',s:'Sold',so:'Shorted',sc:'Covered'};
 function sbSocialItems(){
   const season=String(sbSeason());
+  const cur=sbSocialNow(), at=t=>sbSocialWeekAt(season,Number(t)||0,cur);
   const bets=(_betsAll||_pkBetsLast||[]).filter(b=>b&&String(b.season||'')===season&&betsAfterReset(b));
   const byId={}, kids={};
   bets.forEach(b=>{ byId[b.id]=b; });
@@ -22904,7 +22934,9 @@ function sbSocialItems(){
     const waiting=b.pvp&&b.status==='offer';
     if(!SB_SOCIAL_LIVE.has(b.status)&&!waiting) return;
     const seats=(kids[b.id]||[]).filter(x=>SB_SOCIAL_LIVE.has(x.status));
-    out.push({kind:'bet',t:b.ts,b,seats,waiting});
+    const lw=[...new Set((b.legs||[]).map(l=>betLegWeek(l&&l.mk)).filter(w=>w>0)
+      .map(w=>Math.min(cur,w)))];
+    out.push({kind:'bet',t:b.ts,b,seats,waiting,wks:lw.length?lw:[at(b.ts)]});
   });
   (_sbSocialRows||_cpRows||[]).forEach(p=>{
     if(!p||p.id===TEST_PROFILE||!p.inv) return;
@@ -22914,7 +22946,7 @@ function sbSocialItems(){
       const t=Number(l&&l.t)||0;
       if(!l||!l.o||!(Number(l.s)>0)||!t||!SB_SOCIAL_VERB[l.k]) return;
       if(String(nflSeasonOfMs(t))!==season) return;
-      out.push({kind:'inv',t,acct:p.id,team:Number(p.teamId)||0,l});
+      out.push({kind:'inv',t,acct:p.id,team:Number(p.teamId)||0,l,wks:[at(t)]});
     });
   });
   return out.sort((a,b)=>b.t-a.t);
@@ -22927,6 +22959,11 @@ function sbSocialAgo(t){
   return new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});
 }
 function sbSocialSet(f){ _sbSocialF=f; _sbSocialN=SB_SOCIAL_PAGE; renderBook(); }
+function sbSocialWeek(v){
+  const w=v==='all'?'all':Number(v)||null;
+  _sbSocialW=w===sbSocialNow()?null:w;            // the current week: follow it
+  _sbSocialN=SB_SOCIAL_PAGE; renderBook();
+}
 function sbSocialMore(){ _sbSocialN+=SB_SOCIAL_PAGE; renderBook(); }
 function sbSocialHTML(){
   sbSocialWant();
@@ -23001,14 +23038,30 @@ function sbSocialHTML(){
     </div>`;
   };
   const all=sbSocialItems();
-  const f=_sbSocialF;
-  const list=all.filter(it=>f==='all'||(f==='bets'?it.kind==='bet':it.kind==='inv'));
+  const f=_sbSocialF, cur=sbSocialNow();
+  /* a week held from a season that has since been reset is no week at all */
+  if(typeof _sbSocialW==='number'&&!(_sbSocialW>=1&&_sbSocialW<=cur)) _sbSocialW=null;
+  const wk=_sbSocialW==null?cur:_sbSocialW;
+  const list=all.filter(it=>(f==='all'||(f==='bets'?it.kind==='bet':it.kind==='inv'))
+    &&(wk==='all'||(it.wks||[]).includes(wk)));
   const page=list.slice(0,_sbSocialN);
   const chip=(k,label)=>`<button class="soc-f${f===k?' on':''}" onclick="sbSocialSet('${k}')" aria-pressed="${f===k}">${label}</button>`;
+  /* Newest week first, like the feed; lit while it is narrowing the feed.
+     The chip is a label with the real select laid over it unseen: phones
+     get their own picker, and the select keeps the 16px every form field is
+     held to under 820px -- any smaller and iOS zooms the page on the tap. */
+  const opt=(v,label)=>`<option value="${v}"${wk===v?' selected':''}>${label}</option>`;
+  const weekPick=`<label class="soc-wk${wk==='all'?'':' on'}"><span>${wk==='all'?'All weeks':'Week '+wk}</span>
+    <i class="fa fa-chevron-down" aria-hidden="true"></i>
+    <select onchange="sbSocialWeek(this.value)" aria-label="Week">
+    ${opt('all','All weeks')}${Array.from({length:cur},(_,i)=>cur-i).map(w=>opt(w,'Week '+w)).join('')}</select></label>`;
+  const noun=f==='bets'?'No bets':f==='inv'?'No trades':'Nothing';
+  const empty=wk==='all'?`${f==='all'?'Nothing here':noun} yet this season.`
+    :`${noun} in Week ${wk}${wk===cur?' yet':''}.`;
   return `<div class="soc">
-    <div class="soc-fs" role="group" aria-label="Show">${chip('all','All')}${chip('bets','Bets')}${chip('inv','Investments')}</div>
+    <div class="soc-fs"><div class="soc-fs-k" role="group" aria-label="Show">${chip('all','All')}${chip('bets','Bets')}${chip('inv','Investments')}</div>${weekPick}</div>
     ${!loaded&&!list.length?'<div class="tab-loading" style="padding:30px"><i class="fa fa-circle-notch"></i>Reading the league’s action…</div>'
-      :!list.length?'<div class="sb-mine-empty"><i class="fa fa-users"></i><div>Nothing here yet this season.</div></div>'
+      :!list.length?`<div class="sb-mine-empty"><i class="fa fa-users"></i><div>${empty}</div></div>`
       :`<div class="soc-feed">${page.map(it=>it.kind==='bet'?betHTML(it):invHTML(it)).join('')}</div>
         ${list.length>page.length?'<button class="soc-more" onclick="sbSocialMore()">Show more</button>':''}`}
   </div>`;

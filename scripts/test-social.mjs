@@ -8,6 +8,9 @@
  *   EVERY TRADE         buys, sales, shorts and covers of teams, funds and
  *                       coins, read off every manager's investment ledger
  *   THIS SEASON         and newest first, across both
+ *   BY THE WEEK         opening on the week being played and following it as
+ *                       the weeks move on; a bet goes under the week its legs
+ *                       are about, a trade under the week it was made in
  *
  * Run: node scripts/test-social.mjs
  */
@@ -26,10 +29,13 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 
 const ACCT = { bft: 10, kunk: 7, kw: 11, mcm: 2, fman: 5, mm: 1, dorm: 6 };
 const M = assemble(grab, [
-  'const nflSeasonOfMs=', 'const pkCash=',
-  'const SB_SOCIAL_PAGE=', 'let _sbSocialN=', 'const SB_SOCIAL_LIVE=', 'const SB_SOCIAL_VERB=',
-  'function sbSocialItems(){', 'function sbSocialAgo(t){', 'function sbSocialHTML(){',
-], ['sbSocialItems', 'sbSocialHTML', 'setBets', 'setRows', 'setFilter', 'setN'], [
+  'const nflSeasonOfMs=', 'const pkCash=', 'function nflWeekKickoffMs(',
+  'const weekDecided=', 'const weekScored=', 'function weeksOf(', 'function weekOver(', 'function betLegWeek(',
+  'const SB_SOCIAL_PAGE=', 'let _sbSocialN=', 'let _sbSocialW=', 'function sbSocialWeekAt(', 'function sbSocialNow(',
+  'const SB_SOCIAL_LIVE=', 'const SB_SOCIAL_VERB=',
+  'function sbSocialItems(){', 'function sbSocialAgo(t){', 'function sbSocialWeek(', 'function sbSocialHTML(){',
+], ['sbSocialItems', 'sbSocialHTML', 'sbSocialWeek', 'sbSocialNow', 'sbSocialWeekAt', 'setBets', 'setRows', 'setFilter', 'setN',
+  'setPlayed', 'weekHeld'], [
   'let _betsAll=null, _pkBetsLast=null, _cpRows=[];',
   'let _sbSocialRows=null;',
   'const setBets=b=>{_betsAll=b;}; const setRows=r=>{_cpRows=r;};',
@@ -52,6 +58,13 @@ const M = assemble(grab, [
   'const invFmt=v=>"$"+Number(v).toFixed(2);',
   'const bucks2=v=>Math.round((Number(v)||0)*100)/100; const bucksCents=v=>bucks2(v).toFixed(2);',
   'const setFilter=f=>{_sbSocialF=f;}; const setN=n=>{_sbSocialN=n;};',
+  'const renderBook=()=>{};',
+  /* a 17-week schedule with every week up to n decided */
+  'let _seasonMeta={};',
+  'const setPlayed=n=>{ const sch=[]; for(let w=1;w<=17;w++) sch.push({matchupPeriodId:w,'
+    + 'home:{teamId:1,totalPoints:w<=n?100:0},away:{teamId:2,totalPoints:w<=n?90:0},winner:w<=n?"HOME":"UNDECIDED"});'
+    + ' _seasonMeta={2026:{schedule:sch}}; };',
+  'const weekHeld=()=>_sbSocialW;',
 ].join(NL));
 
 const T = (d, h = 12) => Date.UTC(2026, 9, d, h);                 // October 2026
@@ -88,6 +101,8 @@ M.setRows([
   { id: 'mm', teamId: '1' },
 ]);
 
+M.setPlayed(4);                                                   // week 5 being played
+
 head('one bet, one card');
 const items = M.sbSocialItems();
 const bets = items.filter(i => i.kind === 'bet');
@@ -110,8 +125,49 @@ head('newest first, across both');
 ok('in time order', items.map(i => i.t).every((t, k, a) => !k || a[k - 1] >= t), true);
 ok('the newest is the short', items[0].kind === 'inv' && items[0].l.k === 'so', true);
 
-head('the cards');
+head('the week');
+ok('the week being played is the first not decided', M.sbSocialNow(), 5);
+ok('a bet goes under the week its legs are about', items.find(i => i.b && i.b.id === 'cash').wks, [5]);
+ok('one with no week in its legs, under the week it was placed in (Sat Oct 3: week 4)',
+  items.find(i => i.b && i.b.id === 'r1').wks, [4]);
+ok('a trade under the week it was made in (Tue Oct 6, noon UTC: week 5 has begun)',
+  items.find(i => i.kind === 'inv' && i.l.k === 'b').wks, [5]);
+ok('the Friday before is still week 4', items.find(i => i.kind === 'inv' && i.l.k === 's').wks, [4]);
+ok('Monday night\'s game finishing at 12:30am Eastern is still the week it was',
+  M.sbSocialWeekAt('2026', Date.UTC(2026, 8, 29, 4, 30), 5), 3);
+ok('by Tuesday morning the next week has begun',
+  M.sbSocialWeekAt('2026', Date.UTC(2026, 8, 29, 11, 55), 5), 4);
+ok('before week 1 is week 1, and nothing is filed past the week being played',
+  [M.sbSocialWeekAt('2026', Date.UTC(2026, 7, 20), 5), M.sbSocialWeekAt('2026', Date.UTC(2026, 10, 20), 5)], [1, 5]);
 let html = M.sbSocialHTML();
+const shown = h => (h.match(/class="soc-item/g) || []).length;
+const inWeek = w => items.filter(i => i.wks.includes(w)).length;
+ok('it opens on the week being played', shown(html), inWeek(5));
+ok('and says so in the dropdown', /<option value="5" selected>Week 5<\/option>/.test(html), true);
+ok('every week so far is on the list, newest first, after All weeks',
+  [...html.matchAll(/<option value="(\w+)"/g)].map(m => m[1]), ['all', '5', '4', '3', '2', '1']);
+ok('narrowed to a week, the dropdown is lit', /class="soc-wk on"/.test(html), true);
+M.sbSocialWeek('4');
+html = M.sbSocialHTML();
+ok('a past week holds', [M.weekHeld(), shown(html)], [4, inWeek(4)]);
+M.sbSocialWeek('5');
+ok('picking the current week goes back to following it', M.weekHeld(), null);
+M.setPlayed(5);
+html = M.sbSocialHTML();
+ok('when week 5 is decided, week 6 takes over and joins the list',
+  /<option value="6" selected>Week 6<\/option>/.test(html) && html.includes('<option value="5">'), true);
+ok('with nothing in it yet, it says so', html.includes('Nothing in Week 6 yet.'), true);
+M.sbSocialWeek('4'); M.setPlayed(6);
+html = M.sbSocialHTML();
+ok('a week somebody picked stays picked as the weeks move on',
+  /<option value="4" selected>/.test(html) && html.includes('<option value="7">'), true);
+M.setPlayed(4);
+M.sbSocialWeek('all');
+html = M.sbSocialHTML();
+ok('All weeks shows the lot, unlit', shown(html) === items.length && /class="soc-wk"/.test(html), true);
+
+head('the cards');
+html = M.sbSocialHTML();
 ok('every card is drawn', (html.match(/class="soc-item/g) || []).length, items.length);
 ok('the shared parlay names both people and stacks both crests',
   /BFT &amp; KUNK|BFT & KUNK/.test(html) && /data-av="10"[\s\S]*?data-av="7"/.test(html), true);
