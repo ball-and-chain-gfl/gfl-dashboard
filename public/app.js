@@ -20362,15 +20362,14 @@ function betGrade(bet){
    they all settle on the same afternoon. Splitting them across Futures, Team
    Props and Achievements implied three different deadlines that no longer
    exist — they are one board now. */
-/* Regular Season and By Team share the top row; This Week takes the full width
-   underneath, since it is the one that changes every week and wants the room. */
-/* Order is the layout: on a phone these fill a two-column grid row by row, so
-   the list reads This Week / Regular Season across the top and By Team /
-   Investments underneath. This Week leads because it is the only one of the
-   four that goes stale — the others are the same board in May as in December. */
+/* Order is the layout: the tabs read left to right as a single underlined row.
+   Weekly leads because it is the only board that goes stale — Season and the
+   rest are the same board in May as in December. The keys stay 'week' and
+   'season'; only the words on the tabs changed (This Week -> Weekly,
+   Regular Season -> Season). */
 const SB_GROUPS=[
-  {k:'week',label:'This Week',icon:'fa-bolt'},
-  {k:'season',label:'Regular Season',icon:'fa-trophy'},
+  {k:'week',label:'Weekly',icon:'fa-bolt'},
+  {k:'season',label:'Season',icon:'fa-trophy'},
   {k:'coins',label:'Coins',icon:'fa-coins'},
   {k:'invest',label:'Investments',icon:'fa-chart-line'},
   {k:'social',label:'Social',icon:'fa-users'},
