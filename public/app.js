@@ -21845,7 +21845,7 @@ function sbShowPortal(on){
   if(!on){ _sbSlipOpen=false; el.classList.remove('open'); }
 }
 function sbSetView(v){ _sbView=v;
-  document.querySelectorAll('#sb-tabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  document.querySelectorAll('#sb-tabs .sb-utab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   renderBook();
 }
 function sbToggleSlip(open){
@@ -22353,12 +22353,15 @@ function renderBetsBar(){
   /* Just the labels. Both figures are the first thing inside the view each
      button opens, so carrying them here said everything twice and left the two
      buttons looking busy. */
+  /* The icon is artwork, not a glyph beside a label: oversized, tilted, and
+     cropped by the button's own edge, so each button shows a slice of it. The
+     label carries the meaning, so the icon is hidden from screen readers. */
   bar.innerHTML=`<div class="bets-pair">
     <button class="bets-btn${on?' on':''}" onclick="sbSetView('mine')" aria-pressed="${on}">
-      <i class="fa fa-wallet"></i><span class="bets-btn-t">My Bets</span>
+      <i class="fa fa-wallet bets-ic" aria-hidden="true"></i><span class="bets-btn-t">My Bets</span>
     </button>
     <button class="bets-btn${fo?' on':''}" onclick="sbSetView('folio')" aria-pressed="${fo}">
-      <i class="fa fa-chart-pie"></i><span class="bets-btn-t">My Portfolio</span>
+      <i class="fa fa-chart-pie bets-ic" aria-hidden="true"></i><span class="bets-btn-t">Portfolio</span>
     </button>
   </div>`;
   try{ syncNavDock(); }catch(e){}
@@ -22656,7 +22659,6 @@ function invBoardHTML(which){
     ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}
     <div class="iv-seg" data-on="${short?'short':'long'}" role="group"
         aria-label="Which side of the market">
-      <span class="iv-seg-th" aria-hidden="true"></span>
       <button class="iv-seg-b${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">Stocks</button>
       <button class="iv-seg-b${short?' on':''}" onclick="invSetSide('short')" aria-pressed="${short}">Shorts</button>
     </div>
@@ -22824,7 +22826,11 @@ function renderBookInner(){
   /* no icons on the view filters — six of them side by side was more symbol
      than signal. The My Bets button keeps its wallet, being a different kind
      of control rather than one of a set. */
-  const tabs=SB_GROUPS.map(g=>`<button class="tab-btn ${_sbView===g.k?'active':''}" data-view="${g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
+  /* A row of words with the live one underlined, the way a sportsbook app
+     does it -- rather than four filled pills in a two-by-two block, which
+     read as four more buttons on a page already made of buttons. */
+  const tabs=SB_GROUPS.map(g=>`<button class="sb-utab${_sbView===g.k?' on':''}" data-view="${g.k}"
+    role="tab" aria-selected="${_sbView===g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
   const board=_sbView==='coins'?invBoardHTML('coins')
     :_sbView==='week'?sbWeekHTML()
     :_sbView==='invest'?invBoardHTML()
@@ -22843,13 +22849,19 @@ function renderBookInner(){
     ${(_sbView==='mine'||_sbView==='folio')
       ? `<button class="sb-back" onclick="sbSetView('week')">
           Return to the sportsbook<i class="fa fa-arrow-right"></i></button>`
-      : `<div class="standings-filters sb-tabs" id="sb-tabs" style="padding-bottom:14px">${tabs}</div>`}
+      : `<div class="sb-utabs" id="sb-tabs" role="tablist" aria-label="Sportsbook boards">${tabs}</div>`}
     <div class="sb-layout">
       <div class="sb-board">${board}</div>
       <div class="sb-slip-wrap" id="sb-slip-wrap">
         <div class="sb-slip sb-slip-target" id="sb-slip">${sbSlipHTML()}</div>
       </div>
     </div>`;
+  /* The row scrolls sideways on a phone, and every repaint rebuilds it at the
+     left edge -- so the live tab is brought back into view each time, or
+     Investments would sit selected and out of sight. */
+  const tabRow=document.getElementById('sb-tabs'), live=tabRow&&tabRow.querySelector('.sb-utab.on');
+  if(live&&live.offsetLeft+live.offsetWidth>tabRow.clientWidth)
+    tabRow.scrollLeft=live.offsetLeft+live.offsetWidth-tabRow.clientWidth+12;
   sbShowPortal(true);
   sbRenderSlip();
   renderBetsBar();

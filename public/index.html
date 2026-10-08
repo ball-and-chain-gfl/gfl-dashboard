@@ -1246,13 +1246,12 @@
       border:1px solid rgba(255,255,255,0.13);}
     .sx-chip:hover,.tab-dd-item:hover,.mv-btn:hover,.sb-odds:hover,.nt-nav:hover,
     .tab-btn:hover{border-color:rgba(255,255,255,0.2);}
-    /* ── The jump-chip surface, applied by request to six specific controls ───
+    /* ── The jump-chip surface, applied by request to specific controls ───────
        Every selector here names its container as well as its class, so nothing
-       that merely shares a class name is caught: #sb-tabs is the sportsbook's
-       own view row, #page-tenure scopes the Player Data switcher, and so on. */
+       that merely shares a class name is caught: #page-book scopes the
+       sportsbook's prices, #page-tenure the Player Data switcher, and so on. */
     #bk-body .bk-opt,
     #bk-body .bk-back,
-    #sb-tabs .tab-btn,
     #page-book .sb-odds,
     #page-tenure .sx-filters .sx-chip,
     #page-draft .dr-vtab{
@@ -1262,13 +1261,11 @@
       backdrop-filter:none;-webkit-backdrop-filter:none;}
     #bk-body .bk-opt:hover,
     #bk-body .bk-back:hover,
-    #sb-tabs .tab-btn:hover,
     #page-book .sb-odds:hover,
     #page-tenure .sx-filters .sx-chip:hover,
     #page-draft .dr-vtab:hover{
       background:rgba(255,255,255,0.11);border-color:rgba(255,255,255,0.2);}
     /* the selected one still has to look selected */
-    #sb-tabs .tab-btn.active,
     #page-tenure .sx-filters .sx-chip.on,
     #page-draft .dr-vtab.active{
       background:color-mix(in srgb,var(--accent) 20%,rgba(255,255,255,0.07));
@@ -1580,34 +1577,25 @@
       background:linear-gradient(180deg,rgba(var(--ivc),0.17),rgba(var(--ivc),0.06));}
     .iv-go:not(:disabled):hover{border-color:rgba(var(--ivc),0.7);
       background:linear-gradient(180deg,rgba(var(--ivc),0.26),rgba(var(--ivc),0.1));}
-    /* ── THE SIDE SWITCH IS ONE CONTROL, NOT TWO BUTTONS ──────────────────
-       Full width, and the selection SLIDES between the halves rather than
-       switching off in one place and on in another. Which half you are on is
-       the single most consequential thing about this page -- one buys and the
-       other sells what you do not own -- and a control that moves says that
-       better than two pills of which one happens to be lit.
-
-       The thumb is an element rather than a ::before so the two labels can sit
-       above it and take their colour from their own state. It is half the
-       inner width and slides by exactly its own width, which lands it on the
-       right half whatever the card is: calc(50% - 3px) is (W - 6)/2, the inner
-       half, and translateX(100%) moves it by that same figure. */
-    .iv-seg{--ivc:96,165,250;
-      position:relative;display:flex;width:100%;margin:0 0 10px;padding:3px;
-      border-radius:10px;background:rgba(255,255,255,0.05);
-      border:1px solid rgba(255,255,255,0.1);}
+    /* ── STOCKS OR SHORTS: TWO FLAT BUTTONS ────────────────────────────────
+       It used to be one sliding control with a raised, shaded thumb, which
+       read as a piece of hardware sitting on the page. Two plain buttons side
+       by side now, the same weight as the Shares / Dollars pair under them:
+       the one you are on takes its side's colour as a flat tint and an edge
+       (blue for stocks, orange for shorts), the other stays quiet. Which side
+       you are on is still the most consequential thing on this page, so the
+       selected one also goes to a white label. */
+    .iv-seg{--ivc:96,165,250;display:grid;grid-template-columns:1fr 1fr;gap:6px;
+      width:100%;margin:0 0 10px;}
     .iv-seg[data-on="short"]{--ivc:255,146,61;}
-    .iv-seg-th{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);
-      border-radius:8px;border:1px solid rgba(var(--ivc),0.85);
-      background:linear-gradient(180deg,rgba(var(--ivc),0.3),rgba(var(--ivc),0.13));
-      transition:transform .24s cubic-bezier(.4,0,.2,1),background .24s,border-color .24s;}
-    .iv-seg[data-on="short"] .iv-seg-th{transform:translateX(100%);}
-    .iv-seg-b{position:relative;z-index:1;flex:1 1 0;min-width:0;height:32px;padding:0 8px;
-      border:0;background:none;color:var(--text3);font-family:'Inter',sans-serif;
-      font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-      cursor:pointer;transition:color .18s;}
-    .iv-seg-b.on{color:var(--text);}
-    @media (prefers-reduced-motion:reduce){ .iv-seg-th{transition:none;} }
+    .iv-seg-b{min-width:0;height:36px;padding:0 8px;border-radius:9px;
+      border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);
+      color:var(--text3);font-family:'Inter',sans-serif;font-size:12px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;box-shadow:none;cursor:pointer;
+      transition:background .15s,border-color .15s,color .15s;}
+    .iv-seg-b:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.2);color:var(--text2);}
+    .iv-seg-b.on,.iv-seg-b.on:hover{background:rgba(var(--ivc),0.16);
+      border-color:rgba(var(--ivc),0.75);color:#fff;}
     /* the tag sits ON the name line, so the name has to become a row */
     .iv-nm-row{display:flex;align-items:center;gap:6px;min-width:0;}
     .iv-nm-row>:first-child{overflow:hidden;text-overflow:ellipsis;}
@@ -1667,13 +1655,6 @@
       .bets-bar::before{transition:opacity .18s ease;transform:translateY(0);}
     }
     .bets-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-    .bets-pair .bets-btn{min-width:0;justify-content:center;
-      padding-left:11px;padding-right:11px;}
-    .bets-pair .bets-btn-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
-    @media(max-width:400px){
-      .bets-pair .bets-btn{font-size:10.5px;gap:6px;padding-left:9px;padding-right:9px;}
-      .bets-pair .bets-btn i{font-size:12px;}
-    }
     /* Two of these sit side by side under the nav on every page of the
        sportsbook, and they used to be two solid slabs of the tab's green. At
        that size, in that position, a filled accent is the loudest thing on the
@@ -1706,6 +1687,43 @@
     @media(max-width:768px){
       .bets-bar{top:var(--navbot,calc(env(safe-area-inset-top,0px) + 72px));}
       .bets-btn{padding:10px 12px;font-size:11.5px;}
+    }
+    /* ── My Bets and Portfolio, as two cut-out tiles ─────────────────────────
+       Green running into the page's dark from left to right, a white label
+       set to the right, and the icon as artwork rather than a glyph: tilted,
+       a little taller than the button, and cropped by the button's own edge
+       so only a slice of it shows. overflow:hidden is the crop; isolation
+       keeps the icon's z-index behind the label inside its own button.
+
+       Scoped to .bets-pair and written after the base .bets-btn rules, so it
+       wins over them -- the selected and hover states included -- without an
+       !important anywhere. Selected is a white ring: the fill is already the
+       loudest thing in the strip and does not need to get louder. */
+    .bets-pair .bets-btn{position:relative;overflow:hidden;isolation:isolate;
+      display:flex;align-items:center;justify-content:flex-end;gap:0;min-width:0;
+      height:48px;padding:0 15px 0 54px;border-radius:12px;
+      border:1px solid rgba(var(--accent-rgb),0.38);
+      background:linear-gradient(90deg,
+        color-mix(in srgb,var(--accent) 82%,#000) 0%,
+        color-mix(in srgb,var(--accent) 34%,#0c0f0d) 52%,
+        rgba(0,0,0,0.3) 100%);
+      color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;
+      letter-spacing:0;text-transform:none;
+      transition:transform .12s ease,border-color .18s ease,filter .18s ease;}
+    .bets-pair .bets-btn .bets-ic{position:absolute;z-index:-1;left:-9px;top:50%;
+      font-size:58px;line-height:1;color:rgba(255,255,255,0.92);
+      transform:translateY(-50%) rotate(-16deg);pointer-events:none;}
+    .bets-pair .bets-btn-t{position:relative;min-width:0;white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis;}
+    .bets-pair .bets-btn:hover{border-color:rgba(var(--accent-rgb),0.7);filter:brightness(1.08);
+      background-color:transparent;color:#fff;}
+    .bets-pair .bets-btn.on,.bets-pair .bets-btn.on:hover{border-color:#fff;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.55);color:#fff;}
+    .bets-pair .bets-btn.on .bets-ic{color:#fff;}
+    .bets-pair .bets-btn:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+    @media(max-width:400px){
+      .bets-pair .bets-btn{height:46px;padding-left:48px;padding-right:13px;font-size:14px;}
+      .bets-pair .bets-btn .bets-ic{font-size:54px;}
     }
 
     /* ── The Easter egg ───────────────────────────────────────────────────────
@@ -5238,16 +5256,27 @@
     .sb-live i{font-size:6px;}
     .sb-bar-t{font-family:'Google Sans Flex',Georgia,serif;font-size:15px;font-weight:600;}
     .sb-bar-r{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
-    /* My Bets and My Portfolio are a different kind of control from the four
-       below them — they open your own ledger rather than switching the board —
-       and stacked six-in-a-column they read as one set of six. A hairline is
-       enough to say they are two sets of two and four. */
-    /* The line sits midway between the two rows it separates: the wallet bar
-       ends 10px above it (its own bottom padding, with the 22px margin pulled
-       back off) and the tabs start 10px below. Equal on both sides, and closer
-       than the 32/14 it was. */
-    .sb-tabs{gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);
-      margin-top:-22px;padding-top:10px;}
+    /* ── The boards, as a row of words ──────────────────────────────────────
+       This Week, Regular Season, Coins, Investments: plain bold text, the live
+       one white with the accent drawn under it, the rest grey, and a hairline
+       under the whole row -- a sportsbook app's tab strip rather than four
+       filled pills. It scrolls sideways when it does not fit, and renderBook
+       brings the live tab back into view after every repaint. Pulled up under
+       the My Bets bar by the bar's own 22px tail, the same as the pills were. */
+    .sb-utabs{display:flex;gap:22px;margin:-22px 0 14px;padding:0 2px;
+      overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+      border-bottom:1px solid rgba(255,255,255,0.1);}
+    .sb-utabs::-webkit-scrollbar{display:none;}
+    .sb-utab{flex:0 0 auto;position:relative;padding:12px 0 11px;margin:0;
+      background:none;border:0;border-radius:0;box-shadow:none;cursor:pointer;
+      font-family:'Inter',sans-serif;font-size:15px;font-weight:700;letter-spacing:0;
+      white-space:nowrap;color:var(--text3);transition:color .15s;
+      -webkit-tap-highlight-color:transparent;}
+    .sb-utab:hover,.sb-utab:active{background:none;color:var(--text2);transform:none;}
+    .sb-utab.on,.sb-utab.on:hover{color:#fff;}
+    .sb-utab.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:3px;
+      border-radius:3px 3px 0 0;background:var(--accent);}
+    .sb-utab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
     .sb-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;}
     /* Closed bars sit close; the gap was set when every market was a tall open
        card and reads as a wide margin now that most of them are one line. */
@@ -5273,11 +5302,17 @@
        away": compact uppercase Inter on a strip a shade darker than the card it
        tops. The sportsbook wore a serif title at fifteen pixels instead, which
        made ten stacked bars read as ten headings rather than ten controls. */
-    .sb-mhead{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;
-      width:100%;padding:11px 13px;border:0;border-radius:0;min-height:0;
+    /* ...and then made to read. Small grey capitals kept the bars quiet and
+       made every one of them hard to tell apart at a glance -- "WEEK 5 TOP
+       SCORE" and "WEEK 5 LOW SCORE" were the same grey smudge. The bars are
+       the menu of the page, so they read like one now: a bold white title in
+       ordinary case, a taller bar, a plain chevron, the count in a small
+       outlined tag -- the way a sportsbook app lists its markets. */
+    .sb-mhead{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;
+      width:100%;padding:15px 14px;border:0;border-radius:0;min-height:0;
       background:rgba(0,0,0,0.3);box-shadow:none;cursor:pointer;text-align:left;
-      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
-      letter-spacing:.5px;text-transform:uppercase;color:var(--text2);
+      font-family:'Inter',sans-serif;font-size:16px;font-weight:800;
+      letter-spacing:0;text-transform:none;color:#fff;
       transition:none;}
     .sb-mhead:hover,.sb-mhead:active,.sb-mhead:focus{background:rgba(0,0,0,0.3);box-shadow:none;}
     .sb-mhead:active{transform:none;}
@@ -5286,18 +5321,19 @@
     div.sb-mhead{cursor:default;}
     /* the serif .sb-mt below is the page's market title; inside the bar it is
        the bar's own label and takes the bar's type */
-    .sb-mhead .sb-mt{flex:1 1 auto;min-width:0;line-height:1.2;
-      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
-      letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
-    .sb-mhead .sb-mchev{font-size:10px;}
+    .sb-mhead .sb-mt{flex:1 1 auto;min-width:0;line-height:1.25;
+      font-family:'Inter',sans-serif;font-size:16px;font-weight:800;
+      letter-spacing:-.1px;text-transform:none;color:#fff;}
+    .sb-mhead .sb-mchev{font-size:14px;color:var(--text2);}
     /* the market icons were dropped on purpose — the chevron is not one of
        them, it is the control that says the market folds */
     .sb-mhead i{display:none;}
     .sb-mhead i.sb-mchev{display:inline-flex;}
     .sb-mt{font-family:'Google Sans Flex',Georgia,serif;font-size:15px;font-weight:600;}
-    .sb-mhead .badge-info{margin-left:auto;background:none;border:none;padding:0;
-      font-family:'Inter',sans-serif;font-size:9.5px;letter-spacing:.5px;
-      text-transform:uppercase;color:var(--text3);}
+    .sb-mhead .badge-info{margin-left:auto;flex:0 0 auto;background:none;
+      border:1px solid rgba(255,255,255,0.22);border-radius:6px;padding:3px 7px;
+      font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.4px;
+      line-height:1;text-transform:uppercase;color:var(--text2);}
     /* the global dark-theme pill fill is !important, so stripping it here has
        to be too — in the bar this is the fold's count line, not a badge */
     html[data-theme="dark"] .sb-mhead .badge-info{background:none!important;}
@@ -5424,17 +5460,6 @@
       #page-book>.sec{background:none!important;border:none!important;box-shadow:none!important;
         -webkit-backdrop-filter:none!important;backdrop-filter:none!important;padding:0!important;}
       #page-book>.sec>.sec-head{padding:0 0 12px!important;}
-      /* market tabs need to read clearly with no card behind them */
-      /* a darker fill than the rest, because these sit with no card behind them */
-      /* the chip surface holds here too — this used to force its own dark fill
-         and a transparent edge, which beat the shared rule on phones only */
-      #sb-tabs .tab-btn{background:rgba(255,255,255,0.07)!important;
-        border-color:rgba(255,255,255,0.13)!important;
-        color:var(--text)!important;box-shadow:none!important;}
-      #sb-tabs .tab-btn i{opacity:1;}
-      #sb-tabs .tab-btn.active{background:color-mix(in srgb,var(--accent) 20%,rgba(255,255,255,0.07))!important;
-        border-color:var(--accent)!important;color:#f7f8ec!important;}
-      #sb-tabs .tab-btn.active i{color:#f7f8ec!important;}
       .sb-bar{background:none;border-color:rgba(255,255,255,0.10);}
       /* The market card keeps one background now — the title block, the column
          strip and the row striping used to add three more, which is what made
@@ -5446,15 +5471,13 @@
       .sb-bar{padding-bottom:12px;}
       .sb-bar-t{font-size:13.5px;}
       .sb-bar-r{display:none;}
-      /* Inset to the same line as the My Bets button above: that bar pads by
-         --betspad less --navside, so the tabs take the same 8px and the two
-         stacks share an edge instead of the tabs running wider. */
-      .sb-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;
+      /* Inset to the same line as the My Bets buttons above: that bar pads by
+         --betspad less --navside, so the tab row takes the same and the two
+         share an edge. Tighter between words on a phone, where the row is
+         about to scroll anyway. */
+      .sb-utabs{gap:20px;
         padding-left:max(0px,calc(10px - var(--navside,2px)));
         padding-right:max(0px,calc(10px - var(--navside,2px)));}
-      /* the full-width one sits under the pair */
-      .sb-tabs .tab-btn.sb-wide{grid-column:1/-1;}
-      .sb-tabs .tab-btn{width:100%;justify-content:center;text-align:center;font-size:11.5px;padding:8px 6px;}
       /* No inset on the card itself. Every child already carries its own
          horizontal padding, and the twelve pixels here were holding the title
          bar off the card edge — which is fine for a bare heading and wrong for
