@@ -16309,7 +16309,11 @@ function renderBallKnowledge(){
 function bkPlace(done){
   const sec=document.getElementById('bk-sec'); if(!sec) return;
   const page=document.getElementById('page-home'); if(!page) return;
-  const atBottom=sec.parentElement===page && sec===page.lastElementChild;
+  /* At the foot means moved out to the page itself. It used to also demand
+     being the very last thing on it -- which stopped being true the day the
+     cleared notifications started following it down, and would have had the
+     two of them swapping places on every repaint. */
+  const atBottom=sec.parentElement===page;
   /* Coming back from finished. The card was appended to the foot of the page
      when the set was completed, and the comment here used to claim it returned
      to its slot on the next render — nothing ever moved it. Starting over left
@@ -18459,7 +18463,10 @@ const HOME_TODO=[
      slate to pick, a notification to clear -- outranks it and sits above. */
   {id:'fc-sec', done:()=>true},
   {id:'cp-sec', done:()=>_cpJustSent || !!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()])},
-  {id:'nt-sec', done:()=>ntDone()},
+  /* Cleared notifications have nothing to show but "all caught up", so once
+     they are seen they go to the very bottom, under Ball Knowledge, rather
+     than holding a slot above the picks. */
+  {id:'nt-sec', done:()=>ntDone(), sinkWhenDone:true},
   {id:'pk-sec', done:()=>pkSubmitted()||pkLocked()},
   {id:'bk-sec', done:()=>{ const qs=bkQuestions(); if(!qs.length) return true;
     return bkSubmitted(); }},
@@ -18470,15 +18477,42 @@ const HOME_TODO=[
    move is visible instead of the stack silently being in a different order the
    next time you look at it. Same curve as the Ball Knowledge card's trip to the
    foot of the page, quicker because the distance is a fraction of it. */
+/* ── CLEARED NOTIFICATIONS FOLLOW BALL KNOWLEDGE DOWN ──────────────────────
+   A finished Ball Knowledge card leaves the stack for the foot of the page
+   (bkPlace), so the last slot in the stack is still above it. Once every
+   notification has been seen there is nothing on that card but "all caught
+   up", and it goes underneath Ball Knowledge -- on the page, right after it.
+   The moment one arrives it is outstanding again and goes back into the
+   stack, where the sort puts it at the top. With Ball Knowledge still open
+   it stays in the stack, in the last slot, which is under it anyway. */
+function ntPlace(){
+  const sec=document.getElementById('nt-sec'), page=document.getElementById('page-home');
+  if(!sec||!page) return;
+  const bk=document.getElementById('bk-sec');
+  let done=false; try{ done=!!ntDone(); }catch(e){}
+  if(done&&bk&&bk.parentElement===page){
+    if(bk.nextElementSibling!==sec) bk.after(sec);
+    sec.classList.add('nt-moved');
+    return;
+  }
+  if(sec.parentElement===page){
+    const col=page.querySelector('.home-left-col');
+    if(col){ col.appendChild(sec); sec.classList.remove('nt-moved'); }
+  }
+}
+/* outstanding first, then the finished ones in registry order -- except a
+   card that asks to sink, which goes under every other finished one */
+const homeTodoRank=r=>r.done?(r.sink?2:1):0;
+const homeTodoCmp=(a,b)=>homeTodoRank(a)-homeTodoRank(b)||a.i-b.i;
 let _htFirst=true;
 function orderHomeTodo(){
   const rows=HOME_TODO.map((t,i)=>{
     const el=document.getElementById(t.id);
     let done=false; try{ done=!!t.done(); }catch(e){}
-    return {el,done,i};
+    return {el,done,i,sink:!!t.sinkWhenDone};
   }).filter(r=>r.el);
   if(!rows.length) return;
-  rows.sort((a,b)=>(a.done?1:0)-(b.done?1:0) || a.i-b.i);
+  rows.sort(homeTodoCmp);
 
   /* Any inversion still sitting on a card from a previous call has to come off
      before measuring, or the "before" box is a displaced one and the next
@@ -18509,6 +18543,8 @@ function orderHomeTodo(){
     && !matchMedia('(prefers-reduced-motion:reduce)').matches;
   _htFirst=false;
   const before=animate?rows.map(r=>r.el.getBoundingClientRect()):null;
+  /* measured first, so a card that changes home this time animates there */
+  try{ ntPlace(); }catch(e){}
 
   rows.forEach((r,n)=>{
     r.el.style.order=String(n);
@@ -20337,6 +20373,7 @@ const SB_GROUPS=[
   {k:'season',label:'Regular Season',icon:'fa-trophy'},
   {k:'coins',label:'Coins',icon:'fa-coins'},
   {k:'invest',label:'Investments',icon:'fa-chart-line'},
+  {k:'social',label:'Social',icon:'fa-users'},
 ];
 function sbAvatar(owner,size){
   const fr=_franchises.find(f=>f.owner===owner);
@@ -22814,6 +22851,169 @@ function invPortfolioHTML(){
     +sec(csRows,'Coin shorts — these pay when he falls off',true);
 }
 
+/* ── SOCIAL: WHAT EVERYBODY IS DOING WITH THEIR BUCKS ─────────────────────────
+   One feed, newest first, of every bet and every trade in the league this
+   season, with the crests of whoever is in on each.
+
+   A BET is told once, however many documents it is. A shared bet is the
+   original plus a seat for each manager who accepted, and a head-to-head is
+   the challenger's ticket plus the other side's -- both linked back by
+   srcBet -- so the seats and replies are gathered under the bet they belong
+   to rather than appearing as bets of their own. Voided, declined and
+   unanswered invitations are nobody being in on anything and are left out;
+   a head-to-head still waiting on its answer is shown as waiting, because
+   somebody HAS put money up. A bet its owner cleared off their own list is
+   left out here too.
+
+   A TRADE is a line from a manager's investment ledger -- a buy, a sale, a
+   short or a cover, of a team, a fund or a coin -- read off the profile rows
+   the homepage already lists. Nothing new is stored for any of this.
+
+   Both sources are asked for again at most every two minutes while the feed
+   is open, the same window the league's bets are cached for. */
+const SB_SOCIAL_PAGE=40;
+let _sbSocialN=SB_SOCIAL_PAGE, _sbSocialF='all', _sbSocialTry=0;
+/* its own copy of the profile rows: the league-wide _cpRows has rules about
+   who may replace it (every path that does must repaint Standings), and a
+   feed refreshing its trades is not a reason to go through them */
+let _sbSocialRows=null;
+function sbSocialWant(){
+  const now=Date.now();
+  if(now-_sbSocialTry<60000) return;
+  _sbSocialTry=now;
+  const repaint=()=>{ try{ if(_activeTab==='book'&&_sbView==='social') renderBook(); }catch(e){} };
+  if((!_betsAll||now-betsAllAt()>BETS_ALL_TTL)&&!_betsAllBusy){
+    if(_betsAll){ _pkBetsLast=_betsAll; _betsAll=null; }
+    betLeague().then(repaint);
+  }
+  if((!_profRows||now-_profAt>BETS_ALL_TTL)&&!_profFlight)
+    gflListProfiles(true).then(rows=>{ if(rows){ _sbSocialRows=rows; repaint(); } });
+}
+const SB_SOCIAL_LIVE=new Set(['open','won','lost','push','cashed']);
+/* buy, sell, short, cover -- the four lines an investment ledger holds */
+const SB_SOCIAL_VERB={b:'Bought',s:'Sold',so:'Shorted',sc:'Covered'};
+function sbSocialItems(){
+  const season=String(sbSeason());
+  const bets=(_betsAll||_pkBetsLast||[]).filter(b=>b&&String(b.season||'')===season&&betsAfterReset(b));
+  const byId={}, kids={};
+  bets.forEach(b=>{ byId[b.id]=b; });
+  bets.forEach(b=>{ if(b.srcBet&&byId[b.srcBet]) (kids[b.srcBet]||(kids[b.srcBet]=[])).push(b); });
+  const out=[];
+  bets.forEach(b=>{
+    if(b.srcBet&&byId[b.srcBet]) return;            // told under the bet it joined
+    if(b.hidden) return;
+    const waiting=b.pvp&&b.status==='offer';
+    if(!SB_SOCIAL_LIVE.has(b.status)&&!waiting) return;
+    const seats=(kids[b.id]||[]).filter(x=>SB_SOCIAL_LIVE.has(x.status));
+    out.push({kind:'bet',t:b.ts,b,seats,waiting});
+  });
+  (_sbSocialRows||_cpRows||[]).forEach(p=>{
+    if(!p||p.id===TEST_PROFILE||!p.inv) return;
+    let lots=[]; try{ lots=JSON.parse(p.inv)||[]; }catch(e){}
+    if(!Array.isArray(lots)) return;
+    lots.forEach(l=>{
+      const t=Number(l&&l.t)||0;
+      if(!l||!l.o||!(Number(l.s)>0)||!t||!SB_SOCIAL_VERB[l.k]) return;
+      if(String(nflSeasonOfMs(t))!==season) return;
+      out.push({kind:'inv',t,acct:p.id,team:Number(p.teamId)||0,l});
+    });
+  });
+  return out.sort((a,b)=>b.t-a.t);
+}
+function sbSocialAgo(t){
+  const m=Math.max(0,Math.round((Date.now()-t)/60000));
+  if(m<60) return (m||1)+'m';
+  const h=Math.round(m/60); if(h<24) return h+'h';
+  const d=Math.round(h/24); if(d<7) return d+'d';
+  return new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+function sbSocialSet(f){ _sbSocialF=f; _sbSocialN=SB_SOCIAL_PAGE; renderBook(); }
+function sbSocialMore(){ _sbSocialN+=SB_SOCIAL_PAGE; renderBook(); }
+function sbSocialHTML(){
+  sbSocialWant();
+  const loaded=!!(_betsAll||_pkBetsLast);
+  const team=id=>(_teams||[]).find(t=>t.id===Number(id))||null;
+  const ab=id=>{ const t=team(id); return t?(t.abbrev||teamInitials(t.name)):'—'; };
+  const crest=(id,sz)=>{ const t=team(id); return t?avatarHTML(t,sz,Math.round(sz/3.6)):''; };
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  /* everybody in on a bet, as an overlapped stack */
+  const stack=ids=>`<span class="soc-stack">${ids.slice(0,4).map(id=>
+    `<span class="soc-stack-i" title="${esc((team(id)||{}).name||'')}">${crest(id,26)}</span>`).join('')}</span>`;
+  const status=st=>({open:['Open','open'],won:['Won','won'],lost:['Lost','lost'],push:['Push','push'],
+    cashed:['Cashed out','push']})[st]||['Open','open'];
+  const legsHTML=legs=>{
+    const shown=(legs||[]).slice(0,4);
+    const more=(legs||[]).length-shown.length;
+    return `<div class="soc-legs">${shown.map(l=>`<div class="soc-leg">
+        <span class="soc-leg-p">${esc(l.pickLabel||l.pick||'')}</span>
+        ${l.odds?`<span class="soc-leg-o">${amFmt(Number(l.odds))}</span>`:''}</div>`).join('')}
+      ${more>0?`<div class="soc-leg soc-leg-more">+${more} more</div>`:''}</div>`;
+  };
+  const betHTML=it=>{
+    const b=it.b, me=betAccountTeam(b.owner);
+    /* a head-to-head: two people, two sides, one pot */
+    if(b.pvp){
+      const other=it.seats[0]||null, them=betAccountTeam(other?other.owner:b.vs);
+      const side=(tid,bet,stake)=>`<div class="soc-h2h-s">${crest(tid,22)}<div class="soc-h2h-t">
+          <span class="soc-h2h-n">${ab(tid)}</span>
+          <span class="soc-h2h-p">${esc(((bet&&bet.legs||[])[0]||{}).pickLabel||'—')}</span></div>
+          <span class="soc-h2h-c">${stake!=null?pkCash(stake):''}</span></div>`;
+      const [lbl,cls]=it.waiting?['Waiting','wait']:status(b.status);
+      return `<div class="soc-item">
+        <div class="soc-head">${stack([me,them].filter(Boolean))}
+          <span class="soc-names">${ab(me)} <em>vs</em> ${ab(them)}</span>
+          <span class="soc-when">${sbSocialAgo(it.t)}</span></div>
+        <div class="soc-kind">Head to head${it.waiting?` · waiting on ${ab(them)}`:''}</div>
+        <div class="soc-h2h">${side(me,b,b.stake)}${side(them,other,other?other.stake:null)}</div>
+        <div class="soc-foot"><span>Pot ${pkCash(b.payout)}</span><span class="soc-st st-${cls}">${lbl}</span></div>
+      </div>`;
+    }
+    const ids=[me,...it.seats.map(x=>betAccountTeam(x.owner))].filter(Boolean)
+      .filter((v,i,a)=>a.indexOf(v)===i);
+    const n=(b.legs||[]).length;
+    const names=ids.length>2?`${ab(ids[0])} +${ids.length-1}`:ids.map(ab).join(' & ');
+    const [lbl,cls]=status(b.status);
+    return `<div class="soc-item">
+      <div class="soc-head">${stack(ids)}<span class="soc-names">${names}</span>
+        <span class="soc-when">${sbSocialAgo(it.t)}</span></div>
+      <div class="soc-kind">${n>1?`Parlay · ${n} legs`:esc(((b.legs||[])[0]||{}).mkLabel||'Single')}${b.odds?` · ${amFmt(Number(b.odds))}`:''}</div>
+      ${legsHTML(b.legs)}
+      <div class="soc-foot"><span>${pkCash(b.stake)}${ids.length>1?' each':''} · pays ${pkCash(b.payout)}</span>
+        <span class="soc-st st-${cls}">${lbl}</span></div>
+    </div>`;
+  };
+  const invHTML=it=>{
+    const l=it.l, o=l.o, n=Number(l.s)||0, px=Number(l.p)||0;
+    const co=invCoin(o), fu=co?null:invFund(o);
+    const fr=co||fu?null:(_franchises||[]).find(f=>f.owner===o);
+    const nm=co?co.name:fu?fu.name:(fr?fr.name:'a team');
+    const art=co?playerImg(co.pid,20,co.name):fu?'<i class="fa fa-layer-group soc-a-ic"></i>'
+      :(fr?franchiseAvatar(fr,20,6):'');
+    const unit=co?(n===1?'coin':'coins'):(n===1?'share':'shares');
+    /* a buy or a sale is money changing hands at the price; a short or a cover
+       moves collateral instead, so only the price is worth saying */
+    const cash=l.k==='so'||l.k==='sc'?null:bucks2(n*px);
+    return `<div class="soc-item soc-inv soc-k-${l.k}">
+      <div class="soc-head">${stack([it.team].filter(Boolean))}<span class="soc-names">${ab(it.team)}</span>
+        <span class="soc-when">${sbSocialAgo(it.t)}</span></div>
+      <div class="soc-trade"><span class="soc-verb">${SB_SOCIAL_VERB[l.k]}</span>
+        <span>${invShFmt(n)} ${unit} of</span><span class="soc-asset">${art}<b>${esc(nm)}</b></span></div>
+      <div class="soc-foot"><span>at ${invFmt(px)}${cash!=null?` · ${pkCash(cash)}`:''}</span></div>
+    </div>`;
+  };
+  const all=sbSocialItems();
+  const f=_sbSocialF;
+  const list=all.filter(it=>f==='all'||(f==='bets'?it.kind==='bet':it.kind==='inv'));
+  const page=list.slice(0,_sbSocialN);
+  const chip=(k,label)=>`<button class="soc-f${f===k?' on':''}" onclick="sbSocialSet('${k}')" aria-pressed="${f===k}">${label}</button>`;
+  return `<div class="soc">
+    <div class="soc-fs" role="group" aria-label="Show">${chip('all','All')}${chip('bets','Bets')}${chip('inv','Investments')}</div>
+    ${!loaded&&!list.length?'<div class="tab-loading" style="padding:30px"><i class="fa fa-circle-notch"></i>Reading the league’s action…</div>'
+      :!list.length?'<div class="sb-mine-empty"><i class="fa fa-users"></i><div>Nothing here yet this season.</div></div>'
+      :`<div class="soc-feed">${page.map(it=>it.kind==='bet'?betHTML(it):invHTML(it)).join('')}</div>
+        ${list.length>page.length?'<button class="soc-more" onclick="sbSocialMore()">Show more</button>':''}`}
+  </div>`;
+}
 function renderBook(){
   /* the desktop slip panel lives inside book-body, so a board repaint takes the
      stake field with it — see sbKeepStakeFocus */
@@ -22836,6 +23036,7 @@ function renderBookInner(){
     :_sbView==='invest'?invBoardHTML()
     :_sbView==='folio'?invPortfolioHTML()
     :_sbView==='mine'?myBetsHTML()
+    :_sbView==='social'?sbSocialHTML()
     :(book.groups[_sbView]||[]).map(sbMarketHTML).join('');
   /* "Lines set" rides beside the page title; My Bets takes the strip the
      futures bar used to hold, so the ledger is one tap from anywhere. */

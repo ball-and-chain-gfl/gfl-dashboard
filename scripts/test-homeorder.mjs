@@ -34,13 +34,15 @@ const PRELUDE = [
   '  _cpJustSent=!!S.cp; _cpRows=S.cp?[{id:"me","cp_2026_w1":"1"}]:[];};',
 ].join(String.fromCharCode(10));
 
-const M = assemble(grab, ['const HOME_TODO='], ['HOME_TODO', 'setState'], PRELUDE);
+const M = assemble(grab, ['const HOME_TODO=', 'const homeTodoRank=', 'const homeTodoCmp='],
+  ['HOME_TODO', 'homeTodoCmp', 'setState'], PRELUDE);
 
-/* the sort orderHomeTodo runs, on ids alone */
+/* the sort orderHomeTodo runs -- its own comparator, on ids alone */
 function stack() {
   return M.HOME_TODO
-    .map((t, i) => { let d = false; try { d = !!t.done(); } catch (e) {} return { id: t.id, d, i }; })
-    .sort((a, b) => (a.d ? 1 : 0) - (b.d ? 1 : 0) || a.i - b.i);
+    .map((t, i) => { let d = false; try { d = !!t.done(); } catch (e) {}
+      return { id: t.id, d, done: d, i, sink: !!t.sinkWhenDone }; })
+    .sort(M.homeTodoCmp);
 }
 const order = () => stack().map(r => r.id);
 const outstanding = () => stack().filter(r => !r.d).map(r => r.id);
@@ -64,8 +66,18 @@ head('everything finished');
 M.setState(ALL_DONE);
 ok('nothing is outstanding', outstanding(), []);
 ok('the forecast leads the page', order()[0], 'fc-sec');
-ok('and the rest follow in registry order',
-  order(), ['fc-sec', 'cp-sec', 'nt-sec', 'pk-sec', 'bk-sec']);
+/* cleared notifications have nothing left to show, so they go to the very
+   bottom -- under Ball Knowledge -- rather than holding a slot above the picks */
+ok('and the rest follow in registry order, notifications last',
+  order(), ['fc-sec', 'cp-sec', 'pk-sec', 'bk-sec', 'nt-sec']);
+
+head('seen notifications sink below everything finished');
+M.setState({ ...ALL_DONE, bk: false });
+ok('Ball Knowledge still open: it leads, and the notifications are still last',
+  order(), ['bk-sec', 'fc-sec', 'cp-sec', 'pk-sec', 'nt-sec']);
+M.setState({ ...ALL_DONE, pk: false, cp: false });
+ok('whatever is outstanding, a cleared stack is the last card on the page',
+  order()[order().length - 1], 'nt-sec');
 
 head('the forecast is never outstanding');
 [{}, ALL_DONE, { cp: false, nt: false, pk: false, bk: false }].forEach((s, i) => {

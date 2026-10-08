@@ -5277,6 +5277,73 @@
     .sb-utab.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:3px;
       border-radius:3px 3px 0 0;background:var(--accent);}
     .sb-utab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+    /* ── Social: the league's bets and trades as one feed ─────────────────────
+       A card per bet or trade, newest first. Who is in on it leads as an
+       overlapped stack of crests -- the same shape the funds use -- then what
+       it is, the legs with their prices, and a foot with the money and where
+       it stands. Trades are a line of their own: a coloured verb (buy green,
+       sell grey, short orange, cover blue, the board's own colours for each
+       side), the size, and the crest of what was traded. */
+    .soc{display:flex;flex-direction:column;gap:10px;}
+    .soc-fs{display:flex;gap:6px;}
+    .soc-f{height:30px;padding:0 13px;border-radius:999px;border:1px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.04);color:var(--text3);font-family:'Inter',sans-serif;
+      font-size:11.5px;font-weight:800;letter-spacing:.2px;box-shadow:none;cursor:pointer;}
+    .soc-f:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.2);color:var(--text2);}
+    .soc-f.on,.soc-f.on:hover{background:rgba(var(--accent-rgb),0.16);border-color:rgba(var(--accent-rgb),0.7);color:#fff;}
+    .soc-feed{display:flex;flex-direction:column;gap:6px;}
+    .soc-item{display:flex;flex-direction:column;gap:8px;padding:12px 13px;border-radius:10px;
+      background:rgba(0,0,0,0.3);min-width:0;}
+    .soc-head{display:flex;align-items:center;gap:9px;min-width:0;}
+    .soc-stack{display:inline-flex;flex:0 0 auto;}
+    .soc-stack-i{display:inline-flex;border-radius:8px;box-shadow:0 0 0 2px var(--bg2);}
+    .soc-stack-i+.soc-stack-i{margin-left:-9px;}
+    .soc-names{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-family:'Inter',sans-serif;font-size:13.5px;font-weight:800;color:#fff;}
+    .soc-names em{font-style:normal;font-weight:700;color:var(--text3);margin:0 2px;}
+    .soc-when{margin-left:auto;flex:0 0 auto;font-family:'Inter',sans-serif;font-size:11px;
+      font-weight:600;color:var(--text3);}
+    .soc-kind{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.4px;
+      text-transform:uppercase;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .soc-legs{display:flex;flex-direction:column;gap:4px;}
+    .soc-leg{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
+    .soc-leg-p{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .soc-leg-o{flex:0 0 auto;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+    .soc-leg-more{font-size:11.5px;font-weight:600;color:var(--text3);}
+    .soc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);
+      font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text2);
+      font-variant-numeric:tabular-nums;}
+    .soc-st{flex:0 0 auto;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.18);
+      font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text2);}
+    .soc-st.st-won{border-color:rgba(74,222,128,0.6);background:rgba(74,222,128,0.1);color:var(--green);}
+    .soc-st.st-lost{border-color:rgba(251,113,133,0.55);background:rgba(251,113,133,0.08);color:var(--red);}
+    .soc-st.st-wait{border-color:rgba(240,154,62,0.6);color:#F09A3E;}
+    .soc-h2h{display:flex;flex-direction:column;gap:6px;}
+    .soc-h2h-s{display:flex;align-items:center;gap:9px;min-width:0;}
+    .soc-h2h-t{display:flex;flex-direction:column;min-width:0;}
+    .soc-h2h-n{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;color:#fff;}
+    .soc-h2h-p{font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;color:var(--text2);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .soc-h2h-c{margin-left:auto;flex:0 0 auto;font-family:'Inter',sans-serif;font-size:12.5px;
+      font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
+    .soc-trade{display:flex;flex-wrap:wrap;align-items:center;gap:5px 6px;min-width:0;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text2);}
+    .soc-verb{padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:800;letter-spacing:.4px;
+      text-transform:uppercase;}
+    .soc-k-b .soc-verb{background:rgba(74,222,128,0.14);color:var(--green);}
+    .soc-k-s .soc-verb{background:rgba(255,255,255,0.08);color:var(--text2);}
+    .soc-k-so .soc-verb{background:rgba(255,146,61,0.15);color:#ff923d;}
+    .soc-k-sc .soc-verb{background:rgba(96,165,250,0.15);color:var(--blue);}
+    .soc-asset{display:inline-flex;align-items:center;gap:6px;min-width:0;}
+    .soc-asset b{font-weight:800;color:#fff;}
+    .soc-a-ic{color:var(--text2);}
+    .soc-inv .soc-foot{border-top:0;padding-top:0;}
+    .soc-more{width:100%;height:40px;border-radius:9px;border:1px solid rgba(255,255,255,0.13);
+      background:rgba(255,255,255,0.05);color:var(--text2);font-family:'Inter',sans-serif;
+      font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;}
+    .soc-more:hover{background:rgba(255,255,255,0.09);color:#fff;}
     .sb-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;}
     /* Closed bars sit close; the gap was set when every market was a tall open
        card and reads as a wide margin now that most of them are one line. */
@@ -6344,7 +6411,7 @@
       /* and the card carries on the grid's own rhythm rather than the wider
          margin the grid keeps for the rest of the page */
       #page-home:has(.bk-moved) .home-top{margin-bottom:20px;}
-      .bk-moved{margin-top:0;}
+      .bk-moved,.nt-moved{margin-top:0;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
       .video-list{max-width:100%;}
     }
