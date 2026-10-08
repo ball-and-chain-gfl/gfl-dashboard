@@ -159,11 +159,14 @@ console.log('\n3. THE ONE THIS IS ABOUT — picked up, dropped, picked up again'
   eq('first spell only', p[0].pts, 30);
   eq('second spell only', p[1].pts, 90);
   eq('each keeps its own bid', [p[0].bid, p[1].bid], [5, 12]);
-  /* C3 = Σ(points ÷ margin) ÷ 10. Uncontested, so margin is the full bid.
-     30/5 + 90/12 = 6 + 7.5 = 13.5, ÷10 = 1.35 */
+  /* C3 is scored against the league's own pickups, so the league total is
+     where a spell counted twice would show: 30 + 90 = 120, where the old
+     to-the-end-of-season rule banked 120 + 90 = 210. Team 1 holds every
+     pickup in this league, which makes it the league average -- exactly 0. */
   const { breakdown } = await api.computeCoaching(TEAMS,
     [add(1, 1, 900, 2, 5), add(2, 1, 900, 6, 12)], wk);
-  eq('C3 counts each spell once', near(breakdown[1].c3, 1.35), true);
+  eq('C3 counts each spell once', breakdown[1].detail.c3League.pts, 120);
+  eq('and a team holding every pickup is the league average', near(breakdown[1].c3, 0), true);
 }
 
 console.log('\n4. a bye in the middle is not a departure');

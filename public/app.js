@@ -1143,8 +1143,8 @@ const nflSeasonOfMs=ms=>{ const d=new Date(ms); return d.getUTCFullYear()-(d.get
 // C2: for every completed trade, Σ ALL points scored by each received player
 //     from the first week he played for his new team onward, minus the same
 //     for sent players. ÷ 10
-// C3: for every waiver/FA add, Σ (LINEUP points that player scored for the adding
-//     team from the add week onward ÷ FAAB bid paid). ÷ 10
+// C3: LINEUP points the team's waiver/FA adds scored, minus what the league's
+//     adds score for the same margin (bid − next-highest bid, $1 floor). ÷ 10
 async function computeCoaching(teams, transactions, weeklyData){
   const leagueAvgPF=teams.reduce((s,t)=>s+t.pf,0)/(teams.length||1);
   const weeks=Object.keys(weeklyData).map(Number).filter(n=>!isNaN(n));
@@ -1434,6 +1434,28 @@ async function computeCoaching(teams, transactions, weeklyData){
         est:!!tx._estBid, ts:Number(tx.processDate||tx.proposedDate)||0});
     });
   });
+  /* ── C3 IS A SHARE OF THE LEAGUE, NOT A SUM OF RATIOS ──────────────────────
+     It used to add up points ÷ margin for every pickup, one division each, and
+     that broke in two places. Every $1 claim was its own tiny denominator, so
+     a handful of them outscored a good pickup bought in a real bidding war --
+     a $1 add scoring 27 points read 27x and a $204 overpay scoring 24 read
+     0.12x. And a pickup that never scored added nothing at all: $291 over the
+     next bid for zero points cost the same as a $1 kicker who never played.
+
+     Now every pickup in the league is counted first, and the league's own
+     totals set the rate: all the lineup points its waiver adds scored, over
+     all the margin it paid to win them. A pickup's PAR is that rate times its
+     own margin -- what the league gets for that much overbidding -- and it
+     scores what it beat par by. A team's C3 is the sum, which is the same as
+     its share of the league's waiver points minus its share of the league's
+     margin, put back into points and ÷ 10 like C1 and C2.
+
+     So it is relative by construction: the league sums to zero and average is
+     exactly 0. A $1 claim adds $1 to par rather than a ratio of its own; a
+     bust scores minus its par; and the dollars-to-points rate is nobody's
+     choice, it is this season's league, re-read every time. Margin and
+     lineup-only points are exactly what they were. */
+  const pool=[];
   Object.keys(addsByTeam).forEach(tidStr=>{
     const tid=Number(tidStr), adds=addsByTeam[tidStr];
     /* by week, then by the clock, so "the next claim on this player" means the
@@ -1448,11 +1470,19 @@ async function computeCoaching(teams, transactions, weeklyData){
       const next=others.length?Math.min(others[0],a.bid):0;
       const margin=Math.max(a.bid-next,1);
       const lpts=stintPts(a.pid,a.week,until,tid);
-      c3[tid]+=(lpts/margin)/10;
-      detail[tid].waiverPickups.push({pid:a.pid,week:a.week,bid:a.bid,next,margin,
-        pts:lpts,est:a.est});
+      pool.push({tid,row:{pid:a.pid,week:a.week,bid:a.bid,next,margin,pts:lpts,est:a.est}});
     });
   });
+  const lgPts=pool.reduce((s,p)=>s+p.row.pts,0);
+  const lgMargin=pool.reduce((s,p)=>s+p.row.margin,0);
+  const rate=lgMargin>0?lgPts/lgMargin:0;
+  pool.forEach(({tid,row})=>{
+    row.par=rate*row.margin;
+    row.c3=(row.pts-row.par)/10;
+    c3[tid]+=row.c3;
+    detail[tid].waiverPickups.push(row);
+  });
+  teams.forEach(t=>{ detail[t.id].c3League={pts:lgPts,margin:lgMargin,rate}; });
 
   // Z-score standardize
   const raw={};
@@ -1778,32 +1808,43 @@ function renderC3Breakdown(){
   const t=_teams.find(x=>x.id===Number(_c3Team));
   const bd=_cmBreakdown[t?.id]||{};
   const d=bd.detail||{};
-  const picks=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1));
+  /* the league's rate, and each pickup's par off it -- the breakdown carries
+     both, and anything older than that is worked out from the same totals */
+  const lg=d.c3League||{}, rate=Number(lg.rate)||0;
+  const marOf=w=>Math.max(w.margin??w.bid,1);
+  const parOf=w=>w.par!=null?w.par:rate*marOf(w);
+  const c3Of=w=>w.c3!=null?w.c3:(w.pts-parOf(w))/10;
+  const picks=(d.waiverPickups||[]).slice().sort((a,b)=>c3Of(b)-c3Of(a));
+  const myPts=picks.reduce((s,w)=>s+w.pts,0), myMar=picks.reduce((s,w)=>s+marOf(w),0);
+  const sgn=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(2);
   el.innerHTML=`
-    <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C3</b> = lineup points each waiver pickup scored, divided by what it cost to win the bid.</div>
+    <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C3</b> = lineup points your waiver pickups scored, minus what the league's pickups score for the same margin, ÷ 10. Margin is the bid minus the next-highest bid ($1 minimum).${rate?` This season the league gets <b>${rate.toFixed(3)}</b> lineup points per $1 of margin, so a pickup's <b>par</b> is its margin × ${rate.toFixed(3)}.`:''}</div>
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c3-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
       <select id="c3-team-select" onchange="_c3Team=this.value;renderC3Breakdown()">${opts}</select>
     </div>
     ${t?`<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
-      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Margin">
+      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Wk,Margin">
         <!-- Next stays on a phone. It was in data-mhide, so the runner-up bid —
              the whole reason the ratio is what it is — was desktop-only, and on
              the screen this league actually reads the table on it looked like
              the column did not exist. Margin is bid minus next, so it is the one
              that can be worked out from what is left. -->
-        <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">PTS</th><th class="right">Ratio</th></tr></thead>
-        <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
+        <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">PTS</th><th class="right">Par</th><th class="right">C3</th></tr></thead>
+        <tbody>${picks.map(w=>{const mar=marOf(w), v=c3Of(w);return `<tr>
           <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span class="est-tag" style="color:var(--text3);font-size:12px"> est.</span>':''}</span></td>
           <td class="right">${w.week}</td>
           <td class="right">$${w.bid}</td>
           <td class="right" style="color:var(--text3)">${w.next>0?('$'+w.next):'$0'}</td>
           <td class="right">$${mar}</td>
           <td class="right pf">${w.pts.toFixed(1)}</td>
-          <td class="right" style="font-weight:600">${(w.pts/mar).toFixed(2)}x</td>
+          <td class="right" style="color:var(--text3)">${parOf(w).toFixed(1)}</td>
+          <td class="right" style="font-weight:700;color:${cc(v)}">${sgn(v)}</td>
         </tr>`;}).join('')}</tbody>
-      </table></div>`:'<div class="brk-empty">No waiver pickups for this team this season.</div>'}
+      </table></div>
+      <div class="brk-formula">(${myPts.toFixed(1)} pts − $${myMar} × ${rate.toFixed(3)}) ÷ 10 = <b style="color:${cc(bd.c3)}">${(bd.c3||0).toFixed(2)}</b></div>`
+      :'<div class="brk-empty">No waiver pickups for this team this season.</div>'}
     </div>`:''}`;
 }
 // ── LINEUP IQ ────────────────────────────────────────────────────────────────
