@@ -16913,6 +16913,7 @@ const NT_KINDS={
   upset:  {icon:'fa-bolt-lightning',tone:'hot'},
   pvp:    {icon:'fa-user-group',   tone:'royal'},
   graph:  {icon:'fa-chart-line',   tone:'cool'},
+  bighit: {icon:'fa-sack-dollar',  tone:'gold'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -17668,6 +17669,72 @@ function ntPvp(out){
       go:'bets'});
   });
 }
+/* ── SOMEBODY HIT ONE ────────────────────────────────────────────────────────
+   Any bet in the league that came in for more than $100 of winnings -- what
+   came back less what went on it, the same 'Won +$X' My Bets prints -- gets a
+   card for everybody, with who won it, how much, and the legs that got them
+   there.
+
+   One card per bet. Everyone who took a seat on a shared parlay won the same
+   legs, so they are listed together on the card the parlay raised rather than
+   each raising their own; a head to head is told by whichever side won it.
+   Each winner is held to the $100 on their own stake, so a big shared parlay
+   lists the seats that cleared it and not the ones that did not.
+
+   NEWS FOR A WEEK from when it settled, then it is the Social tab's to keep.
+   Dated to the day it settled, so a Tuesday's results sit in with the rest of
+   that Tuesday. The league's bets are the ones the picks and Social already
+   read, asked for at most every two minutes and only for somebody signed in --
+   nobody else has a stack to put it in. */
+const NT_BIG_HIT=100;
+const NT_BIG_HIT_FOR=7*86400000;
+let _ntBetsTry=0;
+function ntBetsWant(){
+  if(!_me||_betsAll||_betsAllBusy||Date.now()-_ntBetsTry<BETS_ALL_TTL) return;
+  _ntBetsTry=Date.now();
+  betLeague().then(()=>{ if(_activeTab==='home'){
+    try{ renderNotifications(); orderHomeTodo(); }catch(e){} } });
+}
+function ntBigHits(out){
+  if(!_me) return;
+  ntBetsWant();
+  const season=String(sbSeason()), now=Date.now();
+  const bets=(_betsAll||_pkBetsLast||[]).filter(b=>b&&String(b.season||'')===season
+    &&b.owner!==TEST_PROFILE&&betsAfterReset(b));
+  const byId={}; bets.forEach(b=>{ byId[b.id]=b; });
+  const groups={};
+  bets.forEach(b=>{
+    if(b.status!=='won') return;
+    const won=bucks2((b.ret||0)-(b.stake||0));
+    if(!(won>NT_BIG_HIT)) return;
+    const st=Number(b.settledTs)||0;
+    if(!st||now-st>NT_BIG_HIT_FOR) return;
+    const root=(b.srcBet&&byId[b.srcBet])||b;
+    (groups[root.id]||(groups[root.id]={root,wins:[]})).wins.push({b,won,st});
+  });
+  Object.values(groups).forEach(({root,wins})=>{
+    wins.sort((x,y)=>y.won-x.won);
+    const top=wins[0].b, legs=top.legs||[], n=legs.length;
+    const shown=legs.slice(0,6), more=n-shown.length;
+    const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    const art=`<div class="nt-hit">${wins.slice(0,4).map(w=>`<div class="nt-stat">
+        <span class="nt-stat-c">${ntCrest(betAccountOwner(w.b.owner),26)}</span>
+        <span class="nt-stat-n">${esc(betAccountName(w.b.owner))}</span>
+        <span class="nt-stat-v nt-hit-v">+${bucksFmt(w.won)}</span>
+        <span class="nt-stat-l">on ${bucksFmt(w.b.stake)}</span></div>`).join('')}
+      ${n?`<div class="nt-legs">${shown.map(l=>`<div class="nt-leg">
+          <span class="nt-leg-p">${esc(l.pickLabel||l.pick||'')}</span>
+          ${l.odds?`<span class="nt-leg-o">${amFmt(Number(l.odds))}</span>`:''}</div>`).join('')}
+        ${more>0?`<div class="nt-leg nt-leg-more">+${more} more</div>`:''}</div>`:''}</div>`;
+    /* what kind of bet it was; a head to head names who paid for it */
+    const loser=root.pvp?[root,...bets.filter(x=>x.srcBet===root.id)].find(x=>x.status==='lost'):null;
+    const body=root.pvp
+      ?`Head to head${loser?` against <b>${esc(betAccountName(loser.owner))}</b>`:''}.`
+      :`${n>1?`A ${n}-leg parlay`:'A single'}${top.odds?` at ${amFmt(Number(top.odds))}`:''}.`;
+    out.push({kind:'bighit', day:ntDayOf(Math.max(...wins.map(w=>w.st))), id:`bh:${root.id}`,
+      title:'Big win', art, body});
+  });
+}
 /* Somebody taking over top spot in one of the all-time tables. There is no
    history to compare against, so the current leader is remembered on the device
    and a card is raised only when the name changes — the first build records the
@@ -17780,6 +17847,14 @@ function ntDemo(out){
     art:ntStat(o(5),nm(5),'$59.35','to win $50.00',dw),
     body:'They have you on <b>Bikini Bottom Goobers moneyline</b>.',
     go:'bets'},
+
+   {kind:'bighit',day:d,id:'demo:bighit',title:'Big win',
+    art:'<div class="nt-hit">'+ntStat(o(2),nm(2),'+$1,051.04','on $25.00',dw).replace('nt-stat-v','nt-stat-v nt-hit-v')
+      +'<div class="nt-legs"><div class="nt-leg"><span class="nt-leg-p">'+nm(2)+' moneyline</span><span class="nt-leg-o">-270</span></div>'
+      +'<div class="nt-leg"><span class="nt-leg-p">'+nm(5)+' +6.5</span><span class="nt-leg-o">-115</span></div>'
+      +'<div class="nt-leg"><span class="nt-leg-p">Week 6 Top Score: '+nm(8)+'</span><span class="nt-leg-o">+600</span></div>'
+      +'<div class="nt-leg"><span class="nt-leg-p">Over 241.5</span><span class="nt-leg-o">+140</span></div></div></div>',
+    body:'A 4-leg parlay at +4200.'},
 
    {kind:'graph',day:T2,pin:-1,id:'demo:graph',title:'Your matchup graph',
     art:ntScore(S(0,131.2),S(4,128.6),'margin',dw),
@@ -18069,7 +18144,7 @@ function ntBig4(out){
 }
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });

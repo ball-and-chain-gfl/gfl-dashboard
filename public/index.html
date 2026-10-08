@@ -3432,6 +3432,17 @@
       font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
       color:var(--text2);line-height:1.2;}
 
+    /* a big win: who won and how much, then the legs that got them there */
+    .nt-hit{display:flex;flex-direction:column;gap:5px;}
+    .nt-hit-v{color:#E8BC56;}
+    .nt-legs{display:flex;flex-direction:column;gap:5px;padding:9px 12px;border-radius:9px;
+      background:rgba(255,255,255,0.03);}
+    .nt-leg{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0;
+      font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text);}
+    .nt-leg-p{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
+    .nt-leg-o{flex:0 0 auto;font-weight:800;color:#5DE883;font-variant-numeric:tabular-nums;}
+    .nt-leg-more{font-size:11px;font-weight:600;color:var(--text2);justify-content:flex-start;}
+
     @media(max-width:400px){
       .nt-swap{grid-template-columns:1fr;gap:6px;}
       .nt-sw-arr{height:auto;transform:rotate(90deg);}
