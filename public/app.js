@@ -20366,12 +20366,12 @@ function betGrade(bet){
    Weekly leads because it is the only board that goes stale — Season and the
    rest are the same board in May as in December. The keys stay 'week' and
    'season'; only the words on the tabs changed (This Week -> Weekly,
-   Regular Season -> Season, Investments -> Stocks). */
+   Regular Season -> Season). */
 const SB_GROUPS=[
   {k:'week',label:'Weekly',icon:'fa-bolt'},
   {k:'season',label:'Season',icon:'fa-trophy'},
   {k:'coins',label:'Coins',icon:'fa-coins'},
-  {k:'invest',label:'Stocks',icon:'fa-chart-line'},
+  {k:'invest',label:'Investments',icon:'fa-chart-line'},
   {k:'social',label:'Social',icon:'fa-users'},
 ];
 function sbAvatar(owner,size){
@@ -22695,7 +22695,7 @@ function invBoardHTML(which){
     ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}
     <div class="iv-seg" data-on="${short?'short':'long'}" role="group"
         aria-label="Which side of the market">
-      <button class="iv-seg-b${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">Stocks</button>
+      <button class="iv-seg-b${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">${isCoins?'Coins':'Stocks'}</button>
       <button class="iv-seg-b${short?' on':''}" onclick="invSetSide('short')" aria-pressed="${short}">Shorts</button>
     </div>
     <div class="iv-mode" role="group" aria-label="How to size the trade">
@@ -22736,7 +22736,7 @@ function invPortfolioHTML(){
      are on. The chart underneath was already telling the profit story with a
      line rather than a number, so nothing here is lost by dropping the row. */
   if(!owners.length&&!shorts.length) return invChartHTML()+`<div class="sb-mine-empty"><i class="fa fa-chart-pie"></i>
-    <div>No positions yet. The market is on the Stocks tab.</div></div>`;
+    <div>No positions yet. The market is on the Investments tab.</div></div>`;
   const chart=invChartHTML();
   /* ── A HOLDING, WHATEVER IT IS A HOLDING OF ────────────────────────────
      The numbers are identical for a team, a fund and a coin -- what it is
@@ -23058,7 +23058,7 @@ function renderBookInner(){
     </div>`;
   /* The row scrolls sideways on a phone, and every repaint rebuilds it at the
      left edge -- so the live tab is brought back into view each time, or
-     Stocks would sit selected and out of sight. */
+     Investments would sit selected and out of sight. */
   const tabRow=document.getElementById('sb-tabs'), live=tabRow&&tabRow.querySelector('.sb-utab.on');
   if(live&&live.offsetLeft+live.offsetWidth>tabRow.clientWidth)
     tabRow.scrollLeft=live.offsetLeft+live.offsetWidth-tabRow.clientWidth+12;
