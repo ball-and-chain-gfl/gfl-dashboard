@@ -53,6 +53,8 @@ jobs:
         run: node scripts/test-bkrules.mjs
       - name: the big comeback notification
         run: node scripts/test-comeback.mjs
+      - name: player data stays current
+        run: node scripts/test-tenure-live.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: the live poller parses

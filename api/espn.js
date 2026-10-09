@@ -1004,10 +1004,12 @@ export default async function handler(req, res) {
           });
         });
       });
-      // Past seasons never change — cache hard. Current season: 1h.
+      // Past seasons never change — cache hard. The current season is roster
+      // weeks being added as games kick off, and the Player Data tab asks for
+      // it again every five minutes: five here too, not an hour.
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
-        : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
+        : 'public, max-age=60, s-maxage=300, stale-while-revalidate=120');
       return res.status(200).json({ season, teams, poGP });
     } catch (err) { return res.status(500).json({ error: err.message, teams: {} }); }
   }

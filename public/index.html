@@ -5838,16 +5838,27 @@
        width makes every row agree by construction.
        It is the three tracks plus their gaps plus the padding plus the two
        borders: 52+60+52 + 2x8 + 2x10 + 2 = 202. Change a track, change this. */
-    .sos-grid{display:flex;flex-direction:column;gap:3px;--sos-rw:202px;}
-    .sos-row{display:grid;grid-template-columns:minmax(0,1fr) var(--sos-rw);gap:10px;
+    /* THREE BLOCKS NOW: the team, the opponents' scoring, the Coaches' Poll.
+       --sos-mw is the scoring block the same way --sos-rw is the poll's: one
+       82px track + 2x10 padding + 2 borders = 104 -- OPP SCORING in the cap
+       measures 73.4px and an 86 cut it to an ellipsis. The scoring block takes this
+       page's own accent; the poll takes the Standings tab's (#6C6AE8), which
+       is where the poll lives, held in --sos-poll so both themes share it. */
+    .sos-grid{display:flex;flex-direction:column;gap:3px;--sos-rw:202px;--sos-mw:104px;
+      --sos-poll:108,106,232;}
+    .sos-row{display:grid;grid-template-columns:minmax(0,1fr) var(--sos-mw) var(--sos-rw);gap:10px;
       align-items:stretch;}
-    .sos-left{display:grid;grid-template-columns:24px minmax(0,1fr) 64px;gap:8px;
+    .sos-left{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;
       align-items:center;padding:8px 10px;border-radius:8px;
       background:rgba(255,255,255,0.02);}
-    .sos-right{display:grid;grid-template-columns:52px 60px 52px;gap:8px;
+    .sos-mid{display:grid;grid-template-columns:minmax(0,1fr);
       align-items:center;padding:8px 10px;border-radius:8px;
       background:rgba(var(--accent-rgb),0.07);
       border:1px solid rgba(var(--accent-rgb),0.18);}
+    .sos-right{display:grid;grid-template-columns:52px 60px 52px;gap:8px;
+      align-items:center;padding:8px 10px;border-radius:8px;
+      background:rgba(var(--sos-poll),0.09);
+      border:1px solid rgba(var(--sos-poll),0.26);}
     .sos-row .r{text-align:right;}
     /* THE CAP IS THE WHOLE WIDTH OF THE HALF IT NAMES, not a tab perched on it.
        It is the same accent the schedule gives a RIVAL tag, at the strength a
@@ -5858,30 +5869,35 @@
        it sizes to the words instead of to the half it is naming: each row is
        its own grid, so an auto column is measured per row and the cap came
        out 44px narrower than everything under it. The pill spans them. */
-    .sos-cap>.sos-right{padding:6px 10px;background:rgba(var(--accent-rgb),0.18);
+    .sos-cap>.sos-mid{padding:6px 10px;background:rgba(var(--accent-rgb),0.18);
       border-color:rgba(var(--accent-rgb),0.3);}
+    .sos-cap>.sos-right{padding:6px 10px;background:rgba(var(--sos-poll),0.22);
+      border-color:rgba(var(--sos-poll),0.4);}
     /* min-width:0 so the words cannot make this row wider than the rest: the
        outer row sizes its second column to content, and a spanning item that
        refuses to shrink measured six pixels past the three fixed tracks it
        was supposed to be capping. */
-    .sos-cap .sos-pill{grid-column:1 / -1;text-align:center;min-width:0;
+    .sos-cap .sos-pill{grid-column:1 / -1;text-align:center;min-width:0;padding-left:0;padding-right:0;
       overflow:hidden;text-overflow:ellipsis;}
     .sos-pill{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
       letter-spacing:.7px;text-transform:uppercase;white-space:nowrap;
       color:var(--accent);}
+    /* the Standings indigo, lifted enough to read as small type on dark */
+    .sos-right .sos-pill{color:#a6a5f7;}
     /* NO LINE OVER THE LEFT TABLE. Its heading is a row of labels and nothing
        else -- no ground, no rule under it -- so the table starts at its first
        team. The poll half has its cap to do that job; this half does not need
        one inventing for it. */
     .sos-h>.sos-left{background:none;padding-bottom:5px;}
-    .sos-h>.sos-right{padding-bottom:5px;background:none;border-color:transparent;}
+    .sos-h>.sos-mid,.sos-h>.sos-right{padding-bottom:5px;background:none;border-color:transparent;}
     .sos-h span{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;
       letter-spacing:.2px;text-transform:uppercase;color:var(--text3);
       white-space:nowrap;}
     /* the team reading it is picked out, because the answer it came for is its
        own line and twelve rows is long enough to lose it */
     .sos-me>.sos-left{background:rgba(255,255,255,0.06);}
-    .sos-me>.sos-right{background:rgba(var(--accent-rgb),0.15);}
+    .sos-me>.sos-mid{background:rgba(var(--accent-rgb),0.15);}
+    .sos-me>.sos-right{background:rgba(var(--sos-poll),0.2);}
     .sos-rk{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;color:var(--text3);
       font-variant-numeric:tabular-nums;}
     .sos-t{display:flex;align-items:center;gap:8px;min-width:0;}
@@ -5899,8 +5915,13 @@
     @media(max-width:560px){
       .sos-row{gap:7px;}
       /* 42+50+40 + 2x4 + 2x7 + 2 = 156 */
-      .sos-grid{--sos-rw:156px;}
-      .sos-left{grid-template-columns:16px minmax(0,1fr) 56px;gap:4px;padding:7px 7px;}
+      /* and the scoring block: 50 + 2x7 + 2 = 66. SCORING in its cap measures
+         42.03px, and at 64 it had 42 -- a hundredth over, which is an ellipsis */
+      .sos-grid{--sos-rw:156px;--sos-mw:66px;}
+      .sos-left{grid-template-columns:16px minmax(0,1fr);gap:4px;padding:7px 7px;}
+      .sos-mid{padding:7px 7px;}
+      /* 'Opp Scoring' is wider than the block; the block says Scoring */
+      .sos-pill-x{display:none;}
       .sos-right{grid-template-columns:42px 50px 40px;gap:4px;padding:7px 7px;}
       .sos-note{font-size:9.5px;padding:3px 11px;letter-spacing:.3px;}
       .sos-nm{display:none;} .sos-ab{display:inline;}

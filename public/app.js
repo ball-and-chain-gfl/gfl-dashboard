@@ -2351,12 +2351,22 @@ function mgTeamCardHTML(owner){
 }
 
 // ── PLAYER TENURE TAB ──────────────────────────────────────────────────────────
-/* Whether the career table is showing all of a manager's players or the top
-   fifty. Not remembered between visits: fifty is the right thing to open on,
-   and a hundred and fifty rows is a choice you make rather than one you inherit
-   from the last time you looked. */
-let _tenureAll=false, _tenureOwner=null;
-function tenureShowAll(on){ _tenureAll=!!on; try{ renderTenureTable(); }catch(e){} }
+/* ── THE SEASON BEING PLAYED IS ASKED FOR AGAIN ─────────────────────────────
+   Past seasons are archived files and never change, so they are fetched once.
+   The current one is live roster data, and it was fetched ONCE A PAGE LOAD
+   and kept: a phone that resumed the app from the background days later
+   showed the starts and roster weeks of whatever week it had last loaded in,
+   which is what 'those numbers have not changed' was. Opening the tab now
+   asks for the current season again whenever its copy is over five minutes
+   old (the server holds it for five), and the table repaints when it lands.
+
+   A week counts once that player's game has kicked off -- that is the
+   server's rule, and why a Sunday player has one week fewer than a Thursday
+   one on a Friday. */
+const TENURE_LIVE_TTL=5*60*1000;
+let _tenureOwner=null;
+let _tenureBySeason={}, _tenureLiveAt=0, _tenureLiveBusy=false;
+const tenureLiveSeason=()=>String(ALL_SEASONS[ALL_SEASONS.length-1]);
 let _tenurePromise=null;
 async function loadTenureData(){
   if(_tenure) return _tenure;
@@ -2367,10 +2377,34 @@ async function loadTenureData(){
       if(!d) return null;
       return {s, d};
     }));
+    results.forEach(rr=>{ if(rr.status==='fulfilled'&&rr.value) _tenureBySeason[rr.value.s]=rr.value.d; });
+    _tenureLiveAt=Date.now();
+    tenureBuild();
+    return _tenure;
+  })();
+  return _tenurePromise;
+}
+/* The current season again, if its copy is stale; repaints the tab when the
+   new numbers are in. Quietly keeps the old copy if the request fails. */
+async function tenureRefreshLive(){
+  if(_tenureLiveBusy||!_tenure||Date.now()-_tenureLiveAt<TENURE_LIVE_TTL) return;
+  _tenureLiveBusy=true;
+  const s=tenureLiveSeason();
+  try{
+    const r=await fetch(`${BASE}?type=seasontenure&seasonId=${s}&v=9`,{cache:'no-store'});
+    const d=r.ok?await r.json():null;
+    if(d&&d.teams&&Object.keys(d.teams).length){
+      _tenureBySeason[s]=d; _tenureLiveAt=Date.now(); tenureBuild();
+      if(_activeTab==='tenure'){ try{ renderTenureTable(); }catch(e){} }
+    }
+  }catch(e){}
+  _tenureLiveBusy=false;
+}
+/* every season's rosters folded into one career record per player */
+function tenureBuild(){
     const tenure={},poGP={};
-    results.forEach(rr=>{
-      if(rr.status!=='fulfilled'||!rr.value) return;
-      const {s,d}=rr.value;
+    ALL_SEASONS.map(String).forEach(s=>{
+      const d=_tenureBySeason[s]; if(!d) return;
       const owners=_seasonMeta[s]?.owners||{};
       // bracket games each team actually played that postseason, by owner
       Object.entries(d.poGP||{}).forEach(([tid,n])=>{
@@ -2390,8 +2424,6 @@ async function loadTenureData(){
     });
     _tenure=tenure; _tenurePoGP=poGP;
     return _tenure;
-  })();
-  return _tenurePromise;
 }
 /* How many times this franchise has spent a pick on a player, across every
    season. Built from loadAllDrafts(), which is the same board the Draft tab
@@ -2416,7 +2448,7 @@ function draftCounts(){
 }
 async function ensureTenure(){
   showTenureSection(_tnSection);            // one view at a time, from the off
-  if(_tenure){renderTenureTable();return;}
+  if(_tenure){ renderTenureTable(); tenureRefreshLive(); return; }
   const body=document.getElementById('tenure-body');
   if(body) body.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Crunching every roster from every week of every season…<br><span style="font-size:12px;color:var(--text3)">first load takes a moment — it's cached after that</span></div>`;
   try{ await loadTenureData(); }
@@ -2428,9 +2460,7 @@ function renderTenureTable(){
   const body=document.getElementById('tenure-body'); if(!body||!_tenure) return;
   const sel=document.getElementById('tenure-team-select');
   const owner=sel?.value||_franchises[0]?.owner;
-  /* a different manager is a different list, and it opens at fifty like the
-     first one did rather than inheriting an expansion meant for somebody else */
-  if(_tenureOwner!==owner){ _tenureOwner=owner; _tenureAll=false; }
+  if(_tenureOwner!==owner) _tenureOwner=owner;
   const q=(document.getElementById('tenure-search')?.value||'').trim().toLowerCase();
   /* the draft board loads separately from the roster history; paint the table
      as soon as tenure is ready and fill the column in when the board lands */
@@ -2457,17 +2487,11 @@ function renderTenureTable(){
   .sort((a,b)=>b.wAll-a.wAll||b.spAll-a.spAll);
 
   const dash='<span style="color:var(--text3)">—</span>';
-  /* ── FIFTY IS NOT THE WHOLE LIST, AND THE REST WAS UNREACHABLE ─────────────
-     Ranked by career roster weeks, so a player drafted this morning sits on
-     zero of everything and sorts below four seasons of everybody. Every manager
-     carries between 97 and 149 names from 2022-25, which put a fresh draft
-     class somewhere around a hundredth place — present in the data, past the
-     cut, and findable only by typing a name you already knew to look for.
-
-     "Use search to find others" is not a way to see what you just drafted. The
-     cap stays, because 150 rows of a career table is not a thing anybody reads
-     top to bottom, but it opens now. */
-  const shown=_tenureAll?players:players.slice(0,50);
+  /* ── THE TOP FIFTY, AND THAT IS THE TABLE ──────────────────────────────────
+     There was a Show all under it, for the hundred-odd names past the cut. The
+     league's call: fifty is all that matters here, and the search box above it
+     still reaches every player a manager has ever held. */
+  const shown=players.slice(0,50);
   /* The three single-season columns are gone. Tenure is a career view — how
      long a player has been kept and how much they gave over that time — and
      one season's slice sat oddly next to four all-time totals while pushing
@@ -2479,9 +2503,7 @@ function renderTenureTable(){
      Sorting comes with it — every cell carries the raw value, so the header can
      reorder without re-rendering. */
   body.innerHTML=shown.length?tenureListHTML(shown)
-    +(players.length>50?`<div class="tn-more">${_tenureAll
-        ?`Showing all ${players.length}. <button class="tn-more-b" onclick="tenureShowAll(false)">Show top 50</button>`
-        :`Showing top 50 of ${players.length}. <button class="tn-more-b" onclick="tenureShowAll(true)">Show all</button>`}</div>`:'')
+    +(players.length>50?`<div class="tn-more">Top 50 of ${players.length}.</div>`:'')
     +`<div class="tn-note"><b>Starts</b> = weeks in the active lineup ·
       <b>Roster</b> = weeks on the roster, starting or benched ·
       <b>Pts</b> = points scored while started, so a week on the bench adds nothing.
@@ -11317,12 +11339,19 @@ function pollSosHTML(owner){
     return v.length?[Math.min(...v),Math.max(...v)]:[0,0]; };
   const [sLo,sHi]=span(r=>r.sn?r.scored:null);
   const [tLo,tHi]=span(r=>r.total);
+  /* ── TWO MEASURES, TWO BLOCKS, TWO COLOURS ─────────────────────────────────
+     The team, then the opponents' SCORING in a block of its own in this page's
+     own colour, then the COACHES' POLL in the Standings tab's colour -- the
+     tab the poll lives on. The scoring column used to sit loose beside the
+     team name, so only the poll half read as a measure at all. */
   const body=rows.map(r=>`<div class="sos-row${r.owner===owner?' sos-me':''}">
       <div class="sos-left">
         <span class="sos-rk">${r.rank}</span>
         <span class="sos-t">${sbAvatar(r.owner,20)}
           <span class="sos-nm">${r.name}</span>
           <span class="sos-ab">${sbTeamAb(r.owner,r.name)}</span></span>
+      </div>
+      <div class="sos-mid">
         <span class="r sos-c sos-grade"${r.sn?` style="color:${sosCol(r.scored,sLo,sHi)}"`:''}>${r.sn?r.scored:'—'}</span>
       </div>
       <div class="sos-right">
@@ -11342,10 +11371,11 @@ function pollSosHTML(owner){
              come from the Coaches' Poll, so beside the heading it was a label on
              the wrong thing. It caps the block it belongs to instead. */}
       <div class="sos-row sos-cap"><div class="sos-left"></div>
+        <div class="sos-mid"><span class="sos-pill"><span class="sos-pill-x">Opp </span>Scoring</span></div>
         <div class="sos-right"><span class="sos-pill">Coaches' Poll</span></div></div>
       <div class="sos-row sos-h">
-        <div class="sos-left"><span class="sos-rk">#</span><span class="sos-t">Team</span>
-          <span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Opp Scored</span></div>
+        <div class="sos-left"><span class="sos-rk">#</span><span class="sos-t">Team</span></div>
+        <div class="sos-mid"><span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Played</span></div>
         <div class="sos-right"><span class="r sos-c">Played</span><span class="r sos-c">To come</span>
           <span class="r sos-tot">Total</span></div></div>
       ${body}

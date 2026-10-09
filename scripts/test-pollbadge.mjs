@@ -452,15 +452,18 @@ head('8. STRENGTH OF SCHEDULE');
   /* the two halves are two blocks now, one per row plus the cap and the
      header — a line down the middle said they were different, a gap and a
      panel show it */
-  ok('every row is split in two', (M.pollSosHTML('o1').match(/sos-left/g) || []).length,
+  /* three blocks a row now: the team, the opponents' scoring, the poll */
+  ok('every row is split in three', (M.pollSosHTML('o1').match(/sos-left/g) || []).length,
      (r || []).length + 2);
-  ok('and each half has its partner', (M.pollSosHTML('o1').match(/sos-right/g) || []).length,
-     (M.pollSosHTML('o1').match(/sos-left/g) || []).length);
-  ok('the pill caps the poll half', M.pollSosHTML('o1').indexOf('sos-pill') >= 0, true);
+  ok('and each team has its scoring block and its poll block',
+     [(M.pollSosHTML('o1').match(/sos-mid/g) || []).length, (M.pollSosHTML('o1').match(/sos-right/g) || []).length],
+     [(M.pollSosHTML('o1').match(/sos-left/g) || []).length, (M.pollSosHTML('o1').match(/sos-left/g) || []).length]);
+  ok('each block has its own pill, scoring first, then the poll',
+     /sos-mid"><span class="sos-pill"><span class="sos-pill-x">Opp <\/span>Scoring<\/span>[\s\S]*?sos-right"><span class="sos-pill">Coaches' Poll</.test(M.pollSosHTML('o1')), true);
   ok('and it is off the section heading',
      M.pollSosHTML('o1').indexOf('badge-info') < 0, true);
-  ok('the column says whose scoring it is',
-     M.pollSosHTML('o1').indexOf('>Opp Scored<') >= 0, true);
+  ok('the scoring number sits in the scoring block',
+     /sos-mid">\s*<span class="r sos-c sos-grade"/.test(M.pollSosHTML('o1')), true);
 
   ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);
   ok('and the rank follows the sort', (r || []).map(x => x.rank), [1, 2, 3, 4]);
