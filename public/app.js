@@ -95,7 +95,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'Head to Head',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -2231,20 +2231,12 @@ function renderHistoryTable(){
         </tr>
         <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
     </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}
-    ${marginsHTML()}
-    ${mgTeamCardHTML(owner)}
+    ${mxTeamHTML(owner)}
+    ${mxLeagueHTML(owner)}
     ${rows.length?pastMatchupsHTML(owner,me,rows):''}`;
 }
 
-/* ── MARGINS ─────────────────────────────────────────────────────────────────
-   How far apart games finished. Two league-wide top tens side by side — the
-   widest gaps and the tightest — and, below, the selected team's own four
-   extremes gathered into one card.
-
-   Only games that counted are considered, the same rule the records use, so a
-   dead-rubber consolation blowout is not somebody's biggest win.
-
-   Names come from the season the game was played in rather than today's
+/* Names come from the season the game was played in rather than today's
    roster, so a franchise that has since left is still called what it was
    called then. */
 function mgSeasonName(season,owner){
@@ -2254,100 +2246,141 @@ function mgSeasonName(season,owner){
   const fr=_franchises.find(f=>f.owner===owner);
   return (fr&&fr.name)||'A former team';
 }
-/* every counting game once, from the winner's point of view */
-function mgAllGames(){
+/* ── EXTREMES: SIX NUMBERS A TEAM, AND THE LEAGUE BESIDE THEM ────────────────
+   One team's six edges -- most and fewest points in a game, biggest win and
+   worst loss, closest win and closest loss -- and where each of those stands
+   among the twelve. It replaces two sections that overlapped: a league top five
+   of blowouts and close games, and a four-corner card for one team. Every
+   number now comes from one table, so the team's tiles and the league's ranking
+   are the same facts seen from two ends.
+
+   COUNTING GAMES ONLY, AND ONLY FINISHED ONES. The meaningless postseason games
+   are out (postGameCounts, the same rule the records use), and so is any week
+   still being played: a Thursday night score half way through a week is not
+   anybody's fewest points.
+
+   #1 IS THE MOST EXTREME, whichever way that points: the most points ever
+   scored, the fewest, the widest win, the widest loss, the tightest win, the
+   tightest loss. A team level with the one above shares its place. */
+const MX_FACTORS=[
+  {k:'hi', label:'Most points',   chip:'Most pts',     good:true,  pts:true,  pick:'max', of:g=>true,           val:g=>g.pts},
+  {k:'lo', label:'Fewest points', chip:'Fewest pts',   good:false, pts:true,  pick:'min', of:g=>true,           val:g=>g.pts},
+  {k:'bw', label:'Biggest win',   chip:'Biggest win',  good:true,  pts:false, pick:'max', of:g=>g.pts>g.oppPts, val:g=>g.pts-g.oppPts},
+  {k:'bl', label:'Worst loss',    chip:'Worst loss',   good:false, pts:false, pick:'max', of:g=>g.pts<g.oppPts, val:g=>g.oppPts-g.pts},
+  {k:'cw', label:'Closest win',   chip:'Closest win',  good:true,  pts:false, pick:'min', of:g=>g.pts>g.oppPts, val:g=>g.pts-g.oppPts},
+  {k:'cl', label:'Closest loss',  chip:'Closest loss', good:false, pts:false, pick:'min', of:g=>g.pts<g.oppPts, val:g=>g.oppPts-g.pts},
+];
+let _mxFactor='hi', _mxMemo={key:'',data:null};
+/* every side of every finished counting game, once for each team in it */
+function mxSides(){
   const out=[];
   ALL_SEASONS.forEach(s=>{
     const meta=_seasonMeta[s]; if(!meta) return;
-    const owners=meta.owners||{};
+    const owners=meta.owners||{}, byWeek=weeksOf(meta.schedule), over={};
     (meta.schedule||[]).forEach(mu=>{
       if(!mu.home||!mu.away) return;
       const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
       if(hp===0&&ap===0) return;
-      if(hp===ap) return;                       // a tie has no margin
+      const wk=Number(mu.matchupPeriodId)||0;
+      if(!(wk in over)) over[wk]=weekOver(byWeek,wk);
+      if(!over[wk]&&!weekDecided(mu)) return;          // still being played
       if(!postGameCounts(s,mu)) return;
       const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
       if(!ho||!ao||ho===ao) return;
-      const homeWon=hp>ap;
-      out.push({season:s,week:mu.matchupPeriodId||0,
-        win:homeWon?ho:ao, lose:homeWon?ao:ho,
-        winPts:homeWon?hp:ap, losePts:homeWon?ap:hp,
-        margin:Math.abs(hp-ap)});
+      out.push({o:ho,opp:ao,pts:hp,oppPts:ap,season:s,week:wk});
+      out.push({o:ao,opp:ho,pts:ap,oppPts:hp,season:s,week:wk});
     });
   });
   return out;
 }
-/* Five deep, narrow enough to sit two abreast. No badges: at half a phone the
-   logo crowded out the name standing beside it, and the name is the thing
-   being read. "def." carries which way round the result went, so neither team
-   has to be worked out from position alone. */
-function mgTopCol(big){
-  const games=mgAllGames()
-    .sort((a,b)=>big?(b.margin-a.margin):(a.margin-b.margin))
-    .slice(0,5);
-  if(!games.length) return '<div class="mg-none">Nothing to rank yet.</div>';
-  return games.map((g,i)=>`<div class="mgc">
-      <div class="mgc-h">
-        <span class="mgc-rk">${i+1}</span>
-        <span class="mgc-marg${big?'':' mg-tight'}">${big?'+':''}${g.margin.toFixed(1)}</span>
-      </div>
-      <div class="mgc-w">${mgSeasonName(g.season,g.win)}</div>
-      <div class="mgc-l"><span class="mgc-def">def.</span>${mgSeasonName(g.season,g.lose)}</div>
-      <div class="mgc-f"><span class="mgc-sc">${g.winPts.toFixed(1)}–${g.losePts.toFixed(1)}</span><span class="mgc-wk">${g.season} · Wk ${g.week}</span></div>
-    </div>`).join('');
+/* per team, the game at each edge; per edge, the twelve teams ranked */
+function mxData(){
+  const key=ALL_SEASONS.map(s=>{ const sc=(_seasonMeta[s]&&_seasonMeta[s].schedule)||[];
+    return sc.length+':'+sc.reduce((a,m)=>a+((m.home&&m.home.totalPoints)||0)+((m.away&&m.away.totalPoints)||0),0).toFixed(2);
+  }).join('|')+'|'+(_franchises||[]).map(f=>f.owner).join(',');
+  if(_mxMemo.key===key&&_mxMemo.data) return _mxMemo.data;
+  const per={};
+  (_franchises||[]).forEach(f=>{ per[f.owner]={}; });
+  const r2=v=>Math.round(v*100)/100;
+  mxSides().forEach(g=>{
+    const t=per[g.o]; if(!t) return;                   // a franchise no longer in the league
+    MX_FACTORS.forEach(F=>{
+      if(!F.of(g)) return;
+      const v=r2(F.val(g)), cur=t[F.k];
+      if(!cur||(F.pick==='max'?v>cur.v:v<cur.v)) t[F.k]={v,g};
+    });
+  });
+  const rank={};
+  MX_FACTORS.forEach(F=>{
+    const list=(_franchises||[]).map(f=>({owner:f.owner,...(per[f.owner][F.k]||{})})).filter(x=>x.g)
+      .sort((a,b)=>F.pick==='max'?b.v-a.v:a.v-b.v);
+    let prev=null, rk=0;
+    list.forEach((x,i)=>{ if(x.v!==prev) rk=i+1; prev=x.v; x.rk=rk; });
+    rank[F.k]=list;
+  });
+  return (_mxMemo={key,data:{per,rank}}).data;
 }
-function marginsHTML(){
-  if(!_franchises.length) return '';
-  return `<div class="sec wm mg-sec" data-wm="&#xf091;">
-    <div class="sec-head"><i class="fa fa-arrows-left-right"></i>Matchup Extremes<span class="badge-info">every season</span></div>
-    <div class="mg-pair" data-nochip>
-      <div class="mg-col">
-        <div class="mg-colh mg-colh-big"><i class="fa fa-explosion"></i>Biggest Blowouts</div>
-        ${mgTopCol(true)}
-      </div>
-      <div class="mg-col">
-        <div class="mg-colh mg-colh-close"><i class="fa fa-compress"></i>Closest Games</div>
-        ${mgTopCol(false)}
-      </div>
-    </div>
-    <div class="mg-note">The five widest and the five tightest results in league history. Postseason games with nothing riding on them are left out, the same as they are from the records above.</div>
-  </div>`;
-}
-/* ── ONE TEAM'S EXTREMES ─────────────────────────────────────────────────────
-   The four corners for whoever the dropdown is on: widest and tightest win,
-   widest and tightest loss, in a single card rather than four lists. */
-function mgTeamCardHTML(owner){
-  if(!owner) return '';
-  const fr=_franchises.find(f=>f.owner===owner); if(!fr) return '';
-  const games=mgAllGames().filter(g=>g.win===owner||g.lose===owner);
-  if(!games.length) return '';
-  const wins=games.filter(g=>g.win===owner), losses=games.filter(g=>g.lose===owner);
-  const pick=(arr,big)=>arr.length
-    ? arr.slice().sort((a,b)=>big?(b.margin-a.margin):(a.margin-b.margin))[0] : null;
-  const row=(g,label,won)=>{
-    if(!g) return `<div class="mgt-row"><span class="mgt-lab">${label}</span>
-      <span class="mg-none">No result yet</span></div>`;
-    const opp=won?g.lose:g.win;
-    const mine=won?g.winPts:g.losePts, theirs=won?g.losePts:g.winPts;
-    return `<div class="mgt-row mgt-${won?'w':'l'}">
-      <span class="mgt-lab">${label}</span>
-      <span class="mgt-marg">${won?'+':'−'}${g.margin.toFixed(1)}</span>
-      <span class="mgt-opp"><span class="mgt-verb">${won?'beat':'lost to'}</span> ${mgSeasonName(g.season,opp)}</span>
-      <span class="mgt-sc">${mine.toFixed(1)}–${theirs.toFixed(1)}</span>
-      <span class="mgt-when">${g.season} · Wk ${g.week}</span>
-    </div>`;
-  };
-  return `<div class="sec wm mgt-sec" data-wm="&#xf140;">
+const mxFmt=(F,v)=>F.pts?v.toFixed(1):((F.good?'+':'−')+v.toFixed(1));
+const mxAb=(owner,season)=>sbTeamAb(owner,mgSeasonName(season||ALL_SEASONS[ALL_SEASONS.length-1],owner));
+/* The selected team's six, as tiles: the good edge beside its bad one on a
+   phone, a good row over a bad row on a desktop. Each carries its rank among
+   the twelve, and a tap opens the league's list for that edge. */
+function mxTeamHTML(owner){
+  const fr=(_franchises||[]).find(f=>f.owner===owner); if(!fr) return '';
+  const d=mxData(), n=(_franchises||[]).length;
+  const tiles=MX_FACTORS.map(F=>{
+    const x=d.per[owner]&&d.per[owner][F.k];
+    const r=x?((d.rank[F.k]||[]).find(y=>y.owner===owner)||{}).rk:null;
+    return `<button type="button" class="mx-tile ${F.good?'mx-good':'mx-bad'}" onclick="mxPick('${F.k}')"
+        aria-label="${F.label}${r?`, ${r} of ${n} in the league`:''}">
+      <span class="mx-t-h"><span class="mx-t-l">${F.label}</span>${r?`<span class="mx-rk" title="${r} of ${n} in the league">#${r}</span>`:''}</span>
+      ${x?`<span class="mx-t-v">${mxFmt(F,x.v)}</span>
+        <span class="mx-t-g">vs ${mxAb(x.g.opp,x.g.season)} · ${x.g.pts.toFixed(1)}–${x.g.oppPts.toFixed(1)}</span>
+        <span class="mx-t-w">${x.g.season} · Wk ${x.g.week}</span>`
+      :'<span class="mx-t-none">None yet</span>'}
+    </button>`;
+  }).join('');
+  return `<div class="sec wm mx-sec" data-wm="&#xf140;">
     <div class="sec-head"><i class="fa fa-bullseye"></i>Team Extremes<span class="badge-info">${fr.name}</span></div>
-    <div class="mgt-card">
-      <div class="mgt-team">${franchiseAvatar(fr,26,7)}<span>${fr.name}</span></div>
-      ${row(pick(wins,true),'Biggest win',true)}
-      ${row(pick(wins,false),'Closest win',true)}
-      ${row(pick(losses,true),'Biggest loss',false)}
-      ${row(pick(losses,false),'Closest loss',false)}
-    </div>
-    <div class="mgt-note">The four corners for whoever is selected above — widest and tightest, won and lost.</div>
+    <div class="mx-grid">${tiles}</div>
+    <div class="mx-note">The rank is where that game sits among all ${n} teams, #1 the most extreme. Tap one for the whole league.</div>
   </div>`;
+}
+/* The league's view of one edge: every team's own most extreme game for it,
+   ranked, with a bar for how far each one stands out. */
+function mxLeagueHTML(owner){
+  const d=mxData();
+  const F=MX_FACTORS.find(f=>f.k===_mxFactor)||MX_FACTORS[0];
+  const list=d.rank[F.k]||[];
+  const best=list.length?list[0].v:0, worst=list.length?list[list.length-1].v:0;
+  const bar=v=>best===worst?100:Math.round(16+84*Math.abs(v-worst)/Math.abs(best-worst));
+  const chips=MX_FACTORS.map(f=>`<button type="button" class="mx-chip ${f.good?'mx-good':'mx-bad'}${f.k===F.k?' on':''}"
+      aria-pressed="${f.k===F.k}" onclick="mxSet('${f.k}')">${f.chip}</button>`).join('');
+  const rows=list.map(x=>`<div class="mx-row${x.owner===owner?' mx-me':''}" style="--mx-w:${bar(x.v)}%">
+      <span class="mx-r-rk">${x.rk}</span>${sbAvatar(x.owner,20)}
+      <span class="mx-r-ab">${mxAb(x.owner)}</span>
+      <span class="mx-r-g">vs ${mxAb(x.g.opp,x.g.season)} · ${x.g.season} Wk ${x.g.week}</span>
+      <span class="mx-r-v">${mxFmt(F,x.v)}</span></div>`).join('');
+  return `<div class="sec wm mx-sec" id="mx-league-sec" data-wm="&#xf091;">
+    <div class="sec-head"><i class="fa fa-ranking-star"></i>League Extremes<span class="badge-info">every season</span></div>
+    <div class="mx-chips" role="group" aria-label="Which extreme">${chips}</div>
+    <div class="mx-list ${F.good?'mx-good':'mx-bad'}">${rows||'<div class="mx-t-none">Nothing to rank yet.</div>'}</div>
+    <div class="mx-note">${F.label}: every team's own most extreme game, all seasons, counting games only. #1 is the league record.</div>
+  </div>`;
+}
+const mxOwner=()=>(document.getElementById('hist-team-select')||{}).value||((_franchises||[])[0]||{}).owner;
+function mxSet(k){
+  _mxFactor=MX_FACTORS.some(f=>f.k===k)?k:'hi';
+  const el=document.getElementById('mx-league-sec');
+  if(el) el.outerHTML=mxLeagueHTML(mxOwner());
+}
+/* a tile's tap: that edge, and down to the league's list of it */
+function mxPick(k){
+  mxSet(k);
+  const chip=[...document.querySelectorAll('.sx-chip')].find(c=>/^League/.test(c.textContent.trim()));
+  if(chip){ try{ jumpToSection(chip); return; }catch(e){} }
+  const el=document.getElementById('mx-league-sec');
+  if(el) el.scrollIntoView({block:'start'});
 }
 
 // ── PLAYER TENURE TAB ──────────────────────────────────────────────────────────

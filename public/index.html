@@ -1809,96 +1809,67 @@
       .sx-chip{font-size:11.5px;padding:6px 8px;letter-spacing:.1px;}
     }
 
-    /* ── Matchup Extremes ─────────────────────────────────────────────────
-       Two league-wide top fives abreast. Each entry is its own tile so the
-       four facts inside it read as one result rather than four loose lines,
-       and stacks — rank and margin, winner, loser, then the line score —
-       because two written-out team names cannot share a row inside half a
-       phone. No badges: at this width the logo crowded out the name next to
-       it, and the name is what is being read. */
-    .mg-sec{margin-top:32px;}
-    .mg-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
-    .mg-col{padding:0;min-width:0;}
-    .mg-colh{display:flex;align-items:center;gap:7px;padding-bottom:10px;margin-bottom:9px;
-      border-bottom:1px solid rgba(255,255,255,0.09);
-      font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
-      letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
-    .mg-colh i{font-size:11px;}
-    .mg-colh-big i{color:var(--green);}
-    .mg-colh-close i{color:var(--accent);}
-    .mgc{min-width:0;margin-top:7px;padding:9px 11px 9px 11px;
-      border-radius:7px;border-left:3px solid rgba(255,255,255,0.14);
-      background:rgba(255,255,255,0.035);}
-    .mgc:first-of-type{margin-top:0;}
-    /* the tile borrows its column's colour, so a tile is placeable without
-       having to look back up at the heading */
-    .mg-col:has(.mg-colh-big) .mgc{border-left-color:var(--green);}
-    .mg-col:has(.mg-colh-close) .mgc{border-left-color:var(--accent);}
-    .mgc-h{display:flex;align-items:center;justify-content:space-between;gap:6px;}
-    .mgc-rk{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
-      width:17px;height:17px;border-radius:5px;background:rgba(255,255,255,0.09);
-      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;color:var(--text2);}
-    .mgc-marg{font-family:'Inter',sans-serif;font-size:15.5px;font-weight:800;
-      letter-spacing:-.3px;color:var(--green);}
-    .mgc-marg.mg-tight{color:var(--accent);}
-    .mgc-w{margin-top:7px;font-family:'Inter',sans-serif;font-size:11.5px;
-      font-weight:700;line-height:1.3;color:var(--text);overflow-wrap:anywhere;}
-    .mgc-l{margin-top:3px;font-family:'Inter',sans-serif;font-size:11.5px;
-      line-height:1.3;color:var(--text3);overflow-wrap:anywhere;}
-    .mgc-def{margin-right:4px;font-size:9px;font-weight:800;letter-spacing:.5px;
-      text-transform:uppercase;opacity:.7;}
-    .mgc-f{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;
-      gap:2px 6px;margin-top:8px;padding-top:7px;
-      border-top:1px solid rgba(255,255,255,0.07);font-family:'Inter',sans-serif;}
-    .mgc-sc{font-size:11px;font-weight:700;color:var(--text2);white-space:nowrap;}
-    .mgc-wk{font-size:9px;letter-spacing:.3px;text-transform:uppercase;
-      color:var(--text3);white-space:nowrap;}
-    .mg-none{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);padding:6px 0;}
-    .mg-note,.mgt-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;
-      line-height:1.5;color:var(--text3);}
-
-    /* ── Team Extremes: the selected team's four corners in one card ─────── */
-    .mgt-sec{margin-top:32px;}
-    /* the raised treatment Champions has in League History — this is one
-       collected card rather than a list on the page, so it says so */
-    .mgt-card{padding:14px 16px 8px;border-radius:10px;
-      background:rgba(0,0,0,0.3);
-      box-shadow:0 10px 26px -14px rgba(0,0,0,0.85),0 2px 6px -3px rgba(0,0,0,0.5);}
-    .mgt-team{display:flex;align-items:center;gap:9px;padding:0 0 11px;margin-bottom:3px;
-      border-bottom:1px solid rgba(255,255,255,0.09);
-      font-family:'Inter',sans-serif;font-size:14px;font-weight:800;color:var(--text);}
-    .mgt-row{display:grid;grid-template-columns:104px auto minmax(0,1fr) auto auto;
-      align-items:baseline;gap:10px;padding:11px 2px 11px 12px;
-      border-left:3px solid transparent;font-family:'Inter',sans-serif;}
-    .mgt-row+.mgt-row{border-top:1px solid rgba(255,255,255,0.05);}
-    .mgt-w{border-left-color:var(--green);}
-    .mgt-l{border-left-color:var(--red);}
-    .mgt-lab{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-      color:var(--text3);}
-    .mgt-marg{font-size:15px;font-weight:800;white-space:nowrap;}
-    .mgt-w .mgt-marg{color:var(--green);}
-    .mgt-l .mgt-marg{color:var(--red);}
-    .mgt-opp{font-size:12.5px;color:var(--text);min-width:0;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .mgt-verb{color:var(--text3);}
-    .mgt-sc{font-size:11.5px;font-weight:600;color:var(--text2);white-space:nowrap;}
-    .mgt-when{font-size:10px;letter-spacing:.2px;text-transform:uppercase;
-      color:var(--text3);white-space:nowrap;}
-
-    @media(max-width:768px){
-      .mg-pair{gap:8px;}
-      .mg-col{padding:0;}
-      .mgc{padding:8px 10px;}
-      .mgc-marg{font-size:14.5px;}
-      .mgc-w,.mgc-l{font-size:11px;}
-      /* the label moves onto its own line and the score drops: the margin
-         already says how far apart it finished */
-      .mgt-row{grid-template-columns:auto minmax(0,1fr) auto;gap:2px 9px;
-        padding:10px 2px 11px 11px;}
-      .mgt-lab{grid-column:1/-1;}
-      .mgt-sc{display:none;}
-      .mgt-opp{font-size:12px;}
-    }
+    /* ── Extremes: one team's six edges, and the league beside them ─────────
+       Six tiles for the team picked at the top -- the good edge in green beside
+       its bad one in red on a phone, a good row over a bad row on a desktop --
+       each with its rank among the twelve. Under them the league's list for one
+       edge at a time: every team's own most extreme game, with a bar for how far
+       it stands out, the team picked at the top ringed. */
+    .mx-sec{margin-top:32px;}
+    .mx-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    @media(min-width:769px){
+      .mx-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,auto);
+        grid-auto-flow:column;} }
+    .mx-tile{display:flex;flex-direction:column;align-items:stretch;gap:3px;min-width:0;
+      padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.07);
+      background:rgba(255,255,255,0.035);box-shadow:none;text-align:left;cursor:pointer;
+      font-family:'Inter',sans-serif;color:var(--text);}
+    .mx-tile:hover{background:rgba(255,255,255,0.06);}
+    .mx-tile:focus-visible,.mx-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+    .mx-t-h{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;}
+    .mx-t-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    .mx-rk{flex:0 0 auto;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,0.08);
+      font-size:10px;font-weight:800;color:var(--text2);font-variant-numeric:tabular-nums;}
+    .mx-t-v{margin-top:3px;font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.15;
+      font-variant-numeric:tabular-nums;}
+    .mx-good .mx-t-v{color:var(--green);}
+    .mx-bad .mx-t-v{color:var(--red);}
+    .mx-t-g{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-size:11.5px;font-weight:600;color:var(--text2);font-variant-numeric:tabular-nums;}
+    .mx-t-w{font-size:10px;font-weight:600;letter-spacing:.2px;text-transform:uppercase;color:var(--text3);}
+    .mx-t-none{padding:6px 0;font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);}
+    .mx-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;line-height:1.5;color:var(--text3);}
+    .mx-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px;}
+    @media(min-width:769px){ .mx-chips{grid-template-columns:repeat(6,minmax(0,1fr));} }
+    .mx-chip{height:32px;min-width:0;padding:0 6px;border-radius:999px;
+      border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);box-shadow:none;
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;color:var(--text3);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+    .mx-chip:hover{background:rgba(255,255,255,0.07);color:var(--text2);}
+    .mx-chip.on.mx-good{background:rgba(74,222,128,0.14);border-color:rgba(74,222,128,0.6);color:#fff;}
+    .mx-chip.on.mx-bad{background:rgba(251,113,133,0.12);border-color:rgba(251,113,133,0.6);color:#fff;}
+    .mx-list{display:flex;flex-direction:column;gap:4px;}
+    .mx-row{position:relative;isolation:isolate;overflow:hidden;display:grid;
+      grid-template-columns:20px 20px auto minmax(0,1fr) auto;gap:8px;align-items:center;
+      padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);font-family:'Inter',sans-serif;}
+    /* the bar: how far this team's game stands out, #1 the full width */
+    .mx-row::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--mx-w);z-index:-1;}
+    .mx-list.mx-good .mx-row::before{background:rgba(74,222,128,0.11);}
+    .mx-list.mx-bad .mx-row::before{background:rgba(251,113,133,0.1);}
+    .mx-me{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.45);}
+    .mx-r-rk{font-size:11px;font-weight:800;color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}
+    .mx-r-ab{font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;}
+    .mx-r-g{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-size:11px;font-weight:600;color:var(--text3);}
+    .mx-r-v{font-size:14px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;}
+    .mx-list.mx-good .mx-r-v{color:var(--green);}
+    .mx-list.mx-bad .mx-r-v{color:var(--red);}
+    @media(max-width:400px){
+      .mx-tile{padding:10px 10px;}
+      .mx-t-v{font-size:20px;}
+      .mx-row{grid-template-columns:16px 20px auto minmax(0,1fr) auto;gap:6px;padding:8px 8px;}
+      .mx-chip{font-size:11px;} }
 
     /* ── Sportsbook: going in on a parlay together ────────────────────────
        Pending invitations lead the My Bets panel — they are the only thing on
@@ -7137,7 +7108,7 @@
   <button class="tab-btn" data-tab="leaders" onclick="switchTab('leaders')"><i class="fa fa-ranking-star"></i>Leaderboards</button>
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishments</button>
   <button class="tab-btn" data-tab="legacy" data-group="Archive" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
-  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>Head to Head</button>
+  <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>All Matchups</button>
   <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Report</button>
