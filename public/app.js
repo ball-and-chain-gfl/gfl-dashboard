@@ -17101,7 +17101,6 @@ const NT_KINDS={
   plant:  {icon:'fa-seedling',    tone:'earth'},
   revive: {icon:'fa-receipt',     tone:'ember'},
   crown:  {icon:'fa-crown',       tone:'gold'},
-  rival:  {icon:'fa-hand-fist',   tone:'royal'},
   trade:  {icon:'fa-right-left',  tone:'cool'},
   parlay: {icon:'fa-dollar-sign', tone:'good'},
   streakW:{icon:'fa-arrow-trend-up',  tone:'good'},
@@ -17378,7 +17377,7 @@ function ntFromWeek(out){
     const score=`${wp.toFixed(1)}–${lp.toFixed(1)}`;
     const W={owner:win,name:ntName(season,win),pts:wp};
     const L={owner:lose,name:ntName(season,lose),pts:lp};
-    /* No body on these three. The scoreline underneath already carries both
+    /* No body on these two. The scoreline underneath already carries both
        teams, both totals and the margin; "Week 3" under it was a caption on a
        picture that had nothing left to caption. */
     if(margin>=40) out.push({kind:'blowout', day,
@@ -17389,20 +17388,14 @@ function ntFromWeek(out){
       id:`nw:${season}:${lw.week}:${win}`,
       title:'Down to the wire',
       art:ntScore(W,L,'apart',lw.week)});
-    /* a rivalry game is one of the three that made them rivals in the first
-       place, so it is read off the rival list rather than guessed at */
-    try{
-      if(rivalsFor(win).some(r=>r.owner===lose)) out.push({kind:'rival', day,
-        id:`rv:${season}:${lw.week}:${win}`,
-        title:'Rivalry settled',
-        art:ntScore(W,L,'margin',lw.week)});
-    }catch(e){}
+    /* There was a 'Rivalry settled' card here, raised on every game between
+       two managers on each other's rival list. Taken off the homepage at the
+       league's request; the rivalry itself still shows on the Schedule. */
     /* ── AND WHAT THE POLL MADE OF IT ─────────────────────────────────────
        This one is not about the scoreline at all -- a two-point win over the
        team the league ranked first is the story, and a forty-point win over the
-       team it ranked last is not. So it stacks with the three above rather than
-       replacing them: a blowout can also be an upset, and on the right Sunday
-       so can a rivalry game. */
+       team it ranked last is not. So it stacks with the two above rather than
+       replacing them: a blowout can also be an upset. */
     const gap=ntUpsetBy(ranks,win,lose);
     if(gap>=NT_UPSET_GAP){
       const wr=ranks[pollTeamIdOf(win)], lr=ranks[pollTeamIdOf(lose)];
@@ -18018,9 +18011,6 @@ function ntDemo(out){
    {kind:'upset',day:T2,id:'demo:upset',title:'Upset',
     art:ntScore(S(9,118.7),S(1,112.3),'margin',dw),
     body:'<b>#10</b> beat <b>#2</b>'},
-
-   {kind:'rival',day:T2,id:'demo:rival',title:'Rivalry settled',
-    art:ntScore(S(1,143.0),S(2,98.7),'margin',dw)},
 
    {kind:'perfect',day:T2,id:'demo:perfect',title:'A perfect slate',
     art:ntStat(o(5),nm(5),'6 / 6','every game called',dw)},

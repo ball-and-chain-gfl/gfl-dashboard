@@ -145,5 +145,14 @@ console.log(nl + '3. THE BUG IT REPLACES, STATED AS A TEST');
   }
 }
 
+console.log(nl + 'NO RIVALRY CARD');
+{
+  /* taken off the homepage at the league's request: no generator raises one,
+     the preview has none, and the kind is gone from the registry */
+  const src = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  ok('nothing raises a rivalry card', !/kind:\s*'rival'/.test(src));
+  ok('and it has no icon or tone left to draw with', !/^\s*rival:\s*\{icon:/m.test(src));
+}
+
 console.log(nl + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
