@@ -6987,6 +6987,7 @@ const SX_ABBR={
   'Conference Championships':'Conferences',
   'Season Superlatives':'Superlatives',
   'Player Tenure':'Tenure',
+  'Strength of Schedule':'Strength',
   'Playoff Hardware':'Hardware',
   'Matchup of the Week':'Matchup',
   'All-Time Records':'AT Records',
@@ -11353,19 +11354,24 @@ function pollSosHTML(owner){
   const byScore=ranked(rows.filter(r=>r.sn).sort((a,b)=>a.scored-b.scored||a.name.localeCompare(b.name))
     .concat(rows.filter(r=>!r.sn)), r=>r.sn?r.scored:null);
   const byPoll=ranked(rows.slice().sort((a,b)=>a.total-b.total||a.name.localeCompare(b.name)), r=>r.total);
-  const item=({r,rk,v},col)=>`<div class="sos-i${r.owner===owner?' sos-me':''}">
+  /* the poll side keeps its working: Played and Left are the two halves of
+     the Total, so the number it is ranked on can be checked on the row */
+  const item=({r,rk,v},col,poll)=>`<div class="sos-i${r.owner===owner?' sos-me':''}">
       <span class="sos-rk">${v==null?'':rk}</span>${sbAvatar(r.owner,20)}
       <span class="sos-ab" title="${String(r.name).replace(/"/g,'&quot;')}">${sbTeamAb(r.owner,r.name)}</span>
+      ${poll?`<span class="sos-n">${r.pn?r.played:'—'}</span><span class="sos-n">${r.ln?r.left:'—'}</span>`:''}
       <span class="sos-v" style="color:${v==null?'var(--text3)':col(v)}">${v==null?'—':v}</span></div>`;
   return `<div class="sec sos-sec">${head}
     <div class="sos-note">Hardest first · lower is harder</div>
     <div class="sos-cols">
       <div class="sos-col sos-col-sc">
-        <div class="sos-cap" title="Every opponent's finishing place in that week's scoring, added up, for the games played"><span class="sos-pill">Opp Scoring</span></div>
+        <div class="sos-cap" title="Every opponent's finishing place in that week's scoring, added up, for the games played"><span class="sos-pill">Opponent Scoring</span></div>
+        <div class="sos-hd"><span class="sos-hl">Played</span></div>
         ${byScore.map(x=>item(x,v=>sosCol(v,sLo,sHi))).join('')}</div>
       <div class="sos-col sos-col-cp">
         <div class="sos-cap" title="Every opponent's Coaches' Poll rank added up: where they stood that week for a game played, where they stand now for one to come"><span class="sos-pill">Coaches' Poll</span></div>
-        ${byPoll.map(x=>item(x,v=>sosCol(v,tLo,tHi))).join('')}</div>
+        <div class="sos-hd"><span></span><span></span><span></span><span class="sos-hl">Played</span><span class="sos-hl">Left</span><span class="sos-hl">Total</span></div>
+        ${byPoll.map(x=>item(x,v=>sosCol(v,tLo,tHi),true)).join('')}</div>
     </div></div>`;
 }
 

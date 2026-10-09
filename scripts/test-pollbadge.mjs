@@ -456,13 +456,23 @@ head('8. STRENGTH OF SCHEDULE');
   const col = cls => html.split('sos-col ' + cls)[1].split('sos-col ')[0];
   const abs = h => [...h.matchAll(/class="sos-ab"[^>]*>(\d+)</g)].map(m => m[1]);
   const vals = h => [...h.matchAll(/class="sos-v"[^>]*>([^<]+)</g)].map(m => m[1]);
-  ok('two columns, scoring then the poll, each under its own pill',
-     /sos-col sos-col-sc[\s\S]*?sos-pill">Opp Scoring<[\s\S]*?sos-col sos-col-cp[\s\S]*?sos-pill">Coaches' Poll</.test(html), true);
+  ok('two columns, scoring then the poll, each under its own title',
+     /sos-col sos-col-sc[\s\S]*?sos-pill">Opponent Scoring<[\s\S]*?sos-col sos-col-cp[\s\S]*?sos-pill">Coaches' Poll</.test(html), true);
   ok('every team in each', [abs(col('sos-col-sc')).length, abs(col('sos-col-cp')).length], [(r || []).length, (r || []).length]);
   ok('scoring ranked hardest first on its own number', [abs(col('sos-col-sc')), vals(col('sos-col-sc'))],
      [['2', '4', '1', '3'], ['3', '4', '5', '8']]);
   ok('the poll ranked hardest first on its own', abs(col('sos-col-cp')), ['2', '1', '4', '3']);
-  ok('one number a team, no Played or To come columns', /sos-c\b|To come|Played</.test(html), false);
+  /* the poll side keeps its working -- Played and Left add up to the Total it
+     is ranked on -- and scoring stays one number */
+  const nums = h => [...h.matchAll(/class="sos-n"[^>]*>([^<]+)</g)].map(m => m[1]);
+  const heads = h => [...h.matchAll(/class="sos-hl"[^>]*>([^<]+)</g)].map(m => m[1]);
+  ok('the poll side is headed Played, Left, Total', heads(col('sos-col-cp')), ['Played', 'Left', 'Total']);
+  ok('and its first row is the hardest slate\'s own working',
+     [nums(col('sos-col-cp')).slice(0, 2).map(Number), Number(vals(col('sos-col-cp'))[0])],
+     [[by.o2.played, by.o2.left], by.o2.total]);
+  ok('which adds up', by.o2.played + by.o2.left, by.o2.total);
+  ok('scoring is one number a row, headed Played',
+     [nums(col('sos-col-sc')).length, heads(col('sos-col-sc'))], [0, ['Played']]);
   ok('and it is off the section heading', html.indexOf('badge-info') < 0, true);
 
   ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);
