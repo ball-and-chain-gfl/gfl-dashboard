@@ -212,6 +212,16 @@
     .coaching-bar-fill{height:100%;border-radius:2px;transition:width 0.6s ease;}
     .coaching-score{font-weight:700;min-width:56px;text-align:right;flex-shrink:0;}
     .coaching-chevron{color:var(--text3);font-size:12px;flex-shrink:0;}
+    /* the Trade ROI and Waiver ROI rankings: the Coaching Metric's rows, a
+       little tighter since a team's table sits under them, and the team on
+       show picked out */
+    .roi-rank{margin:0 0 14px;}
+    .coaching-row.roi-row{padding:8px 6px;}
+    .roi-row .coaching-name{font-size:14px;}
+    .roi-row .coaching-score{font-size:17px;}
+    .roi-row.on{background:rgba(var(--accent-rgb),0.09);}
+    .roi-row.on .coaching-name{color:#fff;}
+    .roi-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
 
     /* PIN MODAL */
     .pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity 0.2s;}

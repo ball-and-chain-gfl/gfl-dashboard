@@ -36,6 +36,7 @@ let _draftCache={},_draftLoading=false; // season -> {picks, stats}
 let _tradeSort='week';                  // 'week' | 'unbalanced' | 'balanced'
 let _statsView='standings';             // 'standings' | 'cm'
 let _c3Team=null;                        // teamId for the C3 breakdown dropdown (defaults to Lebron's)
+let _c2Team=null;                        // teamId for the C2 breakdown dropdown (same default)
 let _profileTeam=null;                   // teamId string for the profile tab
 let _schedTeam=null;                     // teamId string for the schedule tab
 let _hardware={};                        // owner -> {rings,confs} (filled by renderLeagueHistory)
@@ -1787,26 +1788,88 @@ function cmSourceNote(){
   if(_cmMode==='inferred') return 'Reconstructed from weekly rosters (ESPN deleted this season\'s transaction log).';
   return 'Computed live from the ESPN transaction log.';
 }
+/* ── THE LEAGUE FIRST, THEN ONE TEAM ─────────────────────────────────────────
+   Trade ROI and Waiver ROI open on every team ranked by its C2 or C3 -- the
+   same rows the Coaching Metric ranks itself with -- and the dropdown under
+   the ranking picks whose players to show. Tapping a team in the ranking is
+   the same as picking it in the dropdown: the table changes, and the page
+   comes down to it, clear of the header and the picker that docks into it. */
+function roiDefaultTeam(){
+  const leb=_teams.find(t=>/lebron/i.test(t.name));
+  return String((leb||_teams[0])?.id||'');
+}
+function roiRankHTML(key,cur,sub,pick){
+  const rows=_teams.map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail)
+    .sort((a,b)=>(b.bd[key]||0)-(a.bd[key]||0));
+  if(!rows.length) return '';
+  const mx=Math.max(0.01,...rows.map(r=>Math.abs(r.bd[key]||0)));
+  const bar=v=>Math.min(100,Math.max(0,((v/mx)+1)/2*100)).toFixed(1);
+  return `<div class="roi-rank">${rows.map(({t,bd},i)=>{
+    const v=bd[key]||0, on=String(t.id)===String(cur);
+    return `<div class="coaching-row roi-row${on?' on':''}" role="button" tabindex="0" aria-pressed="${on}"
+        onclick="${pick}(${t.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${pick}(${t.id});}">
+      <div class="coaching-rank">${i===0?'🥇':i+1}</div>
+      ${logoImg(t.id)}
+      <div class="coaching-info"><div class="coaching-name">${t.name}</div><div class="coaching-sub">${sub(bd.detail||{})}</div></div>
+      <div class="coaching-bar"><div class="coaching-bar-fill" style="width:${bar(v)}%;background:${cc(v)}"></div></div>
+      <div class="coaching-score" style="color:${cc(v)}">${v>=0?'+':''}${v.toFixed(2)}</div>
+    </div>`;}).join('')}</div>`;
+}
+function roiShow(id){
+  const card=document.querySelector('#'+id+' .hist-item'); if(!card) return;
+  const bar=activeChipBar(), pick=document.querySelector('#'+id+' .picker-bar');
+  /* the picker docks under the chips on the way down, so its height is part
+     of the header the card has to clear */
+  const head=(bar?bar.getBoundingClientRect().bottom:70)
+    +(pick&&!pick.classList.contains('picker-docked')?pick.getBoundingClientRect().height:0)+10;
+  window.scrollTo({top:Math.max(0,card.getBoundingClientRect().top+window.scrollY-head),behavior:'smooth'});
+}
+function c2Pick(id){ _c2Team=String(id); renderC2Breakdown(); roiShow('stats-c2'); }
+function c3Pick(id){ _c3Team=String(id); renderC3Breakdown(); roiShow('stats-c3'); }
+/* players, not points: a player who scored minus a point turns any signed
+   total into a double sign, and the card under the ranking has the points */
+const c2RankSub=d=>{
+  const r=(d.tradesReceived||[]).length, s=(d.tradesSent||[]).length;
+  if(!r&&!s) return 'No trades';
+  return `${r} player${r===1?'':'s'} in · ${s} out`;
+};
+const c3RankSub=d=>{
+  const p=d.waiverPickups||[]; if(!p.length) return 'No pickups';
+  const pts=p.reduce((s,w)=>s+w.pts,0);
+  return d.c3Mode==='share'
+    ?`${pts.toFixed(1)} pts · $${p.reduce((s,w)=>s+Math.max(w.margin??w.bid,1),0)} margin`
+    :`${p.length} pickup${p.length===1?'':'s'} · ${pts.toFixed(1)} pts`;
+};
 function renderC2Breakdown(){
   const el=document.getElementById('stats-c2'); if(!el) return;
   if(_cmMode==='none'){el.innerHTML=`<div class="tab-loading">No trade data for this season.</div>`;return;}
-  const rows=[..._teams].map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail)
-    .sort((a,b)=>(b.bd.c2||0)-(a.bd.c2||0));
+  const rows=[..._teams].map(t=>({t,bd:_cmBreakdown[t.id]||{}})).filter(x=>x.bd.detail);
   if(!rows.length){el.innerHTML=`<div class="tab-loading">No trades found for this season.</div>`;return;}
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.</div>`+
-  rows.map(({t,bd})=>{
+  if(_c2Team==null||!_teams.some(t=>t.id===Number(_c2Team))) _c2Team=roiDefaultTeam();
+  const opts=_teams.map(t=>`<option value="${t.id}" ${Number(_c2Team)===t.id?'selected':''}>${t.name}</option>`).join('');
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.</div>
+    ${roiRankHTML('c2',_c2Team,c2RankSub,'c2Pick')}
+    <div class="picker-bar" style="padding:0 2px 14px">
+      <label for="c2-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
+      <select id="c2-team-select" onchange="_c2Team=this.value;renderC2Breakdown()">${opts}</select>
+    </div>`+
+  rows.filter(({t})=>t.id===Number(_c2Team)).map(({t,bd})=>{
     const d=bd.detail||{};
     const recv=(d.tradesReceived||[]);
     const sent=(d.tradesSent||[]);
     const gained=recv.reduce((s,r)=>s+r.pts,0), lost=sent.reduce((s,r)=>s+r.pts,0);
-    const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${pName(r.pid)} <span class="brk-wk">wk ${r.from??(r.week+1)}+</span></span><span style="color:${col};font-weight:600">${sign}${r.pts.toFixed(1)}</span></div>`;
+    /* what each side adds to C2, signed once: a sent player who scored −1.0 is
+       +1.0 to the team that let him go, which used to print as "−-1.0" */
+    const sg=v=>(v<0?'−':'+')+Math.abs(v).toFixed(1);
+    const nm=v=>v<0?`(−${Math.abs(v).toFixed(1)})`:v.toFixed(1);
+    const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${pName(r.pid)} <span class="brk-wk">wk ${r.from??(r.week+1)}+</span></span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
     return `<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c2)}">C2 ${bd.c2>=0?'+':''}${(bd.c2||0).toFixed(2)}</span></div>
       ${(recv.length||sent.length)?`<div class="brk-cols">
-        <div><div class="brk-col-h" style="color:var(--green)">Received (+${gained.toFixed(1)})</div>${recv.length?recv.map(r=>line(r,'+','var(--green)')).join(''):'<div class="brk-empty">none</div>'}</div>
-        <div><div class="brk-col-h" style="color:var(--red)">Sent (−${lost.toFixed(1)})</div>${sent.length?sent.map(r=>line(r,'−','var(--red)')).join(''):'<div class="brk-empty">none</div>'}</div>
+        <div><div class="brk-col-h" style="color:var(--green)">Received (${sg(gained)})</div>${recv.length?recv.map(r=>line(r,'+','var(--green)')).join(''):'<div class="brk-empty">none</div>'}</div>
+        <div><div class="brk-col-h" style="color:var(--red)">Sent (${sg(-lost)})</div>${sent.length?sent.map(r=>line(r,'−','var(--red)')).join(''):'<div class="brk-empty">none</div>'}</div>
       </div>
-      <div class="brk-formula">(${gained.toFixed(1)} − ${lost.toFixed(1)}) ÷ 10 = <b style="color:${cc(bd.c2)}">${(bd.c2||0).toFixed(2)}</b></div>`
+      <div class="brk-formula">(${gained<0?'−'+Math.abs(gained).toFixed(1):gained.toFixed(1)} − ${nm(lost)}) ÷ 10 = <b style="color:${cc(bd.c2)}">${(bd.c2||0).toFixed(2)}</b></div>`
       :'<div class="brk-empty">No trades this season.</div>'}
     </div>`;
   }).join('');
@@ -1815,17 +1878,15 @@ function renderC3Breakdown(){
   const el=document.getElementById('stats-c3'); if(!el) return;
   if(_cmMode==='none'){el.innerHTML=`<div class="tab-loading">No waiver data for this season.</div>`;return;}
   // default the team selector to Lebron's 3rd Leg (or first team)
-  if(_c3Team==null||!_teams.some(t=>t.id===Number(_c3Team))){
-    const leb=_teams.find(t=>/lebron/i.test(t.name));
-    _c3Team=String((leb||_teams[0])?.id||'');
-  }
+  if(_c3Team==null||!_teams.some(t=>t.id===Number(_c3Team))) _c3Team=roiDefaultTeam();
+  const rank=roiRankHTML('c3',_c3Team,c3RankSub,'c3Pick');
   const opts=_teams.map(t=>`<option value="${t.id}" ${Number(_c3Team)===t.id?'selected':''}>${t.name}</option>`).join('');
   const t=_teams.find(x=>x.id===Number(_c3Team));
   const bd=_cmBreakdown[t?.id]||{};
   const d=bd.detail||{};
   /* a season before 2026 was scored by the ratio, and shows the table it was
      scored by */
-  if(d.c3Mode!=='share'){ renderC3Ratio(el,t,bd,opts); return; }
+  if(d.c3Mode!=='share'){ renderC3Ratio(el,t,bd,opts,rank); return; }
   /* the league's rate, and each pickup's par off it -- the breakdown carries
      both, and anything older than that is worked out from the same totals */
   const lg=d.c3League||{}, rate=Number(lg.rate)||0;
@@ -1837,6 +1898,7 @@ function renderC3Breakdown(){
   const sgn=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(2);
   el.innerHTML=`
     <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C3</b> = lineup points your waiver pickups scored, minus what the league's pickups score for the same margin, ÷ 10. Margin is the bid minus the next-highest bid ($1 minimum).${rate?` This season the league gets <b>${rate.toFixed(3)}</b> lineup points per $1 of margin, so a pickup's <b>par</b> is its margin × ${rate.toFixed(3)}.`:''}</div>
+    ${rank}
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c3-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
       <select id="c3-team-select" onchange="_c3Team=this.value;renderC3Breakdown()">${opts}</select>
@@ -1867,11 +1929,12 @@ function renderC3Breakdown(){
 }
 /* The Waiver ROI table for a season before 2026, exactly as it was: each
    pickup's lineup points over its margin, and C3 the sum of those ÷ 10. */
-function renderC3Ratio(el,t,bd,opts){
+function renderC3Ratio(el,t,bd,opts,rank){
   const d=bd.detail||{};
   const picks=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1));
   el.innerHTML=`
     <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C3</b> = lineup points each waiver pickup scored, divided by what it cost to win the bid.</div>
+    ${rank||''}
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c3-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
       <select id="c3-team-select" onchange="_c3Team=this.value;renderC3Breakdown()">${opts}</select>
