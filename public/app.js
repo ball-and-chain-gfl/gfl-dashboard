@@ -95,7 +95,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Profiles',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -2271,7 +2271,22 @@ const MX_FACTORS=[
   {k:'cl', label:'Closest loss',  good:false, pts:false, pick:'min', of:g=>g.pts<g.oppPts, val:g=>g.oppPts-g.pts},
 ];
 const MX_TOP=10;
-let _mxFactor='hi', _mxMemo={key:'',data:null};
+/* ── FOUR LISTS FOR THE LEAGUE ──────────────────────────────────────────────
+   Biggest win and worst loss are the same games seen from the two benches,
+   and so are closest win and closest loss, so the league has one list for
+   each pair: the game, winner over loser, told once. They are nobody's good
+   news or bad news, so they take the page's own colour rather than green or
+   red, and a game the selected team was in -- on either side -- is ringed.
+   The team's six tiles still tell its own side of each. */
+const MX_LISTS=[
+  {k:'blow',  label:'Biggest blowout', from:'bw', game:true, tone:'mx-neu'},
+  {k:'close', label:'Closest game',    from:'cw', game:true, tone:'mx-neu'},
+  {k:'hi',    label:'Highest score',   from:'hi', game:false, tone:'mx-good'},
+  {k:'lo',    label:'Lowest score',    from:'lo', game:false, tone:'mx-bad'},
+];
+/* which list a team tile opens */
+const MX_TILE_LIST={hi:'hi',lo:'lo',bw:'blow',bl:'blow',cw:'close',cl:'close'};
+let _mxFactor='blow', _mxMemo={key:'',data:null};
 /* every side of every finished counting game, once for each team in it */
 function mxSides(){
   const out=[];
@@ -2321,25 +2336,41 @@ const mxAb=(owner,season)=>sbTeamAb(owner,mgSeasonName(season||ALL_SEASONS[ALL_S
    so the row keeps its shape */
 const mxCrest=(owner,season,size)=>sbAvatar(owner,size)
   ||avatarCore(mgSeasonName(season,owner),0,null,size,Math.round(size/3.5));
-/* The league's top ten for one edge, every game in history in the running. */
+/* The league's top ten for one list, every game in history in the running. */
 function mxLeagueHTML(owner){
   const d=mxData();
-  const F=MX_FACTORS.find(f=>f.k===_mxFactor)||MX_FACTORS[0];
-  const top=(d.lists[F.k]||[]).slice(0,MX_TOP);
+  const F=MX_LISTS.find(f=>f.k===_mxFactor)||MX_LISTS[0];
+  const top=(d.lists[F.from]||[]).slice(0,MX_TOP);
   const best=top.length?top[0].v:0, last=top.length?top[top.length-1].v:0;
   const bar=v=>best===last?100:Math.round(30+70*Math.abs(v-last)/Math.abs(best-last));
-  const chips=MX_FACTORS.map(f=>`<button type="button" class="mx-chip ${f.good?'mx-good':'mx-bad'}${f.k===F.k?' on':''}"
+  const chips=MX_LISTS.map(f=>`<button type="button" class="mx-chip ${f.tone}${f.k===F.k?' on':''}"
       aria-pressed="${f.k===F.k}" onclick="mxSet('${f.k}')">${f.label}</button>`).join('');
-  const rows=top.map(x=>`<div class="mx-row${x.g.o===owner?' mx-me':''}" style="--mx-w:${bar(x.v)}%">
+  const rows=top.map(x=>{
+    /* a game list is winner over loser and rings either side; a score list
+       is the team that scored it */
+    const me=F.game?(x.g.o===owner||x.g.opp===owner):x.g.o===owner;
+    return `<div class="mx-row${me?' mx-me':''}" style="--mx-w:${bar(x.v)}%">
       <span class="mx-r-rk">${x.rk}</span>${mxCrest(x.g.o,x.g.season,20)}
       <span class="mx-r-ab">${mxAb(x.g.o,x.g.season)}</span>
-      <span class="mx-r-g"><span class="mx-vs">vs</span>${mxCrest(x.g.opp,x.g.season,14)}<span>${mxAb(x.g.opp,x.g.season)} · Wk ${x.g.week} ${x.g.season}</span></span>
-      <span class="mx-r-v">${mxFmt(F,x.v)}</span></div>`).join('');
+      <span class="mx-r-g"><span class="mx-vs">${F.game?'def.':'vs'}</span>${mxCrest(x.g.opp,x.g.season,14)}<span>${mxAb(x.g.opp,x.g.season)} · Wk ${x.g.week} ${x.g.season}</span></span>
+      <span class="mx-r-v">${x.v.toFixed(1)}</span></div>`;
+  }).join('');
   return `<div class="sec wm mx-sec" id="mx-league-sec" data-wm="&#xf091;">
     <div class="sec-head"><i class="fa fa-ranking-star"></i>League Extremes<span class="badge-info">all-time top ${MX_TOP}</span></div>
-    <div class="mx-chips" role="group" aria-label="Which extreme">${chips}</div>
-    <div class="mx-list ${F.good?'mx-good':'mx-bad'}">${rows||'<div class="mx-t-none">Nothing to rank yet.</div>'}</div>
+    <div class="mx-chips" role="group" aria-label="Which list">${chips}</div>
+    <div class="mx-list ${F.tone}">${rows||'<div class="mx-t-none">Nothing to rank yet.</div>'}</div>
   </div>`;
+}
+/* Every game from one week that made one of the four lists, with its place --
+   the Tuesday notification reads this. */
+function mxNewEntries(season,week){
+  const d=mxData(), out=[];
+  MX_LISTS.forEach(F=>{
+    (d.lists[F.from]||[]).slice(0,MX_TOP).forEach(x=>{
+      if(String(x.g.season)===String(season)&&Number(x.g.week)===Number(week)) out.push({F,x});
+    });
+  });
+  return out;
 }
 /* The selected team's six, each with the game it came from -- the opponent's
    crest and abbreviation, the score, the week -- and where it sits all-time. */
@@ -2366,13 +2397,13 @@ function mxTeamHTML(owner){
 }
 const mxOwner=()=>(document.getElementById('hist-team-select')||{}).value||((_franchises||[])[0]||{}).owner;
 function mxSet(k){
-  _mxFactor=MX_FACTORS.some(f=>f.k===k)?k:'hi';
+  _mxFactor=MX_LISTS.some(f=>f.k===k)?k:MX_LISTS[0].k;
   const el=document.getElementById('mx-league-sec');
   if(el) el.outerHTML=mxLeagueHTML(mxOwner());
 }
 /* a tile's tap: that edge, and up to the league's top ten of it */
 function mxPick(k){
-  mxSet(k);
+  mxSet(MX_TILE_LIST[k]||k);
   const chip=[...document.querySelectorAll('.sx-chip')].find(c=>/^League/.test(c.textContent.trim()));
   if(chip){ try{ jumpToSection(chip); return; }catch(e){} }
   const el=document.getElementById('mx-league-sec');
@@ -17156,6 +17187,7 @@ const NT_KINDS={
   graph:  {icon:'fa-chart-line',   tone:'cool'},
   bighit: {icon:'fa-sack-dollar',  tone:'gold'},
   comeback:{icon:'fa-arrow-trend-up',tone:'hot'},
+  extreme:{icon:'fa-ranking-star',  tone:'gold'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -17519,6 +17551,33 @@ function ntComebacks(out){
       art:ntStat(c.lose,ntName(season,c.lose),`${(c.peak*100).toFixed(1)}%`,'peak chance',lw.week),
       body:`<b>${wn}</b> were down to ${((1-c.peak)*100).toFixed(1)}% ${when} and won ${c.wp.toFixed(1)}–${c.lp.toFixed(1)}.`,
       go:'graph', goWeek:lw.week, goOpp:c.lose, goTeam:c.winTeam});
+  });
+}
+/* ── INTO THE RECORD BOOK ────────────────────────────────────────────────────
+   Any game from the week just finished that made one of the four all-time
+   top tens on All Matchups -- biggest blowout, closest game, highest score,
+   lowest score -- gets a card for everybody, with the Tuesday results: the
+   game, its place, and the list it went into. A new #1 says so. The button
+   opens that list. The ranks come straight off the table the page draws, so
+   the card and the list cannot disagree. */
+function ntExtremes(out){
+  const season=ntSeason(); if(!season) return;
+  const lw=ntLastWeek(season); if(!lw) return;
+  if(!ntResultsFresh(season,lw.week)) return;
+  let found=[]; try{ found=mxNewEntries(season,lw.week); }catch(e){ return; }
+  const day=ntWeekResultsDay(season,lw.week);
+  found.forEach(({F,x})=>{
+    const g=x.g, rec=x.rk===1;
+    const W={owner:g.o,name:ntName(season,g.o),pts:g.pts};
+    const L={owner:g.opp,name:ntName(season,g.opp),pts:g.oppPts};
+    out.push({kind:'extreme', day, id:`xt:${season}:${lw.week}:${F.k}:${g.o}`,
+      title:rec?`New league record · ${F.label}`:`Top ${MX_TOP} · ${F.label}`,
+      /* a game list is the scoreline; a score list is the team that scored it */
+      art:F.game?ntScore(W,L,F.k==='close'?'apart':'margin',lw.week)
+        :ntStat(g.o,W.name,g.pts.toFixed(1),`vs ${mxAb(g.opp,season)}`,lw.week),
+      body:rec?`The ${F.label.toLowerCase()} in league history.`
+        :`<b>#${x.rk}</b> all-time for ${F.label.toLowerCase()}.`,
+      go:'extremes', goList:F.k});
   });
 }
 /* ── TUESDAY: YOUR GAME, MINUTE BY MINUTE ────────────────────────────────────
@@ -18164,6 +18223,10 @@ function ntDemo(out){
     art:ntStat(o(6),nm(6),'94.6%','peak chance',dw),
     body:'<b>'+nm(1)+'</b> were down to 5.4% on Mon 10:15 PM and won 129.2–128.6.'},
 
+   {kind:'extreme',day:T2,id:'demo:extreme',title:'Top 10 · Biggest blowout',
+    art:ntScore(S(2,168.4),S(9,71.2),'margin',dw),
+    body:'<b>#4</b> all-time for biggest blowout.', go:'extremes', goList:'blow'},
+
    {kind:'graph',day:T2,pin:-1,id:'demo:graph',title:'Your matchup graph',
     art:ntScore(S(0,131.2),S(4,128.6),'margin',dw),
     body:'Check out how week 6 against <b>'+nm(4)+'</b> swung, minute by minute.',
@@ -18452,7 +18515,7 @@ function ntBig4(out){
 }
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -18617,10 +18680,24 @@ function ntVoteMsgHTML(){
     :`<div class="nt-vmsg"><i class="fa fa-circle-check"></i>${_ntVoteMsg.ok}</div>`;
 }
 /* what the button on a card with somewhere to go says */
-const NT_GO={bets:'Open My Bets',graph:'See the graph'};
+const NT_GO={bets:'Open My Bets',graph:'See the graph',extremes:'See the list'};
 function ntGo(where,id){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
   if(where==='graph') ntGoGraph(id);
+  if(where==='extremes') ntGoExtremes(id);
+}
+/* All Matchups, on the list the card is about, scrolled to it. Followed is
+   done, so the card clears -- Undo still has it. */
+function ntGoExtremes(id){
+  const n=ntLive().find(x=>x&&x.id===id);
+  if(n&&n.goList) _mxFactor=n.goList;
+  switchTab('history');
+  if(n){ try{ ntDismiss(n.id); }catch(e){} }
+  setTimeout(()=>{
+    const chip=[...document.querySelectorAll('.sx-chip')].find(c=>/^League/.test(c.textContent.trim()));
+    if(chip){ try{ jumpToSection(chip); return; }catch(e){} }
+    const el=document.getElementById('mx-league-sec'); if(el) el.scrollIntoView({block:'start'});
+  },120);
 }
 /* The Schedule tab with the card's game open on its graph and scrolled to:
    your own schedule for your matchup card, the winner's for a comeback. The

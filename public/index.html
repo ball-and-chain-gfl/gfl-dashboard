@@ -1845,8 +1845,8 @@
     .mx-t-sc{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .mx-t-w{font-size:11px;font-weight:700;color:var(--text3);}
     .mx-t-none{padding:6px 0;font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);}
-    .mx-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px;}
-    @media(min-width:769px){ .mx-chips{grid-template-columns:repeat(6,minmax(0,1fr));} }
+    .mx-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:12px;}
+    @media(min-width:769px){ .mx-chips{grid-template-columns:repeat(4,minmax(0,1fr));} }
     .mx-chip{height:32px;min-width:0;padding:0 6px;border-radius:999px;
       border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);box-shadow:none;
       font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;color:var(--text3);
@@ -1854,6 +1854,8 @@
     .mx-chip:hover{background:rgba(255,255,255,0.07);color:var(--text2);}
     .mx-chip.on.mx-good{background:rgba(74,222,128,0.14);border-color:rgba(74,222,128,0.6);color:#fff;}
     .mx-chip.on.mx-bad{background:rgba(251,113,133,0.12);border-color:rgba(251,113,133,0.6);color:#fff;}
+    /* a game list belongs to neither side, so it takes the page's own colour */
+    .mx-chip.on.mx-neu{background:rgba(var(--accent-rgb),0.15);border-color:rgba(var(--accent-rgb),0.6);color:#fff;}
     .mx-list{display:flex;flex-direction:column;gap:4px;}
     .mx-row{position:relative;isolation:isolate;overflow:hidden;display:grid;
       grid-template-columns:20px 20px auto minmax(0,1fr) auto;gap:8px;align-items:center;
@@ -1862,6 +1864,7 @@
     .mx-row::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--mx-w);z-index:-1;}
     .mx-list.mx-good .mx-row::before{background:rgba(74,222,128,0.11);}
     .mx-list.mx-bad .mx-row::before{background:rgba(251,113,133,0.1);}
+    .mx-list.mx-neu .mx-row::before{background:rgba(var(--accent-rgb),0.12);}
     .mx-me{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.45);}
     .mx-r-rk{font-size:11px;font-weight:800;color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}
     .mx-r-ab{font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;}
@@ -1871,6 +1874,7 @@
     .mx-r-v{font-size:14px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;}
     .mx-list.mx-good .mx-r-v{color:var(--green);}
     .mx-list.mx-bad .mx-r-v{color:var(--red);}
+    .mx-list.mx-neu .mx-r-v{color:var(--accent);}
     @media(max-width:400px){
       .mx-tile{padding:10px 10px;}
       .mx-t-v{font-size:20px;}
@@ -7117,7 +7121,7 @@
   <button class="tab-btn" data-tab="punishment" onclick="switchTab('punishment')"><i class="fa fa-gavel"></i>Punishments</button>
   <button class="tab-btn" data-tab="legacy" data-group="Archive" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>All Matchups</button>
-  <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Profiles</button>
+  <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Data</button>
   <button class="tab-btn" data-tab="tenure" onclick="switchTab('tenure')"><i class="fa fa-user-clock"></i>Player Data</button>
   <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')"><i class="fa fa-clipboard-list"></i>Draft Report</button>
   <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')"><i class="fa fa-right-left"></i>Trades</button>
