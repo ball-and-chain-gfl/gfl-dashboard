@@ -39,7 +39,7 @@ const A = new Function(
 
 /* the app's copy, lifted out of computeCoaching */
 const grab = lifter(new URL('../public/app.js', import.meta.url));
-const src = grab('async function computeCoaching(teams, transactions, weeklyData){');
+const src = grab('async function computeCoaching(teams, transactions, weeklyData, season){');
 const pick = (start, end) => {
   const i = src.indexOf(start); const j = src.indexOf(end, i);
   return src.slice(i, j);

@@ -33,8 +33,8 @@ const ok = (name, got, want) => {
 const head = t => console.log(NL + t);
 const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
-  'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=',
-  'async function computeCoaching(teams, transactions, weeklyData){',
+  'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=', 'const C3_SHARE_FROM=',
+  'async function computeCoaching(teams, transactions, weeklyData, season){',
 ], ['computeCoaching'], 'const TOTAL_WEEKS=17;');
 
 const TEAMS = [1, 2, 3, 4].map(id => ({ id, pf: 1000 }));     // team 4 never claims anybody
@@ -102,6 +102,19 @@ head('what was broken');
    the bidding war 0.1, and the bust exactly the same 0 as claiming nobody */
 ok('cheap claims no longer outscore a good buy by a hundred times', c3(1) / c3(2) < 4, true);
 ok('a bust is now below a team that did nothing', c3(3) < c3(4), true);
+
+head('this season and on, and only this season and on');
+const old = (await M.computeCoaching(TEAMS, TX, WK, 2025)).breakdown;
+/* 2025 is the ratio, pickup by pickup: team 1 30/3 + 5/1 = 15, team 2 60/60 = 1,
+   team 3 0/50 = 0, each ÷ 10 */
+ok('a season before 2026 keeps the ratio it was scored with',
+  [1, 2, 3, 4].map(t => +old[t].c3.toFixed(9)), [1.5, 0.1, 0, 0]);
+ok('and says so, with no league rate or par on it',
+  [old[1].detail.c3Mode, old[1].detail.c3League, old[1].detail.waiverPickups[0].par], ['ratio', undefined, undefined]);
+const now = (await M.computeCoaching(TEAMS, TX, WK, 2026)).breakdown;
+const later = (await M.computeCoaching(TEAMS, TX, WK, '2027')).breakdown;
+ok('2026 and every season after it are scored against the league',
+  [now[1].detail.c3Mode, later[1].detail.c3Mode, near(now[2].c3, 1), near(later[2].c3, 1)], ['share', 'share', true, true]);
 
 head('a league with no pickups');
 const { breakdown: E } = await M.computeCoaching(TEAMS, [], WK);

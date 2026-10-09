@@ -84,7 +84,8 @@ const api = new Function(`
 const TOTAL_WEEKS = 17;
 ${grab('function nflWeekKickoffMs(season,w){')}
 ${grab('const nflSeasonOfMs=')}
-${grab('async function computeCoaching(teams, transactions, weeklyData){')}
+${grab('const C3_SHARE_FROM=')}
+${grab('async function computeCoaching(teams, transactions, weeklyData, season){')}
 ${grab('const txKeyOf=t=>')}
 return { computeCoaching, txKeyOf, nflWeekKickoffMs };
 `)();
@@ -167,6 +168,11 @@ console.log('\n3. THE ONE THIS IS ABOUT — picked up, dropped, picked up again'
     [add(1, 1, 900, 2, 5), add(2, 1, 900, 6, 12)], wk);
   eq('C3 counts each spell once', breakdown[1].detail.c3League.pts, 120);
   eq('and a team holding every pickup is the league average', near(breakdown[1].c3, 0), true);
+  /* a season before 2026 keeps the ratio it was scored with: Σ(points ÷ margin)
+     ÷ 10, uncontested so margin is the full bid -- 30/5 + 90/12 = 13.5, ÷10 */
+  const old = (await api.computeCoaching(TEAMS,
+    [add(1, 1, 900, 2, 5), add(2, 1, 900, 6, 12)], wk, 2025)).breakdown;
+  eq('a 2025 C3 is the ratio it always was', near(old[1].c3, 1.35), true);
 }
 
 console.log('\n4. a bye in the middle is not a departure');

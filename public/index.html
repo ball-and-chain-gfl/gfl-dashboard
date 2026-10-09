@@ -6154,19 +6154,26 @@
        column absorbing the slack. On phones the two secondary columns drop. */
     /* fixed proportional columns: letting the name cell absorb every spare
        pixel left the player marooned on the left with the numbers bunched far
-       to the right. Eight columns since C3 went to par -- Pickup, Wk, Bid, Next,
-       Margin, PTS, Par, C3 -- and every one has a width, because under a fixed
-       layout a column without one was squeezed to nothing: C3 itself, the
-       column the table is for, came out cut off at the edge of a phone. */
+       to the right. These widths space the five columns evenly instead. */
     #stats-c3 table{border-collapse:collapse;background:none;table-layout:fixed;width:100%;}
-    #stats-c3 table th:nth-child(1),#stats-c3 table td:nth-child(1){width:30%;}
-    #stats-c3 table th:nth-child(2),#stats-c3 table td:nth-child(2){width:7%;}
-    #stats-c3 table th:nth-child(3),#stats-c3 table td:nth-child(3){width:10%;}
-    #stats-c3 table th:nth-child(4),#stats-c3 table td:nth-child(4){width:10%;}
-    #stats-c3 table th:nth-child(5),#stats-c3 table td:nth-child(5){width:10%;}
-    #stats-c3 table th:nth-child(6),#stats-c3 table td:nth-child(6){width:11%;}
-    #stats-c3 table th:nth-child(7),#stats-c3 table td:nth-child(7){width:10%;}
-    #stats-c3 table th:nth-child(8),#stats-c3 table td:nth-child(8){width:12%;}
+    #stats-c3 table th:nth-child(1),#stats-c3 table td:nth-child(1){width:36%;}
+    #stats-c3 table th:nth-child(2),#stats-c3 table td:nth-child(2){width:11%;}
+    #stats-c3 table th:nth-child(3),#stats-c3 table td:nth-child(3){width:14%;}
+    #stats-c3 table th:nth-child(6),#stats-c3 table td:nth-child(6){width:22%;}
+    #stats-c3 table th:nth-child(7),#stats-c3 table td:nth-child(7){width:17%;}
+    /* From 2026 the table is scored against par and has eight columns -- Pickup,
+       Wk, Bid, Next, Margin, PTS, Par, C3 -- and every one has a width, because
+       under a fixed layout a column without one was squeezed to nothing: C3
+       itself came out cut off at the edge of a phone. A season before 2026
+       keeps the table and the widths above. */
+    #stats-c3 table.c3-share th:nth-child(1),#stats-c3 table.c3-share td:nth-child(1){width:30%;}
+    #stats-c3 table.c3-share th:nth-child(2),#stats-c3 table.c3-share td:nth-child(2){width:7%;}
+    #stats-c3 table.c3-share th:nth-child(3),#stats-c3 table.c3-share td:nth-child(3){width:10%;}
+    #stats-c3 table.c3-share th:nth-child(4),#stats-c3 table.c3-share td:nth-child(4){width:10%;}
+    #stats-c3 table.c3-share th:nth-child(5),#stats-c3 table.c3-share td:nth-child(5){width:10%;}
+    #stats-c3 table.c3-share th:nth-child(6),#stats-c3 table.c3-share td:nth-child(6){width:11%;}
+    #stats-c3 table.c3-share th:nth-child(7),#stats-c3 table.c3-share td:nth-child(7){width:10%;}
+    #stats-c3 table.c3-share th:nth-child(8),#stats-c3 table.c3-share td:nth-child(8){width:12%;}
     #stats-c3 table th:not(:first-child),#stats-c3 table td:not(:first-child){
       white-space:nowrap;text-align:right;}
     #stats-c3 table td:first-child{overflow:hidden;text-overflow:ellipsis;}
@@ -6183,13 +6190,13 @@
       #stats-c3 .tscroll{overflow-x:visible;}
       #stats-c3 .tscroll table{min-width:0;}
       #stats-c3 table td.mhide,#stats-c3 table th.mhide{display:none!important;}
-      /* Wk and Margin drop on a phone (data-mhide); the six left share it all */
-      #stats-c3 table th:nth-child(1),#stats-c3 table td:nth-child(1){width:34%;}
-      #stats-c3 table th:nth-child(3),#stats-c3 table td:nth-child(3){width:13%;}
-      #stats-c3 table th:nth-child(4),#stats-c3 table td:nth-child(4){width:12%;}
-      #stats-c3 table th:nth-child(6),#stats-c3 table td:nth-child(6){width:13%;}
-      #stats-c3 table th:nth-child(7),#stats-c3 table td:nth-child(7){width:12%;}
-      #stats-c3 table th:nth-child(8),#stats-c3 table td:nth-child(8){width:16%;}
+      /* from 2026 Wk and Margin drop on a phone (data-mhide); the six left share it */
+      #stats-c3 table.c3-share th:nth-child(1),#stats-c3 table.c3-share td:nth-child(1){width:34%;}
+      #stats-c3 table.c3-share th:nth-child(3),#stats-c3 table.c3-share td:nth-child(3){width:13%;}
+      #stats-c3 table.c3-share th:nth-child(4),#stats-c3 table.c3-share td:nth-child(4){width:12%;}
+      #stats-c3 table.c3-share th:nth-child(6),#stats-c3 table.c3-share td:nth-child(6){width:13%;}
+      #stats-c3 table.c3-share th:nth-child(7),#stats-c3 table.c3-share td:nth-child(7){width:12%;}
+      #stats-c3 table.c3-share th:nth-child(8),#stats-c3 table.c3-share td:nth-child(8){width:16%;}
       #stats-c3 table th,#stats-c3 table td{padding-left:2px!important;padding-right:4px!important;}
       #stats-c3 table td:first-child{padding-right:2px!important;}
       #stats-c3 .pname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}

@@ -1143,9 +1143,14 @@ const nflSeasonOfMs=ms=>{ const d=new Date(ms); return d.getUTCFullYear()-(d.get
 // C2: for every completed trade, Σ ALL points scored by each received player
 //     from the first week he played for his new team onward, minus the same
 //     for sent players. ÷ 10
-// C3: LINEUP points the team's waiver/FA adds scored, minus what the league's
-//     adds score for the same margin (bid − next-highest bid, $1 floor). ÷ 10
-async function computeCoaching(teams, transactions, weeklyData){
+// C3: from 2026, LINEUP points the team's waiver/FA adds scored, minus what the
+//     league's adds score for the same margin (bid − next-highest bid, $1
+//     floor). ÷ 10. Before 2026, Σ (lineup points ÷ margin) per add. ÷ 10
+/* The season the league-relative C3 starts with. Every season before it was
+   scored with the ratio and keeps it -- a new rule is not a reason to rewrite
+   what an old season's C3 said. */
+const C3_SHARE_FROM=2026;
+async function computeCoaching(teams, transactions, weeklyData, season){
   const leagueAvgPF=teams.reduce((s,t)=>s+t.pf,0)/(teams.length||1);
   const weeks=Object.keys(weeklyData).map(Number).filter(n=>!isNaN(n));
   const maxWeek=weeks.length?Math.max(...weeks):TOTAL_WEEKS;
@@ -1473,16 +1478,26 @@ async function computeCoaching(teams, transactions, weeklyData){
       pool.push({tid,row:{pid:a.pid,week:a.week,bid:a.bid,next,margin,pts:lpts,est:a.est}});
     });
   });
+  /* FROM 2026 ON, AND ONLY FROM 2026 ON. A season before it is scored the way
+     it always was, pickup by pickup, points ÷ margin -- the same sum in the
+     same order, so its numbers come out to the digit. Called without a
+     season it is the rule in force now. */
+  const shareC3=season==null||Number(season)>=C3_SHARE_FROM;
   const lgPts=pool.reduce((s,p)=>s+p.row.pts,0);
   const lgMargin=pool.reduce((s,p)=>s+p.row.margin,0);
   const rate=lgMargin>0?lgPts/lgMargin:0;
   pool.forEach(({tid,row})=>{
-    row.par=rate*row.margin;
-    row.c3=(row.pts-row.par)/10;
-    c3[tid]+=row.c3;
+    if(shareC3){
+      row.par=rate*row.margin;
+      row.c3=(row.pts-row.par)/10;
+      c3[tid]+=row.c3;
+    }else c3[tid]+=(row.pts/row.margin)/10;
     detail[tid].waiverPickups.push(row);
   });
-  teams.forEach(t=>{ detail[t.id].c3League={pts:lgPts,margin:lgMargin,rate}; });
+  teams.forEach(t=>{
+    detail[t.id].c3Mode=shareC3?'share':'ratio';
+    if(shareC3) detail[t.id].c3League={pts:lgPts,margin:lgMargin,rate};
+  });
 
   // Z-score standardize
   const raw={};
@@ -1808,6 +1823,9 @@ function renderC3Breakdown(){
   const t=_teams.find(x=>x.id===Number(_c3Team));
   const bd=_cmBreakdown[t?.id]||{};
   const d=bd.detail||{};
+  /* a season before 2026 was scored by the ratio, and shows the table it was
+     scored by */
+  if(d.c3Mode!=='share'){ renderC3Ratio(el,t,bd,opts); return; }
   /* the league's rate, and each pickup's par off it -- the breakdown carries
      both, and anything older than that is worked out from the same totals */
   const lg=d.c3League||{}, rate=Number(lg.rate)||0;
@@ -1825,7 +1843,7 @@ function renderC3Breakdown(){
     </div>
     ${t?`<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
-      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Wk,Margin">
+      ${picks.length?`<div class="tscroll"><table class="min560 srt c3-share" style="margin-top:4px" data-mhide="Wk,Margin">
         <!-- Next stays on a phone. It was in data-mhide, so the runner-up bid —
              the whole reason the ratio is what it is — was desktop-only, and on
              the screen this league actually reads the table on it looked like
@@ -1845,6 +1863,33 @@ function renderC3Breakdown(){
       </table></div>
       <div class="brk-formula">(${myPts.toFixed(1)} pts − $${myMar} × ${rate.toFixed(3)}) ÷ 10 = <b style="color:${cc(bd.c3)}">${(bd.c3||0).toFixed(2)}</b></div>`
       :'<div class="brk-empty">No waiver pickups for this team this season.</div>'}
+    </div>`:''}`;
+}
+/* The Waiver ROI table for a season before 2026, exactly as it was: each
+   pickup's lineup points over its margin, and C3 the sum of those ÷ 10. */
+function renderC3Ratio(el,t,bd,opts){
+  const d=bd.detail||{};
+  const picks=(d.waiverPickups||[]).slice().sort((a,b)=>b.pts/Math.max(b.margin??b.bid,1)-a.pts/Math.max(a.margin??a.bid,1));
+  el.innerHTML=`
+    <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C3</b> = lineup points each waiver pickup scored, divided by what it cost to win the bid.</div>
+    <div class="picker-bar" style="padding:0 2px 14px">
+      <label for="c3-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
+      <select id="c3-team-select" onchange="_c3Team=this.value;renderC3Breakdown()">${opts}</select>
+    </div>
+    ${t?`<div class="hist-item">
+      <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
+      ${picks.length?`<div class="tscroll"><table class="min560 srt" style="margin-top:4px" data-mhide="Margin">
+        <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">PTS</th><th class="right">Ratio</th></tr></thead>
+        <tbody>${picks.map(w=>{const mar=Math.max(w.margin??w.bid,1);return `<tr>
+          <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span>${w.est?'<span class="est-tag" style="color:var(--text3);font-size:12px"> est.</span>':''}</span></td>
+          <td class="right">${w.week}</td>
+          <td class="right">$${w.bid}</td>
+          <td class="right" style="color:var(--text3)">${w.next>0?('$'+w.next):'$0'}</td>
+          <td class="right">$${mar}</td>
+          <td class="right pf">${w.pts.toFixed(1)}</td>
+          <td class="right" style="font-weight:600">${(w.pts/mar).toFixed(2)}x</td>
+        </tr>`;}).join('')}</tbody>
+      </table></div>`:'<div class="brk-empty">No waiver pickups for this team this season.</div>'}
     </div>`:''}`;
 }
 // ── LINEUP IQ ────────────────────────────────────────────────────────────────
@@ -23492,14 +23537,14 @@ async function loadDashboard(){
       });
     }else{
       _cmMode=txReconstructed?'inferred':'transactions';
-      const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData);
+      const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData,season);
       _scores=scores;_breakdown=breakdown;
     }
     _transactions=transactions;
 
     // Always compute the full C2/C3 breakdown (with per-player detail) for the
     // Trade ROI / Waiver ROI tables — even when the headline CM score is official.
-    try{ _cmBreakdown=(await computeCoaching(_teams,transactions,weeklyData)).breakdown; }catch{ _cmBreakdown={}; }
+    try{ _cmBreakdown=(await computeCoaching(_teams,transactions,weeklyData,season)).breakdown; }catch{ _cmBreakdown={}; }
     /* Which season those pickups belong to. The sportsbook's week board is on
        the season being played next, which is not always the season showing
        here, and a week-1 FAAB bid from a different year is not a week-1 FAAB
