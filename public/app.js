@@ -17113,6 +17113,7 @@ const NT_KINDS={
   pvp:    {icon:'fa-user-group',   tone:'royal'},
   graph:  {icon:'fa-chart-line',   tone:'cool'},
   bighit: {icon:'fa-sack-dollar',  tone:'gold'},
+  comeback:{icon:'fa-arrow-trend-up',tone:'hot'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -17405,6 +17406,77 @@ function ntFromWeek(out){
         art:ntScore(W,L,'margin',lw.week),
         body:`<b>#${wr}</b> beat <b>#${lr}</b>`});
     }
+  });
+}
+/* ── A BIG COMEBACK ──────────────────────────────────────────────────────────
+   Any game in the week just finished where the team that LOST was 90% or
+   better to win at some point -- before kickoff included -- gets a card for
+   everybody, leading with that peak: the loser's best chance at any minute,
+   and when it was. The winner is the line underneath, down to the other side
+   of that number and winning anyway.
+
+   THE SAME CURVE THE GRAPH DRAWS. The series, the projections and the
+   opening number are exactly what the Schedule's 'How it was won' drawer
+   hands wpCurve, so the percentage on the card is a point on the line the
+   button opens. The final reading is the result rather than a chance and is
+   left out of the peak.
+
+   The week's series is fetched if it is not in hand -- archive file first,
+   then the live document -- at most every five minutes, and the cards
+   appear when it lands. The six curves are worked out once per series. */
+const NT_COMEBACK_AT=0.9;
+let _ntCbTry={}, _ntCbMemo={key:'',out:null};
+function ntComebacks(out){
+  const season=ntSeason(); if(!season) return;
+  const lw=ntLastWeek(season); if(!lw) return;
+  if(!ntResultsFresh(season,lw.week)) return;
+  const key=season+'-w'+lw.week;
+  const series=wpSeriesFor(season,lw.week);
+  if(!series){
+    if(Date.now()-(_ntCbTry[key]||0)>300000){
+      _ntCbTry[key]=Date.now();
+      wpEnsureSeries(season,lw.week).then(()=>{
+        if(wpSeriesFor(season,lw.week)&&_activeTab==='home'){
+          try{ renderNotifications(); orderHomeTodo(); }catch(e){} } });
+    }
+    return;
+  }
+  const memo=key+'|'+Object.values(series).reduce((n,a)=>n+((a&&a.length)||0),0);
+  if(_ntCbMemo.key!==memo){
+    const rows=(()=>{ try{ const b=sbBuild(); return b?b.rows:[]; }catch(e){ return []; } })();
+    const proj={}; rows.forEach(r=>{ proj[r.owner]=r.ppg; });
+    const rowOf=o=>rows.find(r=>r.owner===o)||null;
+    const owners=lw.meta.owners||{};
+    const found=[];
+    lw.games.forEach(mu=>{
+      const hp=mu.home.totalPoints||0, ap=mu.away.totalPoints||0;
+      if(hp===ap) return;
+      const ho=owners[mu.home.teamId], ao=owners[mu.away.teamId];
+      if(!ho||!ao||ho===ao) return;
+      const win=hp>ap?ho:ao, lose=hp>ap?ao:ho;
+      let pts=[];
+      try{ pts=wpCurve(series,proj,lose,win,schedOpenMu(rowOf(lose),rowOf(win),lw.week),
+        (series===_liveSeries)?_liveProj:null,true); }catch(e){ return; }
+      let pk=-1, at=-1;
+      pts.forEach((p,i)=>{ if(!p.done&&p.p>pk){ pk=p.p; at=i; } });
+      if(pk>=NT_COMEBACK_AT) found.push({win,lose,wp:Math.max(hp,ap),lp:Math.min(hp,ap),
+        peak:pk, t:at>0?pts[at].t:0,
+        winTeam:Number(hp>ap?mu.home.teamId:mu.away.teamId)});
+    });
+    _ntCbMemo={key:memo,out:found};
+  }
+  const day=ntWeekResultsDay(season,lw.week);
+  _ntCbMemo.out.forEach(c=>{
+    const wn=ntName(season,c.win);
+    /* when, in the reader's own clock; the opening number is before kickoff */
+    const when=c.t>0
+      ?'on '+new Date(c.t*60000).toLocaleString(undefined,{weekday:'short',hour:'numeric',minute:'2-digit'})
+      :'before kickoff';
+    out.push({kind:'comeback', day, id:`cb:${season}:${lw.week}:${c.lose}`,
+      title:'Big comeback',
+      art:ntStat(c.lose,ntName(season,c.lose),`${(c.peak*100).toFixed(1)}%`,'peak chance',lw.week),
+      body:`<b>${wn}</b> were down to ${((1-c.peak)*100).toFixed(1)}% ${when} and won ${c.wp.toFixed(1)}–${c.lp.toFixed(1)}.`,
+      go:'graph', goWeek:lw.week, goOpp:c.lose, goTeam:c.winTeam});
   });
 }
 /* ── TUESDAY: YOUR GAME, MINUTE BY MINUTE ────────────────────────────────────
@@ -18046,6 +18118,10 @@ function ntDemo(out){
       +'<div class="nt-leg"><span class="nt-leg-p">Over 241.5</span><span class="nt-leg-o">+140</span></div></div></div>',
     body:'A 4-leg parlay at +4200.'},
 
+   {kind:'comeback',day:T2,id:'demo:comeback',title:'Big comeback',
+    art:ntStat(o(6),nm(6),'94.6%','peak chance',dw),
+    body:'<b>'+nm(1)+'</b> were down to 5.4% on Mon 10:15 PM and won 129.2–128.6.'},
+
    {kind:'graph',day:T2,pin:-1,id:'demo:graph',title:'Your matchup graph',
     art:ntScore(S(0,131.2),S(4,128.6),'margin',dw),
     body:'Check out how week 6 against <b>'+nm(4)+'</b> swung, minute by minute.',
@@ -18334,7 +18410,7 @@ function ntBig4(out){
 }
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -18500,16 +18576,19 @@ function ntVoteMsgHTML(){
 }
 /* what the button on a card with somewhere to go says */
 const NT_GO={bets:'Open My Bets',graph:'See the graph'};
-function ntGo(where){
+function ntGo(where,id){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
-  if(where==='graph') ntGoGraph();
+  if(where==='graph') ntGoGraph(id);
 }
-/* The Schedule tab, on the signed-in manager's own schedule, with last week's
-   drawer already open on its graph and scrolled to. The card has done its job
-   once it has been followed, so it clears -- Undo still has it. */
-function ntGoGraph(){
-  const n=ntLive().find(x=>x&&x.kind==='graph');
-  if(_me&&_me.teamId){ _schedTeam=String(_me.teamId); _schedOpenKey=null; }
+/* The Schedule tab with the card's game open on its graph and scrolled to:
+   your own schedule for your matchup card, the winner's for a comeback. The
+   card has done its job once it has been followed, so it clears -- Undo
+   still has it. Called with the card's id; without one it is the matchup
+   card, which is all there was when this was written. */
+function ntGoGraph(id){
+  const n=ntLive().find(x=>x&&(id?x.id===id:x.kind==='graph'));
+  const team=(n&&n.goTeam)||(_me&&_me.teamId);
+  if(team){ _schedTeam=String(team); _schedOpenKey=null; }
   switchTab('week');
   if(n){ try{ ntDismiss(n.id); }catch(e){} }
   if(!n||!n.goWeek) return;
@@ -18703,7 +18782,7 @@ function renderNotifications(){
               :'<i class="fa fa-check"></i>Submit'}</button>`}
         ${needVote&&!picked?`<div class="nt-voted"><i class="fa fa-hand-pointer"></i>Pick a side — this one does not clear until you do.</div>`:''}
         ${total?`<div class="nt-vn">${total} vote${total===1?'':'s'} in</div>`:''}`;})():''}
-      ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}')">${NT_GO[n.go]||'Open'} <i class="fa fa-arrow-right"></i></button>`:''}
+      ${n.go?`<button class="nt-go" onclick="ntGo('${n.go}','${String(n.id).replace(/[^A-Za-z0-9:{}_-]/g,'')}')">${NT_GO[n.go]||'Open'} <i class="fa fa-arrow-right"></i></button>`:''}
       ${n.claim?`<button class="nt-go" onclick="ntClaimBk()">
         <i class="fa fa-gift"></i>${n.claim.label}</button>
         ${_bkFixErr?`<div class="nt-voted"><i class="fa fa-triangle-exclamation"></i>${_bkFixErr}</div>`:''}`:''}
