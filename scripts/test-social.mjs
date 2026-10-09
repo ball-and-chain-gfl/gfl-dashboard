@@ -36,7 +36,7 @@ const M = assemble(grab, [
   'function sbSocialItems(){', 'function sbSocialAgo(t){', 'function sbSocialHTML(){',
 ], ['sbSocialItems', 'sbSocialHTML', 'sbSocialNow', 'sbSocialWeekAt', 'setBets', 'setRows', 'setFilter', 'setN',
   'setPlayed'], [
-  'let _betsAll=null, _pkBetsLast=null, _cpRows=[];',
+  'let _betsAll=null, _cpRows=[]; const betsNear=()=>_betsAll;',
   'let _sbSocialRows=null;',
   'const setBets=b=>{_betsAll=b;}; const setRows=r=>{_cpRows=r;};',
   "const TEST_PROFILE='test';",

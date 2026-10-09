@@ -35,9 +35,9 @@ const GAMES = [
 
 head('the money on each side');
 const MONEY = assemble(grab, [
-  'const pkFixKey=', 'let _pkBetsLast=null,_pkBetsTry=0;', 'function pkMoney(games,week){',
+  'const pkFixKey=', 'function pkMoney(games,week){',
 ], ['pkMoney', 'setBets'], [
-  'let _betsAll=null;',
+  'let _betsAll=null; const betsNear=()=>_betsAll;',
   'const setBets=b=>{_betsAll=b;};',
   'const sbSeason=()=>2026;',
   'const betsAfterReset=b=>Number(b.ts||0)>=100;',
@@ -120,7 +120,7 @@ const H = assemble(grab, ['const pkFixKey=', 'const pkCash=', 'function pkLeague
   'let _teams=[{id:10,name:"The Bryan Football Team",abbrev:"BFT"},{id:5,name:"Florida Man",abbrev:"FMAN"},{id:1,name:"Marathon Men",abbrev:"MM"},{id:6,name:"Team silly willy",abbrev:"DORM"},{id:12,name:"West Coast Wigglers",abbrev:"WGLR"}];',
   'let _locked=false, _money=null;',
   'const setLocked=v=>{_locked=v;}; const setMoney=v=>{_money=v;};',
-  'const pkLocked=()=>_locked; const pkBetsWant=()=>{};',
+  'const pkLocked=()=>_locked; const betsNearWant=()=>{};',
   'const pkLeaguePicks=()=>({by:{"5-10":{"10":[10,6],"5":[5]},"1-6":{"6":[10,6,1]}},pickers:new Set([10,6,5,1])});',
   'const pkMoney=()=>_money;',
   'const bucks2=v=>Math.round((Number(v)||0)*100)/100; const bucksCents=v=>bucks2(v).toFixed(2);',

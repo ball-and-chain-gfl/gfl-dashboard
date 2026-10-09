@@ -26,14 +26,15 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 
 const DAY = 86400000, NOW = Date.UTC(2026, 9, 8, 15);
 const M = assemble(grab, [
-  'const NT_KINDS=', 'const NT_BIG_HIT=', 'const NT_BIG_HIT_FOR=', 'let _ntBetsTry=',
-  'function ntBetsWant(){', 'function ntBigHits(out){',
+  'const NT_KINDS=', 'const NT_BIG_HIT=', 'const NT_BIG_HIT_FOR=',
+  'function ntBigHits(out){',
 ], ['NT_KINDS', 'ntBigHits', 'setBets', 'setMe', 'asked'], [
   `Date.now=()=>${NOW};`,
   'let _me={k1:"bft"}; const setMe=m=>{_me=m;};',
-  'let _betsAll=null, _pkBetsLast=null, _betsAllBusy=false; const setBets=b=>{_betsAll=b;};',
-  'let _asked=0; const asked=()=>_asked; const betLeague=()=>{ _asked++; return new Promise(()=>{}); };',
-  'const BETS_ALL_TTL=120000; let _activeTab="home";',
+  'let _betsAll=null; const setBets=b=>{_betsAll=b;}; const betsNear=()=>_betsAll;',
+  /* how often it asks is test-betsnear's business: here, only whether */
+  'let _asked=0; const asked=()=>_asked; const betsNearWant=()=>{ _asked++; };',
+  'let _activeTab="home";',
   "const TEST_PROFILE='test';",
   'const sbSeason=()=>2026;',
   'const betsAfterReset=b=>Number(b.ts||0)>=100;',
@@ -105,12 +106,11 @@ ok('a single says so', out.find(c => c.id === 'bh:just').body, 'A single at +100
 head('reading the league');
 M.setBets(null);
 out = []; M.ntBigHits(out);
-ok('no bets in hand: no cards, and they are asked for', [out.length, M.asked()], [0, 1]);
-M.ntBigHits([]);
-ok('but not again inside two minutes', M.asked(), 1);
+ok('no bets in hand: no cards, and the two weeks are asked for', [out.length, M.asked() > 0], [0, true]);
+const before = M.asked();
 M.setMe(null);
 out = []; M.ntBigHits(out);
-ok('nobody signed in: nothing asked, nothing shown', [out.length, M.asked()], [0, 1]);
+ok('nobody signed in: nothing asked, nothing shown', [out.length, M.asked()], [0, before]);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

@@ -45,6 +45,8 @@ jobs:
         run: node scripts/test-ntgraph.mjs
       - name: the big win notification
         run: node scripts/test-bighit.mjs
+      - name: the homepage reads two weeks of bets, and only when somebody arrives
+        run: node scripts/test-betsnear.mjs
       - name: waiver ROI scored against the league
         run: node scripts/test-c3-share.mjs
       - name: trade and waiver ROI rankings

@@ -854,8 +854,10 @@ function switchTab(name){
   if(name==='home'){ wireVidRail(); try{ renderForecastCard(); }catch(e){}
     try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){}
     /* idempotent — _betsInit makes this free once they are in */
-    try{ betsEnsure(); }catch(e){} }
-  if(name==='book'){ renderBook(); initBets(); } else if(typeof sbShowPortal==='function') sbShowPortal(false);
+    try{ betsEnsure(); }catch(e){}
+    try{ betsNearFresh(); }catch(e){} }
+  if(name==='book'){ renderBook(); initBets();
+    try{ if(_sbView==='social') sbSocialFresh(); else betsNearFresh(); }catch(e){} } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
     // switchTab clears .active from every .tab-btn on the page
@@ -15468,11 +15470,14 @@ async function betRefresh(){
    money and it has no business outliving the tab. Keyed by season so January
    cannot serve December's board.
 
-   TWO MINUTES, because the staleness this buys is somebody ELSE's bet not
+   TEN MINUTES, because the staleness this buys is somebody ELSE's bet not
    showing up yet. Anything written from this tab drops the cache outright —
    betRefresh is the single funnel every placement, acceptance and cash-out goes
-   through — so your own money is never the thing that looks wrong. */
-const BETS_ALL_TTL=120000;
+   through — so your own money is never the thing that looks wrong. It was two,
+   and every reload past two minutes paid for the whole season again; the
+   Leaderboards say how old their copy is and carry a refresh button for
+   anybody who wants it newer. */
+const BETS_ALL_TTL=10*60*1000;
 const betsAllKey=()=>`gfl:betsAll:${sbSeason()}`;
 function betsAllCached(){
   try{
@@ -15493,6 +15498,9 @@ function betsAllStore(rows){
 function betsAllDrop(){
   _betsAll=null;
   try{ sessionStorage.removeItem(betsAllKey()); }catch(e){}
+  /* the homepage's two weeks too -- kept on screen, but asked for again */
+  _betsNearStale=true;
+  try{ sessionStorage.removeItem(betsNearStoreKey()); }catch(e){}
 }
 /* when the stored copy was taken, so a board can say how old it is rather than
    leaving somebody to guess whether they are looking at live money */
@@ -15517,6 +15525,99 @@ async function betLeague(){
   _betsAllBusy=false;
   return _betsAll;
 }
+
+/* ── THE HOMEPAGE ASKS FOR TWO WEEKS, AND ONLY WHEN SOMEBODY DOES SOMETHING ──
+   The money on the picks slate, the Big win cards and the Social feed each
+   read the WHOLE season's bets -- 223 documents by week 5, forty-odd more a
+   week -- and read them again whenever their copy was over two minutes old.
+   None of them had a timer. They asked when they were drawn, and during a
+   game they are drawn all the time: every live beat refreshes the NFL
+   digest, the digest landing repaints the picks, and the picks asked again.
+   Thirty full reads an hour, about 6,700 documents, for every homepage left
+   open through a game. Thursday night's game ran the day's 50,000 out with
+   it, and My Bets -- a read like any other -- went down with everything else.
+
+   Two changes. All three only ever look at this week and last -- the money is
+   on this week's slate, Social is this week, a Big win is news for seven
+   days -- so they ask for bets stamped with those two bucks weeks and nothing
+   older: a few dozen documents however long the season runs. Leaderboards and
+   Team Data still read the season, because they genuinely need it.
+
+   And drawing something never refreshes it. A render asks only when there is
+   nothing in hand at all (or this tab has just written a bet). The copy is
+   refreshed when somebody DOES something -- opens the homepage or the
+   sportsbook, comes back to the app -- and then only if it is ten minutes old.
+   Another manager's bet can take that long to show on the slate; your own
+   never does. */
+const BETS_NEAR_TTL=10*60*1000;
+let _betsNear=null,_betsNearAt=0,_betsNearBusy=false,_betsNearTry=0,_betsNearStale=false;
+/* this bucks week and the one before, exactly as sbPlaceBet stamps a ticket */
+function betsNearKeys(now=new Date()){
+  const cur=bucksWeekKey(now), prev=bucksWeekKey(new Date(tueWeekStart(now)-1));
+  return cur===prev?[cur]:[cur,prev];
+}
+const betsNearStoreKey=()=>`gfl:betsNear:${bucksWeekKey()}`;
+/* a reload inside the ten minutes paints from the tab's stored copy */
+function betsNearWarm(){
+  if(_betsNear) return;
+  try{
+    const j=JSON.parse(sessionStorage.getItem(betsNearStoreKey())||'null');
+    if(j&&Array.isArray(j.rows)&&Date.now()-(Number(j.t)||0)<BETS_NEAR_TTL){
+      _betsNear=j.rows; _betsNearAt=Number(j.t)||0; }
+  }catch(e){}
+}
+async function betNear(){
+  if(_betsNearBusy||_fsQuota) return _betsNear;
+  _betsNearBusy=true;
+  try{
+    const rows=await betQuery({fieldFilter:{field:{fieldPath:'wk'},op:'IN',
+      value:{arrayValue:{values:betsNearKeys().map(v=>({stringValue:v}))}}}});
+    if(rows){
+      _betsNear=rows; _betsNearAt=Date.now();
+      try{ sessionStorage.setItem(betsNearStoreKey(),JSON.stringify({t:_betsNearAt,rows})); }catch(e){}
+    }
+  }catch(e){}
+  _betsNearBusy=false;
+  return _betsNear;
+}
+/* What to draw from. The season's copy holds every bet the two weeks do, so
+   when a Leaderboards visit has left a newer one in hand, that answers. */
+function betsNear(){
+  if(_betsAll&&(!_betsNear||betsAllAt()>=_betsNearAt)) return _betsAll;
+  return _betsNear;
+}
+function betsNearAge(){
+  return Date.now()-Math.max(_betsNearAt,_betsAll?betsAllAt():0);
+}
+/* everything drawn from it, repainted once when a read lands */
+function betsNearPaint(){
+  try{ if(_pkRevealed&&document.getElementById('pk-body')) renderWeekPicks(); }catch(e){}
+  try{ if(_activeTab==='home'){ renderNotifications(); orderHomeTodo(); } }catch(e){}
+  try{ if(_activeTab==='book'&&_sbView==='social') renderBook(); }catch(e){}
+}
+/* A failed read is not retried inside a minute, or a render loop during a
+   game would turn one dropped connection into a request every ten seconds.
+   A write of our own goes straight through. */
+function betsNearGo(){
+  if(_betsNearBusy||_fsQuota) return;
+  if(!_betsNearStale&&Date.now()-_betsNearTry<60000) return;
+  _betsNearTry=Date.now(); _betsNearStale=false;
+  betNear().then(betsNearPaint);
+}
+/* from a render: only if there is nothing to draw, or we just wrote */
+function betsNearWant(){
+  betsNearWarm();
+  if(!betsNear()||_betsNearStale) betsNearGo();
+}
+/* from somebody arriving: and also if what is in hand is ten minutes old */
+function betsNearFresh(){
+  betsNearWarm();
+  if(!betsNear()||_betsNearStale||betsNearAge()>BETS_NEAR_TTL) betsNearGo();
+}
+if(typeof document!=='undefined') document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&(_activeTab==='home'||_activeTab==='book'))
+    try{ betsNearFresh(); }catch(e){}
+});
 
 async function sbPlaceBet(){
   if(!_me){ openSignIn(); return; }
@@ -16839,10 +16940,8 @@ function pkLeaguePicks(games,mine){
 }
 /* what is riding on each side: {fixKey:{teamId:{straight,nS,parlay,nP}}},
    or null while the league's bets have not landed */
-let _pkBetsLast=null,_pkBetsTry=0;
 function pkMoney(games,week){
-  const all=_betsAll||_pkBetsLast; if(!all) return null;
-  if(_betsAll) _pkBetsLast=_betsAll;
+  const all=betsNear(); if(!all) return null;
   const info=_liveInfo||liveWeekInfo();
   const owners=(info&&info.meta&&info.meta.owners)||{};
   const tidOf={}; Object.entries(owners).forEach(([tid,o])=>{ if(o) tidOf[o]=Number(tid); });
@@ -16870,18 +16969,9 @@ function pkMoney(games,week){
   });
   return out;
 }
-/* the league's bets, asked for once and then at most every two minutes --
-   the same window the stored copy is kept for */
-function pkBetsWant(){
-  const fresh=_betsAll&&Date.now()-betsAllAt()<BETS_ALL_TTL;
-  if(fresh||_betsAllBusy||Date.now()-_pkBetsTry<60000) return;
-  _pkBetsTry=Date.now();
-  if(_betsAll){ _pkBetsLast=_betsAll; _betsAll=null; }
-  betLeague().then(()=>{ try{ if(_pkRevealed) renderWeekPicks(); }catch(e){} });
-}
 let _pkRevealed=false;
 function pkLeagueHTML(games,order,picks,motw,wk){
-  pkBetsWant();
+  betsNearWant();
   const {by,pickers}=pkLeaguePicks(games,picks);
   const money=pkMoney(games,wk);
   const team=id=>_teams.find(t=>t.id===Number(id))||{id:Number(id),name:''};
@@ -18049,23 +18139,16 @@ function ntPvp(out){
 
    NEWS FOR A WEEK from when it settled, then it is the Social tab's to keep.
    Dated to the day it settled, so a Tuesday's results sit in with the rest of
-   that Tuesday. The league's bets are the ones the picks and Social already
-   read, asked for at most every two minutes and only for somebody signed in --
+   that Tuesday. The bets are the two weeks the picks and Social already read
+   (see THE HOMEPAGE ASKS FOR TWO WEEKS), and only for somebody signed in --
    nobody else has a stack to put it in. */
 const NT_BIG_HIT=100;
 const NT_BIG_HIT_FOR=7*86400000;
-let _ntBetsTry=0;
-function ntBetsWant(){
-  if(!_me||_betsAll||_betsAllBusy||Date.now()-_ntBetsTry<BETS_ALL_TTL) return;
-  _ntBetsTry=Date.now();
-  betLeague().then(()=>{ if(_activeTab==='home'){
-    try{ renderNotifications(); orderHomeTodo(); }catch(e){} } });
-}
 function ntBigHits(out){
   if(!_me) return;
-  ntBetsWant();
+  betsNearWant();
   const season=String(sbSeason()), now=Date.now();
-  const bets=(_betsAll||_pkBetsLast||[]).filter(b=>b&&String(b.season||'')===season
+  const bets=(betsNear()||[]).filter(b=>b&&String(b.season||'')===season
     &&b.owner!==TEST_PROFILE&&betsAfterReset(b));
   const byId={}; bets.forEach(b=>{ byId[b.id]=b; });
   const groups={};
@@ -22469,6 +22552,7 @@ function sbShowPortal(on){
 }
 function sbSetView(v){ _sbView=v;
   document.querySelectorAll('#sb-tabs .sb-utab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  if(v==='social') try{ sbSocialFresh(); }catch(e){}
   renderBook();
 }
 function sbToggleSlip(open){
@@ -23455,25 +23539,31 @@ function invPortfolioHTML(){
    short or a cover, of a team, a fund or a coin -- read off the profile rows
    the homepage already lists. Nothing new is stored for any of this.
 
-   Both sources are asked for again at most every two minutes while the feed
-   is open, the same window the league's bets are cached for. */
+   Neither is asked for again just because the feed was drawn -- it is drawn
+   every forty-five seconds during a game. The bets are the homepage's two
+   weeks; the profile rows are refreshed when somebody opens the feed, and
+   only if they are ten minutes old. */
 const SB_SOCIAL_PAGE=40;
 let _sbSocialN=SB_SOCIAL_PAGE, _sbSocialF='all', _sbSocialTry=0;
 /* its own copy of the profile rows: the league-wide _cpRows has rules about
    who may replace it (every path that does must repaint Standings), and a
    feed refreshing its trades is not a reason to go through them */
 let _sbSocialRows=null;
+function sbSocialRowsGo(){
+  if(_profFlight||_fsQuota||Date.now()-_sbSocialTry<60000) return;
+  _sbSocialTry=Date.now();
+  gflListProfiles(true).then(rows=>{ if(rows){ _sbSocialRows=rows;
+    try{ if(_activeTab==='book'&&_sbView==='social') renderBook(); }catch(e){} } });
+}
+/* from the render: only what is not in hand at all */
 function sbSocialWant(){
-  const now=Date.now();
-  if(now-_sbSocialTry<60000) return;
-  _sbSocialTry=now;
-  const repaint=()=>{ try{ if(_activeTab==='book'&&_sbView==='social') renderBook(); }catch(e){} };
-  if((!_betsAll||now-betsAllAt()>BETS_ALL_TTL)&&!_betsAllBusy){
-    if(_betsAll){ _pkBetsLast=_betsAll; _betsAll=null; }
-    betLeague().then(repaint);
-  }
-  if((!_profRows||now-_profAt>BETS_ALL_TTL)&&!_profFlight)
-    gflListProfiles(true).then(rows=>{ if(rows){ _sbSocialRows=rows; repaint(); } });
+  betsNearWant();
+  if(!_sbSocialRows&&!(_cpRows||[]).length) sbSocialRowsGo();
+}
+/* from somebody opening the feed */
+function sbSocialFresh(){
+  betsNearFresh();
+  if(!_profRows||Date.now()-_profAt>BETS_NEAR_TTL) sbSocialRowsGo();
 }
 /* ── THE FEED IS THIS WEEK ─────────────────────────────────────────────────
    Only the week being played -- the week the board is on, the first one not
@@ -23508,7 +23598,7 @@ const SB_SOCIAL_VERB={b:'Bought',s:'Sold',so:'Shorted',sc:'Covered'};
 function sbSocialItems(){
   const season=String(sbSeason());
   const cur=sbSocialNow(), at=t=>sbSocialWeekAt(season,Number(t)||0,cur);
-  const bets=(_betsAll||_pkBetsLast||[]).filter(b=>b&&String(b.season||'')===season&&betsAfterReset(b));
+  const bets=(betsNear()||[]).filter(b=>b&&String(b.season||'')===season&&betsAfterReset(b));
   const byId={}, kids={};
   bets.forEach(b=>{ byId[b.id]=b; });
   bets.forEach(b=>{ if(b.srcBet&&byId[b.srcBet]) (kids[b.srcBet]||(kids[b.srcBet]=[])).push(b); });
@@ -23547,7 +23637,7 @@ function sbSocialSet(f){ _sbSocialF=f; _sbSocialN=SB_SOCIAL_PAGE; renderBook(); 
 function sbSocialMore(){ _sbSocialN+=SB_SOCIAL_PAGE; renderBook(); }
 function sbSocialHTML(){
   sbSocialWant();
-  const loaded=!!(_betsAll||_pkBetsLast);
+  const loaded=!!betsNear();
   const team=id=>(_teams||[]).find(t=>t.id===Number(id))||null;
   const ab=id=>{ const t=team(id); return t?(t.abbrev||teamInitials(t.name)):'—'; };
   const crest=(id,sz)=>{ const t=team(id); return t?avatarHTML(t,sz,Math.round(sz/3.6)):''; };
