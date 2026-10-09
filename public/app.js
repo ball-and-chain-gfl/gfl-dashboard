@@ -3936,6 +3936,7 @@ function cpBadgeRepaint(){
   const has=id=>!!document.getElementById(id);
   try{ if(has('standings-tbody')) renderStandingsTable(); }catch(e){}
   try{ if(has('fc-body')) renderForecastCard(); }catch(e){}
+  try{ if(has('pk-body')) renderWeekPicks(); }catch(e){}
   try{ if(has('sched-body')) renderSchedule(); }catch(e){}
   try{ if(_activeTab==='book') renderBook(); }catch(e){}
 }
@@ -11339,48 +11340,35 @@ function pollSosHTML(owner){
     return v.length?[Math.min(...v),Math.max(...v)]:[0,0]; };
   const [sLo,sHi]=span(r=>r.sn?r.scored:null);
   const [tLo,tHi]=span(r=>r.total);
-  /* ── TWO MEASURES, TWO BLOCKS, TWO COLOURS ─────────────────────────────────
-     The team, then the opponents' SCORING in a block of its own in this page's
-     own colour, then the COACHES' POLL in the Standings tab's colour -- the
-     tab the poll lives on. The scoring column used to sit loose beside the
-     team name, so only the poll half read as a measure at all. */
-  const body=rows.map(r=>`<div class="sos-row${r.owner===owner?' sos-me':''}">
-      <div class="sos-left">
-        <span class="sos-rk">${r.rank}</span>
-        <span class="sos-t">${sbAvatar(r.owner,20)}
-          <span class="sos-nm">${r.name}</span>
-          <span class="sos-ab">${sbTeamAb(r.owner,r.name)}</span></span>
-      </div>
-      <div class="sos-mid">
-        <span class="r sos-c sos-grade"${r.sn?` style="color:${sosCol(r.scored,sLo,sHi)}"`:''}>${r.sn?r.scored:'—'}</span>
-      </div>
-      <div class="sos-right">
-        <span class="r sos-c">${r.pn?r.played:'—'}</span>
-        <span class="r sos-c">${r.ln?r.left:'—'}</span>
-        <span class="r sos-tot" style="color:${sosCol(r.total,tLo,tHi)}">${r.total}</span>
-      </div>
-    </div>`).join('');
+  /* ── TWO LISTS, EACH IN ITS OWN ORDER ──────────────────────────────────────
+     What the opponents have SCORED and where the Coaches' Poll has them are
+     two different answers to 'how hard is this slate', and a team can be
+     near the top of one and the bottom of the other. So each is its own
+     ranked column, hardest first -- a low number is the hard one in both --
+     with the team as a crest and an abbreviation and one number beside it.
+     A team level with the one above shares its place. Nobody played yet
+     sorts last in the scoring column, as a dash. */
+  const ranked=(list,val)=>{ let prev=null, rk=0;
+    return list.map((r,i)=>{ const v=val(r); if(v==null||v!==prev) rk=i+1; prev=v; return {r,rk,v}; }); };
+  const byScore=ranked(rows.filter(r=>r.sn).sort((a,b)=>a.scored-b.scored||a.name.localeCompare(b.name))
+    .concat(rows.filter(r=>!r.sn)), r=>r.sn?r.scored:null);
+  const byPoll=ranked(rows.slice().sort((a,b)=>a.total-b.total||a.name.localeCompare(b.name)), r=>r.total);
+  const item=({r,rk,v},col)=>`<div class="sos-i${r.owner===owner?' sos-me':''}">
+      <span class="sos-rk">${v==null?'':rk}</span>${sbAvatar(r.owner,20)}
+      <span class="sos-ab" title="${String(r.name).replace(/"/g,'&quot;')}">${sbTeamAb(r.owner,r.name)}</span>
+      <span class="sos-v" style="color:${v==null?'var(--text3)':col(v)}">${v==null?'—':v}</span></div>`;
   return `<div class="sec sos-sec">${head}
-    ${''/* One line. The four sentences that were here explained the arithmetic,
-           the freezing, the regular-season cut and the direction -- all true,
-           all in the code comment above, and none of it what somebody looking
-           at a table of twelve numbers wants to read first. */}
-    <div class="sos-note">Lower total = harder schedule.</div>
-    <div class="sos-grid">
-      ${''/* THE PILL NAMES THE HALF IT SITS ON. Only three of these six columns
-             come from the Coaches' Poll, so beside the heading it was a label on
-             the wrong thing. It caps the block it belongs to instead. */}
-      <div class="sos-row sos-cap"><div class="sos-left"></div>
-        <div class="sos-mid"><span class="sos-pill"><span class="sos-pill-x">Opp </span>Scoring</span></div>
-        <div class="sos-right"><span class="sos-pill">Coaches' Poll</span></div></div>
-      <div class="sos-row sos-h">
-        <div class="sos-left"><span class="sos-rk">#</span><span class="sos-t">Team</span></div>
-        <div class="sos-mid"><span class="r sos-c" title="Every opponent's finishing place in that week's scoring, added up">Played</span></div>
-        <div class="sos-right"><span class="r sos-c">Played</span><span class="r sos-c">To come</span>
-          <span class="r sos-tot">Total</span></div></div>
-      ${body}
+    <div class="sos-note">Hardest first · lower is harder</div>
+    <div class="sos-cols">
+      <div class="sos-col sos-col-sc">
+        <div class="sos-cap" title="Every opponent's finishing place in that week's scoring, added up, for the games played"><span class="sos-pill">Opp Scoring</span></div>
+        ${byScore.map(x=>item(x,v=>sosCol(v,sLo,sHi))).join('')}</div>
+      <div class="sos-col sos-col-cp">
+        <div class="sos-cap" title="Every opponent's Coaches' Poll rank added up: where they stood that week for a game played, where they stand now for one to come"><span class="sos-pill">Coaches' Poll</span></div>
+        ${byPoll.map(x=>item(x,v=>sosCol(v,tLo,tHi))).join('')}</div>
     </div></div>`;
 }
+
 function playoffOutlookHTML(){
   const d=playoffOutlook();
   if(!d) return '';
@@ -16855,7 +16843,7 @@ function pkLeagueHTML(games,order,picks,motw,wk){
     const parts=c?[c.nS?`<span>${pkCash(c.straight)} straight</span>`:'',
       c.nP?`<span>${pkCash(c.parlay)} in ${c.nP} parlay${c.nP===1?'':'s'}</span>`:''].join(''):'';
     return `<div class="pkl-side${right?' pkl-r':''}${mine?' on':''}">
-      <div class="pkl-team" title="${nm(t)}">${logoImg(Number(t),'pk-logo')}<span>${ab(t)}</span>
+      <div class="pkl-team" title="${nm(t)}">${logoImg(Number(t),'pk-logo')}${pollBadge(t)}<span>${ab(t)}</span>
         <span class="pkl-n" title="${who.length} pick${who.length===1?'':'s'}">${who.length}</span></div>
       <div class="pkl-who">${who.length?who.map(id=>`<span title="${nm(id)}">${avatarHTML(team(id),18,5)}</span>`).join('')
         :'<span class="pkl-none">nobody</span>'}</div>
@@ -16910,7 +16898,7 @@ function renderWeekPicks(){
     const g=games[i], mine=picks[pkFixKey(g)], big=i===motw;
     const side=t=>`<button type="button" class="pk-s${String(mine)===String(t)?' on':''}"
       ${locked||waiting?'disabled':`onclick="pkPick(${i},${t},this)"`} title="${nm(t).replace(/"/g,'&quot;')}">
-      ${logoImg(t,'pk-logo')}<span>${ab(t)}</span></button>`;
+      ${logoImg(t,'pk-logo')}${pollBadge(t)}<span>${ab(t)}</span></button>`;
     return `<div class="pk-g${mine!=null?' picked':''}${big?' pk-motw':''}${locked?' pk-lock':''}">
       ${big?`<div class="pk-badge"><i class="fa fa-fire"></i>Matchup of the Week · double</div>`:''}
       <div class="pk-sides2">${side(g.away.teamId)}<span class="pk-at">@</span>${side(g.home.teamId)}</div>

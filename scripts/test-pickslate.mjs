@@ -127,9 +127,13 @@ const H = assemble(grab, ['const pkFixKey=', 'const pkCash=', 'function pkLeague
   'const teamInitials=n=>String(n).slice(0,2);',
   'const logoImg=id=>`<i data-logo="${id}"></i>`;',
   'const avatarHTML=t=>`<i data-av="${t.id}"></i>`;',
+  /* the poll rank badge is its own suite's business: here it says whose it is */
+  'const pollBadge=t=>`<b data-rank="${t}"></b>`;',
 ].join(NL));
 let html = H.pkLeagueHTML(GAMES, [1, 0], { '5-10': '10', '1-6': '6' }, 1, 5);
 ok('both matchups are drawn', (html.match(/class="pkl-g/g) || []).length, 2);
+ok('every team carries its Coaches\' Poll rank, between crest and name',
+  [(html.match(/data-rank=/g) || []).length, /data-logo="10"><\/i><b data-rank="10"><\/b><span>/.test(html)], [4, true]);
 ok('the Matchup of the Week leads, with its badge', html.indexOf('pk-badge') < html.indexOf('data-logo="10"'), true);
 ok('my sides are outlined, and only mine', (html.match(/pkl-side[^"]* on"/g) || []).length, 2);
 ok('each side carries its pickers\' crests', /data-av="6"/.test(html) && /data-av="5"/.test(html), true);

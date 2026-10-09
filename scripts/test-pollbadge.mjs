@@ -448,36 +448,36 @@ head('8. STRENGTH OF SCHEDULE');
   /* a column where every team is level has no gradient to draw */
   ok('a flat column is not graded', M.sosCol(7, 7, 7), 'var(--text2)');
   ok('and neither is a missing number', M.sosCol(null, 10, 30), 'var(--text2)');
-  /* the divider marks off the three that make the total */
-  /* the two halves are two blocks now, one per row plus the cap and the
-     header — a line down the middle said they were different, a gap and a
-     panel show it */
-  /* three blocks a row now: the team, the opponents' scoring, the poll */
-  ok('every row is split in three', (M.pollSosHTML('o1').match(/sos-left/g) || []).length,
-     (r || []).length + 2);
-  ok('and each team has its scoring block and its poll block',
-     [(M.pollSosHTML('o1').match(/sos-mid/g) || []).length, (M.pollSosHTML('o1').match(/sos-right/g) || []).length],
-     [(M.pollSosHTML('o1').match(/sos-left/g) || []).length, (M.pollSosHTML('o1').match(/sos-left/g) || []).length]);
-  ok('each block has its own pill, scoring first, then the poll',
-     /sos-mid"><span class="sos-pill"><span class="sos-pill-x">Opp <\/span>Scoring<\/span>[\s\S]*?sos-right"><span class="sos-pill">Coaches' Poll</.test(M.pollSosHTML('o1')), true);
-  ok('and it is off the section heading',
-     M.pollSosHTML('o1').indexOf('badge-info') < 0, true);
-  ok('the scoring number sits in the scoring block',
-     /sos-mid">\s*<span class="r sos-c sos-grade"/.test(M.pollSosHTML('o1')), true);
+  /* ── TWO LISTS, EACH IN ITS OWN ORDER ──────────────────────────────────
+     Scoring on the left, the poll on the right, every team in each, ranked
+     hardest first on its own number -- so the same team sits at a different
+     height in each. The stub abbreviation is the team's number. */
+  const html = M.pollSosHTML('o1');
+  const col = cls => html.split('sos-col ' + cls)[1].split('sos-col ')[0];
+  const abs = h => [...h.matchAll(/class="sos-ab"[^>]*>(\d+)</g)].map(m => m[1]);
+  const vals = h => [...h.matchAll(/class="sos-v"[^>]*>([^<]+)</g)].map(m => m[1]);
+  ok('two columns, scoring then the poll, each under its own pill',
+     /sos-col sos-col-sc[\s\S]*?sos-pill">Opp Scoring<[\s\S]*?sos-col sos-col-cp[\s\S]*?sos-pill">Coaches' Poll</.test(html), true);
+  ok('every team in each', [abs(col('sos-col-sc')).length, abs(col('sos-col-cp')).length], [(r || []).length, (r || []).length]);
+  ok('scoring ranked hardest first on its own number', [abs(col('sos-col-sc')), vals(col('sos-col-sc'))],
+     [['2', '4', '1', '3'], ['3', '4', '5', '8']]);
+  ok('the poll ranked hardest first on its own', abs(col('sos-col-cp')), ['2', '1', '4', '3']);
+  ok('one number a team, no Played or To come columns', /sos-c\b|To come|Played</.test(html), false);
+  ok('and it is off the section heading', html.indexOf('badge-info') < 0, true);
 
   ok('hardest first', (r || []).map(x => x.owner), ['o2', 'o1', 'o4', 'o3']);
   ok('and the rank follows the sort', (r || []).map(x => x.rank), [1, 2, 3, 4]);
 
   /* the section is the poll, and adding it up does not stop it being the poll */
   ok('it draws for a manager who has voted',
-     M.pollSosHTML('o1').indexOf('sos-grid') >= 0, true);
-  ok('and their own line is picked out',
-     M.pollSosHTML('o1').indexOf('sos-me') >= 0, true);
+     M.pollSosHTML('o1').indexOf('sos-cols') >= 0, true);
+  ok('and their own line is picked out, once in each column',
+     (M.pollSosHTML('o1').match(/sos-me/g) || []).length, 2);
   M.setRows(rows(4, 4).filter(x => x.id !== 'o1'));
   ok('and is withheld from one who has not',
      M.pollSosHTML('o1').indexOf('sos-gate') >= 0, true);
   ok('with no numbers left in it',
-     M.pollSosHTML('o1').indexOf('sos-grid') < 0, true);
+     M.pollSosHTML('o1').indexOf('sos-cols') < 0, true);
 
   /* a season the app has not loaded is not an error */
   M.setRows(rows(4, 4));
