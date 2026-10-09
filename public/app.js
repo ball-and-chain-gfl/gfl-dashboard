@@ -2231,8 +2231,8 @@ function renderHistoryTable(){
         </tr>
         <tr class="h2h-detail" id="h2hd-${i}" style="display:none"><td colspan="${cols}"><div class="h2h-log">${log||'<div style="color:var(--text3);padding:8px">No game detail available.</div>'}</div></td></tr>`;}).join('')}</tbody>
     </table></div>`:`<div class="tab-loading">No games found for this team.</div>`}
-    ${mxTeamHTML(owner)}
     ${mxLeagueHTML(owner)}
+    ${mxTeamHTML(owner)}
     ${rows.length?pastMatchupsHTML(owner,me,rows):''}`;
 }
 
@@ -2246,30 +2246,31 @@ function mgSeasonName(season,owner){
   const fr=_franchises.find(f=>f.owner===owner);
   return (fr&&fr.name)||'A former team';
 }
-/* ── EXTREMES: SIX NUMBERS A TEAM, AND THE LEAGUE BESIDE THEM ────────────────
-   One team's six edges -- most and fewest points in a game, biggest win and
-   worst loss, closest win and closest loss -- and where each of those stands
-   among the twelve. It replaces two sections that overlapped: a league top five
-   of blowouts and close games, and a four-corner card for one team. Every
-   number now comes from one table, so the team's tiles and the league's ranking
-   are the same facts seen from two ends.
+/* ── EXTREMES: THE LEAGUE'S TOP TEN, AND ONE TEAM'S SIX ──────────────────────
+   Six edges -- highest and lowest score, biggest win and worst loss, closest
+   win and closest loss -- each one a ranking of every game in league history.
+   The league section is the top ten of each, whoever played them: a team can
+   hold three of the ten or none. The team section is that team's own most
+   extreme game on each edge, with its place in that same all-time ranking.
 
    COUNTING GAMES ONLY, AND ONLY FINISHED ONES. The meaningless postseason games
    are out (postGameCounts, the same rule the records use), and so is any week
    still being played: a Thursday night score half way through a week is not
-   anybody's fewest points.
+   anybody's lowest.
 
-   #1 IS THE MOST EXTREME, whichever way that points: the most points ever
-   scored, the fewest, the widest win, the widest loss, the tightest win, the
-   tightest loss. A team level with the one above shares its place. */
+   A score is one per team per game; a margin is one per game, from the
+   winner's side for a win and the loser's for a loss. #1 is the most extreme
+   whichever way that points, games level on the number share a place, and
+   the earlier game is listed first -- it held the record first. */
 const MX_FACTORS=[
-  {k:'hi', label:'Most points',   chip:'Most pts',     good:true,  pts:true,  pick:'max', of:g=>true,           val:g=>g.pts},
-  {k:'lo', label:'Fewest points', chip:'Fewest pts',   good:false, pts:true,  pick:'min', of:g=>true,           val:g=>g.pts},
-  {k:'bw', label:'Biggest win',   chip:'Biggest win',  good:true,  pts:false, pick:'max', of:g=>g.pts>g.oppPts, val:g=>g.pts-g.oppPts},
-  {k:'bl', label:'Worst loss',    chip:'Worst loss',   good:false, pts:false, pick:'max', of:g=>g.pts<g.oppPts, val:g=>g.oppPts-g.pts},
-  {k:'cw', label:'Closest win',   chip:'Closest win',  good:true,  pts:false, pick:'min', of:g=>g.pts>g.oppPts, val:g=>g.pts-g.oppPts},
-  {k:'cl', label:'Closest loss',  chip:'Closest loss', good:false, pts:false, pick:'min', of:g=>g.pts<g.oppPts, val:g=>g.oppPts-g.pts},
+  {k:'hi', label:'Highest score', good:true,  pts:true,  pick:'max', of:g=>true,           val:g=>g.pts},
+  {k:'lo', label:'Lowest score',  good:false, pts:true,  pick:'min', of:g=>true,           val:g=>g.pts},
+  {k:'bw', label:'Biggest win',   good:true,  pts:false, pick:'max', of:g=>g.pts>g.oppPts, val:g=>g.pts-g.oppPts},
+  {k:'bl', label:'Worst loss',    good:false, pts:false, pick:'max', of:g=>g.pts<g.oppPts, val:g=>g.oppPts-g.pts},
+  {k:'cw', label:'Closest win',   good:true,  pts:false, pick:'min', of:g=>g.pts>g.oppPts, val:g=>g.pts-g.oppPts},
+  {k:'cl', label:'Closest loss',  good:false, pts:false, pick:'min', of:g=>g.pts<g.oppPts, val:g=>g.oppPts-g.pts},
 ];
+const MX_TOP=10;
 let _mxFactor='hi', _mxMemo={key:'',data:null};
 /* every side of every finished counting game, once for each team in it */
 function mxSides(){
@@ -2293,79 +2294,74 @@ function mxSides(){
   });
   return out;
 }
-/* per team, the game at each edge; per edge, the twelve teams ranked */
+/* per edge, every game ranked; per team, its most extreme game on each */
 function mxData(){
   const key=ALL_SEASONS.map(s=>{ const sc=(_seasonMeta[s]&&_seasonMeta[s].schedule)||[];
     return sc.length+':'+sc.reduce((a,m)=>a+((m.home&&m.home.totalPoints)||0)+((m.away&&m.away.totalPoints)||0),0).toFixed(2);
   }).join('|')+'|'+(_franchises||[]).map(f=>f.owner).join(',');
   if(_mxMemo.key===key&&_mxMemo.data) return _mxMemo.data;
-  const per={};
+  const sides=mxSides(), r2=v=>Math.round(v*100)/100;
+  const per={}, lists={};
   (_franchises||[]).forEach(f=>{ per[f.owner]={}; });
-  const r2=v=>Math.round(v*100)/100;
-  mxSides().forEach(g=>{
-    const t=per[g.o]; if(!t) return;                   // a franchise no longer in the league
-    MX_FACTORS.forEach(F=>{
-      if(!F.of(g)) return;
-      const v=r2(F.val(g)), cur=t[F.k];
-      if(!cur||(F.pick==='max'?v>cur.v:v<cur.v)) t[F.k]={v,g};
-    });
-  });
-  const rank={};
   MX_FACTORS.forEach(F=>{
-    const list=(_franchises||[]).map(f=>({owner:f.owner,...(per[f.owner][F.k]||{})})).filter(x=>x.g)
-      .sort((a,b)=>F.pick==='max'?b.v-a.v:a.v-b.v);
+    const list=sides.filter(F.of).map(g=>({g,v:r2(F.val(g))})).sort((a,b)=>{
+      const d=F.pick==='max'?b.v-a.v:a.v-b.v;
+      return d||(a.g.season-b.g.season)||(a.g.week-b.g.week);
+    });
     let prev=null, rk=0;
     list.forEach((x,i)=>{ if(x.v!==prev) rk=i+1; prev=x.v; x.rk=rk; });
-    rank[F.k]=list;
+    lists[F.k]=list;
+    list.forEach(x=>{ const t=per[x.g.o]; if(t&&!t[F.k]) t[F.k]=x; });
   });
-  return (_mxMemo={key,data:{per,rank}}).data;
+  return (_mxMemo={key,data:{per,lists}}).data;
 }
 const mxFmt=(F,v)=>F.pts?v.toFixed(1):((F.good?'+':'−')+v.toFixed(1));
 const mxAb=(owner,season)=>sbTeamAb(owner,mgSeasonName(season||ALL_SEASONS[ALL_SEASONS.length-1],owner));
-/* The selected team's six, as tiles: the good edge beside its bad one on a
-   phone, a good row over a bad row on a desktop. Each carries its rank among
-   the twelve, and a tap opens the league's list for that edge. */
+/* a franchise that has since left has no crest on file: its initials stand in,
+   so the row keeps its shape */
+const mxCrest=(owner,season,size)=>sbAvatar(owner,size)
+  ||avatarCore(mgSeasonName(season,owner),0,null,size,Math.round(size/3.5));
+/* The league's top ten for one edge, every game in history in the running. */
+function mxLeagueHTML(owner){
+  const d=mxData();
+  const F=MX_FACTORS.find(f=>f.k===_mxFactor)||MX_FACTORS[0];
+  const top=(d.lists[F.k]||[]).slice(0,MX_TOP);
+  const best=top.length?top[0].v:0, last=top.length?top[top.length-1].v:0;
+  const bar=v=>best===last?100:Math.round(30+70*Math.abs(v-last)/Math.abs(best-last));
+  const chips=MX_FACTORS.map(f=>`<button type="button" class="mx-chip ${f.good?'mx-good':'mx-bad'}${f.k===F.k?' on':''}"
+      aria-pressed="${f.k===F.k}" onclick="mxSet('${f.k}')">${f.label}</button>`).join('');
+  const rows=top.map(x=>`<div class="mx-row${x.g.o===owner?' mx-me':''}" style="--mx-w:${bar(x.v)}%">
+      <span class="mx-r-rk">${x.rk}</span>${mxCrest(x.g.o,x.g.season,20)}
+      <span class="mx-r-ab">${mxAb(x.g.o,x.g.season)}</span>
+      <span class="mx-r-g"><span class="mx-vs">vs</span>${mxCrest(x.g.opp,x.g.season,14)}<span>${mxAb(x.g.opp,x.g.season)} · Wk ${x.g.week} ${x.g.season}</span></span>
+      <span class="mx-r-v">${mxFmt(F,x.v)}</span></div>`).join('');
+  return `<div class="sec wm mx-sec" id="mx-league-sec" data-wm="&#xf091;">
+    <div class="sec-head"><i class="fa fa-ranking-star"></i>League Extremes<span class="badge-info">all-time top ${MX_TOP}</span></div>
+    <div class="mx-chips" role="group" aria-label="Which extreme">${chips}</div>
+    <div class="mx-list ${F.good?'mx-good':'mx-bad'}">${rows||'<div class="mx-t-none">Nothing to rank yet.</div>'}</div>
+  </div>`;
+}
+/* The selected team's six, each with the game it came from -- the opponent's
+   crest and abbreviation, the score, the week -- and where it sits all-time. */
 function mxTeamHTML(owner){
   const fr=(_franchises||[]).find(f=>f.owner===owner); if(!fr) return '';
-  const d=mxData(), n=(_franchises||[]).length;
+  const d=mxData();
   const tiles=MX_FACTORS.map(F=>{
     const x=d.per[owner]&&d.per[owner][F.k];
-    const r=x?((d.rank[F.k]||[]).find(y=>y.owner===owner)||{}).rk:null;
     return `<button type="button" class="mx-tile ${F.good?'mx-good':'mx-bad'}" onclick="mxPick('${F.k}')"
-        aria-label="${F.label}${r?`, ${r} of ${n} in the league`:''}">
-      <span class="mx-t-h"><span class="mx-t-l">${F.label}</span>${r?`<span class="mx-rk" title="${r} of ${n} in the league">#${r}</span>`:''}</span>
-      ${x?`<span class="mx-t-v">${mxFmt(F,x.v)}</span>
-        <span class="mx-t-g">vs ${mxAb(x.g.opp,x.g.season)} · ${x.g.pts.toFixed(1)}–${x.g.oppPts.toFixed(1)}</span>
-        <span class="mx-t-w">${x.g.season} · Wk ${x.g.week}</span>`
+        aria-label="${F.label}${x?`, ${x.rk} all-time`:''}">
+      <span class="mx-t-l">${F.label}</span>
+      ${x?`<span class="mx-t-m"><span class="mx-t-v">${mxFmt(F,x.v)}</span>
+          <span class="mx-rk" title="${x.rk} of every game in league history"><b>#${x.rk}</b><small>all-time</small></span></span>
+        <span class="mx-t-g"><span class="mx-vs">vs</span>${mxCrest(x.g.opp,x.g.season,16)}<b>${mxAb(x.g.opp,x.g.season)}</b>
+          <span class="mx-t-sc">${x.g.pts.toFixed(1)}–${x.g.oppPts.toFixed(1)}</span></span>
+        <span class="mx-t-w">Week ${x.g.week} · ${x.g.season}</span>`
       :'<span class="mx-t-none">None yet</span>'}
     </button>`;
   }).join('');
   return `<div class="sec wm mx-sec" data-wm="&#xf140;">
     <div class="sec-head"><i class="fa fa-bullseye"></i>Team Extremes<span class="badge-info">${fr.name}</span></div>
     <div class="mx-grid">${tiles}</div>
-    <div class="mx-note">The rank is where that game sits among all ${n} teams, #1 the most extreme. Tap one for the whole league.</div>
-  </div>`;
-}
-/* The league's view of one edge: every team's own most extreme game for it,
-   ranked, with a bar for how far each one stands out. */
-function mxLeagueHTML(owner){
-  const d=mxData();
-  const F=MX_FACTORS.find(f=>f.k===_mxFactor)||MX_FACTORS[0];
-  const list=d.rank[F.k]||[];
-  const best=list.length?list[0].v:0, worst=list.length?list[list.length-1].v:0;
-  const bar=v=>best===worst?100:Math.round(16+84*Math.abs(v-worst)/Math.abs(best-worst));
-  const chips=MX_FACTORS.map(f=>`<button type="button" class="mx-chip ${f.good?'mx-good':'mx-bad'}${f.k===F.k?' on':''}"
-      aria-pressed="${f.k===F.k}" onclick="mxSet('${f.k}')">${f.chip}</button>`).join('');
-  const rows=list.map(x=>`<div class="mx-row${x.owner===owner?' mx-me':''}" style="--mx-w:${bar(x.v)}%">
-      <span class="mx-r-rk">${x.rk}</span>${sbAvatar(x.owner,20)}
-      <span class="mx-r-ab">${mxAb(x.owner)}</span>
-      <span class="mx-r-g">vs ${mxAb(x.g.opp,x.g.season)} · ${x.g.season} Wk ${x.g.week}</span>
-      <span class="mx-r-v">${mxFmt(F,x.v)}</span></div>`).join('');
-  return `<div class="sec wm mx-sec" id="mx-league-sec" data-wm="&#xf091;">
-    <div class="sec-head"><i class="fa fa-ranking-star"></i>League Extremes<span class="badge-info">every season</span></div>
-    <div class="mx-chips" role="group" aria-label="Which extreme">${chips}</div>
-    <div class="mx-list ${F.good?'mx-good':'mx-bad'}">${rows||'<div class="mx-t-none">Nothing to rank yet.</div>'}</div>
-    <div class="mx-note">${F.label}: every team's own most extreme game, all seasons, counting games only. #1 is the league record.</div>
   </div>`;
 }
 const mxOwner=()=>(document.getElementById('hist-team-select')||{}).value||((_franchises||[])[0]||{}).owner;
@@ -2374,7 +2370,7 @@ function mxSet(k){
   const el=document.getElementById('mx-league-sec');
   if(el) el.outerHTML=mxLeagueHTML(mxOwner());
 }
-/* a tile's tap: that edge, and down to the league's list of it */
+/* a tile's tap: that edge, and up to the league's top ten of it */
 function mxPick(k){
   mxSet(k);
   const chip=[...document.querySelectorAll('.sx-chip')].find(c=>/^League/.test(c.textContent.trim()));
@@ -11825,21 +11821,10 @@ async function renderProfile(){
     </div>
     </div>
     ${legacyReportHTML(owner)}
-    <div class="prof-top2">
-    <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-bolt" style="color:var(--accent)"></i>${getSeason()} Season</div>
-    <div class="prof-stats">
-      ${stat('Record',`${t.wins}–${t.losses}${t.ties?`–${t.ties}`:''}`,scaleCol(seasonVals(winPctOf),winPctOf(t),true))}
-      ${stat('Points For',t.pf.toFixed(1),scaleCol(seasonVals(x=>x.pf),t.pf,true))}
-      ${stat('Points Against',t.pa.toFixed(1),scaleCol(seasonVals(x=>x.pa),t.pa,false))}
-      ${stat('Moves',t.moves)}
-      ${stat('Trades',t.trades)}
-      ${stat('Coaching Metric',_cmMode==='none'?'—':s.toFixed(2),_cmMode==='none'?'':scaleCol(seasonVals(x=>_scores[x.id]||0),s,true))}
-      ${stat('Trade ROI',c2!=null?(c2>=0?'+':'')+c2.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c2),c2,true))}
-      ${stat('Waiver ROI',c3!=null?(c3>=0?'+':'')+c3.toFixed(2):'—',scaleCol(seasonVals(x=>(_cmBreakdown[x.id]||{}).c3),c3,true))}
-      ${stat('Lineup IQ',myLiqPct!=null?myLiqPct.toFixed(1)+'%':'—',scaleCol(_teams.map(x=>{const d=_liqSeason[x.id];return (d&&d.decisions)?d.correct/d.decisions*100:null;}),myLiqPct,true))}
-      ${stat('Missed Points',myLiq?myLiq.missed.toFixed(1):'—',scaleCol(_teams.map(x=>_liqSeason[x.id]?_liqSeason[x.id].missed:null),myLiq?myLiq.missed:null,false))}
-    </div>
-    </div>
+    ${''/* The season's own panel is gone -- the current season's record and
+           points are on Standings, its coaching numbers on the Coaching
+           Metric -- and All-Time has the row to itself. */}
+    <div class="prof-top2 prof-top1">
     <div class="panel"><div class="sec-head" style="font-size:15px"><i class="fa fa-trophy" style="color:var(--accent)"></i>All-Time</div>
     <div class="prof-stats">
       ${stat('Record',`${at.w}–${at.l}${at.t?`–${at.t}`:''}`,scaleCol(atVals(a=>{const gg=a.w+a.l+a.t;return gg?a.w/gg:0;}),g?at.w/g:0,true))}

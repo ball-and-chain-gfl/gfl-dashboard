@@ -1,18 +1,20 @@
-/* ALL MATCHUPS: SIX EDGES A TEAM, AND THE LEAGUE BESIDE THEM.
+/* ALL MATCHUPS: THE LEAGUE'S TOP TEN, AND ONE TEAM'S SIX.
  *
- *   THE SIX            most and fewest points in a game, biggest win, worst
- *                      loss, closest win, closest loss
+ *   THE SIX            highest and lowest score, biggest win, worst loss,
+ *                      closest win, closest loss -- each a ranking of every game
+ *                      in league history
  *   WHAT COUNTS        finished counting games: a meaningless postseason game is
- *                      out, a week still being played is out, a tie has points
- *                      but no margin, and a franchise that has left is nobody's
- *                      rank -- though its games still count for its opponents
- *   THE LEAGUE         every team ranked on each edge, #1 the most extreme,
- *                      level teams sharing a place
- *   THE PAGE           the selected team's six tiles carry their ranks; the
- *                      league list is one edge at a time
+ *                      out, a week still being played is out, a tie has a score
+ *                      but no margin; a score is one per team per game, a margin
+ *                      one per game from the winner's or the loser's side
+ *   THE LEAGUE         the top ten games of each, whoever played them -- one team
+ *                      can hold several, a franchise that has left still counts
+ *   ONE TEAM           its most extreme game on each edge, with that game's place
+ *                      in the same all-time ranking, the opponent and the week
  *
  * Run: node scripts/test-extremes.mjs
  */
+import fs from 'fs';
 import { lifter, assemble } from './lib/lift.mjs';
 
 const NL = String.fromCharCode(10);
@@ -34,20 +36,20 @@ const META = {
     G(1, 1, 150, 2, 100),          // a by 50
     G(2, 2, 120.4, 3, 119.8),      // b by 0.6
     G(3, 3, 90, 1, 130),           // a by 40
-    G(4, 4, 140, 2, 80),           // d by 60: b's worst loss, d not ranked
+    G(4, 4, 140, 2, 80),           // d by 60
     G(15, 1, 200, 3, 10),          // a meaningless postseason game
   ] },
   2026: { owners: { 1: 'a', 2: 'b', 3: 'c' }, schedule: [
     G(1, 2, 160, 3, 80),           // b by 80
     G(1, 1, 100, 1, 100),          // (a playing itself: ignored)
-    G(2, 1, 101, 3, 101),          // a tie: points, no margin
-    G(3, 1, 5, 2, 3, 'UNDECIDED'), // being played: not anybody's fewest
+    G(2, 1, 101, 3, 101),          // a tie: a score each, no margin
+    G(3, 1, 5, 2, 3, 'UNDECIDED'), // being played: nobody's lowest
   ] },
 };
 const M = assemble(grab, [
   'const weekDecided=', 'const weekScored=', 'function weeksOf(', 'function weekOver(',
-  'const MX_FACTORS=', 'let _mxFactor=', 'function mxSides(){', 'function mxData(){', 'const mxFmt=', 'const mxAb=',
-  'function mxTeamHTML(owner){', 'function mxLeagueHTML(owner){',
+  'const MX_FACTORS=', 'const MX_TOP=', 'let _mxFactor=', 'function mxSides(){', 'function mxData(){',
+  'const mxFmt=', 'const mxAb=', 'const mxCrest=', 'function mxLeagueHTML(owner){', 'function mxTeamHTML(owner){',
 ], ['mxData', 'mxTeamHTML', 'mxLeagueHTML', 'setFactor'], [
   'const ALL_SEASONS=[2025,2026];',
   `const _seasonMeta=${JSON.stringify(META)};`,
@@ -55,48 +57,61 @@ const M = assemble(grab, [
   'const postGameCounts=(s,mu)=>mu.matchupPeriodId<15;',
   'const mgSeasonName=(s,o)=>o.toUpperCase()+" FC";',
   'const sbTeamAb=(o,n)=>o.toUpperCase();',
-  'const sbAvatar=o=>`<i data-av="${o}"></i>`;',
+  /* a franchise that has left has no crest on file, which is what sbAvatar says */
+  "const sbAvatar=o=>['a','b','c'].includes(o)?`<i data-av=\"${o}\"></i>`:'';",
+  'const avatarCore=n=>`<i data-init=\"${n}\"></i>`;',
   'const setFactor=k=>{_mxFactor=k;};',
 ].join(NL));
 
 const d = M.mxData();
-const edge = (o, k) => { const x = d.per[o][k]; return x ? [x.v, x.g.opp, x.g.season, x.g.week] : null; };
+const list = k => d.lists[k].map(x => x.g.o + ':' + x.v + '#' + x.rk);
+const mine = (o, k) => { const x = d.per[o][k]; return x ? [x.v, x.rk, x.g.opp, x.g.season, x.g.week] : null; };
 
-head('the six, for one team');
-ok('most points: the 150, not the meaningless 200', edge('a', 'hi'), [150, 'b', 2025, 1]);
-ok('fewest points: the tie\'s 101, not the 5 of a week still being played', edge('a', 'lo'), [101, 'c', 2026, 2]);
-ok('biggest win', edge('a', 'bw'), [50, 'b', 2025, 1]);
-ok('closest win', edge('a', 'cw'), [40, 'c', 2025, 3]);
-ok('a team that never lost has no losses to show', [edge('a', 'bl'), edge('a', 'cl')], [null, null]);
-ok('a tie is no margin either way: c\'s closest loss is not the tie', edge('c', 'cl'), [0.6, 'b', 2025, 2]);
-ok('a franchise that has left still counts as an opponent', edge('b', 'bl'), [60, 'd', 2025, 4]);
-ok('margins are rounded to the cent, not left as float noise', edge('b', 'cw')[0], 0.6);
+head('every game, ranked');
+ok('highest score: every score once, the meaningless 200 and the unfinished 5 left out', list('hi'),
+  ['b:160#1', 'a:150#2', 'd:140#3', 'a:130#4', 'b:120.4#5', 'c:119.8#6', 'a:101#7', 'c:101#7', 'b:100#9', 'c:90#10', 'b:80#11', 'c:80#11']);
+ok('lowest score, level games sharing a place, the earlier listed first', list('lo').slice(0, 4),
+  ['b:80#1', 'c:80#1', 'c:90#3', 'b:100#4']);
+ok('biggest win: one per game, from the winner\'s side; a tie is no margin', list('bw'),
+  ['b:80#1', 'd:60#2', 'a:50#3', 'a:40#4', 'b:0.6#5']);
+ok('worst loss: the same games from the loser\'s side', list('bl'), ['c:80#1', 'b:60#2', 'b:50#3', 'c:40#4', 'c:0.6#5']);
+ok('closest win', list('cw').slice(0, 2), ['b:0.6#1', 'a:40#2']);
+ok('closest loss', list('cl').slice(0, 2), ['c:0.6#1', 'c:40#2']);
 
-head('the league');
-const rk = k => d.rank[k].map(x => x.owner + x.rk);
-ok('most points, highest first', rk('hi'), ['b1', 'a2', 'c3']);
-ok('fewest points, lowest first, level teams sharing a place', rk('lo'), ['b1', 'c1', 'a3']);
-ok('biggest win, widest first', rk('bw'), ['b1', 'a2']);
-ok('worst loss, widest first', rk('bl'), ['c1', 'b2']);
-ok('closest loss, tightest first', rk('cl'), ['c1', 'b2']);
-ok('the franchise that left is nobody\'s rank', Object.values(d.rank).some(l => l.some(x => x.owner === 'd')), false);
+head('one team\'s six');
+ok('its highest score, with its place all-time', mine('a', 'hi'), [150, 2, 'b', 2025, 1]);
+ok('its lowest: the tie, not the unfinished 5', mine('a', 'lo'), [101, 5, 'c', 2026, 2]);
+ok('its biggest win is third all-time', mine('a', 'bw'), [50, 3, 'b', 2025, 1]);
+ok('a team that never lost has no loss to show', [mine('a', 'bl'), mine('a', 'cl')], [null, null]);
+ok('a game against a franchise that has left still counts', mine('b', 'bl'), [60, 2, 'd', 2025, 4]);
+ok('and the franchise that left is nobody\'s six', d.per.d, undefined);
 
-head('the page');
+head('the league section');
+M.setFactor('hi');
+const league = M.mxLeagueHTML('a');
+const rows = [...league.matchAll(/class="mx-row( mx-me)?"/g)];
+ok('the top ten, whoever played them', rows.length, 10);
+ok('one team can hold several of them, each ringed for the team selected', rows.filter(r => r[1]).length, 3);
+ok('a franchise that has left is in it, its initials standing in for a crest', /data-init="D FC"/.test(league), true);
+ok('each row names the opponent with its crest, and the week', league.includes('<span class="mx-vs">vs</span><i data-av="b"></i><span>B · Wk 1 2025</span>'), true);
+ok('headed as the all-time top ten', league.includes('all-time top 10'), true);
+M.setFactor('bl');
+ok('a loss reads minus, in red', /mx-list mx-bad/.test(M.mxLeagueHTML('a')) && M.mxLeagueHTML('a').includes('−80.0'), true);
+
+head('the team section');
 const team = M.mxTeamHTML('a');
 ok('six tiles, good beside bad', [...team.matchAll(/class="mx-tile (mx-good|mx-bad)"/g)].map(m => m[1]),
   ['mx-good', 'mx-bad', 'mx-good', 'mx-bad', 'mx-good', 'mx-bad']);
-ok('each with its rank among the league', team.includes('>#2<') && team.includes('2 of 3 in the league'), true);
-ok('a win shows plus, and its game', team.includes('+50.0') && team.includes('vs B · 150.0–100.0') && team.includes('2025 · Wk 1'), true);
-ok('and an edge with nothing to show says so', (team.match(/None yet/g) || []).length, 2);
-ok('every tile opens the league list for its edge', (team.match(/onclick="mxPick\('/g) || []).length, 6);
-M.setFactor('bl');
-const league = M.mxLeagueHTML('b');
-ok('the league list is the chosen edge, in red', /mx-list mx-bad/.test(league) && /mx-chip mx-bad on/.test(league), true);
-ok('ranked, with the selected team ringed', [...league.matchAll(/class="mx-row( mx-me)?"/g)].map(m => !!m[1]), [false, true]);
-ok('a loss shows minus', league.includes('−60.0'), true);
-ok('the most extreme fills the bar', /--mx-w:100%/.test(league), true);
-M.setFactor('nope');
-ok('an edge nobody knows falls back to most points', /mx-chip mx-good on"\s+aria-pressed="true" onclick="mxSet\('hi'\)"/.test(M.mxLeagueHTML('a')), true);
+ok('titled plainly', [...team.matchAll(/class="mx-t-l">([^<]+)</g)].map(m => m[1]),
+  ['Highest score', 'Lowest score', 'Biggest win', 'Worst loss', 'Closest win', 'Closest loss']);
+ok('each with its all-time place', team.includes('<b>#2</b><small>all-time</small>') && team.includes('<b>#3</b><small>all-time</small>'), true);
+ok('the opponent\'s crest and abbreviation, and the score', team.includes('<i data-av="b"></i><b>B</b>') && team.includes('150.0–100.0'), true);
+ok('the week written out', team.includes('Week 1 · 2025'), true);
+ok('no note under it', /mx-note|The rank is where/.test(team), false);
+
+head('the page');
+const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+ok('the league above the team', SRC.indexOf('${mxLeagueHTML(owner)}') < SRC.indexOf('${mxTeamHTML(owner)}') && SRC.indexOf('${mxLeagueHTML(owner)}') > 0, true);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

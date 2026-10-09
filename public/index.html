@@ -1826,20 +1826,25 @@
       font-family:'Inter',sans-serif;color:var(--text);}
     .mx-tile:hover{background:rgba(255,255,255,0.06);}
     .mx-tile:focus-visible,.mx-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-    .mx-t-h{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;}
     .mx-t-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-      font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
-    .mx-rk{flex:0 0 auto;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,0.08);
-      font-size:10px;font-weight:800;color:var(--text2);font-variant-numeric:tabular-nums;}
-    .mx-t-v{margin-top:3px;font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.15;
+      font-size:13px;font-weight:800;color:var(--text);}
+    .mx-t-m{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:2px;}
+    /* the all-time place, stacked so a three-figure rank never crowds the value */
+    .mx-rk{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;
+      padding-bottom:3px;font-variant-numeric:tabular-nums;}
+    .mx-rk b{font-size:14px;font-weight:800;color:var(--text);}
+    .mx-rk small{font-size:8px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
+    .mx-t-v{font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.15;
       font-variant-numeric:tabular-nums;}
     .mx-good .mx-t-v{color:var(--green);}
     .mx-bad .mx-t-v{color:var(--red);}
-    .mx-t-g{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    .mx-t-g{display:flex;align-items:center;gap:5px;min-width:0;margin-top:2px;
       font-size:11.5px;font-weight:600;color:var(--text2);font-variant-numeric:tabular-nums;}
-    .mx-t-w{font-size:10px;font-weight:600;letter-spacing:.2px;text-transform:uppercase;color:var(--text3);}
+    .mx-t-g b{font-weight:800;color:var(--text);}
+    .mx-vs{font-size:10px;font-weight:700;color:var(--text3);}
+    .mx-t-sc{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .mx-t-w{font-size:11px;font-weight:700;color:var(--text3);}
     .mx-t-none{padding:6px 0;font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);}
-    .mx-note{padding:12px 2px 0;font-family:'Inter',sans-serif;font-size:11.5px;line-height:1.5;color:var(--text3);}
     .mx-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px;}
     @media(min-width:769px){ .mx-chips{grid-template-columns:repeat(6,minmax(0,1fr));} }
     .mx-chip{height:32px;min-width:0;padding:0 6px;border-radius:999px;
@@ -1860,8 +1865,9 @@
     .mx-me{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.45);}
     .mx-r-rk{font-size:11px;font-weight:800;color:var(--text3);text-align:right;font-variant-numeric:tabular-nums;}
     .mx-r-ab{font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;}
-    .mx-r-g{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    .mx-r-g{display:flex;align-items:center;gap:4px;min-width:0;
       font-size:11px;font-weight:600;color:var(--text3);}
+    .mx-r-g>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .mx-r-v{font-size:14px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;}
     .mx-list.mx-good .mx-r-v{color:var(--green);}
     .mx-list.mx-bad .mx-r-v{color:var(--red);}
@@ -3719,6 +3725,8 @@
     .prof-top2 .panel{padding:14px 16px;}
     .prof-top2 .panel{margin-bottom:0;}
     @media(max-width:900px){.prof-top2{grid-template-columns:1fr;}}
+    /* one panel left in the row: it takes all of it */
+    .prof-top2.prof-top1{grid-template-columns:1fr;}
     .prof-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:0 14px;margin-bottom:0;}
     .prof-stat{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.055);border-radius:3px;}
     /* alternating row tint for readability */
