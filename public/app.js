@@ -12955,8 +12955,23 @@ const nflWeekGap=(week,season)=>{
    set would let somebody park their starters on the bench, collect a long
    price, and put them back before kickoff.
 
-   Once the week is under way the lineup is locked, so the players actually in
-   it are the ones who will score, and those are what it prices. */
+   ONCE IT HAS STARTED, ONLY PART OF IT IS LOCKED. A player whose game has been
+   played stays where he is: in the lineup his points are banked, on the bench
+   he is out of it. Everyone still to play can still be started or sat until
+   their own kickoff -- which is the whole of Sunday after a Thursday night --
+   so the slots not taken by a locked starter are filled the way a week that
+   has not started is: the best lineup out of the players still to come. The
+   same guard for the same reason. Priced off the lineup as set, a manager
+   could bench his own Sunday starters on Friday, take the long price on
+   himself and put them back before one o'clock.
+
+   WHAT IS BANKED COMES OFF THE PLAYERS. `banked` is ESPN's matchup total,
+   and that is a settlement figure: 0.00 on every fixture until the scoring
+   period closes on the Tuesday. Taken at its word it priced Friday's board as
+   if Thursday night had never been played -- Goobers 38.5 up and still a
+   +120 dog. The roster call carries each player's own points for the week
+   (wkAct), so the starters who have played are summed instead, and the
+   settled total wins once there is one. */
 function sbTeamWeek(tid,week,season,meta,banked,started){
   const roster=sbRosters(season,week);
   const es=roster&&roster[tid];
@@ -12970,20 +12985,33 @@ function sbTeamWeek(tid,week,season,meta,banked,started){
     const full=sbBestLineup(es,projOf,posOf,sbSlotShape(meta),sbReplLevel(week));
     return {exp:full,left:full,full};
   }
-  const starters=es.filter(e=>!SB_BENCH_SLOTS.includes(Number(e.slot)));
-  if(!starters.length) return null;
-  let left=0,full=0,unknown=false;
-  starters.forEach(e=>{
-    const p=projOf(e); full+=p;
+  /* no scoreboard, no honest answer about who has played */
+  const dg=nflWeekGames(week,season);
+  if(!dg||!Array.isArray(dg.games)||!dg.games.length) return null;
+  const open=Object.assign({},sbSlotShape(meta));
+  const pool=[];
+  let bank=0,lockedProj=0,starters=0;
+  es.forEach(e=>{
     const st=nflTeamState(e.proTeam,week,season);
-    if(st==='pre') left+=p;                  // not kicked off: all of it to come
-    else if(st==null) unknown=true;          // no digest: no honest answer
-    /* 'post' and 'bye' have nothing left to give, and 'in' cannot happen while
-       the board is open — a live game closes it. */
+    const starter=!SB_BENCH_SLOTS.includes(Number(e.slot));
+    if(starter) starters++;
+    /* still to play: free to start or sit. No game this week (a bye, or a team
+       the scoreboard does not know) is free too, and worth nothing. */
+    if(st==='pre'||st==='bye'||st==null){ pool.push(st==='pre'?e:Object.assign({},e,{wkProj:0})); return; }
+    /* played or playing: where he stands now is where he stays */
+    if(!starter) return;
+    bank+=Number(e.wkAct)||0;                // a defence can bank a negative
+    lockedProj+=projOf(e);
+    const k=SB_SLOT_KEY[Number(e.slot)];
+    if(k&&open[k]>0) open[k]--;
   });
-  if(unknown) return null;
-  return {exp:(Number(banked)||0)+left,left,full};
+  if(!starters) return null;
+  const left=sbBestLineup(pool,projOf,posOf,open,sbReplLevel(week));
+  const settled=Number(banked)||0;
+  return {exp:(settled>0?settled:bank)+left,left,full:lockedProj+left};
 }
+/* ESPN lineup slot ids, as sbSlotShape names them */
+const SB_SLOT_KEY={0:'qb',2:'rb',4:'wr',6:'te',23:'flex',16:'dst',17:'k'};
 /* Abramowitz and Stegun 7.1.26 — plenty for a price. */
 function sbErf(x){
   const s=x<0?-1:1; x=Math.abs(x);
@@ -22751,8 +22779,13 @@ function sbWeekData(){
   const week=unfinished||weeks[weeks.length-1]||1;
   const live=unfinished!=null;
   /* Has this week's football begun? It decides whether the price comes off the
-     best lineup a roster could field or off the one that is locked in. */
-  const wkStarted=(byWeek[week]||[]).some(scored);
+     best lineup a roster could field or off the one that is partly locked in.
+     The scoreboard answers that; the fixtures' totals cannot until Tuesday --
+     they are settlement figures, 0.00 through the whole of the week, which is
+     how Friday's board went on pricing a week that had already started. They
+     stay as the second way in, for a week the scoreboard no longer carries. */
+  const begun=nflWeekBegun(week,season);
+  const wkStarted=begun!=null?begun:(byWeek[week]||[]).some(scored);
   const games=(byWeek[week]||[]).map(m=>{
     const rowOf=tid=>book.rows.find(r=>r.tid===tid);
     const a=rowOf(m.home.teamId), b=rowOf(m.away.teamId);

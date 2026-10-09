@@ -66,6 +66,7 @@ ${grab('function nflTeamState(proTeamId,week,season){')}
 ${grab('const nflWeekLive=')}
 ${grab('const nflWeekBegun=')}
 ${grab('function sbTeamWeek(tid,week,season,meta,banked,started){')}
+${grab('const SB_SLOT_KEY=')}
 ${grab('function sbErf(x){')}
 ${grab('const sbNormCdf=')}
 ${grab('const sbWkSd=')}
@@ -272,6 +273,44 @@ console.log('\n9. once it starts, the locked lineup and what is left of it');
   api.set({ rosters: { 7: TEAM.map(e => ({ ...e, wkProj: 0 })) },
             nfl: { anyLive:false, games:[] } });
   eq('an unpublished week falls back', api.sbTeamWeek(7, 1, '2026', {}, 0, false), null);
+}
+
+console.log('\n9b. after Thursday night: banked off the players, the rest still the best it could field');
+{
+  /* DAL played Thursday; GB and NE are Sunday. ESPN's matchup total is still
+     0.00 -- it settles on the Tuesday -- so what is banked has to come off the
+     players who have played. */
+  const SLOT2 = { QB:0, RB:2, WR:4, TE:6, DST:16, K:17, FLEX:23, BENCH:20 };
+  const pl = (pos, slot, wkProj, proTeam, wkAct) => ({ pid: 2000 + wkProj, pos, slot, wkProj, proTeam, wkAct });
+  const THU = [
+    pl(1, SLOT2.QB, 22, 6, 31.5),        // DAL, played: 31.5 banked
+    pl(2, SLOT2.RB, 16, 6, 4.2),         // DAL, played: 4.2 banked
+    pl(2, SLOT2.RB, 14, 9), pl(3, SLOT2.WR, 13, 9), pl(3, SLOT2.WR, 12, 17),
+    pl(4, SLOT2.TE, 9, 17), pl(16, SLOT2.DST, 7, 9), pl(5, SLOT2.K, 8, 9), pl(3, SLOT2.FLEX, 11, 17),
+    pl(2, SLOT2.BENCH, 25, 9),           // GB, Sunday, on the bench: still startable
+    pl(3, SLOT2.BENCH, 40, 6, 2.0),      // DAL, played, on the bench: out of it
+  ];
+  const SUNDAY = { anyLive:false, games:[ { ht:'DAL', at:'NYG', s:'post' }, { ht:'GB', at:'CHI', s:'pre' }, { ht:'NE', at:'SEA', s:'pre' } ] };
+  api.set({ rosters: { 7: THU }, nfl: SUNDAY, meta: {} });
+  const t = api.sbTeamWeek(7, 5, '2026', { slots: REAL_SLOTS }, 0, true);
+  near('what Thursday banked is the starters who played, not the 0.00 total', t.exp - t.left, 31.5 + 4.2);
+  /* QB and one RB are locked. Left: RB1, WR2, TE, FLEX, DST, K out of the
+     Sunday players -- the 25 on the bench takes the RB, the 14 goes to flex */
+  eq('the open slots take the best of who is still to play, bench included', t.left, 25 + 13 + 12 + 9 + 14 + 7 + 8);
+  eq('a bench player who has already played cannot come in', t.left < 25 + 13 + 12 + 9 + 40, true);
+  /* the exploit the guard is for: sit the Sunday starters, the price does not move */
+  const parked = THU.map(e => e.proTeam !== 6 ? { ...e, slot: SLOT2.BENCH } : e);
+  api.set({ rosters: { 7: parked } });
+  const p2 = api.sbTeamWeek(7, 5, '2026', { slots: REAL_SLOTS }, 0, true);
+  eq('benching the Sunday starters on Friday does not lengthen the price', p2.exp, t.exp);
+  /* once ESPN settles the week, its total is the word */
+  api.set({ rosters: { 7: THU } });
+  /* a defence that gave up more than it made takes points off */
+  api.set({ rosters: { 7: THU.map(e => e.pos === 16 ? { ...e, proTeam: 6, wkAct: -2 } : e) } });
+  const neg = api.sbTeamWeek(7, 5, '2026', { slots: REAL_SLOTS }, 0, true);
+  near('a negative D/ST counts against what is banked', neg.exp - neg.left, 31.5 + 4.2 - 2);
+  api.set({ rosters: { 7: THU } });
+  near('a settled total wins over the sum', api.sbTeamWeek(7, 5, '2026', { slots: REAL_SLOTS }, 140.2, true).exp - t.left, 140.2);
 }
 
 console.log('\n10. what the board closes, and when');
