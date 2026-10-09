@@ -49,6 +49,8 @@ jobs:
         run: node scripts/test-betsnear.mjs
       - name: a ceiling on what one device can spend of the league Firestore
         run: node scripts/test-fsguard.mjs
+      - name: team logos from a cache that outlives every deploy
+        run: node scripts/test-logocache.mjs
       - name: waiver ROI scored against the league
         run: node scripts/test-c3-share.mjs
       - name: trade and waiver ROI rankings

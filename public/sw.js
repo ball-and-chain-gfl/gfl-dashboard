@@ -4,8 +4,10 @@
 // app from getting stuck on an old cached version.
 // STATIC DATA (/data/*.json): the season being played is network-first (it is
 // still being written); finished seasons are stale-while-revalidate.
-// LIVE DATA (/api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v774';
+// TEAM LOGOS (/api/espn?type=logo): cache-first, from a cache that survives
+// a version bump, refreshed behind the scenes once a week.
+// LIVE DATA (the rest of /api/*) and cross-origin: straight to the network.
+const CACHE = 'gfl-v775';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered
@@ -13,6 +15,22 @@ const CACHE = 'gfl-v774';
 // forty requests today, and it grows by about 715KB a season. Keeping it out of
 // the versioned cache means an app update costs the shell and nothing else.
 const DATA_CACHE = 'gfl-data-v1';
+// Logos, the same way and for a stronger reason. They came through the logo
+// proxy with a day's browser cache and nothing else: the worker let every
+// /api/ request go straight to the network, so a phone that had shown the
+// same twelve crests a hundred times asked for them again whenever the HTTP
+// cache let go -- and an installed iPhone app lets go often. Half a megabyte
+// of PNGs, some of them 1200px wide for a 28px circle, and one cold proxy
+// miss measured at ten seconds. Served from here they are there on the first
+// frame of every page after the first visit, deploy or no deploy.
+//
+// A logo's URL changes when its manager changes it, so a cached one is never
+// wrong for long; it is still refetched in the background once it is a week
+// old. Player headshots go through the same proxy and land here too, so the
+// cache is held to the newest LOGO_MAX entries.
+const LOGO_CACHE = 'gfl-logo-v1';
+const LOGO_FRESH_MS = 7 * 86400000;
+const LOGO_MAX = 500;
 const APP_SHELL = [
   '/', '/index.html', '/app.js', '/config.js',
   '/manifest.webmanifest', '/logo.png',
@@ -31,16 +49,45 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys
-        .filter((k) => k !== CACHE && k !== DATA_CACHE)
+        .filter((k) => k !== CACHE && k !== DATA_CACHE && k !== LOGO_CACHE)
         .map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
 
+/* A logo: from the cache if it is there (refreshed behind the scenes once a
+   week old), otherwise from the network into the cache. Only a real image is
+   kept -- a 502 from a host that is down should fall back to the initials
+   this time and be asked for again next time, not be served for a week. */
+async function logoRespond(e, request) {
+  const cache = await caches.open(LOGO_CACHE);
+  const fetchInto = async () => {
+    const res = await fetch(request);
+    if (res && res.status === 200 && /^image\//i.test(res.headers.get('content-type') || '')) {
+      await cache.put(request, res.clone());
+      const keys = await cache.keys();
+      if (keys.length > LOGO_MAX) await Promise.all(keys.slice(0, keys.length - LOGO_MAX).map((k) => cache.delete(k)));
+    }
+    return res;
+  };
+  const hit = await cache.match(request);
+  if (hit) {
+    const at = Date.parse(hit.headers.get('date') || '') || 0;
+    if (Date.now() - at > LOGO_FRESH_MS) e.waitUntil(fetchInto().catch(() => {}));
+    return hit;
+  }
+  try { return await fetchInto(); } catch (err) { return Response.error(); }
+}
+
 self.addEventListener('fetch', (e) => {
   const { request } = e;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  if (url.origin === self.location.origin && url.pathname === '/api/espn'
+      && url.searchParams.get('type') === 'logo') {
+    e.respondWith(logoRespond(e, request));
+    return;
+  }
   if (url.pathname.startsWith('/api/')) return;      // live data: network
   if (url.pathname.startsWith('/bg/')) return;       // background media: native (range requests)
   if (url.origin !== self.location.origin) return;    // cross-origin: browser handles

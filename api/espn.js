@@ -60,7 +60,12 @@ export default async function handler(req, res) {
       if (!/^image\//i.test(ct) && !/svg/i.test(ct)) return res.status(415).json({ error: `not an image: ${ct}` });
       const buf = Buffer.from(await r.arrayBuffer());
       res.setHeader('Content-Type', ct);
-      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400');
+      /* A month, at the edge and in the browser. A logo's URL changes when the
+         logo does, so the bytes behind one URL are as good as permanent; the
+         day this was is what sent phones back for crests they already had, and
+         the week at the edge is what left a cold miss -- ten seconds, measured,
+         when the host behind it was slow -- for whoever was first. */
+      res.setHeader('Cache-Control', 'public, max-age=2592000, s-maxage=2592000, stale-while-revalidate=2592000');
       return res.status(200).send(buf);
     } catch (err) { return res.status(502).json({ error: err.message }); }
   }

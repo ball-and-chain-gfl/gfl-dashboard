@@ -387,10 +387,16 @@ function teamColor(id){
   const hue=(Number(id||0)*47+13)%360;
   return `hsl(${hue} 52% 40%)`;
 }
+/* NOT LAZY. A crest is one of about thirty URLs, repeated four hundred times
+   across the pages, so laziness saved nothing -- the second copy of a crest
+   is free either way -- and cost every page its logos until they had been
+   scrolled to: a tab opened on initials and filled in a beat later, on every
+   visit. Eager, each URL is fetched once, and logoWarm has usually fetched
+   it already. Headshots stay lazy: there are hundreds of different ones. */
 function avatarCore(name,id,url,size,radius){
   const fs=Math.max(9,Math.round(size*0.42));
   const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#f7f8ec;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
-  const img=url?`<img src="${url}" loading="lazy" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--bg2)" onerror="this.remove()"/>`:'';
+  const img=url?`<img src="${url}" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--bg2)" onerror="this.remove()"/>`:'';
   return `<span class="tm-avatar" style="${wrap}">${teamInitials(name)}${img}</span>`;
 }
 function avatarHTML(team,size,radius){
@@ -406,6 +412,25 @@ function logoImg(teamId,cls='team-logo'){
 }
 function franchiseAvatar(f,size,radius){
   return avatarCore(f?.name||'',f?.teamId||0,proxyLogo(f?.logo),size,radius);
+}
+/* Every crest asked for as soon as its URL is known, so it is in the cache
+   before any page draws it rather than requested by the first page that
+   does. The Image objects are held so a fetch is never dropped half way. */
+const _logoWarm=new Map();
+function logoWarm(urls){
+  if(typeof Image==='undefined') return;
+  (urls||[]).forEach(u=>{
+    if(!u||_logoWarm.has(u)) return;
+    const i=new Image(); i.decoding='async'; i.src=u; _logoWarm.set(u,i);
+  });
+}
+/* this season's twelve straight away; every past season's when the browser is idle */
+function logoWarmAll(){
+  logoWarm(Object.values(_logoMap||{}));
+  logoWarm((_franchises||[]).map(f=>proxyLogo(f.logo)));
+  const rest=()=>logoWarm(Object.values(_seasonMeta||{})
+    .flatMap(m=>Object.values((m&&m.names)||{}).map(n=>proxyLogo(n&&n.logo))));
+  if(typeof requestIdleCallback==='function') requestIdleCallback(rest,{timeout:4000}); else setTimeout(rest,1500);
 }
 
 // ── COLOR HELPERS ─────────────────────────────────────────────────────────────
@@ -670,6 +695,7 @@ async function buildAllTimeH2H(){
   const excl=(Array.isArray(_CFG.excludeTeams)?_CFG.excludeTeams:[]).map(s=>String(s).toLowerCase()).filter(Boolean);
   _franchises=_franchises.filter(fr=>!excl.some(q=>fr.name.toLowerCase().includes(q)));
   _franchises.sort((a,b)=>a.name.localeCompare(b.name));
+  try{ logoWarmAll(); }catch(e){}
 }
 function allTimeH2H(idA,idB){
   const oA=_ownerMap[idA]||`team:${idA}`, oB=_ownerMap[idB]||`team:${idB}`;
@@ -24039,6 +24065,7 @@ async function loadDashboard(){
         weeklyAdds:t.transactionCounter?.matchupAcquisitionTotals||{},
       };
     }).sort((a,b)=>b.pf-a.pf);
+    try{ logoWarm(Object.values(_logoMap)); }catch(e){}
 
     let transactions=transData.transactions||[];
     _txMeta={source:transData._source||'?',count:transData._count??(transactions.length),diag:transData._diag||[]};
