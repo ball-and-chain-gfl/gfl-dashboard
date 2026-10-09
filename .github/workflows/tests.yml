@@ -47,6 +47,8 @@ jobs:
         run: node scripts/test-bighit.mjs
       - name: the homepage reads two weeks of bets, and only when somebody arrives
         run: node scripts/test-betsnear.mjs
+      - name: a ceiling on what one device can spend of the league Firestore
+        run: node scripts/test-fsguard.mjs
       - name: waiver ROI scored against the league
         run: node scripts/test-c3-share.mjs
       - name: trade and waiver ROI rankings

@@ -8623,6 +8623,145 @@ function liveSchedule(override){
    And when Firestore does answer 429, one latch stops every poll for the rest
    of the session and the UI says so, instead of each feature failing silently
    and looking like a bug. */
+/* ── A CEILING ON WHAT ONE DEVICE CAN SPEND ──────────────────────────────────
+   The 50,000 reads a day are the whole league's, shared, and Thursday showed
+   how they go: one feature re-reading the season's bets every time the
+   homepage repainted ran them out from a couple of phones in an evening, and
+   every Firestore feature on every phone went down with it -- bets, ballots,
+   picks, votes.
+
+   Every fix before this was to a feature. This is a guard on all of them,
+   including the ones not written yet. Every Firestore request the page makes
+   goes through fetch, so it is counted there, by the documents it actually
+   read -- a query that comes back with 223 bets is 223 reads, not one.
+
+   THE LOOP GUARD. One query asked ten times in an hour that has cost 1,500
+   documents between them is not a person, it is a repaint asking. That query
+   alone stops for the rest of the hour -- it answers 503, which every caller
+   already treats as a failed fetch -- and everything else carries on.
+   Thursday's would have been stopped twenty minutes in. Asked rarely or small,
+   nothing ordinary comes near it: the live series is one document every three
+   minutes, the profile list fifteen documents a poll, a Leaderboards refresh
+   a few hundred and pressed by hand.
+
+   THE CEILINGS. 5,000 documents an hour in a tab and 15,000 a day (Pacific)
+   on the device, across reloads; writes at 600 and 3,000. Opening the app is
+   about 150 documents, so a person never meets them. Past one, the device
+   stops asking at all and the page says it paused itself -- not that the
+   league is out, because the league is not. Either way the console names the
+   queries that spent it. */
+const FS_CEIL={r:{hour:5000,day:15000},w:{hour:600,day:3000}};
+const FS_LOOP={asks:10,docs:1500};
+let _fsBudget=null;                          // {kind,scope,until} once a ceiling is hit
+const _fsHour={r:[],w:[]}, _fsAsked={}, _fsLooped={};
+function fsPtDay(t){
+  try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',
+    year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t)); }
+  catch(e){ return new Date(t-8*3600000).toISOString().slice(0,10); }
+}
+/* the next Pacific midnight. It always falls on a UTC hour, so step by hours. */
+function fsPtMidnight(t){
+  const d=fsPtDay(t); let x=Math.ceil(t/3600000)*3600000;
+  while(fsPtDay(x)===d&&x<t+27*3600000) x+=3600000;
+  return x;
+}
+const fsDayKey=(k,t)=>`gfl:fs${k}:${fsPtDay(t)}`;
+function fsDaySpent(k,t){ try{ return Number(localStorage.getItem(fsDayKey(k,t)))||0; }catch(e){ return 0; } }
+function fsHourSpent(k,t){
+  const a=_fsHour[k], cut=t-3600000;
+  while(a.length&&a[0][0]<=cut) a.shift();
+  return a.reduce((s,x)=>s+x[1],0);
+}
+function fsTally(k,n,what){
+  const t=Date.now();
+  _fsHour[k].push([t,n]);
+  try{ localStorage.setItem(fsDayKey(k,t),String(fsDaySpent(k,t)+n)); }catch(e){}
+  if(k==='r'){ const q=_fsAsked[what]||(_fsAsked[what]=[]); q.push([t,n]); }
+}
+/* null, or the ceiling this request would go through */
+function fsCeiling(k){
+  const t=Date.now(), c=FS_CEIL[k];
+  if(fsDaySpent(k,t)>=c.day) return {kind:k,scope:'day',until:fsPtMidnight(t)};
+  if(fsHourSpent(k,t)>=c.hour) return {kind:k,scope:'hour',until:_fsHour[k][0][0]+3600000};
+  return null;
+}
+/* has this one query been asked like a loop in the last hour */
+function fsLooping(what){
+  const q=_fsAsked[what]; if(!q) return false;
+  const t=Date.now(), cut=t-3600000;
+  while(q.length&&q[0][0]<=cut) q.shift();
+  return q.length>=FS_LOOP.asks&&q.reduce((s,x)=>s+x[1],0)>=FS_LOOP.docs;
+}
+/* reads are GETs and queries; anything else sent to Firestore writes */
+function fsKind(url,method){
+  if(/:(runQuery|runAggregationQuery|batchGet|listCollectionIds)\b/.test(url)) return 'r';
+  return String(method||'GET').toUpperCase()==='GET'?'r':'w';
+}
+/* what a request was, in words the console can group by: a query's collection
+   and filter, a list's collection, or a document's collection */
+function fsWhat(url,init){
+  try{
+    const b=init&&typeof init.body==='string'?JSON.parse(init.body):null, s=b&&b.structuredQuery;
+    if(s) return 'query '+(s.from||[]).map(f=>f.collectionId).join(',')+' '
+      +JSON.stringify(s.where||{}).replace(/"(fieldFilter|compositeFilter|field|fieldPath|op|value|stringValue|arrayValue|values|filters)":/g,'')
+        .replace(/[{}"\[\]]/g,'').replace(/,/g,' ').slice(0,80);
+  }catch(e){}
+  const segs=((url.split('/documents')[1]||'').split('?')[0]).split('/').filter(Boolean);
+  return segs.length%2?'list '+segs.join('/'):'doc '+segs.slice(0,-1).join('/');
+}
+/* the documents a successful read came back with */
+function fsDocsIn(j){
+  if(Array.isArray(j)) return Math.max(1,j.filter(x=>x&&x.document).length);   // a query
+  if(j&&Array.isArray(j.documents)) return Math.max(1,j.documents.length);     // a list
+  return 1;                                                                      // a document
+}
+function fsSpentBy(){
+  const by={};
+  Object.entries(_fsAsked).forEach(([w,q])=>{ by[w]=q.reduce((s,x)=>s+x[1],0); });
+  return Object.fromEntries(Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,6));
+}
+const fsAnswer=(status,message)=>new Response(JSON.stringify({error:{code:status,message}}),
+  {status,headers:{'Content-Type':'application/json'}});
+function fsGovern(win){
+  if(!win||typeof win.fetch!=='function'||win.__fsGoverned) return;
+  win.__fsGoverned=true;
+  const raw=win.fetch;
+  win.fetch=function(input,init){
+    const url=String((input&&input.url)||input||'');
+    if(url.indexOf('firestore.googleapis.com')<0) return raw.call(win,input,init);
+    const k=fsKind(url,(init&&init.method)||(input&&input.method));
+    const lim=fsCeiling(k);
+    if(lim){
+      if(!_fsBudget){
+        _fsBudget=lim;
+        console.error(`[gfl] Firestore ${k==='r'?'read':'write'} ceiling reached (${lim.scope==='day'
+          ?'this device, today':'this tab, this hour'}); paused until ${new Date(lim.until).toLocaleString()}. Read by:`,fsSpentBy());
+      }
+      return Promise.resolve(fsAnswer(429,'This device paused its own Firestore use'));
+    }
+    const what=fsWhat(url,init);
+    if(k==='r'&&fsLooping(what)){
+      if(!_fsLooped[what]){ _fsLooped[what]=true;
+        console.error('[gfl] one Firestore query is being asked like a loop and is stopped for the hour:',what,fsSpentBy()); }
+      return Promise.resolve(fsAnswer(503,'Asked too often; stopped for the hour'));
+    }
+    return raw.call(win,input,init).then(res=>{
+      /* a refusal costs nothing; a missing document still costs its read */
+      if(res&&k==='w'){ if(res.ok) fsTally('w',1,what); }
+      else if(res&&res.ok) res.clone().json().then(j=>fsTally('r',fsDocsIn(j),what),()=>fsTally('r',1,what));
+      else if(res&&res.status===404) fsTally('r',1,what);
+      return res;
+    });
+  };
+}
+if(typeof window!=='undefined') fsGovern(window);
+/* What the page says when Firestore answers 429: the league's real limit, or
+   this device having stopped itself. */
+function fsLimitText(){
+  if(_fsBudget) return {head:'This device has paused its own league reads',
+    when:`after ${new Date(_fsBudget.until).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} — reload then`};
+  return {head:'The league database has hit its daily free-tier limit',when:'after it resets at midnight Pacific'};
+}
 let _fsQuota=false;
 function fsNoteResponse(r){
   if(r&&r.status===429){ _fsQuota=true; try{ leagueStop(); }catch(e){} }
@@ -17405,7 +17544,11 @@ async function ntSync(){
     /* The make-good comes off the same document on the same trip, so the card
        is decided before the feed is ever drawn. */
     const wasFix=_bkFixClaimed;
-    _bkFixClaimed=!!(res&&res.data&&res.data[BK_MAKEGOOD.field]!=null);
+    /* ONLY AN ANSWER DECIDES IT. A read that failed comes back with no data,
+       and that was being taken as 'not claimed' -- so when the quota ran out
+       on 9 October every manager's stack opened on a month-old reimbursement
+       they had already taken. Unknown leaves it where it was: hidden. */
+    if(res&&res.data) _bkFixClaimed=res.data[BK_MAKEGOOD.field]!=null;
     if(ntSeen().size!==before||wasFix!==_bkFixClaimed){
       try{ localStorage.setItem(ntKey(),JSON.stringify([...ntSeen()])); }catch(e){}
       if(_activeTab==='home'){ renderNotifications(); try{ orderHomeTodo(); }catch(e){} }
@@ -18730,7 +18873,7 @@ async function ntVote(vid,side){
   _ntVoteBusy=false;
   if(!res||res.error){
     _ntVoteMsg={err:res&&res.error==='quota'
-      ?'The league database is at its daily limit — your vote did not save. Try again after midnight Pacific.'
+      ?`${fsLimitText().head} — your vote did not save. Try again ${fsLimitText().when}.`
       :'That did not save. Check your connection and try again.'};
     renderNotifications();
     return;
@@ -19541,7 +19684,7 @@ function renderCoachesPoll(){
         <span class="cp-nm">${t.abbrev||teamInitials(t.name)}</span>
       </button>`;}).join('')}</div>
     ${_cpErr?`<div class="cp-err">${_cpErr==='quota'
-      ?'The league database has hit its daily free-tier limit — your ballot was not saved. Try again after it resets at midnight Pacific.'
+      ?`${fsLimitText().head} — your ballot was not saved. Try again ${fsLimitText().when}.`
       :'That did not save. Check your connection and try again.'}</div>`:''}
     <div class="cp-actions">
       <button class="cp-reset" onclick="cpClear()">Reset</button>
@@ -22122,10 +22265,11 @@ function myBetsHTML(){
     <button class="sb-place" onclick="openSignIn()"><i class="fa fa-right-to-bracket"></i>Sign in</button></div>`;
   if(_betErr==='rules') return `<div class="sb-mine-empty"><i class="fa fa-lock"></i>
     <div>The <code>bets</code> collection is not readable yet — its Firestore rule still needs publishing.</div></div>`;
-  if(_betErr==='quota'||_fsQuota) return `<div class="sb-mine-empty"><i class="fa fa-hourglass-half"></i>
-    <div><b>The league database has hit its daily free-tier limit.</b><br>
+  if(_betErr==='quota'||_fsQuota){ const lt=fsLimitText();
+    return `<div class="sb-mine-empty"><i class="fa fa-hourglass-half"></i>
+    <div><b>${lt.head}.</b><br>
     Nothing is broken and nothing is lost — bets, ballots and picks all come back
-    when the quota resets at midnight Pacific.</div></div>`;
+    ${lt.when}.</div></div>`; }
   if(_bets===null) return `<div class="tab-loading" style="padding:22px"><i class="fa fa-circle-notch"></i>Loading your bets…</div>`;
   const all=betsMine();                 // ledger reflects every bet, cleared or not
   const mine=all.filter(b=>!b.hidden);  // the list shows what has not been cleared
@@ -22267,7 +22411,7 @@ function sbSlipHTML(){
         :_betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
         :_betErr==='stake'?'Enter a stake first.'
         :_betErr==='loading'?'Still counting your money. One moment.'
-        :_betErr==='quota'?'The league database has hit its daily free-tier limit — try again after it resets at midnight Pacific.'
+        :_betErr==='quota'?`${fsLimitText().head} — try again ${fsLimitText().when}.`
         :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
         :'Could not place that bet. Try again.'}</div>`:''}`
     :`<div class="sb-slip-empty">Tap any price to add it here.<br/>Multiple picks become a parlay.</div>`}

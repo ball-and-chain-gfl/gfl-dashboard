@@ -109,9 +109,21 @@ ok('a failed write leaves the card up', /renderNotifications\(\); return;/.test(
 ok('and it is taken off the undo stack as it is claimed',
   /_ntUndo=_ntUndo\.filter\(id=>id!==BK_MAKEGOOD\.id\)/.test(claim), true);
 
-const sync = grab('async function ntSync(){');
-ok('the claim is read from the profile, not from local storage',
-  /_bkFixClaimed=!!\(res&&res\.data&&res\.data\[BK_MAKEGOOD\.field\]/.test(sync), true);
+/* the claim comes off the profile document -- and only when it answered */
+const S = assemble(grab, ['const BK_MAKEGOOD=', 'async function ntSync(){'], ['ntSync', 'claimed', 'answer'], [
+  'let _me={k1:"bft"}, _bkFixClaimed=null, _res=null, _activeTab="stats";',
+  'const claimed=()=>_bkFixClaimed; const answer=(r,c)=>{ _res=r; if(c!==undefined) _bkFixClaimed=c; };',
+  'const gflFetchProfile=async()=>_res; const _seen=new Set(); const ntSeen=()=>_seen; const ntKey=()=>"k";',
+  'const localStorage={setItem(){}}; const renderNotifications=()=>{}; const orderHomeTodo=()=>{};',
+].join(String.fromCharCode(10)));
+S.answer({ data: { bkt_fix1: '1' } }); await S.ntSync();
+ok('a profile carrying the field: claimed, so no card', S.claimed(), true);
+S.answer({ data: { ntSeen: '[]' } }, null); await S.ntSync();
+ok('a profile without it: not claimed, so the card', S.claimed(), false);
+S.answer({ error: 'lookup failed' }, null); await S.ntSync();
+ok('a read that failed (the 9 October quota outage) is not an answer: no card', S.claimed(), null);
+S.answer({ error: 'offline' }, true); await S.ntSync();
+ok('and it does not undo a claim already known', S.claimed(), true);
 
 console.log('\n' + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
