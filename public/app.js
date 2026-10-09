@@ -3682,7 +3682,8 @@ function pollLiveWeekEntry(){
   const w=cpWeek();
   if((_polls&&_polls.weeks||{})[w]) return null;      // already on file
   const t=cpTally();
-  if(!t.ballots||t.ballots<_teams.length) return null; // not everybody yet
+  /* not everybody yet -- unless voting has closed, when what is in is the poll */
+  if(!t.ballots||(t.ballots<_teams.length&&!cpLocked())) return null;
   return {week:w, live:true, entry:{ballots:t.ballots, live:true,
     rank:t.rank.map((r,i)=>({rank:i+1, teamId:Number(r.t.id),
       avg:+Number(r.avg).toFixed(3)}))}};
@@ -3774,6 +3775,54 @@ function pollColor(teamId){
    straight around that, so until this manager's own ballot for the week is in
    every one of them is a question mark. */
 const CP_REVEAL_AT=()=>isTestProfile()?2:7;
+/* ── THE POLL CLOSES WHEN SUNDAY KICKS OFF ──────────────────────────────────
+   A ballot ranks the league going into the week's football, and ranking
+   somebody once their games have started is ranking them on what you have
+   just watched. So the week's poll closes at the first Sunday kickoff --
+   9:30 in the morning Eastern on a London week, 1pm otherwise -- and what is
+   in at that moment IS the poll: nothing more can be sent, everybody can see
+   it, and it goes on the Standings chart straight away rather than waiting
+   for a twelfth ballot or Tuesday's archive. Thursday night is not the
+   deadline; one game is not the week.
+
+   Read off the kickoffs in the week's scoreboard digest, judged in Eastern
+   time, which is the clock the NFL calls a day by. Before the digest is in
+   hand -- or from a digest older than its kickoffs -- the calendar answers
+   with 1pm Eastern on the week's Sunday. And once any Sunday game is under
+   way the poll is closed whatever this device's clock says. */
+const CP_ET_DAY=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short'});
+const CP_ET_HOUR=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'});
+function cpLockInfo(){
+  let i=_liveInfo;
+  if(!i&&typeof liveWeekInfo==='function'){ try{ i=liveWeekInfo(); }catch(e){} }
+  if(!i||!i.week) return null;
+  const d=nflWeekGames(i.week,i.season);
+  const sun=((d&&d.games)||[]).filter(g=>g&&Number(g.k)>0&&CP_ET_DAY.format(new Date(Number(g.k)))==='Sun');
+  if(sun.length) return {at:Math.min(...sun.map(g=>Number(g.k))),
+    begun:sun.some(g=>g.s==='in'||g.s==='post')};
+  const fri=nflWeekKickoffMs(i.season,i.week); if(!fri) return null;
+  const at17=fri+2*86400000+17*3600000;           // Sunday 17:00 UTC
+  return {at:Number(CP_ET_HOUR.format(new Date(at17)))===13?at17:at17+3600000, begun:false};
+}
+const cpLockAt=()=>{ const l=cpLockInfo(); return l?l.at:null; };
+function cpLocked(){
+  const l=cpLockInfo();
+  return !!l&&(l.begun||Date.now()>=l.at);
+}
+/* the card, the Standings chart and every badge change at the moment it
+   closes, so a page left open across Sunday kickoff is told */
+let _cpLockT=null, _cpLockFor=0;
+function cpLockWatch(){
+  const at=cpLockAt(); if(!at||at===_cpLockFor) return;
+  const ms=at-Date.now(); if(ms<=0||ms>7*86400000) return;
+  _cpLockFor=at; clearTimeout(_cpLockT);
+  _cpLockT=setTimeout(()=>{
+    try{ renderCoachesPoll(); }catch(e){}
+    try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){}
+    try{ cpBadgeRepaint(); }catch(e){}
+    try{ orderHomeTodo(); }catch(e){}
+  },ms+1000);
+}
 /* has THIS manager voted in the week that is open. Lifted out of
    renderCoachesPoll, which is where it used to live inline -- the gate on the
    badges has to be the same test as the gate on the card, not a copy of it. */
@@ -3791,7 +3840,7 @@ function cpMineIn(){
 function pollNowRanks(){
   if(_cpRows&&(_teams||[]).length){
     let t=null; try{ t=cpTally(); }catch(e){}
-    if(t&&t.rank&&t.rank.length&&t.ballots>=CP_REVEAL_AT()){
+    if(t&&t.rank&&t.rank.length&&(t.ballots>=CP_REVEAL_AT()||cpLocked())){
       const out={}; t.rank.forEach((r,i)=>{ out[Number(r.t.id)]=i+1; });
       return out;
     }
@@ -3807,7 +3856,7 @@ const pollTeamIdOf=owner=>Number(((_franchises||[])
 function pollBadge(teamId,cls){
   const c='cp-bdg'+(cls?' '+cls:'');
   const q=`<span class="${c} cp-bdg-q" title="Fill in your Coaches' Poll ballot to see the rankings">?</span>`;
-  if(!cpMineIn()) return q;
+  if(!cpMineIn()&&!cpLocked()) return q;          // closed: there is nothing left to withhold
   const r=pollNowRanks()[Number(teamId)];
   if(!r) return q;
   return `<span class="${c}" style="--cpb:${pollRampColor(r,(_teams||[]).length||12)}"
@@ -3843,7 +3892,7 @@ function pollRanksAt(w){
 function pollBadgeAt(teamId,w,cls){
   const c='cp-bdg'+(cls?' '+cls:'');
   const q=`<span class="${c} cp-bdg-q" title="Fill in your Coaches' Poll ballot to see the rankings">?</span>`;
-  if(!cpMineIn()) return q;
+  if(!cpMineIn()&&!cpLocked()) return q;
   const r=pollRanksAt(w)[Number(teamId)];
   if(!r) return q;
   return `<span class="${c}" style="--cpb:${pollRampColor(r,(_teams||[]).length||12)}"
@@ -12583,7 +12632,9 @@ function nflWeekGames(week,season){
         /* weekHasStarted answers off this digest, so the things it gates have to
            be repainted when it lands -- otherwise the picks grid keeps whatever
            the pre-digest fallback said for the rest of the session. */
-        try{ if(document.getElementById('pk-body')) renderWeekPicks(); }catch(e){} } })
+        try{ if(document.getElementById('pk-body')) renderWeekPicks(); }catch(e){}
+        /* and the poll, which closes off the kickoffs in it */
+        try{ if(document.getElementById('cp-body')) renderCoachesPoll(); }catch(e){} } })
       .catch(()=>{})
       .finally(()=>{ _nflWkBusy[k]=false; });
   }
@@ -16424,7 +16475,7 @@ function renderBallKnowledge(){
     </div>`;
   }).join('');
   const wrong=qs.length-right;
-  const delta=(right-wrong)*iq.step;
+  const delta=(right-wrong)*BK_PT*iq.step;       // two a question, either way
   const word=delta>0?'gained':delta<0?'lost':'held';
   el.innerHTML=`
     <div class="bk-meta"><span>Week ${bkWeek()}</span>
@@ -18760,7 +18811,8 @@ const HOME_TODO=[
      under the video. Anything with business still open -- a ballot to send, a
      slate to pick, a notification to clear -- outranks it and sits above. */
   {id:'fc-sec', done:()=>true},
-  {id:'cp-sec', done:()=>_cpJustSent || !!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()])},
+  /* closed counts as done: there is nothing left on it to do */
+  {id:'cp-sec', done:()=>_cpJustSent || cpLocked() || !!(_cpRows||[]).find(p=>_me&&p.id===_me.k1&&p[cpKey()])},
   /* Cleared notifications have nothing to show but "all caught up", so once
      they are seen they go to the very bottom, under Ball Knowledge, rather
      than holding a slot above the picks. */
@@ -19000,13 +19052,14 @@ async function cpSync(){
   }catch(e){}
 }
 function cpToggle(teamId){
+  if(cpLocked()) return;
   const b=cpMyBallot().slice();
   const i=b.indexOf(String(teamId));
   if(i>=0) b.splice(i,1); else b.push(String(teamId));
   _cpBallot=b; localStorage.setItem(lsKey(cpKey()),JSON.stringify(b));
   renderCoachesPoll();
 }
-function cpClear(){ _cpBallot=[]; localStorage.setItem(lsKey(cpKey()),'[]'); renderCoachesPoll(); }
+function cpClear(){ if(cpLocked()) return; _cpBallot=[]; localStorage.setItem(lsKey(cpKey()),'[]'); renderCoachesPoll(); }
 /* The ballot used to be marked sent before the write was attempted and the
    result was thrown away, so a refused save — a quota block, most of all —
    folded the card away as though it had gone through and quietly lost the
@@ -19022,6 +19075,7 @@ const cpRefreshBtn=()=>`<button class="cp-refresh" onclick="cpRefresh()" ${_cpRe
   title="Check for new ballots"><i class="fa fa-rotate${_cpRefreshing?' fa-spin':''}"></i></button>`;
 async function cpSubmit(){
   if(!_me||_cpBusy) return;
+  if(cpLocked()){ renderCoachesPoll(); return; }      // Sunday has kicked off
   const b=cpMyBallot();
   if(b.length!==_teams.length) return;
   _cpBusy=true; _cpErr=null; renderCoachesPoll();
@@ -19067,7 +19121,7 @@ function cpYetToVoteHTML(){
   if(!out.length) return `<div class="cp-yet cp-yet-all">
     <i class="fa fa-circle-check"></i><span>Every ballot is in.</span></div>`;
   return `<div class="cp-yet">
-    <span class="cp-yet-l">Yet to vote</span>
+    <span class="cp-yet-l">${cpLocked()?'No ballot':'Yet to vote'}</span>
     <span class="cp-yet-logos">${out.map(t=>
       `<span class="cp-yet-t" title="${String(t.name).replace(/"/g,'&quot;')}">${logoImg(t.id,'cp-logo')}</span>`
     ).join('')}</span>
@@ -19143,12 +19197,14 @@ function renderCoachesPoll(){
      which is the only way to see a result before seven people have voted. */
   const REVEAL_AT=CP_REVEAL_AT();
   const complete=ballots>=REVEAL_AT;
+  const locked=cpLocked();
+  cpLockWatch();
 
   if(!_me){
     el.innerHTML=`<div class="home-signin">
       <div class="home-signin-t">Sign in to rank the league and see where everyone else has it.</div>
       <button class="home-signin-b" onclick="openSignIn()">Sign in</button>
-      <div class="home-signin-m">${ballots} of ${total} ballots in</div>
+      <div class="home-signin-m">${ballots} of ${total} ballots in${locked?' · voting closed':''}</div>
     </div>`;
     return;
   }
@@ -19157,7 +19213,7 @@ function renderCoachesPoll(){
      before you say what you think, which is the one thing a poll cannot allow —
      the late voters would just be ratifying it. */
   const mineIn=cpMineIn();
-  const results=`<div class="cp-meta">${ballots} of ${total} ballots in${ballots<total?' · still open':''}${cpRefreshBtn()}</div>
+  const results=`<div class="cp-meta">${ballots} of ${total} ballots in${locked?' · closed at Sunday kickoff':ballots<total?' · still open':''}${cpRefreshBtn()}</div>
     <div class="cp-list">${rank.map((r,i)=>`<div class="cp-res">
       <span class="cp-rk">${i+1}</span>
       ${logoImg(r.t.id,'cp-logo')}
@@ -19177,6 +19233,13 @@ function renderCoachesPoll(){
         ${logoImg(t.id,'cp-logo')}<span class="cp-nm">${t.name}</span></div>`:'';
     }).join('')}</div>`;
   };
+  /* Closed: the poll is what was in at Sunday kickoff, and everybody sees it
+     -- including whoever did not get a ballot in, who is told so */
+  if(locked){
+    el.innerHTML=(mineIn?'':`<div class="cp-note cp-missed"><i class="fa fa-lock"></i>Voting closed at Sunday kickoff before your ballot was in.</div>`)
+      +results+cpBallotsHTML();
+    return;
+  }
   if(complete&&mineIn){
     el.innerHTML=results+cpBallotsHTML();
     return;
@@ -19394,13 +19457,22 @@ let _bkProfiles=null;
    Null means not in yet, which is different from none: callers hold the number
    back rather than print a total with a piece missing. */
 
-/* Ball Knowledge is not just the quiz. Three things move it, all of them a
-   read on the league rather than luck:
+/* Ball Knowledge is the week's questions and the week's picks:
      · the weekly trivia — a right answer up, a wrong one down
      · the weekly picks, once the games they call have been played
-     · settled bets, which are the same judgement with something on it
-   All three carry the same weight: one point up for a right call, one down for
-   a wrong one, and the Matchup of the Week pick counts double. */
+   ── TWO POINTS A CALL ─────────────────────────────────────────────────────
+   A right answer or a right pick is worth two, a wrong one minus two, and the
+   Matchup of the Week counts double -- four. (It was one apiece.) The sealed
+   weekly trivia number and the pick grader still count in ones, right minus
+   wrong, and are doubled here, in the one place they are added up.
+
+   ── AND MINUS ONE FOR EVERYTHING NEVER SENT ───────────────────────────────
+   A trivia set never submitted is minus five, one a question; a week of picks
+   never submitted is minus six, one a matchup. Not doubled: skipping costs
+   less than being wrong and more than sitting out ever could have, which is
+   what makes it a rule rather than a shrug. Both apply to every week of the
+   season, the picks back to week 1. */
+const BK_PT=2;
 function bkIQFor(teamId){
   const cfg=_CFG.ballKnowledge||{}, iq=bkIQCfg();
   if(!_bkProfiles) return iq.avg;
@@ -19408,6 +19480,7 @@ function bkIQFor(teamId){
   if(!rows.length) return iq.avg;
   let score=0;
   rows.forEach(p=>{
+    let calls=0;                                    // right minus wrong, in ones
     // trivia
     /* The questions are generated now rather than written into config, and this
        was still reading the config list — which has been empty since, so the
@@ -19438,8 +19511,11 @@ function bkIQFor(teamId){
        the questions in hand, so the bar moves as answers go in, and it stops
        being graded the moment it is sealed. Positive adds, negative subtracts,
        which is what a blank after the whistle is worth. */
-    Object.keys(p).forEach(k=>{ if(/^bkt_/.test(k)) score+=Number(p[k])||0; });
-    score+=bkUnsealed(p);                           // past weeks nobody submitted
+    /* a sealed week is calls and doubles; anything else on a bkt_ field -- the
+       one-off make-good -- is a point exactly as it was given */
+    Object.keys(p).forEach(k=>{ if(!/^bkt_/.test(k)) return;
+      if(/^bkt_\d+_w\d+$/.test(k)) calls+=Number(p[k])||0; else score+=Number(p[k])||0; });
+    score+=bkUnsealed(p);                           // past weeks nobody submitted: −5 each
     /* LIVE GRADING IS BACK, because the thing that made it wrong is fixed.
        It moved between page loads because bkBuildWeek emitted questions in the
        order they happened to BUILD, and answers are stored by index -- so the
@@ -19452,9 +19528,10 @@ function bkIQFor(teamId){
        reads the sealed number. In practice that is the migration window -- the
        league submitted week 1 before sealing existed -- and from here bkSubmit
        seals at the press, so this line stops mattering. */
-    if(p[bkScoreKey(bkWeek())]==null&&p[bkSubKey()]) score+=bkLiveTrivia(p);
+    if(p[bkScoreKey(bkWeek())]==null&&p[bkSubKey()]) calls+=bkLiveTrivia(p);
     // weekly picks, graded against results that exist
-    score+=bkPickScore(p);
+    calls+=bkPickScore(p);
+    score+=calls*BK_PT+bkPicksMissed(p);
   });
   /* ── BETS DO NOT COUNT TOWARD BALL KNOWLEDGE ────────────────────────
      A settled bet used to be worth a point either way, alongside the trivia
@@ -19469,6 +19546,30 @@ function bkIQFor(teamId){
      read. So the totals simply recompute, and they move by between -1 and +9
      across the league, upward for everybody who was net down on their bets. */
   return Math.max(iq.min,Math.min(iq.max,Math.round(iq.avg+score*iq.step)));
+}
+/* ── A WEEK OF PICKS NEVER SENT ───────────────────────────────────────────────
+   Minus one for every matchup on the slate -- six on a regular week -- for
+   each week a manager sent no picks at all, back to week 1. A slate cannot
+   be sent short (pkSubmit wants every game), so 'no picks' is 'no pick key
+   for that week', in either of its shapes. A week is only charged once it is
+   locked: every week before the one on the board, and that one from its
+   first kickoff -- until then there is still time to pick. */
+function bkPicksMissed(p){
+  const season=String(bkLeagueSeason()), meta=_seasonMeta[season];
+  if(!meta||!(meta.schedule||[]).length) return 0;
+  let info=_liveInfo; if(!info){ try{ info=liveWeekInfo(); }catch(e){} }
+  const cur=Number(info&&info.week)||0; if(!cur) return 0;
+  const sent=new Set();
+  Object.keys(p).forEach(k=>{ const m=/^pk_(\d+)_w(\d+)/.exec(k);
+    if(m&&m[1]===season) sent.add(Number(m[2])); });
+  const byWeek=weeksOf(meta.schedule);
+  let s=0;
+  for(let w=1;w<=cur;w++){
+    if(sent.has(w)) continue;
+    if(w===cur&&!weekHasStarted()) continue;     // still open
+    s-=(byWeek[w]||[]).length;
+  }
+  return s;
 }
 /* how a manager's weekly picks turned out, over every week still in the
    profile — only games with a finished result count */

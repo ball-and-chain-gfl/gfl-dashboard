@@ -261,6 +261,10 @@ export default async function handler(req, res) {
           // proTeamId to a game without parsing shortName apart.
           ht: home.team?.abbreviation || '',
           at: away.team?.abbreviation || '',
+          // Kickoff, in epoch ms. The Coaches' Poll closes when Sunday's
+          // football starts, and which games are Sunday's is a fact about
+          // their kickoff, not their state.
+          k: Date.parse(e.date || c.date || '') || 0,
         };
       });
       // one string that changes whenever anything on the field does

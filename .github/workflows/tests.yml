@@ -49,6 +49,8 @@ jobs:
         run: node scripts/test-c3-share.mjs
       - name: trade and waiver ROI rankings
         run: node scripts/test-roirank.mjs
+      - name: ball knowledge points and the Sunday poll lock
+        run: node scripts/test-bkrules.mjs
       - name: the settler parses
         run: node --check scripts/settle-bets.mjs
       - name: the live poller parses

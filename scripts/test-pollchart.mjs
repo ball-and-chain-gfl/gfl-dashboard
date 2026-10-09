@@ -343,8 +343,9 @@ console.log(nl + '6. A WEEK EVERYONE HAS VOTED IN PUBLISHES WITHOUT WAITING FOR 
   const E = assemble(g2, [
     'const cpWeek=', 'const cpKeyFor=', 'const cpKey=', 'function cpTally(){',
     'function pollLiveWeekEntry(){', 'function pollWeeksData(){',
-  ], ['pollLiveWeekEntry', 'pollWeeksData', 'cpTally', 'setRows', 'setPolls', 'setTeams'],
+  ], ['pollLiveWeekEntry', 'pollWeeksData', 'cpTally', 'setRows', 'setPolls', 'setTeams', 'setLocked'],
     ['let _liveInfo={week:2};', 'const getSeason=()=>2026;',
+     'let _locked=false; const cpLocked=()=>_locked; const setLocked=v=>{_locked=v;};',
      'let _cpRows=null, _polls=null;',
      'let _teams=[];',
      'const setRows=r=>{_cpRows=r;};',
@@ -384,6 +385,14 @@ console.log(nl + '6. A WEEK EVERYONE HAS VOTED IN PUBLISHES WITHOUT WAITING FOR 
   E.setRows(rowsFor('cp_2026_w2').slice(0, 11));
   ok('nothing publishes early', E.pollLiveWeekEntry() === null,
      'published a week somebody could still vote in');
+
+  console.log(nl + '   but once Sunday kicks off, what is in is the poll');
+  E.setLocked(true);
+  const closed = E.pollLiveWeekEntry();
+  ok('eleven of twelve publishes the moment voting closes', !!closed && closed.week === 2 && closed.entry.ballots === 11);
+  E.setRows([]);
+  ok('but a closed week with no ballots at all puts nothing on the chart', E.pollLiveWeekEntry() === null);
+  E.setLocked(false);
 
   console.log(nl + '   the file wins wherever it has an entry');
   E.setRows(rowsFor('cp_2026_w2'));
@@ -625,13 +634,16 @@ console.log(nl + '9. HOMEPAGE: EVERY TEAM\'S BALLOT, ONE CREST EACH');
 
   console.log(nl + '   and the gate');
   /* THE POINT OF THE WHOLE CARD: a ballot is a result, and is withheld exactly
-     as long as the results are. The grid must be drawn in one place, and that
-     place is the branch that has passed both the reveal and this manager's own
-     vote. */
+     as long as the results are. The grid is drawn in two places and only two:
+     the branch that has passed both the reveal and this manager's own vote, and
+     the branch for a poll that has CLOSED at Sunday kickoff -- when the ballots
+     are final, nobody can vote any more, and there is nothing left to withhold
+     from anybody. */
   const SRC = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const calls = SRC.split('cpBallotsHTML()').length - 1;
-  ok('the grid is drawn from exactly one place', calls === 2,
+  ok('the grid is drawn from exactly two places', calls === 3,
      (calls - 1) + ' call sites besides the definition');
+  ok('one of them is the closed poll', /if\(locked\)\{[\s\S]{0,300}?\+results\+cpBallotsHTML\(\);/.test(SRC));
   ok('and that place is behind the reveal AND this manager\'s own ballot',
      SRC.includes('  if(complete&&mineIn){' + nl + '    el.innerHTML=results+cpBallotsHTML();'));
   const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');

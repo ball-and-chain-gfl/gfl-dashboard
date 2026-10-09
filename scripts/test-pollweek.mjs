@@ -182,15 +182,17 @@ ok('four things assign the rows',
   (SRC.match(/_cpRows\s*=\s*(rows|r|j\.rows)\b/g) || []).length, 4);
 ok('one of them is the pre-render session cache',
   /function cpRowsWarm\(\)[\s\S]{0,400}?_cpRows\s*=\s*j\.rows/.test(SRC), true);
-/* three for the ballots, one for the archive landing that always had one */
-ok('and there are four guarded repaints',
+/* three for the ballots, one for the archive landing that always had one, and
+   one for the moment voting closes at Sunday kickoff (cpLockWatch), when the
+   week goes on the chart with nothing having landed at all */
+ok('and there are five guarded repaints',
   (SRC.match(/document\.getElementById\('standings-poll'\)\) renderStandingsPoll\(\)/g) || []).length,
-  4);
+  5);
 ok('none of them waits for the tab to be open',
   SRC.includes("if(_activeTab==='standings') try{ renderStandingsPoll(); }"), false);
-/* those four, the one in renderStandings, and the declaration itself */
+/* those five, the one in renderStandings, and the declaration itself */
 ok('and nothing else calls it unguarded',
-  (SRC.match(/renderStandingsPoll\(\)/g) || []).length, 6);
+  (SRC.match(/renderStandingsPoll\(\)/g) || []).length, 7);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

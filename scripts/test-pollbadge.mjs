@@ -63,7 +63,7 @@ const M = assemble(lifter(new URL('../public/app.js', import.meta.url)),
    'pollRanksAt', 'pollBadgeAt', 'pollBadgeAtFor', 'pollSosRows', 'pollSosHTML',
    'weekScoreRanks', 'sosCol', 'SOS_RAMP', 'ntUpsetBy', 'NT_UPSET_GAP',
    'setTeams', 'setRows', 'setMe', 'setPolls', 'setFranchises', 'setWeek', 'setTest',
-   'setSeason'],
+   'setSeason', 'setLocked'],
 `
 let _teams=[], _cpRows=[], _me=null, _polls=null, _franchises=[], _liveInfo=null, _test=false;
 const setTeams=v=>{_teams=v;};
@@ -74,6 +74,7 @@ const setFranchises=v=>{_franchises=v;};
 const setWeek=v=>{_liveInfo={week:v};};
 const setTest=v=>{_test=v;};
 const isTestProfile=()=>_test;
+let _locked=false; const cpLocked=()=>_locked; const setLocked=v=>{_locked=v;};
 const getSeason=()=>'2026';
 /* the colour is the poll's own ramp and is not what this suite is about */
 const pollRampColor=(r,n)=>'#R'+r+'of'+n;
@@ -123,7 +124,7 @@ const withheld = h => h.indexOf('cp-bdg-q') >= 0;
 
 const reset = () => {
   M.setTeams(TEAMS); M.setFranchises(FR); M.setRows([]);
-  M.setMe(null); M.setPolls(null); M.setWeek(4); M.setTest(false);
+  M.setMe(null); M.setPolls(null); M.setWeek(4); M.setTest(false); M.setLocked(false);
 };
 
 /* ── 1 ─────────────────────────────────────────────────────────────────── */
@@ -144,6 +145,17 @@ head('1. THE GATE IS THE POLL\'S OWN GATE');
   ok('eleven ballots in and yours is not', withheld(M.pollBadge(1)), true);
   ok('the other eleven are hidden from you too', withheld(M.pollBadge(7)), true);
   ok('including your own team', withheld(M.pollBadge(1)), true);
+
+  /* AND ONCE VOTING CLOSES AT SUNDAY KICKOFF THERE IS NOTHING LEFT TO WITHHOLD:
+     nobody can vote any more, so the manager who did not is shown the poll
+     like everybody else rather than a question mark for the rest of the week */
+  M.setLocked(true);
+  ok('closed: the manager who did not vote sees the ranks', txt(M.pollBadge(1)), '1');
+  ok('and the dated badges too', withheld(M.pollBadgeAt(7, 4)), false);
+  M.setRows(rows(5, 4));
+  ok('closed with five ballots, short of the seven, the poll still shows', txt(M.pollBadge(1)), '1');
+  M.setRows(rows(N, 4).filter(r => r.id !== 'o1'));
+  M.setLocked(false);
 
   /* a ballot for LAST week is not a ballot for this one */
   M.setRows(rows(N, 3));
