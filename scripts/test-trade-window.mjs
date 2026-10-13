@@ -53,8 +53,9 @@ function grab(startsWith) {
 
 const build = (weeks, wk) => new Function('weeks', 'wk',
   grab('const firstWeekOn = (pid, tid) =>')
+  + grab('const stintStart = (pid, tid, seen) =>')
   + grab('const ptsFrom = (pid, from) =>')
-  + 'return { firstWeekOn, ptsFrom };')(weeks, wk);
+  + 'return { firstWeekOn, stintStart, ptsFrom };')(weeks, wk);
 
 /* Four players. 100 and 101 were traded to team 2 before the season, so they
    are on it from week 1. 200 arrives at team 2 in week 4. */
@@ -93,6 +94,18 @@ const M2 = build([1, 2], { 1: { 100: { team: 2, pts: 12 } }, 2: {} });
 ok('week 2 empty, the week 1 points survive', M2.ptsFrom(100, M2.firstWeekOn(100, 2)), 12);
 ok('counting from the unplayed week is what gave 0.0', M2.ptsFrom(100, 2), 0);
 
+head('a player coming BACK to a side counts from this stint, not his first');
+/* Mike Washington Jr.: team 8 in weeks 1-4, team 10 in week 5, traded back to
+   8 on 13 October and on their week 6 roster. The stamp is first seen in week 6. */
+const WK3 = { 1: { 300: { team: 8, pts: 4 } }, 2: { 300: { team: 8, pts: 6 } }, 3: { 300: { team: 8, pts: 3 } },
+  4: { 300: { team: 8, pts: 5 } }, 5: { 300: { team: 10, pts: 9 } }, 6: { 300: { team: 8, pts: 0 } } };
+const M3 = build([1, 2, 3, 4, 5, 6], WK3);
+ok('firstWeekOn finds the first stint, which is the bug', M3.firstWeekOn(300, 8), 1);
+ok('the stamp belongs to the stint it began: week 6', M3.stintStart(300, 8, 6), 6);
+ok('so none of what he scored for 10, or for 8 the first time, is this deal\'s', M3.ptsFrom(300, M3.stintStart(300, 8, 6)), 0);
+ok('a stamp only the live roster carries walks back to where the run began', M.stintStart(200, 2, 6), 4);
+ok('and a pre-season deal is still week 1', M.stintStart(100, 2, 6), 1);
+
 head('a player the rosters never show on that side');
 ok('falls back to the first week rather than throwing', M.firstWeekOn(999, 2), 1);
 
@@ -100,8 +113,16 @@ ok('falls back to the first week rather than throwing', M.firstWeekOn(999, 2), 1
 head('the handler no longer counts from the current scoring period');
 const block = SRC.slice(SRC.indexOf('// THE WEEK A TRADE HAPPENED IN DOES NOT MOVE'),
                         SRC.indexOf('trades.sort((a, b)'));
-ok('points come from firstWeekOn', /ptsFrom\(l\.pid, firstWeekOn\(l\.pid, tid\)\)/.test(block), true);
-ok('the trade week comes from firstWeekOn too', /Math\.min\(\.\.\.legs\.map\(l => firstWeekOn/.test(block), true);
+ok('points come from the stint the stamp began', /ptsFrom\(l\.pid, stintStart\(l\.pid, tid, l\.week\)\)/.test(block), true);
+ok('the trade week comes from it too', /Math\.min\(\.\.\.legs\.map\(l => stintStart\(l\.pid, l\.to, l\.week\)/.test(block), true);
+
+head('the weekly diff takes one move per player');
+ok('a player who changed hands twice in the window is taken once, at his later move',
+  /lastLeg\[mv\.pid\] = mv/.test(SRC) && /const legs = Object\.values\(lastLeg\)/.test(SRC), true);
+
+head('the log adds to the reconstructions rather than ending them');
+ok('no early return on the log', /return res\.status\(200\)\.json\(\{ season, count: realTrades\.length/.test(SRC), false);
+ok('the budget item is no player', /if \(\/BUDGET\/i\.test\(String\(it\.type/.test(SRC), true);
 ok('nothing in it reads scoringPeriodId any more', /ld\.scoringPeriodId/.test(block), false);
 
 console.log('\n' + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');

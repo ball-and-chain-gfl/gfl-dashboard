@@ -664,6 +664,9 @@ export default async function handler(req, res) {
           const back=all.find(x=>x!==t&&x.relatedTransactionId===t.id&&(x.items||[]).length);
           if(back) items=back.items;
         }
+        /* the FAAB in a trade is an item too -- playerId 0, no amount -- and
+           it is nobody: Trade ROI would have counted a player called #0 */
+        items=items.filter(i=>!/BUDGET/i.test(String(i.type||''))&&Number(i.playerId)!==0);
         out.push({...t, items});
       });
       return out;
@@ -699,12 +702,31 @@ export default async function handler(req, res) {
          noticed is that somebody was looking. */
       const moves = t => String(t.type||'').toUpperCase()==='TRADE_ACCEPT'
         ? (t.items||[]).filter(i=>i.playerId!=null).length : 0;
-      if(txns.length && !txns.some(moves)){
+      /* ── ANY TRADE THE LOG LEFT EMPTY, NOT ONLY WHEN THEY ALL ARE ──────────
+         This filled from the feed only if NO trade in the log had anybody in
+         it. The first accept ESPN filed WITH its players -- the 8-10 trade on
+         13 October -- switched the fill off for the whole season, and Rice
+         for Adams in week 4, an accept with an empty items array, dropped out
+         of Trade ROI. Each empty accept is replaced by the feed's account of
+         the movement now, and a movement the log already carries is not taken
+         twice: same player, same two teams, within a week of each other. */
+      const isAccept = t => String(t.type||'').toUpperCase()==='TRADE_ACCEPT';
+      if(txns.length && txns.some(t=>isAccept(t)&&!moves(t))){
         const commTx = await attempt('comm_trades',
           `${liveBase}/communication/?view=kona_league_communication`, topicsFilter, commParse);
-        const trades = commTx.filter(t=>String(t.type||'').toUpperCase()==='TRADE_ACCEPT' && moves(t));
-        if(trades.length){
-          txns = txns.filter(t=>String(t.type||'').toUpperCase()!=='TRADE_ACCEPT').concat(trades);
+        const seen = {};
+        const mark = (pid, from, to, wk) => { const k = `${pid}|${from}|${to}`; (seen[k] || (seen[k] = [])).push(Number(wk) || 0); };
+        const known = (pid, from, to, wk) => (seen[`${pid}|${from}|${to}`] || []).some(w => Math.abs(w - (Number(wk) || 0)) <= 1);
+        txns.filter(t=>isAccept(t)&&moves(t)).forEach(t=>(t.items||[]).forEach(i=>{
+          if(i.playerId!=null) mark(i.playerId, i.fromTeamId, i.toTeamId, t.scoringPeriodId); }));
+        const extra = commTx.filter(t=>isAccept(t)&&moves(t)).filter(t=>{
+          const i = t.items[0];
+          if(known(i.playerId, i.fromTeamId, i.toTeamId, t.scoringPeriodId)) return false;
+          mark(i.playerId, i.fromTeamId, i.toTeamId, t.scoringPeriodId);
+          return true;
+        });
+        if(extra.length){
+          txns = txns.filter(t=>!(isAccept(t)&&!moves(t))).concat(extra);
           source += '+comm_trades';
         }
       }
@@ -1352,7 +1374,19 @@ export default async function handler(req, res) {
             realTrades = raw.map(tx => {
               const twk = tx.scoringPeriodId || 0, from = twk + 1;
               const byTeam = {};
-              (tx.items || []).forEach(it => { if (it.playerId != null && it.toTeamId != null) (byTeam[it.toTeamId] || (byTeam[it.toTeamId] = [])).push(it.playerId); });
+              /* NOT THE MONEY. A trade's FAAB is an item of its own -- type
+                 ACQUISITION_BUDGET_TRADE, playerId 0, and no amount anywhere on
+                 it -- so it went down as a player called #0 worth 0.0 points,
+                 and the card printed '#0' where the dollars should have been.
+                 The amount lives in the activity feed (the 290 message below),
+                 which is where the card's FAAB line comes from. A defence is a
+                 NEGATIVE id, so it is zero that is excluded, not everything
+                 below one. */
+              (tx.items || []).forEach(it => {
+                if (it.playerId == null || Number(it.playerId) === 0 || it.toTeamId == null) return;
+                if (/BUDGET/i.test(String(it.type || ''))) return;
+                (byTeam[it.toTeamId] || (byTeam[it.toTeamId] = [])).push(it.playerId);
+              });
               const teams = Object.entries(byTeam).map(([tid, pids]) => {
                 const players = pids.map(pid => ({ pid, n: name[pid] || `#${pid}`, pts: +ptsFrom(pid, from).toFixed(1) })).sort((a,b)=>b.pts-a.pts);
                 return { teamId: +tid, players, total: +players.reduce((s,p)=>s+p.pts,0).toFixed(1) };
@@ -1367,12 +1401,24 @@ export default async function handler(req, res) {
           }
         }
       } catch {}
-      if (realTrades && realTrades.length) {
-        res.setHeader('Cache-Control', isHistory
-          ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
-          : 'public, max-age=120, s-maxage=600, stale-while-revalidate=600');
-        return res.status(200).json({ season, count: realTrades.length, trades: realTrades, source: 'log' });
-      }
+      /* ── THE LOG IS ONE TELLING, NOT THE WHOLE STORY ──────────────────────
+         This used to return the moment the log held ANY trade with players on
+         it, on the theory that the log is authoritative and complete. It is
+         neither. ESPN files most accepts with an empty items array and hangs
+         the players off a proposal this view does not return, so those trades
+         are dropped above as having fewer than two sides -- and returning the
+         log then skipped every reconstruction below, which is the only thing
+         that knew about them.
+
+         Nothing showed it while no accept carried items. On 13 October one
+         did: the 8-10 trade processed that morning, the log came back with
+         that one deal, and the tab lost Rashee Rice for Davante Adams in week
+         4 -- never archived, so nothing else had it -- along with its place
+         in Trade ROI. Weeks 1 and 3 survived only because the archive holds
+         them.
+
+         So everything below runs every time, and the log is folded in at the
+         end for whatever it knows that the rest does not. */
 
       // collect directional moves at each week transition
       const moves = [];
@@ -1399,7 +1445,17 @@ export default async function handler(req, res) {
         const dirs = new Set(grp.map(j => `${moves[j].from}>${moves[j].to}`));
         if (dirs.size < 2) continue; // not reciprocal → waiver churn, skip
         grp.forEach(j => used[j] = true);
-        const legs = grp.map(j => moves[j]);
+        /* ONE PLAYER GOES ONE WAY IN A DEAL. The window is a week either side,
+           so a player who changed hands between the same two teams twice in
+           it was gathered twice -- Mike Washington Jr. went 8 to 10 on
+           waivers in week 5 and 10 to 8 in the trade that processed on 13
+           October, and the card had him received by BOTH sides. The extra leg
+           also made this telling look fuller than the feed's and the stamps',
+           so it beat both. The later move is the trade; it is the one kept. */
+        const lastLeg = {};
+        grp.forEach(j => { const mv = moves[j]; if (!lastLeg[mv.pid] || mv.week >= lastLeg[mv.pid].week) lastLeg[mv.pid] = mv; });
+        const legs = Object.values(lastLeg);
+        if (new Set(legs.map(l => `${l.from}>${l.to}`)).size < 2) continue;
         const tradeWeek = Math.min(...legs.map(l => l.week)); // week players first changed hands
         const teamIds = [...new Set(legs.flatMap(l => [l.from, l.to]))];
         const byTeam = {};
@@ -1418,7 +1474,7 @@ export default async function handler(req, res) {
          answers: who was in a deal, whether two tellings are the same deal, and
          which week a player turned up on his new roster. They lived inside the
          second one and the first could not see them. */
-      const pidsOf = t => t.teams.flatMap(x => x.players.map(p => p.pid));
+      const pidsOf = t => [...new Set(t.teams.flatMap(x => x.players.map(p => p.pid)))];
       /* A SHARED PLAYER IS NOT ENOUGH TO CALL IT THE SAME DEAL -- anybody traded
          twice in a season is in two of them. Same TEAMS, and everything the
          other telling found sitting INSIDE this one. */
@@ -1443,6 +1499,23 @@ export default async function handler(req, res) {
       const firstWeekOn = (pid, tid) => {
         for (const w of weeks) if (wk[w]?.[pid]?.team === tid) return w;
         return weeks[0] || 1;
+      };
+      /* ...EXCEPT FOR A PLAYER COMING BACK. The first week ever on that roster
+         is the first STINT, and a stamp belongs to the latest one: Washington
+         started the year with team 8, left, and was traded back on 13 October,
+         so 'first week on 8' dated that deal to week 1 and counted every point
+         he scored for anybody since. An acquisition stamp is carried by the
+         stint it began, so walk back from the first week it was seen while he
+         is still on the same roster -- the week that run of weeks started is
+         the week the deal did. */
+      const stintStart = (pid, tid, seen) => {
+        let start = Number(seen) || (weeks[weeks.length - 1] || 0) + 1;
+        for (let i = weeks.length - 1; i >= 0; i--) {
+          const w = weeks[i];
+          if (w >= start) continue;
+          if (wk[w]?.[pid]?.team === tid) start = w; else break;
+        }
+        return start;
       };
       // ── AND THE ONE SOURCE THAT KNOWS ABOUT MONEY ───────────────────────────
       // ESPN files a trade's FAAB as its own message in the league's activity
@@ -1609,18 +1682,32 @@ export default async function handler(req, res) {
             const teamsOut = teamIds.map(tid => {
               const players = legs.filter(l => l.to === tid)
                 .map(l => ({ pid: l.pid, n: l.n,
-                             pts: +ptsFrom(l.pid, firstWeekOn(l.pid, tid)).toFixed(1) }))
+                             pts: +ptsFrom(l.pid, stintStart(l.pid, tid, l.week)).toFixed(1) }))
                 .sort((a, b) => b.pts - a.pts);
               return { teamId: tid, players, total: +players.reduce((s, p) => s + p.pts, 0).toFixed(1) };
             });
             // `date` is what the notification card reads to decide whether a
             // trade happened this week; `at` is kept for ordering.
-            const tradeWk = Math.min(...legs.map(l => firstWeekOn(l.pid, l.to)));
+            const tradeWk = Math.min(...legs.map(l => stintStart(l.pid, l.to, l.week)));
             const row = { week: tradeWk, teams: teamsOut, at: Number(when), date: Number(when) };
+            /* and the money: the stamps know who moved, never what was paid.
+               Replacing the feed's row without it took the $125 off the 13
+               October trade the moment ESPN processed it. */
+            if (at >= 0 && trades[at].faab && !row.faab) row.faab = trades[at].faab;
             if (at >= 0) trades[at] = row; else trades.push(row);
           });
         }
       } catch {}
+      // ── AND THE LOG, FOR WHATEVER IT ADDS ───────────────────────────────
+      // A deal the reconstructions already have keeps their telling -- they
+      // know the week it happened and the money in it -- and only borrows the
+      // log's date if it has none. A deal they missed comes in as the log has it.
+      (realTrades || []).forEach(lt => {
+        const teamIds = lt.teams.map(x => x.teamId);
+        const at = trades.findIndex(t => sameDeal(t, pidsOf(lt), teamIds));
+        if (at < 0) { trades.push(lt); return; }
+        if (!trades[at].date && lt.date) { trades[at].at = lt.at; trades[at].date = lt.date; }
+      });
       // ── LAST CHANCE AT A DATE ───────────────────────────────────────────
       // Anything still undated gets one from the acquisition stamp of any
       // player in it. A trade without a date is invisible to the vote card, so

@@ -38,7 +38,11 @@ const M = assemble(grab, [
   'function betsNearGo(){', 'function betsNearWant(){', 'function betsNearFresh(){',
 ], ['betsNearKeys', 'betsNearWant', 'betsNearFresh', 'betsNear', 'betsAllDrop', 'betNear',
   'clock', 'reads', 'lastWhere', 'answer', 'failNext', 'setQuota', 'setAll', 'store', 'setTest', 'reset', 'settle'], [
-  `let _now=${T0}; const clock=ms=>{ _now+=ms; }; Date.now=()=>_now;`,
+  /* the clock, ALL of it. Date.now alone was faked, and bucksWeekKey asks
+     new Date() -- the real one -- so this suite only passed in the bucks week
+     it was written in. A Date with no arguments is the fake clock too. */
+  `let _now=${T0}; const clock=ms=>{ _now+=ms; }; globalThis.Date.now=()=>_now;`,
+  'const Date=(()=>{ const D=globalThis.Date; return class extends D{ constructor(...a){ if(a.length) super(...a); else super(_now); } static now(){ return _now; } }; })();',
   'let _bkScope=0, _test=0; const isTestProfile=()=>_test>0; let _CFG={bucksTestMinutes:0};',
   'const setTest=m=>{ _test=m; _CFG.bucksTestMinutes=m; };',
   /* sessionStorage, as a map */

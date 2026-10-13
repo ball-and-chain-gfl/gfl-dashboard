@@ -1094,6 +1094,63 @@ function submitPin(){
 }
 document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitPin();});
 
+/* ── TRADE ROI READS EVERY TRADE THE TRADES PAGE DOES ───────────────────────
+   C2 is built from the transaction log, and the log files most accepts with
+   an empty items array -- the players hang off a proposal it will not
+   return. Rice for Adams in week 4 is one of those: on the Trades page and
+   nowhere in Trade ROI. The trades page has the deal from the rosters and
+   the league feed, so any movement it knows that the log does not is added
+   here as the accept the log should have carried: the week it is counted
+   from, and the time it went through, so C2's own rule about the trade week
+   decides it the same way it decides every other.
+
+   The season being played only. A finished season's C2 is what it was, and
+   a number the league has already seen does not move under it. */
+function tradesFillTx(txns,trades){
+  const isTrade=t=>{ const y=String((t&&t.type)||'').toUpperCase(); return y==='TRADE_ACCEPT'||y==='TRADE'; };
+  const have=new Set();
+  (txns||[]).forEach(t=>{ if(isTrade(t)) (t.items||[]).forEach(i=>{
+    if(i&&i.playerId!=null&&Number(i.playerId)!==0) have.add(`${i.playerId}|${i.fromTeamId}|${i.toTeamId}`); }); });
+  const add=[];
+  (trades||[]).forEach(tr=>{
+    const teams=(tr&&tr.teams)||[]; if(teams.length!==2) return;
+    const items=[];
+    teams.forEach((side,i)=>{ const other=teams[1-i];
+      (side.players||[]).forEach(p=>{
+        const pid=Number(p&&p.pid); if(!pid) return;
+        const k=`${pid}|${Number(other.teamId)}|${Number(side.teamId)}`;
+        if(have.has(k)) return; have.add(k);
+        items.push({type:'TRADE',playerId:pid,fromTeamId:Number(other.teamId),toTeamId:Number(side.teamId)});
+      });
+    });
+    if(items.length) add.push({type:'TRADE_ACCEPT',status:'EXECUTED',teamId:Number(teams[0].teamId),
+      scoringPeriodId:Number(tr.week)||0,processDate:Number(tr.date||tr.at)||0,items,_from:'trades'});
+  });
+  return add.length?(txns||[]).concat(add):(txns||[]);
+}
+/* With whatever the trades page has already loaded -- boot does not wait on
+   it. The reconstruction behind it is eighteen roster calls on a cold cache,
+   and the whole dashboard was about to sit behind them. */
+function tradesFillTxNow(season,txns){
+  if(String(season)!==String(nflSeasonYear())) return txns;
+  const c=_tradeCache&&_tradeCache[season];
+  return c&&c.trades?tradesFillTx(txns,c.trades):txns;
+}
+/* ...and once it lands, C2 is worked out again if the list added a trade,
+   and the Coaching Metric repaints if it is the page being looked at. */
+async function cmTradesLanded(season){
+  if(String(season)!==String(nflSeasonYear())) return;
+  let c=null; try{ c=await fetchSeasonTrades(season); }catch(e){ return; }
+  if(String(season)!==String(getSeason())) return;
+  const filled=tradesFillTx(_transactions,c&&c.trades);
+  if(filled===_transactions||filled.length===(_transactions||[]).length) return;
+  _transactions=filled;
+  let r=null; try{ r=await computeCoaching(_teams,filled,_weeklyData,season); }catch(e){ return; }
+  if(_cmMode==='transactions'||_cmMode==='inferred'){ _scores=r.scores; _breakdown=r.breakdown; }
+  _cmBreakdown=r.breakdown; _cmBreakdownSeason=String(season);
+  if(_activeTab==='cm') try{ renderCoachingMetric(); }catch(e){}
+}
+
 // ── TRANSACTION INFERENCE (for seasons where ESPN purged the log) ──────────────
 // ESPN deletes the detailed transaction log once a season completes, but weekly
 // rosters survive forever. So we reconstruct: a player on team B this week who
@@ -2751,7 +2808,7 @@ function tradeVotesLoad(season,d){
    it supplies the one thing ESPN does not have. */
 async function fetchSeasonTrades(season){
   if(_tradeCache[season]) return _tradeCache[season];
-  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=4`;
+  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=5`;
   try{
     let d;
     if(String(season)===String(nflSeasonYear())){
@@ -2852,6 +2909,9 @@ function tradeMergeRow(live,arc){
   if(!arc) return live;
   const merged={...live};
   if(arc.votes) merged.votes=arc.votes;
+  /* the archive's vote name, when it has one -- the live row does not know it,
+     and without it a vote cast here lands in a field the archiver never reads */
+  if(arc.id!=null&&merged.id==null) merged.id=arc.id;
   const byTeam={}; (arc.teams||[]).forEach(t=>{ byTeam[String(t.teamId)]=t; });
   merged.teams=(live.teams||[]).map(t=>{
     const a=byTeam[String(t.teamId)]; if(!a) return t;
@@ -2951,6 +3011,7 @@ async function renderTradesTab(){
 
   // flatten into display list
   let list=[];
+  scopeSeasons.forEach(s=>{ try{ tradesAdopt(s); }catch(e){} });
   results.forEach(({season,trades,source})=>{
     (trades||[]).forEach(tr=>{
       if((tr.teams||[]).length<2) return;
@@ -18224,6 +18285,60 @@ function ntTradeVoteId(season,tr){
   const teams=tr.teams||[];
   return `td:${season}:${tr.id||teams.map(t=>t.teamId).join('-')+':'+(tr.date||'')}`;
 }
+/* ── A TRADE'S VOTES FOLLOW IT WHEN ITS STAMP MOVES ──────────────────────────
+   The vote id is built from the teams and the date, and a trade's date is
+   not one fact. It is agreed, sits in the league's review window, and is
+   processed days later, and each source dates it differently: the feed by
+   the accept, ESPN's own stamps by the processing. The 8-10 trade was
+   accepted on 11 October and processed on the 13th, eight managers voted on
+   it in between, and the morning it processed it came back under a new date
+   -- a fresh, unanswered card, a '#0' where its FAAB was, and eight votes
+   filed under a name nothing asked for any more.
+
+   So a trade with no votes under its own id takes the id of votes already
+   cast on the same teams within four days of it, through `id`, which
+   ntTradeVoteId reads before anything else. Its date is left alone -- that
+   is what decides which week's stack it sits in. A field another trade
+   already answers to is never taken, so two deals between the same pair
+   cannot share a tally. scripts/archive-trades.mjs lifts this, so the
+   archive files the votes under the same name the page reads them from. */
+const TRADE_VOTE_DRIFT=4*86400000;
+function tradeAdoptVotes(season,trades,fields){
+  const list=(trades||[]).filter(t=>t&&(t.teams||[]).length>=2);
+  if(!list.length||!fields||!fields.size) return 0;
+  const own=t=>'tv_'+String(ntTradeVoteId(season,t)).replace(/[^a-zA-Z0-9_]/g,'_');
+  const claimed=new Set(list.map(own));
+  const pre=`tv_td_${season}_`;
+  let moved=0;
+  list.forEach(t=>{
+    if(fields.has(own(t))) return;
+    const set=t.teams.map(x=>String(Number(x.teamId))).sort().join(',');
+    const when=Number(t.date||t.at)||0; if(!when) return;
+    let best=null,gapBest=Infinity;
+    fields.forEach(f=>{
+      if(!f.startsWith(pre)||claimed.has(f)) return;
+      const parts=f.slice(pre.length).split('_');
+      const d=Number(parts.pop());
+      if(!d||parts.length!==t.teams.length) return;
+      if(parts.slice().sort().join(',')!==set) return;
+      const gap=Math.abs(d-when);
+      if(gap>TRADE_VOTE_DRIFT||gap>=gapBest) return;
+      best={ids:parts,d}; gapBest=gap;
+    });
+    if(!best) return;
+    t.id=`${best.ids.join('-')}:${best.d}`;
+    claimed.add(own(t)); moved++;
+  });
+  return moved;
+}
+/* every vote field the page can see: the profiles, and the archive's copy */
+function tradesAdopt(season){
+  const c=_tradeCache&&_tradeCache[season]; if(!c||!c.trades) return;
+  const fields=new Set();
+  (_cpRows||[]).forEach(p=>Object.keys(p||{}).forEach(k=>{ if(k.startsWith('tv_td_')) fields.add(k); }));
+  Object.keys(_tradeVotes||{}).forEach(k=>fields.add('tv_'+k));
+  tradeAdoptVotes(season,c.trades,fields);
+}
 /* the trade board, with a vote on who came out ahead */
 function ntTrades(out){
   /* THE SEASON BEING PLAYED, NOT THE LAST ONE WITH A SCORE IN IT. ntSeason()
@@ -18250,6 +18365,7 @@ function ntTrades(out){
      when the next Tuesday turns over — once there is football for a Tuesday to
      be the end of. Where the answers live after that is the trades tab, which
      draws the same tally on the trade itself. */
+  tradesAdopt(season);
   (cached.trades||[]).forEach(tr=>{
     const teams=tr.teams||[]; if(teams.length<2) return;
     const when=Number(tr.date||tr.proposedDate)||0;
@@ -18258,7 +18374,16 @@ function ntTrades(out){
     if(!tradeVoteOpen(season,when,id)) return;
     const nm=t=>(_teams.find(x=>x.id===Number(t.teamId))||{}).name||('Team '+t.teamId);
     const own=t=>_ownerMap[Number(t.teamId)];
-    const got=t=>(t.players||[]).map(p=>p.n).filter(Boolean);
+    /* what each side got: its players, and its FAAB as dollars. The money is
+       its own line in the feed (tr.faab), never a player -- the log's budget
+       item came through as one called '#0' with no amount next to it. */
+    const cash=t=>(tr.faab||[]).filter(f=>Number(f.to)===Number(t.teamId))
+      .reduce((n,f)=>n+(Number(f.amount)||0),0);
+    const got=t=>{
+      const g=(t.players||[]).filter(p=>Number(p.pid)!==0).map(p=>p.n).filter(Boolean);
+      if(cash(t)>0) g.push(`$${cash(t)} FAAB`);
+      return g;
+    };
     out.push({kind:'trade', day:ntDayOf(Number(tr.date||tr.proposedDate)||Date.now()), id, title:'A trade went through',
       art:ntSwap({owner:own(teams[0]),name:nm(teams[0]),got:got(teams[0])},
                  {owner:own(teams[1]),name:nm(teams[1]),got:got(teams[1])},ntWeekOf(when)),
@@ -24183,6 +24308,7 @@ async function loadDashboard(){
       });
     }else{
       _cmMode=txReconstructed?'inferred':'transactions';
+      transactions=tradesFillTxNow(season,transactions);
       const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData,season);
       _scores=scores;_breakdown=breakdown;
     }
@@ -24190,12 +24316,15 @@ async function loadDashboard(){
 
     // Always compute the full C2/C3 breakdown (with per-player detail) for the
     // Trade ROI / Waiver ROI tables — even when the headline CM score is official.
+    try{ transactions=tradesFillTxNow(season,transactions); }catch(e){}
     try{ _cmBreakdown=(await computeCoaching(_teams,transactions,weeklyData,season)).breakdown; }catch{ _cmBreakdown={}; }
     /* Which season those pickups belong to. The sportsbook's week board is on
        the season being played next, which is not always the season showing
        here, and a week-1 FAAB bid from a different year is not a week-1 FAAB
        bid on this board. */
     _cmBreakdownSeason=String(season);
+    /* and again once the trades page's list lands, if it adds anything */
+    try{ cmTradesLanded(season); }catch(e){}
 
     const cmRanked=[..._teams].sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));
     const firstVid=_videos[0];

@@ -43,6 +43,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { lifter, assemble } from './lib/lift.mjs';
 
 const BASE = 'https://gfl-dashboard.vercel.app/api/espn';
 const OUT = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', 'public', 'data');
@@ -72,6 +73,14 @@ const voteId = (season, tr) => {
 };
 /* what Firestore calls the field, once the punctuation is gone */
 const voteField = v => 'tv_' + String(v).replace(/[^a-zA-Z0-9_]/g, '_');
+/* tradeAdoptVotes, out of app.js -- see the note there */
+const adopt = (() => {
+  try {
+    const grab = lifter(new URL('../public/app.js', import.meta.url));
+    return assemble(grab, ['function ntTradeVoteId(', 'const TRADE_VOTE_DRIFT=', 'function tradeAdoptVotes('],
+      ['tradeAdoptVotes']).tradeAdoptVotes;
+  } catch (e) { console.log('  ! could not lift tradeAdoptVotes from app.js: ' + e.message); return () => 0; }
+})();
 
 /* ── THE VOTES, OFF THE PROFILES ─────────────────────────────────────────────
    Lifted from app.js rather than written out again: a second copy of the
@@ -235,7 +244,7 @@ for (const season of seasons) {
   }
   if (!fin.done && !have) console.log(`${season} – live season, first snapshot (week ${fin.played} final)`);
 
-  const d = await get(`type=seasontrades&seasonId=${season}&v=3`);
+  const d = await get(`type=seasontrades&seasonId=${season}&v=5`);
   if (!d || !Array.isArray(d.trades)) { console.log(`${season} – no trades payload, skipped`); continue; }
   if (d.source === 'error') { console.log(`${season} – API reported an error, skipped`); continue; }
 
@@ -246,6 +255,50 @@ for (const season of seasons) {
   if (!d.trades.length && !force) {
     console.log(`${season} – payload has no trades; refusing to freeze an empty season without force`);
     continue;
+  }
+
+  /* ── THE SAME TRADE, A FEW MILLISECONDS APART, IS THE SAME TRADE ─────────
+     The reconstruction does not date a trade the way it was dated when it
+     was archived: the week 1 deal is 1788102664091 on file and ...103 from
+     the feed, week 3 ...405 against ...421. The guard below saw two vote ids
+     vanish, refused -- correctly -- and went on refusing every Tuesday from
+     the end of September, so nothing new reached the file again. Rice for
+     Adams in week 4 was never archived, and when the live payload stopped
+     carrying it there was nowhere left that had it.
+
+     The app already reads these as one trade: same teams, within a minute,
+     and the ARCHIVED identity wins (mergeSeasonTrades). The archiver does the
+     same now, before the guard runs -- the date, the id and the order of the
+     sides, which is everything the vote id is built from. */
+  if (have) {
+    let old0 = null;
+    try { old0 = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
+    const olds = (old0 && old0.trades) || [];
+    const NEAR = 60 * 1000;
+    const pair = t => (t.teams || []).map(x => Number(x.teamId)).sort((a, b) => a - b).join('-');
+    const ids = new Set(olds.map(o => voteId(season, o)));
+    d.trades.forEach(t => {
+      if (ids.has(voteId(season, t))) return;
+      const o = olds.find(x => pair(x) === pair(t)
+        && Math.abs((Number(x.date || x.at) || 0) - (Number(t.date || t.at) || 0)) <= NEAR);
+      if (!o) return;
+      t.date = o.date; if (o.at != null) t.at = o.at;
+      if (o.id) t.id = o.id;
+      const order = (o.teams || []).map(x => Number(x.teamId));
+      t.teams = [...t.teams].sort((a, b) => order.indexOf(Number(a.teamId)) - order.indexOf(Number(b.teamId)));
+      console.log(`    week ${t.week}: kept the archived identity (${voteId(season, t)})`);
+    });
+  }
+  /* ── AND VOTES CAST BEFORE ESPN PROCESSED IT ──────────────────────────────
+     A trade voted on in its review window is dated by the accept; processed,
+     it comes back dated by the processing and the votes are under the old
+     name. tradeAdoptVotes is the app's own answer to that, lifted rather
+     than copied so the two can never file a vote under different names. */
+  if (profiles) {
+    const fields = new Set();
+    profiles.forEach(p => Object.keys(p.fields).forEach(k => { if (k.startsWith('tv_td_')) fields.add(k); }));
+    const n = adopt(season, d.trades, fields);
+    if (n) console.log(`    ${n} trade(s) took the votes already cast on them under an earlier date`);
   }
 
   /* ── NO VOTE MAY BE ORPHANED ─────────────────────────────────────────────
