@@ -12,6 +12,7 @@
  *
  * Run: node scripts/test-tradeids.mjs
  */
+import fs from 'fs';
 import { lifter, assemble } from './lib/lift.mjs';
 
 const NL = String.fromCharCode(10);
@@ -87,6 +88,33 @@ N.setCache({ 2026: { trades: [{ ...today(), teams: [{ teamId: 8, players: [{ pid
   { teamId: 10, players: [{ pid: 4635008, n: 'Keon Coleman' }, { pid: 0, n: '#0' }] }] }] } });
 const cards = []; N.ntTrades(cards);
 ok('dollars where the #0 was', JSON.parse(cards[0].art), [['Mike Washington Jr.'], ['Keon Coleman', '$125 FAAB']]);
+
+head('FAAB is never dropped on the way');
+/* a player sold for money: one side gets a player, the other only dollars */
+N.setCache({ 2026: { trades: [{ week: 6, date: PROCESSED, teams: [{ teamId: 8, players: [{ pid: 4686658, n: 'Mike Washington Jr.' }] },
+  { teamId: 10, players: [] }], faab: [{ from: 8, to: 10, amount: 50 }] }] } });
+let c2 = []; N.ntTrades(c2);
+ok('a side that got only money says the money', JSON.parse(c2[0].art), [['Mike Washington Jr.'], ['$50 FAAB']]);
+/* the log saw a budget item, the feed never gave the amount */
+N.setCache({ 2026: { trades: [{ ...today(), faab: undefined, faabSeen: [{ from: 8, to: 10 }] }] } });
+c2 = []; N.ntTrades(c2);
+ok('money we know moved but cannot price is said, not skipped', JSON.parse(c2[0].art)[1].includes('FAAB (amount not reported yet)'), true);
+const kept = MR.tradeMergeRow({ ...today(), faab: undefined }, { ...today(), faab: [{ from: 8, to: 10, amount: 125 }] });
+ok('a live row that lost the amount does not erase the archived one', kept.faab, [{ from: 8, to: 10, amount: 125 }]);
+const seenKept = MR.tradeMergeRow({ ...today(), faab: undefined }, { ...today(), faab: undefined, faabSeen: [{ from: 8, to: 10 }] });
+ok('nor does it forget that there was money at all', seenKept.faabSeen, [{ from: 8, to: 10 }]);
+ok('and an amount, once known, retires the unknown', MR.tradeMergeRow({ ...today(), faabSeen: [{ from: 8, to: 10 }] }, null).faabSeen === undefined
+  || MR.tradeMergeRow({ ...today(), faabSeen: [{ from: 8, to: 10 }] }, { ...today() }).faabSeen === undefined, true);
+
+head('and the server and the archive are built to keep it');
+const API = fs.readFileSync(new URL('../api/espn.js', import.meta.url), 'utf8');
+const ARC = fs.readFileSync(new URL('./archive-trades.mjs', import.meta.url), 'utf8');
+ok('the log is read with its proposals, where a trade\'s contents live', /filterType:\{ value:\['TRADE_ACCEPT','TRADE_PROPOSAL'\] \}/.test(API), true);
+ok('a budget item is remembered as money seen', /seen\.push\(\{ from: Number\(it\.fromTeamId\), to: Number\(it\.toTeamId\) \}\)/.test(API), true);
+ok('a trade with money and no amount is written to the function log', /with no amount in the feed/.test(API), true);
+ok('the stamped telling keeps the money it replaces', /if \(at >= 0 && trades\[at\]\.faab && !row\.faab\) row\.faab = trades\[at\]\.faab;/.test(API), true);
+ok('the archive never lets an amount go', /if \(!\(t\.faab && t\.faab\.length\) && was && was\.faab && was\.faab\.length\)/.test(ARC), true);
+ok('and warns on the run when one is missing', /::warning::/.test(ARC), true);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

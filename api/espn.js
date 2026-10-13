@@ -1364,28 +1364,52 @@ export default async function handler(req, res) {
       let realTrades = null;
       try {
         const liveBase = `${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`;
-        const txFilter = { transactions: { filterType:{ value:['TRADE_ACCEPT'] }, limit:1000, offset:0,
+        /* ── THE PROPOSALS TOO, BECAUSE THAT IS WHERE A TRADE'S CONTENTS LIVE ───
+           ESPN files the ACCEPT with an empty items array and hangs the players
+           -- and the FAAB -- off the PROPOSAL it points at. Asking for accepts
+           alone left nearly every trade empty here; with the proposals in the
+           same answer each accept is resolved through relatedTransactionId,
+           either way round, exactly as the transactions route does. */
+        const txFilter = { transactions: { filterType:{ value:['TRADE_ACCEPT','TRADE_PROPOSAL'] }, limit:1000, offset:0,
           sortProcessDate:{ sortPriority:1, sortAsc:false } } };
         const tr = await fetch(`${liveBase}?view=mTransactions2`, { headers:{ ...headers, 'x-fantasy-filter': JSON.stringify(txFilter) } });
         if (tr.ok) {
           const td = unwrap(await tr.json());
-          const raw = (td.transactions || []).filter(t => t.type === 'TRADE_ACCEPT' || t.type === 'TRADE');
+          const all = td.transactions || [];
+          const byId = {}; all.forEach(t => { if (t && t.id) byId[t.id] = t; });
+          const itemsOf = tx => {
+            if ((tx.items || []).length) return tx.items;
+            const rel = tx.relatedTransactionId && byId[tx.relatedTransactionId];
+            if (rel && (rel.items || []).length) return rel.items;
+            const back = all.find(x => x !== tx && x.relatedTransactionId === tx.id && (x.items || []).length);
+            return back ? back.items : [];
+          };
+          const raw = all.filter(t => t.type === 'TRADE_ACCEPT' || t.type === 'TRADE');
           if (raw.length) {
             realTrades = raw.map(tx => {
               const twk = tx.scoringPeriodId || 0, from = twk + 1;
               const byTeam = {};
-              /* NOT THE MONEY. A trade's FAAB is an item of its own -- type
-                 ACQUISITION_BUDGET_TRADE, playerId 0, and no amount anywhere on
-                 it -- so it went down as a player called #0 worth 0.0 points,
-                 and the card printed '#0' where the dollars should have been.
-                 The amount lives in the activity feed (the 290 message below),
-                 which is where the card's FAAB line comes from. A defence is a
-                 NEGATIVE id, so it is zero that is excluded, not everything
-                 below one. */
-              (tx.items || []).forEach(it => {
-                if (it.playerId == null || Number(it.playerId) === 0 || it.toTeamId == null) return;
-                if (/BUDGET/i.test(String(it.type || ''))) return;
-                (byTeam[it.toTeamId] || (byTeam[it.toTeamId] = [])).push(it.playerId);
+              const seen = [];
+              /* NOT THE MONEY, BUT NOT FORGOTTEN EITHER. A trade's FAAB is an
+                 item of its own -- type ACQUISITION_BUDGET_TRADE, playerId 0, and
+                 no amount anywhere on it -- so it went down as a player called
+                 #0 and the card printed '#0' where the dollars should have been.
+                 It is not a player. But it IS proof the trade carried money, and
+                 that is kept (faabSeen) so a trade whose amount the feed never
+                 reports says so instead of quietly saying nothing. A defence is a
+                 NEGATIVE id, so it is zero that is excluded, not everything below
+                 one. Both teams in every item are sides of the deal -- the one
+                 that sold a player for money receives no player at all. */
+              itemsOf(tx).forEach(it => {
+                if (it.toTeamId == null) return;
+                if (it.fromTeamId != null && Number(it.fromTeamId) > 0) byTeam[it.fromTeamId] = byTeam[it.fromTeamId] || [];
+                if (Number(it.toTeamId) > 0) byTeam[it.toTeamId] = byTeam[it.toTeamId] || [];
+                if (/BUDGET/i.test(String(it.type || ''))) {
+                  if (Number(it.fromTeamId) > 0 && Number(it.toTeamId) > 0) seen.push({ from: Number(it.fromTeamId), to: Number(it.toTeamId) });
+                  return;
+                }
+                if (it.playerId == null || Number(it.playerId) === 0 || !/TRADE/i.test(String(it.type || ''))) return;
+                byTeam[it.toTeamId].push(it.playerId);
               });
               const teams = Object.entries(byTeam).map(([tid, pids]) => {
                 const players = pids.map(pid => ({ pid, n: name[pid] || `#${pid}`, pts: +ptsFrom(pid, from).toFixed(1) })).sort((a,b)=>b.pts-a.pts);
@@ -1396,8 +1420,10 @@ export default async function handler(req, res) {
               // without one on the floor -- so a dateless trade is a trade
               // nobody is ever asked about. The log knows when it processed.
               const at = Number(tx.processDate || tx.proposedDate) || 0;
-              return at ? { week: from, teams, at, date: at } : { week: from, teams };
-            }).filter(t => t.teams.length >= 2);
+              const row = at ? { week: from, teams, at, date: at } : { week: from, teams };
+              if (seen.length) row.faabSeen = seen;
+              return row;
+            }).filter(t => t.teams.length === 2 && t.teams.some(x => x.players.length));
           }
         }
       } catch {}
@@ -1707,6 +1733,17 @@ export default async function handler(req, res) {
         const at = trades.findIndex(t => sameDeal(t, pidsOf(lt), teamIds));
         if (at < 0) { trades.push(lt); return; }
         if (!trades[at].date && lt.date) { trades[at].at = lt.at; trades[at].date = lt.date; }
+        if (lt.faabSeen && !trades[at].faab) trades[at].faabSeen = lt.faabSeen;
+      });
+      /* ── MONEY WE KNOW MOVED AND CANNOT PRICE ─────────────────────────────
+         The amount exists in one place only, the feed's 290 message. If it
+         never arrives, the trade still carries faabSeen from the log -- the
+         card says FAAB with no amount rather than nothing at all, and it is
+         written to the function log so it can be chased. */
+      trades.forEach(t => {
+        if (t.faab && t.faab.length) { delete t.faabSeen; return; }
+        if (t.faabSeen) console.warn(`[seasontrades] ${season}: FAAB in the week ${t.week} trade`
+          + ` (${t.teams.map(x => x.teamId).join('-')}) with no amount in the feed`);
       });
       // ── LAST CHANCE AT A DATE ───────────────────────────────────────────
       // Anything still undated gets one from the acquisition stamp of any

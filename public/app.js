@@ -2912,6 +2912,12 @@ function tradeMergeRow(live,arc){
   /* the archive's vote name, when it has one -- the live row does not know it,
      and without it a vote cast here lands in a field the archiver never reads */
   if(arc.id!=null&&merged.id==null) merged.id=arc.id;
+  /* and the money. The amount is in one message in the feed and nowhere else,
+     so once the archive has it, a live row that has lost it does not get to
+     say there was none. */
+  if(!(merged.faab&&merged.faab.length)&&arc.faab&&arc.faab.length) merged.faab=arc.faab;
+  if(merged.faab&&merged.faab.length) delete merged.faabSeen;
+  else if(!merged.faabSeen&&arc.faabSeen) merged.faabSeen=arc.faabSeen;
   const byTeam={}; (arc.teams||[]).forEach(t=>{ byTeam[String(t.teamId)]=t; });
   merged.teams=(live.teams||[]).map(t=>{
     const a=byTeam[String(t.teamId)]; if(!a) return t;
@@ -3023,7 +3029,7 @@ async function renderTradesTab(){
       /* faab rides along explicitly: this row is built field by field rather
          than spread, so anything not named here is simply not on the card. */
       list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total),share,
-        faab:tr.faab||null, voteId:ntTradeVoteId(season,tr)});
+        faab:tr.faab||null, faabSeen:tr.faabSeen||null, voteId:ntTradeVoteId(season,tr)});
     });
   });
   // optional team filter (by franchise owner, works across seasons)
@@ -3089,20 +3095,26 @@ async function renderTradesTab(){
        are two currencies, and the trade is still graded on the football. */
     const faabTo=tid=>((tr.faab||[]).filter(f=>Number(f.to)===Number(tid))
       .reduce((n,f)=>n+(Number(f.amount)||0),0))||0;
+    /* FAAB the log says moved but the feed never priced: shown as FAAB with no
+       figure, so a trade is never drawn as if no money changed hands */
+    const faabOwed=tid=>!faabTo(tid)&&(tr.faabSeen||[]).some(f=>Number(f.to)===Number(tid));
     const side=(sd,state)=>{
       const tint=state==='won'?tintW:tintL;
       const pcol=state==='won'?cW:cL;
-      const cash=faabTo(sd.teamId);
+      const cash=faabTo(sd.teamId), owed=faabOwed(sd.teamId);
       return `
       <div class="trade-side ${state}">
         <div class="trade-wl ${state}" style="background:${tint}">
           <div class="trade-team">${tradeTeamAvatar(tr.season,sd.teamId)}<div class="trade-team-name">${tradeTeamAb(tr.season,sd.teamId)}</div></div>
           <div class="trade-recv">received</div>
           ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-pts" style="color:${pcol}">${p.pts.toFixed(1)}</span></div>`).join('')
-            :cash?'':`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
+            :(cash||owed)?'':`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
           ${cash?`<div class="trade-player trade-faab"><span class="tp-name">
             <i class="fa fa-sack-dollar"></i><span>FAAB</span></span>
-            <span class="tp-faab">$${cash}</span></div>`:''}
+            <span class="tp-faab">$${cash}</span></div>`
+           :owed?`<div class="trade-player trade-faab"><span class="tp-name">
+            <i class="fa fa-sack-dollar"></i><span>FAAB</span></span>
+            <span class="tp-faab tp-faab-tbc">amount not reported yet</span></div>`:''}
         </div>
       </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
@@ -18382,6 +18394,7 @@ function ntTrades(out){
     const got=t=>{
       const g=(t.players||[]).filter(p=>Number(p.pid)!==0).map(p=>p.n).filter(Boolean);
       if(cash(t)>0) g.push(`$${cash(t)} FAAB`);
+      else if((tr.faabSeen||[]).some(f=>Number(f.to)===Number(t.teamId))) g.push('FAAB (amount not reported yet)');
       return g;
     };
     out.push({kind:'trade', day:ntDayOf(Number(tr.date||tr.proposedDate)||Date.now()), id, title:'A trade went through',

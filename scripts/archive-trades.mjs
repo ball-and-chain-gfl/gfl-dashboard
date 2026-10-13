@@ -375,6 +375,22 @@ for (const season of seasons) {
       side.total = +side.players.reduce((n, p) => n + (p.pts || 0), 0).toFixed(1);
     });
   });
+  /* ── THE MONEY IS A ONE-WAY RATCHET TOO ──────────────────────────────────
+     A trade's FAAB amount exists in exactly one message in ESPN's feed. Once
+     it is on file it stays: a payload that has lost it is a payload that
+     could not read the feed, not proof the money was never paid. And a
+     trade the log says carried FAAB with no amount found is said out loud,
+     as a warning on the run, so it is chased rather than archived silent. */
+  d.trades.forEach(t => {
+    const was = priorTrade[voteId(season, t)];
+    if (!(t.faab && t.faab.length) && was && was.faab && was.faab.length) {
+      t.faab = was.faab;
+      console.log(`    kept the $${was.faab.reduce((n, f) => n + (Number(f.amount) || 0), 0)} FAAB on the week ${t.week} trade`);
+    }
+    if (t.faab && t.faab.length) delete t.faabSeen;
+    else if (t.faabSeen) console.log(`::warning::${season} week ${t.week} trade`
+      + ` (${(t.teams || []).map(x => x.teamId).join('-')}) carried FAAB the feed never priced`);
+  });
   let added = 0, kept = 0;
   d.trades.forEach(t => {
     const id = voteId(season, t);
