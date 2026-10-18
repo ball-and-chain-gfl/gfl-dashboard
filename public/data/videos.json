@@ -1,6 +1,14 @@
 {
- "updated": "2026-10-18T01:05:09.187Z",
+ "updated": "2026-10-18T05:56:18.523Z",
  "videos": [
+  {
+   "videoId": "mdpCQ-GBZ_g",
+   "title": "Ball & Chain 6 2026",
+   "published": null,
+   "ageText": "7 min ago",
+   "thumb": "https://i.ytimg.com/vi/mdpCQ-GBZ_g/hqdefault.jpg",
+   "description": ""
+  },
   {
    "videoId": "VKxscmeBmtg",
    "title": "Ball and Chain 5 2026",
@@ -111,14 +119,6 @@
    "published": null,
    "ageText": null,
    "thumb": "https://i.ytimg.com/vi/KHq0LYu3k-k/hqdefault.jpg",
-   "description": ""
-  },
-  {
-   "videoId": "KB3s3TpEMJ4",
-   "title": "Ball and Chain 11 2025",
-   "published": null,
-   "ageText": null,
-   "thumb": "https://i.ytimg.com/vi/KB3s3TpEMJ4/hqdefault.jpg",
    "description": ""
   }
  ]
