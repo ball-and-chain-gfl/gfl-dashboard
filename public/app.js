@@ -3196,12 +3196,11 @@ async function renderTradesTab(){
           <div class="trade-recv">received</div>
           ${sd.players.length?sd.players.map(p=>`<div class="trade-player"><span class="tp-name pname">${playerImg(p.pid,18,p.n)}<span>${p.n}</span></span><span class="tp-pts" style="color:${pcol}">${p.pts.toFixed(1)}</span></div>`).join('')
             :(cash||owed)?'':`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
-          ${cash?`<div class="trade-player trade-faab"><span class="tp-name">
-            <i class="fa fa-sack-dollar"></i><span>FAAB</span></span>
-            <span class="tp-faab">$${cash}${sd.faabPts?`<span class="tp-faab-pts"> ≈ ${sd.faabPts.toFixed(1)}</span>`:''}</span></div>`
-           :owed?`<div class="trade-player trade-faab"><span class="tp-name">
-            <i class="fa fa-sack-dollar"></i><span>FAAB</span></span>
-            <span class="tp-faab tp-faab-tbc">amount not reported yet</span></div>`:''}
+          ${''/* FAAB is a row like any player: the bag where the headshot goes, the
+                 dollars where the name goes, and what it is worth in points on the
+                 right, in the same colour as the players' */}
+          ${cash?`<div class="trade-player"><span class="tp-name pname"><span class="tp-bag" aria-hidden="true"><i class="fa fa-sack-dollar"></i></span><span>$${cash}</span></span>${sd.faabPts?`<span class="tp-pts" style="color:${pcol}">${sd.faabPts.toFixed(1)}</span>`:''}</div>`
+           :owed?`<div class="trade-player"><span class="tp-name pname"><span class="tp-bag" aria-hidden="true"><i class="fa fa-sack-dollar"></i></span><span>FAAB</span></span><span class="tp-pts tp-faab-tbc">not reported yet</span></div>`:''}
         </div>
       </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
