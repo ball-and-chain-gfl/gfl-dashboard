@@ -7230,7 +7230,6 @@ const SX_ABBR={
   'All-Time vs Each Team':'AT vs Team',
   'Live Around the League':'Live League',
   'Head-to-Head Records':'H2H Records',
-  'Projected Finish':'Finish',
 
   'Conference Championships':'Conferences',
   'Season Superlatives':'Superlatives',
@@ -10976,21 +10975,14 @@ function schedProjHTML(owner,d){
   const games=((d&&d.rows)||[]).filter(r=>!r.playoff).map(r=>({...r,...schedCall(owner,r.oppOwner,r.p)}));
   if(!games.length) return '';
   const tm=schedTeamOf(owner)||{};
-  const w0=tm.wins||0, l0=tm.losses||0, t0=tm.ties||0;
-  const pw=games.filter(g=>g.win).length, pl=games.length-pw;
-  const rec=(w,l,t)=>`${w}–${l}${t?`–${t}`:''}`;
-  const chip=g=>`<div class="spj-g ${g.win?'spj-w':'spj-l'}"${g.why?` title="${g.why}"`:''}>
-      <span class="spj-wk">Wk ${g.week}${g.why?'<i class="fa fa-scale-balanced spj-tie"></i>':''}</span>
-      <span class="spj-r">${g.win?'W':'L'}</span>
-      <span class="spj-opp">${sbAvatar(g.oppOwner,18)}<span>${sbTeamAb(g.oppOwner,g.opp.name)}</span></span>
-      <span class="spj-p" style="color:${schedPctCol(g.p)}">${Math.round(g.p*100)}%</span>
-    </div>`;
-  return `<div class="sec spj-sec">
-    <div class="sec-head"><i class="fa fa-flag-checkered"></i>Projected Finish</div>
-    <div class="spj-sum"><span class="spj-big">${rec(w0+pw,l0+pl,t0)}</span>
-      <span class="spj-sub">${rec(w0,l0,t0)} so far · ${rec(pw,pl,0)} the rest of the way</span></div>
-    <div class="spj-grid">${games.map(chip).join('')}</div>
-    ${games.some(g=>g.why)?`<div class="spj-note"><i class="fa fa-scale-balanced"></i> A dead-level 50% goes to the better all-time record, then to more points this season.</div>`:''}
+  const pw=games.filter(g=>g.win).length, pl=games.length-pw, t0=tm.ties||0;
+  const rec=`${(tm.wins||0)+pw}–${(tm.losses||0)+pl}${t0?`–${t0}`:''}`;
+  const fr=(_franchises||[]).find(f=>f.owner===owner)||{};
+  /* one plain line under week 14: whose, what it is, and the record */
+  return `<div class="spj-row">
+    <span class="spj-team">${sbAvatar(owner,22)}<span class="spj-ab">${sbTeamAb(owner,fr.name||'')}</span></span>
+    <span class="spj-lbl">Projected finish</span>
+    <span class="spj-rec">${rec}</span>
   </div>`;
 }
 function schedPctCol(p){

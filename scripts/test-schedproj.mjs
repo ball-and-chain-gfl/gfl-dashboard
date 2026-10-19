@@ -30,7 +30,7 @@ const M = assemble(grab, ['function schedAllTimePct(owner){', 'function schedTea
   "let _ownerMap={10:'bft',8:'ting',1:'mm'};",
   "let _teams=[{id:10,wins:4,losses:1,ties:0,pf:700},{id:8,wins:2,losses:3,ties:0,pf:600},{id:1,wins:3,losses:2,ties:0,pf:650}];",
   "const set=(k,v)=>{ if(k==='teams') _teams=v; if(k==='h2h') _h2hAll=v; };",
-  "const sbAvatar=o=>`<i data-av=\"${o}\"></i>`; const sbTeamAb=o=>o.toUpperCase();",
+  "let _franchises=[{owner:'bft',name:'The Bryan Football Team'}]; const sbAvatar=o=>`<i data-av=\"${o}\"></i>`; const sbTeamAb=o=>o.toUpperCase();",
 ].join(NL));
 
 head('the call');
@@ -47,12 +47,11 @@ ok('all-time is wins over games, ties half', +M.schedAllTimePct('bft').toFixed(3
 head('the finish');
 const row = (week, oppOwner, p, playoff = false) => ({ week, oppOwner, p, playoff, opp: { name: oppOwner } });
 const html = M.schedProjHTML('bft', { rows: [row(6, 'ting', 0.63), row(7, 'mm', 0.41), row(8, 'ting', 0.5), row(15, 'mm', 0.7, true)] });
-const big = /class="spj-big">([^<]+)</.exec(html)[1], sub = /class="spj-sub">([^<]+)</.exec(html)[1];
-ok('4-1 banked, then W L W (the dead heat to all-time): 6-2', big, '6–2');
-ok('and it says how', sub, '4–1 so far · 2–1 the rest of the way');
-ok('a card a week, regular season only', (html.match(/class="spj-g /g) || []).length, 3);
-ok('the dead heat is marked and explained', /spj-tie/.test(html) && /dead-level 50%/.test(html), true);
-ok('nothing left to play: no panel', M.schedProjHTML('bft', { rows: [row(15, 'mm', 0.7, true)] }), '');
+const rec = /class="spj-rec">([^<]+)</.exec(html)[1];
+ok('4-1 banked, then W L W (the dead heat to all-time), regular season only: 6-2', rec, '6–2');
+ok('one plain line: crest, abbreviation, the words, the record', [/data-av="bft"/.test(html), /class="spj-ab">BFT</.test(html), /Projected finish/.test(html)], [true, true, true]);
+ok('nothing coloured on it', /--green|--red|spj-w"|spj-l"/.test(html), false);
+ok('nothing left to play: no line', M.schedProjHTML('bft', { rows: [row(15, 'mm', 0.7, true)] }), '');
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
