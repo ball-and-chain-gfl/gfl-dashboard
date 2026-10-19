@@ -2808,7 +2808,7 @@ function tradeVotesLoad(season,d){
    it supplies the one thing ESPN does not have. */
 async function fetchSeasonTrades(season){
   if(_tradeCache[season]) return _tradeCache[season];
-  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=5`;
+  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=6`;
   try{
     let d;
     if(String(season)===String(nflSeasonYear())){

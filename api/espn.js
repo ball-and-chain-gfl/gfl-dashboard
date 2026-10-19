@@ -1492,7 +1492,14 @@ export default async function handler(req, res) {
             .sort((a, b) => b.pts - a.pts);
           return { teamId: tid, players, total: +players.reduce((s, p) => s + p.pts, 0).toFixed(1) };
         });
-        trades.push({ week: tradeWeek, teams });
+        /* A GUESS UNTIL SOMETHING ELSE SAYS SO. Two waiver moves in opposite
+           directions between the same pair look exactly like a trade from here:
+           BFT dropped the Broncos D/ST and KUNK claimed it in week 5, KUNK
+           dropped Jacoby Brissett and BFT claimed him in week 6, and this drew
+           a 'week 5 trade' nobody ever made -- on the Trades page and in Trade
+           ROI. A row from here is only kept if the feed, the acquisition stamps
+           or the log confirm it; see THE DIFF NEEDS A WITNESS below. */
+        trades.push({ week: tradeWeek, teams, _diff: true });
       }
 
       /* ── SHARED BY EVERY TELLING OF A TRADE BELOW ──────────────────────────
@@ -1501,6 +1508,7 @@ export default async function handler(req, res) {
          which week a player turned up on his new roster. They lived inside the
          second one and the first could not see them. */
       const pidsOf = t => [...new Set(t.teams.flatMap(x => x.players.map(p => p.pid)))];
+      let feedRead = false, stampsRead = false;   // who could testify -- see THE DIFF NEEDS A WITNESS
       /* A SHARED PLAYER IS NOT ENOUGH TO CALL IT THE SAME DEAL -- anybody traded
          twice in a season is in two of them. Same TEAMS, and everything the
          other telling found sitting INSIDE this one. */
@@ -1534,6 +1542,38 @@ export default async function handler(req, res) {
          stint it began, so walk back from the first week it was seen while he
          is still on the same roster -- the week that run of weeks started is
          the week the deal did. */
+      /* ── THE WEEK OF A MOVE, FROM THE MOVE ITSELF ──────────────────────────
+         The week a player arrived on the side that received him, read as the
+         first week he is on `to` straight after a week on `from` -- the move
+         itself, not merely his first week ever on that roster. That is what
+         went wrong twice with Mike Washington Jr.: team 8 in weeks 1-4, team
+         10 in week 5, traded back to 8 for week 6. 'First week on 8' said week
+         1, and the 13 October trade was archived as a week 1 deal with 20.9 of
+         his points on it, most of them scored for other people.
+
+         A deal struck before the season has no week before it, so a player on
+         `to` in the very first week counts as arriving then. And a player who
+         has already been moved on and never shows on `to` at all -- Keon
+         Coleman, cut by BFT after the same trade -- arrived the week after his
+         last week on `from`. null only when the rosters know nothing of him. */
+      const moveWeek = (pid, from, to) => {
+        let explicit = null, opening = null, lastFrom = null;
+        weeks.forEach((w, i) => {
+          const t = wk[w]?.[pid]?.team;
+          if (t === from) lastFrom = w;
+          if (t !== to) return;
+          if (i > 0 && explicit == null && wk[weeks[i - 1]]?.[pid]?.team === from) explicit = w;
+          if (i === 0) opening = w;
+        });
+        if (explicit != null) return explicit;
+        if (opening != null) return opening;
+        return lastFrom != null ? lastFrom + 1 : null;
+      };
+      /* the week a whole deal happened: its earliest move the rosters can place */
+      const dealWeek = (moves, fallback) => {
+        const ws = moves.map(m => moveWeek(m.pid, m.from, m.to)).filter(w => w != null);
+        return ws.length ? Math.min(...ws) : fallback();
+      };
       const stintStart = (pid, tid, seen) => {
         let start = Number(seen) || (weeks[weeks.length - 1] || 0) + 1;
         for (let i = weeks.length - 1; i >= 0; i--) {
@@ -1572,6 +1612,7 @@ export default async function handler(req, res) {
           { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(topicsFilter) } });
         if (cr.ok) {
           const cd = unwrap(await cr.json());
+          feedRead = Array.isArray(cd.topics);
           const TRADE_MT = new Set([224,225,226,244,245,246]);
           const FAAB_MT = 290;
           const topics = {};
@@ -1595,14 +1636,16 @@ export default async function handler(req, res) {
             // one already on the pile beats it
             if (at >= 0 && pidsOf(trades[at]).length > pids.length) {
               if (t.faab.length) trades[at].faab = t.faab;   // ...but take its money
+              delete trades[at]._diff;                       // and it is confirmed
               return;
             }
             const byTeam = {}; teamIds.forEach(id => byTeam[id] = []);
             t.moves.forEach(m => byTeam[m.to].push(m.pid));
-            const wk = Math.min(...t.moves.map(m => firstWeekOn(m.pid, m.to)));
+            const wk = dealWeek(t.moves, () => Math.min(...t.moves.map(m => firstWeekOn(m.pid, m.to))));
             const teamsOut = teamIds.map(tid => {
+              const fromOf = pid => (t.moves.find(m => m.pid === pid && m.to === tid) || {}).from;
               const players = byTeam[tid].map(pid => ({ pid, n: name[pid] || `#${pid}`,
-                pts: +ptsFrom(pid, wk).toFixed(1) })).sort((a, b) => b.pts - a.pts);
+                pts: +ptsFrom(pid, moveWeek(pid, fromOf(pid), tid) ?? wk).toFixed(1) })).sort((a, b) => b.pts - a.pts);
               return { teamId: tid, players, total: +players.reduce((n2, p) => n2 + p.pts, 0).toFixed(1) };
             });
             const row = { week: wk, teams: teamsOut, at: t.date, date: t.date };
@@ -1645,6 +1688,7 @@ export default async function handler(req, res) {
         const lr = await fetch(leagueURL('mRoster', { forceLive: true }), { headers });
         if (lr.ok) {
           const ld = unwrap(await lr.json());
+          stampsRead = Array.isArray(ld.teams) && ld.teams.length > 0;
           // the live roster is still read, for anyone acquired since the last
           // weekly snapshot -- it is the most recent week, not the only one
           (ld.teams || []).forEach(team => {
@@ -1704,17 +1748,19 @@ export default async function handler(req, res) {
             // card at all, because ntTrades has nothing to decide whether it is
             // this week's news. The week 4 trade came through here, kept the
             // dateless copy, and nobody was ever asked who won it.
-            if (at >= 0 && pidsOf(trades[at]).length > legs.length) return;
+            if (at >= 0 && pidsOf(trades[at]).length > legs.length) { delete trades[at]._diff; return; }
+            const other = to => teamIds.find(x => x !== to);   // where each leg came from
             const teamsOut = teamIds.map(tid => {
               const players = legs.filter(l => l.to === tid)
                 .map(l => ({ pid: l.pid, n: l.n,
-                             pts: +ptsFrom(l.pid, stintStart(l.pid, tid, l.week)).toFixed(1) }))
+                             pts: +ptsFrom(l.pid, moveWeek(l.pid, other(tid), tid) ?? stintStart(l.pid, tid, l.week)).toFixed(1) }))
                 .sort((a, b) => b.pts - a.pts);
               return { teamId: tid, players, total: +players.reduce((s, p) => s + p.pts, 0).toFixed(1) };
             });
             // `date` is what the notification card reads to decide whether a
             // trade happened this week; `at` is kept for ordering.
-            const tradeWk = Math.min(...legs.map(l => stintStart(l.pid, l.to, l.week)));
+            const tradeWk = dealWeek(legs.map(l => ({ pid: l.pid, from: other(l.to), to: l.to })),
+              () => Math.min(...legs.map(l => stintStart(l.pid, l.to, l.week))));
             const row = { week: tradeWk, teams: teamsOut, at: Number(when), date: Number(when) };
             /* and the money: the stamps know who moved, never what was paid.
                Replacing the feed's row without it took the $125 off the 13
@@ -1734,6 +1780,7 @@ export default async function handler(req, res) {
         if (at < 0) { trades.push(lt); return; }
         if (!trades[at].date && lt.date) { trades[at].at = lt.at; trades[at].date = lt.date; }
         if (lt.faabSeen && !trades[at].faab) trades[at].faabSeen = lt.faabSeen;
+        delete trades[at]._diff;
       });
       /* ── MONEY WE KNOW MOVED AND CANNOT PRICE ─────────────────────────────
          The amount exists in one place only, the feed's 290 message. If it
@@ -1745,6 +1792,23 @@ export default async function handler(req, res) {
         if (t.faabSeen) console.warn(`[seasontrades] ${season}: FAAB in the week ${t.week} trade`
           + ` (${t.teams.map(x => x.teamId).join('-')}) with no amount in the feed`);
       });
+      // ── THE DIFF NEEDS A WITNESS ────────────────────────────────────────
+      // A roster diff only sees a player change hands; it cannot tell a trade
+      // from two waiver claims that happen to cross. The feed names every
+      // trade the league made, the stamps carry ESPN's own TRADE acquisition
+      // type, and the log has the accept -- whichever of them could be read
+      // has the final say, and a diff row none of them confirmed is dropped.
+      // Only with all three unreadable (a season ESPN has purged) does the
+      // diff stand on its own, because then it is the only record there is.
+      const witnessed = feedRead || stampsRead || !!(realTrades && realTrades.length);
+      for (let i = trades.length - 1; i >= 0; i--) {
+        if (!trades[i]._diff) continue;
+        if (witnessed) {
+          console.warn(`[seasontrades] ${season}: dropped an unconfirmed week ${trades[i].week} 'trade' between `
+            + trades[i].teams.map(x => x.teamId).join(' and ') + ' -- the rosters alone saw it');
+          trades.splice(i, 1);
+        } else delete trades[i]._diff;
+      }
       // ── LAST CHANCE AT A DATE ───────────────────────────────────────────
       // Anything still undated gets one from the acquisition stamp of any
       // player in it. A trade without a date is invisible to the vote card, so

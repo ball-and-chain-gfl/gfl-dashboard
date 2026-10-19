@@ -244,7 +244,7 @@ for (const season of seasons) {
   }
   if (!fin.done && !have) console.log(`${season} – live season, first snapshot (week ${fin.played} final)`);
 
-  const d = await get(`type=seasontrades&seasonId=${season}&v=5`);
+  const d = await get(`type=seasontrades&seasonId=${season}&v=6`);
   if (!d || !Array.isArray(d.trades)) { console.log(`${season} – no trades payload, skipped`); continue; }
   if (d.source === 'error') { console.log(`${season} – API reported an error, skipped`); continue; }
 

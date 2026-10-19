@@ -53,9 +53,10 @@ function grab(startsWith) {
 
 const build = (weeks, wk) => new Function('weeks', 'wk',
   grab('const firstWeekOn = (pid, tid) =>')
+  + grab('const moveWeek = (pid, from, to) =>')
   + grab('const stintStart = (pid, tid, seen) =>')
   + grab('const ptsFrom = (pid, from) =>')
-  + 'return { firstWeekOn, stintStart, ptsFrom };')(weeks, wk);
+  + 'return { firstWeekOn, moveWeek, stintStart, ptsFrom };')(weeks, wk);
 
 /* Four players. 100 and 101 were traded to team 2 before the season, so they
    are on it from week 1. 200 arrives at team 2 in week 4. */
@@ -106,6 +107,15 @@ ok('so none of what he scored for 10, or for 8 the first time, is this deal\'s',
 ok('a stamp only the live roster carries walks back to where the run began', M.stintStart(200, 2, 6), 4);
 ok('and a pre-season deal is still week 1', M.stintStart(100, 2, 6), 1);
 
+head('the week of a move is read off the move');
+ok('Washington back to 8 from 10: week 6, not his first stint', M3.moveWeek(300, 10, 8), 6);
+ok('a pre-season deal: on the new side in the opening week', M.moveWeek(100, 9, 2), 1);
+ok('a mid-season arrival: the week he turns up on `to` straight after `from`', M.moveWeek(200, 9, 2), 4);
+/* Keon Coleman: on 8 in week 5, traded to 10, cut before 10's roster ever showed him */
+const M4 = build([4, 5, 6, 7], { 4: { 400: { team: 8 } }, 5: { 400: { team: 8 } }, 6: {}, 7: {} });
+ok('cut before he ever showed on the new roster: the week after his last on the old', M4.moveWeek(400, 8, 10), 6);
+ok('and nothing known of him at all is no answer', M4.moveWeek(999, 8, 10), null);
+
 head('a player the rosters never show on that side');
 ok('falls back to the first week rather than throwing', M.firstWeekOn(999, 2), 1);
 
@@ -113,8 +123,14 @@ ok('falls back to the first week rather than throwing', M.firstWeekOn(999, 2), 1
 head('the handler no longer counts from the current scoring period');
 const block = SRC.slice(SRC.indexOf('// THE WEEK A TRADE HAPPENED IN DOES NOT MOVE'),
                         SRC.indexOf('trades.sort((a, b)'));
-ok('points come from the stint the stamp began', /ptsFrom\(l\.pid, stintStart\(l\.pid, tid, l\.week\)\)/.test(block), true);
-ok('the trade week comes from it too', /Math\.min\(\.\.\.legs\.map\(l => stintStart\(l\.pid, l\.to, l\.week\)/.test(block), true);
+ok('points come from the move, falling back to the stint', /ptsFrom\(l\.pid, moveWeek\(l\.pid, other\(tid\), tid\) \?\? stintStart\(l\.pid, tid, l\.week\)\)/.test(block), true);
+ok('the trade week comes from the moves too', /const tradeWk = dealWeek\(/.test(block), true);
+
+head('a trade only the rosters saw is no trade');
+ok('every diff row is marked as needing a witness', /trades\.push\(\{ week: tradeWeek, teams, _diff: true \}\)/.test(SRC), true);
+ok('the feed, the stamps and the log each confirm one', (SRC.match(/delete trades\[at\]\._diff/g) || []).length, 3);
+ok('and one nobody confirmed is dropped whenever any of them could be read',
+  /const witnessed = feedRead \|\| stampsRead/.test(SRC) && /trades\.splice\(i, 1\)/.test(SRC), true);
 
 head('the weekly diff takes one move per player');
 ok('a player who changed hands twice in the window is taken once, at his later move',
