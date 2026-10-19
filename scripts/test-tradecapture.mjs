@@ -55,10 +55,8 @@ const merged = M.mergeSeasonTrades('2026', { trades: [ARCH] }, { trades: [{ ...L
 ok('one trade, not two, even with the date a week off', merged.trades.length, 1);
 ok('and its votes found', merged.trades[0].votes, { bft: '10' });
 
-head('the card says when');
-const when = M.tradeWhen(ARCH);
-ok('agreed and upheld, both dates', /^agreed \w+ \d+ · upheld \w+ \d+$/.test(when), true);
-ok('one date when they are the same day', /^upheld \w+ \d+$/.test(M.tradeWhen({ agreedAt: 1788102336690, upheldAt: 1788102664103 })), true);
+head('the card says when it was upheld, and only that');
+ok('the upheld date, never the agreed one', /^upheld Oct 1[23]$/.test(M.tradeWhen(ARCH)), true);
 
 head('the season being played is ESPN\'s record, nothing else');
 const branch = API.slice(API.indexOf('if (!isHistory) {', API.indexOf("type === 'seasontrades'")),
@@ -108,6 +106,24 @@ ok('closed as declined, marked lapsed -- never a status that counts as money', /
 ok('the poller sweeps during games, the settlement run every week',
   /await sweepInvites\(\)/.test(fs.readFileSync(new URL('./poll-live.mjs', import.meta.url), 'utf8'))
   && /closeLapsedInvites\(/.test(fs.readFileSync(new URL('./settle-bets.mjs', import.meta.url), 'utf8')), true);
+
+head('FAAB is worth what the league\'s FAAB buys');
+const F = assemble(grab, ['const FAAB_VALUE_FROM=', 'function faabRateFrom(pool){', 'function faabRate(season){',
+  'function tradeFaabPts(season,tr,tid){', 'function tradesFillTx(txns,trades){'], ['faabRateFrom', 'tradeFaabPts', 'tradesFillTx', 'setBd'], [
+  'let _cmBreakdown={}, _cmBreakdownSeason=null;',
+  'const setBd=(b,s)=>{ _cmBreakdown=b; _cmBreakdownSeason=s; };'].join(NL));
+ok('every lineup point the pickups scored over every dollar spent ($1 floor)',
+  +F.faabRateFrom([{ pts: 100, bid: 50 }, { pts: 20, bid: 0 }, { pts: 0, bid: 49 }]).toFixed(3), +(120 / 100).toFixed(3));
+F.setBd({ 10: { detail: { faabRate: 0.24 } } }, '2026');
+ok('$125 to a side is $125 x the rate', +F.tradeFaabPts('2026', ARCH, 10).toFixed(1), 30);
+ok('the side that paid it gets none of it here', F.tradeFaabPts('2026', ARCH, 8), 0);
+ok('a season before 2026 is left as it was', F.tradeFaabPts('2025', ARCH, 10), 0);
+const filled = F.tradesFillTx([], [ARCH]);
+const money = filled.flatMap(t => t.items).filter(i => i.type === 'FAAB');
+ok('the money goes into Trade ROI as its own line', money, [{ type: 'FAAB', amount: 125, fromTeamId: 8, toTeamId: 10 }]);
+ok('and only once, however often it is filled', F.tradesFillTx(filled, [ARCH]).flatMap(t => t.items).filter(i => i.type === 'FAAB').length, 1);
+const APP = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+ok('C2 scores it at the rate, both ways', /c2\[i\.toTeamId\]\+=pts\/10/.test(APP) && /c2\[i\.fromTeamId\]-=pts\/10/.test(APP), true);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

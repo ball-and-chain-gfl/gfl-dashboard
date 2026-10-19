@@ -1106,15 +1106,70 @@ document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='
 
    The season being played only. A finished season's C2 is what it was, and
    a number the league has already seen does not move under it. */
+/* ── FAAB IN A TRADE IS WORTH WHAT FAAB BUYS ─────────────────────────────────
+   A trade is graded on the points each side's players scored afterwards, and
+   money scores none -- so a side that took $125 for a player read as having
+   given him away for nothing. The league's own waivers say what a FAAB dollar
+   buys: every point the season's pickups have put into lineups, divided by
+   every dollar spent on them (C3's pickups, $1 floor). FAAB in a trade is
+   scored at that rate, on the Trades page and in Trade ROI alike, and it
+   moves week to week the way the players' points do. 2026 on. */
+const FAAB_VALUE_FROM=2026;
+function faabRateFrom(pool){
+  const pts=(pool||[]).reduce((s,r)=>s+(Number(r.pts)||0),0);
+  const usd=(pool||[]).reduce((s,r)=>s+Math.max(1,Number(r.bid)||0),0);
+  return usd>0?pts/usd:0;
+}
+/* the rate for a season, off the breakdown the Coaching Metric already built */
+function faabRate(season){
+  if(Number(season)<FAAB_VALUE_FROM||String(_cmBreakdownSeason)!==String(season)) return 0;
+  const d=Object.values(_cmBreakdown||{}).map(b=>b&&b.detail).find(x=>x&&x.faabRate!=null);
+  return d?Number(d.faabRate)||0:0;
+}
+/* the points a side's FAAB is worth in one trade */
+function tradeFaabPts(season,tr,tid){
+  const usd=(tr.faab||[]).filter(f=>Number(f.to)===Number(tid)).reduce((n,f)=>n+(Number(f.amount)||0),0);
+  return usd*faabRate(season);
+}
+/* C2's share of FAAB IN A TRADE IS WORTH WHAT FAAB BUYS: each trade's money
+   scored at the season's rate, added to the side that got it and taken off
+   the side that paid it. Its own function so computeCoaching stays the size
+   the lifting harness can walk. 2026 on. */
+function c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail){
+  if(!(season==null||Number(season)>=FAAB_VALUE_FROM)) return;
+  const fr=faabRateFrom((pool||[]).map(p=>p.row));
+  teams.forEach(t=>{ if(detail[t.id]) detail[t.id].faabRate=fr; });
+  const seenFaab=new Set();
+  (transactions||[]).forEach(tx=>{
+    if(!executed(tx)) return;
+    if(tx.type!=='TRADE_ACCEPT'&&tx.type!=='TRADE') return;
+    (tx.items||[]).forEach(i=>{
+      if(!i||i.type!=='FAAB'||!(Number(i.amount)>0)) return;
+      const k=`${i.fromTeamId}|${i.toTeamId}|${tx.scoringPeriodId}|${i.amount}`;
+      if(seenFaab.has(k)) return; seenFaab.add(k);
+      const pts=Number(i.amount)*fr, wk=Number(tx.scoringPeriodId)||0;
+      if(i.toTeamId in c2){ c2[i.toTeamId]+=pts/10; detail[i.toTeamId].tradesReceived.push({faab:Number(i.amount),pts,week:wk}); }
+      if(i.fromTeamId in c2){ c2[i.fromTeamId]-=pts/10; detail[i.fromTeamId].tradesSent.push({faab:Number(i.amount),pts,week:wk}); }
+    });
+  });
+}
 function tradesFillTx(txns,trades){
   const isTrade=t=>{ const y=String((t&&t.type)||'').toUpperCase(); return y==='TRADE_ACCEPT'||y==='TRADE'; };
   const have=new Set();
   (txns||[]).forEach(t=>{ if(isTrade(t)) (t.items||[]).forEach(i=>{
     if(i&&i.playerId!=null&&Number(i.playerId)!==0) have.add(`${i.playerId}|${i.fromTeamId}|${i.toTeamId}`); }); });
+  (txns||[]).forEach(t=>{ if(isTrade(t)) (t.items||[]).forEach(i=>{
+    if(i&&i.type==='FAAB') have.add(`faab|${i.fromTeamId}|${i.toTeamId}|${t.scoringPeriodId}|${i.amount}`); }); });
   const add=[];
   (trades||[]).forEach(tr=>{
     const teams=(tr&&tr.teams)||[]; if(teams.length!==2) return;
     const items=[];
+    /* the money, which the log never carries an amount for */
+    (tr.faab||[]).forEach(f=>{
+      const k=`faab|${Number(f.from)}|${Number(f.to)}|${Number(tr.week)||0}|${Number(f.amount)||0}`;
+      if(have.has(k)||!(Number(f.amount)>0)) return; have.add(k);
+      items.push({type:'FAAB',amount:Number(f.amount),fromTeamId:Number(f.from),toTeamId:Number(f.to)});
+    });
     teams.forEach((side,i)=>{ const other=teams[1-i];
       (side.players||[]).forEach(p=>{
         const pid=Number(p&&p.pid); if(!pid) return;
@@ -1584,6 +1639,9 @@ async function computeCoaching(teams, transactions, weeklyData, season){
     detail[t.id].c3Mode=shareC3?'share':'ratio';
     if(shareC3) detail[t.id].c3League={pts:lgPts,margin:lgMargin,rate};
   });
+  /* and the money in a trade, at what the league's FAAB buys -- here because
+     it needs the rate, and the rate is the pickups just above */
+  c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail);
 
   // Z-score standardize
   const raw={};
@@ -1914,8 +1972,11 @@ function c3Pick(id){ _c3Team=String(id); renderC3Breakdown(); roiShow('stats-c3'
 /* players, not points: a player who scored minus a point turns any signed
    total into a double sign, and the card under the ranking has the points */
 const c2RankSub=d=>{
-  const r=(d.tradesReceived||[]).length, s=(d.tradesSent||[]).length;
-  if(!r&&!s) return 'No trades';
+  /* FAAB lines are money, not players */
+  const pl=x=>(x||[]).filter(y=>y&&y.faab==null).length;
+  const r=pl(d.tradesReceived), s=pl(d.tradesSent);
+  const money=(d.tradesReceived||[]).concat(d.tradesSent||[]).some(y=>y&&y.faab!=null);
+  if(!r&&!s&&!money) return 'No trades';
   return `${r} player${r===1?'':'s'} in · ${s} out`;
 };
 const c3RankSub=d=>{
@@ -1932,7 +1993,8 @@ function renderC2Breakdown(){
   if(!rows.length){el.innerHTML=`<div class="tab-loading">No trades found for this season.</div>`;return;}
   if(_c2Team==null||!_teams.some(t=>t.id===Number(_c2Team))) _c2Team=roiDefaultTeam();
   const opts=_teams.map(t=>`<option value="${t.id}" ${Number(_c2Team)===t.id?'selected':''}>${t.name}</option>`).join('');
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.</div>
+  const fr=Number(((rows[0]||{}).bd.detail||{}).faabRate)||0;
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.${fr?` FAAB in a trade counts at what the league's FAAB buys: <b>${fr.toFixed(2)}</b> lineup points per $1 this season.`:''}</div>
     ${roiRankHTML('c2',_c2Team,c2RankSub,'c2Pick')}
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c2-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
@@ -1947,7 +2009,9 @@ function renderC2Breakdown(){
        +1.0 to the team that let him go, which used to print as "−-1.0" */
     const sg=v=>(v<0?'−':'+')+Math.abs(v).toFixed(1);
     const nm=v=>v<0?`(−${Math.abs(v).toFixed(1)})`:v.toFixed(1);
-    const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${pName(r.pid)} <span class="brk-wk">wk ${r.from??(r.week+1)}+</span></span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
+    const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${r.faab!=null
+        ?`<i class="fa fa-sack-dollar" style="color:var(--green)"></i> FAAB $${r.faab} <span class="brk-wk">at ${(r.pts/r.faab).toFixed(2)} pts/$</span>`
+        :`${pName(r.pid)} <span class="brk-wk">wk ${r.from??(r.week+1)}+</span>`}</span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
     return `<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c2)}">C2 ${bd.c2>=0?'+':''}${(bd.c2||0).toFixed(2)}</span></div>
       ${(recv.length||sent.length)?`<div class="brk-cols">
@@ -2907,11 +2971,10 @@ function mergeSeasonTrades(season,arc,live){
    The api side has been fixed not to lose him in the first place
    (see the acquisition scan in api/espn.js); this is the belt to that brace,
    and the thing that keeps a season readable if ESPN changes shape again. */
-/* agreed and upheld, in the reader's own clock -- one date when they match */
+/* when ESPN upheld it, in the reader's own clock -- the moment the players
+   moved, which is the only date about a trade the league cares about */
 function tradeWhen(tr){
-  const d=t=>new Date(Number(t)).toLocaleDateString([],{month:'short',day:'numeric'});
-  const a=tr.agreedAt?d(tr.agreedAt):null, u=d(tr.upheldAt);
-  return a&&a!==u?`agreed ${a} · upheld ${u}`:`upheld ${u}`;
+  return `upheld ${new Date(Number(tr.upheldAt)).toLocaleDateString([],{month:'short',day:'numeric'})}`;
 }
 function tradeMergeRow(live,arc){
   if(!arc) return live;
@@ -3041,7 +3104,10 @@ async function renderTradesTab(){
   results.forEach(({season,trades,source})=>{
     (trades||[]).forEach(tr=>{
       if((tr.teams||[]).length<2) return;
-      const a=tr.teams[0],b=tr.teams[1];
+      /* FAAB scored at the league's rate and added to the side that got it */
+      const withFaab=t=>{ const fp=tradeFaabPts(season,tr,t.teamId);
+        return fp?{...t,faabPts:fp,total:+((Number(t.total)||0)+fp).toFixed(1)}:t; };
+      const a=withFaab(tr.teams[0]),b=withFaab(tr.teams[1]);
       const _tA=Math.max(a.total,0),_tB=Math.max(b.total,0);
       const share=(_tA+_tB)>0?Math.max(a.total,b.total)/(_tA+_tB):0.5;
       /* the vote is named off the raw trade, before the card decides which of
@@ -3132,7 +3198,7 @@ async function renderTradesTab(){
             :(cash||owed)?'':`<div class="trade-player"><span class="tp-name" style="color:var(--text3);font-style:italic">nothing received</span></div>`}
           ${cash?`<div class="trade-player trade-faab"><span class="tp-name">
             <i class="fa fa-sack-dollar"></i><span>FAAB</span></span>
-            <span class="tp-faab">$${cash}</span></div>`
+            <span class="tp-faab">$${cash}${sd.faabPts?`<span class="tp-faab-pts"> ≈ ${sd.faabPts.toFixed(1)}</span>`:''}</span></div>`
            :owed?`<div class="trade-player trade-faab"><span class="tp-name">
             <i class="fa fa-sack-dollar"></i><span>FAAB</span></span>
             <span class="tp-faab tp-faab-tbc">amount not reported yet</span></div>`:''}

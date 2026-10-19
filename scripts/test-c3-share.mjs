@@ -34,7 +34,7 @@ const head = t => console.log(NL + t);
 const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
   'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=', 'const C3_SHARE_FROM=',
-  'async function computeCoaching(teams, transactions, weeklyData, season){',
+  'const FAAB_VALUE_FROM=', 'function faabRateFrom(pool){', 'function c2ScoreFaab(', 'async function computeCoaching(teams, transactions, weeklyData, season){',
 ], ['computeCoaching'], 'const TOTAL_WEEKS=17;');
 
 const TEAMS = [1, 2, 3, 4].map(id => ({ id, pf: 1000 }));     // team 4 never claims anybody
