@@ -1349,7 +1349,7 @@ export default async function handler(req, res) {
             const pid = e.playerId; if (pid == null) return;
             const stats = e.playerPoolEntry?.player?.stats || [];
             const st = stats.find(x => x.statSourceId === 0 && x.scoringPeriodId === wr.week);
-            map[pid] = { team: team.id, pts: st?.appliedTotal ?? 0 };
+            map[pid] = { team: team.id, pts: st?.appliedTotal ?? 0, slot: e.lineupSlotId };
             if (e.playerPoolEntry?.player?.fullName) name[pid] = e.playerPoolEntry.player.fullName;
             takeAcq(e, team.id, wr.week);
           });
@@ -1357,6 +1357,117 @@ export default async function handler(req, res) {
       });
       const weeks = Object.keys(wk).map(Number).sort((a, b) => a - b);
       const ptsFrom = (pid, from) => weeks.filter(w => w >= from).reduce((t, w) => t + (wk[w]?.[pid]?.pts || 0), 0);
+
+      /* ── THE SEASON BEING PLAYED: ESPN'S OWN RECORD OF EACH TRADE, AND ONLY THAT ──
+         Everything further down this handler REBUILDS trades -- from week-to-week
+         roster changes, from acquisition stamps -- because for a finished season
+         ESPN has deleted its trade log and a rebuild is all there is. For the
+         season being played that was never true, and guessing anyway is how a
+         pair of crossing waiver claims became a 'trade' and how a deal agreed and
+         upheld in week 5 came out as a week 1 or a week 6 trade.
+
+         ESPN files every trade twice in the league's activity feed: when both
+         managers ACCEPT it (messages 224-226, its FAAB as 284) and again when it
+         is UPHELD and PROCESSED and the players actually move (244-246, its FAAB
+         as 290). A vetoed trade never gets the second one. So a trade here is a
+         processed entry, exactly as ESPN wrote it: the players and the money from
+         its messages, the time it was agreed from the matching accept, and the
+         time it was upheld from its own. Nothing about it is inferred.
+
+           week       the NFL week it was upheld in, off ESPN's own NFL calendar
+                      (Wednesday to Tuesday): a deal upheld the Tuesday morning
+                      after week 5's football is a week 5 trade
+           from       per player, the first week his points count for the side
+                      that got him: that week if the trade went through before
+                      its first kickoff, or if he started for them in it; else
+                      the week after
+
+         The archiver freezes each one the hour it appears (scripts/archive-
+         trades.mjs --capture), and after that only the points move. */
+      if (!isHistory) {
+        const nflHdr = { headers: { 'User-Agent': 'gfl-dashboard', Accept: 'application/json' } };
+        const board = async w => {
+          try {
+            const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
+              + `?seasontype=2&week=${w}&dates=${season}`, nflHdr);
+            return r.ok ? await r.json() : null;
+          } catch { return null; }
+        };
+        const b1 = await board(1);
+        const cal = ((((b1 && b1.leagues) || [])[0] || {}).calendar || [])
+          .find(c => /regular/i.test(String(c.label || ''))) || { entries: [] };
+        const weeksCal = (cal.entries || []).map(e => ({ w: Number(e.value) || 0,
+          start: Date.parse(e.startDate) || 0, end: Date.parse(e.endDate) || 0 })).filter(e => e.w && e.start);
+        const weekOf = t => {
+          if (!weeksCal.length || !t) return null;
+          if (t < weeksCal[0].start) return weeksCal[0].w;            // agreed before the season
+          const e = weeksCal.find(c => t >= c.start && t <= c.end);
+          return e ? e.w : weeksCal[weeksCal.length - 1].w;
+        };
+        const kickCache = {};
+        const firstKick = async w => {
+          if (w in kickCache) return kickCache[w];
+          const d = await board(w);
+          const ks = ((d && d.events) || []).map(e => Date.parse(e.date) || 0).filter(Boolean);
+          return (kickCache[w] = ks.length ? Math.min(...ks) : null);
+        };
+        const BENCH = new Set([20, 21, 24]);
+        const startedFor = (pid, tid, w) => { const e = wk[w]?.[pid]; return !!e && e.team === tid && !BENCH.has(Number(e.slot)); };
+        let feed = null;
+        try {
+          const topicsFilter = { topics: { filterType:{ value:['ACTIVITY_TRANSACTIONS'] }, limit:1000,
+            limitPerMessageSet:{ value:1000 }, offset:0, sortMessageDate:{ sortPriority:1, sortAsc:false } } };
+          const cr = await fetch(`${BASE}/seasons/${season}/segments/0/leagues/${leagueId}`
+            + '/communication/?view=kona_league_communication',
+            { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(topicsFilter) } });
+          if (cr.ok) { const cd = unwrap(await cr.json()); if (Array.isArray(cd.topics)) feed = cd.topics; }
+        } catch {}
+        if (!feed) {
+          /* nothing to go on is said plainly -- the app keeps what the archive holds */
+          res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
+          return res.status(200).json({ season, count: 0, trades: [], source: 'unavailable' });
+        }
+        const ACCEPTED = new Set([224, 225, 226]), DONE = new Set([244, 245, 246]);
+        const told = feed.map(tp => {
+          const ms = tp.messages || [];
+          const moves = set => ms.filter(m => set.has(m.messageTypeId) && m.targetId != null
+              && Number(m.from) > 0 && Number(m.to) > 0)
+            .map(m => ({ pid: Number(m.targetId), from: Number(m.from), to: Number(m.to) }));
+          const money = id => ms.filter(m => m.messageTypeId === id && Number(m.from) > 0 && Number(m.to) > 0)
+            .map(m => ({ from: Number(m.from), to: Number(m.to), amount: Number(m.targetId) || 0 }));
+          const date = Math.max(Number(tp.date) || 0, ...ms.map(m => Number(m.date) || 0));
+          return { id: String(tp.id || ''), date, done: moves(DONE), agreed: moves(ACCEPTED),
+            faabDone: money(290), faabAgreed: money(284) };
+        });
+        const keyOf = mv => [...new Set(mv.flatMap(m => [m.from, m.to]))].sort((a, b) => a - b).join('-')
+          + '|' + mv.map(m => m.pid).sort((a, b) => a - b).join(',');
+        const out = [];
+        for (const t of told.filter(x => x.done.length)) {
+          const teamIds = [...new Set(t.done.flatMap(m => [m.from, m.to]))].sort((a, b) => a - b);
+          if (teamIds.length !== 2) continue;
+          const k = keyOf(t.done);
+          const acc = told.filter(x => x.agreed.length && keyOf(x.agreed) === k && x.date <= t.date)
+            .sort((a, b) => b.date - a.date)[0] || null;
+          const agreedAt = acc ? acc.date : t.date, upheldAt = t.date;
+          const week = weekOf(upheldAt) || 1;
+          const kick = await firstKick(week);
+          const before = kick != null && upheldAt < kick;
+          const teams = teamIds.map(tid => {
+            const players = t.done.filter(m => m.to === tid).map(m => {
+              const from = (before || startedFor(m.pid, tid, week)) ? week : week + 1;
+              return { pid: m.pid, n: name[m.pid] || `#${m.pid}`, pts: +ptsFrom(m.pid, from).toFixed(1), from };
+            }).sort((a, b) => b.pts - a.pts);
+            return { teamId: tid, players, total: +players.reduce((n, p) => n + p.pts, 0).toFixed(1) };
+          });
+          const faab = t.faabDone.length ? t.faabDone : (acc ? acc.faabAgreed : []);
+          const row = { week, teams, at: upheldAt, date: upheldAt, agreedAt, upheldAt, espnId: t.id };
+          if (faab.length) row.faab = faab;
+          out.push(row);
+        }
+        out.sort((a, b) => a.upheldAt - b.upheldAt);
+        res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=600, stale-while-revalidate=600');
+        return res.status(200).json({ season, count: out.length, trades: out, source: 'espn-feed' });
+      }
 
       // Prefer the REAL transaction log when ESPN still has it (live seasons) or
       // when it's been archived — that's authoritative & complete. Reconstruction

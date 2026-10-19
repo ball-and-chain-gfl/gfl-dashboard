@@ -51,6 +51,9 @@ const OUT = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\
 const argv = process.argv.slice(2);
 const only = argv.find(a => /^\d{4}$/.test(a)) || null;
 const force = argv.includes('force') || argv.includes('--force');
+/* --capture: add trades ESPN has upheld since the last run and touch nothing
+   else -- the hourly job, so a trade is locked in the hour it goes through */
+const capture = argv.includes('--capture');
 
 const get = async q => {
   for (let a = 0; a < 3; a++) {
@@ -238,13 +241,13 @@ for (const season of seasons) {
      So the live season waits for week 1 to be final. From then on it is
      snapshotted weekly, which is the point — the votes and the trades want
      keeping while ESPN still serves them. */
-  if (!fin.done && !force && !(fin.played > 0)) {
+  if (!fin.done && !force && !capture && !(fin.played > 0)) {
     console.log(`${season} – no completed week yet, nothing worth freezing`);
     continue;
   }
   if (!fin.done && !have) console.log(`${season} – live season, first snapshot (week ${fin.played} final)`);
 
-  const d = await get(`type=seasontrades&seasonId=${season}&v=6`);
+  const d = await get(`type=seasontrades&seasonId=${season}&v=7`);
   if (!d || !Array.isArray(d.trades)) { console.log(`${season} – no trades payload, skipped`); continue; }
   if (d.source === 'error') { console.log(`${season} – API reported an error, skipped`); continue; }
 
@@ -299,6 +302,50 @@ for (const season of seasons) {
     profiles.forEach(p => Object.keys(p.fields).forEach(k => { if (k.startsWith('tv_td_')) fields.add(k); }));
     const n = adopt(season, d.trades, fields);
     if (n) console.log(`    ${n} trade(s) took the votes already cast on them under an earlier date`);
+  }
+
+  /* ── A CAPTURED TRADE IS LOCKED ─────────────────────────────────────────
+     The league asked for exactly this: catch each trade when ESPN upholds it,
+     write it down, and never let it change. A record that carries upheldAt
+     came from ESPN's processed entry, and from then on its week, its dates,
+     its sides, its players and its money are what they were the day it went
+     through -- whatever any later payload says. Only each player's points
+     move, because those are what he has scored since.
+
+     A record from before this (no upheldAt) takes ESPN's processed version
+     once, which is how the first four 2026 trades got their real weeks and
+     dates; its vote identity -- date, id, the order of its sides -- was
+     already kept by the alignment above. */
+  {
+    let old1 = null;
+    if (have) { try { old1 = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {} }
+    const olds = (old1 && old1.trades) || [];
+    const oldBy = {}; olds.forEach(o => { oldBy[voteId(season, o)] = o; });
+    const oldByEspn = {}; olds.forEach(o => { if (o.espnId) oldByEspn[o.espnId] = o; });
+    const matched = new Set();
+    d.trades.forEach(t => {
+      const o = (t.espnId && oldByEspn[t.espnId]) || oldBy[voteId(season, t)];
+      if (!o) return;
+      matched.add(o);
+      if (o.espnId == null && t.espnId != null) return;          // first capture: ESPN's version stands
+      if (o.upheldAt == null) return;
+      ['week', 'agreedAt', 'upheldAt', 'espnId', 'date', 'at', 'id'].forEach(k => {
+        if (o[k] != null) t[k] = o[k]; else delete t[k]; });
+      if (o.faab && o.faab.length) t.faab = o.faab;
+      const fresh = {}; (t.teams || []).forEach(x => (x.players || []).forEach(p => { fresh[p.pid] = p; }));
+      t.teams = (o.teams || []).map(x => {
+        const players = (x.players || []).map(p => ({ ...p, pts: fresh[p.pid] ? fresh[p.pid].pts : p.pts }))
+          .sort((a, b) => b.pts - a.pts);
+        return { ...x, players, total: +players.reduce((n, p) => n + (p.pts || 0), 0).toFixed(1) };
+      });
+    });
+    if (capture) {
+      /* only what is new; everything on file stays exactly as it is */
+      const fresh = d.trades.filter(t => !((t.espnId && oldByEspn[t.espnId]) || oldBy[voteId(season, t)]));
+      if (!fresh.length) { console.log(`${season} – capture: nothing upheld since the last run`); continue; }
+      fresh.forEach(t => console.log(`    captured: week ${t.week} trade between ${t.teams.map(x => x.teamId).join(' and ')}`));
+      d.trades = [...olds, ...fresh];
+    }
   }
 
   /* ── NO VOTE MAY BE ORPHANED ─────────────────────────────────────────────

@@ -32,6 +32,7 @@
  */
 import fs from 'fs';
 import { lifter, assemble } from './lib/lift.mjs';
+import { closeLapsedInvites, weekBegunVia } from './lib/close-invites.mjs';
 
 const BASE = process.env.GFL_BASE || 'https://gfl-dashboard.vercel.app/api/espn';
 const LOOP = Number(process.env.LOOP || 0);          // seconds to keep going; 0 = once
@@ -106,6 +107,27 @@ const app = assemble(grab, [
     'liveFinalRow', 'liveRowFinal', 'liveSeal', 'liveSlateOver',
     'liveBucket', 'liveProTeams', 'liveMatchupOn', 'liveNote', 'liveWpOf',
     'liveSideScore', 'liveWithScores', 'liveProProgress', 'liveSideLeft', 'liveSideProj']);
+
+/* what the invitation sweep needs to read and write a bet, lifted like the rest */
+const bets = assemble(grab, ['const fsOut=', 'const fsIn=', 'const betDocRow=', 'function betLegWeek('],
+  ['fsOut', 'betDocRow', 'betLegWeek']);
+const BETDOCS = `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents`;
+const weekBegun = weekBegunVia(BASE);
+/* An invitation dies the moment its bet could no longer be placed -- the
+   week's first kickoff for a weekly bet -- so the sweep rides along with the
+   poller, which is awake for exactly those moments. Every ten minutes is
+   plenty: the app already refuses a late accept, this only closes the ticket. */
+const INVITE_SWEEP_MS = 10 * 60000;
+let lastSweep = 0;
+async function sweepInvites() {
+  if (Date.now() - lastSweep < INVITE_SWEEP_MS) return;
+  lastSweep = Date.now();
+  try {
+    const n = await closeLapsedInvites({ docs: BETDOCS, key: `key=${GFL_DB.key}`, fsOut: bets.fsOut,
+      betDocRow: bets.betDocRow, legWeek: bets.betLegWeek, weekBegun, dry: DRY });
+    if (n) console.log(`  closed ${n} invitation(s) whose bet can no longer be placed`);
+  } catch (e) { console.log(`  invitation sweep: ${e.message}`); }
+}
 
 const DOC = k => `https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   + `/databases/(default)/documents/live/${encodeURIComponent(k)}?key=${GFL_DB.key}`;
@@ -340,6 +362,7 @@ if (!LOOP) {
   const started = Date.now();
   let sawLive = false, lastLive = 0, r = null;
   while (Date.now() < until) {
+    await sweepInvites();
     r = await once();
     /* 'skip' is ESPN being unreachable, which is not an answer either way: it
        neither proves a game is on nor that one is over, so it moves nothing. */

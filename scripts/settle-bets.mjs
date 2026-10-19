@@ -26,6 +26,7 @@
  *   DRY_RUN=1 node scripts/settle-bets.mjs  # grade and report, write nothing
  */
 import fs from 'fs';
+import { closeLapsedInvites, weekBegunVia } from './lib/close-invites.mjs';
 
 const BASE = process.env.GFL_BASE || 'https://gfl-dashboard.vercel.app/api/espn';
 const DRY  = !!process.env.DRY_RUN;
@@ -197,6 +198,14 @@ async function writeResult(bet, g) {
   if (!raw || !raw.teams) { console.error('could not load the season from the proxy'); process.exit(1); }
   const lineups = await get(`type=lineups&seasonId=${season}&v=1`);
   api.setData({ [season]: seasonMeta(raw) }, lineups && lineups.weeks ? { [season]: lineups } : {});
+  /* invitations whose bet can no longer be placed are closed for good --
+     see scripts/lib/close-invites.mjs; poll-live does this at kickoff, this
+     is the weekly backstop */
+  try {
+    const n = await closeLapsedInvites({ docs: DOCS(), key: KEY(), fsOut: api.fsOut, betDocRow: api.betDocRow,
+      legWeek: api.betLegWeek, weekBegun: weekBegunVia(BASE), dry: DRY });
+    console.log(`  invitations closed: ${n}`);
+  } catch (e) { console.log(`  invitations: ${e.message}`); }
   console.log(`  season loaded: ${(raw.schedule || []).length} fixtures, `
     + `lineups ${lineups && lineups.weeks ? 'in hand' : 'UNAVAILABLE — player markets will stay open'}`);
 

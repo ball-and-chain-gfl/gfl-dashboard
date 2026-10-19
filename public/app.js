@@ -2808,7 +2808,7 @@ function tradeVotesLoad(season,d){
    it supplies the one thing ESPN does not have. */
 async function fetchSeasonTrades(season){
   if(_tradeCache[season]) return _tradeCache[season];
-  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=6`;
+  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=7`;
   try{
     let d;
     if(String(season)===String(nflSeasonYear())){
@@ -2863,9 +2863,11 @@ function mergeSeasonTrades(season,arc,live){
       return teamKey(a)===k && Math.abs((Number(a.date||a.at)||0)-d)<=NEAR;
     })||null;
   };
+  /* ESPN's own id for a trade, once both sides carry it, is the surest match */
+  const byEspn={}; arcT.forEach(t=>{ if(t.espnId) byEspn[t.espnId]=ntTradeVoteId(season,t); });
   const out=[];
   liveT.forEach(t=>{
-    let id=ntTradeVoteId(season,t);
+    let id=(t.espnId&&byEspn[t.espnId]&&byId[byEspn[t.espnId]])?byEspn[t.espnId]:ntTradeVoteId(season,t);
     let was=byId[id];
     if(!was){
       const near=findNear(t);
@@ -2905,10 +2907,25 @@ function mergeSeasonTrades(season,arc,live){
    The api side has been fixed not to lose him in the first place
    (see the acquisition scan in api/espn.js); this is the belt to that brace,
    and the thing that keeps a season readable if ESPN changes shape again. */
+/* agreed and upheld, in the reader's own clock -- one date when they match */
+function tradeWhen(tr){
+  const d=t=>new Date(Number(t)).toLocaleDateString([],{month:'short',day:'numeric'});
+  const a=tr.agreedAt?d(tr.agreedAt):null, u=d(tr.upheldAt);
+  return a&&a!==u?`agreed ${a} · upheld ${u}`:`upheld ${u}`;
+}
 function tradeMergeRow(live,arc){
   if(!arc) return live;
   const merged={...live};
   if(arc.votes) merged.votes=arc.votes;
+  /* ── THE ARCHIVE IS THE LOCKED RECORD ────────────────────────────────────
+     A trade's vote is filed under its date and the order of its sides, so
+     those come from the archive whatever the live row says. And once a trade
+     was captured from ESPN's processed record (upheldAt), the archive is the
+     whole of it -- its week, its dates, its money -- and the live row only
+     brings the points up to date. */
+  if(arc.date!=null){ merged.date=arc.date; if(arc.at!=null) merged.at=arc.at; }
+  if(arc.upheldAt!=null) ['week','agreedAt','upheldAt','espnId','faab'].forEach(k=>{
+    if(arc[k]!=null) merged[k]=arc[k]; });
   /* the archive's vote name, when it has one -- the live row does not know it,
      and without it a vote cast here lands in a field the archiver never reads */
   if(arc.id!=null&&merged.id==null) merged.id=arc.id;
@@ -2931,6 +2948,9 @@ function tradeMergeRow(live,arc){
   (arc.teams||[]).forEach(a=>{
     if(!merged.teams.some(t=>String(t.teamId)===String(a.teamId))) merged.teams.push(a);
   });
+  /* and in the archive's order, which is part of the vote's name */
+  const order=(arc.teams||[]).map(t=>String(t.teamId));
+  if(order.length) merged.teams.sort((a,b)=>order.indexOf(String(a.teamId))-order.indexOf(String(b.teamId)));
   return merged;
 }
 function setTradeSort(mode,btn){
@@ -3028,7 +3048,8 @@ async function renderTradesTab(){
          the two sides won and reorders them */
       /* faab rides along explicitly: this row is built field by field rather
          than spread, so anything not named here is simply not on the card. */
-      list.push({season,source,week:tr.week,a,b,margin:Math.abs(a.total-b.total),share,
+      list.push({season,source,week:tr.week,agreedAt:tr.agreedAt||null,upheldAt:tr.upheldAt||null,
+        a,b,margin:Math.abs(a.total-b.total),share,
         faab:tr.faab||null, faabSeen:tr.faabSeen||null, voteId:ntTradeVoteId(season,tr)});
     });
   });
@@ -3119,7 +3140,7 @@ async function renderTradesTab(){
       </div>`;};
     const seasonBadge=_tradeScope==='alltime'?`<span class="badge-info" style="margin-left:0">${tr.season}</span>`:'';
     return`<div class="trade-card">
-      <div class="trade-head">${seasonBadge}Week ${tr.week} trade</div>
+      <div class="trade-head">${seasonBadge}Week ${tr.week} trade${tr.upheldAt?`<span class="trade-when">${tradeWhen(tr)}</span>`:''}</div>
       <!-- two children for two columns: the old divider cell would wrap the
            loser onto a second row now that there is no gap track -->
       <div class="trade-grid">${side(winner,'won')}${side(loser,'lost')}</div>
@@ -15659,7 +15680,10 @@ const betDocRow=d=>{
     legs,status:f.status||'open',settledTs:Number(f.settledTs)||0,ret:Number(f.ret)||0,
     invitedBy:f.invitedBy||'', srcBet:f.srcBet||'',
     pvp:String(f.pvp||'')==='1', vs:f.vs||'',
-    hidden:String(f.hidden||'')==='1'};
+    hidden:String(f.hidden||'')==='1',
+    /* an invitation closed because its bet could no longer be placed -- see
+       scripts/lib/close-invites.mjs */
+    lapsed:String(f.lapsed||'')==='1'};
 };
 const fsRunQueryUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   +`/databases/(default)/documents:runQuery?${msgKey()}`;
@@ -22431,7 +22455,7 @@ function sbInviteBoxHTML(b){
     :'in';
   const badge=asked.length?`<div class="sb-inv-sent">${asked.map(x=>
     `<span class="sb-inv-chip sb-inv-${x.status}">${betAccountName(x.owner)} · ${
-      seatWord(x.status)}</span>`).join('')}</div>`:'';
+      (x.lapsed&&x.status==='declined'?'expired':seatWord(x.status))}</span>`).join('')}</div>`:'';
   const bid=b.id.replace(/'/g,"\\'");
   if(_inviteFor!==b.id){
     return badge+(left.length
