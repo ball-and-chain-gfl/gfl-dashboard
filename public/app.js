@@ -15905,6 +15905,9 @@ async function sbPlaceBet(){
      guard in front of it thought in whole dollars. */
   const stake=bucks2(Math.max(0,Number(_sbStake)||0));
   if(stake<=0){ _betErr='stake'; sbRenderSlip(); return; }
+  /* the slip refuses the pair as it is built; this refuses it as it is sent,
+     whatever route a slip took to get here */
+  if(mlspClash(_slip).length){ _betErr='mlsp'; sbRenderSlip(); return; }
   /* before the ledger lands the balance reads high by whatever is riding on
      open bets, and this is the check that would wave the over-stake through */
   if(!bucksReady()){ _betErr='loading'; sbRenderSlip(); return; }
@@ -22602,6 +22605,7 @@ function sbSlipHTML(){
         _betErr==='locked'?'Those markets are closed — the week is under way, or last week is still settling and the new lines are not final yet. Season futures stay open.'
         :_betErr==='funds'?`That is more than your ${bucksFmt(bal)} balance.`
         :_betErr==='stake'?'Enter a stake first.'
+        :_betErr==='mlsp'?'One team\'s moneyline and spread cannot share a ticket — take one of them off.'
         :_betErr==='loading'?'Still counting your money. One moment.'
         :_betErr==='quota'?`${fsLimitText().head} — try again ${fsLimitText().when}.`
         :_betErr==='rules'?'The bets collection is not writable yet — Firestore rules need publishing.'
@@ -22674,6 +22678,31 @@ function sbWeekOpposite(mk){
   const pair=SB_ENDS.find(p=>p.indexOf(m[2])>=0);
   return m[1]+'-'+pair[pair[0]===m[2]?1:0];
 }
+/* ── ONE TEAM'S MONEYLINE AND ITS SPREAD ARE ONE BET, NOT TWO ────────────────
+   A favourite that covers has won, so backing it on both the moneyline and
+   the spread is very nearly one outcome told twice -- and as a parlay it was
+   paid the multiplier for two. Allowed for a while on the grounds that
+   somebody might want both; the league ruled it out on 19 October.
+
+   Returns the legs that have to go: of each pair, the one at the SHORTER
+   price, because the longer is what the ticket was built around (a tie keeps
+   the spread). The slip refuses the pair as it is built, sbPlaceBet refuses
+   it as it is sent, and scripts/migrations/fix-mlsp-parlays.mjs lifted this
+   to take apart every ticket placed before the rule. */
+function mlspClash(legs){
+  const by={};
+  (legs||[]).forEach(l=>{
+    const m=/^(wk\d+-\d+-\d+)-(ml|sp)$/.exec(String((l&&l.mk)||'')); if(!m) return;
+    const k=m[1]+'|'+String(l.pick||'').split(':')[0];
+    (by[k]||(by[k]={}))[m[2]]=l;
+  });
+  const drop=[];
+  Object.values(by).forEach(g=>{
+    if(!g.ml||!g.sp) return;
+    drop.push(amToDec(Number(g.ml.odds))>amToDec(Number(g.sp.odds))?g.sp:g.ml);
+  });
+  return drop;
+}
 function sbConflict(mk,pick){
   const p=String(pick), team=p.split(':')[0];
   // one selection per weekly market, whichever side or line it is
@@ -22693,6 +22722,9 @@ function sbConflict(mk,pick){
     const other=/-ml$/.test(mk)?game+'-sp':game+'-ml';
     const clash=_slip.find(x=>x.mk===other&&x.pick.split(':')[0]!==team);
     if(clash) return {leg:clash,why:'The underdog winning and the favourite covering cannot both land.'};
+    /* and the same team both ways -- see mlspClash */
+    const same=_slip.find(x=>x.mk===other&&x.pick.split(':')[0]===team);
+    if(same) return {leg:same,why:'One team\'s moneyline and spread cannot share a ticket — pick one.'};
   }
   // an outright can only be won by one entrant — season or week
   const m=sbAllMarkets().find(x=>x.key===mk);

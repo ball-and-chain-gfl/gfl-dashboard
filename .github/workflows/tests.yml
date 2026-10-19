@@ -53,6 +53,8 @@ jobs:
         run: node scripts/test-logocache.mjs
       - name: a trade keeps its votes, its money, and its place in Trade ROI
         run: node scripts/test-tradeids.mjs
+      - name: one team's moneyline and spread cannot share a ticket
+        run: node scripts/test-mlsp.mjs
       - name: waiver ROI scored against the league
         run: node scripts/test-c3-share.mjs
       - name: trade and waiver ROI rankings

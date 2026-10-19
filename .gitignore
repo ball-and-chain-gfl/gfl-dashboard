@@ -9,3 +9,6 @@ firebase-debug.log*
 .agents/skills/
 .claude/skills/
 skills-lock.json
+
+# migration backups hold league data and never belong in the public repo
+*backup*.json
