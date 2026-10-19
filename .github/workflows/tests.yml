@@ -57,6 +57,8 @@ jobs:
         run: node scripts/test-mlsp.mjs
       - name: a trade is what ESPN upheld, locked; an invitation closes with its bet
         run: node scripts/test-tradecapture.mjs
+      - name: the schedule projects a finish off its own win odds
+        run: node scripts/test-schedproj.mjs
       - name: waiver ROI scored against the league
         run: node scripts/test-c3-share.mjs
       - name: trade and waiver ROI rankings

@@ -7230,6 +7230,7 @@ const SX_ABBR={
   'All-Time vs Each Team':'AT vs Team',
   'Live Around the League':'Live League',
   'Head-to-Head Records':'H2H Records',
+  'Projected Finish':'Finish',
 
   'Conference Championships':'Conferences',
   'Season Superlatives':'Superlatives',
@@ -10944,6 +10945,54 @@ function schedRows(owner){
     toughest:out.slice().sort((x,y)=>x.p-y.p)[0]||null,
     easiest:out.slice().sort((x,y)=>y.p-x.p)[0]||null};
 }
+/* ── WHERE THE SCHEDULE ENDS UP ─────────────────────────────────────────────
+   Every regular-season game still to play called on the same chance the
+   Win% column shows: favoured is a win, not favoured a loss. The exact
+   number decides it, not the rounded one -- a 49.8% is a loss even though
+   the column says 50%. Only a dead level 50/50 goes to a tiebreak: the
+   better all-time record takes it, and if those are level too, the more
+   points scored this season. Added to the record already banked, that is
+   the projected finish. */
+function schedAllTimePct(owner){
+  let w=0,t=0,g=0;
+  Object.keys(_h2hAll||{}).forEach(k=>{ const r=(_h2hAll[k]||{})[owner]; if(r&&k.split('|').includes(owner)){
+    w+=r.w||0; t+=r.t||0; g+=r.games||0; } });
+  return g?(w+t/2)/g:0;
+}
+function schedTeamOf(owner){
+  const id=Object.keys(_ownerMap||{}).find(k=>_ownerMap[k]===owner);
+  return (_teams||[]).find(t=>String(t.id)===String(id))||null;
+}
+/* one game called: true a win, false a loss, and why when it came to that */
+function schedCall(owner,oppOwner,p){
+  if(p>0.5) return {win:true,why:''};
+  if(p<0.5) return {win:false,why:''};
+  const a=schedAllTimePct(owner), b=schedAllTimePct(oppOwner);
+  if(a!==b) return {win:a>b,why:'level at 50% · better all-time record'};
+  const pa=(schedTeamOf(owner)||{}).pf||0, pb=(schedTeamOf(oppOwner)||{}).pf||0;
+  return {win:pa>=pb,why:'level at 50% · more points this season'};
+}
+function schedProjHTML(owner,d){
+  const games=((d&&d.rows)||[]).filter(r=>!r.playoff).map(r=>({...r,...schedCall(owner,r.oppOwner,r.p)}));
+  if(!games.length) return '';
+  const tm=schedTeamOf(owner)||{};
+  const w0=tm.wins||0, l0=tm.losses||0, t0=tm.ties||0;
+  const pw=games.filter(g=>g.win).length, pl=games.length-pw;
+  const rec=(w,l,t)=>`${w}–${l}${t?`–${t}`:''}`;
+  const chip=g=>`<div class="spj-g ${g.win?'spj-w':'spj-l'}"${g.why?` title="${g.why}"`:''}>
+      <span class="spj-wk">Wk ${g.week}${g.why?'<i class="fa fa-scale-balanced spj-tie"></i>':''}</span>
+      <span class="spj-r">${g.win?'W':'L'}</span>
+      <span class="spj-opp">${sbAvatar(g.oppOwner,18)}<span>${sbTeamAb(g.oppOwner,g.opp.name)}</span></span>
+      <span class="spj-p" style="color:${schedPctCol(g.p)}">${Math.round(g.p*100)}%</span>
+    </div>`;
+  return `<div class="sec spj-sec">
+    <div class="sec-head"><i class="fa fa-flag-checkered"></i>Projected Finish</div>
+    <div class="spj-sum"><span class="spj-big">${rec(w0+pw,l0+pl,t0)}</span>
+      <span class="spj-sub">${rec(w0,l0,t0)} so far · ${rec(pw,pl,0)} the rest of the way</span></div>
+    <div class="spj-grid">${games.map(chip).join('')}</div>
+    ${games.some(g=>g.why)?`<div class="spj-note"><i class="fa fa-scale-balanced"></i> A dead-level 50% goes to the better all-time record, then to more points this season.</div>`:''}
+  </div>`;
+}
 function schedPctCol(p){
   if(p>=0.62) return 'var(--green)';
   if(p>=0.52) return '#a3e635';
@@ -11880,6 +11929,7 @@ function renderSchedule(){
         <span class="r sch-sc"></span>
       </div>
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
+    ${schedProjHTML(owner,d)}
     ${pollSosHTML(owner)}
     ${playoffOutlookHTML()}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
