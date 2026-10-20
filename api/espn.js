@@ -1439,6 +1439,36 @@ export default async function handler(req, res) {
           return { id: String(tp.id || ''), date, done: moves(DONE), agreed: moves(ACCEPTED),
             faabDone: money(290), faabAgreed: money(284) };
         });
+        /* ── A PLAYER'S POINTS DO NOT STOP WHEN NO ROSTER HOLDS HIM ──────────
+           ptsFrom reads the weekly rosters, and a roster only holds rostered
+           players. So a man let go after a trade stopped scoring for it the day
+           he was dropped: Keon Coleman came to BFT in the week 5 deal, went
+           back on waivers, and the 15.9 he put up in week 6 never reached the
+           card -- it sat at 0.0 while the week went by.
+
+           ESPN's player card carries every week a player played, wherever he
+           was, in league scoring. One call for every player in every trade,
+           and it answers only the weeks no roster holds him; a rostered week
+           still comes off the roster, which is the same number. If the call
+           fails, the rosters alone are what there was before. */
+        const card = {};
+        const tradedIds = [...new Set(told.flatMap(t => t.done.map(m => m.pid)))];
+        if (tradedIds.length) try {
+          const pf = { players: { filterIds: { value: tradedIds },
+            filterStatsForTopScoringPeriodIds: { value: 18, additionalValue: [`00${season}`] } } };
+          const pr = await fetch(leagueURL('kona_playercard', { forceLive: true }),
+            { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(pf) } });
+          if (pr.ok) (unwrap(await pr.json()).players || []).forEach(e => {
+            const pl = e.player || {}; if (pl.id == null) return;
+            if (pl.fullName && !name[pl.id]) name[pl.id] = pl.fullName;
+            const m = card[pl.id] = {};
+            (pl.stats || []).forEach(st => {
+              if (st.statSourceId === 0 && st.statSplitTypeId === 1 && String(st.seasonId) === String(season))
+                m[st.scoringPeriodId] = st.appliedTotal ?? 0;
+            });
+          });
+        } catch {}
+        const ptsSince = (pid, from) => weeks.filter(w => w >= from).reduce((t, w) => t + (wk[w]?.[pid] ? (wk[w][pid].pts || 0) : (card[pid]?.[w] || 0)), 0);
         const keyOf = mv => [...new Set(mv.flatMap(m => [m.from, m.to]))].sort((a, b) => a - b).join('-')
           + '|' + mv.map(m => m.pid).sort((a, b) => a - b).join(',');
         const out = [];
@@ -1455,7 +1485,7 @@ export default async function handler(req, res) {
           const teams = teamIds.map(tid => {
             const players = t.done.filter(m => m.to === tid).map(m => {
               const from = (before || startedFor(m.pid, tid, week)) ? week : week + 1;
-              return { pid: m.pid, n: name[m.pid] || `#${m.pid}`, pts: +ptsFrom(m.pid, from).toFixed(1), from };
+              return { pid: m.pid, n: name[m.pid] || `#${m.pid}`, pts: +ptsSince(m.pid, from).toFixed(1), from };
             }).sort((a, b) => b.pts - a.pts);
             return { teamId: tid, players, total: +players.reduce((n, p) => n + p.pts, 0).toFixed(1) };
           });

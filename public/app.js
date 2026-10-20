@@ -1140,7 +1140,7 @@ function c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail){
   const fr=faabRateFrom((pool||[]).map(p=>p.row));
   teams.forEach(t=>{ if(detail[t.id]) detail[t.id].faabRate=fr; });
   const seenFaab=new Set();
-  (transactions||[]).forEach(tx=>{
+  c2Txns(season,transactions).forEach(tx=>{
     if(!executed(tx)) return;
     if(tx.type!=='TRADE_ACCEPT'&&tx.type!=='TRADE') return;
     (tx.items||[]).forEach(i=>{
@@ -1153,54 +1153,89 @@ function c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail){
     });
   });
 }
+/* ── TRADE ROI READS THE TRADES PAGE'S LIST, NOT ESPN'S LOG ─────────────────
+   2026 on, C2 is scored off the locked trade list: each trade's own week,
+   each player's first counting week, and his points -- the same row the
+   Trades page draws, so the two can never tell different stories.
+
+   The log is ESPN's raw telling, and it is wrong about trades three ways.
+   It stamps a trade with the scoring period it was PROCESSED in, so the
+   week 5 Coleman deal, upheld the Tuesday after week 5, read as week 6 --
+   and Coleman, dropped before week 6, as 'wk 7+'. It files a trade the
+   moment both managers accept, before the league upholds it or vetoes it.
+   And a player dropped to make room is listed among the players sent.
+
+   So every trade on the list goes in as one row, marked _from:'trades',
+   carrying each player's from and pts. Rows from an earlier fill are
+   replaced, not added to: the points grow every week. */
+const C2_TRADES_FROM=2026;
 function tradesFillTx(txns,trades){
-  const isTrade=t=>{ const y=String((t&&t.type)||'').toUpperCase(); return y==='TRADE_ACCEPT'||y==='TRADE'; };
-  const have=new Set();
-  (txns||[]).forEach(t=>{ if(isTrade(t)) (t.items||[]).forEach(i=>{
-    if(i&&i.playerId!=null&&Number(i.playerId)!==0) have.add(`${i.playerId}|${i.fromTeamId}|${i.toTeamId}`); }); });
-  (txns||[]).forEach(t=>{ if(isTrade(t)) (t.items||[]).forEach(i=>{
-    if(i&&i.type==='FAAB') have.add(`faab|${i.fromTeamId}|${i.toTeamId}|${t.scoringPeriodId}|${i.amount}`); }); });
+  const base=(txns||[]).filter(t=>!(t&&t._from==='trades'));
   const add=[];
   (trades||[]).forEach(tr=>{
     const teams=(tr&&tr.teams)||[]; if(teams.length!==2) return;
     const items=[];
     /* the money, which the log never carries an amount for */
     (tr.faab||[]).forEach(f=>{
-      const k=`faab|${Number(f.from)}|${Number(f.to)}|${Number(tr.week)||0}|${Number(f.amount)||0}`;
-      if(have.has(k)||!(Number(f.amount)>0)) return; have.add(k);
-      items.push({type:'FAAB',amount:Number(f.amount),fromTeamId:Number(f.from),toTeamId:Number(f.to)});
+      if(Number(f.amount)>0) items.push({type:'FAAB',amount:Number(f.amount),fromTeamId:Number(f.from),toTeamId:Number(f.to)});
     });
     teams.forEach((side,i)=>{ const other=teams[1-i];
       (side.players||[]).forEach(p=>{
         const pid=Number(p&&p.pid); if(!pid) return;
-        const k=`${pid}|${Number(other.teamId)}|${Number(side.teamId)}`;
-        if(have.has(k)) return; have.add(k);
-        items.push({type:'TRADE',playerId:pid,fromTeamId:Number(other.teamId),toTeamId:Number(side.teamId)});
+        const it={type:'TRADE',playerId:pid,fromTeamId:Number(other.teamId),toTeamId:Number(side.teamId)};
+        if(Number(p.from)>0) it.from=Number(p.from);
+        if(p.pts!=null&&isFinite(Number(p.pts))) it.pts=Number(p.pts);
+        items.push(it);
       });
     });
     if(items.length) add.push({type:'TRADE_ACCEPT',status:'EXECUTED',teamId:Number(teams[0].teamId),
       scoringPeriodId:Number(tr.week)||0,processDate:Number(tr.date||tr.at)||0,items,_from:'trades'});
   });
-  return add.length?(txns||[]).concat(add):(txns||[]);
+  return base.concat(add);
 }
-/* With whatever the trades page has already loaded -- boot does not wait on
-   it. The reconstruction behind it is eighteen roster calls on a cold cache,
-   and the whole dashboard was about to sit behind them. */
-function tradesFillTxNow(season,txns){
-  if(String(season)!==String(nflSeasonYear())) return txns;
-  const c=_tradeCache&&_tradeCache[season];
-  return c&&c.trades?tradesFillTx(txns,c.trades):txns;
+/* The trades C2 counts. Once the list is in, its rows and none of the log's;
+   before it lands, or for a season before 2026, the log as it always was. */
+function c2Txns(season,transactions){
+  const tx=transactions||[];
+  if(season==null||Number(season)<C2_TRADES_FROM||!tx.some(t=>t&&t._from==='trades')) return tx;
+  return tx.filter(t=>{ const y=String((t&&t.type)||'').toUpperCase();
+    return (y!=='TRADE_ACCEPT'&&y!=='TRADE')||t._from==='trades'; });
 }
-/* ...and once it lands, C2 is worked out again if the list added a trade,
-   and the Coaching Metric repaints if it is the page being looked at. */
+/* what the list says, as one string, so a re-score happens when it changed */
+const tradesSig=trades=>JSON.stringify((trades||[]).map(t=>[t.week,t.faab||0,
+  (t.teams||[]).map(x=>[x.teamId,(x.players||[]).map(p=>[p.pid,p.pts,p.from])])]));
+let _c2Sig={};
+/* the locked archive, fetched once -- the trades page and boot share it */
+let _tradeArc={};
+function tradesArchive(season){
+  if(!_tradeArc[season]) _tradeArc[season]=fetch(`/data/trades-${season}.json`)
+    .then(r=>r.ok?r.json():null).catch(()=>null);
+  return _tradeArc[season];
+}
+/* The list boot scores C2 with, without waiting on ESPN. The trades page's
+   list if it is already here; for the season being played, the locked
+   archive, a static file the capture job keeps an hour fresh; for a finished
+   one, that season's list, which is its archive anyway. */
+async function c2TradesNow(season){
+  if(season==null||Number(season)<C2_TRADES_FROM) return null;
+  const c=_tradeCache[season]; if(c&&c.trades&&c.trades.length) return c.trades;
+  if(String(season)!==String(nflSeasonYear())){
+    try{ return ((await fetchSeasonTrades(season))||{}).trades||null; }catch(e){ return null; }
+  }
+  const a=await tradesArchive(season);
+  return (a&&a.trades&&a.trades.length)?a.trades:null;
+}
+/* ...and once the live list lands, C2 is worked out again if it says
+   anything different, and the Coaching Metric repaints if it is the page
+   being looked at. */
 async function cmTradesLanded(season){
-  if(String(season)!==String(nflSeasonYear())) return;
+  if(season==null||Number(season)<C2_TRADES_FROM) return;
   let c=null; try{ c=await fetchSeasonTrades(season); }catch(e){ return; }
   if(String(season)!==String(getSeason())) return;
-  const filled=tradesFillTx(_transactions,c&&c.trades);
-  if(filled===_transactions||filled.length===(_transactions||[]).length) return;
-  _transactions=filled;
-  let r=null; try{ r=await computeCoaching(_teams,filled,_weeklyData,season); }catch(e){ return; }
+  const trades=c&&c.trades; if(!trades||!trades.length) return;
+  const sig=tradesSig(trades); if(sig===_c2Sig[season]) return;
+  _c2Sig[season]=sig;
+  let r=null; try{ r=await computeCoaching(_teams,tradesFillTx(_transactions,trades),_weeklyData,season); }catch(e){ return; }
   if(_cmMode==='transactions'||_cmMode==='inferred'){ _scores=r.scores; _breakdown=r.breakdown; }
   _cmBreakdown=r.breakdown; _cmBreakdownSeason=String(season);
   if(_activeTab==='cm') try{ renderCoachingMetric(); }catch(e){}
@@ -1433,6 +1468,7 @@ async function computeCoaching(teams, transactions, weeklyData, season){
      record stamped 1, the Eagles defence at Florida Man in week 3 to a record
      stamped 3. So the two agree where they overlap, and the rosters answer
      where the feed has stopped. */
+  transactions=c2Txns(season,transactions);
   const arrivedWeek=(pid,toTeamId)=>{
     if(toTeamId==null) return 0;
     for(const w of weeks) if(weeklyData[w]?.[pid]?.team===toTeamId) return w;
@@ -1507,16 +1543,16 @@ async function computeCoaching(teams, transactions, weeklyData, season){
         const at=moveAt.get(key)||0;
         const ko=at>0?nflWeekKickoffMs(nflSeasonOfMs(at),tradeWeek):null;
         const beforeKick=ko!=null&&at<ko;
-        const fromWeek=(tradeWeek>0&&tw&&tw.team===item.toTeamId&&(beforeKick||tw.started))
+        const fromWeek=item.from>0?item.from:(tradeWeek>0&&tw&&tw.team===item.toTeamId&&(beforeKick||tw.started))
           ?tradeWeek:tradeWeek+1;
-        const pts=allPts(pid, fromWeek);
+        const pts=item.pts!=null?item.pts:allPts(pid, fromWeek), rec=tx._from==='trades';
         if(item.toTeamId!=null && item.toTeamId in c2){
           c2[item.toTeamId]+=pts/10;
-          detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,from:fromWeek,pts});
+          detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,from:fromWeek,pts,rec});
         }
         if(item.fromTeamId!=null && item.fromTeamId in c2){
           c2[item.fromTeamId]-=pts/10;
-          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,from:fromWeek,pts});
+          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,from:fromWeek,pts,rec});
         }
       });
     }
@@ -2011,7 +2047,7 @@ function renderC2Breakdown(){
     const nm=v=>v<0?`(−${Math.abs(v).toFixed(1)})`:v.toFixed(1);
     const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${r.faab!=null
         ?`<i class="fa fa-sack-dollar" style="color:var(--green)"></i> FAAB $${r.faab} <span class="brk-wk">at ${(r.pts/r.faab).toFixed(2)} pts/$</span>`
-        :`${pName(r.pid)} <span class="brk-wk">wk ${r.from??(r.week+1)}+</span>`}</span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
+        :`${pName(r.pid)} <span class="brk-wk">${r.rec?`wk ${r.week} trade`:`wk ${r.from??(r.week+1)}+`}</span>`}</span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
     return `<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c2)}">C2 ${bd.c2>=0?'+':''}${(bd.c2||0).toFixed(2)}</span></div>
       ${(recv.length||sent.length)?`<div class="brk-cols">
@@ -2872,12 +2908,12 @@ function tradeVotesLoad(season,d){
    it supplies the one thing ESPN does not have. */
 async function fetchSeasonTrades(season){
   if(_tradeCache[season]) return _tradeCache[season];
-  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=7`;
+  const liveURL=`${BASE}?type=seasontrades&seasonId=${season}&v=8`;
   try{
     let d;
     if(String(season)===String(nflSeasonYear())){
       const [arc,live]=await Promise.all([
-        fetch(`/data/trades-${season}.json`).then(r=>r.ok?r.json():null).catch(()=>null),
+        tradesArchive(season),
         fetch(liveURL).then(r=>r.ok?r.json():null).catch(()=>null),
       ]);
       d=mergeSeasonTrades(season,arc,live);
@@ -24471,6 +24507,10 @@ async function loadDashboard(){
     //  1. official archived values from the commissioner's spreadsheet
     //  2. "no data" for seasons listed in the archive's `none` list
     //  3. live computation from the transaction log (real or reconstructed)
+    /* C2 reads the locked trade list; the log stays the log for everything else */
+    const c2Trades=await c2TradesNow(season);
+    _c2Sig[season]=c2Trades?tradesSig(c2Trades):undefined;
+    const c2Fill=tx=>c2Trades?tradesFillTx(tx,c2Trades):tx;
     const officialAll=await loadCMOfficial();
     await loadAwards();
     const officialSeason=officialAll?.[season]||null;
@@ -24484,22 +24524,20 @@ async function loadDashboard(){
       });
     }else{
       _cmMode=txReconstructed?'inferred':'transactions';
-      transactions=tradesFillTxNow(season,transactions);
-      const{scores,breakdown}=await computeCoaching(_teams,transactions,weeklyData,season);
+      const{scores,breakdown}=await computeCoaching(_teams,c2Fill(transactions),weeklyData,season);
       _scores=scores;_breakdown=breakdown;
     }
     _transactions=transactions;
 
     // Always compute the full C2/C3 breakdown (with per-player detail) for the
     // Trade ROI / Waiver ROI tables — even when the headline CM score is official.
-    try{ transactions=tradesFillTxNow(season,transactions); }catch(e){}
-    try{ _cmBreakdown=(await computeCoaching(_teams,transactions,weeklyData,season)).breakdown; }catch{ _cmBreakdown={}; }
+    try{ _cmBreakdown=(await computeCoaching(_teams,c2Fill(transactions),weeklyData,season)).breakdown; }catch{ _cmBreakdown={}; }
     /* Which season those pickups belong to. The sportsbook's week board is on
        the season being played next, which is not always the season showing
        here, and a week-1 FAAB bid from a different year is not a week-1 FAAB
        bid on this board. */
     _cmBreakdownSeason=String(season);
-    /* and again once the trades page's list lands, if it adds anything */
+    /* and again once the live list lands, if it says anything different */
     try{ cmTradesLanded(season); }catch(e){}
 
     const cmRanked=[..._teams].sort((a,b)=>(_scores[b.id]||0)-(_scores[a.id]||0));

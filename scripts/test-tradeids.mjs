@@ -60,16 +60,20 @@ ok('and nothing to adopt is nothing done', M.tradeAdoptVotes('2026', [today()], 
 head('Trade ROI reads every trade the trades page does');
 const log = [{ type: 'TRADE_ACCEPT', status: 'EXECUTED', teamId: 8, scoringPeriodId: 6,
   items: [{ type: 'TRADE', playerId: 4635008, fromTeamId: 8, toTeamId: 10 }, { type: 'TRADE', playerId: 4686658, fromTeamId: 10, toTeamId: 8 }] }];
-const filled = M.tradesFillTx(log, [riceAdams(), today()]);
-/* players only here -- the money in a trade is its own line, tested in test-tradecapture */
-const added = filled.filter(t => t._from === 'trades' && t.items.some(i => i.type === 'TRADE'));
-ok('the trade the log left empty is added', added.length, 1);
+const scored = () => ({ ...today(), week: 5, teams: [{ teamId: 8, players: [{ pid: 4686658, pts: 6, from: 6 }] }, { teamId: 10, players: [{ pid: 4635008, pts: 15.9, from: 6 }] }] });
+const filled = M.tradesFillTx(log, [riceAdams(), scored()]);
+const added = filled.filter(t => t._from === 'trades');
+ok('every trade on the list goes in, the one the log has as well as the one it lost', added.length, 2);
+ok('the log itself is left as it was', filled.filter(t => !t._from), log);
 ok('as the accept it should have been: both moves, the week, the time',
   [added[0].items.map(i => `${i.playerId}:${i.fromTeamId}>${i.toTeamId}`), added[0].scoringPeriodId, added[0].processDate, added[0].status],
   [['4428331:9>2', '16800:2>9'], 4, 1790797396529, 'EXECUTED']);
-ok('a trade the log already has is not added twice -- only its money, which the log never carries',
-  filled.filter(t => t._from === 'trades').map(t => t.items.map(i => i.type).join('+')), ['TRADE+TRADE', 'FAAB']);
-ok('nothing new returns the same list', M.tradesFillTx(filled, [riceAdams(), today()]) === filled, true);
+ok('carrying the trade\'s own week, each player\'s first week and his points',
+  [added[1].scoringPeriodId, added[1].items.filter(i => i.type === 'TRADE').map(i => [i.playerId, i.from, i.pts])],
+  [5, [[4686658, 6, 6], [4635008, 6, 15.9]]]);
+const again = M.tradesFillTx(filled, [riceAdams(), { ...scored(), teams: [scored().teams[0], { teamId: 10, players: [{ pid: 4635008, pts: 31.2, from: 6 }] }] }]);
+ok('filled again, it replaces -- points grow every week, rows do not', [again.filter(t => t._from === 'trades').length,
+  again.flatMap(t => t.items).filter(i => i.playerId === 4635008 && i.pts != null).map(i => i.pts)], [2, [31.2]]);
 ok('a player id of 0 is nobody', M.tradesFillTx([], [{ week: 1, date: 1, teams: [{ teamId: 1, players: [{ pid: 0 }] }, { teamId: 2, players: [] }] }]).length, 0);
 
 head('the vote name the archive holds survives the merge');
