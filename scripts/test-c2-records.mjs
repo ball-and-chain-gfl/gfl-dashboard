@@ -9,6 +9,8 @@
  *                     once the list is in
  *   BEFORE IT LANDS   the log, exactly as before; and every season before 2026
  *                     is the log, always
+ *   BY ITS SIZE       each trade counts by every point it moved, both sides,
+ *                     FAAB included, over the season's biggest trade
  *   DROPPED PLAYERS   still score for the trade: the server fills the weeks no
  *                     roster holds a man from ESPN's player card
  *
@@ -35,7 +37,7 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
   'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=', 'const C3_SHARE_FROM=',
   'const FAAB_VALUE_FROM=', 'function faabRateFrom(pool){', 'function c2ScoreFaab(',
-  'const C2_TRADES_FROM=', 'function tradesFillTx(txns,trades){', 'function c2Txns(season,transactions){',
+  'const C2_TRADES_FROM=', 'const C2_WEIGHT_FROM=', 'function c2WeighTrades(season,teams,c2,detail){', 'function tradesFillTx(txns,trades){', 'function c2Txns(season,transactions){',
   'async function computeCoaching(teams, transactions, weeklyData, season){',
 ], ['computeCoaching', 'tradesFillTx', 'c2Txns'], 'const TOTAL_WEEKS=17;');
 
@@ -73,7 +75,7 @@ const c2 = id => r1(B[id].c2);
 
 head('2026: the list, and only the list');
 ok('Coleman is scored from the list: 15.9 from week 6, his waiver week in', B[10].detail.tradesReceived.filter(r => r.pid === COLE)
-  .map(r => [r.week, r.from, r.pts, r.rec]), [[5, 6, 15.9, true]]);
+  .map(r => [r.week, r.from, r.pts, !!r.rec]), [[5, 6, 15.9, true]]);
 ok('dated by the trade\'s own week, not the period ESPN processed it in', B[8].detail.tradesSent.filter(r => r.pid).map(r => r.week), [5]);
 ok('BFT: (15.9 − 6) ÷ 10, plus $5 at 2 points a dollar', c2(10), r1((15.9 - 6) / 10 + 1));
 ok('the Tinglers: the mirror of it', c2(8), r1((6 - 15.9) / 10 - 1));
@@ -81,9 +83,26 @@ ok('a trade accepted but not upheld counts for nobody -- players or money', [c2(
 ok('a man dropped to make room is not a player sent', [c2(9), B[9].detail.tradesSent.length], [0, 0]);
 ok('waivers are untouched by any of it', B[3].detail.waiverPickups.length, 1);
 
+head('each trade counts by its size against the season\'s biggest');
+/* add a blockbuster: 100 to the Miners, 80 to team 3 -- 180 points moved.
+   The Coleman deal moved 6 + 15.9 + $5 at 2 a dollar = 31.9. */
+const BIG = { week: 1, date: 1, espnId: 'big', teams: [{ teamId: 9, players: [{ pid: 501, pts: 100, from: 1 }] },
+  { teamId: 3, players: [{ pid: 502, pts: 80, from: 1 }] }] };
+const { breakdown: BW } = await M.computeCoaching(TEAMS, M.tradesFillTx(LOG, [BIG, ...LIST]), WK, 2026);
+const w5 = 31.9 / 180;
+ok('the biggest trade counts in full: the Miners +20 ÷ 10', r1(BW[9].c2), 2);
+ok('the Coleman deal counts 31.9 of 180: BFT\'s +19.9 at that share', r1(BW[10].c2), r1(19.9 * w5 / 10));
+ok('and the Tinglers lose the same share, no more', r1(BW[8].c2), r1(-19.9 * w5 / 10));
+ok('the money is weighed with the trade it came in', BW[10].detail.tradesReceived.filter(r => r.faab != null).map(r => +r.w.toFixed(4)), [+w5.toFixed(4)]);
+ok('the card is told the yardstick: the biggest, and each trade\'s size and week',
+  [BW[10].detail.c2Weigh.max, r1(BW[10].detail.c2Weigh.size[M.tradesFillTx([], LIST)[0]._k]), BW[10].detail.c2Weigh.week.big], [180, 31.9, 1]);
+const lone = (await M.computeCoaching(TEAMS, M.tradesFillTx([], [BIG, ...LIST]), WK, 2025)).breakdown;
+ok('2025 is not weighed at all: BFT keeps the whole of (15.9 − 6) ÷ 10', [r1(lone[10].c2), lone[10].detail.c2Weigh], [0.99, undefined]);
+
 head('before the list lands, and before 2026');
 const early = (await M.computeCoaching(TEAMS, LOG, WK, 2026)).breakdown;
 ok('2026 with no list yet: the log, as it always was', early[12].detail.tradesReceived.length > 0, true);
+ok('...and nothing off the log is weighed', early[12].detail.c2Weigh, undefined);
 const mixed = M.tradesFillTx(LOG, LIST);
 ok('2025 reads the log whatever else is in the list', M.c2Txns('2025', mixed), mixed);
 ok('2026 drops the log\'s trades once the list is in, and keeps everything else',
@@ -93,6 +112,8 @@ head('the Trade ROI table says the trade\'s week');
 const APP = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 ok('a row off the list reads "wk 5 trade"; an older season keeps "wk N+"',
   /r\.rec\?`wk \$\{r\.week\} trade`:`wk \$\{r\.from\?\?\(r\.week\+1\)\}\+`/.test(APP), true);
+ok('the card shows each trade: its size of the biggest, the share it counts, and what it adds',
+  APP.includes('pts moved · counts ${Math.round(x.w*100)}%') && APP.includes('(${sum}) ÷ 10 = '), true);
 ok('boot scores C2 with the list, and re-scores when the live list says something different',
   /const c2Trades=await c2TradesNow\(season\);/.test(APP) && /if\(sig===_c2Sig\[season\]\) return;/.test(APP), true);
 

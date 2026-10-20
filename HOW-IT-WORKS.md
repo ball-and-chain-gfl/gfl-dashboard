@@ -277,7 +277,10 @@ the average manager sits at 0:
 
 - **C1 — scoring**: points for, against the league average, ÷10.
 - **C2 — trades**: points scored *from the trade week onward* by everyone you
-  received, minus the same for everyone you sent. ÷10.
+  received, minus the same for everyone you sent. ÷10. From 2026, read off the
+  locked trade list, FAAB in a trade at the league's points-per-dollar, and each
+  trade weighted by its size (every point it moved, both sides) against the
+  season's biggest trade, which counts in full.
 - **C3 — waivers**: for each pickup, the points that player then scored in your
   lineup ÷ the margin you overbid by. Winning a player by $1 and starting him
   all year scores enormously; overpaying by $40 scores almost nothing.

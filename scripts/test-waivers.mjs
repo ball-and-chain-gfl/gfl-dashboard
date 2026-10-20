@@ -90,6 +90,8 @@ ${grab('function faabRateFrom(pool){')}
 ${grab('function c2ScoreFaab(')}
 ${grab('const C2_TRADES_FROM=')}
 ${grab('function c2Txns(season,transactions){')}
+${grab('const C2_WEIGHT_FROM=')}
+${grab('function c2WeighTrades(season,teams,c2,detail){')}
 ${grab('async function computeCoaching(teams, transactions, weeklyData, season){')}
 ${grab('const txKeyOf=t=>')}
 return { computeCoaching, txKeyOf, nflWeekKickoffMs };

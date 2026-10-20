@@ -1148,8 +1148,9 @@ function c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail){
       const k=`${i.fromTeamId}|${i.toTeamId}|${tx.scoringPeriodId}|${i.amount}`;
       if(seenFaab.has(k)) return; seenFaab.add(k);
       const pts=Number(i.amount)*fr, wk=Number(tx.scoringPeriodId)||0;
-      if(i.toTeamId in c2){ c2[i.toTeamId]+=pts/10; detail[i.toTeamId].tradesReceived.push({faab:Number(i.amount),pts,week:wk}); }
-      if(i.fromTeamId in c2){ c2[i.fromTeamId]-=pts/10; detail[i.fromTeamId].tradesSent.push({faab:Number(i.amount),pts,week:wk}); }
+      const rec=tx._from&&tx._k;
+      if(i.toTeamId in c2){ c2[i.toTeamId]+=pts/10; detail[i.toTeamId].tradesReceived.push({faab:Number(i.amount),pts,week:wk,rec}); }
+      if(i.fromTeamId in c2){ c2[i.fromTeamId]-=pts/10; detail[i.fromTeamId].tradesSent.push({faab:Number(i.amount),pts,week:wk,rec}); }
     });
   });
 }
@@ -1169,6 +1170,44 @@ function c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail){
    carrying each player's from and pts. Rows from an earlier fill are
    replaced, not added to: the points grow every week. */
 const C2_TRADES_FROM=2026;
+/* ── A TRADE COUNTS AS BIG AS IT WAS ─────────────────────────────────────────
+   2026 on. A trade's net says who won it, not how much moved in it: Rice for
+   Adams moved 36 points, all one way, and swung C2 further than the
+   Adams/Love-for-Flowers/Etienne deal that moved 278. So each trade is
+   weighed by its size -- every point it moved, both sides, its FAAB at the
+   league's rate -- against the season's biggest trade, which counts in full.
+   A trade a fifth the size of the biggest counts a fifth.
+
+   The league chose this knowing the catch: when somebody makes a bigger
+   trade, or the biggest one keeps scoring, every other trade counts for a
+   little less without anybody doing anything.
+
+   Only rows off the locked list can be weighed -- each carries its trade's
+   key as rec. The log's rows, before the list lands, stay as they were. */
+const C2_WEIGHT_FROM=2026;
+function c2WeighTrades(season,teams,c2,detail){
+  if(season==null||Number(season)<C2_WEIGHT_FROM) return;
+  /* every movement is somebody's received row, so these count each one once */
+  const size={}, week={};
+  teams.forEach(t=>((detail[t.id]||{}).tradesReceived||[]).forEach(r=>{
+    if(!r.rec) return;
+    size[r.rec]=(size[r.rec]||0)+Math.max(0,Number(r.pts)||0);
+    if(r.week!=null) week[r.rec]=r.week;
+  }));
+  const max=Math.max(0,...Object.values(size));
+  if(!(max>0)) return;
+  const W={max,size,week};
+  teams.forEach(t=>{
+    const d=detail[t.id]; if(!d) return;
+    const weigh=(rows,sign)=>(rows||[]).forEach(r=>{
+      if(!r.rec) return;
+      r.w=(size[r.rec]||0)/max;
+      c2[t.id]+=sign*(r.w-1)*(Number(r.pts)||0)/10;
+    });
+    weigh(d.tradesReceived,1); weigh(d.tradesSent,-1);
+    d.c2Weigh=W;
+  });
+}
 function tradesFillTx(txns,trades){
   const base=(txns||[]).filter(t=>!(t&&t._from==='trades'));
   const add=[];
@@ -1189,7 +1228,8 @@ function tradesFillTx(txns,trades){
       });
     });
     if(items.length) add.push({type:'TRADE_ACCEPT',status:'EXECUTED',teamId:Number(teams[0].teamId),
-      scoringPeriodId:Number(tr.week)||0,processDate:Number(tr.date||tr.at)||0,items,_from:'trades'});
+      scoringPeriodId:Number(tr.week)||0,processDate:Number(tr.date||tr.at)||0,items,_from:'trades',
+      _k:String(tr.espnId||`${Number(tr.week)||0}:${teams.map(x=>x.teamId).join('-')}:${Number(tr.date||tr.at)||0}`)});
   });
   return base.concat(add);
 }
@@ -1545,7 +1585,7 @@ async function computeCoaching(teams, transactions, weeklyData, season){
         const beforeKick=ko!=null&&at<ko;
         const fromWeek=item.from>0?item.from:(tradeWeek>0&&tw&&tw.team===item.toTeamId&&(beforeKick||tw.started))
           ?tradeWeek:tradeWeek+1;
-        const pts=item.pts!=null?item.pts:allPts(pid, fromWeek), rec=tx._from==='trades';
+        const pts=item.pts!=null?item.pts:allPts(pid, fromWeek), rec=tx._from&&tx._k;
         if(item.toTeamId!=null && item.toTeamId in c2){
           c2[item.toTeamId]+=pts/10;
           detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,from:fromWeek,pts,rec});
@@ -1678,6 +1718,7 @@ async function computeCoaching(teams, transactions, weeklyData, season){
   /* and the money in a trade, at what the league's FAAB buys -- here because
      it needs the rate, and the rate is the pickups just above */
   c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail);
+  c2WeighTrades(season,teams,c2,detail);
 
   // Z-score standardize
   const raw={};
@@ -2029,8 +2070,8 @@ function renderC2Breakdown(){
   if(!rows.length){el.innerHTML=`<div class="tab-loading">No trades found for this season.</div>`;return;}
   if(_c2Team==null||!_teams.some(t=>t.id===Number(_c2Team))) _c2Team=roiDefaultTeam();
   const opts=_teams.map(t=>`<option value="${t.id}" ${Number(_c2Team)===t.id?'selected':''}>${t.name}</option>`).join('');
-  const fr=Number(((rows[0]||{}).bd.detail||{}).faabRate)||0;
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.${fr?` FAAB in a trade counts at what the league's FAAB buys: <b>${fr.toFixed(2)}</b> lineup points per $1 this season.`:''}</div>
+  const fr=Number(((rows[0]||{}).bd.detail||{}).faabRate)||0, W0=((rows[0]||{}).bd.detail||{}).c2Weigh;
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.${W0?` Each trade then counts by its size: every point it moved, both sides, against the season's biggest trade (<b>${W0.max.toFixed(1)}</b> points), which counts in full.`:''}${fr?` FAAB in a trade counts at what the league's FAAB buys: <b>${fr.toFixed(2)}</b> lineup points per $1 this season.`:''}</div>
     ${roiRankHTML('c2',_c2Team,c2RankSub,'c2Pick')}
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c2-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
@@ -2048,13 +2089,27 @@ function renderC2Breakdown(){
     const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${r.faab!=null
         ?`<i class="fa fa-sack-dollar" style="color:var(--green)"></i> FAAB $${r.faab} <span class="brk-wk">at ${(r.pts/r.faab).toFixed(2)} pts/$</span>`
         :`${pName(r.pid)} <span class="brk-wk">${r.rec?`wk ${r.week} trade`:`wk ${r.from??(r.week+1)}+`}</span>`}</span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
+    /* 2026 on: each trade's net at its size against the season's biggest */
+    const W=d.c2Weigh;
+    const byTrade=W?[...new Set(recv.concat(sent).map(r=>r.rec).filter(Boolean))].map(k=>{
+      const n=recv.filter(r=>r.rec===k).reduce((s,r)=>s+r.pts,0)-sent.filter(r=>r.rec===k).reduce((s,r)=>s+r.pts,0);
+      const w=(W.size[k]||0)/W.max;
+      return {k,n,w,v:n*w,wk:W.week[k]||0};
+    }).sort((a,b)=>a.wk-b.wk||String(a.k).localeCompare(String(b.k))):[];
+    const tradeRow=x=>`<div class="c2w-row">
+        <div class="c2w-l"><div class="c2w-t">Week ${x.wk} trade</div><div class="c2w-s">${(W.size[x.k]||0).toFixed(1)} of ${W.max.toFixed(1)} pts moved · counts ${Math.round(x.w*100)}%</div></div>
+        <div class="c2w-r"><div class="c2w-v" style="color:${cc(x.v)}">${sg(x.v)}</div><div class="c2w-s">${sg(x.n)} × ${x.w.toFixed(2)}</div></div>
+      </div>`;
+    const sum=byTrade.map((x,i)=>(i?(x.v<0?' − ':' + '):(x.v<0?'−':''))+Math.abs(x.v).toFixed(1)).join('');
     return `<div class="hist-item">
       <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c2)}">C2 ${bd.c2>=0?'+':''}${(bd.c2||0).toFixed(2)}</span></div>
       ${(recv.length||sent.length)?`<div class="brk-cols">
         <div><div class="brk-col-h" style="color:var(--green)">Received (${sg(gained)})</div>${recv.length?recv.map(r=>line(r,'+','var(--green)')).join(''):'<div class="brk-empty">none</div>'}</div>
         <div><div class="brk-col-h" style="color:var(--red)">Sent (${sg(-lost)})</div>${sent.length?sent.map(r=>line(r,'−','var(--red)')).join(''):'<div class="brk-empty">none</div>'}</div>
       </div>
-      <div class="brk-formula">(${gained<0?'−'+Math.abs(gained).toFixed(1):gained.toFixed(1)} − ${nm(lost)}) ÷ 10 = <b style="color:${cc(bd.c2)}">${(bd.c2||0).toFixed(2)}</b></div>`
+      ${byTrade.length?`<div class="c2w"><div class="brk-col-h">By trade</div>${byTrade.map(tradeRow).join('')}</div>
+      <div class="brk-formula">(${sum}) ÷ 10 = <b style="color:${cc(bd.c2)}">${(bd.c2||0).toFixed(2)}</b></div>`
+      :`<div class="brk-formula">(${gained<0?'−'+Math.abs(gained).toFixed(1):gained.toFixed(1)} − ${nm(lost)}) ÷ 10 = <b style="color:${cc(bd.c2)}">${(bd.c2||0).toFixed(2)}</b></div>`}`
       :'<div class="brk-empty">No trades this season.</div>'}
     </div>`;
   }).join('');
