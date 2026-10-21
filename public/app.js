@@ -14253,6 +14253,16 @@ const INV_COIN_FLOOR=0.01;      // a coin bottoms out at a cent, not a dollar
    rewrite; the id is what ESPN will still answer to. */
 const invCoinKey=pid=>'COIN_'+pid;
 const invCoin=k=>INV_COINS.find(c=>invCoinKey(c.pid)===k)||null;
+/* ── COINS ARE SUSPENDED (21 October 2026) ──────────────────────────────────
+   A coin that falls out of its position's rankings sits at the $0.01 floor,
+   and when the player climbs back in it can be worth a hundred times that:
+   MARV went from a cent to 98 cents in a week, with 78,000 shares bought at
+   the floor. Until the coin market is reworked nothing can be bought, sold,
+   shorted or covered; every coin held keeps its value on the board. Set this
+   false and the market is back exactly as it was. */
+const INV_COINS_SUSPENDED=true;
+const invSuspended=o=>INV_COINS_SUSPENDED&&!!invCoin(o);
+const INV_SUSPENDED_NOTE='Coin trading is suspended while the coin market is reworked. Every coin you hold keeps its value.';
 function invCoinPrices(){
   const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
   if(!pool||!pool.length) return {};
@@ -14682,12 +14692,17 @@ async function invSync(){
        trades and added them alongside the restated ones, silently doubling
        somebody's position. A timestamp is unique to a trade; two entries that
        share one are the same trade told twice. */
-    const seen=new Set(), merged=[];
+    /* AND A VOID WINS. A trade the league has voided carries `void` on the
+       profile; a device that has not synced since still holds the same entry
+       without it. Whichever copy arrives first, the voided one is kept. */
+    const byKey=new Map();
     [...srv,...invLots()].forEach(l=>{
       if(!l||!l.o) return;
       const k=[l.o,l.t,l.k].join('|');
-      if(seen.has(k)) return; seen.add(k); merged.push(l);
+      const had=byKey.get(k);
+      if(!had||(l.void&&!had.void)) byKey.set(k,l);
     });
+    const merged=[...byKey.values()];
     merged.sort((x,y)=>(Number(x.t)||0)-(Number(y.t)||0));
     if(JSON.stringify(merged)===JSON.stringify(invLots())) return;
     _inv=merged;
@@ -14768,7 +14783,8 @@ function invWalk(lots){
   const slot=(m,o)=>m[o]||(m[o]={sh:0,cost:0});
   (lots||[]).forEach(l=>{
     const o=l&&l.o, n=Number(l&&l.s)||0, p=Number(l&&l.p)||0;
-    if(!o||!n) return;
+    /* VOIDED: kept on file so no device can merge it back, and read by nothing */
+    if(!o||!n||l.void) return;
     if(l.k==='so'){ const s=slot(S,o); s.sh+=n; s.cost+=n*p; return; }
     /* a cover banks the fall: what the shares were sold at, less what they
        cost to buy back -- capped, which is the whole of the bound */
@@ -14835,7 +14851,7 @@ function invNetSpent(){
        throw in invNetSpent is bucksBalance gone -- every balance on the site,
        not one card. invWalk has always skipped the same rubbish; this had not.
        Found by test-short, which feeds it a null on purpose. */
-    if(!l||!l.o) return;
+    if(!l||!l.o||l.void) return;
     const n=Number(l.s)||0, p=Number(l.p)||0;
     /* each lot settles to the cent on its own, the way a real fill would —
        rounding only the total would let sub-cent dust accumulate across a
@@ -14910,7 +14926,7 @@ function invLockNote(){
     +' Tuesday.';
 }
 function invProfitSeries(){
-  const lots=invLots();
+  const lots=invLots().filter(l=>!(l&&l.void));
   if(!lots.length) return null;
   /* the same season the board prices, or the chart and the market would be
      valuing the identical share at two different numbers */
@@ -15057,6 +15073,11 @@ let _invBusy=false,_invErr='';
 async function invDo(owner,shares,k){
   if(!_me){ openSignIn(); return; }
   if(_invBusy) return;
+  if(invSuspended(owner)){ _invErr=INV_SUSPENDED_NOTE; renderBook(); return; }
+  /* the profile first: the ledger written back below is this device's, and a
+     device that has not synced since the league voided something would
+     otherwise write the entry back without its void */
+  try{ await invSync(); }catch(e){}
   /* Checked HERE and not only on the button. A disabled button is a display
      rule; this is the money, and the same mistake has already been made once
      on this site with a bet stake that was validated in the browser and
@@ -23969,16 +23990,16 @@ function invPatchCard(card){
   /* This patches the button in place on every keystroke, so it has to know
      about the lock too — otherwise typing a number re-enabled a control the
      week had already shut. */
-  const shut=invLocked();
+  const shut=invLocked()||invSuspended(o), shutTxt=invSuspended(o)?'Suspended':'Closed';
   const verb=INV_VERB[k]||'Buy';
   if(k==='s'||k==='sc'){
     const have=(k==='sc'?invShorts():invHoldings())[o]||0;
     go.disabled=shut||!(n>0)||n>have+1e-6||_invBusy;
-    go.textContent=shut?'Closed':verb+(n>0?' · '+invFmt(cash):'');
+    go.textContent=shut?shutTxt:verb+(n>0?' · '+invFmt(cash):'');
   }else{
     go.disabled=shut||!(n>0)||!bucksReady()||cash>bucksBalance()+1e-6
       ||(k==='so'&&px>=invCeilOf(o))||_invBusy;
-    go.textContent=shut?'Closed'
+    go.textContent=shut?shutTxt
       :verb+(n>0?' · '+(_invMode==='amt'?invShFmt(n)+' sh':invFmt(cash)):'');
   }
 }
@@ -24014,7 +24035,8 @@ function invBoardHTML(which){
   const amt=_invMode==='amt';
   const own=invHoldings();
   const sold=invShorts();
-  const shut=invLocked();
+  const susp=isCoins&&INV_COINS_SUSPENDED;
+  const shut=invLocked()||susp;
   /* THE SIDE THE BOARD IS TRADING. Long buys a share; short sells one it does
      not hold, and pays when the price falls. The same twelve cards either way
      -- it is one switch above them rather than a second button on each, the
@@ -24058,7 +24080,7 @@ function invBoardHTML(which){
     const go=`<button class="iv-go"
       ${(shut||capped||!(n>0)||cost>cash+1e-6||_invBusy)?'disabled':''}
       onclick="${short?'invShortCard':'invBuyCard'}('${x.owner}')">
-      ${shut?'<i class="fa fa-lock"></i>Closed'
+      ${shut?`<i class="fa fa-lock"></i>${susp?'Suspended':'Closed'}`
         :`${short?'Short':'Buy'}${n>0?' · '+(amt?invShFmt(n)+' sh':invFmt(cost)):''}`}</button>`;
     /* ── A COIN IS A DIFFERENT SHAPE OF THE SAME CONTROL ──────────────────
        Same owner key, same price, same data attributes, same .iv-go -- which
@@ -24126,7 +24148,7 @@ function invBoardHTML(which){
      one screen is one too many. The Buy button still disables itself against
      the balance, so the limit is enforced where it is felt. */
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
-    ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}
+    ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${susp?INV_SUSPENDED_NOTE:invLockNote()}</div>`:''}
     <div class="iv-seg" data-on="${short?'short':'long'}" role="group"
         aria-label="Which side of the market">
       <button class="iv-seg-b${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">${isCoins?'Coins':'Stocks'}</button>
@@ -24191,9 +24213,9 @@ function invPortfolioHTML(){
           placeholder="0" aria-label="Shares to sell"
           oninput="invType(this,'s_${o}','sh')" onchange="invNorm(this)" onblur="invNorm(this)">
         <button class="iv-step" onclick="invStep(this,'s_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>`;
-    const go=`<button class="iv-go iv-sell" ${(shut||!(q>0)||_invBusy)?'disabled':''}
+    const go=`<button class="iv-go iv-sell" ${(shut||invSuspended(o)||!(q>0)||_invBusy)?'disabled':''}
           onclick="invSellCard('${o}')">
-          ${shut?'<i class="fa fa-lock"></i>Closed'
+          ${(shut||invSuspended(o))?`<i class="fa fa-lock"></i>${!shut?'Suspended':'Closed'}`
             :`Sell${q>0?' · '+invFmt(q*px):''}`}</button>`;
     const co=invCoin(o);
     if(co) return invCoinTileHTML({owner:o,price:px,k:'s',coin:co,cap:sh,name:nm,
@@ -24237,9 +24259,9 @@ function invPortfolioHTML(){
           placeholder="0" aria-label="Shares to cover"
           oninput="invType(this,'c_${o}','sh')" onchange="invNorm(this)" onblur="invNorm(this)">
         <button class="iv-step" onclick="invStep(this,'c_${o}',1,${sh})" ${q>=sh-1e-6?'disabled':''}>+</button>`;
-    const go=`<button class="iv-go" ${(shut||!(q>0)||_invBusy)?'disabled':''}
+    const go=`<button class="iv-go" ${(shut||invSuspended(o)||!(q>0)||_invBusy)?'disabled':''}
           onclick="invCoverCard('${o}')">
-          ${shut?'<i class="fa fa-lock"></i>Closed'
+          ${(shut||invSuspended(o))?`<i class="fa fa-lock"></i>${!shut?'Suspended':'Closed'}`
             :`Cover${q>0?' · '+invFmt(invCollat(o,q,px)):''}`}</button>`;
     const co=invCoin(o);
     if(co) return invCoinTileHTML({owner:o,price:px,k:'sc',coin:co,cap:sh,short:true,name:nm,
@@ -24382,7 +24404,7 @@ function sbSocialItems(){
     if(!Array.isArray(lots)) return;
     lots.forEach(l=>{
       const t=Number(l&&l.t)||0;
-      if(!l||!l.o||!(Number(l.s)>0)||!t||!SB_SOCIAL_VERB[l.k]) return;
+      if(!l||!l.o||l.void||!(Number(l.s)>0)||!t||!SB_SOCIAL_VERB[l.k]) return;
       if(String(nflSeasonOfMs(t))!==season) return;
       out.push({kind:'inv',t,acct:p.id,team:Number(p.teamId)||0,l,wks:[at(t)]});
     });
