@@ -281,9 +281,12 @@ the average manager sits at 0:
   locked trade list, FAAB in a trade at the league's points-per-dollar, and each
   trade weighted by its size (every point it moved, both sides) against the
   season's biggest trade, which counts in full.
-- **C3 — waivers**: for each pickup, the points that player then scored in your
-  lineup ÷ the margin you overbid by. Winning a player by $1 and starting him
-  all year scores enormously; overpaying by $40 scores almost nothing.
+- **C3 — waivers**: before 2026, for each pickup, the points that player then
+  scored in your lineup ÷ the margin you overbid by. From 2026, every week a
+  pickup is started counts his points minus a replacement at his position that
+  week (QB18, RB24, WR36, TE18, K12, D/ST12 across the NFL; under the line is a
+  minus), less every dollar bid over the next-highest bid at what the league's
+  FAAB buys. ÷10.
 
 ### The Legacy Report
 

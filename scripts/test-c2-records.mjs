@@ -35,7 +35,7 @@ const head = t => console.log(NL + t);
 const r1 = v => Math.round(v * 100) / 100;
 const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
-  'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=', 'const C3_SHARE_FROM=',
+  'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=', 'const C3_SHARE_FROM=', 'const C3_REPL_FROM=', 'const C3_POS=', 'let _c3Lines=', 'function c3LinesFor(season){', 'function c3Score(', 'function c3ScoreRepl(',
   'const FAAB_VALUE_FROM=', 'function faabRateFrom(pool){', 'function c2ScoreFaab(',
   'const C2_TRADES_FROM=', 'const C2_WEIGHT_FROM=', 'function c2WeighTrades(season,teams,c2,detail){', 'function tradesFillTx(txns,trades){', 'function c2Txns(season,transactions){',
   'async function computeCoaching(teams, transactions, weeklyData, season){',
@@ -115,7 +115,7 @@ ok('a row off the list reads "wk 5 trade"; an older season keeps "wk N+"',
 ok('the card shows each trade: its size of the biggest, the share it counts, and what it adds',
   APP.includes('pts moved · counts ${Math.round(x.w*100)}%') && APP.includes('(${sum}) ÷ 10 = '), true);
 ok('boot scores C2 with the list, and re-scores when the live list says something different',
-  /const c2Trades=await c2TradesNow\(season\);/.test(APP) && /if\(sig===_c2Sig\[season\]\) return;/.test(APP), true);
+  APP.includes('const [c2Trades]=await Promise.all([c2TradesNow(season),') && /if\(sig===_c2Sig\[season\]\) return;/.test(APP), true);
 
 head('the server: a dropped player\'s weeks come off his player card');
 const API = fs.readFileSync(new URL('../api/espn.js', import.meta.url), 'utf8').split(String.fromCharCode(13)).join('');

@@ -6152,6 +6152,20 @@
     #stats-c3 table.c3-share th:nth-child(6),#stats-c3 table.c3-share td:nth-child(6){width:11%;}
     #stats-c3 table.c3-share th:nth-child(7),#stats-c3 table.c3-share td:nth-child(7){width:10%;}
     #stats-c3 table.c3-share th:nth-child(8),#stats-c3 table.c3-share td:nth-child(8){width:12%;}
+    /* from 2026, nine columns: Pickup Wk Bid Next Margin Starts vs-Line Cost C3 */
+    #stats-c3 table.c3-repl th:nth-child(1),#stats-c3 table.c3-repl td:nth-child(1){width:28%;}
+    #stats-c3 table.c3-repl th:nth-child(2),#stats-c3 table.c3-repl td:nth-child(2){width:6%;}
+    #stats-c3 table.c3-repl th:nth-child(3),#stats-c3 table.c3-repl td:nth-child(3){width:8%;}
+    #stats-c3 table.c3-repl th:nth-child(4),#stats-c3 table.c3-repl td:nth-child(4){width:8%;}
+    #stats-c3 table.c3-repl th:nth-child(5),#stats-c3 table.c3-repl td:nth-child(5){width:9%;}
+    #stats-c3 table.c3-repl th:nth-child(6),#stats-c3 table.c3-repl td:nth-child(6){width:8%;}
+    #stats-c3 table.c3-repl th:nth-child(7),#stats-c3 table.c3-repl td:nth-child(7){width:11%;}
+    #stats-c3 table.c3-repl th:nth-child(8),#stats-c3 table.c3-repl td:nth-child(8){width:9%;}
+    #stats-c3 table.c3-repl th:nth-child(9),#stats-c3 table.c3-repl td:nth-child(9){width:13%;}
+    /* from 2026: each pickup's weeks against the line, under his name */
+    #stats-c3 .c3w{font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);margin:3px 0 0 26px;
+      white-space:normal;line-height:1.5;font-variant-numeric:tabular-nums;}
+    #stats-c3 .c3w b{font-weight:600;color:var(--text2);margin-right:2px;}
     #stats-c3 table th:not(:first-child),#stats-c3 table td:not(:first-child){
       white-space:nowrap;text-align:right;}
     #stats-c3 table td:first-child{overflow:hidden;text-overflow:ellipsis;}
@@ -6175,6 +6189,14 @@
       #stats-c3 table.c3-share th:nth-child(6),#stats-c3 table.c3-share td:nth-child(6){width:13%;}
       #stats-c3 table.c3-share th:nth-child(7),#stats-c3 table.c3-share td:nth-child(7){width:12%;}
       #stats-c3 table.c3-share th:nth-child(8),#stats-c3 table.c3-share td:nth-child(8){width:16%;}
+      /* the replacement table keeps Pickup, Margin, vs Line, Cost and C3 on a phone */
+      #stats-c3 table.c3-repl th:nth-child(1),#stats-c3 table.c3-repl td:nth-child(1){width:38%;}
+      #stats-c3 table.c3-repl th:nth-child(5),#stats-c3 table.c3-repl td:nth-child(5){width:14%;}
+      #stats-c3 table.c3-repl th:nth-child(7),#stats-c3 table.c3-repl td:nth-child(7){width:16%;}
+      #stats-c3 table.c3-repl th:nth-child(8),#stats-c3 table.c3-repl td:nth-child(8){width:14%;}
+      #stats-c3 table.c3-repl th:nth-child(9),#stats-c3 table.c3-repl td:nth-child(9){width:18%;}
+      #stats-c3 .c3w{margin-left:0;}
+      #stats-c3 table td:first-child .c3w{white-space:normal;overflow:visible;}
       #stats-c3 table th,#stats-c3 table td{padding-left:2px!important;padding-right:4px!important;}
       #stats-c3 table td:first-child{padding-right:2px!important;}
       #stats-c3 .pname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}

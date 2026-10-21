@@ -1289,6 +1289,47 @@ export default async function handler(req, res) {
     } catch (err) { return res.status(500).json({ error: err.message, players: [] }); }
   }
 
+  // ── WAIVER ROI'S REPLACEMENT LINES ───────────────────────────────────────────
+  //   /api/espn?type=repl&seasonId=2026
+  //   { season, current, ranks, weeks: { [week]: { QB, RB, WR, TE, K, DST } } }
+  //
+  // From 2026 a waiver pickup is scored, every week he is started, against what
+  // a replacement player at his position scored that week -- and the league
+  // drew that line by rank: the 18th-best QB, 24th RB, 36th WR, 18th TE, 12th K
+  // and 12th D/ST, across every player in the NFL, in this league's scoring.
+  // One player-card call per position carries every week of the season, read
+  // deep enough by ownership that the Nth-best in any week is among them; the
+  // ranking is replLinesFrom, below the handler.
+  //
+  // Only FINISHED weeks -- every week before ESPN's current scoring period. A
+  // line half a Sunday old is not a line, and a week with any position missing
+  // is left out whole rather than scored against part of a ruler.
+  if (type === 'repl') {
+    const RANKS = { QB: 18, RB: 24, WR: 36, TE: 18, K: 12, DST: 12 };
+    /* key, lineup slot, ESPN position, how many to read */
+    const POS = [['QB', 0, 1, 100], ['RB', 2, 2, 200], ['WR', 4, 3, 300], ['TE', 6, 4, 150], ['K', 17, 5, 60], ['DST', 16, 16, 40]];
+    try {
+      const sr = await fetch(leagueURL('mStatus', { forceLive: true }), { headers });
+      if (!sr.ok) throw new Error(`status ${sr.status}`);
+      const current = Number(unwrap(await sr.json()).scoringPeriodId) || 0;
+      const weeks = {};
+      await Promise.all(POS.map(async ([k, slot, posId, limit]) => {
+        const f = { players: { filterSlotIds: { value: [slot] }, limit, sortPercOwned: { sortAsc: false, sortPriority: 1 },
+          filterStatsForTopScoringPeriodIds: { value: 18, additionalValue: [`00${season}`] } } };
+        const r = await fetch(leagueURL('kona_playercard', { forceLive: true }),
+          { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(f) } });
+        if (!r.ok) throw new Error(`${k} ${r.status}`);
+        const lines = replLinesFrom(unwrap(await r.json()).players || [], posId, RANKS[k], season);
+        Object.keys(lines).forEach(w => { if (Number(w) < current) (weeks[w] || (weeks[w] = {}))[k] = lines[w]; });
+      }));
+      Object.keys(weeks).forEach(w => { if (Object.keys(RANKS).some(k => weeks[w][k] == null)) delete weeks[w]; });
+      res.setHeader('Cache-Control', isHistory
+        ? 'public, max-age=3600, s-maxage=2592000, stale-while-revalidate=86400'
+        : 'public, max-age=600, s-maxage=3600, stale-while-revalidate=3600');
+      return res.status(200).json({ season, current, ranks: RANKS, weeks });
+    } catch (err) { return res.status(500).json({ error: err.message, weeks: {} }); }
+  }
+
   // ── Season trades — reconstructed from weekly rosters ────────────────────────
   // ESPN purges the transaction log after a season ends, but weekly rosters
   // survive. A trade = players moving BOTH directions between the same two teams
@@ -2116,4 +2157,26 @@ export default async function handler(req, res) {
       : 's-maxage=60, stale-while-revalidate');
     return res.status(200).json(data);
   } catch (err) { return res.status(500).json({ error: err.message }); }
+}
+
+/* One position's replacement line for every week: the Nth-best score among the
+   players at that position with a stat line that week. A bye is not a zero --
+   it is not a game -- so a player without a line that week is not in the count.
+   Null when fewer than N played. */
+function replLinesFrom(players, posId, n, season) {
+  const byWeek = {};
+  (players || []).forEach(e => {
+    const p = (e && e.player) || {};
+    if (p.defaultPositionId !== posId) return;
+    (p.stats || []).forEach(s => {
+      if (s.statSourceId !== 0 || s.statSplitTypeId !== 1 || String(s.seasonId) !== String(season)) return;
+      (byWeek[s.scoringPeriodId] || (byWeek[s.scoringPeriodId] = [])).push(Number(s.appliedTotal) || 0);
+    });
+  });
+  const out = {};
+  Object.keys(byWeek).forEach(w => {
+    const a = byWeek[w].sort((x, y) => y - x);
+    out[w] = a.length >= n ? +a[n - 1].toFixed(2) : null;
+  });
+  return out;
 }

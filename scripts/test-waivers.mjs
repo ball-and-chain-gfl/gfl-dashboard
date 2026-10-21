@@ -85,6 +85,12 @@ const TOTAL_WEEKS = 17;
 ${grab('function nflWeekKickoffMs(season,w){')}
 ${grab('const nflSeasonOfMs=')}
 ${grab('const C3_SHARE_FROM=')}
+${grab('const C3_REPL_FROM=')}
+${grab('const C3_POS=')}
+${grab('let _c3Lines=')}
+${grab('function c3LinesFor(season){')}
+${grab('function c3Score(')}
+${grab('function c3ScoreRepl(')}
 ${grab('const FAAB_VALUE_FROM=')}
 ${grab('function faabRateFrom(pool){')}
 ${grab('function c2ScoreFaab(')}

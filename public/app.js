@@ -1366,6 +1366,96 @@ const nflSeasonOfMs=ms=>{ const d=new Date(ms); return d.getUTCFullYear()-(d.get
    scored with the ratio and keeps it -- a new rule is not a reason to rewrite
    what an old season's C3 said. */
 const C3_SHARE_FROM=2026;
+/* ── WAIVER ROI, 2026 ON: EVERY START AGAINST A REPLACEMENT AT HIS POSITION ────
+   Points were all worth the same, and a kicker or a defence costs $1 because
+   any of them scores about what the next one does -- so streaming kickers and
+   defences was netting the league +35 of C3 for being cheap, not for being
+   chosen well, while running backs and receivers were -45 for being dear.
+
+   So each week a pickup is STARTED counts his points minus what a replacement
+   at his position scored that week, and that can go either way: a defence
+   that puts up 1 is a wrong call and costs. The league drew the line by rank
+   across every NFL player -- QB18, RB24, WR36, TE18, K12, D/ST12 -- and the
+   server ranks them (type=repl). A week counts once it is final; a benched
+   week counts nothing either way.
+
+   The money stays: every dollar bid over the next-highest bid ($1 minimum) is
+   charged at what the league's FAAB buys -- the same rate FAAB in a trade is
+   worth -- so a $291 overbid on a man never started is not free. With the
+   league's pickups landing right on replacement as a whole, the old
+   league-relative rate would have priced a dollar at nothing.
+
+   Without the lines (the call failed) 2026 falls back to the share rule, and
+   every season before 2026 is scored exactly as it was. */
+const C3_REPL_FROM=2026;
+const C3_POS={1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'DST'};
+let _c3Lines={};                       // season -> {weeks:{[w]:{QB,RB,WR,TE,K,DST}}}
+async function c3LinesLoad(season){
+  if(season==null||Number(season)<C3_REPL_FROM) return null;
+  if(_c3Lines[season]) return _c3Lines[season];
+  try{
+    const r=await fetch(`${BASE}?type=repl&seasonId=${season}`);
+    const d=r.ok?await r.json():null;
+    if(d&&d.weeks&&!d.error) _c3Lines[season]=d;
+  }catch(e){}
+  return _c3Lines[season]||null;
+}
+function c3LinesFor(season){
+  if(season==null||Number(season)<C3_REPL_FROM) return null;
+  const d=_c3Lines[season]; return d&&d.weeks?d.weeks:null;
+}
+/* C3 off the pool computeCoaching built: the replacement rule when the lines
+   are in, else the share rule (2026 on) or the ratio (before). */
+function c3Score(season,teams,pool,c3,detail,weeklyData,lines){
+  /* FROM 2026 ON, AND ONLY FROM 2026 ON. A season before it is scored the way
+     it always was, pickup by pickup, points ÷ margin -- the same sum in the
+     same order, so its numbers come out to the digit. Called without a
+     season it is the rule in force now. */
+  const shareC3=season==null||Number(season)>=C3_SHARE_FROM;
+  if(lines&&shareC3){ c3ScoreRepl(teams,pool,c3,detail,weeklyData,lines); return; }
+  const lgPts=pool.reduce((s,p)=>s+p.row.pts,0);
+  const lgMargin=pool.reduce((s,p)=>s+p.row.margin,0);
+  const rate=lgMargin>0?lgPts/lgMargin:0;
+  pool.forEach(({tid,row})=>{
+    if(shareC3){
+      row.par=rate*row.margin;
+      row.c3=(row.pts-row.par)/10;
+      c3[tid]+=row.c3;
+    }else c3[tid]+=(row.pts/row.margin)/10;
+    detail[tid].waiverPickups.push(row);
+  });
+  teams.forEach(t=>{
+    detail[t.id].c3Mode=shareC3?'share':'ratio';
+    if(shareC3) detail[t.id].c3League={pts:lgPts,margin:lgMargin,rate};
+  });
+}
+/* each claim's own spell, as stintPts walks it: from its week until he leaves
+   the roster or the next claim on him begins; a week never loaded is stepped
+   over, a week loaded without him ends it */
+function c3ScoreRepl(teams,pool,c3,detail,weeklyData,lines){
+  const fr=faabRateFrom(pool.map(p=>p.row));
+  const wks=Object.keys(weeklyData||{}).map(Number).filter(n=>!isNaN(n));
+  const maxWeek=wks.length?Math.max(...wks):0;
+  pool.forEach(({tid,until,row})=>{
+    let vs=0, starts=0; const by=[];
+    for(let w=row.week;w<=maxWeek&&w<(until==null?Infinity:until);w++){
+      const wk=weeklyData[w]; if(!wk) continue;
+      const e=wk[row.pid];
+      if(!e||e.team!==tid) break;
+      const pos=C3_POS[e.pos]; if(pos&&!row.pos) row.pos=pos;
+      const ln=lines[w]&&lines[w][pos];
+      if(!e.started||ln==null) continue;             // benched, or not final
+      const pts=Number(e.pts)||0;
+      vs+=pts-ln; starts++; by.push({w,pts,line:ln});
+    }
+    row.vs=vs; row.starts=starts; row.byWeek=by;
+    row.cost=fr*row.margin;
+    row.c3=(vs-row.cost)/10;
+    c3[tid]+=row.c3;
+    detail[tid].waiverPickups.push(row);
+  });
+  teams.forEach(t=>{ detail[t.id].c3Mode='repl'; detail[t.id].c3League={rate:fr}; });
+}
 async function computeCoaching(teams, transactions, weeklyData, season){
   const leagueAvgPF=teams.reduce((s,t)=>s+t.pf,0)/(teams.length||1);
   const weeks=Object.keys(weeklyData).map(Number).filter(n=>!isNaN(n));
@@ -1692,29 +1782,10 @@ async function computeCoaching(teams, transactions, weeklyData, season){
       const next=others.length?Math.min(others[0],a.bid):0;
       const margin=Math.max(a.bid-next,1);
       const lpts=stintPts(a.pid,a.week,until,tid);
-      pool.push({tid,row:{pid:a.pid,week:a.week,bid:a.bid,next,margin,pts:lpts,est:a.est}});
+      pool.push({tid,until,row:{pid:a.pid,week:a.week,bid:a.bid,next,margin,pts:lpts,est:a.est}});
     });
   });
-  /* FROM 2026 ON, AND ONLY FROM 2026 ON. A season before it is scored the way
-     it always was, pickup by pickup, points ÷ margin -- the same sum in the
-     same order, so its numbers come out to the digit. Called without a
-     season it is the rule in force now. */
-  const shareC3=season==null||Number(season)>=C3_SHARE_FROM;
-  const lgPts=pool.reduce((s,p)=>s+p.row.pts,0);
-  const lgMargin=pool.reduce((s,p)=>s+p.row.margin,0);
-  const rate=lgMargin>0?lgPts/lgMargin:0;
-  pool.forEach(({tid,row})=>{
-    if(shareC3){
-      row.par=rate*row.margin;
-      row.c3=(row.pts-row.par)/10;
-      c3[tid]+=row.c3;
-    }else c3[tid]+=(row.pts/row.margin)/10;
-    detail[tid].waiverPickups.push(row);
-  });
-  teams.forEach(t=>{
-    detail[t.id].c3Mode=shareC3?'share':'ratio';
-    if(shareC3) detail[t.id].c3League={pts:lgPts,margin:lgMargin,rate};
-  });
+  c3Score(season,teams,pool,c3,detail,weeklyData,c3LinesFor(season));
   /* and the money in a trade, at what the league's FAAB buys -- here because
      it needs the rate, and the rate is the pickups just above */
   c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail);
@@ -2058,6 +2129,10 @@ const c2RankSub=d=>{
 };
 const c3RankSub=d=>{
   const p=d.waiverPickups||[]; if(!p.length) return 'No pickups';
+  if(d.c3Mode==='repl'){
+    const st=p.reduce((s,w)=>s+(w.starts||0),0), vs=p.reduce((s,w)=>s+(w.vs||0),0);
+    return `${st} start${st===1?'':'s'} · ${vs<0?'−':'+'}${Math.abs(vs).toFixed(1)} vs line · $${p.reduce((s,w)=>s+Math.max(w.margin??w.bid,1),0)} margin`;
+  }
   const pts=p.reduce((s,w)=>s+w.pts,0);
   return d.c3Mode==='share'
     ?`${pts.toFixed(1)} pts · $${p.reduce((s,w)=>s+Math.max(w.margin??w.bid,1),0)} margin`
@@ -2126,6 +2201,7 @@ function renderC3Breakdown(){
   const d=bd.detail||{};
   /* a season before 2026 was scored by the ratio, and shows the table it was
      scored by */
+  if(d.c3Mode==='repl'){ renderC3Repl(el,t,bd,opts,rank); return; }
   if(d.c3Mode!=='share'){ renderC3Ratio(el,t,bd,opts,rank); return; }
   /* the league's rate, and each pickup's par off it -- the breakdown carries
      both, and anything older than that is worked out from the same totals */
@@ -2164,6 +2240,44 @@ function renderC3Breakdown(){
         </tr>`;}).join('')}</tbody>
       </table></div>
       <div class="brk-formula">(${myPts.toFixed(1)} pts − $${myMar} × ${rate.toFixed(3)}) ÷ 10 = <b style="color:${cc(bd.c3)}">${(bd.c3||0).toFixed(2)}</b></div>`
+      :'<div class="brk-empty">No waiver pickups for this team this season.</div>'}
+    </div>`:''}`;
+}
+/* The Waiver ROI table from 2026: each pickup's starts against the line at his
+   position, week by week under his name, and what the overbid cost. */
+function renderC3Repl(el,t,bd,opts,rank){
+  const d=bd.detail||{}, fr=Number((d.c3League||{}).rate)||0;
+  const marOf=w=>Math.max(w.margin??w.bid,1);
+  const s1=v=>(v<0?'−':'+')+Math.abs(v).toFixed(1), s2=v=>(v<0?'−':'+')+Math.abs(v).toFixed(2);
+  const picks=(d.waiverPickups||[]).slice().sort((a,b)=>(b.c3||0)-(a.c3||0));
+  const vsAll=picks.reduce((s,w)=>s+(w.vs||0),0), marAll=picks.reduce((s,w)=>s+marOf(w),0);
+  const weeks=w=>(w.byWeek||[]).length
+    ?w.byWeek.map(x=>`<span title="Wk ${x.w}: ${x.pts.toFixed(1)} vs ${x.line}" style="color:${x.pts-x.line<0?'var(--red)':'var(--green)'}">${s1(x.pts-x.line)}</span>`).join(' ')
+    :'never started';
+  el.innerHTML=`
+    <div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C3</b> = every week you started a waiver pickup, his points minus a replacement at his position that week: the <b>18th</b>-best QB, <b>24th</b> RB, <b>36th</b> WR, <b>18th</b> TE, <b>12th</b> K or <b>12th</b> D/ST across the NFL. Weeks under the line count against you. Then every dollar bid over the next-highest bid ($1 minimum) costs what the league's FAAB buys${fr?`: <b>${fr.toFixed(2)}</b> lineup points per $1`:''}. ÷ 10. A week counts once it is final.</div>
+    ${rank||''}
+    <div class="picker-bar" style="padding:0 2px 14px">
+      <label for="c3-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
+      <select id="c3-team-select" onchange="_c3Team=this.value;renderC3Breakdown()">${opts}</select>
+    </div>
+    ${t?`<div class="hist-item">
+      <div class="brk-head"><span class="fr-name">${logoImg(t.id)} ${t.name}</span><span class="brk-val" style="color:${cc(bd.c3)}">C3 ${bd.c3>=0?'+':''}${(bd.c3||0).toFixed(2)}</span></div>
+      ${picks.length?`<div class="tscroll"><table class="min560 srt c3-repl" style="margin-top:4px" data-mhide="Wk,Bid,Next,Starts">
+        <thead><tr><th>Pickup</th><th class="right">Wk</th><th class="right">Bid</th><th class="right">Next</th><th class="right">Margin</th><th class="right">Starts</th><th class="right">vs Line</th><th class="right">Cost</th><th class="right">C3</th></tr></thead>
+        <tbody>${picks.map(w=>`<tr>
+          <td><span class="pname">${playerImg(w.pid,20,pName(w.pid))}<span>${pName(w.pid)}</span></span><div class="c3w">${w.pos?`<b>${w.pos==='DST'?'D/ST':w.pos}</b> `:''}${weeks(w)}</div></td>
+          <td class="right">${w.week}</td>
+          <td class="right">$${w.bid}</td>
+          <td class="right" style="color:var(--text3)">${w.next>0?('$'+w.next):'$0'}</td>
+          <td class="right">$${marOf(w)}</td>
+          <td class="right">${w.starts||0}</td>
+          <td class="right" style="color:${cc(w.vs||0)}">${s1(w.vs||0)}</td>
+          <td class="right" style="color:var(--text3)">−${(w.cost||0).toFixed(1)}</td>
+          <td class="right" style="font-weight:700;color:${cc(w.c3||0)}">${s2(w.c3||0)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="brk-formula">(${s1(vsAll)} vs line − $${marAll} × ${fr.toFixed(2)}) ÷ 10 = <b style="color:${cc(bd.c3)}">${(bd.c3||0).toFixed(2)}</b></div>`
       :'<div class="brk-empty">No waiver pickups for this team this season.</div>'}
     </div>`:''}`;
 }
@@ -24563,7 +24677,7 @@ async function loadDashboard(){
     //  2. "no data" for seasons listed in the archive's `none` list
     //  3. live computation from the transaction log (real or reconstructed)
     /* C2 reads the locked trade list; the log stays the log for everything else */
-    const c2Trades=await c2TradesNow(season);
+    const [c2Trades]=await Promise.all([c2TradesNow(season),c3LinesLoad(season)]);
     _c2Sig[season]=c2Trades?tradesSig(c2Trades):undefined;
     const c2Fill=tx=>c2Trades?tradesFillTx(tx,c2Trades):tx;
     const officialAll=await loadCMOfficial();
