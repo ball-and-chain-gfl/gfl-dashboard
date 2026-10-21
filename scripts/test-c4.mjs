@@ -98,5 +98,9 @@ ok('boot waits for Lineup IQ before scoring', APP.includes('loadLineupIQ(String(
 ok('the score breakdown shows C4, the Lineup IQ list carries it',
   APP.includes('>C4</span><span style="color:var(--text2);flex:1">Lineup IQ</span>') && APP.includes('class="right liq-c4v"'), true);
 
+ok('2026 rows read as abbreviations, every number on the league\'s A+-to-F scale (fewer missed points the good end)',
+  APP.includes('sbTeamAb(_ownerMap[t.id],t.name)') && APP.includes('grade(missVals,r.d.missed,false)')
+  && APP.includes('grade(c4Vals,c4Of(r.t),true)') && APP.includes('c4lg?grade(pctVals,r.pct,true):liqColor(r.pct)'), true);
+
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

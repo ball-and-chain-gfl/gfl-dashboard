@@ -2371,10 +2371,11 @@ function renderLineupIQ(){
   const season=getSeason(), data=_liq[season];
   if(!data){ loadLineupIQ();
     el.innerHTML=`<div class="tab-loading"><i class="fa fa-circle-notch"></i>Rebuilding every optimal lineup of the ${season} season…</div>`; return; }
+  const c4Of=t=>(_cmBreakdown[t.id]||{}).c4||0;
   const rows=_teams.map(t=>{const d=data[t.id]; return d&&d.decisions?{t,d,pct:d.correct/d.decisions*100}:null;})
     .filter(Boolean);
   rows.sort((a,b)=>{
-    const v=_liqSort.col==='miss'?[a.d.missed,b.d.missed]:[a.pct,b.pct];
+    const v=_liqSort.col==='miss'?[a.d.missed,b.d.missed]:_liqSort.col==='c4'?[c4Of(a.t),c4Of(b.t)]:[a.pct,b.pct];
     return _liqSort.asc?v[0]-v[1]:v[1]-v[0];
   });
   const arr=c=>_liqSort.col===c?(_liqSort.asc?'\u2191':'\u2193'):'\u21C5';
@@ -2383,17 +2384,31 @@ function renderLineupIQ(){
   const worst=Math.max(...rows.map(r=>r.d.missed))||1;
   /* the season's C4, when the Coaching Metric on screen is this season's and has one */
   const c4lg=String(_cmBreakdownSeason)===String(season)?(Object.values(_cmBreakdown||{}).find(b=>b&&b.detail&&b.detail.c4League)||{detail:{}}).detail.c4League:null;
-  const c4Of=t=>(_cmBreakdown[t.id]||{}).c4||0;
+  /* ── 2026 ON: THE LEAGUE'S OWN SCALE, AND THE ABBREVIATION ──────────────────
+     Every number on the list graded against the rest of the league the way the
+     draft page and the team profiles grade theirs: best A+ green, worst F red,
+     evenly between. Fewer missed points is the better end. The team is its
+     abbreviation, so the row reads on one line on a phone. Seasons before keep
+     the look they had. */
+  const grade=(vals,v,hiGood)=>{ const mn=Math.min(...vals), mx=Math.max(...vals);
+    if(!(mx>mn)) return gradeColor('A');
+    let t=(v-mn)/(mx-mn); if(!hiGood) t=1-t;
+    return gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]); };
+  const pctVals=rows.map(r=>r.pct), missVals=rows.map(r=>r.d.missed), c4Vals=rows.map(r=>c4Of(r.t));
+  const pctCol=r=>c4lg?grade(pctVals,r.pct,true):liqColor(r.pct);
+  const teamCell=t=>c4lg
+    ?`<div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${sbTeamAb(_ownerMap[t.id],t.name)}</div></div></div>`
+    :`<div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${t.name}</div><div class="team-sub">${t.abbrev}</div></div></div>`;
   el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, with <b>Missed points</b> the difference in score.${c4lg?` A call is a starting spot a bench player could have filled; a player projected 0 that week was out; a tie is a right call; finished weeks only. <b>C4</b> = half calls, half points: every call above or below the league's <b>${(c4lg.hit*100).toFixed(1)}%</b> is worth what a wrong call costs the league (<b>${c4lg.cost.toFixed(1)}</b> pts), and points left on the bench against the league's <b>${c4lg.avgMissed.toFixed(1)}</b>, ÷ 10.`:''}</div>
   <div class="liq-list${c4lg?' liq-c4':''}">
-    <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}${c4lg?'<span class="right">C4</span>':''}</div>
+    <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}${c4lg?sh('c4','C4','right'):''}</div>
     ${rows.map((r,i)=>`<div class="liq-row">
       <span class="liq-rk">${i+1}</span>
-      <span class="liq-team"><div class="team-cell">${logoImg(r.t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${r.t.id}">${r.t.name}</div><div class="team-sub">${r.t.abbrev}</div></div></div></span>
-      <span class="right liq-pct" style="color:${liqColor(r.pct)}">${r.pct.toFixed(1)}%</span>
-      <span class="liq-barcell"><span class="liq-bar"><span class="liq-bar-fill" style="width:${r.pct.toFixed(1)}%;background:${liqColor(r.pct)}"></span></span><span class="liq-frac">${r.d.correct} / ${r.d.decisions}</span></span>
-      <span class="right liq-miss" style="opacity:${(0.45+0.55*r.d.missed/worst).toFixed(2)}">${r.d.missed.toFixed(1)}</span>
-      ${c4lg?`<span class="right liq-c4v" style="color:${cc(c4Of(r.t))}">${c4Of(r.t)>=0?'+':'−'}${Math.abs(c4Of(r.t)).toFixed(2)}</span>`:''}
+      <span class="liq-team">${teamCell(r.t)}</span>
+      <span class="right liq-pct" style="color:${pctCol(r)}">${r.pct.toFixed(1)}%</span>
+      <span class="liq-barcell"><span class="liq-bar"><span class="liq-bar-fill" style="width:${r.pct.toFixed(1)}%;background:${pctCol(r)}"></span></span><span class="liq-frac">${r.d.correct} / ${r.d.decisions}</span></span>
+      <span class="right liq-miss" style="${c4lg?`color:${grade(missVals,r.d.missed,false)}`:`opacity:${(0.45+0.55*r.d.missed/worst).toFixed(2)}`}">${r.d.missed.toFixed(1)}</span>
+      ${c4lg?`<span class="right liq-c4v" style="color:${grade(c4Vals,c4Of(r.t),true)}">${c4Of(r.t)>=0?'+':'−'}${Math.abs(c4Of(r.t)).toFixed(2)}</span>`:''}
     </div>`).join('')}
   </div>`;
 }
