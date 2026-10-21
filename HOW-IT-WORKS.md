@@ -288,6 +288,13 @@ the average manager sits at 0:
   minus), less every dollar bid over the next-highest bid at what the league's
   FAAB buys. ÷10.
 
+- **C4 — lineups** (from 2026): half calls, half points, against the league. Each
+  start/sit call above or below the league's hit rate is worth what a wrong call
+  costs the league on average; points left on the bench count against the
+  league's average. ÷10. A call is a starting spot a bench player could have
+  filled, a player projected 0 was out, a tie is a right call, finished weeks
+  only.
+
 ### The Legacy Report
 
 On each team profile: what changed in the all-time records this week, and which

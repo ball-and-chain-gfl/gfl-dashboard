@@ -57,6 +57,8 @@ jobs:
         run: node scripts/test-c2-records.mjs
       - name: Waiver ROI scores every start against a replacement at his position
         run: node scripts/test-c3-repl.mjs
+      - name: Lineup IQ by the league rules, and C4 in the Coaching Metric
+        run: node scripts/test-c4.mjs
       - name: one team's moneyline and spread cannot share a ticket
         run: node scripts/test-mlsp.mjs
       - name: a trade is what ESPN upheld, locked; an invitation closes with its bet

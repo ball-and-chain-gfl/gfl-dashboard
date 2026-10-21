@@ -33,7 +33,7 @@ const ok = (name, got, want) => {
 const head = t => console.log(NL + t);
 const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
-  'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=', 'const C3_SHARE_FROM=', 'const C3_REPL_FROM=', 'const C3_POS=', 'let _c3Lines=', 'function c3LinesFor(season){', 'function c3Score(', 'function c3ScoreRepl(',
+  'function nflWeekKickoffMs(season,w){', 'const nflSeasonOfMs=', 'const C3_SHARE_FROM=', 'const C4_FROM=', 'function liqFor(season){', 'function c4Score(', 'let _liq=', 'const C3_REPL_FROM=', 'const C3_POS=', 'let _c3Lines=', 'function c3LinesFor(season){', 'function c3Score(', 'function c3ScoreRepl(',
   'const FAAB_VALUE_FROM=', 'function faabRateFrom(pool){', 'function c2ScoreFaab(', 'const C2_TRADES_FROM=', 'function c2Txns(season,transactions){', 'const C2_WEIGHT_FROM=', 'function c2WeighTrades(season,teams,c2,detail){', 'async function computeCoaching(teams, transactions, weeklyData, season){',
 ], ['computeCoaching'], 'const TOTAL_WEEKS=17;');
 

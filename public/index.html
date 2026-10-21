@@ -5976,8 +5976,13 @@
     .liq-bar-fill{display:block;height:100%;border-radius:8px;}
     .liq-frac{font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);white-space:nowrap;}
     .liq-miss{font-family:'Inter','DM Sans',sans-serif;font-size:15px;font-weight:600;color:var(--red);}
+    /* from 2026 the list carries each team's C4 */
+    .liq-c4 .liq-row{grid-template-columns:26px minmax(0,1fr) 82px minmax(120px,1.1fr) 92px 72px;}
+    .liq-c4v{font-family:'Inter','DM Sans',sans-serif;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
     @media(max-width:768px){
       .liq-row{grid-template-columns:20px minmax(0,1fr) 62px 60px;gap:8px;padding:10px 0;}
+      .liq-c4 .liq-row{grid-template-columns:20px minmax(0,1fr) 56px 50px 52px;}
+      .liq-c4v{font-size:13px;}
       .liq-row .liq-barcell{display:none;}
       .liq-pct{font-size:16px;}
       .liq-miss{font-size:13px;}

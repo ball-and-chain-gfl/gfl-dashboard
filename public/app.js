@@ -1456,6 +1456,35 @@ function c3ScoreRepl(teams,pool,c3,detail,weeklyData,lines){
   });
   teams.forEach(t=>{ detail[t.id].c3Mode='repl'; detail[t.id].c3League={rate:fr}; });
 }
+/* ── C4, 2026 ON: LINEUP IQ IN THE COACHING METRIC ─────────────────────────────
+   Half calls, half points, both against the league and both in points ÷ 10
+   like everything else here:
+     calls    every call above or below the league's hit rate is worth what a
+              wrong call costs the league on average -- its missed points over
+              its wrong calls
+     points   points left on the bench against the league's average
+   C4 is the mean of the two, and the league sums to zero. Points left on the
+   bench are already a hole in C1; counting the call again is the point -- the
+   league asked for lineup decisions to count as decisions. Off the corrected
+   Lineup IQ (finished weeks, projected 0 = out, ties right, a call only where
+   the bench had someone). Before 2026 there is no C4 and the score is what it
+   was. */
+const C4_FROM=2026;
+function liqFor(season){ const d=_liq[season]; return d&&Object.keys(d).length?d:null; }
+function c4Score(season,teams,c4,detail,liq){
+  if(season==null||Number(season)<C4_FROM||!liq) return;
+  const rows=teams.map(t=>({t,d:liq[t.id]})).filter(x=>x.d&&x.d.decisions>0);
+  if(!rows.length) return;
+  const D=rows.reduce((s,x)=>s+x.d.decisions,0), C=rows.reduce((s,x)=>s+x.d.correct,0);
+  const M=rows.reduce((s,x)=>s+(Number(x.d.missed)||0),0);
+  const hit=C/D, cost=D>C?M/(D-C):0, avg=M/rows.length;
+  rows.forEach(({t,d})=>{
+    const calls=(d.correct-d.decisions*hit)*cost/10, pts=(avg-(Number(d.missed)||0))/10;
+    c4[t.id]=(calls+pts)/2;
+    if(detail[t.id]) detail[t.id].c4Detail={calls,pts};
+  });
+  teams.forEach(t=>{ if(detail[t.id]) detail[t.id].c4League={hit,cost,avgMissed:avg}; });
+}
 async function computeCoaching(teams, transactions, weeklyData, season){
   const leagueAvgPF=teams.reduce((s,t)=>s+t.pf,0)/(teams.length||1);
   const weeks=Object.keys(weeklyData).map(Number).filter(n=>!isNaN(n));
@@ -1496,10 +1525,10 @@ async function computeCoaching(teams, transactions, weeklyData, season){
     return total;
   }
 
-  const c1={},c2={},c3={},detail={};
+  const c1={},c2={},c3={},c4={},detail={};
   teams.forEach(t=>{
     c1[t.id]=(t.pf-leagueAvgPF)/10;
-    c2[t.id]=0; c3[t.id]=0;
+    c2[t.id]=0; c3[t.id]=0; c4[t.id]=0;
     detail[t.id]={
       leagueAvgPF, teamPF:t.pf,
       tradesReceived:[], tradesSent:[],
@@ -1790,10 +1819,11 @@ async function computeCoaching(teams, transactions, weeklyData, season){
      it needs the rate, and the rate is the pickups just above */
   c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail);
   c2WeighTrades(season,teams,c2,detail);
+  c4Score(season,teams,c4,detail,liqFor(season));
 
   // Z-score standardize
   const raw={};
-  teams.forEach(t=>{raw[t.id]=(c1[t.id]||0)+(c2[t.id]||0)+(c3[t.id]||0);});
+  teams.forEach(t=>{raw[t.id]=(c1[t.id]||0)+(c2[t.id]||0)+(c3[t.id]||0)+(c4[t.id]||0);});
   const vals=Object.values(raw);
   const mean=vals.reduce((a,b)=>a+b,0)/(vals.length||1);
   const std=Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/(vals.length||1))||1;
@@ -1801,7 +1831,7 @@ async function computeCoaching(teams, transactions, weeklyData, season){
   teams.forEach(t=>{final[t.id]=(raw[t.id]-mean)/std;});
 
   const breakdown={};
-  teams.forEach(t=>{breakdown[t.id]={c1:c1[t.id]||0,c2:c2[t.id]||0,c3:c3[t.id]||0,raw:raw[t.id]||0,final:final[t.id]||0,detail:detail[t.id]};});
+  teams.forEach(t=>{breakdown[t.id]={c1:c1[t.id]||0,c2:c2[t.id]||0,c3:c3[t.id]||0,c4:c4[t.id]||0,raw:raw[t.id]||0,final:final[t.id]||0,detail:detail[t.id]};});
   return{scores:final,breakdown};
 }
 
@@ -1865,7 +1895,7 @@ function openCMModal(teamId){
     cmModalShow();
     return;
   }
-  const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,rawf=bd.raw||0;
+  const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,c4f=bd.c4||0,rawf=bd.raw||0, c4On=!!(bd.detail&&bd.detail.c4League);
 
   /* ── THE POPUP IS THE SCORE BREAKDOWN ─────────────────────────────────────
      It used to carry the breakdown AND every input behind it: the points sum,
@@ -1894,12 +1924,13 @@ function openCMModal(teamId){
       <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span><span style="font-weight:700;color:${cc(c1f)}">${c1f.toFixed(3)}</span></div>
       <div class="eq-line"><span style="color:var(--blue);font-weight:700;width:26px">C2</span><span style="color:var(--text2);flex:1">Trade ROI</span><span style="font-weight:700;color:${cc(c2f)}">${c2f>=0?'+':''}${c2f.toFixed(3)}</span></div>
       <div class="eq-line"><span style="color:var(--green);font-weight:700;width:26px">C3</span><span style="color:var(--text2);flex:1">Waiver ROI</span><span style="font-weight:700;color:${cc(c3f)}">${c3f>=0?'+':''}${c3f.toFixed(3)}</span></div>
+      ${c4On?`<div class="eq-line"><span style="color:#5A89E8;font-weight:700;width:26px">C4</span><span style="color:var(--text2);flex:1">Lineup IQ</span><span style="font-weight:700;color:${cc(c4f)}">${c4f>=0?'+':''}${c4f.toFixed(3)}</span></div>`:''}
       <hr/>
       <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Raw sum</span><span style="font-weight:700">${rawf.toFixed(3)}</span></div>
       <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Standardized final</span><span style="font-weight:800;font-size:14px;color:${sc(s)}">${s.toFixed(3)}</span></div>
     </div>
     <div class="modal-seealso">Player-by-player detail is on the
-      <b>Trade ROI</b> and <b>Waiver ROI</b> tabs.</div>`;
+      ${c4On?'<b>Trade ROI</b>, <b>Waiver ROI</b> and <b>Lineup IQ</b>':'<b>Trade ROI</b> and <b>Waiver ROI</b>'} tabs.</div>`;
   cmModalShow();
 }
 
@@ -2321,15 +2352,19 @@ function liqOf(teamId){ const d=_liq[getSeason()]; return d?d[teamId]:null; }
    actually pricing rather than relying on the two happening to agree. */
 function loadLineupIQ(want){
   const season=want||getSeason();
-  if(_liq[season]||_liqLoading[season]) return;
-  _liqLoading[season]=true;
-  histJSON('lineupiq',season,`${BASE}?type=lineupiq&seasonId=${season}&v=1`)
+  if(_liq[season]) return Promise.resolve(_liq[season]);
+  if(_liqLoading[season]) return _liqLoading[season];
+  /* v=2: the 2026 lineup rules (api/espn.js, type=lineupiq) */
+  _liqLoading[season]=histJSON('lineupiq',season,`${BASE}?type=lineupiq&seasonId=${season}&v=2`)
     .then(d=>{ _liq[season]=(d&&d.teams)||{}; })
     .catch(()=>{ _liq[season]={}; })
-    .finally(()=>{ _liqLoading[season]=false;
-      if(getSeason()!==season) return;
-      if(document.getElementById('stats-liq')) renderLineupIQ();
-      if(_activeTab==='teams'&&document.getElementById('profile-body')) renderProfile(); });
+    .then(()=>{ _liqLoading[season]=false;
+      if(getSeason()===season){
+        if(document.getElementById('stats-liq')) renderLineupIQ();
+        if(_activeTab==='teams'&&document.getElementById('profile-body')) renderProfile();
+      }
+      return _liq[season]; });
+  return _liqLoading[season];
 }
 function renderLineupIQ(){
   const el=document.getElementById('stats-liq'); if(!el) return;
@@ -2346,15 +2381,19 @@ function renderLineupIQ(){
   const sh=(c,label,cls)=>`<span class="${cls||''} liq-sort${_liqSort.col===c?' sorted':''}" onclick="sortLIQ('${c}')">${label} <span class="liq-arw">${arr(c)}</span></span>`;
   if(!rows.length){ el.innerHTML=`<div class="tab-loading">No weekly roster data for the ${season} season.</div>`; return; }
   const worst=Math.max(...rows.map(r=>r.d.missed))||1;
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, with <b>Missed points</b> the difference in score.</div>
-  <div class="liq-list">
-    <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}</div>
+  /* the season's C4, when the Coaching Metric on screen is this season's and has one */
+  const c4lg=String(_cmBreakdownSeason)===String(season)?(Object.values(_cmBreakdown||{}).find(b=>b&&b.detail&&b.detail.c4League)||{detail:{}}).detail.c4League:null;
+  const c4Of=t=>(_cmBreakdown[t.id]||{}).c4||0;
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, with <b>Missed points</b> the difference in score.${c4lg?` A call is a starting spot a bench player could have filled; a player projected 0 that week was out; a tie is a right call; finished weeks only. <b>C4</b> = half calls, half points: every call above or below the league's <b>${(c4lg.hit*100).toFixed(1)}%</b> is worth what a wrong call costs the league (<b>${c4lg.cost.toFixed(1)}</b> pts), and points left on the bench against the league's <b>${c4lg.avgMissed.toFixed(1)}</b>, ÷ 10.`:''}</div>
+  <div class="liq-list${c4lg?' liq-c4':''}">
+    <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}${c4lg?'<span class="right">C4</span>':''}</div>
     ${rows.map((r,i)=>`<div class="liq-row">
       <span class="liq-rk">${i+1}</span>
       <span class="liq-team"><div class="team-cell">${logoImg(r.t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${r.t.id}">${r.t.name}</div><div class="team-sub">${r.t.abbrev}</div></div></div></span>
       <span class="right liq-pct" style="color:${liqColor(r.pct)}">${r.pct.toFixed(1)}%</span>
       <span class="liq-barcell"><span class="liq-bar"><span class="liq-bar-fill" style="width:${r.pct.toFixed(1)}%;background:${liqColor(r.pct)}"></span></span><span class="liq-frac">${r.d.correct} / ${r.d.decisions}</span></span>
       <span class="right liq-miss" style="opacity:${(0.45+0.55*r.d.missed/worst).toFixed(2)}">${r.d.missed.toFixed(1)}</span>
+      ${c4lg?`<span class="right liq-c4v" style="color:${cc(c4Of(r.t))}">${c4Of(r.t)>=0?'+':'−'}${Math.abs(c4Of(r.t)).toFixed(2)}</span>`:''}
     </div>`).join('')}
   </div>`;
 }
@@ -24677,7 +24716,8 @@ async function loadDashboard(){
     //  2. "no data" for seasons listed in the archive's `none` list
     //  3. live computation from the transaction log (real or reconstructed)
     /* C2 reads the locked trade list; the log stays the log for everything else */
-    const [c2Trades]=await Promise.all([c2TradesNow(season),c3LinesLoad(season)]);
+    const [c2Trades]=await Promise.all([c2TradesNow(season),c3LinesLoad(season),
+      Number(season)>=C4_FROM?loadLineupIQ(String(season)).catch(()=>null):null]);
     _c2Sig[season]=c2Trades?tradesSig(c2Trades):undefined;
     const c2Fill=tx=>c2Trades?tradesFillTx(tx,c2Trades):tx;
     const officialAll=await loadCMOfficial();

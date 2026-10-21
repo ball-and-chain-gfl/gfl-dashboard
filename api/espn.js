@@ -1131,16 +1131,40 @@ export default async function handler(req, res) {
       16:[16], 17:[5], 23:[2,3,4],
     };
     const OUT = ['OUT','INJURY_RESERVE','IR','SUSPENSION','PUP','NON_FOOTBALL_INJURY','DOUBTFUL'];
+    /* ── 2026 ON: THE LEAGUE'S RULES FOR A LINEUP CALL ─────────────────────────
+       The rules below this were wrong about three things. Who could play came
+       off the injury report, and a past week's roster snapshot carries TODAY's
+       report -- so a man hurt now was 'out' for every week he had played. A
+       call was any starting spot anybody else on the roster could fill,
+       another starter or a man who never suited up included, so a team
+       starting its only two backs banked two right calls for having no choice:
+       KW's 29 of 36 was 16 of 23. And it read the week being played, where a
+       Sunday starter whose game had not kicked off yet counted as wrong.
+
+         available   projected above 0 that week -- projected 0 is out (every
+                     one of them this season scored 0) -- and not on IR
+         weeks       finished only: every week before the current one
+         lineup      the league's own, so an empty starting spot is a call
+         a call      a starting spot a bench player could have filled
+         a tie       always right: the best lineup prefers the man started
+
+       Missed points are the best lineup minus the one set, as before.
+       Seasons before 2026 keep the old rules and their archived numbers. */
+    const rules26 = Number(season) >= 2026;
     try {
       // regular-season length (playoffs start right after it)
       // ESPN's matchupPeriodCount is the number of REGULAR-season matchup
       // periods (playoff weeks come after it), so it is the regular-season end.
-      let regEnd = 14, regSource = 'default', regDbg = {};
+      let regEnd = 14, regSource = 'default', regDbg = {}, current = 0, template = null;
       try {
         const sr = await fetch(leagueURL(['mSettings'], { forceLive: true }), { headers });
         if (sr.ok) {
           const sd = unwrap(await sr.json());
           const ss = sd.settings?.scheduleSettings || {};
+          current = Number(sd.scoringPeriodId) || 0;
+          const lc = sd.settings?.rosterSettings?.lineupSlotCounts || null;
+          if (lc) template = Object.entries(lc).filter(([k, v]) => v > 0 && !BENCH.includes(Number(k)))
+            .flatMap(([k, v]) => Array(v).fill(Number(k)));
           regDbg = { matchupPeriodCount: ss.matchupPeriodCount, playoffTeamCount: ss.playoffTeamCount,
                      playoffMatchupPeriodLength: ss.playoffMatchupPeriodLength,
                      finalScoringPeriod: sd.status?.finalScoringPeriod,
@@ -1149,7 +1173,9 @@ export default async function handler(req, res) {
           if (n >= 8 && n <= 18) { regEnd = n; regSource = 'settings'; }
         }
       } catch {}
-      const weekIds = Array.from({ length: regEnd }, (_, i) => i + 1);
+      if (rules26 && (!current || !template)) throw new Error('league settings unavailable');
+      const lastWeek = rules26 ? Math.min(regEnd, current - 1) : regEnd;
+      const weekIds = Array.from({ length: Math.max(0, lastWeek) }, (_, i) => i + 1);
       const weekResults = await Promise.all(weekIds.map(async w => {
         try {
           const r = await fetch(leagueURL('mRoster', { forceLive: true }) + `&scoringPeriodId=${w}`, { headers });
@@ -1165,6 +1191,13 @@ export default async function handler(req, res) {
         (wr.data.teams || []).forEach(team => {
           const entries = team.roster?.entries || [];
           if (!entries.length) return;
+          if (rules26) {
+            const r = liqWeek(entries, wr.week, template);
+            const b = teams[team.id] || (teams[team.id] = { weeks: 0, decisions: 0, correct: 0, missed: 0 });
+            b.weeks++; b.decisions += r.decisions; b.correct += r.correct; b.missed += r.missed;
+            if (dbgTeam === team.id) detail.push({ week: wr.week, ...r });
+            return;
+          }
           const pool = [];        // everyone who could legally have been started
           const starters = [];    // { slot, player }
           entries.forEach(e => {
@@ -1605,7 +1638,7 @@ export default async function handler(req, res) {
               const row = at ? { week: from, teams, at, date: at } : { week: from, teams };
               if (seen.length) row.faabSeen = seen;
               return row;
-            }).filter(t => t.teams.length === 2 && t.teams.some(x => x.players.length));
+            }).filter(t => t.teams.length === 2 && t.teams.some(x => x.players.length));
           }
         }
       } catch {}
@@ -2179,4 +2212,40 @@ function replLinesFrom(players, posId, n, season) {
     out[w] = a.length >= n ? +a[n - 1].toFixed(2) : null;
   });
   return out;
+}
+
+/* One team's week under the 2026 lineup rules (see type=lineupiq): the best
+   lineup the roster allowed, and how many of the starting spots a bench player
+   could have filled were filled by a man in it. */
+function liqWeek(entries, w, template) {
+  const SLOT_POS = { 0: [1], 1: [1], 2: [2], 3: [2, 3], 4: [3], 5: [3, 4], 6: [4], 7: [1, 2, 3, 4], 16: [16], 17: [5], 23: [2, 3, 4] };
+  const BENCH = [20, 21, 24];
+  const ps = (entries || []).map(e => {
+    const pl = (e.playerPoolEntry && e.playerPoolEntry.player) || {};
+    const st = pl.stats || [];
+    const act = st.find(s => s.statSourceId === 0 && s.scoringPeriodId === w);
+    const proj = st.find(s => s.statSourceId === 1 && s.scoringPeriodId === w);
+    return { pid: e.playerId, pos: pl.defaultPositionId ?? null, slot: e.lineupSlotId,
+      started: !BENCH.includes(e.lineupSlotId), pts: act ? (Number(act.appliedTotal) || 0) : 0,
+      avail: !!proj && Number(proj.appliedTotal) > 0 && e.lineupSlotId !== 21 };
+  });
+  /* strictest spots first; highest score first, and on a tie the man started */
+  const slots = (template || []).slice().sort((a, b) => (SLOT_POS[a]?.length || 9) - (SLOT_POS[b]?.length || 9));
+  const pool = ps.filter(p => p.avail).sort((a, b) => b.pts - a.pts || (Number(b.started) - Number(a.started)));
+  const best = new Set(); let opt = 0;
+  slots.forEach(sl => { const ok = SLOT_POS[sl];
+    const p = pool.find(x => !best.has(x.pid) && (!ok || ok.includes(x.pos)));
+    if (p) { best.add(p.pid); opt += p.pts; } });
+  const starters = ps.filter(p => p.started);
+  const act = starters.reduce((s, p) => s + p.pts, 0);
+  const bench = ps.filter(p => !p.started && p.avail);
+  const used = new Set(); let decisions = 0, correct = 0;
+  slots.forEach(sl => { const ok = SLOT_POS[sl];
+    const s = starters.find(p => p.slot === sl && !used.has(p.pid));
+    if (s) used.add(s.pid);
+    if (!bench.some(b => !ok || ok.includes(b.pos))) return;     // no choice to make
+    decisions++;
+    if (s && best.has(s.pid)) correct++;                           // an empty spot is a miss
+  });
+  return { decisions, correct, opt: +opt.toFixed(2), act: +act.toFixed(2), missed: +Math.max(opt - act, 0).toFixed(2) };
 }
