@@ -6836,7 +6836,11 @@ function fcLineupFor(season,week,teamId){
   const list=r&&r[teamId];
   if(list&&list.length){
     const starters=list.filter(e=>!BENCH_SLOTS.includes(e.slot));
-    if(starters.length){
+    /* A team with a roster is shown its own lineup, however little of it is
+       set: a manager who has benched everybody has an empty lineup, not
+       stand-ins. The stand-in is for a team that has nobody at all -- before
+       the draft. */
+    {
       const proj=sbPlayerProj(week)||{};
       /* the entry's own weekly projection first — it is the number ESPN shows
          beside that player in the app, for this week, on this roster */
@@ -7007,7 +7011,20 @@ function fcRosterCompareHTML(season,week,aId,bId,abA,abB,live){
   const A=fcLineupFor(season,week,aId), B=fcLineupFor(season,week,bId);
   if(!A||!B) return `<div class="lr-none">No lineups to compare yet.</div>`;
   const dummy=A.some(x=>x.dummy)||B.some(x=>x.dummy);
-  const n=Math.min(A.length,B.length);
+  /* ── SPOT BY SPOT, OFF THE LEAGUE'S LINEUP ─────────────────────────────
+     The two lists were zipped row by row and cut at the shorter one, so a
+     side with one starter took the other side down to one row with it: the
+     Tinglers had a single back set on a Tuesday and the card showed one spot
+     each. Both sides are laid against the league's nine starting spots
+     instead -- whoever ESPN has in each, an empty spot shown empty and worth
+     nothing -- and anybody started somewhere else follows on. */
+  const place=L=>{ const pool=L.slice();
+    const out=FC_LINEUP.map(([pp,label,sl])=>{ const i=pool.findIndex(e=>e.slot===sl);
+      return {label,ppos:pp,e:i<0?null:pool.splice(i,1)[0]}; });
+    pool.forEach(e=>out.push({label:e.pos,ppos:e.ppos,e}));
+    return out; };
+  const PA=place(A), PB=place(B);
+  const n=Math.max(PA.length,PB.length);
   /* The live read where there is one, the published projection where there is
      not. Both sides go through the same lookup, so a week nobody has started
      draws exactly as it always did. */
@@ -7016,26 +7033,27 @@ function fcRosterCompareHTML(season,week,aId,bId,abA,abB,live){
   const stOf=e=>{ const L=lv[String(e.pid)]; return L?L.state:'pre'; };
   let edgeA=0,edgeB=0,anyLive=false,anyFinal=false;
   const rows=[];
+  const cell=(e,p,side)=>!e
+    ? `<span class="fcr-n fcr-empty">Empty</span><span class="fcr-p">—</span>`
+    : side==='a'?`<span class="fcr-n">${lastNameOf(e.n)}</span><span class="fcr-p">${p.toFixed(1)}</span>`
+      :`<span class="fcr-p">${p.toFixed(1)}</span><span class="fcr-n">${lastNameOf(e.n)}</span>`;
   for(let i=0;i<n;i++){
-    const a=A[i], b=B[i];
-    const pa=valOf(a), pb=valOf(b);
-    const sa=stOf(a), sb=stOf(b);
+    const ra=PA[i]||{}, rb=PB[i]||{}, a=ra.e||null, b=rb.e||null;
+    const pa=a?valOf(a):0, pb=b?valOf(b):0;
+    const sa=a?stOf(a):'pre', sb=b?stOf(b):'pre';
+    const label=ra.label||rb.label||'', pp=(a||b||{}).ppos||ra.ppos||rb.ppos;
     if(sa==='live'||sb==='live') anyLive=true;
     if(sa==='final'||sb==='final') anyFinal=true;
     const d=pa-pb;
     const win=Math.abs(d)<FC_EDGE?'':(d>0?'a':'b');
     if(win==='a') edgeA++; if(win==='b') edgeB++;
     rows.push(`<div class="fcr-row">
-      <span class="fcr-side st-${sa} ${win==='a'?'good':win==='b'?'bad':''}">
-        <span class="fcr-n">${lastNameOf(a.n)}</span><span class="fcr-p">${pa.toFixed(1)}</span>
-      </span>
-      <span class="fcr-pos" style="color:${posPill(a.ppos)[0]};background:${posPill(a.ppos)[1]}">${a.pos}</span>
-      <span class="fcr-side st-${sb} ${win==='b'?'good':win==='a'?'bad':''}">
-        <span class="fcr-p">${pb.toFixed(1)}</span><span class="fcr-n">${lastNameOf(b.n)}</span>
-      </span>
+      <span class="fcr-side st-${sa} ${win==='a'?'good':win==='b'?'bad':''}">${cell(a,pa,'a')}</span>
+      <span class="fcr-pos" style="color:${posPill(pp)[0]};background:${posPill(pp)[1]}">${label}</span>
+      <span class="fcr-side st-${sb} ${win==='b'?'good':win==='a'?'bad':''}">${cell(b,pb,'b')}</span>
     </div>`);
   }
-  const tot=(l)=>l.slice(0,n).reduce((x,y)=>x+valOf(y),0);
+  const tot=(l)=>l.reduce((x,y)=>x+valOf(y),0);
   return `<div class="fcr">
     <div class="fcr-row fcr-head">
       <span class="fcr-side"><span class="fcr-n">${abA}</span></span>
@@ -11279,9 +11297,10 @@ function schedProjHTML(owner,d){
    team has scored plus what it is projected to score in the games still left.
 
    Laid into the league's two six-team brackets, weeks 15-17:
-     championship  1 and 2 bye; 3 v 6 and 4 v 5; 1 meets the 4/5 winner and
-                   2 the 3/6 winner; week 17 the final
-     losers'       11 and 12 sit out week 15 (scheduled against each other);
+     championship  1 and 2 bye and first appear in week 16; 3 v 6 and 4 v 5;
+                   1 meets the 4/5 winner and 2 the 3/6 winner; week 17 the
+                   final
+     losers'       11 and 12 sit out week 15 and first appear in week 16;
                    7 v 10 and 8 v 9, and the two week-15 losers carry on --
                    12 meets the better-seeded one, 11 the other, as 2024 and
                    2025 both ran; the two week-16 losers play for the
@@ -11320,24 +11339,21 @@ function schedBracketsHTML(){
   const rec=x=>`${x.w}–${x.l}${x.t?`–${x.t}`:''}`;
   const team=x=>`<div class="spb-team"><span class="spb-seed">${x.seed}</span>${sbAvatar(x.owner,18)}`
     +`<span class="spb-ab">${sbTeamAb(x.owner,x.name)}</span><span class="spb-rec">${rec(x)}</span></div>`;
-  const tbd=txt=>`<div class="spb-team spb-tbd">${txt}</div>`;
+  const tbd=()=>'<div class="spb-team spb-tbd"></div>';
   const game=(a,b,tag)=>`<div class="spb-game">${tag?`<div class="spb-tag">${tag}</div>`:''}${a}${b}</div>`;
   const round=(label,body)=>`<div class="spb-round"><div class="spb-rh">${label}</div>${body}</div>`;
-  const aside=(label,a,b)=>`<div class="spb-aside"><div class="spb-tag">${label}</div>${team(a)}${team(b)}</div>`;
   const bracket=(icon,title,rounds)=>`<div class="spb-bracket"><div class="spb-bh"><i class="fa ${icon}"></i>${title}</div>`
     +`<div class="spb-rounds">${rounds}</div></div>`;
   return `<div class="spb">
-    <div class="spb-note">Projected brackets: seeded by projected finish, level records split by projected points for.</div>
     ${bracket('fa-trophy','Championship bracket',
-      round('Week 15',game(team(S(3)),team(S(6)))+game(team(S(4)),team(S(5)))+aside('Byes',S(1),S(2)))
-      +round('Week 16 · Semifinals',game(team(S(1)),tbd('Winner of 4 v 5'))+game(team(S(2)),tbd('Winner of 3 v 6')))
-      +round('Week 17',game(tbd('Semifinal winner'),tbd('Semifinal winner'),'Championship')
-        +game(tbd('Semifinal loser'),tbd('Semifinal loser'),'3rd place')))}
+      round('Week 15',game(team(S(3)),team(S(6)))+game(team(S(4)),team(S(5))))
+      +round('Week 16 · Semifinals',game(team(S(1)),tbd())+game(team(S(2)),tbd()))
+      +round('Week 17',game(tbd(),tbd(),'Championship')
+        +game(tbd(),tbd(),'3rd place')))}
     ${bracket('fa-toilet-paper','Losers\' bracket',
-      round('Week 15',game(team(S(7)),team(S(10)))+game(team(S(8)),team(S(9)))+aside('Sitting out',S(11),S(12)))
-      +round('Week 16',game(team(S(12)),tbd('Week 15 loser, higher seed'))+game(team(S(11)),tbd('Week 15 loser, lower seed'))
-        +'<div class="spb-aside-note">Week 15 winners are safe</div>')
-      +round('Week 17',game(tbd('Week 16 loser'),tbd('Week 16 loser'),'Punishment game')))}
+      round('Week 15',game(team(S(7)),team(S(10)))+game(team(S(8)),team(S(9))))
+      +round('Week 16',game(team(S(12)),tbd())+game(team(S(11)),tbd()))
+      +round('Week 17',game(tbd(),tbd(),'Punishment game')))}
   </div>`;
 }
 function schedPctCol(p){

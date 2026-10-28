@@ -65,6 +65,8 @@ jobs:
         run: node scripts/test-names.mjs
       - name: the schedule page's projected brackets, seeded by projected finish
         run: node scripts/test-schedbracket.mjs
+      - name: the Forecast lineups show what ESPN has set, spot by spot
+        run: node scripts/test-fclineup.mjs
       - name: one team's moneyline and spread cannot share a ticket
         run: node scripts/test-mlsp.mjs
       - name: a trade is what ESPN upheld, locked; an invitation closes with its bet

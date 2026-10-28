@@ -4311,6 +4311,7 @@
        the names themselves harder to scan. */
     .fcr-side.good,.fcr-side.bad{background:none;}
     .fcr-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+    .fcr-n.fcr-empty{font-weight:500;font-style:italic;color:var(--text3);}
     .fcr-p{flex:0 0 auto;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text3);}
     .fcr-side.good .fcr-p{color:var(--green);}
     .fcr-side.bad .fcr-p{color:var(--red);}
@@ -5815,15 +5816,14 @@
     /* ── PROJECTED FINISH: one plain line under week 14 ── */
     /* ── PROJECTED BRACKETS: the two six-team brackets the projected finish seeds ── */
     .spb{display:flex;flex-direction:column;gap:12px;margin-top:14px;}
-    .spb-note{font-family:'Inter',sans-serif;font-size:12px;color:var(--text3);}
+
     .spb-bracket{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;}
     .spb-bh{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-family:'Inter',sans-serif;font-size:12px;
       font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--accent);}
     .spb-rounds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
     .spb-round{display:flex;flex-direction:column;justify-content:space-around;gap:8px;min-width:0;}
     .spb-rh{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);}
-    .spb-game,.spb-aside{background:rgba(0,0,0,0.25);border-radius:8px;overflow:hidden;}
-    .spb-aside{background:none;border:1px dashed var(--border);}
+    .spb-game{background:rgba(0,0,0,0.25);border-radius:8px;overflow:hidden;}
     .spb-tag{padding:6px 9px 0;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:0.4px;
       text-transform:uppercase;color:var(--text2);}
     .spb-team{display:flex;align-items:center;gap:7px;padding:7px 9px;font-size:13px;min-width:0;}
@@ -5832,8 +5832,8 @@
       color:var(--text3);font-variant-numeric:tabular-nums;}
     .spb-ab{flex:1;min-width:0;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .spb-rec{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;}
-    .spb-tbd{color:var(--text3);font-family:'Inter',sans-serif;font-size:12px;font-style:italic;}
-    .spb-aside-note{font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);}
+    .spb-tbd{min-height:32px;}
+
     /* on a phone the three rounds swipe sideways inside the card, week 15 first --
        the way the league-history brackets do, rather than a page and a half tall */
     @media(max-width:640px){ .spb-rounds{grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;} }
