@@ -5,13 +5,13 @@
  *                    wins added always equal the losses added
  *   SEEDS            by projected record; level records by projected points for
  *                    (points so far plus the projected score of each game left)
- *   CHAMPIONSHIP     1 and 2 bye (not drawn in week 15); 3 v 6 and 4 v 5; 1
- *                    meets the 4/5 winner, 2 the 3/6 winner
+ *   CHAMPIONSHIP     1 and 2 bye (not drawn in week 15); 4 v 5 feeds 1 and 3 v 6
+ *                    feeds 2, each on the row of the game it feeds
  *   LOSERS'          11 and 12 sit out (not drawn in week 15); 7 v 10 and 8 v 9;
- *                    12 and 11 wait in week 16 for the week-15 losers; the
- *                    week-16 losers play for the punishment
- *   BARE             a spot not yet decided is an empty cell -- no "winner of",
- *                    no notes above or beside the brackets
+ *                    12 and 11 wait in week 16 for the week-15 losers, one line
+ *                    spanning both rows since they are dealt by seed
+ *   BARE             weeks 15 and 16 only; a spot not yet decided is an empty
+ *                    cell -- no "winner of", no notes above or beside
  *   HIDDEN           once there is no regular season left to project
  *
  * Run: node scripts/test-schedbracket.mjs
@@ -70,21 +70,28 @@ M.set('teams', teams); M.set('p', {}); M.set('proj', {});
 
 head('the championship bracket');
 const html = M.schedBracketsHTML();
-const blocks = html.split('class="spb-bracket"').slice(1);
+const blocks = html.split('class="spb-bracket ').slice(1);
 const seedsIn = s => [...s.matchAll(/class="spb-seed">(\d+)</g)].map(m => +m[1]);
-const games = b => b.split('class="spb-round"').slice(1).map(r => r.split('class="spb-game"').slice(1).map(seedsIn));
+/* every game as [week, grid row, seeds], in the order drawn */
+const games = b => [...b.matchAll(/class="spb-game spb-w(\d+)" style="grid-row:(\d+)">([\s\S]*?)<\/div><\/div>/g)]
+  .map(m => [+m[1], +m[2], seedsIn(m[3])]);
 const C = games(blocks[0]);
-ok('week 15: 3 v 6 and 4 v 5, the byes not drawn', C[0], [[3, 6], [4, 5]]);
-ok('week 16: 1 and 2 first appear, each across from an empty cell', C[1], [[1], [2]]);
-ok('week 17: the championship and 3rd place', /Championship<\/div>/.test(blocks[0]) && /3rd place/.test(blocks[0]), true);
+ok('week 15: 4 v 5 and 3 v 6, the byes not drawn', C.filter(g => g[0] === 15).map(g => g[2]), [[4, 5], [3, 6]]);
+ok('week 16: 1 and 2 first appear, each across from an empty cell', C.filter(g => g[0] === 16).map(g => g[2]), [[1], [2]]);
+ok('4 v 5 shares a row with 1 and 3 v 6 with 2, so the lines run straight across',
+  C.map(g => g[1] + ':' + g[2].join('v')), ['2:4v5', '2:1', '3:3v6', '3:2']);
+ok('a line for each row', (blocks[0].match(/class="spb-link"/g) || []).length, 2);
 
 head('the losers\' bracket');
 const L = games(blocks[1]);
-ok('week 15: 7 v 10 and 8 v 9, 11 and 12 not drawn', L[0], [[7, 10], [8, 9]]);
-ok('week 16: 12 and 11 first appear, each across from an empty cell', L[1], [[12], [11]]);
-ok('week 17: the punishment game', /Punishment game/.test(blocks[1]), true);
+ok('week 15: 7 v 10 and 8 v 9, 11 and 12 not drawn', L.filter(g => g[0] === 15).map(g => g[2]), [[7, 10], [8, 9]]);
+ok('week 16: 12 and 11 first appear, each across from an empty cell', L.filter(g => g[0] === 16).map(g => g[2]), [[12], [11]]);
+ok('one line spanning both rows: the losers are dealt by seed, not game to game',
+  /class="spb-link merge" style="grid-row:2 \/ span 2"/.test(blocks[1]) && !/class="spb-link"/.test(blocks[1]), true);
+
 head('bare');
-ok('every undecided spot is an empty cell: 2 + 4 + 2 + 2', html.split('<div class="spb-team spb-tbd"></div>').length - 1, 10);
+ok('weeks 15 and 16 only', [/Week 15/.test(html), /Week 16/.test(html), /Week 17|Championship<|3rd place|Punishment/.test(html)], [true, true, false]);
+ok('every undecided spot is an empty cell: 2 + 2', html.split('<div class="spb-team spb-tbd"></div>').length - 1, 4);
 ok('no descriptors, no notes, no aside boxes',
   /Winner of|Semifinal (?:winner|loser)|Week 1[56] loser|higher seed|lower seed|are safe|spb-note|spb-aside|Byes|Sitting out|Projected brackets/.test(html), false);
 ok('each team shows its abbreviation and projected record', /class="spb-ab">O1<\/span><span class="spb-rec">12–0</.test(html), true);

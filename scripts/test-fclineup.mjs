@@ -9,10 +9,12 @@
  *   NO STAND-INS    a team with a roster but everybody benched gets its real,
  *                   empty lineup; the stand-in is only for a team with nobody
  *   TOTALS          every starter counts, not just the rows the shorter side had
+ *   NO ODDS FOLD    the card carries no Playoff odds dropdown (removed v797)
  *
  * Run: node scripts/test-fclineup.mjs
  */
 import { lifter, assemble } from './lib/lift.mjs';
+import fs from 'fs';
 
 const NL = String.fromCharCode(10);
 let pass = 0, fail = 0;
@@ -73,6 +75,11 @@ head('totals');
 const tot = [...html.matchAll(/fcr-tot[\s\S]*?class="fcr-n">([\d.]+)<[\s\S]*?class="fcr-n">([\d.]+)</g)][0];
 ok('every starter on each side counts', [tot[1], tot[2]], ['12.0', '96.0']);
 ok('the spot count reflects all nine (RB1, 12 v 14, is inside the edge)', /BFT wins 8 spots to 0/.test(html), true);
+
+head('no odds fold');
+const card = lifter(new URL('../public/app.js', import.meta.url))('function renderForecast(info){');
+ok('the card draws no Playoff odds dropdown', /'Playoff odds'|fcImplications[(]|fcFold[(]|fc-imp/.test(card), false);
+ok('and the helpers behind it are gone', /function (?:fcImplications|fcFold|fcToggle)[(]/.test(fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8')), false);
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

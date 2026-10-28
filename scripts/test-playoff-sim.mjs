@@ -140,8 +140,10 @@ console.log('\n5. THE PAGE READS THE SIMULATION, NOT ESPN');
   ok('ESPN\'s playoff fetch is gone', !SRC.includes('function espnPlayoff('));
   ok('the outlook odds come from the simulation',
      SRC.includes('let odds=sim?sim.made[o]:null;'));
-  ok('the Forecast\'s Win and Loss are the replayed game',
-     SRC.includes("const f=d.focus&&d.focus.owner===owner?d.focus:null;")
+  /* the Forecast's Win / Now / Loss fold came off in v797, and with it the
+     only reader of the replayed game -- so the outlook stops paying for it */
+  ok('no replayed focus game nobody reads, and no fixed swing in its place',
+     SRC.includes('poSimulate(list,base,priced,spots,null)') && !SRC.includes('focus:sim&&sim.focus')
      && !SRC.includes('46/Math.sqrt(left)'));
   ok('the week being played is priced off its own Forecast curve',
      SRC.includes('const pts=fcCurveFor(li,tidOf(g.a),tidOf(g.b));'));

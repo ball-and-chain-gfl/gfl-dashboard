@@ -2708,9 +2708,8 @@
        are and a native bar under a card reads as a mistake. */
     .fc-scroll{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
       -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;
-      /* THE SAME GAP THE FOLD KEEPS FROM THE MESSAGE BOX, which is 18 and not
-         the 10 .fc-fold declares: .tt-box carries margin-top:18px and adjacent
-         siblings collapse to the larger of the two. */
+      /* the message box's own 18px top margin is the gap; this matches it so
+         nothing moves when the box is absent */
       margin-bottom:18px;
       /* and each pane has to report its OWN height for fcFitHeight to clamp to
          -- stretched, every offsetHeight is the tallest one */
@@ -2766,22 +2765,6 @@
       background:linear-gradient(90deg,var(--accent),var(--accent2,var(--accent)));}
     .fc-odds-s{display:flex;justify-content:space-between;font-family:'Inter',sans-serif;
       font-size:9.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);}
-    .fc-imp-h{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.6px;
-      text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
-    .fc-imp-r{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
-    .fc-imp-c{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;
-      border-radius:9px;border:1px solid transparent;background:rgba(0,0,0,0.3);}
-    .fc-imp-c.good{border-color:rgba(63,208,122,0.4);}
-    .fc-imp-c.bad{border-color:rgba(232,104,126,0.4);}
-    .fc-imp-l{font-family:'Inter',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;
-      text-transform:uppercase;color:var(--text3);}
-    .fc-imp-v{font-family:'Inter',sans-serif;font-size:19px;font-weight:800;}
-    .fc-imp-c.good .fc-imp-v{color:#3fd07a;}
-    .fc-imp-c.bad .fc-imp-v{color:#e8687e;}
-    .fc-imp-c.now .fc-imp-v{color:var(--text);}
-    .fc-imp-s{font-family:'Inter',sans-serif;font-size:8.5px;letter-spacing:.3px;
-      text-transform:uppercase;color:var(--text3);text-align:center;}
-    .fc-imp-n{margin-top:9px;font-size:11px;color:var(--text3);line-height:1.45;}
 
     /* ── League Action ─────────────────────────────────────────────────────
        One line per event so a lot fits at once; each clears on its own and the
@@ -4257,23 +4240,6 @@
        the curve carries no text at all — a second set of labels over the top
        of it collided with the row that was already naming both sides. */
     .fc-pct.up{color:var(--green);} .fc-pct.dn{color:var(--red);}
-    /* ── Forecast folds ──────────────────────────────────────────────────── */
-    .fc-fold{background:rgba(0,0,0,0.3);border-radius:10px;overflow:hidden;margin:0 0 10px;}
-    .fc-fold-h{display:flex;flex-direction:row;align-items:center;gap:9px;width:100%;
-      padding:11px 13px;border:0;border-radius:0;background:rgba(0,0,0,0.3);box-shadow:none;
-      cursor:pointer;text-align:left;font-family:'Inter',sans-serif;font-size:11px;
-      font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
-    .fc-fold-h:hover,.fc-fold-h:active,.fc-fold-h:focus{box-shadow:none;}
-    /* the leading icon is gone; the chevron is the only i left in the bar */
-    .fc-fold-c{margin-left:auto;font-size:10px;color:var(--text3);transition:transform .18s ease;}
-    .fc-fold.open .fc-fold-c{transform:rotate(180deg);}
-    .fc-fold-b{display:grid;grid-template-rows:0fr;
-      transition:grid-template-rows .26s cubic-bezier(.3,.75,.25,1);}
-    .fc-fold-b>.fc-fold-in{min-height:0;overflow:hidden;}
-    .fc-fold:not(.open)>.fc-fold-b{visibility:hidden;}
-    .fc-fold.open>.fc-fold-b{grid-template-rows:1fr;visibility:visible;}
-    @media(prefers-reduced-motion:reduce){.fc-fold-b{transition:none;}}
-    .fc-fold .fc-imp{margin:0;padding:11px 13px;}
     /* ── Two lineups, side by side ───────────────────────────────────────── */
     /* Its own block rather than a drawer: the lineups are the thing the card is
        about once a week is running, and a heading you have to open first is a
@@ -5814,29 +5780,46 @@
        than a widget that landed on it. */
     .sos-sec{margin-top:30px;}
     /* ── PROJECTED FINISH: one plain line under week 14 ── */
-    /* ── PROJECTED BRACKETS: the two six-team brackets the projected finish seeds ── */
-    .spb{display:flex;flex-direction:column;gap:12px;margin-top:14px;}
-
-    .spb-bracket{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;}
+    /* ── PROJECTED BRACKETS: weeks 15 and 16 of the two six-team brackets ──
+       Two columns and a gutter, no scrolling: it fits a phone as it stands.
+       Each week-15 game shares a grid row with the week-16 game it feeds, so
+       every line is drawn off that row's own height --
+         a stub out of the week-15 game at its middle (50%),
+         a stub into the empty week-16 slot at ITS middle (75% of the game),
+         and the upright between them in the gutter (.spb-link).
+       The losers' upright spans both rows (the two week-15 losers are dealt
+       into the two week-16 games by seed, not game to game), so its ends are
+       worked from the 8px row gap: row-1 middle = 25% - 2px of the span,
+       row-2 slot middle = 12.5% - 1px from its foot; less a pixel each end
+       for the 2px line. */
+    .spb{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:12px;margin-top:14px;}
+    .spb-bracket{--spb-c:var(--accent);--spb-rgb:var(--accent-rgb);min-width:0;
+      background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;}
+    .spb-bracket.losers{--spb-c:var(--red);--spb-rgb:251,113,133;}
     .spb-bh{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-family:'Inter',sans-serif;font-size:12px;
-      font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--accent);}
-    .spb-rounds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
-    .spb-round{display:flex;flex-direction:column;justify-content:space-around;gap:8px;min-width:0;}
-    .spb-rh{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);}
-    .spb-game{background:rgba(0,0,0,0.25);border-radius:8px;overflow:hidden;}
-    .spb-tag{padding:6px 9px 0;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:0.4px;
-      text-transform:uppercase;color:var(--text2);}
-    .spb-team{display:flex;align-items:center;gap:7px;padding:7px 9px;font-size:13px;min-width:0;}
+      font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--spb-c);}
+    .spb-grid{display:grid;grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);row-gap:8px;}
+    .spb-w15{grid-column:1;} .spb-w16{grid-column:3;}
+    .spb-rh{grid-row:1;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;letter-spacing:0.5px;
+      text-transform:uppercase;color:var(--text3);}
+    .spb-game{position:relative;display:flex;flex-direction:column;background:rgba(0,0,0,0.25);border-radius:8px;}
+    .spb-team{position:relative;flex:1 1 0;display:flex;align-items:center;gap:6px;padding:7px 8px;font-size:13px;min-width:0;}
     .spb-team+.spb-team{border-top:1px solid var(--border);}
-    .spb-seed{width:16px;flex:0 0 auto;text-align:center;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
-      color:var(--text3);font-variant-numeric:tabular-nums;}
+    .spb-seed{flex:0 0 auto;display:grid;place-items:center;width:18px;height:18px;border-radius:5px;
+      background:rgba(var(--spb-rgb),0.16);color:var(--spb-c);font-family:'Inter',sans-serif;font-size:10.5px;
+      font-weight:800;font-variant-numeric:tabular-nums;}
     .spb-ab{flex:1;min-width:0;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .spb-rec{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;}
-    .spb-tbd{min-height:32px;}
-
-    /* on a phone the three rounds swipe sideways inside the card, week 15 first --
-       the way the league-history brackets do, rather than a page and a half tall */
-    @media(max-width:640px){ .spb-rounds{grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;} }
+    .spb-rec{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text2);font-variant-numeric:tabular-nums;}
+    .spb-tbd{min-height:34px;}
+    .spb-tbd::after{content:'';position:absolute;inset:6px 8px;border:1px dashed rgba(var(--spb-rgb),0.35);border-radius:6px;}
+    .spb-w15.spb-game::after,.spb-tbd::before{content:'';position:absolute;top:calc(50% - 1px);width:10px;height:2px;
+      background:rgba(var(--spb-rgb),0.55);}
+    .spb-w15.spb-game::after{left:100%;}
+    .spb-tbd::before{right:100%;}
+    .spb-link{grid-column:2;position:relative;}
+    .spb-link::before{content:'';position:absolute;left:9px;width:2px;top:calc(50% - 1px);bottom:calc(25% - 1px);
+      background:rgba(var(--spb-rgb),0.55);}
+    .spb-link.merge::before{top:calc(25% - 3px);bottom:calc(12.5% - 2px);}
     .spj-row{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 14px;
       border-radius:10px;background:var(--bg2);border:1px solid var(--border);}
     .spj-team{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;}

@@ -7214,23 +7214,15 @@ function renderForecast(info){
   const oppId=home?g.away.teamId:g.home.teamId;
   const oppT=_teams.find(t=>t.id===oppId);
   if(!meT||!oppT){ el.innerHTML=`<div class="lr-none">Could not read that matchup.</div>`; return; }
-  const owners=info.meta.owners||{};
-  const meO=owners[mine];
-  const A=fcSideStats(meO), B=fcSideStats(owners[oppId]);
-  const fcWk=Number(info.week)||schedCurWeek(info.season);
-  /* AS SET, not best legal: this card is about Sunday's game as it will
-     actually be played, and the curve under it converges on that same result. */
-  const p=(A&&B)?schedWinProbSet(A,B,fcWk):0.5;
 
   /* ── THE WHOLE SLATE, NOT JUST YOURS ──────────────────────────────────────
      Yours first, so the card opens on exactly what it always opened on, and
      the other five are there if you swipe. Scroll snapping does the work: no
      carousel, no timers, and a horizontal drag is what a phone does anyway.
 
-     The playoff odds and the trash talk stay OUTSIDE the scroller. Both are
-     about you -- there is no message to send to a game you are not in, and
-     what somebody else's result does to YOUR seeding is the same number on
-     every pane. */
+     The trash talk stays OUTSIDE the scroller: there is no message to send
+     to a game you are not in. (The Playoff odds fold that sat beside it came
+     off in v797, at the user's call.) */
   const rest=games.filter(m=>m!==g);
   const panes=[fcPaneHTML(info,mine,oppId,home?'home':'away')]
     .concat(rest.map(m=>fcPaneHTML(info,m.home.teamId,m.away.teamId,null)))
@@ -7252,11 +7244,6 @@ function renderForecast(info){
           aria-label="Matchup ${i+1} of ${panes.length}"></button>`).join('')}</div>`
     : '';
 
-  /* Both of these fold. What the game does to the season and who is starting
-     for whom are things you go and look at, not things you need in front of
-     you every time the page opens — and left open they push the matchup
-     itself off a phone screen. */
-  const imp=fcImplications(info,meO,p);
   /* ── A LIVE POLL REPAINTS THIS WHOLE CARD ────────────────────────────────
      Every few minutes, on the tab the app opens on. The trash talk box lives
      inside it, so a manager halfway through a message lost it -- and on a
@@ -7270,7 +7257,6 @@ function renderForecast(info){
   el.innerHTML=`
     ${dots}
     <div class="fc-scroll" id="fc-scroll">${panes.join('')}</div>
-    ${imp?fcFold('fc-imp','Playoff odds',imp):''}
     ${ttBoxHTML(fcOppKey(oppT),oppT.name)}`;
   fcBindScroll();
   const sc=document.getElementById('fc-scroll');
@@ -7354,61 +7340,6 @@ async function fcLoadSlots(info){
     if(_activeTab==='home') try{ renderForecastCard(info); }catch(e){}
   }catch(e){}
   _slotBusy=false;
-}
-/* what winning or losing would do to the season */
-/* The same fold the sportsbook and the homepage use, in the forecast's own
-   clothes: state is kept per key so opening one and repainting the week does
-   not shut it again. */
-/* The lineups open by default — that is the thing you came to look at, and a
-   fold you have to open every single time is a lid on the main course. Playoff
-   odds stay shut until asked for. */
-let _fcOpen={'fc-lu':true};
-function fcToggle(k){
-  _fcOpen[k]=!_fcOpen[k];
-  const el=document.querySelector('.fc-fold[data-k="'+CSS.escape(k)+'"]');
-  if(!el) return;
-  el.classList.toggle('open',_fcOpen[k]);
-  const b=el.querySelector('.fc-fold-h'); if(b) b.setAttribute('aria-expanded',String(!!_fcOpen[k]));
-}
-/* No icon on the bar. The chevron is not one of them — it is the control that
-   says the thing folds — but a pie chart beside the words "playoff odds" only
-   repeats them, and two bars each wearing a different symbol read as two
-   unrelated things rather than two of the same. */
-function fcFold(k,title,body){
-  const open=!!_fcOpen[k];
-  return `<div class="fc-fold${open?' open':''}" data-k="${k}">
-    <button class="fc-fold-h" onclick="fcToggle('${k}')" aria-expanded="${open}">
-      <span>${title}</span>
-      <i class="fa fa-chevron-down fc-fold-c"></i>
-    </button>
-    <div class="fc-fold-b"><div class="fc-fold-in">${body}</div></div>
-  </div>`;
-}
-function fcImplications(info,owner,p){
-  const d=playoffOutlook();
-  if(!d) return '';
-  const me=d.teams.find(t=>t.owner===owner);
-  if(!me||me.odds==null) return '';
-  /* WIN AND LOSS ARE THE SEASON REPLAYED WITH THIS GAME DECIDED. They used to
-     be ESPN's number pushed up or down by a fixed swing scaled from games left
-     -- a shape that looked like a forecast and was not one. Now the same six
-     thousand seasons behind the Now figure are replayed with this one result
-     forced each way, on the same draws, so the gap between the three is
-     exactly what this game is worth and nothing else. */
-  const f=d.focus&&d.focus.owner===owner?d.focus:null;
-  if(!f) return '';
-  const pc=v=>v>=0.995?'>99':v<=0.005?'<1':String(Math.round(v*100));
-  const now=pc(me.odds), win=pc(f.win), lose=pc(f.loss);
-  return `<div class="fc-imp">
-    <div class="fc-imp-r">
-      <div class="fc-imp-c good"><span class="fc-imp-l">Win</span><span class="fc-imp-v">${win}%</span>
-        <span class="fc-imp-s">playoff odds</span></div>
-      <div class="fc-imp-c now"><span class="fc-imp-l">Now</span><span class="fc-imp-v">${now}%</span>
-        <span class="fc-imp-s">${me.fBest===me.fWorst?ordinal(me.fBest):`${ordinal(me.fBest)}–${ordinal(me.fWorst)}`}</span></div>
-      <div class="fc-imp-c bad"><span class="fc-imp-l">Loss</span><span class="fc-imp-v">${lose}%</span>
-        <span class="fc-imp-s">playoff odds</span></div>
-    </div>
-  </div>`;
 }
 /* the punishment on the clock, same card the homepage shows */
 function weekPunishment(){
@@ -11296,15 +11227,16 @@ function schedProjHTML(owner,d){
    Seeded by that record; level records go to projected points for: what each
    team has scored plus what it is projected to score in the games still left.
 
-   Laid into the league's two six-team brackets, weeks 15-17:
-     championship  1 and 2 bye and first appear in week 16; 3 v 6 and 4 v 5;
-                   1 meets the 4/5 winner and 2 the 3/6 winner; week 17 the
-                   final
-     losers'       11 and 12 sit out week 15 and first appear in week 16;
-                   7 v 10 and 8 v 9, and the two week-15 losers carry on --
-                   12 meets the better-seeded one, 11 the other, as 2024 and
-                   2025 both ran; the two week-16 losers play for the
-                   punishment
+   Laid into the league's two six-team brackets, weeks 15 and 16 only -- week
+   17 follows from them, and this is about the seeding (the user's call, v797):
+     championship  4 v 5 feeds 1, 3 v 6 feeds 2; the week-15 winner takes the
+                   empty slot across from the bye
+     losers'       7 v 10 and 8 v 9; the two week-15 LOSERS carry on -- 12
+                   meets the better-seeded one, 11 the other, as 2024 and 2025
+                   both ran -- so the lines merge and split rather than run
+                   game to game
+   Each week-15 game sits on the row of the week-16 game it feeds, and the
+   lines between them are drawn in CSS off that shared row (see .spb-link).
    Shown only while there is regular season left to project. */
 function schedProjSeeds(){
   const book=sbBuild(); if(!book) return null;
@@ -11337,23 +11269,20 @@ function schedBracketsHTML(){
   if(!P||!P.left||P.seeds.length<12) return '';
   const S=n=>P.seeds[n-1];
   const rec=x=>`${x.w}–${x.l}${x.t?`–${x.t}`:''}`;
-  const team=x=>`<div class="spb-team"><span class="spb-seed">${x.seed}</span>${sbAvatar(x.owner,18)}`
+  const team=x=>`<div class="spb-team"><span class="spb-seed">${x.seed}</span>${sbAvatar(x.owner,20)}`
     +`<span class="spb-ab">${sbTeamAb(x.owner,x.name)}</span><span class="spb-rec">${rec(x)}</span></div>`;
-  const tbd=()=>'<div class="spb-team spb-tbd"></div>';
-  const game=(a,b,tag)=>`<div class="spb-game">${tag?`<div class="spb-tag">${tag}</div>`:''}${a}${b}</div>`;
-  const round=(label,body)=>`<div class="spb-round"><div class="spb-rh">${label}</div>${body}</div>`;
-  const bracket=(icon,title,rounds)=>`<div class="spb-bracket"><div class="spb-bh"><i class="fa ${icon}"></i>${title}</div>`
-    +`<div class="spb-rounds">${rounds}</div></div>`;
+  const tbd='<div class="spb-team spb-tbd"></div>';
+  const g15=(row,a,b)=>`<div class="spb-game spb-w15" style="grid-row:${row}">${team(a)}${team(b)}</div>`;
+  const g16=(row,a)=>`<div class="spb-game spb-w16" style="grid-row:${row}">${team(a)}${tbd}</div>`;
+  const bracket=(cls,icon,title,body)=>`<div class="spb-bracket ${cls}"><div class="spb-bh"><i class="fa ${icon}"></i>${title}</div>`
+    +`<div class="spb-grid"><div class="spb-rh spb-w15">Week 15</div><div class="spb-rh spb-w16">Week 16</div>${body}</div></div>`;
   return `<div class="spb">
-    ${bracket('fa-trophy','Championship bracket',
-      round('Week 15',game(team(S(3)),team(S(6)))+game(team(S(4)),team(S(5))))
-      +round('Week 16 · Semifinals',game(team(S(1)),tbd())+game(team(S(2)),tbd()))
-      +round('Week 17',game(tbd(),tbd(),'Championship')
-        +game(tbd(),tbd(),'3rd place')))}
-    ${bracket('fa-toilet-paper','Losers\' bracket',
-      round('Week 15',game(team(S(7)),team(S(10)))+game(team(S(8)),team(S(9))))
-      +round('Week 16',game(team(S(12)),tbd())+game(team(S(11)),tbd()))
-      +round('Week 17',game(tbd(),tbd(),'Punishment game')))}
+    ${bracket('champ','fa-trophy','Championship bracket',
+      g15(2,S(4),S(5))+'<div class="spb-link" style="grid-row:2"></div>'+g16(2,S(1))
+      +g15(3,S(3),S(6))+'<div class="spb-link" style="grid-row:3"></div>'+g16(3,S(2)))}
+    ${bracket('losers','fa-toilet-paper','Losers\' bracket',
+      g15(2,S(7),S(10))+g15(3,S(8),S(9))+'<div class="spb-link merge" style="grid-row:2 / span 2"></div>'
+      +g16(2,S(12))+g16(3,S(11)))}
   </div>`;
 }
 function schedPctCol(p){
@@ -11726,7 +11655,8 @@ function poGameP(g,rowOf){
 }
 /* list: owners. base: {w,l,t,pf} out of finished weeks. games: {a,b,p,muA,muB}.
    focus: {owner,game} -- one game to replay both ways for that owner, which is
-   what the Forecast's Win and Loss columns are. Replayed on the SAME draws, so
+   what the Forecast's Win and Loss columns were (that fold came off in v797
+   and playoffOutlook passes none now). Replayed on the SAME draws, so
    the only thing that differs between the three answers is that one result:
    Win can never come out below Now, nor Loss above it. */
 function poSimulate(list,base,games,spots,focus){
@@ -11927,16 +11857,16 @@ function playoffOutlook(){
   const rowOf=o=>book?book.rows.find(r=>r.owner===o):null;
   const priced=book?left.map(g=>{ const q=poGameP(g,rowOf); return q?{...g,...q}:null; }):[];
   const ready=!!book&&priced.every(Boolean);
-  /* the signed-in manager's next game is the one the Forecast swings on */
-  const myO=_me&&_me.teamId?owners[_me.teamId]:null;
-  const nextW=myO?Math.min(...left.filter(g=>g.a===myO||g.b===myO).map(g=>g.w)):Infinity;
-  const fGame=isFinite(nextW)?left.findIndex(g=>g.w===nextW&&(g.a===myO||g.b===myO)):-1;
+  /* No focus game any more. The signed-in manager's next game used to be
+     replayed both ways for the Forecast's Win / Now / Loss -- two extra
+     replays every run -- and that fold came off the card in v797, so nothing
+     reads the replay. poSimulate still takes a focus for anything that wants
+     one back. */
   let sim=null;
   if(ready){
-    const key=cs+'|'+myO+'|'+fGame+'|'+priced.map(g=>g.w+g.a+g.b+':'+g.p.toFixed(3)).join(',');
+    const key=cs+'|'+priced.map(g=>g.w+g.a+g.b+':'+g.p.toFixed(3)).join(',');
     if(_poSim&&_poSimKey===key) sim=_poSim;
-    else{ sim=poSimulate(list,base,priced,spots,fGame>=0?{owner:myO,game:fGame}:null);
-      _poSim=sim; _poSimKey=key; }
+    else{ sim=poSimulate(list,base,priced,spots,null); _poSim=sim; _poSimKey=key; }
   }
 
   const teams=list.map(o=>{
@@ -11972,8 +11902,7 @@ function playoffOutlook(){
   teams.sort((a,b)=>(b.odds??-1)-(a.odds??-1)||a.now-b.now||a.name.localeCompare(b.name));
 
   _poCache={teams,spots,left:left.length,season:info.season,regEnd,
-    size:list.length,played:playedAny,hasOdds:!!sim,runs:sim?sim.runs:0,
-    focus:sim&&sim.focus?sim.focus:null};
+    size:list.length,played:playedAny,hasOdds:!!sim,runs:sim?sim.runs:0};
   return _poCache;
 }
 const ordinal=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
