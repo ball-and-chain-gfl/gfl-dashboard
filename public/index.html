@@ -1325,6 +1325,14 @@
       border:1px solid rgba(var(--accent-rgb),0.32);
       font-family:'Inter',sans-serif;font-size:12px;color:var(--accent);}
     .iv-list{display:flex;flex-direction:column;gap:7px;}
+    /* the coin market, suspended: a dark sheet over the whole board */
+    .iv-uc-wrap{position:relative;min-height:440px;}
+    .iv-uc{position:absolute;inset:-4px;z-index:5;border-radius:14px;background:rgba(6,7,10,0.82);
+      display:flex;justify-content:center;align-items:flex-start;}
+    .iv-uc-msg{position:sticky;top:42vh;margin-top:90px;display:flex;flex-direction:column;align-items:center;gap:12px;
+      padding:0 20px;text-align:center;font-family:'Inter',sans-serif;font-size:17px;font-weight:700;
+      letter-spacing:0.2px;color:#f2f2f2;text-wrap:balance;}
+    .iv-uc-msg i{font-size:34px;color:var(--accent);}
     /* ── ONE CARD, TWO INSTRUMENTS, AND THE COLOUR IS WHICH ──────────────
        Blue buys, orange sells short. Both are carried on --ivc rather than
        written into each rule, so the card, its button, its tag and the sliding

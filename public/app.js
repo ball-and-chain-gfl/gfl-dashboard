@@ -14262,7 +14262,7 @@ const invCoin=k=>INV_COINS.find(c=>invCoinKey(c.pid)===k)||null;
    false and the market is back exactly as it was. */
 const INV_COINS_SUSPENDED=true;
 const invSuspended=o=>INV_COINS_SUSPENDED&&!!invCoin(o);
-const INV_SUSPENDED_NOTE='Coin trading is suspended while the coin market is reworked. Every coin you hold keeps its value.';
+const INV_SUSPENDED_NOTE='Coin market currently under construction.';
 function invCoinPrices(){
   const pool=(typeof _bkPool!=='undefined'&&_bkPool)?_bkPool:null;
   if(!pool||!pool.length) return {};
@@ -24010,6 +24010,16 @@ function invPatchCard(card){
    same Stocks/Shorts switch, the same ledger underneath -- so this is one
    function with a parameter rather than two that would drift apart. Only the
    crest and the line under the name differ. */
+/* ── THE COIN MARKET, UNDER CONSTRUCTION ─────────────────────────────────────
+   While coins are suspended the board is still drawn -- the prices are worth
+   seeing -- under a dark sheet that takes every tap, with one line on it. The
+   line rides the middle of the screen however far down the board is scrolled. */
+function invCoinsHTML(){
+  if(!INV_COINS_SUSPENDED) return invBoardHTML('coins');
+  return `<div class="iv-uc-wrap">${invBoardHTML('coins')}
+    <div class="iv-uc" role="status"><div class="iv-uc-msg"><i class="fa fa-person-digging"></i>
+      <span>Coin market currently under construction</span></div></div></div>`;
+}
 function invBoardHTML(which){
   const isCoins=which==='coins';
   const b=invBoard();
@@ -24148,7 +24158,7 @@ function invBoardHTML(which){
      one screen is one too many. The Buy button still disables itself against
      the balance, so the limit is enforced where it is felt. */
   return `${_invErr?`<div class="iv-err">${_invErr}</div>`:''}
-    ${shut?`<div class="iv-shut"><i class="fa fa-lock"></i>${susp?INV_SUSPENDED_NOTE:invLockNote()}</div>`:''}
+    ${(shut&&!susp)?`<div class="iv-shut"><i class="fa fa-lock"></i>${invLockNote()}</div>`:''}
     <div class="iv-seg" data-on="${short?'short':'long'}" role="group"
         aria-label="Which side of the market">
       <button class="iv-seg-b${short?'':' on'}" onclick="invSetSide('long')" aria-pressed="${!short}">${isCoins?'Coins':'Stocks'}</button>
@@ -24525,7 +24535,7 @@ function renderBookInner(){
      read as four more buttons on a page already made of buttons. */
   const tabs=SB_GROUPS.map(g=>`<button class="sb-utab${_sbView===g.k?' on':''}" data-view="${g.k}"
     role="tab" aria-selected="${_sbView===g.k}" onclick="sbSetView('${g.k}')">${g.label}</button>`).join('');
-  const board=_sbView==='coins'?invBoardHTML('coins')
+  const board=_sbView==='coins'?invCoinsHTML()
     :_sbView==='week'?sbWeekHTML()
     :_sbView==='invest'?invBoardHTML()
     :_sbView==='folio'?invPortfolioHTML()

@@ -86,5 +86,7 @@ ok('the trade itself refuses a coin, and reads the profile before writing',
 ok('every button that trades a coin says Suspended',
   APP.includes("shutTxt=invSuspended(o)?'Suspended':'Closed'") && APP.includes("${susp?'Suspended':'Closed'}") && (APP.match(/\$\{!shut\?'Suspended':'Closed'\}/g) || []).length === 2, true);
 
+ok('the coins tab is a dark sheet with one line on it, not a notice box', APP.includes("_sbView==='coins'?invCoinsHTML()") && APP.includes('Coin market currently under construction</span>') && APP.includes("${(shut&&!susp)?"), true);
+
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
