@@ -11270,6 +11270,76 @@ function schedProjHTML(owner,d){
     <span class="spj-rec">${rec}</span>
   </div>`;
 }
+/* ── THE BRACKETS THE SCHEDULE POINTS AT ──────────────────────────────────────
+   Every team's projected finish, called the way the Projected Finish line
+   calls one team's -- favoured on the Win% chance is a win, a dead level 50%
+   goes to the better all-time record and then to points -- but each fixture
+   called ONCE, so the two teams in it can never both be handed the win.
+   Seeded by that record; level records go to projected points for: what each
+   team has scored plus what it is projected to score in the games still left.
+
+   Laid into the league's two six-team brackets, weeks 15-17:
+     championship  1 and 2 bye; 3 v 6 and 4 v 5; 1 meets the 4/5 winner and
+                   2 the 3/6 winner; week 17 the final
+     losers'       11 and 12 sit out week 15 (scheduled against each other);
+                   7 v 10 and 8 v 9, and the two week-15 losers carry on --
+                   12 meets the better-seeded one, 11 the other, as 2024 and
+                   2025 both ran; the two week-16 losers play for the
+                   punishment
+   Shown only while there is regular season left to project. */
+function schedProjSeeds(){
+  const book=sbBuild(); if(!book) return null;
+  const info=schedSeason(); const meta=info.meta; if(!meta||!meta.owners) return null;
+  const regEnd=info.regEnd||14, owners=meta.owners;
+  const rowOf=o=>book.rows.find(r=>r.owner===o);
+  const T={};
+  Object.entries(owners).forEach(([tid,o])=>{
+    const tm=schedTeamOf(o); if(!tm) return;
+    T[o]={owner:o,tid:Number(tid),name:tm.name||'',w:tm.wins||0,l:tm.losses||0,t:tm.ties||0,
+      pf:Number(tm.pf)||0,ppf:Number(tm.pf)||0};
+  });
+  const left=info.unplayed.filter(m=>(m.matchupPeriodId||0)<=regEnd);
+  left.forEach(m=>{
+    const ho=owners[m.home.teamId], ao=owners[m.away.teamId];
+    const H=rowOf(ho), A=rowOf(ao);
+    if(!T[ho]||!T[ao]||!H||!A) return;
+    const wk=m.matchupPeriodId;
+    if(schedCall(ho,ao,schedWinProb(H,A,wk)).win){ T[ho].w++; T[ao].l++; } else { T[ao].w++; T[ho].l++; }
+    const pj=schedEspnProj(wk)||{};
+    T[ho].ppf+=pj[ho]>0?pj[ho]:(Number(H.ppg)||0);
+    T[ao].ppf+=pj[ao]>0?pj[ao]:(Number(A.ppg)||0);
+  });
+  const pct=x=>{ const g=x.w+x.l+x.t; return g?(x.w+x.t/2)/g:0; };
+  const seeds=Object.values(T).sort((a,b)=>pct(b)-pct(a)||b.ppf-a.ppf).map((x,i)=>({...x,seed:i+1}));
+  return {seeds,left:left.length};
+}
+function schedBracketsHTML(){
+  let P=null; try{ P=schedProjSeeds(); }catch(e){ P=null; }
+  if(!P||!P.left||P.seeds.length<12) return '';
+  const S=n=>P.seeds[n-1];
+  const rec=x=>`${x.w}–${x.l}${x.t?`–${x.t}`:''}`;
+  const team=x=>`<div class="spb-team"><span class="spb-seed">${x.seed}</span>${sbAvatar(x.owner,18)}`
+    +`<span class="spb-ab">${sbTeamAb(x.owner,x.name)}</span><span class="spb-rec">${rec(x)}</span></div>`;
+  const tbd=txt=>`<div class="spb-team spb-tbd">${txt}</div>`;
+  const game=(a,b,tag)=>`<div class="spb-game">${tag?`<div class="spb-tag">${tag}</div>`:''}${a}${b}</div>`;
+  const round=(label,body)=>`<div class="spb-round"><div class="spb-rh">${label}</div>${body}</div>`;
+  const aside=(label,a,b)=>`<div class="spb-aside"><div class="spb-tag">${label}</div>${team(a)}${team(b)}</div>`;
+  const bracket=(icon,title,rounds)=>`<div class="spb-bracket"><div class="spb-bh"><i class="fa ${icon}"></i>${title}</div>`
+    +`<div class="spb-rounds">${rounds}</div></div>`;
+  return `<div class="spb">
+    <div class="spb-note">Projected brackets: seeded by projected finish, level records split by projected points for.</div>
+    ${bracket('fa-trophy','Championship bracket',
+      round('Week 15',game(team(S(3)),team(S(6)))+game(team(S(4)),team(S(5)))+aside('Byes',S(1),S(2)))
+      +round('Week 16 · Semifinals',game(team(S(1)),tbd('Winner of 4 v 5'))+game(team(S(2)),tbd('Winner of 3 v 6')))
+      +round('Week 17',game(tbd('Semifinal winner'),tbd('Semifinal winner'),'Championship')
+        +game(tbd('Semifinal loser'),tbd('Semifinal loser'),'3rd place')))}
+    ${bracket('fa-toilet-paper','Losers\' bracket',
+      round('Week 15',game(team(S(7)),team(S(10)))+game(team(S(8)),team(S(9)))+aside('Sitting out',S(11),S(12)))
+      +round('Week 16',game(team(S(12)),tbd('Week 15 loser, higher seed'))+game(team(S(11)),tbd('Week 15 loser, lower seed'))
+        +'<div class="spb-aside-note">Week 15 winners are safe</div>')
+      +round('Week 17',game(tbd('Week 16 loser'),tbd('Week 16 loser'),'Punishment game')))}
+  </div>`;
+}
 function schedPctCol(p){
   if(p>=0.62) return 'var(--green)';
   if(p>=0.52) return '#a3e635';
@@ -12207,6 +12277,7 @@ function renderSchedule(){
       </div>
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
     ${schedProjHTML(owner,d)}
+    ${schedBracketsHTML()}
     ${pollSosHTML(owner)}
     ${playoffOutlookHTML()}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
