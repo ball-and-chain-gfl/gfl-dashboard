@@ -1,5 +1,5 @@
 {
-  "_comment": "League superlatives (commissioner-voted). Team names are matched case-insensitively to the current franchise names. Add a new season block each year.",
+  "_comment": "League superlatives (commissioner-voted). Each entry carries the owner it belongs to (the ESPN member id) and is read by that, never by the name, so a rename cannot move an award. After adding one, run node scripts/migrations/stamp-owners.mjs --write. Add a new season block each year.",
   "labels": {
     "coy":        { "name": "Coach of the Year",            "emoji": "🧠", "icon": "fa-brain",         "good": true },
     "commitment": { "name": "League Commitment Award",      "emoji": "🤝", "icon": "fa-handshake",     "good": true },
@@ -10,24 +10,24 @@
   "order": ["coy", "commitment", "comeback", "punishment", "disappoint"],
   "years": {
     "2025": {
-      "coy":        [{ "team": "The Bryan Football Team" }],
-      "disappoint": [{ "team": "West Coast Wigglers" }],
-      "commitment": [{ "team": "Florida Man" }],
-      "comeback":   [{ "team": "Florida Man" }],
-      "punishment": [{ "team": "Tuckasegee Tinglers", "detail": "Wine Pour" }]
+      "coy":        [{ "team": "The Bryan Football Team", "owner": "{914E533C-0C16-48AC-A3E2-E51D83ED8802}" }],
+      "disappoint": [{ "team": "West Coast Wigglers", "owner": "{0418AE68-9EAF-4471-9F8D-2434C9C2B0BD}" }],
+      "commitment": [{ "team": "Florida Man", "owner": "{1DFEA78E-F518-47D1-88C3-E18B001B0CFE}" }],
+      "comeback":   [{ "team": "Florida Man", "owner": "{1DFEA78E-F518-47D1-88C3-E18B001B0CFE}" }],
+      "punishment": [{ "team": "Tuckasegee Tinglers", "owner": "{6D0BF10C-D91B-48DB-8E8F-0BB5C7281D67}", "detail": "Wine Pour" }]
     },
     "2024": {
-      "coy":        [{ "team": "The Bryan Football Team" }],
-      "disappoint": [{ "team": "Marathon Men" }],
-      "commitment": [{ "team": "Florida Man" }],
-      "comeback":   [{ "team": "Florida Man" }],
-      "punishment": [{ "team": "Team silly willy", "detail": "10k Fruit Pledge" }]
+      "coy":        [{ "team": "The Bryan Football Team", "owner": "{914E533C-0C16-48AC-A3E2-E51D83ED8802}" }],
+      "disappoint": [{ "team": "Marathon Men", "owner": "{3F91B152-68AF-4991-9CBB-6F58FF318056}" }],
+      "commitment": [{ "team": "Florida Man", "owner": "{1DFEA78E-F518-47D1-88C3-E18B001B0CFE}" }],
+      "comeback":   [{ "team": "Florida Man", "owner": "{1DFEA78E-F518-47D1-88C3-E18B001B0CFE}" }],
+      "punishment": [{ "team": "Team silly willy", "owner": "{D6FFE34D-182A-42A5-BFE3-4D182A12A516}", "detail": "10k Fruit Pledge" }]
     },
     "2023": {
-      "coy":        [{ "team": "The Bryan Football Team" }, { "team": "Bikini Bottom Goobers" }, { "team": "Lebron's 3rd Leg" }],
-      "commitment": [{ "team": "Bikini Bottom Goobers" }],
-      "disappoint": [{ "team": "Team silly willy" }],
-      "comeback":   [{ "team": "Tuckasegee Tinglers" }]
+      "coy":        [{ "team": "The Bryan Football Team", "owner": "{914E533C-0C16-48AC-A3E2-E51D83ED8802}" }, { "team": "Bikini Bottom Goobers", "owner": "{B45E588F-356A-4090-BC84-D3B788EC9E4D}" }, { "team": "Lebron's 3rd Leg", "owner": "{E46CDDAC-49F7-4272-ACDD-AC49F7F272A9}" }],
+      "commitment": [{ "team": "Bikini Bottom Goobers", "owner": "{B45E588F-356A-4090-BC84-D3B788EC9E4D}" }],
+      "disappoint": [{ "team": "Team silly willy", "owner": "{D6FFE34D-182A-42A5-BFE3-4D182A12A516}" }],
+      "comeback":   [{ "team": "Tuckasegee Tinglers", "owner": "{6D0BF10C-D91B-48DB-8E8F-0BB5C7281D67}" }]
     }
   }
 }

@@ -1,39 +1,39 @@
 {
-  "_comment": "Official Coaching Metric values archived from the commissioner's spreadsheet. Seasons listed in `none` show 'no data available'. Team keys are matched case-insensitively as partial names against that season's ESPN team names.",
+  "_comment": "Official Coaching Metric values archived from the commissioner's spreadsheet. Seasons listed in `none` show 'no data available'. Each row carries its owner (the ESPN member id) and is read by that; a row without one must match that season's ESPN team name exactly. After adding a season, run node scripts/migrations/stamp-owners.mjs --write.",
   "none": ["2022", "2023"],
   "2025": {
     "source": "Coaching Metric 2025 spreadsheet",
     "scores": {
-      "The Bryan Football Team": {"c1": 4.76225, "c2": 4.59, "c3": 2.865, "final": 12.21725},
-      "Bikini Bottom Goobers":  {"c1": 1.53975, "c2": 4.66, "c3": 1.29, "final": 7.48975},
-      "Lebron's 3rd Leg":       {"c1": -0.03625, "c2": 6.13, "c3": 0.825, "final": 6.91875},
-      "Team silly willy":       {"c1": 1.07325, "c2": 0, "c3": 0.9, "final": 1.97325},
-      "Tuckasegee Tinglers":    {"c1": -0.09375, "c2": 0, "c3": 1.65, "final": 1.55625},
-      "Motor City Mulligans":   {"c1": -1.25125, "c2": -1.115, "c3": 3.135, "final": 0.76875},
-      "West Coast Wigglers":    {"c1": -1.51025, "c2": -2.885, "c3": 2.205, "final": -2.19025},
-      "Midwest Miners":         {"c1": -3.44975, "c2": 4.04, "c3": -4.14, "final": -3.54975},
-      "Marathon Men":           {"c1": 0.65475, "c2": -3.235, "c3": -2.115, "final": -4.69525},
-      "Florida Man":            {"c1": 2.08825, "c2": -5.895, "c3": -2.76, "final": -6.56675},
-      "Whittingham Sports":     {"c1": -4.30025, "c2": 0, "c3": 1.05, "final": -6.75025},
-      "Bismuth":                {"c1": 0.52275, "c2": -6.29, "c3": -4.905, "final": -10.67225}
+      "The Bryan Football Team": {"c1": 4.76225, "c2": 4.59, "c3": 2.865, "final": 12.21725, "owner": "{914E533C-0C16-48AC-A3E2-E51D83ED8802}"},
+      "Bikini Bottom Goobers":  {"c1": 1.53975, "c2": 4.66, "c3": 1.29, "final": 7.48975, "owner": "{B45E588F-356A-4090-BC84-D3B788EC9E4D}"},
+      "Lebron's 3rd Leg":       {"c1": -0.03625, "c2": 6.13, "c3": 0.825, "final": 6.91875, "owner": "{E46CDDAC-49F7-4272-ACDD-AC49F7F272A9}"},
+      "Team silly willy":       {"c1": 1.07325, "c2": 0, "c3": 0.9, "final": 1.97325, "owner": "{D6FFE34D-182A-42A5-BFE3-4D182A12A516}"},
+      "Tuckasegee Tinglers":    {"c1": -0.09375, "c2": 0, "c3": 1.65, "final": 1.55625, "owner": "{6D0BF10C-D91B-48DB-8E8F-0BB5C7281D67}"},
+      "Motor City Mulligans":   {"c1": -1.25125, "c2": -1.115, "c3": 3.135, "final": 0.76875, "owner": "{21D6AE2F-FDD3-487E-850F-FDF998931834}"},
+      "West Coast Wigglers":    {"c1": -1.51025, "c2": -2.885, "c3": 2.205, "final": -2.19025, "owner": "{0418AE68-9EAF-4471-9F8D-2434C9C2B0BD}"},
+      "Midwest Miners":         {"c1": -3.44975, "c2": 4.04, "c3": -4.14, "final": -3.54975, "owner": "{2158CFCE-FA71-4064-916C-722D91F98966}"},
+      "Marathon Men":           {"c1": 0.65475, "c2": -3.235, "c3": -2.115, "final": -4.69525, "owner": "{3F91B152-68AF-4991-9CBB-6F58FF318056}"},
+      "Florida Man":            {"c1": 2.08825, "c2": -5.895, "c3": -2.76, "final": -6.56675, "owner": "{1DFEA78E-F518-47D1-88C3-E18B001B0CFE}"},
+      "Whittingham Sports":     {"c1": -4.30025, "c2": 0, "c3": 1.05, "final": -6.75025, "owner": "{B7954BB8-4198-489E-A43E-A8CD98A608EF}"},
+      "Bismuth":                {"c1": 0.52275, "c2": -6.29, "c3": -4.905, "final": -10.67225, "owner": "{B3062911-3555-4866-BA41-1D397A788FE0}"}
     }
   },
   "2024": {
     "legacy": true,
     "source": "Coaching Metric 2024 spreadsheet (legacy weighted-metric formula)",
     "scores": {
-      "Lebron's 3rd Leg":        {"final": 7.814},
-      "The Bryan Football Team": {"final": 6.144},
-      "SKOL":                    {"final": 3.898},
-      "Bikini Bottom Goobers":   {"final": 2.984},
-      "Wan'dalicious":           {"final": 2.014},
-      "#BeatJimmy2025":          {"final": 1.322},
-      "Florida Man":             {"final": -0.044},
-      "Won't you be my Nabers":  {"final": -1},
-      "Who Gibbs A":             {"final": -3.502},
-      "Teton Tinglers":          {"final": -3.6},
-      "Kirkland Signature":      {"final": -5.084},
-      "Team silly willy":        {"final": -10.95}
+      "Lebron's 3rd Leg":        {"final": 7.814, "owner": "{E46CDDAC-49F7-4272-ACDD-AC49F7F272A9}"},
+      "The Bryan Football Team": {"final": 6.144, "owner": "{914E533C-0C16-48AC-A3E2-E51D83ED8802}"},
+      "SKOL":                    {"final": 3.898, "owner": "{0418AE68-9EAF-4471-9F8D-2434C9C2B0BD}"},
+      "Bikini Bottom Goobers":   {"final": 2.984, "owner": "{B45E588F-356A-4090-BC84-D3B788EC9E4D}"},
+      "Wan'dalicious":           {"final": 2.014, "owner": "{2158CFCE-FA71-4064-916C-722D91F98966}"},
+      "#BeatJimmy2025":          {"final": 1.322, "owner": "{B7954BB8-4198-489E-A43E-A8CD98A608EF}"},
+      "Florida Man":             {"final": -0.044, "owner": "{1DFEA78E-F518-47D1-88C3-E18B001B0CFE}"},
+      "Won't you be my Nabers":  {"final": -1, "owner": "{3F91B152-68AF-4991-9CBB-6F58FF318056}"},
+      "Who Gibbs A":             {"final": -3.502, "owner": "{8FBD4268-C210-40B5-AD5E-35E921F57386}"},
+      "Teton Tinglers":          {"final": -3.6, "owner": "{6D0BF10C-D91B-48DB-8E8F-0BB5C7281D67}"},
+      "Kirkland Signature":      {"final": -5.084, "owner": "{21D6AE2F-FDD3-487E-850F-FDF998931834}"},
+      "Team silly willy":        {"final": -10.95, "owner": "{D6FFE34D-182A-42A5-BFE3-4D182A12A516}"}
     }
   }
 }

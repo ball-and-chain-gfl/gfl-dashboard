@@ -61,6 +61,8 @@ jobs:
         run: node scripts/test-c4.mjs
       - name: voided ledger entries count for nothing, and coins are suspended
         run: node scripts/test-coin-void.mjs
+      - name: a name is not an identity -- awards and official scores are read by owner
+        run: node scripts/test-names.mjs
       - name: one team's moneyline and spread cannot share a ticket
         run: node scripts/test-mlsp.mjs
       - name: a trade is what ESPN upheld, locked; an invitation closes with its bet

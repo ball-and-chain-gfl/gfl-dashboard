@@ -321,13 +321,32 @@ async function loadAwards(){
   return _awardsData;
 }
 function awardStrip(s){return String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();}
-// Match an award's team name to a current franchise.
-function awardOwner(name){
+/* ── AN AWARD BELONGS TO AN OWNER, NEVER TO A NAME ───────────────────────────
+   This matched an award's team name against today's franchise names, and when
+   nothing matched it fell back to any shared word longer than three letters.
+   Team silly willy became Will's Wife Beaters, the old name stopped matching,
+   and "team" found The Bryan Football Team -- which took the Willies' 2023
+   Most Disappointing Team and 2024 Punishment Performance with it.
+
+   Every archived award now carries its owner (scripts/migrations/
+   stamp-owners.mjs), the ESPN member id no rename or new logo can touch, and
+   that is what an award is read by. An entry without one is matched EXACTLY
+   against the names of the season it was won in, then against the names any
+   one owner has ever carried -- and when neither is certain it is shown as
+   written, unattributed. A wrong team is worse than no team. */
+function franchiseOf(owner){ return owner?(_franchises||[]).find(f=>f.owner===owner)||null:null; }
+function ownerByName(season,name){
   const n=awardStrip(name); if(!n) return null;
-  let best=null;
-  _franchises.forEach(f=>{const fn=awardStrip(f.name);if(fn===n||fn.includes(n)||n.includes(fn))best=f;});
-  if(!best){const nw=n.split(' ').filter(w=>w.length>3);_franchises.forEach(f=>{const fn=awardStrip(f.name);if(nw.some(w=>fn.includes(w)))best=f;});}
-  return best;
+  const named=s=>Object.entries(((_seasonMeta[String(s)]||{}).names)||{})
+    .filter(([o,info])=>awardStrip(info&&info.name)===n).map(([o])=>o);
+  const here=season!=null?named(season):[];
+  if(here.length===1) return here[0];
+  const ever=new Set(); (typeof ALL_SEASONS!=='undefined'?ALL_SEASONS:[]).forEach(s=>named(s).forEach(o=>ever.add(o)));
+  return ever.size===1?[...ever][0]:null;
+}
+function awardOwner(entry,season){
+  const e=typeof entry==='string'?{team:entry}:(entry||{});
+  return franchiseOf(e.owner||ownerByName(season,e.team));
 }
 // All awards won by an owner, newest year first.
 function awardsForOwner(owner){
@@ -337,7 +356,7 @@ function awardsForOwner(owner){
     const yr=_awardsData.years[y];
     (_awardsData.order||Object.keys(yr)).forEach(k=>{
       (yr[k]||[]).forEach(entry=>{
-        const fr=awardOwner(entry.team);
+        const fr=awardOwner(entry,y);
         if(fr&&fr.owner===owner){const lab=_awardsData.labels[k]||{name:k};out.push({year:y,key:k,label:lab,detail:entry.detail||''});}
       });
     });
@@ -360,12 +379,15 @@ function honorTiles(rings,confs,awards,years){
   return tiles.join('');
 }
 function normName(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
+/* The official spreadsheet's rows are stamped with their owner too, and read
+   by it; a row without one has to match the season's team name exactly --
+   never a fragment of it, which is how one team's score lands on another. */
 function officialFor(team,entry){
+  const scores=(entry&&entry.scores)||{};
+  const owner=(typeof _ownerMap!=='undefined'&&_ownerMap)?_ownerMap[team.id]:null;
+  if(owner) for(const k in scores) if(scores[k]&&scores[k].owner===owner) return scores[k];
   const n=normName(team.name);
-  for(const k in (entry.scores||{})){
-    const kn=normName(k);
-    if(kn===n||n.includes(kn)||kn.includes(n)) return entry.scores[k];
-  }
+  for(const k in scores) if(!(scores[k]&&scores[k].owner)&&normName(k)===n) return scores[k];
   return null;
 }
 
@@ -693,7 +715,11 @@ async function buildAllTimeH2H(){
   _franchises=Object.values(f).filter(x=>(games[x.owner]||0)>0).map(x=>({...x,games:games[x.owner]||0}));
   // Hide former league members (configured in config.js -> excludeTeams)
   const excl=(Array.isArray(_CFG.excludeTeams)?_CFG.excludeTeams:[]).map(s=>String(s).toLowerCase()).filter(Boolean);
-  _franchises=_franchises.filter(fr=>!excl.some(q=>fr.name.toLowerCase().includes(q)));
+  /* A FORMER member, matched by a fragment of the name. A team still in the
+     league is never hidden, whatever it renames itself to -- "Bozeman
+     Bandits" would otherwise vanish from every all-time table overnight. */
+  const active=new Set(Object.values(((_seasonMeta[ALL_SEASONS[ALL_SEASONS.length-1]]||{}).owners)||{}));
+  _franchises=_franchises.filter(fr=>active.has(fr.owner)||!excl.some(q=>fr.name.toLowerCase().includes(q)));
   _franchises.sort((a,b)=>a.name.localeCompare(b.name));
   try{ logoWarmAll(); }catch(e){}
 }
@@ -4864,7 +4890,7 @@ function renderLeagueHistory(){
       const yr=_awardsData.years[y];
       const rows=order.filter(k=>yr[k]&&yr[k].length).map(k=>{
         const lab=_awardsData.labels[k]||{name:k};
-        const wins=yr[k].map(e=>{const fr=awardOwner(e.team);
+        const wins=yr[k].map(e=>{const fr=awardOwner(e,y);
           const a=fr?avatarCore(fr.name,fr.teamId||0,proxyLogo(fr.logo),20,5):'';
           return `<span class="lh-sup-win">${a}${fr?`<span class="tlink">${nm(fr.owner,fr.name)}</span>`:`<span class="lh-name" style="color:var(--text3)">${e.team}</span>`}${e.detail?`<span class="sup-detail">${e.detail}</span>`:''}</span>`;}).join('');
         return `<div class="lh-sup-row"><span class="lh-sup-award hk-${k}">${lab.name}</span><span class="lh-sup-wins">${wins}</span></div>`;
