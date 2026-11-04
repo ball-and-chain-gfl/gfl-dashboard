@@ -2182,14 +2182,91 @@ export default async function handler(req, res) {
        from forty minutes ago. That is harmless for a roster page and wrong
        for the request the win-probability recorders write down: it is how
        the scores from 9:50 on a Monday night came to be recorded as the
-       final result at 10:30. Live answers keep ten seconds at the edge,
-       which still folds a dozen open tabs into one ESPN call, and are never
-       served more than twenty seconds past that. */
-    res.setHeader('Cache-Control', req.query.live === '1'
-      ? 's-maxage=10, stale-while-revalidate=20'
+       final result at 10:30. Live answers keep thirty seconds at the edge
+       and are never served past that: the same thirty-second ceiling as
+       when they kept ten and went twenty stale, with a third as many fresh
+       copies sent out of this function. And what is sent is cut down to
+       what the live callers read -- slimLive, below, has the reason. */
+    const live = req.query.live === '1';
+    res.setHeader('Cache-Control', live
+      ? LIVE_CACHE
       : 's-maxage=60, stale-while-revalidate');
-    return res.status(200).json(data);
+    return res.status(200).json(live ? slimLive(data, scoringPeriodId) : data);
   } catch (err) { return res.status(500).json({ error: err.message }); }
+}
+
+/* ── LIVE DATA BUDGET ──────────────────────────────────────────────────────────
+   On 3 Nov 2026 Vercel paused the whole site for a month: the Hobby plan's
+   Fast Origin Transfer allowance -- what this function sends back out -- was
+   gone. Everything in the code points at the live read. Every open tab
+   asked for the week's matchups every ten seconds while football was on,
+   the poller every minute, and each answer was ESPN's whole reply passed
+   straight through:
+   every week of the season with a per-stat breakdown for both sides
+   (cumulativeScore runs to ~2.8KB a side, ~600KB across a season), and every
+   rostered player with every stat line he has, the points each stat earned
+   alongside it, his season outlook and his draft ranks -- likely over a
+   megabyte a go, re-sent every time the edge copy expired.
+
+   The live callers -- livePoll, the poller, and the roster readers behind
+   weekScores, sbRosters, fcLoadSlots and weekTopPerformers -- read one week
+   of matchups, the totals, the lineups, and per player the stat rows'
+   appliedTotal. Raw stat lines are read in exactly one place,
+   livePlayerLeft, and only off the FIRST source-0 and FIRST source-1 row;
+   every other reader finds its row by source, split and period and takes
+   that row's appliedTotal. So:
+
+     schedule      only the requested week (all of it, if nothing matches)
+     each side     cumulativeScore keeps wins/losses/ties, loses scoreByStat
+                   and statBySlot; rosterForMatchupPeriod* goes (nothing
+                   reads it -- rosterForCurrentScoringPeriod is the roster)
+     each player   loses seasonOutlook, draftRanksByRankType, rankings,
+                   ownership and eligibleSlots; every stat row loses
+                   appliedStats; a row keeps its raw stat line only if it is
+                   the first of its source. Every row keeps its ids and
+                   appliedTotal, in order, so every find() and filter() in
+                   the app lands on the same row with the same number.
+
+   scripts/test-data-budget.mjs runs the app's own live maths on a reply
+   before and after this and fails if any number moves, or if a full live
+   week comes out over budget. Anything new the app reads off a live reply
+   has to be kept here first. */
+const LIVE_CACHE = 's-maxage=30';
+const LIVE_PLAYER_DROP = ['seasonOutlook', 'draftRanksByRankType', 'rankings', 'ownership', 'eligibleSlots'];
+function slimLive(data, scoringPeriodId) {
+  if (!data || typeof data !== 'object') return data;
+  const week = parseInt(scoringPeriodId, 10) || 0;
+  const slimPlayer = pl => {
+    if (!pl || typeof pl !== 'object') return;
+    LIVE_PLAYER_DROP.forEach(k => { delete pl[k]; });
+    if (!Array.isArray(pl.stats)) return;
+    const firstOf = {};
+    pl.stats.forEach(s => {
+      if (!s || typeof s !== 'object') return;
+      delete s.appliedStats;
+      if (firstOf[s.statSourceId]) delete s.stats;
+      firstOf[s.statSourceId] = true;
+    });
+  };
+  const slimRoster = r => {
+    ((r && r.entries) || []).forEach(e => slimPlayer(e && e.playerPoolEntry && e.playerPoolEntry.player));
+  };
+  const slimSide = side => {
+    if (!side || typeof side !== 'object') return;
+    if (side.cumulativeScore) {
+      delete side.cumulativeScore.scoreByStat;
+      delete side.cumulativeScore.statBySlot;
+    }
+    Object.keys(side).forEach(k => { if (/^rosterForMatchupPeriod/.test(k)) delete side[k]; });
+    slimRoster(side.rosterForCurrentScoringPeriod);
+  };
+  if (Array.isArray(data.schedule)) {
+    const wk = week ? data.schedule.filter(m => m && (m.matchupPeriodId || 0) === week) : [];
+    if (wk.length) data.schedule = wk;
+    data.schedule.forEach(m => { if (m) { slimSide(m.home); slimSide(m.away); } });
+  }
+  (Array.isArray(data.teams) ? data.teams : []).forEach(t => slimRoster(t && t.roster));
+  return data;
 }
 
 /* One position's replacement line for every week: the Nth-best score among the

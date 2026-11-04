@@ -173,7 +173,7 @@ head('the writers');
     POLL.includes('app.liveSeal(series[k] || (series[k] = []), app.liveFinalRow(t, a, b));'), true);
   ok('and writes nothing to a sealed week', POLL.includes("is sealed — nothing to record"), true);
   ok('a live request is never served old by the proxy',
-    API.includes("'s-maxage=10, stale-while-revalidate=20'"), true);
+    API.includes("const LIVE_CACHE = 's-maxage=30';"), true);
   ok('everything else keeps its cache', API.includes(": 's-maxage=60, stale-while-revalidate');"), true);
   ok('the archive ends on ESPN\'s official result',
     ARCH.includes('live.liveSeal(arr, live.liveFinalRow(t, ab[0], ab[1]));'), true);

@@ -8976,8 +8976,11 @@ function wpGraphSVG(pts,abA,abB,opt){
    quietly disagreeing with the official ones. What the public NFL scoreboard
    gives us instead is a cheap answer to "did anything happen at all", so the
    expensive fantasy call is only made when the field actually moved.
-   /api/espn?type=nflstate returns a digest of the whole board in ~1.7KB. */
-const NFL_LIVE_MS=10000;    // something is being played: watch closely
+   /api/espn?type=nflstate returns a digest of the whole board in ~1.7KB.
+   The live beat matches the proxy's edge copy of a live read (LIVE_CACHE in
+   api/espn.js, thirty seconds): asking more often than that only fetches the
+   same answer twice. scripts/test-data-budget.mjs holds the two together. */
+const NFL_LIVE_MS=30000;    // something is being played: watch closely
 const NFL_QUIET_MS=120000;  // nothing kicked off: just keep an eye out
 let _nflSig=null,_nflLive=false,_nflSeen=0,_nflGames=null;
 async function nflState(){

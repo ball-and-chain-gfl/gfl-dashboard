@@ -193,6 +193,22 @@ function liveWeek(schedule, regEnd) {
   return live || last || weeks[0] || null;
 }
 
+/* ── THE LEAGUE, ONCE A HALF HOUR ─────────────────────────────────────────────
+   Owners, the schedule's shape and which week is live do not change inside a
+   game window, and this was a full-season mMatchup read -- every week, every
+   roster -- every minute of every window, on top of the live read. That is a
+   large part of what paused the site on 3 Nov 2026 (LIVE DATA BUDGET in
+   api/espn.js). A run now asks once and again every META_TTL; a failed ask
+   keeps the last good answer rather than costing the minute. */
+const META_TTL = 30 * 60 * 1000;
+let _meta = null, _metaAt = 0, _metaSeason = '';
+async function leagueMeta(season) {
+  if (_meta && _metaSeason === season && Date.now() - _metaAt < META_TTL) return _meta;
+  const m = await get(`view=mMatchup&view=mTeam&view=mSettings&seasonId=${season}`);
+  if (m) { _meta = m; _metaAt = Date.now(); _metaSeason = season; }
+  return _metaSeason === season ? _meta : null;
+}
+
 async function once() {
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
 
@@ -212,7 +228,7 @@ async function once() {
   if (!state.anyLive && FORCE) console.log(`${stamp}  FORCE: running with nothing live`);
 
   const season = String(state.season || new Date().getFullYear());
-  const meta = await get(`view=mMatchup&view=mTeam&view=mSettings&seasonId=${season}`);
+  const meta = await leagueMeta(season);
   if (!meta) { console.log(`${stamp}  league data unavailable — skipping`); return 'skip'; }
 
   const owners = {};

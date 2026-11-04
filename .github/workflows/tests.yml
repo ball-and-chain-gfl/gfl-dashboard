@@ -3,7 +3,7 @@
 name: tests
 on:
   push:
-    paths: ['public/app.js', 'scripts/**', '.github/workflows/tests.yml']
+    paths: ['public/app.js', 'api/**', 'scripts/**', '.github/workflows/tests.yml']
   pull_request:
   workflow_dispatch:
 jobs:
@@ -15,6 +15,12 @@ jobs:
         with: { node-version: '24' }
       - name: app.js parses
         run: node --check public/app.js
+      # Vercel paused the whole site for a month on 3 Nov 2026 when the live
+      # read ran through the Hobby plan's data allowance. This fails if a live
+      # reply grows back, a dropped field turns out to be needed, or anything
+      # polls faster than the edge cache.
+      - name: the live data budget
+        run: node scripts/test-data-budget.mjs
       - name: invites and bucks
         run: node scripts/test-invites.mjs
       - name: bank and easter egg
