@@ -174,7 +174,8 @@ head('the writers');
   ok('and writes nothing to a sealed week', POLL.includes("is sealed — nothing to record"), true);
   ok('a live request is never served old by the proxy',
     API.includes("const LIVE_CACHE = 's-maxage=30';"), true);
-  ok('everything else keeps its cache', API.includes(": 's-maxage=60, stale-while-revalidate');"), true);
+  ok('this week\'s other reads keep their cache',
+    API.includes("const CURRENT_CACHE = 's-maxage=60, stale-while-revalidate';"), true);
   ok('the archive ends on ESPN\'s official result',
     ARCH.includes('live.liveSeal(arr, live.liveFinalRow(t, ab[0], ab[1]));'), true);
 }

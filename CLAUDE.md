@@ -130,12 +130,20 @@ running through its Fast Origin Transfer allowance. The cause was the live
 read: full ESPN replies (every week's schedule, every team's roster, every
 player's every stat line -- 5.9 MB for the week-8 matchup read) re-sent
 every ten seconds while anyone watched, plus the poller's full-league read
-every minute. Since then a `live=1` read goes through
-`slimLive` (LIVE DATA BUDGET in `api/espn.js`), keeps 30 seconds at the edge,
-and the browser's live beat and the poller's league read are slowed to match.
-`scripts/test-data-budget.mjs` holds all of it. Before adding a new polled
-request, or reading a new field off a live reply, check it against that test:
-size times how often the edge copy expires is what Vercel bills.
+every minute -- and every homepage visit pulling 16.8 MB of season reads and
+rosters that went stale at the edge within a minute. The team moved to Pro,
+but **the site must keep fitting the free plan** (about 10 GB a month of
+this). So every passthrough reply now goes through `slimEspn` (fields
+nothing reads), a live one through `slimLive` as well (one week, no
+unrequested teams), and `passthroughCache` keeps each reply by its week:
+finished weeks an hour, weeks to come half an hour, season reads ten
+minutes, this week's live reads thirty seconds (LIVE DATA BUDGET in
+`api/espn.js`). The browser's live beat and the poller's league read are
+slowed to match. `scripts/test-data-budget.mjs` holds all of it, including a
+priced free-plan month that must stay under 6 GB. Before adding a polled
+request, shortening a cache, or reading a new field off an ESPN reply,
+check it against that test: size times how often the edge copy expires is
+what Vercel bills.
 
 ## Firestore
 

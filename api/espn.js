@@ -2186,12 +2186,12 @@ export default async function handler(req, res) {
        and are never served past that: the same thirty-second ceiling as
        when they kept ten and went twenty stale, with a third as many fresh
        copies sent out of this function. And what is sent is cut down to
-       what the live callers read -- slimLive, below, has the reason. */
+       what the live callers read -- slimLive, below, has the reason. How
+       long anything else is kept now depends on the week it is for:
+       passthroughCache, below. */
     const live = req.query.live === '1';
-    res.setHeader('Cache-Control', live
-      ? LIVE_CACHE
-      : 's-maxage=60, stale-while-revalidate');
-    return res.status(200).json(live ? slimLive(data, scoringPeriodId, asked) : data);
+    res.setHeader('Cache-Control', passthroughCache(live, scoringPeriodId, data));
+    return res.status(200).json(live ? slimLive(data, scoringPeriodId, asked) : slimEspn(data, asked));
   } catch (err) { return res.status(500).json({ error: err.message }); }
 }
 
@@ -2208,59 +2208,125 @@ export default async function handler(req, res) {
    of 2026, the live matchup read was 5.9 MB a go, re-sent every time the
    edge copy expired.
 
-   The live callers -- livePoll, the poller, and the roster readers behind
-   weekScores, sbRosters, fcLoadSlots and weekTopPerformers -- read one week
-   of matchups, the totals, the lineups, and per player the stat rows'
-   appliedTotal. The matchup callers read the schedule and nothing else;
-   the roster callers read teams. Raw stat lines are read in exactly one
-   place, livePlayerLeft, and only off the FIRST source-0 and FIRST source-1
-   row; every other reader finds its row by source, split and period and
-   takes that row's appliedTotal. So:
+   IT HAS TO FIT THE FREE PLAN, not just Pro: the league may go back to
+   Hobby, whose whole month is about 10 GB of this. Live polling was not the
+   only cost. A homepage visit asked for 16.8 MB of ESPN replies -- two
+   3.3 MB season reads, then the rosters and scores of every week left --
+   and the edge let all of it go stale within thirty to sixty seconds, so
+   most visits paid for it again. Three things now apply to every reply
+   this passthrough sends:
 
-     teams         dropped unless mRoster or mTeam was asked for. ESPN hangs
-                   every team's whole roster off an mMatchup reply; it was
-                   780 KB of the week-8 read and no matchup caller looks
-     schedule      only the requested week (all of it, if nothing matches)
-     each side     cumulativeScore keeps wins/losses/ties, loses scoreByStat
-                   and statBySlot; rosterForMatchupPeriod* goes (nothing
-                   reads it -- rosterForCurrentScoringPeriod is the roster)
-     each player   loses seasonOutlook, draftRanksByRankType, rankings,
-                   ownership, eligibleSlots, lastNewsDate and lastVideoDate;
-                   every stat row loses appliedStats, variance and
-                   appliedTotalCeiling; a row keeps its raw stat line only if
-                   it is the first of its source. Every row keeps its ids and
-                   appliedTotal, in order, so every find() and filter() in
-                   the app lands on the same row with the same number.
+   1. slimEspn, on every reply, live or not, drops what nothing reads:
 
-   scripts/test-data-budget.mjs runs the app's own live maths on a reply
-   before and after this and fails if any number moves, or if a full live
-   week comes out over budget. Anything new the app reads off a live reply
-   has to be kept here first. */
+        each team     valuesByStat, draftStrategy and tradeBlock
+        each side     cumulativeScore keeps wins/losses/ties, loses
+                      scoreByStat and statBySlot; rosterForMatchupPeriod*
+                      goes (rosterForCurrentScoringPeriod is the roster),
+                      and so does the matchup roster itself when neither
+                      mMatchup nor mRoster was asked for -- ESPN hangs one
+                      off an mMatchupScore read, whose only caller,
+                      espnWinProbs, takes winProbability and nothing else
+        each entry    acquisitionDate, acquisitionType,
+                      pendingTransactionIds; and on its playerPoolEntry
+                      keeperValue, keeperValueFuture, lineupLocked,
+                      rosterLocked, tradeLocked and onTeamId
+        each player   seasonOutlook, outlooks (a written paragraph for every
+                      week: ~4.9 KB a player, 890 KB of a roster read),
+                      draftRanksByRankType, rankings, ownership,
+                      eligibleSlots, lastNewsDate, lastVideoDate,
+                      firstName, universeId, droppable and injured
+        each stat row appliedStats, variance, appliedTotalCeiling and
+                      externalId; and its raw stat line unless the row sits
+                      in a MATCHUP roster and is the first of its source.
+                      Raw lines are read in exactly one place,
+                      livePlayerLeft, only off the FIRST source-0 and FIRST
+                      source-1 row, and only for players in a live game's
+                      rosterForCurrentScoringPeriod -- never off a team
+                      roster. Every other reader finds its row by source,
+                      split and period and takes appliedTotal, and every
+                      row keeps its ids and appliedTotal, in order, so every
+                      find() and filter() lands on the same row with the
+                      same number.
+
+      None of these is read anywhere in app.js or the scripts, and
+      test-data-budget greps the whole repo to keep it that way.
+
+   2. slimLive goes further on a live read, whose callers -- livePoll, the
+      poller, and the roster readers behind weekScores, sbRosters,
+      fcLoadSlots and weekTopPerformers -- read one week. The schedule is cut
+      to the requested week (all of it, if nothing matches), and teams go
+      unless mRoster or mTeam was asked for: ESPN hangs every team's whole
+      roster off an mMatchup reply, 780 KB of the week-8 read, and the
+      matchup callers take the schedule and nothing else.
+
+   3. passthroughCache sets how long the edge keeps a reply by the week it
+      is for, against the league's current week (status.latestScoringPeriod
+      -- the reply's own scoringPeriodId only echoes the one asked for):
+
+        a finished week   an hour, then a day stale while it refreshes.
+                          Final scores move only for a stat correction
+        a week to come    thirty minutes, then an hour stale. Rosters and
+                          projections move with a waiver claim, not by
+                          the minute
+        this week, live   thirty seconds and never older (above)
+        this week         a minute, stale while it refreshes, as before
+        the whole season  ten minutes, stale while it refreshes. The live
+                          board has its own read; this one is standings,
+                          the schedule, and a fallback until that arrives
+
+   Measured on week 8 of 2026: the live matchup read 5.9 MB -> 259 KB.
+   scripts/test-data-budget.mjs runs the app's own live maths on replies
+   before and after, checks the cache rules and a free-plan month built
+   from them, and fails if any number moves. Anything new the app reads off
+   an ESPN reply has to be kept here first. */
 const LIVE_CACHE = 's-maxage=30';
-const LIVE_PLAYER_DROP = ['seasonOutlook', 'draftRanksByRankType', 'rankings', 'ownership', 'eligibleSlots',
-  'lastNewsDate', 'lastVideoDate'];
-const LIVE_ROW_DROP = ['appliedStats', 'variance', 'appliedTotalCeiling'];
-function slimLive(data, scoringPeriodId, views) {
+const CURRENT_CACHE = 's-maxage=60, stale-while-revalidate';
+const SEASON_CACHE = 's-maxage=600, stale-while-revalidate';
+const FUTURE_CACHE = 's-maxage=1800, stale-while-revalidate=3600';
+const PAST_CACHE = 's-maxage=3600, stale-while-revalidate=86400';
+const ESPN_TEAM_DROP = ['valuesByStat', 'draftStrategy', 'tradeBlock'];
+const ESPN_ENTRY_DROP = ['acquisitionDate', 'acquisitionType', 'pendingTransactionIds'];
+const ESPN_POOL_DROP = ['keeperValue', 'keeperValueFuture', 'lineupLocked', 'rosterLocked', 'tradeLocked', 'onTeamId'];
+const ESPN_PLAYER_DROP = ['seasonOutlook', 'outlooks', 'draftRanksByRankType', 'rankings', 'ownership',
+  'eligibleSlots', 'lastNewsDate', 'lastVideoDate', 'firstName', 'universeId', 'droppable', 'injured'];
+const ESPN_ROW_DROP = ['appliedStats', 'variance', 'appliedTotalCeiling', 'externalId'];
+/* views whose callers read the rosters ESPN hangs off a matchup */
+const MATCHUP_ROSTER_VIEWS = /^m(Matchup|Roster)$/i;
+function passthroughCache(live, scoringPeriodId, data) {
+  const asked = parseInt(scoringPeriodId, 10) || 0;
+  const now = Number(data && data.status && data.status.latestScoringPeriod) || 0;
+  if (asked && now && asked < now) return PAST_CACHE;
+  if (asked && now && asked > now) return FUTURE_CACHE;
+  if (live) return LIVE_CACHE;
+  return asked ? CURRENT_CACHE : SEASON_CACHE;
+}
+function slimEspn(data, views) {
   if (!data || typeof data !== 'object') return data;
-  const week = parseInt(scoringPeriodId, 10) || 0;
-  /* no view named is the passthrough's default, mTeam: keep teams then too */
-  const wantsTeams = !Array.isArray(views) || !views.length
-    || views.some(v => /^m(Roster|Team)$/i.test(String(v).trim()));
-  if (!wantsTeams) delete data.teams;
-  const slimPlayer = pl => {
+  /* no view list (an internal caller) or no view named (the mTeam default): keep the rosters */
+  const keepMatchupRosters = !Array.isArray(views) || !views.length
+    || views.some(v => MATCHUP_ROSTER_VIEWS.test(String(v).trim()));
+  /* rawLines: a matchup roster keeps the first raw line of each source for livePlayerLeft */
+  const slimPlayer = (pl, rawLines) => {
     if (!pl || typeof pl !== 'object') return;
-    LIVE_PLAYER_DROP.forEach(k => { delete pl[k]; });
+    ESPN_PLAYER_DROP.forEach(k => { delete pl[k]; });
     if (!Array.isArray(pl.stats)) return;
     const firstOf = {};
     pl.stats.forEach(s => {
       if (!s || typeof s !== 'object') return;
-      LIVE_ROW_DROP.forEach(k => { delete s[k]; });
-      if (firstOf[s.statSourceId]) delete s.stats;
+      ESPN_ROW_DROP.forEach(k => { delete s[k]; });
+      if (!rawLines || firstOf[s.statSourceId]) delete s.stats;
       firstOf[s.statSourceId] = true;
     });
   };
-  const slimRoster = r => {
-    ((r && r.entries) || []).forEach(e => slimPlayer(e && e.playerPoolEntry && e.playerPoolEntry.player));
+  const slimRoster = (r, rawLines) => {
+    ((r && r.entries) || []).forEach(e => {
+      if (!e || typeof e !== 'object') return;
+      ESPN_ENTRY_DROP.forEach(k => { delete e[k]; });
+      const pe = e.playerPoolEntry;
+      if (!pe || typeof pe !== 'object') return;
+      ESPN_POOL_DROP.forEach(k => { delete pe[k]; });
+      slimPlayer(pe.player, rawLines);
+    });
   };
   const slimSide = side => {
     if (!side || typeof side !== 'object') return;
@@ -2269,15 +2335,29 @@ function slimLive(data, scoringPeriodId, views) {
       delete side.cumulativeScore.statBySlot;
     }
     Object.keys(side).forEach(k => { if (/^rosterForMatchupPeriod/.test(k)) delete side[k]; });
-    slimRoster(side.rosterForCurrentScoringPeriod);
+    if (!keepMatchupRosters) delete side.rosterForCurrentScoringPeriod;
+    else slimRoster(side.rosterForCurrentScoringPeriod, true);
   };
-  if (Array.isArray(data.schedule)) {
-    const wk = week ? data.schedule.filter(m => m && (m.matchupPeriodId || 0) === week) : [];
-    if (wk.length) data.schedule = wk;
-    data.schedule.forEach(m => { if (m) { slimSide(m.home); slimSide(m.away); } });
-  }
-  (Array.isArray(data.teams) ? data.teams : []).forEach(t => slimRoster(t && t.roster));
+  (Array.isArray(data.schedule) ? data.schedule : []).forEach(m => { if (m) { slimSide(m.home); slimSide(m.away); } });
+  (Array.isArray(data.teams) ? data.teams : []).forEach(t => {
+    if (!t || typeof t !== 'object') return;
+    ESPN_TEAM_DROP.forEach(k => { delete t[k]; });
+    slimRoster(t.roster, false);
+  });
   return data;
+}
+function slimLive(data, scoringPeriodId, views) {
+  if (!data || typeof data !== 'object') return data;
+  const week = parseInt(scoringPeriodId, 10) || 0;
+  /* no view named is the passthrough's default, mTeam: keep teams then too */
+  const wantsTeams = !Array.isArray(views) || !views.length
+    || views.some(v => /^m(Roster|Team)$/i.test(String(v).trim()));
+  if (!wantsTeams) delete data.teams;
+  if (Array.isArray(data.schedule) && week) {
+    const wk = data.schedule.filter(m => m && (m.matchupPeriodId || 0) === week);
+    if (wk.length) data.schedule = wk;
+  }
+  return slimEspn(data, views);
 }
 
 /* One position's replacement line for every week: the Nth-best score among the
