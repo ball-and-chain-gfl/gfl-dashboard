@@ -127,9 +127,10 @@ they are missing — including under any local server that isn't `vercel dev`.
 **Every byte the proxy sends back out is metered.** The project is on Vercel's
 Hobby plan, and on 3 Nov 2026 Vercel paused the whole site for a month for
 running through its Fast Origin Transfer allowance. The cause was the live
-read: full ESPN replies (every week's schedule, every player's every stat
-line) re-sent every ten seconds while anyone watched, plus the poller's
-full-league read every minute. Since then a `live=1` read goes through
+read: full ESPN replies (every week's schedule, every team's roster, every
+player's every stat line -- 5.9 MB for the week-8 matchup read) re-sent
+every ten seconds while anyone watched, plus the poller's full-league read
+every minute. Since then a `live=1` read goes through
 `slimLive` (LIVE DATA BUDGET in `api/espn.js`), keeps 30 seconds at the edge,
 and the browser's live beat and the poller's league read are slowed to match.
 `scripts/test-data-budget.mjs` holds all of it. Before adding a new polled

@@ -28,7 +28,7 @@ const APP = read('../public/app.js');
 const POLL = read('../scripts/poll-live.mjs');
 
 const S = assemble(lifter(new URL('../api/espn.js', import.meta.url)),
-  ['const LIVE_CACHE =', 'const LIVE_PLAYER_DROP =', 'function slimLive('],
+  ['const LIVE_CACHE =', 'const LIVE_PLAYER_DROP =', 'const LIVE_ROW_DROP =', 'function slimLive('],
   ['slimLive', 'LIVE_CACHE']);
 const M = assemble(lifter(new URL('../public/app.js', import.meta.url)), [
   'const BENCH_SLOTS=', 'const LIVE_VOLUME=', 'const LIVE_USAGE_R=', 'const LIVE_EFF_R=',
@@ -76,9 +76,12 @@ const appliedLine = line => {
 const statRows = (pro, seasonFirst) => {
   const row = (src, split, period, n) => {
     const stats = statLine(n);
-    return { id: `${src}${split}${SEASON}${period}`, externalId: `${SEASON}${period}`, proTeamId: pro,
+    const r = { id: `${src}${split}${SEASON}${period}`, externalId: `${SEASON}${period}`, proTeamId: pro,
       scoringPeriodId: period, seasonId: SEASON, statSourceId: src, statSplitTypeId: split,
       appliedTotal: r2(M.liveScoreLine(stats, RULES)), stats, appliedStats: appliedLine(stats) };
+    /* ESPN's projections also carry a ceiling and a per-stat variance */
+    if (src === 1) { r.appliedTotalCeiling = r2(r.appliedTotal * 1.6); r.variance = appliedLine(stats); }
+    return r;
   };
   const season = [row(0, 0, 0, 70), row(1, 0, 0, 70)];
   const week = [row(0, 1, WEEK, 40), row(1, 1, WEEK, 55)];
@@ -102,6 +105,7 @@ const roster = team => {
           id, fullName: `Player ${team}-${i}`, firstName: 'Player', lastName: `${team}-${i}`,
           defaultPositionId: 1 + (i % 5), proTeamId: pro, injuryStatus: 'ACTIVE', injured: false,
           active: true, droppable: true, universeId: 2, jersey: String(i + 10), lastNewsDate: 1790000000000,
+          lastVideoDate: 1790000000000,
           eligibleSlots: [2, 3, 23, 7, 20, 21],
           seasonOutlook: 'A workhorse back on a run-first offense with a clear path to touches. '.repeat(7),
           draftRanksByRankType: {
@@ -140,19 +144,23 @@ const side = (team, week) => {
   }
   return s;
 };
+/* ESPN hangs every team's whole roster off an mMatchup reply as well: on the
+   week-8 read that was 780 KB the live matchup callers never look at */
 const reply = () => {
   const schedule = [];
   for (let w = 1; w <= 14; w++) for (let k = 0; k < 6; k++) {
     schedule.push({ id: schedule.length + 1, matchupPeriodId: w, playoffTierType: 'NONE',
       winner: w < WEEK ? 'HOME' : 'UNDECIDED', home: side(2 * k + 1, w), away: side(2 * k + 2, w) });
   }
-  return { gameId: 1, id: 1327340807, scoringPeriodId: WEEK, seasonId: SEASON, segmentId: 0, schedule };
+  const teams = Array.from({ length: 12 }, (_, i) => ({ id: i + 1, roster: roster(i + 1) }));
+  return { gameId: 1, id: 1327340807, scoringPeriodId: WEEK, seasonId: SEASON, segmentId: 0, schedule, teams };
 };
+const MATCHUP_VIEWS = ['mMatchup', 'mMatchupScore'];
 
 /* ── 1. NOTHING THE APP READS MOVES ───────────────────────────────────────── */
 head('slimLive keeps every number the live callers read');
 const before = reply();
-const after = S.slimLive(clone(before), String(WEEK));
+const after = S.slimLive(clone(before), String(WEEK), MATCHUP_VIEWS);
 
 const weekOf = r => r.schedule.filter(m => (m.matchupPeriodId || 0) === WEEK && m.home && m.away);
 ok('the week is all that is left of the schedule', after.schedule.map(m => m.matchupPeriodId),
@@ -201,10 +209,13 @@ ok('every stat-row lookup lands on the same row and number',
   entries.map(([a]) => lookups(a)), entries.map(([, b]) => lookups(b)));
 
 head('and drops what nothing reads');
+ok('a matchup read loses the teams ESPN hangs off it', 'teams' in after, false);
 const anyPlayer = after.schedule[0].home.rosterForCurrentScoringPeriod.entries[0].playerPoolEntry.player;
-ok('no season outlook, ranks, ownership or eligible slots',
-  ['seasonOutlook', 'draftRanksByRankType', 'rankings', 'ownership', 'eligibleSlots'].filter(k => k in anyPlayer), []);
-ok('no appliedStats on any row', entries.some(([, b]) => b.playerPoolEntry.player.stats.some(s => 'appliedStats' in s)), false);
+ok('no season outlook, ranks, ownership, eligible slots or news dates',
+  ['seasonOutlook', 'draftRanksByRankType', 'rankings', 'ownership', 'eligibleSlots', 'lastNewsDate', 'lastVideoDate']
+    .filter(k => k in anyPlayer), []);
+ok('no appliedStats, variance or ceiling on any row', entries.some(([, b]) => b.playerPoolEntry.player.stats
+  .some(s => 'appliedStats' in s || 'variance' in s || 'appliedTotalCeiling' in s)), false);
 ok('raw lines only on the first row of each source',
   entries.every(([, b]) => {
     const seen = {};
@@ -225,21 +236,29 @@ const odd = { schedule: [{ matchupPeriodId: 3, home: { teamId: 1 }, away: { team
 ok('a week with no fixtures keeps the whole schedule', S.slimLive(clone(odd), 9).schedule.length, 1);
 ok('no week named keeps the whole schedule', S.slimLive(clone(before), undefined).schedule.length, before.schedule.length);
 ok('an error reply passes through untouched', S.slimLive({ error: 'x' }, 8), { error: 'x' });
-const teams = { teams: [{ id: 1, roster: clone(before.schedule[42].home.rosterForCurrentScoringPeriod) }] };
-ok('an mRoster reply has its players cut the same way',
-  'seasonOutlook' in S.slimLive(teams, WEEK).teams[0].roster.entries[0].playerPoolEntry.player, false);
+const rosterReply = () => ({ teams: [{ id: 1, roster: clone(before.teams[0].roster) }] });
+ok('an mRoster read keeps its teams', S.slimLive(rosterReply(), WEEK, ['mRoster']).teams.length, 1);
+ok('and has its players cut the same way',
+  'seasonOutlook' in S.slimLive(rosterReply(), WEEK, ['mRoster']).teams[0].roster.entries[0].playerPoolEntry.player, false);
+ok('so does an mTeam read, whatever the case', S.slimLive(rosterReply(), WEEK, ['MTEAM', 'mMatchup']).teams.length, 1);
+ok('and a read that names no view (the passthrough\'s mTeam default)', S.slimLive(rosterReply(), WEEK, []).teams.length, 1);
+ok('a caller that passes no view list keeps teams too', S.slimLive(rosterReply(), WEEK).teams.length, 1);
+ok('the passthrough hands slimLive the views it was asked for',
+  API.includes('slimLive(data, scoringPeriodId, asked)'), true);
 
 /* ── 2. THE SIZE OF A LIVE WEEK ───────────────────────────────────────────── */
 head('a live week fits the budget');
-/* Measured on this reply when the budget was set: 2466 KB in, 562 KB out.
-   The ceiling leaves room for ESPN adding a field or two, and none for
-   slimLive being bypassed or a dropped field coming back. Moving it up is a
-   decision about the Vercel bill, not a fix for a red test. */
+/* Measured on this reply when the budget was set: 4732 KB in, 557 KB out.
+   (The real week-8 matchup read was 5.9 MB from ESPN -- this reply's
+   players are heavier than ESPN's, its teams lighter.) The ceiling leaves
+   room for ESPN adding a field or two, and none for slimLive being
+   bypassed or a dropped field coming back. Moving it up is a decision
+   about the Vercel bill, not a fix for a red test. */
 const LIVE_WEEK_BUDGET = 640 * 1024;
 const b0 = bytes(before), b1 = bytes(after);
 console.log(`  a live week, ESPN's shape: ${(b0 / 1024).toFixed(0)} KB in, ${(b1 / 1024).toFixed(0)} KB out (${Math.round(100 * (1 - b1 / b0))}% less)`);
 ok(`under ${LIVE_WEEK_BUDGET / 1024} KB`, b1 <= LIVE_WEEK_BUDGET, true);
-ok('and at most 30% of what ESPN sent', b1 <= b0 * 0.3, true);
+ok('and at most 15% of what ESPN sent', b1 <= b0 * 0.15, true);
 
 /* ── 3. THE RATES ─────────────────────────────────────────────────────────── */
 head('how often a live read leaves the proxy');
@@ -248,7 +267,7 @@ const swr = Number((/stale-while-revalidate=(\d+)/.exec(S.LIVE_CACHE) || [0, 0])
 ok('the edge keeps a live read at least 20 seconds', maxage >= 20, true);
 ok('and never serves one more than 30 seconds old', maxage + swr <= 30, true);
 ok('the passthrough sends live reads through slimLive and with LIVE_CACHE',
-  API.includes('return res.status(200).json(live ? slimLive(data, scoringPeriodId) : data);')
+  API.includes('return res.status(200).json(live ? slimLive(data, scoringPeriodId, asked) : data);')
   && API.includes('? LIVE_CACHE'), true);
 const beat = Number((/const NFL_LIVE_MS=(\d+);/.exec(APP) || [])[1]);
 ok('the browser\'s live beat is no faster than the edge copy', beat >= maxage * 1000, true);
