@@ -780,6 +780,11 @@ export default async function handler(req, res) {
           };
         });
       });
+      /* This had no cache header, so the edge kept nothing: every call --
+         nine on a homepage load, one per week played -- fetched and parsed a
+         3.6 MB roster read here, for weeks that finished long ago. Kept by
+         its week like the passthrough (LIVE DATA BUDGET, below). */
+      res.setHeader('Cache-Control', passthroughCache(false, week, data));
       return res.status(200).json({ week, players });
     } catch (err) { return res.status(500).json({ error: err.message }); }
   }

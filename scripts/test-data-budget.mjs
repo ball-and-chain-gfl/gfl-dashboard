@@ -372,6 +372,23 @@ ok('finished weeks at least an hour, weeks to come at least half an hour',
   ttl(S.PAST_CACHE) >= 3600 && ttl(S.FUTURE_CACHE) >= 1800, true);
 ok('season reads at least ten minutes', ttl(S.SEASON_CACHE) >= 600, true);
 
+/* A branch with no Cache-Control is kept by nobody: Vercel's default for a
+   function response is not to cache it, so every request runs the function.
+   playerscores went out that way, nine calls a homepage load, each parsing a
+   3.6 MB roster. raw and txdump are diagnostics and an archiver feed that
+   must always be fresh; everything the app calls has to say how long. */
+const branches = [];
+API.split(String.fromCharCode(10)).forEach((l, i) => { const m = /^  if \(type === '(\w+)'\)/.exec(l); if (m) branches.push([m[1], i]); });
+const apiLines = API.split(String.fromCharCode(10));
+const uncached = branches.filter(([t, i], k) => {
+  if (t === 'raw' || t === 'txdump') return false;
+  if (!new RegExp(`type=${t}\\b`).test(APP)) return false;
+  const end = k + 1 < branches.length ? branches[k + 1][1] : apiLines.length;
+  return !apiLines.slice(i, end).join(String.fromCharCode(10)).includes('Cache-Control');
+}).map(([t]) => t);
+ok('every endpoint the app calls says how long the edge may keep it', uncached, []);
+ok('playerscores is kept by its week', API.includes("res.setHeader('Cache-Control', passthroughCache(false, week, data));"), true);
+
 head('how often anything asks');
 const beat = Number((/const NFL_LIVE_MS=(\d+);/.exec(APP) || [])[1]);
 ok('the browser\'s live beat is no faster than the edge copy', beat >= ttl(S.LIVE_CACHE) * 1000, true);
@@ -397,7 +414,8 @@ ok('and the full-season read appears in one place only',
    at a rate of l a second, is fetched again l/(1+lT) times a second. */
 head('a month on the free plan');
 const KB = 1024;
-const SIZE = { season: (174 + 130 + 39) * KB, liveMatchup: 202 * KB, roster: 260 * KB, scores: 38 * KB, meta: 174 * KB };
+const SIZE = { season: (174 + 130 + 39) * KB, liveMatchup: 202 * KB, roster: 260 * KB, scores: 38 * KB, meta: 174 * KB,
+  playerScores: 15 * KB };
 const LOADS_A_DAY = 100, WAKING_S = 16 * 3600, LIVE_HOURS_A_WEEK = 16, DEPLOYS_A_DAY = 4, DAYS = 30, WEEKS = 30 / 7;
 const lambda = LOADS_A_DAY / WAKING_S;
 const refills = cache => LOADS_A_DAY / (1 + lambda * ttl(cache));
@@ -406,6 +424,7 @@ const perDay = {
   'this week\'s roster and scores': refills(S.LIVE_CACHE) * SIZE.roster + refills(S.CURRENT_CACHE) * SIZE.scores,
   'rosters and scores, weeks to come (5)': refills(S.FUTURE_CACHE) * 5 * (SIZE.roster + SIZE.scores),
   'last week\'s roster and scores': refills(S.PAST_CACHE) * (SIZE.roster + SIZE.scores),
+  'player scores, a week at a time (9)': (refills(S.PAST_CACHE) * 8 + refills(S.CURRENT_CACHE)) * SIZE.playerScores,
   'deploys emptying the cache': DEPLOYS_A_DAY * (SIZE.season + 6 * (SIZE.roster + SIZE.scores)),
 };
 const month = {};
