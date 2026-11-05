@@ -15,8 +15,6 @@ decisions people make. No build step, no framework, no dependencies.
 | Document | What it covers |
 |---|---|
 | **`CLAUDE.md`** | Repo rules and conventions — read first before editing |
-| **`HOW-IT-WORKS.md`** | What the app is for, where its data comes from, what every page does |
-| **`HANDOFF.md`** | Current state of play, open items, and the traps already paid for |
 | **`public/data/README.md`** | The committed archive files, and how snapshots happen |
 
 ## Running it locally
@@ -49,7 +47,7 @@ Never commit cookie values — `.gitignore` covers `.env*`.
 
 ## What is in it
 
-Fifteen pages — fourteen on the nav, plus your own locker room reached from the
+Sixteen pages — fifteen on the nav, plus your own locker room reached from the
 balance chip — all derived from ESPN data and the league's own decisions:
 
 - **Homepage** — video rail, Coaches' Poll, a swipeable notification stack, the
@@ -59,9 +57,12 @@ balance chip — all derived from ESPN data and the league's own decisions:
 - **Ball Knowledge** — the counter-metric to luck, moved only by trivia
   answered, games picked and bets settled
 - **Leaderboards** — Ball Knowledge, bets and portfolios, matchup picks, eggs
+- **Hot Takes** — post a take under your team's name or anonymously; the feed
+  clears every Tuesday
 - **Team Profiles, Standings, Player Data, League History, Head to Head,
   Draft Report, Trades, Bad Beat O'Meter, Coaching Metric**
-- **My Locker Room** — the plant, the egg hunt, and a door into anyone else's
+- **My Locker Room** — your team's room, with its honours on the walls, the
+  plant, spots saved for the store, the egg hunt, and a door into anyone else's
 - **Punishments** — this week's, the menu, and the season schedule
 
 Sign-in is deliberately not real auth: the username is a team abbreviation and
@@ -70,11 +71,11 @@ access — signed out, the whole site still works.
 
 ## Tests
 
-Four suites plus a parse check, run in CI on every push touching `public/app.js`
-or `scripts/**`. Run them before pushing:
+About seventy suites plus a parse check, run in CI on every push touching
+`public/app.js`, `api/**` or `scripts/**`. Run them before pushing:
 
 ```bash
-node --check public/app.js && for t in invites bank-egg odds next-bid; do node scripts/test-$t.mjs; done
+node --check public/app.js && for f in scripts/test-*.mjs; do node "$f" >/dev/null || echo "FAILED $f"; done
 ```
 
 Vercel deploys whether or not Actions is green, so a red suite is easy to miss.
@@ -83,6 +84,6 @@ Vercel deploys whether or not Actions is green, so a red suite is easy to miss.
 
 - Vercel serverless functions (Node 24) for the ESPN proxy and the archiver
 - Vanilla HTML/CSS/JS frontend, no framework, no build step
-- Firestore over the REST API for profiles and bet slips
+- Firestore over the REST API for profiles, bet slips, live win probability and Hot Takes
 - PWA with a network-first service worker
 - ESPN private-league auth via `espn_s2` + `SWID` cookies

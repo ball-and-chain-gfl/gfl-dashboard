@@ -10,42 +10,40 @@ Deployed at https://gfl-dashboard.vercel.app from `main` on
 https://github.com/ball-and-chain-gfl/gfl-dashboard — every push to `main`
 deploys.
 
-## Three documents
+## Documents
 
 - **`CLAUDE.md`** (this file) — repo rules and conventions. Read first.
-- **`HOW-IT-WORKS.md`** — what the app is for, where its data comes from, and
-  what every page does.
-- **`HANDOFF.md`** — the state of play: live accounts, open items, and the traps
-  that have already cost somebody time.
+- **`public/data/README.md`** — the archive files on their own terms.
 
-`public/data/README.md` documents the archive files on their own terms.
+Everything else is in the code and its comments. The app changes week to week,
+and a tour of it kept anywhere else goes stale faster than anyone reads it.
 
 ## Layout
 
 ```
 api/espn.js             ESPN API proxy — one handler, branches on ?type=
 api/archive.js          Snapshots the transaction log into git (Vercel cron)
-public/index.html       The shell + every line of CSS (6.1k lines)
-public/app.js           All frontend logic (14.6k lines)
+public/index.html       The shell + every line of CSS (7.3k lines)
+public/app.js           All frontend logic (25.6k lines)
 public/config.js        Hand-edited weekly content and tunables
 public/sw.js            Service worker / PWA cache
 public/data/*.json      Archived per-season data, committed to git
-scripts/*.mjs           Archivers, one-off fetchers, and the test suite
+scripts/*.mjs           Archivers, one-off fetchers, the local preview, the tests
 firestore.rules         Collection gating — `bets` refuses DELETE by rule
 firestore.indexes.json  The `owner`+`ts` composite index the bet reader needs
-.github/workflows/      Four scheduled jobs — see Archiving
+.github/workflows/      The scheduled jobs and the test run — see Archiving
 ```
 
-**`index.html` is a stylesheet with a shell attached.** Lines 33–5962 are a
-single `<style>` block; the ~120 lines after it are the head, the nav and a few
+**`index.html` is a stylesheet with a shell attached.** Lines 33–7178 are a
+single `<style>` block; the ~135 lines after it are the head, the nav and a few
 mount points. Every page body is built by a render function in `app.js`, so the
 markup for a tab lives in the JS, not the HTML.
 
 ## Editing conventions
 
 **Bump the service worker cache on every user-facing change.** `public/sw.js`
-line 7 is `const CACHE = 'gfl-v517';`. Increment it, and note the new number in
-the commit message as `sw gfl-v518` — that is the form the whole history uses.
+opens with `const CACHE = 'gfl-vNNN';`. Increment it, and note the new number in
+the commit message as `sw gfl-vNNN` — that is the form the whole history uses.
 Skipping the bump leaves installed home-screen PWA copies on stale assets. A
 commit that touches only docs, tests or scripts is not user-facing and does not
 need one.
@@ -61,9 +59,14 @@ non-developer editing — preserve that commenting style. It currently holds
 **CSS lives in `index.html`**, not a separate stylesheet. Each tab has an accent
 colour, and homepage modules are coloured to match their tab's accent.
 
-**Tabs** are driven by `data-tab` attributes. Fourteen are on the nav, in this
-order: `home`, `week`, `book`, `punishment`, `teams`, `leaders`, `standings`,
-`tenure`, `legacy`, `history`, `draft`, `trades`, `badbeat`, `cm`.
+**Tabs** are driven by `data-tab` attributes. Fifteen are on the nav, in this
+order: `home`, `week`, `book`, `standings`, `leaders`, `punishment`, `takes`,
+`legacy`, `history`, `teams`, `tenure`, `draft`, `trades`, `badbeat`, `cm`.
+The menu lays them out two to a row, so a button's place in that list decides
+what it sits under: `takes` (Hot Takes) follows `punishment` so that it lands
+directly under `leaders`. A new tab needs its button, `TAB_COLORS` and
+`TAB_LABELS` entries, a `switchTab` hook, a `#page-<tab>` container in
+`loadDashboard`, and the three accent rules in the stylesheet.
 
 Three more tab names exist without a nav button:
 
@@ -78,14 +81,13 @@ Three more tab names exist without a nav button:
 
 ## Tests
 
-`node --check` plus four suites, run by `.github/workflows/tests.yml` on every
-push that touches `public/app.js` or `scripts/**`:
+`node --check` plus about seventy suites, `scripts/test-*.mjs`, each its own step
+in `.github/workflows/tests.yml`, run on every push that touches
+`public/app.js`, `api/**` or `scripts/**`. A new suite needs a step there as
+well, or CI never runs it. All of them, locally:
 
 ```bash
-node scripts/test-invites.mjs    # invitations, seats, and the bucks balance
-node scripts/test-bank-egg.mjs   # the compounding bank and the egg's placement
-node scripts/test-odds.mjs       # odds react to money
-node scripts/test-next-bid.mjs   # next-highest waiver bid
+node --check public/app.js && for f in scripts/test-*.mjs; do node "$f" >/dev/null || echo "FAILED $f"; done
 ```
 
 **They lift the real functions out of `public/app.js` by string match and eval
@@ -102,8 +104,8 @@ expectation. `test-bank-egg.mjs` reads `eggWindowHours` and `eggPrize` out of
 the config file for exactly that reason.
 
 **Run them before pushing.** Vercel deploys whether or not Actions is green, so
-a red suite is easy to miss — this one went unnoticed for 59 consecutive runs
-across three days and a launch. `HANDOFF.md` §11 has the post-mortem.
+a red suite is easy to miss — one went unnoticed for 59 consecutive runs
+across three days and a launch.
 
 ## The ESPN proxy
 
@@ -152,7 +154,16 @@ is no SDK. `GFL_DB` in `app.js` carries the project id and the public web key;
 the rules do the gating, and every call fails soft, so an unreachable Firestore
 leaves the site behaving exactly as it does signed out.
 
-Four collections: `profiles`, `bets`, `live`, and `messages` (retired, empty).
+Four collections: `profiles`, `bets`, `live`, and `messages`, which holds Hot
+Takes. A take is one document, stamped with the week it belongs to (`wk`, the
+date of the Tuesday that week began — it turns at 06:00 Central) and named by an
+inverted timestamp, so name order is newest first and the feed needs no index.
+The page reads only this week's, and the rollover's last step
+(`scripts/wipe-takes.mjs`) deletes the rest every Tuesday. The rules leave
+`messages` open: "once it is posted it is locked in" is the app's rule, not the
+database's, the same as the rest of the sign-in. Only `bft` (`TAKES_ADMIN`) is
+shown a delete button.
+
 `bets` allows read, create and update but **refuses delete by rule** — the
 balance is derived by replaying the collection, so removing a bet would silently
 rewrite history and hand back a losing stake. `live` is written only while games
@@ -188,26 +199,41 @@ Needs `vercel login` and `vercel link` first. Then, two gotchas:
 the 38-char GUID in braces recorded in `README.md`. A quick way to tell they are
 in the right slots is length: 320 vs 38.
 
-`.claude/launch.json` has two preview entries: `gfl-attach` points at an
-already-running server on port 3000, and `gfl-dev` starts one. `gfl-dev` cannot
+`.claude/launch.json` has three entries: `gfl-attach` points at an
+already-running server on port 3000, `gfl-dev` starts one, and `gfl-preview`
+runs the credential-free preview below. `gfl-dev` cannot
 work from a shell without Vercel credentials — it exits with "No existing
 credentials found" — so attaching to a server started interactively is the
 reliable path.
+
+**To look at the front end without credentials**, `node scripts/preview.mjs`
+serves `public/` on port 5178 and forwards `/api/*` to the live site, so every
+tab has real data. `?as=<username>&team=<id>` on the URL signs you in as that
+team, and `?out` signs you out. It blocks every Firestore write, keeping Hot
+Takes posts in memory instead, so nothing done in the preview reaches the
+league's data.
 
 `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.
 
 ## Archiving
 
 ESPN purges the detailed transaction log after each season, which is why
-2022–2025 waiver history is gone and cannot be recovered. Four scheduled jobs
-keep everything since:
+2022–2025 waiver history is gone and cannot be recovered. The scheduled jobs
+that keep everything since:
 
 | Job | When | What it does |
 |---|---|---|
 | `api/archive` — Vercel cron (`vercel.json`) | Tue 09:00 UTC | Commits `transactions-<year>.json` through the GitHub contents API |
+| `rollover.yml` | Tue + Wed, every 20 min, 04:10–13:50 UTC | The week rollover, in order: the win-probability series out of Firestore `live` and into the repo, the Coaches' Poll, settling bets, freezing prices, trades, then wiping last week's Hot Takes. Each step is a no-op once its work is on file. |
 | `archive-transactions.yml` | Wed + Sun 14:30 UTC | `scripts/archive-transactions.mjs`, merged by transaction id |
-| `archive-week.yml` | Tue + Wed 09:30 UTC | Moves a finished week's win-probability series out of Firestore `live` and into the repo |
+| `capture-trades.yml` | Hourly at :23 | Captures trades as they happen |
+| `poll-live.yml` | Every 5 min through game windows | Polls the live scoreboard into Firestore `live` |
 | `refresh-videos.yml` | Hourly at :17 | Refreshes `public/data/videos.json`, because YouTube answers Vercel's IPs with random 404s |
+
+`archive-week`, `archive-poll`, `settle-bets`, `archive-charts` and
+`archive-trades` still exist as workflows, but only for running by hand: their
+schedule is `rollover.yml`'s. GitHub runs scheduled jobs late and less often
+than asked, which the comment at the top of `rollover.yml` explains.
 
 The Vercel cron needs a `GITHUB_TOKEN` env var with write access to this repo;
 without it the endpoint returns `committed: false` and quietly does nothing. The
