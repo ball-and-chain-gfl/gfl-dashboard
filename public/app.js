@@ -94,8 +94,8 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',takes:'#FF6A3D',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',takes:'Hot Takes',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -886,6 +886,7 @@ function switchTab(name){
      the source — the page works if it is ever wanted back — but nothing routes
      to it and nothing fetches for it. */
   if(name==='leaders') renderLeaders();
+  if(name==='takes') renderTakes();
   if(name==='week') renderWeek();
   if(name==='draft') ensureDraft();
   if(name==='trades') renderTradesTab();
@@ -9777,6 +9778,7 @@ function applyMe(){
   try{ _cpBallot=null; _cpFetched=false; _cpJustSent=false; renderCoachesPoll(); }catch(e){}   // a new manager starts fresh
   _rosterCache=null; _rosterTeam=null;
   if(_activeTab==='leaders') renderLeaders();
+  if(_activeTab==='takes') renderTakes();     // the box to post from, and the admin's delete
   /* a different manager signs in and the forecast is a different matchup */
   repaintLive();
 }
@@ -9784,29 +9786,29 @@ function applyMe(){
    page once you are in — the sign-out control moved onto that page */
 function meBtnClick(){ if(_me) switchTab('profile'); else openSignIn(); }
 /* ── Locker room ────────────────────────────────────────────────────────────
-   A pixel-art bay on your profile, in your own colours. Drawn as an SVG on a
-   fixed 160x100 grid with shape-rendering:crispEdges, so every rectangle lands
-   on a whole pixel and it scales up without going soft — a real bitmap would
-   blur or need a dozen assets, one per team.
+   A pixel-art locker room on your profile, in your own colours: a row of
+   lockers with yours standing open in the middle, a bench in front of them,
+   the crest on the carpet, a whiteboard of plays and a water cooler. Drawn as
+   an SVG with shape-rendering:crispEdges, so every rectangle lands on a whole
+   pixel and it scales up without going soft — a real bitmap would blur or
+   need a dozen assets, one per team.
 
-   Everything on the wall is derived from the team: two colours pulled from the
-   logo, the abbreviation on the jersey, and the number of championship banners
-   from the honours already computed elsewhere. */
+   Everything in it is derived from the team: the colours pulled from the
+   logo, the abbreviation on the sign, the jersey and the carpet, and the
+   championship banners from the honours already computed elsewhere. */
 /* ── Superlative keepsakes ──────────────────────────────────────────────────
-   One object per honour a team has actually won, placed into the empty parts of
-   the room. Kept in its own function on purpose: the room drawing above is the
-   design as it stood and is not touched by any of this, so the keepsakes can be
-   turned off by simply not calling it.
-
-   Each is meant to be recognisable on its own terms rather than a generic
-   trophy with a different label:
-     champion    a gold trophy on the shelf, one per title
-     conference  a hung plaque beside the locker
-     coy         a coach's whistle on the locker hook and a clipboard
-     commitment  a packed duffel bag, always there, always ready
-     comeback    a roll of tape and a crutch left leaning
+   One object per honour a team has actually won, each meant to be
+   recognisable on its own terms rather than a generic trophy with a
+   different label:
+     champion    a gold trophy on the top shelf, one per title
+     conference  a plaque on the left wall
+     coy         a coach's whistle on your locker's hook and a clipboard
+     commitment  a packed duffel on the bench, always there, always ready
+     comeback    a roll of tape on the bench and a crutch left leaning
      punishment  the beer mug, which is what the punishment usually is
      disappoint  a deflated ball on the floor
+   Whatever spots the trophies and the plaque leave free are kept for the
+   store (LOCKER_SPOTS, below).
 */
 /* Each keepsake is wrapped so a tap can name it. The label and the honour it
    came from travel on the group, and the bubble is drawn in HTML over the svg
@@ -9874,89 +9876,147 @@ function lkSay(ev){
     setTimeout(() => b.remove(), 220); }, 3200);
   ev.stopPropagation();
 }
-function lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp){
+/* ── THE ROOM'S SPOTS ─────────────────────────────────────────────────────────
+   Every place in the room something can stand. An honour the team has won
+   takes its spot; every spot left over is open, kept for what the store will
+   one day sell, and on your own room it is marked -- four corner brackets and
+   a small plus -- so the room shows where things will go before there is
+   anything to put there. Coordinates are in the room's 1280 x 760 base grid,
+   and a store item, when there is one, draws into its spot's box. */
+const LOCKER_SPOTS=[
+  {id:'shelfL1',x:300,y:98,w:62,h:42},
+  {id:'shelfL2',x:370,y:98,w:62,h:42},
+  {id:'shelfL3',x:440,y:98,w:62,h:42},
+  {id:'shelfR1',x:780,y:98,w:62,h:42},
+  {id:'shelfR2',x:850,y:98,w:62,h:42},
+  {id:'shelfR3',x:920,y:98,w:62,h:42},
+  {id:'wallL',x:52,y:300,w:118,h:84},
+  {id:'wallL2',x:188,y:306,w:84,h:72},
+  {id:'wallR',x:1014,y:378,w:88,h:58},
+  {id:'locker',x:598,y:412,w:84,h:62},
+  {id:'bench',x:566,y:558,w:92,h:40},
+  {id:'floor',x:1174,y:618,w:76,h:70},
+];
+/* A 3 x 5 pixel alphabet, three bits a row, so the lettering in the room is
+   drawn in the same blocks as everything else rather than set in a typeface
+   that reads as a label stuck on top of the art. */
+const LK_FONT={
+  '0':[7,5,5,5,7],'1':[2,6,2,2,7],'2':[7,1,7,4,7],'3':[7,1,7,1,7],'4':[5,5,7,1,1],
+  '5':[7,4,7,1,7],'6':[7,4,7,5,7],'7':[7,1,1,2,2],'8':[7,5,7,5,7],'9':[7,5,7,1,7],
+  A:[2,5,7,5,5],B:[6,5,6,5,6],C:[3,4,4,4,3],D:[6,5,5,5,6],E:[7,4,6,4,7],F:[7,4,6,4,4],
+  G:[3,4,5,5,3],H:[5,5,7,5,5],I:[7,2,2,2,7],J:[1,1,1,5,2],K:[5,5,6,5,5],L:[4,4,4,4,7],
+  O:[2,5,5,5,2],P:[6,5,6,4,4],Q:[2,5,5,6,3],R:[6,5,6,5,5],
+  S:[3,4,2,1,6],T:[7,2,2,2,2],U:[5,5,5,5,7],V:[5,5,5,5,2],X:[5,5,2,5,5],
+  Y:[5,5,2,2,2],Z:[7,1,2,4,7],"'":[2,2,0,0,0],'&':[2,5,2,5,3],'-':[0,0,7,0,0],'.':[0,0,0,0,2],
+};
+/* the letters three blocks cannot hold without turning lower case: width
+   first, then the five rows */
+const LK_WIDE={M:[5,17,27,21,17,17],N:[4,9,13,11,9,9],W:[5,17,17,21,27,17]};
+function lkGlyph(ch){
+  const g=LK_WIDE[ch];
+  return g?{w:g[0],rows:g.slice(1)}:{w:3,rows:LK_FONT[ch]||[0,0,0,0,0]};
+}
+/* K is the room's drawing kit: P, the team colours, and the football, so a
+   keepsake is drawn with the same hand as the room it sits in. */
+function lockerSupsSVG(owner,at,K){
+  const {P,c1,c2,c3,dk,dp}=K;
   const aw=(typeof awardsForOwner==='function')?(awardsForOwner(owner)||[]):[];
   const has=k=>aw.some(a=>a.key===k);
   const n=k=>aw.filter(a=>a.key===k).length;
   const rings=Number(at&&at.rings)||0, confs=Number(at&&at.confs)||0;
-  const out=[];
+  const out=[], used=[];
+  const spot=id=>LOCKER_SPOTS.find(s=>s.id===id);
 
-  // champion — trophies on the shelf, in the gap between helmet and ball
+  // champion -- a trophy in each of the shelf's left-hand spots, one per title
   for(let i=0;i<Math.min(rings,3);i++){
-    const x=512+i*38;
+    const s=spot('shelfL'+(i+1)); used.push(s.id);
+    const x=s.x+15, y=s.y+2;
     out.push(lkTag('Championship trophy','GFL champion — '+rings+' title'+(rings>1?'s':''),
-      P(x+8,37,14,20,'#e8c15a')+P(x+8,37,14,4,'#f6dc9a')      // cup + lit rim
-      +P(x+4,34,22,5,'#f0d68a')
-      +P(x+2,43,5,9,'#e8c15a')+P(x+23,43,5,9,'#e8c15a')       // handles
-      +P(x+12,57,6,11,'#c99a34')                               // stem
-      +P(x+5,68,20,8,'#8a6a24')+P(x+5,68,20,2,'#a8842e')));    // base
+      P(x+4,y,24,4,'#f6dc9a')                                  // lit rim
+      +P(x+6,y+4,20,14,'#e8c15a')+P(x+20,y+4,6,14,'#c99a34')   // cup, shaded side
+      +P(x,y+6,6,9,'#e8c15a')+P(x+26,y+6,6,9,'#e8c15a')        // handles
+      +P(x+13,y+18,6,8,'#c99a34')                              // stem
+      +P(x+8,y+26,16,6,'#8a6a24')+P(x+8,y+26,16,2,'#a8842e')   // base
+      +P(x+5,y+32,22,8,'#5a4418')+P(x+5,y+32,22,2,'#6e5520'))); // plinth
   }
-  // conference — a plaque hung on the wall right of the locker
+  // conference -- a plaque on the left wall
   if(confs){
+    const s=spot('wallL'); used.push(s.id);
+    const {x,y,w,h}=s;
     out.push(lkTag('Conference plaque','Conference champion — '+confs+' title'+(confs>1?'s':''),
-      P(794,160,100,72,'#4a3a2a')+P(794,160,100,4,'#5f4c36')
-      +P(802,168,84,56,'#6b5a44')+P(802,168,84,3,'#7d6a52')
-      +P(812,182,62,7,c1)+P(812,198,46,5,'#d8c9a8')
-      +P(812,210,34,5,'#d8c9a8')
-      +(confs>1?P(858,206,22,14,'#e8c15a')+P(858,206,22,3,'#f6dc9a'):'')));
+      P(x,y,w,h,'#4a3a2a')+P(x,y,w,4,'#5f4c36')
+      +P(x+8,y+8,w-16,h-16,'#6b5a44')+P(x+8,y+8,w-16,3,'#7d6a52')
+      +P(x+18,y+20,w-36,7,c1)+P(x+18,y+36,w-52,5,'#d8c9a8')
+      +P(x+18,y+48,w-70,5,'#d8c9a8')
+      +(confs>1?P(x+w-40,y+44,22,14,'#e8c15a')+P(x+w-40,y+44,22,3,'#f6dc9a'):'')));
   }
-  // coach of the year — whistle on the locker hook, clipboard leaning
+  // coach of the year -- a whistle on your locker's hook, a clipboard by the cooler
   if(has('coy')){
     out.push(lkTag("Coach's whistle",'Coach of the Year',
-      P(702,188,6,36,'#8a8f98')                                // lanyard
-      +P(690,224,28,16,'#c9ccd2')+P(690,224,28,3,'#e0e3e8')
-      +P(716,229,10,7,'#c9ccd2')+P(696,229,7,7,'#5a5f68')));
-  }
-  if(has('coy')){
+      P(741,288,3,30,'#8a8f98')                                // lanyard
+      +P(726,318,20,12,'#c9ccd2')+P(726,318,20,3,'#e0e3e8')
+      +P(744,321,7,6,'#c9ccd2')+P(730,322,6,5,'#5a5f68')));
     out.push(lkTag('Clipboard','Coach of the Year',
-      P(788,370,46,70,'#c9ccd2')+P(788,370,46,3,'#e0e3e8')
-      +P(793,376,36,58,'#ececf2')
-      +P(799,364,24,10,'#8a8f98')+P(799,362,24,3,'#9aa0a8')
-      +P(797,390,27,4,'#9a9aa6')+P(797,401,20,4,'#9a9aa6')+P(797,412,24,4,'#9a9aa6')));
+      P(1072,486,40,58,'#c9ccd2')+P(1072,486,40,3,'#e0e3e8')
+      +P(1076,492,32,48,'#ececf2')
+      +P(1082,480,20,9,'#8a8f98')+P(1082,478,20,3,'#9aa0a8')
+      +P(1080,504,24,3,'#9a9aa6')+P(1080,513,17,3,'#9a9aa6')+P(1080,522,21,3,'#9a9aa6')));
   }
-  // commitment — a packed duffel by the locker
+  // commitment -- a packed duffel at the bench's left end
   if(has('commitment')){
     out.push(lkTag('Packed duffel','Commitment award',
-      P(286,390,98,50,dk)+P(286,390,98,5,c2)
-      +P(286,432,98,8,dp)                                      // shaded underside
-      +P(308,382,56,9,dk)+P(322,373,28,9,dk)                   // handles
-      +P(296,406,78,6,c1,'0.7')+P(296,414,78,3,dp,'0.5')
-      +P(366,400,14,20,'#2a2a33')+P(366,400,14,3,'#3a3a46')));
+      P(352,566,100,36,dk)+P(352,566,100,5,c2)
+      +P(352,594,100,8,dp)                                     // shaded underside
+      +P(374,558,56,9,dk)+P(388,551,28,8,dk)                   // handles
+      +P(362,580,80,5,c1,'0.7')+P(362,587,80,3,dp,'0.5')
+      +P(432,574,14,18,'#2a2a33')+P(432,574,14,3,'#3a3a46')));
   }
-  // comeback — tape roll and a crutch leaning on the post
+  // comeback -- a roll of tape on the bench and a crutch against the far wall
   if(has('comeback')){
     out.push(lkTag('Roll of tape','Comeback of the Year',
-      P(1174,400,40,40,'#e8e4d8')+P(1174,396,40,6,'#f4f0e4')
-      +P(1186,412,17,17,'#26262c')+P(1188,414,13,13,'#4a453c')
-      +P(1174,432,40,8,'#cfcabb')
-      +P(1214,417,13,5,'#f4f0e4')+P(1214,422,13,2,'#cfcabb')));
+      P(780,570,32,32,'#e8e4d8')+P(780,566,32,6,'#f4f0e4')
+      +P(790,580,13,13,'#26262c')+P(792,582,9,9,'#4a453c')
+      +P(780,596,32,6,'#cfcabb')));
     out.push(lkTag('Crutch','Comeback of the Year',
-      P(754,200,10,238,'#c9b48a')+P(754,200,3,238,'#dcc79c')
-      +P(741,195,36,11,'#c9b48a')+P(741,195,36,3,'#dcc79c')
-      +P(746,275,26,8,'#b09a70')));
+      P(1252,330,9,218,'#c9b48a')+P(1252,330,3,218,'#dcc79c')
+      +P(1240,325,33,10,'#c9b48a')+P(1240,325,33,3,'#dcc79c')
+      +P(1245,400,24,8,'#b09a70')));
   }
-  // punishment — the beer mug on the desk
+  // punishment -- the beer mug on the bench
   if(has('punishment')){
-    const nx=1014;
+    const nx=864;
     out.push(lkTag('Beer mug','Punishment served — '+n('punishment')+'x',
-      P(nx,272,40,42,'#d8a24a')+P(nx,272,40,4,'#e8b86a')
-      +P(nx,264,40,10,'#f0e6c8')+P(nx,262,40,4,'#f8f2de')      // head
-      +P(nx+40,284,12,19,'#d8a24a')                            // handle
-      +P(nx+4,282,5,26,'#e8b86a','0.7')
-      +(n('punishment')>1?P(nx+58,284,28,30,'#d8a24a')+P(nx+58,276,28,9,'#f0e6c8'):'')));
+      P(nx,566,34,36,'#d8a24a')+P(nx,566,34,4,'#e8b86a')
+      +P(nx,558,34,9,'#f0e6c8')+P(nx,556,34,4,'#f8f2de')       // head
+      +P(nx+34,574,10,18,'#d8a24a')                            // handle
+      +P(nx+4,574,5,24,'#e8b86a','0.7')
+      +(n('punishment')>1?P(nx+52,574,26,28,'#d8a24a')+P(nx+52,567,26,8,'#f0e6c8'):'')));
   }
-  // most disappointing — a deflated ball on the floor
+  // most disappointing -- the same football as the shelf's, gone flat on the floor
   if(has('disappoint')){
     out.push(lkTag('Deflated ball','Most Disappointing',
-      P(544,470,58,20,'#5a3a1e')+P(552,464,42,7,'#6b4423')
-      +P(544,486,58,5,'#3f280f')
-      +P(562,474,22,4,'#e8e8e8','0.7')));
+      K.ball(262,712,32,7,true)
+      +P(246,705,18,2,'#f4f4f8')+P(250,703,2,4,'#f4f4f8')+P(256,703,2,4,'#f4f4f8')
+      +P(236,712,52,2,'#3f240f','0.6')));                      // where it folds
   }
-  return out.join('');
+  return {svg:out.join(''),used};
+}
+/* Four corner brackets and a plus: a place for something, not a thing.
+   Tapping one says so. */
+function lockerSpotSVG(s,P,col){
+  const {x,y,w,h}=s, L=10, T=2;
+  return lkTag('Open spot','Saved for something from the store. Coming soon.',
+    P(x,y,w,h,'#000','0')                                          // the tap target
+    +'<g opacity="0.55">'
+    +P(x,y,L,T,col)+P(x,y,T,L,col)+P(x+w-L,y,L,T,col)+P(x+w-T,y,T,L,col)
+    +P(x,y+h-T,L,T,col)+P(x,y+h-L,T,L,col)+P(x+w-L,y+h-T,L,T,col)+P(x+w-T,y+h-L,T,L,col)
+    +P(x+w/2-5,y+h/2-1,10,2,col)+P(x+w/2-1,y+h/2-5,2,10,col)
+    +'</g>');
 }
 /* opts: {plant, canWater}. A visited locker room draws the plant belonging to
-   whoever lives there, and does not let you water it — a plant is a pet, and
-   feeding someone else's would go down on their record as their watering. */
+   whoever lives there, and does not let you water it -- a plant is a pet, and
+   feeding someone else's would go down on their record as their watering. Its
+   open spots are not marked either: they are the owner's to fill. */
 function lockerRoomHTML(t,opts){
   if(!t) return '';
   const O=opts||{};
@@ -9964,6 +10024,9 @@ function lockerRoomHTML(t,opts){
   const at=owner?franchiseAllTime(owner):null;
   const rings=Number(at&&at.rings)||0;
   const ab=(t.abbrev||teamInitials(t.name)||'GFL').slice(0,4).toUpperCase();
+  /* the jersey's number is the team's league id: the one number a franchise
+     keeps for as long as it exists */
+  const num=String(t.id==null?'':t.id).slice(-2)||'0';
   const parse=s=>{
     if(!s) return [138,143,152];
     const m=String(s).match(/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/);
@@ -9981,172 +10044,306 @@ function lockerRoomHTML(t,opts){
   const dk=mix(base,[0,0,0],0.46);
   const dp=mix(base,[0,0,0],0.66);
   const dv=mix(base,[0,0,0],0.80);              // deepest shadow
-  /* 2560x1120 — twice the grid in each direction. Every coordinate below is
-     still written in the old 1280x560 space and P doubles it on the way out,
-     so nothing moved; what the extra grid buys is R, which draws in raw units
-     and can therefore put a line half a block wide. The fine passes marked
-     "R:" are the new pixels: brighter one-unit highlights riding on top of the
-     lit edges, one-unit shadow lines under them, finer wall and wood grain,
-     and hairlines around the vents and seams. Same room, same objects, same
-     positions — just resolved twice as finely. */
+  const door=mix(base,[0,0,0],0.32);            // a closed locker's face
+  const wall=mix(base,[30,30,37],0.86);         // the room's own colour, barely
+  const wallHi=mix(base,[40,40,48],0.84);
+  const wallLo=mix(base,[22,22,27],0.86);
+  /* 2560 x 1520. Every coordinate is written on a 1280 x 760 grid and P doubles
+     it on the way out; R draws in raw units, so it can put a line half a block
+     wide -- the hairlines, seams and fine highlights. */
   const S=2;
   const R=(x,y,w,h,f,o)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+f+'"'+(o?' opacity="'+o+'"':'')+'/>';
   const P=(x,y,w,h,f,o)=>R(x*S,y*S,w*S,h*S,f,o);
-  const W=2560,H=1120;
-  const FLOOR=440;                      // still base units; P scales it
+  const W=2560,H=1520;
+  const FLOOR=548;                      // where the back wall meets the carpet
 
-  /* Championship banners, hung from a rod in the top-left band — the shelf
-     owns x 381 on. Each carries the year it was won, which is the thing a
-     banner is actually for, and is tappable like a keepsake.
-     Sized off the room rather than off a phone: the whole 1280-unit room is
-     drawn into about 375px, so a banner has to be around 80 units wide before
-     its year survives that scale as readable text. Width and pitch both come
-     down as the titles pile up, so six still fit clear of the shelf.
-     Years come from the same map the Playoff Hardware tiles caption themselves
-     with. On a cold profile load the league history may not have run yet, so a
-     banner with no year still hangs — it just says nothing. */
+  /* Lettering, in LK_FONT's blocks. px is the size of one block; (cx, y) is
+     the top centre of the line. Runs of lit blocks in a row go out as one
+     rectangle rather than one each. */
+  const txtW=(s,px)=>[...s].reduce((a,ch)=>a+(lkGlyph(ch).w+1)*px,0)-px;
+  const TXT=(cx,y,s,px,fill,o)=>{
+    let x=Math.round(cx-txtW(s,px)/2), out='';
+    [...s].forEach(ch=>{
+      const {w,rows}=lkGlyph(ch);
+      rows.forEach((row,r)=>{
+        const lit=c=>row&(1<<(w-1-c));
+        for(let c=0;c<w;){
+          if(lit(c)){
+            let e=c; while(e<w&&lit(e)) e++;
+            out+=P(x+c*px,y+r*px,(e-c)*px,px,fill,o); c=e;
+          } else c++;
+        }
+      });
+      x+=(w+1)*px;
+    });
+    return out;
+  };
+
+  /* ── THE PIECES ─────────────────────────────────────────────────────────── */
+  /* A football on its side: a pointed oval lit from above, its two white
+     stripes, and laces along the top. flat leaves the laces off, for the one
+     that has gone down on the floor. */
+  const ball=(cx,cy,rx,ry,flat)=>{
+    let s='';
+    for(let dy=-ry;dy<ry;dy+=2){
+      const k=(dy+1)/ry, hw=Math.round(rx*Math.pow(Math.max(0,1-k*k),0.7));
+      if(hw<1) continue;
+      s+=P(cx-hw,cy+dy,hw*2,2,k<-0.35?'#94592c':(k>0.4?'#5a3418':'#7a4522'));
+    }
+    const sx=Math.round(rx*0.6), sh=Math.max(2,Math.round(ry*0.62));
+    s+=P(cx-sx-2,cy-sh,3,sh*2,'#ececf2')+P(cx+sx-1,cy-sh,3,sh*2,'#ececf2');
+    if(!flat){
+      const ly=cy-Math.round(ry*0.55);
+      s+=P(cx-9,ly,18,2,'#f4f4f8');
+      for(let i=0;i<5;i++) s+=P(cx-8+i*4,ly-2,2,6,'#f4f4f8');
+    }
+    return s;
+  };
+  /* A helmet in profile, facing right: a domed shell lit from the top, a decal,
+     the ear hole, and a grey facemask across the opening. */
+  const helmet=(x,y)=>{
+    const rows=[[0,24,48],[3,16,56],[6,10,62],[9,6,66],[12,4,68],[15,2,70],
+                [18,2,70],[21,2,58],[24,2,54],[27,2,52],[30,2,52],[33,4,50],[36,8,46]];
+    let s='';
+    rows.forEach(([dy,a,b])=>{ s+=P(x+a,y+dy,b-a,3,dy>=27?dk:c1); });
+    return s
+      +P(x+16,y+3,32,2,cL)+P(x+10,y+6,14,2,cL)                 // lit crown
+      +P(x+18,y+8,10,4,c3,'0.5')                               // shine
+      +P(x+2,y+15,3,18,dk,'0.6')                               // back edge, in shade
+      +P(x+32,y+10,14,10,c3)+P(x+35,y+13,8,4,c1)               // decal
+      +P(x+22,y+23,7,7,dv)                                     // ear hole
+      +P(x+56,y+21,20,3,'#c9ccd2')+P(x+50,y+30,24,3,'#c9ccd2') // facemask bars
+      +P(x+72,y+19,4,18,'#c9ccd2')+P(x+74,y+19,2,18,'#8a8f98')
+      +P(x+46,y+36,26,3,'#9aa0a8');
+  };
+  /* A cleat in profile, toe to the right: a white upper with a stripe in the
+     team's colour, laces, a black sole and its studs. */
+  const cleat=(x,y)=>
+    P(x+2,y,18,7,'#d6d6de')+P(x+2,y,18,2,'#f4f4f8')            // heel collar
+    +P(x,y+6,42,9,'#e6e6ee')+P(x+42,y+9,8,6,'#e6e6ee')         // upper, toe box
+    +P(x,y+6,42,2,'#ffffff','0.7')
+    +P(x+6,y+10,28,3,c1)                                       // stripe
+    +[22,27,32,37].map(lx=>P(x+lx,y+5,3,3,'#8a8f98')).join('') // laces
+    +P(x,y+15,50,4,'#1e1e24')+P(x+4,y+15,44,1,'#3a3a46')       // sole
+    +[4,14,32,43].map(sx=>P(x+sx,y+19,4,3,'#1e1e24')).join(''); // studs
+  /* The jersey, on its hanger: padded shoulders, striped sleeves, a trimmed
+     V-neck, the team's letters across the chest and the number under them. */
+  const jersey=(cx,y)=>{
+    let s=P(cx-3,y-8,6,9,'#5a5a66')                            // hook, over the rail
+      +P(cx-36,y,72,4,'#5a5a66')+P(cx-36,y,72,1,'#7a7a88');     // hanger
+    const top=y+4;
+    s+=P(cx-56,top,112,16,c1)                                  // yoke, square with the pads
+      +P(cx-76,top+4,22,40,c1)+P(cx+54,top+4,22,40,c1)          // sleeves
+      +P(cx-52,top+16,104,110,c1)                              // body
+      +P(cx-56,top,112,3,cL)+P(cx-76,top+4,22,3,cL)+P(cx+54,top+4,22,3,cL)
+      +P(cx-76,top+22,22,5,c3)+P(cx+54,top+22,22,5,c3)          // sleeve stripes
+      +P(cx-76,top+30,22,3,c3)+P(cx+54,top+30,22,3,c3)
+      +P(cx-76,top+41,22,3,dk)+P(cx+54,top+41,22,3,dk)          // cuffs
+      +P(cx-54,top+16,4,32,dk,'0.6')+P(cx+50,top+16,4,32,dk,'0.6')  // under the arms
+      +P(cx+38,top+16,14,110,dk,'0.3')                          // the side in shade
+      +P(cx-52,top+118,104,8,dk,'0.55');                        // hem
+    for(let i=0;i<7;i++){                                       // the V-neck
+      const hw=16-i*2;
+      s+=P(cx-hw,top+i*2,hw*2,2,c3);
+      if(hw>4) s+=P(cx-hw+3,top+i*2,(hw-3)*2,2,dv);
+    }
+    return s+TXT(cx,top+26,ab,2,c3)                             // letters
+      +TXT(cx+2,top+48,num,6,dv,'0.6')+TXT(cx,top+46,num,6,c3); // number, and its shadow
+  };
+  /* the clock on the far wall, at a quarter past noon on a Sunday */
+  const clock=(cx,cy,r)=>{
+    let s='';
+    for(let dy=-r;dy<r;dy+=2){
+      const m=dy+1, hw=Math.round(Math.sqrt(r*r-m*m)), ir=r-4;
+      s+=P(cx-hw,cy+dy,hw*2,2,'#2a2a33');
+      if(Math.abs(m)<ir){ const iw=Math.round(Math.sqrt(ir*ir-m*m)); s+=P(cx-iw,cy+dy,iw*2,2,'#ececf2'); }
+    }
+    return s
+      +P(cx-1,cy-r+6,2,4,'#2a2a33')+P(cx-1,cy+r-10,2,4,'#2a2a33')
+      +P(cx-r+6,cy-1,4,2,'#2a2a33')+P(cx+r-10,cy-1,4,2,'#2a2a33')
+      +P(cx-1,cy-12,3,12,'#2a2a33')                            // hour hand
+      +P(cx,cy-1,16,3,'#2a2a33')                               // minute hand
+      +P(cx-2,cy-2,4,4,c1);                                    // the pin
+  };
+
+  /* Championship banners down the left wall, each with the year it was won --
+     the thing a banner is actually for -- and tappable like a keepsake. Width
+     and pitch come down as titles pile up so six still fit in the corner.
+     Years come from the map the Playoff Hardware tiles caption themselves with;
+     on a cold profile load that may not have run yet, and a banner with no
+     year still hangs, it just says nothing. */
   const pennants=(()=>{
     const yrs=(_profileHonorYears[owner]&&_profileHonorYears[owner].champ)||[];
     const n=Math.min(rings,6);
     if(!n) return '';
-    const w=n<=4?80:(n===5?64:54);
+    const AREA=236;
+    const w=n<=3?64:(n===4?54:(n===5?44:38));
     const h=Math.round(w*1.45);
-    const pitch=n<2?0:Math.min(w+8,Math.floor((338-w)/(n-1)));
-    /* Courier advances 0.6em a glyph, so a three-glyph year runs 1.8 font
-       sizes wide — anything past w*0.45 spills off the banner and into its
-       neighbour. This lands about 10px tall on a phone, which reads. */
-    const fsz=Math.round(w*0.44);
+    const pitch=n<2?0:Math.min(w+8,Math.floor((AREA-w)/(n-1)));
+    const px=Math.max(2,Math.floor((w-12)/11));        // three glyphs, 11 blocks wide
     return Array.from({length:n},(_,i)=>{
-      const x=36+i*pitch, cx=x+Math.round(w/2), yr=yrs[i]||'';
+      const x=26+i*pitch, cx=x+Math.round(w/2), yr=yrs[i]||'', top=54;
       /* the face carries the short year the way the league writes it, 24' */
-      const face=yr?yr.replace("'",'')+String.fromCharCode(8217):'';
+      const face=yr?String(yr).replace(/\D/g,'').slice(-2)+"'":'';
       const body=
-        P(x-4,2,w+8,5,'#3a3a46')+P(x-4,2,w+8,2,'#4a4a58')          // rod
-        +P(x,7,w,h,c2)+P(x,7,w,5,c3)                                // body + top hem
-        +P(x+w-6,12,6,h-5,dk,'0.55')                                // shaded edge
-        +R((x+2)*S,(7+h)*S-2,(w-4)*S,2,dv,'0.35')                   // R: fold above the tail
-        +P(x+3,7+h,w-6,8,c2)                                        // tail
-        +P(x+Math.round(w*0.22),15+h,Math.round(w*0.56),8,c2)
-        +P(x+Math.round(w*0.40),23+h,Math.round(w*0.20),7,c2)
-        +P(cx-7,16,14,11,'#e8c15a')+P(cx-7,16,14,3,'#f6dc9a')       // little trophy
-        +P(cx-3,27,6,5,'#c99a34')+P(cx-10,32,20,5,'#8a6a24')
-        +(yr?'<text x="'+(cx*S)+'" y="'+Math.round((7+h*0.74)*S)+'" text-anchor="middle"'
-          +' font-family="\'Courier New\',monospace" font-size="'+(fsz*S)+'" font-weight="700"'
-          +' fill="'+dv+'">'+face+'</text>':'');
+        P(x-4,top-5,w+8,5,'#3a3a46')+P(x-4,top-5,w+8,2,'#4a4a58')  // rod
+        +P(x,top,w,h,c2)+P(x,top,w,5,c3)                            // body + top hem
+        +P(x+w-6,top+5,6,h-5,dk,'0.55')                             // shaded edge
+        +R((x+2)*S,(top+h)*S-2,(w-4)*S,2,dv,'0.35')                 // fold above the tail
+        +P(x+3,top+h,w-6,8,c2)                                      // tail
+        +P(x+Math.round(w*0.22),top+h+8,Math.round(w*0.56),8,c2)
+        +P(x+Math.round(w*0.40),top+h+16,Math.round(w*0.20),7,c2)
+        +P(cx-7,top+9,14,11,'#e8c15a')+P(cx-7,top+9,14,3,'#f6dc9a')  // little trophy
+        +P(cx-3,top+20,6,5,'#c99a34')+P(cx-10,top+25,20,5,'#8a6a24')
+        +(face?TXT(cx,top+Math.round(h*0.5),face,px,dv):'');
       return lkTag('Championship banner',
-        yr?('GFL champion — '+yr.replace("'","20")):'GFL champion', body);
+        yr?('GFL champion — '+String(yr).replace("'","20")):'GFL champion', body);
     }).join('');
   })();
 
+  /* A closed locker: a framed door in the team's colour with vents top and
+     bottom, a blank nameplate and a handle. */
+  const closed=(x,w)=>
+    P(x,150,w,FLOOR-150,'#2a2a33')+P(x,150,3,FLOOR-150,'#353541')               // frame
+    +P(x+6,156,w-12,FLOOR-162,door)                                             // door
+    +P(x+6,156,w-12,3,c1)+P(x+6,156,3,FLOOR-162,c1,'0.55')                      // lit edges
+    +P(x+w-9,156,3,FLOOR-162,dv,'0.45')                                         // shaded edge
+    +Array.from({length:4},(_,i)=>P(x+18,176+i*11,w-36,5,dv)+R((x+18)*S,(181+i*11)*S,(w-36)*S,2,cL,'0.28')).join('')
+    +Array.from({length:3},(_,i)=>P(x+18,492+i*11,w-36,5,dv)+R((x+18)*S,(497+i*11)*S,(w-36)*S,2,cL,'0.22')).join('')
+    +P(x+w/2-20,234,40,12,dp)+P(x+w/2-20,234,40,2,cL,'0.4')                    // nameplate
+    +P(x+w-24,330,6,40,'#9aa0a8')+P(x+w-24,330,6,4,'#c9ccd2')                  // handle
+    +P(x,FLOOR-8,w,8,'#22222a');                                                // kick plate
+
+  /* Your locker, open: your letters over it, the helmet on its shelf, the
+     jersey on the rail, a hook for whatever you have earned, and the cleats
+     left on the floor of it. */
+  const LX=520, LW=240, LR=LX+LW, IX=LX+8, IW=LW-16;
+  const mine=
+    P(LX,150,LW,FLOOR-150,'#2a2a33')                                            // frame
+    +P(IX,186,IW,FLOOR-194,dp)                                                  // inside
+    +P(IX,186,IW,10,dv,'0.7')                                                   // under the header
+    +Array.from({length:6},(_,r)=>P(IX+12,262+r*44,8,18,dv,'0.8')+P(LR-28,262+r*44,8,18,dv,'0.8')).join('')
+    +P(LX,150,LW,36,door)+P(LX,150,LW,4,c1)+R(LX*S,154*S,LW*S,2,cL,'0.6')     // header
+    +P(LX+70,158,LW-140,22,dv)+P(LX+72,160,LW-144,18,c1)+P(LX+72,160,LW-144,2,cL)
+    +TXT(LX+LW/2,164,ab,2,c3)                                                   // nameplate
+    +P(LX,186,8,FLOOR-186,'#3a3a46')+P(LX,186,2,FLOOR-186,'#4a4a58')           // posts
+    +P(LR-8,186,8,FLOOR-186,'#2e2e38')
+    +P(IX,240,IW,8,'#3a3a46')+P(IX,240,IW,2,'#50505e')+P(IX,248,IW,4,dv,'0.6') // shelf
+    +helmet(LX+82,201)
+    +P(IX,262,IW,3,'#8a8f98')+P(IX,262,IW,1,'#c9ccd2')                         // rail
+    +jersey(LX+LW/2,270)
+    +P(LR-24,284,12,4,'#8a8f98')+P(LR-16,284,4,10,'#8a8f98')                   // hook
+    +cleat(LX+56,512)+cleat(LX+128,514)
+    +P(LX,FLOOR-8,LW,8,'#22222a');
+
+  const sups=lockerSupsSVG(owner,at,{P,c1,c2,c3,dk,dp,ball});
   const st=O.plant||plantStage();
   const canWater=O.canWater!==false;
-  /* No heading of its own: the page is called My Locker Room, and a second
-     "Locker Room" directly under it was the same word twice. */
+  /* marked only on your own room: a guest is shown what is there, not what
+     could be */
+  const open=canWater
+    ? LOCKER_SPOTS.filter(s=>!sups.used.includes(s.id)).map(s=>lockerSpotSVG(s,P,c3)).join('')
+    : '';
+  const sign=ab+' LOCKER ROOM', SPX=5, SW=txtW(sign,SPX)+48, SX=Math.round(640-SW/2);
+
   return '<div class="lk-block">'
     +'<div class="lk-wrap">'
     +'<svg class="lk-svg" viewBox="0 0 '+W+' '+H+'" shape-rendering="crispEdges" role="img"'
     +' aria-label="Pixel art locker room for '+t.name+'">'
-      +R(0,0,W,H,'#1b1b20')
-      +R(0,0,W,196,'#15151a')
-      +P(0,96,W/S,3,dv)+P(0,99,W/S,2,'#25252d')
-      /* panelled wall: a groove, a lit return and — R: — a hairline core */
-      +Array.from({length:32},(_,i)=>P(i*40,101,2,FLOOR-101,'#1f1f26')
-        +P(i*40+2,101,1,FLOOR-101,'#26262f')
-        +R(i*80+3,202,1,(FLOOR-101)*S,'#15151a')).join('')
+      /* ── CEILING AND LIGHTS ────────────────────────────────────────────── */
+      +R(0,0,W,H,wall)
+      +P(0,0,1280,46,'#121216')+P(0,44,1280,3,'#26262e')
+      +[150,560,970].map(x=>
+        P(x,10,160,16,'#3a3a46')+P(x+4,13,152,10,'#e9eff8')+P(x+4,13,152,3,'#ffffff')).join('')
+      /* ── THE BACK WALL: panels, a rail, and the wainscot under it ─────────── */
+      +Array.from({length:21},(_,i)=>P(i*64,47,2,FLOOR-47,wallLo)+P(i*64+2,47,1,FLOOR-47,wallHi,'0.6')).join('')
+      +P(0,452,1280,FLOOR-452,wallLo)
+      +P(0,446,1280,8,'#33333e')+P(0,446,1280,2,'#45455a')
+      /* ── THE SIGN, hung from the ceiling on two short chains ───────────── */
+      +P(SX+30,46,2,6,'#4a4a58')+P(SX+SW-32,46,2,6,'#4a4a58')
+      +P(SX,52,SW,44,'#15151b')
+      +P(SX,52,SW,3,c1)+P(SX,93,SW,3,c1)+P(SX,52,3,44,c1)+P(SX+SW-3,52,3,44,c1)
+      +P(SX+3,55,SW-6,38,c1,'0.10')
+      +TXT(641,63,sign,SPX,dv,'0.8')+TXT(640,62,sign,SPX,c3)
+      +P(SX+10,71,6,6,'#e8c15a')+P(SX+SW-16,71,6,6,'#e8c15a')                   // studs
       +pennants
+      +clock(1120,118,24)
+      /* ── THE TOP SHELF, and the game ball in the middle of it ──────────── */
+      +P(286,138,708,10,'#3a3a46')+P(286,136,708,4,'#50505e')+P(286,148,708,4,'#26262e')
+      +P(300,152,10,14,'#26262e')+P(970,152,10,14,'#26262e')                      // brackets
+      +ball(640,116,30,14)
+      +P(624,130,32,6,'#4a3a2a')+P(624,130,32,2,'#5f4c36')                        // its stand
+      /* ── THE LOCKERS ───────────────────────────────────────────────────── */
+      +closed(300,110)+closed(410,110)+mine+closed(760,110)+closed(870,110)
+      /* a photo taped to one door, and a padlock on another */
+      +P(436,262,26,32,'#ececf2')+P(439,265,20,20,c2)+P(439,277,20,8,dk)
+      +P(444,258,14,6,'#e8e4d8','0.85')
+      +P(843,368,10,3,'#9aa0a8')+P(843,368,2,9,'#9aa0a8')+P(851,368,2,9,'#9aa0a8')
+      +P(840,376,16,14,'#c9a227')+P(840,376,16,3,'#e0bc4a')+P(847,381,2,5,'#5a4418')
+      /* ── THE WHITEBOARD: tonight's plays ─────────────────────────────────── */
+      +P(1006,196,226,164,'#8f96a0')+P(1006,196,226,3,'#b4bac4')
+      +P(1012,202,214,150,'#e9edf2')
+      +P(1012,202,214,3,'#ffffff','0.7')
+      /* O's on the left, X's on the right, and the routes between them */
+      +[[1036,236],[1036,282],[1060,316],[1090,250]].map(([x,y])=>
+        P(x,y,14,3,'#2b2b33')+P(x,y+11,14,3,'#2b2b33')+P(x,y,3,14,'#2b2b33')+P(x+11,y,3,14,'#2b2b33')).join('')
+      +[[1180,232],[1196,280],[1162,316]].map(([x,y])=>
+        Array.from({length:5},(_,i)=>P(x+i*3,y+i*3,4,4,c1)+P(x+12-i*3,y+i*3,4,4,c1)).join('')).join('')
+      +P(1052,243,60,3,'#2b2b33')+P(1112,226,3,20,'#2b2b33')+P(1106,226,12,3,'#2b2b33')  // a route
+      +P(1104,257,50,3,c1)+P(1154,240,3,20,c1)                                    // and the read
+      +P(1076,289,80,3,'#2b2b33','0.7')
+      +P(1006,360,226,6,'#6e757f')+P(1030,356,22,4,c1)+P(1060,356,22,4,'#2b2b33')  // tray, markers
+      /* ── THE WATER COOLER ──────────────────────────────────────────────── */
+      +P(1110,474,92,8,'#3a3a46')+P(1110,472,92,3,'#50505e')                      // stand
+      +P(1116,482,8,FLOOR-482,'#2e2e38')+P(1188,482,8,FLOOR-482,'#2e2e38')
+      +P(1124,412,64,60,'#f28c28')+P(1120,416,72,52,'#f28c28')                    // the jug, corners in
+      +P(1180,412,8,60,'#c86d16')+P(1188,416,4,52,'#c86d16')                      // its shaded side
+      +P(1126,416,4,48,'#f8a84c')                                                  // and its lit one
+      +P(1122,402,68,10,'#e6e6ee')+P(1122,402,68,2,'#ffffff')                     // white lid
+      +P(1128,397,56,6,'#f4f4f8')+P(1150,392,12,6,'#c9ccd2')
+      +P(1130,428,50,13,'#ffffff','0.9')+P(1138,432,34,5,'#f28c28')               // label band
+      +P(1150,460,10,8,'#dcdcdc')+P(1152,467,6,4,'#b0b0b0')                       // spigot
+      +P(1206,438,16,34,'#f4f4f8')+P(1206,438,16,3,'#ffffff')                     // cups
+      +P(1208,446,12,2,'#d0d0d8')+P(1208,454,12,2,'#d0d0d8')+P(1208,462,12,2,'#d0d0d8')
 
-      /* ── THE LOCKER ────────────────────────────────────────────────────── */
-      +P(400,115,334,325,dp)                       // interior
-      +P(400,115,334,10,c1)+P(400,125,334,3,cL)    // top rail + lit edge
-      +R(800,230,668,1,c3,'0.55')                  // R: hairline along the rail
-      +P(392,115,8,325,'#2e2e38')+P(392,115,3,325,'#3a3a46')   // left post
-      +P(734,115,8,325,'#2e2e38')+P(739,115,3,325,'#26262e')   // right post
-      +R(785,230,1,650,'#4a4a58','0.6')            // R: lit nose on the left post
-      +P(400,115,334,4,dv,'0.6')                   // inner top shadow
-      +P(400,430,334,10,'#26262e')+P(400,428,334,2,'#33333e')  // base
-      /* vent slots down the back panel, each with — R: — a lit lower lip and a
-         one-unit core, which is what makes a slot read as cut rather than drawn */
-      +Array.from({length:6},(_,i)=>P(414,150+i*46,10,22,dv)+P(710,150+i*46,10,22,dv)
-        +R(828,300+i*92,20,1,'#000','0.55')+R(1420,300+i*92,20,1,'#000','0.55')
-        +R(828,343+i*92,20,1,cL,'0.30')+R(1420,343+i*92,20,1,cL,'0.30')).join('')
-      /* nameplate */
-      +P(500,128,134,34,dv)+P(504,132,126,26,c1)+P(504,132,126,3,cL)
-      +'<text x="1134" y="302" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="34" font-weight="700" fill="'+c3+'">'+ab+'</text>'
-      /* hanger and jersey */
-      +P(562,186,10,22,'#3a3a44')+P(560,184,14,4,'#4a4a56')
-      +P(534,208,66,6,'#3a3a44')
-      +P(494,216,146,140,c1)                       // body
-      +P(494,216,146,4,cL)                         // lit shoulder line
-      +R(988,432,292,1,c3,'0.5')                   // R: hairline on the shoulder
-      +R(988,712,292,1,dv,'0.35')                  // R: crease above the hem
-      +R(1132,440,1,272,dv,'0.22')+R(1136,440,1,272,cL,'0.18')  // R: centre seam
-      +P(462,224,32,58,c1)+P(640,224,32,58,c1)     // sleeves
-      +P(462,224,32,3,cL)+P(640,224,32,3,cL)
-      +P(462,258,32,8,c2)+P(640,258,32,8,c2)       // cuffs
-      +P(462,270,32,12,c1)+P(640,270,32,12,c1)
-      +P(494,232,146,4,dv,'0.35')                  // seam under the shoulders
-      +P(528,216,78,14,c3)                         // collar
-      +P(534,230,66,4,dv,'0.4')
-      +P(494,342,146,14,c2)+P(494,354,146,3,dv,'0.4')   // hem
-      +P(510,254,114,58,dv)+P(512,256,110,54,dp)   // number panel
-      +'<text x="1134" y="592" text-anchor="middle" font-family="\'Courier New\',monospace"'
-      +' font-size="80" font-weight="700" fill="'+c3+'">'+ab+'</text>'
-      /* cleats on the locker floor */
-      +P(424,394,58,26,c2)+P(424,390,58,5,c3)+P(424,414,58,6,dv,'0.5')
-      +Array.from({length:4},(_,i)=>P(432+i*12,398,5,5,dv,'0.5')).join('')
-      +P(496,394,58,26,c2)+P(496,390,58,5,c3)+P(496,414,58,6,dv,'0.5')
+      /* ── THE CARPET ────────────────────────────────────────────────────── */
+      +P(0,FLOOR,1280,760-FLOOR,dp)
+      +P(0,FLOOR,1280,6,dv,'0.7')                                                 // where it meets the wall
+      +Array.from({length:12},(_,i)=>R(0,(FLOOR+18+i*16)*S,W,1,dv,'0.25')).join('')
+      /* the crest in the middle of the floor, the way every locker room has it */
+      +(()=>{
+        const cx=640, cy=704, rx=176, ry=44, irx=rx-12, iry=ry-6;
+        let s='';
+        for(let y=-ry;y<ry;y+=2){
+          const m=y+1;
+          const hw=Math.round(rx*Math.sqrt(Math.max(0,1-(m/ry)*(m/ry))));
+          s+=P(cx-hw,cy+y,hw*2,2,c2);
+          if(Math.abs(m)<iry){
+            const iw=Math.round(irx*Math.sqrt(1-(m/iry)*(m/iry)));
+            s+=P(cx-iw,cy+y,iw*2,2,dk);
+          }
+        }
+        return s+TXT(cx,cy-15,ab,6,c3)
+          +P(cx-126,cy-4,8,8,c3)+P(cx+118,cy-4,8,8,c3);                           // a block either side
+      })()
+      +P(300,FLOOR,680,10,'#000','0.25')                                          // the lockers' shadow
 
-      /* ── THE SHELF ─────────────────────────────────────────────────────── */
-      +P(381,80,371,14,'#3a3a46')+P(381,76,371,6,'#50505e')+P(381,94,371,4,'#2a2a33')
-      +P(400,94,12,21,'#2a2a33')+P(722,94,12,21,'#2a2a33')     // brackets
-      /* helmet */
-      +P(426,34,60,42,c1)+P(426,34,60,5,cL)
-      +P(418,50,9,20,c1)+P(486,50,20,7,c3)+P(486,60,14,6,c3)   // facemask bars
-      +P(434,28,44,7,c3)+P(452,28,8,48,c3,'0.6')               // stripe
-      /* ball */
-      +P(626,40,54,36,'#6b4423')+P(626,40,54,5,'#7d5430')
-      +P(640,56,26,5,'#e8e8e8')
-      +Array.from({length:4},(_,i)=>P(644+i*6,52,3,13,'#e8e8e8')).join('')
-      +P(620,50,7,16,'#5a3a1e')+P(680,50,7,16,'#5a3a1e')
+      /* ── THE BENCH: a wooden seat on steel pedestals ───────────────────── */
+      +P(330,622,620,10,'#000','0.28')                                            // its shadow
+      +[360,628,896].map(x=>P(x,612,20,46,'#3a3a46')+P(x,612,4,46,'#50505e')
+        +P(x-6,656,32,6,'#2e2e38')+P(x-6,656,32,2,'#45455a')).join('')
+      +P(322,598,636,16,'#9a7550')+P(322,598,636,4,'#b8905e')+P(322,612,636,4,'#6e5236')
+      +Array.from({length:8},(_,i)=>R((340+i*80)*S,604*S,60*S,1,'#7d5e3e','0.6')).join('')  // grain
+      /* a towel, folded, in the team's colours */
+      +P(700,586,64,12,'#ececf2')+P(700,586,64,3,'#ffffff')+P(700,591,64,3,c1)
 
-      /* ── THE DESK ──────────────────────────────────────────────────────── */
-      +P(827,315,340,18,'#4a3d33')+P(827,311,340,6,'#5f4e40')  // top + lit edge
-      +P(827,333,340,5,'#33291f')                              // underside shadow
-      +Array.from({length:9},(_,i)=>P(840+i*36,318,26,2,'#54463a','0.6')).join('')  // grain
-      /* R: half-width grain between the boards, and a lit nose on the front edge */
-      +Array.from({length:9},(_,i)=>R(1716+i*72,646,38,1,'#5f5044','0.45')).join('')
-      +R(1654,622,680,1,'#75604e','0.6')
-      +P(837,338,108,102,'#3a2f27')                            // drawer stack
-      +P(841,346,100,26,'#463930')+P(841,344,100,2,'#54463a')
-      +P(841,376,100,26,'#463930')+P(841,374,100,2,'#54463a')
-      +P(841,406,100,26,'#463930')+P(841,404,100,2,'#54463a')
-      +P(875,356,32,5,'#7a6a56')+P(875,386,32,5,'#7a6a56')+P(875,416,32,5,'#7a6a56')
-      +P(1130,338,20,102,'#3a2f27')+P(1130,338,4,102,'#48392e') // far leg
-      /* lamp */
-      +P(1122,256,12,59,'#2f2f38')+P(1122,256,4,59,'#3d3d48')   // neck
-      +P(1110,308,36,7,'#3f3f4a')+P(1110,306,36,3,'#50505e')     // foot
-      +P(1104,226,48,7,'#c9843a')+P(1104,224,48,3,'#dc9a4e')     // shade, narrow at the top
-      +P(1097,233,62,9,'#b8742e')
-      +P(1090,242,76,11,'#a8682a')+P(1090,251,76,3,'#8a5320')
-      +P(1098,253,60,5,'#f8f0c8')                                // bulb
-      +P(1092,258,72,10,'#f8e9b0','0.10')                        // spill, kept faint —
-      +P(1084,268,88,14,'#f8e9b0','0.07')                        // any denser and the
-      +P(1076,282,104,18,'#f8e9b0','0.045')                      // cone reads as a solid
-      +P(1072,311,95,5,'#f8e9b0','0.22')                         // pool on the desktop
-      /* playbook and paper */
-      +P(840,282,82,30,c1)+P(840,282,82,3,cL)
-      +P(846,288,70,5,c3)+P(846,299,48,4,c3,'0.7')
-      +P(932,292,74,22,'#e6e6ee')+P(932,290,74,3,'#f4f4fa')
-      +P(940,298,58,3,'#9a9aa6')+P(940,305,42,3,'#9a9aa6')
-      /* stool tucked under */
-      +P(986,338,70,11,'#3a2f27')+P(986,335,70,3,'#4a3d33')
-      +P(994,349,10,62,'#2a2119')+P(1040,349,10,62,'#2a2119')
-      +P(994,382,56,7,'#2a2119')
+      +sups.svg
+      +open
 
-      +lockerSupsSVG(owner,at,P,c1,c2,c3,dk,dp)
-
-      /* ── THE PLANT ─────────────────────────────────────────────────────── */
+      /* ── THE PLANT, IN ITS CORNER ──────────────────────────────────────── */
+      /* drawn exactly as it always was and moved into the room as a whole, so
+         the watering can still pours onto it and the stages still read */
+      +'<g transform="translate('+(-48*S)+','+(214*S)+')">'
       +(canWater
         ? '<g class="lk-plantg" role="button" tabindex="0" onclick="waterPlant()"'
           +' onkeypress="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();waterPlant();}">'
@@ -10154,52 +10351,27 @@ function lockerRoomHTML(t,opts){
         +P(70,250,190,190,'#000','0')
         +plantSVG(st.stage,P)
         /* A proper can: arched handle, a rim wider than the body, a tapered
-           tin, and a spout that climbs out of the shoulder to a flared rose.
-
-           Aimed by measurement rather than by eye. The plant as drawn occupies
-           x 154..230 on this grid and centres on 192; tipping the can 22
-           degrees clockwise about its own bounding-box centre carries the rose
-           to exactly that x, which is what puts the water on the plant instead
-           of on the floor beside it. It is held clear of the bloom, whose top is
-           y 276, so the stream is visible rather than the spout resting on the
-           flower. Move either piece and the rose has to be re-aimed with it. */
+           tin, and a spout that climbs out of the shoulder to a flared rose,
+           aimed by measurement so the water lands on the plant. Move either
+           piece and the rose has to be re-aimed with it. */
         +'<g class="lk-can">'
-          /* handle */
           +P(117,210,8,15,'#8b95a1')+P(125,204,28,8,'#9aa4b0')+P(147,210,8,15,'#8b95a1')
-          /* rim, then the tin */
           +P(109,224,56,8,'#b4bcc6')
           +P(113,232,48,26,'#9aa4b0')
           +P(115,258,44,9,'#7d8792')
           +P(119,267,36,6,'#6d7681')
-          /* a seam down the tin so it does not read as a flat slab */
           +P(121,232,4,26,'#a8b2be')
-          /* spout climbing out of the shoulder */
           +P(159,237,14,9,'#9aa4b0')+P(171,243,14,9,'#9aa4b0')+P(183,249,12,9,'#8b95a1')
-          /* the rose on the end */
           +P(193,245,10,16,'#b4bcc6')+P(203,249,5,9,'#7d8792')
         +'</g>'
-        /* drawn where the rose ends up once the can has tipped, so the water
-           leaves the spout instead of appearing beside it */
         +'<g class="lk-drops">'
           +P(186,270,7,11,'#5bc8f5')+P(191,280,7,11,'#7fd8f8')+P(185,290,7,9,'#5bc8f5')
         +'</g>'
-      +'</g>'
-
-      /* ── FLOOR ─────────────────────────────────────────────────────────── */
-      +R(0,FLOOR*S,W,H-FLOOR*S,'#121216')
-      +P(0,FLOOR,W/S,4,'#2a2a33')
-      +R(0,FLOOR*S-1,W,1,'#3a3a46','0.5')         // R: lit nose on the floor edge
-      +Array.from({length:32},(_,i)=>P(i*40,FLOOR,38,3,'#22222a')).join('')
-      +Array.from({length:16},(_,i)=>P(i*80,FLOOR+42,78,3,'#1c1c23')).join('')
-      +Array.from({length:16},(_,i)=>P(i*80,FLOOR+92,78,3,'#191920')).join('')
-      /* R: a hairline seam between every board, which at the old grid would
-         have been a full block and read as a stripe rather than a joint */
-      +Array.from({length:32},(_,i)=>R(i*80,FLOOR*S+6,80,1,'#0e0e12','0.7')).join('')
-      +Array.from({length:16},(_,i)=>R(i*160,FLOOR*S+90,158,1,'#0e0e12','0.55')).join('')
-      +P(400,FLOOR,334,10,'#000','0.28')          // shadow cast by the locker
-      +P(827,FLOOR,340,8,'#000','0.22')           // and by the desk
+      +'</g></g>'
     +'</svg>'
-  +'</div></div>';
+  +'</div>'
+  +(canWater?'<div class="lk-cap">Tap the plant to water it · Marked spots are saved for the store</div>':'')
+  +'</div>';
 }
 
 /* ── The locker room plant ──────────────────────────────────────────────────
@@ -19200,6 +19372,173 @@ function ttBoxHTML(oppK1,oppName){
   </div>`;
 }
 
+/* ── HOT TAKES ───────────────────────────────────────────────────────────────
+   A page of the week's takes, each posted under a team or as Anonymous, and
+   gone on Tuesday. They live in the `messages` collection -- empty since the
+   message board was retired, and already open in firestore.rules -- so the
+   page needed no new rules deployed.
+
+   AN ANONYMOUS TAKE CARRIES NOTHING ABOUT WHO WROTE IT. Not a hashed id, not a
+   team: the document holds the words, the week and the time. The database is
+   readable with this page's own key, so anything stored would be readable too,
+   and "anonymous" would only mean anonymous to the polite. A named take
+   carries the account and the team its logo and name are drawn from.
+
+   THE WEEK IS THE LEAGUE'S, ON CENTRAL TIME. A take is filed under the Tuesday
+   06:00 that opened its week -- the hour the bucks week turns -- reckoned on
+   the league's clock rather than each phone's, so a take posted at 5am in
+   California is not filed under a week Chicago has already left. The feed
+   asks for this week's key and nothing else, so last week's leave the page
+   the moment the week turns, and scripts/wipe-takes.mjs deletes them from the
+   collection in Tuesday's rollover.
+
+   LOCKED IN ONCE POSTED. There is no delete for the author. TAKES_ADMIN can
+   remove any take, for the league's sake -- and that is a rule of this page,
+   not of the database, which is as open as every other collection here.
+
+   READ BUDGET. The feed is read when the tab opens, at most once a minute,
+   and after a post -- never from the homepage. One read per take this week,
+   capped at TAKES_LIMIT. Ids count down from a fixed far-future number, so the
+   collection's own order is newest first and the cap keeps the newest; that
+   needs no orderBy, and so no composite index to deploy. */
+const TAKES_ADMIN='bft';
+const TAKES_MAX=280;
+const TAKES_LIMIT=100;
+const TAKES_TZ='America/Chicago';
+const TAKES_MEMO_MS=60*1000;
+function takesWeekKey(now=new Date()){
+  const p={};
+  new Intl.DateTimeFormat('en-US',{timeZone:TAKES_TZ,year:'numeric',month:'2-digit',day:'2-digit',
+    hour:'2-digit',hourCycle:'h23',weekday:'short'}).formatToParts(now).forEach(x=>{ p[x.type]=x.value; });
+  const dow={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6}[p.weekday];
+  let back=(dow-2+7)%7;                              // days since Tuesday, in Chicago
+  if(dow===2&&Number(p.hour)<6) back=7;              // pre-dawn Tuesday is still last week
+  return new Date(Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day)-back)).toISOString().slice(0,10);
+}
+const takesDocId=ts=>'tk'+String(9e15-ts).padStart(16,'0')+Math.random().toString(36).slice(2,6);
+const takesIsAdmin=()=>!!_me&&_me.k1===TAKES_ADMIN;
+const takesDocsUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/messages`;
+let _takes=null,_takesWk='',_takesAt=0,_takesBusy=false,_takesErr='';
+let _takesDraft='',_takesAnon=false,_takesPosting=false,_takesArm=null,_takesArmT=null;
+async function takesLoad(force){
+  const wk=takesWeekKey();
+  if(_takesBusy) return;
+  if(!force&&_takes&&_takesWk===wk&&Date.now()-_takesAt<TAKES_MEMO_MS) return;
+  _takesBusy=true;
+  try{
+    const r=await fetch(fsRunQueryUrl(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({structuredQuery:{from:[{collectionId:'messages'}],where:fsEq('wk',wk),limit:TAKES_LIMIT}})});
+    if(r.ok){
+      const j=await r.json();
+      _takes=(Array.isArray(j)?j:[]).filter(x=>x&&x.document)
+        .map(x=>({id:decodeURIComponent(x.document.name.split('/').pop()),...fsIn(x.document)}))
+        .filter(t=>t.text).sort((a,b)=>Number(b.ts)-Number(a.ts));
+      _takesWk=wk; _takesAt=Date.now(); _takesErr='';
+    }else _takesErr=r.status===429?'Firestore is over its daily allowance. The takes will be back tomorrow.'
+      :'The takes could not load.';
+  }catch(e){ _takesErr='No connection, so the takes could not load.'; }
+  _takesBusy=false;
+  if(_activeTab==='takes') renderTakes();
+}
+function takesInput(el){
+  _takesDraft=el.value;
+  const c=document.getElementById('ht-count');
+  if(c){ c.textContent=`${_takesDraft.length}/${TAKES_MAX}`; c.classList.toggle('near',_takesDraft.length>TAKES_MAX-30); }
+}
+/* the checkbox repaints only the line it changes, so the box being typed in keeps its place */
+function takesSetAnon(on){
+  _takesAnon=!!on;
+  const w=document.getElementById('ht-as'); if(w) w.innerHTML=takesAsHTML();
+}
+const takesEsc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function takesAsHTML(){
+  const t=_me&&_teams.find(x=>String(x.id)===String(_me.teamId));
+  if(_takesAnon||!t) return `<span class="ht-mask"><i class="fa fa-user-secret"></i></span><span>Posting as <b>Anonymous</b></span>`;
+  return `${logoImg(t.id,'team-logo-sm')}<span>Posting as <b>${takesEsc(t.name)}</b></span>`;
+}
+async function takesPost(){
+  if(!_me||_takesPosting) return;
+  const text=String(_takesDraft||'').replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,TAKES_MAX);
+  if(!text){ _takesErr='Write a take first.'; renderTakes(); return; }
+  const ts=Date.now();
+  const doc={wk:takesWeekKey(new Date(ts)),ts,text,anon:_takesAnon?'1':'0'};
+  if(!_takesAnon){ doc.owner=_me.k1; doc.teamId=String(_me.teamId||''); }
+  _takesPosting=true; _takesErr=''; renderTakes();
+  try{
+    const r=await fetch(`${takesDocsUrl()}?documentId=${takesDocId(ts)}&${msgKey()}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(doc))});
+    if(r.ok){ _takesDraft=''; }
+    else _takesErr=r.status===429?'Firestore is over its daily allowance. Try again tomorrow.':'That take did not post. Try again.';
+  }catch(e){ _takesErr='No connection, so that take did not post.'; }
+  _takesPosting=false;
+  await takesLoad(true);
+  renderTakes();
+}
+/* Two taps: the first arms the button, the second deletes. It disarms itself
+   after a few seconds, so a stray tap cannot be confirmed by a later one. */
+async function takesDel(id){
+  if(!takesIsAdmin()) return;
+  if(_takesArm!==id){
+    _takesArm=id; clearTimeout(_takesArmT);
+    _takesArmT=setTimeout(()=>{ _takesArm=null; if(_activeTab==='takes') renderTakes(); },4000);
+    renderTakes(); return;
+  }
+  _takesArm=null; clearTimeout(_takesArmT);
+  try{
+    const r=await fetch(`${takesDocsUrl()}/${encodeURIComponent(id)}?${msgKey()}`,{method:'DELETE'});
+    if(r.ok) _takes=(_takes||[]).filter(t=>t.id!==id);
+    else _takesErr='That take could not be deleted.';
+  }catch(e){ _takesErr='No connection, so that take was not deleted.'; }
+  renderTakes();
+}
+function renderTakes(){
+  const el=document.getElementById('ht-body'); if(!el) return;
+  const wk=takesWeekKey();
+  if(!_takesBusy&&(!_takes||_takesWk!==wk||Date.now()-_takesAt>=TAKES_MEMO_MS)) takesLoad();
+  const list=(_takes&&_takesWk===wk)?_takes:null;
+  const esc=takesEsc;
+  const compose=_me
+    ? `<div class="ht-compose">
+        <textarea id="ht-text" class="ht-text" rows="3" maxlength="${TAKES_MAX}" oninput="takesInput(this)"
+          placeholder="Say it. The league will hold you to it.">${esc(_takesDraft)}</textarea>
+        <div class="ht-row">
+          <label class="ht-anon-t"><input type="checkbox" id="ht-anon" ${_takesAnon?'checked':''}
+            onchange="takesSetAnon(this.checked)"><span>Post anonymously</span></label>
+          <span class="ht-count${_takesDraft.length>TAKES_MAX-30?' near':''}" id="ht-count">${_takesDraft.length}/${TAKES_MAX}</span>
+        </div>
+        <div class="ht-as" id="ht-as">${takesAsHTML()}</div>
+        <button class="ht-post" onclick="takesPost()" ${_takesPosting?'disabled':''}>
+          <i class="fa fa-fire"></i>${_takesPosting?'Posting…':'Post take'}</button>
+        <div class="ht-lock"><i class="fa fa-lock"></i>Once it is posted it is locked in. Takes reset every Tuesday.</div>
+      </div>`
+    : `<div class="ht-compose ht-out">
+        <div class="ht-lock"><i class="fa fa-lock"></i>Sign in to post a take. Anyone can read them.</div>
+        <button class="ht-post" onclick="openSignIn()"><i class="fa fa-key"></i>Sign in</button>
+      </div>`;
+  const err=_takesErr?`<div class="ht-err">${_takesErr}</div>`:'';
+  const card=t=>{
+    const team=t.anon!=='1'&&_teams.find(x=>String(x.id)===String(t.teamId));
+    const who=team
+      ? `${logoImg(team.id,'team-logo-sm')}<span class="ht-name">${esc(team.name)}</span>`
+      : `<span class="ht-mask"><i class="fa fa-user-secret"></i></span><span class="ht-name">Anonymous</span>`;
+    const armed=_takesArm===t.id;
+    const del=takesIsAdmin()
+      ? `<button class="ht-del${armed?' armed':''}" onclick="takesDel('${esc(t.id)}')"
+          aria-label="${armed?'Confirm delete':'Delete this take'}">${armed?'Delete':'<i class="fa fa-trash-can"></i>'}</button>`
+      : '';
+    return `<article class="ht-card${team?'':' anon'}">
+        <p class="ht-q">${esc(t.text)}</p>
+        <div class="ht-by">${who}<span class="ht-ago">${msgAgo(Number(t.ts))}</span>${del}</div>
+      </article>`;
+  };
+  const feed=list
+    ? (list.length
+        ? `<div class="ht-meta">${list.length} take${list.length===1?'':'s'} this week</div><div class="ht-feed">${list.map(card).join('')}</div>`
+        : `<div class="ht-empty"><i class="fa fa-fire"></i>No takes yet this week. Be the first.</div>`)
+    : (_takesErr?'':`<div class="ht-empty"><i class="fa fa-circle-notch fa-spin"></i>Loading this week's takes…</div>`);
+  el.innerHTML=compose+err+feed;
+}
+
 /* ── TUESDAY: WHERE EVERYONE STANDS ──────────────────────────────────────────
    The week's football is in, so the table has moved. This is the one card that
    reports on all twelve at once rather than on a single result, which is why it
@@ -25037,6 +25376,14 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xf7fb;" id="ld-egg-sec">
           <div class="sec-head"><i class="fa fa-egg"></i>Eggs Found</div>
           <div id="ld-egg-body"></div>
+        </div>
+      </div>
+
+      <!-- HOT TAKES -->
+      <div class="tab-page" id="page-takes">
+        <div class="sec wm" data-wm="&#xf06d;" id="ht-sec">
+          <div class="sec-head"><i class="fa fa-fire"></i>This Week's Takes</div>
+          <div id="ht-body"></div>
         </div>
       </div>
 

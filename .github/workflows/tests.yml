@@ -232,6 +232,11 @@ jobs:
       # A change to how a share is priced must not hand anybody a profit.
       - name: a share split moves nobody's money
         run: node scripts/test-split.mjs
+      # Hot Takes turn over at 06:00 Central on Tuesdays, only bft can delete one,
+      # and an anonymous take carries no name. The wipe the rollover runs has to
+      # work the week out with the page's own function, or it clears the wrong one.
+      - name: hot takes keep to their week
+        run: node scripts/test-hot-takes.mjs
       - name: the split migration parses
         run: node --check scripts/split-shares.mjs
       - name: the archivers parse
@@ -239,3 +244,4 @@ jobs:
           node --check scripts/archive-trades.mjs
           node --check scripts/archive-transactions.mjs
           node --check scripts/archive-season.mjs
+          node --check scripts/wipe-takes.mjs

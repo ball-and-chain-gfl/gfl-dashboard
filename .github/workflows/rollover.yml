@@ -88,6 +88,12 @@ jobs:
       - name: Archive trades
         run: node scripts/archive-trades.mjs ${{ github.event.inputs.season }}
 
+      # Hot Takes last one week. The page already shows only this week's; this
+      # clears last week's out of Firestore. Nothing downstream depends on it.
+      - name: Wipe last week's Hot Takes
+        continue-on-error: true
+        run: node scripts/wipe-takes.mjs
+
       - name: Commit whatever changed
         run: |
           git config user.name  'gfl-bot'
