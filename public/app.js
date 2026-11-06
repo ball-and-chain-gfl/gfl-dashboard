@@ -20440,12 +20440,15 @@ function takesRefresh(){
    picture of the build for message previews and sends people on to
    ?bam=<code>, which opens the game on it). The grades travel inside the code,
    so a link shows the build as it was made even if the table changes later. */
+/* key, name, icon. No colour of their own: a filled slot takes its grade's
+   colour, the whole box, so green always means an A and red an F, whatever
+   the trait (see bamToneCls). */
 const BAM_ATTRS=[
-  ['draft','Drafting','fa-clipboard-list','#4f8cff'],['trade','Trading','fa-right-left','#ff5c8a'],
-  ['fin','Finances','fa-sack-dollar','#3fd07a'],['coach','Coaching','fa-chalkboard-user','#f5a524'],
-  ['bk','Ball Knowledge','fa-brain','#c084fc'],['luck','Luck','fa-clover','#22d3a6'],
-  ['eng','Engagement','fa-comments','#38bdf8'],['pun','Punishment','fa-gavel','#ff6a3d'],
-  ['legacy','Legacy','fa-trophy','#facc15'],
+  ['draft','Drafting','fa-clipboard-list'],['trade','Trading','fa-right-left'],
+  ['fin','Finances','fa-sack-dollar'],['coach','Coaching','fa-chalkboard-user'],
+  ['bk','Ball Knowledge','fa-brain'],['luck','Luck','fa-clover'],
+  ['eng','Engagement','fa-comments'],['pun','Punishment','fa-gavel'],
+  ['legacy','Legacy','fa-trophy'],
 ];
 const BAM_RESPINS=1;
 const BAM_SPIN_MS=4200;
@@ -20652,10 +20655,13 @@ function bamState(){
 function bamSave(){ try{ localStorage.setItem(_bamKey||bamKey(),JSON.stringify(_bam)); }catch(e){} }
 const bamTeam=id=>(_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
 const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
-/* one slot: its icon and trait, then the grade and whose it was once filled */
+/* a grade's colour as a class for a whole box: bam-ta for an A down to bam-tf */
+const bamToneCls=i=>'bam-t'+String(PG_SCALE[i]||'F').charAt(0).toLowerCase();
+/* one slot: its icon and trait, then the grade and whose it was once filled,
+   the whole box in the grade's colour */
 function bamSlotHTML(a,id,gi,open){
-  const [,label,icon,color]=a, filled=id!=null&&gi>=0, t=filled?bamTeam(id):null;
-  return `<div class="bam-slot${filled?' filled':''}${open?' open':''}" style="--bc:${color}">
+  const [,label,icon]=a, filled=id!=null&&gi>=0, t=filled?bamTeam(id):null;
+  return `<div class="bam-slot${filled?' filled '+bamToneCls(gi):''}${open&&!filled?' open':''}">
       <span class="bam-si"><i class="fa ${icon}"></i></span>
       <span class="bam-sl">${label}</span>
       ${filled?`<b class="bam-sg ${pgTone(gi)}">${PG_SCALE[gi]}</b>
@@ -20670,8 +20676,8 @@ function bamOvrHTML(n,left){
 function bamCardHTML(b){
   const t=bamTeam(b.land);
   const picks=bamOpen(b).map(k=>{
-    const [,label,icon,color]=BAM_ATTRS.find(([a])=>a===k), i=bamGrade(b.land,k);
-    return `<button class="bam-pick" style="--bc:${color}" onclick="bamPut('${k}')">
+    const [,label,icon]=BAM_ATTRS.find(([a])=>a===k), i=bamGrade(b.land,k);
+    return `<button class="bam-pick ${bamToneCls(i)}" onclick="bamPut('${k}')">
         <span><i class="fa ${icon}"></i>${label}</span><b class="${pgTone(i)}">${PG_SCALE[i]}</b></button>`;
   }).join('');
   return `<div class="bam-card">

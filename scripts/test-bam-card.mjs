@@ -31,7 +31,8 @@ const CODE = '1ab46497413b7ac57b43';
 const teams = { 10: { abbrev: 'BFT', name: 'The Bryan Football Team' }, 11: { abbrev: 'KW', name: 'Whittingham Sports' } };
 
 console.log(NL + 'one code, two files');
-ok('the traits in the same order, in the same colours', B.ATTRS.map(([k, , c]) => k + c), A.BAM_ATTRS.map(([k, , , c]) => k + c));
+ok('the traits in the same order, under the same names', B.ATTRS.map(([k, l]) => k + ':' + l), A.BAM_ATTRS.map(([k, l]) => k + ':' + l));
+ok('and, like the game, no colour of their own', B.ATTRS.every(a => a.length === 2), true);
 ok('the same points for each grade', B.PTS, A.BAM_PTS);
 for (const c of [CODE, '10' + '3c'.repeat(9), '1' + 'c' + 'c0'.repeat(9)]) {
   const mine = B.decode(c), theirs = A.bamDecode(c);

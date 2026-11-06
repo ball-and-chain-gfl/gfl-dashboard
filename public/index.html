@@ -3169,8 +3169,10 @@
     /* ── Build a Manager ───────────────────────────────────────────────────────
        The build and the wheel: side by side on a wide screen; on a phone the
        wheel first, so Spin and what it lands on are on screen without
-       scrolling, and the build fills in underneath. A slot is a trait -- its
-       icon and colour -- then the grade and whose it was. Grade letters take
+       scrolling, and the build fills in underneath. A slot is a trait and its
+       icon, then the grade and whose it was -- and a filled slot is the GRADE's
+       colour, the whole box, never a colour of the trait's own: --bc comes from
+       .bam-ta to .bam-tf, the same five as .pg-a to .pg-f. Grade letters take
        their colour from .pg-f to .pg-a, so nothing here sets a colour on a
        letter that has one: a later rule of equal weight would win, which is how
        the punishment grade's readout once stayed grey. */
@@ -3181,10 +3183,10 @@
     .bam-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
     .bam-slot{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
       gap:4px;min-height:104px;padding:12px 6px 10px;border-radius:14px;text-align:center;
-      background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);}
+      background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);--bc:#8c879a;}
     .bam-slot::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;background:var(--bc);opacity:.3;}
-    .bam-slot.filled{background:linear-gradient(165deg,color-mix(in srgb,var(--bc) 20%,transparent),rgba(255,255,255,0.02) 62%);
-      border-color:color-mix(in srgb,var(--bc) 38%,transparent);}
+    .bam-slot.filled{background:linear-gradient(165deg,color-mix(in srgb,var(--bc) 26%,transparent),color-mix(in srgb,var(--bc) 9%,transparent));
+      border-color:color-mix(in srgb,var(--bc) 55%,transparent);}
     .bam-slot.filled::before{opacity:1;}
     .bam-slot.open{border:1px dashed rgba(var(--accent-rgb),0.6);background:rgba(var(--accent-rgb),0.06);}
     .bam-si{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
@@ -3269,14 +3271,17 @@
     .bam-who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .bam-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
     .bam-pick{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;padding:9px 10px;
-      border-radius:9px;cursor:pointer;text-align:left;border:1px solid color-mix(in srgb,var(--bc) 30%,transparent);
-      background:linear-gradient(160deg,color-mix(in srgb,var(--bc) 12%,transparent),rgba(0,0,0,0.25) 70%);
-      -webkit-tap-highlight-color:transparent;}
-    .bam-pick:hover{border-color:var(--bc);background:color-mix(in srgb,var(--bc) 16%,transparent);}
+      border-radius:9px;cursor:pointer;text-align:left;border:1px solid color-mix(in srgb,var(--bc) 45%,transparent);
+      background:linear-gradient(160deg,color-mix(in srgb,var(--bc) 22%,transparent),color-mix(in srgb,var(--bc) 7%,transparent));
+      -webkit-tap-highlight-color:transparent;--bc:#8c879a;}
+    .bam-pick:hover{border-color:var(--bc);background:color-mix(in srgb,var(--bc) 28%,transparent);}
     .bam-pick span{display:flex;align-items:flex-start;gap:6px;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
       letter-spacing:.4px;line-height:1.25;text-transform:uppercase;color:var(--text2);}
     .bam-pick span i{flex:0 0 auto;margin-top:1px;font-size:10.5px;color:var(--bc);}
     .bam-pick b{font-family:'Inter',sans-serif;font-size:22px;font-weight:800;line-height:1;}
+    /* a grade's colour for a whole box, after the grey the boxes start from so
+       it wins; the same five as .pg-a to .pg-f */
+    .bam-ta{--bc:#3fd07a;} .bam-tb{--bc:#9BD35A;} .bam-tc{--bc:#E8BC56;} .bam-td{--bc:#F2704A;} .bam-tf{--bc:#E84146;}
     /* a finished build: Share, and the link itself if the clipboard said no */
     .bam-link{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:10px 12px;border-radius:9px;
       border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(0,0,0,0.3);color:var(--text);

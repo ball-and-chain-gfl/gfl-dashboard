@@ -20,9 +20,9 @@
 import zlib from 'node:zlib';
 
 export const ATTRS = [
-  ['draft', 'Drafting', '#4f8cff'], ['trade', 'Trading', '#ff5c8a'], ['fin', 'Finances', '#3fd07a'],
-  ['coach', 'Coaching', '#f5a524'], ['bk', 'Ball Knowledge', '#c084fc'], ['luck', 'Luck', '#22d3a6'],
-  ['eng', 'Engagement', '#38bdf8'], ['pun', 'Punishment', '#ff6a3d'], ['legacy', 'Legacy', '#facc15'],
+  ['draft', 'Drafting'], ['trade', 'Trading'], ['fin', 'Finances'],
+  ['coach', 'Coaching'], ['bk', 'Ball Knowledge'], ['luck', 'Luck'],
+  ['eng', 'Engagement'], ['pun', 'Punishment'], ['legacy', 'Legacy'],
 ];
 export const SCALE = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+'];
 export const PTS = [55, 62, 65, 68, 72, 75, 78, 82, 85, 88, 91, 95, 99];
@@ -180,7 +180,8 @@ export function png(img) {
 /* ── THE CARD ────────────────────────────────────────────────────────────────
    1200x630, the size every preview is cut from. The title across the top, who
    built it and the overall down the left, the nine slots in a 3x3 on the right:
-   each with its trait's colour, its grade, and whose it was. */
+   each one its grade's colour, the whole tile, with the grade and whose it was.
+   A trait has no colour of its own, the same as in the game. */
 export const CARD_W = 1200, CARD_H = 630;
 export function card(v, teams) {
   const img = canvas(CARD_W, CARD_H);
@@ -202,16 +203,14 @@ export function card(v, teams) {
   text(img, String(n), 60, 350, 22, hex(toneOfRating(n)));
   text(img, 'BALL & CHAIN GFL', 60, 566, 3, dim);
   const gx = 400, gy = 120, gw = 740, gh = 470, gap = 14, tw = (gw - 2 * gap) / 3, th = (gh - 2 * gap) / 3;
-  ATTRS.forEach(([k, label, color], i) => {
+  ATTRS.forEach(([k, label], i) => {
     const x = Math.round(gx + (i % 3) * (tw + gap)), yy = Math.round(gy + Math.floor(i / 3) * (th + gap));
-    const w = Math.round(tw), h = Math.round(th), c = hex(color);
-    rect(img, x, yy, w, h, [255, 255, 255], 0.05, 16);
-    rect(img, x, yy, w, 4, c, 0.9, 2);
-    rect(img, x + 16, yy + 18, 12, 12, c, 1, 3);
+    const w = Math.round(tw), h = Math.round(th), gi = v.grades[k], c = hex(toneOfGrade(gi));
+    rect(img, x, yy, w, h, c, 0.14, 16);
+    rect(img, x, yy, w, 4, c, 0.95, 2);
     let ly = yy + 16;
-    for (const line of wrap(label, 3, w - 52)) { text(img, line, x + 36, ly, 3, grey); ly += 26; }
-    const gi = v.grades[k];
-    text(img, SCALE[gi], x + 16, yy + h - 16 - 56, 8, hex(toneOfGrade(gi)));
+    for (const line of wrap(label, 3, w - 32)) { text(img, line, x + 16, ly, 3, white); ly += 26; }
+    text(img, SCALE[gi], x + 16, yy + h - 16 - 56, 8, c);
     const ab = clean(abbrOf(teams, v.slots[k]));
     text(img, ab, x + w - 16 - textW(ab, 3), yy + h - 16 - 21, 3, white);
   });

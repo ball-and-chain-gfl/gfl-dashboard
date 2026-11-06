@@ -283,7 +283,15 @@ const vj = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url)
 ok('which vercel.json sends to the preview, picture and page', ['/b/:code/card.png', '/b/:code'].map(p =>
   (vj.rewrites.find(r => r.source === p) || {}).destination), ['/api/bam?c=:code&img=1', '/api/bam?c=:code']);
 ok('the wheel has no flashing lights', [src.includes('bam-bulb'), idx.includes('bamBulb')], [false, false]);
-ok('every trait has an icon and a colour', M.BAM_ATTRS.every(a => /^fa-/.test(a[2]) && /^#[0-9a-f]{6}$/i.test(a[3])), true);
+ok('every trait has an icon and no colour of its own', M.BAM_ATTRS.every(a => /^fa-/.test(a[2]) && a.length === 3), true);
+{
+  /* a filled box is its grade's colour: the five box colours are the five letter colours */
+  const box = Object.fromEntries([...idx.matchAll(/\.bam-t([abcdf])\{--bc:(#[0-9A-Fa-f]{6});\}/g)].map(m => [m[1], m[2].toLowerCase()]));
+  const letter = Object.fromEntries([...idx.matchAll(/\.pg-([abcdf])\{color:(#[0-9A-Fa-f]{6});\}/g)].map(m => [m[1], m[2].toLowerCase()]));
+  ok('a filled box takes the colour of its grade, the same as the letter', [Object.keys(box).sort().join(''), ['a', 'b', 'c', 'd', 'f'].every(k => box[k] === letter[k])], ['abcdf', true]);
+  ok('the slots and the picks both carry it', [src.includes("' filled '+bamToneCls(gi)"), src.includes('class="bam-pick ${bamToneCls(i)}"')], [true, true]);
+  ok('and the dashed open outline is only ever on an empty slot, never over a grade\'s colour', src.includes("${open&&!filled?' open':''}"), true);
+}
 ok('and leaving a shared build takes the link out of the address', /function bamOwn\(\)\{[\s\S]{0,200}searchParams\.delete\('bam'\)/.test(src), true);
 
 console.log(NL + `${pass} passed, ${fail} failed`);
