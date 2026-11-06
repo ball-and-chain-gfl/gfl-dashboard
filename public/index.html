@@ -3201,18 +3201,50 @@
       font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;}
     .bam-reset:hover{color:var(--text);border-color:rgba(255,255,255,0.22);}
     .bam-reset.armed{background:var(--red);border-color:var(--red);color:#fff;}
-    /* the reel: three rows showing, the middle one framed, the outer two fading.
-       46px a row here and BAM_ROW in app.js are the same number. */
-    .bam-reel{position:relative;height:138px;overflow:hidden;border-radius:12px;background:rgba(0,0,0,0.3);
-      -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 34%,#000 66%,transparent 100%);
-      mask-image:linear-gradient(180deg,transparent 0,#000 34%,#000 66%,transparent 100%);}
-    .bam-reel::before{content:'';position:absolute;left:8px;right:8px;top:46px;height:46px;z-index:1;
-      pointer-events:none;border-radius:9px;border:1px solid rgba(var(--accent-rgb),0.4);}
-    .bam-reel.on::before{border-color:var(--accent);background:rgba(var(--accent-rgb),0.12);}
-    .bam-strip{will-change:transform;}
-    .bam-row{display:flex;align-items:center;gap:11px;height:46px;padding:0 20px;overflow:hidden;white-space:nowrap;
-      font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--text);}
-    .bam-row span{overflow:hidden;text-overflow:ellipsis;}
+    /* the wheel: a wedge a manager under a pointer at the top, a ring of bulbs
+       that chase while it turns, and the hub in the middle, which spins it too.
+       Only the disc turns. Its SVG is 200 across and the ring sits on a radius
+       of 96.5, 7 wide, so the disc inset 3.5% meets it with no gap. */
+    .bam-wheel-box{position:relative;width:min(300px,76vw);aspect-ratio:1;margin:2px auto 0;}
+    .bam-wheel{position:absolute;inset:3.5%;border-radius:50%;overflow:hidden;will-change:transform;}
+    .bam-wsvg{display:block;width:100%;height:100%;}
+    .bam-wsvg path{stroke:rgba(10,6,20,0.55);stroke-width:0.8;}
+    .bam-wsvg path.on{filter:brightness(1.3);}
+    .bam-wl{position:absolute;inset:0;pointer-events:none;}
+    .bam-wl-in{position:absolute;left:50%;top:5%;transform:translateX(-50%);
+      display:flex;flex-direction:column;align-items:center;gap:3px;}
+    .bam-wl-in b{font-family:'Inter',sans-serif;font-size:8.5px;font-weight:800;letter-spacing:.4px;
+      color:rgba(255,255,255,0.9);text-shadow:0 1px 2px rgba(0,0,0,0.65);}
+    .bam-wl.on .bam-wl-in>:first-child{box-shadow:0 0 0 2px #fff,0 0 16px rgba(255,255,255,0.55);}
+    .bam-frame{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+    .bam-ring{fill:none;stroke:#1a1129;stroke-width:7;}
+    .bam-bulb{fill:#ffe39a;opacity:.85;}
+    .bam-wheel-box.spinning .bam-bulb{animation:bamBulb .5s steps(1) infinite;}
+    .bam-wheel-box.spinning .bam-bulb.b1{animation-delay:.25s;}
+    @keyframes bamBulb{0%{opacity:1;}50%{opacity:.2;}}
+    .bam-hub{position:absolute;left:50%;top:50%;z-index:2;width:22%;aspect-ratio:1;padding:0;transform:translate(-50%,-50%);
+      display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;
+      background:radial-gradient(circle at 35% 30%,#2c2340,#110c1b 70%);border:3px solid #1a1129;
+      box-shadow:0 0 0 2px rgba(var(--accent-rgb),0.55),0 4px 12px rgba(0,0,0,0.5);}
+    /* the site's button:hover would flatten it to grey */
+    .bam-hub:hover{background:radial-gradient(circle at 35% 30%,#33284a,#110c1b 70%);}
+    .bam-hub i{font-size:20px;color:var(--accent);}
+    .bam-hub:disabled{cursor:default;}
+    .bam-hub:disabled i{opacity:.45;}
+    .bam-pointer{position:absolute;left:50%;top:-1%;z-index:3;width:0;height:0;transform:translateX(-50%);
+      border-left:12px solid transparent;border-right:12px solid transparent;border-top:22px solid #f4f1fb;
+      filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));}
+    @media(prefers-reduced-motion:reduce){ .bam-wheel-box.spinning .bam-bulb{animation:none;} }
+    /* a finished build: Share, and the link itself if the clipboard said no */
+    .bam-link{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:10px 12px;border-radius:9px;
+      border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(0,0,0,0.3);color:var(--text);
+      font-family:'Inter',sans-serif;font-size:12px;}
+    /* somebody else's build, opened from a link: theirs first, then yours */
+    .bam-shared .bam-play{order:0;}
+    .bam-by{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-width:0;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text2);}
+    .bam-by span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .bam-by b{font-weight:800;color:var(--text);}
     .bam-btns{display:flex;gap:8px;margin-top:10px;}
     .bam-spin{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
       padding:13px;border:none;border-radius:10px;cursor:pointer;
@@ -3233,7 +3265,8 @@
       border-radius:999px;background:rgba(var(--accent-rgb),0.2);font-size:11px;}
     .bam-re:disabled{opacity:.4;cursor:default;}
     .bam-card{margin-top:12px;padding:12px;border-radius:12px;
-      background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);}
+      background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);
+      scroll-margin:84px 0 96px;}          /* clear of the nav above and the pinned bar below */
     .bam-who{display:flex;align-items:center;gap:11px;margin-bottom:11px;min-width:0;
       font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:var(--text);}
     .bam-who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}

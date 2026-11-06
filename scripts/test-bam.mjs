@@ -5,10 +5,13 @@
  *   NOTHING LIVE      the game reads the table and no stat, so no grade is fixed
  *                     while the one beside it moves
  *   THE WHEEL         lands on anyone in the league with all nine; a respin never
- *                     lands where it already was
+ *                     lands where it already was; it turns forward, a few full
+ *                     turns, and stops with that manager's wedge under the pointer
  *   ONE TRAIT A SPIN  into its own empty slot, and only off whoever was landed on
  *   THE OVERALL       the mean of the steps taken, rounded to one
  *   KEPT ON DEVICE    a saved build comes back only if it still makes sense
+ *   SHARED AS A LINK  a finished build packs into ?bam=, grades and all, and
+ *                     opens on the first load for whoever it is sent to
  *
  * Run: node scripts/test-bam.mjs
  */
@@ -30,11 +33,12 @@ const idxUrl = new URL('../public/index.html', import.meta.url);
 const grab = lifter(appUrl);
 const M = assemble(grab, [
   'const PG_SCALE=', 'const pgIdx=',
-  'const BAM_ATTRS=', 'const BAM_RESPINS=', 'const BAM_ROW=', 'const bamCfg=',
+  'const BAM_ATTRS=', 'const BAM_RESPINS=', 'const BAM_TURNS=', 'const BAM_HUES=', 'const bamCfg=',
   'function bamGrade(', 'function bamPool(', 'const bamFresh=', 'const bamOpen=', 'const bamDone=',
-  'function bamOvr(', 'function bamPick(', 'function bamTake(', 'function bamValid(',
-], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_ROW', 'PG_SCALE', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen', 'bamDone',
-  'bamOvr', 'bamPick', 'bamTake', 'bamValid', 'set'], [
+  'function bamMean(', 'function bamOvr(', 'function bamPick(', 'function bamTake(', 'function bamValid(',
+  'function bamAim(', 'function bamAt(', 'function bamCode(', 'function bamDecode(',
+], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'PG_SCALE', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen',
+  'bamDone', 'bamMean', 'bamOvr', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode', 'set'], [
   "let _CFG={}, _teams=[];",
   "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; };",
 ].join(NL));
@@ -82,7 +86,7 @@ ok('and the spread really does reach both ends', [L(TING, 'luck'), L(BI, 'luck')
 
 console.log(NL + 'nothing live');
 const src = fs.readFileSync(appUrl, 'utf8');
-const block = src.slice(src.indexOf('/* ── BUILD A MANAGER'), src.indexOf('function bamReset('));
+const block = src.slice(src.indexOf('/* ── BUILD A MANAGER'), src.indexOf('/* ── TUESDAY: WHERE EVERYONE STANDS'));
 ok('the game is in app.js', block.length > 1000, true);
 ok('and reads no stat, only the table', ['bkIQFor', 'badBeatData', 'computeCoaching', 'pgComposite', '_draftAllCache',
   '_cmBreakdown', '_scores', '_cpRows', 'legacyTeamHistory'].filter(w => block.includes(w)), []);
@@ -98,6 +102,20 @@ M.set({ cfg: CFG });
 ok('a respin never lands where it already was', [0, 0.3, 0.6, 0.99999].map(r => M.bamPick([3, 5, 9], 5, () => r)).includes(5), false);
 ok('the draw is even across the pool', [0, 0.34, 0.67, 0.99999].map(r => M.bamPick([3, 5, 9], null, () => r)), [3, 5, 9, 9]);
 ok('nobody left to land on is nobody', M.bamPick([5], 5, () => 0.5), null);
+{
+  /* every wedge, from wherever the wheel happens to rest, with the stop pulled
+     either way inside the wedge */
+  const n = 12, seg = 360 / n, miss = [];
+  for (const from of [0, 47, -130, 7215.5]) for (let k = 0; k < n; k++) for (const j of [-0.3, 0, 0.3]) {
+    const to = M.bamAim(from, k, n, j * seg, M.BAM_TURNS);
+    if (M.bamAt(to, n) !== k) miss.push(`from ${from} to ${k}`);
+    if (!(to >= from + M.BAM_TURNS * 360 && to < from + (M.BAM_TURNS + 1) * 360)) miss.push(`${from}→${to} turns`);
+  }
+  ok('it stops with the chosen wedge under the pointer, five full turns on and never backwards', miss, []);
+  ok('resting with a manager under the pointer is no turn at all', M.bamAt(M.bamAim(0, 7, n, 0, 0), n), 7);
+  ok('and no two wedges side by side share a colour', Array.from({ length: n }, (_, i) =>
+    M.BAM_HUES[i % M.BAM_HUES.length] === M.BAM_HUES[(i + 1) % n % M.BAM_HUES.length]).includes(true), false);
+}
 
 console.log(NL + 'one trait a spin');
 let b = M.bamFresh();
@@ -143,6 +161,29 @@ ok('more respins than a build gets are not believed', M.bamValid({ slots: {}, re
 const full = Object.fromEntries(KEYS.map(k => [k, 1]));
 ok('a full build is not still landed on anyone', M.bamValid({ slots: full, land: 3 }, pool).land, null);
 
+console.log(NL + 'shared as a link');
+{
+  const built = { slots: { draft: 5, trade: 2, fin: 7, coach: 10, bk: 10, luck: 8, eng: 5, pun: 5, legacy: 7 }, land: null };
+  const code = M.bamCode(built, '10');
+  ok('a finished build packs into twenty characters', [code.length, /^[0-9a-z]+$/.test(code)], [20, true]);
+  const back = M.bamDecode(code);
+  ok('and unpacks to the same managers', back.slots, built.slots);
+  ok('with the grades they had', KEYS.map(k => M.PG_SCALE[back.grades[k]]), KEYS.map(k => L(built.slots[k], k)));
+  ok('and who built it', back.by, 10);
+  ok('nobody signed in is nobody', M.bamDecode(M.bamCode(built, null)).by, null);
+  /* the grades ride in the code: change the table and the link still shows the build as made */
+  const moved = JSON.parse(JSON.stringify(CFG)); moved.buildManager.grades[2].trade = 'F';
+  M.set({ cfg: moved });
+  ok('a link keeps its grades when the table changes', M.PG_SCALE[M.bamDecode(code).grades.trade], 'A+');
+  M.set({ cfg: CFG });
+  ok('a build not yet finished has no link', M.bamCode({ slots: { trade: 2 } }, 10), '');
+  ok('a garbled code opens nothing', [M.bamDecode(''), M.bamDecode('hello'), M.bamDecode(code.slice(0, 19)),
+    M.bamDecode(code.slice(0, 3) + 'z' + code.slice(4)), M.bamDecode('2' + code.slice(1))], [null, null, null, null, null]);
+  ok('capitals from a phone keyboard still open it', M.bamDecode(code.toUpperCase()).slots, built.slots);
+  ok('and the overall of a shared build is the mean of its grades',
+    M.PG_SCALE[M.bamMean(KEYS.map(k => back.grades[k]))], M.PG_SCALE[M.bamOvr(built)]);
+}
+
 console.log(NL + 'where it lives');
 const idx = fs.readFileSync(idxUrl, 'utf8').replace(/\r\n/g, '\n');
 ok('the tab is named', /TAB_LABELS=\{[^}]*bam:'Build a Manager'/.test(src), true);
@@ -153,8 +194,18 @@ ok('the menu icon and the page accent are one colour', [hex,
   idx.includes(`.tab-btn[data-tab=bam]{--tc:${hex};}`),
   idx.includes(`html[data-tabaccent=bam]{--h1a:${hex};`),
   idx.includes(`[data-tabaccent=bam]{--accent:${hex};`)], ['#A66CFF', true, true, true]);
-ok('a reel row in the CSS is BAM_ROW tall', [M.BAM_ROW, /\.bam-row\{[^}]*height:46px/.test(idx),
-  /\.bam-reel::before\{[^}]*top:46px;height:46px/.test(idx)], [46, true, true]);
+{
+  /* the turning disc and the fixed ring have to meet: disc radius from its inset,
+     ring's inner edge from its radius less half its width, both out of 100 */
+  const inset = Number((idx.match(/\.bam-wheel\{[^}]*inset:([\d.]+)%/) || [])[1]);
+  const w = Number((idx.match(/\.bam-ring\{[^}]*stroke-width:([\d.]+)/) || [])[1]);
+  const r = Number((src.match(/class="bam-ring" cx="100" cy="100" r="([\d.]+)"/) || [])[1]);
+  ok('the disc meets its ring with no gap', [inset, w, r, +(100 - 2 * inset).toFixed(2) === +(r - w / 2).toFixed(2)], [3.5, 7, 96.5, true]);
+}
+ok('a shared link is read before the first tab is chosen',
+  /try\{ bamReadLink\(\); \}catch\(e\)\{\}\n\s*switchTab\(_activeTab\);/.test(src.replace(/\r\n/g, '\n')), true);
+ok('a finished build offers Share', src.includes('onclick="bamShare()"'), true);
+ok('and leaving a shared build takes the link out of the address', /function bamOwn\(\)\{[\s\S]{0,200}searchParams\.delete\('bam'\)/.test(src), true);
 
 console.log(NL + `${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

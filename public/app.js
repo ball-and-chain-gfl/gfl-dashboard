@@ -20412,9 +20412,9 @@ function takesRefresh(){
 }
 
 /* ── BUILD A MANAGER ─────────────────────────────────────────────────────────
-   Spin, land on one of the twelve, take ONE of their grades into an empty
-   slot, and spin again, until all nine slots are full. The overall is the mean
-   of whatever has been taken so far.
+   Spin the wheel, land on one of the twelve, take ONE of their grades into an
+   empty slot, and spin again, until all nine slots are full. The overall is
+   the mean of whatever has been taken so far.
 
    THE GRADES ARE A BASELINE, ALL OF THEM: a table in config.js
    (buildManager.grades), set by hand on 6 November 2026. Nothing here reads a
@@ -20422,18 +20422,28 @@ function takesRefresh(){
    asked not to happen. If the grades are made to move with the season, the
    movement belongs in bamGrade, where it lands on every grade at once.
 
+   THE WHEEL is a disc with a wedge for each manager and a pointer at the top.
+   The manager is drawn first and the wheel is then turned to them: a few full
+   turns, coming to rest somewhere inside their wedge rather than dead centre.
+
    A trait already taken is not offered again; anyone can come up any number
    of times. One respin a build, and a respin never lands where it already was.
    The build is kept on this device, so a reload (the one a new version
-   triggers included) does not throw it away. */
+   triggers included) does not throw it away.
+
+   A FINISHED BUILD CAN BE SHARED as a link, ?bam=<code>, which opens the game
+   on that build for whoever it is sent to. The grades travel inside the code,
+   so a link shows the build as it was made even if the table changes later. */
 const BAM_ATTRS=[
   ['draft','Drafting'],['trade','Trading'],['fin','Finances'],
   ['coach','Coaching'],['bk','Ball Knowledge'],['luck','Luck'],
   ['eng','Engagement'],['pun','Punishment'],['legacy','Legacy'],
 ];
 const BAM_RESPINS=1;
-const BAM_ROW=46;                 // px: one manager on the reel, and the CSS agrees
-const BAM_SPIN_MS=1900;
+const BAM_SPIN_MS=4200;
+const BAM_TURNS=5;
+/* the wedges take these in turn, so no two neighbours match */
+const BAM_HUES=['#5b30b8','#3c45b0','#8a34b8','#45278a'];
 const bamCfg=()=>((_CFG.buildManager||{}).grades)||{};
 /* a manager's grade in a trait, as a step on the scale (0 is F, 12 is A+), or -1 */
 function bamGrade(teamId,attr){
@@ -20450,11 +20460,12 @@ function bamPool(){
 const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS});
 const bamOpen=b=>BAM_ATTRS.map(([k])=>k).filter(k=>b.slots[k]==null);
 const bamDone=b=>bamOpen(b).length===0;
-/* the mean of the steps taken so far, rounded to one; -1 before the first */
-function bamOvr(b){
-  const s=Object.entries(b.slots).map(([k,id])=>bamGrade(id,k)).filter(i=>i>=0);
+/* the mean of some steps on the scale, rounded to one; -1 for none */
+function bamMean(steps){
+  const s=(steps||[]).filter(i=>i>=0);
   return s.length?Math.round(s.reduce((a,x)=>a+x,0)/s.length):-1;
 }
+function bamOvr(b){ return bamMean(Object.entries(b.slots).map(([k,id])=>bamGrade(id,k))); }
 /* anyone in the pool but whoever a respin is turning away from */
 function bamPick(pool,not,rnd){
   const p=(pool||[]).filter(id=>id!==not);
@@ -20484,7 +20495,36 @@ function bamValid(x,pool){
   return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
     respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS};
 }
+/* Where the wheel has to stop for wedge k of n to sit under the pointer: on
+   from `rot` by `turns` full turns and then the rest of the way round, coming
+   to rest `jitter` degrees off the wedge's centre. Clockwise, like CSS. */
+function bamAim(rot,k,n,jitter,turns){
+  const seg=360/n;
+  const want=(((-k*seg+(jitter||0))%360)+360)%360, now=((rot%360)+360)%360;
+  return rot+(turns||0)*360+(((want-now)%360)+360)%360;
+}
+/* and which wedge is under the pointer at a given rotation */
+function bamAt(rot,n){
+  const seg=360/n;
+  return Math.round(((((-rot)%360)+360)%360)/seg)%n;
+}
+/* A finished build as a link code: a version, who built it (0 for nobody
+   signed in), then each slot's manager and grade, one base-36 character each,
+   in BAM_ATTRS order. Twenty characters. */
+function bamCode(b,by){
+  if(!b||!bamDone(b)) return '';
+  const who=Number(by)>0&&Number(by)<36?Number(by).toString(36):'0';
+  return '1'+who+BAM_ATTRS.map(([k])=>Number(b.slots[k]).toString(36)+bamGrade(b.slots[k],k).toString(36)).join('');
+}
+function bamDecode(code){
+  const s=String(code||'').trim().toLowerCase();
+  if(!/^1[0-9a-z](?:[1-9a-z][0-9a-c]){9}$/.test(s)) return null;
+  const v={by:parseInt(s[1],36)||null,slots:{},grades:{}};
+  BAM_ATTRS.forEach(([k],i)=>{ v.slots[k]=parseInt(s[2+2*i],36); v.grades[k]=parseInt(s[3+2*i],36); });
+  return v;
+}
 let _bam=null, _bamKey='', _bamSpin=false, _bamArm=false, _bamArmT=null;
+let _bamRot=null, _bamView=null, _bamLinkRead=false, _bamCopied=false, _bamCopiedT=null, _bamLink='';
 const bamKey=()=>lsKey('bam');
 /* Not cached before the teams are in: an empty pool would judge every saved
    build invalid, and the next save would write the empty one over it. */
@@ -20499,24 +20539,18 @@ function bamState(){
 function bamSave(){ try{ localStorage.setItem(_bamKey||bamKey(),JSON.stringify(_bam)); }catch(e){} }
 const bamTeam=id=>(_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
 const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
-function bamSlotHTML(b,k,label){
-  const id=b.slots[k];
-  if(id==null) return `<div class="bam-slot${b.land!=null&&!_bamSpin?' open':''}">
+/* one slot: its trait, and the grade and whose it was once filled */
+function bamSlotHTML(label,id,gi,open){
+  if(id==null||!(gi>=0)) return `<div class="bam-slot${open?' open':''}">
       <span class="bam-sl">${label}</span><b class="bam-sg">–</b></div>`;
-  const i=bamGrade(id,k), t=bamTeam(id);
+  const t=bamTeam(id);
   return `<div class="bam-slot filled">
-      <span class="bam-sl">${label}</span><b class="bam-sg ${pgTone(i)}">${PG_SCALE[i]}</b>
+      <span class="bam-sl">${label}</span><b class="bam-sg ${pgTone(gi)}">${PG_SCALE[gi]}</b>
       <span class="bam-sf">${avatarHTML(t,18,5)}${takesEsc(bamAbbr(t))}</span></div>`;
 }
-function bamRowHTML(id){
-  const t=bamTeam(id);
-  return `<div class="bam-row">${avatarHTML(t,30,8)}<span>${takesEsc(t.name||'')}</span></div>`;
-}
-/* the three rows the reel rests on, whoever it last stopped at in the middle */
-function bamRest(pool,mid){
-  if(!pool.length) return [];
-  const i=Math.max(0,pool.indexOf(mid)), n=pool.length;
-  return [pool[(i-1+n)%n],pool[i],pool[(i+1)%n]];
+function bamOvrHTML(ovr,left){
+  return `<div class="bam-ovr"><span>OVR</span><b class="${ovr>=0?pgTone(ovr):'pg-none'}">${ovr>=0?PG_SCALE[ovr]:'–'}</b></div>
+    <span class="bam-left">${left}</span>`;
 }
 /* the one the wheel stopped at, and every grade of theirs still open */
 function bamCardHTML(b){
@@ -20530,31 +20564,82 @@ function bamCardHTML(b){
       <div class="bam-picks">${picks}</div>
     </div>`;
 }
+/* The disc turns; the ring of bulbs, the hub and the pointer stay put. The
+   SVG is 200 across: the wedges fill the turning disc, which sits inside a
+   ring 7 wide on a radius of 96.5, so the two meet with no gap. */
+function bamWheelHTML(pool,on,canSpin){
+  const n=pool.length, seg=360/n;
+  const pt=(deg,r)=>{ const a=(deg-90)*Math.PI/180; return [(100+r*Math.cos(a)).toFixed(2),(100+r*Math.sin(a)).toFixed(2)]; };
+  const wedges=pool.map((id,i)=>{
+    const [x0,y0]=pt(i*seg-seg/2,100), [x1,y1]=pt(i*seg+seg/2,100);
+    return `<path${id===on?' class="on"':''} d="M100 100 L${x0} ${y0} A100 100 0 0 1 ${x1} ${y1} Z" fill="${BAM_HUES[i%BAM_HUES.length]}"/>`;
+  }).join('');
+  const marks=pool.map((id,i)=>{
+    const t=bamTeam(id);
+    return `<div class="bam-wl${id===on?' on':''}" style="transform:rotate(${(i*seg).toFixed(3)}deg)">
+        <span class="bam-wl-in">${avatarHTML(t,32,8)}<b>${takesEsc(bamAbbr(t))}</b></span></div>`;
+  }).join('');
+  const bulbs=Array.from({length:24},(_,i)=>{ const [x,y]=pt(i*15,96.5);
+    return `<circle class="bam-bulb b${i%2}" cx="${x}" cy="${y}" r="1.9"/>`; }).join('');
+  return `<div class="bam-wheel-box${_bamSpin?' spinning':''}">
+      <div class="bam-wheel" id="bam-wheel" style="transform:rotate(${_bamRot}deg)">
+        <svg class="bam-wsvg" viewBox="0 0 200 200" aria-hidden="true">${wedges}</svg>${marks}
+      </div>
+      <svg class="bam-frame" viewBox="0 0 200 200" aria-hidden="true">
+        <circle class="bam-ring" cx="100" cy="100" r="96.5"/>${bulbs}</svg>
+      <button class="bam-hub" onclick="bamSpin()" aria-label="Spin" ${canSpin?'':'disabled'}><i class="fa fa-dice"></i></button>
+      <div class="bam-pointer"></div>
+    </div>`;
+}
+/* somebody else's finished build, opened from a link */
+function bamViewHTML(v){
+  const by=v.by?bamTeam(v.by):null;
+  const ovr=bamMean(BAM_ATTRS.map(([k])=>v.grades[k]));
+  return `<div class="bam-wrap bam-shared">
+      <div class="bam-build">
+        ${by?`<div class="bam-by">${avatarHTML(by,28,8)}<span>Built by <b>${takesEsc(by.name||bamAbbr(by))}</b></span></div>`:''}
+        <div class="bam-slots">${BAM_ATTRS.map(([k,l])=>bamSlotHTML(l,v.slots[k],v.grades[k],false)).join('')}</div>
+        <div class="bam-meta">${bamOvrHTML(ovr,'9 of 9')}</div>
+      </div>
+      <div class="bam-play">
+        <button class="bam-spin" onclick="bamOwn()"><i class="fa fa-dice"></i>Build your own</button>
+      </div>
+    </div>`;
+}
 function renderBam(){
   const el=document.getElementById('bam-body'); if(!el) return;
+  if(_bamView){ el.innerHTML=bamViewHTML(_bamView); return; }
   const pool=bamPool();
   if(!pool.length){ el.innerHTML=''; return; }
-  const b=bamState(), done=bamDone(b), ovr=bamOvr(b), left=bamOpen(b).length;
+  const b=bamState(), done=bamDone(b), left=bamOpen(b).length;
   const started=Object.keys(b.slots).length||b.land!=null;
+  if(_bamRot==null){
+    const mid=b.land!=null?b.land:(b.last!=null?b.last:pool[0]);
+    _bamRot=bamAim(0,Math.max(0,pool.indexOf(mid)),pool.length,0,0);
+  }
   const build=`<div class="bam-build">
-      <div class="bam-slots">${BAM_ATTRS.map(([k,l])=>bamSlotHTML(b,k,l)).join('')}</div>
+      <div class="bam-slots">${BAM_ATTRS.map(([k,l])=>{
+        const id=b.slots[k];
+        return bamSlotHTML(l,id,id!=null?bamGrade(id,k):-1,b.land!=null&&!_bamSpin);
+      }).join('')}</div>
       <div class="bam-meta">
-        <div class="bam-ovr"><span>OVR</span><b class="${ovr>=0?pgTone(ovr):'pg-none'}">${ovr>=0?PG_SCALE[ovr]:'–'}</b></div>
-        <span class="bam-left">${done?'9 of 9':`${left} slot${left===1?'':'s'} left`}</span>
+        ${bamOvrHTML(bamOvr(b),done?'9 of 9':`${left} slot${left===1?'':'s'} left`)}
         ${started&&!done?`<button class="bam-reset${_bamArm?' armed':''}" onclick="bamReset()" aria-label="Start over">
           <i class="fa fa-rotate-left"></i>${_bamArm?'Start over':''}</button>`:''}
       </div>
     </div>`;
   let play;
   if(done){
-    play=`<button class="bam-spin" onclick="bamReset(true)"><i class="fa fa-rotate-left"></i>Build again</button>`;
-  }else{
-    const mid=b.land!=null?b.land:(b.last!=null?b.last:pool[0]);
-    play=`<div class="bam-reel${b.land!=null&&!_bamSpin?' on':''}" aria-hidden="true">
-        <div class="bam-strip" id="bam-strip">${bamRest(pool,mid).map(bamRowHTML).join('')}</div>
+    play=`<div class="bam-btns">
+        <button class="bam-spin" onclick="bamShare()"><i class="fa ${_bamCopied?'fa-check':'fa-share-nodes'}"></i>${_bamCopied?'Link copied':'Share'}</button>
+        <button class="bam-re" onclick="bamReset(true)"><i class="fa fa-rotate-left"></i>Build again</button>
       </div>
+      ${_bamLink?`<input class="bam-link" readonly value="${takesEsc(_bamLink)}" onclick="this.select()" aria-label="Link to this build">`:''}`;
+  }else{
+    const canSpin=!_bamSpin&&b.land==null;
+    play=`${bamWheelHTML(pool,_bamSpin?null:b.land,canSpin)}
       <div class="bam-btns">
-        <button class="bam-spin" onclick="bamSpin()" ${_bamSpin||b.land!=null?'disabled':''}><i class="fa fa-dice"></i>Spin</button>
+        <button class="bam-spin" onclick="bamSpin()" ${canSpin?'':'disabled'}><i class="fa fa-dice"></i>Spin</button>
         <button class="bam-re" onclick="bamSpin(true)" ${_bamSpin||b.land==null||b.respins<=0?'disabled':''}>
           <i class="fa fa-rotate"></i>Respin<span>${b.respins}</span></button>
       </div>
@@ -20562,43 +20647,44 @@ function renderBam(){
   }
   el.innerHTML=`<div class="bam-wrap">${build}<div class="bam-play">${play}</div></div>`;
 }
-/* The reel turns from where it rests to the one already chosen: a strip of
-   names that starts on the three on screen and ends with the winner in the
-   middle row, moved in one eased transform. */
-function bamRoll(pool,from,to){
+/* the turn itself: one eased rotation from where the wheel rests */
+function bamTurn(target){
   return new Promise(res=>{
-    const strip=document.getElementById('bam-strip');
-    if(!strip||matchMedia('(prefers-reduced-motion:reduce)').matches){ res(); return; }
-    const rows=bamRest(pool,from);
-    for(let i=0;i<22;i++) rows.push(pool[Math.floor(Math.random()*pool.length)]);
-    rows.push(to,pool[(pool.indexOf(to)+1)%pool.length]);
-    strip.innerHTML=rows.map(bamRowHTML).join('');
-    strip.style.transition='none';
-    strip.style.transform='translateY(0)';
-    void strip.offsetHeight;                   // the start has to be drawn before the move
-    strip.style.transition=`transform ${BAM_SPIN_MS}ms cubic-bezier(.12,.72,.16,1)`;
-    strip.style.transform=`translateY(${-(rows.length-3)*BAM_ROW}px)`;
+    const w=document.getElementById('bam-wheel');
+    if(!w||matchMedia('(prefers-reduced-motion:reduce)').matches){ res(); return; }
+    void w.offsetHeight;                       // the start has to be drawn before the move
+    w.style.transition=`transform ${BAM_SPIN_MS}ms cubic-bezier(.12,.68,.08,1)`;
+    w.style.transform=`rotate(${target}deg)`;
     let fin=false;
     const end=()=>{ if(fin) return; fin=true; res(); };
-    strip.addEventListener('transitionend',end,{once:true});
-    setTimeout(end,BAM_SPIN_MS+150);
+    w.addEventListener('transitionend',end,{once:true});
+    setTimeout(end,BAM_SPIN_MS+200);
   });
 }
 async function bamSpin(re){
-  if(_bamSpin) return;
+  if(_bamSpin||_bamView) return;
   const b=bamState(), pool=bamPool();
   if(!pool.length||bamDone(b)) return;
   if(re){ if(b.land==null||b.respins<=0) return; }
   else if(b.land!=null) return;                // a trait first
-  const from=b.land!=null?b.land:(b.last!=null?b.last:pool[0]);
   const id=bamPick(pool,re?b.land:null); if(id==null) return;
   if(re) b.respins--;
-  b.land=null; b.last=from; _bamSpin=true; _bamArm=false;
+  if(b.land!=null) b.last=b.land;
+  const seg=360/pool.length;
+  const target=bamAim(_bamRot||0,pool.indexOf(id),pool.length,(Math.random()-0.5)*seg*0.6,BAM_TURNS);
+  b.land=null; _bamSpin=true; _bamArm=false;
   renderBam();
-  await bamRoll(pool,from,id);
+  await bamTurn(target);
+  _bamRot=((target%360)+360)%360;              // the same place, a smaller number
   _bamSpin=false; b.land=id; b.last=id;
   bamSave();
-  if(_activeTab==='bam') renderBam();
+  if(_activeTab!=='bam') return;
+  renderBam();
+  /* on a phone the card lands below the wheel, partly under the bar pinned to
+     the foot of the screen: bring all of it up, and do nothing if it shows */
+  const card=document.querySelector('.bam-card');
+  if(card) try{ card.scrollIntoView({block:'nearest',
+    behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'}); }catch(e){}
 }
 function bamPut(k){
   if(_bamSpin) return;
@@ -20616,9 +20702,43 @@ function bamReset(now){
     _bamArmT=setTimeout(()=>{ _bamArm=false; if(_activeTab==='bam') renderBam(); },4000);
     renderBam(); return;
   }
-  clearTimeout(_bamArmT); _bamArm=false;
+  clearTimeout(_bamArmT); _bamArm=false; _bamLink=''; _bamCopied=false;
   _bam=bamFresh(); _bam.last=b.last;
   bamSave(); renderBam();
+}
+/* A phone gets its own share sheet (Messages, copy, the rest); anything else
+   copies the link. If the clipboard says no, the link is put on screen to copy
+   by hand rather than in a dialog that stops the page. */
+async function bamShare(){
+  const b=bamState(), code=bamCode(b,_me&&_me.teamId);
+  if(!code) return;
+  const url=location.origin+location.pathname+'?bam='+code;
+  const ovr=bamOvr(b);
+  if(navigator.share&&matchMedia('(pointer:coarse)').matches){
+    try{ await navigator.share({title:'Build a Manager',text:`My GFL manager: ${PG_SCALE[ovr]} overall`,url}); return; }
+    catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  try{ await navigator.clipboard.writeText(url); }
+  catch(e){ _bamLink=url; renderBam(); return; }
+  _bamLink=''; _bamCopied=true; clearTimeout(_bamCopiedT);
+  _bamCopiedT=setTimeout(()=>{ _bamCopied=false; if(_activeTab==='bam') renderBam(); },2500);
+  renderBam();
+}
+/* off somebody else's build and onto your own, and the link out of the address bar */
+function bamOwn(){
+  _bamView=null;
+  try{ const u=new URL(location.href); u.searchParams.delete('bam');
+    history.replaceState(history.state,'',u.pathname+u.search+u.hash); }catch(e){}
+  renderBam();
+}
+/* Once, on the first load: a shared build in the address opens the game on it. */
+function bamReadLink(){
+  if(_bamLinkRead) return;
+  _bamLinkRead=true;
+  let code=null; try{ code=new URLSearchParams(location.search).get('bam'); }catch(e){}
+  const v=code?bamDecode(code):null;
+  if(!v) return;
+  _bamView=v; _activeTab='bam';
 }
 
 /* ── TUESDAY: WHERE EVERYONE STANDS ──────────────────────────────────────────
@@ -26862,6 +26982,8 @@ async function loadDashboard(){
     renderSchedule();
     applyMe();
     if(_activeTab==='draft') ensureDraft();
+    /* a shared build in the address opens the game on it, the first time only */
+    try{ bamReadLink(); }catch(e){}
     switchTab(_activeTab);
     if(_activeTab!=='tenure'&&_tenure) renderTenureTable();
 
