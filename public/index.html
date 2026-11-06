@@ -3165,6 +3165,81 @@
     .ht-empty{display:flex;align-items:center;gap:9px;padding:18px 14px;border-radius:11px;
       background:rgba(255,255,255,0.03);font-family:'Inter',sans-serif;font-size:13px;color:var(--text3);}
     .ht-empty i{color:var(--accent);}
+
+    /* ── Build a Manager ───────────────────────────────────────────────────────
+       The build, then the wheel: side by side on a wide screen, the build first
+       on a phone. A slot is a trait, its grade and whose it was. Grade letters
+       take their colour from .pg-f to .pg-a, so nothing here sets a colour on a
+       letter that has one -- a later rule of equal weight would win, which is
+       how the punishment grade's readout once stayed grey. */
+    .bam-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;}
+    /* on a phone the wheel comes first, so Spin and the card it lands on are on
+       screen without scrolling, and the build fills in underneath */
+    .bam-play{order:-1;}
+    @media(min-width:900px){ .bam-wrap{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start;gap:24px;}
+      .bam-play{order:0;} }
+    .bam-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+    .bam-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+      min-height:74px;padding:9px 6px;border-radius:12px;text-align:center;
+      background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);}
+    .bam-slot.open{border:1px dashed rgba(var(--accent-rgb),0.6);background:rgba(var(--accent-rgb),0.06);}
+    .bam-sl{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.6px;line-height:1.2;
+      text-transform:uppercase;color:var(--text3);}
+    .bam-sg{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;line-height:1;}
+    .bam-slot:not(.filled) .bam-sg{color:var(--text3);opacity:.45;}
+    .bam-sf{display:flex;align-items:center;gap:5px;max-width:100%;
+      font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.3px;color:var(--text2);}
+    .bam-meta{display:flex;align-items:center;gap:12px;margin-top:12px;}
+    .bam-ovr{display:flex;align-items:baseline;gap:8px;padding:8px 14px;border-radius:11px;background:rgba(0,0,0,0.3);}
+    .bam-ovr span{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.8px;color:var(--text3);}
+    .bam-ovr b{font-family:'Inter',sans-serif;font-size:26px;font-weight:800;line-height:1;}
+    .bam-left{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);}
+    .bam-reset{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+      height:32px;min-width:34px;padding:0 10px;border-radius:9px;cursor:pointer;
+      border:1px solid rgba(255,255,255,0.1);background:transparent;color:var(--text3);
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;}
+    .bam-reset:hover{color:var(--text);border-color:rgba(255,255,255,0.22);}
+    .bam-reset.armed{background:var(--red);border-color:var(--red);color:#fff;}
+    /* the reel: three rows showing, the middle one framed, the outer two fading.
+       46px a row here and BAM_ROW in app.js are the same number. */
+    .bam-reel{position:relative;height:138px;overflow:hidden;border-radius:12px;background:rgba(0,0,0,0.3);
+      -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 34%,#000 66%,transparent 100%);
+      mask-image:linear-gradient(180deg,transparent 0,#000 34%,#000 66%,transparent 100%);}
+    .bam-reel::before{content:'';position:absolute;left:8px;right:8px;top:46px;height:46px;z-index:1;
+      pointer-events:none;border-radius:9px;border:1px solid rgba(var(--accent-rgb),0.4);}
+    .bam-reel.on::before{border-color:var(--accent);background:rgba(var(--accent-rgb),0.12);}
+    .bam-strip{will-change:transform;}
+    .bam-row{display:flex;align-items:center;gap:11px;height:46px;padding:0 20px;overflow:hidden;white-space:nowrap;
+      font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--text);}
+    .bam-row span{overflow:hidden;text-overflow:ellipsis;}
+    .bam-btns{display:flex;gap:8px;margin-top:10px;}
+    .bam-spin{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+      padding:13px;border:none;border-radius:10px;cursor:pointer;
+      background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));color:#140a22;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;}
+    .bam-spin i{color:#140a22;}
+    .bam-spin:disabled{opacity:.4;cursor:default;}
+    .bam-re{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:0 14px;border-radius:10px;cursor:pointer;
+      border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(var(--accent-rgb),0.08);color:var(--accent);
+      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
+    .bam-re span{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
+      border-radius:999px;background:rgba(var(--accent-rgb),0.2);font-size:11px;}
+    .bam-re:disabled{opacity:.4;cursor:default;}
+    .bam-card{margin-top:12px;padding:12px;border-radius:12px;
+      background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);}
+    .bam-who{display:flex;align-items:center;gap:11px;margin-bottom:11px;min-width:0;
+      font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:var(--text);}
+    .bam-who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .bam-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+    .bam-pick{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:9px 10px;
+      border-radius:9px;cursor:pointer;text-align:left;border:1px solid rgba(255,255,255,0.09);
+      background:rgba(0,0,0,0.28);-webkit-tap-highlight-color:transparent;}
+    .bam-pick:hover{border-color:rgba(var(--accent-rgb),0.7);background:rgba(var(--accent-rgb),0.08);}
+    .bam-pick span{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.4px;line-height:1.2;
+      text-transform:uppercase;color:var(--text2);}
+    .bam-pick b{font-family:'Inter',sans-serif;font-size:21px;font-weight:800;line-height:1;}
+    @media(max-width:420px){ .bam-slot{min-height:68px;} .bam-sg{font-size:22px;} }
     .home-redo{display:inline-flex;align-items:center;gap:7px;margin-top:12px;
       padding:7px 13px;border-radius:8px;cursor:pointer;
       border:1px solid transparent;background:rgba(0,0,0,0.3);color:var(--text3);
@@ -4237,6 +4312,7 @@
     /* hidden tabs keep their own colours */
     .tab-btn[data-tab=punishment]{--tc:#E84146;}
     .tab-btn[data-tab=takes]{--tc:#FF6A3D;}
+    .tab-btn[data-tab=bam]{--tc:#A66CFF;}
     .tab-btn i{color:var(--tc,var(--accent));opacity:.8;transition:opacity .15s;}
     .tab-btn:hover{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,transparent)!important;color:var(--text)!important;}
     .tab-btn:hover i{opacity:1;}
@@ -4313,6 +4389,7 @@
     html[data-tabaccent=tenure]{--h1a:#2DD4BF;--h1b:#38BDF8;}
     html[data-tabaccent=leaders]{--h1a:#43C9E8;--h1b:#6cb7ff;}
     html[data-tabaccent=takes]{--h1a:#FF6A3D;--h1b:#FFB23D;}
+    html[data-tabaccent=bam]{--h1a:#A66CFF;--h1b:#D16CFF;}
     html[data-tabaccent=messages]{--h1a:#E8D24E;--h1b:#E8BE4E;}
     html[data-tabaccent=profile]{--h1a:#E0B67B;--h1b:#E0D27B;}
     html[data-tabaccent=punishment]{--h1a:#E84146;--h1b:#E85D41;}
@@ -4339,6 +4416,8 @@
     html[data-theme="dark"][data-tabaccent=leaders]{--accent:#43C9E8;--accent2:#6cb7ff;--accent-rgb:67,201,232;}
     /* Hot Takes: the menu icon reads TAB_COLORS, so the same hex goes here */
     html[data-theme="dark"][data-tabaccent=takes]{--accent:#FF6A3D;--accent2:#FFB23D;--accent-rgb:255,106,61;}
+    /* Build a Manager: the same hex as TAB_COLORS, for the same reason */
+    html[data-theme="dark"][data-tabaccent=bam]{--accent:#A66CFF;--accent2:#D16CFF;--accent-rgb:166,108,255;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
     /* the name takes the space it needs and sign out sits at the far edge */
@@ -7495,6 +7574,8 @@
   <!-- After Punishments so that in the menu's two columns it sits directly
        under Leaderboards. -->
   <button class="tab-btn" data-tab="takes" onclick="switchTab('takes')"><i class="fa fa-fire"></i>Hot Takes</button>
+  <!-- Beside Hot Takes, in the spot the top group left empty -->
+  <button class="tab-btn" data-tab="bam" onclick="switchTab('bam')"><i class="fa fa-dice"></i>Build a Manager</button>
   <button class="tab-btn" data-tab="legacy" data-group="Archive" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>All Matchups</button>
   <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Data</button>

@@ -94,8 +94,8 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',takes:'#FF6A3D',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',takes:'Hot Takes',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',takes:'#FF6A3D',bam:'#A66CFF',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',takes:'Hot Takes',bam:'Build a Manager',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -888,6 +888,7 @@ function switchTab(name){
      to it and nothing fetches for it. */
   if(name==='leaders') renderLeaders();
   if(name==='takes') renderTakes();
+  if(name==='bam') renderBam();
   if(name==='week') renderWeek();
   if(name==='draft') ensureDraft();
   if(name==='trades') renderTradesTab();
@@ -20410,6 +20411,216 @@ function takesRefresh(){
   renderTakes();
 }
 
+/* ── BUILD A MANAGER ─────────────────────────────────────────────────────────
+   Spin, land on one of the twelve, take ONE of their grades into an empty
+   slot, and spin again, until all nine slots are full. The overall is the mean
+   of whatever has been taken so far.
+
+   THE GRADES ARE A BASELINE, ALL OF THEM: a table in config.js
+   (buildManager.grades), set by hand on 6 November 2026. Nothing here reads a
+   live stat, because a mix of fixed grades and moving ones is exactly what was
+   asked not to happen. If the grades are made to move with the season, the
+   movement belongs in bamGrade, where it lands on every grade at once.
+
+   A trait already taken is not offered again; anyone can come up any number
+   of times. One respin a build, and a respin never lands where it already was.
+   The build is kept on this device, so a reload (the one a new version
+   triggers included) does not throw it away. */
+const BAM_ATTRS=[
+  ['draft','Drafting'],['trade','Trading'],['fin','Finances'],
+  ['coach','Coaching'],['bk','Ball Knowledge'],['luck','Luck'],
+  ['eng','Engagement'],['pun','Punishment'],['legacy','Legacy'],
+];
+const BAM_RESPINS=1;
+const BAM_ROW=46;                 // px: one manager on the reel, and the CSS agrees
+const BAM_SPIN_MS=1900;
+const bamCfg=()=>((_CFG.buildManager||{}).grades)||{};
+/* a manager's grade in a trait, as a step on the scale (0 is F, 12 is A+), or -1 */
+function bamGrade(teamId,attr){
+  const row=bamCfg()[String(teamId)];
+  return row?pgIdx(row[attr]):-1;
+}
+/* who the wheel can land on: in the league now, and graded in all nine */
+function bamPool(){
+  const live=new Set((_teams||[]).map(t=>Number(t.id)));
+  return Object.keys(bamCfg()).map(Number)
+    .filter(id=>live.has(id)&&BAM_ATTRS.every(([k])=>bamGrade(id,k)>=0))
+    .sort((a,b)=>a-b);
+}
+const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS});
+const bamOpen=b=>BAM_ATTRS.map(([k])=>k).filter(k=>b.slots[k]==null);
+const bamDone=b=>bamOpen(b).length===0;
+/* the mean of the steps taken so far, rounded to one; -1 before the first */
+function bamOvr(b){
+  const s=Object.entries(b.slots).map(([k,id])=>bamGrade(id,k)).filter(i=>i>=0);
+  return s.length?Math.round(s.reduce((a,x)=>a+x,0)/s.length):-1;
+}
+/* anyone in the pool but whoever a respin is turning away from */
+function bamPick(pool,not,rnd){
+  const p=(pool||[]).filter(id=>id!==not);
+  if(!p.length) return null;
+  return p[Math.min(p.length-1,Math.floor((rnd||Math.random)()*p.length))];
+}
+/* one trait from whoever the wheel is on, into its own empty slot */
+function bamTake(b,attr){
+  if(b.land==null||b.slots[attr]!=null||!BAM_ATTRS.some(([k])=>k===attr)) return false;
+  b.slots[attr]=b.land; b.last=b.land; b.land=null;
+  return true;
+}
+/* A build read back off the device is kept only if every part of it still
+   makes sense against today's pool. Anything else starts a fresh one. */
+function bamValid(x,pool){
+  const f=bamFresh();
+  if(!x||typeof x!=='object'||!x.slots||typeof x.slots!=='object') return f;
+  const ok=id=>id!=null&&pool.includes(Number(id));
+  const slots={};
+  for(const [k,id] of Object.entries(x.slots)){
+    if(!BAM_ATTRS.some(([a])=>a===k)||!ok(id)) return f;
+    slots[k]=Number(id);
+  }
+  if(x.land!=null&&!ok(x.land)) return f;
+  const full=Object.keys(slots).length===BAM_ATTRS.length;
+  const r=Number(x.respins);
+  return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
+    respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS};
+}
+let _bam=null, _bamKey='', _bamSpin=false, _bamArm=false, _bamArmT=null;
+const bamKey=()=>lsKey('bam');
+/* Not cached before the teams are in: an empty pool would judge every saved
+   build invalid, and the next save would write the empty one over it. */
+function bamState(){
+  const key=bamKey(), pool=bamPool();
+  if(_bam&&_bamKey===key) return _bam;
+  if(!pool.length) return bamFresh();
+  let x=null; try{ x=JSON.parse(localStorage.getItem(key)||'null'); }catch(e){}
+  _bamKey=key;
+  return (_bam=bamValid(x,pool));
+}
+function bamSave(){ try{ localStorage.setItem(_bamKey||bamKey(),JSON.stringify(_bam)); }catch(e){} }
+const bamTeam=id=>(_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
+const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
+function bamSlotHTML(b,k,label){
+  const id=b.slots[k];
+  if(id==null) return `<div class="bam-slot${b.land!=null&&!_bamSpin?' open':''}">
+      <span class="bam-sl">${label}</span><b class="bam-sg">–</b></div>`;
+  const i=bamGrade(id,k), t=bamTeam(id);
+  return `<div class="bam-slot filled">
+      <span class="bam-sl">${label}</span><b class="bam-sg ${pgTone(i)}">${PG_SCALE[i]}</b>
+      <span class="bam-sf">${avatarHTML(t,18,5)}${takesEsc(bamAbbr(t))}</span></div>`;
+}
+function bamRowHTML(id){
+  const t=bamTeam(id);
+  return `<div class="bam-row">${avatarHTML(t,30,8)}<span>${takesEsc(t.name||'')}</span></div>`;
+}
+/* the three rows the reel rests on, whoever it last stopped at in the middle */
+function bamRest(pool,mid){
+  if(!pool.length) return [];
+  const i=Math.max(0,pool.indexOf(mid)), n=pool.length;
+  return [pool[(i-1+n)%n],pool[i],pool[(i+1)%n]];
+}
+/* the one the wheel stopped at, and every grade of theirs still open */
+function bamCardHTML(b){
+  const t=bamTeam(b.land);
+  const picks=bamOpen(b).map(k=>{
+    const i=bamGrade(b.land,k), label=BAM_ATTRS.find(([a])=>a===k)[1];
+    return `<button class="bam-pick" onclick="bamPut('${k}')"><span>${label}</span><b class="${pgTone(i)}">${PG_SCALE[i]}</b></button>`;
+  }).join('');
+  return `<div class="bam-card">
+      <div class="bam-who">${avatarHTML(t,40,10)}<span>${takesEsc(t.name||'')}</span></div>
+      <div class="bam-picks">${picks}</div>
+    </div>`;
+}
+function renderBam(){
+  const el=document.getElementById('bam-body'); if(!el) return;
+  const pool=bamPool();
+  if(!pool.length){ el.innerHTML=''; return; }
+  const b=bamState(), done=bamDone(b), ovr=bamOvr(b), left=bamOpen(b).length;
+  const started=Object.keys(b.slots).length||b.land!=null;
+  const build=`<div class="bam-build">
+      <div class="bam-slots">${BAM_ATTRS.map(([k,l])=>bamSlotHTML(b,k,l)).join('')}</div>
+      <div class="bam-meta">
+        <div class="bam-ovr"><span>OVR</span><b class="${ovr>=0?pgTone(ovr):'pg-none'}">${ovr>=0?PG_SCALE[ovr]:'–'}</b></div>
+        <span class="bam-left">${done?'9 of 9':`${left} slot${left===1?'':'s'} left`}</span>
+        ${started&&!done?`<button class="bam-reset${_bamArm?' armed':''}" onclick="bamReset()" aria-label="Start over">
+          <i class="fa fa-rotate-left"></i>${_bamArm?'Start over':''}</button>`:''}
+      </div>
+    </div>`;
+  let play;
+  if(done){
+    play=`<button class="bam-spin" onclick="bamReset(true)"><i class="fa fa-rotate-left"></i>Build again</button>`;
+  }else{
+    const mid=b.land!=null?b.land:(b.last!=null?b.last:pool[0]);
+    play=`<div class="bam-reel${b.land!=null&&!_bamSpin?' on':''}" aria-hidden="true">
+        <div class="bam-strip" id="bam-strip">${bamRest(pool,mid).map(bamRowHTML).join('')}</div>
+      </div>
+      <div class="bam-btns">
+        <button class="bam-spin" onclick="bamSpin()" ${_bamSpin||b.land!=null?'disabled':''}><i class="fa fa-dice"></i>Spin</button>
+        <button class="bam-re" onclick="bamSpin(true)" ${_bamSpin||b.land==null||b.respins<=0?'disabled':''}>
+          <i class="fa fa-rotate"></i>Respin<span>${b.respins}</span></button>
+      </div>
+      ${b.land!=null&&!_bamSpin?bamCardHTML(b):''}`;
+  }
+  el.innerHTML=`<div class="bam-wrap">${build}<div class="bam-play">${play}</div></div>`;
+}
+/* The reel turns from where it rests to the one already chosen: a strip of
+   names that starts on the three on screen and ends with the winner in the
+   middle row, moved in one eased transform. */
+function bamRoll(pool,from,to){
+  return new Promise(res=>{
+    const strip=document.getElementById('bam-strip');
+    if(!strip||matchMedia('(prefers-reduced-motion:reduce)').matches){ res(); return; }
+    const rows=bamRest(pool,from);
+    for(let i=0;i<22;i++) rows.push(pool[Math.floor(Math.random()*pool.length)]);
+    rows.push(to,pool[(pool.indexOf(to)+1)%pool.length]);
+    strip.innerHTML=rows.map(bamRowHTML).join('');
+    strip.style.transition='none';
+    strip.style.transform='translateY(0)';
+    void strip.offsetHeight;                   // the start has to be drawn before the move
+    strip.style.transition=`transform ${BAM_SPIN_MS}ms cubic-bezier(.12,.72,.16,1)`;
+    strip.style.transform=`translateY(${-(rows.length-3)*BAM_ROW}px)`;
+    let fin=false;
+    const end=()=>{ if(fin) return; fin=true; res(); };
+    strip.addEventListener('transitionend',end,{once:true});
+    setTimeout(end,BAM_SPIN_MS+150);
+  });
+}
+async function bamSpin(re){
+  if(_bamSpin) return;
+  const b=bamState(), pool=bamPool();
+  if(!pool.length||bamDone(b)) return;
+  if(re){ if(b.land==null||b.respins<=0) return; }
+  else if(b.land!=null) return;                // a trait first
+  const from=b.land!=null?b.land:(b.last!=null?b.last:pool[0]);
+  const id=bamPick(pool,re?b.land:null); if(id==null) return;
+  if(re) b.respins--;
+  b.land=null; b.last=from; _bamSpin=true; _bamArm=false;
+  renderBam();
+  await bamRoll(pool,from,id);
+  _bamSpin=false; b.land=id; b.last=id;
+  bamSave();
+  if(_activeTab==='bam') renderBam();
+}
+function bamPut(k){
+  if(_bamSpin) return;
+  const b=bamState();
+  if(!bamTake(b,k)) return;
+  _bamArm=false;
+  bamSave(); renderBam();
+}
+/* Halfway through, the first tap only asks; Build again at the end does not. */
+function bamReset(now){
+  if(_bamSpin) return;
+  const b=bamState();
+  if(!now&&!_bamArm){
+    _bamArm=true; clearTimeout(_bamArmT);
+    _bamArmT=setTimeout(()=>{ _bamArm=false; if(_activeTab==='bam') renderBam(); },4000);
+    renderBam(); return;
+  }
+  clearTimeout(_bamArmT); _bamArm=false;
+  _bam=bamFresh(); _bam.last=b.last;
+  bamSave(); renderBam();
+}
+
 /* ── TUESDAY: WHERE EVERYONE STANDS ──────────────────────────────────────────
    The week's football is in, so the table has moved. This is the one card that
    reports on all twelve at once rather than on a single result, which is why it
@@ -26519,6 +26730,13 @@ async function loadDashboard(){
       <div class="tab-page" id="page-takes">
         <div class="sec wm" data-wm="&#xf06d;" id="ht-sec">
           <div id="ht-body"></div>
+        </div>
+      </div>
+
+      <!-- BUILD A MANAGER -->
+      <div class="tab-page" id="page-bam">
+        <div class="sec" id="bam-sec">
+          <div id="bam-body"></div>
         </div>
       </div>
 

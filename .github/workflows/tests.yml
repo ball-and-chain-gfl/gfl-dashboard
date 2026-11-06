@@ -256,11 +256,16 @@ jobs:
       # news, and comes down at the Tuesday reset until the next one is posted.
       - name: the new video bar
         run: node scripts/test-newvideo.mjs
-      # Every Tuesday the league grades the punishment its lowest scorer just
-      # took, F to A+, from the notification stack; the schedule shows who took
-      # each week and the composite. The punished manager does not grade it.
+      # Every Tuesday the league grades the punishment done the week before,
+      # F to A+, from the notification stack; the schedule shows who took each
+      # week and the composite. The punished manager does not grade it.
       - name: grading the punishment
         run: node scripts/test-punish-grade.mjs
+      # Build a Manager: twelve managers, nine baseline grades each, set by
+      # hand and read by nothing live; the wheel, one trait a spin, the overall,
+      # and a saved build that has to still make sense.
+      - name: build a manager
+        run: node scripts/test-bam.mjs
       - name: the split migration parses
         run: node --check scripts/split-shares.mjs
       - name: the archivers parse

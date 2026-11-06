@@ -18,6 +18,7 @@
      matchup       nothing on the picks grid reads this any more; the hidden
                    Matchup of the Week module still does
      gabe          once — the player the League History shrine is built on
+     buildManager  as wanted — every manager's grades for Build a Manager
 
    WHAT IS NOT IN HERE ANY MORE: everything the site can work out for itself.
    Standings, records, share prices, Ball Knowledge, the Bad Beat O'Meter and
@@ -457,4 +458,43 @@ window.GFL_CONFIG = {
 
   /* GABE'S GREATNESS — a shrine to Gabe Davis's finest fantasy outings in the GFL. */
   gabe: { name: "Gabe Davis", playerId: 4243537 },
+
+  /* BUILD A MANAGER — every manager's grade in each of the nine traits.
+
+     THESE ARE THE BASELINE, ALL OF THEM. Set on 6 November 2026 (week 9):
+     proposed from the league's own numbers, then corrected by hand. Nothing
+     in the game reads a live stat, so no grade is fixed while the one beside
+     it moves. If the grades are made to move with the season, that movement
+     goes on top of this table, for every grade at once (see bamGrade in
+     app.js), and this table stays the starting point.
+
+     Where the proposals came from, for whoever revisits them:
+       draft   Draft Report score, every season 2022-26
+       trade   Trade ROI, 2023-26          fin    Waiver ROI, 2023-26
+       coach   Coaching Metric, 2024-26    bk     Ball Knowledge IQ meter
+       luck    Bad Beat O'Meter, flipped, spread A to D
+       eng     what each manager joins in on the site this season
+       pun     the league's grades for the punishment they took, and the awards
+       legacy  career win %, plus a bump for each title
+
+     Keyed by ESPN team id, so a rename changes nothing. Letters run F, D-, D,
+     D+, C-, C, C+, B-, B, B+, A-, A, A+. A team without all nine is left off
+     the wheel. */
+  buildManager: {
+    asOf: "2026-11-06",
+    grades: {
+      1:  { draft: "B",  trade: "C",  fin: "C",  coach: "C",  bk: "B",  luck: "C-", eng: "A-", pun: "B",  legacy: "C"  }, // MM
+      2:  { draft: "B",  trade: "A+", fin: "C+", coach: "D",  bk: "C+", luck: "C-", eng: "A",  pun: "A",  legacy: "B"  }, // MCM
+      3:  { draft: "C-", trade: "A-", fin: "B",  coach: "A-", bk: "A",  luck: "C",  eng: "B",  pun: "C-", legacy: "A-" }, // GOOB
+      4:  { draft: "C",  trade: "C",  fin: "D+", coach: "D-", bk: "C",  luck: "D",  eng: "F",  pun: "C",  legacy: "D+" }, // Bi
+      5:  { draft: "B+", trade: "D",  fin: "C",  coach: "C",  bk: "A",  luck: "D+", eng: "A+", pun: "A+", legacy: "A"  }, // FMAN
+      6:  { draft: "B-", trade: "C-", fin: "C-", coach: "C-", bk: "D+", luck: "B",  eng: "B-", pun: "B",  legacy: "C-" }, // SW
+      7:  { draft: "C+", trade: "B-", fin: "A",  coach: "B+", bk: "B",  luck: "A-", eng: "B",  pun: "A",  legacy: "A+" }, // KUNK
+      8:  { draft: "C",  trade: "C",  fin: "B",  coach: "B-", bk: "A",  luck: "A",  eng: "A+", pun: "A",  legacy: "B"  }, // TING
+      9:  { draft: "B-", trade: "B+", fin: "B-", coach: "C",  bk: "C",  luck: "D-", eng: "C-", pun: "C+", legacy: "D"  }, // MWM
+      10: { draft: "B+", trade: "A",  fin: "B+", coach: "A+", bk: "A+", luck: "B",  eng: "A+", pun: "B-", legacy: "A+" }, // BFT
+      11: { draft: "C-", trade: "C+", fin: "C",  coach: "D",  bk: "D",  luck: "B",  eng: "B",  pun: "C+", legacy: "F"  }, // KW
+      12: { draft: "D-", trade: "C-", fin: "B",  coach: "C",  bk: "D+", luck: "D+", eng: "C",  pun: "B+", legacy: "F"  }, // WGLR
+    },
+  },
 };

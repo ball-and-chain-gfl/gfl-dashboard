@@ -183,6 +183,13 @@ their own. A week is graded a week late: its lowest scorer does the punishment
 the following week, so week N's card opens on week N+1's Tuesday, and until
 then no grade for it counts or shows (see GRADING THE PUNISHMENT in `app.js`).
 
+Build a Manager (tab `bam`) touches no collection. Its grades are one baseline
+table in `config.js` (`buildManager.grades`, keyed by ESPN team id, set by hand
+on 6 November 2026), and the game reads nothing live, by request: no grade may
+be fixed while another moves. If grades are ever made to move with the season,
+the movement goes in `bamGrade` on top of every baseline at once. A build in
+progress is kept in localStorage under `lsKey('bam')`.
+
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).
 An ordered query on a filtered field needs a composite index, and without one
