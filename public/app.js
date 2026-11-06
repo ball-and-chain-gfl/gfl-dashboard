@@ -17588,26 +17588,30 @@ function bkDailyLastWeek(){
 }
 /* {season, week, day} for a moment, or null before the daily drop begins or
    after the season's last week has run out */
-function bkDailyAt(t){
+/* from is the first week of whatever is asking -- the questions start in week
+   10, the pick'em started in week 9 -- and defaults to the questions' */
+function bkDailyAt(t,from){
   t=t==null?Date.now():t;
+  const w0=from==null?BK_DAILY.week:Number(from);
   if(String(bkLeagueSeason())!==BK_DAILY.season) return null;
-  const t0=bkDayStart(BK_DAILY.week,0);
+  const t0=bkDayStart(w0,0);
   if(t<t0) return null;
   let n=Math.floor((t-t0)/BK_DAY_MS);
-  while(n>0&&bkDayStart(BK_DAILY.week,n)>t) n--;            // a day can be 23 or 25 hours
-  while(bkDayStart(BK_DAILY.week,n+1)<=t) n++;
-  const week=BK_DAILY.week+Math.floor(n/BK_DAILY_N);
+  while(n>0&&bkDayStart(w0,n)>t) n--;                      // a day can be 23 or 25 hours
+  while(bkDayStart(w0,n+1)<=t) n++;
+  const week=w0+Math.floor(n/BK_DAILY_N);
   if(week>bkDailyLastWeek()) return null;
   return {season:BK_DAILY.season,week,day:n%BK_DAILY_N};
 }
 /* every daily week with time on the clock so far, and whether it is over */
-function bkDailyWeeks(t){
+function bkDailyWeeks(t,from){
   t=t==null?Date.now():t;
+  const w0=from==null?BK_DAILY.week:Number(from);
   if(String(bkLeagueSeason())!==BK_DAILY.season) return [];
-  if(t<bkDayStart(BK_DAILY.week,0)) return [];
-  const at=bkDailyAt(t), last=at?at.week:bkDailyLastWeek();
+  if(t<bkDayStart(w0,0)) return [];
+  const at=bkDailyAt(t,w0), last=at?at.week:bkDailyLastWeek();
   const out=[];
-  for(let w=BK_DAILY.week;w<=last;w++) out.push({week:w,over:!at||w<at.week});
+  for(let w=w0;w<=last;w++) out.push({week:w,over:!at||w<at.week});
   return out;
 }
 
@@ -17811,7 +17815,13 @@ function renderBkDaily(el,sec,at){
 /* ── THE DAILY PICK'EM ─────────────────────────────────────────────────────── */
 const pkeDoc=(s,w,d)=>`pke-${s}-w${w}-d${d}`;
 const pkdKey=(s,w)=>`pkd_${s}_w${w}`;
-let _pkeDays={},_pkeBusy={},_pke404={};
+/* THE PICK'EM STARTED A WEEK EARLY, on the Thursday of week 9, with the three
+   days of that week so far drawn at once -- the questions wait for week 10.
+   Same days and the same 06:00 turn, from its own first week. */
+const PKE_FROM_WEEK=9;
+const pkeAt=t=>bkDailyAt(t,PKE_FROM_WEEK);
+const pkeWeeks=t=>bkDailyWeeks(t,PKE_FROM_WEEK);
+let _pkeDays={},_pkeBusy={},_pke404={},_pkeNone={};
 function pkeParse(j){
   const f=fsIn(j); let a=null, b=null;
   try{ a=JSON.parse(f.a||'null'); b=JSON.parse(f.b||'null'); }catch(e){}
@@ -17881,7 +17891,12 @@ async function pkeFetch(season,week,day){
       else if(r.status!==404) return;
       _pke404[k]=true;
     }
-    const b=pkeBuild(season,week,day); if(!b) return;
+    /* one day at a time, in order, so a day drawn after another knows who
+       that one used -- several are drawn at once after a gap */
+    for(let x=0;x<day;x++){ const kx=pkeDoc(season,week,x); if(!_pkeDays[kx]&&!_pkeNone[kx]) return; }
+    const b=pkeBuild(season,week,day);
+    if(b===null){ _pkeNone[k]=true; try{ pkeRender(); }catch(e){} return; }   // nobody left to draw
+    if(!b) return;
     const pe={season:String(season),week:Number(week),day:Number(day),a:b.a,b:b.b,k:b.k};
     const body=fsOut({kind:'pke-'+season,season:String(season),week:String(week),day:String(day),
       a:JSON.stringify(b.a),b:JSON.stringify(b.b),k:String(b.k),at:String(Date.now())});
@@ -17905,7 +17920,7 @@ function pkeLocked(pe,now){
 }
 async function pkePick(week,day,pid,el){
   if(!_me) return;
-  const at=bkDailyAt(); if(!at||at.week!==Number(week)) return;
+  const at=pkeAt(); if(!at||at.week!==Number(week)) return;
   const pe=_pkeDays[pkeDoc(at.season,week,day)]; if(!pe||pkeLocked(pe)) return;
   const k=pkdKey(at.season,week), picks=bkdLoad(k);
   if(picks[day]!=null) return;                           // a tap is final
@@ -17932,7 +17947,7 @@ function pkePts(pid,season,week){
    the week both games have to be final; once the week is over a player with no
    line for it did not play, and scored nothing. */
 function pkeResult(pe){
-  const wk=bkDailyWeeks().find(x=>x.week===Number(pe.week));
+  const wk=pkeWeeks().find(x=>x.week===Number(pe.week));
   const over=!!(wk&&wk.over);
   if(!over){
     const done=x=>{ let s=null; try{ s=nflTeamState(x.pt,pe.week,pe.season); }catch(e){} return s==='post'; };
@@ -17950,7 +17965,7 @@ function pkeResult(pe){
 let _pkeAll=null,_pkeAllAt=0,_pkeAllBusy=false;
 const PKE_ALL_TTL=10*60*1000;
 function pkeAll(){
-  if(!bkDailyWeeks().length) return {};
+  if(!pkeWeeks().length) return {};
   if(_pkeAll&&Date.now()-_pkeAllAt<PKE_ALL_TTL) return _pkeAll;
   if(!_pkeAll){
     try{ const j=JSON.parse(sessionStorage.getItem('gfl:pkeAll')||'null');
@@ -17996,7 +18011,7 @@ function pkeCalls(p){
 }
 /* released, drawn, not picked and not locked */
 function pkeOpen(at){
-  at=at||bkDailyAt(); if(!at||!_me) return [];
+  at=at||pkeAt(); if(!at||!_me) return [];
   const picks=bkdLoad(pkdKey(at.season,at.week)), now=Date.now(), out=[];
   for(let d=0;d<=at.day;d++){
     const pe=pkeDay(at.season,at.week,d);
@@ -18009,7 +18024,7 @@ const pkeWhen=k=>new Intl.DateTimeFormat('en-US',{timeZone:BK_TZ,weekday:'short'
 function pkeRender(){
   const el=document.getElementById('pe-body'), sec=document.getElementById('pe-sec');
   if(!el) return;
-  const at=bkDailyAt();
+  const at=pkeAt();
   if(!at){ if(sec) sec.style.display='none'; return; }
   if(sec) sec.style.display='';
   if(!_me){
@@ -20128,11 +20143,9 @@ function renderTakes(){
         <div class="ht-as" id="ht-as">${takesAsHTML()}</div>
         <button class="ht-post" onclick="takesPost()" ${_takesPosting?'disabled':''}>
           <i class="fa fa-fire"></i>${_takesPosting?'Posting…':'Post take'}</button>
-        <div class="ht-lock"><i class="fa fa-lock"></i>Once it is posted it is locked in. Takes reset every Tuesday.</div>
       </div>`
     : `<div class="ht-compose ht-out">
-        <div class="ht-lock"><i class="fa fa-lock"></i>Sign in to post a take. Anyone can read them.</div>
-        <button class="ht-post" onclick="openSignIn()"><i class="fa fa-key"></i>Sign in</button>
+        <button class="ht-post" onclick="openSignIn()"><i class="fa fa-key"></i>Sign in to post a take</button>
       </div>`;
   const err=_takesErr?`<div class="ht-err">${_takesErr}</div>`:'';
   const card=t=>{
@@ -20150,12 +20163,24 @@ function renderTakes(){
         <div class="ht-by">${who}<span class="ht-ago">${msgAgo(Number(t.ts))}</span>${del}</div>
       </article>`;
   };
+  /* the feed's own header: how many, and a way to ask again without reloading
+     the page -- somebody else's take does not arrive by itself */
+  const head=`<div class="ht-meta"><span>${list&&list.length?`${list.length} take${list.length===1?'':'s'} this week`:'This week'}</span>
+      <button class="ht-refresh" onclick="takesRefresh()" ${_takesBusy?'disabled':''} aria-label="Refresh the takes">
+        <i class="fa fa-rotate-right${_takesBusy?' fa-spin':''}"></i>Refresh</button></div>`;
   const feed=list
-    ? (list.length
-        ? `<div class="ht-meta">${list.length} take${list.length===1?'':'s'} this week</div><div class="ht-feed">${list.map(card).join('')}</div>`
+    ? head+(list.length
+        ? `<div class="ht-feed">${list.map(card).join('')}</div>`
         : `<div class="ht-empty"><i class="fa fa-fire"></i>No takes yet this week. Be the first.</div>`)
-    : (_takesErr?'':`<div class="ht-empty"><i class="fa fa-circle-notch fa-spin"></i>Loading this week's takes…</div>`);
+    : (_takesErr?head:`<div class="ht-empty"><i class="fa fa-circle-notch fa-spin"></i>Loading this week's takes…</div>`);
   el.innerHTML=compose+err+feed;
+}
+/* Asks Firestore again now, past the minute the feed otherwise keeps a copy
+   for. The icon spins while the read is out; takesLoad repaints when it lands. */
+function takesRefresh(){
+  if(_takesBusy) return;
+  takesLoad(true);
+  renderTakes();
 }
 
 /* ── TUESDAY: WHERE EVERYONE STANDS ──────────────────────────────────────────
@@ -26066,7 +26091,7 @@ async function loadDashboard(){
               <div class="sec-head"><i class="fa fa-burst"></i>Matchup Picks</div>
               <div id="pk-body"></div>
             </div>
-            ${bkDailyAt()?`<div class="sec wm mod-pe" data-wm="&#xf24e;" id="pe-sec">
+            ${pkeAt()?`<div class="sec wm mod-pe" data-wm="&#xf24e;" id="pe-sec">
               <div class="sec-head"><i class="fa fa-scale-balanced"></i>Daily Pick'em</div>
               <div id="pe-body"></div>
             </div>`:''}
@@ -26236,7 +26261,6 @@ async function loadDashboard(){
       <!-- HOT TAKES -->
       <div class="tab-page" id="page-takes">
         <div class="sec wm" data-wm="&#xf06d;" id="ht-sec">
-          <div class="sec-head"><i class="fa fa-fire"></i>This Week's Takes</div>
           <div id="ht-body"></div>
         </div>
       </div>

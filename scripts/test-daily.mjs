@@ -1,8 +1,9 @@
 /* THE DAILY DROP: ONE QUESTION AND ONE PICK'EM A DAY, FROM WEEK 10 OF 2026.
  *
- *   THE CALENDAR        a day turns at 06:00 Central; the first daily day is
- *                       Tuesday 10 November 2026; a week is Tuesday to Monday;
- *                       nothing daily before it or after the season's last week
+ *   THE CALENDAR        a day turns at 06:00 Central; the first daily question
+ *                       is Tuesday 10 November 2026, while the pick'em started a
+ *                       week earlier, in week 9; a week is Tuesday to Monday;
+ *                       nothing daily before either or after the last week
  *   THE QUESTIONS       right +1 and wrong -1 as calls; a blank costs minus one,
  *                       and only once its week is over
  *   BOOM AND BOOF       four players with no two alike and the answer a point
@@ -37,9 +38,9 @@ const M = assemble(grab, [
   'function bkChiParts(', 'function bkChiMs(', 'function bkDayStart(', 'function bkDailyLastWeek(',
   'function bkDailyAt(', 'function bkDailyWeeks(', 'const bkdKey=', 'function bkDailyCalls(',
   'function bkProjGap(', 'function bkqProjWay(', 'function bkqBoom(', 'function bkqBoof(',
-  'const pkeDoc=', 'const pkdKey=', 'let _pkeDays=', 'function pkeBuild(', 'function pkeLocked(',
+  'const pkeDoc=', 'const pkdKey=', 'const PKE_FROM_WEEK=', 'const pkeAt=', 'const pkeWeeks=', 'let _pkeDays=', 'function pkeBuild(', 'function pkeLocked(',
   'function pkePts(', 'function pkeResult(', 'function pkeCalls(',
-], ['bkDailyAt', 'bkDailyWeeks', 'bkDailyCalls', 'bkqBoom', 'bkqBoof', 'bkRand', 'pkeBuild', 'pkeCalls',
+], ['bkDailyAt', 'bkDailyWeeks', 'pkeAt', 'pkeWeeks', 'bkDailyCalls', 'bkqBoom', 'bkqBoof', 'bkRand', 'pkeBuild', 'pkeCalls',
   'pkeResult', 'pkeLocked', 'bkChiMs', 'set', 'clock'], [
   'let _now=0; const clock=t=>{ _now=t; };',
   'const Date=(()=>{ const D=globalThis.Date; return class extends D{ constructor(...a){ if(a.length) super(...a); else super(_now); } static now(){ return _now; } }; })();',
@@ -78,6 +79,12 @@ ok('every week with time on the clock, and which are over',
   M.bkDailyWeeks(), [{ week: 10, over: true }, { week: 11, over: false }]);
 M.clock(CT(2026, 11, 9, 9));
 ok('and none before the first one', M.bkDailyWeeks(), []);
+ok("the pick'em started in week 9, on its Tuesday's clock, while the questions waited",
+  [M.pkeAt(CT(2026, 11, 5, 20)), M.bkDailyAt(CT(2026, 11, 5, 20))], [{ season: '2026', week: 9, day: 2 }, null]);
+ok("so its Thursday of week 9 already has three days out", M.pkeAt(CT(2026, 11, 5, 20)).day + 1, 3);
+ok("and nothing before week 9's Tuesday", M.pkeAt(CT(2026, 11, 3, 5, 59)), null);
+M.clock(CT(2026, 11, 12, 9));
+ok("its weeks carry week 9 along with the questions' first", M.pkeWeeks(), [{ week: 9, over: true }, { week: 10, over: false }]);
 
 head('the questions');
 const day = (a, r) => ({ a, r });
