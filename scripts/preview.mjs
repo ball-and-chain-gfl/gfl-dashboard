@@ -45,6 +45,10 @@ const GUARD = `<script>
   var takes=[take(12,'Florida Man is the best 4-4 team in fantasy history and nobody is ready to say it.',true),
     take(95,'If BFT drops another 180 I am filing a formal complaint with the commissioner. Oh wait.',false,'kunk','7'),
     take(400,'The Coaches Poll is rigged and I have the receipts.',true)];
+  /* and some reactions on them, so the chips show before anyone taps */
+  takes[0].fields.rx_kunk={stringValue:'fire'}; takes[0].fields.rx_ting={stringValue:'fire'};
+  takes[0].fields.rx_sw={stringValue:'haha'};
+  takes[1].fields.rx_mm={stringValue:'poop'}; takes[1].fields.rx_goob={stringValue:'cap'};
   var reply=function(o){ return new Response(JSON.stringify(o),{status:200,headers:{'Content-Type':'application/json'}}); };
   var docName=function(id){ return 'projects/preview/databases/(default)/documents/messages/'+id; };
   /* Bets placed in the preview are kept here, never sent, and folded into every
@@ -90,6 +94,17 @@ const GUARD = `<script>
       if(m==='DELETE'){ var did=decodeURIComponent(url.split('?')[0].split('/').pop());
         takes=takes.filter(function(t){return t.id!==did;}); console.info('[preview] removed a take from memory');
         return Promise.resolve(reply({})); }
+      /* a reaction: the masked fields set or cleared on the take in memory, and a
+         404 for a take that is gone, as Firestore answers a patch that insists it exists */
+      if(m==='PATCH'){ var pid=decodeURIComponent(url.split('?')[0].split('/').pop());
+        var tk=takes.filter(function(t){return t.id===pid;})[0];
+        if(!tk) return Promise.resolve(new Response(JSON.stringify({error:{code:404,status:'NOT_FOUND'}}),
+          {status:404,headers:{'Content-Type':'application/json'}}));
+        var pf=JSON.parse(body||'{}').fields||{};
+        (url.match(/updateMask\.fieldPaths=[^&]+/g)||[]).forEach(function(p){
+          var k=decodeURIComponent(p.split('=')[1]); if(pf[k]) tk.fields[k]=pf[k]; else delete tk.fields[k]; });
+        console.info('[preview] kept a reaction in memory');
+        return Promise.resolve(reply({name:docName(pid),fields:tk.fields})); }
     }
     console.info('[preview] write blocked: '+m+' '+url.split('?')[0]);
     return Promise.resolve(reply({}));

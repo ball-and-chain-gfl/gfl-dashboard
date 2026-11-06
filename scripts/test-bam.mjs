@@ -43,14 +43,18 @@ const M = assemble(grab, [
   'const BAM_MGR_W=', 'const BAM_BASE=', 'const bamStrength=', 'function bamGauss(', 'function bamScore(',
   'function bamGame(', 'function bamRoster(', 'function bamGames(', 'function bamSimSeason(', 'const bamOrd=', 'function bamFinish(',
   'const takesEsc=', 'const bamTeam=', 'const bamAbbr=', 'const BAM_WIN_DAYS=', 'function ntBamWins(', 'function bamRateOrder(',
+  'function bamRateCardHTML(', 'function bamRatingsHTML(',
 ], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'PG_SCALE', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen',
   'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'bamRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode',
-  'ntBamWins', 'bamRateOrder', 'BAM_WIN_DAYS', 'set'], [
-  "let _CFG={}, _teams=[], _cpRows=null;",
+  'ntBamWins', 'bamRateOrder', 'BAM_WIN_DAYS', 'bamRateCardHTML', 'bamRatingsHTML', 'set'], [
+  "let _CFG={}, _teams=[], _cpRows=null, _bamRateSel=null;",
+  // the drawing helpers stand in as tags, so the pop-up's own markup can be read
+  "const avatarHTML=t=>'<av '+(t&&t.id)+'>'; const bamPx=s=>'['+s+']';",
+  "const bamSlotHTML=(a,id,gi)=>'<slot '+a[0]+'='+gi+'>'; const bamOvrHTML=(n,left)=>'<ovr '+n+' '+left+'>';",
   "const regEndOf=()=>14;",
   "const TEST_PROFILE='test';",
   "const teamInitials=n=>String(n||'').split(' ').map(w=>w[0]||'').join('').toUpperCase();",
-  "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; if('rows' in o) _cpRows=o.rows; };",
+  "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; if('rows' in o) _cpRows=o.rows; if('sel' in o) _bamRateSel=o.sel; };",
 ].join(NL));
 
 /* the real table, out of the real config file */
@@ -294,6 +298,21 @@ console.log(NL + 'a champion, for the whole league');
 console.log(NL + 'every manager\'s ratings');
 ok('a tab for each of the twelve, best overall first', [M.bamRateOrder().length, M.bamRateOrder()[0]], [12, BFT]);
 ok('in order of overall all the way down', M.bamRateOrder().every((id, i, a) => !i || M.bamManagerOvr(a[i - 1]) >= M.bamManagerOvr(id)), true);
+{
+  const order = M.bamRateOrder();
+  M.set({ sel: null });
+  const pop = M.bamRatingsHTML();
+  const onTabs = pop.match(/class="bam-rtab on"[^>]*data-id="(\d+)"/g) || [];
+  ok('opened fresh, the best is picked, and only one tab is lit', [onTabs.length, (onTabs[0] || '').endsWith(`data-id="${order[0]}"`)], [1, true]);
+  ok('every tab says which manager it is, so a pick only moves the light', (pop.match(/class="bam-rtab[^"]*"[^>]*data-id="\d+"/g) || []).length, 12);
+  ok('the card sits in its own box, repainted alone', pop.includes('<div id="bam-rate-card">'), true);
+  const card = M.bamRateCardHTML(order, order[0]);
+  ok('the arrows go round: back from the first is the last', [card.includes(`bamRatingsPick(${order[11]})`), card.includes(`bamRatingsPick(${order[1]})`)], [true, true]);
+  ok('nine tiles, the overall and the rank', [(card.match(/<slot /g) || []).length, card.includes(` of 12>`)], [9, true]);
+  M.set({ sel: order[5] });
+  ok('opened again, it remembers the last one looked at', (M.bamRatingsHTML().match(/class="bam-rtab on"[^>]*data-id="(\d+)"/) || [])[1], String(order[5]));
+  M.set({ sel: null });
+}
 
 console.log(NL + 'where it lives');
 const idx = fs.readFileSync(idxUrl, 'utf8').replace(/\r\n/g, '\n');
@@ -325,6 +344,21 @@ ok('and the league\'s stack carries it', [/\[ntBkMakeGood,ntMotwPick,ntPunishGra
   /bamwin:\s*\{icon:'fa-trophy'/.test(src), src.includes("if(where==='bam')")], [true, true, true]);
 ok('every manager\'s ratings, from under the build', [src.includes('onclick="bamRatingsOpen()"'), idx.includes('id="bam-rate-overlay"')], [true, true]);
 ok('a tile\'s parts are never named like a grade\'s colour (bam-tb was both)', [src.includes('class="bam-tb"'), src.includes('class="bam-tbot"')], [false, true]);
+{
+  const fn = name => { const a = src.indexOf(name); return a < 0 ? '' : src.slice(a, src.indexOf('\n}\n', a) + 2); };
+  const pick = fn('function bamRatingsPick('), key = fn('function bamRatingsKey('), close = fn('function bamRatingsClose(');
+  ok('the ratings pop-up: its backdrop answers no tap, so nothing outside closes it or shrinks it',
+    /id="bam-rate-overlay"[^>]*onclick/.test(idx), false);
+  ok('no backdrop anywhere shrinks on a press, nor the menu\'s scrim', idx.includes('.modal-overlay:active,#nav-scrim:active,'), true);
+  ok('and nothing inside this one moves when pressed: the tabs, arrows and X answer in colour',
+    [idx.includes('.bam-rate-modal button:active{transform:none;}'), /\.bam-rate-modal \.bam-rtab:active\{background:/.test(idx)], [true, true]);
+  ok('a pick moves the light and repaints the card, and never rebuilds the strip of tabs',
+    [pick.includes("classList.toggle('on',on)"), pick.includes('bamRateCardHTML('), pick.includes('bamRatingsHTML(')], [true, true, false]);
+  const reveal = fn('function bamRateReveal(');
+  ok('the strip scrolls only itself, never the page', [reveal.includes('strip.scrollLeft'), (reveal + pick).includes('scrollIntoView')], [true, false]);
+  ok('the arrow keys move the pick and nothing else', key.includes('e.preventDefault();'), true);
+  ok('the X and Escape close it, whatever was tapped', [close.includes('e.target'), idx.includes('onclick="bamRatingsClose()"')], [false, true]);
+}
 ok('and a share carries the picture with no title text alongside it', [src.includes('{files:[file]}:{url}'), src.includes("title:'Build a Manager'")], [true, false]);
 const vj = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
 ok('which vercel.json sends to the preview, picture and page', ['/b/:code/card.png', '/b/:code'].map(p =>

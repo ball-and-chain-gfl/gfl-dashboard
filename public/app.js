@@ -20259,6 +20259,11 @@ function ttBoxHTML(oppK1,oppName){
    remove any take, for the league's sake -- and that is a rule of this page,
    not of the database, which is as open as every other collection here.
 
+   REACTIONS: one face per manager per take, the way a phone's tapbacks work
+   -- a different face replaces yours, the same one again takes it back. Each
+   is a field on the take itself, so they arrive with the feed's own read and
+   cost one write a tap (see TAKES_RX).
+
    READ BUDGET. The feed is read when the tab opens, at most once a minute,
    and after a post -- never from the homepage. One read per take this week,
    capped at TAKES_LIMIT. Ids count down from a fixed far-future number, so the
@@ -20283,6 +20288,43 @@ const takesIsAdmin=()=>!!_me&&_me.k1===TAKES_ADMIN;
 const takesDocsUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/messages`;
 let _takes=null,_takesWk='',_takesAt=0,_takesBusy=false,_takesErr='';
 let _takesDraft='',_takesAnon=false,_takesPosting=false,_takesArm=null,_takesArmT=null;
+/* Only ids this page makes (takesDocId) are shown. The collection is open, and
+   an id goes into the onclick of the delete and the reactions, so one written
+   by hand with a quote in it would otherwise be a script on everyone's page. */
+const TAKES_ID_RE=/^tk[0-9a-z]{1,40}$/;
+
+/* ── REACTIONS ───────────────────────────────────────────────────────────────
+   The faces, in the order the picker shows them and the chips line up in.
+   Stored as the key, never the emoji, so what is counted is only ever one of
+   these and an odd character in the database draws nothing.
+
+   ONE FIELD A REACTOR: rx_<account> on the take, holding a key. A patch names
+   only that field, so two managers reacting at once cannot undo each other,
+   and it insists the take still exists: a reaction to one the admin has just
+   deleted would otherwise create a bare document with no week, which the
+   Tuesday wipe skips, and it would sit in the collection for good.
+
+   WHO COUNTS. Only league accounts, so nobody can stuff a count through the
+   open database, and the test account only on its own screen. */
+const TAKES_RX=[
+  ['up','\u{1F44D}','Thumbs up'],
+  ['down','\u{1F44E}','Thumbs down'],
+  ['haha','\u{1F602}','Haha'],
+  ['fire','\u{1F525}','Fire'],
+  ['poop','\u{1F4A9}','Poop'],
+  ['cap','\u{1F9E2}','Cap'],
+  ['clown','\u{1F921}','Clown'],
+  ['dead','\u{1F480}','Dead'],
+  ['salty','\u{1F9C2}','Salty'],
+  ['goat','\u{1F410}','GOAT'],
+];
+const TAKES_RX_KEYS=new Set(TAKES_RX.map(r=>r[0]));
+/* An account is a slug, [a-z0-9-]. A field name cannot carry the hyphen, and a
+   slug never has an underscore, so the swap is safe in both directions. */
+const takesRxField=acct=>'rx_'+String(acct||'').replace(/-/g,'_');
+let _takesRxOpen=null;                      // the take whose picker is out
+const _takesRxPending=new Map();            // take id -> your face, or '' for none, not yet saved
+const _takesRxFlight=new Set();             // take ids with a save in the air
 async function takesLoad(force){
   const wk=takesWeekKey();
   if(_takesBusy) return;
@@ -20295,7 +20337,7 @@ async function takesLoad(force){
       const j=await r.json();
       _takes=(Array.isArray(j)?j:[]).filter(x=>x&&x.document)
         .map(x=>({id:decodeURIComponent(x.document.name.split('/').pop()),...fsIn(x.document)}))
-        .filter(t=>t.text).sort((a,b)=>Number(b.ts)-Number(a.ts));
+        .filter(t=>t.text&&TAKES_ID_RE.test(t.id)).sort((a,b)=>Number(b.ts)-Number(a.ts));
       _takesWk=wk; _takesAt=Date.now(); _takesErr='';
     }else _takesErr=r.status===429?'Firestore is over its daily allowance. The takes will be back tomorrow.'
       :'The takes could not load.';
@@ -20377,21 +20419,7 @@ function renderTakes(){
         <button class="ht-post" onclick="openSignIn()"><i class="fa fa-key"></i>Sign in to post a take</button>
       </div>`;
   const err=_takesErr?`<div class="ht-err">${_takesErr}</div>`:'';
-  const card=t=>{
-    const team=t.anon!=='1'&&_teams.find(x=>String(x.id)===String(t.teamId));
-    const who=team
-      ? `${logoImg(team.id,'team-logo-sm')}<span class="ht-name">${esc(team.name)}</span>`
-      : `<span class="ht-mask"><i class="fa fa-user-secret"></i></span><span class="ht-name">Anonymous</span>`;
-    const armed=_takesArm===t.id;
-    const del=takesIsAdmin()
-      ? `<button class="ht-del${armed?' armed':''}" onclick="takesDel('${esc(t.id)}')"
-          aria-label="${armed?'Confirm delete':'Delete this take'}">${armed?'Delete':'<i class="fa fa-trash-can"></i>'}</button>`
-      : '';
-    return `<article class="ht-card${team?'':' anon'}">
-        <p class="ht-q">${esc(t.text)}</p>
-        <div class="ht-by">${who}<span class="ht-ago">${msgAgo(Number(t.ts))}</span>${del}</div>
-      </article>`;
-  };
+  const card=takesCardHTML;
   /* the feed's own header: how many, and a way to ask again without reloading
      the page -- somebody else's take does not arrive by itself */
   const head=`<div class="ht-meta"><span>${list&&list.length?`${list.length} take${list.length===1?'':'s'} this week`:'This week'}</span>
@@ -20403,6 +20431,123 @@ function renderTakes(){
         : `<div class="ht-empty"><i class="fa fa-fire"></i>No takes yet this week. Be the first.</div>`)
     : (_takesErr?head:`<div class="ht-empty"><i class="fa fa-circle-notch fa-spin"></i>Loading this week's takes…</div>`);
   el.innerHTML=compose+err+feed;
+}
+/* One take: the words, who said it and when, a face to react with (signed in),
+   the admin's delete, and the league's reactions underneath. It carries its own
+   id so a reaction repaints this card alone and the feed does not jump. */
+function takesCardHTML(t){
+  const esc=takesEsc, id=esc(t.id);
+  const team=t.anon!=='1'&&_teams.find(x=>String(x.id)===String(t.teamId));
+  const who=team
+    ? `${logoImg(team.id,'team-logo-sm')}<span class="ht-name">${esc(team.name)}</span>`
+    : `<span class="ht-mask"><i class="fa fa-user-secret"></i></span><span class="ht-name">Anonymous</span>`;
+  const armed=_takesArm===t.id;
+  const del=takesIsAdmin()
+    ? `<button class="ht-del${armed?' armed':''}" onclick="takesDel('${id}')"
+        aria-label="${armed?'Confirm delete':'Delete this take'}">${armed?'Delete':'<i class="fa fa-trash-can"></i>'}</button>`
+    : '';
+  const open=_takesRxOpen===t.id;
+  const add=_me
+    ? `<button class="ht-rx-add${open?' on':''}" onclick="takesRxToggle('${id}')" aria-label="React" aria-expanded="${open}">
+        <i class="fa-regular fa-face-smile"></i><i class="fa fa-plus"></i></button>`
+    : '';
+  return `<article class="ht-card${team?'':' anon'}" id="ht-${id}">
+      <p class="ht-q">${esc(t.text)}</p>
+      <div class="ht-by">${who}<span class="ht-ago">${msgAgo(Number(t.ts))}</span>${add}${del}</div>
+      ${takesRxHTML(t)}
+    </article>`;
+}
+/* who has which face on a take: account -> key, with your own unsaved tap on top */
+function takesRxOf(t){
+  const out={};
+  Object.keys(t||{}).forEach(k=>{
+    if(k.slice(0,3)==='rx_'&&TAKES_RX_KEYS.has(t[k])) out[k.slice(3).replace(/_/g,'-')]=t[k];
+  });
+  if(_me&&t&&_takesRxPending.has(t.id)){
+    const v=_takesRxPending.get(t.id);
+    if(v) out[_me.k1]=v; else delete out[_me.k1];
+  }
+  return out;
+}
+/* key -> the accounts on it, counting only the league (and yourself) */
+function takesRxCounts(t){
+  const ids=accountIds(), me=_me&&_me.k1, by={};
+  Object.entries(takesRxOf(t)).forEach(([acct,k])=>{
+    const league=acct!==TEST_PROFILE&&(ids.size?ids.has(acct):/^[a-z0-9-]{1,60}$/.test(acct));
+    if(!league&&acct!==me) return;
+    (by[k]=by[k]||[]).push(acct);
+  });
+  return by;
+}
+function takesRxName(acct){
+  const t=(_teams||[]).find(x=>teamAcctId(x)===acct);
+  return t?(t.abbrev||teamInitials(t.name||'')):String(acct).toUpperCase();
+}
+/* the chips, one a face that anyone has used, and the picker when it is out */
+function takesRxHTML(t){
+  const esc=takesEsc, id=esc(t.id), by=takesRxCounts(t);
+  const mine=_me?(takesRxOf(t)[_me.k1]||''):'';
+  const chips=TAKES_RX.filter(([k])=>by[k]).map(([k,e,label])=>{
+    const n=by[k].length, on=mine===k, names=by[k].map(takesRxName).join(', ');
+    const inner=`<span class="ht-rx-e" aria-hidden="true">${e}</span><span class="ht-rx-n">${n}</span>`;
+    const tip=`title="${esc(names)}" aria-label="${esc(`${label} ${n}: ${names}`)}"`;
+    return _me
+      ? `<button class="ht-rx-chip${on?' on':''}" onclick="takesReact('${id}','${k}')" aria-pressed="${on}" ${tip}>${inner}</button>`
+      : `<span class="ht-rx-chip" ${tip}>${inner}</span>`;
+  }).join('');
+  const pick=_me&&_takesRxOpen===t.id
+    ? `<div class="ht-rx-pal" role="group" aria-label="React to this take">${TAKES_RX.map(([k,e,label])=>
+        `<button class="ht-rx-pick${mine===k?' on':''}" onclick="takesReact('${id}','${k}')" aria-pressed="${mine===k}" aria-label="${label}" title="${label}">${e}</button>`).join('')}</div>`
+    : '';
+  return (chips?`<div class="ht-rx">${chips}</div>`:'')+pick;
+}
+function takesCardPaint(id){
+  const t=(_takes||[]).find(x=>x.id===id), el=document.getElementById('ht-'+id);
+  if(t&&el) el.outerHTML=takesCardHTML(t);
+}
+function takesRxToggle(id){
+  if(!_me) return;
+  const was=_takesRxOpen; _takesRxOpen=was===id?null:id;
+  if(was&&was!==id) takesCardPaint(was);
+  takesCardPaint(id);
+}
+/* a face from the picker or a chip: yours if it was not, gone if it was */
+function takesReact(id,key){
+  if(!_me||!TAKES_RX_KEYS.has(key)) return;
+  const t=(_takes||[]).find(x=>x.id===id); if(!t) return;
+  _takesRxPending.set(id,(takesRxOf(t)[_me.k1]||'')===key?'':key);
+  if(_takesRxOpen===id) _takesRxOpen=null;
+  takesCardPaint(id);
+  takesRxSend(id);
+}
+/* One save at a time a take, and the latest tap wins: taps that land while a
+   save is out wait for it, then go as one, so an older save can never arrive
+   after a newer one and leave the wrong face on file. */
+async function takesRxSend(id){
+  if(!_me||_takesRxFlight.has(id)||!_takesRxPending.has(id)) return;
+  const key=_takesRxPending.get(id), f=takesRxField(_me.k1);
+  _takesRxFlight.add(id);
+  let res='fail';
+  try{
+    const r=await fetch(`${takesDocsUrl()}/${encodeURIComponent(id)}?${msgKey()}&currentDocument.exists=true&updateMask.fieldPaths=${f}`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(key?fsOut({[f]:key}):{fields:{}})});
+    res=r.ok?'ok':r.status===404?'gone':r.status===429?'quota':'fail';
+  }catch(e){ res='offline'; }
+  _takesRxFlight.delete(id);
+  const t=(_takes||[]).find(x=>x.id===id);
+  if(res==='ok'){
+    if(t){ if(key) t[f]=key; else delete t[f]; }
+    if(_takesRxPending.get(id)!==key) return takesRxSend(id);
+    _takesRxPending.delete(id);
+    return;
+  }
+  _takesRxPending.delete(id);
+  if(res==='gone') _takes=(_takes||[]).filter(x=>x.id!==id);
+  _takesErr=res==='gone'?'That take has been deleted.'
+    :res==='quota'?'Firestore is over its daily allowance. Try again tomorrow.'
+    :res==='offline'?'No connection, so that reaction did not save.'
+    :'That reaction did not save. Try again.';
+  if(_activeTab==='takes') renderTakes();
 }
 /* Asks Firestore again now, past the minute the feed otherwise keeps a copy
    for. The icon spins while the read is out; takesLoad repaints when it lands. */
@@ -20983,46 +21128,63 @@ function renderBam(){
 /* ── EVERY MANAGER'S RATINGS ─────────────────────────────────────────────────
    A pop-up from under the build: a tab for each of the twelve, best overall
    first, and the one picked laid out the way the build is -- its nine grades
-   in their colours, its overall and where that ranks. The arrows, and the
-   left and right keys, step through them. */
+   in their colours, its overall and where that ranks.
+
+   THE TABS, THE ARROWS AND THE X ARE ALL IT ANSWERS TO (and the left, right
+   and Escape keys). A tap anywhere else does nothing, the backdrop included:
+   it used to close the pop-up, and the click handler that did it made the
+   whole thing shrink at every press inside. Picking a manager moves the
+   highlight and repaints the card, nothing more; the strip of tabs is not
+   rebuilt, and it scrolls only when the pick is out of sight, only as far as
+   it has to. */
 let _bamRateSel=null;
 function bamRateOrder(){
   return bamPool().map(id=>({id,n:bamManagerOvr(id),name:String(bamTeam(id).name||'')}))
     .sort((a,b)=>(b.n-a.n)||a.name.localeCompare(b.name)).map(x=>x.id);
 }
+function bamRateCardHTML(order,sel){
+  const i=order.indexOf(sel), t=bamTeam(sel), step=d=>order[(i+d+order.length)%order.length];
+  return `<div class="bam-panel">
+      <div class="bam-rhead">
+        <button class="bam-rstep" onclick="bamRatingsPick(${step(-1)})" aria-label="Previous manager"><i class="fa fa-chevron-left"></i></button>
+        <div class="bam-rwho">${avatarHTML(t,36,9)}${bamPx(t.name||bamAbbr(t),2)}</div>
+        <button class="bam-rstep" onclick="bamRatingsPick(${step(1)})" aria-label="Next manager"><i class="fa fa-chevron-right"></i></button>
+      </div>
+      <div class="bam-slots">${BAM_ATTRS.map(a=>bamSlotHTML(a,sel,bamGrade(sel,a[0]),false)).join('')}</div>
+      <div class="bam-meta">${bamOvrHTML(bamManagerOvr(sel),`${bamOrd(i+1)} of ${order.length}`)}</div>
+    </div>`;
+}
 function bamRatingsHTML(){
   const order=bamRateOrder(); if(!order.length) return '';
-  const sel=order.includes(_bamRateSel)?_bamRateSel:order[0], i=order.indexOf(sel), t=bamTeam(sel);
-  const step=d=>order[(i+d+order.length)%order.length];
+  const sel=order.includes(_bamRateSel)?_bamRateSel:order[0];
   const tabs=order.map(id=>{
     const tt=bamTeam(id), n=bamManagerOvr(id), on=id===sel;
-    return `<button class="bam-rtab${on?' on':''}" role="tab" aria-selected="${on}" onclick="bamRatingsPick(${id})">
+    return `<button class="bam-rtab${on?' on':''}" role="tab" aria-selected="${on}" data-id="${id}" onclick="bamRatingsPick(${id})">
         ${avatarHTML(tt,26,7)}${bamPx(bamAbbr(tt),1)}${bamPx(String(n),1,bamRateTone(n))}</button>`;
   }).join('');
   return `<div class="bam-rate">
       <div class="bam-rtabs" role="tablist">${tabs}</div>
-      <div class="bam-panel">
-        <div class="bam-rhead">
-          <button class="bam-rstep" onclick="bamRatingsPick(${step(-1)})" aria-label="Previous manager"><i class="fa fa-chevron-left"></i></button>
-          <div class="bam-rwho">${avatarHTML(t,36,9)}${bamPx(t.name||bamAbbr(t),2)}</div>
-          <button class="bam-rstep" onclick="bamRatingsPick(${step(1)})" aria-label="Next manager"><i class="fa fa-chevron-right"></i></button>
-        </div>
-        <div class="bam-slots">${BAM_ATTRS.map(a=>bamSlotHTML(a,sel,bamGrade(sel,a[0]),false)).join('')}</div>
-        <div class="bam-meta">${bamOvrHTML(bamManagerOvr(sel),`${bamOrd(i+1)} of ${order.length}`)}</div>
-      </div>
+      <div id="bam-rate-card">${bamRateCardHTML(order,sel)}</div>
     </div>`;
 }
-function bamRatingsPaint(){
+/* the picked tab into view, inside the strip only: never the page or the pop-up */
+function bamRateReveal(){
   const body=document.getElementById('bam-rate-body'); if(!body) return;
-  body.innerHTML=bamRatingsHTML();
-  const on=body.querySelector('.bam-rtab.on');
-  if(on) try{ on.scrollIntoView({block:'nearest',inline:'center'}); }catch(e){}
+  const strip=body.querySelector('.bam-rtabs'), on=body.querySelector('.bam-rtab.on');
+  if(!strip||!on) return;
+  const s=strip.getBoundingClientRect(), r=on.getBoundingClientRect();
+  if(r.left<s.left) strip.scrollLeft-=s.left-r.left+4;
+  else if(r.right>s.right) strip.scrollLeft+=r.right-s.right+4;
 }
 function bamRatingsKey(e){
   if(e.key==='Escape'){ bamRatingsClose(); return; }
   if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight') return;
+  e.preventDefault();             // or the strip scrolls by itself too, off the tab just shown
   const order=bamRateOrder(), i=Math.max(0,order.indexOf(_bamRateSel));
   bamRatingsPick(order[(i+(e.key==='ArrowRight'?1:-1)+order.length)%order.length]);
+  /* a tab that had focus hands it on, so the focus ring is on the pick, not left behind */
+  const on=document.querySelector('#bam-rate-body .bam-rtab.on'), f=document.activeElement;
+  if(on&&f&&f.classList&&f.classList.contains('bam-rtab')) try{ on.focus({preventScroll:true}); }catch(err){}
 }
 function bamRatingsOpen(){
   const ov=document.getElementById('bam-rate-overlay'); if(!ov) return;
@@ -21031,15 +21193,26 @@ function bamRatingsOpen(){
     ov.addEventListener('touchmove',e=>{ if(e.target===ov) e.preventDefault(); },{passive:false});
   }
   const order=bamRateOrder(); if(!order.includes(_bamRateSel)) _bamRateSel=order[0];
-  bamRatingsPaint();
+  const body=document.getElementById('bam-rate-body'); if(body) body.innerHTML=bamRatingsHTML();
   const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;
   ov.classList.add('open'); modalLock(true);
+  bamRateReveal();                        // once it is showing: a hidden strip has no size
   document.addEventListener('keydown',bamRatingsKey);
 }
-function bamRatingsPick(id){ _bamRateSel=Number(id); bamRatingsPaint(); }
-function bamRatingsClose(e){
-  const ov=document.getElementById('bam-rate-overlay');
-  if(!ov||(e&&e.target!==ov)) return;
+function bamRatingsPick(id){
+  const order=bamRateOrder(); if(!order.length) return;
+  _bamRateSel=order.includes(Number(id))?Number(id):order[0];
+  const body=document.getElementById('bam-rate-body'), card=document.getElementById('bam-rate-card');
+  if(!body||!card) return;
+  body.querySelectorAll('.bam-rtab').forEach(b=>{
+    const on=Number(b.dataset.id)===_bamRateSel;
+    b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on));
+  });
+  card.innerHTML=bamRateCardHTML(order,_bamRateSel);
+  bamRateReveal();
+}
+function bamRatingsClose(){
+  const ov=document.getElementById('bam-rate-overlay'); if(!ov) return;
   ov.classList.remove('open'); modalLock(false);
   document.removeEventListener('keydown',bamRatingsKey);
 }

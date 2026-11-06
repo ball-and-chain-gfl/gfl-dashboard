@@ -162,7 +162,16 @@ The page reads only this week's, and the rollover's last step
 (`scripts/wipe-takes.mjs`) deletes the rest every Tuesday. The rules leave
 `messages` open: "once it is posted it is locked in" is the app's rule, not the
 database's, the same as the rest of the sign-in. Only `bft` (`TAKES_ADMIN`) is
-shown a delete button.
+shown a delete button. The feed shows only ids the page makes (`TAKES_ID_RE`),
+since an id goes into the page's onclick handlers.
+
+Reactions are fields on the take: `rx_<account>` (hyphens in the account become
+underscores) holds one key from `TAKES_RX`, one face per manager per take, as
+with a phone's tapbacks. They come with the feed's read and cost one PATCH a
+tap, which names only the reactor's field and sends `currentDocument.exists=true`
+so a reaction to a deleted take cannot recreate it as a bare document the wipe
+would skip (it ignores anything without `wk`). Only `TAKES_RX` keys from league
+accounts are counted; the test account's show only to itself.
 
 `bets` allows read, create and update but **refuses delete by rule** — the
 balance is derived by replaying the collection, so removing a bet would silently
@@ -215,7 +224,13 @@ profile list the app already loads, so it costs no read, and puts the winner's
 picture at the top of everyone's home stack for `BAM_WIN_DAYS` (7) from the day
 it was won. Under the build, "See all managers' ratings" opens
 `#bam-rate-overlay`: a tab per manager, best overall first (`bamRateOrder`),
-each showing that manager's nine grades in the game's own tiles. The tile's
+each showing that manager's nine grades in the game's own tiles. The user's
+rule for it: only the tabs, the arrows and the X respond, and nothing moves.
+Its backdrop has no click handler (it used to close the pop-up, and the
+site-wide `[onclick]:active` shrink then shrank the whole pop-up at every press
+inside, since `:active` holds on ancestors). A pick moves the highlight and
+repaints `#bam-rate-card` without rebuilding the tab strip. Every
+`.modal-overlay` and `#nav-scrim` is exempt from the press shrink. The tile's
 parts are `bam-ttop`/`bam-tbot`; `bam-ta`...`bam-tf` are the grade colours, and
 the two must never share a name (`bam-tb` once meant both, and B tiles broke).
 
@@ -260,8 +275,8 @@ reliable path.
 serves `public/` on port 5178 and forwards `/api/*` to the live site, so every
 tab has real data. `?as=<username>&team=<id>` on the URL signs you in as that
 team, and `?out` signs you out. It blocks every Firestore write, keeping Hot
-Takes posts and placed bets in the page's memory instead, so nothing done in
-the preview reaches the league's data.
+Takes posts, their reactions and placed bets in the page's memory instead, so
+nothing done in the preview reaches the league's data.
 
 `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.
 

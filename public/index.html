@@ -129,6 +129,10 @@
        scaling a full-screen element and the whole page appeared to shrink.
        Anything that covers the screen belongs here, not in the press rule. */
     #si-modal:active,
+    /* Every pop-up's backdrop and the menu's scrim, for the same reason: :active
+       holds on every ancestor of what is pressed, so a backdrop that closes on a
+       tap shrank the whole pop-up at each press inside it, a tab included. */
+    .modal-overlay:active,#nav-scrim:active,
     /* A full-width row button: scaling it reads as the row twitching. The
        locker room's team picker is the same shape. */
     .lr-pick-b:active,.rp-cell:active,
@@ -3162,6 +3166,29 @@
       font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;}
     .ht-del:hover{color:var(--text);border-color:rgba(255,255,255,0.22);}
     .ht-del.armed{background:var(--red);border-color:var(--red);color:#fff;}
+    /* reactions: a face to add yours beside the time, and underneath, a chip for
+       every face anyone has used with how many; yours is the one lit up */
+    .ht-rx-add{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:1px;
+      height:24px;padding:0 7px;border-radius:7px;cursor:pointer;box-shadow:none;
+      border:1px solid rgba(255,255,255,0.1);background:transparent;color:var(--text3);}
+    .ht-rx-add i{font-size:13px;}
+    .ht-rx-add i+i{font-size:7px;align-self:flex-start;margin-top:4px;}
+    .ht-rx-add:hover,.ht-rx-add.on{color:var(--text);border-color:rgba(255,255,255,0.22);}
+    .ht-rx-add+.ht-del{margin-left:0;}
+    .ht-rx{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+    .ht-rx-chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:999px;
+      border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);box-shadow:none;cursor:default;
+      color:var(--text2);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;}
+    button.ht-rx-chip{cursor:pointer;}
+    .ht-rx-chip.on{border-color:rgba(var(--accent-rgb),0.7);background:rgba(var(--accent-rgb),0.14);color:var(--accent);}
+    .ht-rx-e,.ht-rx-pick{font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;line-height:1;}
+    .ht-rx-e{font-size:14px;}
+    .ht-rx-pal{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px;
+      padding:7px;border-radius:10px;background:rgba(0,0,0,0.3);}
+    @media(min-width:560px){ .ht-rx-pal{grid-template-columns:repeat(10,minmax(0,1fr));} }
+    .ht-rx-pick{height:40px;padding:0;border-radius:9px;cursor:pointer;box-shadow:none;
+      border:1px solid transparent;background:rgba(255,255,255,0.05);font-size:21px;}
+    .ht-rx-pick.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.16);}
     .ht-empty{display:flex;align-items:center;gap:9px;padding:18px 14px;border-radius:11px;
       background:rgba(255,255,255,0.03);font-family:'Inter',sans-serif;font-size:13px;color:var(--text3);}
     .ht-empty i{color:var(--accent);}
@@ -3363,6 +3390,11 @@
     .bam-rstep{flex:0 0 auto;width:36px;height:36px;border-radius:4px;cursor:pointer;
       border:2px solid rgba(255,255,255,0.12);background:transparent;color:var(--text2);}
     .bam-rstep:hover{background:rgba(255,255,255,0.07);color:var(--text);}
+    /* Nothing in here moves. The tabs, the arrows and the X are all that answer
+       a tap, and they answer in colour rather than by shrinking. */
+    .bam-rate-modal button:active{transform:none;}
+    .bam-rate-modal .bam-rtab:active{background:rgba(var(--accent-rgb),0.12);}
+    .bam-rate-modal .bam-rstep:active{background:rgba(255,255,255,0.12);color:var(--text);}
     .bam-rate .bam-sf{display:none;}          /* every tile here is the manager's own */
     /* a champion's card in the league's notification stack carries the share picture */
     .nt-art .nt-bam{display:block;width:100%;height:auto;border-radius:8px;}
@@ -7651,7 +7683,7 @@
 <!-- PUNISHMENT RULES MODAL (replaces the retired Punishment tab) -->
 
 <!-- BUILD A MANAGER: EVERY MANAGER'S RATINGS -->
-<div class="modal-overlay" id="bam-rate-overlay" onclick="bamRatingsClose(event)">
+<div class="modal-overlay" id="bam-rate-overlay">
   <div class="modal bam-rate-modal">
     <div class="modal-header">
       <h2>Manager Ratings</h2>
