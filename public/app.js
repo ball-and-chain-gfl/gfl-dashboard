@@ -19037,6 +19037,7 @@ const NT_KINDS={
   comeback:{icon:'fa-arrow-trend-up',tone:'hot'},
   extreme:{icon:'fa-ranking-star',  tone:'gold'},
   pgrade: {icon:'fa-gavel',         tone:'hot'},
+  bamwin: {icon:'fa-trophy',        tone:'gold'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -20775,8 +20776,8 @@ const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
 function bamSlotHTML(a,id,gi,open){
   const [,label,icon]=a, filled=id!=null&&gi>=0, t=filled?bamTeam(id):null;
   return `<div class="bam-slot${filled?' filled '+bamToneCls(gi):''}${open&&!filled?' open':''}">
-      <span class="bam-tl"><i class="fa ${icon}"></i>${bamPxWrap(label,1,10,'bam-sl')}</span>
-      <span class="bam-tb">${filled?bamPx(PG_SCALE[gi],4,'bam-sg '+pgTone(gi))+bamPx(bamAbbr(t),1,'bam-sf')
+      <span class="bam-ttop"><i class="fa ${icon}"></i>${bamPxWrap(label,1,10,'bam-sl')}</span>
+      <span class="bam-tbot">${filled?bamPx(PG_SCALE[gi],4,'bam-sg '+pgTone(gi))+bamPx(bamAbbr(t),1,'bam-sf')
         :bamPx('-',3,'bam-sg')}</span>
     </div>`;
 }
@@ -20975,7 +20976,72 @@ function renderBam(){
       </div>
       ${b.land!=null&&!_bamSpin?bamCardHTML(b):''}`;
   }
-  el.innerHTML=`<div class="bam-wrap${done?' bam-done':''}">${build}<div class="bam-play">${play}</div></div>`;
+  /* every manager's ratings, from under the build, outside its panel */
+  const seeAll=`<button class="bam-seeall" onclick="bamRatingsOpen()"><i class="fa fa-table-cells"></i>${bamPx("See all managers' ratings",1)}</button>`;
+  el.innerHTML=`<div class="bam-wrap${done?' bam-done':''}"><div class="bam-col">${build}${seeAll}</div><div class="bam-play">${play}</div></div>`;
+}
+/* ── EVERY MANAGER'S RATINGS ─────────────────────────────────────────────────
+   A pop-up from under the build: a tab for each of the twelve, best overall
+   first, and the one picked laid out the way the build is -- its nine grades
+   in their colours, its overall and where that ranks. The arrows, and the
+   left and right keys, step through them. */
+let _bamRateSel=null;
+function bamRateOrder(){
+  return bamPool().map(id=>({id,n:bamManagerOvr(id),name:String(bamTeam(id).name||'')}))
+    .sort((a,b)=>(b.n-a.n)||a.name.localeCompare(b.name)).map(x=>x.id);
+}
+function bamRatingsHTML(){
+  const order=bamRateOrder(); if(!order.length) return '';
+  const sel=order.includes(_bamRateSel)?_bamRateSel:order[0], i=order.indexOf(sel), t=bamTeam(sel);
+  const step=d=>order[(i+d+order.length)%order.length];
+  const tabs=order.map(id=>{
+    const tt=bamTeam(id), n=bamManagerOvr(id), on=id===sel;
+    return `<button class="bam-rtab${on?' on':''}" role="tab" aria-selected="${on}" onclick="bamRatingsPick(${id})">
+        ${avatarHTML(tt,26,7)}${bamPx(bamAbbr(tt),1)}${bamPx(String(n),1,bamRateTone(n))}</button>`;
+  }).join('');
+  return `<div class="bam-rate">
+      <div class="bam-rtabs" role="tablist">${tabs}</div>
+      <div class="bam-panel">
+        <div class="bam-rhead">
+          <button class="bam-rstep" onclick="bamRatingsPick(${step(-1)})" aria-label="Previous manager"><i class="fa fa-chevron-left"></i></button>
+          <div class="bam-rwho">${avatarHTML(t,36,9)}${bamPx(t.name||bamAbbr(t),2)}</div>
+          <button class="bam-rstep" onclick="bamRatingsPick(${step(1)})" aria-label="Next manager"><i class="fa fa-chevron-right"></i></button>
+        </div>
+        <div class="bam-slots">${BAM_ATTRS.map(a=>bamSlotHTML(a,sel,bamGrade(sel,a[0]),false)).join('')}</div>
+        <div class="bam-meta">${bamOvrHTML(bamManagerOvr(sel),`${bamOrd(i+1)} of ${order.length}`)}</div>
+      </div>
+    </div>`;
+}
+function bamRatingsPaint(){
+  const body=document.getElementById('bam-rate-body'); if(!body) return;
+  body.innerHTML=bamRatingsHTML();
+  const on=body.querySelector('.bam-rtab.on');
+  if(on) try{ on.scrollIntoView({block:'nearest',inline:'center'}); }catch(e){}
+}
+function bamRatingsKey(e){
+  if(e.key==='Escape'){ bamRatingsClose(); return; }
+  if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight') return;
+  const order=bamRateOrder(), i=Math.max(0,order.indexOf(_bamRateSel));
+  bamRatingsPick(order[(i+(e.key==='ArrowRight'?1:-1)+order.length)%order.length]);
+}
+function bamRatingsOpen(){
+  const ov=document.getElementById('bam-rate-overlay'); if(!ov) return;
+  if(!ov._dragGuarded){
+    ov._dragGuarded=true;
+    ov.addEventListener('touchmove',e=>{ if(e.target===ov) e.preventDefault(); },{passive:false});
+  }
+  const order=bamRateOrder(); if(!order.includes(_bamRateSel)) _bamRateSel=order[0];
+  bamRatingsPaint();
+  const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;
+  ov.classList.add('open'); modalLock(true);
+  document.addEventListener('keydown',bamRatingsKey);
+}
+function bamRatingsPick(id){ _bamRateSel=Number(id); bamRatingsPaint(); }
+function bamRatingsClose(e){
+  const ov=document.getElementById('bam-rate-overlay');
+  if(!ov||(e&&e.target!==ov)) return;
+  ov.classList.remove('open'); modalLock(false);
+  document.removeEventListener('keydown',bamRatingsKey);
 }
 /* the turn itself: one eased rotation from where the wheel rests */
 function bamTurn(target){
@@ -21048,7 +21114,22 @@ function bamPlay(){
   if(!games.length) return;
   b.season=bamSimSeason(games,str);
   bamSave();
+  bamRecordWin(b);
   _bamShown=0; renderBam(); bamShow('#bam-season'); bamTick();
+}
+/* A title, if this season was one, onto the winner's own profile, where the
+   whole league's notification stack picks it up (ntBamWins). Signed in only:
+   somebody nobody knows cannot be announced. Written the moment the season is
+   decided, since the season is already final then and a reload part-way
+   through the reveal must not lose it. */
+function bamRecordWin(b){
+  if(!_me||!_me.k1||b.team==null) return;
+  const sum=bamSeasonSum(b.season,b.team), code=bamCode(b,_me.teamId);
+  if(!sum||sum.place!==1||!code) return;
+  const rec=JSON.stringify({t:Date.now(),code});
+  try{ gflPatchProfile(_me.k1,{bamWin:rec}); }catch(e){}
+  const me=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
+  if(me) me.bamWin=rec;
 }
 /* THE REVEAL: one game at a time, the regular season at BAM_REVEAL_MS and the
    postseason at BAM_REVEAL_POST_MS, the table's verdict a beat after the last */
@@ -21369,9 +21450,35 @@ function ntPunishGrades(out){
       grade:{season:Number(season),week:w}});
   }
 }
+/* ── A BUILD A MANAGER CHAMPION ──────────────────────────────────────────────
+   When somebody's built manager wins the title, the whole league hears about
+   it: a card with the share picture, who won and with which team. The win is
+   one field on the winner's own profile (bamWin, written by bamRecordWin), so
+   it costs one write and no reads -- the profiles are already in. Only the
+   latest win counts, for a week: winning again replaces the card rather than
+   stacking a second one beside it. */
+const BAM_WIN_DAYS=7;
+function ntBamWins(out){
+  const now=Date.now();
+  (_cpRows||[]).forEach(p=>{
+    if(!p||p.id===TEST_PROFILE||!p.bamWin) return;
+    let w=null; try{ w=JSON.parse(p.bamWin); }catch(e){ return; }
+    const v=w&&bamDecode(w.code);
+    if(!v||!v.season||v.season.place!==1||!(Number(w.t)>0)) return;
+    if(now-w.t>BAM_WIN_DAYS*864e5||w.t>now+864e5) return;
+    const code=String(w.code).trim().toLowerCase();       // what bamDecode just passed: [0-9a-z] only
+    const by=bamTeam(p.teamId), team=bamTeam(v.season.team);
+    const d=new Date(Number(w.t)); d.setHours(0,0,0,0);
+    out.push({kind:'bamwin', day:d.getTime(), id:`bam:${p.id}:${w.t}`, title:'Build a Manager champion',
+      art:`<img class="nt-bam" src="/b/${code}/card.png" width="1200" height="630" loading="lazy"
+        alt="${takesEsc(`${by.name||''} won Build a Manager with ${team.name||''}`)}">`,
+      body:`<b>${takesEsc(by.name||bamAbbr(by))}</b> won the title with ${takesEsc(team.name||bamAbbr(team))}, ${v.season.w}-${v.season.l}.`,
+      go:'bam'});
+  });
+}
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntPunishGrades,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntPunishGrades,ntBamWins,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -21536,9 +21643,10 @@ function ntVoteMsgHTML(){
     :`<div class="nt-vmsg"><i class="fa fa-circle-check"></i>${_ntVoteMsg.ok}</div>`;
 }
 /* what the button on a card with somewhere to go says */
-const NT_GO={bets:'Open My Bets',graph:'See the graph',extremes:'See the list'};
+const NT_GO={bets:'Open My Bets',graph:'See the graph',extremes:'See the list',bam:'Play Build a Manager'};
 function ntGo(where,id){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
+  if(where==='bam'){ switchTab('bam'); window.scrollTo(0,0); }
   if(where==='graph') ntGoGraph(id);
   if(where==='extremes') ntGoExtremes(id);
 }

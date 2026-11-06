@@ -183,7 +183,8 @@ their own. A week is graded a week late: its lowest scorer does the punishment
 the following week, so week N's card opens on week N+1's Tuesday, and until
 then no grade for it counts or shows (see GRADING THE PUNISHMENT in `app.js`).
 
-Build a Manager (tab `bam`) touches no collection. Its grades are one baseline
+Build a Manager (tab `bam`) reads no collection and writes one field, only for
+a title (below). Its grades are one baseline
 table in `config.js` (`buildManager.grades`, keyed by ESPN team id, set by hand
 on 6 November 2026), and the game reads nothing live, by request: no grade may
 be fixed while another moves. If grades are ever made to move with the season,
@@ -201,10 +202,22 @@ browser, not the home-screen app people are signed in to. A finished build is
 each slot's team id and grade; version 2 adds five for the season). `vercel.json`
 rewrites it to `api/bam.js`, which draws the PNG itself (no dependencies) and
 answers a person with that picture alone. On a phone, Share sends the picture
-file, with no title text. The game uses no Firestore at all; the pictures are
-its only cost, priced in `test-data-budget.mjs`, and each is cheap to draw
-(zlib level 6 and a cached background: about 21 ms of CPU, not 155). The game is drawn in the card's own 5x7 type (`bamPx`, `BAM_G` = `G` in
-`api/bam.js`). `/?bam=<code>` still opens a build in the game for old links.
+file, with no title text. The pictures are the game's only Vercel cost, priced
+in `test-data-budget.mjs`, and each is cheap to draw (zlib level 6 and a cached
+background: about 21 ms of CPU, not 155). The game is drawn in the card's own
+5x7 type (`bamPx`, `BAM_G` = `G` in `api/bam.js`). `/?bam=<code>` still opens a
+build in the game for old links.
+
+A title (first place at the end of the one season) is the game's only write:
+`bamRecordWin` patches `bamWin`, JSON `{t, code}`, onto the winner's own profile,
+signed in only, and only the latest title is kept. `ntBamWins` reads it off the
+profile list the app already loads, so it costs no read, and puts the winner's
+picture at the top of everyone's home stack for `BAM_WIN_DAYS` (7) from the day
+it was won. Under the build, "See all managers' ratings" opens
+`#bam-rate-overlay`: a tab per manager, best overall first (`bamRateOrder`),
+each showing that manager's nine grades in the game's own tiles. The tile's
+parts are `bam-ttop`/`bam-tbot`; `bam-ta`...`bam-tf` are the grade colours, and
+the two must never share a name (`bam-tb` once meant both, and B tiles broke).
 
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).

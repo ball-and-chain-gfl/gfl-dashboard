@@ -42,11 +42,15 @@ const M = assemble(grab, [
   'function bamAim(', 'function bamAt(', 'function bamCode(', 'function bamDecode(',
   'const BAM_MGR_W=', 'const BAM_BASE=', 'const bamStrength=', 'function bamGauss(', 'function bamScore(',
   'function bamGame(', 'function bamRoster(', 'function bamGames(', 'function bamSimSeason(', 'const bamOrd=', 'function bamFinish(',
+  'const takesEsc=', 'const bamTeam=', 'const bamAbbr=', 'const BAM_WIN_DAYS=', 'function ntBamWins(', 'function bamRateOrder(',
 ], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'PG_SCALE', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen',
-  'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'bamRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode', 'set'], [
-  "let _CFG={}, _teams=[];",
+  'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'bamRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode',
+  'ntBamWins', 'bamRateOrder', 'BAM_WIN_DAYS', 'set'], [
+  "let _CFG={}, _teams=[], _cpRows=null;",
   "const regEndOf=()=>14;",
-  "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; };",
+  "const TEST_PROFILE='test';",
+  "const teamInitials=n=>String(n||'').split(' ').map(w=>w[0]||'').join('').toUpperCase();",
+  "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; if('rows' in o) _cpRows=o.rows; };",
 ].join(NL));
 
 /* the real table, out of the real config file */
@@ -96,8 +100,13 @@ console.log(NL + 'nothing live');
 const src = fs.readFileSync(appUrl, 'utf8');
 const block = src.slice(src.indexOf('/* ── BUILD A MANAGER'), src.indexOf('/* ── TUESDAY: WHERE EVERYONE STANDS'));
 ok('the game is in app.js', block.length > 1000, true);
+// The one profile the game touches is your own, to note a title for the league's stack.
+const recAt = block.indexOf('function bamRecordWin('), recEnd = block.indexOf('\n}\n', recAt) + 3;
+const record = block.slice(recAt, recEnd), play = block.slice(0, recAt) + block.slice(recEnd);
 ok('and reads no stat, only the table', ['bkIQFor', 'badBeatData', 'computeCoaching', 'pgComposite', '_draftAllCache',
-  '_cmBreakdown', '_scores', '_cpRows', 'legacyTeamHistory'].filter(w => block.includes(w)), []);
+  '_cmBreakdown', '_scores', '_cpRows', 'legacyTeamHistory'].filter(w => play.includes(w)), []);
+ok('a title is noted on your own profile and nothing else is read', [recAt > 0, record.includes('p.id===_me.k1'),
+  ['bkIQFor', 'badBeatData', 'computeCoaching', 'pgComposite', '_scores'].filter(w => record.includes(w))], [true, true, []]);
 
 console.log(NL + 'the wheel');
 ok('everyone in the league with all nine can come up', M.bamPool(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
@@ -259,6 +268,33 @@ console.log(NL + 'the season');
   ok('a 95 manager wins more than a 60 with the same roster', good > poor + 3, true);
 }
 
+console.log(NL + 'a champion, for the whole league');
+{
+  const CHAMP = '2ab46497413b7ac57b43' + '3' + '1' + 'b' + '3' + '1';    // GOOB, 1st, 11-3, 1 seed
+  const SECOND = '2ab46497413b7ac57b43' + '3' + '2' + 'b' + '3' + '1';
+  const now = Date.now(), day = 864e5;
+  const win = (code, t) => JSON.stringify({ t, code });
+  const cards = rows => { M.set({ rows }); const out = []; M.ntBamWins(out); return out; };
+  const fresh = cards([{ id: 'bft', teamId: '10', bamWin: win(CHAMP, now - 3600e3) }]);
+  ok('a title this week is a card for everyone', fresh.length, 1);
+  ok('named for the win, so a new one replaces it rather than stacking', fresh[0].id, `bam:bft:${now - 3600e3}`);
+  ok('with the share picture, who won, with whom, and a way in', [fresh[0].art.includes(`src="/b/${CHAMP}/card.png"`),
+    /Team 10<\/b> won the title with Team 3, 11-3\./.test(fresh[0].body), fresh[0].go], [true, true, 'bam']);
+  const d = new Date(now - 3600e3); d.setHours(0, 0, 0, 0);
+  ok('dated the day it was won, so it shows from that morning', fresh[0].day, d.getTime());
+  ok('a week on, it has gone', cards([{ id: 'bft', teamId: '10', bamWin: win(CHAMP, now - (M.BAM_WIN_DAYS + 1) * day) }]).length, 0);
+  ok('a runner-up is no news', cards([{ id: 'bft', teamId: '10', bamWin: win(SECOND, now) }]).length, 0);
+  ok('nor is a field that is not a win', cards([{ id: 'bft', teamId: '10', bamWin: 'nonsense' },
+    { id: 'mm', teamId: '1', bamWin: win('<script>', now) }]).length, 0);
+  ok('nor the test account', cards([{ id: 'test', teamId: '10', bamWin: win(CHAMP, now) }]).length, 0);
+  ok('and nothing before the profiles are in', cards(null).length, 0);
+  M.set({ rows: null });
+}
+
+console.log(NL + 'every manager\'s ratings');
+ok('a tab for each of the twelve, best overall first', [M.bamRateOrder().length, M.bamRateOrder()[0]], [12, BFT]);
+ok('in order of overall all the way down', M.bamRateOrder().every((id, i, a) => !i || M.bamManagerOvr(a[i - 1]) >= M.bamManagerOvr(id)), true);
+
 console.log(NL + 'where it lives');
 const idx = fs.readFileSync(idxUrl, 'utf8').replace(/\r\n/g, '\n');
 ok('the tab is named', /TAB_LABELS=\{[^}]*bam:'Build a Manager'/.test(src), true);
@@ -282,6 +318,13 @@ ok('a shared link is read before the first tab is chosen',
 ok('a finished build offers Share', src.includes('onclick="bamShare()"'), true);
 ok('and shares the /b/ link a message app can draw', src.includes("location.origin+'/b/'+code"), true);
 ok('your own build says nothing about who built it', src.includes('${bamCardHeadHTML(null)}'), true);
+ok('a title is recorded the moment the season is decided, signed in, first place only',
+  [/bamSave\(\);\n\s*bamRecordWin\(b\);/.test(src.replace(/\r\n/g, '\n')), src.includes('if(!sum||sum.place!==1||!code) return;'),
+    src.includes("gflPatchProfile(_me.k1,{bamWin:rec})")], [true, true, true]);
+ok('and the league\'s stack carries it', [/\[ntBkMakeGood,ntMotwPick,ntPunishGrades,ntBamWins,/.test(src),
+  /bamwin:\s*\{icon:'fa-trophy'/.test(src), src.includes("if(where==='bam')")], [true, true, true]);
+ok('every manager\'s ratings, from under the build', [src.includes('onclick="bamRatingsOpen()"'), idx.includes('id="bam-rate-overlay"')], [true, true]);
+ok('a tile\'s parts are never named like a grade\'s colour (bam-tb was both)', [src.includes('class="bam-tb"'), src.includes('class="bam-tbot"')], [false, true]);
 ok('and a share carries the picture with no title text alongside it', [src.includes('{files:[file]}:{url}'), src.includes("title:'Build a Manager'")], [true, false]);
 const vj = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
 ok('which vercel.json sends to the preview, picture and page', ['/b/:code/card.png', '/b/:code'].map(p =>

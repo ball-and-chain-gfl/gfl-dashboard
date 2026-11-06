@@ -3199,10 +3199,12 @@
     .bam-slot{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;
       gap:12px;min-height:104px;padding:13px 10px 10px;border-radius:4px;text-align:left;--bc:#8c879a;
       background:rgba(255,255,255,0.025);border:2px solid rgba(255,255,255,0.07);box-shadow:0 3px 0 rgba(0,0,0,0.45);}
-    .bam-tl{display:flex;align-items:flex-start;gap:6px;}
-    .bam-tl i{flex:0 0 auto;margin-top:0;font-size:9px;line-height:7px;color:var(--bc);}
-    .bam-slot:not(.filled) .bam-tl i{opacity:.55;}
-    .bam-tb{display:flex;align-items:flex-end;justify-content:space-between;gap:6px;}
+    /* bam-ttop and bam-tbot, never bam-tl and bam-tb: bam-tb is the B grade's
+       colour class (bamToneCls), and a B tile wore the bottom row's alignment */
+    .bam-ttop{display:flex;align-items:flex-start;gap:6px;}
+    .bam-ttop i{flex:0 0 auto;margin-top:0;font-size:9px;line-height:7px;color:var(--bc);}
+    .bam-slot:not(.filled) .bam-ttop i{opacity:.55;}
+    .bam-tbot{display:flex;align-items:flex-end;justify-content:space-between;gap:6px;}
     .bam-slot::before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:var(--bc);opacity:.3;}
     .bam-slot.filled{background:linear-gradient(180deg,color-mix(in srgb,var(--bc) 26%,transparent),color-mix(in srgb,var(--bc) 9%,transparent));
       border-color:color-mix(in srgb,var(--bc) 60%,transparent);}
@@ -3340,6 +3342,30 @@
     .bam-st .c-n{flex:0 0 16px;display:flex;justify-content:flex-end;color:var(--text3);}
     .bam-st .c-t{flex:1 1 auto;display:flex;align-items:center;gap:7px;}
     .bam-st .c-p{flex:0 0 58px;display:flex;justify-content:flex-end;color:var(--text3);}
+    /* under the build, outside its panel: every manager's ratings */
+    .bam-col{display:flex;flex-direction:column;min-width:0;}
+    .bam-seeall{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:14px;padding:14px 12px;
+      border-radius:4px;cursor:pointer;border:2px solid rgba(var(--accent-rgb),0.5);background:rgba(var(--accent-rgb),0.08);
+      color:var(--accent);box-shadow:0 3px 0 rgba(0,0,0,0.45);}
+    .bam-seeall:hover{background:rgba(var(--accent-rgb),0.16);border-color:var(--accent);}
+    .bam-seeall:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,0.45);}
+    /* the pop-up: a tab apiece, best first, and the one picked on the card's panel */
+    .bam-rate-modal{max-width:620px;background:#0b0910;border:2px solid rgba(166,108,255,0.25);}
+    .bam-rtabs{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:8px;-webkit-overflow-scrolling:touch;}
+    .bam-rtab{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:56px;padding:8px 6px;
+      border-radius:4px;cursor:pointer;border:2px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text2);}
+    .bam-rtab:hover{background:rgba(255,255,255,0.07);}
+    .bam-rtab.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.18);color:var(--text);}
+    .bam-rhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;}
+    .bam-rwho{flex:1 1 auto;display:flex;align-items:center;gap:10px;min-width:0;color:var(--text);}
+    /* a long team name shrinks to the space rather than running under what is beside it */
+    .bam-who svg.px,.bam-hd svg.px,.bam-rwho svg.px,.bam-by svg.px{flex:0 1 auto;min-width:0;}
+    .bam-rstep{flex:0 0 auto;width:36px;height:36px;border-radius:4px;cursor:pointer;
+      border:2px solid rgba(255,255,255,0.12);background:transparent;color:var(--text2);}
+    .bam-rstep:hover{background:rgba(255,255,255,0.07);color:var(--text);}
+    .bam-rate .bam-sf{display:none;}          /* every tile here is the manager's own */
+    /* a champion's card in the league's notification stack carries the share picture */
+    .nt-art .nt-bam{display:block;width:100%;height:auto;border-radius:8px;}
     @media(max-width:420px){ .bam-slot{min-height:96px;padding:12px 8px 9px;} .bam-panel{padding:12px;} }
     .home-redo{display:inline-flex;align-items:center;gap:7px;margin-top:12px;
       padding:7px 13px;border-radius:8px;cursor:pointer;
@@ -7623,6 +7649,17 @@
 </div>
 
 <!-- PUNISHMENT RULES MODAL (replaces the retired Punishment tab) -->
+
+<!-- BUILD A MANAGER: EVERY MANAGER'S RATINGS -->
+<div class="modal-overlay" id="bam-rate-overlay" onclick="bamRatingsClose(event)">
+  <div class="modal bam-rate-modal">
+    <div class="modal-header">
+      <h2>Manager Ratings</h2>
+      <button class="modal-close" onclick="bamRatingsClose()" aria-label="Close"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="bam-rate-body"></div>
+  </div>
+</div>
 
 <!-- COACHING MODAL -->
 <div class="modal-overlay" id="cm-overlay" onclick="closeCMModal(event)">
