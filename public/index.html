@@ -5342,6 +5342,92 @@
     .sb-utab.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:3px;
       border-radius:3px 3px 0 0;background:var(--accent);}
     .sb-utab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+    /* ── Promotions: featured bets between My Bets and the board's tabs ────────
+       The strip takes the My Bets bar's 22px tail that the tabs used to pull up
+       into, and the tabs under it sit at their own height instead. Jimmie's
+       Jumbo Jumble is the one loud card on the page on purpose: a celebrity
+       parlay in a sportsbook lobby is meant to be. Gold is its colour and
+       nothing else on the board uses it. */
+    .sb-promos{display:flex;flex-direction:column;gap:8px;margin:-12px 0 16px;}
+    .sb-promos:empty{display:none;}
+    .sb-promos:not(:empty)+.sb-utabs{margin-top:0;}
+    .jjj{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:stretch;
+      min-height:150px;border-radius:12px;border:1px solid rgba(244,192,77,0.45);
+      background:
+        radial-gradient(90% 130% at 92% 35%,rgba(244,192,77,0.34) 0%,rgba(244,192,77,0) 60%),
+        linear-gradient(120deg,#22113c 0%,#2c1548 48%,#12172c 100%);
+      box-shadow:0 16px 32px -24px rgba(0,0,0,0.95);}
+    .jjj-wait{min-height:128px;}
+    .jjj-in{position:relative;z-index:1;flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px;
+      padding:12px 0 12px 14px;margin-right:clamp(112px,38%,190px);max-width:400px;}
+    .jjj-pic{position:absolute;z-index:0;right:-4px;bottom:0;height:100%;width:auto;max-width:44%;
+      object-fit:contain;object-position:right bottom;pointer-events:none;user-select:none;
+      filter:drop-shadow(0 8px 16px rgba(0,0,0,0.55));}
+    .jjj-kick{display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:9.5px;
+      font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#f4c04d;}
+    .jjj-kick i{font-size:9px;}
+    .jjj-name{font-family:'Google Sans Flex',Georgia,serif;font-size:19px;font-weight:800;line-height:1.12;
+      color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.55);}
+    .jjj-odds{display:flex;align-items:baseline;gap:8px;font-family:'Inter',sans-serif;margin-top:1px;}
+    .jjj-odds b{font-size:19px;font-weight:800;color:#f4c04d;letter-spacing:.2px;}
+    .jjj-odds span{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+      color:rgba(255,255,255,0.68);}
+    .jjj-legs{display:flex;flex-direction:column;gap:3px;margin-top:2px;}
+    .jjj-leg{display:flex;align-items:baseline;gap:8px;font-family:'Inter',sans-serif;font-size:11.5px;color:#fff;}
+    .jjj-lp{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .jjj-lo{flex:0 0 auto;font-size:11px;font-weight:700;color:rgba(255,255,255,0.62);}
+    .jjj-more{align-self:flex-start;margin:1px 0 0;padding:0;border:0;background:none;box-shadow:none;
+      cursor:pointer;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:#f4c04d;}
+    .jjj-stake{margin-top:2px;font-family:'Inter',sans-serif;font-size:10.5px;color:rgba(255,255,255,0.62);}
+    .jjj-note{margin-top:3px;font-family:'Inter',sans-serif;font-size:12px;line-height:1.45;
+      color:rgba(255,255,255,0.78);}
+    .jjj-note b{color:#fff;}
+    .jjj-tail{align-self:flex-start;display:inline-flex;align-items:center;gap:7px;margin-top:7px;
+      padding:8px 14px;border-radius:9px;cursor:pointer;border:1px solid rgba(244,192,77,0.75);
+      background:linear-gradient(160deg,#f7d670,#e8a73a);color:#1c1306;box-shadow:none;
+      font-family:'Inter',sans-serif;font-size:12px;font-weight:800;letter-spacing:.2px;}
+    .jjj-tail:hover{filter:brightness(1.06);}
+    .jjj-tail:active{transform:translateY(1px);}
+    .jjj-tail.on{background:rgba(0,0,0,0.35);color:#f4c04d;border-color:#f4c04d;}
+    .jjj-res{display:flex;align-items:center;gap:7px;margin-top:7px;font-family:'Inter',sans-serif;
+      font-size:11.5px;font-weight:700;color:rgba(255,255,255,0.82);}
+    .jjj-res.won{color:var(--green);}
+    .jjj-res.lost{color:var(--red);}
+    /* Ride with the Ball and Ride with the Chain: side by side, each the
+       board's own moneyline button on the side that manager took. The icon is
+       artwork again, oversized and cropped by the card, the way it is on the
+       My Bets and Portfolio buttons above them. */
+    .sb-rides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .sb-ride{position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;gap:5px;
+      min-width:0;padding:11px 11px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.13);
+      background:rgba(0,0,0,0.3);}
+    .sb-ride-ball{border-color:rgba(205,138,80,0.5);
+      background:linear-gradient(135deg,rgba(141,84,40,0.6) 0%,rgba(0,0,0,0.3) 72%);}
+    .sb-ride-chain{border-color:rgba(190,200,214,0.42);
+      background:linear-gradient(135deg,rgba(148,160,177,0.34) 0%,rgba(0,0,0,0.3) 72%);}
+    .sb-ride-art{position:absolute;z-index:-1;right:-16px;top:-12px;font-size:78px;line-height:1;
+      color:rgba(255,255,255,0.07);transform:rotate(-18deg);pointer-events:none;}
+    .sb-ride-h{display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:10px;
+      font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:#fff;white-space:nowrap;}
+    .sb-ride-ball .sb-ride-h i{color:#e39a5e;}
+    .sb-ride-chain .sb-ride-h i{color:#cdd6e2;}
+    .sb-ride-tm{display:flex;align-items:center;gap:7px;min-width:0;margin-top:1px;}
+    .sb-ride-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:800;color:#fff;}
+    .sb-ride-sub{min-width:0;font-family:'Inter',sans-serif;font-size:10px;line-height:1.35;color:var(--text3);}
+    .sb-ride .sb-odds{flex-direction:row;gap:7px;min-height:34px;margin-top:3px;}
+    @media(max-width:400px){
+      .sb-ride-h{font-size:9.5px;letter-spacing:.5px;}
+      .sb-ride-art{font-size:66px;}
+    }
+    /* the Marathon Men's box on the slip: a parlay, once a week */
+    .sb-jjj{display:flex;align-items:flex-start;gap:9px;margin:10px 15px 0;padding:9px 10px;
+      border-radius:9px;cursor:pointer;background:rgba(244,192,77,0.08);border:1px solid rgba(244,192,77,0.35);}
+    .sb-jjj.on{background:rgba(244,192,77,0.16);border-color:#f4c04d;}
+    .sb-jjj input{flex:0 0 auto;width:16px;height:16px;margin:2px 0 0;accent-color:#f4c04d;}
+    .sb-jjj-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .sb-jjj-t{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;color:#f4c04d;}
+    .sb-jjj-s{font-size:10.5px;line-height:1.35;color:var(--text3);}
     /* ── Social: the league's bets and trades as one feed ─────────────────────
        A card per bet or trade, newest first. Who is in on it leads as an
        overlapped stack of crests -- the same shape the funds use -- then what

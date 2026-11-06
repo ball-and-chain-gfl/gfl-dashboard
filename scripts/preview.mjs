@@ -4,8 +4,9 @@
  * This needs neither: it serves public/ from disk and passes /api/* through to
  * the live site, so the page runs on today's real data with today's code on
  * disk. And it cannot change the league's records: a guard injected ahead of
- * app.js answers every Firestore write itself (reads still go through), and
- * Hot Takes are kept in the page's own memory, seeded with a few examples.
+ * app.js answers every Firestore write itself (reads still go through). Hot
+ * Takes are kept in the page's own memory, seeded with a few examples, and so
+ * are bets placed in the preview, until the page reloads.
  *
  *   node scripts/preview.mjs                    http://localhost:5178
  *   http://localhost:5178/?as=bft&team=10       the page as that account sees it --
@@ -46,6 +47,17 @@ const GUARD = `<script>
     take(400,'The Coaches Poll is rigged and I have the receipts.',true)];
   var reply=function(o){ return new Response(JSON.stringify(o),{status:200,headers:{'Content-Type':'application/json'}}); };
   var docName=function(id){ return 'projects/preview/databases/(default)/documents/messages/'+id; };
+  /* Bets placed in the preview are kept here, never sent, and folded into every
+     bets query they match -- so placing one shows up in the ledger, the boards
+     and the promotions exactly as a real one would, until the page reloads. */
+  var bets=[];
+  var betMatch=function(b,where){
+    var f=where&&where.fieldFilter; if(!f) return false;
+    var v=(b.fields[f.field.fieldPath]||{}).stringValue;
+    if(f.op==='EQUAL') return v===(f.value||{}).stringValue;
+    if(f.op==='IN') return (((f.value||{}).arrayValue||{}).values||[]).some(function(x){ return x.stringValue===v; });
+    return false;
+  };
   window.fetch=function(input,init){
     var url=String((input&&input.url)||input), m=String((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
     if(url.indexOf('firestore.googleapis.com')<0) return real(input,init);
@@ -54,6 +66,21 @@ const GUARD = `<script>
       var wk=(JSON.parse(body).structuredQuery.where.fieldFilter.value||{}).stringValue||'';
       return Promise.resolve(reply(takes.slice().sort(function(a,b){return Number(b.fields.ts.stringValue)-Number(a.fields.ts.stringValue);})
         .map(function(t){ var f=Object.assign({wk:{stringValue:wk}},t.fields); return {document:{name:docName(t.id),fields:f}}; })));
+    }
+    if(url.indexOf(':runQuery')>=0&&body.indexOf('"collectionId":"bets"')>=0&&bets.length){
+      var bw=JSON.parse(body).structuredQuery.where;
+      return real(input,init).then(function(r){ return r.json().then(function(j){
+        var kept=bets.filter(function(b){ return betMatch(b,bw); }).map(function(b){
+          return {document:{name:'projects/preview/databases/(default)/documents/bets/'+b.id,fields:b.fields}}; });
+        var all=(Array.isArray(j)?j:[]).filter(function(x){ return x&&x.document; }).concat(kept);
+        return reply(all.length?all:[{readTime:'preview'}]);
+      }); });
+    }
+    if(m==='POST'&&url.indexOf('/documents/bets?')>=0){
+      var bid=decodeURIComponent((url.match(/documentId=([^&]+)/)||[])[1]||('betpreview'+(seq++)));
+      var bd=JSON.parse(body||'{}'); bets.push({id:bid,fields:bd.fields||{}});
+      console.info('[preview] kept a bet in memory');
+      return Promise.resolve(reply({name:'projects/preview/databases/(default)/documents/bets/'+bid,fields:bd.fields||{}}));
     }
     if(m==='GET'||url.indexOf(':runQuery')>=0||url.indexOf(':batchGet')>=0) return real(input,init);
     if(url.indexOf('/documents/messages')>=0){

@@ -210,8 +210,8 @@ reliable path.
 serves `public/` on port 5178 and forwards `/api/*` to the live site, so every
 tab has real data. `?as=<username>&team=<id>` on the URL signs you in as that
 team, and `?out` signs you out. It blocks every Firestore write, keeping Hot
-Takes posts in memory instead, so nothing done in the preview reaches the
-league's data.
+Takes posts and placed bets in the page's memory instead, so nothing done in
+the preview reaches the league's data.
 
 `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.
 

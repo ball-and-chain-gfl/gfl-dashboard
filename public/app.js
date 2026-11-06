@@ -16287,7 +16287,9 @@ const betDocRow=d=>{
     hidden:String(f.hidden||'')==='1',
     /* an invitation closed because its bet could no longer be placed -- see
        scripts/lib/close-invites.mjs */
-    lapsed:String(f.lapsed||'')==='1'};
+    lapsed:String(f.lapsed||'')==='1',
+    /* 'jjj' marks Jimmie's Jumbo Jumble -- see the promotions above renderBook */
+    feat:f.feat||''};
 };
 const fsRunQueryUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   +`/databases/(default)/documents:runQuery?${msgKey()}`;
@@ -16496,6 +16498,7 @@ function betsNearPaint(){
   try{ if(_pkRevealed&&document.getElementById('pk-body')) renderWeekPicks(); }catch(e){}
   try{ if(_activeTab==='home'){ renderNotifications(); orderHomeTodo(); } }catch(e){}
   try{ if(_activeTab==='book'&&_sbView==='social') renderBook(); }catch(e){}
+  try{ if(_activeTab==='book') sbPromosPaint(); }catch(e){}    // the Jumble
 }
 /* A failed read is not retried inside a minute, or a render loop during a
    game would turn one dropped connection into a request every ten seconds.
@@ -16562,7 +16565,8 @@ async function sbPlaceBet(){
   const dec=_slip.reduce((a,s)=>a*amToDec(s.odds),1);
   const odds=_slip.length>1?amFromProb(1/dec):_slip[0].odds;
   const id=`${Date.now()}-${_me.k1}`.replace(/[^a-zA-Z0-9-]/g,'').slice(0,80);
-  const body=fsOut({
+  const jjj=_jjjOn&&_slip.length>1&&jjjCan();
+  const doc={
     owner:_me.k1, team:String(_me.teamId||''), season:String(sbSeason()),
     wk:bucksWeekKey(), ts:String(Date.now()),
     /* payout was Math.round(stake*dec) — whole bucks, on a book that quotes and
@@ -16571,12 +16575,15 @@ async function sbPlaceBet(){
     stake:String(bucks2(stake)), odds:String(odds), payout:String(bucks2(stake*dec)),
     legs:JSON.stringify(_slip.map(s=>({mk:s.mk,mkLabel:s.mkLabel,pick:s.pick,pickLabel:s.pickLabel,odds:s.odds}))),
     status:'open', settledTs:'0', ret:'0',
-  });
+  };
+  /* a Jumbo Jumble is an ordinary ticket with one flag on it */
+  if(jjj) doc.feat='jjj';
+  const body=fsOut(doc);
   try{
     const r=await fetch(`${betBase()}?documentId=${encodeURIComponent(id)}&${msgKey()}`,
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     fsNoteResponse(r);
-    if(r.ok){ _slip=[]; _sbStake=10; await betRefresh(); sbSyncButtons(); renderMyBets(); }
+    if(r.ok){ _slip=[]; _sbStake=10; _jjjOn=false; await betRefresh(); sbSyncButtons(); renderMyBets(); }
     else _betErr=r.status===403?'rules':r.status===429?'quota':'send';
   }catch(e){ _betErr='offline'; }
   _betBusy=false; sbRenderSlip();
@@ -20460,7 +20467,9 @@ async function cpSync(){
       try{ if(document.getElementById('standings-poll')) renderStandingsPoll(); }catch(e){}
       /* and the rank badges, which are on five other pages and cannot know
          the ballots have arrived */
-      try{ cpBadgeRepaint(); }catch(e){} }
+      try{ cpBadgeRepaint(); }catch(e){}
+      /* and the two Ride cards, which are BFT's and the Tinglers' slates */
+      try{ if(_activeTab==='book') sbPromosPaint(); }catch(e){} }
   }catch(e){}
 }
 function cpToggle(teamId){
@@ -23399,6 +23408,7 @@ function sbSlipHTML(){
         <div class="sb-tot"><span>To win</span><b class="sb-win">${bucksCents(payout-stake)}</b></div>
         <div class="sb-tot sb-tot-big"><span>Payout</span><b>${bucksCents(payout)}</b></div>
       </div>
+      ${n>1&&jjjCan()?jjjBoxHTML():''}
       ${!_me?`<button class="sb-place" onclick="openSignIn()"><i class="fa fa-right-to-bracket"></i>Sign in to bet</button>`
         :`<button class="sb-place" onclick="sbPlaceBet()" ${_betBusy||stake<=0||stake>bal?'disabled':''}>
             ${_betBusy?'<i class="fa fa-circle-notch fa-spin"></i>Placing…'
@@ -23660,6 +23670,7 @@ function sbSyncButtons(){
   });
   const n=document.getElementById('sb-dock-n'); if(n) n.textContent=_slip.length;
   const d=document.getElementById('sb-dock'); if(d) d.classList.toggle('has',_slip.length>0);
+  try{ jjjSyncTail(); }catch(e){}
 }
 function sbPortal(){
   let el=document.getElementById('sb-portal');
@@ -24910,6 +24921,225 @@ function sbSocialHTML(){
         ${list.length>page.length?'<button class="soc-more" onclick="sbSocialMore()">Show more</button>':''}`}
   </div>`;
 }
+/* ── PROMOTIONS: THE STRIP UNDER MY BETS AND PORTFOLIO ───────────────────────
+   Featured bets at the top of the lobby, the way a real book does it: a
+   celebrity's parlay and a couple of picks somebody is putting their name to,
+   each a tap away from the slip. They sit between the My Bets bar and the
+   board's tabs on every board, and not on My Bets or Portfolio, which are
+   ledgers rather than the shop floor.
+
+   JIMMIE'S JUMBO JUMBLE. Once a bucks week the Marathon Men's manager can tick a
+   box on a parlay's slip and it goes up here for the whole league. The ticket
+   itself is an ordinary one stamped feat:'jjj' -- it settles, pays and sits in
+   the ledger like any other -- so the only new thing is who gets to see it.
+   Tailing it puts the same legs on your own slip at the board's prices NOW,
+   exactly as tapping each of them on the board would, clashes and all.
+
+   RIDE WITH THE BALL and RIDE WITH THE CHAIN. BFT's and the Tinglers' picks in
+   the Matchup of the Week, as the moneyline on the side each of them took.
+   Neither is a market of its own. The button IS the board's moneyline button --
+   the same key, labels and price -- so it lights up with the one on the board,
+   and tapping either toggles the one selection. A card shows once its pick is
+   submitted, which is when the slate reaches the profile row everybody reads,
+   and from then on anybody can see that pick, including managers whose own
+   slate is not in yet. */
+const JJJ_OWNER='mm';                      // the Marathon Men's account
+const JJJ_NAME="Jimmie's Jumbo Jumble";
+const JJJ_IMG='/promo/jimmie.webp';
+/* A Jumble that was struck counts for its week, cashed out or not. Only one
+   voided before kickoff gives the week back. */
+const JJJ_LIVE=['open','won','lost','push','cashed'];
+const RIDE_PROMOS=[
+  {owner:'bft', title:'Ride with the Ball', icon:'fa-football', cls:'ball'},
+  {owner:'ting',title:'Ride with the Chain',icon:'fa-link',     cls:'chain'},
+];
+let _jjjOn=false, _jjjOpen=false;
+
+/* Can the slip on screen be made a Jumble? Signed in as the Marathon Men, the
+   ledger in hand, and no Jumble struck yet this bucks week. */
+function jjjCan(){
+  if(!_me||_me.k1!==JJJ_OWNER||!Array.isArray(_bets)) return false;
+  const wk=bucksWeekKey();
+  return !_bets.some(b=>b&&b.feat==='jjj'&&b.wk===wk&&JJJ_LIVE.includes(String(b.status||'')));
+}
+function jjjToggle(on){ _jjjOn=!!on; sbRenderSlip(); }
+function jjjBoxHTML(){
+  return `<label class="sb-jjj${_jjjOn?' on':''}">
+    <input type="checkbox" ${_jjjOn?'checked':''} onchange="jjjToggle(this.checked)"/>
+    <span class="sb-jjj-txt"><span class="sb-jjj-t">Make this ${JJJ_NAME}</span>
+      <span class="sb-jjj-s">Once a week. It goes up top as the featured parlay for the whole league.</span></span>
+  </label>`;
+}
+/* This bucks week's Jumble -- or, until there is one, last week's, so the card
+   can say how it went. Read from the two weeks of the league's bets that the
+   homepage and the book already hold, plus the Marathon Men's own ledger, which
+   is ahead of that copy the moment a Jumble is placed. No read of its own. */
+function jjjFind(){
+  const [cur,prev]=betsNearKeys();
+  const own=(_me&&_me.k1===JJJ_OWNER&&Array.isArray(_bets))?_bets:[];
+  const seen=new Set(), list=[];
+  own.concat(betsNear()||[]).forEach(b=>{
+    if(!b||b.feat!=='jjj'||b.owner!==JJJ_OWNER||seen.has(b.id)) return;
+    seen.add(b.id);                          // the fresher copy wins, live or not
+    if(JJJ_LIVE.includes(String(b.status||''))) list.push(b);
+  });
+  const latest=wk=>list.filter(b=>b.wk===wk).sort((a,b)=>b.ts-a.ts)[0]||null;
+  const now=latest(cur); if(now) return {bet:now,last:false};
+  const then=prev&&prev!==cur?latest(prev):null;
+  return then?{bet:then,last:true}:null;
+}
+/* ── A LEG AT TODAY'S PRICE ──────────────────────────────────────────────────
+   What a leg of somebody else's ticket would be if you tapped it on the board
+   right now: the same market and side, at the board's current price, with the
+   board's current line written into the label (a spread and a season total
+   carry their line there, and that is what settles them). null when the
+   market is shut, gone, or no longer prices that side. */
+function sbLegNow(l){
+  const mk=String((l&&l.mk)||''), pick=String((l&&l.pick)||'');
+  if(!mk||!pick) return null;
+  const w=betLegWeek(mk);
+  if(w!=null&&sbWeekLocked(w,mk)) return null;
+  const fx=/^(wk\d+-\d+-\d+)-(ml|sp)$/.exec(mk);
+  if(fx){
+    const d=sbWeekData(); if(!d) return null;
+    const g=d.games.find(x=>'wk'+x.week+'-'+x.a.tid+'-'+x.b.tid===fx[1]); if(!g) return null;
+    const who=pick.split(':')[0], t=g.a.owner===who?g.a:(g.b.owner===who?g.b:null);
+    if(!t) return null;
+    if(fx[2]==='ml'){
+      const odds=t===g.a?g.mlA:g.mlB; if(odds==null) return null;
+      return {mk,mkLabel:`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,pick,pickLabel:`${t.name} moneyline`,odds};
+    }
+    const giving=t===g.a?g.favA:!g.favA, sp=g.spread.toFixed(1);
+    return {mk,mkLabel:`Week ${g.week} spread`,pick,pickLabel:`${t.name} ${giving?'−':'+'}${sp}`,odds:-115};
+  }
+  const m=sbAllMarkets().find(x=>x&&x.key===mk); if(!m) return null;
+  if(m.type==='outright'){
+    const p=m.picks.find(x=>x.owner===pick); if(!p||p.odds==null) return null;
+    return {mk,mkLabel:m.title,pick,pickLabel:p.name,odds:p.odds};
+  }
+  const side=/^(.*):(yes|no|o|u)$/.exec(pick); if(!side) return null;
+  const p=m.picks.find(x=>x.owner===side[1]); if(!p) return null;
+  if(m.type==='yesno'){
+    const odds=side[2]==='yes'?p.yes:(side[2]==='no'?p.no:null); if(odds==null) return null;
+    return {mk,mkLabel:m.title,pick,pickLabel:`${p.name} — ${side[2]==='yes'?'Yes':'No'}`,odds};
+  }
+  const odds=side[2]==='o'?p.over:(side[2]==='u'?p.under:null);
+  if(odds==null||p.line==null) return null;
+  return {mk,mkLabel:m.title,pick,pickLabel:`${p.name} — ${side[2]==='o'?'Over':'Under'} ${p.line.toFixed(1)}`,odds};
+}
+/* Put the Jumble's legs on your slip, or take them off again when they are all
+   already there. Each goes through sbPick at today's price, so a leg that
+   clashes with something on the slip swaps it out exactly as a tap would. */
+function jjjTail(){
+  const f=jjjFind(); if(!f||f.last) return;
+  const legs=(f.bet.legs||[]).filter(l=>l&&l.mk!=null);
+  const keys=legs.map(l=>l.mk+'|'+l.pick);
+  if(!keys.length) return;
+  if(keys.every(k=>_slip.some(x=>x.k===k))){
+    _slip=_slip.filter(x=>!keys.includes(x.k)); sbSyncButtons(); sbRenderSlip(); return;
+  }
+  const now=legs.map(sbLegNow);
+  if(now.some(x=>!x)){
+    _sbNote='Part of the Jumble is off the board now, so it cannot be tailed.';
+    sbRenderSlip(); return;
+  }
+  now.forEach(l=>{ if(!_slip.some(x=>x.k===l.mk+'|'+l.pick)) sbPick(l.mk,l.mkLabel,l.pick,l.pickLabel,l.odds); });
+}
+/* the tail button follows the slip, the way the board's prices do */
+function jjjSyncTail(){
+  const btn=document.getElementById('jjj-tail'); if(!btn) return;
+  const f=jjjFind(); if(!f) return;
+  const keys=(f.bet.legs||[]).filter(l=>l&&l.mk!=null).map(l=>l.mk+'|'+l.pick);
+  const on=keys.length>0&&keys.every(k=>_slip.some(x=>x.k===k));
+  if(btn.classList.contains('on')===on) return;
+  btn.classList.toggle('on',on);
+  btn.innerHTML=on?'<i class="fa fa-check"></i>On your slip':'<i class="fa fa-plus"></i>Tail the Jumble';
+}
+function jjjCardHTML(){
+  const f=jjjFind();
+  const me=!!(_me&&_me.k1===JJJ_OWNER);
+  const pic=`<img class="jjj-pic" src="${JJJ_IMG}" alt="" decoding="async"/>`;
+  if(!f){
+    return `<div class="jjj jjj-wait">
+      <div class="jjj-in">
+        <div class="jjj-kick"><i class="fa fa-star"></i>Featured parlay</div>
+        <div class="jjj-name">${JJJ_NAME}</div>
+        <div class="jjj-note">${me
+          ?'Build a parlay and tick <b>Make this Jimmie’s Jumbo Jumble</b> on the slip. One a week.'
+          :'Jimmie has not dropped this week’s Jumble yet.'}</div>
+      </div>${pic}</div>`;
+  }
+  const b=f.bet, legs=(b.legs||[]).filter(l=>l&&l.mk!=null);
+  const weeks=legs.map(l=>betLegWeek(l.mk)).filter(x=>x!=null);
+  const wkNo=weeks.length?Math.max(...weeks):null;
+  const shown=_jjjOpen?legs:legs.slice(0,4), more=legs.length-shown.length;
+  const st=String(b.status||'');
+  const locked=st==='open'&&legs.some(l=>{ const w=betLegWeek(l.mk); return w!=null&&sbWeekLocked(w,l.mk); });
+  const keys=legs.map(l=>l.mk+'|'+l.pick);
+  const onSlip=keys.length>0&&keys.every(k=>_slip.some(x=>x.k===k));
+  const stake=Number(b.stake)||0, payout=Number(b.payout)||0;
+  const foot=st==='won'?`<div class="jjj-res won"><i class="fa fa-circle-check"></i>Hit — paid ${bucksFmt(Number(b.ret)||payout)}</div>`
+    :st==='lost'?`<div class="jjj-res lost"><i class="fa fa-circle-xmark"></i>Missed</div>`
+    :st==='push'?`<div class="jjj-res"><i class="fa fa-equals"></i>Pushed</div>`
+    :st==='cashed'?`<div class="jjj-res"><i class="fa fa-money-bill-wave"></i>Cashed out</div>`
+    :(f.last||locked)?`<div class="jjj-res"><i class="fa fa-lock"></i>Riding — the week is under way</div>`
+    :me?`<div class="jjj-res"><i class="fa fa-bullhorn"></i>Up for the whole league</div>`
+    :`<button class="jjj-tail${onSlip?' on':''}" id="jjj-tail" onclick="jjjTail()">${
+        onSlip?'<i class="fa fa-check"></i>On your slip':'<i class="fa fa-plus"></i>Tail the Jumble'}</button>`;
+  return `<div class="jjj">
+    <div class="jjj-in">
+      <div class="jjj-kick"><i class="fa fa-star"></i>${f.last?'Last week’s Jumble':'Featured parlay'+(wkNo?' · Week '+wkNo:'')}</div>
+      <div class="jjj-name">${JJJ_NAME}</div>
+      <div class="jjj-odds"><b>${amFmt(Number(b.odds))}</b><span>${legs.length}-leg parlay</span></div>
+      <div class="jjj-legs">${shown.map(l=>`<div class="jjj-leg" title="${takesEsc(l.mkLabel)}">
+          <span class="jjj-lp">${takesEsc(l.pickLabel)}</span><span class="jjj-lo">${amFmt(Number(l.odds))}</span></div>`).join('')}
+        ${more>0?`<button class="jjj-more" onclick="_jjjOpen=true;sbPromosPaint()">+${more} more leg${more>1?'s':''}</button>`:''}</div>
+      <div class="jjj-stake">Jimmie’s in for ${bucksFmt(stake)} to win ${bucksFmt(payout-stake)}</div>
+      ${foot}
+    </div>${pic}</div>`;
+}
+/* BFT's or the Tinglers' side in the Matchup of the Week, with the board's own
+   moneyline on it -- or null while there is no Matchup, no submitted pick, or
+   no fixture for it on the board. */
+function sbRideFor(owner){
+  const pair=motwChosen(); if(!pair) return null;
+  const row=(_cpRows||[]).find(p=>p&&p.id===owner); if(!row||!row[pkKey()]) return null;
+  let slate=null; try{ slate=JSON.parse(row[pkKey()]); }catch(e){ return null; }
+  const d=sbWeekData(); if(!d) return null;
+  /* the picks belong to the week being played, and so does the board */
+  if(Number(d.week)!==Number((_liveInfo||liveWeekInfo()||{}).week)) return null;
+  const fk=pair.map(Number).sort((a,b)=>a-b).join('-');
+  const tid=Number(pkNormalise(slate,pkGames())[fk]); if(!tid) return null;
+  const g=d.games.find(x=>[x.a.tid,x.b.tid].map(Number).sort((a,b)=>a-b).join('-')===fk); if(!g) return null;
+  const t=Number(g.a.tid)===tid?g.a:(Number(g.b.tid)===tid?g.b:null); if(!t) return null;
+  return {g,t,odds:t===g.a?g.mlA:g.mlB};
+}
+function sbRideHTML(p){
+  const r=sbRideFor(p.owner); if(!r) return '';
+  const {g,t}=r, opp=t===g.a?g.b:g.a;
+  return `<div class="sb-ride sb-ride-${p.cls}">
+    <i class="fa ${p.icon} sb-ride-art" aria-hidden="true"></i>
+    <div class="sb-ride-h"><i class="fa ${p.icon}"></i>${p.title}</div>
+    <div class="sb-ride-tm">${sbAvatar(t.owner,22)}<span class="sb-ride-nm">${t.name}</span></div>
+    <div class="sb-ride-sub">to beat ${sbTeamAb(opp.owner,opp.name)} · Matchup of the Week</div>
+    ${sbBtn('wk'+g.week+'-'+g.a.tid+'-'+g.b.tid+'-ml',`Week ${g.week} · ${g.a.name} vs ${g.b.name}`,
+      t.owner+':ml',`${t.name} moneyline`,r.odds,'sb-ride-odds','Moneyline')}
+  </div>`;
+}
+/* Never allowed to take the book down with it: a promotion that cannot be
+   drawn is simply not there. */
+function sbPromosInner(){
+  try{
+    betsNearWant();
+    const ride=RIDE_PROMOS.map(sbRideHTML).filter(Boolean);
+    return jjjCardHTML()+(ride.length?`<div class="sb-rides">${ride.join('')}</div>`:'');
+  }catch(e){ return ''; }
+}
+/* repainted in place when what it draws from lands, without rebuilding the board */
+function sbPromosPaint(){
+  const el=document.getElementById('sb-promos'); if(!el) return;
+  el.innerHTML=sbPromosInner();
+}
 function renderBook(){
   /* the desktop slip panel lives inside book-body, so a board repaint takes the
      stake field with it — see sbKeepStakeFocus */
@@ -24943,6 +25173,7 @@ function renderBookInner(){
      not what you are looking at. A way back takes their place, the same width
      as the wallet button above it so the two read as a pair. */
   el.innerHTML=`
+    ${(_sbView==='mine'||_sbView==='folio')?'':`<div class="sb-promos" id="sb-promos">${sbPromosInner()}</div>`}
     ${(_sbView==='mine'||_sbView==='folio')
       ? `<button class="sb-back" onclick="sbSetView('week')">
           Return to the sportsbook<i class="fa fa-arrow-right"></i></button>`

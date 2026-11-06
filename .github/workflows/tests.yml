@@ -242,6 +242,11 @@ jobs:
       # season now; the owner read keeps its 300 and its order.
       - name: the boards and the freezer read every bet in the season
         run: node scripts/test-bets-season.mjs
+      # Jimmie's Jumbo Jumble is offered once a bucks week and to one account, a
+      # tailed leg is priced off the board as it is now, and the two Ride cards are
+      # the board's own moneyline buttons on BFT's and the Tinglers' picks.
+      - name: the sportsbook promotions
+        run: node scripts/test-promos.mjs
       - name: the split migration parses
         run: node --check scripts/split-shares.mjs
       - name: the archivers parse
