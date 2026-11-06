@@ -3220,6 +3220,12 @@
       font-family:'Inter',sans-serif;font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;}
     .bam-spin i{color:#140a22;}
     .bam-spin:disabled{opacity:.4;cursor:default;}
+    /* the site's button:hover outranks a single class, and was greying these out
+       under the pointer */
+    .bam-spin:hover{background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));}
+    .bam-spin:hover:not(:disabled){filter:brightness(1.08);}
+    .bam-re:hover{background:rgba(var(--accent-rgb),0.08);}
+    .bam-re:hover:not(:disabled){background:rgba(var(--accent-rgb),0.16);border-color:var(--accent);}
     .bam-re{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:0 14px;border-radius:10px;cursor:pointer;
       border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(var(--accent-rgb),0.08);color:var(--accent);
       font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
