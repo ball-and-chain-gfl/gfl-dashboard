@@ -176,6 +176,11 @@ read by every browser after (see THE DAILY DROP in `app.js`). The answers and
 picks are on profiles as `bkd_` and `pkd_` fields. The pick'em documents are
 what every pick'em all season is graded against, so nothing may delete them.
 
+Punishment grades are on profiles too: `pg_<season>_w<week>` holds the letter
+(F to A+) that manager gave that week's punishment. The punished manager is
+the week's lowest scorer, read off the schedule, and is never asked to grade
+their own (see GRADING THE PUNISHMENT in `app.js`).
+
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).
 An ordered query on a filtered field needs a composite index, and without one

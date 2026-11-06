@@ -2163,7 +2163,7 @@
        One row per week. The current week is outlined rather than filled, so it
        reads as "you are here" without competing with the row's own content. */
     .ps-list{display:flex;flex-direction:column;gap:6px;}
-    .ps-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:9px;
+    .ps-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:9px;min-height:46px;
       background:rgba(255,255,255,0.04);border:1px solid transparent;}
     .ps-row.ps-now{border-color:rgb(var(--accent-rgb));background:rgba(var(--accent-rgb),0.10);}
     .ps-wk{flex:0 0 74px;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;
@@ -2176,10 +2176,43 @@
     .ps-name.ps-tbd i{color:var(--text3);}
     .ps-note{margin-top:12px;font-family:'Inter',sans-serif;font-size:11.5px;color:var(--text3);}
     @media(max-width:768px){
-      .ps-row{padding:10px 11px;gap:9px;}
+      .ps-row{padding:10px 11px;gap:9px;min-height:44px;}
       .ps-wk{flex-basis:62px;font-size:10px;}
       .ps-name{font-size:12.5px;}
     }
+    /* a finished week: who took it and the league's grade */
+    .ps-who{flex:0 0 auto;margin-left:auto;display:flex;align-items:center;gap:7px;}
+    .ps-who-a{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--text2);}
+    .ps-grade{min-width:32px;padding:4px 7px;border-radius:7px;background:rgba(0,0,0,0.3);text-align:center;
+      font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;line-height:1.1;}
+    /* the grade card in the notification stack */
+    .pg-who{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;background:rgba(255,255,255,0.05);}
+    .pg-who-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left;}
+    .pg-who-n{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;color:var(--text);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .pg-who-p{display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text2);}
+    .pg-who-p i{color:#E84146;font-size:10.5px;width:12px;text-align:center;}
+    .pg-who-w{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text2);}
+    .pg-rate{display:flex;align-items:center;gap:9px;margin-top:12px;}
+    .pg-end{flex:0 0 auto;width:18px;text-align:center;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;color:var(--text3);}
+    .pg-range{flex:1 1 auto;min-width:0;height:30px;margin:0;background:transparent;cursor:pointer;
+      -webkit-appearance:none;appearance:none;touch-action:pan-y;-webkit-tap-highlight-color:transparent;}
+    .pg-range::-webkit-slider-runnable-track{height:6px;border-radius:999px;
+      background:linear-gradient(90deg,#E84146,#F2704A 25%,#E8BC56 50%,#9BD35A 75%,#3fd07a);}
+    .pg-range::-moz-range-track{height:6px;border-radius:999px;
+      background:linear-gradient(90deg,#E84146,#F2704A 25%,#E8BC56 50%,#9BD35A 75%,#3fd07a);}
+    .pg-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;box-sizing:border-box;width:22px;height:22px;
+      margin-top:-8px;border-radius:50%;background:#f4f4f6;border:3px solid #15161a;box-shadow:0 2px 6px rgba(0,0,0,.6);}
+    .pg-range::-moz-range-thumb{box-sizing:border-box;width:22px;height:22px;border-radius:50%;
+      background:#f4f4f6;border:3px solid #15161a;box-shadow:0 2px 6px rgba(0,0,0,.6);}
+    .pg-range.pg-unset::-webkit-slider-thumb{background:#6b6d75;}
+    .pg-range.pg-unset::-moz-range-thumb{background:#6b6d75;}
+    .pg-val{flex:0 0 46px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;
+      background:rgba(0,0,0,0.3);font-family:'Inter',sans-serif;font-size:17px;font-weight:800;color:var(--text3);}
+    /* after .pg-val, which sets its own resting colour and would otherwise win */
+    .pg-none{color:var(--text3);}
+    .pg-f{color:#E84146;} .pg-d{color:#F2704A;} .pg-c{color:#E8BC56;} .pg-b{color:#9BD35A;} .pg-a{color:#3fd07a;}
 
     /* ── Bad Beat column key ──────────────────────────────────────────────── */
     .bb-key{background:rgba(0,0,0,0.3);margin:14px 2px 0;padding:13px 15px;border-radius:10px;}

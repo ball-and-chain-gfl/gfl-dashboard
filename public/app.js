@@ -5567,29 +5567,37 @@ function renderPunishment(){
     el.innerHTML='<div class="tab-loading" style="padding:22px">No punishment set this week.</div>';
     return;
   }
+  /* the grades on the schedule are read off every manager's profile, which the
+     homepage owns -- this tab can be the first thing opened, so ask. A no-op
+     once they are in; cpSync repaints the schedule when they land. */
+  try{ cpSync(); }catch(e){}
   el.innerHTML=`
     <div class="sec"><div class="sec-head"><i class="fa fa-gavel"></i>This Week</div>
       <div id="punish-rules-body">${punishRulesHTML()}</div></div>
     <div class="sec"><div class="sec-head"><i class="fa fa-calendar-days"></i>Season Schedule</div>
-      ${punishScheduleHTML()}</div>`;
+      <div id="ps-sched">${punishScheduleHTML()}</div></div>`;
 }
 /* Weeks 1 to 14 and what is on the line each one. The week being played is
    outlined rather than filled, so it reads as "you are here" without competing
-   with the row content. */
+   with the row content.
+
+   A week that is over says who took it and what the league made of it: the
+   lowest scorer's crest and abbreviation, and the composite grade. */
 function punishScheduleHTML(){
   const cfg=_CFG.punishment||{};
   const sch=cfg.schedule||{};
   const cur=punishWeek();
+  const season=pgSeason();
   const rows=[];
-  for(let w=1;w<=14;w++){
+  for(let w=1;w<=PG_WEEKS;w++){
     const name=String(sch[w]||'').trim();
-    const l=name.toLowerCase();
     const on=w===cur;
+    const low=(!on&&season)?pgLowest(season,w):null;
     rows.push(`<div class="ps-row${on?' ps-now':''}">
       <span class="ps-wk">Week ${w}</span>
       <span class="ps-name${name?'':' ps-tbd'}">
         <i class="fa ${name?punishIcon(name,'fa-circle'):'fa-minus'}"></i>${name||'TBD'}</span>
-      ${on?'<span class="punish-tag">THIS WEEK</span>':''}
+      ${on?'<span class="punish-tag">THIS WEEK</span>':(low?pgWhoHTML(season,w,low):'')}
     </div>`);
   }
   /* The instruction is for whoever edits the file, and the league is not
@@ -5597,6 +5605,155 @@ function punishScheduleHTML(){
      thing to them without handing them a filename. */
   return `<div class="ps-list">${rows.join('')}</div>
     ${isTestProfile()?`<div class="ps-note">Set each week under <b>punishment.schedule</b> in config.js.</div>`:''}`;
+}
+/* just the schedule, when the grades it shows have changed under it */
+function pgSchedRepaint(){
+  const el=document.getElementById('ps-sched'); if(!el) return;
+  el.innerHTML=punishScheduleHTML();
+}
+
+/* ── GRADING THE PUNISHMENT ──────────────────────────────────────────────────
+   Every Tuesday the league grades the punishment it has just been owed, F to
+   A+, on a slider in the notification stack. The card for week N opens the
+   Tuesday that week is over, and like a trade vote it does not clear until it
+   is answered. Each grade is a letter on the grader's own profile,
+   pg_<season>_w<week>, so no new collection and no new rules.
+
+   WHO TOOK IT is the week's lowest scorer, read straight off the schedule --
+   the rule on the tab, and nothing anybody has to enter. They do not grade
+   their own: no card for that week, and a grade on their profile would not
+   count anyway.
+
+   THE COMPOSITE is the mean of everyone's grades on the thirteen steps of the
+   scale, rounded to the nearest one. Equal steps, because that is what a
+   slider is: F to D- is one notch, the same as B to B+. */
+const PG_SCALE=['F','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+'];
+const PG_WEEKS=14;
+/* where the thumb sits before anyone moves it: the middle of the scale */
+const PG_MID=6;
+/* Weeks 1 to 8 were already played when grading went in, and went out together
+   on 5 November 2026 -- dated that day rather than to the Tuesdays they would
+   have had, so the catch-up arrives as news and not as a stack from September. */
+const PG_FROM=new Date(2026,10,5).getTime();
+const pgKey=(season,week)=>`pg_${season}_w${week}`;
+const pgIdx=g=>PG_SCALE.indexOf(String(g==null?'':g).trim());
+const pgTone=i=>'pg-'+String(PG_SCALE[i]||'F').charAt(0).toLowerCase();
+const pgSeason=()=>{ try{ return ntSeason(); }catch(e){ return null; } };
+/* The week's lowest score and whose it was, once the week is over. Null while
+   it is still being played -- an unfinished week has a lowest score every
+   minute of Sunday and none of them is the one that counts. */
+function pgLowest(season,week){
+  const meta=_seasonMeta&&_seasonMeta[season]; if(!meta) return null;
+  const byWeek=weeksOf(meta.schedule);
+  if(!weekOver(byWeek,week)) return null;
+  let low=null;
+  (byWeek[week]||[]).forEach(m=>[m.home,m.away].forEach(s=>{
+    if(!s||!s.teamId) return;
+    const p=Number(s.totalPoints)||0;
+    if(!low||p<low.pts) low={teamId:Number(s.teamId),pts:p};
+  }));
+  return low;
+}
+/* every grade on file for the week, as steps on the scale. Not the test
+   account's, and not the punished manager's own. */
+function pgGrades(season,week,punished){
+  const k=pgKey(season,week), out=[];
+  (_cpRows||[]).forEach(p=>{
+    if(!p||p.id===TEST_PROFILE) return;
+    if(punished!=null&&String(p.teamId||'')===String(punished)) return;
+    const i=pgIdx(p[k]); if(i>=0) out.push(i);
+  });
+  return out;
+}
+function pgComposite(season,week,low){
+  if(low===undefined) low=pgLowest(season,week);
+  const g=pgGrades(season,week,low?low.teamId:null);
+  if(!g.length) return null;
+  const avg=g.reduce((a,b)=>a+b,0)/g.length;
+  const i=Math.max(0,Math.min(PG_SCALE.length-1,Math.round(avg)));
+  return {i,letter:PG_SCALE[i],avg,n:g.length};
+}
+/* this manager's grade for the week, if they have given one. Sent this session
+   first, so the card goes the moment it is answered whatever the rows say. */
+let _pgPick={}, _pgBusy=false, _pgSent={};
+function pgMine(season,week){
+  if(!_me) return '';
+  const k=pgKey(season,week);
+  if(_pgSent[k]) return _pgSent[k];
+  const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
+  return pgIdx(row&&row[k])>=0?String(row[k]).trim():'';
+}
+/* the right-hand end of a finished week on the schedule */
+function pgWhoHTML(season,week,low){
+  const t=(_teams||[]).find(x=>Number(x.id)===Number(low.teamId));
+  const ab=t?(t.abbrev||teamInitials(t.name)):'';
+  const c=pgComposite(season,week,low);
+  const tip=`${t?t.name:''}${c?` · ${c.n} grade${c.n===1?'':'s'}`:''}`;
+  return `<span class="ps-who" title="${takesEsc(tip)}">
+      ${logoImg(t?t.id:Number(low.teamId),'team-logo-sm')}
+      <span class="ps-who-a">${takesEsc(ab)}</span>
+      <span class="ps-grade ${c?pgTone(c.i):'pg-none'}">${c?c.letter:'–'}</span>
+    </span>`;
+}
+/* The slider under the card. Nothing is sent until Submit, the same as a trade
+   vote. Moving it repaints only the readout and the button: a full repaint of
+   the stack would rebuild the slider out from under the thumb mid-drag. */
+function pgCardHTML(n){
+  const g=n.grade, k=pgKey(g.season,g.week);
+  const i=_pgPick[k], set=i!=null&&i>=0;
+  return `<div class="pg-rate">
+      <span class="pg-end">F</span>
+      <input type="range" class="pg-range${set?'':' pg-unset'}" min="0" max="${PG_SCALE.length-1}" step="1"
+        value="${set?i:PG_MID}" aria-label="Grade" ${_pgBusy?'disabled':''}
+        oninput="pgSlide('${k}',this.value)" onchange="pgSlide('${k}',this.value)"
+        onpointerup="pgSlide('${k}',this.value)" onkeyup="pgSlide('${k}',this.value)">
+      <span class="pg-end">A+</span>
+      <span class="pg-val${set?' '+pgTone(i):''}" id="pg-val">${set?PG_SCALE[i]:'–'}</span>
+    </div>
+    <button class="nt-vsub" id="pg-sub" ${set&&!_pgBusy?'':'disabled'}
+      onclick="pgSubmit(${Number(g.season)},${Number(g.week)})">
+      ${_pgBusy?'<i class="fa fa-circle-notch fa-spin"></i>Sending…'
+        :`<i class="fa fa-check"></i>Submit${set?' · '+PG_SCALE[i]:''}`}</button>`;
+}
+function pgSlide(k,v){
+  const i=Math.round(Number(v));
+  if(!(i>=0&&i<PG_SCALE.length)) return;
+  _pgPick[k]=i;
+  const val=document.getElementById('pg-val');
+  if(val){ val.textContent=PG_SCALE[i]; val.className='pg-val '+pgTone(i); }
+  const r=document.querySelector('#nt-card .pg-range'); if(r) r.classList.remove('pg-unset');
+  const sub=document.getElementById('pg-sub');
+  if(sub&&!_pgBusy){ sub.disabled=false; sub.innerHTML=`<i class="fa fa-check"></i>Submit · ${PG_SCALE[i]}`; }
+}
+async function pgSubmit(season,week){
+  if(!_me){ openSignIn(); return; }
+  if(_pgBusy) return;
+  const k=pgKey(season,week);
+  const i=_pgPick[k]; if(!(i>=0&&i<PG_SCALE.length)) return;
+  const g=PG_SCALE[i];
+  _pgBusy=true; _ntVoteMsg=null; renderNotifications();
+  /* only counts if it saved -- see the same note on ntVote */
+  let res=null;
+  try{ res=await gflPatchProfile(_me.k1,{[k]:g}); }
+  catch(e){ res={error:'offline'}; }
+  _pgBusy=false;
+  if(!res||res.error){
+    _ntVoteMsg={err:res&&res.error==='quota'
+      ?`${fsLimitText().head} — your grade did not save. Try again ${fsLimitText().when}.`
+      :'That did not save. Check your connection and try again.'};
+    renderNotifications();
+    return;
+  }
+  _pgSent[k]=g; delete _pgPick[k];
+  const me=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
+  if(me) me[k]=g;
+  _ntVoteMsg={ok:`Week ${week} graded ${g}.`};
+  try{ clearTimeout(_ntVoteMsgT); }catch(e){}
+  _ntVoteMsgT=setTimeout(ntVoteMsgClear,8000);
+  _ntUndo=_ntUndo.filter(id=>id!==`pg:${season}:${week}`);
+  renderNotifications();
+  try{ orderHomeTodo(); }catch(e){}
+  try{ pgSchedRepaint(); }catch(e){}
 }
 
 /* Which punishment the tab is showing. Reset to this week's on every render,
@@ -9262,6 +9419,7 @@ async function leaguePoll(force){
   _cpRows=rows; _cpFetched=true;          // so cpSync does not fetch it again
   try{ renderCoachesPoll(); }catch(e){}
   try{ renderNotifications(); orderHomeTodo(); }catch(e){}
+  try{ pgSchedRepaint(); }catch(e){}
   /* This runs on the homepage only, but the rows it just landed are what the
      Standings poll needs to know the current week is complete -- and it sets
      _cpFetched, so cpSync will never fetch and repaint on its behalf. */
@@ -18864,6 +19022,7 @@ const NT_KINDS={
   bighit: {icon:'fa-sack-dollar',  tone:'gold'},
   comeback:{icon:'fa-arrow-trend-up',tone:'hot'},
   extreme:{icon:'fa-ranking-star',  tone:'gold'},
+  pgrade: {icon:'fa-gavel',         tone:'hot'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -20428,9 +20587,38 @@ function ntBig4(out){
       </div>`).join('')}</div>`,
     body:`${fr?fr.name:'BFT'} has the league's week ${w} ballot in.`});
 }
+/* ── GRADE THE PUNISHMENT ────────────────────────────────────────────────────
+   One card per finished week this manager has not graded, from the Tuesday
+   that week is over (see GRADING THE PUNISHMENT). Nothing until the profiles
+   are in: before then every week looks ungraded, and the stack would open on
+   eight locked cards that vanish a second later. */
+function ntPunishGrades(out){
+  if(!_me) return;
+  if(!(_cpRows||[]).length) return;
+  const season=pgSeason(); if(!season) return;
+  const sch=(_CFG.punishment||{}).schedule||{};
+  for(let w=1;w<=PG_WEEKS;w++){
+    const name=String(sch[w]||'').trim(); if(!name) continue;
+    const low=pgLowest(season,w); if(!low) continue;
+    if(String(low.teamId)===String(_me.teamId||'')) continue;
+    if(pgMine(season,w)) continue;
+    const t=(_teams||[]).find(x=>Number(x.id)===Number(low.teamId));
+    out.push({kind:'pgrade', day:Math.max(ntWeekResultsDay(season,w),PG_FROM),
+      id:`pg:${season}:${w}`, title:'Grade the punishment',
+      art:`<div class="pg-who">
+          ${logoImg(t?t.id:Number(low.teamId))}
+          <span class="pg-who-t">
+            <span class="pg-who-n">${takesEsc(t?t.name:'')}</span>
+            <span class="pg-who-p">${punishIconHTML(name)}${takesEsc(name)}</span>
+          </span>
+          <span class="pg-who-w">Week ${w}</span>
+        </div>`,
+      grade:{season:Number(season),week:w}});
+  }
+}
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntPunishGrades,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -20673,6 +20861,8 @@ function ntNeedsVote(n){
   /* the Matchup of the Week card is the same shape of obligation as a trade
      vote: it holds the league up, so it does not clear until it is answered */
   if(n.kind==='motw') return !motwIsSet();
+  /* and a punishment grade, which is a vote on a slider */
+  if(n.grade) return !pgMine(n.grade.season,n.grade.week);
   if(!n.vote) return false;
   return !ntMyVote(String(n.vote.id).replace(/[^a-zA-Z0-9_]/g,'_'));
 }
@@ -20780,11 +20970,12 @@ function renderNotifications(){
         <span class="nt-t">${n.title}</span>
         <span class="nt-day">${ntWhen(n.day)}</span>
         <button class="nt-x" onclick="ntDismiss('${String(n.id).replace(/'/g,"\\'")}')"
-          ${needVote?'disabled title="Pick a side first"':''}
+          ${needVote?`disabled title="${n.grade?'Grade it first':'Pick a side first'}"`:''}
           aria-label="Dismiss"><i class="fa fa-xmark"></i></button>
       </div>
       ${n.art?`<div class="nt-art">${n.art}</div>`:''}
       ${n.body?`<div class="nt-body">${n.body}</div>`:''}
+      ${n.grade?pgCardHTML(n):''}
       ${n.vote?(()=>{
         const picked=_ntPick[fieldSafe]||'';
         const chosen=(n.vote.sides.find(s=>s.k===picked)||{}).label||'';
@@ -20849,7 +21040,7 @@ function ntWireSwipe(){
     drag=false; locked=null; dx=0;
   };
   card.addEventListener('pointerdown',e=>{
-    if(e.target.closest('button')) return;      // a vote is not a swipe
+    if(e.target.closest('button,input')) return;   // a vote is not a swipe, nor is a slider
     drag=true; locked=null; x0=e.clientX; y0=e.clientY; t0=Date.now(); dx=0;
     card.style.transition='none';
   });
@@ -21155,7 +21346,9 @@ async function cpSync(){
          the ballots have arrived */
       try{ cpBadgeRepaint(); }catch(e){}
       /* and the two Ride cards, which are BFT's and the Tinglers' slates */
-      try{ if(_activeTab==='book') sbPromosPaint(); }catch(e){} }
+      try{ if(_activeTab==='book') sbPromosPaint(); }catch(e){}
+      /* and the grades on the Punishments schedule */
+      try{ pgSchedRepaint(); }catch(e){} }
   }catch(e){}
 }
 function cpToggle(teamId){
