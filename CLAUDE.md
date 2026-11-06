@@ -179,7 +179,9 @@ what every pick'em all season is graded against, so nothing may delete them.
 Punishment grades are on profiles too: `pg_<season>_w<week>` holds the letter
 (F to A+) that manager gave that week's punishment. The punished manager is
 the week's lowest scorer, read off the schedule, and is never asked to grade
-their own (see GRADING THE PUNISHMENT in `app.js`).
+their own. A week is graded a week late: its lowest scorer does the punishment
+the following week, so week N's card opens on week N+1's Tuesday, and until
+then no grade for it counts or shows (see GRADING THE PUNISHMENT in `app.js`).
 
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).

@@ -5613,11 +5613,16 @@ function pgSchedRepaint(){
 }
 
 /* ── GRADING THE PUNISHMENT ──────────────────────────────────────────────────
-   Every Tuesday the league grades the punishment it has just been owed, F to
-   A+, on a slider in the notification stack. The card for week N opens the
-   Tuesday that week is over, and like a trade vote it does not clear until it
-   is answered. Each grade is a letter on the grader's own profile,
-   pg_<season>_w<week>, so no new collection and no new rules.
+   Every Tuesday the league grades the punishment that has just been done, F
+   to A+, on a slider in the notification stack. Like a trade vote the card
+   does not clear until it is answered. Each grade is a letter on the grader's
+   own profile, pg_<season>_w<week>, so no new collection and no new rules.
+
+   A WEEK BEHIND. Week N's lowest scorer is known the Tuesday week N is over,
+   and does the punishment during week N+1 -- so there is nothing to grade
+   until the Tuesday after THAT. Week 8 was lost on 2 November, done the week
+   of the 5th, and graded on Tuesday 10 November. Before its day a week has no
+   card, takes no grade and shows none.
 
    WHO TOOK IT is the week's lowest scorer, read straight off the schedule --
    the rule on the tab, and nothing anybody has to enter. They do not grade
@@ -5631,10 +5636,16 @@ const PG_SCALE=['F','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+'];
 const PG_WEEKS=14;
 /* where the thumb sits before anyone moves it: the middle of the scale */
 const PG_MID=6;
-/* Weeks 1 to 8 were already played when grading went in, and went out together
-   on 5 November 2026 -- dated that day rather than to the Tuesdays they would
+/* Weeks 1 to 7 had been done when grading went in, and went out together on
+   5 November 2026 -- dated that day rather than to the Tuesdays they would
    have had, so the catch-up arrives as news and not as a stack from September. */
 const PG_FROM=new Date(2026,10,5).getTime();
+/* the day week N can be graded: the Tuesday after the week its punishment is
+   done in, which is the results day of week N+1 */
+function pgOpenDay(season,week){
+  return Math.max(ntWeekResultsDay(season,(Number(week)||0)+1),PG_FROM);
+}
+function pgIsOpen(season,week){ return pgOpenDay(season,week)<=ntToday(); }
 const pgKey=(season,week)=>`pg_${season}_w${week}`;
 const pgIdx=g=>PG_SCALE.indexOf(String(g==null?'':g).trim());
 const pgTone=i=>'pg-'+String(PG_SCALE[i]||'F').charAt(0).toLowerCase();
@@ -5666,6 +5677,7 @@ function pgGrades(season,week,punished){
   return out;
 }
 function pgComposite(season,week,low){
+  if(!pgIsOpen(season,week)) return null;
   if(low===undefined) low=pgLowest(season,week);
   const g=pgGrades(season,week,low?low.teamId:null);
   if(!g.length) return null;
@@ -5727,6 +5739,7 @@ function pgSlide(k,v){
 }
 async function pgSubmit(season,week){
   if(!_me){ openSignIn(); return; }
+  if(!pgIsOpen(season,week)) return;
   if(_pgBusy) return;
   const k=pgKey(season,week);
   const i=_pgPick[k]; if(!(i>=0&&i<PG_SCALE.length)) return;
@@ -20588,8 +20601,9 @@ function ntBig4(out){
     body:`${fr?fr.name:'BFT'} has the league's week ${w} ballot in.`});
 }
 /* ── GRADE THE PUNISHMENT ────────────────────────────────────────────────────
-   One card per finished week this manager has not graded, from the Tuesday
-   that week is over (see GRADING THE PUNISHMENT). Nothing until the profiles
+   One card per finished week this manager has not graded, dated the Tuesday
+   after its punishment is done (see GRADING THE PUNISHMENT) -- ntLive keeps
+   it out of the stack until then. Nothing until the profiles
    are in: before then every week looks ungraded, and the stack would open on
    eight locked cards that vanish a second later. */
 function ntPunishGrades(out){
@@ -20603,7 +20617,7 @@ function ntPunishGrades(out){
     if(String(low.teamId)===String(_me.teamId||'')) continue;
     if(pgMine(season,w)) continue;
     const t=(_teams||[]).find(x=>Number(x.id)===Number(low.teamId));
-    out.push({kind:'pgrade', day:Math.max(ntWeekResultsDay(season,w),PG_FROM),
+    out.push({kind:'pgrade', day:pgOpenDay(season,w),
       id:`pg:${season}:${w}`, title:'Grade the punishment',
       art:`<div class="pg-who">
           ${logoImg(t?t.id:Number(low.teamId))}

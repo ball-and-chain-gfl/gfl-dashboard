@@ -5,7 +5,10 @@
  *   NOT COUNTED       the punished manager's own grade, and the test account's
  *   THE CARD          one per finished week, not for your own, gone once graded,
  *                     and it does not clear until it is answered
- *   THE CATCH-UP      weeks 1 to 8 went out together on 5 November 2026
+ *   A WEEK BEHIND     a week's punishment is done the week after, so its card
+ *                     opens the Tuesday after that; before then the week takes
+ *                     no grade and shows none
+ *   THE CATCH-UP      weeks 1 to 7 went out together on 5 November 2026
  *
  * Run: node scripts/test-punish-grade.mjs
  */
@@ -26,18 +29,22 @@ const M = assemble(grab, [
   'const weekDecided=', 'const weekScored=', 'function weeksOf(', 'function weekOver(',
   'function ntWeekResultsDay(', 'const takesEsc=',
   'const PG_SCALE=', 'const PG_WEEKS=', 'const PG_MID=', 'const PG_FROM=',
+  'function pgOpenDay(', 'function pgIsOpen(',
   'const pgKey=', 'const pgIdx=', 'const pgTone=', 'const pgSeason=',
   'function pgLowest(', 'function pgGrades(', 'function pgComposite(',
   'let _pgPick=', 'function pgMine(', 'function ntPunishGrades(', 'function ntNeedsVote(',
-], ['pgLowest', 'pgComposite', 'pgMine', 'pgTone', 'ntPunishGrades', 'ntNeedsVote', 'PG_SCALE', 'PG_MID', 'set', 'sent'], [
+], ['pgLowest', 'pgComposite', 'pgMine', 'pgTone', 'pgOpenDay', 'pgIsOpen', 'ntPunishGrades', 'ntNeedsVote',
+  'PG_SCALE', 'PG_MID', 'set', 'sent'], [
   "let _seasonMeta={}, _cpRows=null, _me=null, _teams=[], _CFG={};",
+  "let _today=new Date(2026,10,6).getTime();   // Friday 6 November 2026, week 9 being played",
+  "const ntToday=()=>_today;",
   "const TEST_PROFILE='test';",
   "const ntSeason=()=>'2026';",
   "const logoImg=id=>'<logo '+id+'>';",
   "const punishIconHTML=n=>'<i>';",
   "const motwIsSet=()=>true; const ntMyVote=()=>'';",
   "const set=o=>{ if('meta' in o) _seasonMeta=o.meta; if('rows' in o) _cpRows=o.rows; if('me' in o) _me=o.me;",
-  "  if('teams' in o) _teams=o.teams; if('cfg' in o) _CFG=o.cfg; };",
+  "  if('teams' in o) _teams=o.teams; if('cfg' in o) _CFG=o.cfg; if('today' in o) _today=o.today; };",
   "const sent=(k,g)=>{ if(g==null) delete _pgSent[k]; else _pgSent[k]=g; };",
 ].join(NL));
 
@@ -108,18 +115,35 @@ M.sent('pg_2026_w1', 'B');
 ok('graded this session: it can go, and it is gone', [M.ntNeedsVote(w1), cards().map(n => n.id)], [false, ['pg:2026:2']]);
 ok('pgMine reads the grade back', M.pgMine('2026', 1), 'B');
 
-console.log(NL + 'the catch-up');
+console.log(NL + 'the catch-up, and a week behind');
 const day = t => { const d = new Date(t); return [d.getFullYear(), d.getMonth() + 1, d.getDate()]; };
-ok('weeks 1 to 8 went out on 5 November 2026', day(cards()[0].day), [2026, 11, 5]);
+const at = (m, d) => new Date(2026, m - 1, d).getTime();
+ok('the catch-up went out on 5 November 2026', day(cards()[0].day), [2026, 11, 5]);
 {
   const late = [];
   for (let w = 1; w <= 9; w++) late.push(game(w, 1, 50 + w, 2, 60 + w, 'HOME'));
   M.sent('pg_2026_w1', null);                // a fresh manager, nothing sent this session
   M.set({ meta: { 2026: { schedule: late } }, rows: [row('z', 3, {})], me: { k1: 'z', teamId: '3' },
     cfg: { punishment: { schedule: Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map(w => [w, 'Beer Pour'])) } } });
-  const all = cards();
-  ok('week 9 is dated the Tuesday it opens, 10 November', day(all.find(n => n.id === 'pg:2026:9').day), [2026, 11, 10]);
-  ok('one card per finished week', all.length, 9);
+  const all = cards(), on = w => day(all.find(n => n.id === 'pg:2026:' + w).day);
+  ok('weeks 1 to 7 all went out together on 5 November', [1, 2, 3, 4, 5, 6, 7].map(on).every(d => d.join() === '2026,11,5'), true);
+  ok('week 8 was lost on 2 November and done the week after, so it is graded Tuesday 10 November', on(8), [2026, 11, 10]);
+  ok('and week 9 the Tuesday after that, 17 November', on(9), [2026, 11, 17]);
+  ok('a card for every finished week, each held to its own day', all.length, 9);
+  ok('on Friday 6 November week 7 is open and week 8 is not', [M.pgIsOpen('2026', 7), M.pgIsOpen('2026', 8)], [true, false]);
+  M.set({ today: at(11, 10) });
+  ok('week 8 opens on the Tuesday, from midnight', [M.pgIsOpen('2026', 8), M.pgIsOpen('2026', 9)], [true, false]);
+  M.set({ today: at(11, 6) });
+}
+
+console.log(NL + 'no grade before its day');
+{
+  M.set({ rows: [row('y', 2, { 7: 'A', 8: 'B-' }), row('x', 3, { 7: 'C', 8: 'D+' })] });
+  ok('a week 7 grade shows', M.pgComposite('2026', 7) && M.pgComposite('2026', 7).letter, 'B');
+  ok('a week 8 grade given before Tuesday shows nothing', M.pgComposite('2026', 8), null);
+  M.set({ today: at(11, 10) });
+  ok('and the week 8 grades count from the Tuesday', M.pgComposite('2026', 8) && M.pgComposite('2026', 8).letter, 'C');
+  M.set({ today: at(11, 6) });
 }
 
 console.log(NL + 'where it lives');
@@ -128,6 +152,8 @@ ok('the card is in the stack', /\[ntBkMakeGood,ntMotwPick,ntPunishGrades,/.test(
 ok('dragging the slider is not a swipe', src.includes("if(e.target.closest('button,input')) return;"), true);
 ok('the schedule shows who took each finished week', src.includes("(low?pgWhoHTML(season,w,low):'')"), true);
 ok('the grade goes on the grader\'s own profile', src.includes('gflPatchProfile(_me.k1,{[k]:g})'), true);
+ok('and nothing is sent for a week that has not opened', /async function pgSubmit\([^)]*\)\{[^}]*\}\s*if\(!pgIsOpen\(season,week\)\) return;/.test(src), true);
+ok('the card is dated the day the week opens', src.includes("out.push({kind:'pgrade', day:pgOpenDay(season,w),"), true);
 
 console.log(NL + `${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
