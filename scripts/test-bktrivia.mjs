@@ -36,6 +36,8 @@ const M = assemble(grab, [
   ['let _QS=[], _LOCKED=false, _REVEAL=true;',
    'const _CFG={get ballKnowledge(){return {reveal:_REVEAL};}};',
    'const bkLeagueSeason=()=>2026;',
+   /* the weekly five run up to week 9; from 10 the daily drop takes over */
+   "const BK_DAILY={season:'2026',week:10};",
    'const bkWeek=()=>_WK; let _WK=1;',
    'const bkKey=()=>`bk_2026_w${_WK}`;',
    'const bkQuestions=()=>_QS;',

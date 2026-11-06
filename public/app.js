@@ -908,7 +908,8 @@ function switchTab(name){
     try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){}
     /* idempotent — _betsInit makes this free once they are in */
     try{ betsEnsure(); }catch(e){}
-    try{ betsNearFresh(); }catch(e){} }
+    try{ betsNearFresh(); }catch(e){}
+    try{ pkeRender(); }catch(e){} }
   if(name==='book'){ renderBook(); initBets();
     try{ if(_sbView==='social') sbSocialFresh(); else betsNearFresh(); }catch(e){} } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
@@ -6751,7 +6752,7 @@ function fcRepaint(){
    telling is one edit rather than four. */
 function repaintLive(){
   if(_activeTab==='week'){ try{ renderWeek(); }catch(e){} }
-  else if(_activeTab==='home') fcRepaint();
+  else if(_activeTab==='home'){ fcRepaint(); try{ pkeRender(); }catch(e){} }
 }
 /* THE ONE WAY IN. Your Forecast is on the homepage now, and three things paint
    it -- opening the tab, a live poll collecting a new minute, and the by-slot
@@ -9774,6 +9775,7 @@ function applyMe(){
   _lrView=null; _lrPick=false;            // and back to their own locker room
   try{ ntReset(); }catch(e){}             // and their dismissals, from their profile
   try{ bkReset(); }catch(e){}             // re-pull this manager's saved answers
+  _bkdLast=null; try{ pkeRender(); }catch(e){}   // and their daily drop
   try{ pkReset(); }catch(e){}
   try{ _cpBallot=null; _cpFetched=false; _cpJustSent=false; renderCoachesPoll(); }catch(e){}   // a new manager starts fresh
   _rosterCache=null; _rosterTeam=null;
@@ -13550,6 +13552,7 @@ function nflWeekGames(week,season){
            be repainted when it lands -- otherwise the picks grid keeps whatever
            the pre-digest fallback said for the rest of the session. */
         try{ if(document.getElementById('pk-body')) renderWeekPicks(); }catch(e){}
+        try{ pkeRender(); }catch(e){}       // the daily pick'em locks off the same digest
         /* and the poll, which closes off the kickoffs in it */
         try{ if(document.getElementById('cp-body')) renderCoachesPoll(); }catch(e){} } })
       .catch(()=>{})
@@ -17005,6 +17008,7 @@ function bkLoadPool(season){
         /* the tables built out of those names have already painted */
         try{ if(_activeTab==='cm'){ renderC2Breakdown(); renderC3Breakdown(); } }catch(e){}
         _bkQCache={key:'',qs:[]}; renderBallKnowledge();
+        try{ pkeRender(); }catch(e){}       // the pick'em grades off this pool
         /* the board and the market price off this — repaint whichever is open
            when it lands, or they keep serving whatever they computed without it */
         try{ _sbCache=null; _invCache=null;
@@ -17126,6 +17130,7 @@ function bkUnsealed(p){
   const now=bkWeek();
   for(let w=1;w<now;w++){
     if(p[bkScoreKey(w)]!=null) continue;            // sealed, counted elsewhere
+    if(String(bkLeagueSeason())===BK_DAILY.season&&w>=BK_DAILY.week) continue;   // daily: bkDailyCalls
     /* THE SET IS SUBMITTED AS A GROUP, so it is graded as one. A week nobody
        submitted is the whole set unanswered, and that is minus five flat --
        there is no partial credit to work out, because there was no partial
@@ -17356,6 +17361,7 @@ async function bkBack(){
 function bkWeek(){ return Number((_liveInfo||liveWeekInfo()||{}).week)||1; }
 let _bkQCache={key:'',qs:[]};
 function bkQuestions(){
+  if(bkDailyAt()) return [];               // a daily week has its own questions
   const season=bkLeagueSeason(), week=bkWeek();
   /* previewAll is in the key, not only in the build. It answers to who is
      signed in now, so signing into the testing profile — or out of it — has to
@@ -17463,8 +17469,606 @@ async function bkAnswer(qi,ai,el){
 }
 function bkReopen(qi){ _bkOpen=(_bkOpen===qi?null:qi); renderBallKnowledge(); }
 
+/* ── 8 and 9 -- BOOM AND BOOF: AGAINST ESPN'S OWN WEEKLY PROJECTIONS ─────────
+   Every finished week's score minus the projection ESPN put on it that week,
+   added up over the season so far. Boom asks which of four has beaten the
+   projections by the most, Boof which has fallen furthest short of them.
+
+   NO TIES, and not even close ones. The four are drawn until no two share a
+   number and the answer is at least a point clear of the next, so there is
+   exactly one right answer and it does not turn on a decimal.
+
+   Drawn from the top thirty at each skill position by points so far: players
+   people actually follow, rather than a backup who beat a projection of 0.3. */
+function bkProjGap(p,thru){
+  const w=p.weeks||{}, pw=p.projWeeks||{};
+  let gap=0, n=0;
+  Object.keys(w).forEach(k=>{
+    const wk=Number(k); if(!(wk>=1&&wk<=thru)) return;
+    const pr=pw[k]; if(typeof pr!=='number') return;
+    gap+=(Number(w[k])||0)-pr; n++;
+  });
+  return n>=Math.min(4,thru)?Math.round(gap*10)/10:null;
+}
+function bkqProjWay(r,week,dir){
+  const season=String(bkLeagueSeason());
+  if(bkPool(season).length<50) return null;
+  const thru=Number(week)-1; if(thru<4) return null;      // a month in before it means anything
+  const field=[];
+  [1,2,3,4].forEach(pos=>bkRanked(pos,season).slice(0,30).forEach(p=>{
+    const g=bkProjGap(p,thru); if(g!=null) field.push({p,g}); }));
+  if(field.length<12) return null;
+  for(let tries=0;tries<24;tries++){
+    const four=bkShuffle(r,field).slice(0,4);
+    if(new Set(four.map(x=>x.g)).size<4) continue;
+    const ranked=four.slice().sort((a,b)=>dir*(b.g-a.g));
+    if(Math.abs(ranked[0].g-ranked[1].g)<1) continue;
+    const opts=bkShuffle(r,four);
+    return {kind:dir>0?'boom':'boof',
+      q:dir>0?'Which of these four players has beaten their ESPN weekly projections by the most this season?'
+             :'Which of these four players has scored under their ESPN weekly projections by the most this season?',
+      note:`Each week's score minus ESPN's projection for it, added up through week ${thru}`,
+      a:opts.map(x=>x.p.name), correct:opts.indexOf(ranked[0])};
+  }
+  return null;
+}
+function bkqBoom(r,week){ return bkqProjWay(r,week,1); }
+function bkqBoof(r,week){ return bkqProjWay(r,week,-1); }
+
+/* ── THE DAILY DROP ──────────────────────────────────────────────────────────
+   From week 10 of 2026 Ball Knowledge stops handing out five questions on a
+   Tuesday and gives out one a day instead -- Tuesday to Monday, seven a week --
+   and a Daily Pick'em goes out beside it. Everything from before is banked as
+   it was: weeks 1 to 9 keep their five, their submit button and their sealed
+   scores, and nothing here reads or rewrites them.
+
+   ONE A DAY, AND THEY STACK. A day turns at 06:00 Central, the hour the week
+   itself turns on a Tuesday. Miss a day and its question waits; miss two and
+   three are waiting on the third morning. Every one can be answered right up
+   to the Tuesday reset, and then the week is wiped and starts again with one.
+   A question still unanswered at the reset is minus one, the same as a blank
+   has always been -- not doubled, the way every blank is.
+
+   EACH ANSWER IS FINAL AND MARKED ON THE SPOT. Spread over a week, there is no
+   moment where all seven are in hand to submit together, so a tap locks the
+   answer in, it is graded there and then, and the mark goes on the profile
+   beside it: bkd_<season>_w<week> = {day:{a, r}}, r +1 or -1, never recomputed.
+
+   EVERYONE GETS THE SAME QUESTION. The first browser to open a day builds its
+   question from the seed every browser uses and writes the whole of it --
+   wording, options, answer -- to the live collection, and every browser after
+   reads that. The generators read live data, so building Saturday the question
+   that was built on Tuesday is not guaranteed; reading it back is.
+
+   THE DAILY PICK'EM is two players with projections close together, from
+   across the league's rosters: who scores more this week? Thursday's is two
+   players from the Thursday game. Every one is drawn only from players whose
+   game has not started, it locks at the first of their two kickoffs, and a tap
+   is final. Graded once both games are over, on what they actually scored:
+   right +1 and wrong -1, the same as a question, and one that locks without a
+   pick is minus one. */
+const BK_DAILY={season:'2026',week:10,tuesday:[2026,11,10]};   // the first daily week, and its Tuesday
+const BK_DAILY_N=7;                    // Tuesday to Monday
+const BK_DAY_HOUR=6;                   // 06:00 Central
+const BK_TZ='America/Chicago';
+const BK_DAY_MS=864e5;
+const BK_DAY_NAMES=['Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','Monday'];
+const BK_DAILY_KINDS=[bkqManager,bkqGroup,bkqRank,bkqGraph,bkqBio,bkqTeamRanks,bkqBoom,bkqBoof];
+
+/* The league keeps Central time, and so does the day: a phone in another time
+   zone has to agree with every other one about what day it is, or it would
+   open -- and write down for everyone -- tomorrow's question early. */
+function bkChiParts(t){
+  const p={};
+  new Intl.DateTimeFormat('en-US',{timeZone:BK_TZ,year:'numeric',month:'2-digit',day:'2-digit',
+    hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}).formatToParts(new Date(t))
+    .forEach(x=>{ p[x.type]=x.value; });
+  return {y:+p.year,m:+p.month,d:+p.day,h:+p.hour,mi:+p.minute,wd:p.weekday};
+}
+/* a Central wall-clock time as an instant: read it as UTC, see what Chicago
+   calls that, and correct by the difference until they agree */
+function bkChiMs(y,m,d,h){
+  const want=Date.UTC(y,m-1,d,h);
+  let t=want;
+  for(let i=0;i<3;i++){ const p=bkChiParts(t); t+=want-Date.UTC(p.y,p.m-1,p.d,p.h,p.mi); }
+  return t;
+}
+/* when day d (0 Tuesday .. 6 Monday) of a daily week opens. NFL weeks are seven
+   days end to end, so every one is a whole number of weeks from the first. */
+function bkDayStart(week,day){
+  const [y,m,d]=BK_DAILY.tuesday;
+  const c=new Date(Date.UTC(y,m-1,d+(Number(week)-BK_DAILY.week)*7+Number(day)));
+  return bkChiMs(c.getUTCFullYear(),c.getUTCMonth()+1,c.getUTCDate(),BK_DAY_HOUR);
+}
+function bkDailyLastWeek(){
+  let ws=[];
+  try{ const meta=_seasonMeta[BK_DAILY.season];
+    ws=Object.keys(weeksOf((meta&&meta.schedule)||[])).map(Number).filter(Boolean); }catch(e){}
+  return ws.length?Math.max(...ws):17;
+}
+/* {season, week, day} for a moment, or null before the daily drop begins or
+   after the season's last week has run out */
+function bkDailyAt(t){
+  t=t==null?Date.now():t;
+  if(String(bkLeagueSeason())!==BK_DAILY.season) return null;
+  const t0=bkDayStart(BK_DAILY.week,0);
+  if(t<t0) return null;
+  let n=Math.floor((t-t0)/BK_DAY_MS);
+  while(n>0&&bkDayStart(BK_DAILY.week,n)>t) n--;            // a day can be 23 or 25 hours
+  while(bkDayStart(BK_DAILY.week,n+1)<=t) n++;
+  const week=BK_DAILY.week+Math.floor(n/BK_DAILY_N);
+  if(week>bkDailyLastWeek()) return null;
+  return {season:BK_DAILY.season,week,day:n%BK_DAILY_N};
+}
+/* every daily week with time on the clock so far, and whether it is over */
+function bkDailyWeeks(t){
+  t=t==null?Date.now():t;
+  if(String(bkLeagueSeason())!==BK_DAILY.season) return [];
+  if(t<bkDayStart(BK_DAILY.week,0)) return [];
+  const at=bkDailyAt(t), last=at?at.week:bkDailyLastWeek();
+  const out=[];
+  for(let w=BK_DAILY.week;w<=last;w++) out.push({week:w,over:!at||w<at.week});
+  return out;
+}
+
+/* ── THE DAY'S QUESTION ─────────────────────────────────────────────────────── */
+const bkDayDoc=(s,w,d)=>`bkq-${s}-w${w}-d${d}`;
+const bkdKey=(s,w)=>`bkd_${s}_w${w}`;
+let _bkDays={},_bkDaysBusy={},_bkDays404={},_bkdLast=null;
+/* Whatever the generators read, asked for up front -- and whether it has all
+   landed. A question built before it has is a fallback kind, and it would be
+   written down for the whole league. */
+function bkDailyReady(){
+  const season=String(bkLeagueSeason());
+  bkLoadBios(); bkLoadPool(season);
+  const s4=String(bkStatSeason(4).season), s6=String(bkStatSeason(6).season);
+  bkLoadPool(s4); bkLoadPool(s6);
+  return !!(_bkPools[season]&&_bkPools[s4]&&_bkPools[s6]&&_bkBios
+    &&!Object.values(_bkLine).some(v=>v===null));
+}
+/* The week's kinds in a seeded order, a day each, and the eighth spare. A day
+   whose kind cannot build takes the spare, then the rest in order -- but only
+   once the data is all in, or a kind still waiting on a fetch would be skipped
+   for good. undefined means wait. */
+function bkDailyBuild(season,week,day){
+  const seed=Math.imul((Number(season)||0)*100+(Number(week)||0),2654435761)^0x6b43a9b5;
+  const order=bkShuffle(bkRand(seed),BK_DAILY_KINDS.map((_,i)=>i));
+  const spare=order[BK_DAILY_KINDS.length-1];
+  const tryIn=[order[day],spare,...order.filter(i=>i!==order[day]&&i!==spare)];
+  for(let j=0;j<tryIn.length;j++){
+    const i=tryIn[j]; let q=null;
+    try{ q=BK_DAILY_KINDS[i](bkRand(seed+Math.imul(i+1,0x9E3779B1)+Number(day)*104729),week); }catch(e){}
+    if(q&&Array.isArray(q.a)&&q.a.length>=2&&q.correct>=0) return q;
+    if(j===0&&!bkDailyReady()) return undefined;
+  }
+  return null;
+}
+function bkDayParse(j){
+  const f=fsIn(j); let a=null, graph=null;
+  try{ a=JSON.parse(f.a||'null'); }catch(e){}
+  try{ graph=f.graph?JSON.parse(f.graph):null; }catch(e){}
+  if(!Array.isArray(a)||a.length<2||f.correct===''||f.correct==null) return null;
+  return {kind:f.qk||'',q:f.q||'',note:f.note||'',a,correct:Number(f.correct),graph};
+}
+/* a published day never changes, so the device keeps it and never asks again */
+function bkDayKeep(k,q){
+  _bkDays[k]=q;
+  try{ localStorage.setItem('gfl:'+k,JSON.stringify(q)); }catch(e){}
+  try{ renderBallKnowledge(); }catch(e){}
+}
+function bkDayQ(season,week,day){
+  const k=bkDayDoc(season,week,day);
+  if(_bkDays[k]) return _bkDays[k];
+  try{ const q=JSON.parse(localStorage.getItem('gfl:'+k)||'null');
+    if(q&&Array.isArray(q.a)) return (_bkDays[k]=q); }catch(e){}
+  if(!_bkDaysBusy[k]){
+    _bkDaysBusy[k]=true;
+    bkDayFetch(season,week,day).finally(()=>{ _bkDaysBusy[k]=false; });
+  }
+  return null;
+}
+async function bkDayFetch(season,week,day){
+  const k=bkDayDoc(season,week,day);
+  try{
+    if(!_bkDays404[k]){
+      const r=await fetch(liveDocUrl(k),{cache:'no-store'});
+      if(r.ok){ const q=bkDayParse(await r.json()); if(q){ bkDayKeep(k,q); return; } }
+      else if(r.status!==404) return;                  // a real error: the next paint asks again
+      _bkDays404[k]=true;
+    }
+    /* nobody has opened this day yet: build it, write it down, and keep
+       whichever version got there first */
+    const q=bkDailyBuild(season,week,day); if(!q) return;
+    const body=fsOut({kind:'bkq-'+season,season:String(season),week:String(week),day:String(day),
+      qk:q.kind||'',q:q.q,note:q.note||'',a:JSON.stringify(q.a),correct:String(q.correct),
+      graph:q.graph?JSON.stringify(q.graph):'',at:String(Date.now())});
+    const w=await fetch(liveCollUrl(k),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)});
+    if(w.ok){ bkDayKeep(k,q); return; }
+    if(w.status===409){
+      _bkDays404[k]=false;
+      const r2=await fetch(liveDocUrl(k),{cache:'no-store'});
+      if(r2.ok){ const q2=bkDayParse(await r2.json()); if(q2) bkDayKeep(k,q2); }
+    }
+  }catch(e){}
+}
+/* A manager's own field, from the row the homepage already holds plus this
+   device, which is ahead of the row the moment a tap lands. */
+function bkdLoad(k){
+  let srv={}, loc={};
+  const row=_me?((_cpRows||[]).find(p=>p&&p.id===_me.k1)||null):null;
+  try{ srv=JSON.parse((row&&row[k])||'{}')||{}; }catch(e){}
+  try{ loc=_me?JSON.parse(localStorage.getItem(lsKey(k))||'{}')||{}:{}; }catch(e){}
+  return Object.assign({},srv,loc);
+}
+/* and written into every copy of that row the app is holding, so Ball
+   Knowledge moves when the tap lands rather than on the next read */
+function bkdPut(k,val){
+  if(!_me) return;
+  try{ localStorage.setItem(lsKey(k),val); }catch(e){}
+  [_cpRows,_bkProfiles].forEach(list=>{
+    const row=(list||[]).find(p=>p&&p.id===_me.k1); if(row) row[k]=val; });
+}
+async function bkDailyAnswer(week,day,ai,el){
+  if(!_me) return;
+  const at=bkDailyAt(); if(!at||at.week!==Number(week)||Number(day)>at.day) return;
+  const q=bkDayQ(at.season,week,day); if(!q) return;
+  const k=bkdKey(at.season,week), ans=bkdLoad(k);
+  if(ans[day]) return;                                   // one answer, and it is final
+  if(el&&el.blur) el.blur();
+  const r=Number(ai)===Number(q.correct)?1:-1;
+  ans[day]={a:Number(ai),r};
+  const val=JSON.stringify(ans);
+  bkdPut(k,val);
+  _bkdLast={week:Number(week),day:Number(day),ok:r>0,right:q.a[q.correct]};
+  const card=el&&el.closest?el.closest('.bk-card'):null;
+  if(card&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+    card.classList.add('bk-leave');
+    await new Promise(res=>setTimeout(res,190));
+  }
+  renderBallKnowledge();
+  try{ await gflPatchProfile(_me.k1,{[k]:val}); }catch(e){}
+}
+/* released this week and not yet answered */
+function bkDailyWaiting(at){
+  if(!at||!_me) return 0;
+  const ans=bkdLoad(bkdKey(at.season,at.week));
+  let n=0; for(let d=0;d<=at.day;d++) if(!ans[d]) n++;
+  return n;
+}
+/* A manager's daily questions: right minus wrong, in calls -- doubled with every
+   other call where they are added up -- and the blanks a reset left behind,
+   minus one each and not doubled, the way a blank always has been. */
+function bkDailyCalls(p){
+  let calls=0, missed=0;
+  bkDailyWeeks().forEach(({week,over})=>{
+    let ans={}; try{ ans=JSON.parse(p[bkdKey(BK_DAILY.season,week)]||'{}')||{}; }catch(e){}
+    let n=0;
+    Object.keys(ans).forEach(d=>{ const r=Number(ans[d]&&ans[d].r);
+      if(r===1||r===-1){ calls+=r; n++; } });
+    if(over) missed-=Math.max(0,BK_DAILY_N-n);
+  });
+  return {calls,missed};
+}
+function renderBkDaily(el,sec,at){
+  if(sec) sec.style.display='';
+  if(!_me){
+    el.innerHTML=`<div class="home-signin">
+      <div class="home-signin-t">Sign in to answer today's question and move your Ball Knowledge.</div>
+      <button class="home-signin-b" onclick="openSignIn()">Sign in</button>
+      <div class="home-signin-m">A new question every day</div>
+    </div>`;
+    return;
+  }
+  bkDailyReady();
+  const {season,week}=at;
+  const ans=bkdLoad(bkdKey(season,week));
+  const days=Array.from({length:at.day+1},(_,d)=>d);
+  const waiting=days.filter(d=>!ans[d]), answered=days.filter(d=>ans[d]);
+  const qOf=d=>bkDayQ(season,week,d);
+  const next=waiting.find(d=>qOf(d));
+  const last=_bkdLast&&_bkdLast.week===week?_bkdLast:null;
+  const flash=last?`<div class="bkd-flash ${last.ok?'ok':'no'}">
+      <i class="fa ${last.ok?'fa-check':'fa-xmark'}"></i>${last.ok?'Right':`Wrong — it was <b>${last.right}</b>`}</div>`:'';
+  const card=d=>{ const q=qOf(d);
+    return `<div class="bk-card bk-open bk-enter">
+      <div class="bkd-day">${BK_DAY_NAMES[d]}'s question${waiting.length>1?` · ${waiting.length} waiting`:''}</div>
+      <div class="bk-q">${q.q}</div>
+      ${q.graph?`<div class="bk-graphwrap">${bkGraphSVG(q.graph)}</div>`:''}
+      ${q.note?`<div class="bk-note">${q.note}</div>`:''}
+      <div class="bk-opts">
+        ${q.a.map((opt,ai)=>`<button type="button" class="bk-opt" onclick="bkDailyAnswer(${week},${d},${ai},this)">${opt}</button>`).join('')}
+      </div>
+    </div>`; };
+  const rows=answered.slice().reverse().map(d=>{
+    const q=qOf(d); if(!q) return '';
+    const ok=Number(ans[d].r)===1;
+    return `<div class="bkr ${ok?'ok':'no'}">
+      <i class="fa ${ok?'fa-check':'fa-xmark'}"></i>
+      <span class="bkr-q">${q.q}</span>
+      <span class="bkr-a">${q.a[q.correct]}</span>
+    </div>`; }).join('');
+  const right=answered.filter(d=>Number(ans[d].r)===1).length, wrong=answered.length-right;
+  const delta=(right-wrong)*BK_PT*bkIQCfg().step;
+  const nextAt=at.day<BK_DAILY_N-1?'Next one tomorrow at 6 AM':'A new week starts Tuesday at 6 AM';
+  el.innerHTML=`
+    <div class="bk-meta"><span>Week ${week} · ${BK_DAY_NAMES[at.day]}</span>
+      <span class="bk-count">${answered.length} of ${days.length} answered</span></div>
+    ${flash}
+    ${next!=null?card(next)
+      :waiting.length?`<div class="tab-loading" style="padding:18px"><i class="fa fa-circle-notch"></i>Getting today's question…</div>`
+      :`<div class="bkd-done"><i class="fa fa-circle-check"></i>All caught up. ${nextAt}.</div>`}
+    ${rows?`<div class="bk-score">${rows}</div>`:''}
+    ${answered.length?`<div class="bk-delta ${delta>0?'up':delta<0?'down':'flat'}">
+      <span class="bk-delta-v">${delta>0?'+':delta<0?'−':''}${Math.abs(delta)}</span>
+      <span class="bk-delta-l">Ball Knowledge this week</span>
+    </div>`:''}
+    <div class="bkd-foot">One question a day, and each answer is final. Miss a day and it waits for you; anything still unanswered at the Tuesday reset counts against you.</div>`;
+  bkPlace(!waiting.length);
+  orderHomeTodo();
+}
+
+/* ── THE DAILY PICK'EM ─────────────────────────────────────────────────────── */
+const pkeDoc=(s,w,d)=>`pke-${s}-w${w}-d${d}`;
+const pkdKey=(s,w)=>`pkd_${s}_w${w}`;
+let _pkeDays={},_pkeBusy={},_pke404={};
+function pkeParse(j){
+  const f=fsIn(j); let a=null, b=null;
+  try{ a=JSON.parse(f.a||'null'); b=JSON.parse(f.b||'null'); }catch(e){}
+  if(!a||!b||!a.pid||!b.pid) return null;
+  return {season:String(f.season||BK_DAILY.season),week:Number(f.week)||0,day:Number(f.day)||0,
+    a,b,k:Number(f.k)||0};
+}
+/* Two players, rostered somewhere in the league, projected for at least ten,
+   at a skill position, and with a game at least half an hour from kicking off
+   when the pair is drawn. Sorted by projection and taken as neighbours, the
+   way the sportsbook's Pick 'Em is, so the two are close. Thursday's comes
+   from the Thursday game when there is one; nobody already used this week is
+   drawn again. undefined while the schedule or the rosters are still coming. */
+function pkeBuild(season,week,day,now){
+  now=now==null?Date.now():now;
+  const g=nflWeekGames(week,season);
+  if(!g||!Array.isArray(g.games)||!g.games.length) return undefined;
+  const rost=sbRosters(String(season),week); if(!rost) return undefined;
+  const byAb={}; g.games.forEach(x=>{ byAb[x.ht]=x; byAb[x.at]=x; });
+  const used=new Set();
+  for(let d=0;d<day;d++){ const pe=_pkeDays[pkeDoc(season,week,d)];
+    if(pe){ used.add(String(pe.a.pid)); used.add(String(pe.b.pid)); } }
+  const open=now+30*60*1000, seen=new Set();
+  let c=[];
+  Object.keys(rost).forEach(tid=>(rost[tid]||[]).forEach(e=>{
+    if(!e||e.pid==null) return;
+    const id=String(e.pid);
+    if(seen.has(id)||used.has(id)||e.slot===21) return;               // IR is out
+    if(!(e.pos>=1&&e.pos<=4)) return;                                  // QB RB WR TE
+    const ab=NFL_TEAMS[Number(e.proTeam)], gm=ab?byAb[ab]:null;
+    if(!gm||gm.s!=='pre'||!(gm.k>open)) return;   // played, playing, on a bye, or about to kick off
+    const proj=Number(e.wkProj)||0; if(proj<PICKEM_MIN_PROJ) return;
+    seen.add(id);
+    c.push({pid:Number(e.pid),name:e.n||pName(e.pid),pos:Number(e.pos),team:ab,pt:Number(e.proTeam),
+      proj:Math.round(proj*10)/10,k:gm.k});
+  }));
+  if(Number(day)===2){ const thu=c.filter(x=>bkChiParts(x.k).wd==='Thu'); if(thu.length>=2) c=thu; }
+  if(c.length<2) return null;
+  c.sort((x,y)=>y.proj-x.proj||x.pid-y.pid);
+  const r=bkRand(Math.imul((Number(season)||0)*1000+Number(week)*10+Number(day),2654435761)^0x2545F491);
+  const i=Math.floor(r()*(c.length-1));
+  const pair=bkShuffle(r,[c[i],c[i+1]]);
+  return {a:pair[0],b:pair[1],k:Math.min(pair[0].k,pair[1].k)};
+}
+function pkeKeep(k,pe){
+  _pkeDays[k]=pe;
+  try{ localStorage.setItem('gfl:'+k,JSON.stringify(pe)); }catch(e){}
+  try{ pkeRender(); }catch(e){}
+}
+function pkeDay(season,week,day){
+  const k=pkeDoc(season,week,day);
+  if(_pkeDays[k]) return _pkeDays[k];
+  try{ const pe=JSON.parse(localStorage.getItem('gfl:'+k)||'null');
+    if(pe&&pe.a&&pe.b) return (_pkeDays[k]=pe); }catch(e){}
+  if(!_pkeBusy[k]){
+    _pkeBusy[k]=true;
+    pkeFetch(season,week,day).finally(()=>{ _pkeBusy[k]=false; });
+  }
+  return null;
+}
+async function pkeFetch(season,week,day){
+  const k=pkeDoc(season,week,day);
+  try{
+    if(!_pke404[k]){
+      const r=await fetch(liveDocUrl(k),{cache:'no-store'});
+      if(r.ok){ const pe=pkeParse(await r.json()); if(pe){ pkeKeep(k,pe); return; } }
+      else if(r.status!==404) return;
+      _pke404[k]=true;
+    }
+    const b=pkeBuild(season,week,day); if(!b) return;
+    const pe={season:String(season),week:Number(week),day:Number(day),a:b.a,b:b.b,k:b.k};
+    const body=fsOut({kind:'pke-'+season,season:String(season),week:String(week),day:String(day),
+      a:JSON.stringify(b.a),b:JSON.stringify(b.b),k:String(b.k),at:String(Date.now())});
+    const w=await fetch(liveCollUrl(k),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)});
+    if(w.ok){ pkeKeep(k,pe); return; }
+    if(w.status===409){
+      _pke404[k]=false;
+      const r2=await fetch(liveDocUrl(k),{cache:'no-store'});
+      if(r2.ok){ const p2=pkeParse(await r2.json()); if(p2) pkeKeep(k,p2); }
+    }
+  }catch(e){}
+}
+/* shut at the first kickoff of the two -- or the moment the scoreboard says
+   either game is on, should a kickoff ever move */
+function pkeLocked(pe,now){
+  now=now==null?Date.now():now;
+  if(now>=pe.k) return true;
+  return [pe.a,pe.b].some(x=>{ let s=null; try{ s=nflTeamState(x.pt,pe.week,pe.season); }catch(e){}
+    return s==='in'||s==='post'; });
+}
+async function pkePick(week,day,pid,el){
+  if(!_me) return;
+  const at=bkDailyAt(); if(!at||at.week!==Number(week)) return;
+  const pe=_pkeDays[pkeDoc(at.season,week,day)]; if(!pe||pkeLocked(pe)) return;
+  const k=pkdKey(at.season,week), picks=bkdLoad(k);
+  if(picks[day]!=null) return;                           // a tap is final
+  if(el&&el.blur) el.blur();
+  picks[day]=String(pid);
+  bkdPut(k,JSON.stringify(picks));
+  pkeRender();
+  try{ orderHomeTodo(); }catch(e){}
+  try{ await gflPatchProfile(_me.k1,{[k]:JSON.stringify(picks)}); }catch(e){}
+}
+/* what a player scored that week: the season's player pool, or the roster
+   feed's own number for the week in hand */
+function pkePts(pid,season,week){
+  const pl=bkPool(season).find(x=>String(x.id)===String(pid));
+  const v=pl&&pl.weeks?pl.weeks[String(week)]:undefined;
+  if(typeof v==='number') return v;
+  try{ const r=_sbRosters[String(season)+':'+week];
+    if(r) for(const tid of Object.keys(r)){
+      const e=(r[tid]||[]).find(x=>String(x.pid)===String(pid));
+      if(e&&typeof e.wkAct==='number') return e.wkAct; } }catch(e){}
+  return null;
+}
+/* the winner's pid, 0 for a dead heat, or null while it is not settled. Within
+   the week both games have to be final; once the week is over a player with no
+   line for it did not play, and scored nothing. */
+function pkeResult(pe){
+  const wk=bkDailyWeeks().find(x=>x.week===Number(pe.week));
+  const over=!!(wk&&wk.over);
+  if(!over){
+    const done=x=>{ let s=null; try{ s=nflTeamState(x.pt,pe.week,pe.season); }catch(e){} return s==='post'; };
+    if(!done(pe.a)||!done(pe.b)) return null;
+  }
+  let A=pkePts(pe.a.pid,pe.season,pe.week), B=pkePts(pe.b.pid,pe.season,pe.week);
+  if(A==null||B==null){
+    if(!over||!bkPool(pe.season).length) return null;
+    if(A==null) A=0; if(B==null) B=0;
+  }
+  return A>B?Number(pe.a.pid):B>A?Number(pe.b.pid):0;
+}
+/* Every pick'em of the season, for scoring: one query on the live collection,
+   kept ten minutes and across reloads in the tab. null until it lands. */
+let _pkeAll=null,_pkeAllAt=0,_pkeAllBusy=false;
+const PKE_ALL_TTL=10*60*1000;
+function pkeAll(){
+  if(!bkDailyWeeks().length) return {};
+  if(_pkeAll&&Date.now()-_pkeAllAt<PKE_ALL_TTL) return _pkeAll;
+  if(!_pkeAll){
+    try{ const j=JSON.parse(sessionStorage.getItem('gfl:pkeAll')||'null');
+      if(j&&j.rows&&Date.now()-Number(j.t||0)<PKE_ALL_TTL){ _pkeAll=j.rows; _pkeAllAt=Number(j.t); return _pkeAll; } }catch(e){}
+  }
+  if(!_pkeAllBusy){
+    _pkeAllBusy=true;
+    fetch(fsRunQueryUrl(),{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({structuredQuery:{from:[{collectionId:'live'}],where:fsEq('kind','pke-'+BK_DAILY.season)}})})
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{
+        if(!Array.isArray(j)) return;
+        const rows={};
+        j.forEach(x=>{ if(!x||!x.document) return; const pe=pkeParse(x.document);
+          if(pe) rows[pkeDoc(pe.season,pe.week,pe.day)]=pe; });
+        _pkeAll=rows; _pkeAllAt=Date.now();
+        try{ sessionStorage.setItem('gfl:pkeAll',JSON.stringify({t:_pkeAllAt,rows})); }catch(e){}
+        try{ pkeRender(); }catch(e){}
+        try{ if(_activeTab==='leaders') renderLeaders(); }catch(e){}
+        try{ if(_activeTab==='teams') renderProfile(); }catch(e){}
+      })
+      .catch(()=>{})
+      .finally(()=>{ _pkeAllBusy=false; });
+  }
+  return _pkeAll;
+}
+/* A manager's pick'ems: right minus wrong in calls, and minus one for each one
+   that locked without a pick. A day nobody in the league opened has no pick'em
+   to miss. */
+function pkeCalls(p){
+  const all=Object.assign({},pkeAll()||{},_pkeDays);
+  let calls=0, missed=0;
+  const now=Date.now();
+  Object.values(all).forEach(pe=>{
+    if(!pe||String(pe.season)!==BK_DAILY.season) return;
+    let picks={}; try{ picks=JSON.parse(p[pkdKey(pe.season,pe.week)]||'{}')||{}; }catch(e){}
+    const mine=picks[pe.day];
+    if(mine==null){ if(pkeLocked(pe,now)) missed-=1; return; }
+    const w=pkeResult(pe); if(!w) return;
+    calls+=String(w)===String(mine)?1:-1;
+  });
+  return {calls,missed};
+}
+/* released, drawn, not picked and not locked */
+function pkeOpen(at){
+  at=at||bkDailyAt(); if(!at||!_me) return [];
+  const picks=bkdLoad(pkdKey(at.season,at.week)), now=Date.now(), out=[];
+  for(let d=0;d<=at.day;d++){
+    const pe=pkeDay(at.season,at.week,d);
+    if(pe&&picks[d]==null&&!pkeLocked(pe,now)) out.push({d,pe});
+  }
+  return out;
+}
+const pkeWhen=k=>new Intl.DateTimeFormat('en-US',{timeZone:BK_TZ,weekday:'short',hour:'numeric',minute:'2-digit'})
+  .format(new Date(k));
+function pkeRender(){
+  const el=document.getElementById('pe-body'), sec=document.getElementById('pe-sec');
+  if(!el) return;
+  const at=bkDailyAt();
+  if(!at){ if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  if(!_me){
+    el.innerHTML=`<div class="home-signin">
+      <div class="home-signin-t">Sign in to make today's pick and move your Ball Knowledge.</div>
+      <button class="home-signin-b" onclick="openSignIn()">Sign in</button>
+      <div class="home-signin-m">A new pick'em every day</div>
+    </div>`;
+    return;
+  }
+  const {season,week}=at;
+  try{ bkLoadPool(season); }catch(e){}
+  const picks=bkdLoad(pkdKey(season,week)), now=Date.now();
+  const days=Array.from({length:at.day+1},(_,d)=>d);
+  const drawn=days.map(d=>({d,pe:pkeDay(season,week,d)})).filter(x=>x.pe);
+  const open=drawn.filter(x=>picks[x.d]==null&&!pkeLocked(x.pe,now));
+  const cur=open[0];
+  const side=(x,d)=>`<button type="button" class="pke-pl" onclick="pkePick(${week},${d},${x.pid},this)">
+      ${playerImg(x.pid,46,x.name)}
+      <span class="pke-nm">${x.name}</span>
+      <span class="pke-mt">${POS_NAMES[x.pos]||''} · ${x.team}</span>
+      <span class="pke-pr">Proj ${Number(x.proj).toFixed(1)}</span>
+    </button>`;
+  const card=cur?`<div class="pke-card">
+      <div class="bkd-day">${BK_DAY_NAMES[cur.d]}'s pick'em${open.length>1?` · ${open.length} open`:''}</div>
+      <div class="pke-q">Who scores more this week?</div>
+      <div class="pke-two">${side(cur.pe.a,cur.d)}<span class="pke-vs">vs</span>${side(cur.pe.b,cur.d)}</div>
+      <div class="pke-lock"><i class="fa fa-lock"></i>Locks ${pkeWhen(cur.pe.k)} CT · your first tap is final</div>
+    </div>`:'';
+  const pts=x=>{ const v=pkePts(x.pid,season,week); return v==null?'':Number(v).toFixed(1); };
+  const rows=drawn.filter(x=>x!==cur&&!open.includes(x)).reverse().map(x=>{
+    const mine=picks[x.d], pe=x.pe;
+    const nm=pid=>String(pe.a.pid)===String(pid)?pe.a.name:pe.b.name;
+    if(mine==null) return `<div class="pker miss"><i class="fa fa-minus"></i>
+      <span class="pker-q">${pe.a.name} vs ${pe.b.name}</span><span class="pker-a">Missed</span></div>`;
+    const w=pkeResult(pe);
+    if(w==null) return `<div class="pker pend"><i class="fa fa-hourglass-half"></i>
+      <span class="pker-q">${pe.a.name} vs ${pe.b.name}</span><span class="pker-a">You took ${nm(mine)}</span></div>`;
+    const score=`${pts(pe.a)}–${pts(pe.b)}`;
+    if(w===0) return `<div class="pker pend"><i class="fa fa-equals"></i>
+      <span class="pker-q">${pe.a.name} vs ${pe.b.name} · ${score}</span><span class="pker-a">Dead heat</span></div>`;
+    const ok=String(w)===String(mine);
+    return `<div class="pker ${ok?'ok':'no'}"><i class="fa ${ok?'fa-check':'fa-xmark'}"></i>
+      <span class="pker-q">${pe.a.name} vs ${pe.b.name} · ${score}</span><span class="pker-a">${nm(w)}</span></div>`;
+  }).join('');
+  const waitingDraw=days.length>drawn.length;
+  el.innerHTML=`
+    <div class="bk-meta"><span>Week ${week} · ${BK_DAY_NAMES[at.day]}</span>
+      <span class="bk-count">${drawn.filter(x=>picks[x.d]!=null).length} of ${drawn.length} picked</span></div>
+    ${card||(waitingDraw&&!drawn.length?`<div class="tab-loading" style="padding:18px"><i class="fa fa-circle-notch"></i>Drawing today's pick'em…</div>`
+      :`<div class="bkd-done"><i class="fa fa-circle-check"></i>Nothing open. ${at.day<BK_DAILY_N-1?'Next one tomorrow at 6 AM':'A new week starts Tuesday at 6 AM'}.</div>`)}
+    ${rows?`<div class="bk-score">${rows}</div>`:''}
+    <div class="bkd-foot">Two players with similar projections: who scores more this week? It locks when the first of their games kicks off, and a pick'em that locks without a pick counts against you.</div>`;
+  try{ orderHomeTodo(); }catch(e){}
+}
 function renderBallKnowledge(){
   const el=document.getElementById('bk-body'); if(!el) return;
+  /* from week 10 of 2026 the card is the daily drop -- see THE DAILY DROP */
+  { const at=bkDailyAt(); if(at){ renderBkDaily(el,document.getElementById('bk-sec'),at); return; } }
   bkSync();                                  // fire and forget; re-renders if it finds saved answers
   const sec=document.getElementById('bk-sec');
   const qs=bkQuestions();
@@ -20237,7 +20841,9 @@ const HOME_TODO=[
      than holding a slot above the picks. */
   {id:'nt-sec', done:()=>ntDone(), sinkWhenDone:true},
   {id:'pk-sec', done:()=>pkSubmitted()||pkLocked()},
-  {id:'bk-sec', done:()=>{ const qs=bkQuestions(); if(!qs.length) return true;
+  {id:'pe-sec', done:()=>pkeOpen().length===0},
+  {id:'bk-sec', done:()=>{ const at=bkDailyAt(); if(at) return bkDailyWaiting(at)===0;
+    const qs=bkQuestions(); if(!qs.length) return true;
     return bkSubmitted(); }},
 ];
 /* Outstanding cards rise to the top of the stack, finished ones sink. All
@@ -20952,6 +21558,11 @@ function bkIQFor(teamId){
     if(p[bkScoreKey(bkWeek())]==null&&p[bkSubKey()]) calls+=bkLiveTrivia(p);
     // weekly picks, graded against results that exist
     calls+=bkPickScore(p);
+    /* the daily drop: a question or a pick'em right or wrong is a call like any
+       other; one left blank or locked unpicked is minus one, not doubled */
+    const dq=bkDailyCalls(p), dp=pkeCalls(p);
+    calls+=dq.calls+dp.calls;
+    score+=dq.missed+dp.missed;
     score+=calls*BK_PT+bkPicksMissed(p);
   });
   /* ── BETS DO NOT COUNT TOWARD BALL KNOWLEDGE ────────────────────────
@@ -21038,7 +21649,7 @@ function bkIQColor(v){
 function bkIQHTML(teamId){
   /* same stale guard: config holds no questions any more, so this hid the bar
      outright. It shows whenever there is a set to be graded against. */
-  if(!bkQuestions().length) return '';
+  if(!bkQuestions().length&&!bkDailyWeeks().length) return '';
   /* The bet component comes out of the season ledger; without it this meter
      draws a total with a piece missing and then corrects itself. Ask once and
      repaint when it lands. The leaderboard does the same at the top of
@@ -25455,6 +26066,10 @@ async function loadDashboard(){
               <div class="sec-head"><i class="fa fa-burst"></i>Matchup Picks</div>
               <div id="pk-body"></div>
             </div>
+            ${bkDailyAt()?`<div class="sec wm mod-pe" data-wm="&#xf24e;" id="pe-sec">
+              <div class="sec-head"><i class="fa fa-scale-balanced"></i>Daily Pick'em</div>
+              <div id="pe-body"></div>
+            </div>`:''}
             <!-- Matchup of the Week is hidden for now. The markup and
                  renderMatchupOfWeek() are both still here; putting the block
                  back and restoring the call in the boot sequence brings it
@@ -25723,6 +26338,7 @@ async function loadDashboard(){
     renderMyMatchupBar();   // punishment bar: config-driven, so it can paint now
     renderBallKnowledge();
     renderWeekPicks();
+    try{ pkeRender(); }catch(e){}
     renderCoachesPoll();
     leagueStart();            // keeps shared tallies in step across open sessions
     renderLeagueAction();

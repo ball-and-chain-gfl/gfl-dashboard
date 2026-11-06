@@ -169,6 +169,13 @@ balance is derived by replaying the collection, so removing a bet would silently
 rewrite history and hand back a losing stake. `live` is written only while games
 are in progress, and is emptied into the repo once a week is final.
 
+`live` also holds the daily drop that began in week 10 of 2026: a
+`bkq-<season>-w<week>-d<day>` question and a `pke-<season>-w<week>-d<day>`
+pick'em for each day, written once by the first browser to open that day and
+read by every browser after (see THE DAILY DROP in `app.js`). The answers and
+picks are on profiles as `bkd_` and `pkd_` fields. The pick'em documents are
+what every pick'em all season is graded against, so nothing may delete them.
+
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).
 An ordered query on a filtered field needs a composite index, and without one

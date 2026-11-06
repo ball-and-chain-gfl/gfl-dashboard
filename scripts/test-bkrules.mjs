@@ -35,6 +35,10 @@ const B = assemble(grab, [
 ], ['bkIQFor', 'bkPicksMissed', 'setRows', 'setStarted', 'setPicks'], [
   "const _CFG={ballKnowledge:{iq:{step:1,min:70,max:230}}};",
   "const bkLeagueSeason=()=>'2026'; const bkWeek=()=>5;",
+  /* the daily drop starts in week 10 and has its own suite (test-daily); here,
+     in week 5, it has nothing to add */
+  "const BK_DAILY={season:'2026',week:10};",
+  "const bkDailyCalls=()=>({calls:0,missed:0}); const pkeCalls=()=>({calls:0,missed:0});",
   "const bkSubKey=()=>'bk_2026_w5_sub';",
   "let _liveInfo={week:5,season:'2026'}; const liveWeekInfo=()=>_liveInfo;",
   `const _seasonMeta={2026:{schedule:${JSON.stringify(sched)}}};`,

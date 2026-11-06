@@ -20,7 +20,11 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 /* the registry's predicates reach for a dozen globals; every one is a stub the
    test drives, so each card can be put in either state on demand */
 const PRELUDE = [
-  'let S={cp:false,nt:false,pk:false,bk:false,bkAsked:true};',
+  'let S={cp:false,nt:false,pk:false,bk:false,bkAsked:true,peOpen:false,daily:null,dwait:0};',
+  /* the daily drop: the pick'em card, and Ball Knowledge's daily mode */
+  'const pkeOpen=()=>S.peOpen?[1]:[];',
+  'const bkDailyAt=()=>S.daily;',
+  'const bkDailyWaiting=()=>S.dwait;',
   'const _me={k1:"me"};',
   'let _cpJustSent=false;',
   'let _cpRows=[];',
@@ -60,7 +64,7 @@ const ALL_DONE = { cp: true, nt: true, pk: true, bk: true };
 
 head('the registry');
 ok('Your Forecast is registered first', M.HOME_TODO[0].id, 'fc-sec');
-ok('all five cards are in the stack', M.HOME_TODO.length, 5);
+ok('all six cards are in the stack', M.HOME_TODO.length, 6);
 
 head('everything finished');
 M.setState(ALL_DONE);
@@ -69,12 +73,12 @@ ok('the forecast leads the page', order()[0], 'fc-sec');
 /* cleared notifications have nothing left to show, so they go to the very
    bottom -- under Ball Knowledge -- rather than holding a slot above the picks */
 ok('and the rest follow in registry order, notifications last',
-  order(), ['fc-sec', 'cp-sec', 'pk-sec', 'bk-sec', 'nt-sec']);
+  order(), ['fc-sec', 'cp-sec', 'pk-sec', 'pe-sec', 'bk-sec', 'nt-sec']);
 
 head('seen notifications sink below everything finished');
 M.setState({ ...ALL_DONE, bk: false });
 ok('Ball Knowledge still open: it leads, and the notifications are still last',
-  order(), ['bk-sec', 'fc-sec', 'cp-sec', 'pk-sec', 'nt-sec']);
+  order(), ['bk-sec', 'fc-sec', 'cp-sec', 'pk-sec', 'pe-sec', 'nt-sec']);
 M.setState({ ...ALL_DONE, pk: false, cp: false });
 ok('whatever is outstanding, a cleared stack is the last card on the page',
   order()[order().length - 1], 'nt-sec');
@@ -97,15 +101,24 @@ head('so does every other kind of unfinished business');
 });
 
 head('several at once');
-M.setState({ cp: false, nt: false, pk: false, bk: false });
-ok('all four outstanding, in registry order',
-  order(), ['cp-sec', 'nt-sec', 'pk-sec', 'bk-sec', 'fc-sec']);
+M.setState({ cp: false, nt: false, pk: false, bk: false, peOpen: true });
+ok('all five outstanding, in registry order',
+  order(), ['cp-sec', 'nt-sec', 'pk-sec', 'pe-sec', 'bk-sec', 'fc-sec']);
 ok('the forecast is last when everything else wants something',
   order()[order().length - 1], 'fc-sec');
 
-M.setState({ ...ALL_DONE, nt: false, pk: false });
+M.setState({ ...ALL_DONE, nt: false, pk: false, peOpen: false });
 ok('two outstanding sit above it, finished ones below',
-  order(), ['nt-sec', 'pk-sec', 'fc-sec', 'cp-sec', 'bk-sec']);
+  order(), ['nt-sec', 'pk-sec', 'fc-sec', 'cp-sec', 'pe-sec', 'bk-sec']);
+
+head('the daily drop, from week 10');
+M.setState({ ...ALL_DONE, peOpen: true });
+ok("a pick'em still open rises above the forecast", order().slice(0, 2), ['pe-sec', 'fc-sec']);
+M.setState({ ...ALL_DONE, peOpen: false, daily: { week: 10, day: 2 }, dwait: 1 });
+ok('a daily question waiting holds Ball Knowledge open, whatever the weekly flag says', outstanding(), ['bk-sec']);
+M.setState({ ...ALL_DONE, bk: false, daily: { week: 10, day: 2 }, dwait: 0 });
+ok('and none waiting is finished', outstanding(), []);
+M.setState({ daily: null, dwait: 0 });
 
 head('Ball Knowledge with no questions asked is finished, not outstanding');
 M.setState({ ...ALL_DONE, bk: false, bkAsked: false });

@@ -1008,6 +1008,51 @@
     .bk-delta.flat .bk-delta-v{color:var(--text2);}
     .bk-delta-l{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    /* ── The daily drop: one question and one pick'em a day, from week 10 ──
+       Built out of the Ball Knowledge card's own parts -- the question card,
+       the scorecard rows, the swing -- with a line for which day a card is and
+       a note when everything owed has been answered. */
+    .bkd-day{margin-bottom:6px;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+      letter-spacing:.6px;text-transform:uppercase;color:var(--accent);}
+    .bkd-flash{display:flex;align-items:center;gap:8px;margin:0 0 9px;padding:8px 11px;border-radius:9px;
+      background:rgba(0,0,0,0.3);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;}
+    .bkd-flash.ok{color:#3fd07a;}
+    .bkd-flash.no{color:#e8687e;}
+    .bkd-flash b{color:var(--text);}
+    .bkd-done{display:flex;align-items:center;gap:9px;margin-bottom:8px;padding:13px 12px;border-radius:10px;
+      background:rgba(0,0,0,0.3);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;color:var(--text2);}
+    .bkd-done i{color:var(--accent);}
+    .bkd-foot{margin-top:10px;font-size:10.5px;line-height:1.45;color:var(--text3);}
+    .bk-card+.bk-score,.pke-card+.bk-score{margin-top:8px;}
+    /* the pick'em: two players side by side, and a tap on one is the pick */
+    .pke-card{padding:11px 12px;border-radius:10px;background:rgba(0,0,0,0.3);text-align:center;}
+    .pke-q{margin-bottom:10px;font-size:13.5px;font-weight:600;line-height:1.35;}
+    .pke-two{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:stretch;}
+    .pke-pl{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;padding:12px 8px 10px;
+      border-radius:10px;border:1px solid rgba(var(--accent-rgb),0.28);background:rgba(0,0,0,0.3);
+      color:var(--text);box-shadow:none;cursor:pointer;font-family:inherit;
+      transition:border-color .15s,background .15s;}
+    @media(hover:hover){ .pke-pl:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),0.10);} }
+    .pke-pl:active{transform:translateY(1px);}
+    .pke-nm{max-width:100%;font-family:'Inter',sans-serif;font-size:13px;font-weight:800;line-height:1.2;
+      text-align:center;overflow-wrap:anywhere;}
+    .pke-mt{font-family:'Inter',sans-serif;font-size:10.5px;letter-spacing:.3px;color:var(--text3);}
+    .pke-pr{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--accent);}
+    .pke-vs{align-self:center;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;
+      letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+    .pke-lock{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;
+      font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text3);}
+    .pker{display:flex;align-items:center;gap:8px;min-width:0;padding:7px 9px;border-radius:8px;
+      background:rgba(0,0,0,0.3);font-size:12px;}
+    .pker>i{flex:0 0 auto;width:16px;height:16px;border-radius:5px;display:flex;align-items:center;
+      justify-content:center;font-size:8px;background:rgba(255,255,255,0.08);color:var(--text3);}
+    .pker.ok>i{background:rgba(63,208,122,0.2);color:#3fd07a;}
+    .pker.no>i,.pker.miss>i{background:rgba(232,104,126,0.2);color:#e8687e;}
+    .pker-q{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2);}
+    .pker-a{flex:0 0 auto;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text2);}
+    .pker.ok .pker-a{color:#3fd07a;}
+    .pker.no .pker-a,.pker.miss .pker-a{color:#e8687e;}
     /* step back to the previous question while the set is still open */
     .bk-back{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
       margin-top:8px;padding:8px;border-radius:8px;border:1px solid transparent;
@@ -6597,7 +6642,7 @@
       .home-top .mod-cp{grid-area:s2;}
       .home-top .mod-fc{grid-area:s1;}
       .home-top .home-vid-col>.sec:not(.mod-cp){grid-area:video;}
-      .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk):not(.mod-cp):not(.mod-nt):not(.mod-fc){grid-area:motw;}
+      .home-top .home-left-col>.sec:not(.mod-bk):not(.mod-pk):not(.mod-cp):not(.mod-nt):not(.mod-fc):not(.mod-pe){grid-area:motw;}
       /* A named row nothing occupies is still a row, and still pays for the gap
          on either side of it. Two of these can be empty: motw is empty whenever
          Matchup of the Week is out of the markup, and s3 empties when Ball
@@ -6605,13 +6650,24 @@
          the grid trails 40px past its last card and the moved section lands
          twice as far from what is above it as the cards sit from each other.
          Each combination gets the template that only names the rows in use. */
-      .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc))){
+      .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
         grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5";}
       .home-top:not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "s3" "s4" "motw";}
-      .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc))){
+      .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
         grid-template-areas:"video" "s1" "s2" "s3" "s4";}
       /* and the card carries on the grid's own rhythm rather than the wider
          margin the grid keeps for the rest of the page */
+      /* THE DAILY PICK'EM IS A SIXTH TO-DO CARD from week 10, so each template
+         carries one more slot while it is on the page. Without it, the five
+         above are exactly as they were. */
+      .home-top .mod-pe{grid-area:s5;}
+      .home-top:has(.mod-pe) .mod-bk{grid-area:s6;}
+      .home-top:has(.mod-pe){grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "s6" "motw";}
+      .home-top:has(.mod-pe):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
+        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "s6";}
+      .home-top:has(.mod-pe):not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "motw";}
+      .home-top:has(.mod-pe):not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
+        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5";}
       #page-home:has(.bk-moved) .home-top{margin-bottom:20px;}
       .bk-moved,.nt-moved{margin-top:0;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
@@ -7261,6 +7317,34 @@
       #page-home .mod-cp,#page-home .mod-nt,#page-home .mod-pk,#page-home .mod-bk{
         padding:14px 12px 16px!important;}
     }
+    /* ── The Daily Pick'em module: teal, and dressed exactly like the other
+       to-do cards (the same selectors, with .mod-pe in place of theirs) ── */
+    #page-home .mod-pe{--accent:#3ad0c4;--accent2:#5aa9f0;--accent-rgb:58,208,196;
+      --grad:linear-gradient(135deg,var(--accent),var(--accent2));}
+    html[data-theme] #page-home .sec.wm.mod-pe.mod-pe.home-todo{
+      border:1px solid rgba(var(--accent-rgb),0.46)!important;
+      background:linear-gradient(rgba(var(--accent-rgb),0.15),rgba(var(--accent-rgb),0.05)),
+        rgba(0,0,0,0.18)!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),
+        0 0 0 3px rgba(var(--accent-rgb),0.07)!important;}
+    html[data-theme] #page-home .sec.wm.mod-pe.mod-pe{
+      transition:background .25s ease,border-color .25s ease,box-shadow .25s ease;}
+    html[data-theme="dark"] #page-home .sec.wm.mod-pe.mod-pe{
+      padding:16px 15px 18px!important;
+      border-radius:16px!important;
+      border:1px solid rgba(var(--accent-rgb),0.16)!important;
+      background:linear-gradient(rgba(var(--accent-rgb),0.06),rgba(var(--accent-rgb),0.02)),
+        rgba(0,0,0,0.18)!important;
+      -webkit-backdrop-filter:blur(12px) saturate(1.15)!important;
+      backdrop-filter:blur(12px) saturate(1.15)!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)!important;
+      overflow:visible!important;}
+    html[data-theme="dark"] #page-home .sec.wm.mod-pe.mod-pe.home-todo{
+      border:1px solid rgba(var(--accent-rgb),0.46)!important;
+      background:linear-gradient(rgba(var(--accent-rgb),0.15),rgba(var(--accent-rgb),0.05)),
+        rgba(0,0,0,0.18)!important;}
+    #page-home .mod-pe>.sec-head{padding:0 0 10px!important;}
+    @media(max-width:400px){ #page-home .mod-pe{padding:14px 12px 16px!important;} }
   </style>
 </head>
 <body>
