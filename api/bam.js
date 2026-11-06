@@ -194,8 +194,12 @@ export function png(img) {
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  /* Level 6, not 9. Measured on 6 November: 9 spent 133 of a card's 155 ms of
+     CPU to save about 15% of its bytes, and Active CPU (4 hours a month) is the
+     free plan's tightest limit, while the bytes are a rounding error against
+     its 10 GB of transfer. */
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr),
-    chunk('IDAT', zlib.deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
+    chunk('IDAT', zlib.deflateSync(raw, { level: 6 })), chunk('IEND', Buffer.alloc(0))]);
 }
 
 /* ── THE CARD ────────────────────────────────────────────────────────────────
@@ -204,14 +208,21 @@ export function png(img) {
    each one its grade's colour, the whole tile, with the grade and whose it was.
    A trait has no colour of its own, the same as in the game. */
 export const CARD_W = 1200, CARD_H = 630;
-export function card(v, teams) {
-  const img = canvas(CARD_W, CARD_H);
-  const base = [11, 9, 16], glow = [166, 108, 255];
+/* the near-black ground with its violet glow is the same on every card, so it
+   is worked out once a warm instance and copied after that */
+let _ground = null;
+function ground() {
+  if (_ground) return _ground;
+  const g = canvas(CARD_W, CARD_H), base = [11, 9, 16], glow = [166, 108, 255];
   for (let y = 0; y < CARD_H; y++) for (let x = 0; x < CARD_W; x++) {
     const t = Math.max(0, 1 - Math.hypot(x - 170, y - 110) / 950) ** 2 * 0.24;
     const i = (y * CARD_W + x) * 3;
-    img.d[i] = base[0] + (glow[0] - base[0]) * t; img.d[i + 1] = base[1] + (glow[1] - base[1]) * t; img.d[i + 2] = base[2] + (glow[2] - base[2]) * t;
+    g.d[i] = base[0] + (glow[0] - base[0]) * t; g.d[i + 1] = base[1] + (glow[1] - base[1]) * t; g.d[i + 2] = base[2] + (glow[2] - base[2]) * t;
   }
+  return (_ground = g.d);
+}
+export function card(v, teams) {
+  const img = { w: CARD_W, h: CARD_H, d: Buffer.from(ground()) };
   const grey = hex('#8C879A'), white = hex('#F2F0F7'), dim = hex('#6E6880');
   text(img, 'BUILD A MANAGER', 60, 44, 6, hex('#B98BFF'));
   let y = 128;
@@ -221,14 +232,14 @@ export function card(v, teams) {
   }
   const n = rating(v);
   if (v.season) {
-    /* a played season: the overall a size down, then how it ended, for whom,
-       and the record and seed that got it there */
+    /* A played season: three lines the same size, by request -- the overall,
+       the team and its record, and how the season ended -- each under its own
+       small label. The seed rides on the team's label. */
     const f = finish(v.season.place);
-    text(img, 'OVR', 60, 262, 4, grey);
-    text(img, String(n), 60, 298, 14, hex(toneOfRating(n)));
-    text(img, clean(f.big), 60, 420, 5, hex(TONES[f.tone]));
-    text(img, clean(`${abbrOf(teams, v.season.team)} ${v.season.w}-${v.season.l}`), 60, 470, 4, white);
-    text(img, clean(`${ordinal(v.season.seed)} seed`), 60, 512, 3, grey);
+    const line = (label, value, rgb, top) => { text(img, clean(label), 60, top, 3, grey); text(img, clean(value), 60, top + 28, 5, rgb); };
+    line('OVR', String(n), hex(toneOfRating(n)), 258);
+    line(`Team · ${ordinal(v.season.seed)} seed`, `${abbrOf(teams, v.season.team)} ${v.season.w}-${v.season.l}`, white, 337);
+    line('Finish', f.big, hex(TONES[f.tone]), 416);
   } else {
     text(img, 'OVR', 60, 300, 5, grey);
     text(img, String(n), 60, 350, 22, hex(toneOfRating(n)));

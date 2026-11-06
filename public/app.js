@@ -20931,8 +20931,9 @@ function renderBam(){
     const mid=b.land!=null?b.land:(b.team!=null?b.team:(b.last!=null?b.last:pool[0]));
     _bamRot=bamAim(0,Math.max(0,pool.indexOf(mid)),pool.length,0,0);
   }
+  /* your own build: no "built by" -- it is yours (the share card still says so) */
   const build=`<div class="bam-build bam-panel">
-      ${bamCardHeadHTML(_me&&_me.teamId!=null?Number(_me.teamId):null)}
+      ${bamCardHeadHTML(null)}
       <div class="bam-slots">${BAM_ATTRS.map(a=>{
         const id=b.slots[a[0]];
         return bamSlotHTML(a,id,id!=null?bamGrade(id,a[0]):-1,b.land!=null&&!_bamSpin);
@@ -21119,8 +21120,9 @@ async function bamShare(){
   const url=location.origin+'/b/'+code;
   if(navigator.share&&matchMedia('(pointer:coarse)').matches){
     const file=_bamCardFor===code?_bamCard:null;
-    const data=file&&navigator.canShare&&navigator.canShare({files:[file]})
-      ?{files:[file],title:'Build a Manager'}:{title:'Build a Manager',url};
+    /* no title: on a phone it goes into the message as a line of text of its
+       own, and the picture already says everything */
+    const data=file&&navigator.canShare&&navigator.canShare({files:[file]})?{files:[file]}:{url};
     try{ await navigator.share(data); return; }
     catch(e){ if(e&&e.name==='AbortError') return; }
   }

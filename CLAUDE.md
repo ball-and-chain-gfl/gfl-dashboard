@@ -201,7 +201,9 @@ browser, not the home-screen app people are signed in to. A finished build is
 each slot's team id and grade; version 2 adds five for the season). `vercel.json`
 rewrites it to `api/bam.js`, which draws the PNG itself (no dependencies) and
 answers a person with that picture alone. On a phone, Share sends the picture
-file. The game is drawn in the card's own 5x7 type (`bamPx`, `BAM_G` = `G` in
+file, with no title text. The game uses no Firestore at all; the pictures are
+its only cost, priced in `test-data-budget.mjs`, and each is cheap to draw
+(zlib level 6 and a cached background: about 21 ms of CPU, not 155). The game is drawn in the card's own 5x7 type (`bamPx`, `BAM_G` = `G` in
 `api/bam.js`). `/?bam=<code>` still opens a build in the game for old links.
 
 Rules and indexes are **not** part of the Vercel push; they ship with the

@@ -281,6 +281,8 @@ ok('a shared link is read before the first tab is chosen',
   /try\{ bamReadLink\(\); \}catch\(e\)\{\}\n\s*switchTab\(_activeTab\);/.test(src.replace(/\r\n/g, '\n')), true);
 ok('a finished build offers Share', src.includes('onclick="bamShare()"'), true);
 ok('and shares the /b/ link a message app can draw', src.includes("location.origin+'/b/'+code"), true);
+ok('your own build says nothing about who built it', src.includes('${bamCardHeadHTML(null)}'), true);
+ok('and a share carries the picture with no title text alongside it', [src.includes('{files:[file]}:{url}'), src.includes("title:'Build a Manager'")], [true, false]);
 const vj = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
 ok('which vercel.json sends to the preview, picture and page', ['/b/:code/card.png', '/b/:code'].map(p =>
   (vj.rewrites.find(r => r.source === p) || {}).destination), ['/api/bam?c=:code&img=1', '/api/bam?c=:code']);

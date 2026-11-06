@@ -415,7 +415,9 @@ ok('and the full-season read appears in one place only',
 head('a month on the free plan');
 const KB = 1024;
 const SIZE = { season: (174 + 130 + 39) * KB, liveMatchup: 202 * KB, roster: 260 * KB, scores: 38 * KB, meta: 174 * KB,
-  playerScores: 15 * KB };
+  playerScores: 15 * KB,
+  /* Build a Manager's share picture and its page (api/bam.js), measured 6 Nov 2026 */
+  bamCard: 61 * KB, bamPage: 3 * KB };
 const LOADS_A_DAY = 100, WAKING_S = 16 * 3600, LIVE_HOURS_A_WEEK = 16, DEPLOYS_A_DAY = 4, DAYS = 30, WEEKS = 30 / 7;
 const lambda = LOADS_A_DAY / WAKING_S;
 const refills = cache => LOADS_A_DAY / (1 + lambda * ttl(cache));
@@ -431,6 +433,12 @@ const month = {};
 Object.entries(perDay).forEach(([k, v]) => { month[k] = v * DAYS; });
 month['live scores while watched'] = (3600 / ttl(S.LIVE_CACHE)) * LIVE_HOURS_A_WEEK * WEEKS * SIZE.liveMatchup;
 month['the poller\'s league read'] = (3600000 / metaTtl) * LIVE_HOURS_A_WEEK * WEEKS * SIZE.meta;
+/* Build a Manager touches no Firestore and no ESPN passthrough; what it sends
+   out is the share picture. Generous for twelve managers: 100 drawn a day (a
+   phone fetches each finished build's card before its season and again after)
+   and as many share pages. The edge keeps both, so each is drawn once however
+   many people look at it. */
+month['Build a Manager share pictures'] = 100 * DAYS * (SIZE.bamCard + SIZE.bamPage);
 const GB = 1024 ** 3;
 const total = Object.values(month).reduce((a, b) => a + b, 0);
 Object.entries(month).forEach(([k, v]) => console.log(`  ${k.padEnd(40)} ${(v / GB).toFixed(2)} GB`));

@@ -13,6 +13,7 @@
  * Run: node scripts/test-bam-card.mjs
  */
 import zlib from 'node:zlib';
+import fs from 'node:fs';
 import { lifter, assemble } from './lib/lift.mjs';
 import * as B from '../api/bam.js';
 
@@ -98,6 +99,12 @@ console.log(NL + 'a season on the card');
   ok('and the title says how it ended', /· Champion with /.test(B.page(v, teams, 'https://x')), true);
   ok('the card still draws', B.card(v, teams).length > 1000, true);
 }
+
+console.log(NL + 'cheap to draw');
+const API = fs.readFileSync(new URL('../api/bam.js', import.meta.url), 'utf8');
+ok('compressed at level 6: level 9 was 133 of 155 ms of CPU a card, for 15% fewer bytes', [API.includes('zlib.deflateSync(raw, { level: 6 })'), API.includes('level: 9')], [true, false]);
+ok('and the glowing ground is worked out once, then copied', [API.includes('let _ground = null;'), API.includes('d: Buffer.from(ground())')], [true, true]);
+ok('a season card draws its overall, team and finish at one size', API.includes('text(img, clean(value), 60, top + 28, 5, rgb)'), true);
 
 console.log(NL + 'the type');
 ok('the game is set in the same type as the card', JSON.stringify(A.BAM_G), JSON.stringify(B.G));
