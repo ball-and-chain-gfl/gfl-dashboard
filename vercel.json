@@ -4,6 +4,14 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"
+    },
+    {
+      "source": "/b/:code/card.png",
+      "destination": "/api/bam?c=:code&img=1"
+    },
+    {
+      "source": "/b/:code",
+      "destination": "/api/bam?c=:code"
     }
   ],
   "crons": [

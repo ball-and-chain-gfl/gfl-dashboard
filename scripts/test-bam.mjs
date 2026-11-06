@@ -8,7 +8,10 @@
  *                     lands where it already was; it turns forward, a few full
  *                     turns, and stops with that manager's wedge under the pointer
  *   ONE TRAIT A SPIN  into its own empty slot, and only off whoever was landed on
- *   THE OVERALL       the mean of the steps taken, rounded to one
+ *   THE OVERALL       0-99, the mean of what each grade taken is worth
+ *   THE SEASON        a finished manager runs a real team through the real
+ *                     schedule: four parts manager, one part roster, a full
+ *                     postseason on both sides, and every place handed out once
  *   KEPT ON DEVICE    a saved build comes back only if it still makes sense
  *   SHARED AS A LINK  a finished build packs into ?bam=, grades and all, and
  *                     opens on the first load for whoever it is sent to
@@ -35,11 +38,14 @@ const M = assemble(grab, [
   'const PG_SCALE=', 'const pgIdx=',
   'const BAM_ATTRS=', 'const BAM_RESPINS=', 'const BAM_TURNS=', 'const BAM_HUES=', 'const bamCfg=',
   'function bamGrade(', 'function bamPool(', 'const bamFresh=', 'const bamOpen=', 'const bamDone=',
-  'function bamMean(', 'function bamOvr(', 'function bamPick(', 'function bamTake(', 'function bamValid(',
+  'const BAM_PTS=', 'function bamRating(', 'const bamRateTone=', 'function bamOvr(', 'function bamManagerOvr(', 'function bamPick(', 'function bamTake(', 'function bamValid(',
   'function bamAim(', 'function bamAt(', 'function bamCode(', 'function bamDecode(',
+  'const BAM_MGR_W=', 'const BAM_BASE=', 'const bamStrength=', 'function bamGauss(', 'function bamScore(',
+  'function bamGame(', 'function bamRoster(', 'function bamGames(', 'function bamSimSeason(', 'function bamFinish(',
 ], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'PG_SCALE', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen',
-  'bamDone', 'bamMean', 'bamOvr', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode', 'set'], [
+  'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'bamRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode', 'set'], [
   "let _CFG={}, _teams=[];",
+  "const regEndOf=()=>14;",
   "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; };",
 ].join(NL));
 
@@ -130,8 +136,13 @@ ok('the open slots are the ones left', M.bamOpen(b), ['draft', 'fin', 'coach', '
 
 console.log(NL + 'the overall');
 ok('nothing taken, no overall', M.bamOvr(M.bamFresh()), -1);
-ok('one A+ is an A+', M.PG_SCALE[M.bamOvr({ slots: { trade: MCM } })], 'A+');
-ok('A+ and C meet at B+', M.PG_SCALE[M.bamOvr({ slots: { trade: MCM, coach: FMAN } })], 'B+');
+ok('thirteen grades, F to A+, climbing to 99', [M.BAM_PTS.length, M.BAM_PTS[0], M.BAM_PTS[12],
+  M.BAM_PTS.every((p, i) => !i || p > M.BAM_PTS[i - 1])], [13, 55, 99, true]);
+ok('one A+ is a 99', M.bamOvr({ slots: { trade: MCM } }), 99);
+ok('an A+ and a C meet at 87', M.bamOvr({ slots: { trade: MCM, coach: FMAN } }), 87);
+ok('nine A+ is the top of the scale and no higher', M.bamRating(Array(9).fill(12)), 99);
+ok('the colour follows the number', [95, 85, 75, 65, 58].map(M.bamRateTone), ['pg-a', 'pg-b', 'pg-c', 'pg-d', 'pg-f']);
+ok('every real manager has an overall of their own', [M.bamManagerOvr(BFT), M.bamManagerOvr(BI)], [93, 69]);
 
 console.log(NL + 'a whole build');
 {
@@ -154,12 +165,15 @@ ok('junk starts a fresh build', [M.bamValid(null, pool), M.bamValid('x', pool), 
   [M.bamFresh(), M.bamFresh(), M.bamFresh()]);
 ok('a sound build comes back as it was',
   M.bamValid({ slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0 }, pool),
-  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0 });
+  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0, team: null });
 ok('a trait that is not one throws it out', M.bamValid({ slots: { charisma: 2 } }, pool), M.bamFresh());
 ok('so does a manager no longer in the pool', M.bamValid({ slots: { trade: 2 }, land: 44 }, pool), M.bamFresh());
 ok('more respins than a build gets are not believed', M.bamValid({ slots: {}, respins: 5 }, pool).respins, M.BAM_RESPINS);
 const full = Object.fromEntries(KEYS.map(k => [k, 1]));
 ok('a full build is not still landed on anyone', M.bamValid({ slots: full, land: 3 }, pool).land, null);
+ok('a finished build keeps the team it was spun onto', M.bamValid({ slots: full, team: 8 }, pool).team, 8);
+ok('an unfinished one has no team to keep', M.bamValid({ slots: { trade: 2 }, team: 8 }, pool).team, null);
+ok('and a team not in the league is dropped', M.bamValid({ slots: full, team: 40 }, pool).team, null);
 
 console.log(NL + 'shared as a link');
 {
@@ -180,8 +194,67 @@ console.log(NL + 'shared as a link');
   ok('a garbled code opens nothing', [M.bamDecode(''), M.bamDecode('hello'), M.bamDecode(code.slice(0, 19)),
     M.bamDecode(code.slice(0, 3) + 'z' + code.slice(4)), M.bamDecode('2' + code.slice(1))], [null, null, null, null, null]);
   ok('capitals from a phone keyboard still open it', M.bamDecode(code.toUpperCase()).slots, built.slots);
-  ok('and the overall of a shared build is the mean of its grades',
-    M.PG_SCALE[M.bamMean(KEYS.map(k => back.grades[k]))], M.PG_SCALE[M.bamOvr(built)]);
+  ok('and the overall of a shared build comes out of the grades it carries',
+    M.bamRating(KEYS.map(k => back.grades[k])), M.bamOvr(built));
+}
+
+console.log(NL + 'the season');
+{
+  let seed = 11;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  ok('four parts manager, one part roster', [M.BAM_MGR_W, M.bamStrength(90, 70), M.bamStrength(70, 90)], [0.8, 86, 74]);
+  /* a big sample of one game at a time, to hold the noise to what was promised:
+     the better side wins most weeks and not every one */
+  const share = (sa, sb, n = 6000) => { let w = 0; for (let i = 0; i < n; i++) if (M.bamGame(1, 2, { 1: sa, 2: sb }, rnd).win === 1) w++; return w / n; };
+  const even = share(80, 80), ten = share(85, 75), twenty = share(90, 70);
+  ok('level sides are a coin flip', even > 0.47 && even < 0.53, true);
+  ok('ten points of strength wins about seven in ten', ten > 0.64 && ten < 0.76, true);
+  ok('twenty about eight or nine in ten, and still not all', twenty > 0.78 && twenty < 0.92, true);
+  ok('so the manager carries a team more than its roster does',
+    share(M.bamStrength(95, 60), M.bamStrength(60, 95)) > 0.75, true);
+  const g = M.bamGame(1, 2, { 1: 80, 2: 80 }, rnd);
+  ok('a game has a winner, a loser and a score each, never level', [g.win !== g.lose, g.as !== g.bs, [g.a, g.b].includes(g.win)], [true, true, true]);
+
+  /* a round robin's worth of weeks for twelve teams, as a schedule */
+  const sched = [];
+  for (let w = 1; w <= 14; w++) for (let i = 0; i < 6; i++) {
+    const a = ((i + w) % 12) + 1, b = ((11 - i + w) % 12) + 1;
+    sched.push({ matchupPeriodId: w, home: { teamId: a, totalPoints: w <= 8 ? 100 + a * 2 : 0 }, away: { teamId: b, totalPoints: w <= 8 ? 100 + b * 2 : 0 },
+      winner: w <= 8 ? (a > b ? 'HOME' : 'AWAY') : 'UNDECIDED' });
+  }
+  sched.push({ matchupPeriodId: 15, home: { teamId: 1, totalPoints: 0 }, away: { teamId: 2, totalPoints: 0 }, winner: 'UNDECIDED' });
+  const meta = { schedule: sched };
+  const games = M.bamGames(meta, '2026');
+  ok('the regular season is every game of weeks 1 to 14, and nothing after', [games.length, Math.max(...games.map(x => x.w))], [84, 14]);
+  const roster = M.bamRoster(meta, '2026');
+  const avg = Object.values(roster).reduce((a, x) => a + x, 0) / 12;
+  ok('the roster reads 80 at the league average, from games already decided', Math.abs(avg - 80) < 1, true);
+  ok('better scorers read higher, inside 55 to 99', [roster[12] > roster[1], Object.values(roster).every(v => v >= 55 && v <= 99)], [true, true]);
+  ok('a season with nothing played is no roster at all', M.bamRoster({ schedule: sched.map(m => ({ ...m, winner: 'UNDECIDED' })) }, '2026'), {});
+
+  const str = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 70 + i * 2]));
+  const s = M.bamSimSeason(games, str, rnd);
+  ok('everybody plays all fourteen', s.table.every(t => t.w + t.l === 14), true);
+  ok('the table is wins, then points for', s.table.every((t, i) => !i || s.table[i - 1].w > t.w || (s.table[i - 1].w === t.w && s.table[i - 1].pf >= t.pf)), true);
+  ok('twelve places, each handed out once', Object.values(s.place).sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  const po = s.post.filter(x => x.side !== 'lb'), lb = s.post.filter(x => x.side === 'lb');
+  ok('six playoff games and five in the losers bracket', [po.length, lb.length], [6, 5]);
+  const r1 = po.filter(x => x.round === 1).flatMap(x => [x.a, x.b]);
+  ok('the top two seeds sit out the first round', [r1.includes(s.seed[0]), r1.includes(s.seed[1]), r1.length], [false, false, 4]);
+  ok('and the champion came out of the top six', s.seed.slice(0, 6).includes(Object.keys(s.place).map(Number).find(id => s.place[id] === 1)), true);
+  const l1 = lb.filter(x => x.round === 1).flatMap(x => [x.a, x.b]);
+  ok('the worst two sit out the losers first round', [l1.includes(s.seed[11]), l1.includes(s.seed[10]), l1.length], [false, false, 4]);
+  const [a1, a2] = lb.filter(x => x.round === 1), lr2 = lb.filter(x => x.round === 2).flatMap(x => [x.a, x.b]);
+  ok('in the losers bracket it is the loser who goes on', [lr2.includes(a1.lose), lr2.includes(a2.lose), lr2.includes(a1.win)], [true, true, false]);
+  const last = lb.find(x => x.round === 3);
+  ok('and losing the last game there is last place', s.place[last.lose], 12);
+  ok('a finish for every place, last place included', [M.bamFinish(1)[1], M.bamFinish(12)[1]], ['Champion', 'Last place']);
+
+  /* the point of it: the same team, a better manager, a better season */
+  const wins = mgr => { let t = 0; for (let i = 0; i < 300; i++) {
+    const st = { ...str, 6: M.bamStrength(mgr, 80) }; t += M.bamSimSeason(games, st, rnd).table.find(x => x.id === 6).w; } return t / 300; };
+  const good = wins(95), poor = wins(60);
+  ok('a 95 manager wins more than a 60 with the same roster', good > poor + 3, true);
 }
 
 console.log(NL + 'where it lives');
@@ -205,6 +278,12 @@ ok('the menu icon and the page accent are one colour', [hex,
 ok('a shared link is read before the first tab is chosen',
   /try\{ bamReadLink\(\); \}catch\(e\)\{\}\n\s*switchTab\(_activeTab\);/.test(src.replace(/\r\n/g, '\n')), true);
 ok('a finished build offers Share', src.includes('onclick="bamShare()"'), true);
+ok('and shares the /b/ link a message app can draw', src.includes("location.origin+'/b/'+code"), true);
+const vj = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+ok('which vercel.json sends to the preview, picture and page', ['/b/:code/card.png', '/b/:code'].map(p =>
+  (vj.rewrites.find(r => r.source === p) || {}).destination), ['/api/bam?c=:code&img=1', '/api/bam?c=:code']);
+ok('the wheel has no flashing lights', [src.includes('bam-bulb'), idx.includes('bamBulb')], [false, false]);
+ok('every trait has an icon and a colour', M.BAM_ATTRS.every(a => /^fa-/.test(a[2]) && /^#[0-9a-f]{6}$/i.test(a[3])), true);
 ok('and leaving a shared build takes the link out of the address', /function bamOwn\(\)\{[\s\S]{0,200}searchParams\.delete\('bam'\)/.test(src), true);
 
 console.log(NL + `${pass} passed, ${fail} failed`);

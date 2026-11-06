@@ -263,10 +263,15 @@ jobs:
         run: node scripts/test-punish-grade.mjs
       # Build a Manager: twelve managers, nine baseline grades each, set by
       # hand and read by nothing live; the wheel stopping on its manager, one
-      # trait a spin, the overall, a saved build that has to still make sense,
-      # and the share link that carries a finished build, grades and all.
+      # trait a spin, the 0-99 overall, a saved build that has to still make
+      # sense, the share link, and the season a finished manager plays: four
+      # parts manager to one part roster, both postseason brackets, every place.
       - name: build a manager
         run: node scripts/test-bam.mjs
+      # The picture a message app shows for a shared build: api/bam.js reads the
+      # code app.js writes, draws a real 1200x630 PNG, and serves the tags.
+      - name: the build a manager link preview
+        run: node scripts/test-bam-card.mjs
       - name: the split migration parses
         run: node --check scripts/split-shares.mjs
       - name: the archivers parse

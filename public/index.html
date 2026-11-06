@@ -3167,32 +3167,42 @@
     .ht-empty i{color:var(--accent);}
 
     /* ── Build a Manager ───────────────────────────────────────────────────────
-       The build, then the wheel: side by side on a wide screen, the build first
-       on a phone. A slot is a trait, its grade and whose it was. Grade letters
-       take their colour from .pg-f to .pg-a, so nothing here sets a colour on a
-       letter that has one -- a later rule of equal weight would win, which is
-       how the punishment grade's readout once stayed grey. */
+       The build and the wheel: side by side on a wide screen; on a phone the
+       wheel first, so Spin and what it lands on are on screen without
+       scrolling, and the build fills in underneath. A slot is a trait -- its
+       icon and colour -- then the grade and whose it was. Grade letters take
+       their colour from .pg-f to .pg-a, so nothing here sets a colour on a
+       letter that has one: a later rule of equal weight would win, which is how
+       the punishment grade's readout once stayed grey. */
     .bam-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;}
-    /* on a phone the wheel comes first, so Spin and the card it lands on are on
-       screen without scrolling, and the build fills in underneath */
     .bam-play{order:-1;}
     @media(min-width:900px){ .bam-wrap{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start;gap:24px;}
       .bam-play{order:0;} }
     .bam-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
-    .bam-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-      min-height:74px;padding:9px 6px;border-radius:12px;text-align:center;
-      background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);}
+    .bam-slot{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:4px;min-height:104px;padding:12px 6px 10px;border-radius:14px;text-align:center;
+      background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);}
+    .bam-slot::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;background:var(--bc);opacity:.3;}
+    .bam-slot.filled{background:linear-gradient(165deg,color-mix(in srgb,var(--bc) 20%,transparent),rgba(255,255,255,0.02) 62%);
+      border-color:color-mix(in srgb,var(--bc) 38%,transparent);}
+    .bam-slot.filled::before{opacity:1;}
     .bam-slot.open{border:1px dashed rgba(var(--accent-rgb),0.6);background:rgba(var(--accent-rgb),0.06);}
+    .bam-si{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+      background:color-mix(in srgb,var(--bc) 20%,transparent);}
+    .bam-si i{font-size:12px;color:var(--bc);}
+    .bam-slot:not(.filled) .bam-si{opacity:.55;}
     .bam-sl{font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;letter-spacing:.6px;line-height:1.2;
       text-transform:uppercase;color:var(--text3);}
-    .bam-sg{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;line-height:1;}
-    .bam-slot:not(.filled) .bam-sg{color:var(--text3);opacity:.45;}
+    .bam-slot.filled .bam-sl{color:var(--text2);}
+    .bam-sg{font-family:'Inter',sans-serif;font-size:26px;font-weight:800;line-height:1;}
+    .bam-slot:not(.filled) .bam-sg{color:var(--text3);opacity:.4;font-size:20px;}
     .bam-sf{display:flex;align-items:center;gap:5px;max-width:100%;
       font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.3px;color:var(--text2);}
     .bam-meta{display:flex;align-items:center;gap:12px;margin-top:12px;}
-    .bam-ovr{display:flex;align-items:baseline;gap:8px;padding:8px 14px;border-radius:11px;background:rgba(0,0,0,0.3);}
-    .bam-ovr span{font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.8px;color:var(--text3);}
-    .bam-ovr b{font-family:'Inter',sans-serif;font-size:26px;font-weight:800;line-height:1;}
+    .bam-ovr{display:flex;align-items:baseline;gap:9px;padding:8px 16px;border-radius:12px;background:rgba(0,0,0,0.3);
+      border:1px solid rgba(var(--accent-rgb),0.25);}
+    .bam-ovr span{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.9px;color:var(--text3);}
+    .bam-ovr b{font-family:'Inter',sans-serif;font-size:32px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
     .bam-left{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.6px;
       text-transform:uppercase;color:var(--text3);}
     .bam-reset{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;
@@ -3201,10 +3211,10 @@
       font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;}
     .bam-reset:hover{color:var(--text);border-color:rgba(255,255,255,0.22);}
     .bam-reset.armed{background:var(--red);border-color:var(--red);color:#fff;}
-    /* the wheel: a wedge a manager under a pointer at the top, a ring of bulbs
-       that chase while it turns, and the hub in the middle, which spins it too.
-       Only the disc turns. Its SVG is 200 across and the ring sits on a radius
-       of 96.5, 7 wide, so the disc inset 3.5% meets it with no gap. */
+    /* the wheel: a wedge a manager under a pointer at the top, a plain ring, and
+       the hub in the middle, which spins it too. Only the disc turns. Its SVG is
+       200 across and the ring sits on a radius of 96.5, 7 wide, so the disc
+       inset 3.5% meets it with no gap. */
     .bam-wheel-box{position:relative;width:min(300px,76vw);aspect-ratio:1;margin:2px auto 0;}
     .bam-wheel{position:absolute;inset:3.5%;border-radius:50%;overflow:hidden;will-change:transform;}
     .bam-wsvg{display:block;width:100%;height:100%;}
@@ -3218,10 +3228,6 @@
     .bam-wl.on .bam-wl-in>:first-child{box-shadow:0 0 0 2px #fff,0 0 16px rgba(255,255,255,0.55);}
     .bam-frame{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
     .bam-ring{fill:none;stroke:#1a1129;stroke-width:7;}
-    .bam-bulb{fill:#ffe39a;opacity:.85;}
-    .bam-wheel-box.spinning .bam-bulb{animation:bamBulb .5s steps(1) infinite;}
-    .bam-wheel-box.spinning .bam-bulb.b1{animation-delay:.25s;}
-    @keyframes bamBulb{0%{opacity:1;}50%{opacity:.2;}}
     .bam-hub{position:absolute;left:50%;top:50%;z-index:2;width:22%;aspect-ratio:1;padding:0;transform:translate(-50%,-50%);
       display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;
       background:radial-gradient(circle at 35% 30%,#2c2340,#110c1b 70%);border:3px solid #1a1129;
@@ -3234,17 +3240,6 @@
     .bam-pointer{position:absolute;left:50%;top:-1%;z-index:3;width:0;height:0;transform:translateX(-50%);
       border-left:12px solid transparent;border-right:12px solid transparent;border-top:22px solid #f4f1fb;
       filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));}
-    @media(prefers-reduced-motion:reduce){ .bam-wheel-box.spinning .bam-bulb{animation:none;} }
-    /* a finished build: Share, and the link itself if the clipboard said no */
-    .bam-link{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:10px 12px;border-radius:9px;
-      border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(0,0,0,0.3);color:var(--text);
-      font-family:'Inter',sans-serif;font-size:12px;}
-    /* somebody else's build, opened from a link: theirs first, then yours */
-    .bam-shared .bam-play{order:0;}
-    .bam-by{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-width:0;
-      font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text2);}
-    .bam-by span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .bam-by b{font-weight:800;color:var(--text);}
     .bam-btns{display:flex;gap:8px;margin-top:10px;}
     .bam-spin{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
       padding:13px;border:none;border-radius:10px;cursor:pointer;
@@ -3256,14 +3251,16 @@
        under the pointer */
     .bam-spin:hover{background:linear-gradient(135deg,var(--accent),var(--accent2,var(--accent)));}
     .bam-spin:hover:not(:disabled){filter:brightness(1.08);}
-    .bam-re:hover{background:rgba(var(--accent-rgb),0.08);}
-    .bam-re:hover:not(:disabled){background:rgba(var(--accent-rgb),0.16);border-color:var(--accent);}
-    .bam-re{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;padding:0 14px;border-radius:10px;cursor:pointer;
-      border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(var(--accent-rgb),0.08);color:var(--accent);
-      font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
+    .bam-re{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;
+      border-radius:10px;cursor:pointer;border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(var(--accent-rgb),0.08);
+      color:var(--accent);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
     .bam-re span{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;
       border-radius:999px;background:rgba(var(--accent-rgb),0.2);font-size:11px;}
     .bam-re:disabled{opacity:.4;cursor:default;}
+    .bam-re:hover{background:rgba(var(--accent-rgb),0.08);}
+    .bam-re:hover:not(:disabled){background:rgba(var(--accent-rgb),0.16);border-color:var(--accent);}
+    .bam-btns>.bam-re:only-child{flex:1 1 auto;padding:13px;}
+    .bam-share .bam-re{flex:1 1 0;padding:11px 12px;}
     .bam-card{margin-top:12px;padding:12px;border-radius:12px;
       background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);
       scroll-margin:84px 0 96px;}          /* clear of the nav above and the pinned bar below */
@@ -3271,14 +3268,62 @@
       font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:var(--text);}
     .bam-who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .bam-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
-    .bam-pick{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:9px 10px;
-      border-radius:9px;cursor:pointer;text-align:left;border:1px solid rgba(255,255,255,0.09);
-      background:rgba(0,0,0,0.28);-webkit-tap-highlight-color:transparent;}
-    .bam-pick:hover{border-color:rgba(var(--accent-rgb),0.7);background:rgba(var(--accent-rgb),0.08);}
-    .bam-pick span{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.4px;line-height:1.2;
-      text-transform:uppercase;color:var(--text2);}
-    .bam-pick b{font-family:'Inter',sans-serif;font-size:21px;font-weight:800;line-height:1;}
-    @media(max-width:420px){ .bam-slot{min-height:68px;} .bam-sg{font-size:22px;} }
+    .bam-pick{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;padding:9px 10px;
+      border-radius:9px;cursor:pointer;text-align:left;border:1px solid color-mix(in srgb,var(--bc) 30%,transparent);
+      background:linear-gradient(160deg,color-mix(in srgb,var(--bc) 12%,transparent),rgba(0,0,0,0.25) 70%);
+      -webkit-tap-highlight-color:transparent;}
+    .bam-pick:hover{border-color:var(--bc);background:color-mix(in srgb,var(--bc) 16%,transparent);}
+    .bam-pick span{display:flex;align-items:flex-start;gap:6px;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
+      letter-spacing:.4px;line-height:1.25;text-transform:uppercase;color:var(--text2);}
+    .bam-pick span i{flex:0 0 auto;margin-top:1px;font-size:10.5px;color:var(--bc);}
+    .bam-pick b{font-family:'Inter',sans-serif;font-size:22px;font-weight:800;line-height:1;}
+    /* a finished build: Share, and the link itself if the clipboard said no */
+    .bam-link{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:10px 12px;border-radius:9px;
+      border:1px solid rgba(var(--accent-rgb),0.45);background:rgba(0,0,0,0.3);color:var(--text);
+      font-family:'Inter',sans-serif;font-size:12px;}
+    /* somebody else's build, opened from a link: theirs first, then yours */
+    .bam-shared .bam-play{order:0;}
+    .bam-by{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-width:0;
+      font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text2);}
+    .bam-by span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .bam-by b{font-weight:800;color:var(--text);}
+    /* the team the finished manager landed on: manager, roster, the two together */
+    .bam-mix{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:11px;}
+    .bam-mix div{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:9px;
+      background:rgba(0,0,0,0.28);}
+    .bam-mix span{font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.6px;
+      text-transform:uppercase;color:var(--text3);}
+    .bam-mix b{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
+    .bam-team{scroll-margin:84px 0 96px;}
+    /* the season: how it ended, every game, and the table */
+    .bam-season{font-family:'Inter',sans-serif;}
+    .bam-fin{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:12px;scroll-margin:84px 0 96px;
+      background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);}
+    .bam-fin>i{font-size:30px;}
+    .bam-fin b{display:block;font-size:19px;font-weight:800;line-height:1.15;}
+    .bam-fin span{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;font-weight:600;color:var(--text2);}
+    .bam-sub{margin:16px 2px 7px;font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);}
+    .bam-gms{display:flex;flex-direction:column;gap:4px;}
+    .bam-gm{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);
+      font-size:12.5px;animation:bamIn .35s both;animation-delay:calc(var(--i) * 60ms);}
+    .bam-gm-n{flex:0 0 auto;min-width:38px;font-size:10.5px;font-weight:800;letter-spacing:.3px;color:var(--text3);
+      text-transform:uppercase;}
+    .bam-gm-o{font-weight:800;color:var(--text);}
+    .bam-gm-s{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text2);}
+    .bam-gm-s i{font-style:normal;margin:0 4px;color:var(--text3);}
+    .bam-gm>b{flex:0 0 auto;width:18px;text-align:center;font-weight:800;}
+    @keyframes bamIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+    @media(prefers-reduced-motion:reduce){ .bam-gm{animation:none;} }
+    .bam-sts{display:flex;flex-direction:column;}
+    .bam-st{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:7px;font-size:12px;color:var(--text2);}
+    .bam-st.me{background:rgba(var(--accent-rgb),0.16);color:var(--text);}
+    /* six make the playoffs: a line under the sixth */
+    .bam-st:nth-child(6){border-bottom:1px dashed rgba(255,255,255,0.14);border-radius:7px 7px 0 0;}
+    .bam-st-n{width:18px;text-align:right;font-weight:800;color:var(--text3);}
+    .bam-st-t{font-weight:800;}
+    .bam-st-r{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;}
+    .bam-st-p{width:54px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text3);}
+    @media(max-width:420px){ .bam-slot{min-height:92px;} .bam-sg{font-size:23px;} }
     .home-redo{display:inline-flex;align-items:center;gap:7px;margin-top:12px;
       padding:7px 13px;border-radius:8px;cursor:pointer;
       border:1px solid transparent;background:rgba(0,0,0,0.3);color:var(--text3);

@@ -188,10 +188,15 @@ table in `config.js` (`buildManager.grades`, keyed by ESPN team id, set by hand
 on 6 November 2026), and the game reads nothing live, by request: no grade may
 be fixed while another moves. If grades are ever made to move with the season,
 the movement goes in `bamGrade` on top of every baseline at once. A build in
-progress is kept in localStorage under `lsKey('bam')`. A finished build shares
-as `?bam=<code>`: twenty base-36 characters (a version, the builder's team id,
-then each slot's team id and grade). The grades travel in the code, so a link
-shows the build as it was made; `bamReadLink` opens it once, on first load.
+progress is kept in localStorage under `lsKey('bam')`. The overall is 0-99,
+the mean of `BAM_PTS` (what each grade is worth). A finished build shares as
+`/b/<code>`: twenty base-36 characters (a version, the builder's team id, then
+each slot's team id and grade). `vercel.json` rewrites that to `api/bam.js`,
+which draws the link-preview PNG itself (no dependencies) and sends people on
+to `/?bam=<code>`, where `bamReadLink` opens the build once, on first load. The
+grades travel in the code, so a link shows the build as it was made. A finished
+manager can spin for a team and play its season (THE SEASON in `app.js`):
+strength is 80% the manager's overall and 20% the roster's points this season.
 
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).

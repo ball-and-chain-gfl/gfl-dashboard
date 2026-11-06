@@ -111,6 +111,18 @@ http.createServer(async (req, res) => {
       return send(res, r.status, buf, r.headers.get('content-type') || 'application/json');
     } catch (e) { return send(res, 502, JSON.stringify({ error: e.message }), 'application/json'); }
   }
+  /* a shared Build a Manager link, answered by the local api/bam.js the way
+     vercel.json's rewrite sends it there on the live site */
+  const share = u.pathname.match(/^\/b\/([0-9A-Za-z]+)(\/card\.png)?$/);
+  if (share) {
+    const { default: bam } = await import('../api/bam.js');
+    const head = { 'Cache-Control': 'no-store' };
+    const out = { code: 200, setHeader(k, v) { if (k.toLowerCase() !== 'cache-control') head[k] = v; },
+      status(c) { this.code = c; return this; },
+      send(b) { res.writeHead(this.code, head); res.end(b); }, end() { res.writeHead(this.code, head); res.end(); } };
+    try { return await bam({ query: { c: share[1], img: share[2] ? '1' : undefined }, headers: req.headers }, out); }
+    catch (e) { return send(res, 500, e.message); }
+  }
   let p = decodeURIComponent(u.pathname);
   if (p === '/') p = '/index.html';
   if (p === '/sw.js') return send(res, 404, 'no service worker in the preview');
