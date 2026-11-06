@@ -10,7 +10,7 @@
  *   ONE TRAIT A SPIN  into its own empty slot, and only off whoever was landed on
  *   THE OVERALL       0-99, the mean of what each grade taken is worth
  *   THE SEASON        a finished manager runs a real team through the real
- *                     schedule: four parts manager, one part roster, a full
+ *                     schedule: 60% manager, 40% roster, a full
  *                     postseason on both sides, and every place handed out once
  *   KEPT ON DEVICE    a saved build comes back only if it still makes sense
  *   SHARED AS A LINK  a finished build packs into ?bam=, grades and all, and
@@ -84,11 +84,13 @@ const told = [
   [MM, 'draft', 'B'], [MM, 'luck', 'C-'], [MM, 'pun', 'B'],
   [TING, 'eng', 'A+'], [TING, 'pun', 'A'],
   [WGLR, 'luck', 'D+'], [WGLR, 'pun', 'B+'],
+  /* and on 6 November, after a look at the table */
+  [BFT, 'fin', 'C+'], [GOOB, 'trade', 'B'], [TING, 'luck', 'C+'], [FMAN, 'trade', 'D-'], [MCM, 'luck', 'B'],
 ];
 ok('every grade he set is the grade on file', told.filter(([id, k, g]) => L(id, k) !== g).map(([id, k, g]) => `${id}.${k} ${L(id, k)}≠${g}`), []);
-const luck = { [TING]: 'A', [KUNK]: 'A-', [BFT]: 'B', [SW]: 'B', [KW]: 'B', [GOOB]: 'C', [MCM]: 'C-', [FMAN]: 'D+', [BI]: 'D' };
+const luck = { [KUNK]: 'A-', [BFT]: 'B', [SW]: 'B', [KW]: 'B', [GOOB]: 'C', [FMAN]: 'D+', [BI]: 'D' };
 ok('Luck runs A to D across everyone he did not set by hand', Object.entries(luck).filter(([id, g]) => L(id, 'luck') !== g).map(([id]) => id), []);
-ok('and the spread really does reach both ends', [L(TING, 'luck'), L(BI, 'luck')], ['A', 'D']);
+ok('and the spread still runs from the top of the B range down to a D', [L(KUNK, 'luck'), L(BI, 'luck')], ['A-', 'D']);
 
 console.log(NL + 'nothing live');
 const src = fs.readFileSync(appUrl, 'utf8');
@@ -142,7 +144,7 @@ ok('one A+ is a 99', M.bamOvr({ slots: { trade: MCM } }), 99);
 ok('an A+ and a C meet at 87', M.bamOvr({ slots: { trade: MCM, coach: FMAN } }), 87);
 ok('nine A+ is the top of the scale and no higher', M.bamRating(Array(9).fill(12)), 99);
 ok('the colour follows the number', [95, 85, 75, 65, 58].map(M.bamRateTone), ['pg-a', 'pg-b', 'pg-c', 'pg-d', 'pg-f']);
-ok('every real manager has an overall of their own', [M.bamManagerOvr(BFT), M.bamManagerOvr(BI)], [93, 69]);
+ok('every real manager has an overall of their own', [M.bamManagerOvr(BFT), M.bamManagerOvr(BI)], [92, 69]);
 
 console.log(NL + 'a whole build');
 {
@@ -202,7 +204,7 @@ console.log(NL + 'the season');
 {
   let seed = 11;
   const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
-  ok('four parts manager, one part roster', [M.BAM_MGR_W, M.bamStrength(90, 70), M.bamStrength(70, 90)], [0.8, 86, 74]);
+  ok('60% manager, 40% roster', [M.BAM_MGR_W, M.bamStrength(90, 70), M.bamStrength(70, 90)], [0.6, 82, 78]);
   /* a big sample of one game at a time, to hold the noise to what was promised:
      the better side wins most weeks and not every one */
   const share = (sa, sb, n = 6000) => { let w = 0; for (let i = 0; i < n; i++) if (M.bamGame(1, 2, { 1: sa, 2: sb }, rnd).win === 1) w++; return w / n; };
@@ -211,7 +213,7 @@ console.log(NL + 'the season');
   ok('ten points of strength wins about seven in ten', ten > 0.64 && ten < 0.76, true);
   ok('twenty about eight or nine in ten, and still not all', twenty > 0.78 && twenty < 0.92, true);
   ok('so the manager carries a team more than its roster does',
-    share(M.bamStrength(95, 60), M.bamStrength(60, 95)) > 0.75, true);
+    share(M.bamStrength(95, 60), M.bamStrength(60, 95)) > 0.55, true);
   const g = M.bamGame(1, 2, { 1: 80, 2: 80 }, rnd);
   ok('a game has a winner, a loser and a score each, never level', [g.win !== g.lose, g.as !== g.bs, [g.a, g.b].includes(g.win)], [true, true, true]);
 

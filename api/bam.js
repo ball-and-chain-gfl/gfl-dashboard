@@ -3,8 +3,13 @@
  * A shared build is /b/<code> (vercel.json rewrites it here). Message apps build
  * a preview from a page's tags without running the page, so this answers with
  * those tags -- a title, the nine grades in a line, and a picture of the build
- * drawn here as a PNG at /b/<code>/card.png -- and sends anybody in a real
- * browser straight on to the game at /?bam=<code>.
+ * drawn here as a PNG at /b/<code>/card.png.
+ *
+ * AND ANYONE WHO TAPS IT GETS THE PICTURE, on its own, with no way on to the
+ * site. A link from a message opens the browser, never the home-screen app
+ * where people are signed in, so sending them to the game landed them signed
+ * out; the recap is what they came for. (/?bam=<code> still opens a build in
+ * the game, for links shared before 6 November.)
  *
  * NOTHING TO INSTALL. The picture is drawn pixel by pixel in a 5x7 type, the
  * same pixel-art spirit as the locker room, and compressed with Node's own
@@ -245,18 +250,17 @@ export function card(v, teams) {
 }
 
 /* ── THE PAGE ────────────────────────────────────────────────────────────────
-   The tags a preview is read from, then a nudge on to the game. A crawler gets
-   no script at all -- some run one, and would follow it off the tags. */
-const BOT = /bot|crawl|spider|slurp|facebookexternalhit|facebot|twitterbot|slackbot|discord|whatsapp|telegram|linkedin|embedly|skype|vkshare|pinterest|preview|iframely|google-inspectiontool|bingpreview|snapchat/i;
-export const isBot = ua => BOT.test(String(ua || ''));
+   The tags a preview is read from, and for whoever opens it, the picture and
+   nothing else: no script, no redirect, no link on to the site. The same page
+   for a crawler and a person, so the edge can keep it. */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export function page(v, teams, origin, bot) {
+export function page(v, teams, origin) {
   const n = rating(v), by = v.by ? nameOf(teams, v.by) : '';
   const s = v.season, f = s ? finish(s.place) : null, team = s ? nameOf(teams, s.team) : '';
   const title = (by ? `${by} built a ${n}-rated manager` : `A ${n}-rated manager`) + (s ? ` · ${f.big} with ${team}` : '');
   const desc = (s ? `${f.big} · ${team} · ${s.w}-${s.l} · ${ordinal(s.seed)} seed. ` : '')
     + ATTRS.map(([k, label]) => `${label} ${SCALE[v.grades[k]]} (${abbrOf(teams, v.slots[k])})`).join(' · ');
-  const url = `${origin}/b/${v.code}`, img = `${url}/card.png`, game = `/?bam=${v.code}`;
+  const url = `${origin}/b/${v.code}`, img = `${url}/card.png`;
   const meta = (p, c, attr = 'property') => `<meta ${attr}="${p}" content="${esc(c)}">`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -275,11 +279,11 @@ ${meta('twitter:card', 'summary_large_image', 'name')}
 ${meta('twitter:title', title, 'name')}
 ${meta('twitter:description', desc, 'name')}
 ${meta('twitter:image', img, 'name')}
-<meta name="theme-color" content="#A66CFF">
-${bot ? '' : `<script>location.replace(${JSON.stringify(game)})</script>`}
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0910;font-family:system-ui,sans-serif}
-a{color:#c9a6ff;font-weight:700;text-decoration:none}</style>
-</head><body><a href="${esc(game)}">Open the build</a></body></html>`;
+<meta name="theme-color" content="#0b0910">
+<style>html,body{margin:0;background:#0b0910}
+main{min-height:100vh;box-sizing:border-box;padding:16px;display:grid;place-items:center}
+img{display:block;width:100%;max-width:1200px;height:auto;border-radius:10px}</style>
+</head><body><main><img src="${esc(img)}" width="${CARD_W}" height="${CARD_H}" alt="${esc(`Build a Manager: overall ${n}. ${desc}`)}"></main></body></html>`;
 }
 
 export default async function handler(req, res) {
@@ -294,9 +298,7 @@ export default async function handler(req, res) {
   }
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'gfl-dashboard.vercel.app').split(',')[0].trim();
   const proto = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? 'http' : 'https';
-  const bot = isBot(req.headers['user-agent']);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  /* not kept at the edge: the same address answers a crawler and a person differently */
-  res.setHeader('Cache-Control', 'private, no-store');
-  return res.status(200).send(page(v, teams, `${proto}://${host}`, bot));
+  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800');
+  return res.status(200).send(page(v, teams, `${proto}://${host}`));
 }

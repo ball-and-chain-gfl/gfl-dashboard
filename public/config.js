@@ -484,15 +484,15 @@ window.GFL_CONFIG = {
     asOf: "2026-11-06",
     grades: {
       1:  { draft: "B",  trade: "C",  fin: "C",  coach: "C",  bk: "B",  luck: "C-", eng: "A-", pun: "B",  legacy: "C"  }, // MM
-      2:  { draft: "B",  trade: "A+", fin: "C+", coach: "D",  bk: "C+", luck: "C-", eng: "A",  pun: "A",  legacy: "B"  }, // MCM
-      3:  { draft: "C-", trade: "A-", fin: "B",  coach: "A-", bk: "A",  luck: "C",  eng: "B",  pun: "C-", legacy: "A-" }, // GOOB
+      2:  { draft: "B",  trade: "A+", fin: "C+", coach: "D",  bk: "C+", luck: "B",  eng: "A",  pun: "A",  legacy: "B"  }, // MCM
+      3:  { draft: "C-", trade: "B",  fin: "B",  coach: "A-", bk: "A",  luck: "C",  eng: "B",  pun: "C-", legacy: "A-" }, // GOOB
       4:  { draft: "C",  trade: "C",  fin: "D+", coach: "D-", bk: "C",  luck: "D",  eng: "F",  pun: "C",  legacy: "D+" }, // Bi
-      5:  { draft: "B+", trade: "D",  fin: "C",  coach: "C",  bk: "A",  luck: "D+", eng: "A+", pun: "A+", legacy: "A"  }, // FMAN
+      5:  { draft: "B+", trade: "D-", fin: "C",  coach: "C",  bk: "A",  luck: "D+", eng: "A+", pun: "A+", legacy: "A"  }, // FMAN
       6:  { draft: "B-", trade: "C-", fin: "C-", coach: "C-", bk: "D+", luck: "B",  eng: "B-", pun: "B",  legacy: "C-" }, // SW
       7:  { draft: "C+", trade: "B-", fin: "A",  coach: "B+", bk: "B",  luck: "A-", eng: "B",  pun: "A",  legacy: "A+" }, // KUNK
-      8:  { draft: "C",  trade: "C",  fin: "B",  coach: "B-", bk: "A",  luck: "A",  eng: "A+", pun: "A",  legacy: "B"  }, // TING
+      8:  { draft: "C",  trade: "C",  fin: "B",  coach: "B-", bk: "A",  luck: "C+", eng: "A+", pun: "A",  legacy: "B"  }, // TING
       9:  { draft: "B-", trade: "B+", fin: "B-", coach: "C",  bk: "C",  luck: "D-", eng: "C-", pun: "C+", legacy: "D"  }, // MWM
-      10: { draft: "B+", trade: "A",  fin: "B+", coach: "A+", bk: "A+", luck: "B",  eng: "A+", pun: "B-", legacy: "A+" }, // BFT
+      10: { draft: "B+", trade: "A",  fin: "C+", coach: "A+", bk: "A+", luck: "B",  eng: "A+", pun: "B-", legacy: "A+" }, // BFT
       11: { draft: "C-", trade: "C+", fin: "C",  coach: "D",  bk: "D",  luck: "B",  eng: "B",  pun: "C+", legacy: "F"  }, // KW
       12: { draft: "D-", trade: "C-", fin: "B",  coach: "C",  bk: "D+", luck: "D+", eng: "C",  pun: "B+", legacy: "F"  }, // WGLR
     },

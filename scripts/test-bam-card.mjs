@@ -5,9 +5,10 @@
  *   A REAL PNG           1200x630, every chunk's checksum right, and it inflates
  *                        to exactly the rows it claims
  *   THE TAGS             title, the nine grades, an absolute picture address;
- *                        names escaped; a crawler gets no script to follow
- *   THE ANSWERS          a bad code goes home, the picture is cached, the page
- *                        is not
+ *                        names escaped; whoever opens the link gets the
+ *                        picture and nothing else, no script and no way on
+ *   THE ANSWERS          a bad code goes home; the picture and the page are both
+ *                        kept at the edge, the page being the same for everyone
  *
  * Run: node scripts/test-bam-card.mjs
  */
@@ -24,8 +25,8 @@ const ok = (name, got, want) => {
   console.log('  FAIL  ' + name + NL + '          got  ' + g + NL + '          want ' + w);
 };
 const grab = lifter(new URL('../public/app.js', import.meta.url));
-const A = assemble(grab, ['const BAM_ATTRS=', 'const BAM_PTS=', 'function bamRating(', 'function bamDecode('],
-  ['BAM_ATTRS', 'BAM_PTS', 'bamRating', 'bamDecode'], '');
+const A = assemble(grab, ['const BAM_ATTRS=', 'const BAM_PTS=', 'function bamRating(', 'function bamDecode(', 'const BAM_G='],
+  ['BAM_ATTRS', 'BAM_PTS', 'bamRating', 'bamDecode', 'BAM_G'], '');
 
 const CODE = '1ab46497413b7ac57b43';
 const teams = { 10: { abbrev: 'BFT', name: 'The Bryan Football Team' }, 11: { abbrev: 'KW', name: 'Whittingham Sports' } };
@@ -60,23 +61,17 @@ ok('small enough to travel', png.length < 250000, true);
 ok('a build whose builder nobody knows still draws', B.card(B.decode('10' + CODE.slice(2)), {}).length > 1000, true);
 
 console.log(NL + 'the tags');
-const page = B.page(B.decode(CODE), teams, 'https://gfl-dashboard.vercel.app', false);
+const page = B.page(B.decode(CODE), teams, 'https://gfl-dashboard.vercel.app');
 const tag = p => (page.match(new RegExp(`property="${p}" content="([^"]*)"`)) || [])[1];
 ok('who built it and what it rates', tag('og:title'), 'The Bryan Football Team built a 79-rated manager');
 ok('the picture, at an address a crawler can fetch', tag('og:image'), `https://gfl-dashboard.vercel.app/b/${CODE}/card.png`);
 ok('drawn at the size it says', [tag('og:image:width'), tag('og:image:height')], ['1200', '630']);
 ok('the nine grades, each with whose it was', tag('og:description').split(' · ').length, 9);
 ok('a large card where the app has one', /name="twitter:card" content="summary_large_image"/.test(page), true);
-ok('a person is sent on to the game', page.includes(`location.replace("/?bam=${CODE}")`), true);
-ok('a crawler is not', B.page(B.decode(CODE), teams, 'https://x', true).includes('<script'), false);
-const nasty = B.page(B.decode(CODE), { 10: { abbrev: '<b>', name: 'Team "<script>alert(1)</script>"' } }, 'https://x', false);
+ok('whoever opens it sees the picture', page.includes(`<img src="https://gfl-dashboard.vercel.app/b/${CODE}/card.png"`), true);
+ok('and nothing sends them on to the site', [page.includes('<script'), page.includes('?bam='), /<a /.test(page)], [false, false, false]);
+const nasty = B.page(B.decode(CODE), { 10: { abbrev: '<b>', name: 'Team "<script>alert(1)</script>"' } }, 'https://x');
 ok('a team name cannot break out of the page', [nasty.includes('<script>alert'), nasty.includes('&lt;script&gt;')], [false, true]);
-ok('iMessage, Slack, Discord and X count as crawlers', [
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/601.2.4 (KHTML, like Gecko) Version/9.0.1 Safari/601.2.4 facebookexternalhit/1.1 Facebot Twitterbot/1.0',
-  'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)', 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)', 'Twitterbot/1.0',
-].map(B.isBot), [true, true, true, true]);
-ok('a phone does not', B.isBot('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'), false);
-
 console.log(NL + 'the answers');
 const call = async (query, ua) => {
   const out = { code: 200, head: {}, body: null,
@@ -90,9 +85,22 @@ ok('a bad code goes home', [bad.code, bad.head.location], [302, '/']);
 const pic = await call({ c: CODE, img: '1' });
 ok('the picture is a PNG, kept a week at the edge', [pic.code, pic.head['content-type'], /s-maxage=604800/.test(pic.head['cache-control'])], [200, 'image/png', true]);
 const html = await call({ c: CODE }, 'Mozilla/5.0 (iPhone)');
-ok('the page is HTML and never kept, since a crawler and a person get different ones',
-  [html.code, html.head['content-type'], html.head['cache-control']], [200, 'text/html; charset=utf-8', 'private, no-store']);
+ok('the page is HTML, the same for a crawler and a person, so kept at the edge',
+  [html.code, html.head['content-type'], /^public.*s-maxage=/.test(html.head['cache-control'])], [200, 'text/html; charset=utf-8', true]);
 ok('and its addresses are https on the live host', html.body.includes(`https://gfl-dashboard.vercel.app/b/${CODE}/card.png`), true);
+
+console.log(NL + 'a season on the card');
+{
+  const two = '2' + CODE.slice(1) + '3' + '1' + 'b' + '3' + '1';
+  const v = B.decode(two), app = A.bamDecode(two);
+  ok('a season code reads the same in both files', v.season, app.season);
+  ok('the team, where it finished, the record and the seed', v.season, { team: 3, place: 1, w: 11, l: 3, seed: 1 });
+  ok('and the title says how it ended', /· Champion with /.test(B.page(v, teams, 'https://x')), true);
+  ok('the card still draws', B.card(v, teams).length > 1000, true);
+}
+
+console.log(NL + 'the type');
+ok('the game is set in the same type as the card', JSON.stringify(A.BAM_G), JSON.stringify(B.G));
 
 console.log(NL + `${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

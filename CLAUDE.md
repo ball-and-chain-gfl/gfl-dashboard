@@ -189,14 +189,20 @@ on 6 November 2026), and the game reads nothing live, by request: no grade may
 be fixed while another moves. If grades are ever made to move with the season,
 the movement goes in `bamGrade` on top of every baseline at once. A build in
 progress is kept in localStorage under `lsKey('bam')`. The overall is 0-99,
-the mean of `BAM_PTS` (what each grade is worth). A finished build shares as
-`/b/<code>`: twenty base-36 characters (a version, the builder's team id, then
-each slot's team id and grade). `vercel.json` rewrites that to `api/bam.js`,
-which draws the link-preview PNG itself (no dependencies) and sends people on
-to `/?bam=<code>`, where `bamReadLink` opens the build once, on first load. The
-grades travel in the code, so a link shows the build as it was made. A finished
-manager can spin for a team and play its season (THE SEASON in `app.js`):
-strength is 80% the manager's overall and 20% the roster's points this season.
+the mean of `BAM_PTS` (what each grade is worth). A finished manager spins
+ONCE for a team and is locked to it, then plays ONE season (THE SEASON in
+`app.js`), saved with the build before it is revealed a game at a time, so it
+cannot be re-rolled; Start over is the only way back. Strength is 60% the
+manager's overall and 40% the roster's points this season (`BAM_MGR_W`).
+
+Sharing is the recap picture, never the site: a link from a message opens the
+browser, not the home-screen app people are signed in to. A finished build is
+`/b/<code>` (version 1: twenty base-36 characters, the builder's team id and
+each slot's team id and grade; version 2 adds five for the season). `vercel.json`
+rewrites it to `api/bam.js`, which draws the PNG itself (no dependencies) and
+answers a person with that picture alone. On a phone, Share sends the picture
+file. The game is drawn in the card's own 5x7 type (`bamPx`, `BAM_G` = `G` in
+`api/bam.js`). `/?bam=<code>` still opens a build in the game for old links.
 
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).

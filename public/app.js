@@ -20581,10 +20581,10 @@ function bamDecode(code){
 /* ── THE SEASON ──────────────────────────────────────────────────────────────
    The finished manager takes over the team the wheel lands on, and the whole
    league plays its season from week one on the real schedule. Every team's
-   score each week is drawn around its strength -- four parts its manager's
-   overall, one part its roster -- with noise enough that the better side wins
-   most weeks and not all of them: ten points of strength is about a 70% game,
-   twenty about 85%. The other eleven keep their own managers.
+   score each week is drawn around its strength -- 60% its manager's overall,
+   40% its roster (it was 80/20 until 6 November) -- with noise enough that the
+   better side wins most weeks and not all of them: ten points of strength is
+   about a 70% game, twenty about 85%. The other eleven keep their own managers.
 
    THE ROSTER is the team's points a week this season against the league's,
    80 at the league average and nine a standard deviation, kept to 55-99.
@@ -20594,7 +20594,7 @@ function bamDecode(code){
    a game for third. The losers' bracket is the same shape with the worst two
    on the byes, and there you go on by LOSING; the last game left decides last
    place. */
-const BAM_MGR_W=0.8;                 // the manager's share of a team's strength
+const BAM_MGR_W=0.6;                 // the manager's share of a team's strength; the roster has the rest
 const BAM_BASE=115, BAM_PER_PT=1.4, BAM_SD=19;
 const bamStrength=(mgr,roster)=>BAM_MGR_W*mgr+(1-BAM_MGR_W)*roster;
 function bamGauss(rnd){
@@ -20769,21 +20769,29 @@ function bamState(){
 function bamSave(){ try{ localStorage.setItem(_bamKey||bamKey(),JSON.stringify(_bam)); }catch(e){} }
 const bamTeam=id=>(_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
 const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
-/* one slot: its icon and trait, then the grade and whose it was once filled,
-   the whole box in the grade's colour */
+/* One slot, laid out the way the share card lays out a tile: the trait at the
+   top, the grade big at the bottom left, whose it was at the bottom right, the
+   whole box in the grade's colour. */
 function bamSlotHTML(a,id,gi,open){
   const [,label,icon]=a, filled=id!=null&&gi>=0, t=filled?bamTeam(id):null;
   return `<div class="bam-slot${filled?' filled '+bamToneCls(gi):''}${open&&!filled?' open':''}">
-      <span class="bam-si"><i class="fa ${icon}"></i></span>
-      ${bamPxWrap(label,1,14,'bam-sl')}
-      ${filled?`${bamPx(PG_SCALE[gi],4,'bam-sg '+pgTone(gi))}
-        <span class="bam-sf">${avatarHTML(t,18,5)}${bamPx(bamAbbr(t),1)}</span>`:bamPx('-',3,'bam-sg')}
+      <span class="bam-tl"><i class="fa ${icon}"></i>${bamPxWrap(label,1,10,'bam-sl')}</span>
+      <span class="bam-tb">${filled?bamPx(PG_SCALE[gi],4,'bam-sg '+pgTone(gi))+bamPx(bamAbbr(t),1,'bam-sf')
+        :bamPx('-',3,'bam-sg')}</span>
     </div>`;
 }
 function bamOvrHTML(n,left){
-  return `<div class="bam-ovr">${bamPx('OVR',1,'bam-ovr-l')}${bamPx(n>=0?String(n):'-',5,n>=0?bamRateTone(n):'pg-none')}</div>
+  return `<div class="bam-ovr">${bamPx('OVR',2,'bam-ovr-l')}${bamPx(n>=0?String(n):'-',6,n>=0?bamRateTone(n):'pg-none')}</div>
     ${bamPx(left,1,'bam-left')}`;
 }
+/* the top of the build, as on the share card: the name of the game in violet,
+   and who built it when that is known */
+function bamCardHeadHTML(byId){
+  const by=byId!=null?bamTeam(byId):null;
+  return `<div class="bam-head">${bamPx('Build a Manager',3,'bam-title')}
+      ${by&&by.name?`<div class="bam-by">${bamPx('Built by',1,'bam-by-l')}${bamPx(by.name,2)}</div>`:''}</div>`;
+}
+const bamCardFootHTML=()=>bamPx('Ball & Chain GFL',1,'bam-foot');
 /* the one the wheel stopped at, and every grade of theirs still open */
 function bamCardHTML(b){
   const t=bamTeam(b.land);
@@ -20792,7 +20800,7 @@ function bamCardHTML(b){
     return `<button class="bam-pick ${bamToneCls(i)}" onclick="bamPut('${k}')">
         <span><i class="fa ${icon}"></i>${bamPxWrap(label,1,9)}</span>${bamPx(PG_SCALE[i],3,pgTone(i))}</button>`;
   }).join('');
-  return `<div class="bam-card">
+  return `<div class="bam-card bam-panel">
       <div class="bam-who">${avatarHTML(t,40,10)}${bamPx(t.name||'',2)}</div>
       <div class="bam-picks">${picks}</div>
     </div>`;
@@ -20834,10 +20842,11 @@ function bamViewHTML(v){
   const by=v.by?bamTeam(v.by):null, s=v.season;
   const n=bamRating(BAM_ATTRS.map(([k])=>v.grades[k]));
   return `<div class="bam-wrap bam-shared">
-      <div class="bam-build">
-        ${by?`<div class="bam-by">${avatarHTML(by,28,8)}<span>${bamPx('Built by',1,'bam-by-l')}${bamPx(by.name||bamAbbr(by),2)}</span></div>`:''}
+      <div class="bam-build bam-panel">
+        ${bamCardHeadHTML(by?by.id:null)}
         <div class="bam-slots">${BAM_ATTRS.map(a=>bamSlotHTML(a,v.slots[a[0]],v.grades[a[0]],false)).join('')}</div>
         <div class="bam-meta">${bamOvrHTML(n,'9 of 9')}</div>
+        ${bamCardFootHTML()}
       </div>
       <div class="bam-play">
         ${s?bamResultHTML(s.team,s.place,s.w,s.l,s.seed):''}
@@ -20854,7 +20863,7 @@ function bamTeamCardHTML(b){
   const t=bamTeam(b.team), mgr=bamOvr(b), roster=(bamRosterNow()[b.team])??80;
   const s=Math.round(bamStrength(mgr,roster));
   const cell=(l,n)=>`<div>${bamPx(l,1,'bam-mix-l')}${bamPx(String(n),3,bamRateTone(n))}</div>`;
-  return `<div class="bam-card bam-team">
+  return `<div class="bam-card bam-team bam-panel">
       <div class="bam-who">${avatarHTML(t,40,10)}${bamPx(t.name||'',2)}</div>
       <div class="bam-mix">${cell('Manager',mgr)}${cell('Roster',roster)}${cell('Team',s)}</div>
       <div class="bam-btns"><button class="bam-spin" onclick="bamPlay()"><i class="fa fa-play"></i>${bamPx('Play the season',2)}</button></div>
@@ -20895,7 +20904,7 @@ function bamSeasonHTML(b,shown){
   const seen=mine.slice(0,n), reg=seen.filter(x=>!x.post), post=seen.filter(x=>x.post);
   const row=x=>bamGameRowHTML(me,x,!done&&x===mine[n-1]);
   const sum=done?bamSeasonSum(s,me):null;
-  return `<div class="bam-season" id="bam-season">
+  return `<div class="bam-season bam-panel" id="bam-season">
       <div class="bam-hd">${avatarHTML(t,30,8)}${bamPx(t.name||'',2)}</div>
       ${done?'':`<div class="bam-live">${bamPx(bamLiveText(b,mine,n),2)}
         <button class="bam-skip" onclick="bamSkip()">${bamPx('Skip',1)}</button></div>`}
@@ -20922,7 +20931,8 @@ function renderBam(){
     const mid=b.land!=null?b.land:(b.team!=null?b.team:(b.last!=null?b.last:pool[0]));
     _bamRot=bamAim(0,Math.max(0,pool.indexOf(mid)),pool.length,0,0);
   }
-  const build=`<div class="bam-build">
+  const build=`<div class="bam-build bam-panel">
+      ${bamCardHeadHTML(_me&&_me.teamId!=null?Number(_me.teamId):null)}
       <div class="bam-slots">${BAM_ATTRS.map(a=>{
         const id=b.slots[a[0]];
         return bamSlotHTML(a,id,id!=null?bamGrade(id,a[0]):-1,b.land!=null&&!_bamSpin);
@@ -20932,6 +20942,7 @@ function renderBam(){
         ${started&&!done?`<button class="bam-reset${_bamArm?' armed':''}" onclick="bamReset()" aria-label="Start over">
           <i class="fa fa-rotate-left"></i>${_bamArm?bamPx('Start over',1):''}</button>`:''}
       </div>
+      ${bamCardFootHTML()}
     </div>`;
   /* share and start over: once the build is done and before a team is spun,
      then again once the season is over -- never in between, where you are
@@ -20941,6 +20952,8 @@ function renderBam(){
       <button class="bam-re" onclick="bamReset(true)"><i class="fa fa-rotate-left"></i>${bamPx('Start over',1)}</button>
     </div>
     ${_bamLink?`<input class="bam-link" readonly value="${takesEsc(_bamLink)}" onclick="this.select()" aria-label="Link to this build">`:''}`;
+  if(done&&!_bamSpin&&(b.team==null||(b.season&&_bamShown==null))&&matchMedia('(pointer:coarse)').matches)
+    bamCardWarm(bamCode(b,_me&&_me.teamId));
   let play;
   if(done&&b.season&&b.team!=null){
     play=`<div id="bam-season-wrap">${bamSeasonHTML(b,_bamShown)}</div>${_bamShown==null?after:''}`;
@@ -21082,19 +21095,33 @@ function bamReset(now){
   bamSave(); renderBam();
   try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
 }
-/* A phone gets its own share sheet (Messages, copy, the rest); anything else
-   copies the link. If the clipboard says no, the link is put on screen to copy
-   by hand rather than in a dialog that stops the page. The link is /b/<code>,
-   which a message app turns into a picture of the build (api/bam.js), and
-   once the season is played it carries how it ended too. */
+/* THE RECAP PICTURE, fetched while Share is on screen, so a tap can hand the
+   file straight to the share sheet: a phone only lets a share start inside the
+   tap itself, with no network wait in between. Phones only -- elsewhere Share
+   copies the link, and there is nothing to fetch for. */
+let _bamCard=null, _bamCardFor='';
+function bamCardWarm(code){
+  if(!code||_bamCardFor===code) return;
+  _bamCardFor=code; _bamCard=null;
+  fetch('/b/'+code+'/card.png').then(r=>r.ok?r.blob():null).then(blob=>{
+    if(blob&&_bamCardFor===code) _bamCard=new File([blob],'build-a-manager.png',{type:'image/png'});
+  }).catch(()=>{});
+}
+/* What gets shared is the recap picture (api/bam.js draws it). A phone sends
+   the picture itself where it can share a file, and otherwise the /b/ link,
+   which shows that same picture and nothing else; anywhere else Share copies
+   the link. Never the site: a link from a message opens the browser, not the
+   home-screen app people are signed in to. If the clipboard says no, the link
+   is put on screen to copy by hand rather than in a dialog that stops the page. */
 async function bamShare(){
   const b=bamState(), code=bamCode(b,_me&&_me.teamId);
   if(!code) return;
   const url=location.origin+'/b/'+code;
-  const sum=b.team!=null?bamSeasonSum(b.season,b.team):null;
-  const text=`My GFL manager: ${bamOvr(b)} overall`+(sum?` · ${bamFinish(sum.place).big} with ${bamTeam(b.team).name}`:'');
   if(navigator.share&&matchMedia('(pointer:coarse)').matches){
-    try{ await navigator.share({title:'Build a Manager',text,url}); return; }
+    const file=_bamCardFor===code?_bamCard:null;
+    const data=file&&navigator.canShare&&navigator.canShare({files:[file]})
+      ?{files:[file],title:'Build a Manager'}:{title:'Build a Manager',url};
+    try{ await navigator.share(data); return; }
     catch(e){ if(e&&e.name==='AbortError') return; }
   }
   try{ await navigator.clipboard.writeText(url); }
