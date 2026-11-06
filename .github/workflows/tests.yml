@@ -237,6 +237,11 @@ jobs:
       # work the week out with the page's own function, or it clears the wrong one.
       - name: hot takes keep to their week
         run: node scripts/test-hot-takes.mjs
+      # The season went past 300 bets in week 8, and the Leaderboards and the
+      # price freezer each kept reading only 300 of them. Both read the whole
+      # season now; the owner read keeps its 300 and its order.
+      - name: the boards and the freezer read every bet in the season
+        run: node scripts/test-bets-season.mjs
       - name: the split migration parses
         run: node --check scripts/split-shares.mjs
       - name: the archivers parse
@@ -245,3 +250,4 @@ jobs:
           node --check scripts/archive-transactions.mjs
           node --check scripts/archive-season.mjs
           node --check scripts/wipe-takes.mjs
+          node --check scripts/archive-charts.mjs

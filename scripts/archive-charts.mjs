@@ -311,8 +311,17 @@ if (!prices || !Object.keys(prices).length) {
 }
 
 // ── what the league's bets did in that week ─────────────────────────────────
-const listUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT}`
-  + `/databases/(default)/documents/bets?key=${KEY}&pageSize=1000`;
+/* EVERY BET IN THE SEASON, IN ONE QUERY WITH NO LIMIT -- the way settle-bets
+   reads them. This was a list call asking for a thousand a page, and Firestore
+   answers a list with three hundred at most and a token for the rest, which
+   was never followed. Week 8 froze when the season had 305 bets, and two
+   managers' results were drawn from the wrong subset of them. A runQuery has
+   no page size, so there is no token to miss. */
+const queryUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT}`
+  + `/databases/(default)/documents:runQuery?key=${KEY}`;
+const seasonQuery = { structuredQuery: { from: [{ collectionId: 'bets' }],
+  where: { fieldFilter: { field: { fieldPath: 'season' }, op: 'EQUAL',
+                          value: { stringValue: String(SEASON) } } } } };
 function fsIn(doc) {
   const out = {};
   for (const [k, v] of Object.entries((doc && doc.fields) || {})) {
@@ -324,11 +333,14 @@ function fsIn(doc) {
 }
 const bets = {};
 try {
-  const r = await fetch(listUrl);
+  const r = await fetch(queryUrl, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seasonQuery) });
   if (r.ok) {
     const j = await r.json();
     const cut = Number((window.GFL_CONFIG || {}).betsResetBefore) || 0;
-    (j.documents || []).map(d => fsIn(d)).forEach(b => {
+    /* runQuery answers with an array, one entry per match -- and a single
+       entry carrying only a readTime when nothing matched */
+    (Array.isArray(j) ? j : []).filter(x => x && x.document).map(x => fsIn(x.document)).forEach(b => {
       if (String(b.season || '') !== String(SEASON)) return;
       if ((Number(b.ts) || 0) < cut) return;
       const st = String(b.status || '');

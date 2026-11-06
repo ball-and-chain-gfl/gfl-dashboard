@@ -16292,8 +16292,15 @@ const betDocRow=d=>{
 const fsRunQueryUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}`
   +`/databases/(default)/documents:runQuery?${msgKey()}`;
 /* One structured query against the bets collection. Single-field filters only,
-   which Firestore indexes automatically — no composite index to deploy. */
-async function betQuery(where,ordered){
+   which Firestore indexes automatically — no composite index to deploy.
+
+   limit is 300 unless the caller says otherwise, and 0 means none. The season
+   read for the boards passes 0: it needs every ticket, and the season went past
+   300 in week 8 -- from then on the Leaderboards and Team Data silently drew
+   from the first 300 and dropped the rest. A runQuery with no limit returns
+   the lot in one answer and costs the same reads as paging would; settle-bets
+   has always asked that way. */
+async function betQuery(where,ordered,limit=300){
   const r=fsNoteResponse(await fetch(fsRunQueryUrl(),{method:'POST',cache:'no-store',
     headers:{'Content-Type':'application/json'},
     /* Ordered only where there is an index for it. Every filter+order pair is
@@ -16303,7 +16310,8 @@ async function betQuery(where,ordered){
        the one that gets the ordering; the invite query returns a handful of
        rows and is sorted with everything else in the browser. */
     body:JSON.stringify({structuredQuery:Object.assign(
-      {from:[{collectionId:'bets'}],where,limit:300},
+      {from:[{collectionId:'bets'}],where},
+      limit?{limit}:{},
       ordered?{orderBy:[{field:{fieldPath:'ts'},direction:'DESCENDING'}]}:{})})}));
   if(r.status===403){ _betErr='rules'; return null; }
   if(r.status===429){ _betErr='quota'; return null; }
@@ -16358,7 +16366,7 @@ async function betRefresh(){
    This is the largest single read the app makes: every ticket in the season, in
    one query. It was held in a variable, which a page load throws away, so every
    reload and every return to the site paid for the whole collection again — 54
-   documents today and capped at 300, against a daily allowance of 50,000.
+   documents then, 328 by week 9, against a daily allowance of 50,000.
 
    sessionStorage rather than localStorage: it is a snapshot of twelve people's
    money and it has no business outliving the tab. Keyed by season so January
@@ -16412,7 +16420,7 @@ async function betLeague(){
   if(_betsAllBusy) return null;
   _betsAllBusy=true;
   try{
-    const rows=await betQuery(fsEq('season',String(sbSeason())));
+    const rows=await betQuery(fsEq('season',String(sbSeason())),false,0);   // all of them
     _betsAll=rows||[];
     if(rows) betsAllStore(rows);
   }catch(e){ _betsAll=[]; }
