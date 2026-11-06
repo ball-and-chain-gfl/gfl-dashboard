@@ -38,10 +38,10 @@ const M = assemble(grab, [
   'const PG_SCALE=', 'const pgIdx=',
   'const BAM_ATTRS=', 'const BAM_RESPINS=', 'const BAM_TURNS=', 'const BAM_HUES=', 'const bamCfg=',
   'function bamGrade(', 'function bamPool(', 'const bamFresh=', 'const bamOpen=', 'const bamDone=',
-  'const BAM_PTS=', 'function bamRating(', 'const bamRateTone=', 'function bamOvr(', 'function bamManagerOvr(', 'function bamPick(', 'function bamTake(', 'function bamValid(',
+  'const BAM_PTS=', 'function bamRating(', 'const bamRateTone=', 'function bamOvr(', 'function bamManagerOvr(', 'function bamPick(', 'function bamTake(', 'function bamSeasonOk(', 'function bamValid(',
   'function bamAim(', 'function bamAt(', 'function bamCode(', 'function bamDecode(',
   'const BAM_MGR_W=', 'const BAM_BASE=', 'const bamStrength=', 'function bamGauss(', 'function bamScore(',
-  'function bamGame(', 'function bamRoster(', 'function bamGames(', 'function bamSimSeason(', 'function bamFinish(',
+  'function bamGame(', 'function bamRoster(', 'function bamGames(', 'function bamSimSeason(', 'const bamOrd=', 'function bamFinish(',
 ], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'PG_SCALE', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen',
   'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'bamRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode', 'set'], [
   "let _CFG={}, _teams=[];",
@@ -165,7 +165,7 @@ ok('junk starts a fresh build', [M.bamValid(null, pool), M.bamValid('x', pool), 
   [M.bamFresh(), M.bamFresh(), M.bamFresh()]);
 ok('a sound build comes back as it was',
   M.bamValid({ slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0 }, pool),
-  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0, team: null });
+  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0, team: null, season: null });
 ok('a trait that is not one throws it out', M.bamValid({ slots: { charisma: 2 } }, pool), M.bamFresh());
 ok('so does a manager no longer in the pool', M.bamValid({ slots: { trade: 2 }, land: 44 }, pool), M.bamFresh());
 ok('more respins than a build gets are not believed', M.bamValid({ slots: {}, respins: 5 }, pool).respins, M.BAM_RESPINS);
@@ -248,7 +248,7 @@ console.log(NL + 'the season');
   ok('in the losers bracket it is the loser who goes on', [lr2.includes(a1.lose), lr2.includes(a2.lose), lr2.includes(a1.win)], [true, true, false]);
   const last = lb.find(x => x.round === 3);
   ok('and losing the last game there is last place', s.place[last.lose], 12);
-  ok('a finish for every place, last place included', [M.bamFinish(1)[1], M.bamFinish(12)[1]], ['Champion', 'Last place']);
+  ok('a finish for every place, last place included', [M.bamFinish(1).big, M.bamFinish(12).big], ['Champion', 'Last place']);
 
   /* the point of it: the same team, a better manager, a better season */
   const wins = mgr => { let t = 0; for (let i = 0; i < 300; i++) {

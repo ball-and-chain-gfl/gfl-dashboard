@@ -20432,14 +20432,20 @@ function takesRefresh(){
    The build is kept on this device, so a reload (the one a new version
    triggers included) does not throw it away.
 
-   THEN A SEASON. A finished manager spins for one of the league's teams and
-   takes it over, and the whole season is played from week one on the real
-   schedule, playoffs and losers' bracket included. See THE SEASON below.
+   ONE TEAM, ONE SEASON. A finished manager spins once for a team and is locked
+   to it -- there is no second spin. The season is then played once and kept
+   with the build before a single game of it is shown, so neither a reload nor
+   another tap can re-roll it; Start over, from the very beginning, is the only
+   way to another. It plays out a game at a time (THE REVEAL), and its result
+   can be shared.
+
+   THE LOOK is the link preview's: everything in the game is set in the same
+   5x7 pixel type as api/bam.js draws (bamPx), on square-cornered boxes.
 
    A FINISHED BUILD CAN BE SHARED as /b/<code> (api/bam.js answers with a
-   picture of the build for message previews and sends people on to
-   ?bam=<code>, which opens the game on it). The grades travel inside the code,
-   so a link shows the build as it was made even if the table changes later. */
+   picture of it for message previews and sends people on to ?bam=<code>,
+   which opens the game on it). The grades, and the season once played, travel
+   inside the code, so a link shows what was made even if the table changes. */
 /* key, name, icon. No colour of their own: a filled slot takes its grade's
    colour, the whole box, so green always means an A and red an F, whatever
    the trait (see bamToneCls). */
@@ -20458,6 +20464,9 @@ const BAM_HUES=['#5b30b8','#3c45b0','#8a34b8','#45278a'];
 /* what each grade is worth on the 0-99 scale an overall is read on, F to A+.
    api/bam.js draws the preview from the same numbers. */
 const BAM_PTS=[55,62,65,68,72,75,78,82,85,88,91,95,99];
+/* how long each game of the season takes to come in: the regular season at a
+   walk, the postseason slower, and a beat before the result */
+const BAM_REVEAL_MS=900, BAM_REVEAL_POST_MS=1500;
 const bamCfg=()=>((_CFG.buildManager||{}).grades)||{};
 /* a manager's grade in a trait, as a step on the scale (0 is F, 12 is A+), or -1 */
 function bamGrade(teamId,attr){
@@ -20471,7 +20480,7 @@ function bamPool(){
     .filter(id=>live.has(id)&&BAM_ATTRS.every(([k])=>bamGrade(id,k)>=0))
     .sort((a,b)=>a-b);
 }
-const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null});
+const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null,season:null});
 const bamOpen=b=>BAM_ATTRS.map(([k])=>k).filter(k=>b.slots[k]==null);
 const bamDone=b=>bamOpen(b).length===0;
 /* some grades as a 0-99 rating: the mean of what each is worth; -1 for none */
@@ -20483,6 +20492,8 @@ const bamRateTone=n=>n>=90?'pg-a':n>=80?'pg-b':n>=70?'pg-c':n>=63?'pg-d':'pg-f';
 function bamOvr(b){ return bamRating(Object.entries(b.slots).map(([k,id])=>bamGrade(id,k))); }
 /* a real manager's own overall, out of all nine of their grades */
 function bamManagerOvr(id){ return bamRating(BAM_ATTRS.map(([k])=>bamGrade(id,k))); }
+/* a grade's colour as a class for a whole box: bam-ta for an A down to bam-tf */
+const bamToneCls=i=>'bam-t'+String(PG_SCALE[i]||'F').charAt(0).toLowerCase();
 /* anyone in the pool but whoever a respin is turning away from */
 function bamPick(pool,not,rnd){
   const p=(pool||[]).filter(id=>id!==not);
@@ -20494,6 +20505,18 @@ function bamTake(b,attr){
   if(b.land==null||b.slots[attr]!=null||!BAM_ATTRS.some(([k])=>k===attr)) return false;
   b.slots[attr]=b.land; b.last=b.land; b.land=null;
   return true;
+}
+/* A season read back off the device: every game between teams in the pool
+   with a winner, and this team in the table with a place from 1 to 12. */
+function bamSeasonOk(s,team,pool){
+  if(!s||typeof s!=='object'||team==null) return false;
+  const inPool=id=>pool.includes(Number(id));
+  const gameOk=g=>!!g&&inPool(g.a)&&inPool(g.b)&&Number.isFinite(g.as)&&Number.isFinite(g.bs)&&(g.win===g.a||g.win===g.b);
+  return Array.isArray(s.log)&&s.log.length>0&&s.log.every(gameOk)
+    &&Array.isArray(s.post)&&s.post.every(gameOk)
+    &&Array.isArray(s.table)&&s.table.some(r=>r&&r.id===team)
+    &&Array.isArray(s.seed)&&s.seed.includes(team)
+    &&!!s.place&&Number(s.place[team])>=1&&Number(s.place[team])<=12;
 }
 /* A build read back off the device is kept only if every part of it still
    makes sense against today's pool. Anything else starts a fresh one. */
@@ -20508,10 +20531,10 @@ function bamValid(x,pool){
   }
   if(x.land!=null&&!ok(x.land)) return f;
   const full=Object.keys(slots).length===BAM_ATTRS.length;
-  const r=Number(x.respins);
+  const r=Number(x.respins), team=(full&&ok(x.team))?Number(x.team):null;
   return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
     respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS,
-    team:(full&&ok(x.team))?Number(x.team):null};
+    team, season:(team!=null&&bamSeasonOk(x.season,team,pool))?x.season:null};
 }
 /* Where the wheel has to stop for wedge k of n to sit under the pointer: on
    from `rot` by `turns` full turns and then the rest of the way round, coming
@@ -20526,19 +20549,32 @@ function bamAt(rot,n){
   const seg=360/n;
   return Math.round(((((-rot)%360)+360)%360)/seg)%n;
 }
+/* where a played season left a team: its place, record and seed */
+function bamSeasonSum(s,team){
+  const r=s&&Array.isArray(s.table)?s.table.find(x=>x.id===team):null;
+  if(!r) return null;
+  return {team,place:Number(s.place[team]),w:r.w,l:r.l,seed:s.seed.indexOf(team)+1};
+}
 /* A finished build as a link code: a version, who built it (0 for nobody
    signed in), then each slot's manager and grade, one base-36 character each,
-   in BAM_ATTRS order. Twenty characters. */
+   in BAM_ATTRS order -- twenty characters. Version 2 adds the season played,
+   five more: the team, where it finished, its wins, its losses, its seed. */
 function bamCode(b,by){
   if(!b||!bamDone(b)) return '';
-  const who=Number(by)>0&&Number(by)<36?Number(by).toString(36):'0';
-  return '1'+who+BAM_ATTRS.map(([k])=>Number(b.slots[k]).toString(36)+bamGrade(b.slots[k],k).toString(36)).join('');
+  const c=n=>Number(n).toString(36);
+  const core=(Number(by)>0&&Number(by)<36?c(by):'0')
+    +BAM_ATTRS.map(([k])=>c(b.slots[k])+c(bamGrade(b.slots[k],k))).join('');
+  const s=b.team!=null?bamSeasonSum(b.season,b.team):null;
+  return s&&s.w<36&&s.l<36?'2'+core+c(s.team)+c(s.place)+c(s.w)+c(s.l)+c(s.seed):'1'+core;
 }
 function bamDecode(code){
   const s=String(code||'').trim().toLowerCase();
-  if(!/^1[0-9a-z](?:[1-9a-z][0-9a-c]){9}$/.test(s)) return null;
-  const v={by:parseInt(s[1],36)||null,slots:{},grades:{}};
+  const v1=/^1[0-9a-z](?:[1-9a-z][0-9a-c]){9}$/, v2=/^2[0-9a-z](?:[1-9a-z][0-9a-c]){9}[1-9a-z][1-9a-c][0-9a-z]{2}[1-9a-c]$/;
+  if(!v1.test(s)&&!v2.test(s)) return null;
+  const v={by:parseInt(s[1],36)||null,slots:{},grades:{},season:null};
   BAM_ATTRS.forEach(([k],i)=>{ v.slots[k]=parseInt(s[2+2*i],36); v.grades[k]=parseInt(s[3+2*i],36); });
+  if(s[0]==='2') v.season={team:parseInt(s[20],36),place:parseInt(s[21],36),w:parseInt(s[22],36),
+    l:parseInt(s[23],36),seed:parseInt(s[24],36)};
   return v;
 }
 
@@ -20627,20 +20663,98 @@ function bamSimSeason(games,str,rnd){
   }
   return {log,table,seed,post,place};
 }
-const BAM_ROUNDS={po:['Quarterfinal','Semifinal','Championship'],po3:['','','Third-place game'],
-  lb:['Losers round 1','Losers round 2','Losers final']};
+/* the table as it stood after a given week of the regular season */
+function bamTableTo(s,week){
+  const rec={};
+  const row=id=>rec[id]||(rec[id]={id,w:0,l:0,pf:0});
+  s.log.forEach(g=>{
+    if(g.w>week) return;
+    row(g.a).pf+=g.as; row(g.b).pf+=g.bs; row(g.win).w++; row(g.lose).l++;
+  });
+  return Object.values(rec).sort((x,y)=>(y.w-x.w)||(y.pf-x.pf));
+}
+const BAM_ROUNDS={po:['Quarterfinal','Semifinal','Final'],po3:['','','3rd place'],lb:['Losers R1','Losers R2','Losers final']};
+const bamOrd=n=>n+(n%10===1&&n!==11?'st':n%10===2&&n!==12?'nd':n%10===3&&n!==13?'rd':'th');
+/* where a season ended: the word for it, how it got there, its colour and icon */
 function bamFinish(place){
-  return place===1?['fa-trophy','Champion','pg-a']:place===2?['fa-medal','Runner-up','pg-b']
-    :place===3?['fa-medal','Third place','pg-b']:place===4?['fa-medal','Fourth place','pg-c']
-    :place<=6?['fa-door-open','Out in the quarterfinals','pg-c']
-    :place<=8?['fa-person-running','Escaped the losers bracket','pg-d']
-    :place<=10?['fa-person-running','Escaped in losers round 2','pg-d']
-    :place===11?['fa-shield-halved','Survived the losers final','pg-f']:['fa-toilet','Last place','pg-f'];
+  const big=place===1?'Champion':place===2?'Runner-up':place===12?'Last place':`${bamOrd(place)} place`;
+  const how=place===1?'Won the title':place===2?'Lost the final':place===3?'Won the 3rd place game'
+    :place===4?'Lost the 3rd place game':place<=6?'Out in the quarterfinals':place<=8?'Escaped losers round 1'
+    :place<=10?'Escaped losers round 2':place===11?'Won the losers final':'Lost the losers final';
+  const tone=place===1?'pg-a':place<=3?'pg-b':place<=6?'pg-c':place<=10?'pg-d':'pg-f';
+  const icon=place===1?'fa-trophy':place<=4?'fa-medal':place<=6?'fa-door-open':place<=10?'fa-person-running'
+    :place===11?'fa-shield-halved':'fa-toilet';
+  return {big,how,tone,icon};
+}
+
+/* ── PIXEL TYPE ──────────────────────────────────────────────────────────────
+   The 5x7 type the link preview is drawn in (G in api/bam.js; the test holds
+   the two tables together). Each string becomes one SVG path of one-unit
+   squares, a row's run of them drawn as one, scaled by `px` and filled with
+   currentColor -- so a grade's class colours it exactly as it would text. */
+const BAM_G={
+  A:'.###.|#...#|#...#|#####|#...#|#...#|#...#',B:'####.|#...#|#...#|####.|#...#|#...#|####.',
+  C:'.###.|#...#|#....|#....|#....|#...#|.###.',D:'###..|#..#.|#...#|#...#|#...#|#..#.|###..',
+  E:'#####|#....|#....|####.|#....|#....|#####',F:'#####|#....|#....|####.|#....|#....|#....',
+  G:'.###.|#...#|#....|#.###|#...#|#...#|.####',H:'#...#|#...#|#...#|#####|#...#|#...#|#...#',
+  I:'.###.|..#..|..#..|..#..|..#..|..#..|.###.',J:'..###|...#.|...#.|...#.|...#.|#..#.|.##..',
+  K:'#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#',L:'#....|#....|#....|#....|#....|#....|#####',
+  M:'#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#',N:'#...#|#...#|##..#|#.#.#|#..##|#...#|#...#',
+  O:'.###.|#...#|#...#|#...#|#...#|#...#|.###.',P:'####.|#...#|#...#|####.|#....|#....|#....',
+  Q:'.###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#',R:'####.|#...#|#...#|####.|#.#..|#..#.|#...#',
+  S:'.####|#....|#....|.###.|....#|....#|####.',T:'#####|..#..|..#..|..#..|..#..|..#..|..#..',
+  U:'#...#|#...#|#...#|#...#|#...#|#...#|.###.',V:'#...#|#...#|#...#|#...#|#...#|.#.#.|..#..',
+  W:'#...#|#...#|#...#|#.#.#|#.#.#|#.#.#|.#.#.',X:'#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#',
+  Y:'#...#|#...#|#...#|.#.#.|..#..|..#..|..#..',Z:'#####|....#|...#.|..#..|.#...|#....|#####',
+  0:'.###.|#...#|#..##|#.#.#|##..#|#...#|.###.',1:'..#..|.##..|..#..|..#..|..#..|..#..|.###.',
+  2:'.###.|#...#|....#|...#.|..#..|.#...|#####',3:'#####|...#.|..#..|...#.|....#|#...#|.###.',
+  4:'...#.|..##.|.#.#.|#..#.|#####|...#.|...#.',5:'#####|#....|####.|....#|....#|#...#|.###.',
+  6:'..##.|.#...|#....|####.|#...#|#...#|.###.',7:'#####|....#|...#.|..#..|.#...|.#...|.#...',
+  8:'.###.|#...#|#...#|.###.|#...#|#...#|.###.',9:'.###.|#...#|#...#|.####|....#|...#.|.##..',
+  '+':'.....|..#..|..#..|#####|..#..|..#..|.....','-':'.....|.....|.....|#####|.....|.....|.....',
+  '.':'.....|.....|.....|.....|.....|.##..|.##..',"'":'.##..|..#..|.#...|.....|.....|.....|.....',
+  '&':'.##..|#..#.|#.#..|.#...|#.#.#|#..#.|.##.#','!':'..#..|..#..|..#..|..#..|..#..|.....|..#..',
+  ':':'.....|.##..|.##..|.....|.##..|.##..|.....','/':'....#|....#|...#.|..#..|.#...|#....|#....',
+  '·':'.....|.....|.....|.##..|.##..|.....|.....','?':'.###.|#...#|....#|...#.|..#..|.....|..#..',
+  '(':'...#.|..#..|.#...|.#...|.#...|..#..|...#.',')':'.#...|..#..|...#.|...#.|...#.|..#..|.#...',
+  ' ':'.....|.....|.....|.....|.....|.....|.....',
+};
+const BAM_GLYPH=Object.fromEntries(Object.entries(BAM_G).map(([c,s])=>[c,s.split('|')]));
+function bamPxClean(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[–—]/g,'-')
+    .toUpperCase().split('').map(c=>BAM_GLYPH[c]?c:' ').join('').replace(/\s+/g,' ').trim();
+}
+function bamPx(s,px,cls){
+  const t=bamPxClean(s); if(!t) return '';
+  let d='';
+  [...t].forEach((ch,i)=>{
+    const g=BAM_GLYPH[ch];
+    for(let r=0;r<7;r++){ let c=0;
+      while(c<5){ if(g[r][c]!=='#'){ c++; continue; }
+        let e=c; while(e<5&&g[r][e]==='#') e++;
+        d+=`M${i*6+c} ${r}h${e-c}v1h-${e-c}z`; c=e; } }
+  });
+  const w=t.length*6-1;
+  return `<svg class="px${cls?' '+cls:''}" viewBox="0 0 ${w} 7" width="${w*px}" height="${7*px}" role="img" aria-label="${takesEsc(t)}" shape-rendering="crispEdges"><path d="${d}"/></svg>`;
+}
+/* words onto lines of at most `max` characters, each line its own row of type */
+function bamPxWrap(s,px,max,cls){
+  const lines=[]; let cur='';
+  bamPxClean(s).split(' ').filter(Boolean).forEach(w=>{
+    const next=cur?cur+' '+w:w;
+    if(cur&&next.length>max){ lines.push(cur); cur=w; } else cur=next;
+  });
+  if(cur) lines.push(cur);
+  return `<span class="pxw${cls?' '+cls:''}">${lines.map(l=>bamPx(l,px)).join('')}</span>`;
 }
 
 /* ── ON SCREEN ───────────────────────────────────────────────────────────── */
-let _bam=null, _bamKey='', _bamSpin=false, _bamArm=false, _bamArmT=null, _bamSeason=null;
+let _bam=null, _bamKey='', _bamSpin=false, _bamArm=false, _bamArmT=null;
 let _bamRot=null, _bamView=null, _bamLinkRead=false, _bamCopied=false, _bamCopiedT=null, _bamLink='';
+/* THE REVEAL: how many of this team's games are showing while a season plays
+   out, or null when it is not playing out (a season kept from before shows
+   whole) */
+let _bamShown=null, _bamTickT=null;
 const bamKey=()=>lsKey('bam');
 /* Not cached before the teams are in: an empty pool would judge every saved
    build invalid, and the next save would write the empty one over it. */
@@ -20649,28 +20763,26 @@ function bamState(){
   if(_bam&&_bamKey===key) return _bam;
   if(!pool.length) return bamFresh();
   let x=null; try{ x=JSON.parse(localStorage.getItem(key)||'null'); }catch(e){}
-  _bamKey=key; _bamSeason=null;
+  _bamKey=key; _bamShown=null; clearTimeout(_bamTickT);
   return (_bam=bamValid(x,pool));
 }
 function bamSave(){ try{ localStorage.setItem(_bamKey||bamKey(),JSON.stringify(_bam)); }catch(e){} }
 const bamTeam=id=>(_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
 const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
-/* a grade's colour as a class for a whole box: bam-ta for an A down to bam-tf */
-const bamToneCls=i=>'bam-t'+String(PG_SCALE[i]||'F').charAt(0).toLowerCase();
 /* one slot: its icon and trait, then the grade and whose it was once filled,
    the whole box in the grade's colour */
 function bamSlotHTML(a,id,gi,open){
   const [,label,icon]=a, filled=id!=null&&gi>=0, t=filled?bamTeam(id):null;
   return `<div class="bam-slot${filled?' filled '+bamToneCls(gi):''}${open&&!filled?' open':''}">
       <span class="bam-si"><i class="fa ${icon}"></i></span>
-      <span class="bam-sl">${label}</span>
-      ${filled?`<b class="bam-sg ${pgTone(gi)}">${PG_SCALE[gi]}</b>
-        <span class="bam-sf">${avatarHTML(t,18,5)}${takesEsc(bamAbbr(t))}</span>`:`<b class="bam-sg">–</b>`}
+      ${bamPxWrap(label,1,14,'bam-sl')}
+      ${filled?`${bamPx(PG_SCALE[gi],4,'bam-sg '+pgTone(gi))}
+        <span class="bam-sf">${avatarHTML(t,18,5)}${bamPx(bamAbbr(t),1)}</span>`:bamPx('-',3,'bam-sg')}
     </div>`;
 }
 function bamOvrHTML(n,left){
-  return `<div class="bam-ovr"><span>OVR</span><b class="${n>=0?bamRateTone(n):'pg-none'}">${n>=0?n:'–'}</b></div>
-    <span class="bam-left">${left}</span>`;
+  return `<div class="bam-ovr">${bamPx('OVR',1,'bam-ovr-l')}${bamPx(n>=0?String(n):'-',5,n>=0?bamRateTone(n):'pg-none')}</div>
+    ${bamPx(left,1,'bam-left')}`;
 }
 /* the one the wheel stopped at, and every grade of theirs still open */
 function bamCardHTML(b){
@@ -20678,10 +20790,10 @@ function bamCardHTML(b){
   const picks=bamOpen(b).map(k=>{
     const [,label,icon]=BAM_ATTRS.find(([a])=>a===k), i=bamGrade(b.land,k);
     return `<button class="bam-pick ${bamToneCls(i)}" onclick="bamPut('${k}')">
-        <span><i class="fa ${icon}"></i>${label}</span><b class="${pgTone(i)}">${PG_SCALE[i]}</b></button>`;
+        <span><i class="fa ${icon}"></i>${bamPxWrap(label,1,9)}</span>${bamPx(PG_SCALE[i],3,pgTone(i))}</button>`;
   }).join('');
   return `<div class="bam-card">
-      <div class="bam-who">${avatarHTML(t,40,10)}<span>${takesEsc(t.name||'')}</span></div>
+      <div class="bam-who">${avatarHTML(t,40,10)}${bamPx(t.name||'',2)}</div>
       <div class="bam-picks">${picks}</div>
     </div>`;
 }
@@ -20698,7 +20810,7 @@ function bamWheelHTML(pool,on,canSpin,spin){
   const marks=pool.map((id,i)=>{
     const t=bamTeam(id);
     return `<div class="bam-wl${id===on?' on':''}" style="transform:rotate(${(i*seg).toFixed(3)}deg)">
-        <span class="bam-wl-in">${avatarHTML(t,32,8)}<b>${takesEsc(bamAbbr(t))}</b></span></div>`;
+        <span class="bam-wl-in">${avatarHTML(t,32,8)}${bamPx(bamAbbr(t),1)}</span></div>`;
   }).join('');
   return `<div class="bam-wheel-box">
       <div class="bam-wheel" id="bam-wheel" style="transform:rotate(${_bamRot}deg)">
@@ -20709,62 +20821,94 @@ function bamWheelHTML(pool,on,canSpin,spin){
       <div class="bam-pointer"></div>
     </div>`;
 }
-/* somebody else's finished build, opened from a link */
+/* how a season ended, for whom, and the record and seed that got it there */
+function bamResultHTML(team,place,w,l,seed){
+  const f=bamFinish(place), t=bamTeam(team);
+  return `<div class="bam-fin ${f.tone}"><i class="fa ${f.icon}"></i>
+      <div>${bamPx(f.big,3)}${bamPx(f.how,1,'bam-fin-h')}
+        <span class="bam-fin-t">${avatarHTML(t,18,5)}${bamPx(`${bamAbbr(t)} · ${w}-${l} · ${bamOrd(seed)} seed`,1)}</span></div>
+    </div>`;
+}
+/* somebody else's finished build, opened from a link, and its season if it played one */
 function bamViewHTML(v){
-  const by=v.by?bamTeam(v.by):null;
+  const by=v.by?bamTeam(v.by):null, s=v.season;
   const n=bamRating(BAM_ATTRS.map(([k])=>v.grades[k]));
   return `<div class="bam-wrap bam-shared">
       <div class="bam-build">
-        ${by?`<div class="bam-by">${avatarHTML(by,28,8)}<span>Built by <b>${takesEsc(by.name||bamAbbr(by))}</b></span></div>`:''}
+        ${by?`<div class="bam-by">${avatarHTML(by,28,8)}<span>${bamPx('Built by',1,'bam-by-l')}${bamPx(by.name||bamAbbr(by),2)}</span></div>`:''}
         <div class="bam-slots">${BAM_ATTRS.map(a=>bamSlotHTML(a,v.slots[a[0]],v.grades[a[0]],false)).join('')}</div>
         <div class="bam-meta">${bamOvrHTML(n,'9 of 9')}</div>
       </div>
       <div class="bam-play">
-        <button class="bam-spin" onclick="bamOwn()"><i class="fa fa-dice"></i>Build your own</button>
+        ${s?bamResultHTML(s.team,s.place,s.w,s.l,s.seed):''}
+        <div class="bam-btns"><button class="bam-spin" onclick="bamOwn()"><i class="fa fa-dice"></i>${bamPx('Build your own',2)}</button></div>
       </div>
-    </div>`;
-}
-/* your manager and the team they landed on, before a ball is kicked */
-function bamTeamCardHTML(b){
-  const t=bamTeam(b.team), mgr=bamOvr(b), roster=(bamRosterNow()[b.team])??80;
-  const s=Math.round(bamStrength(mgr,roster));
-  const cell=(l,n)=>`<div><span>${l}</span><b class="${bamRateTone(n)}">${n}</b></div>`;
-  return `<div class="bam-card bam-team">
-      <div class="bam-who">${avatarHTML(t,40,10)}<span>${takesEsc(t.name||'')}</span></div>
-      <div class="bam-mix">${cell('Manager',mgr)}${cell('Roster',roster)}${cell('Team',s)}</div>
-      <button class="bam-spin" onclick="bamSimulate()"><i class="fa fa-play"></i>Simulate season</button>
     </div>`;
 }
 function bamRosterNow(){
   const season=pgSeason(), meta=season&&_seasonMeta[season];
   return meta?bamRoster(meta,season):{};
 }
-/* the season your manager just played: how it ended, every week, the
-   postseason, and the table it was all decided on */
-function bamSeasonHTML(b,s){
-  const me=b.team, t=bamTeam(me), mine=s.table.find(x=>x.id===me)||{w:0,l:0};
-  const seed=s.seed.indexOf(me)+1, [icon,finish,tone]=bamFinish(s.place[me]||12);
-  const line=(g,label,i)=>{
-    const home=g.a===me, opp=home?g.b:g.a, my=home?g.as:g.bs, th=home?g.bs:g.as, won=g.win===me;
-    return `<div class="bam-gm" style="--i:${i}"><span class="bam-gm-n">${label}</span>${avatarHTML(bamTeam(opp),20,5)}
-        <span class="bam-gm-o">${takesEsc(bamAbbr(bamTeam(opp)))}</span>
-        <span class="bam-gm-s">${my.toFixed(1)}<i>–</i>${th.toFixed(1)}</span><b class="${won?'pg-a':'pg-f'}">${won?'W':'L'}</b></div>`;
-  };
-  const weeks=s.log.filter(g=>g.a===me||g.b===me);
-  const post=s.post.filter(g=>g.a===me||g.b===me);
-  const table=s.table.map((r,i)=>`<div class="bam-st${r.id===me?' me':''}">
-      <span class="bam-st-n">${i+1}</span>${avatarHTML(bamTeam(r.id),18,5)}
-      <span class="bam-st-t">${takesEsc(bamAbbr(bamTeam(r.id)))}</span>
-      <span class="bam-st-r">${r.w}-${r.l}</span><span class="bam-st-p">${r.pf.toFixed(1)}</span></div>`).join('');
-  return `<div class="bam-season">
-      <div class="bam-fin ${tone}"><i class="fa ${icon}"></i><div><b>${finish}</b>
-        <span>${avatarHTML(t,18,5)}${takesEsc(t.name||'')} · ${mine.w}-${mine.l} · ${seed} seed</span></div></div>
-      <div class="bam-sub">Regular season</div>
-      <div class="bam-gms">${weeks.map((g,i)=>line(g,'W'+g.w,i)).join('')}</div>
-      ${post.length?`<div class="bam-sub">Postseason</div>
-        <div class="bam-gms">${post.map((g,i)=>line(g,BAM_ROUNDS[g.side][g.round-1],weeks.length+i)).join('')}</div>`:''}
-      <div class="bam-sub">Standings</div>
-      <div class="bam-sts">${table}</div>
+/* your manager and the team they are locked to, before a ball is kicked */
+function bamTeamCardHTML(b){
+  const t=bamTeam(b.team), mgr=bamOvr(b), roster=(bamRosterNow()[b.team])??80;
+  const s=Math.round(bamStrength(mgr,roster));
+  const cell=(l,n)=>`<div>${bamPx(l,1,'bam-mix-l')}${bamPx(String(n),3,bamRateTone(n))}</div>`;
+  return `<div class="bam-card bam-team">
+      <div class="bam-who">${avatarHTML(t,40,10)}${bamPx(t.name||'',2)}</div>
+      <div class="bam-mix">${cell('Manager',mgr)}${cell('Roster',roster)}${cell('Team',s)}</div>
+      <div class="bam-btns"><button class="bam-spin" onclick="bamPlay()"><i class="fa fa-play"></i>${bamPx('Play the season',2)}</button></div>
+    </div>`;
+}
+/* this team's games, regular season then postseason, each with its label */
+function bamMine(b){
+  const s=b.season, me=b.team; if(!s) return [];
+  return [...s.log.filter(g=>g.a===me||g.b===me).map(g=>({g,label:'W'+g.w,post:false})),
+    ...s.post.filter(g=>g.a===me||g.b===me).map(g=>({g,label:BAM_ROUNDS[g.side][g.round-1],post:true}))];
+}
+function bamGameRowHTML(me,x,fresh){
+  const g=x.g, home=g.a===me, opp=home?g.b:g.a, my=home?g.as:g.bs, th=home?g.bs:g.as, won=g.win===me;
+  return `<div class="bam-gm ${won?'won':'lost'}${fresh?' fresh':''}">
+      <span class="c-n">${bamPx(x.label,1)}</span>
+      <span class="c-o">${avatarHTML(bamTeam(opp),20,5)}${bamPx(bamAbbr(bamTeam(opp)),2)}</span>
+      <span class="c-s">${bamPx(my.toFixed(1),2)}${bamPx('-',1)}${bamPx(th.toFixed(1),2)}</span>
+      <span class="c-r">${bamPx(won?'W':'L',2,won?'pg-a':'pg-f')}</span>
+    </div>`;
+}
+/* where the season stands after the last game showing */
+function bamLiveText(b,mine,n){
+  const me=b.team, reg=mine.slice(0,n).filter(x=>!x.post);
+  const w=reg.filter(x=>x.g.win===me).length, l=reg.length-w;
+  const last=mine[n-1];
+  if(!last) return 'Week 1';
+  if(!last.post){
+    const rank=bamTableTo(b.season,last.g.w).findIndex(r=>r.id===me)+1;
+    return `Week ${last.g.w} · ${w}-${l} · ${bamOrd(rank)}`;
+  }
+  return `${last.g.side==='lb'?'Losers bracket':'Playoffs'} · ${w}-${l} · ${bamOrd(b.season.seed.indexOf(me)+1)} seed`;
+}
+/* The season as it stands: every game of this team's showing so far, newest
+   last; once all of them are in, how it ended and the table it ended on. */
+function bamSeasonHTML(b,shown){
+  const s=b.season, me=b.team, t=bamTeam(me), mine=bamMine(b);
+  const done=shown==null, n=done?mine.length:Math.max(0,Math.min(shown,mine.length));
+  const seen=mine.slice(0,n), reg=seen.filter(x=>!x.post), post=seen.filter(x=>x.post);
+  const row=x=>bamGameRowHTML(me,x,!done&&x===mine[n-1]);
+  const sum=done?bamSeasonSum(s,me):null;
+  return `<div class="bam-season" id="bam-season">
+      <div class="bam-hd">${avatarHTML(t,30,8)}${bamPx(t.name||'',2)}</div>
+      ${done?'':`<div class="bam-live">${bamPx(bamLiveText(b,mine,n),2)}
+        <button class="bam-skip" onclick="bamSkip()">${bamPx('Skip',1)}</button></div>`}
+      ${bamPx('Regular season',1,'bam-sub')}
+      <div class="bam-gms">${reg.map(row).join('')}</div>
+      ${post.length?`${bamPx(post[0].g.side==='lb'?'Losers bracket':'Playoffs',1,'bam-sub')}
+        <div class="bam-gms">${post.map(row).join('')}</div>`:''}
+      ${sum?bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed)
+        +`${bamPx('Final standings',1,'bam-sub')}<div class="bam-sts">${s.table.map((r,i)=>`<div class="bam-st${r.id===me?' me':''}">
+            <span class="c-n">${bamPx(String(i+1),1)}</span>
+            <span class="c-t">${avatarHTML(bamTeam(r.id),18,5)}${bamPx(bamAbbr(bamTeam(r.id)),2)}</span>
+            <span class="c-r">${bamPx(`${r.w}-${r.l}`,2)}</span>
+            <span class="c-p">${bamPx(r.pf.toFixed(1),1)}</span></div>`).join('')}</div>`:''}
     </div>`;
 }
 function renderBam(){
@@ -20786,38 +20930,34 @@ function renderBam(){
       <div class="bam-meta">
         ${bamOvrHTML(bamOvr(b),done?'9 of 9':`${left} slot${left===1?'':'s'} left`)}
         ${started&&!done?`<button class="bam-reset${_bamArm?' armed':''}" onclick="bamReset()" aria-label="Start over">
-          <i class="fa fa-rotate-left"></i>${_bamArm?'Start over':''}</button>`:''}
+          <i class="fa fa-rotate-left"></i>${_bamArm?bamPx('Start over',1):''}</button>`:''}
       </div>
     </div>`;
+  /* share and start over: once the build is done and before a team is spun,
+     then again once the season is over -- never in between, where you are
+     locked to your team and your one season */
+  const after=`<div class="bam-btns even">
+      <button class="bam-re" onclick="bamShare()"><i class="fa ${_bamCopied?'fa-check':'fa-share-nodes'}"></i>${bamPx(_bamCopied?'Link copied':'Share',1)}</button>
+      <button class="bam-re" onclick="bamReset(true)"><i class="fa fa-rotate-left"></i>${bamPx('Start over',1)}</button>
+    </div>
+    ${_bamLink?`<input class="bam-link" readonly value="${takesEsc(_bamLink)}" onclick="this.select()" aria-label="Link to this build">`:''}`;
   let play;
-  if(done){
-    const share=`<div class="bam-btns bam-share">
-        <button class="bam-re" onclick="bamShare()"><i class="fa ${_bamCopied?'fa-check':'fa-share-nodes'}"></i>${_bamCopied?'Link copied':'Share'}</button>
-        <button class="bam-re" onclick="bamReset(true)"><i class="fa fa-rotate-left"></i>Build again</button>
-      </div>
-      ${_bamLink?`<input class="bam-link" readonly value="${takesEsc(_bamLink)}" onclick="this.select()" aria-label="Link to this build">`:''}`;
-    if(_bamSeason&&b.team!=null&&!_bamSpin){
-      play=`${bamSeasonHTML(b,_bamSeason)}
-        <div class="bam-btns">
-          <button class="bam-spin" onclick="bamSimulate()"><i class="fa fa-rotate-right"></i>Simulate again</button>
-          <button class="bam-re" onclick="bamSpinTeam()"><i class="fa fa-dice"></i>New team</button>
-        </div>${share}`;
-    }else{
-      const canSpin=!_bamSpin;
-      play=`${bamWheelHTML(pool,_bamSpin?null:b.team,canSpin,'bamSpinTeam')}
-        <div class="bam-btns">
-          <button class="bam-${b.team!=null?'re':'spin'}" onclick="bamSpinTeam()" ${canSpin?'':'disabled'}>
-            <i class="fa fa-dice"></i>${b.team!=null?'Spin again':'Spin a team'}</button>
-        </div>
-        ${b.team!=null&&!_bamSpin?bamTeamCardHTML(b):''}${share}`;
-    }
+  if(done&&b.season&&b.team!=null){
+    play=`<div id="bam-season-wrap">${bamSeasonHTML(b,_bamShown)}</div>${_bamShown==null?after:''}`;
+  }else if(done&&b.team!=null&&!_bamSpin){
+    play=`${bamWheelHTML(pool,b.team,false,'bamSpinTeam')}${bamTeamCardHTML(b)}`;
+  }else if(done){
+    play=`${bamWheelHTML(pool,null,!_bamSpin,'bamSpinTeam')}
+      <div class="bam-btns"><button class="bam-spin" onclick="bamSpinTeam()" ${_bamSpin?'disabled':''}>
+        <i class="fa fa-dice"></i>${bamPx('Spin for your team',2)}</button></div>
+      ${_bamSpin?'':after}`;
   }else{
     const canSpin=!_bamSpin&&b.land==null;
     play=`${bamWheelHTML(pool,_bamSpin?null:b.land,canSpin,'bamSpin')}
       <div class="bam-btns">
-        <button class="bam-spin" onclick="bamSpin()" ${canSpin?'':'disabled'}><i class="fa fa-dice"></i>Spin</button>
+        <button class="bam-spin" onclick="bamSpin()" ${canSpin?'':'disabled'}><i class="fa fa-dice"></i>${bamPx('Spin',2)}</button>
         <button class="bam-re" onclick="bamSpin(true)" ${_bamSpin||b.land==null||b.respins<=0?'disabled':''}>
-          <i class="fa fa-rotate"></i>Respin<span>${b.respins}</span></button>
+          <i class="fa fa-rotate"></i>${bamPx('Respin',2)}<span>${bamPx(String(b.respins),1)}</span></button>
       </div>
       ${b.land!=null&&!_bamSpin?bamCardHTML(b):''}`;
   }
@@ -20837,9 +20977,9 @@ function bamTurn(target){
     setTimeout(end,BAM_SPIN_MS+200);
   });
 }
-/* on a phone what the wheel landed on sits below it, partly under the bar
+/* on a phone what just landed sits below the wheel, partly under the bar
    pinned to the foot of the screen: bring all of it up, and do nothing if it shows */
-function bamReveal(sel){
+function bamShow(sel){
   const el=document.querySelector(sel);
   if(el) try{ el.scrollIntoView({block:'nearest',
     behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'}); }catch(e){}
@@ -20862,33 +21002,63 @@ async function bamSpin(re){
   _bamSpin=false; b.land=id; b.last=id;
   bamSave();
   if(_activeTab!=='bam') return;
-  renderBam(); bamReveal('.bam-card');
+  renderBam(); bamShow('.bam-card');
 }
-/* a finished manager spins for the team they will run; never the same one twice running */
+/* a finished manager spins once for the team they will run, and is locked to it */
 async function bamSpinTeam(){
   if(_bamSpin||_bamView) return;
   const b=bamState(), pool=bamPool();
-  if(!pool.length||!bamDone(b)) return;
-  const id=bamPick(pool,b.team); if(id==null) return;
+  if(!pool.length||!bamDone(b)||b.team!=null) return;
+  const id=bamPick(pool,null); if(id==null) return;
   const seg=360/pool.length;
   const target=bamAim(_bamRot||0,pool.indexOf(id),pool.length,(Math.random()-0.5)*seg*0.6,BAM_TURNS);
-  b.team=null; _bamSeason=null; _bamSpin=true;
+  _bamSpin=true; _bamLink=''; _bamCopied=false;
   renderBam();
   await bamTurn(target);
   _bamRot=((target%360)+360)%360;
   _bamSpin=false; b.team=id;
   bamSave();
   if(_activeTab!=='bam') return;
-  renderBam(); bamReveal('.bam-team');
+  renderBam(); bamShow('.bam-team');
 }
-function bamSimulate(){
-  if(_bamSpin) return;
+/* The one season. It is played in full and kept with the build before a
+   single game of it is shown, so a reload part-way through shows the same
+   season whole rather than another. */
+function bamPlay(){
+  if(_bamSpin||_bamShown!=null) return;
   const b=bamState(), season=pgSeason(), meta=season&&_seasonMeta[season];
-  if(!bamDone(b)||b.team==null||!meta) return;
+  if(!bamDone(b)||b.team==null||b.season||!meta) return;
   const pool=bamPool(), roster=bamRoster(meta,season), str={};
   pool.forEach(id=>{ str[id]=bamStrength(id===b.team?bamOvr(b):bamManagerOvr(id),roster[id]??80); });
-  _bamSeason=bamSimSeason(bamGames(meta,season).filter(g=>str[g.h]!=null&&str[g.a]!=null),str);
-  renderBam(); bamReveal('.bam-fin');
+  const games=bamGames(meta,season).filter(g=>str[g.h]!=null&&str[g.a]!=null);
+  if(!games.length) return;
+  b.season=bamSimSeason(games,str);
+  bamSave();
+  _bamShown=0; renderBam(); bamShow('#bam-season'); bamTick();
+}
+/* THE REVEAL: one game at a time, the regular season at BAM_REVEAL_MS and the
+   postseason at BAM_REVEAL_POST_MS, the table's verdict a beat after the last */
+function bamTick(){
+  clearTimeout(_bamTickT);
+  const b=bamState(); if(!b.season||_bamShown==null) return;
+  const mine=bamMine(b);
+  if(_bamShown>=mine.length){
+    _bamTickT=setTimeout(()=>{ _bamShown=null; if(_activeTab==='bam'){ renderBam(); bamShow('.bam-fin'); } },BAM_REVEAL_POST_MS);
+    return;
+  }
+  _bamTickT=setTimeout(()=>{ _bamShown++; bamPaintSeason(); bamTick(); },
+    mine[_bamShown].post?BAM_REVEAL_POST_MS:BAM_REVEAL_MS);
+}
+function bamPaintSeason(){
+  if(_activeTab!=='bam') return;
+  const wrap=document.getElementById('bam-season-wrap');
+  if(!wrap){ renderBam(); return; }
+  wrap.innerHTML=bamSeasonHTML(bamState(),_bamShown);
+  bamShow('#bam-season .bam-gm.fresh');
+}
+function bamSkip(){
+  clearTimeout(_bamTickT); _bamShown=null;
+  renderBam(); bamShow('.bam-fin');
 }
 function bamPut(k){
   if(_bamSpin) return;
@@ -20897,29 +21067,34 @@ function bamPut(k){
   _bamArm=false;
   bamSave(); renderBam();
 }
-/* Halfway through, the first tap only asks; Build again at the end does not. */
+/* Back to the very beginning: the build, the team and the season all go.
+   Halfway through a build the first tap only asks; at the end it does not. */
 function bamReset(now){
-  if(_bamSpin) return;
+  if(_bamSpin||_bamShown!=null) return;
   const b=bamState();
   if(!now&&!_bamArm){
     _bamArm=true; clearTimeout(_bamArmT);
     _bamArmT=setTimeout(()=>{ _bamArm=false; if(_activeTab==='bam') renderBam(); },4000);
     renderBam(); return;
   }
-  clearTimeout(_bamArmT); _bamArm=false; _bamLink=''; _bamCopied=false; _bamSeason=null;
+  clearTimeout(_bamArmT); _bamArm=false; _bamLink=''; _bamCopied=false;
   _bam=bamFresh(); _bam.last=b.last;
   bamSave(); renderBam();
+  try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
 }
 /* A phone gets its own share sheet (Messages, copy, the rest); anything else
    copies the link. If the clipboard says no, the link is put on screen to copy
    by hand rather than in a dialog that stops the page. The link is /b/<code>,
-   which a message app turns into a picture of the build (api/bam.js). */
+   which a message app turns into a picture of the build (api/bam.js), and
+   once the season is played it carries how it ended too. */
 async function bamShare(){
   const b=bamState(), code=bamCode(b,_me&&_me.teamId);
   if(!code) return;
   const url=location.origin+'/b/'+code;
+  const sum=b.team!=null?bamSeasonSum(b.season,b.team):null;
+  const text=`My GFL manager: ${bamOvr(b)} overall`+(sum?` · ${bamFinish(sum.place).big} with ${bamTeam(b.team).name}`:'');
   if(navigator.share&&matchMedia('(pointer:coarse)').matches){
-    try{ await navigator.share({title:'Build a Manager',text:`My GFL manager: ${bamOvr(b)} overall`,url}); return; }
+    try{ await navigator.share({title:'Build a Manager',text,url}); return; }
     catch(e){ if(e&&e.name==='AbortError') return; }
   }
   try{ await navigator.clipboard.writeText(url); }

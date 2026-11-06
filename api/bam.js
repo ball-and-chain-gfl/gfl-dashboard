@@ -27,12 +27,24 @@ export const ATTRS = [
 export const SCALE = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+'];
 export const PTS = [55, 62, 65, 68, 72, 75, 78, 82, 85, 88, 91, 95, 99];
 
+/* Version 1 is the build alone. Version 2 adds the season it played, five
+   characters more: the team, where it finished, its wins, its losses, its seed. */
 export function decode(code) {
   const s = String(code || '').trim().toLowerCase();
-  if (!/^1[0-9a-z](?:[1-9a-z][0-9a-c]){9}$/.test(s)) return null;
-  const v = { code: s, by: parseInt(s[1], 36) || null, slots: {}, grades: {} };
+  const v1 = /^1[0-9a-z](?:[1-9a-z][0-9a-c]){9}$/, v2 = /^2[0-9a-z](?:[1-9a-z][0-9a-c]){9}[1-9a-z][1-9a-c][0-9a-z]{2}[1-9a-c]$/;
+  if (!v1.test(s) && !v2.test(s)) return null;
+  const v = { code: s, by: parseInt(s[1], 36) || null, slots: {}, grades: {}, season: null };
   ATTRS.forEach(([k], i) => { v.slots[k] = parseInt(s[2 + 2 * i], 36); v.grades[k] = parseInt(s[3 + 2 * i], 36); });
+  if (s[0] === '2') v.season = { team: parseInt(s[20], 36), place: parseInt(s[21], 36), w: parseInt(s[22], 36), l: parseInt(s[23], 36), seed: parseInt(s[24], 36) };
   return v;
+}
+/* where a season ended, in a word or two, and in which colour: the same calls
+   as bamFinish in app.js */
+const ordinal = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+export function finish(place) {
+  const big = place === 1 ? 'Champion' : place === 2 ? 'Runner-up' : place === 12 ? 'Last place' : `${ordinal(place)} place`;
+  const tone = place === 1 ? 'A' : place <= 3 ? 'B' : place <= 6 ? 'C' : place <= 10 ? 'D' : 'F';
+  return { big, tone };
 }
 /* the overall on 0-99: the mean of what each grade is worth */
 export function rating(v) {
@@ -83,8 +95,9 @@ const nameOf = (teams, id) => (teams[id] && teams[id].name) || (FALLBACK[id] || 
 
 /* ── THE TYPE ────────────────────────────────────────────────────────────────
    5x7, capitals, figures and the few marks the league's names use. Anything
-   else draws as a space. */
-const G = {
+   else draws as a space. The game in app.js is drawn in this same type
+   (BAM_G there); scripts/test-bam-card.mjs holds the two tables together. */
+export const G = {
   A: '.###.|#...#|#...#|#####|#...#|#...#|#...#', B: '####.|#...#|#...#|####.|#...#|#...#|####.',
   C: '.###.|#...#|#....|#....|#....|#...#|.###.', D: '###..|#..#.|#...#|#...#|#...#|#..#.|###..',
   E: '#####|#....|#....|####.|#....|#....|#####', F: '#####|#....|#....|####.|#....|#....|#....',
@@ -106,10 +119,13 @@ const G = {
   '+': '.....|..#..|..#..|#####|..#..|..#..|.....', '-': '.....|.....|.....|#####|.....|.....|.....',
   '.': '.....|.....|.....|.....|.....|.##..|.##..', "'": '.##..|..#..|.#...|.....|.....|.....|.....',
   '&': '.##..|#..#.|#.#..|.#...|#.#.#|#..#.|.##.#', '!': '..#..|..#..|..#..|..#..|..#..|.....|..#..',
+  ':': '.....|.##..|.##..|.....|.##..|.##..|.....', '/': '....#|....#|...#.|..#..|.#...|#....|#....',
+  '·': '.....|.....|.....|.##..|.##..|.....|.....', '?': '.###.|#...#|....#|...#.|..#..|.....|..#..',
+  '(': '...#.|..#..|.#...|.#...|.#...|..#..|...#.', ')': '.#...|..#..|...#.|...#.|...#.|..#..|.#...',
   ' ': '.....|.....|.....|.....|.....|.....|.....',
 };
 const GLYPH = Object.fromEntries(Object.entries(G).map(([c, s]) => [c, s.split('|')]));
-const clean = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+const clean = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[–—]/g, '-').toUpperCase()
   .split('').map(c => (GLYPH[c] ? c : ' ')).join('').replace(/\s+/g, ' ').trim();
 const textW = (s, px) => (s.length ? s.length * 6 * px - px : 0);
 /* words onto lines no wider than `max`, a long word left whole on its own line */
@@ -196,11 +212,22 @@ export function card(v, teams) {
   let y = 128;
   if (v.by) {
     text(img, 'BUILT BY', 60, y, 3, grey); y += 30;
-    for (const line of wrap(nameOf(teams, v.by), 4, 316).slice(0, 3)) { text(img, line, 60, y, 4, white); y += 36; }
+    for (const line of wrap(nameOf(teams, v.by), 4, 316).slice(0, v.season ? 2 : 3)) { text(img, line, 60, y, 4, white); y += 36; }
   }
   const n = rating(v);
-  text(img, 'OVR', 60, 300, 5, grey);
-  text(img, String(n), 60, 350, 22, hex(toneOfRating(n)));
+  if (v.season) {
+    /* a played season: the overall a size down, then how it ended, for whom,
+       and the record and seed that got it there */
+    const f = finish(v.season.place);
+    text(img, 'OVR', 60, 262, 4, grey);
+    text(img, String(n), 60, 298, 14, hex(toneOfRating(n)));
+    text(img, clean(f.big), 60, 420, 5, hex(TONES[f.tone]));
+    text(img, clean(`${abbrOf(teams, v.season.team)} ${v.season.w}-${v.season.l}`), 60, 470, 4, white);
+    text(img, clean(`${ordinal(v.season.seed)} seed`), 60, 512, 3, grey);
+  } else {
+    text(img, 'OVR', 60, 300, 5, grey);
+    text(img, String(n), 60, 350, 22, hex(toneOfRating(n)));
+  }
   text(img, 'BALL & CHAIN GFL', 60, 566, 3, dim);
   const gx = 400, gy = 120, gw = 740, gh = 470, gap = 14, tw = (gw - 2 * gap) / 3, th = (gh - 2 * gap) / 3;
   ATTRS.forEach(([k, label], i) => {
@@ -225,8 +252,10 @@ export const isBot = ua => BOT.test(String(ua || ''));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export function page(v, teams, origin, bot) {
   const n = rating(v), by = v.by ? nameOf(teams, v.by) : '';
-  const title = by ? `${by} built a ${n}-rated manager` : `A ${n}-rated manager`;
-  const desc = ATTRS.map(([k, label]) => `${label} ${SCALE[v.grades[k]]} (${abbrOf(teams, v.slots[k])})`).join(' · ');
+  const s = v.season, f = s ? finish(s.place) : null, team = s ? nameOf(teams, s.team) : '';
+  const title = (by ? `${by} built a ${n}-rated manager` : `A ${n}-rated manager`) + (s ? ` · ${f.big} with ${team}` : '');
+  const desc = (s ? `${f.big} · ${team} · ${s.w}-${s.l} · ${ordinal(s.seed)} seed. ` : '')
+    + ATTRS.map(([k, label]) => `${label} ${SCALE[v.grades[k]]} (${abbrOf(teams, v.slots[k])})`).join(' · ');
   const url = `${origin}/b/${v.code}`, img = `${url}/card.png`, game = `/?bam=${v.code}`;
   const meta = (p, c, attr = 'property') => `<meta ${attr}="${p}" content="${esc(c)}">`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
