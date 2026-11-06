@@ -197,5 +197,16 @@ ok('the eight kinds: the six there were, then boom and boof',
 ok('the weekly six are untouched, so weeks 1-9 rebuild the same',
   src.includes('const BK_KINDS=[bkqManager,bkqGroup,bkqRank,bkqGraph,bkqBio,bkqTeamRanks];'), true);
 
+head("the pick'em: choose, then submit");
+const sel = src.slice(src.indexOf('function pkeSelect('), src.indexOf('async function pkeSubmit('));
+const sub = src.slice(src.indexOf('async function pkeSubmit('), src.indexOf('function pkeOpp('));
+ok('a tap only chooses: nothing is saved by it', /bkdPut|gflPatchProfile/.test(sel), false);
+ok("Submit needs a choice for that very pick'em, and saves it once",
+  [sub.includes('if(!sel||sel.week!==Number(week)||sel.day!==Number(day)) return;'),
+   sub.includes('if(picks[day]!=null) return;'), sub.includes('bkdPut(k,JSON.stringify(picks));')], [true, true, true]);
+ok('the players are choices and the button is the submit',
+  [src.includes('onclick="pkeSelect(${week},${d},${x.pid},this)"'), src.includes('onclick="pkeSubmit(${week},${cur.d})"')], [true, true]);
+ok('and who each one is playing is on the card', src.includes("${opp?` ${opp}`:''}"), true);
+
 console.log(NL + `${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

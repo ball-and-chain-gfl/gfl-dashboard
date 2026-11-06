@@ -252,6 +252,10 @@ jobs:
       # draw and lock, and how both count -- blanks at minus one, undoubled.
       - name: the daily drop
         run: node scripts/test-daily.mjs
+      # The newest video hangs off the nav on the homepage for the week it is
+      # news, and comes down at the Tuesday reset until the next one is posted.
+      - name: the new video bar
+        run: node scripts/test-newvideo.mjs
       - name: the split migration parses
         run: node --check scripts/split-shares.mjs
       - name: the archivers parse

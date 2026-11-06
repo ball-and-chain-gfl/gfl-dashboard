@@ -1012,8 +1012,10 @@
        Built out of the Ball Knowledge card's own parts -- the question card,
        the scorecard rows, the swing -- with a line for which day a card is and
        a note when everything owed has been answered. */
-    .bkd-day{margin-bottom:6px;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
+    .bkd-day{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px;
+      font-family:'Inter',sans-serif;font-size:9.5px;font-weight:800;
       letter-spacing:.6px;text-transform:uppercase;color:var(--accent);}
+    .pke-when{flex:0 0 auto;color:var(--text3);white-space:nowrap;}
     .bkd-flash{display:flex;align-items:center;gap:8px;margin:0 0 9px;padding:8px 11px;border-radius:9px;
       background:rgba(0,0,0,0.3);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;}
     .bkd-flash.ok{color:#3fd07a;}
@@ -1022,7 +1024,6 @@
     .bkd-done{display:flex;align-items:center;gap:9px;margin-bottom:8px;padding:13px 12px;border-radius:10px;
       background:rgba(0,0,0,0.3);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;color:var(--text2);}
     .bkd-done i{color:var(--accent);}
-    .bkd-foot{margin-top:10px;font-size:10.5px;line-height:1.45;color:var(--text3);}
     .bk-card+.bk-score,.pke-card+.bk-score{margin-top:8px;}
     /* the pick'em: two players side by side, and a tap on one is the pick */
     .pke-card{padding:11px 12px;border-radius:10px;background:rgba(0,0,0,0.3);text-align:center;}
@@ -1040,8 +1041,14 @@
     .pke-pr{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--accent);}
     .pke-vs{align-self:center;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:800;
       letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
-    .pke-lock{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;
-      font-family:'Inter',sans-serif;font-size:10.5px;color:var(--text3);}
+    .pke-pl.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.16);
+      box-shadow:inset 0 0 0 1px var(--accent);}
+    .pke-go{width:100%;margin-top:10px;padding:10px;border-radius:9px;cursor:pointer;
+      border:1px solid rgba(var(--accent-rgb),0.6);background:linear-gradient(160deg,var(--accent),var(--accent2));
+      color:#06201d;box-shadow:none;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;
+      letter-spacing:.4px;text-transform:uppercase;}
+    .pke-go:hover:not(:disabled){filter:brightness(1.06);}
+    .pke-go:disabled{opacity:.4;cursor:not-allowed;}
     .pker{display:flex;align-items:center;gap:8px;min-width:0;padding:7px 9px;border-radius:8px;
       background:rgba(0,0,0,0.3);font-size:12px;}
     .pker>i{flex:0 0 auto;width:16px;height:16px;border-radius:5px;display:flex;align-items:center;
@@ -2288,6 +2295,29 @@
        white text — the colour is what marks the new one, so it can only be worn
        by one of them. */
     .vid-title.newest{background:var(--nv,#E0B67B);color:#0d0d0f;}
+    /* New Video: a thin drawer hanging off the bottom of the nav on the
+       homepage -- the jump chips' own drawer (frosted, rounded underneath, the
+       nav's full width) -- with one orange chip in it. It lives inside the nav,
+       so it moves with it. */
+    #floatnav .nv-bar{position:absolute;top:100%;left:0;right:0;padding:5px 9px 7px;
+      border-radius:0 0 12px 12px;background:rgba(0,0,0,0.3);
+      -webkit-backdrop-filter:blur(22px) saturate(1.3);backdrop-filter:blur(22px) saturate(1.3);
+      box-shadow:0 18px 34px -26px rgba(0,0,0,0.95);}
+    #floatnav .nv-bar[hidden]{display:none;}
+    body:has(.tab-dd-menu.show) #floatnav .nv-bar{display:none;}
+    .nv-in{display:flex;align-items:center;justify-content:center;gap:7px;height:28px;padding:0 12px;
+      border-radius:8px;background:#f09a4a;color:#0d0d0f;text-decoration:none;
+      font-family:'Inter',sans-serif;font-size:12px;font-weight:700;line-height:1;}
+    .nv-in:hover{filter:brightness(1.05);}
+    .nv-in .fa-youtube{flex:0 0 auto;font-size:13px;}
+    .nv-l{flex:0 0 auto;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
+    .nv-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .nv-go{flex:0 0 auto;font-size:10px;}
+    /* and the page starts below it */
+    body:has(#nv-bar:not([hidden])) main{padding-top:138px;}
+    @media(max-width:768px){
+      body:has(#nv-bar:not([hidden])) main{padding-top:calc(env(safe-area-inset-top,0px) + 128px);}
+    }
     @media(hover:hover){.vid-dot:hover::after{background:rgba(255,255,255,0.38);}
       .vid-dot.on:hover::after{background:var(--nv,var(--accent));}}
     /* 16:9 like every other slide — a min-height here used to make the track
@@ -3926,6 +3956,8 @@
 
     /* HOME layout */
     .home-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:40px;margin-bottom:28px;align-items:start;}
+    /* the video column is gone (see renderNewVideoBar): the cards have the row */
+    .home-top:not(:has(.home-vid-col)){grid-template-columns:minmax(0,1fr);}
     .home-bottom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:start;}
     .home-right{display:flex;flex-direction:column;gap:20px;min-width:0;}
     .home-top>*,.home-bottom>*{min-width:0;}
@@ -6636,7 +6668,7 @@
          full width — four answer buttons will not fit in half a phone — so
          nothing shares a row here. */
       .home-top{display:grid;grid-template-columns:1fr;
-        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "motw";
+        grid-template-areas:"s1" "s2" "s3" "s4" "s5" "motw";
         gap:20px;align-items:start;}
       .home-top .home-left-col,.home-top .home-vid-col{display:contents;}
       /* the three to-do cards take numbered slots; orderHomeTodo assigns which,
@@ -6656,10 +6688,10 @@
          twice as far from what is above it as the cards sit from each other.
          Each combination gets the template that only names the rows in use. */
       .home-top:not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
-        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5";}
-      .home-top:not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "s3" "s4" "motw";}
+        grid-template-areas:"s1" "s2" "s3" "s4" "s5";}
+      .home-top:not(:has(.mod-bk)){grid-template-areas:"s1" "s2" "s3" "s4" "motw";}
       .home-top:not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
-        grid-template-areas:"video" "s1" "s2" "s3" "s4";}
+        grid-template-areas:"s1" "s2" "s3" "s4";}
       /* and the card carries on the grid's own rhythm rather than the wider
          margin the grid keeps for the rest of the page */
       /* THE DAILY PICK'EM IS A SIXTH TO-DO CARD from week 10, so each template
@@ -6667,12 +6699,12 @@
          above are exactly as they were. */
       .home-top .mod-pe{grid-area:s5;}
       .home-top:has(.mod-pe) .mod-bk{grid-area:s6;}
-      .home-top:has(.mod-pe){grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "s6" "motw";}
+      .home-top:has(.mod-pe){grid-template-areas:"s1" "s2" "s3" "s4" "s5" "s6" "motw";}
       .home-top:has(.mod-pe):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
-        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "s6";}
-      .home-top:has(.mod-pe):not(:has(.mod-bk)){grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5" "motw";}
+        grid-template-areas:"s1" "s2" "s3" "s4" "s5" "s6";}
+      .home-top:has(.mod-pe):not(:has(.mod-bk)){grid-template-areas:"s1" "s2" "s3" "s4" "s5" "motw";}
       .home-top:has(.mod-pe):not(:has(.mod-bk)):not(:has(.home-left-col>.sec:not(.mod-cp):not(.mod-pk):not(.mod-bk):not(.mod-nt):not(.mod-fc):not(.mod-pe))){
-        grid-template-areas:"video" "s1" "s2" "s3" "s4" "s5";}
+        grid-template-areas:"s1" "s2" "s3" "s4" "s5";}
       #page-home:has(.bk-moved) .home-top{margin-bottom:20px;}
       .bk-moved,.nt-moved{margin-top:0;}
       .home-vid-col>.sec,.home-left-col>.sec{min-width:0;max-width:100%;overflow:hidden;}
@@ -7414,6 +7446,8 @@
     <button id="tab-dd-btn" ontouchstart="tabDDPointer(event)" onpointerdown="tabDDPointer(event)" onclick="tabDDClick()" aria-haspopup="true" aria-label="Choose page"><i id="tab-dd-ic" class="fa fa-house"></i><span id="tab-dd-lb">Home</span><span class="nav-burger"><i class="fa fa-bars"></i></span></button>
   </div>
   <button id="me-btn" onclick="meBtnClick()" aria-label="Sign in" title="Sign in"><i class="fa fa-user"></i></button>
+  <!-- New Video: hangs off the bottom of the nav on the homepage, for the week it is news -->
+  <div id="nv-bar" class="nv-bar" hidden></div>
 </header>
 <div id="tab-dd-menu" class="tab-dd-menu"></div>
 

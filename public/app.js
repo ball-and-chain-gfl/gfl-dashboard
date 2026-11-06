@@ -211,6 +211,7 @@ function ytApply(list){
   const top=(_videos[0]||{}).videoId;
   if(top===list[0].videoId) return;
   _videos=list;
+  try{ renderNewVideoBar(); }catch(e){}      // a new video puts its title on the bar
   /* There is no standalone renderer for the rail — it is built inside the
      homepage template — so the carousel's own box is rewritten and re-wired.
      wireVidRail guards on a data flag the fresh markup does not carry, so it
@@ -924,6 +925,7 @@ function switchTab(name){
   buildSectionNav(name);
   watchSectionNav(name);
   try{ renderBetsBar(); }catch(e){}
+  try{ renderNewVideoBar(); }catch(e){}      // homepage only
   try{ eggPaint(); }catch(e){}
   /* A new tab always opens at the top. Without this the browser keeps the
      scroll position from the tab you just left, so arriving after a jump chip
@@ -6184,6 +6186,40 @@ const NEW_VID_COLORS=['#E86043','#E89845','#E8C656','#66E89D','#5CE8B3','#63E0E8
    is ever wanted back. */
 function newVideoColor(){ return '#f09a4a'; }
 
+/* ── NEW VIDEO: ONE BAR UNDER THE NAV, FOR THE WEEK IT IS NEWS ───────────────
+   The carousel is off the homepage. The newest video goes up as a single
+   orange bar under the nav instead -- "New Video: <title>", straight to
+   YouTube -- from the moment it is posted until the Tuesday reset, and the bar
+   stays down after that until the next one is posted. The week is the league's:
+   Tuesday 06:00 Central, the turn Hot Takes and the daily drop keep.
+
+   NV_ALWAYS_WEEK is the week the bar went in. Its video had come out the
+   Saturday before, so for that one week the newest video shows whenever it was
+   posted; a new one posted that week still takes its place. */
+const NV_ALWAYS_WEEK='2026-11-03';
+function nvVideo(now){
+  const list=(_videos||[]).filter(v=>v&&v.videoId);
+  if(!list.length) return null;
+  const pub=v=>Date.parse(v.published||'')||0;
+  const v=list.slice().sort((a,b)=>pub(b)-pub(a))[0];
+  const wk=takesWeekKey(now==null?new Date():new Date(now));
+  if(wk===NV_ALWAYS_WEEK) return v;
+  const [y,m,d]=wk.split('-').map(Number);
+  return pub(v)>=bkChiMs(y,m,d,6)?v:null;
+}
+function renderNewVideoBar(){
+  const el=document.getElementById('nv-bar'); if(!el) return;
+  const v=_activeTab==='home'?nvVideo():null;
+  if(!v){ if(!el.hidden){ el.hidden=true; el.innerHTML=''; el.dataset.k=''; } return; }
+  const k=v.videoId+'|'+(v.title||'');
+  if(el.dataset.k!==k){
+    el.dataset.k=k;
+    el.innerHTML=`<a class="nv-in" href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener">
+      <i class="fa-brands fa-youtube"></i><span class="nv-l">New Video:</span>
+      <span class="nv-t">${takesEsc(v.title||'')}</span><i class="fa fa-arrow-right nv-go"></i></a>`;
+  }
+  el.hidden=false;
+}
 /* The carousel's markup. Built here rather than inline in the homepage
    template because the track is no longer just the slides: each one is wrapped
    in a cell, and the two ends are copies of the opposite end so the thing loops.
@@ -10372,7 +10408,6 @@ function lockerRoomHTML(t,opts){
       +'</g></g>'
     +'</svg>'
   +'</div>'
-  +(canWater?'<div class="lk-cap">Tap the plant to water it · Marked spots are saved for the store</div>':'')
   +'</div>';
 }
 
@@ -17806,8 +17841,7 @@ function renderBkDaily(el,sec,at){
     ${answered.length?`<div class="bk-delta ${delta>0?'up':delta<0?'down':'flat'}">
       <span class="bk-delta-v">${delta>0?'+':delta<0?'−':''}${Math.abs(delta)}</span>
       <span class="bk-delta-l">Ball Knowledge this week</span>
-    </div>`:''}
-    <div class="bkd-foot">One question a day, and each answer is final. Miss a day and it waits for you; anything still unanswered at the Tuesday reset counts against you.</div>`;
+    </div>`:''}`;
   bkPlace(!waiting.length);
   orderHomeTodo();
 }
@@ -17918,18 +17952,37 @@ function pkeLocked(pe,now){
   return [pe.a,pe.b].some(x=>{ let s=null; try{ s=nflTeamState(x.pt,pe.week,pe.season); }catch(e){}
     return s==='in'||s==='post'; });
 }
-async function pkePick(week,day,pid,el){
+/* A tap chooses, and can be changed by tapping the other one; Submit is what
+   makes it final. Nothing is saved until then. */
+let _pkeSel=null;                                        // {week, day, pid}
+function pkeSelect(week,day,pid,el){
+  if(el&&el.blur) el.blur();
+  const same=_pkeSel&&_pkeSel.week===Number(week)&&_pkeSel.day===Number(day)&&String(_pkeSel.pid)===String(pid);
+  _pkeSel=same?null:{week:Number(week),day:Number(day),pid:String(pid)};
+  pkeRender();
+}
+async function pkeSubmit(week,day){
   if(!_me) return;
+  const sel=_pkeSel;
+  if(!sel||sel.week!==Number(week)||sel.day!==Number(day)) return;
   const at=pkeAt(); if(!at||at.week!==Number(week)) return;
   const pe=_pkeDays[pkeDoc(at.season,week,day)]; if(!pe||pkeLocked(pe)) return;
   const k=pkdKey(at.season,week), picks=bkdLoad(k);
-  if(picks[day]!=null) return;                           // a tap is final
-  if(el&&el.blur) el.blur();
-  picks[day]=String(pid);
+  if(picks[day]!=null) return;                           // already submitted, and final
+  picks[day]=sel.pid;
+  _pkeSel=null;
   bkdPut(k,JSON.stringify(picks));
   pkeRender();
   try{ orderHomeTodo(); }catch(e){}
   try{ await gflPatchProfile(_me.k1,{[k]:JSON.stringify(picks)}); }catch(e){}
+}
+/* who a player is up against that week, "vs BUF" at home or "@ BUF" away,
+   off the same scoreboard the lock reads */
+function pkeOpp(x,week,season){
+  const g=nflWeekGames(week,season);
+  const m=g&&Array.isArray(g.games)?g.games.find(y=>y.ht===x.team||y.at===x.team):null;
+  if(!m) return '';
+  return m.ht===x.team?`vs ${m.at}`:`@ ${m.ht}`;
 }
 /* what a player scored that week: the season's player pool, or the roster
    feed's own number for the week in hand */
@@ -18042,17 +18095,20 @@ function pkeRender(){
   const drawn=days.map(d=>({d,pe:pkeDay(season,week,d)})).filter(x=>x.pe);
   const open=drawn.filter(x=>picks[x.d]==null&&!pkeLocked(x.pe,now));
   const cur=open[0];
-  const side=(x,d)=>`<button type="button" class="pke-pl" onclick="pkePick(${week},${d},${x.pid},this)">
+  const sel=cur&&_pkeSel&&_pkeSel.week===week&&_pkeSel.day===cur.d?_pkeSel.pid:null;
+  const side=(x,d)=>{ const opp=pkeOpp(x,week,season);
+    return `<button type="button" class="pke-pl${String(sel)===String(x.pid)?' on':''}" onclick="pkeSelect(${week},${d},${x.pid},this)">
       ${playerImg(x.pid,46,x.name)}
       <span class="pke-nm">${x.name}</span>
-      <span class="pke-mt">${POS_NAMES[x.pos]||''} · ${x.team}</span>
+      <span class="pke-mt">${POS_NAMES[x.pos]||''} · ${x.team}${opp?` ${opp}`:''}</span>
       <span class="pke-pr">Proj ${Number(x.proj).toFixed(1)}</span>
-    </button>`;
+    </button>`; };
   const card=cur?`<div class="pke-card">
-      <div class="bkd-day">${BK_DAY_NAMES[cur.d]}'s pick'em${open.length>1?` · ${open.length} open`:''}</div>
+      <div class="bkd-day"><span>${BK_DAY_NAMES[cur.d]}'s pick'em${open.length>1?` · ${open.length} open`:''}</span>
+        <span class="pke-when">Locks ${pkeWhen(cur.pe.k)}</span></div>
       <div class="pke-q">Who scores more this week?</div>
       <div class="pke-two">${side(cur.pe.a,cur.d)}<span class="pke-vs">vs</span>${side(cur.pe.b,cur.d)}</div>
-      <div class="pke-lock"><i class="fa fa-lock"></i>Locks ${pkeWhen(cur.pe.k)} CT · your first tap is final</div>
+      <button class="pke-go" onclick="pkeSubmit(${week},${cur.d})" ${sel?'':'disabled'}>Submit pick</button>
     </div>`:'';
   const pts=x=>{ const v=pkePts(x.pid,season,week); return v==null?'':Number(v).toFixed(1); };
   const rows=drawn.filter(x=>x!==cur&&!open.includes(x)).reverse().map(x=>{
@@ -18076,8 +18132,7 @@ function pkeRender(){
       <span class="bk-count">${drawn.filter(x=>picks[x.d]!=null).length} of ${drawn.length} picked</span></div>
     ${card||(waitingDraw&&!drawn.length?`<div class="tab-loading" style="padding:18px"><i class="fa fa-circle-notch"></i>Drawing today's pick'em…</div>`
       :`<div class="bkd-done"><i class="fa fa-circle-check"></i>Nothing open. ${at.day<BK_DAILY_N-1?'Next one tomorrow at 6 AM':'A new week starts Tuesday at 6 AM'}.</div>`)}
-    ${rows?`<div class="bk-score">${rows}</div>`:''}
-    <div class="bkd-foot">Two players with similar projections: who scores more this week? It locks when the first of their games kicks off, and a pick'em that locks without a pick counts against you.</div>`;
+    ${rows?`<div class="bk-score">${rows}</div>`:''}`;
   try{ orderHomeTodo(); }catch(e){}
 }
 function renderBallKnowledge(){
@@ -25602,8 +25657,7 @@ function jjjToggle(on){ _jjjOn=!!on; sbRenderSlip(); }
 function jjjBoxHTML(){
   return `<label class="sb-jjj${_jjjOn?' on':''}">
     <input type="checkbox" ${_jjjOn?'checked':''} onchange="jjjToggle(this.checked)"/>
-    <span class="sb-jjj-txt"><span class="sb-jjj-t">Make this ${JJJ_NAME}</span>
-      <span class="sb-jjj-s">Once a week. It goes up top as the featured parlay for the whole league.</span></span>
+    <span class="sb-jjj-txt"><span class="sb-jjj-t">Make this ${JJJ_NAME}</span></span>
   </label>`;
 }
 /* This bucks week's Jumble -- or, until there is one, last week's, so the card
@@ -26102,14 +26156,10 @@ async function loadDashboard(){
                  taken out for good — see the note where it used to live. Its
                  pick now leads the weekly stack. -->
           </div>
-          <div class="home-vid-col">
-            <div class="sec">
-              <div class="home-box">${firstVid
-                ?vidCarouselHTML()
-                :`<div style="padding:60px 24px;text-align:center;color:var(--text3)">Could not load videos</div>`
-              }</div>
-            </div>
-          </div>
+          ${''/* THE VIDEO CAROUSEL IS OFF THE HOMEPAGE. The newest video is a bar
+                 under the nav instead, for the week it is news -- see
+                 renderNewVideoBar. vidCarouselHTML and the rail are left whole
+                 if it is ever wanted back. */}
         </div>
         <!-- Coaching Metric moved to Advanced Stats, where it now heads its own
              view alongside the three ROI breakdowns. -->
@@ -26363,6 +26413,7 @@ async function loadDashboard(){
     renderBallKnowledge();
     renderWeekPicks();
     try{ pkeRender(); }catch(e){}
+    try{ renderNewVideoBar(); }catch(e){}
     renderCoachesPoll();
     leagueStart();            // keeps shared tallies in step across open sessions
     renderLeagueAction();
