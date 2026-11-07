@@ -113,7 +113,7 @@ ok('and it is taken off the undo stack as it is claimed',
 const S = assemble(grab, ['const BK_MAKEGOOD=', 'async function ntSync(){'], ['ntSync', 'claimed', 'answer'], [
   'let _me={k1:"bft"}, _bkFixClaimed=null, _res=null, _activeTab="stats";',
   'const claimed=()=>_bkFixClaimed; const answer=(r,c)=>{ _res=r; if(c!==undefined) _bkFixClaimed=c; };',
-  'const gflFetchProfile=async()=>_res; const _seen=new Set(); const ntSeen=()=>_seen; const ntKey=()=>"k";',
+  'const gflFetchProfile=async()=>_res; const gflFetchProfileShared=gflFetchProfile; const _seen=new Set(); const ntSeen=()=>_seen; const ntKey=()=>"k";',
   'const localStorage={setItem(){}}; const renderNotifications=()=>{}; const orderHomeTodo=()=>{};',
 ].join(String.fromCharCode(10)));
 S.answer({ data: { bkt_fix1: '1' } }); await S.ntSync();

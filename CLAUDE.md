@@ -331,7 +331,16 @@ hours of clock skew, on the owner+ts index) and, by id through `betGet`
 and on a device with nothing kept, it reads every ticket again with no limit
 (it used to stop at 300). If the short query fails for any reason but the
 quota, it falls back to the full read. Anything changed here on a settled
-ticket without a read, like clearing it off My Bets, must call `betsMineSave`. A failed read must back off rather than
+ticket without a read, like clearing it off My Bets, must call `betsMineSave`.
+
+A profile read for display goes through `gflFetchProfileShared`: one answer
+for 20 seconds per profile, dropped by any write of ours. On 7 November a
+reopen read 35 profile documents (the boot syncs each asking, two of them
+twice, and the forecast's trash-talk check firing on every redraw until its
+first answer came back); it reads 2 now. Anything that writes back from what
+it read (`eggSave`, `bamPaySave`, `invSync(true)` before a trade, sign-in)
+uses `gflFetchProfile` for a fresh copy. A check fired from a render must
+guard against asking again while one is in flight (`_ttChecking`). A failed read must back off rather than
 retry on its own repaint (Hot Takes did, `_takesFailAt`).
 
 `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.

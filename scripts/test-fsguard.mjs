@@ -165,5 +165,33 @@ head('and the pause lifts');
   globalThis.__now = T0;
 }
 
+head('one read of a profile for a burst of asks');
+{
+  const S = assemble(grab, ['const PROF_SHARE_MS=', 'const _profShare=', 'function gflFetchProfileShared(', 'async function gflPatchProfile('],
+    ['gflFetchProfileShared', 'gflPatchProfile', 'fetched', 'failNext'], [
+    'let _fetched=0, _fail=false; const fetched=()=>_fetched; const failNext=()=>{ _fail=true; };',
+    'const gflFetchProfile=async id=>{ _fetched++; if(_fail){ _fail=false; return {error:"offline"}; } return {data:{id}}; };',
+    'const gflPatchProfileRaw=async ()=>({ok:true});',
+  ].join(NL));
+  globalThis.__now = T0;
+  const asks = await Promise.all(Array.from({ length: 16 }, () => S.gflFetchProfileShared('bft')));
+  ok('sixteen asks for your profile as an open settles are one read', [S.fetched(), asks.every(a => a.data.id === 'bft')], [1, true]);
+  globalThis.__now += 21000; await S.gflFetchProfileShared('bft');
+  ok('twenty seconds on, it is read again', S.fetched(), 2);
+  await S.gflPatchProfile('bft', { x: '1' }); await S.gflFetchProfileShared('bft');
+  ok('and a write of ours drops the shared copy at once', S.fetched(), 3);
+  S.failNext(); await S.gflFetchProfileShared('kunk'); await S.gflFetchProfileShared('kunk');
+  ok('a failed read is not shared: the next ask tries again', S.fetched(), 5);
+  globalThis.__now = T0;
+  const src = (await import('node:fs')).readFileSync(new URL('../public/app.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const fn = n => { const i = src.indexOf('async function ' + n + '('); return src.slice(i, src.indexOf('\n}\n', i)); };
+  ok('the syncs that only read share; anything that writes back from what it read asks fresh',
+    [['plantSync', 'eggSync', 'bkSync', 'pkSync', 'ntSync', 'ttSync', 'ttCheck'].every(n => fn(n).includes('gflFetchProfileShared(')),
+      fn('eggSave').includes('await gflFetchProfile(_me.k1)'), fn('bamPaySave').includes('gflFetchProfile(acct)'),
+      fn('invSync').includes('(fresh?gflFetchProfile:gflFetchProfileShared)'), src.includes('try{ await invSync(true); }catch(e){}')],
+    [true, true, true, true, true]);
+  ok('and the trash-talk box checks the opponent once, not once a redraw', [fn('ttCheck').includes('||_ttChecking) return;'), fn('ttCheck').includes('_ttChecking=false;')], [true, true]);
+}
+
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

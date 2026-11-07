@@ -33,12 +33,12 @@ const M = assemble(grab, [
   'const INV_BASE=', 'const bucks2=', 'function invLots(){', 'const INV_COINS=', 'const invCoinKey=', 'const invCoin=',
   'const INV_COINS_SUSPENDED=', 'const invSuspended=', 'const INV_COIN_TOP=', 'const INV_CEIL=', 'const invCeilOf=',
   'const invCap=', 'const invCollat=', 'function invWalk(lots){', 'function invHoldings(){', 'function invRealised(){',
-  'function invNetSpent(){', 'async function invSync(){',
+  'function invNetSpent(){', 'async function invSync(',
 ], ['invWalk', 'invHoldings', 'invRealised', 'invNetSpent', 'invSync', 'invSuspended', 'setLedger', 'setServer', 'ledger'],
 `
 let _inv=[], _me={k1:'ting'}, _srv=[], _activeTab='';
 const lsKey=()=>'x'; const gflPatchProfile=()=>{}; const renderBook=()=>{};
-const gflFetchProfile=async()=>({data:{inv:JSON.stringify(_srv)}});
+const gflFetchProfile=async()=>({data:{inv:JSON.stringify(_srv)}}); const gflFetchProfileShared=gflFetchProfile;
 const localStorage={setItem(){},getItem(){return null;}};
 const bkLots=()=>invLots();
 const setLedger=a=>{ _inv=a; };
@@ -82,7 +82,7 @@ ok('every coin', [M.invSuspended(MARV), M.invSuspended(BILL), M.invSuspended(DAL
 ok('a team share trades', M.invSuspended(TEAM), false);
 const APP = (await import('fs')).readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 ok('the trade itself refuses a coin, and reads the profile before writing',
-  APP.includes('if(invSuspended(owner)){ _invErr=INV_SUSPENDED_NOTE; renderBook(); return; }') && APP.includes('  try{ await invSync(); }catch(e){}'), true);
+  APP.includes('if(invSuspended(owner)){ _invErr=INV_SUSPENDED_NOTE; renderBook(); return; }') && APP.includes('  try{ await invSync(true); }catch(e){}'), true);
 ok('every button that trades a coin says Suspended',
   APP.includes("shutTxt=invSuspended(o)?'Suspended':'Closed'") && APP.includes("${susp?'Suspended':'Closed'}") && (APP.match(/\$\{!shut\?'Suspended':'Closed'\}/g) || []).length === 2, true);
 

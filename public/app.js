@@ -9764,7 +9764,29 @@ async function gflFetchProfile(id){
    the app must not be able to mint a thirteenth — restoring a create path is
    what would reopen the hole. New managers get a document added deliberately,
    outside the app. */
+/* ── ONE READ OF A PROFILE FOR A BURST OF ASKS ───────────────────────────────
+   An open read your own profile about sixteen times -- the egg, trash-talk,
+   portfolio and notification syncs each ask, two of them twice while signing in
+   settles, and Ball Knowledge and the picks once more -- and every ask is a
+   read: 35 profile documents for one reopen on 7 November, measured. A caller
+   that only takes what is there shares one answer for PROF_SHARE_MS. Anything
+   about to write back from what it read asks gflFetchProfile itself, and a
+   write of ours drops the shared copy. */
+const PROF_SHARE_MS=20000;
+const _profShare=new Map();               // id -> {t, p}
+function gflFetchProfileShared(id){
+  const hit=_profShare.get(id);
+  if(hit&&Date.now()-hit.t<PROF_SHARE_MS) return hit.p;
+  const p=gflFetchProfile(id);
+  _profShare.set(id,{t:Date.now(),p});
+  p.then(r=>{ if(!r||!r.data){ const h=_profShare.get(id); if(h&&h.p===p) _profShare.delete(id); } },()=>{});
+  return p;
+}
 async function gflPatchProfile(id,obj){
+  _profShare.delete(id);
+  try{ return await gflPatchProfileRaw(id,obj); }finally{ _profShare.delete(id); }
+}
+async function gflPatchProfileRaw(id,obj){
   const mask=Object.keys(obj).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
   try{ const r=fsNoteResponse(await fetch(gflDocUrl(id)+'&'+mask,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fsOut(obj))}));
     return r.ok?{ok:true}:{error:r.status===429?'quota':'could not save'};
@@ -10747,7 +10769,7 @@ async function waterPlant(){
 async function plantSync(){
   if(!_me) return;
   try{
-    const res=await gflFetchProfile(_me.k1);
+    const res=await gflFetchProfileShared(_me.k1);
     const srv=res&&res.data?Number(res.data.plantWatered||0):0;
     const loc=Number(localStorage.getItem(plantKey())||0);
     if(srv>loc){ localStorage.setItem(plantKey(),String(srv)); renderMyProfile(); }
@@ -15124,10 +15146,10 @@ function invSave(){
    away a trade made while the profile write was failing — the device would show
    it, the next sync would silently undo it. Each entry is stamped with the
    moment it happened, so the union of both sides is the true ledger. */
-async function invSync(){
+async function invSync(fresh){
   if(!_me) return;
   try{
-    const res=await gflFetchProfile(_me.k1);
+    const res=await (fresh?gflFetchProfile:gflFetchProfileShared)(_me.k1);
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.inv)||'[]')||[]; }catch(e){}
     if(!Array.isArray(srv)) return;
     /* ── WHAT MAKES TWO ENTRIES THE SAME TRADE ────────────────────────────────
@@ -15527,7 +15549,7 @@ async function invDo(owner,shares,k){
   /* the profile first: the ledger written back below is this device's, and a
      device that has not synced since the league voided something would
      otherwise write the entry back without its void */
-  try{ await invSync(); }catch(e){}
+  try{ await invSync(true); }catch(e){}
   /* Checked HERE and not only on the button. A disabled button is a display
      rule; this is the money, and the same mistake has already been made once
      on this site with a bet stake that was validated in the browser and
@@ -15845,7 +15867,7 @@ async function eggSave(){
 async function eggSync(){
   if(!_me) return;
   try{
-    const res=await gflFetchProfile(_me.k1);
+    const res=await gflFetchProfileShared(_me.k1);
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.eggs)||'[]')||[]; }catch(e){}
     const before=eggsFound().size;
     srv.map(Number).map(eggTimeOf).filter(t=>t>0).forEach(t=>eggsFound().add(t));
@@ -17689,7 +17711,7 @@ async function bkSync(){
   if(!_me||_bkFetched) return;
   _bkFetched=true;
   try{
-    const res=await gflFetchProfile(_me.k1);
+    const res=await gflFetchProfileShared(_me.k1);
     const raw=res&&res.data?res.data[bkKey()]:null;
     if(!raw) return;
     const srv=JSON.parse(raw);
@@ -18779,7 +18801,7 @@ async function pkSync(){
   if(!_me||_pkFetched) return;
   _pkFetched=true;
   try{
-    const res=await gflFetchProfile(_me.k1);
+    const res=await gflFetchProfileShared(_me.k1);
     const d=res&&res.data;
     if(!d) return;
     /* Whether the slate was submitted lives on the profile as well as the
@@ -19367,7 +19389,7 @@ function ntMarkSeen(id){ ntSeen().add(id); ntSaveSeen(id); }
 async function ntSync(){
   if(!_me) return;
   try{
-    const res=await gflFetchProfile(_me.k1);
+    const res=await gflFetchProfileShared(_me.k1);
     let srv=[]; try{ srv=JSON.parse((res&&res.data&&res.data.ntSeen)||'[]')||[]; }catch(e){}
     const before=ntSeen().size;
     srv.filter(x=>typeof x==='string').forEach(x=>ntSeen().add(x));
@@ -20391,7 +20413,7 @@ async function ttClear(from){
 async function ttSync(){
   if(!_me) return;
   try{
-    const res=await gflFetchProfile(_me.k1);
+    const res=await gflFetchProfileShared(_me.k1);
     const d=(res&&res.data)||{};
     const next={};
     Object.keys(d).forEach(k=>{ if(!k.startsWith('tt_')) return;
@@ -20403,15 +20425,21 @@ async function ttSync(){
   }catch(e){}
 }
 /* whether this manager still has a line sitting unread on the opponent */
-let _ttPending=null;
+let _ttPending=null, _ttChecking=false;
+/* One check at a time. The box asks while it does not know yet, and the forecast
+   redraws a dozen times as an open settles, so it used to send a dozen reads of
+   the opponent's profile before the first came back: 18 in one open on 7
+   November, half of everything that open read. */
 async function ttCheck(oppK1){
-  if(!_me||!oppK1) return;
+  if(!_me||!oppK1||_ttChecking) return;
+  _ttChecking=true;
   try{
-    const res=await gflFetchProfile(oppK1);
+    const res=await gflFetchProfileShared(oppK1);
     const v=(res&&res.data)?res.data[ttField(_me.k1)]:'';
     const now=!!ttParse(v);
     if(now!==_ttPending){ _ttPending=now; if(_activeTab==='home') fcRepaint(); }
   }catch(e){}
+  _ttChecking=false;
 }
 async function ttSend(oppK1){
   const box=document.getElementById('tt-text');
