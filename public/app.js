@@ -20838,7 +20838,11 @@ function bamDecode(code){
    about a 70% game, twenty about 85%. The other eleven keep their own managers.
 
    THE ROSTER is the team's points a week this season against the league's,
-   80 at the league average and nine a standard deviation, kept to 55-99.
+   83 at the league average and nine a standard deviation, kept to 55-93: the
+   commissioner set BFT, the league's top scorer, at 93 and everyone else a few
+   points up from where they were (80 at the average, kept to 99). The team you
+   run gets one more for every Seth in your build (BAM_SETH_ROSTER), the only
+   way past 93, as far as 99.
 
    THE POSTSEASON is the league's: six-team brackets on both sides, two byes
    each. Playoffs 3v6 and 4v5, then 1 and 2 take the winners, then a final and
@@ -20859,7 +20863,8 @@ function bamGame(a,b,str,rnd){
   do{ as=bamScore(str[a],rnd); bs=bamScore(str[b],rnd); }while(as===bs);
   return {a,b,as,bs,win:as>bs?a:b,lose:as>bs?b:a};
 }
-/* each team's roster on 0-99, from the games of this season already decided */
+const BAM_ROSTER_AVG=83, BAM_ROSTER_PER_SD=9, BAM_ROSTER_MIN=55, BAM_ROSTER_MAX=93, BAM_SETH_ROSTER=1;
+/* each team's roster rating, from the games of this season already decided */
 function bamRoster(meta,season){
   const reg=regEndOf(season), per={};
   (meta.schedule||[]).forEach(m=>{
@@ -20872,7 +20877,14 @@ function bamRoster(meta,season){
   const v=Object.values(ppg); if(!v.length) return {};
   const mean=v.reduce((s,x)=>s+x,0)/v.length;
   const sd=Math.sqrt(v.reduce((s,x)=>s+(x-mean)**2,0)/v.length)||1;
-  return Object.fromEntries(Object.entries(ppg).map(([id,p])=>[id,Math.max(55,Math.min(99,Math.round(80+9*(p-mean)/sd)))]));
+  return Object.fromEntries(Object.entries(ppg).map(([id,p])=>[id,
+    Math.max(BAM_ROSTER_MIN,Math.min(BAM_ROSTER_MAX,Math.round(BAM_ROSTER_AVG+BAM_ROSTER_PER_SD*(p-mean)/sd)))]));
+}
+/* the roster of the team your manager runs: its own rating, one more for
+   every Seth in the build, and never past 99 */
+function bamMyRoster(b,roster){
+  const seths=Object.values((b&&b.slots)||{}).filter(bamIsSeth).length;
+  return Math.min(99,((roster||{})[b.team]??BAM_ROSTER_AVG)+BAM_SETH_ROSTER*seths);
 }
 /* the regular season, every game on the schedule, as {w,h,a} */
 function bamGames(meta,season){
@@ -21118,14 +21130,15 @@ function bamRosterNow(){
   const season=pgSeason(), meta=season&&_seasonMeta[season];
   return meta?bamRoster(meta,season):{};
 }
-/* your manager and the team they are locked to, before a ball is kicked */
+/* your manager and the team they are locked to, before a ball is kicked; the
+   roster carries your Seths, and says how many points of it they are */
 function bamTeamCardHTML(b){
-  const t=bamTeam(b.team), mgr=bamOvr(b), roster=(bamRosterNow()[b.team])??80;
-  const s=Math.round(bamStrength(mgr,roster));
-  const cell=(l,n)=>`<div>${bamPx(l,1,'bam-mix-l')}${bamPx(String(n),3,bamRateTone(n))}</div>`;
+  const now=bamRosterNow(), t=bamTeam(b.team), mgr=bamOvr(b), roster=bamMyRoster(b,now);
+  const seth=roster-(now[b.team]??BAM_ROSTER_AVG), s=Math.round(bamStrength(mgr,roster));
+  const cell=(l,n,more)=>`<div>${bamPx(l,1,'bam-mix-l')}${bamPx(String(n),3,bamRateTone(n))}${more||''}</div>`;
   return `<div class="bam-card bam-team bam-panel">
       <div class="bam-who">${avatarHTML(t,40,10)}${bamPx(t.name||'',2)}</div>
-      <div class="bam-mix">${cell('Manager',mgr)}${cell('Roster',roster)}${cell('Team',s)}</div>
+      <div class="bam-mix">${cell('Manager',mgr)}${cell('Roster',roster,seth>0?bamPx(`+${seth} Seth`,1,'pg-s'):'')}${cell('Team',s)}</div>
       <div class="bam-btns"><button class="bam-spin" onclick="bamPlay()"><i class="fa fa-play"></i>${bamPx('Play the season',2)}</button></div>
     </div>`;
 }
@@ -21398,7 +21411,8 @@ function bamPlay(){
   const b=bamState(), season=pgSeason(), meta=season&&_seasonMeta[season];
   if(!bamDone(b)||b.team==null||b.season||!meta) return;
   const pool=bamTeamPool(), roster=bamRoster(meta,season), str={};
-  pool.forEach(id=>{ str[id]=bamStrength(id===b.team?bamOvr(b):bamManagerOvr(id),roster[id]??80); });
+  pool.forEach(id=>{ str[id]=id===b.team?bamStrength(bamOvr(b),bamMyRoster(b,roster))
+    :bamStrength(bamManagerOvr(id),roster[id]??BAM_ROSTER_AVG); });
   const games=bamGames(meta,season).filter(g=>str[g.h]!=null&&str[g.a]!=null);
   if(!games.length) return;
   b.season=bamSimSeason(games,str);

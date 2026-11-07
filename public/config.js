@@ -489,7 +489,7 @@ window.GFL_CONFIG = {
       4:  { draft: "C",  trade: "D+", fin: "D+", coach: "C-", bk: "C",  luck: "C-", eng: "F",  pun: "C",  legacy: "D+" }, // Bi
       5:  { draft: "B+", trade: "F",  fin: "C",  coach: "C",  bk: "A",  luck: "D+", eng: "A+", pun: "S",  legacy: "A"  }, // FMAN
       6:  { draft: "B-", trade: "C-", fin: "B-", coach: "C-", bk: "D+", luck: "B-", eng: "B-", pun: "C+", legacy: "C"  }, // SW
-      7:  { draft: "C+", trade: "B+", fin: "A",  coach: "B+", bk: "B",  luck: "A-", eng: "B-", pun: "A-", legacy: "A+" }, // KUNK
+      7:  { draft: "C+", trade: "B+", fin: "A+", coach: "B+", bk: "B",  luck: "A-", eng: "B-", pun: "A-", legacy: "A+" }, // KUNK
       8:  { draft: "C",  trade: "C",  fin: "B",  coach: "B-", bk: "A",  luck: "C+", eng: "A+", pun: "S",  legacy: "B"  }, // TING
       9:  { draft: "B-", trade: "B+", fin: "B-", coach: "C",  bk: "C",  luck: "D-", eng: "B",  pun: "B-", legacy: "C-" }, // MWM
       10: { draft: "B+", trade: "A",  fin: "C",  coach: "A+", bk: "A+", luck: "B-", eng: "S",  pun: "B-", legacy: "A+" }, // BFT

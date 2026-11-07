@@ -42,7 +42,7 @@ const M = assemble(grab, [
   'const BAM_PTS=', 'function bamRating(', 'const bamRateTone=', 'function bamOvr(', 'function bamManagerOvr(', 'function bamPick(', 'function bamTake(', 'function bamSeasonOk(', 'function bamValid(',
   'function bamAim(', 'function bamAt(', 'function bamCode(', 'function bamDecode(',
   'const BAM_MGR_W=', 'const BAM_BASE=', 'const bamStrength=', 'function bamGauss(', 'function bamScore(',
-  'function bamGame(', 'function bamRoster(', 'function bamGames(', 'function bamSimSeason(', 'const bamOrd=', 'function bamFinish(',
+  'function bamGame(', 'const BAM_ROSTER_AVG=', 'function bamRoster(', 'function bamMyRoster(', 'function bamGames(', 'function bamSimSeason(', 'const bamOrd=', 'function bamFinish(',
   'const takesEsc=', 'const bamTeam=', 'const bamAbbr=', 'const BAM_WIN_DAYS=', 'function ntBamWins(', 'function bamRateOrder(',
   'function bamRateCardHTML(', 'function bamRatingsHTML(', 'function bamResultHTML(',
   /* a title's GFL Bucks, and the bank they land in */
@@ -51,7 +51,7 @@ const M = assemble(grab, [
   'function bamWinTimes(', 'const bamPaidOf=', 'function bamPaidMine(', 'const bkBamTimes=', 'function bamBucks(',
 ], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'BAM_SETH_HUE', 'bamHue', 'BAM_SCALE', 'BAM_CODE', 'bamTone', 'bamToneCls', 'bamGrade',
   'bamIsSeth', 'bamTeamPool', 'bamPool', 'bamWeight', 'bamWedges', 'bamTeam', 'bamFresh', 'bamOpen',
-  'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'bamRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode',
+  'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'BAM_ROSTER_MAX', 'bamRoster', 'bamMyRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode',
   'ntBamWins', 'bamRateOrder', 'BAM_WIN_DAYS', 'bamRateCardHTML', 'bamRatingsHTML', 'bamResultHTML',
   'BAM_PRIZE', 'BAM_PRIZE_FROM', 'bamPaidClean', 'bamWinTimes', 'bamPaidMine', 'bamBucks', 'bucksFor', 'realWeekStart', 'set'], [
   "let _CFG={}, _teams=[], _cpRows=null, _bamRateSel=null, _me=null, _bkScope=null, _ls={}, _now=null;",
@@ -126,6 +126,8 @@ const rounds = [
   ],
   /* and one more S */
   [[TING, 'pun', 'S']],
+  /* and Lebron's 3rd Leg's money */
+  [[KUNK, 'fin', 'A+']],
 ];
 const told = new Map();
 rounds.flat().forEach(([id, k, g]) => told.set(id + '.' + k, [id, k, g]));
@@ -317,8 +319,15 @@ console.log(NL + 'the season');
   ok('the regular season is every game of weeks 1 to 14, and nothing after', [games.length, Math.max(...games.map(x => x.w))], [84, 14]);
   const roster = M.bamRoster(meta, '2026');
   const avg = Object.values(roster).reduce((a, x) => a + x, 0) / 12;
-  ok('the roster reads 80 at the league average, from games already decided', Math.abs(avg - 80) < 1, true);
-  ok('better scorers read higher, inside 55 to 99', [roster[12] > roster[1], Object.values(roster).every(v => v >= 55 && v <= 99)], [true, true]);
+  ok('the roster reads 83 at the league average and nine a standard deviation, from games already decided',
+    [roster[6], roster[7], (roster[6] + roster[7]) / 2, roster[1]], [82, 84, 83, 69]);
+  ok('better scorers read higher, and the top is 93, where BFT sits, however far ahead a team scores',
+    [roster[12] > roster[1], M.BAM_ROSTER_MAX, roster[12], roster[11], Object.values(roster).every(v => v >= 55 && v <= 93)], [true, 93, 93, 93, true]);
+  /* the team you run: one more for every Seth in the build, the one way past 93 */
+  const sethB = n => ({ slots: Object.fromEntries(KEYS.map((k, i) => [k, i < n ? SETH : 10])), team: 12 });
+  ok('every Seth in your build is a point on your roster, past 93 and no further than 99',
+    [M.bamMyRoster(sethB(0), roster), M.bamMyRoster(sethB(1), roster), M.bamMyRoster(sethB(2), roster), M.bamMyRoster(sethB(9), roster)], [93, 94, 95, 99]);
+  ok('and on a team with no games yet, from the 83 every team starts at', M.bamMyRoster({ ...sethB(1), team: 12 }, {}), 84);
   ok('a season with nothing played is no roster at all', M.bamRoster({ schedule: sched.map(m => ({ ...m, winner: 'UNDECIDED' })) }, '2026'), {});
 
   const str = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 70 + i * 2]));
