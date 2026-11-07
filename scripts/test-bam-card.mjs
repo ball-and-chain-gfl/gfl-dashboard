@@ -26,8 +26,8 @@ const ok = (name, got, want) => {
   console.log('  FAIL  ' + name + NL + '          got  ' + g + NL + '          want ' + w);
 };
 const grab = lifter(new URL('../public/app.js', import.meta.url));
-const A = assemble(grab, ['const BAM_ATTRS=', 'const BAM_PTS=', 'function bamRating(', 'function bamDecode(', 'const BAM_G='],
-  ['BAM_ATTRS', 'BAM_PTS', 'bamRating', 'bamDecode', 'BAM_G'], '');
+const A = assemble(grab, ['const BAM_ATTRS=', 'const BAM_SCALE=', 'const BAM_CODE=', 'const BAM_PTS=', 'function bamRating(', 'function bamDecode(', 'const BAM_G='],
+  ['BAM_ATTRS', 'BAM_SCALE', 'BAM_CODE', 'BAM_PTS', 'bamRating', 'bamDecode', 'BAM_G'], '');
 
 const CODE = '1ab46497413b7ac57b43';
 const teams = { 10: { abbrev: 'BFT', name: 'The Bryan Football Team' }, 11: { abbrev: 'KW', name: 'Whittingham Sports' } };
@@ -35,11 +35,23 @@ const teams = { 10: { abbrev: 'BFT', name: 'The Bryan Football Team' }, 11: { ab
 console.log(NL + 'one code, two files');
 ok('the traits in the same order, under the same names', B.ATTRS.map(([k, l]) => k + ':' + l), A.BAM_ATTRS.map(([k, l]) => k + ':' + l));
 ok('and, like the game, no colour of their own', B.ATTRS.every(a => a.length === 2), true);
+ok('the same letters, written into a code the same way', [B.SCALE, B.CODE], [A.BAM_SCALE, A.BAM_CODE]);
 ok('the same points for each grade', B.PTS, A.BAM_PTS);
-for (const c of [CODE, '10' + '3c'.repeat(9), '1' + 'c' + 'c0'.repeat(9)]) {
+for (const c of [CODE, '10' + '3c'.repeat(9), '1' + 'c' + 'c0'.repeat(9), '10' + '2d'.repeat(9), '1a' + 'ce'.repeat(9)]) {
   const mine = B.decode(c), theirs = A.bamDecode(c);
   ok(`${c} reads the same in both`, [mine.by, mine.slots, mine.grades], [theirs.by, theirs.slots, theirs.grades]);
   ok(`and rates the same`, B.rating(mine), A.bamRating(A.BAM_ATTRS.map(([k]) => theirs.grades[k])));
+}
+ok('nine S read as S, nine F+ as F+, and nine S still rate no more than 99',
+  [B.SCALE[B.decode('10' + '2d'.repeat(9)).grades.trade], B.SCALE[B.decode('1a' + 'ce'.repeat(9)).grades.legacy], B.rating(B.decode('10' + '2d'.repeat(9)))],
+  ['S', 'F+', 99]);
+{
+  /* the picture's S is the game's S: the same blue as .pg-s */
+  const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const css = ((IDX.match(/\.pg-s\{color:(#[0-9A-Fa-f]{6});\}/) || [])[1] || '').toLowerCase();
+  const api = ((fs.readFileSync(new URL('../api/bam.js', import.meta.url), 'utf8').match(/S: '(#[0-9A-Fa-f]{6})'/) || [])[1] || '').toLowerCase();
+  ok('an S on the picture is the blue it is in the game', [!!css, css === api], [true, true]);
+  ok('and the card draws one', B.card(B.decode('10' + '2d'.repeat(9)), teams).length > 1000, true);
 }
 ok('a code app.js would not accept, this will not either', ['', 'nope', CODE.slice(1), '2' + CODE.slice(1)].map(B.decode), [null, null, null, null]);
 

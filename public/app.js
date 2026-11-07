@@ -16199,11 +16199,13 @@ function bucksBaseAt(t){
   });
   const et=bkEggTimes();
   const times=et?et.filter(x=>Number(x)<=t):[];
+  /* a Build a Manager title was not in the bank before it was won */
+  const bam=bkBamTimes().filter(x=>Number(x)<=t);
   const lots=bkLots().filter(l=>(Number(l.t)||0)<=t);
   const prevAsOf=_bkAsOf, prevNoPlant=_bkNoPlant;
   try{
     _bkAsOf=t; _bkNoPlant=true;
-    return bucksFor({bets,eggs:times.length,eggTimes:times,lots,plant:{t:0,id:null}},
+    return bucksFor({bets,eggs:times.length,eggTimes:times,bamTimes:bam,lots,plant:{t:0,id:null}},
       ()=>bucksBalance());
   } catch(e){ return 0; }
   finally{ _bkAsOf=prevAsOf; _bkNoPlant=prevNoPlant; }
@@ -16308,11 +16310,11 @@ function plantFeeKey(){
     d=(d+(Number(b.ts)||0)+(Number(b.settledTs)||0)+(Number(b.ret)||0)*7
         +(Number(b.stake)||0)*13+String(b.status||'').length)%9007199254740991;
   }
-  const et=bkEggTimes()||[], lots=bkLots();
+  const et=bkEggTimes()||[], lots=bkLots(), bt=bkBamTimes();
   let e=0; for(let i=0;i<et.length;i++) e+=Number(et[i])||0;
   let l=0; for(let i=0;i<lots.length;i++) l+=(Number(lots[i].t)||0);
   let base=0; try{ base=bucksBaseAt(Date.now()); }catch(err){}
-  return [pl&&pl.id,pl&&pl.t,PLANT_REVIVAL_FEE(),bets.length,d,et.length,e,lots.length,l,
+  return [pl&&pl.id,pl&&pl.t,PLANT_REVIVAL_FEE(),bets.length,d,et.length,e,lots.length,l,bt.join(','),
     base,Math.floor(Date.now()/60000)].join('|');
 }
 function plantFee(){
@@ -16340,7 +16342,7 @@ let _bkNoPlant=false;
 function plantForScope(pt,pid,fn){
   const prev=_bkScope;
   /* the reads happen before the assignment, so these are the real ledger */
-  _bkScope={bets:bkBets(),eggs:bkEggCount(),eggTimes:bkEggTimes(),lots:bkLots(),
+  _bkScope={bets:bkBets(),eggs:bkEggCount(),eggTimes:bkEggTimes(),bamTimes:bkBamTimes(),lots:bkLots(),
             plant:{t:Number(pt)||0,id:pid}};
   try{ return fn(); } catch(e){ return 0; } finally{ _bkScope=prev; }
 }
@@ -16410,13 +16412,67 @@ function bkPlant(){
 function bucksFor(scope,fn){
   const prev=_bkScope;
   _bkScope={bets:(scope&&scope.bets)||[],eggs:Number(scope&&scope.eggs)||0,
-            eggTimes:(scope&&scope.eggTimes)||null,
+            eggTimes:(scope&&scope.eggTimes)||null,bamTimes:(scope&&scope.bamTimes)||[],
             lots:(scope&&scope.lots)||[],plant:(scope&&scope.plant)||{t:0,id:null}};
   try{ return fn(); } finally{ _bkScope=prev; }
 }
 const betsLiveAll=()=>bkBets().filter(betIsLive);
 function bucksStaked(){ return bucks2(betsLiveAll().reduce((a,b)=>a+b.stake,0)); }
 function bucksReturned(){ return bucks2(betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0)); }
+/* ── A BUILD A MANAGER TITLE PAYS ────────────────────────────────────────────
+   A title in Build a Manager is worth BAM_PRIZE to whoever was signed in when
+   their manager won it, ONCE A BUCKS WEEK (Tuesday 6am to Tuesday 6am). The
+   game can be played again as often as anybody likes, and a prize on every
+   replay would be an allowance for whoever replays the most.
+
+   Kept the way the eggs are: a list of when each paid title was won, on the
+   device so the balance is right before the network answers, and on the
+   profile (bamPaid) so the Leaderboards and the manager's other devices count
+   it too. Every reading cleans it the same way -- real moments since titles
+   started paying, none from the future, and the first of each bucks week only
+   -- so a stray write cannot pay twice for one week. */
+const BAM_PRIZE=10;
+const BAM_PRIZE_FROM=new Date(2026,10,6).getTime();
+const bamPaidKey=()=>lsKey('bampaid');
+const bamPaidParse=s=>{ try{ const a=JSON.parse(s||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } };
+function bamPaidClean(list){
+  const max=Date.now()+3600e3, weeks=new Set(), keep=[];
+  (Array.isArray(list)?list:[]).map(Number).filter(t=>t>=BAM_PRIZE_FROM&&t<=max).sort((a,b)=>a-b).forEach(t=>{
+    const w=realWeekStart(new Date(t));
+    if(!weeks.has(w)){ weeks.add(w); keep.push(t); }
+  });
+  return keep;
+}
+/* yours: this device's list and your profile's together */
+function bamPaidMine(){
+  if(!_me) return [];
+  let dev=[]; try{ dev=bamPaidParse(localStorage.getItem(bamPaidKey())); }catch(e){}
+  const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
+  return bamPaidClean(dev.concat(bamPaidParse(row&&row.bamPaid)));
+}
+const bkBamTimes=()=>_bkScope?(_bkScope.bamTimes||[]):bamPaidMine();
+function bamBucks(){ return bucks2(bkBamTimes().length*BAM_PRIZE); }
+/* whether a title won at `t` is paid: nothing has been, yet, that bucks week */
+function bamPrizeDue(t){
+  const w=realWeekStart(new Date(t));
+  return !bamPaidMine().some(x=>realWeekStart(new Date(x))===w);
+}
+/* A paid title onto the device, then the profile. The profile's own list is
+   read and folded in first, so a title paid on another device is never
+   written over. */
+async function bamPaySave(t){
+  if(!_me) return;
+  const acct=_me.k1, key=bamPaidKey();
+  let dev=[]; try{ dev=bamPaidParse(localStorage.getItem(key)); }catch(e){}
+  dev=bamPaidClean(dev.concat([t]));
+  try{ localStorage.setItem(key,JSON.stringify(dev)); }catch(e){}
+  const row=(_cpRows||[]).find(p=>p&&p.id===acct);
+  let srv=bamPaidParse(row&&row.bamPaid);
+  try{ const r=await gflFetchProfile(acct); if(r&&r.data) srv=bamPaidParse(r.data.bamPaid); }catch(e){}
+  const list=JSON.stringify(bamPaidClean(dev.concat(srv)));
+  const res=await gflPatchProfile(acct,{bamPaid:list});
+  if(row&&res&&res.ok) row.bamPaid=list;
+}
 /* ── A BALANCE IS NOT A BALANCE UNTIL THE LEDGER IS IN ───────────────────────
    bucksBalance takes off what is tied up in open bets, and _bets is null until
    that list comes back from Firestore. So the Sportsbook's first paint counted
@@ -16438,7 +16494,8 @@ function bucksBalance(){
   let inv=0; try{ inv=invNetSpent(); }catch(e){}
   let idle=0; try{ idle=bucksIdleCost(); }catch(e){}
   let plant=0; try{ plant=plantFee(); }catch(e){}
-  return bucks2(Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()-inv-idle-plant));
+  let bam=0; try{ bam=bamBucks(); }catch(e){}
+  return bucks2(Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()+bam-inv-idle-plant));
 }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 /* GFL Bucks read like money, to the cent. They were rounded to the whole buck,
@@ -20607,17 +20664,27 @@ const BAM_SPIN_MS=4200;
 const BAM_TURNS=5;
 /* the wedges take these in turn, so no two neighbours match */
 const BAM_HUES=['#5b30b8','#3c45b0','#8a34b8','#45278a'];
-/* what each grade is worth on the 0-99 scale an overall is read on, F to A+.
-   api/bam.js draws the preview from the same numbers. */
-const BAM_PTS=[55,62,65,68,72,75,78,82,85,88,91,95,99];
+/* The letters a grade can be, worst to best: the punishment scale's thirteen,
+   with an F+ under D- and an S above A+. S is blue. */
+const BAM_SCALE=['F','F+','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+','S'];
+const bamIdx=g=>BAM_SCALE.indexOf(String(g==null?'':g).trim());
+/* what each is worth on the 0-99 scale an overall is read on. An S is worth
+   more than an A+, so an overall is held to 99 (bamRating). api/bam.js draws
+   the preview from the same numbers. */
+const BAM_PTS=[55,59,62,65,68,72,75,78,82,85,88,91,95,99,103];
+/* A link writes a grade as its place in THIS list, in base 36. The first
+   thirteen are the order links have always used, so every link already sent
+   reads as it did; S and F+ came later and go on the end. */
+const BAM_CODE=['F','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+','S','F+'];
 /* how long each game of the season takes to come in: the regular season at a
    walk, the postseason slower, and a beat before the result */
 const BAM_REVEAL_MS=900, BAM_REVEAL_POST_MS=1500;
 const bamCfg=()=>((_CFG.buildManager||{}).grades)||{};
-/* a manager's grade in a trait, as a step on the scale (0 is F, 12 is A+), or -1 */
+/* a manager's grade in a trait, as a step on the scale (0 is F, 13 is A+, 14
+   is S), or -1 */
 function bamGrade(teamId,attr){
   const row=bamCfg()[String(teamId)];
-  return row?pgIdx(row[attr]):-1;
+  return row?bamIdx(row[attr]):-1;
 }
 /* who the wheel can land on: in the league now, and graded in all nine */
 function bamPool(){
@@ -20626,20 +20693,26 @@ function bamPool(){
     .filter(id=>live.has(id)&&BAM_ATTRS.every(([k])=>bamGrade(id,k)>=0))
     .sort((a,b)=>a-b);
 }
-const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null,season:null});
+/* paid: for a season that won the title, whether it paid this week's GFL
+   Bucks (true), the week's had already gone (false), or nobody was signed in
+   to pay (null) */
+const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null,season:null,paid:null});
 const bamOpen=b=>BAM_ATTRS.map(([k])=>k).filter(k=>b.slots[k]==null);
 const bamDone=b=>bamOpen(b).length===0;
-/* some grades as a 0-99 rating: the mean of what each is worth; -1 for none */
+/* some grades as a 0-99 rating: the mean of what each is worth, never past
+   99 however many S there are; -1 for none */
 function bamRating(steps){
   const s=(steps||[]).filter(i=>i>=0&&i<BAM_PTS.length);
-  return s.length?Math.round(s.reduce((a,i)=>a+BAM_PTS[i],0)/s.length):-1;
+  return s.length?Math.min(99,Math.round(s.reduce((a,i)=>a+BAM_PTS[i],0)/s.length)):-1;
 }
 const bamRateTone=n=>n>=90?'pg-a':n>=80?'pg-b':n>=70?'pg-c':n>=63?'pg-d':'pg-f';
 function bamOvr(b){ return bamRating(Object.entries(b.slots).map(([k,id])=>bamGrade(id,k))); }
 /* a real manager's own overall, out of all nine of their grades */
 function bamManagerOvr(id){ return bamRating(BAM_ATTRS.map(([k])=>bamGrade(id,k))); }
-/* a grade's colour as a class for a whole box: bam-ta for an A down to bam-tf */
-const bamToneCls=i=>'bam-t'+String(PG_SCALE[i]||'F').charAt(0).toLowerCase();
+/* a grade's colour, for its letter (pg-s for an S, pg-a for an A ... pg-f, F+
+   included) and for a whole box (bam-ts ... bam-tf) */
+const bamTone=i=>'pg-'+String(BAM_SCALE[i]||'F').charAt(0).toLowerCase();
+const bamToneCls=i=>'bam-t'+String(BAM_SCALE[i]||'F').charAt(0).toLowerCase();
 /* anyone in the pool but whoever a respin is turning away from */
 function bamPick(pool,not,rnd){
   const p=(pool||[]).filter(id=>id!==not);
@@ -20678,9 +20751,10 @@ function bamValid(x,pool){
   if(x.land!=null&&!ok(x.land)) return f;
   const full=Object.keys(slots).length===BAM_ATTRS.length;
   const r=Number(x.respins), team=(full&&ok(x.team))?Number(x.team):null;
+  const season=(team!=null&&bamSeasonOk(x.season,team,pool))?x.season:null;
   return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
     respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS,
-    team, season:(team!=null&&bamSeasonOk(x.season,team,pool))?x.season:null};
+    team, season, paid:(season&&typeof x.paid==='boolean')?x.paid:null};
 }
 /* Where the wheel has to stop for wedge k of n to sit under the pointer: on
    from `rot` by `turns` full turns and then the rest of the way round, coming
@@ -20703,22 +20777,23 @@ function bamSeasonSum(s,team){
 }
 /* A finished build as a link code: a version, who built it (0 for nobody
    signed in), then each slot's manager and grade, one base-36 character each,
-   in BAM_ATTRS order -- twenty characters. Version 2 adds the season played,
-   five more: the team, where it finished, its wins, its losses, its seed. */
+   in BAM_ATTRS order -- twenty characters. A grade is its place in BAM_CODE.
+   Version 2 adds the season played, five more: the team, where it finished,
+   its wins, its losses, its seed. */
 function bamCode(b,by){
   if(!b||!bamDone(b)) return '';
   const c=n=>Number(n).toString(36);
   const core=(Number(by)>0&&Number(by)<36?c(by):'0')
-    +BAM_ATTRS.map(([k])=>c(b.slots[k])+c(bamGrade(b.slots[k],k))).join('');
+    +BAM_ATTRS.map(([k])=>c(b.slots[k])+c(BAM_CODE.indexOf(BAM_SCALE[bamGrade(b.slots[k],k)]))).join('');
   const s=b.team!=null?bamSeasonSum(b.season,b.team):null;
   return s&&s.w<36&&s.l<36?'2'+core+c(s.team)+c(s.place)+c(s.w)+c(s.l)+c(s.seed):'1'+core;
 }
 function bamDecode(code){
   const s=String(code||'').trim().toLowerCase();
-  const v1=/^1[0-9a-z](?:[1-9a-z][0-9a-c]){9}$/, v2=/^2[0-9a-z](?:[1-9a-z][0-9a-c]){9}[1-9a-z][1-9a-c][0-9a-z]{2}[1-9a-c]$/;
+  const v1=/^1[0-9a-z](?:[1-9a-z][0-9a-e]){9}$/, v2=/^2[0-9a-z](?:[1-9a-z][0-9a-e]){9}[1-9a-z][1-9a-c][0-9a-z]{2}[1-9a-c]$/;
   if(!v1.test(s)&&!v2.test(s)) return null;
   const v={by:parseInt(s[1],36)||null,slots:{},grades:{},season:null};
-  BAM_ATTRS.forEach(([k],i)=>{ v.slots[k]=parseInt(s[2+2*i],36); v.grades[k]=parseInt(s[3+2*i],36); });
+  BAM_ATTRS.forEach(([k],i)=>{ v.slots[k]=parseInt(s[2+2*i],36); v.grades[k]=BAM_SCALE.indexOf(BAM_CODE[parseInt(s[3+2*i],36)]); });
   if(s[0]==='2') v.season={team:parseInt(s[20],36),place:parseInt(s[21],36),w:parseInt(s[22],36),
     l:parseInt(s[23],36),seed:parseInt(s[24],36)};
   return v;
@@ -20863,6 +20938,7 @@ const BAM_G={
   ':':'.....|.##..|.##..|.....|.##..|.##..|.....','/':'....#|....#|...#.|..#..|.#...|#....|#....',
   '·':'.....|.....|.....|.##..|.##..|.....|.....','?':'.###.|#...#|....#|...#.|..#..|.....|..#..',
   '(':'...#.|..#..|.#...|.#...|.#...|..#..|...#.',')':'.#...|..#..|...#.|...#.|...#.|..#..|.#...',
+  '$':'..#..|.####|#.#..|.###.|..#.#|####.|..#..',
   ' ':'.....|.....|.....|.....|.....|.....|.....',
 };
 const BAM_GLYPH=Object.fromEntries(Object.entries(BAM_G).map(([c,s])=>[c,s.split('|')]));
@@ -20922,7 +20998,7 @@ function bamSlotHTML(a,id,gi,open){
   const [,label,icon]=a, filled=id!=null&&gi>=0, t=filled?bamTeam(id):null;
   return `<div class="bam-slot${filled?' filled '+bamToneCls(gi):''}${open&&!filled?' open':''}">
       <span class="bam-ttop"><i class="fa ${icon}"></i>${bamPxWrap(label,1,10,'bam-sl')}</span>
-      <span class="bam-tbot">${filled?bamPx(PG_SCALE[gi],4,'bam-sg '+pgTone(gi))+bamPx(bamAbbr(t),1,'bam-sf')
+      <span class="bam-tbot">${filled?bamPx(BAM_SCALE[gi],4,'bam-sg '+bamTone(gi))+bamPx(bamAbbr(t),1,'bam-sf')
         :bamPx('-',3,'bam-sg')}</span>
     </div>`;
 }
@@ -20944,7 +21020,7 @@ function bamCardHTML(b){
   const picks=bamOpen(b).map(k=>{
     const [,label,icon]=BAM_ATTRS.find(([a])=>a===k), i=bamGrade(b.land,k);
     return `<button class="bam-pick ${bamToneCls(i)}" onclick="bamPut('${k}')">
-        <span><i class="fa ${icon}"></i>${bamPxWrap(label,1,9)}</span>${bamPx(PG_SCALE[i],3,pgTone(i))}</button>`;
+        <span><i class="fa ${icon}"></i>${bamPxWrap(label,1,9)}</span>${bamPx(BAM_SCALE[i],3,bamTone(i))}</button>`;
   }).join('');
   return `<div class="bam-card bam-panel">
       <div class="bam-who">${avatarHTML(t,40,10)}${bamPx(t.name||'',2)}</div>
@@ -20975,12 +21051,16 @@ function bamWheelHTML(pool,on,canSpin,spin){
       <div class="bam-pointer"></div>
     </div>`;
 }
-/* how a season ended, for whom, and the record and seed that got it there */
-function bamResultHTML(team,place,w,l,seed){
+/* how a season ended, for whom, and the record and seed that got it there;
+   and on your own title, its GFL Bucks (see bamFresh for `paid`) */
+function bamResultHTML(team,place,w,l,seed,paid){
   const f=bamFinish(place), t=bamTeam(team);
+  const prize=place!==1||paid==null?''
+    :paid?bamPx(`+$${BAM_PRIZE} GFL Bucks`,2,'bam-fin-p')
+    :bamPx(`$${BAM_PRIZE} already paid this week`,1,'bam-fin-h');
   return `<div class="bam-fin ${f.tone}"><i class="fa ${f.icon}"></i>
       <div>${bamPx(f.big,3)}${bamPx(f.how,1,'bam-fin-h')}
-        <span class="bam-fin-t">${avatarHTML(t,18,5)}${bamPx(`${bamAbbr(t)} · ${w}-${l} · ${bamOrd(seed)} seed`,1)}</span></div>
+        <span class="bam-fin-t">${avatarHTML(t,18,5)}${bamPx(`${bamAbbr(t)} · ${w}-${l} · ${bamOrd(seed)} seed`,1)}</span>${prize}</div>
     </div>`;
 }
 /* somebody else's finished build, opened from a link, and its season if it played one */
@@ -21058,7 +21138,7 @@ function bamSeasonHTML(b,shown){
       <div class="bam-gms">${reg.map(row).join('')}</div>
       ${post.length?`${bamPx(post[0].g.side==='lb'?'Losers bracket':'Playoffs',1,'bam-sub')}
         <div class="bam-gms">${post.map(row).join('')}</div>`:''}
-      ${sum?bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed)
+      ${sum?bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed,b.paid)
         +`${bamPx('Final standings',1,'bam-sub')}<div class="bam-sts">${s.table.map((r,i)=>`<div class="bam-st${r.id===me?' me':''}">
             <span class="c-n">${bamPx(String(i+1),1)}</span>
             <span class="c-t">${avatarHTML(bamTeam(r.id),18,5)}${bamPx(bamAbbr(bamTeam(r.id)),2)}</span>
@@ -21291,18 +21371,24 @@ function bamPlay(){
   _bamShown=0; renderBam(); bamShow('#bam-season'); bamTick();
 }
 /* A title, if this season was one, onto the winner's own profile, where the
-   whole league's notification stack picks it up (ntBamWins). Signed in only:
-   somebody nobody knows cannot be announced. Written the moment the season is
-   decided, since the season is already final then and a reload part-way
-   through the reveal must not lose it. */
+   whole league's notification stack picks it up (ntBamWins), and its GFL
+   Bucks into the bank if none have been paid this bucks week (bamPrizeDue).
+   Signed in only: somebody nobody knows cannot be announced or paid. Written
+   the moment the season is decided, since the season is already final then
+   and a reload part-way through the reveal must not lose it; the money shows
+   on the Champion box at the end of the reveal, and the bucks chip lives on
+   the Sportsbook, so neither gives the result away early. */
 function bamRecordWin(b){
   if(!_me||!_me.k1||b.team==null) return;
   const sum=bamSeasonSum(b.season,b.team), code=bamCode(b,_me.teamId);
   if(!sum||sum.place!==1||!code) return;
-  const rec=JSON.stringify({t:Date.now(),code});
+  const now=Date.now(), rec=JSON.stringify({t:now,code});
   try{ gflPatchProfile(_me.k1,{bamWin:rec}); }catch(e){}
   const me=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
   if(me) me.bamWin=rec;
+  b.paid=bamPrizeDue(now);
+  bamSave();
+  if(b.paid) bamPaySave(now);
 }
 /* THE REVEAL: one game at a time, the regular season at BAM_REVEAL_MS and the
    postseason at BAM_REVEAL_POST_MS, the table's verdict a beat after the last */
@@ -23068,8 +23154,10 @@ function ldFolio(prof){
    no pay day, no football gate, no charge for an idle week. */
 function ldBucks(ids,prof){
   const bets=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&betsAfterReset(b));
-  let eggs=0, lots=[], plant={t:0,id:null}, eggTimes=[];
+  let eggs=0, lots=[], plant={t:0,id:null}, eggTimes=[], bamTimes=[];
   prof.forEach(p=>{
+    /* Build a Manager titles, cleaned as the owner's own device cleans them */
+    bamPaidClean(bamPaidParse(p.bamPaid)).forEach(t=>bamTimes.push(t));
     /* the latest watering across their profiles, which is also the kindest
        reading of it: a later timestamp is fewer completed cycles and therefore
        a smaller bill */
@@ -23103,10 +23191,11 @@ function ldBucks(ids,prof){
   if(_me&&ids.includes(_me.k1)){
     try{ eggs=eggsFound().size; eggTimes=[...eggsFound()]; }catch(e){}
     try{ lots=invLots(); }catch(e){}
+    try{ bamTimes=bamPaidMine(); }catch(e){}
     try{ const pt=Number(localStorage.getItem(plantKey())||0);
       if(pt>plant.t) plant={t:pt,id:_me.k1}; }catch(e){}
   }
-  return bucksFor({bets,eggs,eggTimes,lots,plant},()=>bucksBalance());
+  return bucksFor({bets,eggs,eggTimes,bamTimes,lots,plant},()=>bucksBalance());
 }
 /* One manager's matchup-picks record for the season. Every pick on a game that
    has finished, right against wrong — a record counts games, so the Matchup of

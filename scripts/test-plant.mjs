@@ -95,6 +95,9 @@ const NEEDED = [
   'function plantDeathsIn(', 'const PLANT_NEWS_MS=', 'const PLANT_DEATHS_MAX=',
   'function plantDeathsOf(',
   'let _plantFeeCache=', 'function plantFeeKey(',
+  /* a Build a Manager title, the bank's newest money */
+  'const lsKey=', 'function realWeekStart(', 'const BAM_PRIZE=', 'const BAM_PRIZE_FROM=', 'const bamPaidKey=',
+  'const bamPaidParse=', 'function bamPaidClean(', 'function bamPaidMine(', 'const bkBamTimes=', 'function bamBucks(',
 ];
 const parts = {};
 for (const n of NEEDED) {
@@ -122,6 +125,7 @@ function setCfg(c){ _CFG=c; }
 function setMe(m){ _me=m; }
 function setWatered(t){ if(t==null) delete _store[plantKey()]; else _store[plantKey()]=String(t); }
 function setScope(p){ _bkScope=p?{bets:[],eggs:0,lots:[],plant:p}:null; }
+function setBamPaid(ts){ _store[(_me?_me.k1:'guest')+':bampaid']=JSON.stringify(ts||[]); }
 
 /* ── A BANK WITH A HISTORY ──────────────────────────────────────────────────
    The replay is only worth testing against an allowance that CHANGES over
@@ -169,7 +173,7 @@ module.exports={PLANT_STAGES,PLANT_STEP_MS,PLANT_DRY_STEPS,PLANT_DEAD_STEPS,
   plantRevivals,plantFee,plantFeeFor,plantLastCharge,plantWalk,bucksBalance,bucksFmt,plantDryLabel,
   ntPlants,setCfg,setMe,setWatered,setScope,setRows,setAllow,bucksBaseAt,plantForScope,
   plantRevivalCharges,setAllowSchedule,setEggs,setLots,setBets,bucksAllowance,
-  plantDeathsIn,plantDeathsOf,plantOutstanding,PLANT_NEWS_MS};
+  plantDeathsIn,plantDeathsOf,plantOutstanding,PLANT_NEWS_MS,setBamPaid,bamBucks};
 `;
 const mod = { exports: {} };
 let built = true;
@@ -179,7 +183,7 @@ catch (e) { built = false; console.log('  FAIL harness does not build -> ' + e.m
 if (built) {
   const M = mod.exports;
   const fresh = () => { M.setCfg({ plantTestMinutes: 0, plantRevivalFee: 20 }); M.setMe({ k1: 'me' }); M.setScope(null); M.setRows([]); M.setAllow(100);
-    M.setEggs([]); M.setLots([]); M.setBets([]); };
+    M.setEggs([]); M.setLots([]); M.setBets([]); M.setBamPaid([]); };
   /* a plant watered `d` days ago */
   const ago = d => Date.now() - d * DAY;
   const at = d => M.plantStageOf(ago(d), 'me');
@@ -709,6 +713,23 @@ if (built) {
     const after = M.plantFee();
     return before === 80 && after === 0;
   })());
+
+  console.log('\n24. a Build a Manager title: $10 from the moment it was won, once a bucks week');
+  fresh(); M.setWatered(null);
+  const won = Date.now() - 2000;
+  M.setBamPaid([won]);
+  ok('a paid title is ten dollars in the balance', M.bucksBalance() === 110, M.bucksBalance());
+  ok('it was not there before it was won', M.bucksBaseAt(won - 1000) === 100, M.bucksBaseAt(won - 1000));
+  ok('and is from then on', M.bucksBaseAt(Date.now()) === 110, M.bucksBaseAt(Date.now()));
+  M.setBamPaid([won, won + 1000]);
+  ok('two titles in one bucks week are paid once', M.bucksBalance() === 110, M.bucksBalance());
+  M.setScope({ t: 0, id: 'them' });
+  ok('somebody else\'s balance does not get yours', M.bamBucks() === 0, M.bamBucks());
+  M.setScope(null);
+  ok('a plant named off a profile is charged against the same bank, title and all',
+    M.plantForScope(0, 'me', () => M.bucksBalance()) === 110, M.plantForScope(0, 'me', () => M.bucksBalance()));
+  M.setWatered(ago(7.1));
+  ok('and a revival comes off it like any other money', M.bucksBalance() === 90, M.bucksBalance());
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

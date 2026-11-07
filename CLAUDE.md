@@ -192,14 +192,18 @@ their own. A week is graded a week late: its lowest scorer does the punishment
 the following week, so week N's card opens on week N+1's Tuesday, and until
 then no grade for it counts or shows (see GRADING THE PUNISHMENT in `app.js`).
 
-Build a Manager (tab `bam`) reads no collection and writes one field, only for
-a title (below). Its grades are one baseline
+Build a Manager (tab `bam`) reads no collection and writes only for a title
+(below). Its grades are one baseline
 table in `config.js` (`buildManager.grades`, keyed by ESPN team id, set by hand
 on 6 November 2026), and the game reads nothing live, by request: no grade may
 be fixed while another moves. If grades are ever made to move with the season,
 the movement goes in `bamGrade` on top of every baseline at once. A build in
-progress is kept in localStorage under `lsKey('bam')`. The overall is 0-99,
-the mean of `BAM_PTS` (what each grade is worth). A finished manager spins
+progress is kept in localStorage under `lsKey('bam')`. The letters are
+`BAM_SCALE`: the punishment scale's F to A+ plus an F+ under D- and an S above
+A+, which is blue (`.pg-s`, `.bam-ts`). The overall is 0-99, the mean of
+`BAM_PTS` (what each grade is worth; S is 103, so `bamRating` holds it to 99).
+A link writes each grade as its place in `BAM_CODE`, where S and F+ come after
+the old thirteen, so links sent before them read as they did. A finished manager spins
 ONCE for a team and is locked to it, then plays ONE season (THE SEASON in
 `app.js`), saved with the build before it is revealed a game at a time, so it
 cannot be re-rolled; Start over is the only way back. Strength is 60% the
@@ -222,7 +226,17 @@ A title (first place at the end of the one season) is the game's only write:
 signed in only, and only the latest title is kept. `ntBamWins` reads it off the
 profile list the app already loads, so it costs no read, and puts the winner's
 picture at the top of everyone's home stack for `BAM_WIN_DAYS` (7) from the day
-it was won. Under the build, "See all managers' ratings" opens
+it was won. A title also pays `BAM_PRIZE` ($10) GFL Bucks, ONCE A BUCKS WEEK
+(Tuesday 6am to Tuesday 6am), because the game can be replayed without limit.
+Paid titles are a list of times, kept like the eggs: on the device under
+`lsKey('bampaid')` and on the profile as `bamPaid` (read and merged before each
+write), cleaned the same way everywhere by `bamPaidClean` (nothing before
+`BAM_PRIZE_FROM`, nothing from the future, the first title of each week only).
+`bamBucks` is a term of `bucksBalance`, rides the bank's scope as `bamTimes`
+(`bucksFor`, `plantForScope`, `ldBucks`), and `bucksBaseAt` counts a title only
+from when it was won. The build keeps `paid` (true, false when the week's was
+already paid, null signed out), and the Champion box shows "+$10 GFL Bucks" or
+"$10 already paid this week". Under the build, "See all managers' ratings" opens
 `#bam-rate-overlay`: a tab per manager, best overall first (`bamRateOrder`),
 each showing that manager's nine grades in the game's own tiles. The user's
 rule for it: only the tabs, the arrows and the X respond, and nothing moves.
@@ -231,8 +245,9 @@ site-wide `[onclick]:active` shrink then shrank the whole pop-up at every press
 inside, since `:active` holds on ancestors). A pick moves the highlight and
 repaints `#bam-rate-card` without rebuilding the tab strip. Every
 `.modal-overlay` and `#nav-scrim` is exempt from the press shrink. The tile's
-parts are `bam-ttop`/`bam-tbot`; `bam-ta`...`bam-tf` are the grade colours, and
-the two must never share a name (`bam-tb` once meant both, and B tiles broke).
+parts are `bam-ttop`/`bam-tbot`; `bam-ts`, `bam-ta`...`bam-tf` are the grade
+colours, and the two must never share a name (`bam-tb` once meant both, and B
+tiles broke).
 
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).

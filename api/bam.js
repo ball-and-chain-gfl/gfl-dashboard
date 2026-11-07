@@ -19,8 +19,9 @@
  * The code is the one app.js makes (bamCode): a version, the builder's team id,
  * then each slot's team id and grade, one base-36 character each. The grades
  * ride inside it, so the picture shows the build as it was made. The order of
- * the traits and the 0-99 points for each grade are app.js's own (BAM_ATTRS,
- * BAM_PTS); scripts/test-bam-card.mjs holds the two files to each other.
+ * the traits, the letters, how a code writes them and the 0-99 points for each
+ * are app.js's own (BAM_ATTRS, BAM_SCALE, BAM_CODE, BAM_PTS);
+ * scripts/test-bam-card.mjs holds the two files to each other.
  */
 import zlib from 'node:zlib';
 
@@ -29,17 +30,20 @@ export const ATTRS = [
   ['coach', 'Coaching'], ['bk', 'Ball Knowledge'], ['luck', 'Luck'],
   ['eng', 'Engagement'], ['pun', 'Punishment'], ['legacy', 'Legacy'],
 ];
-export const SCALE = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+'];
-export const PTS = [55, 62, 65, 68, 72, 75, 78, 82, 85, 88, 91, 95, 99];
+/* F to A+ with an F+ under D- and an S above A+; a code writes each as its
+   place in CODE, where S and F+ sit on the end so older links read as before */
+export const SCALE = ['F', 'F+', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+', 'S'];
+export const PTS = [55, 59, 62, 65, 68, 72, 75, 78, 82, 85, 88, 91, 95, 99, 103];
+export const CODE = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+', 'S', 'F+'];
 
 /* Version 1 is the build alone. Version 2 adds the season it played, five
    characters more: the team, where it finished, its wins, its losses, its seed. */
 export function decode(code) {
   const s = String(code || '').trim().toLowerCase();
-  const v1 = /^1[0-9a-z](?:[1-9a-z][0-9a-c]){9}$/, v2 = /^2[0-9a-z](?:[1-9a-z][0-9a-c]){9}[1-9a-z][1-9a-c][0-9a-z]{2}[1-9a-c]$/;
+  const v1 = /^1[0-9a-z](?:[1-9a-z][0-9a-e]){9}$/, v2 = /^2[0-9a-z](?:[1-9a-z][0-9a-e]){9}[1-9a-z][1-9a-c][0-9a-z]{2}[1-9a-c]$/;
   if (!v1.test(s) && !v2.test(s)) return null;
   const v = { code: s, by: parseInt(s[1], 36) || null, slots: {}, grades: {}, season: null };
-  ATTRS.forEach(([k], i) => { v.slots[k] = parseInt(s[2 + 2 * i], 36); v.grades[k] = parseInt(s[3 + 2 * i], 36); });
+  ATTRS.forEach(([k], i) => { v.slots[k] = parseInt(s[2 + 2 * i], 36); v.grades[k] = SCALE.indexOf(CODE[parseInt(s[3 + 2 * i], 36)]); });
   if (s[0] === '2') v.season = { team: parseInt(s[20], 36), place: parseInt(s[21], 36), w: parseInt(s[22], 36), l: parseInt(s[23], 36), seed: parseInt(s[24], 36) };
   return v;
 }
@@ -51,12 +55,12 @@ export function finish(place) {
   const tone = place === 1 ? 'A' : place <= 3 ? 'B' : place <= 6 ? 'C' : place <= 10 ? 'D' : 'F';
   return { big, tone };
 }
-/* the overall on 0-99: the mean of what each grade is worth */
+/* the overall on 0-99: the mean of what each grade is worth, never past 99 */
 export function rating(v) {
   const g = ATTRS.map(([k]) => PTS[v.grades[k]]);
-  return Math.round(g.reduce((a, x) => a + x, 0) / g.length);
+  return Math.min(99, Math.round(g.reduce((a, x) => a + x, 0) / g.length));
 }
-const TONES = { F: '#E84146', D: '#F2704A', C: '#E8BC56', B: '#9BD35A', A: '#3fd07a' };
+const TONES = { F: '#E84146', D: '#F2704A', C: '#E8BC56', B: '#9BD35A', A: '#3fd07a', S: '#4DA3FF' };
 const toneOfGrade = i => TONES[SCALE[i][0]];
 const toneOfRating = n => n >= 90 ? TONES.A : n >= 80 ? TONES.B : n >= 70 ? TONES.C : n >= 63 ? TONES.D : TONES.F;
 
@@ -127,6 +131,7 @@ export const G = {
   ':': '.....|.##..|.##..|.....|.##..|.##..|.....', '/': '....#|....#|...#.|..#..|.#...|#....|#....',
   '·': '.....|.....|.....|.##..|.##..|.....|.....', '?': '.###.|#...#|....#|...#.|..#..|.....|..#..',
   '(': '...#.|..#..|.#...|.#...|.#...|..#..|...#.', ')': '.#...|..#..|...#.|...#.|...#.|..#..|.#...',
+  '$': '..#..|.####|#.#..|.###.|..#.#|####.|..#..',
   ' ': '.....|.....|.....|.....|.....|.....|.....',
 };
 const GLYPH = Object.fromEntries(Object.entries(G).map(([c, s]) => [c, s.split('|')]));

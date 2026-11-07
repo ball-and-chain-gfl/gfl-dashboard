@@ -35,7 +35,7 @@ const cfgUrl = new URL('../public/config.js', import.meta.url);
 const idxUrl = new URL('../public/index.html', import.meta.url);
 const grab = lifter(appUrl);
 const M = assemble(grab, [
-  'const PG_SCALE=', 'const pgIdx=',
+  'const BAM_SCALE=', 'const bamIdx=', 'const BAM_CODE=', 'const bamTone=', 'const bamToneCls=',
   'const BAM_ATTRS=', 'const BAM_RESPINS=', 'const BAM_TURNS=', 'const BAM_HUES=', 'const bamCfg=',
   'function bamGrade(', 'function bamPool(', 'const bamFresh=', 'const bamOpen=', 'const bamDone=',
   'const BAM_PTS=', 'function bamRating(', 'const bamRateTone=', 'function bamOvr(', 'function bamManagerOvr(', 'function bamPick(', 'function bamTake(', 'function bamSeasonOk(', 'function bamValid(',
@@ -43,18 +43,28 @@ const M = assemble(grab, [
   'const BAM_MGR_W=', 'const BAM_BASE=', 'const bamStrength=', 'function bamGauss(', 'function bamScore(',
   'function bamGame(', 'function bamRoster(', 'function bamGames(', 'function bamSimSeason(', 'const bamOrd=', 'function bamFinish(',
   'const takesEsc=', 'const bamTeam=', 'const bamAbbr=', 'const BAM_WIN_DAYS=', 'function ntBamWins(', 'function bamRateOrder(',
-  'function bamRateCardHTML(', 'function bamRatingsHTML(',
-], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'PG_SCALE', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen',
+  'function bamRateCardHTML(', 'function bamRatingsHTML(', 'function bamResultHTML(',
+  /* a title's GFL Bucks, and the bank they land in */
+  'const lsKey=', 'function realWeekStart(', 'const bucks2=', 'function bucksFor(',
+  'const BAM_PRIZE=', 'const BAM_PRIZE_FROM=', 'const bamPaidKey=', 'const bamPaidParse=', 'function bamPaidClean(',
+  'function bamPaidMine(', 'const bkBamTimes=', 'function bamBucks(', 'function bamPrizeDue(',
+], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'BAM_SCALE', 'BAM_CODE', 'bamTone', 'bamToneCls', 'bamGrade', 'bamPool', 'bamFresh', 'bamOpen',
   'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'bamRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode',
-  'ntBamWins', 'bamRateOrder', 'BAM_WIN_DAYS', 'bamRateCardHTML', 'bamRatingsHTML', 'set'], [
-  "let _CFG={}, _teams=[], _cpRows=null, _bamRateSel=null;",
+  'ntBamWins', 'bamRateOrder', 'BAM_WIN_DAYS', 'bamRateCardHTML', 'bamRatingsHTML', 'bamResultHTML',
+  'BAM_PRIZE', 'BAM_PRIZE_FROM', 'bamPaidClean', 'bamPaidMine', 'bamBucks', 'bamPrizeDue', 'bucksFor', 'realWeekStart', 'set'], [
+  "let _CFG={}, _teams=[], _cpRows=null, _bamRateSel=null, _me=null, _bkScope=null, _ls={}, _now=null;",
+  "const localStorage={getItem:k=>(k in _ls?_ls[k]:null), setItem:(k,v)=>{ _ls[k]=String(v); }};",
+  // a clock the prize's bucks weeks can be read against: the real one unless set
+  "const RealDate=globalThis.Date;",
+  "class Date extends RealDate{ constructor(...a){ if(!a.length&&_now!=null) super(_now); else super(...a); } static now(){ return _now!=null?_now:RealDate.now(); } }",
   // the drawing helpers stand in as tags, so the pop-up's own markup can be read
   "const avatarHTML=t=>'<av '+(t&&t.id)+'>'; const bamPx=s=>'['+s+']';",
   "const bamSlotHTML=(a,id,gi)=>'<slot '+a[0]+'='+gi+'>'; const bamOvrHTML=(n,left)=>'<ovr '+n+' '+left+'>';",
   "const regEndOf=()=>14;",
   "const TEST_PROFILE='test';",
   "const teamInitials=n=>String(n||'').split(' ').map(w=>w[0]||'').join('').toUpperCase();",
-  "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; if('rows' in o) _cpRows=o.rows; if('sel' in o) _bamRateSel=o.sel; };",
+  "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; if('rows' in o) _cpRows=o.rows; if('sel' in o) _bamRateSel=o.sel;",
+  "  if('me' in o) _me=o.me; if('ls' in o) _ls=o.ls; if('now' in o) _now=o.now; };",
 ].join(NL));
 
 /* the real table, out of the real config file */
@@ -64,7 +74,7 @@ const CFG = box.window.GFL_CONFIG;
 const league = Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: 'Team ' + (i + 1) }));
 M.set({ cfg: CFG, teams: league });
 const KEYS = M.BAM_ATTRS.map(([k]) => k);
-const L = (id, k) => M.PG_SCALE[M.bamGrade(id, k)];
+const L = (id, k) => M.BAM_SCALE[M.bamGrade(id, k)];
 
 console.log(NL + 'the baseline');
 const table = (CFG.buildManager || {}).grades || {};
@@ -77,28 +87,49 @@ ok('and nothing extra rides along', Object.values(table).every(r => Object.keys(
 ok('dated, so movement can be measured from it later', CFG.buildManager.asOf, '2026-11-06');
 
 console.log(NL + "the commissioner's corrections");
-/* team id -> trait -> letter, exactly as given on 6 November */
+/* team id -> trait -> letter, round by round as he gave them on 6 November.
+   A later round's word on a grade is the one that stands. */
 const BFT = 10, MCM = 2, BI = 4, SW = 6, FMAN = 5, GOOB = 3, KUNK = 7, KW = 11, MWM = 9, MM = 1, TING = 8, WGLR = 12;
-const told = [
-  [BFT, 'trade', 'A'], [BFT, 'bk', 'A+'], [BFT, 'pun', 'B-'],
-  [MCM, 'trade', 'A+'], [MCM, 'fin', 'C+'], [MCM, 'eng', 'A'], [MCM, 'pun', 'A'],
-  [BI, 'bk', 'C'], [BI, 'eng', 'F'],
-  [SW, 'eng', 'B-'], [SW, 'pun', 'B'],
-  [FMAN, 'eng', 'A+'], [FMAN, 'pun', 'A+'],
-  [GOOB, 'eng', 'B'], [GOOB, 'pun', 'C-'],
-  [KUNK, 'fin', 'A'], [KUNK, 'eng', 'B'], [KUNK, 'pun', 'A'],
-  [KW, 'coach', 'D'], [KW, 'pun', 'C+'],
-  [MWM, 'luck', 'D-'], [MWM, 'bk', 'C'], [MWM, 'eng', 'C-'], [MWM, 'pun', 'C+'],
-  [MM, 'draft', 'B'], [MM, 'luck', 'C-'], [MM, 'pun', 'B'],
-  [TING, 'eng', 'A+'], [TING, 'pun', 'A'],
-  [WGLR, 'luck', 'D+'], [WGLR, 'pun', 'B+'],
-  /* and on 6 November, after a look at the table */
-  [BFT, 'fin', 'C+'], [GOOB, 'trade', 'B'], [TING, 'luck', 'C+'], [FMAN, 'trade', 'D-'], [MCM, 'luck', 'B'],
+const rounds = [
+  [
+    [BFT, 'trade', 'A'], [BFT, 'bk', 'A+'], [BFT, 'pun', 'B-'],
+    [MCM, 'trade', 'A+'], [MCM, 'fin', 'C+'], [MCM, 'eng', 'A'], [MCM, 'pun', 'A'],
+    [BI, 'bk', 'C'], [BI, 'eng', 'F'],
+    [SW, 'eng', 'B-'], [SW, 'pun', 'B'],
+    [FMAN, 'eng', 'A+'], [FMAN, 'pun', 'A+'],
+    [GOOB, 'eng', 'B'], [GOOB, 'pun', 'C-'],
+    [KUNK, 'fin', 'A'], [KUNK, 'eng', 'B'], [KUNK, 'pun', 'A'],
+    [KW, 'coach', 'D'], [KW, 'pun', 'C+'],
+    [MWM, 'luck', 'D-'], [MWM, 'bk', 'C'], [MWM, 'eng', 'C-'], [MWM, 'pun', 'C+'],
+    [MM, 'draft', 'B'], [MM, 'luck', 'C-'], [MM, 'pun', 'B'],
+    [TING, 'eng', 'A+'], [TING, 'pun', 'A'],
+    [WGLR, 'luck', 'D+'], [WGLR, 'pun', 'B+'],
+  ],
+  /* after a look at the table */
+  [[BFT, 'fin', 'C+'], [GOOB, 'trade', 'B'], [TING, 'luck', 'C+'], [FMAN, 'trade', 'D-'], [MCM, 'luck', 'B']],
+  /* and again, with an F+ and the first three S */
+  [
+    [KUNK, 'trade', 'B+'], [KUNK, 'pun', 'A-'], [KUNK, 'eng', 'B-'],
+    [BFT, 'luck', 'B-'], [BFT, 'fin', 'C'], [BFT, 'eng', 'S'],
+    [TING, 'pun', 'A+'],
+    [MCM, 'legacy', 'B-'], [MCM, 'trade', 'S'],
+    [FMAN, 'trade', 'F'], [FMAN, 'pun', 'S'],
+    [GOOB, 'eng', 'B-'], [GOOB, 'pun', 'C'], [GOOB, 'coach', 'A'],
+    [MM, 'trade', 'C+'], [MM, 'fin', 'B-'], [MM, 'pun', 'C+'], [MM, 'bk', 'B+'],
+    [SW, 'legacy', 'C'], [SW, 'pun', 'C+'], [SW, 'luck', 'B-'], [SW, 'fin', 'B-'],
+    [MWM, 'pun', 'B-'], [MWM, 'legacy', 'C-'], [MWM, 'eng', 'B'],
+    [KW, 'draft', 'D+'], [KW, 'trade', 'C'], [KW, 'bk', 'D-'], [KW, 'luck', 'B+'], [KW, 'pun', 'D+'], [KW, 'legacy', 'D+'],
+    [WGLR, 'legacy', 'F+'], [WGLR, 'luck', 'D'],
+    [BI, 'trade', 'D+'], [BI, 'luck', 'C-'], [BI, 'coach', 'C-'],
+  ],
 ];
-ok('every grade he set is the grade on file', told.filter(([id, k, g]) => L(id, k) !== g).map(([id, k, g]) => `${id}.${k} ${L(id, k)}≠${g}`), []);
-const luck = { [KUNK]: 'A-', [BFT]: 'B', [SW]: 'B', [KW]: 'B', [GOOB]: 'C', [FMAN]: 'D+', [BI]: 'D' };
-ok('Luck runs A to D across everyone he did not set by hand', Object.entries(luck).filter(([id, g]) => L(id, 'luck') !== g).map(([id]) => id), []);
-ok('and the spread still runs from the top of the B range down to a D', [L(KUNK, 'luck'), L(BI, 'luck')], ['A-', 'D']);
+const told = new Map();
+rounds.flat().forEach(([id, k, g]) => told.set(id + '.' + k, [id, k, g]));
+ok('every grade he set is the grade on file, his latest word on each', [...told.values()].filter(([id, k, g]) => L(id, k) !== g).map(([id, k, g]) => `${id}.${k} ${L(id, k)}≠${g}`), []);
+ok('three S, one each in Trading, Engagement and Punishment',
+  Object.entries(table).flatMap(([id, row]) => KEYS.filter(k => row[k] === 'S').map(k => id + '.' + k)).sort(), ['10.eng', '2.trade', '5.pun']);
+const lucks = Object.keys(table).map(id => L(id, 'luck'));
+ok('Luck still spreads from the A range down to the D range', [lucks.some(g => g[0] === 'A'), lucks.some(g => g[0] === 'D'), lucks.every(g => 'ABCD'.includes(g[0]))], [true, true, true]);
 
 console.log(NL + 'nothing live');
 const src = fs.readFileSync(appUrl, 'utf8');
@@ -151,13 +182,19 @@ ok('the open slots are the ones left', M.bamOpen(b), ['draft', 'fin', 'coach', '
 
 console.log(NL + 'the overall');
 ok('nothing taken, no overall', M.bamOvr(M.bamFresh()), -1);
-ok('thirteen grades, F to A+, climbing to 99', [M.BAM_PTS.length, M.BAM_PTS[0], M.BAM_PTS[12],
-  M.BAM_PTS.every((p, i) => !i || p > M.BAM_PTS[i - 1])], [13, 55, 99, true]);
-ok('one A+ is a 99', M.bamOvr({ slots: { trade: MCM } }), 99);
-ok('an A+ and a C meet at 87', M.bamOvr({ slots: { trade: MCM, coach: FMAN } }), 87);
-ok('nine A+ is the top of the scale and no higher', M.bamRating(Array(9).fill(12)), 99);
+ok('fifteen grades, F, F+, D- and on up to A+ and then S', [M.BAM_SCALE.length, M.BAM_SCALE.slice(0, 3), M.BAM_SCALE.slice(-2)],
+  [15, ['F', 'F+', 'D-'], ['A+', 'S']]);
+ok('each worth more than the one below: F 55, F+ 59, A+ 99, S 103', [M.BAM_PTS.length, M.BAM_PTS[0], M.BAM_PTS[1], M.BAM_PTS[13], M.BAM_PTS[14],
+  M.BAM_PTS.every((p, i) => !i || p > M.BAM_PTS[i - 1])], [15, 55, 59, 99, 103, true]);
+ok('one A+ is a 99', M.bamOvr({ slots: { coach: BFT } }), 99);
+ok('an A+ and a C meet at 87', M.bamOvr({ slots: { coach: BFT, draft: TING } }), 87);
+ok('an S beside a C counts for more than an A+ would', M.bamOvr({ slots: { trade: MCM, draft: TING } }), 89);
+ok('nine A+ is the top of the scale', M.bamRating(Array(9).fill(13)), 99);
+ok('and nine S is no higher', M.bamRating(Array(9).fill(14)), 99);
 ok('the colour follows the number', [95, 85, 75, 65, 58].map(M.bamRateTone), ['pg-a', 'pg-b', 'pg-c', 'pg-d', 'pg-f']);
-ok('every real manager has an overall of their own', [M.bamManagerOvr(BFT), M.bamManagerOvr(BI)], [92, 69]);
+ok('an S is blue, an F+ is an F\'s red', [M.bamTone(14), M.bamToneCls(14), M.bamTone(1), M.bamToneCls(1), M.bamTone(13)],
+  ['pg-s', 'bam-ts', 'pg-f', 'bam-tf', 'pg-a']);
+ok('every real manager has an overall of their own', [M.bamManagerOvr(BFT), M.bamManagerOvr(BI)], [91, 70]);
 
 console.log(NL + 'a whole build');
 {
@@ -180,7 +217,8 @@ ok('junk starts a fresh build', [M.bamValid(null, pool), M.bamValid('x', pool), 
   [M.bamFresh(), M.bamFresh(), M.bamFresh()]);
 ok('a sound build comes back as it was',
   M.bamValid({ slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0 }, pool),
-  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0, team: null, season: null });
+  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0, team: null, season: null, paid: null });
+ok('and with no season, nothing paid for one', M.bamValid({ slots: { trade: 2 }, paid: true }, pool).paid, null);
 ok('a trait that is not one throws it out', M.bamValid({ slots: { charisma: 2 } }, pool), M.bamFresh());
 ok('so does a manager no longer in the pool', M.bamValid({ slots: { trade: 2 }, land: 44 }, pool), M.bamFresh());
 ok('more respins than a build gets are not believed', M.bamValid({ slots: {}, respins: 5 }, pool).respins, M.BAM_RESPINS);
@@ -197,14 +235,22 @@ console.log(NL + 'shared as a link');
   ok('a finished build packs into twenty characters', [code.length, /^[0-9a-z]+$/.test(code)], [20, true]);
   const back = M.bamDecode(code);
   ok('and unpacks to the same managers', back.slots, built.slots);
-  ok('with the grades they had', KEYS.map(k => M.PG_SCALE[back.grades[k]]), KEYS.map(k => L(built.slots[k], k)));
+  ok('with the grades they had', KEYS.map(k => M.BAM_SCALE[back.grades[k]]), KEYS.map(k => L(built.slots[k], k)));
   ok('and who built it', back.by, 10);
   ok('nobody signed in is nobody', M.bamDecode(M.bamCode(built, null)).by, null);
   /* the grades ride in the code: change the table and the link still shows the build as made */
   const moved = JSON.parse(JSON.stringify(CFG)); moved.buildManager.grades[2].trade = 'F';
   M.set({ cfg: moved });
-  ok('a link keeps its grades when the table changes', M.PG_SCALE[M.bamDecode(code).grades.trade], 'A+');
+  ok('a link keeps its grades when the table changes', M.BAM_SCALE[M.bamDecode(code).grades.trade], 'S');
   M.set({ cfg: CFG });
+  /* S and F+ came after links were already being sent: they take the two
+     characters past the old thirteen, and every old character means what it did */
+  ok('an S travels as d, an F+ as e', [code[5], M.bamCode({ ...built, slots: { ...built.slots, legacy: WGLR } }, 10)[19]], ['d', 'e']);
+  const tops = { slots: { draft: 10, trade: 2, fin: 7, coach: 10, bk: 10, luck: 7, eng: 10, pun: 5, legacy: 12 } };
+  ok('and come back the same', KEYS.map(k => M.BAM_SCALE[M.bamDecode(M.bamCode(tops, 10)).grades[k]]), KEYS.map(k => L(tops.slots[k], k)));
+  ok('a link sent before S and F+ reads as it always did: 0 an F, 1 a D-, c an A+',
+    ['draft', 'trade', 'fin'].map(k => M.BAM_SCALE[M.bamDecode('1a' + '30' + '31' + '3c' + '3c'.repeat(6)).grades[k]]), ['F', 'D-', 'A+']);
+  ok('and nothing past e is a grade', M.bamDecode('1a' + '3f' + '3c'.repeat(8)), null);
   ok('a build not yet finished has no link', M.bamCode({ slots: { trade: 2 } }, 10), '');
   ok('a garbled code opens nothing', [M.bamDecode(''), M.bamDecode('hello'), M.bamDecode(code.slice(0, 19)),
     M.bamDecode(code.slice(0, 3) + 'z' + code.slice(4)), M.bamDecode('2' + code.slice(1))], [null, null, null, null, null]);
@@ -295,6 +341,37 @@ console.log(NL + 'a champion, for the whole league');
   M.set({ rows: null });
 }
 
+console.log(NL + 'a title pays $10 GFL Bucks, once a bucks week');
+{
+  const at = (y, mo, d, h = 12) => new Date(y, mo - 1, d, h).getTime();
+  const NOW = at(2026, 11, 20);                    // a Friday, two bucks weeks after titles started paying
+  M.set({ now: NOW, me: { k1: 'bft', teamId: 10 }, ls: {}, rows: [] });
+  ok('ten dollars a title, from 6 November', [M.BAM_PRIZE, new Date(M.BAM_PRIZE_FROM).toDateString()], [10, 'Fri Nov 06 2026']);
+  const mon = at(2026, 11, 9), tue5 = at(2026, 11, 10, 5), tue7 = at(2026, 11, 10, 7), thu = at(2026, 11, 12);
+  ok('the first title of a bucks week is paid and a second that week is not', M.bamPaidClean([thu, tue7]), [tue7]);
+  ok('the week turns at 6am on Tuesday', M.bamPaidClean([mon, tue5, tue7]), [mon, tue7]);
+  ok('nothing from before titles paid, from the future, or that is not a time at all',
+    [M.bamPaidClean([at(2026, 11, 5), NOW + 7200e3, 'x', null, -1, at(2026, 11, 18)]), M.bamPaidClean('nope')], [[at(2026, 11, 18)], []]);
+  M.set({ ls: { 'bft:bampaid': JSON.stringify([tue7]) } });
+  ok('your device\'s list is in your bank', M.bamBucks(), 10);
+  M.set({ rows: [{ id: 'bft', bamPaid: JSON.stringify([tue7, at(2026, 11, 18)]) }, { id: 'mm', bamPaid: JSON.stringify([thu]) }] });
+  ok('and so is your profile\'s, with no title counted twice and nobody else\'s counted', M.bamBucks(), 20);
+  ok('a title in a week already paid is not paid again', M.bamPrizeDue(NOW), false);
+  ok('next week\'s is', M.bamPrizeDue(at(2026, 11, 24, 7)), true);
+  M.set({ ls: {}, rows: [] });
+  ok('with nothing paid this week, a title is', M.bamPrizeDue(NOW), true);
+  ok('another manager\'s bank holds what their profile carries', M.bucksFor({ bamTimes: [mon, tue7] }, () => M.bamBucks()), 20);
+  M.set({ me: null });
+  ok('signed out there is no bank to pay into', [M.bamBucks(), M.bamPaidMine()], [0, []]);
+  M.set({ now: null, rows: null });
+
+  const fin = paid => M.bamResultHTML(3, 1, 11, 3, 1, paid);
+  ok('a title that paid says so on the Champion box', fin(true).includes('[+$10 GFL Bucks]'), true);
+  ok('one won after the week\'s was paid says that instead', [fin(false).includes('[$10 already paid this week]'), fin(false).includes('+$')], [true, false]);
+  ok('with nobody signed in to pay, nothing about money', fin(null).includes('$'), false);
+  ok('and only a title pays', M.bamResultHTML(3, 2, 10, 4, 2, true).includes('$'), false);
+}
+
 console.log(NL + 'every manager\'s ratings');
 ok('a tab for each of the twelve, best overall first', [M.bamRateOrder().length, M.bamRateOrder()[0]], [12, BFT]);
 ok('in order of overall all the way down', M.bamRateOrder().every((id, i, a) => !i || M.bamManagerOvr(a[i - 1]) >= M.bamManagerOvr(id)), true);
@@ -366,14 +443,31 @@ ok('which vercel.json sends to the preview, picture and page', ['/b/:code/card.p
 ok('the wheel has no flashing lights', [src.includes('bam-bulb'), idx.includes('bamBulb')], [false, false]);
 ok('every trait has an icon and no colour of its own', M.BAM_ATTRS.every(a => /^fa-/.test(a[2]) && a.length === 3), true);
 {
-  /* a filled box is its grade's colour: the five box colours are the five letter colours */
-  const box = Object.fromEntries([...idx.matchAll(/\.bam-t([abcdf])\{--bc:(#[0-9A-Fa-f]{6});\}/g)].map(m => [m[1], m[2].toLowerCase()]));
-  const letter = Object.fromEntries([...idx.matchAll(/\.pg-([abcdf])\{color:(#[0-9A-Fa-f]{6});\}/g)].map(m => [m[1], m[2].toLowerCase()]));
-  ok('a filled box takes the colour of its grade, the same as the letter', [Object.keys(box).sort().join(''), ['a', 'b', 'c', 'd', 'f'].every(k => box[k] === letter[k])], ['abcdf', true]);
+  /* a filled box is its grade's colour: the six box colours are the six letter colours */
+  const box = Object.fromEntries([...idx.matchAll(/\.bam-t([abcdfs])\{--bc:(#[0-9A-Fa-f]{6});\}/g)].map(m => [m[1], m[2].toLowerCase()]));
+  const letter = Object.fromEntries([...idx.matchAll(/\.pg-([abcdfs])\{color:(#[0-9A-Fa-f]{6});\}/g)].map(m => [m[1], m[2].toLowerCase()]));
+  ok('a filled box takes the colour of its grade, the same as the letter', [Object.keys(box).sort().join(''), ['a', 'b', 'c', 'd', 'f', 's'].every(k => box[k] === letter[k])], ['abcdfs', true]);
+  const blue = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); return b > r + 60 && b > g + 30; };
+  ok('and an S is blue', blue(box.s || '#000000'), true);
   ok('the slots and the picks both carry it', [src.includes("' filled '+bamToneCls(gi)"), src.includes('class="bam-pick ${bamToneCls(i)}"')], [true, true]);
   ok('and the dashed open outline is only ever on an empty slot, never over a grade\'s colour', src.includes("${open&&!filled?' open':''}"), true);
 }
 ok('and leaving a shared build takes the link out of the address', /function bamOwn\(\)\{[\s\S]{0,200}searchParams\.delete\('bam'\)/.test(src), true);
+{
+  const lf = src.replace(/\r\n/g, '\n');
+  const fn = name => { const a = lf.indexOf(name); return a < 0 ? '' : lf.slice(a, lf.indexOf('\n}\n', a) + 2); };
+  ok('a title is paid where it is recorded: due or not is kept with the build, and only a due one pays',
+    /b\.paid=bamPrizeDue\(now\);\n\s*bamSave\(\);\n\s*if\(b\.paid\) bamPaySave\(now\);/.test(fn('function bamRecordWin(')), true);
+  ok('the Champion box is told what it paid', lf.includes('bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed,b.paid)'), true);
+  ok('your balance counts it, and so do the Leaderboards', [lf.includes('+eggBucks()+bam-inv-idle-plant'),
+    fn('function ldBucks(').includes('bamPaidClean(bamPaidParse(p.bamPaid))'), fn('function ldBucks(').includes('bamTimes=bamPaidMine()')], [true, true, true]);
+  ok('a balance replayed to an earlier moment counts only the titles won by then',
+    fn('function bucksBaseAt(').includes('const bam=bkBamTimes().filter(x=>Number(x)<=t);'), true);
+  const pay = fn('async function bamPaySave(');
+  ok('and a paid title is saved over nothing another device paid: the profile\'s list is read and folded in first',
+    [pay.indexOf('gflFetchProfile(acct)') > 0, pay.indexOf('gflFetchProfile(acct)') < pay.indexOf('gflPatchProfile(acct,{bamPaid:list})'),
+      pay.includes('bamPaidClean(dev.concat(srv))')], [true, true, true]);
+}
 
 console.log(NL + `${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

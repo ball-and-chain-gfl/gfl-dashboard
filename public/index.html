@@ -2217,6 +2217,8 @@
     /* after .pg-val, which sets its own resting colour and would otherwise win */
     .pg-none{color:var(--text3);}
     .pg-f{color:#E84146;} .pg-d{color:#F2704A;} .pg-c{color:#E8BC56;} .pg-b{color:#9BD35A;} .pg-a{color:#3fd07a;}
+    /* Build a Manager's S, the one grade above A+ */
+    .pg-s{color:#4DA3FF;}
 
     /* ── Bad Beat column key ──────────────────────────────────────────────── */
     .bb-key{background:rgba(0,0,0,0.3);margin:14px 2px 0;padding:13px 15px;border-radius:10px;}
@@ -3201,7 +3203,7 @@
        phone the wheel comes first, so Spin and what it lands on are on screen
        without scrolling, and the build fills in underneath. A filled slot is
        the GRADE's colour, the whole box, never a colour of the trait's own:
-       --bc comes from .bam-ta to .bam-tf, the same five as .pg-a to .pg-f. */
+       --bc comes from .bam-ts to .bam-tf, the same six as .pg-s to .pg-f. */
     .bam-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;}
     .bam-play{order:-1;}
     @media(min-width:900px){ .bam-wrap{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start;gap:24px;}
@@ -3315,8 +3317,8 @@
     .bam-pick>span i{flex:0 0 auto;font-size:10px;color:var(--bc);}
     .bam-pick .pxw{align-items:flex-start;}
     /* a grade's colour for a whole box, after the grey the boxes start from so
-       it wins; the same five as .pg-a to .pg-f */
-    .bam-ta{--bc:#3fd07a;} .bam-tb{--bc:#9BD35A;} .bam-tc{--bc:#E8BC56;} .bam-td{--bc:#F2704A;} .bam-tf{--bc:#E84146;}
+       it wins; the same six as .pg-s to .pg-f, S in blue */
+    .bam-ts{--bc:#4DA3FF;} .bam-ta{--bc:#3fd07a;} .bam-tb{--bc:#9BD35A;} .bam-tc{--bc:#E8BC56;} .bam-td{--bc:#F2704A;} .bam-tf{--bc:#E84146;}
     /* a finished build: Share, and the link itself if the clipboard said no */
     .bam-link{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:10px 12px;border-radius:4px;
       border:2px solid rgba(var(--accent-rgb),0.45);background:rgba(0,0,0,0.3);color:var(--text);
@@ -3359,8 +3361,10 @@
     .bam-fin>div{display:flex;flex-direction:column;gap:9px;min-width:0;}
     .bam-fin-h{color:var(--text2);}
     .bam-fin-t{display:flex;align-items:center;gap:7px;color:var(--text);}
+    /* a title's GFL Bucks, in the box's own green, landing a beat after it */
+    .bam-fin-p{margin-top:3px;animation:bamPop .45s .5s both;}
     @keyframes bamPop{from{opacity:0;transform:scale(.96);}to{opacity:1;transform:none;}}
-    @media(prefers-reduced-motion:reduce){ .bam-gm.fresh,.bam-fin{animation:none;} }
+    @media(prefers-reduced-motion:reduce){ .bam-gm.fresh,.bam-fin,.bam-fin-p{animation:none;} }
     .bam-sts{display:flex;flex-direction:column;}
     .bam-st{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:3px;color:var(--text2);}
     .bam-st.me{background:rgba(var(--accent-rgb),0.18);color:var(--text);}
