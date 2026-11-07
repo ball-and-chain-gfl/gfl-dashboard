@@ -16796,53 +16796,94 @@ function betsMineCheck(){
    and every reload past two minutes paid for the whole season again; the
    Leaderboards say how old their copy is and carry a refresh button for
    anybody who wants it newer. */
-/* ON THE DEVICE since 6 November, for the reason the homepage's two weeks are:
-   an installed app's session ends every time it is closed. */
-const BETS_ALL_TTL=10*60*1000;
-const betsAllKey=()=>`gfl:betsAll:${sbSeason()}`;
-function betsAllCached(){
+/* ── THE LEAGUE'S TICKETS, EACH READ ONCE ────────────────────────────────────
+   One store on the device for every ticket of the season: the Leaderboards and
+   Team Data read it whole, the homepage reads this week and last out of it.
+   They were two separate reads -- the season (340 tickets by week 9, forty more
+   a week) whenever a board's copy was ten minutes old, and the two weeks (about
+   70) whenever the homepage's was. A settled ticket never changes again, so the
+   store keeps them and a sync asks only for:
+     · tickets placed since the last sync (ts), and settled since (settledTs),
+       less two hours for a clock running behind -- single-field ranges, so
+       nothing to index, and every write to a ticket stamps one or the other
+     · by id, the few still sitting as offers or challenges, which the settle
+       job can open without stamping either
+   Once a week, and on a device with no store, the whole season is read afresh,
+   which also picks up anything changed without a stamp (a ticket cleared off
+   its owner's own list, which the boards ignore anyway).
+
+   WHEN to ask is unchanged: a board or the homepage still asks only once its
+   copy is ten minutes old, or this device has written a bet. What changed is
+   what asking costs -- a handful of reads instead of hundreds. */
+const BETS_ALL_TTL=10*60*1000, LG_FULL_MS=7*24*3600*1000, LG_SKEW_MS=2*3600*1000;
+let _lg=null, _lgBusy=null, _lgStale=false;    // {season, t, full, rows}
+const lgKey=()=>`gfl:league:${sbSeason()}`;
+function lgLoad(){
+  const season=String(sbSeason());
+  if(_lg&&_lg.season===season) return _lg;
   try{
-    const raw=localStorage.getItem(betsAllKey()); if(!raw) return null;
-    const j=JSON.parse(raw);
-    if(!j||!Array.isArray(j.rows)) return null;
-    if(Date.now()-(Number(j.t)||0)>BETS_ALL_TTL) return null;
-    return j.rows;
-  }catch(e){ return null; }
+    const j=JSON.parse(localStorage.getItem(lgKey())||'null');
+    _lg=j&&Array.isArray(j.rows)?{season,t:Number(j.t)||0,full:Number(j.full)||0,rows:j.rows}:null;
+  }catch(e){ _lg=null; }
+  return _lg;
 }
-function betsAllStore(rows){
-  try{ localStorage.setItem(betsAllKey(),JSON.stringify({t:Date.now(),rows})); }
-  catch(e){}                                  // full or private mode: just do not cache
+/* the store onto the device, and the separate copies it replaced off it */
+function lgSave(){
+  try{
+    const keep=lgKey();
+    for(let i=localStorage.length-1;i>=0;i--){ const k=localStorage.key(i);
+      if(k&&k!==keep&&(k.indexOf('gfl:league:')===0||k.indexOf('gfl:betsAll:')===0||k.indexOf('gfl:betsNear:')===0))
+        localStorage.removeItem(k); }
+    localStorage.setItem(keep,JSON.stringify({t:_lg.t,full:_lg.full,rows:_lg.rows}));
+  }catch(e){}                                   // full or private mode: kept in memory only
 }
-/* Anything that writes a bet calls this. Clearing the variable alone would leave
-   the stored copy to be served on the next navigation, which is the same bug
-   from one step further away. */
+const lgSince=(field,t)=>({fieldFilter:{field:{fieldPath:field},op:'GREATER_THAN',
+  value:{stringValue:String(Math.max(0,t))}}});
+async function lgSync(){
+  if(_lgBusy) return _lgBusy;
+  _lgBusy=(async()=>{
+    const season=String(sbSeason()), kept=lgLoad();
+    if(kept&&Date.now()-kept.full<LG_FULL_MS){
+      const since=kept.t-LG_SKEW_MS;
+      const placed=await betQuery(lgSince('ts',since),false,0);
+      const settled=placed?await betQuery(lgSince('settledTs',since),false,0):null;
+      if(placed&&settled){
+        const seen=new Set(placed.concat(settled).map(b=>b.id));
+        const live=kept.rows.filter(b=>(b.status==='offer'||b.status==='challenge')&&!seen.has(b.id)).map(b=>b.id);
+        const got=live.length?await betGet(live):[];
+        if(got){
+          const by=new Map(kept.rows.map(b=>[b.id,b]));
+          got.concat(placed,settled).forEach(b=>{ if(String(b.season)===season) by.set(b.id,b); });
+          _lg={season,t:Date.now(),full:kept.full,rows:[...by.values()]};
+          _lgStale=false; lgSave(); return _lg;
+        }
+      }
+      if(_betErr==='quota'||_fsQuota) return kept;
+      /* anything else that failed falls back to reading the whole season */
+    }
+    const all=await betQuery(fsEq('season',season),false,0);
+    if(all){ _lg={season,t:Date.now(),full:Date.now(),rows:all}; _lgStale=false; lgSave(); return _lg; }
+    return kept;
+  })();
+  try{ return await _lgBusy; }finally{ _lgBusy=null; }
+}
+/* Anything that writes a bet calls this: the next ask syncs whatever the
+   copy's age, so your own ticket is on the boards and the slate at once. */
 function betsAllDrop(){
-  _betsAll=null;
-  try{ localStorage.removeItem(betsAllKey()); }catch(e){}
-  /* the homepage's two weeks too -- kept on screen, but asked for again */
-  _betsNearStale=true;
-  try{ localStorage.removeItem(betsNearStoreKey()); }catch(e){}
+  _betsAll=null; _lgStale=true;
+  _betsNearStale=true;      // the homepage's two weeks too -- kept on screen, but asked for again
 }
-/* when the stored copy was taken, so a board can say how old it is rather than
+/* when the store last synced, so a board can say how old it is rather than
    leaving somebody to guess whether they are looking at live money */
-function betsAllAt(){
-  try{
-    const j=JSON.parse(localStorage.getItem(betsAllKey())||'null');
-    return (j&&Number(j.t))||0;
-  }catch(e){ return 0; }
-}
+function betsAllAt(){ const lg=lgLoad(); return (lg&&lg.t)||0; }
 let _betsAll=null,_betsAllBusy=false;
 async function betLeague(){
   if(_betsAll) return _betsAll;
-  const cached=betsAllCached();
-  if(cached){ _betsAll=cached; return _betsAll; }
+  const kept=lgLoad();
+  if(kept&&!_lgStale&&Date.now()-kept.t<BETS_ALL_TTL){ _betsAll=kept.rows; return _betsAll; }
   if(_betsAllBusy) return null;
   _betsAllBusy=true;
-  try{
-    const rows=await betQuery(fsEq('season',String(sbSeason())),false,0);   // all of them
-    _betsAll=rows||[];
-    if(rows) betsAllStore(rows);
-  }catch(e){ _betsAll=[]; }
+  try{ const lg=await lgSync(); _betsAll=lg?lg.rows:[]; }catch(e){ _betsAll=[]; }
   _betsAllBusy=false;
   return _betsAll;
 }
@@ -16877,40 +16918,22 @@ function betsNearKeys(now=new Date()){
   const cur=bucksWeekKey(now), prev=bucksWeekKey(new Date(tueWeekStart(now)-1));
   return cur===prev?[cur]:[cur,prev];
 }
-const betsNearStoreKey=()=>`gfl:betsNear:${bucksWeekKey()}`;
-/* A reload or a reopen inside the ten minutes paints from the stored copy.
-   ON THE DEVICE, NOT THE TAB: it was sessionStorage, and an installed app
-   starts a new session every time it is reopened, so every reopen -- and
-   every reload a new version forces -- paid for the two weeks again. That was
-   21,049 reads on 6 November, 311 asks, the largest share of the day that ran
-   the 50,000 out. */
+/* this bucks week's and last week's tickets, out of the league's store */
+function lgNear(rows){ const keys=new Set(betsNearKeys()); return (rows||[]).filter(b=>keys.has(String(b.wk))); }
+/* A reload or a reopen inside the ten minutes paints from the store on the
+   device. (It was its own two-week read until 7 November, kept for the tab
+   alone until the day before: 21,049 reads on 6 November, 311 asks.) */
 function betsNearWarm(){
   if(_betsNear) return;
-  try{
-    const j=JSON.parse(localStorage.getItem(betsNearStoreKey())||'null');
-    if(j&&Array.isArray(j.rows)&&Date.now()-(Number(j.t)||0)<BETS_NEAR_TTL){
-      _betsNear=j.rows; _betsNearAt=Number(j.t)||0; }
-  }catch(e){}
-}
-/* this week's copy in, every older week's out */
-function betsNearStore(rows,t){
-  try{
-    const keep=betsNearStoreKey();
-    for(let i=localStorage.length-1;i>=0;i--){ const k=localStorage.key(i);
-      if(k&&k.indexOf('gfl:betsNear:')===0&&k!==keep) localStorage.removeItem(k); }
-    localStorage.setItem(keep,JSON.stringify({t,rows}));
-  }catch(e){}
+  const lg=lgLoad();
+  if(lg&&Date.now()-lg.t<BETS_NEAR_TTL){ _betsNear=lgNear(lg.rows); _betsNearAt=lg.t; }
 }
 async function betNear(){
   if(_betsNearBusy||_fsQuota) return _betsNear;
   _betsNearBusy=true;
   try{
-    const rows=await betQuery({fieldFilter:{field:{fieldPath:'wk'},op:'IN',
-      value:{arrayValue:{values:betsNearKeys().map(v=>({stringValue:v}))}}}});
-    if(rows){
-      _betsNear=rows; _betsNearAt=Date.now();
-      betsNearStore(rows,_betsNearAt);
-    }
+    const lg=await lgSync();
+    if(lg){ _betsNear=lgNear(lg.rows); _betsNearAt=lg.t; }
   }catch(e){}
   _betsNearBusy=false;
   return _betsNear;

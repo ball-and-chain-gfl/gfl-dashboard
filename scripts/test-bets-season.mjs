@@ -32,15 +32,18 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 
 const M = assemble(grab, [
   'const fsIn=', 'const betDocRow=', 'const fsRunQueryUrl=', 'async function betQuery(', 'const fsEq=',
-  'const BETS_ALL_TTL=', 'const betsAllKey=', 'function betsAllCached(){', 'function betsAllStore(rows){',
+  'const BETS_ALL_TTL=', 'let _lg=', 'const lgKey=', 'function lgLoad(', 'function lgSave(', 'const lgSince=', 'async function lgSync(',
   'let _betsAll=null,_betsAllBusy=false;', 'async function betLeague(){',
-], ['betQuery', 'betLeague', 'fsEq', 'seed', 'sent', 'reset', 'stored', 'failWith', 'err'], [
+], ['betQuery', 'betLeague', 'fsEq', 'seed', 'sent', 'reset', 'stored', 'failWith', 'err', 'age', 'newPage'], [
   'const GFL_DB={project:"p",key:"k"}; const msgKey=()=>"key=k";',
-  'const fsNoteResponse=r=>r; const sbSeason=()=>2026;',
+  'const fsNoteResponse=r=>r; const sbSeason=()=>2026; let _fsQuota=false; const betGet=async ids=>[];',
   'let _bets=null,_betErr=null,_betBusy=false; const err=()=>_betErr;',
   'const _ss=new Map(); const localStorage={getItem:k=>_ss.has(k)?_ss.get(k):null,',
-  '  setItem:(k,v)=>{_ss.set(k,String(v));}, removeItem:k=>{_ss.delete(k);}};',
-  'const stored=()=>{ const v=_ss.get("gfl:betsAll:2026"); return v?JSON.parse(v).rows.length:null; };',
+  '  setItem:(k,v)=>{_ss.set(k,String(v));}, removeItem:k=>{_ss.delete(k);}, key:i=>[..._ss.keys()][i]??null, get length(){ return _ss.size; }};',
+  'const stored=()=>{ const v=_ss.get("gfl:league:2026"); return v?JSON.parse(v).rows.length:null; };',
+  /* the store as a later page finds it, its last sync `ms` ago */
+  'const age=ms=>{ const j=JSON.parse(_ss.get("gfl:league:2026")); j.t-=ms; _ss.set("gfl:league:2026",JSON.stringify(j)); _lg=null; };',
+  'const newPage=()=>{ _betsAll=null; _sent=[]; };',
   /* the collection, and every structured query sent to it */
   'let _docs=[], _sent=[], _status=200;',
   'const seed=(n,owner)=>{ _docs=Array.from({length:n},(_,i)=>({',
@@ -48,7 +51,7 @@ const M = assemble(grab, [
   '  fields:{owner:{stringValue:owner||("m"+(i%12))},season:{stringValue:"2026"},',
   '    ts:{stringValue:String(1e12+i)},stake:{stringValue:"10"}}})); };',
   'const sent=()=>_sent; const failWith=s=>{ _status=s; };',
-  'const reset=()=>{ _ss.clear(); _sent=[]; _betsAll=null; _betsAllBusy=false; _betErr=null; _status=200; };',
+  'const reset=()=>{ _ss.clear(); _sent=[]; _betsAll=null; _betsAllBusy=false; _betErr=null; _status=200; _lg=null; _lgStale=false; _lgBusy=null; };',
   'const fetch=async (url,opt)=>{',
   '  const q=JSON.parse(opt.body).structuredQuery; _sent.push(q);',
   '  if(_status!==200) return {ok:false,status:_status,json:async()=>({})};',
@@ -70,9 +73,16 @@ await M.betLeague();
 const q = M.sent()[0];
 ok('one query, on the season, with no limit and no ordering', [M.sent().length, q.where.fieldFilter.field.fieldPath,
   q.where.fieldFilter.value.stringValue, 'limit' in q, 'orderBy' in q], [1, 'season', '2026', false, false]);
-ok('and every one of them is kept for the next page in this tab', M.stored(), 328);
+ok('and every one of them is kept in the store on the device', M.stored(), 328);
 await M.betLeague();
 ok('a second visit is drawn from that copy, not read again', M.sent().length, 1);
+M.newPage(); await M.betLeague();
+ok('nor is a new page inside ten minutes', M.sent().length, 0);
+M.newPage(); M.age(11 * 60000);
+const later = await M.betLeague();
+ok('past ten minutes it asks only for what was placed or settled since, never the season again',
+  [M.sent().map(x => x.where.fieldFilter.field.fieldPath + ' ' + x.where.fieldFilter.op), later.length],
+  [['ts GREATER_THAN', 'settledTs GREATER_THAN'], 328]);
 
 head('a failed read');
 M.reset(); M.seed(328); M.failWith(429);

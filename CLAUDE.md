@@ -317,7 +317,19 @@ reads were bets: the homepage's two-week list 21,049, each manager's own
 tickets 12,612, the season list 4,743. Hot Takes was 720. Those lists were kept
 in sessionStorage, which an installed app loses on every reopen and which
 every deploy's reload re-reads. They are kept in localStorage now, ten minutes
-each (`betsNearWarm`, `betsAllCached`, `betsMineStored`). Your own tickets are
+each (`betsNearWarm`, `betLeague`, `betsMineStored`).
+
+The league's tickets live in ONE store on the device (`gfl:league:<season>`,
+`lgSync`): the Leaderboards and Team Data take it whole (`betLeague`), the
+homepage takes this week and last from it (`betNear`, `lgNear`). It is read
+whole once a week and on a device with none; otherwise a sync asks for tickets
+placed since (`ts >`), settled since (`settledTs >`), both less two hours of
+clock skew and both single-field ranges with no index to deploy, plus by id
+the few `offer`/`challenge` tickets (the settle job can open a pair without
+stamping either field). Every write to a ticket in the app and the scripts
+stamps `ts` or `settledTs`, and anything new must too, or the store will not
+see it until the weekly full read. `betsAllDrop` (every write of ours) marks
+the store stale so the next ask syncs. Your own tickets are
 also re-read when the Sportsbook's copy is two minutes old (`betsMineCheck`)
 and before any stake if the copy is over a minute old (`sbPlaceBet`); every
 write of yours re-reads them through `betRefresh`. Anything new that reads on
