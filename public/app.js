@@ -11030,7 +11030,7 @@ function initSignIn(){
    haul on a shared device. */
 function eggReset(){ _eggs=null; try{ eggSync(); }catch(e){} try{ eggPaint(); }catch(e){} }
 /* messages waiting on my own profile, and whether mine has been read */
-function ttReset(){ _ttIn={}; _ttPending=null; try{ ttSync(); }catch(e){} }
+function ttReset(){ _ttIn={}; _ttSentAt=0; try{ ttSync(); }catch(e){} }
 /* the share ledger is per manager too */
 function invResetAll(){ try{ invReset(); }catch(e){} }
 // ── UPCOMING SCHEDULE ────────────────────────────────────────────────────────
@@ -20425,22 +20425,13 @@ async function ttSync(){
   }catch(e){}
 }
 /* whether this manager still has a line sitting unread on the opponent */
-let _ttPending=null, _ttChecking=false;
-/* One check at a time. The box asks while it does not know yet, and the forecast
-   redraws a dozen times as an open settles, so it used to send a dozen reads of
-   the opponent's profile before the first came back: 18 in one open on 7
-   November, half of everything that open read. */
-async function ttCheck(oppK1){
-  if(!_me||!oppK1||_ttChecking) return;
-  _ttChecking=true;
-  try{
-    const res=await gflFetchProfileShared(oppK1);
-    const v=(res&&res.data)?res.data[ttField(_me.k1)]:'';
-    const now=!!ttParse(v);
-    if(now!==_ttPending){ _ttPending=now; if(_activeTab==='home') fcRepaint(); }
-  }catch(e){}
-  _ttChecking=false;
-}
+/* AS MANY AS YOU LIKE. A new message replaces the last one if it has not been
+   read. It used to be one at a time, which meant reading the opponent's
+   profile on every open to see whether the last was still waiting; the
+   commissioner dropped the rule on 7 November. A send shows "Sent" on the
+   button for TT_SENT_MS and the box is ready again. */
+const TT_SENT_MS=3000;
+let _ttSentAt=0;
 async function ttSend(oppK1){
   const box=document.getElementById('tt-text');
   if(!box||!_me||_ttOutBusy) return;
@@ -20449,26 +20440,26 @@ async function ttSend(oppK1){
   _ttOutBusy=true; _ttErr=''; fcRepaint();
   const res=await gflPatchProfile(oppK1,{[ttField(_me.k1)]:JSON.stringify({t:text,ts:Date.now()})});
   _ttOutBusy=false;
-  if(res&&res.ok){ _ttPending=true; }
+  if(res&&res.ok){
+    /* the forecast's repaint keeps what is typed in the box (a draft must survive
+       a score update), so a message that went has to be cleared out of it */
+    const cur=document.getElementById('tt-text'); if(cur) cur.value='';
+    _ttSentAt=Date.now(); setTimeout(()=>{ if(_activeTab==='home') fcRepaint(); },TT_SENT_MS+50);
+  }
   else _ttErr=(res&&res.error==='quota')?'Firestore is over quota — try later.':'Could not send that.';
   fcRepaint();
 }
 function ttBoxHTML(oppK1,oppName){
   if(!_me||!oppK1) return '';
-  if(_ttPending===null){ ttCheck(oppK1); }
-  if(_ttPending) return `<div class="tt-box tt-sent">
-    <div class="tt-h"><i class="fa fa-paper-plane"></i>Message sent</div>
-    <div class="tt-note">${oppName} has one from you waiting. You can send another
-      once they have cleared it.</div>
-  </div>`;
+  const sent=Date.now()-_ttSentAt<TT_SENT_MS;
   return `<div class="tt-box">
     <div class="tt-h"><i class="fa fa-comment-dots"></i>Say something to ${oppName}</div>
     <textarea id="tt-text" class="tt-text" rows="2" maxlength="240"
-      placeholder="One message at a time — make it count…"></textarea>
+      placeholder="Make it count…"></textarea>
     ${_ttErr?`<div class="tt-err">${_ttErr}</div>`:''}
     <button class="tt-send" ${_ttOutBusy?'disabled':''}
       onclick="ttSend('${String(oppK1).replace(/'/g,"\\'")}')">
-      <i class="fa fa-paper-plane"></i>${_ttOutBusy?'Sending…':'Send'}</button>
+      <i class="fa ${sent?'fa-check':'fa-paper-plane'}"></i>${_ttOutBusy?'Sending…':sent?'Sent':'Send'}</button>
   </div>`;
 }
 

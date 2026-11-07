@@ -340,8 +340,14 @@ twice, and the forecast's trash-talk check firing on every redraw until its
 first answer came back); it reads 2 now. Anything that writes back from what
 it read (`eggSave`, `bamPaySave`, `invSync(true)` before a trade, sign-in)
 uses `gflFetchProfile` for a fresh copy. A check fired from a render must
-guard against asking again while one is in flight (`_ttChecking`). A failed read must back off rather than
-retry on its own repaint (Hot Takes did, `_takesFailAt`).
+guard against asking again while one is in flight, and a failed read must back
+off rather than retry on its own repaint (Hot Takes did, `_takesFailAt`).
+
+Trash talk (`ttSend`) writes `tt_<sender>` onto the opponent's profile; their
+app shows it from its own profile read and `ttClear` empties it once seen. As
+of 7 November there is no one-at-a-time rule, by the user's call: a new
+message replaces an unread one, and nothing reads the opponent's profile to
+check (the button shows "Sent" for `TT_SENT_MS`).
 
 `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.
 

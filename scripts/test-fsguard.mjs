@@ -186,11 +186,10 @@ head('one read of a profile for a burst of asks');
   const src = (await import('node:fs')).readFileSync(new URL('../public/app.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const fn = n => { const i = src.indexOf('async function ' + n + '('); return src.slice(i, src.indexOf('\n}\n', i)); };
   ok('the syncs that only read share; anything that writes back from what it read asks fresh',
-    [['plantSync', 'eggSync', 'bkSync', 'pkSync', 'ntSync', 'ttSync', 'ttCheck'].every(n => fn(n).includes('gflFetchProfileShared(')),
+    [['plantSync', 'eggSync', 'bkSync', 'pkSync', 'ntSync', 'ttSync'].every(n => fn(n).includes('gflFetchProfileShared(')),
       fn('eggSave').includes('await gflFetchProfile(_me.k1)'), fn('bamPaySave').includes('gflFetchProfile(acct)'),
       fn('invSync').includes('(fresh?gflFetchProfile:gflFetchProfileShared)'), src.includes('try{ await invSync(true); }catch(e){}')],
     [true, true, true, true, true]);
-  ok('and the trash-talk box checks the opponent once, not once a redraw', [fn('ttCheck').includes('||_ttChecking) return;'), fn('ttCheck').includes('_ttChecking=false;')], [true, true]);
 }
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');

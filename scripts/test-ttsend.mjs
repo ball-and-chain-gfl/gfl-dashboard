@@ -20,7 +20,7 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 
 const PRELUDE = [
   'let _me={k1:"mine"};',
-  'let _ttOutBusy=false,_ttErr="",_ttPending=false;',
+  'let _ttOutBusy=false,_ttErr="",_ttSentAt=0,_activeTab="schedule";',
   'let paints=0, weekPaints=0, sent=[], nextResult={ok:true};',
   'const keySlug=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-");',
   'const fcRepaint=()=>{paints++;};',
@@ -29,12 +29,12 @@ const PRELUDE = [
   'let boxValue="";',
   'const document={getElementById:id=>id==="tt-text"?{value:boxValue}:null};',
   'const reset=v=>{paints=0;weekPaints=0;sent=[];_ttErr="";_ttOutBusy=false;'
-    + '_ttPending=false;boxValue=v==null?"":v;nextResult={ok:true};};',
-  'const state=()=>({paints,weekPaints,sent,err:_ttErr,busy:_ttOutBusy,pending:_ttPending});',
+    + '_ttSentAt=0;boxValue=v==null?"":v;nextResult={ok:true};};',
+  'const state=()=>({paints,weekPaints,sent,err:_ttErr,busy:_ttOutBusy,sentAt:_ttSentAt});',
   'const failWith=e=>{nextResult={ok:false,error:e};};',
 ].join(String.fromCharCode(10));
 
-const M = assemble(grab, ['const ttField=', 'async function ttSend(oppK1){'],
+const M = assemble(grab, ['const ttField=', 'const TT_SENT_MS=', 'async function ttSend(oppK1){'],
   ['ttSend', 'ttField', 'reset', 'state', 'failWith'], PRELUDE);
 
 let pass = 0, fail = 0;
@@ -57,7 +57,7 @@ ok('carrying the text', JSON.parse(s.sent[0].f[M.ttField('mine')]).t, 'Enjoy the
 ok('and it repaints the CARD, twice — the busy state and the result',
   s.paints, 2);
 ok('never through renderWeek', s.weekPaints, 0);
-ok('the box is left knowing a message is waiting', s.pending, true);
+ok('the button says Sent for a moment, and nothing is held back after', s.sentAt > 0, true);
 ok('and not stuck busy', s.busy, false);
 ok('with no error', s.err, '');
 
@@ -77,7 +77,7 @@ await M.ttSend('theirs');
 s = M.state();
 ok('it tried', s.sent.length, 1);
 ok('it says it could not', s.err, 'Could not send that.');
-ok('nothing is marked as waiting', s.pending, false);
+ok('nothing is marked as sent', s.sentAt, 0);
 ok('and it repainted both times', s.paints, 2);
 
 head('over quota is its own message');
@@ -101,8 +101,10 @@ ok('240 characters, no more',
 
 /* ── the rule, at the source ──────────────────────────────────────────────── */
 head('nothing in the card repaints by naming a tab');
-const src = grab('async function ttSend(oppK1){') + grab('async function ttCheck(oppK1){');
-ok('ttSend and ttCheck never call renderWeek', /renderWeek\s*\(/.test(src), false);
+const src = grab('async function ttSend(oppK1){');
+ok('ttSend never calls renderWeek', /renderWeek\s*\(/.test(src), false);
+ok('and nothing reads the opponent\'s profile any more: a new message simply replaces an unread one',
+  /ttCheck|_ttPending/.test((await import('node:fs')).readFileSync(new URL('../public/app.js', import.meta.url), 'utf8')), false);
 ok('they call fcRepaint', /fcRepaint\s*\(/.test(src), true);
 
 head('every "it landed" callback reaches both screens');
