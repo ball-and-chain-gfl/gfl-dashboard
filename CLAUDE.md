@@ -217,9 +217,9 @@ ONCE for a team and is locked to it, then plays ONE season (THE SEASON in
 cannot be re-rolled; Start over is the only way back. Strength is 60% the
 manager's overall and 40% the roster (`BAM_MGR_W`). The roster rating is a
 team's points a week this season against the league's (`bamRoster`): 83 at the
-average, 9 a standard deviation, kept to 55-93, where the user set BFT, the top
-scorer, at 93. The team your manager runs gets +1 for every Seth in the build
-(`bamMyRoster`, `BAM_SETH_ROSTER`), the only way past 93, as far as 99; the team
+average, 9 a standard deviation, kept to 55-95, where the user set BFT, the top
+scorer, at 95. The team your manager runs gets +1 for every Seth in the build
+(`bamMyRoster`, `BAM_SETH_ROSTER`), the only way past 95, as far as 99; the team
 card shows it as "+N Seth" under the roster.
 
 Sharing is the recap picture, never the site: a link from a message opens the

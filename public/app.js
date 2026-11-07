@@ -20838,11 +20838,11 @@ function bamDecode(code){
    about a 70% game, twenty about 85%. The other eleven keep their own managers.
 
    THE ROSTER is the team's points a week this season against the league's,
-   83 at the league average and nine a standard deviation, kept to 55-93: the
-   commissioner set BFT, the league's top scorer, at 93 and everyone else a few
+   83 at the league average and nine a standard deviation, kept to 55-95: the
+   commissioner set BFT, the league's top scorer, at 95 and everyone else a few
    points up from where they were (80 at the average, kept to 99). The team you
    run gets one more for every Seth in your build (BAM_SETH_ROSTER), the only
-   way past 93, as far as 99.
+   way past 95, as far as 99.
 
    THE POSTSEASON is the league's: six-team brackets on both sides, two byes
    each. Playoffs 3v6 and 4v5, then 1 and 2 take the winners, then a final and
@@ -20863,7 +20863,7 @@ function bamGame(a,b,str,rnd){
   do{ as=bamScore(str[a],rnd); bs=bamScore(str[b],rnd); }while(as===bs);
   return {a,b,as,bs,win:as>bs?a:b,lose:as>bs?b:a};
 }
-const BAM_ROSTER_AVG=83, BAM_ROSTER_PER_SD=9, BAM_ROSTER_MIN=55, BAM_ROSTER_MAX=93, BAM_SETH_ROSTER=1;
+const BAM_ROSTER_AVG=83, BAM_ROSTER_PER_SD=9, BAM_ROSTER_MIN=55, BAM_ROSTER_MAX=95, BAM_SETH_ROSTER=1;
 /* each team's roster rating, from the games of this season already decided */
 function bamRoster(meta,season){
   const reg=regEndOf(season), per={};
