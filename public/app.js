@@ -9342,7 +9342,7 @@ function fsWhat(url,init){
 }
 /* the documents a successful read came back with */
 function fsDocsIn(j){
-  if(Array.isArray(j)) return Math.max(1,j.filter(x=>x&&x.document).length);   // a query
+  if(Array.isArray(j)) return Math.max(1,j.filter(x=>x&&(x.document||x.found||x.missing)).length);   // a query, or a batchGet
   if(j&&Array.isArray(j.documents)) return Math.max(1,j.documents.length);     // a list
   return 1;                                                                      // a document
 }
@@ -16616,10 +16616,74 @@ async function betQuery(where,ordered,limit=300){
   return (Array.isArray(j)?j:[]).filter(x=>x&&x.document).map(x=>betDocRow(x.document));
 }
 const fsEq=(field,value)=>({fieldFilter:{field:{fieldPath:field},op:'EQUAL',value:{stringValue:String(value)}}});
+/* ── YOUR TICKETS, EACH READ ONCE ────────────────────────────────────────────
+   A settled ticket never changes again -- won, lost, push, void, cashed and
+   declined are final, and the rules refuse delete -- yet every refresh read
+   every ticket you had ever placed: 44 a time on average on 6 November, and
+   climbing all season. So the device keeps what it has read (the stored copy
+   betRefresh writes) and a refresh asks only for what can have changed:
+     · tickets stamped since the last sync, less two hours for a phone whose
+       clock runs behind, on the owner+ts index
+     · the ones still in play -- open, offered, invited, challenged -- by id
+   A handful of reads instead of the season. Once a day, and on a device that
+   has nothing kept, the whole lot is read from scratch, so a ticket corrected
+   after it was settled, or cleared on another device, is never wrong here for
+   long. That full read has no limit: it stopped at 300, and a manager past 300
+   would have been short of tickets, and so of money. */
+const BET_FINAL=new Set(['won','lost','push','void','cashed','declined']);
+const BET_FULL_MS=24*3600*1000, BET_SKEW_MS=2*3600*1000;
+let _betsFullAt=0;                  // when every ticket was last read from scratch
+/* the tickets of yours this device has kept, at any age: {t, full, rows} */
+function betsLedger(acct){
+  try{
+    const j=JSON.parse(localStorage.getItem(`gfl:bets:${acct}`)||'null');
+    if(!j||!Array.isArray(j.rows)) return null;
+    return {t:Number(j.t)||0, full:Number(j.full||j.t)||0, rows:j.rows.filter(b=>b&&b.owner===acct)};
+  }catch(e){ return null; }
+}
+/* some tickets by id, in one request: a read each */
+async function betGet(ids){
+  const out=[], base=`projects/${GFL_DB.project}/databases/(default)/documents/bets/`;
+  for(let i=0;i<ids.length;i+=100){
+    const r=fsNoteResponse(await fetch(`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents:batchGet?${msgKey()}`,
+      {method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({documents:ids.slice(i,i+100).map(id=>base+id)})}));
+    if(r.status===429){ _betErr='quota'; return null; }
+    if(!r.ok){ _betErr='fetch'; return null; }
+    const j=await r.json();
+    (Array.isArray(j)?j:[]).forEach(x=>{ if(x&&x.found) out.push(betDocRow(x.found)); });
+  }
+  return out;
+}
+/* your own tickets: what is kept, brought up to date; or all of them afresh */
+async function betMine(acct){
+  const kept=betsLedger(acct);
+  if(kept&&Date.now()-kept.full<BET_FULL_MS){
+    const since={fieldFilter:{field:{fieldPath:'ts'},op:'GREATER_THAN',
+      value:{stringValue:String(Math.max(0,kept.t-BET_SKEW_MS))}}};
+    const fresh=await betQuery({compositeFilter:{op:'AND',filters:[fsEq('owner',acct),since]}},true,0);
+    if(fresh){
+      const seen=new Set(fresh.map(b=>b.id));
+      const live=kept.rows.filter(b=>!BET_FINAL.has(b.status)&&!seen.has(b.id)).map(b=>b.id);
+      const got=live.length?await betGet(live):[];
+      if(got){
+        const by=new Map(kept.rows.map(b=>[b.id,b]));
+        got.concat(fresh).forEach(b=>by.set(b.id,b));
+        _betsFullAt=kept.full;
+        return [...by.values()];
+      }
+    }
+    if(_betErr==='quota') return null;
+    /* anything else that failed -- the index, a bad answer -- falls back to the whole read */
+  }
+  const all=await betQuery(fsEq('owner',acct),true,0);   // owner+ts is indexed
+  if(all) _betsFullAt=Date.now();
+  return all;
+}
 async function betList(){
   if(!_me) return [];
   try{
-    const mine=await betQuery(fsEq('owner',_me.k1),true);   // owner+ts is indexed
+    const mine=await betMine(_me.k1);
     if(!mine) return null;
     /* invitations sitting on my own bets, so the seat count is right. Capped at
        thirty because that is Firestore's ceiling on an IN filter, and nothing
@@ -16668,7 +16732,12 @@ async function betRefresh(){
   const k=betsMineKey(), l=await betList();
   if(!l||k!==betsMineKey()) return; // a sign-out or switch while it was out: not theirs to keep
   _bets=l; _betsAt=Date.now();
-  try{ if(k) localStorage.setItem(k,JSON.stringify({t:_betsAt,rows:l})); }catch(e){}
+  betsMineSave();
+}
+/* what is in hand, onto the device -- also after a change made here that
+   needs no read, like clearing settled tickets off the list */
+function betsMineSave(){
+  try{ const k=betsMineKey(); if(k&&_bets) localStorage.setItem(k,JSON.stringify({t:_betsAt,full:_betsFullAt,rows:_bets})); }catch(e){}
 }
 /* the Sportsbook asks again once its copy is two minutes old */
 function betsMineCheck(){
@@ -16692,8 +16761,10 @@ function betsMineCheck(){
    reload and every return to the site paid for the whole collection again — 54
    documents then, 328 by week 9, against a daily allowance of 50,000.
 
-   sessionStorage rather than localStorage: it is a snapshot of twelve people's
-   money and it has no business outliving the tab. Keyed by season so January
+   It was sessionStorage, as a snapshot of twelve people's money with no
+   business outliving the tab; since 6 November it is localStorage, because an
+   installed app's tab ends every time it is closed and the reads were what ran
+   the day out. The ten minutes still bound it. Keyed by season so January
    cannot serve December's board.
 
    TEN MINUTES, because the staleness this buys is somebody ELSE's bet not
@@ -24199,6 +24270,9 @@ async function sbClearSettled(){
       if(r.ok) b.hidden=true; else _betErr=r.status===403?'rules':'send';
     }catch(e){ _betErr='offline'; }
   }
+  /* a settled ticket is not read again (betMine), so the device's copy has
+     to learn it was cleared from here */
+  betsMineSave();
   _betBusy=false; renderMyBets();
 }
 
@@ -25124,7 +25198,7 @@ async function sbPvpReconcile(){
 async function initBets(){
   if(_betsInit) return; _betsInit=true;
   const kept=betsMineStored();
-  if(kept){ _bets=kept.rows; _betsAt=Number(kept.t)||0; }
+  if(kept){ _bets=kept.rows; _betsAt=Number(kept.t)||0; _betsFullAt=Number(kept.full||kept.t)||0; }
   else await betRefresh();
   renderMyBets();
   betSettleAll();

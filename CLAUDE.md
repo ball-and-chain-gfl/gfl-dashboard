@@ -321,7 +321,17 @@ each (`betsNearWarm`, `betsAllCached`, `betsMineStored`). Your own tickets are
 also re-read when the Sportsbook's copy is two minutes old (`betsMineCheck`)
 and before any stake if the copy is over a minute old (`sbPlaceBet`); every
 write of yours re-reads them through `betRefresh`. Anything new that reads on
-every open should be kept the same way. A failed read must back off rather than
+every open should be kept the same way.
+
+Your own tickets are also never re-read once settled (`betMine`): won, lost,
+push, void, cashed and declined are final (`BET_FINAL`) and the rules refuse
+delete. A refresh asks only for tickets stamped since the last sync (less two
+hours of clock skew, on the owner+ts index) and, by id through `betGet`
+(batchGet), the ones still open, offered, invited or challenged. Once a day,
+and on a device with nothing kept, it reads every ticket again with no limit
+(it used to stop at 300). If the short query fails for any reason but the
+quota, it falls back to the full read. Anything changed here on a settled
+ticket without a read, like clearing it off My Bets, must call `betsMineSave`. A failed read must back off rather than
 retry on its own repaint (Hot Takes did, `_takesFailAt`).
 
 `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.

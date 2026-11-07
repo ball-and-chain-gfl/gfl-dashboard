@@ -102,7 +102,7 @@ ok('and no longer lists the collection a page at a time', /documents\/bets\?key=
 head('your own tickets, kept between opens');
 {
   const O = assemble(grab, [
-    'const BETS_MINE_TTL=', 'let _betsAt=', 'const betsMineKey=', 'function betsMineStored(', 'async function betRefresh(',
+    'const BETS_MINE_TTL=', 'let _betsAt=', 'let _betsFullAt=', 'const betsMineKey=', 'function betsMineStored(', 'async function betRefresh(', 'function betsMineSave(',
     'function betsMineCheck(', 'async function initBets(',
   ], ['initBets', 'betRefresh', 'betsMineCheck', 'betsMineStored', 'state', 'setMe', 'setQuota', 'clock', 'keep', 'kept', 'reads', 'answer', 'reset', 'BETS_MINE_TTL'], [
     'let _now=globalThis.Date.UTC(2026,10,6,21); const clock=ms=>{ _now+=ms; };',
@@ -147,6 +147,79 @@ head('your own tickets, kept between opens');
     [place.indexOf('if(Date.now()-_betsAt>BETS_MINE_STAKE_MS){') > 0,
       place.indexOf('await betRefresh()') > 0 && place.indexOf('await betRefresh()') < place.indexOf("_betErr='funds'")], [true, true]);
   ok('and the Sportsbook checks its copy every time it is opened', src.includes("if(name==='book'){ renderBook(); initBets(); try{ betsMineCheck(); }catch(e){}"), true);
+}
+
+head('your tickets, each read once');
+{
+  const G = assemble(grab, [
+    'const fsIn=', 'const betDocRow=', 'const fsEq=', 'const BET_FINAL=', 'const BET_FULL_MS=', 'let _betsFullAt=', 'function betsLedger(',
+    'async function betGet(', 'async function betMine(',
+  ], ['betMine', 'betsLedger', 'BET_FINAL', 'keep', 'queries', 'gets', 'answerQ', 'answerGet', 'setErrOn', 'err', 'fullAt', 'reset'], [
+    'let _now=globalThis.Date.UTC(2026,10,7,3); const Date=(()=>{ const D=globalThis.Date; return class extends D{ constructor(...a){ if(a.length) super(...a); else super(_now); } static now(){ return _now; } }; })();',
+    'const GFL_DB={project:"p",key:"k"}; const msgKey=()=>"key=k"; const fsNoteResponse=r=>r;',
+    'let _betErr=null; const err=()=>_betErr; const fullAt=()=>_betsFullAt;',
+    'const _ls=new Map(); const localStorage={getItem:k=>_ls.has(k)?_ls.get(k):null, setItem:(k,v)=>{_ls.set(k,String(v));}};',
+    'const keep=(acct,v)=>{ _ls.set("gfl:bets:"+acct,JSON.stringify(v)); };',
+    /* queries and batch fetches, answered from queues the test fills */
+    'let _q=[], _qA=[], _errOn=null, _g=[], _gA=[];',
+    'const queries=()=>_q; const gets=()=>_g; const answerQ=(...a)=>{ _qA.push(...a); }; const answerGet=(...a)=>{ _gA.push(...a); };',
+    'const setErrOn=e=>{ _errOn=e; };',
+    'const betQuery=async (where,ordered,limit)=>{ _q.push({where,ordered,limit});',
+    '  if(_errOn&&_q.length===1){ _betErr=_errOn; return null; } return _qA.shift()||[]; };',
+    'const fetch=async (url,opt)=>{ const ids=JSON.parse(opt.body).documents.map(n=>n.split("/").pop()); _g.push(ids);',
+    '  const by=_gA.shift()||{}; return {ok:true,status:200,json:async()=>ids.map(id=>by[id]?{found:{name:"x/bets/"+id,fields:by[id]}}:{missing:"x/bets/"+id})}; };',
+    'const reset=()=>{ _ls.clear(); _q=[]; _qA=[]; _g=[]; _gA=[]; _errOn=null; _betErr=null; _betsFullAt=0; _now=globalThis.Date.UTC(2026,10,7,3); };',
+  ].join(NL));
+  const NOW = Date.UTC(2026, 10, 7, 3), HR = 3600e3;
+  const row = (id, status, ts, owner = 'bft') => ({ id, owner, status, ts, stake: 10, ret: status === 'won' ? 20 : 0 });
+  const f = (status, ts) => ({ owner: { stringValue: 'bft' }, status: { stringValue: status }, ts: { stringValue: String(ts) }, stake: { stringValue: '10' } });
+
+  G.reset();
+  G.answerQ([row('a', 'won', NOW - 50 * HR)]);
+  const first = await G.betMine('bft');
+  ok('a device with nothing kept reads every ticket, with no limit, and notes when',
+    [G.queries().length, JSON.stringify(G.queries()[0].where).includes('"op":"EQUAL"'), G.queries()[0].limit, first.map(b => b.id), G.fullAt()], [1, true, 0, ['a'], NOW]);
+
+  G.reset();
+  G.keep('bft', { t: NOW - 3 * HR, full: NOW - 5 * HR, rows: [row('won1', 'won', NOW - 40 * HR), row('lost1', 'lost', NOW - 30 * HR),
+    row('open1', 'open', NOW - 20 * HR), row('offer1', 'offer', NOW - 10 * HR), row('seat', 'invite', NOW - 9 * HR, 'kunk')] });
+  G.answerQ([row('new1', 'open', NOW - HR)]);
+  G.answerGet({ open1: f('won', NOW - 20 * HR), offer1: f('offer', NOW - 10 * HR) });
+  const inc = await G.betMine('bft');
+  const q = G.queries()[0], since = JSON.stringify(q.where);
+  ok('with a copy from today: one query for what is newer than the last sync, less two hours',
+    [G.queries().length, since.includes('"op":"GREATER_THAN"'), since.includes('"stringValue":"' + String(NOW - 5 * HR) + '"'), q.ordered, q.limit], [1, true, true, true, 0]);
+  ok('and the ones still in play by id -- never a settled one, never somebody else\'s', G.gets(), [['open1', 'offer1']]);
+  const by = Object.fromEntries(inc.map(b => [b.id, b.status]));
+  ok('settled tickets come from the device untouched, the rest as they are now, plus anything new',
+    by, { won1: 'won', lost1: 'lost', open1: 'won', offer1: 'offer', new1: 'open' });
+  ok('and the day\'s full read is still the one on record', G.fullAt(), NOW - 5 * HR);
+
+  G.reset();
+  G.keep('bft', { t: NOW - HR, full: NOW - 25 * HR, rows: [row('won1', 'won', NOW - 40 * HR)] });
+  G.answerQ([row('won1', 'won', NOW - 40 * HR), row('x', 'lost', NOW - 30 * HR)]);
+  await G.betMine('bft');
+  ok('a copy whose full read is a day old is read again from scratch', [G.queries().length, JSON.stringify(G.queries()[0].where).includes('GREATER_THAN'), G.fullAt()], [1, false, NOW]);
+
+  G.reset();
+  G.keep('bft', { t: NOW - HR, full: NOW - 2 * HR, rows: [row('won1', 'won', NOW - 40 * HR)] });
+  G.setErrOn('fetch'); G.answerQ([row('won1', 'won', NOW - 40 * HR)]);
+  const back = await G.betMine('bft');
+  ok('if the short query fails it falls back to reading everything', [G.queries().length, back.map(b => b.id)], [2, ['won1']]);
+  G.reset();
+  G.keep('bft', { t: NOW - HR, full: NOW - 2 * HR, rows: [row('won1', 'won', NOW - 40 * HR)] });
+  G.setErrOn('quota');
+  ok('but not while the database is refusing', [await G.betMine('bft'), G.queries().length], [null, 1]);
+
+  G.reset();
+  G.keep('bft', { t: NOW - HR, rows: [row('won1', 'won', NOW - 40 * HR), row('seat', 'open', NOW - 9 * HR, 'kunk')] });
+  ok('a copy saved before today counts its read as a full one, and keeps only your tickets',
+    [G.betsLedger('bft').full, G.betsLedger('bft').rows.map(b => b.id)], [NOW - HR, ['won1']]);
+  ok('every final status is final, and nothing in play is', [['won', 'lost', 'push', 'void', 'cashed', 'declined'].every(s => G.BET_FINAL.has(s)),
+    ['open', 'offer', 'invite', 'challenge'].some(s => G.BET_FINAL.has(s))], [true, false]);
+  const src = (await import('node:fs')).readFileSync(new URL('../public/app.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const clear = src.slice(src.indexOf('async function sbClearSettled('), src.indexOf('async function sbClearSettled(') + 1200);
+  ok('clearing settled tickets saves the device\'s copy, since they are never read again', clear.includes('betsMineSave();'), true);
 }
 
 console.log(NL + `${pass} passed, ${fail} failed`);
