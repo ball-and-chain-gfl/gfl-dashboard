@@ -4,7 +4,8 @@
  * This needs neither: it serves public/ from disk and passes /api/* through to
  * the live site, so the page runs on today's real data with today's code on
  * disk. And it cannot change the league's records: a guard injected ahead of
- * app.js answers every Firestore write itself (reads still go through). Hot
+ * app.js answers every Firestore write itself. Reads go through, once each:
+ * an answer is kept in the browser for half an hour, k2 removed. Hot
  * Takes are kept in the page's own memory, seeded with a few examples, and so
  * are bets placed in the preview, until the page reloads.
  *
@@ -50,6 +51,25 @@ const GUARD = `<script>
   takes[0].fields.rx_sw={stringValue:'haha'};
   takes[1].fields.rx_mm={stringValue:'poop'}; takes[1].fields.rx_goob={stringValue:'cap'};
   var reply=function(o){ return new Response(JSON.stringify(o),{status:200,headers:{'Content-Type':'application/json'}}); };
+  /* Reads are the live database's, and every preview load spent them: testing
+     cost a few thousand of the day's 50,000 on 6 November, the day it ran out.
+     So each answer is kept in this browser for half an hour and served from
+     here after that, with every k2 taken out before it is stored. */
+  var READ_MS=30*60*1000;
+  var noK2=function(o){ if(o&&typeof o==='object'){ if(o.fields&&o.fields.k2) delete o.fields.k2;
+    Object.keys(o).forEach(function(k){ noK2(o[k]); }); } return o; };
+  var cachedReal=function(input,init,m,url,body){
+    var k='gfl-preview-read:'+m+' '+url.replace(/([?&])key=[^&]*/,'$1')+' '+body, hit=null;
+    try{ hit=JSON.parse(localStorage.getItem(k)||'null'); }catch(e){}
+    if(hit&&Date.now()-hit.t<READ_MS) return Promise.resolve(new Response(hit.body,{status:200,headers:{'Content-Type':'application/json'}}));
+    return real(input,init).then(function(r){
+      if(r.status!==200) return r;
+      return r.text().then(function(txt){
+        try{ localStorage.setItem(k,JSON.stringify({t:Date.now(),body:JSON.stringify(noK2(JSON.parse(txt)))})); }catch(e){}
+        return new Response(txt,{status:200,headers:{'Content-Type':'application/json'}});
+      });
+    });
+  };
   var docName=function(id){ return 'projects/preview/databases/(default)/documents/messages/'+id; };
   /* Bets placed in the preview are kept here, never sent, and folded into every
      bets query they match -- so placing one shows up in the ledger, the boards
@@ -73,7 +93,7 @@ const GUARD = `<script>
     }
     if(url.indexOf(':runQuery')>=0&&body.indexOf('"collectionId":"bets"')>=0&&bets.length){
       var bw=JSON.parse(body).structuredQuery.where;
-      return real(input,init).then(function(r){ return r.json().then(function(j){
+      return cachedReal(input,init,m,url,body).then(function(r){ return r.json().then(function(j){
         var kept=bets.filter(function(b){ return betMatch(b,bw); }).map(function(b){
           return {document:{name:'projects/preview/databases/(default)/documents/bets/'+b.id,fields:b.fields}}; });
         var all=(Array.isArray(j)?j:[]).filter(function(x){ return x&&x.document; }).concat(kept);
@@ -86,7 +106,7 @@ const GUARD = `<script>
       console.info('[preview] kept a bet in memory');
       return Promise.resolve(reply({name:'projects/preview/databases/(default)/documents/bets/'+bid,fields:bd.fields||{}}));
     }
-    if(m==='GET'||url.indexOf(':runQuery')>=0||url.indexOf(':batchGet')>=0) return real(input,init);
+    if(m==='GET'||url.indexOf(':runQuery')>=0||url.indexOf(':batchGet')>=0) return cachedReal(input,init,m,url,body);
     if(url.indexOf('/documents/messages')>=0){
       if(m==='POST'){ var id=(url.match(/documentId=([^&]+)/)||[])[1]||('tkpreview'+(seq++));
         var d=JSON.parse(body||'{}'); takes.push({id:id,fields:d.fields||{}}); console.info('[preview] kept a take in memory');

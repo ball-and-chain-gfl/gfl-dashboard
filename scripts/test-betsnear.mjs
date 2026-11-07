@@ -34,7 +34,7 @@ const M = assemble(grab, [
   'const bucksTestMs=', 'function realWeekStart(', 'function tueWeekStart(', 'function bucksWeekKey(',
   'function betsAllDrop(){',
   'const BETS_NEAR_TTL=', 'let _betsNear=', 'function betsNearKeys(', 'const betsNearStoreKey=',
-  'function betsNearWarm(){', 'async function betNear(){', 'function betsNear(){', 'function betsNearAge(){',
+  'function betsNearWarm(){', 'function betsNearStore(', 'async function betNear(){', 'function betsNear(){', 'function betsNearAge(){',
   'function betsNearGo(){', 'function betsNearWant(){', 'function betsNearFresh(){',
 ], ['betsNearKeys', 'betsNearWant', 'betsNearFresh', 'betsNear', 'betsAllDrop', 'betNear',
   'clock', 'reads', 'lastWhere', 'answer', 'failNext', 'setQuota', 'setAll', 'store', 'setTest', 'reset', 'settle'], [
@@ -45,9 +45,9 @@ const M = assemble(grab, [
   'const Date=(()=>{ const D=globalThis.Date; return class extends D{ constructor(...a){ if(a.length) super(...a); else super(_now); } static now(){ return _now; } }; })();',
   'let _bkScope=0, _test=0; const isTestProfile=()=>_test>0; let _CFG={bucksTestMinutes:0};',
   'const setTest=m=>{ _test=m; _CFG.bucksTestMinutes=m; };',
-  /* sessionStorage, as a map */
-  'const _ss=new Map(); const sessionStorage={getItem:k=>_ss.has(k)?_ss.get(k):null,',
-  '  setItem:(k,v)=>{_ss.set(k,String(v));}, removeItem:k=>{_ss.delete(k);}};',
+  /* localStorage, as a map: the copy lives on the device, so a reopened app has it */
+  'const _ss=new Map(); const localStorage={getItem:k=>_ss.has(k)?_ss.get(k):null,',
+  '  setItem:(k,v)=>{_ss.set(k,String(v));}, removeItem:k=>{_ss.delete(k);}, key:i=>[..._ss.keys()][i]??null, get length(){ return _ss.size; }};',
   'const store=(k,v)=>{ if(v===undefined) return _ss.get(k); _ss.set(k,v); };',
   /* the one Firestore read, answered when the test says so */
   'let _reads=0, _where=null, _pending=[], _failNext=false;',
@@ -135,6 +135,14 @@ M.reset();
 M.store('gfl:betsNear:2026-10-06', JSON.stringify({ t: Date.now() - 11 * MIN, rows: [{ id: 'old' }] }));
 M.betsNearWant();
 ok('older than that: read again', M.reads(), 1);
+
+head('kept on the device');
+M.reset();
+M.store('gfl:betsNear:2026-09-29', JSON.stringify({ t: Date.now() - 8 * 86400e3, rows: [{ id: 'last week' }] }));
+M.store('gfl:betsNear:2026-09-22', JSON.stringify({ t: Date.now() - 15 * 86400e3, rows: [{ id: 'older' }] }));
+M.betsNearWant(); M.answer([{ id: 'fresh' }]); await tick();
+ok('this week is stored, and every older week is cleared out', [JSON.parse(M.store('gfl:betsNear:2026-10-06')).rows.map(b => b.id),
+  M.store('gfl:betsNear:2026-09-29'), M.store('gfl:betsNear:2026-09-22')], [['fresh'], undefined, undefined]);
 
 head('which copy');
 M.reset();

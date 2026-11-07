@@ -305,7 +305,24 @@ serves `public/` on port 5178 and forwards `/api/*` to the live site, so every
 tab has real data. `?as=<username>&team=<id>` on the URL signs you in as that
 team, and `?out` signs you out. It blocks every Firestore write, keeping Hot
 Takes posts, their reactions and placed bets in the page's memory instead, so
-nothing done in the preview reaches the league's data.
+nothing done in the preview reaches the league's data. Its reads are the live
+database's, so each answer is kept in the browser for 30 minutes (k2 stripped)
+and repeat loads cost nothing: testing spent part of the free 50,000 reads on
+6 November, the day they ran out.
+
+**The free Firestore plan allows 50,000 reads a day** (resets at midnight
+Pacific); past it every read and write answers 429 until the reset. On
+6 November it ran out at about 53,000. Firebase's Query Insights showed the
+reads were bets: the homepage's two-week list 21,049, each manager's own
+tickets 12,612, the season list 4,743. Hot Takes was 720. Those lists were kept
+in sessionStorage, which an installed app loses on every reopen and which
+every deploy's reload re-reads. They are kept in localStorage now, ten minutes
+each (`betsNearWarm`, `betsAllCached`, `betsMineStored`). Your own tickets are
+also re-read when the Sportsbook's copy is two minutes old (`betsMineCheck`)
+and before any stake if the copy is over a minute old (`sbPlaceBet`); every
+write of yours re-reads them through `betRefresh`. Anything new that reads on
+every open should be kept the same way. A failed read must back off rather than
+retry on its own repaint (Hot Takes did, `_takesFailAt`).
 
 `.gitignore` covers `.env*` and `.vercel`. Never commit cookie values.
 

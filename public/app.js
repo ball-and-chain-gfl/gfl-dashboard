@@ -912,7 +912,7 @@ function switchTab(name){
     try{ betsEnsure(); }catch(e){}
     try{ betsNearFresh(); }catch(e){}
     try{ pkeRender(); }catch(e){} }
-  if(name==='book'){ renderBook(); initBets();
+  if(name==='book'){ renderBook(); initBets(); try{ betsMineCheck(); }catch(e){}
     try{ if(_sbView==='social') sbSocialFresh(); else betsNearFresh(); }catch(e){} } else if(typeof sbShowPortal==='function') sbShowPortal(false);
   if(name==='legacy'){
     // phones always open on Champions; the sub-tab highlight is re-applied because
@@ -9975,7 +9975,7 @@ function applyMe(){
      not, and _betsInit stayed true — so signing in as somebody else left
      initBets() short-circuiting on the previous manager's load and the new
      manager's own bets never arrived at all. */
-  _bets=null; _betsInit=false;
+  _bets=null; _betsInit=false; _betsAt=0;
   try{ betsEnsure(); }catch(e){}
   try{ eggReset(); }catch(e){}            // this manager's finds, not the last one's
   try{ ttReset(); }catch(e){}             // and whatever has been said to them
@@ -16618,9 +16618,39 @@ async function betList(){
     return mine.concat(seats.filter(b=>!seen.has(b.id))).sort((a,b)=>b.ts-a.ts);
   }catch(e){ _betErr='offline'; return null; }
 }
+/* ── YOUR OWN TICKETS, KEPT BETWEEN OPENS ────────────────────────────────────
+   They were read on every boot: 287 times on 6 November, 44 documents a time,
+   the second-largest share of the day that ran the 50,000 out -- an installed
+   app starts afresh each time it is reopened, and every new version reloads
+   it. So the last copy is kept on the device and a boot within BETS_MINE_TTL
+   paints from it.
+
+   Your own doing never lags: every write of yours goes through betRefresh,
+   which reads and stores a fresh copy. What can lag is somebody else's -- a
+   bet graded, an invitation answered -- so the Sportsbook, where money is
+   staked, asks again once its copy is two minutes old (betsMineCheck), and a
+   stake is never checked against a copy more than a minute old (sbPlaceBet). */
+const BETS_MINE_TTL=10*60*1000, BETS_MINE_BOOK_MS=2*60*1000, BETS_MINE_STAKE_MS=60*1000;
+let _betsAt=0;                      // when _bets was read from Firestore
+const betsMineKey=()=>_me?`gfl:bets:${_me.k1}`:'';
+function betsMineStored(){
+  try{
+    const k=betsMineKey(); if(!k) return null;
+    const j=JSON.parse(localStorage.getItem(k)||'null');
+    return j&&Array.isArray(j.rows)&&Date.now()-(Number(j.t)||0)<BETS_MINE_TTL?j:null;
+  }catch(e){ return null; }
+}
 async function betRefresh(){
   betsAllDrop();                    // my own bet must not be missing from the board
-  const l=await betList(); if(l) _bets=l;
+  const k=betsMineKey(), l=await betList();
+  if(!l||k!==betsMineKey()) return; // a sign-out or switch while it was out: not theirs to keep
+  _bets=l; _betsAt=Date.now();
+  try{ if(k) localStorage.setItem(k,JSON.stringify({t:_betsAt,rows:l})); }catch(e){}
+}
+/* the Sportsbook asks again once its copy is two minutes old */
+function betsMineCheck(){
+  if(!_me||!_bets||_fsQuota||Date.now()-_betsAt<BETS_MINE_BOOK_MS) return;
+  betRefresh().then(renderMyBets).catch(()=>{});
 }
 
 /* ── EVERY MANAGER'S BETS, FOR THE BOARDS ────────────────────────────────────
@@ -16650,11 +16680,13 @@ async function betRefresh(){
    and every reload past two minutes paid for the whole season again; the
    Leaderboards say how old their copy is and carry a refresh button for
    anybody who wants it newer. */
+/* ON THE DEVICE since 6 November, for the reason the homepage's two weeks are:
+   an installed app's session ends every time it is closed. */
 const BETS_ALL_TTL=10*60*1000;
 const betsAllKey=()=>`gfl:betsAll:${sbSeason()}`;
 function betsAllCached(){
   try{
-    const raw=sessionStorage.getItem(betsAllKey()); if(!raw) return null;
+    const raw=localStorage.getItem(betsAllKey()); if(!raw) return null;
     const j=JSON.parse(raw);
     if(!j||!Array.isArray(j.rows)) return null;
     if(Date.now()-(Number(j.t)||0)>BETS_ALL_TTL) return null;
@@ -16662,24 +16694,24 @@ function betsAllCached(){
   }catch(e){ return null; }
 }
 function betsAllStore(rows){
-  try{ sessionStorage.setItem(betsAllKey(),JSON.stringify({t:Date.now(),rows})); }
-  catch(e){}                                  // quota or private mode: just do not cache
+  try{ localStorage.setItem(betsAllKey(),JSON.stringify({t:Date.now(),rows})); }
+  catch(e){}                                  // full or private mode: just do not cache
 }
 /* Anything that writes a bet calls this. Clearing the variable alone would leave
    the stored copy to be served on the next navigation, which is the same bug
    from one step further away. */
 function betsAllDrop(){
   _betsAll=null;
-  try{ sessionStorage.removeItem(betsAllKey()); }catch(e){}
+  try{ localStorage.removeItem(betsAllKey()); }catch(e){}
   /* the homepage's two weeks too -- kept on screen, but asked for again */
   _betsNearStale=true;
-  try{ sessionStorage.removeItem(betsNearStoreKey()); }catch(e){}
+  try{ localStorage.removeItem(betsNearStoreKey()); }catch(e){}
 }
 /* when the stored copy was taken, so a board can say how old it is rather than
    leaving somebody to guess whether they are looking at live money */
 function betsAllAt(){
   try{
-    const j=JSON.parse(sessionStorage.getItem(betsAllKey())||'null');
+    const j=JSON.parse(localStorage.getItem(betsAllKey())||'null');
     return (j&&Number(j.t))||0;
   }catch(e){ return 0; }
 }
@@ -16730,13 +16762,27 @@ function betsNearKeys(now=new Date()){
   return cur===prev?[cur]:[cur,prev];
 }
 const betsNearStoreKey=()=>`gfl:betsNear:${bucksWeekKey()}`;
-/* a reload inside the ten minutes paints from the tab's stored copy */
+/* A reload or a reopen inside the ten minutes paints from the stored copy.
+   ON THE DEVICE, NOT THE TAB: it was sessionStorage, and an installed app
+   starts a new session every time it is reopened, so every reopen -- and
+   every reload a new version forces -- paid for the two weeks again. That was
+   21,049 reads on 6 November, 311 asks, the largest share of the day that ran
+   the 50,000 out. */
 function betsNearWarm(){
   if(_betsNear) return;
   try{
-    const j=JSON.parse(sessionStorage.getItem(betsNearStoreKey())||'null');
+    const j=JSON.parse(localStorage.getItem(betsNearStoreKey())||'null');
     if(j&&Array.isArray(j.rows)&&Date.now()-(Number(j.t)||0)<BETS_NEAR_TTL){
       _betsNear=j.rows; _betsNearAt=Number(j.t)||0; }
+  }catch(e){}
+}
+/* this week's copy in, every older week's out */
+function betsNearStore(rows,t){
+  try{
+    const keep=betsNearStoreKey();
+    for(let i=localStorage.length-1;i>=0;i--){ const k=localStorage.key(i);
+      if(k&&k.indexOf('gfl:betsNear:')===0&&k!==keep) localStorage.removeItem(k); }
+    localStorage.setItem(keep,JSON.stringify({t,rows}));
   }catch(e){}
 }
 async function betNear(){
@@ -16747,7 +16793,7 @@ async function betNear(){
       value:{arrayValue:{values:betsNearKeys().map(v=>({stringValue:v}))}}}});
     if(rows){
       _betsNear=rows; _betsNearAt=Date.now();
-      try{ sessionStorage.setItem(betsNearStoreKey(),JSON.stringify({t:_betsNearAt,rows})); }catch(e){}
+      betsNearStore(rows,_betsNearAt);
     }
   }catch(e){}
   _betsNearBusy=false;
@@ -16791,6 +16837,7 @@ function betsNearFresh(){
 if(typeof document!=='undefined') document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'&&(_activeTab==='home'||_activeTab==='book'))
     try{ betsNearFresh(); }catch(e){}
+  if(document.visibilityState==='visible'&&_activeTab==='book') try{ betsMineCheck(); }catch(e){}
 });
 
 async function sbPlaceBet(){
@@ -16819,6 +16866,15 @@ async function sbPlaceBet(){
   /* before the ledger lands the balance reads high by whatever is riding on
      open bets, and this is the check that would wave the over-stake through */
   if(!bucksReady()){ _betErr='loading'; sbRenderSlip(); return; }
+  /* and never against a copy of your tickets more than a minute old: the
+     copy a boot paints from can be ten, and another device may have staked
+     in the meantime */
+  if(Date.now()-_betsAt>BETS_MINE_STAKE_MS){
+    _betBusy=true; sbRenderSlip();
+    try{ await betRefresh(); }catch(e){}
+    _betBusy=false;
+    if(Date.now()-_betsAt>BETS_MINE_STAKE_MS){ _betErr=_fsQuota?'quota':'loading'; sbRenderSlip(); return; }
+  }
   /* half a cent of slack. Both sides go through bucks2 so an exact all-in
      matches to the cent, but the balance is a running sum of allowance, stakes,
      returns, eggs and share lots — and a share price ticking between the render
@@ -20345,7 +20401,7 @@ function takesWeekKey(now=new Date()){
 const takesDocId=ts=>'tk'+String(9e15-ts).padStart(16,'0')+Math.random().toString(36).slice(2,6);
 const takesIsAdmin=()=>!!_me&&_me.k1===TAKES_ADMIN;
 const takesDocsUrl=()=>`https://firestore.googleapis.com/v1/projects/${GFL_DB.project}/databases/(default)/documents/messages`;
-let _takes=null,_takesWk='',_takesAt=0,_takesBusy=false,_takesErr='';
+let _takes=null,_takesWk='',_takesAt=0,_takesBusy=false,_takesErr='',_takesFailAt=0;
 let _takesDraft='',_takesAnon=false,_takesPosting=false,_takesArm=null,_takesArmT=null;
 /* Only ids this page makes (takesDocId) are shown. The collection is open, and
    an id goes into the onclick of the delete and the reactions, so one written
@@ -20390,17 +20446,18 @@ async function takesLoad(force){
   if(!force&&_takes&&_takesWk===wk&&Date.now()-_takesAt<TAKES_MEMO_MS) return;
   _takesBusy=true;
   try{
-    const r=await fetch(fsRunQueryUrl(),{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({structuredQuery:{from:[{collectionId:'messages'}],where:fsEq('wk',wk),limit:TAKES_LIMIT}})});
+    const r=fsNoteResponse(await fetch(fsRunQueryUrl(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({structuredQuery:{from:[{collectionId:'messages'}],where:fsEq('wk',wk),limit:TAKES_LIMIT}})}));
     if(r.ok){
       const j=await r.json();
       _takes=(Array.isArray(j)?j:[]).filter(x=>x&&x.document)
         .map(x=>({id:decodeURIComponent(x.document.name.split('/').pop()),...fsIn(x.document)}))
         .filter(t=>t.text&&TAKES_ID_RE.test(t.id)).sort((a,b)=>Number(b.ts)-Number(a.ts));
-      _takesWk=wk; _takesAt=Date.now(); _takesErr='';
-    }else _takesErr=r.status===429?'Firestore is over its daily allowance. The takes will be back tomorrow.'
-      :'The takes could not load.';
-  }catch(e){ _takesErr='No connection, so the takes could not load.'; }
+      _takesWk=wk; _takesAt=Date.now(); _takesErr=''; _takesFailAt=0;
+    }else{ _takesFailAt=Date.now();
+      _takesErr=r.status===429?'Firestore is over its daily allowance. The takes will be back tomorrow.'
+        :'The takes could not load.'; }
+  }catch(e){ _takesFailAt=Date.now(); _takesErr='No connection, so the takes could not load.'; }
   _takesBusy=false;
   if(_activeTab==='takes') renderTakes();
 }
@@ -20458,7 +20515,12 @@ async function takesDel(id){
 function renderTakes(){
   const el=document.getElementById('ht-body'); if(!el) return;
   const wk=takesWeekKey();
-  if(!_takesBusy&&(!_takes||_takesWk!==wk||Date.now()-_takesAt>=TAKES_MEMO_MS)) takesLoad();
+  /* A load that failed waits its minute like one that worked. It used to be
+     asked for again on the repaint its own failure caused, which was a request
+     every few hundred milliseconds for as long as the tab stayed open -- every
+     one of them refused, all night, on 6 November. Refresh still asks at once. */
+  if(!_takesBusy&&!_fsQuota&&Date.now()-_takesFailAt>=TAKES_MEMO_MS
+    &&(!_takes||_takesWk!==wk||Date.now()-_takesAt>=TAKES_MEMO_MS)) takesLoad();
   const list=(_takes&&_takesWk===wk)?_takes:null;
   const esc=takesEsc;
   const compose=_me
@@ -25038,7 +25100,9 @@ async function sbPvpReconcile(){
 
 async function initBets(){
   if(_betsInit) return; _betsInit=true;
-  await betRefresh();
+  const kept=betsMineStored();
+  if(kept){ _bets=kept.rows; _betsAt=Number(kept.t)||0; }
+  else await betRefresh();
   renderMyBets();
   betSettleAll();
 }

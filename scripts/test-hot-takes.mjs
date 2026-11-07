@@ -179,6 +179,12 @@ M.setMe(null); M.takesReact('tk1', 'fire');
 ok('a face not on the palette, or nobody signed in, sends nothing', M.calls.length - quiet, 0);
 ok('a reaction never reloads the feed: one write a tap and no reads',
   grab('function takesReact(').includes('takesLoad') || grab('async function takesRxSend(').includes('takesLoad'), false);
+{
+  const load = grab('async function takesLoad('), draw = grab('function renderTakes(');
+  ok('a failed load is not asked for again inside a minute, nor at all while the database refuses',
+    [/_takesFailAt=Date\.now\(\)/.test(load), load.includes('fsNoteResponse(await fetch(fsRunQueryUrl()'),
+      draw.includes('!_fsQuota&&Date.now()-_takesFailAt>=TAKES_MEMO_MS')], [true, true, true]);
+}
 
 console.log('\n' + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
