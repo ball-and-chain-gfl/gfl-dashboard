@@ -9395,9 +9395,32 @@ function fsLimitText(){
 }
 let _fsQuota=false;
 function fsNoteResponse(r){
-  if(r&&r.status===429){ _fsQuota=true; try{ leagueStop(); }catch(e){} }
+  if(r&&r.status===429){ _fsQuota=true; try{ leagueStop(); }catch(e){} try{ fsLiftArm(); }catch(e){} }
   return r;
 }
+/* ── AND THE PAUSE LIFTS ─────────────────────────────────────────────────────
+   _fsQuota stops the page asking once Firestore says no, and it used to last
+   as long as the page did. An app left open through the night stayed dark
+   after the reset until somebody happened to reload it -- and an installed app
+   is thawed when it is reopened, not reloaded. So the page reloads itself once
+   the limit has reset: a quarter of an hour past midnight Pacific (or when
+   this device's own pause ends), or as soon as it is next on screen if it is
+   hidden then. Refused again inside the first hour after midnight, when the
+   reset may simply not have landed, it looks again a quarter of an hour on. */
+let _fsLiftT=null, _fsLiftDue=0;
+function fsLiftArm(){
+  if(_fsLiftT) return;
+  const now=Date.now(), mid=fsPtMidnight(now);
+  _fsLiftDue=_fsBudget&&_fsBudget.until?_fsBudget.until
+    :(mid-now>23*3600000?now+15*60000:mid+15*60000);
+  _fsLiftT=setTimeout(fsLift,Math.max(1000,_fsLiftDue-now));
+}
+function fsLift(){
+  if(!_fsLiftT||Date.now()<_fsLiftDue) return;
+  if(document.visibilityState!=='visible') return;          // the next showing does it
+  location.reload();
+}
+if(typeof document!=='undefined') document.addEventListener('visibilitychange',()=>{ try{ fsLift(); }catch(e){} });
 /* No background polling at all. The shared tallies only move when somebody
    casts a ballot or a vote — a handful of times a week between twelve people —
    so asking on a timer spends the whole day's read allowance to learn nothing

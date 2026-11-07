@@ -134,5 +134,36 @@ ok('and the new day starts clean', await ask(M, near(10)), 200);
 store.clear(); M = fresh();
 ok('with nothing tripped, the page blames the league limit', M.fsLimitText().head, 'The league database has hit its daily free-tier limit');
 
+head('and the pause lifts');
+{
+  const L = assemble(grab, ['let _fsBudget=', 'function fsPtDay(', 'function fsPtMidnight(', 'let _fsLiftT=', 'function fsLiftArm(', 'function fsLift('],
+    ['fsLiftArm', 'fsLift', 'due', 'reloads', 'show', 'pause'], [
+    'let _timers=[]; const setTimeout=(f,ms)=>{ _timers.push([f,ms]); return _timers.length; };',
+    'let _vis="visible"; const document={get visibilityState(){ return _vis; }}; const show=v=>{ _vis=v; };',
+    'let _reloads=0; const location={reload:()=>{ _reloads++; }}; const reloads=()=>_reloads;',
+    'const due=()=>_fsLiftDue; const pause=u=>{ _fsBudget={until:u}; };',
+  ].join(NL));
+  /* 9pm Central on 6 November is 03:00 UTC on the 7th; midnight Pacific is 08:00 UTC */
+  globalThis.__now = Date.UTC(2026, 10, 7, 3, 0);
+  L.fsLiftArm();
+  ok('refused at 9pm Central: the page will reload a quarter past midnight Pacific', L.due(), Date.UTC(2026, 10, 7, 8, 15));
+  L.fsLift();
+  ok('and not before', L.reloads(), 0);
+  globalThis.__now = Date.UTC(2026, 10, 7, 8, 16); L.show('hidden'); L.fsLift();
+  ok('hidden at that moment, it waits to be on screen', L.reloads(), 0);
+  L.show('visible'); L.fsLift();
+  ok('then reloads, once it is', L.reloads(), 1);
+  const E = assemble(grab, ['let _fsBudget=', 'function fsPtDay(', 'function fsPtMidnight(', 'let _fsLiftT=', 'function fsLiftArm(', 'function fsLift('], ['fsLiftArm', 'due', 'pause'], [
+    'const setTimeout=()=>1; const due=()=>_fsLiftDue; const pause=u=>{ _fsBudget={until:u}; };'].join(NL));
+  globalThis.__now = Date.UTC(2026, 10, 7, 8, 5);
+  E.fsLiftArm();
+  ok('refused just after midnight, before the reset has landed: it looks again in fifteen minutes', E.due(), Date.UTC(2026, 10, 7, 8, 20));
+  const P = assemble(grab, ['let _fsBudget=', 'function fsPtDay(', 'function fsPtMidnight(', 'let _fsLiftT=', 'function fsLiftArm(', 'function fsLift('], ['fsLiftArm', 'due', 'pause'], [
+    'const setTimeout=()=>1; const due=()=>_fsLiftDue; const pause=u=>{ _fsBudget={until:u}; };'].join(NL));
+  globalThis.__now = Date.UTC(2026, 10, 7, 3, 0); P.pause(Date.UTC(2026, 10, 7, 4, 0)); P.fsLiftArm();
+  ok('paused by its own ceiling, it lifts when that pause ends', P.due(), Date.UTC(2026, 10, 7, 4, 0));
+  globalThis.__now = T0;
+}
+
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
