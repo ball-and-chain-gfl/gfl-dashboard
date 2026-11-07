@@ -42,9 +42,19 @@ for (const c of [CODE, '10' + '3c'.repeat(9), '1' + 'c' + 'c0'.repeat(9), '10' +
   ok(`${c} reads the same in both`, [mine.by, mine.slots, mine.grades], [theirs.by, theirs.slots, theirs.grades]);
   ok(`and rates the same`, B.rating(mine), A.bamRating(A.BAM_ATTRS.map(([k]) => theirs.grades[k])));
 }
-ok('nine S read as S, nine F+ as F+, and nine S still rate no more than 99',
-  [B.SCALE[B.decode('10' + '2d'.repeat(9)).grades.trade], B.SCALE[B.decode('1a' + 'ce'.repeat(9)).grades.legacy], B.rating(B.decode('10' + '2d'.repeat(9)))],
-  ['S', 'F+', 99]);
+ok('nine S read as S and rate 99, the top; nine F+ read as F+',
+  [B.SCALE[B.decode('10' + '2d'.repeat(9)).grades.trade], B.rating(B.decode('10' + '2d'.repeat(9))), B.SCALE[B.decode('1a' + 'ce'.repeat(9)).grades.legacy]],
+  ['S', 99, 'F+']);
+{
+  /* Seth is no ESPN team: the picture names him the way config.js does */
+  const vm = await import('node:vm'), box = { window: {} };
+  vm.runInNewContext(fs.readFileSync(new URL('../public/config.js', import.meta.url), 'utf8'), box);
+  const seth = box.window.GFL_CONFIG.buildManager.seth;
+  ok('Seth is named on the picture as config.js names him', B.GUESTS[seth.id], [seth.abbrev, seth.name]);
+  const v = B.decode('1a' + 'zd'.repeat(9));
+  ok('so an all-Seth build reads SETH on every tile', /^(Drafting|Trading|Finances|Coaching|Ball Knowledge|Luck|Engagement|Punishment|Legacy) S \(SETH\)$/
+    .test(B.page(v, teams, 'https://x').match(/og:description" content="([^"]*)/)[1].split(' · ')[0]), true);
+}
 {
   /* the picture's S is the game's S: the same blue as .pg-s */
   const IDX = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');

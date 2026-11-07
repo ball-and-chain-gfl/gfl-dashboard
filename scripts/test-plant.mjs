@@ -97,7 +97,8 @@ const NEEDED = [
   'let _plantFeeCache=', 'function plantFeeKey(',
   /* a Build a Manager title, the bank's newest money */
   'const lsKey=', 'function realWeekStart(', 'const BAM_PRIZE=', 'const BAM_PRIZE_FROM=', 'const bamPaidKey=',
-  'const bamPaidParse=', 'function bamPaidClean(', 'function bamPaidMine(', 'const bkBamTimes=', 'function bamBucks(',
+  'const bamPaidParse=', 'function bamPaidClean(', 'function bamWinTimes(', 'const bamPaidOf=', 'function bamPaidMine(',
+  'const bkBamTimes=', 'function bamBucks(',
 ];
 const parts = {};
 for (const n of NEEDED) {
@@ -714,15 +715,16 @@ if (built) {
     return before === 80 && after === 0;
   })());
 
-  console.log('\n24. a Build a Manager title: $10 from the moment it was won, once a bucks week');
+  console.log('\n24. a Build a Manager title: $10 from the moment it was won, every one');
   fresh(); M.setWatered(null);
   const won = Date.now() - 2000;
   M.setBamPaid([won]);
   ok('a paid title is ten dollars in the balance', M.bucksBalance() === 110, M.bucksBalance());
   ok('it was not there before it was won', M.bucksBaseAt(won - 1000) === 100, M.bucksBaseAt(won - 1000));
   ok('and is from then on', M.bucksBaseAt(Date.now()) === 110, M.bucksBaseAt(Date.now()));
-  M.setBamPaid([won, won + 1000]);
-  ok('two titles in one bucks week are paid once', M.bucksBalance() === 110, M.bucksBalance());
+  M.setBamPaid([won, won + 1000, won + 1000]);
+  ok('two titles are twenty dollars, and one written down twice is still one', M.bucksBalance() === 120, M.bucksBalance());
+  M.setBamPaid([won]);
   M.setScope({ t: 0, id: 'them' });
   ok('somebody else\'s balance does not get yours', M.bamBucks() === 0, M.bamBucks());
   M.setScope(null);

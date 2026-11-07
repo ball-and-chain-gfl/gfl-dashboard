@@ -201,9 +201,17 @@ the movement goes in `bamGrade` on top of every baseline at once. A build in
 progress is kept in localStorage under `lsKey('bam')`. The letters are
 `BAM_SCALE`: the punishment scale's F to A+ plus an F+ under D- and an S above
 A+, which is blue (`.pg-s`, `.bam-ts`). The overall is 0-99, the mean of
-`BAM_PTS` (what each grade is worth; S is 103, so `bamRating` holds it to 99).
+`BAM_PTS` (what each grade is worth): S is the top at 99, with A+ 96, A 93 and
+A- 90 below it, so a lone S never reads the same as a lone A+.
 A link writes each grade as its place in `BAM_CODE`, where S and F+ come after
-the old thirteen, so links sent before them read as they did. A finished manager spins
+the old thirteen, so links sent before them read as they did. SETH
+(`buildManager.seth`, id 35, `z` in a link) is no team: a sliver of the grades
+wheel (`share` 0.2 of a manager's wedge, and drawn that often by `bamPick`) with
+an S in all nine. `bamPool` is the grades wheel with him on it, `bamTeamPool`
+the twelve teams; a finished manager is never spun onto him, he plays no games
+and he is not in the ratings pop-up. Wedges are weighted (`bamWedges`), so
+`bamAim` aims at a wedge's middle in degrees and `bamAt` reads which wedge is
+under the pointer. `api/bam.js` names him from its own `GUESTS`. A finished manager spins
 ONCE for a team and is locked to it, then plays ONE season (THE SEASON in
 `app.js`), saved with the build before it is revealed a game at a time, so it
 cannot be re-rolled; Start over is the only way back. Strength is 60% the
@@ -226,17 +234,18 @@ A title (first place at the end of the one season) is the game's only write:
 signed in only, and only the latest title is kept. `ntBamWins` reads it off the
 profile list the app already loads, so it costs no read, and puts the winner's
 picture at the top of everyone's home stack for `BAM_WIN_DAYS` (7) from the day
-it was won. A title also pays `BAM_PRIZE` ($10) GFL Bucks, ONCE A BUCKS WEEK
-(Tuesday 6am to Tuesday 6am), because the game can be replayed without limit.
-Paid titles are a list of times, kept like the eggs: on the device under
-`lsKey('bampaid')` and on the profile as `bamPaid` (read and merged before each
-write), cleaned the same way everywhere by `bamPaidClean` (nothing before
-`BAM_PRIZE_FROM`, nothing from the future, the first title of each week only).
-`bamBucks` is a term of `bucksBalance`, rides the bank's scope as `bamTimes`
-(`bucksFor`, `plantForScope`, `ldBucks`), and `bucksBaseAt` counts a title only
-from when it was won. The build keeps `paid` (true, false when the week's was
-already paid, null signed out), and the Champion box shows "+$10 GFL Bucks" or
-"$10 already paid this week". Under the build, "See all managers' ratings" opens
+it was won. Every title also pays `BAM_PRIZE` ($10) GFL Bucks (the user's
+call: it was once a bucks week for an hour on 6 November). Paid titles are a
+list of times, kept like the eggs: on the device under `lsKey('bampaid')` and
+on the profile as `bamPaid` (read and merged before each write). The title on
+`bamWin` is on record too (`bamWinTimes`), so Florida Man's title won before
+the prize existed pays, and `bamRecordWin` hands the title it replaces to
+`bamPaySave` so it stays paid. `bamPaidClean` cleans every reading the same
+way: nothing before `BAM_PRIZE_FROM`, nothing from the future, each moment
+once. `bamBucks` is a term of `bucksBalance`, rides the bank's scope as
+`bamTimes` (`bucksFor`, `plantForScope`, `ldBucks`), and `bucksBaseAt` counts a
+title only from when it was won. The build keeps `paid` (true, or null signed
+out), and the Champion box shows "+$10 GFL Bucks". Under the build, "See all managers' ratings" opens
 `#bam-rate-overlay`: a tab per manager, best overall first (`bamRateOrder`),
 each showing that manager's nine grades in the game's own tiles. The user's
 rule for it: only the tabs, the arrows and the X respond, and nothing moves.

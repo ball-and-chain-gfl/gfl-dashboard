@@ -490,11 +490,19 @@ window.GFL_CONFIG = {
       5:  { draft: "B+", trade: "F",  fin: "C",  coach: "C",  bk: "A",  luck: "D+", eng: "A+", pun: "S",  legacy: "A"  }, // FMAN
       6:  { draft: "B-", trade: "C-", fin: "B-", coach: "C-", bk: "D+", luck: "B-", eng: "B-", pun: "C+", legacy: "C"  }, // SW
       7:  { draft: "C+", trade: "B+", fin: "A",  coach: "B+", bk: "B",  luck: "A-", eng: "B-", pun: "A-", legacy: "A+" }, // KUNK
-      8:  { draft: "C",  trade: "C",  fin: "B",  coach: "B-", bk: "A",  luck: "C+", eng: "A+", pun: "A+", legacy: "B"  }, // TING
+      8:  { draft: "C",  trade: "C",  fin: "B",  coach: "B-", bk: "A",  luck: "C+", eng: "A+", pun: "S",  legacy: "B"  }, // TING
       9:  { draft: "B-", trade: "B+", fin: "B-", coach: "C",  bk: "C",  luck: "D-", eng: "B",  pun: "B-", legacy: "C-" }, // MWM
       10: { draft: "B+", trade: "A",  fin: "C",  coach: "A+", bk: "A+", luck: "B-", eng: "S",  pun: "B-", legacy: "A+" }, // BFT
       11: { draft: "D+", trade: "C",  fin: "C",  coach: "D",  bk: "D-", luck: "B+", eng: "B",  pun: "D+", legacy: "D+" }, // KW
       12: { draft: "D-", trade: "C-", fin: "B",  coach: "C",  bk: "D+", luck: "D",  eng: "C",  pun: "B+", legacy: "F+" }, // WGLR
+    },
+    /* Seth: not a team in the league, so never a team to run, but on the wheel
+       as a sliver -- `share` of one manager's wedge, and as often landed on --
+       with an S in everything. His id is past any team's, and api/bam.js
+       names him the same way for the share picture. */
+    seth: {
+      id: 35, name: "Seth", abbrev: "SETH", share: 0.2,
+      grades: { draft: "S", trade: "S", fin: "S", coach: "S", bk: "S", luck: "S", eng: "S", pun: "S", legacy: "S" },
     },
   },
 };

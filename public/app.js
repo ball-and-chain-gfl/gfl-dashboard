@@ -16420,55 +16420,57 @@ const betsLiveAll=()=>bkBets().filter(betIsLive);
 function bucksStaked(){ return bucks2(betsLiveAll().reduce((a,b)=>a+b.stake,0)); }
 function bucksReturned(){ return bucks2(betsLiveAll().reduce((a,b)=>a+(b.status==='open'?0:b.ret),0)); }
 /* ── A BUILD A MANAGER TITLE PAYS ────────────────────────────────────────────
-   A title in Build a Manager is worth BAM_PRIZE to whoever was signed in when
-   their manager won it, ONCE A BUCKS WEEK (Tuesday 6am to Tuesday 6am). The
-   game can be played again as often as anybody likes, and a prize on every
-   replay would be an allowance for whoever replays the most.
+   Every title in Build a Manager is worth BAM_PRIZE to whoever was signed in
+   when their manager won it. (For an hour on 6 November it was one a bucks
+   week; the commissioner asked for every title.)
 
-   Kept the way the eggs are: a list of when each paid title was won, on the
-   device so the balance is right before the network answers, and on the
-   profile (bamPaid) so the Leaderboards and the manager's other devices count
-   it too. Every reading cleans it the same way -- real moments since titles
-   started paying, none from the future, and the first of each bucks week only
-   -- so a stray write cannot pay twice for one week. */
+   Kept the way the eggs are: a list of when each title was won, on the device
+   so the balance is right before the network answers, and on the profile
+   (bamPaid) so the Leaderboards and the manager's other devices count it too.
+   The title on the profile's bamWin, the one the league's stack announces, is
+   a title on record as well, so it pays even if it never reached the list --
+   Florida Man's, won on 6 November an hour before titles paid, is one -- and
+   it is folded into the list when a newer title takes its place. Every reading
+   cleans the lot the same way: real moments since titles started paying, none
+   from the future, and each moment once, since the device, the list and
+   bamWin all carry the same title. */
 const BAM_PRIZE=10;
 const BAM_PRIZE_FROM=new Date(2026,10,6).getTime();
 const bamPaidKey=()=>lsKey('bampaid');
 const bamPaidParse=s=>{ try{ const a=JSON.parse(s||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } };
 function bamPaidClean(list){
-  const max=Date.now()+3600e3, weeks=new Set(), keep=[];
-  (Array.isArray(list)?list:[]).map(Number).filter(t=>t>=BAM_PRIZE_FROM&&t<=max).sort((a,b)=>a-b).forEach(t=>{
-    const w=realWeekStart(new Date(t));
-    if(!weeks.has(w)){ weeks.add(w); keep.push(t); }
-  });
-  return keep;
+  const max=Date.now()+3600e3;
+  return [...new Set((Array.isArray(list)?list:[]).map(Number).filter(t=>t>=BAM_PRIZE_FROM&&t<=max))].sort((a,b)=>a-b);
 }
+/* the title on a profile's bamWin, as the moment it was won: [t], or [] */
+function bamWinTimes(p){
+  let w=null; try{ w=JSON.parse((p&&p.bamWin)||'null'); }catch(e){ return []; }
+  const v=w&&bamDecode(w.code);
+  return v&&v.season&&v.season.place===1&&Number(w.t)>0?[Number(w.t)]:[];
+}
+/* every title a profile has on record */
+const bamPaidOf=p=>bamPaidParse(p&&p.bamPaid).concat(bamWinTimes(p));
 /* yours: this device's list and your profile's together */
 function bamPaidMine(){
   if(!_me) return [];
   let dev=[]; try{ dev=bamPaidParse(localStorage.getItem(bamPaidKey())); }catch(e){}
   const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
-  return bamPaidClean(dev.concat(bamPaidParse(row&&row.bamPaid)));
+  return bamPaidClean(dev.concat(bamPaidOf(row)));
 }
 const bkBamTimes=()=>_bkScope?(_bkScope.bamTimes||[]):bamPaidMine();
 function bamBucks(){ return bucks2(bkBamTimes().length*BAM_PRIZE); }
-/* whether a title won at `t` is paid: nothing has been, yet, that bucks week */
-function bamPrizeDue(t){
-  const w=realWeekStart(new Date(t));
-  return !bamPaidMine().some(x=>realWeekStart(new Date(x))===w);
-}
-/* A paid title onto the device, then the profile. The profile's own list is
-   read and folded in first, so a title paid on another device is never
-   written over. */
-async function bamPaySave(t){
+/* A title onto the device, then the profile, with `prev`, the title bamWin
+   held before this one replaced it. The profile's own record is read and
+   folded in first, so a title paid on another device is never written over. */
+async function bamPaySave(t,prev){
   if(!_me) return;
   const acct=_me.k1, key=bamPaidKey();
   let dev=[]; try{ dev=bamPaidParse(localStorage.getItem(key)); }catch(e){}
-  dev=bamPaidClean(dev.concat([t]));
+  dev=bamPaidClean(dev.concat([t],prev||[]));
   try{ localStorage.setItem(key,JSON.stringify(dev)); }catch(e){}
   const row=(_cpRows||[]).find(p=>p&&p.id===acct);
   let srv=bamPaidParse(row&&row.bamPaid);
-  try{ const r=await gflFetchProfile(acct); if(r&&r.data) srv=bamPaidParse(r.data.bamPaid); }catch(e){}
+  try{ const r=await gflFetchProfile(acct); if(r&&r.data) srv=bamPaidOf(r.data); }catch(e){}
   const list=JSON.stringify(bamPaidClean(dev.concat(srv)));
   const res=await gflPatchProfile(acct,{bamPaid:list});
   if(row&&res&&res.ok) row.bamPaid=list;
@@ -20662,16 +20664,20 @@ const BAM_ATTRS=[
 const BAM_RESPINS=1;
 const BAM_SPIN_MS=4200;
 const BAM_TURNS=5;
-/* the wedges take these in turn, so no two neighbours match */
+/* the wedges take these in turn, so no two neighbours match; Seth's sliver is
+   a blue of its own, an S's colour */
 const BAM_HUES=['#5b30b8','#3c45b0','#8a34b8','#45278a'];
+const BAM_SETH_HUE='#2F86EB';
+const bamHue=(id,i)=>bamIsSeth(id)?BAM_SETH_HUE:BAM_HUES[i%BAM_HUES.length];
 /* The letters a grade can be, worst to best: the punishment scale's thirteen,
    with an F+ under D- and an S above A+. S is blue. */
 const BAM_SCALE=['F','F+','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+','S'];
 const bamIdx=g=>BAM_SCALE.indexOf(String(g==null?'':g).trim());
-/* what each is worth on the 0-99 scale an overall is read on. An S is worth
-   more than an A+, so an overall is held to 99 (bamRating). api/bam.js draws
+/* what each is worth on the 0-99 scale an overall is read on, S the top of
+   it: an S is 99, and the A grades sit three apart below it (A+ 96, A 93,
+   A- 90), so a lone S never reads the same as a lone A+. api/bam.js draws
    the preview from the same numbers. */
-const BAM_PTS=[55,59,62,65,68,72,75,78,82,85,88,91,95,99,103];
+const BAM_PTS=[55,59,62,65,68,72,75,78,82,85,88,90,93,96,99];
 /* A link writes a grade as its place in THIS list, in base 36. The first
    thirteen are the order links have always used, so every link already sent
    reads as it did; S and F+ came later and go on the end. */
@@ -20680,30 +20686,49 @@ const BAM_CODE=['F','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+','S',
    walk, the postseason slower, and a beat before the result */
 const BAM_REVEAL_MS=900, BAM_REVEAL_POST_MS=1500;
 const bamCfg=()=>((_CFG.buildManager||{}).grades)||{};
+/* SETH is no team in the league: a sliver of the wheel (config's `share` of a
+   manager's wedge, and landed on that often) with an S in every grade. He can
+   fill slots, but a finished manager is never spun onto him as a team, he
+   plays no games, and he is not among the league's ratings. */
+const bamSeth=()=>((_CFG.buildManager||{}).seth)||null;
+const bamIsSeth=id=>{ const s=bamSeth(); return !!s&&id!=null&&Number(id)===Number(s.id); };
 /* a manager's grade in a trait, as a step on the scale (0 is F, 13 is A+, 14
    is S), or -1 */
 function bamGrade(teamId,attr){
-  const row=bamCfg()[String(teamId)];
+  const row=bamIsSeth(teamId)?bamSeth().grades:bamCfg()[String(teamId)];
   return row?bamIdx(row[attr]):-1;
 }
-/* who the wheel can land on: in the league now, and graded in all nine */
-function bamPool(){
+/* the league's managers: in the league now, and graded in all nine. They are
+   also the teams a finished manager can be spun onto. */
+function bamTeamPool(){
   const live=new Set((_teams||[]).map(t=>Number(t.id)));
   return Object.keys(bamCfg()).map(Number)
     .filter(id=>live.has(id)&&BAM_ATTRS.every(([k])=>bamGrade(id,k)>=0))
     .sort((a,b)=>a-b);
 }
-/* paid: for a season that won the title, whether it paid this week's GFL
-   Bucks (true), the week's had already gone (false), or nobody was signed in
-   to pay (null) */
+/* who the wheel can land on for a grade: the league's managers, then Seth */
+function bamPool(){
+  const pool=bamTeamPool(), s=bamSeth();
+  return s&&pool.length&&BAM_ATTRS.every(([k])=>bamGrade(s.id,k)>=0)?pool.concat([Number(s.id)]):pool;
+}
+/* a wedge's share of the wheel, and of the draw: one for a manager, a sliver for Seth */
+const bamWeight=id=>bamIsSeth(id)?Math.max(0.05,Math.min(1,Number(bamSeth().share)||0.2)):1;
+/* The wedges, clockwise from the first, which is centred under the pointer at
+   rest: where each starts, how wide it is and its middle, in degrees. */
+function bamWedges(pool){
+  const p=pool||[], w=p.map(bamWeight), tot=w.reduce((a,x)=>a+x,0)||1;
+  let at=p.length?-180*w[0]/tot:0;
+  return p.map((id,i)=>{ const size=360*w[i]/tot, r={id,start:at,size,mid:at+size/2}; at+=size; return r; });
+}
+/* paid: true once a season that won the title has paid its GFL Bucks; null
+   for any other season, and for a title won with nobody signed in to pay */
 const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null,season:null,paid:null});
 const bamOpen=b=>BAM_ATTRS.map(([k])=>k).filter(k=>b.slots[k]==null);
 const bamDone=b=>bamOpen(b).length===0;
-/* some grades as a 0-99 rating: the mean of what each is worth, never past
-   99 however many S there are; -1 for none */
+/* some grades as a 0-99 rating: the mean of what each is worth; -1 for none */
 function bamRating(steps){
   const s=(steps||[]).filter(i=>i>=0&&i<BAM_PTS.length);
-  return s.length?Math.min(99,Math.round(s.reduce((a,i)=>a+BAM_PTS[i],0)/s.length)):-1;
+  return s.length?Math.round(s.reduce((a,i)=>a+BAM_PTS[i],0)/s.length):-1;
 }
 const bamRateTone=n=>n>=90?'pg-a':n>=80?'pg-b':n>=70?'pg-c':n>=63?'pg-d':'pg-f';
 function bamOvr(b){ return bamRating(Object.entries(b.slots).map(([k,id])=>bamGrade(id,k))); }
@@ -20713,11 +20738,15 @@ function bamManagerOvr(id){ return bamRating(BAM_ATTRS.map(([k])=>bamGrade(id,k)
    included) and for a whole box (bam-ts ... bam-tf) */
 const bamTone=i=>'pg-'+String(BAM_SCALE[i]||'F').charAt(0).toLowerCase();
 const bamToneCls=i=>'bam-t'+String(BAM_SCALE[i]||'F').charAt(0).toLowerCase();
-/* anyone in the pool but whoever a respin is turning away from */
+/* anyone in the pool but whoever a respin is turning away from, each as
+   likely as their wedge is wide (bamWeight), so Seth comes up a sliver's worth */
 function bamPick(pool,not,rnd){
   const p=(pool||[]).filter(id=>id!==not);
   if(!p.length) return null;
-  return p[Math.min(p.length-1,Math.floor((rnd||Math.random)()*p.length))];
+  const w=p.map(bamWeight);
+  let r=(rnd||Math.random)()*w.reduce((a,x)=>a+x,0);
+  for(let i=0;i<p.length;i++){ r-=w[i]; if(r<0) return p[i]; }
+  return p[p.length-1];
 }
 /* one trait from whoever the wheel is on, into its own empty slot */
 function bamTake(b,attr){
@@ -20749,25 +20778,26 @@ function bamValid(x,pool){
     slots[k]=Number(id);
   }
   if(x.land!=null&&!ok(x.land)) return f;
-  const full=Object.keys(slots).length===BAM_ATTRS.length;
-  const r=Number(x.respins), team=(full&&ok(x.team))?Number(x.team):null;
-  const season=(team!=null&&bamSeasonOk(x.season,team,pool))?x.season:null;
+  const full=Object.keys(slots).length===BAM_ATTRS.length, teams=pool.filter(id=>!bamIsSeth(id));
+  const r=Number(x.respins), team=(full&&ok(x.team)&&!bamIsSeth(x.team))?Number(x.team):null;
+  const season=(team!=null&&bamSeasonOk(x.season,team,teams))?x.season:null;
   return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
     respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS,
-    team, season, paid:(season&&typeof x.paid==='boolean')?x.paid:null};
+    team, season, paid:(season&&x.paid===true)?true:null};
 }
-/* Where the wheel has to stop for wedge k of n to sit under the pointer: on
-   from `rot` by `turns` full turns and then the rest of the way round, coming
-   to rest `jitter` degrees off the wedge's centre. Clockwise, like CSS. */
-function bamAim(rot,k,n,jitter,turns){
-  const seg=360/n;
-  const want=(((-k*seg+(jitter||0))%360)+360)%360, now=((rot%360)+360)%360;
+/* Where the wheel has to stop for the point `deg` degrees round it (a wedge's
+   middle, from bamWedges) to sit under the pointer: on from `rot` by `turns`
+   full turns and then the rest of the way round, coming to rest `jitter`
+   degrees off that point. Clockwise, like CSS. */
+function bamAim(rot,deg,jitter,turns){
+  const want=(((-deg+(jitter||0))%360)+360)%360, now=((rot%360)+360)%360;
   return rot+(turns||0)*360+(((want-now)%360)+360)%360;
 }
 /* and which wedge is under the pointer at a given rotation */
-function bamAt(rot,n){
-  const seg=360/n;
-  return Math.round(((((-rot)%360)+360)%360)/seg)%n;
+function bamAt(rot,wedges){
+  const a=(((-rot)%360)+360)%360;
+  const i=(wedges||[]).findIndex(w=>(((a-w.start)%360)+360)%360<w.size);
+  return i<0?0:i;
 }
 /* where a played season left a team: its place, record and seed */
 function bamSeasonSum(s,team){
@@ -20989,7 +21019,10 @@ function bamState(){
   return (_bam=bamValid(x,pool));
 }
 function bamSave(){ try{ localStorage.setItem(_bamKey||bamKey(),JSON.stringify(_bam)); }catch(e){} }
-const bamTeam=id=>(_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
+const bamTeam=id=>{
+  if(bamIsSeth(id)){ const s=bamSeth(); return {id:Number(s.id),name:String(s.name||'Seth'),abbrev:String(s.abbrev||'SETH')}; }
+  return (_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
+};
 const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
 /* One slot, laid out the way the share card lays out a tile: the trait at the
    top, the grade big at the bottom left, whose it was at the bottom right, the
@@ -21031,16 +21064,19 @@ function bamCardHTML(b){
    across: the wedges fill the turning disc, which sits inside a ring 7 wide on
    a radius of 96.5, so the two meet with no gap. */
 function bamWheelHTML(pool,on,canSpin,spin){
-  const n=pool.length, seg=360/n;
+  const ws=bamWedges(pool);
   const pt=(deg,r)=>{ const a=(deg-90)*Math.PI/180; return [(100+r*Math.cos(a)).toFixed(2),(100+r*Math.sin(a)).toFixed(2)]; };
-  const wedges=pool.map((id,i)=>{
-    const [x0,y0]=pt(i*seg-seg/2,100), [x1,y1]=pt(i*seg+seg/2,100);
-    return `<path${id===on?' class="on"':''} d="M100 100 L${x0} ${y0} A100 100 0 0 1 ${x1} ${y1} Z" fill="${BAM_HUES[i%BAM_HUES.length]}"/>`;
+  const wedges=ws.map((w,i)=>{
+    const [x0,y0]=pt(w.start,100), [x1,y1]=pt(w.start+w.size,100);
+    return `<path${w.id===on?' class="on"':''} d="M100 100 L${x0} ${y0} A100 100 0 ${w.size>180?1:0} 1 ${x1} ${y1} Z" fill="${bamHue(w.id,i)}"/>`;
   }).join('');
-  const marks=pool.map((id,i)=>{
-    const t=bamTeam(id);
-    return `<div class="bam-wl${id===on?' on':''}" style="transform:rotate(${(i*seg).toFixed(3)}deg)">
-        <span class="bam-wl-in">${avatarHTML(t,32,8)}${bamPx(bamAbbr(t),1)}</span></div>`;
+  /* a crest and an abbreviation on a manager's wedge; Seth's sliver is too
+     thin for either, so his name runs down it a letter at a time */
+  const marks=ws.map(w=>{
+    const t=bamTeam(w.id);
+    const inner=bamIsSeth(w.id)?`<span class="bam-wl-in bam-wl-seth">${[...bamAbbr(t)].map(c=>bamPx(c,1)).join('')}</span>`
+      :`<span class="bam-wl-in">${avatarHTML(t,32,8)}${bamPx(bamAbbr(t),1)}</span>`;
+    return `<div class="bam-wl${w.id===on?' on':''}" style="transform:rotate(${w.mid.toFixed(3)}deg)">${inner}</div>`;
   }).join('');
   return `<div class="bam-wheel-box">
       <div class="bam-wheel" id="bam-wheel" style="transform:rotate(${_bamRot}deg)">
@@ -21055,9 +21091,7 @@ function bamWheelHTML(pool,on,canSpin,spin){
    and on your own title, its GFL Bucks (see bamFresh for `paid`) */
 function bamResultHTML(team,place,w,l,seed,paid){
   const f=bamFinish(place), t=bamTeam(team);
-  const prize=place!==1||paid==null?''
-    :paid?bamPx(`+$${BAM_PRIZE} GFL Bucks`,2,'bam-fin-p')
-    :bamPx(`$${BAM_PRIZE} already paid this week`,1,'bam-fin-h');
+  const prize=place===1&&paid?bamPx(`+$${BAM_PRIZE} GFL Bucks`,2,'bam-fin-p'):'';
   return `<div class="bam-fin ${f.tone}"><i class="fa ${f.icon}"></i>
       <div>${bamPx(f.big,3)}${bamPx(f.how,1,'bam-fin-h')}
         <span class="bam-fin-t">${avatarHTML(t,18,5)}${bamPx(`${bamAbbr(t)} · ${w}-${l} · ${bamOrd(seed)} seed`,1)}</span>${prize}</div>
@@ -21153,9 +21187,11 @@ function renderBam(){
   if(!pool.length){ el.innerHTML=''; return; }
   const b=bamState(), done=bamDone(b), left=bamOpen(b).length;
   const started=Object.keys(b.slots).length||b.land!=null;
+  /* the wheel for grades has Seth's sliver on it; the one for a team does not */
+  const wheel=done?bamTeamPool():pool;
   if(_bamRot==null){
-    const mid=b.land!=null?b.land:(b.team!=null?b.team:(b.last!=null?b.last:pool[0]));
-    _bamRot=bamAim(0,Math.max(0,pool.indexOf(mid)),pool.length,0,0);
+    const mid=b.land!=null?b.land:(b.team!=null?b.team:(b.last!=null?b.last:wheel[0]));
+    _bamRot=bamAim(0,bamWedges(wheel)[Math.max(0,wheel.indexOf(mid))].mid,0,0);
   }
   /* your own build: no "built by" -- it is yours (the share card still says so) */
   const build=`<div class="bam-build bam-panel">
@@ -21185,9 +21221,9 @@ function renderBam(){
   if(done&&b.season&&b.team!=null){
     play=`<div id="bam-season-wrap">${bamSeasonHTML(b,_bamShown)}</div>${_bamShown==null?after:''}`;
   }else if(done&&b.team!=null&&!_bamSpin){
-    play=`${bamWheelHTML(pool,b.team,false,'bamSpinTeam')}${bamTeamCardHTML(b)}`;
+    play=`${bamWheelHTML(wheel,b.team,false,'bamSpinTeam')}${bamTeamCardHTML(b)}`;
   }else if(done){
-    play=`${bamWheelHTML(pool,null,!_bamSpin,'bamSpinTeam')}
+    play=`${bamWheelHTML(wheel,null,!_bamSpin,'bamSpinTeam')}
       <div class="bam-btns"><button class="bam-spin" onclick="bamSpinTeam()" ${_bamSpin?'disabled':''}>
         <i class="fa fa-dice"></i>${bamPx('Spin for your team',2)}</button></div>
       ${_bamSpin?'':after}`;
@@ -21219,7 +21255,7 @@ function renderBam(){
    it has to. */
 let _bamRateSel=null;
 function bamRateOrder(){
-  return bamPool().map(id=>({id,n:bamManagerOvr(id),name:String(bamTeam(id).name||'')}))
+  return bamTeamPool().map(id=>({id,n:bamManagerOvr(id),name:String(bamTeam(id).name||'')}))
     .sort((a,b)=>(b.n-a.n)||a.name.localeCompare(b.name)).map(x=>x.id);
 }
 function bamRateCardHTML(order,sel){
@@ -21326,8 +21362,8 @@ async function bamSpin(re){
   const id=bamPick(pool,re?b.land:null); if(id==null) return;
   if(re) b.respins--;
   if(b.land!=null) b.last=b.land;
-  const seg=360/pool.length;
-  const target=bamAim(_bamRot||0,pool.indexOf(id),pool.length,(Math.random()-0.5)*seg*0.6,BAM_TURNS);
+  const w=bamWedges(pool)[pool.indexOf(id)];
+  const target=bamAim(_bamRot||0,w.mid,(Math.random()-0.5)*w.size*0.6,BAM_TURNS);
   b.land=null; _bamSpin=true; _bamArm=false;
   renderBam();
   await bamTurn(target);
@@ -21340,11 +21376,11 @@ async function bamSpin(re){
 /* a finished manager spins once for the team they will run, and is locked to it */
 async function bamSpinTeam(){
   if(_bamSpin||_bamView) return;
-  const b=bamState(), pool=bamPool();
+  const b=bamState(), pool=bamTeamPool();
   if(!pool.length||!bamDone(b)||b.team!=null) return;
   const id=bamPick(pool,null); if(id==null) return;
-  const seg=360/pool.length;
-  const target=bamAim(_bamRot||0,pool.indexOf(id),pool.length,(Math.random()-0.5)*seg*0.6,BAM_TURNS);
+  const w=bamWedges(pool)[pool.indexOf(id)];
+  const target=bamAim(_bamRot||0,w.mid,(Math.random()-0.5)*w.size*0.6,BAM_TURNS);
   _bamSpin=true; _bamLink=''; _bamCopied=false;
   renderBam();
   await bamTurn(target);
@@ -21361,7 +21397,7 @@ function bamPlay(){
   if(_bamSpin||_bamShown!=null) return;
   const b=bamState(), season=pgSeason(), meta=season&&_seasonMeta[season];
   if(!bamDone(b)||b.team==null||b.season||!meta) return;
-  const pool=bamPool(), roster=bamRoster(meta,season), str={};
+  const pool=bamTeamPool(), roster=bamRoster(meta,season), str={};
   pool.forEach(id=>{ str[id]=bamStrength(id===b.team?bamOvr(b):bamManagerOvr(id),roster[id]??80); });
   const games=bamGames(meta,season).filter(g=>str[g.h]!=null&&str[g.a]!=null);
   if(!games.length) return;
@@ -21372,23 +21408,24 @@ function bamPlay(){
 }
 /* A title, if this season was one, onto the winner's own profile, where the
    whole league's notification stack picks it up (ntBamWins), and its GFL
-   Bucks into the bank if none have been paid this bucks week (bamPrizeDue).
-   Signed in only: somebody nobody knows cannot be announced or paid. Written
-   the moment the season is decided, since the season is already final then
-   and a reload part-way through the reveal must not lose it; the money shows
-   on the Champion box at the end of the reveal, and the bucks chip lives on
-   the Sportsbook, so neither gives the result away early. */
+   Bucks into the bank (bamPaySave), along with the title it replaces on
+   bamWin so that one stays paid. Signed in only: somebody nobody knows cannot
+   be announced or paid. Written the moment the season is decided, since the
+   season is already final then and a reload part-way through the reveal must
+   not lose it; the money shows on the Champion box at the end of the reveal,
+   and the bucks chip lives on the Sportsbook, so neither gives the result
+   away early. */
 function bamRecordWin(b){
   if(!_me||!_me.k1||b.team==null) return;
   const sum=bamSeasonSum(b.season,b.team), code=bamCode(b,_me.teamId);
   if(!sum||sum.place!==1||!code) return;
   const now=Date.now(), rec=JSON.stringify({t:now,code});
+  const me=(_cpRows||[]).find(p=>p&&p.id===_me.k1), prev=bamWinTimes(me);
   try{ gflPatchProfile(_me.k1,{bamWin:rec}); }catch(e){}
-  const me=(_cpRows||[]).find(p=>p&&p.id===_me.k1);
   if(me) me.bamWin=rec;
-  b.paid=bamPrizeDue(now);
+  b.paid=true;
   bamSave();
-  if(b.paid) bamPaySave(now);
+  bamPaySave(now,prev);
 }
 /* THE REVEAL: one game at a time, the regular season at BAM_REVEAL_MS and the
    postseason at BAM_REVEAL_POST_MS, the table's verdict a beat after the last */
@@ -23157,7 +23194,7 @@ function ldBucks(ids,prof){
   let eggs=0, lots=[], plant={t:0,id:null}, eggTimes=[], bamTimes=[];
   prof.forEach(p=>{
     /* Build a Manager titles, cleaned as the owner's own device cleans them */
-    bamPaidClean(bamPaidParse(p.bamPaid)).forEach(t=>bamTimes.push(t));
+    bamPaidClean(bamPaidOf(p)).forEach(t=>bamTimes.push(t));
     /* the latest watering across their profiles, which is also the kindest
        reading of it: a later timestamp is fewer completed cycles and therefore
        a smaller bill */

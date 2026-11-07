@@ -33,7 +33,7 @@ export const ATTRS = [
 /* F to A+ with an F+ under D- and an S above A+; a code writes each as its
    place in CODE, where S and F+ sit on the end so older links read as before */
 export const SCALE = ['F', 'F+', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+', 'S'];
-export const PTS = [55, 59, 62, 65, 68, 72, 75, 78, 82, 85, 88, 91, 95, 99, 103];
+export const PTS = [55, 59, 62, 65, 68, 72, 75, 78, 82, 85, 88, 90, 93, 96, 99];
 export const CODE = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+', 'S', 'F+'];
 
 /* Version 1 is the build alone. Version 2 adds the season it played, five
@@ -55,10 +55,10 @@ export function finish(place) {
   const tone = place === 1 ? 'A' : place <= 3 ? 'B' : place <= 6 ? 'C' : place <= 10 ? 'D' : 'F';
   return { big, tone };
 }
-/* the overall on 0-99: the mean of what each grade is worth, never past 99 */
+/* the overall on 0-99: the mean of what each grade is worth */
 export function rating(v) {
   const g = ATTRS.map(([k]) => PTS[v.grades[k]]);
-  return Math.min(99, Math.round(g.reduce((a, x) => a + x, 0) / g.length));
+  return Math.round(g.reduce((a, x) => a + x, 0) / g.length);
 }
 const TONES = { F: '#E84146', D: '#F2704A', C: '#E8BC56', B: '#9BD35A', A: '#3fd07a', S: '#4DA3FF' };
 const toneOfGrade = i => TONES[SCALE[i][0]];
@@ -74,6 +74,9 @@ const FALLBACK = {
   8: ['TING', 'Tuckasegee Tinglers'], 9: ['MWM', 'Midwest Miners'], 10: ['BFT', 'The Bryan Football Team'],
   11: ['KW', 'Whittingham Sports'], 12: ['WGLR', 'West Coast Wigglers'],
 };
+/* Seth: no team, a sliver of the game's wheel with an S in everything
+   (config.js buildManager.seth). ESPN has never heard of him. */
+export const GUESTS = { 35: ['SETH', 'Seth'] };
 const fallbackTeams = () => Object.fromEntries(Object.entries(FALLBACK).map(([id, [abbrev, name]]) => [id, { abbrev, name }]));
 let _teams = null, _teamsAt = 0;
 async function teamsNow() {
@@ -99,8 +102,8 @@ async function teamsNow() {
   _teams = out; _teamsAt = Date.now();
   return out;
 }
-const abbrOf = (teams, id) => (teams[id] && teams[id].abbrev) || (FALLBACK[id] || [])[0] || ('T' + id);
-const nameOf = (teams, id) => (teams[id] && teams[id].name) || (FALLBACK[id] || [])[1] || '';
+const abbrOf = (teams, id) => (GUESTS[id] || [])[0] || (teams[id] && teams[id].abbrev) || (FALLBACK[id] || [])[0] || ('T' + id);
+const nameOf = (teams, id) => (GUESTS[id] || [])[1] || (teams[id] && teams[id].name) || (FALLBACK[id] || [])[1] || '';
 
 /* ── THE TYPE ────────────────────────────────────────────────────────────────
    5x7, capitals, figures and the few marks the league's names use. Anything
