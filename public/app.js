@@ -21657,7 +21657,7 @@ function bamRecordWin(b){
   bamPaySave(now,prev);
 }
 /* ── THE TROPHY CASE ─────────────────────────────────────────────────────────
-   Thirty achievements, each with a progress bar and its own GFL Bucks, paid
+   Thirty-one achievements, each with a progress bar and its own GFL Bucks, paid
    the moment it is earned (bamAchBucks, in the bank beside the titles). The
    commissioner picked them and their rewards on 8 November. Nothing before
    then counts: everyone starts from zero.
@@ -21685,39 +21685,45 @@ const bamAchPool=()=>bamTeamPool();
 const bamAchIn=a=>{ const p=new Set(bamAchPool()); return (a||[]).filter(id=>p.has(id)).length; };
 const bamBits=m=>{ let n=0; m=m|0; while(m){ n+=m&1; m>>>=1; } return n; };
 /* each: an id, its name, its reward, and either a goal and how far along a
-   record is (at), or one:true for a thing one season either does or does not */
+   record is (at), or one:true for a thing one season either does or does not.
+   The rewards climb with how rare each is in simulated play (widened at the
+   commissioner's word on 8 November): $10 for what most first runs do, $750
+   for a title with all twelve teams, and $1000 for the lot. */
 const BAM_ACH=[
   {id:'nail', name:'Win a game by less than a point', r:10, one:true},
   {id:'s10', name:'Play 10 seasons', r:10, goal:()=>10, at:s=>s.n},
   {id:'seth', name:'Get a Seth', r:15, goal:()=>1, at:s=>s.bs},
   {id:'land', name:'Land on every manager', r:15, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.land)},
-  {id:'big', name:'Score 180 in a game', r:20, goal:()=>180, at:s=>Math.floor(s.bg)},
-  {id:'toilet', name:'Win the losers final', r:20, one:true},
   {id:'title', name:'Win the championship', r:25, goal:()=>1, at:s=>s.w},
-  {id:'last', name:'Finish last', r:25, one:true},
-  {id:'nine', name:'Use 9 different managers in one build', r:25, goal:()=>9, at:s=>s.bd},
-  {id:'w5', name:'Win 5 titles', r:25, goal:()=>5, at:s=>s.w},
-  {id:'s50', name:'Play 50 seasons', r:30, goal:()=>50, at:s=>s.n},
-  {id:'sethw', name:'Win a title with a Seth', r:30, one:true},
-  {id:'teams', name:'Play with every team', r:40, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.play)},
-  {id:'b2b', name:'Win back-to-back titles', r:40, goal:()=>2, at:s=>s.st},
-  {id:'own', name:'Win a title with your own team', r:40, one:true},
-  {id:'under', name:()=>`Win a title with ${BAM_UNDERDOGS.map(id=>bamAbbr(bamTeam(id))).join(' or ')}`, r:50, one:true},
-  {id:'six', name:'Win a title as the 6th seed', r:50, one:true},
-  {id:'s100', name:'Play 100 seasons', r:60, goal:()=>100, at:s=>s.n},
-  {id:'seth2', name:'Get 2 Seths in one build', r:75, goal:()=>2, at:s=>s.bs},
-  {id:'coach', name:'Win a title with a manager under 85', r:75, one:true},
-  {id:'w25', name:'Win 25 titles', r:75, goal:()=>25, at:s=>s.w},
-  {id:'m95', name:'Build a 95 overall manager', r:100, goal:()=>95, at:s=>s.bm},
-  {id:'seth2w', name:'Win a title with 2 Seths', r:100, one:true},
-  {id:'p2000', name:'Score 2000 in a regular season', r:100, goal:()=>2000, at:s=>Math.floor(s.bp)},
-  {id:'every', name:'Use every attribute', r:125, goal:()=>bamAchPool().length*BAM_ATTRS.length,
+  {id:'big', name:'Score 180 in a game', r:25, goal:()=>180, at:s=>Math.floor(s.bg)},
+  {id:'toilet', name:'Win the losers final', r:30, one:true},
+  {id:'last', name:'Finish last', r:40, one:true},
+  {id:'nine', name:'Use 9 different managers in one build', r:40, goal:()=>9, at:s=>s.bd},
+  {id:'w5', name:'Win 5 titles', r:50, goal:()=>5, at:s=>s.w},
+  {id:'sethw', name:'Win a title with a Seth', r:50, one:true},
+  {id:'s50', name:'Play 50 seasons', r:60, goal:()=>50, at:s=>s.n},
+  {id:'teams', name:'Play with every team', r:75, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.play)},
+  {id:'b2b', name:'Win back-to-back titles', r:75, goal:()=>2, at:s=>s.st},
+  {id:'own', name:'Win a title with your own team', r:75, one:true},
+  {id:'six', name:'Win a title as the 6th seed', r:125, one:true},
+  {id:'under', name:()=>`Win a title with ${BAM_UNDERDOGS.map(id=>bamAbbr(bamTeam(id))).join(' or ')}`, r:150, one:true},
+  {id:'s100', name:'Play 100 seasons', r:150, goal:()=>100, at:s=>s.n},
+  {id:'seth2', name:'Get 2 Seths in one build', r:150, goal:()=>2, at:s=>s.bs},
+  {id:'coach', name:'Win a title with a manager under 85', r:200, one:true},
+  {id:'w25', name:'Win 25 titles', r:250, goal:()=>25, at:s=>s.w},
+  {id:'m95', name:'Build a 95 overall manager', r:250, goal:()=>95, at:s=>s.bm},
+  {id:'seth2w', name:'Win a title with 2 Seths', r:300, one:true},
+  {id:'p2000', name:'Score 2000 in a regular season', r:350, goal:()=>2000, at:s=>Math.floor(s.bp)},
+  {id:'every', name:'Use every attribute', r:500, goal:()=>bamAchPool().length*BAM_ATTRS.length,
     at:s=>bamAchPool().reduce((a,id)=>a+bamBits(s.use[id]),0)},
-  {id:'winless', name:'Go 0-14', r:125, one:true},
-  {id:'t95', name:'Build a 95 overall team', r:150, goal:()=>95, at:s=>s.bt},
-  {id:'perfect', name:'Go 14-0', r:150, goal:()=>14, at:s=>s.bw},
-  {id:'three', name:'Win 3 titles in a row', r:150, goal:()=>3, at:s=>s.st},
-  {id:'allwin', name:'Win with every team', r:300, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.win)},
+  {id:'three', name:'Win 3 titles in a row', r:500, goal:()=>3, at:s=>s.st},
+  {id:'winless', name:'Go 0-14', r:500, one:true},
+  {id:'t95', name:'Build a 95 overall team', r:600, goal:()=>95, at:s=>s.bt},
+  {id:'perfect', name:'Go 14-0', r:600, goal:()=>14, at:s=>s.bw},
+  {id:'allwin', name:'Win with every team', r:750, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.win)},
+  /* last, so it sees everything the same pass earned (bamAchEdit goes in order) */
+  {id:'all', name:'Complete every achievement', r:1000, goal:()=>BAM_ACH.length-1,
+    at:s=>BAM_ACH.filter(a=>a.id!=='all'&&s.done[a.id]>0).length},
 ];
 const bamAchName=a=>typeof a.name==='function'?a.name():a.name;
 const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');

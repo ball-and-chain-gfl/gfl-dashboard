@@ -79,12 +79,16 @@ const done = () => Object.keys(rec().done).sort();
 const flush = () => new Promise(r => setTimeout(r, 0));
 
 console.log(NL + 'the list');
-const want = { nail: 10, s10: 10, seth: 15, land: 15, big: 20, toilet: 20, title: 25, last: 25, nine: 25, w5: 25, s50: 30, sethw: 30,
-  teams: 40, b2b: 40, own: 40, under: 50, six: 50, s100: 60, seth2: 75, coach: 75, w25: 75, m95: 100, seth2w: 100, p2000: 100,
-  every: 125, winless: 125, t95: 150, perfect: 150, three: 150, allwin: 300 };
-ok('thirty, each with the reward the commissioner approved, cheapest first',
-  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [30, want, true]);
-ok('$2055 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 2055);
+/* widened on 8 November at the commissioner's word: $10 at the bottom, $750 for
+   a title with every team, and $1000 for completing every achievement */
+const want = { nail: 10, s10: 10, seth: 15, land: 15, title: 25, big: 25, toilet: 30, last: 40, nine: 40, w5: 50, sethw: 50, s50: 60,
+  teams: 75, b2b: 75, own: 75, six: 125, under: 150, s100: 150, seth2: 150, coach: 200, w25: 250, m95: 250, seth2w: 300, p2000: 350,
+  every: 500, three: 500, winless: 500, t95: 600, perfect: 600, allwin: 750, all: 1000 };
+ok('thirty-one, each with its reward, cheapest first',
+  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [31, want, true]);
+ok('$6970 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 6970);
+ok('the spread runs from $10 to $750, with $1000 on top for the lot',
+  [Math.min(...M.BAM_ACH.map(a => a.r)), Math.max(...M.BAM_ACH.filter(a => a.id !== 'all').map(a => a.r)), M.BAM_ACH[M.BAM_ACH.length - 1].id], [10, 750, 'all']);
 ok('no blowout', M.BAM_ACH.some(a => /blow/i.test(a.id + M.bamAchName(a))), false);
 ok('every name is drawn whole in the pixel type, no letter dropped',
   M.BAM_ACH.map(M.bamAchName).filter(n => M.bamPxClean(n) !== n.toUpperCase()), []);
@@ -145,6 +149,20 @@ fresh();
   const b = M.bamFresh();
   league.forEach(t => KEYS.forEach(k => M.bamAchTake(b, t.id, k)));
   ok('all 108 grades used earns Use every attribute', [M.BAM_ACH.find(a => a.id === 'every').at(rec()), done().includes('every')], [108, true]);
+}
+fresh();
+{
+  const others = M.BAM_ACH.filter(a => a.id !== 'all').map(a => a.id);
+  M.set({ ls: { 'bft:bamach': JSON.stringify({ done: Object.fromEntries(others.slice(1).map(id => [id, NOW - 1000])) }) } });
+  M.bamAchLand(3);
+  ok('twenty-nine of thirty is not the lot', done().includes('all'), false);
+  const b = { ...M.bamFresh(), slots: Object.fromEntries(KEYS.map(k => [k, 10])) };
+  const wonBy = M.bamAchSeason({ ...b, team: 3, ach: { tr: 85 }, season: { log: [{ w: 1, a: 3, b: 1, as: 100.5, bs: 100, win: 3, lose: 1 }], post: [],
+    table: [{ id: 3, w: 1, l: 0, pf: 100.5 }].concat(league.filter(t => t.id !== 3).map(t => ({ id: t.id, w: 0, l: 1, pf: 90 }))),
+    seed: [3].concat(league.filter(t => t.id !== 3).map(t => t.id)), place: { 3: 5 } } });
+  ok('the last of them earns Complete every achievement in the same moment', [wonBy, done().includes('all')], [['nail', 'all'], true]);
+  ok('and pays its $1000 with the rest', M.bamAchBucks(), 6970);
+  await flush();
 }
 fresh();
 M.set({ me: null });
@@ -268,9 +286,9 @@ fresh();
 {
   const t1 = NOW - 86400e3, t2 = NOW - 3600e3;
   M.set({ ls: { 'bft:bamach': JSON.stringify({ done: { title: t1 } }) }, rows: [{ id: 'bft', bamAch: JSON.stringify({ done: { title: t1 + 50, last: t2 } }) }] });
-  ok('device and profile together, each achievement once, at its first time', M.bamAchPaid(rec()), [{ t: t1, v: 25 }, { t: t2, v: 25 }]);
-  ok('in your balance', M.bamAchBucks(), 50);
-  ok("another manager's bank holds what their profile carries", M.bucksFor({ ach: M.bamAchPaid(M.bamAchOf({ bamAch: JSON.stringify({ done: { allwin: t2 } }) })) }, () => M.bamAchBucks()), 300);
+  ok('device and profile together, each achievement once, at its first time', M.bamAchPaid(rec()), [{ t: t1, v: 25 }, { t: t2, v: 40 }]);
+  ok('in your balance', M.bamAchBucks(), 65);
+  ok("another manager's bank holds what their profile carries", M.bucksFor({ ach: M.bamAchPaid(M.bamAchOf({ bamAch: JSON.stringify({ done: { allwin: t2 } }) })) }, () => M.bamAchBucks()), 750);
   ok('nobody else\'s profile counts toward yours', (M.set({ rows: [{ id: 'mm', bamAch: JSON.stringify({ done: { allwin: t2 } }) }] }), M.bamAchBucks()), 25);
   const src = fs.readFileSync(appUrl, 'utf8').replace(/\r\n/g, '\n');
   const fn = name => { const a = src.indexOf(name); return a < 0 ? '' : src.slice(a, src.indexOf('\n}\n', a) + 2); };
@@ -311,7 +329,8 @@ fresh();
   ok('and nothing once it has been opened', M.bamTrophyHTML().includes('bam-trophy-n'), false);
   M.set({ since: NOW - 10000 });
   const pop = M.bamAchHTML();
-  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 30]'), pop.includes('[$50 of $2055]')], [30, true, true]);
+  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 31]'), pop.includes('[$65 of $6970]')], [31, true, true]);
+  ok('Complete every achievement counts the other thirty', pop.includes('[2/30]'), true);
   ok('what is earned is done, and what is new since the last look is lit',
     [/class="bam-ach done new" id="bam-ach-title"/.test(pop), /class="bam-ach done" id="bam-ach-last"/.test(pop), /class="bam-ach" id="bam-ach-land"/.test(pop)], [true, true, true]);
   ok('each with its bar and how far along', [pop.includes('[6/12]'), pop.includes('width:50%'), pop.includes('[3/10]'), pop.includes('[$15]')], [true, true, true, true]);
