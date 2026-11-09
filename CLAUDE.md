@@ -255,8 +255,11 @@ out), and the Champion box shows "+$10 GFL Bucks".
 ACHIEVEMENTS (the trophy case, from 8 November): a trophy at the top right of
 `.bam-play`, by the wheel (or in the season panel's head row), signed in only,
 with a count of what was earned since the last look (`lsKey('bamachseen')`).
-It opens `#bam-ach-overlay`: thirty rows (`BAM_ACH`, cheapest first, $6670 in
-all; no blowout, and no title with MCM or WGLR, which the user removed). The
+It opens `#bam-ach-overlay`: thirty-four rows (`BAM_ACH`, cheapest first, $7520
+in all; no blowout, and no title with MCM or WGLR, which the user removed).
+The user added four at their own prices: Play 250 seasons ($150), Score 200
+in a game ($200), Win 50 titles and A- or better in all 9 slots ($250 each,
+the record's `ba`, the most A- or better slots in one build). The
 user asked for a wider spread: $10 at the bottom, up with rarity in simulated
 play to $750 (a title with every team); the user set both 95s at $400 and
 had a title with 2 Seths lowered ($200). Complete every achievement ($1000)

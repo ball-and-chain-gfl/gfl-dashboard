@@ -46,7 +46,7 @@ const M = assemble(grab, [
   'const bamAchOf=', 'function bamAchMine(', 'function bamAchPaid(', 'function bamAchEdit(', 'function bamAchLand(', 'function bamAchTake(',
   'function bamAchSeason(', 'async function bamAchSave(', 'function bamAchSeen(', 'const bamAchNewCount=', 'function bamTrophyHTML(',
   'function bamAchLeftHTML(', 'function bamAchRowHTML(', 'function bamAchHTML(',
-], ['BAM_ATTRS', 'BAM_ACH', 'BAM_ACH_FROM', 'bamAchName', 'bamPxClean', 'bamAchBlank', 'bamAchClean', 'bamAchMerge', 'bamAchOf',
+], ['BAM_ATTRS', 'BAM_SCALE', 'BAM_ACH', 'BAM_ACH_FROM', 'bamAchName', 'bamPxClean', 'bamAchBlank', 'bamAchClean', 'bamAchMerge', 'bamAchOf',
   'bamAchMine', 'bamAchPaid', 'bamAchEdit', 'bamAchLand', 'bamAchTake', 'bamAchSeason', 'bamAchSave', 'bamAchBucks', 'bucksFor',
   'bamAchNewCount', 'bamTrophyHTML', 'bamAchRowHTML', 'bamAchHTML', 'bamFresh', 'bamValid', 'bamOvr', 'bamManagerOvr', 'set', 'log'], [
   "let _CFG={}, _teams=[], _cpRows=null, _me=null, _bkScope=null, _ls={}, _now=null, _bamAchMemo=null, _bamAchSince=0, _bamAchLeft=false;",
@@ -82,13 +82,14 @@ console.log(NL + 'the list');
 /* widened on 8 November at the commissioner's word: $10 at the bottom, $750 for
    a title with every team, and $1000 for completing every achievement; then
    the two 95s at $400 each, a title with 2 Seths down to $200, and no title
-   with MCM or WGLR */
+   with MCM or WGLR; then four more at his prices: 250 seasons, 50 titles,
+   200 in a game, and A- or better in every slot */
 const want = { nail: 10, s10: 10, seth: 15, land: 15, title: 25, big: 25, toilet: 30, last: 40, nine: 40, w5: 50, sethw: 50, s50: 60,
-  teams: 75, b2b: 75, own: 75, six: 125, s100: 150, seth2: 150, coach: 200, seth2w: 200, w25: 250, p2000: 350, m95: 400, t95: 400,
-  every: 500, three: 500, winless: 500, perfect: 600, allwin: 750, all: 1000 };
-ok('thirty, each with its reward, cheapest first',
-  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [30, want, true]);
-ok('$6670 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 6670);
+  teams: 75, b2b: 75, own: 75, six: 125, s100: 150, seth2: 150, s250: 150, coach: 200, seth2w: 200, big200: 200, w25: 250, w50: 250,
+  allA: 250, p2000: 350, m95: 400, t95: 400, every: 500, three: 500, winless: 500, perfect: 600, allwin: 750, all: 1000 };
+ok('thirty-four, each with its reward, cheapest first',
+  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [34, want, true]);
+ok('$7520 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 7520);
 ok('the spread runs from $10 to $750, with $1000 on top for the lot',
   [Math.min(...M.BAM_ACH.map(a => a.r)), Math.max(...M.BAM_ACH.filter(a => a.id !== 'all').map(a => a.r)), M.BAM_ACH[M.BAM_ACH.length - 1].id], [10, 750, 'all']);
 ok('no blowout', M.BAM_ACH.some(a => /blow/i.test(a.id + M.bamAchName(a))), false);
@@ -144,6 +145,16 @@ fresh();
   const b = M.bamFresh();
   KEYS.forEach(k => { b.slots[k] = SETH; M.bamAchTake(b, SETH, k); });
   ok('an all-Seth build is a 99 manager: Build a 95 overall manager', [rec().bm, done().includes('m95')], [99, true]);
+  ok('and nine S grades are A- or better in all 9 slots', [rec().ba, done().includes('allA')], [9, true]);
+}
+fresh();
+{
+  /* all nine of BFT's own grades: five at A- or better, Finance a C among the rest */
+  const b = M.bamFresh();
+  KEYS.forEach(k => { b.slots[k] = 10; M.bamAchTake(b, 10, k); });
+  const high = KEYS.filter(k => M.BAM_SCALE.indexOf(CFG.buildManager.grades[10][k]) >= M.BAM_SCALE.indexOf('A-')).length;
+  ok('one slot under A- is not all nine: the record keeps the best count', [rec().ba, done().includes('allA')], [high, false]);
+  ok('S counts as better than A-', M.BAM_SCALE.indexOf('S') > M.BAM_SCALE.indexOf('A-'), true);
 }
 fresh();
 {
@@ -163,7 +174,7 @@ fresh();
     table: [{ id: 3, w: 1, l: 0, pf: 100.5 }].concat(league.filter(t => t.id !== 3).map(t => ({ id: t.id, w: 0, l: 1, pf: 90 }))),
     seed: [3].concat(league.filter(t => t.id !== 3).map(t => t.id)), place: { 3: 5 } } });
   ok('the last of them earns Complete every achievement in the same moment', [wonBy, done().includes('all')], [['nail', 'all'], true]);
-  ok('and pays its $1000 with the rest', M.bamAchBucks(), 6670);
+  ok('and pays its $1000 with the rest', M.bamAchBucks(), 7520);
   await flush();
 }
 fresh();
@@ -238,6 +249,15 @@ fresh();
 {
   const big = await play({ team: 9, place: 5, w: 7, l: 7, seed: 5, scores: games(6, 7).concat([[181.2, 120]]) }, null, 96);
   ok('180 in a game and a 96 team', [big.got.includes('big'), big.got.includes('t95'), rec().bg, rec().bt], [true, true, 181.2, 96]);
+  ok('but 181 is not 200', big.got.includes('big200'), false);
+  const huge = await play({ team: 9, place: 5, w: 7, l: 7, seed: 5, scores: games(6, 7).concat([[200.4, 120]]) });
+  ok('200 in a game is Score 200 in a game', [huge.got, rec().bg], [['big200'], 200.4]);
+}
+fresh();
+{
+  M.set({ ls: { 'bft:bamach': JSON.stringify({ n: 249, w: 49 }) } });
+  const { got } = await play({ team: 4, place: 1, w: 9, l: 5, seed: 2, scores: games(9, 5) });
+  ok('the 250th season and the 50th title: Play 250 seasons and Win 50 titles', [got.includes('s250'), got.includes('w50'), rec().n, rec().w], [true, true, 250, 50]);
 }
 fresh();
 {
@@ -331,8 +351,8 @@ fresh();
   ok('and nothing once it has been opened', M.bamTrophyHTML().includes('bam-trophy-n'), false);
   M.set({ since: NOW - 10000 });
   const pop = M.bamAchHTML();
-  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 30]'), pop.includes('[$65 of $6670]')], [30, true, true]);
-  ok('Complete every achievement counts the other twenty-nine', pop.includes('[2/29]'), true);
+  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 34]'), pop.includes('[$65 of $7520]')], [34, true, true]);
+  ok('Complete every achievement counts the other thirty-three', pop.includes('[2/33]'), true);
   ok('what is earned is done, and what is new since the last look is lit',
     [/class="bam-ach done new" id="bam-ach-title"/.test(pop), /class="bam-ach done" id="bam-ach-last"/.test(pop), /class="bam-ach" id="bam-ach-land"/.test(pop)], [true, true, true]);
   ok('each with its bar and how far along', [pop.includes('[6/12]'), pop.includes('width:50%'), pop.includes('[3/10]'), pop.includes('[$15]')], [true, true, true, true]);

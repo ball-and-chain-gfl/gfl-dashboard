@@ -21657,7 +21657,7 @@ function bamRecordWin(b){
   bamPaySave(now,prev);
 }
 /* ── THE TROPHY CASE ─────────────────────────────────────────────────────────
-   Thirty achievements, each with a progress bar and its own GFL Bucks, paid
+   Thirty-four achievements, each with a progress bar and its own GFL Bucks, paid
    the moment it is earned (bamAchBucks, in the bank beside the titles). The
    commissioner picked them and their rewards on 8 November. Nothing before
    then counts: everyone starts from zero.
@@ -21706,9 +21706,13 @@ const BAM_ACH=[
   {id:'six', name:'Win a title as the 6th seed', r:125, one:true},
   {id:'s100', name:'Play 100 seasons', r:150, goal:()=>100, at:s=>s.n},
   {id:'seth2', name:'Get 2 Seths in one build', r:150, goal:()=>2, at:s=>s.bs},
+  {id:'s250', name:'Play 250 seasons', r:150, goal:()=>250, at:s=>s.n},
   {id:'coach', name:'Win a title with a manager under 85', r:200, one:true},
   {id:'seth2w', name:'Win a title with 2 Seths', r:200, one:true},
+  {id:'big200', name:'Score 200 in a game', r:200, goal:()=>200, at:s=>Math.floor(s.bg)},
   {id:'w25', name:'Win 25 titles', r:250, goal:()=>25, at:s=>s.w},
+  {id:'w50', name:'Win 50 titles', r:250, goal:()=>50, at:s=>s.w},
+  {id:'allA', name:'Get A- or better in all 9 slots', r:250, goal:()=>9, at:s=>s.ba},
   {id:'p2000', name:'Score 2000 in a regular season', r:350, goal:()=>2000, at:s=>Math.floor(s.bp)},
   {id:'m95', name:'Build a 95 overall manager', r:400, goal:()=>95, at:s=>s.bm},
   {id:'t95', name:'Build a 95 overall team', r:400, goal:()=>95, at:s=>s.bt},
@@ -21724,8 +21728,9 @@ const BAM_ACH=[
 ];
 const bamAchName=a=>typeof a.name==='function'?a.name():a.name;
 const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');
-const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bd:0,done:{}});
-const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bd:9};
+/* ba: the most slots at A- or better in one build */
+const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bd:0,ba:0,done:{}});
+const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bd:9,ba:9};
 /* a record read from anywhere, kept only where it makes sense */
 function bamAchClean(x){
   const o=bamAchBlank(); if(!x||typeof x!=='object') return o;
@@ -21809,6 +21814,7 @@ function bamAchTake(b,id,k){
     const ids=Object.values(b.slots);
     st.bs=Math.max(st.bs,ids.filter(bamIsSeth).length);
     st.bd=Math.max(st.bd,new Set(ids).size);
+    st.ba=Math.max(st.ba,Object.entries(b.slots).filter(([a,m])=>bamGrade(m,a)>=bamIdx('A-')).length);
     if(bamDone(b)) st.bm=Math.max(st.bm,bamOvr(b));
   });
 }
