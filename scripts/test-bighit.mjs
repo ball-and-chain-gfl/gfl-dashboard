@@ -26,10 +26,10 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 
 const DAY = 86400000, NOW = Date.UTC(2026, 9, 8, 15);
 const M = assemble(grab, [
-  'const NT_KINDS=', 'const NT_BIG_HIT=', 'const NT_BIG_HIT_FOR=',
+  'const NT_KINDS=', 'const NT_BIG_HIT=', 'function realWeekStart(', 'const ntBigHitUntil=',
   'function ntBigHits(out){',
-], ['NT_KINDS', 'ntBigHits', 'setBets', 'setMe', 'asked'], [
-  `Date.now=()=>${NOW};`,
+], ['NT_KINDS', 'ntBigHits', 'setBets', 'setMe', 'asked', 'setNow'], [
+  `let _now=${NOW}; Date.now=()=>_now; const setNow=t=>{ _now=t; };`,
   'let _me={k1:"bft"}; const setMe=m=>{_me=m;};',
   'let _betsAll=null; const setBets=b=>{_betsAll=b;}; const betsNear=()=>_betsAll;',
   /* how often it asks is test-betsnear's business: here, only whether */
@@ -102,6 +102,22 @@ ok('a head to head is told by the side that won it, with their own leg',
   [true, true, true, false]);
 ok('naming who lost it', h2h.body, 'Head to head against <b>DORM FC</b>.');
 ok('a single says so', out.find(c => c.id === 'bh:just').body, 'A single at +100.');
+
+head('news until the next Tuesday');
+{
+  /* in the clock the app runs on (the week turns Tuesday 6am, local) */
+  const at = (mo, d, h, mi = 0) => new Date(2026, mo - 1, d, h, mi).getTime();
+  const won = settledTs => [bet('w8', 'kunk', { stake: 250, ret: 411.29, settledTs, legs: legs4.slice(0, 1), odds: 65 })];
+  const shows = (settledTs, now) => { M.setBets(won(settledTs)); M.setNow(now); const o = []; M.ntBigHits(o); return o.length === 1; };
+  const tue = at(11, 3, 5, 51);                       // the week 8 settle run, before the 6am turn
+  ok('settled at 5:51 on a Tuesday, it is news all week', [shows(tue, at(11, 3, 9)), shows(tue, at(11, 9, 20))], [true, true]);
+  ok('and until the turn on the Tuesday after, not past it', [shows(tue, at(11, 10, 5, 59)), shows(tue, at(11, 10, 6)), shows(tue, at(11, 11, 12))], [true, false, false]);
+  const late = at(11, 3, 7, 40);                      // a late run, after the turn
+  ok('a settle after six on the Tuesday lasts to the same next turn', [shows(late, at(11, 10, 5, 59)), shows(late, at(11, 10, 6))], [true, false]);
+  const mon = at(11, 2, 23, 30);                      // graded on a phone once ESPN closed the week
+  ok('one graded on the Monday night lasts to the Tuesday after the turn that follows it', [shows(mon, at(11, 9, 12)), shows(mon, at(11, 10, 6))], [true, false]);
+  M.setNow(NOW);
+}
 
 head('reading the league');
 M.setBets(null);

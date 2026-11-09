@@ -19404,13 +19404,25 @@ function ntSeen(){
   let a=[]; try{ a=JSON.parse(localStorage.getItem(ntKey())||'[]')||[]; }catch(e){}
   return (_ntSeen=new Set(a.filter(x=>typeof x==='string')));
 }
+/* ── A SWIPED CARD STAYS SWIPED ──────────────────────────────────────────────
+   The list used to keep only the ids being produced at the moment of a save,
+   so it would not grow forever. But a card is only produced once its data is
+   in, and much of it arrives after the app opens: the league's tickets, the
+   profile list, the trades. A swipe made before they landed dropped every
+   card that rested on them -- off the device and off the profile -- and the
+   card came back as new once its data arrived. BFT's Big win on KUNK's week 8
+   ticket, swiped on 3 November, was back on the 9th; its id was gone from the
+   profile's list.
+
+   So the newest NT_SEEN_KEEP swipes are kept whatever is being produced, and
+   only older ones that are no longer produced are let go. That is weeks of
+   cards, far longer than any card is news, and the list stays bounded. */
+const NT_SEEN_KEEP=300;
 function ntSaveSeen(extra){
-  /* Only ids still being produced are worth keeping. Without this the list
-     grows forever as weeks roll past and old events stop being generated. */
   let keep=[...ntSeen()];
   try{
-    const live=new Set(ntAll().map(n=>n.id));
-    keep=keep.filter(x=>live.has(x)||x===extra);
+    const live=new Set(ntAll().map(n=>n.id)), recent=new Set(keep.slice(-NT_SEEN_KEEP));
+    keep=keep.filter(x=>recent.has(x)||live.has(x)||x===extra);
   }catch(e){}
   try{ localStorage.setItem(ntKey(),JSON.stringify(keep)); }catch(e){}
   if(_me) try{ gflPatchProfile(_me.k1,{ntSeen:JSON.stringify(keep)}); }catch(e){}
@@ -20234,7 +20246,12 @@ function ntPvp(out){
    (see THE HOMEPAGE ASKS FOR TWO WEEKS), and only for somebody signed in --
    nobody else has a stack to put it in. */
 const NT_BIG_HIT=100;
-const NT_BIG_HIT_FOR=7*86400000;
+/* NEWS UNTIL THE NEXT TUESDAY. A win is on the stack from when it settles
+   until the league's week turns again (Tuesday 6am) after the one it settled
+   in; unswiped by then, it goes. The settle job runs before and after six on
+   a Tuesday, so the turn counted from is the one a day after settling: a
+   ticket settled at 5:51 on 3 November is news until 6:00 on the 10th. */
+const ntBigHitUntil=st=>realWeekStart(new Date(Number(st)+86400000))+7*86400000;
 function ntBigHits(out){
   if(!_me) return;
   betsNearWant();
@@ -20248,7 +20265,7 @@ function ntBigHits(out){
     const won=bucks2((b.ret||0)-(b.stake||0));
     if(!(won>NT_BIG_HIT)) return;
     const st=Number(b.settledTs)||0;
-    if(!st||now-st>NT_BIG_HIT_FOR) return;
+    if(!st||now>=ntBigHitUntil(st)) return;
     const root=(b.srcBet&&byId[b.srcBet])||b;
     (groups[root.id]||(groups[root.id]={root,wins:[]})).wins.push({b,won,st});
   });

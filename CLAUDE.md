@@ -318,6 +318,16 @@ parts are `bam-ttop`/`bam-tbot`; `bam-ts`, `bam-ta`...`bam-tf` are the grade
 colours, and the two must never share a name (`bam-tb` once meant both, and B
 tiles broke).
 
+SWIPED CARDS (`ntSeen` on the profile, merged with the device's): a swipe
+keeps the newest `NT_SEEN_KEEP` (300) ids whatever is being produced, and lets
+older ones go only once their card is no longer produced. It used to keep only
+ids being produced at the moment of the save, and a card is produced only once
+its data has loaded (the league's tickets, profiles, trades), so a swipe made
+early in an open dropped those cards and they came back as new (BFT's Big win
+from 3 November, back on the 9th). Tests: `scripts/test-ntseen.mjs`. A Big
+win (`ntBigHits`) is news until the Tuesday 6am turn after the one it settled
+in (`ntBigHitUntil`), not a flat seven days.
+
 Rules and indexes are **not** part of the Vercel push; they ship with the
 Firebase CLI (`firebase deploy --only firestore:rules`, or `firestore:indexes`).
 An ordered query on a filtered field needs a composite index, and without one

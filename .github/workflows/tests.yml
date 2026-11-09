@@ -51,6 +51,10 @@ jobs:
         run: node scripts/test-ntgraph.mjs
       - name: the big win notification
         run: node scripts/test-bighit.mjs
+      # A swiped card stays swiped: a swipe made before a card's data has loaded
+      # must not drop it from the list on the profile, or it comes back as new.
+      - name: a swiped card stays swiped
+        run: node scripts/test-ntseen.mjs
       - name: the homepage reads two weeks of bets, and only when somebody arrives
         run: node scripts/test-betsnear.mjs
       - name: a ceiling on what one device can spend of the league Firestore
