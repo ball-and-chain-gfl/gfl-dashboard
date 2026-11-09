@@ -20871,10 +20871,10 @@ const BAM_RESPINS=1;
 const BAM_SPIN_MS=4200;
 const BAM_TURNS=5;
 /* the wedges take these in turn, so no two neighbours match; Seth's sliver is
-   a blue of its own, an S's colour */
+   a blue of its own, an S's colour, and the Chimp's an F's red */
 const BAM_HUES=['#5b30b8','#3c45b0','#8a34b8','#45278a'];
-const BAM_SETH_HUE='#2F86EB';
-const bamHue=(id,i)=>bamIsSeth(id)?BAM_SETH_HUE:BAM_HUES[i%BAM_HUES.length];
+const BAM_SETH_HUE='#2F86EB', BAM_CHIMP_HUE='#E84146';
+const bamHue=(id,i)=>bamIsSeth(id)?BAM_SETH_HUE:bamIsChimp(id)?BAM_CHIMP_HUE:BAM_HUES[i%BAM_HUES.length];
 /* The letters a grade can be, worst to best: the punishment scale's thirteen,
    with an F+ under D- and an S above A+. S is blue. */
 const BAM_SCALE=['F','F+','D-','D','D+','C-','C','C+','B-','B','B+','A-','A','A+','S'];
@@ -20898,10 +20898,18 @@ const bamCfg=()=>((_CFG.buildManager||{}).grades)||{};
    plays no games, and he is not among the league's ratings. */
 const bamSeth=()=>((_CFG.buildManager||{}).seth)||null;
 const bamIsSeth=id=>{ const s=bamSeth(); return !!s&&id!=null&&Number(id)===Number(s.id); };
+/* THE CHIMP is Seth's opposite: the same size of sliver, across the wheel
+   from him, red, with an F in every grade, and a point off the roster for
+   every one in the build. Never a team either. Seth and the Chimp are the
+   wheel's two guests. */
+const bamChimp=()=>((_CFG.buildManager||{}).chimp)||null;
+const bamIsChimp=id=>{ const c=bamChimp(); return !!c&&id!=null&&Number(id)===Number(c.id); };
+const bamGuest=id=>bamIsSeth(id)?bamSeth():bamIsChimp(id)?bamChimp():null;
+const bamIsGuest=id=>!!bamGuest(id);
 /* a manager's grade in a trait, as a step on the scale (0 is F, 13 is A+, 14
    is S), or -1 */
 function bamGrade(teamId,attr){
-  const row=bamIsSeth(teamId)?bamSeth().grades:bamCfg()[String(teamId)];
+  const g=bamGuest(teamId), row=g?g.grades:bamCfg()[String(teamId)];
   return row?bamIdx(row[attr]):-1;
 }
 /* the league's managers: in the league now, and graded in all nine. They are
@@ -20912,13 +20920,16 @@ function bamTeamPool(){
     .filter(id=>live.has(id)&&BAM_ATTRS.every(([k])=>bamGrade(id,k)>=0))
     .sort((a,b)=>a-b);
 }
-/* who the wheel can land on for a grade: the league's managers, then Seth */
+/* who the wheel can land on for a grade: the league's managers, the Chimp
+   halfway round and Seth at the end, so their slivers face each other */
 function bamPool(){
-  const pool=bamTeamPool(), s=bamSeth();
-  return s&&pool.length&&BAM_ATTRS.every(([k])=>bamGrade(s.id,k)>=0)?pool.concat([Number(s.id)]):pool;
+  const pool=bamTeamPool(); if(!pool.length) return pool;
+  const ok=g=>!!g&&BAM_ATTRS.every(([k])=>bamGrade(g.id,k)>=0);
+  const s=bamSeth(), c=bamChimp(), half=Math.ceil(pool.length/2);
+  return pool.slice(0,half).concat(ok(c)?[Number(c.id)]:[],pool.slice(half),ok(s)?[Number(s.id)]:[]);
 }
 /* a wedge's share of the wheel, and of the draw: one for a manager, a sliver for Seth */
-const bamWeight=id=>bamIsSeth(id)?Math.max(0.05,Math.min(1,Number(bamSeth().share)||0.2)):1;
+const bamWeight=id=>{ const g=bamGuest(id); return g?Math.max(0.05,Math.min(1,Number(g.share)||0.2)):1; };
 /* The wedges, clockwise from the first, which is centred under the pointer at
    rest: where each starts, how wide it is and its middle, in degrees. */
 function bamWedges(pool){
@@ -20988,8 +20999,8 @@ function bamValid(x,pool){
     slots[k]=Number(id);
   }
   if(x.land!=null&&!ok(x.land)) return f;
-  const full=Object.keys(slots).length===BAM_ATTRS.length, teams=pool.filter(id=>!bamIsSeth(id));
-  const r=Number(x.respins), team=(full&&ok(x.team)&&!bamIsSeth(x.team))?Number(x.team):null;
+  const full=Object.keys(slots).length===BAM_ATTRS.length, teams=pool.filter(id=>!bamIsGuest(id));
+  const r=Number(x.respins), team=(full&&ok(x.team)&&!bamIsGuest(x.team))?Number(x.team):null;
   const season=(team!=null&&bamSeasonOk(x.season,team,teams))?x.season:null;
   return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
     respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS,
@@ -21076,7 +21087,7 @@ function bamGame(a,b,str,rnd){
   do{ as=bamScore(str[a],rnd); bs=bamScore(str[b],rnd); }while(as===bs);
   return {a,b,as,bs,win:as>bs?a:b,lose:as>bs?b:a};
 }
-const BAM_ROSTER_AVG=83, BAM_ROSTER_PER_SD=9, BAM_ROSTER_MIN=55, BAM_ROSTER_MAX=95, BAM_SETH_ROSTER=1;
+const BAM_ROSTER_AVG=83, BAM_ROSTER_PER_SD=9, BAM_ROSTER_MIN=55, BAM_ROSTER_MAX=95, BAM_SETH_ROSTER=1, BAM_CHIMP_ROSTER=1;
 /* each team's roster rating, from the games of this season already decided */
 function bamRoster(meta,season){
   const reg=regEndOf(season), per={};
@@ -21094,10 +21105,11 @@ function bamRoster(meta,season){
     Math.max(BAM_ROSTER_MIN,Math.min(BAM_ROSTER_MAX,Math.round(BAM_ROSTER_AVG+BAM_ROSTER_PER_SD*(p-mean)/sd)))]));
 }
 /* the roster of the team your manager runs: its own rating, one more for
-   every Seth in the build, and never past 99 */
+   every Seth in the build and one less for every Chimp, kept to 0-99 */
+const bamCount=(b,is)=>Object.values((b&&b.slots)||{}).filter(is).length;
 function bamMyRoster(b,roster){
-  const seths=Object.values((b&&b.slots)||{}).filter(bamIsSeth).length;
-  return Math.min(99,((roster||{})[b.team]??BAM_ROSTER_AVG)+BAM_SETH_ROSTER*seths);
+  const r=((roster||{})[b.team]??BAM_ROSTER_AVG)+BAM_SETH_ROSTER*bamCount(b,bamIsSeth)-BAM_CHIMP_ROSTER*bamCount(b,bamIsChimp);
+  return Math.max(0,Math.min(99,r));
 }
 /* the regular season, every game on the schedule, as {w,h,a} */
 function bamGames(meta,season){
@@ -21245,7 +21257,8 @@ function bamState(){
 }
 function bamSave(){ try{ localStorage.setItem(_bamKey||bamKey(),JSON.stringify(_bam)); }catch(e){} }
 const bamTeam=id=>{
-  if(bamIsSeth(id)){ const s=bamSeth(); return {id:Number(s.id),name:String(s.name||'Seth'),abbrev:String(s.abbrev||'SETH')}; }
+  const g=bamGuest(id);
+  if(g) return {id:Number(g.id),name:String(g.name||''),abbrev:String(g.abbrev||'')};
   return (_teams||[]).find(t=>Number(t.id)===Number(id))||{id:Number(id),name:''};
 };
 const bamAbbr=t=>t.abbrev||teamInitials(t.name||'');
@@ -21295,11 +21308,11 @@ function bamWheelHTML(pool,on,canSpin,spin){
     const [x0,y0]=pt(w.start,100), [x1,y1]=pt(w.start+w.size,100);
     return `<path${w.id===on?' class="on"':''} d="M100 100 L${x0} ${y0} A100 100 0 ${w.size>180?1:0} 1 ${x1} ${y1} Z" fill="${bamHue(w.id,i)}"/>`;
   }).join('');
-  /* a crest and an abbreviation on a manager's wedge; Seth's sliver is too
-     thin for either, so his name runs down it a letter at a time */
+  /* a crest and an abbreviation on a manager's wedge; a guest's sliver is too
+     thin for either, so the name runs down it a letter at a time */
   const marks=ws.map(w=>{
     const t=bamTeam(w.id);
-    const inner=bamIsSeth(w.id)?`<span class="bam-wl-in bam-wl-seth">${[...bamAbbr(t)].map(c=>bamPx(c,1)).join('')}</span>`
+    const inner=bamIsGuest(w.id)?`<span class="bam-wl-in bam-wl-sliver">${[...bamAbbr(t)].map(c=>bamPx(c,1)).join('')}</span>`
       :`<span class="bam-wl-in">${avatarHTML(t,32,8)}${bamPx(bamAbbr(t),1)}</span>`;
     return `<div class="bam-wl${w.id===on?' on':''}" style="transform:rotate(${w.mid.toFixed(3)}deg)">${inner}</div>`;
   }).join('');
@@ -21344,14 +21357,15 @@ function bamRosterNow(){
   return meta?bamRoster(meta,season):{};
 }
 /* your manager and the team they are locked to, before a ball is kicked; the
-   roster carries your Seths, and says how many points of it they are */
+   roster carries your Seths and your Chimps, and says so */
 function bamTeamCardHTML(b){
   const now=bamRosterNow(), t=bamTeam(b.team), mgr=bamOvr(b), roster=bamMyRoster(b,now);
-  const seth=roster-(now[b.team]??BAM_ROSTER_AVG), s=Math.round(bamStrength(mgr,roster));
+  const seth=bamCount(b,bamIsSeth)*BAM_SETH_ROSTER, chimp=bamCount(b,bamIsChimp)*BAM_CHIMP_ROSTER, s=Math.round(bamStrength(mgr,roster));
+  const mods=(seth?bamPx('+'+seth+' Seth',1,'pg-s'):'')+(chimp?bamPx('-'+chimp+' Chimp',1,'pg-f'):'');
   const cell=(l,n,more)=>`<div>${bamPx(l,1,'bam-mix-l')}${bamPx(String(n),3,bamRateTone(n))}${more||''}</div>`;
   return `<div class="bam-card bam-team bam-panel">
       <div class="bam-who">${avatarHTML(t,40,10)}${bamPx(t.name||'',2)}</div>
-      <div class="bam-mix">${cell('Manager',mgr)}${cell('Roster',roster,seth>0?bamPx(`+${seth} Seth`,1,'pg-s'):'')}${cell('Team',s)}</div>
+      <div class="bam-mix">${cell('Manager',mgr)}${cell('Roster',roster,mods)}${cell('Team',s)}</div>
       <div class="bam-btns"><button class="bam-spin" onclick="bamPlay()"><i class="fa fa-play"></i>${bamPx('Play the season',2)}</button></div>
     </div>`;
 }
@@ -21660,7 +21674,7 @@ function bamRecordWin(b){
   bamPaySave(now,prev);
 }
 /* ── THE TROPHY CASE ─────────────────────────────────────────────────────────
-   Thirty-four achievements, each with a progress bar and its own GFL Bucks, paid
+   Thirty-eight achievements, each with a progress bar and its own GFL Bucks, paid
    the moment it is earned (bamAchBucks, in the bank beside the titles). The
    commissioner picked them and their rewards on 8 November. Nothing before
    then counts: everyone starts from zero.
@@ -21695,6 +21709,7 @@ const BAM_ACH=[
   {id:'s10', name:'Play 10 seasons', r:10, goal:()=>10, at:s=>s.n},
   {id:'seth', name:'Get a Seth', r:15, goal:()=>1, at:s=>s.bs},
   {id:'land', name:'Land on every manager', r:15, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.land)},
+  {id:'chimp', name:'Get a Chimp', r:15, goal:()=>1, at:s=>s.bc},
   {id:'title', name:'Win the championship', r:25, goal:()=>1, at:s=>s.w},
   {id:'big', name:'Score 180 in a game', r:25, goal:()=>180, at:s=>Math.floor(s.bg)},
   {id:'toilet', name:'Win the losers final', r:30, one:true},
@@ -21702,16 +21717,19 @@ const BAM_ACH=[
   {id:'nine', name:'Use 9 different managers in one build', r:40, goal:()=>9, at:s=>s.bd},
   {id:'w5', name:'Win 5 titles', r:50, goal:()=>5, at:s=>s.w},
   {id:'sethw', name:'Win a title with a Seth', r:50, one:true},
+  {id:'chimplast', name:'Finish last with a Chimp', r:50, one:true},
   {id:'s50', name:'Play 50 seasons', r:60, goal:()=>50, at:s=>s.n},
   {id:'teams', name:'Play with every team', r:75, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.play)},
   {id:'b2b', name:'Win back-to-back titles', r:75, goal:()=>2, at:s=>s.st},
   {id:'own', name:'Win a title with your own team', r:75, one:true},
+  {id:'chimpw', name:'Win a title with a Chimp', r:75, one:true},
+  {id:'sethlast', name:'Finish last with a Seth', r:75, one:true},
   {id:'six', name:'Win a title as the 6th seed', r:125, one:true},
   {id:'s100', name:'Play 100 seasons', r:150, goal:()=>100, at:s=>s.n},
   {id:'seth2', name:'Get 2 Seths in one build', r:150, goal:()=>2, at:s=>s.bs},
   {id:'s250', name:'Play 250 seasons', r:150, goal:()=>250, at:s=>s.n},
+  {id:'chimp2', name:'Get 2 Chimps in one build', r:150, goal:()=>2, at:s=>s.bc},
   {id:'coach', name:'Win a title with a manager under 85', r:200, one:true},
-  {id:'seth2w', name:'Win a title with 2 Seths', r:200, one:true},
   {id:'big200', name:'Score 200 in a game', r:200, goal:()=>200, at:s=>Math.floor(s.bg)},
   {id:'w25', name:'Win 25 titles', r:250, goal:()=>25, at:s=>s.w},
   {id:'w50', name:'Win 50 titles', r:250, goal:()=>50, at:s=>s.w},
@@ -21731,9 +21749,10 @@ const BAM_ACH=[
 ];
 const bamAchName=a=>typeof a.name==='function'?a.name():a.name;
 const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');
-/* ba: the most slots at A- or better in one build */
-const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bd:0,ba:0,done:{}});
-const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bd:9,ba:9};
+/* ba: the most slots at A- or better in one build; bs and bc, the most Seths
+   and the most Chimps in one */
+const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bc:0,bd:0,ba:0,done:{}});
+const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bc:9,bd:9,ba:9};
 /* a record read from anywhere, kept only where it makes sense */
 function bamAchClean(x){
   const o=bamAchBlank(); if(!x||typeof x!=='object') return o;
@@ -21803,10 +21822,10 @@ function bamAchEdit(fn,hit){
   try{ localStorage.setItem(bamAchKey(),JSON.stringify(st)); }catch(e){}
   return got;
 }
-/* the wheel stopped on a manager (Seth has an achievement of his own);
-   returns what that earned, for the banner */
+/* the wheel stopped on a manager (Seth and the Chimp have achievements of
+   their own); returns what that earned, for the banner */
 function bamAchLand(id){
-  if(id==null||bamIsSeth(id)) return [];
+  if(id==null||bamIsGuest(id)) return [];
   return bamAchEdit(st=>{ if(!st.land.includes(id)) st.land.push(id); });
 }
 /* a trait taken off `id` into slot `k`: the grade used, and how the build
@@ -21815,9 +21834,10 @@ function bamAchTake(b,id,k){
   if(id==null) return [];
   return bamAchEdit(st=>{
     const i=BAM_ATTRS.findIndex(([a])=>a===k);
-    if(!bamIsSeth(id)&&i>=0) st.use[id]=(st.use[id]|0)|(1<<i);
+    if(!bamIsGuest(id)&&i>=0) st.use[id]=(st.use[id]|0)|(1<<i);
     const ids=Object.values(b.slots);
     st.bs=Math.max(st.bs,ids.filter(bamIsSeth).length);
+    st.bc=Math.max(st.bc,ids.filter(bamIsChimp).length);
     st.bd=Math.max(st.bd,new Set(ids).size);
     st.ba=Math.max(st.ba,Object.entries(b.slots).filter(([a,m])=>bamGrade(m,a)>=bamIdx('A-')).length);
     if(bamDone(b)) st.bm=Math.max(st.bm,bamOvr(b));
@@ -21836,15 +21856,18 @@ function bamAchSeason(b){
   const s=b.season, me=b.team, sum=bamSeasonSum(s,me), row=s&&s.table.find(r=>r.id===me);
   if(!sum||!row) return done([]);
   const games=bamMine(b).map(x=>x.g), mine=g=>g.a===me?g.as:g.bs, theirs=g=>g.a===me?g.bs:g.as;
-  const title=sum.place===1, seths=Object.values(b.slots).filter(bamIsSeth).length, hit=[];
+  const title=sum.place===1, seths=bamCount(b,bamIsSeth), chimps=bamCount(b,bamIsChimp), hit=[];
   /* by tenths, as the scores are kept: 100.1 against 99.1 is a point, not 0.99999 */
   if(games.some(g=>g.win===me&&Math.round((mine(g)-theirs(g))*10)<10)) hit.push('nail');
   if(sum.place===11) hit.push('toilet');
   if(sum.place===12) hit.push('last');
+  /* the guests the wrong way round: last with a Seth or a Chimp, a title with a Chimp */
+  if(sum.place===12&&seths>=1) hit.push('sethlast');
+  if(sum.place===12&&chimps>=1) hit.push('chimplast');
+  if(title&&chimps>=1) hit.push('chimpw');
   if(row.w===0&&row.l>0) hit.push('winless');
   if(title){
     if(seths>=1) hit.push('sethw');
-    if(seths>=2) hit.push('seth2w');
     if(Number(_me.teamId)===me) hit.push('own');
     if(sum.seed===6) hit.push('six');
     if(bamOvr(b)<85) hit.push('coach');

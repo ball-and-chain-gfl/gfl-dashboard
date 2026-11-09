@@ -37,7 +37,7 @@ const grab = lifter(appUrl);
 const M = assemble(grab, [
   'const BAM_SCALE=', 'const bamIdx=', 'const BAM_CODE=', 'const bamTone=', 'const bamToneCls=',
   'const BAM_ATTRS=', 'const BAM_RESPINS=', 'const BAM_TURNS=', 'const BAM_HUES=', 'const BAM_SETH_HUE=', 'const bamHue=', 'const bamCfg=',
-  'const bamSeth=', 'const bamIsSeth=', 'function bamGrade(', 'function bamTeamPool(', 'function bamPool(', 'const bamWeight=', 'function bamWedges(',
+  'const bamSeth=', 'const bamIsSeth=', 'const bamChimp=', 'const bamIsChimp=', 'const bamGuest=', 'const bamIsGuest=', 'const bamCount=', 'function bamGrade(', 'function bamTeamPool(', 'function bamPool(', 'const bamWeight=', 'function bamWedges(',
   'const bamFresh=', 'const bamOpen=', 'const bamDone=',
   'const BAM_PTS=', 'function bamRating(', 'const bamRateTone=', 'function bamOvr(', 'function bamManagerOvr(', 'function bamPick(', 'function bamTake(', 'function bamSeasonOk(', 'function bamValid(',
   'function bamAim(', 'function bamAt(', 'function bamCode(', 'function bamDecode(',
@@ -49,7 +49,7 @@ const M = assemble(grab, [
   'const lsKey=', 'function realWeekStart(', 'const bucks2=', 'function bucksFor(',
   'const BAM_PRIZE=', 'const BAM_PRIZE_FROM=', 'const bamPaidKey=', 'const bamPaidParse=', 'function bamPaidClean(',
   'function bamWinTimes(', 'const bamPaidOf=', 'function bamPaidMine(', 'const bkBamTimes=', 'function bamBucks(',
-], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'BAM_SETH_HUE', 'bamHue', 'BAM_SCALE', 'BAM_CODE', 'bamTone', 'bamToneCls', 'bamGrade',
+], ['BAM_ATTRS', 'BAM_RESPINS', 'BAM_TURNS', 'BAM_HUES', 'BAM_SETH_HUE', 'BAM_CHIMP_HUE', 'bamHue', 'bamIsChimp', 'BAM_SCALE', 'BAM_CODE', 'bamTone', 'bamToneCls', 'bamGrade',
   'bamIsSeth', 'bamTeamPool', 'bamPool', 'bamWeight', 'bamWedges', 'bamTeam', 'bamFresh', 'bamOpen',
   'bamDone', 'BAM_PTS', 'bamRating', 'bamRateTone', 'bamOvr', 'bamManagerOvr', 'BAM_MGR_W', 'bamStrength', 'bamGame', 'BAM_ROSTER_MAX', 'bamRoster', 'bamMyRoster', 'bamGames', 'bamSimSeason', 'bamFinish', 'bamPick', 'bamTake', 'bamValid', 'bamAim', 'bamAt', 'bamCode', 'bamDecode',
   'ntBamWins', 'bamRateOrder', 'BAM_WIN_DAYS', 'bamRateCardHTML', 'bamRatingsHTML', 'bamResultHTML',
@@ -157,8 +157,8 @@ ok('a title is noted on your own profile and nothing else is read', [recAt > 0, 
   ['bkIQFor', 'badBeatData', 'computeCoaching', 'pgComposite', '_scores'].filter(w => record.includes(w))], [true, true, []]);
 
 console.log(NL + 'the wheel');
-const SETH = CFG.buildManager.seth.id;
-ok('everyone in the league with all nine can come up, and Seth', M.bamPool(), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, SETH]);
+const SETH = CFG.buildManager.seth.id, CHIMP = CFG.buildManager.chimp.id;
+ok('everyone in the league with all nine can come up, the Chimp halfway round and Seth at the end', M.bamPool(), [1, 2, 3, 4, 5, 6, CHIMP, 7, 8, 9, 10, 11, 12, SETH]);
 M.set({ teams: league.filter(t => t.id !== 4) });
 ok('a team not in the league now cannot', M.bamPool().includes(4), false);
 const short = JSON.parse(JSON.stringify(CFG)); delete short.buildManager.grades[7].luck;
@@ -192,7 +192,7 @@ console.log(NL + 'seth');
   ok('a sliver of the wheel, a fifth of a manager\'s wedge', [CFG.buildManager.seth.share, +(s.size / ws[0].size).toFixed(6)], [0.2, 0.2]);
   ok('in a blue of his own', M.bamHue(SETH, pool.indexOf(SETH)), M.BAM_SETH_HUE);
   ok('with an S in every grade, so a 99', [KEYS.every(k => L(SETH, k) === 'S'), M.bamManagerOvr(SETH)], [true, 99]);
-  const N = 12200; let hits = 0;
+  const N = 12400; let hits = 0;
   for (let i = 0; i < N; i++) if (M.bamPick(pool, null, () => (i + 0.5) / N) === SETH) hits++;
   ok('landed on as often as his sliver is wide: about one spin in sixty', hits, 200);
   ok('Seth by name, SETH on a tile', [M.bamTeam(SETH).name, M.bamTeam(SETH).abbrev], ['Seth', 'SETH']);
@@ -203,6 +203,27 @@ console.log(NL + 'seth');
   const code = M.bamCode({ slots: allSeth }, 10);
   ok('and it travels in a link: z for Seth, d for each S', [code.slice(2, 4), M.bamDecode(code).slots.legacy, M.BAM_SCALE[M.bamDecode(code).grades.legacy]],
     ['zd', SETH, 'S']);
+}
+
+console.log(NL + 'the chimp');
+{
+  const pool = M.bamPool(), ws = M.bamWedges(pool), c = ws.find(w => w.id === CHIMP), s = ws.find(w => w.id === SETH);
+  ok('a sliver the size of Seth\'s', [CFG.buildManager.chimp.share, +(c.size / ws[0].size).toFixed(6)], [0.2, 0.2]);
+  const apart = Math.abs((((c.mid - s.mid) % 360) + 360) % 360 - 180);
+  ok('across the wheel from him, within a wedge of opposite', apart < 360 / 12.4, true);
+  ok('in red, an F\'s colour, as Seth\'s is an S\'s blue', [M.bamHue(CHIMP, pool.indexOf(CHIMP)), M.BAM_CHIMP_HUE.toLowerCase()], ['#E84146', '#e84146']);
+  ok('with an F in every grade, so a 55', [KEYS.every(k => L(CHIMP, k) === 'F'), M.bamManagerOvr(CHIMP)], [true, 55]);
+  const N = 12400; let hits = 0;
+  for (let i = 0; i < N; i++) if (M.bamPick(pool, null, () => (i + 0.5) / N) === CHIMP) hits++;
+  ok('landed on as often as Seth', hits, 200);
+  ok('Chimp by name, CHIMP on a tile', [M.bamTeam(CHIMP).name, M.bamTeam(CHIMP).abbrev], ['Chimp', 'CHIMP']);
+  ok('never a team to run, nor one of the league\'s ratings', [M.bamTeamPool().includes(CHIMP), M.bamRateOrder().includes(CHIMP)], [false, false]);
+  const allChimp = Object.fromEntries(KEYS.map(k => [k, CHIMP]));
+  ok('a build can be all Chimp, but a team of his is thrown out',
+    [M.bamValid({ slots: allChimp }, pool).slots.trade, M.bamValid({ slots: allChimp, team: CHIMP }, pool).team], [CHIMP, null]);
+  const code = M.bamCode({ slots: allChimp }, 10);
+  ok('and it travels in a link: y for the Chimp, 0 for each F', [code.slice(2, 4), M.bamDecode(code).slots.legacy, M.BAM_SCALE[M.bamDecode(code).grades.legacy]],
+    ['y0', CHIMP, 'F']);
 }
 
 console.log(NL + 'one trait a spin');
@@ -335,6 +356,10 @@ console.log(NL + 'the season');
   ok('every Seth in your build is a point on your roster, past 95 and no further than 99',
     [M.bamMyRoster(sethB(0), roster), M.bamMyRoster(sethB(1), roster), M.bamMyRoster(sethB(2), roster), M.bamMyRoster(sethB(9), roster)], [95, 96, 97, 99]);
   ok('and on a team with no games yet, from the 83 every team starts at', M.bamMyRoster({ ...sethB(1), team: 12 }, {}), 84);
+  /* and one less for every Chimp, the two cancelling out */
+  const mixB = (s, c) => ({ slots: Object.fromEntries(KEYS.map((k, i) => [k, i < s ? SETH : i < s + c ? CHIMP : 10])), team: 12 });
+  ok('every Chimp is a point off it, and a Seth and a Chimp cancel',
+    [M.bamMyRoster(mixB(0, 1), roster), M.bamMyRoster(mixB(0, 3), roster), M.bamMyRoster(mixB(1, 1), roster), M.bamMyRoster(mixB(2, 1), roster)], [94, 92, 95, 96]);
   ok('a season with nothing played is no roster at all', M.bamRoster({ schedule: sched.map(m => ({ ...m, winner: 'UNDECIDED' })) }, '2026'), {});
 
   const str = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 70 + i * 2]));

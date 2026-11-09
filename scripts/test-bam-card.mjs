@@ -51,6 +51,10 @@ ok('nine S read as S and rate 99, the top; nine F+ read as F+',
   vm.runInNewContext(fs.readFileSync(new URL('../public/config.js', import.meta.url), 'utf8'), box);
   const seth = box.window.GFL_CONFIG.buildManager.seth;
   ok('Seth is named on the picture as config.js names him', B.GUESTS[seth.id], [seth.abbrev, seth.name]);
+  const chimp = box.window.GFL_CONFIG.buildManager.chimp;
+  ok('and so is the Chimp', B.GUESTS[chimp.id], [chimp.abbrev, chimp.name]);
+  ok('an all-Chimp build reads CHIMP and F on every tile', /^(Drafting|Trading|Finances|Coaching|Ball Knowledge|Luck|Engagement|Punishment|Legacy) F \(CHIMP\)$/
+    .test(B.page(B.decode('1a' + 'y0'.repeat(9)), teams, 'https://x').match(/og:description" content="([^"]*)/)[1].split(' · ')[0]), true);
   const v = B.decode('1a' + 'zd'.repeat(9));
   ok('so an all-Seth build reads SETH on every tile', /^(Drafting|Trading|Finances|Coaching|Ball Knowledge|Luck|Engagement|Punishment|Legacy) S \(SETH\)$/
     .test(B.page(v, teams, 'https://x').match(/og:description" content="([^"]*)/)[1].split(' · ')[0]), true);

@@ -255,7 +255,7 @@ out), and the Champion box shows "+$10 GFL Bucks".
 ACHIEVEMENTS (the trophy case, from 8 November): a trophy at the top right of
 `.bam-play`, by the wheel (or in the season panel's head row), signed in only,
 with a count of what was earned since the last look (`lsKey('bamachseen')`).
-It opens `#bam-ach-overlay`: thirty-four rows (`BAM_ACH`, cheapest first, $7520
+It opens `#bam-ach-overlay`: thirty-eight rows (`BAM_ACH`, cheapest first, $7685
 in all; no blowout, and no title with MCM or WGLR, which the user removed).
 The user added four at their own prices: Play 250 seasons ($150), Score 200
 in a game ($200), Win 50 titles and A- or better in all 9 slots ($250 each,
@@ -276,6 +276,18 @@ manager, a few bests, and `done` {id: time}), on the device under
 and counted by `renderBam` only once its reveal is over (`bamAchSeason`), so
 nothing gives the result away. `bamAchSave` then reads the profile and writes
 `bamAch` once, and writes nothing if the read fails.
+THE CHIMP (user, 8 November): Seth's opposite, `buildManager.chimp` (id 34,
+"y" in a link, as Seth is "z"), the same 0.2 sliver, halfway round the wheel
+so the two face each other (`bamPool`), red (`BAM_CHIMP_HUE`, the F colour),
+an F in every grade, and one point off the roster for every Chimp
+(`BAM_CHIMP_ROSTER`; the team card shows "-N Chimp" in red beside "+N Seth").
+Seth and the Chimp are the wheel's guests (`bamGuest`/`bamIsGuest`): never a
+team, not in the ratings, letters down the sliver (`bam-wl-sliver`), and
+`api/bam.js` names both in `GUESTS`. Achievements for them: Get a Chimp ($15),
+Finish last with a Chimp ($50), Win a title with a Chimp ($75), Finish last
+with a Seth ($75), Get 2 Chimps in one build ($150; the record's `bc`). The
+user had "Win a title with 2 Seths" and "Finish last with 2 Chimps" removed.
+Thirty-eight achievements, $7685.
 THE LEAGUE'S TAB: the pop-up has two tabs, Mine (opens on it every time) and
 League (`bamAchBoard`): every manager by achievements earned out of the whole
 list, then by what they paid, ties level on rank, yours lit. It groups the

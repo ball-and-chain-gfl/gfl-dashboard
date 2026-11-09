@@ -504,5 +504,12 @@ window.GFL_CONFIG = {
       id: 35, name: "Seth", abbrev: "SETH", share: 0.2,
       grades: { draft: "S", trade: "S", fin: "S", coach: "S", bk: "S", luck: "S", eng: "S", pun: "S", legacy: "S" },
     },
+    /* the Chimp: Seth's opposite, the same size of sliver across the wheel from
+       him, red, with an F in everything. Id 34, so a link still writes him in
+       one character (y), as Seth is z. */
+    chimp: {
+      id: 34, name: "Chimp", abbrev: "CHIMP", share: 0.2,
+      grades: { draft: "F", trade: "F", fin: "F", coach: "F", bk: "F", luck: "F", eng: "F", pun: "F", legacy: "F" },
+    },
   },
 };

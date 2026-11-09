@@ -74,9 +74,10 @@ const FALLBACK = {
   8: ['TING', 'Tuckasegee Tinglers'], 9: ['MWM', 'Midwest Miners'], 10: ['BFT', 'The Bryan Football Team'],
   11: ['KW', 'Whittingham Sports'], 12: ['WGLR', 'West Coast Wigglers'],
 };
-/* Seth: no team, a sliver of the game's wheel with an S in everything
-   (config.js buildManager.seth). ESPN has never heard of him. */
-export const GUESTS = { 35: ['SETH', 'Seth'] };
+/* Seth and the Chimp: no teams, slivers of the game's wheel with an S in
+   everything and an F in everything (config.js buildManager.seth and .chimp).
+   ESPN has never heard of either. */
+export const GUESTS = { 35: ['SETH', 'Seth'], 34: ['CHIMP', 'Chimp'] };
 const fallbackTeams = () => Object.fromEntries(Object.entries(FALLBACK).map(([id, [abbrev, name]]) => [id, { abbrev, name }]));
 let _teams = null, _teamsAt = 0;
 async function teamsNow() {
