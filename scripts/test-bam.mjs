@@ -143,9 +143,16 @@ const block = src.slice(src.indexOf('/* ── BUILD A MANAGER'), src.indexOf('/
 ok('the game is in app.js', block.length > 1000, true);
 // The one profile the game touches is your own, to note a title for the league's stack.
 const recAt = block.indexOf('function bamRecordWin('), recEnd = block.indexOf('\n}\n', recAt) + 3;
-const record = block.slice(recAt, recEnd), play = block.slice(0, recAt) + block.slice(recEnd);
+// The trophy case reads your own profile too, for your record of achievements.
+const achAt = block.indexOf('/* ── THE TROPHY CASE'), achEnd = block.indexOf('/* ── THE POP-UP', achAt);
+const record = block.slice(recAt, recEnd), trophy = block.slice(achAt, achEnd);
+const play = [[0, recAt], [recEnd, achAt], [achEnd, block.length]].map(([a, b]) => block.slice(a, Math.max(a, b))).join('');
 ok('and reads no stat, only the table', ['bkIQFor', 'badBeatData', 'computeCoaching', 'pgComposite', '_draftAllCache',
   '_cmBreakdown', '_scores', '_cpRows', 'legacyTeamHistory'].filter(w => play.includes(w)), []);
+ok('the trophy case reads only your own profile, and no stat',
+  [achAt > recAt, achEnd > achAt, trophy.split('_cpRows').length - 1 === trophy.split('_cpRows||[]).find(p=>p&&p.id===_me.k1)').length - 1 + trophy.split('_cpRows||[]).find(p=>p&&p.id===acct)').length - 1,
+    ['bkIQFor', 'badBeatData', 'computeCoaching', 'pgComposite', '_scores', '_draftAllCache', 'legacyTeamHistory'].filter(w => trophy.includes(w))],
+  [true, true, true, []]);
 ok('a title is noted on your own profile and nothing else is read', [recAt > 0, record.includes('p.id===_me.k1'),
   ['bkIQFor', 'badBeatData', 'computeCoaching', 'pgComposite', '_scores'].filter(w => record.includes(w))], [true, true, []]);
 
@@ -247,7 +254,7 @@ ok('junk starts a fresh build', [M.bamValid(null, pool), M.bamValid('x', pool), 
   [M.bamFresh(), M.bamFresh(), M.bamFresh()]);
 ok('a sound build comes back as it was',
   M.bamValid({ slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0 }, pool),
-  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0, team: null, season: null, paid: null });
+  { slots: { trade: 2, bk: 10 }, land: 5, last: 5, respins: 0, team: null, season: null, paid: null, ach: null });
 ok('and with no season, nothing paid for one', M.bamValid({ slots: { trade: 2 }, paid: true }, pool).paid, null);
 ok('a trait that is not one throws it out', M.bamValid({ slots: { charisma: 2 } }, pool), M.bamFresh());
 ok('so does a manager no longer in the pool', M.bamValid({ slots: { trade: 2 }, land: 44 }, pool), M.bamFresh());
@@ -504,7 +511,7 @@ ok('and leaving a shared build takes the link out of the address', /function bam
     [/b\.paid=true;\n\s*bamSave\(\);\n\s*bamPaySave\(now,prev\);/.test(rec),
       rec.indexOf('prev=bamWinTimes(me)') > 0 && rec.indexOf('prev=bamWinTimes(me)') < rec.indexOf('gflPatchProfile(_me.k1,{bamWin:rec})')], [true, true]);
   ok('the Champion box is told what it paid', lf.includes('bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed,b.paid)'), true);
-  ok('your balance counts it, and so do the Leaderboards', [lf.includes('+eggBucks()+bam-inv-idle-plant'),
+  ok('your balance counts it, and so do the Leaderboards', [lf.includes('+eggBucks()+bam+ach-inv-idle-plant'),
     fn('function ldBucks(').includes('bamPaidClean(bamPaidOf(p))'), fn('function ldBucks(').includes('bamTimes=bamPaidMine()')], [true, true, true]);
   ok('a balance replayed to an earlier moment counts only the titles won by then',
     fn('function bucksBaseAt(').includes('const bam=bkBamTimes().filter(x=>Number(x)<=t);'), true);

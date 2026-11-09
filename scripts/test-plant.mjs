@@ -99,6 +99,10 @@ const NEEDED = [
   'const lsKey=', 'function realWeekStart(', 'const BAM_PRIZE=', 'const BAM_PRIZE_FROM=', 'const bamPaidKey=',
   'const bamPaidParse=', 'function bamPaidClean(', 'function bamWinTimes(', 'const bamPaidOf=', 'function bamPaidMine(',
   'const bkBamTimes=', 'function bamBucks(',
+  /* and its achievements, paid the same way */
+  'const bkAch=', 'function bamAchBucks(', 'const BAM_ACH_FROM=', 'const BAM_ACH=', 'const bamAchKey=', 'const bamAchBlank=',
+  'const BAM_ACH_MAX=', 'function bamAchClean(', 'function bamAchMerge(', 'const bamAchOf=', 'let _bamAchMemo=',
+  'function bamAchMine(', 'function bamAchPaid(',
 ];
 const parts = {};
 for (const n of NEEDED) {

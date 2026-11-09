@@ -268,6 +268,11 @@ jobs:
       # parts manager to one part roster, both postseason brackets, every place.
       - name: build a manager
         run: node scripts/test-bam.mjs
+      # Its trophy case: thirty achievements and their rewards, one record per
+      # manager folded from device and profile, a season counted only after its
+      # reveal, every reward paid once into the bank and the Leaderboards.
+      - name: build a manager achievements
+        run: node scripts/test-bam-ach.mjs
       # The picture a message app shows for a shared build: api/bam.js reads the
       # code app.js writes, draws a real 1200x630 PNG, and serves the tags.
       - name: the build a manager link preview

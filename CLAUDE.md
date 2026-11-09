@@ -250,7 +250,30 @@ way: nothing before `BAM_PRIZE_FROM`, nothing from the future, each moment
 once. `bamBucks` is a term of `bucksBalance`, rides the bank's scope as
 `bamTimes` (`bucksFor`, `plantForScope`, `ldBucks`), and `bucksBaseAt` counts a
 title only from when it was won. The build keeps `paid` (true, or null signed
-out), and the Champion box shows "+$10 GFL Bucks". Under the build, "See all managers' ratings" opens
+out), and the Champion box shows "+$10 GFL Bucks".
+
+ACHIEVEMENTS (the trophy case, from 8 November): a trophy at the top right of
+`.bam-play`, by the wheel (or in the season panel's head row), signed in only,
+with a count of what was earned since the last look (`lsKey('bamachseen')`).
+It opens `#bam-ach-overlay`: thirty rows (`BAM_ACH`, cheapest first, $2055 in
+all, the rewards the user approved; no blowout), each with a bar, how far
+along and its reward, compact pixel type at size 1 (the user asked for
+smaller). Use every attribute (all 108 manager-grade pairs, Seth aside) has a
+"What's left" list (`bamAchLeftToggle`, repaints only that row). One record
+per manager (`bamAchBlank`: seasons, titles, the run of titles, managers
+landed on, teams played and won with, a nine-bit mask of grades used per
+manager, a few bests, and `done` {id: time}), on the device under
+`lsKey('bamach')` and on the profile as `bamAch`, folded by `bamAchMerge`
+(larger counts, set unions, earliest time). Landings (`bamAchLand`) and traits
+(`bamAchTake`) count at once; a season is owed on the build as `b.ach={tr}`
+and counted by `renderBam` only once its reveal is over (`bamAchSeason`), so
+nothing gives the result away. `bamAchSave` then reads the profile and writes
+`bamAch` once, and writes nothing if the read fails. Rewards are a bank term
+(`bamAchBucks`), in the scope as `ach` [{t,v}] (`bucksFor`, `plantForScope`,
+`ldBucks`, `plantFeeKey`), and `bucksBaseAt` counts each from when it was
+earned. Tests: `scripts/test-bam-ach.mjs`.
+
+Under the build, "See all managers' ratings" opens
 `#bam-rate-overlay`: a tab per manager, best overall first (`bamRateOrder`),
 each showing that manager's nine grades in the game's own tiles. The user's
 rule for it: only the tabs, the arrows and the X respond, and nothing moves.

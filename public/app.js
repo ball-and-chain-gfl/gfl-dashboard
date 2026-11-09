@@ -16246,11 +16246,13 @@ function bucksBaseAt(t){
   const times=et?et.filter(x=>Number(x)<=t):[];
   /* a Build a Manager title was not in the bank before it was won */
   const bam=bkBamTimes().filter(x=>Number(x)<=t);
+  /* nor an achievement before it was earned */
+  const ach=bkAch().filter(x=>Number(x.t)<=t);
   const lots=bkLots().filter(l=>(Number(l.t)||0)<=t);
   const prevAsOf=_bkAsOf, prevNoPlant=_bkNoPlant;
   try{
     _bkAsOf=t; _bkNoPlant=true;
-    return bucksFor({bets,eggs:times.length,eggTimes:times,bamTimes:bam,lots,plant:{t:0,id:null}},
+    return bucksFor({bets,eggs:times.length,eggTimes:times,bamTimes:bam,ach,lots,plant:{t:0,id:null}},
       ()=>bucksBalance());
   } catch(e){ return 0; }
   finally{ _bkAsOf=prevAsOf; _bkNoPlant=prevNoPlant; }
@@ -16355,11 +16357,12 @@ function plantFeeKey(){
     d=(d+(Number(b.ts)||0)+(Number(b.settledTs)||0)+(Number(b.ret)||0)*7
         +(Number(b.stake)||0)*13+String(b.status||'').length)%9007199254740991;
   }
-  const et=bkEggTimes()||[], lots=bkLots(), bt=bkBamTimes();
+  const et=bkEggTimes()||[], lots=bkLots(), bt=bkBamTimes(), ach=bkAch();
   let e=0; for(let i=0;i<et.length;i++) e+=Number(et[i])||0;
   let l=0; for(let i=0;i<lots.length;i++) l+=(Number(lots[i].t)||0);
   let base=0; try{ base=bucksBaseAt(Date.now()); }catch(err){}
   return [pl&&pl.id,pl&&pl.t,PLANT_REVIVAL_FEE(),bets.length,d,et.length,e,lots.length,l,bt.join(','),
+    ach.map(x=>x.t+':'+x.v).join(','),
     base,Math.floor(Date.now()/60000)].join('|');
 }
 function plantFee(){
@@ -16387,7 +16390,7 @@ let _bkNoPlant=false;
 function plantForScope(pt,pid,fn){
   const prev=_bkScope;
   /* the reads happen before the assignment, so these are the real ledger */
-  _bkScope={bets:bkBets(),eggs:bkEggCount(),eggTimes:bkEggTimes(),bamTimes:bkBamTimes(),lots:bkLots(),
+  _bkScope={bets:bkBets(),eggs:bkEggCount(),eggTimes:bkEggTimes(),bamTimes:bkBamTimes(),ach:bkAch(),lots:bkLots(),
             plant:{t:Number(pt)||0,id:pid}};
   try{ return fn(); } catch(e){ return 0; } finally{ _bkScope=prev; }
 }
@@ -16457,7 +16460,7 @@ function bkPlant(){
 function bucksFor(scope,fn){
   const prev=_bkScope;
   _bkScope={bets:(scope&&scope.bets)||[],eggs:Number(scope&&scope.eggs)||0,
-            eggTimes:(scope&&scope.eggTimes)||null,bamTimes:(scope&&scope.bamTimes)||[],
+            eggTimes:(scope&&scope.eggTimes)||null,bamTimes:(scope&&scope.bamTimes)||[],ach:(scope&&scope.ach)||[],
             lots:(scope&&scope.lots)||[],plant:(scope&&scope.plant)||{t:0,id:null}};
   try{ return fn(); } finally{ _bkScope=prev; }
 }
@@ -16520,6 +16523,10 @@ async function bamPaySave(t,prev){
   const res=await gflPatchProfile(acct,{bamPaid:list});
   if(row&&res&&res.ok) row.bamPaid=list;
 }
+/* Build a Manager achievements pay too, each its own reward the moment it is
+   earned (BAM_ACH, THE TROPHY CASE). In the bank as {t, v}: when, and how much. */
+const bkAch=()=>_bkScope?(_bkScope.ach||[]):bamAchPaid(bamAchMine());
+function bamAchBucks(){ return bucks2(bkAch().reduce((a,x)=>a+(Number(x&&x.v)||0),0)); }
 /* ── A BALANCE IS NOT A BALANCE UNTIL THE LEDGER IS IN ───────────────────────
    bucksBalance takes off what is tied up in open bets, and _bets is null until
    that list comes back from Firestore. So the Sportsbook's first paint counted
@@ -16542,7 +16549,8 @@ function bucksBalance(){
   let idle=0; try{ idle=bucksIdleCost(); }catch(e){}
   let plant=0; try{ plant=plantFee(); }catch(e){}
   let bam=0; try{ bam=bamBucks(); }catch(e){}
-  return bucks2(Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()+bam-inv-idle-plant));
+  let ach=0; try{ ach=bamAchBucks(); }catch(e){}
+  return bucks2(Math.max(0,bucksAllowance()-bucksStaked()+bucksReturned()+eggBucks()+bam+ach-inv-idle-plant));
 }
 /* Always shown as money, and the currency is always "GFL Bucks" in full. */
 /* GFL Bucks read like money, to the cent. They were rounded to the whole buck,
@@ -20919,8 +20927,11 @@ function bamWedges(pool){
   return p.map((id,i)=>{ const size=360*w[i]/tot, r={id,start:at,size,mid:at+size/2}; at+=size; return r; });
 }
 /* paid: true once a season that won the title has paid its GFL Bucks; null
-   for any other season, and for a title won with nobody signed in to pay */
-const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null,season:null,paid:null});
+   for any other season, and for a title won with nobody signed in to pay.
+   ach: what the season still owes the trophy case, {tr} (the team's rating),
+   from the moment it is played until its reveal is over; true once counted;
+   null for no season, and for one played before achievements began. */
+const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null,season:null,paid:null,ach:null});
 const bamOpen=b=>BAM_ATTRS.map(([k])=>k).filter(k=>b.slots[k]==null);
 const bamDone=b=>bamOpen(b).length===0;
 /* some grades as a 0-99 rating: the mean of what each is worth; -1 for none */
@@ -20981,7 +20992,8 @@ function bamValid(x,pool){
   const season=(team!=null&&bamSeasonOk(x.season,team,teams))?x.season:null;
   return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
     respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS,
-    team, season, paid:(season&&x.paid===true)?true:null};
+    team, season, paid:(season&&x.paid===true)?true:null,
+    ach:!season?null:x.ach===true?true:(x.ach&&typeof x.ach==='object'&&Number.isFinite(Number(x.ach.tr)))?{tr:Number(x.ach.tr)}:null};
 }
 /* Where the wheel has to stop for the point `deg` degrees round it (a wedge's
    middle, from bamWedges) to sit under the pointer: on from `rot` by `turns`
@@ -21397,6 +21409,8 @@ function renderBam(){
   const pool=bamPool();
   if(!pool.length){ el.innerHTML=''; return; }
   const b=bamState(), done=bamDone(b), left=bamOpen(b).length;
+  /* a season's achievements wait for the end of its reveal */
+  if(b.season&&b.ach&&b.ach!==true&&_bamShown==null) bamAchSeason(b);
   const started=Object.keys(b.slots).length||b.land!=null;
   /* the wheel for grades has Seth's sliver on it; the one for a team does not */
   const wheel=done?bamTeamPool():pool;
@@ -21450,7 +21464,8 @@ function renderBam(){
   }
   /* every manager's ratings, from under the build, outside its panel */
   const seeAll=`<button class="bam-seeall" onclick="bamRatingsOpen()"><i class="fa fa-table-cells"></i>${bamPx("See all managers' ratings",1)}</button>`;
-  el.innerHTML=`<div class="bam-wrap${done?' bam-done':''}"><div class="bam-col">${build}${seeAll}</div><div class="bam-play">${play}</div></div>`;
+  /* the trophy case, at the top right by the wheel, for whoever is signed in */
+  el.innerHTML=`<div class="bam-wrap${done?' bam-done':''}"><div class="bam-col">${build}${seeAll}</div><div class="bam-play">${_me?bamTrophyHTML():''}${play}</div></div>`;
 }
 /* ── EVERY MANAGER'S RATINGS ─────────────────────────────────────────────────
    A pop-up from under the build: a tab for each of the twelve, best overall
@@ -21580,7 +21595,7 @@ async function bamSpin(re){
   await bamTurn(target);
   _bamRot=((target%360)+360)%360;              // the same place, a smaller number
   _bamSpin=false; b.land=id; b.last=id;
-  bamSave();
+  bamSave(); bamAchLand(id);
   if(_activeTab!=='bam') return;
   renderBam(); bamShow('.bam-card');
 }
@@ -21614,6 +21629,8 @@ function bamPlay(){
   const games=bamGames(meta,season).filter(g=>str[g.h]!=null&&str[g.a]!=null);
   if(!games.length) return;
   b.season=bamSimSeason(games,str);
+  /* owed to the trophy case once the reveal is over (bamAchSeason), signed in only */
+  b.ach=_me?{tr:Math.round(str[b.team])}:null;
   bamSave();
   bamRecordWin(b);
   _bamShown=0; renderBam(); bamShow('#bam-season'); bamTick();
@@ -21638,6 +21655,285 @@ function bamRecordWin(b){
   b.paid=true;
   bamSave();
   bamPaySave(now,prev);
+}
+/* ── THE TROPHY CASE ─────────────────────────────────────────────────────────
+   Thirty achievements, each with a progress bar and its own GFL Bucks, paid
+   the moment it is earned (bamAchBucks, in the bank beside the titles). The
+   commissioner picked them and their rewards on 8 November. Nothing before
+   then counts: everyone starts from zero.
+
+   WHAT IS KEPT is one record per manager, not a log: seasons and titles, the
+   current run of titles in a row, every manager landed on, every team played
+   and won with, every manager's grade put in a build (nine bits each), the
+   best of a few numbers, and when each achievement was earned. Signed in
+   only: there is nobody to pay otherwise.
+
+   WHEN IT MOVES: a landing and a trait taken count straight away. A season
+   counts when its reveal is over, not when it is decided, or the trophy and
+   the pop-up would give the result away while it is still coming in. b.ach
+   holds it owed till then, and a reload part-way counts it on the next paint.
+
+   WHERE IT LIVES: on the device, at every move, and on the profile's bamAch
+   once a season, a read and a write. The profile's copy is read and folded
+   in first, so nothing another device earned is written over: counts and
+   bests take the larger, sets their union, an achievement its first time.
+   The Leaderboards read it off the profile the way they read titles. */
+const BAM_ACH_FROM=new Date(2026,10,8).getTime();
+/* the two teams a title is least likely with: Motor City and the Wigglers */
+const BAM_UNDERDOGS=[2,12];
+const bamAchPool=()=>bamTeamPool();
+const bamAchIn=a=>{ const p=new Set(bamAchPool()); return (a||[]).filter(id=>p.has(id)).length; };
+const bamBits=m=>{ let n=0; m=m|0; while(m){ n+=m&1; m>>>=1; } return n; };
+/* each: an id, its name, its reward, and either a goal and how far along a
+   record is (at), or one:true for a thing one season either does or does not */
+const BAM_ACH=[
+  {id:'nail', name:'Win a game by less than a point', r:10, one:true},
+  {id:'s10', name:'Play 10 seasons', r:10, goal:()=>10, at:s=>s.n},
+  {id:'seth', name:'Get a Seth', r:15, goal:()=>1, at:s=>s.bs},
+  {id:'land', name:'Land on every manager', r:15, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.land)},
+  {id:'big', name:'Score 180 in a game', r:20, goal:()=>180, at:s=>Math.floor(s.bg)},
+  {id:'toilet', name:'Win the losers final', r:20, one:true},
+  {id:'title', name:'Win the championship', r:25, goal:()=>1, at:s=>s.w},
+  {id:'last', name:'Finish last', r:25, one:true},
+  {id:'nine', name:'Use 9 different managers in one build', r:25, goal:()=>9, at:s=>s.bd},
+  {id:'w5', name:'Win 5 titles', r:25, goal:()=>5, at:s=>s.w},
+  {id:'s50', name:'Play 50 seasons', r:30, goal:()=>50, at:s=>s.n},
+  {id:'sethw', name:'Win a title with a Seth', r:30, one:true},
+  {id:'teams', name:'Play with every team', r:40, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.play)},
+  {id:'b2b', name:'Win back-to-back titles', r:40, goal:()=>2, at:s=>s.st},
+  {id:'own', name:'Win a title with your own team', r:40, one:true},
+  {id:'under', name:()=>`Win a title with ${BAM_UNDERDOGS.map(id=>bamAbbr(bamTeam(id))).join(' or ')}`, r:50, one:true},
+  {id:'six', name:'Win a title as the 6th seed', r:50, one:true},
+  {id:'s100', name:'Play 100 seasons', r:60, goal:()=>100, at:s=>s.n},
+  {id:'seth2', name:'Get 2 Seths in one build', r:75, goal:()=>2, at:s=>s.bs},
+  {id:'coach', name:'Win a title with a manager under 85', r:75, one:true},
+  {id:'w25', name:'Win 25 titles', r:75, goal:()=>25, at:s=>s.w},
+  {id:'m95', name:'Build a 95 overall manager', r:100, goal:()=>95, at:s=>s.bm},
+  {id:'seth2w', name:'Win a title with 2 Seths', r:100, one:true},
+  {id:'p2000', name:'Score 2000 in a regular season', r:100, goal:()=>2000, at:s=>Math.floor(s.bp)},
+  {id:'every', name:'Use every attribute', r:125, goal:()=>bamAchPool().length*BAM_ATTRS.length,
+    at:s=>bamAchPool().reduce((a,id)=>a+bamBits(s.use[id]),0)},
+  {id:'winless', name:'Go 0-14', r:125, one:true},
+  {id:'t95', name:'Build a 95 overall team', r:150, goal:()=>95, at:s=>s.bt},
+  {id:'perfect', name:'Go 14-0', r:150, goal:()=>14, at:s=>s.bw},
+  {id:'three', name:'Win 3 titles in a row', r:150, goal:()=>3, at:s=>s.st},
+  {id:'allwin', name:'Win with every team', r:300, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.win)},
+];
+const bamAchName=a=>typeof a.name==='function'?a.name():a.name;
+const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');
+const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bd:0,done:{}});
+const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bd:9};
+/* a record read from anywhere, kept only where it makes sense */
+function bamAchClean(x){
+  const o=bamAchBlank(); if(!x||typeof x!=='object') return o;
+  const pos=(v,max)=>{ const n=Number(v); return Number.isFinite(n)&&n>0?Math.min(n,max):0; };
+  const ids=a=>[...new Set((Array.isArray(a)?a:[]).map(Number).filter(n=>Number.isInteger(n)&&n>0&&n<36))].sort((p,q)=>p-q);
+  Object.keys(BAM_ACH_MAX).forEach(k=>{ o[k]=pos(x[k],BAM_ACH_MAX[k]); if(k!=='bg'&&k!=='bp') o[k]=Math.floor(o[k]); });
+  o.st=Math.floor(pos(x.st,1e6)); o.stT=Math.floor(pos(x.stT,9e15));
+  o.land=ids(x.land); o.play=ids(x.play); o.win=ids(x.win);
+  if(x.use&&typeof x.use==='object') Object.entries(x.use).forEach(([id,m])=>{
+    const i=Number(id), v=Math.floor(Number(m))&511;
+    if(Number.isInteger(i)&&i>0&&i<36&&v>0) o.use[i]=v;
+  });
+  const max=Date.now()+3600e3;
+  if(x.done&&typeof x.done==='object') Object.entries(x.done).forEach(([id,t])=>{
+    const v=Number(t); if(BAM_ACH.some(a=>a.id===id)&&v>=BAM_ACH_FROM&&v<=max) o.done[id]=v;
+  });
+  return o;
+}
+/* two records as one: counts and bests the larger, sets together, the run of
+   titles from whichever played last, an achievement from its first time */
+function bamAchMerge(a,b){
+  a=bamAchClean(a); b=bamAchClean(b);
+  const o=bamAchBlank(), u=(x,y)=>[...new Set(x.concat(y))].sort((p,q)=>p-q);
+  Object.keys(BAM_ACH_MAX).forEach(k=>{ o[k]=Math.max(a[k],b[k]); });
+  const late=b.stT>a.stT?b:a; o.st=late.st; o.stT=late.stT;
+  o.land=u(a.land,b.land); o.play=u(a.play,b.play); o.win=u(a.win,b.win);
+  new Set(Object.keys(a.use).concat(Object.keys(b.use))).forEach(id=>{ o.use[id]=(a.use[id]|0)|(b.use[id]|0); });
+  new Set(Object.keys(a.done).concat(Object.keys(b.done))).forEach(id=>{
+    o.done[id]=Math.min(...[a.done[id],b.done[id]].filter(t=>t>0)); });
+  return o;
+}
+const bamAchOf=p=>{ let x=null; try{ x=JSON.parse((p&&p.bamAch)||'null'); }catch(e){} return bamAchClean(x); };
+/* yours: this device's record and your profile's together. Read on every
+   balance, so it is worked out again only when either has changed. */
+let _bamAchMemo=null;
+function bamAchMine(){
+  if(!_me) return bamAchBlank();
+  let dev=null; try{ dev=localStorage.getItem(bamAchKey()); }catch(e){}
+  const row=(_cpRows||[]).find(p=>p&&p.id===_me.k1), srv=(row&&row.bamAch)||'';
+  const key=_me.k1+'|'+(dev||'')+'|'+srv;
+  if(_bamAchMemo&&_bamAchMemo.key===key) return _bamAchMemo.v;
+  let d=null; try{ d=JSON.parse(dev||'null'); }catch(e){}
+  const v=bamAchMerge(d,bamAchOf(row));
+  _bamAchMemo={key,v};
+  return v;
+}
+/* what a record has been paid: each achievement earned, when and how much */
+function bamAchPaid(st){
+  return Object.entries((st&&st.done)||{}).map(([id,t])=>{
+    const a=BAM_ACH.find(x=>x.id===id); return a&&Number(t)>0?{t:Number(t),v:a.r}:null;
+  }).filter(Boolean).sort((x,y)=>x.t-y.t);
+}
+/* Your record changed by `fn`, then everything it now reaches earned; `hit`
+   is the one-season achievements a season just did. Returns what is new. */
+function bamAchEdit(fn,hit){
+  if(!_me) return [];
+  const st=JSON.parse(JSON.stringify(bamAchMine()));
+  fn(st);
+  const now=Date.now(), got=[];
+  BAM_ACH.forEach(a=>{
+    if(st.done[a.id]) return;
+    let on=false;
+    if(a.one) on=(hit||[]).includes(a.id);
+    else{ const g=a.goal(); on=g>0&&a.at(st)>=g; }
+    if(on){ st.done[a.id]=now; got.push(a.id); }
+  });
+  try{ localStorage.setItem(bamAchKey(),JSON.stringify(st)); }catch(e){}
+  return got;
+}
+/* the wheel stopped on a manager (Seth has an achievement of his own) */
+function bamAchLand(id){
+  if(id==null||bamIsSeth(id)) return;
+  bamAchEdit(st=>{ if(!st.land.includes(id)) st.land.push(id); });
+}
+/* a trait taken off `id` into slot `k`: the grade used, and how the build stands */
+function bamAchTake(b,id,k){
+  if(id==null) return;
+  bamAchEdit(st=>{
+    const i=BAM_ATTRS.findIndex(([a])=>a===k);
+    if(!bamIsSeth(id)&&i>=0) st.use[id]=(st.use[id]|0)|(1<<i);
+    const ids=Object.values(b.slots);
+    st.bs=Math.max(st.bs,ids.filter(bamIsSeth).length);
+    st.bd=Math.max(st.bd,new Set(ids).size);
+    if(bamDone(b)) st.bm=Math.max(st.bm,bamOvr(b));
+  });
+}
+/* A season, once its reveal is over: counted, and the record onto the profile. */
+function bamAchSeason(b){
+  const tr=b.ach&&typeof b.ach==='object'?Number(b.ach.tr)||0:0;
+  b.ach=true; bamSave();
+  if(!_me) return [];
+  const s=b.season, me=b.team, sum=bamSeasonSum(s,me), row=s&&s.table.find(r=>r.id===me);
+  if(!sum||!row) return [];
+  const games=bamMine(b).map(x=>x.g), mine=g=>g.a===me?g.as:g.bs, theirs=g=>g.a===me?g.bs:g.as;
+  const title=sum.place===1, seths=Object.values(b.slots).filter(bamIsSeth).length, hit=[];
+  /* by tenths, as the scores are kept: 100.1 against 99.1 is a point, not 0.99999 */
+  if(games.some(g=>g.win===me&&Math.round((mine(g)-theirs(g))*10)<10)) hit.push('nail');
+  if(sum.place===11) hit.push('toilet');
+  if(sum.place===12) hit.push('last');
+  if(row.w===0&&row.l>0) hit.push('winless');
+  if(title){
+    if(seths>=1) hit.push('sethw');
+    if(seths>=2) hit.push('seth2w');
+    if(Number(_me.teamId)===me) hit.push('own');
+    if(BAM_UNDERDOGS.includes(me)) hit.push('under');
+    if(sum.seed===6) hit.push('six');
+    if(bamOvr(b)<85) hit.push('coach');
+  }
+  const got=bamAchEdit(st=>{
+    st.n++; if(title) st.w++;
+    st.st=title?st.st+1:0; st.stT=Date.now();
+    if(!st.play.includes(me)) st.play.push(me);
+    if(title&&!st.win.includes(me)) st.win.push(me);
+    st.bt=Math.max(st.bt,Math.min(99,Math.round(tr)));
+    st.bg=Math.max(st.bg,...games.map(mine));
+    st.bp=Math.max(st.bp,Number(row.pf)||0);
+    st.bw=Math.max(st.bw,row.w);
+  },hit);
+  bamAchSave();
+  return got;
+}
+/* the record onto the profile, folded into the profile's own first; if that
+   read fails nothing is written, and the next season tries again */
+async function bamAchSave(){
+  if(!_me||!_me.k1) return;
+  const acct=_me.k1;
+  let r=null; try{ r=await gflFetchProfile(acct); }catch(e){}
+  if(!r||!r.data||!_me||_me.k1!==acct) return;
+  const srv=bamAchOf(r.data), out=JSON.stringify(bamAchMerge(bamAchMine(),srv));
+  try{ localStorage.setItem(bamAchKey(),out); }catch(e){}
+  if(JSON.stringify(srv)===out) return;
+  const res=await gflPatchProfile(acct,{bamAch:out});
+  const row=(_cpRows||[]).find(p=>p&&p.id===acct);
+  if(row&&res&&res.ok) row.bamAch=out;
+}
+/* the trophy at the top right of the game, with a count of what you have
+   earned since you last opened it */
+function bamAchSeen(){ let t=0; try{ t=Number(localStorage.getItem(bamAchSeenKey())||0); }catch(e){} return t||0; }
+const bamAchNewCount=st=>{ const seen=bamAchSeen(); return Object.values(st.done).filter(t=>t>seen).length; };
+function bamTrophyHTML(){
+  const n=bamAchNewCount(bamAchMine());
+  return `<button class="bam-trophy" onclick="bamAchOpen()" aria-label="Achievements"><i class="fa fa-trophy"></i>${
+    n?`<span class="bam-trophy-n">${bamPx(String(n),1)}</span>`:''}</button>`;
+}
+/* ── THE POP-UP ──────────────────────────────────────────────────────────────
+   Every achievement, cheapest first, each with its bar, how far along and its
+   reward; what has been earned in green, and what is new since the last look
+   lit up. Use every attribute opens a list of the grades still to use. The
+   rules are the ratings pop-up's: the X, Escape and the list's button are all
+   it answers to, and nothing moves when pressed. */
+let _bamAchSince=0, _bamAchLeft=false;
+/* every grade not yet put in a build, by manager, best manager first */
+function bamAchLeftHTML(st){
+  const rows=bamRateOrder().map(id=>{
+    const m=st.use[id]|0, open=BAM_ATTRS.filter((a,i)=>!(m&(1<<i)));
+    if(!open.length) return '';
+    const t=bamTeam(id);
+    return `<div class="bam-left-r"><span class="bam-left-w">${avatarHTML(t,16,4)}${bamPx(bamAbbr(t),1)}</span>
+        <span class="bam-left-g">${open.map(a=>{ const g=bamGrade(id,a[0]);
+          return `<span class="bam-left-c ${bamToneCls(g)}"><i class="fa ${a[2]}"></i>${bamPx(a[1],1)}${bamPx(BAM_SCALE[g]||'',1,bamTone(g))}</span>`; }).join('')}</span></div>`;
+  }).join('');
+  return `<button class="bam-left-b${_bamAchLeft?' on':''}" onclick="bamAchLeftToggle()" aria-expanded="${_bamAchLeft}">${bamPx("What's left",1)}<i class="fa fa-chevron-${_bamAchLeft?'up':'down'}"></i></button>
+      ${_bamAchLeft?`<div class="bam-left">${rows}</div>`:''}`;
+}
+function bamAchRowHTML(a,st){
+  const t=st.done[a.id], done=t>0, goal=a.one?1:Math.max(1,a.goal());
+  const at=done?goal:a.one?0:Math.max(0,Math.min(goal,Math.floor(a.at(st))));
+  return `<div class="bam-ach${done?' done':''}${done&&t>_bamAchSince?' new':''}" id="bam-ach-${a.id}">
+      <i class="fa fa-trophy bam-ach-i"></i>
+      <div class="bam-ach-m">
+        <div class="bam-ach-h">${bamPxWrap(bamAchName(a),1,36,'bam-ach-n')}${bamPx('$'+a.r,1,'bam-ach-r')}</div>
+        <div class="bam-ach-p"><span class="bam-ach-bar"><span style="width:${Math.round(100*at/goal)}%"></span></span>${
+          bamPx(`${at}/${goal}`,1,'bam-ach-c')}</div>
+        ${a.id==='every'&&!done?bamAchLeftHTML(st):''}
+      </div>
+    </div>`;
+}
+function bamAchHTML(){
+  const st=bamAchMine(), got=BAM_ACH.filter(a=>st.done[a.id]>0);
+  const won=got.reduce((s,a)=>s+a.r,0), all=BAM_ACH.reduce((s,a)=>s+a.r,0);
+  return `<div class="bam-ach-top">
+      <div>${bamPx('Earned',1,'bam-mix-l')}${bamPx(`${got.length} of ${BAM_ACH.length}`,2)}</div>
+      <div>${bamPx('GFL Bucks',1,'bam-mix-l')}${bamPx(`$${won} of $${all}`,2,'bam-ach-g')}</div>
+    </div>
+    <div class="bam-ach-list">${BAM_ACH.map(a=>bamAchRowHTML(a,st)).join('')}</div>`;
+}
+function bamAchEsc(e){ if(e.key==='Escape') bamAchClose(); }
+function bamAchOpen(){
+  const ov=document.getElementById('bam-ach-overlay'); if(!ov||!_me) return;
+  if(!ov._dragGuarded){
+    ov._dragGuarded=true;
+    ov.addEventListener('touchmove',e=>{ if(e.target===ov) e.preventDefault(); },{passive:false});
+  }
+  _bamAchSince=bamAchSeen(); _bamAchLeft=false;
+  try{ localStorage.setItem(bamAchSeenKey(),String(Date.now())); }catch(e){}
+  const body=document.getElementById('bam-ach-body'); if(body) body.innerHTML=bamAchHTML();
+  const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;
+  ov.classList.add('open'); modalLock(true);
+  document.addEventListener('keydown',bamAchEsc);
+  const n=document.querySelector('.bam-trophy-n'); if(n) n.remove();
+}
+/* the list of what is left opens and closes in its own row; nothing else is redrawn */
+function bamAchLeftToggle(){
+  _bamAchLeft=!_bamAchLeft;
+  const el=document.getElementById('bam-ach-every'), a=BAM_ACH.find(x=>x.id==='every');
+  if(el&&a) el.outerHTML=bamAchRowHTML(a,bamAchMine());
+}
+function bamAchClose(){
+  const ov=document.getElementById('bam-ach-overlay'); if(!ov) return;
+  ov.classList.remove('open'); modalLock(false);
+  document.removeEventListener('keydown',bamAchEsc);
 }
 /* THE REVEAL: one game at a time, the regular season at BAM_REVEAL_MS and the
    postseason at BAM_REVEAL_POST_MS, the table's verdict a beat after the last */
@@ -21665,10 +21961,10 @@ function bamSkip(){
 }
 function bamPut(k){
   if(_bamSpin) return;
-  const b=bamState();
+  const b=bamState(), id=b.land;
   if(!bamTake(b,k)) return;
   _bamArm=false;
-  bamSave(); renderBam();
+  bamSave(); bamAchTake(b,id,k); renderBam();
 }
 /* Back to the very beginning: the build, the team and the season all go.
    Halfway through a build the first tap only asks; at the end it does not. */
@@ -23403,10 +23699,12 @@ function ldFolio(prof){
    no pay day, no football gate, no charge for an idle week. */
 function ldBucks(ids,prof){
   const bets=(_betsAll||[]).filter(b=>ids.includes(b.owner)&&betsAfterReset(b));
-  let eggs=0, lots=[], plant={t:0,id:null}, eggTimes=[], bamTimes=[];
+  let eggs=0, lots=[], plant={t:0,id:null}, eggTimes=[], bamTimes=[], achSt=null;
   prof.forEach(p=>{
     /* Build a Manager titles, cleaned as the owner's own device cleans them */
     bamPaidClean(bamPaidOf(p)).forEach(t=>bamTimes.push(t));
+    /* and achievements, each paid once however many of their profiles carry it */
+    achSt=bamAchMerge(achSt,bamAchOf(p));
     /* the latest watering across their profiles, which is also the kindest
        reading of it: a later timestamp is fewer completed cycles and therefore
        a smaller bill */
@@ -23441,10 +23739,12 @@ function ldBucks(ids,prof){
     try{ eggs=eggsFound().size; eggTimes=[...eggsFound()]; }catch(e){}
     try{ lots=invLots(); }catch(e){}
     try{ bamTimes=bamPaidMine(); }catch(e){}
+    try{ achSt=bamAchMine(); }catch(e){}
     try{ const pt=Number(localStorage.getItem(plantKey())||0);
       if(pt>plant.t) plant={t:pt,id:_me.k1}; }catch(e){}
   }
-  return bucksFor({bets,eggs,eggTimes,bamTimes,lots,plant},()=>bucksBalance());
+  let ach=[]; try{ ach=bamAchPaid(achSt); }catch(e){}
+  return bucksFor({bets,eggs,eggTimes,bamTimes,ach,lots,plant},()=>bucksBalance());
 }
 /* One manager's matchup-picks record for the season. Every pick on a game that
    has finished, right against wrong — a record counts games, so the Matchup of
