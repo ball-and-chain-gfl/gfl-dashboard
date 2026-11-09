@@ -42,19 +42,22 @@ const M = assemble(grab, [
   'const BAM_G=', 'const BAM_GLYPH=', 'function bamPxClean(',
   'const lsKey=', 'const bucks2=', 'function bucksFor(', 'const bkAch=', 'function bamAchBucks(',
   'const BAM_ACH_FROM=', 'const bamAchPool=', 'const bamAchIn=', 'const bamBits=', 'const BAM_ACH=',
-  'const bamAchName=', 'const bamAchKey=', 'const bamAchBlank=', 'const BAM_ACH_MAX=', 'function bamAchClean(', 'function bamAchMerge(',
+  'const bamAchName=', 'const BAM_ACH_GRANTS=', 'const bamAchGrants=', 'const bamAchKey=', 'const bamAchBlank=', 'const BAM_ACH_MAX=', 'function bamAchClean(', 'function bamAchMerge(',
   'const bamAchOf=', 'function bamAchMine(', 'function bamAchPaid(', 'function bamAchEdit(', 'function bamAchLand(', 'function bamAchTake(',
   'function bamAchSeason(', 'async function bamAchSave(', 'function bamAchSeen(', 'const bamAchNewCount=', 'function bamTrophyHTML(',
   'function bamAchLeftHTML(', 'function bamAchRowHTML(', 'function bamAchHTML(',
   'const bamAchOwed=', 'const bamAchRewardHTML=', 'function bamAchToast(', 'function bamAchToastHide(', 'function bamAchGotHTML(',
   'function ldRows(', 'function bamAchBoard(', 'function bamAchBoardHTML(',
+  'function realWeekStart(', 'const ntBigHitUntil=', 'function ntAchGrants(',
 ], ['BAM_ATTRS', 'BAM_SCALE', 'BAM_ACH', 'BAM_ACH_FROM', 'bamAchName', 'bamPxClean', 'bamAchBlank', 'bamAchClean', 'bamAchMerge', 'bamAchOf',
   'bamAchMine', 'bamAchPaid', 'bamAchEdit', 'bamAchLand', 'bamAchTake', 'bamAchSeason', 'bamAchSave', 'bamAchBucks', 'bucksFor',
   'bamAchNewCount', 'bamTrophyHTML', 'bamAchRowHTML', 'bamAchHTML', 'bamFresh', 'bamValid', 'bamOvr', 'bamManagerOvr', 'set', 'log',
-  'bamAchOwed', 'bamAchToast', 'bamAchToastHide', 'bamAchGotHTML', 'toastBox', 'bamAchBoard', 'bamAchBoardHTML'], [
+  'bamAchOwed', 'bamAchToast', 'bamAchToastHide', 'bamAchGotHTML', 'toastBox', 'bamAchBoard', 'bamAchBoardHTML', 'ntAchGrants'], [
   "let _CFG={}, _teams=[], _cpRows=null, _me=null, _bkScope=null, _ls={}, _now=null, _bamAchMemo=null, _bamAchSince=0, _bamAchLeft=false;",
   "let _bamToastIds=[], _bamToastT=null, _bamAchTab='mine', _franchises=[], _bkProfiles=null;",
   "const TEST_PROFILE='test';",
+  "const takesEsc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;'); const bucksFmt=v=>'$'+Number(v).toFixed(2);",
+  "const ntDayOf=t=>{ const d=new Date(t); d.setHours(0,0,0,0); return d.getTime(); };",
   /* the banner's box, as much of an element as it uses */
   "const toastBox={innerHTML:'', on:false, classList:{add(c){ if(c==='on') toastBox.on=true; }, remove(c){ if(c==='on') toastBox.on=false; }}};",
   "const document={getElementById:id=>id==='bam-toast'?toastBox:null};",
@@ -415,6 +418,36 @@ fresh();
   ok('and yours shows your list', [M.bamAchHTML().includes('class="bam-ach-list"'), M.bamAchHTML().includes('class="bam-board"')], [true, false]);
   const src = fs.readFileSync(appUrl, 'utf8').replace(/\r\n/g, '\n');
   ok('it opens on yours every time', src.includes("_bamAchSince=bamAchSeen(); _bamAchLeft=false; _bamAchTab='mine';"), true);
+}
+
+console.log(NL + "the commissioner's grant");
+fresh();
+{
+  /* Florida Man's 3 Seths, in the build he won a title with at 4:45pm on 9 November */
+  const T = 1794264355008;
+  ok('granted to Florida Man at the moment of that title', [new Date(T).toISOString(), M.BAM_ACH.some(a => a.id === 'seth3')], ['2026-11-09T22:45:55.008Z', true]);
+  M.set({ me: { k1: 'fman', teamId: 5 }, rows: [], ls: {} });
+  ok('in his own record, so his balance pays it, with nothing else on file', [rec().done.seth3, M.bamAchBucks()], [T, 500]);
+  M.set({ ls: { 'fman:bamach': JSON.stringify({ bs: 3, done: { seth: T - 9e5, seth2: T - 6e4 } }) } });
+  ok('and the 3 Seths his device already holds do not earn it a second time', [M.bamAchLand(3), rec().done.seth3], [[], T]);
+  ok("on everybody's reading of his profile, the Leaderboards' and the League tab's", [M.bamAchOf({ id: 'fman' }).done.seth3, M.bamAchOf({ id: 'bft' }).done.seth3], [T, undefined]);
+  M.set({ me: { k1: 'bft', teamId: 10 }, ls: {} });
+  ok('and nobody else holds it', [rec().done.seth3, M.bamAchBucks()], [undefined, 0]);
+  /* the card: his alone, from that day until the Tuesday turn after */
+  const card = me => { M.set({ me }); const o = []; M.ntAchGrants(o); return o; };
+  M.set({ now: new Date(2026, 10, 9, 20).getTime() });
+  ok('nobody else gets a card', card({ k1: 'bft', teamId: 10 }).length, 0);
+  const c = card({ k1: 'fman', teamId: 5 });
+  ok('he gets one, a gold trophy card with the achievement and what it paid',
+    [c.length, c[0].kind, c[0].id, c[0].art.includes('Get 3 Seths in one build'), c[0].art.includes('+$500.00'), c[0].go], [1, 'achgrant', 'ach:fman:seth3', true, true, 'bam']);
+  ok('dated the day he earned it', c[0].day, new Date(2026, 10, 9).getTime());
+  M.set({ now: new Date(2026, 10, 17, 5, 59).getTime() });
+  ok('still there until the Tuesday turn after next', card({ k1: 'fman', teamId: 5 }).length, 1);
+  M.set({ now: new Date(2026, 10, 17, 6).getTime() });
+  ok('and gone at it, swiped or not', card({ k1: 'fman', teamId: 5 }).length, 0);
+  M.set({ now: NOW });
+  const src = fs.readFileSync(appUrl, 'utf8').replace(/\r\n/g, '\n');
+  ok('it is on the stack, as a trophy card', [/\[ntBkMakeGood,ntMotwPick,ntPunishGrades,ntBamWins,ntAchGrants,/.test(src), /achgrant:\{icon:'fa-trophy',\s*tone:'gold'\}/.test(src)], [true, true]);
 }
 
 console.log(NL + 'the bank');

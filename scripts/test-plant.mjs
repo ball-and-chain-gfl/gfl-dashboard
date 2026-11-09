@@ -100,7 +100,7 @@ const NEEDED = [
   'const bamPaidParse=', 'function bamPaidClean(', 'function bamWinTimes(', 'const bamPaidOf=', 'function bamPaidMine(',
   'const bkBamTimes=', 'function bamBucks(',
   /* and its achievements, paid the same way */
-  'const bkAch=', 'function bamAchBucks(', 'const BAM_ACH_FROM=', 'const BAM_ACH=', 'const bamAchKey=', 'const bamAchBlank=',
+  'const bkAch=', 'function bamAchBucks(', 'const BAM_ACH_FROM=', 'const BAM_ACH=', 'const BAM_ACH_GRANTS=', 'const bamAchGrants=', 'const bamAchKey=', 'const bamAchBlank=',
   'const BAM_ACH_MAX=', 'function bamAchClean(', 'function bamAchMerge(', 'const bamAchOf=', 'let _bamAchMemo=',
   'function bamAchMine(', 'function bamAchPaid(',
 ];

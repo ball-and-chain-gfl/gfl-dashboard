@@ -290,6 +290,13 @@ user had "Win a title with 2 Seths" and "Finish last with 2 Chimps" removed.
 Then Get a Seth and a Chimp in one build ($50, the record's `sc`, 1 in 48)
 and Get 3 Seths / Get 3 Chimps in one build ($500 each, 1 in 2,108 with the
 respin spent fishing). Forty-one achievements, $8735.
+GRANTS (`BAM_ACH_GRANTS`): an achievement earned before it was on the list,
+given by hand at the moment it was earned. Florida Man's Get 3 Seths in one
+build, from his title at 4:45pm on 9 November, is the first. `bamAchOf` (by
+profile id) and `bamAchMine` merge it in, so his balance, the Leaderboards and
+the League tab all pay it, and his device writes it to his profile with his
+next season; no one writes to his profile for it. `ntAchGrants` gives him alone
+a gold card for it until the Tuesday turn after (`ntBigHitUntil`).
 THE LEAGUE'S TAB: the pop-up has two tabs, Mine (opens on it every time) and
 League (`bamAchBoard`): every manager by achievements earned out of the whole
 list, then by what they paid, ties level on rank, yours lit. It groups the

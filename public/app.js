@@ -19300,6 +19300,7 @@ const NT_KINDS={
   extreme:{icon:'fa-ranking-star',  tone:'gold'},
   pgrade: {icon:'fa-gavel',         tone:'hot'},
   bamwin: {icon:'fa-trophy',        tone:'gold'},
+  achgrant:{icon:'fa-trophy',       tone:'gold'},
 };
 /* ── HOW A CARD SHOWS ITS NEWS ───────────────────────────────────────────────
    These cards were paragraphs with the numbers bolded inside them, which meant
@@ -21768,6 +21769,15 @@ const BAM_ACH=[
     at:s=>BAM_ACH.filter(a=>a.id!=='all'&&s.done[a.id]>0).length},
 ];
 const bamAchName=a=>typeof a.name==='function'?a.name():a.name;
+/* ── GIVEN BY THE COMMISSIONER ───────────────────────────────────────────────
+   An achievement earned before it was on the list, granted by hand. Florida
+   Man had 3 Seths in the build he won a title with at 4:45pm on 9 November,
+   before Get 3 Seths in one build existed. A grant counts as if earned then:
+   in his record wherever it is read (his balance, the Leaderboards, the
+   League tab), and his own device writes it to his profile with his next
+   season. He alone gets a card for it (ntAchGrants). */
+const BAM_ACH_GRANTS=[{acct:'fman', id:'seth3', t:1794264355008}];
+const bamAchGrants=acct=>({done:Object.fromEntries(BAM_ACH_GRANTS.filter(g=>g.acct===acct).map(g=>[g.id,g.t]))});
 const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');
 /* ba: the most slots at A- or better in one build; bs and bc, the most Seths
    and the most Chimps in one; sc, 1 once a build has held both */
@@ -21804,7 +21814,8 @@ function bamAchMerge(a,b){
     o.done[id]=Math.min(...[a.done[id],b.done[id]].filter(t=>t>0)); });
   return o;
 }
-const bamAchOf=p=>{ let x=null; try{ x=JSON.parse((p&&p.bamAch)||'null'); }catch(e){} return bamAchClean(x); };
+const bamAchOf=p=>{ let x=null; try{ x=JSON.parse((p&&p.bamAch)||'null'); }catch(e){}
+  const r=bamAchClean(x); return p&&p.id?bamAchMerge(r,bamAchGrants(p.id)):r; };
 /* yours: this device's record and your profile's together. Read on every
    balance, so it is worked out again only when either has changed. */
 let _bamAchMemo=null;
@@ -21815,7 +21826,7 @@ function bamAchMine(){
   const key=_me.k1+'|'+(dev||'')+'|'+srv;
   if(_bamAchMemo&&_bamAchMemo.key===key) return _bamAchMemo.v;
   let d=null; try{ d=JSON.parse(dev||'null'); }catch(e){}
-  const v=bamAchMerge(d,bamAchOf(row));
+  const v=bamAchMerge(bamAchMerge(d,bamAchOf(row)),bamAchGrants(_me.k1));
   _bamAchMemo={key,v};
   return v;
 }
@@ -22410,9 +22421,22 @@ function ntBamWins(out){
       go:'bam'});
   });
 }
+/* A granted achievement (BAM_ACH_GRANTS), told to the one manager it was
+   given to, from the day it was earned until the Tuesday turn after, as a
+   Big win is. */
+function ntAchGrants(out){
+  if(!_me) return;
+  BAM_ACH_GRANTS.filter(g=>g.acct===_me.k1).forEach(g=>{
+    const a=BAM_ACH.find(x=>x.id===g.id); if(!a||Date.now()>=ntBigHitUntil(g.t)) return;
+    out.push({kind:'achgrant', day:ntDayOf(g.t), id:`ach:${g.acct}:${g.id}`, title:'Achievement unlocked',
+      art:`<div class="nt-ach"><i class="fa fa-trophy"></i><span>${takesEsc(bamAchName(a))}</span><b>+${bucksFmt(a.r)}</b></div>`,
+      body:'You had 3 Seths in the build you won a title with on Monday, before this achievement existed. It counts, and it is paid.',
+      go:'bam'});
+  });
+}
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntPunishGrades,ntBamWins,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntPunishGrades,ntBamWins,ntAchGrants,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });

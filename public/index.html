@@ -3493,6 +3493,12 @@
     @media(prefers-reduced-motion:reduce){ .bam-got-r{animation:none;} }
     /* a champion's card in the league's notification stack carries the share picture */
     .nt-art .nt-bam{display:block;width:100%;height:auto;border-radius:8px;}
+    /* an achievement granted by the commissioner: the trophy, its name, its reward */
+    .nt-ach{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;
+      background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.35);}
+    .nt-ach i{flex:0 0 auto;font-size:22px;color:#F0C040;}
+    .nt-ach span{flex:1 1 auto;min-width:0;font-weight:700;color:var(--text);}
+    .nt-ach b{flex:0 0 auto;font-weight:800;color:#F0C040;}
     @media(max-width:420px){ .bam-slot{min-height:96px;padding:12px 8px 9px;} .bam-panel{padding:12px;} }
     .home-redo{display:inline-flex;align-items:center;gap:7px;margin-top:12px;
       padding:7px 13px;border-radius:8px;cursor:pointer;
