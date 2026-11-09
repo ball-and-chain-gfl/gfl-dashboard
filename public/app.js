@@ -20929,8 +20929,9 @@ function bamWedges(pool){
 /* paid: true once a season that won the title has paid its GFL Bucks; null
    for any other season, and for a title won with nobody signed in to pay.
    ach: what the season still owes the trophy case, {tr} (the team's rating),
-   from the moment it is played until its reveal is over; true once counted;
-   null for no season, and for one played before achievements began. */
+   from the moment it is played until its reveal is over; once counted, the
+   list of achievements it earned (true for one counted before that list was
+   kept); null for no season, and for one played before achievements began. */
 const bamFresh=()=>({slots:{},land:null,last:null,respins:BAM_RESPINS,team:null,season:null,paid:null,ach:null});
 const bamOpen=b=>BAM_ATTRS.map(([k])=>k).filter(k=>b.slots[k]==null);
 const bamDone=b=>bamOpen(b).length===0;
@@ -20993,7 +20994,9 @@ function bamValid(x,pool){
   return {slots, land:(x.land==null||full)?null:Number(x.land), last:ok(x.last)?Number(x.last):null,
     respins:(Number.isInteger(r)&&r>=0&&r<=BAM_RESPINS)?r:BAM_RESPINS,
     team, season, paid:(season&&x.paid===true)?true:null,
-    ach:!season?null:x.ach===true?true:(x.ach&&typeof x.ach==='object'&&Number.isFinite(Number(x.ach.tr)))?{tr:Number(x.ach.tr)}:null};
+    ach:!season?null:x.ach===true?true
+      :Array.isArray(x.ach)?x.ach.filter(id=>typeof id==='string'&&/^[A-Za-z0-9]{1,12}$/.test(id)).slice(0,40)
+      :(x.ach&&typeof x.ach==='object'&&Number.isFinite(Number(x.ach.tr)))?{tr:Number(x.ach.tr)}:null};
 }
 /* Where the wheel has to stop for the point `deg` degrees round it (a wedge's
    middle, from bamWedges) to sit under the pointer: on from `rot` by `turns`
@@ -21395,7 +21398,7 @@ function bamSeasonHTML(b,shown){
       <div class="bam-gms">${reg.map(row).join('')}</div>
       ${post.length?`${bamPx(post[0].g.side==='lb'?'Losers bracket':'Playoffs',1,'bam-sub')}
         <div class="bam-gms">${post.map(row).join('')}</div>`:''}
-      ${sum?bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed,b.paid)
+      ${sum?bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed,b.paid)+bamAchGotHTML(b)
         +`${bamPx('Final standings',1,'bam-sub')}<div class="bam-sts">${s.table.map((r,i)=>`<div class="bam-st${r.id===me?' me':''}">
             <span class="c-n">${bamPx(String(i+1),1)}</span>
             <span class="c-t">${avatarHTML(bamTeam(r.id),18,5)}${bamPx(bamAbbr(bamTeam(r.id)),2)}</span>
@@ -21410,7 +21413,7 @@ function renderBam(){
   if(!pool.length){ el.innerHTML=''; return; }
   const b=bamState(), done=bamDone(b), left=bamOpen(b).length;
   /* a season's achievements wait for the end of its reveal */
-  if(b.season&&b.ach&&b.ach!==true&&_bamShown==null) bamAchSeason(b);
+  if(bamAchOwed(b)&&_bamShown==null) bamAchSeason(b);
   const started=Object.keys(b.slots).length||b.land!=null;
   /* the wheel for grades has Seth's sliver on it; the one for a team does not */
   const wheel=done?bamTeamPool():pool;
@@ -21595,7 +21598,7 @@ async function bamSpin(re){
   await bamTurn(target);
   _bamRot=((target%360)+360)%360;              // the same place, a smaller number
   _bamSpin=false; b.land=id; b.last=id;
-  bamSave(); bamAchLand(id);
+  bamSave(); bamAchToast(bamAchLand(id));
   if(_activeTab!=='bam') return;
   renderBam(); bamShow('.bam-card');
 }
@@ -21800,15 +21803,17 @@ function bamAchEdit(fn,hit){
   try{ localStorage.setItem(bamAchKey(),JSON.stringify(st)); }catch(e){}
   return got;
 }
-/* the wheel stopped on a manager (Seth has an achievement of his own) */
+/* the wheel stopped on a manager (Seth has an achievement of his own);
+   returns what that earned, for the banner */
 function bamAchLand(id){
-  if(id==null||bamIsSeth(id)) return;
-  bamAchEdit(st=>{ if(!st.land.includes(id)) st.land.push(id); });
+  if(id==null||bamIsSeth(id)) return [];
+  return bamAchEdit(st=>{ if(!st.land.includes(id)) st.land.push(id); });
 }
-/* a trait taken off `id` into slot `k`: the grade used, and how the build stands */
+/* a trait taken off `id` into slot `k`: the grade used, and how the build
+   stands; returns what that earned, for the banner */
 function bamAchTake(b,id,k){
-  if(id==null) return;
-  bamAchEdit(st=>{
+  if(id==null) return [];
+  return bamAchEdit(st=>{
     const i=BAM_ATTRS.findIndex(([a])=>a===k);
     if(!bamIsSeth(id)&&i>=0) st.use[id]=(st.use[id]|0)|(1<<i);
     const ids=Object.values(b.slots);
@@ -21818,13 +21823,18 @@ function bamAchTake(b,id,k){
     if(bamDone(b)) st.bm=Math.max(st.bm,bamOvr(b));
   });
 }
-/* A season, once its reveal is over: counted, and the record onto the profile. */
+/* A season still owed to the trophy case: played, its reveal not yet over.
+   Once counted, b.ach is the list of what it earned (shown under the
+   result, bamAchGotHTML); true is a season counted before that was kept. */
+const bamAchOwed=b=>!!(b&&b.season&&b.ach&&typeof b.ach==='object'&&!Array.isArray(b.ach));
+/* A season, once its reveal is over: counted, kept with the build, and the
+   record onto the profile. */
 function bamAchSeason(b){
   const tr=b.ach&&typeof b.ach==='object'?Number(b.ach.tr)||0:0;
-  b.ach=true; bamSave();
-  if(!_me) return [];
+  const done=got=>{ b.ach=got; bamSave(); return got; };
+  if(!_me) return done([]);
   const s=b.season, me=b.team, sum=bamSeasonSum(s,me), row=s&&s.table.find(r=>r.id===me);
-  if(!sum||!row) return [];
+  if(!sum||!row) return done([]);
   const games=bamMine(b).map(x=>x.g), mine=g=>g.a===me?g.as:g.bs, theirs=g=>g.a===me?g.bs:g.as;
   const title=sum.place===1, seths=Object.values(b.slots).filter(bamIsSeth).length, hit=[];
   /* by tenths, as the scores are kept: 100.1 against 99.1 is a point, not 0.99999 */
@@ -21849,8 +21859,37 @@ function bamAchSeason(b){
     st.bp=Math.max(st.bp,Number(row.pf)||0);
     st.bw=Math.max(st.bw,row.w);
   },hit);
+  done(got);
   bamAchSave();
   return got;
+}
+/* ── TELLING THEM ────────────────────────────────────────────────────────────
+   Whatever a landing or a trait earns comes up at once in a banner under the
+   bar at the top: the trophy, each achievement and its reward. It goes after a
+   few seconds or when tapped, and anything earned while it is up joins it.
+   What a season earns is listed under how the season ended instead, once the
+   reveal is over, so neither gives a result away early. */
+let _bamToastIds=[], _bamToastT=null;
+const bamAchRewardHTML=a=>`<span class="bam-toast-r"><span class="bam-toast-n">${bamPxWrap(bamAchName(a),1,30)}</span>${bamPx('+$'+a.r,1,'bam-ach-g')}</span>`;
+function bamAchToast(ids){
+  const add=(ids||[]).filter(id=>BAM_ACH.some(a=>a.id===id));
+  if(!add.length) return;
+  const el=document.getElementById('bam-toast'); if(!el) return;
+  _bamToastIds=[...new Set(_bamToastIds.concat(add))];
+  el.innerHTML=`<button class="bam-toast" onclick="bamAchToastHide()" aria-label="Achievement earned"><i class="fa fa-trophy"></i>
+      <span class="bam-toast-l">${_bamToastIds.map(id=>bamAchRewardHTML(BAM_ACH.find(a=>a.id===id))).join('')}</span></button>`;
+  el.classList.add('on');
+  clearTimeout(_bamToastT); _bamToastT=setTimeout(bamAchToastHide,5000);
+}
+function bamAchToastHide(){
+  clearTimeout(_bamToastT); _bamToastIds=[];
+  const el=document.getElementById('bam-toast'); if(el) el.classList.remove('on');
+}
+/* what a season earned, under how it ended */
+function bamAchGotHTML(b){
+  const got=Array.isArray(b&&b.ach)?b.ach.map(id=>BAM_ACH.find(a=>a.id===id)).filter(Boolean):[];
+  if(!got.length) return '';
+  return `<div class="bam-got">${got.map(a=>`<div class="bam-got-r"><i class="fa fa-trophy"></i>${bamAchRewardHTML(a)}</div>`).join('')}</div>`;
 }
 /* the record onto the profile, folded into the profile's own first; if that
    read fails nothing is written, and the next season tries again */
@@ -21972,7 +22011,7 @@ function bamPut(k){
   const b=bamState(), id=b.land;
   if(!bamTake(b,k)) return;
   _bamArm=false;
-  bamSave(); bamAchTake(b,id,k); renderBam();
+  bamSave(); bamAchToast(bamAchTake(b,id,k)); renderBam();
 }
 /* Back to the very beginning: the build, the team and the season all go.
    Halfway through a build the first tap only asks; at the end it does not. */
@@ -28197,6 +28236,7 @@ async function loadDashboard(){
       <div class="tab-page" id="page-bam">
         <div class="sec" id="bam-sec">
           <div id="bam-body"></div>
+          <div id="bam-toast" class="bam-toast-box"></div>
         </div>
       </div>
 

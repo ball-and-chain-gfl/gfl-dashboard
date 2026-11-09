@@ -3452,6 +3452,29 @@
     .bam-left-c{display:inline-flex;align-items:center;gap:5px;padding:3px 5px;border-radius:3px;--bc:#8c879a;color:var(--text2);
       border:1px solid color-mix(in srgb,var(--bc) 45%,transparent);background:color-mix(in srgb,var(--bc) 12%,transparent);}
     .bam-left-c i{font-size:8px;color:var(--bc);}
+    /* an achievement earned: a banner under the bar at the top for what a
+       landing or a trait earns, and a list under the season's result for what
+       the season earned */
+    .bam-toast-box{position:fixed;left:50%;z-index:450;width:min(380px,calc(100vw - 32px));
+      top:calc(var(--navbot,calc(env(safe-area-inset-top,0px) + 82px)) + 8px);
+      transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;}
+    .bam-toast-box.on{opacity:1;transform:translate(-50%,0);pointer-events:auto;}
+    .bam-toast{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border-radius:4px;cursor:pointer;text-align:left;
+      border:2px solid #F0C040;background:#15110a;color:var(--text);
+      box-shadow:0 4px 0 rgba(0,0,0,0.5),0 0 18px rgba(240,192,64,0.25);}
+    .bam-toast:hover{background:#1c160c;}
+    .bam-toast-box .bam-toast:active{transform:none;background:#221a0d;}
+    .bam-toast>i{flex:0 0 auto;font-size:18px;color:#F0C040;}
+    .bam-toast-l{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;min-width:0;}
+    .bam-toast-r{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+    .bam-toast-n .pxw{align-items:flex-start;}
+    @media(prefers-reduced-motion:reduce){ .bam-toast-box{transition:none;} }
+    .bam-got{display:flex;flex-direction:column;gap:4px;margin-top:8px;}
+    .bam-got-r{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;color:var(--text);
+      background:rgba(240,192,64,0.07);border:2px solid rgba(240,192,64,0.4);animation:bamPop .45s .7s both;}
+    .bam-got-r>i{flex:0 0 auto;font-size:12px;color:#F0C040;}
+    .bam-got-r .bam-toast-r{flex:1 1 auto;}
+    @media(prefers-reduced-motion:reduce){ .bam-got-r{animation:none;} }
     /* a champion's card in the league's notification stack carries the share picture */
     .nt-art .nt-bam{display:block;width:100%;height:auto;border-radius:8px;}
     @media(max-width:420px){ .bam-slot{min-height:96px;padding:12px 8px 9px;} .bam-panel{padding:12px;} }

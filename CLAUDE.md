@@ -275,7 +275,14 @@ manager, a few bests, and `done` {id: time}), on the device under
 (`bamAchTake`) count at once; a season is owed on the build as `b.ach={tr}`
 and counted by `renderBam` only once its reveal is over (`bamAchSeason`), so
 nothing gives the result away. `bamAchSave` then reads the profile and writes
-`bamAch` once, and writes nothing if the read fails. Rewards are a bank term
+`bamAch` once, and writes nothing if the read fails.
+TELLING THEM: what a landing or a trait earns comes up at once in a banner
+under the top bar (`#bam-toast`, `bamAchToast`; gone after 5 seconds or a
+tap, and anything earned while it is up joins it). What a season earns is
+kept on the build as the list `b.ach` and shown under its result box
+(`bamAchGotHTML`) once the reveal is over. A build makes no Firestore calls;
+a season makes 1 read and 1 write at the end of its reveal (a title adds the
+bamWin write and bamPaySave's read and write). Rewards are a bank term
 (`bamAchBucks`), in the scope as `ach` [{t,v}] (`bucksFor`, `plantForScope`,
 `ldBucks`, `plantFeeKey`), and `bucksBaseAt` counts each from when it was
 earned. Tests: `scripts/test-bam-ach.mjs`.

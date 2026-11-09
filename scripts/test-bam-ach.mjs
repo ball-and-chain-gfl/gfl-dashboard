@@ -46,10 +46,16 @@ const M = assemble(grab, [
   'const bamAchOf=', 'function bamAchMine(', 'function bamAchPaid(', 'function bamAchEdit(', 'function bamAchLand(', 'function bamAchTake(',
   'function bamAchSeason(', 'async function bamAchSave(', 'function bamAchSeen(', 'const bamAchNewCount=', 'function bamTrophyHTML(',
   'function bamAchLeftHTML(', 'function bamAchRowHTML(', 'function bamAchHTML(',
+  'const bamAchOwed=', 'const bamAchRewardHTML=', 'function bamAchToast(', 'function bamAchToastHide(', 'function bamAchGotHTML(',
 ], ['BAM_ATTRS', 'BAM_SCALE', 'BAM_ACH', 'BAM_ACH_FROM', 'bamAchName', 'bamPxClean', 'bamAchBlank', 'bamAchClean', 'bamAchMerge', 'bamAchOf',
   'bamAchMine', 'bamAchPaid', 'bamAchEdit', 'bamAchLand', 'bamAchTake', 'bamAchSeason', 'bamAchSave', 'bamAchBucks', 'bucksFor',
-  'bamAchNewCount', 'bamTrophyHTML', 'bamAchRowHTML', 'bamAchHTML', 'bamFresh', 'bamValid', 'bamOvr', 'bamManagerOvr', 'set', 'log'], [
+  'bamAchNewCount', 'bamTrophyHTML', 'bamAchRowHTML', 'bamAchHTML', 'bamFresh', 'bamValid', 'bamOvr', 'bamManagerOvr', 'set', 'log',
+  'bamAchOwed', 'bamAchToast', 'bamAchToastHide', 'bamAchGotHTML', 'toastBox'], [
   "let _CFG={}, _teams=[], _cpRows=null, _me=null, _bkScope=null, _ls={}, _now=null, _bamAchMemo=null, _bamAchSince=0, _bamAchLeft=false;",
+  "let _bamToastIds=[], _bamToastT=null;",
+  /* the banner's box, as much of an element as it uses */
+  "const toastBox={innerHTML:'', on:false, classList:{add(c){ if(c==='on') toastBox.on=true; }, remove(c){ if(c==='on') toastBox.on=false; }}};",
+  "const document={getElementById:id=>id==='bam-toast'?toastBox:null};",
   "const localStorage={getItem:k=>(k in _ls?_ls[k]:null), setItem:(k,v)=>{ _ls[k]=String(v); }};",
   "const RealDate=globalThis.Date;",
   "class Date extends RealDate{ constructor(...a){ if(!a.length&&_now!=null) super(_now); else super(...a); } static now(){ return _now!=null?_now:RealDate.now(); } }",
@@ -201,7 +207,7 @@ const play = async (o, sl, tr = 85) => {
 fresh();
 {
   const { b, got } = await play({ team: 3, place: 2, w: 10, l: 4, seed: 2, scores: games(10, 4).concat() });
-  ok('a season counts once: the build is marked, the record moves', [b.ach, rec().n, rec().play, got], [true, 1, [3], []]);
+  ok('a season counts once: the build keeps what it earned (nothing here), the record moves', [b.ach, M.bamAchOwed(b), rec().n, rec().play, got], [[], false, 1, [3], []]);
 }
 fresh();
 {
@@ -282,7 +288,7 @@ fresh();
   const b = { ...M.bamFresh(), slots: slots(10), team: 3, season: season({ team: 3, place: 1, w: 10, l: 4, seed: 1, scores: games(10, 4) }), ach: { tr: 90 } };
   M.set({ me: null });
   M.bamAchSeason(b); await flush();
-  ok('signed out, a season is marked counted and pays nobody', [b.ach, M.log.reads, M.log.writes.length], [true, 0, 0]);
+  ok('signed out, a season is marked counted and pays nobody', [b.ach, M.log.reads, M.log.writes.length], [[], 0, 0]);
 }
 
 console.log(NL + 'a season waits for its reveal');
@@ -291,16 +297,50 @@ console.log(NL + 'a season waits for its reveal');
   const fn = name => { const a = src.indexOf(name); return a < 0 ? '' : src.slice(a, src.indexOf('\n}\n', a) + 2); };
   ok('played, it is owed to the trophy case with its team\'s rating, signed in only',
     /b\.season=bamSimSeason\(games,str\);\n[^\n]*\n\s*b\.ach=_me\?\{tr:Math\.round\(str\[b\.team\]\)\}:null;\n\s*bamSave\(\);/.test(fn('function bamPlay(')), true);
-  ok('and counted on the first paint once no reveal is running', fn('function renderBam(').includes('if(b.season&&b.ach&&b.ach!==true&&_bamShown==null) bamAchSeason(b);'), true);
-  ok('a landing and a trait count straight away', [fn('async function bamSpin(').includes('bamSave(); bamAchLand(id);'),
-    fn('function bamPut(').includes('const b=bamState(), id=b.land;') && fn('function bamPut(').includes('bamSave(); bamAchTake(b,id,k); renderBam();')], [true, true]);
+  ok('and counted on the first paint once no reveal is running', fn('function renderBam(').includes('if(bamAchOwed(b)&&_bamShown==null) bamAchSeason(b);'), true);
+  ok('a landing and a trait count straight away, and what they earn goes up in the banner', [fn('async function bamSpin(').includes('bamSave(); bamAchToast(bamAchLand(id));'),
+    fn('function bamPut(').includes('const b=bamState(), id=b.land;') && fn('function bamPut(').includes('bamSave(); bamAchToast(bamAchTake(b,id,k)); renderBam();')], [true, true]);
+  ok('what a season earned is listed under how it ended', fn('function bamSeasonHTML(').includes('bamResultHTML(me,sum.place,sum.w,sum.l,sum.seed,b.paid)+bamAchGotHTML(b)'), true);
+  ok("and the banner has its box on the game's page", src.includes('<div id="bam-toast" class="bam-toast-box"></div>'), true);
   M.set({ teams: league });
   const pool = league.map(t => t.id).concat([SETH]);
   const sea = season({ team: 3, place: 2, w: 10, l: 4, seed: 2, scores: games(10, 4) });
   const kept = x => M.bamValid({ slots: slots(10), team: 3, season: sea, ...x }, pool).ach;
   ok('a build off the device keeps what it owes, and a season from before achievements owes nothing',
-    [kept({ ach: { tr: 88 } }), kept({ ach: true }), kept({}), kept({ ach: 'x' }), M.bamValid({ slots: {}, ach: true }, pool).ach],
-    [{ tr: 88 }, true, null, null, null]);
+    [kept({ ach: { tr: 88 } }), kept({ ach: true }), kept({ ach: ['s10', 'last'] }), kept({ ach: ['s10', '<b>', 7] }), kept({}), kept({ ach: 'x' }), M.bamValid({ slots: {}, ach: true }, pool).ach],
+    [{ tr: 88 }, true, ['s10', 'last'], ['s10'], null, null, null]);
+  ok("owed only while it holds the team's rating", [M.bamAchOwed({ season: sea, ach: { tr: 88 } }), M.bamAchOwed({ season: sea, ach: [] }), M.bamAchOwed({ season: sea, ach: true }), M.bamAchOwed({ season: null, ach: { tr: 88 } })],
+    [true, false, false, false]);
+}
+
+console.log(NL + 'telling them');
+fresh();
+{
+  league.slice(0, 11).forEach(t => M.bamAchLand(t.id));
+  ok('a landing hands back what it earned, nothing until the twelfth', M.bamAchLand(1), []);
+  ok('and the twelfth earns Land on every manager', M.bamAchLand(12), ['land']);
+  const b = M.bamFresh(); b.slots.draft = SETH;
+  ok('so does a trait taken', M.bamAchTake(b, SETH, 'draft'), ['seth']);
+  M.bamAchToast(['land']);
+  ok('the banner comes up with the achievement and its reward', [M.toastBox.on, M.toastBox.innerHTML.includes('{Land on every manager}'), M.toastBox.innerHTML.includes('[+$15]')], [true, true, true]);
+  M.bamAchToast(['seth', 'nope']);
+  ok('another earned while it is up joins it; nothing unknown does', [M.toastBox.innerHTML.includes('{Land on every manager}'), M.toastBox.innerHTML.includes('{Get a Seth}'), M.toastBox.innerHTML.includes('nope')], [true, true, false]);
+  ok('a tap puts it away', M.toastBox.innerHTML.includes('onclick="bamAchToastHide()"'), true);
+  M.bamAchToastHide();
+  ok('and once gone, the next starts fresh', (M.bamAchToast(['title']), [M.toastBox.on, M.toastBox.innerHTML.includes('{Get a Seth}')]), [true, false]);
+  M.bamAchToastHide();
+  M.bamAchToast([]);
+  ok('nothing earned, no banner', M.toastBox.on, false);
+  const got = M.bamAchGotHTML({ ach: ['s10', 'last', 'nope'] });
+  ok("a season's list: each it earned with its reward, nothing unknown", [(got.match(/class="bam-got-r"/g) || []).length, got.includes('{Play 10 seasons}'), got.includes('[+$40]')], [2, true, true]);
+  ok('and nothing at all for a season that earned nothing, one still owed, or one counted before lists were kept',
+    [M.bamAchGotHTML({ ach: [] }), M.bamAchGotHTML({ ach: { tr: 80 } }), M.bamAchGotHTML({ ach: true })], ['', '', '']);
+}
+fresh();
+{
+  M.set({ ls: { 'bft:bamach': JSON.stringify({ n: 9 }) } });
+  const { b } = await play({ team: 3, place: 7, w: 7, l: 7, seed: 7, scores: games(7, 7) });
+  ok('a season keeps what it earned with the build, for its result to show', b.ach, ['s10']);
 }
 
 console.log(NL + 'the bank');
