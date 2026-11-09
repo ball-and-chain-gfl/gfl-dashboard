@@ -276,6 +276,12 @@ manager, a few bests, and `done` {id: time}), on the device under
 and counted by `renderBam` only once its reveal is over (`bamAchSeason`), so
 nothing gives the result away. `bamAchSave` then reads the profile and writes
 `bamAch` once, and writes nothing if the read fails.
+THE LEAGUE'S TAB: the pop-up has two tabs, Mine (opens on it every time) and
+League (`bamAchBoard`): every manager by achievements earned out of the whole
+list, then by what they paid, ties level on rank, yours lit. It groups the
+profile list the app already holds with `ldRows`, like the Leaderboards, so
+it costs no read; your row adds this device's record, the test account
+counts for nobody.
 TELLING THEM: what a landing or a trait earns comes up at once in a banner
 under the top bar (`#bam-toast`, `bamAchToast`; gone after 5 seconds or a
 tap, and anything earned while it is up joins it). What a season earns is

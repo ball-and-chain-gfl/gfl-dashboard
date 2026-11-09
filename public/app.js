@@ -21947,14 +21947,53 @@ function bamAchRowHTML(a,st){
       </div>
     </div>`;
 }
+/* ── THE LEAGUE'S TROPHY CASES ───────────────────────────────────────────────
+   A second tab: every manager by how many achievements they have earned, then
+   by what those paid, each with a bar out of the whole list. Read off the
+   profile list the app already holds (ldRows groups it by team, as the
+   Leaderboards do), so it costs no read; your own row adds this device's
+   record. Others show what their profile held when the list was read. */
+let _bamAchTab='mine';
+function bamAchBoard(){
+  return ldRows().map(r=>{
+    const me=!!(_me&&(r.ids||[]).includes(_me.k1));
+    let st=null;
+    (r.prof||[]).filter(p=>p&&p.id!==TEST_PROFILE).forEach(p=>{ st=bamAchMerge(st,bamAchOf(p)); });
+    if(me) st=bamAchMerge(st,bamAchMine());
+    const paid=bamAchPaid(st);
+    return {teamId:Number(r.teamId), name:String(r.name||''), me, n:paid.length, v:paid.reduce((a,x)=>a+x.v,0)};
+  }).sort((a,b)=>(b.n-a.n)||(b.v-a.v)||a.name.localeCompare(b.name));
+}
+function bamAchBoardHTML(){
+  const rows=bamAchBoard(), tot=BAM_ACH.length;
+  return `<div class="bam-board">${rows.map(r=>{
+    /* level on both counts, level on rank */
+    const rank=rows.findIndex(x=>x.n===r.n&&x.v===r.v)+1, t=bamTeam(r.teamId);
+    return `<div class="bam-brow${r.me?' me':''}">
+        <span class="bam-brk">${bamPx(String(rank),1)}</span>
+        <span class="bam-bwho">${avatarHTML(t,22,6)}${bamPx(bamAbbr(t),1)}</span>
+        <span class="bam-ach-bar"><span style="width:${Math.round(100*r.n/tot)}%"></span></span>
+        ${bamPx(`${r.n}/${tot}`,1,'bam-ach-c')}${bamPx('$'+r.v,1,'bam-ach-g')}
+      </div>`;
+  }).join('')}</div>`;
+}
 function bamAchHTML(){
+  const tab=k=>`<button class="bam-atab${_bamAchTab===k?' on':''}" role="tab" aria-selected="${_bamAchTab===k}" onclick="bamAchTabPick('${k}')">${bamPx(k==='mine'?'Mine':'League',1)}</button>`;
+  const tabs=`<div class="bam-atabs" role="tablist">${tab('mine')}${tab('league')}</div>`;
+  if(_bamAchTab==='league') return tabs+bamAchBoardHTML();
   const st=bamAchMine(), got=BAM_ACH.filter(a=>st.done[a.id]>0);
   const won=got.reduce((s,a)=>s+a.r,0), all=BAM_ACH.reduce((s,a)=>s+a.r,0);
-  return `<div class="bam-ach-top">
+  return tabs+`<div class="bam-ach-top">
       <div>${bamPx('Earned',1,'bam-mix-l')}${bamPx(`${got.length} of ${BAM_ACH.length}`,2)}</div>
       <div>${bamPx('GFL Bucks',1,'bam-mix-l')}${bamPx(`$${won} of $${all}`,2,'bam-ach-g')}</div>
     </div>
     <div class="bam-ach-list">${BAM_ACH.map(a=>bamAchRowHTML(a,st)).join('')}</div>`;
+}
+/* a tab redraws the pop-up's body from its top; nothing else moves */
+function bamAchTabPick(k){
+  _bamAchTab=k==='league'?'league':'mine';
+  const body=document.getElementById('bam-ach-body'); if(body) body.innerHTML=bamAchHTML();
+  const m=document.querySelector('#bam-ach-overlay .modal'); if(m) m.scrollTop=0;
 }
 function bamAchEsc(e){ if(e.key==='Escape') bamAchClose(); }
 function bamAchOpen(){
@@ -21963,7 +22002,7 @@ function bamAchOpen(){
     ov._dragGuarded=true;
     ov.addEventListener('touchmove',e=>{ if(e.target===ov) e.preventDefault(); },{passive:false});
   }
-  _bamAchSince=bamAchSeen(); _bamAchLeft=false;
+  _bamAchSince=bamAchSeen(); _bamAchLeft=false; _bamAchTab='mine';
   try{ localStorage.setItem(bamAchSeenKey(),String(Date.now())); }catch(e){}
   const body=document.getElementById('bam-ach-body'); if(body) body.innerHTML=bamAchHTML();
   const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;

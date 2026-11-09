@@ -47,12 +47,14 @@ const M = assemble(grab, [
   'function bamAchSeason(', 'async function bamAchSave(', 'function bamAchSeen(', 'const bamAchNewCount=', 'function bamTrophyHTML(',
   'function bamAchLeftHTML(', 'function bamAchRowHTML(', 'function bamAchHTML(',
   'const bamAchOwed=', 'const bamAchRewardHTML=', 'function bamAchToast(', 'function bamAchToastHide(', 'function bamAchGotHTML(',
+  'function ldRows(', 'function bamAchBoard(', 'function bamAchBoardHTML(',
 ], ['BAM_ATTRS', 'BAM_SCALE', 'BAM_ACH', 'BAM_ACH_FROM', 'bamAchName', 'bamPxClean', 'bamAchBlank', 'bamAchClean', 'bamAchMerge', 'bamAchOf',
   'bamAchMine', 'bamAchPaid', 'bamAchEdit', 'bamAchLand', 'bamAchTake', 'bamAchSeason', 'bamAchSave', 'bamAchBucks', 'bucksFor',
   'bamAchNewCount', 'bamTrophyHTML', 'bamAchRowHTML', 'bamAchHTML', 'bamFresh', 'bamValid', 'bamOvr', 'bamManagerOvr', 'set', 'log',
-  'bamAchOwed', 'bamAchToast', 'bamAchToastHide', 'bamAchGotHTML', 'toastBox'], [
+  'bamAchOwed', 'bamAchToast', 'bamAchToastHide', 'bamAchGotHTML', 'toastBox', 'bamAchBoard', 'bamAchBoardHTML'], [
   "let _CFG={}, _teams=[], _cpRows=null, _me=null, _bkScope=null, _ls={}, _now=null, _bamAchMemo=null, _bamAchSince=0, _bamAchLeft=false;",
-  "let _bamToastIds=[], _bamToastT=null;",
+  "let _bamToastIds=[], _bamToastT=null, _bamAchTab='mine', _franchises=[], _bkProfiles=null;",
+  "const TEST_PROFILE='test';",
   /* the banner's box, as much of an element as it uses */
   "const toastBox={innerHTML:'', on:false, classList:{add(c){ if(c==='on') toastBox.on=true; }, remove(c){ if(c==='on') toastBox.on=false; }}};",
   "const document={getElementById:id=>id==='bam-toast'?toastBox:null};",
@@ -67,6 +69,7 @@ const M = assemble(grab, [
   "async function gflPatchProfile(id,obj){ log.writes.push(obj); Object.assign(log.prof,obj); return {ok:true}; }",
   "function bamSave(){ log.saves++; }",
   "const set=o=>{ if('cfg' in o) _CFG=o.cfg; if('teams' in o) _teams=o.teams; if('rows' in o) _cpRows=o.rows;",
+  "  if('fr' in o) _franchises=o.fr; if('tab' in o) _bamAchTab=o.tab;",
   "  if('me' in o) _me=o.me; if('ls' in o) _ls=o.ls; if('now' in o) _now=o.now; if('since' in o) _bamAchSince=o.since; if('left' in o) _bamAchLeft=o.left; };",
 ].join(NL));
 
@@ -341,6 +344,35 @@ fresh();
   M.set({ ls: { 'bft:bamach': JSON.stringify({ n: 9 }) } });
   const { b } = await play({ team: 3, place: 7, w: 7, l: 7, seed: 7, scores: games(7, 7) });
   ok('a season keeps what it earned with the build, for its result to show', b.ach, ['s10']);
+}
+
+console.log(NL + "the league's tab");
+fresh();
+{
+  const t = NOW - 5000, ach = done => JSON.stringify({ done: Object.fromEntries(done.map(id => [id, t])) });
+  M.set({ fr: league.map(x => ({ owner: 'o' + x.id, name: x.name, teamId: x.id })),
+    rows: [{ id: 'mm', teamId: '1', bamAch: ach(['title', 'last', 's10']) }, { id: 'mcm', teamId: '2', bamAch: ach(['allwin']) },
+      { id: 'goob', teamId: '3', bamAch: ach(['seth', 'land', 's10']) }, { id: 'goob2', teamId: '3', bamAch: ach(['seth', 'nail']) },
+      { id: 'test', teamId: '10', bamAch: ach(['all']) }, { id: 'bft', teamId: '10' }],
+    ls: { 'bft:bamach': ach(['title']) } });
+  const board = M.bamAchBoard();
+  ok('every manager, most earned first, then by what they paid', [board.length, board.slice(0, 4).map(r => [r.teamId, r.n, r.v])],
+    [12, [[3, 4, 50], [1, 3, 75], [2, 1, 750], [10, 1, 25]]]);
+  ok("a manager's profiles together, each achievement once; the test account counts for nobody", [board[0].n, board.find(r => r.teamId === 10).n], [4, 1]);
+  ok('yours counts this device too, and is the one lit', [board.find(r => r.me).teamId, board.filter(r => r.me).length], [10, 1]);
+  const html = M.bamAchBoardHTML();
+  ok('a row each with rank, team, bar, count out of the whole list and what it paid',
+    [(html.match(/class="bam-brow/g) || []).length, html.includes('[4/34]'), html.includes('[$750]'), html.includes('width:12%'), /class="bam-brow me"/.test(html)], [12, true, true, true, true]);
+  /* GOOB 4, MM 3, MCM 1 ($750), BFT 1 ($25), and the other eight level on nothing, all fifth */
+  ok('level on both counts is level on rank', (html.match(/\[5\]/g) || []).length, 8);
+  M.set({ tab: 'league' });
+  const pop = M.bamAchHTML();
+  ok("the pop-up opens on its two tabs, and the league's shows the board instead of your list",
+    [pop.includes(`onclick="bamAchTabPick('mine')"`), /class="bam-atab on"[^>]*bamAchTabPick\('league'\)/.test(pop), pop.includes('class="bam-board"'), pop.includes('class="bam-ach-list"')], [true, true, true, false]);
+  M.set({ tab: 'mine' });
+  ok('and yours shows your list', [M.bamAchHTML().includes('class="bam-ach-list"'), M.bamAchHTML().includes('class="bam-board"')], [true, false]);
+  const src = fs.readFileSync(appUrl, 'utf8').replace(/\r\n/g, '\n');
+  ok('it opens on yours every time', src.includes("_bamAchSince=bamAchSeen(); _bamAchLeft=false; _bamAchTab='mine';"), true);
 }
 
 console.log(NL + 'the bank');

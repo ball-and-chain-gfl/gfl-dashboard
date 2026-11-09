@@ -3416,6 +3416,21 @@
     .bam-trophy-n{position:absolute;top:-8px;right:-8px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;
       display:flex;align-items:center;justify-content:center;border-radius:3px;background:var(--red);color:#fff;}
     .bam-play .bam-hd{padding-right:48px;}
+    /* the pop-up's two tabs, yours and the league's, answering in colour */
+    .bam-atabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:8px;}
+    .bam-atab{display:flex;align-items:center;justify-content:center;padding:9px 8px;border-radius:4px;cursor:pointer;
+      border:2px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text2);}
+    .bam-atab:hover{background:rgba(255,255,255,0.07);}
+    .bam-atab.on{border-color:var(--accent);background:rgba(var(--accent-rgb),0.18);color:var(--text);}
+    .bam-ach-modal .bam-atab:active{background:rgba(var(--accent-rgb),0.12);}
+    /* the league's tab: a row a manager, most earned first, yours lit */
+    .bam-board{display:flex;flex-direction:column;gap:4px;}
+    .bam-brow{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;color:var(--text);
+      background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.07);}
+    .bam-brow.me{border-color:rgba(var(--accent-rgb),0.6);background:rgba(var(--accent-rgb),0.12);}
+    .bam-brk{flex:0 0 14px;display:flex;justify-content:flex-end;color:var(--text3);}
+    .bam-bwho{flex:0 0 62px;display:flex;align-items:center;gap:7px;min-width:0;}
+    .bam-brow .bam-ach-bar{flex:1 1 auto;}
     /* the pop-up: the two totals, then every achievement with its bar */
     .bam-ach-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:8px;}
     .bam-ach-top>div{display:flex;flex-direction:column;gap:7px;padding:9px 10px;border-radius:4px;color:var(--text);
