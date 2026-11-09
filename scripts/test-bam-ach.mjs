@@ -426,7 +426,8 @@ fresh();
   /* Florida Man's 3 Seths, in the build he won a title with at 4:45pm on 9 November */
   const T = 1794264355008;
   ok('granted to Florida Man at the moment of that title', [new Date(T).toISOString(), M.BAM_ACH.some(a => a.id === 'seth3')], ['2026-11-09T22:45:55.008Z', true]);
-  M.set({ me: { k1: 'fman', teamId: 5 }, rows: [], ls: {} });
+  /* three hours after it, whatever time zone the tests run in */
+  M.set({ me: { k1: 'fman', teamId: 5 }, rows: [], ls: {}, now: T + 3 * 3600e3 });
   ok('in his own record, so his balance pays it, with nothing else on file', [rec().done.seth3, M.bamAchBucks()], [T, 500]);
   M.set({ ls: { 'fman:bamach': JSON.stringify({ bs: 3, done: { seth: T - 9e5, seth2: T - 6e4 } }) } });
   ok('and the 3 Seths his device already holds do not earn it a second time', [M.bamAchLand(3), rec().done.seth3], [[], T]);
@@ -435,7 +436,7 @@ fresh();
   ok('and nobody else holds it', [rec().done.seth3, M.bamAchBucks()], [undefined, 0]);
   /* the card: his alone, from that day until the Tuesday turn after */
   const card = me => { M.set({ me }); const o = []; M.ntAchGrants(o); return o; };
-  M.set({ now: new Date(2026, 10, 9, 20).getTime() });
+  M.set({ now: T + 3 * 3600e3 });
   ok('nobody else gets a card', card({ k1: 'bft', teamId: 10 }).length, 0);
   const c = card({ k1: 'fman', teamId: 5 });
   ok('he gets one, a gold trophy card with the achievement and what it paid',
