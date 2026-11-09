@@ -94,14 +94,15 @@ console.log(NL + 'the list');
    with MCM or WGLR; then four more at his prices: 250 seasons, 50 titles,
    200 in a game, and A- or better in every slot; then the Chimp's (get one,
    get 2, finish last with one), a title with a Chimp and last with a Seth,
-   and no title with 2 Seths */
+   and no title with 2 Seths; then a Seth and a Chimp in one build, and 3 of
+   either */
 const want = { nail: 10, s10: 10, seth: 15, land: 15, chimp: 15, title: 25, big: 25, toilet: 30, last: 40, nine: 40, w5: 50, sethw: 50,
-  chimplast: 50, s50: 60, teams: 75, b2b: 75, own: 75, chimpw: 75, sethlast: 75, six: 125, s100: 150, seth2: 150, s250: 150, chimp2: 150,
-  coach: 200, big200: 200, w25: 250, w50: 250, allA: 250, p2000: 350, m95: 400, t95: 400, every: 500, three: 500, winless: 500,
-  perfect: 600, allwin: 750, all: 1000 };
-ok('thirty-eight, each with its reward, cheapest first',
-  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [38, want, true]);
-ok('$7685 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 7685);
+  chimplast: 50, sethchimp: 50, s50: 60, teams: 75, b2b: 75, own: 75, chimpw: 75, sethlast: 75, six: 125, s100: 150, seth2: 150, s250: 150,
+  chimp2: 150, coach: 200, big200: 200, w25: 250, w50: 250, allA: 250, p2000: 350, m95: 400, t95: 400, every: 500, three: 500,
+  seth3: 500, chimp3: 500, winless: 500, perfect: 600, allwin: 750, all: 1000 };
+ok('forty-one, each with its reward, cheapest first',
+  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [41, want, true]);
+ok('$8735 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 8735);
 ok('no title with 2 Seths, and no last with 2 Chimps', M.BAM_ACH.some(a => a.id === 'seth2w' || a.id === 'chimp2last'), false);
 ok('the spread runs from $10 to $750, with $1000 on top for the lot',
   [Math.min(...M.BAM_ACH.map(a => a.r)), Math.max(...M.BAM_ACH.filter(a => a.id !== 'all').map(a => a.r)), M.BAM_ACH[M.BAM_ACH.length - 1].id], [10, 750, 'all']);
@@ -187,7 +188,7 @@ fresh();
     table: [{ id: 3, w: 1, l: 0, pf: 100.5 }].concat(league.filter(t => t.id !== 3).map(t => ({ id: t.id, w: 0, l: 1, pf: 90 }))),
     seed: [3].concat(league.filter(t => t.id !== 3).map(t => t.id)), place: { 3: 5 } } });
   ok('the last of them earns Complete every achievement in the same moment', [wonBy, done().includes('all')], [['nail', 'all'], true]);
-  ok('and pays its $1000 with the rest', M.bamAchBucks(), 7685);
+  ok('and pays its $1000 with the rest', M.bamAchBucks(), 8735);
   await flush();
 }
 fresh();
@@ -243,6 +244,21 @@ fresh();
   b.slots.trade = CHIMP;
   ok('a second in the same build earns Get 2 Chimps in one build', [M.bamAchTake(b, CHIMP, 'trade'), rec().bc], [['chimp2'], 2]);
   ok('a Chimp grade is no grade used, and landing on him is no manager landed on', [rec().use, M.bamAchLand(CHIMP), rec().land], [{}, [], []]);
+  b.slots.fin = CHIMP;
+  ok('a third earns Get 3 Chimps in one build', [M.bamAchTake(b, CHIMP, 'fin'), rec().bc], [['chimp3'], 3]);
+  b.slots.coach = SETH;
+  ok('and a Seth in the same build earns Get a Seth and a Chimp in one build', M.bamAchTake(b, SETH, 'coach').sort(), ['seth', 'sethchimp']);
+}
+fresh();
+{
+  /* three Seths, one at a time; and a Seth in one build and a Chimp in another is not both */
+  const b = M.bamFresh();
+  ['draft', 'trade'].forEach(k => { b.slots[k] = SETH; M.bamAchTake(b, SETH, k); });
+  ok('two Seths are not three', done().includes('seth3'), false);
+  b.slots.fin = SETH;
+  ok('the third earns Get 3 Seths in one build', [M.bamAchTake(b, SETH, 'fin'), rec().bs], [['seth3'], 3]);
+  const c = M.bamFresh(); c.slots.draft = CHIMP; M.bamAchTake(c, CHIMP, 'draft');
+  ok('a Seth in one build and a Chimp in the next are not both in one', [done().includes('sethchimp'), rec().sc], [false, 0]);
 }
 fresh();
 {
@@ -388,7 +404,7 @@ fresh();
   ok('yours counts this device too, and is the one lit', [board.find(r => r.me).teamId, board.filter(r => r.me).length], [10, 1]);
   const html = M.bamAchBoardHTML();
   ok('a row each with rank, team, bar, count out of the whole list and what it paid',
-    [(html.match(/class="bam-brow/g) || []).length, html.includes('[4/38]'), html.includes('[$750]'), html.includes('width:11%'), /class="bam-brow me"/.test(html)], [12, true, true, true, true]);
+    [(html.match(/class="bam-brow/g) || []).length, html.includes('[4/41]'), html.includes('[$750]'), html.includes('width:10%'), /class="bam-brow me"/.test(html)], [12, true, true, true, true]);
   /* GOOB 4, MM 3, MCM 1 ($750), BFT 1 ($25), and the other eight level on nothing, all fifth */
   ok('level on both counts is level on rank', (html.match(/\[5\]/g) || []).length, 8);
   M.set({ tab: 'league' });
@@ -449,8 +465,8 @@ fresh();
   ok('and nothing once it has been opened', M.bamTrophyHTML().includes('bam-trophy-n'), false);
   M.set({ since: NOW - 10000 });
   const pop = M.bamAchHTML();
-  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 38]'), pop.includes('[$65 of $7685]')], [38, true, true]);
-  ok('Complete every achievement counts the other thirty-seven', pop.includes('[2/37]'), true);
+  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 41]'), pop.includes('[$65 of $8735]')], [41, true, true]);
+  ok('Complete every achievement counts the other forty', pop.includes('[2/40]'), true);
   ok('what is earned is done, and what is new since the last look is lit',
     [/class="bam-ach done new" id="bam-ach-title"/.test(pop), /class="bam-ach done" id="bam-ach-last"/.test(pop), /class="bam-ach" id="bam-ach-land"/.test(pop)], [true, true, true]);
   ok('each with its bar and how far along', [pop.includes('[6/12]'), pop.includes('width:50%'), pop.includes('[3/10]'), pop.includes('[$15]')], [true, true, true, true]);

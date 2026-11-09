@@ -21691,7 +21691,7 @@ function bamRecordWin(b){
   bamPaySave(now,prev);
 }
 /* ── THE TROPHY CASE ─────────────────────────────────────────────────────────
-   Thirty-eight achievements, each with a progress bar and its own GFL Bucks, paid
+   Forty-one achievements, each with a progress bar and its own GFL Bucks, paid
    the moment it is earned (bamAchBucks, in the bank beside the titles). The
    commissioner picked them and their rewards on 8 November. Nothing before
    then counts: everyone starts from zero.
@@ -21735,6 +21735,7 @@ const BAM_ACH=[
   {id:'w5', name:'Win 5 titles', r:50, goal:()=>5, at:s=>s.w},
   {id:'sethw', name:'Win a title with a Seth', r:50, one:true},
   {id:'chimplast', name:'Finish last with a Chimp', r:50, one:true},
+  {id:'sethchimp', name:'Get a Seth and a Chimp in one build', r:50, goal:()=>1, at:s=>s.sc},
   {id:'s50', name:'Play 50 seasons', r:60, goal:()=>50, at:s=>s.n},
   {id:'teams', name:'Play with every team', r:75, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.play)},
   {id:'b2b', name:'Win back-to-back titles', r:75, goal:()=>2, at:s=>s.st},
@@ -21757,6 +21758,8 @@ const BAM_ACH=[
   {id:'every', name:'Use every attribute', r:500, goal:()=>bamAchPool().length*BAM_ATTRS.length,
     at:s=>bamAchPool().reduce((a,id)=>a+bamBits(s.use[id]),0)},
   {id:'three', name:'Win 3 titles in a row', r:500, goal:()=>3, at:s=>s.st},
+  {id:'seth3', name:'Get 3 Seths in one build', r:500, goal:()=>3, at:s=>s.bs},
+  {id:'chimp3', name:'Get 3 Chimps in one build', r:500, goal:()=>3, at:s=>s.bc},
   {id:'winless', name:'Go 0-14', r:500, one:true},
   {id:'perfect', name:'Go 14-0', r:600, goal:()=>14, at:s=>s.bw},
   {id:'allwin', name:'Win with every team', r:750, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.win)},
@@ -21767,9 +21770,9 @@ const BAM_ACH=[
 const bamAchName=a=>typeof a.name==='function'?a.name():a.name;
 const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');
 /* ba: the most slots at A- or better in one build; bs and bc, the most Seths
-   and the most Chimps in one */
-const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bc:0,bd:0,ba:0,done:{}});
-const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bc:9,bd:9,ba:9};
+   and the most Chimps in one; sc, 1 once a build has held both */
+const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bc:0,sc:0,bd:0,ba:0,done:{}});
+const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bc:9,sc:1,bd:9,ba:9};
 /* a record read from anywhere, kept only where it makes sense */
 function bamAchClean(x){
   const o=bamAchBlank(); if(!x||typeof x!=='object') return o;
@@ -21855,6 +21858,7 @@ function bamAchTake(b,id,k){
     const ids=Object.values(b.slots);
     st.bs=Math.max(st.bs,ids.filter(bamIsSeth).length);
     st.bc=Math.max(st.bc,ids.filter(bamIsChimp).length);
+    if(ids.some(bamIsSeth)&&ids.some(bamIsChimp)) st.sc=1;
     st.bd=Math.max(st.bd,new Set(ids).size);
     st.ba=Math.max(st.ba,Object.entries(b.slots).filter(([a,m])=>bamGrade(m,a)>=bamIdx('A-')).length);
     if(bamDone(b)) st.bm=Math.max(st.bm,bamOvr(b));

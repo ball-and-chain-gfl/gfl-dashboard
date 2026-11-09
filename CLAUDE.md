@@ -255,7 +255,7 @@ out), and the Champion box shows "+$10 GFL Bucks".
 ACHIEVEMENTS (the trophy case, from 8 November): a trophy at the top right of
 `.bam-play`, by the wheel (or in the season panel's head row), signed in only,
 with a count of what was earned since the last look (`lsKey('bamachseen')`).
-It opens `#bam-ach-overlay`: thirty-eight rows (`BAM_ACH`, cheapest first, $7685
+It opens `#bam-ach-overlay`: forty-one rows (`BAM_ACH`, cheapest first, $8735
 in all; no blowout, and no title with MCM or WGLR, which the user removed).
 The user added four at their own prices: Play 250 seasons ($150), Score 200
 in a game ($200), Win 50 titles and A- or better in all 9 slots ($250 each,
@@ -287,7 +287,9 @@ team, not in the ratings, letters down the sliver (`bam-wl-sliver`), and
 Finish last with a Chimp ($50), Win a title with a Chimp ($75), Finish last
 with a Seth ($75), Get 2 Chimps in one build ($150; the record's `bc`). The
 user had "Win a title with 2 Seths" and "Finish last with 2 Chimps" removed.
-Thirty-eight achievements, $7685.
+Then Get a Seth and a Chimp in one build ($50, the record's `sc`, 1 in 48)
+and Get 3 Seths / Get 3 Chimps in one build ($500 each, 1 in 2,108 with the
+respin spent fishing). Forty-one achievements, $8735.
 THE LEAGUE'S TAB: the pop-up has two tabs, Mine (opens on it every time) and
 League (`bamAchBoard`): every manager by achievements earned out of the whole
 list, then by what they paid, ties level on rank, yours lit. It groups the
