@@ -255,11 +255,12 @@ out), and the Champion box shows "+$10 GFL Bucks".
 ACHIEVEMENTS (the trophy case, from 8 November): a trophy at the top right of
 `.bam-play`, by the wheel (or in the season panel's head row), signed in only,
 with a count of what was earned since the last look (`lsKey('bamachseen')`).
-It opens `#bam-ach-overlay`: thirty-one rows (`BAM_ACH`, cheapest first, $6970
-in all; no blowout). The user asked for a wider spread: $10 at the bottom, up
-with rarity in simulated play to $750 (a title with every team), and Complete
-every achievement ($1000) last in the list, so it sees what the same pass
-earned. Each row has a bar, how far
+It opens `#bam-ach-overlay`: thirty rows (`BAM_ACH`, cheapest first, $6670 in
+all; no blowout, and no title with MCM or WGLR, which the user removed). The
+user asked for a wider spread: $10 at the bottom, up with rarity in simulated
+play to $750 (a title with every team); the user set both 95s at $400 and
+had a title with 2 Seths lowered ($200). Complete every achievement ($1000)
+is last in the list, so it sees what the same pass earned. Each row has a bar, how far
 along and its reward, compact pixel type at size 1 (the user asked for
 smaller). Use every attribute (all 108 manager-grade pairs, Seth aside) has a
 "What's left" list (`bamAchLeftToggle`, repaints only that row). One record

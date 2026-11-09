@@ -41,7 +41,7 @@ const M = assemble(grab, [
   'function bamSeasonOk(', 'function bamValid(',
   'const BAM_G=', 'const BAM_GLYPH=', 'function bamPxClean(',
   'const lsKey=', 'const bucks2=', 'function bucksFor(', 'const bkAch=', 'function bamAchBucks(',
-  'const BAM_ACH_FROM=', 'const BAM_UNDERDOGS=', 'const bamAchPool=', 'const bamAchIn=', 'const bamBits=', 'const BAM_ACH=',
+  'const BAM_ACH_FROM=', 'const bamAchPool=', 'const bamAchIn=', 'const bamBits=', 'const BAM_ACH=',
   'const bamAchName=', 'const bamAchKey=', 'const bamAchBlank=', 'const BAM_ACH_MAX=', 'function bamAchClean(', 'function bamAchMerge(',
   'const bamAchOf=', 'function bamAchMine(', 'function bamAchPaid(', 'function bamAchEdit(', 'function bamAchLand(', 'function bamAchTake(',
   'function bamAchSeason(', 'async function bamAchSave(', 'function bamAchSeen(', 'const bamAchNewCount=', 'function bamTrophyHTML(',
@@ -80,19 +80,21 @@ const flush = () => new Promise(r => setTimeout(r, 0));
 
 console.log(NL + 'the list');
 /* widened on 8 November at the commissioner's word: $10 at the bottom, $750 for
-   a title with every team, and $1000 for completing every achievement */
+   a title with every team, and $1000 for completing every achievement; then
+   the two 95s at $400 each, a title with 2 Seths down to $200, and no title
+   with MCM or WGLR */
 const want = { nail: 10, s10: 10, seth: 15, land: 15, title: 25, big: 25, toilet: 30, last: 40, nine: 40, w5: 50, sethw: 50, s50: 60,
-  teams: 75, b2b: 75, own: 75, six: 125, under: 150, s100: 150, seth2: 150, coach: 200, w25: 250, m95: 250, seth2w: 300, p2000: 350,
-  every: 500, three: 500, winless: 500, t95: 600, perfect: 600, allwin: 750, all: 1000 };
-ok('thirty-one, each with its reward, cheapest first',
-  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [31, want, true]);
-ok('$6970 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 6970);
+  teams: 75, b2b: 75, own: 75, six: 125, s100: 150, seth2: 150, coach: 200, seth2w: 200, w25: 250, p2000: 350, m95: 400, t95: 400,
+  every: 500, three: 500, winless: 500, perfect: 600, allwin: 750, all: 1000 };
+ok('thirty, each with its reward, cheapest first',
+  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [30, want, true]);
+ok('$6670 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 6670);
 ok('the spread runs from $10 to $750, with $1000 on top for the lot',
   [Math.min(...M.BAM_ACH.map(a => a.r)), Math.max(...M.BAM_ACH.filter(a => a.id !== 'all').map(a => a.r)), M.BAM_ACH[M.BAM_ACH.length - 1].id], [10, 750, 'all']);
 ok('no blowout', M.BAM_ACH.some(a => /blow/i.test(a.id + M.bamAchName(a))), false);
 ok('every name is drawn whole in the pixel type, no letter dropped',
   M.BAM_ACH.map(M.bamAchName).filter(n => M.bamPxClean(n) !== n.toUpperCase()), []);
-ok('the underdogs are named off the league, Motor City and the Wigglers', M.bamAchName(M.BAM_ACH.find(a => a.id === 'under')), 'Win a title with MCM or WGLR');
+ok('no title with MCM or WGLR', M.BAM_ACH.some(a => a.id === 'under'), false);
 ok('Use every attribute is every grade of the twelve, Seth aside', M.BAM_ACH.find(a => a.id === 'every').goal(), 108);
 ok('and nothing counted from before 8 November', new Date(M.BAM_ACH_FROM).toDateString(), 'Sun Nov 08 2026');
 
@@ -155,13 +157,13 @@ fresh();
   const others = M.BAM_ACH.filter(a => a.id !== 'all').map(a => a.id);
   M.set({ ls: { 'bft:bamach': JSON.stringify({ done: Object.fromEntries(others.slice(1).map(id => [id, NOW - 1000])) }) } });
   M.bamAchLand(3);
-  ok('twenty-nine of thirty is not the lot', done().includes('all'), false);
+  ok('all but one is not the lot', done().includes('all'), false);
   const b = { ...M.bamFresh(), slots: Object.fromEntries(KEYS.map(k => [k, 10])) };
   const wonBy = M.bamAchSeason({ ...b, team: 3, ach: { tr: 85 }, season: { log: [{ w: 1, a: 3, b: 1, as: 100.5, bs: 100, win: 3, lose: 1 }], post: [],
     table: [{ id: 3, w: 1, l: 0, pf: 100.5 }].concat(league.filter(t => t.id !== 3).map(t => ({ id: t.id, w: 0, l: 1, pf: 90 }))),
     seed: [3].concat(league.filter(t => t.id !== 3).map(t => t.id)), place: { 3: 5 } } });
   ok('the last of them earns Complete every achievement in the same moment', [wonBy, done().includes('all')], [['nail', 'all'], true]);
-  ok('and pays its $1000 with the rest', M.bamAchBucks(), 6970);
+  ok('and pays its $1000 with the rest', M.bamAchBucks(), 6670);
   await flush();
 }
 fresh();
@@ -199,8 +201,8 @@ fresh();
 fresh();
 {
   const { got } = await play({ team: 2, place: 1, w: 8, l: 6, seed: 6, scores: games(8, 6) }, slots(4));
-  ok('a sixth seed\'s title with Motor City and a weak manager: the underdog, Cinderella and Coach \'em up',
-    got.sort(), ['coach', 'six', 'title', 'under']);
+  ok('a sixth seed\'s title with Motor City and a weak manager: Cinderella and Coach \'em up, and nothing for whose team it was',
+    got.sort(), ['coach', 'six', 'title']);
 }
 fresh();
 {
@@ -329,8 +331,8 @@ fresh();
   ok('and nothing once it has been opened', M.bamTrophyHTML().includes('bam-trophy-n'), false);
   M.set({ since: NOW - 10000 });
   const pop = M.bamAchHTML();
-  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 31]'), pop.includes('[$65 of $6970]')], [31, true, true]);
-  ok('Complete every achievement counts the other thirty', pop.includes('[2/30]'), true);
+  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 30]'), pop.includes('[$65 of $6670]')], [30, true, true]);
+  ok('Complete every achievement counts the other twenty-nine', pop.includes('[2/29]'), true);
   ok('what is earned is done, and what is new since the last look is lit',
     [/class="bam-ach done new" id="bam-ach-title"/.test(pop), /class="bam-ach done" id="bam-ach-last"/.test(pop), /class="bam-ach" id="bam-ach-land"/.test(pop)], [true, true, true]);
   ok('each with its bar and how far along', [pop.includes('[6/12]'), pop.includes('width:50%'), pop.includes('[3/10]'), pop.includes('[$15]')], [true, true, true, true]);
