@@ -21692,7 +21692,7 @@ function bamRecordWin(b){
   bamPaySave(now,prev);
 }
 /* ── THE TROPHY CASE ─────────────────────────────────────────────────────────
-   Forty-one achievements, each with a progress bar and its own GFL Bucks, paid
+   Forty-four achievements, each with a progress bar and its own GFL Bucks, paid
    the moment it is earned (bamAchBucks, in the bank beside the titles). The
    commissioner picked them and their rewards on 8 November. Nothing before
    then counts: everyone starts from zero.
@@ -21730,6 +21730,8 @@ const BAM_ACH=[
   {id:'chimp', name:'Get a Chimp', r:15, goal:()=>1, at:s=>s.bc},
   {id:'title', name:'Win the championship', r:25, goal:()=>1, at:s=>s.w},
   {id:'big', name:'Score 180 in a game', r:25, goal:()=>180, at:s=>Math.floor(s.bg)},
+  {id:'same5', name:'Get the same team 5 times', r:25, goal:()=>5,
+    at:s=>bamAchPool().reduce((m,id)=>Math.max(m,s.tc[id]|0),0)},
   {id:'toilet', name:'Win the losers final', r:30, one:true},
   {id:'last', name:'Finish last', r:40, one:true},
   {id:'nine', name:'Use 9 different managers in one build', r:40, goal:()=>9, at:s=>s.bd},
@@ -21763,6 +21765,10 @@ const BAM_ACH=[
   {id:'chimp3', name:'Get 3 Chimps in one build', r:500, goal:()=>3, at:s=>s.bc},
   {id:'winless', name:'Go 0-14', r:500, one:true},
   {id:'perfect', name:'Go 14-0', r:600, goal:()=>14, at:s=>s.bw},
+  /* through the postseason too: a 14-0 team is the 1 seed, so a bye and two
+     playoff games, and a 0-14 team the 12 seed, a bye and two losers' games */
+  {id:'winless16', name:'Go 0-16 through the losers bracket', r:600, one:true},
+  {id:'perfect16', name:'Go 16-0 through the playoffs', r:750, one:true},
   {id:'allwin', name:'Win with every team', r:750, goal:()=>bamAchPool().length, at:s=>bamAchIn(s.win)},
   /* last, so it sees everything the same pass earned (bamAchEdit goes in order) */
   {id:'all', name:'Complete every achievement', r:1000, goal:()=>BAM_ACH.length-1,
@@ -21780,8 +21786,9 @@ const BAM_ACH_GRANTS=[{acct:'fman', id:'seth3', t:1794264355008}];
 const bamAchGrants=acct=>({done:Object.fromEntries(BAM_ACH_GRANTS.filter(g=>g.acct===acct).map(g=>[g.id,g.t]))});
 const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');
 /* ba: the most slots at A- or better in one build; bs and bc, the most Seths
-   and the most Chimps in one; sc, 1 once a build has held both */
-const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bc:0,sc:0,bd:0,ba:0,done:{}});
+   and the most Chimps in one; sc, 1 once a build has held both; tc, how many
+   seasons each team has been played */
+const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},tc:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bc:0,sc:0,bd:0,ba:0,done:{}});
 const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bc:9,sc:1,bd:9,ba:9};
 /* a record read from anywhere, kept only where it makes sense */
 function bamAchClean(x){
@@ -21794,6 +21801,10 @@ function bamAchClean(x){
   if(x.use&&typeof x.use==='object') Object.entries(x.use).forEach(([id,m])=>{
     const i=Number(id), v=Math.floor(Number(m))&511;
     if(Number.isInteger(i)&&i>0&&i<36&&v>0) o.use[i]=v;
+  });
+  if(x.tc&&typeof x.tc==='object') Object.entries(x.tc).forEach(([id,n])=>{
+    const i=Number(id), v=Math.floor(pos(n,1e6));
+    if(Number.isInteger(i)&&i>0&&i<36&&v>0) o.tc[i]=v;
   });
   const max=Date.now()+3600e3;
   if(x.done&&typeof x.done==='object') Object.entries(x.done).forEach(([id,t])=>{
@@ -21810,6 +21821,7 @@ function bamAchMerge(a,b){
   const late=b.stT>a.stT?b:a; o.st=late.st; o.stT=late.stT;
   o.land=u(a.land,b.land); o.play=u(a.play,b.play); o.win=u(a.win,b.win);
   new Set(Object.keys(a.use).concat(Object.keys(b.use))).forEach(id=>{ o.use[id]=(a.use[id]|0)|(b.use[id]|0); });
+  new Set(Object.keys(a.tc).concat(Object.keys(b.tc))).forEach(id=>{ o.tc[id]=Math.max(a.tc[id]|0,b.tc[id]|0); });
   new Set(Object.keys(a.done).concat(Object.keys(b.done))).forEach(id=>{
     o.done[id]=Math.min(...[a.done[id],b.done[id]].filter(t=>t>0)); });
   return o;
@@ -21898,6 +21910,11 @@ function bamAchSeason(b){
   if(sum.place===12&&chimps>=1) hit.push('chimplast');
   if(title&&chimps>=1) hit.push('chimpw');
   if(row.w===0&&row.l>0) hit.push('winless');
+  /* every game, the postseason's too (and there has to be one): the title
+     without a loss, last without a win */
+  const postN=bamMine(b).filter(x=>x.post).length;
+  if(title&&postN&&games.every(g=>g.win===me)) hit.push('perfect16');
+  if(sum.place===12&&postN&&games.every(g=>g.win!==me)) hit.push('winless16');
   if(title){
     if(seths>=1) hit.push('sethw');
     if(Number(_me.teamId)===me) hit.push('own');
@@ -21908,6 +21925,7 @@ function bamAchSeason(b){
     st.n++; if(title) st.w++;
     st.st=title?st.st+1:0; st.stT=Date.now();
     if(!st.play.includes(me)) st.play.push(me);
+    st.tc[me]=(st.tc[me]|0)+1;
     if(title&&!st.win.includes(me)) st.win.push(me);
     st.bt=Math.max(st.bt,Math.min(99,Math.round(tr)));
     st.bg=Math.max(st.bg,...games.map(mine));

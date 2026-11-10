@@ -98,14 +98,14 @@ console.log(NL + 'the list');
    200 in a game, and A- or better in every slot; then the Chimp's (get one,
    get 2, finish last with one), a title with a Chimp and last with a Seth,
    and no title with 2 Seths; then a Seth and a Chimp in one build, and 3 of
-   either */
-const want = { nail: 10, s10: 10, seth: 15, land: 15, chimp: 15, title: 25, big: 25, toilet: 30, last: 40, nine: 40, w5: 50, sethw: 50,
-  chimplast: 50, sethchimp: 50, s50: 60, teams: 75, b2b: 75, own: 75, chimpw: 75, sethlast: 75, six: 125, s100: 150, seth2: 150, s250: 150,
-  chimp2: 150, coach: 200, big200: 200, w25: 250, w50: 250, allA: 250, p2000: 350, m95: 400, t95: 400, every: 500, three: 500,
-  seth3: 500, chimp3: 500, winless: 500, perfect: 600, allwin: 750, all: 1000 };
-ok('forty-one, each with its reward, cheapest first',
-  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [41, want, true]);
-ok('$8735 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 8735);
+   either; then the same team 5 times, and 0-16 and 16-0 through the postseason */
+const want = { nail: 10, s10: 10, seth: 15, land: 15, chimp: 15, title: 25, big: 25, same5: 25, toilet: 30, last: 40, nine: 40, w5: 50,
+  sethw: 50, chimplast: 50, sethchimp: 50, s50: 60, teams: 75, b2b: 75, own: 75, chimpw: 75, sethlast: 75, six: 125, s100: 150, seth2: 150,
+  s250: 150, chimp2: 150, coach: 200, big200: 200, w25: 250, w50: 250, allA: 250, p2000: 350, m95: 400, t95: 400, every: 500, three: 500,
+  seth3: 500, chimp3: 500, winless: 500, perfect: 600, winless16: 600, perfect16: 750, allwin: 750, all: 1000 };
+ok('forty-four, each with its reward, cheapest first',
+  [M.BAM_ACH.length, Object.fromEntries(M.BAM_ACH.map(a => [a.id, a.r])), M.BAM_ACH.every((a, i, l) => !i || l[i - 1].r <= a.r)], [44, want, true]);
+ok('$10110 in all', M.BAM_ACH.reduce((s, a) => s + a.r, 0), 10110);
 ok('no title with 2 Seths, and no last with 2 Chimps', M.BAM_ACH.some(a => a.id === 'seth2w' || a.id === 'chimp2last'), false);
 ok('the spread runs from $10 to $750, with $1000 on top for the lot',
   [Math.min(...M.BAM_ACH.map(a => a.r)), Math.max(...M.BAM_ACH.filter(a => a.id !== 'all').map(a => a.r)), M.BAM_ACH[M.BAM_ACH.length - 1].id], [10, 750, 'all']);
@@ -191,7 +191,7 @@ fresh();
     table: [{ id: 3, w: 1, l: 0, pf: 100.5 }].concat(league.filter(t => t.id !== 3).map(t => ({ id: t.id, w: 0, l: 1, pf: 90 }))),
     seed: [3].concat(league.filter(t => t.id !== 3).map(t => t.id)), place: { 3: 5 } } });
   ok('the last of them earns Complete every achievement in the same moment', [wonBy, done().includes('all')], [['nail', 'all'], true]);
-  ok('and pays its $1000 with the rest', M.bamAchBucks(), 8735);
+  ok('and pays its $1000 with the rest', M.bamAchBucks(), 10110);
   await flush();
 }
 fresh();
@@ -289,6 +289,33 @@ fresh();
 {
   const { got } = await play({ team: 9, place: 1, w: 14, l: 0, seed: 1, scores: games(14, 0, 145, 100) });
   ok('14-0 earns Go 14-0, and 2030 points Score 2000 in a regular season', [got.includes('perfect'), got.includes('p2000'), rec().bw, rec().bp], [true, true, 14, 2030]);
+  ok('but no postseason games won, no 16-0', got.includes('perfect16'), false);
+}
+fresh();
+{
+  /* the postseason, as a 1 seed and a 12 seed play it: a bye, then two games */
+  const post = (team, won) => [2, 3].map(r => ({ a: team, b: team === 1 ? 2 : 1, as: won ? 140 : 90, bs: won ? 100 : 130,
+    win: won ? team : (team === 1 ? 2 : 1), lose: won ? (team === 1 ? 2 : 1) : team, side: won ? 'po' : 'lb', round: r }));
+  const go = async (o, p) => { const b = { ...M.bamFresh(), slots: slots(10), team: o.team, season: { ...season(o), post: p }, ach: { tr: 90 } };
+    const got = M.bamAchSeason(b); await flush(); return got; };
+  const sixteen = await go({ team: 9, place: 1, w: 14, l: 0, seed: 1, scores: games(14, 0) }, post(9, true));
+  ok('14-0 and both playoff games: Go 16-0 through the playoffs', [sixteen.includes('perfect16'), sixteen.includes('perfect')], [true, true]);
+  const lostFinal = await go({ team: 9, place: 2, w: 14, l: 0, seed: 1, scores: games(14, 0) },
+    [{ ...post(9, true)[0] }, { ...post(9, false)[1], side: 'po' }]);
+  ok('14-0 and the final lost is no 16-0', lostFinal.includes('perfect16'), false);
+  const nil = await go({ team: 12, place: 12, w: 0, l: 14, seed: 12, scores: games(0, 14) }, post(12, false));
+  ok('0-14 and both losers games lost: Go 0-16 through the losers bracket', [nil.includes('winless16'), nil.includes('winless')], [true, true]);
+  const escaped = await go({ team: 12, place: 11, w: 0, l: 14, seed: 12, scores: games(0, 14) }, [post(12, false)[0], { ...post(12, true)[1], side: 'lb' }]);
+  ok('0-14 with the losers final won is no 0-16', escaped.includes('winless16'), false);
+}
+fresh();
+{
+  const run = async team => (await play({ team, place: 5, w: 7, l: 7, seed: 5, scores: games(7, 7) })).got;
+  for (let i = 0; i < 4; i++) await run(6);
+  await run(3); await run(3);
+  ok('four seasons with one team is not five', [done().includes('same5'), rec().tc], [false, { 3: 2, 6: 4 }]);
+  ok('the fifth earns Get the same team 5 times', (await run(6)).includes('same5'), true);
+  ok('and two devices fold to the larger count per team', M.bamAchMerge({ tc: { 6: 5, 3: 1 } }, { tc: { 6: 2, 3: 4, 99: 3 } }).tc, { 3: 4, 6: 5 });
 }
 fresh();
 {
@@ -407,7 +434,7 @@ fresh();
   ok('yours counts this device too, and is the one lit', [board.find(r => r.me).teamId, board.filter(r => r.me).length], [10, 1]);
   const html = M.bamAchBoardHTML();
   ok('a row each with rank, team, bar, count out of the whole list and what it paid',
-    [(html.match(/class="bam-brow/g) || []).length, html.includes('[4/41]'), html.includes('[$750]'), html.includes('width:10%'), /class="bam-brow me"/.test(html)], [12, true, true, true, true]);
+    [(html.match(/class="bam-brow/g) || []).length, html.includes('[4/44]'), html.includes('[$750]'), html.includes('width:9%'), /class="bam-brow me"/.test(html)], [12, true, true, true, true]);
   /* GOOB 4, MM 3, MCM 1 ($750), BFT 1 ($25), and the other eight level on nothing, all fifth */
   ok('level on both counts is level on rank', (html.match(/\[5\]/g) || []).length, 8);
   M.set({ tab: 'league' });
@@ -499,8 +526,8 @@ fresh();
   ok('and nothing once it has been opened', M.bamTrophyHTML().includes('bam-trophy-n'), false);
   M.set({ since: NOW - 10000 });
   const pop = M.bamAchHTML();
-  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 41]'), pop.includes('[$65 of $8735]')], [41, true, true]);
-  ok('Complete every achievement counts the other forty', pop.includes('[2/40]'), true);
+  ok('a row for each, and the totals', [(pop.match(/class="bam-ach[ "]/g) || []).length, pop.includes('[2 of 44]'), pop.includes('[$65 of $10110]')], [44, true, true]);
+  ok('Complete every achievement counts the other forty-three', pop.includes('[2/43]'), true);
   ok('what is earned is done, and what is new since the last look is lit',
     [/class="bam-ach done new" id="bam-ach-title"/.test(pop), /class="bam-ach done" id="bam-ach-last"/.test(pop), /class="bam-ach" id="bam-ach-land"/.test(pop)], [true, true, true]);
   ok('each with its bar and how far along', [pop.includes('[6/12]'), pop.includes('width:50%'), pop.includes('[3/10]'), pop.includes('[$15]')], [true, true, true, true]);
