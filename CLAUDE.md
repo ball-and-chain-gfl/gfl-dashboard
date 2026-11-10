@@ -255,7 +255,7 @@ out), and the Champion box shows "+$10 GFL Bucks".
 ACHIEVEMENTS (the trophy case, from 8 November): a trophy at the top right of
 `.bam-play`, by the wheel (or in the season panel's head row), signed in only,
 with a count of what was earned since the last look (`lsKey('bamachseen')`).
-It opens `#bam-ach-overlay`: forty-four rows (`BAM_ACH`, cheapest first, $10110
+It opens `#bam-ach-overlay`: forty-four rows (`BAM_ACH`, cheapest first, $10235
 in all; no blowout, and no title with MCM or WGLR, which the user removed).
 The user added four at their own prices: Play 250 seasons ($150), Score 200
 in a game ($200), Win 50 titles and A- or better in all 9 slots ($250 each,
@@ -289,11 +289,13 @@ with a Seth ($75), Get 2 Chimps in one build ($150; the record's `bc`). The
 user had "Win a title with 2 Seths" and "Finish last with 2 Chimps" removed.
 Then Get a Seth and a Chimp in one build ($50, the record's `sc`, 1 in 48)
 and Get 3 Seths / Get 3 Chimps in one build ($500 each, 1 in 2,108 with the
-respin spent fishing). Then Get the same team 5 times ($25, the record's `tc`,
-seasons per team; half of players by 25 seasons), Go 0-16 through the losers
+respin spent fishing). Then Get 5 attributes from one manager in a build ($150, the record's `bo`,
+Seth and the Chimp aside; 1 in 144 with the respin spent chasing, 1 in 259
+without: what the user meant by "the same team 5 times", not a team spun 5
+times, which shipped and was taken out the same hour), Go 0-16 through the losers
 bracket ($600, about 1 in 1,210 tanking) and Go 16-0 through the playoffs
 ($750, about 1 in 1,970): every game including the postseason, and there must
-be postseason games. Forty-four achievements, $10110.
+be postseason games. Forty-four achievements, $10235.
 GRANTS (`BAM_ACH_GRANTS`): an achievement earned before it was on the list,
 given by hand at the moment it was earned. Florida Man's Get 3 Seths in one
 build, from his title at 4:45pm on 9 November, is the first. `bamAchOf` (by

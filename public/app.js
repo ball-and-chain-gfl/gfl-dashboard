@@ -21730,8 +21730,6 @@ const BAM_ACH=[
   {id:'chimp', name:'Get a Chimp', r:15, goal:()=>1, at:s=>s.bc},
   {id:'title', name:'Win the championship', r:25, goal:()=>1, at:s=>s.w},
   {id:'big', name:'Score 180 in a game', r:25, goal:()=>180, at:s=>Math.floor(s.bg)},
-  {id:'same5', name:'Get the same team 5 times', r:25, goal:()=>5,
-    at:s=>bamAchPool().reduce((m,id)=>Math.max(m,s.tc[id]|0),0)},
   {id:'toilet', name:'Win the losers final', r:30, one:true},
   {id:'last', name:'Finish last', r:40, one:true},
   {id:'nine', name:'Use 9 different managers in one build', r:40, goal:()=>9, at:s=>s.bd},
@@ -21750,6 +21748,7 @@ const BAM_ACH=[
   {id:'seth2', name:'Get 2 Seths in one build', r:150, goal:()=>2, at:s=>s.bs},
   {id:'s250', name:'Play 250 seasons', r:150, goal:()=>250, at:s=>s.n},
   {id:'chimp2', name:'Get 2 Chimps in one build', r:150, goal:()=>2, at:s=>s.bc},
+  {id:'one5', name:'Get 5 attributes from one manager', r:150, goal:()=>5, at:s=>s.bo},
   {id:'coach', name:'Win a title with a manager under 85', r:200, one:true},
   {id:'big200', name:'Score 200 in a game', r:200, goal:()=>200, at:s=>Math.floor(s.bg)},
   {id:'w25', name:'Win 25 titles', r:250, goal:()=>25, at:s=>s.w},
@@ -21786,10 +21785,10 @@ const BAM_ACH_GRANTS=[{acct:'fman', id:'seth3', t:1794264355008}];
 const bamAchGrants=acct=>({done:Object.fromEntries(BAM_ACH_GRANTS.filter(g=>g.acct===acct).map(g=>[g.id,g.t]))});
 const bamAchKey=()=>lsKey('bamach'), bamAchSeenKey=()=>lsKey('bamachseen');
 /* ba: the most slots at A- or better in one build; bs and bc, the most Seths
-   and the most Chimps in one; sc, 1 once a build has held both; tc, how many
-   seasons each team has been played */
-const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},tc:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bc:0,sc:0,bd:0,ba:0,done:{}});
-const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bc:9,sc:1,bd:9,ba:9};
+   and the most Chimps in one; sc, 1 once a build has held both; bo, the most
+   attributes from one manager (Seth and the Chimp aside) in one */
+const bamAchBlank=()=>({n:0,w:0,st:0,stT:0,land:[],play:[],win:[],use:{},bm:0,bt:0,bg:0,bp:0,bw:0,bs:0,bc:0,sc:0,bd:0,ba:0,bo:0,done:{}});
+const BAM_ACH_MAX={n:1e6,w:1e6,bm:99,bt:99,bg:999,bp:99999,bw:99,bs:9,bc:9,sc:1,bd:9,ba:9,bo:9};
 /* a record read from anywhere, kept only where it makes sense */
 function bamAchClean(x){
   const o=bamAchBlank(); if(!x||typeof x!=='object') return o;
@@ -21801,10 +21800,6 @@ function bamAchClean(x){
   if(x.use&&typeof x.use==='object') Object.entries(x.use).forEach(([id,m])=>{
     const i=Number(id), v=Math.floor(Number(m))&511;
     if(Number.isInteger(i)&&i>0&&i<36&&v>0) o.use[i]=v;
-  });
-  if(x.tc&&typeof x.tc==='object') Object.entries(x.tc).forEach(([id,n])=>{
-    const i=Number(id), v=Math.floor(pos(n,1e6));
-    if(Number.isInteger(i)&&i>0&&i<36&&v>0) o.tc[i]=v;
   });
   const max=Date.now()+3600e3;
   if(x.done&&typeof x.done==='object') Object.entries(x.done).forEach(([id,t])=>{
@@ -21821,7 +21816,6 @@ function bamAchMerge(a,b){
   const late=b.stT>a.stT?b:a; o.st=late.st; o.stT=late.stT;
   o.land=u(a.land,b.land); o.play=u(a.play,b.play); o.win=u(a.win,b.win);
   new Set(Object.keys(a.use).concat(Object.keys(b.use))).forEach(id=>{ o.use[id]=(a.use[id]|0)|(b.use[id]|0); });
-  new Set(Object.keys(a.tc).concat(Object.keys(b.tc))).forEach(id=>{ o.tc[id]=Math.max(a.tc[id]|0,b.tc[id]|0); });
   new Set(Object.keys(a.done).concat(Object.keys(b.done))).forEach(id=>{
     o.done[id]=Math.min(...[a.done[id],b.done[id]].filter(t=>t>0)); });
   return o;
@@ -21882,6 +21876,8 @@ function bamAchTake(b,id,k){
     st.bs=Math.max(st.bs,ids.filter(bamIsSeth).length);
     st.bc=Math.max(st.bc,ids.filter(bamIsChimp).length);
     if(ids.some(bamIsSeth)&&ids.some(bamIsChimp)) st.sc=1;
+    const per={}; ids.filter(x=>!bamIsGuest(x)).forEach(x=>{ per[x]=(per[x]||0)+1; });
+    st.bo=Math.max(st.bo,...Object.values(per),0);
     st.bd=Math.max(st.bd,new Set(ids).size);
     st.ba=Math.max(st.ba,Object.entries(b.slots).filter(([a,m])=>bamGrade(m,a)>=bamIdx('A-')).length);
     if(bamDone(b)) st.bm=Math.max(st.bm,bamOvr(b));
@@ -21925,7 +21921,6 @@ function bamAchSeason(b){
     st.n++; if(title) st.w++;
     st.st=title?st.st+1:0; st.stT=Date.now();
     if(!st.play.includes(me)) st.play.push(me);
-    st.tc[me]=(st.tc[me]|0)+1;
     if(title&&!st.win.includes(me)) st.win.push(me);
     st.bt=Math.max(st.bt,Math.min(99,Math.round(tr)));
     st.bg=Math.max(st.bg,...games.map(mine));
