@@ -6102,7 +6102,25 @@ function bracketOf(season){
   if(!(season in _brCache)){ try{ _brCache[season]=buildBracket(season); }catch{ _brCache[season]=null; } }
   return _brCache[season];
 }
+/* WORKED OUT ONCE PER LOAD OF THE SEASONS, NOT ONCE PER QUESTION. Every input
+   is replaced rather than edited: _seasonMeta (and the bracket caches with it)
+   is a new object each time buildAllTimeH2H runs, and _hardware each time
+   League History counts the rings. So a record kept against those two objects
+   is right until either is replaced, and then it is worked out again.
+
+   It was being asked a lot: the notification stack's "New at the top" check
+   reads every franchise four times over, and the stack is rebuilt dozens of
+   times while the app opens -- 2,100 replays of every season on one open.
+   Nothing that reads it changes what it is handed. */
+let _atMemo={meta:null,hw:null,by:new Map()};
 function franchiseAllTime(owner){
+  if(_atMemo.meta!==_seasonMeta||_atMemo.hw!==_hardware) _atMemo={meta:_seasonMeta,hw:_hardware,by:new Map()};
+  if(_atMemo.by.has(owner)) return _atMemo.by.get(owner);
+  const v=franchiseAllTimeRun(owner);
+  _atMemo.by.set(owner,v);
+  return v;
+}
+function franchiseAllTimeRun(owner){
   let w=0,l=0,t=0,pf=0,pa=0,rings=0,best=99,worst=0,poW=0,poApp=0,hi=null,lo=null;const seasons=new Set(),played=new Set();
   let top3=0,over150=0,under80=0;const finishes=[];const results=[];
   ALL_SEASONS.forEach(s=>{
@@ -13283,7 +13301,24 @@ function sbSolveK(z,k,slope){
 
    Seeded deliberately. The board has to price identically every time it is
    built or a market would drift on every repaint. */
+/* REMEMBERED BY ITS INPUTS. Seeded, so the same projections and the same seed
+   always give the same chances -- and the book asks for the same ones on every
+   repaint: 54 runs of 4,000 weeks each to open the Sportsbook, about ten
+   milliseconds apiece on a desktop. The key is the projections and the seed
+   themselves, so a projection that moves is a new key and is simulated afresh.
+   Each caller gets its own copy of the answer. */
+const _sbTopMemo=new Map();
 function sbTopProbs(means,seed){
+  const key=seed+'|'+means.join(',');
+  let hit=_sbTopMemo.get(key);
+  if(!hit){
+    hit=sbTopProbsRun(means,seed);
+    if(_sbTopMemo.size>=400) _sbTopMemo.delete(_sbTopMemo.keys().next().value);
+    _sbTopMemo.set(key,hit);
+  }
+  return hit.slice();
+}
+function sbTopProbsRun(means,seed){
   const n=means.length; if(!n) return [];
   let x=((seed||12345)>>>0)||1;
   const rnd=()=>{ x^=x<<13; x>>>=0; x^=x>>>17; x^=x<<5; x>>>=0; return (x>>>0)/4294967296; };
@@ -18027,10 +18062,14 @@ const BK_DAILY_KINDS=[bkqManager,bkqGroup,bkqRank,bkqGraph,bkqBio,bkqTeamRanks,b
 /* The league keeps Central time, and so does the day: a phone in another time
    zone has to agree with every other one about what day it is, or it would
    open -- and write down for everyone -- tomorrow's question early. */
+/* ONE FORMATTER, MADE ONCE. Building an Intl.DateTimeFormat is the expensive
+   part and formatting with one is cheap; this used to build a new one on every
+   call, and the Leaderboards make about two thousand calls a render (203 ms on
+   a desktop, against 13 with the formatter kept). Same options, same answers. */
 function bkChiParts(t){
   const p={};
-  new Intl.DateTimeFormat('en-US',{timeZone:BK_TZ,year:'numeric',month:'2-digit',day:'2-digit',
-    hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}).formatToParts(new Date(t))
+  (bkChiParts.fmt||(bkChiParts.fmt=new Intl.DateTimeFormat('en-US',{timeZone:BK_TZ,year:'numeric',month:'2-digit',day:'2-digit',
+    hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}))).formatToParts(new Date(t))
     .forEach(x=>{ p[x.type]=x.value; });
   return {y:+p.year,m:+p.month,d:+p.day,h:+p.hour,mi:+p.minute,wd:p.weekday};
 }
