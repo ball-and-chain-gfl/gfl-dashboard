@@ -22098,21 +22098,68 @@ function bamTrophyHTML(){
    lit up. Use every attribute opens a list of the grades still to use. The
    rules are the ratings pop-up's: the X, Escape and the list's button are all
    it answers to, and nothing moves when pressed. */
+/* _bamAchLeft: false when every list is shut, else {id:true} for each one open */
 let _bamAchSince=0, _bamAchLeft=false;
-/* every grade not yet put in a build, by manager, best manager first */
-function bamAchLeftHTML(st){
-  const rows=bamRateOrder().map(id=>{
+const bamAchLeftOn=id=>!!(_bamAchLeft&&(_bamAchLeft===true||_bamAchLeft[id]));
+/* ── WHAT'S LEFT, ON EVERY SET ───────────────────────────────────────────────
+   Use every attribute had a list of the grades still to use; every other
+   achievement that is a set to fill (the commissioner, 10 November) gets one
+   too: the managers not yet landed on, the teams not yet played or won with,
+   and the achievements still to earn. Each opens and shuts on its own. */
+const bamAchTeamChip=id=>{ const t=bamTeam(id); return `<span class="bam-left-w">${avatarHTML(t,16,4)}${bamPx(bamAbbr(t),1)}</span>`; };
+const BAM_ACH_SETS={
+  /* every grade not yet put in a build, by manager, best manager first */
+  every:st=>bamRateOrder().map(id=>{
     const m=st.use[id]|0, open=BAM_ATTRS.filter((a,i)=>!(m&(1<<i)));
     if(!open.length) return '';
-    const t=bamTeam(id);
-    return `<div class="bam-left-r"><span class="bam-left-w">${avatarHTML(t,16,4)}${bamPx(bamAbbr(t),1)}</span>
+    return `<div class="bam-left-r">${bamAchTeamChip(id)}
         <span class="bam-left-g">${open.map(a=>{ const g=bamGrade(id,a[0]);
           return `<span class="bam-left-c ${bamToneCls(g)}"><i class="fa ${a[2]}"></i>${bamPx(a[1],1)}${bamPx(BAM_SCALE[g]||'',1,bamTone(g))}</span>`; }).join('')}</span></div>`;
-  }).join('');
-  return `<button class="bam-left-b${_bamAchLeft?' on':''}" onclick="bamAchLeftToggle()" aria-expanded="${_bamAchLeft}">${bamPx("What's left",1)}<i class="fa fa-chevron-${_bamAchLeft?'up':'down'}"></i></button>
-      ${_bamAchLeft?`<div class="bam-left">${rows}</div>`:''}`;
+  }).join(''),
+  land:st=>bamAchTeamsLeft(st.land),
+  teams:st=>bamAchTeamsLeft(st.play),
+  allwin:st=>bamAchTeamsLeft(st.win),
+  /* every achievement not yet earned, in the list's own order */
+  all:st=>{ const left=BAM_ACH.filter(a=>a.id!=='all'&&!(st.done[a.id]>0));
+    return left.length?`<div class="bam-left-a">${left.map(a=>`<span class="bam-left-n">${bamPxWrap(bamAchName(a),1,36)}${bamPx('$'+a.r,1,'bam-ach-r')}</span>`).join('')}</div>`:''; },
+};
+/* the managers (or teams) a record has not reached yet, in the wheel's order */
+function bamAchTeamsLeft(have){
+  const got=new Set((have||[]).map(Number)), left=bamAchPool().filter(id=>!got.has(Number(id)));
+  return left.length?`<div class="bam-left-t">${left.map(bamAchTeamChip).join('')}</div>`:'';
 }
-function bamAchRowHTML(a,st){
+function bamAchLeftHTML(st,id='every'){
+  const fill=BAM_ACH_SETS[id]; if(!fill) return '';
+  const on=bamAchLeftOn(id), rows=on?fill(st):'';
+  return `<button class="bam-left-b${on?' on':''}" onclick="bamAchLeftToggle('${id}')" aria-expanded="${on}">${bamPx("What's left",1)}<i class="fa fa-chevron-${on?'up':'down'}"></i></button>
+      ${on?`<div class="bam-left">${rows}</div>`:''}`;
+}
+/* ── WHO HAS IT: TWELVE SPOTS, THE SAME FOR EVERY ACHIEVEMENT ────────────────
+   Under each achievement a row of the league's twelve teams, always in the
+   same order (by team id, as the wheel's pool is), each spot holding that
+   team's crest once that manager has earned it and an empty ring until then
+   -- so a team is in the same place on every row, and a column reads down
+   the whole list. Off the profile list the app already holds (bamAchTeams,
+   as the League tab), so it costs no read. */
+function bamAchTeams(){
+  const by=new Map();
+  ldRows().forEach(r=>{
+    const me=!!(_me&&(r.ids||[]).includes(_me.k1));
+    let st=null;
+    (r.prof||[]).filter(p=>p&&p.id!==TEST_PROFILE).forEach(p=>{ st=bamAchMerge(st,bamAchOf(p)); });
+    if(me) st=bamAchMerge(st,bamAchMine());
+    by.set(Number(r.teamId),{st:st||bamAchBlank(),me,name:String(r.name||'')});
+  });
+  return by;
+}
+function bamAchWhoHTML(a,who){
+  const ids=bamAchPool(); if(!ids.length||!who) return '';
+  return `<div class="bam-who" role="list" aria-label="Teams that have it">${ids.map(id=>{
+    const w=who.get(Number(id)), t=bamTeam(id), has=!!(w&&w.st.done[a.id]>0);
+    return `<span class="bam-who-s${has?' on':''}${w&&w.me?' me':''}" role="listitem" title="${takesEsc(bamAbbr(t))}">${has?avatarHTML(t,18,4):''}</span>`;
+  }).join('')}</div>`;
+}
+function bamAchRowHTML(a,st,who){
   const t=st.done[a.id], done=t>0, goal=a.one?1:Math.max(1,a.goal());
   const at=done?goal:a.one?0:Math.max(0,Math.min(goal,Math.floor(a.at(st))));
   return `<div class="bam-ach${done?' done':''}${done&&t>_bamAchSince?' new':''}" id="bam-ach-${a.id}">
@@ -22121,7 +22168,8 @@ function bamAchRowHTML(a,st){
         <div class="bam-ach-h">${bamPxWrap(bamAchName(a),1,36,'bam-ach-n')}${bamPx('$'+a.r,1,'bam-ach-r')}</div>
         <div class="bam-ach-p"><span class="bam-ach-bar"><span style="width:${Math.round(100*at/goal)}%"></span></span>${
           bamPx(`${at}/${goal}`,1,'bam-ach-c')}</div>
-        ${a.id==='every'&&!done?bamAchLeftHTML(st):''}
+        ${bamAchWhoHTML(a,who)}
+        ${BAM_ACH_SETS[a.id]&&!done?bamAchLeftHTML(st,a.id):''}
       </div>
     </div>`;
 }
@@ -22133,13 +22181,9 @@ function bamAchRowHTML(a,st){
    record. Others show what their profile held when the list was read. */
 let _bamAchTab='mine';
 function bamAchBoard(){
-  return ldRows().map(r=>{
-    const me=!!(_me&&(r.ids||[]).includes(_me.k1));
-    let st=null;
-    (r.prof||[]).filter(p=>p&&p.id!==TEST_PROFILE).forEach(p=>{ st=bamAchMerge(st,bamAchOf(p)); });
-    if(me) st=bamAchMerge(st,bamAchMine());
-    const paid=bamAchPaid(st);
-    return {teamId:Number(r.teamId), name:String(r.name||''), me, n:paid.length, v:paid.reduce((a,x)=>a+x.v,0)};
+  return [...bamAchTeams()].map(([teamId,w])=>{
+    const paid=bamAchPaid(w.st);
+    return {teamId, name:w.name, me:w.me, n:paid.length, v:paid.reduce((a,x)=>a+x.v,0)};
   }).sort((a,b)=>(b.n-a.n)||(b.v-a.v)||a.name.localeCompare(b.name));
 }
 function bamAchBoardHTML(){
@@ -22165,7 +22209,7 @@ function bamAchHTML(){
       <div>${bamPx('Earned',1,'bam-mix-l')}${bamPx(`${got.length} of ${BAM_ACH.length}`,2)}</div>
       <div>${bamPx('GFL Bucks',1,'bam-mix-l')}${bamPx(`$${won} of $${all}`,2,'bam-ach-g')}</div>
     </div>
-    <div class="bam-ach-list">${BAM_ACH.map(a=>bamAchRowHTML(a,st)).join('')}</div>`;
+    <div class="bam-ach-list">${(who=>BAM_ACH.map(a=>bamAchRowHTML(a,st,who)).join(''))(bamAchTeams())}</div>`;
 }
 /* a tab redraws the pop-up's body from its top; nothing else moves */
 function bamAchTabPick(k){
@@ -22189,10 +22233,13 @@ function bamAchOpen(){
   const n=document.querySelector('.bam-trophy-n'); if(n) n.remove();
 }
 /* the list of what is left opens and closes in its own row; nothing else is redrawn */
-function bamAchLeftToggle(){
-  _bamAchLeft=!_bamAchLeft;
-  const el=document.getElementById('bam-ach-every'), a=BAM_ACH.find(x=>x.id==='every');
-  if(el&&a) el.outerHTML=bamAchRowHTML(a,bamAchMine());
+function bamAchLeftToggle(id='every'){
+  if(!BAM_ACH_SETS[id]) return;
+  const open=Object.assign({},_bamAchLeft&&_bamAchLeft!==true?_bamAchLeft:{});
+  if(open[id]) delete open[id]; else open[id]=true;
+  _bamAchLeft=Object.keys(open).length?open:false;
+  const el=document.getElementById('bam-ach-'+id), a=BAM_ACH.find(x=>x.id===id);
+  if(el&&a) el.outerHTML=bamAchRowHTML(a,bamAchMine(),bamAchTeams());
 }
 function bamAchClose(){
   const ov=document.getElementById('bam-ach-overlay'); if(!ov) return;

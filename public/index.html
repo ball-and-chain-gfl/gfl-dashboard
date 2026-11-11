@@ -1131,8 +1131,11 @@
     /* The sportsbook has its own bet slip pinned to the bottom, so the matchup
        bar hovers over it. Drop it there, and with it the space reserved below. */
     html[data-tabaccent=book] #my-matchup{display:none;}
+    /* and Build a Manager, by the commissioner's word (10 November): the game
+       is played at the foot of the screen, where the bar sat over it */
+    html[data-tabaccent=bam] #my-matchup{display:none;}
     /* keep the pinned bar from covering the end of the page */
-    html[data-tabaccent]:not([data-tabaccent=book]) body:has(#my-matchup) main{padding-bottom:96px;}
+    html[data-tabaccent]:not([data-tabaccent=book]):not([data-tabaccent=bam]) body:has(#my-matchup) main{padding-bottom:96px;}
     @media(max-width:768px){.mm-tag{display:none;}}
 
     /* ── Gabe's Greatness: collapsed at the foot of League History ─────────── */
@@ -3468,6 +3471,18 @@
     .bam-left-c{display:inline-flex;align-items:center;gap:5px;padding:3px 5px;border-radius:3px;--bc:#8c879a;color:var(--text2);
       border:1px solid color-mix(in srgb,var(--bc) 45%,transparent);background:color-mix(in srgb,var(--bc) 12%,transparent);}
     .bam-left-c i{font-size:8px;color:var(--bc);}
+    /* the other sets: managers / teams still to reach, achievements still to earn */
+    .bam-left-t{display:flex;flex-wrap:wrap;gap:6px 12px;}
+    .bam-left-a{display:flex;flex-direction:column;gap:6px;}
+    .bam-left-n{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;color:var(--text2);}
+    /* who has it: twelve spots, one per team, always in the same place */
+    .bam-who{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;}
+    .bam-who-s{aspect-ratio:1;min-width:0;display:flex;border-radius:4px;overflow:hidden;
+      border:1px dashed rgba(255,255,255,0.13);}
+    .bam-who-s.on{border:0;}
+    .bam-who-s.me:not(.on){border-color:rgba(var(--accent-rgb),0.55);}
+    .bam-who-s .tm-avatar{width:100%!important;height:100%!important;flex:1 1 auto!important;
+      border-radius:4px!important;font-size:7px!important;}
     /* an achievement earned: a banner under the bar at the top for what a
        landing or a trait earns, and a list under the season's result for what
        the season earned */

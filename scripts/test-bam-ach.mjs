@@ -45,14 +45,16 @@ const M = assemble(grab, [
   'const bamAchName=', 'const BAM_ACH_GRANTS=', 'const bamAchGrants=', 'const bamAchKey=', 'const bamAchBlank=', 'const BAM_ACH_MAX=', 'function bamAchClean(', 'function bamAchMerge(',
   'const bamAchOf=', 'function bamAchMine(', 'function bamAchPaid(', 'function bamAchEdit(', 'function bamAchLand(', 'function bamAchTake(',
   'function bamAchSeason(', 'async function bamAchSave(', 'function bamAchSeen(', 'const bamAchNewCount=', 'function bamTrophyHTML(',
-  'function bamAchLeftHTML(', 'function bamAchRowHTML(', 'function bamAchHTML(',
+  'const bamAchLeftOn=', 'const bamAchTeamChip=', 'const BAM_ACH_SETS=', 'function bamAchTeamsLeft(',
+  'function bamAchLeftHTML(', 'function bamAchTeams(', 'function bamAchWhoHTML(', 'function bamAchRowHTML(', 'function bamAchHTML(',
   'const bamAchOwed=', 'const bamAchRewardHTML=', 'function bamAchToast(', 'function bamAchToastHide(', 'function bamAchGotHTML(',
   'function ldRows(', 'function bamAchBoard(', 'function bamAchBoardHTML(',
   'function realWeekStart(', 'const ntBigHitUntil=', 'function ntAchGrants(',
 ], ['BAM_ATTRS', 'BAM_SCALE', 'BAM_ACH', 'BAM_ACH_FROM', 'bamAchName', 'bamPxClean', 'bamAchBlank', 'bamAchClean', 'bamAchMerge', 'bamAchOf',
   'bamAchMine', 'bamAchPaid', 'bamAchEdit', 'bamAchLand', 'bamAchTake', 'bamAchSeason', 'bamAchSave', 'bamAchBucks', 'bucksFor',
   'bamAchNewCount', 'bamTrophyHTML', 'bamAchRowHTML', 'bamAchHTML', 'bamFresh', 'bamValid', 'bamOvr', 'bamManagerOvr', 'set', 'log',
-  'bamAchOwed', 'bamAchToast', 'bamAchToastHide', 'bamAchGotHTML', 'toastBox', 'bamAchBoard', 'bamAchBoardHTML', 'ntAchGrants'], [
+  'bamAchOwed', 'bamAchToast', 'bamAchToastHide', 'bamAchGotHTML', 'toastBox', 'bamAchBoard', 'bamAchBoardHTML', 'ntAchGrants',
+  'bamAchTeams', 'bamAchWhoHTML', 'bamAchLeftHTML'], [
   "let _CFG={}, _teams=[], _cpRows=null, _me=null, _bkScope=null, _ls={}, _now=null, _bamAchMemo=null, _bamAchSince=0, _bamAchLeft=false;",
   "let _bamToastIds=[], _bamToastT=null, _bamAchTab='mine', _franchises=[], _bkProfiles=null;",
   "const TEST_PROFILE='test';",
@@ -540,11 +542,46 @@ fresh();
     [/class="bam-ach done new" id="bam-ach-title"/.test(pop), /class="bam-ach done" id="bam-ach-last"/.test(pop), /class="bam-ach" id="bam-ach-land"/.test(pop)], [true, true, true]);
   ok('each with its bar and how far along', [pop.includes('[6/12]'), pop.includes('width:50%'), pop.includes('[3/10]'), pop.includes('[$15]')], [true, true, true, true]);
   const every = M.bamAchRowHTML(M.BAM_ACH.find(a => a.id === 'every'), rec());
-  ok('Use every attribute has its list of what is left, shut until asked', [every.includes('onclick="bamAchLeftToggle()"'), every.includes('class="bam-left"'), every.includes('[12/108]')], [true, false, true]);
+  ok('Use every attribute has its list of what is left, shut until asked', [every.includes(`onclick="bamAchLeftToggle('every')"`), every.includes('class="bam-left"'), every.includes('[12/108]')], [true, false, true]);
   M.set({ left: true });
   const open = M.bamAchRowHTML(M.BAM_ACH.find(a => a.id === 'every'), rec());
   ok('opened, it lists only the grades not yet used: none of BFT\'s, six of GOOB\'s, nine of the rest',
     [open.includes('<av 10>'), (open.match(/<av 3>[\s\S]*?<\/span><\/div>/) || [''])[0].split('bam-left-c').length - 1, open.split('class="bam-left-r"').length - 1], [false, 6, 11]);
+
+  /* every other set gets one too (the commissioner, 10 November), each its own */
+  const row = id => M.bamAchRowHTML(M.BAM_ACH.find(a => a.id === id), rec());
+  M.set({ left: false });
+  ok('the sets each have a What\'s left button, shut until asked; a count or a one-off has none',
+    ['land', 'teams', 'allwin', 'all', 'every'].map(id => row(id).includes(`onclick="bamAchLeftToggle('${id}')"`)).concat(
+      ['s10', 'nail', 'big'].map(id => row(id).includes('bam-left-b'))), [true, true, true, true, true, false, false, false]);
+  ok('and an earned one has none', row('title').includes('bam-left-b'), false);
+  M.set({ left: { land: true } });
+  const land = row('land');
+  ok('Land on every manager lists the managers not landed on yet, and only those',
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(id => land.includes(`<av ${id}>`)), [false, false, false, false, false, false, true, true, true, true, true, true]);
+  ok('each list opens on its own: the others stay shut', [row('every').includes('class="bam-left"'), row('teams').includes('class="bam-left"')], [false, false]);
+  M.set({ left: { teams: true, allwin: true, all: true } });
+  ok('Play with every team and Win with every team list all twelve before any season',
+    [(row('teams').match(/<av /g) || []).length, (row('allwin').match(/<av /g) || []).length], [12, 12]);
+  const allLeft = row('all').split('class="bam-left"')[1] || '';
+  ok('Complete every achievement lists the forty-one still to earn, not the two earned nor itself',
+    [(allLeft.match(/class="bam-left-n"/g) || []).length, allLeft.includes('{Win the championship}'), allLeft.includes('{Finish last}'),
+      allLeft.includes('{Land on every manager}'), allLeft.includes('{Complete every achievement}')], [41, false, false, true, false]);
+  M.set({ left: false });
+
+  /* who has it: twelve spots, one per team, the same place on every row */
+  const t0 = NOW - 5000, ach = ids => JSON.stringify({ done: Object.fromEntries(ids.map(id => [id, t0])) });
+  M.set({ fr: league.map(x => ({ owner: 'o' + x.id, name: x.name, teamId: x.id })),
+    rows: [{ id: 'mm', teamId: '1', bamAch: ach(['title', 'land']) }, { id: 'goob', teamId: '3', bamAch: ach(['title']) },
+      { id: 'test', teamId: '7', bamAch: ach(['title']) }, { id: 'bft', teamId: '10' }] });
+  const who = M.bamAchTeams();
+  const strip = id => M.bamAchWhoHTML(M.BAM_ACH.find(a => a.id === id), who);
+  const spots = h => [...h.matchAll(/class="bam-who-s([^"]*)"[^>]*>([^<]*(?:<av \d+>)?)/g)].map(m => (m[2].match(/<av (\d+)>/) || [])[1] || '-');
+  ok('twelve spots on a row, in team order, a crest only where that manager has it',
+    spots(strip('title')), ['1', '-', '3', '-', '-', '-', '-', '-', '-', '10', '-', '-']);
+  ok('the same spot for a team on every row', spots(strip('land')), ['1', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
+  ok('the test account fills nobody\'s spot; your own spot is marked', [spots(strip('title'))[6], (strip('nail').match(/bam-who-s me"/g) || []).length], ['-', 1]);
+  ok('and it reads nothing: the profile list already held', M.log.reads, 0);
   const idx = fs.readFileSync(idxUrl, 'utf8').replace(/\r\n/g, '\n');
   ok('the pop-up: no tap on the backdrop closes it, only the X and Escape', [/id="bam-ach-overlay"[^>]*onclick/.test(idx), idx.includes('onclick="bamAchClose()"'),
     fs.readFileSync(appUrl, 'utf8').includes("function bamAchEsc(e){ if(e.key==='Escape') bamAchClose(); }")], [false, true, true]);
