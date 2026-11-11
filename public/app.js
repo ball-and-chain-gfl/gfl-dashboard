@@ -21477,6 +21477,28 @@ function bamSeasonHTML(b,shown){
             <span class="c-p">${bamPx(r.pf.toFixed(1),1)}</span></div>`).join('')}</div>`:''}
     </div>`;
 }
+/* NEW MARKUP, THE SAME CRESTS. The game redraws itself whole on every tap
+   (a spin starting and stopping, each trait, the season's every game), and
+   a redraw used to throw its crests away and make new ones. A new <img> is
+   painted only once it has been decoded, which took 30-60 ms on a desktop
+   even with the file cached: two to four frames of initials on every tap,
+   longer on a phone and with the larger crests, and one of them right as the
+   wheel starts to turn. So any crest that comes back exactly as it was (the
+   same tag, the same attributes) is the old, already-decoded element moved
+   into its new place. Anything different is left as drawn. */
+function bamSwapHTML(el,html){
+  const old=new Map();
+  el.querySelectorAll('img').forEach(i=>{
+    if(!i.complete||!i.naturalWidth) return;
+    const k=i.outerHTML; if(!old.has(k)) old.set(k,[]); old.get(k).push(i);
+  });
+  el.innerHTML=html;
+  if(!old.size) return;
+  el.querySelectorAll('img').forEach(n=>{
+    const l=old.get(n.outerHTML), o=l&&l.shift();
+    if(o) n.replaceWith(o);
+  });
+}
 function renderBam(){
   const el=document.getElementById('bam-body'); if(!el) return;
   if(_bamView){ el.innerHTML=bamViewHTML(_bamView); return; }
@@ -21539,7 +21561,7 @@ function renderBam(){
   /* every manager's ratings, from under the build, outside its panel */
   const seeAll=`<button class="bam-seeall" onclick="bamRatingsOpen()"><i class="fa fa-table-cells"></i>${bamPx("See all managers' ratings",1)}</button>`;
   /* the trophy case, at the top right by the wheel, for whoever is signed in */
-  el.innerHTML=`<div class="bam-wrap${done?' bam-done':''}"><div class="bam-col">${build}${seeAll}</div><div class="bam-play">${_me?bamTrophyHTML():''}${play}</div></div>`;
+  bamSwapHTML(el,`<div class="bam-wrap${done?' bam-done':''}"><div class="bam-col">${build}${seeAll}</div><div class="bam-play">${_me?bamTrophyHTML():''}${play}</div></div>`);
 }
 /* ── EVERY MANAGER'S RATINGS ─────────────────────────────────────────────────
    A pop-up from under the build: a tab for each of the twelve, best overall
@@ -22145,7 +22167,7 @@ function bamPaintSeason(){
   if(_activeTab!=='bam') return;
   const wrap=document.getElementById('bam-season-wrap');
   if(!wrap){ renderBam(); return; }
-  wrap.innerHTML=bamSeasonHTML(bamState(),_bamShown);
+  bamSwapHTML(wrap,bamSeasonHTML(bamState(),_bamShown));
   bamShow('#bam-season .bam-gm.fresh');
 }
 function bamSkip(){
