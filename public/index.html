@@ -3285,6 +3285,12 @@
     .bam-hub i{font-size:20px;color:var(--accent);}
     .bam-hub:disabled{cursor:default;}
     .bam-hub:disabled i{opacity:.45;}
+    /* The site-wide press (button:active, scale .97) REPLACES the transform, and
+       the hub is centred by its transform -- so every press threw it half its
+       own size down and to the right. Pressed, it keeps its centring and gives
+       a little; disabled, it does not move at all. */
+    .bam-hub:active{transform:translate(-50%,-50%) scale(0.94);}
+    .bam-hub:disabled:active{transform:translate(-50%,-50%);}
     .bam-pointer{position:absolute;left:50%;top:-1%;z-index:3;width:0;height:0;transform:translateX(-50%);
       border-left:12px solid transparent;border-right:12px solid transparent;border-top:22px solid #f4f1fb;
       filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));}
@@ -3475,14 +3481,21 @@
     .bam-left-t{display:flex;flex-wrap:wrap;gap:6px 12px;}
     .bam-left-a{display:flex;flex-direction:column;gap:6px;}
     .bam-left-n{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;color:var(--text2);}
-    /* who has it: twelve spots, one per team, always in the same place */
-    .bam-who{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;}
-    .bam-who-s{aspect-ratio:1;min-width:0;display:flex;border-radius:4px;overflow:hidden;
+    /* who has it: twelve spots, one per team, always in the same place.
+       bam-has, NOT bam-who: that is the landed card's name row, and sharing it
+       squeezed a team's name into a twelfth of the card (v843). */
+    .bam-has{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;}
+    .bam-has-s{aspect-ratio:1;min-width:0;display:flex;border-radius:4px;overflow:hidden;
       border:1px dashed rgba(255,255,255,0.13);}
-    .bam-who-s.on{border:0;}
-    .bam-who-s.me:not(.on){border-color:rgba(var(--accent-rgb),0.55);}
-    .bam-who-s .tm-avatar{width:100%!important;height:100%!important;flex:1 1 auto!important;
-      border-radius:4px!important;font-size:7px!important;}
+    .bam-has-s.on{border:0;position:relative;background:var(--tc,#444);}
+    /* initials under the crest: what shows if the crest will not load */
+    .bam-has-s.on::before{content:attr(data-ab);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      font:800 6px/1 'Inter',sans-serif;color:#f7f8ec;letter-spacing:-0.3px;}
+    .bam-has-s img{position:relative;width:100%;height:100%;object-fit:contain;background:var(--bg2);}
+    .bam-has-s.me:not(.on){border-color:rgba(var(--accent-rgb),0.55);}
+    /* lay out only the rows on screen: forty-four rows of twelve crests, of
+       which a phone shows about five at a time */
+    .bam-ach-list>.bam-ach{content-visibility:auto;contain-intrinsic-size:auto 96px;}
     /* an achievement earned: a banner under the bar at the top for what a
        landing or a trait earns, and a list under the season's result for what
        the season earned */

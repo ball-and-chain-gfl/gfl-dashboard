@@ -46,7 +46,7 @@ const M = assemble(grab, [
   'const bamAchOf=', 'function bamAchMine(', 'function bamAchPaid(', 'function bamAchEdit(', 'function bamAchLand(', 'function bamAchTake(',
   'function bamAchSeason(', 'async function bamAchSave(', 'function bamAchSeen(', 'const bamAchNewCount=', 'function bamTrophyHTML(',
   'const bamAchLeftOn=', 'const bamAchTeamChip=', 'const BAM_ACH_SETS=', 'function bamAchTeamsLeft(',
-  'function bamAchLeftHTML(', 'function bamAchTeams(', 'function bamAchWhoHTML(', 'function bamAchRowHTML(', 'function bamAchHTML(',
+  'function bamAchLeftHTML(', 'function bamAchTeams(', 'function bamAchWhoHTML(', 'function bamAchRowHTML(', 'function bamAchParts(', 'function bamAchHTML(',
   'const bamAchOwed=', 'const bamAchRewardHTML=', 'function bamAchToast(', 'function bamAchToastHide(', 'function bamAchGotHTML(',
   'function ldRows(', 'function bamAchBoard(', 'function bamAchBoardHTML(',
   'function realWeekStart(', 'const ntBigHitUntil=', 'function ntAchGrants(',
@@ -68,6 +68,7 @@ const M = assemble(grab, [
   "class Date extends RealDate{ constructor(...a){ if(!a.length&&_now!=null) super(_now); else super(...a); } static now(){ return _now!=null?_now:RealDate.now(); } }",
   "const avatarHTML=t=>'<av '+(t&&t.id)+'>'; const bamPx=s=>'['+s+']'; const bamPxWrap=s=>'{'+s+'}';",
   "const teamInitials=n=>String(n||'').split(' ').map(w=>w[0]||'').join('').toUpperCase();",
+  "const teamColor=id=>'hsl('+id+')';",
   /* the network, as a log: what was read, what was written, and what the profile holds */
   "const log={reads:0,writes:[],prof:{},readFails:false,saves:0};",
   "async function gflFetchProfile(id){ log.reads++; return log.readFails?{error:'quota'}:{data:{...log.prof}}; }",
@@ -576,11 +577,20 @@ fresh();
       { id: 'test', teamId: '7', bamAch: ach(['title']) }, { id: 'bft', teamId: '10' }] });
   const who = M.bamAchTeams();
   const strip = id => M.bamAchWhoHTML(M.BAM_ACH.find(a => a.id === id), who);
-  const spots = h => [...h.matchAll(/class="bam-who-s([^"]*)"[^>]*>([^<]*(?:<av \d+>)?)/g)].map(m => (m[2].match(/<av (\d+)>/) || [])[1] || '-');
+  /* each spot: its team (title), and whether it is filled (on) */
+  const spots = h => [...h.matchAll(/class="bam-has-s([^"]*)" role="listitem" title="([^"]*)"/g)].map(m => / on/.test(m[1]) ? m[2] : '-');
   ok('twelve spots on a row, in team order, a crest only where that manager has it',
-    spots(strip('title')), ['1', '-', '3', '-', '-', '-', '-', '-', '-', '10', '-', '-']);
-  ok('the same spot for a team on every row', spots(strip('land')), ['1', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
-  ok('the test account fills nobody\'s spot; your own spot is marked', [spots(strip('title'))[6], (strip('nail').match(/bam-who-s me"/g) || []).length], ['-', 1]);
+    spots(strip('title')), ['MM', '-', 'GOOB', '-', '-', '-', '-', '-', '-', 'BFT', '-', '-']);
+  ok('the same spot for a team on every row', spots(strip('land')), ['MM', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
+  ok('a filled spot carries the initials to fall back on; an empty one carries nothing',
+    [/title="GOOB" style="--tc:[^"]+" data-ab="GOOB"/.test(strip('title')), /title="MCM" style=/.test(strip('title'))], [true, false]);
+  ok('the test account fills nobody\'s spot; your own spot is marked', [spots(strip('title'))[6], (strip('nail').match(/bam-has-s me"/g) || []).length], ['-', 1]);
+  /* bam-who is the landed card's name row: the strip once shared it, and its
+     twelve-column grid squeezed a team's name into a twelfth of the card */
+  const css = fs.readFileSync(idxUrl, 'utf8').replace(/\r\n/g, '\n');
+  ok('the strip has a class of its own, and the card\'s name row is not a grid',
+    [/class="bam-who"/.test(strip('title')), /\.bam-has\{display:grid/.test(css), /\.bam-who\{display:grid/.test(css)], [false, true, false]);
+  ok('the wheel\'s hub stays centred when pressed', [/\.bam-hub:active\{transform:translate\(-50%,-50%\) scale\(/.test(css)], [true]);
   ok('and it reads nothing: the profile list already held', M.log.reads, 0);
   const idx = fs.readFileSync(idxUrl, 'utf8').replace(/\r\n/g, '\n');
   ok('the pop-up: no tap on the backdrop closes it, only the X and Escape', [/id="bam-ach-overlay"[^>]*onclick/.test(idx), idx.includes('onclick="bamAchClose()"'),

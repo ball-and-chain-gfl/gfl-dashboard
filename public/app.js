@@ -419,7 +419,10 @@ function teamColor(id){
 function avatarCore(name,id,url,size,radius){
   const fs=Math.max(9,Math.round(size*0.42));
   const wrap=`width:${size}px;height:${size}px;border-radius:${radius}px;flex:0 0 ${size}px;position:relative;display:inline-flex;align-items:center;justify-content:center;background:${teamColor(id)};color:#f7f8ec;font-weight:800;font-size:${fs}px;letter-spacing:-0.5px;overflow:hidden;vertical-align:middle;`;
-  const img=url?`<img src="${url}" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--bg2)" onerror="this.remove()"/>`:'';
+  /* the small copy once there is one (LOGO_SMALL); every crest here is drawn
+     at 48px or less, and CSS that enlarges one stays inside that too */
+  const src=url&&size<=48?(_logoSmall.get(url)||url):url;
+  const img=src?`<img src="${src}" decoding="async" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--bg2)" onerror="this.remove()"/>`:'';
   return `<span class="tm-avatar" style="${wrap}">${teamInitials(name)}${img}</span>`;
 }
 function avatarHTML(team,size,radius){
@@ -444,8 +447,49 @@ function logoWarm(urls){
   if(typeof Image==='undefined') return;
   (urls||[]).forEach(u=>{
     if(!u||_logoWarm.has(u)) return;
-    const i=new Image(); i.decoding='async'; i.src=u; _logoWarm.set(u,i);
+    const i=new Image(); i.decoding='async';
+    i.onload=()=>{ try{ logoShrink(u,i); }catch(e){} };
+    i.src=u; _logoWarm.set(u,i);
   });
+}
+/* ── LOGO_SMALL: EACH CREST SHRUNK ONCE, NOT ON EVERY DRAW ───────────────────
+   Managers upload whatever they like: some crests are 1200px PNGs of 150-220
+   KB, drawn at 15 to 44 px. A browser shrinks an image for every element that
+   shows it, so a page of crests -- the achievements pop-up has a row of twelve
+   under each of forty-four, and every redraw makes them again -- had the
+   phone scaling those full-size pictures down hundreds of times over, and the
+   crests showed initials until it was done.
+
+   So each crest, once it has downloaded, is drawn ONCE into a 128px square
+   (contained and centred on transparent, which is exactly what object-fit
+   does with it on the page) and kept as a small PNG for the session.
+   avatarCore draws that instead, and anything already on the page is pointed
+   at it. A crest that is already small is left as it is; if the copy cannot
+   be made, the original stays. Off the main thread where the browser can
+   (decode()), and on the same-origin proxy, so the canvas is never tainted. */
+const LOGO_SMALL_PX=128;
+const _logoSmall=new Map();          // proxied crest URL -> its small copy (a blob: URL)
+const _logoShrinking=new Set();
+function logoShrink(u,img){
+  if(!u||_logoSmall.has(u)||_logoShrinking.has(u)) return;
+  if(typeof document==='undefined'||typeof URL==='undefined'||!URL.createObjectURL) return;
+  _logoShrinking.add(u);
+  const done=s=>{ _logoShrinking.delete(u); if(s&&s!==u){ _logoSmall.set(u,s); logoPointAt(u,s); } };
+  (img.decode?img.decode():Promise.resolve()).catch(()=>{}).then(()=>{
+    const w=img.naturalWidth, h=img.naturalHeight;
+    if(!w||!h||Math.max(w,h)<=LOGO_SMALL_PX) return done(null);       // already small, or unknown
+    const c=document.createElement('canvas'); c.width=c.height=LOGO_SMALL_PX;
+    const x=c.getContext('2d'); if(!x) return done(null);
+    const k=LOGO_SMALL_PX/Math.max(w,h), dw=w*k, dh=h*k;
+    x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high';
+    x.drawImage(img,(LOGO_SMALL_PX-dw)/2,(LOGO_SMALL_PX-dh)/2,dw,dh);
+    c.toBlob(b=>done(b?URL.createObjectURL(b):null),'image/png');
+  }).catch(()=>done(null));
+}
+/* every crest already on the page moves to the small copy -- crests only
+   (.tm-avatar), never the big watermark a team page draws from the same URL */
+function logoPointAt(u,s){
+  try{ document.querySelectorAll('.tm-avatar>img').forEach(i=>{ if(i.getAttribute('src')===u) i.setAttribute('src',s); }); }catch(e){}
 }
 /* this season's twelve straight away; every past season's when the browser is idle */
 function logoWarmAll(){
@@ -21310,7 +21354,17 @@ function bamPxClean(s){
   return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[–—]/g,'-')
     .toUpperCase().split('').map(c=>BAM_GLYPH[c]?c:' ').join('').replace(/\s+/g,' ').trim();
 }
+/* The same words are drawn over and over (forty-four achievement names on
+   every open of the trophy case, the same labels on every redraw of the
+   game), and each is a few kilobytes of path worked out glyph by glyph. Kept
+   by what was asked for, which is all the answer depends on. */
 function bamPx(s,px,cls){
+  const memo=bamPx.memo||(bamPx.memo=new Map()), key=String(s)+'\u0001'+px+'\u0001'+(cls||'');
+  const hit=memo.get(key); if(hit!==undefined) return hit;
+  if(memo.size>4000) memo.clear();
+  const out=bamPxDraw(s,px,cls); memo.set(key,out); return out;
+}
+function bamPxDraw(s,px,cls){
   const t=bamPxClean(s); if(!t) return '';
   let d='';
   [...t].forEach((ch,i)=>{
@@ -21680,7 +21734,7 @@ function bamRatingsOpen(){
     ov.addEventListener('touchmove',e=>{ if(e.target===ov) e.preventDefault(); },{passive:false});
   }
   const order=bamRateOrder(); if(!order.includes(_bamRateSel)) _bamRateSel=order[0];
-  const body=document.getElementById('bam-rate-body'); if(body) body.innerHTML=bamRatingsHTML();
+  const body=document.getElementById('bam-rate-body'); if(body) swapHTML(body,bamRatingsHTML());
   const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;
   ov.classList.add('open'); modalLock(true);
   bamRateReveal();                        // once it is showing: a hidden strip has no size
@@ -22152,11 +22206,17 @@ function bamAchTeams(){
   });
   return by;
 }
+/* A spot is a bare <img> of the crest's small copy (LOGO_SMALL), not a full
+   avatar: forty-four rows of twelve full avatars was 305 KB of markup and
+   1,559 elements, and laying them out took over half a second on a phone.
+   A crest that will not load leaves the team's initials on its colour. */
 function bamAchWhoHTML(a,who){
   const ids=bamAchPool(); if(!ids.length||!who) return '';
-  return `<div class="bam-who" role="list" aria-label="Teams that have it">${ids.map(id=>{
-    const w=who.get(Number(id)), t=bamTeam(id), has=!!(w&&w.st.done[a.id]>0);
-    return `<span class="bam-who-s${has?' on':''}${w&&w.me?' me':''}" role="listitem" title="${takesEsc(bamAbbr(t))}">${has?avatarHTML(t,18,4):''}</span>`;
+  return `<div class="bam-has" role="list" aria-label="Teams that have it">${ids.map(id=>{
+    const w=who.get(Number(id)), t=bamTeam(id), has=!!(w&&w.st.done[a.id]>0), ab=takesEsc(bamAbbr(t));
+    const url=(typeof _logoMap!=='undefined'&&_logoMap[id])||null, src=url?((typeof _logoSmall!=='undefined'&&_logoSmall.get(url))||url):null;
+    const face=!has?'':src?`<img src="${src}" alt="" decoding="async" onerror="this.remove()">`:'';
+    return `<span class="bam-has-s${has?' on':''}${w&&w.me?' me':''}" role="listitem" title="${ab}"${has?` style="--tc:${teamColor(id)}" data-ab="${ab}"`:''}>${face}</span>`;
   }).join('')}</div>`;
 }
 function bamAchRowHTML(a,st,who){
@@ -22199,22 +22259,57 @@ function bamAchBoardHTML(){
       </div>`;
   }).join('')}</div>`;
 }
-function bamAchHTML(){
+/* the pop-up in parts: what goes above the list, each row of it, and what
+   closes it -- so it can be drawn a screenful first (bamAchSetBody) */
+function bamAchParts(){
   const tab=k=>`<button class="bam-atab${_bamAchTab===k?' on':''}" role="tab" aria-selected="${_bamAchTab===k}" onclick="bamAchTabPick('${k}')">${bamPx(k==='mine'?'Mine':'League',1)}</button>`;
   const tabs=`<div class="bam-atabs" role="tablist">${tab('mine')}${tab('league')}</div>`;
-  if(_bamAchTab==='league') return tabs+bamAchBoardHTML();
+  if(_bamAchTab==='league') return {head:tabs+bamAchBoardHTML(), rows:[], tail:''};
   const st=bamAchMine(), got=BAM_ACH.filter(a=>st.done[a.id]>0);
-  const won=got.reduce((s,a)=>s+a.r,0), all=BAM_ACH.reduce((s,a)=>s+a.r,0);
-  return tabs+`<div class="bam-ach-top">
+  const won=got.reduce((s,a)=>s+a.r,0), all=BAM_ACH.reduce((s,a)=>s+a.r,0), who=bamAchTeams();
+  return {head:tabs+`<div class="bam-ach-top">
       <div>${bamPx('Earned',1,'bam-mix-l')}${bamPx(`${got.length} of ${BAM_ACH.length}`,2)}</div>
       <div>${bamPx('GFL Bucks',1,'bam-mix-l')}${bamPx(`$${won} of $${all}`,2,'bam-ach-g')}</div>
     </div>
-    <div class="bam-ach-list">${(who=>BAM_ACH.map(a=>bamAchRowHTML(a,st,who)).join(''))(bamAchTeams())}</div>`;
+    <div class="bam-ach-list">`, rows:BAM_ACH.map(a=>bamAchRowHTML(a,st,who)), tail:`</div>`};
+}
+function bamAchHTML(){ const p=bamAchParts(); return p.head+p.rows.join('')+p.tail; }
+/* The pop-up's body, drawn only when it would say something different. The
+   pop-up is hidden by fading, not removed, so what it drew last is still laid
+   out underneath: reopening it unchanged costs nothing, where a redraw was
+   most of a second on a phone. Anything that redraws part of it in place
+   (a What's left list) forgets the last drawing, so the next open redraws. */
+/* A SCREENFUL FIRST. Forty-four rows are a quarter of a megabyte of markup,
+   which a phone takes most of a second to read. The pop-up opens on the
+   first BAM_ACH_FIRST rows -- all a phone shows -- and the rest follow a few
+   at a time, each batch after the browser has painted, well before anyone
+   can scroll to them. Crests already on screen are kept throughout. */
+const BAM_ACH_FIRST=6, BAM_ACH_BATCH=8;
+function bamAchSetBody(body){
+  if(!body) return;
+  const p=bamAchParts(), html=p.head+p.rows.join('')+p.tail;
+  if(body._bamAchHtml===html) return;
+  body._bamAchHtml=html;
+  const tok=body._bamAchTok=(body._bamAchTok||0)+1;
+  const kept=imgsKeep(body);
+  body.innerHTML=p.head+p.rows.slice(0,BAM_ACH_FIRST).join('')+p.tail;
+  imgsBack(body,kept);
+  let i=BAM_ACH_FIRST;
+  const more=()=>{
+    if(body._bamAchTok!==tok||i>=p.rows.length) return;
+    const list=body.querySelector('.bam-ach-list'); if(!list) return;
+    const t=document.createElement('template');
+    t.innerHTML=p.rows.slice(i,i+BAM_ACH_BATCH).join(''); i+=BAM_ACH_BATCH;
+    imgsBack(t.content,kept); list.appendChild(t.content);
+    next();
+  };
+  const next=()=>requestAnimationFrame(()=>setTimeout(more,0));
+  next();
 }
 /* a tab redraws the pop-up's body from its top; nothing else moves */
 function bamAchTabPick(k){
   _bamAchTab=k==='league'?'league':'mine';
-  const body=document.getElementById('bam-ach-body'); if(body) body.innerHTML=bamAchHTML();
+  bamAchSetBody(document.getElementById('bam-ach-body'));
   const m=document.querySelector('#bam-ach-overlay .modal'); if(m) m.scrollTop=0;
 }
 function bamAchEsc(e){ if(e.key==='Escape') bamAchClose(); }
@@ -22226,7 +22321,8 @@ function bamAchOpen(){
   }
   _bamAchSince=bamAchSeen(); _bamAchLeft=false; _bamAchTab='mine';
   try{ localStorage.setItem(bamAchSeenKey(),String(Date.now())); }catch(e){}
-  const body=document.getElementById('bam-ach-body'); if(body) body.innerHTML=bamAchHTML();
+  /* the body keeps the last open's drawing while shut: reopening reuses it */
+  bamAchSetBody(document.getElementById('bam-ach-body'));
   const m=ov.querySelector('.modal'); if(m) m.scrollTop=0;
   ov.classList.add('open'); modalLock(true);
   document.addEventListener('keydown',bamAchEsc);
@@ -22239,7 +22335,12 @@ function bamAchLeftToggle(id='every'){
   if(open[id]) delete open[id]; else open[id]=true;
   _bamAchLeft=Object.keys(open).length?open:false;
   const el=document.getElementById('bam-ach-'+id), a=BAM_ACH.find(x=>x.id===id);
-  if(el&&a) el.outerHTML=bamAchRowHTML(a,bamAchMine(),bamAchTeams());
+  if(!el||!a) return;
+  /* the row anew, with the crests it already had moved into it */
+  const tmp=document.createElement('div'); tmp.innerHTML=bamAchRowHTML(a,bamAchMine(),bamAchTeams());
+  const row=tmp.firstElementChild; if(!row) return;
+  const kept=imgsKeep(el); el.replaceWith(row); imgsBack(row,kept);
+  const body=document.getElementById('bam-ach-body'); if(body) body._bamAchHtml=null;
 }
 function bamAchClose(){
   const ov=document.getElementById('bam-ach-overlay'); if(!ov) return;
