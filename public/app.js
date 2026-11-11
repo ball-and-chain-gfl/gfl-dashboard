@@ -6979,6 +6979,33 @@ function repaintLive(){
   if(_activeTab==='week'){ try{ renderWeek(); }catch(e){} }
   else if(_activeTab==='home'){ fcRepaint(); try{ pkeRender(); }catch(e){} }
 }
+/* ── DATA LANDS IN BURSTS; DRAW ONCE PER BURST ───────────────────────────────
+   On open the week scores arrive one week at a time, the rosters one week at
+   a time, then the odds and the projections, and each arrival used to redraw
+   whatever tab was showing in full the moment it landed: the Schedule drew
+   itself fifteen times in a second, 51 crests thrown away each time, which on
+   a phone is the tab "taking forever". An arrival now asks for a repaint, and
+   every ask inside PAINT_SOON_MS becomes one repaint at its end. The tab still
+   shows everything that landed; it just draws it once. A tap still draws at
+   once -- only arrivals come through here. Each kind of repaint runs once per
+   burst, and each one checks the tab it is for at the moment it runs. */
+const PAINT_SOON_MS=120;
+const _paintSoonQ=new Map(); let _paintSoonT=null;
+function paintSoon(key,fn){
+  _paintSoonQ.set(key,fn);
+  if(_paintSoonT) return;
+  _paintSoonT=setTimeout(()=>{
+    _paintSoonT=null;
+    const q=new Map(_paintSoonQ); _paintSoonQ.clear();
+    /* one draw of a tab per burst: 'priced' already repaints whatever 'live'
+       would, and either one redraws the Schedule that 'sched' asks for */
+    if(q.has('priced')) q.delete('live');
+    if(_activeTab==='week'&&(q.has('priced')||q.has('live'))) q.delete('sched');
+    q.forEach(f=>{ try{ f(); }catch(e){} });
+  },PAINT_SOON_MS);
+}
+/* the repaint a roster, a projection or an odds arrival asks for */
+const repaintPriced=()=>{ if(_activeTab==='book') renderBook(); else repaintLive(); };
 /* THE ONE WAY IN. Your Forecast is on the homepage now, and three things paint
    it -- opening the tab, a live poll collecting a new minute, and the by-slot
    season figures arriving. All three come through here so none of them has to
@@ -7119,7 +7146,7 @@ function weekScores(season,week){
           });
       });
       _wkScores[key]=out; done();
-      try{ if(_activeTab==='week') renderSchedule(); }catch(e){}
+      paintSoon('sched',()=>{ if(_activeTab==='week') renderSchedule(); });
     })
     .catch(()=>{ done(); });
   return null;
@@ -7481,10 +7508,12 @@ function renderForecast(info){
   const _ttEl=document.getElementById('tt-text');
   const _ttKeep=_ttEl?{v:_ttEl.value,s:_ttEl.selectionStart,e:_ttEl.selectionEnd,
     f:document.activeElement===_ttEl}:null;
+  const _crests=imgsKeep(el);
   el.innerHTML=`
     ${dots}
     <div class="fc-scroll" id="fc-scroll">${panes.join('')}</div>
     ${ttBoxHTML(fcOppKey(oppT),oppT.name)}`;
+  imgsBack(el,_crests);
   fcBindScroll();
   const sc=document.getElementById('fc-scroll');
   if(sc&&_fcPane>0&&_fcPane<panes.length){
@@ -11352,7 +11381,7 @@ function espnWinProbs(season,week){
         _espnWpCache[k]=Object.keys(probs).length?probs:null;
         _espnWpAt[k]=Date.now();
         /* whichever screen is looking at these has to be told they landed */
-        repaintLive();
+        paintSoon('live',repaintLive);
       })
       /* Stamped on failure too, so an endpoint that is down is asked again on
          the interval rather than on every single render. */
@@ -12632,6 +12661,7 @@ function renderSchedule(){
     >${sbAvatar(r.opp.owner,22)}${pollBadgeFor(r.opp.owner)}<span class="sch-nm">${r.opp.name}</span><span class="sch-ab">${sbTeamAb(r.opp.owner,r.opp.name)}</span>${r.rival?`<span class="sch-rival" title="Rivalry game — 2025 week ${r.rivalWeek}">RIVAL</span>`:''}<i class="fa fa-chevron-down sch-caret"></i></span>`;
   const sosPct=d.sosCount?1-(d.sosRank-1)/Math.max(1,d.sosCount-1):0.5;
   const recSeason=(d.rows.find(r=>r.oppSeason)||{}).oppSeason||'Last';
+  const _crests=imgsKeep(el);
   el.innerHTML=`
     <div class="sch-head">
       <span>Wk</span><span>Opponent</span>
@@ -12673,6 +12703,7 @@ function renderSchedule(){
     ${pollSosHTML(owner)}
     ${playoffOutlookHTML()}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
+  imgsBack(el,_crests);
   /* the rows above are brand new nodes; put back the drawer that was open */
   schedRestoreDrawer();
 }
@@ -13572,8 +13603,7 @@ function sbRosters(season,week){
       /* Whichever screen is looking at these has to be told they landed. The
          book was, and the Forecast was not — so it painted whatever it had when
          the page opened and never corrected itself. */
-      if(_activeTab==='book') try{ renderBook(); }catch(e){}
-      else repaintLive();
+      paintSoon('priced',repaintPriced);
     })
     .catch(()=>{ clearTimeout(timer); done(); });
   return have||null;
@@ -13714,8 +13744,7 @@ function rosterProjWeekly(season){
         _rpData[y]=j; _rpAt[y]=Date.now(); _rpMemo={};
         /* everything priced off a roster has to be told these landed */
         _sbCache=null; _invCache=null;
-        try{ if(_activeTab==='book') renderBook();
-             else repaintLive(); }catch(e){}
+        paintSoon('priced',repaintPriced);
       })
       .catch(()=>{})
       .finally(()=>{ _rpBusy[y]=false; });
@@ -16920,11 +16949,22 @@ function betsAllDrop(){
    leaving somebody to guess whether they are looking at live money */
 function betsAllAt(){ const lg=lgLoad(); return (lg&&lg.t)||0; }
 let _betsAll=null,_betsAllBusy=false;
+/* ── A SECOND ASK GETS THE FIRST ASK'S ANSWER ────────────────────────────────
+   Team Data and the Leaderboards both ask, and each redraws itself only when
+   its own ask comes back with the tickets. A second ask while the first was
+   still reading used to be answered null at once -- so whichever page asked
+   second never redrew, and the Leaderboard sat on "Reading the book..." with
+   no profit until you left the tab and came back. It now waits on the read
+   already running (lgSync hands every asker the one in flight): the same one
+   read, two pages told. */
 async function betLeague(){
   if(_betsAll) return _betsAll;
   const kept=lgLoad();
   if(kept&&!_lgStale&&Date.now()-kept.t<BETS_ALL_TTL){ _betsAll=kept.rows; return _betsAll; }
-  if(_betsAllBusy) return null;
+  if(_betsAllBusy){
+    let lg=null; try{ lg=await lgSync(); }catch(e){}
+    return _betsAll||(lg?lg.rows:null);
+  }
   _betsAllBusy=true;
   try{ const lg=await lgSync(); _betsAll=lg?lg.rows:[]; }catch(e){ _betsAll=[]; }
   _betsAllBusy=false;
@@ -21485,20 +21525,29 @@ function bamSeasonHTML(b,shown){
    longer on a phone and with the larger crests, and one of them right as the
    wheel starts to turn. So any crest that comes back exactly as it was (the
    same tag, the same attributes) is the old, already-decoded element moved
-   into its new place. Anything different is left as drawn. */
-function bamSwapHTML(el,html){
-  const old=new Map();
+   into its new place. Anything different is left as drawn.
+
+   NOT ONLY THE GAME. The Schedule, the Sportsbook and the Forecast redraw
+   whole whenever data lands, and the Schedule did it fifteen times in a
+   second on open, 51 crests each time. imgsKeep before a write and
+   imgsBack after it is the same thing for a write too long to wrap. */
+function imgsKeep(el){
+  const old=new Map(); if(!el) return old;
   el.querySelectorAll('img').forEach(i=>{
     if(!i.complete||!i.naturalWidth) return;
     const k=i.outerHTML; if(!old.has(k)) old.set(k,[]); old.get(k).push(i);
   });
-  el.innerHTML=html;
-  if(!old.size) return;
+  return old;
+}
+function imgsBack(el,old){
+  if(!el||!old||!old.size) return;
   el.querySelectorAll('img').forEach(n=>{
     const l=old.get(n.outerHTML), o=l&&l.shift();
     if(o) n.replaceWith(o);
   });
 }
+function swapHTML(el,html){ const old=imgsKeep(el); el.innerHTML=html; imgsBack(el,old); }
+const bamSwapHTML=swapHTML;
 function renderBam(){
   const el=document.getElementById('bam-body'); if(!el) return;
   if(_bamView){ el.innerHTML=bamViewHTML(_bamView); return; }
@@ -27960,6 +28009,7 @@ function renderBookInner(){
   /* In My Bets the view tabs are gone — they switch the board, and the board is
      not what you are looking at. A way back takes their place, the same width
      as the wallet button above it so the two read as a pair. */
+  const _crests=imgsKeep(el);
   el.innerHTML=`
     ${(_sbView==='mine'||_sbView==='folio')?'':`<div class="sb-promos" id="sb-promos">${sbPromosInner()}</div>`}
     ${(_sbView==='mine'||_sbView==='folio')
@@ -27972,6 +28022,7 @@ function renderBookInner(){
         <div class="sb-slip sb-slip-target" id="sb-slip">${sbSlipHTML()}</div>
       </div>
     </div>`;
+  imgsBack(el,_crests);
   /* The row scrolls sideways on a phone, and every repaint rebuilds it at the
      left edge -- so the live tab is brought back into view each time, or
      Investments would sit selected and out of sight. */

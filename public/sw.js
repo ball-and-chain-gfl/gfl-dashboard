@@ -7,7 +7,7 @@
 // TEAM LOGOS (/api/espn?type=logo): cache-first, from a cache that survives
 // a version bump, refreshed behind the scenes once a week.
 // LIVE DATA (the rest of /api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v841';
+const CACHE = 'gfl-v842';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered
@@ -117,13 +117,15 @@ self.addEventListener('fetch', (e) => {
       const isLive = url.pathname.includes(live);
       if (isLive) {
         try {
-          /* no-store, or this is not actually network-first. Vercel serves
+          /* no-cache (it was no-store; both force the server to be asked,
+             and no-cache lets an unchanged file come back as a bodiless 304),
+             or this is not actually network-first. Vercel serves
              these with max-age=300, so a plain fetch here is answered by the
              browser HTTP cache for five minutes and the worker faithfully
              stores that stale copy — which looked exactly like the bug it was
              meant to fix. The shell branch below has always done this, for the
              same reason. */
-          const res = await fetch(request, { cache: 'no-store' });
+          const res = await fetch(request, { cache: 'no-cache' });   // asked every time; an unchanged file is a 304
           if (res && res.status === 200) { cache.put(request, res.clone()); return res; }
         } catch (err) { /* offline: fall through to whatever was kept */ }
         return (await cache.match(request)) || Response.error();
@@ -159,6 +161,14 @@ self.addEventListener('fetch', (e) => {
   // Nothing is served from cache before the network has had its chance, and a
   // cold cache still waits: there is nothing else to show.
   const SHELL_TIMEOUT_MS = 1500;
+  //
+  // AND ASKED, NOT RE-DOWNLOADED. 'no-store' fetched all of it on every open:
+  // app.js and index.html are ~690KB compressed, every open, every phone,
+  // whether or not anything had changed. 'no-cache' still asks the server
+  // every time -- a stale copy still cannot be handed back -- but it asks with
+  // the copy's ETag, and an unchanged build answers 304 with no body (checked
+  // against Vercel: 0 bytes). A deploy changes the ETag and the new build
+  // comes down in full, exactly as before.
   const bustable = /\.(?:html|js|css|webmanifest|json)$/.test(url.pathname)
     || url.pathname === '/' || request.mode === 'navigate';
   e.respondWith((async () => {
@@ -166,7 +176,7 @@ self.addEventListener('fetch', (e) => {
     const net = (async () => {
       let res;
       if (bustable) {
-        try { res = await fetch(request, { cache: 'no-store' }); }
+        try { res = await fetch(request, { cache: 'no-cache' }); }
         catch (e2) { res = await fetch(request); }
       } else {
         res = await fetch(request);

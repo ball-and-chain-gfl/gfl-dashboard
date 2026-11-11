@@ -84,6 +84,16 @@ ok('past ten minutes it asks only for what was placed or settled since, never th
   [M.sent().map(x => x.where.fieldFilter.field.fieldPath + ' ' + x.where.fieldFilter.op), later.length],
   [['ts GREATER_THAN', 'settledTs GREATER_THAN'], 328]);
 
+head('two pages asking at once');
+/* Team Data and the Leaderboards both ask, and each redraws only when its own
+   ask comes back with the tickets. The second used to be answered null while
+   the first was still reading, so it never redrew: the Leaderboard stuck on
+   "Reading the book..." with no profit. Both must get the tickets, off one read. */
+M.reset(); M.seed(328);
+const [first, second] = await Promise.all([M.betLeague(), M.betLeague()]);
+ok('the second ask gets the tickets too, not null', [first && first.length, second && second.length], [328, 328]);
+ok('and it is still one read of the season', M.sent().length, 1);
+
 head('a failed read');
 M.reset(); M.seed(328); M.failWith(429);
 const failed = await M.betLeague();
