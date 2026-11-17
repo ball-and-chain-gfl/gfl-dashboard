@@ -15,8 +15,6 @@
    Locker Room get the frame only.
    ═══════════════════════════════════════════════════════════════════════════ */
 @keyframes bft-twinkle{0%,100%{opacity:0;}45%,55%{opacity:1;}}
-700&family=JetBrains+Mono:wght@400;
-500&display=swap');
 html[data-me=bft]{
   --bg:#1C1C1C; --bg2:#202020; --bg3:#262626;
   --text:#FDFEFC; --text2:rgba(253,254,252,.76); --text3:rgba(253,254,252,.54);
