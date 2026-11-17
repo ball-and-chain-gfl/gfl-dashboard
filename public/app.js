@@ -28229,10 +28229,11 @@ function sbPromosPaint(){
    play its prices are null (see sbWeekData), and the row says who WON instead,
    or shows dashes if there is no result yet.
 
-   WHAT FLIPS. Only a tile whose character changed. The first draw flips every
-   tile in, a row at a time; after that a repaint with the same prices moves
-   nothing, and a line that moves flips just its own digits. The ticker runs
-   only while something is flipping and stops itself.
+   WHAT FLIPS. The first draw flips every tile in, a row at a time; after that
+   a repaint with the same prices moves nothing, and a line that moves flips
+   just its own digits. At rest one row ticks over every 2.6 seconds
+   (sbFlapRest). The ticker runs only while something is flipping and stops
+   itself.
 
    The site's look draws it (public/theme/site). Without the look the slot stays
    hidden: index.html's own rule for .sb-flap-sec is display:none. */
@@ -28325,6 +28326,32 @@ function sbFlapFill(){
     }
     _flap.text[i]=L.s;
   });
+  if(_flap.busy.size&&!_flap.timer) _flap.timer=setInterval(sbFlapTick,45);
+  if(!_flap.rest&&!still) _flap.rest=setInterval(sbFlapRest,FLAP_REST_MS);
+}
+/* AT REST, ONE ROW AT A TIME (the sample sheet's motion, 17 November). Once the
+   board has flipped in, every 2.6 seconds the next row down flips through and
+   lands back on what it already says, so the board is never quite still --
+   the way a departures board ticks over. It is the same flip as the entrance,
+   one row's worth; the entrance itself is untouched.
+
+   It waits while anything is still flipping (the entrance, or a price that
+   moved), and it does nothing while the board is off screen, the tab is not the
+   sportsbook, the app is in the background, or reduced motion is asked for. It
+   stops itself when the sportsbook is left and sbFlapFill starts it again. */
+const FLAP_REST_MS=2600;
+function sbFlapRest(){
+  const el=document.getElementById('sb-flap');
+  if(_activeTab!=='book'||!el||el.hidden){ clearInterval(_flap.rest); _flap.rest=null; return; }
+  if(document.hidden||_flap.busy.size||!_flap.rows||!_flap.cols) return;
+  try{ if(matchMedia('(prefers-reduced-motion:reduce)').matches) return; }catch(e){}
+  const r=el.getBoundingClientRect(); if(r.bottom<0||r.top>innerHeight) return;
+  const i=(_flap.turn=((_flap.turn||0)+1))%_flap.rows, s=_flap.text[i]||'', cols=_flap.cols;
+  for(let x=0;x<cols;x++){
+    const tile=_flap.tiles[i*cols+x], c=s[x];
+    if(!tile||!c||c===' ') continue;
+    _flap.busy.set(tile,{ch:c,left:6+Math.floor(Math.random()*8)+Math.floor(x*22/45)});
+  }
   if(_flap.busy.size&&!_flap.timer) _flap.timer=setInterval(sbFlapTick,45);
 }
 window.addEventListener('resize',()=>{ clearTimeout(_flap.rsz); _flap.rsz=setTimeout(()=>{ if(_activeTab==='book') sbFlapFill(); },200); });
