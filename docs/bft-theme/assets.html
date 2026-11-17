@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BFT theme · asset sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1C1C1C; --line:#262626; --ink:#FDFEFC; --ink2:rgba(253,254,252,.5); --ink3:rgba(253,254,252,.25);
+    --blue:#015FFF; --orange:#FF8E1C; --yellow:#F0CE26; --red:#D9325E;
+    --dots:url(../../public/theme/bft/dots.svg); --grain:url(../../public/theme/bft/grain.png);
+  }
+  *{box-sizing:border-box;margin:0;}
+  body{background:var(--bg);color:var(--ink);font:400 15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  /* the grain, over everything, never in the way of a tap */
+  body::before{content:"";position:fixed;inset:0;z-index:50;pointer-events:none;background:var(--grain) 0 0/128px 128px;}
+  /* the page: boxed in by a line down each side */
+  .page{max-width:1120px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line);}
+  section{border-bottom:1px solid var(--line);padding:40px 28px;position:relative;}
+  .tag{position:absolute;top:0;right:0;font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink2);background:var(--line);padding:6px 8px;}
+  h1{font:400 clamp(34px,6vw,60px)/1.06 Cardo,serif;letter-spacing:-.03em;}
+  h1 span{color:var(--ink2);}
+  h2{font:400 28px/1.15 Cardo,serif;letter-spacing:-.02em;margin-bottom:6px;}
+  p.sub{color:var(--ink2);max-width:60ch;}
+  .mono{font:400 12px/1.4 'JetBrains Mono',monospace;color:var(--ink2);}
+
+  /* ── one dot file, any colour: the file is the stencil, --c is the ink ── */
+  .dots{background:var(--c,rgba(253,254,252,.13));
+    -webkit-mask:var(--dots) 0 0/6px 6px repeat; mask:var(--dots) 0 0/6px 6px repeat;}
+  /* a band of quiet dots, the colour of the page */
+  .band{height:56px;border-bottom:1px solid var(--line);}
+  .band .dots{height:100%;}
+  /* a panel of coloured dots that fades out downwards */
+  .fade{-webkit-mask-image:linear-gradient(#000 0%,rgba(0,0,0,.12) 55%,transparent 100%);mask-image:linear-gradient(#000 0%,rgba(0,0,0,.12) 55%,transparent 100%);}
+  .fade,.fade .dots{position:absolute;inset:0;}
+
+  /* the boxed grid: cells share 1px lines */
+  .grid{display:grid;border-bottom:1px solid var(--line);}
+  .grid>*{border-right:1px solid var(--line);position:relative;min-width:0;}
+  .grid>*:last-child{border-right:0;}
+  .g4{grid-template-columns:repeat(4,1fr);} .g3{grid-template-columns:repeat(3,1fr);}
+  .logo{height:120px;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 12px;font:400 22px/1.15 Cardo,serif;}
+  .logo:nth-child(even){font:600 18px Inter,sans-serif;letter-spacing:-.02em;}
+  .panel{height:300px;display:flex;flex-direction:column;justify-content:flex-end;padding:22px;}
+  .panel>:not(.fade){position:relative;}
+  .panel h3{font:500 18px/1.2 Inter,sans-serif;letter-spacing:-.01em;}
+  .panel p{color:var(--ink2);font-size:13.5px;margin-top:4px;}
+  .panel a{color:var(--ink);font-size:13px;margin-top:12px;text-decoration:none;border-bottom:1px solid var(--ink3);align-self:flex-start;padding-bottom:2px;}
+
+  .sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0;border:1px solid var(--line);margin-top:20px;}
+  .sw div{padding:44px 12px 10px;border-right:1px solid var(--line);font:400 11px/1.4 'JetBrains Mono',monospace;}
+  .sw div:last-child{border-right:0;}
+  .tex{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-top:20px;}
+  .tex div{height:150px;border-right:1px solid var(--line);position:relative;background:var(--bg);display:flex;align-items:flex-end;padding:10px;z-index:60;}
+  .tex div:last-child{border-right:0;}
+  .tex .g1::before,.tex .g2::before{content:"";position:absolute;inset:0;background:var(--grain) 0 0/128px 128px;}
+  .tex .g2::before{background-size:128px 128px;filter:contrast(4) brightness(1.6);opacity:1;}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;}
+  .btn{font:500 13.5px Inter,sans-serif;padding:10px 14px;border-radius:4px;border:1px solid var(--line);color:var(--ink);background:#232323;text-decoration:none;}
+  .btn.w{background:var(--ink);color:#111;border-color:var(--ink);} .btn.b{background:var(--blue);border-color:var(--blue);}
+
+  /* ── the same pieces on a phone-width homepage card ── */
+  .phone{width:375px;max-width:100%;margin:22px auto 0;border:1px solid var(--line);}
+  .card{position:relative;border-bottom:1px solid var(--line);padding:70px 16px 16px;}
+  .card:last-child{border-bottom:0;}
+  .card .fade{height:150px;inset:0 0 auto 0;}
+  .card h3{font:400 24px/1.1 Cardo,serif;letter-spacing:-.02em;position:relative;}
+  .card .row{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding:9px 0;font-size:14px;position:relative;}
+  .card .row b{font:500 13px 'JetBrains Mono',monospace;}
+  .up{color:#5fd08a;} .dn{color:var(--red);}
+
+  @media(max-width:720px){
+    section{padding:30px 16px;}
+    .g4{grid-template-columns:repeat(2,1fr);} .g4>*:nth-child(2){border-right:0;} .g4>*:nth-child(-n+2){border-bottom:1px solid var(--line);}
+    .g3{grid-template-columns:1fr;} .g3>*{border-right:0;border-bottom:1px solid var(--line);} .g3>*:last-child{border-bottom:0;}
+    .panel{height:220px;} .logo{height:90px;}
+    .tex{grid-template-columns:1fr;} .tex div{border-right:0;border-bottom:1px solid var(--line);height:110px;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <section>
+    <span class="tag">Asset sheet</span>
+    <h1>The BFT theme, in pieces.<br><span>Two small files and a handful of colours.</span></h1>
+    <div class="btns"><a class="btn w">Primary button →</a><a class="btn">Secondary</a><a class="btn b">Blue accent</a></div>
+  </section>
+
+  <section>
+    <span class="tag">Colours</span>
+    <h2>Palette</h2>
+    <p class="sub">Measured off the reference. The four accents are only ever used as dots and small marks, never as large fills.</p>
+    <div class="sw">
+      <div style="background:#1C1C1C">Page<br>#1C1C1C</div>
+      <div style="background:#262626">Lines<br>#262626</div>
+      <div style="background:#FDFEFC;color:#111">Text<br>#FDFEFC</div>
+      <div style="background:#015FFF">Blue<br>#015FFF</div>
+      <div style="background:#FF8E1C;color:#111">Orange<br>#FF8E1C</div>
+      <div style="background:#F0CE26;color:#111">Yellow<br>#F0CE26</div>
+      <div style="background:#D9325E">Red<br>#D9325E</div>
+    </div>
+  </section>
+
+  <section>
+    <span class="tag">Asset 1 · grain.png · 10 KB</span>
+    <h2>Background texture</h2>
+    <p class="sub">A 128px tile of film grain, repeated across the whole page. Left is the flat colour, middle is the grain as it would ship, right is the grain exaggerated so you can see what it is.</p>
+    <div class="tex">
+      <div><span class="mono">Flat</span></div>
+      <div class="g1"><span class="mono" style="position:relative">With grain</span></div>
+      <div class="g2"><span class="mono" style="position:relative">Exaggerated</span></div>
+    </div>
+  </section>
+
+  <div class="band"><div class="dots"></div></div>
+  <div class="grid g4">
+    <div class="logo">The Bryan Football Team</div><div class="logo">FLORIDA MAN</div><div class="logo">Marathon Men</div><div class="logo">GOOB</div>
+  </div>
+  <div class="band"><div class="dots"></div></div>
+
+  <section>
+    <span class="tag">Asset 2 · dots.svg · 170 bytes</span>
+    <h2>Dot grid</h2>
+    <p class="sub">The two bands above this, either side of the row of names, are the quiet version: dots barely lighter than the page. The three panels below are the same file with a colour behind it, fading out downwards. A fourth in blue shows any colour works.</p>
+  </section>
+
+  <div class="grid g3">
+    <div class="panel"><div class="fade"><div class="dots" style="--c:var(--orange)"></div></div><h3>Your Forecast</h3><p>This week's matchup, read ahead.</p><a>Open ↗</a></div>
+    <div class="panel"><div class="fade"><div class="dots" style="--c:var(--yellow)"></div></div><h3>Coaches Poll</h3><p>Rank the twelve before Thursday.</p><a>Open ↗</a></div>
+    <div class="panel"><div class="fade"><div class="dots" style="--c:var(--red)"></div></div><h3>Notifications</h3><p>Trades, invitations and trash talk.</p><a>Open ↗</a></div>
+  </div>
+  <div class="grid g3">
+    <div class="panel"><div class="fade"><div class="dots" style="--c:var(--blue)"></div></div><h3>Ball Knowledge</h3><p>Blue, from the same file.</p><a>Open ↗</a></div>
+    <div class="panel"><div class="fade"><div class="dots" style="--c:#FDFEFC"></div></div><h3>Matchup Picks</h3><p>White.</p><a>Open ↗</a></div>
+    <div class="panel"><div class="fade"><div class="dots" style="--c:#5fd08a"></div></div><h3>Daily Pick'em</h3><p>Green, if a section wants it.</p><a>Open ↗</a></div>
+  </div>
+
+  <section>
+    <span class="tag">Type</span>
+    <h2>Fonts</h2>
+    <p class="sub">Titles in Cardo (the reference's own title font, free). Body in Inter, which the site already loads. Small labels in JetBrains Mono, standing in for the reference's paid mono.</p>
+    <h1 style="margin-top:22px">Week 11, read ahead.<br><span>For managers, by managers.</span></h1>
+    <p style="margin-top:14px;max-width:62ch">Body copy sits in Inter at a comfortable size. Numbers like 1,983.1 and 11–3 stay easy to scan, and secondary text <span style="color:var(--ink2)">drops to half strength</span> rather than changing colour.</p>
+    <p class="mono" style="margin-top:12px">WEEK 11 · PUNISHMENT · USED BY TEAMS AT · 142.6 PTS</p>
+  </section>
+
+  <section>
+    <span class="tag">Together · 375px</span>
+    <h2>On a phone</h2>
+    <p class="sub">The same pieces at phone width, as two homepage cards might look. This is a sketch of the style, not the real homepage.</p>
+    <div class="phone">
+      <div class="card"><div class="fade"><div class="dots" style="--c:var(--orange)"></div></div>
+        <span class="tag">Your forecast</span>
+        <h3>BFT by 6.5 over Kunk</h3>
+        <div class="row" style="margin-top:14px"><span>Win chance</span><b class="up">64%</b></div>
+        <div class="row"><span>Projected</span><b>131.2 – 124.7</b></div>
+        <div class="row"><span>Playoff odds if you lose</span><b class="dn">81%</b></div>
+      </div>
+      <div class="card"><div class="fade"><div class="dots" style="--c:var(--yellow)"></div></div>
+        <span class="tag">Coaches poll</span>
+        <h3>Your ballot is due Thursday</h3>
+        <div class="btns" style="margin-top:14px"><a class="btn w">Rank the twelve →</a><a class="btn">Last week</a></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

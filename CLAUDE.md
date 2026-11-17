@@ -79,6 +79,32 @@ Three more tab names exist without a nav button:
 - `gabe` — not a tab at all any more. `renderGabe()` fills a `<details>`
   (`.lh-gabe`) on League History, and `config.gabe` still feeds it.
 
+## Account themes
+
+An account can have a look of its own. `bft` has one, for the homepage so far.
+
+- `ME_THEMES` in `app.js` (and the copy in the last script of `index.html`'s head,
+  which loads the stylesheet before the first paint) names the account and its
+  file. `meTheme()` puts `data-me="<account>"` on `<html>` at sign-in and takes
+  it off at sign-out.
+- The theme is `public/theme/<account>/theme.css` and its pictures beside it.
+  **Every selector starts `html[data-me=<account>]`** (`test-metheme.mjs` holds
+  that), so the file cannot touch anyone else. To remove a theme: take the
+  account off both lists and delete its folder. The tag `pre-bft-theme` is the
+  site before any of it.
+- A theme changes how a page is DRAWN and nothing else: the same sections, in
+  the app's order, working as they do for everyone. No section is added, moved
+  behind a tap or taken away. It is CSS only; `app.js` knows nothing about what
+  a theme looks like.
+- The bft theme's rules, each from the user: corners square except what you
+  press (4px) and crests; three steps of fill for a box in a box; boxes share
+  their lines; **numbers keep the app's own type, untouched**; **a colour that
+  means something (a poll rank, a position, a notification's kind, a tab's or
+  a section's own accent) is never changed**; no title block on the homepage.
+- `docs/bft-theme/` is the bank: sheets of every asset and animation, the
+  scripts that make the image files, and `unused/` (an overview homepage that
+  was built and turned down).
+
 ## Tests
 
 `node --check` plus about seventy suites, `scripts/test-*.mjs`, each its own step

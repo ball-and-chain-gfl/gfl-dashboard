@@ -1,0 +1,290 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE BFT THEME. Loaded only for the bft account (index.html's head and
+   meTheme in app.js), and every rule below is written against data-me="bft",
+   so nobody else's page can be touched by it.
+
+   SCOPE: the homepage only, for now. Rules against the app's own markup also
+   ask for data-tabaccent="home", which the app sets to the tab that is showing.
+
+   TO TAKE IT ALL AWAY: remove "bft" from the two lists (ME_THEMES in app.js,
+   T in index.html's head) and delete this folder. The tag pre-bft-theme marks
+   the site as it was before any of this.
+
+   THE PIECES (docs/bft-theme has a sheet of each, and the scripts that make
+   the image files):
+     dots.svg      one cell of a dot grid, used as a stencil over a colour
+     sparks-*.svg  a few dots of that grid, faded in and out to twinkle
+     grain.png     film grain, repeated over the whole page
+   ═══════════════════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+html[data-me=bft][data-tabaccent=home]{
+  --bg:#1C1C1C; --bg2:#202020; --bg3:#262626;
+  --text:#FDFEFC; --text2:rgba(253,254,252,.62); --text3:rgba(253,254,252,.38);
+  --border:#2B2B2B; --accent:#4C9EFF; --accent2:#015FFF; --accent-rgb:76,158,255;
+  --ln:#2B2B2B; --tile:#232323;
+  --orange:#FF8E1C; --yellow:#F0CE26; --red:#D9325E; --sky:#4C9EFF;
+  --serif:Cardo,'Iowan Old Style',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --dots:url(/theme/bft/dots.svg);
+  --fadeDown:linear-gradient(#000 0%,rgba(0,0,0,.45) 50%,transparent 100%);
+}
+
+/* ── the page: charcoal, grain over it, Inter for reading ─────────────────── */
+html[data-me=bft][data-tabaccent=home],
+html[data-me=bft][data-tabaccent=home] body{background:#1C1C1C!important;}
+html[data-me=bft][data-tabaccent=home] body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);}
+html[data-me=bft][data-tabaccent=home] body::before{content:"";position:fixed;inset:0;z-index:140;pointer-events:none;
+  background:url(/theme/bft/grain.png) 0 0/128px 128px;}
+html[data-me=bft][data-tabaccent=home] #pgbg,
+html[data-me=bft][data-tabaccent=home] .bg-fx{display:none!important;}
+
+/* ── a section: no card, a line above it, coloured dots fading down from the top ── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec{background:none!important;border:0!important;border-top:1px solid var(--ln)!important;border-radius:0!important;
+  box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;margin:0!important;padding:46px 16px 30px!important;
+  position:relative;isolation:isolate;--dc:rgba(253,254,252,.5);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec::before{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;
+  background:var(--dc);opacity:1;
+  -webkit-mask-image:var(--dots),var(--fadeDown);-webkit-mask-size:6px 6px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:var(--dots),var(--fadeDown);mask-size:6px 6px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+/* a section's dots are the theme's; its own accent (the colour of its rank numbers, counts and marks) is the app's, untouched */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-fc{--dc:var(--orange);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-cp{--dc:var(--yellow);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pk{--dc:var(--sky);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pe{--dc:var(--red);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-bk{--dc:rgba(253,254,252,.55);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-nt{--dc:var(--sky);}
+/* something still to do: the dots run deeper and a rule of the colour marks the edge; done, they sit back */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec.home-todo{box-shadow:inset 2px 0 0 var(--dc)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec.home-todo::before{height:230px;opacity:1;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec.home-done::before{opacity:.85;}
+
+/* the one that moves: your forecast twinkles (a few dots of the same grid, fading in and out) */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-fc::after{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;
+  background:color-mix(in srgb,var(--orange) 55%,#fff);font-size:0!important;opacity:0;animation:bft-twinkle 3.6s ease-in-out infinite;will-change:opacity;
+  -webkit-mask-image:url(/theme/bft/sparks-a.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:url(/theme/bft/sparks-a.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+@keyframes bft-twinkle{0%,100%{opacity:0;}45%,55%{opacity:1;}}
+@media(prefers-reduced-motion:reduce){ html[data-me=bft][data-tabaccent=home] #page-home .mod-fc::after{animation:none;opacity:.5;} }
+
+/* ── section titles: serif, left, no icon, no rainbow rule ────────────────── */
+html[data-me=bft][data-tabaccent=home] #page-home .sec-head{flex-direction:row!important;align-items:baseline!important;justify-content:flex-start!important;text-align:left!important;
+  font-family:var(--serif)!important;font-weight:400!important;font-size:30px!important;line-height:1.08!important;letter-spacing:-.025em!important;
+  padding:0 0 18px!important;margin:0!important;gap:10px!important;color:var(--text)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .sec-head>i{display:none!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .sec-head::after,
+html[data-me=bft][data-tabaccent=home] #page-home .sec-head::before{display:none!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .sec-head .badge-info{font:500 10px/1 var(--mono)!important;letter-spacing:.08em;color:var(--text2)!important;background:var(--ln)!important;
+  border:0!important;border-radius:0!important;padding:5px 7px!important;margin-left:auto;}
+
+/* ── boxes inside a section: lines and flat tiles, not rounded black cards ── */
+html[data-me=bft][data-tabaccent=home] #page-home :is(.tt-box,.pkl-g,.bkd-done,.bk-delta,.home-redo){background:none!important;border:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft][data-tabaccent=home] #page-home :is(.cp-res,.pker,.bkr){background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;border-radius:0!important;margin:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home :is(.fcr-side.good,.fcr-side.bad,.fcr-side){border-radius:2px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .fcr-side:not(.fcr-h){background-color:var(--tile)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .fcr-pos{border-radius:2px!important;font-family:var(--mono)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .tt-text{background:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:2px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .tt-send{background:var(--text)!important;background-image:none!important;color:#111!important;border-radius:4px!important;box-shadow:none!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .cp-bt{background:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:3px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .cp-refresh{background:var(--tile)!important;border-radius:3px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .pkl-side{border-radius:2px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .pkl-n{border-radius:2px!important;font-family:var(--mono)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home :is(.cp-bdg,.fa-check,.fa-xmark,.fa-hourglass-half){border-radius:2px!important;}
+
+/* ── the small labels: monospace, spaced, quiet ───────────────────────────── */
+html[data-me=bft][data-tabaccent=home] #page-home :is(.cp-meta,.bk-meta,.fcr-head,.fc-lu-h,.tt-h){font-family:var(--mono)!important;letter-spacing:.06em!important;}
+
+/* ── the bar across the top, and the video strip under it ─────────────────── */
+html[data-me=bft][data-tabaccent=home] #floatnav{background:rgba(28,28,28,.88)!important;border-color:var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav #tab-dd-btn{background:var(--tile)!important;border-color:var(--ln)!important;border-radius:4px!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav .nav-burger{border-radius:3px!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav #me-btn{border-radius:4px!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar{background:var(--tile)!important;border:1px solid var(--ln)!important;border-top:0!important;border-radius:0!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar :is(a,span,i,b){color:var(--text)!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar .fa-youtube{color:var(--orange)!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar .nv-l{font-family:var(--mono)!important;letter-spacing:.06em;color:var(--text2)!important;}
+
+/* ── the punishment bar pinned to the foot ────────────────────────────────── */
+html[data-me=bft][data-tabaccent=home] #my-matchup .pb-bar{background:#202020!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important;}
+html[data-me=bft][data-tabaccent=home] #my-matchup .pb-wk{font-family:var(--mono)!important;letter-spacing:.06em;}
+html[data-me=bft][data-tabaccent=home] #my-matchup .pb-name{font-family:var(--serif)!important;font-weight:400!important;letter-spacing:-.01em;}
+html[data-me=bft][data-tabaccent=home] #my-matchup :is(.pb-more,.pb-ic){border-radius:3px!important;}
+
+html[data-me=bft][data-tabaccent=home] #page-home .fc-lu{background:none!important;border:0!important;border-radius:0!important;padding-left:0!important;padding-right:0!important;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE HOMEPAGE: the league's own six sections, in the order the app puts
+   them and working exactly as they do for everyone else. Nothing is added
+   to the page and nothing is taken off it; this file only changes how it is
+   drawn. (The one addition is the word at the foot, which is a picture.)
+
+   The measures are the inspiration's, read off it at phone width: a 6px
+   gutter to a line down each side, text 21px inside that line, and sections
+   split by empty bands of dots about 58px tall.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-me=bft][data-tabaccent=home] main{padding-left:6px!important;padding-right:6px!important;}
+
+/* no title block: the page is its sections (the big "Home" was taken off on 16 November) */
+html[data-me=bft][data-tabaccent=home] .page-h1{display:none!important;}
+
+/* the page: a line down each side, the sections in one column, dots showing in the gaps between them */
+html[data-me=bft][data-tabaccent=home] #page-home{display:flex!important;flex-direction:column;gap:0;width:100%;min-width:0;max-width:1120px;margin:0 auto!important;
+  border-left:1px solid var(--ln);border-right:1px solid var(--ln);}
+html[data-me=bft][data-tabaccent=home] #page-home .home-top{display:flex!important;flex-direction:column!important;gap:0!important;margin:0!important;padding:0!important;
+  grid-template-areas:none!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .home-left-col{display:contents!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec{background:#1C1C1C!important;border-top:1px solid var(--ln)!important;border-bottom:0!important;
+  padding:54px 21px 44px!important;grid-area:auto!important;min-width:0!important;width:auto!important;max-width:none!important;align-self:stretch!important;--sp-t:54px;--sp-x:21px;}
+
+/* each section says where it stands, top right: to do, or done */
+html[data-me=bft][data-tabaccent=home] #page-home .sec-head::after{content:"Done"!important;display:block!important;position:absolute!important;top:calc(0px - var(--sp-t))!important;right:calc(0px - var(--sp-x))!important;left:auto!important;bottom:auto!important;
+  width:auto!important;height:auto!important;margin:0!important;transform:none!important;animation:none!important;border-radius:0!important;
+  font:500 10.5px/1 var(--mono)!important;letter-spacing:.1em!important;text-transform:uppercase;color:var(--text2)!important;background:var(--ln)!important;padding:6px 8px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .sec.home-todo .sec-head::after{content:"To do"!important;color:#141414!important;background:var(--dc)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .mod-fc .sec-head::after{content:"This week"!important;}
+/* the coloured dots at the head of every section twinkle (16 November: all of them, not only the open ones) */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec::after{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;
+  background:color-mix(in srgb,var(--dc) 55%,#fff);font-size:0!important;opacity:0;animation:bft-twinkle 3.6s ease-in-out infinite;will-change:opacity;
+  -webkit-mask-image:url(/theme/bft/sparks-a.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:url(/theme/bft/sparks-a.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec.home-todo::after{height:230px;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-cp::after{animation-duration:4.4s;animation-delay:-1.2s;-webkit-mask-image:url(/theme/bft/sparks-b.svg),var(--fadeDown);mask-image:url(/theme/bft/sparks-b.svg),var(--fadeDown);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pk::after{animation-duration:5.3s;animation-delay:-2.6s;-webkit-mask-image:url(/theme/bft/sparks-c.svg),var(--fadeDown);mask-image:url(/theme/bft/sparks-c.svg),var(--fadeDown);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pe::after{animation-duration:3.9s;animation-delay:-.6s;-webkit-mask-image:url(/theme/bft/sparks-b.svg),var(--fadeDown);mask-image:url(/theme/bft/sparks-b.svg),var(--fadeDown);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-bk::after{animation-duration:4.9s;animation-delay:-3.1s;-webkit-mask-image:url(/theme/bft/sparks-c.svg),var(--fadeDown);mask-image:url(/theme/bft/sparks-c.svg),var(--fadeDown);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-nt::after{animation-duration:5.8s;animation-delay:-1.9s;}
+@media(prefers-reduced-motion:reduce){ html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec::after{animation:none!important;opacity:.5;} }
+
+/* the foot: the league's initials in dots */
+html[data-me=bft][data-tabaccent=home] #page-home::after{content:"GFL";display:block;order:99;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:30px 0 10px;text-align:center;overflow:hidden;
+  font:700 clamp(130px,40vw,420px)/.84 Inter,sans-serif;letter-spacing:-.06em;color:transparent;-webkit-text-fill-color:transparent;
+  background:url(/theme/bft/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#1C1C1C,#1C1C1C);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
+
+/* wider than a phone: two columns of the same sections */
+@media(min-width:1000px){
+  html[data-me=bft][data-tabaccent=home] #page-home .home-top{display:grid!important;grid-template-columns:1fr 1fr!important;column-gap:0!important;align-items:start;}
+  html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec{padding:64px 40px 54px!important;--sp-t:64px;--sp-x:40px;}
+  html[data-me=bft][data-tabaccent=home] #page-home#page-home .home-top .sec{border-right:1px solid var(--ln)!important;margin-right:-1px!important;}
+}
+
+/* the title is the box the tag hangs from */
+html[data-me=bft][data-tabaccent=home] #page-home .sec-head{position:relative!important;}
+/* notifications, when there are none: said plainly, on the left */
+html[data-me=bft][data-tabaccent=home] #page-home :is(.nt-clear,.home-redo-row){justify-content:flex-start!important;text-align:left!important;}
+
+/* nothing inside a section is a rounded card: corners are square or nearly, whatever state a module is in */
+html[data-me=bft][data-tabaccent=home] #page-home .sec :is(div,button,a,input,textarea,select,span,label,li):not(.tm-avatar):not(.fc-dot):not(.phs):not([class*=avatar]){border-radius:3px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .sec .fc-dot{border-radius:50%!important;}
+/* Ball Knowledge, with a question open */
+html[data-me=bft][data-tabaccent=home] #page-home .bk-card{background:none!important;border:1px solid var(--ln)!important;box-shadow:none!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .bk-note{background:var(--tile)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .bk-opt{background:var(--tile)!important;border:1px solid var(--ln)!important;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONE SYSTEM, INSIDE EVERY SECTION. The rules above grew a piece at a time
+   and left the sections mixed: nine corner sizes, forty-five text styles,
+   thirty text colours, and boxes inside boxes on the same fill. Everything
+   below is written once for all six sections, and comes last so it wins.
+
+   CORNERS  square, always. The only rounded things are what you press or
+            type in (4px) and crests (4px). Dots are circles.
+   FILLS    three steps so a box inside a box reads apart: the page (#1C1C1C),
+            a panel on it (--l1), a cell or control on a panel (--l2).
+   GRID     boxes share their lines the way the inspiration's do: a heading
+            in its own cell, rows ruled off, cells divided, no gaps.
+   TYPE     Inter at 400 for reading and 500 for names; the monospace for
+            small capital labels; the serif only for a section's title.
+            Numbers are not restyled at all: they keep the app's own type.
+   COLOUR   white, white at 62%, white at 38% and the blue for the page's own
+            furniture. A COLOUR THAT MEANS SOMETHING IS LEFT AS THE APP SET IT:
+            a poll rank's badge, a position's chip, a notification's kind,
+            good and bad numbers. Those were chosen to say something, and
+            flattening them (tried, 16 November) took the meaning with it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-me=bft][data-tabaccent=home]{--l1:#222222;--l2:#2A2A2A;--ln2:#333333;--good:#5FD08A;--bad:#E8557E;}
+
+/* ── corners ─────────────────────────────────────────────────────────────── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec *,
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec *::before,
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec *::after{border-radius:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(button,input,textarea,select,.tm-avatar,img.nt-bam){border-radius:4px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(button.cp-bt.cp-bt,button.bk-opt.bk-opt,div.pkl-side.pkl-side,div.pkl-g.pkl-g){border-radius:0!important;}   /* cells of a grid, not buttons */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec button.fc-dot.fc-dot{border-radius:50%!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav :is(.logo,.nv-bar){border-radius:0!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav :is(button,.nav-burger,.tm-avatar),
+html[data-me=bft][data-tabaccent=home] #my-matchup :is(.pb-bar,.pb-more,.pb-ic){border-radius:4px!important;}
+
+/* ── type ────────────────────────────────────────────────────────────────── */
+/* NUMBERS ARE LEFT ALONE. Every figure keeps the face, weight and size the app gave it, which is what the
+   first redesign showed. Two other faces were tried for them on 16 November (the monospace, then Inter
+   regular) and both read worse. So the rule below skips them, and nothing further down restyles one. */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(span,div,b,strong,button,a,p,em,small,label,textarea,input,select,li,h3,h4):where(:not(.fcr-p):not(.cp-avg):not(.cp-rk):not(.fc-pct):not(.pkl-cash):not(.pkl-n):not(.cp-bdg):not(.fcr-pos):not(.nt-stat-v):not(.wp-t0):not(.wp-t1):not(.fc-odds-s span):not(.bk-delta b)){
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:400!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .sec-head{font-family:var(--serif)!important;font-weight:400!important;}
+/* names, questions, answers: the things you read first */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(b:where(:not(.bk-delta b)),strong,.cp-nm,.fcr-n,.fc-mu,.pker-q,.bkr-q,.pker-a,.bkr-a,.bk-q,.bk-opt,.bkd-done,.cp-bt-ab,.tm-avatar,.nt-body b){font-weight:500!important;}
+/* every small capital label */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.cp-meta,.bk-meta,.bk-meta span,.fc-lu-h,.tt-h,.cp-yet-l,.fk-final,.fk-pre,.fk-live,.fc-wk,.nt-t,.nt-day,.bkd-day,.pk-badge,.nt-hint,.nt-pos,.fcr-head .fcr-n,.fc-odds-s,.wp-key span){
+  font-family:var(--mono)!important;font-weight:500!important;font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;}
+/* what you press says what it does in plain type */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.tt-send,.home-redo,.nt-go){font-size:14px!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;}
+
+/* ── colour ──────────────────────────────────────────────────────────────── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.fk-live,.pk-badge,.pk-badge i){color:var(--yellow)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.fc-wk,.fc-lu-h,.tt-h,.cp-meta,.cp-yet-l,.bkd-day){color:var(--text2)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-at{color:var(--text3)!important;}
+
+/* ── grid: the heading in its own cell, and the line under it ────────────── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .sec-head{margin:0 calc(0px - var(--sp-x)) 24px!important;padding:0 var(--sp-x) 28px!important;border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .sec-head::after{right:0!important;}
+/* the line of small type under it is the next cell down */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.cp-meta,.bk-meta){margin:-24px calc(0px - var(--sp-x)) 22px!important;padding:12px var(--sp-x)!important;border-bottom:1px solid var(--ln)!important;}
+
+/* ── panels: a box on the page gets the first step of fill and a line ───── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.fc-lu,.tt-box,.bk-card,.bkd-done,.bk-delta){background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;box-shadow:none!important;}
+/* cells and controls on a panel get the second */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.tt-text,.bk-note,.pkl-n,.nt-go,.nt-x,.nt-ico){background:var(--l2)!important;border-color:var(--ln2)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.home-redo,.cp-refresh){background:var(--l1)!important;border:1px solid var(--ln2)!important;}
+
+/* ── forecast: the lineups as a ruled table ──────────────────────────────── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fc-lu{padding:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fc-lu-h{padding:12px 12px!important;border-bottom:1px solid var(--ln2);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fcr{padding:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fcr-row{gap:0!important;padding:0!important;margin:0!important;border:0!important;border-bottom:1px solid var(--ln2)!important;align-items:stretch!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fcr-side{background:none!important;padding:9px 12px!important;align-items:center;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fcr-side.st-final{background:rgba(0,0,0,.22)!important;}        /* locked in sits back */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fcr-pos{border-left:1px solid var(--ln2);border-right:1px solid var(--ln2);
+  display:flex!important;align-items:center;justify-content:center;padding:0 8px!important;min-width:48px;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fcr-note,
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fcr-key{padding:10px 12px!important;margin:0!important;}
+
+/* ── coaches poll: ruled rows, and the twelve ballots as a boxed grid ────── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list{gap:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-res{padding:13px 2px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-yet{border-top:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-bgrid{gap:0!important;border-top:1px solid var(--ln);border-left:1px solid var(--ln);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-bt{background:none!important;border:0!important;border-right:1px solid var(--ln)!important;border-bottom:1px solid var(--ln)!important;min-height:46px;}
+
+/* ── matchup picks: each game a box of two cells with a line between ─────── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-list{gap:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-g{background:none!important;border:1px solid var(--ln)!important;padding:0!important;margin:-1px 0 0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-sides{gap:0!important;align-items:stretch!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-side{border:0!important;background:none!important;padding:14px 12px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-at{align-self:stretch;display:flex!important;align-items:center;padding:0 6px!important;border-left:1px solid var(--ln);border-right:1px solid var(--ln);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-side.on{background:rgba(76,158,255,.13)!important;box-shadow:inset 0 -2px 0 var(--sky)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-motw .pkl-side.on{background:rgba(240,206,38,.10)!important;box-shadow:inset 0 -2px 0 var(--yellow)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-badge{padding:10px 12px!important;margin:0!important;border-bottom:1px solid var(--ln);}
+
+/* ── pick'em and ball knowledge: ruled rows, and the answers as a boxed grid ── */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.pker,.bkr){padding:13px 2px!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .bk-score{gap:0!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .bk-card :has(>.bk-opt){gap:0!important;border-top:1px solid var(--ln2);border-left:1px solid var(--ln2);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .bk-opt{background:var(--l2)!important;border:0!important;border-right:1px solid var(--ln2)!important;border-bottom:1px solid var(--ln2)!important;min-height:56px;}
+
+
+/* the poll's line of small type: on the left, its refresh button on the right */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-meta{display:flex!important;align-items:center;justify-content:space-between;gap:12px;text-align:left!important;}
+/* the win chance took its weight from the box around it, which is now 400: give it its own back */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fc-pct{font-weight:800!important;}

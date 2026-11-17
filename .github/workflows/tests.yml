@@ -61,6 +61,8 @@ jobs:
         run: node scripts/test-fsguard.mjs
       - name: team logos from a cache that outlives every deploy
         run: node scripts/test-logocache.mjs
+      - name: an account theme restyles that account and nobody else
+        run: node scripts/test-metheme.mjs
       - name: a trade keeps its votes, its money, and its place in Trade ROI
         run: node scripts/test-tradeids.mjs
       - name: Trade ROI is scored off the locked trade list, dropped players included

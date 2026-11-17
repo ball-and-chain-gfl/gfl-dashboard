@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BFT theme · motion sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1C1C1C; --line:#262626; --cell:#232323; --ink:#FDFEFC; --ink2:rgba(253,254,252,.5); --ink3:rgba(253,254,252,.25);
+    --blue:#015FFF; --sky:#4C9EFF; --orange:#FF8E1C; --yellow:#F0CE26; --red:#D9325E;
+    --dots:url(../../public/theme/bft/dots.svg); --fine:url(../../public/theme/bft/dots-fine.svg); --grain:url(../../public/theme/bft/grain.png);
+  }
+  *{box-sizing:border-box;margin:0;}
+  body{background:var(--bg);color:var(--ink);font:400 15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;z-index:50;pointer-events:none;background:var(--grain) 0 0/128px 128px;}
+  .page{max-width:1120px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line);}
+  section{border-bottom:1px solid var(--line);padding:40px 28px;position:relative;}
+  .tag{position:absolute;top:0;right:0;z-index:2;font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink2);background:var(--line);padding:6px 8px;}
+  h1{font:400 clamp(34px,6vw,60px)/1.06 Cardo,serif;letter-spacing:-.03em;}
+  h1 span{color:var(--ink2);}
+  h2{font:400 28px/1.15 Cardo,serif;letter-spacing:-.02em;margin-bottom:6px;}
+  h2 sup{font:500 10px 'JetBrains Mono',monospace;color:var(--sky);vertical-align:top;margin-left:4px;letter-spacing:0;}
+  p.sub{color:var(--ink2);max-width:62ch;}
+  .mono{font:400 12px/1.4 'JetBrains Mono',monospace;color:var(--ink2);}
+  a.nav{color:var(--sky);font:500 12px 'JetBrains Mono',monospace;text-decoration:none;}
+
+  .grid{display:grid;border-bottom:1px solid var(--line);}
+  .grid>*{border-right:1px solid var(--line);position:relative;min-width:0;}
+  .grid>*:last-child{border-right:0;}
+  .g4{grid-template-columns:repeat(4,1fr);} .g2{grid-template-columns:repeat(2,1fr);}
+  .panel{height:280px;display:flex;flex-direction:column;justify-content:flex-end;padding:22px;overflow:hidden;}
+  .panel>:not(.fade){position:relative;}
+  .panel h3{font:500 18px/1.2 Inter,sans-serif;letter-spacing:-.01em;}
+  .panel p{color:var(--ink2);font-size:13.5px;margin-top:4px;}
+  .fade{position:absolute;inset:0;-webkit-mask-image:linear-gradient(#000 0%,rgba(0,0,0,.55) 55%,transparent 100%);mask-image:linear-gradient(#000 0%,rgba(0,0,0,.55) 55%,transparent 100%);}
+
+  /* ── ANIMATED DOTS ─────────────────────────────────────────────────────────
+     Every one is the dot stencil held still, with something moving behind or
+     over it. Only transform and opacity ever animate, which a phone's graphics
+     chip does on its own without redrawing the page. They stop when off screen
+     (.off, set by the script) and for anyone who has asked for less motion. */
+  .fx{position:absolute;inset:0;overflow:hidden;
+    -webkit-mask:var(--dots) 0 0/6px 6px repeat;mask:var(--dots) 0 0/6px 6px repeat;
+    background:color-mix(in srgb,var(--c) 20%,transparent);}
+  .fx i{position:absolute;display:block;will-change:transform,opacity;}
+  .off .fx i,.off .tw i,.off.bars i{animation-play-state:paused!important;}
+
+  /* 1. sweep: a band of light crossing the dots */
+  .fx-sweep i{inset:0 auto 0 0;width:60%;background:linear-gradient(100deg,transparent 0%,var(--c) 35%,color-mix(in srgb,var(--c) 55%,#fff) 50%,var(--c) 65%,transparent 100%);
+    animation:sweep 4.5s linear infinite;}
+  @keyframes sweep{from{transform:translateX(-110%);}to{transform:translateX(280%);}}
+
+  /* 2. ripple: rings spreading from a point */
+  .fx-ripple i{left:50%;top:38%;width:560px;height:560px;margin:-280px 0 0 -280px;border-radius:50%;
+    background:radial-gradient(circle,transparent 44%,var(--c) 56%,color-mix(in srgb,var(--c) 55%,#fff) 62%,transparent 70%);animation:ripple 4s ease-out infinite;}
+  .fx-ripple i:nth-child(2){animation-delay:-2s;}
+  @keyframes ripple{0%{transform:scale(.05);opacity:1;}70%{opacity:1;}100%{transform:scale(1.15);opacity:0;}}
+
+  /* 3. fall: streaks dropping down single columns, like data coming in */
+  .fx-fall i{left:0;right:0;top:-100%;height:200%;background:linear-gradient(transparent 0,transparent 20%,var(--c) 80%,color-mix(in srgb,var(--c) 50%,#fff) 97%,transparent 100%) 0 0/100% 50%;
+    animation:fall 3.4s linear infinite;}
+  .fx-fall i:nth-child(1){-webkit-mask:repeating-linear-gradient(90deg,#000 0 6px,transparent 6px 30px);mask:repeating-linear-gradient(90deg,#000 0 6px,transparent 6px 30px);}
+  .fx-fall i:nth-child(2){-webkit-mask:repeating-linear-gradient(90deg,transparent 0 12px,#000 12px 18px,transparent 18px 42px);mask:repeating-linear-gradient(90deg,transparent 0 12px,#000 12px 18px,transparent 18px 42px);animation-duration:5.1s;animation-delay:-1.3s;}
+  .fx-fall i:nth-child(3){-webkit-mask:repeating-linear-gradient(90deg,transparent 0 24px,#000 24px 30px,transparent 30px 66px);mask:repeating-linear-gradient(90deg,transparent 0 24px,#000 24px 30px,transparent 30px 66px);animation-duration:2.6s;animation-delay:-.7s;}
+  @keyframes fall{from{transform:translateY(0);}to{transform:translateY(50%);}}
+
+  /* 4. twinkle: single dots lighting up and going out */
+  .tw{position:absolute;inset:0;overflow:hidden;}
+  .tw b{position:absolute;inset:0;background:color-mix(in srgb,var(--c) 18%,transparent);-webkit-mask:var(--dots) 0 0/6px 6px repeat;mask:var(--dots) 0 0/6px 6px repeat;}
+  .tw i{position:absolute;inset:0;background:var(--c);opacity:0;will-change:opacity;animation:twinkle 3.2s ease-in-out infinite;}
+  .tw i:nth-of-type(1){-webkit-mask:url(../../public/theme/bft/sparks-a.svg) 0 0/96px 96px;mask:url(../../public/theme/bft/sparks-a.svg) 0 0/96px 96px;}
+  .tw i:nth-of-type(2){-webkit-mask:url(../../public/theme/bft/sparks-b.svg) 0 0/96px 96px;mask:url(../../public/theme/bft/sparks-b.svg) 0 0/96px 96px;animation-duration:4.3s;animation-delay:-1.1s;}
+  .tw i:nth-of-type(3){-webkit-mask:url(../../public/theme/bft/sparks-c.svg) 0 0/96px 96px;mask:url(../../public/theme/bft/sparks-c.svg) 0 0/96px 96px;animation-duration:5.6s;animation-delay:-2.4s;}
+  @keyframes twinkle{0%,100%{opacity:0;}45%,55%{opacity:1;}}
+
+  /* ── THE BOARD: a departures board that flips its letters into place ── */
+  .board{display:grid;gap:2px;margin-top:22px;font:500 12px/1 'JetBrains Mono',monospace;user-select:none;}
+  .board span{height:20px;display:flex;align-items:center;justify-content:center;background:var(--cell);border-radius:1px;}
+  .board span.d{color:var(--ink2);} .board span.a{color:var(--sky);}
+
+  /* ── THE NUMBERS ── */
+  .stat{padding:26px 22px;}
+  .stat b{display:block;font:400 44px/1 'JetBrains Mono',monospace;color:var(--sky);letter-spacing:-.02em;}
+  .stat b em{font-style:normal;color:var(--ink3);margin-left:6px;}
+  .stat span{display:block;margin-top:12px;font-size:14px;}
+  .stat small{display:block;margin-top:14px;font:400 10px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);}
+
+  /* ── BARS MADE OF DOTS ── */
+  .bars{margin-top:22px;display:flex;flex-direction:column;gap:14px;}
+  .bar{position:relative;height:26px;display:flex;align-items:center;justify-content:space-between;}
+  .bar u{position:absolute;inset:0 104px 0 0;-webkit-mask:var(--fine) 0 0/4px 4px repeat;mask:var(--fine) 0 0/4px 4px repeat;overflow:hidden;}
+  .bar u i{display:block;height:100%;width:var(--w);background:rgba(253,254,252,.22);transform-origin:left;animation:grow 1.1s cubic-bezier(.2,.7,.1,1) both;}
+  .bar.me u i{background:var(--sky);}
+  .bar span{position:relative;padding-left:6px;font-size:13px;color:var(--ink2);} .bar.me span{color:var(--ink);}
+  .bar em{position:relative;font:400 11px 'JetBrains Mono',monospace;font-style:normal;color:var(--ink2);letter-spacing:.04em;}
+  @keyframes grow{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+  .bars.off .bar u i{animation:none;transform:scaleX(0);}
+
+  /* ── A BAND OF TICKS (no file: one line of CSS) ── */
+  .ticks{height:36px;border-bottom:1px solid var(--line);background:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 14px);}
+
+  /* ── A WORD MADE OF DOTS ── */
+  .word{position:relative;padding:20px 0 6px;text-align:center;overflow:hidden;border-bottom:1px solid var(--line);}
+  .word strong{display:block;font:700 clamp(120px,36vw,400px)/.82 Inter,sans-serif;letter-spacing:-.06em;color:transparent;
+    background:var(--dots) 0 0/6px 6px repeat;-webkit-background-clip:text;background-clip:text;
+    -webkit-mask-image:radial-gradient(ellipse at 50% 40%,#000 30%,rgba(0,0,0,.25) 75%);mask-image:radial-gradient(ellipse at 50% 40%,#000 30%,rgba(0,0,0,.25) 75%);}
+
+  @media(prefers-reduced-motion:reduce){ .fx i,.tw i,.bar u i{animation:none!important;} .tw i{opacity:.5;} }
+  @media(max-width:720px){
+    section{padding:30px 16px;}
+    .g4{grid-template-columns:repeat(2,1fr);} .g4>*:nth-child(2n){border-right:0;} .g4>*:nth-child(-n+2){border-bottom:1px solid var(--line);}
+    .g2{grid-template-columns:1fr;} .g2>*{border-right:0;border-bottom:1px solid var(--line);} .g2>*:last-child{border-bottom:0;}
+    .panel{height:210px;} .stat b{font-size:34px;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <section>
+    <span class="tag">Motion sheet</span>
+    <a class="nav" href="assets.html">← the static asset sheet</a>
+    <h1 style="margin-top:14px">The same dots, moving.<br><span>And a few more pieces from the second page.</span></h1>
+  </section>
+
+  <section>
+    <span class="tag">New · the board</span>
+    <h2>Departures board<sup>01</sup></h2>
+    <p class="sub">The second page opens on this: a grid of small tiles whose letters flip through random characters and settle. No image at all, just type and a little script. Sample matchups below; a row re-flips every few seconds.</p>
+    <div class="board" id="board" aria-label="Sample week matchups"></div>
+  </section>
+
+  <section style="border-bottom:0;padding-bottom:26px">
+    <span class="tag">Animated dots</span>
+    <h2>Four ways the dots can move<sup>02</sup></h2>
+    <p class="sub">Each panel is the dot file held still with something moving behind it. They pause when scrolled off screen.</p>
+  </section>
+  <div class="grid g2" style="border-top:1px solid var(--line)">
+    <div class="panel"><div class="fade"><div class="fx fx-sweep" style="--c:var(--orange)"><i></i></div></div><h3>Sweep</h3><p>A band of light crossing the grid.</p></div>
+    <div class="panel"><div class="fade"><div class="fx fx-ripple" style="--c:var(--yellow)"><i></i><i></i></div></div><h3>Ripple</h3><p>Rings spreading out from a point.</p></div>
+  </div>
+  <div class="grid g2">
+    <div class="panel"><div class="fade"><div class="fx fx-fall" style="--c:var(--red)"><i></i><i></i><i></i></div></div><h3>Fall</h3><p>Streaks dropping down single columns.</p></div>
+    <div class="panel"><div class="fade"><div class="tw" style="--c:var(--sky)"><b></b><i></i><i></i><i></i></div></div><h3>Twinkle</h3><p>Single dots lighting up and going out.</p></div>
+  </div>
+
+  <section style="border-bottom:0;padding-bottom:26px">
+    <span class="tag">New · numbers</span>
+    <h2>Big numbers<sup>03</sup></h2>
+    <p class="sub">Monospace figures in the lighter blue, the unit greyed beside them, a small caps note underneath. They count up when they come into view. Sample values.</p>
+  </section>
+  <div class="grid g4" style="border-top:1px solid var(--line)">
+    <div class="stat"><b data-n="1983.1">0</b><span>points for</span><small>Most in the league</small></div>
+    <div class="stat"><b data-n="11" data-s="–3">0</b><span>record</span><small>First in the East</small></div>
+    <div class="stat"><b data-n="64" data-u="%">0</b><span>win chance</span><small>This week</small></div>
+    <div class="stat"><b data-n="1404" data-p="$">0</b><span>GFL Bucks</span><small>Third on the board</small></div>
+  </div>
+
+  <section>
+    <span class="tag">New · bars</span>
+    <h2>Bars made of dots<sup>04</sup></h2>
+    <p class="sub">A second, denser dot file (166 bytes). Your own bar in blue, everyone else's in grey. They grow from the left when they come into view. Sample values.</p>
+    <div class="bars" id="bars">
+      <div class="bar me" style="--w:100%"><u><i></i></u><span>BFT</span><em>1,983.1 PTS</em></div>
+      <div class="bar" style="--w:91%"><u><i></i></u><span>FMAN</span><em>1,814.9 PTS</em></div>
+      <div class="bar" style="--w:86%"><u><i></i></u><span>GOOB</span><em>1,714.7 PTS</em></div>
+      <div class="bar" style="--w:84%"><u><i></i></u><span>TING</span><em>1,665.0 PTS</em></div>
+      <div class="bar" style="--w:75%"><u><i></i></u><span>MM</span><em>1,497.0 PTS</em></div>
+    </div>
+  </section>
+
+  <div class="ticks"></div>
+  <section>
+    <span class="tag">New · tick band</span>
+    <h2>Tick band<sup>05</sup></h2>
+    <p class="sub">The strip above this: a row of fine vertical lines used as a divider between big sections. One line of CSS, no file.</p>
+  </section>
+
+  <div class="word"><strong>BFT</strong></div>
+  <section>
+    <span class="tag">New · dot word</span>
+    <h2>A word made of dots<sup>06</sup></h2>
+    <p class="sub">Their footer is a giant wordmark drawn in dots. This is the same dot file showing through the shape of the letters, so it can spell anything.</p>
+  </section>
+
+</div>
+<script>
+/* pause whatever is off screen; start the bars and numbers when they arrive */
+const seen = new IntersectionObserver(es => es.forEach(e => {
+  e.target.classList.toggle('off', !e.isIntersecting);
+  if (e.isIntersecting && e.target.matches('.stat') && !e.target._done) { e.target._done = 1; count(e.target.querySelector('b')); }
+}), { threshold: 0.15 });
+document.querySelectorAll('.panel,.bars,.stat').forEach(el => { el.classList.add('off'); seen.observe(el); });
+
+function count(b) {
+  const to = Number(b.dataset.n), dec = String(b.dataset.n).includes('.') ? 1 : 0, p = b.dataset.p || '', u = b.dataset.u, s = b.dataset.s || '';
+  const t0 = performance.now(), ms = 1100;
+  const draw = v => { b.innerHTML = p + v.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec }) + s + (u ? `<em>${u}</em>` : ''); };
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) return draw(to);
+  const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); draw(to * e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/* THE BOARD. Rows of text laid onto a grid of tiles; each tile flips through
+   random characters and settles on its own, a beat after the one before it. */
+const ROWS = [['BFT', 'KUNK', '131.2'], ['FMAN', 'GOOB', '127.8'], ['MM', 'TING', '118.4'], ['SW', 'WGLR', '115.0'], ['MCM', 'KW', '112.6'], ['BI', 'MWM', '109.3']];
+const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+,.';
+const board = document.getElementById('board');
+let cols = 0, tiles = [], busy = new Map();
+function lay() {
+  const n = Math.max(18, Math.min(64, Math.floor((board.clientWidth + 2) / 16)));
+  if (n === cols) return; cols = n;
+  board.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+  const rows = ROWS.length + 2;
+  board.innerHTML = '<span></span>'.repeat(cols * rows);
+  tiles = [...board.children]; busy.clear();
+  ROWS.forEach((r, i) => flip(i, i * 140));
+}
+function text(i) {                       // one row as a string as wide as the board
+  const [a, b, pts] = ROWS[i], wide = cols >= 30, tail = wide ? pts + ' PTS ' : pts + ' ';
+  let s = (' ' + a).padEnd(wide ? 7 : 6) + '→ ' + b;
+  s = s.padEnd(cols - tail.length) + tail;
+  return s.padEnd(cols).slice(0, cols);
+}
+function flip(i, delay) {
+  const s = text(i), base = (i + 1) * cols;
+  [...s].forEach((ch, x) => {
+    const el = tiles[base + x]; if (!el) return;
+    el.className = x >= cols - (cols >= 30 ? 10 : 6) ? 'd' : (i === 0 && x < 7 ? 'a' : '');
+    if (ch === ' ') { el.textContent = ''; busy.delete(el); return; }
+    busy.set(el, { ch, left: 6 + Math.floor(Math.random() * 8) + Math.floor((delay + x * 22) / 45) });
+  });
+}
+setInterval(() => {
+  if (!busy.size) return;
+  busy.forEach((v, el) => { if (--v.left <= 0) { el.textContent = v.ch; busy.delete(el); } else if (v.left < 14) el.textContent = GLYPHS[Math.floor(Math.random() * GLYPHS.length)]; });
+}, 45);
+let turn = 0;
+setInterval(() => { if (!document.hidden && !matchMedia('(prefers-reduced-motion:reduce)').matches) flip(turn++ % ROWS.length, 0); }, 2600);
+addEventListener('resize', lay); document.fonts.ready.then(lay); lay();
+</script>
+</body>
+</html>

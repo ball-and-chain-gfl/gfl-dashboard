@@ -10081,8 +10081,30 @@ function renderMeChip(){
         ? logoImg(Number(tid),'me-logo')
         : `<span class="me-ini">${_me.k1.slice(0,2).toUpperCase()}</span>`);
 }
+/* ── A LOOK OF YOUR OWN ──────────────────────────────────────────────────────
+   The page says who is signed in (data-me on <html>), and an account listed
+   here gets its own stylesheet. Every rule in a theme file is written against
+   data-me, so the file changes nothing for anyone else, and taking an account
+   off this list (and off the copy in index.html's head, which does the same
+   job before the first paint) takes its theme away entirely. Sign out and
+   data-me goes, and the theme with it. No read, no write: the sign-in this
+   looks at is already on the device. */
+const ME_THEMES={bft:'/theme/bft/theme.css'};
+function meTheme(){
+  try{
+    const root=document.documentElement, id=_me&&_me.k1;
+    if(id) root.dataset.me=id; else delete root.dataset.me;
+    const href=id&&ME_THEMES[id], have=document.getElementById('me-theme');
+    if(!href){ if(have) have.remove(); return; }
+    if(have&&have.getAttribute('href')===href) return;
+    if(have) have.remove();
+    const l=document.createElement('link'); l.rel='stylesheet'; l.id='me-theme'; l.href=href;
+    document.head.appendChild(l);
+  }catch(e){}
+}
 /* preselect the remembered team everywhere it matters */
 function applyMe(){
+  meTheme();
   renderMeChip();
   try{ renderBucksChip(); }catch(e){}
   /* Every team picker on the site opens on the signed-in team. They still hold
