@@ -18,11 +18,14 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 @import url('https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* THE GREYS, darkest to lightest: the page #171717, a bar or a quiet fill #1B1B1B, a panel on the page --l1 #1D1D1D,
+   a tile #1E1E1E, a cell on a panel --l2 #252525, a line #272727, a line inside a panel --ln2 #2E2E2E. The page was
+   #1C1C1C until 17 November, when it was taken a step darker and every other grey moved down with it. */
 html[data-me=bft][data-tabaccent=home]{
-  --bg:#1C1C1C; --bg2:#202020; --bg3:#262626;
+  --bg:#171717; --bg2:#1B1B1B; --bg3:#212121;
   --text:#FDFEFC; --text2:rgba(253,254,252,.76); --text3:rgba(253,254,252,.54);
-  --border:#2B2B2B; --accent:#4C9EFF; --accent2:#015FFF; --accent-rgb:76,158,255;
-  --ln:#2B2B2B; --tile:#232323;
+  --border:#272727; --accent:#4C9EFF; --accent2:#015FFF; --accent-rgb:76,158,255;
+  --ln:#272727; --tile:#1E1E1E;
   /* these four are the dots'. They are named --t-* so they can never land on one of the app's own (--red, --green,
      --blue are the app's, and mean bad, good and so on wherever it uses them) */
   --t-orange:#FF8E1C; --t-yellow:#F0CE26; --t-red:#D9325E; --t-sky:#4C9EFF;
@@ -34,7 +37,7 @@ html[data-me=bft][data-tabaccent=home]{
 
 /* ── the page: charcoal, grain over it, Inter for reading ─────────────────── */
 html[data-me=bft][data-tabaccent=home],
-html[data-me=bft][data-tabaccent=home] body{background:#1C1C1C!important;}
+html[data-me=bft][data-tabaccent=home] body{background:#171717!important;}
 html[data-me=bft][data-tabaccent=home] body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);}
 html[data-me=bft][data-tabaccent=home] body::before{content:"";position:fixed;inset:0;z-index:140;pointer-events:none;
   background:url(/theme/bft/grain.png) 0 0/96px 96px;}
@@ -97,14 +100,14 @@ html[data-me=bft][data-tabaccent=home] #page-home :is(.cp-bdg,.fa-check,.fa-xmar
 html[data-me=bft][data-tabaccent=home] #page-home :is(.cp-meta,.bk-meta,.fcr-head,.fc-lu-h,.tt-h){font-family:var(--mono)!important;letter-spacing:.06em!important;}
 
 /* ── the bar across the top, and the video strip under it ─────────────────── */
-html[data-me=bft][data-tabaccent=home] #floatnav{background:rgba(28,28,28,.88)!important;border-color:var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav{background:rgba(23,23,23,.88)!important;border-color:var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav #tab-dd-btn{background:var(--tile)!important;border-color:var(--ln)!important;border-radius:4px!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav .nav-burger{border-radius:3px!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav #me-btn{border-radius:4px!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
 
 /* ── the punishment bar pinned to the foot ────────────────────────────────── */
-html[data-me=bft][data-tabaccent=home] #my-matchup .pb-bar{background:#202020!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
+html[data-me=bft][data-tabaccent=home] #my-matchup .pb-bar{background:#1B1B1B!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important;}
 html[data-me=bft][data-tabaccent=home] #my-matchup .pb-wk{font-family:var(--mono)!important;letter-spacing:.06em;}
 html[data-me=bft][data-tabaccent=home] #my-matchup .pb-name{font-family:var(--serif)!important;font-weight:400!important;letter-spacing:-.01em;}
@@ -133,7 +136,7 @@ html[data-me=bft][data-tabaccent=home] #page-home{display:flex!important;flex-di
 html[data-me=bft][data-tabaccent=home] #page-home .home-top{display:flex!important;flex-direction:column!important;gap:0!important;margin:0!important;padding:0!important;
   grid-template-areas:none!important;}
 html[data-me=bft][data-tabaccent=home] #page-home .home-left-col{display:contents!important;}
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec{background:#1C1C1C!important;border-top:1px solid var(--ln)!important;border-bottom:0!important;
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec{background:#171717!important;border-top:1px solid var(--ln)!important;border-bottom:0!important;
   padding:54px 21px 44px!important;grid-area:auto!important;min-width:0!important;width:auto!important;max-width:none!important;align-self:stretch!important;--sp-t:54px;--sp-x:21px;}
 
 /* each section says where it stands, top right: to do, or done */
@@ -158,7 +161,7 @@ html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-nt::after{anima
 /* the foot: the league's initials in dots */
 html[data-me=bft][data-tabaccent=home] #page-home::after{content:"GFL";display:block;order:99;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:30px 0 10px;text-align:center;overflow:hidden;
   font:700 clamp(130px,40vw,420px)/.84 Inter,sans-serif;letter-spacing:-.06em;color:transparent;-webkit-text-fill-color:transparent;
-  background:url(/theme/bft/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#1C1C1C,#1C1C1C);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
+  background:url(/theme/bft/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#171717,#171717);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
 
 /* wider than a phone: two columns of the same sections */
 @media(min-width:1000px){
@@ -188,7 +191,7 @@ html[data-me=bft][data-tabaccent=home] #page-home .bk-opt{background:var(--tile)
 
    CORNERS  square, always. The only rounded things are what you press or
             type in (4px) and crests (4px). Dots are circles.
-   FILLS    three steps so a box inside a box reads apart: the page (#1C1C1C),
+   FILLS    three steps so a box inside a box reads apart: the page (#171717),
             a panel on it (--l1), a cell or control on a panel (--l2).
    GRID     boxes share their lines the way the inspiration's do: a heading
             in its own cell, rows ruled off, cells divided, no gaps.
@@ -201,7 +204,7 @@ html[data-me=bft][data-tabaccent=home] #page-home .bk-opt{background:var(--tile)
             good and bad numbers. Those were chosen to say something, and
             flattening them (tried, 16 November) took the meaning with it.
    ═══════════════════════════════════════════════════════════════════════════ */
-html[data-me=bft][data-tabaccent=home]{--l1:#222222;--l2:#2A2A2A;--ln2:#333333;--good:#5FD08A;--bad:#E8557E;}
+html[data-me=bft][data-tabaccent=home]{--l1:#1D1D1D;--l2:#252525;--ln2:#2E2E2E;--good:#5FD08A;--bad:#E8557E;}
 
 /* ── corners ─────────────────────────────────────────────────────────────── */
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec *,

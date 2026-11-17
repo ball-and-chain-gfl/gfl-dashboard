@@ -16,10 +16,10 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 @keyframes bft-twinkle{0%,100%{opacity:0;}45%,55%{opacity:1;}}
 html[data-me=bft]{
-  --bg:#1C1C1C; --bg2:#202020; --bg3:#262626;
+  --bg:#171717; --bg2:#1B1B1B; --bg3:#212121;
   --text:#FDFEFC; --text2:rgba(253,254,252,.76); --text3:rgba(253,254,252,.54);
-  --border:#2B2B2B;
-  --ln:#2B2B2B; --tile:#232323;
+  --border:#272727;
+  --ln:#272727; --tile:#1E1E1E;
   --t-orange:#FF8E1C; --t-yellow:#F0CE26; --t-red:#D9325E; --t-sky:#4C9EFF;
   --serif:Cardo,'Iowan Old Style',Georgia,serif;
   --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
@@ -27,28 +27,28 @@ html[data-me=bft]{
   --fadeDown:linear-gradient(#000 0%,rgba(0,0,0,.45) 50%,transparent 100%);
 }
 html[data-me=bft],
-html[data-me=bft] body{background:#1C1C1C!important;}
+html[data-me=bft] body{background:#171717!important;}
 html[data-me=bft] body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);}
 html[data-me=bft] body::before{content:"";position:fixed;inset:0;z-index:140;pointer-events:none;
   background:url(/theme/bft/grain.png) 0 0/96px 96px;}
 html[data-me=bft] #pgbg,
 html[data-me=bft] .bg-fx{display:none!important;}
-html[data-me=bft] #floatnav{background:rgba(28,28,28,.88)!important;border-color:var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft] #floatnav{background:rgba(23,23,23,.88)!important;border-color:var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
 html[data-me=bft] #floatnav #tab-dd-btn{background:var(--tile)!important;border-color:var(--ln)!important;border-radius:4px!important;}
 html[data-me=bft] #floatnav .nav-burger{border-radius:3px!important;}
 html[data-me=bft] #floatnav #me-btn{border-radius:4px!important;}
 html[data-me=bft] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
-html[data-me=bft] #my-matchup .pb-bar{background:#202020!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
+html[data-me=bft] #my-matchup .pb-bar{background:#1B1B1B!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important;}
 html[data-me=bft] #my-matchup .pb-wk{font-family:var(--mono)!important;letter-spacing:.06em;}
 html[data-me=bft] #my-matchup .pb-name{font-family:var(--serif)!important;font-weight:400!important;letter-spacing:-.01em;}
 html[data-me=bft] #my-matchup :is(.pb-more,.pb-ic){border-radius:3px!important;}
-html[data-me=bft]{--l1:#222222;--l2:#2A2A2A;--ln2:#333333;--good:#5FD08A;--bad:#E8557E;}
+html[data-me=bft]{--l1:#1D1D1D;--l2:#252525;--ln2:#2E2E2E;--good:#5FD08A;--bad:#E8557E;}
 html[data-me=bft] #floatnav :is(.logo,.nv-bar){border-radius:0!important;}
 html[data-me=bft] #floatnav :is(button,.nav-burger,.tm-avatar),
 html[data-me=bft] #my-matchup :is(.pb-bar,.pb-more,.pb-ic){border-radius:4px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) main{padding-left:6px!important;padding-right:6px!important;}
-html[data-me=bft]:not([data-tabaccent=home]) .page-h1{background:#1C1C1C!important;background-image:none!important;border:1px solid var(--ln)!important;border-bottom:0!important;border-radius:0!important;box-shadow:none!important;
+html[data-me=bft]:not([data-tabaccent=home]) .page-h1{background:#171717!important;background-image:none!important;border:1px solid var(--ln)!important;border-bottom:0!important;border-radius:0!important;box-shadow:none!important;
   margin:0 auto!important;width:100%!important;max-width:1120px;padding:58px 16px 26px!important;display:flex!important;flex-wrap:wrap;align-items:baseline;gap:8px 12px;
   justify-content:flex-start!important;text-align:left!important;position:relative;overflow:hidden;isolation:isolate;
   font-family:var(--serif)!important;font-weight:400!important;font-size:34px!important;line-height:1.05!important;letter-spacing:-.025em!important;color:var(--text)!important;}
@@ -68,8 +68,8 @@ html[data-me=bft]:not([data-tabaccent=home]) .page-h1::after{content:""!importan
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam){max-width:1120px;width:100%;margin:0 auto!important;border-left:1px solid var(--ln);border-right:1px solid var(--ln);padding-left:0!important;padding-right:0!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam)::after{content:"GFL";display:block;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:30px 0 10px;text-align:center;overflow:hidden;
   font:700 clamp(130px,40vw,420px)/.84 Inter,sans-serif;letter-spacing:-.06em;color:transparent;-webkit-text-fill-color:transparent;
-  background:url(/theme/bft/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#1C1C1C,#1C1C1C);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{background:#1C1C1C!important;background-image:none!important;border:0!important;border-top:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;
+  background:url(/theme/bft/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#171717,#171717);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{background:#171717!important;background-image:none!important;border:0!important;border-top:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;
   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;margin:0!important;padding:54px 16px 44px!important;position:relative;isolation:isolate;min-width:0;
   --dc:var(--accent);--sp-t:54px;--sp-x:16px;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec:nth-child(even){--dc:var(--accent2);}
@@ -111,7 +111,7 @@ html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#pag
   html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{padding:64px 40px 54px!important;--sp-t:64px;--sp-x:40px;}
 }
 html[data-me=bft] #floatnav select{background-color:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:4px!important;color:var(--text)!important;}
-html[data-me=bft]:not([data-tabaccent=home]) :is(.sec-nav,.sec-nav-local){background:#1C1C1C!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.sec-nav,.sec-nav-local){background:#171717!important;border-radius:0!important;box-shadow:none!important;}
 html[data-me=bft]:not([data-tabaccent=home]) :is(.sec-nav,.sec-nav-local) :is(button,a){background:var(--l1)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;box-shadow:none!important;}
 html[data-me=bft]:not([data-tabaccent=home]) .page-h1 *{border-radius:0!important;}
 
