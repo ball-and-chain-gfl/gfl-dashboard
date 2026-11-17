@@ -2143,7 +2143,9 @@ function renderStandingsPoll(){
      homepage poll owns — this tab can be the first thing opened, so ask. It is
      a no-op once they are in, and cpSync repaints this when they land. */
   try{ cpSync(); }catch(e){}
+  const was=el.querySelector('.poll-chart'), keep=was?was.scrollLeft:null;
   el.innerHTML=pollSectionHTML();
+  pollChartPlace(el,keep);
 }
 function renderCoachingMetric(){
   try{ renderStatsCM(); }catch(e){}
@@ -2537,16 +2539,20 @@ function renderStandingsTable(){
     ${''/* not sortable. It is the same twelve teams in a different order, and a
            table that can be sorted by two rankings at once is a table that
            cannot say which one the numbers down the left belong to. */}
-    <th class="cp-th" title="Coaches' Poll">Poll</th>
-    <th>Team</th>${th('wins','W')}
+    ${''/* Team before Poll (17 November). The first column with a team in it is
+           the one a phone pins (labelTables), so the crest and the name now
+           stay put beside the rank while the numbers scroll -- with Poll second
+           it was the poll badge that stayed and the team that slid away. */}
+    <th>Team</th>
+    <th class="cp-th" title="Coaches' Poll">Poll</th>${th('wins','W')}
     <th class="right">L</th>${th('pf','PF')}${th('pa','PA')}${th('moves','Moves')}${th('trades','Trades')}${th('cm','CM')}${th('atpf','AT PF')}${th('atpa','AT PA')}${th('pfy','PF/Yr')}${th('pay','PA/Yr')}
   </tr>`;
   tbody.innerHTML=teams.map((t,i)=>{
     const s=_scores[t.id]||0;
     return`<tr>
       <td><span class="rank">${i===0&&_sortCol==='rank'?'🥇':i+1}</span></td>
-      <td class="cp-td">${pollBadge(t.id)}</td>
       <td><div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${t.name}</div><div class="team-sub">${t.abbrev}</div></div></div></td>
+      <td class="cp-td">${pollBadge(t.id)}</td>
       <td class="right"><strong>${t.wins}</strong></td>
       <td class="right" style="color:var(--text3)">${t.losses}</td>
       <td class="right pf">${t.pf.toFixed(1)}</td>
@@ -4601,10 +4607,12 @@ function pollChartHTML(){
   const WKS=pollWeeksData();
   played.forEach(w=>((WKS[w]||{}).rank||[]).forEach(e=>{
     (at[e.teamId]||(at[e.teamId]={}))[w]=e.rank; }));
-  /* one row a placing, numbered down the left */
+  /* one row a placing. The numbers down the left are drawn apart (rankNums,
+     below) so they can stay put while the weeks scroll under them. */
   const grid=Array.from({length:rows},(_,i)=>`
     <line x1="${plotL-10}" y1="${y(i+1)}" x2="${W-plotR+10}" y2="${y(i+1)}"
-      stroke="var(--border)" stroke-width="1" opacity="0.5"/>
+      stroke="var(--border)" stroke-width="1" opacity="0.5"/>`).join('');
+  const rankNums=Array.from({length:rows},(_,i)=>`
     <text x="${axisW-4}" y="${y(i+1)+4}" text-anchor="end" font-size="11"
       fill="var(--text3)" font-family="Inter,sans-serif">${i+1}</text>`).join('');
   /* the whole season across the bottom, the weeks still to come dimmed */
@@ -4663,12 +4671,58 @@ function pollChartHTML(){
       ${s.badge}</g>`).join('');
   /* Its own width in pixels, NOT 100%. At 100% the svg shrank to whatever the
      panel was and seventeen weeks became unreadable on a phone; at its natural
-     width the panel around it scrolls instead. */
-  return `<div class="poll-chart">
-    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"
-      role="img" aria-label="Coaches' Poll ranking by week">
-      ${cols}${grid}${wkCap}${lines}${crests}
-    </svg></div>`;
+     width the panel around it scrolls instead.
+
+     THE RANK NUMBERS TRAVEL WITH YOU (17 November). They are a strip of their
+     own, pinned to the left of the panel (position:sticky), and the chart slides
+     under them, so scrolled out to week eleven you can still read which row is
+     first and which is twelfth. The chart is pulled back by the strip's width,
+     so every line and crest sits exactly where it did.
+
+     data-head is how far across this week's crests reach: the chart opens
+     scrolled so they sit at the right edge of the screen (pollChartPlace). */
+  const AX=axisW+4;
+  const last=played[played.length-1];
+  return `<div class="poll-chart" data-head="${Math.round(x(last)+13+12)}">
+    <div class="poll-chart-in">
+      <svg class="poll-axis" viewBox="0 0 ${AX} ${H}" width="${AX}" height="${H}" aria-hidden="true">
+        ${rankNums}${wkCap}
+      </svg>
+      <svg class="poll-plot" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="margin-left:-${AX}px"
+        role="img" aria-label="Coaches' Poll ranking by week">
+        ${cols}${grid}${lines}${crests}
+      </svg>
+    </div></div>`;
+}
+/* THE CHART OPENS ON THIS WEEK. On a phone it is wider than the screen, and it
+   used to open at week one with this week's crests off to the right, so the
+   first thing anybody did was scroll for them. It now opens scrolled so they
+   sit at the right edge -- the same chart, the same scrolling, just starting at
+   the end people read first.
+
+   Only until somebody scrolls it themselves: a repaint (a ballot landing, the
+   poll closing) keeps their place rather than throwing them back. And a chart
+   drawn while its tab is hidden has no width to scroll, so it waits until it is
+   on screen. */
+let _pollScrolled=false, _pollSeen=null;
+function pollChartPlace(el,keep){
+  const c=el&&el.querySelector('.poll-chart'); if(!c) return;
+  const mark=()=>{ _pollScrolled=true; };
+  ['pointerdown','touchstart','wheel','keydown'].forEach(ev=>c.addEventListener(ev,mark,{passive:true,once:true}));
+  if(_pollScrolled&&keep!=null){ c.scrollLeft=keep; return; }
+  const go=()=>{
+    if(!c.isConnected||!c.clientWidth) return false;
+    const head=Number(c.dataset.head)||0;
+    c.scrollLeft=Math.max(0,Math.min(c.scrollWidth-c.clientWidth,head-c.clientWidth));
+    return true;
+  };
+  if(go()) return;
+  if(_pollSeen) _pollSeen.disconnect();
+  if(typeof IntersectionObserver!=='function') return;
+  _pollSeen=new IntersectionObserver(es=>{
+    if(es.some(e=>e.isIntersecting)&&(_pollScrolled||go())){ _pollSeen.disconnect(); _pollSeen=null; }
+  });
+  _pollSeen.observe(c);
 }
 /* ── ONE BUTTON A WEEK, NOT ONE FOLD A WEEK ──────────────────────────────────
    Each week used to be its own fold, stacked newest first. Fine in week three;

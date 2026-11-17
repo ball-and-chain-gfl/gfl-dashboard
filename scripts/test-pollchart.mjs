@@ -181,17 +181,28 @@ console.log(nl + '4. IT KEEPS ITS OWN WIDTH AND THE PANEL SCROLLS');
 {
   M.setUp({ 1: seq(12) });
   const html = M.pollChartHTML();
-  const w = html.match(/width="(\d+)" height="(\d+)"/);
+  const w = html.match(/class="poll-plot" viewBox="[^"]*" width="(\d+)" height="(\d+)"/);
   ok('the svg is sized in pixels, not stretched to the panel',
      !!w && Number(w[1]) > 600, w ? w[1] : html.slice(0, 200));
   ok('and it is not width="100%" any more', html.indexOf('width="100%"') < 0);
   ok('it sits in the panel that scrolls', html.indexOf('class="poll-chart"') >= 0);
 
+  /* 17 November: the rank numbers are a strip of their own, pinned while the weeks scroll under them */
+  const axis = (html.match(/<svg class="poll-axis"[\s\S]*?<\/svg>/) || [''])[0];
+  const plot = (html.match(/<svg class="poll-plot"[\s\S]*?<\/svg>/) || [''])[0];
+  const nums = [...axis.matchAll(/>(\d+)<\/text>/g)].map(m => +m[1]).join(',');
+  ok('the rank numbers are their own strip, one to twelve', nums === seq(12).join(','), nums);
+  ok('and the chart that scrolls carries none of them', !/text-anchor="end" font-size="11"/.test(plot));
+  const pull = (plot.match(/margin-left:-(\d+)px/) || [])[1], axW = (axis.match(/width="(\d+)"/) || [])[1];
+  ok('the chart is pulled back under the strip by exactly its width, so nothing in it moves',
+     !!pull && pull === axW, pull + ' vs ' + axW);
+  ok('and it says how far across this week reaches, so it can open there', /data-head="\d+"/.test(html));
+
   /* a shorter season is a narrower chart, which is how an old archived season
      with a ten week regular season stays honest */
   M.setUp({ 1: seq(12) }, 10);
   ok('a ten week regular season is a thirteen week chart', M.pollSeasonWeeks() === 13);
-  const short = M.pollChartHTML().match(/width="(\d+)"/);
+  const short = M.pollChartHTML().match(/class="poll-plot" viewBox="[^"]*" width="(\d+)"/);
   ok('and it draws narrower', Number(short[1]) < Number(w[1]), short[1] + ' vs ' + w[1]);
 
   /* a poll week past all of that still gets a column rather than being drawn

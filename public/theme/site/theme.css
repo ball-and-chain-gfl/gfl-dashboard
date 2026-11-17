@@ -701,16 +701,16 @@ html[data-look=galaxy] .fm-ir{--pc:var(--red);}
 html[data-look=galaxy] .pg-range::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--red),#F2704A 25%,#E8BC56 50%,#9BD35A 75%,var(--green))!important;}
 html[data-look=galaxy] .pg-range::-moz-range-track{background:linear-gradient(90deg,var(--red),#F2704A 25%,#E8BC56 50%,#9BD35A 75%,var(--green))!important;}
 
-/* ── A table that scrolls sideways keeps its first columns pinned. A pinned cell has to be solid or what scrolls
+/* ── A table that scrolls sideways keeps its first columns pinned. (#app#app: the page rule that clears every heading cell's fill names the page by id, and outranked these -- the headings scrolled under the pinned ones and showed through. 17 November.) A pinned cell has to be solid or what scrolls
    under it shows through: the theme had cleared the fill on every heading cell, so the headings ran into each other.
    Pinned cells, heading and body, are the page's own colour, with a line down the edge of the last pinned column. ── */
 html[data-look=galaxy]{--page-bg:#171717;}
-html[data-look=galaxy][data-look] #app table.mtbl.stick1 :is(td,th):first-child,
-html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):first-child,
-html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):nth-child(2){background:#171717!important;}
-html[data-look=galaxy][data-look] #app table.mtbl.stick1 :is(td,th):first-child,
-html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):nth-child(2){box-shadow:1px 0 0 var(--ln2)!important;}
-html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):first-child{box-shadow:3px 0 0 #171717!important;}
+html[data-look=galaxy][data-look] #app#app table.mtbl.stick1 :is(td,th):first-child,
+html[data-look=galaxy][data-look] #app#app table.mtbl.stick2 :is(td,th):first-child,
+html[data-look=galaxy][data-look] #app#app table.mtbl.stick2 :is(td,th):nth-child(2){background:#171717!important;}
+html[data-look=galaxy][data-look] #app#app table.mtbl.stick1 :is(td,th):first-child,
+html[data-look=galaxy][data-look] #app#app table.mtbl.stick2 :is(td,th):nth-child(2){box-shadow:1px 0 0 var(--ln2)!important;}
+html[data-look=galaxy][data-look] #app#app table.mtbl.stick2 :is(td,th):first-child{box-shadow:3px 0 0 #171717!important;}
 
 /* ── PADDING. The theme gave a fill or a line to boxes the app draws with neither, and those had no padding of their
    own, so their words sat on the edge. A box that shows has room inside it. ── */

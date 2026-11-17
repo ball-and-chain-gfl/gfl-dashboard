@@ -5651,7 +5651,11 @@
     /* The svg carries its own pixel width now (see pollChartHTML), so this
        panel is what scrolls. min-width is only a floor for a league small
        enough to draw narrower than a phone. */
-    .poll-chart svg{min-width:320px;display:block;}
+    .poll-chart svg{display:block;}
+    .poll-chart svg.poll-plot{min-width:320px;}
+    /* the rank numbers: a strip pinned to the panel's left edge, on the page's own colour so the lines slide under it */
+    .poll-chart-in{display:flex;width:max-content;min-width:100%;}
+    .poll-axis{position:sticky;left:0;z-index:1;flex:0 0 auto;background:var(--page-bg);}
     /* One button a week, two rows, and one panel under them for whichever was
        pressed. The columns cap at 48px so on a desktop the block stays a
        compact keypad under the chart instead of nine buttons stretched across
