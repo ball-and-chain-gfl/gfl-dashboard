@@ -10089,7 +10089,9 @@ function renderMeChip(){
    job before the first paint) takes its theme away entirely. Sign out and
    data-me goes, and the theme with it. No read, no write: the sign-in this
    looks at is already on the device. */
-const ME_THEMES={bft:'/theme/bft/theme.css'};
+/* Empty since 17 November 2026: the one theme there was (bft's) became the site's own look, public/theme/site,
+   which index.html loads for everybody. The way in is kept for the next account that wants its own. */
+const ME_THEMES={};
 function meTheme(){
   try{
     const root=document.documentElement, id=_me&&_me.k1;

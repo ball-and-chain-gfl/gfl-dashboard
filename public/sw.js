@@ -7,7 +7,7 @@
 // TEAM LOGOS (/api/espn?type=logo): cache-first, from a cache that survives
 // a version bump, refreshed behind the scenes once a week.
 // LIVE DATA (the rest of /api/*) and cross-origin: straight to the network.
-const CACHE = 'gfl-v849';
+const CACHE = 'gfl-v850';
 // The archive lives in its own cache, deliberately NOT carrying the version.
 // Every bump of CACHE wipes every other cache on activate, and the shell is
 // bumped on every user-facing change — so a season file that has not altered
@@ -34,6 +34,7 @@ const LOGO_MAX = 500;
 const APP_SHELL = [
   '/', '/index.html', '/app.js', '/config.js',
   '/manifest.webmanifest', '/logo.png',
+  '/theme/site/theme.css',
 ];
 
 self.addEventListener('install', (e) => {

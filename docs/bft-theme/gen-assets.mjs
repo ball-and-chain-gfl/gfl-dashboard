@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 
-const OUT = new URL('../../public/theme/bft/', import.meta.url);
+const OUT = new URL('../../public/theme/site/', import.meta.url);
 fs.mkdirSync(OUT, { recursive: true });
 
 /* ── the dot grid ────────────────────────────────────────────────────────── */

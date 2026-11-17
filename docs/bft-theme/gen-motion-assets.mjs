@@ -6,7 +6,7 @@
  *   node gen-motion-assets.mjs
  */
 import fs from 'node:fs';
-const OUT = new URL('../../public/theme/bft/', import.meta.url);
+const OUT = new URL('../../public/theme/site/', import.meta.url);
 fs.mkdirSync(OUT, { recursive: true });
 const svg = (w, h, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${body}</svg>`;
 

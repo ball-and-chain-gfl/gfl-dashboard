@@ -1,0 +1,736 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SITE'S LOOK. Everybody gets it.
+
+   It was built as the bft account's own theme, a page at a time, and became
+   the site's main style on 17 November 2026. index.html loads this file for
+   every visitor, at the end of its head, and marks the page data-look="galaxy";
+   every rule below is written against that mark.
+
+   It changes how a page is DRAWN and nothing else: the same sections, in the
+   app's order, working as they do. It is CSS only.
+
+   TO TAKE IT ALL AWAY: remove data-look from <html> in index.html and the
+   <link id="site-look"> beside the last script of its head. The app's own
+   styles are all still there underneath. The tag pre-look-for-all marks the
+   site the day before everyone got it (pre-bft-theme: before any of it).
+
+   The first part of this file is the homepage, written against
+   data-tabaccent="home", which the app sets to the tab that is showing. The
+   second part is every other tab and everything that opens over a page.
+   Build a Manager gets the frame only.
+
+   THE PIECES (docs/bft-theme has a sheet of each, and the scripts that make
+   the image files):
+     dots.svg      one cell of a dot grid, used as a stencil over a colour
+     sparks-*.svg  a few dots of that grid, faded in and out to twinkle
+     grain.png     film grain, repeated over the whole page
+   The two faces it adds (Cardo, JetBrains Mono) are loaded by index.html's
+   one font request, with the app's own.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* THE GREYS, darkest to lightest: the page #171717, a bar or a quiet fill #1B1B1B, a panel on the page --l1 #1D1D1D,
+   a tile #1E1E1E, a cell on a panel --l2 #252525, a line #272727, a line inside a panel --ln2 #2E2E2E. The page was
+   #1C1C1C until 17 November, when it was taken a step darker and every other grey moved down with it. */
+html[data-look=galaxy][data-tabaccent=home]{
+  --bg:#171717; --bg2:#1B1B1B; --bg3:#212121;
+  --text:#FDFEFC; --text2:rgba(253,254,252,.76); --text3:rgba(253,254,252,.54);
+  --border:#272727; --accent:#4C9EFF; --accent2:#015FFF; --accent-rgb:76,158,255;
+  --ln:#272727; --tile:#1E1E1E;
+  /* these four are the dots'. They are named --t-* so they can never land on one of the app's own (--red, --green,
+     --blue are the app's, and mean bad, good and so on wherever it uses them) */
+  --t-orange:#FF8E1C; --t-yellow:#F0CE26; --t-red:#D9325E; --t-sky:#4C9EFF;
+  --serif:Cardo,'Iowan Old Style',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --dots:url(/theme/site/dots.svg);
+  --fadeDown:linear-gradient(#000 0%,rgba(0,0,0,.45) 50%,transparent 100%);
+}
+
+/* ── the page: charcoal, grain over it, Inter for reading ─────────────────── */
+html[data-look=galaxy][data-tabaccent=home],
+html[data-look=galaxy][data-tabaccent=home] body{background:#171717!important;}
+html[data-look=galaxy][data-tabaccent=home] body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);}
+html[data-look=galaxy][data-tabaccent=home] body::before{content:"";position:fixed;inset:0;z-index:140;pointer-events:none;
+  background:url(/theme/site/grain.png) 0 0/96px 96px;}
+html[data-look=galaxy][data-tabaccent=home] #pgbg,
+html[data-look=galaxy][data-tabaccent=home] .bg-fx{display:none!important;}
+
+/* ── a section: no card, a line above it, coloured dots fading down from the top ── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec{background:none!important;border:0!important;border-top:1px solid var(--ln)!important;border-radius:0!important;
+  box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;margin:0!important;padding:46px 16px 30px!important;
+  position:relative;isolation:isolate;--dc:rgba(253,254,252,.5);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec::before{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;
+  background:var(--dc);opacity:1;
+  -webkit-mask-image:var(--dots),var(--fadeDown);-webkit-mask-size:6px 6px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:var(--dots),var(--fadeDown);mask-size:6px 6px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+/* a section's dots are the theme's; its own accent (the colour of its rank numbers, counts and marks) is the app's, untouched */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-fc{--dc:var(--t-orange);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-cp{--dc:var(--t-yellow);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-pk{--dc:var(--t-sky);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-pe{--dc:var(--t-red);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-bk{--dc:rgba(253,254,252,.55);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-nt{--dc:var(--t-sky);}
+/* something still to do: the dots run deeper and a rule of the colour marks the edge; done, they sit back */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec.home-todo{box-shadow:inset 2px 0 0 var(--dc)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec.home-todo::before{height:230px;opacity:1;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec.home-done::before{opacity:.85;}
+
+/* the one that moves: your forecast twinkles (a few dots of the same grid, fading in and out) */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-fc::after{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;
+  background:color-mix(in srgb,var(--t-orange) 55%,#fff);font-size:0!important;opacity:0;animation:bft-twinkle 3.6s ease-in-out infinite;will-change:opacity;
+  -webkit-mask-image:url(/theme/site/sparks-a.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:url(/theme/site/sparks-a.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+@keyframes bft-twinkle{0%,100%{opacity:0;}45%,55%{opacity:1;}}
+@media(prefers-reduced-motion:reduce){ html[data-look=galaxy][data-tabaccent=home] #page-home .mod-fc::after{animation:none;opacity:.5;} }
+
+/* ── section titles: serif, left, no icon, no rainbow rule ────────────────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec-head{flex-direction:row!important;align-items:baseline!important;justify-content:flex-start!important;text-align:left!important;
+  font-family:var(--serif)!important;font-weight:400!important;font-size:30px!important;line-height:1.08!important;letter-spacing:-.025em!important;
+  padding:0 0 18px!important;margin:0!important;gap:10px!important;color:var(--text)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec-head>i{display:none!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec-head::after,
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec-head::before{display:none!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec-head .badge-info{font:500 10px/1 var(--mono)!important;letter-spacing:.08em;color:var(--text2)!important;background:var(--ln)!important;
+  border:0!important;border-radius:0!important;padding:5px 7px!important;margin-left:auto;}
+
+/* ── boxes inside a section: lines and flat tiles, not rounded black cards ── */
+html[data-look=galaxy][data-tabaccent=home] #page-home :is(.tt-box,.pkl-g,.bkd-done,.bk-delta,.home-redo){background:none!important;border:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home :is(.cp-res,.pker,.bkr){background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;border-radius:0!important;margin:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home :is(.fcr-side.good,.fcr-side.bad,.fcr-side){border-radius:2px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .fcr-side:not(.fcr-h){background-color:var(--tile)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .fcr-pos{border-radius:2px!important;font-family:var(--mono)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .tt-text{background:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:2px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .tt-send{background:var(--text)!important;background-image:none!important;color:#111!important;border-radius:4px!important;box-shadow:none!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .cp-bt{background:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:3px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .cp-refresh{background:var(--tile)!important;border-radius:3px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .pkl-side{border-radius:2px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .pkl-n{border-radius:2px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home :is(.cp-bdg,.fa-check,.fa-xmark,.fa-hourglass-half){border-radius:2px!important;}
+
+/* ── the small labels: monospace, spaced, quiet ───────────────────────────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home :is(.cp-meta,.bk-meta,.fcr-head,.fc-lu-h,.tt-h){font-family:var(--mono)!important;letter-spacing:.06em!important;}
+
+/* ── the bar across the top, and the video strip under it ─────────────────── */
+html[data-look=galaxy][data-tabaccent=home] #floatnav{background:rgba(23,23,23,.88)!important;border-color:var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy][data-tabaccent=home] #floatnav #tab-dd-btn{background:var(--tile)!important;border-color:var(--ln)!important;border-radius:4px!important;}
+html[data-look=galaxy][data-tabaccent=home] #floatnav .nav-burger{border-radius:3px!important;}
+html[data-look=galaxy][data-tabaccent=home] #floatnav #me-btn{border-radius:4px!important;}
+html[data-look=galaxy][data-tabaccent=home] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
+
+/* ── the punishment bar pinned to the foot ────────────────────────────────── */
+html[data-look=galaxy][data-tabaccent=home] #my-matchup .pb-bar{background:#1B1B1B!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important;}
+html[data-look=galaxy][data-tabaccent=home] #my-matchup .pb-wk{font-family:var(--mono)!important;letter-spacing:.06em;}
+html[data-look=galaxy][data-tabaccent=home] #my-matchup .pb-name{font-family:var(--serif)!important;font-weight:400!important;letter-spacing:-.01em;}
+html[data-look=galaxy][data-tabaccent=home] #my-matchup :is(.pb-more,.pb-ic){border-radius:3px!important;}
+
+html[data-look=galaxy][data-tabaccent=home] #page-home .fc-lu{background:none!important;border:0!important;border-radius:0!important;padding-left:0!important;padding-right:0!important;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE HOMEPAGE: the league's own six sections, in the order the app puts
+   them and working exactly as they do for everyone else. Nothing is added
+   to the page and nothing is taken off it; this file only changes how it is
+   drawn. (The one addition is the word at the foot, which is a picture.)
+
+   The measures are the inspiration's, read off it at phone width: a 6px
+   gutter to a line down each side, text 21px inside that line, and sections
+   split by empty bands of dots about 58px tall.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-look=galaxy][data-tabaccent=home] main{padding-left:6px!important;padding-right:6px!important;}
+
+/* no title block: the page is its sections (the big "Home" was taken off on 16 November) */
+html[data-look=galaxy][data-tabaccent=home] .page-h1{display:none!important;}
+
+/* the page: a line down each side, the sections in one column, dots showing in the gaps between them */
+html[data-look=galaxy][data-tabaccent=home] #page-home{display:flex!important;flex-direction:column;gap:0;width:100%;min-width:0;max-width:1120px;margin:0 auto!important;
+  border-left:1px solid var(--ln);border-right:1px solid var(--ln);}
+html[data-look=galaxy][data-tabaccent=home] #page-home .home-top{display:flex!important;flex-direction:column!important;gap:0!important;margin:0!important;padding:0!important;
+  grid-template-areas:none!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .home-left-col{display:contents!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec{background:#171717!important;border-top:1px solid var(--ln)!important;border-bottom:0!important;
+  padding:54px 21px 44px!important;grid-area:auto!important;min-width:0!important;width:auto!important;max-width:none!important;align-self:stretch!important;--sp-t:54px;--sp-x:21px;}
+
+/* each section says where it stands, top right: to do, or done */
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec-head::after{content:"Done"!important;display:block!important;position:absolute!important;top:calc(0px - var(--sp-t))!important;right:calc(0px - var(--sp-x))!important;left:auto!important;bottom:auto!important;
+  width:auto!important;height:auto!important;margin:0!important;transform:none!important;animation:none!important;border-radius:0!important;
+  font:500 10.5px/1 var(--mono)!important;letter-spacing:.1em!important;text-transform:uppercase;color:var(--text2)!important;background:var(--ln)!important;padding:6px 8px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec.home-todo .sec-head::after{content:"To do"!important;color:#141414!important;background:var(--dc)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .mod-fc .sec-head::after{content:"This week"!important;}
+/* the coloured dots at the head of every section twinkle (16 November: all of them, not only the open ones) */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec::after{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;
+  background:color-mix(in srgb,var(--dc) 55%,#fff);font-size:0!important;opacity:0;animation:bft-twinkle 3.6s ease-in-out infinite;will-change:opacity;
+  -webkit-mask-image:url(/theme/site/sparks-a.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:url(/theme/site/sparks-a.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec.home-todo::after{height:230px;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-cp::after{animation-duration:4.4s;animation-delay:-1.2s;-webkit-mask-image:url(/theme/site/sparks-b.svg),var(--fadeDown);mask-image:url(/theme/site/sparks-b.svg),var(--fadeDown);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-pk::after{animation-duration:5.3s;animation-delay:-2.6s;-webkit-mask-image:url(/theme/site/sparks-c.svg),var(--fadeDown);mask-image:url(/theme/site/sparks-c.svg),var(--fadeDown);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-pe::after{animation-duration:3.9s;animation-delay:-.6s;-webkit-mask-image:url(/theme/site/sparks-b.svg),var(--fadeDown);mask-image:url(/theme/site/sparks-b.svg),var(--fadeDown);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-bk::after{animation-duration:4.9s;animation-delay:-3.1s;-webkit-mask-image:url(/theme/site/sparks-c.svg),var(--fadeDown);mask-image:url(/theme/site/sparks-c.svg),var(--fadeDown);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .mod-nt::after{animation-duration:5.8s;animation-delay:-1.9s;}
+@media(prefers-reduced-motion:reduce){ html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec::after{animation:none!important;opacity:.5;} }
+
+/* the foot: the league's initials in dots */
+html[data-look=galaxy][data-tabaccent=home] #page-home::after{content:"GFL";display:block;order:99;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:30px 0 10px;text-align:center;overflow:hidden;
+  font:700 clamp(130px,40vw,420px)/.84 Inter,sans-serif;letter-spacing:-.06em;color:transparent;-webkit-text-fill-color:transparent;
+  background:url(/theme/site/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#171717,#171717);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
+
+/* wider than a phone: two columns of the same sections */
+@media(min-width:1000px){
+  html[data-look=galaxy][data-tabaccent=home] #page-home .home-top{display:grid!important;grid-template-columns:1fr 1fr!important;column-gap:0!important;align-items:start;}
+  html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec{padding:64px 40px 54px!important;--sp-t:64px;--sp-x:40px;}
+  html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .home-top .sec{border-right:1px solid var(--ln)!important;margin-right:-1px!important;}
+}
+
+/* the title is the box the tag hangs from */
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec-head{position:relative!important;}
+/* notifications, when there are none: said plainly, on the left */
+html[data-look=galaxy][data-tabaccent=home] #page-home :is(.nt-clear,.home-redo-row){justify-content:flex-start!important;text-align:left!important;}
+
+/* nothing inside a section is a rounded card: corners are square or nearly, whatever state a module is in */
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec :is(div,button,a,input,textarea,select,span,label,li):not(.tm-avatar):not(.fc-dot):not(.phs):not([class*=avatar]){border-radius:3px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .sec .fc-dot{border-radius:50%!important;}
+/* Ball Knowledge, with a question open */
+html[data-look=galaxy][data-tabaccent=home] #page-home .bk-card{background:none!important;border:1px solid var(--ln)!important;box-shadow:none!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .bk-note{background:var(--tile)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home .bk-opt{background:var(--tile)!important;border:1px solid var(--ln)!important;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONE SYSTEM, INSIDE EVERY SECTION. The rules above grew a piece at a time
+   and left the sections mixed: nine corner sizes, forty-five text styles,
+   thirty text colours, and boxes inside boxes on the same fill. Everything
+   below is written once for all six sections, and comes last so it wins.
+
+   CORNERS  square, always. The only rounded things are what you press or
+            type in (4px) and crests (4px). Dots are circles.
+   FILLS    three steps so a box inside a box reads apart: the page (#171717),
+            a panel on it (--l1), a cell or control on a panel (--l2).
+   GRID     boxes share their lines the way the inspiration's do: a heading
+            in its own cell, rows ruled off, cells divided, no gaps.
+   TYPE     Inter at 400 for reading and 500 for names; the monospace for
+            small capital labels; the serif only for a section's title.
+            Numbers are not restyled at all: they keep the app's own type.
+   COLOUR   white, white at 62%, white at 38% and the blue for the page's own
+            furniture. A COLOUR THAT MEANS SOMETHING IS LEFT AS THE APP SET IT:
+            a poll rank's badge, a position's chip, a notification's kind,
+            good and bad numbers. Those were chosen to say something, and
+            flattening them (tried, 16 November) took the meaning with it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-look=galaxy][data-tabaccent=home]{--l1:#1D1D1D;--l2:#252525;--ln2:#2E2E2E;--good:#5FD08A;--bad:#E8557E;}
+
+/* ── corners ─────────────────────────────────────────────────────────────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec *,
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec *::before,
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec *::after{border-radius:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(button,input,textarea,select,.tm-avatar,img.nt-bam){border-radius:4px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(button.cp-bt.cp-bt,button.bk-opt.bk-opt,div.pkl-side.pkl-side,div.pkl-g.pkl-g){border-radius:0!important;}   /* cells of a grid, not buttons */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec button.fc-dot.fc-dot{border-radius:50%!important;}
+html[data-look=galaxy][data-tabaccent=home] #floatnav :is(.logo,.nv-bar){border-radius:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #floatnav :is(button,.nav-burger,.tm-avatar),
+html[data-look=galaxy][data-tabaccent=home] #my-matchup :is(.pb-bar,.pb-more,.pb-ic){border-radius:4px!important;}
+
+/* ── type ────────────────────────────────────────────────────────────────── */
+/* NUMBERS ARE LEFT ALONE: every figure keeps the face, weight and size the app gave it. There was a rule here
+   that set all running text to one weight and skipped a list of number classes; any number not on the list was
+   caught (16 November). So there is no such rule: only named kinds of text are restyled, below. */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .sec-head{font-family:var(--serif)!important;font-weight:400!important;}
+/* names, questions, answers: the things you read first */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.cp-nm,.fc-mu,.pker-q,.bkr-q,.pker-a,.bkr-a,.bk-q,.bk-opt,.cp-bt-ab){font-weight:500!important;}
+/* every small capital label */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.cp-meta,.bk-meta,.bk-meta span,.fc-lu-h,.tt-h,.cp-yet-l,.fk-final,.fk-pre,.fk-live,.fc-wk,.nt-t,.nt-day,.bkd-day,.pk-badge,.nt-hint,.nt-pos,.fcr-head .fcr-n,.fc-odds-s,.wp-key span){
+  font-family:var(--mono)!important;font-weight:500!important;font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;}
+/* what you press says what it does in plain type */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.tt-send,.home-redo,.nt-go){font-size:14px!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;}
+
+/* ── colour ──────────────────────────────────────────────────────────────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.fk-live,.pk-badge,.pk-badge i){color:var(--t-yellow)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.fc-wk,.fc-lu-h,.tt-h,.cp-meta,.cp-yet-l,.bkd-day){color:var(--text2)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pk-at{color:var(--text3)!important;}
+
+/* ── grid: the heading in its own cell, and the line under it ────────────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .sec-head{margin:0 calc(0px - var(--sp-x)) 24px!important;padding:0 var(--sp-x) 28px!important;border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .sec-head::after{right:0!important;}
+/* the line of small type under it is the next cell down */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.cp-meta,.bk-meta){margin:-24px calc(0px - var(--sp-x)) 22px!important;padding:12px var(--sp-x)!important;border-bottom:1px solid var(--ln)!important;}
+
+/* ── panels: a box on the page gets the first step of fill and a line ───── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.fc-lu,.tt-box,.bk-card,.bkd-done,.bk-delta){background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;box-shadow:none!important;}
+/* cells and controls on a panel get the second */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.tt-text,.bk-note,.pkl-n,.nt-go,.nt-x,.nt-ico){background:var(--l2)!important;border-color:var(--ln2)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.home-redo,.cp-refresh){background:var(--l1)!important;border:1px solid var(--ln2)!important;}
+
+/* ── forecast: the lineups as a ruled table ──────────────────────────────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fc-lu{padding:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fc-lu-h{padding:12px 12px!important;border-bottom:1px solid var(--ln2);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fcr{padding:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fcr-row{gap:0!important;padding:0!important;margin:0!important;border:0!important;border-bottom:1px solid var(--ln2)!important;align-items:stretch!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fcr-side{background:none!important;padding:9px 12px!important;align-items:center;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fcr-side.st-final{background:rgba(0,0,0,.22)!important;}        /* locked in sits back */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fcr-pos{border-left:1px solid var(--ln2);border-right:1px solid var(--ln2);
+  display:flex!important;align-items:center;justify-content:center;padding:0 8px!important;min-width:48px;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fcr-note,
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fcr-key{padding:10px 12px!important;margin:0!important;}
+
+/* ── coaches poll: ruled rows, and the twelve ballots as a boxed grid ────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list{gap:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-res{padding:13px 2px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-yet{border-top:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-bgrid{gap:0!important;border-top:1px solid var(--ln);border-left:1px solid var(--ln);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-bt{background:none!important;border:0!important;border-right:1px solid var(--ln)!important;border-bottom:1px solid var(--ln)!important;min-height:46px;}
+
+/* ── matchup picks: each game a box of two cells with a line between ─────── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pkl-list{gap:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pkl-g{background:none!important;border:1px solid var(--ln)!important;padding:0!important;margin:-1px 0 0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pkl-sides{gap:0!important;align-items:stretch!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pkl-side{border:0!important;background:none!important;padding:14px 12px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pk-at{align-self:stretch;display:flex!important;align-items:center;padding:0 6px!important;border-left:1px solid var(--ln);border-right:1px solid var(--ln);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pkl-side.on{background:rgba(76,158,255,.13)!important;box-shadow:inset 0 -2px 0 var(--t-sky)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pk-motw .pkl-side.on{background:rgba(240,206,38,.10)!important;box-shadow:inset 0 -2px 0 var(--t-yellow)!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .pk-badge{padding:10px 12px!important;margin:0!important;border-bottom:1px solid var(--ln);}
+
+/* ── pick'em and ball knowledge: ruled rows, and the answers as a boxed grid ── */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec :is(.pker,.bkr){padding:13px 2px!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .bk-score{gap:0!important;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .bk-card :has(>.bk-opt){gap:0!important;border-top:1px solid var(--ln2);border-left:1px solid var(--ln2);}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .bk-opt{background:var(--l2)!important;border:0!important;border-right:1px solid var(--ln2)!important;border-bottom:1px solid var(--ln2)!important;min-height:56px;}
+
+
+/* the poll's line of small type: on the left, its refresh button on the right */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-meta{display:flex!important;align-items:center;justify-content:space-between;gap:12px;text-align:left!important;}
+/* the win chance took its weight from the box around it, which is now 400: give it its own back */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fc-pct{font-weight:800!important;}
+
+/* ── the poll's rank numbers: boxed, each in its rank's colour ────────────────
+   The same badge the app draws on a crest (.cp-bdg) and the same twelve colours
+   (pollRampColor over POLL_RAMP, first to twelfth), so a 3 in the list is the
+   3 on a crest in the forecast. The list is in rank order, so a row's place is
+   its rank. */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-rk{--cpb:var(--text3);flex:0 0 auto;display:inline-flex!important;align-items:center;justify-content:center;box-sizing:border-box;
+  min-width:22px;height:20px;padding:0 4px;background:rgba(0,0,0,.42)!important;color:var(--cpb)!important;box-shadow:inset 0 0 0 1px var(--cpb);
+  font-variant-numeric:tabular-nums;line-height:1;text-align:center;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(1) .cp-rk{--cpb:#60a5fa;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(2) .cp-rk{--cpb:#38bdf8;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(3) .cp-rk{--cpb:#22d3ee;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(4) .cp-rk{--cpb:#2dd4bf;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(5) .cp-rk{--cpb:#10b981;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(6) .cp-rk{--cpb:#4ade80;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(7) .cp-rk{--cpb:#a3e635;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(8) .cp-rk{--cpb:#eab308;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(9) .cp-rk{--cpb:#ffb347;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(10) .cp-rk{--cpb:#fb923c;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(11) .cp-rk{--cpb:#f43f5e;}
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(12) .cp-rk{--cpb:#e11d48;}
+
+/* ── the bar at the top and the bar at the foot sit on the page's own column ──
+   They were 10 to 14px in from the screen's edge while the page is 6px in and
+   stops at 1120px, so neither lined up with the lines down the page's sides. */
+html[data-look=galaxy][data-tabaccent=home] #floatnav{left:max(6px,calc(50% - 560px))!important;right:max(6px,calc(50% - 560px))!important;width:auto!important;max-width:none!important;
+  border:1px solid var(--ln)!important;}
+html[data-look=galaxy][data-tabaccent=home] #my-matchup{padding-left:max(6px,calc(50% - 560px))!important;padding-right:max(6px,calc(50% - 560px))!important;}
+html[data-look=galaxy][data-tabaccent=home] #my-matchup .pb-bar{border-radius:0!important;}
+/* the new-video strip is the app's orange, untouched, so it stands out (17 November); only its corners are squared */
+html[data-look=galaxy][data-tabaccent=home] #floatnav .nv-bar{border-radius:0!important;}
+
+/* ── THE THEME'S RED, ON PURPOSE ────────────────────────────────────────────
+   --red is the app's variable (bad numbers, losses, anything marked wrong). The
+   theme first replaced it by accident, the accident was undone, and the
+   commissioner asked for the theme's red back (17 November): he liked it. So
+   this is a deliberate override, for this account only. --green is the app's
+   own and was never changed. */
+html[data-look=galaxy][data-tabaccent=home]{--red:#D9325E;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE OTHER PAGES, AND WHAT OPENS OVER A PAGE
+
+   Worked through in pages.css (loaded by the local preview alone) and moved
+   here when approved, 17 November. It carries page-level rules for every tab
+   too (colour, grain, the bars), and comes after the homepage rules on purpose:
+   the order is the order the preview loaded them in.
+
+   EACH TAB KEEPS ITS OWN COLOURS (--accent and --accent2, as the app sets
+   them): the primary is a section's dots, the secondary the rule over the
+   title. Numbers and colours that mean something are left alone.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes bft-twinkle{0%,100%{opacity:0;}45%,55%{opacity:1;}}
+html[data-look=galaxy]{
+  --bg:#171717; --bg2:#1B1B1B; --bg3:#212121;
+  --text:#FDFEFC; --text2:rgba(253,254,252,.76); --text3:rgba(253,254,252,.54);
+  --border:#272727;
+  --ln:#272727; --tile:#1E1E1E;
+  --t-orange:#FF8E1C; --t-yellow:#F0CE26; --t-red:#D9325E; --t-sky:#4C9EFF;
+  --serif:Cardo,'Iowan Old Style',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --dots:url(/theme/site/dots.svg);
+  --fadeDown:linear-gradient(#000 0%,rgba(0,0,0,.45) 50%,transparent 100%);
+}
+html[data-look=galaxy],
+html[data-look=galaxy] body{background:#171717!important;}
+html[data-look=galaxy] body{color:var(--text);}
+html[data-look=galaxy] body::before{content:"";position:fixed;inset:0;z-index:140;pointer-events:none;
+  background:url(/theme/site/grain.png) 0 0/96px 96px;}
+html[data-look=galaxy] #pgbg,
+html[data-look=galaxy] .bg-fx{display:none!important;}
+html[data-look=galaxy] #floatnav{background:rgba(23,23,23,.88)!important;border-color:var(--ln)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy] #floatnav #tab-dd-btn{background:var(--tile)!important;border-color:var(--ln)!important;border-radius:4px!important;}
+html[data-look=galaxy] #floatnav .nav-burger{border-radius:3px!important;}
+html[data-look=galaxy] #floatnav #me-btn{border-radius:4px!important;}
+html[data-look=galaxy] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
+html[data-look=galaxy] #my-matchup .pb-bar{background:#1B1B1B!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important;}
+html[data-look=galaxy] #my-matchup .pb-wk{font-family:var(--mono)!important;letter-spacing:.06em;}
+html[data-look=galaxy] #my-matchup .pb-name{font-family:var(--serif)!important;font-weight:400!important;letter-spacing:-.01em;}
+html[data-look=galaxy] #my-matchup :is(.pb-more,.pb-ic){border-radius:3px!important;}
+html[data-look=galaxy]{--l1:#1D1D1D;--l2:#252525;--ln2:#2E2E2E;--good:#5FD08A;--bad:#E8557E;}
+html[data-look=galaxy] #floatnav :is(.logo,.nv-bar){border-radius:0!important;}
+html[data-look=galaxy] #floatnav :is(button,.nav-burger,.tm-avatar),
+html[data-look=galaxy] #my-matchup :is(.pb-bar,.pb-more,.pb-ic){border-radius:4px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) main{padding-left:6px!important;padding-right:6px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1{background:#171717!important;background-image:none!important;border:1px solid var(--ln)!important;border-bottom:0!important;border-radius:0!important;box-shadow:none!important;
+  margin:0 auto!important;width:100%!important;max-width:1120px;padding:96px 16px 34px!important;display:flex!important;flex-wrap:wrap;align-items:baseline;gap:8px 12px;
+  justify-content:flex-start!important;text-align:left!important;position:relative;overflow:hidden;isolation:isolate;
+  font-family:var(--serif)!important;font-weight:400!important;font-size:clamp(38px,11.4vw,46px)!important;line-height:1!important;letter-spacing:-.035em!important;color:var(--text)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1>span:first-child{font:inherit!important;letter-spacing:inherit!important;background:none!important;-webkit-text-fill-color:currentColor!important;color:var(--text)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1>:not(:first-child){font:500 10.5px/1 var(--mono)!important;letter-spacing:.1em!important;text-transform:uppercase;border-radius:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam){max-width:1120px;width:100%;margin:0 auto!important;border-left:1px solid var(--ln);border-right:1px solid var(--ln);padding-left:0!important;padding-right:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam)::after{content:"GFL";display:block;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:30px 0 10px;text-align:center;overflow:hidden;
+  font:700 clamp(130px,40vw,420px)/.84 Inter,sans-serif;letter-spacing:-.06em;color:transparent;-webkit-text-fill-color:transparent;
+  background:url(/theme/site/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#171717,#171717);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{background:#171717!important;background-image:none!important;border:0!important;border-top:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;margin:0!important;padding:54px 16px 44px!important;position:relative;isolation:isolate;min-width:0;
+  --dc:var(--accent);--sp-t:54px;--sp-x:16px;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec:nth-child(even){--dc:var(--accent2);}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec::before{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;background:var(--dc);opacity:.9;
+  -webkit-mask-image:var(--dots),var(--fadeDown);-webkit-mask-size:6px 6px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:var(--dots),var(--fadeDown);mask-size:6px 6px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec::after{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;font-size:0!important;
+  background:color-mix(in srgb,var(--dc) 55%,#fff);opacity:0;animation:bft-twinkle 4.4s ease-in-out infinite;will-change:opacity;
+  -webkit-mask-image:url(/theme/site/sparks-a.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:url(/theme/site/sparks-a.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec:nth-child(even)::after{animation-duration:5.3s;animation-delay:-2.1s;-webkit-mask-image:url(/theme/site/sparks-b.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:url(/theme/site/sparks-b.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec:nth-child(3n)::after{animation-duration:3.9s;animation-delay:-1.1s;-webkit-mask-image:url(/theme/site/sparks-c.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
+  mask-image:url(/theme/site/sparks-c.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec .sec{padding:18px 16px!important;margin:0 0 14px!important;border:1px solid var(--ln2)!important;background:var(--l1)!important;--sp-t:18px;--sp-x:16px;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec .sec::before,html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec .sec::after{display:none!important;}
+@media(prefers-reduced-motion:reduce){ html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec::after{animation:none!important;opacity:.5;} html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1::after{animation:none!important;display:none!important;} }
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header){font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:19px!important;line-height:1.2!important;letter-spacing:-.012em!important;
+  color:var(--text)!important;text-align:left!important;justify-content:flex-start!important;align-items:baseline!important;flex-direction:row!important;gap:8px 12px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header)>i:first-child{display:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header)::after,html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header)::before{display:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec>.sec-head:first-child{font-size:20px!important;margin:0 calc(0px - var(--sp-x)) 22px!important;padding:0 var(--sp-x) 22px!important;border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header) .badge-info{font:500 10.5px/1 var(--mono)!important;letter-spacing:.08em!important;text-transform:uppercase;color:var(--text2)!important;
+  background:var(--ln)!important;border:0!important;border-radius:0!important;padding:5px 7px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *,html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *::before,html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *::after{border-radius:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(button,input,textarea,select,.tm-avatar,.phs,summary){border-radius:4px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) table{border-collapse:collapse!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) th{font-family:var(--mono)!important;font-weight:500!important;font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;
+  background:none!important;border-bottom:1px solid var(--ln2)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) td{border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) select{background-color:var(--l1)!important;border:1px solid var(--ln2)!important;color:var(--text)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.filter-btn,.sx-chip,.mx-chip):not(.active):not(.on){background:var(--l1)!important;border:1px solid var(--ln2)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.sb-market,.ht-card,.ht-compose,.lh-col,.pm-group,.trade-card,.bb-key,.home-cm,.ld-chart,.sos-note,.sos-cap){background:var(--l1)!important;background-image:none!important;
+  border:1px solid var(--ln2)!important;box-shadow:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.ld-row,.mx-row,.ps-row,.sch-row,.spj-row):not(.ld-me):not(.mx-me):not(.ps-now):not(.sch-now){background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.ld-bar-f,.bkiq-fill,.trade-bar>*){-webkit-mask:url(/theme/site/dots-fine.svg) 0 0/4px 4px repeat;mask:url(/theme/site/dots-fine.svg) 0 0/4px 4px repeat;}
+@media(min-width:1000px){
+  html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1{padding:132px 40px 48px!important;font-size:68px!important;}
+  html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{padding:64px 40px 54px!important;--sp-t:64px;--sp-x:40px;}
+}
+html[data-look=galaxy] #floatnav select{background-color:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:4px!important;color:var(--text)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.sec-nav,.sec-nav-local){background:#171717!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.sec-nav,.sec-nav-local) :is(button,a){background:var(--l1)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;box-shadow:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1 *{border-radius:0!important;}
+
+/* ── the bar at the top and the bar at the foot sit on the page's own column ──
+   They were 10 to 14px in from the screen's edge while the page is 6px in and
+   stops at 1120px, so neither lined up with the lines down the page's sides. */
+html[data-look=galaxy]:not([data-tabaccent=home]) #floatnav{left:max(6px,calc(50% - 560px))!important;right:max(6px,calc(50% - 560px))!important;width:auto!important;max-width:none!important;
+  border:1px solid var(--ln)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #my-matchup{padding-left:max(6px,calc(50% - 560px))!important;padding-right:max(6px,calc(50% - 560px))!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #my-matchup .pb-bar{border-radius:0!important;}
+/* the new-video strip is the app's orange, untouched, so it stands out (17 November); only its corners are squared */
+html[data-look=galaxy]:not([data-tabaccent=home]) #floatnav .nv-bar{border-radius:0!important;}
+
+/* ── THE THEME'S RED, ON PURPOSE ────────────────────────────────────────────
+   --red is the app's variable (bad numbers, losses, anything marked wrong). The
+   theme first replaced it by accident, the accident was undone, and the
+   commissioner asked for the theme's red back (17 November): he liked it. So
+   this is a deliberate override, for this account only. --green is the app's
+   own and was never changed. */
+html[data-look=galaxy]{--red:#D9325E;}
+
+/* ── NO DOUBLE HEADINGS. Where a section's heading says what the title above it just said, the heading goes and the
+   title stands for both. (Schedule, Standings, Coaching Metric, Draft Report.) ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-week>.sec:first-of-type>.sec-head:first-child,
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-standings>.sec.wm .sec-head,
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm .sec:first-of-type>.sec-head:first-child,
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-draft>.sec:first-of-type>.sec-head:first-child{display:none!important;}
+
+/* ═══ FROM THE PAGE-BY-PAGE REVIEW (17 November) ═══ */
+
+/* Trades has no section to give it room: the page itself does */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-trades .trades-layout{padding:18px 16px 40px!important;}
+/* a bar is a bar of dots wherever a page draws one: trades' two-colour split, the playoff outlook's range */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(#page-trades .trade-bar>span,#page-week .po-band){-webkit-mask:url(/theme/site/dots-fine.svg) 0 0/4px 4px repeat;mask:url(/theme/site/dots-fine.svg) 0 0/4px 4px repeat;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-trades .trade-bar{height:10px!important;}
+
+/* League History: the champions block was a darker card with a shadow of its own. It is a plain part of the page. */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-legacy div:not([class]):has(>.lh-sec-head){background:none!important;box-shadow:none!important;border:0!important;padding:0!important;}
+
+/* Coaching Metric: a box inside a box inside the section. One box. */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm .home-cm{background:none!important;border:0!important;padding:0!important;box-shadow:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm .sec .sec{background:none!important;border:0!important;padding:0!important;}
+
+/* a team picker that sits outside a section gets the page's side padding */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(.picker-bar,.tn-picker){padding:12px 16px!important;}
+
+/* the remaining dark cards take the page's first step of fill */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app :is(.prof-banner,.lineup-list){background:var(--l1)!important;border:1px solid var(--ln2)!important;box-shadow:none!important;}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE COMPONENTS (17 November, second pass)
+
+   The first pass drew the frame of every page and left what sits in it as the
+   app made it: tinted pills, gradient cards and buttons, near-black wells,
+   heavy little capitals, and everything that opens over a page (the menu, the
+   score and sign-in boxes, the bet slip, the bucks chip). This is that layer.
+
+   THE TYPE, in three voices and no more:
+     the page title    the serif, large, and alone in using it
+     a section heading the sans at medium weight, small
+     a label           the monospace, in small capitals
+   A figure is none of these: numbers keep the face the app gave them.
+
+   THE PIECES:
+     a fill        one step lighter than what it sits on, never black, never a gradient
+     a chip        an outline in its own colour, no tint behind it
+     a main button white, dark words (the Send button on the homepage)
+     a choice      a boxed cell; the chosen one is lit and underlined in the page colour
+     a pop-up      the page itself, boxed in a line, square
+   The class lists below were read out of the app's own stylesheet.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* THE RULE (17 November): two dot backgrounds never sit right up against each other. So the title has none: it is the
+   serif, large, on the bare page, under a short rule in the page's second colour, and the first section's dots start
+   below it. Further down, a section's dots fall from its top and its own content parts them from the next section's. */
+html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1::before,html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1::after{content:none!important;display:none!important;animation:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .page-h1>span:first-child::before{content:""!important;display:block!important;width:28px;height:2px;background:var(--accent2);margin:0 0 20px 2px;}
+/* the homepage's section headings take the same sans, so a heading is a heading on every page */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .sec-head.sec-head{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:21px!important;line-height:1.2!important;letter-spacing:-.012em!important;}
+
+/* ── labels: every small-capital label is the monospace, medium, in whatever colour it had ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.big4-label,.sb-pull,.sb-bank-l,.sb-next,.sb-week-h,.sb-bet-tag,.trade-vote-h,.trade-recv,.trade-winlabel,.brk-col-h,.lr-week,.lr-mt,.bk-meta,.pk-sent,.pk-reopen,.pk-badge,.pk-mu,.bank-t,.bank-foot,.curse-lbl,.bkiq-t,.bkiq-lab,.bkiq-scale,.bk-delta-l,.bkd-day,.pke-vs,.bk-back,.mm-tag,.rs-head,.rs-cols,.rs-slot,.rs-sub,.wt-slot,.wk-tag,.iv-gh,.iv-held,.iv-mode-l,.iv-mb,.ivc-sub,.iv-seg-b,.iv-tag-sh,.sb-invites-h,.sb-pvp-tag,.sb-pvp-h,.sb-pvp-who,.sch-resy,.sch-dead-tag,.ps-wk,.pg-who-w,.bb-key-h,.lr-wk-tag,.lr-nowl,.lr-wk-h,.po-head,.mc-l,.motw-odds-h,.punish-week,.cp-meta,.cp-yet-l,.cp-reset,.cp-fold-s,.cp-bview-k,.fc-wk,.fc-odds-s,.la-count,.la-clear,.la-restore,.la-empty,.fm-lbl,.fm-empty,.fcl-h,.fcl-lbl,.fcl-when,.inv-ch-h,.tt-h,.ht-meta,.ht-refresh,.ht-del,.home-redo,.home-signin-m,.mp-egg,.mp-eggnow,.bk-kind,.ld-chart-h,.nt-t,.nt-day,.nt-marg-l,.nt-stat-l,.nt-undo,.lk-cap,.mp-plant-l,.motw-stats-s,.sch-dl-t,.honor-lb,.prof-chip-l,.prof-stat-l,.gabe-pts-l,.bracket-round,.mp-l,.fc-lu-h,.fcr-head,.fcr-tot,.fcr-key,.fcr-pos,.sd-top-l,.rs2-slot,.rs2-sub,.rs2-pl,.rs2-bh,.rs2-ps,.rs2-sl,.rs2-sh,.lr-pick-b,.lv-head,.lv-status,.lv-rec-h,.tab-dd-sep-l,.badge-info,.trade-verdict,.motw-fact-l,.punish-tag,.gabe-badge,.dgrade-lbl,.dr-tabgrp,.lh-def,.lh-brk,.lh-col-head,.poll-wk-l,.mo-go,.mo-l,.mo-s,.wk-h,.wk-final,.sb-live,.sb-bar-r,.jjj-kick,.sb-ride-h,.soc-kind,.soc-st,.soc-verb,.soc-more,.sb-clear,.sb-si-mkt,.sb-dock,.ov-sub,.dg-all,.ov-po,.ov-aw,.si-l,.sch-chip-l,.sd-h,.spb-bh,.spb-rh,.sos-note,.sos-pill,.sos-hl,.tc-lbl,.h2h-vs,.home-punish-week,.home-punish-more,.pm-when,.htp-l,.lg-glabel,.pr-week,.pr-h,.hw-sort,.hw-head):not(#page-bam *){font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.ld-ab,.eg-ab):not(#page-bam *){font-weight:600!important;letter-spacing:.02em!important;}
+
+/* ── fills: a well was black at 30%. It is one step up from whatever it sits on. ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.card,.big4-team,.pin-box,.sb-pull,.sb-next,.sb-bet,.hist-item,.bk-card,.bk-opt,.pk-g,.pk-sent,.pk-reopen,.pkl-g,.pk-card,.pk-side,.bank-sec,.bkiq-sec,.bkr,.bk-delta,.bkd-flash,.bkd-done,.pke-card,.pke-pl,.pker,.bk-back,.rp-cell,.iv-uc,.sb-invite,.sb-totals,.pg-val,.motw-take,.motw-odds-team,.punish-opt,.cp-t,.cp-reset,.cp-fold,.cp-fold-s,.cp-res,.nt-b4-c,.la-clear,.la-restore,.la-row,.fm-field,.fm-ol,.fcl,.inv-chart,.tt-box,.tt-text,.ht-text,.ht-rx-pal,.home-redo,.mp-egg,.mp-eggnow,.eg-cell,.ld-mrow,.nt-vb,.nt-go,.lk-wrap,.mp-plant,.motw-stats,.motw-stats-s,.lineup-slot,.prof-chip,.honor-tile,.sup-row,.prof-award,.conf-col,.bracket-game,.fc-lu,.fcr-side,.sd-top,.rs2-panel,.lr-pick-b,.lv-now,.lv-card,.draft-score-box,.lineup-grade,.panel,.dr-tabbox,.trades-filters,.lh-rcard,.motw-book,.motw-book-link,.mo-cell,.jjj-tail,.sb-ride,.soc-item,.sb-tcard,.sch-chip,.spb-bracket,.spb-game,.spj-row,.bb-rank,.lg-chip,.home-box):not(.on,.active,.picked,.selected,.won,.lost,.win,.loss,.good,.bad,.live,.done,.me,.open):not(#page-bam *){background-color:rgba(253,254,252,.035)!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}
+/* a card that was a gradient is the same step, and keeps the colour of its line, which is what said what it was */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.sb-bank,.sb-bet-open,.sb-bet-lost,.iv-card,.iv-card-coin,.sb-invites,.sb-bet-offer,.lr-sec,.gabe-ptbox,.rs2-row,.jjj,.jjj-tail,.sb-ride,.sb-ride-ball,.sb-ride-chain,.honor-tile,.card,.big4-team,.hist-item,.lineup-slot,.motw-take,.punish-opt,.draft-row-graded,.spb-game,.eg-cell):not(#page-bam *){background-image:none!important;background-color:rgba(253,254,252,.035)!important;box-shadow:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.iv-card,.jjj)::after{background-image:none!important;}
+/* a card's line is the page's line, not the page colour at half strength; the ones whose line says something keep it */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.jjj,.sb-ride,.card,.panel,.big4-team,.hist-item,.lineup-slot,.motw-take,.iv-card,.sb-invites,.lr-sec,.rs2-row,.spb-game,.eg-cell,.punish-opt):not(#page-bam *){border-color:var(--ln2)!important;}
+
+/* ── chips: an outline in the chip's own colour ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.badge-info,.tp-bag,.trade-verdict,.sb-inv-chip,.sb-pvp-tag,.sch-dead-tag,.sch-rival,.spb-seed,.ht-refresh,.ht-rx-chip,.ld-fresh-b,.punish-tag,.gabe-badge,.sup-detail,.sb-live,.sb-slip-n,.sb-dock-n,.sos-note,.sos-pill,.mp-eggnow,.lg-chip,.pk-reopen,.la-clear,.la-restore,.nt-undo,.bkiq-lab,.lr-wk-tag,.sb-bet-tag,.wk-tag,.mm-tag,.iv-tag-sh,.soc-st,.soc-kind):not(#page-bam *),
+html[data-look=galaxy] :is(.sb-slip-n,.sb-dock-n){background-color:transparent!important;background-image:none!important;border:1px solid color-mix(in srgb,currentColor 46%,transparent)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .punish-tag:not(#page-bam *){color:var(--t-red)!important;}
+
+/* ── the main button: white, dark words ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.sb-place,.ht-post,.iv-go,.tt-send,.pk-go,.pke-go,.cp-go,.nt-mw-go):not(#page-bam *),
+html[data-look=galaxy] .si-go{background:var(--text)!important;background-image:none!important;color:#111!important;border:1px solid var(--text)!important;border-radius:4px!important;box-shadow:none!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:13.5px!important;letter-spacing:0!important;text-transform:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.sb-place,.ht-post,.iv-go,.tt-send,.pk-go,.pke-go,.cp-go,.nt-mw-go):not(#page-bam *) :is(i,span),
+html[data-look=galaxy] .si-go :is(i,span){color:#111!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.sb-place,.ht-post,.iv-go,.tt-send,.pk-go,.pke-go,.cp-go,.nt-mw-go):disabled:not(#page-bam *){opacity:.38!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .iv-go.iv-sell:not(#page-bam *){background:var(--t-red)!important;border-color:var(--t-red)!important;color:#fff!important;}
+
+/* ── a row of choices: boxed cells, monospace; the chosen one lit, with the page colour under it ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.filter-btn,.sx-chip,.mx-chip,.iv-seg-b,.iv-mb,.dr-vtab,.dr-sbtn,.lh-brk,.week-btn,.poll-wk):not(#page-bam *){background-color:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;box-shadow:none!important;color:var(--text2)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.sx-chip,.mx-chip,.iv-seg-b,.iv-mb,.dr-vtab,.dr-sbtn,.lh-brk,.sb-utab):not(#page-bam *){font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;text-transform:uppercase!important;font-size:11px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.filter-btn,.sx-chip,.mx-chip,.iv-seg-b,.iv-mb,.dr-vtab,.dr-sbtn,.lh-brk,.week-btn,.poll-wk):is(.active,.on):not(#page-bam *){background-color:var(--l2)!important;color:var(--text)!important;border-color:var(--ln2)!important;box-shadow:inset 0 -2px 0 var(--accent)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .sb-utab{font-size:10.5px!important;letter-spacing:.05em!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .sb-odds:not(.sb-odds-lock) .sb-o-lbl{font-family:var(--mono)!important;font-weight:500!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) main .tab-btn{background-color:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;box-shadow:none!important;color:var(--text2)!important;
+  font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;text-transform:uppercase!important;font-size:11px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) main .tab-btn.active{background-color:var(--l2)!important;color:var(--text)!important;box-shadow:inset 0 -2px 0 var(--accent)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .sb-utab.on::after{border-radius:0!important;height:2px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .sb-utabs{border-bottom:1px solid var(--ln)!important;}
+
+/* ── the row that is yours, or this week: lit, with a rule down its left in the page colour ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.ld-me,.mx-me,.eg-me,.eg-top,.ps-now,.sch-now,.lr-now,.dg-total):not(#page-bam *){background-color:var(--l2)!important;background-image:none!important;border-color:transparent!important;box-shadow:inset 2px 0 0 var(--accent)!important;}
+
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.ld-me,.mx-me,.eg-me,.eg-top,.ps-now,.sch-now,.lr-now,.dg-total):not(#page-bam *){outline:0!important;}
+
+/* ── small repairs the new type asked for ── */
+/* Team Data: a long label in the monospace pushed its figure off the row; and the name ran under the rank badge */
+html[data-look=galaxy]:not([data-tabaccent=home]) .prof-stat-l{letter-spacing:0!important;font-size:9px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #page-teams .prof-headline{padding-right:30px!important;}
+/* Schedule, on a phone: the opponent column was too narrow for crest, rank, name, RIVAL chip and arrow, and the chip ran
+   into the record beside it (it did in the app too; the page being 16px in made it worse). The other columns give it room. */
+@media(max-width:600px){
+  html[data-look=galaxy]:not([data-tabaccent=home]) #page-week .sch-head:not(.sch-head-res),
+  html[data-look=galaxy]:not([data-tabaccent=home]) #page-week .sch-row:not(.sch-res){grid-template-columns:22px minmax(0,1fr) 38px 40px 46px!important;gap:4px!important;padding-left:4px!important;padding-right:4px!important;}
+  html[data-look=galaxy]:not([data-tabaccent=home]) #page-week .sch-team{gap:6px!important;}
+  html[data-look=galaxy]:not([data-tabaccent=home]) #page-week .sch-rival{padding:1px 4px!important;}
+}
+/* the Locker Room: its buttons and notes take the same corners as everywhere else (the room itself is art, left alone) */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-profile :is(button,.mv-btn,.lr-pick-b){border-radius:4px!important;box-shadow:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-profile :is(.mp-plant,.mp-eggnow,.mp-egg,.lk-wrap,.prof-banner){border-radius:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-profile .mp-out-btn{background:none!important;border:1px solid var(--ln2)!important;}
+/* the bar at the foot names the punishment in the sans: the serif is the page title and nothing else */
+html[data-look=galaxy][data-look][data-look] #my-matchup .pb-name{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;letter-spacing:-.012em!important;}
+
+/* ── the sportsbook ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-bar::before{background:#171717!important;border-radius:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important;}
+/* My Bets and Portfolio sit on the page column, like the bars at the top and the foot */
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-bar{max-width:1120px!important;margin-left:auto!important;margin-right:auto!important;padding-left:0!important;padding-right:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-pair{gap:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-pair .bets-btn{background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:none!important;color:var(--text)!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-pair .bets-btn+.bets-btn{border-left:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-pair .bets-btn{padding-left:46px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-pair .bets-btn .bets-ic{color:var(--accent)!important;font-size:18px!important;left:16px!important;transform:translateY(-50%)!important;z-index:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .bets-pair .bets-btn.on{background:var(--l2)!important;box-shadow:inset 0 -2px 0 var(--accent)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .sb-mhead,html[data-look=galaxy]:not([data-tabaccent=home]) .sb-mhead .sb-mt{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:17px!important;letter-spacing:-.01em!important;background:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) :is(.jjj-name,.sb-nm,.sb-tc-nm){font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) .jjj-name{font-weight:500!important;letter-spacing:-.015em!important;}
+html[data-look=galaxy] #bucks-chip{background:var(--tile)!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important;}
+
+/* the bet slip, docked at the foot and open */
+html[data-look=galaxy] #sb-portal .sb-dock{background:#171717!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-top:1px solid var(--ln2)!important;
+  font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.08em!important;}
+html[data-look=galaxy] #sb-portal .sb-dock.has{background:var(--text)!important;color:#111!important;border-top-color:var(--text)!important;}
+html[data-look=galaxy] #sb-portal .sb-dock.has :is(i,.sb-dock-n){color:#111!important;}
+html[data-look=galaxy] .sb-slip{background:var(--l1)!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy] #sb-portal .sb-slip{background:#171717!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border:0!important;border-top:1px solid var(--ln2)!important;}
+html[data-look=galaxy] .sb-slip-head{background:none!important;border-bottom:1px solid var(--ln)!important;font-family:var(--mono)!important;font-weight:500!important;font-size:12px!important;letter-spacing:.08em!important;text-transform:uppercase!important;}
+html[data-look=galaxy] .sb-bank{background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;}
+html[data-look=galaxy] .sb-slip :is(.sb-bank-l,.sb-si-mkt,.sb-clear),html[data-look=galaxy] .sb-stake label{font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;}
+html[data-look=galaxy] .sb-stake input{background:var(--l2)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;}
+html[data-look=galaxy] .sb-totals{background:none!important;border-top:1px solid var(--ln)!important;}
+html[data-look=galaxy] .sb-slip-item{border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy] .sb-slip-note{border-top:1px solid var(--ln)!important;}
+html[data-look=galaxy] .sb-slip-warn{background:none!important;border-radius:0!important;}
+html[data-look=galaxy] .sb-slip .sb-place{background:var(--text)!important;background-image:none!important;color:#111!important;border:1px solid var(--text)!important;border-radius:4px!important;box-shadow:none!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;}
+
+/* ── the menu: the page, boxed, its entries cells that share their lines ── */
+html[data-look=galaxy] .tab-dd-menu{background:#171717!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:0 30px 70px rgba(0,0,0,.6)!important;padding:0!important;}
+html[data-look=galaxy] .tab-dd-menu :is(.tab-dd-grid,.tab-dd-pair){gap:0!important;}
+html[data-look=galaxy] .tab-dd-menu .tab-dd-item{background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;color:var(--text)!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:14px!important;padding:13px 12px!important;}
+html[data-look=galaxy] .tab-dd-menu :is(.tab-dd-grid,.tab-dd-pair) .tab-dd-item:nth-child(odd){border-right:1px solid var(--ln)!important;}
+html[data-look=galaxy] .tab-dd-menu .tab-dd-item.active{background:var(--l2)!important;color:var(--text)!important;box-shadow:inset 2px 0 0 var(--tc,var(--accent))!important;}
+html[data-look=galaxy] .tab-dd-menu .tab-dd-sep{padding:11px 12px 9px!important;border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy] .tab-dd-menu .tab-dd-sep-l{font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.1em!important;}
+html[data-look=galaxy] #nav-scrim.show{background:rgba(10,10,10,.72)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}
+
+/* ── what opens over a page: a score, the sign-in, a PIN ── */
+html[data-look=galaxy][data-look] :is(.modal,.pin-box,.si-box){background:#171717!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:0 30px 80px rgba(0,0,0,.6)!important;}
+html[data-look=galaxy][data-look] .modal-header{background:#171717!important;border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy][data-look] :is(.modal-header h2,.pin-box h3,.si-head){font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:18px!important;letter-spacing:-.012em!important;}
+html[data-look=galaxy][data-look] .si-head{border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy][data-look] :is(.modal-close,.si-x){background:var(--l1)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;box-shadow:none!important;}
+html[data-look=galaxy][data-look] :is(.modal-total,.modal-formula,.modal-comp){background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy][data-look] .modal-comp-row{background:var(--l2)!important;border-radius:0!important;}
+html[data-look=galaxy][data-look] :is(.modal-note,.modal-debug){background:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;}
+html[data-look=galaxy][data-look] :is(.si-i,.pin-box input){background:var(--l2)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;}
+html[data-look=galaxy][data-look] :is(.si-l,.modal-formula>div:first-child){font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;}
+html[data-look=galaxy][data-look] .si-in b{color:var(--text)!important;}
+
+/* ═══ FROM THE FIRST REVIEW OF THE WHOLE SITE (after it went live) ═══ */
+
+/* Sportsbook: nothing under the title. The "lines set" tag is gone. */
+html[data-look=galaxy][data-tabaccent=book] .page-h1>:not(:first-child){display:none!important;}
+
+/* ── Schedule: Strength of Schedule and Playoff Outlook are sections of the page, not boxes inside the first one.
+   They are built inside the schedule's own section, so the rule that turns a section-in-a-section into a panel had
+   boxed them in under the Losers' Bracket. Each runs the page's full width, under its own line and its own dots. ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-week .sec .sec{background:none!important;border:0!important;border-top:1px solid var(--ln)!important;
+  margin:34px -16px 0!important;padding:54px 16px 0!important;--sp-t:54px;--sp-x:16px;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-week .sec .sec::before,
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-week .sec .sec::after{display:block!important;}
+@media(min-width:1000px){
+  html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-week .sec .sec{margin:44px -40px 0!important;padding:64px 40px 0!important;--sp-t:64px;--sp-x:40px;}
+}
+/* this week's row: its week number was 4px from the rule down its left */
+@media(max-width:600px){
+  html[data-look=galaxy]:not([data-tabaccent=home]) #page-week .sch-head:not(.sch-head-res),
+  html[data-look=galaxy]:not([data-tabaccent=home]) #page-week .sch-row:not(.sch-res){padding-left:9px!important;}
+}
+
+/* ── Coaching Metric: its four chips sat 54px down inside the section, a dark slab cut into the dots. The chips are the
+   top of the page now, flush under the title in a band of their own, and the dots belong to the list under them. ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec{padding-top:0!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec::before,
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec::after{display:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec>.sec-nav-local{margin:0 -16px!important;padding:12px 16px!important;border-bottom:1px solid var(--ln)!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec>.sec-nav-local::before{display:none!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec .sec{margin:0 -16px!important;padding:54px 16px 0!important;position:relative;isolation:isolate;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec .sec::before,
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec .sec::after{display:block!important;}
+@media(min-width:1000px){
+  html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec>.sec-nav-local{margin:0 -40px!important;padding:14px 40px!important;}
+  html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm>.sec .sec{margin:0 -40px!important;padding:64px 40px 0!important;}
+}
+
+/* ── ONE GREEN AND ONE RED FOR GOOD AND BAD. The app has two of each: its own --green and --red (the theme's red is
+   set above), and a second pair written straight into charts, grades and results (#3fd07a / #5DE883 and #e8687e /
+   #ff5f5f). Wherever the second pair marks good or bad it is drawn in the first. (The sportsbook's page colour is
+   also #3fd07a; that is a page colour, set through --accent, and is not touched. Build a Manager is left alone.)
+   What this cannot reach: a colour the app MIXES between two ends (the strength-of-schedule heat, a win chance)
+   is computed in the script, so its in-between shades stay on the app's ramp. ── */
+html[data-look=galaxy] :is([fill="#3fd07a" i],[fill="#5de883" i]):not(#page-bam *){fill:var(--green)!important;}
+html[data-look=galaxy] :is([stroke="#3fd07a" i],[stroke="#5de883" i]):not(#page-bam *){stroke:var(--green)!important;}
+html[data-look=galaxy] :is([fill="#e8687e" i],[fill="#ff5f5f" i]):not(#page-bam *){fill:var(--red)!important;}
+html[data-look=galaxy] :is([stroke="#e8687e" i],[stroke="#ff5f5f" i]):not(#page-bam *){stroke:var(--red)!important;}
+html[data-look=galaxy] :is([style*="color:#3fd07a" i],[style*="color:#5de883" i]):not([style*="-color:#3fd07a" i]):not([style*="-color:#5de883" i]):not(#page-bam *){color:var(--green)!important;}
+html[data-look=galaxy] :is([style*="color:#e8687e" i],[style*="color:#ff5f5f" i]):not([style*="-color:#e8687e" i]):not([style*="-color:#ff5f5f" i]):not(#page-bam *){color:var(--red)!important;}
+html[data-look=galaxy] :is([style*="background:#3fd07a" i],[style*="background-color:#3fd07a" i]):not(#page-bam *){background-color:var(--green)!important;}
+html[data-look=galaxy] :is([style*="background:#e8687e" i],[style*="background-color:#e8687e" i],[style*="background:#ff5f5f" i],[style*="background-color:#ff5f5f" i]):not(#page-bam *){background-color:var(--red)!important;}
+html[data-look=galaxy] :is([style*="border-color:#3fd07a" i],[style*="solid #3fd07a" i]):not(#page-bam *){border-color:var(--green)!important;}
+html[data-look=galaxy] :is([style*="border-color:#e8687e" i],[style*="solid #e8687e" i],[style*="border-color:#ff5f5f" i],[style*="solid #ff5f5f" i]):not(#page-bam *){border-color:var(--red)!important;}
+/* the same pair where the app's stylesheet names it by class */
+html[data-look=galaxy] :is(.pk-sent i,.bk-right .bk-picked,.bkr.ok>i,.bkr.ok .bkr-a,.bk-delta.up .bk-delta-v,.bkd-flash.ok,.pker.ok>i,.pker.ok .pker-a,.mm-sc.mm-up,.pg-a,.cp-fold-s>i:first-child,.la-add .la-ic,.nt-good .nt-ico,.nt-pip.w){color:var(--green)!important;}
+html[data-look=galaxy] :is(.bk-wrong .bk-picked,.bkr.no>i,.bkr.no .bkr-a,.bk-delta.down .bk-delta-v,.bkd-flash.no,.pker.no>i,.pker.miss>i,.pker.no .pker-a,.pker.miss .pker-a,.mm-sc.mm-down,.pg-f,.la-drop .la-ic,.nt-hot .nt-ico,.nt-bad .nt-ico){color:var(--red)!important;}
+html[data-look=galaxy] .bk-right{border-color:color-mix(in srgb,var(--green) 50%,transparent)!important;}
+html[data-look=galaxy] .bk-wrong{border-color:color-mix(in srgb,var(--red) 50%,transparent)!important;}
+html[data-look=galaxy] .sb-bet-open{border-left-color:var(--green)!important;}
+html[data-look=galaxy] .fm-ir{--pc:var(--red);}
+html[data-look=galaxy] .pg-range::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--red),#F2704A 25%,#E8BC56 50%,#9BD35A 75%,var(--green))!important;}
+html[data-look=galaxy] .pg-range::-moz-range-track{background:linear-gradient(90deg,var(--red),#F2704A 25%,#E8BC56 50%,#9BD35A 75%,var(--green))!important;}
+
+/* ── A table that scrolls sideways keeps its first columns pinned. A pinned cell has to be solid or what scrolls
+   under it shows through: the theme had cleared the fill on every heading cell, so the headings ran into each other.
+   Pinned cells, heading and body, are the page's own colour, with a line down the edge of the last pinned column. ── */
+html[data-look=galaxy]{--page-bg:#171717;}
+html[data-look=galaxy][data-look] #app table.mtbl.stick1 :is(td,th):first-child,
+html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):first-child,
+html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):nth-child(2){background:#171717!important;}
+html[data-look=galaxy][data-look] #app table.mtbl.stick1 :is(td,th):first-child,
+html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):nth-child(2){box-shadow:1px 0 0 var(--ln2)!important;}
+html[data-look=galaxy][data-look] #app table.mtbl.stick2 :is(td,th):first-child{box-shadow:3px 0 0 #171717!important;}
+
+/* ── PADDING. The theme gave a fill or a line to boxes the app draws with neither, and those had no padding of their
+   own, so their words sat on the edge. A box that shows has room inside it. ── */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-teams .panel{padding:18px 14px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-legacy .lh-cols>.lh-col{padding:12px 14px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-trades .trades-filters{padding:16px 14px!important;}
+/* Draft Report: the box round the whole report was the theme's doing and added nothing. It is the page again. */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-draft #draft-body>.card{background:none!important;border:0!important;padding:0!important;}
+/* found by pressing every sub-tab (scratch audit-pad2.js): the all-time drafts' two columns, an opened ROI row, and the
+   strength-of-schedule cells each had a figure on the box's right edge */
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-draft .dr-panel>:first-child{padding:12px 12px 10px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-draft .dr-panel :is(.dpm,.draft-row){padding-right:12px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-draft .dr-panel>.draft-row{padding-left:12px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-draft .dr-tabbox{padding:10px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-cm .coaching-row.on{padding-right:12px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-week .sos-i{padding-left:9px!important;padding-right:10px!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-teams .prof-stat-l{letter-spacing:-.02em!important;}
+html[data-look=galaxy]:not([data-tabaccent=home]) #app #page-teams .prof-stat{padding-right:9px!important;}
+
+/* ═══ WHAT A VISITOR WHO IS NOT SIGNED IN SEES (the look was built signed in; these were never on screen) ═══ */
+/* the homepage's "sign in to..." prompts: a plain panel, the main button, a label */
+html[data-look=galaxy][data-look] #page-home#page-home#page-home .home-signin{background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-look=galaxy][data-look] #page-home#page-home#page-home .home-signin-b{background:var(--text)!important;background-image:none!important;color:#111!important;border:1px solid var(--text)!important;border-radius:4px!important;box-shadow:none!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:13.5px!important;letter-spacing:0!important;text-transform:none!important;}
+html[data-look=galaxy][data-look] #page-home#page-home#page-home .home-signin-m{font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;}

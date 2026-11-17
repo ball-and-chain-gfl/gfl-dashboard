@@ -79,27 +79,30 @@ Three more tab names exist without a nav button:
 - `gabe` — not a tab at all any more. `renderGabe()` fills a `<details>`
   (`.lh-gabe`) on League History, and `config.gabe` still feeds it.
 
-## Account themes
+## The site's look
 
-An account can have a look of its own. `bft` has one, on every page (Build a
-Manager gets the frame only). `public/theme/bft/pages.css` is for rules still
-being worked on: only `scripts/preview.mjs` loads it, after `theme.css`, and an
-approved piece moves to the end of `theme.css`.
+Everybody gets one look: `public/theme/site/theme.css` and the pictures beside it.
+It was built as the `bft` account's own theme and became the site's main style
+on 17 November 2026 (Build a Manager gets the frame only).
 
-- `ME_THEMES` in `app.js` (and the copy in the last script of `index.html`'s head,
-  which loads the stylesheet before the first paint) names the account and its
-  file. `meTheme()` puts `data-me="<account>"` on `<html>` at sign-in and takes
-  it off at sign-out.
-- The theme is `public/theme/<account>/theme.css` and its pictures beside it.
-  **Every selector starts `html[data-me=<account>]`** (`test-metheme.mjs` holds
-  that), so the file cannot touch anyone else. To remove a theme: take the
-  account off both lists and delete its folder. The tag `pre-bft-theme` is the
-  site before any of it.
+- `index.html` marks the page `<html data-look="galaxy">` and loads the file with
+  `<link id="site-look">` at the end of its head. **Every selector in it starts
+  `html[data-look=galaxy]`** (`test-metheme.mjs` holds that), so removing the
+  attribute and the link takes the whole look off and leaves the app's own
+  styles. Tags: `pre-look-for-all` (the day before everyone got it) and
+  `pre-bft-theme` (before any of it).
+- `public/theme/site/pages.css` is for rules still being worked on: only
+  `scripts/preview.mjs` loads it, after `theme.css`, and an approved piece moves
+  to the end of `theme.css`. Nothing unreviewed goes in `theme.css`.
+- An account can still have a theme of its own on top (`ME_THEMES` in `app.js`
+  and the copy `T` in the last script of `index.html`'s head; `meTheme()` puts
+  `data-me="<account>"` on `<html>`; every selector in such a file starts
+  `html[data-me=<account>]`). Both lists are empty now.
 - A theme changes how a page is DRAWN and nothing else: the same sections, in
   the app's order, working as they do for everyone. No section is added, moved
   behind a tap or taken away. It is CSS only; `app.js` knows nothing about what
   a theme looks like.
-- The bft theme's rules, each from the user: corners square except what you
+- The look's rules, each from the user: corners square except what you
   press (4px) and crests; three steps of fill for a box in a box; boxes share
   their lines; **numbers keep the app's own type, untouched**; **a colour that
   means something (a poll rank, a position, a notification's kind, a tab's or

@@ -1,10 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   THE BFT THEME, WORK IN PROGRESS. NOT LOADED ON THE SITE.
+   THE SITE'S LOOK, WORK IN PROGRESS. NOT LOADED ON THE SITE.
 
-   theme.css is what the bft account gets. This file is for rules still being
-   worked on: scripts/preview.mjs loads it locally, after theme.css, and nothing
-   on the live site does. When a piece is approved its rules move to the end of
-   theme.css and this file goes back to being empty.
-
-   Empty since 17 November, when the other pages and the components went live.
+   theme.css is what everybody gets. This file is for rules still being worked
+   on: scripts/preview.mjs loads it locally, after theme.css, and nothing on the
+   live site does. When a piece is approved its rules move to the end of
+   theme.css and this file goes back to being empty. Rules here start
+   html[data-look=galaxy], like the ones there.
    ═══════════════════════════════════════════════════════════════════════════ */
