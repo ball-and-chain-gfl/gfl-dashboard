@@ -295,6 +295,8 @@ html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .bk-opt{ba
 
 /* the poll's line of small type: on the left, its refresh button on the right */
 html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-meta{display:flex!important;align-items:center;justify-content:space-between;gap:12px;text-align:left!important;}
+/* the reveal note under a cast ballot is a line of the poll, not its header strip: no rule, no pull to the edges, room above it */
+html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .cp-meta.cp-reveal{display:block!important;margin:16px 0 0!important;padding:0!important;border:0!important;}
 /* the win chance took its weight from the box around it, which is now 400: give it its own back */
 html[data-look=galaxy][data-tabaccent=home] #page-home#page-home .sec .fc-pct{font-weight:800!important;}
 

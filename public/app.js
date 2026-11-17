@@ -23669,7 +23669,12 @@ function renderCoachesPoll(){
   }
   /* Voted, but the poll has not reached the reveal yet: the ballot folds away
      to a line. It has done its job, and leaving twelve tiles open holds space
-     the results will want. */
+     the results will want.
+
+     Under the fold, not in it: when the results will show, and the crests of
+     the teams still to vote. Both are about the poll rather than this
+     manager's ballot, and the note sat hard against the last team of the
+     ballot list (17 November). The crests are the same row the results show. */
   if(mineIn){
     el.innerHTML=`
       <details class="cp-fold"${_cpFoldOpen?' open':''} ontoggle="foldKeep('cp',this)">
@@ -23678,9 +23683,10 @@ function renderCoachesPoll(){
           <i class="fa fa-chevron-down ms-chev"></i></summary>
         <div class="cp-fold-b">
           ${myBallotList()}
-          <div class="cp-meta" style="margin-top:10px">Results show once ${REVEAL_AT} ballots are in.</div>
         </div>
-      </details>`;
+      </details>
+      <div class="cp-meta cp-reveal">Results show once ${REVEAL_AT} ballots are in${ballots<REVEAL_AT?` · ${REVEAL_AT-ballots} to go`:''}</div>
+      ${cpYetToVoteHTML()}`;
     return;
   }
   el.innerHTML=`
