@@ -81,7 +81,10 @@ Three more tab names exist without a nav button:
 
 ## Account themes
 
-An account can have a look of its own. `bft` has one, for the homepage so far.
+An account can have a look of its own. `bft` has one, on every page (Build a
+Manager gets the frame only). `public/theme/bft/pages.css` is for rules still
+being worked on: only `scripts/preview.mjs` loads it, after `theme.css`, and an
+approved piece moves to the end of `theme.css`.
 
 - `ME_THEMES` in `app.js` (and the copy in the last script of `index.html`'s head,
   which loads the stylesheet before the first paint) names the account and its
@@ -101,6 +104,11 @@ An account can have a look of its own. `bft` has one, for the homepage so far.
   their lines; **numbers keep the app's own type, untouched**; **a colour that
   means something (a poll rank, a position, a notification's kind, a tab's or
   a section's own accent) is never changed**; no title block on the homepage.
+- Three voices of type and no more: the page title is the serif, large, and
+  alone in using it; a section heading is the sans at medium weight; a label
+  is the monospace in capitals. **Two dot backgrounds never sit right up
+  against each other**, so a page title has no dots. The theme sets no face on
+  `<body>`: the app's is DM Sans and every table figure inherits it.
 - `docs/bft-theme/` is the bank: sheets of every asset and animation, the
   scripts that make the image files, and `unused/` (an overview homepage that
   was built and turned down).
