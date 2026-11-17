@@ -49,7 +49,7 @@ html[data-me=bft] #floatnav :is(button,.nav-burger,.tm-avatar),
 html[data-me=bft] #my-matchup :is(.pb-bar,.pb-more,.pb-ic){border-radius:4px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) main{padding-left:6px!important;padding-right:6px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) .page-h1{background:#1C1C1C!important;background-image:none!important;border:1px solid var(--ln)!important;border-bottom:0!important;border-radius:0!important;box-shadow:none!important;
-  margin:0 auto!important;width:100%!important;max-width:1120px;padding:58px 21px 26px!important;display:flex!important;flex-wrap:wrap;align-items:baseline;gap:8px 12px;
+  margin:0 auto!important;width:100%!important;max-width:1120px;padding:58px 16px 26px!important;display:flex!important;flex-wrap:wrap;align-items:baseline;gap:8px 12px;
   justify-content:flex-start!important;text-align:left!important;position:relative;overflow:hidden;isolation:isolate;
   font-family:var(--serif)!important;font-weight:400!important;font-size:34px!important;line-height:1.05!important;letter-spacing:-.025em!important;color:var(--text)!important;}
 html[data-me=bft]:not([data-tabaccent=home]) .page-h1>span:first-child{font:inherit!important;letter-spacing:inherit!important;background:none!important;-webkit-text-fill-color:currentColor!important;color:var(--text)!important;}
@@ -66,13 +66,12 @@ html[data-me=bft]:not([data-tabaccent=home]) .page-h1::after{content:""!importan
   mask-image:var(--dots),var(--fadeDown);mask-size:6px 6px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
 @keyframes bft-sweep{from{background-position:130% 0;}to{background-position:-30% 0;}}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam){max-width:1120px;width:100%;margin:0 auto!important;border-left:1px solid var(--ln);border-right:1px solid var(--ln);padding-left:0!important;padding-right:0!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam)::before{content:"";display:block;height:34px;border-top:1px solid var(--ln);background:repeating-linear-gradient(90deg,var(--ln) 0 1px,transparent 1px 13px);}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam)::after{content:"GFL";display:block;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:30px 0 10px;text-align:center;overflow:hidden;
   font:700 clamp(130px,40vw,420px)/.84 Inter,sans-serif;letter-spacing:-.06em;color:transparent;-webkit-text-fill-color:transparent;
   background:url(/theme/bft/dots-word.svg) 0 0/6px 6px repeat,linear-gradient(#1C1C1C,#1C1C1C);-webkit-background-clip:text,border-box;background-clip:text,border-box;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{background:#1C1C1C!important;background-image:none!important;border:0!important;border-top:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;margin:0!important;padding:54px 21px 44px!important;position:relative;isolation:isolate;min-width:0;
-  --dc:var(--accent);--sp-t:54px;--sp-x:21px;}
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;margin:0!important;padding:54px 16px 44px!important;position:relative;isolation:isolate;min-width:0;
+  --dc:var(--accent);--sp-t:54px;--sp-x:16px;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec:nth-child(even){--dc:var(--accent2);}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec::before{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;background:var(--dc);opacity:.9;
   -webkit-mask-image:var(--dots),var(--fadeDown);-webkit-mask-size:6px 6px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
@@ -97,16 +96,16 @@ html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#pag
   background:var(--ln)!important;border:0!important;border-radius:0!important;padding:5px 7px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *,html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *::before,html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *::after{border-radius:0!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(button,input,textarea,select,.tm-avatar,.phs,summary){border-radius:4px!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec table{border-collapse:collapse!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec th{font-family:var(--mono)!important;font-weight:500!important;font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) table{border-collapse:collapse!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) th{font-family:var(--mono)!important;font-weight:500!important;font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;
   background:none!important;border-bottom:1px solid var(--ln2)!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec td{border-bottom:1px solid var(--ln)!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec select{background-color:var(--l1)!important;border:1px solid var(--ln2)!important;color:var(--text)!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec :is(.filter-btn,.sx-chip,.mx-chip):not(.active):not(.on){background:var(--l1)!important;border:1px solid var(--ln2)!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec :is(.sb-market,.ht-card,.ht-compose,.lh-col,.pm-group,.trade-card,.bb-key,.home-cm,.ld-chart,.sos-note,.sos-cap){background:var(--l1)!important;background-image:none!important;
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) td{border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) select{background-color:var(--l1)!important;border:1px solid var(--ln2)!important;color:var(--text)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.filter-btn,.sx-chip,.mx-chip):not(.active):not(.on){background:var(--l1)!important;border:1px solid var(--ln2)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.sb-market,.ht-card,.ht-compose,.lh-col,.pm-group,.trade-card,.bb-key,.home-cm,.ld-chart,.sos-note,.sos-cap){background:var(--l1)!important;background-image:none!important;
   border:1px solid var(--ln2)!important;box-shadow:none!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec :is(.ld-row,.mx-row,.ps-row,.sch-row,.spj-row):not(.ld-me):not(.mx-me):not(.ps-now):not(.sch-now){background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) .sec :is(.ld-bar-f,.bkiq-fill,.trade-bar>*){-webkit-mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.ld-row,.mx-row,.ps-row,.sch-row,.spj-row):not(.ld-me):not(.mx-me):not(.ps-now):not(.sch-now){background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.ld-bar-f,.bkiq-fill,.trade-bar>*){-webkit-mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;}
 @media(min-width:1000px){
   html[data-me=bft]:not([data-tabaccent=home]) .page-h1{padding:76px 40px 34px!important;font-size:44px!important;}
   html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{padding:64px 40px 54px!important;--sp-t:64px;--sp-x:40px;}
@@ -133,3 +132,40 @@ html[data-me=bft]:not([data-tabaccent=home]) #floatnav .nv-bar{border-radius:0!i
    this is a deliberate override, for this account only. --green is the app's
    own and was never changed. */
 html[data-me=bft]{--red:#D9325E;}
+
+/* ── NO DOUBLE HEADINGS. Where a section's heading says what the title above it just said, the heading goes and the
+   title stands for both. (Schedule, Standings, Coaching Metric, Draft Report.) ── */
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-week>.sec:first-of-type>.sec-head:first-child,
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-standings>.sec.wm .sec-head,
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-cm .sec:first-of-type>.sec-head:first-child,
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-draft>.sec:first-of-type>.sec-head:first-child{display:none!important;}
+
+/* ═══ FROM THE PAGE-BY-PAGE REVIEW (17 November) ═══ */
+
+/* Trades has no section to give it room: the page itself does */
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-trades .trades-layout{padding:18px 16px 40px!important;}
+/* a bar is a bar of dots wherever a page draws one: trades' two-colour split, the playoff outlook's range */
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-trades .trade-bar>span,#page-week .po-band){-webkit-mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;}
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-trades .trade-bar{height:10px!important;}
+
+/* League History: the champions block was a darker card with a shadow of its own. It is a plain part of the page. */
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-legacy div:not([class]):has(>.lh-sec-head){background:none!important;box-shadow:none!important;border:0!important;padding:0!important;}
+
+/* Coaching Metric: a box inside a box inside the section. One box. */
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-cm .home-cm{background:none!important;border:0!important;padding:0!important;box-shadow:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-cm .sec .sec{background:none!important;border:0!important;padding:0!important;}
+
+/* a team picker that sits outside a section gets the page's side padding */
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(.picker-bar,.tn-picker){padding:12px 16px!important;}
+
+/* the remaining dark cards take the page's first step of fill */
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(.prof-banner,.lineup-list){background:var(--l1)!important;border:1px solid var(--ln2)!important;box-shadow:none!important;}
+
+/* ── from the library: a second way for a title's dots to move. Where a page is about things coming in
+   (the book's lines, trades, past results) streaks FALL down the dots instead of a band sweeping across. ── */
+html[data-me=bft]:not([data-tabaccent=home]):is([data-tabaccent=book],[data-tabaccent=trades],[data-tabaccent=history]) .page-h1::after{
+  background:linear-gradient(transparent 0,transparent 30%,color-mix(in srgb,var(--accent2) 50%,#fff) 92%,transparent 100%) 0 0/100% 120px repeat-y!important;
+  animation:bft-fall 3.4s linear infinite!important;
+  -webkit-mask-image:var(--dots),var(--fadeDown),repeating-linear-gradient(90deg,#000 0 6px,transparent 6px 36px)!important;-webkit-mask-size:6px 6px,100% 100%,auto!important;-webkit-mask-repeat:repeat,no-repeat,repeat!important;-webkit-mask-composite:source-in,source-in!important;
+  mask-image:var(--dots),var(--fadeDown),repeating-linear-gradient(90deg,#000 0 6px,transparent 6px 36px)!important;mask-size:6px 6px,100% 100%,auto!important;mask-repeat:repeat,no-repeat,repeat!important;mask-composite:intersect,intersect!important;}
+@keyframes bft-fall{from{background-position:0 0;}to{background-position:0 120px;}}
