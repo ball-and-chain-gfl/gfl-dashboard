@@ -1735,6 +1735,8 @@
       margin:-8px 0 22px;--betspad:10px;
       padding:var(--betspad) max(0px,calc(var(--betspad) - var(--navside,2px)));
       background:transparent;}
+    /* the moneyline board's slot (sbFlapPaint). The site's look draws it; on its own it is not shown. */
+    .sb-flap-sec{display:none;}
     .bets-bar[hidden]{display:none;}
     .bets-bar::before{content:"";position:absolute;z-index:-1;pointer-events:none;
       top:0;bottom:0;left:calc(var(--navside,2px) * -1);right:calc(var(--navside,2px) * -1);

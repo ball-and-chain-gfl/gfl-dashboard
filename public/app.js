@@ -28149,6 +28149,116 @@ function sbPromosPaint(){
   const el=document.getElementById('sb-promos'); if(!el) return;
   el.innerHTML=sbPromosInner();
 }
+/* ── THE MONEYLINE BOARD ─────────────────────────────────────────────────────
+   A departures board at the top of the sportsbook: this week's games, one to a
+   row, each side's moneyline, on a grid of tiles that flip into place. It is
+   the same six prices the Week Matchups list sells underneath -- sbWeekData,
+   nothing fetched for it -- shown where you can read the whole slate at once.
+   It is a board, not a way to bet: the buttons are still in the list.
+
+   WHAT A ROW SAYS. A price while there is one. Once a game has nothing left to
+   play its prices are null (see sbWeekData), and the row says who WON instead,
+   or shows dashes if there is no result yet.
+
+   WHAT FLIPS. Only a tile whose character changed. The first draw flips every
+   tile in, a row at a time; after that a repaint with the same prices moves
+   nothing, and a line that moves flips just its own digits. The ticker runs
+   only while something is flipping and stops itself.
+
+   The site's look draws it (public/theme/site). Without the look the slot stays
+   hidden: index.html's own rule for .sb-flap-sec is display:none. */
+const FLAP_GLYPHS='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-';
+const _flap={cols:0,rows:0,tiles:[],text:[],busy:new Map(),timer:null,rsz:null,none:false};
+/* one game as exactly `cols` characters, and what each one is: '' a team, 'p' a price, 'w' a result, 'd' quiet */
+function sbFlapLine(r,cols){
+  const up=s=>String(s==null?'':s).toUpperCase();
+  const pr=o=>o==null?'--':(o>0?'+'+o:''+o);
+  const a=up(r.a).slice(0,4), b=up(r.b).slice(0,4);
+  let pa=pr(r.mlA), pb=pr(r.mlB);
+  if(r.mlA==null&&r.mlB==null&&r.winA!=null){ pa=r.winA?'WON':'--'; pb=r.winA?'--':'WON'; }
+  const ch=new Array(cols).fill(' '), cl=new Array(cols).fill('');
+  const put=(x,s,c)=>{ for(let i=0;i<s.length;i++){ const k=x+i; if(k>=0&&k<cols){ ch[k]=s[i]; cl[k]=c; } } };
+  const kind=p=>p==='WON'?'w':p==='--'?'d':'p';
+  if(cols<32){
+    /* a phone: FMAN -350  WGLR +260, each half against its own edge of its half */
+    const half=Math.floor(cols/2);
+    put(0,a,''); put(half-1-pa.length,pa,kind(pa));
+    put(half+1,b,''); put(cols-pb.length,pb,kind(pb));
+  }else{
+    /* room to spare: a margin, wider halves, and the game's state at the far end */
+    const w=Math.floor((cols-12)/2), st=up(r.st);
+    put(1,a,''); put(1+w-pa.length,pa,kind(pa));
+    put(w+4,b,''); put(w+4+w-pb.length,pb,kind(pb));
+    put(cols-1-st.length,st,'d');
+  }
+  return {s:ch.join(''),c:cl};
+}
+function sbFlapTick(){
+  const B=_flap.busy;
+  if(B.size&&!document.hidden) B.forEach((v,el)=>{
+    if(--v.left<=0){ el.textContent=v.ch; B.delete(el); }
+    else if(v.left<14) el.textContent=FLAP_GLYPHS[Math.floor(Math.random()*FLAP_GLYPHS.length)];
+  });
+  if(!B.size&&_flap.timer){ clearInterval(_flap.timer); _flap.timer=null; }
+}
+/* TWO STEPS, SO THE BOARD NEVER COSTS THE PAGE ITS DRAW. sbFlapPaint runs inside the sportsbook's own render and does
+   only what is free: decide whether the board belongs on this view, and show its slot with the room for its rows already
+   held, so nothing below it jumps when the prices arrive. Working the week's prices out (sbWeekData, a few milliseconds)
+   is sbFlapFill, which rides the batched repaint -- one fill for a burst of renders, after the page is on screen. */
+function sbFlapPaint(){
+  const el=document.getElementById('sb-flap'); if(!el) return;
+  const show=_activeTab==='book'&&_sbView!=='mine'&&_sbView!=='folio';
+  if(!show){ el.hidden=true; return; }
+  if(!el.firstChild) el.innerHTML='<div class="sb-flap-head"><h2 class="sb-flap-t"></h2><span class="sb-flap-st"></span></div>'
+    +'<div class="sb-flap" aria-hidden="true"></div><p class="sb-flap-sr"></p>';
+  el.querySelector('.sb-flap').style.setProperty('--flap-rows',_flap.rows||6);
+  if(!_flap.none) el.hidden=false;               // a week with no games stays put away rather than blinking open
+  paintSoon('flap',sbFlapFill);
+}
+function sbFlapFill(){
+  const el=document.getElementById('sb-flap'); if(!el||!el.firstChild) return;
+  if(!(_activeTab==='book'&&_sbView!=='mine'&&_sbView!=='folio')){ el.hidden=true; return; }
+  let d=null; try{ d=sbWeekData(); }catch(e){ d=null; }
+  if(!d||!d.games||!d.games.length){ _flap.none=true; el.hidden=true; return; }
+  _flap.none=false;
+  const rows=d.games.map(g=>{
+    const dead=g.mlA==null&&g.mlB==null;
+    let locked=false; if(!dead){ try{ locked=sbWeekLocked(g.week,'wk'+g.week+'-'+g.a.tid+'-'+g.b.tid+'-ml'); }catch(e){} }
+    return {a:sbTeamAb(g.a.owner,g.a.name), b:sbTeamAb(g.b.owner,g.b.name), mlA:g.mlA, mlB:g.mlB, winA:g.winA,
+      st:dead?(g.winA!=null?'FINAL':'CLOSED'):locked?'LOCKED':'OPEN'};
+  });
+  const any=k=>rows.some(r=>r.st===k);
+  const state=any('OPEN')?'Open':any('LOCKED')?'Locked':rows.every(r=>r.st==='FINAL')?'Final':'Closed';
+  el.hidden=false;
+  const title='Week '+d.week+' Moneylines', t=el.querySelector('.sb-flap-t'), st=el.querySelector('.sb-flap-st');
+  if(t.textContent!==title) t.textContent=title;
+  if(st.textContent!==state){ st.textContent=state; st.className='sb-flap-st sb-flap-'+state.toLowerCase(); }
+  const said=rows.map(r=>r.a+' '+(r.mlA==null?(r.winA===true?'won':'no price'):amFmt(r.mlA))+', '+r.b+' '+(r.mlB==null?(r.winA===false?'won':'no price'):amFmt(r.mlB))).join('; ');
+  const sr=el.querySelector('.sb-flap-sr'); if(sr.textContent!==said) sr.textContent=said;
+  const grid=el.querySelector('.sb-flap'), w=grid.clientWidth; if(!w) return;      // the look is off, or the page is not laid out yet
+  const cols=Math.max(20,Math.min(46,Math.floor((w+2)/16)));
+  if(cols!==_flap.cols||rows.length!==_flap.rows||_flap.tiles[0]&&_flap.tiles[0].parentNode!==grid||!_flap.tiles.length){
+    _flap.cols=cols; _flap.rows=rows.length; _flap.busy.clear(); _flap.text=[];
+    grid.style.gridTemplateColumns='repeat('+cols+',1fr)';
+    grid.style.setProperty('--flap-rows',rows.length);
+    grid.innerHTML='<span></span>'.repeat(cols*rows.length);
+    _flap.tiles=[...grid.children];
+  }
+  const still=(()=>{ try{ return matchMedia('(prefers-reduced-motion:reduce)').matches; }catch(e){ return false; } })();
+  rows.forEach((r,i)=>{
+    const L=sbFlapLine(r,cols), was=_flap.text[i]||'';
+    for(let x=0;x<cols;x++){
+      const tile=_flap.tiles[i*cols+x]; if(!tile) continue;
+      if(tile.className!==L.c[x]) tile.className=L.c[x];
+      const c=L.s[x]; if(was[x]===c) continue;
+      if(c===' '||still){ tile.textContent=c===' '?'':c; _flap.busy.delete(tile); continue; }
+      _flap.busy.set(tile,{ch:c,left:6+Math.floor(Math.random()*8)+Math.floor((i*140+x*22)/45)});
+    }
+    _flap.text[i]=L.s;
+  });
+  if(_flap.busy.size&&!_flap.timer) _flap.timer=setInterval(sbFlapTick,45);
+}
+window.addEventListener('resize',()=>{ clearTimeout(_flap.rsz); _flap.rsz=setTimeout(()=>{ if(_activeTab==='book') sbFlapFill(); },200); });
 function renderBook(){
   /* the desktop slip panel lives inside book-body, so a board repaint takes the
      stake field with it — see sbKeepStakeFocus */
@@ -28204,6 +28314,7 @@ function renderBookInner(){
   sbShowPortal(true);
   sbRenderSlip();
   renderBetsBar();
+  sbFlapPaint();
 }
 
 // ── VIDEO ──────────────────────────────────────────────────────────────────────
@@ -28604,6 +28715,7 @@ async function loadDashboard(){
       </div>
 
       <div class="tab-page" id="page-book">
+        <div class="sb-flap-sec" id="sb-flap" hidden></div>
         <div class="sec wm" data-wm="&#xf51e;">
           <div id="book-body"></div>
         </div>
