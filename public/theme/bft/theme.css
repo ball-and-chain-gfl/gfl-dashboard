@@ -20,10 +20,12 @@
 
 html[data-me=bft][data-tabaccent=home]{
   --bg:#1C1C1C; --bg2:#202020; --bg3:#262626;
-  --text:#FDFEFC; --text2:rgba(253,254,252,.62); --text3:rgba(253,254,252,.38);
+  --text:#FDFEFC; --text2:rgba(253,254,252,.76); --text3:rgba(253,254,252,.54);
   --border:#2B2B2B; --accent:#4C9EFF; --accent2:#015FFF; --accent-rgb:76,158,255;
   --ln:#2B2B2B; --tile:#232323;
-  --orange:#FF8E1C; --yellow:#F0CE26; --red:#D9325E; --sky:#4C9EFF;
+  /* these four are the dots'. They are named --t-* so they can never land on one of the app's own (--red, --green,
+     --blue are the app's, and mean bad, good and so on wherever it uses them) */
+  --t-orange:#FF8E1C; --t-yellow:#F0CE26; --t-red:#D9325E; --t-sky:#4C9EFF;
   --serif:Cardo,'Iowan Old Style',Georgia,serif;
   --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
   --dots:url(/theme/bft/dots.svg);
@@ -35,7 +37,7 @@ html[data-me=bft][data-tabaccent=home],
 html[data-me=bft][data-tabaccent=home] body{background:#1C1C1C!important;}
 html[data-me=bft][data-tabaccent=home] body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);}
 html[data-me=bft][data-tabaccent=home] body::before{content:"";position:fixed;inset:0;z-index:140;pointer-events:none;
-  background:url(/theme/bft/grain.png) 0 0/128px 128px;}
+  background:url(/theme/bft/grain.png) 0 0/96px 96px;}
 html[data-me=bft][data-tabaccent=home] #pgbg,
 html[data-me=bft][data-tabaccent=home] .bg-fx{display:none!important;}
 
@@ -48,12 +50,12 @@ html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec::before{content
   -webkit-mask-image:var(--dots),var(--fadeDown);-webkit-mask-size:6px 6px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
   mask-image:var(--dots),var(--fadeDown);mask-size:6px 6px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
 /* a section's dots are the theme's; its own accent (the colour of its rank numbers, counts and marks) is the app's, untouched */
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-fc{--dc:var(--orange);}
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-cp{--dc:var(--yellow);}
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pk{--dc:var(--sky);}
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pe{--dc:var(--red);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-fc{--dc:var(--t-orange);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-cp{--dc:var(--t-yellow);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pk{--dc:var(--t-sky);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-pe{--dc:var(--t-red);}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-bk{--dc:rgba(253,254,252,.55);}
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-nt{--dc:var(--sky);}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-nt{--dc:var(--t-sky);}
 /* something still to do: the dots run deeper and a rule of the colour marks the edge; done, they sit back */
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec.home-todo{box-shadow:inset 2px 0 0 var(--dc)!important;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec.home-todo::before{height:230px;opacity:1;}
@@ -61,7 +63,7 @@ html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec.home-done::befo
 
 /* the one that moves: your forecast twinkles (a few dots of the same grid, fading in and out) */
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .mod-fc::after{content:""!important;display:block!important;position:absolute;inset:0 0 auto 0;height:132px;z-index:-1;pointer-events:none;
-  background:color-mix(in srgb,var(--orange) 55%,#fff);font-size:0!important;opacity:0;animation:bft-twinkle 3.6s ease-in-out infinite;will-change:opacity;
+  background:color-mix(in srgb,var(--t-orange) 55%,#fff);font-size:0!important;opacity:0;animation:bft-twinkle 3.6s ease-in-out infinite;will-change:opacity;
   -webkit-mask-image:url(/theme/bft/sparks-a.svg),var(--fadeDown);-webkit-mask-size:96px 96px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
   mask-image:url(/theme/bft/sparks-a.svg),var(--fadeDown);mask-size:96px 96px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
 @keyframes bft-twinkle{0%,100%{opacity:0;}45%,55%{opacity:1;}}
@@ -88,7 +90,7 @@ html[data-me=bft][data-tabaccent=home] #page-home .tt-send{background:var(--text
 html[data-me=bft][data-tabaccent=home] #page-home .cp-bt{background:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:3px!important;}
 html[data-me=bft][data-tabaccent=home] #page-home .cp-refresh{background:var(--tile)!important;border-radius:3px!important;}
 html[data-me=bft][data-tabaccent=home] #page-home .pkl-side{border-radius:2px!important;}
-html[data-me=bft][data-tabaccent=home] #page-home .pkl-n{border-radius:2px!important;font-family:var(--mono)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home .pkl-n{border-radius:2px!important;}
 html[data-me=bft][data-tabaccent=home] #page-home :is(.cp-bdg,.fa-check,.fa-xmark,.fa-hourglass-half){border-radius:2px!important;}
 
 /* ── the small labels: monospace, spaced, quiet ───────────────────────────── */
@@ -102,7 +104,7 @@ html[data-me=bft][data-tabaccent=home] #floatnav #me-btn{border-radius:4px!impor
 html[data-me=bft][data-tabaccent=home] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar{background:var(--tile)!important;border:1px solid var(--ln)!important;border-top:0!important;border-radius:0!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar :is(a,span,i,b){color:var(--text)!important;}
-html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar .fa-youtube{color:var(--orange)!important;}
+html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar .fa-youtube{color:var(--t-orange)!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar .nv-l{font-family:var(--mono)!important;letter-spacing:.06em;color:var(--text2)!important;}
 
 /* ── the punishment bar pinned to the foot ────────────────────────────────── */
@@ -217,14 +219,12 @@ html[data-me=bft][data-tabaccent=home] #floatnav :is(button,.nav-burger,.tm-avat
 html[data-me=bft][data-tabaccent=home] #my-matchup :is(.pb-bar,.pb-more,.pb-ic){border-radius:4px!important;}
 
 /* ── type ────────────────────────────────────────────────────────────────── */
-/* NUMBERS ARE LEFT ALONE. Every figure keeps the face, weight and size the app gave it, which is what the
-   first redesign showed. Two other faces were tried for them on 16 November (the monospace, then Inter
-   regular) and both read worse. So the rule below skips them, and nothing further down restyles one. */
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(span,div,b,strong,button,a,p,em,small,label,textarea,input,select,li,h3,h4):where(:not(.fcr-p):not(.cp-avg):not(.cp-rk):not(.fc-pct):not(.pkl-cash):not(.pkl-n):not(.cp-bdg):not(.fcr-pos):not(.nt-stat-v):not(.wp-t0):not(.wp-t1):not(.fc-odds-s span):not(.bk-delta b)){
-  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:400!important;}
+/* NUMBERS ARE LEFT ALONE: every figure keeps the face, weight and size the app gave it. There was a rule here
+   that set all running text to one weight and skipped a list of number classes; any number not on the list was
+   caught (16 November). So there is no such rule: only named kinds of text are restyled, below. */
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .sec-head{font-family:var(--serif)!important;font-weight:400!important;}
 /* names, questions, answers: the things you read first */
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(b:where(:not(.bk-delta b)),strong,.cp-nm,.fcr-n,.fc-mu,.pker-q,.bkr-q,.pker-a,.bkr-a,.bk-q,.bk-opt,.bkd-done,.cp-bt-ab,.tm-avatar,.nt-body b){font-weight:500!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.cp-nm,.fc-mu,.pker-q,.bkr-q,.pker-a,.bkr-a,.bk-q,.bk-opt,.cp-bt-ab){font-weight:500!important;}
 /* every small capital label */
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.cp-meta,.bk-meta,.bk-meta span,.fc-lu-h,.tt-h,.cp-yet-l,.fk-final,.fk-pre,.fk-live,.fc-wk,.nt-t,.nt-day,.bkd-day,.pk-badge,.nt-hint,.nt-pos,.fcr-head .fcr-n,.fc-odds-s,.wp-key span){
   font-family:var(--mono)!important;font-weight:500!important;font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;}
@@ -232,7 +232,7 @@ html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.cp-meta,.b
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.tt-send,.home-redo,.nt-go){font-size:14px!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;}
 
 /* ── colour ──────────────────────────────────────────────────────────────── */
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.fk-live,.pk-badge,.pk-badge i){color:var(--yellow)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.fk-live,.pk-badge,.pk-badge i){color:var(--t-yellow)!important;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec :is(.fc-wk,.fc-lu-h,.tt-h,.cp-meta,.cp-yet-l,.bkd-day){color:var(--text2)!important;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-at{color:var(--text3)!important;}
 
@@ -273,8 +273,8 @@ html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-g{backgrou
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-sides{gap:0!important;align-items:stretch!important;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-side{border:0!important;background:none!important;padding:14px 12px!important;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-at{align-self:stretch;display:flex!important;align-items:center;padding:0 6px!important;border-left:1px solid var(--ln);border-right:1px solid var(--ln);}
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-side.on{background:rgba(76,158,255,.13)!important;box-shadow:inset 0 -2px 0 var(--sky)!important;}
-html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-motw .pkl-side.on{background:rgba(240,206,38,.10)!important;box-shadow:inset 0 -2px 0 var(--yellow)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pkl-side.on{background:rgba(76,158,255,.13)!important;box-shadow:inset 0 -2px 0 var(--t-sky)!important;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-motw .pkl-side.on{background:rgba(240,206,38,.10)!important;box-shadow:inset 0 -2px 0 var(--t-yellow)!important;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .pk-badge{padding:10px 12px!important;margin:0!important;border-bottom:1px solid var(--ln);}
 
 /* ── pick'em and ball knowledge: ruled rows, and the answers as a boxed grid ── */
@@ -288,3 +288,24 @@ html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .bk-opt{backgro
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-meta{display:flex!important;align-items:center;justify-content:space-between;gap:12px;text-align:left!important;}
 /* the win chance took its weight from the box around it, which is now 400: give it its own back */
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .fc-pct{font-weight:800!important;}
+
+/* ── the poll's rank numbers: boxed, each in its rank's colour ────────────────
+   The same badge the app draws on a crest (.cp-bdg) and the same twelve colours
+   (pollRampColor over POLL_RAMP, first to twelfth), so a 3 in the list is the
+   3 on a crest in the forecast. The list is in rank order, so a row's place is
+   its rank. */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-rk{--cpb:var(--text3);flex:0 0 auto;display:inline-flex!important;align-items:center;justify-content:center;box-sizing:border-box;
+  min-width:22px;height:20px;padding:0 4px;background:rgba(0,0,0,.42)!important;color:var(--cpb)!important;box-shadow:inset 0 0 0 1px var(--cpb);
+  font-variant-numeric:tabular-nums;line-height:1;text-align:center;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(1) .cp-rk{--cpb:#60a5fa;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(2) .cp-rk{--cpb:#38bdf8;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(3) .cp-rk{--cpb:#22d3ee;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(4) .cp-rk{--cpb:#2dd4bf;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(5) .cp-rk{--cpb:#10b981;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(6) .cp-rk{--cpb:#4ade80;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(7) .cp-rk{--cpb:#a3e635;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(8) .cp-rk{--cpb:#eab308;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(9) .cp-rk{--cpb:#ffb347;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(10) .cp-rk{--cpb:#fb923c;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(11) .cp-rk{--cpb:#f43f5e;}
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(12) .cp-rk{--cpb:#e11d48;}

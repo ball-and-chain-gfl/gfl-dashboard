@@ -20,7 +20,9 @@ const dots = `<svg xmlns="http://www.w3.org/2000/svg" width="${DOT.cell}" height
 fs.writeFileSync(new URL('dots.svg', OUT), dots);
 
 /* ── the grain ───────────────────────────────────────────────────────────── */
-const GRAIN = { px: 128, levels: 6, max: 11 };   // tile size, alpha steps, strongest alpha (of 255)
+/* 256px, and the stylesheet draws it at 96: more than two of its pixels to a CSS pixel, so it stays sharp on a
+   phone (a 128px tile drawn at 128 was being stretched three times over and went soft). Finer, so a little stronger. */
+const GRAIN = { px: 256, levels: 8, max: 20 };   // tile size, alpha steps, strongest alpha (of 255)
 let seed = 20261116;
 const rnd = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
 const N = GRAIN.px, raw = Buffer.alloc(N * (1 + N * 2));

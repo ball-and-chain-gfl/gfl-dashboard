@@ -167,6 +167,8 @@ http.createServer(async (req, res) => {
     if (err) return send(res, 404, 'not found');
     const type = TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
     if (p === '/index.html') data = String(data).replace('<head>', '<head>' + GUARD);
+    /* a theme's pages still being worked on (public/theme/<account>/pages.css) are loaded here and nowhere else */
+    if (p === '/index.html') data = String(data).replace('</head>', '<link rel="stylesheet" href="/theme/bft/pages.css"></head>');
     send(res, 200, data, type);
   });
 }).listen(PORT, () => console.log(`preview on http://localhost:${PORT} (api from ${LIVE}, Firestore writes blocked)`));
