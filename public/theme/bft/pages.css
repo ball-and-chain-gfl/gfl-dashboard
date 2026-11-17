@@ -40,10 +40,6 @@ html[data-me=bft] #floatnav #tab-dd-btn{background:var(--tile)!important;border-
 html[data-me=bft] #floatnav .nav-burger{border-radius:3px!important;}
 html[data-me=bft] #floatnav #me-btn{border-radius:4px!important;}
 html[data-me=bft] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
-html[data-me=bft] #floatnav .nv-bar{background:var(--tile)!important;border:1px solid var(--ln)!important;border-top:0!important;border-radius:0!important;}
-html[data-me=bft] #floatnav .nv-bar :is(a,span,i,b){color:var(--text)!important;}
-html[data-me=bft] #floatnav .nv-bar .fa-youtube{color:var(--t-orange)!important;}
-html[data-me=bft] #floatnav .nv-bar .nv-l{font-family:var(--mono)!important;letter-spacing:.06em;color:var(--text2)!important;}
 html[data-me=bft] #my-matchup .pb-bar{background:#202020!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important;}
 html[data-me=bft] #my-matchup .pb-wk{font-family:var(--mono)!important;letter-spacing:.06em;}
@@ -121,3 +117,21 @@ html[data-me=bft] #floatnav select{background-color:var(--tile)!important;border
 html[data-me=bft]:not([data-tabaccent=home]) :is(.sec-nav,.sec-nav-local){background:#1C1C1C!important;border-radius:0!important;box-shadow:none!important;}
 html[data-me=bft]:not([data-tabaccent=home]) :is(.sec-nav,.sec-nav-local) :is(button,a){background:var(--l1)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;box-shadow:none!important;}
 html[data-me=bft]:not([data-tabaccent=home]) .page-h1 *{border-radius:0!important;}
+
+/* ── the bar at the top and the bar at the foot sit on the page's own column ──
+   They were 10 to 14px in from the screen's edge while the page is 6px in and
+   stops at 1120px, so neither lined up with the lines down the page's sides. */
+html[data-me=bft]:not([data-tabaccent=home]) #floatnav{left:max(6px,calc(50% - 560px))!important;right:max(6px,calc(50% - 560px))!important;width:auto!important;max-width:none!important;
+  border:1px solid var(--ln)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #my-matchup{padding-left:max(6px,calc(50% - 560px))!important;padding-right:max(6px,calc(50% - 560px))!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #my-matchup .pb-bar{border-radius:0!important;}
+/* the new-video strip is the app's orange, untouched, so it stands out (17 November); only its corners are squared */
+html[data-me=bft]:not([data-tabaccent=home]) #floatnav .nv-bar{border-radius:0!important;}
+
+/* ── THE THEME'S RED, ON PURPOSE ────────────────────────────────────────────
+   --red is the app's variable (bad numbers, losses, anything marked wrong). The
+   theme first replaced it by accident, the accident was undone, and the
+   commissioner asked for the theme's red back (17 November): he liked it. So
+   this is a deliberate override, for this account only. --green is the app's
+   own and was never changed. */
+html[data-me=bft]{--red:#D9325E;}

@@ -102,10 +102,6 @@ html[data-me=bft][data-tabaccent=home] #floatnav #tab-dd-btn{background:var(--ti
 html[data-me=bft][data-tabaccent=home] #floatnav .nav-burger{border-radius:3px!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav #me-btn{border-radius:4px!important;}
 html[data-me=bft][data-tabaccent=home] #floatnav #me-btn.on{background:var(--text)!important;border-color:var(--text)!important;}
-html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar{background:var(--tile)!important;border:1px solid var(--ln)!important;border-top:0!important;border-radius:0!important;}
-html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar :is(a,span,i,b){color:var(--text)!important;}
-html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar .fa-youtube{color:var(--t-orange)!important;}
-html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar .nv-l{font-family:var(--mono)!important;letter-spacing:.06em;color:var(--text2)!important;}
 
 /* ── the punishment bar pinned to the foot ────────────────────────────────── */
 html[data-me=bft][data-tabaccent=home] #my-matchup .pb-bar{background:#202020!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;
@@ -309,3 +305,21 @@ html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-re
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(10) .cp-rk{--cpb:#fb923c;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(11) .cp-rk{--cpb:#f43f5e;}
 html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .cp-list .cp-res:nth-child(12) .cp-rk{--cpb:#e11d48;}
+
+/* ── the bar at the top and the bar at the foot sit on the page's own column ──
+   They were 10 to 14px in from the screen's edge while the page is 6px in and
+   stops at 1120px, so neither lined up with the lines down the page's sides. */
+html[data-me=bft][data-tabaccent=home] #floatnav{left:max(6px,calc(50% - 560px))!important;right:max(6px,calc(50% - 560px))!important;width:auto!important;max-width:none!important;
+  border:1px solid var(--ln)!important;}
+html[data-me=bft][data-tabaccent=home] #my-matchup{padding-left:max(6px,calc(50% - 560px))!important;padding-right:max(6px,calc(50% - 560px))!important;}
+html[data-me=bft][data-tabaccent=home] #my-matchup .pb-bar{border-radius:0!important;}
+/* the new-video strip is the app's orange, untouched, so it stands out (17 November); only its corners are squared */
+html[data-me=bft][data-tabaccent=home] #floatnav .nv-bar{border-radius:0!important;}
+
+/* ── THE THEME'S RED, ON PURPOSE ────────────────────────────────────────────
+   --red is the app's variable (bad numbers, losses, anything marked wrong). The
+   theme first replaced it by accident, the accident was undone, and the
+   commissioner asked for the theme's red back (17 November): he liked it. So
+   this is a deliberate override, for this account only. --green is the app's
+   own and was never changed. */
+html[data-me=bft][data-tabaccent=home]{--red:#D9325E;}
