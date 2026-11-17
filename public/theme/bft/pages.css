@@ -28,7 +28,7 @@ html[data-me=bft]{
 }
 html[data-me=bft],
 html[data-me=bft] body{background:#171717!important;}
-html[data-me=bft] body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);}
+html[data-me=bft] body{color:var(--text);}
 html[data-me=bft] body::before{content:"";position:fixed;inset:0;z-index:140;pointer-events:none;
   background:url(/theme/bft/grain.png) 0 0/96px 96px;}
 html[data-me=bft] #pgbg,
@@ -49,22 +49,11 @@ html[data-me=bft] #floatnav :is(button,.nav-burger,.tm-avatar),
 html[data-me=bft] #my-matchup :is(.pb-bar,.pb-more,.pb-ic){border-radius:4px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) main{padding-left:6px!important;padding-right:6px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) .page-h1{background:#171717!important;background-image:none!important;border:1px solid var(--ln)!important;border-bottom:0!important;border-radius:0!important;box-shadow:none!important;
-  margin:0 auto!important;width:100%!important;max-width:1120px;padding:58px 16px 26px!important;display:flex!important;flex-wrap:wrap;align-items:baseline;gap:8px 12px;
+  margin:0 auto!important;width:100%!important;max-width:1120px;padding:96px 16px 34px!important;display:flex!important;flex-wrap:wrap;align-items:baseline;gap:8px 12px;
   justify-content:flex-start!important;text-align:left!important;position:relative;overflow:hidden;isolation:isolate;
-  font-family:var(--serif)!important;font-weight:400!important;font-size:34px!important;line-height:1.05!important;letter-spacing:-.025em!important;color:var(--text)!important;}
+  font-family:var(--serif)!important;font-weight:400!important;font-size:clamp(38px,11.4vw,46px)!important;line-height:1!important;letter-spacing:-.035em!important;color:var(--text)!important;}
 html[data-me=bft]:not([data-tabaccent=home]) .page-h1>span:first-child{font:inherit!important;letter-spacing:inherit!important;background:none!important;-webkit-text-fill-color:currentColor!important;color:var(--text)!important;}
 html[data-me=bft]:not([data-tabaccent=home]) .page-h1>:not(:first-child){font:500 10.5px/1 var(--mono)!important;letter-spacing:.1em!important;text-transform:uppercase;border-radius:0!important;}
-html[data-me=bft]:not([data-tabaccent=home]) .page-h1::before{content:""!important;display:block!important;position:absolute!important;inset:0 0 auto 0!important;width:auto!important;height:120px!important;z-index:-1;pointer-events:none;
-  padding:0!important;border:0!important;border-radius:0!important;animation:none!important;opacity:1!important;transform:none!important;background:var(--accent2)!important;
-  -webkit-mask-image:var(--dots),var(--fadeDown);-webkit-mask-size:6px 6px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
-  mask-image:var(--dots),var(--fadeDown);mask-size:6px 6px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
-html[data-me=bft]:not([data-tabaccent=home]) .page-h1::after{content:""!important;display:block!important;position:absolute!important;inset:0 0 auto 0!important;width:auto!important;height:120px!important;z-index:-1;pointer-events:none;
-  padding:0!important;border:0!important;border-radius:0!important;opacity:1!important;transform:none!important;
-  background:linear-gradient(100deg,transparent 42%,color-mix(in srgb,var(--accent2) 45%,#fff) 50%,transparent 58%) 0 0/300% 100% no-repeat!important;
-  animation:bft-sweep 5.5s linear infinite!important;
-  -webkit-mask-image:var(--dots),var(--fadeDown);-webkit-mask-size:6px 6px,100% 100%;-webkit-mask-repeat:repeat,no-repeat;-webkit-mask-composite:source-in;
-  mask-image:var(--dots),var(--fadeDown);mask-size:6px 6px,100% 100%;mask-repeat:repeat,no-repeat;mask-composite:intersect;}
-@keyframes bft-sweep{from{background-position:130% 0;}to{background-position:-30% 0;}}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam){max-width:1120px;width:100%;margin:0 auto!important;border-left:1px solid var(--ln);border-right:1px solid var(--ln);padding-left:0!important;padding-right:0!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam)::after{content:"GFL";display:block;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:30px 0 10px;text-align:center;overflow:hidden;
   font:700 clamp(130px,40vw,420px)/.84 Inter,sans-serif;letter-spacing:-.06em;color:transparent;-webkit-text-fill-color:transparent;
@@ -87,11 +76,11 @@ html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#pag
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec .sec{padding:18px 16px!important;margin:0 0 14px!important;border:1px solid var(--ln2)!important;background:var(--l1)!important;--sp-t:18px;--sp-x:16px;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec .sec::before,html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec .sec::after{display:none!important;}
 @media(prefers-reduced-motion:reduce){ html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec::after{animation:none!important;opacity:.5;} html[data-me=bft]:not([data-tabaccent=home]) .page-h1::after{animation:none!important;display:none!important;} }
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header){font-family:var(--serif)!important;font-weight:400!important;font-size:26px!important;line-height:1.1!important;letter-spacing:-.02em!important;
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header){font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:19px!important;line-height:1.2!important;letter-spacing:-.012em!important;
   color:var(--text)!important;text-align:left!important;justify-content:flex-start!important;align-items:baseline!important;flex-direction:row!important;gap:8px 12px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header)>i:first-child{display:none!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header)::after,html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header)::before{display:none!important;}
-html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec>.sec-head:first-child{font-size:30px!important;margin:0 calc(0px - var(--sp-x)) 24px!important;padding:0 var(--sp-x) 28px!important;border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec>.sec-head:first-child{font-size:20px!important;margin:0 calc(0px - var(--sp-x)) 22px!important;padding:0 var(--sp-x) 22px!important;border-bottom:1px solid var(--ln)!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) :is(.sec-head,.lh-sec-head,.section-header) .badge-info{font:500 10.5px/1 var(--mono)!important;letter-spacing:.08em!important;text-transform:uppercase;color:var(--text2)!important;
   background:var(--ln)!important;border:0!important;border-radius:0!important;padding:5px 7px!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *,html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *::before,html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) *::after{border-radius:0!important;}
@@ -107,7 +96,7 @@ html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#pag
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.ld-row,.mx-row,.ps-row,.sch-row,.spj-row):not(.ld-me):not(.mx-me):not(.ps-now):not(.sch-now){background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;}
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster) :is(.ld-bar-f,.bkiq-fill,.trade-bar>*){-webkit-mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;mask:url(/theme/bft/dots-fine.svg) 0 0/4px 4px repeat;}
 @media(min-width:1000px){
-  html[data-me=bft]:not([data-tabaccent=home]) .page-h1{padding:76px 40px 34px!important;font-size:44px!important;}
+  html[data-me=bft]:not([data-tabaccent=home]) .page-h1{padding:132px 40px 48px!important;font-size:68px!important;}
   html[data-me=bft]:not([data-tabaccent=home]) #app :is(#page-week,#page-book,#page-standings,#page-leaders,#page-punishment,#page-takes,#page-legacy,#page-history,#page-teams,#page-tenure,#page-draft,#page-trades,#page-badbeat,#page-cm,#page-roster,#page-profile,#page-bam) .sec{padding:64px 40px 54px!important;--sp-t:64px;--sp-x:40px;}
 }
 html[data-me=bft] #floatnav select{background-color:var(--tile)!important;border:1px solid var(--ln)!important;border-radius:4px!important;color:var(--text)!important;}
@@ -161,11 +150,153 @@ html[data-me=bft]:not([data-tabaccent=home]) #app :is(.picker-bar,.tn-picker){pa
 /* the remaining dark cards take the page's first step of fill */
 html[data-me=bft]:not([data-tabaccent=home]) #app :is(.prof-banner,.lineup-list){background:var(--l1)!important;border:1px solid var(--ln2)!important;box-shadow:none!important;}
 
-/* ── from the library: a second way for a title's dots to move. Where a page is about things coming in
-   (the book's lines, trades, past results) streaks FALL down the dots instead of a band sweeping across. ── */
-html[data-me=bft]:not([data-tabaccent=home]):is([data-tabaccent=book],[data-tabaccent=trades],[data-tabaccent=history]) .page-h1::after{
-  background:linear-gradient(transparent 0,transparent 30%,color-mix(in srgb,var(--accent2) 50%,#fff) 92%,transparent 100%) 0 0/100% 120px repeat-y!important;
-  animation:bft-fall 3.4s linear infinite!important;
-  -webkit-mask-image:var(--dots),var(--fadeDown),repeating-linear-gradient(90deg,#000 0 6px,transparent 6px 36px)!important;-webkit-mask-size:6px 6px,100% 100%,auto!important;-webkit-mask-repeat:repeat,no-repeat,repeat!important;-webkit-mask-composite:source-in,source-in!important;
-  mask-image:var(--dots),var(--fadeDown),repeating-linear-gradient(90deg,#000 0 6px,transparent 6px 36px)!important;mask-size:6px 6px,100% 100%,auto!important;mask-repeat:repeat,no-repeat,repeat!important;mask-composite:intersect,intersect!important;}
-@keyframes bft-fall{from{background-position:0 0;}to{background-position:0 120px;}}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE COMPONENTS (17 November, second pass)
+
+   The first pass drew the frame of every page and left what sits in it as the
+   app made it: tinted pills, gradient cards and buttons, near-black wells,
+   heavy little capitals, and everything that opens over a page (the menu, the
+   score and sign-in boxes, the bet slip, the bucks chip). This is that layer.
+
+   THE TYPE, in three voices and no more:
+     the page title    the serif, large, and alone in using it
+     a section heading the sans at medium weight, small
+     a label           the monospace, in small capitals
+   A figure is none of these: numbers keep the face the app gave them.
+
+   THE PIECES:
+     a fill        one step lighter than what it sits on, never black, never a gradient
+     a chip        an outline in its own colour, no tint behind it
+     a main button white, dark words (the Send button on the homepage)
+     a choice      a boxed cell; the chosen one is lit and underlined in the page colour
+     a pop-up      the page itself, boxed in a line, square
+   The class lists below were read out of the app's own stylesheet.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* THE RULE (17 November): two dot backgrounds never sit right up against each other. So the title has none: it is the
+   serif, large, on the bare page, under a short rule in the page's second colour, and the first section's dots start
+   below it. Further down, a section's dots fall from its top and its own content parts them from the next section's. */
+html[data-me=bft]:not([data-tabaccent=home]) .page-h1::before,html[data-me=bft]:not([data-tabaccent=home]) .page-h1::after{content:none!important;display:none!important;animation:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .page-h1>span:first-child::before{content:""!important;display:block!important;width:28px;height:2px;background:var(--accent2);margin:0 0 20px 2px;}
+/* the homepage's section headings take the same sans, so a heading is a heading on every page */
+html[data-me=bft][data-tabaccent=home] #page-home#page-home .sec .sec-head.sec-head{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:21px!important;line-height:1.2!important;letter-spacing:-.012em!important;}
+
+/* ── labels: every small-capital label is the monospace, medium, in whatever colour it had ── */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.big4-label,.sb-pull,.sb-bank-l,.sb-next,.sb-week-h,.sb-bet-tag,.trade-vote-h,.trade-recv,.trade-winlabel,.brk-col-h,.lr-week,.lr-mt,.bk-meta,.pk-sent,.pk-reopen,.pk-badge,.pk-mu,.bank-t,.bank-foot,.curse-lbl,.bkiq-t,.bkiq-lab,.bkiq-scale,.bk-delta-l,.bkd-day,.pke-vs,.bk-back,.mm-tag,.rs-head,.rs-cols,.rs-slot,.rs-sub,.wt-slot,.wk-tag,.iv-gh,.iv-held,.iv-mode-l,.iv-mb,.ivc-sub,.iv-seg-b,.iv-tag-sh,.sb-invites-h,.sb-pvp-tag,.sb-pvp-h,.sb-pvp-who,.sch-resy,.sch-dead-tag,.ps-wk,.pg-who-w,.bb-key-h,.lr-wk-tag,.lr-nowl,.lr-wk-h,.po-head,.mc-l,.motw-odds-h,.punish-week,.cp-meta,.cp-yet-l,.cp-reset,.cp-fold-s,.cp-bview-k,.fc-wk,.fc-odds-s,.la-count,.la-clear,.la-restore,.la-empty,.fm-lbl,.fm-empty,.fcl-h,.fcl-lbl,.fcl-when,.inv-ch-h,.tt-h,.ht-meta,.ht-refresh,.ht-del,.home-redo,.home-signin-m,.mp-egg,.mp-eggnow,.bk-kind,.ld-chart-h,.nt-t,.nt-day,.nt-marg-l,.nt-stat-l,.nt-undo,.lk-cap,.mp-plant-l,.motw-stats-s,.sch-dl-t,.honor-lb,.prof-chip-l,.prof-stat-l,.gabe-pts-l,.bracket-round,.mp-l,.fc-lu-h,.fcr-head,.fcr-tot,.fcr-key,.fcr-pos,.sd-top-l,.rs2-slot,.rs2-sub,.rs2-pl,.rs2-bh,.rs2-ps,.rs2-sl,.rs2-sh,.lr-pick-b,.lv-head,.lv-status,.lv-rec-h,.tab-dd-sep-l,.badge-info,.trade-verdict,.motw-fact-l,.punish-tag,.gabe-badge,.dgrade-lbl,.dr-tabgrp,.lh-def,.lh-brk,.lh-col-head,.poll-wk-l,.mo-go,.mo-l,.mo-s,.wk-h,.wk-final,.sb-live,.sb-bar-r,.jjj-kick,.sb-ride-h,.soc-kind,.soc-st,.soc-verb,.soc-more,.sb-clear,.sb-si-mkt,.sb-dock,.ov-sub,.dg-all,.ov-po,.ov-aw,.si-l,.sch-chip-l,.sd-h,.spb-bh,.spb-rh,.sos-note,.sos-pill,.sos-hl,.tc-lbl,.h2h-vs,.home-punish-week,.home-punish-more,.pm-when,.htp-l,.lg-glabel,.pr-week,.pr-h,.hw-sort,.hw-head):not(#page-bam *){font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.ld-ab,.eg-ab):not(#page-bam *){font-weight:600!important;letter-spacing:.02em!important;}
+
+/* ── fills: a well was black at 30%. It is one step up from whatever it sits on. ── */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.card,.big4-team,.pin-box,.sb-pull,.sb-next,.sb-bet,.hist-item,.bk-card,.bk-opt,.pk-g,.pk-sent,.pk-reopen,.pkl-g,.pk-card,.pk-side,.bank-sec,.bkiq-sec,.bkr,.bk-delta,.bkd-flash,.bkd-done,.pke-card,.pke-pl,.pker,.bk-back,.rp-cell,.iv-uc,.sb-invite,.sb-totals,.pg-val,.motw-take,.motw-odds-team,.punish-opt,.cp-t,.cp-reset,.cp-fold,.cp-fold-s,.cp-res,.nt-b4-c,.la-clear,.la-restore,.la-row,.fm-field,.fm-ol,.fcl,.inv-chart,.tt-box,.tt-text,.ht-text,.ht-rx-pal,.home-redo,.mp-egg,.mp-eggnow,.eg-cell,.ld-mrow,.nt-vb,.nt-go,.lk-wrap,.mp-plant,.motw-stats,.motw-stats-s,.lineup-slot,.prof-chip,.honor-tile,.sup-row,.prof-award,.conf-col,.bracket-game,.fc-lu,.fcr-side,.sd-top,.rs2-panel,.lr-pick-b,.lv-now,.lv-card,.draft-score-box,.lineup-grade,.panel,.dr-tabbox,.trades-filters,.lh-rcard,.motw-book,.motw-book-link,.mo-cell,.jjj-tail,.sb-ride,.soc-item,.sb-tcard,.sch-chip,.spb-bracket,.spb-game,.spj-row,.bb-rank,.lg-chip,.home-box):not(.on,.active,.picked,.selected,.won,.lost,.win,.loss,.good,.bad,.live,.done,.me,.open):not(#page-bam *){background-color:rgba(253,254,252,.035)!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}
+/* a card that was a gradient is the same step, and keeps the colour of its line, which is what said what it was */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.sb-bank,.sb-bet-open,.sb-bet-lost,.iv-card,.iv-card-coin,.sb-invites,.sb-bet-offer,.lr-sec,.gabe-ptbox,.rs2-row,.jjj,.jjj-tail,.sb-ride,.sb-ride-ball,.sb-ride-chain,.honor-tile,.card,.big4-team,.hist-item,.lineup-slot,.motw-take,.punish-opt,.draft-row-graded,.spb-game,.eg-cell):not(#page-bam *){background-image:none!important;background-color:rgba(253,254,252,.035)!important;box-shadow:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.iv-card,.jjj)::after{background-image:none!important;}
+/* a card's line is the page's line, not the page colour at half strength; the ones whose line says something keep it */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.jjj,.sb-ride,.card,.panel,.big4-team,.hist-item,.lineup-slot,.motw-take,.iv-card,.sb-invites,.lr-sec,.rs2-row,.spb-game,.eg-cell,.punish-opt):not(#page-bam *){border-color:var(--ln2)!important;}
+
+/* ── chips: an outline in the chip's own colour ── */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.badge-info,.tp-bag,.trade-verdict,.sb-inv-chip,.sb-pvp-tag,.sch-dead-tag,.sch-rival,.spb-seed,.ht-refresh,.ht-rx-chip,.ld-fresh-b,.punish-tag,.gabe-badge,.sup-detail,.sb-live,.sb-slip-n,.sb-dock-n,.sos-note,.sos-pill,.mp-eggnow,.lg-chip,.pk-reopen,.la-clear,.la-restore,.nt-undo,.bkiq-lab,.lr-wk-tag,.sb-bet-tag,.wk-tag,.mm-tag,.iv-tag-sh,.soc-st,.soc-kind):not(#page-bam *),
+html[data-me=bft] :is(.sb-slip-n,.sb-dock-n){background-color:transparent!important;background-image:none!important;border:1px solid color-mix(in srgb,currentColor 46%,transparent)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .punish-tag:not(#page-bam *){color:var(--t-red)!important;}
+
+/* ── the main button: white, dark words ── */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.sb-place,.ht-post,.iv-go,.tt-send,.pk-go,.pke-go,.cp-go,.nt-mw-go):not(#page-bam *),
+html[data-me=bft] .si-go{background:var(--text)!important;background-image:none!important;color:#111!important;border:1px solid var(--text)!important;border-radius:4px!important;box-shadow:none!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:13.5px!important;letter-spacing:0!important;text-transform:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.sb-place,.ht-post,.iv-go,.tt-send,.pk-go,.pke-go,.cp-go,.nt-mw-go):not(#page-bam *) :is(i,span),
+html[data-me=bft] .si-go :is(i,span){color:#111!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.sb-place,.ht-post,.iv-go,.tt-send,.pk-go,.pke-go,.cp-go,.nt-mw-go):disabled:not(#page-bam *){opacity:.38!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .iv-go.iv-sell:not(#page-bam *){background:var(--t-red)!important;border-color:var(--t-red)!important;color:#fff!important;}
+
+/* ── a row of choices: boxed cells, monospace; the chosen one lit, with the page colour under it ── */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.filter-btn,.sx-chip,.mx-chip,.iv-seg-b,.iv-mb,.dr-vtab,.dr-sbtn,.lh-brk,.week-btn,.poll-wk):not(#page-bam *){background-color:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;box-shadow:none!important;color:var(--text2)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.sx-chip,.mx-chip,.iv-seg-b,.iv-mb,.dr-vtab,.dr-sbtn,.lh-brk,.sb-utab):not(#page-bam *){font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;text-transform:uppercase!important;font-size:11px!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.filter-btn,.sx-chip,.mx-chip,.iv-seg-b,.iv-mb,.dr-vtab,.dr-sbtn,.lh-brk,.week-btn,.poll-wk):is(.active,.on):not(#page-bam *){background-color:var(--l2)!important;color:var(--text)!important;border-color:var(--ln2)!important;box-shadow:inset 0 -2px 0 var(--accent)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .sb-utab{font-size:10.5px!important;letter-spacing:.05em!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .sb-odds:not(.sb-odds-lock) .sb-o-lbl{font-family:var(--mono)!important;font-weight:500!important;}
+html[data-me=bft]:not([data-tabaccent=home]) main .tab-btn{background-color:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;box-shadow:none!important;color:var(--text2)!important;
+  font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;text-transform:uppercase!important;font-size:11px!important;}
+html[data-me=bft]:not([data-tabaccent=home]) main .tab-btn.active{background-color:var(--l2)!important;color:var(--text)!important;box-shadow:inset 0 -2px 0 var(--accent)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .sb-utab.on::after{border-radius:0!important;height:2px!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .sb-utabs{border-bottom:1px solid var(--ln)!important;}
+
+/* ── the row that is yours, or this week: lit, with a rule down its left in the page colour ── */
+html[data-me=bft]:not([data-tabaccent=home]) :is(.ld-me,.mx-me,.eg-me,.eg-top,.ps-now,.sch-now,.lr-now,.dg-total):not(#page-bam *){background-color:var(--l2)!important;background-image:none!important;border-color:transparent!important;box-shadow:inset 2px 0 0 var(--accent)!important;}
+
+html[data-me=bft]:not([data-tabaccent=home]) :is(.ld-me,.mx-me,.eg-me,.eg-top,.ps-now,.sch-now,.lr-now,.dg-total):not(#page-bam *){outline:0!important;}
+
+/* ── small repairs the new type asked for ── */
+/* Team Data: a long label in the monospace pushed its figure off the row; and the name ran under the rank badge */
+html[data-me=bft]:not([data-tabaccent=home]) .prof-stat-l{letter-spacing:0!important;font-size:9px!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #page-teams .prof-headline{padding-right:30px!important;}
+/* Schedule, on a phone: the opponent column was too narrow for crest, rank, name, RIVAL chip and arrow, and the chip ran
+   into the record beside it (it did in the app too; the page being 16px in made it worse). The other columns give it room. */
+@media(max-width:600px){
+  html[data-me=bft]:not([data-tabaccent=home]) #page-week :is(.sch-head:not(.sch-head-res),.sch-row:not(.sch-res)){grid-template-columns:22px minmax(0,1fr) 38px 40px 46px!important;gap:4px!important;padding-left:4px!important;padding-right:4px!important;}
+  html[data-me=bft]:not([data-tabaccent=home]) #page-week .sch-team{gap:6px!important;}
+  html[data-me=bft]:not([data-tabaccent=home]) #page-week .sch-rival{padding:1px 4px!important;}
+}
+/* the Locker Room: its buttons and notes take the same corners as everywhere else (the room itself is art, left alone) */
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-profile :is(button,.mv-btn,.lr-pick-b){border-radius:4px!important;box-shadow:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-profile :is(.mp-plant,.mp-eggnow,.mp-egg,.lk-wrap,.prof-banner){border-radius:0!important;}
+html[data-me=bft]:not([data-tabaccent=home]) #app #page-profile .mp-out-btn{background:none!important;border:1px solid var(--ln2)!important;}
+/* the bar at the foot names the punishment in the sans: the serif is the page title and nothing else */
+html[data-me=bft][data-me][data-me] #my-matchup .pb-name{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;letter-spacing:-.012em!important;}
+
+/* ── the sportsbook ── */
+html[data-me=bft]:not([data-tabaccent=home]) .bets-bar::before{background:#171717!important;border-radius:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important;}
+/* My Bets and Portfolio sit on the page column, like the bars at the top and the foot */
+html[data-me=bft]:not([data-tabaccent=home]) .bets-bar{max-width:1120px!important;margin-left:auto!important;margin-right:auto!important;padding-left:0!important;padding-right:0!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .bets-pair{gap:0!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .bets-pair .bets-btn{background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:none!important;color:var(--text)!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .bets-pair .bets-btn+.bets-btn{border-left:0!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .bets-pair .bets-btn{padding-left:46px!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .bets-pair .bets-btn .bets-ic{color:var(--accent)!important;font-size:18px!important;left:16px!important;transform:translateY(-50%)!important;z-index:0!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .bets-pair .bets-btn.on{background:var(--l2)!important;box-shadow:inset 0 -2px 0 var(--accent)!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .sb-mhead,html[data-me=bft]:not([data-tabaccent=home]) .sb-mhead .sb-mt{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:17px!important;letter-spacing:-.01em!important;background:none!important;}
+html[data-me=bft]:not([data-tabaccent=home]) :is(.jjj-name,.sb-nm,.sb-tc-nm){font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;}
+html[data-me=bft]:not([data-tabaccent=home]) .jjj-name{font-weight:500!important;letter-spacing:-.015em!important;}
+html[data-me=bft] #bucks-chip{background:var(--tile)!important;background-image:none!important;border:1px solid var(--ln)!important;border-radius:4px!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important;}
+
+/* the bet slip, docked at the foot and open */
+html[data-me=bft] #sb-portal .sb-dock{background:#171717!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-top:1px solid var(--ln2)!important;
+  font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.08em!important;}
+html[data-me=bft] #sb-portal .sb-dock.has{background:var(--text)!important;color:#111!important;border-top-color:var(--text)!important;}
+html[data-me=bft] #sb-portal .sb-dock.has :is(i,.sb-dock-n){color:#111!important;}
+html[data-me=bft] .sb-slip{background:var(--l1)!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft] #sb-portal .sb-slip{background:#171717!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border:0!important;border-top:1px solid var(--ln2)!important;}
+html[data-me=bft] .sb-slip-head{background:none!important;border-bottom:1px solid var(--ln)!important;font-family:var(--mono)!important;font-weight:500!important;font-size:12px!important;letter-spacing:.08em!important;text-transform:uppercase!important;}
+html[data-me=bft] .sb-bank{background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;}
+html[data-me=bft] .sb-slip :is(.sb-bank-l,.sb-si-mkt,.sb-clear),html[data-me=bft] .sb-stake label{font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;}
+html[data-me=bft] .sb-stake input{background:var(--l2)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;}
+html[data-me=bft] .sb-totals{background:none!important;border-top:1px solid var(--ln)!important;}
+html[data-me=bft] .sb-slip-item{border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft] .sb-slip-note{border-top:1px solid var(--ln)!important;}
+html[data-me=bft] .sb-slip-warn{background:none!important;border-radius:0!important;}
+html[data-me=bft] .sb-slip .sb-place{background:var(--text)!important;background-image:none!important;color:#111!important;border:1px solid var(--text)!important;border-radius:4px!important;box-shadow:none!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;}
+
+/* ── the menu: the page, boxed, its entries cells that share their lines ── */
+html[data-me=bft] .tab-dd-menu{background:#171717!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:0 30px 70px rgba(0,0,0,.6)!important;padding:0!important;}
+html[data-me=bft] .tab-dd-menu :is(.tab-dd-grid,.tab-dd-pair){gap:0!important;}
+html[data-me=bft] .tab-dd-menu .tab-dd-item{background:none!important;border:0!important;border-bottom:1px solid var(--ln)!important;border-radius:0!important;box-shadow:none!important;color:var(--text)!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:14px!important;padding:13px 12px!important;}
+html[data-me=bft] .tab-dd-menu :is(.tab-dd-grid,.tab-dd-pair) .tab-dd-item:nth-child(odd){border-right:1px solid var(--ln)!important;}
+html[data-me=bft] .tab-dd-menu .tab-dd-item.active{background:var(--l2)!important;color:var(--text)!important;box-shadow:inset 2px 0 0 var(--tc,var(--accent))!important;}
+html[data-me=bft] .tab-dd-menu .tab-dd-sep{padding:11px 12px 9px!important;border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft] .tab-dd-menu .tab-dd-sep-l{font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.1em!important;}
+html[data-me=bft] #nav-scrim.show{background:rgba(10,10,10,.72)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}
+
+/* ── what opens over a page: a score, the sign-in, a PIN ── */
+html[data-me=bft][data-me] :is(.modal,.pin-box,.si-box){background:#171717!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:0 30px 80px rgba(0,0,0,.6)!important;}
+html[data-me=bft][data-me] .modal-header{background:#171717!important;border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft][data-me] :is(.modal-header h2,.pin-box h3,.si-head){font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif!important;font-weight:500!important;font-size:18px!important;letter-spacing:-.012em!important;}
+html[data-me=bft][data-me] .si-head{border-bottom:1px solid var(--ln)!important;}
+html[data-me=bft][data-me] :is(.modal-close,.si-x){background:var(--l1)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;box-shadow:none!important;}
+html[data-me=bft][data-me] :is(.modal-total,.modal-formula,.modal-comp){background:var(--l1)!important;background-image:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;box-shadow:none!important;}
+html[data-me=bft][data-me] .modal-comp-row{background:var(--l2)!important;border-radius:0!important;}
+html[data-me=bft][data-me] :is(.modal-note,.modal-debug){background:none!important;border:1px solid var(--ln2)!important;border-radius:0!important;}
+html[data-me=bft][data-me] :is(.si-i,.pin-box input){background:var(--l2)!important;border:1px solid var(--ln2)!important;border-radius:4px!important;}
+html[data-me=bft][data-me] :is(.si-l,.modal-formula>div:first-child){font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.06em!important;}
+html[data-me=bft][data-me] .si-in b{color:var(--text)!important;}
