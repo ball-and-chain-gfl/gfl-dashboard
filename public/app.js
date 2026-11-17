@@ -1426,6 +1426,15 @@ function nflWeekKickoffMs(season,w){
   const labor=1+((8-dow)%7);
   return Date.UTC(y,8,labor+4)+(wk-1)*7*86400000;
 }
+/* IS THIS A REAL KICKOFF FOR THIS WEEK. ESPN hands back a placeholder for a kickoff it has not set: on 17 November
+   seven of week 11's thirteen games, and four of week 10's, were dated 31 January 1993. The Coaches' Poll closes at
+   the earliest Sunday kickoff, so it took 1993 for that, read itself as closed the whole week, and showed every
+   manager the results at six ballots of twelve. A kickoff counts only if it lands inside its own week: from the
+   Wednesday before that week's Thursday opener to the Wednesday after. */
+function nflKickoffIn(k,week,season){
+  const t=Number(k)||0, f=nflWeekKickoffMs(season,week);
+  return t>0&&!!f&&t>=f-2*86400000&&t<f+6*86400000;
+}
 /* the season a timestamp belongs to: January's playoffs are last year's */
 const nflSeasonOfMs=ms=>{ const d=new Date(ms); return d.getUTCFullYear()-(d.getUTCMonth()<2?1:0); };
 
@@ -4400,7 +4409,7 @@ function cpLockInfo(){
   if(!i&&typeof liveWeekInfo==='function'){ try{ i=liveWeekInfo(); }catch(e){} }
   if(!i||!i.week) return null;
   const d=nflWeekGames(i.week,i.season);
-  const sun=((d&&d.games)||[]).filter(g=>g&&Number(g.k)>0&&CP_ET_DAY.format(new Date(Number(g.k)))==='Sun');
+  const sun=((d&&d.games)||[]).filter(g=>g&&nflKickoffIn(g.k,i.week,i.season)&&CP_ET_DAY.format(new Date(Number(g.k)))==='Sun');
   if(sun.length) return {at:Math.min(...sun.map(g=>Number(g.k))),
     begun:sun.some(g=>g.s==='in'||g.s==='post')};
   const fri=nflWeekKickoffMs(i.season,i.week); if(!fri) return null;

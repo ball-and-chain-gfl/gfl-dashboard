@@ -88,7 +88,7 @@ ok('a season of nothing hits the floor rather than going through it', B.bkIQFor(
 /* ── when the poll closes ─────────────────────────────────────────────────── */
 let NOW = 0, GAMES = null;
 const C = assemble(grab, [
-  'function nflWeekKickoffMs(season,w){', 'const CP_ET_DAY=', 'const CP_ET_HOUR=',
+  'function nflWeekKickoffMs(season,w){', 'function nflKickoffIn(', 'const CP_ET_DAY=', 'const CP_ET_HOUR=',
   'function cpLockInfo(){', 'const cpLockAt=', 'function cpLocked(){',
 ], ['cpLockAt', 'cpLocked', 'set'], [
   "let _liveInfo={week:5,season:'2026'}; const liveWeekInfo=()=>_liveInfo;",
@@ -128,6 +128,18 @@ C.set(null, U(10, 12), 10);
 ok('and 18:00 UTC once the clocks have gone back', C.cpLockAt(), Date.UTC(2026, 10, 15, 18));
 C.set({ games: [{ s: 'pre' }] }, U(10, 12), 5);
 ok('a digest from before it carried kickoffs falls back the same way', C.cpLockAt(), U(11, 17));
+
+/* 17 November 2026: seven of week 11's games came back dated 31 January 1993 (a Sunday, in Eastern time), and the
+   poll closed at that, all week, showing the results at six ballots of twelve */
+head('a kickoff ESPN has not really set');
+const BOGUS = Date.UTC(1993, 0, 31, 23, 30);
+C.set({ games: [...WEEK5.games, game(BOGUS), game(BOGUS)] }, U(10, 12), 5);
+ok('is not the deadline: the real Sunday kickoff still is', C.cpLockAt(), U(11, 13, 30));
+ok('so the poll is open on the Saturday', C.cpLocked(), false);
+C.set({ games: [game(U(9, 0, 15), 'post'), game(BOGUS), game(BOGUS)] });
+ok('a week whose only Sunday dates are placeholders falls back to 1pm off the calendar', C.cpLockAt(), U(11, 17));
+C.set({ games: [...WEEK5.games, game(Date.UTC(2026, 9, 18, 17))] });
+ok('a Sunday from the week after does not count either', C.cpLockAt(), U(11, 13, 30));
 
 console.log(NL + (fail ? 'FAILED  ' : 'ok  ') + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
