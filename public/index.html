@@ -1134,8 +1134,10 @@
     /* and Build a Manager, by the commissioner's word (10 November): the game
        is played at the foot of the screen, where the bar sat over it */
     html[data-tabaccent=bam] #my-matchup{display:none;}
+    /* and Season Mode: the game fills the screen down to its own controls */
+    html[data-tabaccent=season] #my-matchup{display:none;}
     /* keep the pinned bar from covering the end of the page */
-    html[data-tabaccent]:not([data-tabaccent=book]):not([data-tabaccent=bam]) body:has(#my-matchup) main{padding-bottom:96px;}
+    html[data-tabaccent]:not([data-tabaccent=book]):not([data-tabaccent=bam]):not([data-tabaccent=season]) body:has(#my-matchup) main{padding-bottom:96px;}
     @media(max-width:768px){.mm-tag{display:none;}}
 
     /* ── Gabe's Greatness: collapsed at the foot of League History ─────────── */
@@ -4715,7 +4717,7 @@
     /* Season Mode: the same hex as TAB_COLORS */
     html[data-theme="dark"][data-tabaccent=season]{--accent:#5BC489;--accent2:#9BE36B;--accent-rgb:91,196,137;}
     /* the game is its own page in a frame, a phone's width, as tall as the screen allows */
-    .season-frame{display:block;width:100%;max-width:430px;height:max(640px,calc(100dvh - 190px));margin:0 auto;border:1px solid #2E2E2E;background:#171717;}
+    .season-frame{display:block;width:100%;max-width:430px;height:max(600px,calc(100dvh - var(--seasontop,84px)));margin:0 auto;border:1px solid #2E2E2E;background:#171717;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
     /* the name takes the space it needs and sign out sits at the far edge */

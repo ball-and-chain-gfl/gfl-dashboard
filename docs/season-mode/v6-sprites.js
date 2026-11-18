@@ -42,7 +42,11 @@ function pose(view,state,ph,f){
     else if(state==='hurdle'){ lean=.25; la=[[1.45,1.35],[-.9,-1.7]]; aa=[[2.35,2.2],[.4,1.7]]; fix=0; }       /* front leg out flat, back leg tucked */
     else if(state==='oneHand'){ lean=.3; la=[[.5,-.45],[-.45,-.5]]; aa=[[2.95,3.1],[.3,1.0]]; }
     else if(state==='tiptoe'){ lean=-.05; la=[[.06,-.25],[-.06,-.3]]; aa=[[2.75,2.95],[2.55,2.85]]; }
-    else if(state==='flex'){ lean=0; la=[[.15,-.1],[-.15,-.2]]; aa=[[1.6,3.4],[1.5,3.3]]; }
+    else if(state==='wings'){ legs=[lg(-6,-8,-24,-9,-2.6),lg(6,8,-24,9,-2.6)]; arms=[[[-15,sY+1],[-29,-78],[-42,-82]],[[15,sY+1],[29,-78],[42,-82]]]; }
+  else if(state==='flex'){ lean=0; la=[[.15,-.1],[-.15,-.2]]; aa=[[1.6,3.4],[1.5,3.3]]; }
+    else if(state==='drag'){ lean=-.25; la=[[.55,-.3],[-.2,-.5]]; aa=[[2.15,2.0],[1.95,1.9]]; }          /* leaning back, both hands on the collar */
+    else if(state==='bow'){ lean=.95; la=[[.1,-.1],[-.2,-.3]]; aa=[[.9,.4],[.7,.3]]; }
+    else if(state==='wings'){ lean=0; la=[[.15,-.1],[-.15,-.2]]; aa=[[2.0,1.8],[1.9,1.7]]; }
     else if(state==='celebrate'){ lean=-.1; la=fr?[[.9,-.5],[.4,-1.2]]:[[.15,-.1],[-.15,-.2]]; aa=[[3.0,3.1],[2.8,3.0]]; fix=fr?0:1; }
     else if(state==='stance3'){ lean=1.32; la=[[1.3,-.3],[.95,-.6]]; aa=[[.12,-.05],[.6,.35]]; }
     else { lean=.5; la=[[.6,-.35],[.4,-.5]]; aa=[[.5,.25],[.42,.2]]; }
@@ -77,6 +81,7 @@ function pose(view,state,ph,f){
   else if(state==='leap'){ legs=[lg(-5.5,-8,-32,-7,-14),lg(5.5,8,-30,7,-16)]; arms=[[[-15,sY+1],[-13,-100],[-8,-116]],[[15,sY+1],[13,-100],[8,-116]]]; }
   else if(state==='oneHand'){ sw=2; legs=[lg(-5.5,-6.5,-25,-6.5,-2.6),lg(5.5,8,-27,10,-6)]; arms=[[[-15+sw,sY+1],[-18,-60],[-15,-46]],[[15+sw,sY+1],[20,-98],[24,-115]]]; }
   else if(state==='tiptoe'){ legs=[lg(-4,-3.8,-26,-3.6,-5),lg(4,3.8,-26,3.6,-5)]; arms=[[[-15,sY+1],[-15,-99],[-8.5,-112]],[[15,sY+1],[15,-99],[8.5,-112]]]; }
+  else if(state==='wings'){ legs=[lg(-6,-8,-24,-9,-2.6),lg(6,8,-24,9,-2.6)]; arms=[[[-15,sY+1],[-29,-78],[-42,-82]],[[15,sY+1],[29,-78],[42,-82]]]; }
   else if(state==='flex'){ hip=-48; sY=-78; legs=[lg(-7,-9,-24,-10,-2.6),lg(7,9,-24,10,-2.6)]; arms=[[[-15,sY+1],[-26,-74],[-23,-93]],[[15,sY+1],[26,-74],[23,-93]]]; }
   else if(state==='celebrate'){ legs=fr?[lg(-5.5,-8,-32,-7,-14),lg(5.5,8,-30,7,-16)]:[lg(-5.5,-6,-25,-6,-2.6),lg(5.5,6,-25,6,-2.6)];
     arms=fr?[[[-15,sY+1],[-18,-100],[-14,-117]],[[15,sY+1],[18,-100],[14,-117]]]:[[[-15,sY+1],[-24,-96],[-31,-110]],[[15,sY+1],[24,-96],[31,-110]]]; }
@@ -170,7 +175,7 @@ function renderSprite(k,view,state,fi,num,si){
 const SPR=new Map();
 function sprite(k,view,state,fi,num,si){ const key=k+view+state+fi+':'+num+':'+si; let s=SPR.get(key); if(!s){ s=renderSprite(k,view,state,fi,num,si); SPR.set(key,s); } return s; }
 /* draw a man standing on a point; s is whole pixels per sprite pixel. f runs 0 to 8 through a stride. */
-const SIDE_ONLY=new Set(['dive','down','fallF','fallB','downB','wrap','truck','stiff','hurdle']);
+const SIDE_ONLY=new Set(['dive','down','fallF','fallB','downB','wrap','truck','stiff','hurdle','drag','bow']);
 function drawPlayer(ctx,k,num,x,y,facing,state,f,s,lift){
   const view=SIDE_ONLY.has(state)?'side':facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side';
   const fi=(state==='run'||state==='catch')?Math.floor(((f||0)%8+8)%8/8*RUNF)%RUNF:state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB')?Math.min(2,Math.floor(f||0)):Math.floor(f||0)%2;

@@ -9922,6 +9922,12 @@ function seasonGate(){
 }
 function renderSeason(){
   const el=document.getElementById('season-body'); if(!el||!seasonAllowed()) return;
+  /* the game takes the whole screen under the nav: the frame is that tall, and the page scrolls the title away so
+     its top sits just under the nav. After switchTab's own reset to the top, hence the wait. */
+  const fit=()=>{ const nv=document.getElementById('floatnav'), f=el.querySelector('iframe'); if(!f) return;
+    const top=Math.round(((nv&&nv.getBoundingClientRect().bottom)||0)+8); document.documentElement.style.setProperty('--seasontop',(top+8)+'px');
+    if(_activeTab==='season') window.scrollTo(0,Math.max(0,f.getBoundingClientRect().top+window.scrollY-top)); };
+  setTimeout(fit,140);
   if(el.querySelector('iframe')) return;            /* a game in progress keeps going while you look elsewhere */
   el.innerHTML=`<iframe class="season-frame" src="/season/index.html?team=${encodeURIComponent((_me&&_me.teamId)||'')}" title="Season Mode"></iframe>`;
 }

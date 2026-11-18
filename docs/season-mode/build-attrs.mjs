@@ -59,5 +59,18 @@ for (const pos of Object.keys(RAW)) {
   });
   missing += group.filter(p => !stats[p.id + '-' + p.season]).length;
 }
+/* SPEED IS THE 40. Where a player ran at the NFL Combine (forty.json, from build-forty.mjs), his Speed comes from
+ * that time on one scale for everyone at his position, not from where his stats rank: a 4.26 back or receiver is a
+ * 99 and a 4.70 is a 55; for tight ends 4.40 to 4.90. A quarterback's Legs is half his 40 and half his running.
+ * Players lose a step with time: two points a season after their sixth. A player with no combine 40 keeps the
+ * estimate from his stats above. */
+const forty = fs.existsSync(new URL('forty.json', D)) ? JSON.parse(fs.readFileSync(new URL('forty.json', D), 'utf8')) : {};
+const SCALE = { RB: [4.26, 4.70, 0], WR: [4.26, 4.70, 0], TE: [4.40, 4.90, 2], QB: [4.40, 5.05, 2] };
+let timed = 0;
+for (const p of rated) { const f = forty[p.id], sc = SCALE[p.pos], key = p.id + '-' + p.season; if (!f || !sc || !out[key]) continue;
+  const fromForty = 99 - 44 * Math.max(0, Math.min(1, (f.forty - sc[0]) / (sc[1] - sc[0])));
+  const age = Math.max(0, p.season - f.draft - 6) * 2;
+  let v = fromForty - age; if (p.pos === 'QB') v = (v + out[key].a[2]) / 2;
+  out[key].a[sc[2]] = Math.round(Math.max(55, Math.min(99, v))); timed++; }
 fs.writeFileSync(new URL('attrs.json', D), JSON.stringify(out));
-console.log('players', Object.keys(out).length, 'with stats', Object.keys(stats).length, 'missing', missing);
+console.log('players', Object.keys(out).length, 'with stats', Object.keys(stats).length, 'missing', missing, 'speed from a 40:', timed);
