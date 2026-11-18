@@ -181,7 +181,7 @@ function paint(x,P,c,sk){
 
 /* to pixels */
 const D3={0:'###|#.#|#.#|#.#|###',1:'.#.|##.|.#.|.#.|###',2:'###|..#|###|#..|###',3:'###|..#|###|..#|###',4:'#.#|#.#|###|..#|..#',5:'###|#..|###|..#|###',6:'###|#..|###|#.#|###',7:'###|..#|..#|..#|..#',8:'###|#.#|###|#.#|###',9:'###|#.#|###|..#|###'};
-const RUNF=10, SW=48, SH=60, GX=24, GY=43, PU=.36;
+const RUNF=10, SW=72, SH=72, GX=36, GY=54, PU=.36;   /* room for arms overhead and a man laid out at full length */
 const rgb=c=>[parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)];
 /* snap a painted figure to pixels: each pixel one colour of the kit or empty, and a dark line round the outside */
 function pixelize(x,W,H,c,sk,keep){
@@ -225,7 +225,21 @@ function XF(state,fi){ const k=Math.min(2,fi);
 function xfP(P,[tx,ty,r]){ const c=Math.cos(r), n=Math.sin(r), f=p=>[tx+c*p[0]-n*p[1],ty+n*p[0]+c*p[1]];
   return {...P,legs:P.legs.map(l=>l.map(f)),arms:P.arms.map(a=>a.map(f)),torso:P.torso.map(f),pants:P.pants.map(f),neck:P.neck.map(f),head:f(P.head)}; }
 /* a man's body for a view, state and frame, in sprite units from his feet */
+/* GOING DOWN, posed like the tackle scenes rather than a stiff man turned on his side: each frame is a hip height, a
+   body angle and every limb's bend. [hip height, body, near thigh, shin, far thigh, shin, near arm, forearm, far arm, forearm]
+   Face down the knees bend and a foot comes up, an arm is under him; on his back the knees come up and the arms fall loose. */
+const LIE={
+  dive:[[30,1.1,-.4,-.9,-.9,-1.3,2.0,2.0,1.9,1.9],[16,1.45,-1.2,-1.6,-1.4,-1.8,2.4,2.3,2.3,2.2],[9,1.55,-1.3,-2.3,-1.5,-2.0,2.4,2.2,2.3,2.1]],
+  fallF:[[40,.8,.3,-.4,-.6,-1.2,.5,2.4,1.6,1.5],[24,1.2,-.2,-.9,-.5,-1.3,2.0,2.0,2.2,2.1],[12,1.5,-1.2,-2.0,-1.4,-2.1,2.4,2.0,2.3,2.1]],
+  down:[[9,1.55,-1.3,-2.1,-1.5,-2.2,2.4,2.0,2.3,2.1],[9,1.55,-1.35,-2.55,-1.55,-2.0,2.15,1.55,2.45,2.25]],
+  fallB:[[46,-.55,.5,-.1,.2,-.3,2.5,3.0,2.9,3.3],[40,-1.0,1.4,.7,1.1,.4,2.9,3.2,3.2,3.4],[16,-1.4,1.9,.8,1.5,.5,2.9,3.2,3.1,3.3]],
+  downB:[[14,-1.45,2.4,1.2,2.0,.9,2.8,3.1,3.0,3.2],[9,-1.5,2.05,.8,1.4,.3,.4,2.2,2.5,2.8]]};
+function lieP(state,fi){ const L=LIE[state], q=L[Math.min(L.length-1,fi)];
+  return xfP(buildSide(q[1],[[q[2],q[3]],[q[4],q[5]]],[[q[6],q[7]],[q[8],q[9]]],0),[0,50-q[0],0]); }
 function bodyP(view,state,fi){ const ps={fallF:'stumble',fallB:'flail',downB:'flail'}[state]||state, ph=(state==='run'||state==='catch')?(fi%RUNF)/RUNF*P2:0;
+  if(LIE[state]){ const P=lieP(state,fi); return view==='side'?P:project(P,view==='back'?1:-1); }
+  /* running at you or away: the side-on stride seen from behind or in front, so the legs reach and drive instead of marching */
+  if(state==='run'&&view!=='side') return project(pose('side','run',ph,fi),view==='back'?1:-1);
   if(view!=='side'&&!SIDE_ONLY.has(state)) return pose(view,ps,ph,fi);
   let P=pose('side',ps,ph,fi); const xf=XF(state,fi); if(xf) P=xfP(P,xf);
   return view==='side'?P:project(P,view==='back'?1:-1); }
@@ -326,6 +340,41 @@ const SCENES={
       [0,44,.5,.9,-.2,-.6,-.9,1.3,2.2,1.2,2.1,-14],[.1,40,.95,.8,-.4,-.7,-1.2,1.6,2.7,1.5,2.6,-10],[.22,32,1.15,.5,-.9,-.9,-1.5,1.7,2.8,1.6,2.7,-9],
       [.34,20,1.35,-.2,-1.2,-.8,-1.7,1.8,2.6,1.7,2.5,-12],[.44,12,1.5,-1.0,-1.9,-1.3,-2.1,1.9,2.4,1.8,2.3,-16],[.62,10,1.55,-1.1,-2.2,-1.4,-2.1,1.9,2.3,1.8,2.2,-17],
       [1.0,10,1.55,-1.1,-2.2,-1.4,-2.1,1.9,2.3,1.8,2.2,-17]]}},
+  /* THE PASS PLAYS (B the receiver, A the defender) */
+  /* contested: both already rising as it arrives; he goes higher, takes it at the top, brings it down and lands running;
+     the defender comes down a beat later, beaten */
+  contest:{len:.7,order:['A','B'],catchT:.14,B:{face:1,k:[
+      [0,62,.1,.6,-.7,-.1,-1.0,2.7,2.9,2.6,2.85,0],[.14,84,-.05,.7,-.9,-.3,-1.3,2.95,3.05,2.9,3.0,1],[.28,74,.05,.6,-.6,-.2,-1.0,2.2,2.6,2.0,2.5,2],
+      [.4,50,.2,.8,-.3,-.4,-.9,.5,2.4,.6,2.2,4],[.52,46,.25,.8,.55,-.8,-.98,.5,2.4,.95,2.45,6],[.65,46,.25,-.8,-.98,.8,.55,.5,2.4,-.95,.55,9]]},
+    A:{face:1,k:[
+      [0,58,.15,.4,-.6,-.2,-.9,2.6,2.8,2.4,2.7,-8],[.14,74,.1,.6,-.8,-.3,-1.2,2.8,3.0,2.2,2.6,-7],[.28,64,-.1,.6,-.4,-.2,-.8,2.4,2.8,1.8,2.2,-7],
+      [.44,44,-.25,.7,-.2,-.4,-.7,1.4,2.0,1.2,1.8,-8],[.7,44,.1,.6,-.5,-.4,-.6,.6,1.6,.5,1.5,-7]]}},
+  /* MOSSED: he climbs right over the defender, knee in his back, takes it over his head and rips it down, and the
+     defender is driven face first into the ground while he lands past him and runs */
+  mossed:{len:.8,order:['A','B'],catchT:.2,B:{face:1,k:[
+      [0,62,.3,.9,-.3,-.2,-1.0,2.6,2.8,2.5,2.75,-4],[.1,80,.35,1.3,.2,-.1,-1.2,2.9,3.0,2.8,2.95,-1],[.2,84,.45,1.2,.1,-.2,-1.1,2.75,2.7,2.6,2.6,1],
+      [.32,76,.2,.9,-.2,-.3,-1.0,1.6,2.6,1.5,2.5,3],[.46,58,.1,.7,-.4,-.4,-1.0,.5,2.4,.8,2.2,5],[.6,46,.3,.8,-.3,-.5,-.9,.5,2.4,.9,2.0,8],
+      [.8,46,.25,.8,.55,-.8,-.98,.5,2.4,.95,2.45,12]]},
+    A:{face:1,k:[
+      [0,56,.15,.3,-.5,-.2,-.9,2.6,2.8,2.4,2.7,6],[.1,64,.1,.5,-.7,-.3,-1.1,2.8,3.0,2.5,2.8,7],[.2,62,.35,.4,-.9,-.3,-1.2,2.9,3.1,2.7,2.9,8],
+      [.32,48,.8,.3,-.8,-.5,-1.2,2.4,2.6,2.2,2.4,10],[.46,24,1.25,-.2,-1.2,-.6,-1.6,2.2,2.0,2.3,2.1,13],[.56,9,1.55,-1.3,-2.1,-1.5,-2.2,2.4,2.0,2.3,2.1,15],
+      [.8,9,1.55,-1.35,-2.5,-1.5,-2.1,2.2,1.6,2.4,2.2,15]]}},
+  /* swatted: he reaches for it, the defender comes over the top and chops his arm down through the hands, the ball pops
+     loose and both stumble */
+  swat:{len:.7,order:['B','A'],noBall:1,B:{face:1,k:[
+      [0,48,.2,.6,-.5,-.4,-.7,2.3,2.6,2.2,2.5,0],[.1,50,.15,.5,-.4,-.3,-.7,2.6,2.8,2.5,2.75,1],[.2,46,-.1,.6,-.2,-.4,-.6,2.9,3.3,2.0,2.8,2],
+      [.36,44,.15,.7,-.4,-.5,-.8,1.3,1.8,1.6,2.2,3],[.7,46,.25,.6,-.5,-.4,-.6,.6,1.4,.5,1.3,4]]},
+    A:{face:-1,k:[
+      [0,46,.45,.8,-.4,-.5,-.9,1.4,1.9,1.2,1.8,18],[.1,54,.35,.6,-.6,-.4,-.9,2.9,3.1,1.6,2.2,13],[.2,50,.7,.8,-.4,-.6,-1.0,1.3,1.1,1.5,2.0,10],
+      [.36,40,.85,.6,-.6,-.6,-1.1,.8,1.0,1.1,1.6,9],[.7,46,.4,.6,-.5,-.4,-.6,.8,1.8,.6,1.6,9]]}},
+  /* undercut: the defender jumps the route, bursting past him to the front, takes it low into his chest and runs off
+     with it; the receiver, reaching round him, runs into his back */
+  pick:{len:.7,order:['B','A'],ballRole:'A',catchT:.24,B:{face:1,k:[
+      [0,46,.25,.8,.55,-.8,-.98,.9,1.6,.8,1.5,0],[.12,46,.3,-.8,-.98,.8,.55,1.9,2.2,1.8,2.1,3],[.24,44,.4,.6,-.6,-.6,-1.0,2.0,2.1,1.9,2.0,5],
+      [.36,42,-.15,.7,-.1,-.3,-.6,1.4,1.8,1.2,1.6,6],[.7,46,.15,.6,-.5,-.4,-.6,.6,1.4,.5,1.3,6]]},
+    A:{face:1,k:[
+      [0,46,.5,.8,.4,-.7,-1.0,1.4,1.8,1.2,1.7,-6],[.12,40,.75,-.7,-1.0,.9,.2,1.8,1.9,1.7,1.8,3],[.24,38,.7,.9,-.6,-.6,-1.1,1.4,1.2,1.3,1.1,9],
+      [.36,44,.3,.7,-.5,-.5,-.8,.6,2.4,.5,2.3,11],[.5,46,.25,.8,.55,-.8,-.98,.6,2.4,.95,2.45,15],[.7,46,.25,-.8,-.98,.8,.55,.6,2.4,-.95,.55,19]]}},
   /* THE CARRIER'S MOVES (B has the ball, A is the man trying to stop him) */
   /* truck: shoulder down into him, he's knocked onto his back, the carrier stumbles through and keeps going */
   truck:{len:.55,order:['A','B'],B:{face:1,k:[
@@ -381,7 +430,11 @@ function drawScene(ctx,kind,t,x,y,dir,s,who){ const sc=SCENES[kind], v=dir==='up
     else ctx.fillRect(Math.round(bx+lo-2*s),Math.round(gy-s),Math.round(hi-lo+4*s),Math.round(2*s));
     ctx.save(); ctx.imageSmoothingEnabled=false; ctx.translate(Math.round(bx),Math.round(oy)); if(mx<0) ctx.scale(-1,1);
     ctx.drawImage(e.img,-KX*s,-KY*s,KW*s,KH*s); ctx.restore();
-    if(role==='B'){ const h=e.P.arms[sc.ballArm||0][2]; hand=[bx+mx*h[0]*PU*s,oy+h[1]*PU*s]; } }
+    if(!sc.noBall&&role===(sc.ballRole||'B')){ const h=role==='B'?e.P.arms[sc.ballArm||0][2]:(()=>{ const a=e.P.arms[0][2], b=e.P.arms[1][2]; return [(a[0]+b[0])/2,(a[1]+b[1])/2]; })(); hand=[bx+mx*h[0]*PU*s,oy+h[1]*PU*s]; } }
+  if(hand&&sc.catchT&&t<sc.catchT){ const k=Math.max(0,t/sc.catchT), sp=sceneSpot(sc,sc.ballRole||'B',sc.catchT,dir,s), R=sc[sc.ballRole||'B'], q=sp.q, m=ds*R.face,
+      e=kfSprite(who[sc.ballRole||'B'].k,who[sc.ballRole||'B'].si,q,v?m:0,sc.ballRole==='A'?-1:1), h=sc.ballRole==='A'?(()=>{ const a=e.P.arms[0][2], b=e.P.arms[1][2]; return [(a[0]+b[0])/2,(a[1]+b[1])/2]; })():e.P.arms[sc.ballArm||0][2];
+    const hx=x+sp.dx+(v&&sc.ballRole==='A'?9*s:0)+(v?1:m)*h[0]*PU*s, hy=y+sp.dy+(50-q[1])*PU*s+h[1]*PU*s, from=[hx-(v?6*s:ds*34*s),hy-(v?34:22)*s];
+    hand=[from[0]+(hx-from[0])*k,from[1]+(hy-from[1])*k]; }
   return hand; }
 /* where a man's hands are, in pixels from his feet, for the ball while he catches it */
 function handPoint(state,f,facing,s){ const view=facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side', fi=fiOf(state,f);
