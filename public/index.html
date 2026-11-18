@@ -4717,7 +4717,10 @@
     /* Season Mode: the same hex as TAB_COLORS */
     html[data-theme="dark"][data-tabaccent=season]{--accent:#5BC489;--accent2:#9BE36B;--accent-rgb:91,196,137;}
     /* the game is its own page in a frame, a phone's width, as tall as the screen allows */
-    .season-frame{display:block;width:100%;max-width:430px;height:max(600px,calc(100dvh - var(--seasontop,84px)));margin:0 auto;border:1px solid #2E2E2E;background:#171717;}
+    .season-frame{display:block;width:100%;max-width:430px;height:max(560px,100dvh);margin:0 auto;border:1px solid #2E2E2E;background:#171717;}
+    /* the nav slides away while the game is at the top of the screen (seasonNavSync) */
+    html[data-tabaccent=season] #floatnav{transition:transform .25s ease,opacity .25s ease;}
+    html.season-nonav #floatnav{transform:translateY(calc(-100% - 24px));opacity:0;pointer-events:none;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
     /* the name takes the space it needs and sign out sits at the far edge */

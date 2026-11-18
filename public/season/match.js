@@ -126,27 +126,33 @@ function makeMatch(){
   const ord=d=>['1st','2nd','3rd','4th'][d-1];
   const mine=yd=>yd===50?'the 50':yd<50?'your '+yd:'their '+(100-yd);
   const theirs=yd=>yd===50?'the 50':yd<50?'their '+yd:'your '+(100-yd);
-  const clk=()=>{ const s=Math.max(0,M.clock); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+  /* seven-minute quarters; a forty-second play clock between plays while the game clock runs */
+  const QLEN=420, PLAYCLOCK=40, RUNOFF=6;
+  const clk=()=>{ const s=Math.max(0,Math.ceil(M.clock)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
   function near(r){ const c=DEFS.slice().sort((a,b)=>Math.abs(a.r-r)-Math.abs(b.r-r)).slice(0,6); return c[Math.floor(Math.random()*c.length)]; }
   function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)}</div>`;
-    $('#bug').innerHTML=b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b>${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0); }
-  function ddMe(){ $('#dd').innerHTML=`<span>${ord(M.down)} &amp; ${M.togo>=100-M.yd?'Goal':M.togo} · ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`; }
+    $('#bug').innerHTML=b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0); }
+  function ddMe(){ $('#dd').innerHTML=`<span>${ord(M.down)} &amp; ${M.togo>=100-M.yd?'Goal':M.togo} · ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`; }
   function ddThem(st){ $('#dd').innerHTML=`<span>${ord(st.down)} &amp; ${st.yd+st.togo>=100?'Goal':st.togo} · ${theirs(st.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">Their O ${M.oppO} v D ${SIM.myD()}</span>`; }
   function view(v){ const snap=v==='snap'; $('#fld').style.display=snap?'':'none'; $('#sim').style.display=snap?'none':''; $('#ctrl').style.display=snap?'':'none'; $('#drive').style.display=snap?'none':'';
     $('#res').className='result'; $('#call').innerHTML=''; $('#hint').style.display='none'; GAME.show(snap); if(!snap) SIM.size(); }
   function banner(o,cb){ const b=$('#ban'); b.innerHTML=`<div class="bx" style="--cc:${o.col||'var(--text)'}"><small>${o.tag}</small><b>${o.title}</b>${o.sub?`<span>${o.sub}</span>`:''}<button class="btn w">${o.btn}</button></div>`;
     b.className='banner show'; $('#ctrl').classList.add('lock'); $('#drive').classList.add('lock');
     b.querySelector('button').onclick=()=>{ b.className='banner'; $('#ctrl').classList.remove('lock'); $('#drive').classList.remove('lock'); cb(); }; }
-  function tick(s){ if(M.stop) return; M.clock-=s;
-    if(M.clock<=0){ if(M.q===2||M.q===4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=300+M.clock; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } } bug(); }
+  function tick(s){ if(M.stop) return; const before=M.clock; M.clock-=s;
+    /* the two-minute warning, in the second and fourth quarters */
+    if((M.q===2||M.q===4)&&before>120&&M.clock<=120&&!M.warn[M.q]){ M.warn[M.q]=1; M.twoMin=true; }
+    if(M.clock<=0){ if(M.q===2||M.q===4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=QLEN+M.clock; M.run=false; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } }
+    const sec=Math.ceil(M.clock); if(sec!==M.shown){ M.shown=sec; bug(); if(M.poss==='me') ddMe(); } }
   /* run what comes next, unless the half or the game has run out */
   function after(fn){ if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
   function toast(s){ const t=$('#toast'); t.textContent=s; t.className='toast show'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.className='toast',2200); }
   function endPeriod(){
-    if(M.q===2){ M.q=3; M.clock=300; M.stop=false; bug();
+    M.pend=null; M.run=false;
+    if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
       return banner({tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
-  function myDrive(yd){ M.poss='me'; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo); ddMe(); }
+  function myDrive(yd){ M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo); ddMe(); }
   function cpuDrive(yd){ M.poss='cpu'; bug(); view('sim'); $('#drive').innerHTML=`<span class="tag">Their ball</span><button class="btn" id="skip">Skip ahead</button>`; $('#skip').onclick=()=>{ SIM.skip(); $('#skip').disabled=true; };
     SIM.start(yd,M.oppO,r=>{ M.opp.drives++;
       const go=(o,next)=>banner(o,()=>after(next));
@@ -158,7 +164,7 @@ function makeMatch(){
       else if(r.kind==='downs'){ const yd=clamp(100-r.spot,1,99); go({tag:'Stopped',title:'Turnover on downs',sub:`Your ball on ${mine(yd)}.`,col:'var(--green)',btn:'Your ball'},()=>myDrive(yd)); }
       else endPeriod(); }); }
   return {
-    start(){ Object.assign(M,{q:1,clock:300,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,
+    start(){ Object.assign(M,{q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
         st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,drives:0},
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); GAME.setD(M.oppD); bug(); view('snap');
@@ -173,22 +179,38 @@ function makeMatch(){
       if(S.thrown||r.head==='Thrown away'){ M.st.att++; if(S.caught){ M.st.comp++; M.st.py+=y; if(r.kind==='td') M.st.ptd++; } if(r.kind==='to') M.st.int++; }
       else if(!S.carrier) M.st.sk++;
       else { M.st.ra++; M.st.ry+=r.kind==='safety'?-M.yd:y; if(r.kind==='td') M.st.rtd++; }
-      tick(r.kind==='inc'?6:24+Math.floor(Math.random()*14));
+      M.run=(r.kind==='gain'||r.kind==='loss')&&r.head!=='Out of bounds'&&r.head!=='Thrown away'; M.pc=PLAYCLOCK;
+      if(M.twoMin){ M.twoMin=false; M.run=false; M.toast='Two-minute warning'; }
       if(r.kind==='td'){ M.score[0]+=7; bug(); M.pend=()=>banner({tag:'Touchdown',title:'Touchdown',sub:r.body+' Extra point good.',col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
       else if(r.kind==='to'){ const abs=M.yd+Math.round(r.at?r.at.y:0), yd=abs>=100?20:clamp(100-abs,1,99); M.pend=()=>banner({tag:'Turnover',title:r.head==='Intercepted'?'Intercepted':r.head==='Strip sack'?'Strip sack':'Fumble',sub:`Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); }
       else if(r.kind==='safety'){ M.score[1]+=2; bug(); M.pend=()=>banner({tag:'Safety',title:'Safety',sub:'Two points to them, and you kick it to them.',col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(35))); }
       else { const g=r.kind==='inc'?0:y; M.yd=clamp(M.yd+g,1,99);
         if(g>=M.togo){ M.down=1; M.togo=Math.min(10,100-M.yd); } else { M.down++; M.togo-=g; }
         if(M.down>4){ const yd=100-M.yd; M.pend=()=>banner({tag:'Turnover on downs',title:'Short',sub:`Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); }
-        else M.pend=()=>after(()=>{ GAME.sit(M.yd,M.down,M.togo); ddMe(); }); } },
+        else M.pend=()=>after(()=>{ GAME.regroup(M.yd,M.down,M.togo); ddMe(); }); }
+      ddMe(); bug(); },
     next(){ if(M.pend){ const p=M.pend; M.pend=null; p(); } },
-    punt(){ const net=Math.round(42+gauss()*5), land=M.yd+net, yd=land>=100?20:100-land; tick(10);
+    punt(){ const net=Math.round(42+gauss()*5), land=M.yd+net, yd=land>=100?20:100-land; M.run=false; tick(10);
       banner({tag:'Punt',title:`${net}-yard punt`,sub:land>=100?'Into the end zone: touchback. Their ball on their 20.':`Their ball on ${theirs(yd)}.`,btn:'Their ball'},()=>after(()=>cpuDrive(yd))); },
-    kick(dist){ const good=Math.random()<clamp(1.1-dist/60,.2,.97); tick(6);
+    kick(dist){ const good=Math.random()<clamp(1.1-dist/60,.2,.97); M.run=false; tick(6);
       if(good){ M.score[0]+=3; bug(); banner({tag:'Field goal',title:'It\'s good',sub:`${dist} yards. Three points.`,col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
       else { const yd=Math.max(20,100-M.yd); banner({tag:'Field goal',title:'No good',sub:`${dist} yards, wide. Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); } },
     cpuTick(s,p){ M.opp.plays++; if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to') M.opp.yds+=p.to-p.from; tick(s); },
     stopped(){ return M.stop; },
+    /* the clock runs during a play, in game time */
+    liveTick(dt){ if(M.poss==='me') tick(dt); },
+    /* and between plays while it's running: six game seconds for every real one, until the play clock is used up */
+    preTick(dt){ if(M.poss!=='me'||!M.run||M.stop||$('#ban').classList.contains('show')) return;
+      const g=Math.min(dt*RUNOFF,M.pc), q=M.q; M.pc-=g; tick(g);
+      if(M.twoMin){ M.twoMin=false; M.run=false; toast('Two-minute warning'); }
+      if(M.q!==q){ M.run=false; if(M.toast){ toast(M.toast); M.toast=null; } }
+      if(M.stop){ M.run=false; return endPeriod(); }
+      if(M.pc<=0) M.run=false;
+      if(!M.run){ ddMe(); bug(); GAME.refresh(); } },
+    clockUI(){ return {run:M.run&&M.poss==='me'&&!M.stop, tos:M.tos, canSpike:M.run&&M.down<4&&!M.stop}; },
+    timeout(){ if(!(M.poss==='me'&&M.run&&M.tos>0&&!M.stop)) return; M.tos--; M.run=false; toast('Timeout · '+M.tos+' left'); ddMe(); bug(); GAME.refresh(); },
+    spike(){ if(!(M.poss==='me'&&M.run&&M.down<4&&!M.stop)) return; tick(1); M.run=false; M.down++; M.ps[0].att++; M.st.att++; toast('Spiked: the clock stops');
+      if(M.stop) return endPeriod(); GAME.sit(M.yd,M.down,M.togo); ddMe(); bug(); },
     ddThem, M };
   function final(){
     const [a,b]=M.score, res=a>b?'You win':a<b?'You lose':'A tie', col=a>b?'var(--gold)':a<b?'var(--red)':'var(--text2)', s=M.st;

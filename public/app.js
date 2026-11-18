@@ -919,6 +919,7 @@ function switchTab(name){
   if(name==='season'&&!seasonAllowed()) name='home';
   try{ undockPicker(true); }catch(e){}   // before the page changes under it
   _activeTab=name;
+  try{ seasonNavSync(); }catch(e){}
   syncSeasonPicker(name);
   document.documentElement.dataset.tabaccent=name;   // each tab drives the page accent
   setPageBg(name);
@@ -9920,13 +9921,19 @@ function seasonGate(){
   if(!ok){ const body=document.getElementById('season-body'); if(body) body.innerHTML='';
     if(_activeTab==='season') switchTab('home'); }
 }
+/* THE NAV STEPS ASIDE. Once the game is scrolled up to the top of the screen the nav slides away, so nothing sits over
+   the field; scroll back up and it comes back. Only on this tab, and only while the game is up there. */
+function seasonNavSync(){
+  const f=_activeTab==='season'&&document.querySelector('.season-frame');
+  document.documentElement.classList.toggle('season-nonav',!!f&&f.getBoundingClientRect().top<=40);
+}
+addEventListener('scroll',()=>{ if(_activeTab==='season'||document.documentElement.classList.contains('season-nonav')) seasonNavSync(); },{passive:true});
 function renderSeason(){
   const el=document.getElementById('season-body'); if(!el||!seasonAllowed()) return;
   /* the game takes the whole screen under the nav: the frame is that tall, and the page scrolls the title away so
      its top sits just under the nav. After switchTab's own reset to the top, hence the wait. */
-  const fit=()=>{ const nv=document.getElementById('floatnav'), f=el.querySelector('iframe'); if(!f) return;
-    const top=Math.round(((nv&&nv.getBoundingClientRect().bottom)||0)+8); document.documentElement.style.setProperty('--seasontop',(top+8)+'px');
-    if(_activeTab==='season') window.scrollTo(0,Math.max(0,f.getBoundingClientRect().top+window.scrollY-top)); };
+  const fit=()=>{ const f=el.querySelector('iframe'); if(!f) return;
+    if(_activeTab==='season') window.scrollTo(0,Math.max(0,f.getBoundingClientRect().top+window.scrollY)); seasonNavSync(); };
   setTimeout(fit,140);
   if(el.querySelector('iframe')) return;            /* a game in progress keeps going while you look elsewhere */
   el.innerHTML=`<iframe class="season-frame" src="/season/index.html?team=${encodeURIComponent((_me&&_me.teamId)||'')}" title="Season Mode"></iframe>`;
