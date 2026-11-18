@@ -240,8 +240,10 @@ function makeMatch(){
         else if(p.pos==='D/ST'){ a=`${d.sk} sacks · ${d.int} INT · ${d.fum} fumbles`; b=`${M.score[1]} points · ${M.opp.yds} yds allowed`; }
         else { a=`${s.rec} of ${s.tgt} · ${s.recy} yds · ${s.rtd} TD`; b=s.rec?`long ${s.long}${s.fum?' · '+s.fum+' fumble':''}`:'no catches'; }
         return `<div class="t-${TIER(p.r)}">${p.pos==='D/ST'?nflImg(p.n):`<img src="${SHOT(p.id)}" alt="">`}<span><b>${esc(p.n)}</b><em>${p.pos} · ${p.season} · ${p.r}</em><i>${a}</i><i>${b}</i></span></div>`; }).join('')}</div>
-      <button class="btn w" id="again">${typeof LG!=='undefined'&&LG?'Back to the season':'Play again'}</button></div>`;
-    if(typeof LG!=='undefined'&&LG){ seasonFinal(M); $('#again').onclick=()=>seasonContinue(); }
+      <button class="btn w" id="again">${typeof QUICK!=='undefined'&&QUICK?(localStorage.getItem('gfl-season-v1')?'Back to the season':'Play again'):typeof LG!=='undefined'&&LG?'Back to the season':'Play again'}</button></div>`;
+    /* a quick game goes in no book; a season game does */
+    if(typeof QUICK!=='undefined'&&QUICK) $('#again').onclick=()=>quickDone();
+    else if(typeof LG!=='undefined'&&LG){ seasonFinal(M); $('#again').onclick=()=>seasonContinue(); }
     else $('#again').onclick=()=>{ DR.i=0; DR.got=[]; screen('match'); };
   }
 }

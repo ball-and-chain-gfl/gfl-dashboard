@@ -224,7 +224,11 @@
   .lg-h{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);} .lg-h>span:nth-child(2){text-align:left;}
   .lg-r>.tmn{text-align:left;} .lg-r .tmn b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:11.5px;line-height:1.15;} .lg-r .tmn img,.lg-r .tmn .ini{width:16px;height:16px;}
   .lg-r.me{background:var(--l2);} .lg-r.cut{box-shadow:inset 0 -1px 0 var(--sky);}
-  .hb-new{margin-top:auto;align-self:center;font-size:12px;padding:8px 14px;}
+  /* the start screen scrolls when it's taller than the phone, and stays centred when it isn't */
+  .mu.setup{overflow-y:auto;justify-content:flex-start;gap:12px;padding:18px 16px;} .mu.setup>:nth-child(2){margin-top:auto;} .mu.setup>:last-child{margin-bottom:auto;}
+  .mu.setup .vs img,.mu.setup .vs .ini{width:64px;height:64px;} .mu.setup h3{font-size:32px;}
+  .hb-row{margin-top:auto;display:flex;justify-content:center;gap:8px;} .hb-row .btn{font-size:12px;padding:8px 14px;}
+  .qg{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:16px;margin-top:4px;border-top:1px solid var(--ln);}
   .pbox .ini{width:44px;height:32px;}
   /* the sheet */
   .side{width:343px;max-width:100%;}

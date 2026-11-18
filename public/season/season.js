@@ -122,6 +122,7 @@ function hub(tab){ if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur],
     if(!g) return (simRound(),hub('next'));
     if(LG.dstRound===LG.cur&&DR.got[5]) return kickoff();
     DR.i=5; DR.got[5]=null; screen('draft'); stageSpin(); };
+  const qb=$('#hb-quick'); if(qb) qb.onclick=()=>quickGame(false);
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
   document.querySelectorAll('.lg-tabs button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); }); }
 const ordinal=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
@@ -129,7 +130,7 @@ function hubNext(){
   if(LG.phase==='done'){ const c=LG.teams[LG.champ], won=LG.champ===0;
     return `<div class="hb-card champ2" style="--fc:${won?'var(--gold)':'var(--text2)'}"><span class="tag">Champion</span><div class="big">${crest(c)}</div><h3>${esc(c.name)}</h3>
       <p>${won?'That\'s you. A title.':'Your season: '+recTxt(LG.teams[0].st)+', '+ordinal(standings().findIndex(x=>x.i===0)+1)+' in the regular season.'}</p>
-      <button class="btn w" id="hb-go">New season</button></div>`; }
+      <button class="btn w" id="hb-go">New season</button><button class="btn" id="hb-quick">Quick game</button></div>`; }
   const R=LG.rounds[LG.cur], g=myGame(R);
   let top;
   if(g){ const home=g.h===0, o=home?g.a:g.h, t=LG.teams[o], needD=!(LG.dstRound===LG.cur&&DR.got[5]);
@@ -141,7 +142,7 @@ function hubNext(){
   else top=`<div class="hb-card"><span class="tag">${esc(R.label)}</span><h3>${LG.phase==='po'?(R.bye&&R.bye.includes(0)?'You have a bye':'You\'re out'):'No game this week'}</h3>
       <p>${LG.phase==='po'&&!(R.bye&&R.bye.includes(0))?'The playoffs go on without you.':'The rest of the league plays.'}</p><button class="btn w" id="hb-go">Sim ${esc(R.label.toLowerCase())}</button></div>`;
   const last=LG.cur>0?LG.rounds[LG.cur-1]:null;
-  return top+(last?`<div class="tag hb-h">${esc(last.label)} results</div>${gamesHTML(last)}`:'')+`<button class="btn hb-new" id="hb-new">New season</button>`; }
+  return top+(last?`<div class="tag hb-h">${esc(last.label)} results</div>${gamesHTML(last)}`:'')+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-new">New season</button></div>`; }
 function gamesHTML(R){ return `<div class="hb-games">${R.games.map(g=>{ const w=g.s?(g.s[0]>g.s[1]?'h':g.s[1]>g.s[0]?'a':''):'';
   return `<div class="${g.h===0||g.a===0?'me':''}">${tm(g.a,w==='a'?'w':'')}<b class="sc">${g.s?g.s[1]:''}</b><i>at</i><b class="sc">${g.s?g.s[0]:''}</b>${tm(g.h,w==='h'?'w':'')}${g.ot?'<em>OT</em>':''}</div>`; }).join('')}</div>`; }
 function hubSched(){ return LG.rounds.map((R,k)=>`<details ${k===LG.cur||(LG.phase==='done'&&k===LG.rounds.length-1)?'open':''}><summary><span>${esc(R.label)}</span>${(()=>{ const g=myGame(R); if(!g) return '<em>'+(R.bye&&R.bye.includes(0)?'Bye':'—')+'</em>';
@@ -169,21 +170,39 @@ function hubLeague(){ const S=standings(), pg=(v,s)=>s.g?(v/s.g).toFixed(1):'–
 
 /* ═══ STARTING OUT ═══ pick a size, build your team, then the hub */
 function setupScreen(){ screen('match');
-  $('#scr-match').innerHTML=`<div class="mu"><div class="fade"><div class="dots"></div></div><span class="tag" style="position:relative">Season Mode</span>
+  $('#scr-match').innerHTML=`<div class="mu setup"><div class="fade"><div class="dots"></div></div><span class="tag" style="position:relative">Season Mode</span>
     <div class="vs" style="grid-template-columns:1fr"><div>${crest(ME)}<span>${esc(ME.name)}</span></div></div>
     <h3>Pick your league</h3><div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
     <p class="sub" style="font-size:13px">Your opponents are drawn from every team the GFL has had, each built from packs on the same odds as yours.</p>
     <button class="btn w" id="go" style="position:relative;width:220px">Open packs</button>
-    <button class="btn" id="mix" style="position:relative;width:220px">Test team · mixed tiers</button></div>`;
+    <button class="btn" id="mix" style="position:relative;width:220px">Test team · mixed tiers</button>
+    <div class="qg"><span class="tag">Or just one game</span><p class="sub" style="font-size:13px">A quick game against a random GFL team. Any season you have going stays where it is.</p>
+      <button class="btn w" id="qg" style="width:220px">Quick game</button><button class="btn" id="qgmix" style="width:220px">Quick game · test team</button></div></div>`;
   let pick='standard'; document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ pick=b.dataset.p; document.querySelectorAll('.presets button').forEach(x=>x.classList.toggle('on',x===b)); });
   $('#go').onclick=()=>{ SETUP=pick; DR.i=0; DR.got=[]; screen('draft'); stageSpin(); };
-  $('#mix').onclick=()=>{ SETUP=pick; const tiers=['legend','gold','silver','bronze','gold','silver'].sort(()=>Math.random()-.5); DR.got=[]; DR.i=0;
-    SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }; }
+  $('#mix').onclick=()=>{ SETUP=pick; mixTeam(); };
+  $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); }
+/* for testing: skip the packs with one of every tier, in a random order across the six slots */
+function mixTeam(){ const tiers=['legend','gold','silver','bronze','gold','silver'].sort(()=>Math.random()-.5); DR.got=[]; DR.i=0;
+  SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }
+
+/* ═══ A QUICK GAME ═══ Your six from packs, one opponent drawn from every GFL team with its five and a defense on the
+   same odds, kits from both logos, home or away at random. Nothing goes in a season's book. */
+let QUICK=false;
+function quickGame(mix){ SETUP=null; QUICK=true; if(mix) return mixTeam(); DR.i=0; DR.got=[]; screen('draft'); stageSpin(); }
+async function quickKick(){ $('#kick').disabled=true; $('#kick').textContent='Finding an opponent';
+  const pool=leaguePool(), t0=pool[Math.floor(Math.random()*pool.length)], used=new Set(DR.got.slice(0,5).map(p=>p.id+'-'+p.season));
+  const them={name:t0.name,logo:t0.logo||null,roster:OSLOTS.map(pos=>pickPlayer(pos,used)),dst:pickDST()};
+  const [mine,theirs]=await Promise.all([logoColors(ME),logoColors(them)]), home=Math.random()<.5;
+  const [hk,ak]=dressFor(home?mine:theirs,home?theirs:mine); setKits(home?hk:ak,home?ak:hk);
+  CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:'Quick game',mustWin:false}); }
+/* after it: back to the season if there is one, otherwise the start */
+function quickDone(){ QUICK=false; if(resume()) hub('next'); else { DR.i=0; DR.got=[]; setupScreen(); } }
 let SETUP=null;
 /* the packs are done: the first time, the league is made; every week after, it's time to play */
-async function afterDraft(){ if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=0; save(); return hub('next'); }
+async function afterDraft(){ if(QUICK) return quickKick(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=0; save(); return hub('next'); }
   LG.dstRound=LG.cur; LG.teams[0].dst=DR.got[5]; save(); kickoff(); }
-const draftLabel=()=>SETUP?'To the season':'Kick off';
+const draftLabel=()=>SETUP&&!QUICK?'To the season':'Kick off';
 function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; setupScreen(); }
 /* back where you were: your five and this week's defense come back from the save */
 function resume(){ try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
