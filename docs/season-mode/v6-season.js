@@ -64,14 +64,37 @@ async function newLeague(preset){
   save(); }
 
 /* a game neither side is yours: each offence against the other's defense, scored like the games you play */
+const bin=(n,p)=>{ let k=0; for(let i=0;i<n;i++) if(Math.random()<p) k++; return k; };
 function simSide(o,d){ const adv=(offR(o)-d.dst.r)/10, td=pois(clamp(1.15+adv*.45,.25,3.2)), fg=pois(.85), tot=Math.max(70,Math.round(250+adv*38+gauss()*45)), py=Math.round(tot*clamp(.56+gauss()*.07,.3,.8));
-  return {pts:td*7+fg*3,py,ry:tot-py,give:pois(1.1),sk:pois(1.6)}; }
+  const tdP=bin(td,.58), give=pois(1.1), ints=bin(give,.6);
+  return {pts:td*7+fg*3,py,ry:tot-py,give,sk:pois(1.6),tdP,tdR:td-tdP,ints,fum:give-ints}; }
+/* PLAYERS' LINES. A team's offense in a game, shared out the way a real box score falls: the quarterback throws it all;
+   the back carries most of the runs and the quarterback the rest; each catch goes to a receiver by his rating and spot
+   (receivers most, then the tight end, then the back), and each catch is a different length. */
+const pickW=W=>{ let x=Math.random()*W.reduce((a,b)=>a+b.w,0); for(const w of W){ if((x-=w.w)<0) return w; } return W[W.length-1]; };
+function linesFrom(t,S){ const R=t.roster, L=R.map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,fum:0}));
+  const att=S.py>0?Math.max(6,Math.round(S.py/(6.2+Math.random()*1.8))):pois(4), comp=S.py>0?Math.max(1,Math.min(att,Math.round(att*(.55+Math.random()*.15)))):0, Q=L[0], B=L[1];
+  Object.assign(Q,{att,comp,py:comp?S.py:0,ptd:S.tdP,int:S.ints,sk:S.sk});
+  const qr=Math.max(0,Math.round(S.ry*(.06+Math.random()*.12))); Q.ry=qr; Q.car=qr>0?1+pois(1.5):pois(.8); B.ry=S.ry-qr; B.car=Math.max(B.ry>0?5:0,Math.round(B.ry/(3.6+Math.random()*1.6)));
+  for(let i=0;i<S.tdR;i++) (Math.random()<.82?B:Q).rushtd++;
+  for(let i=0;i<(S.fum||0);i++) L[Math.random()<.5?1:Math.floor(Math.random()*5)].fum++;
+  const W=[1,2,3,4].map(i=>({i,w:({RB:.15,WR:.31,TE:.23})[R[i].pos]*(R[i].r/85)*(.6+Math.random()*.8)})), C=[];
+  for(let k=0;k<comp;k++) C.push({i:pickW(W).i,y:.25+Math.random()*1.5});
+  const ty=C.reduce((a,c)=>a+c.y,0)||1; let left=Q.py; C.forEach((c,k)=>{ const y=k===C.length-1?left:Math.round(Q.py*c.y/ty); L[c.i].rec++; L[c.i].recy+=y; left-=y; });
+  for(let k=0;k<att-comp;k++) L[pickW(W).i].tgt++; L.forEach(l=>l.tgt+=l.rec);
+  const got=W.filter(w=>L[w.i].rec>0); for(let k=0;k<S.tdP;k++) L[pickW(got.length?got:W).i].rtd++;
+  return L; }
+function addLines(ti,L){ const t=LG.teams[ti]; LG.pl=LG.pl||{}; t.roster.forEach((p,k)=>{ const o=LG.pl[ti+':'+k]||(LG.pl[ti+':'+k]={ti,k,n:p.n,pos:p.pos,id:p.id,r:p.r,g:0});
+  o.g++; Object.entries(L[k]).forEach(([f,v])=>{ if(f!=='long'&&f!=='g') o[f]=(o[f]||0)+v; }); }); }
+/* a defense's line: what the offense it faced did */
+function addD(ti,dst,S){ LG.dl=LG.dl||{}; const o=LG.dl[ti+':'+dst.id]||(LG.dl[ti+':'+dst.id]={ti,n:dst.n,season:dst.season,r:dst.r,g:0,sk:0,int:0,fum:0,pa:0,ya:0});
+  o.g++; o.sk+=S.sk||0; o.int+=S.ints||0; o.fum+=S.fum||0; o.pa+=S.pts||0; o.ya+=(S.py||0)+(S.ry||0); }
 function record(g,H,A){ const T=LG.teams, add=(t,me,them)=>{ const s=t.st; s.g++; s.pf+=me.pts; s.pa+=them.pts; s.py+=me.py; s.ry+=me.ry; s.ya+=them.py+them.ry; s.give+=me.give; s.take+=them.give; s.sk+=them.sk;
     if(me.pts>them.pts) s.w++; else if(me.pts<them.pts) s.l++; else s.t++; };
   g.s=[H.pts,A.pts]; add(T[g.h],H,A); add(T[g.a],A,H); }
 function simGame(g,mustWin){ const T=LG.teams, H=simSide(T[g.h],T[g.a]), A=simSide(T[g.a],T[g.h]);
   if(mustWin&&H.pts===A.pts){ (Math.random()<.5+(offR(T[g.h])-offR(T[g.a]))/60?H:A).pts+=3; g.ot=1; }
-  record(g,H,A); }
+  record(g,H,A); addLines(g.h,linesFrom(T[g.h],H)); addLines(g.a,linesFrom(T[g.a],A)); addD(g.h,T[g.h].dst,A); addD(g.a,T[g.a].dst,H); }
 
 const pct=s=>s.g?(s.w+s.t*.5)/s.g:0;
 function standings(){ return LG.teams.map((t,i)=>({i,t,s:t.st})).sort((a,b)=>pct(b.s)-pct(a.s)||(b.s.pf-b.s.pa)-(a.s.pf-a.s.pa)||b.s.pf-a.s.pf); }
@@ -103,6 +126,9 @@ function seasonFinal(M){ const R=LG.rounds[LG.cur], g=myGame(R); if(!g||g.s) ret
   if(R.kind==='po'&&mine.pts===theirs.pts){ (Math.random()<.5?mine:theirs).pts+=3; M.ot=true; }
   if(M.ot) g.ot=1; record(g,home?mine:theirs,home?theirs:mine);
   M.ps.forEach((p,i)=>{ const L=LG.ps[i]; L.g++; Object.keys(p).forEach(k=>{ if(k!=='long') L[k]=(L[k]||0)+p[k]; }); });
+  const oi=home?g.a:g.h, them=LG.teams[oi], O=M.opp;
+  addLines(0,M.ps); addLines(oi,linesFrom(them,{py:O.py||0,ry:O.ry||0,tdP:O.tdP||0,tdR:O.tdR||0,ints:M.dst.int,fum:M.dst.fum,sk:M.dst.sk}));
+  addD(0,DR.got[5],{sk:M.dst.sk,ints:M.dst.int,fum:M.dst.fum,pts:M.score[1],py:O.py||0,ry:O.ry||0}); addD(oi,them.dst,{sk:st.sk,ints:st.int,fum,pts:M.score[0],py:st.py,ry:st.ry});
   LG.dst.push({round:R.label,n:DR.got[5].n,season:DR.got[5].season,r:DR.got[5].r,sk:M.dst.sk,take:M.dst.int+M.dst.fum,pa:M.score[1],ya:M.opp.yds});
   save(); }
 function seasonContinue(){ simRound(); hub('next'); }
@@ -136,8 +162,9 @@ function hubNext(){
   if(g){ const home=g.h===0, o=home?g.a:g.h, t=LG.teams[o], needD=!(LG.dstRound===LG.cur&&DR.got[5]);
     top=`<div class="hb-card"><span class="tag">${esc(R.label)} · ${home?'Home':'Away'}</span>
       <div class="hb-vs"><div>${crest(LG.teams[0])}<b>You</b><span>${recTxt(LG.teams[0].st)}</span></div><i>${home?'v':'at'}</i><div>${crest(t)}<b>${esc(t.name)}</b><span>${recTxt(t.st)}</span></div></div>
-      <div class="hb-line"><span>Their offense</span><b class="t-${TIER(offR(t))}">${offR(t)}</b></div>
-      <div class="hb-line"><span>Their defense this week</span><b>${nflImg(t.dst.n)}${t.dst.season} ${esc(t.dst.n)} <em class="t-${TIER(t.dst.r)}">${t.dst.r}</em></b></div>
+      <div class="hb-lu">${[[LG.teams[0],needD?null:DR.got[5],'You'],[t,t.dst,t.name]].map(([T,D,lab])=>`<div><span class="tag">${esc(lab)}</span><span class="ov">Offense <b class="t-${TIER(offR(T))}">${offR(T)}</b></span>
+        ${T.roster.map(p=>`<div class="t-${TIER(p.r)}"><span>${p.pos}</span><b>${esc(p.n)}</b><em>${p.r}</em></div>`).join('')}
+        ${D?`<div class="t-${TIER(D.r)}"><span>D/ST</span><b>${D.season} ${esc(D.n)}</b><em>${D.r}</em></div>`:'<div class="spin"><span>D/ST</span><b>Spin to see</b><em>?</em></div>'}</div>`).join('')}</div>
       <button class="btn w" id="hb-go">${needD?'Spin your defense':'Kick off'}</button>${needD?'<span class="tag">A new defense every week</span>':''}</div>`; }
   else top=`<div class="hb-card"><span class="tag">${esc(R.label)}</span><h3>${LG.phase==='po'?(R.bye&&R.bye.includes(0)?'You have a bye':'You\'re out'):'No game this week'}</h3>
       <p>${LG.phase==='po'&&!(R.bye&&R.bye.includes(0))?'The playoffs go on without you.':'The rest of the league plays.'}</p><button class="btn w" id="hb-go">Sim ${esc(R.label.toLowerCase())}</button></div>`;
@@ -160,13 +187,26 @@ function hubTeam(){ const L=LG.ps, line=(p,i)=>{ const s=L[i];
       <div class="t-silver"><span class="ini">D</span><span><b>Season</b><em>${D.length} game${D.length===1?'':'s'}</em><i>${tot.sk} sacks · ${tot.take} takeaways · ${D.length?(tot.pa/D.length).toFixed(1):'0'} points a game allowed</i></span></div>
       ${D.slice().reverse().map(d=>`<div class="t-${TIER(d.r)}">${nflImg(d.n)}<span><b>${d.season} ${esc(d.n)}</b><em>${esc(d.round)} · ${d.r}</em><i>${d.sk} sacks · ${d.take} takeaways · ${d.pa} points, ${d.ya} yds allowed</i></span></div>`).join('')}</div>`; }
 function hubLeague(){ const S=standings(), pg=(v,s)=>s.g?(v/s.g).toFixed(1):'–', po=LG.phase==='reg'?LG.po:0;
-  const cols={table:[['W–L',x=>recTxt(x.s)],['PF',x=>x.s.pf],['PA',x=>x.s.pa],['+/–',x=>{ const d=x.s.pf-x.s.pa; return (d>0?'+':'')+d; }]],
-    off:[['Pts/G',x=>pg(x.s.pf,x.s)],['Pass/G',x=>pg(x.s.py,x.s)],['Rush/G',x=>pg(x.s.ry,x.s)],['Give',x=>x.s.give]],
-    def:[['PA/G',x=>pg(x.s.pa,x.s)],['Yds/G',x=>pg(x.s.ya,x.s)],['Sacks',x=>x.s.sk],['Take',x=>x.s.take]]}[LGTAB];
-  return `<div class="lg-tabs">${[['table','Standings'],['off','Offense'],['def','Defense']].map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}</div>
-    <div class="lg"><div class="lg-r lg-h"><span>#</span><span>Team</span>${cols.map(c=>`<span>${c[0]}</span>`).join('')}</div>
-    ${S.map((x,k)=>`<div class="lg-r${x.i===0?' me':''}${po&&k===po-1?' cut':''}"><span>${k+1}</span>${tm(x.i)}${cols.map(c=>`<span>${c[1](x)}</span>`).join('')}</div>`).join('')}</div>
-    <div class="hb-note">${LGTAB==='table'?(po?`The top ${po} make the playoffs.`:'Final regular-season standings.'):LGTAB==='off'?'Per game, across the games played. Give: turnovers.':'Per game allowed. Take: turnovers forced.'}</div>`; }
+  const TT=[['table','Standings'],['off','Offense'],['def','Defense']], PT=[['pass','Passing'],['rush','Rushing'],['recv','Receiving'],['dst','Defense']];
+  const row=(rank,i,name,sub,vals,me,cut)=>{ const t=LG.teams[i]; return `<div class="lg-r${me?' me':''}${cut?' cut':''}"><span>${rank}</span><span class="tmn"><i style="--p:${t.col?t.col[0]:'#555'};--q:${t.col?t.col[1]:'#999'}"></i>${crest(t)}<b>${esc(name)}${sub?`<small>${esc(sub)}</small>`:''}</b></span>${vals.map(v=>`<span>${v}</span>`).join('')}</div>`; };
+  const tabs=`<div class="lg-tabs"><span class="tag">Teams</span>${TT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}</div>
+    <div class="lg-tabs p"><span class="tag">Players</span>${PT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}</div>`;
+  /* THE TEAMS */
+  if(TT.some(t=>t[0]===LGTAB)){ const cols={table:[['W–L',x=>recTxt(x.s)],['PF',x=>x.s.pf],['PA',x=>x.s.pa],['+/–',x=>{ const d=x.s.pf-x.s.pa; return (d>0?'+':'')+d; }]],
+      off:[['Pts/G',x=>pg(x.s.pf,x.s)],['Pass/G',x=>pg(x.s.py,x.s)],['Rush/G',x=>pg(x.s.ry,x.s)],['Give',x=>x.s.give]],
+      def:[['PA/G',x=>pg(x.s.pa,x.s)],['Yds/G',x=>pg(x.s.ya,x.s)],['Sacks',x=>x.s.sk],['Take',x=>x.s.take]]}[LGTAB];
+    return tabs+`<div class="lg"><div class="lg-r lg-h"><span>#</span><span>Team</span>${cols.map(c=>`<span>${c[0]}</span>`).join('')}</div>
+      ${S.map((x,k)=>row(k+1,x.i,x.t.name,'',cols.map(c=>c[1](x)),x.i===0,po&&k===po-1)).join('')}</div>
+      <div class="hb-note">${LGTAB==='table'?(po?`The top ${po} make the playoffs.`:'Final regular-season standings.'):LGTAB==='off'?'Per game, across the games played. Give: turnovers.':'Per game allowed. Take: turnovers forced.'}</div>`; }
+  /* THE PLAYERS, across the games played, the leaders first */
+  const P=Object.values(LG.pl||{}), avg=(a,b)=>b?(a/b).toFixed(1):'–';
+  const T={pass:{cols:'16px minmax(0,1fr) 54px 40px 26px 26px',h:['C/A','Yds','TD','Int'],rows:P.filter(p=>p.att>0).sort((a,b)=>b.py-a.py),v:p=>[p.comp+'/'+p.att,p.py,p.ptd,p.int],note:'Every quarterback, most yards first.'},
+    rush:{cols:'16px minmax(0,1fr) 34px 40px 34px 26px',h:['Car','Yds','Avg','TD'],rows:P.filter(p=>p.car>0).sort((a,b)=>b.ry-a.ry),v:p=>[p.car,p.ry,avg(p.ry,p.car),p.rushtd],note:'Backs and quarterbacks, most yards first.'},
+    recv:{cols:'16px minmax(0,1fr) 34px 40px 34px 26px',h:['Rec','Yds','Avg','TD'],rows:P.filter(p=>p.rec>0).sort((a,b)=>b.recy-a.recy),v:p=>[p.rec,p.recy,avg(p.recy,p.rec),p.rtd],note:'Receivers, tight ends and backs, most yards first.'},
+    dst:{cols:'16px minmax(0,1fr) 24px 30px 30px 40px',h:['G','Sk','TO','PA/G'],rows:Object.values(LG.dl||{}).sort((a,b)=>a.pa/a.g-b.pa/b.g||(b.sk+b.int+b.fum)-(a.sk+a.int+a.fum)),v:d=>[d.g,d.sk,d.int+d.fum,avg(d.pa,d.g)],note:'Every defense that has played this season, fewest points a game allowed first. TO: takeaways.'}}[LGTAB];
+  const name=p=>LGTAB==='dst'?p.season+' '+p.n:p.n, sub=p=>LGTAB==='dst'?LG.teams[p.ti].name:p.pos+' · '+LG.teams[p.ti].name;
+  return tabs+`<div class="lg" style="--cols:${T.cols}"><div class="lg-r lg-h"><span>#</span><span>${LGTAB==='dst'?'Defense':'Player'}</span>${T.h.map(c=>`<span>${c}</span>`).join('')}</div>
+    ${T.rows.length?T.rows.slice(0,30).map((p,k)=>row(k+1,p.ti,name(p),sub(p),T.v(p),p.ti===0)).join(''):'<div class="lg-empty">No games played yet</div>'}</div><div class="hb-note">${T.note}</div>`; }
 
 /* ═══ STARTING OUT ═══ pick a size, build your team, then the hub */
 function setupScreen(){ screen('match');
@@ -208,3 +248,7 @@ function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=n
 function resume(){ try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
   if(!LG||LG.v!==1||!LG.teams) { LG=null; return false; }
   DR.got=[...LG.teams[0].roster,LG.dstRound===LG.cur?LG.teams[0].dst:null]; DR.i=6; return true; }
+
+/* the defense pack says which game it's for: the first one is week 1's, and before every game after you spin again */
+function dLabel(){ if(QUICK||!(SETUP||LG)) return 'Defense'; return (SETUP?'Week 1':LG.rounds[LG.cur].label)+' defense'; }
+function dNote(){ if(QUICK||!(SETUP||LG)) return ''; return 'Just for '+(SETUP?'week 1':LG.rounds[LG.cur].label.toLowerCase())+'. You spin a new defense before every game.'; }

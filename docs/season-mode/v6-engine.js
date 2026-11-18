@@ -610,6 +610,8 @@ function makeGame(){
   fw.addEventListener('pointercancel',()=>{ S.hold=null; });
   function sitOnly(yd,down,togo){ S.phase='pre'; S.yd=yd; S.down=down; S.togo=togo; S.goal=100-yd; S.fourth=down===4; S.hand={pass:deal('pass'),run:deal('run')}; S.call=S.hand[S.kind][0]; reset(); }
   addEventListener('resize',()=>size());
+  /* and whenever its box changes (the play buttons coming in, the app giving the game the whole screen), so the field is never drawn squashed */
+  if(window.ResizeObserver) new ResizeObserver(()=>{ if(S.on) size(); }).observe(cv);
   requestAnimationFrame(t=>{ last=t; requestAnimationFrame(loop); });
   return { roster(g){ roster=g.slice(0,5); }, setD(d){ D=d; }, sit(yd,down,togo){ sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
     show(on){ S.on=on; if(on) size(); }, S, throwTo, toS, hike, reset, update, size };

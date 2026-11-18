@@ -4720,6 +4720,14 @@
     .season-frame{display:block;width:100%;max-width:460px;height:100dvh;margin:0 auto;border:0;background:#171717;}
     /* the game is the screen (seasonNavSync): pinned to it, exactly its size, a phone's width on a desktop; nothing
        under it scrolls, and the nav steps aside until the game's menu button asks for it */
+    /* on the tab, outside a game: the nav stays, the frame fills the screen under it, and nothing else shows */
+    html.season-on,html.season-on body{overflow:hidden;overscroll-behavior:none;}
+    html.season-on footer,html.season-on #sec-nav{display:none;}
+    html.season-on .season-frame{position:fixed;top:calc(var(--seasontop,calc(env(safe-area-inset-top,0px) + 72px)) + 6px);left:50%;transform:translateX(-50%);
+      width:min(calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)),460px);
+      height:calc(100vh - var(--seasontop,72px) - 6px - env(safe-area-inset-bottom,0px));height:calc(100dvh - var(--seasontop,72px) - 6px - env(safe-area-inset-bottom,0px));
+      z-index:300;box-shadow:0 0 0 100vmax #171717;}
+    /* in a game */
     html.season-full,html.season-full body{overflow:hidden;overscroll-behavior:none;}
     html.season-full footer,html.season-full #sec-nav{display:none;}
     html.season-full .season-frame{position:fixed;top:env(safe-area-inset-top,0px);left:50%;transform:translateX(-50%);

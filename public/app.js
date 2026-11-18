@@ -9922,13 +9922,20 @@ function seasonGate(){
   if(!ok){ const body=document.getElementById('season-body'); if(body) body.innerHTML='';
     if(_activeTab==='season') switchTab('home'); }
 }
-/* THE GAME IS THE SCREEN. On this tab the frame is pinned to the whole screen, exactly its size, and the page under it
-   does not scroll, so the score, the field and the play buttons are always all in view. The nav steps aside; the
-   game's own menu button (top left of its scoreboard) asks for it back, and it goes again when the menu closes. */
+/* ON THIS TAB THE GAME IS THE PAGE. The frame is pinned under the nav, the page beneath it doesn't scroll, and the
+   footer and section bar don't show. In a game itself (the frame says which screen it's on) the frame takes the whole
+   screen and the nav steps aside, so the score, the field and the play buttons are all in view; the game's own menu
+   button (top left of its scoreboard) asks for the nav back, and it goes again when the menu closes. */
+let _seasonGame=false;
 function seasonNavSync(){
-  const on=_activeTab==='season'&&!!document.querySelector('.season-frame'), r=document.documentElement;
-  r.classList.toggle('season-full',on); if(!on) r.classList.remove('season-peek');
+  const on=_activeTab==='season'&&!!document.querySelector('.season-frame'), full=on&&_seasonGame, r=document.documentElement;
+  r.classList.toggle('season-on',on); r.classList.toggle('season-full',full); if(!full) r.classList.remove('season-peek');
+  /* the frame starts just under the nav: measured once the nav has come back into place */
+  if(on&&!full){ const put=()=>{ const n=document.getElementById('floatnav'); if(n) r.style.setProperty('--seasontop',Math.max(0,Math.round(n.getBoundingClientRect().bottom))+'px'); };
+    put(); setTimeout(put,320); }
 }
+addEventListener('resize',()=>{ if(_activeTab==='season') seasonNavSync(); });
+addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-screen') return; _seasonGame=!!e.data.game; seasonNavSync(); });
 addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-menu'||_activeTab!=='season') return;
   document.documentElement.classList.add('season-peek'); try{ toggleTabDD(true); }catch(_){} });
 function renderSeason(){

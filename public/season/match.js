@@ -10,6 +10,25 @@ function four(pos,tier){
   if(pos==='D/ST') return DEFS.filter(d=>TIER(d.r)===tier).sort(()=>Math.random()-.5).slice(0,4).map(d=>({id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}));
   return POOL.filter(p=>p.pos===pos&&TIER(p.r)===tier&&!used.has(p.id)).sort(()=>Math.random()-.5).slice(0,4);
 }
+/* ═══ THE SPARKS ═══ A layer over the draft for particles: square pixels and twinkling crosses in the tier's colours,
+   thrown out from a pack or a card, falling under gravity and fading. It only runs while something is in the air. */
+const FXC={bronze:['#C08552','#e2b48a','#8a5a33'],silver:['#C9CED6','#ffffff','#8a9099'],gold:['#F0CE26','#fff4c2','#d9a514','#ffffff'],legend:['#2F86EB','#8cc2ff','#ffffff','#F0CE26','#4C9EFF']};
+const PFX=(()=>{ let cv=null, x=null, P=[], raf=0, last=0, W=0, H=0;
+  function host(){ const h=document.getElementById('scr-draft'); if(!cv||!h.contains(cv)){ cv=document.createElement('canvas'); cv.className='pfx'; h.appendChild(cv); x=cv.getContext('2d'); }
+    const r=h.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1); if(W!==r.width||H!==r.height){ W=r.width; H=r.height; cv.width=Math.round(W*d); cv.height=Math.round(H*d); x.setTransform(d,0,0,d,0,0); } return r; }
+  function at(el){ const h=host(), b=el.getBoundingClientRect(); return [b.left-h.left+b.width/2,b.top-h.top+b.height/2,b.width,b.height]; }
+  function add(cx,cy,n,tier,o){ const cols=FXC[tier]||FXC.silver; for(let i=0;i<n;i++){ const a=o.dir!=null?o.dir+(Math.random()-.5)*(o.spread||1):Math.random()*Math.PI*2, sp=(o.sp||240)*(.25+Math.random()*.9);
+      P.push({x:cx+(Math.random()-.5)*(o.w||0),y:cy+(Math.random()-.5)*(o.h||0),vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-(o.up||80),g:o.g??460,life:(o.life||1.1)*(.55+Math.random()*.9),age:0,
+        s:Math.random()<.25?3:2,col:cols[Math.floor(Math.random()*cols.length)],tw:Math.random()<(o.tw??.3)}); }
+    if(!raf){ last=performance.now(); raf=requestAnimationFrame(step); } }
+  function step(now){ const dt=Math.min(.04,(now-last)/1000); last=now; x.clearRect(0,0,W,H);
+    for(const p of P){ p.age+=dt; p.vy+=p.g*dt; p.vx*=1-dt*.9; p.x+=p.vx*dt; p.y+=p.vy*dt; const a=Math.max(0,1-p.age/p.life); if(!a) continue;
+      x.globalAlpha=a; x.fillStyle=p.col; const px=Math.round(p.x), py=Math.round(p.y), s=p.s;
+      if(p.tw){ const k=(Math.sin(p.age*24)>0)?s:s-1; x.fillRect(px-k*2,py,k*4+1,1+(k>2?1:0)); x.fillRect(px,py-k*2,1+(k>2?1:0),k*4+1); } else x.fillRect(px,py,s*2,s*2); }
+    x.globalAlpha=1; P=P.filter(p=>p.age<p.life);
+    if(P.length) raf=requestAnimationFrame(step); else { raf=0; x.clearRect(0,0,W,H); } }
+  return { burst(el,tier,n,o){ const [cx,cy,w,h]=at(el); add(cx,cy,n,tier,Object.assign({w:w*.6,h:h*.4},o||{})); },
+    rain(el,tier,n){ const [cx,cy,w,h]=at(el); add(cx,cy,n,tier,{w:w*1.1,h:h*1.1,sp:40,up:40,g:-30,life:1.3,tw:.8}); } }; })();
 function slotsHTML(){ $('#slots').innerHTML=SLOTS.map((s,i)=>{ const g=DR.got[i]; return `<div class="${i===DR.i&&!g?'now':''}${g?' done t-'+TIER(g.r):''}">${s}<b>${g?g.r:'–'}</b></div>`; }).join(''); }
 function cardHTML(p){ const t=TIER(p.r), d=p.pos==='D/ST';
   return `<div class="cd t-${t}"><div class="top"><div class="fade"><div class="dots"></div></div>
@@ -21,30 +40,35 @@ function stageSpin(){
   slotsHTML(); if(DR.i>=SLOTS.length) return stageRoster();
   const pos=SLOTS[DR.i], land=roll(), N=64, AT=56, W=98, tiers=[];
   for(let i=0;i<N;i++) tiers.push(i===AT?land:roll());
-  $('#stage').innerHTML=`<span class="q">${DR.i+1} of 6</span><span class="big">${pos==='D/ST'?'Defense':pos}</span>
+  $('#stage').innerHTML=`<span class="q">${DR.i+1} of 6</span><span class="big">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos}</span>${pos==='D/ST'&&typeof dNote==='function'&&dNote()?`<span class="dnote">${dNote()}</span>`:''}
     <div class="carousel"><div class="belt" id="belt">${tiers.map(t=>packHTML(t)).join('')}</div><div class="fl"></div><div class="fr"></div></div>
     <button class="btn w" id="spin" style="width:220px">Spin</button>`;
   const belt=$('#belt'), mid=$('#stage .carousel').clientWidth/2; belt.style.transform=`translateX(${mid-44}px)`;
   $('#spin').addEventListener('click',()=>{ $('#spin').disabled=true;
     belt.style.transition='transform 5.2s cubic-bezier(.06,.72,.1,1)'; belt.style.transform=`translateX(${mid-44-AT*W+(Math.random()*30-15)}px)`;
-    setTimeout(()=>stageOpen(pos,land),5500); });
+    setTimeout(()=>{ const pk=belt.children[AT]; if(pk){ pk.classList.add('land'); PFX.burst(pk,land,land==='legend'?60:land==='gold'?44:26,{sp:200,up:120}); } setTimeout(()=>stageOpen(pos,land),700); },5500); });
 }
 function stageOpen(pos,tier){
-  $('#stage').innerHTML=`<span class="q">${pos==='D/ST'?'Defense':pos} · ${tier} pack</span><div id="bp">${packHTML(tier,true)}</div><span class="tag">Tap to open</span>`;
-  $('#bp .pk').addEventListener('click',()=>{ $('#bp .pk').classList.add('rip'); setTimeout(()=>stageChoose(pos,tier),430); });
+  $('#stage').innerHTML=`<span class="q">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos} · ${tier} pack</span><div id="bp" class="t-${tier}"><div class="rays"></div>${packHTML(tier,true)}</div><span class="tag">Tap to open</span>`;
+  const pk=$('#bp .pk'), good=tier==='gold'||tier==='legend', sp=good?setInterval(()=>PFX.rain(pk,tier,tier==='legend'?5:3),260):0;
+  pk.addEventListener('click',()=>{ if(pk.classList.contains('shake')) return; clearInterval(sp); pk.classList.add('shake');
+    setTimeout(()=>{ pk.classList.add('rip'); $('#bp').classList.add('pop'); if(good) $('#bp').classList.add('lit');
+      const n={bronze:36,silver:56,gold:96,legend:160}[tier]; PFX.burst(pk,tier,n,{sp:tier==='legend'?420:320,up:140,life:1.4});
+      if(good) setTimeout(()=>PFX.burst(pk,tier,Math.round(n/2),{sp:180,up:60,g:120,life:2,tw:.7}),180);
+      setTimeout(()=>stageChoose(pos,tier),good?820:560); },520); });
 }
 function stageChoose(pos,tier){
   const opts=four(pos,tier);
   $('#stage').innerHTML=`<span class="q">Pick one</span><div class="four">${opts.map(cardHTML).join('')}</div><button class="btn w" id="next" style="width:220px;visibility:hidden"></button>`;
-  const cs=[...document.querySelectorAll('#stage .cd')]; cs.forEach((c,i)=>setTimeout(()=>c.classList.add('in'),120+i*150));
-  cs.forEach((c,i)=>c.addEventListener('click',()=>{ if(DR.got[DR.i]) return; DR.got[DR.i]=opts[i];
+  const cs=[...document.querySelectorAll('#stage .cd')]; cs.forEach((c,i)=>setTimeout(()=>{ c.classList.add('in'); setTimeout(()=>PFX.burst(c,tier,10,{sp:120,up:40,life:.7}),260); },120+i*170));
+  cs.forEach((c,i)=>c.addEventListener('click',()=>{ if(DR.got[DR.i]) return; DR.got[DR.i]=opts[i]; PFX.burst(c,TIER(opts[i].r),TIER(opts[i].r)==='legend'?90:50,{sp:260,up:110,life:1.2});
     cs.forEach((o,j)=>{ o.classList.add(j===i?'picked':'dim'); const r=o.querySelector('.rt'); setTimeout(()=>{ r.classList.add('flip'); setTimeout(()=>r.textContent=r.dataset.r,200);
       o.querySelectorAll('.at em').forEach(e=>e.textContent=e.dataset.v); o.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },j===i?0:260); });
-    slotsHTML(); $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?'Defense':SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
+    slotsHTML(); $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
   $('#next').addEventListener('click',()=>{ DR.i++; stageSpin(); });
 }
 function stageRoster(){
-  $('#stage').innerHTML=`<span class="q">Your roster</span><div class="roster">${DR.got.map((p,i)=>`<div class="p">${SLOTS[i]}</div><div>${p.pos==='D/ST'?nflImg(p.n,'rl'):''}${esc(p.n)} <span class="tag">${p.season}</span><span class="ra">${p.a?ATTR[p.pos].map((l,k)=>l.split(' ')[0].slice(0,3)+' '+p.a[k]).join(' · '):''}</span></div><div class="r t-${TIER(p.r)}">${p.r}</div>`).join('')}</div>
+  $('#stage').innerHTML=`<span class="q">Your roster</span><div class="roster">${DR.got.map((p,i)=>`<div class="p">${SLOTS[i]==='D/ST'&&typeof dLabel==='function'&&dLabel()!=='Defense'?'D/ST<br>'+dLabel().replace(' defense',''):SLOTS[i]}</div><div>${p.pos==='D/ST'?nflImg(p.n,'rl'):''}${esc(p.n)} <span class="tag">${p.season}</span><span class="ra">${p.a?ATTR[p.pos].map((l,k)=>l.split(' ')[0].slice(0,3)+' '+p.a[k]).join(' · '):''}</span></div><div class="r t-${TIER(p.r)}">${p.r}</div>`).join('')}</div>
     <button class="btn w" id="kick" style="width:220px">${typeof draftLabel==='function'?draftLabel():'Kick off'}</button>`;
   GAME.roster(DR.got);
   $('#kick').addEventListener('click',()=>{ if(typeof afterDraft==='function') return afterDraft(); screen('game'); MATCH.start(); });
@@ -100,7 +124,7 @@ function makeSim(){
   }
   function info(){ MATCH.ddThem(st); }
   function step(){ if(st.over) return; if(MATCH.stopped()) return finish({kind:'clock'});
-    const p=play(); if(p.to>=100&&p.kind!=='to'&&p.kind!=='punt'){ p.to=100; p.kind='td'; p.call='Touchdown'; }
+    const p=play(); if(p.to>=100&&p.kind!=='to'&&p.kind!=='punt'){ p.to=100; p.via=p.kind; p.kind='td'; p.call='Touchdown'; }
     st.n++; MATCH.cpuTick(p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
     $('#call').innerHTML=`<div style="--cc:${COL[p.kind]}"><b>${p.call}</b>${p.sub?`<small>${p.sub}</small>`:''}</div>`;
     const t0=performance.now(), dur=fast?90:300; const grow=now=>{ const f=Math.min(1,(now-t0)/dur); frame(p,f); if(f<1) requestAnimationFrame(grow); else after(p); }; requestAnimationFrame(grow); }
@@ -115,6 +139,7 @@ function makeSim(){
   function finish(r){ st.over=true; clearTimeout(timer); r.n=st.n; r.yd=st.yd; frame(null,0); done(r); }
   function start(yd,off,cb){ clearTimeout(timer); fast=false; size(); st={off,yd,down:1,togo:Math.min(10,100-yd),n:0,over:false}; cam=yd; done=cb; info(); frame(null,0); timer=setTimeout(step,450); }
   addEventListener('resize',()=>{ size(); frame(null,0); });
+  if(window.ResizeObserver) new ResizeObserver(()=>{ size(); frame(null,0); }).observe(cv);
   return {start,size,myD,skip(){ fast=true; },redraw(){ frame(null,0); }};
 }
 
@@ -171,7 +196,7 @@ function makeMatch(){
   return {
     /* o: the opponent this week (the team, its defense, its offense rating, whether you're at home, the round, and whether it has to have a winner) */
     start(o){ Object.assign(M,{q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
-        st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,py:0,ry:0,drives:0},
+        st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,py:0,ry:0,tdP:0,tdR:0,drives:0},
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.mustWin=!!(o&&o.mustWin); M.ot=false;
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
@@ -203,7 +228,8 @@ function makeMatch(){
     kick(dist){ const good=Math.random()<clamp(1.1-dist/60,.2,.97); M.run=false; tick(6);
       if(good){ M.score[0]+=3; bug(); banner({tag:'Field goal',title:'It\'s good',sub:`${dist} yards. Three points.`,col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
       else { const yd=Math.max(20,100-M.yd); banner({tag:'Field goal',title:'No good',sub:`${dist} yards, wide. Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); } },
-    cpuTick(s,p){ M.opp.plays++; if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to'){ const g=p.to-p.from; M.opp.yds+=g; if(/^(Pass|Sacked|Touchdown)/.test(p.call)&&p.kind!=='run') M.opp.py+=g; else M.opp.ry+=g; } tick(s); },
+    cpuTick(s,p){ M.opp.plays++; if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to'){ const g=p.to-p.from, pass=p.kind==='pass'||p.kind==='inc'||p.call==='Sacked'||(p.kind==='td'&&p.via==='pass'); M.opp.yds+=g; if(pass) M.opp.py+=g; else M.opp.ry+=g; }
+      if(p.kind==='td') M.opp[p.via==='pass'?'tdP':'tdR']++; tick(s); },
     stopped(){ return M.stop; },
     /* the clock runs during a play, in game time */
     liveTick(dt){ if(M.poss==='me') tick(dt); },
