@@ -16,7 +16,7 @@ const SHOE=['#0f0f12','#3a3a42'], OUTC='#140e12';
 const LX=-.6, LY=-.8;
 
 function pose(view,state,ph,f){
-  const fr=Math.floor(f||0)%2, run=state==='run'||state==='catch';
+  const fr=Math.floor(f||0)%2, run=state==='run'||state==='catch', cs=Math.min(2,Math.floor((f||0)/RUNF)), st4=Math.floor(f||0);
   if(view==='side'){
     const V=(o,a,l)=>[o[0]+l*Math.sin(a),o[1]+l*Math.cos(a)];
     const L=(h,t,c)=>{ const k=V(h,t,25), a=V(k,c,24); return [h,k,a,[a[0]+7*Math.cos(c),a[1]-7*Math.sin(c)]]; };
@@ -25,28 +25,30 @@ function pose(view,state,ph,f){
       const Lg=o=>{ const p=ph+o, t=.8*Math.sin(p); return [t,t-.18-1.15*Math.pow(Math.max(0,Math.cos(p-.15)),1.5)]; };
       const Ar=o=>{ const u=-.95*Math.sin(ph+o); return [u,u+1.5]; };
       la=[Lg(0),Lg(Math.PI)]; aa=[Ar(0),Ar(Math.PI)]; fix=.7;
-      if(state==='catch') aa=[[2.75,2.95],[2.55,2.85]];
-      if(state==='dive'){ la=[[-.25,-.45],[-.55,-.8]]; aa=[[2.4,2.25],[2.25,2.15]]; lean=.2; fix=0; } }
+      if(state==='catch') aa=[[[2.75,2.95],[2.55,2.85]],[[2.2,3.4],[2.05,3.3]],[[.7,2.5],[.5,2.3]]][cs];
+      if(state==='dive'){ la=st4===0?[[.5,-.9],[-.6,-.5]]:[[-.25,-.45],[-.55,-.8]]; aa=st4===0?[[1.9,1.8],[1.7,1.7]]:[[2.4,2.25],[2.25,2.15]]; lean=st4===0?.5:.2; fix=0; } }
     else if(state==='down'){ lean=0; la=[[.04,0],[-.08,-.12]]; aa=[[2.95,3.05],[2.6,2.8]]; fix=0; }
     else if(state==='block'){ lean=.72; la=[[.55,-.5],[-.3,-.6]]; const j=fr*.1; aa=[[1.35+j,1.5+j],[1.25-j,1.45-j]]; }
     else if(state==='throw'){ const f4=Math.floor(f||0)%4; lean=[.05,-.08,.18,.32][f4]; la=f4>=2?[[.55,-.12],[-.45,-.55]]:[[.25,-.1],[-.3,-.4]];
       aa=[[[1.2,2.4],[1.0,2.2]],[[3.75,3.3],[1.6,2.4]],[[2.2,2.0],[.9,1.4]],[[.7,1.3],[.3,.9]]][f4]; }
     else if(state==='catchLow'){ lean=.3; la=[[.35,-.4],[-.2,-.5]]; aa=[[1.25,1.75],[1.15,1.7]]; }
     else if(state==='reach'){ lean=.45; la=[[.6,-.3],[-.5,-.6]]; aa=[[2.2,2.3],[2.0,2.2]]; }
-    else if(state==='leap'){ lean=.1; la=[[.9,-.6],[.5,-1.1]]; aa=[[2.95,3.1],[2.8,3.0]]; fix=0; }
-    else if(state==='wrap'){ lean=.95; la=[[.8,-.3],[-.45,-.75]]; aa=[[1.55,2.7],[1.45,2.6]]; }
+    else if(state==='leap'){ const k=Math.min(3,st4); lean=[.35,.05,.1,.25][k]; la=[[[.95,-.9],[.75,-1.1]],[[.15,-.1],[-.1,-.25]],[[.9,-.6],[.5,-1.1]],[[.8,-.7],[.55,-.9]]][k];
+      aa=[[[.3,.6],[.2,.5]],[[2.6,2.8],[2.4,2.7]],[[2.95,3.1],[2.8,3.0]],[[1.6,1.9],[1.4,1.7]]][k]; fix=k===2?0:1; }
+    else if(state==='wrap'){ lean=.95; la=fr?[[.45,-.55],[-.15,-.45]]:[[.8,-.3],[-.45,-.75]]; aa=[[1.55,2.7],[1.45,2.6]]; }
+    else if(state==='plant'){ lean=.15; la=[[.75,-.35],[-.65,-.3]]; aa=[[1.9,1.6],[1.0,1.8]]; }                 /* the jump cut's plant */
+    else if(state==='kneel'){ lean=.25; la=[[1.5,0],[.25,-1.55]]; aa=[[.9,.6],[.4,.3]]; }                        /* getting up */
     else if(state==='stumble'){ lean=.35; la=[[.5,-.7],[-.45,-.5]]; aa=[[1.9,1.9],[1.7,1.8]]; fix=0; }
-    else if(state==='flail'){ lean=-.35; la=[[.45,-.1],[.1,-.25]]; aa=[[3.5,3.7],[3.2,3.5]]; fix=0; }
-    else if(state==='truck'){ lean=.8; la=[[.75,-.4],[-.5,-.75]]; aa=[[1.25,1.0],[.35,2.0]]; }               /* shoulder down, ball tucked */
-    else if(state==='stiff'){ lean=.22; la=[[.6,-.55],[-.45,-.5]]; aa=[[1.57,1.57],[.35,2.05]]; }             /* the arm locked out in front */
-    else if(state==='hurdle'){ lean=.25; la=[[1.45,1.35],[-.9,-1.7]]; aa=[[2.35,2.2],[.4,1.7]]; fix=0; }       /* front leg out flat, back leg tucked */
+    else if(state==='flail'){ lean=-.35; la=fr?[[.2,-.4],[.5,-.1]]:[[.45,-.1],[.1,-.25]]; aa=fr?[[3.3,3.6],[3.6,3.8]]:[[3.5,3.7],[3.2,3.5]]; fix=0; }
+    else if(state==='truck'){ lean=.8; la=fr?[[.4,-.6],[-.2,-.5]]:[[.75,-.4],[-.5,-.75]]; aa=[[1.25,1.0],[.35,2.0]]; }               /* shoulder down, ball tucked */
+    else if(state==='stiff'){ lean=.22; la=[[.6,-.55],[-.45,-.5]]; aa=st4===0?[[1.15,2.5],[.35,2.05]]:[[1.57,1.57],[.35,2.05]]; }             /* the arm locked out in front */
+    else if(state==='hurdle'){ const k=Math.min(2,st4); lean=[.35,.25,.3][k]; la=[[[.95,-.2],[-.5,-.95]],[[1.45,1.35],[-.9,-1.7]],[[.55,-.5],[-.15,-.65]]][k]; aa=[[[1.9,1.8],[.4,1.7]],[[2.35,2.2],[.4,1.7]],[[1.7,1.6],[.5,1.6]]][k]; fix=k===1?0:1; }       /* front leg out flat, back leg tucked */
     else if(state==='oneHand'){ lean=.3; la=[[.5,-.45],[-.45,-.5]]; aa=[[2.95,3.1],[.3,1.0]]; }
     else if(state==='tiptoe'){ lean=-.05; la=[[.06,-.25],[-.06,-.3]]; aa=[[2.75,2.95],[2.55,2.85]]; }
-    else if(state==='wings'){ legs=[lg(-6,-8,-24,-9,-2.6),lg(6,8,-24,9,-2.6)]; arms=[[[-15,sY+1],[-29,-78],[-42,-82]],[[15,sY+1],[29,-78],[42,-82]]]; }
-  else if(state==='flex'){ lean=0; la=[[.15,-.1],[-.15,-.2]]; aa=[[1.6,3.4],[1.5,3.3]]; }
+    else if(state==='flex'){ lean=0; la=[[.15,-.1],[-.15,-.2]]; aa=fr?[[1.7,3.6],[1.6,3.5]]:[[1.6,3.4],[1.5,3.3]]; }
     else if(state==='drag'){ lean=-.25; la=[[.55,-.3],[-.2,-.5]]; aa=[[2.15,2.0],[1.95,1.9]]; }          /* leaning back, both hands on the collar */
     else if(state==='bow'){ lean=.95; la=[[.1,-.1],[-.2,-.3]]; aa=[[.9,.4],[.7,.3]]; }
-    else if(state==='wings'){ lean=0; la=[[.15,-.1],[-.15,-.2]]; aa=[[2.0,1.8],[1.9,1.7]]; }
+    else if(state==='wings'){ lean=0; la=[[.15,-.1],[-.15,-.2]]; aa=fr?[[2.3,2.1],[2.2,2.0]]:[[1.8,1.6],[1.7,1.5]]; }
     else if(state==='celebrate'){ lean=-.1; la=fr?[[.9,-.5],[.4,-1.2]]:[[.15,-.1],[-.15,-.2]]; aa=[[3.0,3.1],[2.8,3.0]]; fix=fr?0:1; }
     else if(state==='stance3'){ lean=1.32; la=[[1.3,-.3],[.95,-.6]]; aa=[[.12,-.05],[.6,.35]]; }
     else { lean=.5; la=[[.6,-.35],[.4,-.5]]; aa=[[.5,.25],[.42,.2]]; }
@@ -63,7 +65,7 @@ function pose(view,state,ph,f){
   const lg=(x,kx,ky,ax,ay)=>[[x,hip],[kx,ky],[ax,ay],[ax,ay+2.6]];
   if(run){ const la=Math.max(0,Math.sin(ph)), lb=Math.max(0,-Math.sin(ph)); sw=1.6*Math.sin(ph); hip=-50+1.2*Math.cos(2*ph); sY=hip-30;
     legs=[lg(-5.5,-6.4,-25-9*la,-6.6,-2-16*la),lg(5.5,6.4,-25-9*lb,6.6,-2-16*lb)];
-    arms=state==='catch'?[[[-15,sY+1],[-15,-99],[-8.5,-112]],[[15,sY+1],[15,-99],[8.5,-112]]]
+    arms=state==='catch'?[[[[-15,sY+1],[-15,-99],[-8.5,-112]],[[15,sY+1],[15,-99],[8.5,-112]]],[[[-15,sY+1],[-16,-90],[-5,-96]],[[15,sY+1],[16,-90],[5,-96]]],[[[-15,sY+1],[-14,-62],[-3,-70]],[[15,sY+1],[14,-62],[3,-70]]]][cs]
       :[[[-15+sw,sY+1],[-19.5+sw,-64-5*lb],[-15+sw+4*lb,-52-15*lb]],[[15+sw,sY+1],[19.5+sw,-64-5*la],[15+sw-4*la,-52-15*la]]]; }
   else if(state==='stance3'){ hip=-40; sY=-60; hd=-67;
     legs=[lg(-6,-10.5,-21,-11,-2.6),lg(6,10.5,-21,11,-2.6)]; arms=[[[-14,sY+1],[-13,-32],[-8,-5]],[[14,sY+1],[17,-46],[12,-36]]]; }
@@ -78,11 +80,15 @@ function pose(view,state,ph,f){
           [[[-15,sY+1],[-20,-62],[-16,-50]],[[15,sY+1],[6,-66],[-6,-56]]]][f4].map(a=>a.map(([px,py])=>[px+sw,py])); }
   else if(state==='catchLow'){ legs=[lg(-5.5,-7,-25,-7.5,-2.6),lg(5.5,7,-25,7.5,-2.6)]; arms=[[[-15,sY+1],[-14,-62],[-5,-58]],[[15,sY+1],[14,-62],[5,-58]]]; }
   else if(state==='reach'){ sw=3; legs=[lg(-5.5,-6,-25,-5,-2.6),lg(5.5,9,-27,12,-6)]; arms=[[[-15+sw,sY+1],[-4,-92],[8,-104]],[[15+sw,sY+1],[27,-92],[35,-102]]]; }
-  else if(state==='leap'){ legs=[lg(-5.5,-8,-32,-7,-14),lg(5.5,8,-30,7,-16)]; arms=[[[-15,sY+1],[-13,-100],[-8,-116]],[[15,sY+1],[13,-100],[8,-116]]]; }
+  else if(state==='leap'){ const k=Math.min(3,st4);
+    if(k===0||k===3){ hip=k===0?-42:-45; sY=hip-30; legs=[lg(-6,-9.5,-22,-8.5,-2.6),lg(6,9.5,-22,8.5,-2.6)]; arms=k===0?[[[-15,sY+1],[-18,-55],[-14,-43]],[[15,sY+1],[18,-55],[14,-43]]]:[[[-15,sY+1],[-21,-72],[-18,-58]],[[15,sY+1],[21,-72],[18,-58]]]; }
+    else if(k===1){ legs=[lg(-5,-5.5,-25,-5.5,-5),lg(5,5.5,-25,5.5,-5)]; arms=[[[-15,sY+1],[-17,-90],[-12,-104]],[[15,sY+1],[17,-90],[12,-104]]]; }
+    else { legs=[lg(-5.5,-8,-32,-7,-14),lg(5.5,8,-30,7,-16)]; arms=[[[-15,sY+1],[-13,-100],[-8,-116]],[[15,sY+1],[13,-100],[8,-116]]]; } }
+  else if(state==='plant'){ sw=4; legs=[lg(-5.5,-11,-24,-15,-2.6),lg(5.5,6,-29,6,-10)]; arms=[[[-15+sw,sY+1],[-26,-70],[-30,-58]],[[15+sw,sY+1],[22,-64],[18,-52]]]; }
   else if(state==='oneHand'){ sw=2; legs=[lg(-5.5,-6.5,-25,-6.5,-2.6),lg(5.5,8,-27,10,-6)]; arms=[[[-15+sw,sY+1],[-18,-60],[-15,-46]],[[15+sw,sY+1],[20,-98],[24,-115]]]; }
   else if(state==='tiptoe'){ legs=[lg(-4,-3.8,-26,-3.6,-5),lg(4,3.8,-26,3.6,-5)]; arms=[[[-15,sY+1],[-15,-99],[-8.5,-112]],[[15,sY+1],[15,-99],[8.5,-112]]]; }
-  else if(state==='wings'){ legs=[lg(-6,-8,-24,-9,-2.6),lg(6,8,-24,9,-2.6)]; arms=[[[-15,sY+1],[-29,-78],[-42,-82]],[[15,sY+1],[29,-78],[42,-82]]]; }
-  else if(state==='flex'){ hip=-48; sY=-78; legs=[lg(-7,-9,-24,-10,-2.6),lg(7,9,-24,10,-2.6)]; arms=[[[-15,sY+1],[-26,-74],[-23,-93]],[[15,sY+1],[26,-74],[23,-93]]]; }
+  else if(state==='wings'){ legs=[lg(-6,-8,-24,-9,-2.6),lg(6,8,-24,9,-2.6)]; arms=fr?[[[-15,sY+1],[-29,-84],[-42,-96]],[[15,sY+1],[29,-84],[42,-96]]]:[[[-15,sY+1],[-29,-74],[-42,-70]],[[15,sY+1],[29,-74],[42,-70]]]; }
+  else if(state==='flex'){ hip=-48; sY=-78; legs=[lg(-7,-9,-24,-10,-2.6),lg(7,9,-24,10,-2.6)]; arms=fr?[[[-15,sY+1],[-27,-78],[-21,-97]],[[15,sY+1],[27,-78],[21,-97]]]:[[[-15,sY+1],[-26,-74],[-23,-93]],[[15,sY+1],[26,-74],[23,-93]]]; }
   else if(state==='celebrate'){ legs=fr?[lg(-5.5,-8,-32,-7,-14),lg(5.5,8,-30,7,-16)]:[lg(-5.5,-6,-25,-6,-2.6),lg(5.5,6,-25,6,-2.6)];
     arms=fr?[[[-15,sY+1],[-18,-100],[-14,-117]],[[15,sY+1],[18,-100],[14,-117]]]:[[[-15,sY+1],[-24,-96],[-31,-110]],[[15,sY+1],[24,-96],[31,-110]]]; }
   else { hip=-44; sY=-75;
@@ -153,12 +159,13 @@ const rgb=c=>[parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.sli
 function renderSprite(k,view,state,fi,num,si){
   const c=KIT[k], sk=SKIN[si], cv=document.createElement('canvas'); cv.width=SW; cv.height=SH; const x=cv.getContext('2d',{willReadFrequently:true});
   x.translate(GX,GY); x.scale(PU,PU);
-  if(state==='dive'){ x.translate(-34,-16); x.rotate(1.15); } else if(state==='down'){ x.translate(-46,-6); x.rotate(Math.PI/2); }
+  if(state==='dive'){ const k=Math.min(2,fi); x.translate(...[[-18,-8],[-34,-16],[-42,-8]][k]); x.rotate([.6,1.15,1.45][k]); }
+  else if(state==='down'){ if(fi===0){ x.translate(-42,-12); x.rotate(1.38); } else { x.translate(-46,-6); x.rotate(Math.PI/2); } }
   else if(state==='fallF'){ const k=Math.min(2,fi); x.translate(-[8,24,40][k],0); x.rotate([.35,.8,1.2][k]); }
   else if(state==='fallB'){ const k=Math.min(2,fi); x.translate([8,24,40][k],0); x.rotate(-[.3,.7,1.1][k]); }
-  else if(state==='downB'){ x.translate(44,-6); x.rotate(-Math.PI/2); }
+  else if(state==='downB'){ if(fi===0){ x.translate(40,-12); x.rotate(-1.38); } else { x.translate(44,-6); x.rotate(-Math.PI/2); } }
   const ps={fallF:'stumble',fallB:'flail',downB:'flail'}[state]||state;
-  const P=pose(view,ps,(state==='run'||state==='catch')?fi/RUNF*P2:0,fi);
+  const P=pose(view,ps,(state==='run'||state==='catch')?(fi%RUNF)/RUNF*P2:0,fi);
   paint(x,P,c,sk); x.setTransform(1,0,0,1,0,0);
   const pal=[...c.jersey,...c.pants,...c.helmet,c.stripe,c.acc,...c.sock,c.band,'#9a9da3','#111111',...c.glove,c.mask,...sk,...SHOE,OUTC].map(rgb);
   const id=x.getImageData(0,0,SW,SH), d=id.data, on=new Uint8Array(SW*SH);
@@ -175,10 +182,11 @@ function renderSprite(k,view,state,fi,num,si){
 const SPR=new Map();
 function sprite(k,view,state,fi,num,si){ const key=k+view+state+fi+':'+num+':'+si; let s=SPR.get(key); if(!s){ s=renderSprite(k,view,state,fi,num,si); SPR.set(key,s); } return s; }
 /* draw a man standing on a point; s is whole pixels per sprite pixel. f runs 0 to 8 through a stride. */
-const SIDE_ONLY=new Set(['dive','down','fallF','fallB','downB','wrap','truck','stiff','hurdle','drag','bow']);
+const SIDE_ONLY=new Set(['dive','down','fallF','fallB','downB','wrap','truck','stiff','hurdle','drag','bow','kneel']);
 function drawPlayer(ctx,k,num,x,y,facing,state,f,s,lift){
   const view=SIDE_ONLY.has(state)?'side':facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side';
-  const fi=(state==='run'||state==='catch')?Math.floor(((f||0)%8+8)%8/8*RUNF)%RUNF:state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB')?Math.min(2,Math.floor(f||0)):Math.floor(f||0)%2;
+  const rf=n=>Math.floor((((n%100)%8)+8)%8/8*RUNF)%RUNF;
+  const fi=state==='run'?rf(f||0):state==='catch'?rf(f||0)+RUNF*Math.min(2,Math.floor((f||0)/100)):state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB')?Math.min(2,Math.floor(f||0)):Math.max(0,Math.floor(f||0));
   const img=sprite(k,view,state,fi,null,((num||0)*7)%SKIN.length);
   ctx.save(); ctx.imageSmoothingEnabled=false; ctx.translate(Math.round(x),Math.round(y));
   const sw=(state==='down'||state==='downB')?34:(state==='dive'||state==='fallF'||state==='fallB')?22:12, sh=lift>0?Math.max(6,sw-lift/3):sw;

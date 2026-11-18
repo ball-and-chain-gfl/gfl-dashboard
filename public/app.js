@@ -1100,6 +1100,7 @@ function toggleTabDD(open){
   navLock(show);
   const scrim=document.getElementById('nav-scrim'); if(scrim) scrim.classList.toggle('show',show);
   const b=document.getElementById('tab-dd-btn'); if(b) b.classList.toggle('open',show);
+  if(!show) document.documentElement.classList.remove('season-peek');   /* Season Mode's nav goes away again */
 
 }
 function tabDDGo(tab){ toggleTabDD(false); switchTab(tab); window.scrollTo(0,0); }
@@ -9921,20 +9922,20 @@ function seasonGate(){
   if(!ok){ const body=document.getElementById('season-body'); if(body) body.innerHTML='';
     if(_activeTab==='season') switchTab('home'); }
 }
-/* THE NAV STEPS ASIDE. Once the game is scrolled up to the top of the screen the nav slides away, so nothing sits over
-   the field; scroll back up and it comes back. Only on this tab, and only while the game is up there. */
+/* THE GAME IS THE SCREEN. On this tab the frame is pinned to the whole screen, exactly its size, and the page under it
+   does not scroll, so the score, the field and the play buttons are always all in view. The nav steps aside; the
+   game's own menu button (top left of its scoreboard) asks for it back, and it goes again when the menu closes. */
 function seasonNavSync(){
-  const f=_activeTab==='season'&&document.querySelector('.season-frame');
-  document.documentElement.classList.toggle('season-nonav',!!f&&f.getBoundingClientRect().top<=40);
+  const on=_activeTab==='season'&&!!document.querySelector('.season-frame'), r=document.documentElement;
+  r.classList.toggle('season-full',on); if(!on) r.classList.remove('season-peek');
 }
-addEventListener('scroll',()=>{ if(_activeTab==='season'||document.documentElement.classList.contains('season-nonav')) seasonNavSync(); },{passive:true});
+addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-menu'||_activeTab!=='season') return;
+  document.documentElement.classList.add('season-peek'); try{ toggleTabDD(true); }catch(_){} });
 function renderSeason(){
   const el=document.getElementById('season-body'); if(!el||!seasonAllowed()) return;
   /* the game takes the whole screen under the nav: the frame is that tall, and the page scrolls the title away so
      its top sits just under the nav. After switchTab's own reset to the top, hence the wait. */
-  const fit=()=>{ const f=el.querySelector('iframe'); if(!f) return;
-    if(_activeTab==='season') window.scrollTo(0,Math.max(0,f.getBoundingClientRect().top+window.scrollY)); seasonNavSync(); };
-  setTimeout(fit,140);
+  setTimeout(seasonNavSync,0);
   if(el.querySelector('iframe')) return;            /* a game in progress keeps going while you look elsewhere */
   el.innerHTML=`<iframe class="season-frame" src="/season/index.html?team=${encodeURIComponent((_me&&_me.teamId)||'')}" title="Season Mode"></iframe>`;
 }

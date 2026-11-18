@@ -130,7 +130,9 @@ function makeMatch(){
   const QLEN=420, PLAYCLOCK=40, RUNOFF=6;
   const clk=()=>{ const s=Math.max(0,Math.ceil(M.clock)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
   function near(r){ const c=DEFS.slice().sort((a,b)=>Math.abs(a.r-r)-Math.abs(b.r-r)).slice(0,6); return c[Math.floor(Math.random()*c.length)]; }
-  function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)}</div>`;
+  /* inside the app the game fills the screen, so the scoreboard carries the way back to the app's menu */
+  const MENU=window.parent!==window?`<button class="menu" aria-label="Menu" onclick="parent.postMessage({gfl:'season-menu'},location.origin)"><i></i><i></i><i></i></button>`:'';
+  function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?MENU+crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)}</div>`;
     $('#bug').innerHTML=b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0); }
   function ddMe(){ $('#dd').innerHTML=`<span>${ord(M.down)} &amp; ${M.togo>=100-M.yd?'Goal':M.togo} · ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`; }
   function ddThem(st){ $('#dd').innerHTML=`<span>${ord(st.down)} &amp; ${st.yd+st.togo>=100?'Goal':st.togo} · ${theirs(st.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">Their O ${M.oppO} v D ${SIM.myD()}</span>`; }
