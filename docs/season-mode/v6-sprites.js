@@ -15,6 +15,19 @@ const SKIN=[['#4a2c1b','#7a4b30','#a06a47'],['#33200f','#5a3824','#7b5035'],['#8
 const SHOE=['#0f0f12','#3a3a42'], OUTC='#140e12';
 const LX=-.6, LY=-.8;
 
+/* a side-view body from its angles: lean of the body, each leg's thigh and shin, each arm and forearm (from straight
+   down, forward is plus); fix stands him on the ground */
+function buildSide(lean,la,aa,fix){
+  const V=(o,a,l)=>[o[0]+l*Math.sin(a),o[1]+l*Math.cos(a)];
+  const L=(h,t,c)=>{ const k=V(h,t,25), a=V(k,c,24); return [h,k,a,[a[0]+7*Math.cos(c),a[1]-7*Math.sin(c)]]; };
+  let legs=la.map(([t,c])=>L([0,-50],t,c)), dy=0;
+  if(fix){ const low=Math.max(...legs.flatMap(l=>[l[2][1],l[3][1]])); dy=(-1.5-low)*fix; }
+  const H=[0,-50+dy]; legs=la.map(([t,c])=>L(H,t,c));
+  const up=[Math.sin(lean),-Math.cos(lean)], fw=[Math.cos(lean),Math.sin(lean)];
+  const T=(a,b)=>[H[0]+fw[0]*a+up[0]*b, H[1]+fw[1]*a+up[1]*b], S=T(.5,30);
+  const arms=aa.map(([u,fa])=>{ const e=V(S,u,17); return [S,e,V(e,fa,16)]; });
+  return {view:'side',legs,arms,torso:[T(-5.5,-1),T(6,-1),T(10,17),T(12.5,27),T(8,35),T(-8,35.5),T(-11,28),T(-7.5,14)],
+    pants:[T(-5.8,4),T(5.8,4),T(6.4,-7),T(-6.4,-7)],neck:[T(.5,31),T(1.6,38)],head:T(2.2,42.5),top:[5,4]}; }
 function pose(view,state,ph,f){
   const fr=Math.floor(f||0)%2, run=state==='run'||state==='catch', cs=Math.min(2,Math.floor((f||0)/RUNF)), st4=Math.floor(f||0);
   if(view==='side'){
@@ -52,14 +65,7 @@ function pose(view,state,ph,f){
     else if(state==='celebrate'){ lean=-.1; la=fr?[[.9,-.5],[.4,-1.2]]:[[.15,-.1],[-.15,-.2]]; aa=[[3.0,3.1],[2.8,3.0]]; fix=fr?0:1; }
     else if(state==='stance3'){ lean=1.32; la=[[1.3,-.3],[.95,-.6]]; aa=[[.12,-.05],[.6,.35]]; }
     else { lean=.5; la=[[.6,-.35],[.4,-.5]]; aa=[[.5,.25],[.42,.2]]; }
-    let legs=la.map(([t,c])=>L([0,-50],t,c)), dy=0;
-    if(fix){ const low=Math.max(...legs.flatMap(l=>[l[2][1],l[3][1]])); dy=(-1.5-low)*fix; }
-    const H=[0,-50+dy]; legs=la.map(([t,c])=>L(H,t,c));
-    const up=[Math.sin(lean),-Math.cos(lean)], fw=[Math.cos(lean),Math.sin(lean)];
-    const T=(a,b)=>[H[0]+fw[0]*a+up[0]*b, H[1]+fw[1]*a+up[1]*b], S=T(.5,30);
-    const arms=aa.map(([u,fa])=>{ const e=V(S,u,17); return [S,e,V(e,fa,16)]; });
-    return {view,legs,arms,torso:[T(-5.5,-1),T(6,-1),T(10,17),T(12.5,27),T(8,35),T(-8,35.5),T(-11,28),T(-7.5,14)],
-      pants:[T(-5.8,4),T(5.8,4),T(6.4,-7),T(-6.4,-7)],neck:[T(.5,31),T(1.6,38)],head:T(2.2,42.5),top:[5,4]};
+    return buildSide(lean,la,aa,fix);
   }
   let sw=0, hip=-50, sY=-80, legs, arms, hd=null;
   const lg=(x,kx,ky,ax,ay)=>[[x,hip],[kx,ky],[ax,ay],[ax,ay+2.6]];
@@ -156,6 +162,17 @@ function paint(x,P,c,sk){
 const D3={0:'###|#.#|#.#|#.#|###',1:'.#.|##.|.#.|.#.|###',2:'###|..#|###|#..|###',3:'###|..#|###|..#|###',4:'#.#|#.#|###|..#|..#',5:'###|#..|###|..#|###',6:'###|#..|###|#.#|###',7:'###|..#|..#|..#|..#',8:'###|#.#|###|#.#|###',9:'###|#.#|###|..#|###'};
 const RUNF=10, SW=48, SH=48, GX=24, GY=43, PU=.36;
 const rgb=c=>[parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)];
+/* snap a painted figure to pixels: each pixel one colour of the kit or empty, and a dark line round the outside */
+function pixelize(x,W,H,c,sk,keep){
+  const pal=[...c.jersey,...c.pants,...c.helmet,c.stripe,c.acc,...c.sock,c.band,'#9a9da3','#111111',...c.glove,c.mask,...sk,...SHOE,OUTC].map(rgb);
+  const id=x.getImageData(0,0,W,H), d=id.data, on=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++){ const o=i*4; if(d[o+3]<120){ d[o+3]=0; continue; } on[i]=1; let best=0,bd=1e9;
+    for(let j=0;j<pal.length;j++){ const p=pal[j], e=(p[0]-d[o])**2+(p[1]-d[o+1])**2+(p[2]-d[o+2])**2; if(e<bd){ bd=e; best=j; } }
+    d[o]=pal[best][0]; d[o+1]=pal[best][1]; d[o+2]=pal[best][2]; d[o+3]=255; }
+  const oc=rgb(OUTC);
+  for(let y=0;y<H;y++) for(let xx=0;xx<W;xx++){ const i=y*W+xx; if(on[i]) continue;
+    if((xx>0&&on[i-1])||(xx<W-1&&on[i+1])||(y>0&&on[i-W])||(y<H-1&&on[i+W])){ const o=i*4; d[o]=oc[0]; d[o+1]=oc[1]; d[o+2]=oc[2]; d[o+3]=255; } }
+  if(keep) return id; x.putImageData(id,0,0); return id; }
 function renderSprite(k,view,state,fi,num,si){
   const c=KIT[k], sk=SKIN[si], cv=document.createElement('canvas'); cv.width=SW; cv.height=SH; const x=cv.getContext('2d',{willReadFrequently:true});
   x.translate(GX,GY); x.scale(PU,PU);
@@ -167,14 +184,7 @@ function renderSprite(k,view,state,fi,num,si){
   const ps={fallF:'stumble',fallB:'flail',downB:'flail'}[state]||state;
   const P=pose(view,ps,(state==='run'||state==='catch')?(fi%RUNF)/RUNF*P2:0,fi);
   paint(x,P,c,sk); x.setTransform(1,0,0,1,0,0);
-  const pal=[...c.jersey,...c.pants,...c.helmet,c.stripe,c.acc,...c.sock,c.band,'#9a9da3','#111111',...c.glove,c.mask,...sk,...SHOE,OUTC].map(rgb);
-  const id=x.getImageData(0,0,SW,SH), d=id.data, on=new Uint8Array(SW*SH);
-  for(let i=0;i<SW*SH;i++){ const o=i*4; if(d[o+3]<120){ d[o+3]=0; continue; } on[i]=1; let best=0,bd=1e9;
-    for(let j=0;j<pal.length;j++){ const p=pal[j], e=(p[0]-d[o])**2+(p[1]-d[o+1])**2+(p[2]-d[o+2])**2; if(e<bd){ bd=e; best=j; } }
-    d[o]=pal[best][0]; d[o+1]=pal[best][1]; d[o+2]=pal[best][2]; d[o+3]=255; }
-  const oc=rgb(OUTC);
-  for(let y=0;y<SH;y++) for(let xx=0;xx<SW;xx++){ const i=y*SW+xx; if(on[i]) continue;
-    if((xx>0&&on[i-1])||(xx<SW-1&&on[i+1])||(y>0&&on[i-SW])||(y<SH-1&&on[i+SW])){ const o=i*4; d[o]=oc[0]; d[o+1]=oc[1]; d[o+2]=oc[2]; d[o+3]=255; } }
+  const id=pixelize(x,SW,SH,c,sk,true), d=id.data;
   if(num!=null&&view!=='side'&&state!=='dive'&&state!=='down'){ const s=String(num).slice(-2), w=s.length*4-1, x0=Math.round(GX+P.num[0]*PU-w/2), y0=Math.round(GY+P.num[1]*PU-2), nc=rgb(c.num);
     [...s].forEach((dg,i)=>D3[dg].split('|').forEach((row,r)=>[...row].forEach((ch,cc)=>{ if(ch!=='#') return; const px=x0+i*4+cc, py=y0+r; if(px<0||py<0||px>=SW||py>=SH) return; const o=(py*SW+px)*4; d[o]=nc[0]; d[o+1]=nc[1]; d[o+2]=nc[2]; }))); }
   x.putImageData(id,0,0);
@@ -182,11 +192,12 @@ function renderSprite(k,view,state,fi,num,si){
 const SPR=new Map();
 function sprite(k,view,state,fi,num,si){ const key=k+view+state+fi+':'+num+':'+si; let s=SPR.get(key); if(!s){ s=renderSprite(k,view,state,fi,num,si); SPR.set(key,s); } return s; }
 /* draw a man standing on a point; s is whole pixels per sprite pixel. f runs 0 to 8 through a stride. */
+function fiOf(state,f){ const rf=n=>Math.floor((((n%100)%8)+8)%8/8*RUNF)%RUNF;
+  return state==='run'?rf(f||0):state==='catch'?rf(f||0)+RUNF*Math.min(2,Math.floor((f||0)/100)):state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB')?Math.min(2,Math.floor(f||0)):Math.max(0,Math.floor(f||0)); }
 const SIDE_ONLY=new Set(['dive','down','fallF','fallB','downB','wrap','truck','stiff','hurdle','drag','bow','kneel']);
 function drawPlayer(ctx,k,num,x,y,facing,state,f,s,lift){
   const view=SIDE_ONLY.has(state)?'side':facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side';
-  const rf=n=>Math.floor((((n%100)%8)+8)%8/8*RUNF)%RUNF;
-  const fi=state==='run'?rf(f||0):state==='catch'?rf(f||0)+RUNF*Math.min(2,Math.floor((f||0)/100)):state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB')?Math.min(2,Math.floor(f||0)):Math.max(0,Math.floor(f||0));
+  const fi=fiOf(state,f);
   const img=sprite(k,view,state,fi,null,((num||0)*7)%SKIN.length);
   ctx.save(); ctx.imageSmoothingEnabled=false; ctx.translate(Math.round(x),Math.round(y));
   const sw=(state==='down'||state==='downB')?34:(state==='dive'||state==='fallF'||state==='fallB')?22:12, sh=lift>0?Math.max(6,sw-lift/3):sw;
@@ -217,3 +228,78 @@ const DPRg=Math.min(2,devicePixelRatio||1), PATS={};
 function dotFill(ctx,col,step,ax,ay){ const key=col+'|'+step; let p=PATS[key];
   if(!p){ const c=document.createElement('canvas'); c.width=c.height=Math.round(step*DPRg); const x=c.getContext('2d'); x.fillStyle=col; x.beginPath(); x.arc(c.width/2,c.height/2,.8*DPRg,0,P2); x.fill(); p=PATS[key]=x.createPattern(c,'repeat'); }
   p.setTransform(new DOMMatrix().translate(ax||0,ay||0).scale(1/DPRg)); return p; }
+
+/* ═══ TWO-MAN SCENES ═══
+   A tackle is one animation of two bodies, not two men doing their own thing. Each scene is a list of keyframes for the
+   ball carrier (B) and the tackler (A): where his hip is (how high off the ground, and across in pixels) and the angle of
+   his body and every limb, all measured on the field (forward is the way he faces). Between keyframes everything eases,
+   so a man can be on his back with his knees up, or on top of another with his arms round him, at any angle.
+   A keyframe: [time, hip height, body, near thigh, near shin, far thigh, far shin, near arm, near forearm, far arm, far forearm, across]. */
+const KW=96, KH=84, KX=48, KY=66;
+const SCENES={
+  /* met from the front and wrapped up: driven back off his feet, down on his back, the tackler on top of him */
+  wrap:{len:1.25,order:['B','A'],B:{face:1,k:[
+      [0,46,.25,.6,-.4,-.45,-.7,.5,2.4,1.4,1.7,0],[.12,47,-.25,.4,-.2,-.2,-.6,.5,2.4,2.4,2.8,-2],[.26,40,-.8,.9,.3,.5,-.1,.3,2.2,2.9,3.2,-5],
+      [.4,12,-1.45,1.8,.7,1.5,.5,.2,2.0,3.0,3.3,-8],[.48,17,-1.35,2.45,1.25,2.1,.95,.2,2.0,2.7,3.0,-9],[.62,9,-1.5,2.0,.8,1.6,.4,.3,2.1,2.5,2.8,-10],[1.25,9,-1.5,2.0,.8,1.6,.4,.3,2.1,2.5,2.8,-10]]},
+    A:{face:-1,k:[
+      [0,42,.85,.75,-.35,-.45,-.8,1.3,2.7,1.1,2.6,11],[.12,40,.95,.95,-.2,-.7,-.9,1.4,2.8,1.2,2.7,9],[.26,30,1.2,.5,-.6,-.9,-1.2,1.5,2.8,1.3,2.7,3],
+      [.4,17,1.45,.2,-1.2,-.1,-1.4,.6,2.0,.5,1.9,2],[.48,19,1.4,.2,-1.2,-.1,-1.4,.6,2.0,.5,1.9,3],[.62,16,1.5,0,-1.5,-.2,-1.5,.5,1.8,.4,1.7,5],[1.25,16,1.5,0,-1.5,-.2,-1.5,.5,1.8,.4,1.7,5]]}},
+  /* met head on: his body snaps back, his feet fly up, he lands on his back and slides; the hitter stands over him */
+  hit:{len:1.25,order:['B','A'],B:{face:1,k:[
+      [0,46,.25,.6,-.4,-.45,-.7,.5,2.4,1.4,1.7,0],[.08,46,-.55,.5,-.1,.2,-.3,2.5,3.0,2.9,3.3,-2],[.2,44,-1.0,1.4,.7,1.1,.4,2.9,3.2,3.2,3.4,-10],
+      [.32,12,-1.5,1.8,.7,1.5,.5,2.9,3.2,3.1,3.3,-15],[.4,18,-1.4,2.45,1.25,2.1,.95,2.7,3.0,2.9,3.2,-17],[.52,9,-1.55,2.0,.8,1.6,.4,2.6,2.9,2.4,2.7,-21],[1.25,9,-1.55,2.0,.8,1.6,.4,2.6,2.9,2.4,2.7,-21]]},
+    A:{face:-1,k:[
+      [0,44,.55,.6,-.5,-.4,-.6,.4,1.9,.3,1.7,12],[.08,40,.95,.85,-.3,-.5,-.8,1.2,1.0,.3,2.0,8],[.2,44,.7,.5,-.6,-.3,-.5,1.0,1.2,.4,1.8,3],
+      [.4,48,.15,.2,-.1,-.1,-.2,.5,.3,.4,.2,0],[1.25,48,.3,.2,-.1,-.1,-.2,.6,.3,.5,.2,-1]]}},
+  /* a dive at his ankles from behind: tripped, he sprawls forward onto his chest, then pushes up; the diver hangs on to his legs */
+  shoe:{len:1.25,order:['A','B'],B:{face:1,k:[
+      [0,46,.25,.6,-.4,-.45,-.7,.5,2.4,1.4,1.7,0],[.1,44,.55,.4,-.3,-.9,-1.6,1.6,1.6,1.8,1.8,2],[.22,32,1.0,.1,-.5,-1.1,-1.8,2.0,1.9,2.2,2.0,6],
+      [.34,20,1.3,-.3,-.9,-1.3,-1.9,1.2,1.0,1.0,.9,9],[.42,8,1.55,-1.3,-2.3,-1.5,-2.0,2.3,2.1,2.0,1.8,11],[.5,12,1.5,-1.2,-2.6,-1.4,-2.1,2.2,2.0,2.0,1.8,12],
+      [.62,8,1.5,-1.3,-2.7,-1.5,-2.1,1.9,1.6,2.1,1.8,14],[.85,14,1.25,-1.3,-2.6,-1.5,-2.2,.3,.1,.5,.2,14],[1.25,14,1.25,-1.3,-2.6,-1.5,-2.2,.3,.1,.5,.2,14]]},
+    A:{face:1,k:[
+      [0,38,.7,.6,-.8,-.7,-.5,1.9,1.8,1.7,1.7,-18],[.1,22,1.4,-.9,-1.3,-1.2,-1.5,2.4,2.3,2.3,2.2,-12],[.22,10,1.55,-1.4,-1.7,-1.6,-1.9,2.0,2.1,1.9,2.0,-10],
+      [.5,9,1.57,-1.1,-2.3,-1.4,-2.0,2.0,2.1,1.9,2.0,-9],[1.25,9,1.57,-1.1,-2.3,-1.4,-2.0,2.0,2.1,1.9,2.0,-9]]}},
+  /* pulled down by the collar from behind: his feet go out from under him and he lands on the man who pulled him */
+  drag:{len:1.25,order:['A','B'],B:{face:1,k:[
+      [0,46,.25,.6,-.4,-.45,-.7,.5,2.4,1.4,1.7,0],[.1,46,-.5,.9,.3,.6,.1,.5,2.4,2.6,2.9,1],[.24,34,-.95,1.3,.6,1.0,.4,.5,2.4,2.8,3.1,0],
+      [.38,14,-1.4,1.8,.7,1.5,.5,.4,2.2,2.9,3.2,-2],[.46,17,-1.35,2.45,1.25,2.1,.95,.4,2.2,2.7,3.0,-3],[.6,12,-1.45,2.0,.8,1.6,.4,.4,2.2,2.5,2.8,-3],[1.25,12,-1.45,2.0,.8,1.6,.4,.4,2.2,2.5,2.8,-3]]},
+    A:{face:1,k:[
+      [0,44,.35,.6,-.5,-.4,-.6,2.2,2.0,2.0,1.9,-11],[.1,44,-.1,.5,-.2,-.3,-.5,2.4,2.6,2.3,2.5,-10],[.24,30,-.5,1.1,.1,.8,-.1,2.2,2.6,2.1,2.5,-11],
+      [.38,12,-1.1,1.7,.7,1.4,.5,2.0,2.5,1.9,2.4,-12],[.6,9,-1.3,1.9,.8,1.6,.5,1.8,2.3,1.7,2.2,-12],[1.25,9,-1.3,1.9,.8,1.6,.5,1.8,2.3,1.7,2.2,-12]]}},
+  /* lifted off his feet, carried a step and driven into the ground, the tackler landing on him */
+  lift:{len:1.3,order:['B','A'],B:{face:1,k:[
+      [0,46,.25,.6,-.4,-.45,-.7,.5,2.4,1.4,1.7,0],[.12,62,-.5,.6,-.9,.1,-1.1,.5,2.4,2.6,2.9,-3],[.3,74,-1.05,1.1,.1,.6,-.6,.5,2.4,2.9,3.2,-6],
+      [.42,36,-1.0,1.3,.6,.9,.2,.4,2.3,2.9,3.2,-8],[.5,12,-1.45,1.8,.7,1.5,.5,.3,2.1,3.0,3.3,-10],[.58,16,-1.4,2.45,1.25,2.1,.95,.3,2.1,2.8,3.1,-10],[.72,9,-1.5,2.0,.8,1.6,.4,.3,2.1,2.5,2.8,-11],[1.3,9,-1.5,2.0,.8,1.6,.4,.3,2.1,2.5,2.8,-11]]},
+    A:{face:-1,k:[
+      [0,42,.85,.75,-.35,-.45,-.8,1.3,2.7,1.1,2.6,11],[.12,46,.25,.35,-.2,-.3,-.4,1.9,2.9,1.7,2.8,8],[.3,44,.45,.7,-.4,-.4,-.6,1.9,2.9,1.7,2.8,5],
+      [.42,30,1.15,.4,-.6,-.8,-1.1,1.0,2.2,.9,2.1,1],[.5,17,1.45,.2,-1.2,-.1,-1.4,.6,2.0,.5,1.9,2],[.72,16,1.5,0,-1.5,-.2,-1.5,.5,1.8,.4,1.7,4],[1.3,16,1.5,0,-1.5,-.2,-1.5,.5,1.8,.4,1.7,4]]}},
+};
+const ease=x=>x*x*(3-2*x);
+function sceneAt(kfs,t){ let i=0; while(i<kfs.length-2&&t>=kfs[i+1][0]) i++; const a=kfs[i], b=kfs[Math.min(kfs.length-1,i+1)];
+  const k=b[0]>a[0]?ease(clamp01((t-a[0])/(b[0]-a[0]))):0; return a.map((v,j)=>j===0?t:v+(b[j]-v)*k); }
+const clamp01=v=>v<0?0:v>1?1:v;
+const KFS=new Map();
+/* one body in a scene, in pixels: posed straight from the numbers, no turning of a stiff figure */
+function kfSprite(k,si,q){ const r=n=>Math.round(n*20)/20, key=k+si+'|'+q.slice(1,11).map(r).join(','); let e=KFS.get(key); if(e) return e;
+  const c=KIT[k], sk=SKIN[si], cv=document.createElement('canvas'); cv.width=KW; cv.height=KH; const x=cv.getContext('2d',{willReadFrequently:true});
+  x.translate(KX,KY); x.scale(PU,PU);
+  const P=buildSide(r(q[2]),[[r(q[3]),r(q[4])],[r(q[5]),r(q[6])]],[[r(q[7]),r(q[8])],[r(q[9]),r(q[10])]],0);
+  paint(x,P,c,sk); x.setTransform(1,0,0,1,0,0); pixelize(x,KW,KH,c,sk);
+  e={img:cv,P}; KFS.set(key,e); return e; }
+/* draw a whole scene at a point on the field (the carrier's feet when it began), facing dir (1 right, -1 left);
+   s is pixels per sprite pixel. Returns where the ball carrier's hands are, for the ball. */
+function drawScene(ctx,kind,t,x,y,dir,s,who){ const sc=SCENES[kind]; let hand=null;
+  for(const role of sc.order){ const R=sc[role], q=sceneAt(R.k,Math.min(t,sc.len)), m=dir*R.face, w=who[role], e=kfSprite(w.k,w.si,q);
+    const bx=x+dir*q[11]*s, gy=y, oy=gy+(50-q[1])*PU*s;
+    /* the shadow spans the body on the ground */
+    const xs=[e.P.head[0],...e.P.legs.flatMap(l=>[l[2][0],l[3][0]]),e.P.legs[0][0][0]].map(v=>v*PU*s*m), lo=Math.min(...xs), hi=Math.max(...xs);
+    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(Math.round(bx+lo-2*s),Math.round(gy-s),Math.round(hi-lo+4*s),Math.round(2*s));
+    ctx.save(); ctx.imageSmoothingEnabled=false; ctx.translate(Math.round(bx),Math.round(oy)); if(m<0) ctx.scale(-1,1);
+    ctx.drawImage(e.img,-KX*s,-KY*s,KW*s,KH*s); ctx.restore();
+    if(role==='B'){ const h=e.P.arms[0][2]; hand=[bx+m*h[0]*PU*s,oy+h[1]*PU*s]; } }
+  return hand; }
+/* where a man's hands are, in pixels from his feet, for the ball while he catches it */
+function handPoint(state,f,facing,s){ const view=SIDE_ONLY.has(state)?'side':facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side', fi=fiOf(state,f);
+  const P=pose(view,state,(state==='run'||state==='catch')?(fi%RUNF)/RUNF*P2:0,fi), a=P.arms[0][2], b=P.arms[1][2];
+  const h=(state==='oneHand'||state==='reach')?(a[1]<b[1]?a:b):[(a[0]+b[0])/2,(a[1]+b[1])/2], m=facing==='left'||facing==='upL'?-1:1;
+  return [m*h[0]*PU*s,h[1]*PU*s]; }

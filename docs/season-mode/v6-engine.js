@@ -68,6 +68,8 @@ const ONESHOT={dive:[.08,.22],leap:[.06,.14,.3],catch:[.08,.18],stiff:[.1],hurdl
 const LOOP=new Set(['wrap','truck','block','flail','flex','wings']);
 const stageOf=(th,age)=>{ let i=0; while(i<th.length&&age>=th[i]) i++; return i; };
 const HOLD=new Set(['catch','catchLow','reach','leap','throw','dive','tiptoe','oneHand','celebrate','spike','dance','bow','sky','flex','wings','cross']);
+/* the states a man catches the ball in: the ball is drawn at his hands */
+const CATCHING=new Set(['catch','catchLow','reach','oneHand','tiptoe','leap']);
 const LYING=new Set(['down','downB','dive','fallF','fallB']);
 const TIERC={legend:'#2F86EB',gold:'#F0CE26',silver:'#C9CED6',bronze:'#C08552'};
 /* where his chest is, in sprite units from his feet, when the sprite is turned for a fall or lying down (facing right) */
@@ -272,7 +274,9 @@ function makeGame(){
      shoestring dive from behind (tripped and sent sprawling forward). Both men act it out together. */
   function fx(p,c,kind){
     const dir=Math.abs(c.vx)>.9?Math.sign(c.vx):(p.x<c.x?1:-1);
-    c.down=true; c.fxd=true; p.fxd=true; p.down=true; S.fx={kind,a:p,b:c,t0:S.t,dir}; dust(c,14); if(kind==='hit'||kind==='lift') sparks(c,10);
+    c.down=true; c.fxd=true; p.fxd=true; p.down=true; S.fx={kind,a:p,b:c,t0:S.t,dir};
+    /* head on (wrap, hit, lift) he's met from the side the tackler is on; from behind (shoe, drag) he's chased from it */
+    if(SCENES[kind]){ const front=kind==='wrap'||kind==='hit'||kind==='lift'; Object.assign(S.fx,{scene:true,ax:c.x,ay:c.y,sdir:front?(p.x>=c.x?1:-1):(p.x<=c.x?1:-1)}); } dust(c,14); if(kind==='hit'||kind==='lift') sparks(c,10);
     /* a second man close by piles on */
     const g=S.P.find(d=>d.side==='d'&&d!==p&&!d.down&&!d.seqd&&Math.hypot(d.x-c.x,d.y-c.y)<1.35&&Math.random()<.55);
     if(g){ S.fx.c2=g; g.fxd=true; g.down=true; if(kind!=='hit') pop('Gang tackle','#D9325E',c); } }
@@ -294,8 +298,14 @@ function makeGame(){
     const how={hit:'Hit by',shoe:'Tripped up by',wrap:'Brought down by',drag:'Dragged down by',lift:'Picked up and driven down by'}[kind];
     return end(y>=15?'Big play':kind==='hit'&&y<=2?'Big hit':y>0?'Tackled':'Stopped',who+(y>=0?' for '+y:' loses '+(-y))+(S.caught?' after the catch':'')+'. '+how+' #'+p.num+'.',y>0?'gain':'loss',y); }
   /* each frame of a tackle, from its first contact */
-  function runFx(dt){ const e=S.fx, t=S.t-e.t0, a=e.a, b=e.b, d=e.dir; if(!e) return;
+  const SCENE_END=1.3;
+  function runFx(dt){ const e=S.fx; if(!e) return; const t=S.t-e.t0, a=e.a, b=e.b, d=e.dir;
     a.facing=d>0?'right':'left'; b.facing=a.facing;
+    if(e.scene){ const sc=SCENES[e.kind];
+      if(t<SCENE_END){ a.state='down'; b.state='down'; a.ff=b.ff=1; }
+      if(t>=sc.len&&!e.placed){ e.placed=1; const qa=sceneAt(sc.A.k,sc.len), qb=sceneAt(sc.B.k,sc.len), yd=1.5/K;
+        b.x=e.ax+e.sdir*qb[11]*yd; b.y=e.ay; a.x=e.ax+e.sdir*qa[11]*yd; a.y=e.ay+.05; } }
+    else
     if(e.kind==='sling'||e.kind==='drag'||e.kind==='lift'){}
     else if(e.kind==='wrap'){ a.state=t<.32?'wrap':'down'; a.ff=0; b.state=t<.42?'fallF':'down'; b.ff=Math.min(2,Math.floor(t/.13));
       if(t<.42){ b.x+=d*dt*1.4; } a.x=b.x-d*(t<.32?.55:.4); a.y=b.y+.05; }
@@ -304,7 +314,8 @@ function makeGame(){
       b.state=t<.36?'fallB':'downB'; b.ff=Math.min(2,Math.floor(t/.12)); if(t<.36){ b.y-=dt*2.4; b.x-=(a.x>b.x?1:-1)*dt*1.2; } }
     else { a.state=t<.3?'dive':'down'; a.ff=0; if(t<.3){ a.x+=(b.x-d*.8-a.x)*Math.min(1,dt*10); a.y+=(b.y-.2-a.y)*Math.min(1,dt*10); }
       b.state=t<.12?'run':t<.48?'fallF':'down'; b.ff=Math.min(2,Math.floor((t-.12)/.12)); if(t<.48){ b.x+=d*dt*2; b.y+=dt*1.5; } }
-    if(e.kind==='drag'){ a.state=t<.45?'drag':'down'; a.ff=0; b.state=t<.4?'fallB':'downB'; b.ff=Math.min(2,Math.floor(t/.13)); if(t<.4) b.x-=d*dt*1.1; a.x=b.x-d*(t<.45?.7:.9); a.y=b.y-.1; }
+    if(e.scene){}
+    else if(e.kind==='drag'){ a.state=t<.45?'drag':'down'; a.ff=0; b.state=t<.4?'fallB':'downB'; b.ff=Math.min(2,Math.floor(t/.13)); if(t<.4) b.x-=d*dt*1.1; a.x=b.x-d*(t<.45?.7:.9); a.y=b.y-.1; }
     else if(e.kind==='lift'){ a.state=t<.5?'wrap':'down'; a.ff=0; a.x=b.x-d*.5; a.y=b.y+.05;
       if(t<.3){ b.state='flail'; b.lift=Math.sin(Math.min(1,t/.3)*Math.PI/2)*16; } else if(t<.58){ b.state='fallF'; b.ff=Math.min(2,Math.floor((t-.3)/.09)); b.lift=16*(1-(t-.3)/.28); b.x+=d*dt*1.2; } else { b.state='down'; b.lift=0; } }
     else if(e.kind==='sling'){ a.state=t<.5?'wrap':'down'; a.ff=0; a.x=b.x-d*.5;
@@ -312,7 +323,7 @@ function makeGame(){
     if(e.c2){ const g=e.c2; g.facing=g.x<b.x?'right':'left'; if(t<.32){ g.state='dive'; g.x+=(b.x-g.x)*Math.min(1,dt*8); g.y+=(b.y+.25-g.y)*Math.min(1,dt*8); } else g.state='down'; }
     if(t>1.3&&t<1.6){ if(!e.cele) a.state='kneel'; b.state='kneel'; if(e.c2) e.c2.state='kneel'; }
     else if(t>=1.6){ if(!e.cele){ a.state='stance'; a.facing='down'; } b.state='stance'; b.facing='up'; b.lift=0; if(e.c2){ e.c2.state='stance'; e.c2.facing='down'; } }
-    if(e.flex&&t>.85){ if(!e.cele){ e.cele=1; celebrateD(a); } a.state=a.celeState; a.facing='down'; a.fxd=false; }   /* the man who made it gets up and lets them know */
+    if(e.flex&&t>(e.scene?SCENE_END:.85)){ if(!e.cele){ e.cele=1; celebrateD(a); } a.state=a.celeState; a.facing='down'; a.fxd=false; }   /* the man who made it gets up and lets them know */
     if(t>2.4) S.fx=null; }
   /* a receiver's catch radius, and where he will be after a throw of this power gets to him */
   const catchR=r=>1.35+A(r,HANDS[r.pos]??2)*.65;
@@ -387,7 +398,9 @@ function makeGame(){
     ctx.fillStyle='#171717'; ctx.fillRect(0,0,W,H);
     const top=toY(0,0).y+2, bot=toY(0,H).y-2, [sl]=toS(-SIDE,0), [sr]=toS(SIDE,0), [ox,oy]=toS(0,0), xl=Math.max(sl,0), xr=Math.min(sr,W);
     const back=-S.yd-10, front=S.goal+10, [,yb]=toS(0,back), [,yf]=toS(0,front);
-    ctx.fillStyle='#1D1D1D'; ctx.fillRect(sl,yf,sr-sl,yb-yf);
+    ctx.fillStyle='#1F5A2E'; ctx.fillRect(sl,yf,sr-sl,yb-yf);
+    ctx.fillStyle='#246335'; for(let yd=Math.floor(bot/5)*5;yd<=top;yd+=5){ if(((Math.floor((S.yd+yd)/5))%2+2)%2) continue; const ya=toS(0,yd)[1], yb2=toS(0,yd+5)[1];
+      const y0=Math.max(yf,Math.min(ya,yb2)), y1=Math.min(yb,Math.max(ya,yb2)); if(y1>y0) ctx.fillRect(sl,y0,sr-sl,y1-y0); }
     /* end zones: theirs a field of sky dots with the league's mark, ours a field of faint dots */
     [[S.goal,'rgba(76,158,255,.55)','GFL'],[-S.yd-10,'rgba(253,254,252,.2)','']].forEach(([a,col,mark])=>{ const [,e1]=toS(0,a+10),[,e0]=toS(0,a),[,em]=toS(0,a+5); if(e0<0||e1>H) return;
       ctx.fillStyle=dotFill(ctx,col,5,ox,oy); ctx.fillRect(sl,e1,sr-sl,e0-e1);
@@ -419,7 +432,14 @@ function makeGame(){
         ctx.strokeStyle='rgba(76,158,255,.85)'; ctx.fillStyle='rgba(76,158,255,.10)'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
         ctx.beginPath(); ctx.ellipse(lx,ly,R,R*.55,0,0,P2); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
         ctx.strokeStyle='rgba(76,158,255,.35)'; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(lx,ly); ctx.stroke(); }); ctx.restore(); }
-    [...S.P].sort((a,b)=>b.y-a.y).forEach(p=>{ const [x,y]=toS(p.x,p.y);
+    const E=S.fx&&S.fx.scene&&S.t-S.fx.t0<SCENE_END?S.fx:null;
+    const dk=p=>p.y-(p===S.catcher&&CATCHING.has(p.state)?3:0);
+    [...S.P].sort((a,b)=>dk(b)-dk(a)).forEach(p=>{ const [x,y]=toS(p.x,p.y);
+      if(E&&p===E.a) return;
+      if(E&&p===E.b){ const [ax,ay]=toS(E.ax,E.ay), si=q=>((q.num||0)*7)%SKIN.length;
+        const hand=drawScene(ctx,E.kind,S.t-E.t0,ax,ay,E.sdir,1.5,{A:{k:E.a.side,si:si(E.a)},B:{k:E.b.side,si:si(E.b)}});
+        if(S.ball.holder===p&&hand) drawBall(ctx,hand[0],ay,Math.max(2,ay-hand[1]),1.5,0,true);
+        return; }
       if(p._st!==p.state){ p._st=p.state; p._st0=S.t; } const age=S.t-(p._st0||0);
       let st=p.state, fr=p.fxd?(p.ff||0):(st==='run'?p.ph%8:0), face=p.facing, lift=0;
       /* frames: a one-off plays through by time, a loop alternates */
@@ -443,6 +463,7 @@ function makeGame(){
       if(S.ball.holder===p&&S.phase!=='pre'){ const d=face==='left'||face==='upL'?-1:1, side=face==='left'||face==='right', q=ballSpot(st,fr);
         const bb=S.bobble&&S.bobble.r===p&&S.t-S.bobble.t0<.45?(S.t-S.bobble.t0)/.45:-1;
         if(bb>=0) drawBall(ctx,x,y,60*u+Math.abs(Math.sin(bb*Math.PI*2))*18+lift,1.5,bb*7,true);
+        else if(CATCHING.has(st)&&p===S.catcher){ const h=handPoint(st,fr,face,1.5); drawBall(ctx,x+h[0],y,Math.max(2,-h[1]+lift),1.5,0,true); }
         else if(q) drawBall(ctx,x+d*q[0]*u,y,Math.max(2,q[1]*u),1.5,0,true);
         else if(p===S.QB&&!S.carrier) drawBall(ctx,x+9*u,y,70*u+lift,1.5,-1.1,true);
         else drawBall(ctx,x+(side?d*10:-11)*u,y,56*u+lift,1.5,side?-d*.45:-.9,true); } });
