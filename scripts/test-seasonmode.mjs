@@ -68,7 +68,7 @@ console.log(NL + 'the game page');
 const page = fs.readFileSync(new URL('../public/season/index.html', import.meta.url), 'utf8');
 ok('it checks the same sign-in itself', /localStorage\.getItem\('gfl-me'\)[\s\S]{0,200}me\.k1!=='bft'/.test(page), true);
 const wanted = [...page.matchAll(/<script src="([^"/][^"]*)"/g)].map(m => m[1]).concat([...page.matchAll(/j\('([^']+\.json)'\)/g)].map(m => m[1]));
-ok('it loads its three scripts and four data files', wanted.length, 7);
+ok('it loads its four scripts and four data files', wanted.length, 8);
 ok('every one of them is there', wanted.filter(f => !fs.existsSync(new URL('../public/season/' + f, import.meta.url))), []);
 const teams = JSON.parse(fs.readFileSync(new URL('../public/season/teams.json', import.meta.url), 'utf8'));
 ok('every crest it names is there', teams.filter(t => t.logo && !fs.existsSync(new URL('../public/season/' + t.logo, import.meta.url))).map(t => t.name), []);

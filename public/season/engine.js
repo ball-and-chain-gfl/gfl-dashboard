@@ -100,7 +100,7 @@ function makeGame(){
      pass defense, run defense, takeaways): the line from pass rush and run stop, linebackers from run stop and
      coverage, corners and safeties from coverage and ball hawk. Each man keeps his own fixed step either side. */
   function units(){ if(D._u) return D._u; const a=D.a||[D.r,D.r,D.r,D.r], c=v=>clamp(Math.round(v),62,99);
-    const step=i=>{ const x=Math.sin((Math.abs(D.id||7)%9973+1)*12.9898+i*78.233)*43758.5453; return Math.round((x-Math.floor(x))*6)-3; };
+    const step=i=>{ const id=typeof D.id==='number'?Math.abs(D.id):[...String(D.id||D.n||7)].reduce((h,c)=>(h*31+c.charCodeAt(0))%99991,7), x=Math.sin((id%9973+1)*12.9898+i*78.233)*43758.5453; return Math.round((x-Math.floor(x))*6)-3; };
     return D._u={DL:[0,1,2,3].map(i=>c(a[0]*.55+a[2]*.45+step(i))),LB:[0,1].map(i=>c(a[2]*.55+a[1]*.45+step(4+i))),
       CB:[0,1].map(i=>c(a[1]*.75+a[3]*.25+step(6+i))),S:[0,1].map(i=>c(a[1]*.6+a[3]*.25+a[2]*.15+step(8+i)))}; }
   function setup(){

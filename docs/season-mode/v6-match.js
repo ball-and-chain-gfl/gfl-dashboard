@@ -45,9 +45,9 @@ function stageChoose(pos,tier){
 }
 function stageRoster(){
   $('#stage').innerHTML=`<span class="q">Your roster</span><div class="roster">${DR.got.map((p,i)=>`<div class="p">${SLOTS[i]}</div><div>${p.pos==='D/ST'?nflImg(p.n,'rl'):''}${esc(p.n)} <span class="tag">${p.season}</span><span class="ra">${p.a?ATTR[p.pos].map((l,k)=>l.split(' ')[0].slice(0,3)+' '+p.a[k]).join(' · '):''}</span></div><div class="r t-${TIER(p.r)}">${p.r}</div>`).join('')}</div>
-    <button class="btn w" id="kick" style="width:220px">Kick off</button>`;
+    <button class="btn w" id="kick" style="width:220px">${typeof draftLabel==='function'?draftLabel():'Kick off'}</button>`;
   GAME.roster(DR.got);
-  $('#kick').addEventListener('click',()=>{ screen('game'); MATCH.start(); });
+  $('#kick').addEventListener('click',()=>{ if(typeof afterDraft==='function') return afterDraft(); screen('game'); MATCH.start(); });
 }
 
 /* ═══ THEIR DRIVES ═══
@@ -169,11 +169,14 @@ function makeMatch(){
       else if(r.kind==='downs'){ const yd=clamp(100-r.spot,1,99); go({tag:'Stopped',title:'Turnover on downs',sub:`Your ball on ${mine(yd)}.`,col:'var(--green)',btn:'Your ball'},()=>myDrive(yd)); }
       else endPeriod(); }); }
   return {
-    start(){ Object.assign(M,{q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
-        st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,drives:0},
+    /* o: the opponent this week (the team, its defense, its offense rating, whether you're at home, the round, and whether it has to have a winner) */
+    start(o){ Object.assign(M,{q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
+        st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,py:0,ry:0,drives:0},
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
-      M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); GAME.setD(M.oppD); bug(); view('snap');
-      banner({tag:'Kickoff',title:`${esc(ME.name)} receive`,sub:`Against ${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
+      M.mustWin=!!(o&&o.mustWin); M.ot=false;
+      if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
+      GAME.setD(M.oppD); bug(); view('snap');
+      banner({tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
     played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
       /* each player's line */
       if(S.thrown||r.head==='Thrown away'){ Q.att++; if(S.tgt&&S.tgt.slot!=null) ps[S.tgt.slot].tgt++;
@@ -200,7 +203,7 @@ function makeMatch(){
     kick(dist){ const good=Math.random()<clamp(1.1-dist/60,.2,.97); M.run=false; tick(6);
       if(good){ M.score[0]+=3; bug(); banner({tag:'Field goal',title:'It\'s good',sub:`${dist} yards. Three points.`,col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
       else { const yd=Math.max(20,100-M.yd); banner({tag:'Field goal',title:'No good',sub:`${dist} yards, wide. Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); } },
-    cpuTick(s,p){ M.opp.plays++; if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to') M.opp.yds+=p.to-p.from; tick(s); },
+    cpuTick(s,p){ M.opp.plays++; if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to'){ const g=p.to-p.from; M.opp.yds+=g; if(/^(Pass|Sacked|Touchdown)/.test(p.call)&&p.kind!=='run') M.opp.py+=g; else M.opp.ry+=g; } tick(s); },
     stopped(){ return M.stop; },
     /* the clock runs during a play, in game time */
     liveTick(dt){ if(M.poss==='me') tick(dt); },
@@ -218,7 +221,9 @@ function makeMatch(){
       if(M.stop) return endPeriod(); GAME.sit(M.yd,M.down,M.togo); ddMe(); bug(); },
     ddThem, M };
   function final(){
-    const [a,b]=M.score, res=a>b?'You win':a<b?'You lose':'A tie', col=a>b?'var(--gold)':a<b?'var(--red)':'var(--text2)', s=M.st;
+    /* a playoff game can't end level: overtime, and a field goal wins it */
+    if(M.mustWin&&M.score[0]===M.score[1]){ const w=Math.random()<.5+((DR.got.slice(0,5).reduce((s,p)=>s+p.r,0)/5)-M.oppO)/60?0:1; M.score[w]+=3; M.ot=true; bug(); }
+    const [a,b]=M.score, res=(a>b?'You win':a<b?'You lose':'A tie')+(M.ot?' in overtime':''), col=a>b?'var(--gold)':a<b?'var(--red)':'var(--text2)', s=M.st;
     screen('final');
     $('#scr-final').innerHTML=`<div class="champ" style="--fc:${col}"><div class="fade"><div class="dots"></div></div>
       <span class="tag" style="position:relative;color:${col}">Final</span><h3>${res}</h3>
@@ -235,7 +240,8 @@ function makeMatch(){
         else if(p.pos==='D/ST'){ a=`${d.sk} sacks · ${d.int} INT · ${d.fum} fumbles`; b=`${M.score[1]} points · ${M.opp.yds} yds allowed`; }
         else { a=`${s.rec} of ${s.tgt} · ${s.recy} yds · ${s.rtd} TD`; b=s.rec?`long ${s.long}${s.fum?' · '+s.fum+' fumble':''}`:'no catches'; }
         return `<div class="t-${TIER(p.r)}">${p.pos==='D/ST'?nflImg(p.n):`<img src="${SHOT(p.id)}" alt="">`}<span><b>${esc(p.n)}</b><em>${p.pos} · ${p.season} · ${p.r}</em><i>${a}</i><i>${b}</i></span></div>`; }).join('')}</div>
-      <button class="btn w" id="again">Play again</button></div>`;
-    $('#again').onclick=()=>{ DR.i=0; DR.got=[]; screen('match'); };
+      <button class="btn w" id="again">${typeof LG!=='undefined'&&LG?'Back to the season':'Play again'}</button></div>`;
+    if(typeof LG!=='undefined'&&LG){ seasonFinal(M); $('#again').onclick=()=>seasonContinue(); }
+    else $('#again').onclick=()=>{ DR.i=0; DR.got=[]; screen('match'); };
   }
 }

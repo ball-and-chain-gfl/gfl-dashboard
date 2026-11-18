@@ -11,6 +11,27 @@ const KIT={
   d:{jersey:['#24262c','#3d4049','#646874'],pants:['#24262c','#3d4049','#5a5e69'],helmet:['#24262c','#454955','#8e94a2'],stripe:'#c8233e',acc:'#c8233e',pstripe:'#c8233e',
      sock:['#24262c','#3d4049','#3d4049'],band:'#e9ebee',glove:['#8f1428','#c8233e'],mask:'#b9bec6',num:'#ffffff'},
 };
+/* ═══ TEAM KITS ═══ Every team dresses from the two colours in its logo. At home the jersey is its main colour; away it's
+   white with the main colour on the helmet, pants, socks and trim. A jersey too pale to show the main colour, or too close
+   to the other side's, swaps for the team's other look. */
+const hx=c=>{ c=c.replace('#',''); if(c.length===3) c=[...c].map(x=>x+x).join(''); return [0,2,4].map(i=>parseInt(c.slice(i,i+2),16)); };
+const toHex=a=>'#'+a.map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');
+const mixC=(c,d,t)=>{ const a=hx(c), b=hx(d); return toHex(a.map((v,i)=>v+(b[i]-v)*t)); };
+const lumC=c=>{ const [r,g,b]=hx(c); return (.299*r+.587*g+.114*b)/255; };
+const distC=(c,d)=>{ const a=hx(c), b=hx(d); return Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]); };
+const tri=c=>[mixC(c,'#000000',.42),c,mixC(c,'#ffffff',.42)];
+const WHITE='#e8ebef';
+/* a team's two looks from its main colour p and second colour q */
+function kitFor(p,q,away){ const pale=lumC(p)>.72, q2=distC(p,q)<70?(lumC(p)>.5?'#111318':WHITE):q;
+  if(!away&&!pale) return {look:'home',jersey:tri(p),pants:tri(lumC(q2)>.55?q2:WHITE),helmet:tri(p),stripe:q2,acc:q2,pstripe:p,sock:tri(p),band:'#f4f6f8',glove:[mixC(q2,'#000000',.3),q2],mask:'#c9ced5',num:'#ffffff'};
+  const tr=pale?(lumC(q2)<.6?q2:'#1b1d22'):p;
+  return {look:'away',jersey:tri(WHITE),pants:tri(tr),helmet:tri(tr),stripe:tr,acc:tr,pstripe:WHITE,sock:tri(tr),band:'#f4f6f8',glove:[mixC(tr,'#000000',.3),tr],mask:'#c9ced5',num:tr}; }
+/* dress both sides for a game: the home team in its home look, the visitors away, unless the two jerseys would read alike */
+function dressFor(home,away){ let h=kitFor(home[0],home[1],false), a=kitFor(away[0],away[1],true);
+  if(distC(h.jersey[1],a.jersey[1])<110){ const alt=kitFor(away[0],away[1],false); if(distC(h.jersey[1],alt.jersey[1])>=110) a=alt; else h=kitFor(home[0],home[1],true), a=kitFor(away[0],away[1],false); }
+  return [h,a]; }
+/* put the kits on: o is your side, d is theirs; every drawn body is redrawn in the new colours */
+function setKits(o,d){ KIT.o=o; KIT.d=d; SPR.clear(); KFS.clear(); }
 const SKIN=[['#4a2c1b','#7a4b30','#a06a47'],['#33200f','#5a3824','#7b5035'],['#8a5a3c','#bd8864','#dcab85'],['#26160d','#43291b','#61402b']];
 const SHOE=['#0f0f12','#3a3a42'], OUTC='#140e12';
 const LX=-.6, LY=-.8;
