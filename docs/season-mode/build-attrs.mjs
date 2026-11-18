@@ -42,12 +42,10 @@ const RAW = {
         /* hands */ s => g(s, 53) / Math.max(1, g(s, 58)),
         /* speed: yards a catch */ s => g(s, 60) || g(s, 42) / Math.max(1, g(s, 53)),
         /* contested */ s => g(s, 43) / Math.max(1, g(s, 53)) + g(s, 43) / 40 ],
-  'D/ST': [ /* pass rush: sacks a game */ s => g(s, 99) / Math.max(1, g(s, 210)),
-        /* coverage: points allowed a game, fewer is better */ s => -g(s, 120) / Math.max(1, g(s, 210)),
-        /* run stop: yards allowed a game, fewer is better */ s => -g(s, 127) / Math.max(1, g(s, 210)),
-        /* ball hawk: takeaways a game */ s => (g(s, 95) + g(s, 96)) / Math.max(1, g(s, 210)) ],
 };
-const out = {}; let missing = 0;
+/* defenses come from nflverse's play-by-play numbers (build-defense.mjs); keep what that wrote */
+const prev = fs.existsSync(new URL('attrs.json', D)) ? JSON.parse(fs.readFileSync(new URL('attrs.json', D), 'utf8')) : {};
+const out = Object.fromEntries(Object.entries(prev).filter(([k]) => k.startsWith('-'))); let missing = 0;
 for (const pos of Object.keys(RAW)) {
   const group = all.filter(p => p.pos === pos);
   RAW[pos].forEach((fn, k) => {
