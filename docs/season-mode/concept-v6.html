@@ -251,7 +251,11 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
 (async()=>{
   const j=u=>fetch(u).then(r=>r.json());
   let ATT; [TEAMS,POOL,DEFS,ATT]=await Promise.all([j('teams.json'),j('rated.json'),j('defenses.json'),j('attrs.json')]);
-  [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); p.a=(ATT[p.id+'-'+p.season]||{}).a; });
+  /* A PLAYER'S ATTRIBUTES AVERAGE TO HIS OVERALL. The stats and the 40 say what he's better and worse at; the overall (his
+     fantasy finish) says how good he is. So each player keeps the shape of his four, centred on his overall: a 94 averages
+     about 94, a 70 about 70. */
+  [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
+    const m=raw.reduce((s,v)=>s+v,0)/raw.length; p.a=raw.map(v=>Math.round(clamp(p.r+(v-m)*.7,50,99))); });
   ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0]; CPU=TEAMS.find(t=>/Kirkland/.test(t.name))||TEAMS[1];
   GAME=makeGame(); SIM=makeSim(); MATCH=makeMatch();
   $('#scr-match').innerHTML=`<div class="mu"><div class="fade"><div class="dots"></div></div><span class="tag" style="position:relative">Season Mode · Week 1</span>

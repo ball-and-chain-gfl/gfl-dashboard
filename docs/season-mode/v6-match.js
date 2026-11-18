@@ -7,7 +7,7 @@ const DR={i:0,got:[]};
 const packHTML=(t,big)=>`<div class="pk t-${t}${big?' big':''}"><div class="dots"></div><div class="band"></div><b>GFL</b><span>${t}</span></div>`;
 function four(pos,tier){
   const used=new Set(DR.got.map(g=>g&&g.id));
-  if(pos==='D/ST') return DEFS.filter(d=>TIER(d.r)===tier).sort(()=>Math.random()-.5).slice(0,4).map(d=>({id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r}));
+  if(pos==='D/ST') return DEFS.filter(d=>TIER(d.r)===tier).sort(()=>Math.random()-.5).slice(0,4).map(d=>({id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}));
   return POOL.filter(p=>p.pos===pos&&TIER(p.r)===tier&&!used.has(p.id)).sort(()=>Math.random()-.5).slice(0,4);
 }
 function slotsHTML(){ $('#slots').innerHTML=SLOTS.map((s,i)=>{ const g=DR.got[i]; return `<div class="${i===DR.i&&!g?'now':''}${g?' done t-'+TIER(g.r):''}">${s}<b>${g?g.r:'–'}</b></div>`; }).join(''); }
@@ -132,9 +132,12 @@ function makeMatch(){
   function near(r){ const c=DEFS.slice().sort((a,b)=>Math.abs(a.r-r)-Math.abs(b.r-r)).slice(0,6); return c[Math.floor(Math.random()*c.length)]; }
   /* inside the app the game fills the screen, so the scoreboard carries the way back to the app's menu */
   const MENU=window.parent!==window?`<button class="menu" aria-label="Menu" onclick="parent.postMessage({gfl:'season-menu'},location.origin)"><i></i><i></i><i></i></button>`:'';
+  /* set a box's markup only when it changed: rebuilding the scoreboard every second re-drew the crests, which flickered */
+  const setHTML=(el,h)=>{ if(el&&el._h!==h){ el._h=h; el.innerHTML=h; } };
+  function clockOnly(){ const b=document.querySelector('#bug .clk b'); if(!b) return bug(); b.textContent=M.q>4?'0:00':clk(); b.className=M.run&&M.poss==='me'&&!M.stop?'run':''; }
   function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?MENU+crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)}</div>`;
-    $('#bug').innerHTML=b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0); }
-  function ddMe(){ $('#dd').innerHTML=`<span>${ord(M.down)} &amp; ${M.togo>=100-M.yd?'Goal':M.togo} · ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`; }
+    setHTML($('#bug'),b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0)); clockOnly(); }
+  function ddMe(){ setHTML($('#dd'),`<span>${ord(M.down)} &amp; ${M.togo>=100-M.yd?'Goal':M.togo} · ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`); }
   function ddThem(st){ $('#dd').innerHTML=`<span>${ord(st.down)} &amp; ${st.yd+st.togo>=100?'Goal':st.togo} · ${theirs(st.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">Their O ${M.oppO} v D ${SIM.myD()}</span>`; }
   function view(v){ const snap=v==='snap'; $('#fld').style.display=snap?'':'none'; $('#sim').style.display=snap?'none':''; $('#ctrl').style.display=snap?'':'none'; $('#drive').style.display=snap?'none':'';
     $('#res').className='result'; $('#call').innerHTML=''; $('#hint').style.display='none'; GAME.show(snap); if(!snap) SIM.size(); }
@@ -145,7 +148,7 @@ function makeMatch(){
     /* the two-minute warning, in the second and fourth quarters */
     if((M.q===2||M.q===4)&&before>120&&M.clock<=120&&!M.warn[M.q]){ M.warn[M.q]=1; M.twoMin=true; }
     if(M.clock<=0){ if(M.q===2||M.q===4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=QLEN+M.clock; M.run=false; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } }
-    const sec=Math.ceil(M.clock); if(sec!==M.shown){ M.shown=sec; bug(); if(M.poss==='me') ddMe(); } }
+    const sec=Math.ceil(M.clock); if(sec!==M.shown){ M.shown=sec; clockOnly(); if(M.poss==='me') ddMe(); } }
   /* run what comes next, unless the half or the game has run out */
   function after(fn){ if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
   function toast(s){ const t=$('#toast'); t.textContent=s; t.className='toast show'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.className='toast',2200); }
