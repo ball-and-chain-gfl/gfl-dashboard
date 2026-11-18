@@ -385,6 +385,15 @@ const SCENES={
       [0,46,.45,.8,.55,-.8,-.98,1.1,1.7,1.0,1.6,26],[.1,45,.55,-.8,-.98,.8,.55,1.4,2.0,1.3,1.9,19],[.18,43,.75,.8,-.4,-.6,-1.0,1.6,2.4,1.5,2.3,13],[.24,41,.9,.75,-.45,-.65,-1.05,1.65,2.6,1.55,2.5,10],
       [.28,40,.95,.7,-.5,-.7,-1.1,1.7,2.8,1.6,2.7,10],[.36,40,1.0,.6,-.6,-.6,-1.1,1.4,2.9,1.3,2.8,9],[.46,41,.9,.6,-.5,-.6,-1.0,1.3,2.9,1.2,2.8,9],
       [.62,42,.85,.6,-.5,-.6,-1.0,1.3,2.9,1.2,2.8,8]]}},
+  /* THE EDGE CATCHES, one man alone. The toe drag: at the back line he takes it high, leans back to stay in, drags his
+     back toe through the paint and sits down out of bounds with it. */
+  toeDrag:{len:.9,order:['B'],B:{face:1,k:[
+      [0,52,-.1,.3,-.2,-.3,-.6,2.8,3.0,2.7,2.95,0],[.12,48,-.35,.5,-.1,-.6,-.95,2.5,2.9,2.4,2.8,1],[.26,43,-.55,.8,.2,-.95,-1.3,1.2,2.6,1.1,2.6,2],
+      [.42,33,-.8,1.1,.5,-.5,-1.0,.6,2.4,.5,2.3,3],[.6,16,-1.2,1.6,.8,1.2,.5,.5,2.3,.4,2.2,3],[.9,14,-1.25,1.6,.8,1.2,.5,.5,2.3,.4,2.2,3]]}},
+  /* the sideline: up on his toes for it, both feet tapped down in bounds, the ball pulled in, then his run carries him out */
+  sideTap:{len:.62,order:['B'],B:{face:1,k:[
+      [0,54,-.05,.2,-.3,-.2,-.5,2.8,3.0,2.7,2.95,0],[.1,52,-.1,.1,-.15,-.1,-.25,2.6,2.9,2.5,2.8,1],[.2,52,-.15,.05,-.1,-.05,-.2,1.6,2.6,1.5,2.5,2],
+      [.32,44,.3,.9,-.2,-.6,-1.1,.6,2.4,.7,2.3,5],[.46,46,.25,.8,.55,-.8,-.98,.5,2.4,.95,2.45,8],[.62,46,.25,-.8,-.98,.8,.55,.5,2.4,-.95,.55,11]]}},
   /* THE CARRIER'S MOVES (B has the ball, A is the man trying to stop him) */
   /* truck: shoulder down into him, he's knocked onto his back, the carrier stumbles through and keeps going */
   truck:{len:.55,order:['A','B'],B:{face:1,k:[
@@ -427,11 +436,11 @@ const sceneDir=d=>d==='up'?1:d==='down'?-1:d;
 function sceneSpot(sc,role,t,dir,s){ const q=sceneAt(sc[role].k,Math.min(t,sc.len)), v=dir==='up'||dir==='down';
   return {q,dx:v?0:sceneDir(dir)*q[11]*s,dy:v?-sceneDir(dir)*q[11]*s*DK:0}; }
 function drawScene(ctx,kind,t,x,y,dir,s,who){ const sc=SCENES[kind], v=dir==='up'||dir==='down', ds=sceneDir(dir); let hand=null;
-  const it=['A','B'].map(role=>{ const R=sc[role], {q,dx,dy}=sceneSpot(sc,role,t,dir,s), m=ds*R.face, e=kfSprite(who[role].k,who[role].si,q,v?m:0,role==='A'?-1:1);
+  const it=['A','B'].filter(role=>sc[role]).map(role=>{ const R=sc[role], {q,dx,dy}=sceneSpot(sc,role,t,dir,s), m=ds*R.face, e=kfSprite(who[role].k,who[role].si,q,v?m:0,role==='A'?-1:1);
     /* up or down the field the tackler comes in a little to one side, so neither man hides the other */
     return {role,q,m,e,bx:x+dx+(v&&role==='A'?9*s:0),gy:y+dy,oy:y+dy+(50-q[1])*PU*s}; });
   /* standing, the man further up the field goes behind; once they're going down, the scene's own order (who lands on top) */
-  const order=v&&it.every(i=>i.q[1]>28)?[...it].sort((a,b)=>a.gy-b.gy).map(i=>i.role):sc.order;
+  const order=v&&it.length>1&&it.every(i=>i.q[1]>28)?[...it].sort((a,b)=>a.gy-b.gy).map(i=>i.role):sc.order;
   for(const role of order){ const {q,m,e,bx,gy,oy}=it.find(i=>i.role===role), mx=v?1:m;
     /* the shadow covers the body where it's on the ground */
     const pts=[e.P.head,...e.P.legs.flatMap(l=>[l[2],l[3]]),e.P.legs[0][0]], xs=pts.map(p=>p[0]*PU*s*mx), lo=Math.min(...xs), hi=Math.max(...xs);
@@ -441,10 +450,6 @@ function drawScene(ctx,kind,t,x,y,dir,s,who){ const sc=SCENES[kind], v=dir==='up
     ctx.save(); ctx.imageSmoothingEnabled=false; ctx.translate(Math.round(bx),Math.round(oy)); if(mx<0) ctx.scale(-1,1);
     ctx.drawImage(e.img,-KX*s,-KY*s,KW*s,KH*s); ctx.restore();
     if(!sc.noBall&&role===(sc.ballRole||'B')){ const h=role==='B'?e.P.arms[sc.ballArm||0][2]:(()=>{ const a=e.P.arms[0][2], b=e.P.arms[1][2]; return [(a[0]+b[0])/2,(a[1]+b[1])/2]; })(); hand=[bx+mx*h[0]*PU*s,oy+h[1]*PU*s]; } }
-  if(hand&&sc.catchT&&t<sc.catchT){ const k=Math.max(0,t/sc.catchT), sp=sceneSpot(sc,sc.ballRole||'B',sc.catchT,dir,s), R=sc[sc.ballRole||'B'], q=sp.q, m=ds*R.face,
-      e=kfSprite(who[sc.ballRole||'B'].k,who[sc.ballRole||'B'].si,q,v?m:0,sc.ballRole==='A'?-1:1), h=sc.ballRole==='A'?(()=>{ const a=e.P.arms[0][2], b=e.P.arms[1][2]; return [(a[0]+b[0])/2,(a[1]+b[1])/2]; })():e.P.arms[sc.ballArm||0][2];
-    const hx=x+sp.dx+(v&&sc.ballRole==='A'?9*s:0)+(v?1:m)*h[0]*PU*s, hy=y+sp.dy+(50-q[1])*PU*s+h[1]*PU*s, from=[hx-(v?6*s:ds*34*s),hy-(v?34:22)*s];
-    hand=[from[0]+(hx-from[0])*k,from[1]+(hy-from[1])*k]; }
   return hand; }
 /* where a man's hands are, in pixels from his feet, for the ball while he catches it */
 function handPoint(state,f,facing,s){ const view=facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side', fi=fiOf(state,f);
