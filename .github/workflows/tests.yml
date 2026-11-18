@@ -65,6 +65,8 @@ jobs:
         run: node scripts/test-metheme.mjs
       - name: the moneyline board lays a game out on its tiles and never cuts a price
         run: node scripts/test-flap.mjs
+      - name: Season Mode is BFT's alone, under Hot Takes, and its page has everything it loads
+        run: node scripts/test-seasonmode.mjs
       - name: a trade keeps its votes, its money, and its place in Trade ROI
         run: node scripts/test-tradeids.mjs
       - name: Trade ROI is scored off the locked trade list, dropped players included

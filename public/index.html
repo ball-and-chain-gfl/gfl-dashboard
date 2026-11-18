@@ -4605,6 +4605,7 @@
     .tab-btn[data-tab=punishment]{--tc:#E84146;}
     .tab-btn[data-tab=takes]{--tc:#FF6A3D;}
     .tab-btn[data-tab=bam]{--tc:#A66CFF;}
+    .tab-btn[data-tab=season]{--tc:#5BC489;}
     .tab-btn i{color:var(--tc,var(--accent));opacity:.8;transition:opacity .15s;}
     .tab-btn:hover{background:color-mix(in srgb,var(--tc,var(--accent)) 12%,transparent)!important;color:var(--text)!important;}
     .tab-btn:hover i{opacity:1;}
@@ -4682,6 +4683,7 @@
     html[data-tabaccent=leaders]{--h1a:#43C9E8;--h1b:#6cb7ff;}
     html[data-tabaccent=takes]{--h1a:#FF6A3D;--h1b:#FFB23D;}
     html[data-tabaccent=bam]{--h1a:#A66CFF;--h1b:#D16CFF;}
+    html[data-tabaccent=season]{--h1a:#5BC489;--h1b:#9BE36B;}
     html[data-tabaccent=messages]{--h1a:#E8D24E;--h1b:#E8BE4E;}
     html[data-tabaccent=profile]{--h1a:#E0B67B;--h1b:#E0D27B;}
     html[data-tabaccent=punishment]{--h1a:#E84146;--h1b:#E85D41;}
@@ -4710,6 +4712,10 @@
     html[data-theme="dark"][data-tabaccent=takes]{--accent:#FF6A3D;--accent2:#FFB23D;--accent-rgb:255,106,61;}
     /* Build a Manager: the same hex as TAB_COLORS, for the same reason */
     html[data-theme="dark"][data-tabaccent=bam]{--accent:#A66CFF;--accent2:#D16CFF;--accent-rgb:166,108,255;}
+    /* Season Mode: the same hex as TAB_COLORS */
+    html[data-theme="dark"][data-tabaccent=season]{--accent:#5BC489;--accent2:#9BE36B;--accent-rgb:91,196,137;}
+    /* the game is its own page in a frame, a phone's width, as tall as the screen allows */
+    .season-frame{display:block;width:100%;max-width:430px;height:max(640px,calc(100dvh - 190px));margin:0 auto;border:1px solid #2E2E2E;background:#171717;}
     html[data-theme="dark"][data-tabaccent=messages]{--accent:#E8D24E;--accent2:#E8BE4E;--accent-rgb:232,210,78;}
 
     /* the name takes the space it needs and sign out sits at the far edge */
@@ -7903,6 +7909,8 @@
   <button class="tab-btn" data-tab="takes" onclick="switchTab('takes')"><i class="fa fa-fire"></i>Hot Takes</button>
   <!-- Beside Hot Takes, in the spot the top group left empty -->
   <button class="tab-btn" data-tab="bam" onclick="switchTab('bam')"><i class="fa fa-dice"></i>Build a Manager</button>
+  <!-- BFT only: seasonGate() shows it for that account and no other -->
+  <button class="tab-btn" data-tab="season" onclick="switchTab('season')" style="display:none"><i class="fa fa-football"></i>Season Mode</button>
   <button class="tab-btn" data-tab="legacy" data-group="Archive" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>All Matchups</button>
   <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Data</button>

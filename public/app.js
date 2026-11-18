@@ -94,8 +94,8 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    together — a palette change made only in CSS leaves the nav on the old set,
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
-const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',takes:'#FF6A3D',bam:'#A66CFF',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',takes:'Hot Takes',bam:'Build a Manager',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',takes:'#FF6A3D',bam:'#A66CFF',season:'#5BC489',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',takes:'Hot Takes',bam:'Build a Manager',season:'Season Mode',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
@@ -916,6 +916,7 @@ function initMobileTables(){
   window.addEventListener('orientationchange',()=>setTimeout(run,250));
 }
 function switchTab(name){
+  if(name==='season'&&!seasonAllowed()) name='home';
   try{ undockPicker(true); }catch(e){}   // before the page changes under it
   _activeTab=name;
   syncSeasonPicker(name);
@@ -933,6 +934,7 @@ function switchTab(name){
   if(name==='leaders') renderLeaders();
   if(name==='takes') renderTakes();
   if(name==='bam') renderBam();
+  if(name==='season') renderSeason();
   if(name==='week') renderWeek();
   if(name==='draft') ensureDraft();
   if(name==='trades') renderTradesTab();
@@ -9898,6 +9900,31 @@ let _me=null;                                  // {k1,k2,teamId} once signed in
    real profile around. 'test' belongs to nobody, holds no team, and appears on
    no board; BFT is now an ordinary manager. */
 const TEST_PROFILE='test';
+/* ── SEASON MODE ───────────────────────────────────────────────────────────────
+   A single-player football game: open packs for six players, then play a whole
+   game against another team, your drives snap by snap and theirs simulated.
+   It is its own page, public/season/, built from the concept in
+   docs/season-mode (build-app.mjs), and this tab shows it in a frame, so none
+   of its code or styles touch the rest of the app and none of it loads until
+   the tab is opened. No reads, no writes: it runs entirely on the device.
+
+   BFT ONLY FOR NOW. The nav button is hidden for every other account and for
+   anyone signed out; switchTab() sends anyone else who asks for the tab home;
+   and the game page itself checks the same sign-in before it starts. To open it
+   to someone else, add their account to SEASON_ACCOUNTS. */
+const SEASON_ACCOUNTS=['bft'];
+function seasonAllowed(){ return !!_me&&SEASON_ACCOUNTS.includes(_me.k1); }
+function seasonGate(){
+  const ok=seasonAllowed(), b=document.querySelector('.tab-btn[data-tab=season]');
+  if(b) b.style.display=ok?'':'none';
+  if(!ok){ const body=document.getElementById('season-body'); if(body) body.innerHTML='';
+    if(_activeTab==='season') switchTab('home'); }
+}
+function renderSeason(){
+  const el=document.getElementById('season-body'); if(!el||!seasonAllowed()) return;
+  if(el.querySelector('iframe')) return;            /* a game in progress keeps going while you look elsewhere */
+  el.innerHTML=`<iframe class="season-frame" src="/season/index.html?team=${encodeURIComponent((_me&&_me.teamId)||'')}" title="Season Mode"></iframe>`;
+}
 const isTestProfile=()=>!!_me&&_me.k1===TEST_PROFILE;
 
 function meLoad(){ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } }
@@ -10169,6 +10196,7 @@ function meTheme(){
 }
 /* preselect the remembered team everywhere it matters */
 function applyMe(){
+  seasonGate();
   meTheme();
   renderMeChip();
   try{ renderBucksChip(); }catch(e){}
@@ -28847,6 +28875,11 @@ async function loadDashboard(){
         <div class="sec wm" data-wm="&#xf06d;" id="ht-sec">
           <div id="ht-body"></div>
         </div>
+      </div>
+
+      <!-- SEASON MODE: BFT only, see seasonAllowed() -->
+      <div class="tab-page" id="page-season">
+        <div class="sec" id="season-sec"><div id="season-body"></div></div>
       </div>
 
       <!-- BUILD A MANAGER -->

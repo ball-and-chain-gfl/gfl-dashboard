@@ -68,6 +68,12 @@ directly under `leaders`. A new tab needs its button, `TAB_COLORS` and
 `TAB_LABELS` entries, a `switchTab` hook, a `#page-<tab>` container in
 `loadDashboard`, and the three accent rules in the stylesheet.
 
+One more is on the nav for one account only: `season` (Season Mode), a
+single-player football game, sits after `bam` so it lands under Hot Takes and is
+shown to `bft` alone (`SEASON_ACCOUNTS` in `app.js`). The game is its own page,
+`public/season/`, shown in a frame and built from `docs/season-mode/` with
+`node docs/season-mode/build-app.mjs`; `test-seasonmode.mjs` holds the gate.
+
 Three more tab names exist without a nav button:
 
 - `profile` — My Locker Room, and a live page: `#page-profile`, rendered by
