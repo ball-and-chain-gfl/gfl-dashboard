@@ -120,16 +120,22 @@ function makeGame(){
   /* which attribute is which, by position */
   const HANDS={RB:3,WR:2,TE:1}, CONT={WR:3,TE:3};
   /* HOW MUCH THE DEFENSE'S QUALITY SWINGS A PLAY. Its ratings and attributes are pulled in toward the middle, so a great defense
-     is hard to beat but not a wall, and a poor one still covers somebody: RSP for its men's ratings, ASP for its attributes. */
-  const RSP=.52, ASP=.5;
+     is hard to beat but not a wall, and a poor one still covers somebody: RSP for its attributes (ASP); its men's ratings are spread as below. */
+  const ASP=.35;
   const Ad=i=>D.a?.5+(clamp((D.a[i]-55)/44,0,1)-.5)*ASP:.5;   /* the defense: pass rush, coverage, run stop, ball hawk */
   /* THE SAME MEN ALL GAME. Each spot's rating is set once for the defense, from its real season (nflverse: pass rush,
      pass defense, run defense, takeaways): the line from pass rush and run stop, linebackers from run stop and
      coverage, corners and safeties from coverage and ball hawk. Each man keeps his own fixed step either side. */
-  function units(){ if(D._u) return D._u; const a=D.a||[D.r,D.r,D.r,D.r], c=v=>clamp(Math.round(80+(v-80)*RSP),62,99);
+  /* THE TEN MEN'S RATINGS, a spread around the defense's own level: the best defenses (99) centre on 92, so two or three
+     legends, a handful of golds and a silver or two; the worst (68) centre on 81, mostly silver with a few bronze. Who
+     gets the top of the spread comes from what the defense was good at (pass rush to the line, coverage to the backs). */
+  const SPREAD=[6,5,4,2,1,0,-1,-3,-5,-7];
+  function units(){ if(D._u) return D._u; const a=D.a||[D.r,D.r,D.r,D.r], c=v=>v;
     const step=i=>{ const id=typeof D.id==='number'?Math.abs(D.id):[...String(D.id||D.n||7)].reduce((h,c)=>(h*31+c.charCodeAt(0))%99991,7), x=Math.sin((id%9973+1)*12.9898+i*78.233)*43758.5453; return Math.round((x-Math.floor(x))*6)-3; };
-    return D._u={DL:[0,1,2,3].map(i=>c(a[0]*.55+a[2]*.45+step(i))),LB:[0,1].map(i=>c(a[2]*.55+a[1]*.45+step(4+i))),
-      CB:[0,1].map(i=>c(a[1]*.75+a[3]*.25+step(6+i))),S:[0,1].map(i=>c(a[1]*.6+a[3]*.25+a[2]*.15+step(8+i)))}; }
+    D._u={DL:[0,1,2,3].map(i=>c(a[0]*.55+a[2]*.45+step(i))),LB:[0,1].map(i=>c(a[2]*.55+a[1]*.45+step(4+i))),
+      CB:[0,1].map(i=>c(a[1]*.75+a[3]*.25+step(6+i))),S:[0,1].map(i=>c(a[1]*.6+a[3]*.25+a[2]*.15+step(8+i)))};
+    const U=D._u, mid=81+clamp(((D.r||80)-68)/31,0,1)*11, all=Object.keys(U).flatMap(k=>U[k].map((v,i)=>({k,i,v}))).sort((x,y)=>y.v-x.v);
+    all.forEach((e,j)=>U[e.k][e.i]=clamp(Math.round(mid+SPREAD[j]),62,99)); return U; }
   function setup(){
     const P=[]; const qb=who(0), rb=who(1), wa=who(2), wb=who(3), te=who(4);
     const PL=PLAYS[S.call], runCall=PL.kind==='run';
@@ -157,7 +163,7 @@ function makeGame(){
     const CB=[WA,WB].map((w,i)=>mk('d','CB',[24,21][i],U.CB[i],w.x,6,0,0));
     const SF=[-7,7].map((x,i)=>mk('d','S',[31,42][i],U.S[i],x,13,0,0));
     [...DL,...LB,...CB,...SF].forEach(d=>{ const qq=q(d.r); /* every defender is quick: rating adds a little speed and a quicker read, it doesn't decide whether he can run at all */
-      d.vmax=d.pos==='DL'?5.2+qq*.35+Ad(0)*.45:d.pos==='LB'?6.1+qq*.3+Ad(2)*.3:6.8+qq*.25+Ad(1)*.25; d.acc=d.pos==='DL'?12+qq*6:18+qq*8; d.react=.33-qq*.08-(d.pos==='DL'?0:Ad(1)*.08); d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
+      d.vmax=d.pos==='DL'?5.2+qq*.35+Ad(0)*.45:d.pos==='LB'?6.3+qq*.3+Ad(2)*.3:7.0+qq*.25+Ad(1)*.25; d.acc=d.pos==='DL'?12+qq*6:18+qq*8; d.react=.33-qq*.08-(d.pos==='DL'?0:Ad(1)*.08); d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
     const look=S.look;
     DL.forEach(d=>d.role='rush');
     if(look==='cover2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,7]; }); }
@@ -198,9 +204,17 @@ function makeGame(){
   function carrierAim(c){
     if(S.cut&&S.t<S.cut.until) return [c.x+S.cut.dir*3.2,c.y+.8];
     const D=S.P.filter(p=>p.side==='d'&&!p.down&&!p.seqd), free=p=>!((p.blocked&&!p.shed)||(p.lockedBy&&dist(p,p.lockedBy)<1.4));
-    /* the play's path to the hole, unless a free man is sitting in it */
-    if(c.path&&c.path.length){ const [tx,ty]=c.path[0]; if(Math.hypot(tx-c.x,ty-c.y)<1) c.path.shift();
-      else if(D.some(p=>free(p)&&Math.hypot(p.x-tx,p.y-ty)<1.6&&Math.hypot(p.x-c.x,p.y-c.y)<4)) c.path=null; else return [tx,ty]; }
+    /* SLIDE OFF A MAN IN THE WAY: anyone just ahead of him and close pushes his line sideways, away from that man, so he
+       runs round a lineman locked in a block or a defender in the hole instead of into him */
+    const slide=(tx,ty)=>{ const lx=tx-c.x, ly=ty-c.y, ll=Math.hypot(lx,ly)||1; let push=0;
+      for(const p of D){ const dx=p.x-c.x, dy=p.y-c.y, d=Math.hypot(dx,dy); if(d>2.2||d<.05) continue; const ahead=(dx*lx+dy*ly)/ll; if(ahead<-.2) continue;
+        const side=(dx*ly-dy*lx)/ll; push+=(side>0?-1:1)*(2.2-d)/2.2*(1.1-Math.min(1,Math.abs(side)/1.2)); }
+      return [clamp(tx+push*1.8*(ly/ll),-SIDE+1.6,SIDE-1.6), ty-push*1.8*(lx/ll)*.3]; };
+    /* THE PLAY'S PATH TO ITS GAP, through the line. He keeps to it unless the gap is gone: a free man (not held by a block)
+       who can get to the next point of the path before he does. Then, and once he's through, it's open field. */
+    if(c.path&&c.path.length){ while(c.path.length&&Math.hypot(c.path[0][0]-c.x,c.path[0][1]-c.y)<1) c.path.shift();
+      if(c.path.length){ const [tx,ty]=c.path[0], tc=Math.hypot(tx-c.x,ty-c.y)/Math.max(4,c.vmax);
+        if(D.some(p=>free(p)&&Math.max(0,Math.hypot(p.x-tx,p.y-ty)-.8)/p.vmax<tc+.05&&Math.hypot(p.x-c.x,p.y-c.y)<5)) c.path=null; else return slide(tx,ty); } }
     /* OPEN FIELD. He looks down every line in front of him, never back toward his own goal (75 degrees either side of
        straight up the field at most), and for each asks how far he can get along it before a man can be there first:
        each defender's time to the spot (engaged blockers barely count) against his own. He takes the line that gets
@@ -212,8 +226,9 @@ function makeGame(){
     const turn=(ax,ay,bx,by,sp)=>2*Math.sin(Math.acos(clamp(ax*bx+ay*by,-1,1))/2)*sp/ac;
     const probe=(x0,y0,dx,dy,t0,n)=>{ let run=0, room=9;
       for(let L=1;L<=n;L++){ const px=x0+dx*L, py=y0+dy*L; if(Math.abs(px)>SIDE-.8) break; const tc=t0+L/v; let m=9;
-        for(const p of D){ const td=Math.max(0,Math.hypot(p.x-px,p.y-py)-.75)/(free(p)?p.vmax:1.2)+.1; if(td-tc<m) m=td-tc; }
-        if(m<room) room=m; if(m<0) break; run=L; if(py>=S.goal){ run+=3; break; } }
+        for(const p of D){ const dd=Math.hypot(p.x-px,p.y-py), vd=Math.hypot(p.vx,p.vy), cs=vd>1&&dd>.01?(p.vx*(px-p.x)+p.vy*(py-p.y))/(vd*dd):0;
+          const td=Math.max(0,dd-.75)/(free(p)?p.vmax:1.6)+.06+.16*(1-cs)/2+(free(p)?0:.25); if(td-tc<m) m=td-tc; }
+        if(m<room) room=m; if(m<.15) break; run=L; if(py>=S.goal){ run+=3; break; } }
       return {run,room}; };
     let best=null,bs=-1e9;
     for(let a=-75;a<=75;a+=7.5){ const r=a*Math.PI/180, dx=Math.sin(r), dy=Math.cos(r), t1=sp0>1?turn(hx,hy,dx,dy,sp0):0, L1=probe(c.x,c.y,dx,dy,t1,N);
@@ -221,7 +236,7 @@ function makeGame(){
       if(dy<.97) for(const k of [3,5,7,9]){ if(k>L1.run) break; const L2=probe(c.x+dx*k,c.y+dy*k,0,1,t1+k/v+turn(dx,dy,0,1,v),N-k); gain=Math.max(gain,k*dy+L2.run); }
       const sc=gain+Math.min(L1.room,1)*.9+(dx*hx+dy*hy)*.4;
       if(sc>bs){ bs=sc; best=[c.x+dx*3.5,c.y+dy*3.5]; } }
-    return best; }
+    return best?slide(best[0],best[1]):best; }
   const SEQ={truck:{dur:.55,label:'Trucked'},stiff:{dur:.5,label:'Stiff arm'},juke:{dur:.38,label:'Juked'},spin:{dur:.48,label:'Spin move'},hurdle:{dur:.52,label:'Hurdle'}};
   function pop(text,col,p,slow){ S.pops.push({text,col:col||'#FF8E1C',p,t0:S.t}); S.slow=Math.max(S.slow||0,S.t+(slow??(text==='Touchdown'?.9:.55))); }
   /* PARTICLES, in yards with a height, so they move with the field: dust, sparks, confetti */
@@ -353,7 +368,7 @@ function makeGame(){
     if(c&&!c.down&&!S.over&&!S.seq&&!S.ps&&!(c===S.catcher&&t<(S.secure||0))){
       for(const p of S.P){ if(p.side!=='d'||p.down||p.state==='dive'||(p.lockedBy&&dist(p,p.lockedBy)<1.3)) continue;
         if(p.pos==='DL'&&p.blocked&&!p.shed){ if(dist(p,c)<.6&&Math.random()<dt*2.2) return tackled(c,p,'tackle'); continue; }
-        if(dist(p,c)<.8&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
+        if(dist(p,c)<.95&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
           const ok=Math.random()<clamp(.9+(p.r-c.r)/300-pw*.08-el*.04+(Ad(2)-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.12+el*.3):1);
           if(ok) return tackled(c,p); if(move(c,p,pw,el)) break; dive(p,c); p.missed=true; p.upAt=t+1.1; c.slow=t+.35*(1-pw*.6); c.slowK=.6; } }
       if(Math.abs(c.x)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
@@ -434,7 +449,7 @@ function makeGame(){
   /* a receiver's catch radius, and where he will be after a throw of this power gets to him */
   const catchR=r=>1.35+A(r,HANDS[r.pos]??2)*.65;
   function routeAt(p,t){ const v=p.vmax; let left=Math.max(0,t-.05)*v, x=p.x0, y=p.y0; for(const [rx,ry] of p.route){ const tx=p.x0+rx, ty=p.y0+ry, seg=Math.hypot(tx-x,ty-y); if(left<=seg){ const f=left/seg, [qx,qy]=inb(x+(tx-x)*f,y+(ty-y)*f); return {x:qx,y:qy}; } left-=seg; x=tx; y=ty; } const [qx,qy]=inb(x,y); return {x:qx,y:qy}; }
-  function leadOf(r,power){ const QB=S.QB, arm=A(QB,0), iv=power>.7?.06:power<.3?.13:.1, fl=d=>(.22+d*.03*(1.2-arm*.4))*(1.45-.8*power)+iv;
+  function leadOf(r,power){ const QB=S.QB, arm=A(QB,0), iv=power>.7?.06:power<.3?.13:.1, fl=d=>(.22+d*.03*(1.35-arm*.6))*(1.45-.8*power)+iv;
     let t=fl(Math.hypot(r.x-QB.x,r.y-QB.y)), q=null;
     for(let i=0;i<2;i++){ const ahead=routeAt(r,S.t+t), lag={x:ahead.x-(ahead.x-r.x)*.08,y:ahead.y-(ahead.y-r.y)*.08}; q=r.route&&!S.carrier?lag:{x:r.x+r.vx*t,y:r.y+r.vy*t}; t=fl(Math.hypot(q.x-QB.x,q.y-QB.y)); }
     return q; }
@@ -443,13 +458,13 @@ function makeGame(){
     const QB=S.QB, aim=toY(px,py), d=Math.hypot(aim.x-QB.x,aim.y-QB.y);
     const rush=Math.min(...S.P.filter(p=>p.side==='d'&&(p.shed||!p.blocked)).map(p=>dist(p,QB)),99);
     /* accuracy sets how far a throw strays; arm keeps long ones on line and gets them there sooner; pressure costs less the better he escapes */
-    const arm=A(QB,0), acc=A(QB,1), sig=(.95-acc*.65)*(.3+d/24*(1.2-arm*.55))+(rush<2.5?.9*(1-.35*A(QB,3)):0);
+    const arm=A(QB,0), acc=A(QB,1), sig=(1.15-acc*.95)*(.3+d/22*(1.25-arm*.6))+(rush<2.5?1.1*(1-.6*A(QB,3)):0);   /* QB RATINGS: accuracy sets the spray, arm keeps the long ones on line, escape steadies him under pressure */
     const to={x:aim.x+gauss()*sig, y:aim.y+gauss()*sig};
     S.tgt=S.rec.filter(r=>!r.down).sort((a,b)=>Math.hypot(a.x-aim.x,a.y-aim.y)-Math.hypot(b.x-aim.x,b.y-aim.y))[0]||null;
     /* how he throws it: a bullet comes out quick, a lob with a long wind-up, on the move from the side, a jump pass with a man in his face, or his standard throw */
     const moving=Math.hypot(QB.vx,QB.vy)>2.2, style=rush<1.6?'jump':moving?'run':power>.7?'quick':power<.3?'lob':'standard', iv={quick:.06,lob:.13,run:.08,jump:.09,standard:.1}[style];
     /* a lob hangs: half again as long in the air and high enough to clear the men underneath; a bullet gets there in two thirds of the time, flat */
-    const dur=(.22+d*.03*(1.2-arm*.4))*(1.45-.8*power), arc=Math.max(.8,d*(.34-.28*power));
+    const dur=(.22+d*.03*(1.35-arm*.6))*(1.45-.8*power), arc=Math.max(.8,d*(.34-.28*power));
     S.ball.air={from:{x:QB.x,y:QB.y},to,aim,t0:S.t+iv,dur,d,arc,power}; S.ball.holder=null; S.thrown=true;
     QB.state='throw'; QB.throw0=S.t; QB.throwIv=iv; QB.throwStyle=style; QB.until=S.t+iv*4; if(style==='run') QB.facing=QB.vx>=0?'right':'left'; buttons(); hint('');
   }
@@ -490,10 +505,12 @@ function makeGame(){
       else { pop('Swatted','#D9325E',d); if(off&&od<Math.min(R,1.6)){ passScene('swat',d,off[0]); deflect(to,.2); } else deflect(to); }
       return end('Broken up','#'+d.num+' got a hand on it.','inc',0,to); }
     const r=off[0], d=def&&def[0], hands=.7+A(r,HANDS[r.pos]??2)*.27, ct=CONT[r.pos]!=null?A(r,CONT[r.pos]):.3;
-    const contested=dd<1.1, contest=dd<.7?.45+ct*.45:dd<1.3?.72+ct*.25:1, diving=od>R*.8, reach=od<R*.5?1:od<R*.8?.9:.6;
+    const contested=dd<1.1, contest=dd<.7?.45+ct*.45:dd<1.3?.72+ct*.25:1, diving=od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to reach for is harder to hold, the further the harder */
     /* both go up for it when it's contested */
     if(contested&&d){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; }
-    const caught=Math.random()<clamp(hands*contest*reach,.05,.97);
+    /* where the throw put it against where it should have gone: a wayward ball, even one he gets to, is a harder catch */
+    const placed=clamp(1-Math.hypot(a.to.x-a.aim.x,a.to.y-a.aim.y)*.2,.55,1);
+    const caught=Math.random()<clamp(hands*contest*reach*placed,.05,.97);
     /* caught past the end line or over the sideline: he had it, but he was out */
     if(caught&&(Math.abs(to.x)>SIDE||to.y>S.goal+10)){ reachFor(r,to); pop('Out of bounds','#F0CE26',r); return end('Incomplete',(r.name||'#'+r.num)+' had it, but out of bounds.','inc',0,to); }
     if(caught&&diving){ S.caught=true; S.catcher=r; pop('Diving catch','#4C9EFF',r); { const ux=to.x-r.x, uy=to.y-r.y, ul=Math.hypot(ux,uy)||1; r.x=to.x-ux/ul*.6; r.y=to.y-uy/ul*.6; dive(r,{x:r.x+ux,y:r.y+uy}); } r.until=S.t+.25; S.ball.holder=r;
