@@ -165,7 +165,7 @@ function hub(tab){ if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur],
   const qb=$('#hb-quick'); if(qb) qb.onclick=()=>quickGame(false);
   const rs=$('#hb-respin'); if(rs) rs.onclick=respinPick;
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
-  document.querySelectorAll('.lg-tabs button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); }); }
+  document.querySelectorAll('.lgc button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); }); }
 const ordinal=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
 function hubNext(){
   if(LG.phase==='done'){ const c=LG.teams[LG.champ], won=LG.champ===0;
@@ -185,45 +185,76 @@ function hubNext(){
   else top=`<div class="hb-card"><span class="tag">${esc(R.label)}</span><h3>${LG.phase==='po'?(R.bye&&R.bye.includes(0)?'You have a bye':'You\'re out'):'No game this week'}</h3>
       <p>${LG.phase==='po'&&!(R.bye&&R.bye.includes(0))?'The playoffs go on without you.':'The rest of the league plays.'}</p><button class="btn w" id="hb-go">Sim ${esc(R.label.toLowerCase())}</button></div>`;
   const last=LG.cur>0?LG.rounds[LG.cur-1]:null;
-  const mv=(LG.moves||[]).map(m=>`<div><b>${esc(LG.teams[m.t].name)}</b><span>${m.pos}: ${esc(m.in.n)} (${m.in.r}) in for ${esc(m.out.n)} (${m.out.r})</span></div>`).join('');
-  return top+(last?`<div class="tag hb-h">${esc(last.label)} results</div>${gamesHTML(last)}`:'')+(mv?`<div class="tag hb-h">Roster moves</div><div class="hb-moves">${mv}</div>`:'')+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-new">New season</button></div>`; }
-function gamesHTML(R){ return `<div class="hb-games">${R.games.map(g=>{ const w=g.s?(g.s[0]>g.s[1]?'h':g.s[1]>g.s[0]?'a':''):'';
-  return `<div class="${g.h===0||g.a===0?'me':''}">${tm(g.a,w==='a'?'w':'')}<b class="sc">${g.s?g.s[1]:''}</b><i>at</i><b class="sc">${g.s?g.s[0]:''}</b>${tm(g.h,w==='h'?'w':'')}${g.ot?'<em>OT</em>':''}</div>`; }).join('')}</div>`; }
-function hubSched(){ return LG.rounds.map((R,k)=>`<details ${k===LG.cur||(LG.phase==='done'&&k===LG.rounds.length-1)?'open':''}><summary><span>${esc(R.label)}</span>${(()=>{ const g=myGame(R); if(!g) return '<em>'+(R.bye&&R.bye.includes(0)?'Bye':'—')+'</em>';
-    const home=g.h===0, o=LG.teams[home?g.a:g.h]; const res=g.s?(()=>{ const m=home?g.s[0]:g.s[1], t=home?g.s[1]:g.s[0]; return `<b class="${m>t?'w':m<t?'l':''}">${m>t?'W':m<t?'L':'T'} ${m}–${t}</b>`; })():'';
-    return `<em>${home?'v':'at'} ${esc(o.name)}</em>${res}`; })()}</summary>${gamesHTML(R)}</details>`).join('')
-    +(LG.phase!=='done'&&LG.rounds[LG.rounds.length-1].kind==='reg'?`<div class="hb-note">Then the playoffs: the top ${LG.po}${LG.po===6?', the top 2 with a bye':''}.</div>`:''); }
-function hubTeam(){ const L=LG.ps, line=(p,i)=>{ const s=L[i];
-    if(p.pos==='QB') return [`${s.comp}/${s.att} · ${s.py} yds · ${s.ptd} TD · ${s.int} INT`,`${s.car} rushes, ${s.ry} yds · ${s.sk} sacked`];
-    if(p.pos==='RB') return [`${s.car} carries · ${s.ry} yds · ${s.rushtd} TD`,`${s.rec} catches · ${s.recy} yds`];
-    return [`${s.rec} of ${s.tgt} · ${s.recy} yds · ${s.rtd} TD`,s.g?`${(s.recy/s.g).toFixed(1)} yds a game`:'no games yet']; };
+  return top+(last?`<div class="sh">${esc(last.label)} <b>results</b></div>${gamesHTML(last,true)}`:'')+movesHTML()+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-new">New season</button></div>`; }
+/* ═══ THE HUB, GAME-STYLE ═══ every piece reads like the field's own: scorebugs for games, rating tiles in the tier's
+   colour, stat tiles in pixel numbers, win and loss chips, and one row shape for every list. */
+const tcol=t=>(t&&t.col)?t.col[0]:'#555';
+const rtg=r=>`<b class="rtg t-${TIER(r)}">${r}</b>`;
+const wkShort=R=>R.kind==='po'?({'Wild card':'WC','Semifinals':'SF','The final':'F'}[R.label]||'PO'):'W'+String(R.label).replace(/\D+/g,'');
+const myRes=g=>{ if(!g||!g.s) return null; const home=g.h===0, m=home?g.s[0]:g.s[1], t=home?g.s[1]:g.s[0]; return {k:m>t?'W':m<t?'L':'T',m,t}; };
+/* a game as a scorebug: the visitors over the home side, the winner bright, the loser dimmed */
+function gameCard(g){ const T=LG.teams, mine=g.h===0||g.a===0, w=g.s?(g.s[0]>g.s[1]?'h':g.s[1]>g.s[0]?'a':'t'):'', res=mine?myRes(g):null;
+  const side=(i,sc,k)=>`<div class="gc-t ${w&&w!=='t'?(w===k?'w':'l'):''}" style="--p:${tcol(T[i])}"><i></i>${crest(T[i])}<b>${i===0?'You':esc(T[i].name)}<small>${recTxt(T[i].st)}</small></b><em>${g.s?sc:''}</em></div>`;
+  return `<div class="gc${mine?' me':''}">${g.s||mine?`<div class="gc-h"><span>${g.s?'Final'+(g.ot?' · OT':''):'Your game'}</span>${res?`<span class="wl ${res.k}">${res.k}</span>`:''}</div>`:''}
+    ${side(g.a,g.s&&g.s[1],'a')}${side(g.h,g.s&&g.s[0],'h')}</div>`; }
+function gamesHTML(R,mineFirst){ const G=R.games.slice(); if(mineFirst) G.sort((x,y)=>((y.h===0||y.a===0)-(x.h===0||x.a===0)));
+  return `<div class="gcs">${G.map(gameCard).join('')}</div>`; }
+/* roster moves: who came in, who went out, by how much */
+function movesHTML(){ const M=LG.moves||[]; if(!M.length) return '';
+  return `<div class="sh">Roster <b>moves</b></div><div class="mvs">${M.map(m=>{ const t=LG.teams[m.t];
+    return `<div class="mv"><div class="mv-t" style="--p:${tcol(t)}"><i></i>${crest(t)}<b>${esc(t.name)}</b><span class="pos">${m.pos}</span><span class="dl">+${m.in.r-m.out.r}</span></div>
+      <div class="mv-p in"><span>In</span><b>${esc(m.in.n)}<small>${m.in.season||''}</small></b>${rtg(m.in.r)}</div>
+      <div class="mv-p out"><span>Out</span><b>${esc(m.out.n)}</b>${rtg(m.out.r)}</div></div>`; }).join('')}</div>`; }
+/* THE SCHEDULE: the season as a strip of squares, then a row a week; open one for the whole week's scores */
+function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGame(x)); return `<i class="${r?r.k:k===LG.cur&&LG.phase!=='done'?'now':''}"></i>`; }).join('');
+  return `<div class="sh">Your <b>season</b></div><div><div class="ss" style="--n:${R.length}">${strip}</div><div class="ssl"><span>${wkShort(R[0])}</span><span>${recTxt(LG.teams[0].st)}</span><span>${wkShort(R[R.length-1])}</span></div></div>
+    <div class="wks">${R.map((x,k)=>{ const g=myGame(x), r=myRes(g), now=k===LG.cur&&LG.phase!=='done', open=now||(LG.phase==='done'&&k===R.length-1);
+      let mid, end='<i></i>';
+      if(!g) mid=`<span class="ha"></span><span></span><b class="dim">${x.bye&&x.bye.includes(0)?'Bye':'No game'}</b>`;
+      else { const home=g.h===0, o=LG.teams[home?g.a:g.h]; mid=`<span class="ha">${home?'vs':'at'}</span>${crest(o)}<b>${esc(o.name)}</b>`;
+        end=r?`<span class="res"><span class="wl ${r.k}">${r.k}</span>${r.m}–${r.t}${g.ot?' <small>OT</small>':''}</span>`:now?'<span class="nx">Next</span>':'<i></i>'; }
+      return `<details class="wk${now?' now':''}" ${open?'open':''}><summary><span class="wn">${wkShort(x)}</span>${mid}${end}</summary>${gamesHTML(x,true)}</details>`; }).join('')}</div>
+    ${LG.phase!=='done'&&R[R.length-1].kind==='reg'?`<div class="hb-note">Then the playoffs: the top ${LG.po}${LG.po===6?', the top 2 with a bye':''}.</div>`:''}`; }
+/* YOUR TEAM: a card a player, his season in four stat tiles */
+function hubTeam(){ const L=LG.ps, n=L[0]?L[0].g:0, pct=(a,b)=>b?Math.round(a/b*100):0, per=(a,b)=>b?(a/b).toFixed(1):'0';
+  const tiles=(p,i)=>{ const s=L[i];
+    if(p.pos==='QB') return [[s.py,'Pass yds'],[s.ptd,'TD'],[s.int,'Int'],[pct(s.comp,s.att),'Comp %']];
+    if(p.pos==='RB') return [[s.ry,'Rush yds'],[s.rushtd,'TD'],[per(s.ry,s.car),'Per carry'],[s.recy,'Rec yds']];
+    return [[s.rec,'Catches'],[s.recy,'Yards'],[s.rtd,'TD'],[per(s.recy,s.g),'Yds/game']]; };
+  const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
-  return `<div class="tag hb-h">Your five · season</div><div class="pbox">${LG.teams[0].roster.map((p,i)=>{ const [a,b]=line(p,i);
-      return `<div class="t-${TIER(p.r)}"><img src="${SHOT(p.id)}" alt=""><span><b>${esc(p.n)}</b><em>${p.pos} · ${p.season} · ${p.r}</em><i>${a}</i><i>${b}</i></span></div>`; }).join('')}</div>
-    <div class="tag hb-h">Your defense</div><div class="pbox">${cur&&LG.dstRound===LG.cur?`<div class="t-${TIER(cur.r)}">${nflImg(cur.n)}<span><b>${cur.season} ${esc(cur.n)}</b><em>This week · ${cur.r}</em><i>${ATTR['D/ST'].map((l,k)=>l+' '+(cur.a?cur.a[k]:'–')).join(' · ')}</i></span></div>`:''}
-      <div class="t-silver"><span class="ini">D</span><span><b>Season</b><em>${D.length} game${D.length===1?'':'s'}</em><i>${tot.sk} sacks · ${tot.take} takeaways · ${D.length?(tot.pa/D.length).toFixed(1):'0'} points a game allowed</i></span></div>
-      ${D.slice().reverse().map(d=>`<div class="t-${TIER(d.r)}">${nflImg(d.n)}<span><b>${d.season} ${esc(d.n)}</b><em>${esc(d.round)} · ${d.r}</em><i>${d.sk} sacks · ${d.take} takeaways · ${d.pa} points, ${d.ya} yds allowed</i></span></div>`).join('')}</div>`; }
+  return `<div class="sh">Your five <b>· ${n} game${n===1?'':'s'}</b></div><div class="pcs">${LG.teams[0].roster.map((p,i)=>`<div class="pc t-${TIER(p.r)}"><div class="pc-top"><img src="${SHOT(p.id)}" alt=""><div><b>${esc(p.n)}</b><span>${p.pos} · ${p.season}</span></div>${rtg(p.r)}</div>${tl(tiles(p,i))}</div>`).join('')}</div>
+    <div class="sh">Your <b>defense</b></div><div class="pcs">
+      ${cur&&LG.dstRound===LG.cur?`<div class="pc t-${TIER(cur.r)}"><div class="pc-top">${nflImg(cur.n,'lgo')}<div><b>${cur.season} ${esc(cur.n)}</b><span>This week</span></div>${rtg(cur.r)}</div>
+        <div class="bars">${ATTR['D/ST'].map((l,k)=>{ const v=cur.a?cur.a[k]:70; return `<div><span>${l}</span><i><b style="width:${Math.max(4,(v-50)/49*100)}%"></b></i><em>${v}</em></div>`; }).join('')}</div></div>`:''}
+      <div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>Every defense you've spun</span></div></div>
+        ${tl([[D.length,'Games'],[tot.sk,'Sacks'],[tot.take,'Takeaways'],[D.length?(tot.pa/D.length).toFixed(1):'0','Pts allowed/g']])}</div></div>
+    ${D.length?`<div class="sh">Week <b>by week</b></div><div class="lds">${D.slice().reverse().map(d=>`<div class="ld dlog"><span class="rk">${esc(String(d.round).replace(/^Week /,'W'))}</span>${nflImg(d.n,'lgo')||'<span class="ini">D</span>'}<span class="nm"><b>${d.season} ${esc(d.n)}</b><small>${d.sk} sack${d.sk===1?"":"s"} · ${d.take} takeaway${d.take===1?"":"s"} · ${d.ya} yds</small></span><span class="v">${d.pa}</span><span class="v2">pts</span></div>`).join('')}</div>`:''}`; }
+/* THE LEAGUE: one strip of chips for every view; the leader up top in the player views; then one row shape for every list */
 function hubLeague(){ const S=standings(), pg=(v,s)=>s.g?(v/s.g).toFixed(1):'–', po=LG.phase==='reg'?LG.po:0;
-  const TT=[['table','Standings'],['off','Offense'],['def','Defense']], PT=[['pass','Passing'],['rush','Rushing'],['recv','Receiving'],['dst','Defense']];
-  const row=(rank,i,name,sub,vals,me,cut)=>{ const t=LG.teams[i]; return `<div class="lg-r${me?' me':''}${cut?' cut':''}"><span>${rank}</span><span class="tmn"><i style="--p:${t.col?t.col[0]:'#555'};--q:${t.col?t.col[1]:'#999'}"></i>${crest(t)}<b>${esc(name)}${sub?`<small>${esc(sub)}</small>`:''}</b></span>${vals.map(v=>`<span>${v}</span>`).join('')}</div>`; };
-  const tabs=`<div class="lg-tabs"><span class="tag">Teams</span>${TT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}</div>
-    <div class="lg-tabs p"><span class="tag">Players</span>${PT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}</div>`;
+  const TT=[['table','Standings'],['off','Offense'],['def','Defense']], PT=[['pass','Passing'],['rush','Rushing'],['recv','Receiving'],['dst','D/ST']];
+  const chips=`<div class="lgc">${TT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}<span class="gap"></span>${PT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}</div>`;
+  const row=(rank,ti,name,sub,v,v2,cls)=>{ const t=LG.teams[ti], c=v2==null?'':String(v2)[0]==='+'?' up':String(v2)[0]==='–'?' dn':'';
+    return `<div class="ld${ti===0?' me':''}${cls?' '+cls:''}" style="--p:${tcol(t)}"><span class="rk">${rank}</span><i></i>${crest(t)}<span class="nm"><b>${esc(name)}</b>${sub?`<small>${esc(sub)}</small>`:''}</span><span class="v">${v}</span>${v2!=null?`<span class="v2${c}">${v2}</span>`:''}</div>`; };
+  const head=(a,b,c)=>`<div class="ld-h${c!=null?' x':''}"><span>#</span><span>${a}</span><span>${b}</span>${c!=null?`<span>${c}</span>`:''}</div>`;
   /* THE TEAMS */
-  if(TT.some(t=>t[0]===LGTAB)){ const cols={table:[['W–L',x=>recTxt(x.s)],['PF',x=>x.s.pf],['PA',x=>x.s.pa],['+/–',x=>{ const d=x.s.pf-x.s.pa; return (d>0?'+':'')+d; }]],
-      off:[['Pts/G',x=>pg(x.s.pf,x.s)],['Pass/G',x=>pg(x.s.py,x.s)],['Rush/G',x=>pg(x.s.ry,x.s)],['Give',x=>x.s.give]],
-      def:[['PA/G',x=>pg(x.s.pa,x.s)],['Yds/G',x=>pg(x.s.ya,x.s)],['Sacks',x=>x.s.sk],['Take',x=>x.s.take]]}[LGTAB];
-    return tabs+`<div class="lg"><div class="lg-r lg-h"><span>#</span><span>Team</span>${cols.map(c=>`<span>${c[0]}</span>`).join('')}</div>
-      ${S.map((x,k)=>row(k+1,x.i,x.t.name,'',cols.map(c=>c[1](x)),x.i===0,po&&k===po-1)).join('')}</div>
-      <div class="hb-note">${LGTAB==='table'?(po?`The top ${po} make the playoffs.`:'Final regular-season standings.'):LGTAB==='off'?'Per game, across the games played. Give: turnovers.':'Per game allowed. Take: turnovers forced.'}</div>`; }
-  /* THE PLAYERS, across the games played, the leaders first */
-  const P=Object.values(LG.pl||{}), avg=(a,b)=>b?(a/b).toFixed(1):'–';
-  const T={pass:{cols:'16px minmax(0,1fr) 54px 40px 26px 26px',h:['C/A','Yds','TD','Int'],rows:P.filter(p=>p.att>0).sort((a,b)=>b.py-a.py),v:p=>[p.comp+'/'+p.att,p.py,p.ptd,p.int],note:'Every quarterback, most yards first.'},
-    rush:{cols:'16px minmax(0,1fr) 34px 40px 34px 26px',h:['Car','Yds','Avg','TD'],rows:P.filter(p=>p.car>0).sort((a,b)=>b.ry-a.ry),v:p=>[p.car,p.ry,avg(p.ry,p.car),p.rushtd],note:'Backs and quarterbacks, most yards first.'},
-    recv:{cols:'16px minmax(0,1fr) 34px 40px 34px 26px',h:['Rec','Yds','Avg','TD'],rows:P.filter(p=>p.rec>0).sort((a,b)=>b.recy-a.recy),v:p=>[p.rec,p.recy,avg(p.recy,p.rec),p.rtd],note:'Receivers, tight ends and backs, most yards first.'},
-    dst:{cols:'16px minmax(0,1fr) 24px 30px 30px 40px',h:['G','Sk','TO','PA/G'],rows:Object.values(LG.dl||{}).sort((a,b)=>a.pa/a.g-b.pa/b.g||(b.sk+b.int+b.fum)-(a.sk+a.int+a.fum)),v:d=>[d.g,d.sk,d.int+d.fum,avg(d.pa,d.g)],note:'Every defense that has played this season, fewest points a game allowed first. TO: takeaways.'}}[LGTAB];
-  const name=p=>LGTAB==='dst'?p.season+' '+p.n:p.n, sub=p=>LGTAB==='dst'?LG.teams[p.ti].name:p.pos+' · '+LG.teams[p.ti].name;
-  return tabs+`<div class="lg" style="--cols:${T.cols}"><div class="lg-r lg-h"><span>#</span><span>${LGTAB==='dst'?'Defense':'Player'}</span>${T.h.map(c=>`<span>${c}</span>`).join('')}</div>
-    ${T.rows.length?T.rows.slice(0,30).map((p,k)=>row(k+1,p.ti,name(p),sub(p),T.v(p),p.ti===0)).join(''):'<div class="lg-empty">No games played yet</div>'}</div><div class="hb-note">${T.note}</div>`; }
+  if(TT.some(t=>t[0]===LGTAB)){ const dif=x=>{ const d=x.s.pf-x.s.pa; return d>0?'+'+d:d<0?'–'+Math.abs(d):'0'; };
+    const V={table:{h:['Team','W–L','+/–'],sort:S,v:x=>recTxt(x.s),v2:dif,sub:x=>`PF ${x.s.pf} · PA ${x.s.pa}`},
+      off:{h:['Team','Pts/g',null],sort:S.slice().sort((a,b)=>(b.s.g?b.s.pf/b.s.g:0)-(a.s.g?a.s.pf/a.s.g:0)),v:x=>pg(x.s.pf,x.s),v2:null,sub:x=>`Pass ${pg(x.s.py,x.s)} · Rush ${pg(x.s.ry,x.s)} · ${x.s.give} giveaways`},
+      def:{h:['Team','PA/g',null],sort:S.slice().sort((a,b)=>(a.s.g?a.s.pa/a.s.g:99)-(b.s.g?b.s.pa/b.s.g:99)),v:x=>pg(x.s.pa,x.s),v2:null,sub:x=>`${pg(x.s.ya,x.s)} yds/g · ${x.s.sk} sk · ${x.s.take} takeaways`}}[LGTAB];
+    const rows=V.sort.map((x,k)=>row(k+1,x.i,x.t.name,V.sub(x),V.v(x),V.v2?V.v2(x):null,LGTAB==='table'&&po&&k<po?'in':'')+(LGTAB==='table'&&po&&k===po-1&&k<V.sort.length-1?'<div class="pline">Playoff line</div>':'')).join('');
+    return chips+`<div class="lds">${head(...V.h)}${rows}</div><div class="hb-note">${LGTAB==='table'?(po?`The top ${po} make the playoffs.`:'Final regular-season standings.'):LGTAB==='off'?'Points a game, best first.':'Points allowed a game, fewest first.'}</div>`; }
+  /* THE PLAYERS, the leaders first */
+  const P=Object.values(LG.pl||{}), avg=(a,b)=>b?(a/b).toFixed(1):'–', pl=(n,w)=>n+' '+w+(n===1?'':'s');
+  const T={pass:{h:'Pass yds',rows:P.filter(p=>p.att>0).sort((a,b)=>b.py-a.py),v:p=>p.py,sub:p=>`${p.comp}/${p.att} · ${p.ptd} TD · ${p.int} INT`},
+    rush:{h:'Rush yds',rows:P.filter(p=>p.car>0).sort((a,b)=>b.ry-a.ry),v:p=>p.ry,sub:p=>`${pl(p.car,"carry").replace("carrys","carries")} · ${avg(p.ry,p.car)} avg · ${p.rushtd} TD`},
+    recv:{h:'Rec yds',rows:P.filter(p=>p.rec>0).sort((a,b)=>b.recy-a.recy),v:p=>p.recy,sub:p=>`${p.rec} rec · ${avg(p.recy,p.rec)} avg · ${p.rtd} TD`},
+    dst:{h:'PA/g',rows:Object.values(LG.dl||{}).sort((a,b)=>a.pa/a.g-b.pa/b.g||(b.sk+b.int+b.fum)-(a.sk+a.int+a.fum)),v:d=>avg(d.pa,d.g),sub:d=>`${pl(d.g,"game")} · ${pl(d.sk,"sack")} · ${d.int+d.fum} TO`}}[LGTAB];
+  const nm=p=>LGTAB==='dst'?p.season+' '+p.n:p.n, who=p=>(LGTAB==='dst'?'':p.pos+' · ')+LG.teams[p.ti].name;
+  if(!T.rows.length) return chips+`<div class="lds"><div class="lg-empty">No games played yet</div></div>`;
+  const L0=T.rows[0], pic=LGTAB==='dst'?nflImg(L0.n,'ph lgo'):`<img class="ph" src="${SHOT(L0.id)}" alt="">`;
+  const lead=`<div class="lead${L0.ti===0?' me':''}" style="--p:${tcol(LG.teams[L0.ti])}">${pic}<div class="tx"><span class="tag">League leader</span><b>${esc(nm(L0))}</b><small>${esc(who(L0))}</small><span class="big">${T.v(L0)}<span>${T.h}</span></span></div></div>`;
+  return chips+lead+`<div class="lds">${head(LGTAB==='dst'?'Defense':'Player',T.h,null)}${T.rows.slice(0,30).map((p,k)=>row(k+1,p.ti,nm(p),(LGTAB==='dst'?'':p.pos+' · ')+T.sub(p),T.v(p),null)).join('')}</div>`; }
 
 /* ═══ STARTING OUT ═══ pick a size, build your team, then the hub */
 /* QUICK GAMES ONLY: an account let in just for quick games (Marathon Men) sees the quick game and its test team, and
