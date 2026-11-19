@@ -9913,9 +9913,10 @@ const TEST_PROFILE='test';
    BFT ONLY FOR NOW. The nav button is hidden for every other account and for
    anyone signed out; switchTab() sends anyone else who asks for the tab home;
    and the game page itself checks the same sign-in before it starts. To open it
-   to someone else, add their account to SEASON_ACCOUNTS. */
-const SEASON_ACCOUNTS=['bft'];
-function seasonAllowed(){ return !!_me&&SEASON_ACCOUNTS.includes(_me.k1); }
+   to someone else, add their account to SEASON_ACCOUNTS. A team in SEASON_QUICK_TEAMS (by team id) gets quick games
+   only: the game page shows it nothing of a season. */
+const SEASON_ACCOUNTS=['bft'], SEASON_QUICK_TEAMS=['1'];   /* 1: Marathon Men */
+function seasonAllowed(){ return !!_me&&(SEASON_ACCOUNTS.includes(_me.k1)||SEASON_QUICK_TEAMS.includes(String(_me.teamId||''))); }
 function seasonGate(){
   const ok=seasonAllowed(), b=document.querySelector('.tab-btn[data-tab=season]');
   if(b) b.style.display=ok?'':'none';

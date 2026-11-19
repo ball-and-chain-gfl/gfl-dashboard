@@ -6,9 +6,6 @@
 import fs from 'node:fs';
 const D = new URL('./', import.meta.url), OUT = new URL('../../public/season/', import.meta.url);
 fs.mkdirSync(new URL('logos/', OUT), { recursive: true });
-/* the pictures on the cards between drives */
-fs.mkdirSync(new URL('art/', OUT), { recursive: true });
-for (const f of fs.readdirSync(new URL('art/', new URL('./', import.meta.url)))) fs.copyFileSync(new URL('art/' + f, new URL('./', import.meta.url)), new URL('art/' + f, OUT));
 const read = f => fs.readFileSync(new URL(f, D), 'utf8');
 const cut = (s, a, b, rep = '') => { const i = s.indexOf(a), j = s.indexOf(b, i); if (i < 0 || j < 0) throw new Error('missing ' + a); return s.slice(0, i) + rep + s.slice(j); };
 const put = (s, a, b) => { if (!s.includes(a)) throw new Error('missing ' + a.slice(0, 80)); return s.split(a).join(b); };
@@ -32,7 +29,10 @@ h = put(h, '<script src="v6-sprites.js"></script>\n<script src="v6-engine.js"></
 h = put(h, `(async()=>{
   const j=u=>fetch(u).then(r=>r.json());`, `(async()=>{
   const me=(()=>{ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } })();
-  if(!me||me.k1!=='bft'){ document.getElementById('app').innerHTML='<div class="closed">Season Mode isn\\'t open yet</div>'; return; }
+  /* BFT plays everything; Marathon Men (team 1) plays quick games only */
+  const full=!!me&&me.k1==='bft', quick=!!me&&String(me.teamId)==='1';
+  if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">Season Mode isn\\'t open yet</div>'; return; }
+  QUICK_ONLY=!full;
   const j=u=>fetch(u).then(r=>r.json());`);
 h = put(h, `ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];`, `const tid=new URLSearchParams(location.search).get('team');
   /* team ids are reused across seasons: the newest name to hold the id is the team now */

@@ -209,7 +209,15 @@ function hubLeague(){ const S=standings(), pg=(v,s)=>s.g?(v/s.g).toFixed(1):'–
     ${T.rows.length?T.rows.slice(0,30).map((p,k)=>row(k+1,p.ti,name(p),sub(p),T.v(p),p.ti===0)).join(''):'<div class="lg-empty">No games played yet</div>'}</div><div class="hb-note">${T.note}</div>`; }
 
 /* ═══ STARTING OUT ═══ pick a size, build your team, then the hub */
+/* QUICK GAMES ONLY: an account let in just for quick games (Marathon Men) sees the quick game and its test team, and
+   nothing of a season: no league to pick, no season to resume */
+let QUICK_ONLY=false;
 function setupScreen(){ screen('match');
+  if(QUICK_ONLY){ $('#scr-match').innerHTML=`<div class="mu setup"><div class="fade"><div class="dots"></div></div><span class="tag" style="position:relative">Season Mode</span>
+    <div class="vs" style="grid-template-columns:1fr"><div>${crest(ME)}<span>${esc(ME.name)}</span></div></div>
+    <h3>Quick game</h3><p class="sub" style="font-size:13px">Open packs for your six, then play one game against a random GFL team.</p>
+    <button class="btn w" id="qg" style="position:relative;width:220px">Quick game</button><button class="btn" id="qgmix" style="position:relative;width:220px">Quick game · test team</button></div>`;
+    $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); return; }
   $('#scr-match').innerHTML=`<div class="mu setup"><div class="fade"><div class="dots"></div></div><span class="tag" style="position:relative">Season Mode</span>
     <div class="vs" style="grid-template-columns:1fr"><div>${crest(ME)}<span>${esc(ME.name)}</span></div></div>
     <h3>Pick your league</h3><div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
@@ -245,7 +253,7 @@ async function afterDraft(){ if(QUICK) return quickKick(); if(SETUP){ const p=SE
 const draftLabel=()=>SETUP&&!QUICK?'To the season':'Kick off';
 function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; setupScreen(); }
 /* back where you were: your five and this week's defense come back from the save */
-function resume(){ try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
+function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
   if(!LG||LG.v!==1||!LG.teams) { LG=null; return false; }
   DR.got=[...LG.teams[0].roster,LG.dstRound===LG.cur?LG.teams[0].dst:null]; DR.i=6; return true; }
 

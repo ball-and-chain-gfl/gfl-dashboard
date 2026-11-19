@@ -373,8 +373,6 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const TIER=r=>r>=96?'legend':r>=88?'gold':r>=80?'silver':'bronze';
 const RESC=r=>r>=88?r:r>=76?Math.round(80+(r-76)*7/11):Math.round(68+(Math.max(60,r)-60)*11/15);
 const ATTR={QB:['Arm','Accuracy','Legs','Escape'],RB:['Speed','Elusiveness','Power','Hands'],WR:['Speed','Route running','Hands','Contested'],TE:['Blocking','Hands','Speed','Contested'],'D/ST':['Pass rush','Coverage','Run stop','Ball hawk']};
-/* the pixel-art scenes on the cards between drives, one per kind of result (art/, made once and shrunk to a 48-colour, 288 x 162 pixel grid) */
-const ART=Object.fromEntries(['td','td_them','int','int_us','strip','fumble','fumble_us','safety','downs','downs_us','fg','nofg','punt','kick'].map(k=>[k,'art/'+k+'.png']));
 const ini=n=>String(n).replace(/[^A-Za-z0-9 ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
 const crest=t=>t&&t.logo?`<img src="${t.logo}" alt="">`:`<span class="ini">${ini(t?t.name:'?')}</span>`;
 const gauss=()=>{ let u=0,v=0; while(!u) u=Math.random(); while(!v) v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
@@ -399,7 +397,10 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
 <script>
 (async()=>{
   const me=(()=>{ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } })();
-  if(!me||me.k1!=='bft'){ document.getElementById('app').innerHTML='<div class="closed">Season Mode isn\'t open yet</div>'; return; }
+  /* BFT plays everything; Marathon Men (team 1) plays quick games only */
+  const full=!!me&&me.k1==='bft', quick=!!me&&String(me.teamId)==='1';
+  if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">Season Mode isn\'t open yet</div>'; return; }
+  QUICK_ONLY=!full;
   const j=u=>fetch(u).then(r=>r.json());
   let ATT; [TEAMS,POOL,DEFS,ATT]=await Promise.all([j('teams.json'),j('rated.json'),j('defenses.json'),j('attrs.json')]);
   /* A PLAYER'S ATTRIBUTES AVERAGE TO HIS OVERALL. The stats and the 40 say what he's better and worse at; the overall (his

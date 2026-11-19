@@ -184,7 +184,7 @@ function makeMatch(){
   function ddThem(st){ M.cyd=st.yd; $('#dd').innerHTML=`<span><b class="dn">${ord(st.down)} <i class="amp">&amp;</i> ${st.yd+st.togo>=100?'Goal':st.togo}</b> ${theirs(st.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">Their O ${M.oppO} v D ${SIM.myD()}</span>`+strip(100-st.yd,100-st.yd-st.togo); bug(); }
   function view(v){ const snap=v==='snap'; $('#fld').style.display=snap?'':'none'; $('#sim').style.display=snap?'none':''; $('#ctrl').style.display=snap?'':'none'; $('#drive').style.display=snap?'none':'';
     $('#res').className='result'; $('#call').innerHTML=''; $('#hint').style.display='none'; GAME.show(snap); if(!snap) SIM.size(); }
-  function banner(o,cb){ const b=$('#ban'); b.innerHTML=`<div class="bx" style="--cc:${o.col||'var(--text)'}">${o.art&&typeof ART!=='undefined'&&ART[o.art]?`<img class="pix" alt="" src="${ART[o.art]}" loading="eager">`:''}<small>${o.tag}</small><b>${o.title}</b>${o.sub?`<span>${o.sub}</span>`:''}${o.drive?dsum():''}<button class="btn w">${o.btn}</button></div>`;
+  function banner(o,cb){ const b=$('#ban'); b.innerHTML=`<div class="bx" style="--cc:${o.col||'var(--text)'}"><small>${o.tag}</small><b>${o.title}</b>${o.sub?`<span>${o.sub}</span>`:''}${o.drive?dsum():''}<button class="btn w">${o.btn}</button></div>`;
     b.className='banner show'; $('#ctrl').classList.add('lock'); $('#drive').classList.add('lock');
     b.querySelector('button').onclick=()=>{ b.className='banner'; $('#ctrl').classList.remove('lock'); $('#drive').classList.remove('lock'); cb(); }; }
   function tick(s){ if(M.stop) return; const before=M.clock; M.clock-=s;
