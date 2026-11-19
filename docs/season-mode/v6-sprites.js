@@ -32,7 +32,10 @@ function dressFor(home,away){ let h=kitFor(home[0],home[1],false), a=kitFor(away
   return [h,a]; }
 /* put the kits on: o is your side, d is theirs; every drawn body is redrawn in the new colours */
 function setKits(o,d){ KIT.o=o; KIT.d=d; SPR.clear(); KFS.clear(); }
-const SKIN=[['#4a2c1b','#7a4b30','#a06a47'],['#33200f','#5a3824','#7b5035'],['#8a5a3c','#bd8864','#dcab85'],['#26160d','#43291b','#61402b']];
+/* seven skin tones, lightest to darkest (shadow, base, light). A real player wears the tone of his own headshot (rated.json
+   sk); a man with no player behind him (a lineman, a defender) gets one from his number. */
+const SKIN=[['#b9806a','#e8b496','#f6d2b8'],['#a8704f','#d39a73','#ebbf9b'],['#8a5a3c','#bd8864','#dcab85'],['#6e4228','#9c6a47','#c08a62'],
+  ['#4a2c1b','#7a4b30','#a06a47'],['#33200f','#5a3824','#7b5035'],['#26160d','#43291b','#61402b']];
 const SHOE=['#0f0f12','#3a3a42'], OUTC='#140e12';
 const LX=-.6, LY=-.8;
 
@@ -259,10 +262,10 @@ function sprite(k,view,state,fi,num,si){ const key=k+view+state+fi+':'+num+':'+s
 function fiOf(state,f){ const rf=n=>Math.floor((((n%100)%8)+8)%8/8*RUNF)%RUNF;
   return state==='run'?rf(f||0):state==='catch'?rf(f||0)+RUNF*Math.min(2,Math.floor((f||0)/100)):state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB')?Math.min(2,Math.floor(f||0)):Math.max(0,Math.floor(f||0)); }
 const SIDE_ONLY=new Set(['dive','down','fallF','fallB','downB','wrap','truck','stiff','hurdle','drag','bow','kneel']);
-function drawPlayer(ctx,k,num,x,y,facing,state,f,s,lift){
+function drawPlayer(ctx,k,num,x,y,facing,state,f,s,lift,si){
   const view=facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side';
   const fi=fiOf(state,f);
-  const img=sprite(k,view,state,fi,null,((num||0)*7)%SKIN.length);
+  const img=sprite(k,view,state,fi,null,si!=null?si:((num||0)*7)%SKIN.length);
   ctx.save(); ctx.imageSmoothingEnabled=false; ctx.translate(Math.round(x),Math.round(y));
   const sw=view!=='side'?((state==='down'||state==='downB')?16:12):(state==='down'||state==='downB')?34:(state==='dive'||state==='fallF'||state==='fallB')?22:12, sh=lift>0?Math.max(6,sw-lift/3):sw;
   ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(Math.round(-sh/2*s),Math.round(-s),Math.round(sh*s),Math.round(2*s));

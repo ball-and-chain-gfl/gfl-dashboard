@@ -11,7 +11,7 @@ const PRESETS=[
 let LG=null;
 const OSLOTS=['QB','RB','WR','WR','TE'];
 const pois=l=>{ let L=Math.exp(-l), k=0, p=1; do{ k++; p*=Math.random(); }while(p>L); return k-1; };
-const slim=p=>({id:p.id,n:p.n,pos:p.pos,season:p.season,r:p.r,a:p.a});
+const slim=p=>({id:p.id,n:p.n,pos:p.pos,season:p.season,r:p.r,a:p.a,sk:p.sk});
 const save=()=>{ try{ localStorage.setItem(SEASON_KEY,JSON.stringify(LG)); }catch(e){} };
 const youIdx=()=>0;
 
@@ -111,7 +111,21 @@ function advance(){ const R=LG.rounds[LG.cur];
   if(R.kind==='reg'&&LG.cur===LG.rounds.length-1){ LG.seeds=standings().map(x=>x.i); LG.alive=LG.seeds.slice(0,LG.po); LG.phase='po'; }
   if(LG.phase==='po'&&LG.alive.length===1){ LG.champ=LG.alive[0]; LG.phase='done'; save(); return; }
   if(LG.phase==='po'&&LG.cur===LG.rounds.length-1) playoffRound();
-  LG.cur++; LG.teams.forEach((t,i)=>{ if(i) t.dst=pickDST(); }); save(); }
+  LG.cur++; LG.teams.forEach((t,i)=>{ if(i) t.dst=pickDST(); }); cpuRespins(); save(); }
+/* ONE RE-SPIN A WEEK, for everyone. Yours you take yourself from the hub; each other team takes its own here: it spins a
+   new player at its weakest spot and keeps whichever of the two is better. The moves are listed with the week's results. */
+function cpuRespins(){ const used=new Set(LG.teams.flatMap(t=>t.roster.map(p=>p.id+'-'+p.season))); LG.moves=[];
+  LG.teams.forEach((t,i)=>{ if(!i) return; let k=0; t.roster.forEach((p,j)=>{ if(p.r<t.roster[k].r) k=j; }); const old=t.roster[k], c=pickPlayer(OSLOTS[k],used);
+    if(c&&c.r>old.r){ t.roster[k]=c; LG.moves.push({t:i,pos:OSLOTS[k],out:{n:old.n,r:old.r},in:{n:c.n,r:c.r,season:c.season}}); } }); }
+/* YOURS: pick one of your five, spin a pack for that spot, and take a new player or keep the one you had */
+let RESPIN=null;
+function respinPick(){ const me=LG.teams[0];
+  $('#scr-hub .hb-body').innerHTML=`<div class="hb-card"><span class="tag">Re-spin one player</span><h3>Which spot?</h3><p>Spin a pack for one of your five. You'll see four players from it and can take one, or keep the player you have. One re-spin a week; your defense isn't part of it.</p>
+    <div class="rsp">${me.roster.map((p,i)=>`<button class="t-${TIER(p.r)}" data-i="${i}"><span>${OSLOTS[i]}</span><b>${esc(p.n)}</b><em>${p.r}</em></button>`).join('')}</div>
+    <button class="btn" id="rsp-x">Not this week</button></div>`;
+  document.querySelectorAll('.rsp button').forEach(b=>b.onclick=()=>startRespin(+b.dataset.i)); $('#rsp-x').onclick=()=>hub('next'); }
+function startRespin(i){ RESPIN={i,old:DR.got[i]||LG.teams[0].roster[i]}; DR.i=i; DR.got[i]=null; screen('draft'); stageSpin(); }
+function respinDone(keep){ const i=RESPIN.i; if(keep||!DR.got[i]) DR.got[i]=RESPIN.old; LG.teams[0].roster[i]=slim(DR.got[i]); LG.respin=LG.cur; RESPIN=null; DR.i=6; save(); hub('next'); }
 /* finish the round without you: every game left gets simulated */
 function simRound(){ const R=LG.rounds[LG.cur]; R.games.forEach(g=>{ if(!g.s) simGame(g,R.kind==='po'); }); advance(); }
 
@@ -149,6 +163,7 @@ function hub(tab){ if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur],
     if(LG.dstRound===LG.cur&&DR.got[5]) return kickoff();
     DR.i=5; DR.got[5]=null; screen('draft'); stageSpin(); };
   const qb=$('#hb-quick'); if(qb) qb.onclick=()=>quickGame(false);
+  const rs=$('#hb-respin'); if(rs) rs.onclick=respinPick;
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
   document.querySelectorAll('.lg-tabs button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); }); }
 const ordinal=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
@@ -165,11 +180,13 @@ function hubNext(){
       <div class="hb-lu">${[[LG.teams[0],needD?null:DR.got[5],'You'],[t,t.dst,t.name]].map(([T,D,lab])=>`<div><span class="tag">${esc(lab)}</span><span class="ov">Offense <b class="t-${TIER(offR(T))}">${offR(T)}</b></span>
         ${T.roster.map(p=>`<div class="t-${TIER(p.r)}"><span>${p.pos}</span><b>${esc(p.n)}</b><em>${p.r}</em></div>`).join('')}
         ${D?`<div class="t-${TIER(D.r)}"><span>D/ST</span><b>${D.season} ${esc(D.n)}</b><em>${D.r}</em></div>`:'<div class="spin"><span>D/ST</span><b>Spin to see</b><em>?</em></div>'}</div>`).join('')}</div>
-      <button class="btn w" id="hb-go">${needD?'Spin your defense':'Kick off'}</button>${needD?'<span class="tag">A new defense every week</span>':''}</div>`; }
+      <button class="btn w" id="hb-go">${needD?'Spin your defense':'Kick off'}</button>${needD?'<span class="tag">A new defense every week</span>':''}
+      ${LG.respin===LG.cur?'<span class="tag">Re-spin used this week</span>':'<button class="btn" id="hb-respin">Re-spin a player</button>'}</div>`; }
   else top=`<div class="hb-card"><span class="tag">${esc(R.label)}</span><h3>${LG.phase==='po'?(R.bye&&R.bye.includes(0)?'You have a bye':'You\'re out'):'No game this week'}</h3>
       <p>${LG.phase==='po'&&!(R.bye&&R.bye.includes(0))?'The playoffs go on without you.':'The rest of the league plays.'}</p><button class="btn w" id="hb-go">Sim ${esc(R.label.toLowerCase())}</button></div>`;
   const last=LG.cur>0?LG.rounds[LG.cur-1]:null;
-  return top+(last?`<div class="tag hb-h">${esc(last.label)} results</div>${gamesHTML(last)}`:'')+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-new">New season</button></div>`; }
+  const mv=(LG.moves||[]).map(m=>`<div><b>${esc(LG.teams[m.t].name)}</b><span>${m.pos}: ${esc(m.in.n)} (${m.in.r}) in for ${esc(m.out.n)} (${m.out.r})</span></div>`).join('');
+  return top+(last?`<div class="tag hb-h">${esc(last.label)} results</div>${gamesHTML(last)}`:'')+(mv?`<div class="tag hb-h">Roster moves</div><div class="hb-moves">${mv}</div>`:'')+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-new">New season</button></div>`; }
 function gamesHTML(R){ return `<div class="hb-games">${R.games.map(g=>{ const w=g.s?(g.s[0]>g.s[1]?'h':g.s[1]>g.s[0]?'a':''):'';
   return `<div class="${g.h===0||g.a===0?'me':''}">${tm(g.a,w==='a'?'w':'')}<b class="sc">${g.s?g.s[1]:''}</b><i>at</i><b class="sc">${g.s?g.s[0]:''}</b>${tm(g.h,w==='h'?'w':'')}${g.ot?'<em>OT</em>':''}</div>`; }).join('')}</div>`; }
 function hubSched(){ return LG.rounds.map((R,k)=>`<details ${k===LG.cur||(LG.phase==='done'&&k===LG.rounds.length-1)?'open':''}><summary><span>${esc(R.label)}</span>${(()=>{ const g=myGame(R); if(!g) return '<em>'+(R.bye&&R.bye.includes(0)?'Bye':'—')+'</em>';

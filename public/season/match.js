@@ -40,7 +40,8 @@ function stageSpin(){
   slotsHTML(); if(DR.i>=SLOTS.length) return stageRoster();
   const pos=SLOTS[DR.i], land=roll(), N=64, AT=56, W=98, tiers=[];
   for(let i=0;i<N;i++) tiers.push(i===AT?land:roll());
-  $('#stage').innerHTML=`<span class="q">${DR.i+1} of 6</span><span class="big">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos}</span>${pos==='D/ST'&&typeof dNote==='function'&&dNote()?`<span class="dnote">${dNote()}</span>`:''}
+  const rsp=typeof RESPIN!=='undefined'&&RESPIN;
+  $('#stage').innerHTML=`<span class="q">${rsp?'Re-spin':(DR.i+1)+' of 6'}</span><span class="big">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos}</span>${pos==='D/ST'&&typeof dNote==='function'&&dNote()?`<span class="dnote">${dNote()}</span>`:''}
     <div class="carousel"><div class="belt" id="belt">${tiers.map(t=>packHTML(t)).join('')}</div><div class="fl"></div><div class="fr"></div></div>
     <button class="btn w" id="spin" style="width:220px">Spin</button>`;
   const belt=$('#belt'), mid=$('#stage .carousel').clientWidth/2; belt.style.transform=`translateX(${mid-44}px)`;
@@ -59,13 +60,15 @@ function stageOpen(pos,tier){
 }
 function stageChoose(pos,tier){
   const opts=four(pos,tier);
-  $('#stage').innerHTML=`<span class="q">Pick one</span><div class="four">${opts.map(cardHTML).join('')}</div><button class="btn w" id="next" style="width:220px;visibility:hidden"></button>`;
+  const rsp=typeof RESPIN!=='undefined'&&RESPIN;
+  $('#stage').innerHTML=`<span class="q">Pick one</span><div class="four">${opts.map(cardHTML).join('')}</div><button class="btn w" id="next" style="width:220px;visibility:hidden"></button>${rsp?`<button class="btn" id="keep" style="width:220px">Keep ${esc(RESPIN.old.n)} (${RESPIN.old.r})</button>`:''}`;
+  if(rsp) $('#keep').addEventListener('click',()=>respinDone(true));
   const cs=[...document.querySelectorAll('#stage .cd')]; cs.forEach((c,i)=>setTimeout(()=>{ c.classList.add('in'); setTimeout(()=>PFX.burst(c,tier,10,{sp:120,up:40,life:.7}),260); },120+i*170));
   cs.forEach((c,i)=>c.addEventListener('click',()=>{ if(DR.got[DR.i]) return; DR.got[DR.i]=opts[i]; PFX.burst(c,TIER(opts[i].r),TIER(opts[i].r)==='legend'?90:50,{sp:260,up:110,life:1.2});
     cs.forEach((o,j)=>{ o.classList.add(j===i?'picked':'dim'); const r=o.querySelector('.rt'); setTimeout(()=>{ r.classList.add('flip'); setTimeout(()=>r.textContent=r.dataset.r,200);
       o.querySelectorAll('.at em').forEach(e=>e.textContent=e.dataset.v); o.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },j===i?0:260); });
-    slotsHTML(); $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
-  $('#next').addEventListener('click',()=>{ DR.i++; stageSpin(); });
+    slotsHTML(); if(rsp){ $('#keep').style.display='none'; $('#next').textContent='Back to the season'; $('#next').style.visibility='visible'; return; } $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
+  $('#next').addEventListener('click',()=>{ if(rsp) return respinDone(false); DR.i++; stageSpin(); });
 }
 function stageRoster(){
   $('#stage').innerHTML=`<span class="q">Your roster</span><div class="roster">${DR.got.map((p,i)=>`<div class="p">${SLOTS[i]==='D/ST'&&typeof dLabel==='function'&&dLabel()!=='Defense'?'D/ST<br>'+dLabel().replace(' defense',''):SLOTS[i]}</div><div>${p.pos==='D/ST'?nflImg(p.n,'rl'):''}${esc(p.n)} <span class="tag">${p.season}</span><span class="ra">${p.a?ATTR[p.pos].map((l,k)=>l.split(' ')[0].slice(0,3)+' '+p.a[k]).join(' · '):''}</span></div><div class="r t-${TIER(p.r)}">${p.r}</div>`).join('')}</div>
@@ -218,7 +221,7 @@ function makeMatch(){
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.mustWin=!!(o&&o.mustWin); M.ot=false;
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
-      GAME.setD(M.oppD); bug(); view('snap');
+      GAME.setD(M.oppD); GAME.setHome(o&&!o.home?{name:CPU.name,k:'d'}:{name:ME.name,k:'o'}); bug(); view('snap');
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
     played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
       /* each player's line */
