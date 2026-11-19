@@ -601,8 +601,15 @@ function makeGame(){
       [S.goal,-S.yd-10].forEach(a=>{ const [,e1]=toS(0,a+10),[,e0]=toS(0,a),[,em]=toS(0,a+5); if(e0<0||e1>H) return;
         ctx.fillStyle=mixC(hc,'#000000',.3); ctx.fillRect(sl,e1,sr-sl,e0-e1);
         ctx.fillStyle='rgba(255,255,255,.07)'; for(let k=0;k<10;k+=2){ const [,s1]=toS(0,a+k+1),[,s0]=toS(0,a+k); ctx.fillRect(sl,s1,sr-sl,s0-s1); }
-        let fs=Math.round(K*4.4); ctx.font='800 '+fs+'px Inter, sans-serif'; while(fs>10&&ctx.measureText(name).width>Math.min(sr-sl,W)*.84){ fs-=1; ctx.font='800 '+fs+'px Inter, sans-serif'; }
-        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='rgba(0,0,0,.25)'; const nx=clamp((sl+sr)/2,Math.max(sl,0)+ctx.measureText(name).width/2+8,Math.min(sr,W)-ctx.measureText(name).width/2-8); ctx.fillText(name,nx+2,em+3); ctx.fillStyle='rgba(255,255,255,.9)'; ctx.fillText(name,nx,em+1); ctx.textBaseline='alphabetic';
+        /* painted on the grass: sized in yards and centred on the field, so it stays put as the camera moves, with the
+           home team's logo either side of the name, all a little see-through like paint on turf */
+        const cx=(sl+sr)/2, fw=sr-sl, im=S.home&&S.home.img, logo=im&&im.complete&&im.naturalWidth?im:null, lg=K*5, gap=K*1.2;
+        let fs=K*3.6; ctx.font='800 '+fs+'px Inter, sans-serif'; let tw=ctx.measureText(name).width; const room=Math.min(fw*.9,K*34)-(logo?2*(lg+gap):0);
+        if(tw>room){ fs*=room/tw; ctx.font='800 '+fs+'px Inter, sans-serif'; tw=ctx.measureText(name).width; }
+        ctx.save(); ctx.globalAlpha=.8; ctx.fillStyle='#F4F6F2'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(name,cx,em+fs*.05);
+        if(logo){ const k=Math.min(lg/logo.naturalWidth,lg/logo.naturalHeight), w=logo.naturalWidth*k, h=logo.naturalHeight*k;
+          [-1,1].forEach(sd=>ctx.drawImage(logo,cx+sd*(tw/2+gap+lg/2)-w/2,em-h/2,w,h)); }
+        ctx.restore(); ctx.textBaseline='alphabetic';
         const pw=Math.max(3,Math.round(K*.45)); ctx.fillStyle='#FF6A1C'; [[sl,e0],[sl,e1],[sr,e0],[sr,e1]].forEach(([x,y])=>ctx.fillRect(Math.round(x-pw/2),Math.round(y-pw/2),pw,pw)); }); }
     const [h1]=toS(-HASH,0),[h2]=toS(HASH,0);
     for(let yd=Math.max(Math.ceil(bot),-S.yd);yd<=Math.min(top,S.goal);yd++){ const y=Math.round(toS(0,yd)[1]), abs=S.yd+yd;
@@ -794,6 +801,6 @@ function makeGame(){
   /* and whenever its box changes (the play buttons coming in, the app giving the game the whole screen), so the field is never drawn squashed */
   if(window.ResizeObserver) new ResizeObserver(()=>{ if(S.on) size(); }).observe(cv);
   requestAnimationFrame(t=>{ last=t; requestAnimationFrame(loop); });
-  return { roster(g){ roster=g.slice(0,5); }, setD(d){ D=d; }, setHome(h){ S.home=h; }, sit(yd,down,togo){ sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
+  return { roster(g){ roster=g.slice(0,5); }, setD(d){ D=d; }, setHome(h){ S.home=h; if(h&&h.logo){ const im=new Image(); im.src=h.logo; h.img=im; } }, sit(yd,down,togo){ sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
     show(on){ S.on=on; if(on) size(); }, S, throwTo, toS, hike, reset, update, size };
 }
