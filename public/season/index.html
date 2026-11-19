@@ -354,6 +354,133 @@
   .hb-moves{display:flex;flex-direction:column;border:1px solid var(--ln);}
   .hb-moves div{padding:8px 10px;border-bottom:1px solid var(--ln);display:flex;flex-direction:column;gap:2px;font-size:13px;} .hb-moves div:last-child{border-bottom:0;}
   .hb-moves span{color:var(--text2);font-size:12.5px;}
+
+  /* ═══ EVERY SCREEN IN THE GAME'S LOOK ═══
+     The setup, the packs, the cards, the hub and the final dress like the field: night panels set 2px apart instead of
+     ruled lines, notched pixel corners, Silkscreen for the titles, ratings and the main button (always at 16, 24, 32 or 40
+     so its pixels stay whole), Inter for everything else (no serif, no typewriter), and square pixel dots. Every rule here
+     is :where(#app)-scoped, so the game's own rules above still win where they're more specific. */
+  #app{--px:Silkscreen,Inter,sans-serif;--night:#0E1013;--p1:#15181D;--p2:#1D2128;--hl:rgba(255,255,255,.08);--ink:#0E1013;
+    --mono:Inter,-apple-system,sans-serif;--serif:Silkscreen,Inter,sans-serif;
+    --dots:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect width='2' height='2' fill='%23fff'/%3E%3C/svg%3E");
+    --notch:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));
+    --notch2:polygon(0 2px,2px 2px,2px 0,calc(100% - 2px) 0,calc(100% - 2px) 2px,100% 2px,100% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,2px calc(100% - 2px),0 calc(100% - 2px));
+    background:var(--night);}
+  :where(#app) :is(.lg-r,.hb-games .sc,.hb-lu em,summary b,.box b){font-variant-numeric:tabular-nums;}
+  :where(#app) .dots,:where(#app) .pk .dots{-webkit-mask-size:6px 6px;mask-size:6px 6px;}
+  :where(#app) .fade .dots{opacity:.32;}
+  :where(#app) .tag{font:600 10.5px/1.2 var(--sans);letter-spacing:.08em;}
+  :where(#app) .btn{border:0;border-radius:0;background:var(--p2);color:var(--text);font:600 13px/1 var(--sans);letter-spacing:.02em;padding:14px 16px;clip-path:var(--notch);}
+  :where(#app) .btn.w{background:var(--text);color:var(--ink);font:400 16px/1 var(--px);letter-spacing:0;}
+  :where(#app) .ini{font:600 12px var(--sans);background:var(--p2);}
+  /* crests sit on a notched tile, like the scorebug's */
+  :where(#app) :is(.mu .vs,.hb-me,.hb-vs,.fs) :is(img,.ini){border-radius:0;background:var(--p2);padding:4px;clip-path:var(--notch);}
+  :where(#app) .closed{font:600 11px var(--sans);}
+
+  /* the start */
+  :where(#app) .mu .vs div{font:600 14px/1.2 var(--sans);}
+  :where(#app) .mu h3,:where(#app) .mu.setup h3{font:400 24px/1.15 var(--px);letter-spacing:0;}
+  :where(#app) .mu .vs i,:where(#app) .hb-vs i{font:400 16px var(--px);}
+  :where(#app) .presets{background:transparent;border:0;gap:2px;}
+  :where(#app) .presets button{background:var(--p1);padding:11px 12px;}
+  :where(#app) .presets button.on{background:var(--p2);}
+  :where(#app) .presets button span{font:500 11px/1.35 var(--sans);letter-spacing:0;}
+  :where(#app) .qg{border-top:2px solid var(--p1);}
+
+  /* the draft: the six slots, the belt, the pack, the cards, the roster */
+  :where(#app) .slots{background:var(--night);gap:2px;border:0;padding-bottom:2px;}
+  :where(#app) .slots div{background:var(--p1);font:600 10px/1 var(--sans);letter-spacing:.08em;padding:9px 2px 8px;}
+  :where(#app) .slots div b{font:400 16px/1 var(--px);margin-top:6px;}
+  :where(#app) .slots div.now{background:var(--p2);}
+  :where(#app) .stage .q{font:600 11px/1 var(--sans);letter-spacing:.1em;}
+  :where(#app) .stage .big{font:400 32px/1 var(--px);letter-spacing:0;}
+  :where(#app) .dnote{font:600 11px/1.4 var(--sans);letter-spacing:.02em;border:0;clip-path:var(--notch);}
+  :where(#app) .carousel{border-color:var(--hl);}
+  :where(#app) .carousel .fl{background:linear-gradient(90deg,var(--night),transparent);} :where(#app) .carousel .fr{background:linear-gradient(270deg,var(--night),transparent);}
+  /* a pack: a solid frame in its tier, notched */
+  :where(#app) .pk{border:2px solid transparent;background:linear-gradient(var(--p1),var(--p1)) padding-box,var(--tc) border-box;clip-path:var(--notch2);}
+  :where(#app) .pk .band{border-top:2px solid color-mix(in srgb,var(--tc) 55%,transparent);}
+  :where(#app) .pk b{font:400 16px/1 var(--px);}
+  :where(#app) .pk.big b{font-size:32px;}
+  :where(#app) .pk span{font:600 8.5px/1 var(--sans);letter-spacing:.1em;background:var(--night);padding:4px 5px;clip-path:var(--notch2);}
+  :where(#app) .pk.big span{font-size:10px;}
+  :where(#app) .pk.big,:where(#app) .pk.big.t-gold,:where(#app) .pk.big.t-legend{box-shadow:none;}
+  :where(#app) #bp{filter:drop-shadow(0 0 12px color-mix(in srgb,var(--tc) 70%,transparent));}
+  :where(#app) .belt .pk.land{box-shadow:none;filter:brightness(1.35);}
+  /* a player card: the same frame; taken, it goes white */
+  :where(#app) .cd{border:2px solid transparent;background:linear-gradient(var(--p1),var(--p1)) padding-box,var(--tc) border-box;clip-path:var(--notch2);}
+  :where(#app) .cd.picked{outline:0;box-shadow:none;background:linear-gradient(var(--p1),var(--p1)) padding-box,var(--text) border-box;}
+  :where(#app) .cd .cb{border-top:2px solid color-mix(in srgb,var(--tc) 55%,transparent);background:var(--p2);}
+  :where(#app) .cd .at{background:var(--p2);}
+  :where(#app) .cd .rt{font:400 24px/1 var(--px);letter-spacing:0;}
+  :where(#app) .cd .tier{font:600 9px/1 var(--sans);letter-spacing:.08em;border:0;background:var(--night);padding:4px 5px;clip-path:var(--notch2);}
+  :where(#app) .cd .meta{font:600 10.5px/1 var(--sans);letter-spacing:.04em;}
+  :where(#app) .cd .at div{font:600 8px/1 var(--sans);letter-spacing:.06em;}
+  :where(#app) .cd .at em{font:700 10px/1 var(--sans);}
+  /* the attribute bars in pixel segments, like the win probability */
+  :where(#app) .cd .at i{height:4px;background:repeating-linear-gradient(90deg,var(--hl) 0 4px,transparent 4px 6px);}
+  :where(#app) .cd .at b{background:repeating-linear-gradient(90deg,var(--tc) 0 4px,transparent 4px 6px);}
+  :where(#app) .roster{border:0;row-gap:2px;}
+  :where(#app) .roster div{background:var(--p1);border:0;}
+  :where(#app) .roster .p{font:600 10px var(--sans);letter-spacing:.08em;}
+  :where(#app) .roster .r{font:400 16px/1.2 var(--px);}
+  :where(#app) .roster .ra{font:500 10px/1.35 var(--sans);letter-spacing:0;}
+
+  /* the hub */
+  :where(#app) .hb-top{border-bottom:0;padding:14px 14px 13px;}
+  :where(#app) .hb-me b{font:400 16px/1.25 var(--px);letter-spacing:0;}
+  :where(#app) .hb-me span{font:600 10.5px var(--sans);letter-spacing:.06em;}
+  :where(#app) .hb-tabs,:where(#app) .lg-tabs{background:var(--night);gap:2px;border:0;}
+  :where(#app) .hb-tabs{padding-bottom:2px;}
+  :where(#app) .hb-tabs button,:where(#app) .lg-tabs button{background:var(--p1);font:600 10.5px/1 var(--sans);letter-spacing:.08em;}
+  :where(#app) .lg-tabs button{font-size:9.5px;letter-spacing:.04em;}
+  :where(#app) .hb-tabs button.on,:where(#app) .lg-tabs button.on{background:var(--p2);}
+  :where(#app) .lg-tabs{margin-bottom:-8px;} :where(#app) .lg-tabs.p{margin-bottom:10px;}
+  :where(#app) .lg-tabs .tag{background:var(--p1);font-size:9px;}
+  :where(#app) .hb-card{border:0;background:var(--p1);clip-path:var(--notch);padding:16px 12px 14px;}
+  :where(#app) .hb-card h3{font:400 24px/1.1 var(--px);letter-spacing:0;}
+  :where(#app) .hb-vs span{font:600 11px var(--sans);}
+  :where(#app) .hb-line{border-top:2px solid var(--p2);}
+  :where(#app) .hb-lu{background:transparent;border:0;gap:2px;}
+  :where(#app) .hb-lu>div{background:var(--p2);}
+  :where(#app) .hb-lu .ov{font:600 10px var(--sans);}
+  :where(#app) .hb-lu>div>div{border-top:1px solid var(--hl);}
+  :where(#app) .hb-lu>div>div span{font:600 9px var(--sans);}
+  :where(#app) .hb-games{border:0;display:flex;flex-direction:column;gap:2px;}
+  :where(#app) .hb-games>div{background:var(--p1);border-bottom:0;}
+  :where(#app) .hb-games>div.me{background:var(--p2);}
+  :where(#app) .hb-games i{font:600 9px var(--sans);}
+  :where(#app) .hb-games em{font:600 8px var(--sans);}
+  :where(#app) details{border:0;background:var(--p1);} :where(#app) details+details{margin-top:-8px;}
+  :where(#app) summary span{font:600 10px var(--sans);letter-spacing:.08em;}
+  :where(#app) summary b{font:700 12px var(--sans);}
+  :where(#app) details .hb-games{border-top:2px solid var(--night);}
+  :where(#app) details .hb-games>div{background:var(--p1);}
+  :where(#app) .hb-note{font:500 11px/1.45 var(--sans);letter-spacing:0;}
+  :where(#app) .lg{border:0;display:flex;flex-direction:column;gap:2px;}
+  :where(#app) .lg-r{background:var(--p1);border-bottom:0;font:500 12px var(--sans);}
+  :where(#app) .lg-r.lg-h{background:transparent;font:600 9.5px var(--sans);letter-spacing:.06em;}
+  :where(#app) .lg-r.me{background:var(--p2);}
+  :where(#app) .lg-r.cut{box-shadow:inset 0 -2px 0 var(--sky);}
+  :where(#app) .lg-r .tmn b small{font:500 9.5px/1.3 var(--sans);letter-spacing:0;}
+  :where(#app) .lg-empty{font:500 12px var(--sans);}
+  :where(#app) .rsp{gap:2px;}
+  :where(#app) .rsp button{background:var(--p2);border:0;border-left:2px solid var(--tc);}
+  :where(#app) .rsp button span{font:600 10px var(--sans);}
+  :where(#app) .rsp button em{font:400 16px var(--px);}
+  :where(#app) .hb-moves{border:0;gap:2px;}
+  :where(#app) .hb-moves div{background:var(--p1);border-bottom:0;}
+
+  /* the final, and the season's end */
+  :where(#app) .champ h3{font:400 32px/1 var(--px);letter-spacing:0;}
+  :where(#app) .pbox{border:0;display:flex;flex-direction:column;gap:2px;}
+  :where(#app) .pbox>div{background:var(--p1);border-bottom:0;}
+  :where(#app) .pbox em{font:600 10px/1.4 var(--sans);letter-spacing:.02em;}
+  :where(#app) .fs{background:transparent;border:0;gap:2px;}
+  :where(#app) .fs div{background:var(--p1);}
+  :where(#app) .fs b{font:400 32px/1 var(--px);}
+  :where(#app) .box{border:0;display:flex;flex-direction:column;gap:2px;}
+  :where(#app) .box div{background:var(--p1);border-bottom:0;}
 </style>
 </head>
 <body>
