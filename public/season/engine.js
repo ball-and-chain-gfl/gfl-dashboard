@@ -137,8 +137,8 @@ function makeGame(){
   /* WEAR AND INJURY. Every time one of your five is brought down he loses stamina: a big hit most, a sling or a gang
      tackle more than a plain tackle, a shoestring trip least. And every hit carries a small chance he's hurt, which grows
      as his stamina falls: about four times as likely when he's spent as when he's fresh. */
-  const WEAR={hit:6,sling:3.5,tackle:1.8,wrap:1.8,shoe:1.3,drag:1.3}, HURT={hit:.02,sling:.011,tackle:.007,wrap:.0055,shoe:.0045,drag:.0045};
-  function wear(c,kind,gang){ const i=c.ri, s0=STA[i]; STA[i]=Math.max(0,s0-(WEAR[kind]||4)*(.75+Math.random()*.5)-(gang?1:0));
+  const WEAR={hit:9.5,sling:5.5,tackle:2.9,wrap:2.9,shoe:2.1,drag:2.1}, HURT={hit:.02,sling:.011,tackle:.007,wrap:.0055,shoe:.0045,drag:.0045};
+  function wear(c,kind,gang){ const i=c.ri, s0=STA[i]; STA[i]=Math.max(0,s0-(WEAR[kind]||4)*(.75+Math.random()*.5)-(gang?1.6:0));
     if(!S.injury&&Math.random()<(HURT[kind]||.004)*(1+3*Math.pow(1-s0/100,1.5))*(gang?1.3:1)){ S.injury={ri:i,big:kind==='hit'||kind==='sling'}; pop('Hurt','#D9325E',c); } }
   const S={phase:'pre',call:'slants',kind:'pass',hand:{pass:['slants','verts','mesh','smash'],run:['inside','outside','powerR','draw']},look:'cover2',t:0,P:[],ball:null,carrier:null,cam:{x:0,y:4},eng:[],cut:null,yd:25,down:1,togo:10,goal:75,fourth:false,on:false};
   function size(){ const r=cv.getBoundingClientRect(); if(!r.width) return; W=r.width; H=r.height; K=W/VIEW; cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
@@ -329,7 +329,7 @@ function makeGame(){
        with some luck. A receiver who wins it clean gets a step on him instead. Only at the line, right at the snap. */
     if(!S.jamDone&&t>.02){ S.jamDone=true; S.CB.forEach(c=>{ const m=c.man; if(!c.press||!m||c.role!=='man'||!m.route||m.y>.5||dist(c,m)>2.6) return;
       const cov=D.a?clamp((D.a[1]-55)/44,0,1):.5, J=clamp(.26+(c.r-m.r)/45+(cov-.5)*.3-(A(m,1)-.5)*.3+gauss()*.12,0,.85);
-      if(J<.08){ c.stall=t+.45; pop('Beat the press','#4C9EFF',m,.2); }
+      if(J<.08){ c.stall=t+.6; c.stumble=t+.36; c.stumble0=t; m.burst=t+.6; m.rdelay=0; pop('Beat the press','#4C9EFF',m,.2); }
       else { m.jam=t+J; m.rdelay=J; c.jamming=m; if(J>.3) pop('Jammed','#D9325E',m,.2); } }); }
     if(!S.runCall&&!S.plastered&&t>2.1&&S.ball.holder===QB){ S.plastered=true; const R=S.rec.filter(r=>r.route&&!r.down&&r.role!=='protect'), C=S.P.filter(p=>p.side==='d'&&!p.down&&(p.role==='man'||p.role==='zone'||p.role==='deep')), took=new Set();
       C.forEach(p=>{ if(p.role==='man'&&R.includes(p.man)){ p.plaster=p.man; took.add(p.man); } });
@@ -364,7 +364,7 @@ function makeGame(){
         else if(p.route&&!carrier){ const r=routeTarget(p); if(r){ tx=r[0]; ty=r[1]; } }
         else if(carrier&&p!==carrier){ tx=carrier.x+(p.x<carrier.x?-2:2); ty=carrier.y+1; }
       } else {
-        const seen=Math.max(0,t-(p.react||.25)); if(p.stall&&t<p.stall) vmax*=.4;
+        const seen=Math.max(0,t-(p.react||.25)); if(p.stall&&t<p.stall) vmax*=.4; p._deep=null;
         /* CHASING FROM BEHIND: a man with the ball and a step on you keeps it. A defender behind the carrier runs a touch
            slower than his top speed in coverage, so he catches only a carrier slower than him, not one his equal. */
         if(carrier&&carrier!==S.QB&&p.y<carrier.y-.4&&!p.lockedBy) vmax*=.96;
@@ -385,8 +385,11 @@ function makeGame(){
           if(!p.carry){ let bd=7.5; S.rec.forEach(r=>{ if(!r.route||r.down) return; const d2=Math.hypot(r.x-p.spot[0],r.y-p.spot[1]); if(d2<bd&&!cov(r)){ bd=d2; p.carry=r; } }); }
           if(p.carry){ tx=p.carry.x+p.carry.vx*.25; ty=p.carry.y+1+Math.max(0,p.carry.vy)*.3; } else { tx=p.spot[0]; ty=p.spot[1]; } }
         else if(p.role==='deep'){ let deep=null; const half=p.spot[0]===0?99:14; S.rec.forEach(r=>{ if(r.route&&!r.down&&r.y>9&&Math.abs(r.x-p.spot[0])<half&&(!deep||r.y>deep.y)) deep=r; }); /* over the top of him, where he's going: and while he's still running at the safety, the safety keeps his depth instead of coming down to meet him and being run past */
-          if(deep){ tx=deep.x+deep.vx*.3; ty=deep.y+Math.max(0,deep.vy)*.45+(seen>1.6?1:2.4); if(deep.vy>1.5&&deep.y<p.y) ty=Math.max(ty,Math.min(p.y,deep.y+7)); } else { tx=p.spot[0]; ty=p.spot[1]; } }
+          p._deep=deep; if(deep){ tx=deep.x+deep.vx*.3; ty=deep.y+Math.max(0,deep.vy)*.45+(seen>1.6?1:2.4); if(deep.vy>1.5&&deep.y<p.y) ty=Math.max(ty,Math.min(p.y,deep.y+7)); } else { tx=p.spot[0]; ty=p.spot[1]; } }
       }
+      if(p.side==='d'&&!carrier&&!ballAir){ const m=p.role==='man'?p.man:p.plaster||(p.role==='zone'?p.carry:null)||p._deep; if(m&&!m.down&&m.route){ const v=Math.hypot(m.vx,m.vy), dx=m.x-p.x, dy=m.y-p.y, d=Math.hypot(dx,dy);
+        if(v>1.5&&d>.8&&(dx*m.vx+dy*m.vy)/(d*v)>.25) vmax=Math.min(vmax,m.vmax); } }
+      if(p.burst&&t<p.burst) vmax*=1.18;
       if(p.side==='d') ty=Math.min(ty,S.goal+9.5);
       /* the ball carrier bursts: he gets up to speed quicker than the men chasing him */
       if(p===carrier&&carrier!==QB){ const a0=p.acc; p.acc=a0*1.2; steer(p,tx,ty,dt,vmax); p.acc=a0; } else steer(p,tx,ty,dt,vmax);
@@ -395,6 +398,7 @@ function makeGame(){
       else if(sp>.6){ p.facing=Math.abs(p.vx)>Math.abs(p.vy)*1.15?(p.vx>0?'right':'left'):(p.vy>0?'up':'down'); }
       if(p.state==='leap') vmax*=.4;
       if(!HOLD.has(p.state)){ if(p.blocking&&!p.blocking.shed||p.lockedBy&&dist(p,p.lockedBy)<1.4||(p.pos==='DL'&&p.blocked&&!p.shed)||(p.jam&&t<p.jam)||(p.jamming&&t<p.jamming.jam)) p.state='block'; else if(sp>.6) p.state='run'; else if(t>.05) p.state=p.side==='o'&&p.pos==='OL'?'block':'stance'; }
+      if(p.stumble&&t<p.stumble){ p.state='fallF'; p.ff=Math.min(1,Math.floor((t-p.stumble0)/.14)); }
       p.ph+=sp*dt*1.5; if(HOLD.has(p.state)&&p.state!=='dive'&&t>p.until) p.state='run';
       if(p.state==='dive'&&t>p.until){ p.state='down'; p.down=true; }
     });
@@ -613,7 +617,7 @@ function makeGame(){
   }
   function end(head,body,kind,yards,at){
     if(S.over) return; S.over=true; S.phase='done'; S.ball.air=null; if(at&&kind!=='to') S.landed=at;
-    S.result={head,body,kind,yards,at:at?{x:at.x,y:at.y}:null,injury:S.injury||null}; STA=STA.map(v=>Math.max(0,v-.12));
+    S.result={head,body,kind,yards,at:at?{x:at.x,y:at.y}:null,injury:S.injury||null}; STA=STA.map(v=>Math.max(0,v-.22));
     if(kind==='td'){ const sc=S.carrier||S.ball.holder; if(sc&&!sc.fxd&&sc.state!=='dive'){ const k=['celebrate','spike','dance','bow','sky'][Math.floor(Math.random()*5)]; sc.state=k; sc.cele0=S.t; sc.until=S.t+2.2; sc.facing=k==='bow'?(sc.vx>=0?'right':'left'):'down';
       if(k==='spike'){ S.ball.holder=null; S.loose={x0:sc.x,y0:sc.y,to:{x:sc.x+.8,y:sc.y-.6},t0:S.t+.15}; } } pop('Touchdown','#4ade80',sc||S.QB); const cc=sc||S.QB; burst(cc.x,cc.y,80,{cols:CONF,sp:3.2,vz:7,z:2,g:2.4,life:2.4,s:3}); }
     const col={td:'#4ade80',gain:'#4ade80',loss:'#D9325E',to:'#D9325E',safety:'#D9325E',inc:'#F0CE26'}[kind]||'#FDFEFC';
@@ -805,17 +809,22 @@ function makeGame(){
   function buttons(){
     const pre=S.phase==='pre', live=S.phase==='live'||S.phase==='motion', done=S.phase==='done', qbHas=live&&S.ball.holder===S.QB&&!S.runCall, choose=pre||S.phase==='regroup';
     /* Run or Pass, then that side's four for this down */
-    $('#calls').innerHTML=`<div class="kind">${['run','pass'].map(k=>`<button data-kind="${k}" class="k-${k}${S.kind===k?' on':''}" ${choose?'':'disabled'}>${k}</button>`).join('')}</div>`+
+    const subs=typeof subsAvail==='function'&&subsAvail();
+    $('#calls').innerHTML=`<div class="kind${subs?' k3':''}">${['run','pass'].map(k=>`<button data-kind="${k}" class="k-${k}${S.kind===k?' on':''}" ${choose?'':'disabled'}>${k}</button>`).join('')}${subs?`<button class="k-subs" id="k-subs" ${choose?'':'disabled'}>Subs</button>`:''}</div>`+
       `<div class="four4">${S.hand[S.kind].map(k=>`<button data-k="${k}" class="${S.call===k?'on':''}" ${choose?'':'disabled'}>${playSVG(k)}${PLAYS[k].name}</button>`).join('')}</div>`;
-    document.querySelectorAll('#calls .kind button').forEach(b=>b.addEventListener('click',()=>{ if(S.kind===b.dataset.kind) return; S.kind=b.dataset.kind; S.call=S.hand[S.kind][0]; reset(true); }));
+    const ks=$('#k-subs'); if(ks) ks.onclick=()=>{ if(typeof openSubs==='function') openSubs(); };
+    document.querySelectorAll('#calls .kind button[data-kind]').forEach(b=>b.addEventListener('click',()=>{ if(S.kind===b.dataset.kind) return; S.kind=b.dataset.kind; S.call=S.hand[S.kind][0]; reset(true); }));
     document.querySelectorAll('#calls .four4 button').forEach(b=>b.addEventListener('click',()=>{ S.call=b.dataset.k; reset(true); }));
     if(pre&&S.fourth){ const fgd=S.goal+17, fg=fgd<=57;
       $('#acts').innerHTML=`<button id="punt">Punt</button><button class="go" id="goforit">Go for it</button><button id="fg" ${fg?'':'disabled'}>FG · ${fgd} yds<small>${Math.round(fgOdds(fgd)*100)}%</small></button>`;
       $('#goforit').onclick=()=>{ S.fourth=false; buttons(); }; $('#punt').onclick=()=>MATCH.punt(); $('#fg').onclick=()=>fg&&MATCH.kick(fgd);
       return; }
     const C=MATCH&&MATCH.clockUI?MATCH.clockUI():{run:false,tos:0,canSpike:false}, setting=pre||S.phase==='regroup';
-    if(setting){ $('#acts').innerHTML=`<button id="spk" ${C.canSpike&&pre?'':'disabled'}>Spike</button><button class="go" id="hike" ${pre?'':'disabled'}>Hike</button><button id="tmo" ${C.run&&C.tos>0?'':'disabled'}>Timeout ${'●'.repeat(C.tos)}${'○'.repeat(Math.max(0,3-C.tos))}</button>`;
-      $('#hike').onclick=hike; $('#spk').onclick=()=>MATCH.spike(); $('#tmo').onclick=()=>MATCH.timeout(); return; }
+    if(setting){ const fgd=S.goal+17, fgOk=fgd<=57&&MATCH&&MATCH.kick;
+      $('#acts').className='acts'+(fgOk?' a4':'');
+      $('#acts').innerHTML=`<button id="spk" ${C.canSpike&&pre?'':'disabled'}>Spike</button>${fgOk?`<button id="fgk" ${pre?'':'disabled'}>FG ${fgd}<small>${Math.round(fgOdds(fgd)*100)}%</small></button>`:''}<button class="go" id="hike" ${pre?'':'disabled'}>Hike</button><button id="tmo" ${C.run&&C.tos>0?'':'disabled'}>Timeout ${'●'.repeat(C.tos)}${'○'.repeat(Math.max(0,3-C.tos))}</button>`;
+      $('#hike').onclick=hike; $('#spk').onclick=()=>MATCH.spike(); $('#tmo').onclick=()=>MATCH.timeout(); const fk=$('#fgk'); if(fk) fk.onclick=()=>{ if(S.phase==='pre') MATCH.kick(fgd); }; return; }
+    $('#acts').className='acts';
     $('#acts').innerHTML=`<button id="scr" ${qbHas?'':'disabled'}>Scramble</button><button class="go" id="hike" ${live?'disabled':''}>${done?'Next':'Hike'}</button><button id="away" ${qbHas?'':'disabled'}>Throw away</button>`;
     $('#hike').onclick=hike;
     $('#away').onclick=()=>{ if(S.phase==='live'&&S.ball.holder===S.QB) end('Thrown away','Out of bounds. Next down.','inc',0); };

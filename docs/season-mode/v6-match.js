@@ -228,7 +228,7 @@ function makeMatch(){
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.mustWin=!!(o&&o.mustWin); M.ot=false;
       /* the five on the field are always the five you have now (the hub, a re-spin, a reload or a quick game in between can't leave an old lineup in the engine) */
-      M.lineup=((o&&o.lineup)||DR.got||[]).slice(0,5); M.hurt=[]; if(M.lineup.length===5&&M.lineup.every(Boolean)) GAME.roster(M.lineup);
+      M.lineup=((o&&o.lineup)||DR.got||[]).slice(0,5); M.hurt=[]; M.subLog=[]; if(M.lineup.length===5&&M.lineup.every(Boolean)) GAME.roster(M.lineup);
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
       GAME.setD(M.oppD); GAME.setHome(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo}); bug(); view('snap');
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
@@ -236,7 +236,7 @@ function makeMatch(){
       if(r.injury&&typeof rollInjury==='function'){ const i=r.injury.ri, p=M.lineup&&M.lineup[i];
         if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
           if(season&&!isBackup(p)){ hurt(p,inj); p.sta=Math.round(GAME.stamina()[i]); }
-          const sub=subFor(p.pos,M.lineup,season?LG.teams[0]:null); M.lineup[i]=sub; GAME.sub(i,sub); M.hurt.push({n:p.n,inj:inj.n,out});
+          const sub=subFor(p.pos,M.lineup,season?LG.teams[0]:null); MATCH.subSlot(i,sub); M.hurt.push({n:p.n,inj:inj.n,out});
           r.body+=' '+lastN(p.n)+' is hurt: '+inj.n.toLowerCase()+', '+out+'. '+sub.n+' comes in.'; toast(lastN(p.n)+': '+inj.n+' · '+out); } }
       /* each player's line */
       if(S.thrown||r.head==='Thrown away'){ Q.att++; if(S.tgt&&S.tgt.slot!=null) ps[S.tgt.slot].tgt++;
@@ -281,7 +281,9 @@ function makeMatch(){
     timeout(){ if(!(M.poss==='me'&&M.run&&M.tos>0&&!M.stop)) return; M.tos--; M.run=false; toast('Timeout · '+M.tos+' left'); ddMe(); bug(); GAME.refresh(); },
     spike(){ if(!(M.poss==='me'&&M.run&&M.down<4&&!M.stop)) return; tick(1); M.run=false; M.down++; M.ps[0].att++; M.st.att++; toast('Spiked: the clock stops');
       if(M.stop) return endPeriod(); GAME.sit(M.yd,M.down,M.togo); ddMe(); bug(); },
-    ddThem, M };
+    ddThem, M,
+    subSlot(i,p){ const out=M.lineup[i], s=M.ps[i]; if(out&&Object.values(s).some(v=>v)) (M.subLog=M.subLog||[]).push({p:out,s:{...s}});
+      M.ps[i]={att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0}; M.lineup[i]=p; GAME.sub(i,p); } };
   function final(){
     /* a playoff game can't end level: overtime, and a field goal wins it */
     if(M.mustWin&&M.score[0]===M.score[1]){ const w=Math.random()<.5+((DR.got.slice(0,5).reduce((s,p)=>s+p.r,0)/5)-M.oppO)/60?0:1; M.score[w]+=3; M.ot=true; bug(); }

@@ -46,10 +46,13 @@ function pickPlayer(pos,used){ const t=roll(), ok=p=>p.pos===pos&&!used.has(p.id
   const p=g[Math.floor(Math.random()*g.length)]; used.add(p.id+'-'+p.season); return slim(p); }
 function pickDST(){ const t=roll(), g=DEFS.filter(d=>TIER(d.r)===t), d=g[Math.floor(Math.random()*g.length)]; return {id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}; }
 /* a team's offense is the five who'll actually play */
+const BENCH_CAP=6;
+function pickTier(pos,used,tier){ const ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p.r)===tier); if(!g.length) g=POOL.filter(ok);
+  const p=g[Math.floor(Math.random()*g.length)]; used.add(p.id+'-'+p.season); return slim(p); }
 const offR=t=>{ const L=gameLineup(t); return Math.round(L.reduce((s,p)=>s+p.r,0)/L.length); };
 /* ═══ STAMINA AND INJURIES ═══
    Each player carries stamina from game to game (0 to 100). Hits wear it down; the lower it is, the likelier the next
-   hit hurts him. Between weeks everyone gets some back: a starter 32, a man on the bench 50. When a player is hurt, what
+   hit hurts him. Between weeks everyone gets some back: a starter 38, a man on the bench 55. When a player is hurt, what
    it is and how long it keeps him out come from the pool below, big hits leaning to the worse ones. g: the games he'll
    miss after this one (99: the rest of the season). */
 const INJURIES=[{n:'Shaken up',w:[0,0],p:30},{n:'Bruised ribs',w:[0,1],p:12},{n:'Ankle sprain',w:[1,2],p:14},{n:'Hamstring strain',w:[1,3],p:12},
@@ -73,12 +76,12 @@ function simWear(t,L,lineup){ lineup.forEach((p,k)=>{ if(!p||isBackup(p)) return
     const hits=k===0?(l.sk||0)+(l.car||0):(l.car||0)+(l.rec||0);
     for(let h=0;h<hits;h++){ const big=Math.random()<.14;
       if(!p.inj&&Math.random()<(big?.018:.0065)*(1+3*Math.pow(1-s/100,1.5))) hurt(p,rollInjury(big));
-      s=Math.max(0,s-(big?5:1.5)*(.75+Math.random()*.5)); }
-    p.sta=Math.round(Math.max(0,s-3)); }); }
+      s=Math.max(0,s-(big?8:2.4)*(.75+Math.random()*.5)); }
+    p.sta=Math.round(Math.max(0,s-6)); }); }
 /* between weeks: stamina back, and the injured a week closer to returning */
 function recover(){ LG.teams.forEach(t=>{ const on=new Set(t.roster.map(keyOf));
   [...t.roster,...(t.bench||[])].forEach(p=>{ if(p.inj){ if(p.inj.fresh) delete p.inj.fresh; else if(p.inj.g<99) p.inj.g--; if(p.inj.g<=0&&!p.inj.fresh){ delete p.inj; p.sta=Math.max(p.sta??100,70); } }
-    p.sta=Math.min(100,Math.round((p.sta??100)+(on.has(keyOf(p))?32:50))); }); }); }
+    p.sta=Math.min(100,Math.round((p.sta??100)+(on.has(keyOf(p))?38:55))); }); }); }
 /* the CPU sets its own lineup: a healthy, better man on its bench starts */
 function cpuLineups(){ LG.teams.forEach((t,i)=>{ if(!i||!t.bench||!t.bench.length) return;
   t.roster.forEach((p,k)=>{ const b=t.bench.filter(q=>q.pos===p.pos&&!q.inj).sort((a,c)=>c.r-a.r)[0]; if(b&&(p.inj||b.r>p.r)){ t.roster[k]=b; t.bench.splice(t.bench.indexOf(b),1,p); } }); }); }
@@ -100,11 +103,14 @@ const upOver=(t,p)=>{ const L=gameLineup(t), at=L.map((q,k)=>OSLOTS[k]===p.pos?q
 function runWaivers(){ if(!wireOpen()) return []; LG.wireDone=LG.cur; const T=LG.teams, won=new Set(), reg=LG.rounds.filter(r=>r.kind==='reg').length;
   const cpuBid=(t,p)=>{ const u=upOver(t,p).d, left=t.faab; if(u<3||left<=0) return 0;
     const prog=Math.min(1,LG.cur/Math.max(1,reg)); return Math.min(Math.floor(left*(.3+.55*prog)),Math.max(1,Math.round(u*(1+Math.random()*1.2)+(TIER(p.r)==='legend'?6:0)+left*(.03+.12*prog)))); };
-  const all=LG.wire.map(p=>({p,bids:T.map((t,i)=>({i,b:i===0?Math.min(Math.round(+(LG.bids||{})[keyOf(p)]||0),t.faab):cpuBid(t,p)})).filter(x=>x.b>0)}));
+  const full0=(T[0].bench||[]).length>=BENCH_CAP;
+  const all=LG.wire.map(p=>({p,bids:T.map((t,i)=>({i,b:i===0?(full0?0:Math.min(Math.round(+(LG.bids||{})[keyOf(p)]||0),t.faab)):cpuBid(t,p)})).filter(x=>x.b>0)}));
   all.sort((a,b)=>Math.max(0,...b.bids.map(x=>x.b))-Math.max(0,...a.bids.map(x=>x.b)));
   LG.wireLog=all.map(({p,bids})=>{ const ok=bids.filter(x=>x.b<=T[x.i].faab&&!(x.i!==0&&won.has(x.i))).sort((a,b)=>b.b-a.b||pct(T[a.i].st)-pct(T[b.i].st)||T[a.i].st.pf-T[b.i].st.pf);
     const mine=(bids.find(x=>x.i===0)||{}).b||0, row={p:{n:p.n,r:p.r,pos:p.pos,season:p.season,id:p.id},t:null,bid:0,n:ok.length,mine};
-    if(!ok.length) return row; const w=ok[0], t=T[w.i]; t.faab-=w.b; (t.bench=t.bench||[]).push(p); won.add(w.i);
+    if(!ok.length) return row; const w=ok[0], t=T[w.i]; t.bench=t.bench||[];
+    if(t.bench.length>=BENCH_CAP){ if(w.i===0) return Object.assign(row,{full:1}); t.bench.sort((a,b)=>a.r-b.r); t.bench.shift(); }
+    t.faab-=w.b; t.bench.push(p); won.add(w.i);
     if(w.i===0) LG.newIds=[...(LG.newIds||[]),keyOf(p)]; return Object.assign(row,{t:w.i,bid:w.b,second:ok[1]?ok[1].b:0}); });
   LG.wire=[]; LG.bids={}; cpuLineups(); save(); return LG.wireLog.filter(x=>x.mine||x.t===0); }
 
@@ -118,7 +124,7 @@ function roundRobin(ids){ const a=ids.slice(); if(a.length%2) a.push(null); cons
 async function newLeague(preset){
   const P=PRESETS.find(p=>p.id===preset)||PRESETS[1], opp=leaguePool().sort(()=>Math.random()-.5).slice(0,P.teams-1);
   const used=new Set((DR.got||[]).slice(0,5).filter(Boolean).map(p=>p.id+'-'+p.season)), teams=[ME,...opp].map((t,i)=>({name:t.name,logo:t.logo||null,teamId:t.teamId,first:t.first,
-    roster:i===0?DR.got.slice(0,5).map(slim):OSLOTS.map(pos=>pickPlayer(pos,used)),dst:i===0?DR.got[5]:pickDST(),col:null,st:blank(),faab:100,bench:[]}));
+    roster:i===0?DR.got.slice(0,5).map(slim):OSLOTS.map(pos=>pickPlayer(pos,used)),dst:i===0?DR.got[5]:pickDST(),col:null,st:blank(),faab:100,bench:['QB','RB','WR','TE'].map(pos=>pickTier(pos,used,'bronze'))}));
   const cols=await Promise.all(teams.map(t=>logoColors(t))); teams.forEach((t,i)=>t.col=cols[i]);
   const order=teams.map((_,i)=>i).sort(()=>Math.random()-.5);
   LG={v:1,preset:P.id,name:P.name,po:P.po,teams,rounds:roundRobin(order).map((g,i)=>({kind:'reg',label:'Week '+(i+1),games:g.map(x=>({...x,s:null}))})),cur:0,dstRound:0,
@@ -192,9 +198,23 @@ function startRespin(pos){ const i=OSLOTS.indexOf(pos); RESPIN={i,save:DR.got[i]
 function respinDone(none){ const i=RESPIN.i, got=DR.got[i]; DR.got[i]=RESPIN.save; RESPIN=null; DR.i=6;
   if(!none&&got){ const me=LG.teams[0]; (me.bench=me.bench||[]).push(slim(got)); LG.newIds=[got.id+'-'+got.season]; LG.respin=LG.cur; save(); return hub('team'); }
   save(); hub('next'); }
+/* let a bench player go, for good */
+function releasePlayer(j){ const me=LG.teams[0], p=(me.bench||[])[j]; if(!p) return; if(!confirm('Release '+p.n+'? He goes back into the pool.')) return; me.bench.splice(j,1); save(); hub('team'); }
 /* start a bench player in a spot: the two swap */
 function startPlayer(j,k){ const me=LG.teams[0], B=me.bench||[], p=B[j], out=me.roster[k]; if(!p||!out||p.pos!==out.pos) return;
   me.roster[k]=p; B.splice(j,1,out); DR.got[k]=p; LG.newIds=(LG.newIds||[]).filter(x=>x!==p.id+'-'+p.season); save(); hub('team'); }
+/* SUBS MID-GAME */
+function subsAvail(){ return typeof LG!=='undefined'&&!!LG&&!QUICK&&MATCH&&MATCH.M&&MATCH.M.lineup&&MATCH.M.lineup.length===5; }
+function openSubs(){ if(!subsAvail()) return; const M=MATCH.M, me=LG.teams[0], st=GAME.stamina(), inL=new Set(M.lineup.map(keyOf)), pool=[...me.roster,...(me.bench||[])];
+  const bar=v=>`<i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i>`;
+  const rows=M.lineup.map((p,i)=>{ const v=Math.round(st[i]), alt=pool.filter(q=>q.pos===p.pos&&!q.inj&&!inL.has(keyOf(q)));
+    return `<div class="sb-r"><div class="sb-on"><span>${OSLOTS[i]}</span><b>${esc(isBackup(p)?p.n:lastN(p.n))} <em>${p.r}</em></b><div class="sb-s">${bar(v)}<em>${v}</em></div></div>
+      <div class="sb-alt">${alt.length?alt.map(q=>{ const w=Math.round(q.sta??100); return `<button data-i="${i}" data-k="${keyOf(q)}"><b>${esc(lastN(q.n))} <em>${q.r}</em></b><div class="sb-s">${bar(w)}<em>${w}</em></div></button>`; }).join(''):'<span class="sb-none">No one on the bench here</span>'}</div></div>`; }).join('');
+  let el=$('#subs'); if(!el){ el=document.createElement('div'); el.id='subs'; $('#fw').appendChild(el); }
+  el.className='subs show'; el.innerHTML=`<div class="sb-bx"><div class="sb-h"><b>Substitutions</b><button class="lv" id="sb-x">✕</button></div><div class="sb-list">${rows}</div><p class="sb-note">Tap a player to send him in. For this game only; your season lineup stays as set in the hub.</p></div>`;
+  $('#sb-x').onclick=()=>{ el.className='subs'; };
+  el.querySelectorAll('.sb-alt button').forEach(b=>b.onclick=()=>{ const i=+b.dataset.i, q=pool.find(x=>keyOf(x)===b.dataset.k), out=M.lineup[i]; if(!q) return;
+    if(out&&!isBackup(out)) out.sta=Math.round(GAME.stamina()[i]); MATCH.subSlot(i,q); GAME.reset(true); openSubs(); }); }
 /* THE WAY OUT, from every pack screen and every game */
 function draftWhere(){ if(RESPIN) return 'Add a player'; if(QUICK) return 'Quick game · your team'; if(SETUP) return 'New season · your team'; if(LG) return esc(LG.rounds[LG.cur].label)+' · your defense'; return 'Packs'; }
 function leaveDraft(){ DR.gen=(DR.gen||0)+1; clearInterval(DR.rain);
@@ -223,7 +243,7 @@ function seasonFinal(M){ const R=LG.rounds[LG.cur], g=myGame(R); if(!g||g.s) ret
   const oi=home?g.a:g.h, them=LG.teams[oi], O=M.opp, LU=M.lineup||LG.teams[0].roster, STn=GAME.stamina();
   LU.forEach((p,i)=>{ if(p&&!isBackup(p)) p.sta=Math.round(STn[i]); });
   const LT=gameLineup(them), lt=linesFrom(LT,{py:O.py||0,ry:O.ry||0,tdP:O.tdP||0,tdR:O.tdR||0,ints:M.dst.int,fum:M.dst.fum,sk:M.dst.sk});
-  addLines(0,M.ps,LU); addLines(oi,lt,LT); simWear(them,lt,LT);
+  addLines(0,M.ps,LU); (M.subLog||[]).forEach(x=>{ if(!isBackup(x.p)) addLines(0,[x.s],[x.p]); }); addLines(oi,lt,LT); simWear(them,lt,LT);
   addD(0,DR.got[5],{sk:M.dst.sk,ints:M.dst.int,fum:M.dst.fum,pts:M.score[1],py:O.py||0,ry:O.ry||0}); addD(oi,them.dst,{sk:st.sk,ints:st.int,fum,pts:M.score[0],py:st.py,ry:st.ry});
   LG.dst.push({round:R.label,n:DR.got[5].n,season:DR.got[5].season,r:DR.got[5].r,sk:M.dst.sk,take:M.dst.int+M.dst.fum,pa:M.score[1],ya:M.opp.yds});
   save(); }
@@ -291,10 +311,11 @@ function hubNext(){
 /* WAIVERS on the Next tab: open, the pool with your bids; run, who got whom and for how much */
 function wireHTML(){ const me=LG.teams[0], f=me.faab??100;
   if(wireOpen()){ const tot=myBids().reduce((a,b)=>a+b,0);
-    return `<div class="sh" id="wv-sec">Waivers <b>· $${f} left</b></div><div class="tm-note">Blind bids from your $${f}. Highest bid wins; a tie goes to the worse record. They run when you head to kickoff. <b id="bidtot">${tot?'Bidding $'+tot+' in all.':''}</b></div>
+    const full=(me.bench||[]).length>=BENCH_CAP;
+    return `<div class="sh" id="wv-sec">Waivers <b>· $${f} left</b></div>${full?`<div class="hb-inj"><span>Your bench is full (${BENCH_CAP}). Release someone from Your team to put in a claim.</span></div>`:''}<div class="tm-note">Blind bids from your $${f}. Highest bid wins; a tie goes to the worse record. They run when you head to kickoff. <b id="bidtot">${tot?'Bidding $'+tot+' in all.':''}</b></div>
       <div class="tcs">${LG.wire.map(p=>{ const k=keyOf(p), u=upOver(me,p), b=(LG.bids||{})[k]||0;
         const up=u.who?(u.d>0?'+'+u.d+' over '+lastN(u.who.n):'Depth behind '+lastN(u.who.n)):'';
-        return tcHTML(p,{stat:p.season+(up?' · '+up:''),cls:u.d>0?'up':'',extra:`<div class="wv-bid bidc"><input data-k="${k}" inputmode="numeric" value="${b?'$'+b:''}" placeholder="Bid $0"><div><button data-k="${k}" data-d="-5">−5</button><button data-k="${k}" data-d="-1">−1</button><button data-k="${k}" data-d="1">+1</button><button data-k="${k}" data-d="5">+5</button></div></div>`}); }).join('')}</div>
+        return tcHTML(p,{stat:p.season+(up?' · '+up:''),cls:u.d>0?'up':'',extra:`<div class="wv-bid bidc"><input data-k="${k}" inputmode="numeric" value="${b?'$'+b:''}" placeholder="Bid $0" ${(me.bench||[]).length>=BENCH_CAP?'disabled':''}><div><button data-k="${k}" data-d="-5">−5</button><button data-k="${k}" data-d="-1">−1</button><button data-k="${k}" data-d="1">+1</button><button data-k="${k}" data-d="5">+5</button></div></div>`}); }).join('')}</div>
       <button class="btn w" id="wv-run">Run waivers now</button><div class="tm-note">See every claim now, then kick off. Or leave your bids in: they run when you head to kickoff.</div>`; }
   if(LG.wireDone===LG.cur&&LG.wireLog&&LG.wireLog.length){ const T=LG.teams;
     return `<div class="sh" id="wv-sec">Waivers <b>· results</b></div><div class="lds">${LG.wireLog.map(x=>{ const t=x.t!=null?T[x.t]:null;
@@ -349,11 +370,11 @@ function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||
     if(!s||!s.g) return p.season+' · no games yet';
     if(p.pos==='QB') return `${s.py} yds · ${s.ptd} TD · ${s.int} INT`; if(p.pos==='RB') return `${s.ry} yds · ${s.rushtd} TD`; return `${s.rec} rec · ${s.recy} yds · ${s.rtd} TD`; };
   const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k)})).join('');
-  const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),go:OSLOTS.map((x,k)=>x===p.pos?`<button onclick="startPlayer(${j},${k})">Start for ${esc(lastN(me.roster[k].n))}</button>`:'').filter(Boolean)})).join('');
+  const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),go:[...OSLOTS.map((x,k)=>x===p.pos?`<button onclick="startPlayer(${j},${k})">Start for ${esc(lastN(me.roster[k].n))}</button>`:'').filter(Boolean),`<button class="rel" onclick="releasePlayer(${j})">Release</button>`]})).join('');
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
   const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
   return `<div class="shr-row">${shareButton('team','Share your team')}</div><div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
-    <div class="sh">Your <b>bench · ${B.length}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="tm-note">Players you win on waivers land here. Start one to swap him into your lineup.</div>'}
+    <div class="sh">Your <b>bench · ${B.length} of ${BENCH_CAP}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="tm-note">Players you win on waivers land here. Start one to swap him into your lineup.</div>'}
     <div class="sh">Your <b>defense</b></div>${cur&&LG.dstRound===LG.cur?`<div class="tcs">${tcHTML(cur,{pos:'D/ST',stat:'This week'})}</div>`:''}
     <div class="pcs"><div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>Every defense you've spun</span></div></div>
       ${tl([[D.length,'Games'],[tot.sk,'Sacks'],[tot.take,'Takeaways'],[D.length?(tot.pa/D.length).toFixed(1):'0','Pts allowed/g']])}</div></div>
