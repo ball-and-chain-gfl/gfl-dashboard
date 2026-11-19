@@ -34,13 +34,15 @@ const mk = (me, active) => {
   const ctx = vm.createContext({ _me: me, _activeTab: active || 'home', sent,
     document: { querySelector: s => s === '.tab-btn[data-tab=season]' ? btn : null, getElementById: id => id === 'season-body' ? body : null },
     switchTab: n => sent.push(n) });
-  vm.runInContext([src.match(/const SEASON_ACCOUNTS=\[[^\]]*\];/)[0], grab('function seasonAllowed(){'), grab('function seasonGate(){'),
+  vm.runInContext([src.match(/const SEASON_ACCOUNTS=\[[^\]]*\](?:, SEASON_QUICK_TEAMS=\[[^\]]*\])?;/)[0], grab('function seasonAllowed(){'), grab('function seasonGate(){'),
     'this.seasonAllowed=seasonAllowed;this.seasonGate=seasonGate;'].join(NL), ctx);
   return { ctx, btn, body, sent };
 };
 
-console.log('only bft');
+console.log('bft, and Marathon Men for quick games');
 ok('bft is let in', mk({ k1: 'bft', teamId: '10' }).ctx.seasonAllowed(), true);
+ok('Marathon Men (team 1) are let in', mk({ k1: 'mm', teamId: '1' }).ctx.seasonAllowed(), true);
+ok('their team id as a number too', mk({ k1: 'mm', teamId: 1 }).ctx.seasonAllowed(), true);
 ok('another manager is not', mk({ k1: 'kunk', teamId: '7' }).ctx.seasonAllowed(), false);
 ok('the test account is not', mk({ k1: 'test' }).ctx.seasonAllowed(), false);
 ok('signed out is not', mk(null).ctx.seasonAllowed(), false);
@@ -66,7 +68,8 @@ ok('it has a page to land on', /<div class="tab-page" id="page-season">/.test(sr
 
 console.log(NL + 'the game page');
 const page = fs.readFileSync(new URL('../public/season/index.html', import.meta.url), 'utf8');
-ok('it checks the same sign-in itself', /localStorage\.getItem\('gfl-me'\)[\s\S]{0,200}me\.k1!=='bft'/.test(page), true);
+ok('it checks the same sign-in itself', /localStorage\.getItem\('gfl-me'\)[\s\S]{0,300}me\.k1==='bft'[\s\S]{0,80}String\(me\.teamId\)==='1'/.test(page), true);
+ok('and gives Marathon Men quick games only', /QUICK_ONLY=!full;/.test(page), true);
 const wanted = [...page.matchAll(/<script src="([^"/][^"]*)"/g)].map(m => m[1]).concat([...page.matchAll(/j\('([^']+\.json)'\)/g)].map(m => m[1]));
 ok('it loads its four scripts and four data files', wanted.length, 8);
 ok('every one of them is there', wanted.filter(f => !fs.existsSync(new URL('../public/season/' + f, import.meta.url))), []);
