@@ -228,11 +228,16 @@ function makeMatch(){
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.mustWin=!!(o&&o.mustWin); M.ot=false;
       /* the five on the field are always the five you have now (the hub, a re-spin, a reload or a quick game in between can't leave an old lineup in the engine) */
-      if(DR.got&&DR.got.slice(0,5).every(Boolean)) GAME.roster(DR.got);
+      M.lineup=((o&&o.lineup)||DR.got||[]).slice(0,5); M.hurt=[]; if(M.lineup.length===5&&M.lineup.every(Boolean)) GAME.roster(M.lineup);
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
       GAME.setD(M.oppD); GAME.setHome(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo}); bug(); view('snap');
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
     played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
+      if(r.injury&&typeof rollInjury==='function'){ const i=r.injury.ri, p=M.lineup&&M.lineup[i];
+        if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
+          if(season&&!isBackup(p)){ hurt(p,inj); p.sta=Math.round(GAME.stamina()[i]); }
+          const sub=subFor(p.pos,M.lineup,season?LG.teams[0]:null); M.lineup[i]=sub; GAME.sub(i,sub); M.hurt.push({n:p.n,inj:inj.n,out});
+          r.body+=' '+lastN(p.n)+' is hurt: '+inj.n.toLowerCase()+', '+out+'. '+sub.n+' comes in.'; toast(lastN(p.n)+': '+inj.n+' · '+out); } }
       /* each player's line */
       if(S.thrown||r.head==='Thrown away'){ Q.att++; if(S.tgt&&S.tgt.slot!=null) ps[S.tgt.slot].tgt++;
         if(S.caught&&S.catcher){ const R=ps[S.catcher.slot]; Q.comp++; Q.py+=y; R.rec++; R.recy+=y; R.long=Math.max(R.long,y); if(r.kind==='td'){ Q.ptd++; R.rtd++; } if(r.kind==='to') R.fum++; }

@@ -621,6 +621,51 @@
   .tc.new .tc-top::after{content:"New";position:absolute;left:7px;bottom:7px;font:800 9.5px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--yellow);padding:4px 5px;clip-path:var(--notch2);}
   .tm-note{font:500 12px/1.45 var(--sans);color:var(--text3);}
   .lead span.ph{display:flex;align-items:center;justify-content:center;width:96px;height:72px;margin-bottom:12px;} .lead span.ph img,.lead span.ph .ini{width:60px;height:60px;object-fit:contain;}
+
+  /* ═══ ROUND 32: STAMINA, INJURIES, WAIVERS, TABLES ═══ */
+  .h2h .sub b{color:var(--yellow);}
+  .hb-inj{width:100%;display:flex;flex-direction:column;gap:2px;text-align:left;}
+  .hb-inj span{background:color-mix(in srgb,var(--red) 22%,var(--p2));box-shadow:inset 2px 0 0 var(--red);padding:7px 9px;font:500 12px/1.35 var(--sans);color:var(--text);}
+  .hb-acts{grid-template-columns:1fr 1fr;}
+  .tm-note b{color:var(--text);font-weight:600;}
+  /* the waiver pool: a card a player, your bid under him */
+  .wvs{display:flex;flex-direction:column;gap:2px;}
+  .wcl{background:var(--p1);padding:10px;display:flex;flex-direction:column;gap:8px;box-shadow:inset 2px 0 0 var(--tc);}
+  .wv-top{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;}
+  .wv-top>img{width:48px;height:38px;object-fit:contain;object-position:bottom;background:var(--p2);clip-path:var(--notch2);}
+  .wv-n{min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .wv-n b{font:700 14px/1.2 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wv-n small{font:500 11px/1.3 var(--sans);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wv-n em{font:700 11px/1.2 var(--sans);font-style:normal;} .wv-n em.up{color:var(--green);} .wv-n em.dn{color:var(--text3);}
+  .wv-bid{display:grid;grid-template-columns:minmax(0,1fr) 36px 36px 64px 36px 36px;gap:2px;align-items:stretch;}
+  .wv-bid span{font:700 10px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);align-self:center;}
+  .wv-bid button{border:0;background:var(--p3);color:var(--text);font:700 13px/1 var(--sans);padding:9px 0;cursor:pointer;}
+  .wv-bid input{width:100%;min-width:0;border:0;background:var(--night);color:var(--text);font:800 15px/1 var(--sans);text-align:center;padding:8px 2px;outline:0;box-shadow:inset 0 0 0 1px var(--p3);}
+  .wv-bid input:focus{box-shadow:inset 0 0 0 2px var(--sky);}
+  .ld.wr .nm b small.r{display:inline;font:700 12px var(--sans);color:var(--text3);margin-left:4px;}
+  .ld.wr .rk,.ld.inj .rk{font:700 10.5px/1 var(--sans);letter-spacing:.06em;}
+  .ld.inj .v{font:800 13px/1 var(--sans);color:var(--red);}
+  /* a card: stamina, and hurt */
+  .tc-s{display:grid;grid-template-columns:auto 1fr 22px;gap:6px;align-items:center;font:700 9px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+  .tc-s i{display:block;height:5px;background:var(--p3);} .tc-s i b{display:block;height:100%;}
+  .tc-s em{font:700 11px/1 var(--sans);font-style:normal;color:var(--text);text-align:right;}
+  .tc-inj{display:flex;flex-direction:column;gap:2px;background:color-mix(in srgb,var(--red) 24%,var(--p2));padding:6px 7px;box-shadow:inset 2px 0 0 var(--red);}
+  .tc-inj b{font:800 11px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:#ff8aa6;} .tc-inj span{font:500 11px/1.2 var(--sans);color:var(--text);}
+  .tc.hurt .tc-top img{filter:grayscale(1) brightness(.7);}
+  /* the league's tables: every column sorts */
+  .tbl{display:flex;flex-direction:column;gap:2px;--cw:38px;}
+  .tbl .tr{display:grid;grid-template-columns:20px minmax(0,1fr) repeat(var(--n),var(--cw));gap:4px;align-items:center;background:var(--p1);padding:8px 8px;font:600 12.5px/1 var(--sans);font-variant-numeric:tabular-nums;}
+  .tbl .tr>span:nth-child(n+3){text-align:right;color:var(--text2);white-space:nowrap;} .tbl .tr>span.on{color:var(--text);font-weight:800;}
+  .tbl .tr.me{background:var(--p2);box-shadow:inset 2px 0 0 var(--sky);}
+  .tbl .rk{font:700 12px/1 var(--sans);color:var(--text3);} .tbl .tr.in .rk{color:var(--sky);}
+  .tbl .nm{display:flex;align-items:center;gap:6px;min-width:0;} .tbl .nm>i{flex:0 0 3px;height:22px;background:var(--p);}
+  .tbl .nm img,.tbl .nm .ini{width:18px;height:18px;flex:0 0 auto;object-fit:contain;font-size:7px;}
+  .tbl .nm>span{min-width:0;} .tbl .nm b{display:block;font:600 13px/1.2 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tbl .nm small{display:block;margin-top:2px;font:500 10.5px/1.2 var(--sans);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tbl .th{background:transparent;padding:2px 8px 4px;} .tbl .th>span{font:700 9.5px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+  .tbl .th button{border:0;background:transparent;color:var(--text3);font:700 9.5px/1 var(--sans);letter-spacing:.04em;text-transform:uppercase;text-align:right;padding:6px 0;cursor:pointer;white-space:nowrap;}
+  .tbl .th button.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--sky);}
+  @media (min-width:640px){ .tbl{--cw:64px;} }
 </style>
 </head>
 <body>
