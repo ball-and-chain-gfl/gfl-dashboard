@@ -112,18 +112,22 @@ function makeSim(){
     bar(x,a,b,COL[p.kind]); drawBall(ctx,x,b,0,3,-Math.PI/2,true);
   }
   function play(){
-    const adv=(st.off-myD())/20, yd=st.yd, x=.44+Math.random()*.12, DA=i=>(DR.got[5]&&DR.got[5].a)?clamp((DR.got[5].a[i]-55)/44,0,1):.5;
+    /* HOW THEIR OFFENSE FARES AGAINST YOUR DEFENSE. The gap between the two counts, but only so much: a good defense wins most
+       drives, not all of them, and a bad one still gets a stop. Each drive also has its own form (st.form), so some drives
+       just click and some never get going, whoever is on the field. */
+    if(st.form==null) st.form=gauss()*.45;
+    const adv=clamp((st.off-myD())/20,-1.5,1.5)*.5+st.form, yd=st.yd, x=.44+Math.random()*.12, DA=i=>(DR.got[5]&&DR.got[5].a)?.5+(clamp((DR.got[5].a[i]-55)/44,0,1)-.5)*.5:.5;
     if(st.down===4){ if(yd>=62){ const dist=100-yd+17, good=Math.random()<fgOdds(dist); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
       if(st.togo<=2&&yd>=45&&Math.random()<.5){ /* they go for it */ }
       else { const l=Math.round(40+gauss()*6); return {x,from:yd,to:Math.min(99,yd+l),kind:'punt',call:'Punt',sub:l+' yards'}; } }
     if(Math.random()<.56){
       if(Math.random()<(.065-adv*.02)*(.55+DA(0)*.9)){ const l=5+Math.floor(Math.random()*5); return {x,from:yd,to:yd-l,kind:'loss',call:'Sacked',sub:'Loss of '+l}; }
       if(Math.random()<(.028-adv*.01)*(.5+DA(3)*1.1)) return {x,from:yd,to:yd+Math.round(8+Math.random()*10),kind:'to',call:'Intercepted',sub:'Your ball'};
-      if(Math.random()<.36-adv*.05+(DA(1)-.5)*.1) return {x,from:yd,to:yd,kind:'inc',call:'Incomplete',sub:''};
-      const y=Math.max(1,Math.round(7.5+adv*2.5-(DA(1)-.5)*3+gauss()*6+(Math.random()<.08?22:0))); return {x,from:yd,to:Math.min(100,yd+y),kind:'pass',call:'Pass, '+y,sub:''};
+      if(Math.random()<.33-adv*.05+(DA(1)-.5)*.1) return {x,from:yd,to:yd,kind:'inc',call:'Incomplete',sub:''};
+      const y=Math.max(1,Math.round(8.3+adv*2.5-(DA(1)-.5)*3+gauss()*6+(Math.random()<.08?22:0))); return {x,from:yd,to:Math.min(100,yd+y),kind:'pass',call:'Pass, '+y,sub:''};
     }
     if(Math.random()<.012*(.5+DA(3))) return {x,from:yd,to:yd+Math.round(Math.random()*3),kind:'to',call:'Fumble',sub:'Your ball'};
-    const y=Math.round(4+adv*1.5-(DA(2)-.5)*2.5+gauss()*3.4+(Math.random()<.05?15:0)); return {x,from:yd,to:Math.min(100,yd+y),kind:y<0?'loss':'run',call:y<0?'Stuffed, '+y:'Run, '+y,sub:''};
+    const y=Math.round(4.4+adv*1.5-(DA(2)-.5)*2.5+gauss()*3.4+(Math.random()<.05?15:0)); return {x,from:yd,to:Math.min(100,yd+y),kind:y<0?'loss':'run',call:y<0?'Stuffed, '+y:'Run, '+y,sub:''};
   }
   function info(){ MATCH.ddThem(st); }
   function step(){ if(st.over) return; if(MATCH.stopped()) return finish({kind:'clock'});
