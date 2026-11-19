@@ -110,7 +110,7 @@ function makeSim(){
   }
   function play(){
     const adv=(st.off-myD())/20, yd=st.yd, x=.44+Math.random()*.12, DA=i=>(DR.got[5]&&DR.got[5].a)?clamp((DR.got[5].a[i]-55)/44,0,1):.5;
-    if(st.down===4){ if(yd>=62){ const dist=100-yd+17, good=Math.random()<Math.max(.25,1.05-dist/60); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
+    if(st.down===4){ if(yd>=62){ const dist=100-yd+17, good=Math.random()<fgOdds(dist); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
       if(st.togo<=2&&yd>=45&&Math.random()<.5){ /* they go for it */ }
       else { const l=Math.round(40+gauss()*6); return {x,from:yd,to:Math.min(99,yd+l),kind:'punt',call:'Punt',sub:l+' yards'}; } }
     if(Math.random()<.56){
@@ -225,7 +225,7 @@ function makeMatch(){
     next(){ if(M.pend){ const p=M.pend; M.pend=null; p(); } },
     punt(){ const net=Math.round(42+gauss()*5), land=M.yd+net, yd=land>=100?20:100-land; M.run=false; tick(10);
       banner({tag:'Punt',title:`${net}-yard punt`,sub:land>=100?'Into the end zone: touchback. Their ball on their 20.':`Their ball on ${theirs(yd)}.`,btn:'Their ball'},()=>after(()=>cpuDrive(yd))); },
-    kick(dist){ const good=Math.random()<clamp(1.1-dist/60,.2,.97); M.run=false; tick(6);
+    kick(dist){ const good=Math.random()<fgOdds(dist); M.run=false; tick(6);
       if(good){ M.score[0]+=3; bug(); banner({tag:'Field goal',title:'It\'s good',sub:`${dist} yards. Three points.`,col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
       else { const yd=Math.max(20,100-M.yd); banner({tag:'Field goal',title:'No good',sub:`${dist} yards, wide. Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); } },
     cpuTick(s,p){ M.opp.plays++; if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to'){ const g=p.to-p.from, pass=p.kind==='pass'||p.kind==='inc'||p.call==='Sacked'||(p.kind==='td'&&p.via==='pass'); M.opp.yds+=g; if(pass) M.opp.py+=g; else M.opp.ry+=g; }

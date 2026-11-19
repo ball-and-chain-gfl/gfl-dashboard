@@ -65,6 +65,9 @@ Object.entries({slants:'tight',verts:'spread',mesh:'tight',smash:'gun',curls:'gu
   .forEach(([k,f])=>{ if(PLAYS[k]) PLAYS[k].f=f; });
 const BOOK={pass:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='pass'),run:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='run')};
 const deal=kind=>BOOK[kind].slice().sort(()=>Math.random()-.5).slice(0,4);
+/* A FIELD GOAL'S ODDS by its length, for both teams: about 98 in 100 from 20 yards, 95 from 30, 88 from 40, 76 from 50,
+   65 from 57. Never a sure thing, and always better the closer the kick. */
+const fgOdds=d=>clamp(.985-.00022*Math.max(0,d-18)**2,.05,.985);
 const LOOKS={cover2:'Cover 2',cover3:'Cover 3',man:'Man',blitz:'Blitz'};
 /* the play drawn small for its button, like a coach's card */
 function playSVG(k){
@@ -558,14 +561,6 @@ function makeGame(){
       else if(S.runCall) path([[S.RB.x,S.RB.y],...PLAYS[S.call].path.map(([x,y],i,a)=>i===a.length-1?[x,y+1]:[x,y])],'rgba(255,142,28,.85)',2.2,[]);
       ctx.restore(); }
     const u=PU*SC;
-    /* WHILE YOU THROW: each receiver's catch radius is a ring of dots at his feet (bigger, the better his Hands), and a
-       dashed ring shows where he'll be when the ball gets there, thrown the way you're holding it now. Let go inside
-       that ring and the throw goes to him. */
-    if(S.phase==='live'&&S.ball.holder===S.QB&&!S.runCall&&S.carrier!==S.QB){ const pw=S.hold?clamp((performance.now()-S.hold.t0)/1500,0,1):0;
-      ctx.save(); S.rec.forEach(r=>{ if(!r.route||r.down) return; const R=catchR(r)*K, [x,y]=toS(r.x,r.y), q=leadOf(r,pw), [lx,ly]=toS(q.x,q.y);
-        ctx.strokeStyle='rgba(76,158,255,.85)'; ctx.fillStyle='rgba(76,158,255,.10)'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
-        ctx.beginPath(); ctx.ellipse(lx,ly,R,R*.55,0,0,P2); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
-        ctx.strokeStyle='rgba(76,158,255,.35)'; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(lx,ly); ctx.stroke(); }); ctx.restore(); }
     const E=S.fx&&S.fx.scene&&S.t-S.fx.t0<SCENE_END?S.fx:null;
     const dk=p=>p.y-(p===S.catcher&&CATCHING.has(p.state)?3:0);
     [...S.P].sort((a,b)=>dk(b)-dk(a)).forEach(p=>{ const [x,y]=toS(p.x,p.y);
@@ -622,11 +617,14 @@ function makeGame(){
     if(S.parts&&S.parts.length){ for(const p of S.parts){ const [x,y]=toS(p.x,p.y); ctx.globalAlpha=Math.max(0,1-p.age/p.life); ctx.fillStyle=p.col; ctx.fillRect(Math.round(x-p.s/2),Math.round(y-p.z*K*.6-p.s/2),p.s,p.s); } ctx.globalAlpha=1; }
     if(S.landed&&S.phase==='done'&&!S.loose){ const [x,y]=toS(S.landed.x,S.landed.y); drawBall(ctx,x,y,2,SC,.35); }
     if(S.loose&&S.t>=S.loose.t0){ const L=S.loose, k=clamp((S.t-L.t0)/.7,0,1), [bx,by]=toS(L.x0+(L.to.x-L.x0)*k,L.y0+(L.to.y-L.y0)*k); drawBall(ctx,bx,by,2+Math.abs(Math.sin(k*Math.PI*2.5))*(1-k)*24,SC,k*9); }
-    /* the callouts: a label over the moment, in the site's chips */
+    /* THE CALLOUTS, a stack: the first one sits just over the play, each one after it goes on top of the stack, and no
+       two ever cover each other */
     ctx.font='600 10px JetBrains Mono'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    S.pops.forEach((q,i)=>{ const age=S.t-q.t0; if(age>1.4||!q.p) return; const [x,y]=toS(q.p.x,q.p.y), a=age>1.1?1-(age-1.1)/.3:1, txt=q.text.toUpperCase(), w=ctx.measureText(txt).width+16, yy=y-88*SC/1.5-Math.min(age,.4)*30-i%2*0;
-      ctx.globalAlpha=a; ctx.fillStyle='rgba(23,23,23,.94)'; ctx.fillRect(Math.round(x-w/2),Math.round(yy-11),Math.round(w),22); ctx.fillStyle=q.col; ctx.fillRect(Math.round(x-w/2),Math.round(yy-11),Math.round(w),2);
-      ctx.fillStyle='#FDFEFC'; ctx.fillText(txt,Math.round(x),Math.round(yy+1)); ctx.globalAlpha=1; });
+    { const live=S.pops.filter(q=>q.p&&S.t-q.t0<=1.4).sort((a,b)=>a.t0-b.t0), put=[], BH=22, GAP=4;
+      for(const q of live){ const age=S.t-q.t0, txt=q.text.toUpperCase(), w=ctx.measureText(txt).width+16, [px,py]=toS(q.p.x,q.p.y), x=clamp(px,w/2+4,W-w/2-4);
+        let yy=py-88*SC/1.5-Math.min(age,.4)*30; while(put.some(b=>Math.abs(b.x-x)<(b.w+w)/2+4&&Math.abs(b.y-yy)<BH+GAP)) yy-=BH+GAP; yy=Math.max(BH,yy); put.push({x,y:yy,w});
+        ctx.globalAlpha=age>1.1?1-(age-1.1)/.3:1; ctx.fillStyle='rgba(23,23,23,.94)'; ctx.fillRect(Math.round(x-w/2),Math.round(yy-11),Math.round(w),22); ctx.fillStyle=q.col; ctx.fillRect(Math.round(x-w/2),Math.round(yy-11),Math.round(w),2);
+        ctx.fillStyle='#FDFEFC'; ctx.fillText(txt,Math.round(x),Math.round(yy+1)); ctx.globalAlpha=1; } }
     ctx.textBaseline='alphabetic';
     /* slow motion shows as a letterbox */
     if(S.hold||S.t<(S.slow||0)){ ctx.fillStyle='rgba(6,6,6,.88)'; ctx.fillRect(0,0,W,12); ctx.fillRect(0,H-12,W,12); }
@@ -672,7 +670,7 @@ function makeGame(){
     document.querySelectorAll('#calls .kind button').forEach(b=>b.addEventListener('click',()=>{ if(S.kind===b.dataset.kind) return; S.kind=b.dataset.kind; S.call=S.hand[S.kind][0]; reset(true); }));
     document.querySelectorAll('#calls .four4 button').forEach(b=>b.addEventListener('click',()=>{ S.call=b.dataset.k; reset(true); }));
     if(pre&&S.fourth){ const fgd=S.goal+17, fg=fgd<=57;
-      $('#acts').innerHTML=`<button id="punt">Punt</button><button class="go" id="goforit">Go for it</button><button id="fg" ${fg?'':'disabled'}>FG · ${fgd} yds</button>`;
+      $('#acts').innerHTML=`<button id="punt">Punt</button><button class="go" id="goforit">Go for it</button><button id="fg" ${fg?'':'disabled'}>FG · ${fgd} yds<small>${Math.round(fgOdds(fgd)*100)}%</small></button>`;
       $('#goforit').onclick=()=>{ S.fourth=false; buttons(); }; $('#punt').onclick=()=>MATCH.punt(); $('#fg').onclick=()=>fg&&MATCH.kick(fgd);
       return; }
     const C=MATCH&&MATCH.clockUI?MATCH.clockUI():{run:false,tos:0,canSpike:false}, setting=pre||S.phase==='regroup';
