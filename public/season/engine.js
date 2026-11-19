@@ -233,7 +233,7 @@ function makeGame(){
     else { const ps=PL.dir>0?1:0; ols[2].role='climb'; ols[2].climb=LB[PL.wide?1-ps:ps]; TE.climb=LB[PL.wide?ps:1-ps]; }
     S.eng.forEach(e=>{ const diff=(e.d.r-e.o.r)/20; e.rate=Math.max(.3,(runCall?.34+(Ad(2)-.5)*.3:.36+(Ad(0)-.5)*.4)+diff*.3+EB()*.14+gauss()*.1);   /* even a poor line gets off its block in the end */ e.d.blocked=true; e.o.blocking=e.d; });
     S.P=P; S.QB=QB; S.RB=RB; S.rec=[WA,TE,WB,RB]; S.DL=DL; S.LB=LB; S.CB=CB; S.SF=SF; S.runCall=runCall;
-    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
+    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
   }
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   function steer(p,tx,ty,dt,vmax){ const dx=tx-p.x, dy=ty-p.y, d=Math.hypot(dx,dy); const want=d<.2?0:Math.min(vmax||p.vmax,d*6.5);
@@ -347,7 +347,7 @@ function makeGame(){
       const ballAir=S.ball.air, hold=S.ball.holder;
       if(p.side==='o'){
         if(p===carrier){ [tx,ty]=carrierAim(p); if(p.slow&&t<p.slow) vmax*=p.slowK||.6; }
-        else if(p.pos==='QB'){ if(S.qbDash&&t<S.qbDash.until){ tx=S.qbDash.x; ty=S.qbDash.y; vmax=p.vmax*1.1; } else if(!S.runCall){ tx=0; ty=Math.max(-6.5,-4.5-t*2.4); } else if(S.jet){ tx=S.ball.holder===p?0:-1.2*PLAYS[S.call].dir; ty=S.ball.holder===p?JET_Y-.75:-4.2; } else { tx=-.6*PLAYS[S.call].dir; ty=S.form==='under'?-2.6:S.form==='pistol'?-3.9:-4.6; } }
+        else if(p.pos==='QB'){ if(S.qbDash&&t<S.qbDash.until){ tx=S.qbDash.x; ty=S.qbDash.y; vmax=p.vmax*1.4; } else if(!S.runCall){ tx=0; ty=Math.max(-6.5,-4.5-t*2.4); } else if(S.jet){ tx=S.ball.holder===p?0:-1.2*PLAYS[S.call].dir; ty=S.ball.holder===p?JET_Y-.75:-4.2; } else { tx=-.6*PLAYS[S.call].dir; ty=S.form==='under'?-2.6:S.form==='pistol'?-3.9:-4.6; } }
         else if(p.pos==='OL'){ if(p.blocking&&!p.blocking.shed){ tx=p.tx; ty=p.ty; } else if(p.climb||p.role==='climb'){ const l=p.climb; tx=l.x; ty=l.y-.7; if(dist(p,l)<1.1){ l.blocked=true; l.lockedBy=p; } } else if(carrier&&carrier!==QB){ tx=carrier.x; ty=carrier.y-2; } else { tx=p.x; ty=Math.min(p.y,-1); } }
         else if(ballAir&&dist(p,ballAir.to)<7&&p!==hold){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }
         else if(p.role==='jet'){ tx=p.x+PLAYS[S.call].dir*4; ty=JET_Y; }
@@ -365,6 +365,9 @@ function makeGame(){
         else if(carrier&&p!==carrier){ tx=carrier.x+(p.x<carrier.x?-2:2); ty=carrier.y+1; }
       } else {
         const seen=Math.max(0,t-(p.react||.25)); if(p.stall&&t<p.stall) vmax*=.4;
+        /* CHASING FROM BEHIND: a man with the ball and a step on you keeps it. A defender behind the carrier runs a touch
+           slower than his top speed in coverage, so he catches only a carrier slower than him, not one his equal. */
+        if(carrier&&carrier!==S.QB&&p.y<carrier.y-.4&&!p.lockedBy) vmax*=.96;
         if(p.lockedBy&&!p.down&&dist(p,p.lockedBy)<1.6){ if(Math.random()<dt*Math.max(.9,1.3+(p.r-p.lockedBy.r)/25)*(p.lockedBy.pos==='TE'?1.5-A(p.lockedBy,0):1)){ p.lockedBy=null; p.blocked=false; } else { tx=p.lockedBy.x; ty=p.lockedBy.y+.8; vmax=1.2; } }
         else if(p.blocked&&!p.shed&&p.pos==='DL'){ tx=p.tx; ty=p.ty; }
         else if(p.jamming&&t<p.jamming.jam){ tx=p.jamming.x; ty=p.jamming.y+.75; vmax=.8; }
@@ -400,9 +403,11 @@ function makeGame(){
     if(S.flea&&!S.runCall){ if(t>.3&&!S.fleaOut&&S.ball.holder===QB){ S.fleaOut=true; S.ball.holder=S.RB; hint('Wait for the pitch back'); }
       if(S.fleaOut&&!S.fleaBack&&t>1.0){ S.fleaBack=true; S.ball.holder=QB; S.RB.route=null; S.RB.role='protect'; hint('Tap to lob it · hold to zip it'); } }
     if(S.runCall&&S.ball.holder===QB&&(S.jet?Math.abs(S.jet.x-QB.x)<.55||t>1.2:t>(PLAYS[S.call].delay||.55))){ const B=S.jet||S.RB; S.ball.holder=B; S.carrier=B; S.handT=t; B.role=null; B.path=PLAYS[S.call].path.map(a=>[a[0],a[1]]); hint('Tap left or right of him to cut'); }
-    if(!S.runCall&&S.ball.holder===QB&&!S.carrier){ const r=S.P.find(p=>p.side==='d'&&!p.down&&(p.shed||!p.blocked)&&dist(p,QB)<.75);
-      if(r&&!r.escTried&&Math.random()<.06+A(QB,3)*.42){ r.escTried=true; dive(r,QB); r.missed=true; r.upAt=t+1.2; pop('Escaped','#4C9EFF',QB,.3);
-        const dir=Math.sign(QB.x-r.x)||(Math.random()<.5?-1:1); S.qbDash={x:clamp(QB.x+dir*2.8,-SIDE+2,SIDE-2),y:QB.y-.2,until:t+.5}; QB.vx=dir*QB.vmax; QB.vy=-.3; QB.facing=dir>0?'right':'left'; }
+    if(!S.runCall&&S.ball.holder===QB&&!S.carrier&&!(S.qbSafe&&t<S.qbSafe)){ const r=S.P.find(p=>p.side==='d'&&!p.down&&(p.shed||!p.blocked)&&dist(p,QB)<.75);
+      if(r&&!r.escTried&&Math.random()<.06+A(QB,3)*.42){ r.escTried=true; dive(r,QB); r.state='down'; r.down=true; r.missed=true; r.upAt=t+1.6; r.vx=r.vy=0; pop('Escaped','#4C9EFF',QB,.3);
+        let L=0,R=0; S.P.forEach(d=>{ if(d.side!=='d'||d.down||d===r) return; const dd=dist(d,QB); if(dd>6) return; const w=6-dd; if(d.x<QB.x) L+=w; else R+=w; });
+        const dir=Math.abs(L-R)<.5?(Math.sign(QB.x-r.x)||(Math.random()<.5?-1:1)):(L>R?1:-1);
+        S.qbDash={x:clamp(QB.x+dir*3.6,-SIDE+2,SIDE-2),y:QB.y+.3,until:t+.65}; S.qbSafe=t+1.1; QB.vx=dir*QB.vmax*1.4; QB.vy=.2; QB.facing=dir>0?'right':'left'; dust(QB,8,-dir*2.5); }
       else if(r){ r.escTried=true; const head=(r.vy*QB.vy+r.vx*QB.vx)<-1, k=Math.random(); fx(r,QB,r.y<QB.y-.3?(k<.5?'tackle':k<.8?'sling':'shoe'):k<.5?'tackle':(head&&k<.8)||k<.72?'hit':k<.82?'wrap':k<.91?'sling':'shoe');
         if(QB.y<=-S.yd) return end('Safety','Sacked in his own end zone. Two points to them.','safety',0);
         if(Math.random()<.05+Ad(3)*.08+(1-A(QB,3))*.05){ const spot=fumble(QB); pop('Strip sack','#D9325E',QB);

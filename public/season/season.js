@@ -251,6 +251,9 @@ function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
   document.querySelectorAll('.lgc button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); });
   const tb=$('#hb-team'); if(tb) tb.onclick=()=>hub('team');
+  const wr=$('#wv-run'); if(wr) wr.onclick=()=>{ runWaivers(); hub('next'); const w=$('#wv-sec'); if(w) w.scrollIntoView({block:'start'}); };
+  if(HUBTAB==='team') shareWarm('team','t'+LG.cur+JSON.stringify(LG.teams[0].roster.map(p=>p.id+p.r))+recTxt(LG.teams[0].st)+(DR.got[5]?DR.got[5].id:''),()=>cardTeam(teamShareData()));
+  if(HUBTAB==='sched'||(HUBTAB==='next'&&LG.phase==='done')) shareWarm('season','s'+LG.cur+LG.phase+recTxt(LG.teams[0].st),()=>cardSeason(seasonShareData()));
   const wb=$('#hb-wv'); if(wb) wb.onclick=()=>{ const w=$('#wv-sec'); if(w) w.scrollIntoView({block:'start',behavior:'smooth'}); };
   document.querySelectorAll('.tbl .th button').forEach(b=>b.onclick=()=>{ LGSORT={tab:LGTAB,k:+b.dataset.s}; hub('league'); });
   /* a bid: the buttons step it, the box takes a number; never more than you have */
@@ -264,7 +267,7 @@ function hubNext(){
   if(LG.phase==='done'){ const c=LG.teams[LG.champ], won=LG.champ===0;
     return `<div class="hb-card champ2" style="--fc:${won?'var(--gold)':'var(--text2)'}"><span class="tag">Champion</span><div class="big">${crest(c)}</div><h3>${esc(c.name)}</h3>
       <p>${won?'That\'s you. A title.':'Your season: '+recTxt(LG.teams[0].st)+', '+ordinal(standings().findIndex(x=>x.i===0)+1)+' in the regular season.'}</p>
-      <button class="btn w" id="hb-go">New season</button><button class="btn" id="hb-quick">Quick game</button></div>`; }
+      ${shareButton('season','Share your season')}<button class="btn w" id="hb-go">New season</button><button class="btn" id="hb-quick">Quick game</button></div>`; }
   const R=LG.rounds[LG.cur], g=myGame(R), me=LG.teams[0], wo=wireOpen(), nb=myBids().length;
   const goLabel=lab=>wo&&nb?'Run waivers':lab;
   let top;
@@ -289,10 +292,10 @@ function hubNext(){
 function wireHTML(){ const me=LG.teams[0], f=me.faab??100;
   if(wireOpen()){ const tot=myBids().reduce((a,b)=>a+b,0);
     return `<div class="sh" id="wv-sec">Waivers <b>· $${f} left</b></div><div class="tm-note">Blind bids from your $${f}. Highest bid wins; a tie goes to the worse record. They run when you head to kickoff. <b id="bidtot">${tot?'Bidding $'+tot+' in all.':''}</b></div>
-      <div class="wvs">${LG.wire.map(p=>{ const k=keyOf(p), u=upOver(me,p), b=(LG.bids||{})[k]||0;
-        return `<div class="wcl t-${TIER(p.r)}"><div class="wv-top"><img src="${SHOT(p.id)}" alt=""><div class="wv-n"><b>${esc(p.n)}</b><small>${p.pos} · ${p.season} · ${ATTR[p.pos].map((l,i)=>(ABR[l]||l)+' '+(p.a?p.a[i]:'–')).join(' · ')}</small>
-          ${u.who?`<em class="${u.d>0?'up':'dn'}">${u.d>0?'+'+u.d+' over '+esc(lastN(u.who.n)):'Depth behind '+esc(lastN(u.who.n))}</em>`:''}</div>${rtg(p.r)}</div>
-          <div class="wv-bid"><span>Your bid</span><button data-k="${k}" data-d="-5">−5</button><button data-k="${k}" data-d="-1">−1</button><input data-k="${k}" inputmode="numeric" value="${b?'$'+b:''}" placeholder="$0"><button data-k="${k}" data-d="1">+1</button><button data-k="${k}" data-d="5">+5</button></div></div>`; }).join('')}</div>`; }
+      <div class="tcs">${LG.wire.map(p=>{ const k=keyOf(p), u=upOver(me,p), b=(LG.bids||{})[k]||0;
+        const up=u.who?(u.d>0?'+'+u.d+' over '+lastN(u.who.n):'Depth behind '+lastN(u.who.n)):'';
+        return tcHTML(p,{stat:p.season+(up?' · '+up:''),cls:u.d>0?'up':'',extra:`<div class="wv-bid bidc"><input data-k="${k}" inputmode="numeric" value="${b?'$'+b:''}" placeholder="Bid $0"><div><button data-k="${k}" data-d="-5">−5</button><button data-k="${k}" data-d="-1">−1</button><button data-k="${k}" data-d="1">+1</button><button data-k="${k}" data-d="5">+5</button></div></div>`}); }).join('')}</div>
+      <button class="btn w" id="wv-run">Run waivers now</button><div class="tm-note">See every claim now, then kick off. Or leave your bids in: they run when you head to kickoff.</div>`; }
   if(LG.wireDone===LG.cur&&LG.wireLog&&LG.wireLog.length){ const T=LG.teams;
     return `<div class="sh" id="wv-sec">Waivers <b>· results</b></div><div class="lds">${LG.wireLog.map(x=>{ const t=x.t!=null?T[x.t]:null;
       return `<div class="ld wr${x.t===0?' me':''}" style="--p:${t?tcol(t):'#333'}"><span class="rk">${x.p.pos}</span><i></i>${t?crest(t):'<span class="ini">–</span>'}<span class="nm"><b>${esc(x.p.n)} <small class="r">${x.p.r}</small></b><small>${t?(x.t===0?'You':esc(t.name))+(x.n>1?' · '+x.n+' bids, next $'+x.second:''):'No claims'}${x.mine&&x.t!==0?' · you bid $'+x.mine:''}</small></span><span class="v">${t?'$'+x.bid:''}</span></div>`; }).join('')}</div>`; }
@@ -321,7 +324,7 @@ function movesHTML(){ const M=LG.moves||[]; if(!M.length) return '';
       <div class="mv-p out"><span>Out</span><b>${esc(m.out.n)}</b>${rtg(m.out.r)}</div></div>`; }).join('')}</div>`; }
 /* THE SCHEDULE: the season as a strip of squares, then a row a week; open one for the whole week's scores */
 function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGame(x)); return `<i class="${r?r.k:k===LG.cur&&LG.phase!=='done'?'now':''}"></i>`; }).join('');
-  return `<div class="sh">Your <b>season</b></div><div><div class="ss" style="--n:${R.length}">${strip}</div><div class="ssl"><span>${wkShort(R[0])}</span><span>${recTxt(LG.teams[0].st)}</span><span>${wkShort(R[R.length-1])}</span></div></div>
+  return `<div class="shr-row">${shareButton('season',LG.phase==='done'?'Share your season':'Share your season so far')}</div><div class="sh">Your <b>season</b></div><div><div class="ss" style="--n:${R.length}">${strip}</div><div class="ssl"><span>${wkShort(R[0])}</span><span>${recTxt(LG.teams[0].st)}</span><span>${wkShort(R[R.length-1])}</span></div></div>
     <div class="wks">${R.map((x,k)=>{ const g=myGame(x), r=myRes(g), now=k===LG.cur&&LG.phase!=='done', open=now||(LG.phase==='done'&&k===R.length-1);
       let mid, end='<i></i>';
       if(!g) mid=`<span class="ha"></span><span></span><b class="dim">${x.bye&&x.bye.includes(0)?'Bye':'No game'}</b>`;
@@ -335,10 +338,11 @@ const ABR={'Arm':'Arm','Accuracy':'Acc','Legs':'Leg','Escape':'Esc','Speed':'Spd
 const lastN=n=>{ const w=String(n).split(' ').filter(x=>!/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x)); return w[w.length-1]||n; };
 function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
   return `<div class="tc t-${TIER(p.r)}${o.isNew?' new':''}${p.inj?' hurt':''}"><div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
-    <div class="tc-b"><b>${esc(d?p.season+' '+p.n:p.n)}</b><small>${o.stat||p.season}</small>
+    <div class="tc-b"><b>${esc(d?p.season+' '+p.n:p.n)}</b><small${o.cls?' class="'+o.cls+'"':''}>${esc(o.stat||p.season)}</small>
     <div class="tc-a">${ATTR[p.pos].map((l,k)=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
     ${p.pos!=='D/ST'?(()=>{ const v=Math.round(p.sta??100); return `<div class="tc-s"><span>Stamina</span><i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i><em>${v}</em></div>`; })():''}
     ${p.inj?`<div class="tc-inj"><b>Out · ${injShort(p.inj)}</b><span>${esc(p.inj.n)}</span></div>`:''}
+    ${o.extra||''}
     ${o.go&&o.go.length?`<div class="tc-go">${o.go.join('')}</div>`:''}</div></div>`; }
 function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||[]), P=LG.pl||{};
   const line=(p,k)=>{ const s=P['0:'+p.id+'-'+p.season]||(k!=null&&P['0:'+k]&&P['0:'+k].id===p.id?P['0:'+k]:null);
@@ -348,7 +352,7 @@ function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||
   const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),go:OSLOTS.map((x,k)=>x===p.pos?`<button onclick="startPlayer(${j},${k})">Start for ${esc(lastN(me.roster[k].n))}</button>`:'').filter(Boolean)})).join('');
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
   const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
-  return `<div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
+  return `<div class="shr-row">${shareButton('team','Share your team')}</div><div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
     <div class="sh">Your <b>bench · ${B.length}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="tm-note">Players you win on waivers land here. Start one to swap him into your lineup.</div>'}
     <div class="sh">Your <b>defense</b></div>${cur&&LG.dstRound===LG.cur?`<div class="tcs">${tcHTML(cur,{pos:'D/ST',stat:'This week'})}</div>`:''}
     <div class="pcs"><div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>Every defense you've spun</span></div></div>
@@ -379,6 +383,109 @@ function hubLeague(){ const S=standings(), po=LG.phase==='reg'?LG.po:0, per=(v,g
     ${rows.slice(0,40).map((r,i)=>`<div class="tr${r.ti===0?' me':''}${LGTAB==='table'&&by==null&&po&&i<po?' in':''}" style="--p:${tcol(LG.teams[r.ti])}"><span class="rk">${i+1}</span><span class="nm"><i></i>${isP?'':crest(LG.teams[r.ti])}<span><b>${esc(nm(r))}</b>${isP?`<small>${esc(sub(r))}</small>`:''}</span></span>${cols.map((c,j)=>`<span class="${j===by?'on':''}">${(c[2]||c[1])(r)}</span>`).join('')}</div>`
       +(LGTAB==='table'&&by==null&&po&&i===po-1&&i<rows.length-1?'<div class="pline">Playoff line</div>':'')).join('')}</div>`;
   return chips+lead+tbl+`<div class="hb-note">${V.note} Tap a heading to sort.</div>`; }
+
+/* ═══ SHARE PICTURES ═══
+   Your team, a game's result and your season, each as a picture in the game's own look, drawn right here on a canvas
+   (the player photos and NFL logos come from ESPN, which allows it). Like Build a Manager, a phone hands the picture to
+   its share sheet; anywhere else it's saved as a file. The picture is drawn as soon as its button is on screen, so a tap
+   can share it at once: a phone only lets a share start inside the tap itself. */
+const SHW=1080, SHH=1350, SHARE={}, TCOL={bronze:'#C08552',silver:'#C9CED6',gold:'#F0CE26',legend:'#2F86EB'};
+const shImg=src=>new Promise(res=>{ if(!src) return res(null); const i=new Image(); i.crossOrigin='anonymous'; i.onload=()=>res(i); i.onerror=()=>res(null); i.src=src; });
+const shFonts=()=>Promise.all(['400 48px Silkscreen','800 48px Inter','700 48px Inter','600 48px Inter','500 48px Inter'].map(f=>document.fonts.load(f).catch(()=>null)));
+const nflLogo=n=>AB[n]?'https://a.espncdn.com/i/teamlogos/nfl/500/'+AB[n]+'.png':null;
+function shCanvas(){ const c=document.createElement('canvas'); c.width=SHW; c.height=SHH; return [c,c.getContext('2d')]; }
+function shNotch(x,X,Y,W,H,n,fill){ x.fillStyle=fill; x.beginPath(); x.moveTo(X+n,Y); x.lineTo(X+W-n,Y); x.lineTo(X+W-n,Y+n); x.lineTo(X+W,Y+n); x.lineTo(X+W,Y+H-n); x.lineTo(X+W-n,Y+H-n);
+  x.lineTo(X+W-n,Y+H); x.lineTo(X+n,Y+H); x.lineTo(X+n,Y+H-n); x.lineTo(X,Y+H-n); x.lineTo(X,Y+n); x.lineTo(X+n,Y+n); x.closePath(); x.fill(); }
+function shText(x,s,X,Y,font,col,o={}){ x.font=font; x.fillStyle=col; x.textAlign=o.al||'left'; x.textBaseline='alphabetic'; const ls='letterSpacing' in x; if(ls) x.letterSpacing=(o.ls||0)+'px';
+  let t=String(s==null?'':s); if(o.up) t=t.toUpperCase(); if(o.max) while(x.measureText(t).width>o.max&&t.length>2) t=t.slice(0,-2)+'…'; x.fillText(t,X,Y); if(ls) x.letterSpacing='0px'; }
+function shFit(x,s,X,Y,weight,size,fam,col,max,al){ let z=size; const f=()=>x.font=weight+' '+z+'px '+fam; f(); while(z>18&&x.measureText(s).width>max){ z-=2; f(); } x.fillStyle=col; x.textAlign=al||'left'; x.textBaseline='alphabetic'; x.fillText(s,X,Y); }
+function shPic(x,img,X,Y,W,H,bottom){ if(!img) return; const k=Math.min(W/img.width,H/img.height), w=img.width*k, h=img.height*k; x.drawImage(img,X+(W-w)/2,bottom?Y+H-h:Y+(H-h)/2,w,h); }
+function shBase(x,head,col){ x.fillStyle='#0E1013'; x.fillRect(0,0,SHW,SHH);
+  x.fillStyle=col; for(let yy=4;yy<380;yy+=14){ x.globalAlpha=.2*(1-yy/380); for(let xx=6;xx<SHW;xx+=14) x.fillRect(xx,yy,4,4); } x.globalAlpha=1; x.fillRect(0,0,SHW,10);
+  shText(x,head,64,88,'700 26px Inter','rgba(253,254,252,.62)',{ls:3,up:true,max:700}); shText(x,'GFL SEASON MODE',SHW-64,88,'400 24px Silkscreen','rgba(253,254,252,.62)',{al:'right'}); }
+function shCrest(x,img,name,X,Y,S){ shNotch(x,X,Y,S,S,8,'#242933'); if(img) shPic(x,img,X+12,Y+12,S-24,S-24); else shText(x,ini(name),X+S/2,Y+S/2+S*.13,'800 '+Math.round(S*.36)+'px Inter','#FDFEFC',{al:'center'}); }
+function shTiles(x,T,Y){ const n=T.length, g=12, W=(SHW-128-g*(n-1))/n;
+  T.forEach(([v,l],i)=>{ const X=64+i*(W+g); shNotch(x,X,Y,W,150,8,'#1A1E25'); shFit(x,String(v),X+24,Y+84,'400',56,'Silkscreen','#FDFEFC',W-48); shText(x,l,X+24,Y+124,'700 21px Inter','rgba(253,254,252,.55)',{ls:2,up:true,max:W-40}); }); }
+function shStar(x,label,p,img,lines,Y){ const H=380, tc=TCOL[TIER(p.r)]||'#C9CED6';
+  shNotch(x,64,Y,SHW-128,H,10,'#1A1E25'); x.fillStyle=tc; x.fillRect(64,Y+10,8,H-20);
+  shText(x,label,104,Y+58,'700 24px Inter',tc,{ls:3,up:true}); shText(x,String(p.r),SHW-100,Y+76,'400 56px Silkscreen',tc,{al:'right'});
+  shNotch(x,104,Y+84,350,262,8,'#242933'); shPic(x,img,104,Y+84,350,262,true);
+  const X=490, M=SHW-64-X-32; shFit(x,p.n,X,Y+160,'800',58,'Inter','#FDFEFC',M);
+  shText(x,p.pos+(p.season?' · '+p.season:''),X,Y+204,'600 26px Inter','rgba(253,254,252,.6)',{up:true,ls:2});
+  shFit(x,lines[0]||'',X,Y+282,'800',46,'Inter','#FDFEFC',M); shFit(x,lines[1]||'',X,Y+330,'500',30,'Inter','rgba(253,254,252,.72)',M); }
+/* a player's best numbers, by position */
+const shScore=s=>(s.py||0)/25+(s.ptd||0)*4-(s.int||0)*2+(s.ry||0)/10+(s.rushtd||0)*6+(s.recy||0)/10+(s.rtd||0)*6+(s.rec||0)*.5-(s.fum||0)*2;
+function shLines(p,s){ if(p.pos==='QB') return [`${s.py||0} yds · ${s.ptd||0} TD`,`${s.comp||0} of ${s.att||0}${s.int?' · '+s.int+' INT':''}${(s.ry||0)>15?' · '+s.ry+' rush yds':''}`];
+  if(p.pos==='RB') return [`${s.ry||0} yds · ${s.rushtd||0} TD`,`${s.car||0} carries${s.rec?' · '+s.rec+' catches for '+s.recy:''}`];
+  return [`${s.recy||0} yds · ${s.rtd||0} TD`,`${s.rec||0} catches${s.tgt?' on '+s.tgt+' targets':''}`]; }
+
+async function cardGame(d){ await shFonts(); const [c,x]=shCanvas(); const [lm,lt,pi]=await Promise.all([shImg(d.me.logo),shImg(d.them.logo),shImg(d.pog?SHOT(d.pog.p.id):null)]);
+  shBase(x,d.label+' · Final'+(d.ot?' · OT':''),d.col);
+  shText(x,d.res==='W'?'YOU WIN':d.res==='L'?'YOU LOSE':'A TIE',64,204,'400 88px Silkscreen',d.res==='W'?'#F0CE26':d.res==='L'?'#FF5C7E':'#FDFEFC');
+  const Y=250, W=(SHW-128-12)/2;
+  [[d.me,lm,d.res!=='L'],[d.them,lt,d.res!=='W']].forEach(([t,img,hi],i)=>{ const X=64+i*(W+12); shNotch(x,X,Y,W,330,10,'#1A1E25'); shCrest(x,img,t.name,X+32,Y+32,150);
+    shText(x,String(t.sc),X+W-36,Y+176,'400 128px Silkscreen',hi?'#FDFEFC':'rgba(253,254,252,.38)',{al:'right'});
+    shFit(x,t.name,X+32,Y+264,'800',38,'Inter',hi?'#FDFEFC':'rgba(253,254,252,.55)',W-64); shText(x,t.sub||'',X+32,Y+304,'600 23px Inter','rgba(253,254,252,.5)',{up:true,ls:2,max:W-64}); });
+  if(d.pog) shStar(x,'Player of the game',d.pog.p,pi,d.pog.lines,612);
+  shTiles(x,d.tiles,1020); shText(x,d.foot||'',64,SHH-60,'600 24px Inter','rgba(253,254,252,.45)',{up:true,ls:2,max:SHW-128}); return c; }
+
+async function cardTeam(d){ await shFonts(); const [c,x]=shCanvas(); const imgs=await Promise.all([shImg(d.logo),...d.five.map(p=>shImg(SHOT(p.id))),shImg(d.dst?nflLogo(d.dst.n):null)]);
+  shBase(x,d.label,d.col); shCrest(x,imgs[0],d.name,64,122,140); shFit(x,d.name,232,196,'800',60,'Inter','#FDFEFC',SHW-64-232);
+  shText(x,d.sub,232,244,'600 27px Inter','rgba(253,254,252,.62)',{up:true,ls:2,max:SHW-64-232});
+  let Y=296; d.five.forEach((p,i)=>{ const H=158, tc=TCOL[TIER(p.r)]; shNotch(x,64,Y,SHW-128,H,8,'#1A1E25'); x.fillStyle=tc; x.fillRect(64,Y+8,8,H-16);
+    shNotch(x,90,Y+13,184,132,6,'#242933'); shPic(x,imgs[1+i],90,Y+13,184,132,true);
+    shText(x,OSLOTS[i],302,Y+48,'800 23px Inter','rgba(253,254,252,.55)',{ls:3});
+    shFit(x,p.n,302,Y+94,'800',42,'Inter','#FDFEFC',SHW-64-302-150);
+    shText(x,p.season+' · '+ATTR[p.pos].map((l,k)=>(ABR[l]||l)+' '+(p.a?p.a[k]:'–')).join(' · '),302,Y+134,'500 24px Inter','rgba(253,254,252,.6)',{max:SHW-64-302-150});
+    shText(x,String(p.r),SHW-96,Y+108,'400 72px Silkscreen',tc,{al:'right'}); Y+=H+10; });
+  if(d.dst){ shNotch(x,64,Y,SHW-128,108,8,'#1A1E25'); x.fillStyle=TCOL[TIER(d.dst.r)]; x.fillRect(64,Y+8,8,92); shPic(x,imgs[6],96,Y+14,80,80);
+    shText(x,'D/ST',204,Y+46,'800 23px Inter','rgba(253,254,252,.55)',{ls:3}); shFit(x,d.dst.season+' '+d.dst.n,204,Y+86,'800',36,'Inter','#FDFEFC',SHW-64-204-150);
+    shText(x,String(d.dst.r),SHW-96,Y+82,'400 56px Silkscreen',TCOL[TIER(d.dst.r)],{al:'right'}); }
+  shText(x,d.foot||'',64,SHH-48,'600 24px Inter','rgba(253,254,252,.45)',{up:true,ls:2,max:SHW-128}); return c; }
+
+async function cardSeason(d){ await shFonts(); const [c,x]=shCanvas(); const [lg,mi]=await Promise.all([shImg(d.logo),shImg(d.mvp?SHOT(d.mvp.p.id):null)]);
+  shBase(x,d.label,d.col); shCrest(x,lg,d.name,64,122,150);
+  shFit(x,d.title,244,206,'400',80,'Silkscreen',d.titleCol,SHW-64-244); shFit(x,d.name,244,256,'700',34,'Inter','#FDFEFC',SHW-64-244);
+  if(d.mvp) shStar(x,'Season MVP',d.mvp.p,mi,d.mvp.lines,312);
+  shTiles(x,d.tiles,712);
+  const G=d.games, per=Math.min(8,Math.max(1,G.length)), g=8, W=(SHW-128-g*(per-1))/per; shText(x,'Week by week',64,914,'700 24px Inter','rgba(253,254,252,.55)',{up:true,ls:3});
+  G.forEach((r,i)=>{ const X=64+(i%per)*(W+g), Y=936+Math.floor(i/per)*132, cc=r.k==='W'?'#4ade80':r.k==='L'?'#D9325E':r.k==='T'?'#C9CED6':'#242933', ink=r.k?'#0E1013':'rgba(253,254,252,.55)';
+    shNotch(x,X,Y,W,120,6,cc); shText(x,r.w,X+W/2,Y+44,'800 22px Inter',ink,{al:'center',ls:1}); shFit(x,r.s||'',X+W/2,Y+92,'800',28,'Inter',ink,W-16,'center'); });
+  if(d.leaders&&d.leaders.length&&G.length<=8){ shText(x,'Team leaders',64,1104,'700 24px Inter','rgba(253,254,252,.55)',{up:true,ls:3}); shTiles(x,d.leaders,1124); }
+  shText(x,d.foot||'',64,SHH-48,'600 24px Inter','rgba(253,254,252,.45)',{up:true,ls:2,max:SHW-128}); return c; }
+
+/* what goes on each picture */
+function gameShareData(M){ const L=(M.lineup&&M.lineup.length?M.lineup:DR.got.slice(0,5)), ps=M.ps, [a,b]=M.score; let bi=0; L.forEach((p,i)=>{ if(ps[i]&&shScore(ps[i])>shScore(ps[bi])) bi=i; });
+  const season=typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK), me=season?LG.teams[0]:null, them=CPU;
+  return {label:season?LG.rounds[LG.cur].label:'Quick game', col:(me&&me.col&&me.col[0])||'#4C9EFF', res:a>b?'W':a<b?'L':'T', ot:M.ot,
+    me:{name:ME.name,logo:ME.logo,sc:a,sub:season?'You · '+recTxt(me.st):'You'}, them:{name:them.name,logo:them.logo,sc:b,sub:season&&them.st?recTxt(them.st):''},
+    pog:L[bi]?{p:L[bi],lines:shLines(L[bi],ps[bi])}:null,
+    tiles:[[M.st.py+M.st.ry,'Your yards'],[M.opp.yds||0,'Yds allowed'],[M.dst.int+M.dst.fum,'Takeaways'],[M.dst.sk,'Sacks']],
+    foot:(DR.got[5]?DR.got[5].season+' '+DR.got[5].n+' defense · ':'')+(season?LG.name+' season':'Season Mode')}; }
+function teamShareData(){ const me=LG.teams[0], pl=ordinal(standings().findIndex(x=>x.i===0)+1);
+  return {label:'My team · '+LG.name+' season · '+(LG.phase==='done'?'Final':LG.rounds[LG.cur].label), name:me.name, logo:me.logo, col:(me.col&&me.col[0])||'#4C9EFF',
+    sub:recTxt(me.st)+' · '+pl+' of '+LG.teams.length+' · Offense '+offR(me), five:me.roster, dst:LG.dstRound===LG.cur?DR.got[5]:null,
+    foot:(me.bench||[]).length+' on the bench · $'+(me.faab??100)+' FAAB left'}; }
+function seasonShareData(){ const me=LG.teams[0], place=standings().findIndex(x=>x.i===0)+1, done=LG.phase==='done', champ=done&&LG.champ===0;
+  const P=Object.values(LG.pl||{}).filter(p=>p.ti===0&&!isBackup(p)&&p.id).sort((x,y)=>shScore(y)-shScore(x)), m=P[0];
+  const games=LG.rounds.map(R=>{ const g=myGame(R), r=myRes(g); return g||(R.bye&&R.bye.includes(0))?{w:wkShort(R),k:r?r.k:'',s:r?r.m+'–'+r.t:(g?'':'Bye')}:null; }).filter(Boolean);
+  return {label:LG.name+' season · '+(done?'Final':LG.rounds[LG.cur].label), name:me.name, logo:me.logo, col:(me.col&&me.col[0])||'#4C9EFF',
+    title:champ?'CHAMPIONS':done?ordinal(place)+' PLACE':'SEASON SO FAR', titleCol:champ?'#F0CE26':'#FDFEFC',
+    mvp:m?{p:m,lines:(()=>{ const l=shLines(m,m); return [l[0],l[1]+' · '+m.g+' game'+(m.g===1?'':'s')]; })()}:null,
+    tiles:[[recTxt(me.st),'Record'],[me.st.pf,'Pts for'],[me.st.pa,'Pts against'],[ordinal(place),'Place']],
+    leaders:[['py','Pass'],['ry','Rush'],['recy','Rec']].map(([k,l])=>{ const b=P.slice().sort((x,y)=>(y[k]||0)-(x[k]||0))[0]; return b&&b[k]?[b[k],l+' yds · '+lastN(b.n)]:null; }).filter(Boolean),
+    games, foot:champ?'League champions':done?'Season over':(me.bench||[]).length+' on the bench · $'+(me.faab??100)+' FAAB left'}; }
+
+/* drawing, the button, and the share */
+function shareWarm(kind,key,make){ const s=SHARE[kind]; if(s&&s.key===key&&(s.file||s.busy)) return shareBtn(kind); SHARE[kind]={key,busy:true}; shareBtn(kind);
+  make().then(c=>new Promise(r=>c.toBlob(r,'image/png'))).then(b=>{ if(!SHARE[kind]||SHARE[kind].key!==key) return; SHARE[kind]={key,file:new File([b],'gfl-season-mode-'+kind+'.png',{type:'image/png'})}; shareBtn(kind); })
+    .catch(()=>{ if(SHARE[kind]&&SHARE[kind].key===key){ SHARE[kind]={key,err:1}; shareBtn(kind); } }); }
+function shareBtn(kind){ document.querySelectorAll('[data-share="'+kind+'"]').forEach(b=>{ const s=SHARE[kind]||{}; b.disabled=!s.file; b.textContent=s.file?b.dataset.label:s.err?'Picture unavailable':'Drawing picture…'; b.onclick=()=>shareGo(kind); }); }
+function shareGo(kind){ const s=SHARE[kind]; if(!s||!s.file) return; const f=s.file;
+  if(navigator.share&&matchMedia('(pointer:coarse)').matches&&navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share({files:[f]}).catch(()=>{}); return; }
+  const u=URL.createObjectURL(f), a=document.createElement('a'); a.href=u; a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000);
+  document.querySelectorAll('[data-share="'+kind+'"]').forEach(b=>{ b.textContent='Picture saved'; setTimeout(()=>{ b.textContent=b.dataset.label; },1800); }); }
+const shareButton=(kind,label)=>`<button class="btn shr" data-share="${kind}" data-label="${label}" disabled>Drawing picture…</button>`;
 
 /* ═══ STARTING OUT ═══ pick a size, build your team, then the hub */
 /* QUICK GAMES ONLY: an account let in just for quick games (Marathon Men) sees the quick game and its test team, and

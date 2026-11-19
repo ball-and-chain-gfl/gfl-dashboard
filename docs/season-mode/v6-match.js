@@ -296,13 +296,14 @@ function makeMatch(){
         <div><span class="tag">Their offense</span><b>${M.opp.plays} plays, ${M.opp.yds} yds</b><span>${M.opp.drives} drive${M.opp.drives===1?'':'s'} against your ${DR.got[5]?esc(DR.got[5].n):''} D</span></div>
       </div>
       <div class="tag" style="position:relative;align-self:flex-start;margin-top:4px">Box score</div>
-      <div class="pbox">${DR.got.map((p,i)=>{ const s=i<5?M.ps[i]:null, d=M.dst; let a='',b='';
+      <div class="pbox">${[...(M.lineup&&M.lineup.length===5?M.lineup:DR.got.slice(0,5)),DR.got[5]].filter(Boolean).map((p,i)=>{ const s=i<5?M.ps[i]:null, d=M.dst; let a='',b='';
         if(p.pos==='QB'){ a=`${s.comp}/${s.att} · ${s.py} yds · ${s.ptd} TD · ${s.int} INT`; b=`${s.sk} sacked · ${s.car} rushes, ${s.ry} yds${s.rushtd?' · '+s.rushtd+' TD':''}${s.fum?' · '+s.fum+' fumble':''}`; }
         else if(p.pos==='RB'){ a=`${s.car} carries · ${s.ry} yds · ${s.rushtd} TD`; b=`${s.rec} catches · ${s.recy} yds${s.fum?' · '+s.fum+' fumble':''}`; }
         else if(p.pos==='D/ST'){ a=`${d.sk} sacks · ${d.int} INT · ${d.fum} fumbles`; b=`${M.score[1]} points · ${M.opp.yds} yds allowed`; }
         else { a=`${s.rec} of ${s.tgt} · ${s.recy} yds · ${s.rtd} TD`; b=s.rec?`long ${s.long}${s.fum?' · '+s.fum+' fumble':''}`:'no catches'; }
-        return `<div class="t-${TIER(p.r)}">${p.pos==='D/ST'?nflImg(p.n):`<img src="${SHOT(p.id)}" alt="">`}<span><b>${esc(p.n)}</b><em>${p.pos} · ${p.season} · ${p.r}</em><i>${a}</i><i>${b}</i></span></div>`; }).join('')}</div>
-      <button class="btn w" id="again">${typeof QUICK!=='undefined'&&QUICK?(localStorage.getItem('gfl-season-v1')?'Back to the season':'Play again'):typeof LG!=='undefined'&&LG?'Back to the season':'Play again'}</button></div>`;
+        return `<div class="t-${TIER(p.r)}">${p.pos==='D/ST'?nflImg(p.n):String(p.id).startsWith('bk-')?'<span class="ini">B</span>':`<img src="${SHOT(p.id)}" alt="">`}<span><b>${esc(p.n)}</b><em>${p.pos}${p.season?' · '+p.season:''} · ${p.r}</em><i>${a}</i><i>${b}</i></span></div>`; }).join('')}</div>
+      ${typeof shareButton==='function'?shareButton('game','Share this result'):''}<button class="btn w" id="again">${typeof QUICK!=='undefined'&&QUICK?(localStorage.getItem('gfl-season-v1')?'Back to the season':'Play again'):typeof LG!=='undefined'&&LG?'Back to the season':'Play again'}</button></div>`;
+    if(typeof shareWarm==='function') setTimeout(()=>shareWarm('game','g'+Date.now(),()=>cardGame(gameShareData(M))),0);
     /* a quick game goes in no book; a season game does */
     if(typeof QUICK!=='undefined'&&QUICK) $('#again').onclick=()=>quickDone();
     else if(typeof LG!=='undefined'&&LG){ seasonFinal(M); $('#again').onclick=()=>seasonContinue(); }
