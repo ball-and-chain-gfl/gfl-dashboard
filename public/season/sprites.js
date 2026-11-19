@@ -456,3 +456,4 @@ function handPoint(state,f,facing,s){ const view=facing==='up'||facing==='upL'?'
   const P=bodyP(view,state,fi), a=P.arms[0][2], b=P.arms[1][2];
   const h=(state==='oneHand'||state==='reach')?(a[1]<b[1]?a:b):[(a[0]+b[0])/2,(a[1]+b[1])/2], m=facing==='left'||facing==='upL'?-1:1;
   return [m*h[0]*PU*s,h[1]*PU*s]; }
+

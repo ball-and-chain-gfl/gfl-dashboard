@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Season Mode · concept 6</title>
-<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#171717; --l1:#1D1D1D; --l2:#252525; --ln:#272727; --ln2:#2E2E2E;
@@ -272,6 +272,79 @@
   .sheet{border:1px solid var(--ln2);background:var(--l1);}
   .sheet canvas{display:block;width:100%;height:auto;}
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important;} }
+
+  /* ═══ THE GAME: MODERN, ANALYTIC, PIXEL ═══
+     Clean dark panels and hard pixel edges to match the players: square cards with notched corners, a pixel face
+     (Pixelify Sans) for the things you read at a glance (scores, the clock, the down, what just happened), Inter for
+     the sentences. The numbers that matter sit up top: the win probability under the score, and a strip of the whole
+     field under the down and distance. */
+  #scr-game,#scr-final{--px:Silkscreen,Inter,sans-serif;--night:#0E1013;--p1:#15181D;--p2:#1D2128;--hl:rgba(255,255,255,.08);--ink:#0E1013;}
+  #scr-game{background:var(--night);}
+  #scr-game .lb{font:600 10px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+  .bug{grid-template-columns:1fr auto 1fr;border-bottom:0;background:var(--night);padding:8px 10px 0;}
+  .bug .tm{padding:4px 2px;gap:9px;}
+  .bug img,.bug .ini{width:30px;height:30px;border-radius:0;background:var(--p2);padding:3px;clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));}
+  .bug .sc{font:400 32px/1 var(--px);letter-spacing:0;}
+  .bug .pos{width:6px;height:6px;border-radius:0;background:var(--yellow);}
+  .bug .clk{border:0;min-width:72px;padding:2px 6px;}
+  .bug .clk .tag{font:600 10px/1 var(--sans);letter-spacing:.08em;color:var(--text3);}
+  .bug .clk b{font:400 16px/1.3 var(--px);}
+  .bug .clk b.run{color:var(--green);}
+  .bug .menu{border-radius:0;background:var(--p2);border:0;clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));}
+  .bug .wp{grid-column:1/-1;order:9;display:flex;flex-wrap:wrap;justify-content:space-between;padding:6px 2px 9px;}
+  .bug .wp .wv{color:var(--text2);}
+  .bug .wpb{width:100%;display:grid;grid-template-columns:repeat(20,1fr);gap:2px;margin-top:6px;height:5px;}
+  .bug .wpb i{display:block;height:100%;}
+  .dd{flex-wrap:wrap;background:var(--p1);border-top:1px solid var(--hl);border-bottom:1px solid var(--hl);font:500 13px/1 var(--sans);letter-spacing:0;text-transform:none;color:var(--text2);padding:8px 12px 9px;row-gap:8px;}
+  .dd .dn .amp{font:700 14px/1 var(--sans);font-style:normal;margin:0 2px;}
+  .dd .dn{font:400 16px/1 var(--px);color:var(--text);margin-right:4px;}
+  .dd .dv{font:600 10px/1 var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+  .dd .pc{color:var(--green);}
+  .fs2{position:relative;width:100%;height:6px;background:var(--p2);}
+  .fs2 i{position:absolute;top:0;bottom:0;display:block;}
+  .fs2 .ez{width:8.33%;opacity:.8;} .fs2 .yl{width:1px;background:rgba(255,255,255,.12);}
+  .fs2 .los{width:3px;top:-3px;bottom:-3px;background:var(--sky);margin-left:-1px;} .fs2 .fdm{width:3px;top:-3px;bottom:-3px;background:var(--yellow);margin-left:-1px;}
+
+  .banner .pix{width:100%;max-width:288px;height:auto;aspect-ratio:16/9;object-fit:cover;image-rendering:pixelated;display:block;clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));}
+  .callout div{border:0;border-top:2px solid var(--cc);background:rgba(14,16,19,.95);}
+  .callout b{font:400 16px var(--px);}
+  .callout small{font:600 10.5px var(--sans);}
+  .banner{background:rgba(8,9,11,.7);padding:14px;}
+  .banner .bx{background:var(--night);border:0;border-top:0;padding:16px 14px 14px;gap:7px;clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));}
+  .banner .pix{width:224px;height:152px;margin-bottom:6px;}
+  .banner small{font:600 10.5px/1 var(--sans);letter-spacing:.08em;color:var(--cc);}
+  .banner b{font:400 24px/1.15 var(--px);letter-spacing:0;}
+  .banner span{font:400 13.5px/1.45 var(--sans);color:var(--text2);}
+  .banner .btn,.acts button.go{clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));}
+  .banner .btn{border-radius:0;font:400 16px/1 var(--px);letter-spacing:0;padding:13px 16px;width:100%;margin-top:8px;}
+  .banner .ds{width:100%;margin-top:6px;text-align:left;}
+  .banner .ds .dg{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;}
+  .banner .ds .dg div{background:var(--p1);padding:8px 8px 7px;}
+  .banner .ds .dg b{font:400 16px/1 var(--px);margin-top:5px;padding:0;}
+  .banner .ds .dg .lb,.banner .ds .lb{font:600 9.5px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);display:block;}
+  .banner .ds .dch{display:flex;align-items:flex-end;gap:3px;height:46px;margin-top:10px;border-bottom:2px solid var(--hl);}
+  .banner .ds .dch i{flex:1;max-width:26px;display:block;}
+  .banner .ds .dwp{font:500 12px/1 var(--sans);color:var(--text2);margin-top:8px;padding:0;}
+  .banner .ds .dwp b{display:inline;font:700 12px/1 var(--sans);padding:0;}
+  .hint span{font:600 11px/1 var(--sans);letter-spacing:.05em;background:rgba(14,16,19,.9);border:0;padding:6px 9px;}
+  .toast{font:600 11.5px var(--sans);background:var(--p2);border:0;}
+  .calls{background:var(--night);border-top:1px solid var(--hl);gap:2px;}
+  .calls .kind{gap:2px;}
+  .calls .kind button{font:600 11px/1 var(--sans);letter-spacing:.1em;background:var(--p1);padding:8px 4px;}
+  .calls .kind button.on{background:var(--p2);}
+  .calls .four4{gap:2px;}
+  .calls .four4 button{background:var(--p1);}
+  .calls .four4 button.on{background:var(--p2);}
+  .acts{gap:2px;background:var(--night);padding-top:2px;}
+  .acts button{font:600 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;background:var(--p1);}
+  .acts button.go{background:var(--text);color:var(--ink);font:400 16px/1 var(--px);text-transform:none;}
+  .acts button small{font:600 10px/1 var(--sans);}
+  .drive{background:var(--night);border-top:1px solid var(--hl);}
+  .drive .tb{display:flex;align-items:center;gap:9px;font:400 16px var(--px);}
+  .drive .tb img,.drive .tb .ini{width:28px;height:28px;object-fit:contain;}
+  .drive .btn{border-radius:0;font:600 12px var(--sans);clip-path:polygon(0 4px,4px 4px,4px 0,calc(100% - 4px) 0,calc(100% - 4px) 4px,100% 4px,100% calc(100% - 4px),calc(100% - 4px) calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,4px calc(100% - 4px),0 calc(100% - 4px));}
+  #scr-final .champ h3{font:400 40px/1 var(--px);letter-spacing:0;}
+  #scr-final .fs b{font:400 40px/1 var(--px);}
 </style>
 </head>
 <body>
@@ -321,6 +394,8 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const TIER=r=>r>=96?'legend':r>=88?'gold':r>=80?'silver':'bronze';
 const RESC=r=>r>=88?r:r>=76?Math.round(80+(r-76)*7/11):Math.round(68+(Math.max(60,r)-60)*11/15);
 const ATTR={QB:['Arm','Accuracy','Legs','Escape'],RB:['Speed','Elusiveness','Power','Hands'],WR:['Speed','Route running','Hands','Contested'],TE:['Blocking','Hands','Speed','Contested'],'D/ST':['Pass rush','Coverage','Run stop','Ball hawk']};
+/* the pixel-art scenes on the cards between drives, one per kind of result (art/, made once and shrunk to a 48-colour, 288 x 162 pixel grid) */
+const ART=Object.fromEntries(['td','td_them','int','int_us','strip','fumble','fumble_us','safety','downs','downs_us','fg','nofg','punt','kick'].map(k=>[k,'art/'+k+'.png']));
 const ini=n=>String(n).replace(/[^A-Za-z0-9 ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
 const crest=t=>t&&t.logo?`<img src="${t.logo}" alt="">`:`<span class="ini">${ini(t?t.name:'?')}</span>`;
 const gauss=()=>{ let u=0,v=0; while(!u) u=Math.random(); while(!v) v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };

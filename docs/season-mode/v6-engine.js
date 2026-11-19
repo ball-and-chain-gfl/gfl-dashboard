@@ -65,9 +65,9 @@ Object.entries({slants:'tight',verts:'spread',mesh:'tight',smash:'gun',curls:'gu
   .forEach(([k,f])=>{ if(PLAYS[k]) PLAYS[k].f=f; });
 const BOOK={pass:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='pass'),run:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='run')};
 const deal=kind=>BOOK[kind].slice().sort(()=>Math.random()-.5).slice(0,4);
-/* A FIELD GOAL'S ODDS by its length, for both teams: about 98 in 100 from 20 yards, 95 from 30, 88 from 40, 76 from 50,
-   65 from 57. Never a sure thing, and always better the closer the kick. */
-const fgOdds=d=>clamp(.985-.00022*Math.max(0,d-18)**2,.05,.985);
+/* A FIELD GOAL'S ODDS by its length, for both teams: about 98 in 100 from 20 yards, 93 from 30, 81 from 40, 62 from 50,
+   45 from 57. Never a sure thing, and always better the closer the kick. */
+const fgOdds=d=>clamp(.98-.00035*Math.max(0,d-18)**2,.05,.98);
 const LOOKS={cover2:'Cover 2',cover3:'Cover 3',man:'Man',blitz:'Blitz'};
 /* the play drawn small for its button, like a coach's card */
 function playSVG(k){
@@ -493,12 +493,11 @@ function makeGame(){
     if(caught&&diving){ S.caught=true; S.catcher=r; pop('Diving catch','#4C9EFF',r); { const ux=to.x-r.x, uy=to.y-r.y, ul=Math.hypot(ux,uy)||1; r.x=to.x-ux/ul*.6; r.y=to.y-uy/ul*.6; dive(r,{x:r.x+ux,y:r.y+uy}); } r.until=S.t+.25; S.ball.holder=r;
       const y=Math.round(to.y); return end(y>=S.goal?'Touchdown':'Diving catch',(r.name||'#'+r.num)+' lays out for it'+(y>=S.goal?' in the end zone.':', '+y+' yards.'),y>=S.goal?'td':'gain',y>=S.goal?S.goal:y); }
     if(caught){ S.caught=true; S.catcher=r; r.x=to.x; r.y=to.y; S.ball.holder=r; S.carrier=r; r.path=null; r.route=null; hint('Tap left or right of him to cut');
-      /* a short one in coverage: the possession catch. He takes it at his chest, pulls it in high and tight and turns
-         his shoulder into the man arriving, the better his hands the more often */
+      /* a short one in coverage: he snaps it straight into a tight, secure carry and keeps running, the better his hands the more often */
       const atLine=to.y>=S.goal+10-1.8, atSide=Math.abs(to.x)>SIDE-2.4;
       if(atLine&&to.y>=S.goal){ passScene('toeDrag',null,r,dir4(r.vx||0,Math.max(.1,r.vy||1))); pop('Toe drag','#4C9EFF',r); }
       else if(atSide){ passScene('sideTap',null,r,to.x>0?1:-1); pop('Toe tap','#4C9EFF',r); }
-      else if(d&&dd<1.9&&a.d<15&&!r.rose&&Math.random()<.3+rh*.5){ passScene('possess',d,r,dir4(d.x-r.x,d.y-r.y)); pop('Secured','#4C9EFF',r); }
+      else if(d&&dd<1.9&&a.d<15&&!r.rose&&Math.random()<.3+rh*.5){ r.state='catch'; r.tuck=S.t; r.until=S.t+.3; }
       else if(contested&&d&&!zip){ const moss=ct>.55&&Math.random()<.45; passScene(moss?'mossed':'contest',d,r); pop(moss?'Mossed':'Over the top','#4C9EFF',r); }
       else if(contested&&!zip){ r.state='leap'; r.leap0=S.t; r.until=S.t+.38; }
       else if(contested){ r.state='catch'; r.until=S.t+.28; }
@@ -583,7 +582,7 @@ function makeGame(){
       let st=p.state, fr=p.fxd?(p.ff||0):(st==='run'?p.ph%8:0), face=p.facing, lift=0;
       /* frames: a one-off plays through by time, a loop alternates */
       if(ONESHOT[st]) fr=stageOf(ONESHOT[st],age); else if(LOOP.has(st)) fr=Math.floor(age/.12)%2;
-      if(st==='catch') fr=(p.ph%8)+100*stageOf(ONESHOT.catch,age);
+      if(st==='catch') fr=(p.ph%8)+100*(p.tuck&&S.t-p.tuck<.6?1+stageOf([.07],age):stageOf(ONESHOT.catch,age));
       if(st==='throw'){ fr=1+Math.min(2,Math.floor((S.t-(p.throw0||0))/(p.throwIv||.1))); if(p.throwStyle==='jump') lift=Math.max(0,Math.sin(Math.PI*clamp((S.t-p.throw0)/.4,0,1)))*12; }
       else if(p===S.QB&&S.ball.holder===p&&!S.runCall&&S.phase==='live'&&st==='stance'){ st='throw'; fr=0; }
       if(st==='leap') lift=Math.max(0,Math.sin(Math.PI*clamp((S.t-p.leap0-.06)/.32,0,1)))*(p.leapH||16);
