@@ -84,7 +84,7 @@ function linesFrom(t,S){ const R=t.roster, L=R.map(()=>({att:0,comp:0,py:0,ptd:0
   for(let k=0;k<att-comp;k++) L[pickW(W).i].tgt++; L.forEach(l=>l.tgt+=l.rec);
   const got=W.filter(w=>L[w.i].rec>0); for(let k=0;k<S.tdP;k++) L[pickW(got.length?got:W).i].rtd++;
   return L; }
-function addLines(ti,L){ const t=LG.teams[ti]; LG.pl=LG.pl||{}; t.roster.forEach((p,k)=>{ const o=LG.pl[ti+':'+k]||(LG.pl[ti+':'+k]={ti,k,n:p.n,pos:p.pos,id:p.id,r:p.r,g:0});
+function addLines(ti,L){ const t=LG.teams[ti]; LG.pl=LG.pl||{}; t.roster.forEach((p,k)=>{ const key=ti+':'+p.id+'-'+p.season, o=LG.pl[key]||(LG.pl[key]={ti,k,n:p.n,pos:p.pos,id:p.id,season:p.season,r:p.r,g:0});
   o.g++; Object.entries(L[k]).forEach(([f,v])=>{ if(f!=='long'&&f!=='g') o[f]=(o[f]||0)+v; }); }); }
 /* a defense's line: what the offense it faced did */
 function addD(ti,dst,S){ LG.dl=LG.dl||{}; const o=LG.dl[ti+':'+dst.id]||(LG.dl[ti+':'+dst.id]={ti,n:dst.n,season:dst.season,r:dst.r,g:0,sk:0,int:0,fum:0,pa:0,ya:0});
@@ -114,18 +114,35 @@ function advance(){ const R=LG.rounds[LG.cur];
   LG.cur++; LG.teams.forEach((t,i)=>{ if(i) t.dst=pickDST(); }); cpuRespins(); save(); }
 /* ONE RE-SPIN A WEEK, for everyone. Yours you take yourself from the hub; each other team takes its own here: it spins a
    new player at its weakest spot and keeps whichever of the two is better. The moves are listed with the week's results. */
-function cpuRespins(){ const used=new Set(LG.teams.flatMap(t=>t.roster.map(p=>p.id+'-'+p.season))); LG.moves=[];
+function cpuRespins(){ const used=new Set(LG.teams.flatMap(t=>[...t.roster,...(t.bench||[])].map(p=>p.id+'-'+p.season))); LG.moves=[];
   LG.teams.forEach((t,i)=>{ if(!i) return; let k=0; t.roster.forEach((p,j)=>{ if(p.r<t.roster[k].r) k=j; }); const old=t.roster[k], c=pickPlayer(OSLOTS[k],used);
     if(c&&c.r>old.r){ t.roster[k]=c; LG.moves.push({t:i,pos:OSLOTS[k],out:{n:old.n,r:old.r},in:{n:c.n,r:c.r,season:c.season}}); } }); }
-/* YOURS: pick one of your five, spin a pack for that spot, and take a new player or keep the one you had */
+/* ADD A PLAYER, once a week: pick a position, spin a pack for it, and the player you take joins your bench. Your five
+   stay as they are until you start him from Your team. */
 let RESPIN=null;
 function respinPick(){ const me=LG.teams[0];
-  $('#scr-hub .hb-body').innerHTML=`<div class="hb-card"><span class="tag">Re-spin one player</span><h3>Which spot?</h3><p>Spin a pack for one of your five. You'll see four players from it and can take one, or keep the player you have. One re-spin a week; your defense isn't part of it.</p>
-    <div class="rsp">${me.roster.map((p,i)=>`<button class="t-${TIER(p.r)}" data-i="${i}"><span>${OSLOTS[i]}</span><b>${esc(p.n)}</b><em>${p.r}</em></button>`).join('')}</div>
+  $('#scr-hub .hb-body').innerHTML=`<div class="hb-card"><span class="tag">Add a player</span><h3>Which position?</h3><p>Spin a pack for one position and take one of the four. He joins your bench; start him from Your team. One a week.</p>
+    <div class="rsp">${['QB','RB','WR','TE'].map(pos=>{ const cur=me.roster.filter(p=>p.pos===pos), top=Math.max(...cur.map(p=>p.r)); return `<button class="t-${TIER(top)}" data-p="${pos}"><span>${pos}</span><b>${cur.map(p=>esc(p.n)).join(', ')}</b><em>${cur.map(p=>p.r).join(' / ')}</em></button>`; }).join('')}</div>
     <button class="btn" id="rsp-x">Not this week</button></div>`;
-  document.querySelectorAll('.rsp button').forEach(b=>b.onclick=()=>startRespin(+b.dataset.i)); $('#rsp-x').onclick=()=>hub('next'); }
-function startRespin(i){ RESPIN={i,old:DR.got[i]||LG.teams[0].roster[i]}; DR.i=i; DR.got[i]=null; screen('draft'); stageSpin(); }
-function respinDone(keep){ const i=RESPIN.i; if(keep||!DR.got[i]) DR.got[i]=RESPIN.old; LG.teams[0].roster[i]=slim(DR.got[i]); LG.respin=LG.cur; RESPIN=null; DR.i=6; save(); hub('next'); }
+  document.querySelectorAll('.rsp button').forEach(b=>b.onclick=()=>startRespin(b.dataset.p)); $('#rsp-x').onclick=()=>hub('next'); }
+function startRespin(pos){ const i=OSLOTS.indexOf(pos); RESPIN={i,save:DR.got[i]}; DR.i=i; DR.got[i]=null; screen('draft'); stageSpin(); }
+function respinDone(none){ const i=RESPIN.i, got=DR.got[i]; DR.got[i]=RESPIN.save; RESPIN=null; DR.i=6;
+  if(!none&&got){ const me=LG.teams[0]; (me.bench=me.bench||[]).push(slim(got)); LG.newIds=[got.id+'-'+got.season]; LG.respin=LG.cur; save(); return hub('team'); }
+  save(); hub('next'); }
+/* start a bench player in a spot: the two swap */
+function startPlayer(j,k){ const me=LG.teams[0], B=me.bench||[], p=B[j], out=me.roster[k]; if(!p||!out||p.pos!==out.pos) return;
+  me.roster[k]=p; B.splice(j,1,out); DR.got[k]=p; LG.newIds=(LG.newIds||[]).filter(x=>x!==p.id+'-'+p.season); save(); hub('team'); }
+/* THE WAY OUT, from every pack screen and every game */
+function draftWhere(){ if(RESPIN) return 'Add a player'; if(QUICK) return 'Quick game · your team'; if(SETUP) return 'New season · your team'; if(LG) return esc(LG.rounds[LG.cur].label)+' · your defense'; return 'Packs'; }
+function leaveDraft(){ DR.gen=(DR.gen||0)+1; clearInterval(DR.rain);
+  if(RESPIN){ DR.got[RESPIN.i]=RESPIN.save; RESPIN=null; DR.i=6; return hub('next'); }
+  if(QUICK) return quickDone();
+  if(SETUP){ SETUP=null; DR.i=0; DR.got=[]; return setupScreen(); }
+  if(LG){ DR.i=6; return hub('next'); }
+  DR.i=0; DR.got=[]; setupScreen(); }
+function leaveGame(){ if(!confirm(QUICK?'Leave this quick game?':'Leave this game? It won\'t count, and you can play it from the hub.')) return;
+  SIM.stop(); GAME.show(false); const b=$('#ban'); if(b) b.className='banner';
+  if(QUICK) return quickDone(); if(LG) return hub('next'); DR.i=0; DR.got=[]; setupScreen(); }
 /* finish the round without you: every game left gets simulated */
 function simRound(){ const R=LG.rounds[LG.cur]; R.games.forEach(g=>{ if(!g.s) simGame(g,R.kind==='po'); }); advance(); }
 
@@ -151,7 +168,8 @@ function seasonContinue(){ simRound(); hub('next'); }
 const recTxt=s=>s.w+'–'+s.l+(s.t?'–'+s.t:'');
 const tm=(i,cls)=>{ const t=LG.teams[i]; return `<span class="tmn ${cls||''}"><i style="--p:${t.col?t.col[0]:'#555'};--q:${t.col?t.col[1]:'#999'}"></i>${crest(t)}<b>${esc(t.name)}</b></span>`; };
 let HUBTAB='next', LGTAB='table';
-function hub(tab){ if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur], me=LG.teams[0], tabs=[['next',LG.phase==='done'?'Final':'Next'],['sched','Schedule'],['team','Your team'],['league','League']];
+function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=same&&B0?B0.scrollTop:0, C0=$('#scr-hub .lgc'), x0=C0?C0.scrollLeft:0;
+  if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur], me=LG.teams[0], tabs=[['next',LG.phase==='done'?'Final':'Next'],['sched','Schedule'],['team','Your team'],['league','League']];
   $('#scr-hub').innerHTML=`<div class="hb-top"><div class="fade"><div class="dots"></div></div><span class="tag">${esc(LG.name)} season · ${LG.phase==='done'?'Over':esc(R.label)}</span>
       <div class="hb-me">${crest(me)}<div><b>${esc(me.name)}</b><span>${recTxt(me.st)} · ${ordinal(standings().findIndex(x=>x.i===0)+1)} of ${LG.teams.length}</span></div></div></div>
     <div class="hb-tabs">${tabs.map(([k,l])=>`<button data-k="${k}" class="${k===HUBTAB?'on':''}">${l}</button>`).join('')}</div>
@@ -165,7 +183,9 @@ function hub(tab){ if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur],
   const qb=$('#hb-quick'); if(qb) qb.onclick=()=>quickGame(false);
   const rs=$('#hb-respin'); if(rs) rs.onclick=respinPick;
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
-  document.querySelectorAll('.lgc button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); }); }
+  document.querySelectorAll('.lgc button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); });
+  const tb=$('#hb-team'); if(tb) tb.onclick=()=>hub('team');
+  const B1=$('#scr-hub .hb-body'); if(B1&&y0) B1.scrollTop=y0; const C1=$('#scr-hub .lgc'); if(C1){ C1.scrollLeft=x0; const on=C1.querySelector('.on'); if(on){ const a=on.offsetLeft, w=on.offsetWidth; if(a<C1.scrollLeft||a+w>C1.scrollLeft+C1.clientWidth) C1.scrollLeft=a-14; } } }
 const ordinal=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
 function hubNext(){
   if(LG.phase==='done'){ const c=LG.teams[LG.champ], won=LG.champ===0;
@@ -174,14 +194,16 @@ function hubNext(){
       <button class="btn w" id="hb-go">New season</button><button class="btn" id="hb-quick">Quick game</button></div>`; }
   const R=LG.rounds[LG.cur], g=myGame(R);
   let top;
-  if(g){ const home=g.h===0, o=home?g.a:g.h, t=LG.teams[o], needD=!(LG.dstRound===LG.cur&&DR.got[5]);
+  if(g){ const home=g.h===0, o=home?g.a:g.h, t=LG.teams[o], me=LG.teams[0], needD=!(LG.dstRound===LG.cur&&DR.got[5]), myD=needD?null:DR.got[5];
+    const rt2=(r,o)=>`<b class="rtg t-${TIER(r)}${o!=null&&r<o?' lo':''}">${r}</b>`;
+    const row=(lab,a,b,cls)=>`<div class="${cls||''}"><div class="me${a?'':' q'}">${a?`<b>${esc(a.s||lastN(a.n))}</b>${rt2(a.r,b&&b.r)}`:'<b>Spin to see</b>'}</div><span>${lab}</span><div class="th">${b?`${rt2(b.r,a&&a.r)}<b>${esc(b.s||lastN(b.n))}</b>`:''}</div></div>`;
+    const dn=d=>d&&{n:d.n,s:d.n,r:d.r};
     top=`<div class="hb-card"><span class="tag">${esc(R.label)} · ${home?'Home':'Away'}</span>
-      <div class="hb-vs"><div>${crest(LG.teams[0])}<b>You</b><span>${recTxt(LG.teams[0].st)}</span></div><i>${home?'v':'at'}</i><div>${crest(t)}<b>${esc(t.name)}</b><span>${recTxt(t.st)}</span></div></div>
-      <div class="hb-lu">${[[LG.teams[0],needD?null:DR.got[5],'You'],[t,t.dst,t.name]].map(([T,D,lab])=>`<div><span class="tag">${esc(lab)}</span><span class="ov">Offense <b class="t-${TIER(offR(T))}">${offR(T)}</b></span>
-        ${T.roster.map(p=>`<div class="t-${TIER(p.r)}"><span>${p.pos}</span><b>${esc(p.n)}</b><em>${p.r}</em></div>`).join('')}
-        ${D?`<div class="t-${TIER(D.r)}"><span>D/ST</span><b>${D.season} ${esc(D.n)}</b><em>${D.r}</em></div>`:'<div class="spin"><span>D/ST</span><b>Spin to see</b><em>?</em></div>'}</div>`).join('')}</div>
-      <button class="btn w" id="hb-go">${needD?'Spin your defense':'Kick off'}</button>${needD?'<span class="tag">A new defense every week</span>':''}
-      ${LG.respin===LG.cur?'<span class="tag">Re-spin used this week</span>':'<button class="btn" id="hb-respin">Re-spin a player</button>'}</div>`; }
+      <div class="hb-vs"><div>${crest(me)}<b>You</b><span>${recTxt(me.st)}</span></div><i>${home?'vs':'at'}</i><div>${crest(t)}<b>${esc(t.name)}</b><span>${recTxt(t.st)}</span></div></div>
+      <div class="h2h">${row('OFF',{s:'Offense',r:offR(me)},{s:'Offense',r:offR(t)},'ovr')}${me.roster.map((p,k)=>row(OSLOTS[k],p,t.roster[k])).join('')}${row('D/ST',dn(myD),dn(t.dst))}</div>
+      <div class="hb-acts"><button class="btn w" id="hb-go">${needD?'Spin your defense':'Kick off'}</button>
+        ${LG.respin===LG.cur?'<button class="btn" disabled>Player added</button>':'<button class="btn" id="hb-respin">Add a player</button>'}<button class="btn" id="hb-team">Set lineup</button></div>
+      ${needD?'<span class="hb-sub">A new defense every week: spin it before kickoff.</span>':''}</div>`; }
   else top=`<div class="hb-card"><span class="tag">${esc(R.label)}</span><h3>${LG.phase==='po'?(R.bye&&R.bye.includes(0)?'You have a bye':'You\'re out'):'No game this week'}</h3>
       <p>${LG.phase==='po'&&!(R.bye&&R.bye.includes(0))?'The playoffs go on without you.':'The rest of the league plays.'}</p><button class="btn w" id="hb-go">Sim ${esc(R.label.toLowerCase())}</button></div>`;
   const last=LG.cur>0?LG.rounds[LG.cur-1]:null;
@@ -215,24 +237,32 @@ function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGam
         end=r?`<span class="res"><span class="wl ${r.k}">${r.k}</span>${r.m}–${r.t}${g.ot?' <small>OT</small>':''}</span>`:now?'<span class="nx">Next</span>':'<i></i>'; }
       return `<details class="wk${now?' now':''}" ${open?'open':''}><summary><span class="wn">${wkShort(x)}</span>${mid}${end}</summary>${gamesHTML(x,true)}</details>`; }).join('')}</div>
     ${LG.phase!=='done'&&R[R.length-1].kind==='reg'?`<div class="hb-note">Then the playoffs: the top ${LG.po}${LG.po===6?', the top 2 with a bye':''}.</div>`:''}`; }
-/* YOUR TEAM: a card a player, his season in four stat tiles */
-function hubTeam(){ const L=LG.ps, n=L[0]?L[0].g:0, pct=(a,b)=>b?Math.round(a/b*100):0, per=(a,b)=>b?(a/b).toFixed(1):'0';
-  const tiles=(p,i)=>{ const s=L[i];
-    if(p.pos==='QB') return [[s.py,'Pass yds'],[s.ptd,'TD'],[s.int,'Int'],[pct(s.comp,s.att),'Comp %']];
-    if(p.pos==='RB') return [[s.ry,'Rush yds'],[s.rushtd,'TD'],[per(s.ry,s.car),'Per carry'],[s.recy,'Rec yds']];
-    return [[s.rec,'Catches'],[s.recy,'Yards'],[s.rtd,'TD'],[per(s.recy,s.g),'Yds/game']]; };
-  const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
+/* YOUR TEAM: each player a card with his four ratings. Your lineup on top, then the bench: every player you've added,
+   each with a button to start him in place of a starter at his position. Then your defense. */
+const ABR={'Arm':'Arm','Accuracy':'Acc','Legs':'Leg','Escape':'Esc','Speed':'Spd','Elusiveness':'Elu','Power':'Pow','Hands':'Hnd','Route running':'Rte','Contested':'Con','Blocking':'Blk','Pass rush':'Rush','Coverage':'Cov','Run stop':'Stop','Ball hawk':'Hawk'};
+const lastN=n=>{ const w=String(n).split(' ').filter(x=>!/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x)); return w[w.length-1]||n; };
+function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
+  return `<div class="tc t-${TIER(p.r)}${o.isNew?' new':''}"><div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
+    <div class="tc-b"><b>${esc(d?p.season+' '+p.n:p.n)}</b><small>${o.stat||p.season}</small>
+    <div class="tc-a">${ATTR[p.pos].map((l,k)=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
+    ${o.go&&o.go.length?`<div class="tc-go">${o.go.join('')}</div>`:''}</div></div>`; }
+function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||[]), P=LG.pl||{};
+  const line=(p,k)=>{ const s=P['0:'+p.id+'-'+p.season]||(k!=null&&P['0:'+k]&&P['0:'+k].id===p.id?P['0:'+k]:null);
+    if(!s||!s.g) return p.season+' · no games yet';
+    if(p.pos==='QB') return `${s.py} yds · ${s.ptd} TD · ${s.int} INT`; if(p.pos==='RB') return `${s.ry} yds · ${s.rushtd} TD`; return `${s.rec} rec · ${s.recy} yds · ${s.rtd} TD`; };
+  const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k)})).join('');
+  const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),go:OSLOTS.map((x,k)=>x===p.pos?`<button onclick="startPlayer(${j},${k})">Start for ${esc(lastN(me.roster[k].n))}</button>`:'').filter(Boolean)})).join('');
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
-  return `<div class="sh">Your five <b>· ${n} game${n===1?'':'s'}</b></div><div class="pcs">${LG.teams[0].roster.map((p,i)=>`<div class="pc t-${TIER(p.r)}"><div class="pc-top"><img src="${SHOT(p.id)}" alt=""><div><b>${esc(p.n)}</b><span>${p.pos} · ${p.season}</span></div>${rtg(p.r)}</div>${tl(tiles(p,i))}</div>`).join('')}</div>
-    <div class="sh">Your <b>defense</b></div><div class="pcs">
-      ${cur&&LG.dstRound===LG.cur?`<div class="pc t-${TIER(cur.r)}"><div class="pc-top">${nflImg(cur.n,'lgo')}<div><b>${cur.season} ${esc(cur.n)}</b><span>This week</span></div>${rtg(cur.r)}</div>
-        <div class="bars">${ATTR['D/ST'].map((l,k)=>{ const v=cur.a?cur.a[k]:70; return `<div><span>${l}</span><i><b style="width:${Math.max(4,(v-50)/49*100)}%"></b></i><em>${v}</em></div>`; }).join('')}</div></div>`:''}
-      <div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>Every defense you've spun</span></div></div>
-        ${tl([[D.length,'Games'],[tot.sk,'Sacks'],[tot.take,'Takeaways'],[D.length?(tot.pa/D.length).toFixed(1):'0','Pts allowed/g']])}</div></div>
-    ${D.length?`<div class="sh">Week <b>by week</b></div><div class="lds">${D.slice().reverse().map(d=>`<div class="ld dlog"><span class="rk">${esc(String(d.round).replace(/^Week /,'W'))}</span>${nflImg(d.n,'lgo')||'<span class="ini">D</span>'}<span class="nm"><b>${d.season} ${esc(d.n)}</b><small>${d.sk} sack${d.sk===1?"":"s"} · ${d.take} takeaway${d.take===1?"":"s"} · ${d.ya} yds</small></span><span class="v">${d.pa}</span><span class="v2">pts</span></div>`).join('')}</div>`:''}`; }
+  const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
+  return `<div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
+    <div class="sh">Your <b>bench · ${B.length}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="tm-note">Players you add from the Next tab land here. Start one to swap him into your lineup.</div>'}
+    <div class="sh">Your <b>defense</b></div>${cur&&LG.dstRound===LG.cur?`<div class="tcs">${tcHTML(cur,{pos:'D/ST',stat:'This week'})}</div>`:''}
+    <div class="pcs"><div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>Every defense you've spun</span></div></div>
+      ${tl([[D.length,'Games'],[tot.sk,'Sacks'],[tot.take,'Takeaways'],[D.length?(tot.pa/D.length).toFixed(1):'0','Pts allowed/g']])}</div></div>
+    ${D.length?`<div class="sh">Week <b>by week</b></div><div class="lds">${D.slice().reverse().map(d=>`<div class="ld dlog"><span class="rk">${esc(String(d.round).replace(/^Week /,'W'))}</span>${nflImg(d.n,'lgo')||'<span class="ini">D</span>'}<span class="nm"><b>${d.season} ${esc(d.n)}</b><small>${d.sk} sack${d.sk===1?'':'s'} · ${d.take} takeaway${d.take===1?'':'s'} · ${d.ya} yds</small></span><span class="v">${d.pa}</span><span class="v2">pts</span></div>`).join('')}</div>`:''}`; }
 /* THE LEAGUE: one strip of chips for every view; the leader up top in the player views; then one row shape for every list */
 function hubLeague(){ const S=standings(), pg=(v,s)=>s.g?(v/s.g).toFixed(1):'–', po=LG.phase==='reg'?LG.po:0;
-  const TT=[['table','Standings'],['off','Offense'],['def','Defense']], PT=[['pass','Passing'],['rush','Rushing'],['recv','Receiving'],['dst','D/ST']];
+  const TT=[['table','Standings'],['off','Offense'],['def','Defense']], PT=[['pass','Passing'],['rush','Rushing'],['recv','Receiving']]; if(LGTAB==='dst') LGTAB='def';
   const chips=`<div class="lgc">${TT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}<span class="gap"></span>${PT.map(([k,l])=>`<button data-k="${k}" class="${k===LGTAB?'on':''}">${l}</button>`).join('')}</div>`;
   const row=(rank,ti,name,sub,v,v2,cls)=>{ const t=LG.teams[ti], c=v2==null?'':String(v2)[0]==='+'?' up':String(v2)[0]==='–'?' dn':'';
     return `<div class="ld${ti===0?' me':''}${cls?' '+cls:''}" style="--p:${tcol(t)}"><span class="rk">${rank}</span><i></i>${crest(t)}<span class="nm"><b>${esc(name)}</b>${sub?`<small>${esc(sub)}</small>`:''}</span><span class="v">${v}</span>${v2!=null?`<span class="v2${c}">${v2}</span>`:''}</div>`; };
@@ -241,9 +271,10 @@ function hubLeague(){ const S=standings(), pg=(v,s)=>s.g?(v/s.g).toFixed(1):'–
   if(TT.some(t=>t[0]===LGTAB)){ const dif=x=>{ const d=x.s.pf-x.s.pa; return d>0?'+'+d:d<0?'–'+Math.abs(d):'0'; };
     const V={table:{h:['Team','W–L','+/–'],sort:S,v:x=>recTxt(x.s),v2:dif,sub:x=>`PF ${x.s.pf} · PA ${x.s.pa}`},
       off:{h:['Team','Pts/g',null],sort:S.slice().sort((a,b)=>(b.s.g?b.s.pf/b.s.g:0)-(a.s.g?a.s.pf/a.s.g:0)),v:x=>pg(x.s.pf,x.s),v2:null,sub:x=>`Pass ${pg(x.s.py,x.s)} · Rush ${pg(x.s.ry,x.s)} · ${x.s.give} giveaways`},
-      def:{h:['Team','PA/g',null],sort:S.slice().sort((a,b)=>(a.s.g?a.s.pa/a.s.g:99)-(b.s.g?b.s.pa/b.s.g:99)),v:x=>pg(x.s.pa,x.s),v2:null,sub:x=>`${pg(x.s.ya,x.s)} yds/g · ${x.s.sk} sk · ${x.s.take} takeaways`}}[LGTAB];
+      def:{h:['Team','PA/g',null],sort:S.slice().sort((a,b)=>(a.s.g?a.s.pa/a.s.g:99)-(b.s.g?b.s.pa/b.s.g:99)),v:x=>pg(x.s.pa,x.s),v2:null,sub:x=>`${pg(x.s.ya,x.s)} yds/g · ${x.s.sk} sk · ${x.s.take} takeaway${x.s.take===1?"":"s"}`}}[LGTAB];
     const rows=V.sort.map((x,k)=>row(k+1,x.i,x.t.name,V.sub(x),V.v(x),V.v2?V.v2(x):null,LGTAB==='table'&&po&&k<po?'in':'')+(LGTAB==='table'&&po&&k===po-1&&k<V.sort.length-1?'<div class="pline">Playoff line</div>':'')).join('');
-    return chips+`<div class="lds">${head(...V.h)}${rows}</div><div class="hb-note">${LGTAB==='table'?(po?`The top ${po} make the playoffs.`:'Final regular-season standings.'):LGTAB==='off'?'Points a game, best first.':'Points allowed a game, fewest first.'}</div>`; }
+    const L0=V.sort[0], lt=L0&&LG.teams[L0.i], lead=LGTAB!=='table'&&L0&&L0.s.g?`<div class="lead${L0.i===0?' me':''}" style="--p:${tcol(lt)}"><span class="ph lgo">${crest(lt)}</span><div class="tx"><span class="tag">${LGTAB==='off'?'Best offense':'Best defense'}</span><b>${esc(lt.name)}</b><small>${esc(V.sub(L0))}</small><span class="big">${V.v(L0)}<span>${V.h[1]}</span></span></div></div>`:'';
+    return chips+lead+`<div class="lds">${head(...V.h)}${rows}</div><div class="hb-note">${LGTAB==='table'?(po?`The top ${po} make the playoffs.`:'Final regular-season standings.'):LGTAB==='off'?'Points a game, best first.':'Points allowed a game, fewest first: every defense the team has had this season, added up.'}</div>`; }
   /* THE PLAYERS, the leaders first */
   const P=Object.values(LG.pl||{}), avg=(a,b)=>b?(a/b).toFixed(1):'–', pl=(n,w)=>n+' '+w+(n===1?'':'s');
   const T={pass:{h:'Pass yds',rows:P.filter(p=>p.att>0).sort((a,b)=>b.py-a.py),v:p=>p.py,sub:p=>`${p.comp}/${p.att} · ${p.ptd} TD · ${p.int} INT`},

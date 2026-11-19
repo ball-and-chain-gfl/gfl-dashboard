@@ -6,7 +6,7 @@ const roll=()=>{ let r=Math.random()*100; for(const [t,p] of ODDS){ if((r-=p)<0)
 const DR={i:0,got:[]};
 const packHTML=(t,big)=>`<div class="pk t-${t}${big?' big':''}"><div class="dots"></div><div class="band"></div><b>GFL</b><span>${t}</span></div>`;
 function four(pos,tier){
-  const used=new Set(DR.got.map(g=>g&&g.id));
+  const used=new Set([...DR.got,...((typeof LG!=='undefined'&&LG&&LG.teams[0].bench)||[])].map(g=>g&&g.id));
   if(pos==='D/ST') return DEFS.filter(d=>TIER(d.r)===tier).sort(()=>Math.random()-.5).slice(0,4).map(d=>({id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}));
   return POOL.filter(p=>p.pos===pos&&TIER(p.r)===tier&&!used.has(p.id)).sort(()=>Math.random()-.5).slice(0,4);
 }
@@ -29,7 +29,8 @@ const PFX=(()=>{ let cv=null, x=null, P=[], raf=0, last=0, W=0, H=0;
     if(P.length) raf=requestAnimationFrame(step); else { raf=0; x.clearRect(0,0,W,H); } }
   return { burst(el,tier,n,o){ const [cx,cy,w,h]=at(el); add(cx,cy,n,tier,Object.assign({w:w*.6,h:h*.4},o||{})); },
     rain(el,tier,n){ const [cx,cy,w,h]=at(el); add(cx,cy,n,tier,{w:w*1.1,h:h*1.1,sp:40,up:40,g:-30,life:1.3,tw:.8}); } }; })();
-function slotsHTML(){ $('#slots').innerHTML=SLOTS.map((s,i)=>{ const g=DR.got[i]; return `<div class="${i===DR.i&&!g?'now':''}${g?' done t-'+TIER(g.r):''}">${s}<b>${g?g.r:'–'}</b></div>`; }).join(''); }
+function slotsHTML(){ const db=$('#dbar'); if(db){ db.innerHTML=`<span>${typeof draftWhere==='function'?draftWhere():'Packs'}</span><button class="lv" id="dleave">Leave</button>`; $('#dleave').onclick=()=>{ if(typeof leaveDraft==='function') leaveDraft(); }; }
+  $('#slots').innerHTML=SLOTS.map((s,i)=>{ const g=DR.got[i]; return `<div class="${i===DR.i&&!g?'now':''}${g?' done t-'+TIER(g.r):''}">${s}<b>${g?g.r:'–'}</b></div>`; }).join(''); }
 function cardHTML(p){ const t=TIER(p.r), d=p.pos==='D/ST';
   return `<div class="cd t-${t}"><div class="top"><div class="fade"><div class="dots"></div></div>
     <span class="rt" data-r="${p.r}">??</span><span class="tier">${t}</span>
@@ -41,33 +42,34 @@ function stageSpin(){
   const pos=SLOTS[DR.i], land=roll(), N=64, AT=56, W=98, tiers=[];
   for(let i=0;i<N;i++) tiers.push(i===AT?land:roll());
   const rsp=typeof RESPIN!=='undefined'&&RESPIN;
-  $('#stage').innerHTML=`<span class="q">${rsp?'Re-spin':(DR.i+1)+' of 6'}</span><span class="big">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos}</span>${pos==='D/ST'&&typeof dNote==='function'&&dNote()?`<span class="dnote">${dNote()}</span>`:''}
+  $('#stage').innerHTML=`<span class="q">${rsp?'Add a player':(DR.i+1)+' of 6'}</span><span class="big">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos}</span>${pos==='D/ST'&&typeof dNote==='function'&&dNote()?`<span class="dnote">${dNote()}</span>`:''}
     <div class="carousel"><div class="belt" id="belt">${tiers.map(t=>packHTML(t)).join('')}</div><div class="fl"></div><div class="fr"></div></div>
     <button class="btn w" id="spin" style="width:220px">Spin</button>`;
   const belt=$('#belt'), mid=$('#stage .carousel').clientWidth/2; belt.style.transform=`translateX(${mid-44}px)`;
+  const gen=DR.gen;
   $('#spin').addEventListener('click',()=>{ $('#spin').disabled=true;
     belt.style.transition='transform 5.2s cubic-bezier(.06,.72,.1,1)'; belt.style.transform=`translateX(${mid-44-AT*W+(Math.random()*30-15)}px)`;
-    setTimeout(()=>{ const pk=belt.children[AT]; if(pk){ pk.classList.add('land'); PFX.burst(pk,land,land==='legend'?60:land==='gold'?44:26,{sp:200,up:120}); } setTimeout(()=>stageOpen(pos,land),700); },5500); });
+    setTimeout(()=>{ if(gen!==DR.gen) return; const pk=belt.children[AT]; if(pk){ pk.classList.add('land'); PFX.burst(pk,land,land==='legend'?60:land==='gold'?44:26,{sp:200,up:120}); } setTimeout(()=>{ if(gen===DR.gen) stageOpen(pos,land); },700); },5500); });
 }
 function stageOpen(pos,tier){
   $('#stage').innerHTML=`<span class="q">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos} · ${tier} pack</span><div id="bp" class="t-${tier}"><div class="rays"></div>${packHTML(tier,true)}</div><span class="tag">Tap to open</span>`;
-  const pk=$('#bp .pk'), good=tier==='gold'||tier==='legend', sp=good?setInterval(()=>PFX.rain(pk,tier,tier==='legend'?5:3),260):0;
+  const pk=$('#bp .pk'), good=tier==='gold'||tier==='legend', sp=good?setInterval(()=>PFX.rain(pk,tier,tier==='legend'?5:3),260):0, gen=DR.gen; DR.rain=sp;
   pk.addEventListener('click',()=>{ if(pk.classList.contains('shake')) return; clearInterval(sp); pk.classList.add('shake');
     setTimeout(()=>{ pk.classList.add('rip'); $('#bp').classList.add('pop'); if(good) $('#bp').classList.add('lit');
       const n={bronze:36,silver:56,gold:96,legend:160}[tier]; PFX.burst(pk,tier,n,{sp:tier==='legend'?420:320,up:140,life:1.4});
       if(good) setTimeout(()=>PFX.burst(pk,tier,Math.round(n/2),{sp:180,up:60,g:120,life:2,tw:.7}),180);
-      setTimeout(()=>stageChoose(pos,tier),good?820:560); },520); });
+      setTimeout(()=>{ if(gen===DR.gen) stageChoose(pos,tier); },good?820:560); },520); });
 }
 function stageChoose(pos,tier){
   const opts=four(pos,tier);
   const rsp=typeof RESPIN!=='undefined'&&RESPIN;
-  $('#stage').innerHTML=`<span class="q">Pick one</span><div class="four">${opts.map(cardHTML).join('')}</div><button class="btn w" id="next" style="width:220px;visibility:hidden"></button>${rsp?`<button class="btn" id="keep" style="width:220px">Keep ${esc(RESPIN.old.n)} (${RESPIN.old.r})</button>`:''}`;
+  $('#stage').innerHTML=`<span class="q">Pick one</span><div class="four">${opts.map(cardHTML).join('')}</div><button class="btn w" id="next" style="width:220px;visibility:hidden"></button>${rsp?`<button class="btn" id="keep" style="width:220px">Take none</button>`:''}`;
   if(rsp) $('#keep').addEventListener('click',()=>respinDone(true));
   const cs=[...document.querySelectorAll('#stage .cd')]; cs.forEach((c,i)=>setTimeout(()=>{ c.classList.add('in'); setTimeout(()=>PFX.burst(c,tier,10,{sp:120,up:40,life:.7}),260); },120+i*170));
   cs.forEach((c,i)=>c.addEventListener('click',()=>{ if(DR.got[DR.i]) return; DR.got[DR.i]=opts[i]; PFX.burst(c,TIER(opts[i].r),TIER(opts[i].r)==='legend'?90:50,{sp:260,up:110,life:1.2});
     cs.forEach((o,j)=>{ o.classList.add(j===i?'picked':'dim'); const r=o.querySelector('.rt'); setTimeout(()=>{ r.classList.add('flip'); setTimeout(()=>r.textContent=r.dataset.r,200);
       o.querySelectorAll('.at em').forEach(e=>e.textContent=e.dataset.v); o.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },j===i?0:260); });
-    slotsHTML(); if(rsp){ $('#keep').style.display='none'; $('#next').textContent='Back to the season'; $('#next').style.visibility='visible'; return; } $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
+    slotsHTML(); if(rsp){ $('#keep').style.display='none'; $('#next').textContent='Add to your team'; $('#next').style.visibility='visible'; return; } $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
   $('#next').addEventListener('click',()=>{ if(rsp) return respinDone(false); DR.i++; stageSpin(); });
 }
 function stageRoster(){
@@ -134,20 +136,20 @@ function makeSim(){
     const p=play(); if(p.to>=100&&p.kind!=='to'&&p.kind!=='punt'){ p.to=100; p.via=p.kind; p.kind='td'; p.call='Touchdown'; }
     st.n++; MATCH.cpuTick(p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
     $('#call').innerHTML=`<div style="--cc:${COL[p.kind]}"><b>${p.call}</b>${p.sub?`<small>${p.sub}</small>`:''}</div>`;
-    const t0=performance.now(), dur=fast?90:300; const grow=now=>{ const f=Math.min(1,(now-t0)/dur); frame(p,f); if(f<1) requestAnimationFrame(grow); else after(p); }; requestAnimationFrame(grow); }
+    const t0=performance.now(), dur=fast?90:300; const grow=now=>{ if(st.over) return; const f=Math.min(1,(now-t0)/dur); frame(p,f); if(f<1) requestAnimationFrame(grow); else after(p); }; requestAnimationFrame(grow); }
   function after(p){
     let end=null; const g=p.to-p.from;
     if(p.kind==='td') end={kind:'td'}; else if(p.kind==='to') end={kind:'to',spot:p.to,call:p.call}; else if(p.kind==='punt') end={kind:'punt',spot:p.to,len:p.to-p.from};
     else if(p.kind==='fg') end={kind:p.good?'fg':'miss',spot:p.from,len:100-p.from+17};
     else { st.yd=p.to; if(g>=st.togo){ st.down=1; st.togo=Math.min(10,100-st.yd); } else { st.down++; st.togo-=g; if(st.down>4) end={kind:'downs',spot:st.yd}; } }
-    timer=setTimeout(()=>{ $('#call').innerHTML='';
+    timer=setTimeout(()=>{ if(st.over) return; $('#call').innerHTML='';
       if(end) return finish(end);
-      const from=cam,to=st.yd,t0=performance.now(); const slide=now=>{ const f=Math.min(1,(now-t0)/(fast?80:240)); cam=from+(to-from)*(f*(2-f)); frame(null,0); if(f<1) requestAnimationFrame(slide); else { info(); timer=setTimeout(step,fast?60:180); } }; requestAnimationFrame(slide); },fast?160:620); }
+      const from=cam,to=st.yd,t0=performance.now(); const slide=now=>{ if(st.over) return; const f=Math.min(1,(now-t0)/(fast?80:240)); cam=from+(to-from)*(f*(2-f)); frame(null,0); if(f<1) requestAnimationFrame(slide); else { info(); timer=setTimeout(step,fast?60:180); } }; requestAnimationFrame(slide); },fast?160:620); }
   function finish(r){ st.over=true; clearTimeout(timer); r.n=st.n; r.yd=st.yd; frame(null,0); done(r); }
   function start(yd,off,cb){ clearTimeout(timer); fast=false; size(); st={off,yd,down:1,togo:Math.min(10,100-yd),n:0,over:false}; cam=yd; done=cb; info(); frame(null,0); timer=setTimeout(step,450); }
   addEventListener('resize',()=>{ size(); frame(null,0); });
   if(window.ResizeObserver) new ResizeObserver(()=>{ size(); frame(null,0); }).observe(cv);
-  return {start,size,myD,skip(){ fast=true; },redraw(){ frame(null,0); }};
+  return {start,size,myD,skip(){ fast=true; },redraw(){ frame(null,0); },stop(){ if(st) st.over=true; clearTimeout(timer); }};
 }
 
 /* ═══ THE GAME ═══
@@ -180,9 +182,10 @@ function makeMatch(){
   /* inside the app the game fills the screen, so the scoreboard carries the way back to the app's menu */
   const MENU=window.parent!==window?`<button class="menu" aria-label="Menu" onclick="parent.postMessage({gfl:'season-menu'},location.origin)"><i></i><i></i><i></i></button>`:'';
   /* set a box's markup only when it changed: rebuilding the scoreboard every second re-drew the crests, which flickered */
+  const LEAVE=`<button class="lv" aria-label="Leave game" onclick="leaveGame()">✕</button>`;
   const setHTML=(el,h)=>{ if(el&&el._h!==h){ el._h=h; el.innerHTML=h; } };
   function clockOnly(){ const b=document.querySelector('#bug .clk b'); if(!b) return bug(); b.textContent=M.q>4?'0:00':clk(); b.className=M.run&&M.poss==='me'&&!M.stop?'run':''; }
-  function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?MENU+crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)}</div>`;
+  function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?MENU+crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)+LEAVE}</div>`;
     const w=wp(), wc=Math.round(w*20), ca=(KIT.o&&KIT.o.helmet&&KIT.o.helmet[1])||'#3f8fea', cb=(KIT.d&&KIT.d.helmet&&KIT.d.helmet[1])||'#c8233e';
     setHTML($('#bug'),`<div class="wp"><span class="lb">Win probability</span><span class="lb wv">${esc(ini(ME.name))} ${Math.round(w*100)}%</span><div class="wpb">${Array.from({length:20},(_,i)=>`<i style="background:${i<wc?ca:cb}"></i>`).join('')}</div></div>`+b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0)); clockOnly(); }
   const strip=(los,fd)=>{ const ca=(KIT.o&&KIT.o.helmet&&KIT.o.helmet[1])||'#3f8fea', cb=(KIT.d&&KIT.d.helmet&&KIT.d.helmet[1])||'#c8233e', P=y=>((10+y)/120*100).toFixed(1)+'%';
