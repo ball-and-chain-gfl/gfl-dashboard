@@ -236,7 +236,8 @@ const LIE={
   fallF:[[40,.8,.3,-.4,-.6,-1.2,.5,2.4,1.6,1.5],[24,1.2,-.2,-.9,-.5,-1.3,2.0,2.0,2.2,2.1],[12,1.5,-1.2,-2.0,-1.4,-2.1,2.4,2.0,2.3,2.1]],
   down:[[9,1.55,-1.3,-2.1,-1.5,-2.2,2.4,2.0,2.3,2.1],[9,1.55,-1.35,-2.55,-1.55,-2.0,2.15,1.55,2.45,2.25]],
   fallB:[[46,-.55,.5,-.1,.2,-.3,2.5,3.0,2.9,3.3],[40,-1.0,1.4,.7,1.1,.4,2.9,3.2,3.2,3.4],[16,-1.4,1.9,.8,1.5,.5,2.9,3.2,3.1,3.3]],
-  downB:[[14,-1.45,2.4,1.2,2.0,.9,2.8,3.1,3.0,3.2],[9,-1.5,2.05,.8,1.4,.3,.4,2.2,2.5,2.8]]};
+  downB:[[14,-1.45,2.4,1.2,2.0,.9,2.8,3.1,3.0,3.2],[9,-1.5,2.05,.8,1.4,.3,.4,2.2,2.5,2.8]],
+  slip:[[42,-.35,1.35,.95,.85,.45,3.5,3.8,2.9,3.2],[28,-1.15,2.05,1.45,1.7,1.05,3.7,4.0,3.3,3.6],[12,-1.45,2.35,1.15,1.9,.8,1.3,2.1,2.6,2.9]]};
 function lieP(state,fi){ const L=LIE[state], q=L[Math.min(L.length-1,fi)];
   return xfP(buildSide(q[1],[[q[2],q[3]],[q[4],q[5]]],[[q[6],q[7]],[q[8],q[9]]],0),[0,50-q[0],0]); }
 function bodyP(view,state,fi){ const ps={fallF:'stumble',fallB:'flail',downB:'flail'}[state]||state, ph=(state==='run'||state==='catch')?(fi%RUNF)/RUNF*P2:0;
@@ -260,14 +261,14 @@ const SPR=new Map();
 function sprite(k,view,state,fi,num,si){ const key=k+view+state+fi+':'+num+':'+si; let s=SPR.get(key); if(!s){ s=renderSprite(k,view,state,fi,num,si); SPR.set(key,s); } return s; }
 /* draw a man standing on a point; s is whole pixels per sprite pixel. f runs 0 to 8 through a stride. */
 function fiOf(state,f){ const rf=n=>Math.floor((((n%100)%8)+8)%8/8*RUNF)%RUNF;
-  return state==='run'?rf(f||0):state==='catch'?rf(f||0)+RUNF*Math.min(2,Math.floor((f||0)/100)):state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB')?Math.min(2,Math.floor(f||0)):Math.max(0,Math.floor(f||0)); }
+  return state==='run'?rf(f||0):state==='catch'?rf(f||0)+RUNF*Math.min(2,Math.floor((f||0)/100)):state==='throw'?Math.floor(f||0)%4:(state==='fallF'||state==='fallB'||state==='slip')?Math.min(2,Math.floor(f||0)):Math.max(0,Math.floor(f||0)); }
 const SIDE_ONLY=new Set(['dive','down','fallF','fallB','downB','wrap','truck','stiff','hurdle','drag','bow','kneel']);
 function drawPlayer(ctx,k,num,x,y,facing,state,f,s,lift,si){
   const view=facing==='up'||facing==='upL'?'back':facing==='down'?'front':'side';
   const fi=fiOf(state,f);
   const img=sprite(k,view,state,fi,null,si!=null?si:((num||0)*7)%SKIN.length);
   ctx.save(); ctx.imageSmoothingEnabled=false; ctx.translate(Math.round(x),Math.round(y));
-  const sw=view!=='side'?((state==='down'||state==='downB')?16:12):(state==='down'||state==='downB')?34:(state==='dive'||state==='fallF'||state==='fallB')?22:12, sh=lift>0?Math.max(6,sw-lift/3):sw;
+  const sw=view!=='side'?((state==='down'||state==='downB')?16:12):(state==='down'||state==='downB')?34:(state==='dive'||state==='fallF'||state==='fallB'||state==='slip')?22:12, sh=lift>0?Math.max(6,sw-lift/3):sw;
   ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(Math.round(-sh/2*s),Math.round(-s),Math.round(sh*s),Math.round(2*s));
   if(facing==='left'||facing==='upL') ctx.scale(-1,1);
   ctx.drawImage(img,-GX*s,Math.round(-GY*s-(lift||0)),SW*s,SH*s); ctx.restore();

@@ -122,18 +122,18 @@ function playSVG(k){
 }
 
 /* how long each frame of a one-off lasts (the times it moves to the next), and which states loop two frames */
-const ONESHOT={dive:[.08,.22],leap:[.06,.14,.3],catch:[.08,.18],stiff:[.1],hurdle:[.1,.4],down:[.1],downB:[.1]};
+const ONESHOT={slip:[.09,.2],dive:[.08,.22],leap:[.06,.14,.3],catch:[.08,.18],stiff:[.1],hurdle:[.1,.4],down:[.1],downB:[.1]};
 const LOOP=new Set(['wrap','truck','block','flail','flex','wings']);
 const stageOf=(th,age)=>{ let i=0; while(i<th.length&&age>=th[i]) i++; return i; };
-const HOLD=new Set(['catch','catchLow','reach','leap','throw','dive','tiptoe','oneHand','celebrate','spike','dance','bow','sky','flex','wings','cross']);
+const HOLD=new Set(['slip','catch','catchLow','reach','leap','throw','dive','tiptoe','oneHand','celebrate','spike','dance','bow','sky','flex','wings','cross']);
 /* the states a man catches the ball in: the ball is drawn at his hands */
 const CATCHING=new Set(['catch','catchLow','reach','oneHand','tiptoe','leap']);
-const LYING=new Set(['down','downB','dive','fallF','fallB']);
+const LYING=new Set(['down','downB','dive','fallF','fallB','slip']);
 const TIERC={legend:'#2F86EB',gold:'#F0CE26',silver:'#C9CED6',bronze:'#C08552'};
 /* where his chest is, in sprite units from his feet, when the sprite is turned for a fall or lying down (facing right) */
 function ballSpot(st,fr){ const rot=(th,tx,ty)=>{ const c=Math.cos(th), s=Math.sin(th); return [6*c+60*s+tx, 6*s-60*c+ty]; }; let q=null;
   if(st==='fallF'){ const k=Math.min(2,fr|0); q=rot([.35,.8,1.2][k],-[8,24,40][k],0); }
-  else if(st==='fallB'){ const k=Math.min(2,fr|0); q=rot(-[.3,.7,1.1][k],[8,24,40][k],0); }
+  else if(st==='fallB'||st==='slip'){ const k=Math.min(2,fr|0); q=rot(-[.3,.7,1.1][k],[8,24,40][k],0); }
   else if(st==='down') q=rot(Math.PI/2,-46,-6); else if(st==='downB') q=rot(-Math.PI/2,44,-6); else if(st==='dive') q=rot(1.15,-34,-16);
   return q?[q[0],-q[1]]:null; }
 function makeGame(){
@@ -470,7 +470,7 @@ function makeGame(){
         S.qbDash={x:clamp(QB.x+dir*3.6,FC-SIDE+2,FC+SIDE-2),y:QB.y+.3,until:t+.65}; S.qbSafe=t+1.1; QB.vx=dir*QB.vmax*1.4; QB.vy=.2; QB.facing=dir>0?'right':'left'; dust(QB,8,-dir*2.5); }
       else if(r){ r.escTried=true; const head=(r.vy*QB.vy+r.vx*QB.vx)<-1, k=Math.random(); fx(r,QB,r.y<QB.y-.3?(k<.5?'tackle':k<.8?'sling':'shoe'):k<.5?'tackle':(head&&k<.8)||k<.72?'hit':k<.82?'wrap':k<.91?'sling':'shoe');
         if(QB.y<=-S.yd) return end('Safety','Sacked in his own end zone. Two points to them.','safety',0);
-        if(Math.random()<.05+Dn(r,hawkOf(r))*.08+(1-A(QB,3))*.05){ const spot=fumble(QB); pop('Strip sack','#D9325E',QB);
+        if(Math.random()<(.05+Dn(r,hawkOf(r))*.08+(1-A(QB,3))*.05)*(S.home&&S.home.rain?1.2:1)){   /* a wet ball comes loose a little more */ const spot=fumble(QB); pop('Strip sack','#D9325E',QB);
           if(Math.random()<.55) return end('Strip sack','#'+r.num+' knocks it out of his hand and they fall on it.','to',0,spot);
           return end('Strip sack','#'+r.num+' knocks it loose; your line falls on it.','loss',Math.round(Math.min(QB.y,spot.y))); }
         S.fx.flex=true; pop({sling:'Slung down',shoe:'Chased down'}[S.fx.kind]||'Sack','#D9325E',QB);
@@ -513,19 +513,21 @@ function makeGame(){
             if(Math.random()<base*(.4+.25*Df(p,'tkl'))*(1-(dd-.95)*.35)*(c.juke&&t<c.juke?1-(.05+el*.429):1)*(S.home&&(S.home.rain||S.home.snow)?.75:1)){ pop('Diving tackle','#D9325E',p); return tackled(c,p,'shoe'); }
             dive(p,c); p.missed=true; p.upAt=t+1.0; pop(c.juke&&t<c.juke?'Juked the dive':'Dove and missed','#4C9EFF',c,.2); } } }
       if(Math.abs(c.x-FC)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
-      if(S.home&&(S.home.rain||S.home.snow)&&c!==S.QB&&Math.hypot(c.vx,c.vy)>4.5&&!(c.slow>t)&&Math.random()<dt*(S.home.snow?.012:.008)) slip(c,true);
+      if(S.home&&(S.home.rain||S.home.snow)&&c!==S.QB&&Math.hypot(c.vx,c.vy)>4.5&&Math.random()<dt*(S.home.snow?.012:.008)) return slip(c,true);
       if(c.y>=S.goal) return end('Touchdown',(c.name||'#'+c.num)+' takes it '+S.goal+' yards to the end zone.','td',S.goal);
     }
     /* everyone else on a wet field: a rare slip for a man running flat out, once the play is under way */
     if(S.home&&(S.home.rain||S.home.snow)&&S.phase==='live'&&!S.seq&&!S.ps&&(!S.runCall||S.carrier)){ const rate=S.home.snow?.0035:.0025;
       for(const p of S.P){ if(p===S.carrier||p===S.QB||p.pos==='OL'||p.down||p.fxd||p.seqd||p.state==='dive'||(p.blocked&&!p.shed)||p.lockedBy) continue;
-        if(Math.hypot(p.vx,p.vy)>4.5&&Math.random()<dt*rate){ if(S.carrier&&dist(p,S.carrier)<9||!S.carrier) slip(p,false); else { p.state='down'; p.down=true; p.missed=true; p.upAt=t+.9; } } } }
+        if(Math.hypot(p.vx,p.vy)>4.5&&Math.random()<dt*rate){ slip(p,false,!(S.carrier&&dist(p,S.carrier)<9||!S.carrier)); } } }
     const f=S.ball.air?{x:S.ball.air.from.x+(S.ball.air.to.x-S.ball.air.from.x)*((t-S.ball.air.t0)/S.ball.air.dur),y:S.ball.air.from.y+(S.ball.air.to.y-S.ball.air.from.y)*((t-S.ball.air.t0)/S.ball.air.dur)}:(S.carrier||QB);
     S.cam.x+=(clamp(f.x,FC-SIDE+VIEW/2-2,FC+SIDE-VIEW/2+2)-S.cam.x)*Math.min(1,dt*3); S.cam.y+=(f.y+4-S.cam.y)*Math.min(1,dt*3);
   }
   const spotText=c=>(c.y>=0?'Gain of '+Math.round(c.y):'Loss of '+Math.round(-c.y))+'.';
-  function slip(p,isC){ pop('Slipped','#F0CE26',p,.2); dust(p,6); if(isC){ p.slow=S.t+.6; p.slowK=.3; p.juke=0; return; }
-    p.state='down'; p.down=true; p.missed=true; p.upAt=S.t+.9; p.vx*=.3; p.vy*=.3; }
+  function slip(p,isC,quiet){ if(!quiet) pop('Slipped','#F0CE26',p,.2); dust(p,6); p.state='slip'; p._st='slip'; p._st0=S.t; p.down=true; p.vx*=.3; p.vy*=.3;
+    if(isC){ p.juke=0; if(p.y<=-S.yd) return end('Safety','He slipped in his own end zone. Two points to them.','safety',0); const y=Math.round(p.y);
+      return end('Slipped',(p.name||'#'+p.num)+' lost his footing and went down'+(y>0?', '+y+' yards.':'.'),y>0?'gain':'loss',y); }
+    p.missed=true; p.upAt=S.t+1.0; }
   function dive(p,c){ p.state='dive'; p.until=S.t+.3; p.facing=FACE[dir4(c.x-p.x,(c.y??p.y)-p.y)]; dust(p,5); }
   /* three ways down: a wrap-up (he's held and taken down forward), a big hit (met head on and knocked back) and a
      shoestring dive from behind (tripped and sent sprawling forward). Both men act it out together. */
@@ -564,7 +566,7 @@ function makeGame(){
     fx(p,c,kind); if(kind==='hit') pop('Big hit','#D9325E',c);
     if(c.y<=.5) S.fx.flex=true;
     if(c.y<=-S.yd) return end('Safety','Brought down in his own end zone. Two points to them.','safety',0);
-    if(Math.random()<.004+Dn(p,hawkOf(p))*.012+(1-A(c,HANDS[c.pos]??2))*.008){ const spot=fumble(c); pop('Stripped','#D9325E',c);
+    if(Math.random()<(.004+Dn(p,hawkOf(p))*.012+(1-A(c,HANDS[c.pos]??2))*.008)*(S.home&&S.home.rain?1.25:1)){ const spot=fumble(c); pop('Stripped','#D9325E',c);
       if(Math.random()<.55) return end('Fumble','#'+p.num+' punches it out and they fall on it.','to',0,spot);
       const y=Math.round(c.y); return end('Fumble','#'+p.num+' knocks it loose, and you fall on it'+(y>=0?' for '+y:', a loss of '+(-y))+'.',y>0?'gain':'loss',y); }
     const y=Math.round(c.y), who=c.name?c.name.split(' ').slice(-1)[0]:'#'+c.num;
@@ -653,7 +655,7 @@ function makeGame(){
     if(!rIn&&!dIn) return end('Incomplete','Nobody near it.','inc',0,to);
     const r=off?off[0]:null, hands=r?(.9+A(r,HANDS[r.pos]??2)*.085)*(S.home&&S.home.rain?.965:1):0, ct=r?(CONT[r.pos]!=null?A(r,CONT[r.pos]):rh):0, dbl=dIn&&d2<1.6;
     const w=!dIn?1:!rIn?0:1/(1+Math.exp(-(.24+3*(dd-od)+1.2*((rh+ct)/2-hw)-(dbl?2.25+.5*hw2:0))));
-    const hwP=dbl?Math.max(hw,hw2):hw, pickP=dIn?(1-w)*((rIn?.08+.22*hwP:.2+.35*hwP)+(dbl?.1:0))*(1-.3*dd/Rd):0;
+    const hwP=dbl?Math.max(hw,hw2):hw, pickP=dIn?(1-w)*((rIn?.08+.22*hwP:.2+.35*hwP)+(dbl?.1:0))*(1-.3*dd/Rd)*(S.home&&S.home.rain?.8:1):0;   /* in the rain a defender holds on less, too: more of them are knocked away */
     const contested=dIn, diving=rIn&&od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to stretch past a yard for is harder to hold, the further the harder */
     const roll=Math.random(), pC=rIn?w*clamp(hands*reach,.05,.985):0;
     if(roll>=pC&&roll<pC+pickP){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;
@@ -838,6 +840,7 @@ function makeGame(){
       let st=p.state, fr=p.fxd?(p.ff||0):(st==='run'?p.ph%8:0), face=p.facing, lift=0;
       /* frames: a one-off plays through by time, a loop alternates */
       if(ONESHOT[st]) fr=stageOf(ONESHOT[st],age); else if(LOOP.has(st)) fr=Math.floor(age/.12)%2;
+      if(st==='slip'&&age>.34){ st='downB'; fr=1; }
       if(st==='catch') fr=(p.ph%8)+100*(p.tuck&&S.t-p.tuck<.6?1+stageOf([.07],age):stageOf(ONESHOT.catch,age));
       if(st==='throw'){ fr=1+Math.min(2,Math.floor((S.t-(p.throw0||0))/(p.throwIv||.1))); if(p.throwStyle==='jump') lift=Math.max(0,Math.sin(Math.PI*clamp((S.t-p.throw0)/.4,0,1)))*12; }
       else if(p===S.QB&&S.ball.holder===p&&!S.runCall&&S.phase==='live'&&st==='stance'){ st='throw'; fr=0; }
@@ -1017,6 +1020,6 @@ function makeGame(){
   /* and whenever its box changes (the play buttons coming in, the app giving the game the whole screen), so the field is never drawn squashed */
   if(window.ResizeObserver) new ResizeObserver(()=>{ if(S.on) size(); }).observe(cv);
   requestAnimationFrame(t=>{ last=t; requestAnimationFrame(loop); });
-  return { men(d){ return menOf(d); }, dlab:DLAB, roster(g){ roster=g.slice(0,5); STA=roster.map(p=>p&&p.sta!=null?p.sta:100); }, sub(i,p){ if(roster) roster[i]=p; STA[i]=p&&p.sta!=null?p.sta:100; }, stamina(){ return STA.slice(); }, ballX(){ return BF; }, setD(d){ D=d; }, setHome(h){ S.home=h; if(h&&h.logo){ const im=new Image(); im.src=h.logo; h.img=im; } }, sit(yd,down,togo,bf){ if(bf!=null){ BF=bf; S.nextBF=null; } sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
+  return { men(d){ return menOf(d); }, dlab:DLAB, _slip(p){ slip(p,false); }, roster(g){ roster=g.slice(0,5); STA=roster.map(p=>p&&p.sta!=null?p.sta:100); }, sub(i,p){ if(roster) roster[i]=p; STA[i]=p&&p.sta!=null?p.sta:100; }, stamina(){ return STA.slice(); }, ballX(){ return BF; }, setD(d){ D=d; }, setHome(h){ S.home=h; if(h&&h.logo){ const im=new Image(); im.src=h.logo; h.img=im; } }, sit(yd,down,togo,bf){ if(bf!=null){ BF=bf; S.nextBF=null; } sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
     show(on){ S.on=on; if(on) size(); }, S, throwTo, toS, hike, reset, update, size };
 }
