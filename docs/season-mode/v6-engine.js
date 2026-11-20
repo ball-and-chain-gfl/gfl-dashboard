@@ -470,7 +470,7 @@ function makeGame(){
         S.qbDash={x:clamp(QB.x+dir*3.6,FC-SIDE+2,FC+SIDE-2),y:QB.y+.3,until:t+.65}; S.qbSafe=t+1.1; QB.vx=dir*QB.vmax*1.4; QB.vy=.2; QB.facing=dir>0?'right':'left'; dust(QB,8,-dir*2.5); }
       else if(r){ r.escTried=true; const head=(r.vy*QB.vy+r.vx*QB.vx)<-1, k=Math.random(); fx(r,QB,r.y<QB.y-.3?(k<.5?'tackle':k<.8?'sling':'shoe'):k<.5?'tackle':(head&&k<.8)||k<.72?'hit':k<.82?'wrap':k<.91?'sling':'shoe');
         if(QB.y<=-S.yd) return end('Safety','Sacked in his own end zone. Two points to them.','safety',0);
-        if(Math.random()<(.05+Dn(r,hawkOf(r))*.08+(1-A(QB,3))*.05)*(S.home&&S.home.rain?1.2:1)){   /* a wet ball comes loose a little more */ const spot=fumble(QB); pop('Strip sack','#D9325E',QB);
+        if(Math.random()<(.05+Dn(r,hawkOf(r))*.08+(1-A(QB,3))*.05)*(S.home&&(S.home.rain||S.home.snow)?1.5:1)){   /* a wet ball comes loose more: rain or snow, 1.5x */ const spot=fumble(QB); pop('Strip sack','#D9325E',QB);
           if(Math.random()<.55) return end('Strip sack','#'+r.num+' knocks it out of his hand and they fall on it.','to',0,spot);
           return end('Strip sack','#'+r.num+' knocks it loose; your line falls on it.','loss',Math.round(Math.min(QB.y,spot.y))); }
         S.fx.flex=true; pop({sling:'Slung down',shoe:'Chased down'}[S.fx.kind]||'Sack','#D9325E',QB);
@@ -567,7 +567,7 @@ function makeGame(){
     fx(p,c,kind); if(kind==='hit') pop('Big hit','#D9325E',c);
     if(c.y<=.5) S.fx.flex=true;
     if(c.y<=-S.yd) return end('Safety','Brought down in his own end zone. Two points to them.','safety',0);
-    if(Math.random()<(.004+Dn(p,hawkOf(p))*.012+(1-A(c,HANDS[c.pos]??2))*.008)*(S.home&&S.home.rain?1.25:1)){ const spot=fumble(c); pop('Stripped','#D9325E',c);
+    if(Math.random()<(.004+Dn(p,hawkOf(p))*.012+(1-A(c,HANDS[c.pos]??2))*.008)*(S.home&&(S.home.rain||S.home.snow)?1.5:1)){ const spot=fumble(c); pop('Stripped','#D9325E',c);
       if(Math.random()<.55) return end('Fumble','#'+p.num+' punches it out and they fall on it.','to',0,spot);
       const y=Math.round(c.y); return end('Fumble','#'+p.num+' knocks it loose, and you fall on it'+(y>=0?' for '+y:', a loss of '+(-y))+'.',y>0?'gain':'loss',y); }
     const y=Math.round(c.y), who=c.name?c.name.split(' ').slice(-1)[0]:'#'+c.num;
