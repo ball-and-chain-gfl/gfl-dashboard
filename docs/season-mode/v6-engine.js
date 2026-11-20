@@ -237,7 +237,7 @@ function makeGame(){
     DL.forEach(d=>d.role='rush');
     if(look==='cover2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,7]; }); }
     if(look==='cover3'){ CB.forEach((c,i)=>{ c.y=7; c.role='deep'; c.spot=[i?16:-16,17]; }); SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=7; SF[1].y=8; SF[1].role='zone'; SF[1].spot=[9,7]; LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?2:-5,7]; }); }
-    if(look==='man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=5.2-q(ds(c,'cov'))*2.2; c.y=c.man.y+c.cush; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=-2; SF[1].y=9; SF[1].role='zone'; SF[1].spot=[0,9]; }
+    if(look==='man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=3.9;   /* the call sets how far off he plays, not the man */ c.y=c.man.y+c.cush; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=-2; SF[1].y=9; SF[1].role='zone'; SF[1].spot=[0,9]; }
     /* Cover 4, quarters: the corners and safeties each take a deep quarter, three underneath. Cover 2 man: man underneath
        with two deep halves. Cover 0: man across the board, both safeties on the tight end and the back, no deep help, the
        backers coming. */
