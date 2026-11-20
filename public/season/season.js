@@ -54,7 +54,7 @@ const offR=t=>{ const L=gameLineup(t); return Math.round(L.reduce((s,p)=>s+p.r,0
   d.body.appendChild(p); const v=parseFloat(parent.getComputedStyle(p).paddingBottom)||0; p.remove(); document.documentElement.style.setProperty('--sab',v+'px'); }catch(e){} })();
 /* ═══ STAMINA AND INJURIES ═══
    Each player carries stamina from game to game (0 to 100). Hits wear it down; the lower it is, the likelier the next
-   hit hurts him. Between weeks everyone gets some back: a starter 22, a man on the bench 35. When a player is hurt, what
+   hit hurts him. Between weeks everyone gets some back: a starter 30, a man on the bench 45. When a player is hurt, what
    it is and how long it keeps him out come from the pool below, big hits leaning to the worse ones. g: the games he'll
    miss after this one (99: the rest of the season). */
 const INJURIES=[{n:'Shaken up',w:[0,0],p:30},{n:'Bruised ribs',w:[0,1],p:12},{n:'Ankle sprain',w:[1,2],p:14},{n:'Hamstring strain',w:[1,3],p:12},
@@ -83,7 +83,7 @@ function simWear(t,L,lineup){ lineup.forEach((p,k)=>{ if(!p||isBackup(p)) return
 /* between weeks: stamina back, and the injured a week closer to returning */
 function recover(){ LG.teams.forEach(t=>{ const on=new Set(t.roster.map(keyOf));
   [...t.roster,...(t.bench||[])].forEach(p=>{ if(p.inj){ if(p.inj.fresh) delete p.inj.fresh; else if(p.inj.g<99) p.inj.g--; if(p.inj.g<=0&&!p.inj.fresh){ delete p.inj; p.sta=Math.max(p.sta??100,70); } }
-    p.sta=Math.min(100,Math.round((p.sta??100)+(on.has(keyOf(p))?22:35))); }); }); }
+    p.sta=Math.min(100,Math.round((p.sta??100)+(on.has(keyOf(p))?30:45))); }); }); }
 /* the CPU sets its own lineup: a healthy, better man on its bench starts */
 function cpuLineups(){ LG.teams.forEach((t,i)=>{ if(!i||!t.bench||!t.bench.length) return;
   t.roster.forEach((p,k)=>{ const b=t.bench.filter(q=>q.pos===p.pos&&!q.inj).sort((a,c)=>c.r-a.r)[0]; if(b&&(p.inj||b.r>p.r)){ t.roster[k]=b; t.bench.splice(t.bench.indexOf(b),1,p); } }); }); }
