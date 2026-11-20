@@ -9945,7 +9945,9 @@ function renderSeason(){
      its top sits just under the nav. After switchTab's own reset to the top, hence the wait. */
   setTimeout(seasonNavSync,0);
   if(el.querySelector('iframe')) return;            /* a game in progress keeps going while you look elsewhere */
-  el.innerHTML=`<iframe class="season-frame" allow="web-share; clipboard-write" src="/season/index.html?team=${encodeURIComponent((_me&&_me.teamId)||'')}" title="Season Mode"></iframe>`;
+  /* the game is handed your team as it is now (its name and logo here), so a rename or a new picture shows up in new seasons */
+  const tid=(_me&&_me.teamId)||'', cur=_teams.find(t=>String(t.id)===String(tid)), lg=cur&&_logoMap[cur.id];
+  el.innerHTML=`<iframe class="season-frame" allow="web-share; clipboard-write" src="/season/index.html?team=${encodeURIComponent(tid)}${cur&&cur.name?'&name='+encodeURIComponent(cur.name):''}${lg?'&logo='+encodeURIComponent(lg):''}" title="Season Mode"></iframe>`;
 }
 const isTestProfile=()=>!!_me&&_me.k1===TEST_PROFILE;
 

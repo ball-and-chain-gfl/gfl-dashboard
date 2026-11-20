@@ -36,7 +36,10 @@ h = put(h, `(async()=>{
   const j=u=>fetch(u).then(r=>r.json());`);
 h = put(h, `ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];`, `const tid=new URLSearchParams(location.search).get('team');
   /* team ids are reused across seasons: the newest name to hold the id is the team now */
-  ME=TEAMS.filter(t=>tid&&String(t.teamId)===tid).sort((a,b)=>(b.first||0)-(a.first||0))[0]||TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];`);
+  ME=TEAMS.filter(t=>tid&&String(t.teamId)===tid).sort((a,b)=>(b.first||0)-(a.first||0))[0]||TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];
+  /* the app hands over the team's name and logo as they are now: a rename or a new picture shows up (new seasons take it;
+     a season already under way keeps what it started with) */
+  { const qp=new URLSearchParams(location.search), qn=qp.get('name'), ql=qp.get('logo'); if(qn||ql) ME=Object.assign({},ME,qn?{name:qn}:{},ql?{logo:ql}:{}); }`);
 /* the players panel's drawing goes; the boot keeps its close */
 h = cut(h, '  /* the sheet: the players close up', '})();\n</script>', '');
 fs.writeFileSync(new URL('index.html', OUT), h);

@@ -931,7 +931,10 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
       o.forEach(i=>p.a[i]=Math.round(clamp(p.a[i]+d,50,99))); } });
   const tid=new URLSearchParams(location.search).get('team');
   /* team ids are reused across seasons: the newest name to hold the id is the team now */
-  ME=TEAMS.filter(t=>tid&&String(t.teamId)===tid).sort((a,b)=>(b.first||0)-(a.first||0))[0]||TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0]; CPU=TEAMS.find(t=>/Kirkland/.test(t.name))||TEAMS[1];
+  ME=TEAMS.filter(t=>tid&&String(t.teamId)===tid).sort((a,b)=>(b.first||0)-(a.first||0))[0]||TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];
+  /* the app hands over the team's name and logo as they are now: a rename or a new picture shows up (new seasons take it;
+     a season already under way keeps what it started with) */
+  { const qp=new URLSearchParams(location.search), qn=qp.get('name'), ql=qp.get('logo'); if(qn||ql) ME=Object.assign({},ME,qn?{name:qn}:{},ql?{logo:ql}:{}); } CPU=TEAMS.find(t=>/Kirkland/.test(t.name))||TEAMS[1];
   GAME=makeGame(); SIM=makeSim(); MATCH=makeMatch();
   /* a season on this device picks up where it was; otherwise, pick a league */
   if(resume()) hub('next'); else setupScreen();
