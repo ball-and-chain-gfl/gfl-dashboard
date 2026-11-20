@@ -354,11 +354,11 @@ function makeGame(){
     else if(q.name==='hurdle'){ at(1.9*k,0); a.state='hurdle'; a._st0=S.t-(k<.2?0:k<.75?.15:.45); a.facing=side; a.lift=Math.sin(Math.PI*k)*24; whiff(); }
     if(t>=q.dur){ a.seqd=b.seqd=false; a.lift=0; a.state='run'; a.vx=q.ux*q.sp; a.vy=q.uy*q.sp; a.path=null;
       b.fxd=false; b.down=true; b.missed=true; b.upAt=S.t+1.1; if(b.state!=='downB') b.state='down'; S.seq=null; } }
-  /* when a tackle is missed, which move beat him: a juke or spin off a cut, a hurdle over a man diving low in front, a truck from a strong back, or a stiff arm */
+  /* when a tackle is missed, which move beat him: a juke or spin off a cut, a hurdle or a truck (only at a man in front of him or beside him), or a stiff arm */
   function move(c,p,pw,el){ const v=Math.hypot(c.vx,c.vy)||1, ahead=((p.x-c.x)*c.vx+(p.y-c.y)*c.vy)/v; let name=null;
     if(c.juke&&S.t<c.juke+.15) name=el>.55&&Math.random()<.5?'spin':'juke';
-    else if(ahead>.2&&Math.random()<.14+el*.2) name='hurdle';
-    else if(pw>.45&&Math.random()<.12+pw*.3) name='truck';
+    else if(ahead>-.3&&Math.random()<.14+el*.2) name='hurdle';
+    else if(ahead>-.3&&pw>.45&&Math.random()<.12+pw*.3) name='truck';
     else if(Math.random()<.35) name='stiff';
     if(!name) return false; startSeq(name,c,p); return true; }
   function update(dt){
@@ -485,7 +485,7 @@ function makeGame(){
       for(const p of S.P){ if(p.side!=='d'||p.down||p.state==='dive'||(p.lockedBy&&dist(p,p.lockedBy)<1.3)) continue;
         if(p.pos==='DL'&&p.blocked&&!p.shed){ if(dist(p,c)<.6&&Math.random()<dt*2.2) return tackled(c,p,'tackle'); continue; }
         if(dist(p,c)<.95&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
-          const ok=Math.random()<clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.12+el*.3):1);
+          const ok=Math.random()<clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.05+el*.085):1);
           if(ok) return tackled(c,p); if(move(c,p,pw,el)) break; dive(p,c); p.missed=true; p.upAt=t+1.1; c.slow=t+.35*(1-pw*.6); c.slowK=.6; } }
       if(Math.abs(c.x-FC)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
       if(c.y>=S.goal) return end('Touchdown',(c.name||'#'+c.num)+' takes it '+S.goal+' yards to the end zone.','td',S.goal);
@@ -611,23 +611,30 @@ function makeGame(){
     const to=a.to, off=S.rec.filter(r=>!r.down&&!['wall','stalk','block','lead','protect'].includes(r.role)).map(r=>[r,dist(r,to)]).sort((x,y)=>x[1]-y[1])[0], defs=S.P.filter(p=>p.side==='d'&&!p.down&&p.pos!=='DL').map(p=>[p,dist(p,to)]).sort((x,y)=>x[1]-y[1]), def=defs[0], d2=defs[1]?defs[1][1]:99;
     const od=off?off[1]:99, dd=def?def[1]:99;
     const rh=off?A(off[0],HANDS[off[0].pos]??2):.5, R=1.35+rh*.65;   /* how far he can reach for it, 1.35 to 2 yards */
-    if(od>R+.3&&dd>1.2) return end('Incomplete','Nobody near it.','inc',0,to);
-    if(dd<od-.45&&dd<1.05){ const d=def[0]; d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; if(Math.random()<clamp(.24+(erR(ds(d,hawkOf(d)))-80)/80+(1.3-dd)*.25+(Dn(d,hawkOf(d))-.5)*.35,.08,.8)){ d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;
-        const k=dd>.7?'dive':d.y<to.y-.2||(zip&&Math.random()<.6)?'catchLow':Math.random()<(zip?1:.3)?'oneHand':'leap';
-        d.state=k==='leap'?'leap':k; d.until=S.t+.35; if(k==='dive') dive(d,to); d.leapH=k==='leap'?18:0;
-        /* the undercut: he jumps the route in front of the receiver; the high point: he wins it at the top over him */
-        if(off&&od<1.4&&k==='catchLow') passScene('pick',d,off[0]); else if(off&&od<1.3&&k==='leap') passScene('contest',off[0],d);
-        pop({dive:'Diving pick',catchLow:'Undercut',oneHand:'One-hand pick',leap:'Picked off'}[k],'#D9325E',d); return end('Intercepted','#'+d.num+' was there first.','to',0,to); }
-      if(dd>.6&&Math.random()<.5){ dive(d,to); pop('Pass breakup','#D9325E',d); if(off&&od<R+.6) reachFor(off[0],to); deflect(to); }
+    /* THE BALL COMES DOWN: one roll between the receiver and the nearest defender, by who is nearer the spot and who is
+       better at the ball, not who got there first. The receiver can reach 1.35-2 yds (his hands), a defender 1-1.35 (his
+       ball hawk). Both in reach is a jump ball: at the same spot two 99s give the receiver about 55%, the defender a pick
+       about 13%, the rest knocked away. Each yard nearer the spot is worth a lot; a second defender close helps them. */
+    const d=def&&def[0], hw=d?Df(d,hawkOf(d)):0, Rd=1.0+hw*.35, rIn=!!off&&od<=R+.3, dIn=!!d&&dd<=Rd;
+    if(!rIn&&!dIn) return end('Incomplete','Nobody near it.','inc',0,to);
+    const r=off?off[0]:null, hands=r?.9+A(r,HANDS[r.pos]??2)*.085:0, ct=r?(CONT[r.pos]!=null?A(r,CONT[r.pos]):rh):0, dbl=dIn&&d2<1.6;
+    const w=!dIn?1:!rIn?0:1/(1+Math.exp(-(.24+3*(dd-od)+1.2*((rh+ct)/2-hw)-(dbl?.9:0))));
+    const pickP=dIn?(1-w)*(rIn?.08+.22*hw:.2+.35*hw)*(1-.3*dd/Rd):0;
+    const contested=dIn, diving=rIn&&od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to stretch past a yard for is harder to hold, the further the harder */
+    const roll=Math.random(), pC=rIn?w*clamp(hands*reach,.05,.985):0;
+    if(roll>=pC&&roll<pC+pickP){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;
+      const k=dd>.7?'dive':d.y<to.y-.2||(zip&&Math.random()<.6)?'catchLow':Math.random()<(zip?1:.3)?'oneHand':'leap';
+      d.state=k==='leap'?'leap':k; d.until=S.t+.35; if(k==='dive') dive(d,to); d.leapH=k==='leap'?18:0;
+      /* the undercut: he jumps the route in front of the receiver; the high point: he wins it at the top over him */
+      if(off&&od<1.4&&k==='catchLow') passScene('pick',d,off[0]); else if(off&&od<1.3&&k==='leap') passScene('contest',off[0],d);
+      pop({dive:'Diving pick',catchLow:'Undercut',oneHand:'One-hand pick',leap:'Picked off'}[k],'#D9325E',d); return end('Intercepted','#'+d.num+(rIn?' won it in the air.':' was the only one who could get to it.'),'to',0,to); }
+    if(!rIn){ if(dd>.6&&Math.random()<.5){ dive(d,to); pop('Pass breakup','#D9325E',d); if(off&&od<R+.6) reachFor(off[0],to); deflect(to); }
       else { pop('Swatted','#D9325E',d); if(off&&od<Math.min(R,1.6)){ passScene('swat',d,off[0]); deflect(to,.2); } else deflect(to); }
       return end('Broken up','#'+d.num+' got a hand on it.','inc',0,to); }
-    if(!off) return end('Incomplete','Nobody near it.','inc',0,to);
-    const r=off[0], d=def&&def[0], hands=.9+A(r,HANDS[r.pos]??2)*.085, ct=CONT[r.pos]!=null?A(r,CONT[r.pos]):.3;
-    const contested=dd<1.1, contest=dd<.7?.45+ct*.45:dd<1.3?.72+ct*.25:1, diving=od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to stretch past a yard for is harder to hold, the further the harder */
     /* both go up for it when it's contested */
-    if(contested&&d){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; }
-    const dbl=dd<1.5&&d2<1.6?.7:1, roll=Math.random(), caught=roll<clamp(hands*contest*dbl*reach,.05,.985), inHands=!caught&&roll>=hands*contest*dbl;
-    if(dbl<1&&caught) pop('Through two','#4C9EFF',r);
+    if(contested){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; }
+    const caught=roll<pC, inHands=!caught&&roll>=w*hands;
+    if(dbl&&caught) pop('Through two','#4C9EFF',r);
     /* caught past the end line or over the sideline: he had it, but he was out */
     if(caught&&(Math.abs(to.x-FC)>SIDE||to.y>S.goal+10)){ reachFor(r,to); pop('Out of bounds','#F0CE26',r); return end('Incomplete',(r.name||'#'+r.num)+' had it, but out of bounds.','inc',0,to); }
     if(caught&&diving){ S.caught=true; S.catcher=r; pop('Diving catch','#4C9EFF',r); { const ux=to.x-r.x, uy=to.y-r.y, ul=Math.hypot(ux,uy)||1; r.x=to.x-ux/ul*.6; r.y=to.y-uy/ul*.6; dive(r,{x:r.x+ux,y:r.y+uy}); } r.until=S.t+.25; S.ball.holder=r;
@@ -652,13 +659,13 @@ function makeGame(){
       if(r.y>=S.goal) return end('Touchdown',(r.name||'#'+r.num)+' catches it in the end zone.','td',S.goal);
       if(Math.abs(to.x)<5.5&&to.y>3&&d&&dd<2.4) S.bigHit={d,at:S.t+(contested?.34:.18)};
       return; }
-    if(dbl<1) pop('Double covered','#D9325E',r);
+    if(dbl) pop('Double covered','#D9325E',r);
     if(diving){ dive(r,to); pop('Just missed','#F0CE26',r); }
-    else if(dd>=1.6&&!inHands){ reachFor(r,to); deflect(to); pop(to.y<r.y-.4?'Behind him':'Off his fingertips','#F0CE26',r); }
-    else if(dd>=1.6){ r.state='catchLow'; r.until=S.t+.4; S.loose={x0:r.x,y0:r.y,to:{x:r.x+(Math.random()-.5)*1.6,y:r.y-.8},t0:S.t}; pop('Dropped','#F0CE26',r); }
-    else if(d&&dd<1.3){ pop('Broken up','#D9325E',d); passScene('swat',d,r); deflect(to,.2); }
+    else if(!dIn&&!inHands){ reachFor(r,to); deflect(to); pop(to.y<r.y-.4?'Behind him':'Off his fingertips','#F0CE26',r); }
+    else if(!dIn){ r.state='catchLow'; r.until=S.t+.4; S.loose={x0:r.x,y0:r.y,to:{x:r.x+(Math.random()-.5)*1.6,y:r.y-.8},t0:S.t}; pop('Dropped','#F0CE26',r); }
+    else if(dd<1.3){ pop('Broken up','#D9325E',d); passScene('swat',d,r); deflect(to,.2); }
     else { pop('Broken up','#D9325E',d||r); reachFor(r,to); if(d&&dd<1.6&&d.state!=='leap'){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; } deflect(to); }
-    end(dd<1.6?'Broken up':'Incomplete',dd<1.6?(dbl<1?'Double covered, and they won it.':'Contested, and the defender won it.'):diving?'He laid out for it and couldn\'t hold on.':inHands?'Dropped.':'Just out of his reach.','inc',0,to);
+    end(dIn?'Broken up':'Incomplete',dIn?(dbl?'Double covered, and they won it.':'Contested, and the defender won it.'):diving?'He laid out for it and couldn\'t hold on.':inHands?'Dropped.':'Just out of his reach.','inc',0,to);
   }
   function end(head,body,kind,yards,at){
     if(S.over) return; S.over=true; S.phase='done'; S.ball.air=null; if(at&&kind!=='to') S.landed=at;
