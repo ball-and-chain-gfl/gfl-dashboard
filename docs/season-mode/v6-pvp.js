@@ -37,7 +37,7 @@ async function pvpBoxSet(tid,entry){ const f='g_'+entry.id;
 async function pvpBoxGet(tid){ const r=await fetch(pvpUrl('pvpbox_'+tid),{cache:'no-store'}); if(r.status===404) return {games:[]}; if(!r.ok) throw new Error('read '+r.status);
   const d=await r.json(), games=[]; Object.entries(d.fields||{}).forEach(([k,v])=>{ if(k.startsWith('g_')) try{ games.push(JSON.parse(v.stringValue)); }catch(e){} });
   return {games:games.sort((x,y)=>(y.at||0)-(x.at||0))}; }
-async function pvpBoxes(g,patch){ const ent=side=>{ const o=g[side==='a'?'b':'a']; return Object.assign({id:g.id,opp:{tid:o.tid,name:o.name,logo:o.logo},role:side,st:g.status,turn:g.status==='invited'?g.b.tid:g.status==='active'?g[g.next].tid:'',score:g.score||null,at:Date.now()},patch||{}); };
+async function pvpBoxes(g,patch){ const ent=side=>{ const o=g[side==='a'?'b':'a']; return Object.assign({id:g.id,opp:{tid:o.tid,name:o.name,logo:o.logo},role:side,st:g.status,turn:g.status==='invited'?g.b.tid:g.status==='active'?g[g.next].tid:'',score:g.score||null,time:g.time,wx:g.wx,at:Date.now()},patch||{}); };
   await Promise.all([pvpBoxSet(g.a.tid,ent('a')),pvpBoxSet(g.b.tid,ent('b'))]); }
 /* a drive goes on the end of the game, read fresh first; a retry never adds the same drive twice */
 async function pvpAppend(id,rec){ const g=await pvpLoad(id); if(!g) throw new Error('no game');
@@ -55,7 +55,8 @@ async function pvpHub(){ screen('match'); const back=()=>{ if(typeof resume==='f
   $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>Head to head</b><button class="btn w" id="pv-new">New game</button></div><div class="pv-list" id="pv-list"><div class="lg-empty">Loading</div></div></div>`;
   $('#pv-back').onclick=back; $('#pv-new').onclick=()=>pvpNew();
   let box=null; try{ box=await pvpBoxGet(pvpTid()); }catch(e){ if($('#pv-list')) $('#pv-list').innerHTML='<div class="lg-empty">Couldn’t load your games</div>'; return; }
-  PVP_BOX=box; const me=pvpTid(); if(!$('#pv-list')) return;   /* the list was left before it loaded */
+  PVP_BOX=box; const me=pvpTid();
+  try{ if(window.parent!==window) parent.postMessage({gfl:'season-pvpbox',tid:me,games:box.games},location.origin); }catch(e){} if(!$('#pv-list')) return;   /* the list was left before it loaded */
   if(!box.games.length){ $('#pv-list').innerHTML='<div class="lg-empty">No games yet</div>'; return; }
   const live=box.games.filter(x=>x.st!=='done'&&x.st!=='declined'), old=box.games.filter(x=>x.st==='done'||x.st==='declined');
   const rec={}; box.games.forEach(x=>{ if(x.st!=='done'||!x.score) return; const k=x.opp.tid, o=rec[k]||(rec[k]={opp:x.opp,w:0,l:0,t:0,pf:0,pa:0}), a=x.score[x.role]||0, b=x.score[x.role==='a'?'b':'a']||0;
@@ -69,6 +70,14 @@ async function pvpHub(){ screen('match'); const back=()=>{ if(typeof resume==='f
   document.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>pvpAccept(b.dataset.acc));
   document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>pvpDecline(b.dataset.dec));
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>pvpOpen(b.dataset.open)); }
+
+/* the homepage's invite card opens the list: on a fresh frame by ?pvp=1, on one already open by a message (not in
+   the middle of a game, which stays where it is) */
+addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-open-pvp') return;
+  if(document.querySelector('#scr-game.on')) return pvpBadge(); pvpHub(); });
+if(new URLSearchParams(location.search).get('pvp')){ const t0=Date.now(), t=setInterval(()=>{
+  if(Date.now()-t0>20000) return clearInterval(t);
+  if(typeof MATCH!=='undefined'&&MATCH&&document.querySelector('[id^=scr-].on')){ clearInterval(t); pvpHub(); } },150); }
 
 /* ═══ THE INVITE ═══ the opponent, the time, the weather, and how both teams are built */
 function pvpNew(){ const opps=pvpTeams(); if(!opps.length) return toastS('Nobody else can play yet');

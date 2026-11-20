@@ -954,7 +954,7 @@ function switchTab(name){
      else is reading a season that has already happened. */
   if(name==='home') liveStart(); else liveStop();
   if(name==='home'){ wireVidRail(); try{ renderForecastCard(); }catch(e){}
-    try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){}
+    try{ renderNotifications(); }catch(e){} try{ leaguePoll(); }catch(e){} try{ gsInvPoll(); }catch(e){}
     /* idempotent — _betsInit makes this free once they are in */
     try{ betsEnsure(); }catch(e){}
     try{ betsNearFresh(); }catch(e){}
@@ -9927,7 +9927,7 @@ function seasonGate(){
    footer and section bar don't show. In a game itself (the frame says which screen it's on) the frame takes the whole
    screen and the nav steps aside, so the score, the field and the play buttons are all in view; the game's own menu
    button (top left of its scoreboard) asks for the nav back, and it goes again when the menu closes. */
-let _seasonGame=false;
+let _seasonGame=false, _seasonOpenPvp=false;
 function seasonNavSync(){
   const on=_activeTab==='season'&&!!document.querySelector('.season-frame'), full=on&&_seasonGame, r=document.documentElement;
   r.classList.toggle('season-on',on); r.classList.toggle('season-full',full); if(!full) r.classList.remove('season-peek');
@@ -9945,9 +9945,10 @@ function renderSeason(){
      its top sits just under the nav. After switchTab's own reset to the top, hence the wait. */
   setTimeout(seasonNavSync,0);
   if(el.querySelector('iframe')) return;            /* a game in progress keeps going while you look elsewhere */
+  setTimeout(()=>{ _seasonOpenPvp=false; },0);
   /* the game is handed your team as it is now (its name and logo here), so a rename or a new picture shows up in new seasons */
   const tid=(_me&&_me.teamId)||'', cur=_teams.find(t=>String(t.id)===String(tid)), lg=cur&&_logoMap[cur.id];
-  el.innerHTML=`<iframe class="season-frame" allow="web-share; clipboard-write" src="/season/index.html?team=${encodeURIComponent(tid)}${cur&&cur.name?'&name='+encodeURIComponent(cur.name):''}${lg?'&logo='+encodeURIComponent(lg):''}" title="Season Mode"></iframe>`;
+  el.innerHTML=`<iframe class="season-frame" allow="web-share; clipboard-write" src="/season/index.html?team=${encodeURIComponent(tid)}${cur&&cur.name?'&name='+encodeURIComponent(cur.name):''}${lg?'&logo='+encodeURIComponent(lg):''}${_seasonOpenPvp?'&pvp=1':''}" title="GFL Seasons"></iframe>`;
 }
 const isTestProfile=()=>!!_me&&_me.k1===TEST_PROFILE;
 
@@ -10221,6 +10222,7 @@ function meTheme(){
 /* preselect the remembered team everywhere it matters */
 function applyMe(){
   seasonGate();
+  if(_activeTab==='home'&&_me&&String(_me.teamId||'')!==_gsInv.tid){ try{ gsInvPoll(true); }catch(e){} }
   meTheme();
   renderMeChip();
   try{ renderBucksChip(); }catch(e){}
@@ -19556,6 +19558,7 @@ const NT_KINDS={
   big4:   {icon:'fa-list-ol',      tone:'royal'},
   upset:  {icon:'fa-bolt-lightning',tone:'hot'},
   pvp:    {icon:'fa-user-group',   tone:'royal'},
+  gsinv:  {icon:'fa-football',     tone:'good'},
   graph:  {icon:'fa-chart-line',   tone:'cool'},
   bighit: {icon:'fa-sack-dollar',  tone:'gold'},
   comeback:{icon:'fa-arrow-trend-up',tone:'hot'},
@@ -22844,9 +22847,49 @@ function ntAchGrants(out){
       go:'bam'});
   });
 }
+/* ── GFL SEASONS: SOMEBODY WANTS A GAME ──────────────────────────────────────
+   A head-to-head invite in GFL Seasons raises a card on the homepage of the manager it was sent to, with who sent it,
+   when the game is played and the weather. It goes the moment the invite is answered.
+
+   THE READ. The invites live in the game's own list, live/pvpbox_<team id>: one document for this manager, read on
+   arriving at the homepage at most once every ten minutes (never on a render), and only for an account GFL Seasons is
+   open to. Whenever the game's own Head to head list loads, it hands that list up to this page, so answering an
+   invite in the game clears the card here without a read. */
+let _gsInv={tid:'',at:0,games:[]};
+const GS_INV_GAP=10*60*1000;
+async function gsInvPoll(force){
+  if(_fsQuota||!seasonAllowed()) return;
+  const tid=String((_me&&_me.teamId)||''); if(!tid) return;
+  if(!force&&_gsInv.tid===tid&&Date.now()-_gsInv.at<GS_INV_GAP) return;
+  _gsInv.at=Date.now(); if(_gsInv.tid!==tid) _gsInv={tid,at:_gsInv.at,games:[]};
+  try{
+    const r=fsNoteResponse(await fetch(liveDocUrl('pvpbox_'+tid),{cache:'no-store'}));
+    if(r.status===404){ gsInvTake(tid,[]); return; }
+    if(!r.ok) return;                                   /* unknown, not empty: keep what is in hand */
+    const d=await r.json(), games=[];
+    Object.entries(d.fields||{}).forEach(([k,v])=>{ if(k.startsWith('g_')) try{ games.push(JSON.parse(v.stringValue)); }catch(e){} });
+    gsInvTake(tid,games);
+  }catch(e){}
+}
+function gsInvTake(tid,games){
+  if(String((_me&&_me.teamId)||'')!==String(tid)) return;
+  _gsInv.tid=String(tid); _gsInv.games=games||[];
+  if(_activeTab==='home'){ try{ renderNotifications(); orderHomeTodo(); }catch(e){} }
+}
+addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-pvpbox') return; gsInvTake(e.data.tid,e.data.games); });
+function ntGflInvites(out){
+  if(!_me||!seasonAllowed()) return;
+  const TL={day:'Day game',dusk:'Dusk game',night:'Night game'}, WL={clear:'Clear',rain:'Rain',snow:'Snow'};
+  const esc=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  (_gsInv.games||[]).filter(x=>x&&x.role==='b'&&x.st==='invited').forEach(x=>{
+    out.push({kind:'gsinv', day:ntDayOf(Number(x.at)||Date.now()), id:'gsinv:'+x.id, title:'Game invite',
+      art:ntStat((_ownerMap||{})[Number(x.opp&&x.opp.tid)]||'',esc(x.opp.name||'A manager'),TL[x.time]||'A game',WL[x.wx]||'',0),
+      body:'Head to head in GFL Seasons.', go:'gflseasons'});
+  });
+}
 function ntAll(){
   const out=[];
-  [ntBkMakeGood,ntMotwPick,ntPunishGrades,ntBamWins,ntAchGrants,ntStandings,ntBig4,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
+  [ntBkMakeGood,ntMotwPick,ntPunishGrades,ntBamWins,ntAchGrants,ntStandings,ntBig4,ntGflInvites,ntPvp,ntParlays,ntBigHits,ntFromWeek,ntComebacks,ntExtremes,ntPerfectPicks,ntPlants,ntCrowns,ntTrades,ntStreaks,ntTrash,ntGraph,ntDemo]
     .forEach(fn=>{ try{ fn(out); }catch(e){} });
   /* anything with no date of its own belongs to today */
   out.forEach(n=>{ if(!n.day) n.day=ntToday(); });
@@ -23011,10 +23054,12 @@ function ntVoteMsgHTML(){
     :`<div class="nt-vmsg"><i class="fa fa-circle-check"></i>${_ntVoteMsg.ok}</div>`;
 }
 /* what the button on a card with somewhere to go says */
-const NT_GO={bets:'Open My Bets',graph:'See the graph',extremes:'See the list',bam:'Play Build a Manager'};
+const NT_GO={gflseasons:'Answer it',bets:'Open My Bets',graph:'See the graph',extremes:'See the list',bam:'Play Build a Manager'};
 function ntGo(where,id){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
   if(where==='bam'){ switchTab('bam'); window.scrollTo(0,0); }
+  if(where==='gflseasons'){ const f=document.querySelector('.season-frame'); _seasonOpenPvp=!f; switchTab('season');
+    if(f){ try{ f.contentWindow.postMessage({gfl:'season-open-pvp'},location.origin); }catch(e){} } }
   if(where==='graph') ntGoGraph(id);
   if(where==='extremes') ntGoExtremes(id);
 }
