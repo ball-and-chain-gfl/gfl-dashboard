@@ -167,6 +167,7 @@ function makeGame(){
   const ds=(p,k)=>p&&p.s&&p.s[k]!=null?p.s[k]:((p&&p.r)||80);
   const Dn=(p,k)=>.5+(clamp((ds(p,k)-55)/44,0,1)-.5)*ASP;
   const Eg=(p,k)=>clamp((ds(p,k)-84)/15,0,1);
+  const Df=(p,k)=>clamp((ds(p,k)-55)/44,0,1);
   /* a lineman with no ball hawk gets his hands on it with his rush; a backer with his coverage */
   const hawkOf=p=>p&&p.s&&p.s.hawk!=null?'hawk':p&&p.pos==='DL'?'rush':'cov';
   /* THE TEN MEN. Made once per defense from its real season and never changed. Who is best comes from what the defense
@@ -231,8 +232,8 @@ function makeGame(){
     const CB=[WA,WB].map((w,i)=>mk('d','CB',[24,21][i],U.CB[i].r,w.x,6,0,0));
     const SF=[-7,7].map((x,i)=>mk('d','S',[31,42][i],U.S[i].r,x,13,0,0));
     [DL,LB,CB,SF].forEach((g,k)=>g.forEach((d,i)=>d.s=U[['DL','LB','CB','S'][k]][i].s));
-    [...DL,...LB,...CB,...SF].forEach(d=>{ const qq=q(erR(ds(d,'spd'))); /* every defender is quick: his speed adds a little more and a quicker read, it doesn't decide whether he can run at all */
-      d.vmax=d.pos==='DL'?5.2+qq*.35+Dn(d,'rush')*.45:d.pos==='LB'?6.3+qq*.3+Dn(d,'stop')*.3:7.0+qq*.25+Dn(d,'cov')*.25; d.acc=d.pos==='DL'?12+qq*6:18+qq*8; d.react=.33-qq*.08-(d.pos==='DL'?0:Dn(d,'cov')*.08)-Eg(d,'spd')*.06; if(d.pos!=='DL') d.vmax+=Eg(d,'spd')*.3; d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
+    [...DL,...LB,...CB,...SF].forEach(d=>{ const sp=Df(d,'spd'); /* speed is his speed stat alone; his read is his coverage (a lineman's, his pass rush) */
+      d.vmax=d.pos==='DL'?5.0+sp*1.0:d.pos==='LB'?5.9+sp*1.3:6.3+sp*1.6; d.acc=d.pos==='DL'?13+sp*4:20+sp*5; d.react=d.pos==='DL'?.35-Df(d,'rush')*.12:.36-Df(d,'cov')*.2; if(d.pos!=='DL') d.turn=.55+.75*Df(d,'cov'); d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
     const look=S.look;
     DL.forEach(d=>d.role='rush');
     if(look==='cover2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,7]; }); }
@@ -271,8 +272,13 @@ function makeGame(){
     S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.picker=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
   }
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  function track(p,m,dt){ if(p._tk!==m){ p._tk=m; p.mvx=m.vx; p.mvy=m.vy; } const k=Math.min(1,dt*1.6*Math.exp(2.4*Df(p,'cov')));   /* reads a break in about .3 s at 70 coverage, .12 s at 85, .06 s at 97 */ p.mvx+=(m.vx-p.mvx)*k; p.mvy+=(m.vy-p.mvy)*k; }
   function steer(p,tx,ty,dt,vmax){ const dx=tx-p.x, dy=ty-p.y, d=Math.hypot(dx,dy); const want=d<.2?0:Math.min(vmax||p.vmax,d*6.5);
-    const wx=d>0?dx/d*want:0, wy=d>0?dy/d*want:0; let ax=wx-p.vx, ay=wy-p.vy; const am=Math.hypot(ax,ay), lim=p.acc*dt; if(am>lim){ ax=ax/am*lim; ay=ay/am*lim; }
+    const wx=d>0?dx/d*want:0, wy=d>0?dy/d*want:0; let ax=wx-p.vx, ay=wy-p.vy; const am=Math.hypot(ax,ay); let lim=p.acc*dt;
+    /* TURNING WITH A BREAK, in coverage before the ball is out: a cover man's hips are his coverage, so a sharp change of
+       direction comes at .8 of his pull for a poor one and 1.25 for a great one. Running straight is his speed alone. */
+    if(p.turn&&!S.carrier&&!S.ball.air){ const cv=Math.hypot(p.vx,p.vy); if(cv>2&&want>0&&(p.vx*wx+p.vy*wy)/(cv*want)<.7) lim*=p.turn; }
+    if(am>lim){ ax=ax/am*lim; ay=ay/am*lim; }
     p.vx+=ax; p.vy+=ay; }
   const inb=(x,y)=>[clamp(x,FC-SIDE+1.2,FC+SIDE-1.2),Math.min(y,S.goal+9.2)];
   function routeTarget(p){ if(!p.route) return null; const v=p.vmax, d=Math.max(0,S.t-.05-(p.rdelay||0))*v+.7; let left=d, x=p.x0, y=p.y0, k=0;
@@ -413,17 +419,19 @@ function makeGame(){
         else if(S.runCall&&seen>.45&&hold&&hold!==QB){ tx=hold.x; ty=hold.y; }
         /* play action and the flea flicker: the backers and safeties step up for the run they see, for a moment */
         else if(S.bite&&t<S.bite.until&&(p.pos==='LB'||p.pos==='S')&&!p.lockedBy){ tx=S.bite.who.x; ty=S.bite.who.y+2.2; }
-        else if(p.role==='man'){ const m=p.man, late=seen>1.7, c=late?.4:Math.max(.9,(p.cush||3)*(1-Math.min(1,seen/1.1))); tx=m.x+m.vx*.25+(m.x<0?.5:-.5)*(late?0:1); ty=m.y+Math.max(0,m.vy)*.3+c; }
+        else if(p.role==='man'){ const m=p.man, late=seen>1.7, c=late?.4:Math.max(.9,(p.cush||3)*(1-Math.min(1,seen/1.1))); track(p,m,dt); tx=m.x+p.mvx*.25+(m.x<0?.5:-.5)*(late?0:1); ty=m.y+Math.max(0,p.mvy)*.3+c; }
         else if(p.plaster&&!p.plaster.down){ const m=p.plaster; tx=m.x+m.vx*.3+(m.x<p.x?.35:-.35); ty=m.y+Math.max(0,m.vy)*.35+.7; }
         else if(p.role==='zone'){ const cov=r=>S.P.some(q=>q!==p&&q.side==='d'&&!q.down&&(q.man===r||q.carry===r||q.plaster===r)&&dist(q,r)<dist(p,r));
           if(p.carry&&(p.carry.down||!p.carry.route||Math.hypot(p.carry.x-p.spot[0],p.carry.y-p.spot[1])>11||cov(p.carry))) p.carry=null;
           if(!p.carry){ let bd=7.5; S.rec.forEach(r=>{ if(!r.route||r.down) return; const d2=Math.hypot(r.x-p.spot[0],r.y-p.spot[1]); if(d2<bd&&!cov(r)){ bd=d2; p.carry=r; } }); }
-          if(p.carry){ tx=p.carry.x+p.carry.vx*.25; ty=p.carry.y+1+Math.max(0,p.carry.vy)*.3; } else { tx=p.spot[0]; ty=p.spot[1]; } }
+          if(p.carry){ track(p,p.carry,dt); tx=p.carry.x+p.mvx*.25; ty=p.carry.y+1+Math.max(0,p.mvy)*.3; } else { tx=p.spot[0]; ty=p.spot[1]; } }
         else if(p.role==='deep'){ let deep=null; const half=p.spot[0]===0?99:14; S.rec.forEach(r=>{ if(r.route&&!r.down&&r.y>9&&Math.abs(r.x-p.spot[0])<half&&(!deep||r.y>deep.y)) deep=r; }); /* over the top of him, where he's going: and while he's still running at the safety, the safety keeps his depth instead of coming down to meet him and being run past */
-          p._deep=deep; if(deep){ tx=deep.x+deep.vx*.3; ty=deep.y+Math.max(0,deep.vy)*.45+(seen>1.6?1:2.4); if(deep.vy>1.5&&deep.y<p.y) ty=Math.max(ty,Math.min(p.y,deep.y+7)); } else { tx=p.spot[0]; ty=p.spot[1]; } }
+          p._deep=deep; if(deep){ track(p,deep,dt); tx=deep.x+p.mvx*.3; ty=deep.y+Math.max(0,p.mvy)*.45+(seen>1.6?1:2.4); if(deep.vy>1.5&&deep.y<p.y) ty=Math.max(ty,Math.min(p.y,deep.y+7)); } else { tx=p.spot[0]; ty=p.spot[1]; } }
       }
       if(p.side==='d'&&!carrier&&!ballAir){ const m=p.role==='man'?p.man:p.plaster||(p.role==='zone'?p.carry:null)||p._deep; if(m&&!m.down&&m.route){ const v=Math.hypot(m.vx,m.vy), dx=m.x-p.x, dy=m.y-p.y, d=Math.hypot(dx,dy);
-        if(v>1.5&&d>.8&&(dx*m.vx+dy*m.vy)/(d*v)>.25) vmax=Math.min(vmax,m.vmax); } }
+        /* COVERING A MAN he paces him: never more than .35 a second faster than the receiver can run, so a fast DB closes a
+           lost step slowly and a slow one loses ground on a long route; what wins or loses the breaks is his read and his turn */
+        if(v>1.5&&d>.8) vmax=Math.min(vmax,m.vmax+.35); } }
       if(p.burst&&t<p.burst) vmax*=1.18;
       if(p.side==='d') ty=Math.min(ty,S.goal+9.5);
       /* the ball carrier bursts: he gets up to speed quicker than the men chasing him */
