@@ -524,7 +524,7 @@ function makeGame(){
     S.cam.x+=(clamp(f.x,FC-SIDE+VIEW/2-2,FC+SIDE-VIEW/2+2)-S.cam.x)*Math.min(1,dt*3); S.cam.y+=(f.y+4-S.cam.y)*Math.min(1,dt*3);
   }
   const spotText=c=>(c.y>=0?'Gain of '+Math.round(c.y):'Loss of '+Math.round(-c.y))+'.';
-  const SLIP=.006;   /* a running man's slip chance a second on a wet field, rain or snow, ball or no ball */
+  const SLIP=.0143;   /* a running man's slip chance a second on a wet field, rain or snow, ball or no ball */
   function slip(p,isC,quiet){ if(!quiet) pop('Slipped','#F0CE26',p,.2); dust(p,6); p.state='slip'; p._st='slip'; p._st0=S.t; p.down=true; p.vx*=.3; p.vy*=.3;
     if(isC){ p.juke=0; if(p.y<=-S.yd) return end('Safety','He slipped in his own end zone. Two points to them.','safety',0); const y=Math.round(p.y);
       return end('Slipped',(p.name||'#'+p.num)+' lost his footing and went down'+(y>0?', '+y+' yards.':'.'),y>0?'gain':'loss',y); }
