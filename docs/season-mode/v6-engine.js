@@ -158,11 +158,11 @@ function makeGame(){
   const stat=(p,k)=>p&&p.a&&p.a[k]!=null?p.a[k]:((p&&p.r)||80);
   /* EVERY DEFENDER HAS FOUR STATS FOR HIS POSITION, like the offense:
        DL  pass rush, run stop, tackling, speed       LB  run stop, coverage, tackling, speed
-       CB  coverage, ball hawk, speed, tackling       S   coverage, ball hawk, tackling, speed
+       DB  coverage, ball hawk, tackling, speed       (the two corners and two safeties are all DBs)
      His overall is the average of his four. The defense's card adds them up: pass rush is the line's average pass rush,
      coverage the backers' and backs' average coverage, run stop the line's and backers' average run stop, ball hawk the
      backs' average ball hawk, and the overall the average of the ten overalls. Every play reads only stats. */
-  const DSET={DL:['rush','stop','tkl','spd'],LB:['stop','cov','tkl','spd'],CB:['cov','hawk','spd','tkl'],S:['cov','hawk','tkl','spd']};
+  const DBSET=['cov','hawk','tkl','spd'], DSET={DL:['rush','stop','tkl','spd'],LB:['stop','cov','tkl','spd'],CB:DBSET,S:DBSET}, DLABP={DL:'DL',LB:'LB',CB:'DB',S:'DB'};
   const TEAMK=['rush','cov','stop','hawk'], DLAB={rush:'Rush',cov:'Cov',stop:'Stop',hawk:'Hawk',tkl:'Tkl',spd:'Spd'};
   const ds=(p,k)=>p&&p.s&&p.s[k]!=null?p.s[k]:((p&&p.r)||80);
   const Dn=(p,k)=>.5+(clamp((ds(p,k)-55)/44,0,1)-.5)*ASP;
@@ -172,8 +172,8 @@ function makeGame(){
   /* THE TEN MEN. Made once per defense from its real season and never changed. Who is best comes from what the defense
      was good at (pass rush to the line, coverage to the backs); a great or a poor defense has less room either side, so a
      99 is ten 99s. They're built so their stats add up exactly to the card. */
-  const MEN=new Map(), DSP=[12,10,8,4,2,0,-2,-6,-10,-14], TKL={DL:3,LB:3,CB:-4,S:0};
-  const LEAN={DL:t=>t[0]*.55+t[2]*.45,LB:t=>t[2]*.55+t[1]*.45,CB:t=>t[1]*.75+t[3]*.25,S:t=>t[1]*.6+t[3]*.25+t[2]*.15};
+  const MEN=new Map(), DSP=[12,10,8,4,2,0,-2,-6,-10,-14], TKL={DL:3,LB:3,CB:-2,S:-2};
+  const LEAN={DL:t=>t[0]*.55+t[2]*.45,LB:t=>t[2]*.55+t[1]*.45,CB:t=>t[1]*.7+t[3]*.3,S:t=>t[1]*.7+t[3]*.3};
   /* whole numbers inside lo..hi, as near the wanted values as can be, that average exactly to the target */
   function fitAvg(vals,target,lo,hi){ const v=vals.map(x=>clamp(Math.round(x),lo,hi)), want=Math.round(target)*v.length;
     for(let g=0;g<400;g++){ const d=want-v.reduce((a,b)=>a+b,0); if(!d) break; const s=Math.sign(d); let bi=-1, bv=-1e9;
@@ -198,7 +198,7 @@ function makeGame(){
     for(let g=0;g<3000;g++){ const dif=men.length*R-men.reduce((a,m)=>a+ov(m),0); if(!dif) break; const sg=Math.sign(dif); let best=null, bk=null, bd=1e9;
       men.forEach(m=>['spd','tkl'].forEach(k=>{ if(sg>0?m.s[k]>=99:m.s[k]<=40) return; const t=sum4(m), gap=sg>0?(ov(m)+.5)*4-t:t-(ov(m)-.5)*4+1; if(gap<bd){ bd=gap; best=m; bk=k; } }));
       if(!best) break; best.s[bk]+=sg; }
-    const U={DL:[],LB:[],CB:[],S:[]}; men.forEach(m=>U[m.pos].push({pos:m.pos,r:ov(m),k:DSET[m.pos],s:m.s}));
+    const U={DL:[],LB:[],CB:[],S:[]}; men.forEach(m=>U[m.pos].push({pos:m.pos,lab:DLABP[m.pos],r:ov(m),k:DSET[m.pos],s:m.s}));
     MEN.set(key,U); return U; }
   function units(){ return menOf(D); }
   function setup(){

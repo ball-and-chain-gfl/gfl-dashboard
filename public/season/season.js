@@ -391,9 +391,9 @@ function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
     ${o.extra||''}
     ${o.go&&o.go.length?`<div class="tc-go">${o.go.join('')}</div>`:''}</div>${o.side?'</div>'+o.side:''}</div>`; }
 const menHTML=d=>{ if(typeof GAME==='undefined'||!GAME.men||!d) return ''; const U=GAME.men(d);
-  return `<div class="tc-men">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div><span>${m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b></div>`).join('')}</div>`; };
+  return `<div class="tc-men">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div><span>${m.lab||m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b></div>`).join('')}</div>`; };
 const menList=d=>{ if(typeof GAME==='undefined'||!GAME.men||!d) return ''; const U=GAME.men(d), L=GAME.dlab;
-  return `<div class="dmen">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div class="dm"><span class="p">${m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b>${m.k.map(k=>`<i><small>${L[k]}</small><em>${m.s[k]}</em></i>`).join('')}</div>`).join('')}</div>`; };
+  return `<div class="dmen">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div class="dm"><span class="p">${m.lab||m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b>${m.k.map(k=>`<i><small>${L[k]}</small><em>${m.s[k]}</em></i>`).join('')}</div>`).join('')}</div>`; };
 function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||[]), P=LG.pl||{};
   const line=(p,k)=>{ const s=P['0:'+p.id+'-'+p.season]||(k!=null&&P['0:'+k]&&P['0:'+k].id===p.id?P['0:'+k]:null);
     if(!s||!s.g) return p.season+' · no games yet';
