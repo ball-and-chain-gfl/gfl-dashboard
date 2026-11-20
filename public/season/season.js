@@ -390,6 +390,8 @@ function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
     ${p.inj?`<div class="tc-inj"><b>Out · ${injShort(p.inj)}</b><span>${esc(p.inj.n)}</span></div>`:''}
     ${o.extra||''}
     ${o.go&&o.go.length?`<div class="tc-go">${o.go.join('')}</div>`:''}</div></div>`; }
+const menHTML=d=>{ if(typeof GAME==='undefined'||!GAME.men||!d) return ''; const U=GAME.men(d);
+  return `<div class="tc-men">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div><span>${m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b></div>`).join('')}</div>`; };
 function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||[]), P=LG.pl||{};
   const line=(p,k)=>{ const s=P['0:'+p.id+'-'+p.season]||(k!=null&&P['0:'+k]&&P['0:'+k].id===p.id?P['0:'+k]:null);
     if(!s||!s.g) return p.season+' · no games yet';
@@ -400,7 +402,7 @@ function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||
   const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
   return `<div class="shr-row">${shareButton('team','Share your team')}</div><div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
     <div class="sh">Your <b>bench · ${B.length} of ${BENCH_CAP}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="lg-empty">Empty</div>'}
-    <div class="sh">Your <b>defense</b></div>${cur&&LG.dstRound===LG.cur?`<div class="tcs">${tcHTML(cur,{pos:'D/ST',stat:'This week'})}</div>`:''}
+    <div class="sh">Your <b>defense</b></div>${cur&&LG.dstRound===LG.cur?`<div class="tcs">${tcHTML(cur,{pos:'D/ST',stat:'This week',extra:menHTML(cur)})}</div>`:''}
     <div class="pcs"><div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>All defenses</span></div></div>
       ${tl([[D.length,'Games'],[tot.sk,'Sacks'],[tot.take,'Takeaways'],[D.length?(tot.pa/D.length).toFixed(1):'0','Pts allowed/g']])}</div></div>
     ${D.length?`<div class="sh">Week <b>by week</b></div><div class="lds">${D.slice().reverse().map(d=>`<div class="ld dlog"><span class="rk">${esc(String(d.round).replace(/^Week /,'W'))}</span>${nflImg(d.n,'lgo')||'<span class="ini">D</span>'}<span class="nm"><b>${d.season} ${esc(d.n)}</b><small>${d.sk} sack${d.sk===1?'':'s'} · ${d.take} takeaway${d.take===1?'':'s'} · ${d.ya} yds</small></span><span class="v">${d.pa}</span><span class="v2">pts</span></div>`).join('')}</div>`:''}`; }
