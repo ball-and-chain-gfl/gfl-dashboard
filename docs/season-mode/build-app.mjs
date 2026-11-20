@@ -43,6 +43,9 @@ fs.writeFileSync(new URL('index.html', OUT), h);
 
 for (const [a, b] of [['v6-sprites.js', 'sprites.js'], ['v6-engine.js', 'engine.js'], ['v6-match.js', 'match.js'], ['v6-season.js', 'season.js']]) fs.copyFileSync(new URL(a, D), new URL(b, OUT));
 for (const f of ['rated.json', 'defenses.json', 'attrs.json']) fs.copyFileSync(new URL(f, D), new URL(f, OUT));
+/* the game-day pictures: six pixel stadiums */
+fs.mkdirSync(new URL('art2/', OUT), { recursive: true });
+for (const f of fs.readdirSync(new URL('art2/', D))) fs.copyFileSync(new URL('art2/' + f, D), new URL('art2/' + f, OUT));
 /* every team's crest: any of them can be in your league, and its kit colours come from it */
 const teams = JSON.parse(read('teams.json'));
 teams.forEach(t => { if (t.logo && fs.existsSync(new URL(t.logo, D))) fs.copyFileSync(new URL(t.logo, D), new URL(t.logo, OUT)); else t.logo = null; });

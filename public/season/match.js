@@ -190,13 +190,14 @@ function makeMatch(){
     setHTML($('#bug'),`<div class="wp"><span class="lb">Win probability</span><span class="lb wv">${esc(ini(ME.name))} ${Math.round(w*100)}%</span><div class="wpb">${Array.from({length:20},(_,i)=>`<i style="background:${i<wc?ca:cb}"></i>`).join('')}</div></div>`+b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0)); clockOnly(); }
   const strip=(los,fd)=>{ const ca=(KIT.o&&KIT.o.helmet&&KIT.o.helmet[1])||'#3f8fea', cb=(KIT.d&&KIT.d.helmet&&KIT.d.helmet[1])||'#c8233e', P=y=>((10+y)/120*100).toFixed(1)+'%';
     return `<div class="fs2"><i class="ez" style="left:0;background:${ca}"></i><i class="ez" style="right:0;background:${cb}"></i>${[1,2,3,4,5,6,7,8,9].map(k=>`<i class="yl" style="left:${P(k*10)}"></i>`).join('')}<i class="los" style="left:${P(los)}"></i>${fd!=null&&fd<100?`<i class="fdm" style="left:${P(fd)}"></i>`:''}</div>`; };
-  function ddMe(){ setHTML($('#dd'),`<span><b class="dn">${ord(M.down)} <i class="amp">&amp;</i> ${M.togo>=100-M.yd?'Goal':M.togo}</b> ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`+strip(M.yd,M.yd+M.togo)); }
+  function ddMe(){ setHTML($('#dd'),`<span><b class="dn">${M.conv?'Two-point try':ord(M.down)+' <i class="amp">&amp;</i> '+(M.togo>=100-M.yd?'Goal':M.togo)}</b> ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`+strip(M.yd,M.yd+M.togo)); }
   function ddThem(st){ M.cyd=st.yd; $('#dd').innerHTML=`<span><b class="dn">${ord(st.down)} <i class="amp">&amp;</i> ${st.yd+st.togo>=100?'Goal':st.togo}</b> ${theirs(st.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">Their O ${M.oppO} v D ${SIM.myD()}</span>`+strip(100-st.yd,100-st.yd-st.togo); bug(); }
   function view(v){ const snap=v==='snap'; $('#fld').style.display=snap?'':'none'; $('#sim').style.display=snap?'none':''; $('#ctrl').style.display=snap?'':'none'; $('#drive').style.display=snap?'none':'';
     $('#res').className='result'; $('#call').innerHTML=''; $('#hint').style.display='none'; GAME.show(snap); if(!snap) SIM.size(); }
-  function banner(o,cb){ const b=$('#ban'); b.innerHTML=`<div class="bx" style="--cc:${o.col||'var(--text)'}"><small>${o.tag}</small><b>${o.title}</b>${o.sub?`<span>${o.sub}</span>`:''}${o.drive?dsum():''}<button class="btn w">${o.btn}</button></div>`;
+  function banner(o,cb,cb2){ const b=$('#ban'); b.innerHTML=`<div class="bx" style="--cc:${o.col||'var(--text)'}"><small>${o.tag}</small><b>${o.title}</b>${o.sub?`<span>${o.sub}</span>`:''}${o.drive?dsum():''}<button class="btn w">${o.btn}</button>${o.btn2?`<button class="btn b2">${o.btn2}</button>`:''}</div>`;
     b.className='banner show'; $('#ctrl').classList.add('lock'); $('#drive').classList.add('lock');
-    b.querySelector('button').onclick=()=>{ b.className='banner'; $('#ctrl').classList.remove('lock'); $('#drive').classList.remove('lock'); cb(); }; }
+    const close=()=>{ b.className='banner'; $('#ctrl').classList.remove('lock'); $('#drive').classList.remove('lock'); };
+    b.querySelector('button').onclick=()=>{ close(); cb(); }; const b2=b.querySelector('.b2'); if(b2) b2.onclick=()=>{ close(); cb2(); }; }
   function tick(s){ if(M.stop) return; const before=M.clock; M.clock-=s;
     /* the two-minute warning, in the second and fourth quarters */
     if((M.q===2||M.q===4)&&before>120&&M.clock<=120&&!M.warn[M.q]){ M.warn[M.q]=1; M.twoMin=true; }
@@ -218,7 +219,8 @@ function makeMatch(){
   function cpuDrive(yd){ M.cyd=yd; M.poss='cpu'; newDrive(false,yd); bug(); view('sim'); $('#drive').innerHTML=`<span class="tb">${crest(CPU)}<span>Their ball</span></span><button class="btn" id="skip">Skip ahead</button>`; $('#skip').onclick=()=>{ SIM.skip(); $('#skip').disabled=true; };
     SIM.start(yd,M.oppO,r=>{ M.opp.drives++;
       const go=(o,next)=>banner(o,()=>after(next));
-      if(r.kind==='td'){ M.score[1]+=7; bug(); go({art:'td_them',drive:1,tag:'They score',title:'Touchdown',sub:`${r.n} plays. Extra point good. Your ball on your 25.`,col:'var(--red)',btn:'Your ball'},()=>myDrive(25)); }
+      if(r.kind==='td'){ const d=M.score[1]+6-M.score[0], two=[-2,-5,1,5,-9].includes(d)&&M.q>=3||Math.random()<.06, ok=two?Math.random()<.48:Math.random()<.96; M.score[1]+=6+(ok?(two?2:1):0); bug();
+        go({art:'td_them',drive:1,tag:'They score',title:'Touchdown',sub:`${r.n} plays. ${two?(ok?'Two-point try good.':'Two-point try stopped.'):(ok?'Extra point good.':'Extra point missed.')} Your ball on your 25.`,col:'var(--red)',btn:'Your ball'},()=>myDrive(25)); }
       else if(r.kind==='fg'){ M.score[1]+=3; bug(); go({art:'fg',drive:1,tag:'They score',title:'Field goal',sub:`${r.len} yards, good. Your ball on your 25.`,col:'var(--yellow)',btn:'Your ball'},()=>myDrive(25)); }
       else if(r.kind==='miss'){ const yd=Math.max(20,100-r.spot); go({art:'nofg',drive:1,tag:'No good',title:'Missed field goal',sub:`From ${r.len}. Your ball on ${mine(yd)}.`,col:'var(--green)',btn:'Your ball'},()=>myDrive(yd)); }
       else if(r.kind==='punt'){ const yd=r.spot>=100?20:Math.max(1,100-r.spot); go({art:'punt',drive:1,tag:'Punt',title:'They punt',sub:`${r.spot>=100?'Into the end zone, touchback':r.len+' yards'}. Your ball on ${mine(yd)}.`,btn:'Your ball'},()=>myDrive(yd)); }
@@ -234,9 +236,11 @@ function makeMatch(){
       /* the five on the field are always the five you have now (the hub, a re-spin, a reload or a quick game in between can't leave an old lineup in the engine) */
       M.lineup=((o&&o.lineup)||DR.got||[]).slice(0,5); M.hurt=[]; M.subLog=[]; if(M.lineup.length===5&&M.lineup.every(Boolean)) GAME.roster(M.lineup);
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
-      GAME.setD(M.oppD); GAME.setHome(Object.assign(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo},{event:(o&&o.event)||null})); bug(); view('snap');
+      GAME.setD(M.oppD); GAME.setHome(Object.assign(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo},{event:(o&&o.event)||null,time:(o&&o.time)||['day','dusk','night'][Math.floor(Math.random()*3)],snow:!!(o&&o.snow)})); bug(); view('snap');
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
     played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
+      if(M.conv){ M.conv=false; const good=r.kind==='td'; if(good) M.score[0]+=2; bug();
+        M.pend=()=>banner({tag:'Two-point try',title:good?'Good':'No good',sub:good?'Eight points on the drive.':'Stopped short. Six it is.',col:good?'var(--green)':'var(--red)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); return; }
       if(r.injury&&typeof rollInjury==='function'){ const i=r.injury.ri, p=M.lineup&&M.lineup[i];
         if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
           if(season&&!isBackup(p)){ hurt(p,inj); p.sta=Math.round(GAME.stamina()[i]); }
@@ -254,7 +258,9 @@ function makeMatch(){
       if(M.drv) M.drv.plays.push({y:r.kind==='inc'||r.kind==='to'?0:y,k:r.kind==='td'?'td':r.kind==='to'?'to':(S.thrown||r.head==='Thrown away')?(S.caught?'pass':'inc'):S.carrier?(y<0?'loss':'run'):'loss'});
       M.run=(r.kind==='gain'||r.kind==='loss')&&r.head!=='Out of bounds'&&r.head!=='Thrown away'; M.pc=PLAYCLOCK;
       if(M.twoMin){ M.twoMin=false; M.run=false; M.toast='Two-minute warning'; }
-      if(r.kind==='td'){ M.score[0]+=7; bug(); M.pend=()=>banner({art:'td',drive:1,tag:'Touchdown',title:'Touchdown',sub:r.body+' Extra point good.',col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
+      if(r.kind==='td'){ M.score[0]+=6; bug(); M.pend=()=>banner({art:'td',drive:1,tag:'Touchdown',title:'Touchdown',sub:r.body,col:'var(--green)',btn:'Kick the extra point · 96%',btn2:'Go for two'},
+        ()=>{ const good=Math.random()<.96; if(good) M.score[0]+=1; bug(); banner({tag:'Extra point',title:good?'It\'s good':'No good',sub:good?'Seven points on the drive.':'Wide. Six it is.',col:good?'var(--green)':'var(--red)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); },
+        ()=>{ M.conv=true; M.run=false; M.yd=98; M.down=1; M.togo=2; bug(); view('snap'); GAME.sit(98,1,2); ddMe(); }); }
       else if(r.kind==='to'){ const abs=M.yd+Math.round(r.at?r.at.y:0), yd=abs>=100?20:clamp(100-abs,1,99); M.pend=()=>banner({art:r.head==='Intercepted'?'int':r.head==='Strip sack'?'strip':'fumble',drive:1,tag:'Turnover',title:r.head==='Intercepted'?'Intercepted':r.head==='Strip sack'?'Strip sack':'Fumble',sub:`Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); }
       else if(r.kind==='safety'){ M.score[1]+=2; bug(); M.pend=()=>banner({art:'safety',drive:1,tag:'Safety',title:'Safety',sub:'Two points to them, and you kick it to them.',col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(35))); }
       else { const g=r.kind==='inc'?0:y; M.yd=clamp(M.yd+g,1,99);

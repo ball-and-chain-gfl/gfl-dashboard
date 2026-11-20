@@ -128,16 +128,16 @@ function ballSpot(st,fr){ const rot=(th,tx,ty)=>{ const c=Math.cos(th), s=Math.s
   return q?[q[0],-q[1]]:null; }
 function makeGame(){
   const cv=$('#fld'), ctx=cv.getContext('2d'); let W=0,H=0,K=0; const DPR=Math.min(2,devicePixelRatio||1);
-  let VIEW=30, SC=1.2; const SIDE=26.65, HASH=3.08, OLG=82;
+  let VIEW=62, SC=36/62; const SIDE=26.65, HASH=3.08, OLG=82;
   let D={r:82,n:'Defense',season:''};
   const pickS=(pos,lo,hi,skip)=>POOL.find(p=>p.pos===pos&&p.r>=lo&&p.r<=hi&&p.id!==skip)||POOL.find(p=>p.pos===pos);
   const w1=pickS('WR',88,95); const SAMPLE=[pickS('QB',84,90),pickS('RB',82,90),w1,pickS('WR',76,87,w1.id),pickS('TE',72,82)];
   let roster=null; const who=i=>(roster&&roster[i])||SAMPLE[i];
-  let STA=[100,100,100,100,100];
+  let STA=[100,100,100,100,100], HYPE=0;
   /* WEAR AND INJURY. Every time one of your five is brought down he loses stamina: a big hit most, a sling or a gang
      tackle more than a plain tackle, a shoestring trip least. And every hit carries a small chance he's hurt, which grows
      as his stamina falls: about four times as likely when he's spent as when he's fresh. */
-  const WEAR={hit:11.5,sling:6.8,tackle:3.5,wrap:3.5,shoe:2.6,drag:2.6}, HURT={hit:.02,sling:.011,tackle:.007,wrap:.0055,shoe:.0045,drag:.0045};
+  const WEAR={hit:11.5,sling:6.8,tackle:3.5,wrap:3.5,shoe:2.6,drag:2.6,truck:2.2,stiff:1.4}, HURT={hit:.02,sling:.011,tackle:.007,wrap:.0055,shoe:.0045,drag:.0045,truck:.003,stiff:.0018};
   function wear(c,kind,gang){ const i=c.ri, s0=STA[i]; STA[i]=Math.max(0,s0-(WEAR[kind]||4)*(.75+Math.random()*.5)-(gang?2:0));
     if(!S.injury&&Math.random()<(HURT[kind]||.004)*(1+3*Math.pow(1-s0/100,1.5))*(gang?1.3:1)){ S.injury={ri:i,big:kind==='hit'||kind==='sling'}; pop('Hurt','#D9325E',c); } }
   const S={phase:'pre',call:'slants',kind:'pass',hand:{pass:['slants','verts','mesh','smash'],run:['inside','outside','powerR','draw']},look:'cover2',t:0,P:[],ball:null,carrier:null,cam:{x:0,y:4},eng:[],cut:null,yd:25,down:1,togo:10,goal:75,fourth:false,on:false};
@@ -296,7 +296,7 @@ function makeGame(){
   function startSeq(name,a,b){ const v=Math.hypot(a.vx,a.vy)||1;
     S.seq={name,a,b,t0:S.t,a0:{x:a.x,y:a.y},b0:{x:b.x,y:b.y},ux:a.vx/v||0,uy:a.vy/v||1,sp:Math.max(3.5,v),lat:S.cut&&S.t<S.cut.until+.3?S.cut.dir:(b.x<a.x?1:-1),dur:SEQ[name].dur};
     if(SCENES[name]){ const q=S.seq; Object.assign(q,{scene:true,sdir:dir4(q.ux,q.uy),ax:a.x,ay:a.y,dur:SCENES[name].len}); }
-    a.seqd=b.seqd=true; b.fxd=true; b.tried=S.t; pop(SEQ[name].label,'#FF8E1C',a,.22); dust(b,10); if(name==='truck'||name==='stiff') sparks(b,8); }
+    a.seqd=b.seqd=true; b.fxd=true; b.tried=S.t; pop(SEQ[name].label,'#FF8E1C',a,.22); dust(b,10); if(name==='truck'||name==='stiff'){ sparks(b,8); if(a.side==='o'&&a.ri!=null) wear(a,name,false); } }
   function runSeq(dt){ const q=S.seq, t=S.t-q.t0, a=q.a, b=q.b, k=Math.min(1,t/q.dur), side=q.ux>=0?'right':'left';
     /* a moves D along the way he was going and L across it */
     const at=(D,L)=>{ a.x=q.a0.x+q.ux*D+q.uy*L*q.lat; a.y=q.a0.y+q.uy*D-q.ux*L*q.lat; };
@@ -625,6 +625,7 @@ function makeGame(){
       if(k==='spike'){ S.ball.holder=null; S.loose={x0:sc.x,y0:sc.y,to:{x:sc.x+.8,y:sc.y-.6},t0:S.t+.15}; } } pop('Touchdown','#4ade80',sc||S.QB); const cc=sc||S.QB; burst(cc.x,cc.y,80,{cols:CONF,sp:3.2,vz:7,z:2,g:2.4,life:2.4,s:3});
       if(S.home&&S.home.event) [-1,1].forEach(sd=>{ burst(sd*(SIDE+12),cc.y+6,60,{cols:['#F0CE26','#FDFEFC','#FF8E1C','#4C9EFF'],sp:5,vz:4,z:9,g:1.4,life:1.8,s:3}); }); }
     const col={td:'#4ade80',gain:'#4ade80',loss:'#D9325E',to:'#D9325E',safety:'#D9325E',inc:'#F0CE26'}[kind]||'#FDFEFC';
+    if(kind==='td'||(yards>=15&&kind==='gain')) HYPE=performance.now()/1000+3.5;
     if(MATCH) MATCH.played(S.result); const R0=S.result;
     setTimeout(()=>{ $('#res').innerHTML=`<small>They were in ${LOOKS[S.look]} out of a ${S.front||'nickel'}</small><b style="color:${col}">${head}</b><span>${esc(R0.body)}</span>`; $('#res').className='result show'; buttons(); },650);
     hint('');
@@ -640,20 +641,25 @@ function makeGame(){
     const xv0=S.cam.x-VIEW/2-2, xv1=S.cam.x+VIEW/2+2, yv0=toY(0,H).y-2, yv1=toY(0,0).y+2;
     ctx.fillStyle='#202327'; ctx.fillRect(0,0,W,H);
     /* the stands: rows of concrete, a fan in nearly every seat, most of them in the home colour */
-    const ev=S.home&&S.home.event, nowS=performance.now()/1000;
+    const ev=S.home&&S.home.event, nowS=performance.now()/1000, hype=nowS<HYPE, waveOn=(nowS%38)<11, waveX=((nowS%38)*24)%420;
+    const night=S.home&&S.home.time==='night', dusk=S.home&&S.home.time==='dusk';
     const SEAT=.66, FAN=['#E6E8EB','#2b2d31','#c94f3d','#3d6fc9','#e0b43a','#7a7f87','#4a8f5a'], sz=Math.max(2,Math.round(K*.42));
     const stands=(x0,x1,y0,y1)=>{ x0=Math.max(x0,xv0); x1=Math.min(x1,xv1); y0=Math.max(y0,yv0); y1=Math.min(y1,yv1); if(x1<=x0||y1<=y0) return;
       for(let gy=Math.ceil(y0/SEAT);gy*SEAT<y1;gy++){ R(x0,gy*SEAT-SEAT*.5,x1,gy*SEAT,gy%2?'#272a2f':'#2c3036');
         for(let gx=Math.ceil(x0/SEAT);gx*SEAT<x1;gx++){ const h=hashU(gx,gy); if(h<.07) continue;
           const [sx,sy]=toS(gx*SEAT+(h-.5)*.12,gy*SEAT); let c=h<.52?hc:h<.64?ac:FAN[Math.floor(h*977)%FAN.length];
-          if(ev&&hashU(gy,gx*1.7)<.05&&Math.floor(nowS*6+hashU(gx*3,gy)*40)%23===0) c='#FFFFFF';
-          ctx.fillStyle=c; ctx.fillRect(Math.round(sx-sz/2),Math.round(sy-sz*.7),sz,Math.max(2,Math.round(sz*.75)));
-          ctx.fillStyle=SKIN[Math.floor(h*311)%SKIN.length][1]; const hs=Math.max(1,Math.round(sz*.55)); ctx.fillRect(Math.round(sx-hs/2),Math.round(sy-sz*.7-hs),hs,hs); } } };
+          if((ev||night)&&hashU(gy,gx*1.7)<(ev?.05:.02)&&Math.floor(nowS*6+hashU(gx*3,gy)*40)%23===0) c='#FFFFFF';
+          const wv=waveOn&&Math.abs((((gx+gy)%420)+420)%420-waveX)<4, lift=(hype?Math.max(0,Math.sin(nowS*10+h*31))*sz*.9:0)+Math.sin(nowS*2.1+h*40)*sz*.14+(wv?sz*.9:0), fy=Math.round(sy-lift);
+          ctx.fillStyle=c; ctx.fillRect(Math.round(sx-sz/2),Math.round(fy-sz*.7),sz,Math.max(2,Math.round(sz*.75)));
+          ctx.fillStyle=SKIN[Math.floor(h*311)%SKIN.length][1]; const hs=Math.max(1,Math.round(sz*.55)); ctx.fillRect(Math.round(sx-hs/2),Math.round(fy-sz*.7-hs),hs,hs);
+          if(h>.989){ const sw=sz*3.4, shh=sz*1.5, by=fy-sz*2.3-Math.abs(Math.sin(nowS*3+h*9))*sz*.4; ctx.fillStyle='#F4F1E8'; ctx.fillRect(Math.round(sx-sw/2),Math.round(by),Math.round(sw),Math.round(shh));
+            ctx.fillStyle=h>.995?hc:'#D9325E'; ctx.fillRect(Math.round(sx-sw/2+sz*.4),Math.round(by+shh*.3),Math.round(sw-sz*.8),Math.max(1,Math.round(shh*.4))); } } } };
     stands(-SIDE-60,-SIDE-6.6,EL0-60,EL1+60); stands(SIDE+6.6,SIDE+60,EL0-60,EL1+60);
     stands(-SIDE-6.6,SIDE+6.6,EL1+4.6,EL1+60); stands(-SIDE-6.6,SIDE+6.6,EL0-60,EL0-4.6);
     /* the wall, padded in the home colour, and the grass inside it */
     const wc=mixC(hc,'#000000',.25);
     R(-SIDE-6.6,EL0-4.6,SIDE+6.6,EL1+4.6,wc); R(-SIDE-6,EL0-4,SIDE+6,EL1+4,'#183f27');
+    for(let y=Math.floor((EL0-4)/7)*7,k=0;y<EL1+4;y+=7,k++){ const c=k%3===0?'#F4F1E8':k%3===1?mixC(hc,'#ffffff',.25):'#F0CE26'; R(-SIDE-6.6,y+1,-SIDE-6.05,y+5,c); R(SIDE+6.05,y+1,SIDE+6.6,y+5,c); }
     if(ev){ const bc=ev.big?['#F0CE26','#FDFEFC']:[hc,'#FDFEFC']; for(let y=Math.floor(EL0-4),k=0;y<EL1+4;y+=2,k++){ const c=bc[k%2]; R(-SIDE-6.6,y,-SIDE-6,y+1.4,c); R(SIDE+6,y,SIDE+6.6,y+1.4,c); } }
     for(let yd=Math.floor((EL0-4)/5)*5;yd<EL1+4;yd+=5){ if(((yd/5)%2+2)%2) R(-SIDE-6,yd,SIDE+6,Math.min(yd+5,EL1+4),'#1b4a2c'); }
     /* the white border all the way round */
@@ -661,8 +667,8 @@ function makeGame(){
     /* each sideline: the coaches' box between the 25s, the team standing in its kit between the 30s, home on the left */
     [[-1,hk,hc],[1,ak,ac]].forEach(([sd,k,c])=>{ const x=sd*(SIDE+2.2);
       for(let a=25;a<75;a+=1.2){ const y=a-S.yd; if(y<yv0||y>yv1) continue; R(x-.08,y,x+.08,y+.6,'#F0CE26'); }
-      for(let a=31;a<=69;a+=1.35){ const y=a-S.yd; if(y<yv0||y>yv1) continue; const h=hashU(a,sd), xx=sd*(SIDE+3.3+h*1.6);
-        const [sx,sy]=toS(xx,y), w=Math.max(3,Math.round(K*.55)); ctx.fillStyle=c; ctx.fillRect(Math.round(sx-w/2),Math.round(sy-w*.6),w,Math.round(w*.9));
+      for(let a=31;a<=69;a+=1.35){ const y=a-S.yd+Math.sin(nowS*.7+hashU(sd,a)*30)*.35; if(y<yv0||y>yv1) continue; const h=hashU(a,sd), xx=sd*(SIDE+3.3+h*1.6+Math.sin(nowS*1.1+h*25)*.3);
+        const [sx,sy0]=toS(xx,y), sy=sy0-(hype?Math.max(0,Math.sin(nowS*9+h*20))*K*.5:0), w=Math.max(3,Math.round(K*.55)); ctx.fillStyle=c; ctx.fillRect(Math.round(sx-w/2),Math.round(sy-w*.6),w,Math.round(w*.9));
         ctx.fillStyle=(KIT[k]&&KIT[k].helmet[1])||c; ctx.fillRect(Math.round(sx-w*.3),Math.round(sy-w*1.1),Math.round(w*.6),Math.round(w*.55)); }
       R(sd>0?SIDE+4.9:-SIDE-5.4,40-S.yd,sd>0?SIDE+5.4:-SIDE-4.9,60-S.yd,mixC(c,'#000000',.45)); });
     /* the goalposts on each end line */
@@ -671,6 +677,7 @@ function makeGame(){
   function draw(){
     if(!W||!S.ball) return;
     stadium();
+    { const tm=S.home&&S.home.time; if(tm==='night'){ ctx.fillStyle='rgba(6,10,30,.42)'; ctx.fillRect(0,0,W,H); } else if(tm==='dusk'){ ctx.fillStyle='rgba(255,120,40,.10)'; ctx.fillRect(0,0,W,H); ctx.fillStyle='rgba(30,10,40,.16)'; ctx.fillRect(0,0,W,H); } }
     const top=toY(0,0).y+2, bot=toY(0,H).y-2, [sl]=toS(-SIDE,0), [sr]=toS(SIDE,0), [ox,oy]=toS(0,0), xl=Math.max(sl,0), xr=Math.min(sr,W);
     const back=-S.yd-10, front=S.goal+10, [,yb]=toS(0,back), [,yf]=toS(0,front);
     ctx.fillStyle='#1F5A2E'; ctx.fillRect(sl,yf,sr-sl,yb-yf);
@@ -792,6 +799,7 @@ function makeGame(){
       ctx.strokeStyle='rgba(253,254,252,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,13,0,P2); ctx.stroke();
       ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(x,y,13,-Math.PI/2,-Math.PI/2+P2*Math.max(.02,k)); ctx.stroke();
       ctx.font='600 9px JetBrains Mono'; ctx.textAlign='center'; ctx.fillStyle='#FDFEFC'; ctx.fillText(k<.34?'LOB':k<.67?'TOUCH':'ZIP',x,y+28); }
+    if(S.home&&S.home.snow){ const n=performance.now()/1000; ctx.fillStyle='rgba(255,255,255,.85)'; for(let i=0;i<140;i++){ const a=hashU(i,7), b=hashU(i,13), x=((a*W+Math.sin(n*.8+i)*14)%W+W)%W, y=((b*H+n*(28+a*30))%H+H)%H, z=a>.7?3:2; ctx.fillRect(Math.round(x),Math.round(y),z,z); } }
     /* a cut shows as a pair of chevrons on the side he went */
     if(S.cut&&S.carrier&&S.t<S.cut.t0+.4){ const [x,y]=toS(S.carrier.x,S.carrier.y), a=Math.max(0,1-(S.t-S.cut.t0)/.4), d=S.cut.dir; ctx.strokeStyle='rgba(76,158,255,'+a.toFixed(2)+')'; ctx.lineWidth=2.5;
       [0,8].forEach(o=>{ const bx=x+d*(26+o); ctx.beginPath(); ctx.moveTo(bx-d*5,y-38); ctx.lineTo(bx,y-32); ctx.lineTo(bx-d*5,y-26); ctx.stroke(); }); }
@@ -800,8 +808,8 @@ function makeGame(){
   /* THE CAMERA PULLS BACK while you're choosing a throw (and before the snap), far enough to keep every receiver and the
      end of his route in view, out to the sideline; once somebody's running with it, it comes back in to 30 yards across.
      The men are drawn smaller as it pulls back, so the picture is the same field, just more of it. */
-  function frame(rdt){ let tgt=30; const QB=S.QB, choosing=S.phase==='pre'||S.phase==='regroup'||S.phase==='motion'||(S.phase==='live'&&!S.runCall&&!S.carrier&&(S.ball.holder===QB||S.ball.air));
-    if(choosing&&S.rec){ let span=0; S.rec.forEach(p=>{ span=Math.max(span,Math.abs(p.x-S.cam.x)); if(p.route&&S.phase!=='live') p.route.forEach(([rx])=>span=Math.max(span,Math.abs(p.x+rx-S.cam.x))); else if(p.route) span=Math.max(span,Math.abs(routeAt(p,S.t+.6).x-S.cam.x)); }); tgt=clamp(2*(span+4),30,48); }
+  function frame(rdt){ let tgt=62; const QB=S.QB, choosing=S.phase==='pre'||S.phase==='regroup'||S.phase==='motion'||(S.phase==='live'&&!S.runCall&&!S.carrier&&(S.ball.holder===QB||S.ball.air));
+    if(choosing&&S.rec){ let span=0; S.rec.forEach(p=>{ span=Math.max(span,Math.abs(p.x-S.cam.x)); if(p.route&&S.phase!=='live') p.route.forEach(([rx])=>span=Math.max(span,Math.abs(p.x+rx-S.cam.x))); else if(p.route) span=Math.max(span,Math.abs(routeAt(p,S.t+.6).x-S.cam.x)); }); tgt=clamp(2*(span+4),62,66); }
     VIEW+=(tgt-VIEW)*Math.min(1,rdt*(tgt>VIEW?3:1.6)); if(W){ K=W/VIEW; SC=36/VIEW; } }
   function loop(now){ const rdt=Math.min(.04,(now-last)/1000)||0; last=now; if(S.on&&S.P&&S.P.length) frame(rdt);
     try{ if(S.on){ const slow=S.t<(S.slow||0), dt=rdt*(S.hold?.45:1)*(slow?.4:1), M=MATCH;
@@ -827,7 +835,7 @@ function makeGame(){
       $('#goforit').onclick=()=>{ S.fourth=false; buttons(); }; $('#punt').onclick=()=>MATCH.punt(); $('#fg').onclick=()=>fg&&MATCH.kick(fgd);
       return; }
     const C=MATCH&&MATCH.clockUI?MATCH.clockUI():{run:false,tos:0,canSpike:false}, setting=pre||S.phase==='regroup';
-    if(setting){ const fgd=S.goal+17, fgOk=fgd<=57&&MATCH&&MATCH.kick;
+    if(setting){ const fgd=S.goal+17, fgOk=fgd<=57&&MATCH&&MATCH.kick&&!(MATCH.M&&MATCH.M.conv);
       $('#acts').className='acts';
       $('#acts').innerHTML=`<div class="grp"><button id="spk" ${C.canSpike&&pre?'':'disabled'}>Spike</button>${fgOk?`<button id="fgk" ${pre?'':'disabled'}>FG ${fgd}<small>${Math.round(fgOdds(fgd)*100)}%</small></button>`:''}</div><button class="go" id="hike" ${pre?'':'disabled'}>Hike</button><button id="tmo" ${C.run&&C.tos>0?'':'disabled'}>Timeout ${'●'.repeat(C.tos)}${'○'.repeat(Math.max(0,3-C.tos))}</button>`;
       $('#hike').onclick=hike; $('#spk').onclick=()=>MATCH.spike(); $('#tmo').onclick=()=>MATCH.timeout(); const fk=$('#fgk'); if(fk) fk.onclick=()=>{ if(S.phase==='pre') MATCH.kick(fgd); }; return; }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Season Mode · concept 6</title>
-<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Gochi+Hand&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#171717; --l1:#1D1D1D; --l2:#252525; --ln:#272727; --ln2:#2E2E2E;
@@ -788,6 +788,52 @@
   .hn-bx .tag{color:#ff8aa6;} .hn-bx img{width:120px;height:88px;object-fit:contain;object-position:bottom;filter:grayscale(.4);}
   .hn-bx b{font:800 18px/1.2 var(--sans);} .hn-bx em{font:800 15px/1.2 var(--sans);font-style:normal;color:#ff8aa6;text-transform:uppercase;letter-spacing:.04em;}
   .hn-sub{font:600 12.5px var(--sans);color:var(--text2);} .hn-bx .btn{width:100%;margin-top:6px;}
+
+  /* ═══ ROUND 37: A GAME'S HUB ═══
+     The scenes are pixel pictures blown up with hard edges. The hub's frame is a game's: your team's colours behind your
+     crest, chips for record, place and money, a chunky menu bar at the bottom with pixel icons. Section heads are tabs;
+     the buttons are chunkier. And the play-calling under the field is a coach's chalkboard. */
+  .hero img.scn{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated;image-rendering:crisp-edges;}
+  .hero-acts{margin-top:-2px;}
+  .hero-acts .btn.w{font-size:17px;padding:16px;}
+  .hl.news{box-shadow:inset 0 3px 0 var(--red);background:linear-gradient(180deg,#1e1a1f,var(--p1));}
+  .hl.news .tag{color:#fff;background:var(--red);padding:5px 7px;align-self:flex-start;clip-path:var(--notch2);font-weight:800;}
+  /* the frame */
+  .hb-top.g{background:linear-gradient(120deg,color-mix(in srgb,var(--tcol) 55%,#0E1013) 0%,#12151b 70%);padding:12px 14px;border-bottom:3px solid color-mix(in srgb,var(--tcol) 70%,#000);}
+  .hb-top.g .fade .dots{opacity:.22;}
+  .hb-top.g .hb-me{gap:12px;} .hb-top.g .hb-me>div:nth-child(2){display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .hb-top.g .hv-c{width:58px;height:58px;flex:0 0 auto;}
+  :where(#app) .hb-top.g .hb-me b{font:800 18px/1.15 var(--sans);text-shadow:0 2px 0 rgba(0,0,0,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .hb-top.g .tag{color:rgba(253,254,252,.75);}
+  .hb-chips{display:flex;gap:4px;flex-wrap:wrap;} .hb-chips span{font:800 11.5px/1 var(--sans);letter-spacing:.04em;background:rgba(8,9,11,.55);color:var(--text);padding:5px 7px;clip-path:var(--notch2);}
+  .hb-chips .c-rec{background:var(--text);color:var(--ink);} .hb-chips .c-faab{color:var(--green);}
+  /* the menu bar */
+  :where(#app) .hb-tabs.gnav{order:3;display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));background:#0a0c10;border-top:3px solid #1d2128;}
+  :where(#app) .hb-tabs.gnav button{background:transparent;display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 2px 6px;color:var(--text3);font:800 10px/1 var(--sans);letter-spacing:.08em;box-shadow:none;clip-path:var(--notch);}
+  :where(#app) .hb-tabs.gnav button svg{width:24px;height:24px;}
+  :where(#app) .hb-tabs.gnav button.on{background:var(--yellow);color:var(--ink);box-shadow:none;}
+  /* section heads as tabs */
+  .sh{color:var(--text);} .sh::before{content:"";width:6px;height:14px;background:var(--yellow);margin-right:4px;flex:0 0 auto;}
+  /* chunkier buttons */
+  :where(#app) #scr-hub .btn{padding:15px 14px;font-weight:800;}
+  :where(#app) #scr-hub .btn.w{background:var(--yellow);color:var(--ink);}
+  /* THE CHALKBOARD: slate green with a wood rail, chalk lines and a coach's hand */
+  #ctrl{background:#233a30;background-image:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1px),radial-gradient(rgba(255,255,255,.03) 1px,transparent 1px);background-size:7px 7px,11px 11px;background-position:0 0,3px 5px;border-top:6px solid #6b4a2b;box-shadow:inset 0 2px 0 #8a6236;}
+  #ctrl .calls,#ctrl .acts{background:transparent;}
+  #ctrl .calls .kind button{background:transparent;color:rgba(244,241,232,.55);font:400 17px/1 'Gochi Hand',cursive;letter-spacing:.04em;text-transform:uppercase;padding:7px 4px 5px;}
+  #ctrl .calls .kind button.on{background:transparent;color:#F4F1E8;box-shadow:inset 0 -3px 0 rgba(244,241,232,.85)!important;}
+  #ctrl .calls .kind .k-subs{color:#F6D76B;}
+  #ctrl .calls .four4 button{background:rgba(255,255,255,.025);font:400 15px/1.05 'Gochi Hand',cursive;color:#F4F1E8;box-shadow:inset 0 0 0 1px rgba(244,241,232,.12);}
+  #ctrl .calls .four4 button.on{background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 2px rgba(244,241,232,.85);}
+  #ctrl .calls svg [stroke="#4C9EFF"]{stroke:#F4F1E8;} #ctrl .calls svg [fill="#4C9EFF"]{fill:#F4F1E8;}
+  #ctrl .calls svg [stroke="#FF8E1C"]{stroke:#F6D76B;} #ctrl .calls svg [fill="#FF8E1C"]{fill:#F6D76B;}
+  #ctrl .calls svg circle{fill:#F4F1E8;}
+  #ctrl .acts button{background:transparent;color:rgba(244,241,232,.8);font:400 16px/1 'Gochi Hand',cursive;text-transform:uppercase;letter-spacing:.04em;}
+  #ctrl .acts button small{font:400 13px/1 'Gochi Hand',cursive;}
+  #ctrl .acts button.go{background:#F4F1E8;color:#1d2a22;font:800 18px/1 var(--sans);text-transform:none;}
+  #ctrl .acts button:disabled{opacity:.35;}
+  #ctrl .acts .grp button{background:transparent;}
+  .banner .bx .btn.b2{margin-top:2px;background:var(--p2);color:var(--text);font:800 15px/1 var(--sans);}
 </style>
 </head>
 <body>
