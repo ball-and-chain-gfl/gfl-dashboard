@@ -215,7 +215,7 @@ function makeMatch(){
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
-  function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.simAll?'':'<button class="btn" id="skip">Skip ahead</button><button class="btn" id="simall">Sim the rest</button>'}`;
+  function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.simAll?'':'<button class="btn" id="skip">Skip ahead</button><button class="btn simall" id="simall">Sim the rest</button>'}`;
     const sk=$('#skip'); if(sk) sk.onclick=()=>{ SIM.skip(); sk.disabled=true; }; const sa=$('#simall'); if(sa) sa.onclick=()=>{ M.simAll=true; SIM.skip(); driveBar(mine); }; }
   /* your drive, simulated: your five against their defense, the same way theirs are */
   function mySimDrive(yd){ newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; bug(); view('sim'); driveBar(true);
@@ -227,7 +227,7 @@ function makeMatch(){
       else if(r.kind==='punt'){ go({tag:'Punt',title:'You punt',sub:r.len+' yards.',btn:'Their ball'},()=>cpuDrive(r.spot>=100?20:Math.max(1,100-r.spot))); }
       else if(r.kind==='to'||r.kind==='downs'){ go({tag:'Turnover',title:r.kind==='downs'?'Turnover on downs':r.call||'Turnover',sub:'Their ball.',col:'var(--red)',btn:'Their ball'},()=>cpuDrive(clamp(100-r.spot,1,99))); }
       else endPeriod(); },{mine:true,def:M.oppD,fast:true}); }
-  function myDrive(yd){ if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo); ddMe(); }
+  function myDrive(yd){ if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }
   function cpuDrive(yd){ if(M.simAll) setTimeout(()=>SIM.skip(),0); M.cyd=yd; M.poss='cpu'; newDrive(false,yd); bug(); view('sim'); driveBar(false);
     SIM.start(yd,M.oppO,r=>{ M.opp.drives++;
       const go=(o,next)=>banner(o,()=>after(next));
@@ -272,7 +272,7 @@ function makeMatch(){
       if(M.twoMin){ M.twoMin=false; M.run=false; M.toast='Two-minute warning'; }
       if(r.kind==='td'){ M.score[0]+=6; bug(); M.pend=()=>banner({art:'td',drive:1,tag:'Touchdown',title:'Touchdown',sub:r.body,col:'var(--green)',btn:'Kick the extra point · 96%',btn2:'Go for two'},
         ()=>{ const good=Math.random()<.96; if(good) M.score[0]+=1; bug(); banner({tag:'Extra point',title:good?'It\'s good':'No good',sub:good?'Seven points on the drive.':'Wide. Six it is.',col:good?'var(--green)':'var(--red)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); },
-        ()=>{ M.conv=true; M.run=false; M.yd=98; M.down=1; M.togo=2; bug(); view('snap'); GAME.sit(98,1,2); ddMe(); }); }
+        ()=>{ M.conv=true; M.run=false; M.yd=98; M.down=1; M.togo=2; bug(); view('snap'); GAME.sit(98,1,2,0); ddMe(); }); }
       else if(r.kind==='to'){ const abs=M.yd+Math.round(r.at?r.at.y:0), yd=abs>=100?20:clamp(100-abs,1,99); M.pend=()=>banner({art:r.head==='Intercepted'?'int':r.head==='Strip sack'?'strip':'fumble',drive:1,tag:'Turnover',title:r.head==='Intercepted'?'Intercepted':r.head==='Strip sack'?'Strip sack':'Fumble',sub:`Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); }
       else if(r.kind==='safety'){ M.score[1]+=2; bug(); M.pend=()=>banner({art:'safety',drive:1,tag:'Safety',title:'Safety',sub:'Two points to them, and you kick it to them.',col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(35))); }
       else { const g=r.kind==='inc'?0:y; M.yd=clamp(M.yd+g,1,99);
