@@ -633,6 +633,11 @@
   .dm i{display:flex;flex-direction:column;align-items:flex-start;gap:4px;font-style:normal;min-width:0;}
   .dm small{font:700 9px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
   .dm em{font:700 13px/1 var(--sans);font-style:normal;color:var(--text);}
+  .tc[data-pick]{cursor:pointer;transition:opacity .15s,transform .15s;}
+  .tcs.picking .tc{opacity:.28;filter:grayscale(.8);}
+  .tcs.picking .tc.sel{opacity:1;filter:none;transform:translateY(-3px);background:linear-gradient(var(--p1),var(--p1)) padding-box,var(--text) border-box;}
+  .tcs.picking .tc.can{opacity:1;filter:none;background:linear-gradient(var(--p1),var(--p1)) padding-box,var(--sky) border-box;animation:canp 1.1s ease-in-out infinite;}
+  @keyframes canp{50%{transform:translateY(-2px);}}
   .tc-a em{font:700 11px/1 var(--sans);font-style:normal;color:var(--text);text-align:right;}
   .tc-go{display:flex;flex-direction:column;gap:2px;margin-top:2px;}
   .tc-go button{border:0;background:var(--sky);color:var(--ink);font:700 11px/1.1 var(--sans);padding:8px 6px;cursor:pointer;clip-path:var(--notch2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -912,7 +917,7 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
      fantasy finish) says how good he is. So each player keeps the shape of his four, centred on his overall: a 94 averages
      about 94, a 70 about 70. */
   const DSET0=new Set(DEFS);
-  [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); if(DSET0.has(p)&&p.r>88) p.r=Math.round(88+(p.r-88)*7/11);   /* defenses top out at 95 */ const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
+  [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); if(DSET0.has(p)){ if(p.r>88) p.r=Math.round(88+(p.r-88)*7/11); else if(p.r<88) p.r=Math.round(72+(p.r-68)*.8); }   /* defenses run 72 to 95 */ const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
     const m=raw.reduce((s,v)=>s+v,0)/raw.length; p.a=raw.map(v=>Math.round(clamp(p.r+(v-m)*.7,50,99)));
     /* ONE SPEED SCALE: his speed (ranked at his position) becomes his top speed on the scale everyone shares; his overall
        is the weighted average of his four by position, so the other three take up the difference */

@@ -254,7 +254,7 @@ function makeMatch(){
       /* the five on the field are always the five you have now (the hub, a re-spin, a reload or a quick game in between can't leave an old lineup in the engine) */
       M.lineup=((o&&o.lineup)||DR.got||[]).slice(0,5); M.hurt=[]; M.subLog=[]; if(M.lineup.length===5&&M.lineup.every(Boolean)) GAME.roster(M.lineup);
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
-      GAME.setD(M.oppD); GAME.setHome(Object.assign(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo},{event:(o&&o.event)||null,time:(o&&o.time)||['day','dusk','night'][Math.floor(Math.random()*3)],snow:!!(o&&o.snow)})); bug(); view('snap');
+      GAME.setD(M.oppD); GAME.setHome(Object.assign(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo},{event:(o&&o.event)||null,time:(o&&o.time)||['day','dusk','night'][Math.floor(Math.random()*3)],snow:!!(o&&o.snow),rain:!!(o&&o.rain)})); bug(); view('snap');
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
     played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
       if(M.conv){ M.conv=false; const good=r.kind==='td'; if(good) M.score[0]+=2; bug();

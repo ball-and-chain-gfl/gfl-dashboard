@@ -221,6 +221,13 @@ function respinDone(none){ const i=RESPIN.i, got=DR.got[i]; DR.got[i]=RESPIN.sav
   save(); hub('next'); }
 /* let a bench player go, for good */
 function releasePlayer(j){ const me=LG.teams[0], p=(me.bench||[])[j]; if(!p) return; if(!confirm('Release '+p.n+'? He goes back into the pool.')) return; me.bench.splice(j,1); save(); hub('team'); }
+let LSEL=null;
+function pickCard(id){ const me=LG.teams[0], B=me.bench||[], R=me.roster, posOf=x=>x[0]==='s'?R[+x.slice(1)].pos:B[+x.slice(1)].pos;
+  const can=sel=>sel?(sel[0]==='s'?B.map((p,j)=>p.pos===posOf(sel)?'b'+j:null):R.map((p,k)=>p.pos===posOf(sel)?'s'+k:null)).filter(Boolean):[];
+  if(LSEL&&LSEL!==id&&can(LSEL).includes(id)){ const s=LSEL[0]==='s'?LSEL:id, b=LSEL[0]==='b'?LSEL:id; LSEL=null; return startPlayer(+b.slice(1),+s.slice(1)); }
+  LSEL=LSEL===id?null:id; const ok=new Set(can(LSEL));
+  document.querySelectorAll('.tcs').forEach(g=>g.classList.toggle('picking',!!LSEL));
+  document.querySelectorAll('.tc').forEach(c=>{ const k=c.dataset.pick; c.classList.toggle('sel',!!LSEL&&k===LSEL); c.classList.toggle('can',!!k&&ok.has(k)); }); }
 /* start a bench player in a spot: the two swap */
 function startPlayer(j,k){ const me=LG.teams[0], B=me.bench||[], p=B[j], out=me.roster[k]; if(!p||!out||p.pos!==out.pos) return;
   me.roster[k]=p; B.splice(j,1,out); DR.got[k]=p; LG.newIds=(LG.newIds||[]).filter(x=>x!==p.id+'-'+p.season); save(); hub('team'); }
@@ -254,7 +261,7 @@ function simRound(){ const R=LG.rounds[LG.cur]; R.games.forEach(g=>{ if(!g.s) si
 function kickoff(){
   const R=LG.rounds[LG.cur], g=myGame(R), home=g.h===0, them=LG.teams[home?g.a:g.h], me=LG.teams[0];
   me.dst=DR.got[5]; const [hk,ak]=dressFor(home?me.col:them.col,home?them.col:me.col); setKits(home?hk:ak,home?ak:hk);
-  CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:R.label,mustWin:R.kind==='po',lineup:gameLineup(me),time:sceneFor(R,g).time,snow:sceneFor(R,g).snow,event:R.kind==='po'?{label:R.label==='The final'?'CHAMPIONSHIP':R.label.toUpperCase(),big:R.label==='The final'}:null}); }
+  CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:R.label,mustWin:R.kind==='po',lineup:gameLineup(me),time:sceneFor(R,g).time,snow:sceneFor(R,g).snow,rain:sceneFor(R,g).rain,event:R.kind==='po'?{label:R.label==='The final'?'CHAMPIONSHIP':R.label.toUpperCase(),big:R.label==='The final'}:null}); }
 /* the final whistle: your line goes in the book, then the rest of the round */
 function seasonFinal(M){ const R=LG.rounds[LG.cur], g=myGame(R); if(!g||g.s) return; const home=g.h===0, st=M.st, fum=M.ps.reduce((s,p)=>s+p.fum,0);
   const mine={pts:M.score[0],py:st.py,ry:st.ry,give:st.int+fum,sk:st.sk}, theirs={pts:M.score[1],py:M.opp.py||0,ry:M.opp.ry||0,give:M.dst.int+M.dst.fum,sk:M.dst.sk};
@@ -319,7 +326,7 @@ function hubNext(){
     const dn=d=>d&&{n:d.n,s:d.n,r:d.r};
     const outs=me.roster.filter(p=>p.inj).map(p=>`<span><b>Out</b> ${esc(lastN(p.n))} · ${esc(p.inj.n)} · ${injShort(p.inj)}</span>`);
     const sc=sceneFor(R,g), [hl,deck]=headlineFor(R,g), side=(T,lab,i)=>`<div class="hv-t"><div class="hv-c">${crest(T)}</div><b>${lab}</b><span>${recTxt(T.st)} · ${ordinal(standings().findIndex(x=>x.i===i)+1)}</span><em class="t-${TIER(offR(T))}">OFF ${offR(T)}</em></div>`;
-    top=`<div class="hero">${sceneImg(sc.art,sc.home)}<div class="hero-in">
+    top=`<div class="hero">${sceneImg(sc.art,sc.home,sc.rain)}<div class="hero-in">
         <div class="hv-tags"><span>${esc(R.label)}</span><span>${home?'Home':'Away'}</span><span>${esc(sc.label)}</span></div>
         <div class="hv">${side(me,'You',0)}<i>${home?'VS':'AT'}</i>${side(t,esc(t.name),o)}</div></div></div>
       <div class="hb-acts hero-acts"><button class="btn w" id="hb-go" data-base="${needD?'Spin your defense':'Kick off'}">${goLabel(needD?'Spin your defense':'Kick off')}</button>
@@ -400,7 +407,7 @@ function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGam
 const ABR={'Arm':'Arm','Accuracy':'Acc','Legs':'Leg','Escape':'Esc','Speed':'Spd','Elusiveness':'Elu','Power':'Pow','Hands':'Hnd','Route running':'Rte','Contested':'Con','Blocking':'Blk','Pass rush':'Rush','Coverage':'Cov','Run stop':'Stop','Ball hawk':'Hawk'};
 const lastN=n=>{ const w=String(n).split(' ').filter(x=>!/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x)); return w[w.length-1]||n; };
 function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
-  return `<div class="tc t-${TIER(p.r)}${o.isNew?' new':''}${p.inj?' hurt':''}${o.side?' tc-wide':''}">${o.side?'<div class="tc-l">':''}<div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
+  return `<div class="tc t-${TIER(p.r)}${o.isNew?' new':''}${p.inj?' hurt':''}${o.side?' tc-wide':''}"${o.pick?` data-pick="${o.pick}" onclick="pickCard('${o.pick}')"`:''}>${o.side?'<div class="tc-l">':''}<div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
     <div class="tc-b"><b>${esc(d?p.season+' '+p.n:p.n)}</b><small${o.cls?' class="'+o.cls+'"':''}>${esc(o.stat||p.season)}</small>
     <div class="tc-a">${ATTR[p.pos].map((l,k)=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
     ${p.pos!=='D/ST'?(()=>{ const v=Math.round(p.sta??100); return `<div class="tc-s"><span>Stamina</span><i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i><em>${v}</em></div>`; })():''}
@@ -411,13 +418,13 @@ const menHTML=d=>{ if(typeof GAME==='undefined'||!GAME.men||!d) return ''; const
   return `<div class="tc-men">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div><span>${m.lab||m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b></div>`).join('')}</div>`; };
 const menList=d=>{ if(typeof GAME==='undefined'||!GAME.men||!d) return ''; const U=GAME.men(d), L=GAME.dlab;
   return `<div class="dmen">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div class="dm"><span class="p">${m.lab||m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b>${m.k.map(k=>`<i><small>${L[k]}</small><em>${m.s[k]}</em></i>`).join('')}</div>`).join('')}</div>`; };
-function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||[]), P=LG.pl||{};
+function hubTeam(){ LSEL=null; const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||[]), P=LG.pl||{};
   const line=(p,k)=>{ const s=P['0:'+p.id+'-'+p.season]||(k!=null&&P['0:'+k]&&P['0:'+k].id===p.id?P['0:'+k]:null);
     if(!s||!s.g) return p.season+' · no games yet';
     if(p.pos==='QB') return `${s.py} yds · ${s.ptd} TD · ${s.int} INT`; if(p.pos==='RB') return `${s.ry} yds · ${s.rushtd} TD`; return `${s.rec} rec · ${s.recy} yds · ${s.rtd} TD`; };
   const dNow=DR.got[5]&&LG.dstRound===LG.cur?DR.got[5]:null;
-  const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k)})).join('')+(dNow?tcHTML(dNow,{pos:'D/ST',stat:'This week',extra:menHTML(dNow)}):'');
-  const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),go:[...OSLOTS.map((x,k)=>x===p.pos?`<button onclick="startPlayer(${j},${k})">Start for ${esc(lastN(me.roster[k].n))}</button>`:'').filter(Boolean),`<button class="rel" onclick="releasePlayer(${j})">Release</button>`]})).join('');
+  const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k),pick:'s'+k})).join('')+(dNow?tcHTML(dNow,{pos:'D/ST',stat:'This week',extra:menHTML(dNow)}):'');
+  const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),pick:'b'+j,go:[`<button class="rel" onclick="event.stopPropagation();releasePlayer(${j})">Release</button>`]})).join('');
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
   const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
   return `<div class="shr-row">${shareButton('team','Share your team')}</div><div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
@@ -594,6 +601,7 @@ function pxScene(cv,o){ const H=96, box=cv.getBoundingClientRect(), W=Math.max(1
   const ly=fld+15; for(let k=-5;k<=5;k++){ const px=W/2+k*4; P(px,ly-4,2,3,ac); P(px,ly-5,2,1,mixHex(ac,'#ffffff',.4)); P(px,ly+1,2,3,hc); P(px,ly,2,1,mixHex(hc,'#ffffff',.4)); }
   P(W/2,ly-1,2,1,'#8a4b22');
   /* the weather, and the occasion */
+  if(o.rain){ P(0,0,W,H,'rgba(24,34,52,.28)'); for(let i=0;i<W*1.1;i++){ const x=R()*W, y=R()*H; P(x,y,1,1,'rgba(200,214,235,.6)'); P(x-1,y+1,1,2,'rgba(200,214,235,.6)'); } }
   if(o.snow){ for(let i=0;i<W*1.4;i++) P(R()*W,R()*H,1,1,'rgba(255,255,255,.9)'); for(let X=0;X<W;X+=1) if(R()<.5) P(X,fld,1,1,'#e9eef5'); }
   const fw=(cx,cy,c,n)=>{ for(let a=0;a<n;a++){ const ang=a/n*Math.PI*2, L=4+R()*7; for(let s=2;s<L;s+=1.5) P(cx+Math.cos(ang)*s,cy+Math.sin(ang)*s,1,1,s>L-2?'#ffffff':c); } P(cx,cy,1,1,'#ffffff'); };
   if(o.fireworks) for(let k=0;k<(o.champ?6:3);k++) fw(8+R()*(W-16),5+R()*16,[hc,'#f0ce26','#ffffff',ac][k%4],14);
@@ -603,8 +611,8 @@ function pxScene(cv,o){ const H=96, box=cv.getBoundingClientRect(), W=Math.max(1
 /* ═══ GAME DAY ═══ the scene for a week, its headline, the bracket, the title, the trophy case */
 const teamCol=t=>(t&&t.col&&t.col[0])||'#3f8fea';
 function sceneFor(R,g){ const k=LG.rounds.indexOf(R), reg=LG.rounds.filter(r=>r.kind==='reg').length, h=LG.teams[g?g.h:0], a=LG.teams[g?g.a:1], rnd=seedRng(LG.name+':'+k+':'+(g?g.h+'-'+g.a:'')), po=R.kind==='po', fin=R.label==='The final';
-  const time=po?'night':['day','dusk','night'][Math.floor(rnd()*3)], snow=!po&&k>=reg*.6&&rnd()<.4;
-  return {art:fin?'playoff':po?'playoff':snow?'snow':time,seed:LG.name+k+(g?g.h+'v'+g.a:''),home:teamCol(h),away:teamCol(a),time,snow,fireworks:po,confetti:false,label:po?(fin?'Championship':R.label):snow?'Snow game':time==='night'?'Night game':time==='dusk'?'Late kickoff':'Afternoon kickoff'}; }
+  const time=po?'night':['day','dusk','night'][Math.floor(rnd()*3)], snow=!po&&k>=reg*.6&&rnd()<.4, rain=!po&&!snow&&rnd()<.22;
+  return {rain,art:fin?'playoff':po?'playoff':snow?'snow':time,seed:LG.name+k+(g?g.h+'v'+g.a:''),home:teamCol(h),away:teamCol(a),time,snow,fireworks:po,confetti:false,label:po?(fin?'Championship':R.label):snow?'Snow game':rain?'Rain game':time==='night'?'Night game':time==='dusk'?'Late kickoff':'Afternoon kickoff'}; }
 function paintScenes(){ document.querySelectorAll('canvas[data-scene]').forEach(c=>{ try{ pxScene(c,JSON.parse(c.dataset.scene)); }catch(e){} }); }
 /* pixel icons for the menu bar, drawn from rows of a 12x12 grid */
 const ICONS={next:['............','....####....','..##....##..','.#..#..#..#.','#..........#','#..######..#','#..........#','.#..#..#..#.','..##....##..','....####....','............','............'],
@@ -612,12 +620,15 @@ const ICONS={next:['............','....####....','..##....##..','.#..#..#..#.','
   team:['............','..##....##..','.####..####.','############','#.########.#','..########..','..###..###..','..##.##.##..','..###..###..','..########..','............','............'],
   league:['............','..########..','.#.######.#.','.#.######.#.','..#.####.#..','....####....','.....##.....','.....##.....','....####....','...######...','............','............']};
 const pxIcon=k=>{ const R=ICONS[k==='final'?'league':k]||ICONS.next; let r=''; R.forEach((row,y)=>[...row].forEach((c,x)=>{ if(c==='#') r+=`<rect x="${x}" y="${y}" width="1" height="1"/>`; })); return `<svg viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor">${r}</svg>`; };
-const sceneImg=(k,tint)=>`<canvas class="scn art" data-art="${k||'day'}" data-tint="${tint||''}"></canvas>`;
+const sceneImg=(k,tint,rain)=>`<canvas class="scn art" data-art="${k||'day'}" data-tint="${tint||''}"${rain?' data-rain="1"':''}></canvas>`;
+/* rain over a picture: a grey-blue wash and slanting streaks */
+function rainOn(cv){ const x=cv.getContext('2d'), W=cv.width, H=cv.height; x.fillStyle='rgba(24,34,52,.28)'; x.fillRect(0,0,W,H); let s=7; const R=()=>{ s=(s*16807)%2147483647; return s/2147483647; };
+  x.fillStyle='rgba(200,214,235,.55)'; for(let i=0;i<W*.8;i++){ const px=Math.floor(R()*W), py=Math.floor(R()*H); x.fillRect(px,py,1,1); x.fillRect(px-1,py+1,1,1); x.fillRect(px-1,py+2,1,1); } }
 const ART_CACHE={};
 function rgbHsl(r,g,b){ r/=255; g/=255; b/=255; const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2; let h=0, s=0; if(mx!==mn){ const d=mx-mn; s=l>.5?d/(2-mx-mn):d/(mx+mn); h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4; h*=60; } return [h,s,l]; }
 function hslRgb(h,s,l){ const f=n=>{ const k=(n+h/30)%12, a=s*Math.min(l,1-l); return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1)))); }; return [f(0),f(8),f(4)]; }
-function paintArt(){ document.querySelectorAll('canvas.art').forEach(cv=>{ const k=cv.dataset.art, tint=cv.dataset.tint, key=k+'|'+tint;
-    const put=src=>{ cv.width=src.width; cv.height=src.height; cv.getContext('2d').putImageData(src,0,0); };
+function paintArt(){ document.querySelectorAll('canvas.art').forEach(cv=>{ const k=cv.dataset.art, tint=cv.dataset.tint, key=k+'|'+tint, wet=cv.dataset.rain==='1';
+    const put=src=>{ cv.width=src.width; cv.height=src.height; cv.getContext('2d').putImageData(src,0,0); if(wet) rainOn(cv); };
     if(ART_CACHE[key]) return put(ART_CACHE[key]);
     const im=new Image(); im.onload=()=>{ const c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const x=c.getContext('2d'); x.drawImage(im,0,0); const d=x.getImageData(0,0,c.width,c.height);
       if(tint){ const [th,ts]=rgbHsl(...hexRgb(tint).map(Number)), y0=Math.floor(c.height*.3);
@@ -721,7 +732,7 @@ async function quickKick(){ $('#kick').disabled=true; $('#kick').textContent='Fi
   const them={name:t0.name,logo:t0.logo||null,roster:OSLOTS.map(pos=>pickPlayer(pos,used)),dst:pickDST()};
   const [mine,theirs]=await Promise.all([logoColors(ME),logoColors(them)]), home=Math.random()<.5;
   const [hk,ak]=dressFor(home?mine:theirs,home?theirs:mine); setKits(home?hk:ak,home?ak:hk);
-  CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:'Quick game',mustWin:false}); }
+  CPU=them; screen('game'); const wx=Math.random(); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:'Quick game',mustWin:false,time:['day','dusk','night'][Math.floor(Math.random()*3)],rain:wx<.15,snow:wx>=.15&&wx<.25}); }
 /* after it: back to the season if there is one, otherwise the start */
 function quickDone(){ QUICK=false; if(resume()) hub('next'); else { DR.i=0; DR.got=[]; setupScreen(); } }
 let SETUP=null;
