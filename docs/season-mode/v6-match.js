@@ -119,7 +119,7 @@ function makeSim(){
        drives, not all of them, and a bad one still gets a stop. Each drive also has its own form (st.form), so some drives
        just click and some never get going, whoever is on the field. */
     if(st.form==null) st.form=gauss()*.45;
-    const dd=st.mine?st.def:DR.got[5], adv=clamp((st.off-((dd&&dd.r)||82))/20,-1.5,1.5)*.5+st.form+(st.mine?0:.25),   /* the other side's offense is a touch sharper: about 1.85 points a drive against an even defense, was 1.45 */ yd=st.yd, x=.44+Math.random()*.12, DA=i=>(dd&&dd.a)?.5+(clamp((dd.a[i]-55)/44,0,1)-.5)*.5:.5, theirs=st.mine?'Their ball':'Your ball';
+    const dd=st.mine?st.def:DR.got[5], adv=clamp((st.off-((dd&&dd.r)||82))/20,-1.5,1.5)*.5+st.form+(st.mine?0:.35),   /* the other side's offense is sharper: about 2.05 points a drive against an even defense (1.45, then 1.9 at .25; user 11-20 asked for a little more) */ yd=st.yd, x=.44+Math.random()*.12, DA=i=>(dd&&dd.a)?.5+(clamp((dd.a[i]-55)/44,0,1)-.5)*.5:.5, theirs=st.mine?'Their ball':'Your ball';
     if(st.down===4){ if(yd>=62){ const dist=100-yd+17, good=Math.random()<fgOdds(dist); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
       if(st.togo<=2&&yd>=45&&Math.random()<.5){ /* they go for it */ }
       else { const l=Math.round(40+gauss()*6); return {x,from:yd,to:Math.min(99,yd+l),kind:'punt',call:'Punt',sub:l+' yards'}; } }
