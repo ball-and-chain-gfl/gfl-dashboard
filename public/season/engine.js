@@ -904,7 +904,7 @@ function makeGame(){
       const rx=RAYCV.getContext('2d'), mix=v=>'rgb('+BASE.map(c=>Math.round(c+(255-c)*v)).join(',')+')';
       rx.setTransform(1,0,0,1,0,0); rx.globalCompositeOperation='source-over'; rx.fillStyle=mix(0); rx.fillRect(0,0,cw,chh); rx.setTransform(cw/W,0,0,chh/H,0,0); rx.globalCompositeOperation='lighten';
       const ya=toY(0,H).y, yb=toY(0,0).y, LAY=[[25,.3],[21,.5],[17,.68],[13,.84],[9,1]];
-      for(let ab=-40;ab<=140;ab+=20){ [[-1,0],[1,10]].forEach(([sd,off])=>{ const yy=ab+off-S.yd; if(yy<ya-30||yy>yb+30) return; const sx=FC+sd*(SIDE+5), ex=FC-sd*14, [x0]=toS(sx,yy), [x1]=toS(ex,yy), edge=5/(SIDE+19);
+      for(let ab=-40;ab<=140;ab+=20){ [[-1,0],[1,0]].forEach(([sd,off])=>{ const yy=ab+off-S.yd; if(yy<ya-30||yy>yb+30) return; const sx=FC+sd*(SIDE+5), ex=FC-sd*14, [x0]=toS(sx,yy), [x1]=toS(ex,yy), edge=5/(SIDE+19);
           LAY.forEach(([hh,v])=>{ const [,t1]=toS(ex,yy+hh), [,b1]=toS(ex,yy-hh), [,t0]=toS(sx,yy+hh*.16), [,b0]=toS(sx,yy-hh*.16);
             const g=rx.createLinearGradient(x0,0,x1,0); g.addColorStop(0,mix(0)); g.addColorStop(edge,mix(v)); g.addColorStop(.6,mix(v*.8)); g.addColorStop(1,mix(0));
             rx.fillStyle=g; rx.beginPath(); rx.moveTo(x0,t0); rx.lineTo(x1,t1); rx.lineTo(x1,b1); rx.lineTo(x0,b0); rx.closePath(); rx.fill(); }); }); }
@@ -931,14 +931,14 @@ function makeGame(){
     if(S.hold||S.t<(S.slow||0)){ ctx.fillStyle='rgba(6,6,6,.88)'; ctx.fillRect(0,0,W,12); ctx.fillRect(0,H-12,W,12); }
     /* the flight it will take, thrown now: the same arc the ball flies, high and soft at first, flattening as you hold
        toward a zip. Dots for the ball, a faint line on the grass under it. */
-    if(S.hold&&S.ball.holder===S.QB){ const k=clamp((performance.now()-S.hold.t0)/1500,0,1), [ex,ey]=holdAim(S.hold,k), at=toY(ex,ey), QB=S.QB, d=Math.hypot(at.x-QB.x,at.y-QB.y),
+    if(S.hold&&S.ball.holder===S.QB){ const k=clamp((performance.now()-S.hold.t0)/750,0,1), [ex,ey]=holdAim(S.hold,k), at=toY(ex,ey), QB=S.QB, d=Math.hypot(at.x-QB.x,at.y-QB.y),
         Aa=clamp(Math.max(.8,d*(.34-.28*k))*K*.85,6,140), col=k<.34?'76,158,255':k<.67?'240,206,38':'255,142,28', n=Math.max(12,Math.round(d*1.6));
       ctx.save(); ctx.strokeStyle='rgba(253,254,252,.16)'; ctx.lineWidth=1.5; ctx.setLineDash([3,4]); ctx.beginPath(); const [qx,qy]=toS(QB.x,QB.y); ctx.moveTo(qx,qy); ctx.lineTo(ex,ey); ctx.stroke(); ctx.setLineDash([]);
       for(let i=1;i<n;i++){ const f=i/n, [gx,gy]=toS(QB.x+(at.x-QB.x)*f,QB.y+(at.y-QB.y)*f), h=Math.sin(f*Math.PI)*Aa+u*(72-40*f), r=1.4+Math.sin(f*Math.PI)*.9;
         ctx.fillStyle='rgba('+col+','+(.9-f*.35).toFixed(2)+')'; ctx.beginPath(); ctx.arc(gx,gy-h,r,0,P2); ctx.fill(); }
       ctx.restore(); }
     /* the press: a ring where the ball is going, filling as you hold, from LOB to ZIP */
-    if(S.hold){ const k=clamp((performance.now()-S.hold.t0)/1500,0,1), x=S.hold.px, y=S.hold.py, col=k<.5?'#4C9EFF':'#FF8E1C';
+    if(S.hold){ const k=clamp((performance.now()-S.hold.t0)/750,0,1), x=S.hold.px, y=S.hold.py, col=k<.5?'#4C9EFF':'#FF8E1C';
       ctx.strokeStyle='rgba(253,254,252,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,13,0,P2); ctx.stroke();
       ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(x,y,13,-Math.PI/2,-Math.PI/2+P2*Math.max(.02,k)); ctx.stroke();
       ctx.font='600 9px JetBrains Mono'; ctx.textAlign='center'; ctx.fillStyle='#FDFEFC'; ctx.fillText(k<.34?'LOB':k<.67?'TOUCH':'ZIP',x,y+28); }
@@ -1053,7 +1053,7 @@ function makeGame(){
   function holdAim(h,pw){ const at=toY(h.px,h.py); let px=h.px, py=h.py, best=1e9;
     S.rec.forEach(r=>{ if(!r.route||r.down) return; const q=leadOf(r,pw), d=Math.hypot(q.x-at.x,(q.y-at.y)*1.4); if(d<catchR(r)+.35&&d<best){ best=d; [px,py]=toS(q.x,q.y); } });
     return [px,py]; }
-  fw.addEventListener('pointerup',()=>{ const h=S.hold; S.hold=null; if(!h||S.phase!=='live'||S.ball.holder!==S.QB) return; const pw=clamp((performance.now()-h.t0)/1500,0,1);
+  fw.addEventListener('pointerup',()=>{ const h=S.hold; S.hold=null; if(!h||S.phase!=='live'||S.ball.holder!==S.QB) return; const pw=clamp((performance.now()-h.t0)/750,0,1);
     const [px,py]=holdAim(h,pw); throwTo(px,py,pw); });
   fw.addEventListener('pointercancel',()=>{ S.hold=null; });
   function sitOnly(yd,down,togo){ if(S.nextBF!=null){ BF=S.nextBF; S.nextBF=null; } FC=-BF; S.phase='pre'; S.yd=yd; S.down=down; S.togo=togo; S.goal=100-yd; S.fourth=down===4; S.hand={pass:deal('pass'),run:deal('run')}; S.call=S.hand[S.kind][0]; reset(); }
