@@ -149,7 +149,7 @@ function makeSim(){
   function start(yd,off,cb,o){ clearTimeout(timer); opt0=o||{}; fast=!!opt0.fast; size(); st={off,yd,down:1,togo:Math.min(10,100-yd),n:0,over:false,mine:!!opt0.mine,def:opt0.def}; cam=yd; done=cb; info(); frame(null,0); timer=setTimeout(step,450); }
   addEventListener('resize',()=>{ size(); frame(null,0); });
   if(window.ResizeObserver) new ResizeObserver(()=>{ size(); frame(null,0); }).observe(cv);
-  return {start,size,myD,skip(){ fast=true; },redraw(){ frame(null,0); },stop(){ if(st) st.over=true; clearTimeout(timer); }};
+  return {start,size,myD,skip(){ fast=true; },unskip(){ fast=false; },state(){ return st&&{yd:st.yd,down:st.down,togo:st.togo}; },redraw(){ frame(null,0); },stop(){ if(st) st.over=true; clearTimeout(timer); }};
 }
 
 /* ═══ THE GAME ═══
@@ -215,8 +215,13 @@ function makeMatch(){
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
-  function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.simAll?'':'<button class="btn" id="skip">Skip ahead</button><button class="btn simall" id="simall">Sim the rest</button>'}`;
-    const sk=$('#skip'); if(sk) sk.onclick=()=>{ SIM.skip(); sk.disabled=true; }; const sa=$('#simall'); if(sa) sa.onclick=()=>{ M.simAll=true; SIM.skip(); driveBar(mine); }; }
+  function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.simAll?'<button class="btn simall" id="simstop">Stop sim</button>':'<button class="btn" id="skip">Skip ahead</button><button class="btn simall" id="simall">Sim the rest</button>'}`;
+    const sk=$('#skip'); if(sk) sk.onclick=()=>{ SIM.skip(); sk.disabled=true; };
+    const sa=$('#simall'); if(sa) sa.onclick=()=>banner({tag:'Sim the rest',title:'Sim the rest of the game?',sub:'Every drive plays out on its own, yours too. You can stop it any time.',col:'var(--red)',btn:'Sim it',btn2:'Keep playing'},()=>{ M.simAll=true; SIM.skip(); driveBar(M.poss==='me'); },()=>{});
+    const st=$('#simstop'); if(st) st.onclick=stopSim; }
+  function stopSim(){ if(!M.simAll) return; M.simAll=false;
+    if(M.poss==='me'){ const q=SIM.state(); SIM.stop(); if(q){ M.yd=q.yd; M.down=q.down; M.togo=q.togo; } M.run=false; bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); toast('Your ball: you\'re back in'); }
+    else { SIM.unskip(); driveBar(false); toast('Sim stopped: your next drive is yours'); } }
   /* your drive, simulated: your five against their defense, the same way theirs are */
   function mySimDrive(yd){ newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; bug(); view('sim'); driveBar(true);
     const L=M.lineup&&M.lineup.length?M.lineup:DR.got.slice(0,5), off=Math.round(L.reduce((a,p)=>a+((p&&p.r)||75),0)/L.length);
