@@ -218,7 +218,9 @@ function makeGame(){
   /* THE DEFENSE YOU PLAY AGAINST plays a touch above its card (user 11-20, 'marginally better'): two points on its overall
      and each of its four, which reaches every man's speed, tackling, read and rush. The card shown stays what it is. */
   const DEF_EDGE=2;
-  function units(){ if(!D) return menOf(D); const up=v=>Math.min(99,Math.round(Number(v)+DEF_EDGE)); return menOf(Object.assign({},D,{r:up(D.r||80),a:D.a?D.a.map(up):null})); }   /* same id, so the same men lead it; the ratings in the cache key keep it apart */
+  function units(){ if(!D) return menOf(D); const up=v=>Math.min(99,Math.round(Number(v)+DEF_EDGE)), base=menOf(D), hi=menOf(Object.assign({},D,{r:up(D.r||80),a:D.a?D.a.map(up):null})), U={};
+    Object.keys(hi).forEach(k=>{ U[k]=Array.isArray(hi[k])?hi[k].map((m,i)=>Object.assign({},m,{s:Object.assign({},m.s,{spd:(base[k]&&base[k][i]?base[k][i].s.spd:m.s.spd)})})):hi[k]; });
+    return U; }   /* same id, so the same men lead it; the ratings in the cache key keep it apart */
   function setup(){
     const P=[]; const qb=who(0), rb=who(1), wa=who(2), wb=who(3), te=who(4);
     const PL=PLAYS[S.call], runCall=PL.kind==='run';
@@ -417,6 +419,9 @@ function makeGame(){
       const ballAir=S.ball.air, hold=S.ball.holder;
       if(p.side==='o'){
         if(p===carrier){ [tx,ty]=carrierAim(p); if(p.slow&&t<p.slow) vmax*=p.slowK||.6; }
+        else if(p.pos==='QB'&&S.phase==='live'&&hold===p&&!S.scram&&carrier!==p&&(!S.runCall||PLAYS[S.call].qb)&&!(S.qbDash&&t<S.qbDash.until)&&(()=>{ const fr=S.P.filter(d=>d.side==='d'&&!d.down&&(d.shed||!d.blocked)&&dist(d,p)<3.4); if(!fr.length) return false;
+            const th=fr.sort((a,b)=>dist(a,p)-dist(b,p))[0], dx=p.x-th.x, dy=p.y-th.y, d=Math.hypot(dx,dy)||1, side=Math.abs(dx)>.15?Math.sign(dx):(p.x>=0?1:-1), base=Math.max(PLAYS[S.call].qb?-4.9:-6.5,-4.5-Math.min(t,1.2)*2.4);
+            tx=clamp(p.x+side*2.6+dx/d*.6,-6,6); ty=clamp(p.y+Math.min(0,dy/d)*1.2,base-1.6,base+1); vmax=p.vmax*.5; return true; })()){ }
         else if(p.pos==='QB'){ if(S.qbDash&&t<S.qbDash.until){ tx=S.qbDash.x; ty=S.qbDash.y; vmax=p.vmax*1.4; } else if(!S.runCall||PLAYS[S.call].qb){ tx=0; ty=Math.max(PLAYS[S.call].qb?-4.9:-6.5,-4.5-t*2.4); } else if(S.jet){ tx=S.ball.holder===p?0:-1.2*PLAYS[S.call].dir; ty=S.ball.holder===p?JET_Y-.75:-4.2; } else { tx=-.6*PLAYS[S.call].dir; ty=S.form==='under'?-2.6:S.form==='pistol'?-3.9:-4.6; } }
         else if(p.pos==='OL'){ if(p.blocking&&!p.blocking.shed){ tx=p.tx; ty=p.ty; } else if(p.climb||p.role==='climb'){ const l=p.climb; tx=l.x; ty=l.y-.7; if(dist(p,l)<1.1){ l.blocked=true; l.lockedBy=p; } } else if(carrier&&carrier!==QB){ tx=carrier.x; ty=carrier.y-2; } else { tx=p.x; ty=Math.min(p.y,-1); } }
         else if(ballAir&&p!==hold&&(p===S.tgt||dist(p,ballAir.to)<3)&&!['wall','stalk','block','lead','protect'].includes(p.role)&&!p.climb){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }   /* only the man it's thrown to, and anyone right by the spot, breaks off his route for the ball */
@@ -473,7 +478,7 @@ function makeGame(){
       else if(p.cutUntil&&t<p.cutUntil&&p.route){ const a0=p.acc; p.acc=a0*(p.cutK||1); steer(p,tx,ty,dt,vmax); p.acc=a0; }
       else steer(p,tx,ty,dt,vmax);
       p.x+=p.vx*dt; p.y+=p.vy*dt;
-      if(S.home&&(S.home.rain||S.home.snow)&&!p.down&&t>(p.stepT||0)&&Math.hypot(p.vx,p.vy)>2.8){ p.stepT=t+.16+Math.random()*.06; burst(p.x+(Math.random()-.5)*.3,p.y,2,{cols:S.home.snow?['#ffffff','#e8eef4','#d6dee8']:['rgba(200,218,240,.85)','#9fb8d2','#c9d8ea'],sp:1.1,vz:S.home.snow?1.4:1.8,g:9,life:.3,s:S.home.snow?2:1}); }
+      if(S.home&&(S.home.rain||S.home.snow)&&!p.down&&t>(p.stepT||0)&&Math.hypot(p.vx,p.vy)>2.8){ p.stepT=t+.13+Math.random()*.05; burst(p.x+(Math.random()-.5)*.3,p.y,S.home.snow?8:7,{cols:S.home.snow?['#ffffff','#ffffff','#eef4fa']:['#ffffff','#dcebfb','#c4dcf4'],sp:2.2,vz:S.home.snow?2.6:3.2,g:9,life:.55,s:S.home.snow?4:3}); }
       const sp=Math.hypot(p.vx,p.vy); if(p===carrier&&S.cut&&t<S.cut.until+.12) p.facing=p.vy>=-.5?'up':'down';
       if(sp>3&&!p.down&&p.pos!=='OL'&&(!p.hT||t-p.hT>.1)){ const ux=p.vx/sp, uy=p.vy/sp; if(p.hx!=null&&p.hx*ux+p.hy*uy<.7&&!(p.plantUntil>t-.3)){ p.plantUntil=t+.12; p.plantDir=Math.sign(p.hx*uy-p.hy*ux)||1; } p.hx=ux; p.hy=uy; p.hT=t; }
       else if(sp<=3) p.hx=null;

@@ -11,7 +11,7 @@ const PRESETS=[
 let LG=null;
 const OSLOTS=['QB','RB','WR','WR','TE'];
 const pois=l=>{ let L=Math.exp(-l), k=0, p=1; do{ k++; p*=Math.random(); }while(p>L); return k-1; };
-const slim=p=>({id:p.id,n:p.n,pos:p.pos,season:p.season,r:p.r,a:p.a,sk:p.sk});
+const slim=p=>({id:p.id,n:p.n,pos:p.pos,season:p.season,r:p.r,a:p.a,sk:p.sk,tm:p.tm});
 const save=()=>{ try{ localStorage.setItem(SEASON_KEY,JSON.stringify(LG)); }catch(e){} };
 const youIdx=()=>0;
 
@@ -67,11 +67,15 @@ const injShort=i=>i.g>=99?'Season':i.g<=0?'This game':i.g+' wk'+(i.g===1?'':'s')
 const isBackup=p=>String(p&&p.id).startsWith('bk-');
 const backup=pos=>({id:'bk-'+pos,n:'Backup '+pos,pos,season:'',r:68,a:[66,66,66,66],sta:100});
 const keyOf=p=>p.id+'-'+p.season;
+const NFL_TEAMS=['ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU','IND','JAX','KC','LAC','LAR','LV','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SEA','SF','TB','TEN','WSH'];
+function makeByes(nReg){ const wk=[]; for(let w=2;w<nReg;w++) wk.push(w); const T=NFL_TEAMS.slice().sort(()=>Math.random()-.5), B={}; T.forEach((t,i)=>B[t]=wk[i%wk.length]); return B; }
+const byeWeek=p=>LG&&LG.byes&&p&&p.tm&&LG.byes[p.tm]!=null?LG.byes[p.tm]:null;
+const onBye=(p,ri)=>{ const w=byeWeek(p), k=ri==null?(LG?LG.cur:-1):ri; return w!=null&&w===k&&LG.rounds[k]&&LG.rounds[k].kind==='reg'; };
 /* who comes in for a hurt man: the best healthy player on the bench at his position not already playing, or a backup */
 function subFor(pos,lineup,team){ const inL=new Set((lineup||[]).filter(Boolean).map(keyOf));
-  return ((team&&team.bench)||[]).filter(p=>p.pos===pos&&!p.inj&&!inL.has(keyOf(p))).sort((a,b)=>b.r-a.r)[0]||backup(pos); }
+  return ((team&&team.bench)||[]).filter(p=>p.pos===pos&&!p.inj&&!onBye(p)&&!inL.has(keyOf(p))).sort((a,b)=>b.r-a.r)[0]||backup(pos); }
 /* who actually plays this week: an injured starter's spot goes to his sub */
-function gameLineup(t){ const L=[]; t.roster.forEach(p=>L.push(p.inj?subFor(p.pos,[...L,...t.roster],t):p)); return L; }
+function gameLineup(t){ const L=[]; t.roster.forEach(p=>L.push(p.inj||onBye(p)?subFor(p.pos,[...L,...t.roster],t):p)); return L; }
 function hurt(p,inj){ p.inj={n:inj.n,g:inj.w,fresh:1,wk:LG.rounds[LG.cur].label}; }
 /* a simulated game wears a team the same way: every carry, catch and sack is a hit, some of them big */
 function simWear(t,L,lineup){ lineup.forEach((p,k)=>{ if(!p||isBackup(p)) return; const l=L[k]||{}; let s=p.sta??100;
@@ -86,7 +90,7 @@ function recover(){ LG.teams.forEach(t=>{ const on=new Set(t.roster.map(keyOf));
     p.sta=Math.min(100,Math.round((p.sta??100)+(on.has(keyOf(p))?30:45))); }); }); }
 /* the CPU sets its own lineup: a healthy, better man on its bench starts */
 function cpuLineups(){ LG.teams.forEach((t,i)=>{ if(!i||!t.bench||!t.bench.length) return;
-  t.roster.forEach((p,k)=>{ const b=t.bench.filter(q=>q.pos===p.pos&&!q.inj).sort((a,c)=>c.r-a.r)[0]; if(b&&(p.inj||b.r>p.r)){ t.roster[k]=b; t.bench.splice(t.bench.indexOf(b),1,p); } }); }); }
+  t.roster.forEach((p,k)=>{ const b=t.bench.filter(q=>q.pos===p.pos&&!q.inj&&!onBye(q)).sort((a,c)=>c.r-a.r)[0]; if(b&&(p.inj||onBye(p)||b.r>p.r)){ t.roster[k]=b; t.bench.splice(t.bench.indexOf(b),1,p); } }); }); }
 
 /* ═══ WAIVERS (FAAB) ═══
    Every team has $100 for the season. Each week six players nobody owns come up, mostly bronze and silver, now and then
@@ -97,9 +101,9 @@ const WODDS=[['legend',6],['gold',22],['silver',36],['bronze',36]];
 function pickWire(pos,used){ let x=Math.random()*100, t='bronze'; for(const [k,p] of WODDS){ if((x-=p)<0){ t=k; break; } }
   const ok=p=>p.pos===pos&&!used.has(keyOf(p)); let g=POOL.filter(p=>ok(p)&&TIER(p)===t); if(!g.length) g=POOL.filter(ok);
   const p=g[Math.floor(Math.random()*g.length)]; used.add(keyOf(p)); return slim(p); }
-function newWire(){ if(LG.phase==='done'){ LG.wire=[]; return; } const used=new Set(LG.teams.flatMap(t=>[...t.roster,...(t.bench||[])].map(keyOf))), P=['QB','RB','RB','WR','WR','WR','TE'];
+function newWire(){ if(LG.phase==='done'||(LG.rounds[LG.cur]&&LG.rounds[LG.cur].kind!=='reg')){ LG.wire=[]; return; } const used=new Set(LG.teams.flatMap(t=>[...t.roster,...(t.bench||[])].map(keyOf))), P=['QB','RB','RB','WR','WR','WR','TE'];
   LG.wire=Array.from({length:6},()=>pickWire(P[Math.floor(Math.random()*P.length)],used)).sort((a,b)=>b.r-a.r); LG.bids={}; LG.wireDone=-1; }
-const wireOpen=()=>!!(LG&&LG.wire&&LG.wire.length&&LG.wireDone!==LG.cur&&LG.phase!=='done');
+const wireOpen=()=>!!(LG&&LG.wire&&LG.wire.length&&LG.wireDone!==LG.cur&&LG.phase!=='done'&&LG.rounds[LG.cur]&&LG.rounds[LG.cur].kind==='reg');
 const myBids=()=>Object.values(LG.bids||{}).filter(v=>v>0);
 const upOver=(t,p)=>{ const L=gameLineup(t), at=L.map((q,k)=>OSLOTS[k]===p.pos?q:null).filter(Boolean).sort((a,b)=>a.r-b.r)[0]; return at?{d:p.r-at.r,who:at}:{d:0,who:null}; };
 function runWaivers(){ if(!wireOpen()) return []; LG.wireDone=LG.cur; const T=LG.teams, won=new Set(), reg=LG.rounds.filter(r=>r.kind==='reg').length;
@@ -148,7 +152,7 @@ async function newLeague(preset){
     roster:i===0?DR.got.slice(0,5).map(slim):(tz=>OSLOTS.map((pos,k)=>pickTier(pos,used,tz[k])))(dealSpread()),dst:i===0?DR.got[5]:pickDST(),col:null,st:blank(),faab:100,bench:['QB','RB','WR','TE'].map(pos=>pickTier(pos,used,'bronze'))}));
   const cols=await Promise.all(teams.map(t=>logoColors(t))); teams.forEach((t,i)=>t.col=cols[i]);
   const order=teams.map((_,i)=>i).sort(()=>Math.random()-.5);
-  LG={v:1,preset:P.id,name:P.name,po:P.po,teams,rounds:roundRobin(order).map((g,i)=>({kind:'reg',label:'Week '+(i+1),games:g.map(x=>({...x,s:null}))})),cur:0,dstRound:0,
+  LG={v:1,preset:P.id,name:P.name,po:P.po,teams,rounds:roundRobin(order).map((g,i)=>({kind:'reg',label:'Week '+(i+1),games:g.map(x=>({...x,s:null}))})),cur:0,dstRound:0,byes:['long','gfl'].includes(P.id)?makeByes(teams.length-1):null,
     ps:[0,1,2,3,4].map(()=>({g:0,att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,fum:0})),dst:[],alive:null,champ:null,phase:'reg',wire:[]};
   save(); }
 
@@ -402,7 +406,9 @@ function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGam
       if(!g) mid=`<span class="ha"></span><span></span><b class="dim">${x.bye&&x.bye.includes(0)?'Bye':'No game'}</b>`;
       else { const home=g.h===0, o=LG.teams[home?g.a:g.h]; mid=`<span class="ha">${home?'vs':'at'}</span>${crest(o)}<b>${esc(o.name)}</b>`;
         end=r?`<span class="res"><span class="wl ${r.k}">${r.k}</span>${r.m}–${r.t}${g.ot?' <small>OT</small>':''}</span>`:now?'<span class="nx">Next</span>':'<i></i>'; }
-      return `<details class="wk${now?' now':''}" ${open?'open':''}><summary><span class="wn">${wkShort(x)}</span>${mid}${end}</summary>${gamesHTML(x,true)}</details>`; }).join('')}</div>
+      const bt=LG.byes&&x.kind==='reg'?Object.keys(LG.byes).filter(t=>LG.byes[t]===k).sort():[], mine=bt.length?[...LG.teams[0].roster,...(LG.teams[0].bench||[])].filter(p=>onBye(p,k)):[];
+      const byeRow=bt.length?`<div class="wk-bye"><span class="tag">Byes</span><span>${bt.join(' · ')}</span>${mine.length?`<b>Yours: ${mine.map(p=>esc(lastN(p.n))).join(', ')}</b>`:''}</div>`:'';
+      return `<details class="wk${now?' now':''}" ${open?'open':''}><summary><span class="wn">${wkShort(x)}</span>${mid}${end}</summary>${byeRow}${gamesHTML(x,true)}</details>`; }).join('')}</div>
 `; }
 /* YOUR TEAM: each player a card with his four ratings. Your lineup on top, then the bench: every player you've added,
    each with a button to start him in place of a starter at his position. Then your defense. */
@@ -414,6 +420,7 @@ function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
     <div class="tc-a">${ATTR[p.pos].map((l,k)=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
     ${p.pos!=='D/ST'?(()=>{ const v=Math.round(p.sta??100); return `<div class="tc-s"><span>Stamina</span><i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i><em>${v}</em></div>`; })():''}
     ${p.inj?`<div class="tc-inj"><b>Out · ${injShort(p.inj)}</b><span>${esc(p.inj.n)}</span></div>`:''}
+    ${byeWeek(p)!=null&&p.pos!=='D/ST'?(onBye(p)?`<div class="tc-bye now"><b>On bye this week</b><span>${esc(p.tm)}</span></div>`:`<div class="tc-bye"><span>${esc(p.tm)} · bye ${esc(LG.rounds[byeWeek(p)].label)}</span></div>`):''}
     ${o.extra||''}
     ${o.go&&o.go.length?`<div class="tc-go">${o.go.join('')}</div>`:''}</div>${o.side?'</div>'+o.side:''}</div>`; }
 const menHTML=d=>{ if(typeof GAME==='undefined'||!GAME.men||!d) return ''; const U=GAME.men(d);

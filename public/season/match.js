@@ -120,8 +120,12 @@ function makeSim(){
        just click and some never get going, whoever is on the field. */
     if(st.form==null) st.form=gauss()*.45;
     const dd=st.mine?st.def:DR.got[5], adv=clamp((st.off-((dd&&dd.r)||82))/20,-1.5,1.5)*.5+st.form+(st.mine?0:.45),   /* the other side's offense is sharper: about 2.3 points a drive against an even defense (1.45 at 0, 1.9 at .25, 2.05 at .35; the user has asked three times for a little more) */ yd=st.yd, x=.44+Math.random()*.12, DA=i=>(dd&&dd.a)?.5+(clamp((dd.a[i]-55)/44,0,1)-.5)*.5:.5, theirs=st.mine?'Their ball':'Your ball';
-    if(st.down===4){ if(yd>=62){ const dist=100-yd+17, good=Math.random()<fgOdds(dist); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
-      if(st.togo<=2&&yd>=45&&Math.random()<.5){ /* they go for it */ }
+    if(st.down===4){ const QLEN=420, MM=MATCH.M, trail=st.mine?0:Math.max(0,(MM.score[0]||0)-(MM.score[1]||0)), left=MM.q>4?0:(4-MM.q)*QLEN+Math.max(0,MM.clock), late=clamp(1-left/(4*QLEN),0,1);
+      /* urgency: how many scores behind, weighted by how late it is (both have to be true for it to matter much) */
+      const urg=clamp(trail/8,0,3)*late**1.5, desperate=trail>0&&left<150, fgUseless=trail>3&&left<240;
+      if(yd>=62&&!fgUseless){ const dist=100-yd+17, good=Math.random()<fgOdds(dist); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
+      const go=desperate||(st.togo<=2&&yd>=45&&Math.random()<.5)||Math.random()<clamp(urg*(st.togo<=3?1:st.togo<=7?.7:.4)*(yd>=40?1:.6),0,.95);
+      if(go){ /* they go for it */ }
       else { const l=Math.round(40+gauss()*6); return {x,from:yd,to:Math.min(99,yd+l),kind:'punt',call:'Punt',sub:l+' yards'}; } }
     if(Math.random()<.56){
       if(Math.random()<(.065-adv*.02)*(.55+DA(0)*.9)){ const l=5+Math.floor(Math.random()*5); return {x,from:yd,to:yd-l,kind:'loss',call:'Sacked',sub:'Loss of '+l}; }
@@ -203,7 +207,7 @@ function makeMatch(){
   function tick(s){ if(M.stop) return; const before=M.clock; M.clock-=s;
     /* the two-minute warning, in the second and fourth quarters */
     if((M.q===2||M.q===4)&&before>120&&M.clock<=120&&!M.warn[M.q]){ M.warn[M.q]=1; M.twoMin=true; }
-    if(M.clock<=0){ if(M.q===2||M.q===4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=QLEN+M.clock; M.run=false; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } }
+    if(M.clock<=0){ if(M.q===2||M.q===4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=QLEN; M.run=false; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } }
     const sec=Math.ceil(M.clock); if(sec!==M.shown){ M.shown=sec; clockOnly(); if(M.poss==='me') ddMe(); } }
   /* run what comes next, unless the half or the game has run out */
   function after(fn){ if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
