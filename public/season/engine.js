@@ -614,12 +614,12 @@ function makeGame(){
     /* THE BALL COMES DOWN: one roll between the receiver and the nearest defender, by who is nearer the spot and who is
        better at the ball, not who got there first. The receiver can reach 1.35-2 yds (his hands), a defender 1-1.35 (his
        ball hawk). Both in reach is a jump ball: at the same spot two 99s give the receiver about 55%, the defender a pick
-       about 13%, the rest knocked away. Each yard nearer the spot is worth a lot; a second defender close helps them. */
-    const d=def&&def[0], hw=d?Df(d,hawkOf(d)):0, Rd=1.0+hw*.35, rIn=!!off&&od<=R+.3, dIn=!!d&&dd<=Rd;
+       about 13%, the rest knocked away. Each yard nearer the spot is worth a lot. */
+    const d=def&&def[0], hw=d?Df(d,hawkOf(d)):0, Rd=1.0+hw*.35, rIn=!!off&&od<=R+.3, dIn=!!d&&dd<=Rd, dd2=defs[1]&&defs[1][0], hw2=dd2?Df(dd2,hawkOf(dd2)):0;
     if(!rIn&&!dIn) return end('Incomplete','Nobody near it.','inc',0,to);
     const r=off?off[0]:null, hands=r?.9+A(r,HANDS[r.pos]??2)*.085:0, ct=r?(CONT[r.pos]!=null?A(r,CONT[r.pos]):rh):0, dbl=dIn&&d2<1.6;
-    const w=!dIn?1:!rIn?0:1/(1+Math.exp(-(.24+3*(dd-od)+1.2*((rh+ct)/2-hw)-(dbl?.9:0))));
-    const pickP=dIn?(1-w)*(rIn?.08+.22*hw:.2+.35*hw)*(1-.3*dd/Rd):0;
+    const w=!dIn?1:!rIn?0:1/(1+Math.exp(-(.24+3*(dd-od)+1.2*((rh+ct)/2-hw)-(dbl?2.25+.5*hw2:0))));
+    const hwP=dbl?Math.max(hw,hw2):hw, pickP=dIn?(1-w)*((rIn?.08+.22*hwP:.2+.35*hwP)+(dbl?.1:0))*(1-.3*dd/Rd):0;
     const contested=dIn, diving=rIn&&od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to stretch past a yard for is harder to hold, the further the harder */
     const roll=Math.random(), pC=rIn?w*clamp(hands*reach,.05,.985):0;
     if(roll>=pC&&roll<pC+pickP){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;

@@ -710,8 +710,8 @@ function quickDone(){ QUICK=false; if(resume()) hub('next'); else { DR.i=0; DR.g
 let SETUP=null;
 /* the packs are done: the first time, the league is made; every week after, it's time to play */
 async function afterDraft(){ if(QUICK) return quickKick(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=0; save(); return hub('next'); }
-  LG.dstRound=LG.cur; LG.teams[0].dst=DR.got[5]; save(); kickoff(); }
-const draftLabel=()=>SETUP&&!QUICK?'To the season':'Kick off';
+  LG.dstRound=LG.cur; LG.teams[0].dst=DR.got[5]; save(); hub('next'); }
+const draftLabel=()=>SETUP&&!QUICK?'To the season':QUICK?'Kick off':'Back to the hub';
 function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; setupScreen(); }
 /* back where you were: your five and this week's defense come back from the save */
 function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
