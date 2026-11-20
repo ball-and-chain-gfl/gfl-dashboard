@@ -137,8 +137,8 @@ function makeGame(){
   /* WEAR AND INJURY. Every time one of your five is brought down he loses stamina: a big hit most, a sling or a gang
      tackle more than a plain tackle, a shoestring trip least. And every hit carries a small chance he's hurt, which grows
      as his stamina falls: about four times as likely when he's spent as when he's fresh. */
-  const WEAR={hit:9.5,sling:5.5,tackle:2.9,wrap:2.9,shoe:2.1,drag:2.1}, HURT={hit:.02,sling:.011,tackle:.007,wrap:.0055,shoe:.0045,drag:.0045};
-  function wear(c,kind,gang){ const i=c.ri, s0=STA[i]; STA[i]=Math.max(0,s0-(WEAR[kind]||4)*(.75+Math.random()*.5)-(gang?1.6:0));
+  const WEAR={hit:11.5,sling:6.8,tackle:3.5,wrap:3.5,shoe:2.6,drag:2.6}, HURT={hit:.02,sling:.011,tackle:.007,wrap:.0055,shoe:.0045,drag:.0045};
+  function wear(c,kind,gang){ const i=c.ri, s0=STA[i]; STA[i]=Math.max(0,s0-(WEAR[kind]||4)*(.75+Math.random()*.5)-(gang?2:0));
     if(!S.injury&&Math.random()<(HURT[kind]||.004)*(1+3*Math.pow(1-s0/100,1.5))*(gang?1.3:1)){ S.injury={ri:i,big:kind==='hit'||kind==='sling'}; pop('Hurt','#D9325E',c); } }
   const S={phase:'pre',call:'slants',kind:'pass',hand:{pass:['slants','verts','mesh','smash'],run:['inside','outside','powerR','draw']},look:'cover2',t:0,P:[],ball:null,carrier:null,cam:{x:0,y:4},eng:[],cut:null,yd:25,down:1,togo:10,goal:75,fourth:false,on:false};
   function size(){ const r=cv.getBoundingClientRect(); if(!r.width) return; W=r.width; H=r.height; K=W/VIEW; cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
@@ -349,7 +349,7 @@ function makeGame(){
         if(p===carrier){ [tx,ty]=carrierAim(p); if(p.slow&&t<p.slow) vmax*=p.slowK||.6; }
         else if(p.pos==='QB'){ if(S.qbDash&&t<S.qbDash.until){ tx=S.qbDash.x; ty=S.qbDash.y; vmax=p.vmax*1.4; } else if(!S.runCall){ tx=0; ty=Math.max(-6.5,-4.5-t*2.4); } else if(S.jet){ tx=S.ball.holder===p?0:-1.2*PLAYS[S.call].dir; ty=S.ball.holder===p?JET_Y-.75:-4.2; } else { tx=-.6*PLAYS[S.call].dir; ty=S.form==='under'?-2.6:S.form==='pistol'?-3.9:-4.6; } }
         else if(p.pos==='OL'){ if(p.blocking&&!p.blocking.shed){ tx=p.tx; ty=p.ty; } else if(p.climb||p.role==='climb'){ const l=p.climb; tx=l.x; ty=l.y-.7; if(dist(p,l)<1.1){ l.blocked=true; l.lockedBy=p; } } else if(carrier&&carrier!==QB){ tx=carrier.x; ty=carrier.y-2; } else { tx=p.x; ty=Math.min(p.y,-1); } }
-        else if(ballAir&&dist(p,ballAir.to)<7&&p!==hold){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }
+        else if(ballAir&&dist(p,ballAir.to)<7&&p!==hold&&!['wall','stalk','block','lead','protect'].includes(p.role)&&!p.climb){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }
         else if(p.role==='jet'){ tx=p.x+PLAYS[S.call].dir*4; ty=JET_Y; }
         /* the back leads out to the edge and takes the first man he meets there */
         else if(p.role==='lead'){ const dir=PLAYS[S.call].dir, f=S.P.find(d=>d.side==='d'&&!d.down&&!d.lockedBy&&!(d.blocked&&!d.shed)&&dist(p,d)<1.4);
@@ -565,7 +565,7 @@ function makeGame(){
   function arrive(a){
     /* a zip is a line drive: nobody goes up for it, it's taken at the chest or knocked down */
     const zip=(a.power||0)>.66, up=st=>zip&&st==='leap'?'reach':st;
-    const to=a.to, off=S.rec.filter(r=>!r.down).map(r=>[r,dist(r,to)]).sort((x,y)=>x[1]-y[1])[0], def=S.P.filter(p=>p.side==='d'&&!p.down&&p.pos!=='DL').map(p=>[p,dist(p,to)]).sort((x,y)=>x[1]-y[1])[0];
+    const to=a.to, off=S.rec.filter(r=>!r.down&&!['wall','stalk','block','lead','protect'].includes(r.role)).map(r=>[r,dist(r,to)]).sort((x,y)=>x[1]-y[1])[0], defs=S.P.filter(p=>p.side==='d'&&!p.down&&p.pos!=='DL').map(p=>[p,dist(p,to)]).sort((x,y)=>x[1]-y[1]), def=defs[0], d2=defs[1]?defs[1][1]:99;
     const od=off?off[1]:99, dd=def?def[1]:99;
     const rh=off?A(off[0],HANDS[off[0].pos]??2):.5, R=1.35+rh*.65;   /* how far he can reach for it, 1.35 to 2 yards */
     if(od>R+.3&&dd>1.2) return end('Incomplete','Nobody near it.','inc',0,to);
@@ -578,13 +578,15 @@ function makeGame(){
       if(dd>.6&&Math.random()<.5){ dive(d,to); pop('Pass breakup','#D9325E',d); if(off&&od<R+.6) reachFor(off[0],to); deflect(to); }
       else { pop('Swatted','#D9325E',d); if(off&&od<Math.min(R,1.6)){ passScene('swat',d,off[0]); deflect(to,.2); } else deflect(to); }
       return end('Broken up','#'+d.num+' got a hand on it.','inc',0,to); }
+    if(!off) return end('Incomplete','Nobody near it.','inc',0,to);
     const r=off[0], d=def&&def[0], hands=.9+A(r,HANDS[r.pos]??2)*.085, ct=CONT[r.pos]!=null?A(r,CONT[r.pos]):.3;
     const contested=dd<1.1, contest=dd<.7?.45+ct*.45:dd<1.3?.72+ct*.25:1, diving=od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to stretch past a yard for is harder to hold, the further the harder */
     /* both go up for it when it's contested */
     if(contested&&d){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; }
     /* where the throw put it against where it should have gone: a wayward ball, even one he gets to, is a harder catch */
     const miss=Math.hypot(a.to.x-a.aim.x,a.to.y-a.aim.y), placed=clamp(1-miss*.2,.55,1);
-    const roll=Math.random(), caught=roll<clamp(hands*contest*reach*placed,.05,.985), inHands=!caught&&roll>=hands*contest;
+    const dbl=dd<1.5&&d2<1.6?.7:1, roll=Math.random(), caught=roll<clamp(hands*contest*dbl*reach*placed,.05,.985), inHands=!caught&&roll>=hands*contest*dbl;
+    if(dbl<1&&caught) pop('Through two','#4C9EFF',r);
     /* caught past the end line or over the sideline: he had it, but he was out */
     if(caught&&(Math.abs(to.x)>SIDE||to.y>S.goal+10)){ reachFor(r,to); pop('Out of bounds','#F0CE26',r); return end('Incomplete',(r.name||'#'+r.num)+' had it, but out of bounds.','inc',0,to); }
     if(caught&&diving){ S.caught=true; S.catcher=r; pop('Diving catch','#4C9EFF',r); { const ux=to.x-r.x, uy=to.y-r.y, ul=Math.hypot(ux,uy)||1; r.x=to.x-ux/ul*.6; r.y=to.y-uy/ul*.6; dive(r,{x:r.x+ux,y:r.y+uy}); } r.until=S.t+.25; S.ball.holder=r;
@@ -614,11 +616,11 @@ function makeGame(){
     else if(dd>=1.6){ r.state='catchLow'; r.until=S.t+.4; S.loose={x0:r.x,y0:r.y,to:{x:r.x+(Math.random()-.5)*1.6,y:r.y-.8},t0:S.t}; pop('Dropped','#F0CE26',r); }
     else if(d&&dd<1.3){ pop('Broken up','#D9325E',d); passScene('swat',d,r); deflect(to,.2); }
     else { pop('Broken up','#D9325E',d||r); reachFor(r,to); if(d&&dd<1.6&&d.state!=='leap'){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; } deflect(to); }
-    end(dd<1.6?'Broken up':'Incomplete',dd<1.6?'Contested, and the defender won it.':diving?'He laid out for it and couldn\'t hold on.':inHands?'Dropped.':'Just out of his reach.','inc',0,to);
+    end(dd<1.6?'Broken up':'Incomplete',dd<1.6?(dbl<1?'Double covered, and they won it.':'Contested, and the defender won it.'):diving?'He laid out for it and couldn\'t hold on.':inHands?'Dropped.':'Just out of his reach.','inc',0,to);
   }
   function end(head,body,kind,yards,at){
     if(S.over) return; S.over=true; S.phase='done'; S.ball.air=null; if(at&&kind!=='to') S.landed=at;
-    S.result={head,body,kind,yards,at:at?{x:at.x,y:at.y}:null,injury:S.injury||null}; STA=STA.map(v=>Math.max(0,v-.22));
+    S.result={head,body,kind,yards,at:at?{x:at.x,y:at.y}:null,injury:S.injury||null}; STA=STA.map(v=>Math.max(0,v-.28));
     if(kind==='td'){ const sc=S.carrier||S.ball.holder; if(sc&&!sc.fxd&&sc.state!=='dive'){ const k=['celebrate','spike','dance','bow','sky'][Math.floor(Math.random()*5)]; sc.state=k; sc.cele0=S.t; sc.until=S.t+2.2; sc.facing=k==='bow'?(sc.vx>=0?'right':'left'):'down';
       if(k==='spike'){ S.ball.holder=null; S.loose={x0:sc.x,y0:sc.y,to:{x:sc.x+.8,y:sc.y-.6},t0:S.t+.15}; } } pop('Touchdown','#4ade80',sc||S.QB); const cc=sc||S.QB; burst(cc.x,cc.y,80,{cols:CONF,sp:3.2,vz:7,z:2,g:2.4,life:2.4,s:3});
       if(S.home&&S.home.event) [-1,1].forEach(sd=>{ burst(sd*(SIDE+12),cc.y+6,60,{cols:['#F0CE26','#FDFEFC','#FF8E1C','#4C9EFF'],sp:5,vz:4,z:9,g:1.4,life:1.8,s:3}); }); }
@@ -826,8 +828,8 @@ function makeGame(){
       return; }
     const C=MATCH&&MATCH.clockUI?MATCH.clockUI():{run:false,tos:0,canSpike:false}, setting=pre||S.phase==='regroup';
     if(setting){ const fgd=S.goal+17, fgOk=fgd<=57&&MATCH&&MATCH.kick;
-      $('#acts').className='acts'+(fgOk?' a4':'');
-      $('#acts').innerHTML=`<button id="spk" ${C.canSpike&&pre?'':'disabled'}>Spike</button>${fgOk?`<button id="fgk" ${pre?'':'disabled'}>FG ${fgd}<small>${Math.round(fgOdds(fgd)*100)}%</small></button>`:''}<button class="go" id="hike" ${pre?'':'disabled'}>Hike</button><button id="tmo" ${C.run&&C.tos>0?'':'disabled'}>Timeout ${'●'.repeat(C.tos)}${'○'.repeat(Math.max(0,3-C.tos))}</button>`;
+      $('#acts').className='acts';
+      $('#acts').innerHTML=`<div class="grp"><button id="spk" ${C.canSpike&&pre?'':'disabled'}>Spike</button>${fgOk?`<button id="fgk" ${pre?'':'disabled'}>FG ${fgd}<small>${Math.round(fgOdds(fgd)*100)}%</small></button>`:''}</div><button class="go" id="hike" ${pre?'':'disabled'}>Hike</button><button id="tmo" ${C.run&&C.tos>0?'':'disabled'}>Timeout ${'●'.repeat(C.tos)}${'○'.repeat(Math.max(0,3-C.tos))}</button>`;
       $('#hike').onclick=hike; $('#spk').onclick=()=>MATCH.spike(); $('#tmo').onclick=()=>MATCH.timeout(); const fk=$('#fgk'); if(fk) fk.onclick=()=>{ if(S.phase==='pre') MATCH.kick(fgd); }; return; }
     $('#acts').className='acts';
     $('#acts').innerHTML=`<button id="scr" ${qbHas?'':'disabled'}>Scramble</button><button class="go" id="hike" ${live?'disabled':''}>${done?'Next':'Hike'}</button><button id="away" ${qbHas?'':'disabled'}>Throw away</button>`;

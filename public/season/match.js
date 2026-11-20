@@ -204,6 +204,10 @@ function makeMatch(){
     const sec=Math.ceil(M.clock); if(sec!==M.shown){ M.shown=sec; clockOnly(); if(M.poss==='me') ddMe(); } }
   /* run what comes next, unless the half or the game has run out */
   function after(fn){ if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
+  function hurtNotice(p,inj,sub){ setTimeout(()=>{ let el=$('#hurtn'); if(!el){ el=document.createElement('div'); el.id='hurtn'; $('#scr-game').appendChild(el); }
+    el.className='hurtn show'; el.innerHTML=`<div class="hn-bx"><span class="tag">Injury</span>${isBackup(p)?'':`<img src="${SHOT(p.id)}" alt="">`}<b>${esc(p.n)} is hurt</b><em>${esc(inj.n)}</em><span class="hn-sub">${esc(sub.n)} comes in</span><button class="btn w" id="hn-ok" disabled>3</button></div>`;
+    let n=3; const b=$('#hn-ok'), tk=setInterval(()=>{ n--; if(n>0) b.textContent=n; else { clearInterval(tk); b.disabled=false; b.textContent='Continue'; } },1000);
+    b.onclick=()=>{ el.className='hurtn'; }; },450); }
   function toast(s){ const t=$('#toast'); t.textContent=s; t.className='toast show'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.className='toast',2200); }
   function endPeriod(){
     M.pend=null; M.run=false;
@@ -237,7 +241,7 @@ function makeMatch(){
         if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
           if(season&&!isBackup(p)){ hurt(p,inj); p.sta=Math.round(GAME.stamina()[i]); }
           const sub=subFor(p.pos,M.lineup,season?LG.teams[0]:null); MATCH.subSlot(i,sub); M.hurt.push({n:p.n,inj:inj.n,out});
-          r.body+=' '+lastN(p.n)+' is hurt: '+inj.n.toLowerCase()+', '+out+'. '+sub.n+' comes in.'; toast(lastN(p.n)+': '+inj.n+' · '+out); } }
+          r.body+=' '+lastN(p.n)+' is hurt ('+inj.n.toLowerCase()+'). '+sub.n+' comes in.'; hurtNotice(p,inj,sub); } }
       /* each player's line */
       if(S.thrown||r.head==='Thrown away'){ Q.att++; if(S.tgt&&S.tgt.slot!=null) ps[S.tgt.slot].tgt++;
         if(S.caught&&S.catcher){ const R=ps[S.catcher.slot]; Q.comp++; Q.py+=y; R.rec++; R.recy+=y; R.long=Math.max(R.long,y); if(r.kind==='td'){ Q.ptd++; R.rtd++; } if(r.kind==='to') R.fum++; }

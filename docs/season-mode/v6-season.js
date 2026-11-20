@@ -76,8 +76,8 @@ function simWear(t,L,lineup){ lineup.forEach((p,k)=>{ if(!p||isBackup(p)) return
     const hits=k===0?(l.sk||0)+(l.car||0):(l.car||0)+(l.rec||0);
     for(let h=0;h<hits;h++){ const big=Math.random()<.14;
       if(!p.inj&&Math.random()<(big?.018:.0065)*(1+3*Math.pow(1-s/100,1.5))) hurt(p,rollInjury(big));
-      s=Math.max(0,s-(big?8:2.4)*(.75+Math.random()*.5)); }
-    p.sta=Math.round(Math.max(0,s-6)); }); }
+      s=Math.max(0,s-(big?9.5:2.9)*(.75+Math.random()*.5)); }
+    p.sta=Math.round(Math.max(0,s-8)); }); }
 /* between weeks: stamina back, and the injured a week closer to returning */
 function recover(){ LG.teams.forEach(t=>{ const on=new Set(t.roster.map(keyOf));
   [...t.roster,...(t.bench||[])].forEach(p=>{ if(p.inj){ if(p.inj.fresh) delete p.inj.fresh; else if(p.inj.g<99) p.inj.g--; if(p.inj.g<=0&&!p.inj.fresh){ delete p.inj; p.sta=Math.max(p.sta??100,70); } }
@@ -101,8 +101,10 @@ const wireOpen=()=>!!(LG&&LG.wire&&LG.wire.length&&LG.wireDone!==LG.cur&&LG.phas
 const myBids=()=>Object.values(LG.bids||{}).filter(v=>v>0);
 const upOver=(t,p)=>{ const L=gameLineup(t), at=L.map((q,k)=>OSLOTS[k]===p.pos?q:null).filter(Boolean).sort((a,b)=>a.r-b.r)[0]; return at?{d:p.r-at.r,who:at}:{d:0,who:null}; };
 function runWaivers(){ if(!wireOpen()) return []; LG.wireDone=LG.cur; const T=LG.teams, won=new Set(), reg=LG.rounds.filter(r=>r.kind==='reg').length;
-  const cpuBid=(t,p)=>{ const u=upOver(t,p).d, left=t.faab; if(u<3||left<=0) return 0;
-    const prog=Math.min(1,LG.cur/Math.max(1,reg)); return Math.min(Math.floor(left*(.3+.55*prog)),Math.max(1,Math.round(u*(1+Math.random()*1.2)+(TIER(p.r)==='legend'?6:0)+left*(.03+.12*prog)))); };
+  const cpuBid=(t,p)=>{ const u=upOver(t,p).d, left=t.faab, tier=TIER(p.r), base={legend:34,gold:14,silver:4,bronze:1}[tier]; if(left<=0) return 0;
+    if(u<3&&!(tier==='legend'||(tier==='gold'&&u>=0))) return 0;
+    const prog=Math.min(1,LG.cur/Math.max(1,reg)), want=(base+Math.max(0,u)*1.5)*(.75+Math.random()*.6)*(u<3?.6:1)+left*.04*prog;
+    return Math.min(Math.floor(left*(.6+.4*prog)),Math.max(1,Math.round(want))); };
   const full0=(T[0].bench||[]).length>=BENCH_CAP;
   const all=LG.wire.map(p=>({p,bids:T.map((t,i)=>({i,b:i===0?(full0?0:Math.min(Math.round(+(LG.bids||{})[keyOf(p)]||0),t.faab)):cpuBid(t,p)})).filter(x=>x.b>0)}));
   all.sort((a,b)=>Math.max(0,...b.bids.map(x=>x.b))-Math.max(0,...a.bids.map(x=>x.b)));
