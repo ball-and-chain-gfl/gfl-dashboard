@@ -215,7 +215,10 @@ function makeGame(){
       if(!best) break; best.s[bk]+=sg; }
     const U={DL:[],LB:[],CB:[],S:[]}; men.forEach(m=>U[m.pos].push({pos:m.pos,lab:DLABP[m.pos],r:ov(m),k:DSET[m.pos],s:m.s}));
     men.forEach(m=>delete m.s0); MEN.set(key,U); return U; }
-  function units(){ return menOf(D); }
+  /* THE DEFENSE YOU PLAY AGAINST plays a touch above its card (user 11-20, 'marginally better'): two points on its overall
+     and each of its four, which reaches every man's speed, tackling, read and rush. The card shown stays what it is. */
+  const DEF_EDGE=2;
+  function units(){ if(!D) return menOf(D); const up=v=>Math.min(99,Math.round(Number(v)+DEF_EDGE)); return menOf(Object.assign({},D,{r:up(D.r||80),a:D.a?D.a.map(up):null})); }   /* same id, so the same men lead it; the ratings in the cache key keep it apart */
   function setup(){
     const P=[]; const qb=who(0), rb=who(1), wa=who(2), wb=who(3), te=who(4);
     const PL=PLAYS[S.call], runCall=PL.kind==='run';
@@ -416,7 +419,7 @@ function makeGame(){
         if(p===carrier){ [tx,ty]=carrierAim(p); if(p.slow&&t<p.slow) vmax*=p.slowK||.6; }
         else if(p.pos==='QB'){ if(S.qbDash&&t<S.qbDash.until){ tx=S.qbDash.x; ty=S.qbDash.y; vmax=p.vmax*1.4; } else if(!S.runCall||PLAYS[S.call].qb){ tx=0; ty=Math.max(PLAYS[S.call].qb?-4.9:-6.5,-4.5-t*2.4); } else if(S.jet){ tx=S.ball.holder===p?0:-1.2*PLAYS[S.call].dir; ty=S.ball.holder===p?JET_Y-.75:-4.2; } else { tx=-.6*PLAYS[S.call].dir; ty=S.form==='under'?-2.6:S.form==='pistol'?-3.9:-4.6; } }
         else if(p.pos==='OL'){ if(p.blocking&&!p.blocking.shed){ tx=p.tx; ty=p.ty; } else if(p.climb||p.role==='climb'){ const l=p.climb; tx=l.x; ty=l.y-.7; if(dist(p,l)<1.1){ l.blocked=true; l.lockedBy=p; } } else if(carrier&&carrier!==QB){ tx=carrier.x; ty=carrier.y-2; } else { tx=p.x; ty=Math.min(p.y,-1); } }
-        else if(ballAir&&dist(p,ballAir.to)<7&&p!==hold&&!['wall','stalk','block','lead','protect'].includes(p.role)&&!p.climb){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }
+        else if(ballAir&&p!==hold&&(p===S.tgt||dist(p,ballAir.to)<3)&&!['wall','stalk','block','lead','protect'].includes(p.role)&&!p.climb){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }   /* only the man it's thrown to, and anyone right by the spot, breaks off his route for the ball */
         else if(p.role==='jet'){ tx=p.x+PLAYS[S.call].dir*4; ty=JET_Y; }
         /* the back leads out to the edge and takes the first man he meets there */
         /* LEAD BLOCK ON THE QB DRAW: beside the QB as if to pass-protect, then out in front of him once he takes off,
@@ -886,6 +889,8 @@ function makeGame(){
       else if(st==='sky'){ st='catch'; fr=0; }
       else if(st==='cross'){ st='throw'; fr=0; }
       if(st==='reach'&&(face==='up'||face==='down')) face=p.reachL?'upL':'up';
+      /* WAITING ON A LOB he doesn't freeze: under the ball he chops his feet, then reaches for it as it comes down */
+      { const BA=S.ball.air; if(BA&&p===S.tgt&&!p.down&&!p.fxd&&(st==='run'||st==='stance')&&Math.hypot(p.vx,p.vy)<1.2){ if(BA.t0+BA.dur-S.t<.32){ st='reach'; fr=0; } else { st='run'; fr=Math.floor(S.t*16)%8; } } }
       if(p.plantUntil&&S.t<p.plantUntil&&st==='run'){ st='plant'; fr=0; }
       if(st==='plant'&&(face==='up'||face==='down')) face=p.plantDir<0?'upL':'up';
       /* a ring under his feet in his tier's colour */
