@@ -5239,6 +5239,7 @@
     .tab-dd-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
     .tab-dd-grid .tab-dd-item{min-width:0;}
     .tab-dd-grid .tab-dd-item{gap:8px;font-size:14px;}
+    .tab-dd-grid .tab-dd-item[data-tab=season]{grid-column:1/-1;}
     /* Two across needs about 110px of text per column, which 375 has and 320 does
        not — at that width "B&C Sportsbook" runs past its button whatever the type
        size. Below 360 the grid falls back to one per row, which is the honest
@@ -7931,7 +7932,7 @@
   <!-- Beside Hot Takes, in the spot the top group left empty -->
   <button class="tab-btn" data-tab="bam" onclick="switchTab('bam')"><i class="fa fa-dice"></i>Build a Manager</button>
   <!-- BFT only: seasonGate() shows it for that account and no other -->
-  <button class="tab-btn" data-tab="season" onclick="switchTab('season')" style="display:none"><i class="fa fa-football"></i>Season Mode</button>
+  <button class="tab-btn" data-tab="season" onclick="switchTab('season')" style="display:none"><i class="fa fa-football"></i>GFL Seasons</button>
   <button class="tab-btn" data-tab="legacy" data-group="Archive" onclick="switchTab('legacy')"><i class="fa fa-trophy"></i>League History</button>
   <button class="tab-btn" data-tab="history" onclick="switchTab('history')"><i class="fa fa-scale-balanced"></i>All Matchups</button>
   <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')"><i class="fa fa-id-badge"></i>Team Data</button>

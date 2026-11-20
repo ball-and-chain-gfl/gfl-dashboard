@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Season Mode</title>
+<title>GFL Seasons</title>
 <link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -103,6 +103,7 @@
   .pv-list{display:flex;flex-direction:column;gap:6px;}
   .pv-g{display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:10px;background:var(--p2);padding:10px 12px;clip-path:var(--notch2);}
   .pv-g.you{box-shadow:inset 3px 0 0 var(--sky);}
+  .pv-list .qs-l{margin-top:8px;} .pv-wl{font:400 22px/1 var(--px,Silkscreen);color:var(--text);padding-right:4px;}
   .pv-c img,.pv-c .ini{width:36px;height:36px;object-fit:contain;display:flex;align-items:center;justify-content:center;}
   .pv-t{display:flex;flex-direction:column;gap:3px;min-width:0;} .pv-t b{font:700 14px/1.2 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .pv-t small{font:600 11px/1 var(--sans);color:var(--text3);}
   .pv-a{display:flex;gap:6px;} .pv-a .btn{padding:8px 12px;font-size:12px;}
@@ -933,7 +934,7 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
   const me=(()=>{ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } })();
   /* BFT and Marathon Men (team 1) both play everything */
   const full=!!me&&(me.k1==='bft'||String(me.teamId)==='1'), quick=false;
-  if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">Season Mode isn\'t open yet</div>'; return; }
+  if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">GFL Seasons isn\'t open yet</div>'; return; }
   QUICK_ONLY=!full;
   const j=u=>fetch(u).then(r=>r.json());
   let ATT; [TEAMS,POOL,DEFS,ATT]=await Promise.all([j('teams.json'),j('rated.json'),j('defenses.json'),j('attrs.json')]);

@@ -11,7 +11,7 @@ const cut = (s, a, b, rep = '') => { const i = s.indexOf(a), j = s.indexOf(b, i)
 const put = (s, a, b) => { if (!s.includes(a)) throw new Error('missing ' + a.slice(0, 80)); return s.split(a).join(b); };
 
 let h = read('concept-v6.html');
-h = put(h, '<title>Season Mode · concept 6</title>', '<title>Season Mode</title>');
+h = put(h, '<title>Season Mode · concept 6</title>', '<title>GFL Seasons</title>');
 h = put(h, '--dots:url(/theme-dots.svg); --spark:url(/theme-sparks.svg);', '--dots:url(/theme/site/dots.svg); --spark:url(/theme/site/sparks-a.svg);');
 /* the game fills its frame */
 h = put(h, '  @media (prefers-reduced-motion:reduce)', `  html,body{height:100%;overflow:hidden;}
@@ -32,7 +32,7 @@ h = put(h, `(async()=>{
   const me=(()=>{ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } })();
   /* BFT and Marathon Men (team 1) both play everything */
   const full=!!me&&(me.k1==='bft'||String(me.teamId)==='1'), quick=false;
-  if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">Season Mode isn\\'t open yet</div>'; return; }
+  if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">GFL Seasons isn\\'t open yet</div>'; return; }
   QUICK_ONLY=!full;
   const j=u=>fetch(u).then(r=>r.json());`);
 h = put(h, `ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];`, `const tid=new URLSearchParams(location.search).get('team');

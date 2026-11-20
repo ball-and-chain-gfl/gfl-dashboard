@@ -5,7 +5,10 @@
 
    THE STORE. The only Season Mode feature that touches Firestore, and it keeps that small:
      live/pvp_<id>      one game: the invite, the rules, both teams and every drive so far (one document)
-     live/pvpbox_<tid>  one manager's list of his games, each with whose move it is (so "your move" costs one read)
+     live/pvpbox_<tid>  one manager's list: one field a game (g_<id>), each with whose move it is and the score, so "your
+                        move" and the all-time records cost one read. Each game writes only its own field, so two games
+                        (or both managers) updating the same list at once can't wipe each other out, and no read is needed
+                        before the write.
    Reads happen when you open the list, open a game, or are waiting on the other side's drive (one document every 15 s,
    slowing to a minute, and stopping after half an hour). Nothing reads on a redraw. A drive costs about three reads and
    three writes. Inside the app the frame's fetch goes through the app's own read meter. */
@@ -28,8 +31,12 @@ const pvpRoleOf=g=>g.a.tid===pvpTid()?'a':'b';
 const pvpSeenGet=id=>{ try{ return +localStorage.getItem('gfl-pvp-seen-'+id)||0; }catch(e){ return 0; } };
 function pvpSeen(id,n){ try{ localStorage.setItem('gfl-pvp-seen-'+id,String(n)); }catch(e){} }
 /* a manager's list: one entry a game, with whose move it is */
-async function pvpBoxSet(tid,entry){ const b=(await pvpGet('pvpbox_'+tid))||{games:[]}; const i=b.games.findIndex(x=>x.id===entry.id);
-  if(i>=0) b.games[i]=Object.assign(b.games[i],entry); else b.games.unshift(entry); b.games=b.games.slice(0,24); await pvpPut('pvpbox_'+tid,b,'pvpbox'); }
+async function pvpBoxSet(tid,entry){ const f='g_'+entry.id;
+  const r=await fetch(pvpUrl('pvpbox_'+tid)+'&updateMask.fieldPaths='+f,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{[f]:{stringValue:JSON.stringify(entry)}}})});
+  if(!r.ok) throw new Error('write '+r.status); }
+async function pvpBoxGet(tid){ const r=await fetch(pvpUrl('pvpbox_'+tid),{cache:'no-store'}); if(r.status===404) return {games:[]}; if(!r.ok) throw new Error('read '+r.status);
+  const d=await r.json(), games=[]; Object.entries(d.fields||{}).forEach(([k,v])=>{ if(k.startsWith('g_')) try{ games.push(JSON.parse(v.stringValue)); }catch(e){} });
+  return {games:games.sort((x,y)=>(y.at||0)-(x.at||0))}; }
 async function pvpBoxes(g,patch){ const ent=side=>{ const o=g[side==='a'?'b':'a']; return Object.assign({id:g.id,opp:{tid:o.tid,name:o.name,logo:o.logo},role:side,st:g.status,turn:g.status==='invited'?g.b.tid:g.status==='active'?g[g.next].tid:'',score:g.score||null,at:Date.now()},patch||{}); };
   await Promise.all([pvpBoxSet(g.a.tid,ent('a')),pvpBoxSet(g.b.tid,ent('b'))]); }
 /* a drive goes on the end of the game, read fresh first; a retry never adds the same drive twice */
@@ -42,18 +49,23 @@ async function pvpAppend(id,rec){ const g=await pvpLoad(id); if(!g) throw new Er
 let PVP_BUILD=null, PVP_FORCE=null, PVP_BOX=null;
 const pvpTeams=()=>{ const by={}; TEAMS.forEach(t=>{ const k=String(t.teamId); if(!by[k]||(t.first||0)>(by[k].first||0)) by[k]=t; });
   return PVP_TEAMS.filter(k=>k!==pvpTid()&&by[k]).map(k=>({tid:k,name:by[k].name,logo:by[k].logo||null})); };
-async function pvpBadge(){ const el=document.querySelectorAll('[data-pvp]'); if(!el.length) return; try{ PVP_BOX=(await pvpGet('pvpbox_'+pvpTid()))||{games:[]}; }catch(e){ return; }
+async function pvpBadge(){ const el=document.querySelectorAll('[data-pvp]'); if(!el.length) return; try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){ return; }
   const n=PVP_BOX.games.filter(x=>x.turn===pvpTid()&&x.st!=='done'&&x.st!=='declined').length; el.forEach(b=>{ const s=b.querySelector('.pv-n'); if(s) s.remove(); if(n) b.insertAdjacentHTML('beforeend',`<span class="pv-n">${n}</span>`); }); }
 async function pvpHub(){ screen('match'); const back=()=>{ if(typeof resume==='function'&&resume()) hub('next'); else setupScreen(); };
   $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>Head to head</b><button class="btn w" id="pv-new">New game</button></div><div class="pv-list" id="pv-list"><div class="lg-empty">Loading</div></div></div>`;
   $('#pv-back').onclick=back; $('#pv-new').onclick=()=>pvpNew();
-  let box=null; try{ box=(await pvpGet('pvpbox_'+pvpTid()))||{games:[]}; }catch(e){ if($('#pv-list')) $('#pv-list').innerHTML='<div class="lg-empty">Couldn’t load your games</div>'; return; }
+  let box=null; try{ box=await pvpBoxGet(pvpTid()); }catch(e){ if($('#pv-list')) $('#pv-list').innerHTML='<div class="lg-empty">Couldn’t load your games</div>'; return; }
   PVP_BOX=box; const me=pvpTid(); if(!$('#pv-list')) return;   /* the list was left before it loaded */
   if(!box.games.length){ $('#pv-list').innerHTML='<div class="lg-empty">No games yet</div>'; return; }
-  $('#pv-list').innerHTML=box.games.map(x=>{ const yours=x.turn===me, sc=x.score?`${x.score[x.role]}–${x.score[x.role==='a'?'b':'a']}`:'';
+  const live=box.games.filter(x=>x.st!=='done'&&x.st!=='declined'), old=box.games.filter(x=>x.st==='done'||x.st==='declined');
+  const rec={}; box.games.forEach(x=>{ if(x.st!=='done'||!x.score) return; const k=x.opp.tid, o=rec[k]||(rec[k]={opp:x.opp,w:0,l:0,t:0,pf:0,pa:0}), a=x.score[x.role]||0, b=x.score[x.role==='a'?'b':'a']||0;
+    o[a>b?'w':a<b?'l':'t']++; o.pf+=a; o.pa+=b; });
+  const recs=Object.values(rec), row=x=>{ const yours=x.turn===me, sc=x.score?`${x.score[x.role]}–${x.score[x.role==='a'?'b':'a']}`:'';
     const st=x.st==='invited'?(x.role==='b'?'Invited you':'Invite sent'):x.st==='declined'?'Declined':x.st==='done'?'Final '+sc:yours?'Your move'+(sc?' · '+sc:''):'Their move'+(sc?' · '+sc:'');
     const act=x.st==='invited'&&x.role==='b'?`<button class="btn w" data-acc="${x.id}">Accept</button><button class="btn" data-dec="${x.id}">Decline</button>`:x.st==='active'||x.st==='done'?`<button class="btn${yours?' w':''}" data-open="${x.id}">${x.st==='done'?'See it':yours?'Play':'Watch'}</button>`:'';
-    return `<div class="pv-g${yours&&x.st!=='done'?' you':''}"><span class="pv-c">${crest(x.opp)}</span><span class="pv-t"><b>${esc(x.opp.name)}</b><small>${st}</small></span><span class="pv-a">${act}</span></div>`; }).join('');
+    return `<div class="pv-g${yours&&x.st!=='done'?' you':''}"><span class="pv-c">${crest(x.opp)}</span><span class="pv-t"><b>${esc(x.opp.name)}</b><small>${st}</small></span><span class="pv-a">${act}</span></div>`; };
+  $('#pv-list').innerHTML=(recs.length?`<span class="qs-l">All-time</span>${recs.map(o=>`<div class="pv-g pv-r"><span class="pv-c">${crest(o.opp)}</span><span class="pv-t"><b>${esc(o.opp.name)}</b><small>${o.pf}–${o.pa} pts</small></span><b class="pv-wl">${o.w}–${o.l}${o.t?'–'+o.t:''}</b></div>`).join('')}`:'')
+    +(live.length?`<span class="qs-l">Games</span>${live.map(row).join('')}`:'')+(old.length?`<span class="qs-l">Finished</span>${old.map(row).join('')}`:'');
   document.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>pvpAccept(b.dataset.acc));
   document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>pvpDecline(b.dataset.dec));
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>pvpOpen(b.dataset.open)); }

@@ -478,7 +478,7 @@ function shFit(x,s,X,Y,weight,size,fam,col,max,al){ let z=size; const f=()=>x.fo
 function shPic(x,img,X,Y,W,H,bottom){ if(!img) return; const k=Math.min(W/img.width,H/img.height), w=img.width*k, h=img.height*k; x.drawImage(img,X+(W-w)/2,bottom?Y+H-h:Y+(H-h)/2,w,h); }
 function shBase(x,head,col){ x.fillStyle='#0E1013'; x.fillRect(0,0,SHW,SHH);
   x.fillStyle=col; for(let yy=4;yy<380;yy+=14){ x.globalAlpha=.2*(1-yy/380); for(let xx=6;xx<SHW;xx+=14) x.fillRect(xx,yy,4,4); } x.globalAlpha=1; x.fillRect(0,0,SHW,10);
-  shText(x,head,64,88,'700 26px Inter','rgba(253,254,252,.62)',{ls:3,up:true,max:700}); shText(x,'GFL SEASON MODE',SHW-64,88,'400 24px Silkscreen','rgba(253,254,252,.62)',{al:'right'}); }
+  shText(x,head,64,88,'700 26px Inter','rgba(253,254,252,.62)',{ls:3,up:true,max:700}); shText(x,'GFL SEASONS',SHW-64,88,'400 24px Silkscreen','rgba(253,254,252,.62)',{al:'right'}); }
 function shCrest(x,img,name,X,Y,S){ shNotch(x,X,Y,S,S,8,'#242933'); if(img) shPic(x,img,X+12,Y+12,S-24,S-24); else shText(x,ini(name),X+S/2,Y+S/2+S*.13,'800 '+Math.round(S*.36)+'px Inter','#FDFEFC',{al:'center'}); }
 function shTiles(x,T,Y){ const n=T.length, g=12, W=(SHW-128-g*(n-1))/n;
   T.forEach(([v,l],i)=>{ const X=64+i*(W+g); shNotch(x,X,Y,W,150,8,'#1A1E25'); shFit(x,String(v),X+24,Y+84,'400',56,'Silkscreen','#FDFEFC',W-48); shText(x,l,X+24,Y+124,'700 21px Inter','rgba(253,254,252,.55)',{ls:2,up:true,max:W-40}); }); }
@@ -537,7 +537,7 @@ function gameShareData(M){ const L=(M.lineup&&M.lineup.length?M.lineup:DR.got.sl
     me:{name:ME.name,logo:ME.logo,sc:a,sub:season?'You · '+recTxt(me.st):'You'}, them:{name:them.name,logo:them.logo,sc:b,sub:season&&them.st?recTxt(them.st):''},
     pog:L[bi]?{p:L[bi],lines:shLines(L[bi],ps[bi])}:null,
     tiles:[[M.st.py+M.st.ry,'Your yards'],[M.opp.yds||0,'Yds allowed'],[M.dst.int+M.dst.fum,'Takeaways'],[M.dst.sk,'Sacks']],
-    foot:(DR.got[5]?DR.got[5].season+' '+DR.got[5].n+' defense · ':'')+(season?LG.name+' season':'Season Mode')}; }
+    foot:(DR.got[5]?DR.got[5].season+' '+DR.got[5].n+' defense · ':'')+(season?LG.name+' season':'GFL Seasons')}; }
 function teamShareData(){ const me=LG.teams[0], pl=ordinal(standings().findIndex(x=>x.i===0)+1);
   return {label:'My team · '+LG.name+' season · '+(LG.phase==='done'?'Final':LG.rounds[LG.cur].label), name:me.name, logo:me.logo, col:(me.col&&me.col[0])||'#4C9EFF',
     sub:recTxt(me.st)+' · '+pl+' of '+LG.teams.length+' · Offense '+offR(me), five:me.roster, dst:LG.dstRound===LG.cur?DR.got[5]:null,
@@ -707,7 +707,7 @@ const confettiHTML=()=>`<div class="cft">${Array.from({length:42},(_,i)=>`<i sty
 /* QUICK GAMES ONLY: an account let in just for quick games (Marathon Men) sees the quick game and its test team, and
    nothing of a season: no league to pick, no season to resume */
 let QUICK_ONLY=false;
-function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`<div class="hero st">${sceneImg('dusk',(ME.col&&ME.col[0])||'')}<div class="hero-in"><div class="hv-tags"><span>Season Mode</span></div><div class="st-me"><div class="hv-c">${crest(ME)}</div><b>${esc(ME.name)}</b></div><h2 class="ttl sm">${lab}</h2></div></div>`;
+function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`<div class="hero st">${sceneImg('dusk',(ME.col&&ME.col[0])||'')}<div class="hero-in"><div class="hv-tags"><span>GFL Seasons</span></div><div class="st-me"><div class="hv-c">${crest(ME)}</div><b>${esc(ME.name)}</b></div><h2 class="ttl sm">${lab}</h2></div></div>`;
   if(QUICK_ONLY){ $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Quick game')}
     <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button><button class="btn" id="qgpvp" data-pvp>Head to head</button></div></div>`;
     paintScenes(); paintArt(); $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); $('#qgpvp').onclick=()=>pvpHub(); pvpBadge(); return; }

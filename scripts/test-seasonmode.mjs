@@ -60,7 +60,7 @@ ok('every sign-in and sign-out passes the gate', /function applyMe\(\)\{\s*seaso
 console.log(NL + 'where it sits');
 ok('right after Build a Manager, so it lands under Hot Takes',
   /data-tab="bam"[^\n]*\n[^\n]*\n\s*<button class="tab-btn" data-tab="season"/.test(idx), true);
-ok('the tab is named', /TAB_LABELS=\{[^}]*season:'Season Mode'/.test(src), true);
+ok('the tab is named', /TAB_LABELS=\{[^}]*season:'GFL Seasons'/.test(src), true);
 const hex = (src.match(/TAB_COLORS=\{[^}]*season:'(#[0-9A-Fa-f]{6})'/) || [])[1];
 ok('one colour everywhere', [hex, idx.includes(`.tab-btn[data-tab=season]{--tc:${hex};}`), idx.includes(`html[data-tabaccent=season]{--h1a:${hex};`),
   idx.includes(`[data-tabaccent=season]{--accent:${hex};`)], ['#5BC489', true, true, true]);
@@ -71,7 +71,7 @@ const page = fs.readFileSync(new URL('../public/season/index.html', import.meta.
 ok('it checks the same sign-in itself', /localStorage\.getItem\('gfl-me'\)[\s\S]{0,300}me\.k1==='bft'[\s\S]{0,80}String\(me\.teamId\)==='1'/.test(page), true);
 ok('and gives Marathon Men quick games only', /QUICK_ONLY=!full;/.test(page), true);
 const wanted = [...page.matchAll(/<script src="([^"/][^"]*)"/g)].map(m => m[1]).concat([...page.matchAll(/j\('([^']+\.json)'\)/g)].map(m => m[1]));
-ok('it loads its four scripts and four data files', wanted.length, 8);
+ok('it loads its five scripts (head to head is the fifth) and four data files', wanted.length, 9);
 ok('every one of them is there', wanted.filter(f => !fs.existsSync(new URL('../public/season/' + f, import.meta.url))), []);
 const teams = JSON.parse(fs.readFileSync(new URL('../public/season/teams.json', import.meta.url), 'utf8'));
 ok('every crest it names is there', teams.filter(t => t.logo && !fs.existsSync(new URL('../public/season/' + t.logo, import.meta.url))).map(t => t.name), []);

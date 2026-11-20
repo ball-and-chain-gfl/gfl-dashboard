@@ -95,7 +95,7 @@ document.documentElement.dataset.theme='dark';   // dark only — light mode rem
    which is exactly what happened last time. Keep this in step with the
    .tab-btn[data-tab=…]{--tc} block in index.html. */
 const TAB_COLORS={home:'#CBE4FF',week:'#fb9167',roster:'#43C9E8',leaders:'#43C9E8',takes:'#FF6A3D',bam:'#A66CFF',season:'#5BC489',teams:'#ff5f5f',book:'#3fd07a',legacy:'#f09a4a',history:'#6cb7ff',standings:'#6C6AE8',badbeat:'#e78dd4',draft:'#2F5FE0',trades:'#E8437E',tenure:'#2DD4BF',punishment:'#E84146',cm:'#E0B67B'};
-const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',takes:'Hot Takes',bam:'Build a Manager',season:'Season Mode',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
+const TAB_LABELS={home:'Home',week:'Schedule',roster:'Rosters',leaders:'Leaderboards',takes:'Hot Takes',bam:'Build a Manager',season:'GFL Seasons',book:'B&C Sportsbook',standings:'Standings',trades:'Trades',draft:'Draft Report',history:'All Matchups',tenure:'Player Data',teams:'Team Data',legacy:'League History',punishment:'Punishments',badbeat:"Bad Beat O'Meter",messages:'Messages',profile:'My Locker Room',cm:'Coaching Metric'};
 function goHome(){ try{toggleTabDD(false);}catch(e){} switchTab('home'); window.scrollTo(0,0); }
 function getSeason(){return document.getElementById('season-select').value;}
 /* The year in the nav only means anything on the tabs that show one season at a
