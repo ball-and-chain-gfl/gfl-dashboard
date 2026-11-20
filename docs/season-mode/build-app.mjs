@@ -29,8 +29,8 @@ h = put(h, '<script src="v6-sprites.js"></script>\n<script src="v6-engine.js"></
 h = put(h, `(async()=>{
   const j=u=>fetch(u).then(r=>r.json());`, `(async()=>{
   const me=(()=>{ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } })();
-  /* BFT plays everything; Marathon Men (team 1) plays quick games only */
-  const full=!!me&&me.k1==='bft', quick=!!me&&String(me.teamId)==='1';
+  /* BFT and Marathon Men (team 1) both play everything */
+  const full=!!me&&(me.k1==='bft'||String(me.teamId)==='1'), quick=false;
   if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">Season Mode isn\\'t open yet</div>'; return; }
   QUICK_ONLY=!full;
   const j=u=>fetch(u).then(r=>r.json());`);

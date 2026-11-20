@@ -149,8 +149,9 @@ function makeGame(){
      tackle more than a plain tackle, a shoestring trip least. And every hit carries a small chance he's hurt, which grows
      as his stamina falls: about four times as likely when he's spent as when he's fresh. */
   const WEAR={hit:11.5,sling:6.8,tackle:3.5,wrap:3.5,shoe:2.6,drag:2.6,truck:2.2,stiff:1.4}, HURT={hit:.02,sling:.011,tackle:.007,wrap:.0055,shoe:.0045,drag:.0045,truck:.003,stiff:.0018};
-  function wear(c,kind,gang){ const i=c.ri, s0=STA[i]; STA[i]=Math.max(0,s0-(WEAR[kind]||4)*(.75+Math.random()*.5)-(gang?2:0));
-    if(!S.injury&&Math.random()<(HURT[kind]||.004)*(1+3*Math.pow(1-s0/100,1.5))*(gang?1.3:1)){ S.injury={ri:i,big:kind==='hit'||kind==='sling'}; pop('Hurt','#D9325E',c); } }
+  /* a back is built to take it: he wears 10% slower and gets hurt 20% less often than a receiver */
+  function wear(c,kind,gang){ const i=c.ri, s0=STA[i], tough=c.pos==='RB'; STA[i]=Math.max(0,s0-((WEAR[kind]||4)*(.75+Math.random()*.5)+(gang?2:0))*(tough?.9:1));
+    if(!S.injury&&Math.random()<(HURT[kind]||.004)*(1+3*Math.pow(1-s0/100,1.5))*(gang?1.3:1)*(tough?.8:1)){ S.injury={ri:i,big:kind==='hit'||kind==='sling'}; pop('Hurt','#D9325E',c); } }
   const S={phase:'pre',call:'slants',kind:'pass',hand:{pass:['slants','verts','mesh','smash'],run:['inside','outside','powerR','draw']},look:'cover2',t:0,P:[],ball:null,carrier:null,cam:{x:0,y:4},eng:[],cut:null,yd:25,down:1,togo:10,goal:75,fourth:false,on:false};
   function size(){ const r=cv.getBoundingClientRect(); if(!r.width) return; W=r.width; H=r.height; K=W/VIEW; cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
   const toS=(x,y)=>[W/2+(x-S.cam.x)*K, H*.71-(y-S.cam.y)*K];
@@ -235,7 +236,7 @@ function makeGame(){
     WA.acc=16+sA(WA)*10; WB.acc=16+sA(WB)*10; TE.acc=14+sA(TE)*8;
     if(!runCall){ const r=PL.routes; WA.route=r.WA; WB.route=r.WB; TE.route=r.TE; RB.route=r.RB; if(!RB.route) RB.role='protect';
       if(PL.block) Object.entries(PL.block).forEach(([k,role])=>{ const p={WA,WB,TE,RB}[k]; p.route=null; p.role=role; }); }
-    else { WA.role='stalk'; WB.role='stalk'; TE.role='block'; if(PL.qb) RB.role='lead';
+    else { WA.role='stalk'; WB.role='stalk'; TE.role='block'; if(PL.qb) RB.role='leadQB';
       if(PL.jet){ const J=PL.jet==='WA'?WA:WB; J.role='jet'; S.jet=J; RB.role='lead'; } }
     if(!PL.jet) S.jet=null;
     S.mot=PL.motion?{p:{WA,WB,TE,RB}[PL.motion.p],to:PL.motion.to,T:PL.motion.T}:null;
@@ -418,6 +419,11 @@ function makeGame(){
         else if(ballAir&&dist(p,ballAir.to)<7&&p!==hold&&!['wall','stalk','block','lead','protect'].includes(p.role)&&!p.climb){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }
         else if(p.role==='jet'){ tx=p.x+PLAYS[S.call].dir*4; ty=JET_Y; }
         /* the back leads out to the edge and takes the first man he meets there */
+        /* LEAD BLOCK ON THE QB DRAW: beside the QB as if to pass-protect, then out in front of him once he takes off,
+           going to get the free man nearest him and taking him on */
+        else if(p.role==='leadQB'){ const c=S.carrier, ref=c||QB, f=S.P.filter(d=>d.side==='d'&&!d.down&&!d.lockedBy&&!(d.blocked&&!d.shed)).sort((a,b)=>dist(a,ref)-dist(b,ref))[0];
+          if(c&&f&&dist(p,f)<1.2){ p.role='block'; p.climb=f; f.blocked=true; f.lockedBy=p; tx=f.x; ty=f.y-.7; }
+          else if(!c){ tx=QB.x+.9; ty=QB.y+.6; } else if(f&&dist(f,c)<6&&f.y>c.y-1){ tx=f.x; ty=f.y-.4; } else { tx=c.x+.4; ty=c.y+2.5; } }
         else if(p.role==='lead'){ const dir=PLAYS[S.call].dir, f=S.P.find(d=>d.side==='d'&&!d.down&&!d.lockedBy&&!(d.blocked&&!d.shed)&&dist(p,d)<1.4);
           if(f){ p.role='block'; p.climb=f; f.blocked=true; f.lockedBy=p; tx=f.x; ty=f.y-.7; } else { tx=dir*7.5; ty=t<.5?-2.8:1; } }
         /* a screen's blocker: the nearest man who could make the play, held */
