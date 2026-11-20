@@ -150,25 +150,29 @@ function makeGame(){
   const A=(p,i)=>p&&p.a&&p.a[i]!=null?clamp((p.a[i]-55)/44,0,1):clamp(((p&&p.r)||80)-60,0,39)/39;
   /* which attribute is which, by position */
   const HANDS={RB:3,WR:2,TE:1}, CONT={WR:3,TE:3};
-  /* HOW MUCH THE DEFENSE'S QUALITY SWINGS A PLAY. Its ratings and attributes are pulled in toward the middle, so a great defense
-     is hard to beat but not a wall, and a poor one still covers somebody: RSP for its attributes (ASP); its men's ratings are spread as below. */
+  /* HOW MUCH A DEFENDER'S STAT SWINGS A PLAY: pulled in toward the middle (ASP), so a great defender is hard to beat but
+     not a wall. Dn is a stat on 0-1, Eg his edge above 84 in it, erR how a stat plays on the rating scale (counts .4 a
+     point: 68 plays as 81, 99 as 93). stat() is an offensive player's stat (his overall only if he has none). */
   const ASP=.35;
-  /* one defender's own stat (0 pass rush, 1 coverage, 2 run stop, 3 ball hawk), pulled toward the middle like before;
-     his own elite edge; and how his rating plays (a rating point counts .4 on defense, so 68 plays as 81 and 99 as 93) */
-  const Ap=(p,i)=>p&&p.a?.5+(clamp((p.a[i]-55)/44,0,1)-.5)*ASP:.5;
-  const EBp=p=>clamp((((p&&p.r)||80)-84)/15,0,1);
-  const erR=r=>81+((r||80)-68)*.4, er=p=>erR(p&&p.r);
+  const erR=r=>81+((r||80)-68)*.4;
   const stat=(p,k)=>p&&p.a&&p.a[k]!=null?p.a[k]:((p&&p.r)||80);
-  /* THE SAME MEN ALL GAME. Each spot's rating is set once for the defense, from its real season (nflverse: pass rush,
-     pass defense, run defense, takeaways): the line from pass rush and run stop, linebackers from run stop and
-     coverage, corners and safeties from coverage and ball hawk. Each man keeps his own fixed step either side. */
-  /* THE TEN MEN'S RATINGS, a spread around the defense's own level: the best defenses (99) centre on 92, so two or three
-     legends, a handful of golds and a silver or two; the worst (68) centre on 81, mostly silver with a few bronze. Who
-     gets the top of the spread comes from what the defense was good at (pass rush to the line, coverage to the backs). */
+  /* EVERY DEFENDER HAS FOUR STATS FOR HIS POSITION, like the offense:
+       DL  pass rush, run stop, tackling, speed       LB  run stop, coverage, tackling, speed
+       CB  coverage, ball hawk, speed, tackling       S   coverage, ball hawk, tackling, speed
+     His overall is the average of his four. The defense's card adds them up: pass rush is the line's average pass rush,
+     coverage the backers' and backs' average coverage, run stop the line's and backers' average run stop, ball hawk the
+     backs' average ball hawk, and the overall the average of the ten overalls. Every play reads only stats. */
+  const DSET={DL:['rush','stop','tkl','spd'],LB:['stop','cov','tkl','spd'],CB:['cov','hawk','spd','tkl'],S:['cov','hawk','tkl','spd']};
+  const TEAMK=['rush','cov','stop','hawk'], DLAB={rush:'Rush',cov:'Cov',stop:'Stop',hawk:'Hawk',tkl:'Tkl',spd:'Spd'};
+  const ds=(p,k)=>p&&p.s&&p.s[k]!=null?p.s[k]:((p&&p.r)||80);
+  const Dn=(p,k)=>.5+(clamp((ds(p,k)-55)/44,0,1)-.5)*ASP;
+  const Eg=(p,k)=>clamp((ds(p,k)-84)/15,0,1);
+  /* a lineman with no ball hawk gets his hands on it with his rush; a backer with his coverage */
+  const hawkOf=p=>p&&p.s&&p.s.hawk!=null?'hawk':p&&p.pos==='DL'?'rush':'cov';
   /* THE TEN MEN. Made once per defense from its real season and never changed. Who is best comes from what the defense
      was good at (pass rush to the line, coverage to the backs); a great or a poor defense has less room either side, so a
-     99 is ten 99s. Each man's four stats lean to his job (a lineman rushes, a corner covers) and to how good he is. */
-  const MEN=new Map(), DSP=[12,10,8,4,2,0,-2,-6,-10,-14], TILT={DL:[6,-6,3,-5],LB:[0,2,6,0],CB:[-8,6,-8,5],S:[-4,4,-4,5]};
+     99 is ten 99s. They're built so their stats add up exactly to the card. */
+  const MEN=new Map(), DSP=[12,10,8,4,2,0,-2,-6,-10,-14], TKL={DL:3,LB:3,CB:-4,S:0};
   const LEAN={DL:t=>t[0]*.55+t[2]*.45,LB:t=>t[2]*.55+t[1]*.45,CB:t=>t[1]*.75+t[3]*.25,S:t=>t[1]*.6+t[3]*.25+t[2]*.15};
   /* whole numbers inside lo..hi, as near the wanted values as can be, that average exactly to the target */
   function fitAvg(vals,target,lo,hi){ const v=vals.map(x=>clamp(Math.round(x),lo,hi)), want=Math.round(target)*v.length;
@@ -179,13 +183,22 @@ function makeGame(){
     if(MEN.has(key)) return MEN.get(key);
     const seed=typeof d.id==='number'?Math.abs(d.id):[...String(d.id||d.n||7)].reduce((h,c)=>(h*31+c.charCodeAt(0))%99991,7);
     const step=i=>{ const x=Math.sin((seed%9973+1)*12.9898+i*78.233)*43758.5453; return Math.round((x-Math.floor(x))*6)-3; };
-    let n=0; const men=[['DL',4],['LB',2],['CB',2],['S',2]].flatMap(([pos,c])=>Array.from({length:c},()=>({pos,v:LEAN[pos](ta)+step(n),j:n++})));
+    let n=0; const men=[['DL',4],['LB',2],['CB',2],['S',2]].flatMap(([pos,c])=>Array.from({length:c},()=>({pos,v:LEAN[pos](ta)+step(n),j:n++,s:{}})));
     const w=clamp(Math.min((99-R)/12,(R-62)/14),0,1), off=DSP.map(o=>o*w), mo=off.reduce((a,b)=>a+b,0)/off.length;
     [...men].sort((x,y)=>y.v-x.v).forEach((m,i)=>m.off=off[i]-mo);
-    const rs=fitAvg(men.map(m=>R+m.off),R,62,99);
-    const at=[0,1,2,3].map(k=>{ const raw=men.map(m=>ta[k]+TILT[m.pos][k]+m.off*.8+step(20+m.j*4+k)), mean=raw.reduce((a,b)=>a+b,0)/raw.length;
-      return fitAvg(raw.map(x=>x-mean+ta[k]),ta[k],40,99); });
-    const U={DL:[],LB:[],CB:[],S:[]}; men.forEach((m,i)=>U[m.pos].push({pos:m.pos,r:rs[i],a:at.map(c=>c[i])}));
+    const ovr=fitAvg(men.map(m=>R+m.off),R,62,99); men.forEach((m,i)=>m.want=ovr[i]);
+    /* the card's four: each man who has one sits near his own level, shifted so the group averages to the card exactly */
+    TEAMK.forEach((k,ki)=>{ const G=men.filter(m=>DSET[m.pos].includes(k)), raw=G.map(m=>m.want+(ta[ki]-R)+step(20+m.j*4+ki)), mean=raw.reduce((a,b)=>a+b,0)/raw.length;
+      fitAvg(raw.map(x=>x-mean+ta[ki]),ta[ki],40,99).forEach((v,i)=>G[i].s[k]=v); });
+    /* tackling and speed fill out his four so they average to his overall */
+    const sum4=m=>DSET[m.pos].reduce((a,k)=>a+m.s[k],0), ov=m=>Math.round(sum4(m)/4);
+    men.forEach(m=>{ const rem=4*m.want-DSET[m.pos].filter(k=>k!=='tkl'&&k!=='spd').reduce((a,k)=>a+m.s[k],0);
+      m.s.tkl=clamp(Math.round(rem/2+TKL[m.pos]/2),40,99); m.s.spd=clamp(rem-m.s.tkl,40,99); m.s.tkl=clamp(rem-m.s.spd,40,99); });
+    /* and the ten overalls average exactly to the card's overall */
+    for(let g=0;g<3000;g++){ const dif=men.length*R-men.reduce((a,m)=>a+ov(m),0); if(!dif) break; const sg=Math.sign(dif); let best=null, bk=null, bd=1e9;
+      men.forEach(m=>['spd','tkl'].forEach(k=>{ if(sg>0?m.s[k]>=99:m.s[k]<=40) return; const t=sum4(m), gap=sg>0?(ov(m)+.5)*4-t:t-(ov(m)-.5)*4+1; if(gap<bd){ bd=gap; best=m; bk=k; } }));
+      if(!best) break; best.s[bk]+=sg; }
+    const U={DL:[],LB:[],CB:[],S:[]}; men.forEach(m=>U[m.pos].push({pos:m.pos,r:ov(m),k:DSET[m.pos],s:m.s}));
     MEN.set(key,U); return U; }
   function units(){ return menOf(D); }
   function setup(){
@@ -217,14 +230,14 @@ function makeGame(){
     const LB=[-3.6,3.6].map((x,i)=>mk('d','LB',[54,52][i],U.LB[i].r,x,5,0,0));
     const CB=[WA,WB].map((w,i)=>mk('d','CB',[24,21][i],U.CB[i].r,w.x,6,0,0));
     const SF=[-7,7].map((x,i)=>mk('d','S',[31,42][i],U.S[i].r,x,13,0,0));
-    [DL,LB,CB,SF].forEach((g,k)=>g.forEach((d,i)=>d.a=U[['DL','LB','CB','S'][k]][i].a));
-    [...DL,...LB,...CB,...SF].forEach(d=>{ const qq=q(er(d)); /* every defender is quick: rating adds a little speed and a quicker read, it doesn't decide whether he can run at all */
-      d.vmax=d.pos==='DL'?5.2+qq*.35+Ap(d,0)*.45:d.pos==='LB'?6.3+qq*.3+Ap(d,2)*.3:7.0+qq*.25+Ap(d,1)*.25; d.acc=d.pos==='DL'?12+qq*6:18+qq*8; d.react=.33-qq*.08-(d.pos==='DL'?0:Ap(d,1)*.08)-EBp(d)*.06; if(d.pos!=='DL') d.vmax+=EBp(d)*.3; d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
+    [DL,LB,CB,SF].forEach((g,k)=>g.forEach((d,i)=>d.s=U[['DL','LB','CB','S'][k]][i].s));
+    [...DL,...LB,...CB,...SF].forEach(d=>{ const qq=q(erR(ds(d,'spd'))); /* every defender is quick: his speed adds a little more and a quicker read, it doesn't decide whether he can run at all */
+      d.vmax=d.pos==='DL'?5.2+qq*.35+Dn(d,'rush')*.45:d.pos==='LB'?6.3+qq*.3+Dn(d,'stop')*.3:7.0+qq*.25+Dn(d,'cov')*.25; d.acc=d.pos==='DL'?12+qq*6:18+qq*8; d.react=.33-qq*.08-(d.pos==='DL'?0:Dn(d,'cov')*.08)-Eg(d,'spd')*.06; if(d.pos!=='DL') d.vmax+=Eg(d,'spd')*.3; d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
     const look=S.look;
     DL.forEach(d=>d.role='rush');
     if(look==='cover2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,7]; }); }
     if(look==='cover3'){ CB.forEach((c,i)=>{ c.y=7; c.role='deep'; c.spot=[i?16:-16,17]; }); SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=7; SF[1].y=8; SF[1].role='zone'; SF[1].spot=[9,7]; LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?2:-5,7]; }); }
-    if(look==='man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=5.2-q(c.r)*2.2; c.y=c.man.y+c.cush; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=-2; SF[1].y=9; SF[1].role='zone'; SF[1].spot=[0,9]; }
+    if(look==='man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=5.2-q(ds(c,'cov'))*2.2; c.y=c.man.y+c.cush; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=-2; SF[1].y=9; SF[1].role='zone'; SF[1].spot=[0,9]; }
     /* Cover 4, quarters: the corners and safeties each take a deep quarter, three underneath. Cover 2 man: man underneath
        with two deep halves. Cover 0: man across the board, both safeties on the tight end and the back, no deep help, the
        backers coming. */
@@ -242,7 +255,7 @@ function makeGame(){
     S.front={cover2:'nickel',cover3:'4-3 over',man:'3-4',blitz:'bear front',cover0:'bear front',cover4:'nickel',c2man:'nickel'}[look];
     /* PRESS: in man with a single high safety or none, each corner decides whether to press his man at the line, more
        often the better he is than the receiver's route running. Pressed, he lines up a yard off and gets a jam in. */
-    if(look==='man'||look==='blitz'||look==='cover0') CB.forEach(c=>{ c.press=c.press||Math.random()<clamp(.55+(c.r-stat(c.man,1))/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
+    if(look==='man'||look==='blitz'||look==='cover0') CB.forEach(c=>{ c.press=c.press||Math.random()<clamp(.55+(ds(c,'cov')-stat(c.man,1))/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
     if(look==='cover3'){ [-4.8,-2,1,3.8].forEach((x,i)=>DL[i].x=x); LB[0].x=-3.4; LB[1].x=1.6; SF[1].x=6.6; SF[1].y=4.8; }
     if(look==='man'){ [DL[0],DL[3]].forEach((d,i)=>{ d.x=i?5.8:-5.8; d.y=1.4; d.state='stance'; }); }
     if(look==='cover0'){ LB.forEach((l,i)=>{ l.x=i?1.2:-1.2; l.y=2.2; }); }
@@ -253,7 +266,7 @@ function makeGame(){
     pairs.forEach(([oi,d])=>S.eng.push({o:ols[oi],d,w:0,dbl:false}));
     if(!runCall){ S.eng.filter(e=>e.d===DL[1]).forEach(e=>e.dbl=true); }
     else { const ps=PL.dir>0?1:0; ols[2].role='climb'; ols[2].climb=LB[PL.wide?1-ps:ps]; TE.climb=LB[PL.wide?ps:1-ps]; }
-    S.eng.forEach(e=>{ const diff=(er(e.d)-e.o.r)/20; e.rate=Math.max(.3,(runCall?.34+(Ap(e.d,2)-.5)*.3:.36+(Ap(e.d,0)-.5)*.4)+diff*.3+EBp(e.d)*.14+gauss()*.1);   /* even a poor line gets off its block in the end */ e.d.blocked=true; e.o.blocking=e.d; });
+    S.eng.forEach(e=>{ const sk=runCall?'stop':'rush', diff=(erR(ds(e.d,sk))-e.o.r)/20; e.rate=Math.max(.3,(runCall?.34+(Dn(e.d,'stop')-.5)*.3:.36+(Dn(e.d,'rush')-.5)*.4)+diff*.3+Eg(e.d,sk)*.14+gauss()*.1);   /* even a poor line gets off its block in the end */ e.d.blocked=true; e.o.blocking=e.d; });
     S.P=P; S.QB=QB; S.RB=RB; S.rec=[WA,TE,WB,RB]; S.DL=DL; S.LB=LB; S.CB=CB; S.SF=SF; S.runCall=runCall;
     S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.picker=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
   }
@@ -350,7 +363,7 @@ function makeGame(){
        him is the matchup: the corner's rating and his team's coverage against the receiver's rating and route running,
        with some luck. A receiver who wins it clean gets a step on him instead. Only at the line, right at the snap. */
     if(!S.jamDone&&t>.02){ S.jamDone=true; S.CB.forEach(c=>{ const m=c.man; if(!c.press||!m||c.role!=='man'||!m.route||m.y>.5||dist(c,m)>2.6) return;
-      const cov=c.a?clamp((c.a[1]-55)/44,0,1):.5, J=clamp(.26+(er(c)-erR(stat(m,1)))/45+(cov-.5)*.3-(A(m,1)-.5)*.3+gauss()*.12,0,.85);
+      const cov=clamp((ds(c,'cov')-55)/44,0,1), J=clamp(.26+(erR(ds(c,'cov'))-erR(stat(m,1)))/45+(cov-.5)*.3-(A(m,1)-.5)*.3+gauss()*.12,0,.85);
       if(J<.08){ c.stall=t+.6; c.stumble=t+.36; c.stumble0=t; m.burst=t+.6; m.rdelay=0; pop('Beat the press','#4C9EFF',m,.2); }
       else { m.jam=t+J; m.rdelay=J; c.jamming=m; if(J>.3) pop('Jammed','#D9325E',m,.2); } }); }
     if(!S.runCall&&!S.plastered&&t>2.1&&S.ball.holder===QB){ S.plastered=true; const R=S.rec.filter(r=>r.route&&!r.down&&r.role!=='protect'), C=S.P.filter(p=>p.side==='d'&&!p.down&&(p.role==='man'||p.role==='zone'||p.role==='deep')), took=new Set();
@@ -390,7 +403,7 @@ function makeGame(){
         /* CHASING FROM BEHIND: a man with the ball and a step on you keeps it. A defender behind the carrier runs a touch
            slower than his top speed in coverage, so he catches only a carrier slower than him, not one his equal. */
         if(carrier&&carrier!==S.QB&&p.y<carrier.y-.4&&!p.lockedBy) vmax*=.96;
-        if(p.lockedBy&&!p.down&&dist(p,p.lockedBy)<1.6){ if(Math.random()<dt*Math.max(.9,1.3+(p.r-stat(p.lockedBy,{TE:0,RB:2,WR:3}[p.lockedBy.pos]??0))/25)){ p.lockedBy=null; p.blocked=false; } else { tx=p.lockedBy.x; ty=p.lockedBy.y+.8; vmax=1.2; } }
+        if(p.lockedBy&&!p.down&&dist(p,p.lockedBy)<1.6){ if(Math.random()<dt*Math.max(.9,1.3+(ds(p,p.s&&p.s.stop!=null?'stop':'tkl')-stat(p.lockedBy,{TE:0,RB:2,WR:3}[p.lockedBy.pos]??0))/25)){ p.lockedBy=null; p.blocked=false; } else { tx=p.lockedBy.x; ty=p.lockedBy.y+.8; vmax=1.2; } }
         else if(p.blocked&&!p.shed&&p.pos==='DL'){ tx=p.tx; ty=p.ty; }
         else if(p.jamming&&t<p.jamming.jam){ tx=p.jamming.x; ty=p.jamming.y+.75; vmax=.8; }
         else if(carrier&&(!S.runCall||carrier===S.QB||carrier.y>.5||t>=(S.handT||0)+(p.react||.25)+({deep:.26,zone:.15,man:.18}[p.role]??.04))){ const lead=Math.min(1.1,dist(p,carrier)/p.vmax); tx=carrier.x+carrier.vx*lead; ty=carrier.y+carrier.vy*lead; }
@@ -436,7 +449,7 @@ function makeGame(){
         S.qbDash={x:clamp(QB.x+dir*3.6,FC-SIDE+2,FC+SIDE-2),y:QB.y+.3,until:t+.65}; S.qbSafe=t+1.1; QB.vx=dir*QB.vmax*1.4; QB.vy=.2; QB.facing=dir>0?'right':'left'; dust(QB,8,-dir*2.5); }
       else if(r){ r.escTried=true; const head=(r.vy*QB.vy+r.vx*QB.vx)<-1, k=Math.random(); fx(r,QB,r.y<QB.y-.3?(k<.5?'tackle':k<.8?'sling':'shoe'):k<.5?'tackle':(head&&k<.8)||k<.72?'hit':k<.82?'wrap':k<.91?'sling':'shoe');
         if(QB.y<=-S.yd) return end('Safety','Sacked in his own end zone. Two points to them.','safety',0);
-        if(Math.random()<.05+Ap(r,3)*.08+(1-A(QB,3))*.05){ const spot=fumble(QB); pop('Strip sack','#D9325E',QB);
+        if(Math.random()<.05+Dn(r,hawkOf(r))*.08+(1-A(QB,3))*.05){ const spot=fumble(QB); pop('Strip sack','#D9325E',QB);
           if(Math.random()<.55) return end('Strip sack','#'+r.num+' knocks it out of his hand and they fall on it.','to',0,spot);
           return end('Strip sack','#'+r.num+' knocks it loose; your line falls on it.','loss',Math.round(Math.min(QB.y,spot.y))); }
         S.fx.flex=true; pop({sling:'Slung down',shoe:'Chased down'}[S.fx.kind]||'Sack','#D9325E',QB);
@@ -455,16 +468,16 @@ function makeGame(){
     if(air&&t>=air.t0){ const f=(t-air.t0)/air.dur;
       if(f>.12&&f<.88){ const h=2.1*(1-f)+1.3*f+Math.sin(Math.PI*f)*air.arc,   /* out of his hand at about 6 feet, into the receiver's at his chest */ gx=air.from.x+(air.to.x-air.from.x)*f, gy=air.from.y+(air.to.y-air.from.y)*f;
         for(const p of S.P){ if(p.side!=='d'||p.down||(air.tried&&air.tried.has(p))) continue; if(h>(p.pos==='DL'?2.65:2.5)||Math.hypot(p.x-gx,p.y-gy)>(p.pos==='DL'?.6:.8)) continue;
-          (air.tried=air.tried||new Set()).add(p); if(Math.random()>(p.pos==='DL'?.14+Ap(p,0)*.12:.3+Ap(p,3)*.25)) continue;
+          (air.tried=air.tried||new Set()).add(p); if(Math.random()>(p.pos==='DL'?.14+Dn(p,'rush')*.12:.3+Dn(p,hawkOf(p))*.25)) continue;
           p.state='leap'; p.leap0=S.t; p.until=S.t+.38; S.ball.air=null; const at={x:gx,y:gy};
-          if(Math.random()<.05+Ap(p,3)*.05){ p.state='catch'; p.x=gx; p.y=gy; S.ball.holder=p; pop('Tipped & picked','#D9325E',p); sparks(p,8); celebrateD(p); return end('Intercepted','#'+p.num+' gets a hand up and it falls to him.','to',0,at); }
+          if(Math.random()<.05+Dn(p,hawkOf(p))*.05){ p.state='catch'; p.x=gx; p.y=gy; S.ball.holder=p; pop('Tipped & picked','#D9325E',p); sparks(p,8); celebrateD(p); return end('Intercepted','#'+p.num+' gets a hand up and it falls to him.','to',0,at); }
           pop(p.pos==='DL'?'Batted down':'Tipped','#D9325E',p); sparks(p,8); return end(p.pos==='DL'?'Batted down':'Tipped away','#'+p.num+' got a hand on it in the air.','inc',0,at); } } }
     const c=S.carrier;
     if(c&&!c.down&&!S.over&&!S.seq&&!S.ps&&!(c===S.catcher&&t<(S.secure||0))){
       for(const p of S.P){ if(p.side!=='d'||p.down||p.state==='dive'||(p.lockedBy&&dist(p,p.lockedBy)<1.3)) continue;
         if(p.pos==='DL'&&p.blocked&&!p.shed){ if(dist(p,c)<.6&&Math.random()<dt*2.2) return tackled(c,p,'tackle'); continue; }
         if(dist(p,c)<.95&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
-          const ok=Math.random()<clamp(.92+EBp(p)*.07+(er(p)-87)/300-pw*.11-el*.07+(Ap(p,2)-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.12+el*.3):1);
+          const ok=Math.random()<clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.12+el*.3):1);
           if(ok) return tackled(c,p); if(move(c,p,pw,el)) break; dive(p,c); p.missed=true; p.upAt=t+1.1; c.slow=t+.35*(1-pw*.6); c.slowK=.6; } }
       if(Math.abs(c.x-FC)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
       if(c.y>=S.goal) return end('Touchdown',(c.name||'#'+c.num)+' takes it '+S.goal+' yards to the end zone.','td',S.goal);
@@ -511,7 +524,7 @@ function makeGame(){
     fx(p,c,kind); if(kind==='hit') pop('Big hit','#D9325E',c);
     if(c.y<=.5) S.fx.flex=true;
     if(c.y<=-S.yd) return end('Safety','Brought down in his own end zone. Two points to them.','safety',0);
-    if(Math.random()<.004+Ap(p,3)*.012+(1-A(c,HANDS[c.pos]??2))*.008){ const spot=fumble(c); pop('Stripped','#D9325E',c);
+    if(Math.random()<.004+Dn(p,hawkOf(p))*.012+(1-A(c,HANDS[c.pos]??2))*.008){ const spot=fumble(c); pop('Stripped','#D9325E',c);
       if(Math.random()<.55) return end('Fumble','#'+p.num+' punches it out and they fall on it.','to',0,spot);
       const y=Math.round(c.y); return end('Fumble','#'+p.num+' knocks it loose, and you fall on it'+(y>=0?' for '+y:', a loss of '+(-y))+'.',y>0?'gain':'loss',y); }
     const y=Math.round(c.y), who=c.name?c.name.split(' ').slice(-1)[0]:'#'+c.num;
@@ -591,7 +604,7 @@ function makeGame(){
     const od=off?off[1]:99, dd=def?def[1]:99;
     const rh=off?A(off[0],HANDS[off[0].pos]??2):.5, R=1.35+rh*.65;   /* how far he can reach for it, 1.35 to 2 yards */
     if(od>R+.3&&dd>1.2) return end('Incomplete','Nobody near it.','inc',0,to);
-    if(dd<od-.45&&dd<1.05){ const d=def[0]; d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; if(Math.random()<clamp(.24+(er(d)-80)/80+(1.3-dd)*.25+(Ap(d,3)-.5)*.35,.08,.8)){ d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;
+    if(dd<od-.45&&dd<1.05){ const d=def[0]; d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; if(Math.random()<clamp(.24+(erR(ds(d,hawkOf(d)))-80)/80+(1.3-dd)*.25+(Dn(d,hawkOf(d))-.5)*.35,.08,.8)){ d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;
         const k=dd>.7?'dive':d.y<to.y-.2||(zip&&Math.random()<.6)?'catchLow':Math.random()<(zip?1:.3)?'oneHand':'leap';
         d.state=k==='leap'?'leap':k; d.until=S.t+.35; if(k==='dive') dive(d,to); d.leapH=k==='leap'?18:0;
         /* the undercut: he jumps the route in front of the receiver; the high point: he wins it at the top over him */
@@ -886,7 +899,7 @@ function makeGame(){
     else if(third&&S.togo>=7) add({cover3:.08,cover2:.06,cover4:.1,cover0:.06,blitz:.05,man:-.08});
     else if(third&&S.togo>=4) add({cover2:.12,c2man:.06,blitz:.04});
     if(red&&!goal) add({man:.1,cover0:.04,cover4:-.06});
-    const U=units(), cb=(erR(U.CB[0].r)+erR(U.CB[1].r))/2, wa=who(2), wb=who(3), wr=(((wa&&wa.r)||82)+((wb&&wb.r)||82))/2, m=clamp(1+(cb-wr)/20,.35,1.7);
+    const U=units(), cb=(erR(U.CB[0].s.cov)+erR(U.CB[1].s.cov))/2, wa=who(2), wb=who(3), wr=(((wa&&wa.r)||82)+((wb&&wb.r)||82))/2, m=clamp(1+(cb-wr)/20,.35,1.7);
     ['man','blitz','cover0','c2man'].forEach(k=>w[k]*=m);
     let x=Math.random()*Object.values(w).reduce((a,b)=>a+b,0); for(const [k,v] of Object.entries(w)){ if((x-=v)<=0) return k; } return 'cover3'; }
   function reset(keepLook){
@@ -937,6 +950,6 @@ function makeGame(){
   /* and whenever its box changes (the play buttons coming in, the app giving the game the whole screen), so the field is never drawn squashed */
   if(window.ResizeObserver) new ResizeObserver(()=>{ if(S.on) size(); }).observe(cv);
   requestAnimationFrame(t=>{ last=t; requestAnimationFrame(loop); });
-  return { men(d){ return menOf(d); }, roster(g){ roster=g.slice(0,5); STA=roster.map(p=>p&&p.sta!=null?p.sta:100); }, sub(i,p){ if(roster) roster[i]=p; STA[i]=p&&p.sta!=null?p.sta:100; }, stamina(){ return STA.slice(); }, ballX(){ return BF; }, setD(d){ D=d; }, setHome(h){ S.home=h; if(h&&h.logo){ const im=new Image(); im.src=h.logo; h.img=im; } }, sit(yd,down,togo,bf){ if(bf!=null){ BF=bf; S.nextBF=null; } sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
+  return { men(d){ return menOf(d); }, dlab:DLAB, roster(g){ roster=g.slice(0,5); STA=roster.map(p=>p&&p.sta!=null?p.sta:100); }, sub(i,p){ if(roster) roster[i]=p; STA[i]=p&&p.sta!=null?p.sta:100; }, stamina(){ return STA.slice(); }, ballX(){ return BF; }, setD(d){ D=d; }, setHome(h){ S.home=h; if(h&&h.logo){ const im=new Image(); im.src=h.logo; h.img=im; } }, sit(yd,down,togo,bf){ if(bf!=null){ BF=bf; S.nextBF=null; } sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
     show(on){ S.on=on; if(on) size(); }, S, throwTo, toS, hike, reset, update, size };
 }
