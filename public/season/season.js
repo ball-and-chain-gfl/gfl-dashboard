@@ -44,7 +44,7 @@ function logoColors(t){ return new Promise(res=>{ const fb=()=>res(nameColors(t.
    each), and a defense the same way each week. No player-season is on two teams. */
 function pickPlayer(pos,used){ const t=roll(), ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p.r)===t); if(!g.length) g=POOL.filter(ok);
   const p=g[Math.floor(Math.random()*g.length)]; used.add(p.id+'-'+p.season); return slim(p); }
-function pickDST(){ const t=roll(), g=DEFS.filter(d=>TIER(d.r)===t), d=g[Math.floor(Math.random()*g.length)]; return {id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}; }
+function pickDST(){ const t=roll('D/ST'), g=DEFS.filter(d=>TIER(d.r)===t), d=g[Math.floor(Math.random()*g.length)]; return {id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}; }
 /* a team's offense is the five who'll actually play */
 const BENCH_CAP=6;
 function pickTier(pos,used,tier){ const ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p.r)===tier); if(!g.length) g=POOL.filter(ok);
@@ -710,7 +710,7 @@ function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`
   $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); const st=$('#st-tro'); if(st) st.onclick=()=>openTrophies('setup'); }
 /* for testing: skip the packs with one of every tier, in a random order across the six slots */
 function mixTeam(){ const tiers=['legend','gold','silver','bronze','gold','silver'].sort(()=>Math.random()-.5); DR.got=[]; DR.i=0;
-  SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }
+  SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,pos==='D/ST'&&tiers[i]==='legend'?'gold':tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }
 
 /* ═══ A QUICK GAME ═══ Your six from packs, one opponent drawn from every GFL team with its five and a defense on the
    same odds, kits from both logos, home or away at random. Nothing goes in a season's book. */
@@ -735,7 +735,8 @@ function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(l
   if(!LG||LG.v!==1||!LG.teams) { LG=null; return false; }
   LG.teams.forEach(t=>{ if(t.faab==null) t.faab=100; t.bench=t.bench||[]; }); if(!LG.wire) LG.wire=[];
   { const PA=new Map(POOL.map(p=>[p.id+'-'+p.season,p])), fresh=p=>{ const q=p&&PA.get(p.id+'-'+p.season); if(q&&q.a) p.a=q.a.slice(); };
-    LG.teams.forEach(t=>{ t.roster.forEach(fresh); t.bench.forEach(fresh); }); LG.wire.forEach(fresh); }
+    LG.teams.forEach(t=>{ t.roster.forEach(fresh); t.bench.forEach(fresh); }); LG.wire.forEach(fresh);
+    const DA=new Map(DEFS.map(d=>['d'+d.id+'-'+d.season,d])); LG.teams.forEach(t=>{ const d=t.dst&&DA.get(t.dst.id); if(d){ t.dst.r=d.r; t.dst.a=d.a&&d.a.slice(); } }); }
   DR.got=[...LG.teams[0].roster,LG.dstRound===LG.cur?LG.teams[0].dst:null]; DR.i=6; return true; }
 
 /* the defense pack says which game it's for: the first one is week 1's, and before every game after you spin again */

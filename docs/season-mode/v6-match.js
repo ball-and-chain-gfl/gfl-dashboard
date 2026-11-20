@@ -2,7 +2,8 @@
    Six slots. Spin a carousel of packs, open the one it lands on, take one of four players of that tier. The overalls
    stay hidden until you take one; then all four turn over, so you see what you passed on. */
 const SLOTS=['QB','RB','WR','WR','TE','D/ST'], ODDS=[['legend',25],['gold',25],['silver',25],['bronze',25]];
-const roll=()=>{ let r=Math.random()*100; for(const [t,p] of ODDS){ if((r-=p)<0) return t; } return 'bronze'; };
+const DODDS=[['gold',40],['silver',30],['bronze',30]];
+const roll=pos=>{ let r=Math.random()*100; for(const [t,p] of (pos==='D/ST'?DODDS:ODDS)){ if((r-=p)<0) return t; } return 'bronze'; };
 const DR={i:0,got:[]};
 const packHTML=(t,big)=>`<div class="pk t-${t}${big?' big':''}"><div class="dots"></div><div class="band"></div><b>GFL</b><span>${t}</span></div>`;
 function four(pos,tier){
@@ -39,8 +40,8 @@ function cardHTML(p){ const t=TIER(p.r), d=p.pos==='D/ST';
     <div class="at">${ATTR[p.pos].map((l,i)=>`<div><span>${l}</span><i><b data-v="${p.a?p.a[i]:70}"></b></i><em data-v="${p.a?p.a[i]:70}">–</em></div>`).join('')}</div></div>`; }
 function stageSpin(){
   slotsHTML(); if(DR.i>=SLOTS.length) return stageRoster();
-  const pos=SLOTS[DR.i], land=roll(), N=64, AT=56, W=98, tiers=[];
-  for(let i=0;i<N;i++) tiers.push(i===AT?land:roll());
+  const pos=SLOTS[DR.i], land=roll(pos), N=64, AT=56, W=98, tiers=[];
+  for(let i=0;i<N;i++) tiers.push(i===AT?land:roll(pos));
   const rsp=typeof RESPIN!=='undefined'&&RESPIN;
   $('#stage').innerHTML=`<span class="q">${rsp?'Add a player':(DR.i+1)+' of 6'}</span><span class="big">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos}</span>${pos==='D/ST'&&typeof dNote==='function'&&dNote()?`<span class="dnote">${dNote()}</span>`:''}
     <div class="carousel"><div class="belt" id="belt">${tiers.map(t=>packHTML(t)).join('')}</div><div class="fl"></div><div class="fr"></div></div>

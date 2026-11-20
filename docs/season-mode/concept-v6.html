@@ -927,7 +927,8 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
   /* A PLAYER'S ATTRIBUTES AVERAGE TO HIS OVERALL. The stats and the 40 say what he's better and worse at; the overall (his
      fantasy finish) says how good he is. So each player keeps the shape of his four, centred on his overall: a 94 averages
      about 94, a 70 about 70. */
-  [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
+  const DSET0=new Set(DEFS);
+  [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); if(DSET0.has(p)&&p.r>88) p.r=Math.round(88+(p.r-88)*7/11);   /* defenses top out at 95 */ const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
     const m=raw.reduce((s,v)=>s+v,0)/raw.length; p.a=raw.map(v=>Math.round(clamp(p.r+(v-m)*.7,50,99)));
     /* ONE SPEED SCALE: his speed (ranked at his position) becomes his top speed on the scale everyone shares; his overall
        is the weighted average of his four by position, so the other three take up the difference */
