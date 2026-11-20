@@ -788,7 +788,9 @@ function makeGame(){
     [[EL1,1],[EL0,-1]].forEach(([y,d])=>{ R(-3.1,d>0?y+.05:y-.3,3.1,d>0?y+.3:y-.05,'#F0CE26'); R(-.22,d>0?y+.3:y-1.4,.22,d>0?y+1.4:y-.3,'#F0CE26'); });
   }
   let RAYCV=null;
-  function fieldPal(){ const h=S.home||{}, w=h.snow?'snow':h.rain?'rain':'', tm=h.time;
+  /* at night the sidelines sit outside the light: their turf is a good deal darker */
+  function fieldPal(){ const P=fieldPal0(); if(P.tm==='night'){ P.s1=mixC(P.s1,'#000000',.45); P.s2=mixC(P.s2,'#000000',.45); } return P; }
+  function fieldPal0(){ const h=S.home||{}, w=h.snow?'snow':h.rain?'rain':'', tm=h.time;
     if(w==='snow') return {w,tm,f1:'#869b91',f2:'#93a89e',s1:'#c7d0ce',s2:'#d2dad8'};
     if(w==='rain') return {w,tm,f1:'#19492a',f2:'#1c522e',s1:'#13321f',s2:'#163923'};
     if(tm==='day') return {w,tm,f1:'#256a37',f2:'#2c773f',s1:'#1c4a2d',s2:'#205233'};
@@ -885,7 +887,7 @@ function makeGame(){
       if(st==='plant'&&(face==='up'||face==='down')) face=p.plantDir<0?'upL':'up';
       /* a ring under his feet in his tier's colour */
       if(!LYING.has(st)&&p.pos!=='OL'){ ctx.strokeStyle=TIERC[TIER(p.r)]; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(Math.round(x),Math.round(y)+1,13*SC/1.5,4.5*SC/1.5,0,0,P2); ctx.stroke(); }
-      if(S.home&&S.home.time==='night'&&!LYING.has(st)){ ctx.fillStyle='rgba(30,10,40,.17)'; [[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([dx,dy])=>{ ctx.beginPath(); ctx.ellipse(x+dx*8*SC,y+dy*1.4*SC,10*SC,1.9*SC,dx*dy*.18,0,P2); ctx.fill(); }); }   /* four lights, four shadows, in the dusk shadow's style */
+      if(S.home&&S.home.time==='night'&&!LYING.has(st)){ ctx.fillStyle='rgba(20,8,30,.27)'; [[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([dx,dy])=>{ ctx.beginPath(); ctx.ellipse(x+dx*8*SC,y+dy*1.4*SC,10*SC,1.9*SC,dx*dy*.18,0,P2); ctx.fill(); }); }   /* four lights, four shadows, in the dusk shadow's style */
       if(S.home&&S.home.time==='dusk'&&!S.home.rain&&!S.home.snow&&!LYING.has(st)){ ctx.fillStyle='rgba(30,10,40,.22)'; ctx.beginPath(); ctx.ellipse(x+10*SC,y+SC*.3,13*SC,2.2*SC,.18,0,P2); ctx.fill(); }   /* the low sun throws a long shadow */
       drawPlayer(ctx,p.side,p.num,x,y,face,st,fr,SC,lift,p.si);
       if(p.ri!=null&&p.side==='o'&&!LYING.has(st)){ const v=STA[p.ri]/100, w=Math.round(24*SC/1.5), h=Math.max(3,Math.round(3.2*SC/1.5)), bx=Math.round(x-w/2), by=Math.round(y+7.5*SC/1.5);
@@ -906,9 +908,9 @@ function makeGame(){
       const ya=toY(0,H).y, yb=toY(0,0).y, LAY=[[20,.22],[17,.38],[14,.55],[11,.72],[8,.88],[5,1]];
       for(let ab=-20;ab<=120;ab+=10){ [[-1,0],[1,5]].forEach(([sd,off])=>{ const yy=ab+off-S.yd; if(yy<ya-24||yy>yb+24) return; const sx=FC+sd*(SIDE+5), ex=FC-sd*4, [x0]=toS(sx,yy), [x1]=toS(ex,yy);
           LAY.forEach(([hh,v])=>{ const [,t1]=toS(ex,yy+hh), [,b1]=toS(ex,yy-hh), [,t0]=toS(sx,yy+hh*.08), [,b0]=toS(sx,yy-hh*.08), c=Math.round(255*v);
-            const g=rx.createLinearGradient(x0,0,x1,0); g.addColorStop(0,'rgb('+c+','+c+','+Math.round(c*.92)+')'); g.addColorStop(.55,'rgb('+Math.round(c*.5)+','+Math.round(c*.5)+','+Math.round(c*.46)+')'); g.addColorStop(1,'#000');
+            const g=rx.createLinearGradient(x0,0,x1,0); g.addColorStop(0,'#000'); g.addColorStop(5/(SIDE+9),'rgb('+c+','+c+','+Math.round(c*.92)+')'); g.addColorStop(.55,'rgb('+Math.round(c*.5)+','+Math.round(c*.5)+','+Math.round(c*.46)+')'); g.addColorStop(1,'#000');
             rx.fillStyle=g; rx.beginPath(); rx.moveTo(x0,t0); rx.lineTo(x1,t1); rx.lineTo(x1,b1); rx.lineTo(x0,b0); rx.closePath(); rx.fill(); }); }); }
-      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalCompositeOperation='screen'; ctx.globalAlpha=.17; ctx.drawImage(RAYCV,0,0); ctx.restore(); }
+      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalCompositeOperation='screen'; ctx.globalAlpha=.3; ctx.drawImage(RAYCV,0,0); ctx.restore(); }
     const air=S.ball.air; if(air){ const f=clamp((S.t-air.t0)/air.dur,0,1), A=clamp((air.arc||2)*K*.85,6,140), x=air.from.x+(air.to.x-air.from.x)*f, y=air.from.y+(air.to.y-air.from.y)*f, [bx,by]=toS(x,y), [fx,fy]=toS(air.from.x,air.from.y), [tx,ty]=toS(air.to.x,air.to.y);
       const [ax,ay]=toS(air.aim.x,air.aim.y); ctx.strokeStyle='rgba(76,158,255,.85)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(ax,ay,6,0,P2); ctx.stroke();
       const lift=Math.sin(f*Math.PI)*A+u*(72-40*f), dl=Math.PI*Math.cos(f*Math.PI)*A-40*u;
