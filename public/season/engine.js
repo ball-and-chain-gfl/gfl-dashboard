@@ -158,6 +158,7 @@ function makeGame(){
   const Ap=(p,i)=>p&&p.a?.5+(clamp((p.a[i]-55)/44,0,1)-.5)*ASP:.5;
   const EBp=p=>clamp((((p&&p.r)||80)-84)/15,0,1);
   const erR=r=>81+((r||80)-68)*.4, er=p=>erR(p&&p.r);
+  const stat=(p,k)=>p&&p.a&&p.a[k]!=null?p.a[k]:((p&&p.r)||80);
   /* THE SAME MEN ALL GAME. Each spot's rating is set once for the defense, from its real season (nflverse: pass rush,
      pass defense, run defense, takeaways): the line from pass rush and run stop, linebackers from run stop and
      coverage, corners and safeties from coverage and ball hawk. Each man keeps his own fixed step either side. */
@@ -240,8 +241,8 @@ function makeGame(){
        both backers walked up into the A gaps */
     S.front={cover2:'nickel',cover3:'4-3 over',man:'3-4',blitz:'bear front',cover0:'bear front',cover4:'nickel',c2man:'nickel'}[look];
     /* PRESS: in man with a single high safety or none, each corner decides whether to press his man at the line, more
-       often the better he is than the receiver in front of him. Pressed, he lines up a yard off and gets a jam in. */
-    if(look==='man'||look==='blitz'||look==='cover0') CB.forEach(c=>{ c.press=c.press||Math.random()<clamp(.55+(c.r-c.man.r)/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
+       often the better he is than the receiver's route running. Pressed, he lines up a yard off and gets a jam in. */
+    if(look==='man'||look==='blitz'||look==='cover0') CB.forEach(c=>{ c.press=c.press||Math.random()<clamp(.55+(c.r-stat(c.man,1))/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
     if(look==='cover3'){ [-4.8,-2,1,3.8].forEach((x,i)=>DL[i].x=x); LB[0].x=-3.4; LB[1].x=1.6; SF[1].x=6.6; SF[1].y=4.8; }
     if(look==='man'){ [DL[0],DL[3]].forEach((d,i)=>{ d.x=i?5.8:-5.8; d.y=1.4; d.state='stance'; }); }
     if(look==='cover0'){ LB.forEach((l,i)=>{ l.x=i?1.2:-1.2; l.y=2.2; }); }
@@ -349,7 +350,7 @@ function makeGame(){
        him is the matchup: the corner's rating and his team's coverage against the receiver's rating and route running,
        with some luck. A receiver who wins it clean gets a step on him instead. Only at the line, right at the snap. */
     if(!S.jamDone&&t>.02){ S.jamDone=true; S.CB.forEach(c=>{ const m=c.man; if(!c.press||!m||c.role!=='man'||!m.route||m.y>.5||dist(c,m)>2.6) return;
-      const cov=c.a?clamp((c.a[1]-55)/44,0,1):.5, J=clamp(.26+(er(c)-m.r)/45+(cov-.5)*.3-(A(m,1)-.5)*.3+gauss()*.12,0,.85);
+      const cov=c.a?clamp((c.a[1]-55)/44,0,1):.5, J=clamp(.26+(er(c)-erR(stat(m,1)))/45+(cov-.5)*.3-(A(m,1)-.5)*.3+gauss()*.12,0,.85);
       if(J<.08){ c.stall=t+.6; c.stumble=t+.36; c.stumble0=t; m.burst=t+.6; m.rdelay=0; pop('Beat the press','#4C9EFF',m,.2); }
       else { m.jam=t+J; m.rdelay=J; c.jamming=m; if(J>.3) pop('Jammed','#D9325E',m,.2); } }); }
     if(!S.runCall&&!S.plastered&&t>2.1&&S.ball.holder===QB){ S.plastered=true; const R=S.rec.filter(r=>r.route&&!r.down&&r.role!=='protect'), C=S.P.filter(p=>p.side==='d'&&!p.down&&(p.role==='man'||p.role==='zone'||p.role==='deep')), took=new Set();
@@ -389,7 +390,7 @@ function makeGame(){
         /* CHASING FROM BEHIND: a man with the ball and a step on you keeps it. A defender behind the carrier runs a touch
            slower than his top speed in coverage, so he catches only a carrier slower than him, not one his equal. */
         if(carrier&&carrier!==S.QB&&p.y<carrier.y-.4&&!p.lockedBy) vmax*=.96;
-        if(p.lockedBy&&!p.down&&dist(p,p.lockedBy)<1.6){ if(Math.random()<dt*Math.max(.9,1.3+(p.r-p.lockedBy.r)/25)*(p.lockedBy.pos==='TE'?1.5-A(p.lockedBy,0):1)){ p.lockedBy=null; p.blocked=false; } else { tx=p.lockedBy.x; ty=p.lockedBy.y+.8; vmax=1.2; } }
+        if(p.lockedBy&&!p.down&&dist(p,p.lockedBy)<1.6){ if(Math.random()<dt*Math.max(.9,1.3+(p.r-stat(p.lockedBy,{TE:0,RB:2,WR:3}[p.lockedBy.pos]??0))/25)){ p.lockedBy=null; p.blocked=false; } else { tx=p.lockedBy.x; ty=p.lockedBy.y+.8; vmax=1.2; } }
         else if(p.blocked&&!p.shed&&p.pos==='DL'){ tx=p.tx; ty=p.ty; }
         else if(p.jamming&&t<p.jamming.jam){ tx=p.jamming.x; ty=p.jamming.y+.75; vmax=.8; }
         else if(carrier&&(!S.runCall||carrier===S.QB||carrier.y>.5||t>=(S.handT||0)+(p.react||.25)+({deep:.26,zone:.15,man:.18}[p.role]??.04))){ const lead=Math.min(1.1,dist(p,carrier)/p.vmax); tx=carrier.x+carrier.vx*lead; ty=carrier.y+carrier.vy*lead; }
@@ -463,7 +464,7 @@ function makeGame(){
       for(const p of S.P){ if(p.side!=='d'||p.down||p.state==='dive'||(p.lockedBy&&dist(p,p.lockedBy)<1.3)) continue;
         if(p.pos==='DL'&&p.blocked&&!p.shed){ if(dist(p,c)<.6&&Math.random()<dt*2.2) return tackled(c,p,'tackle'); continue; }
         if(dist(p,c)<.95&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
-          const ok=Math.random()<clamp(.9+EBp(p)*.07+(er(p)-c.r)/300-pw*.08-el*.04+(Ap(p,2)-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.12+el*.3):1);
+          const ok=Math.random()<clamp(.92+EBp(p)*.07+(er(p)-87)/300-pw*.11-el*.07+(Ap(p,2)-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.12+el*.3):1);
           if(ok) return tackled(c,p); if(move(c,p,pw,el)) break; dive(p,c); p.missed=true; p.upAt=t+1.1; c.slow=t+.35*(1-pw*.6); c.slowK=.6; } }
       if(Math.abs(c.x-FC)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
       if(c.y>=S.goal) return end('Touchdown',(c.name||'#'+c.num)+' takes it '+S.goal+' yards to the end zone.','td',S.goal);

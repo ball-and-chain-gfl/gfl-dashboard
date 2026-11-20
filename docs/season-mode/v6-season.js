@@ -383,26 +383,27 @@ function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGam
 const ABR={'Arm':'Arm','Accuracy':'Acc','Legs':'Leg','Escape':'Esc','Speed':'Spd','Elusiveness':'Elu','Power':'Pow','Hands':'Hnd','Route running':'Rte','Contested':'Con','Blocking':'Blk','Pass rush':'Rush','Coverage':'Cov','Run stop':'Stop','Ball hawk':'Hawk'};
 const lastN=n=>{ const w=String(n).split(' ').filter(x=>!/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x)); return w[w.length-1]||n; };
 function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
-  return `<div class="tc t-${TIER(p.r)}${o.isNew?' new':''}${p.inj?' hurt':''}"><div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
+  return `<div class="tc t-${TIER(p.r)}${o.isNew?' new':''}${p.inj?' hurt':''}${o.side?' tc-wide':''}">${o.side?'<div class="tc-l">':''}<div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
     <div class="tc-b"><b>${esc(d?p.season+' '+p.n:p.n)}</b><small${o.cls?' class="'+o.cls+'"':''}>${esc(o.stat||p.season)}</small>
     <div class="tc-a">${ATTR[p.pos].map((l,k)=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
     ${p.pos!=='D/ST'?(()=>{ const v=Math.round(p.sta??100); return `<div class="tc-s"><span>Stamina</span><i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i><em>${v}</em></div>`; })():''}
     ${p.inj?`<div class="tc-inj"><b>Out · ${injShort(p.inj)}</b><span>${esc(p.inj.n)}</span></div>`:''}
     ${o.extra||''}
-    ${o.go&&o.go.length?`<div class="tc-go">${o.go.join('')}</div>`:''}</div></div>`; }
+    ${o.go&&o.go.length?`<div class="tc-go">${o.go.join('')}</div>`:''}</div>${o.side?'</div>'+o.side:''}</div>`; }
 const menHTML=d=>{ if(typeof GAME==='undefined'||!GAME.men||!d) return ''; const U=GAME.men(d);
   return `<div class="tc-men">${['DL','LB','CB','S'].flatMap(k=>U[k]).map(m=>`<div><span>${m.pos}</span><b style="color:${TCOL[TIER(m.r)]}">${m.r}</b></div>`).join('')}</div>`; };
 function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||[]), P=LG.pl||{};
   const line=(p,k)=>{ const s=P['0:'+p.id+'-'+p.season]||(k!=null&&P['0:'+k]&&P['0:'+k].id===p.id?P['0:'+k]:null);
     if(!s||!s.g) return p.season+' · no games yet';
     if(p.pos==='QB') return `${s.py} yds · ${s.ptd} TD · ${s.int} INT`; if(p.pos==='RB') return `${s.ry} yds · ${s.rushtd} TD`; return `${s.rec} rec · ${s.recy} yds · ${s.rtd} TD`; };
-  const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k)})).join('');
+  const dNow=DR.got[5]&&LG.dstRound===LG.cur?DR.got[5]:null;
+  const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k)})).join('')+(dNow?tcHTML(dNow,{pos:'D/ST',stat:'This week',side:menHTML(dNow)}):'');
   const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),go:[...OSLOTS.map((x,k)=>x===p.pos?`<button onclick="startPlayer(${j},${k})">Start for ${esc(lastN(me.roster[k].n))}</button>`:'').filter(Boolean),`<button class="rel" onclick="releasePlayer(${j})">Release</button>`]})).join('');
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
   const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
   return `<div class="shr-row">${shareButton('team','Share your team')}</div><div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
     <div class="sh">Your <b>bench · ${B.length} of ${BENCH_CAP}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="lg-empty">Empty</div>'}
-    <div class="sh">Your <b>defense</b></div>${cur&&LG.dstRound===LG.cur?`<div class="tcs">${tcHTML(cur,{pos:'D/ST',stat:'This week',extra:menHTML(cur)})}</div>`:''}
+    <div class="sh">Your <b>defense</b></div>
     <div class="pcs"><div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>All defenses</span></div></div>
       ${tl([[D.length,'Games'],[tot.sk,'Sacks'],[tot.take,'Takeaways'],[D.length?(tot.pa/D.length).toFixed(1):'0','Pts allowed/g']])}</div></div>
     ${D.length?`<div class="sh">Week <b>by week</b></div><div class="lds">${D.slice().reverse().map(d=>`<div class="ld dlog"><span class="rk">${esc(String(d.round).replace(/^Week /,'W'))}</span>${nflImg(d.n,'lgo')||'<span class="ini">D</span>'}<span class="nm"><b>${d.season} ${esc(d.n)}</b><small>${d.sk} sack${d.sk===1?'':'s'} · ${d.take} takeaway${d.take===1?'':'s'} · ${d.ya} yds</small></span><span class="v">${d.pa}</span><span class="v2">pts</span></div>`).join('')}</div>`:''}`; }
