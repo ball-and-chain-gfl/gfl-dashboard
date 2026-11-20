@@ -61,7 +61,7 @@ const pvpTeams=()=>{ const by={}; TEAMS.forEach(t=>{ const k=String(t.teamId); i
 async function pvpBadge(){ const el=document.querySelectorAll('[data-pvp]'); if(!el.length) return; try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){ return; }
   const n=PVP_BOX.games.filter(x=>x.turn===pvpTid()&&x.st!=='done'&&x.st!=='declined').length; el.forEach(b=>{ const s=b.querySelector('.pv-n'); if(s) s.remove(); if(n) b.insertAdjacentHTML('beforeend',`<span class="pv-n">${n}</span>`); }); }
 async function pvpHub(){ try{ const P=MATCH.M.pvp; if(P){ P.left=true; clearTimeout(P.pollT); MATCH.M.pvp=null; } }catch(e){} PVP_BUILD=null; PVP_FORCE=null;
-  screen('match'); const back=()=>{ if(typeof resume==='function'&&resume()) hub('next'); else { DR.i=0; DR.got=[]; setupScreen(); } };
+  screen('match'); const back=()=>{ DR.i=0; DR.got=[]; setupScreen(); };
   $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>Head to head</b><button class="btn w" id="pv-new">New game</button></div><div class="pv-list" id="pv-list"><div class="lg-empty">Loading</div></div></div>`;
   $('#pv-back').onclick=back; $('#pv-new').onclick=()=>pvpNew();
   let box=null; try{ box=await pvpBoxGet(pvpTid()); }catch(e){ if($('#pv-list')) $('#pv-list').innerHTML='<div class="lg-empty">Couldn’t load your games</div>'; return; }

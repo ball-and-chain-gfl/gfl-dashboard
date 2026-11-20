@@ -186,7 +186,7 @@ function record(g,H,A){ const T=LG.teams, add=(t,me,them)=>{ const s=t.st; s.g++
     if(me.pts>them.pts) s.w++; else if(me.pts<them.pts) s.l++; else s.t++; };
   g.s=[H.pts,A.pts]; add(T[g.h],H,A); add(T[g.a],A,H); }
 function simGame(g,mustWin){ const T=LG.teams, H=simSide(T[g.h],T[g.a]), A=simSide(T[g.a],T[g.h]);
-  if(mustWin&&H.pts===A.pts){ (Math.random()<.5+(offR(T[g.h])-offR(T[g.a]))/60?H:A).pts+=3; g.ot=1; }
+  if(H.pts===A.pts&&(mustWin||Math.random()<.9)){ const w=Math.random()<.5+(offR(T[g.h])-offR(T[g.a]))/60?H:A; w.pts+=Math.random()<.65?3:6; g.ot=1; } else if(H.pts===A.pts) g.ot=1;
   record(g,H,A); const LH=gameLineup(T[g.h]), LA=gameLineup(T[g.a]), lh=linesFrom(LH,H), la=linesFrom(LA,A);
   addLines(g.h,lh,LH); addLines(g.a,la,LA); simWear(T[g.h],lh,LH); simWear(T[g.a],la,LA); addD(g.h,T[g.h].dst,A); addD(g.a,T[g.a].dst,H); }
 
@@ -252,7 +252,7 @@ function draftWhere(){ if(typeof pvpActive==='function'&&pvpActive()) return 'He
 function leaveDraft(){ if(typeof PVP_BUILD!=='undefined'&&PVP_BUILD) return pvpCancelBuild(); DR.gen=(DR.gen||0)+1; clearInterval(DR.rain);
   if(RESPIN){ DR.got[RESPIN.i]=RESPIN.save; RESPIN=null; DR.i=6; return hub('next'); }
   if(QUICK) return quickDone();
-  if(SETUP){ SETUP=null; DR.i=0; DR.got=[]; return setupScreen(); }
+  if(SETUP){ SETUP=null; DR.i=0; DR.got=[]; return leaguePicker(); }
   if(LG){ DR.i=6; return hub('next'); }
   DR.i=0; DR.got=[]; setupScreen(); }
 function leaveGame(){ if(MATCH.M&&MATCH.M.pvp){ if(!confirm('Leave this game? Nothing is sent until the ball changes hands, so this drive starts over when you come back.')) return; SIM.stop(); GAME.show(false); const b=$('#ban'); if(b) b.className='banner'; return pvpHub(); }
@@ -288,7 +288,7 @@ const tm=(i,cls)=>{ const t=LG.teams[i]; return `<span class="tmn ${cls||''}"><i
 let HUBTAB='next', LGTAB='table';
 function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=same&&B0?B0.scrollTop:0, C0=$('#scr-hub .lgc'), x0=C0?C0.scrollLeft:0;
   if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur], me=LG.teams[0], tabs=[['next',LG.phase==='done'?'Final':'Next'],['sched','Schedule'],['team','Your team'],['league','League']];
-  $('#scr-hub').innerHTML=`<div class="hb-top g" style="--tcol:${teamCol(me)}"><div class="fade"><div class="dots"></div></div>
+  $('#scr-hub').innerHTML=`<div class="hb-top g" style="--tcol:${teamCol(me)}"><div class="fade"><div class="dots"></div></div><button class="btn hb-menu" id="hb-menu">Menu</button>
       <div class="hb-me"><div class="hv-c">${crest(me)}</div><div><span class="tag">${esc(LG.name)} season · ${LG.phase==='done'?'Over':esc(R.label)}</span><b>${esc(me.name)}</b>
         <div class="hb-chips"><span class="c-rec">${recTxt(me.st)}</span><span>${ordinal(standings().findIndex(x=>x.i===0)+1)} of ${LG.teams.length}</span><span class="c-faab">$${me.faab??100}</span></div></div>
         ${trophies().length?`<button class="hb-tro" id="hb-tro"><canvas class="trophy"></canvas><b>${trophies().length}</b></button>`:''}</div></div>
@@ -304,6 +304,7 @@ function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=
     DR.i=5; DR.got[5]=null; screen('draft'); stageSpin(); };
   const qb=$('#hb-quick'); if(qb) qb.onclick=()=>quickGame(false); const qm=$('#hb-quickmix'); if(qm) qm.onclick=()=>quickGame(true); const hp=$('#hb-pvp'); if(hp){ hp.onclick=()=>pvpHub(); pvpBadge(); }
   const rs=$('#hb-respin'); if(rs) rs.onclick=respinPick;
+  const hm=$('#hb-menu'); if(hm) hm.onclick=()=>setupScreen();
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
   document.querySelectorAll('.lgc button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); });
   const tb=$('#hb-team'); if(tb) tb.onclick=()=>hub('team');
@@ -550,15 +551,19 @@ function teamShareData(){ const me=LG.teams[0], pl=ordinal(standings().findIndex
   return {label:'My team · '+LG.name+' season · '+(LG.phase==='done'?'Final':LG.rounds[LG.cur].label), name:me.name, logo:me.logo, col:(me.col&&me.col[0])||'#4C9EFF',
     sub:recTxt(me.st)+' · '+pl+' of '+LG.teams.length+' · Offense '+offR(me), five:me.roster, dst:LG.dstRound===LG.cur?DR.got[5]:null,
     foot:(me.bench||[]).length+' on the bench · $'+(me.faab??100)+' FAAB left'}; }
+function myFinish(){ if(!LG) return null; if(LG.champ===0) return {t:'CHAMPIONS',f:'League champions'};
+  for(const R of LG.rounds.filter(r=>r.kind==='po')){ const r=myRes(myGame(R)); if(r&&r.k==='L') return R.label==='The final'?{t:'RUNNER-UP',f:'Lost in the final'}:{t:'OUT IN THE '+(R.label==='Wild card'?'WILD CARD':R.label.toUpperCase()),f:'Lost in the '+(R.label==='Wild card'?'wild card round':R.label.toLowerCase())}; }
+  if(LG.seeds&&!LG.seeds.slice(0,LG.po).includes(0)) return {t:'MISSED THE PLAYOFFS',f:'Missed the playoffs'};
+  return null; }
 function seasonShareData(){ const me=LG.teams[0], place=standings().findIndex(x=>x.i===0)+1, done=LG.phase==='done', champ=done&&LG.champ===0;
   const P=Object.values(LG.pl||{}).filter(p=>p.ti===0&&!isBackup(p)&&p.id).sort((x,y)=>shScore(y)-shScore(x)), m=P[0];
   const games=LG.rounds.map(R=>{ const g=myGame(R), r=myRes(g); return g||(R.bye&&R.bye.includes(0))?{w:wkShort(R),k:r?r.k:'',s:r?r.m+'–'+r.t:(g?'':'Bye')}:null; }).filter(Boolean);
   return {label:LG.name+' season · '+(done?'Final':LG.rounds[LG.cur].label), name:me.name, logo:me.logo, col:(me.col&&me.col[0])||'#4C9EFF',
-    title:champ?'CHAMPIONS':done?ordinal(place)+' PLACE':'SEASON SO FAR', titleCol:champ?'#F0CE26':'#FDFEFC',
+    title:champ?'CHAMPIONS':myFinish()?myFinish().t:done?ordinal(place)+' PLACE':'SEASON SO FAR', titleCol:champ?'#F0CE26':'#FDFEFC',
     mvp:m?{p:m,lines:(()=>{ const l=shLines(m,m); return [l[0],l[1]+' · '+m.g+' game'+(m.g===1?'':'s')]; })()}:null,
-    tiles:[[recTxt(me.st),'Record'],[me.st.pf,'Pts for'],[me.st.pa,'Pts against'],[ordinal(place),'Place']],
+    tiles:[[recTxt(me.st),'Record'],[me.st.pf,'Pts for'],[me.st.pa,'Pts against'],LG.seeds?[ordinal(LG.seeds.indexOf(0)+1),'Seed']:[ordinal(place),'Place']],
     leaders:[['py','Pass'],['ry','Rush'],['recy','Rec']].map(([k,l])=>{ const b=P.slice().sort((x,y)=>(y[k]||0)-(x[k]||0))[0]; return b&&b[k]?[b[k],l+' yds · '+lastN(b.n)]:null; }).filter(Boolean),
-    games, foot:champ?'League champions':done?'Season over':(me.bench||[]).length+' on the bench · $'+(me.faab??100)+' FAAB left'}; }
+    games, foot:champ?'League champions':myFinish()?myFinish().f:done?'Season over':(me.bench||[]).length+' on the bench · $'+(me.faab??100)+' FAAB left'}; }
 
 /* drawing, the button, and the share */
 function shareWarm(kind,key,make){ const s=SHARE[kind]; if(s&&s.key===key&&(s.file||s.busy)) return shareBtn(kind); SHARE[kind]={key,busy:true}; shareBtn(kind);
@@ -715,21 +720,36 @@ const confettiHTML=()=>`<div class="cft">${Array.from({length:42},(_,i)=>`<i sty
 /* QUICK GAMES ONLY: an account let in just for quick games (Marathon Men) sees the quick game and its test team, and
    nothing of a season: no league to pick, no season to resume */
 let QUICK_ONLY=false;
-function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`<div class="hero st">${sceneImg('dusk',(ME.col&&ME.col[0])||'')}<div class="hero-in"><div class="hv-tags"><span>GFL Seasons</span></div><div class="st-me"><div class="hv-c">${crest(ME)}</div><b>${esc(ME.name)}</b></div><h2 class="ttl sm">${lab}</h2></div></div>`;
+function setupScreen(){ screen('match'); const tc=trophies().length, tint=(ME.col&&ME.col[0])||'';
+  if(typeof resume==='function') resume();
+  const L=!QUICK_ONLY&&LG?LG:null, me=L?L.teams[0]:null, R=L?L.rounds[L.cur]:null;
+  const place=L?ordinal(standings().findIndex(x=>x.i===0)+1):'', fin=L&&typeof myFinish==='function'?myFinish():null;
+  const status=!L?'':L.phase==='done'?(fin?fin.f:'Season over')+' · '+recTxt(me.st):esc(R.label)+' · '+recTxt(me.st)+' · '+place;
+  $('#scr-match').innerHTML=`<div class="mu menu"><div class="bento${QUICK_ONLY?' q':''}">
+    ${QUICK_ONLY?'':`<section class="bt bt-season">${sceneImg('dusk',tint)}<div class="bt-in"><div class="hv-tags"><span>GFL Season</span>${L?`<span>${esc(L.name)}</span>`:''}</div>
+      <div class="bt-me"><div class="hv-c">${crest(ME)}</div><div><b>${esc(ME.name)}</b>${status?`<small>${status}</small>`:''}</div></div>
+      <div class="bt-acts">${L?'<button class="btn w" id="bt-cont">Continue</button><button class="btn" id="bt-new">New season</button>':'<button class="btn w" id="bt-new">New season</button>'}</div></div></section>`}
+    <section class="bt bt-quick">${sceneImg('night',tint)}<div class="bt-in"><div class="hv-tags"><span>Quick game</span></div><div class="bt-acts col"><button class="btn w" id="qg">Play</button><button class="btn" id="qgmix">Test team</button></div></div></section>
+    <section class="bt bt-h2h">${sceneImg('snow',tint)}<div class="bt-in"><div class="hv-tags"><span>Head to head</span></div><div class="bt-acts col"><button class="btn w" id="qgpvp" data-pvp>Play a friend</button></div></div></section>
+    <button class="bt bt-tro" id="st-tro">${sceneImg('champ',tint)}<div class="bt-in"><div class="hv-tags"><span>Trophy case</span></div><b class="bt-n">${tc}</b></div></button>
+  </div></div>`;
+  paintArt();
+  const nb=$('#bt-new'); if(nb) nb.onclick=()=>{ if(L&&L.phase!=='done'&&!confirm('Start a new season? This one will be gone.')) return; if(L) newSeason(true); leaguePicker(); };
+  const cb=$('#bt-cont'); if(cb) cb.onclick=()=>hub('next');
+  $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); $('#qgpvp').onclick=()=>pvpHub(); pvpBadge(); $('#st-tro').onclick=()=>openTrophies('setup'); }
+/* PICK YOUR LEAGUE: what the start screen used to be, now behind "New season" */
+function leaguePicker(){ screen('match'); const tc=trophies().length, hero=lab=>`<div class="hero st">${sceneImg('dusk',(ME.col&&ME.col[0])||'')}<div class="hero-in"><div class="hv-tags"><span>GFL Seasons</span></div><div class="st-me"><div class="hv-c">${crest(ME)}</div><b>${esc(ME.name)}</b></div><h2 class="ttl sm">${lab}</h2></div></div>`;
   if(QUICK_ONLY){ $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Quick game')}
     <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button><button class="btn" id="qgpvp" data-pvp>Head to head</button></div></div>`;
     paintScenes(); paintArt(); $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); $('#qgpvp').onclick=()=>pvpHub(); pvpBadge(); return; }
-  $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Pick your league')}
+  $('#scr-match').innerHTML=`<div class="mu setup st2"><button class="btn lp-back" id="lp-back">Menu</button>${hero('Pick your league')}
     <div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
-    <div class="st-acts"><button class="btn w" id="go">Open packs</button><button class="btn" id="mix">Test team · mixed tiers</button></div>
-    <div class="sh">Or just <b>one game</b></div>
-    <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button><button class="btn" id="qgpvp" data-pvp>Head to head</button></div>
-    ${tc?`<button class="btn tro-btn" id="st-tro"><canvas class="trophy"></canvas>Trophy case · ${tc}</button>`:''}</div>`;
-  paintScenes(); paintArt(); paintTrophies();
+    <div class="st-acts"><button class="btn w" id="go">Open packs</button><button class="btn" id="mix">Test team · mixed tiers</button></div></div>`;
+  paintScenes(); paintArt(); $('#lp-back').onclick=()=>setupScreen();
   let pick='standard'; document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ pick=b.dataset.p; document.querySelectorAll('.presets button').forEach(x=>x.classList.toggle('on',x===b)); });
   $('#go').onclick=()=>{ SETUP=pick; seasonPack(); };
   $('#mix').onclick=()=>{ SETUP=pick; mixTeam(); };
-  $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); $('#qgpvp').onclick=()=>pvpHub(); pvpBadge(); const st=$('#st-tro'); if(st) st.onclick=()=>openTrophies('setup'); }
+}
 /* for testing: skip the packs with one of every tier, in a random order across the six slots */
 function mixTeam(){ const tiers=['legend','gold','silver','bronze','gold','silver'].sort(()=>Math.random()-.5); DR.got=[]; DR.i=0;
   SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }
@@ -750,13 +770,13 @@ async function quickKick(tm,wq){ $('#kick').disabled=true; $('#kick').textConten
   const [hk,ak]=dressFor(home?mine:theirs,home?theirs:mine); setKits(home?hk:ak,home?ak:hk);
   CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:'Quick game',mustWin:false,time:tm||'day',rain:wq==='rain',snow:wq==='snow'}); }
 /* after it: back to the season if there is one, otherwise the start */
-function quickDone(){ QUICK=false; if(resume()) hub('next'); else { DR.i=0; DR.got=[]; setupScreen(); } }
+function quickDone(){ QUICK=false; resume(); setupScreen(); }
 let SETUP=null;
 /* the packs are done: the first time, the league is made; every week after, it's time to play */
 async function afterDraft(){ if(typeof PVP_BUILD!=='undefined'&&PVP_BUILD) return pvpBuilt(); if(QUICK) return quickSetup(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=DR.got[5]?0:-1; save(); return hub('next'); }
   LG.dstRound=LG.cur; LG.teams[0].dst=DR.got[5]; save(); hub('next'); }
 const draftLabel=()=>typeof PVP_BUILD!=='undefined'&&PVP_BUILD?'Ready':SETUP&&!QUICK?'To the season':QUICK?'Game day':'Back to the hub';
-function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; setupScreen(); }
+function newSeason(quiet){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; if(!quiet) leaguePicker(); }
 /* back where you were: your five and this week's defense come back from the save */
 function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
   if(!LG||LG.v!==1||!LG.teams) { LG=null; return false; }

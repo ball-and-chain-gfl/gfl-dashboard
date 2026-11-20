@@ -193,7 +193,7 @@ function makeMatch(){
   function clockOnly(){ const b=document.querySelector('#bug .clk b'); if(!b) return bug(); b.textContent=M.q>4?'0:00':clk(); b.className=M.run&&M.poss==='me'&&!M.stop?'run':''; }
   function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?MENU+crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)+LEAVE}</div>`;
     const w=wp(), wc=Math.round(w*20), ca=(KIT.o&&KIT.o.helmet&&KIT.o.helmet[1])||'#3f8fea', cb=(KIT.d&&KIT.d.helmet&&KIT.d.helmet[1])||'#c8233e';
-    setHTML($('#bug'),`<div class="wp"><span class="lb">Win probability</span><span class="lb wv">${esc(ini(ME.name))} ${Math.round(w*100)}%</span><div class="wpb">${Array.from({length:20},(_,i)=>`<i style="background:${i<wc?ca:cb}"></i>`).join('')}</div></div>`+b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0)); clockOnly(); }
+    setHTML($('#bug'),`<div class="wp"><span class="lb">Win probability</span><span class="lb wv">${esc(ini(ME.name))} ${Math.round(w*100)}%</span><div class="wpb">${Array.from({length:20},(_,i)=>`<i style="background:${i<wc?ca:cb}"></i>`).join('')}</div></div>`+b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':M.otS?'OT'+(M.otS.n>1?M.otS.n:''):'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0)); clockOnly(); }
   const strip=(los,fd)=>{ const ca=(KIT.o&&KIT.o.helmet&&KIT.o.helmet[1])||'#3f8fea', cb=(KIT.d&&KIT.d.helmet&&KIT.d.helmet[1])||'#c8233e', P=y=>((10+y)/120*100).toFixed(1)+'%';
     return `<div class="fs2"><i class="ez" style="left:0;background:${ca}"></i><i class="ez" style="right:0;background:${cb}"></i>${[1,2,3,4,5,6,7,8,9].map(k=>`<i class="yl" style="left:${P(k*10)}"></i>`).join('')}<i class="los" style="left:${P(los)}"></i>${fd!=null&&fd<100?`<i class="fdm" style="left:${P(fd)}"></i>`:''}</div>`; };
   function ddMe(){ setHTML($('#dd'),`<span><b class="dn">${M.conv?'Two-point try':ord(M.down)+' <i class="amp">&amp;</i> '+(M.togo>=100-M.yd?'Goal':M.togo)}</b> ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`+strip(M.yd,M.yd+M.togo)); }
@@ -207,10 +207,14 @@ function makeMatch(){
   function tick(s){ if(M.stop) return; const before=M.clock; M.clock-=s;
     /* the two-minute warning, in the second and fourth quarters */
     if((M.q===2||M.q===4)&&before>120&&M.clock<=120&&!M.warn[M.q]){ M.warn[M.q]=1; M.twoMin=true; }
-    if(M.clock<=0){ if(M.q===2||M.q===4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=QLEN; M.run=false; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } }
+    if(M.clock<=0){ if(M.q===2||M.q>=4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=QLEN; M.run=false; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } }
     const sec=Math.ceil(M.clock); if(sec!==M.shown){ M.shown=sec; clockOnly(); if(M.poss==='me') ddMe(); } }
   /* run what comes next, unless the half or the game has run out */
-  function after(fn){ if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
+  function otDecided(){ const O=M.otS; if(!O||M.pvp) return false; O.had[M.poss]=1; const [a,b]=M.score; if(a===b) return false;
+    return !!O.had[a>b?'cpu':'me'];   /* ahead, and the side behind has had its chance (or never needed it: the defense scored) */ }
+  function after(fn){ if(M.otS&&otDecided()){ M.q=5; M.stop=true; bug(); return final(); } if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
+  function startOT(){ const pl=!!M.mustWin, rcv=Math.random()<.5?'me':'cpu'; M.otS={n:1,playoff:pl,had:{me:0,cpu:0}}; M.ot=true; M.q=4; M.clock=pl?QLEN:Math.round(QLEN*10/15); M.stop=false; M.run=false; M.tos=2; bug();
+    return banner({art:'kick',tag:'Overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:(rcv==='me'?'You win the toss: your ball. ':'They win the toss and take the ball. ')+(pl?'Both teams get a possession, then the next score wins. It goes until somebody does.':'Both teams get a possession, then the next score wins. Ten minutes, and it can end tied.'),btn:rcv==='me'?'Your ball':'Their ball'},()=>rcv==='me'?myDrive(25):cpuDrive(25)); }
   function hurtNotice(p,inj,sub){ setTimeout(()=>{ let el=$('#hurtn'); if(!el){ el=document.createElement('div'); el.id='hurtn'; $('#scr-game').appendChild(el); }
     el.className='hurtn show'; el.innerHTML=`<div class="hn-bx"><span class="tag">Injury</span>${isBackup(p)?'':`<img src="${SHOT(p.id)}" alt="">`}<b>${esc(p.n)} is hurt</b><em>${esc(inj.n)}</em><span class="hn-sub">${esc(sub.n)} comes in</span><button class="btn w" id="hn-ok" disabled>3</button></div>`;
     let n=3; const b=$('#hn-ok'), tk=setInterval(()=>{ n--; if(n>0) b.textContent=n; else { clearInterval(tk); b.disabled=false; b.textContent='Continue'; } },1000);
@@ -218,6 +222,11 @@ function makeMatch(){
   function toast(s){ const t=$('#toast'); t.textContent=s; t.className='toast show'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.className='toast',2200); }
   function endPeriod(){
     M.pend=null; M.run=false; if(M.pvp) return pvpEndPeriod();
+    /* the end of the 4th, or of an overtime period */
+    if(M.q===4&&!M.otS&&M.score[0]===M.score[1]) return startOT();
+    if(M.q===4&&M.otS&&M.score[0]===M.score[1]&&M.otS.playoff){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
+      /* the playoffs go on: the side with the ball keeps it into the next period */
+      return banner({art:'kick',tag:'End of overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:'Still tied. Another period.',btn:'Play on'},()=>{ if(M.poss==='me'){ view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); } else cpuDrive(M.cyd||25); }); }
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
@@ -291,7 +300,7 @@ function makeMatch(){
     start(o){ M.pvp=null; Object.assign(M,{simAll:false,q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
         st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,py:0,ry:0,tdP:0,tdR:0,drives:0},
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
-      M.mustWin=!!(o&&o.mustWin); M.ot=false;
+      M.mustWin=!!(o&&o.mustWin); M.ot=false; M.otS=null;
       /* the five on the field are always the five you have now (the hub, a re-spin, a reload or a quick game in between can't leave an old lineup in the engine) */
       M.lineup=((o&&o.lineup)||DR.got||[]).slice(0,5); M.hurt=[]; M.subLog=[]; if(M.lineup.length===5&&M.lineup.every(Boolean)) GAME.roster(M.lineup);
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
@@ -372,7 +381,7 @@ function makeMatch(){
       M.ps[i]={att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0}; M.lineup[i]=p; GAME.sub(i,p); } };
   function final(){
     /* a playoff game can't end level: overtime, and a field goal wins it */
-    if(M.mustWin&&M.score[0]===M.score[1]){ const w=Math.random()<.5+((DR.got.slice(0,5).reduce((s,p)=>s+p.r,0)/5)-M.oppO)/60?0:1; M.score[w]+=3; M.ot=true; bug(); }
+    if(M.mustWin&&M.score[0]===M.score[1]&&!M.otS){ const w=Math.random()<.5+((DR.got.slice(0,5).reduce((s,p)=>s+p.r,0)/5)-M.oppO)/60?0:1; M.score[w]+=3; M.ot=true; bug(); }
     const [a,b]=M.score, res=(a>b?'You win':a<b?'You lose':'A tie')+(M.ot?' in overtime':''), col=a>b?'var(--gold)':a<b?'var(--red)':'var(--text2)', s=M.st;
     screen('final');
     $('#scr-final').innerHTML=`<div class="champ" style="--fc:${col}"><div class="fade"><div class="dots"></div></div>

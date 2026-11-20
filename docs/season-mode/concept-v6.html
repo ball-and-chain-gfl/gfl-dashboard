@@ -693,6 +693,22 @@
   .tc-s{display:grid;grid-template-columns:auto 1fr 22px;gap:6px;align-items:center;font:700 9px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
   .tc-s i{display:block;height:5px;background:var(--p3);} .tc-s i b{display:block;height:100%;}
   .tc-s em{font:700 11px/1 var(--sans);font-style:normal;color:var(--text);text-align:right;}
+  /* THE MAIN MENU, a bento: 4 columns, 5 rows */
+  .mu.menu{justify-content:flex-start;align-items:stretch;padding:14px 14px 20px;overflow:auto;}
+  .bento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,minmax(96px,1fr)) minmax(74px,.7fr);gap:8px;width:100%;max-width:560px;margin:0 auto;flex:1 0 auto;min-height:min(620px,100%);}
+  .bento.q{grid-template-rows:repeat(2,minmax(110px,1fr)) minmax(74px,.7fr);}
+  .bt{position:relative;overflow:hidden;clip-path:var(--notch);background:#0b0e14;border:0;padding:0;color:var(--text);text-align:left;font:inherit;}
+  .bt canvas.scn{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated;image-rendering:crisp-edges;}
+  .bt::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,9,11,.15) 30%,rgba(8,9,11,.72));pointer-events:none;}
+  .bt-in{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:8px;padding:10px;}
+  .bt-season{grid-area:1/1/3/5;} .bt-quick{grid-area:3/1/5/3;} .bt-h2h{grid-area:3/3/5/5;} .bt-tro{grid-area:5/1/6/5;cursor:pointer;}
+  .bento.q .bt-quick{grid-area:1/1/3/3;} .bento.q .bt-h2h{grid-area:1/3/3/5;} .bento.q .bt-tro{grid-area:3/1/4/5;}
+  .bt-me{display:flex;align-items:center;gap:10px;} .bt-me .hv-c{width:44px;height:44px;flex:0 0 auto;} .bt-me .hv-c img,.bt-me .hv-c .ini{width:44px;height:44px;}
+  .bt-me b{display:block;font:800 16px/1.15 var(--sans);text-shadow:0 2px 0 #000;} .bt-me small{display:block;margin-top:3px;font:700 12px/1.2 var(--sans);color:var(--text2);text-shadow:0 1px 0 #000;}
+  .bt-acts{display:flex;gap:6px;flex-wrap:wrap;} .bt-acts.col{flex-direction:column;} .bt-acts .btn{padding:10px 12px;font-size:13px;} .bt-acts.col .btn{width:100%;}
+  .bt-tro .bt-in{flex-direction:row;align-items:center;} .bt-n{font:400 26px/1 var(--px,Silkscreen);text-shadow:0 2px 0 #000;}
+  .lp-back{align-self:flex-start;padding:6px 12px;font-size:12px;}
+  .hb-menu{position:absolute!important;top:10px;right:10px;z-index:3;padding:6px 10px;font-size:12px;}
   .tc-bye{display:flex;flex-direction:column;gap:2px;padding:5px 7px;font:600 11px/1.2 var(--sans);color:var(--text3);box-shadow:inset 2px 0 0 var(--text3);}
   .tc-bye.now{background:color-mix(in srgb,var(--yellow) 18%,var(--p2));box-shadow:inset 2px 0 0 var(--yellow);color:var(--text2);} .tc-bye b{font:700 12px var(--sans);color:var(--text);}
   .wk-bye{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:8px 12px;font:600 12px/1.4 var(--sans);color:var(--text3);border-bottom:1px solid var(--ln,rgba(255,255,255,.08));}
@@ -973,7 +989,7 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
   ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0]; CPU=TEAMS.find(t=>/Kirkland/.test(t.name))||TEAMS[1];
   GAME=makeGame(); SIM=makeSim(); MATCH=makeMatch();
   /* a season on this device picks up where it was; otherwise, pick a league */
-  if(resume()) hub('next'); else setupScreen();
+  resume(); setupScreen();
   /* the sheet: the players close up, then the throw, the catches and the tackles, each acted out on a loop */
   const c=$('#sheet'), x=c.getContext('2d'), D=Math.min(2,devicePixelRatio||1), H=560; c.width=343*D; c.height=H*D; x.setTransform(D,0,0,D,0,0); let f=0,last=0,T=0;
   const label=(s,y)=>{ x.font='500 9px JetBrains Mono'; x.fillStyle='rgba(253,254,252,.5)'; x.textAlign='left'; x.fillText(s,10,y); };
