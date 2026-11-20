@@ -26,6 +26,16 @@ const R_=(name,path,dir,wide,delay)=>({kind:'run',name,path,dir,wide:!!wide,dela
 /* a jet sweep: the receiver on the far side comes across in motion before the snap, takes it from the QB at full speed
    as he goes past, and runs for the edge on the other side */
 const J_=(name,motion,path,dir)=>({kind:'run',name,path,dir,wide:true,jet:motion});
+/* ONE SPEED SCALE FOR EVERYONE. A speed stat is a top speed: 40 runs 4.6 yards a second, 99 runs 7.9, the same for every
+   position. Each position still runs in its own band (a lineman is slow because linemen are slow): SPD_BASE is where a
+   position's slowest and fastest sit, and spdPos says where a man is inside his own band, which is what his speed and
+   his burst are built from, so the game plays as before. An overall is the weighted average of a player's four by
+   position (POSW for the offense, DW for the defense), so a lineman's low speed barely touches his. */
+const SPD_BASE={WR:[5.3,2.2],RB:[5.45,1.8],TE:[5.0,1.8],DB:[6.3,1.6],LB:[5.9,1.3],DL:[5.0,1.0]}, SPI={RB:0,WR:0,TE:2};
+const toU=v=>Math.round(Math.max(40,Math.min(99,40+(v-4.6)*59/3.3))), fromU=s=>4.6+(s-40)*3.3/59;
+const spdPos=(pos,s)=>{ const B=SPD_BASE[pos]; return B?Math.max(0,Math.min(1,(fromU(s)-B[0])/B[1])):0; };
+const POSW={QB:[.25,.25,.25,.25],RB:[.3,.25,.2,.25],WR:[.25,.3,.3,.15],TE:[.3,.3,.1,.3]};
+const DW={DL:{rush:.35,stop:.35,tkl:.3,spd:0},LB:{stop:.3,cov:.25,tkl:.35,spd:.1},DB:{cov:.3,hawk:.25,tkl:.2,spd:.25}};
 const PLAYS={
   slants:P_('Slants',[[0,5],[5,11],[9,15]],[[0,5],[-5,11],[-9,15]],[[0,6],[-2,14],[-3,22]],[[-4,1],[-9,3],[-12,4]]),
   verts:P_('Four verts',[[0,30]],[[0,30]],[[0,10],[-1,30]],[[3,2],[4,5],[4,6]]),
@@ -159,7 +169,7 @@ function makeGame(){
   /* EVERY DEFENDER HAS FOUR STATS FOR HIS POSITION, like the offense:
        DL  pass rush, run stop, tackling, speed       LB  run stop, coverage, tackling, speed
        DB  coverage, ball hawk, tackling, speed       (the two corners and two safeties are all DBs)
-     His overall is the average of his four. The defense's card adds them up: pass rush is the line's average pass rush,
+     His overall is the weighted average of his four (DW). The defense's card adds them up: pass rush is the line's average pass rush,
      coverage the backers' and backs' average coverage, run stop the line's and backers' average run stop, ball hawk the
      backs' average ball hawk, and the overall the average of the ten overalls. Every play reads only stats. */
   const DBSET=['cov','hawk','tkl','spd'], DSET={DL:['rush','stop','tkl','spd'],LB:['stop','cov','tkl','spd'],CB:DBSET,S:DBSET}, DLABP={DL:'DL',LB:'LB',CB:'DB',S:'DB'};
@@ -191,16 +201,18 @@ function makeGame(){
     /* the card's four: each man who has one sits near his own level, shifted so the group averages to the card exactly */
     TEAMK.forEach((k,ki)=>{ const G=men.filter(m=>DSET[m.pos].includes(k)), raw=G.map(m=>m.want+(ta[ki]-R)+step(20+m.j*4+ki)), mean=raw.reduce((a,b)=>a+b,0)/raw.length;
       fitAvg(raw.map(x=>x-mean+ta[ki]),ta[ki],40,99).forEach((v,i)=>G[i].s[k]=v); });
-    /* tackling and speed fill out his four so they average to his overall */
-    const sum4=m=>DSET[m.pos].reduce((a,k)=>a+m.s[k],0), ov=m=>Math.round(sum4(m)/4);
-    men.forEach(m=>{ const rem=4*m.want-DSET[m.pos].filter(k=>k!=='tkl'&&k!=='spd').reduce((a,k)=>a+m.s[k],0);
-      m.s.tkl=clamp(Math.round(rem/2+TKL[m.pos]/2),40,99); m.s.spd=clamp(rem-m.s.tkl,40,99); m.s.tkl=clamp(rem-m.s.spd,40,99); });
+    /* speed on the scale everyone shares: near his own level for a man at his position, then put on that scale (a
+       lineman's is low because linemen are slow), tackling near his own level; then the team's tackling and speed are nudged
+       a point at a time until the ten weighted overalls average exactly to the card. */
+    const W=m=>DW[DLABP[m.pos]], wsum=m=>DSET[m.pos].reduce((a,k)=>a+W(m)[k]*m.s[k],0), ov=m=>Math.round(wsum(m));
+    men.forEach(m=>{ const B=SPD_BASE[DLABP[m.pos]], rel=clamp(m.want-TKL[m.pos]/2+step(60+m.j),40,99); m.s.spd=toU(B[0]+clamp((rel-55)/44,0,1)*B[1]);
+      m.s.tkl=clamp(Math.round(m.want+TKL[m.pos]/2+step(70+m.j)),40,99); m.s0={tkl:m.s.tkl,spd:m.s.spd}; });
     /* and the ten overalls average exactly to the card's overall */
     for(let g=0;g<3000;g++){ const dif=men.length*R-men.reduce((a,m)=>a+ov(m),0); if(!dif) break; const sg=Math.sign(dif); let best=null, bk=null, bd=1e9;
-      men.forEach(m=>['spd','tkl'].forEach(k=>{ if(sg>0?m.s[k]>=99:m.s[k]<=40) return; const t=sum4(m), gap=sg>0?(ov(m)+.5)*4-t:t-(ov(m)-.5)*4+1; if(gap<bd){ bd=gap; best=m; bk=k; } }));
+      men.forEach(m=>['tkl','spd'].forEach(k=>{ if(sg>0?m.s[k]>=99:m.s[k]<=40) return; const t=wsum(m), need=sg>0?(ov(m)+.5)-t:t-(ov(m)-.5)+1e-9, steps=W(m)[k]?need/W(m)[k]+Math.abs(m.s[k]+sg-m.s0[k])*.6:Infinity;   /* spread the nudges: the man nearest a whole number, not the same man again and again */ if(steps<bd){ bd=steps; best=m; bk=k; } }));
       if(!best) break; best.s[bk]+=sg; }
     const U={DL:[],LB:[],CB:[],S:[]}; men.forEach(m=>U[m.pos].push({pos:m.pos,lab:DLABP[m.pos],r:ov(m),k:DSET[m.pos],s:m.s}));
-    MEN.set(key,U); return U; }
+    men.forEach(m=>delete m.s0); MEN.set(key,U); return U; }
   function units(){ return menOf(D); }
   function setup(){
     const P=[]; const qb=who(0), rb=who(1), wa=who(2), wb=who(3), te=who(4);
@@ -216,9 +228,10 @@ function makeGame(){
     QB.a=qb.a; RB.a=rb.a; WA.a=wa.a; WB.a=wb.a; TE.a=te.a; QB.slot=0; RB.slot=1; WA.slot=2; WB.slot=3; TE.slot=4;
     /* speed: legs for the QB, speed for the rest; elusiveness makes the back sharper in and out of cuts */
     QB.vmax=5.1+A(QB,2)*2.1; QB.acc=14+A(QB,2)*12;
-    RB.vmax=5.45+A(RB,0)*1.8; RB.acc=16+A(RB,1)*12;
-    WA.vmax=5.3+A(WA,0)*2.2; WB.vmax=5.3+A(WB,0)*2.2; TE.vmax=5.0+A(TE,2)*1.8;
-    WA.acc=16+A(WA,0)*10; WB.acc=16+A(WB,0)*10; TE.acc=14+A(TE,2)*8;
+    const sA=p=>p&&p.a&&SPI[p.pos]!=null&&p.a[SPI[p.pos]]!=null?spdPos(p.pos,p.a[SPI[p.pos]]):A(p,SPI[p&&p.pos]??0);
+    RB.vmax=5.45+sA(RB)*1.8; RB.acc=16+A(RB,1)*12;
+    WA.vmax=5.3+sA(WA)*2.2; WB.vmax=5.3+sA(WB)*2.2; TE.vmax=5.0+sA(TE)*1.8;
+    WA.acc=16+sA(WA)*10; WB.acc=16+sA(WB)*10; TE.acc=14+sA(TE)*8;
     if(!runCall){ const r=PL.routes; WA.route=r.WA; WB.route=r.WB; TE.route=r.TE; RB.route=r.RB; if(!RB.route) RB.role='protect';
       if(PL.block) Object.entries(PL.block).forEach(([k,role])=>{ const p={WA,WB,TE,RB}[k]; p.route=null; p.role=role; }); }
     else { WA.role='stalk'; WB.role='stalk'; TE.role='block';
@@ -232,7 +245,7 @@ function makeGame(){
     const CB=[WA,WB].map((w,i)=>mk('d','CB',[24,21][i],U.CB[i].r,w.x,6,0,0));
     const SF=[-7,7].map((x,i)=>mk('d','S',[31,42][i],U.S[i].r,x,13,0,0));
     [DL,LB,CB,SF].forEach((g,k)=>g.forEach((d,i)=>d.s=U[['DL','LB','CB','S'][k]][i].s));
-    [...DL,...LB,...CB,...SF].forEach(d=>{ const sp=Df(d,'spd'); /* speed is his speed stat alone; his read is his coverage (a lineman's, his pass rush) */
+    [...DL,...LB,...CB,...SF].forEach(d=>{ const sp=spdPos(d.pos==='DL'?'DL':d.pos==='LB'?'LB':'DB',ds(d,'spd')); /* speed is his speed stat alone; his read is his coverage (a lineman's, his pass rush) */
       d.vmax=d.pos==='DL'?5.0+sp*1.0:d.pos==='LB'?5.9+sp*1.3:6.3+sp*1.6; d.acc=d.pos==='DL'?13+sp*4:20+sp*5; d.react=d.pos==='DL'?.35-Df(d,'rush')*.12:.36-Df(d,'cov')*.2; if(d.pos!=='DL') d.turn=.55+.75*Df(d,'cov'); d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
     const look=S.look;
     DL.forEach(d=>d.role='rush');

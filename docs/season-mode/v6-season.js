@@ -717,6 +717,8 @@ function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=n
 function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
   if(!LG||LG.v!==1||!LG.teams) { LG=null; return false; }
   LG.teams.forEach(t=>{ if(t.faab==null) t.faab=100; t.bench=t.bench||[]; }); if(!LG.wire) LG.wire=[];
+  { const PA=new Map(POOL.map(p=>[p.id+'-'+p.season,p])), fresh=p=>{ const q=p&&PA.get(p.id+'-'+p.season); if(q&&q.a) p.a=q.a.slice(); };
+    LG.teams.forEach(t=>{ t.roster.forEach(fresh); t.bench.forEach(fresh); }); LG.wire.forEach(fresh); }
   DR.got=[...LG.teams[0].roster,LG.dstRound===LG.cur?LG.teams[0].dst:null]; DR.i=6; return true; }
 
 /* the defense pack says which game it's for: the first one is week 1's, and before every game after you spin again */

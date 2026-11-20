@@ -921,7 +921,12 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
      fantasy finish) says how good he is. So each player keeps the shape of his four, centred on his overall: a 94 averages
      about 94, a 70 about 70. */
   [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
-    const m=raw.reduce((s,v)=>s+v,0)/raw.length; p.a=raw.map(v=>Math.round(clamp(p.r+(v-m)*.7,50,99))); });
+    const m=raw.reduce((s,v)=>s+v,0)/raw.length; p.a=raw.map(v=>Math.round(clamp(p.r+(v-m)*.7,50,99)));
+    /* ONE SPEED SCALE: his speed (ranked at his position) becomes his top speed on the scale everyone shares; his overall
+       is the weighted average of his four by position, so the other three take up the difference */
+    const k=SPI[p.pos]; if(k!=null){ const B=SPD_BASE[p.pos]; p.a[k]=toU(B[0]+clamp((p.a[k]-55)/44,0,1)*B[1]);
+      const W=POSW[p.pos], o=[0,1,2,3].filter(i=>i!==k), wo=o.reduce((x,i)=>x+W[i],0), d=(p.r-W.reduce((x,w,i)=>x+w*p.a[i],0))/wo;
+      o.forEach(i=>p.a[i]=Math.round(clamp(p.a[i]+d,50,99))); } });
   ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0]; CPU=TEAMS.find(t=>/Kirkland/.test(t.name))||TEAMS[1];
   GAME=makeGame(); SIM=makeSim(); MATCH=makeMatch();
   /* a season on this device picks up where it was; otherwise, pick a league */
