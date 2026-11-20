@@ -297,11 +297,14 @@ function makeMatch(){
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
     played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
       if(M.pvp&&M.pvp.mine&&!M.conv){ const k=r.kind==='td'?'td':r.kind==='to'?'to':r.kind==='safety'?'safety':r.kind==='inc'?'inc':y<0?'loss':(S&&S.thrown?'pass':'run');
-        pvpRec({from:M.yd,to:r.kind==='to'?clamp(M.yd+Math.round(r.at?r.at.y:0),0,100):k==='td'?100:clamp(M.yd+(k==='inc'?0:y),0,100),kind:k,call:r.head||'',sub:''}); }
+        const thrown=!!(S&&S.thrown), runC=!!(S&&S.runCall), body=String(r.body||'').replace(/\s+/g,' ').trim().slice(0,90);
+        const call=k==='td'?(thrown?'Touchdown pass':'Touchdown run'):k==='inc'?'Incomplete pass':k==='to'?(r.head||(thrown?'Intercepted':'Fumble')):k==='safety'?'Safety'
+          :k==='loss'?(thrown?'Pass, '+y:runC||(S&&S.carrier&&S.carrier!==S.QB)?'Run, '+y:'Sacked, '+y):(k==='pass'?'Pass, ':'Run, ')+(y===0?'no gain':y);
+        pvpRec({from:M.yd,to:r.kind==='to'?clamp(M.yd+Math.round(r.at?r.at.y:0),0,100):k==='td'?100:clamp(M.yd+(k==='inc'?0:y),0,100),kind:k,call,sub:body}); }
       if(M.conv){ M.conv=false; const good=r.kind==='td'; if(good) M.score[0]+=2; bug();
         M.pend=()=>banner({tag:'Two-point try',title:good?'Good':'No good',sub:good?'Eight points on the drive.':'Stopped short. Six it is.',col:good?'var(--green)':'var(--red)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); return; }
       if(r.injury&&typeof rollInjury==='function'){ const i=r.injury.ri, p=M.lineup&&M.lineup[i];
-        if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
+        if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=!M.pvp&&typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
           if(season&&!isBackup(p)){ hurt(p,inj); p.sta=Math.round(GAME.stamina()[i]); }
           const sub=subFor(p.pos,M.lineup,season?LG.teams[0]:null); MATCH.subSlot(i,sub); M.hurt.push({n:p.n,inj:inj.n,out});
           r.body+=' '+lastN(p.n)+' is hurt ('+inj.n.toLowerCase()+'). '+sub.n+' comes in.'; hurtNotice(p,inj,sub); } }

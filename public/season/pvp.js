@@ -22,8 +22,11 @@ async function pvpGet(id){ const r=await fetch(pvpUrl(id),{cache:'no-store'}); i
 async function pvpPut(id,obj,kind){ const r=await fetch(pvpUrl(id),{method:'PATCH',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({fields:{kind:{stringValue:kind},j:{stringValue:JSON.stringify(obj)},at:{stringValue:String(Date.now())}}})});
   if(!r.ok) throw new Error('write '+r.status); }
-const pvpLoad=id=>pvpGet('pvp_'+id);
-const pvpSave=g=>{ g.updated=Date.now(); return pvpPut('pvp_'+g.id,g,'pvp'); };
+/* TESTS NEVER TOUCH REAL GAMES: with ?pvptest=1 every game and list lives under its own names (pvptest_, pvptestbox_), and the
+   homepage never reads those */
+const PVP_NS=new URLSearchParams(location.search).get('pvptest')?'pvptest':'pvp';
+const pvpLoad=id=>pvpGet(PVP_NS+'_'+id);
+const pvpSave=g=>{ g.updated=Date.now(); return pvpPut(PVP_NS+'_'+g.id,g,PVP_NS); };
 const pvpTid=()=>String(new URLSearchParams(location.search).get('team')||(ME&&ME.teamId)||'');
 const pvpMe=()=>({tid:pvpTid(),name:ME.name,logo:ME.logo||null});
 const pvpRoleOf=g=>g.a.tid===pvpTid()?'a':'b';
@@ -32,26 +35,33 @@ const pvpSeenGet=id=>{ try{ return +localStorage.getItem('gfl-pvp-seen-'+id)||0;
 function pvpSeen(id,n){ try{ localStorage.setItem('gfl-pvp-seen-'+id,String(n)); }catch(e){} }
 /* a manager's list: one entry a game, with whose move it is */
 async function pvpBoxSet(tid,entry){ const f='g_'+entry.id;
-  const r=await fetch(pvpUrl('pvpbox_'+tid)+'&updateMask.fieldPaths='+f,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{[f]:{stringValue:JSON.stringify(entry)}}})});
+  const r=await fetch(pvpUrl(PVP_NS+'box_'+tid)+'&updateMask.fieldPaths='+f,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{[f]:{stringValue:JSON.stringify(entry)}}})});
   if(!r.ok) throw new Error('write '+r.status); }
-async function pvpBoxGet(tid){ const r=await fetch(pvpUrl('pvpbox_'+tid),{cache:'no-store'}); if(r.status===404) return {games:[]}; if(!r.ok) throw new Error('read '+r.status);
+async function pvpBoxGet(tid){ const r=await fetch(pvpUrl(PVP_NS+'box_'+tid),{cache:'no-store'}); if(r.status===404) return {games:[]}; if(!r.ok) throw new Error('read '+r.status);
   const d=await r.json(), games=[]; Object.entries(d.fields||{}).forEach(([k,v])=>{ if(k.startsWith('g_')) try{ games.push(JSON.parse(v.stringValue)); }catch(e){} });
   return {games:games.sort((x,y)=>(y.at||0)-(x.at||0))}; }
 async function pvpBoxes(g,patch){ const ent=side=>{ const o=g[side==='a'?'b':'a']; return Object.assign({id:g.id,opp:{tid:o.tid,name:o.name,logo:o.logo},role:side,st:g.status,turn:g.status==='invited'?g.b.tid:g.status==='active'?g[g.next].tid:'',score:g.score||null,time:g.time,wx:g.wx,at:Date.now()},patch||{}); };
-  await Promise.all([pvpBoxSet(g.a.tid,ent('a')),pvpBoxSet(g.b.tid,ent('b'))]); }
+  const mine=g.a.tid===pvpTid()?ent('a'):g.b.tid===pvpTid()?ent('b'):null;
+  await Promise.all([pvpBoxSet(g.a.tid,ent('a')),pvpBoxSet(g.b.tid,ent('b'))]);
+  try{ if(mine&&window.parent!==window) parent.postMessage({gfl:'season-pvpentry',tid:pvpTid(),entry:mine},location.origin); }catch(e){} }
 /* a drive goes on the end of the game, read fresh first; a retry never adds the same drive twice */
 async function pvpAppend(id,rec){ const g=await pvpLoad(id); if(!g) throw new Error('no game');
   if(!g.drives.some(d=>d.k===rec.k)) g.drives.push(rec);
   g.next=rec.next; if(rec.done){ g.status='done'; } g.score={a:rec.after.score.a,b:rec.after.score.b};
   await pvpSave(g); await pvpBoxes(g); return g; }
 
+/* head to head is its own mode: while a team is being built for it or a game of it is on, the season's labels, bench
+   and share card stay out of it */
+function pvpActive(){ return !!PVP_BUILD||!!(typeof MATCH!=='undefined'&&MATCH&&MATCH.M&&MATCH.M.pvp); }
+function pvpCancelBuild(){ PVP_BUILD=null; PVP_FORCE=null; DR.gen=(DR.gen||0)+1; try{ clearInterval(DR.rain); }catch(e){} pvpHub(); }
 /* ═══ THE LIST ═══ */
 let PVP_BUILD=null, PVP_FORCE=null, PVP_BOX=null;
 const pvpTeams=()=>{ const by={}; TEAMS.forEach(t=>{ const k=String(t.teamId); if(!by[k]||(t.first||0)>(by[k].first||0)) by[k]=t; });
   return PVP_TEAMS.filter(k=>k!==pvpTid()&&by[k]).map(k=>({tid:k,name:by[k].name,logo:by[k].logo||null})); };
 async function pvpBadge(){ const el=document.querySelectorAll('[data-pvp]'); if(!el.length) return; try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){ return; }
   const n=PVP_BOX.games.filter(x=>x.turn===pvpTid()&&x.st!=='done'&&x.st!=='declined').length; el.forEach(b=>{ const s=b.querySelector('.pv-n'); if(s) s.remove(); if(n) b.insertAdjacentHTML('beforeend',`<span class="pv-n">${n}</span>`); }); }
-async function pvpHub(){ screen('match'); const back=()=>{ if(typeof resume==='function'&&resume()) hub('next'); else setupScreen(); };
+async function pvpHub(){ try{ const P=MATCH.M.pvp; if(P){ P.left=true; clearTimeout(P.pollT); MATCH.M.pvp=null; } }catch(e){} PVP_BUILD=null; PVP_FORCE=null;
+  screen('match'); const back=()=>{ if(typeof resume==='function'&&resume()) hub('next'); else { DR.i=0; DR.got=[]; setupScreen(); } };
   $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>Head to head</b><button class="btn w" id="pv-new">New game</button></div><div class="pv-list" id="pv-list"><div class="lg-empty">Loading</div></div></div>`;
   $('#pv-back').onclick=back; $('#pv-new').onclick=()=>pvpNew();
   let box=null; try{ box=await pvpBoxGet(pvpTid()); }catch(e){ if($('#pv-list')) $('#pv-list').innerHTML='<div class="lg-empty">Couldn’t load your games</div>'; return; }

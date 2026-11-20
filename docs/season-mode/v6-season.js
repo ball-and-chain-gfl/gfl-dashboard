@@ -244,14 +244,15 @@ function openSubs(){ if(!subsAvail()) return; const M=MATCH.M, me=LG.teams[0], s
   el.querySelectorAll('.sb-alt button').forEach(b=>b.onclick=()=>{ const i=+b.dataset.i, q=pool.find(x=>keyOf(x)===b.dataset.k), out=M.lineup[i]; if(!q) return;
     if(out&&!isBackup(out)) out.sta=Math.round(GAME.stamina()[i]); MATCH.subSlot(i,q); GAME.reset(true); openSubs(); }); }
 /* THE WAY OUT, from every pack screen and every game */
-function draftWhere(){ if(RESPIN) return 'Add a player'; if(QUICK) return 'Quick game · your team'; if(SETUP) return 'New season · your team'; if(LG) return esc(LG.rounds[LG.cur].label)+' · your defense'; return 'Packs'; }
-function leaveDraft(){ DR.gen=(DR.gen||0)+1; clearInterval(DR.rain);
+function draftWhere(){ if(typeof pvpActive==='function'&&pvpActive()) return 'Head to head · your team'; if(RESPIN) return 'Add a player'; if(QUICK) return 'Quick game · your team'; if(SETUP) return 'New season · your team'; if(LG) return esc(LG.rounds[LG.cur].label)+' · your defense'; return 'Packs'; }
+function leaveDraft(){ if(typeof PVP_BUILD!=='undefined'&&PVP_BUILD) return pvpCancelBuild(); DR.gen=(DR.gen||0)+1; clearInterval(DR.rain);
   if(RESPIN){ DR.got[RESPIN.i]=RESPIN.save; RESPIN=null; DR.i=6; return hub('next'); }
   if(QUICK) return quickDone();
   if(SETUP){ SETUP=null; DR.i=0; DR.got=[]; return setupScreen(); }
   if(LG){ DR.i=6; return hub('next'); }
   DR.i=0; DR.got=[]; setupScreen(); }
-function leaveGame(){ if(!confirm(QUICK?'Leave this quick game?':'Leave this game? It won\'t count, and you can play it from the hub.')) return;
+function leaveGame(){ if(MATCH.M&&MATCH.M.pvp){ if(!confirm('Leave this game? Nothing is sent until the ball changes hands, so this drive starts over when you come back.')) return; SIM.stop(); GAME.show(false); const b=$('#ban'); if(b) b.className='banner'; return pvpHub(); }
+  if(!confirm(QUICK?'Leave this quick game?':'Leave this game? It won\'t count, and you can play it from the hub.')) return;
   SIM.stop(); GAME.show(false); const b=$('#ban'); if(b) b.className='banner';
   if(QUICK) return quickDone(); if(LG) return hub('next'); DR.i=0; DR.got=[]; setupScreen(); }
 /* finish the round without you: every game left gets simulated */
@@ -532,8 +533,8 @@ async function cardSeason(d){ await shFonts(); const [c,x]=shCanvas(); const [lg
 
 /* what goes on each picture */
 function gameShareData(M){ const L=(M.lineup&&M.lineup.length?M.lineup:DR.got.slice(0,5)), ps=M.ps, [a,b]=M.score; let bi=0; L.forEach((p,i)=>{ if(ps[i]&&shScore(ps[i])>shScore(ps[bi])) bi=i; });
-  const season=typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK), me=season?LG.teams[0]:null, them=CPU;
-  return {label:season?LG.rounds[LG.cur].label:'Quick game', col:(me&&me.col&&me.col[0])||'#4C9EFF', res:a>b?'W':a<b?'L':'T', ot:M.ot,
+  const pvp=!!M.pvp, season=!pvp&&typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK), me=season?LG.teams[0]:null, them=CPU;
+  return {label:pvp?'Head to head':season?LG.rounds[LG.cur].label:'Quick game', col:(me&&me.col&&me.col[0])||'#4C9EFF', res:a>b?'W':a<b?'L':'T', ot:M.ot,
     me:{name:ME.name,logo:ME.logo,sc:a,sub:season?'You · '+recTxt(me.st):'You'}, them:{name:them.name,logo:them.logo,sc:b,sub:season&&them.st?recTxt(them.st):''},
     pog:L[bi]?{p:L[bi],lines:shLines(L[bi],ps[bi])}:null,
     tiles:[[M.st.py+M.st.ry,'Your yards'],[M.opp.yds||0,'Yds allowed'],[M.dst.int+M.dst.fum,'Takeaways'],[M.dst.sk,'Sacks']],
@@ -759,5 +760,5 @@ function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(l
   DR.got=[...LG.teams[0].roster,LG.dstRound===LG.cur?LG.teams[0].dst:null]; DR.i=6; return true; }
 
 /* the defense pack says which game it's for: the first one is week 1's, and before every game after you spin again */
-function dLabel(){ if(QUICK||!(SETUP||LG)) return 'Defense'; return (SETUP?'Week 1':LG.rounds[LG.cur].label)+' defense'; }
+function dLabel(){ if(QUICK||(typeof pvpActive==='function'&&pvpActive())||!(SETUP||LG)) return 'Defense'; return (SETUP?'Week 1':LG.rounds[LG.cur].label)+' defense'; }
 function dNote(){ return ''; }

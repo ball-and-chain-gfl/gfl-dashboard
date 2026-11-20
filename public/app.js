@@ -19559,6 +19559,7 @@ const NT_KINDS={
   upset:  {icon:'fa-bolt-lightning',tone:'hot'},
   pvp:    {icon:'fa-user-group',   tone:'royal'},
   gsinv:  {icon:'fa-football',     tone:'good'},
+  gsturn: {icon:'fa-football',     tone:'cool'},
   graph:  {icon:'fa-chart-line',   tone:'cool'},
   bighit: {icon:'fa-sack-dollar',  tone:'gold'},
   comeback:{icon:'fa-arrow-trend-up',tone:'hot'},
@@ -22877,6 +22878,9 @@ function gsInvTake(tid,games){
   if(_activeTab==='home'){ try{ renderNotifications(); orderHomeTodo(); }catch(e){} }
 }
 addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-pvpbox') return; gsInvTake(e.data.tid,e.data.games); });
+/* one game's entry, as a move is made in the game: merged in, no read */
+addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-pvpentry'||!e.data.entry) return;
+  if(String((_me&&_me.teamId)||'')!==String(e.data.tid)) return; const g=(_gsInv.games||[]).filter(x=>x&&x.id!==e.data.entry.id); g.unshift(e.data.entry); gsInvTake(e.data.tid,g); });
 function ntGflInvites(out){
   if(!_me||!seasonAllowed()) return;
   const TL={day:'Day game',dusk:'Dusk game',night:'Night game'}, WL={clear:'Clear',rain:'Rain',snow:'Snow'};
@@ -22885,6 +22889,13 @@ function ntGflInvites(out){
     out.push({kind:'gsinv', day:ntDayOf(Number(x.at)||Date.now()), id:'gsinv:'+x.id, title:'Game invite',
       art:ntStat((_ownerMap||{})[Number(x.opp&&x.opp.tid)]||'',esc(x.opp.name||'A manager'),TL[x.time]||'A game',WL[x.wx]||'',0),
       body:'Head to head in GFL Seasons.', go:'gflseasons'});
+  });
+  const me=String(_me.teamId||'');
+  (_gsInv.games||[]).filter(x=>x&&x.st==='active'&&String(x.turn)===me).forEach(x=>{
+    const sc=x.score||{}, mine=sc[x.role]||0, theirs=sc[x.role==='a'?'b':'a']||0;
+    out.push({kind:'gsturn', day:ntDayOf(Number(x.at)||Date.now()), id:'gsturn:'+x.id+':'+(x.at||0), title:'Your move',
+      art:ntStat((_ownerMap||{})[Number(x.opp&&x.opp.tid)]||'',esc(x.opp.name||'A manager'),mine+'–'+theirs,mine>theirs?'you lead':mine<theirs?'you trail':'tied',0),
+      body:'Your ball in GFL Seasons head to head.', go:'gflseasons'});
   });
 }
 function ntAll(){
@@ -23054,7 +23065,7 @@ function ntVoteMsgHTML(){
     :`<div class="nt-vmsg"><i class="fa fa-circle-check"></i>${_ntVoteMsg.ok}</div>`;
 }
 /* what the button on a card with somewhere to go says */
-const NT_GO={gflseasons:'Answer it',bets:'Open My Bets',graph:'See the graph',extremes:'See the list',bam:'Play Build a Manager'};
+const NT_GO={gflseasons:'Open GFL Seasons',bets:'Open My Bets',graph:'See the graph',extremes:'See the list',bam:'Play Build a Manager'};
 function ntGo(where,id){
   if(where==='bets'){ switchTab('book'); try{ sbSetView('mine'); }catch(e){} }
   if(where==='bam'){ switchTab('bam'); window.scrollTo(0,0); }
