@@ -42,12 +42,12 @@ function logoColors(t){ return new Promise(res=>{ const fb=()=>res(nameColors(t.
 
 /* ROSTERS: every team gets its five the way you do, a pack for each spot with the same odds of each tier (a quarter
    each), and a defense the same way each week. No player-season is on two teams. */
-function pickPlayer(pos,used){ const t=roll(), ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p.r)===t); if(!g.length) g=POOL.filter(ok);
+function pickPlayer(pos,used){ const t=roll(), ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p)===t); if(!g.length) g=POOL.filter(ok);
   const p=g[Math.floor(Math.random()*g.length)]; used.add(p.id+'-'+p.season); return slim(p); }
-function pickDST(){ const t=roll('D/ST'), g=DEFS.filter(d=>TIER(d.r)===t), d=g[Math.floor(Math.random()*g.length)]; return {id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}; }
+function pickDST(){ const t=roll('D/ST'), g=DEFS.filter(d=>TIER(d.r,1)===t), d=g[Math.floor(Math.random()*g.length)]; return {id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}; }
 /* a team's offense is the five who'll actually play */
 const BENCH_CAP=6;
-function pickTier(pos,used,tier){ const ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p.r)===tier); if(!g.length) g=POOL.filter(ok);
+function pickTier(pos,used,tier){ const ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p)===tier); if(!g.length) g=POOL.filter(ok);
   const p=g[Math.floor(Math.random()*g.length)]; used.add(p.id+'-'+p.season); return slim(p); }
 const offR=t=>{ const L=gameLineup(t); return Math.round(L.reduce((s,p)=>s+p.r,0)/L.length); };
 (function(){ try{ if(window.parent===window) return; const d=parent.document, p=d.createElement('div'); p.style.cssText='position:fixed;bottom:0;left:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none';
@@ -95,7 +95,7 @@ function cpuLineups(){ LG.teams.forEach((t,i)=>{ if(!i||!t.bench||!t.bench.lengt
    more the more it has left, and it wins one claim a week at most. Waivers run when you head to kickoff. */
 const WODDS=[['legend',6],['gold',22],['silver',36],['bronze',36]];
 function pickWire(pos,used){ let x=Math.random()*100, t='bronze'; for(const [k,p] of WODDS){ if((x-=p)<0){ t=k; break; } }
-  const ok=p=>p.pos===pos&&!used.has(keyOf(p)); let g=POOL.filter(p=>ok(p)&&TIER(p.r)===t); if(!g.length) g=POOL.filter(ok);
+  const ok=p=>p.pos===pos&&!used.has(keyOf(p)); let g=POOL.filter(p=>ok(p)&&TIER(p)===t); if(!g.length) g=POOL.filter(ok);
   const p=g[Math.floor(Math.random()*g.length)]; used.add(keyOf(p)); return slim(p); }
 function newWire(){ if(LG.phase==='done'){ LG.wire=[]; return; } const used=new Set(LG.teams.flatMap(t=>[...t.roster,...(t.bench||[])].map(keyOf))), P=['QB','RB','RB','WR','WR','WR','TE'];
   LG.wire=Array.from({length:6},()=>pickWire(P[Math.floor(Math.random()*P.length)],used)).sort((a,b)=>b.r-a.r); LG.bids={}; LG.wireDone=-1; }
@@ -103,7 +103,7 @@ const wireOpen=()=>!!(LG&&LG.wire&&LG.wire.length&&LG.wireDone!==LG.cur&&LG.phas
 const myBids=()=>Object.values(LG.bids||{}).filter(v=>v>0);
 const upOver=(t,p)=>{ const L=gameLineup(t), at=L.map((q,k)=>OSLOTS[k]===p.pos?q:null).filter(Boolean).sort((a,b)=>a.r-b.r)[0]; return at?{d:p.r-at.r,who:at}:{d:0,who:null}; };
 function runWaivers(){ if(!wireOpen()) return []; LG.wireDone=LG.cur; const T=LG.teams, won=new Set(), reg=LG.rounds.filter(r=>r.kind==='reg').length;
-  const cpuBid=(t,p)=>{ const u=upOver(t,p).d, left=t.faab, tier=TIER(p.r), base={legend:34,gold:14,silver:4,bronze:1}[tier]; if(left<=0) return 0;
+  const cpuBid=(t,p)=>{ const u=upOver(t,p).d, left=t.faab, tier=TIER(p), base={legend:34,gold:14,silver:4,bronze:1}[tier]; if(left<=0) return 0;
     if(u<3&&!(tier==='legend'||(tier==='gold'&&u>=0))) return 0;
     const prog=Math.min(1,LG.cur/Math.max(1,reg)), want=(base+Math.max(0,u)*1.5)*(.75+Math.random()*.6)*(u<3?.6:1)+left*.04*prog;
     return Math.min(Math.floor(left*(.6+.4*prog)),Math.max(1,Math.round(want))); };
@@ -292,6 +292,7 @@ function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=
   document.querySelectorAll('.hb-tabs button').forEach(b=>b.onclick=()=>hub(b.dataset.k));
   const act=$('#hb-go'); if(act) act.onclick=()=>{ const g=myGame();
     if(LG.phase==='done') return newSeason();
+    if(g&&!(LG.dstRound===LG.cur&&DR.got[5])){ DR.i=5; DR.got[5]=null; screen('draft'); return stageSpin(); }
     if(wireOpen()){ const mine=runWaivers(); if(mine.length){ HUBTAB='next'; hub('next'); const w=$('#wv-sec'); if(w) w.scrollIntoView({block:'start'}); return; } }
     if(!g) return (simRound(),hub('next'));
     if(LG.dstRound===LG.cur&&DR.got[5]) return kickoff();
@@ -320,10 +321,10 @@ function hubNext(){
   const goLabel=lab=>wo&&nb?'Run waivers':lab;
   let top;
   if(g){ const home=g.h===0, o=home?g.a:g.h, t=LG.teams[o], needD=!(LG.dstRound===LG.cur&&DR.got[5]), myD=needD?null:DR.got[5], LM=gameLineup(me), LT=gameLineup(t);
-    const rt2=(r,o)=>`<b class="rtg t-${TIER(r)}${o!=null&&r<o?' lo':''}">${r}</b>`;
-    const row=(lab,a,b,cls)=>`<div class="${cls||''}"><div class="me${a?'':' q'}${a&&a.sub?' sub':''}">${a?`<b>${esc(a.s||lastN(a.n))}</b>${rt2(a.r,b&&b.r)}`:'<b>Spin to see</b>'}</div><span>${lab}</span><div class="th${b&&b.sub?' sub':''}">${b?`${rt2(b.r,a&&a.r)}<b>${esc(b.s||lastN(b.n))}</b>`:''}</div></div>`;
+    const rt2=(r,o,d)=>`<b class="rtg t-${TIER(r,d)}${o!=null&&r<o?' lo':''}">${r}</b>`;
+    const row=(lab,a,b,cls)=>`<div class="${cls||''}"><div class="me${a?'':' q'}${a&&a.sub?' sub':''}">${a?`<b>${esc(a.s||lastN(a.n))}</b>${rt2(a.r,b&&b.r,a.d)}`:'<b>Spin to see</b>'}</div><span>${lab}</span><div class="th${b&&b.sub?' sub':''}">${b?`${rt2(b.r,a&&a.r,b.d)}<b>${esc(b.s||lastN(b.n))}</b>`:''}</div></div>`;
     const mark=(L,T)=>L.map((p,k)=>p===T.roster[k]?p:Object.assign({},p,{sub:1,s:isBackup(p)?'Backup':lastN(p.n)}));
-    const dn=d=>d&&{n:d.n,s:d.n,r:d.r};
+    const dn=d=>d&&{n:d.n,s:d.n,r:d.r,d:1};
     const outs=me.roster.filter(p=>p.inj).map(p=>`<span><b>Out</b> ${esc(lastN(p.n))} · ${esc(p.inj.n)} · ${injShort(p.inj)}</span>`);
     const sc=sceneFor(R,g), [hl,deck]=headlineFor(R,g), side=(T,lab,i)=>`<div class="hv-t"><div class="hv-c">${crest(T)}</div><b>${lab}</b><span>${recTxt(T.st)} · ${ordinal(standings().findIndex(x=>x.i===i)+1)}</span><em class="t-${TIER(offR(T))}">OFF ${offR(T)}</em></div>`;
     top=`<div class="hero">${sceneImg(sc.art,sc.home,sc.rain,sc.snow&&sc.art!=='snow')}<div class="hero-in">
@@ -407,7 +408,7 @@ function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGam
 const ABR={'Arm':'Arm','Accuracy':'Acc','Legs':'Leg','Escape':'Esc','Speed':'Spd','Elusiveness':'Elu','Power':'Pow','Hands':'Hnd','Route running':'Rte','Contested':'Con','Blocking':'Blk','Pass rush':'Rush','Coverage':'Cov','Run stop':'Stop','Ball hawk':'Hawk'};
 const lastN=n=>{ const w=String(n).split(' ').filter(x=>!/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x)); return w[w.length-1]||n; };
 function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
-  return `<div class="tc t-${TIER(p.r)}${o.isNew?' new':''}${p.inj?' hurt':''}${o.side?' tc-wide':''}"${o.pick?` data-pick="${o.pick}" onclick="pickCard('${o.pick}')"`:''}>${o.side?'<div class="tc-l">':''}<div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
+  return `<div class="tc t-${TIER(p)}${o.isNew?' new':''}${p.inj?' hurt':''}${o.side?' tc-wide':''}"${o.pick?` data-pick="${o.pick}" onclick="pickCard('${o.pick}')"`:''}>${o.side?'<div class="tc-l">':''}<div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
     <div class="tc-b"><b>${esc(d?p.season+' '+p.n:p.n)}</b><small${o.cls?' class="'+o.cls+'"':''}>${esc(o.stat||p.season)}</small>
     <div class="tc-a">${ATTR[p.pos].map((l,k)=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
     ${p.pos!=='D/ST'?(()=>{ const v=Math.round(p.sta??100); return `<div class="tc-s"><span>Stamina</span><i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i><em>${v}</em></div>`; })():''}
@@ -481,7 +482,7 @@ function shBase(x,head,col){ x.fillStyle='#0E1013'; x.fillRect(0,0,SHW,SHH);
 function shCrest(x,img,name,X,Y,S){ shNotch(x,X,Y,S,S,8,'#242933'); if(img) shPic(x,img,X+12,Y+12,S-24,S-24); else shText(x,ini(name),X+S/2,Y+S/2+S*.13,'800 '+Math.round(S*.36)+'px Inter','#FDFEFC',{al:'center'}); }
 function shTiles(x,T,Y){ const n=T.length, g=12, W=(SHW-128-g*(n-1))/n;
   T.forEach(([v,l],i)=>{ const X=64+i*(W+g); shNotch(x,X,Y,W,150,8,'#1A1E25'); shFit(x,String(v),X+24,Y+84,'400',56,'Silkscreen','#FDFEFC',W-48); shText(x,l,X+24,Y+124,'700 21px Inter','rgba(253,254,252,.55)',{ls:2,up:true,max:W-40}); }); }
-function shStar(x,label,p,img,lines,Y){ const H=380, tc=TCOL[TIER(p.r)]||'#C9CED6';
+function shStar(x,label,p,img,lines,Y){ const H=380, tc=TCOL[TIER(p)]||'#C9CED6';
   shNotch(x,64,Y,SHW-128,H,10,'#1A1E25'); x.fillStyle=tc; x.fillRect(64,Y+10,8,H-20);
   shText(x,label,104,Y+58,'700 24px Inter',tc,{ls:3,up:true}); shText(x,String(p.r),SHW-100,Y+76,'400 56px Silkscreen',tc,{al:'right'});
   shNotch(x,104,Y+84,350,262,8,'#242933'); shPic(x,img,104,Y+84,350,262,true);
@@ -507,15 +508,15 @@ async function cardGame(d){ await shFonts(); const [c,x]=shCanvas(); const [lm,l
 async function cardTeam(d){ await shFonts(); const [c,x]=shCanvas(); const imgs=await Promise.all([shImg(d.logo),...d.five.map(p=>shImg(SHOT(p.id))),shImg(d.dst?nflLogo(d.dst.n):null)]);
   shBase(x,d.label,d.col); shCrest(x,imgs[0],d.name,64,122,140); shFit(x,d.name,232,196,'800',60,'Inter','#FDFEFC',SHW-64-232);
   shText(x,d.sub,232,244,'600 27px Inter','rgba(253,254,252,.62)',{up:true,ls:2,max:SHW-64-232});
-  let Y=296; d.five.forEach((p,i)=>{ const H=158, tc=TCOL[TIER(p.r)]; shNotch(x,64,Y,SHW-128,H,8,'#1A1E25'); x.fillStyle=tc; x.fillRect(64,Y+8,8,H-16);
+  let Y=296; d.five.forEach((p,i)=>{ const H=158, tc=TCOL[TIER(p)]; shNotch(x,64,Y,SHW-128,H,8,'#1A1E25'); x.fillStyle=tc; x.fillRect(64,Y+8,8,H-16);
     shNotch(x,90,Y+13,184,132,6,'#242933'); shPic(x,imgs[1+i],90,Y+13,184,132,true);
     shText(x,OSLOTS[i],302,Y+48,'800 23px Inter','rgba(253,254,252,.55)',{ls:3});
     shFit(x,p.n,302,Y+94,'800',42,'Inter','#FDFEFC',SHW-64-302-150);
     shText(x,p.season+' · '+ATTR[p.pos].map((l,k)=>(ABR[l]||l)+' '+(p.a?p.a[k]:'–')).join(' · '),302,Y+134,'500 24px Inter','rgba(253,254,252,.6)',{max:SHW-64-302-150});
     shText(x,String(p.r),SHW-96,Y+108,'400 72px Silkscreen',tc,{al:'right'}); Y+=H+10; });
-  if(d.dst){ shNotch(x,64,Y,SHW-128,108,8,'#1A1E25'); x.fillStyle=TCOL[TIER(d.dst.r)]; x.fillRect(64,Y+8,8,92); shPic(x,imgs[6],96,Y+14,80,80);
+  if(d.dst){ shNotch(x,64,Y,SHW-128,108,8,'#1A1E25'); x.fillStyle=TCOL[TIER(d.dst)]; x.fillRect(64,Y+8,8,92); shPic(x,imgs[6],96,Y+14,80,80);
     shText(x,'D/ST',204,Y+46,'800 23px Inter','rgba(253,254,252,.55)',{ls:3}); shFit(x,d.dst.season+' '+d.dst.n,204,Y+86,'800',36,'Inter','#FDFEFC',SHW-64-204-150);
-    shText(x,String(d.dst.r),SHW-96,Y+82,'400 56px Silkscreen',TCOL[TIER(d.dst.r)],{al:'right'}); }
+    shText(x,String(d.dst.r),SHW-96,Y+82,'400 56px Silkscreen',TCOL[TIER(d.dst)],{al:'right'}); }
   shText(x,d.foot||'',64,SHH-48,'600 24px Inter','rgba(253,254,252,.45)',{up:true,ls:2,max:SHW-128}); return c; }
 
 async function cardSeason(d){ await shFonts(); const [c,x]=shCanvas(); const [lg,mi]=await Promise.all([shImg(d.logo),shImg(d.mvp?SHOT(d.mvp.p.id):null)]);
@@ -694,7 +695,7 @@ function trophyCaseHTML(back){ const L=trophies();
   return `<div class="tro-top"><button class="lv" id="tro-back">${back||'Back'}</button><span class="tag">Trophy case · ${L.length} title${L.length===1?'':'s'}</span></div>
     ${L.length?L.map(T=>`<div class="tro" style="--p:${T.col||'#3f8fea'}"><div class="tro-h"><canvas class="trophy"></canvas><div><span class="tag">${esc(T.league)} season · ${T.teams} teams</span><b>${esc(T.name)}</b><em>${T.rec} · ${T.pf} for, ${T.pa} against${T.final?` · won the final ${T.final.m}–${T.final.t} over ${esc(T.final.opp)}`:''}</em><small>${new Date(T.at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</small></div></div>
       ${T.mvp?`<div class="tro-mvp"><img src="${SHOT(T.mvp.id)}" alt=""><div><span class="tag">Season MVP</span><b>${esc(T.mvp.n)} <small>${T.mvp.pos} · ${T.mvp.r}</small></b><em>${esc(T.mvp.lines[0])}</em></div></div>`:''}
-      <div class="tro-five">${T.roster.map(p=>`<div class="t-${TIER(p.r)}"><img src="${SHOT(p.id)}" alt=""><span>${p.pos}</span><b>${esc(lastN(p.n))}</b><em>${p.r}</em></div>`).join('')}</div>
+      <div class="tro-five">${T.roster.map(p=>`<div class="t-${TIER(p)}"><img src="${SHOT(p.id)}" alt=""><span>${p.pos}</span><b>${esc(lastN(p.n))}</b><em>${p.r}</em></div>`).join('')}</div>
       ${T.leaders&&T.leaders.length?`<div class="tro-ld">${T.leaders.map(l=>`<div><b>${l.v}</b><span>${l.l} · ${esc(lastN(l.n))}</span></div>`).join('')}</div>`:''}</div>`).join(''):'<div class="lg-empty">No titles yet. Win a season and it goes here.</div>'}`; }
 function openTrophies(from){ const body=from==='setup'?$('#scr-match'):$('#scr-hub .hb-body'); if(!body) return;
   body.innerHTML=from==='setup'?`<div class="tro-wrap">${trophyCaseHTML('Back')}</div>`:trophyCaseHTML('Back to the season'); paintTrophies();
@@ -723,7 +724,7 @@ function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`
   $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); const st=$('#st-tro'); if(st) st.onclick=()=>openTrophies('setup'); }
 /* for testing: skip the packs with one of every tier, in a random order across the six slots */
 function mixTeam(){ const tiers=['legend','gold','silver','bronze','gold','silver'].sort(()=>Math.random()-.5); DR.got=[]; DR.i=0;
-  SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,pos==='D/ST'&&tiers[i]==='legend'?'gold':tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }
+  SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }
 
 /* ═══ A QUICK GAME ═══ Your six from packs, one opponent drawn from every GFL team with its five and a defense on the
    same odds, kits from both logos, home or away at random. Nothing goes in a season's book. */

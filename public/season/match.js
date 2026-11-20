@@ -2,14 +2,13 @@
    Six slots. Spin a carousel of packs, open the one it lands on, take one of four players of that tier. The overalls
    stay hidden until you take one; then all four turn over, so you see what you passed on. */
 const SLOTS=['QB','RB','WR','WR','TE','D/ST'], ODDS=[['legend',25],['gold',25],['silver',25],['bronze',25]];
-const DODDS=[['gold',40],['silver',30],['bronze',30]];
-const roll=pos=>{ let r=Math.random()*100; for(const [t,p] of (pos==='D/ST'?DODDS:ODDS)){ if((r-=p)<0) return t; } return 'bronze'; };
+const roll=pos=>{ let r=Math.random()*100; for(const [t,p] of ODDS){ if((r-=p)<0) return t; } return 'bronze'; };
 const DR={i:0,got:[]};
 const packHTML=(t,big)=>`<div class="pk t-${t}${big?' big':''}"><div class="dots"></div><div class="band"></div><b>GFL</b><span>${t}</span></div>`;
 function four(pos,tier){
   const used=new Set([...DR.got,...((typeof LG!=='undefined'&&LG&&LG.teams[0].bench)||[])].map(g=>g&&g.id));
-  if(pos==='D/ST') return DEFS.filter(d=>TIER(d.r)===tier).sort(()=>Math.random()-.5).slice(0,4).map(d=>({id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}));
-  return POOL.filter(p=>p.pos===pos&&TIER(p.r)===tier&&!used.has(p.id)).sort(()=>Math.random()-.5).slice(0,4);
+  if(pos==='D/ST') return DEFS.filter(d=>TIER(d.r,1)===tier).sort(()=>Math.random()-.5).slice(0,4).map(d=>({id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}));
+  return POOL.filter(p=>p.pos===pos&&TIER(p)===tier&&!used.has(p.id)).sort(()=>Math.random()-.5).slice(0,4);
 }
 /* ═══ THE SPARKS ═══ A layer over the draft for particles: square pixels and twinkling crosses in the tier's colours,
    thrown out from a pack or a card, falling under gravity and fading. It only runs while something is in the air. */
@@ -31,8 +30,8 @@ const PFX=(()=>{ let cv=null, x=null, P=[], raf=0, last=0, W=0, H=0;
   return { burst(el,tier,n,o){ const [cx,cy,w,h]=at(el); add(cx,cy,n,tier,Object.assign({w:w*.6,h:h*.4},o||{})); },
     rain(el,tier,n){ const [cx,cy,w,h]=at(el); add(cx,cy,n,tier,{w:w*1.1,h:h*1.1,sp:40,up:40,g:-30,life:1.3,tw:.8}); } }; })();
 function slotsHTML(){ const db=$('#dbar'); if(db){ db.innerHTML=`<span>${typeof draftWhere==='function'?draftWhere():'Packs'}</span><button class="lv" id="dleave">Leave</button>`; $('#dleave').onclick=()=>{ if(typeof leaveDraft==='function') leaveDraft(); }; }
-  $('#slots').innerHTML=SLOTS.map((s,i)=>{ const g=DR.got[i]; return `<div class="${i===DR.i&&!g?'now':''}${g?' done t-'+TIER(g.r):''}">${s}<b>${g?g.r:'–'}</b></div>`; }).join(''); }
-function cardHTML(p){ const t=TIER(p.r), d=p.pos==='D/ST';
+  $('#slots').innerHTML=SLOTS.map((s,i)=>{ const g=DR.got[i]; return `<div class="${i===DR.i&&!g?'now':''}${g?' done t-'+TIER(g):''}">${s}<b>${g?g.r:'–'}</b></div>`; }).join(''); }
+function cardHTML(p){ const t=TIER(p), d=p.pos==='D/ST';
   return `<div class="cd t-${t}"><div class="top"><div class="fade"><div class="dots"></div></div>
     <span class="rt" data-r="${p.r}">??</span><span class="tier">${t}</span>
     <div class="ph">${d?nflImg(p.n,'lg'):`<img src="${SHOT(p.id)}" alt="">`}</div></div>
@@ -67,14 +66,14 @@ function stageChoose(pos,tier){
   $('#stage').innerHTML=`<span class="q">Pick one</span><div class="four">${opts.map(cardHTML).join('')}</div><button class="btn w" id="next" style="width:220px;visibility:hidden"></button>${rsp?`<button class="btn" id="keep" style="width:220px">Take none</button>`:''}`;
   if(rsp) $('#keep').addEventListener('click',()=>respinDone(true));
   const cs=[...document.querySelectorAll('#stage .cd')]; cs.forEach((c,i)=>setTimeout(()=>{ c.classList.add('in'); setTimeout(()=>PFX.burst(c,tier,10,{sp:120,up:40,life:.7}),260); },120+i*170));
-  cs.forEach((c,i)=>c.addEventListener('click',()=>{ if(DR.got[DR.i]) return; DR.got[DR.i]=opts[i]; PFX.burst(c,TIER(opts[i].r),TIER(opts[i].r)==='legend'?90:50,{sp:260,up:110,life:1.2});
+  cs.forEach((c,i)=>c.addEventListener('click',()=>{ if(DR.got[DR.i]) return; DR.got[DR.i]=opts[i]; PFX.burst(c,TIER(opts[i]),TIER(opts[i])==='legend'?90:50,{sp:260,up:110,life:1.2});
     cs.forEach((o,j)=>{ o.classList.add(j===i?'picked':'dim'); const r=o.querySelector('.rt'); setTimeout(()=>{ r.classList.add('flip'); setTimeout(()=>r.textContent=r.dataset.r,200);
       o.querySelectorAll('.at em').forEach(e=>e.textContent=e.dataset.v); o.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },j===i?0:260); });
     slotsHTML(); if(rsp){ $('#keep').style.display='none'; $('#next').textContent='Add to your team'; $('#next').style.visibility='visible'; return; } $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
   $('#next').addEventListener('click',()=>{ if(rsp) return respinDone(false); DR.i++; stageSpin(); });
 }
 function stageRoster(){
-  $('#stage').innerHTML=`<span class="q">Your roster</span><div class="roster">${DR.got.map((p,i)=>`<div class="p">${SLOTS[i]==='D/ST'&&typeof dLabel==='function'&&dLabel()!=='Defense'?'D/ST<br>'+dLabel().replace(' defense',''):SLOTS[i]}</div><div>${p.pos==='D/ST'?nflImg(p.n,'rl'):''}${esc(p.n)} <span class="tag">${p.season}</span><span class="ra">${p.a?ATTR[p.pos].map((l,k)=>l.split(' ')[0].slice(0,3)+' '+p.a[k]).join(' · '):''}</span></div><div class="r t-${TIER(p.r)}">${p.r}</div>`).join('')}</div>
+  $('#stage').innerHTML=`<span class="q">Your roster</span><div class="roster">${DR.got.map((p,i)=>`<div class="p">${SLOTS[i]==='D/ST'&&typeof dLabel==='function'&&dLabel()!=='Defense'?'D/ST<br>'+dLabel().replace(' defense',''):SLOTS[i]}</div><div>${p.pos==='D/ST'?nflImg(p.n,'rl'):''}${esc(p.n)} <span class="tag">${p.season}</span><span class="ra">${p.a?ATTR[p.pos].map((l,k)=>l.split(' ')[0].slice(0,3)+' '+p.a[k]).join(' · '):''}</span></div><div class="r t-${TIER(p)}">${p.r}</div>`).join('')}</div>
     <button class="btn w" id="kick" style="width:220px">${typeof draftLabel==='function'?draftLabel():'Kick off'}</button>`;
   GAME.roster(DR.got);
   $('#kick').addEventListener('click',()=>{ if(typeof afterDraft==='function') return afterDraft(); screen('game'); MATCH.start(); });
@@ -339,7 +338,7 @@ function makeMatch(){
         else if(p.pos==='RB'){ a=`${s.car} carries · ${s.ry} yds · ${s.rushtd} TD`; b=`${s.rec} catches · ${s.recy} yds${s.fum?' · '+s.fum+' fumble':''}`; }
         else if(p.pos==='D/ST'){ a=`${d.sk} sacks · ${d.int} INT · ${d.fum} fumbles`; b=`${M.score[1]} points · ${M.opp.yds} yds allowed`; }
         else { a=`${s.rec} of ${s.tgt} · ${s.recy} yds · ${s.rtd} TD`; b=s.rec?`long ${s.long}${s.fum?' · '+s.fum+' fumble':''}`:'no catches'; }
-        return `<div class="t-${TIER(p.r)}">${p.pos==='D/ST'?nflImg(p.n):String(p.id).startsWith('bk-')?'<span class="ini">B</span>':`<img src="${SHOT(p.id)}" alt="">`}<span><b>${esc(p.n)}</b><em>${p.pos}${p.season?' · '+p.season:''} · ${p.r}</em><i>${a}</i><i>${b}</i></span></div>`; }).join('')}</div>
+        return `<div class="t-${TIER(p)}">${p.pos==='D/ST'?nflImg(p.n):String(p.id).startsWith('bk-')?'<span class="ini">B</span>':`<img src="${SHOT(p.id)}" alt="">`}<span><b>${esc(p.n)}</b><em>${p.pos}${p.season?' · '+p.season:''} · ${p.r}</em><i>${a}</i><i>${b}</i></span></div>`; }).join('')}</div>
       ${typeof shareButton==='function'?shareButton('game','Share this result'):''}<button class="btn w" id="again">${typeof QUICK!=='undefined'&&QUICK?(localStorage.getItem('gfl-season-v1')?'Back to the season':'Play again'):typeof LG!=='undefined'&&LG?'Back to the season':'Play again'}</button></div>`;
     if(typeof shareWarm==='function') setTimeout(()=>shareWarm('game','g'+Date.now(),()=>cardGame(gameShareData(M))),0);
     /* a quick game goes in no book; a season game does */

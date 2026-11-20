@@ -884,7 +884,8 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* tiers: Legend 96-99, Gold 88-95, Silver 80-87, Bronze 68-79. The ratings files run 60-99; the same players stay in the
    same tiers, Silver and Bronze are just squeezed into the narrower ranges. */
-const TIER=r=>r>=96?'legend':r>=88?'gold':r>=80?'silver':'bronze';
+const TIER=(r,isD)=>{ if(r&&typeof r==='object'){ isD=r.pos==='D/ST'; r=r.r; }
+  return isD?(r>=93?'legend':r>=88?'gold':r>=81?'silver':'bronze'):(r>=96?'legend':r>=88?'gold':r>=80?'silver':'bronze'); };
 const RESC=r=>r>=88?r:r>=76?Math.round(80+(r-76)*7/11):Math.round(68+(Math.max(60,r)-60)*11/15);
 const ATTR={QB:['Arm','Accuracy','Legs','Escape'],RB:['Speed','Elusiveness','Power','Hands'],WR:['Speed','Route running','Hands','Contested'],TE:['Blocking','Hands','Speed','Contested'],'D/ST':['Pass rush','Coverage','Run stop','Ball hawk']};
 const ini=n=>String(n).replace(/[^A-Za-z0-9 ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
