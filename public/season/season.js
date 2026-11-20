@@ -397,7 +397,7 @@ function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||
     if(!s||!s.g) return p.season+' · no games yet';
     if(p.pos==='QB') return `${s.py} yds · ${s.ptd} TD · ${s.int} INT`; if(p.pos==='RB') return `${s.ry} yds · ${s.rushtd} TD`; return `${s.rec} rec · ${s.recy} yds · ${s.rtd} TD`; };
   const dNow=DR.got[5]&&LG.dstRound===LG.cur?DR.got[5]:null;
-  const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k)})).join('')+(dNow?tcHTML(dNow,{pos:'D/ST',stat:'This week',side:menHTML(dNow)}):'');
+  const starters=me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k],stat:line(p,k)})).join('')+(dNow?tcHTML(dNow,{pos:'D/ST',stat:'This week',extra:menHTML(dNow)}):'');
   const bench=B.map((p,j)=>tcHTML(p,{stat:line(p),isNew:nw.has(p.id+'-'+p.season),go:[...OSLOTS.map((x,k)=>x===p.pos?`<button onclick="startPlayer(${j},${k})">Start for ${esc(lastN(me.roster[k].n))}</button>`:'').filter(Boolean),`<button class="rel" onclick="releasePlayer(${j})">Release</button>`]})).join('');
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
   const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
