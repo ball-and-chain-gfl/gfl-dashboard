@@ -326,7 +326,7 @@ function hubNext(){
     const dn=d=>d&&{n:d.n,s:d.n,r:d.r};
     const outs=me.roster.filter(p=>p.inj).map(p=>`<span><b>Out</b> ${esc(lastN(p.n))} · ${esc(p.inj.n)} · ${injShort(p.inj)}</span>`);
     const sc=sceneFor(R,g), [hl,deck]=headlineFor(R,g), side=(T,lab,i)=>`<div class="hv-t"><div class="hv-c">${crest(T)}</div><b>${lab}</b><span>${recTxt(T.st)} · ${ordinal(standings().findIndex(x=>x.i===i)+1)}</span><em class="t-${TIER(offR(T))}">OFF ${offR(T)}</em></div>`;
-    top=`<div class="hero">${sceneImg(sc.art,sc.home,sc.rain)}<div class="hero-in">
+    top=`<div class="hero">${sceneImg(sc.art,sc.home,sc.rain,sc.snow&&sc.art!=='snow')}<div class="hero-in">
         <div class="hv-tags"><span>${esc(R.label)}</span><span>${home?'Home':'Away'}</span><span>${esc(sc.label)}</span></div>
         <div class="hv">${side(me,'You',0)}<i>${home?'VS':'AT'}</i>${side(t,esc(t.name),o)}</div></div></div>
       <div class="hb-acts hero-acts"><button class="btn w" id="hb-go" data-base="${needD?'Spin your defense':'Kick off'}">${goLabel(needD?'Spin your defense':'Kick off')}</button>
@@ -611,8 +611,8 @@ function pxScene(cv,o){ const H=96, box=cv.getBoundingClientRect(), W=Math.max(1
 /* ═══ GAME DAY ═══ the scene for a week, its headline, the bracket, the title, the trophy case */
 const teamCol=t=>(t&&t.col&&t.col[0])||'#3f8fea';
 function sceneFor(R,g){ const k=LG.rounds.indexOf(R), reg=LG.rounds.filter(r=>r.kind==='reg').length, h=LG.teams[g?g.h:0], a=LG.teams[g?g.a:1], rnd=seedRng(LG.name+':'+k+':'+(g?g.h+'-'+g.a:'')), po=R.kind==='po', fin=R.label==='The final';
-  const time=po?'night':['day','dusk','night'][Math.floor(rnd()*3)], snow=!po&&k>=reg*.6&&rnd()<.4, rain=!po&&!snow&&rnd()<.22;
-  return {rain,art:fin?'playoff':po?'playoff':snow?'snow':time,seed:LG.name+k+(g?g.h+'v'+g.a:''),home:teamCol(h),away:teamCol(a),time,snow,fireworks:po,confetti:false,label:po?(fin?'Championship':R.label):snow?'Snow game':rain?'Rain game':time==='night'?'Night game':time==='dusk'?'Late kickoff':'Afternoon kickoff'}; }
+  const time=po?'night':['day','dusk','night'][Math.floor(rnd()*3)], snow=k>=reg*.6&&rnd()<.4, rain=!snow&&rnd()<.22;
+  return {rain,art:fin?'playoff':po?'playoff':snow?'snow':time,seed:LG.name+k+(g?g.h+'v'+g.a:''),home:teamCol(h),away:teamCol(a),time,snow,fireworks:po,confetti:false,label:po?(fin?'Championship':R.label)+(snow?' · Snow':rain?' · Rain':''):snow?'Snow game':rain?'Rain game':time==='night'?'Night game':time==='dusk'?'Late kickoff':'Afternoon kickoff'}; }
 function paintScenes(){ document.querySelectorAll('canvas[data-scene]').forEach(c=>{ try{ pxScene(c,JSON.parse(c.dataset.scene)); }catch(e){} }); }
 /* pixel icons for the menu bar, drawn from rows of a 12x12 grid */
 const ICONS={next:['............','....####....','..##....##..','.#..#..#..#.','#..........#','#..######..#','#..........#','.#..#..#..#.','..##....##..','....####....','............','............'],
@@ -620,15 +620,17 @@ const ICONS={next:['............','....####....','..##....##..','.#..#..#..#.','
   team:['............','..##....##..','.####..####.','############','#.########.#','..########..','..###..###..','..##.##.##..','..###..###..','..########..','............','............'],
   league:['............','..########..','.#.######.#.','.#.######.#.','..#.####.#..','....####....','.....##.....','.....##.....','....####....','...######...','............','............']};
 const pxIcon=k=>{ const R=ICONS[k==='final'?'league':k]||ICONS.next; let r=''; R.forEach((row,y)=>[...row].forEach((c,x)=>{ if(c==='#') r+=`<rect x="${x}" y="${y}" width="1" height="1"/>`; })); return `<svg viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor">${r}</svg>`; };
-const sceneImg=(k,tint,rain)=>`<canvas class="scn art" data-art="${k||'day'}" data-tint="${tint||''}"${rain?' data-rain="1"':''}></canvas>`;
+const sceneImg=(k,tint,rain,snow)=>`<canvas class="scn art" data-art="${k||'day'}" data-tint="${tint||''}"${rain?' data-rain="1"':''}${snow?' data-snow="1"':''}></canvas>`;
+/* snow over a picture that isn't the snow picture */
+function snowOn(cv){ const x=cv.getContext('2d'), W=cv.width, H=cv.height; let s=11; const R=()=>{ s=(s*16807)%2147483647; return s/2147483647; }; x.fillStyle='rgba(255,255,255,.9)'; for(let i=0;i<W*1.2;i++) x.fillRect(Math.floor(R()*W),Math.floor(R()*H),1,1); }
 /* rain over a picture: a grey-blue wash and slanting streaks */
 function rainOn(cv){ const x=cv.getContext('2d'), W=cv.width, H=cv.height; x.fillStyle='rgba(24,34,52,.28)'; x.fillRect(0,0,W,H); let s=7; const R=()=>{ s=(s*16807)%2147483647; return s/2147483647; };
   x.fillStyle='rgba(200,214,235,.55)'; for(let i=0;i<W*.8;i++){ const px=Math.floor(R()*W), py=Math.floor(R()*H); x.fillRect(px,py,1,1); x.fillRect(px-1,py+1,1,1); x.fillRect(px-1,py+2,1,1); } }
 const ART_CACHE={};
 function rgbHsl(r,g,b){ r/=255; g/=255; b/=255; const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2; let h=0, s=0; if(mx!==mn){ const d=mx-mn; s=l>.5?d/(2-mx-mn):d/(mx+mn); h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4; h*=60; } return [h,s,l]; }
 function hslRgb(h,s,l){ const f=n=>{ const k=(n+h/30)%12, a=s*Math.min(l,1-l); return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1)))); }; return [f(0),f(8),f(4)]; }
-function paintArt(){ document.querySelectorAll('canvas.art').forEach(cv=>{ const k=cv.dataset.art, tint=cv.dataset.tint, key=k+'|'+tint, wet=cv.dataset.rain==='1';
-    const put=src=>{ cv.width=src.width; cv.height=src.height; cv.getContext('2d').putImageData(src,0,0); if(wet) rainOn(cv); };
+function paintArt(){ document.querySelectorAll('canvas.art').forEach(cv=>{ const k=cv.dataset.art, tint=cv.dataset.tint, key=k+'|'+tint, wet=cv.dataset.rain==='1', icy=cv.dataset.snow==='1';
+    const put=src=>{ cv.width=src.width; cv.height=src.height; cv.getContext('2d').putImageData(src,0,0); if(wet) rainOn(cv); if(icy) snowOn(cv); };
     if(ART_CACHE[key]) return put(ART_CACHE[key]);
     const im=new Image(); im.onload=()=>{ const c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const x=c.getContext('2d'); x.drawImage(im,0,0); const d=x.getImageData(0,0,c.width,c.height);
       if(tint){ const [th,ts]=rgbHsl(...hexRgb(tint).map(Number)), y0=Math.floor(c.height*.3);
@@ -727,19 +729,24 @@ function mixTeam(){ const tiers=['legend','gold','silver','bronze','gold','silve
    same odds, kits from both logos, home or away at random. Nothing goes in a season's book. */
 let QUICK=false;
 function quickGame(mix){ SETUP=null; QUICK=true; if(mix) return mixTeam(); DR.i=0; DR.got=[]; screen('draft'); stageSpin(); }
-async function quickKick(){ $('#kick').disabled=true; $('#kick').textContent='Finding an opponent';
+function quickSetup(){ let tm='day', wq='clear';
+  const seg=(id,lab,opts,cur)=>`<span class="qs-l">${lab}</span><div class="qs-seg" id="${id}">${opts.map(([k,l])=>`<button type="button" class="${k===cur?'on':''}" data-k="${k}">${l}</button>`).join('')}</div>`;
+  $('#stage').innerHTML=`<span class="q">Game day</span>${seg('qs-time','Time',[['day','Day'],['dusk','Dusk'],['night','Night']],tm)}${seg('qs-wx','Weather',[['clear','Clear'],['rain','Rain'],['snow','Snow']],wq)}<button class="btn w" id="kick" style="width:220px">Kick off</button>`;
+  ['qs-time','qs-wx'].forEach(id=>$('#'+id).querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('#'+id).querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); if(id==='qs-time') tm=b.dataset.k; else wq=b.dataset.k; }));
+  $('#kick').onclick=()=>quickKick(tm,wq); }
+async function quickKick(tm,wq){ $('#kick').disabled=true; $('#kick').textContent='Finding an opponent';
   const pool=leaguePool(), t0=pool[Math.floor(Math.random()*pool.length)], used=new Set(DR.got.slice(0,5).map(p=>p.id+'-'+p.season));
   const them={name:t0.name,logo:t0.logo||null,roster:OSLOTS.map(pos=>pickPlayer(pos,used)),dst:pickDST()};
   const [mine,theirs]=await Promise.all([logoColors(ME),logoColors(them)]), home=Math.random()<.5;
   const [hk,ak]=dressFor(home?mine:theirs,home?theirs:mine); setKits(home?hk:ak,home?ak:hk);
-  CPU=them; screen('game'); const wx=Math.random(); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:'Quick game',mustWin:false,time:['day','dusk','night'][Math.floor(Math.random()*3)],rain:wx<.15,snow:wx>=.15&&wx<.25}); }
+  CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:'Quick game',mustWin:false,time:tm||'day',rain:wq==='rain',snow:wq==='snow'}); }
 /* after it: back to the season if there is one, otherwise the start */
 function quickDone(){ QUICK=false; if(resume()) hub('next'); else { DR.i=0; DR.got=[]; setupScreen(); } }
 let SETUP=null;
 /* the packs are done: the first time, the league is made; every week after, it's time to play */
-async function afterDraft(){ if(QUICK) return quickKick(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=DR.got[5]?0:-1; save(); return hub('next'); }
+async function afterDraft(){ if(QUICK) return quickSetup(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=DR.got[5]?0:-1; save(); return hub('next'); }
   LG.dstRound=LG.cur; LG.teams[0].dst=DR.got[5]; save(); hub('next'); }
-const draftLabel=()=>SETUP&&!QUICK?'To the season':QUICK?'Kick off':'Back to the hub';
+const draftLabel=()=>SETUP&&!QUICK?'To the season':QUICK?'Game day':'Back to the hub';
 function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; setupScreen(); }
 /* back where you were: your five and this week's defense come back from the save */
 function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }

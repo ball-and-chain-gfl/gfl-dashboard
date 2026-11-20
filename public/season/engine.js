@@ -367,7 +367,7 @@ function makeGame(){
     else if(q.name==='hurdle'){ at(1.9*k,0); a.state='hurdle'; a._st0=S.t-(k<.2?0:k<.75?.15:.45); a.facing=side; a.lift=Math.sin(Math.PI*k)*24; whiff(); }
     if(t>=q.dur){ a.seqd=b.seqd=false; a.lift=0; a.state='run'; a.vx=q.ux*q.sp; a.vy=q.uy*q.sp; a.path=null;
       b.fxd=false; b.down=true; b.missed=true; b.upAt=S.t+1.1; if(b.state!=='downB') b.state='down'; S.seq=null; } }
-  /* when a tackle is missed, which move beat him: a juke or spin off a cut, a hurdle or a truck (only at a man in front of him or beside him), or a stiff arm */
+  /* when a tackle is missed, which move beat him: a juke or spin off a cut, a hurdle (only at a man in front of him or beside him), or a stiff arm; a truck is its own roll, before the tackle */
   function move(c,p,pw,el){ const v=Math.hypot(c.vx,c.vy)||1, ahead=((p.x-c.x)*c.vx+(p.y-c.y)*c.vy)/v; let name=null;
     if(c.juke&&S.t<c.juke+.15) name=el>.55&&Math.random()<.5?'spin':'juke';
     else if(ahead>-.3&&Math.random()<.14+el*.2) name='hurdle';
@@ -497,18 +497,20 @@ function makeGame(){
     if(c&&!c.down&&!S.over&&!S.seq&&!S.ps&&!(c===S.catcher&&t<(S.secure||0))){
       for(const p of S.P){ if(p.side!=='d'||p.down||p.state==='dive'||(p.lockedBy&&dist(p,p.lockedBy)<1.3)) continue;
         if(p.pos==='DL'&&p.blocked&&!p.shed){ if(dist(p,c)<.6&&Math.random()<dt*2.2) return tackled(c,p,'tackle'); continue; }
-        if(dist(p,c)<.95&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
-          const ok=Math.random()<clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.05+el*(.169+.204*pw)):1);
-          if(ok) return tackled(c,p); if(move(c,p,pw,el)) break; dive(p,c); p.missed=true; p.upAt=t+1.1; c.slow=t+.35*(1-pw*.6); c.slowK=.6; }
+        if(dist(p,c)<.95&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:0, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
+          const cut=c.juke&&t<c.juke, front=((p.x-c.x)*c.vx+(p.y-c.y)*c.vy)/(Math.hypot(c.vx,c.vy)||1)>-.3;
+          if(!cut&&front&&pw>0&&Math.random()<.15*pw*(1-.6*Df(p,'tkl'))){ startSeq('truck',c,p); break; }
+          const ok=Math.random()<clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96)*(cut?1-(.05+el*.429):1);
+          if(ok) return tackled(c,p); if(move(c,p,0,el)) break; dive(p,c); p.missed=true; p.upAt=t+1.1; c.slow=t+.35*(1-pw*.6); c.slowK=.6; }
         /* THE DIVING TACKLE, the defense's juke: a man a step or two short who can't close (beside him or behind him, the
            runner getting away) lays out for his legs, once a play. It reaches to 2.1 yds but catches less than a tackle, the
            longer the dive the less, and a cut just before it beats it the way a juke beats a tackle. Miss and he's on the
            ground for a second. Only one man dives a play, and a man who gets the look takes it 3 times in 10. */
         else if(p.pos!=='DL'&&!p.dived&&!p.blocked&&(!p.tried||t-p.tried>.5)){   /* linemen don't dive */ const dd=dist(p,c), sp=Math.hypot(c.vx,c.vy);
           if(dd>=1.2&&dd<2.1&&sp>3&&((c.x-p.x)*c.vx+(c.y-p.y)*c.vy)/(dd*sp)>.3&&c.vmax>=p.vmax*.97&&!S.dove&&(p.dived=true,Math.random()<.3)){   /* a chance, not a habit: a man who gets the look takes it 3 times in 10, and only one man a play */
-            S.dove=true; p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
-            const base=clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96);
-            if(Math.random()<base*(.4+.25*Df(p,'tkl'))*(1-(dd-.95)*.35)*(c.juke&&t<c.juke?1-(.05+el*(.169+.204*pw)):1)*(S.home&&(S.home.rain||S.home.snow)?.75:1)){ pop('Diving tackle','#D9325E',p); return tackled(c,p,'shoe'); }
+            S.dove=true; p.tried=t; const el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
+            const base=clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96);
+            if(Math.random()<base*(.4+.25*Df(p,'tkl'))*(1-(dd-.95)*.35)*(c.juke&&t<c.juke?1-(.05+el*.429):1)*(S.home&&(S.home.rain||S.home.snow)?.75:1)){ pop('Diving tackle','#D9325E',p); return tackled(c,p,'shoe'); }
             dive(p,c); p.missed=true; p.upAt=t+1.0; pop(c.juke&&t<c.juke?'Juked the dive':'Dove and missed','#4C9EFF',c,.2); } } }
       if(Math.abs(c.x-FC)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
       if(S.home&&(S.home.rain||S.home.snow)&&c!==S.QB&&Math.hypot(c.vx,c.vy)>4.5&&!(c.slow>t)&&Math.random()<dt*(S.home.snow?.012:.008)) slip(c,true);
