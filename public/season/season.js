@@ -128,8 +128,8 @@ async function newLeague(preset){
   const cols=await Promise.all(teams.map(t=>logoColors(t))); teams.forEach((t,i)=>t.col=cols[i]);
   const order=teams.map((_,i)=>i).sort(()=>Math.random()-.5);
   LG={v:1,preset:P.id,name:P.name,po:P.po,teams,rounds:roundRobin(order).map((g,i)=>({kind:'reg',label:'Week '+(i+1),games:g.map(x=>({...x,s:null}))})),cur:0,dstRound:0,
-    ps:[0,1,2,3,4].map(()=>({g:0,att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,fum:0})),dst:[],alive:null,champ:null,phase:'reg'};
-  newWire(); save(); }
+    ps:[0,1,2,3,4].map(()=>({g:0,att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,fum:0})),dst:[],alive:null,champ:null,phase:'reg',wire:[]};
+  save(); }
 
 /* a game neither side is yours: each offence against the other's defense, scored like the games you play */
 const bin=(n,p)=>{ let k=0; for(let i=0;i<n;i++) if(Math.random()<p) k++; return k; };
@@ -178,7 +178,7 @@ function playoffRound(){ const a=LG.alive, kind=a.length===6?'Wild card':a.lengt
 function advance(){ const R=LG.rounds[LG.cur];
   if(R.kind==='po'){ const won=R.games.map(g=>g.s[0]>g.s[1]?g.h:g.a), seed=i=>LG.seeds.indexOf(i); LG.alive=[...(R.bye||[]),...won].sort((x,y)=>seed(x)-seed(y)); }
   if(R.kind==='reg'&&LG.cur===LG.rounds.length-1){ LG.seeds=standings().map(x=>x.i); LG.alive=LG.seeds.slice(0,LG.po); LG.phase='po'; }
-  if(LG.phase==='po'&&LG.alive.length===1){ LG.champ=LG.alive[0]; LG.phase='done'; save(); return; }
+  if(LG.phase==='po'&&LG.alive.length===1){ LG.champ=LG.alive[0]; LG.phase='done'; recordTrophy(); save(); return; }
   if(LG.phase==='po'&&LG.cur===LG.rounds.length-1) playoffRound();
   if(wireOpen()) runWaivers(); LG.cur++; LG.teams.forEach((t,i)=>{ if(i) t.dst=pickDST(); }); recover(); cpuLineups(); newWire(); save(); }
 /* ONE RE-SPIN A WEEK, for everyone. Yours you take yourself from the hub; each other team takes its own here: it spins a
@@ -211,7 +211,7 @@ function openSubs(){ if(!subsAvail()) return; const M=MATCH.M, me=LG.teams[0], s
     return `<div class="sb-r"><div class="sb-on"><span>${OSLOTS[i]}</span><b>${esc(isBackup(p)?p.n:lastN(p.n))} <em>${p.r}</em></b><div class="sb-s">${bar(v)}<em>${v}</em></div></div>
       <div class="sb-alt">${alt.length?alt.map(q=>{ const w=Math.round(q.sta??100); return `<button data-i="${i}" data-k="${keyOf(q)}"><b>${esc(lastN(q.n))} <em>${q.r}</em></b><div class="sb-s">${bar(w)}<em>${w}</em></div></button>`; }).join(''):'<span class="sb-none">No one on the bench here</span>'}</div></div>`; }).join('');
   let el=$('#subs'); if(!el){ el=document.createElement('div'); el.id='subs'; $('#fw').appendChild(el); }
-  el.className='subs show'; el.innerHTML=`<div class="sb-bx"><div class="sb-h"><b>Substitutions</b><button class="lv" id="sb-x">✕</button></div><div class="sb-list">${rows}</div><p class="sb-note">Tap a player to send him in. For this game only; your season lineup stays as set in the hub.</p></div>`;
+  el.className='subs show'; el.innerHTML=`<div class="sb-bx"><div class="sb-h"><b>Substitutions</b><button class="lv" id="sb-x">✕</button></div><div class="sb-list">${rows}</div></div>`;
   $('#sb-x').onclick=()=>{ el.className='subs'; };
   el.querySelectorAll('.sb-alt button').forEach(b=>b.onclick=()=>{ const i=+b.dataset.i, q=pool.find(x=>keyOf(x)===b.dataset.k), out=M.lineup[i]; if(!q) return;
     if(out&&!isBackup(out)) out.sta=Math.round(GAME.stamina()[i]); MATCH.subSlot(i,q); GAME.reset(true); openSubs(); }); }
@@ -233,7 +233,7 @@ function simRound(){ const R=LG.rounds[LG.cur]; R.games.forEach(g=>{ if(!g.s) si
 function kickoff(){
   const R=LG.rounds[LG.cur], g=myGame(R), home=g.h===0, them=LG.teams[home?g.a:g.h], me=LG.teams[0];
   me.dst=DR.got[5]; const [hk,ak]=dressFor(home?me.col:them.col,home?them.col:me.col); setKits(home?hk:ak,home?ak:hk);
-  CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:R.label,mustWin:R.kind==='po',lineup:gameLineup(me)}); }
+  CPU=them; screen('game'); MATCH.start({team:them,dst:them.dst,off:offR(them),home,label:R.label,mustWin:R.kind==='po',lineup:gameLineup(me),event:R.kind==='po'?{label:R.label==='The final'?'CHAMPIONSHIP':R.label.toUpperCase(),big:R.label==='The final'}:null}); }
 /* the final whistle: your line goes in the book, then the rest of the round */
 function seasonFinal(M){ const R=LG.rounds[LG.cur], g=myGame(R); if(!g||g.s) return; const home=g.h===0, st=M.st, fum=M.ps.reduce((s,p)=>s+p.fum,0);
   const mine={pts:M.score[0],py:st.py,ry:st.ry,give:st.int+fum,sk:st.sk}, theirs={pts:M.score[1],py:M.opp.py||0,ry:M.opp.ry||0,give:M.dst.int+M.dst.fum,sk:M.dst.sk};
@@ -256,7 +256,7 @@ let HUBTAB='next', LGTAB='table';
 function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=same&&B0?B0.scrollTop:0, C0=$('#scr-hub .lgc'), x0=C0?C0.scrollLeft:0;
   if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur], me=LG.teams[0], tabs=[['next',LG.phase==='done'?'Final':'Next'],['sched','Schedule'],['team','Your team'],['league','League']];
   $('#scr-hub').innerHTML=`<div class="hb-top"><div class="fade"><div class="dots"></div></div><span class="tag">${esc(LG.name)} season · ${LG.phase==='done'?'Over':esc(R.label)}</span>
-      <div class="hb-me">${crest(me)}<div><b>${esc(me.name)}</b><span>${recTxt(me.st)} · ${ordinal(standings().findIndex(x=>x.i===0)+1)} of ${LG.teams.length} · $${me.faab??100} FAAB</span></div></div></div>
+      <div class="hb-me">${crest(me)}<div><b>${esc(me.name)}</b><span>${recTxt(me.st)} · ${ordinal(standings().findIndex(x=>x.i===0)+1)} of ${LG.teams.length} · $${me.faab??100} FAAB</span></div>${trophies().length?`<button class="hb-tro" id="hb-tro"><canvas class="trophy"></canvas><b>${trophies().length}</b></button>`:''}</div></div>
     <div class="hb-tabs">${tabs.map(([k,l])=>`<button data-k="${k}" class="${k===HUBTAB?'on':''}">${l}</button>`).join('')}</div>
     <div class="hb-body">${({next:hubNext,sched:hubSched,team:hubTeam,league:hubLeague})[HUBTAB]()}</div>`;
   document.querySelectorAll('.hb-tabs button').forEach(b=>b.onclick=()=>hub(b.dataset.k));
@@ -271,6 +271,7 @@ function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
   document.querySelectorAll('.lgc button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); });
   const tb=$('#hb-team'); if(tb) tb.onclick=()=>hub('team');
+  paintScenes(); paintTrophies(); [$('#hb-tro'),$('#hb-tro2')].forEach(b=>{ if(b) b.onclick=()=>openTrophies('hub'); });
   const wr=$('#wv-run'); if(wr) wr.onclick=()=>{ runWaivers(); hub('next'); const w=$('#wv-sec'); if(w) w.scrollIntoView({block:'start'}); };
   if(HUBTAB==='team') shareWarm('team','t'+LG.cur+JSON.stringify(LG.teams[0].roster.map(p=>p.id+p.r))+recTxt(LG.teams[0].st)+(DR.got[5]?DR.got[5].id:''),()=>cardTeam(teamShareData()));
   if(HUBTAB==='sched'||(HUBTAB==='next'&&LG.phase==='done')) shareWarm('season','s'+LG.cur+LG.phase+recTxt(LG.teams[0].st),()=>cardSeason(seasonShareData()));
@@ -278,16 +279,13 @@ function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=
   document.querySelectorAll('.tbl .th button').forEach(b=>b.onclick=()=>{ LGSORT={tab:LGTAB,k:+b.dataset.s}; hub('league'); });
   /* a bid: the buttons step it, the box takes a number; never more than you have */
   const setBid=(k,v)=>{ const f=LG.teams[0].faab??100; v=Math.max(0,Math.min(f,Math.round(v)||0)); LG.bids=LG.bids||{}; if(v) LG.bids[k]=v; else delete LG.bids[k]; save();
-    const inp=document.querySelector('.wv-bid input[data-k="'+k+'"]'); if(inp) inp.value=v?'$'+v:''; const tot=myBids().reduce((a,b)=>a+b,0), bt=$('#bidtot'); if(bt) bt.textContent=tot?'Bidding $'+tot+' in all.':''; const go=$('#hb-go'); if(go&&go.dataset.base) go.textContent=myBids().length?'Run waivers':go.dataset.base; };
+    const inp=document.querySelector('.wv-bid input[data-k="'+k+'"]'); if(inp) inp.value=v?'$'+v:''; const tot=myBids().reduce((a,b)=>a+b,0), bt=$('#bidtot'); if(bt) bt.textContent='$'+tot; const go=$('#hb-go'); if(go&&go.dataset.base) go.textContent=myBids().length?'Run waivers':go.dataset.base; };
   document.querySelectorAll('.wv-bid button').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; setBid(k,((LG.bids||{})[k]||0)+(+b.dataset.d)); });
   document.querySelectorAll('.wv-bid input').forEach(i=>i.onchange=()=>setBid(i.dataset.k,+String(i.value).replace(/[^0-9]/g,'')));
   const B1=$('#scr-hub .hb-body'); if(B1&&y0) B1.scrollTop=y0; const C1=$('#scr-hub .lgc'); if(C1){ C1.scrollLeft=x0; const on=C1.querySelector('.on'); if(on){ const a=on.offsetLeft, w=on.offsetWidth; if(a<C1.scrollLeft||a+w>C1.scrollLeft+C1.clientWidth) C1.scrollLeft=a-14; } } }
 const ordinal=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
 function hubNext(){
-  if(LG.phase==='done'){ const c=LG.teams[LG.champ], won=LG.champ===0;
-    return `<div class="hb-card champ2" style="--fc:${won?'var(--gold)':'var(--text2)'}"><span class="tag">Champion</span><div class="big">${crest(c)}</div><h3>${esc(c.name)}</h3>
-      <p>${won?'That\'s you. A title.':'Your season: '+recTxt(LG.teams[0].st)+', '+ordinal(standings().findIndex(x=>x.i===0)+1)+' in the regular season.'}</p>
-      ${shareButton('season','Share your season')}<button class="btn w" id="hb-go">New season</button><button class="btn" id="hb-quick">Quick game</button></div>`; }
+  if(LG.phase==='done') return titleHTML();
   const R=LG.rounds[LG.cur], g=myGame(R), me=LG.teams[0], wo=wireOpen(), nb=myBids().length;
   const goLabel=lab=>wo&&nb?'Run waivers':lab;
   let top;
@@ -296,27 +294,48 @@ function hubNext(){
     const row=(lab,a,b,cls)=>`<div class="${cls||''}"><div class="me${a?'':' q'}${a&&a.sub?' sub':''}">${a?`<b>${esc(a.s||lastN(a.n))}</b>${rt2(a.r,b&&b.r)}`:'<b>Spin to see</b>'}</div><span>${lab}</span><div class="th${b&&b.sub?' sub':''}">${b?`${rt2(b.r,a&&a.r)}<b>${esc(b.s||lastN(b.n))}</b>`:''}</div></div>`;
     const mark=(L,T)=>L.map((p,k)=>p===T.roster[k]?p:Object.assign({},p,{sub:1,s:isBackup(p)?'Backup':lastN(p.n)}));
     const dn=d=>d&&{n:d.n,s:d.n,r:d.r};
-    const outs=me.roster.filter(p=>p.inj).map(p=>{ const k=me.roster.indexOf(p); return `${esc(lastN(p.n))} is out (${esc(p.inj.n.toLowerCase())}, ${injShort(p.inj)}): ${isBackup(LM[k])?'a backup':esc(LM[k].n)} plays.`; });
-    top=`<div class="hb-card"><span class="tag">${esc(R.label)} · ${home?'Home':'Away'}</span>
-      <div class="hb-vs"><div>${crest(me)}<b>You</b><span>${recTxt(me.st)}</span></div><i>${home?'vs':'at'}</i><div>${crest(t)}<b>${esc(t.name)}</b><span>${recTxt(t.st)}</span></div></div>
+    const outs=me.roster.filter(p=>p.inj).map(p=>`<span><b>Out</b> ${esc(lastN(p.n))} · ${esc(p.inj.n)} · ${injShort(p.inj)}</span>`);
+    const sc=sceneFor(R,g), [hl,deck]=headlineFor(R,g), side=(T,lab,i)=>`<div class="hv-t"><div class="hv-c">${crest(T)}</div><b>${lab}</b><span>${recTxt(T.st)} · ${ordinal(standings().findIndex(x=>x.i===i)+1)}</span><em class="t-${TIER(offR(T))}">OFF ${offR(T)}</em></div>`;
+    top=`<div class="hero"><canvas class="scn" data-scene='${JSON.stringify(sc).replace(/'/g,'&#39;')}'></canvas><div class="hero-in">
+        <div class="hv-tags"><span>${esc(R.label)}</span><span>${home?'Home':'Away'}</span><span>${esc(sc.label)}</span></div>
+        <div class="hv">${side(me,'You',0)}<i>${home?'VS':'AT'}</i>${side(t,esc(t.name),o)}</div></div></div>
+      <div class="hl"><span class="tag">GFL wire</span><b>${esc(hl)}</b><p>${esc(deck)}</p></div>
+      <div class="hb-card hb-mu">
       <div class="h2h">${row('OFF',{s:'Offense',r:offR(me)},{s:'Offense',r:offR(t)},'ovr')}${mark(LM,me).map((p,k)=>row(OSLOTS[k],p,mark(LT,t)[k])).join('')}${row('D/ST',dn(myD),dn(t.dst))}</div>
-      ${outs.length?`<div class="hb-inj">${outs.map(s=>`<span>${s}</span>`).join('')}</div>`:''}
+      ${outs.length?`<div class="hb-inj">${outs.join('')}</div>`:''}
       <div class="hb-acts"><button class="btn w" id="hb-go" data-base="${needD?'Spin your defense':'Kick off'}">${goLabel(needD?'Spin your defense':'Kick off')}</button>
-        <button class="btn" id="hb-team">Set lineup</button><button class="btn" id="hb-wv">Waivers${wo?' · open':''}</button></div>
-      ${wo&&nb?`<span class="hb-sub">You have ${nb} bid${nb===1?'':'s'} in. Waivers run first, then you kick off.</span>`:needD?'<span class="hb-sub">A new defense every week: spin it before kickoff.</span>':''}</div>`; }
+        <button class="btn" id="hb-team">Set lineup</button><button class="btn" id="hb-wv">Waivers${wo?' · open':''}</button></div></div>`; }
   else top=`<div class="hb-card"><span class="tag">${esc(R.label)}</span><h3>${LG.phase==='po'?(R.bye&&R.bye.includes(0)?'You have a bye':'You\'re out'):'No game this week'}</h3>
-      <p>${LG.phase==='po'&&!(R.bye&&R.bye.includes(0))?'The playoffs go on without you.':'The rest of the league plays.'}</p><button class="btn w" id="hb-go">${goLabel('Sim '+esc(R.label.toLowerCase()))}</button></div>`;
+      <button class="btn w" id="hb-go">${goLabel('Sim '+esc(R.label.toLowerCase()))}</button></div>`;
   const last=LG.cur>0?LG.rounds[LG.cur-1]:null;
-  return top+wireHTML()+injuryHTML()+(last?`<div class="sh">${esc(last.label)} <b>results</b></div>${gamesHTML(last,true)}`:'')+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-new">New season</button></div>`; }
+  return top+bracketHTML()+wireHTML()+injuryHTML()+(last?`<div class="sh">${esc(last.label)} <b>results</b></div>${gamesHTML(last,true)}`:'')+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-new">New season</button></div>`; }
+/* THE END OF A SEASON. Win it, and it's a title: the stadium lit up with fireworks and confetti, the trophy, CHAMPIONS,
+   the MVP, the five who won it, and the numbers. Don't, and it's the final table and who won. */
+function titleHTML(){ const me=LG.teams[0], won=LG.champ===0, c=LG.teams[LG.champ], place=standings().findIndex(x=>x.i===0)+1;
+  const fin=LG.rounds[LG.rounds.length-1], fg=fin&&fin.games[0], P=Object.values(LG.pl||{}).filter(p=>p.ti===0&&!isBackup(p)&&p.id).sort((a,b)=>shScore(b)-shScore(a)), m=P[0];
+  const sc={seed:LG.name+'title',home:teamCol(won?me:c),away:teamCol(won?me:c),time:'night',fireworks:won,confetti:won,champ:won};
+  const lines=m?shLines(m,m):null, lead=[['py','Pass yds'],['ry','Rush yds'],['recy','Rec yds']].map(([k,l])=>{ const b=P.slice().sort((x,y)=>(y[k]||0)-(x[k]||0))[0]; return b&&b[k]?[b[k],l+' · '+lastN(b.n)]:null; }).filter(Boolean);
+  const finTxt=fg&&fg.s?`${LG.teams[fg.h].name} ${fg.s[0]}, ${LG.teams[fg.a].name} ${fg.s[1]}${fg.ot?' (OT)':''}`:'';
+  return `<div class="hero title${won?' won':''}"><canvas class="scn" data-scene='${JSON.stringify(sc).replace(/'/g,'&#39;')}'></canvas>${won?confettiHTML():''}<div class="hero-in">
+      <div class="hv-tags"><span>${esc(LG.name)} season</span><span>Final</span></div>
+      ${won?'<canvas class="trophy big"></canvas>':''}<h2 class="ttl">${won?'Champions':'Season over'}</h2>
+      <div class="ttl-team"><div class="hv-c">${crest(won?me:c)}</div><div><b>${esc(won?me.name:c.name)}</b><span>${won?recTxt(me.st)+' · '+LG.teams.length+'-team league':'Your season: '+recTxt(me.st)+' · '+ordinal(place)}</span></div></div></div></div>
+    ${finTxt?`<div class="hl"><span class="tag">The final</span><b>${esc(finTxt)}</b></div>`:''}
+    <div class="tiles ttl-tiles"><div><b>${recTxt(me.st)}</b><span>Record</span></div><div><b>${me.st.pf}</b><span>Points for</span></div><div><b>${me.st.pa}</b><span>Against</span></div><div><b>${ordinal(place)}</b><span>Seed</span></div></div>
+    ${m?`<div class="lead${won?' gold':''}" style="--p:${won?'#F0CE26':teamCol(me)}"><img class="ph" src="${SHOT(m.id)}" alt=""><div class="tx"><span class="tag">Season MVP</span><b>${esc(m.n)}</b><small>${m.pos} · ${m.season} · ${m.g} games</small><span class="big2">${esc(lines[0])}</span></div></div>`:''}
+    ${lead.length?`<div class="tiles">${lead.map(([v,l])=>`<div><b>${v}</b><span>${esc(l)}</span></div>`).join('')}</div>`:''}
+    <div class="sh">${won?'The <b>champions</b>':'Your <b>five</b>'}</div><div class="tcs">${me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k]})).join('')}</div>
+    ${bracketHTML()}
+    <div class="hb-acts ttl-acts">${shareButton('season',won?'Share the title':'Share your season')}<button class="btn" id="hb-tro2">Trophy case</button><button class="btn w" id="hb-go">New season</button><button class="btn" id="hb-quick">Quick game</button></div>`; }
 /* WAIVERS on the Next tab: open, the pool with your bids; run, who got whom and for how much */
 function wireHTML(){ const me=LG.teams[0], f=me.faab??100;
   if(wireOpen()){ const tot=myBids().reduce((a,b)=>a+b,0);
     const full=(me.bench||[]).length>=BENCH_CAP;
-    return `<div class="sh" id="wv-sec">Waivers <b>· $${f} left</b></div>${full?`<div class="hb-inj"><span>Your bench is full (${BENCH_CAP}). Release someone from Your team to put in a claim.</span></div>`:''}<div class="tm-note">Blind bids from your $${f}. Highest bid wins; a tie goes to the worse record. They run when you head to kickoff. <b id="bidtot">${tot?'Bidding $'+tot+' in all.':''}</b></div>
+    return `<div class="sh" id="wv-sec">Waivers</div><div class="faab"><div><b>$${f}</b><span>FAAB left</span></div><div><b id="bidtot">$${tot}</b><span>Your bids</span></div><div><b>${(me.bench||[]).length}/${BENCH_CAP}</b><span>Bench</span></div></div>${full?`<div class="hb-inj"><span>Bench full · release a player to bid</span></div>`:''}
       <div class="tcs">${LG.wire.map(p=>{ const k=keyOf(p), u=upOver(me,p), b=(LG.bids||{})[k]||0;
         const up=u.who?(u.d>0?'+'+u.d+' over '+lastN(u.who.n):'Depth behind '+lastN(u.who.n)):'';
         return tcHTML(p,{stat:p.season+(up?' · '+up:''),cls:u.d>0?'up':'',extra:`<div class="wv-bid bidc"><input data-k="${k}" inputmode="numeric" value="${b?'$'+b:''}" placeholder="Bid $0" ${(me.bench||[]).length>=BENCH_CAP?'disabled':''}><div><button data-k="${k}" data-d="-5">−5</button><button data-k="${k}" data-d="-1">−1</button><button data-k="${k}" data-d="1">+1</button><button data-k="${k}" data-d="5">+5</button></div></div>`}); }).join('')}</div>
-      <button class="btn w" id="wv-run">Run waivers now</button><div class="tm-note">See every claim now, then kick off. Or leave your bids in: they run when you head to kickoff.</div>`; }
+      <button class="btn w" id="wv-run">Run waivers now</button>`; }
   if(LG.wireDone===LG.cur&&LG.wireLog&&LG.wireLog.length){ const T=LG.teams;
     return `<div class="sh" id="wv-sec">Waivers <b>· results</b></div><div class="lds">${LG.wireLog.map(x=>{ const t=x.t!=null?T[x.t]:null;
       return `<div class="ld wr${x.t===0?' me':''}" style="--p:${t?tcol(t):'#333'}"><span class="rk">${x.p.pos}</span><i></i>${t?crest(t):'<span class="ini">–</span>'}<span class="nm"><b>${esc(x.p.n)} <small class="r">${x.p.r}</small></b><small>${t?(x.t===0?'You':esc(t.name))+(x.n>1?' · '+x.n+' bids, next $'+x.second:''):'No claims'}${x.mine&&x.t!==0?' · you bid $'+x.mine:''}</small></span><span class="v">${t?'$'+x.bid:''}</span></div>`; }).join('')}</div>`; }
@@ -345,14 +364,14 @@ function movesHTML(){ const M=LG.moves||[]; if(!M.length) return '';
       <div class="mv-p out"><span>Out</span><b>${esc(m.out.n)}</b>${rtg(m.out.r)}</div></div>`; }).join('')}</div>`; }
 /* THE SCHEDULE: the season as a strip of squares, then a row a week; open one for the whole week's scores */
 function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGame(x)); return `<i class="${r?r.k:k===LG.cur&&LG.phase!=='done'?'now':''}"></i>`; }).join('');
-  return `<div class="shr-row">${shareButton('season',LG.phase==='done'?'Share your season':'Share your season so far')}</div><div class="sh">Your <b>season</b></div><div><div class="ss" style="--n:${R.length}">${strip}</div><div class="ssl"><span>${wkShort(R[0])}</span><span>${recTxt(LG.teams[0].st)}</span><span>${wkShort(R[R.length-1])}</span></div></div>
+  return `<div class="shr-row">${shareButton('season',LG.phase==='done'?'Share your season':'Share your season so far')}</div>${bracketHTML()}<div class="sh">Your <b>season</b></div><div><div class="ss" style="--n:${R.length}">${strip}</div><div class="ssl"><span>${wkShort(R[0])}</span><span>${recTxt(LG.teams[0].st)}</span><span>${wkShort(R[R.length-1])}</span></div></div>
     <div class="wks">${R.map((x,k)=>{ const g=myGame(x), r=myRes(g), now=k===LG.cur&&LG.phase!=='done', open=now||(LG.phase==='done'&&k===R.length-1);
       let mid, end='<i></i>';
       if(!g) mid=`<span class="ha"></span><span></span><b class="dim">${x.bye&&x.bye.includes(0)?'Bye':'No game'}</b>`;
       else { const home=g.h===0, o=LG.teams[home?g.a:g.h]; mid=`<span class="ha">${home?'vs':'at'}</span>${crest(o)}<b>${esc(o.name)}</b>`;
         end=r?`<span class="res"><span class="wl ${r.k}">${r.k}</span>${r.m}–${r.t}${g.ot?' <small>OT</small>':''}</span>`:now?'<span class="nx">Next</span>':'<i></i>'; }
       return `<details class="wk${now?' now':''}" ${open?'open':''}><summary><span class="wn">${wkShort(x)}</span>${mid}${end}</summary>${gamesHTML(x,true)}</details>`; }).join('')}</div>
-    ${LG.phase!=='done'&&R[R.length-1].kind==='reg'?`<div class="hb-note">Then the playoffs: the top ${LG.po}${LG.po===6?', the top 2 with a bye':''}.</div>`:''}`; }
+`; }
 /* YOUR TEAM: each player a card with his four ratings. Your lineup on top, then the bench: every player you've added,
    each with a button to start him in place of a starter at his position. Then your defense. */
 const ABR={'Arm':'Arm','Accuracy':'Acc','Legs':'Leg','Escape':'Esc','Speed':'Spd','Elusiveness':'Elu','Power':'Pow','Hands':'Hnd','Route running':'Rte','Contested':'Con','Blocking':'Blk','Pass rush':'Rush','Coverage':'Cov','Run stop':'Stop','Ball hawk':'Hawk'};
@@ -374,9 +393,9 @@ function hubTeam(){ const me=LG.teams[0], B=me.bench||[], nw=new Set(LG.newIds||
   const D=LG.dst, tot=D.reduce((a,d)=>({sk:a.sk+d.sk,take:a.take+d.take,pa:a.pa+d.pa}),{sk:0,take:0,pa:0}), cur=DR.got[5];
   const tl=T=>`<div class="tiles">${T.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
   return `<div class="shr-row">${shareButton('team','Share your team')}</div><div class="sh">Your <b>lineup</b></div><div class="tcs">${starters}</div>
-    <div class="sh">Your <b>bench · ${B.length} of ${BENCH_CAP}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="tm-note">Players you win on waivers land here. Start one to swap him into your lineup.</div>'}
+    <div class="sh">Your <b>bench · ${B.length} of ${BENCH_CAP}</b></div>${B.length?`<div class="tcs">${bench}</div>`:'<div class="lg-empty">Empty</div>'}
     <div class="sh">Your <b>defense</b></div>${cur&&LG.dstRound===LG.cur?`<div class="tcs">${tcHTML(cur,{pos:'D/ST',stat:'This week'})}</div>`:''}
-    <div class="pcs"><div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>Every defense you've spun</span></div></div>
+    <div class="pcs"><div class="pc t-silver"><div class="pc-top"><span class="ini">D</span><div><b>Season</b><span>All defenses</span></div></div>
       ${tl([[D.length,'Games'],[tot.sk,'Sacks'],[tot.take,'Takeaways'],[D.length?(tot.pa/D.length).toFixed(1):'0','Pts allowed/g']])}</div></div>
     ${D.length?`<div class="sh">Week <b>by week</b></div><div class="lds">${D.slice().reverse().map(d=>`<div class="ld dlog"><span class="rk">${esc(String(d.round).replace(/^Week /,'W'))}</span>${nflImg(d.n,'lgo')||'<span class="ini">D</span>'}<span class="nm"><b>${d.season} ${esc(d.n)}</b><small>${d.sk} sack${d.sk===1?'':'s'} · ${d.take} takeaway${d.take===1?'':'s'} · ${d.ya} yds</small></span><span class="v">${d.pa}</span><span class="v2">pts</span></div>`).join('')}</div>`:''}`; }
 /* THE LEAGUE: one strip of chips; then a table. Every column sorts: tap its heading. The player views put the leader
@@ -403,7 +422,7 @@ function hubLeague(){ const S=standings(), po=LG.phase==='reg'?LG.po:0, per=(v,g
   const tbl=`<div class="tbl" style="--n:${cols.length}"><div class="tr th"><span>#</span><span>${isP?'Player':'Team'}</span>${cols.map((c,j)=>`<button data-s="${j}" class="${j===by?'on':''}">${c[0]}</button>`).join('')}</div>
     ${rows.slice(0,40).map((r,i)=>`<div class="tr${r.ti===0?' me':''}${LGTAB==='table'&&by==null&&po&&i<po?' in':''}" style="--p:${tcol(LG.teams[r.ti])}"><span class="rk">${i+1}</span><span class="nm"><i></i>${isP?'':crest(LG.teams[r.ti])}<span><b>${esc(nm(r))}</b>${isP?`<small>${esc(sub(r))}</small>`:''}</span></span>${cols.map((c,j)=>`<span class="${j===by?'on':''}">${(c[2]||c[1])(r)}</span>`).join('')}</div>`
       +(LGTAB==='table'&&by==null&&po&&i===po-1&&i<rows.length-1?'<div class="pline">Playoff line</div>':'')).join('')}</div>`;
-  return chips+lead+tbl+`<div class="hb-note">${V.note} Tap a heading to sort.</div>`; }
+  return chips+lead+tbl; }
 
 /* ═══ SHARE PICTURES ═══
    Your team, a game's result and your season, each as a picture in the game's own look, drawn right here on a canvas
@@ -508,28 +527,142 @@ function shareGo(kind){ const s=SHARE[kind]; if(!s||!s.file) return; const f=s.f
   document.querySelectorAll('[data-share="'+kind+'"]').forEach(b=>{ b.textContent='Picture saved'; setTimeout(()=>{ b.textContent=b.dataset.label; },1800); }); }
 const shareButton=(kind,label)=>`<button class="btn shr" data-share="${kind}" data-label="${label}" disabled>Drawing picture…</button>`;
 
+/* ═══ GAME-DAY SCENES ═══
+   A stadium on game day, drawn as pixel art at a low resolution and blown up with hard edges: the sky (day, dusk or
+   night, stars and glowing light towers after dark), the stands packed in the home team's colours, the scoreboard, the
+   field with the home end zone and two teams lined up at midfield. Snow late in the season; fireworks for the playoffs;
+   confetti and fireworks for a title. Each week has its own, the same every time you look. */
+function seedRng(s){ let h=2166136261; for(const c of String(s)) h=Math.imul(h^c.codePointAt(0),16777619); return ()=>{ h+=0x6D2B79F5; let t=h; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; }; }
+const hexRgb=h=>{ const m=String(h||'#888').replace('#',''); const n=parseInt(m.length===3?m.split('').map(c=>c+c).join(''):m,16)||0; return [n>>16&255,n>>8&255,n&255]; };
+const mixHex=(a,b,k)=>{ const A=hexRgb(a), B=hexRgb(b); return 'rgb('+A.map((v,i)=>Math.round(v+(B[i]-v)*k)).join(',')+')'; };
+function pxScene(cv,o){ const H=96, box=cv.getBoundingClientRect(), W=Math.max(120,Math.min(260,Math.round(H*((box.width||343)/(box.height||220)))));
+  cv.width=W; cv.height=H; const x=cv.getContext('2d'), R=seedRng(o.seed||'gfl'), P=(X,Y,w,h,c)=>{ x.fillStyle=c; x.fillRect(X|0,Y|0,w|0,h|0); };
+  const hc=o.home||'#3f8fea', ac=o.away||'#c8233e', t=o.time||'day', night=t==='night', dusk=t==='dusk';
+  /* the sky, in bands with a dither between them */
+  const sky=night?['#05070f','#0a0f22','#121a38','#1b2550']:dusk?['#1d1640','#4a2a5c','#a8465a','#f08a4b','#ffcf7a']:['#3b8fd6','#5aa9e6','#7cc0ee','#a8d8f0'];
+  const skyH=40, band=skyH/sky.length; sky.forEach((c,i)=>{ P(0,i*band,W,band+1,c); if(i<sky.length-1) for(let X=0;X<W;X+=2) P(X+(i%2),(i+1)*band-1,1,1,sky[i+1]); });
+  if(night) for(let i=0;i<W*.35;i++) P(R()*W,R()*30,1,1,R()<.2?'#ffffff':'#8fa0d8');
+  if(!night){ for(let k=0;k<3;k++){ const cx=R()*W, cy=6+R()*14, cw=14+R()*18; for(let j=0;j<5;j++) P(cx+j*cw/5-2,cy-(j%2?2:0)-(j===2?3:0),cw/4+3,4,dusk?'rgba(255,214,170,.55)':'rgba(255,255,255,.85)'); } }
+  if(!night&&!dusk){ P(W*.82,6,7,7,'#fff6b0'); P(W*.82-1,7,9,5,'#fff6b0'); }
+  if(dusk){ P(W*.5-9,30,18,6,'#ffd88a'); P(W*.5-6,28,12,2,'#ffe7b0'); }
+  /* the bowl: the top of the stadium, the upper deck, a facade band in the home colour, the lower deck */
+  const top=26, up0=30, mid=44, low0=48, fld=60;
+  P(0,top,W,4,'#2a2f38'); for(let X=0;X<W;X+=6) P(X,top-1,3,1,'#3a404b');
+  const crowd=(y0,y1,dens)=>{ for(let Y=y0;Y<y1;Y++){ P(0,Y,W,1,Y%2?'#23272e':'#1d2127'); for(let X=0;X<W;X++){ const r=R(); if(r>dens) continue; const q=R(); P(X,Y,1,1,q<.5?hc:q<.62?ac:q<.72?'#e9ecf0':q<.8?'#f0ce26':['#c94f3d','#3d6fc9','#4a8f5a','#7a7f87'][Math.floor(q*40)%4]); } } };
+  crowd(up0,mid,.78);
+  P(0,mid,W,4,mixHex(hc,'#000000',.35)); for(let X=2;X<W;X+=12) P(X,mid+1,8,2,X%24===2?'#f0ce26':'#e9ecf0');
+  crowd(low0,fld-1,.85); P(0,fld-1,W,1,mixHex(hc,'#000000',.2));
+  /* the scoreboard, and light towers at each end of the bowl */
+  const sbw=Math.min(40,W*.28), sbx=W/2-sbw/2; P(sbx-1,top-15,sbw+2,13,'#0c0e12'); P(sbx,top-14,sbw,11,'#14181f'); P(sbx+2,top-12,sbw/2-3,7,hc); P(sbx+sbw/2+1,top-12,sbw/2-3,7,ac);
+  for(let X=sbx+3;X<sbx+sbw-3;X+=3) P(X,top-4,1,1,'#f0ce26'); P(W/2-1,top-2,2,4,'#2a2f38');
+  [W*.08,W*.92].forEach(tx=>{ P(tx-1,4,2,top,'#3a404b'); P(tx-6,2,12,5,night||dusk?'#fffbe0':'#cfd5dd'); for(let X=-5;X<6;X+=2) P(tx+X,3,1,3,night||dusk?'#ffffff':'#e9ecf0');
+    if(night||dusk){ x.fillStyle='rgba(255,250,220,.08)'; x.beginPath(); x.moveTo(tx-6,6); x.lineTo(tx+6,6); x.lineTo(W/2+(tx<W/2?-10:10)+(tx<W/2?20:-20),H); x.lineTo(W/2+(tx<W/2?-40:40),H); x.closePath(); x.fill(); } });
+  /* the field: stripes that widen toward you, the far end zone in the home colour, yard lines, the hash */
+  const rows=[[fld,3,'#1d5a2c'],[fld+3,3,'#236535'],[fld+6,4,'#1d5a2c'],[fld+10,4,'#236535'],[fld+14,5,'#1d5a2c'],[fld+19,6,'#236535'],[fld+25,6,'#1d5a2c'],[fld+31,7,'#236535']];
+  rows.forEach(([y,h,c])=>P(0,y,W,h,c)); P(0,fld,W,3,mixHex(hc,'#000000',.15)); for(let X=4;X<W;X+=10) P(X,fld+1,5,1,'rgba(255,255,255,.55)');
+  rows.slice(1).forEach(([y])=>P(0,y,W,1,'rgba(255,255,255,.45)'));
+  rows.slice(1).forEach(([y,h])=>{ P(W*.4,y+h/2,1,1,'rgba(255,255,255,.4)'); P(W*.6,y+h/2,1,1,'rgba(255,255,255,.4)'); });
+  /* two lines at the snap, home in its colour against the visitors */
+  const ly=fld+15; for(let k=-5;k<=5;k++){ const px=W/2+k*4; P(px,ly-4,2,3,ac); P(px,ly-5,2,1,mixHex(ac,'#ffffff',.4)); P(px,ly+1,2,3,hc); P(px,ly,2,1,mixHex(hc,'#ffffff',.4)); }
+  P(W/2,ly-1,2,1,'#8a4b22');
+  /* the weather, and the occasion */
+  if(o.snow){ for(let i=0;i<W*1.4;i++) P(R()*W,R()*H,1,1,'rgba(255,255,255,.9)'); for(let X=0;X<W;X+=1) if(R()<.5) P(X,fld,1,1,'#e9eef5'); }
+  const fw=(cx,cy,c,n)=>{ for(let a=0;a<n;a++){ const ang=a/n*Math.PI*2, L=4+R()*7; for(let s=2;s<L;s+=1.5) P(cx+Math.cos(ang)*s,cy+Math.sin(ang)*s,1,1,s>L-2?'#ffffff':c); } P(cx,cy,1,1,'#ffffff'); };
+  if(o.fireworks) for(let k=0;k<(o.champ?6:3);k++) fw(8+R()*(W-16),5+R()*16,[hc,'#f0ce26','#ffffff',ac][k%4],14);
+  if(o.confetti) for(let i=0;i<W*.9;i++) P(R()*W,R()*H,1+(R()<.3?1:0),1,[hc,'#f0ce26','#ffffff','#4ade80','#4C9EFF'][Math.floor(R()*5)]);
+  return cv; }
+
+/* ═══ GAME DAY ═══ the scene for a week, its headline, the bracket, the title, the trophy case */
+const teamCol=t=>(t&&t.col&&t.col[0])||'#3f8fea';
+function sceneFor(R,g){ const k=LG.rounds.indexOf(R), reg=LG.rounds.filter(r=>r.kind==='reg').length, h=LG.teams[g?g.h:0], a=LG.teams[g?g.a:1], rnd=seedRng(LG.name+':'+k+':'+(g?g.h+'-'+g.a:'')), po=R.kind==='po', fin=R.label==='The final';
+  const time=po?'night':['day','dusk','night'][Math.floor(rnd()*3)], snow=!po&&k>=reg*.6&&rnd()<.4;
+  return {seed:LG.name+k+(g?g.h+'v'+g.a:''),home:teamCol(h),away:teamCol(a),time,snow,fireworks:po,confetti:false,label:po?(fin?'Championship':R.label):snow?'Snow game':time==='night'?'Night game':time==='dusk'?'Late kickoff':'Afternoon kickoff'}; }
+function paintScenes(){ document.querySelectorAll('canvas[data-scene]').forEach(c=>{ try{ pxScene(c,JSON.parse(c.dataset.scene)); }catch(e){} }); }
+/* the streak a team is on: W3, L2 */
+function streakOf(i){ const res=[]; LG.rounds.forEach(R=>R.games.forEach(g=>{ if(!g.s||(g.h!==i&&g.a!==i)) return; const m=g.h===i?g.s[0]:g.s[1], t=g.h===i?g.s[1]:g.s[0]; res.push(m>t?'W':m<t?'L':'T'); }));
+  if(!res.length) return {k:'',n:0}; const k=res[res.length-1]; let n=0; for(let j=res.length-1;j>=0&&res[j]===k;j--) n++; return {k,n}; }
+const nums=['zero','one','two','three','four','five','six','seven','eight','nine','ten'], numW=n=>nums[n]||String(n);
+/* THE HEADLINE: the most newsworthy thing about this game, from the records, the streaks, the standings, who's hurt,
+   the stars, and what's at stake; and a second line under it */
+function headlineFor(R,g){ const me=LG.teams[0], home=g.h===0, oi=home?g.a:g.h, t=LG.teams[oi], S=standings(), pm=S.findIndex(x=>x.i===0)+1, pt=S.findIndex(x=>x.i===oi)+1;
+  const sm=streakOf(0), so=streakOf(oi), reg=LG.rounds.filter(r=>r.kind==='reg').length, k=LG.rounds.indexOf(R), late=R.kind==='reg'&&k>=reg-2, po=LG.po;
+  const you=me.name, them=t.name, rm=recTxt(me.st), rt=recTxt(t.st), at=home?'host':'visit', LM=gameLineup(me), LT=gameLineup(t);
+  const out=me.roster.filter(p=>p.inj), starT=LT.slice().sort((a,b)=>b.r-a.r)[0], starM=LM.slice().sort((a,b)=>b.r-a.r)[0], gap=offR(me)-offR(t), H=[];
+  if(R.label==='The final') H.push([100,`For the title: ${you} and ${them} meet in the final`,`One game for the ${LG.name} season crown.`]);
+  else if(R.kind==='po') H.push([95,`${R.label}: win or go home against ${them}`,`${them} come in at ${rt}; the winner moves on.`]);
+  if(me.st.g&&t.st.g&&!me.st.l&&!t.st.l) H.push([90,`Clash of the unbeatens: ${rm} meets ${rt}`,`Somebody's perfect start ends ${home?'at home':'on the road'} today.`]);
+  else if(t.st.g>=2&&!t.st.l) H.push([80,`Unbeaten ${them} (${rt}) ${home?'come to town':'welcome you'}`,`Nobody has solved them yet.`]);
+  if(pm<=2&&pt<=2&&me.st.g) H.push([85,`Battle for first: ${you} (${rm}) vs ${them} (${rt})`,`The top of the table is on the line.`]);
+  if(late&&Math.abs(pm-po)<=1&&R.kind==='reg') H.push([78,`Playoff hopes on the line in ${R.label}`,`${ordinal(pm)} place with the top ${po} getting in.`]);
+  if(sm.k==='W'&&sm.n>=2) H.push([60+sm.n,`Riding a ${numW(sm.n)}-game win streak, ${you} ${at} ${them}`,`${rm} and rolling.`]);
+  if(sm.k==='L'&&sm.n>=2) H.push([60+sm.n,`Can ${you} snap a ${numW(sm.n)}-game skid?`,`${them} (${rt}) stand in the way.`]);
+  if(so.k==='W'&&so.n>=3) H.push([62,`${them} arrive on a ${numW(so.n)}-game tear`,`Winners of ${numW(so.n)} straight.`]);
+  if(out.length) H.push([70,`${out.map(p=>lastN(p.n)).join(' and ')} out: ${you} ${home?'host':'take on'} ${them} short-handed`,out.map(p=>`${lastN(p.n)} (${p.inj.n.toLowerCase()})`).join(', ')+'.']);
+  if(starT&&starT.r>=96) H.push([55,`${starT.n} and ${them} ${home?'come to town':'await'}`,`A ${starT.r}-rated ${starT.pos} on the other side.`]);
+  if(gap<=-6) H.push([50,`Underdogs: ${you} ${at} a stacked ${them}`,`Their offense rates ${offR(t)} to your ${offR(me)}.`]);
+  if(gap>=6) H.push([48,`${you} favored against ${them}`,`${starM?lastN(starM.n)+' and an offense rated '+offR(me):'Your offense rates '+offR(me)}.`]);
+  if(k===0) H.push([45,`Season opener: ${you} ${at} ${them}`,`The ${LG.name} season starts here.`]);
+  H.push([1,`${you} ${at} ${them}`,`${rm} against ${rt}.`]);
+  H.sort((a,b)=>b[0]-a[0]); return [H[0][1],H[0][2]]; }
+/* THE BRACKET: every round of the playoffs, by seed; byes; the champion at the end */
+function bracketHTML(){ if(!LG.seeds||LG.phase==='reg') return ''; const T=LG.teams, po=LG.rounds.filter(r=>r.kind==='po'), n=LG.po, seed=i=>LG.seeds.indexOf(i)+1;
+  const names=n===6?['Wild card','Semifinals','The final']:n===4?['Semifinals','The final']:['The final'];
+  const row=(i,sc,w,l)=>i==null?`<div class="bk-t tbd"><i></i><span class="ini">?</span><b>To be decided</b><em></em></div>`
+    :`<div class="bk-t${w?' w':''}${l?' l':''}${i===0?' me':''}"><i>${seed(i)}</i>${crest(T[i])}<b>${i===0?'You':esc(T[i].name)}</b><em>${sc??''}</em></div>`;
+  const game=g=>{ if(!g) return `<div class="bk-g">${row(null)}${row(null)}</div>`; const w=g.s?(g.s[0]>g.s[1]?'h':'a'):'';
+    return `<div class="bk-g${g.h===0||g.a===0?' mine':''}">${row(g.h,g.s&&g.s[0],w==='h',w==='a')}${row(g.a,g.s&&g.s[1],w==='a',w==='h')}${g.ot?'<span class="bk-ot">OT</span>':''}</div>`; };
+  const cols=names.map(lab=>{ const R=po.find(r=>r.label===lab), cnt=lab==='The final'?1:2, G=R?R.games:Array(cnt).fill(null);
+    const byes=lab==='Wild card'&&po[0]?(po[0].bye||[]).map(b=>`<div class="bk-g bye">${row(b,'Bye')}</div>`).join(''):'';
+    return `<div class="bk-col"><span class="tag">${lab}</span>${byes}${G.map(game).join('')}</div>`; });
+  const ch=LG.champ!=null?T[LG.champ]:null;
+  cols.push(`<div class="bk-col ch"><span class="tag">Champion</span><div class="bk-champ${LG.champ===0?' me':''}">${ch?`${crest(ch)}<b>${LG.champ===0?'You':esc(ch.name)}</b>`:'<span class="ini">?</span><b>To be decided</b>'}</div></div>`);
+  return `<div class="sh">Playoff <b>bracket</b></div><div class="bk">${cols.join('')}</div>`; }
+/* THE TROPHY CASE: every title you win stays on this device, with the team that won it */
+const TROPHY_KEY='gfl-season-trophies';
+function trophies(){ try{ return JSON.parse(localStorage.getItem(TROPHY_KEY)||'[]'); }catch(e){ return []; } }
+function recordTrophy(){ if(LG.champ!==0||LG.trophied) return; LG.trophied=1; const me=LG.teams[0];
+  const P=Object.values(LG.pl||{}).filter(p=>p.ti===0&&!isBackup(p)&&p.id).sort((a,b)=>shScore(b)-shScore(a)), m=P[0], fin=LG.rounds[LG.rounds.length-1], g=myGame(fin), r=myRes(g);
+  const T={at:Date.now(),league:LG.name,teams:LG.teams.length,name:me.name,logo:me.logo,col:teamCol(me),rec:recTxt(me.st),pf:me.st.pf,pa:me.st.pa,
+    final:r?{m:r.m,t:r.t,opp:LG.teams[g.h===0?g.a:g.h].name}:null,roster:me.roster.map(p=>({n:p.n,pos:p.pos,r:p.r,id:p.id,season:p.season,a:p.a})),
+    mvp:m?{n:m.n,pos:m.pos,id:m.id,r:m.r,season:m.season,lines:shLines(m,m),g:m.g}:null,
+    leaders:[['py','Pass'],['ry','Rush'],['recy','Rec']].map(([k,l])=>{ const b=P.slice().sort((x,y)=>(y[k]||0)-(x[k]||0))[0]; return b&&b[k]?{v:b[k],l:l+' yds',n:b.n}:null; }).filter(Boolean)};
+  const L=trophies(); L.unshift(T); try{ localStorage.setItem(TROPHY_KEY,JSON.stringify(L.slice(0,60))); }catch(e){} }
+/* a pixel trophy: a gold cup on a dark base */
+function pxTrophy(cv){ const W=24,H=30; cv.width=W; cv.height=H; const x=cv.getContext('2d'), P=(X,Y,w,h,c)=>{ x.fillStyle=c; x.fillRect(X,Y,w,h); };
+  P(5,2,14,2,'#fff4c2'); P(4,4,16,8,'#F0CE26'); P(5,12,14,3,'#e0b43a'); P(7,15,10,2,'#c99a1e'); P(10,17,4,4,'#d9a514'); P(7,21,10,2,'#e0b43a'); P(5,23,14,5,'#3a2a12'); P(6,24,12,3,'#4a3618');
+  P(1,5,3,2,'#F0CE26'); P(0,6,2,4,'#F0CE26'); P(1,10,4,2,'#e0b43a'); P(20,5,3,2,'#F0CE26'); P(22,6,2,4,'#F0CE26'); P(19,10,4,2,'#e0b43a'); P(7,5,2,6,'#fff4c2'); P(9,25,6,1,'#F0CE26'); return cv; }
+function paintTrophies(){ document.querySelectorAll('canvas.trophy').forEach(pxTrophy); }
+function trophyCaseHTML(back){ const L=trophies();
+  return `<div class="tro-top"><button class="lv" id="tro-back">${back||'Back'}</button><span class="tag">Trophy case · ${L.length} title${L.length===1?'':'s'}</span></div>
+    ${L.length?L.map(T=>`<div class="tro" style="--p:${T.col||'#3f8fea'}"><div class="tro-h"><canvas class="trophy"></canvas><div><span class="tag">${esc(T.league)} season · ${T.teams} teams</span><b>${esc(T.name)}</b><em>${T.rec} · ${T.pf} for, ${T.pa} against${T.final?` · won the final ${T.final.m}–${T.final.t} over ${esc(T.final.opp)}`:''}</em><small>${new Date(T.at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</small></div></div>
+      ${T.mvp?`<div class="tro-mvp"><img src="${SHOT(T.mvp.id)}" alt=""><div><span class="tag">Season MVP</span><b>${esc(T.mvp.n)} <small>${T.mvp.pos} · ${T.mvp.r}</small></b><em>${esc(T.mvp.lines[0])}</em></div></div>`:''}
+      <div class="tro-five">${T.roster.map(p=>`<div class="t-${TIER(p.r)}"><img src="${SHOT(p.id)}" alt=""><span>${p.pos}</span><b>${esc(lastN(p.n))}</b><em>${p.r}</em></div>`).join('')}</div>
+      ${T.leaders&&T.leaders.length?`<div class="tro-ld">${T.leaders.map(l=>`<div><b>${l.v}</b><span>${l.l} · ${esc(lastN(l.n))}</span></div>`).join('')}</div>`:''}</div>`).join(''):'<div class="lg-empty">No titles yet. Win a season and it goes here.</div>'}`; }
+function openTrophies(from){ const body=from==='setup'?$('#scr-match'):$('#scr-hub .hb-body'); if(!body) return;
+  body.innerHTML=from==='setup'?`<div class="tro-wrap">${trophyCaseHTML('Back')}</div>`:trophyCaseHTML('Back to the season'); paintTrophies();
+  $('#tro-back').onclick=()=>from==='setup'?setupScreen():hub(HUBTAB); }
+/* a burst of confetti over the title screen */
+const confettiHTML=()=>`<div class="cft">${Array.from({length:42},(_,i)=>`<i style="left:${(i*37)%100}%;background:${['#F0CE26','#FDFEFC','#4ade80','#4C9EFF','#FF8E1C','#D9325E'][i%6]};animation-delay:${(i%14)*.18}s;animation-duration:${2.6+(i%5)*.5}s"></i>`).join('')}</div>`;
+
 /* ═══ STARTING OUT ═══ pick a size, build your team, then the hub */
 /* QUICK GAMES ONLY: an account let in just for quick games (Marathon Men) sees the quick game and its test team, and
    nothing of a season: no league to pick, no season to resume */
 let QUICK_ONLY=false;
-function setupScreen(){ screen('match');
-  if(QUICK_ONLY){ $('#scr-match').innerHTML=`<div class="mu setup"><div class="fade"><div class="dots"></div></div><span class="tag" style="position:relative">Season Mode</span>
-    <div class="vs" style="grid-template-columns:1fr"><div>${crest(ME)}<span>${esc(ME.name)}</span></div></div>
-    <h3>Quick game</h3><p class="sub" style="font-size:13px">Open packs for your six, then play one game against a random GFL team.</p>
-    <button class="btn w" id="qg" style="position:relative;width:220px">Quick game</button><button class="btn" id="qgmix" style="position:relative;width:220px">Quick game · test team</button></div>`;
-    $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); return; }
-  $('#scr-match').innerHTML=`<div class="mu setup"><div class="fade"><div class="dots"></div></div><span class="tag" style="position:relative">Season Mode</span>
-    <div class="vs" style="grid-template-columns:1fr"><div>${crest(ME)}<span>${esc(ME.name)}</span></div></div>
-    <h3>Pick your league</h3><div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
-    <p class="sub" style="font-size:13px">Your opponents are drawn from every team the GFL has had, each built from packs on the same odds as yours.</p>
-    <button class="btn w" id="go" style="position:relative;width:220px">Open packs</button>
-    <button class="btn" id="mix" style="position:relative;width:220px">Test team · mixed tiers</button>
-    <div class="qg"><span class="tag">Or just one game</span><p class="sub" style="font-size:13px">A quick game against a random GFL team. Any season you have going stays where it is.</p>
-      <button class="btn w" id="qg" style="width:220px">Quick game</button><button class="btn" id="qgmix" style="width:220px">Quick game · test team</button></div></div>`;
+function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`<div class="hero st"><canvas class="scn" data-scene='${JSON.stringify({seed:'start'+ME.name,home:'#3f8fea',away:'#c8233e',time:'dusk'})}'></canvas><div class="hero-in"><div class="hv-tags"><span>Season Mode</span></div><div class="st-me"><div class="hv-c">${crest(ME)}</div><b>${esc(ME.name)}</b></div><h2 class="ttl sm">${lab}</h2></div></div>`;
+  if(QUICK_ONLY){ $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Quick game')}
+    <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button></div></div>`;
+    paintScenes(); $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); return; }
+  $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Pick your league')}
+    <div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
+    <div class="st-acts"><button class="btn w" id="go">Open packs</button><button class="btn" id="mix">Test team · mixed tiers</button></div>
+    <div class="sh">Or just <b>one game</b></div>
+    <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button></div>
+    ${tc?`<button class="btn tro-btn" id="st-tro"><canvas class="trophy"></canvas>Trophy case · ${tc}</button>`:''}</div>`;
+  paintScenes(); paintTrophies();
   let pick='standard'; document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ pick=b.dataset.p; document.querySelectorAll('.presets button').forEach(x=>x.classList.toggle('on',x===b)); });
   $('#go').onclick=()=>{ SETUP=pick; DR.i=0; DR.got=[]; screen('draft'); stageSpin(); };
   $('#mix').onclick=()=>{ SETUP=pick; mixTeam(); };
-  $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); }
+  $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); const st=$('#st-tro'); if(st) st.onclick=()=>openTrophies('setup'); }
 /* for testing: skip the packs with one of every tier, in a random order across the six slots */
 function mixTeam(){ const tiers=['legend','gold','silver','bronze','gold','silver'].sort(()=>Math.random()-.5); DR.got=[]; DR.i=0;
   SLOTS.forEach((pos,i)=>{ DR.i=i; DR.got[i]=four(pos,tiers[i])[0]; }); DR.i=SLOTS.length; screen('draft'); stageSpin(); }
@@ -555,9 +688,9 @@ function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=n
 /* back where you were: your five and this week's defense come back from the save */
 function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
   if(!LG||LG.v!==1||!LG.teams) { LG=null; return false; }
-  LG.teams.forEach(t=>{ if(t.faab==null) t.faab=100; t.bench=t.bench||[]; }); if(!LG.wire) newWire();
+  LG.teams.forEach(t=>{ if(t.faab==null) t.faab=100; t.bench=t.bench||[]; }); if(!LG.wire) LG.wire=[];
   DR.got=[...LG.teams[0].roster,LG.dstRound===LG.cur?LG.teams[0].dst:null]; DR.i=6; return true; }
 
 /* the defense pack says which game it's for: the first one is week 1's, and before every game after you spin again */
 function dLabel(){ if(QUICK||!(SETUP||LG)) return 'Defense'; return (SETUP?'Week 1':LG.rounds[LG.cur].label)+' defense'; }
-function dNote(){ if(QUICK||!(SETUP||LG)) return ''; return 'Just for '+(SETUP?'week 1':LG.rounds[LG.cur].label.toLowerCase())+'. You spin a new defense before every game.'; }
+function dNote(){ return ''; }

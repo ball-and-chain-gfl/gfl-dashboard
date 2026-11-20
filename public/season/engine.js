@@ -578,13 +578,13 @@ function makeGame(){
       if(dd>.6&&Math.random()<.5){ dive(d,to); pop('Pass breakup','#D9325E',d); if(off&&od<R+.6) reachFor(off[0],to); deflect(to); }
       else { pop('Swatted','#D9325E',d); if(off&&od<Math.min(R,1.6)){ passScene('swat',d,off[0]); deflect(to,.2); } else deflect(to); }
       return end('Broken up','#'+d.num+' got a hand on it.','inc',0,to); }
-    const r=off[0], d=def&&def[0], hands=.7+A(r,HANDS[r.pos]??2)*.27, ct=CONT[r.pos]!=null?A(r,CONT[r.pos]):.3;
-    const contested=dd<1.1, contest=dd<.7?.45+ct*.45:dd<1.3?.72+ct*.25:1, diving=od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to reach for is harder to hold, the further the harder */
+    const r=off[0], d=def&&def[0], hands=.9+A(r,HANDS[r.pos]??2)*.085, ct=CONT[r.pos]!=null?A(r,CONT[r.pos]):.3;
+    const contested=dd<1.1, contest=dd<.7?.45+ct*.45:dd<1.3?.72+ct*.25:1, diving=od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to stretch past a yard for is harder to hold, the further the harder */
     /* both go up for it when it's contested */
     if(contested&&d){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; }
     /* where the throw put it against where it should have gone: a wayward ball, even one he gets to, is a harder catch */
-    const placed=clamp(1-Math.hypot(a.to.x-a.aim.x,a.to.y-a.aim.y)*.2,.55,1);
-    const caught=Math.random()<clamp(hands*contest*reach*placed,.05,.97);
+    const miss=Math.hypot(a.to.x-a.aim.x,a.to.y-a.aim.y), placed=clamp(1-miss*.2,.55,1);
+    const roll=Math.random(), caught=roll<clamp(hands*contest*reach*placed,.05,.985), inHands=!caught&&roll>=hands*contest;
     /* caught past the end line or over the sideline: he had it, but he was out */
     if(caught&&(Math.abs(to.x)>SIDE||to.y>S.goal+10)){ reachFor(r,to); pop('Out of bounds','#F0CE26',r); return end('Incomplete',(r.name||'#'+r.num)+' had it, but out of bounds.','inc',0,to); }
     if(caught&&diving){ S.caught=true; S.catcher=r; pop('Diving catch','#4C9EFF',r); { const ux=to.x-r.x, uy=to.y-r.y, ul=Math.hypot(ux,uy)||1; r.x=to.x-ux/ul*.6; r.y=to.y-uy/ul*.6; dive(r,{x:r.x+ux,y:r.y+uy}); } r.until=S.t+.25; S.ball.holder=r;
@@ -610,16 +610,18 @@ function makeGame(){
       if(Math.abs(to.x)<5.5&&to.y>3&&d&&dd<2.4) S.bigHit={d,at:S.t+(contested?.34:.18)};
       return; }
     if(diving){ dive(r,to); pop('Just missed','#F0CE26',r); }
+    else if(dd>=1.6&&!inHands){ reachFor(r,to); deflect(to); pop(to.y<r.y-.4?'Behind him':'Off his fingertips','#F0CE26',r); }
     else if(dd>=1.6){ r.state='catchLow'; r.until=S.t+.4; S.loose={x0:r.x,y0:r.y,to:{x:r.x+(Math.random()-.5)*1.6,y:r.y-.8},t0:S.t}; pop('Dropped','#F0CE26',r); }
     else if(d&&dd<1.3){ pop('Broken up','#D9325E',d); passScene('swat',d,r); deflect(to,.2); }
     else { pop('Broken up','#D9325E',d||r); reachFor(r,to); if(d&&dd<1.6&&d.state!=='leap'){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; } deflect(to); }
-    end(dd<1.6?'Broken up':'Incomplete',dd<1.6?'Contested, and the defender won it.':diving?'He laid out for it and couldn\'t hold on.':'Off his hands.','inc',0,to);
+    end(dd<1.6?'Broken up':'Incomplete',dd<1.6?'Contested, and the defender won it.':diving?'He laid out for it and couldn\'t hold on.':inHands?'Dropped.':'Just out of his reach.','inc',0,to);
   }
   function end(head,body,kind,yards,at){
     if(S.over) return; S.over=true; S.phase='done'; S.ball.air=null; if(at&&kind!=='to') S.landed=at;
     S.result={head,body,kind,yards,at:at?{x:at.x,y:at.y}:null,injury:S.injury||null}; STA=STA.map(v=>Math.max(0,v-.22));
     if(kind==='td'){ const sc=S.carrier||S.ball.holder; if(sc&&!sc.fxd&&sc.state!=='dive'){ const k=['celebrate','spike','dance','bow','sky'][Math.floor(Math.random()*5)]; sc.state=k; sc.cele0=S.t; sc.until=S.t+2.2; sc.facing=k==='bow'?(sc.vx>=0?'right':'left'):'down';
-      if(k==='spike'){ S.ball.holder=null; S.loose={x0:sc.x,y0:sc.y,to:{x:sc.x+.8,y:sc.y-.6},t0:S.t+.15}; } } pop('Touchdown','#4ade80',sc||S.QB); const cc=sc||S.QB; burst(cc.x,cc.y,80,{cols:CONF,sp:3.2,vz:7,z:2,g:2.4,life:2.4,s:3}); }
+      if(k==='spike'){ S.ball.holder=null; S.loose={x0:sc.x,y0:sc.y,to:{x:sc.x+.8,y:sc.y-.6},t0:S.t+.15}; } } pop('Touchdown','#4ade80',sc||S.QB); const cc=sc||S.QB; burst(cc.x,cc.y,80,{cols:CONF,sp:3.2,vz:7,z:2,g:2.4,life:2.4,s:3});
+      if(S.home&&S.home.event) [-1,1].forEach(sd=>{ burst(sd*(SIDE+12),cc.y+6,60,{cols:['#F0CE26','#FDFEFC','#FF8E1C','#4C9EFF'],sp:5,vz:4,z:9,g:1.4,life:1.8,s:3}); }); }
     const col={td:'#4ade80',gain:'#4ade80',loss:'#D9325E',to:'#D9325E',safety:'#D9325E',inc:'#F0CE26'}[kind]||'#FDFEFC';
     if(MATCH) MATCH.played(S.result); const R0=S.result;
     setTimeout(()=>{ $('#res').innerHTML=`<small>They were in ${LOOKS[S.look]} out of a ${S.front||'nickel'}</small><b style="color:${col}">${head}</b><span>${esc(R0.body)}</span>`; $('#res').className='result show'; buttons(); },650);
@@ -636,11 +638,13 @@ function makeGame(){
     const xv0=S.cam.x-VIEW/2-2, xv1=S.cam.x+VIEW/2+2, yv0=toY(0,H).y-2, yv1=toY(0,0).y+2;
     ctx.fillStyle='#202327'; ctx.fillRect(0,0,W,H);
     /* the stands: rows of concrete, a fan in nearly every seat, most of them in the home colour */
+    const ev=S.home&&S.home.event, nowS=performance.now()/1000;
     const SEAT=.66, FAN=['#E6E8EB','#2b2d31','#c94f3d','#3d6fc9','#e0b43a','#7a7f87','#4a8f5a'], sz=Math.max(2,Math.round(K*.42));
     const stands=(x0,x1,y0,y1)=>{ x0=Math.max(x0,xv0); x1=Math.min(x1,xv1); y0=Math.max(y0,yv0); y1=Math.min(y1,yv1); if(x1<=x0||y1<=y0) return;
       for(let gy=Math.ceil(y0/SEAT);gy*SEAT<y1;gy++){ R(x0,gy*SEAT-SEAT*.5,x1,gy*SEAT,gy%2?'#272a2f':'#2c3036');
         for(let gx=Math.ceil(x0/SEAT);gx*SEAT<x1;gx++){ const h=hashU(gx,gy); if(h<.07) continue;
-          const [sx,sy]=toS(gx*SEAT+(h-.5)*.12,gy*SEAT), c=h<.52?hc:h<.64?ac:FAN[Math.floor(h*977)%FAN.length];
+          const [sx,sy]=toS(gx*SEAT+(h-.5)*.12,gy*SEAT); let c=h<.52?hc:h<.64?ac:FAN[Math.floor(h*977)%FAN.length];
+          if(ev&&hashU(gy,gx*1.7)<.05&&Math.floor(nowS*6+hashU(gx*3,gy)*40)%23===0) c='#FFFFFF';
           ctx.fillStyle=c; ctx.fillRect(Math.round(sx-sz/2),Math.round(sy-sz*.7),sz,Math.max(2,Math.round(sz*.75)));
           ctx.fillStyle=SKIN[Math.floor(h*311)%SKIN.length][1]; const hs=Math.max(1,Math.round(sz*.55)); ctx.fillRect(Math.round(sx-hs/2),Math.round(sy-sz*.7-hs),hs,hs); } } };
     stands(-SIDE-60,-SIDE-6.6,EL0-60,EL1+60); stands(SIDE+6.6,SIDE+60,EL0-60,EL1+60);
@@ -648,6 +652,7 @@ function makeGame(){
     /* the wall, padded in the home colour, and the grass inside it */
     const wc=mixC(hc,'#000000',.25);
     R(-SIDE-6.6,EL0-4.6,SIDE+6.6,EL1+4.6,wc); R(-SIDE-6,EL0-4,SIDE+6,EL1+4,'#183f27');
+    if(ev){ const bc=ev.big?['#F0CE26','#FDFEFC']:[hc,'#FDFEFC']; for(let y=Math.floor(EL0-4),k=0;y<EL1+4;y+=2,k++){ const c=bc[k%2]; R(-SIDE-6.6,y,-SIDE-6,y+1.4,c); R(SIDE+6,y,SIDE+6.6,y+1.4,c); } }
     for(let yd=Math.floor((EL0-4)/5)*5;yd<EL1+4;yd+=5){ if(((yd/5)%2+2)%2) R(-SIDE-6,yd,SIDE+6,Math.min(yd+5,EL1+4),'#1b4a2c'); }
     /* the white border all the way round */
     R(-SIDE-.6,EL0-.6,SIDE+.6,EL1+.6,'#E9ECE8');
@@ -670,8 +675,8 @@ function makeGame(){
     ctx.fillStyle='#246335'; for(let yd=Math.floor(bot/5)*5;yd<=top;yd+=5){ if(((Math.floor((S.yd+yd)/5))%2+2)%2) continue; const ya=toS(0,yd)[1], yb2=toS(0,yd+5)[1];
       const y0=Math.max(yf,Math.min(ya,yb2)), y1=Math.min(yb,Math.max(ya,yb2)); if(y1>y0) ctx.fillRect(sl,y0,sr-sl,y1-y0); }
     /* END ZONES: the home team's. Its colour, its name painted across each one, orange pylons at the corners */
-    { const hk=(S.home&&S.home.k)||'o', hc=(KIT[hk]&&KIT[hk].jersey[1])||'#3f8fea', name=String((S.home&&S.home.name)||'GFL').toUpperCase();
-      [S.goal,-S.yd-10].forEach(a=>{ const [,e1]=toS(0,a+10),[,e0]=toS(0,a),[,em]=toS(0,a+5); if(e0<0||e1>H) return;
+    { const hk=(S.home&&S.home.k)||'o', hc=(KIT[hk]&&KIT[hk].jersey[1])||'#3f8fea', name0=String((S.home&&S.home.name)||'GFL').toUpperCase(), ev=S.home&&S.home.event;
+      [S.goal,-S.yd-10].forEach(a=>{ const name=ev&&a===S.goal?ev.label:name0; const [,e1]=toS(0,a+10),[,e0]=toS(0,a),[,em]=toS(0,a+5); if(e0<0||e1>H) return;
         ctx.fillStyle=mixC(hc,'#000000',.3); ctx.fillRect(sl,e1,sr-sl,e0-e1);
         ctx.fillStyle='rgba(255,255,255,.07)'; for(let k=0;k<10;k+=2){ const [,s1]=toS(0,a+k+1),[,s0]=toS(0,a+k); ctx.fillRect(sl,s1,sr-sl,s0-s1); }
         /* painted on the grass: sized in yards and centred on the field, so it stays put as the camera moves, with the
