@@ -255,7 +255,7 @@ function makeGame(){
     [...DL,...LB,...CB,...SF].forEach(d=>{ const sp=spdPos(d.pos==='DL'?'DL':d.pos==='LB'?'LB':'DB',ds(d,'spd')); /* speed is his speed stat alone; his read is his coverage (a lineman's, his pass rush) */
       d.vmax=d.pos==='DL'?5.0+sp*1.0:d.pos==='LB'?5.9+sp*1.3:6.3+sp*1.6; d.acc=d.pos==='DL'?13+sp*4:20+sp*5; d.react=d.pos==='DL'?.35-Df(d,'rush')*.12:.36-Df(d,'cov')*.2; if(d.pos!=='DL') d.turn=.55+.75*Df(d,'cov'); d.state=d.pos==='DL'?'stance3':'stance'; P.push(d); });
     /* play action and the flea flicker don't fool everyone: each backer and safety bites by his coverage (a 55 nine times in ten, a 99 not quite half) */
-    if(S.bite) [...LB,...SF].forEach(p=>p.bites=Math.random()<.9-.45*Df(p,'cov'));
+    if(S.bite) [...LB,...SF].forEach((p,i)=>p.bites=(S.draws?S.draws[2+i]:Math.random())<.9-.45*Df(p,'cov'));
     const look=S.look;
     DL.forEach(d=>d.role='rush');
     if(look==='cover2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,7]; }); }
@@ -278,7 +278,7 @@ function makeGame(){
     S.front={cover2:'nickel',cover3:'4-3 over',man:'3-4',blitz:'bear front',cover0:'bear front',cover4:'nickel',c2man:'nickel'}[look];
     /* PRESS: in man with a single high safety or none, each corner decides whether to press his man at the line, more
        often the better he is than the receiver's route running. Pressed, he lines up a yard off and gets a jam in. */
-    if(look==='man'||look==='blitz'||look==='cover0') CB.forEach(c=>{ c.press=c.press||Math.random()<clamp(.55+(ds(c,'cov')-stat(c.man,1))/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
+    if(look==='man'||look==='blitz'||look==='cover0') CB.forEach((c,i)=>{ c.press=c.press||(S.draws?S.draws[i]:Math.random())<clamp(.55+(ds(c,'cov')-stat(c.man,1))/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
     if(look==='cover3'){ [-4.8,-2,1,3.8].forEach((x,i)=>DL[i].x=x); LB[0].x=-3.4; LB[1].x=1.6; SF[1].x=6.6; SF[1].y=4.8; }
     if(look==='man'){ [DL[0],DL[3]].forEach((d,i)=>{ d.x=i?5.8:-5.8; d.y=1.4; d.state='stance'; }); }
     if(look==='cover0'){ LB.forEach((l,i)=>{ l.x=i?1.2:-1.2; l.y=2.2; }); }
@@ -310,7 +310,10 @@ function makeGame(){
   function routeTarget(p){ if(!p.route) return null; const v=p.vmax, d=Math.max(0,S.t-.05-(p.rdelay||0))*v+.1+(1-RR(p))*1.4; let left=d, x=p.x0, y=p.y0, k=0;
     for(const [rx,ry] of p.route){ const tx=p.x0+rx, ty=p.y0+ry, seg=Math.hypot(tx-x,ty-y); if(left<=seg){
         const L=p.leg||0; if(k>L&&p.route[L]){ const pts=[[0,0],...p.route], ax=p.x0+pts[L][0], ay=p.y0+pts[L][1], cx=p.x0+pts[L+1][0], cy=p.y0+pts[L+1][1], ll=Math.hypot(cx-ax,cy-ay)||1;
-          if(Math.hypot(p.x-cx,p.y-cy)>.05+(1-RR(p))*2.2) return inb(cx+(cx-ax)/ll*1.2,cy+(cy-ay)/ll*1.2); p.leg=L+1; }
+          /* THE BREAK IS MADE when he reaches the corner, near enough (a poor route runner rounds it from up to 2 yds out) or
+             level with it along his stem however far off the line a jam or the last cut left him. Before, only the first counted:
+             a man a foot off the line ran on to the point past the corner, stopped there and waited for the route clock to run out. */
+          const pr=((p.x-cx)*(cx-ax)+(p.y-cy)*(cy-ay))/ll; if(Math.hypot(p.x-cx,p.y-cy)>.05+(1-RR(p))*2.2&&pr<-.15) return inb(cx+(cx-ax)/ll*1.2,cy+(cy-ay)/ll*1.2); p.leg=L+1; }
         const f=left/seg; brk(p,k); return inb(x+(tx-x)*f,y+(ty-y)*f); } left-=seg; x=tx; y=ty; k++; }
     return inb(x,y); }
   function brk(p,k){ if(p.seg===undefined){ p.seg=k; return; } if(k===p.seg) return; p.seg=k;
@@ -421,7 +424,7 @@ function makeGame(){
         if(p===carrier){ [tx,ty]=carrierAim(p); if(p.slow&&t<p.slow) vmax*=p.slowK||.6; }
         else if(p.pos==='QB'&&S.phase==='live'&&hold===p&&!S.scram&&carrier!==p&&(!S.runCall||PLAYS[S.call].qb)&&!(S.qbDash&&t<S.qbDash.until)&&(()=>{ const fr=S.P.filter(d=>d.side==='d'&&!d.down&&(d.shed||!d.blocked)&&dist(d,p)<3.4); if(!fr.length) return false;
             const th=fr.sort((a,b)=>dist(a,p)-dist(b,p))[0], dx=p.x-th.x, dy=p.y-th.y, d=Math.hypot(dx,dy)||1, side=Math.abs(dx)>.15?Math.sign(dx):(p.x>=0?1:-1), base=Math.max(PLAYS[S.call].qb?-4.9:-6.5,-4.5-Math.min(t,1.2)*2.4);
-            tx=clamp(p.x+side*2.6+dx/d*.6,-6,6); ty=clamp(p.y+Math.min(0,dy/d)*1.2,base-1.6,base+1); vmax=p.vmax*.5; return true; })()){ }
+            tx=clamp(p.x+side*2.6+dx/d*.6,-6,6); ty=clamp(p.y+Math.min(0,dy/d)*1.2,base-1.6,base+1); vmax=Math.min(p.vmax*.75,th.vmax*.9); return true; })()){ }
         else if(p.pos==='QB'){ if(S.qbDash&&t<S.qbDash.until){ tx=S.qbDash.x; ty=S.qbDash.y; vmax=p.vmax*1.4; } else if(!S.runCall||PLAYS[S.call].qb){ tx=0; ty=Math.max(PLAYS[S.call].qb?-4.9:-6.5,-4.5-t*2.4); } else if(S.jet){ tx=S.ball.holder===p?0:-1.2*PLAYS[S.call].dir; ty=S.ball.holder===p?JET_Y-.75:-4.2; } else { tx=-.6*PLAYS[S.call].dir; ty=S.form==='under'?-2.6:S.form==='pistol'?-3.9:-4.6; } }
         else if(p.pos==='OL'){ if(p.blocking&&!p.blocking.shed){ tx=p.tx; ty=p.ty; } else if(p.climb||p.role==='climb'){ const l=p.climb; tx=l.x; ty=l.y-.7; if(dist(p,l)<1.1){ l.blocked=true; l.lockedBy=p; } } else if(carrier&&carrier!==QB){ tx=carrier.x; ty=carrier.y-2; } else { tx=p.x; ty=Math.min(p.y,-1); } }
         else if(ballAir&&p!==hold&&(p===S.tgt||dist(p,ballAir.to)<3)&&!['wall','stalk','block','lead','protect'].includes(p.role)&&!p.climb){ [tx,ty]=inb(ballAir.to.x,ballAir.to.y); }   /* only the man it's thrown to, and anyone right by the spot, breaks off his route for the ball */
@@ -478,7 +481,7 @@ function makeGame(){
       else if(p.cutUntil&&t<p.cutUntil&&p.route){ const a0=p.acc; p.acc=a0*(p.cutK||1); steer(p,tx,ty,dt,vmax); p.acc=a0; }
       else steer(p,tx,ty,dt,vmax);
       p.x+=p.vx*dt; p.y+=p.vy*dt;
-      if(S.home&&(S.home.rain||S.home.snow)&&!p.down&&t>(p.stepT||0)&&Math.hypot(p.vx,p.vy)>2.8){ p.stepT=t+.13+Math.random()*.05; burst(p.x+(Math.random()-.5)*.3,p.y,S.home.snow?8:7,{cols:S.home.snow?['#ffffff','#ffffff','#eef4fa']:['#ffffff','#dcebfb','#c4dcf4'],sp:2.2,vz:S.home.snow?2.6:3.2,g:9,life:.55,s:S.home.snow?4:3}); }
+      if(S.home&&(S.home.rain||S.home.snow)&&!p.down&&t>(p.stepT||0)&&Math.hypot(p.vx,p.vy)>2.8){ p.stepT=t+.13+Math.random()*.05; burst(p.x+(Math.random()-.5)*.3,p.y,S.home.snow?8:7,{cols:S.home.snow?['#ffffff','#ffffff','#eef4fa']:['#3d86e0','#2f74cc','#5b9cec'],sp:2.2,vz:S.home.snow?2.6:3.2,g:9,life:.55,s:S.home.snow?4:3}); }
       const sp=Math.hypot(p.vx,p.vy); if(p===carrier&&S.cut&&t<S.cut.until+.12) p.facing=p.vy>=-.5?'up':'down';
       if(sp>3&&!p.down&&p.pos!=='OL'&&(!p.hT||t-p.hT>.1)){ const ux=p.vx/sp, uy=p.vy/sp; if(p.hx!=null&&p.hx*ux+p.hy*uy<.7&&!(p.plantUntil>t-.3)){ p.plantUntil=t+.12; p.plantDir=Math.sign(p.hx*uy-p.hy*ux)||1; } p.hx=ux; p.hy=uy; p.hT=t; }
       else if(sp<=3) p.hx=null;
@@ -1030,7 +1033,9 @@ function makeGame(){
     let x=Math.random()*Object.values(w).reduce((a,b)=>a+b,0); for(const [k,v] of Object.entries(w)){ if((x-=v)<=0) return k; } return 'cover3'; }
   function reset(keepLook){
     const rg=S.phase==='regroup', keep=rg?S.P.map(p=>({side:p.side,pos:p.pos,x:p.x,y:p.y})):null;
-    if(!keepLook) S.look=callCoverage();
+    /* the defense calls its coverage once a down, and with it who presses and who would bite on a fake: tapping through
+       plays shows the same look every time, so you can't shop for a better one */
+    if(!keepLook||!S.draws){ S.look=callCoverage(); S.draws=Array.from({length:8},()=>Math.random()); }
     S.phase='pre'; S.landed=null; S.caught=false; S.result=null; setup(); S.P.forEach(p=>{ p.x0=p.x; p.y0=p.y; p.home=p.state; });
     if(rg){ carry(keep,0); S.phase='regroup'; }
     $('#res').className='result'; hint(rg?'Getting set':preHint()); buttons();
