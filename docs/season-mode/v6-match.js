@@ -39,7 +39,7 @@ function cardHTML(p){ const t=TIER(p), d=p.pos==='D/ST';
     <div class="at">${ATTR[p.pos].map((l,i)=>`<div><span>${l}</span><i><b data-v="${p.a?p.a[i]:70}"></b></i><em data-v="${p.a?p.a[i]:70}">–</em></div>`).join('')}</div></div>`; }
 function stageSpin(){
   slotsHTML(); if(DR.i>=SLOTS.length) return stageRoster();
-  const pos=SLOTS[DR.i], land=roll(pos), N=64, AT=56, W=98, tiers=[];
+  const pos=SLOTS[DR.i], land=(typeof PVP_FORCE!=='undefined'&&PVP_FORCE&&PVP_FORCE[DR.i])||roll(pos), N=64, AT=56, W=98, tiers=[];
   for(let i=0;i<N;i++) tiers.push(i===AT?land:roll(pos));
   const rsp=typeof RESPIN!=='undefined'&&RESPIN;
   $('#stage').innerHTML=`<span class="q">${rsp?'Add a player':(DR.i+1)+' of 6'}</span><span class="big">${pos==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):pos}</span>${pos==='D/ST'&&typeof dNote==='function'&&dNote()?`<span class="dnote">${dNote()}</span>`:''}
@@ -114,6 +114,7 @@ function makeSim(){
     bar(x,a,b,COL[p.kind]); drawBall(ctx,x,b,0,3,-Math.PI/2,true);
   }
   function play(){
+    if(st.script){ const q=st.script.shift(); return q?Object.assign({x:.44+Math.random()*.12},q):{kind:'end'}; }
     /* HOW THEIR OFFENSE FARES AGAINST YOUR DEFENSE. The gap between the two counts, but only so much: a good defense wins most
        drives, not all of them, and a bad one still gets a stop. Each drive also has its own form (st.form), so some drives
        just click and some never get going, whoever is on the field. */
@@ -132,21 +133,22 @@ function makeSim(){
     const y=Math.round(4.4+adv*1.5-(DA(2)-.5)*2.5+gauss()*3.4+(Math.random()<.05?15:0)); return {x,from:yd,to:Math.min(100,yd+y),kind:y<0?'loss':'run',call:y<0?'Stuffed, '+y:'Run, '+y,sub:''};
   }
   function info(){ MATCH.ddThem(st); }
-  function step(){ if(st.over) return; if(MATCH.stopped()) return finish({kind:'clock'});
-    const p=play(); if(p.to>=100&&p.kind!=='to'&&p.kind!=='punt'){ p.to=100; p.via=p.kind; p.kind='td'; p.call='Touchdown'; }
-    st.n++; MATCH[st.mine?'meTick':'cpuTick'](p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
+  function step(){ if(st.over) return; if(!st.script&&MATCH.stopped()) return finish({kind:'clock'});
+    const p=play(); if(p.kind==='end') return finish({kind:'clock'}); if(p.to>=100&&p.kind!=='to'&&p.kind!=='punt'){ p.to=100; p.via=p.kind; p.kind='td'; p.call='Touchdown'; }
+    st.n++; MATCH[st.mine?'meTick':'cpuTick'](p.s!=null?p.s:p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
     $('#call').innerHTML=`<div style="--cc:${COL[p.kind]}"><b>${p.call}</b>${p.sub?`<small>${p.sub}</small>`:''}</div>`;
     const t0=performance.now(), dur=fast?90:300; const grow=now=>{ if(st.over) return; const f=Math.min(1,(now-t0)/dur); frame(p,f); if(f<1) requestAnimationFrame(grow); else after(p); }; requestAnimationFrame(grow); }
   function after(p){
     let end=null; const g=p.to-p.from;
     if(p.kind==='td') end={kind:'td'}; else if(p.kind==='to') end={kind:'to',spot:p.to,call:p.call}; else if(p.kind==='punt') end={kind:'punt',spot:p.to,len:p.to-p.from};
     else if(p.kind==='fg') end={kind:p.good?'fg':'miss',spot:p.from,len:100-p.from+17};
+    else if(p.kind==='safety') end={kind:'safety'};
     else { st.yd=p.to; if(g>=st.togo){ st.down=1; st.togo=Math.min(10,100-st.yd); } else { st.down++; st.togo-=g; if(st.down>4) end={kind:'downs',spot:st.yd}; } }
     timer=setTimeout(()=>{ if(st.over) return; $('#call').innerHTML='';
       if(end) return finish(end);
       const from=cam,to=st.yd,t0=performance.now(); const slide=now=>{ if(st.over) return; const f=Math.min(1,(now-t0)/(fast?80:240)); cam=from+(to-from)*(f*(2-f)); frame(null,0); if(f<1) requestAnimationFrame(slide); else { info(); timer=setTimeout(step,fast?60:180); } }; requestAnimationFrame(slide); },fast?160:620); }
   function finish(r){ st.over=true; clearTimeout(timer); r.n=st.n; r.yd=st.yd; frame(null,0); done(r); }
-  function start(yd,off,cb,o){ clearTimeout(timer); opt0=o||{}; fast=!!opt0.fast; size(); st={off,yd,down:1,togo:Math.min(10,100-yd),n:0,over:false,mine:!!opt0.mine,def:opt0.def}; cam=yd; done=cb; info(); frame(null,0); timer=setTimeout(step,450); }
+  function start(yd,off,cb,o){ clearTimeout(timer); opt0=o||{}; fast=!!opt0.fast; size(); st={off,yd,down:1,togo:Math.min(10,100-yd),n:0,over:false,mine:!!opt0.mine,def:opt0.def,script:opt0.script||null}; cam=yd; done=cb; info(); frame(null,0); timer=setTimeout(step,450); }
   addEventListener('resize',()=>{ size(); frame(null,0); });
   if(window.ResizeObserver) new ResizeObserver(()=>{ size(); frame(null,0); }).observe(cv);
   return {start,size,myD,skip(){ fast=true; },unskip(){ fast=false; },state(){ return st&&{yd:st.yd,down:st.down,togo:st.togo}; },redraw(){ frame(null,0); },stop(){ if(st) st.over=true; clearTimeout(timer); }};
@@ -211,11 +213,11 @@ function makeMatch(){
     b.onclick=()=>{ el.className='hurtn'; }; },450); }
   function toast(s){ const t=$('#toast'); t.textContent=s; t.className='toast show'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.className='toast',2200); }
   function endPeriod(){
-    M.pend=null; M.run=false;
+    M.pend=null; M.run=false; if(M.pvp) return pvpEndPeriod();
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
-  function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.simAll?'<button class="btn simall" id="simstop">Stop sim</button>':'<button class="btn" id="skip">Skip ahead</button><button class="btn simall" id="simall">Sim the rest</button>'}`;
+  function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.pvp?'<button class="btn" id="skip">Skip ahead</button>':M.simAll?'<button class="btn simall" id="simstop">Stop sim</button>':'<button class="btn" id="skip">Skip ahead</button><button class="btn simall" id="simall">Sim the rest</button>'}`;
     const sk=$('#skip'); if(sk) sk.onclick=()=>{ SIM.skip(); sk.disabled=true; };
     const sa=$('#simall'); if(sa) sa.onclick=()=>banner({tag:'Sim the rest',title:'Sim the rest of the game?',sub:'Every drive plays out on its own, yours too. You can stop it any time.',col:'var(--red)',btn:'Sim it',btn2:'Keep playing'},()=>{ M.simAll=true; SIM.skip(); driveBar(M.poss==='me'); },()=>{});
     const st=$('#simstop'); if(st) st.onclick=stopSim; }
@@ -232,8 +234,44 @@ function makeMatch(){
       else if(r.kind==='punt'){ go({tag:'Punt',title:'You punt',sub:r.len+' yards.',btn:'Their ball'},()=>cpuDrive(r.spot>=100?20:Math.max(1,100-r.spot))); }
       else if(r.kind==='to'||r.kind==='downs'){ go({tag:'Turnover',title:r.kind==='downs'?'Turnover on downs':r.call||'Turnover',sub:'Their ball.',col:'var(--red)',btn:'Their ball'},()=>cpuDrive(clamp(100-r.spot,1,99))); }
       else endPeriod(); },{mine:true,def:M.oppD,fast:true}); }
-  function myDrive(yd){ if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }
-  function cpuDrive(yd){ if(M.simAll) setTimeout(()=>SIM.skip(),0); M.cyd=yd; M.poss='cpu'; newDrive(false,yd); bug(); view('sim'); driveBar(false);
+  function myDrive(yd){ if(M.pvp){ M.pvp.mine=true; M.pvp.plays=[]; M.pvp.start=yd; M.pvp.lastG=gsec(); } else if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }
+  const oppR=r=>r==='a'?'b':'a';
+  function pvpRec(p){ const g=gsec(); p.s=Math.max(4,Math.round(g-M.pvp.lastG)); M.pvp.lastG=g; M.pvp.plays.push(p); }
+  function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; } M.stop=false; M.shown=null; bug(); }
+  function pvpSend(next,nextYd,flags){ const P=M.pvp; if(!P||!P.mine) return Promise.resolve(); P.mine=false;
+    const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock},st:M.st,ps:M.ps,done:!!(flags&&flags.done)};
+    const go=()=>pvpAppend(P.id,rec).then(doc=>{ P.doc=doc; P.idx=doc.drives.length; pvpSeen(P.id,P.idx); }).catch(()=>{ toast('Couldn\u2019t send your drive · trying again'); return new Promise(res=>setTimeout(res,5000)).then(go); });
+    return go(); }
+  function pvpTheirs(yd){ M.poss='cpu'; bug(); const P=M.pvp; if(P.mine) pvpSend(oppR(P.role),yd).then(()=>pvpWait()); else pvpWait(); }
+  function pvpWait(){ const P=M.pvp; if(!P) return; clearTimeout(P.pollT); P.waitT0=Date.now(); M.poss='cpu'; bug(); view('sim'); SIM.redraw();
+    $('#drive').innerHTML=`<span class="tb">${crest(CPU)}<span>Their move</span></span><button class="btn" id="pv-leave">Leave</button>`;
+    $('#pv-leave').onclick=()=>{ P.left=true; clearTimeout(P.pollT); pvpHub(); };
+    $('#dd').innerHTML='<span><b class="dn">Their ball</b></span>'; $('#call').innerHTML=`<div style="--cc:var(--text3)"><b>Waiting for ${esc(CPU.name)}</b></div>`;
+    const poll=async()=>{ if(M.pvp!==P||P.left) return; let doc=null; try{ doc=await pvpLoad(P.id); }catch(e){}
+      if(doc&&doc.drives.length>P.idx){ P.doc=doc; $('#call').innerHTML=''; return pvpPump(); }
+      const age=(Date.now()-P.waitT0)/1000; if(age>1800){ $('#call').innerHTML=`<div style="--cc:var(--text3)"><b>Still their move</b></div>`; $('#drive').insertAdjacentHTML('beforeend','<button class="btn w" id="pv-again">Check again</button>'); $('#pv-again').onclick=()=>pvpWait(); return; }
+      P.pollT=setTimeout(poll,age<120?15000:age<600?30000:60000); };
+    P.pollT=setTimeout(poll,3000); }
+  function pvpPump(){ const P=M.pvp, D=P.doc.drives;
+    while(P.idx<D.length&&D[P.idx].by===P.role){ const d=D[P.idx]; pvpState(d.after); if(d.st) M.st=d.st; if(d.ps) M.ps=d.ps; P.idx++; pvpSeen(P.id,P.idx); }
+    if(P.idx<D.length) return pvpReplay(D[P.idx]);
+    const last=D[D.length-1];
+    if(P.doc.status==='done'||(last&&last.done)){ M.q=5; bug(); return final(); }
+    if(P.doc.next===P.role){ const yd=last?last.nextYd:25; return banner({art:'kick',tag:'Head to head',title:'Your ball',sub:`On ${mine(yd)}.`,btn:'Take the field'},()=>myDrive(yd)); }
+    pvpWait(); }
+  function pvpReplay(d){ const P=M.pvp, b0=[...M.score]; M.poss='cpu'; M.cyd=d.start; newDrive(false,d.start); bug(); view('sim'); driveBar(false);
+    SIM.start(d.start,M.oppO,r=>{ M.opp.drives++; P.idx++; pvpSeen(P.id,P.idx); pvpState(d.after); const them=M.score[1]-b0[1], us=M.score[0]-b0[0];
+      const t=them>=6?{art:'td_them',title:'Touchdown',sub:them===8?'Two-point try good.':them===7?'Extra point good.':'No extra point.',col:'var(--red)'}:them===3?{art:'fg',title:'Field goal',sub:'Good.',col:'var(--yellow)'}
+        :us===2?{art:'safety',title:'Safety',sub:'Two points to you.',col:'var(--green)'}:r.kind==='punt'?{art:'punt',title:'They punt',sub:''}:r.kind==='to'?{art:r.call==='Fumble'?'fumble_us':'int_us',title:r.call==='Fumble'?'Fumble':'Intercepted',sub:'',col:'var(--green)'}
+        :r.kind==='downs'?{art:'downs_us',title:'Turnover on downs',sub:'',col:'var(--green)'}:r.kind==='miss'?{art:'nofg',title:'Missed field goal',sub:'',col:'var(--green)'}:{art:'kick',title:d.done?'That\u2019s the game':'End of the half',sub:''};
+      if(M.q===3&&M.clock===QLEN&&!d.done) t.sub=(t.sub?t.sub+' ':'')+'Halftime.';   /* their drive ran out the half */
+      banner(Object.assign({drive:1,tag:'Their drive',btn:'Continue'},t),()=>pvpPump()); },{script:d.plays.map(p=>Object.assign({},p))}); }
+  function pvpEndPeriod(){ const P=M.pvp;
+    if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug(); const rcv='b';   /* the side that didn't have the ball first */
+      if(P.mine) pvpSend(rcv,25);
+      return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:rcv===P.role?'You get the ball to start the second half.':'They get the ball to start the second half.',btn:'Second half'},()=>{ if(rcv===P.role) myDrive(25); else pvpWait(); }); }
+    M.q=5; bug(); if(P.mine) pvpSend(oppR(P.role),25,{done:true}); final(); }
+  function cpuDrive(yd){ if(M.pvp) return pvpTheirs(yd); if(M.simAll) setTimeout(()=>SIM.skip(),0); M.cyd=yd; M.poss='cpu'; newDrive(false,yd); bug(); view('sim'); driveBar(false);
     SIM.start(yd,M.oppO,r=>{ M.opp.drives++;
       const go=(o,next)=>banner(o,()=>after(next));
       if(r.kind==='td'){ const d=M.score[1]+6-M.score[0], two=[-2,-5,1,5,-9].includes(d)&&M.q>=3||Math.random()<.06, ok=two?Math.random()<.48:Math.random()<.96; M.score[1]+=6+(ok?(two?2:1):0); bug();
@@ -246,7 +284,7 @@ function makeMatch(){
       else endPeriod(); }); }
   return {
     /* o: the opponent this week (the team, its defense, its offense rating, whether you're at home, the round, and whether it has to have a winner) */
-    start(o){ Object.assign(M,{simAll:false,q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
+    start(o){ M.pvp=null; Object.assign(M,{simAll:false,q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
         st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,py:0,ry:0,tdP:0,tdR:0,drives:0},
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.mustWin=!!(o&&o.mustWin); M.ot=false;
@@ -254,8 +292,12 @@ function makeMatch(){
       M.lineup=((o&&o.lineup)||DR.got||[]).slice(0,5); M.hurt=[]; M.subLog=[]; if(M.lineup.length===5&&M.lineup.every(Boolean)) GAME.roster(M.lineup);
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
       GAME.setD(M.oppD); GAME.setHome(Object.assign(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo},{event:(o&&o.event)||null,time:(o&&o.time)||['day','dusk','night'][Math.floor(Math.random()*3)],snow:!!(o&&o.snow),rain:!!(o&&o.rain)})); bug(); view('snap');
+      if(o&&o.pvp){ const D=o.pvp.doc.drives, seen=Math.min(pvpSeenGet(o.pvp.id),D.length); M.pvp=Object.assign({idx:seen,mine:false,plays:[],lastG:0},o.pvp);
+        pvpState(seen?D[seen-1].after:null); for(let i=seen-1;i>=0;i--){ if(D[i].by===o.pvp.role){ if(D[i].st) M.st=D[i].st; if(D[i].ps) M.ps=D[i].ps; break; } } return pvpPump(); }
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
     played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
+      if(M.pvp&&M.pvp.mine&&!M.conv){ const k=r.kind==='td'?'td':r.kind==='to'?'to':r.kind==='safety'?'safety':r.kind==='inc'?'inc':y<0?'loss':(S&&S.thrown?'pass':'run');
+        pvpRec({from:M.yd,to:r.kind==='to'?clamp(M.yd+Math.round(r.at?r.at.y:0),0,100):k==='td'?100:clamp(M.yd+(k==='inc'?0:y),0,100),kind:k,call:r.head||'',sub:''}); }
       if(M.conv){ M.conv=false; const good=r.kind==='td'; if(good) M.score[0]+=2; bug();
         M.pend=()=>banner({tag:'Two-point try',title:good?'Good':'No good',sub:good?'Eight points on the drive.':'Stopped short. Six it is.',col:good?'var(--green)':'var(--red)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); return; }
       if(r.injury&&typeof rollInjury==='function'){ const i=r.injury.ri, p=M.lineup&&M.lineup[i];
@@ -287,8 +329,10 @@ function makeMatch(){
       ddMe(); bug(); },
     next(){ if(M.pend){ const p=M.pend; M.pend=null; p(); } },
     punt(){ const net=Math.round(42+gauss()*5), land=M.yd+net, yd=land>=100?20:100-land; M.run=false; tick(10);
+      if(M.pvp&&M.pvp.mine) pvpRec({from:M.yd,to:Math.min(100,land),kind:'punt',call:'Punt',sub:net+' yards'});
       banner({art:'punt',drive:1,tag:'Punt',title:`${net}-yard punt`,sub:land>=100?'Into the end zone: touchback. Their ball on their 20.':`Their ball on ${theirs(yd)}.`,btn:'Their ball'},()=>after(()=>cpuDrive(yd))); },
     kick(dist){ const good=Math.random()<fgOdds(dist); M.run=false; tick(6);
+      if(M.pvp&&M.pvp.mine) pvpRec({from:M.yd,to:M.yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'});
       if(good){ M.score[0]+=3; bug(); banner({art:'fg',drive:1,tag:'Field goal',title:'It\'s good',sub:`${dist} yards. Three points.`,col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
       else { const yd=Math.max(20,100-M.yd); banner({art:'nofg',drive:1,tag:'Field goal',title:'No good',sub:`${dist} yards, wide. Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); } },
     meTick(s,p){ const ps=M.ps, Q=ps[0], y=p.to-p.from, pick=()=>{ const w=[0,.18,.3,.3,.22], R=Math.random()*1; let a=0; for(let i=1;i<5;i++){ a+=w[i]; if(R<a) return i; } return 2; };
@@ -342,6 +386,7 @@ function makeMatch(){
       ${typeof shareButton==='function'?shareButton('game','Share this result'):''}<button class="btn w" id="again">${typeof QUICK!=='undefined'&&QUICK?(localStorage.getItem('gfl-season-v1')?'Back to the season':'Play again'):typeof LG!=='undefined'&&LG?'Back to the season':'Play again'}</button></div>`;
     if(typeof shareWarm==='function') setTimeout(()=>shareWarm('game','g'+Date.now(),()=>cardGame(gameShareData(M))),0);
     /* a quick game goes in no book; a season game does */
+    if(M.pvp){ $('#again').textContent='Back to your games'; $('#again').onclick=()=>pvpHub(); return; }
     if(typeof QUICK!=='undefined'&&QUICK) $('#again').onclick=()=>quickDone();
     else if(typeof LG!=='undefined'&&LG){ seasonFinal(M); $('#again').onclick=()=>seasonContinue(); }
     else $('#again').onclick=()=>{ DR.i=0; DR.got=[]; screen('match'); };

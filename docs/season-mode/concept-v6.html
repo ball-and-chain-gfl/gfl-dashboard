@@ -98,6 +98,24 @@
   .four{display:grid;grid-template-columns:repeat(2,148px);gap:10px;}
   .cd{height:244px;border:1px solid var(--tc);background:var(--l1);display:flex;flex-direction:column;overflow:hidden;position:relative;cursor:pointer;opacity:0;transform:translateY(16px) rotateY(85deg) scale(.92);transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.3);}
   .cd.in{opacity:1;transform:none;}
+  .mu.pv{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;padding:16px 16px 24px;overflow:auto;height:100%;max-width:520px;width:100%;margin:0 auto;box-sizing:border-box;}
+  .pv-top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;} .pv-top b{font:400 20px/1 var(--px,Silkscreen);text-align:center;white-space:nowrap;} .mu.pv>.btn.w{align-self:center;margin-top:6px;} .mu.pv .qs-seg{grid-template-columns:repeat(3,minmax(0,1fr));} .mu.pv .qs-seg[data-k=dst]{grid-template-columns:repeat(5,minmax(0,1fr));} .mu.pv .qs-seg[data-k=dst] button{font-size:12px;padding:12px 2px;} .pv-top .btn{white-space:nowrap;padding-left:12px;padding-right:12px;}
+  .pv-list{display:flex;flex-direction:column;gap:6px;}
+  .pv-g{display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:10px;background:var(--p2);padding:10px 12px;clip-path:var(--notch2);}
+  .pv-g.you{box-shadow:inset 3px 0 0 var(--sky);}
+  .pv-c img,.pv-c .ini{width:36px;height:36px;object-fit:contain;display:flex;align-items:center;justify-content:center;}
+  .pv-t{display:flex;flex-direction:column;gap:3px;min-width:0;} .pv-t b{font:700 14px/1.2 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .pv-t small{font:600 11px/1 var(--sans);color:var(--text3);}
+  .pv-a{display:flex;gap:6px;} .pv-a .btn{padding:8px 12px;font-size:12px;}
+  .pv-opps{display:flex;flex-wrap:wrap;gap:6px;} .pv-o{display:flex;align-items:center;gap:8px;border:0;background:var(--p2);color:var(--text);padding:8px 12px;clip-path:var(--notch2);cursor:pointer;font:700 13px var(--sans);}
+  .pv-o img,.pv-o .ini{width:26px;height:26px;object-fit:contain;} .pv-o.on{background:var(--sky);color:var(--ink);}
+  .pv-pos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;} .pv-pos label{display:flex;flex-direction:column;gap:4px;font:700 11px var(--sans);color:var(--text3);letter-spacing:.08em;}
+  .pv-pos select{background:var(--p2);color:var(--text);border:0;padding:9px 6px;font:700 13px var(--sans);}
+  .pv-pack{display:flex;flex-direction:column;gap:6px;} .pv-pack div{display:grid;grid-template-columns:1fr 40px 32px 40px;align-items:center;gap:6px;background:var(--p2);padding:6px 10px;}
+  .pv-pack span{font:700 13px var(--sans);color:var(--tc);} .pv-pack b{text-align:center;font:700 16px var(--sans);} .pv-pack button{border:0;background:var(--p3);color:var(--text);font:700 16px var(--sans);padding:6px 0;cursor:pointer;}
+  .pv-pack small{font:600 11px var(--sans);color:var(--text3);} .pv-pack small.bad{color:var(--red);}
+  .pv-n{display:inline-block;margin-left:6px;min-width:18px;padding:2px 5px;background:var(--red);color:#fff;font:800 11px/1 var(--sans);border-radius:9px;}
+  .pv-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--p1,#15181D);color:#fff;padding:10px 14px;font:700 13px var(--sans,Inter);opacity:0;transition:opacity .2s;z-index:9999;pointer-events:none;}
+  .pv-toast.show{opacity:1;}
   .qs-l{font:700 11px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-top:6px;}
   .qs-seg{display:grid;grid-template-columns:repeat(3,92px);gap:6px;}
   .qs-seg button{border:0;padding:12px 6px;font:700 14px/1 var(--sans);color:var(--text2);background:var(--p2);clip-path:var(--notch2);cursor:pointer;}
@@ -930,6 +948,7 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
 <script src="v6-engine.js"></script>
 <script src="v6-match.js"></script>
 <script src="v6-season.js"></script>
+<script src="v6-pvp.js"></script>
 <script>
 (async()=>{
   const j=u=>fetch(u).then(r=>r.json());

@@ -24,6 +24,7 @@ h = cut(h, '      <div class="side">', '<script>', '');
 h = put(h, '      <div class="phone" id="app">', '<div class="phone" id="app">');
 h = h.replace(/(<div class="scr" id="scr-final"><\/div>\n      <\/div>\n)/, '$1');
 h = h.replace(/      <\/div>\n    <\/div>\n  <\/section>\n<\/div>\n\n/, '');
+h = put(h, '<script src="v6-pvp.js"></script>', '<script src="pvp.js"></script>');
 h = put(h, '<script src="v6-sprites.js"></script>\n<script src="v6-engine.js"></script>\n<script src="v6-match.js"></script>\n<script src="v6-season.js"></script>', '<script src="sprites.js"></script>\n<script src="engine.js"></script>\n<script src="match.js"></script>\n<script src="season.js"></script>');
 /* BFT only for now: the page checks the sign-in the app already keeps on this device */
 h = put(h, `(async()=>{
@@ -44,7 +45,7 @@ h = put(h, `ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];`, `const tid=new U
 h = cut(h, '  /* the sheet: the players close up', '})();\n</script>', '');
 fs.writeFileSync(new URL('index.html', OUT), h);
 
-for (const [a, b] of [['v6-sprites.js', 'sprites.js'], ['v6-engine.js', 'engine.js'], ['v6-match.js', 'match.js'], ['v6-season.js', 'season.js']]) fs.copyFileSync(new URL(a, D), new URL(b, OUT));
+for (const [a, b] of [['v6-sprites.js', 'sprites.js'], ['v6-engine.js', 'engine.js'], ['v6-match.js', 'match.js'], ['v6-season.js', 'season.js'], ['v6-pvp.js', 'pvp.js']]) fs.copyFileSync(new URL(a, D), new URL(b, OUT));
 for (const f of ['rated.json', 'defenses.json', 'attrs.json']) fs.copyFileSync(new URL(f, D), new URL(f, OUT));
 /* the game-day pictures: six pixel stadiums */
 fs.mkdirSync(new URL('art2/', OUT), { recursive: true });
