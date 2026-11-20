@@ -828,15 +828,32 @@
   #ctrl .calls .kind .k-subs{color:#F6D76B;}
   #ctrl .calls .four4 button{background:rgba(255,255,255,.025);font:400 15px/1.05 'Gochi Hand',cursive;color:#F4F1E8;box-shadow:inset 0 0 0 1px rgba(244,241,232,.12);}
   #ctrl .calls .four4 button.on{background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 2px rgba(244,241,232,.85);}
-  #ctrl .calls svg [stroke="#4C9EFF"]{stroke:#F4F1E8;} #ctrl .calls svg [fill="#4C9EFF"]{fill:#F4F1E8;}
-  #ctrl .calls svg [stroke="#FF8E1C"]{stroke:#F6D76B;} #ctrl .calls svg [fill="#FF8E1C"]{fill:#F6D76B;}
-  #ctrl .calls svg circle{fill:#F4F1E8;}
   #ctrl .acts button{background:transparent;color:rgba(244,241,232,.8);font:400 16px/1 'Gochi Hand',cursive;text-transform:uppercase;letter-spacing:.04em;}
   #ctrl .acts button small{font:400 13px/1 'Gochi Hand',cursive;}
   #ctrl .acts button.go{background:#F4F1E8;color:#1d2a22;font:800 18px/1 var(--sans);text-transform:none;}
   #ctrl .acts button:disabled{opacity:.35;}
   #ctrl .acts .grp button{background:transparent;}
   .banner .bx .btn.b2{margin-top:2px;background:var(--p2);color:var(--text);font:800 15px/1 var(--sans);}
+  /* ═══ ROUND 38: SOFTER ═══ rounded buttons, a calmer Kick off and menu bar, the art recoloured on a canvas */
+  .hero canvas.scn{object-fit:cover;}
+  .drive .btn{clip-path:none!important;border-radius:10px!important;} .bug .menu,.bug .lv{clip-path:none!important;border-radius:9px;}
+  :where(#app) .btn,:where(#app) .btn.w,:where(#app) .btn.shr{clip-path:none;border-radius:12px;}
+  .banner .bx .btn,.banner .btn{clip-path:none!important;border-radius:12px;}
+  #ctrl .acts button.go,.acts button.go{clip-path:none!important;border-radius:12px;}
+  #ctrl .calls .four4 button{border-radius:10px;} #ctrl .calls .kind button{border-radius:8px;}
+  .lgc button,.wv-bid button,.wv-bid input,.tc-go button,.lv,.hb-tro,.rsp button,.sb-alt button{clip-path:none!important;border-radius:9px;}
+  .hb-chips span,.hv-tags span,.hl.news .tag,.wl,.mv-p>span,.nx{clip-path:none!important;border-radius:6px;}
+  /* the next game: three quiet buttons, the first just a little brighter */
+  :where(#app) #scr-hub .hero-acts .btn{padding:13px 12px;font:700 14px/1 var(--sans);letter-spacing:.02em;}
+  :where(#app) #scr-hub .hero-acts .btn.w{background:var(--text);color:var(--ink);font-size:15px;padding:14px;}
+  :where(#app) #scr-hub .hero-acts .btn:not(.w){background:var(--p1);box-shadow:inset 0 0 0 1px rgba(253,254,252,.1);color:var(--text2);}
+  .hero-acts{gap:6px;}
+  :where(#app) #scr-hub .btn.w{background:var(--text);color:var(--ink);}
+  /* the menu bar: quiet, the tab you are on in white with a small bar over it; it runs into the phone home strip */
+  :where(#app) .hb-tabs.gnav{padding:4px 6px calc(6px + var(--sab,0px));background:#101318;border-top:1px solid #1f242c;}
+  :where(#app) .hb-tabs.gnav button{clip-path:none;border-radius:10px;position:relative;color:rgba(253,254,252,.45);padding:9px 2px 7px;}
+  :where(#app) .hb-tabs.gnav button.on{background:transparent;color:var(--text);}
+  :where(#app) .hb-tabs.gnav button.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:3px;background:var(--yellow);}
 </style>
 </head>
 <body>

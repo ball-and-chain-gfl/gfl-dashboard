@@ -50,9 +50,11 @@ const BENCH_CAP=6;
 function pickTier(pos,used,tier){ const ok=p=>p.pos===pos&&!used.has(p.id+'-'+p.season); let g=POOL.filter(p=>ok(p)&&TIER(p.r)===tier); if(!g.length) g=POOL.filter(ok);
   const p=g[Math.floor(Math.random()*g.length)]; used.add(p.id+'-'+p.season); return slim(p); }
 const offR=t=>{ const L=gameLineup(t); return Math.round(L.reduce((s,p)=>s+p.r,0)/L.length); };
+(function(){ try{ if(window.parent===window) return; const d=parent.document, p=d.createElement('div'); p.style.cssText='position:fixed;bottom:0;left:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none';
+  d.body.appendChild(p); const v=parseFloat(parent.getComputedStyle(p).paddingBottom)||0; p.remove(); document.documentElement.style.setProperty('--sab',v+'px'); }catch(e){} })();
 /* ═══ STAMINA AND INJURIES ═══
    Each player carries stamina from game to game (0 to 100). Hits wear it down; the lower it is, the likelier the next
-   hit hurts him. Between weeks everyone gets some back: a starter 38, a man on the bench 55. When a player is hurt, what
+   hit hurts him. Between weeks everyone gets some back: a starter 22, a man on the bench 35. When a player is hurt, what
    it is and how long it keeps him out come from the pool below, big hits leaning to the worse ones. g: the games he'll
    miss after this one (99: the rest of the season). */
 const INJURIES=[{n:'Shaken up',w:[0,0],p:30},{n:'Bruised ribs',w:[0,1],p:12},{n:'Ankle sprain',w:[1,2],p:14},{n:'Hamstring strain',w:[1,3],p:12},
@@ -81,7 +83,7 @@ function simWear(t,L,lineup){ lineup.forEach((p,k)=>{ if(!p||isBackup(p)) return
 /* between weeks: stamina back, and the injured a week closer to returning */
 function recover(){ LG.teams.forEach(t=>{ const on=new Set(t.roster.map(keyOf));
   [...t.roster,...(t.bench||[])].forEach(p=>{ if(p.inj){ if(p.inj.fresh) delete p.inj.fresh; else if(p.inj.g<99) p.inj.g--; if(p.inj.g<=0&&!p.inj.fresh){ delete p.inj; p.sta=Math.max(p.sta??100,70); } }
-    p.sta=Math.min(100,Math.round((p.sta??100)+(on.has(keyOf(p))?38:55))); }); }); }
+    p.sta=Math.min(100,Math.round((p.sta??100)+(on.has(keyOf(p))?22:35))); }); }); }
 /* the CPU sets its own lineup: a healthy, better man on its bench starts */
 function cpuLineups(){ LG.teams.forEach((t,i)=>{ if(!i||!t.bench||!t.bench.length) return;
   t.roster.forEach((p,k)=>{ const b=t.bench.filter(q=>q.pos===p.pos&&!q.inj).sort((a,c)=>c.r-a.r)[0]; if(b&&(p.inj||b.r>p.r)){ t.roster[k]=b; t.bench.splice(t.bench.indexOf(b),1,p); } }); }); }
@@ -275,7 +277,7 @@ function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=
   const ns=$('#hb-new'); if(ns) ns.onclick=()=>{ if(confirm('Start a new season? This one will be gone.')) newSeason(); };
   document.querySelectorAll('.lgc button').forEach(b=>b.onclick=()=>{ LGTAB=b.dataset.k; hub('league'); });
   const tb=$('#hb-team'); if(tb) tb.onclick=()=>hub('team');
-  paintScenes(); paintTrophies(); [$('#hb-tro'),$('#hb-tro2')].forEach(b=>{ if(b) b.onclick=()=>openTrophies('hub'); });
+  paintScenes(); paintArt(); paintTrophies(); [$('#hb-tro'),$('#hb-tro2')].forEach(b=>{ if(b) b.onclick=()=>openTrophies('hub'); });
   const wr=$('#wv-run'); if(wr) wr.onclick=()=>{ runWaivers(); hub('next'); const w=$('#wv-sec'); if(w) w.scrollIntoView({block:'start'}); };
   if(HUBTAB==='team') shareWarm('team','t'+LG.cur+JSON.stringify(LG.teams[0].roster.map(p=>p.id+p.r))+recTxt(LG.teams[0].st)+(DR.got[5]?DR.got[5].id:''),()=>cardTeam(teamShareData()));
   if(HUBTAB==='sched'||(HUBTAB==='next'&&LG.phase==='done')) shareWarm('season','s'+LG.cur+LG.phase+recTxt(LG.teams[0].st),()=>cardSeason(seasonShareData()));
@@ -300,7 +302,7 @@ function hubNext(){
     const dn=d=>d&&{n:d.n,s:d.n,r:d.r};
     const outs=me.roster.filter(p=>p.inj).map(p=>`<span><b>Out</b> ${esc(lastN(p.n))} · ${esc(p.inj.n)} · ${injShort(p.inj)}</span>`);
     const sc=sceneFor(R,g), [hl,deck]=headlineFor(R,g), side=(T,lab,i)=>`<div class="hv-t"><div class="hv-c">${crest(T)}</div><b>${lab}</b><span>${recTxt(T.st)} · ${ordinal(standings().findIndex(x=>x.i===i)+1)}</span><em class="t-${TIER(offR(T))}">OFF ${offR(T)}</em></div>`;
-    top=`<div class="hero">${sceneImg(sc.art)}<div class="hero-in">
+    top=`<div class="hero">${sceneImg(sc.art,sc.home)}<div class="hero-in">
         <div class="hv-tags"><span>${esc(R.label)}</span><span>${home?'Home':'Away'}</span><span>${esc(sc.label)}</span></div>
         <div class="hv">${side(me,'You',0)}<i>${home?'VS':'AT'}</i>${side(t,esc(t.name),o)}</div></div></div>
       <div class="hb-acts hero-acts"><button class="btn w" id="hb-go" data-base="${needD?'Spin your defense':'Kick off'}">${goLabel(needD?'Spin your defense':'Kick off')}</button>
@@ -320,7 +322,7 @@ function titleHTML(){ const me=LG.teams[0], won=LG.champ===0, c=LG.teams[LG.cham
   const sc={seed:LG.name+'title',home:teamCol(won?me:c),away:teamCol(won?me:c),time:'night',fireworks:won,confetti:won,champ:won};
   const lines=m?shLines(m,m):null, lead=[['py','Pass yds'],['ry','Rush yds'],['recy','Rec yds']].map(([k,l])=>{ const b=P.slice().sort((x,y)=>(y[k]||0)-(x[k]||0))[0]; return b&&b[k]?[b[k],l+' · '+lastN(b.n)]:null; }).filter(Boolean);
   const finTxt=fg&&fg.s?`${LG.teams[fg.h].name} ${fg.s[0]}, ${LG.teams[fg.a].name} ${fg.s[1]}${fg.ot?' (OT)':''}`:'';
-  return `<div class="hero title${won?' won':''}">${sceneImg(won?'champ':'night')}${won?confettiHTML():''}<div class="hero-in">
+  return `<div class="hero title${won?' won':''}">${sceneImg(won?'champ':'night',teamCol(won?me:c))}${won?confettiHTML():''}<div class="hero-in">
       <div class="hv-tags"><span>${esc(LG.name)} season</span><span>Final</span></div>
       ${won?'<canvas class="trophy big"></canvas>':''}<h2 class="ttl">${won?'Champions':'Season over'}</h2>
       <div class="ttl-team"><div class="hv-c">${crest(won?me:c)}</div><div><b>${esc(won?me.name:c.name)}</b><span>${won?recTxt(me.st)+' · '+LG.teams.length+'-team league':'Your season: '+recTxt(me.st)+' · '+ordinal(place)}</span></div></div></div></div>
@@ -588,7 +590,17 @@ const ICONS={next:['............','....####....','..##....##..','.#..#..#..#.','
   team:['............','..##....##..','.####..####.','############','#.########.#','..########..','..###..###..','..##.##.##..','..###..###..','..########..','............','............'],
   league:['............','..########..','.#.######.#.','.#.######.#.','..#.####.#..','....####....','.....##.....','.....##.....','....####....','...######...','............','............']};
 const pxIcon=k=>{ const R=ICONS[k==='final'?'league':k]||ICONS.next; let r=''; R.forEach((row,y)=>[...row].forEach((c,x)=>{ if(c==='#') r+=`<rect x="${x}" y="${y}" width="1" height="1"/>`; })); return `<svg viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor">${r}</svg>`; };
-const sceneImg=k=>`<img class="scn" src="art2/${k||'day'}.png" alt="">`;
+const sceneImg=(k,tint)=>`<canvas class="scn art" data-art="${k||'day'}" data-tint="${tint||''}"></canvas>`;
+const ART_CACHE={};
+function rgbHsl(r,g,b){ r/=255; g/=255; b/=255; const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2; let h=0, s=0; if(mx!==mn){ const d=mx-mn; s=l>.5?d/(2-mx-mn):d/(mx+mn); h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4; h*=60; } return [h,s,l]; }
+function hslRgb(h,s,l){ const f=n=>{ const k=(n+h/30)%12, a=s*Math.min(l,1-l); return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1)))); }; return [f(0),f(8),f(4)]; }
+function paintArt(){ document.querySelectorAll('canvas.art').forEach(cv=>{ const k=cv.dataset.art, tint=cv.dataset.tint, key=k+'|'+tint;
+    const put=src=>{ cv.width=src.width; cv.height=src.height; cv.getContext('2d').putImageData(src,0,0); };
+    if(ART_CACHE[key]) return put(ART_CACHE[key]);
+    const im=new Image(); im.onload=()=>{ const c=document.createElement('canvas'); c.width=im.width; c.height=im.height; const x=c.getContext('2d'); x.drawImage(im,0,0); const d=x.getImageData(0,0,c.width,c.height);
+      if(tint){ const [th,ts]=rgbHsl(...hexRgb(tint).map(Number)), y0=Math.floor(c.height*.3);
+        for(let y=y0;y<c.height;y++) for(let X=0;X<c.width;X++){ const i=(y*c.width+X)*4, [h,s,l]=rgbHsl(d.data[i],d.data[i+1],d.data[i+2]); if(h>=195&&h<=255&&s>.3&&l>.12&&l<.85){ const [R,G,B]=hslRgb(th,Math.max(.35,Math.min(.9,ts)),l); d.data[i]=R; d.data[i+1]=G; d.data[i+2]=B; } } }
+      ART_CACHE[key]=d; put(d); }; im.src='art2/'+k+'.png'; }); }
 /* the streak a team is on: W3, L2 */
 function streakOf(i){ const res=[]; LG.rounds.forEach(R=>R.games.forEach(g=>{ if(!g.s||(g.h!==i&&g.a!==i)) return; const m=g.h===i?g.s[0]:g.s[1], t=g.h===i?g.s[1]:g.s[0]; res.push(m>t?'W':m<t?'L':'T'); }));
   if(!res.length) return {k:'',n:0}; const k=res[res.length-1]; let n=0; for(let j=res.length-1;j>=0&&res[j]===k;j--) n++; return {k,n}; }
@@ -659,17 +671,17 @@ const confettiHTML=()=>`<div class="cft">${Array.from({length:42},(_,i)=>`<i sty
 /* QUICK GAMES ONLY: an account let in just for quick games (Marathon Men) sees the quick game and its test team, and
    nothing of a season: no league to pick, no season to resume */
 let QUICK_ONLY=false;
-function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`<div class="hero st">${sceneImg('dusk')}<div class="hero-in"><div class="hv-tags"><span>Season Mode</span></div><div class="st-me"><div class="hv-c">${crest(ME)}</div><b>${esc(ME.name)}</b></div><h2 class="ttl sm">${lab}</h2></div></div>`;
+function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`<div class="hero st">${sceneImg('dusk',(ME.col&&ME.col[0])||'')}<div class="hero-in"><div class="hv-tags"><span>Season Mode</span></div><div class="st-me"><div class="hv-c">${crest(ME)}</div><b>${esc(ME.name)}</b></div><h2 class="ttl sm">${lab}</h2></div></div>`;
   if(QUICK_ONLY){ $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Quick game')}
     <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button></div></div>`;
-    paintScenes(); $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); return; }
+    paintScenes(); paintArt(); $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); return; }
   $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Pick your league')}
     <div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
     <div class="st-acts"><button class="btn w" id="go">Open packs</button><button class="btn" id="mix">Test team · mixed tiers</button></div>
     <div class="sh">Or just <b>one game</b></div>
     <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button></div>
     ${tc?`<button class="btn tro-btn" id="st-tro"><canvas class="trophy"></canvas>Trophy case · ${tc}</button>`:''}</div>`;
-  paintScenes(); paintTrophies();
+  paintScenes(); paintArt(); paintTrophies();
   let pick='standard'; document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ pick=b.dataset.p; document.querySelectorAll('.presets button').forEach(x=>x.classList.toggle('on',x===b)); });
   $('#go').onclick=()=>{ SETUP=pick; DR.i=0; DR.got=[]; screen('draft'); stageSpin(); };
   $('#mix').onclick=()=>{ SETUP=pick; mixTeam(); };

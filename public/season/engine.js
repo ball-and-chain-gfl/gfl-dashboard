@@ -128,7 +128,7 @@ function ballSpot(st,fr){ const rot=(th,tx,ty)=>{ const c=Math.cos(th), s=Math.s
   return q?[q[0],-q[1]]:null; }
 function makeGame(){
   const cv=$('#fld'), ctx=cv.getContext('2d'); let W=0,H=0,K=0; const DPR=Math.min(2,devicePixelRatio||1);
-  let VIEW=62, SC=36/62; const SIDE=26.65, HASH=3.08, OLG=82;
+  let VIEW=57, SC=36/57; const SIDE=26.65, HASH=3.08, OLG=82;
   let D={r:82,n:'Defense',season:''};
   const pickS=(pos,lo,hi,skip)=>POOL.find(p=>p.pos===pos&&p.r>=lo&&p.r<=hi&&p.id!==skip)||POOL.find(p=>p.pos===pos);
   const w1=pickS('WR',88,95); const SAMPLE=[pickS('QB',84,90),pickS('RB',82,90),w1,pickS('WR',76,87,w1.id),pickS('TE',72,82)];
@@ -233,7 +233,7 @@ function makeGame(){
     else { const ps=PL.dir>0?1:0; ols[2].role='climb'; ols[2].climb=LB[PL.wide?1-ps:ps]; TE.climb=LB[PL.wide?ps:1-ps]; }
     S.eng.forEach(e=>{ const diff=(e.d.r-e.o.r)/20; e.rate=Math.max(.3,(runCall?.34+(Ad(2)-.5)*.3:.36+(Ad(0)-.5)*.4)+diff*.3+EB()*.14+gauss()*.1);   /* even a poor line gets off its block in the end */ e.d.blocked=true; e.o.blocking=e.d; });
     S.P=P; S.QB=QB; S.RB=RB; S.rec=[WA,TE,WB,RB]; S.DL=DL; S.LB=LB; S.CB=CB; S.SF=SF; S.runCall=runCall;
-    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
+    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.picker=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
   }
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   function steer(p,tx,ty,dt,vmax){ const dx=tx-p.x, dy=ty-p.y, d=Math.hypot(dx,dy); const want=d<.2?0:Math.min(vmax||p.vmax,d*6.5);
@@ -569,7 +569,7 @@ function makeGame(){
     const od=off?off[1]:99, dd=def?def[1]:99;
     const rh=off?A(off[0],HANDS[off[0].pos]??2):.5, R=1.35+rh*.65;   /* how far he can reach for it, 1.35 to 2 yards */
     if(od>R+.3&&dd>1.2) return end('Incomplete','Nobody near it.','inc',0,to);
-    if(dd<od-.45&&dd<1.05){ const d=def[0]; d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; if(Math.random()<clamp(.24+(d.r-80)/80+(1.3-dd)*.25+(Ad(3)-.5)*.35,.08,.8)){ d.x=to.x; d.y=to.y; S.ball.holder=d;
+    if(dd<od-.45&&dd<1.05){ const d=def[0]; d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; if(Math.random()<clamp(.24+(d.r-80)/80+(1.3-dd)*.25+(Ad(3)-.5)*.35,.08,.8)){ d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;
         const k=dd>.7?'dive':d.y<to.y-.2||(zip&&Math.random()<.6)?'catchLow':Math.random()<(zip?1:.3)?'oneHand':'leap';
         d.state=k==='leap'?'leap':k; d.until=S.t+.35; if(k==='dive') dive(d,to); d.leapH=k==='leap'?18:0;
         /* the undercut: he jumps the route in front of the receiver; the high point: he wins it at the top over him */
@@ -611,6 +611,7 @@ function makeGame(){
       if(r.y>=S.goal) return end('Touchdown',(r.name||'#'+r.num)+' catches it in the end zone.','td',S.goal);
       if(Math.abs(to.x)<5.5&&to.y>3&&d&&dd<2.4) S.bigHit={d,at:S.t+(contested?.34:.18)};
       return; }
+    if(dbl<1) pop('Double covered','#D9325E',r);
     if(diving){ dive(r,to); pop('Just missed','#F0CE26',r); }
     else if(dd>=1.6&&!inHands){ reachFor(r,to); deflect(to); pop(to.y<r.y-.4?'Behind him':'Off his fingertips','#F0CE26',r); }
     else if(dd>=1.6){ r.state='catchLow'; r.until=S.t+.4; S.loose={x0:r.x,y0:r.y,to:{x:r.x+(Math.random()-.5)*1.6,y:r.y-.8},t0:S.t}; pop('Dropped','#F0CE26',r); }
@@ -761,7 +762,7 @@ function makeGame(){
       if(S.ball.holder===p&&S.phase!=='pre'){ const d=face==='left'||face==='upL'?-1:1, side=face==='left'||face==='right', q=null;
         const bb=S.bobble&&S.bobble.r===p&&S.t-S.bobble.t0<.45?(S.t-S.bobble.t0)/.45:-1;
         if(bb>=0) drawBall(ctx,x,y,60*u+Math.abs(Math.sin(bb*Math.PI*2))*18+lift,SC,bb*7,true);
-        else if(CATCHING.has(st)&&p===S.catcher){ const h=handPoint(st,fr,face,SC); drawBall(ctx,x+h[0],y,Math.max(2,-h[1]+lift),SC,0,true); }
+        else if(CATCHING.has(st)&&(p===S.catcher||p===S.picker)){ const h=handPoint(st,fr,face,SC); drawBall(ctx,x+h[0],y,Math.max(2,-h[1]+lift),SC,0,true); }
         else if(q) drawBall(ctx,x+d*q[0]*u,y,Math.max(2,q[1]*u),SC,0,true);
         else if(LYING.has(st)){ const h=handPoint(st,fr,face,SC); drawBall(ctx,x+h[0],y,Math.max(2,-h[1]+lift),SC,0,true); }
         else if(p===S.QB&&!S.carrier) drawBall(ctx,x+9*u,y,70*u+lift,SC,-1.1,true);
@@ -808,8 +809,8 @@ function makeGame(){
   /* THE CAMERA PULLS BACK while you're choosing a throw (and before the snap), far enough to keep every receiver and the
      end of his route in view, out to the sideline; once somebody's running with it, it comes back in to 30 yards across.
      The men are drawn smaller as it pulls back, so the picture is the same field, just more of it. */
-  function frame(rdt){ let tgt=62; const QB=S.QB, choosing=S.phase==='pre'||S.phase==='regroup'||S.phase==='motion'||(S.phase==='live'&&!S.runCall&&!S.carrier&&(S.ball.holder===QB||S.ball.air));
-    if(choosing&&S.rec){ let span=0; S.rec.forEach(p=>{ span=Math.max(span,Math.abs(p.x-S.cam.x)); if(p.route&&S.phase!=='live') p.route.forEach(([rx])=>span=Math.max(span,Math.abs(p.x+rx-S.cam.x))); else if(p.route) span=Math.max(span,Math.abs(routeAt(p,S.t+.6).x-S.cam.x)); }); tgt=clamp(2*(span+4),62,66); }
+  function frame(rdt){ let tgt=57; const QB=S.QB, choosing=S.phase==='pre'||S.phase==='regroup'||S.phase==='motion'||(S.phase==='live'&&!S.runCall&&!S.carrier&&(S.ball.holder===QB||S.ball.air));
+    if(choosing&&S.rec){ let span=0; S.rec.forEach(p=>{ span=Math.max(span,Math.abs(p.x-S.cam.x)); if(p.route&&S.phase!=='live') p.route.forEach(([rx])=>span=Math.max(span,Math.abs(p.x+rx-S.cam.x))); else if(p.route) span=Math.max(span,Math.abs(routeAt(p,S.t+.6).x-S.cam.x)); }); tgt=clamp(2*(span+4),57,62); }
     VIEW+=(tgt-VIEW)*Math.min(1,rdt*(tgt>VIEW?3:1.6)); if(W){ K=W/VIEW; SC=36/VIEW; } }
   function loop(now){ const rdt=Math.min(.04,(now-last)/1000)||0; last=now; if(S.on&&S.P&&S.P.length) frame(rdt);
     try{ if(S.on){ const slow=S.t<(S.slow||0), dt=rdt*(S.hold?.45:1)*(slow?.4:1), M=MATCH;

@@ -84,21 +84,21 @@ function stageRoster(){
    lane between the hashes, a call-out, then the field slides on. */
 function makeSim(){
   const cv=$('#sim'), ctx=cv.getContext('2d'); let W=0,H=0,K=0; const DPR=Math.min(2,devicePixelRatio||1);
-  const VIEW=34; let st=null, cam=25, timer=null, done=null, fast=false;
+  const VIEW=34; let st=null, cam=25, timer=null, done=null, fast=false, opt0={};
   const myD=()=>(DR.got[5]&&DR.got[5].r)||82;
   function size(){ const r=cv.getBoundingClientRect(); if(!r.width) return; W=r.width; H=r.height; K=H/VIEW; cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
   const Y=yd=>H*.62-(yd-cam)*K;
   const COL={run:'#FF8E1C',pass:'#4C9EFF',loss:'#D9325E',to:'#D9325E',td:'#4ade80',fg:'#F0CE26',punt:'rgba(253,254,252,.55)',inc:'rgba(253,254,252,.55)'};
   function field(){
-    ctx.fillStyle='#171717'; ctx.fillRect(0,0,W,H);
-    const lx=Math.round(W*.34), rx=Math.round(W*.66); ctx.fillStyle='#1D1D1D'; ctx.fillRect(lx,0,rx-lx,H); ctx.fillStyle='#2E2E2E'; ctx.fillRect(lx,0,1,H); ctx.fillRect(rx-1,0,1,H);
+    ctx.fillStyle='#1F5A2E'; ctx.fillRect(0,0,W,H);
+    for(let yd=-10;yd<110;yd+=5){ if(((yd/5)%2+2)%2) continue; const a=Y(yd+5), b=Y(yd); if(b<0||a>H) continue; ctx.fillStyle='#246335'; ctx.fillRect(0,Math.max(0,a),W,Math.min(H,b)-Math.max(0,a)); }
     ctx.font='500 10px JetBrains Mono'; ctx.textAlign='center';
-    [[100,'rgba(217,50,94,.6)','YOUR END ZONE'],[-10,'rgba(253,254,252,.22)','THEIR END ZONE']].forEach(([a,col,l])=>{ const y0=Y(a), y1=Y(a+10); if(y0<0||y1>H) return;
+    (st&&st.mine?[[100,'rgba(217,50,94,.6)','THEIR END ZONE'],[-10,'rgba(76,158,255,.45)','YOUR END ZONE']]:[[100,'rgba(217,50,94,.6)','YOUR END ZONE'],[-10,'rgba(253,254,252,.22)','THEIR END ZONE']]).forEach(([a,col,l])=>{ const y0=Y(a), y1=Y(a+10); if(y0<0||y1>H) return;
       ctx.fillStyle=dotFill(ctx,col,5,0,Y(0)); ctx.fillRect(0,y1,W,y0-y1); const tw=ctx.measureText(l).width, my=(y0+y1)/2;
       ctx.fillStyle='#171717'; ctx.fillRect(W/2-tw/2-9,my-10,tw+18,20); ctx.fillStyle='rgba(253,254,252,.75)'; ctx.fillText(l,W/2,my+3.5); });
     ctx.textAlign='left'; ctx.font='500 9.5px JetBrains Mono';
     for(let yd=0;yd<=100;yd+=5){ const y=Math.round(Y(yd)); if(y<-4||y>H+4) continue;
-      ctx.fillStyle=yd%10?'rgba(253,254,252,.12)':'rgba(253,254,252,.28)'; for(let x=2;x<W;x+=5) ctx.fillRect(x,y-.75,1.5,1.5);
+      ctx.fillStyle=yd%10?'rgba(253,254,252,.2)':'rgba(253,254,252,.55)'; ctx.fillRect(0,y-(yd%10?.5:1),W,yd%10?1:2);
       if(yd%10===0&&yd>0&&yd<100){ const lab=yd===50?'50':yd<50?'OWN '+yd:'OPP '+(100-yd), tw=ctx.measureText(lab).width;
         ctx.fillStyle='#171717'; ctx.fillRect(7,y-7,tw+10,14); ctx.fillStyle='rgba(253,254,252,.55)'; ctx.fillText(lab,12,y+3.5); } }
   }
@@ -118,23 +118,23 @@ function makeSim(){
        drives, not all of them, and a bad one still gets a stop. Each drive also has its own form (st.form), so some drives
        just click and some never get going, whoever is on the field. */
     if(st.form==null) st.form=gauss()*.45;
-    const adv=clamp((st.off-myD())/20,-1.5,1.5)*.5+st.form, yd=st.yd, x=.44+Math.random()*.12, DA=i=>(DR.got[5]&&DR.got[5].a)?.5+(clamp((DR.got[5].a[i]-55)/44,0,1)-.5)*.5:.5;
+    const dd=st.mine?st.def:DR.got[5], adv=clamp((st.off-((dd&&dd.r)||82))/20,-1.5,1.5)*.5+st.form, yd=st.yd, x=.44+Math.random()*.12, DA=i=>(dd&&dd.a)?.5+(clamp((dd.a[i]-55)/44,0,1)-.5)*.5:.5, theirs=st.mine?'Their ball':'Your ball';
     if(st.down===4){ if(yd>=62){ const dist=100-yd+17, good=Math.random()<fgOdds(dist); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
       if(st.togo<=2&&yd>=45&&Math.random()<.5){ /* they go for it */ }
       else { const l=Math.round(40+gauss()*6); return {x,from:yd,to:Math.min(99,yd+l),kind:'punt',call:'Punt',sub:l+' yards'}; } }
     if(Math.random()<.56){
       if(Math.random()<(.065-adv*.02)*(.55+DA(0)*.9)){ const l=5+Math.floor(Math.random()*5); return {x,from:yd,to:yd-l,kind:'loss',call:'Sacked',sub:'Loss of '+l}; }
-      if(Math.random()<(.028-adv*.01)*(.5+DA(3)*1.1)) return {x,from:yd,to:yd+Math.round(8+Math.random()*10),kind:'to',call:'Intercepted',sub:'Your ball'};
+      if(Math.random()<(.028-adv*.01)*(.5+DA(3)*1.1)) return {x,from:yd,to:yd+Math.round(8+Math.random()*10),kind:'to',call:'Intercepted',sub:theirs};
       if(Math.random()<.33-adv*.05+(DA(1)-.5)*.1) return {x,from:yd,to:yd,kind:'inc',call:'Incomplete',sub:''};
       const y=Math.max(1,Math.round(8.3+adv*2.5-(DA(1)-.5)*3+gauss()*6+(Math.random()<.08?22:0))); return {x,from:yd,to:Math.min(100,yd+y),kind:'pass',call:'Pass, '+y,sub:''};
     }
-    if(Math.random()<.012*(.5+DA(3))) return {x,from:yd,to:yd+Math.round(Math.random()*3),kind:'to',call:'Fumble',sub:'Your ball'};
+    if(Math.random()<.012*(.5+DA(3))) return {x,from:yd,to:yd+Math.round(Math.random()*3),kind:'to',call:'Fumble',sub:theirs};
     const y=Math.round(4.4+adv*1.5-(DA(2)-.5)*2.5+gauss()*3.4+(Math.random()<.05?15:0)); return {x,from:yd,to:Math.min(100,yd+y),kind:y<0?'loss':'run',call:y<0?'Stuffed, '+y:'Run, '+y,sub:''};
   }
   function info(){ MATCH.ddThem(st); }
   function step(){ if(st.over) return; if(MATCH.stopped()) return finish({kind:'clock'});
     const p=play(); if(p.to>=100&&p.kind!=='to'&&p.kind!=='punt'){ p.to=100; p.via=p.kind; p.kind='td'; p.call='Touchdown'; }
-    st.n++; MATCH.cpuTick(p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
+    st.n++; MATCH[st.mine?'meTick':'cpuTick'](p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
     $('#call').innerHTML=`<div style="--cc:${COL[p.kind]}"><b>${p.call}</b>${p.sub?`<small>${p.sub}</small>`:''}</div>`;
     const t0=performance.now(), dur=fast?90:300; const grow=now=>{ if(st.over) return; const f=Math.min(1,(now-t0)/dur); frame(p,f); if(f<1) requestAnimationFrame(grow); else after(p); }; requestAnimationFrame(grow); }
   function after(p){
@@ -146,7 +146,7 @@ function makeSim(){
       if(end) return finish(end);
       const from=cam,to=st.yd,t0=performance.now(); const slide=now=>{ if(st.over) return; const f=Math.min(1,(now-t0)/(fast?80:240)); cam=from+(to-from)*(f*(2-f)); frame(null,0); if(f<1) requestAnimationFrame(slide); else { info(); timer=setTimeout(step,fast?60:180); } }; requestAnimationFrame(slide); },fast?160:620); }
   function finish(r){ st.over=true; clearTimeout(timer); r.n=st.n; r.yd=st.yd; frame(null,0); done(r); }
-  function start(yd,off,cb){ clearTimeout(timer); fast=false; size(); st={off,yd,down:1,togo:Math.min(10,100-yd),n:0,over:false}; cam=yd; done=cb; info(); frame(null,0); timer=setTimeout(step,450); }
+  function start(yd,off,cb,o){ clearTimeout(timer); opt0=o||{}; fast=!!opt0.fast; size(); st={off,yd,down:1,togo:Math.min(10,100-yd),n:0,over:false,mine:!!opt0.mine,def:opt0.def}; cam=yd; done=cb; info(); frame(null,0); timer=setTimeout(step,450); }
   addEventListener('resize',()=>{ size(); frame(null,0); });
   if(window.ResizeObserver) new ResizeObserver(()=>{ size(); frame(null,0); }).observe(cv);
   return {start,size,myD,skip(){ fast=true; },redraw(){ frame(null,0); },stop(){ if(st) st.over=true; clearTimeout(timer); }};
@@ -194,7 +194,7 @@ function makeMatch(){
   function ddThem(st){ M.cyd=st.yd; $('#dd').innerHTML=`<span><b class="dn">${ord(st.down)} <i class="amp">&amp;</i> ${st.yd+st.togo>=100?'Goal':st.togo}</b> ${theirs(st.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">Their O ${M.oppO} v D ${SIM.myD()}</span>`+strip(100-st.yd,100-st.yd-st.togo); bug(); }
   function view(v){ const snap=v==='snap'; $('#fld').style.display=snap?'':'none'; $('#sim').style.display=snap?'none':''; $('#ctrl').style.display=snap?'':'none'; $('#drive').style.display=snap?'none':'';
     $('#res').className='result'; $('#call').innerHTML=''; $('#hint').style.display='none'; GAME.show(snap); if(!snap) SIM.size(); }
-  function banner(o,cb,cb2){ const b=$('#ban'); b.innerHTML=`<div class="bx" style="--cc:${o.col||'var(--text)'}"><small>${o.tag}</small><b>${o.title}</b>${o.sub?`<span>${o.sub}</span>`:''}${o.drive?dsum():''}<button class="btn w">${o.btn}</button>${o.btn2?`<button class="btn b2">${o.btn2}</button>`:''}</div>`;
+  function banner(o,cb,cb2){ if(M.simAll&&!o.keep){ setTimeout(cb,250); return; } const b=$('#ban'); b.innerHTML=`<div class="bx" style="--cc:${o.col||'var(--text)'}"><small>${o.tag}</small><b>${o.title}</b>${o.sub?`<span>${o.sub}</span>`:''}${o.drive?dsum():''}<button class="btn w">${o.btn}</button>${o.btn2?`<button class="btn b2">${o.btn2}</button>`:''}</div>`;
     b.className='banner show'; $('#ctrl').classList.add('lock'); $('#drive').classList.add('lock');
     const close=()=>{ b.className='banner'; $('#ctrl').classList.remove('lock'); $('#drive').classList.remove('lock'); };
     b.querySelector('button').onclick=()=>{ close(); cb(); }; const b2=b.querySelector('.b2'); if(b2) b2.onclick=()=>{ close(); cb2(); }; }
@@ -215,8 +215,20 @@ function makeMatch(){
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
-  function myDrive(yd){ newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo); ddMe(); }
-  function cpuDrive(yd){ M.cyd=yd; M.poss='cpu'; newDrive(false,yd); bug(); view('sim'); $('#drive').innerHTML=`<span class="tb">${crest(CPU)}<span>Their ball</span></span><button class="btn" id="skip">Skip ahead</button>`; $('#skip').onclick=()=>{ SIM.skip(); $('#skip').disabled=true; };
+  function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.simAll?'':'<button class="btn" id="skip">Skip ahead</button><button class="btn" id="simall">Sim the rest</button>'}`;
+    const sk=$('#skip'); if(sk) sk.onclick=()=>{ SIM.skip(); sk.disabled=true; }; const sa=$('#simall'); if(sa) sa.onclick=()=>{ M.simAll=true; SIM.skip(); driveBar(mine); }; }
+  /* your drive, simulated: your five against their defense, the same way theirs are */
+  function mySimDrive(yd){ newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; bug(); view('sim'); driveBar(true);
+    const L=M.lineup&&M.lineup.length?M.lineup:DR.got.slice(0,5), off=Math.round(L.reduce((a,p)=>a+((p&&p.r)||75),0)/L.length);
+    SIM.start(yd,off,r=>{ const go=(o,next)=>banner(o,()=>after(next));
+      if(r.kind==='td'){ const ok=Math.random()<.96; M.score[0]+=6+(ok?1:0); bug(); go({tag:'Touchdown',title:'Touchdown',sub:r.n+' plays.',col:'var(--green)',btn:'Kick off'},()=>cpuDrive(25)); }
+      else if(r.kind==='fg'){ M.score[0]+=3; bug(); go({tag:'Field goal',title:'It\'s good',sub:r.len+' yards.',col:'var(--green)',btn:'Kick off'},()=>cpuDrive(25)); }
+      else if(r.kind==='miss'){ go({tag:'Field goal',title:'No good',sub:'From '+r.len+'.',col:'var(--red)',btn:'Their ball'},()=>cpuDrive(Math.max(20,100-r.spot))); }
+      else if(r.kind==='punt'){ go({tag:'Punt',title:'You punt',sub:r.len+' yards.',btn:'Their ball'},()=>cpuDrive(r.spot>=100?20:Math.max(1,100-r.spot))); }
+      else if(r.kind==='to'||r.kind==='downs'){ go({tag:'Turnover',title:r.kind==='downs'?'Turnover on downs':r.call||'Turnover',sub:'Their ball.',col:'var(--red)',btn:'Their ball'},()=>cpuDrive(clamp(100-r.spot,1,99))); }
+      else endPeriod(); },{mine:true,def:M.oppD,fast:true}); }
+  function myDrive(yd){ if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo); ddMe(); }
+  function cpuDrive(yd){ if(M.simAll) setTimeout(()=>SIM.skip(),0); M.cyd=yd; M.poss='cpu'; newDrive(false,yd); bug(); view('sim'); driveBar(false);
     SIM.start(yd,M.oppO,r=>{ M.opp.drives++;
       const go=(o,next)=>banner(o,()=>after(next));
       if(r.kind==='td'){ const d=M.score[1]+6-M.score[0], two=[-2,-5,1,5,-9].includes(d)&&M.q>=3||Math.random()<.06, ok=two?Math.random()<.48:Math.random()<.96; M.score[1]+=6+(ok?(two?2:1):0); bug();
@@ -229,7 +241,7 @@ function makeMatch(){
       else endPeriod(); }); }
   return {
     /* o: the opponent this week (the team, its defense, its offense rating, whether you're at home, the round, and whether it has to have a winner) */
-    start(o){ Object.assign(M,{q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
+    start(o){ Object.assign(M,{simAll:false,q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
         st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,py:0,ry:0,tdP:0,tdR:0,drives:0},
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.mustWin=!!(o&&o.mustWin); M.ot=false;
@@ -274,6 +286,14 @@ function makeMatch(){
     kick(dist){ const good=Math.random()<fgOdds(dist); M.run=false; tick(6);
       if(good){ M.score[0]+=3; bug(); banner({art:'fg',drive:1,tag:'Field goal',title:'It\'s good',sub:`${dist} yards. Three points.`,col:'var(--green)',btn:'Kick off'},()=>after(()=>cpuDrive(25))); }
       else { const yd=Math.max(20,100-M.yd); banner({art:'nofg',drive:1,tag:'Field goal',title:'No good',sub:`${dist} yards, wide. Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); } },
+    meTick(s,p){ const ps=M.ps, Q=ps[0], y=p.to-p.from, pick=()=>{ const w=[0,.18,.3,.3,.22], R=Math.random()*1; let a=0; for(let i=1;i<5;i++){ a+=w[i]; if(R<a) return i; } return 2; };
+      if(M.drv&&p.kind!=='punt'&&p.kind!=='fg') M.drv.plays.push({y:p.kind==='to'||p.kind==='inc'?0:y,k:p.kind==='td'?'td':p.kind==='loss'?'loss':p.kind});
+      if(p.kind==='pass'||(p.kind==='td'&&p.via==='pass')){ const i=pick(); Q.att++; Q.comp++; Q.py+=y; ps[i].tgt++; ps[i].rec++; ps[i].recy+=y; ps[i].long=Math.max(ps[i].long,y); M.st.att++; M.st.comp++; M.st.py+=y; if(p.kind==='td'){ Q.ptd++; ps[i].rtd++; M.st.ptd++; } }
+      else if(p.kind==='inc'){ const i=pick(); Q.att++; ps[i].tgt++; M.st.att++; }
+      else if(p.kind==='loss'&&p.call==='Sacked'){ Q.sk++; M.st.sk++; }
+      else if(p.kind==='to'){ if(p.call==='Fumble'){ ps[1].fum++; } else { Q.att++; Q.int++; M.st.att++; M.st.int++; } }
+      else if(p.kind==='run'||p.kind==='loss'||(p.kind==='td'&&p.via!=='pass')){ const i=Math.random()<.82?1:0; ps[i].car++; ps[i].ry+=y; M.st.ra++; M.st.ry+=y; if(p.kind==='td'){ ps[i].rushtd++; M.st.rtd++; } }
+      tick(s); },
     cpuTick(s,p){ M.opp.plays++; if(M.drv&&p.kind!=='punt'&&p.kind!=='fg') M.drv.plays.push({y:p.kind==='to'||p.kind==='inc'?0:p.to-p.from,k:p.kind==='pass'||p.kind==='inc'||p.kind==='run'||p.kind==='loss'||p.kind==='td'||p.kind==='to'?p.kind:'run'}); if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to'){ const g=p.to-p.from, pass=p.kind==='pass'||p.kind==='inc'||p.call==='Sacked'||(p.kind==='td'&&p.via==='pass'); M.opp.yds+=g; if(pass) M.opp.py+=g; else M.opp.ry+=g; }
       if(p.kind==='td') M.opp[p.via==='pass'?'tdP':'tdR']++; tick(s); },
     stopped(){ return M.stop; },
