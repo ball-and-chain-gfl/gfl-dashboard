@@ -285,7 +285,7 @@ function makeGame(){
     else { const ps=PL.dir>0?1:0; ols[2].role='climb'; ols[2].climb=LB[PL.wide?1-ps:ps]; TE.climb=LB[PL.wide?ps:1-ps]; }
     S.eng.forEach(e=>{ const sk=runCall?'stop':'rush', diff=(erR(ds(e.d,sk))-e.o.r)/20; e.rate=Math.max(.3,(runCall?.34+(Dn(e.d,'stop')-.5)*.3:.36+(Dn(e.d,'rush')-.5)*.4)+diff*.3+Eg(e.d,sk)*.14+gauss()*.1);   /* even a poor line gets off its block in the end */ e.d.blocked=true; e.o.blocking=e.d; });
     S.P=P; S.QB=QB; S.RB=RB; S.rec=[WA,TE,WB,RB]; S.DL=DL; S.LB=LB; S.CB=CB; S.SF=SF; S.runCall=runCall;
-    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.picker=null; S.dove=false; S.flashT=null; S.pitchV=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
+    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.picker=null; S.dove=false; S.flashT=null; S.pitchV=null; S.slipEnd=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
   }
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   function track(p,m,dt){ if(p._tk!==m){ p._tk=m; p.mvx=m.vx; p.mvy=m.vy; } const k=Math.min(1,dt*1.6*Math.exp(2.4*Df(p,'cov')));   /* reads a break in about .3 s at 70 coverage, .12 s at 85, .06 s at 97 */ p.mvx+=(m.vx-p.mvx)*k; p.mvy+=(m.vy-p.mvy)*k; }
@@ -464,6 +464,7 @@ function makeGame(){
       else if(p.cutUntil&&t<p.cutUntil&&p.route){ const a0=p.acc; p.acc=a0*(p.cutK||1); steer(p,tx,ty,dt,vmax); p.acc=a0; }
       else steer(p,tx,ty,dt,vmax);
       p.x+=p.vx*dt; p.y+=p.vy*dt;
+      if(S.home&&(S.home.rain||S.home.snow)&&!p.down&&t>(p.stepT||0)&&Math.hypot(p.vx,p.vy)>2.8){ p.stepT=t+.16+Math.random()*.06; burst(p.x+(Math.random()-.5)*.3,p.y,2,{cols:S.home.snow?['#ffffff','#e8eef4','#d6dee8']:['rgba(200,218,240,.85)','#9fb8d2','#c9d8ea'],sp:1.1,vz:S.home.snow?1.4:1.8,g:9,life:.3,s:S.home.snow?2:1}); }
       const sp=Math.hypot(p.vx,p.vy); if(p===carrier&&S.cut&&t<S.cut.until+.12) p.facing=p.vy>=-.5?'up':'down';
       else if(sp>.6){ p.facing=Math.abs(p.vx)>Math.abs(p.vy)*1.15?(p.vx>0?'right':'left'):(p.vy>0?'up':'down'); }
       if(p.state==='leap') vmax*=.4;
@@ -508,6 +509,8 @@ function makeGame(){
           p.state='leap'; p.leap0=S.t; p.until=S.t+.38; S.ball.air=null; const at={x:gx,y:gy};
           if(Math.random()<.05+Dn(p,hawkOf(p))*.05){ p.state='catch'; p.x=gx; p.y=gy; S.ball.holder=p; pop('Tipped & picked','#D9325E',p); sparks(p,8); celebrateD(p); return end('Intercepted','#'+p.num+' gets a hand up and it falls to him.','to',0,at); }
           pop(p.pos==='DL'?'Batted down':'Tipped','#D9325E',p); sparks(p,8); return end(p.pos==='DL'?'Batted down':'Tipped away','#'+p.num+' got a hand on it in the air.','inc',0,at); } } }
+    if(S.slipEnd&&t>=S.slipEnd.t){ const p=S.slipEnd.p; S.slipEnd=null; if(p.y<=-S.yd) return end('Safety','He slipped in his own end zone. Two points to them.','safety',0); const y=Math.round(p.y);
+      return end('Slipped',(p.name||'#'+p.num)+' lost his footing and went down'+(y>0?', '+y+' yards.':'.'),y>0?'gain':'loss',y); }
     const c=S.carrier;
     if(c&&!c.down&&!S.over&&!S.seq&&!S.ps&&!(c===S.catcher&&t<(S.secure||0))){
       for(const p of S.P){ if(p.side!=='d'||p.down||p.state==='dive'||(p.lockedBy&&dist(p,p.lockedBy)<1.3)) continue;
@@ -541,8 +544,8 @@ function makeGame(){
   const spotText=c=>(c.y>=0?'Gain of '+Math.round(c.y):'Loss of '+Math.round(-c.y))+'.';
   const SLIP=.0143;   /* a running man's slip chance a second on a wet field, rain or snow, ball or no ball */
   function slip(p,isC,quiet){ if(!quiet) pop('Slipped','#F0CE26',p,.2); dust(p,6); p.state='slip'; p._st='slip'; p._st0=S.t; p.down=true; p.vx*=.3; p.vy*=.3;
-    if(isC){ p.juke=0; if(p.y<=-S.yd) return end('Safety','He slipped in his own end zone. Two points to them.','safety',0); const y=Math.round(p.y);
-      return end('Slipped',(p.name||'#'+p.num)+' lost his footing and went down'+(y>0?', '+y+' yards.':'.'),y>0?'gain':'loss',y); }
+    /* a ball carrier goes down where he fell: the play runs on a beat so his fall plays out, then the whistle */
+    if(isC){ p.juke=0; S.slipEnd={t:S.t+.6,p}; return; }
     p.missed=true; p.upAt=S.t+1.0; }
   function dive(p,c){ p.state='dive'; p.until=S.t+.3; p.facing=FACE[dir4(c.x-p.x,(c.y??p.y)-p.y)]; dust(p,5); }
   /* three ways down: a wrap-up (he's held and taken down forward), a big hit (met head on and knocked back) and a
@@ -752,7 +755,9 @@ function makeGame(){
         for(let gx=Math.ceil(x0/SEAT);gx*SEAT<x1;gx++){ const h=hashU(gx,gy); if(h<.07) continue;
           const [sx,sy]=toS(gx*SEAT+(h-.5)*.12,gy*SEAT); let c=h<.52?hc:h<.64?ac:FAN[Math.floor(h*977)%FAN.length]; if(rainy&&h>.78&&h<.9) c=['#dfe6ee','#f0ce26','#9fb3c8'][Math.floor(h*1000)%3];
           if((ev||night)&&hashU(gy,gx*1.7)<(ev?.05:.045)&&Math.floor(nowS*6+hashU(gx*3,gy)*40)%23===0) c=night?'#FFF6D8':'#FFFFFF';
-          if(S.flashT!=null&&S.t-S.flashT<3&&hashU(gx*1.3,gy*2.1)<.05&&Math.floor(nowS*9+hashU(gy*5,gx)*60)%11===0){ const [fx,fy]=toS(gx*SEAT,gy*SEAT); ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fillRect(Math.round(fx-sz),Math.round(fy-sz*1.4),sz*2,sz*2); ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fillRect(Math.round(fx-sz*2.5),Math.round(fy-sz*.9),sz*5,1); ctx.fillRect(Math.round(fx),Math.round(fy-sz*3.4),1,sz*5); }
+          if(S.flashT!=null&&S.t-S.flashT<3.2&&hashU(gx*1.3,gy*2.1)<.07){ const ph=(nowS*7+hashU(gy*5,gx)*40)%5; if(ph<1){ const k=Math.sin(ph*Math.PI), [fx,fy]=toS(gx*SEAT,gy*SEAT), cx=Math.round(fx), cy=Math.round(fy-sz), L=Math.round(sz*(2+k*4)), l=Math.round(sz*(1+k*2));
+            ctx.fillStyle='rgba(255,255,255,'+(.55+.45*k).toFixed(2)+')'; ctx.fillRect(cx-1,cy-1,3,3); ctx.fillRect(cx-L,cy,L*2+1,1); ctx.fillRect(cx,cy-L,1,L*2+1);
+            ctx.fillStyle='rgba(255,255,255,'+(.35*k).toFixed(2)+')'; for(let i=1;i<=l;i++){ ctx.fillRect(cx+i,cy+i,1,1); ctx.fillRect(cx-i,cy-i,1,1); ctx.fillRect(cx+i,cy-i,1,1); ctx.fillRect(cx-i,cy+i,1,1); } } }
           const wv=waveOn&&Math.abs((((gx+gy)%420)+420)%420-waveX)<4, lift=(hype?Math.max(0,Math.sin(nowS*10+h*31))*sz*.9:0)+Math.sin(nowS*2.1+h*40)*sz*.14+(wv?sz*.9:0), fy=Math.round(sy-lift);
           ctx.fillStyle=c; ctx.fillRect(Math.round(sx-sz/2),Math.round(fy-sz*.7),sz,Math.max(2,Math.round(sz*.75)));
           ctx.fillStyle=SKIN[Math.floor(h*311)%SKIN.length][1]; const hs=Math.max(1,Math.round(sz*.55)); ctx.fillRect(Math.round(sx-hs/2),Math.round(fy-sz*.7-hs),hs,hs);
@@ -836,13 +841,7 @@ function makeGame(){
         if(!h.rain&&!h.snow){ const sg=ctx.createRadialGradient(W*.05,-H*.05,4,W*.05,-H*.05,H*.55); sg.addColorStop(0,'rgba(255,214,140,.32)'); sg.addColorStop(.35,'rgba(255,170,90,.12)'); sg.addColorStop(1,'rgba(255,170,90,0)'); ctx.fillStyle=sg; ctx.fillRect(0,0,W,H); } }
       if(tm==='night'){ ctx.fillStyle='rgba(6,10,30,.33)'; ctx.fillRect(0,0,W,H);
         const wash=ctx.createLinearGradient(0,0,0,H); wash.addColorStop(0,'rgba(255,250,232,.07)'); wash.addColorStop(.5,'rgba(255,250,232,.03)'); wash.addColorStop(1,'rgba(255,250,232,.05)'); ctx.fillStyle=wash; ctx.fillRect(0,0,W,H);
-        ctx.save(); ctx.globalCompositeOperation='lighter'; const z=Math.max(.8,W/375);
-        [[W*.03,-H*.004,1,1],[W*.97,-H*.004,-1,1],[W*.2,-H*.01,1,.62],[W*.8,-H*.01,-1,.62]].forEach(([bx,by,d,sc])=>{ const bw=30*z*sc, bh=17*z*sc;
-          const gl=ctx.createRadialGradient(bx,by+bh*.4,2,bx,by+bh*.4,bw*2.6); gl.addColorStop(0,'rgba(255,250,230,.30)'); gl.addColorStop(.3,'rgba(255,248,225,.10)'); gl.addColorStop(1,'rgba(255,248,225,0)'); ctx.fillStyle=gl; ctx.fillRect(bx-bw*3,0,bw*6,bw*3);
-          ctx.fillStyle='rgba(40,44,52,.9)'; ctx.fillRect(Math.round(bx-bw/2),Math.round(by),Math.round(bw),Math.round(bh));
-          ctx.fillStyle='rgba(255,253,240,.95)'; const cols=5, rows=3, dx=bw/cols, dy=bh/rows, lp=Math.max(2,Math.round(dx*.55));
-          for(let i=0;i<cols;i++) for(let j=0;j<rows;j++) ctx.fillRect(Math.round(bx-bw/2+dx*(i+.5)-lp/2),Math.round(by+dy*(j+.5)-lp/2),lp,lp); });
-        ctx.restore(); }
+        }
       if(h.rain){ ctx.fillStyle='rgba(28,42,62,.2)'; ctx.fillRect(0,0,W,H); } }
     const u=PU*SC;
     const E=S.fx&&S.fx.scene&&S.t-S.fx.t0<SCENE_END?S.fx:null;
@@ -883,7 +882,7 @@ function makeGame(){
       if(st==='plant'&&(face==='up'||face==='down')) face=p.plantDir<0?'upL':'up';
       /* a ring under his feet in his tier's colour */
       if(!LYING.has(st)&&p.pos!=='OL'){ ctx.strokeStyle=TIERC[TIER(p.r)]; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(Math.round(x),Math.round(y)+1,13*SC/1.5,4.5*SC/1.5,0,0,P2); ctx.stroke(); }
-      if(S.home&&S.home.time==='night'&&!LYING.has(st)){ ctx.fillStyle='rgba(0,0,0,.16)'; [[.785,1],[-.785,1],[.785,-1],[-.785,-1]].forEach(([a,dd])=>{ ctx.beginPath(); ctx.ellipse(x+Math.cos(a)*dd*6*SC,y+Math.sin(a)*dd*1.6*SC,8*SC,1.5*SC,a*.35*dd,0,P2); ctx.fill(); }); }   /* four lights, four shadows */
+      if(S.home&&S.home.time==='night'&&!LYING.has(st)){ ctx.fillStyle='rgba(30,10,40,.17)'; [[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([dx,dy])=>{ ctx.beginPath(); ctx.ellipse(x+dx*8*SC,y+dy*1.4*SC,10*SC,1.9*SC,dx*dy*.18,0,P2); ctx.fill(); }); }   /* four lights, four shadows, in the dusk shadow's style */
       if(S.home&&S.home.time==='dusk'&&!S.home.rain&&!S.home.snow&&!LYING.has(st)){ ctx.fillStyle='rgba(30,10,40,.22)'; ctx.beginPath(); ctx.ellipse(x+10*SC,y+SC*.3,13*SC,2.2*SC,.18,0,P2); ctx.fill(); }   /* the low sun throws a long shadow */
       drawPlayer(ctx,p.side,p.num,x,y,face,st,fr,SC,lift,p.si);
       if(p.ri!=null&&p.side==='o'&&!LYING.has(st)){ const v=STA[p.ri]/100, w=Math.round(24*SC/1.5), h=Math.max(3,Math.round(3.2*SC/1.5)), bx=Math.round(x-w/2), by=Math.round(y+7.5*SC/1.5);
@@ -898,6 +897,13 @@ function makeGame(){
         else if(LYING.has(st)){ const h=handPoint(st,fr,face,SC); drawBall(ctx,x+h[0],y,Math.max(2,-h[1]+lift),SC,0,true); }
         else if(p===S.QB&&!S.carrier) drawBall(ctx,x+9*u,y,70*u+lift,SC,-1.1,true);
         else drawBall(ctx,x+(side?d*10:-11)*u,y,56*u+lift,SC,side?-d*.45:-.9,true); } });
+    if(S.home&&S.home.time==='night'){ ctx.save(); ctx.globalCompositeOperation='lighter';
+      const ya=toY(0,H).y, yb=toY(0,0).y;
+      for(let ab=-10;ab<=110;ab+=10){ const y=ab-S.yd; if(y<ya-14||y>yb+14) continue;
+        [[-1,0],[1,5]].forEach(([sd,off])=>{ const yy=y+off; if(yy<ya-14||yy>yb+14) return; const sx=FC+sd*(SIDE+5), ex=FC-sd*2, [x0,y0]=toS(sx,yy), [x1]=toS(ex,yy), [,t1]=toS(ex,yy+10), [,b1]=toS(ex,yy-10), [,t0]=toS(sx,yy+.8), [,b0]=toS(sx,yy-.8);
+          const g=ctx.createLinearGradient(x0,0,x1,0); g.addColorStop(0,'rgba(255,248,222,.085)'); g.addColorStop(.6,'rgba(255,248,222,.04)'); g.addColorStop(1,'rgba(255,248,222,0)');
+          ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(x0,t0); ctx.lineTo(x1,t1); ctx.lineTo(x1,b1); ctx.lineTo(x0,b0); ctx.closePath(); ctx.fill(); }); }
+      ctx.restore(); }
     const air=S.ball.air; if(air){ const f=clamp((S.t-air.t0)/air.dur,0,1), A=clamp((air.arc||2)*K*.85,6,140), x=air.from.x+(air.to.x-air.from.x)*f, y=air.from.y+(air.to.y-air.from.y)*f, [bx,by]=toS(x,y), [fx,fy]=toS(air.from.x,air.from.y), [tx,ty]=toS(air.to.x,air.to.y);
       const [ax,ay]=toS(air.aim.x,air.aim.y); ctx.strokeStyle='rgba(76,158,255,.85)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(ax,ay,6,0,P2); ctx.stroke();
       const lift=Math.sin(f*Math.PI)*A+u*(72-40*f), dl=Math.PI*Math.cos(f*Math.PI)*A-40*u;
@@ -1050,6 +1056,6 @@ function makeGame(){
   /* and whenever its box changes (the play buttons coming in, the app giving the game the whole screen), so the field is never drawn squashed */
   if(window.ResizeObserver) new ResizeObserver(()=>{ if(S.on) size(); }).observe(cv);
   requestAnimationFrame(t=>{ last=t; requestAnimationFrame(loop); });
-  return { men(d){ return menOf(d); }, dlab:DLAB, _slip(p){ slip(p,false); }, roster(g){ roster=g.slice(0,5); STA=roster.map(p=>p&&p.sta!=null?p.sta:100); }, sub(i,p){ if(roster) roster[i]=p; STA[i]=p&&p.sta!=null?p.sta:100; }, stamina(){ return STA.slice(); }, ballX(){ return BF; }, setD(d){ D=d; }, setHome(h){ S.home=h; if(h&&h.logo){ const im=new Image(); im.src=h.logo; h.img=im; } }, sit(yd,down,togo,bf){ if(bf!=null){ BF=bf; S.nextBF=null; } sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
+  return { men(d){ return menOf(d); }, dlab:DLAB, _slip(p,c){ slip(p,!!c); }, roster(g){ roster=g.slice(0,5); STA=roster.map(p=>p&&p.sta!=null?p.sta:100); }, sub(i,p){ if(roster) roster[i]=p; STA[i]=p&&p.sta!=null?p.sta:100; }, stamina(){ return STA.slice(); }, ballX(){ return BF; }, setD(d){ D=d; }, setHome(h){ S.home=h; if(h&&h.logo){ const im=new Image(); im.src=h.logo; h.img=im; } }, sit(yd,down,togo,bf){ if(bf!=null){ BF=bf; S.nextBF=null; } sitOnly(yd,down,togo); }, regroup, refresh(){ buttons(); },
     show(on){ S.on=on; if(on) size(); }, S, throwTo, toS, hike, reset, update, size };
 }
