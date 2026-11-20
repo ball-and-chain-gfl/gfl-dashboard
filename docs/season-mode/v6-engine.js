@@ -498,17 +498,17 @@ function makeGame(){
       for(const p of S.P){ if(p.side!=='d'||p.down||p.state==='dive'||(p.lockedBy&&dist(p,p.lockedBy)<1.3)) continue;
         if(p.pos==='DL'&&p.blocked&&!p.shed){ if(dist(p,c)<.6&&Math.random()<dt*2.2) return tackled(c,p,'tackle'); continue; }
         if(dist(p,c)<.95&&(!p.tried||t-p.tried>.5)){ p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
-          const ok=Math.random()<clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.05+el*.085):1);
+          const ok=Math.random()<clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96)*(c.juke&&t<c.juke?1-(.05+el*(.169+.204*pw)):1);
           if(ok) return tackled(c,p); if(move(c,p,pw,el)) break; dive(p,c); p.missed=true; p.upAt=t+1.1; c.slow=t+.35*(1-pw*.6); c.slowK=.6; }
         /* THE DIVING TACKLE, the defense's juke: a man a step or two short who can't close (beside him or behind him, the
            runner getting away) lays out for his legs, once a play. It reaches to 2.1 yds but catches less than a tackle, the
            longer the dive the less, and a cut just before it beats it the way a juke beats a tackle. Miss and he's on the
            ground for a second. Only one man dives a play, and a man who gets the look takes it 3 times in 10. */
-        else if(!p.dived&&!p.blocked&&(!p.tried||t-p.tried>.5)){ const dd=dist(p,c), sp=Math.hypot(c.vx,c.vy);
+        else if(p.pos!=='DL'&&!p.dived&&!p.blocked&&(!p.tried||t-p.tried>.5)){   /* linemen don't dive */ const dd=dist(p,c), sp=Math.hypot(c.vx,c.vy);
           if(dd>=1.2&&dd<2.1&&sp>3&&((c.x-p.x)*c.vx+(c.y-p.y)*c.vy)/(dd*sp)>.3&&c.vmax>=p.vmax*.97&&!S.dove&&(p.dived=true,Math.random()<.3)){   /* a chance, not a habit: a man who gets the look takes it 3 times in 10, and only one man a play */
             S.dove=true; p.tried=t; const pw=c.pos==='RB'?A(c,2):c.pos==='TE'?A(c,3)*.7:.25, el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
             const base=clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-pw*.11-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96);
-            if(Math.random()<base*(.4+.25*Df(p,'tkl'))*(1-(dd-.95)*.35)*(c.juke&&t<c.juke?1-(.05+el*.085):1)){ pop('Diving tackle','#D9325E',p); return tackled(c,p,'shoe'); }
+            if(Math.random()<base*(.4+.25*Df(p,'tkl'))*(1-(dd-.95)*.35)*(c.juke&&t<c.juke?1-(.05+el*(.169+.204*pw)):1)){ pop('Diving tackle','#D9325E',p); return tackled(c,p,'shoe'); }
             dive(p,c); p.missed=true; p.upAt=t+1.0; pop(c.juke&&t<c.juke?'Juked the dive':'Dove and missed','#4C9EFF',c,.2); } } }
       if(Math.abs(c.x-FC)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
       if(c.y>=S.goal) return end('Touchdown',(c.name||'#'+c.num)+' takes it '+S.goal+' yards to the end zone.','td',S.goal);
@@ -598,8 +598,10 @@ function makeGame(){
     const QB=S.QB, aim=toY(px,py), d=Math.hypot(aim.x-QB.x,aim.y-QB.y);
     const rush=Math.min(...S.P.filter(p=>p.side==='d'&&(p.shed||!p.blocked)).map(p=>dist(p,QB)),99);
     /* accuracy sets how far a throw strays; arm keeps long ones on line and gets them there sooner; pressure costs less the better he escapes */
-    const arm=A(QB,0), acc=A(QB,1), sig=(1.5-acc*1.4)*(.3+d/20)+(1-arm)*Math.max(0,d-18)/18*.9+(rush<2.5?.6:0);   /* QB RATINGS. Arm: how fast it gets there (scaling what the zip meter asks for). Accuracy: how far it lands from where you tapped, further on a long throw. Escape: slipping a rusher. Legs: scrambling. */
-    const to={x:aim.x+gauss()*sig, y:aim.y+gauss()*sig};
+    const arm=A(QB,0), acc=A(QB,1), zone=1.9*((1.5-acc*1.4)*(.3+d/20)+(1-arm)*Math.max(0,d-18)/18*.9)+(rush<2.5?1.1:0);   /* QB RATINGS. Arm: how fast it gets there (scaling what the zip meter asks for). Accuracy: how far it lands from where you tapped, further on a long throw. Escape: slipping a rusher. Legs: scrambling. */
+    /* THE LANDING ZONE: a circle around where he aimed, as big as his accuracy (and, deep, his arm) and a rusher in his face
+       make it; the ball is as likely to come down anywhere in it as anywhere else. A great QB's circle is a dot. */
+    const za=Math.random()*Math.PI*2, zr=zone*Math.sqrt(Math.random()), to={x:aim.x+Math.cos(za)*zr, y:aim.y+Math.sin(za)*zr};
     S.tgt=S.rec.filter(r=>!r.down).sort((a,b)=>Math.hypot(a.x-aim.x,a.y-aim.y)-Math.hypot(b.x-aim.x,b.y-aim.y))[0]||null;
     /* how he throws it: a bullet comes out quick, a lob with a long wind-up, on the move from the side, a jump pass with a man in his face, or his standard throw */
     const moving=Math.hypot(QB.vx,QB.vy)>2.2, style=rush<1.6?'jump':moving?'run':power>.7?'quick':power<.3?'lob':'standard', iv={quick:.06,lob:.13,run:.08,jump:.09,standard:.1}[style];

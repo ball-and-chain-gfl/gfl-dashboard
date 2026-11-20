@@ -125,10 +125,27 @@ function roundRobin(ids){ const a=ids.slice(); if(a.length%2) a.push(null); cons
   for(let r=0;r<n-1;r++){ const g=[]; for(let i=0;i<n/2;i++){ const x=a[i], y=a[n-1-i]; if(x!=null&&y!=null) g.push((r+i)%2?{h:x,a:y}:{h:y,a:x}); } R.push(g); a.splice(1,0,a.pop()); }
   return R; }
 
+/* THE SEASON PACK. Every team starts from the same spread: one legend, one gold, one silver and two bronze, dealt to the
+   five spots at random. Yours come out of one pack, face down; tap each to turn it over. The defense is spun each week. */
+const SPREAD_T=['legend','gold','silver','bronze','bronze'], dealSpread=()=>SPREAD_T.slice().sort(()=>Math.random()-.5);
+function seasonPack(){ DR.i=0; DR.got=[]; DR.gen=(DR.gen||0)+1; const gen=DR.gen, tz=dealSpread(); OSLOTS.forEach((pos,k)=>{ DR.got[k]=four(pos,tz[k])[0]; }); DR.deal=DR.got.slice(0,5); DR.got=[];   /* dealt now, shown as each is turned over */
+  screen('draft'); slotsHTML();
+  $('#stage').innerHTML=`<span class="q">Your season pack</span><div id="bp" class="t-legend"><div class="rays"></div>${packHTML('legend',true).replace('<span>legend</span>','<span>season</span>')}</div><span class="tag">Tap to open</span>`;
+  const pk=$('#bp .pk'), sp=setInterval(()=>PFX.rain(pk,'legend',4),260); DR.rain=sp;
+  pk.addEventListener('click',()=>{ if(pk.classList.contains('shake')) return; clearInterval(sp); pk.classList.add('shake');
+    setTimeout(()=>{ pk.classList.add('rip'); $('#bp').classList.add('pop','lit'); PFX.burst(pk,'legend',140,{sp:400,up:140,life:1.4});
+      setTimeout(()=>{ if(gen===DR.gen) seasonDeal(gen); },800); },520); }); }
+function seasonDeal(gen){ const five=DR.deal;
+  $('#stage').innerHTML=`<span class="q">Tap each card</span><div class="deal">${five.map((p,k)=>`<div class="fc"><div class="fc-back"><b>GFL</b><span>${OSLOTS[k]}</span></div>${cardHTML(p)}</div>`).join('')}</div><button class="btn w" id="next" style="width:220px;visibility:hidden">Your roster</button>`;
+  const fcs=[...document.querySelectorAll('#stage .fc')]; let left=fcs.length;
+  fcs.forEach((f,i)=>f.addEventListener('click',()=>{ if(f.classList.contains('open')) return; f.classList.add('open'); DR.got[i]=five[i]; slotsHTML(); const c=f.querySelector('.cd'), t=TIER(five[i].r);
+    setTimeout(()=>{ if(gen!==DR.gen) return; c.classList.add('in'); PFX.burst(c,t,t==='legend'?110:t==='gold'?70:36,{sp:t==='legend'?320:240,up:110,life:1.2});
+      const rt=c.querySelector('.rt'); setTimeout(()=>{ rt.classList.add('flip'); setTimeout(()=>rt.textContent=rt.dataset.r,200); c.querySelectorAll('.at em').forEach(e=>e.textContent=e.dataset.v); c.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },260);
+      if(--left===0){ const n=$('#next'); n.style.visibility='visible'; n.onclick=()=>{ DR.i=SLOTS.length; stageRoster(); }; } },180); })); }
 async function newLeague(preset){
   const P=PRESETS.find(p=>p.id===preset)||PRESETS[1], opp=leaguePool().sort(()=>Math.random()-.5).slice(0,P.teams-1);
   const used=new Set((DR.got||[]).slice(0,5).filter(Boolean).map(p=>p.id+'-'+p.season)), teams=[ME,...opp].map((t,i)=>({name:t.name,logo:t.logo||null,teamId:t.teamId,first:t.first,
-    roster:i===0?DR.got.slice(0,5).map(slim):OSLOTS.map(pos=>pickPlayer(pos,used)),dst:i===0?DR.got[5]:pickDST(),col:null,st:blank(),faab:100,bench:['QB','RB','WR','TE'].map(pos=>pickTier(pos,used,'bronze'))}));
+    roster:i===0?DR.got.slice(0,5).map(slim):(tz=>OSLOTS.map((pos,k)=>pickTier(pos,used,tz[k])))(dealSpread()),dst:i===0?DR.got[5]:pickDST(),col:null,st:blank(),faab:100,bench:['QB','RB','WR','TE'].map(pos=>pickTier(pos,used,'bronze'))}));
   const cols=await Promise.all(teams.map(t=>logoColors(t))); teams.forEach((t,i)=>t.col=cols[i]);
   const order=teams.map((_,i)=>i).sort(()=>Math.random()-.5);
   LG={v:1,preset:P.id,name:P.name,po:P.po,teams,rounds:roundRobin(order).map((g,i)=>({kind:'reg',label:'Week '+(i+1),games:g.map(x=>({...x,s:null}))})),cur:0,dstRound:0,
@@ -688,7 +705,7 @@ function setupScreen(){ screen('match'); const tc=trophies().length, hero=lab=>`
     ${tc?`<button class="btn tro-btn" id="st-tro"><canvas class="trophy"></canvas>Trophy case · ${tc}</button>`:''}</div>`;
   paintScenes(); paintArt(); paintTrophies();
   let pick='standard'; document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ pick=b.dataset.p; document.querySelectorAll('.presets button').forEach(x=>x.classList.toggle('on',x===b)); });
-  $('#go').onclick=()=>{ SETUP=pick; DR.i=0; DR.got=[]; screen('draft'); stageSpin(); };
+  $('#go').onclick=()=>{ SETUP=pick; seasonPack(); };
   $('#mix').onclick=()=>{ SETUP=pick; mixTeam(); };
   $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); const st=$('#st-tro'); if(st) st.onclick=()=>openTrophies('setup'); }
 /* for testing: skip the packs with one of every tier, in a random order across the six slots */
@@ -709,7 +726,7 @@ async function quickKick(){ $('#kick').disabled=true; $('#kick').textContent='Fi
 function quickDone(){ QUICK=false; if(resume()) hub('next'); else { DR.i=0; DR.got=[]; setupScreen(); } }
 let SETUP=null;
 /* the packs are done: the first time, the league is made; every week after, it's time to play */
-async function afterDraft(){ if(QUICK) return quickKick(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=0; save(); return hub('next'); }
+async function afterDraft(){ if(QUICK) return quickKick(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=DR.got[5]?0:-1; save(); return hub('next'); }
   LG.dstRound=LG.cur; LG.teams[0].dst=DR.got[5]; save(); hub('next'); }
 const draftLabel=()=>SETUP&&!QUICK?'To the season':QUICK?'Kick off':'Back to the hub';
 function newSeason(){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; setupScreen(); }
