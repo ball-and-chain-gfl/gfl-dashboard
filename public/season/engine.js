@@ -513,11 +513,11 @@ function makeGame(){
             if(Math.random()<base*(.4+.25*Df(p,'tkl'))*(1-(dd-.95)*.35)*(c.juke&&t<c.juke?1-(.05+el*.429):1)*(S.home&&(S.home.rain||S.home.snow)?.75:1)){ pop('Diving tackle','#D9325E',p); return tackled(c,p,'shoe'); }
             dive(p,c); p.missed=true; p.upAt=t+1.0; pop(c.juke&&t<c.juke?'Juked the dive':'Dove and missed','#4C9EFF',c,.2); } } }
       if(Math.abs(c.x-FC)>SIDE) return end('Out of bounds',spotText(c),c.y>0?'gain':'loss',Math.round(c.y));
-      if(S.home&&(S.home.rain||S.home.snow)&&c!==S.QB&&Math.hypot(c.vx,c.vy)>4.5&&Math.random()<dt*(S.home.snow?.012:.008)) return slip(c,true);
+      if(S.home&&(S.home.rain||S.home.snow)&&c!==S.QB&&Math.hypot(c.vx,c.vy)>4.5&&Math.random()<dt*.015) return slip(c,true);   /* rain and snow alike */
       if(c.y>=S.goal) return end('Touchdown',(c.name||'#'+c.num)+' takes it '+S.goal+' yards to the end zone.','td',S.goal);
     }
     /* everyone else on a wet field: a rare slip for a man running flat out, once the play is under way */
-    if(S.home&&(S.home.rain||S.home.snow)&&S.phase==='live'&&!S.seq&&!S.ps&&(!S.runCall||S.carrier)){ const rate=S.home.snow?.0035:.0025;
+    if(S.home&&(S.home.rain||S.home.snow)&&S.phase==='live'&&!S.seq&&!S.ps&&(!S.runCall||S.carrier)){ const rate=.0045;
       for(const p of S.P){ if(p===S.carrier||p===S.QB||p.pos==='OL'||p.down||p.fxd||p.seqd||p.state==='dive'||(p.blocked&&!p.shed)||p.lockedBy) continue;
         if(Math.hypot(p.vx,p.vy)>4.5&&Math.random()<dt*rate){ slip(p,false,!(S.carrier&&dist(p,S.carrier)<9||!S.carrier)); } } }
     const f=S.ball.air?{x:S.ball.air.from.x+(S.ball.air.to.x-S.ball.air.from.x)*((t-S.ball.air.t0)/S.ball.air.dur),y:S.ball.air.from.y+(S.ball.air.to.y-S.ball.air.from.y)*((t-S.ball.air.t0)/S.ball.air.dur)}:(S.carrier||QB);
@@ -1005,7 +1005,7 @@ function makeGame(){
       /* a beat between cuts, a little shorter the more elusive he is: no spamming them */
       if(S.cut&&S.t<S.cut.t0+.95-el*.3) return;
       /* the plant: he is already going sideways, at nearly full speed, the moment you tap */
-      if(S.home&&(S.home.rain||S.home.snow)&&Math.random()<(S.home.snow?.07:.05)){ S.cut={dir,until:S.t+.24,t0:S.t}; c.path=null; slip(c,true); return; }
+      if(S.home&&(S.home.rain||S.home.snow)&&Math.random()<.085){ S.cut={dir,until:S.t+.24,t0:S.t}; c.path=null; slip(c,true); return; }
       S.cut={dir,until:S.t+.24,t0:S.t}; c.path=null; c.juke=S.t+.34; c.plantUntil=S.t+.1; c.plantDir=dir; const sp=c.vmax*(.9+el*.35); c.vx=dir*sp*.88; c.vy=Math.max(.5,c.vy*.3); dust(c,7,-dir*2.5); } });
   fw.addEventListener('pointermove',e=>{ if(!S.hold) return; const r=cv.getBoundingClientRect(); S.hold.px=e.clientX-r.left; S.hold.py=e.clientY-r.top; });
   /* let go inside a receiver's lead ring and the ball is thrown to the middle of it; accuracy still decides where it lands */
