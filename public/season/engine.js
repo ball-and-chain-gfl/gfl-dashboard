@@ -128,7 +128,7 @@ function ballSpot(st,fr){ const rot=(th,tx,ty)=>{ const c=Math.cos(th), s=Math.s
   return q?[q[0],-q[1]]:null; }
 function makeGame(){
   const cv=$('#fld'), ctx=cv.getContext('2d'); let W=0,H=0,K=0; const DPR=Math.min(2,devicePixelRatio||1);
-  let VIEW=57, SC=36/57; const SIDE=26.65, HASH=3.08, OLG=82;
+  let VIEW=30, SC=1.2; const SIDE=26.65, HASH=6.67, OLG=82;
   let D={r:82,n:'Defense',season:''};
   const pickS=(pos,lo,hi,skip)=>POOL.find(p=>p.pos===pos&&p.r>=lo&&p.r<=hi&&p.id!==skip)||POOL.find(p=>p.pos===pos);
   const w1=pickS('WR',88,95); const SAMPLE=[pickS('QB',84,90),pickS('RB',82,90),w1,pickS('WR',76,87,w1.id),pickS('TE',72,82)];
@@ -809,8 +809,8 @@ function makeGame(){
   /* THE CAMERA PULLS BACK while you're choosing a throw (and before the snap), far enough to keep every receiver and the
      end of his route in view, out to the sideline; once somebody's running with it, it comes back in to 30 yards across.
      The men are drawn smaller as it pulls back, so the picture is the same field, just more of it. */
-  function frame(rdt){ let tgt=57; const QB=S.QB, choosing=S.phase==='pre'||S.phase==='regroup'||S.phase==='motion'||(S.phase==='live'&&!S.runCall&&!S.carrier&&(S.ball.holder===QB||S.ball.air));
-    if(choosing&&S.rec){ let span=0; S.rec.forEach(p=>{ span=Math.max(span,Math.abs(p.x-S.cam.x)); if(p.route&&S.phase!=='live') p.route.forEach(([rx])=>span=Math.max(span,Math.abs(p.x+rx-S.cam.x))); else if(p.route) span=Math.max(span,Math.abs(routeAt(p,S.t+.6).x-S.cam.x)); }); tgt=clamp(2*(span+4),57,62); }
+  function frame(rdt){ let tgt=30; const QB=S.QB, choosing=S.phase==='pre'||S.phase==='regroup'||S.phase==='motion'||(S.phase==='live'&&!S.runCall&&!S.carrier&&(S.ball.holder===QB||S.ball.air));
+    if(choosing&&S.rec){ let span=0; S.rec.forEach(p=>{ span=Math.max(span,Math.abs(p.x-S.cam.x)); if(p.route&&S.phase!=='live') p.route.forEach(([rx])=>span=Math.max(span,Math.abs(p.x+rx-S.cam.x))); else if(p.route) span=Math.max(span,Math.abs(routeAt(p,S.t+.6).x-S.cam.x)); }); tgt=clamp(2*(span+4),30,48); }
     VIEW+=(tgt-VIEW)*Math.min(1,rdt*(tgt>VIEW?3:1.6)); if(W){ K=W/VIEW; SC=36/VIEW; } }
   function loop(now){ const rdt=Math.min(.04,(now-last)/1000)||0; last=now; if(S.on&&S.P&&S.P.length) frame(rdt);
     try{ if(S.on){ const slow=S.t<(S.slow||0), dt=rdt*(S.hold?.45:1)*(slow?.4:1), M=MATCH;
@@ -875,7 +875,7 @@ function makeGame(){
     if(rg){ carry(keep,0); S.phase='regroup'; }
     $('#res').className='result'; hint(rg?'Getting set':preHint()); buttons();
   }
-  function hike(){ if(S.phase==='done') return MATCH.next(); if(S.phase!=='pre') return;
+  function hike(){ if(document.querySelector('.subs.show')) return; if(S.phase==='done') return MATCH.next(); if(S.phase!=='pre') return;
     if(S.jet||S.mot){ S.phase='motion'; S.mt=0; buttons(); hint('Motion'); return; }
     snap(); }
   function snap(){ S.t=0; S.phase='live'; buttons(); hint(S.runCall?'':'Tap to lob it · hold to zip it'); }

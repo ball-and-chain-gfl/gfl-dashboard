@@ -215,8 +215,8 @@ function openSubs(){ if(!subsAvail()) return; const M=MATCH.M, me=LG.teams[0], s
     return `<div class="sb-r"><div class="sb-on"><span>${OSLOTS[i]}</span><b>${esc(isBackup(p)?p.n:lastN(p.n))} <em>${p.r}</em></b><div class="sb-s">${bar(v)}<em>${v}</em></div></div>
       <div class="sb-alt">${alt.length?alt.map(q=>{ const w=Math.round(q.sta??100); return `<button data-i="${i}" data-k="${keyOf(q)}"><b>${esc(lastN(q.n))} <em>${q.r}</em></b><div class="sb-s">${bar(w)}<em>${w}</em></div></button>`; }).join(''):'<span class="sb-none">No one on the bench here</span>'}</div></div>`; }).join('');
   let el=$('#subs'); if(!el){ el=document.createElement('div'); el.id='subs'; $('#fw').appendChild(el); }
-  el.className='subs show'; el.innerHTML=`<div class="sb-bx"><div class="sb-h"><b>Substitutions</b><button class="lv" id="sb-x">✕</button></div><div class="sb-list">${rows}</div></div>`;
-  $('#sb-x').onclick=()=>{ el.className='subs'; };
+  el.className='subs show'; $('#ctrl').classList.add('lock'); el.innerHTML=`<div class="sb-bx"><div class="sb-h"><b>Substitutions</b><button class="lv" id="sb-x">✕</button></div><div class="sb-list">${rows}</div></div>`;
+  $('#sb-x').onclick=()=>{ el.className='subs'; $('#ctrl').classList.remove('lock'); };
   el.querySelectorAll('.sb-alt button').forEach(b=>b.onclick=()=>{ const i=+b.dataset.i, q=pool.find(x=>keyOf(x)===b.dataset.k), out=M.lineup[i]; if(!q) return;
     if(out&&!isBackup(out)) out.sta=Math.round(GAME.stamina()[i]); MATCH.subSlot(i,q); GAME.reset(true); openSubs(); }); }
 /* THE WAY OUT, from every pack screen and every game */
