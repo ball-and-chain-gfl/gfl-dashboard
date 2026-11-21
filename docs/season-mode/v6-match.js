@@ -324,7 +324,7 @@ function makeMatch(){
       if(o&&o.pvp){ const D=o.pvp.doc.drives, seen=Math.min(pvpSeenGet(o.pvp.id),D.length); M.pvp=Object.assign({idx:seen,mine:false,plays:[],lastG:0},o.pvp);
         pvpState(seen?D[seen-1].after:null); for(let i=seen-1;i>=0;i--){ if(D[i].by===o.pvp.role){ if(D[i].st) M.st=D[i].st; if(D[i].ps) M.ps=D[i].ps; break; } } return pvpPump(); }
       banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
-    played(r){ const S=GAME.S, y=r.yards||0, ps=M.ps, Q=ps[0];
+    played(r){ const S=GAME.S, y0=r.yards||0, y=(!M.conv&&r.kind!=='td'&&r.kind!=='safety'&&r.kind!=='to'&&M.yd+y0>=100)?99-M.yd:y0, ps=M.ps, Q=ps[0];
       if(M.pvp&&M.pvp.mine&&!M.conv){ const k=r.kind==='td'?'td':r.kind==='to'?'to':r.kind==='safety'?'safety':r.kind==='inc'?'inc':y<0?'loss':(S&&S.thrown?'pass':'run');
         const thrown=!!(S&&S.thrown), runC=!!(S&&S.runCall), body=String(r.body||'').replace(/\s+/g,' ').trim().slice(0,90);
         const call=k==='td'?(thrown?'Touchdown pass':'Touchdown run'):k==='inc'?'Incomplete pass':k==='to'?(r.head||(thrown?'Intercepted':'Fumble')):k==='safety'?'Safety'
