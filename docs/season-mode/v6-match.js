@@ -210,9 +210,14 @@ function makeMatch(){
     if(M.clock<=0){ if(M.q===2||M.q>=4){ M.clock=0; M.stop=true; } else { M.q++; M.clock=QLEN; M.run=false; M.toast='End of the '+(M.q===2?'1st':'3rd')+' quarter'; } }
     const sec=Math.ceil(M.clock); if(sec!==M.shown){ M.shown=sec; clockOnly(); if(M.poss==='me') ddMe(); } }
   /* run what comes next, unless the half or the game has run out */
-  function otDecided(){ const O=M.otS; if(!O||M.pvp) return false; O.had[M.poss]=1; const [a,b]=M.score; if(a===b) return false;
-    return !!O.had[a>b?'cpu':'me'];   /* ahead, and the side behind has had its chance (or never needed it: the defense scored) */ }
-  function after(fn){ if(M.otS&&otDecided()){ M.q=5; M.stop=true; bug(); return final(); } if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
+  const otKey=side=>M.pvp?(side==='me'?M.pvp.role:oppR(M.pvp.role)):side;
+  function otDecided(){ const O=M.otS; if(!O) return false; O.had[otKey(M.poss)]=1; const [a,b]=M.score; if(a===b) return false;
+    return !!O.had[otKey(a>b?'cpu':'me')];   /* ahead, and the side behind has had its chance (or never needed it: the defense scored) */ }
+  /* mid: between plays of a drive that goes on (no possession has ended, so nothing in overtime is decided) */
+  function after(fn,mid){ if(M.otS&&!mid&&otDecided()){ M.q=5; M.stop=true; bug(); if(M.pvp&&M.pvp.mine) pvpSend(oppR(M.pvp.role),25,{done:true}); return final(); }
+    /* a playoff overtime period that runs out as a drive ends: the next period starts with the next drive */
+    if(M.stop&&M.otS&&M.otS.playoff&&!mid){ M.otS.n++; M.q=4; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug(); M.toast='Still going: another overtime period'; }
+    if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
   function startOT(){ const pl=!!M.mustWin, rcv=Math.random()<.5?'me':'cpu'; M.otS={n:1,playoff:pl,had:{me:0,cpu:0}}; M.ot=true; M.q=4; M.clock=pl?QLEN:Math.round(QLEN*10/15); M.stop=false; M.run=false; M.tos=2; bug();
     return banner({art:'kick',tag:'Overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:(rcv==='me'?'You win the toss: your ball. ':'They win the toss and take the ball. ')+(pl?'Both teams get a possession, then the next score wins. It goes until somebody does.':'Both teams get a possession, then the next score wins. Ten minutes, and it can end tied.'),btn:rcv==='me'?'Your ball':'Their ball'},()=>rcv==='me'?myDrive(25):cpuDrive(25)); }
   function hurtNotice(p,inj,sub){ setTimeout(()=>{ let el=$('#hurtn'); if(!el){ el=document.createElement('div'); el.id='hurtn'; $('#scr-game').appendChild(el); }
@@ -224,9 +229,9 @@ function makeMatch(){
     M.pend=null; M.run=false; if(M.pvp) return pvpEndPeriod();
     /* the end of the 4th, or of an overtime period */
     if(M.q===4&&!M.otS&&M.score[0]===M.score[1]) return startOT();
-    if(M.q===4&&M.otS&&M.score[0]===M.score[1]&&M.otS.playoff){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
+    if(M.q===4&&M.otS&&M.otS.playoff){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
       /* the playoffs go on: the side with the ball keeps it into the next period */
-      return banner({art:'kick',tag:'End of overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:'Still tied. Another period.',btn:'Play on'},()=>{ if(M.poss==='me'){ view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); } else cpuDrive(M.cyd||25); }); }
+      return banner({art:'kick',tag:'End of overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:M.score[0]===M.score[1]?'Still tied. Another period.':'Not decided yet. Another period.',btn:'Play on'},()=>{ if(M.poss==='me'){ view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); } else cpuDrive(M.cyd||25); }); }
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
@@ -250,9 +255,9 @@ function makeMatch(){
   function myDrive(yd){ if(M.pvp){ M.pvp.mine=true; M.pvp.plays=[]; M.pvp.start=yd; M.pvp.lastG=gsec(); } else if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }
   const oppR=r=>r==='a'?'b':'a';
   function pvpRec(p){ const g=gsec(); p.s=Math.max(4,Math.round(g-M.pvp.lastG)); M.pvp.lastG=g; M.pvp.plays.push(p); }
-  function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; } M.stop=false; M.shown=null; bug(); }
+  function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; M.otS=a.ot?{n:a.ot.n,playoff:true,had:Object.assign({a:0,b:0},a.ot.had)}:null; M.ot=!!a.ot; } M.stop=false; M.shown=null; bug(); }
   function pvpSend(next,nextYd,flags){ const P=M.pvp; if(!P||!P.mine) return Promise.resolve(); P.mine=false;
-    const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock},st:M.st,ps:M.ps,done:!!(flags&&flags.done)};
+    const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock,ot:M.otS?{n:M.otS.n,had:Object.assign({},M.otS.had)}:null},st:M.st,ps:M.ps,done:!!(flags&&flags.done),otStart:!!(flags&&flags.ot)};
     const go=()=>pvpAppend(P.id,rec,P.doc).then(doc=>{ P.doc=doc; P.idx=doc.drives.length; pvpSeen(P.id,P.idx); }).catch(e=>{ if(e&&e.message==='superseded'){ toast('That drive was already played on another device'); return pvpLoad(P.id).then(d=>{ if(d){ P.doc=d; pvpPump(); } }); }
       toast('Couldn\u2019t send your drive · trying again'); return new Promise(res=>setTimeout(res,5000)).then(go); });
     return go(); }
@@ -266,7 +271,7 @@ function makeMatch(){
       const age=(Date.now()-P.waitT0)/1000; if(age>900){ $('#call').innerHTML=`<div style="--cc:var(--text3)"><b>Still their move</b></div>`; $('#drive').insertAdjacentHTML('beforeend','<button class="btn w" id="pv-again">Check again</button>'); $('#pv-again').onclick=()=>pvpWait(); return; }
       P.pollT=setTimeout(poll,age<90?20000:age<300?30000:60000); };
     P.pollT=setTimeout(poll,20000); }
-  function pvpPump(){ const P=M.pvp, D=P.doc.drives;
+  function pvpPump(){ const P=M.pvp; if(!P||!P.doc) return; const D=P.doc.drives;
     while(P.idx<D.length&&D[P.idx].by===P.role){ const d=D[P.idx]; pvpState(d.after); if(d.st) M.st=d.st; if(d.ps) M.ps=d.ps; P.idx++; pvpSeen(P.id,P.idx); }
     if(P.idx<D.length) return pvpReplay(D[P.idx]);
     const last=D[D.length-1];
@@ -274,13 +279,20 @@ function makeMatch(){
     if(P.doc.next===P.role){ const yd=last?last.nextYd:25; return banner({art:'kick',tag:'Head to head',title:'Your ball',sub:`On ${mine(yd)}.`,btn:'Take the field'},()=>myDrive(yd)); }
     pvpWait(); }
   function pvpReplay(d){ const P=M.pvp, b0=[...M.score]; M.poss='cpu'; M.cyd=d.start; newDrive(false,d.start); bug(); view('sim'); driveBar(false);
-    SIM.start(d.start,M.oppO,r=>{ M.opp.drives++; P.idx++; pvpSeen(P.id,P.idx); pvpState(d.after); const them=M.score[1]-b0[1], us=M.score[0]-b0[0];
+    SIM.start(d.start,M.oppO,r=>{ if(M.pvp!==P) return; M.opp.drives++; P.idx++; pvpSeen(P.id,P.idx); pvpState(d.after); const them=M.score[1]-b0[1], us=M.score[0]-b0[0];
       const t=them>=6?{art:'td_them',title:'Touchdown',sub:them===8?'Two-point try good.':them===7?'Extra point good.':'No extra point.',col:'var(--red)'}:them===3?{art:'fg',title:'Field goal',sub:'Good.',col:'var(--yellow)'}
         :us===2?{art:'safety',title:'Safety',sub:'Two points to you.',col:'var(--green)'}:r.kind==='punt'?{art:'punt',title:'They punt',sub:''}:r.kind==='to'?{art:r.call==='Fumble'?'fumble_us':'int_us',title:r.call==='Fumble'?'Fumble':'Intercepted',sub:'',col:'var(--green)'}
         :r.kind==='downs'?{art:'downs_us',title:'Turnover on downs',sub:'',col:'var(--green)'}:r.kind==='miss'?{art:'nofg',title:'Missed field goal',sub:'',col:'var(--green)'}:{art:'kick',title:d.done?'That\u2019s the game':'End of the half',sub:''};
       if(M.q===3&&M.clock===QLEN&&!d.done) t.sub=(t.sub?t.sub+' ':'')+'Halftime.';   /* their drive ran out the half */
+      if(d.otStart){ if(t.title==='End of the half') t.title='Overtime'; t.sub=(t.sub?t.sub+' ':'')+'Tied after four: overtime. '+(d.next===P.role?'You get the ball first.':'They get the ball first.')+' Both teams get a possession, then the next score wins.'; }
+      else if(d.done&&M.ot&&t.title!=='That’s the game') t.sub=(t.sub?t.sub+' ':'')+'That ends it in overtime.';
       banner(Object.assign({drive:1,tag:'Their drive',btn:'Continue'},t),()=>pvpPump()); },{script:d.plays.map(p=>Object.assign({},p))}); }
   function pvpEndPeriod(){ const P=M.pvp;
+    if(M.q===4&&M.otS){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
+      return banner({art:'kick',tag:'End of overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:M.score[0]===M.score[1]?'Still tied. Another period.':'Not decided yet. Another period.',btn:'Play on'},()=>{ view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }); }
+    if(M.q===4&&M.score[0]===M.score[1]){ const rcv=Math.random()<.5?'a':'b'; M.otS={n:1,playoff:true,had:{a:0,b:0}}; M.ot=true; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
+      if(P.mine) pvpSend(rcv,25,{ot:true});
+      return banner({art:'kick',tag:'Overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:(rcv===P.role?'You win the toss: your ball. ':'They win the toss and take the ball. ')+'Both teams get a possession, then the next score wins. It goes until somebody does.',btn:rcv===P.role?'Your ball':'Their ball'},()=>{ if(rcv===P.role) myDrive(25); else pvpWait(); }); }
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug(); const rcv='b';   /* the side that didn't have the ball first */
       if(P.mine) pvpSend(rcv,25);
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:rcv===P.role?'You get the ball to start the second half.':'They get the ball to start the second half.',btn:'Second half'},()=>{ if(rcv===P.role) myDrive(25); else pvpWait(); }); }
@@ -342,7 +354,7 @@ function makeMatch(){
       else { const g=r.kind==='inc'?0:y; M.yd=clamp(M.yd+g,1,99);
         if(g>=M.togo){ M.down=1; M.togo=Math.min(10,100-M.yd); } else { M.down++; M.togo-=g; }
         if(M.down>4){ const yd=100-M.yd; M.pend=()=>banner({art:'downs',drive:1,tag:'Turnover on downs',title:'Short',sub:`Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); }
-        else M.pend=()=>after(()=>{ GAME.regroup(M.yd,M.down,M.togo); ddMe(); }); }
+        else M.pend=()=>after(()=>{ GAME.regroup(M.yd,M.down,M.togo); ddMe(); },true); }
       ddMe(); bug(); },
     next(){ if(M.pend){ const p=M.pend; M.pend=null; p(); } },
     punt(){ const net=Math.round(42+gauss()*5), land=M.yd+net, yd=land>=100?20:100-land; M.run=false; tick(10);

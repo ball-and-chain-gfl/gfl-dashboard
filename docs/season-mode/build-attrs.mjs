@@ -60,15 +60,24 @@ for (const pos of Object.keys(RAW)) {
 /* SPEED IS THE 40. Where a player ran at the NFL Combine (forty.json, from build-forty.mjs), his Speed comes from
  * that time on one scale for everyone at his position, not from where his stats rank: a 4.26 back or receiver is a
  * 99 and a 4.70 is a 55; for tight ends 4.40 to 4.90. A quarterback's Legs is half his 40 and half his running.
- * Players lose a step with time: two points a season after their sixth. A player with no combine 40 keeps the
- * estimate from his stats above. */
+ * Players lose a step with time: two points a season after their sixth. A player who never ran at the Combine uses
+ * his reported pro-day (or regional combine) 40 from proday40.json, by name. A back, receiver or tight end with no
+ * reported 40 at all gets the median speed of the timed players at his position (not a guess from yards a carry,
+ * which made a big season look fast); a quarterback with none keeps Legs from his running. */
 const forty = fs.existsSync(new URL('forty.json', D)) ? JSON.parse(fs.readFileSync(new URL('forty.json', D), 'utf8')) : {};
+const proday = fs.existsSync(new URL('proday40.json', D)) ? JSON.parse(fs.readFileSync(new URL('proday40.json', D), 'utf8')) : {};
+for (const p of rated) { const t = proday[p.n]; if (!forty[p.id] && t && t.forty) { const y = String(t.event || '').match(/(19|20)dd/);
+  forty[p.id] = { forty: t.forty, draft: y ? +y[0] : Math.min(...rated.filter(x => x.id === p.id).map(x => x.season)) }; } }
 const SCALE = { RB: [4.26, 4.70, 0], WR: [4.26, 4.70, 0], TE: [4.40, 4.90, 2], QB: [4.40, 5.05, 2] };
 let timed = 0;
 for (const p of rated) { const f = forty[p.id], sc = SCALE[p.pos], key = p.id + '-' + p.season; if (!f || !sc || !out[key]) continue;
   const fromForty = 99 - 44 * Math.max(0, Math.min(1, (f.forty - sc[0]) / (sc[1] - sc[0])));
   const age = Math.max(0, p.season - f.draft - 6) * 2;
   let v = fromForty - age; if (p.pos === 'QB') v = (v + out[key].a[2]) / 2;
-  out[key].a[sc[2]] = Math.round(Math.max(55, Math.min(99, v))); timed++; }
+  out[key].a[sc[2]] = Math.round(Math.max(55, Math.min(99, v))); out[key].t = 1; timed++; }
+for (const pos of ['RB', 'WR', 'TE']) { const k = SCALE[pos][2], keys = rated.filter(p => p.pos === pos).map(p => p.id + '-' + p.season).filter(k2 => out[k2]);
+  const tv = keys.filter(k2 => out[k2].t).map(k2 => out[k2].a[k]).sort((a, b) => a - b), med = tv[Math.floor(tv.length / 2)];
+  keys.filter(k2 => !out[k2].t).forEach(k2 => { out[k2].a[k] = med; }); }
+for (const v of Object.values(out)) delete v.t;
 fs.writeFileSync(new URL('attrs.json', D), JSON.stringify(out));
 console.log('players', Object.keys(out).length, 'with stats', Object.keys(stats).length, 'missing', missing, 'speed from a 40:', timed);

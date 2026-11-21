@@ -19560,6 +19560,9 @@ const NT_KINDS={
   pvp:    {icon:'fa-user-group',   tone:'royal'},
   gsinv:  {icon:'fa-football',     tone:'good'},
   gsturn: {icon:'fa-football',     tone:'cool'},
+  gswin:  {icon:'fa-trophy',       tone:'gold'},
+  gsloss: {icon:'fa-football',     tone:'ember'},
+  gstie:  {icon:'fa-football',     tone:'cool'},
   graph:  {icon:'fa-chart-line',   tone:'cool'},
   bighit: {icon:'fa-sack-dollar',  tone:'gold'},
   comeback:{icon:'fa-arrow-trend-up',tone:'hot'},
@@ -22899,6 +22902,15 @@ function ntGflInvites(out){
     out.push({kind:'gsturn', day:ntDayOf(Number(x.at)||Date.now()), id:'gsturn:'+x.id+':'+(x.at||0), title:'Your move',
       art:ntStat((_ownerMap||{})[Number(x.opp&&x.opp.tid)]||'',esc(x.opp.name||'A manager'),mine+'–'+theirs,mine>theirs?'you lead':mine<theirs?'you trail':'tied',0),
       body:'Your ball in GFL Seasons head to head.', go:'gflseasons'});
+  });
+  /* THE RESULT: a finished game raises a card for both sides, won, lost or tied, for three days (both lists are
+     written when the last drive ends, so this costs no read of its own) */
+  const GS_DONE_FOR=3*24*3600*1000;
+  (_gsInv.games||[]).filter(x=>x&&x.st==='done'&&x.score&&Date.now()-(Number(x.at)||0)<GS_DONE_FOR).forEach(x=>{
+    const sc=x.score, mine=sc[x.role]||0, theirs=sc[x.role==='a'?'b':'a']||0, won=mine>theirs, lost=mine<theirs;
+    out.push({kind:won?'gswin':lost?'gsloss':'gstie', day:ntDayOf(Number(x.at)||Date.now()), id:'gsdone:'+x.id, title:won?'You won':lost?'You lost':'Tied',
+      art:ntStat((_ownerMap||{})[Number(x.opp&&x.opp.tid)]||'',esc(x.opp.name||'A manager'),mine+'–'+theirs,'final',0),
+      body:won?'You beat them head to head in GFL Seasons.':lost?'They beat you head to head in GFL Seasons.':'Your head to head in GFL Seasons ended level.', go:'gflseasons'});
   });
 }
 function ntAll(){

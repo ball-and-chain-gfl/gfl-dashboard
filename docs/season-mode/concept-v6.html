@@ -999,9 +999,11 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
   const DSET0=new Set(DEFS);
   [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); if(DSET0.has(p)){ if(p.r>88) p.r=Math.round(88+(p.r-88)*7/11); else if(p.r<88) p.r=Math.round(72+(p.r-68)*.8); }   /* defenses run 72 to 95 */ const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
     const m=raw.reduce((s,v)=>s+v,0)/raw.length; p.a=raw.map(v=>Math.round(clamp(p.r+(v-m)*.7,50,99)));
-    /* ONE SPEED SCALE: his speed (ranked at his position) becomes his top speed on the scale everyone shares; his overall
-       is the weighted average of his four by position, so the other three take up the difference */
-    const k=SPI[p.pos]; if(k!=null){ const B=SPD_BASE[p.pos]; p.a[k]=toU(B[0]+clamp((p.a[k]-55)/44,0,1)*B[1]);
+    /* ONE SPEED SCALE: his speed is his real 40 (raw, never pulled toward his overall, so a 4.32 is faster than a 4.46
+       whoever had the better season) as a top speed on the scale everyone shares; his overall is the weighted average
+       of his four by position, so the other three take up the difference */
+    /* a quarterback's Legs is his own too (his 40 and his running), on the 55-99 scale it already has */
+    const k=SPI[p.pos]??(p.pos==='QB'?2:null); if(k!=null){ const B=SPD_BASE[p.pos]; p.a[k]=B?toU(B[0]+clamp((raw[k]-55)/44,0,1)*B[1]):Math.round(clamp(raw[k],50,99));
       const W=POSW[p.pos], o=[0,1,2,3].filter(i=>i!==k), wo=o.reduce((x,i)=>x+W[i],0), d=(p.r-W.reduce((x,w,i)=>x+w*p.a[i],0))/wo;
       o.forEach(i=>p.a[i]=Math.round(clamp(p.a[i]+d,50,99))); } });
   ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0]; CPU=TEAMS.find(t=>/Kirkland/.test(t.name))||TEAMS[1];
