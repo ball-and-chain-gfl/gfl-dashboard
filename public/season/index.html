@@ -714,11 +714,16 @@
   .bt-acts{display:flex;gap:8px;flex-wrap:wrap;} .bt-acts.col{flex-direction:column;gap:10px;} .bt-acts .btn{padding:10px 12px;font-size:13px;} .bt-acts.col .btn{width:100%;}
   .bt-tro .bt-in{flex-direction:row;align-items:center;} .bt-n{font:400 26px/1 var(--px,Silkscreen);text-shadow:0 2px 0 #000;color:var(--text);}
   .bt-hit{flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px;height:100%;background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;text-align:left;}
-  .bt-ach{flex:0 0 auto;padding:9px 12px;font-size:12px;}
   .ach-sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;} .ach-sum div{background:var(--p2);padding:12px;display:flex;flex-direction:column;gap:4px;clip-path:var(--notch2);}
   .ach-sum b{font:400 24px/1 var(--px,Silkscreen);} .ach-sum span{font:700 11px var(--sans);color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
   .mu.ach{justify-content:flex-start;align-items:stretch;gap:12px;padding:16px;}
-  .hb-tl{position:absolute!important;top:10px;right:10px;z-index:3;display:flex;gap:6px;} .hb-tl .btn{padding:6px 10px;font-size:12px;}
+  .hb-tl{display:flex;align-items:center;justify-content:space-between;gap:8px;} .hb-tl .btn{padding:7px 12px;font-size:12px;}
+  /* Build a Manager's trophy button: a gold square */
+  .ach-btn{position:relative;flex:0 0 auto;width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;
+    border:2px solid rgba(240,192,64,.55);background:rgba(240,192,64,.1);color:#F0C040;box-shadow:0 3px 0 rgba(0,0,0,.45);}
+  .ach-btn svg{width:19px;height:17px;} .ach-btn:hover{background:rgba(240,192,64,.2);border-color:#F0C040;} .ach-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.45);}
+  .bt-tro .ach-btn{background:rgba(20,16,4,.72);}
+  .bt-tro::after{display:none;}   /* the short trophy row shows its picture at full strength: its label and button have their own backing */
   .lp-back{align-self:flex-start;padding:6px 12px;font-size:12px;}
   .tc-bye{display:flex;flex-direction:column;gap:2px;padding:5px 7px;font:600 11px/1.2 var(--sans);color:var(--text3);box-shadow:inset 2px 0 0 var(--text3);}
   .tc-bye.now{background:color-mix(in srgb,var(--yellow) 18%,var(--p2));box-shadow:inset 2px 0 0 var(--yellow);color:var(--text2);} .tc-bye b{font:700 12px var(--sans);color:var(--text);}
