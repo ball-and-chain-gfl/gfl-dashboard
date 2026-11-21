@@ -12,7 +12,26 @@ let LG=null;
 const OSLOTS=['QB','RB','WR','WR','TE'];
 const pois=l=>{ let L=Math.exp(-l), k=0, p=1; do{ k++; p*=Math.random(); }while(p>L); return k-1; };
 const slim=p=>({id:p.id,n:p.n,pos:p.pos,season:p.season,r:p.r,a:p.a,sk:p.sk,tm:p.tm});
-const save=()=>{ try{ localStorage.setItem(SEASON_KEY,JSON.stringify(LG)); }catch(e){} };
+const save=()=>{ if(!LG) return; if(!LG.sid){ LG.sid=Date.now().toString(36)+Math.random().toString(36).slice(2,6); LG.started=LG.started||Date.now(); } LG.rev=(LG.rev||0)+1;
+  try{ localStorage.setItem(SEASON_KEY,JSON.stringify(LG)); }catch(e){} seasonCloudPut(); };
+const scKey=()=>typeof ACCT!=='undefined'&&ACCT&&typeof pvpPut==='function'?((typeof PVP_NS!=='undefined'&&PVP_NS==='pvptest')?'seasontest_':'season_')+ACCT:null;
+const SC_UP='gfl-season-up', SC_CLEAR='gfl-season-cleared';
+let SC_PULLED=false, SC_BUSY=false, SC_AGAIN=false;
+/* leaving the page sends anything not yet up (a lineup change, a waiver bid) */
+addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='hidden'||!LG) return; let u=0; try{ u=Number(localStorage.getItem('gfl-season-uprev'))||0; }catch(e){} if((LG.rev||0)>u) seasonCloudPut(true); });
+async function seasonCloudPut(force){ const key=scKey(); if(!key||!LG) return; if(SC_BUSY){ SC_AGAIN=true; return; } const mark=LG.sid+'|'+LG.cur+'|'+LG.phase+'|'+(LG.champ??'');
+  let up=''; try{ up=localStorage.getItem(SC_UP)||''; }catch(e){} if(!force&&up===mark) return;
+  SC_BUSY=true; try{ await pvpPut(key,{v:1,at:Date.now(),sid:LG.sid,started:LG.started,rev:LG.rev,cur:LG.cur,phase:LG.phase,lg:LG,trophies:trophies()},'season'); try{ localStorage.setItem(SC_UP,mark); localStorage.setItem('gfl-season-uprev',String(LG.rev||0)); }catch(e){} }catch(e){} SC_BUSY=false; if(SC_AGAIN){ SC_AGAIN=false; seasonCloudPut(); } }
+async function seasonCloudPull(){ const key=scKey(); if(!key) return false; let c;
+  try{ c=await pvpGet(key); }catch(e){ return false; }   /* unknown is not empty: a failed read changes nothing */
+  if(!c||!c.lg) return false; let changed=false, local=null; try{ local=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){}
+  let cleared=0; try{ cleared=Number(localStorage.getItem(SC_CLEAR))||0; }catch(e){}
+  const newer=!local?(c.started||0)>cleared:(local.sid&&local.sid===c.sid)?(c.rev||0)>(local.rev||0):(c.started||0)>(local.started||0);
+  if(newer){ try{ localStorage.setItem(SEASON_KEY,JSON.stringify(c.lg)); localStorage.setItem(SC_UP,c.sid+'|'+c.cur+'|'+c.phase+'|'+(c.lg.champ??'')); changed=true; }catch(e){} }
+  /* the trophy case is the two put together */
+  const T=trophies(), seen=new Set(T.map(t=>JSON.stringify(t))), add=(c.trophies||[]).filter(t=>!seen.has(JSON.stringify(t)));
+  if(add.length){ try{ localStorage.setItem(TROPHY_KEY,JSON.stringify([...T,...add].sort((a,b)=>(b.at||b.d||0)-(a.at||a.d||0)).slice(0,60))); changed=true; }catch(e){} }
+  if(changed) resume(); return changed; }
 const youIdx=()=>0;
 
 /* EVERY TEAM THE GFL HAS HAD, once: names that are the same team written two ways ("The Teton Tinglers" and "Teton
@@ -724,6 +743,7 @@ const confettiHTML=()=>`<div class="cft">${Array.from({length:42},(_,i)=>`<i sty
 let QUICK_ONLY=false;
 function setupScreen(){ screen('match'); const tc=trophies().length, tint=(ME.col&&ME.col[0])||'';
   if(typeof resume==='function') resume();
+  if(!SC_PULLED&&!QUICK_ONLY){ SC_PULLED=true; seasonCloudPull().then(ch=>{ if(ch&&$('.bento')) setupScreen(); }).catch(()=>{}); }
   const L=!QUICK_ONLY&&LG?LG:null, me=L?L.teams[0]:null, R=L?L.rounds[L.cur]:null;
   const place=L?ordinal(standings().findIndex(x=>x.i===0)+1):'', fin=L&&typeof myFinish==='function'?myFinish():null;
   const status=!L?'':L.phase==='done'?(fin?fin.f:'Season over')+' · '+recTxt(me.st):esc(R.label)+' · '+recTxt(me.st)+' · '+place;
@@ -787,7 +807,7 @@ let SETUP=null;
 async function afterDraft(){ if(typeof PVP_BUILD!=='undefined'&&PVP_BUILD) return pvpBuilt(); if(QUICK) return quickSetup(); if(SETUP){ const p=SETUP; SETUP=null; $('#kick').disabled=true; $('#kick').textContent='Building the league'; await newLeague(p); LG.dstRound=DR.got[5]?0:-1; save(); return hub('next'); }
   LG.dstRound=LG.cur; LG.teams[0].dst=DR.got[5]; save(); hub('next'); }
 const draftLabel=()=>typeof PVP_BUILD!=='undefined'&&PVP_BUILD?'Ready':SETUP&&!QUICK?'To the season':QUICK?'Game day':'Back to the hub';
-function newSeason(quiet){ try{ localStorage.removeItem(SEASON_KEY); }catch(e){} LG=null; DR.i=0; DR.got=[]; if(!quiet) leaguePicker(); }
+function newSeason(quiet){ try{ localStorage.removeItem(SEASON_KEY); localStorage.setItem(SC_CLEAR,String(Date.now())); localStorage.removeItem(SC_UP); }catch(e){} LG=null; DR.i=0; DR.got=[]; if(!quiet) leaguePicker(); }
 /* back where you were: your five and this week's defense come back from the save */
 function resume(){ if(QUICK_ONLY){ LG=null; return false; } try{ LG=JSON.parse(localStorage.getItem(SEASON_KEY)||'null'); }catch(e){ LG=null; }
   if(!LG||LG.v!==1||!LG.teams) { LG=null; return false; }

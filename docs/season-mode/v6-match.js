@@ -253,7 +253,8 @@ function makeMatch(){
   function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; } M.stop=false; M.shown=null; bug(); }
   function pvpSend(next,nextYd,flags){ const P=M.pvp; if(!P||!P.mine) return Promise.resolve(); P.mine=false;
     const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock},st:M.st,ps:M.ps,done:!!(flags&&flags.done)};
-    const go=()=>pvpAppend(P.id,rec).then(doc=>{ P.doc=doc; P.idx=doc.drives.length; pvpSeen(P.id,P.idx); }).catch(()=>{ toast('Couldn\u2019t send your drive · trying again'); return new Promise(res=>setTimeout(res,5000)).then(go); });
+    const go=()=>pvpAppend(P.id,rec,P.doc).then(doc=>{ P.doc=doc; P.idx=doc.drives.length; pvpSeen(P.id,P.idx); }).catch(e=>{ if(e&&e.message==='superseded'){ toast('That drive was already played on another device'); return pvpLoad(P.id).then(d=>{ if(d){ P.doc=d; pvpPump(); } }); }
+      toast('Couldn\u2019t send your drive · trying again'); return new Promise(res=>setTimeout(res,5000)).then(go); });
     return go(); }
   function pvpTheirs(yd){ M.poss='cpu'; bug(); const P=M.pvp; if(P.mine) pvpSend(oppR(P.role),yd).then(()=>pvpWait()); else pvpWait(); }
   function pvpWait(){ const P=M.pvp; if(!P) return; clearTimeout(P.pollT); P.waitT0=Date.now(); M.poss='cpu'; bug(); view('sim'); SIM.redraw();
@@ -262,9 +263,9 @@ function makeMatch(){
     $('#dd').innerHTML='<span><b class="dn">Their ball</b></span>'; $('#call').innerHTML=`<div style="--cc:var(--text3)"><b>Waiting for ${esc(CPU.name)}</b></div>`;
     const poll=async()=>{ if(M.pvp!==P||P.left) return; let doc=null; try{ doc=await pvpLoad(P.id); }catch(e){}
       if(doc&&doc.drives.length>P.idx){ P.doc=doc; $('#call').innerHTML=''; return pvpPump(); }
-      const age=(Date.now()-P.waitT0)/1000; if(age>1800){ $('#call').innerHTML=`<div style="--cc:var(--text3)"><b>Still their move</b></div>`; $('#drive').insertAdjacentHTML('beforeend','<button class="btn w" id="pv-again">Check again</button>'); $('#pv-again').onclick=()=>pvpWait(); return; }
-      P.pollT=setTimeout(poll,age<120?15000:age<600?30000:60000); };
-    P.pollT=setTimeout(poll,3000); }
+      const age=(Date.now()-P.waitT0)/1000; if(age>900){ $('#call').innerHTML=`<div style="--cc:var(--text3)"><b>Still their move</b></div>`; $('#drive').insertAdjacentHTML('beforeend','<button class="btn w" id="pv-again">Check again</button>'); $('#pv-again').onclick=()=>pvpWait(); return; }
+      P.pollT=setTimeout(poll,age<90?20000:age<300?30000:60000); };
+    P.pollT=setTimeout(poll,20000); }
   function pvpPump(){ const P=M.pvp, D=P.doc.drives;
     while(P.idx<D.length&&D[P.idx].by===P.role){ const d=D[P.idx]; pvpState(d.after); if(d.st) M.st=d.st; if(d.ps) M.ps=d.ps; P.idx++; pvpSeen(P.id,P.idx); }
     if(P.idx<D.length) return pvpReplay(D[P.idx]);
