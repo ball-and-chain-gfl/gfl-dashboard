@@ -6,7 +6,8 @@ const roll=pos=>{ let r=Math.random()*100; for(const [t,p] of ODDS){ if((r-=p)<0
 const DR={i:0,got:[]};
 const packHTML=(t,big)=>`<div class="pk t-${t}${big?' big':''}"><div class="dots"></div><div class="band"></div><b>GFL</b><span>${t}</span></div>`;
 function four(pos,tier){
-  const used=new Set([...DR.got,...((typeof LG!=='undefined'&&LG&&LG.teams[0].bench)||[])].map(g=>g&&g.id));
+  const pvp=typeof pvpActive==='function'&&pvpActive();
+  const used=new Set([...DR.got,...((!pvp&&typeof LG!=='undefined'&&LG&&LG.teams[0].bench)||[])].map(g=>g&&g.id));
   if(pos==='D/ST') return DEFS.filter(d=>TIER(d.r,1)===tier).sort(()=>Math.random()-.5).slice(0,4).map(d=>({id:'d'+d.id+'-'+d.season,n:d.n,pos:'D/ST',season:d.season,r:d.r,a:d.a}));
   return POOL.filter(p=>p.pos===pos&&TIER(p)===tier&&!used.has(p.id)).sort(()=>Math.random()-.5).slice(0,4);
 }

@@ -255,7 +255,7 @@ function pickCard(id){ const me=LG.teams[0], B=me.bench||[], R=me.roster, posOf=
 function startPlayer(j,k){ const me=LG.teams[0], B=me.bench||[], p=B[j], out=me.roster[k]; if(!p||!out||p.pos!==out.pos) return;
   me.roster[k]=p; B.splice(j,1,out); DR.got[k]=p; LG.newIds=(LG.newIds||[]).filter(x=>x!==p.id+'-'+p.season); save(); hub('team'); }
 /* SUBS MID-GAME */
-function subsAvail(){ return typeof LG!=='undefined'&&!!LG&&!QUICK&&MATCH&&MATCH.M&&MATCH.M.lineup&&MATCH.M.lineup.length===5; }
+function subsAvail(){ return typeof LG!=='undefined'&&!!LG&&!QUICK&&!(typeof pvpActive==='function'&&pvpActive())&&MATCH&&MATCH.M&&!MATCH.M.pvp&&MATCH.M.lineup&&MATCH.M.lineup.length===5; }
 function openSubs(){ if(!subsAvail()) return; const M=MATCH.M, me=LG.teams[0], st=GAME.stamina(), inL=new Set(M.lineup.map(keyOf)), pool=[...me.roster,...(me.bench||[])];
   const bar=v=>`<i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i>`;
   const rows=M.lineup.map((p,i)=>{ const v=Math.round(st[i]), alt=pool.filter(q=>q.pos===p.pos&&!q.inj&&!inL.has(keyOf(q)));
