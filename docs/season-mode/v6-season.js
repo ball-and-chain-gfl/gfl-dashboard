@@ -346,7 +346,7 @@ function hubNext(){
   else top=`<div class="hb-card"><span class="tag">${esc(R.label)}</span><h3>${LG.phase==='po'?(R.bye&&R.bye.includes(0)?'You have a bye':'You\'re out'):'No game this week'}</h3>
       <button class="btn w" id="hb-go">${goLabel('Sim '+esc(R.label.toLowerCase()))}</button></div>`;
   const last=LG.cur>0?LG.rounds[LG.cur-1]:null;
-  return top+bracketHTML()+wireHTML()+injuryHTML()+(last?`<div class="sh">${esc(last.label)} <b>results</b></div>${gamesHTML(last,true)}`:'')+`<div class="hb-row"><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-quickmix">Quick game · test team</button><button class="btn" id="hb-pvp" data-pvp>Head to head</button><button class="btn" id="hb-new">New season</button></div>`; }
+  return top+bracketHTML()+wireHTML()+injuryHTML()+(last?`<div class="sh">${esc(last.label)} <b>results</b></div>${gamesHTML(last,true)}`:'')+`<div class="hb-row"><button class="btn" id="hb-new">New season</button></div>`; }
 /* THE END OF A SEASON. Win it, and it's a title: the stadium lit up with fireworks and confetti, the trophy, CHAMPIONS,
    the MVP, the five who won it, and the numbers. Don't, and it's the final table and who won. */
 function titleHTML(){ const me=LG.teams[0], won=LG.champ===0, c=LG.teams[LG.champ], place=standings().findIndex(x=>x.i===0)+1;
@@ -364,7 +364,7 @@ function titleHTML(){ const me=LG.teams[0], won=LG.champ===0, c=LG.teams[LG.cham
     ${lead.length?`<div class="tiles">${lead.map(([v,l])=>`<div><b>${v}</b><span>${esc(l)}</span></div>`).join('')}</div>`:''}
     <div class="sh">${won?'The <b>champions</b>':'Your <b>five</b>'}</div><div class="tcs">${me.roster.map((p,k)=>tcHTML(p,{pos:OSLOTS[k]})).join('')}</div>
     ${bracketHTML()}
-    <div class="hb-acts ttl-acts">${shareButton('season',won?'Share the title':'Share your season')}<button class="btn" id="hb-tro2">Trophy case</button><button class="btn w" id="hb-go">New season</button><button class="btn" id="hb-quick">Quick game</button><button class="btn" id="hb-quickmix">Quick game · test team</button></div>`; }
+    <div class="hb-acts ttl-acts">${shareButton('season',won?'Share the title':'Share your season')}<button class="btn" id="hb-tro2">Trophy case</button><button class="btn w" id="hb-go">New season</button></div>`; }
 /* WAIVERS on the Next tab: open, the pool with your bids; run, who got whom and for how much */
 function wireHTML(){ const me=LG.teams[0], f=me.faab??100;
   if(wireOpen()){ const tot=myBids().reduce((a,b)=>a+b,0);
@@ -733,7 +733,7 @@ function setupScreen(){ screen('match'); const tc=trophies().length, tint=(ME.co
       <div class="bt-acts">${L?'<button class="btn w" id="bt-cont">Continue</button><button class="btn" id="bt-new">New season</button>':'<button class="btn w" id="bt-new">New season</button>'}</div></div></section>`}
     <section class="bt bt-quick">${sceneImg('quick')}<div class="bt-in"><div class="hv-tags"><span>Quick game</span></div><div class="bt-acts col"><button class="btn w" id="qg">Play</button><button class="btn" id="qgmix">Quick Team</button></div></div></section>
     <section class="bt bt-h2h">${sceneImg('h2h')}<div class="bt-in"><div class="hv-tags"><span>Head to head</span></div><div class="bt-acts col"><button class="btn w" id="qgpvp" data-pvp>Play a friend</button></div></div></section>
-    <div class="bt bt-tro">${sceneImg('champ',tint)}<div class="bt-in"><button class="btn w bt-trob" id="st-tro">Trophy case</button><b class="bt-n">${tc}</b>${typeof ACH_ON!=='undefined'&&ACH_ON?`<button class="ach-btn" id="bt-ach" aria-label="Achievements">${ACH_ICON}</button>`:''}</div></div>
+    <div class="bt bt-tro">${sceneImg('champ',tint)}<div class="bt-in"><button class="btn w bt-trob" id="st-tro">Trophy case</button>${typeof ACH_ON!=='undefined'&&ACH_ON?`<button class="ach-btn" id="bt-ach" aria-label="Achievements">${ACH_ICON}</button>`:''}</div></div>
   </div></div>`;
   paintArt();
   const nb=$('#bt-new'); if(nb) nb.onclick=()=>{ if(L&&L.phase!=='done'&&!confirm('Start a new season? This one will be gone.')) return; if(L) newSeason(true); leaguePicker(); };
