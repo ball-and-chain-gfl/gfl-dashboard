@@ -22869,6 +22869,9 @@ async function gsInvPoll(force){
     if(!r.ok) return;                                   /* unknown, not empty: keep what is in hand */
     const d=await r.json(), games=[];
     Object.entries(d.fields||{}).forEach(([k,v])=>{ if(k.startsWith('g_')) try{ games.push(JSON.parse(v.stringValue)); }catch(e){} });
+    /* the game writes only the other side's entry on each drive and keeps this manager's on the device until the store
+       catches up (gfl-pvp-own-pvp-<game>): lay it over, or a drive just sent reads as "Your move" again */
+    games.forEach((g,i)=>{ try{ const o=JSON.parse(localStorage.getItem('gfl-pvp-own-pvp-'+g.id)||'null'); if(o&&(o.at||0)>(g.at||0)) games[i]=o; }catch(e){} });
     gsInvTake(tid,games);
   }catch(e){}
 }
