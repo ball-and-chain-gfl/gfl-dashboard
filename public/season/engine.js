@@ -31,7 +31,7 @@ const J_=(name,motion,path,dir)=>({kind:'run',name,path,dir,wide:true,jet:motion
    position's slowest and fastest sit, and spdPos says where a man is inside his own band, which is what his speed and
    his burst are built from, so the game plays as before. An overall is the weighted average of a player's four by
    position (POSW for the offense, DW for the defense), so a lineman's low speed barely touches his. */
-const SPD_BASE={WR:[5.3,2.2],RB:[5.45,1.8],TE:[5.0,1.8],DB:[6.3,1.6],LB:[5.9,1.3],DL:[5.0,1.0]}, SPI={RB:0,WR:0,TE:2};
+const SPD_BASE={WR:[5.3,2.2],RB:[5.92,1.8],TE:[5.0,1.8],DB:[6.3,1.6],LB:[5.9,1.3],DL:[5.0,1.0]}, SPI={RB:0,WR:0,TE:2};
 const toU=v=>Math.round(Math.max(40,Math.min(99,40+(v-4.6)*59/3.3))), fromU=s=>4.6+(s-40)*3.3/59;
 const SPD_G=8.5, toG=v=>Math.round(Math.max(40,Math.min(99,99-(7.5-v)*SPD_G))), fromG=s=>7.5-(99-s)/SPD_G;
 const spdPosO=(pos,s)=>{ const B=SPD_BASE[pos]; return B?Math.max(0,Math.min(1,(fromG(s)-B[0])/B[1])):0; };
@@ -210,14 +210,15 @@ function makeGame(){
        a point at a time until the ten weighted overalls average exactly to the card. */
     const W=m=>DW[DLABP[m.pos]], wsum=m=>DSET[m.pos].reduce((a,k)=>a+W(m)[k]*m.s[k],0), ov=m=>Math.round(wsum(m));
 
-    men.forEach(m=>{ const B=SPD_BASE[DLABP[m.pos]], lift=(m.pos==='LB'||m.pos==='S')?Math.max(0,84-R)*.6:0, rel=clamp(m.want-TKL[m.pos]/2+step(60+m.j)+lift,40,99); m.s.spd=toU(B[0]+clamp((rel-55)/44,0,1)*B[1]);
+    const dbSpd=m=>{ const f=clamp((m.want-70)/25,0,1), c=80+12*f, hw=5+2*f, u=step(60+m.j)/3; m.lo=Math.round(c-hw); m.hi=Math.round(clamp(c+hw,40,99)); return Math.round(clamp(c+u*hw,40,99)); };
+    men.forEach(m=>{ const B=SPD_BASE[DLABP[m.pos]], lift=m.pos==='LB'?Math.max(0,84-R)*.6:0, rel=clamp(m.want-TKL[m.pos]/2+step(60+m.j)+lift,40,99); m.s.spd=(m.pos==='CB'||m.pos==='S')?dbSpd(m):toU(B[0]+clamp((rel-55)/44,0,1)*B[1]);
       m.s.tkl=clamp(Math.round(m.want+TKL[m.pos]/2+step(70+m.j)),40,99); m.s0={tkl:m.s.tkl,spd:m.s.spd}; });
     /* and the ten overalls average exactly to the card's overall */
     for(let g=0;g<3000;g++){ const dif=men.length*R-men.reduce((a,m)=>a+ov(m),0); if(!dif) break; const sg=Math.sign(dif); let best=null, bk=null, bd=1e9;
-      men.forEach(m=>['tkl','spd'].forEach(k=>{ if(sg>0?m.s[k]>=99:m.s[k]<=40) return; const t=wsum(m), need=sg>0?(ov(m)+.5)-t:t-(ov(m)-.5)+1e-9, steps=W(m)[k]?need/W(m)[k]+Math.abs(m.s[k]+sg-m.s0[k])*.6:Infinity;   /* spread the nudges: the man nearest a whole number, not the same man again and again */ if(steps<bd){ bd=steps; best=m; bk=k; } }));
+      men.forEach(m=>['tkl','spd'].forEach(k=>{ if(k==='spd'&&(m.pos==='CB'||m.pos==='S')&&(sg>0?m.s.spd>=m.hi:m.s.spd<=m.lo)) return; if(sg>0?m.s[k]>=99:m.s[k]<=40) return; const t=wsum(m), need=sg>0?(ov(m)+.5)-t:t-(ov(m)-.5)+1e-9, steps=W(m)[k]?need/W(m)[k]+Math.abs(m.s[k]+sg-m.s0[k])*.6:Infinity;   /* spread the nudges: the man nearest a whole number, not the same man again and again */ if(steps<bd){ bd=steps; best=m; bk=k; } }));
       if(!best) break; best.s[bk]+=sg; }
     const U={DL:[],LB:[],CB:[],S:[]}; men.forEach(m=>U[m.pos].push({pos:m.pos,lab:DLABP[m.pos],r:ov(m),k:DSET[m.pos],s:m.s}));
-    men.forEach(m=>delete m.s0); MEN.set(key,U); return U; }
+    men.forEach(m=>{ delete m.s0; delete m.lo; delete m.hi; }); MEN.set(key,U); return U; }
   /* THE DEFENSE YOU PLAY AGAINST plays a touch above its card (user 11-20, 'marginally better'): two points on its overall
      and each of its four, which reaches every man's speed, tackling, read and rush. The card shown stays what it is. */
   const DEF_EDGE=2;
@@ -239,7 +240,7 @@ function makeGame(){
     /* speed: legs for the QB, speed for the rest; elusiveness makes the back sharper in and out of cuts */
     QB.vmax=5.1+A(QB,2)*2.1; QB.acc=14+A(QB,2)*12;
     const sA=p=>p&&p.a&&SPI[p.pos]!=null&&p.a[SPI[p.pos]]!=null?spdPosO(p.pos,p.a[SPI[p.pos]]):A(p,SPI[p&&p.pos]??0);
-    RB.vmax=5.45+sA(RB)*1.8; RB.acc=16+A(RB,1)*12;
+    RB.vmax=SPD_BASE.RB[0]+sA(RB)*SPD_BASE.RB[1]; RB.acc=16+A(RB,1)*12;
     WA.vmax=5.3+sA(WA)*2.2; WB.vmax=5.3+sA(WB)*2.2; TE.vmax=5.0+sA(TE)*1.8;
     WA.acc=16+sA(WA)*10; WB.acc=16+sA(WB)*10; TE.acc=14+sA(TE)*8;
     if(!runCall){ const r=PL.routes; WA.route=r.WA; WB.route=r.WB; TE.route=r.TE; RB.route=r.RB; if(!RB.route) RB.role='protect';
