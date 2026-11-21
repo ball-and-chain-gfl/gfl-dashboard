@@ -260,7 +260,7 @@ function makeMatch(){
     const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock,ot:M.otS?{n:M.otS.n,had:Object.assign({},M.otS.had)}:null},st:M.st,ps:M.ps,done:!!(flags&&flags.done),otStart:!!(flags&&flags.ot)};
     const go=()=>pvpAppend(P.id,rec,P.doc).then(doc=>{ P.doc=doc; P.idx=doc.drives.length; pvpSeen(P.id,P.idx); }).catch(e=>{ if(e&&e.message==='superseded'){ toast('That drive was already played on another device'); return pvpLoad(P.id).then(d=>{ if(d){ P.doc=d; pvpPump(); } }); }
       toast('Couldn\u2019t send your drive · trying again'); return new Promise(res=>setTimeout(res,5000)).then(go); });
-    return go(); }
+    return P.sending=go(); }
   function pvpTheirs(yd){ M.poss='cpu'; bug(); const P=M.pvp; if(P.mine) pvpSend(oppR(P.role),yd).then(()=>pvpWait()); else pvpWait(); }
   function pvpWait(){ const P=M.pvp; if(!P) return; clearTimeout(P.pollT); P.waitT0=Date.now(); M.poss='cpu'; bug(); view('sim'); SIM.redraw();
     $('#drive').innerHTML=`<span class="tb">${crest(CPU)}<span>Their move</span></span><button class="btn" id="pv-leave">Leave</button>`;
@@ -393,6 +393,7 @@ function makeMatch(){
     subSlot(i,p){ const out=M.lineup[i], s=M.ps[i]; if(out&&Object.values(s).some(v=>v)) (M.subLog=M.subLog||[]).push({p:out,s:{...s}});
       M.ps[i]={att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0}; M.lineup[i]=p; GAME.sub(i,p); } };
   function final(){
+    if(M.pvp){ const P=M.pvp; Promise.resolve(P.sending).then(()=>{ if(P.doc&&(P.doc.status==='done'||P.doc.drives.some(d=>d.done))) pvpMarkSeen(Object.assign({},P.doc,{status:'done'})); }).catch(()=>{}); }
     /* a playoff game can't end level: overtime, and a field goal wins it */
     if(M.mustWin&&M.score[0]===M.score[1]&&!M.otS){ const w=Math.random()<.5+((DR.got.slice(0,5).reduce((s,p)=>s+p.r,0)/5)-M.oppO)/60?0:1; M.score[w]+=3; M.ot=true; bug(); }
     const [a,b]=M.score, res=(a>b?'You win':a<b?'You lose':'A tie')+(M.ot?' in overtime':''), col=a>b?'var(--gold)':a<b?'var(--red)':'var(--text2)', s=M.st;

@@ -48,7 +48,8 @@ async function pvpBoxGet(tid){ const r=await fetch(pvpUrl(PVP_NS+'box_'+tid),{ca
   return {games:games.sort((x,y)=>(y.at||0)-(x.at||0))}; }
 async function pvpBoxes(g,patch,only){ const ent=side=>{ const o=g[side==='a'?'b':'a']; return Object.assign({id:g.id,opp:{tid:o.tid,name:o.name,logo:o.logo},role:side,st:g.status,turn:g.status==='invited'?g.b.tid:g.status==='active'?g[g.next].tid:'',score:g.score||null,time:g.time,wx:g.wx,at:Date.now()},patch||{}); };
   const mine=g.a.tid===pvpTid()?ent('a'):g.b.tid===pvpTid()?ent('b'):null;
-  if(only==='opp'&&mine){ const other=mine.role==='a'?'b':'a'; await pvpBoxSet(g[other].tid,ent(other)); pvpOwnSet(mine); }
+  if(only==='me'){ if(mine) await pvpBoxSet(pvpTid(),mine); }
+  else if(only==='opp'&&mine){ const other=mine.role==='a'?'b':'a'; await pvpBoxSet(g[other].tid,ent(other)); pvpOwnSet(mine); }
   else await Promise.all([pvpBoxSet(g.a.tid,ent('a')),pvpBoxSet(g.b.tid,ent('b'))]);
   try{ if(mine&&window.parent!==window) parent.postMessage({gfl:'season-pvpentry',tid:pvpTid(),entry:mine},location.origin); }catch(e){} }
 /* a drive goes on the end of the game, read fresh first; a retry never adds the same drive twice */
@@ -74,13 +75,13 @@ async function pvpHub(){ try{ const P=MATCH.M.pvp; if(P){ P.left=true; clearTime
   let box=null; try{ box=await pvpBoxGet(pvpTid()); }catch(e){ if($('#pv-list')) $('#pv-list').innerHTML='<div class="lg-empty">Couldn’t load your games</div>'; return; }
   PVP_BOX=box; const me=pvpTid();
   try{ if(window.parent!==window) parent.postMessage({gfl:'season-pvpbox',tid:me,games:box.games},location.origin); }catch(e){} if(!$('#pv-list')) return;   /* the list was left before it loaded */
-  if(!box.games.length){ $('#pv-list').innerHTML='<div class="lg-empty">No games yet</div>'; return; }
-  const live=box.games.filter(x=>x.st!=='done'&&x.st!=='declined'), old=box.games.filter(x=>x.st==='done'||x.st==='declined');
+  if(!box.games.some(x=>!(x.st==='done'&&pvpFinSeen(x)))){ $('#pv-list').innerHTML='<div class="lg-empty">No games going</div>'; return; }
+  const live=box.games.filter(x=>x.st!=='done'&&x.st!=='declined'), old=box.games.filter(x=>(x.st==='done'&&!pvpFinSeen(x))||x.st==='declined');
   const rec={}; box.games.forEach(x=>{ if(x.st!=='done'||!x.score) return; const k=x.opp.tid, o=rec[k]||(rec[k]={opp:x.opp,w:0,l:0,t:0,pf:0,pa:0}), a=x.score[x.role]||0, b=x.score[x.role==='a'?'b':'a']||0;
     o[a>b?'w':a<b?'l':'t']++; o.pf+=a; o.pa+=b; });
   const recs=Object.values(rec), row=x=>{ const yours=x.turn===me, sc=x.score?`${x.score[x.role]}–${x.score[x.role==='a'?'b':'a']}`:'';
     const st=x.st==='invited'?(x.role==='b'?'Invited you':'Invite sent'):x.st==='declined'?'Declined':x.st==='done'?'Final '+sc:yours?'Your move'+(sc?' · '+sc:''):'Their move'+(sc?' · '+sc:'');
-    const act=x.st==='invited'&&x.role==='b'?`<button class="btn w" data-acc="${x.id}">Accept</button><button class="btn" data-dec="${x.id}">Decline</button>`:x.st==='active'||x.st==='done'?`<button class="btn${yours?' w':''}" data-open="${x.id}">${x.st==='done'?'See it':yours?'Play':'Watch'}</button>`:'';
+    const act=x.st==='invited'&&x.role==='b'?`<button class="btn w" data-acc="${x.id}">See terms</button><button class="btn" data-dec="${x.id}">Decline</button>`:x.st==='active'||x.st==='done'?`<button class="btn${yours?' w':''}" data-open="${x.id}">${x.st==='done'?'See it':yours?'Play':'Watch'}</button>`:'';
     return `<div class="pv-g${yours&&x.st!=='done'?' you':''}"><span class="pv-c">${crest(x.opp)}</span><span class="pv-t"><b>${esc(x.opp.name)}</b><small>${st}</small></span><span class="pv-a">${act}</span></div>`; };
   $('#pv-list').innerHTML=(live.length?`<span class="qs-l">Games</span>${live.map(row).join('')}`:'')+(old.length?`<span class="qs-l">Finished</span>${old.map(row).join('')}`:'');
   document.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>pvpAccept(b.dataset.acc));
@@ -142,10 +143,27 @@ function pvpBuild(rules,done){ QUICK=false; SETUP=null; PVP_BUILD={rules,done}; 
 function pvpBuilt(){ const b=PVP_BUILD; PVP_BUILD=null; PVP_FORCE=null; const got=DR.got.slice(0,6);
   b.done({five:got.slice(0,5).map(slim),dst:got[5]&&{id:got[5].id,n:got[5].n,pos:'D/ST',season:got[5].season,r:got[5].r,a:got[5].a}}); }
 
+const pvpFinKey=id=>'gfl-pvp-fin-'+PVP_NS+'-'+id;
+const pvpFinSeen=x=>{ if(x.seen) return true; try{ return localStorage.getItem(pvpFinKey(x.id))==='1'; }catch(e){ return false; } };
+function pvpMarkSeen(g){ if(!g||g.status!=='done') return; try{ localStorage.setItem(pvpFinKey(g.id),'1'); }catch(e){} pvpBoxes(g,{seen:1},'me').catch(()=>{}); }
+
 /* ═══ ACCEPT, DECLINE, PLAY ═══ */
+/* THE TERMS: an invite shows everything the other manager set before you take it */
+function pvpTermsHTML(g){ const R=g.rules||{}, TL={any:'Random',bronze:'Bronze',silver:'Silver',gold:'Gold',legend:'Legend'};
+  const team=R.mode==='pack'?'One pack: '+['legend','gold','silver','bronze'].filter(t=>(R.pack||{})[t]).map(t=>R.pack[t]+' '+TL[t]).join(', ')
+    :R.mode==='pos'?'Pick per spot':'Spin every spot';
+  const spots=R.mode==='pos'?`<div class="pv-terms">${SLOTS.slice(0,5).map((s,i)=>`<div><span>${s}</span><b>${TL[(R.pos||[])[i]||'any']}</b></div>`).join('')}</div>`:'';
+  const row=(l,v)=>`<div><span>${l}</span><b>${v}</b></div>`;
+  return `<div class="pv-terms">${row('Time',{day:'Day',dusk:'Dusk',night:'Night'}[g.time]||'Night')}${row('Weather',{clear:'Clear',rain:'Rain',snow:'Snow'}[g.wx]||'Clear')}
+    ${row('Teams',team)}${row('Defense',TL[R.dst||(R.pos||[])[5]||'any'])}${row('Overtime','Until somebody wins')}</div>${spots}`; }
 async function pvpAccept(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return toastS('Couldn’t load the game'); } if(!g||g.status!=='invited') return pvpHub();
   let crossed=null; try{ const bx=await pvpBoxGet(pvpTid()), o=pvpOpenWith(bx,g.a.tid,id); if(o&&o.st==='active') return toastS('Finish your game with '+g.a.name+' first'); if(o) crossed=o.id; }catch(e){}
-  pvpBuild(g.rules,async team=>{ try{ const f=await pvpLoad(id); f.b=Object.assign(f.b,{team,name:ME.name,logo:ME.logo||f.b.logo}); f.status='active'; f.next='a'; await pvpSave(f); await pvpBoxes(f); toastS('Game on: their ball first');
+  screen('match'); $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>Invite</b><span></span></div>
+    <div class="pv-g"><span class="pv-c">${crest(g.a)}</span><span class="pv-t"><b>${esc(g.a.name)}</b><small>Wants a game</small></span><span></span></div>
+    <span class="qs-l">Their terms</span>${pvpTermsHTML(g)}
+    <div class="pv-acts"><button class="btn" id="pv-dec">Decline</button><button class="btn w" id="pv-acc">Accept · build my team</button></div></div>`;
+  $('#pv-back').onclick=()=>pvpHub(); $('#pv-dec').onclick=()=>pvpDecline(id);
+  $('#pv-acc').onclick=()=>pvpBuild(g.rules,async team=>{ try{ const f=await pvpLoad(id); f.b=Object.assign(f.b,{team,name:ME.name,logo:ME.logo||f.b.logo}); f.status='active'; f.next='a'; await pvpSave(f); await pvpBoxes(f); toastS('Game on: their ball first');
       if(crossed){ try{ const c=await pvpLoad(crossed); if(c&&c.status==='invited'){ c.status='declined'; await pvpSave(c); await pvpBoxes(c,{turn:''}); } }catch(e){} } }catch(e){ toastS('Couldn’t accept'); } pvpHub(); }); }
 async function pvpDecline(id){ try{ const g=await pvpLoad(id); if(g&&g.status==='invited'){ g.status='declined'; await pvpSave(g); await pvpBoxes(g,{turn:''}); } }catch(e){ toastS('Couldn’t decline'); } pvpHub(); }
 async function pvpOpen(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return toastS('Couldn’t load the game'); } if(!g||!g.a.team||!g.b.team) return pvpHub();

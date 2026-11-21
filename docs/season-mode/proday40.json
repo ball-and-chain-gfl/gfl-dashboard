@@ -1,85 +1,417 @@
 {
-  "Austin Ekeler": {"forty": 4.43, "event": "Pro day (Western State players at Colorado-Boulder pro day) 2017", "source": "https://western.edu/former-western-running-back-austin-ekeler-overcomes-odds-defies-doubters-play-nfl"},
-  "Josh Jacobs": {"forty": 4.60, "event": "Alabama pro day 2019 (first pro day; reran 4.52-4.56 at second pro day Apr 2)", "source": "https://www.cbssports.com/nfl/draft/news/josh-jacobs-nfl-draft-profile-everything-to-know-about-pro-day-measurements-strengths-team-fits"},
-  "Joe Mixon": {"forty": 4.43, "event": "Oklahoma pro day 2017", "source": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/joe-mixon-runs-the-40-in-4-43-seconds-at-his-pro-day-workout"},
-  "Najee Harris": {"forty": null, "event": null, "source": null},
-  "Raheem Mostert": {"forty": 4.38, "event": "Purdue pro day 2015", "source": "https://nflcombineresults.com/playerpage.php?i=21828"},
-  "Antonio Gibson": {"forty": 4.39, "event": "NFL Combine 2020 (as WR)", "source": "https://nflcombineresults.com/playerpage.php?i=30113"},
-  "Jeff Wilson Jr.": {"forty": 4.57, "event": "North Texas pro day 2018", "source": "https://en.wikipedia.org/wiki/Jeff_Wilson_(American_football)"},
-  "Cordarrelle Patterson": {"forty": 4.42, "event": "NFL Combine 2013 (as WR)", "source": "https://www.sportskeeda.com/nfl/cordarrelle-patterson-40-time"},
-  "Latavius Murray": {"forty": 4.38, "event": "UCF pro day 2013", "source": "https://nfldraftscout.com/cfb/bio/83828"},
-  "D'Onta Foreman": {"forty": 4.45, "event": "Texas pro day 2017", "source": "https://www.nfl.com/news/d-onta-foreman-helps-nfl-draft-stock-with-pro-day-workout-0ap3000000795764"},
-  "Tyreek Hill": {"forty": 4.29, "event": "West Alabama pro day 2016", "source": "https://nfldraftscout.com/cfb/bio/132274.0"},
-  "Jaylen Waddle": {"forty": null, "event": null, "source": null},
-  "DeVonta Smith": {"forty": null, "event": null, "source": null},
-  "Tee Higgins": {"forty": 4.54, "event": "Clemson pro day 2020", "source": "https://clemsontigers.com/clemson-2020-pro-day-results/"},
-  "Adam Thielen": {"forty": 4.45, "event": "NFL Regional Combine (Chicago) 2013", "source": "https://en.wikipedia.org/wiki/Adam_Thielen"},
-  "Drake London": {"forty": null, "event": null, "source": null},
-  "Gabe Davis": {"forty": 4.54, "event": "NFL Combine 2020", "source": "https://nflcombineresults.com/playerpage.php?i=30075"},
-  "Joshua Palmer": {"forty": 4.52, "event": "Tennessee pro day 2021 (runs of 4.53 / 4.51)", "source": "https://www.si.com/college/tennessee/football/just-in-official-results-from-trey-smith-josh-palmers-pro-day"},
-  "Marquise Brown": {"forty": null, "event": null, "source": null},
-  "Russell Gage": {"forty": 4.42, "event": "LSU pro day 2018", "source": "https://lsusports.net/news/2018/04/04/211709381"},
-  "Kalif Raymond": {"forty": 4.34, "event": "Holy Cross pro day 2016", "source": "https://ras.football/2020/01/05/kalif-raymond-ras/"},
-  "Pat Freiermuth": {"forty": null, "event": null, "source": null},
-  "Taysom Hill": {"forty": 4.44, "event": "BYU pro day 2017", "source": "https://byucougars.com/news/2017/03/24/former-cougars-workout-for-nfl-scouts-at-pro-day"},
-  "Dallas Goedert": {"forty": null, "event": null, "source": null},
-  "Dawson Knox": {"forty": 4.59, "event": "Ole Miss pro day 2019", "source": "https://nflcombineresults.com/playerpage.php?i=27364"},
-  "Juwan Johnson": {"forty": 4.58, "event": "NFL Combine 2020 (as WR)", "source": "https://nflcombineresults.com/playerpage.php?i=30166"},
-  "Jordan Akins": {"forty": null, "event": null, "source": null},
-  "Robert Tonyan": {"forty": 4.58, "event": "Indiana State pro day 2017", "source": "https://en.wikipedia.org/wiki/Robert_Tonyan"},
-  "Puka Nacua": {"forty": 4.57, "event": "NFL Combine 2023", "source": "https://byucougars.com/news/2023/03/06/freeland-shines-as-all-three-cougars-excel-at-nfl-combine"},
-  "Romeo Doubs": {"forty": 4.50, "event": "Nevada pro day 2022", "source": "https://www.packersnews.com/story/sports/nfl/packers/2022/04/30/what-know-romeo-doubs-packers-fifth-pick-2022-nfl-draft/9589356002/"},
-  "Tank Dell": {"forty": 4.49, "event": "NFL Combine 2023", "source": "https://amp.nfl.com/videos/tank-dell-runs-40-yard-dash-at-2023-combine"},
-  "Rashid Shaheed": {"forty": null, "event": null, "source": null},
-  "Jaxon Smith-Njigba": {"forty": 4.48, "event": "Ohio State pro day 2023", "source": "https://www.si.com/college/ohiostate/news/ohio-state-buckeyes-wide-receiver-jaxon-smith-njigba-40-yard-dash-pro-day"},
-  "Gus Edwards": {"forty": 4.52, "event": "Rutgers pro day 2018", "source": "https://en.wikipedia.org/wiki/Gus_Edwards_(American_football)"},
-  "Tyjae Spears": {"forty": 4.54, "event": "Tulane pro day 2023", "source": "https://nflcombineresults.com/playerpage.php?i=31109"},
-  "Trey McBride": {"forty": 4.54, "event": "Colorado State pro day 2022", "source": "https://www.denver7.com/sports/college-sports/trey-mcbride-makes-quick-work-of-pro-day-with-blazing-40-time"},
-  "Dalton Kincaid": {"forty": null, "event": null, "source": null},
-  "Logan Thomas": {"forty": 4.61, "event": "NFL Combine 2014 (as QB)", "source": "https://nesn.com/2014/02/nfl-combine-live-johnny-manziel-set-to-test-speed-agility-but-not-throw"},
-  "Cade Otton": {"forty": null, "event": null, "source": null},
-  "Malik Nabers": {"forty": 4.35, "event": "LSU pro day 2024", "source": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/malik-nabers-runs-4-35-wants-to-win-battle-with-marvin-harrison-jr-rome-odunze"},
-  "Jameson Williams": {"forty": null, "event": null, "source": null},
-  "Marvin Harrison Jr.": {"forty": null, "event": null, "source": null},
-  "Quentin Johnston": {"forty": 4.49, "event": "TCU pro day 2023", "source": "https://www.si.com/nfl/draft/news/quentin-johnston-runs-sub-4-50-40-yard-dash-at-tcu-pro-day"},
-  "Nick Westbrook-Ikhine": {"forty": null, "event": null, "source": null},
-  "J.K. Dobbins": {"forty": null, "event": null, "source": null},
-  "Ray Davis": {"forty": 4.52, "event": "NFL Combine 2024", "source": "https://amp.nfl.com/videos/ray-davis-runs-40-yard-dash-at-2024-combine"},
-  "Brock Bowers": {"forty": null, "event": null, "source": null},
-  "Isaiah Likely": {"forty": 4.80, "event": "Coastal Carolina pro day 2022", "source": "https://goccusports.com/news/2022/3/18/coastal-football-holds-2022-football-pro-day.aspx"},
-  "Ashton Jeanty": {"forty": null, "event": null, "source": null},
-  "Jacory Croskey-Merritt": {"forty": 4.45, "event": "Big 12 pro day (Arizona) 2025", "source": "https://www.pff.com/news/draft-2025-nfl-draft-pro-day-schedule-results-tracker"},
-  "Jordan Mason": {"forty": 4.58, "event": "Georgia Tech pro day 2022", "source": "https://en.wikipedia.org/wiki/Jordan_Mason"},
-  "Cam Skattebo": {"forty": 4.65, "event": "Arizona State pro day workout 2025", "source": "https://arizonasports.com/ncaa/arizona-state/arizona-state-football/skattebo-40"},
-  "Tetairoa McMillan": {"forty": 4.48, "event": "Arizona private pro day workout 2025", "source": "https://www.fantasypros.com/nfl/news/505302/tetairoa-mcmillan-reportedly-runs-448-second-40-yard-dash-pro-day.php"},
-  "Emeka Egbuka": {"forty": 4.48, "event": "Ohio State pro day 2025", "source": "https://www.rotoballer.com/player-news/emeka-egbuka-flashes-speed-at-pro-day/1582419"},
-  "Parker Washington": {"forty": null, "event": null, "source": null},
-  "Tyler Warren": {"forty": null, "event": null, "source": null},
-  "Colston Loveland": {"forty": null, "event": null, "source": null},
-  "AJ Barner": {"forty": 4.84, "event": "Michigan pro day 2024", "source": "https://ras.football/ras-information/?PlayerID=25134&ovl=Michigan"},
-  "Oronde Gadsden": {"forty": 4.65, "event": "Syracuse pro day 2025", "source": "https://bleacherreport.com/articles/10149706-oronde-gadsden-ii-nfl-draft-2025-scouting-report-for-syracuse-te"},
-  "Theo Johnson": {"forty": 4.57, "event": "NFL Combine 2024", "source": "https://www.newyorkjets.com/video/theo-johnson-penn-state-40-yard-dash-2024-nfl-combine"},
-  "Denzel Boston": {"forty": null, "event": null, "source": null},
-  "KC Concepcion": {"forty": null, "event": null, "source": null},
-  "Makai Lemon": {"forty": 4.46, "event": "USC pro day 2026", "source": "https://www.si.com/college/usc/football/usc-trojans-pro-day-official-results-most-interesting-stats-makai-lemon-40-yard-dash"},
-  "Braelon Allen": {"forty": null, "event": null, "source": null},
-  "Emanuel Wilson": {"forty": 4.57, "event": "HBCU Combine / Fort Valley State pro day 2023", "source": "https://en.wikipedia.org/wiki/Emanuel_Wilson_(American_football)"},
-  "Jonah Coleman": {"forty": null, "event": null, "source": null},
-  "Darren Waller": {"forty": 4.46, "event": "NFL Combine 2015 (as WR)", "source": "https://www.ajc.com/blog/georgia-tech/waller-runs/tIIMGA3v6RM6SJRiQhF4TN/"},
-  "Joe Burrow": {"forty": null, "event": null, "source": null},
-  "Trevor Lawrence": {"forty": null, "event": null, "source": null},
-  "Lamar Jackson": {"forty": null, "event": null, "source": null},
-  "Tua Tagovailoa": {"forty": null, "event": null, "source": null},
-  "Kyler Murray": {"forty": null, "event": null, "source": null},
-  "C.J. Stroud": {"forty": null, "event": null, "source": null},
-  "Sam Howell": {"forty": null, "event": null, "source": null},
-  "Bryce Young": {"forty": null, "event": null, "source": null},
-  "Jayden Daniels": {"forty": null, "event": null, "source": null},
-  "Bo Nix": {"forty": null, "event": null, "source": null},
-  "Caleb Williams": {"forty": null, "event": null, "source": null},
-  "Drake Maye": {"forty": null, "event": null, "source": null},
-  "Jaxson Dart": {"forty": null, "event": null, "source": null},
-  "Cam Ward": {"forty": null, "event": null, "source": null},
-  "Michael Penix Jr.": {"forty": 4.46, "event": "Washington pro day 2024", "source": "https://bleacherreport.com/articles/10114772-michael-penix-jr-disappointed-with-446-second-40-yard-dash-shouldve-been-a-44"},
-  "Malik Willis": {"forty": null, "event": null, "source": null}
+  "Austin Ekeler": {
+    "forty": 4.43,
+    "event": "Pro day (Western State players at Colorado-Boulder pro day) 2017",
+    "source": "https://western.edu/former-western-running-back-austin-ekeler-overcomes-odds-defies-doubters-play-nfl"
+  },
+  "Josh Jacobs": {
+    "forty": 4.6,
+    "event": "Alabama pro day 2019 (first pro day; reran 4.52-4.56 at second pro day Apr 2)",
+    "source": "https://www.cbssports.com/nfl/draft/news/josh-jacobs-nfl-draft-profile-everything-to-know-about-pro-day-measurements-strengths-team-fits"
+  },
+  "Joe Mixon": {
+    "forty": 4.43,
+    "event": "Oklahoma pro day 2017",
+    "source": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/joe-mixon-runs-the-40-in-4-43-seconds-at-his-pro-day-workout"
+  },
+  "Najee Harris": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Raheem Mostert": {
+    "forty": 4.38,
+    "event": "Purdue pro day 2015",
+    "source": "https://nflcombineresults.com/playerpage.php?i=21828"
+  },
+  "Antonio Gibson": {
+    "forty": 4.39,
+    "event": "NFL Combine 2020 (as WR)",
+    "source": "https://nflcombineresults.com/playerpage.php?i=30113"
+  },
+  "Jeff Wilson Jr.": {
+    "forty": 4.57,
+    "event": "North Texas pro day 2018",
+    "source": "https://en.wikipedia.org/wiki/Jeff_Wilson_(American_football)"
+  },
+  "Cordarrelle Patterson": {
+    "forty": 4.42,
+    "event": "NFL Combine 2013 (as WR)",
+    "source": "https://www.sportskeeda.com/nfl/cordarrelle-patterson-40-time"
+  },
+  "Latavius Murray": {
+    "forty": 4.38,
+    "event": "UCF pro day 2013",
+    "source": "https://nfldraftscout.com/cfb/bio/83828"
+  },
+  "D'Onta Foreman": {
+    "forty": 4.45,
+    "event": "Texas pro day 2017",
+    "source": "https://www.nfl.com/news/d-onta-foreman-helps-nfl-draft-stock-with-pro-day-workout-0ap3000000795764"
+  },
+  "Tyreek Hill": {
+    "forty": 4.29,
+    "event": "West Alabama pro day 2016",
+    "source": "https://nfldraftscout.com/cfb/bio/132274.0"
+  },
+  "Jaylen Waddle": {
+    "forty": 4.27,
+    "event": "set by the league 2026 (no recorded 40; 98 speed)",
+    "source": null
+  },
+  "DeVonta Smith": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Tee Higgins": {
+    "forty": 4.54,
+    "event": "Clemson pro day 2020",
+    "source": "https://clemsontigers.com/clemson-2020-pro-day-results/"
+  },
+  "Adam Thielen": {
+    "forty": 4.45,
+    "event": "NFL Regional Combine (Chicago) 2013",
+    "source": "https://en.wikipedia.org/wiki/Adam_Thielen"
+  },
+  "Drake London": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Gabe Davis": {
+    "forty": 4.54,
+    "event": "NFL Combine 2020",
+    "source": "https://nflcombineresults.com/playerpage.php?i=30075"
+  },
+  "Joshua Palmer": {
+    "forty": 4.52,
+    "event": "Tennessee pro day 2021 (runs of 4.53 / 4.51)",
+    "source": "https://www.si.com/college/tennessee/football/just-in-official-results-from-trey-smith-josh-palmers-pro-day"
+  },
+  "Marquise Brown": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Russell Gage": {
+    "forty": 4.42,
+    "event": "LSU pro day 2018",
+    "source": "https://lsusports.net/news/2018/04/04/211709381"
+  },
+  "Kalif Raymond": {
+    "forty": 4.34,
+    "event": "Holy Cross pro day 2016",
+    "source": "https://ras.football/2020/01/05/kalif-raymond-ras/"
+  },
+  "Pat Freiermuth": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Taysom Hill": {
+    "forty": 4.44,
+    "event": "BYU pro day 2017",
+    "source": "https://byucougars.com/news/2017/03/24/former-cougars-workout-for-nfl-scouts-at-pro-day"
+  },
+  "Dallas Goedert": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Dawson Knox": {
+    "forty": 4.59,
+    "event": "Ole Miss pro day 2019",
+    "source": "https://nflcombineresults.com/playerpage.php?i=27364"
+  },
+  "Juwan Johnson": {
+    "forty": 4.58,
+    "event": "NFL Combine 2020 (as WR)",
+    "source": "https://nflcombineresults.com/playerpage.php?i=30166"
+  },
+  "Jordan Akins": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Robert Tonyan": {
+    "forty": 4.58,
+    "event": "Indiana State pro day 2017",
+    "source": "https://en.wikipedia.org/wiki/Robert_Tonyan"
+  },
+  "Puka Nacua": {
+    "forty": 4.57,
+    "event": "NFL Combine 2023",
+    "source": "https://byucougars.com/news/2023/03/06/freeland-shines-as-all-three-cougars-excel-at-nfl-combine"
+  },
+  "Romeo Doubs": {
+    "forty": 4.5,
+    "event": "Nevada pro day 2022",
+    "source": "https://www.packersnews.com/story/sports/nfl/packers/2022/04/30/what-know-romeo-doubs-packers-fifth-pick-2022-nfl-draft/9589356002/"
+  },
+  "Tank Dell": {
+    "forty": 4.49,
+    "event": "NFL Combine 2023",
+    "source": "https://amp.nfl.com/videos/tank-dell-runs-40-yard-dash-at-2023-combine"
+  },
+  "Rashid Shaheed": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Jaxon Smith-Njigba": {
+    "forty": 4.48,
+    "event": "Ohio State pro day 2023",
+    "source": "https://www.si.com/college/ohiostate/news/ohio-state-buckeyes-wide-receiver-jaxon-smith-njigba-40-yard-dash-pro-day"
+  },
+  "Gus Edwards": {
+    "forty": 4.52,
+    "event": "Rutgers pro day 2018",
+    "source": "https://en.wikipedia.org/wiki/Gus_Edwards_(American_football)"
+  },
+  "Tyjae Spears": {
+    "forty": 4.54,
+    "event": "Tulane pro day 2023",
+    "source": "https://nflcombineresults.com/playerpage.php?i=31109"
+  },
+  "Trey McBride": {
+    "forty": 4.54,
+    "event": "Colorado State pro day 2022",
+    "source": "https://www.denver7.com/sports/college-sports/trey-mcbride-makes-quick-work-of-pro-day-with-blazing-40-time"
+  },
+  "Dalton Kincaid": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Logan Thomas": {
+    "forty": 4.61,
+    "event": "NFL Combine 2014 (as QB)",
+    "source": "https://nesn.com/2014/02/nfl-combine-live-johnny-manziel-set-to-test-speed-agility-but-not-throw"
+  },
+  "Cade Otton": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Malik Nabers": {
+    "forty": 4.35,
+    "event": "LSU pro day 2024",
+    "source": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/malik-nabers-runs-4-35-wants-to-win-battle-with-marvin-harrison-jr-rome-odunze"
+  },
+  "Jameson Williams": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Marvin Harrison Jr.": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Quentin Johnston": {
+    "forty": 4.49,
+    "event": "TCU pro day 2023",
+    "source": "https://www.si.com/nfl/draft/news/quentin-johnston-runs-sub-4-50-40-yard-dash-at-tcu-pro-day"
+  },
+  "Nick Westbrook-Ikhine": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "J.K. Dobbins": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Ray Davis": {
+    "forty": 4.52,
+    "event": "NFL Combine 2024",
+    "source": "https://amp.nfl.com/videos/ray-davis-runs-40-yard-dash-at-2024-combine"
+  },
+  "Brock Bowers": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Isaiah Likely": {
+    "forty": 4.8,
+    "event": "Coastal Carolina pro day 2022",
+    "source": "https://goccusports.com/news/2022/3/18/coastal-football-holds-2022-football-pro-day.aspx"
+  },
+  "Ashton Jeanty": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Jacory Croskey-Merritt": {
+    "forty": 4.45,
+    "event": "Big 12 pro day (Arizona) 2025",
+    "source": "https://www.pff.com/news/draft-2025-nfl-draft-pro-day-schedule-results-tracker"
+  },
+  "Jordan Mason": {
+    "forty": 4.58,
+    "event": "Georgia Tech pro day 2022",
+    "source": "https://en.wikipedia.org/wiki/Jordan_Mason"
+  },
+  "Cam Skattebo": {
+    "forty": 4.65,
+    "event": "Arizona State pro day workout 2025",
+    "source": "https://arizonasports.com/ncaa/arizona-state/arizona-state-football/skattebo-40"
+  },
+  "Tetairoa McMillan": {
+    "forty": 4.48,
+    "event": "Arizona private pro day workout 2025",
+    "source": "https://www.fantasypros.com/nfl/news/505302/tetairoa-mcmillan-reportedly-runs-448-second-40-yard-dash-pro-day.php"
+  },
+  "Emeka Egbuka": {
+    "forty": 4.48,
+    "event": "Ohio State pro day 2025",
+    "source": "https://www.rotoballer.com/player-news/emeka-egbuka-flashes-speed-at-pro-day/1582419"
+  },
+  "Parker Washington": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Tyler Warren": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Colston Loveland": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "AJ Barner": {
+    "forty": 4.84,
+    "event": "Michigan pro day 2024",
+    "source": "https://ras.football/ras-information/?PlayerID=25134&ovl=Michigan"
+  },
+  "Oronde Gadsden": {
+    "forty": 4.65,
+    "event": "Syracuse pro day 2025",
+    "source": "https://bleacherreport.com/articles/10149706-oronde-gadsden-ii-nfl-draft-2025-scouting-report-for-syracuse-te"
+  },
+  "Theo Johnson": {
+    "forty": 4.57,
+    "event": "NFL Combine 2024",
+    "source": "https://www.newyorkjets.com/video/theo-johnson-penn-state-40-yard-dash-2024-nfl-combine"
+  },
+  "Denzel Boston": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "KC Concepcion": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Makai Lemon": {
+    "forty": 4.46,
+    "event": "USC pro day 2026",
+    "source": "https://www.si.com/college/usc/football/usc-trojans-pro-day-official-results-most-interesting-stats-makai-lemon-40-yard-dash"
+  },
+  "Braelon Allen": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Emanuel Wilson": {
+    "forty": 4.57,
+    "event": "HBCU Combine / Fort Valley State pro day 2023",
+    "source": "https://en.wikipedia.org/wiki/Emanuel_Wilson_(American_football)"
+  },
+  "Jonah Coleman": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Darren Waller": {
+    "forty": 4.46,
+    "event": "NFL Combine 2015 (as WR)",
+    "source": "https://www.ajc.com/blog/georgia-tech/waller-runs/tIIMGA3v6RM6SJRiQhF4TN/"
+  },
+  "Joe Burrow": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Trevor Lawrence": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Lamar Jackson": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Tua Tagovailoa": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Kyler Murray": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "C.J. Stroud": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Sam Howell": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Bryce Young": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Jayden Daniels": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Bo Nix": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Caleb Williams": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Drake Maye": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Jaxson Dart": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Cam Ward": {
+    "forty": null,
+    "event": null,
+    "source": null
+  },
+  "Michael Penix Jr.": {
+    "forty": 4.46,
+    "event": "Washington pro day 2024",
+    "source": "https://bleacherreport.com/articles/10114772-michael-penix-jr-disappointed-with-446-second-40-yard-dash-shouldve-been-a-44"
+  },
+  "Malik Willis": {
+    "forty": null,
+    "event": null,
+    "source": null
+  }
 }
