@@ -75,8 +75,7 @@ async function pvpHub(){ try{ const P=MATCH.M.pvp; if(P){ P.left=true; clearTime
     const st=x.st==='invited'?(x.role==='b'?'Invited you':'Invite sent'):x.st==='declined'?'Declined':x.st==='done'?'Final '+sc:yours?'Your move'+(sc?' · '+sc:''):'Their move'+(sc?' · '+sc:'');
     const act=x.st==='invited'&&x.role==='b'?`<button class="btn w" data-acc="${x.id}">Accept</button><button class="btn" data-dec="${x.id}">Decline</button>`:x.st==='active'||x.st==='done'?`<button class="btn${yours?' w':''}" data-open="${x.id}">${x.st==='done'?'See it':yours?'Play':'Watch'}</button>`:'';
     return `<div class="pv-g${yours&&x.st!=='done'?' you':''}"><span class="pv-c">${crest(x.opp)}</span><span class="pv-t"><b>${esc(x.opp.name)}</b><small>${st}</small></span><span class="pv-a">${act}</span></div>`; };
-  $('#pv-list').innerHTML=(recs.length?`<span class="qs-l">All-time</span>${recs.map(o=>`<div class="pv-g pv-r"><span class="pv-c">${crest(o.opp)}</span><span class="pv-t"><b>${esc(o.opp.name)}</b><small>${o.pf}–${o.pa} pts</small></span><b class="pv-wl">${o.w}–${o.l}${o.t?'–'+o.t:''}</b></div>`).join('')}`:'')
-    +(live.length?`<span class="qs-l">Games</span>${live.map(row).join('')}`:'')+(old.length?`<span class="qs-l">Finished</span>${old.map(row).join('')}`:'');
+  $('#pv-list').innerHTML=(live.length?`<span class="qs-l">Games</span>${live.map(row).join('')}`:'')+(old.length?`<span class="qs-l">Finished</span>${old.map(row).join('')}`:'');
   document.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>pvpAccept(b.dataset.acc));
   document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>pvpDecline(b.dataset.dec));
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>pvpOpen(b.dataset.open)); }
@@ -89,6 +88,11 @@ if(new URLSearchParams(location.search).get('pvp')){ const t0=Date.now(), t=setI
   if(Date.now()-t0>20000) return clearInterval(t);
   if(typeof MATCH!=='undefined'&&MATCH&&document.querySelector('[id^=scr-].on')){ clearInterval(t); pvpHub(); } },150); }
 
+/* HEAD-TO-HEAD RECORDS, for the trophy case: one read of your list, the record against each manager */
+async function pvpRecordsHTML(){ const box=await pvpBoxGet(pvpTid()), rec={};
+  box.games.forEach(x=>{ if(x.st!=='done'||!x.score) return; const k=x.opp.tid, o=rec[k]||(rec[k]={opp:x.opp,w:0,l:0,t:0,pf:0,pa:0}), a=x.score[x.role]||0, b=x.score[x.role==='a'?'b':'a']||0; o[a>b?'w':a<b?'l':'t']++; o.pf+=a; o.pa+=b; });
+  const R=Object.values(rec); if(!R.length) return '';
+  return `<div class="sh">Head to <b>head</b></div><div class="pv-list">${R.map(o=>`<div class="pv-g pv-r"><span class="pv-c">${crest(o.opp)}</span><span class="pv-t"><b>${esc(o.opp.name)}</b><small>${o.pf}–${o.pa} pts</small></span><b class="pv-wl">${o.w}–${o.l}${o.t?'–'+o.t:''}</b></div>`).join('')}</div>`; }
 /* ═══ THE INVITE ═══ the opponent, the time, the weather, and how both teams are built */
 function pvpNew(){ const opps=pvpTeams(); if(!opps.length) return toastS('Nobody else can play yet');
   const R={opp:opps[0].tid,time:'night',wx:'clear',mode:'spin',pos:['any','any','any','any','any','any'],pack:{legend:1,gold:1,silver:1,bronze:2},dst:'any'};

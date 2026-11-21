@@ -33,7 +33,7 @@ h = put(h, `(async()=>{
   /* BFT and Marathon Men (team 1) both play everything */
   const full=!!me&&(me.k1==='bft'||String(me.teamId)==='1'), quick=false;
   if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">GFL Seasons isn\\'t open yet</div>'; return; }
-  QUICK_ONLY=!full;
+  QUICK_ONLY=!full; window.ACH_ON=!!me&&me.k1==='bft';   /* achievements: the BFT's for now */
   const j=u=>fetch(u).then(r=>r.json());`);
 h = put(h, `ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0];`, `const tid=new URLSearchParams(location.search).get('team');
   /* team ids are reused across seasons: the newest name to hold the id is the team now */
