@@ -209,7 +209,8 @@ function makeGame(){
        lineman's is low because linemen are slow), tackling near his own level; then the team's tackling and speed are nudged
        a point at a time until the ten weighted overalls average exactly to the card. */
     const W=m=>DW[DLABP[m.pos]], wsum=m=>DSET[m.pos].reduce((a,k)=>a+W(m)[k]*m.s[k],0), ov=m=>Math.round(wsum(m));
-    men.forEach(m=>{ const B=SPD_BASE[DLABP[m.pos]], rel=clamp(m.want-TKL[m.pos]/2+step(60+m.j),40,99); m.s.spd=toU(B[0]+clamp((rel-55)/44,0,1)*B[1]);
+
+    men.forEach(m=>{ const B=SPD_BASE[DLABP[m.pos]], lift=(m.pos==='LB'||m.pos==='S')?Math.max(0,84-R)*.6:0, rel=clamp(m.want-TKL[m.pos]/2+step(60+m.j)+lift,40,99); m.s.spd=toU(B[0]+clamp((rel-55)/44,0,1)*B[1]);
       m.s.tkl=clamp(Math.round(m.want+TKL[m.pos]/2+step(70+m.j)),40,99); m.s0={tkl:m.s.tkl,spd:m.s.spd}; });
     /* and the ten overalls average exactly to the card's overall */
     for(let g=0;g<3000;g++){ const dif=men.length*R-men.reduce((a,m)=>a+ov(m),0); if(!dif) break; const sg=Math.sign(dif); let best=null, bk=null, bd=1e9;
