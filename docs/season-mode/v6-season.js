@@ -733,7 +733,7 @@ function setupScreen(){ screen('match'); const tc=trophies().length, tint=(ME.co
       <div class="bt-acts">${L?'<button class="btn w" id="bt-cont">Continue</button><button class="btn" id="bt-new">New season</button>':'<button class="btn w" id="bt-new">New season</button>'}</div></div></section>`}
     <section class="bt bt-quick">${sceneImg('quick')}<div class="bt-in"><div class="hv-tags"><span>Quick game</span></div><div class="bt-acts col"><button class="btn w" id="qg">Play</button><button class="btn" id="qgmix">Quick Team</button></div></div></section>
     <section class="bt bt-h2h">${sceneImg('h2h')}<div class="bt-in"><div class="hv-tags"><span>Head to head</span></div><div class="bt-acts col"><button class="btn w" id="qgpvp" data-pvp>Play a friend</button></div></div></section>
-    <div class="bt bt-tro">${sceneImg('champ',tint)}<div class="bt-in"><span class="hv-tags"><span>Trophy case</span></span><button class="btn w" id="st-tro">View · ${tc}</button>${typeof ACH_ON!=='undefined'&&ACH_ON?`<button class="ach-btn" id="bt-ach" aria-label="Achievements">${ACH_ICON}</button>`:''}</div></div>
+    <div class="bt bt-tro">${sceneImg('champ',tint)}<div class="bt-in"><button class="btn w bt-trob" id="st-tro">Trophy case</button><b class="bt-n">${tc}</b>${typeof ACH_ON!=='undefined'&&ACH_ON?`<button class="ach-btn" id="bt-ach" aria-label="Achievements">${ACH_ICON}</button>`:''}</div></div>
   </div></div>`;
   paintArt();
   const nb=$('#bt-new'); if(nb) nb.onclick=()=>{ if(L&&L.phase!=='done'&&!confirm('Start a new season? This one will be gone.')) return; if(L) newSeason(true); leaguePicker(); };

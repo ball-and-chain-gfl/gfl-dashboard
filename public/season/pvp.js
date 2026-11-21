@@ -94,13 +94,17 @@ async function pvpRecordsHTML(){ const box=await pvpBoxGet(pvpTid()), rec={};
   const R=Object.values(rec); if(!R.length) return '';
   return `<div class="sh">Head to <b>head</b></div><div class="pv-list">${R.map(o=>`<div class="pv-g pv-r"><span class="pv-c">${crest(o.opp)}</span><span class="pv-t"><b>${esc(o.opp.name)}</b><small>${o.pf}–${o.pa} pts</small></span><b class="pv-wl">${o.w}–${o.l}${o.t?'–'+o.t:''}</b></div>`).join('')}</div>`; }
 /* ═══ THE INVITE ═══ the opponent, the time, the weather, and how both teams are built */
-function pvpNew(){ const opps=pvpTeams(); if(!opps.length) return toastS('Nobody else can play yet');
-  const R={opp:opps[0].tid,time:'night',wx:'clear',mode:'spin',pos:['any','any','any','any','any','any'],pack:{legend:1,gold:1,silver:1,bronze:2},dst:'any'};
+/* ONE GAME AT A TIME with each manager: an open one (invited or under way) with them blocks another */
+const pvpOpenWith=(box,tid,except)=>((box&&box.games)||[]).find(x=>x&&x.opp&&String(x.opp.tid)===String(tid)&&(x.st==='invited'||x.st==='active')&&x.id!==except);
+async function pvpNew(){ try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){}
+  const opps=pvpTeams().map(o=>Object.assign(o,{busy:!!pvpOpenWith(PVP_BOX,o.tid)})), free=opps.filter(o=>!o.busy);
+  if(!opps.length) return toastS('Nobody else can play yet'); if(!free.length) return toastS(opps.length>1?'You already have a game going with everyone':'You already have a game going with '+opps[0].name);
+  const R={opp:free[0].tid,time:'night',wx:'clear',mode:'spin',pos:['any','any','any','any','any','any'],pack:{legend:1,gold:1,silver:1,bronze:2},dst:'any'};
   const TI=['any','bronze','silver','gold','legend'], TL={any:'Random',bronze:'Bronze',silver:'Silver',gold:'Gold',legend:'Legend'};
   const seg=(k,opts)=>`<div class="qs-seg" data-k="${k}">${opts.map(([v,l])=>`<button type="button" class="${R[k]===v?'on':''}" data-v="${v}">${l}</button>`).join('')}</div>`;
   const draw=()=>{ const tot=Object.values(R.pack).reduce((a,b)=>a+b,0);
     $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>New game</b><span></span></div>
-      <span class="qs-l">Opponent</span><div class="pv-opps">${opps.map(o=>`<button type="button" class="pv-o${R.opp===o.tid?' on':''}" data-o="${o.tid}">${crest(o)}<b>${esc(o.name)}</b></button>`).join('')}</div>
+      <span class="qs-l">Opponent</span><div class="pv-opps">${opps.map(o=>`<button type="button" class="pv-o${R.opp===o.tid?' on':''}${o.busy?' busy':''}" data-o="${o.tid}">${crest(o)}<b>${esc(o.name)}</b></button>`).join('')}</div>
       <span class="qs-l">Time</span>${seg('time',[['day','Day'],['dusk','Dusk'],['night','Night']])}
       <span class="qs-l">Weather</span>${seg('wx',[['clear','Clear'],['rain','Rain'],['snow','Snow']])}
       <span class="qs-l">Teams</span>${seg('mode',[['spin','Spin every spot'],['pos','Pick per spot'],['pack','One pack']])}
@@ -109,12 +113,13 @@ function pvpNew(){ const opps=pvpTeams(); if(!opps.length) return toastS('Nobody
       <span class="qs-l">Defense</span>${seg('dst',TI.map(t=>[t,TL[t]]))}
       <button class="btn w" id="pv-go"${R.mode==='pack'&&tot!==5?' disabled':''}>Build my team</button></div>`;
     $('#pv-back').onclick=()=>pvpHub();
-    document.querySelectorAll('.pv-o').forEach(b=>b.onclick=()=>{ R.opp=b.dataset.o; draw(); });
+    document.querySelectorAll('.pv-o').forEach(b=>b.onclick=()=>{ const o=opps.find(x=>x.tid===b.dataset.o); if(o&&o.busy) return toastS('You already have a game going with '+o.name); R.opp=b.dataset.o; draw(); });
     document.querySelectorAll('.qs-seg').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=()=>{ R[g.dataset.k]=b.dataset.v; draw(); }));
     document.querySelectorAll('.pv-pos select').forEach(s=>s.onchange=()=>{ R.pos[+s.dataset.i]=s.value; });
     document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ if(Object.values(R.pack).reduce((a,c)=>a+c,0)<5){ R.pack[b.dataset.p]++; draw(); } });
     document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ if(R.pack[b.dataset.m]>0){ R.pack[b.dataset.m]--; draw(); } });
-    $('#pv-go').onclick=()=>{ const rules={mode:R.mode,pos:R.pos.slice(0,5).concat(R.dst),pack:{...R.pack},dst:R.dst}, o=opps.find(x=>x.tid===R.opp);
+    $('#pv-go').onclick=async()=>{ try{ const bx=await pvpBoxGet(pvpTid()); if(pvpOpenWith(bx,R.opp)) return toastS('You already have a game going with '+(opps.find(x=>x.tid===R.opp)||{}).name); }catch(e){}
+      const rules={mode:R.mode,pos:R.pos.slice(0,5).concat(R.dst),pack:{...R.pack},dst:R.dst}, o=opps.find(x=>x.tid===R.opp);
       pvpBuild(rules,async team=>{ const g={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),v:1,created:Date.now(),status:'invited',time:R.time,wx:R.wx,rules,
           a:Object.assign(pvpMe(),{team}),b:{tid:o.tid,name:o.name,logo:o.logo,team:null},next:'a',drives:[],score:{a:0,b:0}};
         try{ await pvpSave(g); await pvpBoxes(g); toastS('Invite sent to '+o.name); }catch(e){ toastS('Couldn’t send the invite'); } pvpHub(); }); }; };
@@ -132,7 +137,9 @@ function pvpBuilt(){ const b=PVP_BUILD; PVP_BUILD=null; PVP_FORCE=null; const go
 
 /* ═══ ACCEPT, DECLINE, PLAY ═══ */
 async function pvpAccept(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return toastS('Couldn’t load the game'); } if(!g||g.status!=='invited') return pvpHub();
-  pvpBuild(g.rules,async team=>{ try{ const f=await pvpLoad(id); f.b=Object.assign(f.b,{team,name:ME.name,logo:ME.logo||f.b.logo}); f.status='active'; f.next='a'; await pvpSave(f); await pvpBoxes(f); toastS('Game on: their ball first'); }catch(e){ toastS('Couldn’t accept'); } pvpHub(); }); }
+  let crossed=null; try{ const bx=await pvpBoxGet(pvpTid()), o=pvpOpenWith(bx,g.a.tid,id); if(o&&o.st==='active') return toastS('Finish your game with '+g.a.name+' first'); if(o) crossed=o.id; }catch(e){}
+  pvpBuild(g.rules,async team=>{ try{ const f=await pvpLoad(id); f.b=Object.assign(f.b,{team,name:ME.name,logo:ME.logo||f.b.logo}); f.status='active'; f.next='a'; await pvpSave(f); await pvpBoxes(f); toastS('Game on: their ball first');
+      if(crossed){ try{ const c=await pvpLoad(crossed); if(c&&c.status==='invited'){ c.status='declined'; await pvpSave(c); await pvpBoxes(c,{turn:''}); } }catch(e){} } }catch(e){ toastS('Couldn’t accept'); } pvpHub(); }); }
 async function pvpDecline(id){ try{ const g=await pvpLoad(id); if(g&&g.status==='invited'){ g.status='declined'; await pvpSave(g); await pvpBoxes(g,{turn:''}); } }catch(e){ toastS('Couldn’t decline'); } pvpHub(); }
 async function pvpOpen(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return toastS('Couldn’t load the game'); } if(!g||!g.a.team||!g.b.team) return pvpHub();
   const role=pvpRoleOf(g), me=g[role], op=g[role==='a'?'b':'a'];
