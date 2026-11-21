@@ -1026,7 +1026,7 @@ function buildTabDD(){
   };
   const paired=btns.filter(b=>b.dataset.pair);
   const solo=btns.filter(b=>!b.dataset.pair);
-  const pairRow=paired.length?`<div class="tab-dd-sep"><span class="tab-dd-rule"></span><span class="tab-dd-sep-l">Extras</span></div><div class="tab-dd-pair">${paired.map(item).join('')}</div>`:'';
+  const pairRow=paired.length?`<div class="tab-dd-sep"><span class="tab-dd-rule"></span><span class="tab-dd-sep-l">B&amp;C</span></div><div class="tab-dd-pair">${paired.map(item).join('')}</div>`:'';
   /* Each section holds four tabs, so they sit two by two rather than in one
      long column — the menu reads as three blocks instead of a list to scan.
      A tab carrying data-group opens the next section. */
