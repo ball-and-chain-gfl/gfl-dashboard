@@ -9910,13 +9910,10 @@ const TEST_PROFILE='test';
    of its code or styles touch the rest of the app and none of it loads until
    the tab is opened. No reads, no writes: it runs entirely on the device.
 
-   BFT ONLY FOR NOW. The nav button is hidden for every other account and for
-   anyone signed out; switchTab() sends anyone else who asks for the tab home;
-   and the game page itself checks the same sign-in before it starts. To open it
-   to someone else, add their account to SEASON_ACCOUNTS. A team in SEASON_QUICK_TEAMS (by team id) gets quick games
-   only: the game page shows it nothing of a season. */
-const SEASON_ACCOUNTS=['bft'], SEASON_QUICK_TEAMS=['1'];   /* 1: Marathon Men */
-function seasonAllowed(){ return !!_me&&(SEASON_ACCOUNTS.includes(_me.k1)||SEASON_QUICK_TEAMS.includes(String(_me.teamId||''))); }
+   OPEN TO EVERY MANAGER (user 11-20): any signed-in account with a team. The nav button is hidden for anyone signed
+   out or without a team; switchTab() sends them home; and the game page itself checks the same sign-in before it
+   starts. */
+function seasonAllowed(){ return !!_me&&!!_me.teamId; }
 function seasonGate(){
   const ok=seasonAllowed(), b=document.querySelector('.tab-btn[data-tab=season]');
   if(b) b.style.display=ok?'':'none';
@@ -9948,7 +9945,8 @@ function renderSeason(){
   setTimeout(()=>{ _seasonOpenPvp=false; },0);
   /* the game is handed your team as it is now (its name and logo here), so a rename or a new picture shows up in new seasons */
   const tid=(_me&&_me.teamId)||'', cur=_teams.find(t=>String(t.id)===String(tid)), lg=cur&&_logoMap[cur.id];
-  el.innerHTML=`<iframe class="season-frame" allow="web-share; clipboard-write" src="/season/index.html?team=${encodeURIComponent(tid)}${cur&&cur.name?'&name='+encodeURIComponent(cur.name):''}${lg?'&logo='+encodeURIComponent(lg):''}${_seasonOpenPvp?'&pvp=1':''}" title="GFL Seasons"></iframe>`;
+  const league=JSON.stringify((_teams||[]).filter(t=>t&&t.id!=null).map(t=>[String(t.id),t.name||'',_logoMap[t.id]||'']));
+  el.innerHTML=`<iframe class="season-frame" allow="web-share; clipboard-write" src="/season/index.html?team=${encodeURIComponent(tid)}${cur&&cur.name?'&name='+encodeURIComponent(cur.name):''}${lg?'&logo='+encodeURIComponent(lg):''}${_seasonOpenPvp?'&pvp=1':''}&league=${encodeURIComponent(league)}" title="GFL Seasons"></iframe>`;
 }
 const isTestProfile=()=>!!_me&&_me.k1===TEST_PROFILE;
 
@@ -28972,7 +28970,7 @@ async function loadDashboard(){
         </div>
       </div>
 
-      <!-- SEASON MODE: BFT only, see seasonAllowed() -->
+      <!-- SEASON MODE: every manager with a team, see seasonAllowed() -->
       <div class="tab-page" id="page-season">
         <div class="sec" id="season-sec"><div id="season-body"></div></div>
       </div>

@@ -15,7 +15,8 @@
 const PVP_DB={project:'ball-and-chain-dashboard',key:'AIzaSyCOfZYqsD3VZmym7AW0DDX_JQnBYCZhJDA'};
 try{ if(window.parent!==window&&typeof parent.fsGovern==='function') parent.fsGovern(window); }catch(e){}
 /* who can be invited: the teams Season Mode is open to (by team id) */
-const PVP_TEAMS=['1','10'];
+/* every team in the league: today's names and logos as the dashboard hands them over, else the game's own list */
+const PVP_LEAGUE=(()=>{ try{ const L=JSON.parse(new URLSearchParams(location.search).get('league')||'null'); return Array.isArray(L)&&L.length?L:null; }catch(e){ return null; } })();
 const pvpUrl=id=>`https://firestore.googleapis.com/v1/projects/${PVP_DB.project}/databases/(default)/documents/live/${encodeURIComponent(id)}?key=${PVP_DB.key}`;
 const PVP_UT={};
 async function pvpGet(id){ const r=await fetch(pvpUrl(id),{cache:'no-store'}); if(r.status===404) return null; if(!r.ok) throw new Error('read '+r.status);
@@ -65,7 +66,8 @@ function pvpCancelBuild(){ PVP_BUILD=null; PVP_FORCE=null; DR.gen=(DR.gen||0)+1;
 /* ═══ THE LIST ═══ */
 let PVP_BUILD=null, PVP_FORCE=null, PVP_BOX=null;
 const pvpTeams=()=>{ const by={}; TEAMS.forEach(t=>{ const k=String(t.teamId); if(!by[k]||(t.first||0)>(by[k].first||0)) by[k]=t; });
-  return PVP_TEAMS.filter(k=>k!==pvpTid()&&by[k]).map(k=>({tid:k,name:by[k].name,logo:by[k].logo||null})); };
+  if(PVP_LEAGUE) return PVP_LEAGUE.filter(([k])=>k!==pvpTid()).map(([k,n,l])=>({tid:k,name:n||(by[k]&&by[k].name)||'Team '+k,logo:l||(by[k]&&by[k].logo)||null}));
+  return Object.keys(by).filter(k=>k!==pvpTid()).map(k=>({tid:k,name:by[k].name,logo:by[k].logo||null})); };
 async function pvpBadge(){ const el=document.querySelectorAll('[data-pvp]'); if(!el.length) return; try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){ return; }
   const n=PVP_BOX.games.filter(x=>x.turn===pvpTid()&&x.st!=='done'&&x.st!=='declined').length; el.forEach(b=>{ const s=b.querySelector('.pv-n'); if(s) s.remove(); if(n) b.insertAdjacentHTML('beforeend',`<span class="pv-n">${n}</span>`); }); }
 async function pvpHub(){ try{ const P=MATCH.M.pvp; if(P){ P.left=true; clearTimeout(P.pollT); MATCH.M.pvp=null; } }catch(e){} PVP_BUILD=null; PVP_FORCE=null;

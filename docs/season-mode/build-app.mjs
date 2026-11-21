@@ -31,7 +31,7 @@ h = put(h, `(async()=>{
   const j=u=>fetch(u).then(r=>r.json());`, `(async()=>{
   const me=(()=>{ try{ return JSON.parse(localStorage.getItem('gfl-me')||'null'); }catch(e){ return null; } })();
   /* BFT and Marathon Men (team 1) both play everything */
-  const full=!!me&&(me.k1==='bft'||String(me.teamId)==='1'), quick=false;
+  const full=!!me&&!!me.teamId, quick=false;   /* every manager with a team (user 11-20) */
   if(!full&&!quick){ document.getElementById('app').innerHTML='<div class="closed">GFL Seasons isn\\'t open yet</div>'; return; }
   QUICK_ONLY=!full; window.ACH_ON=!!me&&me.k1==='bft'; window.ACCT=me&&me.k1?String(me.k1):null;   /* the account the season's cloud copy is kept under */   /* achievements: the BFT's for now */
   const j=u=>fetch(u).then(r=>r.json());`);
