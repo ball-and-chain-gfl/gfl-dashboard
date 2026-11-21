@@ -753,11 +753,10 @@ function leaguePicker(){ screen('match'); const tc=trophies().length, hero=lab=>
     paintScenes(); paintArt(); $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); $('#qgpvp').onclick=()=>pvpHub(); pvpBadge(); return; }
   $('#scr-match').innerHTML=`<div class="mu setup st2"><button class="btn lp-back" id="lp-back">Menu</button>${hero('Pick your league')}
     <div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
-    <div class="st-acts"><button class="btn w" id="go">Open packs</button><button class="btn" id="mix">Test team · mixed tiers</button></div></div>`;
+    <div class="st-acts"><button class="btn w" id="go">Open Season Pack</button></div></div>`;
   paintScenes(); paintArt(); $('#lp-back').onclick=()=>setupScreen();
   let pick='standard'; document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ pick=b.dataset.p; document.querySelectorAll('.presets button').forEach(x=>x.classList.toggle('on',x===b)); });
   $('#go').onclick=()=>{ SETUP=pick; seasonPack(); };
-  $('#mix').onclick=()=>{ SETUP=pick; mixTeam(); };
 }
 /* for testing: skip the packs with one of every tier, in a random order across the six slots */
 function mixTeam(){ const tiers=['legend','gold','silver','bronze','gold','silver'].sort(()=>Math.random()-.5); DR.got=[]; DR.i=0;

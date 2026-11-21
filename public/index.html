@@ -4723,6 +4723,8 @@
     /* on the tab, outside a game: the nav stays, the frame fills the screen under it, and nothing else shows */
     html.season-on,html.season-on body{overflow:hidden;overscroll-behavior:none;}
     html.season-on footer,html.season-on #sec-nav{display:none;}
+    /* the pinned matchup/punishment bar sits over the bottom of the game (its menu, its play buttons): not on this tab */
+    html.season-on #my-matchup,html.season-full #my-matchup{display:none!important;}
     html.season-on .season-frame{position:fixed;top:calc(var(--seasontop,calc(env(safe-area-inset-top,0px) + 72px)) + 6px);left:50%;transform:translateX(-50%);
       width:min(calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)),460px);
       height:calc(100vh - var(--seasontop,72px) - 6px);height:calc(100dvh - var(--seasontop,72px) - 6px);
@@ -5239,7 +5241,7 @@
     .tab-dd-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
     .tab-dd-grid .tab-dd-item{min-width:0;}
     .tab-dd-grid .tab-dd-item{gap:8px;font-size:14px;}
-    .tab-dd-grid .tab-dd-item[data-tab=season]{grid-column:1/-1;}
+    .tab-dd-grid .tab-dd-item[data-tab=season]{grid-column:1/-1;justify-content:center;}
     /* Two across needs about 110px of text per column, which 375 has and 320 does
        not — at that width "B&C Sportsbook" runs past its button whatever the type
        size. Below 360 the grid falls back to one per row, which is the honest

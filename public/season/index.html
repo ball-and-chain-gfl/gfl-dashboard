@@ -697,7 +697,7 @@
   .tc-s i{display:block;height:5px;background:var(--p3);} .tc-s i b{display:block;height:100%;}
   .tc-s em{font:700 11px/1 var(--sans);font-style:normal;color:var(--text);text-align:right;}
   /* THE MAIN MENU, a bento: 4 columns, 5 rows */
-  .mu.menu{justify-content:flex-start;align-items:stretch;padding:12px;overflow:hidden;min-height:0;height:100%;box-sizing:border-box;}
+  .mu.menu{justify-content:flex-start;align-items:stretch;padding:12px 12px max(34px,calc(14px + env(safe-area-inset-bottom,0px)));overflow:hidden;min-height:0;height:100%;box-sizing:border-box;}
   .bento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr)) minmax(0,.62fr);gap:8px;width:100%;max-width:560px;margin:0 auto;flex:1 1 auto;min-height:0;}
   .bento.q{grid-template-rows:repeat(2,minmax(0,1fr)) minmax(0,.62fr);}
   .bt{position:relative;overflow:hidden;clip-path:var(--notch);background:#0b0e14;border:0;padding:0;color:var(--text);text-align:left;font:inherit;}
