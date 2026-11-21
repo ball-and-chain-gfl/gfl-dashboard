@@ -148,6 +148,10 @@
   .cd .ph img{height:100%;width:auto;margin-left:22px;}
   .cd .ph .lg{width:66px;height:66px;align-self:center;margin:0 0 4px 20px;}
   .cd .cb{border-top:1px solid color-mix(in srgb,var(--tc) 45%,transparent);padding:7px 9px 5px;background:var(--bg);position:relative;display:flex;flex-direction:column;gap:3px;}
+  .cd .spd{position:absolute;left:9px;top:38px;z-index:1;display:flex;align-items:baseline;gap:4px;background:var(--night,var(--bg));padding:4px 5px;clip-path:var(--notch2);}
+  .cd .spd span{font:700 8px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);} .cd .spd em{font:700 12px/1 var(--sans);font-style:normal;color:var(--text);}
+  .tc-top .spd{position:absolute;right:7px;top:34px;display:flex;align-items:baseline;gap:4px;background:var(--night);padding:4px 5px;clip-path:var(--notch2);}
+  .tc-top .spd span{font:700 8px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);} .tc-top .spd em{font:700 12px/1 var(--sans);font-style:normal;color:var(--text);}
   .cd .at{flex:1;padding:3px 9px 8px;background:var(--bg);display:flex;flex-direction:column;justify-content:center;gap:4px;}
   .cd .at div{display:grid;grid-template-columns:74px 1fr 16px;align-items:center;gap:5px;font:500 7.5px/1 var(--mono);letter-spacing:0;text-transform:uppercase;color:var(--text3);white-space:nowrap;}
   .cd .at i{height:3px;background:var(--ln2);display:block;} .cd .at b{display:block;height:100%;width:0;background:var(--tc);transition:width .6s;}
@@ -1003,12 +1007,19 @@ let TEAMS,POOL,DEFS,ME,CPU,GAME,SIM,MATCH;
      about 94, a 70 about 70. */
   const DSET0=new Set(DEFS);
   [...POOL,...DEFS].forEach(p=>{ p.r=RESC(p.r); if(DSET0.has(p)){ if(p.r>88) p.r=Math.round(88+(p.r-88)*7/11); else if(p.r<88) p.r=Math.round(72+(p.r-68)*.8); }   /* defenses run 72 to 95 */ const raw=(ATT[p.id+'-'+p.season]||{}).a; if(!raw){ p.a=null; return; }
+    const ks=SPI[p.pos];
+    /* SPEED STANDS APART from the overall for backs, receivers and tight ends: it's his 40 and nothing else, and his
+       overall (his fantasy finish) is the weighted average of his three skills alone, each keeping its shape around it */
+    if(ks!=null){ const B=SPD_BASE[p.pos], o=[0,1,2,3].filter(i=>i!==ks), W=POSW[p.pos], wo=o.reduce((x,i)=>x+W[i],0), m=o.reduce((s,i)=>s+raw[i],0)/3;
+      p.a=raw.map((v,i)=>i===ks?toG(B[0]+clamp((v-55)/44,0,1)*B[1]):clamp(p.r+(v-m)*.7,50,99));
+      for(let it=0;it<4;it++){ const d=p.r-o.reduce((x,i)=>x+W[i]*p.a[i],0)/wo; o.forEach(i=>p.a[i]=clamp(p.a[i]+d,50,99)); }
+      o.forEach(i=>p.a[i]=Math.round(p.a[i])); return; }
     const m=raw.reduce((s,v)=>s+v,0)/raw.length; p.a=raw.map(v=>Math.round(clamp(p.r+(v-m)*.7,50,99)));
     /* ONE SPEED SCALE: his speed is his real 40 (raw, never pulled toward his overall, so a 4.32 is faster than a 4.46
        whoever had the better season) as a top speed on the scale everyone shares; his overall is the weighted average
        of his four by position, so the other three take up the difference */
     /* a quarterback's Legs is his own too (his 40 and his running), on the 55-99 scale it already has */
-    const k=SPI[p.pos]??(p.pos==='QB'?2:null); if(k!=null){ const B=SPD_BASE[p.pos]; p.a[k]=B?toU(B[0]+clamp((raw[k]-55)/44,0,1)*B[1]):Math.round(clamp(raw[k],50,99));
+    const k=p.pos==='QB'?2:null; if(k!=null){ p.a[k]=Math.round(clamp(raw[k],50,99));
       const W=POSW[p.pos], o=[0,1,2,3].filter(i=>i!==k), wo=o.reduce((x,i)=>x+W[i],0), d=(p.r-W.reduce((x,w,i)=>x+w*p.a[i],0))/wo;
       o.forEach(i=>p.a[i]=Math.round(clamp(p.a[i]+d,50,99))); } });
   ME=TEAMS.find(t=>/Bryan/.test(t.name))||TEAMS[0]; CPU=TEAMS.find(t=>/Kirkland/.test(t.name))||TEAMS[1];

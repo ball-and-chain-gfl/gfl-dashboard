@@ -163,7 +163,7 @@ function seasonDeal(gen){ const five=DR.deal;
   const fcs=[...document.querySelectorAll('#stage .fc')]; let left=fcs.length;
   fcs.forEach((f,i)=>f.addEventListener('click',()=>{ if(f.classList.contains('open')) return; f.classList.add('open'); DR.got[i]=five[i]; slotsHTML(); const c=f.querySelector('.cd'), t=TIER(five[i].r);
     setTimeout(()=>{ if(gen!==DR.gen) return; c.classList.add('in'); PFX.burst(c,t,t==='legend'?110:t==='gold'?70:36,{sp:t==='legend'?320:240,up:110,life:1.2});
-      const rt=c.querySelector('.rt'); setTimeout(()=>{ rt.classList.add('flip'); setTimeout(()=>rt.textContent=rt.dataset.r,200); c.querySelectorAll('.at em').forEach(e=>e.textContent=e.dataset.v); c.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },260);
+      const rt=c.querySelector('.rt'); setTimeout(()=>{ rt.classList.add('flip'); setTimeout(()=>rt.textContent=rt.dataset.r,200); c.querySelectorAll('.at em, .spd em').forEach(e=>e.textContent=e.dataset.v); c.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },260);
       if(--left===0){ const n=$('#next'); n.style.visibility='visible'; n.onclick=()=>{ if(typeof PVP_BUILD!=='undefined'&&PVP_BUILD){ DR.i=5; return stageSpin(); } DR.i=SLOTS.length; stageRoster(); }; } },180); })); }
 async function newLeague(preset){
   const P=PRESETS.find(p=>p.id===preset)||PRESETS[1], opp=leaguePool().sort(()=>Math.random()-.5).slice(0,P.teams-1);
@@ -436,9 +436,9 @@ function hubSched(){ const R=LG.rounds, strip=R.map((x,k)=>{ const r=myRes(myGam
 const ABR={'Arm':'Arm','Accuracy':'Acc','Legs':'Leg','Escape':'Esc','Speed':'Spd','Elusiveness':'Elu','Power':'Pow','Hands':'Hnd','Route running':'Rte','Contested':'Con','Blocking':'Blk','Pass rush':'Rush','Coverage':'Cov','Run stop':'Stop','Ball hawk':'Hawk'};
 const lastN=n=>{ const w=String(n).split(' ').filter(x=>!/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(x)); return w[w.length-1]||n; };
 function tcHTML(p,o){ const d=p.pos==='D/ST', a=p.a||[70,70,70,70];
-  return `<div class="tc t-${TIER(p)}${o.isNew?' new':''}${p.inj?' hurt':''}${o.side?' tc-wide':''}"${o.pick?` data-pick="${o.pick}" onclick="pickCard('${o.pick}')"`:''}>${o.side?'<div class="tc-l">':''}<div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span></div>
+  return `<div class="tc t-${TIER(p)}${o.isNew?' new':''}${p.inj?' hurt':''}${o.side?' tc-wide':''}"${o.pick?` data-pick="${o.pick}" onclick="pickCard('${o.pick}')"`:''}>${o.side?'<div class="tc-l">':''}<div class="tc-top">${d?nflImg(p.n,'lgo'):`<img src="${SHOT(p.id)}" alt="">`}<span class="pos">${o.pos||p.pos}</span><span class="ovr">${p.r}</span>${SPD_I(p)!=null?`<span class="spd"><span>${SPD_L(p)}</span><em>${a[SPD_I(p)]}</em></span>`:''}</div>
     <div class="tc-b"><b>${esc(d?p.season+' '+p.n:p.n)}</b><small${o.cls?' class="'+o.cls+'"':''}>${esc(o.stat||p.season)}</small>
-    <div class="tc-a">${ATTR[p.pos].map((l,k)=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
+    <div class="tc-a">${SKILLS(p).map(([l,k])=>`<div><span>${ABR[l]||l}</span><i><b style="width:${Math.max(4,(a[k]-50)/49*100)}%"></b></i><em>${a[k]}</em></div>`).join('')}</div>
     ${p.pos!=='D/ST'?(()=>{ const v=Math.round(p.sta??100); return `<div class="tc-s"><span>Stamina</span><i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i><em>${v}</em></div>`; })():''}
     ${p.inj?`<div class="tc-inj"><b>Out · ${injShort(p.inj)}</b><span>${esc(p.inj.n)}</span></div>`:''}
     ${byeWeek(p)!=null&&p.pos!=='D/ST'?(onBye(p)?`<div class="tc-bye now"><b>On bye this week</b><span>${esc(p.tm)}</span></div>`:`<div class="tc-bye"><span>${esc(p.tm)} · bye ${esc(LG.rounds[byeWeek(p)].label)}</span></div>`):''}

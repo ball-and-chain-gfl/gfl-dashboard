@@ -168,6 +168,7 @@ async function pvpAccept(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return
 async function pvpDecline(id){ try{ const g=await pvpLoad(id); if(g&&g.status==='invited'){ g.status='declined'; await pvpSave(g); await pvpBoxes(g,{turn:''}); } }catch(e){ toastS('Couldn’t decline'); } pvpHub(); }
 async function pvpOpen(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return toastS('Couldn’t load the game'); } if(!g||!g.a.team||!g.b.team) return pvpHub();
   const role=pvpRoleOf(g), me=g[role], op=g[role==='a'?'b':'a'];
+  { const PA=new Map(POOL.map(p=>[p.id+'-'+p.season,p])); [me,op].forEach(s=>(s.team.five||[]).forEach(p=>{ const q=p&&PA.get(p.id+'-'+p.season); if(q&&q.a) p.a=q.a.slice(); })); }
   DR.got=[...me.team.five,me.team.dst]; QUICK=false;
   CPU={name:op.name,logo:op.logo,roster:op.team.five,dst:op.team.dst};
   const meT=Object.assign({},ME,{name:me.name,logo:me.logo||ME.logo});

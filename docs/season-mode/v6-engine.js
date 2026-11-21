@@ -33,6 +33,8 @@ const J_=(name,motion,path,dir)=>({kind:'run',name,path,dir,wide:true,jet:motion
    position (POSW for the offense, DW for the defense), so a lineman's low speed barely touches his. */
 const SPD_BASE={WR:[5.3,2.2],RB:[5.45,1.8],TE:[5.0,1.8],DB:[6.3,1.6],LB:[5.9,1.3],DL:[5.0,1.0]}, SPI={RB:0,WR:0,TE:2};
 const toU=v=>Math.round(Math.max(40,Math.min(99,40+(v-4.6)*59/3.3))), fromU=s=>4.6+(s-40)*3.3/59;
+const SPD_G=8.5, toG=v=>Math.round(Math.max(40,Math.min(99,99-(7.5-v)*SPD_G))), fromG=s=>7.5-(99-s)/SPD_G;
+const spdPosO=(pos,s)=>{ const B=SPD_BASE[pos]; return B?Math.max(0,Math.min(1,(fromG(s)-B[0])/B[1])):0; };
 const spdPos=(pos,s)=>{ const B=SPD_BASE[pos]; return B?Math.max(0,Math.min(1,(fromU(s)-B[0])/B[1])):0; };
 const POSW={QB:[.25,.25,.25,.25],RB:[.3,.25,.2,.25],WR:[.25,.3,.3,.15],TE:[.3,.3,.1,.3]};
 const DW={DL:{rush:.35,stop:.35,tkl:.3,spd:0},LB:{stop:.3,cov:.25,tkl:.35,spd:.1},DB:{cov:.3,hawk:.25,tkl:.2,spd:.25}};
@@ -235,7 +237,7 @@ function makeGame(){
     QB.a=qb.a; RB.a=rb.a; WA.a=wa.a; WB.a=wb.a; TE.a=te.a; QB.slot=0; RB.slot=1; WA.slot=2; WB.slot=3; TE.slot=4;
     /* speed: legs for the QB, speed for the rest; elusiveness makes the back sharper in and out of cuts */
     QB.vmax=5.1+A(QB,2)*2.1; QB.acc=14+A(QB,2)*12;
-    const sA=p=>p&&p.a&&SPI[p.pos]!=null&&p.a[SPI[p.pos]]!=null?spdPos(p.pos,p.a[SPI[p.pos]]):A(p,SPI[p&&p.pos]??0);
+    const sA=p=>p&&p.a&&SPI[p.pos]!=null&&p.a[SPI[p.pos]]!=null?spdPosO(p.pos,p.a[SPI[p.pos]]):A(p,SPI[p&&p.pos]??0);
     RB.vmax=5.45+sA(RB)*1.8; RB.acc=16+A(RB,1)*12;
     WA.vmax=5.3+sA(WA)*2.2; WB.vmax=5.3+sA(WB)*2.2; TE.vmax=5.0+sA(TE)*1.8;
     WA.acc=16+sA(WA)*10; WB.acc=16+sA(WB)*10; TE.acc=14+sA(TE)*8;

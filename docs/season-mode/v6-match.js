@@ -31,12 +31,14 @@ const PFX=(()=>{ let cv=null, x=null, P=[], raf=0, last=0, W=0, H=0;
     rain(el,tier,n){ const [cx,cy,w,h]=at(el); add(cx,cy,n,tier,{w:w*1.1,h:h*1.1,sp:40,up:40,g:-30,life:1.3,tw:.8}); } }; })();
 function slotsHTML(){ const db=$('#dbar'); if(db){ db.innerHTML=`<span>${typeof draftWhere==='function'?draftWhere():'Packs'}</span><button class="lv" id="dleave">Leave</button>`; $('#dleave').onclick=()=>{ if(typeof leaveDraft==='function') leaveDraft(); }; }
   $('#slots').innerHTML=SLOTS.map((s,i)=>{ const g=DR.got[i]; return `<div class="${i===DR.i&&!g?'now':''}${g?' done t-'+TIER(g):''}">${s}<b>${g?g.r:'–'}</b></div>`; }).join(''); }
-function cardHTML(p){ const t=TIER(p), d=p.pos==='D/ST';
+const SPD_I=p=>p&&SPI[p.pos]!=null?SPI[p.pos]:p&&p.pos==='QB'?2:null, SPD_L=p=>p&&p.pos==='QB'?'Legs':'Spd';
+const SKILLS=p=>ATTR[p.pos].map((l,i)=>[l,i]).filter(([,i])=>i!==SPD_I(p));
+function cardHTML(p){ const t=TIER(p), d=p.pos==='D/ST', si=SPD_I(p);
   return `<div class="cd t-${t}"><div class="top"><div class="fade"><div class="dots"></div></div>
-    <span class="rt" data-r="${p.r}">??</span><span class="tier">${t}</span>
+    <span class="rt" data-r="${p.r}">??</span>${si!=null?`<span class="spd"><span>${SPD_L(p)}</span><em data-v="${p.a?p.a[si]:70}">–</em></span>`:''}<span class="tier">${t}</span>
     <div class="ph">${d?nflImg(p.n,'lg'):`<img src="${SHOT(p.id)}" alt="">`}</div></div>
     <div class="cb"><div class="pn">${esc(p.n)}</div><div class="meta">${p.pos} · <b>${p.season}</b></div></div>
-    <div class="at">${ATTR[p.pos].map((l,i)=>`<div><span>${l}</span><i><b data-v="${p.a?p.a[i]:70}"></b></i><em data-v="${p.a?p.a[i]:70}">–</em></div>`).join('')}</div></div>`; }
+    <div class="at">${SKILLS(p).map(([l,i])=>`<div><span>${l}</span><i><b data-v="${p.a?p.a[i]:70}"></b></i><em data-v="${p.a?p.a[i]:70}">–</em></div>`).join('')}</div></div>`; }
 function stageSpin(){
   slotsHTML(); if(DR.i>=SLOTS.length) return stageRoster();
   const pos=SLOTS[DR.i], land=(typeof PVP_FORCE!=='undefined'&&PVP_FORCE&&PVP_FORCE[DR.i])||roll(pos), N=64, AT=56, W=98, tiers=[];
@@ -68,7 +70,7 @@ function stageChoose(pos,tier){
   const cs=[...document.querySelectorAll('#stage .cd')]; cs.forEach((c,i)=>setTimeout(()=>{ c.classList.add('in'); setTimeout(()=>PFX.burst(c,tier,10,{sp:120,up:40,life:.7}),260); },120+i*170));
   cs.forEach((c,i)=>c.addEventListener('click',()=>{ if(DR.got[DR.i]) return; DR.got[DR.i]=opts[i]; PFX.burst(c,TIER(opts[i]),TIER(opts[i])==='legend'?90:50,{sp:260,up:110,life:1.2});
     cs.forEach((o,j)=>{ o.classList.add(j===i?'picked':'dim'); const r=o.querySelector('.rt'); setTimeout(()=>{ r.classList.add('flip'); setTimeout(()=>r.textContent=r.dataset.r,200);
-      o.querySelectorAll('.at em').forEach(e=>e.textContent=e.dataset.v); o.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },j===i?0:260); });
+      o.querySelectorAll('.at em, .spd em').forEach(e=>e.textContent=e.dataset.v); o.querySelectorAll('.at b').forEach(b=>b.style.width=((+b.dataset.v-50)/49*100)+'%'); },j===i?0:260); });
     slotsHTML(); if(rsp){ $('#keep').style.display='none'; $('#next').textContent='Add to your team'; $('#next').style.visibility='visible'; return; } $('#next').textContent=DR.i<5?'Next: '+(SLOTS[DR.i+1]==='D/ST'?(typeof dLabel==='function'?dLabel():'Defense'):SLOTS[DR.i+1]):'Your roster'; $('#next').style.visibility='visible'; }));
   $('#next').addEventListener('click',()=>{ if(rsp) return respinDone(false); DR.i++; stageSpin(); });
 }
