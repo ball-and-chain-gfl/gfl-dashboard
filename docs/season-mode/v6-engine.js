@@ -295,7 +295,7 @@ function makeGame(){
     else { const ps=PL.dir>0?1:0; ols[2].role='climb'; ols[2].climb=LB[PL.wide?1-ps:ps]; TE.climb=LB[PL.wide?ps:1-ps]; }
     S.eng.forEach(e=>{ const sk=runCall?'stop':'rush', diff=(erR(ds(e.d,sk))-e.o.r)/20; e.rate=Math.max(.3,(runCall?.34+(Dn(e.d,'stop')-.5)*.3:.36+(Dn(e.d,'rush')-.5)*.4)+diff*.3+Eg(e.d,sk)*.14+gauss()*.1);   /* even a poor line gets off its block in the end */ e.d.blocked=true; e.o.blocking=e.d; });
     S.P=P; S.QB=QB; S.RB=RB; S.rec=[WA,TE,WB,RB]; S.DL=DL; S.LB=LB; S.CB=CB; S.SF=SF; S.runCall=runCall;
-    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.picker=null; S.dove=false; S.flashT=null; S.pitchV=null; S.slipEnd=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
+    S.ball={holder:QB,air:null}; S.hold=null; S.slow=0; S.parts=[]; S.fx=null; S.stretch=null; S.bigHit=null; S.seq=null; S.pops=[]; S.loose=null; S.bobble=null; S.catcher=null; S.secure=0; S.ps=null; S.plastered=false; S.jamDone=false; S.injury=null; S.qbSafe=0; S.picker=null; S.dove=false; S.flashT=null; S.pitchV=null; S.slipEnd=null; S.tgt=null; S.carrier=null; S.cut=null; S.cam={x:0,y:4}; S.t=0; S.over=false; S.msg=null; S.thrown=false; S.scram=false; S.qbDash=null;
   }
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   function track(p,m,dt){ if(p._tk!==m){ p._tk=m; p.mvx=m.vx; p.mvy=m.vy; } const k=Math.min(1,dt*1.6*Math.exp(2.4*Df(p,'cov')));   /* reads a break in about .3 s at 70 coverage, .12 s at 85, .06 s at 97 */ p.mvx+=(m.vx-p.mvx)*k; p.mvy+=(m.vy-p.mvy)*k; }
@@ -598,6 +598,7 @@ function makeGame(){
   /* is he coming from behind the man with the ball: behind where he's going, or behind where he's facing if he's stood still */
   function fromBehind(p,c){ const v=Math.hypot(c.vx,c.vy), f={up:[0,1],down:[0,-1],left:[-1,0],right:[1,0]}[c.facing]||[0,1], ux=v>1?c.vx/v:f[0], uy=v>1?c.vy/v:f[1];
     return (p.x-c.x)*ux+(p.y-c.y)*uy < -.2; }
+  const reaching=p=>!!(p&&S.stretch&&S.stretch.c===p&&S.t>=S.stretch.t0);
   function tackled(c,p,kind){
     if(kind==='hit'&&fromBehind(p,c)) kind=null;
     if(!kind&&fromBehind(p,c)) kind=Math.random()<.68?'tackle':'shoe';
@@ -611,7 +612,16 @@ function makeGame(){
     if(Math.random()<(.004+Dn(p,hawkOf(p))*.012+(1-A(c,HANDS[c.pos]??2))*.008)*(S.home&&(S.home.rain||S.home.snow)?1.5:1)){ const spot=fumble(c); pop('Stripped','#D9325E',c);
       if(Math.random()<.55) return end('Fumble','#'+p.num+' punches it out and they fall on it.','to',0,spot);
       const y=Math.round(c.y); return end('Fumble','#'+p.num+' knocks it loose, and you fall on it'+(y>=0?' for '+y:', a loss of '+(-y))+'.',y>0?'gain':'loss',y); }
-    const y=Math.round(c.y), who=c.name?c.name.split(' ').slice(-1)[0]:'#'+c.num;
+    const who=c.name?c.name.split(' ').slice(-1)[0]:'#'+c.num;
+    /* CROSSING THE PLANE (user 11-21): falling forward across the goal line is a touchdown; brought down within half a yard
+       of it, he stretches the ball out for it, over the line about one time in five for a 65 and half the time for a 99.
+       The reach is drawn either way (S.stretch), over the line or just short. */
+    if(c.y>=S.goal) return end('Touchdown',who+' falls across the goal line.','td',S.goal);
+    { const gap=S.goal-c.y; if(gap>0&&gap<=.5){ const q=clamp(((c.r||75)-65)/34,0,1), ok=Math.random()<.18+.32*q;
+        S.stretch={c,x:c.x,y:c.y,t0:S.t+.3,y1:ok?S.goal+.4:S.goal-.12,ok};
+        if(ok){ pop('Reaches across','#4ade80',c,1.1); return end('Touchdown',who+' stretches the ball across the goal line.','td',S.goal); }
+        pop('Stopped short','#D9325E',c,.9); return end('Stopped short',who+' reaches for the goal line and comes up just short. Brought down by #'+p.num+'.','gain',Math.max(0,Math.round(c.y))); } }
+    const y=Math.round(c.y);
     const how={tackle:'Brought down by',hit:'Hit by',shoe:'Tripped up by',wrap:'Wrapped up by',drag:'Dragged down by',sling:'Slung down by'}[kind]||'Brought down by';
     return end(y>=15?'Big play':kind==='hit'&&y<=2?'Big hit':y>0?'Tackled':'Stopped',who+(y>=0?' for '+y:' loses '+(-y))+(S.caught?' after the catch':'')+'. '+how+' #'+p.num+'.',y>0?'gain':'loss',y); }
   /* each frame of a tackle, from its first contact */
@@ -716,7 +726,7 @@ function makeGame(){
     /* caught past the end line or over the sideline: he had it, but he was out */
     if(caught&&(Math.abs(to.x-FC)>SIDE||to.y>S.goal+10)){ reachFor(r,to); pop('Out of bounds','#F0CE26',r); return end('Incomplete',(r.name||'#'+r.num)+' had it, but out of bounds.','inc',0,to); }
     if(caught&&diving){ S.caught=true; S.catcher=r; pop('Diving catch','#4C9EFF',r); { const ux=to.x-r.x, uy=to.y-r.y, ul=Math.hypot(ux,uy)||1; r.x=to.x-ux/ul*.6; r.y=to.y-uy/ul*.6; dive(r,{x:r.x+ux,y:r.y+uy}); } r.until=S.t+.25; S.ball.holder=r;
-      const y=Math.round(to.y); return end(y>=S.goal?'Touchdown':'Diving catch',(r.name||'#'+r.num)+' lays out for it'+(y>=S.goal?' in the end zone.':', '+y+' yards.'),y>=S.goal?'td':'gain',y>=S.goal?S.goal:y); }
+      const y=Math.round(to.y), td=to.y>=S.goal; return end(td?'Touchdown':'Diving catch',(r.name||'#'+r.num)+' lays out for it'+(td?' in the end zone.':', '+Math.min(y,S.goal-1)+' yards.'),td?'td':'gain',td?S.goal:y); }
     if(caught){ S.caught=true; S.catcher=r; r.x=to.x; r.y=to.y; S.ball.holder=r; S.carrier=r; r.path=null; r.route=null; hint('Tap left or right of him to cut');
       /* a short one in coverage: he snaps it straight into a tight, secure carry and keeps running, the better his hands the more often */
       const atLine=to.y>=S.goal+10-1.8, atSide=Math.abs(to.x-FC)>SIDE-2.4;
@@ -874,16 +884,16 @@ function makeGame(){
       const PS=S.ps;
       if(PS&&p===PS.a) return;
       if(PS&&p===PS.b){ const [ax,ay]=toS(PS.ax,PS.ay), hand=drawScene(ctx,PS.kind,S.t-PS.t0,ax,ay,PS.sdir,SC,PS.who);
-        if(hand&&(S.ball.holder===PS.a||S.ball.holder===PS.b)) drawBall(ctx,hand[0],ay,Math.max(2,ay-hand[1]),SC,0,true); return; }
+        if(hand&&(S.ball.holder===PS.a||S.ball.holder===PS.b)&&!reaching(S.ball.holder)) drawBall(ctx,hand[0],ay,Math.max(2,ay-hand[1]),SC,0,true); return; }
       const Q=S.seq&&S.seq.scene?S.seq:null;
       if(Q&&p===Q.b) return;
       if(Q&&p===Q.a){ const [ax,ay]=toS(Q.ax,Q.ay), si=q=>q.si!=null?q.si:((q.num||0)*7)%SKIN.length;
         const hand=drawScene(ctx,Q.name,S.t-Q.t0,ax,ay,Q.sdir,SC,{A:{k:Q.b.side,si:si(Q.b)},B:{k:Q.a.side,si:si(Q.a)}});
-        if(S.ball.holder===p&&hand) drawBall(ctx,hand[0],ay,Math.max(2,ay-hand[1]),SC,0,true);
+        if(S.ball.holder===p&&hand&&!reaching(p)) drawBall(ctx,hand[0],ay,Math.max(2,ay-hand[1]),SC,0,true);
         return; }
       if(E&&p===E.b){ const [ax,ay]=toS(E.ax,E.ay), si=q=>q.si!=null?q.si:((q.num||0)*7)%SKIN.length;
         const hand=drawScene(ctx,E.kind,S.t-E.t0,ax,ay,E.sdir,SC,{A:{k:E.a.side,si:si(E.a)},B:{k:E.b.side,si:si(E.b)}});
-        if(S.ball.holder===p&&hand) drawBall(ctx,hand[0],ay,Math.max(2,ay-hand[1]),SC,0,true);
+        if(S.ball.holder===p&&hand&&!reaching(p)) drawBall(ctx,hand[0],ay,Math.max(2,ay-hand[1]),SC,0,true);
         return; }
       if(p._st!==p.state){ p._st=p.state; p._st0=S.t; } const age=S.t-(p._st0||0);
       let st=p.state, fr=p.fxd?(p.ff||0):(st==='run'?p.ph%8:0), face=p.facing, lift=0;
@@ -939,6 +949,13 @@ function makeGame(){
         ctx.globalAlpha=.42-k*.09; drawBall(ctx,sx,sy,Math.sin(g*Math.PI)*A+u*(72-40*g),SC,Math.atan2((ty-fy)-dl,tx-fx),true); } ctx.globalAlpha=1; }
       drawBall(ctx,bx,by,lift,SC,Math.atan2((ty-fy)-dl,tx-fx)); }
     if(S.parts&&S.parts.length){ for(const p of S.parts){ const [x,y]=toS(p.x,p.y); ctx.globalAlpha=Math.max(0,1-p.age/p.life); ctx.fillStyle=p.col; ctx.fillRect(Math.round(x-p.s/2),Math.round(y-p.z*K*.6-p.s/2),p.s,p.s); } ctx.globalAlpha=1; }
+    if(S.stretch&&S.t>=S.stretch.t0){ const R=S.stretch, k=clamp((S.t-R.t0)/.5,0,1), e=1-Math.pow(1-k,3), [cx,cy]=toS(R.x,R.y), [,gl]=toS(0,S.goal), gy=toS(0,R.y1)[1], lift=Math.round(16*SC),
+        by=cy+(gy-cy)*e, c=R.c, tone=SKIN[((c.si!=null?c.si:((c.num||0)*7))%SKIN.length+SKIN.length)%SKIN.length], y0=Math.round(cy-lift*.55), y1=Math.round(by-lift), w=Math.max(4,Math.round(3.2*SC));
+      /* the goal line lights up under the ball once it gets there: green over it, red short of it */
+      if(k>=1){ const hw=Math.round(22*SC); ctx.fillStyle=R.ok?'#4ade80':'#D9325E'; ctx.fillRect(Math.round(cx-hw),Math.round(gl)-1,hw*2,3); }
+      ctx.fillStyle='rgba(8,9,11,.75)'; ctx.fillRect(Math.round(cx-w/2)-1,Math.min(y0,y1)-1,w+2,Math.abs(y0-y1)+2);
+      ctx.fillStyle=tone[1]; ctx.fillRect(Math.round(cx-w/2),Math.min(y0,y1),w,Math.abs(y0-y1)); ctx.fillStyle=tone[2]; ctx.fillRect(Math.round(cx-w/2),Math.min(y0,y1),Math.max(1,Math.round(w/3)),Math.abs(y0-y1));
+      drawBall(ctx,cx,by,lift,SC*1.6,Math.PI/2); }
     if(S.landed&&S.phase==='done'&&!S.loose){ const [x,y]=toS(S.landed.x,S.landed.y); drawBall(ctx,x,y,2,SC,.35); }
     if(S.loose&&S.t>=S.loose.t0){ const L=S.loose, k=clamp((S.t-L.t0)/.7,0,1), [bx,by]=toS(L.x0+(L.to.x-L.x0)*k,L.y0+(L.to.y-L.y0)*k); drawBall(ctx,bx,by,2+Math.abs(Math.sin(k*Math.PI*2.5))*(1-k)*24,SC,k*9); }
     /* THE CALLOUTS, a stack: the first one sits just over the play, each one after it goes on top of the stack, and no

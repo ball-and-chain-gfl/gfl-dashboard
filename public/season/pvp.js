@@ -112,7 +112,7 @@ async function pvpNew(){ try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){}
   const R={opp:free[0].tid,time:'night',wx:'clear',mode:'spin',pos:['any','any','any','any','any','any'],pack:{legend:1,gold:1,silver:1,bronze:2},dst:'any'};
   const TI=['any','bronze','silver','gold','legend'], TL={any:'Random',bronze:'Bronze',silver:'Silver',gold:'Gold',legend:'Legend'};
   const seg=(k,opts)=>`<div class="qs-seg" data-k="${k}">${opts.map(([v,l])=>`<button type="button" class="${R[k]===v?'on':''}" data-v="${v}">${l}</button>`).join('')}</div>`;
-  const draw=()=>{ const tot=Object.values(R.pack).reduce((a,b)=>a+b,0);
+  const draw=()=>{ const tot=Object.values(R.pack).reduce((a,b)=>a+b,0), sc0=$('#scr-match .mu.pv'), y0=sc0?sc0.scrollTop:0, wy0=window.scrollY;
     $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>New game</b><span></span></div>
       <span class="qs-l">Opponent</span><div class="pv-opps">${opps.map(o=>`<button type="button" class="pv-o${R.opp===o.tid?' on':''}${o.busy?' busy':''}" data-o="${o.tid}">${crest(o)}<b>${esc(o.name)}</b></button>`).join('')}</div>
       <span class="qs-l">Time</span>${seg('time',[['day','Day'],['dusk','Dusk'],['night','Night']])}
@@ -122,6 +122,7 @@ async function pvpNew(){ try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){}
       ${R.mode==='pack'?`<div class="pv-pack">${['legend','gold','silver','bronze'].map(t=>`<div class="t-${t}"><span>${TL[t]}</span><button type="button" data-m="${t}">−</button><b>${R.pack[t]}</b><button type="button" data-p="${t}">+</button></div>`).join('')}<small class="${tot===5?'':'bad'}">${tot} of 5</small></div>`:''}
       <span class="qs-l">Defense</span>${seg('dst',TI.map(t=>[t,TL[t]]))}
       <button class="btn w" id="pv-go"${R.mode==='pack'&&tot!==5?' disabled':''}>Build my team</button></div>`;
+    { const sc=$('#scr-match .mu.pv'); if(sc) sc.scrollTop=y0; if(window.scrollY!==wy0) window.scrollTo(0,wy0); }
     $('#pv-back').onclick=()=>pvpHub();
     document.querySelectorAll('.pv-o').forEach(b=>b.onclick=()=>{ const o=opps.find(x=>x.tid===b.dataset.o); if(o&&o.busy) return toastS('You already have a game going with '+o.name); R.opp=b.dataset.o; draw(); });
     document.querySelectorAll('.qs-seg').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=()=>{ R[g.dataset.k]=b.dataset.v; draw(); }));

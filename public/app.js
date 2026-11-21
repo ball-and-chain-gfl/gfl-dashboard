@@ -1010,7 +1010,7 @@ function buildTabDD(){
   const menu=document.getElementById('tab-dd-menu'); if(!menu) return;
   const btns=[...document.querySelectorAll('#tabbar .tab-btn')].filter(b=>b.style.display!=='none');
   const sig=btns.map(b=>b.dataset.tab).join(',');
-  if(sig===_ddSig&&menu.children.length){ syncTabDDActive(); return; }   /* already built */
+  if(sig===_ddSig&&menu.children.length){ syncTabDDActive(); try{ gsBadgeSync(); }catch(e){} return; }   /* already built */
   _ddSig=sig;
   /* Buttons carrying data-pair are gathered into one row instead of taking a
      full line each. They are the two curiosities at the foot of the menu, and
@@ -1039,6 +1039,7 @@ function buildTabDD(){
     (g.label?`<div class="tab-dd-sep"><span class="tab-dd-rule"></span><span class="tab-dd-sep-l">${g.label}</span></div>`:'')
     +`<div class="tab-dd-grid">${g.items.map(item).join('')}</div>`
   ).join('')+pairRow;
+  try{ gsBadgeSync(); }catch(e){}
 }
 function syncTabDDActive(){
   document.querySelectorAll('#tab-dd-menu .tab-dd-item').forEach(i=>i.classList.toggle('active',i.dataset.tab===_activeTab));
@@ -9916,7 +9917,7 @@ const TEST_PROFILE='test';
 function seasonAllowed(){ return !!_me&&!!_me.teamId; }
 function seasonGate(){
   const ok=seasonAllowed(), b=document.querySelector('.tab-btn[data-tab=season]');
-  if(b) b.style.display=ok?'':'none';
+  if(b) b.style.display=ok?'':'none'; try{ gsBadgeSync(); }catch(e){}
   if(!ok){ const body=document.getElementById('season-body'); if(body) body.innerHTML='';
     if(_activeTab==='season') switchTab('home'); }
 }
@@ -22876,9 +22877,28 @@ async function gsInvPoll(force){
     gsInvTake(tid,games);
   }catch(e){}
 }
+/* WHAT'S WAITING ON YOU in head to head, counted on a red badge after "GFL Seasons" in the menu: an invite to you,
+   a game where it's your move, and a finished game whose end you haven't seen yet (for three days, like its card).
+   It counts the list already in hand (the homepage's read, and what the game hands up as you play): no reads of its own. */
+function gsActionCount(){
+  if(!_me||!seasonAllowed()) return 0;
+  const me=String(_me.teamId||''), now=Date.now();
+  return (_gsInv.games||[]).filter(x=>{ if(!x) return false;
+    if(x.st==='invited') return x.role==='b';
+    if(x.st==='active') return String(x.turn)===me;
+    if(x.st==='done'){ if(x.seen) return false; try{ if(localStorage.getItem('gfl-pvp-fin-pvp-'+x.id)==='1') return false; }catch(e){} return now-(Number(x.at)||0)<3*24*3600*1000; }
+    return false; }).length;
+}
+function gsBadgeSync(){
+  const n=gsActionCount();
+  document.querySelectorAll('.tab-dd-item[data-tab=season]').forEach(b=>{ let e=b.querySelector('.tab-dd-badge');
+    if(!n){ if(e) e.remove(); return; }
+    if(!e){ e=document.createElement('b'); e.className='tab-dd-badge'; b.appendChild(e); }
+    e.textContent=n>9?'9+':String(n); e.setAttribute('aria-label',n+' waiting on you in head to head'); });
+}
 function gsInvTake(tid,games){
   if(String((_me&&_me.teamId)||'')!==String(tid)) return;
-  _gsInv.tid=String(tid); _gsInv.games=games||[];
+  _gsInv.tid=String(tid); _gsInv.games=games||[]; try{ gsBadgeSync(); }catch(e){}
   if(_activeTab==='home'){ try{ renderNotifications(); orderHomeTodo(); }catch(e){} }
 }
 addEventListener('message',e=>{ if(e.origin!==location.origin||!e.data||e.data.gfl!=='season-pvpbox') return; gsInvTake(e.data.tid,e.data.games); });
