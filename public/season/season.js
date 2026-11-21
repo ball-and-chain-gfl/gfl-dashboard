@@ -288,10 +288,11 @@ const tm=(i,cls)=>{ const t=LG.teams[i]; return `<span class="tmn ${cls||''}"><i
 let HUBTAB='next', LGTAB='table';
 function hub(tab){ const same=!tab||tab===HUBTAB, B0=$('#scr-hub .hb-body'), y0=same&&B0?B0.scrollTop:0, C0=$('#scr-hub .lgc'), x0=C0?C0.scrollLeft:0;
   if(tab) HUBTAB=tab; screen('hub'); const R=LG.rounds[LG.cur], me=LG.teams[0], tabs=[['next',LG.phase==='done'?'Final':'Next'],['sched','Schedule'],['team','Your team'],['league','League']];
-  $('#scr-hub').innerHTML=`<div class="hb-top g" style="--tcol:${teamCol(me)}"><div class="fade"><div class="dots"></div></div><div class="hb-tl"><button class="btn" id="hb-menu">Menu</button>${typeof ACH_ON!=='undefined'&&ACH_ON?`<button class="ach-btn" id="hb-ach" aria-label="Achievements">${ACH_ICON}</button>`:''}</div>
+  $('#scr-hub').innerHTML=`<div class="hb-top g" style="--tcol:${teamCol(me)}"><div class="fade"><div class="dots"></div></div>
       <div class="hb-me"><div class="hv-c">${crest(me)}</div><div><span class="tag">${esc(LG.name)} season · ${LG.phase==='done'?'Over':esc(R.label)}</span><b>${esc(me.name)}</b>
         <div class="hb-chips"><span class="c-rec">${recTxt(me.st)}</span><span>${ordinal(standings().findIndex(x=>x.i===0)+1)} of ${LG.teams.length}</span><span class="c-faab">$${me.faab??100}</span></div></div>
-        ${trophies().length?`<button class="hb-tro" id="hb-tro"><canvas class="trophy"></canvas><b>${trophies().length}</b></button>`:''}</div></div>
+        ${trophies().length?`<button class="hb-tro" id="hb-tro"><canvas class="trophy"></canvas><b>${trophies().length}</b></button>`:''}
+        <div class="hb-tl">${typeof ACH_ON!=='undefined'&&ACH_ON?`<button class="ach-btn" id="hb-ach" aria-label="Achievements">${ACH_ICON}</button>`:''}<button class="home-btn" id="hb-menu" aria-label="Main menu">${HOME_ICON}</button></div></div></div>
     <div class="hb-body">${({next:hubNext,sched:hubSched,team:hubTeam,league:hubLeague})[HUBTAB]()}</div>
     <div class="hb-tabs gnav">${tabs.map(([k,l])=>`<button data-k="${k}" class="${k===HUBTAB?'on':''}">${pxIcon(k)}<span>${l}</span></button>`).join('')}</div>`;
   document.querySelectorAll('.hb-tabs button').forEach(b=>b.onclick=()=>hub(b.dataset.k));
@@ -738,6 +739,7 @@ function setupScreen(){ screen('match'); const tc=trophies().length, tint=(ME.co
   const nb=$('#bt-new'); if(nb) nb.onclick=()=>{ if(L&&L.phase!=='done'&&!confirm('Start a new season? This one will be gone.')) return; if(L) newSeason(true); leaguePicker(); };
   const cb=$('#bt-cont'); if(cb) cb.onclick=()=>hub('next');
   $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); $('#qgpvp').onclick=()=>pvpHub(); pvpBadge(); $('#st-tro').onclick=()=>openTrophies('setup'); const ab=$('#bt-ach'); if(ab) ab.onclick=()=>openAch('setup'); }
+const HOME_ICON=`<svg viewBox="0 0 576 512" aria-hidden="true"><path fill="currentColor" d="M575.8 255.5c0 18-15 32.1-32 32.1h-32l.7 160.2c0 2.7-.2 5.4-.5 8.1V472c0 22.1-17.9 40-40 40H456c-1.1 0-2.2 0-3.3-.1-1.4 .1-2.8 .1-4.2 .1H416 392c-22.1 0-40-17.9-40-40V448 384c0-17.7-14.3-32-32-32H256c-17.7 0-32 14.3-32 32v64 24c0 22.1-17.9 40-40 40H160 128.1c-1.5 0-3-.1-4.5-.2-1.2 .1-2.4 .2-3.6 .2H104c-22.1 0-40-17.9-40-40V360c0-.9 0-1.9 .1-2.8V287.6H32c-18 0-32-14-32-32.1 0-9 3-17 10-24L266.4 8c7-7 15-8 22-8s15 2 21 7L564.8 231.5c8 7 12 15 11 24z"/></svg>`;
 const ACH_ICON=`<svg viewBox="0 0 576 512" aria-hidden="true"><path fill="currentColor" d="M552 64H448V24c0-13.3-10.7-24-24-24H152c-13.3 0-24 10.7-24 24v40H24C10.7 64 0 74.7 0 88v56c0 35.7 22.5 72.4 61.9 100.7 31.5 22.7 69.8 37.1 110 41.7C203.3 338.5 240 360 240 360v72h-48c-35.3 0-64 20.7-64 56v12c0 6.6 5.4 12 12 12h296c6.6 0 12-5.4 12-12v-12c0-35.3-28.7-56-64-56h-48v-72s36.7-21.5 68.1-73.6c40.3-4.6 78.6-19 110-41.7 39.3-28.3 61.9-65 61.9-100.7V88c0-13.3-10.7-24-24-24zM99.3 192.8C74.9 175.2 64 155.6 64 144v-16h64.2c1 32.6 5.8 61.2 12.8 86.2-15.1-5.2-29.2-12.4-41.7-21.4zM512 144c0 16.1-17.7 36.1-35.3 48.8-12.5 9-26.7 16.2-41.8 21.4 7-25 11.8-53.6 12.8-86.2H512v16z"/></svg>`;
 /* ACHIEVEMENTS (the BFT's for now, like Build a Manager's): the list comes later; the section is here, from the menu and the hub */
 const ACH_LIST=[];
@@ -752,7 +754,7 @@ function leaguePicker(){ screen('match'); const tc=trophies().length, hero=lab=>
   if(QUICK_ONLY){ $('#scr-match').innerHTML=`<div class="mu setup st2">${hero('Quick game')}
     <div class="st-acts"><button class="btn w" id="qg">Quick game</button><button class="btn" id="qgmix">Quick game · test team</button><button class="btn" id="qgpvp" data-pvp>Head to head</button></div></div>`;
     paintScenes(); paintArt(); $('#qg').onclick=()=>quickGame(false); $('#qgmix').onclick=()=>quickGame(true); $('#qgpvp').onclick=()=>pvpHub(); pvpBadge(); return; }
-  $('#scr-match').innerHTML=`<div class="mu setup st2"><button class="btn lp-back" id="lp-back">Menu</button>${hero('Pick your league')}
+  $('#scr-match').innerHTML=`<div class="mu setup st2"><button class="home-btn lp-back" id="lp-back" aria-label="Main menu">${HOME_ICON}</button>${hero('Pick your league')}
     <div class="presets">${PRESETS.map((p,i)=>`<button class="${i===1?'on':''}" data-p="${p.id}"><b>${p.name}</b><span>${p.note}</span></button>`).join('')}</div>
     <div class="st-acts"><button class="btn w" id="go">Open Season Pack</button></div></div>`;
   paintScenes(); paintArt(); $('#lp-back').onclick=()=>setupScreen();
