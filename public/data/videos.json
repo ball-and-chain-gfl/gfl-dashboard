@@ -1,6 +1,13 @@
 {
- "updated": "2026-11-16T11:24:48.479Z",
+ "updated": "2026-11-22T06:52:35.603Z",
  "videos": [
+  {
+   "videoId": "YGxI80I0UkU",
+   "title": "Ball and Chain 11 2026",
+   "published": "2026-11-22T00:27:02+00:00",
+   "thumb": "https://i.ytimg.com/vi/YGxI80I0UkU/hqdefault.jpg",
+   "description": "Another week of recap and another episode of ball and chain coming your way. Rivalry week is right around the corner and we have everything you need to be ready."
+  },
   {
    "videoId": "3IcTS5XJIrU",
    "title": "Ball and Chain 10 2026",
@@ -98,13 +105,6 @@
    "published": "2025-12-27T23:47:17+00:00",
    "thumb": "https://i.ytimg.com/vi/3vGgxPd2fas/hqdefault.jpg",
    "description": "here"
-  },
-  {
-   "videoId": "7M6nHiqkM3c",
-   "title": "Ball and Chain 16 2025",
-   "published": "2025-12-20T23:44:16+00:00",
-   "thumb": "https://i.ytimg.com/vi/7M6nHiqkM3c/hqdefault.jpg",
-   "description": "IT IS THE SEMI-FINALS but there is nothing SEMI about this episode of B&C. We dive full on into the matchups and provide you with the analysis you DESPRATLEY need for this weeks GFL matchups."
   }
  ]
 }
