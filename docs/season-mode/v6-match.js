@@ -123,7 +123,7 @@ function makeSim(){
        just click and some never get going, whoever is on the field. */
     if(st.form==null) st.form=gauss()*.45;
     const dd=st.mine?st.def:DR.got[5], adv=clamp((st.off-((dd&&dd.r)||82))/20,-1.5,1.5)*.5+st.form+(st.mine?0:.45),   /* the other side's offense is sharper: about 2.3 points a drive against an even defense (1.45 at 0, 1.9 at .25, 2.05 at .35; the user has asked three times for a little more) */ yd=st.yd, x=.44+Math.random()*.12, DA=i=>(dd&&dd.a)?.5+(clamp((dd.a[i]-55)/44,0,1)-.5)*.5:.5, theirs=st.mine?'Their ball':'Your ball';
-    if(st.down===4){ const QLEN=420, MM=MATCH.M, trail=st.mine?0:Math.max(0,(MM.score[0]||0)-(MM.score[1]||0)), left=MM.q>4?0:(4-MM.q)*QLEN+Math.max(0,MM.clock), late=clamp(1-left/(4*QLEN),0,1);
+    if(st.down===4){ const MM=MATCH.M, QLEN=MM.qlen||420, trail=st.mine?0:Math.max(0,(MM.score[0]||0)-(MM.score[1]||0)), left=MM.q>4?0:(4-MM.q)*QLEN+Math.max(0,MM.clock), late=clamp(1-left/(4*QLEN),0,1);
       /* urgency: how many scores behind, weighted by how late it is (both have to be true for it to matter much) */
       const urg=clamp(trail/8,0,3)*late**1.5, desperate=trail>0&&left<150, fgUseless=trail>3&&left<240;
       if(yd>=62&&!fgUseless){ const dist=100-yd+17, good=Math.random()<fgOdds(dist); return {x,from:yd,to:yd,kind:'fg',good,call:good?'Field goal good':'No good',sub:dist+' yards'}; }
@@ -142,7 +142,7 @@ function makeSim(){
   function info(){ MATCH.ddThem(st); }
   function step(){ if(st.over) return; if(!st.script&&MATCH.stopped()) return finish({kind:'clock'});
     const p=play(); if(p.kind==='end') return finish({kind:'clock'}); if(p.to>=100&&p.kind!=='to'&&p.kind!=='punt'){ p.to=100; p.via=p.kind; p.kind='td'; p.call='Touchdown'; }
-    st.n++; MATCH[st.mine?'meTick':'cpuTick'](p.s!=null?p.s:p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
+    st.n++; p.dn=st.down; p.tg=st.togo; MATCH[st.mine?'meTick':'cpuTick'](p.s!=null?p.s:p.kind==='inc'?5:Math.round(15+Math.random()*10),p);
     $('#call').innerHTML=`<div style="--cc:${COL[p.kind]}"><b>${p.call}</b>${p.sub?`<small>${p.sub}</small>`:''}</div>`;
     const t0=performance.now(), dur=fast?90:300; const grow=now=>{ if(st.over) return; const f=Math.min(1,(now-t0)/dur); frame(p,f); if(f<1) requestAnimationFrame(grow); else after(p); }; requestAnimationFrame(grow); }
   function after(p){
@@ -170,7 +170,7 @@ function makeMatch(){
   const mine=yd=>yd===50?'the 50':yd<50?'your '+yd:'their '+(100-yd);
   const theirs=yd=>yd===50?'the 50':yd<50?'their '+yd:'your '+(100-yd);
   /* seven-minute quarters; a forty-second play clock between plays while the game clock runs */
-  const QLEN=420, PLAYCLOCK=40, RUNOFF=6;
+  let QLEN=420; const PLAYCLOCK=40, RUNOFF=6;
   /* WIN PROBABILITY, yours: the score, the time left, where the ball is and whose it is, and early on how the two teams
      compare. Level at the kick it's about even; a lead counts for more the less time there is to answer it. */
   const gsec=()=>Math.min(4,M.q-1)*QLEN+(QLEN-Math.max(0,M.clock));
@@ -179,7 +179,11 @@ function makeMatch(){
     const fp=M.poss==='me'?(M.yd-50)/50*2.5+1.2:M.poss==='cpu'?-(((M.cyd||25)-50)/50*2.5+1.2):0, mine=((DR.got.length?DR.got.slice(0,5).reduce((a,p)=>a+((p&&p.r)||80),0)/Math.min(5,DR.got.length):80)+((DR.got[5]&&DR.got[5].r)||80))/2, theirs=((M.oppO||80)+((M.oppD&&M.oppD.r)||80))/2;
     const z=(diff+fp+(mine-theirs)/10*tl)/(1.2+11*Math.sqrt(tl)); return clamp(1/(1+Math.exp(-z*1.7)),.01,.99); }
   /* each drive as it goes: where it started, when, each play's yards, and the win probability when it began */
-  function newDrive(me,yd){ M.drv={me,start:yd,t0:gsec(),plays:[],wp0:wp()}; }
+  function defStop(trail,yd,down){ if(M.otS||M.stop||M.q>4) return false;
+    if(M.q===4) return trail>=1&&trail<=24&&M.clock>0&&M.clock<=180+(trail>8?60:0);
+    if(M.q===2) return M.clock>0&&M.clock<=100&&yd<=40&&down<=3;
+    return false; }
+  function newDrive(me,yd){ M.dStop=false; M.drv={me,start:yd,t0:gsec(),plays:[],wp0:wp()}; }
   const mmss=s=>Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0');
   function dsum(){ const d=M.drv; if(!d||!d.plays.length) return ''; const n=d.plays.length, yds=d.plays.reduce((a,p)=>a+p.y,0), dt=gsec()-d.t0, dw=Math.round((wp()-d.wp0)*100), mx=Math.max(8,...d.plays.map(p=>Math.abs(p.y)));
     const C={run:'var(--orange)',pass:'var(--sky)',inc:'var(--text3)',loss:'var(--red)',to:'var(--red)',td:'var(--green)'};
@@ -192,14 +196,23 @@ function makeMatch(){
   const MENU=window.parent!==window?`<button class="menu" aria-label="Menu" onclick="parent.postMessage({gfl:'season-menu'},location.origin)"><i></i><i></i><i></i></button>`:'';
   /* set a box's markup only when it changed: rebuilding the scoreboard every second re-drew the crests, which flickered */
   const LEAVE=`<button class="lv" aria-label="Leave game" onclick="leaveGame()">✕</button>`;
+  function teamsSheet(then){ let el=$('#tms'); if(!el){ el=document.createElement('div'); el.id='tms'; $('#fw').appendChild(el); }
+    const out=new Set(M.out||[]), lab=p=>SPD_I(p)!=null&&p.a?`<span class="ts">${SPD_L(p)} ${p.a[SPD_I(p)]}</span>`:'<span class="ts"></span>';
+    const row=(p,pos)=>p?`<div class="tmr"><span class="tp">${pos}</span><b>${esc(p.n)}${p.season&&!isBackup(p)?` <small>${p.season}</small>`:''}</b><span class="tv">${p.r||''}</span>${pos==='D/ST'?'<span class="ts"></span>':lab(p)}</div>`:'';
+    const side=(name,five,dst,hurt)=>`<div class="tmh"><b>${esc(name||'')}</b></div>${(five||[]).map((p,i)=>row(p,OSLOTS[i]||p.pos)).join('')}${row(dst,'D/ST')}${hurt&&hurt.length?`<div class="tmo">Out: ${hurt.map(h=>esc(h.n)+' ('+esc(String(h.inj).toLowerCase())+')').join(', ')}</div>`:''}`;
+    const mine=side(ME.name,M.lineup,DR.got&&DR.got[5],M.hurt), theirs=side(CPU.name,CPU.roster,CPU.dst||M.oppD,null);
+    el.className='subs show tms'; $('#ctrl').classList.add('lock');
+    el.innerHTML=`<div class="sb-bx"><div class="sb-h"><b>${then?'The matchup':'Both teams'}</b><button class="lv" id="tms-x" aria-label="Close">✕</button></div><div class="sb-list">${mine}${theirs}</div>${then?'<button class="btn w" id="tms-go">Kick off</button>':''}</div>`;
+    const close=()=>{ el.className='subs tms'; $('#ctrl').classList.remove('lock'); if(then){ const f=then; then=null; f(); } };
+    $('#tms-x').onclick=close; const go=$('#tms-go'); if(go) go.onclick=close; }
   const setHTML=(el,h)=>{ if(el&&el._h!==h){ el._h=h; el.innerHTML=h; } };
   function clockOnly(){ const b=document.querySelector('#bug .clk b'); if(!b) return bug(); b.textContent=M.q>4?'0:00':clk(); b.className=M.run&&M.poss==='me'&&!M.stop?'run':''; }
-  function bug(){ const b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?MENU+crest(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':crest(t)+LEAVE}</div>`;
+  function bug(){ const tc=t=>`<span class="tmc" role="button" aria-label="See both teams" onclick="MATCH.teams()">${crest(t)}</span>`, b=(t,s,me)=>`<div class="tm${me?'':' r'}">${me?MENU+tc(t):''}<span class="sc">${s}</span>${M.poss===(me?'me':'cpu')?'<i class="pos"></i>':''}${me?'':tc(t)+LEAVE}</div>`;
     const w=wp(), wc=Math.round(w*20), ca=(KIT.o&&KIT.o.helmet&&KIT.o.helmet[1])||'#3f8fea', cb=(KIT.d&&KIT.d.helmet&&KIT.d.helmet[1])||'#c8233e';
     setHTML($('#bug'),`<div class="wp"><span class="lb">Win probability</span><span class="lb wv">${esc(ini(ME.name))} ${Math.round(w*100)}%</span><div class="wpb">${Array.from({length:20},(_,i)=>`<i style="background:${i<wc?ca:cb}"></i>`).join('')}</div></div>`+b(ME,M.score[0],1)+`<div class="clk"><span class="tag">${M.q>4?'Final':M.otS?'OT'+(M.otS.n>1?M.otS.n:''):'Q'+M.q}</span><b class="${M.run&&M.poss==='me'&&!M.stop?'run':''}">${M.q>4?'0:00':clk()}</b></div>`+b(CPU,M.score[1],0)); clockOnly(); }
   const strip=(los,fd)=>{ const ca=(KIT.o&&KIT.o.helmet&&KIT.o.helmet[1])||'#3f8fea', cb=(KIT.d&&KIT.d.helmet&&KIT.d.helmet[1])||'#c8233e', P=y=>((10+y)/120*100).toFixed(1)+'%';
     return `<div class="fs2"><i class="ez" style="left:0;background:${ca}"></i><i class="ez" style="right:0;background:${cb}"></i>${[1,2,3,4,5,6,7,8,9].map(k=>`<i class="yl" style="left:${P(k*10)}"></i>`).join('')}<i class="los" style="left:${P(los)}"></i>${fd!=null&&fd<100?`<i class="fdm" style="left:${P(fd)}"></i>`:''}</div>`; };
-  function ddMe(){ setHTML($('#dd'),`<span><b class="dn">${M.conv?'Two-point try':ord(M.down)+' <i class="amp">&amp;</i> '+(M.togo>=100-M.yd?'Goal':M.togo)}</b> ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r}</span>`}`+strip(M.yd,M.yd+M.togo)); }
+  function ddMe(){ setHTML($('#dd'),`<span><b class="dn">${M.conv?'Two-point try':ord(M.down)+' <i class="amp">&amp;</i> '+(M.togo>=100-M.yd?'Goal':M.togo)}</b> ${mine(M.yd).replace(/^./,c=>c.toUpperCase())}</span>${M.run&&!M.stop?`<span class="dv pc">Play clock :${String(Math.max(0,Math.ceil(M.pc))).padStart(2,'0')}</span>`:`<span class="dv tmlink" role="button" onclick="MATCH.teams()">${nflImg(M.oppD.n)}${M.oppD.season} ${esc(M.oppD.n)} · ${M.oppD.r} ›</span>`}`+strip(M.yd,M.yd+M.togo)); }
   function ddThem(st){ M.cyd=st.yd; $('#dd').innerHTML=`<span><b class="dn">${ord(st.down)} <i class="amp">&amp;</i> ${st.yd+st.togo>=100?'Goal':st.togo}</b> ${theirs(st.yd).replace(/^./,c=>c.toUpperCase())}</span><span class="dv">Their O ${M.oppO} v D ${SIM.myD()}</span>`+strip(100-st.yd,100-st.yd-st.togo); bug(); }
   function view(v){ const snap=v==='snap'; $('#fld').style.display=snap?'':'none'; $('#sim').style.display=snap?'none':''; $('#ctrl').style.display=snap?'':'none'; $('#drive').style.display=snap?'none':'';
     $('#res').className='result'; $('#call').innerHTML=''; $('#hint').style.display='none'; GAME.show(snap); if(!snap) SIM.size(); }
@@ -219,9 +232,9 @@ function makeMatch(){
   /* mid: between plays of a drive that goes on (no possession has ended, so nothing in overtime is decided) */
   function after(fn,mid){ if(M.otS&&!mid&&otDecided()){ M.q=5; M.stop=true; bug(); if(M.pvp&&M.pvp.mine) pvpSend(oppR(M.pvp.role),25,{done:true}); return final(); }
     /* a playoff overtime period that runs out as a drive ends: the next period starts with the next drive */
-    if(M.stop&&M.otS&&M.otS.playoff&&!mid){ M.otS.n++; M.q=4; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug(); M.toast='Still going: another overtime period'; }
+    if(M.stop&&M.otS&&M.otS.playoff&&!mid){ M.otS.n++; M.q=4; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; M.otos=2; bug(); M.toast='Still going: another overtime period'; }
     if(M.stop) return endPeriod(); fn(); if(M.toast){ toast(M.toast); M.toast=null; } }
-  function startOT(){ const pl=!!M.mustWin, rcv=Math.random()<.5?'me':'cpu'; M.otS={n:1,playoff:pl,had:{me:0,cpu:0}}; M.ot=true; M.q=4; M.clock=pl?QLEN:Math.round(QLEN*10/15); M.stop=false; M.run=false; M.tos=2; bug();
+  function startOT(){ const pl=!!M.mustWin, rcv=Math.random()<.5?'me':'cpu'; M.otS={n:1,playoff:pl,had:{me:0,cpu:0}}; M.ot=true; M.q=4; M.clock=pl?QLEN:Math.round(QLEN*10/15); M.stop=false; M.run=false; M.tos=2; M.otos=2; bug();
     return banner({art:'kick',tag:'Overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:(rcv==='me'?'You win the toss: your ball. ':'They win the toss and take the ball. ')+(pl?'Both teams get a possession, then the next score wins. It goes until somebody does.':'Both teams get a possession, then the next score wins. Ten minutes, and it can end tied.'),btn:rcv==='me'?'Your ball':'Their ball'},()=>rcv==='me'?myDrive(25):cpuDrive(25)); }
   function hurtNotice(p,inj,sub){ setTimeout(()=>{ let el=$('#hurtn'); if(!el){ el=document.createElement('div'); el.id='hurtn'; $('#scr-game').appendChild(el); }
     el.className='hurtn show'; el.innerHTML=`<div class="hn-bx"><span class="tag">Injury</span>${isBackup(p)?'':`<img src="${SHOT(p.id)}" alt="">`}<b>${esc(p.n)} is hurt</b><em>${esc(inj.n)}</em><span class="hn-sub">${esc(sub.n)} comes in</span><button class="btn w" id="hn-ok" disabled>3</button></div>`;
@@ -232,10 +245,10 @@ function makeMatch(){
     M.pend=null; M.run=false; if(M.pvp) return pvpEndPeriod();
     /* the end of the 4th, or of an overtime period */
     if(M.q===4&&!M.otS&&M.score[0]===M.score[1]) return startOT();
-    if(M.q===4&&M.otS&&M.otS.playoff){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
+    if(M.q===4&&M.otS&&M.otS.playoff){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; M.otos=2; bug();
       /* the playoffs go on: the side with the ball keeps it into the next period */
       return banner({art:'kick',tag:'End of overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:M.score[0]===M.score[1]?'Still tied. Another period.':'Not decided yet. Another period.',btn:'Play on'},()=>{ if(M.poss==='me'){ view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); } else cpuDrive(M.cyd||25); }); }
-    if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug();
+    if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; M.otos=3; bug();
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:`They get the ball to start the second half.`,btn:'Second half'},()=>cpuDrive(25)); }
     M.q=5; bug(); final(); }
   function driveBar(mine){ $('#drive').innerHTML=`<span class="tb">${crest(mine?ME:CPU)}<span>${mine?'Your ball':'Their ball'}${M.simAll?' · simming':''}</span></span>${M.pvp?'<button class="btn" id="skip">Skip ahead</button>':M.simAll?'<button class="btn simall" id="simstop">Stop sim</button>':'<button class="btn" id="skip">Skip ahead</button><button class="btn simall" id="simall">Sim the rest</button>'}`;
@@ -255,12 +268,15 @@ function makeMatch(){
       else if(r.kind==='punt'){ go({tag:'Punt',title:'You punt',sub:r.len+' yards.',btn:'Their ball'},()=>cpuDrive(r.spot>=100?20:Math.max(1,100-r.spot))); }
       else if(r.kind==='to'||r.kind==='downs'){ go({tag:'Turnover',title:r.kind==='downs'?'Turnover on downs':r.call||'Turnover',sub:'Their ball.',col:'var(--red)',btn:'Their ball'},()=>cpuDrive(clamp(100-r.spot,1,99))); }
       else endPeriod(); },{mine:true,def:M.oppD,fast:true}); }
-  function myDrive(yd){ if(M.pvp){ M.pvp.mine=true; M.pvp.plays=[]; M.pvp.start=yd; M.pvp.lastG=gsec(); } else if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }
+  function benchHurt(){ (M.out||[]).forEach(k=>{ const i=(M.lineup||[]).findIndex(p=>p&&!isBackup(p)&&keyOf(p)===k); if(i>=0) MATCH.subSlot(i,subFor(M.lineup[i].pos,M.lineup,null)); }); }
+  function myDrive(yd){ if(M.pvp){ benchHurt(); M.pvp.mine=true; M.pvp.plays=[]; M.pvp.start=yd; M.pvp.lastG=gsec(); } else if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }
   const oppR=r=>r==='a'?'b':'a';
   function pvpRec(p){ const g=gsec(); p.s=Math.max(4,Math.round(g-M.pvp.lastG)); M.pvp.lastG=g; M.pvp.plays.push(p); }
-  function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; M.otS=a.ot?{n:a.ot.n,playoff:true,had:Object.assign({a:0,b:0},a.ot.had)}:null; M.ot=!!a.ot; } M.stop=false; M.shown=null; bug(); }
+  function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; M.otS=a.ot?{n:a.ot.n,playoff:true,had:Object.assign({a:0,b:0},a.ot.had)}:null; M.ot=!!a.ot;
+      if(a.tos){ if(a.tos[P.role]!=null) M.tos=a.tos[P.role]; if(a.tos[oppR(P.role)]!=null) M.otos=a.tos[oppR(P.role)]; }
+      if(a.out){ if(a.out[P.role]) M.out=a.out[P.role].slice(); if(a.out[oppR(P.role)]) M.oout=a.out[oppR(P.role)].slice(); } } M.stop=false; M.shown=null; bug(); }
   function pvpSend(next,nextYd,flags){ const P=M.pvp; if(!P||!P.mine) return Promise.resolve(); P.mine=false;
-    const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock,ot:M.otS?{n:M.otS.n,had:Object.assign({},M.otS.had)}:null},st:M.st,ps:M.ps,done:!!(flags&&flags.done),otStart:!!(flags&&flags.ot)};
+    const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock,ot:M.otS?{n:M.otS.n,had:Object.assign({},M.otS.had)}:null,tos:{[P.role]:M.tos,[oppR(P.role)]:M.otos},out:{[P.role]:(M.out||[]).slice(),[oppR(P.role)]:(M.oout||[]).slice()}},st:M.st,ps:M.ps,done:!!(flags&&flags.done),otStart:!!(flags&&flags.ot)};
     const go=()=>pvpAppend(P.id,rec,P.doc).then(doc=>{ P.doc=doc; P.idx=doc.drives.length; pvpSeen(P.id,P.idx); }).catch(e=>{ if(e&&e.message==='superseded'){ toast('That drive was already played on another device'); return pvpLoad(P.id).then(d=>{ if(d){ P.doc=d; pvpPump(); } }); }
       toast('Couldn\u2019t send your drive · trying again'); return new Promise(res=>setTimeout(res,5000)).then(go); });
     return P.sending=go(); }
@@ -281,22 +297,23 @@ function makeMatch(){
     if(P.doc.status==='done'||(last&&last.done)){ M.q=5; bug(); return final(); }
     if(P.doc.next===P.role){ const yd=last?last.nextYd:25; return banner({art:'kick',tag:'Head to head',title:'Your ball',sub:`On ${mine(yd)}.`,btn:'Take the field'},()=>myDrive(yd)); }
     pvpWait(); }
-  function pvpReplay(d){ const P=M.pvp, b0=[...M.score]; M.poss='cpu'; M.cyd=d.start; newDrive(false,d.start); bug(); view('sim'); driveBar(false);
+  function pvpReplay(d){ const P=M.pvp, b0=[...M.score], tos0=M.tos, q0=M.q; M.poss='cpu'; M.cyd=d.start; newDrive(false,d.start); bug(); view('sim'); driveBar(false);
     SIM.start(d.start,M.oppO,r=>{ if(M.pvp!==P) return; M.opp.drives++; P.idx++; pvpSeen(P.id,P.idx); pvpState(d.after); const them=M.score[1]-b0[1], us=M.score[0]-b0[0];
       const t=them>=6?{art:'td_them',title:'Touchdown',sub:them===8?'Two-point try good.':them===7?'Extra point good.':'No extra point.',col:'var(--red)'}:them===3?{art:'fg',title:'Field goal',sub:'Good.',col:'var(--yellow)'}
         :us===2?{art:'safety',title:'Safety',sub:'Two points to you.',col:'var(--green)'}:r.kind==='punt'?{art:'punt',title:'They punt',sub:''}:r.kind==='to'?{art:r.call==='Fumble'?'fumble_us':'int_us',title:r.call==='Fumble'?'Fumble':'Intercepted',sub:'',col:'var(--green)'}
         :r.kind==='downs'?{art:'downs_us',title:'Turnover on downs',sub:'',col:'var(--green)'}:r.kind==='miss'?{art:'nofg',title:'Missed field goal',sub:'',col:'var(--green)'}:{art:'kick',title:d.done?'That\u2019s the game':'End of the half',sub:''};
       if(M.q===3&&M.clock===QLEN&&!d.done) t.sub=(t.sub?t.sub+' ':'')+'Halftime.';   /* their drive ran out the half */
+      if(M.tos<tos0&&M.q===q0&&!d.otStart) t.sub=(t.sub?t.sub+' ':'')+'Your defense called '+(tos0-M.tos===1?'a timeout':(tos0-M.tos)+' timeouts')+' to stop the clock ('+M.tos+' left).';
       if(d.otStart){ if(t.title==='End of the half') t.title='Overtime'; t.sub=(t.sub?t.sub+' ':'')+'Tied after four: overtime. '+(d.next===P.role?'You get the ball first.':'They get the ball first.')+' Both teams get a possession, then the next score wins.'; }
       else if(d.done&&M.ot&&t.title!=='That’s the game') t.sub=(t.sub?t.sub+' ':'')+'That ends it in overtime.';
       banner(Object.assign({drive:1,tag:'Their drive',btn:'Continue'},t),()=>pvpPump()); },{script:d.plays.map(p=>Object.assign({},p))}); }
   function pvpEndPeriod(){ const P=M.pvp;
-    if(M.q===4&&M.otS){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
+    if(M.q===4&&M.otS){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; M.otos=2; bug();
       return banner({art:'kick',tag:'End of overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:M.score[0]===M.score[1]?'Still tied. Another period.':'Not decided yet. Another period.',btn:'Play on'},()=>{ view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }); }
-    if(M.q===4&&M.score[0]===M.score[1]){ const rcv=Math.random()<.5?'a':'b'; M.otS={n:1,playoff:true,had:{a:0,b:0}}; M.ot=true; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; bug();
+    if(M.q===4&&M.score[0]===M.score[1]){ const rcv=Math.random()<.5?'a':'b'; M.otS={n:1,playoff:true,had:{a:0,b:0}}; M.ot=true; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; M.otos=2; bug();
       if(P.mine) pvpSend(rcv,25,{ot:true});
       return banner({art:'kick',tag:'Overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:(rcv===P.role?'You win the toss: your ball. ':'They win the toss and take the ball. ')+'Both teams get a possession, then the next score wins. It goes until somebody does.',btn:rcv===P.role?'Your ball':'Their ball'},()=>{ if(rcv===P.role) myDrive(25); else pvpWait(); }); }
-    if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; bug(); const rcv='b';   /* the side that didn't have the ball first */
+    if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; M.otos=3; bug(); const rcv='b';   /* the side that didn't have the ball first */
       if(P.mine) pvpSend(rcv,25);
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:rcv===P.role?'You get the ball to start the second half.':'They get the ball to start the second half.',btn:'Second half'},()=>{ if(rcv===P.role) myDrive(25); else pvpWait(); }); }
     M.q=5; bug(); if(P.mine) pvpSend(oppR(P.role),25,{done:true}); final(); }
@@ -313,7 +330,7 @@ function makeMatch(){
       else endPeriod(); }); }
   return {
     /* o: the opponent this week (the team, its defense, its offense rating, whether you're at home, the round, and whether it has to have a winner) */
-    start(o){ M.pvp=null; Object.assign(M,{simAll:false,q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,warn:{},twoMin:false,shown:null,
+    start(o){ M.pvp=null; QLEN=(o&&o.qlen)||420; M.qlen=QLEN; M.out=[]; M.oout=[]; Object.assign(M,{simAll:false,q:1,clock:QLEN,score:[0,0],poss:null,yd:25,down:1,togo:10,stop:false,pend:null,toast:null,run:false,pc:PLAYCLOCK,tos:3,otos:3,dStop:false,warn:{},twoMin:false,shown:null,
         st:{att:0,comp:0,py:0,ptd:0,int:0,ra:0,ry:0,rtd:0,sk:0},opp:{plays:0,yds:0,py:0,ry:0,tdP:0,tdR:0,drives:0},
         ps:[0,1,2,3,4].map(()=>({att:0,comp:0,py:0,ptd:0,int:0,sk:0,car:0,ry:0,rushtd:0,tgt:0,rec:0,recy:0,rtd:0,long:0,fum:0})),dst:{sk:0,int:0,fum:0}});
       M.mustWin=!!(o&&o.mustWin); M.ot=false; M.otS=null;
@@ -322,8 +339,8 @@ function makeMatch(){
       if(o){ M.oppO=o.off; M.oppD=o.dst; } else { M.oppO=76+Math.floor(Math.random()*14); M.oppD=near(76+Math.random()*14); }
       GAME.setD(M.oppD); GAME.setHome(Object.assign(o&&!o.home?{name:CPU.name,k:'d',logo:CPU.logo}:{name:ME.name,k:'o',logo:ME.logo},{event:(o&&o.event)||null,time:(o&&o.time)||['day','dusk','night'][Math.floor(Math.random()*3)],snow:!!(o&&o.snow),rain:!!(o&&o.rain)})); bug(); view('snap');
       if(o&&o.pvp){ const D=o.pvp.doc.drives, seen=Math.min(pvpSeenGet(o.pvp.id),D.length); M.pvp=Object.assign({idx:seen,mine:false,plays:[],lastG:0},o.pvp);
-        pvpState(seen?D[seen-1].after:null); for(let i=seen-1;i>=0;i--){ if(D[i].by===o.pvp.role){ if(D[i].st) M.st=D[i].st; if(D[i].ps) M.ps=D[i].ps; break; } } return pvpPump(); }
-      banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25)); },
+        pvpState(seen?D[seen-1].after:null); for(let i=seen-1;i>=0;i--){ if(D[i].by===o.pvp.role){ if(D[i].st) M.st=D[i].st; if(D[i].ps) M.ps=D[i].ps; break; } } return seen?pvpPump():teamsSheet(()=>pvpPump()); }
+      teamsSheet(()=>banner({art:'kick',tag:o?o.label+' · Kickoff':'Kickoff',title:`${esc(ME.name)} receive`,sub:`${o?(o.home?'At home against ':'Away at '):'Against '}${esc(CPU.name)} and the ${M.oppD.season} ${esc(M.oppD.n)} defense. Touchback: your ball on your 25.`,btn:'Take the field'},()=>myDrive(25))); },
     played(r){ const S=GAME.S, y0=r.yards||0, y=(!M.conv&&r.kind!=='td'&&r.kind!=='safety'&&r.kind!=='to'&&M.yd+y0>=100)?99-M.yd:y0, ps=M.ps, Q=ps[0];
       if(M.pvp&&M.pvp.mine&&!M.conv){ const k=r.kind==='td'?'td':r.kind==='to'?'to':r.kind==='safety'?'safety':r.kind==='inc'?'inc':y<0?'loss':(S&&S.thrown?'pass':'run');
         const thrown=!!(S&&S.thrown), runC=!!(S&&S.runCall), body=String(r.body||'').replace(/\s+/g,' ').trim().slice(0,90);
@@ -335,7 +352,7 @@ function makeMatch(){
       if(r.injury&&typeof rollInjury==='function'){ const i=r.injury.ri, p=M.lineup&&M.lineup[i];
         if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=!M.pvp&&typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
           if(season&&!isBackup(p)){ hurt(p,inj); p.sta=Math.round(GAME.stamina()[i]); }
-          const sub=subFor(p.pos,M.lineup,season?LG.teams[0]:null); MATCH.subSlot(i,sub); M.hurt.push({n:p.n,inj:inj.n,out});
+          const sub=subFor(p.pos,M.lineup,season?LG.teams[0]:null); MATCH.subSlot(i,sub); M.hurt.push({n:p.n,inj:inj.n,out}); if(!isBackup(p)) (M.out=M.out||[]).push(keyOf(p));
           r.body+=' '+lastN(p.n)+' is hurt ('+inj.n.toLowerCase()+'). '+sub.n+' comes in.'; hurtNotice(p,inj,sub); } }
       /* each player's line */
       if(S.thrown||r.head==='Thrown away'){ Q.att++; if(S.tgt&&S.tgt.slot!=null) ps[S.tgt.slot].tgt++;
@@ -356,6 +373,7 @@ function makeMatch(){
       else if(r.kind==='safety'){ M.score[1]+=2; bug(); M.pend=()=>banner({art:'safety',drive:1,tag:'Safety',title:'Safety',sub:'Two points to them, and you kick it to them.',col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(35))); }
       else { const g=r.kind==='inc'?0:y; M.yd=clamp(M.yd+g,1,99);
         if(g>=M.togo){ M.down=1; M.togo=Math.min(10,100-M.yd); } else { M.down++; M.togo-=g; }
+        if(M.pvp&&M.run&&!M.stop&&M.otos>0&&M.down<=4&&defStop(M.score[0]-M.score[1],M.yd,M.down)){ M.otos--; M.run=false; M.toast=(CPU&&CPU.name?CPU.name:'They')+' call timeout · '+M.otos+' left'; }
         if(M.down>4){ const yd=100-M.yd; M.pend=()=>banner({art:'downs',drive:1,tag:'Turnover on downs',title:'Short',sub:`Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); }
         else M.pend=()=>after(()=>{ GAME.regroup(M.yd,M.down,M.togo); ddMe(); },true); }
       ddMe(); bug(); },
@@ -376,7 +394,16 @@ function makeMatch(){
       else if(p.kind==='run'||p.kind==='loss'||(p.kind==='td'&&p.via!=='pass')){ const i=Math.random()<.82?1:0; ps[i].car++; ps[i].ry+=y; M.st.ra++; M.st.ry+=y; if(p.kind==='td'){ ps[i].rushtd++; M.st.rtd++; } }
       tick(s); },
     cpuTick(s,p){ M.opp.plays++; if(M.drv&&p.kind!=='punt'&&p.kind!=='fg') M.drv.plays.push({y:p.kind==='to'||p.kind==='inc'?0:p.to-p.from,k:p.kind==='pass'||p.kind==='inc'||p.kind==='run'||p.kind==='loss'||p.kind==='td'||p.kind==='to'?p.kind:'run'}); if(p.call==='Sacked') M.dst.sk++; if(p.kind==='to') M.dst[p.call==='Fumble'?'fum':'int']++; if(p.kind!=='punt'&&p.kind!=='fg'&&p.kind!=='to'){ const g=p.to-p.from, pass=p.kind==='pass'||p.kind==='inc'||p.call==='Sacked'||(p.kind==='td'&&p.via==='pass'); M.opp.yds+=g; if(pass) M.opp.py+=g; else M.opp.ry+=g; }
-      if(p.kind==='td') M.opp[p.via==='pass'?'tdP':'tdR']++; tick(s); },
+      if(p.kind==='td') M.opp[p.via==='pass'?'tdP':'tdR']++;
+      if(M.dStop){ s=Math.min(s,5+Math.round(Math.random()*3)); M.dStop=false; }
+      else if(M.q===4&&!M.otS&&M.score[1]>M.score[0]&&M.clock<=300&&p.kind!=='inc') s=Math.max(s,32+Math.round(Math.random()*6));
+      const before=M.clock; tick(s);
+      const live=(p.kind==='run'||p.kind==='pass'||p.kind==='loss')&&!M.stop, warned=(M.q===2||M.q===4)&&before>120&&M.clock<=120;
+      /* an incompletion stops the clock until the next snap: late in a half that's no runoff at all */
+      if(p.kind==='inc'&&(M.q===2||M.q===4)&&M.clock<=300&&!M.stop) M.dStop=true;
+      if(warned){ M.twoMin=false; toast('Two-minute warning'); if(live) M.dStop=true; }
+      else if(live&&M.tos>0&&p.dn!=null){ const g=p.to-p.from, nd=g>=p.tg?1:p.dn+1;
+        if(nd<=4&&defStop(M.score[1]-M.score[0],p.to,nd)){ M.tos--; M.dStop=true; toast('Your defense calls timeout · '+M.tos+' left'); bug(); } } },
     stopped(){ return M.stop; },
     /* the clock runs during a play, in game time */
     liveTick(dt){ if(M.poss==='me') tick(dt); },
@@ -389,6 +416,7 @@ function makeMatch(){
       if(M.pc<=0) M.run=false;
       if(!M.run){ ddMe(); bug(); GAME.refresh(); } },
     clockUI(){ return {run:M.run&&M.poss==='me'&&!M.stop, tos:M.tos, canSpike:M.run&&M.down<4&&!M.stop}; },
+    teams(){ teamsSheet(); },
     timeout(){ if(!(M.poss==='me'&&M.run&&M.tos>0&&!M.stop)) return; M.tos--; M.run=false; toast('Timeout · '+M.tos+' left'); ddMe(); bug(); GAME.refresh(); },
     spike(){ if(!(M.poss==='me'&&M.run&&M.down<4&&!M.stop)) return; tick(1); M.run=false; M.down++; M.ps[0].att++; M.st.att++; toast('Spiked: the clock stops');
       if(M.stop) return endPeriod(); GAME.sit(M.yd,M.down,M.togo); ddMe(); bug(); },

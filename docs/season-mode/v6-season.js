@@ -258,7 +258,7 @@ function startPlayer(j,k){ const me=LG.teams[0], B=me.bench||[], p=B[j], out=me.
 function subsAvail(){ return typeof LG!=='undefined'&&!!LG&&!QUICK&&!(typeof pvpActive==='function'&&pvpActive())&&MATCH&&MATCH.M&&!MATCH.M.pvp&&MATCH.M.lineup&&MATCH.M.lineup.length===5; }
 function openSubs(){ if(!subsAvail()) return; const M=MATCH.M, me=LG.teams[0], st=GAME.stamina(), inL=new Set(M.lineup.map(keyOf)), pool=[...me.roster,...(me.bench||[])];
   const bar=v=>`<i><b style="width:${v}%;background:${v>60?'var(--green)':v>30?'var(--yellow)':'var(--red)'}"></b></i>`;
-  const rows=M.lineup.map((p,i)=>{ const v=Math.round(st[i]), alt=pool.filter(q=>q.pos===p.pos&&!q.inj&&!inL.has(keyOf(q)));
+  const rows=M.lineup.map((p,i)=>{ const v=Math.round(st[i]), alt=pool.filter(q=>q.pos===p.pos&&!q.inj&&!(M.out||[]).includes(keyOf(q))&&!inL.has(keyOf(q)));
     return `<div class="sb-r"><div class="sb-on"><span>${OSLOTS[i]}</span><b>${esc(isBackup(p)?p.n:lastN(p.n))} <em>${p.r}</em></b><div class="sb-s">${bar(v)}<em>${v}</em></div></div>
       <div class="sb-alt">${alt.length?alt.map(q=>{ const w=Math.round(q.sta??100); return `<button data-i="${i}" data-k="${keyOf(q)}"><b>${esc(lastN(q.n))} <em>${q.r}</em></b><div class="sb-s">${bar(w)}<em>${w}</em></div></button>`; }).join(''):'<span class="sb-none">No one on the bench here</span>'}</div></div>`; }).join('');
   let el=$('#subs'); if(!el){ el=document.createElement('div'); el.id='subs'; $('#fw').appendChild(el); }

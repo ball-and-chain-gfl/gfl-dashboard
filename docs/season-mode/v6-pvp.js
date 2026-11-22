@@ -109,13 +109,14 @@ const pvpOpenWith=(box,tid,except)=>((box&&box.games)||[]).find(x=>x&&x.opp&&Str
 async function pvpNew(){ try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){}
   const opps=pvpTeams().map(o=>Object.assign(o,{busy:!!pvpOpenWith(PVP_BOX,o.tid)})), free=opps.filter(o=>!o.busy);
   if(!opps.length) return toastS('Nobody else can play yet'); if(!free.length) return toastS(opps.length>1?'You already have a game going with everyone':'You already have a game going with '+opps[0].name);
-  const R={opp:free[0].tid,time:'night',wx:'clear',mode:'spin',pos:['any','any','any','any','any','any'],pack:{legend:1,gold:1,silver:1,bronze:2},dst:'any'};
+  const R={opp:free[0].tid,time:'night',wx:'clear',qlen:'420',mode:'spin',pos:['any','any','any','any','any','any'],pack:{legend:1,gold:1,silver:1,bronze:2},dst:'any'};
   const TI=['any','bronze','silver','gold','legend'], TL={any:'Random',bronze:'Bronze',silver:'Silver',gold:'Gold',legend:'Legend'};
   const seg=(k,opts)=>`<div class="qs-seg" data-k="${k}">${opts.map(([v,l])=>`<button type="button" class="${R[k]===v?'on':''}" data-v="${v}">${l}</button>`).join('')}</div>`;
   const draw=()=>{ const tot=Object.values(R.pack).reduce((a,b)=>a+b,0), sc0=$('#scr-match .mu.pv'), y0=sc0?sc0.scrollTop:0, wy0=window.scrollY;
     $('#scr-match').innerHTML=`<div class="mu pv"><div class="pv-top"><button class="btn" id="pv-back">Back</button><b>New game</b><span></span></div>
       <span class="qs-l">Opponent</span><div class="pv-opps">${opps.map(o=>`<button type="button" class="pv-o${R.opp===o.tid?' on':''}${o.busy?' busy':''}" data-o="${o.tid}">${crest(o)}<b>${esc(o.name)}</b></button>`).join('')}</div>
       <span class="qs-l">Time</span>${seg('time',[['day','Day'],['dusk','Dusk'],['night','Night']])}
+      <span class="qs-l">Quarter length</span>${seg('qlen',[['240','4 min'],['300','5 min'],['420','7 min'],['600','10 min'],['900','15 min']])}
       <span class="qs-l">Weather</span>${seg('wx',[['clear','Clear'],['rain','Rain'],['snow','Snow']])}
       <span class="qs-l">Teams</span>${seg('mode',[['spin','Spin every spot'],['pos','Pick per spot'],['pack','One pack']])}
       ${R.mode==='pos'?`<div class="pv-pos">${SLOTS.slice(0,5).map((s,i)=>`<label><span>${s}</span><select data-i="${i}">${TI.map(t=>`<option value="${t}"${R.pos[i]===t?' selected':''}>${TL[t]}</option>`).join('')}</select></label>`).join('')}</div>`:''}
@@ -130,7 +131,7 @@ async function pvpNew(){ try{ PVP_BOX=await pvpBoxGet(pvpTid()); }catch(e){}
     document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ if(Object.values(R.pack).reduce((a,c)=>a+c,0)<5){ R.pack[b.dataset.p]++; draw(); } });
     document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ if(R.pack[b.dataset.m]>0){ R.pack[b.dataset.m]--; draw(); } });
     $('#pv-go').onclick=async()=>{ try{ const bx=await pvpBoxGet(pvpTid()); if(pvpOpenWith(bx,R.opp)) return toastS('You already have a game going with '+(opps.find(x=>x.tid===R.opp)||{}).name); }catch(e){}
-      const rules={mode:R.mode,pos:R.pos.slice(0,5).concat(R.dst),pack:{...R.pack},dst:R.dst}, o=opps.find(x=>x.tid===R.opp);
+      const rules={qlen:+R.qlen||420,mode:R.mode,pos:R.pos.slice(0,5).concat(R.dst),pack:{...R.pack},dst:R.dst}, o=opps.find(x=>x.tid===R.opp);
       pvpBuild(rules,async team=>{ const g={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),v:1,created:Date.now(),status:'invited',time:R.time,wx:R.wx,rules,
           a:Object.assign(pvpMe(),{team}),b:{tid:o.tid,name:o.name,logo:o.logo,team:null},next:'a',drives:[],score:{a:0,b:0}};
         try{ await pvpSave(g); await pvpBoxes(g); toastS('Invite sent to '+o.name); }catch(e){ toastS('Couldn’t send the invite'); } pvpHub(); }); }; };
@@ -157,7 +158,7 @@ function pvpTermsHTML(g){ const R=g.rules||{}, TL={any:'Random',bronze:'Bronze',
     :R.mode==='pos'?'Pick per spot':'Spin every spot';
   const spots=R.mode==='pos'?`<div class="pv-terms">${SLOTS.slice(0,5).map((s,i)=>`<div><span>${s}</span><b>${TL[(R.pos||[])[i]||'any']}</b></div>`).join('')}</div>`:'';
   const row=(l,v)=>`<div><span>${l}</span><b>${v}</b></div>`;
-  return `<div class="pv-terms">${row('Time',{day:'Day',dusk:'Dusk',night:'Night'}[g.time]||'Night')}${row('Weather',{clear:'Clear',rain:'Rain',snow:'Snow'}[g.wx]||'Clear')}
+  return `<div class="pv-terms">${row('Quarters',Math.round((R.qlen||420)/60)+' minutes')}${row('Time',{day:'Day',dusk:'Dusk',night:'Night'}[g.time]||'Night')}${row('Weather',{clear:'Clear',rain:'Rain',snow:'Snow'}[g.wx]||'Clear')}
     ${row('Teams',team)}${row('Defense',TL[R.dst||(R.pos||[])[5]||'any'])}${row('Overtime','Until somebody wins')}</div>${spots}`; }
 async function pvpAccept(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return toastS('Couldn’t load the game'); } if(!g||g.status!=='invited') return pvpHub();
   let crossed=null; try{ const bx=await pvpBoxGet(pvpTid()), o=pvpOpenWith(bx,g.a.tid,id); if(o&&o.st==='active') return toastS('Finish your game with '+g.a.name+' first'); if(o) crossed=o.id; }catch(e){}
@@ -177,4 +178,4 @@ async function pvpOpen(id){ let g; try{ g=await pvpLoad(id); }catch(e){ return t
   const meT=Object.assign({},ME,{name:me.name,logo:me.logo||ME.logo});
   const [mine,theirs]=await Promise.all([logoColors(meT),logoColors(CPU)]), home=role==='a';
   const [hk,ak]=dressFor(home?mine:theirs,home?theirs:mine); setKits(home?hk:ak,home?ak:hk);
-  screen('game'); MATCH.start({team:CPU,dst:CPU.dst,off:offR(CPU),home,label:'Head to head',mustWin:false,lineup:DR.got.slice(0,5),time:g.time,rain:g.wx==='rain',snow:g.wx==='snow',pvp:{id:g.id,role,doc:g}}); }
+  screen('game'); MATCH.start({qlen:(g.rules&&g.rules.qlen)||420,team:CPU,dst:CPU.dst,off:offR(CPU),home,label:'Head to head',mustWin:false,lineup:DR.got.slice(0,5),time:g.time,rain:g.wx==='rain',snow:g.wx==='snow',pvp:{id:g.id,role,doc:g}}); }

@@ -72,6 +72,11 @@ const PLAYS={
   trap:R_('Trap',[[-.2,-2.6],[.3,.5],[-.5,5]],1),
   cutback:R_('Cutback',[[3,-2.8],[2,0],[-1.5,4]],-1),
   sweepL:R_('Sweep left',[[-4,-4.2],[-9,-2],[-10,3]],-1,1),
+  iso:R_('Iso',[[-.2,-2.6],[-.4,.5],[-.4,5]],-1),
+  leadR:R_('Lead right',[[1,-2.6],[2,.5],[2.5,5]],1),
+  counterL:R_('Counter left',[[2.8,-4],[-.5,-2.4],[-2.4,1],[-3,5]],-1,0,.7),
+  sweepR:R_('Sweep right',[[4,-4.2],[9,-2],[10,3]],1,1),
+  bounce:R_('Bounce left',[[-1.5,-2.8],[-3,0],[-7,2],[-8,5]],-1,1),
   jetR:J_('Jet sweep',"WA",[[4.5,-2.3],[9,-.8],[10.5,2],[11,5]],1),
   jetL:J_('Jet left',"WB",[[-4.5,-2.3],[-9,-.8],[-10.5,2],[-11,5]],-1),
 };
@@ -88,12 +93,17 @@ Object.assign(PLAYS,{
   mslant:{...P_('Motion slant',[[0,8],[6,14]],[[-2.5,4],[-9,10]],[[3,1],[8,2]],[[-2,2],[-4,3]]),motion:{p:'WB',to:[10,-.8],T:.9}},
   pa:{...P_('Play action',[[0,10],[7,26]],[[0,12],[-14,18]],[[0,6],[-6,8]],[[1.4,3],[5,3.6]]),bite:.9},
   flea:{...P_('Flea flicker',[[0,30]],[[0,10],[-7,26]],[[0,12],[6,20]],[[1.4,2.4],[1.4,2.6]]),flea:true,bite:1.15},
+  hitches:P_('Hitches',[[0,6],[0,5]],[[0,6],[0,5]],[[0,6],[-1,5]],[[-4,1],[-8,2]]),
+  spacing:P_('Spacing',[[0,5],[1.5,5]],[[0,5],[-1.5,5]],[[0,5],[2.5,5]],[[3,2],[6,3]]),
+  levels:P_('Levels',[[0,10],[9,10]],[[0,5],[-6,5]],[[0,12],[-1,10]],[[-2,2],[-4,3]]),
+  corners:P_('Corners',[[0,10],[-6,18]],[[0,10],[6,18]],[[0,6],[-1,5]],[[2,2],[4,3]]),
+  wheel:P_('RB wheel',[[0,10],[7,14]],[[0,6],[0,5]],[[0,12],[-1,10]],[[-4,1],[-8,3],[-9,10],[-9,30]]),
   everts:P_('Empty verts',[[0,30]],[[0,30]],[[0,8],[1,30]],[[0,8],[-1,30]]),
   seam:P_('Trips seam',[[0,12],[11,12]],[[0,6],[0,5]],[[0,30]],[[-4,1],[-8,2]]),
 });
 /* which formation each play comes out of */
 Object.entries({slants:'tight',verts:'wide',mesh:'tight',smash:'trips',curls:'empty',outs:'wide',posts:'spread',dig:'gun',flood:'trips',drive:'tight',ycross:'gun',screen:'gun',fade:'wide',sluggo:'spread',stick:'empty',comeback:'wide',
-  bubble:'trips',mscreen:'spread',tscreen:'gun',mcorner:'wide',mslant:'wide',pa:'pistol',flea:'gun',everts:'empty',seam:'trips',
+  hitches:'spread',spacing:'trips',levels:'gun',corners:'wide',wheel:'gun',iso:'under',leadR:'under',counterL:'pistol',sweepR:'gun',bounce:'pistol',bubble:'trips',mscreen:'spread',tscreen:'gun',mcorner:'wide',mslant:'wide',pa:'pistol',flea:'gun',everts:'empty',seam:'trips',
   inside:'pistol',outside:'gun',insideL:'pistol',outsideL:'gun',dive:'under',powerR:'under',powerL:'under',counter:'pistol',draw:'gun',qbdraw:'gun',tossR:'under',tossL:'under',stretchR:'pistol',stretchL:'pistol',trap:'under',cutback:'pistol',sweepL:'gun',jetR:'gun',jetL:'gun'})
   .forEach(([k,f])=>{ if(PLAYS[k]) PLAYS[k].f=f; });
 const BOOK={pass:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='pass'),run:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='run')};
@@ -262,14 +272,14 @@ function makeGame(){
     if(S.bite) [...LB,...SF].forEach((p,i)=>p.bites=(S.draws?S.draws[2+i]:Math.random())<.9-.45*Df(p,'cov'));
     const look=S.look;
     DL.forEach(d=>d.role='rush');
-    if(look==='cover2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,7]; }); }
-    if(look==='cover3'){ CB.forEach((c,i)=>{ c.y=7; c.role='deep'; c.spot=[i?16:-16,17]; }); SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=7; SF[1].y=8; SF[1].role='zone'; SF[1].spot=[9,7]; LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?2:-5,7]; }); }
-    if(look==='man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=3.9;   /* the call sets how far off he plays, not the man */ c.y=c.man.y+c.cush; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=-2; SF[1].y=9; SF[1].role='zone'; SF[1].spot=[0,9]; }
+    if(look==='cover2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,5.5]; l.rbKey=true; }); }
+    if(look==='cover3'){ CB.forEach((c,i)=>{ c.y=7; c.role='deep'; c.spot=[i?16:-16,17]; }); SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=7; SF[1].y=8; SF[1].role='zone'; SF[1].spot=[9,5]; LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?2:-5,5.5]; l.rbKey=true; }); }
+    if(look==='man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=3.9;   /* the call sets how far off he plays, not the man */ c.y=c.man.y+c.cush; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; LB[1].cush=1.6; SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].x=-2; SF[1].y=9; SF[1].role='zone'; SF[1].spot=[0,9]; }
     /* Cover 4, quarters: the corners and safeties each take a deep quarter, three underneath. Cover 2 man: man underneath
        with two deep halves. Cover 0: man across the board, both safeties on the tight end and the back, no deep help, the
        backers coming. */
-    if(look==='cover4'){ CB.forEach((c,i)=>{ c.y=7; c.role='deep'; c.spot=[i?16:-16,15]; }); SF.forEach((s,i)=>{ s.x=i?6:-6; s.y=12; s.role='deep'; s.spot=[i?6:-6,16]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,6]; }); }
-    if(look==='c2man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=2.6; c.y=c.man.y+2.6; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); }
+    if(look==='cover4'){ CB.forEach((c,i)=>{ c.y=7; c.role='deep'; c.spot=[i?16:-16,15]; }); SF.forEach((s,i)=>{ s.x=i?6:-6; s.y=12; s.role='deep'; s.spot=[i?6:-6,16]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,5]; l.rbKey=true; }); }
+    if(look==='c2man'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=2.6; c.y=c.man.y+2.6; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; LB[1].cush=1.6; SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); }
     if(look==='cover0'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=1.2; c.y=c.man.y+1.2; c.press=true; }); SF[0].role='man'; SF[0].man=TE; SF[0].x=TE.x+.8; SF[0].y=5; SF[0].cush=1.6;
       SF[1].role='man'; SF[1].man=RB; SF[1].x=RB.x; SF[1].y=5; SF[1].cush=2; LB.forEach(l=>{ l.role='blitz'; l.y=2.4; }); }
     if(look==='blitz'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=2; c.y=c.man.y+2; }); SF[1].role='man'; SF[1].man=TE; SF[1].x=TE.x+1; SF[1].y=5; SF[1].cush=2;
@@ -459,7 +469,7 @@ function makeGame(){
         else if(p.blocked&&!p.shed&&p.pos==='DL'){ tx=p.tx; ty=p.ty; }
         else if(p.jamming&&t<p.jamming.jam){ tx=p.jamming.x; ty=p.jamming.y+.75; vmax=.8; }
         else if(carrier&&(!S.runCall||carrier===S.QB||carrier.y>.5||t>=(S.handT||0)+(p.react||.25)+({deep:.26,zone:.15,man:.18}[p.role]??.04))){ const lead=Math.min(1.1,dist(p,carrier)/p.vmax); tx=carrier.x+carrier.vx*lead; ty=carrier.y+carrier.vy*lead; }
-        else if(ballAir&&t-ballAir.t0>(p.react||.25)*.8){ tx=ballAir.to.x; ty=ballAir.to.y; vmax=p.vmax*1.04; }
+        else if(ballAir&&t-ballAir.t0>(p.react||.25)*(p.role==='zone'||p.rally?.66:.8)){ tx=ballAir.to.x; ty=ballAir.to.y; vmax=p.vmax*(p.role==='zone'&&Math.hypot(ballAir.to.x-p.x,ballAir.to.y-p.y)<9?1.06:1.04); }
         else if(p.role==='rush'||p.role==='blitz'){ tx=QB.x; ty=QB.y; if(t<.2) ty=p.y; }
         else if(t<(p.react||.25)){ tx=p.x; ty=p.y+.3; }
         else if(S.runCall&&seen>.45&&hold&&hold!==QB){ tx=hold.x; ty=hold.y; }
@@ -468,11 +478,18 @@ function makeGame(){
         else if(p.role==='man'){ const m=p.man, late=seen>1.7, c=late?.4:Math.max(.9,(p.cush||3)*(1-Math.min(1,seen/1.1))); track(p,m,dt); tx=m.x+p.mvx*.25+(m.x<0?.5:-.5)*(late?0:1); ty=m.y+Math.max(0,p.mvy)*.3+c; }
         else if(p.plaster&&!p.plaster.down){ const m=p.plaster; tx=m.x+m.vx*.3+(m.x<p.x?.35:-.35); ty=m.y+Math.max(0,m.vy)*.35+.7; }
         else if(p.role==='zone'){ const cov=r=>S.P.some(q=>q!==p&&q.side==='d'&&!q.down&&(q.man===r||q.carry===r||q.plaster===r)&&dist(q,r)<dist(p,r));
-          if(p.carry&&(p.carry.down||!p.carry.route||Math.hypot(p.carry.x-p.spot[0],p.carry.y-p.spot[1])>11||cov(p.carry))) p.carry=null;
-          if(!p.carry){ let bd=7.5; S.rec.forEach(r=>{ if(!r.route||r.down) return; const d2=Math.hypot(r.x-p.spot[0],r.y-p.spot[1]); if(d2<bd&&!cov(r)){ bd=d2; p.carry=r; } }); }
-          if(p.carry){ track(p,p.carry,dt); tx=p.carry.x+p.mvx*.25; ty=p.carry.y+1+Math.max(0,p.mvy)*.3; } else { tx=p.spot[0]; ty=p.spot[1]; } }
+          const isRB=r=>r&&r.pos==='RB';
+          if(p.carry&&(p.carry.down||!p.carry.route||Math.hypot(p.carry.x-p.spot[0],p.carry.y-p.spot[1])>(isRB(p.carry)&&p.rbKey?15:11)||cov(p.carry))) p.carry=null;
+          if(!p.carry){ let bd=99; S.rec.forEach(r=>{ if(!r.route||r.down) return; const d2=Math.min(Math.hypot(r.x-p.spot[0],r.y-p.spot[1]),Math.hypot(r.x-p.x,r.y-p.y)*.9), lim=r.y<p.spot[1]?9:7.5;
+              if(d2<lim&&d2<bd&&!cov(r)){ bd=d2; p.carry=r; } });
+            if(!p.carry&&p.rbKey){ const b=S.rec.find(r=>isRB(r)&&r.route&&!r.down&&r.y>-2.5&&!cov(r)&&dist(r,p)<14); if(b) p.carry=b; } }
+          if(p.carry){ track(p,p.carry,dt); const front=p.carry.y<p.y-1; tx=p.carry.x+p.mvx*.25; ty=p.carry.y+(front?.55:1)+Math.max(0,p.mvy)*.3; } else { tx=p.spot[0]; ty=p.spot[1]; } }
         else if(p.role==='deep'){ let deep=null; const half=p.spot[0]===0?99:14; S.rec.forEach(r=>{ if(r.route&&!r.down&&r.y>9&&Math.abs(r.x-p.spot[0])<half&&(!deep||r.y>deep.y)) deep=r; }); /* over the top of him, where he's going: and while he's still running at the safety, the safety keeps his depth instead of coming down to meet him and being run past */
-          p._deep=deep; if(deep){ track(p,deep,dt); tx=deep.x+p.mvx*.3; ty=deep.y+Math.max(0,p.mvy)*.45+(seen>1.6?1:2.4); if(deep.vy>1.5&&deep.y<p.y) ty=Math.max(ty,Math.min(p.y,deep.y+7)); } else { tx=p.spot[0]; ty=p.spot[1]; } }
+          p._deep=deep;
+          if(!deep&&p.pos==='CB'&&Math.abs(p.spot[0])>=12&&seen>.95){ let sh=null; S.rec.forEach(r=>{ if(r.route&&!r.down&&Math.sign(r.x)===Math.sign(p.spot[0])&&Math.abs(r.x)>5&&r.y<9&&(!sh||Math.abs(r.x)>Math.abs(sh.x))) sh=r; });
+            if(sh){ p._deep=sh; track(p,sh,dt); tx=sh.x+p.mvx*.25; ty=sh.y+3+Math.max(0,p.mvy)*.3; deep=null; p.rally=true; } else p.rally=false; } else p.rally=false;
+          if(p.rally){ /* closing on the short man, set above */ }
+          else if(deep){ track(p,deep,dt); tx=deep.x+p.mvx*.3; ty=deep.y+Math.max(0,p.mvy)*.45+(seen>1.6?1:2.4); if(deep.vy>1.5&&deep.y<p.y) ty=Math.max(ty,Math.min(p.y,deep.y+7)); } else { tx=p.spot[0]; ty=p.spot[1]; } }
       }
       if(p.side==='d'&&!carrier&&!ballAir){ const m=p.role==='man'?p.man:p.plaster||(p.role==='zone'?p.carry:null)||p._deep; if(m&&!m.down&&m.route){ const v=Math.hypot(m.vx,m.vy), dx=m.x-p.x, dy=m.y-p.y, d=Math.hypot(dx,dy);
         /* COVERING A MAN he paces him: never more than .35 a second faster than the receiver can run, so a fast DB closes a
@@ -707,7 +724,7 @@ function makeGame(){
     if(!rIn&&!dIn) return end('Incomplete','Nobody near it.','inc',0,to);
     const r=off?off[0]:null, hands=r?(.9+A(r,HANDS[r.pos]??2)*.085)*(S.home&&S.home.rain?.965:1):0, ct=r?(CONT[r.pos]!=null?A(r,CONT[r.pos]):rh):0, dbl=dIn&&d2<1.6;
     const w=!dIn?1:!rIn?0:1/(1+Math.exp(-(.24+3*(dd-od)+1.2*((rh+ct)/2-hw)-(dbl?2.25+.5*hw2:0))));
-    const hwP=dbl?Math.max(hw,hw2):hw, pickP=dIn?(1-w)*((rIn?.08+.22*hwP:.2+.35*hwP)+(dbl?.1:0))*(1-.3*dd/Rd)*(S.home&&S.home.rain?.8:1):0;   /* in the rain a defender holds on less, too: more of them are knocked away */
+    const hwP=dbl?Math.max(hw,hw2):hw, pickP=dIn?(1-w)*((rIn?.08+.22*hwP:.2+.35*hwP)+(dbl?.1:0))*(1-.3*dd/Rd)*(S.home&&S.home.rain?.8:1)*(d.role==='zone'&&to.y<10?.5:1):0;   /* an underneath man jumping a short throw mostly knocks it down */   /* in the rain a defender holds on less, too: more of them are knocked away */
     const contested=dIn, diving=rIn&&od>R*.8, reach=od>R*.8?.6:clamp(1-(od/R)**2*.6,.6,1);   /* a ball he has to stretch past a yard for is harder to hold, the further the harder */
     const roll=Math.random(), pC=rIn?w*clamp(hands*reach,.05,.985):0;
     if(roll>=pC&&roll<pC+pickP){ d.state=up('leap'); d.leap0=S.t; d.until=S.t+.38; d.x=to.x; d.y=to.y; S.ball.holder=d; S.picker=d;
