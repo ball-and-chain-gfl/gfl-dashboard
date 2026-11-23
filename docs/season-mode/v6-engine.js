@@ -421,7 +421,7 @@ function makeGame(){
        with some luck. A receiver who wins it clean gets a step on him instead. Only at the line, right at the snap. */
     if(!S.jamDone&&t>.02){ S.jamDone=true; S.CB.forEach(c=>{ const m=c.man; if(!c.press||!m||c.role!=='man'||!m.route||m.y>.5||dist(c,m)>2.6) return;
       const cov=clamp((ds(c,'cov')-55)/44,0,1), J=clamp(.26+(erR(ds(c,'cov'))-erR(stat(m,1)))/45+(cov-.5)*.3-(A(m,1)-.5)*.3+gauss()*.12,0,.85);
-      if(J<.08){ c.stall=t+1.05; c.stallHard=t+.5; c.stumble=t+.55; c.stumble0=t; c.beaten=m; m.burst=t+.9; m.rdelay=0; pop('Beat the press','#4C9EFF',m,.2); }
+      if(J<.08){ c.stall=t+1.05; c.stallHard=t+.5; c.stumble=t+.55; c.stumble0=t; m.burst=t+.9; m.rdelay=0; pop('Beat the press','#4C9EFF',m,.2); }
       else { m.jam=t+J; m.rdelay=J; c.jamming=m; if(J>.3) pop('Jammed','#D9325E',m,.2); } }); }
     if(!S.runCall&&!S.plastered&&t>2.1&&S.ball.holder===QB){ S.plastered=true; const R=S.rec.filter(r=>r.route&&!r.down&&r.role!=='protect'), C=S.P.filter(p=>p.side==='d'&&!p.down&&(p.role==='man'||p.role==='zone'||p.role==='deep')), took=new Set();
       C.forEach(p=>{ if(p.role==='man'&&R.includes(p.man)){ p.plaster=p.man; took.add(p.man); } });
@@ -497,7 +497,7 @@ function makeGame(){
       if(p.side==='d'&&!carrier&&!ballAir){ const m=p.role==='man'?p.man:p.plaster||(p.role==='zone'?p.carry:null)||p._deep; if(m&&!m.down&&m.route){ const v=Math.hypot(m.vx,m.vy), dx=m.x-p.x, dy=m.y-p.y, d=Math.hypot(dx,dy);
         /* COVERING A MAN he paces him: never more than .35 a second faster than the receiver can run, so a fast DB closes a
            lost step slowly and a slow one loses ground on a long route; what wins or loses the breaks is his read and his turn */
-        if(v>1.5&&d>.8) vmax=Math.min(vmax,m.vmax+(p.beaten===m?.08:.35)); } }
+        if(v>1.5&&d>.8) vmax=Math.min(vmax,m.vmax+.35); } }
       if(p.burst&&t<p.burst) vmax*=1.18;
       if(p.side==='d') ty=Math.min(ty,S.goal+9.5);
       /* the ball carrier bursts: he gets up to speed quicker than the men chasing him */
@@ -568,7 +568,7 @@ function makeGame(){
            longer the dive the less, and a cut just before it beats it the way a juke beats a tackle. Miss and he's on the
            ground for a second. Two men at most dive a play, and a man who gets the look takes it 3 times in 10. */
         else if(p.pos!=='DL'&&!p.dived&&!p.blocked&&(!p.tried||t-p.tried>.5)){   /* linemen don't dive */ const dd=dist(p,c), sp=Math.hypot(c.vx,c.vy);
-          if(dd>=1.2&&dd<2.1&&sp>3&&((c.x-p.x)*c.vx+(c.y-p.y)*c.vy)/(dd*sp)>.3&&c.vmax>=p.vmax*.97&&(S.dove||0)<2&&(p.dived=true,Math.random()<.3)){   /* a chance, not a habit: a man who gets the look takes it 3 times in 10, and only one man a play */
+          if(dd>=1.2&&dd<1.8+.6*Df(p,'tkl')&&sp>3&&((c.x-p.x)*c.vx+(c.y-p.y)*c.vy)/(dd*sp)>.3&&c.vmax>=p.vmax*.97&&(S.dove||0)<2&&(p.dived=true,Math.random()<.3)){   /* a chance, not a habit: a man who gets the look takes it 3 times in 10, and only one man a play */
             S.dove=(S.dove||0)+1; p.tried=t; const el=c.pos==='RB'?A(c,1):c.pos==='WR'?A(c,1)*.5:c.pos==='QB'?A(c,2)*.5:.25;
             const base=clamp(.92+Eg(p,'tkl')*.07+(erR(ds(p,'tkl'))-87)/300-el*.07+(Dn(p,'tkl')-.5)*.2,.3,.96);
             if(Math.random()<base*(.4+.25*Df(p,'tkl'))*(1-(dd-.95)*.35)*(c.juke&&t<c.juke?1-(.05+el*.429):1)*(S.home&&(S.home.rain||S.home.snow)?.75:1)){ pop('Diving tackle','#D9325E',p); return tackled(c,p,'shoe'); }
@@ -718,7 +718,7 @@ function makeGame(){
     const zip=(a.power||0)>.66, up=st=>zip&&st==='leap'?'reach':st;
     const to=a.to, off=S.rec.filter(r=>!r.down&&!['wall','stalk','block','lead','protect'].includes(r.role)).map(r=>[r,dist(r,to)]).sort((x,y)=>x[1]-y[1])[0], defs=S.P.filter(p=>p.side==='d'&&!p.down&&p.pos!=='DL').map(p=>[p,dist(p,to)]).sort((x,y)=>x[1]-y[1]), def=defs[0], d2=defs[1]?defs[1][1]:99;
     const od=off?off[1]:99, dd=def?def[1]:99;
-    const rh=off?A(off[0],HANDS[off[0].pos]??2):.5, R=1.35+rh*.65;   /* how far he can reach for it, 1.35 to 2 yards */
+    const rh=off?A(off[0],HANDS[off[0].pos]??2):.5, r0=off&&off[0], ath=r0&&r0.a&&SPI[r0.pos]!=null?spdPosO(r0.pos,r0.a[SPI[r0.pos]]):.5, R=1.2+rh*.7+ath*.35;
     /* THE BALL COMES DOWN: one roll between the receiver and the nearest defender, by who is nearer the spot and who is
        better at the ball, not who got there first. The receiver can reach 1.35-2 yds (his hands), a defender 1-1.35 (his
        ball hawk). Both in reach is a jump ball: at the same spot two 99s give the receiver about 55%, the defender a pick
