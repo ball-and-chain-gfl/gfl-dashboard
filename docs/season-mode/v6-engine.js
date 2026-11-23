@@ -77,6 +77,12 @@ const PLAYS={
   counterL:R_('Counter left',[[2.8,-4],[-.5,-2.4],[-2.4,1],[-3,5]],-1,0,.7),
   sweepR:R_('Sweep right',[[4,-4.2],[9,-2],[10,3]],1,1),
   bounce:R_('Bounce left',[[-1.5,-2.8],[-3,0],[-7,2],[-8,5]],-1,1),
+  sneak:{...R_('QB sneak',[[0,-.7],[0,.8],[0,3]],1,0,.1),qb:true},
+  offR:R_('Off tackle right',[[2.2,-2.8],[4,0],[4.8,5]],1),
+  drawL:R_('Draw left',[[-1.6,-5.2],[-.8,-3],[-1.5,1],[-2,5]],-1,0,.95),
+  endAround:J_('End around',"WB",[[-3,-5],[-9,-3.5],[-11,0],[-11.5,5]],-1),
+  pitchL:R_('Pitch left',[[-6.5,-4.6],[-11,-2],[-12.5,4]],-1,1,.15),
+  qbKeep:{...R_('QB keep right',[[1.5,-4],[7,-4.5],[11,-2],[12,4]],1,1,.55),qb:true,bite:.7},
   jetR:J_('Jet sweep',"WA",[[4.5,-2.3],[9,-.8],[10.5,2],[11,5]],1),
   jetL:J_('Jet left',"WB",[[-4.5,-2.3],[-9,-.8],[-10.5,2],[-11,5]],-1),
 };
@@ -98,12 +104,23 @@ Object.assign(PLAYS,{
   levels:P_('Levels',[[0,10],[9,10]],[[0,5],[-6,5]],[[0,12],[-1,10]],[[-2,2],[-4,3]]),
   corners:P_('Corners',[[0,10],[-6,18]],[[0,10],[6,18]],[[0,6],[-1,5]],[[2,2],[4,3]]),
   wheel:P_('RB wheel',[[0,10],[7,14]],[[0,6],[0,5]],[[0,12],[-1,10]],[[-4,1],[-8,3],[-9,10],[-9,30]]),
+  dagger:P_('Dagger',[[0,15],[11,15]],[[0,30]],[[0,5],[2,5]],[[3,1],[6,2]]),
+  mills:P_('Mills',[[0,12],[6,26]],[[0,12],[-11,12]],[[0,6],[-1,5]],[[-4,1],[-8,2]]),
+  sail:P_('Sail',[[0,12],[10,12]],[[0,30]],[[0,10],[7,15]],[[5,0],[10,1]]),
+  scissors:P_('Scissors',[[0,6],[0,5]],[[0,12],[-7,26]],[[0,10],[8,22]],[[3,1],[6,2]]),
+  bench:P_('Bench',[[0,12],[-6,12]],[[0,12],[6,12]],[[0,30]],[[3,2],[5,4],[1,7]]),
+  snag:P_('Snag',[[0,5],[5,11]],[[0,8],[6,16]],[[0,5],[-3,6]],[[5,0],[10,1]]),
+  outup:P_('Out and up',[[0,6],[-3,6],[-3,30]],[[0,8],[0,7],[0,30]],null,null),
+  yankee:{...P_('Yankee',[[0,14],[17,24]],[[0,12],[-6,28]],null,null),bite:.6},
+  texas:P_('Texas',[[0,12],[1,10]],[[0,12],[-1,10]],[[0,30]],[[3,2],[5,4],[1,7]]),
+  tunnel:{...P_('Tunnel screen',[[0,30]],[[-2,-1],[-5,-1.5],[-9,1]],null,null),block:{TE:'wall'}},
   everts:P_('Empty verts',[[0,30]],[[0,30]],[[0,8],[1,30]],[[0,8],[-1,30]]),
   seam:P_('Trips seam',[[0,12],[11,12]],[[0,6],[0,5]],[[0,30]],[[-4,1],[-8,2]]),
 });
 /* which formation each play comes out of */
 Object.entries({slants:'tight',verts:'wide',mesh:'tight',smash:'trips',curls:'empty',outs:'wide',posts:'spread',dig:'gun',flood:'trips',drive:'tight',ycross:'gun',screen:'gun',fade:'wide',sluggo:'spread',stick:'empty',comeback:'wide',
-  hitches:'spread',spacing:'trips',levels:'gun',corners:'wide',wheel:'gun',iso:'under',leadR:'under',counterL:'pistol',sweepR:'gun',bounce:'pistol',bubble:'trips',mscreen:'spread',tscreen:'gun',mcorner:'wide',mslant:'wide',pa:'pistol',flea:'gun',everts:'empty',seam:'trips',
+  dagger:'gun',mills:'spread',sail:'trips',scissors:'gun',bench:'wide',snag:'trips',outup:'wide',yankee:'tight',texas:'gun',tunnel:'spread',
+  sneak:'under',offR:'under',drawL:'gun',endAround:'wide',pitchL:'gun',qbKeep:'pistol',hitches:'spread',spacing:'trips',levels:'gun',corners:'wide',wheel:'gun',iso:'under',leadR:'under',counterL:'pistol',sweepR:'gun',bounce:'pistol',bubble:'trips',mscreen:'spread',tscreen:'gun',mcorner:'wide',mslant:'wide',pa:'pistol',flea:'gun',everts:'empty',seam:'trips',
   inside:'pistol',outside:'gun',insideL:'pistol',outsideL:'gun',dive:'under',powerR:'under',powerL:'under',counter:'pistol',draw:'gun',qbdraw:'gun',tossR:'under',tossL:'under',stretchR:'pistol',stretchL:'pistol',trap:'under',cutback:'pistol',sweepL:'gun',jetR:'gun',jetL:'gun'})
   .forEach(([k,f])=>{ if(PLAYS[k]) PLAYS[k].f=f; });
 const BOOK={pass:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='pass'),run:Object.keys(PLAYS).filter(k=>PLAYS[k].kind==='run')};
@@ -111,7 +128,8 @@ const deal=kind=>BOOK[kind].slice().sort(()=>Math.random()-.5).slice(0,4);
 /* A FIELD GOAL'S ODDS by its length, for both teams: about 98 in 100 from 20 yards, 93 from 30, 81 from 40, 62 from 50,
    45 from 57. Never a sure thing, and always better the closer the kick. */
 const fgOdds=d=>clamp(.98-.00035*Math.max(0,d-18)**2,.05,.98);
-const LOOKS={cover0:'Cover 0',man:'Cover 1',blitz:'Cover 1 blitz',cover2:'Cover 2',c2man:'Cover 2 man',cover3:'Cover 3',cover4:'Cover 4'};
+const LOOKS={cover0:'Cover 0',man:'Cover 1 robber',blitz:'Cover 1 blitz',cover2:'Cover 2',c2man:'2-man under',cover3:'Cover 3',cover4:'Cover 4',
+  tampa2:'Tampa 2',cover6:'Cover 6',firezone:'Fire zone',match:'Quarters match',prevent:'Prevent',goalline:'Goal line',bracket:'Bracket',spy:'Cover 1 spy'};
 /* the play drawn small for its button, like a coach's card */
 function playSVG(k){
   const PL=PLAYS[k], FORM=FORMS[PL.f||'gun'], X=x=>((clamp(x,-17,17)+17)/34*64).toFixed(1), Y=y=>(31-(y+4.5)*1.3).toFixed(1), run=PL.kind==='run';
@@ -285,14 +303,34 @@ function makeGame(){
     if(look==='blitz'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=2; c.y=c.man.y+2; }); SF[1].role='man'; SF[1].man=TE; SF[1].x=TE.x+1; SF[1].y=5; SF[1].cush=2;
       LB.forEach(l=>{ l.role='blitz'; l.y=3; }); SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18];
       if(!runCall){ RB.route=null; RB.role='protect'; } }
+    /* Tampa 2: halves deep, corners in the flats, and the middle backer runs the seam between the safeties */
+    if(look==='tampa2'){ CB.forEach((c,i)=>{ c.y=3; c.role='zone'; c.spot=[i?13:-13,4]; }); SF.forEach((s,i)=>{ s.role='deep'; s.spot=[i?10:-10,17]; }); LB[0].role='deep'; LB[0].spot=[0,15]; LB[1].role='zone'; LB[1].spot=[0,5.5]; LB[1].rbKey=true; }
+    /* Cover 6: quarters to one side, Cover 2 to the other */
+    if(look==='cover6'){ CB[0].y=7; CB[0].role='deep'; CB[0].spot=[-16,15]; SF[0].x=-6; SF[0].y=12; SF[0].role='deep'; SF[0].spot=[-6,16]; CB[1].y=3; CB[1].role='zone'; CB[1].spot=[13,4]; SF[1].role='deep'; SF[1].spot=[10,17]; LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,5.5]; l.rbKey=true; }); }
+    /* fire zone: a backer blitzes, an end drops into the flat, three deep and three under behind it */
+    if(look==='firezone'){ const e=DL[3], sd=Math.sign(e.x)||1; CB.forEach((c,i)=>{ c.y=7; c.role='deep'; c.spot=[i?16:-16,17]; }); SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18];
+      e.role='zone'; e.spot=[sd*9,4]; SF[1].role='zone'; SF[1].spot=[-sd*9,5]; LB[1].role='zone'; LB[1].spot=[0,5.5]; LB[1].rbKey=true; LB[0].role='blitz'; LB[0].y=3; }
+    /* quarters match: off-man corners who carry their man, two safeties deep over the top, backers in the hooks */
+    if(look==='match'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=5.5; c.y=c.man.y+5.5; }); SF.forEach((s,i)=>{ s.x=i?6:-6; s.y=12; s.role='deep'; s.spot=[i?6:-6,16]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?5:-5,5.5]; l.rbKey=true; }); }
+    /* prevent: everyone deep and soft, three rush, an end drops into the middle (late in a half, with a lead) */
+    if(look==='prevent'){ CB.forEach((c,i)=>{ c.y=10; c.role='deep'; c.spot=[i?16:-16,22]; }); SF.forEach((s,i)=>{ s.y=16; s.role='deep'; s.spot=[i?8:-8,26]; }); LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?6:-6,10]; l.rbKey=true; }); DL[3].role='zone'; DL[3].spot=[0,13]; }
+    /* goal line: pressed corners, safeties on the tight end and the back, backers right on the line for the run */
+    if(look==='goalline'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=1; c.y=c.man.y+1; c.press=true; }); SF[0].role='man'; SF[0].man=TE; SF[0].x=TE.x+.8; SF[0].y=3; SF[0].cush=1.2;
+      SF[1].role='man'; SF[1].man=RB; SF[1].x=RB.x; SF[1].y=3; SF[1].cush=1.6; LB.forEach((l,i)=>{ l.role='zone'; l.spot=[i?2.5:-2.5,1.6]; l.x=i?2:-2; l.y=1.8; l.rbKey=true; }); }
+    /* bracket: man everywhere, with a safety sitting over the top of their best receiver */
+    if(look==='bracket'){ const best=((WA.r||0)>=(WB.r||0))?WA:WB; CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=2.4; c.y=c.man.y+2.4; }); LB[0].role='man'; LB[0].man=TE; LB[1].role='man'; LB[1].man=RB; LB[1].cush=1.6;
+      SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; SF[1].role='zone'; SF[1].spot=[best.x>0?8:-8,11]; SF[1].plaster=best; }
+    /* Cover 1 spy: man under a single high safety, the safety on the back, and a backer mirroring the quarterback */
+    if(look==='spy'){ CB.forEach((c,i)=>{ c.role='man'; c.man=i?WB:WA; c.cush=3.9; c.y=c.man.y+3.9; }); LB[0].role='man'; LB[0].man=TE; SF[1].role='man'; SF[1].man=RB; SF[1].x=RB.x; SF[1].y=5; SF[1].cush=2.2;
+      SF[0].x=0; SF[0].y=15; SF[0].role='deep'; SF[0].spot=[0,18]; LB[1].role='spy'; LB[1].x=0; LB[1].y=5; }
     if(runCall){ RB.route=null; }
     /* the front each coverage comes out of: Cover 2 from the nickel, Cover 3 from a 4-3 over with the safety down in the
        box, man from a 3-4 with the outside backers standing up and the corners pressed, the blitz from a bear front with
        both backers walked up into the A gaps */
-    S.front={cover2:'nickel',cover3:'4-3 over',man:'3-4',blitz:'bear front',cover0:'bear front',cover4:'nickel',c2man:'nickel'}[look];
+    S.front={cover2:'nickel',cover3:'4-3 over',man:'3-4',blitz:'bear front',cover0:'bear front',cover4:'nickel',c2man:'nickel',tampa2:'4-3 over',cover6:'nickel',firezone:'4-3 over',match:'nickel',prevent:'dime',goalline:'goal line',bracket:'nickel',spy:'4-3 over'}[look];
     /* PRESS: in man with a single high safety or none, each corner decides whether to press his man at the line, more
        often the better he is than the receiver's route running. Pressed, he lines up a yard off and gets a jam in. */
-    if(look==='man'||look==='blitz'||look==='cover0') CB.forEach((c,i)=>{ c.press=c.press||(S.draws?S.draws[i]:Math.random())<clamp(.55+(ds(c,'cov')-stat(c.man,1))/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
+    if(look==='man'||look==='blitz'||look==='cover0'||look==='bracket'||look==='spy') CB.forEach((c,i)=>{ c.press=c.press||(S.draws?S.draws[i]:Math.random())<clamp(.55+(ds(c,'cov')-stat(c.man,1))/20,.12,.9); if(c.press){ c.cush=1.2; c.y=c.man.y+1.2; } });
     if(look==='cover3'){ [-4.8,-2,1,3.8].forEach((x,i)=>DL[i].x=x); LB[0].x=-3.4; LB[1].x=1.6; SF[1].x=6.6; SF[1].y=4.8; }
     if(look==='man'){ [DL[0],DL[3]].forEach((d,i)=>{ d.x=i?5.8:-5.8; d.y=1.4; d.state='stance'; }); }
     if(look==='cover0'){ LB.forEach((l,i)=>{ l.x=i?1.2:-1.2; l.y=2.2; }); }
@@ -478,6 +516,7 @@ function makeGame(){
         else if(S.runCall&&seen>.45&&hold&&hold!==QB){ tx=hold.x; ty=hold.y; }
         /* play action and the flea flicker: the backers and safeties step up for the run they see, for a moment */
         else if(S.bite&&t<S.bite.until&&(p.pos==='LB'||p.pos==='S')&&p.bites&&!p.lockedBy){ tx=S.bite.who.x; ty=S.bite.who.y+2.2; }
+        else if(p.role==='spy'){ tx=QB.x; ty=Math.max(QB.y+4.5,2.5); }
         else if(p.role==='man'){ const m=p.man, late=seen>1.7, c=late?.4:Math.max(.9,(p.cush||3)*(1-Math.min(1,seen/1.1))); track(p,m,dt); tx=m.x+p.mvx*.25+(m.x<0?.5:-.5)*(late?0:1); ty=m.y+Math.max(0,p.mvy)*.3+c; }
         else if(p.plaster&&!p.plaster.down){ const m=p.plaster; tx=m.x+m.vx*.3+(m.x<p.x?.35:-.35); ty=m.y+Math.max(0,m.vy)*.35+.7; }
         else if(p.role==='zone'){ const cov=r=>S.P.some(q=>q!==p&&q.side==='d'&&!q.down&&(q.man===r||q.carry===r||q.plaster===r)&&dist(q,r)<dist(p,r));
@@ -1063,14 +1102,16 @@ function makeGame(){
       else { p.x=p.x0; p.y=p.y0; p.vx=p.vy=0; p.state=p.home; p.facing=p.side==='o'?'up':'down'; } });
     if(!moving||S.rgT>5){ S.P.forEach(p=>{ p.x=p.x0; p.y=p.y0; p.state=p.home; p.facing=p.side==='o'?'up':'down'; }); S.phase='pre'; buttons(); hint(preHint()); } }
   const preHint=()=>S.fourth?'Fourth down':S.jet?'Hike: motion, then tap beside him to cut':S.runCall?'Hike, then tap beside the back to cut':'Hike, then tap to lob it, hold to zip it';
-  function callCoverage(){ const w={cover3:.3,man:.2,cover4:.14,cover2:.14,c2man:.08,blitz:.09,cover0:.05}, add=(o)=>Object.entries(o).forEach(([k,v])=>w[k]=Math.max(.02,w[k]+v));
+  function callCoverage(){ const qb=who(0), legs=qb&&qb.a?qb.a[2]:70, w={cover3:.3,man:.2,cover4:.14,cover2:.14,c2man:.08,blitz:.09,cover0:.05,tampa2:.07,cover6:.07,firezone:.06,match:.07,bracket:.04,spy:legs>=85?.09:.02,prevent:0,goalline:0}, add=(o)=>Object.entries(o).forEach(([k,v])=>w[k]=Math.max(.02,w[k]+v));
     const short=S.togo<=2, goal=S.goal<=3, red=S.goal<=12, third=S.down>=3;
     if(short||goal) add({man:.2,cover0:goal?.18:.1,blitz:.14,cover3:.05,cover4:-.1,cover2:-.1,c2man:-.05});
     else if(third&&S.togo>=7) add({cover3:.08,cover2:.06,cover4:.1,cover0:.06,blitz:.05,man:-.08});
     else if(third&&S.togo>=4) add({cover2:.12,c2man:.06,blitz:.04});
     if(red&&!goal) add({man:.1,cover0:.04,cover4:-.06});
     const U=units(), cb=(erR(U.CB[0].s.cov)+erR(U.CB[1].s.cov))/2, wa=who(2), wb=who(3), wr=(((wa&&wa.r)||82)+((wb&&wb.r)||82))/2, m=clamp(1+(cb-wr)/20,.35,1.7);
-    ['man','blitz','cover0','c2man'].forEach(k=>w[k]*=m);
+    ['man','blitz','cover0','c2man','bracket','spy','match'].forEach(k=>w[k]*=m);
+    { const MM=typeof MATCH!=='undefined'&&MATCH&&MATCH.M, lead=MM?(MM.score[1]||0)-(MM.score[0]||0):0, late=MM&&(MM.q===2||MM.q===4)&&!MM.otS&&MM.clock<=120;
+      w.goalline=goal?.35:0; w.prevent=late&&lead>=4&&S.goal>20?.5:0; if(goal){ ['tampa2','cover6','match','prevent'].forEach(k=>w[k]=0); } }
     let x=Math.random()*Object.values(w).reduce((a,b)=>a+b,0); for(const [k,v] of Object.entries(w)){ if((x-=v)<=0) return k; } return 'cover3'; }
   function reset(keepLook){
     const rg=S.phase==='regroup', keep=rg?S.P.map(p=>({side:p.side,pos:p.pos,x:p.x,y:p.y})):null;
