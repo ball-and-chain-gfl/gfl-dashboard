@@ -321,15 +321,18 @@ function makeGame(){
      (right to the corner) to 1.5 for a poor one (round it). At a break of more than 35 degrees he cuts, his pull 1.6 to 7
      times as strong for a moment, and a good one plants his foot to do it. */
   const RR=p=>p.pos==='WR'?A(p,1):p.pos==='TE'?.35:.3;
+  /* run out of room at the sideline, he turns up it with what's left */
+  function routeTail(px,py,x,y,left){ const dx=x-px, dy=y-py, l=Math.hypot(dx,dy); if(l<.01||dy<-.35*l||left<=0) return inb(x,y); const ux=dx/l, uy=dy/l, [qx,qy]=inb(x+ux*left,y+uy*left), past=Math.abs(x+ux*left-qx); return past>.05?inb(qx,qy+past):[qx,qy]; }
   function routeTarget(p){ if(!p.route) return null; const v=p.vmax, d=Math.max(0,S.t-.05-(p.rdelay||0))*v+.1+(1-RR(p))*1.4; let left=d, x=p.x0, y=p.y0, k=0;
+    let px=p.x0, py=p.y0;
     for(const [rx,ry] of p.route){ const tx=p.x0+rx, ty=p.y0+ry, seg=Math.hypot(tx-x,ty-y); if(left<=seg){
         const L=p.leg||0; if(k>L&&p.route[L]){ const pts=[[0,0],...p.route], ax=p.x0+pts[L][0], ay=p.y0+pts[L][1], cx=p.x0+pts[L+1][0], cy=p.y0+pts[L+1][1], ll=Math.hypot(cx-ax,cy-ay)||1;
           /* THE BREAK IS MADE when he reaches the corner, near enough (a poor route runner rounds it from up to 2 yds out) or
              level with it along his stem however far off the line a jam or the last cut left him. Before, only the first counted:
              a man a foot off the line ran on to the point past the corner, stopped there and waited for the route clock to run out. */
           const pr=((p.x-cx)*(cx-ax)+(p.y-cy)*(cy-ay))/ll; if(Math.hypot(p.x-cx,p.y-cy)>.05+(1-RR(p))*2.2&&pr<-.15) return inb(cx+(cx-ax)/ll*1.2,cy+(cy-ay)/ll*1.2); p.leg=L+1; }
-        const f=left/seg; brk(p,k); return inb(x+(tx-x)*f,y+(ty-y)*f); } left-=seg; x=tx; y=ty; k++; }
-    return inb(x,y); }
+        const f=left/seg; brk(p,k); return inb(x+(tx-x)*f,y+(ty-y)*f); } left-=seg; px=x; py=y; x=tx; y=ty; k++; }
+    return routeTail(px,py,x,y,left); }
   function brk(p,k){ if(p.seg===undefined){ p.seg=k; return; } if(k===p.seg) return; p.seg=k;
     const rr=RR(p);
     { const pts=[[0,0],...p.route], a=pts[k-1], b=pts[k], c=pts[k+1]; if(a&&b&&c){ const ux=b[0]-a[0], uy=b[1]-a[1], vx=c[0]-b[0], vy=c[1]-b[1], lu=Math.hypot(ux,uy)||1, lv=Math.hypot(vx,vy)||1, cos=(ux*vx+uy*vy)/(lu*lv);
@@ -418,7 +421,7 @@ function makeGame(){
        with some luck. A receiver who wins it clean gets a step on him instead. Only at the line, right at the snap. */
     if(!S.jamDone&&t>.02){ S.jamDone=true; S.CB.forEach(c=>{ const m=c.man; if(!c.press||!m||c.role!=='man'||!m.route||m.y>.5||dist(c,m)>2.6) return;
       const cov=clamp((ds(c,'cov')-55)/44,0,1), J=clamp(.26+(erR(ds(c,'cov'))-erR(stat(m,1)))/45+(cov-.5)*.3-(A(m,1)-.5)*.3+gauss()*.12,0,.85);
-      if(J<.08){ c.stall=t+.6; c.stumble=t+.36; c.stumble0=t; m.burst=t+.6; m.rdelay=0; pop('Beat the press','#4C9EFF',m,.2); }
+      if(J<.08){ c.stall=t+1.05; c.stallHard=t+.5; c.stumble=t+.55; c.stumble0=t; c.beaten=m; m.burst=t+.9; m.rdelay=0; pop('Beat the press','#4C9EFF',m,.2); }
       else { m.jam=t+J; m.rdelay=J; c.jamming=m; if(J>.3) pop('Jammed','#D9325E',m,.2); } }); }
     if(!S.runCall&&!S.plastered&&t>2.1&&S.ball.holder===QB){ S.plastered=true; const R=S.rec.filter(r=>r.route&&!r.down&&r.role!=='protect'), C=S.P.filter(p=>p.side==='d'&&!p.down&&(p.role==='man'||p.role==='zone'||p.role==='deep')), took=new Set();
       C.forEach(p=>{ if(p.role==='man'&&R.includes(p.man)){ p.plaster=p.man; took.add(p.man); } });
@@ -461,7 +464,7 @@ function makeGame(){
         else if(p.route&&!carrier){ const r=routeTarget(p); if(r){ tx=r[0]; ty=r[1]; } }
         else if(carrier&&p!==carrier){ tx=carrier.x+(p.x<carrier.x?-2:2); ty=carrier.y+1; }
       } else {
-        const seen=Math.max(0,t-(p.react||.25)); if(p.stall&&t<p.stall) vmax*=.4; p._deep=null;
+        const seen=Math.max(0,t-(p.react||.25)); if(p.stall&&t<p.stall) vmax*=(p.stallHard&&t<p.stallHard?.15:.5); p._deep=null;
         /* CHASING FROM BEHIND: a man with the ball and a step on you keeps it. A defender behind the carrier runs a touch
            slower than his top speed in coverage, so he catches only a carrier slower than him, not one his equal. */
         if(carrier&&carrier!==S.QB&&p.y<carrier.y-.4&&!p.lockedBy) vmax*=.96;
@@ -494,7 +497,7 @@ function makeGame(){
       if(p.side==='d'&&!carrier&&!ballAir){ const m=p.role==='man'?p.man:p.plaster||(p.role==='zone'?p.carry:null)||p._deep; if(m&&!m.down&&m.route){ const v=Math.hypot(m.vx,m.vy), dx=m.x-p.x, dy=m.y-p.y, d=Math.hypot(dx,dy);
         /* COVERING A MAN he paces him: never more than .35 a second faster than the receiver can run, so a fast DB closes a
            lost step slowly and a slow one loses ground on a long route; what wins or loses the breaks is his read and his turn */
-        if(v>1.5&&d>.8) vmax=Math.min(vmax,m.vmax+.35); } }
+        if(v>1.5&&d>.8) vmax=Math.min(vmax,m.vmax+(p.beaten===m?.08:.35)); } }
       if(p.burst&&t<p.burst) vmax*=1.18;
       if(p.side==='d') ty=Math.min(ty,S.goal+9.5);
       /* the ball carrier bursts: he gets up to speed quicker than the men chasing him */
@@ -668,7 +671,7 @@ function makeGame(){
     if(t>2.4) S.fx=null; }
   /* a receiver's catch radius, and where he will be after a throw of this power gets to him */
   const catchR=r=>1.35+A(r,HANDS[r.pos]??2)*.65;
-  function routeAt(p,t){ const v=p.vmax; let left=Math.max(0,t-.05-(p.rdelay||0))*v, x=p.x0, y=p.y0; for(const [rx,ry] of p.route){ const tx=p.x0+rx, ty=p.y0+ry, seg=Math.hypot(tx-x,ty-y); if(left<=seg){ const f=left/seg, [qx,qy]=inb(x+(tx-x)*f,y+(ty-y)*f); return {x:qx,y:qy}; } left-=seg; x=tx; y=ty; } const [qx,qy]=inb(x,y); return {x:qx,y:qy}; }
+  function routeAt(p,t){ const v=p.vmax; let left=Math.max(0,t-.05-(p.rdelay||0))*v, x=p.x0, y=p.y0, px=x, py=y; for(const [rx,ry] of p.route){ const tx=p.x0+rx, ty=p.y0+ry, seg=Math.hypot(tx-x,ty-y); if(left<=seg){ const f=left/seg, [qx,qy]=inb(x+(tx-x)*f,y+(ty-y)*f); return {x:qx,y:qy}; } left-=seg; px=x; py=y; x=tx; y=ty; } const [qx,qy]=routeTail(px,py,x,y,left); return {x:qx,y:qy}; }
   function leadOf(r,power){ const QB=S.QB, arm=A(QB,0), iv=power>.7?.06:power<.3?.13:.1, fl=d=>(.22+d*.03)*(1.45-.8*power)*(1.32-arm*.6)+iv;
     let t=fl(Math.hypot(r.x-QB.x,r.y-QB.y)), q=null;
     for(let i=0;i<2;i++){ const ahead=routeAt(r,S.t+t), lag={x:ahead.x-(ahead.x-r.x)*.08,y:ahead.y-(ahead.y-r.y)*.08}; q=r.route&&!S.carrier?lag:{x:r.x+r.vx*t,y:r.y+r.vy*t}; t=fl(Math.hypot(q.x-QB.x,q.y-QB.y)); }

@@ -6,7 +6,8 @@
 import fs from 'node:fs';
 const D = new URL('./', import.meta.url), OUT = new URL('../../public/season/', import.meta.url);
 fs.mkdirSync(new URL('logos/', OUT), { recursive: true });
-const read = f => fs.readFileSync(new URL(f, D), 'utf8');
+/* line endings as git leaves them on this machine (core.autocrlf rewrites them to CRLF on a rebase): the build matches on LF */
+const read = f => fs.readFileSync(new URL(f, D), 'utf8').replace(/\r\n/g, '\n');
 const cut = (s, a, b, rep = '') => { const i = s.indexOf(a), j = s.indexOf(b, i); if (i < 0 || j < 0) throw new Error('missing ' + a); return s.slice(0, i) + rep + s.slice(j); };
 const put = (s, a, b) => { if (!s.includes(a)) throw new Error('missing ' + a.slice(0, 80)); return s.split(a).join(b); };
 
