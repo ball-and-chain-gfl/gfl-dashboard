@@ -1560,6 +1560,22 @@ function c3ScoreRepl(teams,pool,c3,detail,weeklyData,lines){
    was. */
 const C4_FROM=2026;
 function liqFor(season){ const d=_liq[season]; return d&&Object.keys(d).length?d:null; }
+/* ── AND AGAINST THE DEPTH EACH TEAM HAD (user 11-24) ─────────────────────────
+   Graded as above, a thin bench was rewarded: its calls are easy and it has
+   little to leave out. A deep one was punished for the opposite. So, when the
+   server sends each call's difficulty and each team's projection misses:
+     calls    right calls against the number EXPECTED for how hard they were.
+              The league's calls are split into five equal groups by how close
+              the best bench option was projected to the man started, and each
+              call is expected right at its group's league hit rate. Each call
+              above or below that is worth what a wrong call costs the league.
+     points   points gained over starting ESPN's projections: what that lineup
+              would have left on the bench minus what was left, against the
+              league's average gain. Depth makes both bigger or both smaller,
+              so only the difference the manager's choices made is left.
+   No number of anybody's choosing: the groups, the rates, the cost and the
+   average are this season's league. Without the server's new fields it falls
+   back to the rule above. */
 function c4Score(season,teams,c4,detail,liq){
   if(season==null||Number(season)<C4_FROM||!liq) return;
   const rows=teams.map(t=>({t,d:liq[t.id]})).filter(x=>x.d&&x.d.decisions>0);
@@ -1567,6 +1583,24 @@ function c4Score(season,teams,c4,detail,liq){
   const D=rows.reduce((s,x)=>s+x.d.decisions,0), C=rows.reduce((s,x)=>s+x.d.correct,0);
   const M=rows.reduce((s,x)=>s+(Number(x.d.missed)||0),0);
   const hit=C/D, cost=D>C?M/(D-C):0, avg=M/rows.length;
+  if(rows.every(x=>Array.isArray(x.d.gaps)&&x.d.gaps.length===x.d.decisions&&x.d.projMissed!=null)){
+    const all=rows.flatMap(x=>x.d.gaps), sorted=all.map(g=>Number(g[0])).sort((a,b)=>a-b), Q=5;
+    const edges=[1,2,3,4].map(k=>sorted[Math.floor(sorted.length*k/Q)]);
+    const grp=g=>edges.filter(e=>Number(g)>=e).length;
+    const n=new Array(Q).fill(0), r=new Array(Q).fill(0);
+    all.forEach(([g,ok])=>{ const k=grp(g); n[k]++; r[k]+=ok?1:0; });
+    const rate=n.map((v,k)=>v?r[k]/v:hit);
+    const gain=d=>(Number(d.projMissed)||0)-(Number(d.missed)||0);
+    const avgGain=rows.reduce((s,x)=>s+gain(x.d),0)/rows.length;
+    rows.forEach(({t,d})=>{
+      const expected=d.gaps.reduce((s,g)=>s+rate[grp(g[0])],0);
+      const calls=(d.correct-expected)*cost/10, pts=(gain(d)-avgGain)/10;
+      c4[t.id]=(calls+pts)/2;
+      if(detail[t.id]) detail[t.id].c4Detail={calls,pts,expected,gain:gain(d)};
+    });
+    teams.forEach(t=>{ if(detail[t.id]) detail[t.id].c4League={hit,cost,avgMissed:avg,avgGain,depth:true,groups:{edges,rate,n}}; });
+    return;
+  }
   rows.forEach(({t,d})=>{
     const calls=(d.correct-d.decisions*hit)*cost/10, pts=(avg-(Number(d.missed)||0))/10;
     c4[t.id]=(calls+pts)/2;
@@ -2445,8 +2479,8 @@ function loadLineupIQ(want){
   const season=want||getSeason();
   if(_liq[season]) return Promise.resolve(_liq[season]);
   if(_liqLoading[season]) return _liqLoading[season];
-  /* v=2: the 2026 lineup rules (api/espn.js, type=lineupiq) */
-  _liqLoading[season]=histJSON('lineupiq',season,`${BASE}?type=lineupiq&seasonId=${season}&v=2`)
+  /* v=3: the 2026 lineup rules, with each call's difficulty and the projection misses (api/espn.js, type=lineupiq) */
+  _liqLoading[season]=histJSON('lineupiq',season,`${BASE}?type=lineupiq&seasonId=${season}&v=3`)
     .then(d=>{ _liq[season]=(d&&d.teams)||{}; })
     .catch(()=>{ _liq[season]={}; })
     .then(()=>{ _liqLoading[season]=false;
@@ -2466,7 +2500,8 @@ function renderLineupIQ(){
   const rows=_teams.map(t=>{const d=data[t.id]; return d&&d.decisions?{t,d,pct:d.correct/d.decisions*100}:null;})
     .filter(Boolean);
   rows.sort((a,b)=>{
-    const v=_liqSort.col==='miss'?[a.d.missed,b.d.missed]:_liqSort.col==='c4'?[c4Of(a.t),c4Of(b.t)]:[a.pct,b.pct];
+    const vp=x=>(Number(x.d.projMissed)||0)-(Number(x.d.missed)||0);
+    const v=_liqSort.col==='miss'?[a.d.missed,b.d.missed]:_liqSort.col==='c4'?[c4Of(a.t),c4Of(b.t)]:_liqSort.col==='vp'?[vp(a),vp(b)]:[a.pct,b.pct];
     return _liqSort.asc?v[0]-v[1]:v[1]-v[0];
   });
   const arr=c=>_liqSort.col===c?(_liqSort.asc?'\u2191':'\u2193'):'\u21C5';
@@ -2485,20 +2520,22 @@ function renderLineupIQ(){
     if(!(mx>mn)) return gradeColor('A');
     let t=(v-mn)/(mx-mn); if(!hiGood) t=1-t;
     return gradeColor(PPG_GRADES[Math.round(t*(PPG_GRADES.length-1))]); };
-  const pctVals=rows.map(r=>r.pct), missVals=rows.map(r=>r.d.missed), c4Vals=rows.map(r=>c4Of(r.t));
+  const vpOf=r=>(Number(r.d.projMissed)||0)-(Number(r.d.missed)||0);
+  const pctVals=rows.map(r=>r.pct), missVals=rows.map(r=>r.d.missed), c4Vals=rows.map(r=>c4Of(r.t)), vpVals=rows.map(vpOf);
   const pctCol=r=>c4lg?grade(pctVals,r.pct,true):liqColor(r.pct);
   const teamCell=t=>c4lg
     ?`<div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${sbTeamAb(_ownerMap[t.id],t.name)}</div></div></div>`
     :`<div class="team-cell">${logoImg(t.id)}<div class="team-info"><div class="team-name tlink" data-tid="${t.id}">${t.name}</div><div class="team-sub">${t.abbrev}</div></div></div>`;
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, with <b>Missed points</b> the difference in score.${c4lg?` A call is a starting spot a bench player could have filled; a player projected 0 that week was out; a tie is a right call; finished weeks only. <b>C4</b> = half calls, half points: every call above or below the league's <b>${(c4lg.hit*100).toFixed(1)}%</b> is worth what a wrong call costs the league (<b>${c4lg.cost.toFixed(1)}</b> pts), and points left on the bench against the league's <b>${c4lg.avgMissed.toFixed(1)}</b>, ÷ 10.`:''}</div>
-  <div class="liq-list${c4lg?' liq-c4':''}">
-    <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}${c4lg?sh('c4','C4','right'):''}</div>
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 14px;line-height:1.6"><b>Lineup IQ</b> = the share of start/sit calls that matched the optimal lineup, with <b>Missed points</b> the difference in score.${c4lg?` A call is a starting spot a bench player could have filled; a player projected 0 that week was out; a tie is a right call; finished weeks only. ${c4lg.depth?`<b>C4</b> = half calls, half points, ÷ 10: right calls against the number expected for how close each one was (the league's hit rate on calls that close), each worth what a wrong call costs the league (<b>${c4lg.cost.toFixed(1)}</b> pts); and <b>vs Proj</b>, the points gained over starting ESPN's projections, against the league's <b>${c4lg.avgGain>=0?'+':''}${c4lg.avgGain.toFixed(1)}</b>.`:`<b>C4</b> = half calls, half points: every call above or below the league's <b>${(c4lg.hit*100).toFixed(1)}%</b> is worth what a wrong call costs the league (<b>${c4lg.cost.toFixed(1)}</b> pts), and points left on the bench against the league's <b>${c4lg.avgMissed.toFixed(1)}</b>, ÷ 10.`}`:''}</div>
+  <div class="liq-list${c4lg?' liq-c4':''}${c4lg&&c4lg.depth?' liq-dp':''}">
+    <div class="liq-row liq-head"><span>#</span><span>Team</span>${sh('pct','Lineup IQ','right')}<span class="liq-barcell">Correct calls</span>${sh('miss','Missed pts','right')}${c4lg&&c4lg.depth?sh('vp','vs Proj','right'):''}${c4lg?sh('c4','C4','right'):''}</div>
     ${rows.map((r,i)=>`<div class="liq-row">
       <span class="liq-rk">${i+1}</span>
       <span class="liq-team">${teamCell(r.t)}</span>
       <span class="right liq-pct" style="color:${pctCol(r)}">${r.pct.toFixed(1)}%</span>
       <span class="liq-barcell"><span class="liq-bar"><span class="liq-bar-fill" style="width:${r.pct.toFixed(1)}%;background:${pctCol(r)}"></span></span><span class="liq-frac">${r.d.correct} / ${r.d.decisions}</span></span>
       <span class="right liq-miss" style="${c4lg?`color:${grade(missVals,r.d.missed,false)}`:`opacity:${(0.45+0.55*r.d.missed/worst).toFixed(2)}`}">${r.d.missed.toFixed(1)}</span>
+      ${c4lg&&c4lg.depth?`<span class="right liq-vp" style="color:${grade(vpVals,vpOf(r),true)}">${vpOf(r)>=0?'+':'−'}${Math.abs(vpOf(r)).toFixed(1)}</span>`:''}
       ${c4lg?`<span class="right liq-c4v" style="color:${grade(c4Vals,c4Of(r.t),true)}">${c4Of(r.t)>=0?'+':'−'}${Math.abs(c4Of(r.t)).toFixed(2)}</span>`:''}
     </div>`).join('')}
   </div>`;

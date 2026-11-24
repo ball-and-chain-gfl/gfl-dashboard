@@ -6710,9 +6710,14 @@
     /* from 2026 the list carries each team's C4 */
     .liq-c4 .liq-row{grid-template-columns:26px minmax(0,1fr) 82px minmax(120px,1.1fr) 92px 72px;}
     .liq-c4v{font-family:'Inter','DM Sans',sans-serif;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
+    /* 2026 on: the points gained over starting the projections, between Missed and C4 */
+    .liq-dp .liq-row{grid-template-columns:26px minmax(0,1fr) 82px minmax(120px,1.1fr) 92px 78px 72px;}
+    .liq-vp{font-family:'Inter','DM Sans',sans-serif;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
     @media(max-width:768px){
       .liq-row{grid-template-columns:20px minmax(0,1fr) 62px 60px;gap:8px;padding:10px 0;}
       .liq-c4 .liq-row{grid-template-columns:20px minmax(0,1fr) 56px 50px 52px;}
+      .liq-dp .liq-row{grid-template-columns:18px minmax(0,1fr) 50px 46px 48px 48px;gap:6px;}
+      .liq-vp{font-size:12.5px;}
       .liq-c4v{font-size:13px;}
       .liq-row .liq-barcell{display:none;}
       .liq-pct{font-size:16px;}

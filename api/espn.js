@@ -1198,8 +1198,9 @@ export default async function handler(req, res) {
           if (!entries.length) return;
           if (rules26) {
             const r = liqWeek(entries, wr.week, template);
-            const b = teams[team.id] || (teams[team.id] = { weeks: 0, decisions: 0, correct: 0, missed: 0 });
+            const b = teams[team.id] || (teams[team.id] = { weeks: 0, decisions: 0, correct: 0, missed: 0, projMissed: 0, gaps: [] });
             b.weeks++; b.decisions += r.decisions; b.correct += r.correct; b.missed += r.missed;
+            b.projMissed += r.projMissed; b.gaps.push(...r.gaps);
             if (dbgTeam === team.id) detail.push({ week: wr.week, ...r });
             return;
           }
@@ -1261,7 +1262,8 @@ export default async function handler(req, res) {
           bucket.missed += Math.max(optPts - actPts, 0);
         });
       });
-      Object.values(teams).forEach(t => { t.missed = Math.round(t.missed * 10) / 10; });
+      Object.values(teams).forEach(t => { t.missed = Math.round(t.missed * 10) / 10;
+        if (t.projMissed != null) t.projMissed = Math.round(t.projMissed * 10) / 10; });
       res.setHeader('Cache-Control', isHistory
         ? 'public, max-age=300, s-maxage=2592000, stale-while-revalidate=86400'
         : 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
@@ -2427,6 +2429,7 @@ function liqWeek(entries, w, template) {
     const proj = st.find(s => s.statSourceId === 1 && s.scoringPeriodId === w);
     return { pid: e.playerId, pos: pl.defaultPositionId ?? null, slot: e.lineupSlotId,
       started: !BENCH.includes(e.lineupSlotId), pts: act ? (Number(act.appliedTotal) || 0) : 0,
+      proj: proj ? (Number(proj.appliedTotal) || 0) : 0,
       avail: !!proj && Number(proj.appliedTotal) > 0 && e.lineupSlotId !== 21 };
   });
   /* strictest spots first; highest score first, and on a tie the man started */
@@ -2439,13 +2442,31 @@ function liqWeek(entries, w, template) {
   const starters = ps.filter(p => p.started);
   const act = starters.reduce((s, p) => s + p.pts, 0);
   const bench = ps.filter(p => !p.started && p.avail);
-  const used = new Set(); let decisions = 0, correct = 0;
+  /* ── THE DEPTH A CALL WAS MADE AGAINST (user 11-24) ──────────────────────────
+     A deep bench makes harder calls and leaves more to miss; a thin one makes
+     easy calls and leaves little. So each call carries how close the best bench
+     option was PROJECTED to the man started (bench minus starter; an empty spot
+     is the bench option against nothing), and the week carries what starting
+     ESPN's projections would have left on the bench. The app grades calls
+     against the league's hit rate on calls that close, and points against the
+     projections -- see c4Score. */
+  const projSorted = ps.filter(p => p.avail).sort((a, b) => (b.proj - a.proj) || (Number(b.started) - Number(a.started)));
+  const byProj = new Set(); let projAct = 0;
+  slots.forEach(sl => { const ok = SLOT_POS[sl];
+    const p = projSorted.find(x => !byProj.has(x.pid) && (!ok || ok.includes(x.pos)));
+    if (p) { byProj.add(p.pid); projAct += p.pts; } });
+  const used = new Set(); let decisions = 0, correct = 0; const gaps = [];
   slots.forEach(sl => { const ok = SLOT_POS[sl];
     const s = starters.find(p => p.slot === sl && !used.has(p.pid));
     if (s) used.add(s.pid);
-    if (!bench.some(b => !ok || ok.includes(b.pos))) return;     // no choice to make
+    const alts = bench.filter(b => !ok || ok.includes(b.pos));
+    if (!alts.length) return;                                      // no choice to make
     decisions++;
-    if (s && best.has(s.pid)) correct++;                           // an empty spot is a miss
+    const right = !!(s && best.has(s.pid));                        // an empty spot is a miss
+    if (right) correct++;
+    const top = Math.max(...alts.map(b => b.proj));
+    gaps.push([+(top - (s ? s.proj : 0)).toFixed(2), right ? 1 : 0]);
   });
-  return { decisions, correct, opt: +opt.toFixed(2), act: +act.toFixed(2), missed: +Math.max(opt - act, 0).toFixed(2) };
+  return { decisions, correct, opt: +opt.toFixed(2), act: +act.toFixed(2), missed: +Math.max(opt - act, 0).toFixed(2),
+    projMissed: +Math.max(opt - projAct, 0).toFixed(2), gaps };
 }
