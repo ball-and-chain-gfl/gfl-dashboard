@@ -1,0 +1,4 @@
+# Keep LF in the working copy on Windows too. The tests compare app.js source text written with
+# plain newlines, and core.autocrlf=true was rewriting files to CRLF on every pull --rebase,
+# which failed test-pollchart and test-bam locally while CI (Linux) passed.
+* text=auto eol=lf
