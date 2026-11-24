@@ -829,26 +829,25 @@ export default async function handler(req, res) {
     const ids = String(req.query.ids || '').split(',').map(Number).filter(n => Number.isFinite(n) && n !== 0).slice(0, 120);
     if (!ids.length) return res.status(200).json({ season, players: {} });
     try {
-      /* the weekly actuals ride on the top-scoring-periods filter (as in seasontrades); ESPN files a
-         week's PROJECTION under its own stat id, 11 + season + week, so each week is asked for by name */
-      const projIds = Array.from({ length: 18 }, (_, i) => `11${season}${i + 1}`);
-      const pf = { players: { filterIds: { value: ids },
-        filterStatsForTopScoringPeriodIds: { value: 18, additionalValue: [`00${season}`, ...projIds] } } };
-      const pr = await fetch(leagueURL('kona_playercard', { forceLive: true }),
-        { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(pf) } });
-      if (!pr.ok) return res.status(502).json({ error: 'player card ' + pr.status, season, players: {} });
+      /* one read of the player pool per week, for the listed players: a week's projection is
+         only carried on the read for that week (the player card keeps the current week's alone) */
+      const last = Math.min(18, Number(req.query.through) || 18);
       const players = {};
-      (unwrap(await pr.json()).players || []).forEach(e => {
-        const pl = e.player || {}; if (pl.id == null) return;
-        const row = players[pl.id] = { pos: pl.defaultPositionId ?? null, w: {} };
-        (pl.stats || []).forEach(st => {
-          if (String(st.seasonId) !== String(season) || st.statSplitTypeId !== 1) return;
-          const w = Number(st.scoringPeriodId); if (!(w > 0)) return;
-          const cell = row.w[w] || (row.w[w] = [0, null]);
-          if (st.statSourceId === 0) cell[0] = +(Number(st.appliedTotal) || 0).toFixed(2);
-          if (st.statSourceId === 1) cell[1] = +(Number(st.appliedTotal) || 0).toFixed(2);
-        });
-      });
+      await Promise.all(Array.from({ length: last }, (_, i) => i + 1).map(async w => {
+        try {
+          const pf = { players: { filterIds: { value: ids }, limit: ids.length + 5 } };
+          const pr = await fetch(leagueURL('kona_player_info', { forceLive: true }) + ,
+            { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(pf) } });
+          if (!pr.ok) return;
+          (unwrap(await pr.json()).players || []).forEach(e => {
+            const pl = e.player || {}; if (pl.id == null) return;
+            const row = players[pl.id] || (players[pl.id] = { pos: pl.defaultPositionId ?? null, w: {} });
+            const act = (pl.stats || []).find(x => x.statSourceId === 0 && x.statSplitTypeId === 1 && Number(x.scoringPeriodId) === w);
+            const prj = (pl.stats || []).find(x => x.statSourceId === 1 && x.statSplitTypeId === 1 && Number(x.scoringPeriodId) === w);
+            if (act || prj) row.w[w] = [act ? +(Number(act.appliedTotal) || 0).toFixed(2) : 0, prj ? +(Number(prj.appliedTotal) || 0).toFixed(2) : null];
+          });
+        } catch {}
+      }));
       res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=1800, stale-while-revalidate=1800');
       return res.status(200).json({ season, players });
     } catch (err) { return res.status(500).json({ error: err.message, season, players: {} }); }
