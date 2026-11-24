@@ -19540,6 +19540,15 @@ function pkMotwIndex(games){
     return ids.includes(a)&&ids.includes(b);
   });
 }
+function pkMotwIndexFor(season,wk,games){
+  if(pkAllDouble(season,wk)) return -1;
+  const r=(_cpRows||[]).find(p=>p&&p.id===MOTW_PICKER);
+  const m=r&&/^(\d+)-(\d+)$/.exec(String(r[motwWeekKey(season,wk)]||'').trim());
+  let pair=m?[m[1],m[2]]:null;
+  if(!pair&&Number(wk)===motwWeek()&&String(season)===String(motwInfo().season||bkLeagueSeason())){ const c=motwChosen(); if(c) pair=c.map(String); }
+  if(!pair) return -1;
+  return games.findIndex(g=>{ const ids=[g.home.teamId,g.away.teamId].map(String); return ids.includes(String(pair[0]))&&ids.includes(String(pair[1])); });
+}
 /* The picker's own write. Keyed on season and week, so last week's choice is
    still on the profile and this week starts empty. */
 let _motwSetBusy=false,_motwArmed=null;
@@ -24262,7 +24271,7 @@ function bkPickScore(p){
     let picks={}; try{ picks=JSON.parse(p[k]||'{}'); }catch{ return; }
     const meta=_seasonMeta[getSeason()]; if(!meta) return;
     const games=(meta.schedule||[]).filter(m=>Number(m.matchupPeriodId)===wk&&m.home&&m.away);
-    const motw=pkMotwIndex(games);
+    const motw=pkMotwIndexFor(getSeason(),wk,games);
       /* WHICH GAME A PICK BELONGS TO IS THE PICK ITSELF. This read the key as
          a position in the list, which meant it graded against whatever fixture
          happened to sit at that index in _seasonMeta -- an order that is not

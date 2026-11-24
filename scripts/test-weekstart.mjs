@@ -187,7 +187,7 @@ head('pkNormalise — a pick follows its team, not its position');
 const GRADER_PRELUDE = [
   'let _seasonMeta={}, _motw=-1, _season=2026;',
   'const getSeason=()=>_season;',
-  'const pkMotwIndex=()=>_motw;',
+  'const pkMotwIndex=()=>_motw; const pkMotwIndexFor=()=>_motw;',
   'const setMeta=v=>{_seasonMeta=v;};',
   'const setMotw=v=>{_motw=v;};',
   'const setSeason=v=>{_season=v;};',
@@ -264,6 +264,20 @@ head('weeks 12 to 14: no Matchup of the Week, every game counts double (2026 on)
   G2.setSeason(2026);
   ok('the rule itself', [G2.pkAllDouble(2026, 11), G2.pkAllDouble(2026, 12), G2.pkAllDouble(2026, 14), G2.pkAllDouble(2026, 15), G2.pkAllDouble(2025, 13)], [false, true, true, false, false]);
   G2.setMeta({ 2026: { schedule: RESULT } }); }
+
+head('each week is graded against its own Matchup of the Week, not the one on the board now');
+{ const G3 = assemble(grab, ['function pkAllDouble(season,wk){', 'function pkMotwIndexFor(season,wk,games){'], ['pkMotwIndexFor', 'setRows', 'setWeek'], [
+    'let _cpRows=[], _wk=12, _live=[9,7]; const MOTW_PICKER="bft"; const PK_ALL_DOUBLE_FROM=2026;',
+    'const motwWeekKey=(season,wk)=>"motwwk_"+season+"_w"+wk; const motwWeek=()=>_wk; const motwInfo=()=>({season:"2026",week:_wk}); const bkLeagueSeason=()=>"2026";',
+    'const motwChosen=()=>_live; const setRows=v=>{_cpRows=v;}; const setWeek=v=>{_wk=v;};',
+  ].join(String.fromCharCode(10)));
+  const wk3 = RESULT.map(g => ({ ...g, matchupPeriodId: 3 }));
+  G3.setRows([{ id: 'bft', motwwk_2026_w3: '5-6', motwwk_2026_w12: '1-2' }]); G3.setWeek(15);
+  ok('week 3 finds its own pick (teams 5 and 6), long after the week turned over', G3.pkMotwIndexFor('2026', 3, wk3), 2);
+  ok('a week with nothing filed has no featured game', G3.pkMotwIndexFor('2026', 4, wk3), -1);
+  ok('weeks 12-14 have none, whatever was filed', G3.pkMotwIndexFor('2026', 12, wk3), -1);
+  G3.setRows([{ id: 'bft' }]); G3.setWeek(3);
+  ok('the week on the board falls back to the live pick', G3.pkMotwIndexFor('2026', 3, wk3.map((g, i) => i === 4 ? { ...g, home: { ...g.home, teamId: 9 }, away: { ...g.away, teamId: 7 } } : g)), 4); }
 
 head('an unplayed week is pending, not lost');
 G2.setMeta({ 2026: { schedule: RESULT.map(g => ({ ...g,
