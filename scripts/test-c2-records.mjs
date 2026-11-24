@@ -59,11 +59,17 @@ const LOG = [
   { type: 'WAIVER', status: 'EXECUTED', teamId: 3, bidAmount: 10, scoringPeriodId: 5, processDate: UPHELD,
     items: [{ type: 'ADD', playerId: PICK, toTeamId: 3 }] },
 ];
-/* the weekly rosters: Coleman is on nobody's after week 5 */
+/* the weekly rosters. From 2026 C2 counts only what a traded man scored in the STARTING LINEUP of the team
+   that got him, until he leaves it: Coleman starts for BFT in week 6 (15.9), sits on their bench in week 7
+   (9, not counted) and is with team 3 in week 8 (12, not counted -- he had left). Washington starts for
+   the Tinglers in week 6 (6). The week 1 blockbuster's two men start for their new teams. */
 const WK = {
+  1: { 501: { team: 9, pts: 100, started: true }, 502: { team: 3, pts: 80, started: true } },
   5: { [COLE]: { team: 8, pts: 7.7, started: false }, [WASH]: { team: 10, pts: 2, started: false }, [PICK]: { team: 3, pts: 20, started: true },
        [PATS]: { team: 12, pts: 6, started: true }, [ZAY]: { team: 8, pts: 9, started: true }, [HOCK]: { team: 8, pts: 1.7, started: true } },
-  6: { [WASH]: { team: 8, pts: 6, started: false }, [PATS]: { team: 12, pts: 5, started: true }, [ZAY]: { team: 8, pts: 11, started: true } },
+  6: { [COLE]: { team: 10, pts: 15.9, started: true }, [WASH]: { team: 8, pts: 6, started: true }, [PATS]: { team: 12, pts: 5, started: true }, [ZAY]: { team: 8, pts: 11, started: true } },
+  7: { [COLE]: { team: 10, pts: 9, started: false } },
+  8: { [COLE]: { team: 3, pts: 12, started: true } },
 };
 /* the locked list: week 5, both counting from 6, Coleman's waiver week in */
 const LIST = [{ week: 5, date: UPHELD, upheldAt: UPHELD, faab: [{ from: 8, to: 10, amount: 5 }],
@@ -74,8 +80,10 @@ const { breakdown: B } = await M.computeCoaching(TEAMS, M.tradesFillTx(LOG, LIST
 const c2 = id => r1(B[id].c2);
 
 head('2026: the list, and only the list');
-ok('Coleman is scored from the list: 15.9 from week 6, his waiver week in', B[10].detail.tradesReceived.filter(r => r.pid === COLE)
+ok('Coleman counts his week 6 start: 15.9 -- not the week 7 bench, not week 8 after he left', B[10].detail.tradesReceived.filter(r => r.pid === COLE)
   .map(r => [r.week, r.from, r.pts, !!r.rec]), [[5, 6, 15.9, true]]);
+ok('and the team that sent him gives up the same 15.9', B[8].detail.tradesSent.filter(r => r.pid === COLE).map(r => r.pts), [15.9]);
+ok('the breakdown says it is lineup points', B[10].detail.c2Lineup, true);
 ok('dated by the trade\'s own week, not the period ESPN processed it in', B[8].detail.tradesSent.filter(r => r.pid).map(r => r.week), [5]);
 ok('BFT: (15.9 − 6) ÷ 10, plus $5 at 2 points a dollar', c2(10), r1((15.9 - 6) / 10 + 1));
 ok('the Tinglers: the mirror of it', c2(8), r1((6 - 15.9) / 10 - 1));

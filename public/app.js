@@ -1264,7 +1264,17 @@ const C2_TRADES_FROM=2026;
 
    Only rows off the locked list can be weighed -- each carries its trade's
    key as rec. The log's rows, before the list lands, stay as they were. */
-const C2_WEIGHT_FROM=2026;
+/* ── 2026 ON: A TRADED PLAYER COUNTS ONLY WHAT HE SCORED IN THE LINEUP (user 11-24) ──
+   C2 used to credit every point a received player scored from the trade on,
+   started or benched, on this roster or after he was dropped -- and debit the
+   same from the team that sent him. Now it is the points he scored in the
+   STARTING LINEUP of the team that got him, from his first week there until he
+   leaves that roster: what the trade actually put on the scoreboard. The same
+   number comes off the team that sent him, so each player still nets to zero
+   across the two. FAAB in a trade is unchanged, and so is the Trades tab, which
+   keeps every point. Trade size (the weighting) is counted in the same lineup
+   points. Seasons before 2026 keep all points. */
+const C2_WEIGHT_FROM=2026, C2_LINEUP_FROM=2026;
 function c2WeighTrades(season,teams,c2,detail){
   if(season==null||Number(season)<C2_WEIGHT_FROM) return;
   /* every movement is somebody's received row, so these count each one once */
@@ -1827,7 +1837,9 @@ async function computeCoaching(teams, transactions, weeklyData, season){
         const beforeKick=ko!=null&&at<ko;
         const fromWeek=item.from>0?item.from:(tradeWeek>0&&tw&&tw.team===item.toTeamId&&(beforeKick||tw.started))
           ?tradeWeek:tradeWeek+1;
-        const pts=item.pts!=null?item.pts:allPts(pid, fromWeek), rec=tx._from&&tx._k;
+        const lineupC2=season!=null&&Number(season)>=C2_LINEUP_FROM&&item.toTeamId!=null;
+        const pts=lineupC2?+stintPts(pid, fromWeek, Infinity, item.toTeamId).toFixed(1)
+          :(item.pts!=null?item.pts:allPts(pid, fromWeek)), rec=tx._from&&tx._k;
         if(item.toTeamId!=null && item.toTeamId in c2){
           c2[item.toTeamId]+=pts/10;
           detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,from:fromWeek,pts,rec});
@@ -1942,6 +1954,7 @@ async function computeCoaching(teams, transactions, weeklyData, season){
      it needs the rate, and the rate is the pickups just above */
   c2ScoreFaab(season,teams,transactions,executed,pool,c2,detail);
   c2WeighTrades(season,teams,c2,detail);
+  if(season!=null&&Number(season)>=C2_LINEUP_FROM) teams.forEach(t=>{ if(detail[t.id]) detail[t.id].c2Lineup=true; });
   c4Score(season,teams,c4,detail,liqFor(season));
 
   // Z-score standardize
@@ -2302,7 +2315,8 @@ function renderC2Breakdown(){
   if(_c2Team==null||!_teams.some(t=>t.id===Number(_c2Team))) _c2Team=roiDefaultTeam();
   const opts=_teams.map(t=>`<option value="${t.id}" ${Number(_c2Team)===t.id?'selected':''}>${t.name}</option>`).join('');
   const fr=Number(((rows[0]||{}).bd.detail||{}).faabRate)||0, W0=((rows[0]||{}).bd.detail||{}).c2Weigh;
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = points gained from players traded for minus those traded away, counted from the first week each one played for his new team.${W0?` Each trade then counts by its size: every point it moved, both sides, against the season's biggest trade (<b>${W0.max.toFixed(1)}</b> points), which counts in full.`:''}${fr?` FAAB in a trade counts at what the league's FAAB buys: <b>${fr.toFixed(2)}</b> lineup points per $1 this season.`:''}</div>
+  const L0=((rows[0]||{}).bd.detail||{}).c2Lineup;
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = ${L0?'starting-lineup points the players you traded for scored for you, minus what the players you traded away scored in their new team\'s starting lineup, from the trade until each one left that roster.':'points gained from players traded for minus those traded away, counted from the first week each one played for his new team.'}${W0?` Each trade then counts by its size: every ${L0?'lineup ':''}point it moved, both sides, against the season's biggest trade (<b>${W0.max.toFixed(1)}</b> points), which counts in full.`:''}${fr?` FAAB in a trade counts at what the league's FAAB buys: <b>${fr.toFixed(2)}</b> lineup points per $1 this season.`:''}</div>
     ${roiRankHTML('c2',_c2Team,c2RankSub,'c2Pick')}
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c2-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
