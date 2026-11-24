@@ -340,6 +340,15 @@ for (const season of seasons) {
         return { ...x, players, total: +players.reduce((n, p) => n + (p.pts || 0), 0).toFixed(1) };
       });
     });
+    /* A TRADE ONLY THE FILE STILL HOLDS STAYS. ESPN's feed stopped carrying the week 1 deal, and
+       without it here every full run tripped the vote guard below and refused -- so no point, and
+       no corrected start week, reached the file after that. The app keeps archived-only trades
+       (mergeSeasonTrades); this was always meant to, which is what `matched` was collected for. */
+    if (!capture) {
+      const keep = olds.filter(o => !matched.has(o));
+      keep.forEach(o => console.log(`    kept week ${o.week} trade between ${(o.teams || []).map(x => x.teamId).join(' and ')} (no longer in the feed)`));
+      if (keep.length) d.trades = [...d.trades, ...keep];
+    }
     if (capture) {
       /* only what is new; everything on file stays exactly as it is */
       const fresh = d.trades.filter(t => !((t.espnId && oldByEspn[t.espnId]) || oldBy[voteId(season, t)]));
