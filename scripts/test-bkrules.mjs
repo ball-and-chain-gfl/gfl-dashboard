@@ -35,6 +35,7 @@ const B = assemble(grab, [
 ], ['bkIQFor', 'bkPicksMissed', 'setRows', 'setStarted', 'setPicks'], [
   "const _CFG={ballKnowledge:{iq:{step:1,min:70,max:230}}};",
   "const bkLeagueSeason=()=>'2026'; const bkWeek=()=>5;",
+  "const pkPlayoffFiller=()=>new Set(); const pkPairKey=g=>[g.home.teamId,g.away.teamId].sort().join('-');",
   /* the daily drop starts in week 10 and has its own suite (test-daily); here,
      in week 5, it has nothing to add */
   "const BK_DAILY={season:'2026',week:10};",

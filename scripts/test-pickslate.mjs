@@ -121,6 +121,7 @@ const H = assemble(grab, ['const pkFixKey=', 'const pkCash=', 'function pkLeague
   'let _locked=false, _money=null;',
   'const setLocked=v=>{_locked=v;}; const setMoney=v=>{_money=v;};',
   'const pkLocked=()=>_locked; const betsNearWant=()=>{};',
+  'const pkAllDoubleNow=()=>false;',
   'const pkLeaguePicks=()=>({by:{"5-10":{"10":[10,6],"5":[5]},"1-6":{"6":[10,6,1]}},pickers:new Set([10,6,5,1])});',
   'const pkMoney=()=>_money;',
   'const bucks2=v=>Math.round((Number(v)||0)*100)/100; const bucksCents=v=>bucks2(v).toFixed(2);',

@@ -19043,7 +19043,52 @@ let _pkMotwPainted=false;
 
 function pkGames(){
   const info=_liveInfo||liveWeekInfo();
-  return info&&info.games?info.games.filter(g=>g.home&&g.away):[];
+  const games=info&&info.games?info.games.filter(g=>g.home&&g.away):[];
+  const F=pkPlayoffFiller(info&&info.season||bkLeagueSeason(),Number(info&&info.week)||0);
+  return F.size?games.filter(g=>!F.has(pkPairKey(g))):games;
+}
+/* ── THE PLAYOFF SLATE IS THE GAMES THAT DECIDE SOMETHING (user 11-24) ───────
+   ESPN schedules six games every playoff week, but only 4, 4 and 6 of them are
+   real: in the first round the 1 and 2 seeds sit out (ESPN schedules them
+   nothing) and the 11 and 12 play for nothing (the losers' bracket's byes); in the second,
+   the two championship-bracket teams who lost in round one play for nothing, and
+   so do the two losers'-bracket teams who won. The final round is all placement
+   games. Seeds are the regular season's record, points for breaking ties -- not
+   ESPN's playoffSeed, which manual matchup edits have made wrong in this league.
+   If the games don't come out in that shape (the bottom pair's game in round
+   one, one game per bracket in round two), nothing is dropped: a full slate beats a wrong one. */
+const pkPairKey=g=>[g.home.teamId,g.away.teamId].map(Number).sort((a,b)=>a-b).join('-');
+function pkSeeds(season){
+  const meta=_seasonMeta[season]; if(!meta) return [];
+  const re=regEndOf(season), T={};
+  (meta.schedule||[]).forEach(m=>{ if(!m.home||!m.away||(m.matchupPeriodId||0)>re) return;
+    const h=m.home.totalPoints||0, a=m.away.totalPoints||0; if(!h&&!a) return;
+    [[m.home,h,a],[m.away,a,h]].forEach(([t,me,them])=>{ const x=T[t.teamId]||(T[t.teamId]={id:Number(t.teamId),w:0,l:0,t:0,pf:0});
+      x.pf+=me; if(me>them) x.w++; else if(me<them) x.l++; else x.t++; }); });
+  const pct=x=>{ const g=x.w+x.l+x.t; return g?(x.w+x.t/2)/g:0; };
+  return Object.values(T).sort((a,b)=>pct(b)-pct(a)||b.pf-a.pf).map(x=>x.id);
+}
+function pkPlayoffFiller(season,wk){
+  const out=new Set(), meta=_seasonMeta[season]; if(!meta) return out;
+  const re=regEndOf(season); if(wk!==re+1&&wk!==re+2) return out;
+  const seeds=pkSeeds(season); if(seeds.length!==12) return out;
+  const top2=new Set(seeds.slice(0,2)), bot2=new Set(seeds.slice(10)), top6=new Set(seeds.slice(0,6));
+  const at=w=>(meta.schedule||[]).filter(m=>m.home&&m.away&&Number(m.matchupPeriodId)===w);
+  const both=(m,S)=>S.has(Number(m.home.teamId))&&S.has(Number(m.away.teamId));
+  if(wk===re+1){
+    /* ESPN schedules nothing for the two byes at the top, so it is the bottom pair's game (and a top pair's, if one is ever scheduled) */
+    const lo=at(wk).filter(m=>both(m,bot2)), hi=at(wk).filter(m=>both(m,top2));
+    if(lo.length===1&&hi.length<=1) [...lo,...hi].forEach(m=>out.add(pkPairKey(m)));
+    return out;
+  }
+  /* round two: who won and lost a real round-one game */
+  const res={};
+  at(re+1).forEach(m=>{ if(both(m,top2)||both(m,bot2)) return; const h=m.home.totalPoints||0, a=m.away.totalPoints||0; if(!h&&!a) return;
+    res[Number(m.home.teamId)]=h>a?'W':'L'; res[Number(m.away.teamId)]=h>a?'L':'W'; });
+  const f=at(wk).filter(m=>{ const a=Number(m.home.teamId), b=Number(m.away.teamId);
+    return (both(m,top6)&&res[a]==='L'&&res[b]==='L')||(!top6.has(a)&&!top6.has(b)&&res[a]==='W'&&res[b]==='W'); });
+  if(f.length===2) f.forEach(m=>out.add(pkPairKey(m)));
+  return out;
 }
 /* ── A SLATE IS A SET OF TEAMS, NOT A LIST OF POSITIONS ──────────────────────
    Picks were stored against the INDEX of a game in pkGames(), and there are two
@@ -19289,6 +19334,7 @@ function pkLeagueHTML(games,order,picks,motw,wk){
   const yet=(_teams||[]).filter(t=>!pickers.has(Number(t.id)));
   return `<div class="bk-meta"><span>Week ${wk}</span>
       <span class="bk-count">${pickers.size} of ${(_teams||[]).length} picked</span></div>
+    ${pkAllDoubleNow()?'<div class="pk-badge pk-alldbl"><i class="fa fa-fire"></i>Every game counts double this week</div>':''}
     <div class="pkl-list">${order.map(card).join('')}</div>
     ${yet.length?`<div class="cp-yet"><span class="cp-yet-l">${locked?'No picks':'Yet to pick'}</span>
       <span class="cp-yet-logos">${yet.map(t=>`<span class="cp-yet-t" title="${nm(t.id)}">${logoImg(t.id,'cp-logo')}</span>`).join('')}</span></div>`:''}
@@ -19364,6 +19410,7 @@ function renderWeekPicks(){
   el.innerHTML=`
     <div class="bk-meta"><span>Week ${wk}</span>
       <span class="bk-count">${waiting?'waiting':`${done.length} of ${games.length}`}</span></div>
+    ${pkAllDoubleNow()?'<div class="pk-badge pk-alldbl"><i class="fa fa-fire"></i>Every game counts double this week</div>':''}
     <div class="pk-grid${waiting?' pk-waiting':''}">${order.map(cell).join('')}</div>
     ${waiting
       ?`<div class="pk-wait"><i class="fa fa-hourglass-half"></i>Waiting on the Matchup
@@ -19479,8 +19526,12 @@ function motwChosen(){
   });
   return best?parse(r[best]):null;
 }
-const motwIsSet=()=>!!motwChosen();
+const PK_ALL_DOUBLE_FROM=2026;
+function pkAllDouble(season,wk){ wk=Number(wk)||0; return Number(season)>=PK_ALL_DOUBLE_FROM&&wk>=12&&wk<=14; }
+const pkAllDoubleNow=()=>pkAllDouble(motwInfo().season||bkLeagueSeason(),motwWeek());
+const motwIsSet=()=>pkAllDoubleNow()||!!motwChosen();
 function pkMotwIndex(games){
+  if(pkAllDoubleNow()) return -1;            // weeks 12-14: no featured game, they all count double
   const pair=motwChosen();
   if(!pair) return -1;
   const [a,b]=pair.map(String);
@@ -24196,7 +24247,8 @@ function bkPicksMissed(p){
   for(let w=1;w<=cur;w++){
     if(sent.has(w)) continue;
     if(w===cur&&!weekHasStarted()) continue;     // still open
-    s-=(byWeek[w]||[]).length;
+    const F=pkPlayoffFiller(season,w);
+    s-=(byWeek[w]||[]).filter(m=>!(F.size&&m.home&&m.away&&F.has(pkPairKey(m)))).length;
   }
   return s;
 }
@@ -24227,7 +24279,7 @@ function bkPickScore(p){
       if(hp===0&&ap===0) return;                       // not played
       const winner=hp>ap?g.home.teamId:ap>hp?g.away.teamId:null;
       if(winner==null) return;                          // a tie pays neither way
-      const w=(gi===motw)?2:1;                          // the featured game counts double
+      const w=(gi===motw||pkAllDouble(getSeason(),wk))?2:1;   // the featured game counts double; in weeks 12-14 they all do
       s+=(String(winner)===String(teamId)?w:-w);
     });
   });
@@ -28321,6 +28373,7 @@ function jjjCardHTML(){
    moneyline on it -- or null while there is no Matchup, no submitted pick, or
    no fixture for it on the board. */
 function sbRideFor(owner){
+  if(pkAllDoubleNow()) return null;          // no Matchup of the Week in weeks 12-14
   const pair=motwChosen(); if(!pair) return null;
   const row=(_cpRows||[]).find(p=>p&&p.id===owner); if(!row||!row[pkKey()]) return null;
   let slate=null; try{ slate=JSON.parse(row[pkKey()]); }catch(e){ return null; }

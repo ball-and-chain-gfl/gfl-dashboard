@@ -44,6 +44,7 @@ const M = assemble(grab, [
   'const sbWeekData=()=>_wd;',
   'const sbAllMarkets=()=>_mk;',
   'const motwChosen=()=>_motw;',
+  'const pkAllDoubleNow=()=>false;',
   'const pkKey=()=>"pk_2026_w9";',
   'const liveWeekInfo=()=>_liveInfo;',
   'const pkGames=()=>(_wd?_wd.games:[]).map(g=>({home:{teamId:g.a.tid},away:{teamId:g.b.tid}}));',

@@ -185,15 +185,17 @@ head('pkNormalise — a pick follows its team, not its position');
    nothing at all (Number('7-8') is NaN). Both now resolve the fixture from the
    picked team, which grades either shape and is right for both. */
 const GRADER_PRELUDE = [
-  'let _seasonMeta={}, _motw=-1;',
-  'const getSeason=()=>2026;',
+  'let _seasonMeta={}, _motw=-1, _season=2026;',
+  'const getSeason=()=>_season;',
   'const pkMotwIndex=()=>_motw;',
   'const setMeta=v=>{_seasonMeta=v;};',
   'const setMotw=v=>{_motw=v;};',
+  'const setSeason=v=>{_season=v;};',
+  'const PK_ALL_DOUBLE_FROM=2026;',
 ].join(String.fromCharCode(10));
 const G2 = assemble(grab,
-  ['function ldPickRecord(prof){', 'function bkPickScore(p){'],
-  ['ldPickRecord', 'bkPickScore', 'setMeta', 'setMotw'], GRADER_PRELUDE);
+  ['function ldPickRecord(prof){', 'function bkPickScore(p){', 'function pkAllDouble(season,wk){'],
+  ['ldPickRecord', 'bkPickScore', 'setMeta', 'setMotw', 'setSeason', 'pkAllDouble'], GRADER_PRELUDE);
 
 /* A finished week. Home wins three, away wins three. */
 const RESULT = [
@@ -248,6 +250,20 @@ ok('calling the featured game right is worth two',
 ok('calling it wrong is worth minus two',
   G2.bkPickScore({ pk_2026_w1: JSON.stringify({ ...byFixture, '5-6': '6' }) }), 3);
 G2.setMotw(-1);
+
+head('weeks 12 to 14: no Matchup of the Week, every game counts double (2026 on)');
+{ const at = wk => ({ 2026: { schedule: RESULT.map(g => ({ ...g, matchupPeriodId: wk })) },
+                     2025: { schedule: RESULT.map(g => ({ ...g, matchupPeriodId: wk })) } });
+  const slate = wk => ({ [`pk_2026_w${wk}`]: JSON.stringify(byFixture) });
+  [12, 13, 14].forEach(wk => { G2.setMeta(at(wk));
+    ok(`week ${wk}: six right is twelve`, G2.bkPickScore(slate(wk)), 12);
+    ok(`week ${wk}: six wrong is minus twelve`, G2.bkPickScore({ [`pk_2026_w${wk}`]: JSON.stringify(allWrong) }), -12); });
+  [11, 15].forEach(wk => { G2.setMeta(at(wk)); ok(`week ${wk} is ordinary: six right is six`, G2.bkPickScore(slate(wk)), 6); });
+  G2.setMeta(at(12)); G2.setSeason(2025);
+  ok('a past season keeps its old scoring: 2025 week 12, six right is six', G2.bkPickScore({ pk_2025_w12: JSON.stringify(byFixture) }), 6);
+  G2.setSeason(2026);
+  ok('the rule itself', [G2.pkAllDouble(2026, 11), G2.pkAllDouble(2026, 12), G2.pkAllDouble(2026, 14), G2.pkAllDouble(2026, 15), G2.pkAllDouble(2025, 13)], [false, true, true, false, false]);
+  G2.setMeta({ 2026: { schedule: RESULT } }); }
 
 head('an unplayed week is pending, not lost');
 G2.setMeta({ 2026: { schedule: RESULT.map(g => ({ ...g,
