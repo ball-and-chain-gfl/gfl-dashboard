@@ -770,8 +770,12 @@ export default async function handler(req, res) {
           // players — which is where they do the most damage, because the bench
           // is what "points left on the bench" is measured from.
           const pts = wk?.appliedTotal ?? 0;
+          /* the projection for this week: Trade ROI asks whether a man traded away
+             would have started for the team that let him go (app.js, c2Charge) */
+          const pjRow = stats.find(s => s.statSourceId === 1 && s.scoringPeriodId === week);
           players[pid] = {
             pts,
+            pj: pjRow ? +(Number(pjRow.appliedTotal) || 0).toFixed(2) : null,
             slot: e.lineupSlotId,
             started: !BENCH_SLOTS.includes(e.lineupSlotId),
             team: team.id,
@@ -815,6 +819,38 @@ export default async function handler(req, res) {
   // that is 22 MB, because each response carries every stat line for all 170
   // rostered players and we want six numbers from each. Aggregated here it is
   // about 25 KB, and datacenter-to-ESPN it costs a second.
+  // ── Traded players, every week: points and projection, rostered or not ────────
+  //   /api/espn?type=playerweeks&seasonId=2026&ids=16800,4870808
+  // Response: { season, players: { [id]: { pos, w: { [week]: [pts, proj] } } } }
+  // Trade ROI charges the team that traded a man away what he WOULD have scored in
+  // its lineup through the end of the season, and once he is a free agent no
+  // roster read carries him. ESPN's player card does, in league scoring.
+  if (type === 'playerweeks') {
+    const ids = String(req.query.ids || '').split(',').map(Number).filter(n => Number.isFinite(n) && n !== 0).slice(0, 120);
+    if (!ids.length) return res.status(200).json({ season, players: {} });
+    try {
+      const pf = { players: { filterIds: { value: ids },
+        filterStatsForTopScoringPeriodIds: { value: 18, additionalValue: [`00${season}`, `10${season}`] } } };
+      const pr = await fetch(leagueURL('kona_playercard', { forceLive: true }),
+        { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(pf) } });
+      if (!pr.ok) return res.status(502).json({ error: 'player card ' + pr.status, season, players: {} });
+      const players = {};
+      (unwrap(await pr.json()).players || []).forEach(e => {
+        const pl = e.player || {}; if (pl.id == null) return;
+        const row = players[pl.id] = { pos: pl.defaultPositionId ?? null, w: {} };
+        (pl.stats || []).forEach(st => {
+          if (String(st.seasonId) !== String(season) || st.statSplitTypeId !== 1) return;
+          const w = Number(st.scoringPeriodId); if (!(w > 0)) return;
+          const cell = row.w[w] || (row.w[w] = [0, null]);
+          if (st.statSourceId === 0) cell[0] = +(Number(st.appliedTotal) || 0).toFixed(2);
+          if (st.statSourceId === 1) cell[1] = +(Number(st.appliedTotal) || 0).toFixed(2);
+        });
+      });
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=1800, stale-while-revalidate=1800');
+      return res.status(200).json({ season, players });
+    } catch (err) { return res.status(500).json({ error: err.message, season, players: {} }); }
+  }
+
   if (type === 'rosterproj') {
     const weekIds = Array.from({ length: 17 }, (_, i) => i + 1);
     try {
