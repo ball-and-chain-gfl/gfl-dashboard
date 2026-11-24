@@ -12817,10 +12817,6 @@ function playoffOutlookHTML(){
       <span class="badge-info">${d.left?`${d.left} games left`:'regular season complete'}</span></div>
     <div class="po-head"><span></span><span>Team</span><span>Rec</span><span>Range of outcomes</span><span class="r">Playoffs</span></div>
     <div class="po-list">${rows}</div>
-    <div class="po-note">${d.hasOdds
-      ?`The playoff percentages play the rest of the regular season out ${(d.runs||0).toLocaleString()} times. Every game still to come is decided at the Win% the schedule above prints for it — the best lineup each team can field, with byes filled from the waiver wire — and this week's games at their live win probability, so the column moves on a Sunday. Record decides the field and total points break a tie, which is how ESPN seeds this league. These are this site's numbers, worked out from the same games as everything else on it, so they will not always match the ESPN app.`
-      :`The playoff percentages fill in once the power ratings have loaded.`}
-      The bar beside each team is not a projection: it is every position that team can still finish in by the arithmetic, with last at the left and first at the right. Its edges are set by winning out and losing out — a team is only ruled above you once its worst possible finish is still better than your best, and only ruled below once its best cannot reach your worst. The white mark is where they stand today. With nothing played every team can still finish anywhere, so the bands fill the track; they close on their own as the games run out, and on the last day each one is a single position. Records and bands count finished weeks only, so they turn over on the Tuesday with the rest of the site rather than moving under you on a Sunday afternoon. The top ${d.spots} shaded rows are the current projected field.</div>
   </div>`;
 }
 /* ── PLAYOFF OUTCOMES (user 11-24) ───────────────────────────────────────────
