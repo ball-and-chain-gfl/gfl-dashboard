@@ -78,6 +78,14 @@ console.log('\n3. THE PLACES ADD UP, AND THE SAME FOOTBALL GIVES THE SAME NUMBER
   const again = M.poSimulate(T, base, games, 6, { owner: 'T5', game: fg });
   ok('run twice, the same answer to the last digit',
      JSON.stringify(again.made) === JSON.stringify(r.made) && again.focus.win === r.focus.win);
+  /* Playoff Outcomes reads its scenarios off these runs, so they must be the runs the odds came from */
+  const R = r.rec, runs = r.runs;
+  const fromRuns = T.map((t, i) => { let c = 0; for (let n = 0; n < runs; n++) c += R.mk[n * R.N + i]; return c / runs; });
+  ok('the kept runs give back every percentage exactly', T.every((t, i) => fromRuns[i] === r.made[t]));
+  let aw = 0; for (let n = 0; n < runs; n++) aw += R.gw[n * R.G + 0];
+  ok('and a game\'s kept winners match its price', near(aw / runs, games[0].p, 0.03), aw / runs);
+  ok('every run has exactly six in the field',
+     Array.from({ length: runs }, (_, n) => T.reduce((s, t, i) => s + R.mk[n * R.N + i], 0)).every(c => c === 6));
   ok('the strongest team is the likeliest to make it',
      T.every(t => r.made.T0 >= r.made[t]), JSON.stringify(r.made));
   ok('and the weakest the least', T.every(t => r.made.T11 <= r.made[t]));

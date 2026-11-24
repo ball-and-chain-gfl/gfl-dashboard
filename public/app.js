@@ -12342,6 +12342,10 @@ function poSimulate(list,base,games,spots,focus){
   let fWin=0,fLoss=0;
   const w=new Float64Array(N), pf=new Float64Array(N);
   const w0=list.map(o=>base[o].w+base[o].t*0.5), pf0=list.map(o=>base[o].pf);
+  /* every run kept: who won each game (1 = the team listed first) and who made the field.
+     Playoff Outcomes reads its scenarios straight off these, so they are the same runs
+     the percentages are counted from. */
+  const GL=G.length, gw=new Uint8Array(PO_RUNS*GL), mk=new Uint8Array(PO_RUNS*N);
   /* in the field = fewer than `spots` teams ahead on record, then points */
   const inField=t=>{ let ahead=0;
     for(let j=0;j<N;j++) if(j!==t&&(w[j]>w[t]||(w[j]===w[t]&&pf[j]>pf[t]))) ahead++;
@@ -12364,11 +12368,11 @@ function poSimulate(list,base,games,spots,focus){
       const m=g.z*sd+off[g.a]-off[g.b]+r*Math.cos(2*Math.PI*u2)*gsd;
       const u=r*Math.sin(2*Math.PI*u2)*sd/2;
       if(k===fi){ fm=m; fu=u; }
-      if(m>0) w[g.a]++; else w[g.b]++;
+      if(m>0){ w[g.a]++; gw[n*GL+k]=1; } else w[g.b]++;
       pf[g.a]+=g.mu+m/2+u; pf[g.b]+=g.mu-m/2+u;
     }
     for(let i=0;i<N;i++){
-      if(inField(i)) made[i]++;
+      if(inField(i)){ made[i]++; mk[n*N+i]=1; }
       sumW[i]+=w[i];
       const h=hist[i], key=Math.round(w[i]*2); h[key]=(h[key]||0)+1;
     }
@@ -12381,7 +12385,7 @@ function poSimulate(list,base,games,spots,focus){
   /* the middle of each team's spread of final win totals */
   const med=list.map((o,i)=>{ const h=hist[i], ks=Object.keys(h).map(Number).sort((a,b)=>a-b);
     let c=0; for(const k of ks){ c+=h[k]; if(c>=PO_RUNS/2) return k/2; } return w0[i]; });
-  const out={runs:PO_RUNS,made:{},med:{},mean:{}};
+  const out={runs:PO_RUNS,made:{},med:{},mean:{},rec:{G:GL,N,gw,mk}};
   list.forEach((o,i)=>{ out.made[o]=made[i]/PO_RUNS; out.med[o]=med[i]; out.mean[o]=sumW[i]/PO_RUNS; });
   if(fi>=0&&fo>=0) out.focus={owner:focus.owner,week:games[fi].w,
     win:fWin/PO_RUNS,loss:fLoss/PO_RUNS};
@@ -12561,7 +12565,7 @@ function playoffOutlook(){
      stable from render to render. */
   teams.sort((a,b)=>(b.odds??-1)-(a.odds??-1)||a.now-b.now||a.name.localeCompare(b.name));
 
-  _poCache={teams,spots,left:left.length,season:info.season,regEnd,
+  _poCache={teams,spots,left:left.length,season:info.season,regEnd,sim,games:priced,list,week:Number(info.week)||0,
     size:list.length,played:playedAny,hasOdds:!!sim,runs:sim?sim.runs:0};
   return _poCache;
 }
@@ -12819,6 +12823,116 @@ function playoffOutlookHTML(){
       The bar beside each team is not a projection: it is every position that team can still finish in by the arithmetic, with last at the left and first at the right. Its edges are set by winning out and losing out — a team is only ruled above you once its worst possible finish is still better than your best, and only ruled below once its best cannot reach your worst. The white mark is where they stand today. With nothing played every team can still finish anywhere, so the bands fill the track; they close on their own as the games run out, and on the last day each one is a single position. Records and bands count finished weeks only, so they turn over on the Tuesday with the rest of the site rather than moving under you on a Sunday afternoon. The top ${d.spots} shaded rows are the current projected field.</div>
   </div>`;
 }
+/* ── PLAYOFF OUTCOMES (user 11-24) ───────────────────────────────────────────
+   For the team in the Schedule dropdown, the most likely way it gets in and the
+   most likely way it misses. Read off the Playoff Outlook's own runs, so every
+   number here agrees with the percentage in that table.
+
+   A "way" is the team's own remaining games plus the (up to) three other games
+   that move its chances most -- the gap between its odds when one side wins and
+   when the other does. Of every combination of those results, the one that comes
+   up most often among the runs where the team makes it is the way in; among the
+   runs where it misses, the way out. Every line on a card has to happen together.
+
+   Only for the last four weeks of the regular season: before that there are too
+   many games left for one scenario to mean anything. */
+let _pcMemo=null;
+function poScenarios(owner){
+  const d=playoffOutlook();
+  if(!d||d.final||!d.sim||!d.sim.rec||!d.games||!d.list) return null;
+  const key=_poSimKey+'|'+owner;
+  if(_pcMemo&&_pcMemo.key===key) return _pcMemo.v;
+  const {G,N,gw,mk}=d.sim.rec, runs=d.sim.runs, games=d.games, ti=d.list.indexOf(owner);
+  if(ti<0) return null;
+  const mine=[]; games.forEach((g,k)=>{ if(g.a===owner||g.b===owner) mine.push(k); });
+  const inRun=n=>mk[n*N+ti]===1;
+  /* ── A WAY IS BUILT ONE RESULT AT A TIME ─────────────────────────────────────
+     Start from every run. Each step adds the single game result that is most
+     common among the runs that still fit AND end the way this card is about --
+     but only a result that actually moves the chance, so a game that does not
+     matter never makes the list. It stops once the result is 90% settled, or
+     at six lines. What is left is the most likely set of results that gets
+     this team in (or keeps it out), with nothing on it that is not needed. */
+  const build=want=>{
+    const alive=new Uint8Array(runs).fill(1);
+    let nA=runs, oA=0; for(let n=0;n<runs;n++) if(inRun(n)===want) oA++;
+    if(!oA) return null;
+    const used=new Set(), lines=[];
+    /* already 90% one way: then the way is what makes it near certain */
+    const target=oA/nA>=0.9?0.995:0.9;
+    while(lines.length<6&&oA/nA<target){
+      let best=null;
+      for(let k=0;k<G;k++){ if(used.has(k)) continue;
+        let n1=0,o1=0,n0=0,o0=0;
+        for(let n=0;n<runs;n++){ if(!alive[n]) continue; const o=inRun(n)===want;
+          if(gw[n*G+k]){ n1++; if(o) o1++; } else { n0++; if(o) o0++; } }
+        [[1,n1,o1],[0,n0,o0]].forEach(([v,nc,oc])=>{
+          if(nc<12||oc/nc<oA/nA+0.02) return;
+          if(!best||oc>best.oc||(oc===best.oc&&oc/nc>best.oc/best.nc)) best={k,v,nc,oc}; });
+      }
+      if(!best) break;
+      used.add(best.k);
+      for(let n=0;n<runs;n++) if(alive[n]&&gw[n*G+best.k]!==best.v) alive[n]=0;
+      nA=best.nc; oA=best.oc;
+      const g=games[best.k];
+      lines.push({w:g.w, win:best.v?g.a:g.b, lose:best.v?g.b:g.a, own:g.a===owner||g.b===owner});
+    }
+    lines.sort((x,y)=>x.w-y.w||(y.own-x.own));
+    return {lines, share:nA/runs, cond:oA/nA};
+  };
+  const recN={}, recIn={};
+  for(let n=0;n<runs;n++){
+    let ow=0; mine.forEach(k=>{ if((games[k].a===owner)===!!gw[n*G+k]) ow++; });
+    recN[ow]=(recN[ow]||0)+1; if(inRun(n)) recIn[ow]=(recIn[ow]||0)+1;
+  }
+  const ladder=[];
+  for(let ow=mine.length;ow>=0;ow--) if(recN[ow]) ladder.push({w:ow,l:mine.length-ow,pRec:recN[ow]/runs,pIn:(recIn[ow]||0)/recN[ow]});
+  const t=d.teams.find(x=>x.owner===owner)||{};
+  const v={owner, odds:t.odds, played:t.played, clinched:t.fWorst!=null&&t.fWorst<=d.spots,
+    gone:t.fBest!=null&&t.fBest>d.spots, wayIn:build(true), wayOut:build(false), ladder, runs};
+  _pcMemo={key,v};
+  return v;
+}
+function playoffOutcomesHTML(owner){
+  const d=playoffOutlook();
+  if(!owner||!d||d.final||!d.hasOdds) return '';
+  const wk=Number(d.week)||0, re=Number(d.regEnd)||14;
+  if(wk<re-3||wk>re) return '';
+  const s=poScenarios(owner); if(!s) return '';
+  const nm=o=>(_franchises.find(f=>f.owner===o)||{}).name||'Team';
+  const pct=v=>v==null?'—':v>=0.995&&v<1?'>99%':v<=0.005&&v>0?'<1%':Math.round(v*100)+'%';
+  const col=v=>v>=0.85?'var(--green)':v>=0.5?'var(--accent)':v>=0.15?'#f4c04d':'var(--red)';
+  const tm=o=>`<span class="pc-tm">${sbAvatar(o,20)}<span class="pc-ab">${sbTeamAb(o,nm(o))}</span></span>`;
+  const rec=s.played?`${s.played.w}–${s.played.l}${s.played.t?'–'+s.played.t:''}`:'';
+  const card=(x,kind)=>{
+    const isIn=kind==='in', title=isIn?'Most likely way in':'Most likely way out';
+    const shut=isIn?(s.gone?'Eliminated':null):(s.clinched?'Clinched':null);
+    if(shut||!x) return `<div class="pc-card pc-${kind}"><div class="pc-ch"><span class="pc-ct">${title}</span></div>
+      <div class="pc-shut">${shut||(isIn?'Made it in none of the runs':'Missed in none of the runs')}</div></div>`;
+    return `<div class="pc-card pc-${kind}">
+      <div class="pc-ch"><span class="pc-ct">${title}</span><span class="pc-cs">${pct(x.share)} of outcomes</span></div>
+      <div class="pc-gl">${x.lines.length?'':`<div class="pc-shut">Almost whatever happens</div>`}${x.lines.map(g=>`<div class="pc-g${g.own?' pc-own':''}">
+        <span class="pc-wk">Wk ${g.w}</span>${tm(g.win)}<span class="pc-ov">beats</span><span class="pc-lo">${tm(g.lose)}</span></div>`).join('')}</div>
+      <div class="pc-cond">All of these: <b style="color:${isIn?col(x.cond):col(1-x.cond)}">${pct(x.cond)}</b> ${isIn?'in':'out'}</div>
+    </div>`;
+  };
+  const ladder=s.ladder.length>1?`<div class="pc-lad">
+      <div class="pc-lh"><span>Finishes</span><span>Chance in</span><span></span><span class="r">Likely</span></div>
+      ${s.ladder.map(x=>`<div class="pc-lr"><span class="pc-lrec">${x.w}–${x.l}</span>
+        <span class="pc-lbar"><span style="width:${(x.pIn*100).toFixed(1)}%;background:${col(x.pIn)}"></span></span>
+        <span class="pc-lpct" style="color:${col(x.pIn)}">${pct(x.pIn)}</span>
+        <span class="pc-llik">${pct(x.pRec)}</span></div>`).join('')}
+    </div>`:'';
+  return `<div class="sec pc-sec">
+    <div class="sec-head"><i class="fa fa-route"></i>Playoff Outcomes</div>
+    <div class="pc-top">${sbAvatar(owner,34)}
+      <span class="pc-tn">${nm(owner)}<span class="pc-trec">${rec}</span></span>
+      <span class="pc-odds" style="color:${col(s.odds||0)}">${pct(s.odds)}</span></div>
+    <div class="pc-split"><span style="width:${((s.odds||0)*100).toFixed(1)}%"></span></div>
+    ${ladder}
+    <div class="pc-cards">${card(s.wayIn,'in')}${card(s.wayOut,'out')}</div>
+  </div>`;
+}
 function renderSchedule(){
   const el=document.getElementById('sched-body'); if(!el) return;
   /* a finished season is a record, not a schedule — say so in the heading */
@@ -12884,8 +12998,9 @@ function renderSchedule(){
       <div class="sch-detail" data-season="${d.info.season}"></div>`).join('')}</div>
     ${schedProjHTML(owner,d)}
     ${schedBracketsHTML()}
-    ${pollSosHTML(owner)}
+    ${playoffOutcomesHTML(owner)}
     ${playoffOutlookHTML()}
+    ${pollSosHTML(owner)}
     <div class="sch-note">Win probability comes from the same power ratings the B&C Sportsbook prices with.</div>`;
   imgsBack(el,_crests);
   /* the rows above are brand new nodes; put back the drawer that was open */
