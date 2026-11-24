@@ -836,7 +836,7 @@ export default async function handler(req, res) {
       await Promise.all(Array.from({ length: last }, (_, i) => i + 1).map(async w => {
         try {
           const pf = { players: { filterIds: { value: ids }, limit: ids.length + 5 } };
-          const pr = await fetch(leagueURL('kona_player_info', { forceLive: true }) + ,
+          const pr = await fetch(leagueURL('kona_player_info', { forceLive: true }) + `&scoringPeriodId=${w}`,
             { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(pf) } });
           if (!pr.ok) return;
           (unwrap(await pr.json()).players || []).forEach(e => {
