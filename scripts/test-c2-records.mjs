@@ -59,17 +59,24 @@ const LOG = [
   { type: 'WAIVER', status: 'EXECUTED', teamId: 3, bidAmount: 10, scoringPeriodId: 5, processDate: UPHELD,
     items: [{ type: 'ADD', playerId: PICK, toTeamId: 3 }] },
 ];
-/* the weekly rosters. From 2026 C2 counts only what a traded man scored in the STARTING LINEUP of the team
-   that got him, until he leaves it: Coleman starts for BFT in week 6 (15.9), sits on their bench in week 7
-   (9, not counted) and is with team 3 in week 8 (12, not counted -- he had left). Washington starts for
-   the Tinglers in week 6 (6). The week 1 blockbuster's two men start for their new teams. */
+/* the weekly rosters, with slot, position (2 RB, 3 WR) and ESPN's projection (pj).
+   GOT   what a man traded for scored in the new team's starting lineup until he leaves it:
+         Coleman starts for BFT in week 6 (15.9), sits in week 7, is with team 3 in week 8 -- 15.9.
+         Washington starts for the Tinglers in week 6 (6) and then leaves -- 6.
+   GAVE  what a man traded away would have scored in the sender's lineup, to the end of the season:
+         Coleman (WR) against the Tinglers' WR starter Zay: week 6 projected 12 over 9, starts (15.9);
+         week 7 9 under 11, sits; week 8, with team 3 now, 14 over 10, starts (12) -- 27.9.
+         Washington (RB) against BFT's RB starter #601: week 6 projected 10 over 8 (6); gone after -- 6. */
 const WK = {
-  1: { 501: { team: 9, pts: 100, started: true }, 502: { team: 3, pts: 80, started: true } },
-  5: { [COLE]: { team: 8, pts: 7.7, started: false }, [WASH]: { team: 10, pts: 2, started: false }, [PICK]: { team: 3, pts: 20, started: true },
-       [PATS]: { team: 12, pts: 6, started: true }, [ZAY]: { team: 8, pts: 9, started: true }, [HOCK]: { team: 8, pts: 1.7, started: true } },
-  6: { [COLE]: { team: 10, pts: 15.9, started: true }, [WASH]: { team: 8, pts: 6, started: true }, [PATS]: { team: 12, pts: 5, started: true }, [ZAY]: { team: 8, pts: 11, started: true } },
-  7: { [COLE]: { team: 10, pts: 9, started: false } },
-  8: { [COLE]: { team: 3, pts: 12, started: true } },
+  5: { [COLE]: { team: 8, pts: 7.7, started: false, slot: 20, pos: 3, pj: 6 }, [WASH]: { team: 10, pts: 2, started: false, slot: 20, pos: 2, pj: 5 },
+       [PICK]: { team: 3, pts: 20, started: true, slot: 2, pos: 2, pj: 9 },
+       [PATS]: { team: 12, pts: 6, started: true, slot: 16, pos: 16, pj: 6 }, [ZAY]: { team: 8, pts: 9, started: true, slot: 4, pos: 3, pj: 9 },
+       [HOCK]: { team: 8, pts: 1.7, started: true, slot: 6, pos: 4, pj: 4 } },
+  6: { [COLE]: { team: 10, pts: 15.9, started: true, slot: 4, pos: 3, pj: 12 }, [WASH]: { team: 8, pts: 6, started: true, slot: 2, pos: 2, pj: 10 },
+       601: { team: 10, pts: 4, started: true, slot: 2, pos: 2, pj: 8 },
+       [PATS]: { team: 12, pts: 5, started: true, slot: 16, pos: 16, pj: 6 }, [ZAY]: { team: 8, pts: 11, started: true, slot: 4, pos: 3, pj: 9 } },
+  7: { [COLE]: { team: 10, pts: 9, started: false, slot: 20, pos: 3, pj: 9 }, [ZAY]: { team: 8, pts: 7, started: true, slot: 4, pos: 3, pj: 11 } },
+  8: { [COLE]: { team: 3, pts: 12, started: true, slot: 4, pos: 3, pj: 14 }, [ZAY]: { team: 8, pts: 5, started: true, slot: 4, pos: 3, pj: 10 } },
 };
 /* the locked list: week 5, both counting from 6, Coleman's waiver week in */
 const LIST = [{ week: 5, date: UPHELD, upheldAt: UPHELD, faab: [{ from: 8, to: 10, amount: 5 }],
@@ -82,35 +89,51 @@ const c2 = id => r1(B[id].c2);
 head('2026: the list, and only the list');
 ok('Coleman counts his week 6 start: 15.9 -- not the week 7 bench, not week 8 after he left', B[10].detail.tradesReceived.filter(r => r.pid === COLE)
   .map(r => [r.week, r.from, r.pts, !!r.rec]), [[5, 6, 15.9, true]]);
-ok('and the team that sent him gives up the same 15.9', B[8].detail.tradesSent.filter(r => r.pid === COLE).map(r => r.pts), [15.9]);
+ok('the Tinglers pay what Coleman would have scored for THEM: weeks 6 and 8 -- not 7, and week 8 with another team still counts',
+  B[8].detail.tradesSent.filter(r => r.pid === COLE).map(r => [r.pts, r.cfw]), [[27.9, [6, 8]]]);
+ok('BFT pay what Washington would have scored for them: week 6 only', B[10].detail.tradesSent.filter(r => r.pid === WASH).map(r => [r.pts, r.cfw]), [[6, [6]]]);
 ok('the breakdown says it is lineup points', B[10].detail.c2Lineup, true);
 ok('dated by the trade\'s own week, not the period ESPN processed it in', B[8].detail.tradesSent.filter(r => r.pid).map(r => r.week), [5]);
 ok('BFT: (15.9 − 6) ÷ 10, plus $5 at 2 points a dollar', c2(10), r1((15.9 - 6) / 10 + 1));
-ok('the Tinglers: the mirror of it', c2(8), r1((6 - 15.9) / 10 - 1));
+ok('the Tinglers: Washington\'s 6 in, Coleman\'s 27.9 out, and the $5', c2(8), r1((6 - 27.9) / 10 - 1));
 ok('a trade accepted but not upheld counts for nobody -- players or money', [c2(12), B[12].detail.tradesReceived.length + B[12].detail.tradesSent.length], [0, 0]);
 ok('a man dropped to make room is not a player sent', [c2(9), B[9].detail.tradesSent.length], [0, 0]);
 ok('waivers are untouched by any of it', B[3].detail.waiverPickups.length, 1);
 
-head('each trade counts by its size against the season\'s biggest');
-/* add a blockbuster: 100 to the Miners, 80 to team 3 -- 180 points moved.
-   The Coleman deal moved 6 + 15.9 + $5 at 2 a dollar = 31.9. */
+head('2026 is a plain sum: no trade is weighed by its size');
 const BIG = { week: 1, date: 1, espnId: 'big', teams: [{ teamId: 9, players: [{ pid: 501, pts: 100, from: 1 }] },
   { teamId: 3, players: [{ pid: 502, pts: 80, from: 1 }] }] };
 const { breakdown: BW } = await M.computeCoaching(TEAMS, M.tradesFillTx(LOG, [BIG, ...LIST]), WK, 2026);
-const w5 = 31.9 / 180;
-ok('the biggest trade counts in full: the Miners +20 ÷ 10', r1(BW[9].c2), 2);
-ok('the Coleman deal counts 31.9 of 180: BFT\'s +19.9 at that share', r1(BW[10].c2), r1(19.9 * w5 / 10));
-ok('and the Tinglers lose the same share, no more', r1(BW[8].c2), r1(-19.9 * w5 / 10));
-ok('the money is weighed with the trade it came in', BW[10].detail.tradesReceived.filter(r => r.faab != null).map(r => +r.w.toFixed(4)), [+w5.toFixed(4)]);
-ok('the card is told the yardstick: the biggest, and each trade\'s size and week',
-  [BW[10].detail.c2Weigh.max, r1(BW[10].detail.c2Weigh.size[M.tradesFillTx([], LIST)[0]._k]), BW[10].detail.c2Weigh.week.big], [180, 31.9, 1]);
+ok('a bigger trade elsewhere changes nothing about BFT\'s', [r1(BW[10].c2), BW[10].detail.c2Weigh], [1.99, undefined]);
 const lone = (await M.computeCoaching(TEAMS, M.tradesFillTx([], [BIG, ...LIST]), WK, 2025)).breakdown;
-ok('2025 is not weighed at all: BFT keeps the whole of (15.9 − 6) ÷ 10', [r1(lone[10].c2), lone[10].detail.c2Weigh], [0.99, undefined]);
+ok('2025 keeps its own rule: every point, both ways, unweighted', [r1(lone[10].c2), lone[10].detail.c2Weigh], [0.99, undefined]);
+
+head('a starter who came in the same trade does not count against the man sent');
+/* team 1 sends X (WR, projected 10) to team 2 for Y (WR). That week team 1 starts Y (projected 15) and Z (12),
+   with W (WR, 9) on the bench. Without Y, W would have started: X beats 9, so X would have started. */
+const ST = [{ week: 4, date: 2, espnId: 'st', upheldAt: 2, teams: [{ teamId: 1, players: [{ pid: 702, pts: 0, from: 4 }] },
+  { teamId: 2, players: [{ pid: 701, pts: 0, from: 4 }] }] }];
+const SW = { 4: { 701: { team: 2, pts: 20, started: true, slot: 4, pos: 3, pj: 10 }, 702: { team: 1, pts: 15, started: true, slot: 4, pos: 3, pj: 15 },
+  703: { team: 1, pts: 12, started: true, slot: 4, pos: 3, pj: 12 }, 704: { team: 1, pts: 9, started: false, slot: 20, pos: 3, pj: 9 } } };
+const two = [1, 2].map(id => ({ id, pf: 100 }));
+const SB = (await M.computeCoaching(two, M.tradesFillTx([], ST), SW, 2026)).breakdown;
+ok('X is charged his 20: he beats the bench man who would have played in Y\'s place', SB[1].detail.tradesSent.map(r => [r.pid, r.pts]), [[701, 20]]);
+
+head('two men sent in one trade share the spots: a tie goes to the narrower spot, so the flex stays open');
+/* team 1 sends a WR (projected 15) and an RB (12) to team 2. Team 1 that week starts a WR at 10 and a FLEX
+   at 10, and two RBs at 20 and 18. The WR must take the WR spot, not the flex, or the RB has nowhere to go. */
+const TT = [{ week: 3, date: 3, espnId: 'tt', upheldAt: 3, teams: [{ teamId: 1, players: [] },
+  { teamId: 2, players: [{ pid: 801, pts: 0, from: 3 }, { pid: 802, pts: 0, from: 3 }] }] }];
+const TW = { 3: { 801: { team: 2, pts: 9, started: true, slot: 4, pos: 3, pj: 15 }, 802: { team: 2, pts: 7, started: true, slot: 2, pos: 2, pj: 12 },
+  803: { team: 1, pts: 5, started: true, slot: 23, pos: 3, pj: 10 }, 804: { team: 1, pts: 5, started: true, slot: 4, pos: 3, pj: 10 },
+  805: { team: 1, pts: 5, started: true, slot: 2, pos: 2, pj: 20 }, 806: { team: 1, pts: 5, started: true, slot: 2, pos: 2, pj: 18 } } };
+const TB = (await M.computeCoaching(two, M.tradesFillTx([], TT), TW, 2026)).breakdown;
+ok('both would have started: the WR in the WR spot, the RB in the flex', TB[1].detail.tradesSent.map(r => [r.pid, r.pts]).sort((x, y) => x[0] - y[0]), [[801, 9], [802, 7]]);
 
 head('before the list lands, and before 2026');
 const early = (await M.computeCoaching(TEAMS, LOG, WK, 2026)).breakdown;
 ok('2026 with no list yet: the log, as it always was', early[12].detail.tradesReceived.length > 0, true);
-ok('...and nothing off the log is weighed', early[12].detail.c2Weigh, undefined);
+ok('...and nothing is weighed', early[12].detail.c2Weigh, undefined);
 const mixed = M.tradesFillTx(LOG, LIST);
 ok('2025 reads the log whatever else is in the list', M.c2Txns('2025', mixed), mixed);
 ok('2026 drops the log\'s trades once the list is in, and keeps everything else',

@@ -303,7 +303,7 @@ async function fetchPlayerWeekScores(week){
   const arc=await weeklyArchive(season);
   if(arc&&arc[week]) return arc[week];
   try{
-    const r=await fetch(`${BASE}?type=playerscores&seasonId=${season}&scoringPeriodId=${week}`);
+    const r=await fetch(`${BASE}?type=playerscores&seasonId=${season}&scoringPeriodId=${week}&v=3`);
     return r.ok?(await r.json()).players||{}:{};
   }catch{return{};}
 }
@@ -1264,7 +1264,23 @@ const C2_TRADES_FROM=2026;
 
    Only rows off the locked list can be weighed -- each carries its trade's
    key as rec. The log's rows, before the list lands, stay as they were. */
-/* ── 2026 ON: A TRADED PLAYER COUNTS ONLY WHAT HE SCORED IN THE LINEUP (user 11-24) ──
+/* ── 2026 ON: WHAT A TRADE PUT IN YOUR LINEUP, AND WHAT IT TOOK OUT (user 11-24) ──────
+   GOT    a man you traded for counts the points he scored in YOUR starting lineup,
+          from his first week with you until he leaves your roster.
+   GAVE   a man you traded away costs what he WOULD have scored in your lineup had
+          you kept him, every week to the end of the season, wherever he is (a
+          later trade, free agency): each week he counts if ESPN projected him
+          above the weakest starter you used at a spot he could fill. A spot held
+          by someone who came to you in that same trade is judged as if that man
+          were not there -- your best eligible bench player in his place -- since
+          you would not have had him. Several men sent in one trade take their
+          spots best projection first. Projected 0 is out. It stops if he is back
+          on your roster.
+   No weighting by trade size: C2 is the sum, ÷ 10. FAAB in a trade is unchanged.
+   (Until 11-24 the man traded away cost what he scored for the team that got
+   him, which stopped the moment that team traded him on -- the Goobers stopped
+   paying for Adams and Love when the Mulligans sent them elsewhere.)
+   ── EARLIER THE SAME DAY: A TRADED PLAYER COUNTS ONLY WHAT HE SCORED IN THE LINEUP ──
    C2 used to credit every point a received player scored from the trade on,
    started or benched, on this roster or after he was dropped -- and debit the
    same from the team that sent him. Now it is the points he scored in the
@@ -1277,6 +1293,7 @@ const C2_TRADES_FROM=2026;
 const C2_WEIGHT_FROM=2026, C2_LINEUP_FROM=2026;
 function c2WeighTrades(season,teams,c2,detail){
   if(season==null||Number(season)<C2_WEIGHT_FROM) return;
+  if(Number(season)>=C2_LINEUP_FROM) return;          // a plain sum from 11-24 -- see C2_LINEUP_FROM
   /* every movement is somebody's received row, so these count each one once */
   const size={}, week={};
   teams.forEach(t=>((detail[t.id]||{}).tradesReceived||[]).forEach(r=>{
@@ -1323,6 +1340,22 @@ function tradesFillTx(txns,trades){
   });
   return base.concat(add);
 }
+/* every traded player's weekly points and projection, rostered or not (api: type=playerweeks),
+   for what a man traded away would have scored in the lineup of the team that let him go */
+let _c2Pw={};
+async function c2WeeksLoad(season,trades){
+  if(season==null||Number(season)<C2_LINEUP_FROM) return null;
+  const have=_c2Pw[season]||(_c2Pw[season]={});
+  const ids=[...new Set((trades||[]).flatMap(t=>(t.teams||[]).flatMap(x=>(x.players||[]).map(p=>Number(p.pid)))))]
+    .filter(id=>id&&!have[id]);
+  if(!ids.length) return have;
+  try{
+    const r=await fetch(`${BASE}?type=playerweeks&seasonId=${season}&ids=${ids.sort((a,b)=>a-b).join(',')}`);
+    const j=r.ok?await r.json():null;
+    if(j&&j.players) Object.assign(have,j.players);
+  }catch(e){}
+  return have;
+}
 /* The trades C2 counts. Once the list is in, its rows and none of the log's;
    before it lands, or for a season before 2026, the log as it always was. */
 function c2Txns(season,transactions){
@@ -1365,6 +1398,7 @@ async function cmTradesLanded(season){
   const trades=c&&c.trades; if(!trades||!trades.length) return;
   const sig=tradesSig(trades); if(sig===_c2Sig[season]) return;
   _c2Sig[season]=sig;
+  await c2WeeksLoad(season,trades);
   let r=null; try{ r=await computeCoaching(_teams,tradesFillTx(_transactions,trades),_weeklyData,season); }catch(e){ return; }
   if(_cmMode==='transactions'||_cmMode==='inferred'){ _scores=r.scores; _breakdown=r.breakdown; }
   _cmBreakdown=r.breakdown; _cmBreakdownSeason=String(season);
@@ -1784,6 +1818,46 @@ async function computeCoaching(teams, transactions, weeklyData, season){
       if(had==null||had===0||(wk>0&&wk<had)) moveWeek.set(key,wk);
     });
   });
+  /* what each man traded away would have scored in the sender's lineup -- see C2_LINEUP_FROM */
+  const pwk=(typeof _c2Pw!=='undefined'&&_c2Pw[season])||{};
+  const C2SL={0:[1],1:[1],2:[2],3:[2,3],4:[3],5:[3,4],6:[4],7:[1,2,3,4],16:[16],17:[5],23:[2,3,4]};
+  const txCharge=new Map();
+  const chargesOf=tx=>{
+    if(txCharge.has(tx)) return txCharge.get(tx);
+    const out=new Map(); txCharge.set(tx,out);
+    const items=(tx.items||[]).filter(i=>i&&i.playerId!=null&&i.playerId!==0&&i.fromTeamId!=null&&i.toTeamId!=null&&i.type!=='FAAB');
+    [...new Set(items.map(i=>i.fromTeamId))].forEach(S=>{
+      const sent=items.filter(i=>i.fromTeamId===S).map(i=>{ const k=i.playerId+'|'+S+'|'+i.toTeamId;
+        return {pid:i.playerId,k,from:i.from>0?i.from:(moveWeek.get(k)||0)+1,pts:0,weeks:[],back:false}; });
+      const inc=new Set(items.filter(i=>i.toTeamId===S).map(i=>i.playerId));
+      const pjOf=e=>e&&e.pj!=null?Number(e.pj)||0:0;
+      for(let w=Math.min(...sent.map(x=>x.from));w<=maxWeek;w++){
+        const wk=weeklyData[w]; if(!wk) continue;
+        const ros=Object.keys(wk).filter(p=>wk[p].team===S).map(p=>({pid:Number(p),...wk[p]}));
+        const bench=ros.filter(p=>!p.started&&p.slot!==21&&!inc.has(p.pid));
+        const spots=ros.filter(p=>p.started).map(p=>{ const ok=C2SL[p.slot];
+          if(!inc.has(p.pid)) return {slot:p.slot,val:pjOf(p)};
+          const alt=bench.filter(b=>!ok||ok.includes(b.pos)).map(pjOf);
+          return {slot:p.slot,val:alt.length?Math.max(...alt):0}; });
+        const cands=sent.filter(x=>!x.back&&w>=x.from).map(x=>{
+          const e=wk[x.pid]; if(e&&e.team===S){ x.back=true; return null; }
+          const c=pwk[x.pid]&&pwk[x.pid].w&&pwk[x.pid].w[w];
+          return {x, pj:c&&c[1]!=null?Number(c[1]):pjOf(e), pts:c?Number(c[0])||0:(e?Number(e.pts)||0:0),
+            pos:(pwk[x.pid]&&pwk[x.pid].pos)??(e&&e.pos)};
+        }).filter(Boolean).sort((a,b)=>b.pj-a.pj);
+        const used=new Set();
+        cands.forEach(c=>{ if(!(c.pj>0)) return;
+          let at=-1; spots.forEach((s,n)=>{ const ok=C2SL[s.slot];
+            if(used.has(n)||(ok&&!ok.includes(c.pos))) return;
+            /* the weakest spot he could take; on a tie the narrower one, so a flex stays open for someone else */
+            if(at<0||s.val<spots[at].val||(s.val===spots[at].val&&(ok||[]).length<(C2SL[spots[at].slot]||[]).length)) at=n; });
+          if(at<0||!(c.pj>spots[at].val)) return;
+          used.add(at); c.x.pts+=c.pts; c.x.weeks.push(w); });
+      }
+      sent.forEach(x=>out.set(x.k,{pts:+x.pts.toFixed(1),weeks:x.weeks}));
+    });
+    return out;
+  };
   const seenMove=new Set();
   (transactions||[]).forEach(tx=>{
     if(!executed(tx)) return;
@@ -1845,8 +1919,10 @@ async function computeCoaching(teams, transactions, weeklyData, season){
           detail[item.toTeamId].tradesReceived.push({pid,week:tradeWeek,from:fromWeek,pts,rec});
         }
         if(item.fromTeamId!=null && item.fromTeamId in c2){
-          c2[item.fromTeamId]-=pts/10;
-          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,from:fromWeek,pts,rec});
+          const ch=lineupC2?(chargesOf(tx).get(key)||{pts:0,weeks:[]}):null;
+          const cost=ch?ch.pts:pts;
+          c2[item.fromTeamId]-=cost/10;
+          detail[item.fromTeamId].tradesSent.push({pid,week:tradeWeek,from:fromWeek,pts:cost,rec,...(ch?{cfw:ch.weeks}:{})});
         }
       });
     }
@@ -2316,7 +2392,7 @@ function renderC2Breakdown(){
   const opts=_teams.map(t=>`<option value="${t.id}" ${Number(_c2Team)===t.id?'selected':''}>${t.name}</option>`).join('');
   const fr=Number(((rows[0]||{}).bd.detail||{}).faabRate)||0, W0=((rows[0]||{}).bd.detail||{}).c2Weigh;
   const L0=((rows[0]||{}).bd.detail||{}).c2Lineup;
-  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = ${L0?'starting-lineup points the players you traded for scored for you, minus what the players you traded away scored in their new team\'s starting lineup, from the trade until each one left that roster.':'points gained from players traded for minus those traded away, counted from the first week each one played for his new team.'}${W0?` Each trade then counts by its size: every ${L0?'lineup ':''}point it moved, both sides, against the season's biggest trade (<b>${W0.max.toFixed(1)}</b> points), which counts in full.`:''}${fr?` FAAB in a trade counts at what the league's FAAB buys: <b>${fr.toFixed(2)}</b> lineup points per $1 this season.`:''}</div>
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin:0 2px 12px;line-height:1.6"><b>C2</b> = ${L0?'the points the players you traded for scored in your starting lineup, minus what the players you traded away would have scored in it: every week to the end of the season that ESPN projected him above the weakest starter you used at a spot he could fill (a starter who came in the same trade does not count against him). FAAB at the league rate; a plain sum, ÷ 10.':'points gained from players traded for minus those traded away, counted from the first week each one played for his new team.'}${W0?` Each trade then counts by its size: every ${L0?'lineup ':''}point it moved, both sides, against the season's biggest trade (<b>${W0.max.toFixed(1)}</b> points), which counts in full.`:''}${fr?` FAAB in a trade counts at what the league's FAAB buys: <b>${fr.toFixed(2)}</b> lineup points per $1 this season.`:''}</div>
     ${roiRankHTML('c2',_c2Team,c2RankSub,'c2Pick')}
     <div class="picker-bar" style="padding:0 2px 14px">
       <label for="c2-team-select" style="font-size:13px;color:var(--text3)">Team:</label>
@@ -2333,7 +2409,7 @@ function renderC2Breakdown(){
     const nm=v=>v<0?`(−${Math.abs(v).toFixed(1)})`:v.toFixed(1);
     const line=(r,sign,col)=>`<div class="brk-row"><span class="brk-p">${r.faab!=null
         ?`<i class="fa fa-sack-dollar" style="color:var(--green)"></i> FAAB $${r.faab} <span class="brk-wk">at ${(r.pts/r.faab).toFixed(2)} pts/$</span>`
-        :`${pName(r.pid)} <span class="brk-wk">${r.rec?`wk ${r.week} trade`:`wk ${r.from??(r.week+1)}+`}</span>`}</span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
+        :`${pName(r.pid)} <span class="brk-wk">${r.rec?`wk ${r.week} trade`:`wk ${r.from??(r.week+1)}+`}${Array.isArray(r.cfw)?` · ${r.cfw.length} wk${r.cfw.length===1?'':'s'} he'd start`:''}</span>`}</span><span style="color:${col};font-weight:600">${sg(sign==='−'?-r.pts:r.pts)}</span></div>`;
     /* 2026 on: each trade's net at its size against the season's biggest */
     const W=d.c2Weigh;
     const byTrade=W?[...new Set(recv.concat(sent).map(r=>r.rec).filter(Boolean))].map(k=>{
@@ -28997,6 +29073,7 @@ async function loadDashboard(){
     const [c2Trades]=await Promise.all([c2TradesNow(season),c3LinesLoad(season),
       Number(season)>=C4_FROM?loadLineupIQ(String(season)).catch(()=>null):null]);
     _c2Sig[season]=c2Trades?tradesSig(c2Trades):undefined;
+    if(c2Trades) await c2WeeksLoad(season,c2Trades);
     const c2Fill=tx=>c2Trades?tradesFillTx(tx,c2Trades):tx;
     const officialAll=await loadCMOfficial();
     await loadAwards();

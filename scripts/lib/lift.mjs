@@ -28,7 +28,7 @@ const SLASH = String.fromCharCode(47);   // a literal forward slash
 /* No single declaration in app.js comes close to this. A walk that passes it
  * has lost its place rather than found a long function, so it stops and says so
  * instead of handing back the rest of the file. */
-const RUNAWAY = 20000;
+const RUNAWAY = 40000;   // computeCoaching passed 20,000 when Trade ROI learned the lineup rules (11-24)
 
 const WORD = /[A-Za-z0-9_$]/;
 const SPACE = /\s/;
