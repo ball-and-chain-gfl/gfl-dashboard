@@ -24116,13 +24116,19 @@ const BK_IQ_LABELS=[
   'Superior Ball Knowledge',
   'Gifted Ball Knower',
   'Ball Lover',
+  /* past 230, since the scale went to 300 (user 11-24) */
+  'Ball Scholar',
+  'Ball Genius',
+  'Ball Prophet',
+  'Ball God',
 ];
 /* THE BANDS STAY WHERE THEY WERE. Widening the scale to 0-300 and re-dividing it by nine would have
    handed most of the league a new label overnight for the same answers. So the nine bands keep their
-   own width (160/9, from 70) whatever the scale is, the first starting at 70; below 70 and above 230
-   the end labels hold until labels of their own are written for out there. BK_IQ_BELOW holds those
-   under 70, worst first; anything past the last label above keeps it. */
-const BK_IQ_BAND=160/9, BK_IQ_BAND0=70, BK_IQ_BELOW=[];
+   own width (160/9, from 70) whatever the scale is, the first starting at 70. Four more bands of the
+   same width run each way to 0 and 300: BK_IQ_BELOW holds those under 70, worst first, and the four
+   past 230 sit at the end of BK_IQ_LABELS. */
+/* under 70, worst first (user 11-24): clinical, like the two impairments above them -- and the floor is Ross */
+const BK_IQ_BAND=160/9, BK_IQ_BAND0=70, BK_IQ_BELOW=['Ross','Comatose','Vegetative State','Ball Deficit Disorder'];
 function bkIQLabel(v){
   const all=BK_IQ_BELOW.concat(BK_IQ_LABELS);
   const i=Math.floor((Number(v)-BK_IQ_BAND0)/BK_IQ_BAND)+BK_IQ_BELOW.length;
