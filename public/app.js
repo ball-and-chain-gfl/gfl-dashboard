@@ -17126,13 +17126,14 @@ async function lgSync(){
 /* Anything that writes a bet calls this: the next ask syncs whatever the
    copy's age, so your own ticket is on the boards and the slate at once. */
 function betsAllDrop(){
-  _betsAll=null; _lgStale=true;
+  _betsAll=null; _lgStale=true; _betsAllFail=0;
   _betsNearStale=true;      // the homepage's two weeks too -- kept on screen, but asked for again
 }
 /* when the store last synced, so a board can say how old it is rather than
    leaving somebody to guess whether they are looking at live money */
 function betsAllAt(){ const lg=lgLoad(); return (lg&&lg.t)||0; }
-let _betsAll=null,_betsAllBusy=false;
+let _betsAll=null,_betsAllBusy=false,_betsAllFail=0;
+const BETS_ALL_RETRY_MS=60*1000;
 /* ── A SECOND ASK GETS THE FIRST ASK'S ANSWER ────────────────────────────────
    Team Data and the Leaderboards both ask, and each redraws itself only when
    its own ask comes back with the tickets. A second ask while the first was
@@ -17143,6 +17144,7 @@ let _betsAll=null,_betsAllBusy=false;
    read, two pages told. */
 async function betLeague(){
   if(_betsAll) return _betsAll;
+  if(_betsAllFail&&Date.now()-_betsAllFail<BETS_ALL_RETRY_MS) return null;
   const kept=lgLoad();
   if(kept&&!_lgStale&&Date.now()-kept.t<BETS_ALL_TTL){ _betsAll=kept.rows; return _betsAll; }
   if(_betsAllBusy){
@@ -17150,7 +17152,8 @@ async function betLeague(){
     return _betsAll||(lg?lg.rows:null);
   }
   _betsAllBusy=true;
-  try{ const lg=await lgSync(); _betsAll=lg?lg.rows:[]; }catch(e){ _betsAll=[]; }
+  try{ const lg=await lgSync(); _betsAll=lg&&Array.isArray(lg.rows)?lg.rows:null; }catch(e){ _betsAll=null; }
+  _betsAllFail=_betsAll?0:Date.now();
   _betsAllBusy=false;
   return _betsAll;
 }
@@ -24089,7 +24092,10 @@ function cursedHTML(){
 
    Config wins over all of it — see ballKnowledge.iq, which is where the league
    actually sets these and where step lives. */
-const bkIQCfg=()=>Object.assign({min:70,max:230,avg:150,step:8},(_CFG.ballKnowledge||{}).iq||{});
+/* 0 TO 300 SINCE 11-24 (user): by week 12 two managers were pinned at 230 and two at 70, so the
+   scale had stopped telling them apart. Seventy more each way. The labels do NOT stretch with it --
+   see BK_IQ_BAND below. */
+const bkIQCfg=()=>Object.assign({min:0,max:300,avg:150,step:8},(_CFG.ballKnowledge||{}).iq||{});
 /* ── WHAT THE NUMBER IS CALLED ───────────────────────────────────────────────
    Nine bands, worst to best, each covering an equal share of the scale — 17.8
    points apiece across 70–230. Average Ball Knower is the fifth of nine, so it
@@ -24111,11 +24117,16 @@ const BK_IQ_LABELS=[
   'Gifted Ball Knower',
   'Ball Lover',
 ];
+/* THE BANDS STAY WHERE THEY WERE. Widening the scale to 0-300 and re-dividing it by nine would have
+   handed most of the league a new label overnight for the same answers. So the nine bands keep their
+   own width (160/9, from 70) whatever the scale is, the first starting at 70; below 70 and above 230
+   the end labels hold until labels of their own are written for out there. BK_IQ_BELOW holds those
+   under 70, worst first; anything past the last label above keeps it. */
+const BK_IQ_BAND=160/9, BK_IQ_BAND0=70, BK_IQ_BELOW=[];
 function bkIQLabel(v){
-  const {min,max}=bkIQCfg();
-  const band=(max-min)/BK_IQ_LABELS.length;
-  const i=Math.floor((Number(v)-min)/band);
-  return BK_IQ_LABELS[Math.max(0,Math.min(BK_IQ_LABELS.length-1,i))];
+  const all=BK_IQ_BELOW.concat(BK_IQ_LABELS);
+  const i=Math.floor((Number(v)-BK_IQ_BAND0)/BK_IQ_BAND)+BK_IQ_BELOW.length;
+  return all[Math.max(0,Math.min(all.length-1,i))];
 }
 let _bkProfiles=null;
 /* One manager's settled bets, for the IQ bar on their profile. The sportsbook
@@ -24572,7 +24583,10 @@ function renderLeaders(){
   /* both boards read the profile list; the homepage poll owns it, so ask for it
      here in case this tab is the first thing opened */
   if(!_bkProfiles&&!(_cpRows||[]).length){ try{ leaguePoll(); }catch(e){} }
-  if(!_betsAll) betLeague().then(r=>{ if(r&&_activeTab==='leaders') renderLeaders(); });
+  const ldFailed=!_betsAll&&!!_betsAllFail&&!_ldBusy;
+  /* redrawn when the ledger lands, or when it has just failed -- never again for a failure already on screen */
+  if(!_betsAll) betLeague().then(r=>{ if(_activeTab==='leaders'&&(r||!ldFailed)) renderLeaders(); });
+  const ldFailMsg=`<div class="ld-empty">Couldn't read the bets just now${_betErr==='quota'||_fsQuota?' (the league has hit its read limit)':''}. <button class="ld-fresh-b" onclick="ldRefresh()"><i class="fa fa-rotate"></i>Try again</button></div>`;
 
   const rows=ldRows();
   if(!rows.length){ bk.innerHTML=mo.innerHTML='<div class="tab-loading">Loading the league…</div>'; return; }
@@ -24595,7 +24609,7 @@ function renderLeaders(){
      moment later -- which is what "it said 154, now it says 153" was. betLeague
      is already in flight from the top of this function and re-renders when it
      answers, so the wait is a beat, once. */
-  if(!_betsAll){ bk.innerHTML=`<div class="tab-loading">Working out Ball Knowledge…</div>`; }
+  if(!_betsAll){ bk.innerHTML=ldFailed?ldFailMsg:`<div class="tab-loading">Working out Ball Knowledge…</div>`; }
   else bk.innerHTML=`<div class="ld-list">${bkRows.map((r,i)=>{
       const pct=bkIQPct(r.v), col=bkIQColor(r.v);
       return `<div class="ld-row${_me&&String(_me.teamId)===String(r.teamId)?' ld-me':''}">
@@ -24626,7 +24640,7 @@ function renderLeaders(){
       <i class="fa fa-rotate${_ldBusy?' fa-spin':''}"></i>Refresh</button>
   </div>`;
   if(!_betsAll&&_ldView==='bets'){
-    mo.innerHTML=tabs+'<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading the book…</div>';
+    mo.innerHTML=tabs+(ldFailed?ldFailMsg:'<div class="tab-loading"><i class="fa fa-circle-notch"></i>Reading the book…</div>');
     return;
   }
   const money=rows.map(r=>({...r, b:ldBets(r.ids), f:ldFolio(r.prof), bucks:ldBucks(r.ids,r.prof)}));

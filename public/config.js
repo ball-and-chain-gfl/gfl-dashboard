@@ -303,7 +303,7 @@ window.GFL_CONFIG = {
        160-point scale; at 4 the same league would spread across six of the
        nine bands. Raising it rescales every total at once, so it is a decision
        to make deliberately rather than drift into. */
-    iq: { step: 1, min: 70, max: 230 },
+    iq: { step: 1, min: 0, max: 300 },   // 70-230 until 11-24: four managers sat on a limit
     /* TESTING — serve one of every kind of question instead of the weekly five,
        and let the graph question through before week 5. The league gets the
        real five-a-week set regardless; this is the testing profile's view.

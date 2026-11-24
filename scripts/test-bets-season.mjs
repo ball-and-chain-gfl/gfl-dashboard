@@ -33,8 +33,8 @@ const grab = lifter(new URL('../public/app.js', import.meta.url));
 const M = assemble(grab, [
   'const fsIn=', 'const betDocRow=', 'const fsRunQueryUrl=', 'async function betQuery(', 'const fsEq=',
   'const BETS_ALL_TTL=', 'let _lg=', 'const lgKey=', 'function lgLoad(', 'function lgSave(', 'const lgSince=', 'async function lgSync(',
-  'let _betsAll=null,_betsAllBusy=false;', 'async function betLeague(){',
-], ['betQuery', 'betLeague', 'fsEq', 'seed', 'sent', 'reset', 'stored', 'failWith', 'err', 'age', 'newPage'], [
+  'let _betsAll=null,_betsAllBusy=false,_betsAllFail=0;', 'const BETS_ALL_RETRY_MS=', 'async function betLeague(){',
+], ['betQuery', 'betLeague', 'fsEq', 'seed', 'sent', 'reset', 'stored', 'failWith', 'err', 'age', 'newPage', 'failAgo'], [
   'const GFL_DB={project:"p",key:"k"}; const msgKey=()=>"key=k";',
   'const fsNoteResponse=r=>r; const sbSeason=()=>2026; let _fsQuota=false; const betGet=async ids=>[];',
   'let _bets=null,_betErr=null,_betBusy=false; const err=()=>_betErr;',
@@ -44,6 +44,7 @@ const M = assemble(grab, [
   /* the store as a later page finds it, its last sync `ms` ago */
   'const age=ms=>{ const j=JSON.parse(_ss.get("gfl:league:2026")); j.t-=ms; _ss.set("gfl:league:2026",JSON.stringify(j)); _lg=null; };',
   'const newPage=()=>{ _betsAll=null; _sent=[]; };',
+  'const failAgo=ms=>{ _betsAllFail-=ms; };',
   /* the collection, and every structured query sent to it */
   'let _docs=[], _sent=[], _status=200;',
   'const seed=(n,owner)=>{ _docs=Array.from({length:n},(_,i)=>({',
@@ -51,7 +52,7 @@ const M = assemble(grab, [
   '  fields:{owner:{stringValue:owner||("m"+(i%12))},season:{stringValue:"2026"},',
   '    ts:{stringValue:String(1e12+i)},stake:{stringValue:"10"}}})); };',
   'const sent=()=>_sent; const failWith=s=>{ _status=s; };',
-  'const reset=()=>{ _ss.clear(); _sent=[]; _betsAll=null; _betsAllBusy=false; _betErr=null; _status=200; _lg=null; _lgStale=false; _lgBusy=null; };',
+  'const reset=()=>{ _ss.clear(); _sent=[]; _betsAll=null; _betsAllBusy=false; _betsAllFail=0; _betErr=null; _status=200; _lg=null; _lgStale=false; _lgBusy=null; };',
   'const fetch=async (url,opt)=>{',
   '  const q=JSON.parse(opt.body).structuredQuery; _sent.push(q);',
   '  if(_status!==200) return {ok:false,status:_status,json:async()=>({})};',
@@ -97,7 +98,13 @@ ok('and it is still one read of the season', M.sent().length, 1);
 head('a failed read');
 M.reset(); M.seed(328); M.failWith(429);
 const failed = await M.betLeague();
-ok('a quota answer draws an empty board and says why', [failed.length, M.err()], [0, 'quota']);
+/* a failed read is not an empty book (11-24): it used to come back [] and the boards drew every manager at $0, for the rest of the session */
+ok('a quota answer is no ledger, not an empty one, and says why', [failed, M.err()], [null, 'quota']);
+M.failWith(200);
+ok('a second ask inside the minute does not read again', [await M.betLeague(), M.sent().length], [null, 1]);
+M.failAgo(61000);
+ok('a minute on, it asks again and gets the book', (await M.betLeague()).length, 328);
+M.reset(); M.seed(328); M.failWith(429); await M.betLeague();
 ok('and nothing is kept, so the next visit asks again', M.stored(), null);
 
 head('everything else keeps its limit');
