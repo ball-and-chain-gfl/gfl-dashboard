@@ -829,13 +829,11 @@ export default async function handler(req, res) {
     const ids = String(req.query.ids || '').split(',').map(Number).filter(n => Number.isFinite(n) && n !== 0).slice(0, 120);
     if (!ids.length) return res.status(200).json({ season, players: {} });
     try {
-      /* every week of the season, actual (source 0) and projected (source 1), one week at a time (split 1) */
-      const weekIds = Array.from({ length: 18 }, (_, i) => i + 1);
+      /* the weekly actuals ride on the top-scoring-periods filter (as in seasontrades); ESPN files a
+         week's PROJECTION under its own stat id, 11 + season + week, so each week is asked for by name */
+      const projIds = Array.from({ length: 18 }, (_, i) => `11${season}${i + 1}`);
       const pf = { players: { filterIds: { value: ids },
-        filterStatsForExternalIds: { value: [Number(season)] },
-        filterStatsForSourceIds: { value: [0, 1] },
-        filterStatsForSplitTypeIds: { value: [1] },
-        filterStatsForScoringPeriodIds: { value: weekIds } } };
+        filterStatsForTopScoringPeriodIds: { value: 18, additionalValue: [`00${season}`, ...projIds] } } };
       const pr = await fetch(leagueURL('kona_playercard', { forceLive: true }),
         { headers: { ...headers, 'x-fantasy-filter': JSON.stringify(pf) } });
       if (!pr.ok) return res.status(502).json({ error: 'player card ' + pr.status, season, players: {} });
