@@ -1428,7 +1428,8 @@ export default async function handler(req, res) {
             const pid = e.playerId; if (pid == null) return;
             const stats = e.playerPoolEntry?.player?.stats || [];
             const st = stats.find(x => x.statSourceId === 0 && x.scoringPeriodId === wr.week);
-            map[pid] = { team: team.id, pts: st?.appliedTotal ?? 0, slot: e.lineupSlotId };
+            map[pid] = { team: team.id, pts: st?.appliedTotal ?? 0, slot: e.lineupSlotId,
+              pro: Number(st?.proTeamId ?? e.playerPoolEntry?.player?.proTeamId) || 0 };
             if (e.playerPoolEntry?.player?.fullName) name[pid] = e.playerPoolEntry.player.fullName;
             takeAcq(e, team.id, wr.week);
           });
@@ -1458,8 +1459,11 @@ export default async function handler(req, res) {
                       after week 5's football is a week 5 trade
            from       per player, the first week his points count for the side
                       that got him: that week if the trade went through before
-                      its first kickoff, or if he started for them in it; else
-                      the week after
+                      HIS OWN game kicked off (or he started for them in it);
+                      else the week after. (It was the week's FIRST kickoff,
+                      Thursday night -- so a deal done on the Sunday morning,
+                      with his game still to come, lost the week: Flournoy,
+                      Allen, Jonah Coleman and Tre' Harris, user 11-24.)
 
          The archiver freezes each one the hour it appears (scripts/archive-
          trades.mjs --capture), and after that only the points move. */
@@ -1483,10 +1487,19 @@ export default async function handler(req, res) {
           const e = weeksCal.find(c => t >= c.start && t <= c.end);
           return e ? e.w : weeksCal[weeksCal.length - 1].w;
         };
-        const kickCache = {};
+        const kickCache = {}, boardCache = {};
+        const boardOf = w => boardCache[w] || (boardCache[w] = board(w));
+        /* when this NFL team's game that week kicked off; null on a bye or unknown */
+        const teamKick = async (w, pro) => {
+          if (!pro) return undefined;
+          const d = await boardOf(w);
+          const ev = ((d && d.events) || []).find(e => ((((e.competitions || [])[0] || {}).competitors) || [])
+            .some(c => String(c.team && c.team.id) === String(pro)));
+          return ev ? (Date.parse(ev.date) || null) : null;
+        };
         const firstKick = async w => {
           if (w in kickCache) return kickCache[w];
-          const d = await board(w);
+          const d = await boardOf(w);
           const ks = ((d && d.events) || []).map(e => Date.parse(e.date) || 0).filter(Boolean);
           return (kickCache[w] = ks.length ? Math.min(...ks) : null);
         };
@@ -1530,7 +1543,7 @@ export default async function handler(req, res) {
            and it answers only the weeks no roster holds him; a rostered week
            still comes off the roster, which is the same number. If the call
            fails, the rosters alone are what there was before. */
-        const card = {};
+        const card = {}, cardPro = {};
         const tradedIds = [...new Set(told.flatMap(t => t.done.map(m => m.pid)))];
         if (tradedIds.length) try {
           const pf = { players: { filterIds: { value: tradedIds },
@@ -1541,9 +1554,12 @@ export default async function handler(req, res) {
             const pl = e.player || {}; if (pl.id == null) return;
             if (pl.fullName && !name[pl.id]) name[pl.id] = pl.fullName;
             const m = card[pl.id] = {};
+            const pm = cardPro[pl.id] = { cur: Number(pl.proTeamId) || 0 };
             (pl.stats || []).forEach(st => {
-              if (st.statSourceId === 0 && st.statSplitTypeId === 1 && String(st.seasonId) === String(season))
+              if (st.statSourceId === 0 && st.statSplitTypeId === 1 && String(st.seasonId) === String(season)) {
                 m[st.scoringPeriodId] = st.appliedTotal ?? 0;
+                if (Number(st.proTeamId) > 0) pm[st.scoringPeriodId] = Number(st.proTeamId);
+              }
             });
           });
         } catch {}
@@ -1561,9 +1577,20 @@ export default async function handler(req, res) {
           const week = weekOf(upheldAt) || 1;
           const kick = await firstKick(week);
           const before = kick != null && upheldAt < kick;
+          /* a D/ST's NFL team is in its id (-16000 - team); anyone else's off the roster
+             that week, else his player card */
+          const proOf = pid => pid < 0 ? (-pid - 16000)
+            : (wk[week]?.[pid]?.pro || cardPro[pid]?.[week] || cardPro[pid]?.cur || 0);
+          const kicks = {};
+          for (const m of t.done) kicks[m.pid] = await teamKick(week, proOf(m.pid));
           const teams = teamIds.map(tid => {
             const players = t.done.filter(m => m.to === tid).map(m => {
-              const from = (before || startedFor(m.pid, tid, week)) ? week : week + 1;
+              const k = kicks[m.pid];
+              /* his own kickoff when it is known (null = a bye: nothing to count that week);
+                 the old week-wide test only when his team could not be found */
+              const inWeek = k === undefined ? (before || startedFor(m.pid, tid, week))
+                : (startedFor(m.pid, tid, week) || (k != null && upheldAt < k));
+              const from = inWeek ? week : week + 1;
               return { pid: m.pid, n: name[m.pid] || `#${m.pid}`, pts: +ptsSince(m.pid, from).toFixed(1), from };
             }).sort((a, b) => b.pts - a.pts);
             return { teamId: tid, players, total: +players.reduce((n, p) => n + p.pts, 0).toFixed(1) };

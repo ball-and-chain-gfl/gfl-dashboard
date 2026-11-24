@@ -334,7 +334,8 @@ for (const season of seasons) {
       if (o.faab && o.faab.length) t.faab = o.faab;
       const fresh = {}; (t.teams || []).forEach(x => (x.players || []).forEach(p => { fresh[p.pid] = p; }));
       t.teams = (o.teams || []).map(x => {
-        const players = (x.players || []).map(p => ({ ...p, pts: fresh[p.pid] ? fresh[p.pid].pts : p.pts }))
+        const players = (x.players || []).map(p => ({ ...p, pts: fresh[p.pid] ? fresh[p.pid].pts : p.pts,
+          from: fresh[p.pid] && Number(fresh[p.pid].from) > 0 ? fresh[p.pid].from : p.from }))
           .sort((a, b) => b.pts - a.pts);
         return { ...x, players, total: +players.reduce((n, p) => n + (p.pts || 0), 0).toFixed(1) };
       });
