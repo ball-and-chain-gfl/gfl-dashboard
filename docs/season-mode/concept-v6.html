@@ -789,6 +789,41 @@
   .tmr .tp{font:700 10px/1 var(--sans);letter-spacing:.08em;color:var(--text3);} .tmr b{font:600 13px/1.25 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .tmr b small{font-weight:500;color:var(--text3);}
   .tmr .tv{font:400 16px/1 var(--px,Silkscreen);text-align:right;color:var(--text);} .tmr .ts{font:700 10px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text2);text-align:right;}
   .tmo{font:500 12px/1.35 var(--sans);color:var(--red);padding:2px 2px 0;} .tms #tms-go{align-self:stretch;margin-top:4px;}
+  /* the matchup, full screen (user 11-25) */
+  .subs.tms{position:fixed;inset:0;z-index:40;align-items:center;padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom));}
+  .tms .sb-bx{gap:8px;max-width:480px;}
+  .mtop{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .mt{display:flex;flex-direction:row-reverse;align-items:center;gap:8px;min-width:0;background:var(--p2);padding:8px;clip-path:var(--notch2);text-align:right;}
+  .mt.l{flex-direction:row;text-align:left;}
+  .mt img,.mt .ini{width:30px;height:30px;object-fit:contain;flex:0 0 auto;}
+  .mt>div{min-width:0;display:flex;flex-direction:column;gap:4px;}
+  .mt b{font:800 13px/1.15 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mt span{font:700 10px/1 var(--sans);letter-spacing:.06em;color:var(--text3);}
+  .mx{display:flex;flex-direction:column;gap:3px;}
+  .mr{display:grid;grid-template-columns:minmax(0,1fr) 34px minmax(0,1fr);align-items:center;gap:6px;background:var(--p1);padding:7px 8px;}
+  .mp{font:700 10px/1 var(--sans);letter-spacing:.08em;color:var(--text3);text-align:center;}
+  .mc{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .mc.l{align-items:flex-end;text-align:right;}
+  .mn{display:flex;gap:5px;align-items:baseline;min-width:0;max-width:100%;}
+  .mn b{font:700 13px/1.15 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mn small{font:500 10px/1 var(--sans);color:var(--text3);}
+  .mb{width:100%;height:6px;background:#2C323D;display:flex;}
+  .mc.l .mb{justify-content:flex-end;}
+  .mb i{display:block;height:100%;}
+  .ms{display:flex;gap:6px;align-items:baseline;}
+  .mc.l .ms{flex-direction:row-reverse;}
+  .ms em{font:800 15px/1 var(--sans);font-style:normal;}
+  .ms span{font:700 9.5px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+  /* the scoreboard (user 11-25): timeouts under each crest, a bigger clock, and red under two minutes of a half */
+  .bug .tmc{flex-direction:column;align-items:center;gap:4px;}
+  .bug .tos{display:flex;gap:3px;}
+  .bug .tos i{display:block;width:8px;height:3px;background:rgba(255,255,255,.16);}
+  .bug .tos i.on{background:var(--yellow);}
+  .bug .clk{min-width:96px;padding:4px 8px;}
+  .bug .clk b{font:400 24px/1.15 var(--px,Silkscreen);}
+  .bug .clk.late{background:rgba(217,50,94,.16);box-shadow:inset 0 0 0 2px #D9325E;animation:clkLate 1.2s ease-in-out infinite;}
+  .bug .clk.late .tag,.bug .clk.late b,.bug .clk.late b.run{color:#FF6B86;}
+  @keyframes clkLate{50%{background:rgba(217,50,94,.36);}}
   .tmc{cursor:pointer;display:inline-flex;} .tmlink{cursor:pointer;}
   .sb-r{background:var(--p1);padding:7px 8px;display:flex;flex-direction:column;gap:6px;}
   .sb-on{display:grid;grid-template-columns:30px minmax(0,1fr) 96px;align-items:center;gap:8px;}

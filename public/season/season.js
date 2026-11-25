@@ -205,7 +205,7 @@ function record(g,H,A){ const T=LG.teams, add=(t,me,them)=>{ const s=t.st; s.g++
     if(me.pts>them.pts) s.w++; else if(me.pts<them.pts) s.l++; else s.t++; };
   g.s=[H.pts,A.pts]; add(T[g.h],H,A); add(T[g.a],A,H); }
 function simGame(g,mustWin){ const T=LG.teams, H=simSide(T[g.h],T[g.a]), A=simSide(T[g.a],T[g.h]);
-  if(H.pts===A.pts&&(mustWin||Math.random()<.9)){ const w=Math.random()<.5+(offR(T[g.h])-offR(T[g.a]))/60?H:A; w.pts+=Math.random()<.65?3:6; g.ot=1; } else if(H.pts===A.pts) g.ot=1;
+  if(H.pts===A.pts){   /* college overtime: always a winner (user 11-25) */ const w=Math.random()<.5+(offR(T[g.h])-offR(T[g.a]))/60?H:A; w.pts+=Math.random()<.65?3:6; g.ot=1; } else if(H.pts===A.pts) g.ot=1;
   record(g,H,A); const LH=gameLineup(T[g.h]), LA=gameLineup(T[g.a]), lh=linesFrom(LH,H), la=linesFrom(LA,A);
   addLines(g.h,lh,LH); addLines(g.a,la,LA); simWear(T[g.h],lh,LH); simWear(T[g.a],la,LA); addD(g.h,T[g.h].dst,A); addD(g.a,T[g.a].dst,H); }
 

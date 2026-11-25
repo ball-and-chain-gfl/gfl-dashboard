@@ -73,6 +73,14 @@ ok('and anyone without one gets nothing of a season', /QUICK_ONLY=!full;/.test(p
 const wanted = [...page.matchAll(/<script src="([^"/][^"]*)"/g)].map(m => m[1]).concat([...page.matchAll(/j\('([^']+\.json)'\)/g)].map(m => m[1]));
 ok('it loads its five scripts (head to head is the fifth) and four data files', wanted.length, 9);
 ok('every one of them is there', wanted.filter(f => !fs.existsSync(new URL('../public/season/' + f, import.meta.url))), []);
+/* 11-25: the play clock waits for Next; the QB sets before a throw; screens; drawn routes in quick games only */
+const eng = fs.readFileSync(new URL('../public/season/engine.js', import.meta.url), 'utf8'), mat = fs.readFileSync(new URL('../public/season/match.js', import.meta.url), 'utf8');
+ok('the play clock does not run while a result waits for Next', mat.includes("preTick(dt){ if(M.poss!=='me'||!M.run||M.stop||M.pend||"), true);
+ok('a throw tapped before the QB is set waits for him', eng.includes('if(S.t<(S.setT||0)){') && eng.includes('S.setT={under:.8,pistol:.65}[S.form]||.55'), true);
+ok('both screens send three linemen out', [eng.includes("scr:{who:'RB'"), eng.includes("scr:{who:'TE'")], [true, true]);
+ok('the screen setup sits after the run-play else, not inside it', eng.indexOf('if(!PL.jet) S.jet=null;') < eng.indexOf('S.scr=null; if(!runCall&&PL.scr)'), true);
+ok('drawing routes is quick games only, never head to head', eng.includes("function drawOK(){ return S.phase==='pre'&&!S.runCall&&!S.jet&&typeof QUICK!=='undefined'&&QUICK&&!(typeof MATCH!=='undefined'&&MATCH.M&&MATCH.M.pvp); }"), true);
+
 const teams = JSON.parse(fs.readFileSync(new URL('../public/season/teams.json', import.meta.url), 'utf8'));
 ok('every crest it names is there', teams.filter(t => t.logo && !fs.existsSync(new URL('../public/season/' + t.logo, import.meta.url))).map(t => t.name), []);
 
