@@ -50,7 +50,7 @@ const PLAYS={
   flood:P_('Flood',[[0,10],[7,26]],[[1,10],[2,30]],[[0,10],[8,10]],[[4,0],[9,2]]),
   drive:P_('Drive',[[1,2],[13,3]],[[0,30]],[[0,12],[-10,12]],[[-2,2],[-4,3]]),
   ycross:P_('Y-cross',[[0,30]],[[0,12],[-1,10]],[[0,6],[-8,14],[-18,18]],[[-4,1],[-8,2]]),
-  screen:{...P_('RB screen',[[0,30]],[[0,30]],[[0,5],[-1,5]],[[-1.2,.2],[-5.4,1.2],[-6,3.4]]),scr:{who:'RB',wait:.7,rel:.85,spots:[[-9,-.4],[-6.6,.7],[-4.4,-.7]]}},
+  screen:{...P_('RB screen',[[0,30]],[[0,30]],[[0,5],[-1,5]],[[-1.2,.2],[-5.4,1.2]]),scr:{who:'RB',wait:.7,rel:.85,spots:[[-9,-.4],[-6.6,.7],[-4.4,-.7]]}},
   fade:P_('Fade-hitch',[[-2,10],[-3,30]],[[0,6],[0,5]],[[3,1],[8,2]],[[-2,2],[-4,3]]),
   sluggo:P_('Sluggo',[[2,3],[3,6],[3,30]],[[0,5],[-5,11],[-9,15]],[[0,10],[-1,30]],[[-2,2],[-4,3]]),
   stick:P_('Stick',[[0,30]],[[0,5],[-1,5]],[[3,1],[8,2]],[[-3,3],[-4,4]]),
@@ -94,7 +94,7 @@ const JET_SNAP=-3.4, JET_Y=-2.5;
 Object.assign(PLAYS,{
   bubble:{...P_('Bubble screen',[[0,30]],[[1.2,-1.2],[3.2,-.8],[4,.2]],null,null),block:{TE:'wall'}},
   mscreen:{...P_('Motion screen',[[0,8],[6,14]],[[0,30]],[[0,6],[-1,5]],[[-1.5,.3],[-2,.5]]),motion:{p:'RB',to:[-10.5,-2.4],T:1.1},block:{WA:'wall'}},
-  tscreen:{...P_('TE screen',[[0,30]],[[0,12],[-1,10]],[[.2,-.4],[2.8,-1.6],[3.4,.6]],[[-4,1],[-8,2]]),block:{WB:'wall'},scr:{who:'TE',wait:.6,rel:.85,spots:[[10.4,-.3],[8,.8],[5.8,-.6]]}},
+  tscreen:{...P_('TE screen',[[0,30]],[[0,12],[-1,10]],[[.2,-.4],[2.8,-1.6]],[[-4,1],[-8,2]]),block:{WB:'wall'},scr:{who:'TE',wait:.6,rel:.85,spots:[[10.4,-.3],[8,.8],[5.8,-.6]]}},
   mcorner:{...P_('Motion corner',[[2.5,5],[-4,13],[-8,19]],[[0,12],[-1,10]],[[0,10],[-1,30]],[[-4,1],[-8,2]]),motion:{p:'WA',to:[-8.5,-.8],T:1}},
   mslant:{...P_('Motion slant',[[0,8],[6,14]],[[-2.5,4],[-9,10]],[[3,1],[8,2]],[[-2,2],[-4,3]]),motion:{p:'WB',to:[10,-.8],T:.9}},
   pa:{...P_('Play action',[[0,10],[7,26]],[[0,12],[-14,18]],[[0,6],[-6,8]],[[1.4,3],[5,3.6]]),bite:.9},
@@ -280,7 +280,7 @@ function makeGame(){
        behind the line; the three linemen on that side pass-set for two counts, let their men through and get out flat to
        spots in front of the catch. The rest of the line keeps blocking. */
     S.scr=null; if(!runCall&&PL.scr){ const w={RB,TE}[PL.scr.who], ol=P.filter(p=>p.pos==='OL').sort((a,b)=>a.x-b.x), go=PL.scr.spots[0][0]<0?ol.slice(0,3):ol.slice(2).reverse();
-      w.rdelay=PL.scr.wait; go.forEach((o,i)=>o.scrSpot=PL.scr.spots[i]); S.scr={who:w,rel:PL.scr.rel}; }
+      w.rdelay=PL.scr.wait; w.settle=true;   /* user 11-25: he waits there behind the line for the ball, he doesn't run on */ go.forEach((o,i)=>o.scrSpot=PL.scr.spots[i]); S.scr={who:w,rel:PL.scr.rel}; }
     S.mot=PL.motion?{p:{WA,WB,TE,RB}[PL.motion.p],to:PL.motion.to,T:PL.motion.T}:null;
     S.bite=PL.bite?{who:RB,until:PL.bite}:null; S.flea=!!PL.flea; S.fleaOut=S.fleaBack=false;
     const U=units(), q=r=>clamp((r-60)/39,0,1);
@@ -364,9 +364,9 @@ function makeGame(){
   const rdp=(pts,eps)=>{ if(pts.length<3) return pts; const a=pts[0], b=pts[pts.length-1], dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy)||1e-6; let mi=0, md=0;
     for(let i=1;i<pts.length-1;i++){ const d=Math.abs(dy*pts[i][0]-dx*pts[i][1]+b[0]*a[1]-b[1]*a[0])/L; if(d>md){ md=d; mi=i; } }
     return md>eps?[...rdp(pts.slice(0,mi+1),eps).slice(0,-1),...rdp(pts.slice(mi),eps)]:[a,b]; };
-  /* DRAW HIS ROUTE (user 11-25, quick games only for now): before the snap on a pass, put a finger on a receiver, back or
+  /* DRAW HIS ROUTE (user 11-25): before the snap on a pass, put a finger on a receiver, back or
      tight end and draw where he goes, or tap him and then draw. A blocker who gets a route goes out on it. */
-  function drawOK(){ return S.phase==='pre'&&!S.runCall&&!S.jet&&typeof QUICK!=='undefined'&&QUICK&&!(typeof MATCH!=='undefined'&&MATCH.M&&MATCH.M.pvp); }
+  function drawOK(){ return S.phase==='pre'&&!S.runCall&&!S.jet; }   /* every mode: season, quick game and head to head (user 11-25) */
   /* ROUTES BY ROUTE RUNNING: a receiver runs at a point just ahead of him on his route, .1 yds for a great route runner
      (right to the corner) to 1.5 for a poor one (round it). At a break of more than 35 degrees he cuts, his pull 1.6 to 7
      times as strong for a moment, and a good one plants his foot to do it. */
@@ -382,7 +382,7 @@ function makeGame(){
              a man a foot off the line ran on to the point past the corner, stopped there and waited for the route clock to run out. */
           const pr=((p.x-cx)*(cx-ax)+(p.y-cy)*(cy-ay))/ll; if(Math.hypot(p.x-cx,p.y-cy)>.05+(1-RR(p))*2.2&&pr<-.15) return inb(cx+(cx-ax)/ll*1.2,cy+(cy-ay)/ll*1.2); p.leg=L+1; }
         const f=left/seg; brk(p,k); return inb(x+(tx-x)*f,y+(ty-y)*f); } left-=seg; px=x; py=y; x=tx; y=ty; k++; }
-    return routeTail(px,py,x,y,left); }
+    return p.settle?inb(x,y):routeTail(px,py,x,y,left); }
   function brk(p,k){ if(p.seg===undefined){ p.seg=k; return; } if(k===p.seg) return; p.seg=k;
     const rr=RR(p);
     { const pts=[[0,0],...p.route], a=pts[k-1], b=pts[k], c=pts[k+1]; if(a&&b&&c){ const ux=b[0]-a[0], uy=b[1]-a[1], vx=c[0]-b[0], vy=c[1]-b[1], lu=Math.hypot(ux,uy)||1, lv=Math.hypot(vx,vy)||1, cos=(ux*vx+uy*vy)/(lu*lv);
@@ -745,7 +745,7 @@ function makeGame(){
     if(t>2.4) S.fx=null; }
   /* a receiver's catch radius, and where he will be after a throw of this power gets to him */
   const catchR=r=>1.35+A(r,HANDS[r.pos]??2)*.65;
-  function routeAt(p,t){ const v=p.vmax; let left=Math.max(0,t-.05-(p.rdelay||0))*v, x=p.x0, y=p.y0, px=x, py=y; for(const [rx,ry] of p.route){ const tx=p.x0+rx, ty=p.y0+ry, seg=Math.hypot(tx-x,ty-y); if(left<=seg){ const f=left/seg, [qx,qy]=inb(x+(tx-x)*f,y+(ty-y)*f); return {x:qx,y:qy}; } left-=seg; px=x; py=y; x=tx; y=ty; } const [qx,qy]=routeTail(px,py,x,y,left); return {x:qx,y:qy}; }
+  function routeAt(p,t){ const v=p.vmax; let left=Math.max(0,t-.05-(p.rdelay||0))*v, x=p.x0, y=p.y0, px=x, py=y; for(const [rx,ry] of p.route){ const tx=p.x0+rx, ty=p.y0+ry, seg=Math.hypot(tx-x,ty-y); if(left<=seg){ const f=left/seg, [qx,qy]=inb(x+(tx-x)*f,y+(ty-y)*f); return {x:qx,y:qy}; } left-=seg; px=x; py=y; x=tx; y=ty; } const [qx,qy]=p.settle?inb(x,y):routeTail(px,py,x,y,left); return {x:qx,y:qy}; }
   function leadOf(r,power){ const QB=S.QB, arm=A(QB,0), iv=power>.7?.06:power<.3?.13:.1, fl=d=>(.22+d*.03)*(1.45-.8*power)*(1.32-arm*.6)+iv;
     let t=fl(Math.hypot(r.x-QB.x,r.y-QB.y)), q=null;
     for(let i=0;i<2;i++){ const ahead=routeAt(r,S.t+t), lag={x:ahead.x-(ahead.x-r.x)*.08,y:ahead.y-(ahead.y-r.y)*.08}; q=r.route&&!S.carrier?lag:{x:r.x+r.vx*t,y:r.y+r.vy*t}; t=fl(Math.hypot(q.x-QB.x,q.y-QB.y)); }
@@ -1127,8 +1127,8 @@ function makeGame(){
       $('#acts').innerHTML=`<div class="grp"><button id="spk" ${C.canSpike&&pre?'':'disabled'}>Spike</button>${fgOk?`<button id="fgk" ${pre?'':'disabled'}>FG ${fgd}<small>${Math.round(fgOdds(fgd)*100)}%</small></button>`:''}</div><button class="go" id="hike" ${pre?'':'disabled'}>Hike</button><button id="tmo" ${C.run&&C.tos>0?'':'disabled'}>Timeout ${'●'.repeat(C.tos)}${'○'.repeat(Math.max(0,3-C.tos))}</button>`;
       $('#hike').onclick=hike; $('#spk').onclick=()=>MATCH.spike(); $('#tmo').onclick=()=>MATCH.timeout(); const fk=$('#fgk'); if(fk) fk.onclick=()=>{ if(S.phase==='pre') MATCH.kick(fgd); }; return; }
     $('#acts').className='acts';
-    $('#acts').innerHTML=`<button id="scr" ${qbHas?'':'disabled'}>Scramble</button><button class="go" id="hike" ${live?'disabled':''}>${done?'Next':'Hike'}</button><button id="away" ${qbHas?'':'disabled'}>Throw away</button>`;
-    $('#hike').onclick=hike;
+    $('#acts').innerHTML=`<button id="scr" ${qbHas?'':'disabled'}>Scramble</button><button class="go" id="hike" ${live?'disabled':''}>${done?'Next':'Hike'}</button>${done&&C.run&&C.tos>0?`<button id="tmo">Timeout ${'●'.repeat(C.tos)}${'○'.repeat(Math.max(0,3-C.tos))}</button>`:`<button id="away" ${qbHas?'':'disabled'}>Throw away</button>`}`;
+    $('#hike').onclick=hike; { const t=$('#tmo'); if(t) t.onclick=()=>MATCH.timeout(); }   /* user 11-25: call it on the result screen, before Next starts the clock */
     $('#away').onclick=()=>{ if(S.phase==='live'&&S.ball.holder===S.QB) end('Thrown away','Out of bounds. Next down.','inc',0); };
     $('#scr').onclick=()=>{ if(S.phase==='live'&&S.ball.holder===S.QB&&!S.runCall){ S.carrier=S.QB; S.scram=true; S.QB.vmax*=1.05; S.QB.acc=400; { const Q=S.QB, h=Math.hypot(Q.vx,Q.vy)||0; Q.vx=h>.3?Q.vx/h*Q.vmax:0; Q.vy=h>.3?Q.vy/h*Q.vmax:Q.vmax; } hint('Tap left or right of him to cut'); buttons(); } };
   }

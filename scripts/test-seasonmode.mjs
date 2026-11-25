@@ -79,7 +79,10 @@ ok('the play clock does not run while a result waits for Next', mat.includes("pr
 ok('a throw tapped before the QB is set waits for him', eng.includes('if(S.t<(S.setT||0)){') && eng.includes('S.setT={under:.8,pistol:.65}[S.form]||.55'), true);
 ok('both screens send three linemen out', [eng.includes("scr:{who:'RB'"), eng.includes("scr:{who:'TE'")], [true, true]);
 ok('the screen setup sits after the run-play else, not inside it', eng.indexOf('if(!PL.jet) S.jet=null;') < eng.indexOf('S.scr=null; if(!runCall&&PL.scr)'), true);
-ok('drawing routes is quick games only, never head to head', eng.includes("function drawOK(){ return S.phase==='pre'&&!S.runCall&&!S.jet&&typeof QUICK!=='undefined'&&QUICK&&!(typeof MATCH!=='undefined'&&MATCH.M&&MATCH.M.pvp); }"), true);
+ok('drawing routes works in every mode, before the snap of a pass play', eng.includes("function drawOK(){ return S.phase==='pre'&&!S.runCall&&!S.jet; }"), true);
+ok('head to head overtime is college overtime too', mat.includes('function pvpOtNext()') && mat.includes('college:true,first,had:{a:0,b:0}'), true);
+ok('screen receivers wait at their spot', eng.includes('w.settle=true;') && eng.includes('return p.settle?inb(x,y):routeTail('), true);
+ok('a timeout can be called from the result screen', eng.includes('done&&C.run&&C.tos>0?'), true);
 
 const teams = JSON.parse(fs.readFileSync(new URL('../public/season/teams.json', import.meta.url), 'utf8'));
 ok('every crest it names is there', teams.filter(t => t.logo && !fs.existsSync(new URL('../public/season/' + t.logo, import.meta.url))).map(t => t.name), []);

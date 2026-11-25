@@ -251,7 +251,17 @@ function makeMatch(){
       const good=Math.random()<clamp(.45+(off-def)/90,.3,.62); if(good) M.score[mine?0:1]+=2; bug();
       return banner({art:mine?'td':'td_them',tag:'Overtime '+O.n,title:(mine?'Your':'Their')+' two-point try',sub:good?'Good.':'No good.',col:good===mine?'var(--green)':'var(--red)',btn:'Next'},()=>after(()=>{})); }
     return side==='me'?myDrive(75):cpuDrive(75); }
-  function otNext(){ const O=M.otS; O.had[M.poss==='me'?'me':'cpu']=1; const [a,b]=M.score;
+  /* HEAD TO HEAD, COLLEGE OVERTIME (user 11-25): the same rules, played out one possession at a time on each phone. A
+     possession ends here, on the phone that played it; it's sent with the overtime's state (period, who has had the ball,
+     who goes first) and says whose ball is next, from the 25 or, from the 3rd period, a two-point try from the 3. */
+  function pvpOtNext(){ const O=M.otS, P=M.pvp, me=P.role, op=oppR(me), wasTry=O.n>=3; O.had[me]=1; const [a,b]=M.score;
+    if(!O.had[op]){ M.poss='cpu'; bug(); return pvpSend(op,O.n>=3?97:75,{tr:wasTry}).then(()=>pvpWait()); }
+    if(a!==b){ M.q=5; M.stop=true; bug(); pvpSend(op,75,{done:true,tr:wasTry}); return final(); }
+    O.n++; O.had={a:0,b:0}; O.first=oppR(O.first); bug(); const mine=O.first===me, tr=O.n>=3;
+    pvpSend(O.first,tr?97:75,{tr:wasTry});
+    return banner({art:'kick',tag:'Overtime '+O.n,title:a+' – '+b,sub:tr?'Still level. Now one two-point try each, from the 3, until somebody misses.':'Still level. Again from the 25, and a touchdown has to go for two.',btn:mine?(tr?'Your try':'Your ball'):(tr?'Their try':'Their ball')},()=>mine?(tr?pvpTry():myDrive(75)):pvpWait()); }
+  function pvpTry(){ myDrive(97); M.conv=true; ddMe(); }
+  function otNext(){ if(M.pvp) return pvpOtNext(); const O=M.otS; O.had[M.poss==='me'?'me':'cpu']=1; const [a,b]=M.score;
     if(!(O.had.me&&O.had.cpu)){ const nx=O.had.me?'cpu':'me'; toast(O.n>=3?(nx==='me'?'Your try':'Their try'):(nx==='me'?'Your ball on their 25':'Their ball on your 25')); return otGo(nx); }
     if(a!==b){ M.q=5; M.stop=true; bug(); return final(); }
     O.n++; O.had={me:0,cpu:0}; O.first=O.first==='me'?'cpu':'me'; bug();
@@ -296,11 +306,11 @@ function makeMatch(){
   function myDrive(yd){ if(M.pvp){ benchHurt(); M.pvp.mine=true; M.pvp.plays=[]; M.pvp.start=yd; M.pvp.lastG=gsec(); } else if(M.simAll) return mySimDrive(yd); newDrive(true,yd); M.poss='me'; M.run=false; M.yd=yd; M.down=1; M.togo=Math.min(10,100-yd); bug(); view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }
   const oppR=r=>r==='a'?'b':'a';
   function pvpRec(p){ const g=gsec(); p.s=Math.max(4,Math.round(g-M.pvp.lastG)); M.pvp.lastG=g; M.pvp.plays.push(p); }
-  function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; M.otS=a.ot?{n:a.ot.n,playoff:true,had:Object.assign({a:0,b:0},a.ot.had)}:null; M.ot=!!a.ot;
+  function pvpState(a){ const P=M.pvp; if(!a){ M.score=[0,0]; M.q=1; M.clock=QLEN; } else { M.score=[a.score[P.role]||0,a.score[oppR(P.role)]||0]; M.q=a.q; M.clock=a.clock; M.otS=a.ot?{n:a.ot.n,playoff:true,had:Object.assign({a:0,b:0},a.ot.had),...(a.ot.c?{college:true,first:a.ot.f}:{})}:null; M.ot=!!a.ot;
       if(a.tos){ if(a.tos[P.role]!=null) M.tos=a.tos[P.role]; if(a.tos[oppR(P.role)]!=null) M.otos=a.tos[oppR(P.role)]; }
       if(a.out){ if(a.out[P.role]) M.out=a.out[P.role].slice(); if(a.out[oppR(P.role)]) M.oout=a.out[oppR(P.role)].slice(); } } M.stop=false; M.shown=null; bug(); }
   function pvpSend(next,nextYd,flags){ const P=M.pvp; if(!P||!P.mine) return Promise.resolve(); P.mine=false;
-    const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock,ot:M.otS?{n:M.otS.n,had:Object.assign({},M.otS.had)}:null,tos:{[P.role]:M.tos,[oppR(P.role)]:M.otos},out:{[P.role]:(M.out||[]).slice(),[oppR(P.role)]:(M.oout||[]).slice()}},st:M.st,ps:M.ps,done:!!(flags&&flags.done),otStart:!!(flags&&flags.ot)};
+    const rec={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:P.role,start:P.start,plays:P.plays,next,nextYd,after:{score:{[P.role]:M.score[0],[oppR(P.role)]:M.score[1]},q:M.q,clock:M.clock,ot:M.otS?{n:M.otS.n,had:Object.assign({},M.otS.had),...(M.otS.college?{c:1,f:M.otS.first}:{})}:null,tos:{[P.role]:M.tos,[oppR(P.role)]:M.otos},out:{[P.role]:(M.out||[]).slice(),[oppR(P.role)]:(M.oout||[]).slice()}},st:M.st,ps:M.ps,done:!!(flags&&flags.done),otStart:!!(flags&&flags.ot),tr:!!(flags&&flags.tr)};
     const go=()=>pvpAppend(P.id,rec,P.doc).then(doc=>{ P.doc=doc; P.idx=doc.drives.length; pvpSeen(P.id,P.idx); }).catch(e=>{ if(e&&e.message==='superseded'){ toast('That drive was already played on another device'); return pvpLoad(P.id).then(d=>{ if(d){ P.doc=d; pvpPump(); } }); }
       toast('Couldn\u2019t send your drive · trying again'); return new Promise(res=>setTimeout(res,5000)).then(go); });
     return P.sending=go(); }
@@ -319,24 +329,26 @@ function makeMatch(){
     if(P.idx<D.length) return pvpReplay(D[P.idx]);
     const last=D[D.length-1];
     if(P.doc.status==='done'||(last&&last.done)){ M.q=5; bug(); return final(); }
-    if(P.doc.next===P.role){ const yd=last?last.nextYd:25; return banner({art:'kick',tag:'Head to head',title:'Your ball',sub:`On ${mine(yd)}.`,btn:'Take the field'},()=>myDrive(yd)); }
+    if(P.doc.next===P.role){ const yd=last?last.nextYd:25, tr=M.otS&&M.otS.college&&M.otS.n>=3; return banner({art:'kick',tag:tr?'Overtime '+M.otS.n:'Head to head',title:tr?'Your try':'Your ball',sub:tr?'Two points from the 3.':`On ${mine(yd)}.`,btn:'Take the field'},()=>tr?pvpTry():myDrive(yd)); }
     pvpWait(); }
   function pvpReplay(d){ const P=M.pvp, b0=[...M.score], tos0=M.tos, q0=M.q; M.poss='cpu'; M.cyd=d.start; newDrive(false,d.start); bug(); view('sim'); driveBar(false);
     SIM.start(d.start,M.oppO,r=>{ if(M.pvp!==P) return; M.opp.drives++; P.idx++; pvpSeen(P.id,P.idx); pvpState(d.after); const them=M.score[1]-b0[1], us=M.score[0]-b0[0];
       const t=them>=6?{art:'td_them',title:'Touchdown',sub:them===8?'Two-point try good.':them===7?'Extra point good.':'No extra point.',col:'var(--red)'}:them===3?{art:'fg',title:'Field goal',sub:'Good.',col:'var(--yellow)'}
         :us===2?{art:'safety',title:'Safety',sub:'Two points to you.',col:'var(--green)'}:r.kind==='punt'?{art:'punt',title:'They punt',sub:''}:r.kind==='to'?{art:r.call==='Fumble'?'fumble_us':'int_us',title:r.call==='Fumble'?'Fumble':'Intercepted',sub:'',col:'var(--green)'}
         :r.kind==='downs'?{art:'downs_us',title:'Turnover on downs',sub:'',col:'var(--green)'}:r.kind==='miss'?{art:'nofg',title:'Missed field goal',sub:'',col:'var(--green)'}:{art:'kick',title:d.done?'That\u2019s the game':'End of the half',sub:''};
+      if(d.tr) Object.assign(t,{art:them===2?'td_them':'kick',title:'Their two-point try',sub:them===2?'Good.':'No good.',col:them===2?'var(--red)':'var(--green)'});
       if(M.q===3&&M.clock===QLEN&&!d.done) t.sub=(t.sub?t.sub+' ':'')+'Halftime.';   /* their drive ran out the half */
       if(M.tos<tos0&&M.q===q0&&!d.otStart) t.sub=(t.sub?t.sub+' ':'')+'Your defense called '+(tos0-M.tos===1?'a timeout':(tos0-M.tos)+' timeouts')+' to stop the clock ('+M.tos+' left).';
-      if(d.otStart){ if(t.title==='End of the half') t.title='Overtime'; t.sub=(t.sub?t.sub+' ':'')+'Tied after four: overtime. '+(d.next===P.role?'You get the ball first.':'They get the ball first.')+' Both teams get a possession, then the next score wins.'; }
+      if(d.otStart){ if(t.title==='End of the half') t.title='Overtime'; t.sub=(t.sub?t.sub+' ':'')+'Tied after four: overtime. '+(d.next===P.role?'You get the ball first.':'They get the ball first.')+(M.otS&&M.otS.college?' College rules: each team gets the ball on the other\'s 25. Outscore them and it\'s over.':' Both teams get a possession, then the next score wins.'); }
       else if(d.done&&M.ot&&t.title!=='That’s the game') t.sub=(t.sub?t.sub+' ':'')+'That ends it in overtime.';
       banner(Object.assign({drive:1,tag:'Their drive',btn:'Continue'},t),()=>pvpPump()); },{script:d.plays.map(p=>Object.assign({},p))}); }
   function pvpEndPeriod(){ const P=M.pvp;
     if(M.q===4&&M.otS){ const O=M.otS; O.n++; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; M.otos=2; bug();
       return banner({art:'kick',tag:'End of overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:M.score[0]===M.score[1]?'Still tied. Another period.':'Not decided yet. Another period.',btn:'Play on'},()=>{ view('snap'); GAME.sit(M.yd,M.down,M.togo,0); ddMe(); }); }
-    if(M.q===4&&M.score[0]===M.score[1]){ const rcv=Math.random()<.5?'a':'b'; M.otS={n:1,playoff:true,had:{a:0,b:0}}; M.ot=true; M.clock=QLEN; M.stop=false; M.run=false; M.tos=2; M.otos=2; bug();
-      if(P.mine) pvpSend(rcv,25,{ot:true});
-      return banner({art:'kick',tag:'Overtime',title:`${M.score[0]} – ${M.score[1]}`,sub:(rcv===P.role?'You win the toss: your ball. ':'They win the toss and take the ball. ')+'Both teams get a possession, then the next score wins. It goes until somebody does.',btn:rcv===P.role?'Your ball':'Their ball'},()=>{ if(rcv===P.role) myDrive(25); else pvpWait(); }); }
+    /* a tie after four: college overtime (a game already in the old overtime, from before v973, carries on in it above) */
+    if(M.q===4&&M.score[0]===M.score[1]){ const first=Math.random()<.5?'a':'b'; M.otS={n:1,playoff:true,college:true,first,had:{a:0,b:0}}; M.ot=true; M.clock=0; M.stop=false; M.run=false; M.tos=1; M.otos=1; bug();
+      if(P.mine) pvpSend(first,75,{ot:true});
+      return banner({art:'kick',tag:'Overtime',title:M.score[0]+' – '+M.score[1],sub:(first===P.role?'They win the toss and defend first: your ball. ':'You win the toss and defend first. ')+'College rules: each team gets the ball on the other\'s 25. Outscore them and it\'s over.',btn:first===P.role?'Your ball':'Their ball'},()=>{ if(first===P.role) myDrive(75); else pvpWait(); }); }
     if(M.q===2){ M.q=3; M.clock=QLEN; M.stop=false; M.tos=3; M.otos=3; bug(); const rcv='b';   /* the side that didn't have the ball first */
       if(P.mine) pvpSend(rcv,25);
       return banner({art:'kick',tag:'Halftime',title:`${M.score[0]} – ${M.score[1]}`,sub:rcv===P.role?'You get the ball to start the second half.':'They get the ball to start the second half.',btn:'Second half'},()=>{ if(rcv===P.role) myDrive(25); else pvpWait(); }); }
@@ -372,7 +384,7 @@ function makeMatch(){
         const call=k==='td'?(thrown?'Touchdown pass':'Touchdown run'):k==='inc'?'Incomplete pass':k==='to'?(r.head||(thrown?'Intercepted':'Fumble')):k==='safety'?'Safety'
           :k==='loss'?(thrown?'Pass, '+y:runC||(S&&S.carrier&&S.carrier!==S.QB)?'Run, '+y:'Sacked, '+y):(k==='pass'?'Pass, ':'Run, ')+(y===0?'no gain':y);
         pvpRec({from:M.yd,to:r.kind==='to'?clamp(M.yd+Math.round(r.at?r.at.y:0),0,100):k==='td'?100:clamp(M.yd+(k==='inc'?0:y),0,100),kind:k,call,sub:body}); }
-      if(M.conv){ M.conv=false; const good=r.kind==='td'; if(good) M.score[0]+=2; bug();
+      if(M.conv){ M.conv=false; const good=r.kind==='td'; if(good) M.score[0]+=2; bug(); if(M.pvp&&M.pvp.mine&&M.otS&&M.otS.college&&M.otS.n>=3) pvpRec({from:M.yd,to:good?100:M.yd,kind:good?'td':'inc',call:good?'Two-point try good':'Two-point try no good',sub:''});
         M.pend=()=>banner({tag:'Two-point try',title:good?'Good':'No good',sub:M.otS&&M.otS.college?(good?'Two points.':'Stopped.'):good?'Eight points on the drive.':'Stopped short. Six it is.',col:good?'var(--green)':'var(--red)',btn:M.otS&&M.otS.college?'Next':'Kick off'},()=>after(()=>cpuDrive(25))); return; }
       if(r.injury&&typeof rollInjury==='function'){ const i=r.injury.ri, p=M.lineup&&M.lineup[i];
         if(p){ const inj=rollInjury(r.injury.big), out=injOut(inj.w), season=!M.pvp&&typeof LG!=='undefined'&&LG&&!(typeof QUICK!=='undefined'&&QUICK);
@@ -391,7 +403,7 @@ function makeMatch(){
       if(M.drv) M.drv.plays.push({y:r.kind==='inc'||r.kind==='to'?0:y,k:r.kind==='td'?'td':r.kind==='to'?'to':(S.thrown||r.head==='Thrown away')?(S.caught?'pass':'inc'):S.carrier?(y<0?'loss':'run'):'loss'});
       M.run=(r.kind==='gain'||r.kind==='loss')&&r.head!=='Out of bounds'&&r.head!=='Thrown away'&&!(M.otS&&M.otS.college); M.pc=PLAYCLOCK;
       if(M.twoMin){ M.twoMin=false; M.run=false; M.toast='Two-minute warning'; }
-      if(r.kind==='td'&&M.otS&&M.otS.college&&(M.otS.had.cpu&&M.score[0]+6>M.score[1]||M.otS.n>=2)){ M.score[0]+=6; bug(); const win=M.otS.had.cpu&&M.score[0]>M.score[1];
+      if(r.kind==='td'&&M.otS&&M.otS.college&&(M.otS.had[otKey('cpu')]&&M.score[0]+6>M.score[1]||M.otS.n>=2)){ M.score[0]+=6; bug(); const win=M.otS.had[otKey('cpu')]&&M.score[0]>M.score[1];
         M.pend=()=>banner({art:'td',drive:1,tag:'Touchdown',title:'Touchdown',sub:r.body+(win?' That wins it.':' From the 2nd overtime on, it has to be two.'),col:'var(--green)',btn:win?'Final':'Go for two'},win?()=>after(()=>{}):()=>{ M.conv=true; M.run=false; M.yd=97; M.down=1; M.togo=3; bug(); view('snap'); GAME.sit(97,1,3,0); ddMe(); }); }
       else if(r.kind==='td'){ M.score[0]+=6; bug(); M.pend=()=>banner({art:'td',drive:1,tag:'Touchdown',title:'Touchdown',sub:r.body,col:'var(--green)',btn:'Kick the extra point · 96%',btn2:'Go for two'},
         ()=>{ const good=Math.random()<.96; if(good) M.score[0]+=1; bug(); banner({tag:'Extra point',title:good?'It\'s good':'No good',sub:good?'Seven points on the drive.':'Wide. Six it is.',col:good?'var(--green)':'var(--red)',btn:M.otS&&M.otS.college?'Next':'Kick off'},()=>after(()=>cpuDrive(25))); },
@@ -403,7 +415,7 @@ function makeMatch(){
         if(M.pvp&&M.run&&!M.stop&&M.otos>0&&M.down<=4&&defStop(M.score[0]-M.score[1],M.yd,M.down)){ M.otos--; M.run=false; M.toast=(CPU&&CPU.name?CPU.name:'They')+' call timeout · '+M.otos+' left'; }
         if(M.down>4){ const yd=100-M.yd; M.pend=()=>banner({art:'downs',drive:1,tag:'Turnover on downs',title:'Short',sub:`Their ball on ${theirs(yd)}.`,col:'var(--red)',btn:'Their ball'},()=>after(()=>cpuDrive(yd))); }
         else M.pend=()=>after(()=>{ GAME.regroup(M.yd,M.down,M.togo); ddMe(); },true); }
-      ddMe(); bug(); },
+      ddMe(); bug(); if(GAME.refresh) GAME.refresh(); },
     next(){ if(M.pend){ const p=M.pend; M.pend=null; p(); } },
     punt(){ const net=Math.round(42+gauss()*5), land=M.yd+net, yd=land>=100?20:100-land; M.run=false; tick(10);
       if(M.pvp&&M.pvp.mine) pvpRec({from:M.yd,to:Math.min(100,land),kind:'punt',call:'Punt',sub:net+' yards'});
