@@ -83,15 +83,15 @@ ok('the league: 70% of calls right, 10 points a wrong call, 30 left on the bench
 ok('two calls over the rate (+2) and 20 points under the average (+2): C4 +2', [r3(B[1].detail.c4Detail.calls), r3(B[1].detail.c4Detail.pts), r3(B[1].c4)], [2, 2, 2]);
 ok('exactly average both ways: 0', r3(B[2].c4), 0);
 ok('the league sums to zero', r3(B[1].c4 + B[2].c4 + B[3].c4), 0);
-ok('and C4 is in the sum the final is standardised from', [r3(B[1].raw), r3(B[3].raw)], [0.612, -0.612]);
+ok('and C4 is in the sum the final is standardised from', [r3(B[1].raw), r3(B[3].raw)], [0.919, -0.919]);
 
-head('2026: each part standardised, then weighed -- Lineup IQ at half');
-/* C4 2, 0, -2: its own z-score is +-1.2247, at half weight +-0.612. C1 to C3 have no spread here: 0 */
-ok('the weights', B[1].weights, { c1: 1, c2: 1, c3: 1, c4: 0.5 });
-ok('a part with no spread adds nothing; C4 adds half its standing', [B[1].w.c1, B[1].w.c2, B[1].w.c3, r3(B[1].w.c4)], [0, 0, 0, 0.612]);
+head('2026: each part standardised, then weighed -- C1 at half, C4 at three quarters');
+/* C4 2, 0, -2: its own z-score is +-1.2247, at 3/4 weight +-0.919. C1 to C3 have no spread here: 0 */
+ok('the weights', B[1].weights, { c1: 0.5, c2: 1, c3: 1, c4: 0.75 });
+ok('a part with no spread adds nothing; C4 adds three quarters of its standing', [B[1].w.c1, B[1].w.c2, B[1].w.c3, r3(B[1].w.c4)], [0, 0, 0, 0.919]);
 const PF = [1, 2, 3].map(i => ({ id: i, pf: [130, 100, 70][i - 1] }));
 const P = (await M.computeCoaching(PF, [], {}, 2026)).breakdown;
-ok('C1 and C4 the same shape: C1 adds twice what C4 does', [r3(P[1].w.c1), r3(P[1].w.c4), r3(P[1].w.c1 / P[1].w.c4)], [1.225, 0.612, 2]);
+ok('C1 and C4 the same shape: C4 adds one and a half times what C1 does', [r3(P[1].w.c1), r3(P[1].w.c4), r3(P[1].w.c4 / P[1].w.c1)], [0.612, 0.919, 1.5]);
 ok('the final is the weighted sum, standardised', [r3(P[1].final), r3(P[2].final), r3(P[3].final)], [1.225, 0, -1.225]);
 const P25 = (await M.computeCoaching(PF, [], {}, 2025)).breakdown;
 ok('2025 keeps the plain sum and carries no weights', [r3(P25[1].raw), P25[1].w], [3, undefined]);

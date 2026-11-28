@@ -2035,7 +2035,7 @@ async function computeCoaching(teams, transactions, weeklyData, season){
 
   // Z-score standardize -- from 2026 each part first, then weighed (see CM MODAL)
   const raw={}, wpart={};
-  const CMW=season!=null&&Number(season)>=2026?{c1:1,c2:1,c3:1,c4:.5}:null;
+  const CMW=season!=null&&Number(season)>=2026?{c1:.5,c2:1,c3:1,c4:.75}:null;
   if(CMW){
     const parts={c1,c2,c3,c4};
     Object.keys(CMW).forEach(k=>{
@@ -2056,16 +2056,18 @@ async function computeCoaching(teams, transactions, weeklyData, season){
   return{scores:final,breakdown};
 }
 
-/* ── 2026 ON: EACH PART WEIGHED, LINEUP IQ AT HALF (user 11-24) ───────────────
+/* ── 2026 ON: EACH PART WEIGHED (user 11-24, weights changed 11-28) ─────────────
    The final used to be the plain sum C1+C2+C3+C4, standardised. Each part is in
    its own points, so each part's say was its spread across the league: in 2026
    C1 swung about 12, C2 and C3 about 5, C4 about 1.4 -- Points Efficiency was
    half the score and Lineup IQ a twentieth of it.
    Now each part is first standardised across the league (its own z-score, so a
-   part's spread is 1 whatever its units), then weighed: C1, C2 and C3 at 1, C4
-   at 1/2. The weighted sum is standardised for the final, as before. A part
-   with no spread (nothing loaded yet) adds 0. The weights are the user's, not
-   the data's. Seasons before 2026 keep the plain sum. */
+   part's spread is 1 whatever its units), then weighed: C2 and C3 at 1, C4 at
+   3/4, C1 at 1/2 -- shares of about 31, 31, 23 and 15 percent. (From 11-24 to
+   11-28 it was C1-C3 at 1 and C4 at 1/2.) The weighted sum is standardised for
+   the final, as before. A part with no spread (nothing loaded yet) adds 0. The
+   weights are the user's, not the data's. Seasons before 2026 keep the plain
+   sum. */
 // ── CM MODAL ───────────────────────────────────────────────────────────────────
 function pName(pid){return _playerNames[pid]||`Player #${pid}`;}
 // ESPN player headshot (routed through the logo proxy). Falls back to a person
@@ -2128,6 +2130,8 @@ function openCMModal(teamId){
   }
   const c1f=bd.c1||0,c2f=bd.c2||0,c3f=bd.c3||0,c4f=bd.c4||0,rawf=bd.raw||0, c4On=!!(bd.detail&&bd.detail.c4League);
   const bw=bd.w||null, sg=v=>`${v>=0?'+':''}${v.toFixed(2)}`;
+  /* a part weighed at anything but 1 says so beside its name: C1 ×½, C4 ×¾ */
+  const wtag=k=>{ const x=bd.weights&&bd.weights[k]; return bw&&x!=null&&x!==1?`<span class="cm-half">×${x===.5?'½':x===.75?'¾':x===.25?'¼':x}</span>`:''; };
   /* weighed (2026 on): the part's own number, dim, then what it adds to the score */
   const val=(k,v)=>bw
     ?`<span class="cm-pv">${v>=0&&k!=='c1'?'+':''}${v.toFixed(2)}</span><span class="cm-pw" style="color:${cc(bw[k])}">${sg(bw[k])}</span>`
@@ -2157,10 +2161,10 @@ function openCMModal(teamId){
     ${modeNote}
     <div class="modal-formula">
       <div style="font-size:12px;color:var(--text3);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.8px">Score Breakdown</div>
-      <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span>${val('c1',c1f)}</div>
+      <div class="eq-line"><span style="color:var(--accent);font-weight:700;width:26px">C1</span><span style="color:var(--text2);flex:1">Points Efficiency</span>${wtag('c1')}${val('c1',c1f)}</div>
       <div class="eq-line"><span style="color:var(--blue);font-weight:700;width:26px">C2</span><span style="color:var(--text2);flex:1">Trade ROI</span>${val('c2',c2f)}</div>
       <div class="eq-line"><span style="color:var(--green);font-weight:700;width:26px">C3</span><span style="color:var(--text2);flex:1">Waiver ROI</span>${val('c3',c3f)}</div>
-      ${c4On?`<div class="eq-line"><span style="color:#5A89E8;font-weight:700;width:26px">C4</span><span style="color:var(--text2);flex:1">Lineup IQ</span>${bw?'<span class="cm-half">×½</span>':''}${val('c4',c4f)}</div>`:''}
+      ${c4On?`<div class="eq-line"><span style="color:#5A89E8;font-weight:700;width:26px">C4</span><span style="color:var(--text2);flex:1">Lineup IQ</span>${wtag('c4')}${val('c4',c4f)}</div>`:''}
       <hr/>
       <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">${bw?'Weighted sum':'Raw sum'}</span>${bw?'<span class="cm-pv"></span>':''}<span style="font-weight:700"${bw?' class="cm-pw"':''}>${bw?sg(rawf):rawf.toFixed(3)}</span></div>
       <div class="eq-line"><span style="width:26px"></span><span style="color:var(--text2);flex:1">Standardized final</span><span style="font-weight:800;font-size:14px;color:${sc(s)}">${s.toFixed(3)}</span></div>
